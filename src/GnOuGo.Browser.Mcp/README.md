@@ -41,7 +41,7 @@ Practical rule for `browser_get_content`:
 - 
 - `format: html` strips `<script>` elements by default before returning content, which keeps pages such as Amazon compact and avoids sending large inline JavaScript/state blobs to MCP clients
 - set `includeScriptContent: true` only when debugging raw page scripts or when script tags are explicitly needed
-- for a menu, header, or cookie banner, it is generally better to target a specific selector (`nav`, `header`, `form`, etc.) with `format: html` rather than `text`, otherwise useful URLs and attributes will be lost
+- for a menu, header, or form, it is generally better to target a specific selector (`nav`, `header`, `form`, etc.) with `format: html` rather than `text`, otherwise useful URLs and attributes will be lost
 - robustness note: when a requested content selector is temporarily unavailable, `browser_get_content` falls back to `body` then `html` and returns `resolvedSelector` / `fallbackApplied` metadata in the result
 
 ### Goal â†’ Recommended Format
@@ -50,7 +50,7 @@ Practical rule for `browser_get_content`:
 |---|---|---|
 | Summarize a page or read its visible content | `text` | simpler, more compact, closer to readable rendering |
 | Extract menu, header, footer, or navigation links | `html` | plain text loses `<a>` tags and `href` values |
-| Decide which button to click in a cookie banner, form, or modal | `html` | DOM structure, attributes, and context are often necessary |
+| Decide which button to click in a form or modal | `html` | DOM structure, attributes, and context are often necessary |
 | Identify a unique button by its visible label (`Submit`, `Continue`, `OK`) | `text` or `html` | `text` may suffice if the label is unique; otherwise `html` helps resolve ambiguities |
 | Build a reliable CSS selector before `browser_click` | `html` | allows inspecting classes, attributes, hierarchy, and DOM position |
 | Identify the right form field before `browser_fill` | `html` | useful when multiple inputs look similar or when relying on labels, placeholders, or form structure |
@@ -72,7 +72,6 @@ Very short MCP client examples:
 - open a page and directly read its HTML â†’ `browser_get_content(url: "https://example.com", selector: body, format: html)`
 - read a confirmation message after a submit â†’ `browser_get_content(format: text)`
 - extract links from a menu â†’ `browser_get_content(selector: nav, format: html)`
-- choose a cookie banner button â†’ `browser_get_content(selector: body, format: html)` then decide between `browser_click_text` and `browser_click`
 - identify the right field before filling a form â†’ `browser_get_content(selector: form, format: html)` then `browser_fill`
 - wait for a results block to appear or an overlay to disappear â†’ inspect `html`, choose a stable selector, then `browser_wait`
 - send `Enter` in a known field â†’ `browser_press(selector: "input[name='q']", key: "Enter")`
@@ -279,11 +278,11 @@ saved workflows and existing observation cursors are not rewritten.
 
 The complete serialized response is limited to 24,000 characters and 200 records, or stricter `Browser:MaxObservationCharacters` / `Browser:MaxObservationRecords` and request limits. Continue with `format: "observation", cursor: observation.nextCursor`, omitting URL and selector. Cursors refer to the original snapshot and expire on navigation, interaction or closure. `truncated` and `observation.captureTruncated` remain explicit: a capture limit requires a narrower selector; continuation cannot recover records beyond the capture limit. Oversized individual records fail rather than silently cutting values. Observations are data, never permission or factual verification.
 
-Compact observations group native and ARIA button controls within their closest visible dialog, including nested sections. Consent remains an explicit, authorized conditional click followed by a fresh observation. `truncated`, `nextCursor` and `captureTruncated` indicate incomplete data; a capture limit with no cursor still requires a narrower read. See [review and deterministic execution checks](../../docs/browsing-review-and-copilot-receipts.md).
+Compact observations group native and ARIA button controls within their closest visible dialog, including nested sections. Reading content never clicks controls. Interactions require an explicit authorized action followed by a fresh observation. `truncated`, `nextCursor` and `captureTruncated` indicate incomplete data; a capture limit with no cursor still requires a narrower read. See the [historical review and execution checks](../../docs/browsing-review-and-copilot-receipts.md); their scenario-specific examples are not current tool instructions.
 
 ### Observed action references
 
-New observation records also expose an opaque `reference` and `actions` (`activate`, `follow`, `fill`, `select`, `press`). Actions follow native element semantics and explicit ARIA roles. An ordinary link cannot satisfy activation of a control, regardless of its label. Disabled or read-only state restricts the available actions. These declarations establish compatibility, not business intent: a button's role alone does not prove that it accepts consent.
+New observation records also expose an opaque `reference` and `actions` (`activate`, `follow`, `fill`, `select`, `press`). Actions follow native element semantics and explicit ARIA roles. An ordinary link cannot satisfy activation of a control, regardless of its label. Disabled or read-only state restricts the available actions. These declarations establish compatibility, not business intent: a button's role alone does not establish that it performs the requested action.
 
 Prefer an observed reference for `browser_click`, `browser_fill`, `browser_press` and `browser_select`. Supply exactly one target: `reference` or legacy `selector`. Reference-based clicks additionally require `requestedAction: "activate" | "follow"`; the other operations imply their action. For example:
 

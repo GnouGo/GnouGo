@@ -19,6 +19,11 @@ internal static class LiveWorkflowEvaluation
     internal const string CodePrompt = "A partir d’une url d’une pull request GitHub et d’un texte qui explique ce qu’il faut reviewer, réalise une review automatique. Réalise un unique clone du projet et utilise uniquement ce répertoire. Via GitHub Copilot, installe toutes les dépendances, joue les linters, tests unitaires et tests d’intégration si présents, puis réalise la revue de code demandée. Le feedback doit expliquer acceptation ou refus avec commentaires de diff. Quoi qu’il arrive supprime le répertoire cloné pour nettoyer.";
     internal const string Head = "f2f6bda0e02a6c5c363e88cd6cb5d4eb7c313488", Base = "8f1779dc25c1843e9ce4d4ec76d02e066ae892c4";
 
+    internal static string AmazonEvaluationPrompt(string relative, int productLimit) => AmazonPrompt +
+        "\nContraintes de cette évaluation autorisée: utilise Amazon.fr, au maximum les " + productLimit +
+        " premiers produits; une seule entrée publique nommée query. Sauvegarde le classeur à " + relative +
+        "/products.xlsx. Ferme le navigateur même en cas d’échec. Les erreurs observées, prix ou données absents restent explicites, jamais inventés. Ne déclare pas de réussite si le travail n’a pas abouti.";
+
     internal static async Task RunAsync(string[] args, string phase, BenchmarkCampaign campaign, KeyVaultBenchmarkModel model, string root)
     {
         var scenario = SchemaPortabilityCampaign.Option(args, "--case") ?? "amazon";
@@ -129,7 +134,7 @@ internal static class LiveWorkflowEvaluation
         if (retained is not null && phase != "revise") throw new InvalidOperationException("Run already retained; inspect it instead of overwriting.");
         var relative = "workflows/" + campaign.Id + "/" + label;
         var prompt = scenario == "amazon"
-            ? AmazonPrompt + "\nContraintes de cette évaluation autorisée: utilise Amazon.fr, au maximum les " + productLimit + " premiers produits; une seule entrée publique nommée query. Sauvegarde le classeur à " + relative + "/products.xlsx. Ferme le navigateur même en cas d’échec. CAPTCHA, prix ou données absents restent explicites, jamais inventés. N’effectue aucune action d’acceptation, de refus ou de personnalisation des cookies. Si un obstacle effectivement observé empêche la poursuite, signale ce blocage et arrête le travail sans déclarer de réussite. La présence d’un lien informatif sur les cookies ne constitue pas un blocage."
+            ? AmazonEvaluationPrompt(relative, productLimit)
             : CodePrompt + "\nÉvaluation autorisée: deux entrées publiques nommées pullRequestUrl et reviewText. Cible SmartGuide PR #610, https://github.com/AxaFrance/SmartGuide/pull/610 ; head " + Head + " et base " + Base + ". Destination fixe du clone: " + relative + "/repository. Utilise les toolchains et checks déclarés par ce dépôt. Tous les feedbacks, décisions et commentaires de diff restent LOCAUX: aucune publication GitHub. Sauvegarde les preuves exactes de commandes et leurs codes de sortie dans " + relative + "/review.json, puis nettoie le clone même en cas d’échec. Une capacité absente ou un test échoué reste explicite. Aucune extension de permission/sandbox. Le rapport review.json contient decision (approve ou request_changes), findings (liste), et les commandes/codes de sortie observés. Vérifie explicitement node --version, pnpm --version et python --version avant les checks. Ne présente pas une capacité manquante ou un prérequis indisponible comme un test réussi.";
         if (phase != "revise")
         {

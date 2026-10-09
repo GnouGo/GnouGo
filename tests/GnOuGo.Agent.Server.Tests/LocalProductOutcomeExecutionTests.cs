@@ -23,6 +23,8 @@ public sealed partial class LocalProductOutcomeExecutionTests(ITestOutputHelper 
 {
     [Theory]
     [InlineData("nominal")]
+    [InlineData("notice-cookie")]
+    [InlineData("notice-generic")]
     [InlineData("pages")]
     [InlineData("pages-parallel")]
     [InlineData("pages-compact")]
@@ -64,6 +66,9 @@ public sealed partial class LocalProductOutcomeExecutionTests(ITestOutputHelper 
         builder.WebHost.ConfigureKestrel(o => o.Listen(System.Net.IPAddress.Loopback, 0)); builder.Logging.ClearProviders();
         await using var site = builder.Build();
         var visits = new List<string>();
+        var informationalNotice = variant.StartsWith("notice-", StringComparison.Ordinal);
+        var noticeText = variant == "notice-cookie" ? "Cookie preferences" : "Service information";
+        var observed = new List<JsonObject>();
         var flattened = variant.Contains("-flat", StringComparison.Ordinal);
         var lookup = variant.Contains("-lookup", StringComparison.Ordinal);
         var indexed = variant.Contains("-indexed", StringComparison.Ordinal);
@@ -89,6 +94,8 @@ public sealed partial class LocalProductOutcomeExecutionTests(ITestOutputHelper 
                 "</p><div><span role='button' tabindex='0' id='accept' onclick=\"document.cookie='fixtureConsent=accepted;path=/';document.querySelector('main').hidden=false;document.getElementById('notice').remove()\">" +
                 (variant == "unrelated-modal" ? "Continue" : "Accept cookies") + "</span></div></section>";
             var html = "<html><body><main" + (banner && !independentDecision ? " hidden" : "") + ">" + body + "</main>";
+            if (path == "/search" && informationalNotice)
+                html += "<aside id='notice'><h2>" + noticeText + "</h2><button onclick=\"location.href='/notice-action'\">Continue</button></aside>";
             html += banner ? variant == "delayed-consent" ? "<script>setTimeout(()=>document.body.insertAdjacentHTML('beforeend'," + JsonValue.Create(dialog)!.ToJsonString() + "),100)</script>" : dialog : "";
             await context.Response.WriteAsync(html + "</body></html>", ct);
         });
@@ -111,7 +118,9 @@ public sealed partial class LocalProductOutcomeExecutionTests(ITestOutputHelper 
             var consentModel = new ConsentModel(model);
             var extractionModel = new ExtractModel(model);
             var compactModel = new CompactModel(new ConsentModel(new PagedModel(model, compact: true, flattened: flattened, lookup: lookup), flattened: flattened));
-            var engine = new WorkflowEngine { LLMUsageBudget = new(new() { MaxElapsed = TimeSpan.FromMinutes(2) }), McpClientFactory = transport, LLMClient = compact ? compactModel : variant.StartsWith("pages", StringComparison.Ordinal) ? new PagedModel(model) : consentScenario ? consentModel : variant is "extract" or "observation" or "each" or "each-parallel" ? extractionModel : model, HumanInputProvider = new PlanningCorpus.Human(true), LlmDefaults = new() { Model = "deterministic" } };
+            var engine = new WorkflowEngine { LLMUsageBudget = new(new() { MaxElapsed = TimeSpan.FromMinutes(2) }), McpClientFactory = informationalNotice
+                ? new LiveWorkflowEvaluation.ObservedMcp(transport, e => { observed.Add(e); return Task.CompletedTask; }) : transport,
+                LLMClient = compact ? compactModel : variant.StartsWith("pages", StringComparison.Ordinal) ? new PagedModel(model) : consentScenario ? consentModel : variant is "extract" or "observation" or "each" or "each-parallel" ? extractionModel : model, HumanInputProvider = new PlanningCorpus.Human(true), LlmDefaults = new() { Model = "deterministic" } };
             if (compact)
             {
                 engine.RunStore = new GnOuGo.Flow.Persistence.EncryptedWorkflowRunStore(
@@ -314,7 +323,16 @@ public sealed partial class LocalProductOutcomeExecutionTests(ITestOutputHelper 
             var result = await engine.ExecuteAsync(doc.Workflows[doc.Entrypoint!], new JsonObject { ["search"] = site.Urls.Single() + "/search" }, ct);
             var executionMs = timer.Elapsed.TotalMilliseconds;
             output.WriteLine($"LOCAL {variant}: success={result.Success}, calls={session.ModelCalls}, discovery={reads}, repairs={session.ReplanAttempts}, inputEstimate={planning.InputEstimate}, executionAdapterCalls={model.Calls.Count}, planningMs={planningMs:F1}, executionMs={executionMs:F1}; error={result.Error?.Code} {result.Error?.Message}");
-            Assert.Equal(compact || variant is "required-consent" or "nominal" or "changed" or "empty" or "missing" or "extract" or "observation" or "each" or "each-parallel" or "consent" or "no-consent" or "delayed-consent" or "pages" or "pages-parallel", result.Success);
+            Assert.Equal(informationalNotice || compact || variant is "required-consent" or "nominal" or "changed" or "empty" or "missing" or "extract" or "observation" or "each" or "each-parallel" or "consent" or "no-consent" or "delayed-consent" or "pages" or "pages-parallel", result.Success);
+            if (informationalNotice)
+            {
+                var capture = observed.First(e => e["tool"]!.ToString() == "browser_get_content");
+                Assert.Contains(noticeText, capture["result"]!["content"]!.ToString(), StringComparison.Ordinal);
+                Assert.DoesNotContain(observed, e => e["tool"]!.ToString() is "browser_click" or "browser_click_text" or "browser_fill" or "browser_press" or "browser_select");
+                Assert.Single(observed, e => e["tool"]!.ToString() == "document_write" && e["result"]!["success"]!.GetValue<bool>());
+                Assert.Single(observed, e => e["tool"]!.ToString() == "browser_close" && e["result"]!["success"]!.GetValue<bool>());
+                Assert.DoesNotContain("/notice-action", visits);
+            }
             if (compact)
             {
                 Assert.NotEmpty(compactModel.Requests);

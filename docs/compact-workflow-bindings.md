@@ -56,7 +56,7 @@ Interpretation remains explicit for comparison, decisions and synthesis, using o
 
 ## Approval and failure handling
 
-Agent.Server, `workflow.plan` and the live harness disable redundant startup confirmation for new requests. Artifact approval and explicit requirement acknowledgments remain separate and mandatory. Explicit `require_external_confirmation: true`, historical workflows, MCP permissions, business questions and observed cookie controls remain effective.
+Agent.Server, `workflow.plan` and the live harness disable redundant startup confirmation for new requests. Artifact approval and explicit requirement acknowledgments remain separate and mandatory. Explicit `require_external_confirmation: true`, historical workflows, MCP permissions and business questions remain effective. Actions follow the user request and available contracts.
 
 Journal writes remain synchronous. After persistence failure, subsequent saves rethrow the first exception with its original stack. No terminal receipt, replay or cleanup may be inferred from that exception.
 

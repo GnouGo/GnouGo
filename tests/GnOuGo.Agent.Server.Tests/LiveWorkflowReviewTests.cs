@@ -10,6 +10,24 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class LiveWorkflowReviewTests
 {
     [Theory]
+    [InlineData(1)]
+    [InlineData(10)]
+    public void LivePromptRetainsBusinessConstraintsWithoutInjectingNoticeHandling(int productLimit)
+    {
+        const string relative = "workflows/campaign/fresh-run";
+        var prompt = LiveWorkflowEvaluation.AmazonEvaluationPrompt(relative, productLimit);
+        Assert.StartsWith(LiveWorkflowEvaluation.AmazonPrompt, prompt, StringComparison.Ordinal);
+        Assert.Contains("au maximum les " + productLimit + " premiers produits", prompt, StringComparison.Ordinal);
+        Assert.Contains(relative + "/products.xlsx", prompt, StringComparison.Ordinal);
+        Assert.Contains("query", prompt, StringComparison.Ordinal);
+        Assert.Contains("Ferme le navigateur même en cas d’échec", prompt, StringComparison.Ordinal);
+        Assert.Contains("jamais inventés", prompt, StringComparison.Ordinal);
+        Assert.DoesNotContain("cookie", prompt, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("consent", prompt, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("CAPTCHA", prompt, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
     [InlineData("valid")]
     [InlineData("stale_revision")]
     [InlineData("stale_artifact")]

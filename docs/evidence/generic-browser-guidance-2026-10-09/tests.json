@@ -1,0 +1,1015 @@
+[
+  {
+    "file": "generic-browser-host.trx",
+    "counters": {
+      "total": "57",
+      "executed": "57",
+      "passed": "57",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "tests": [
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LiveWorkflowReviewTests.LiveApprovalUsesExplicitCommandAndNeverReplaysStartedExecution(variant: \"unknown\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.0050000"
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LiveWorkflowReviewTests.LiveCorrectionRetainsRequirementsWithoutApprovingOrResettingBudgets(variant: \"tenant\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.0010000"
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LiveWorkflowReviewTests.LiveCorrectionRetainsRequirementsWithoutApprovingOrResettingBudgets(variant: \"stale_revision\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.0010000"
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"no-consent\")",
+        "outcome": "Passed",
+        "duration": "00:00:12.3280000"
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.BrowserSnapshotReceiptTests.ExpirationSurvivesRealTransportAndEncryptedReceiptRecovery",
+        "outcome": "Passed",
+        "duration": "00:00:06.2220000"
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"notice-generic\")",
+        "outcome": "Passed",
+        "duration": "00:00:11.7370000",
+        "output": "LOCAL notice-generic: success=True, calls=1, discovery=2, repairs=0, inputEstimate=21630, executionAdapterCalls=4, planningMs=156,3, executionMs=702,1; error="
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"pages-compact-decision\")",
+        "outcome": "Passed",
+        "duration": "00:00:43.8330000"
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"empty\")",
+        "outcome": "Passed",
+        "duration": "00:00:11.7660000"
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LiveWorkflowReviewTests.LiveApprovalUsesExplicitCommandAndNeverReplaysStartedExecution(variant: \"duplicate\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.0010000"
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"pages-parallel\")",
+        "outcome": "Passed",
+        "duration": "00:00:12.2700000"
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"denied\")",
+        "outcome": "Passed",
+        "duration": "00:00:11.5879999"
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"required-incomplete-observation\")",
+        "outcome": "Passed",
+        "duration": "00:00:18.5030000"
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"pages-compact\")",
+        "outcome": "Passed",
+        "duration": "00:00:17.7250000"
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"consent\")",
+        "outcome": "Passed",
+        "duration": "00:00:12.4490000"
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"pages-compact-decision-complete-flat-lookup-consen\"···)",
+        "outcome": "Passed",
+        "duration": "00:00:44.3489999"
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.BrowserSnapshotReceiptTests.EmptyAcquisitionCommitsFailureAndCleanupWithoutInferenceWritingOrReplay",
+        "outcome": "Passed",
+        "duration": "00:00:06.1500000"
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"pages-compact-decision-complete-flat-lookup-indexe\"···)",
+        "outcome": "Passed",
+        "duration": "00:00:46.0379999"
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"limit\")",
+        "outcome": "Passed",
+        "duration": "00:00:11.4960000"
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"required-consent\")",
+        "outcome": "Passed",
+        "duration": "00:00:18.8909999"
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LiveWorkflowReviewTests.LiveCorrectionRetainsRequirementsWithoutApprovingOrResettingBudgets(variant: \"stale_artifact\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.0010000"
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.BrowserSnapshotReceiptTests.ObservedActionChecksSurviveTransportAndEncryptedRecovery(compatible: False, action: \"activate\")",
+        "outcome": "Passed",
+        "duration": "00:00:06.3400000"
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"nominal\")",
+        "outcome": "Passed",
+        "duration": "00:00:11.7289999"
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LiveWorkflowReviewTests.LiveApprovalUsesExplicitCommandAndNeverReplaysStartedExecution(variant: \"stale_revision\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.0010000"
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"each-parallel\")",
+        "outcome": "Passed",
+        "duration": "00:00:11.7070000"
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LiveWorkflowReviewTests.LiveApprovalUsesExplicitCommandAndNeverReplaysStartedExecution(variant: \"stale_artifact\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.0010000"
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"changed\")",
+        "outcome": "Passed",
+        "duration": "00:00:11.7850000"
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"unrelated-modal\")",
+        "outcome": "Passed",
+        "duration": "00:00:12.1180000"
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"missing\")",
+        "outcome": "Passed",
+        "duration": "00:00:11.7180000"
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"pages-compact-scoped\")",
+        "outcome": "Passed",
+        "duration": "00:00:18.2760000"
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"delayed-consent\")",
+        "outcome": "Passed",
+        "duration": "00:00:12.4220000"
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LiveWorkflowReviewTests.LiveCorrectionRetainsRequirementsWithoutApprovingOrResettingBudgets(variant: \"session\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.0010000"
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LiveWorkflowReviewTests.LivePromptRetainsBusinessConstraintsWithoutInjectingNoticeHandling(productLimit: 1)",
+        "outcome": "Passed",
+        "duration": "00:00:00.0010000"
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"notice-cookie\")",
+        "outcome": "Passed",
+        "duration": "00:00:11.8490000",
+        "output": "LOCAL notice-cookie: success=True, calls=1, discovery=2, repairs=0, inputEstimate=21630, executionAdapterCalls=4, planningMs=149,7, executionMs=759,4; error="
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"pages-compact-decision-consent\")",
+        "outcome": "Passed",
+        "duration": "00:00:41.5370000"
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LiveWorkflowReviewTests.LiveApprovalUsesExplicitCommandAndNeverReplaysStartedExecution(variant: \"not_approval\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.0010000"
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"pages-compact-consent\")",
+        "outcome": "Passed",
+        "duration": "00:00:19.3980000"
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"each\")",
+        "outcome": "Passed",
+        "duration": "00:00:12.1570000"
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"incomplete-observation\")",
+        "outcome": "Passed",
+        "duration": "00:00:12.4980000"
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"pages-compact-decision-complete-consent\")",
+        "outcome": "Passed",
+        "duration": "00:00:46.8960000"
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"pages-compact-decision-complete-flat-lookup\")",
+        "outcome": "Passed",
+        "duration": "00:00:48.4120000"
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LiveWorkflowReviewTests.LiveApprovalUsesExplicitCommandAndNeverReplaysStartedExecution(variant: \"already_started\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.0010000"
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LiveWorkflowReviewTests.LivePromptRetainsBusinessConstraintsWithoutInjectingNoticeHandling(productLimit: 10)",
+        "outcome": "Passed",
+        "duration": "00:00:00.0010000"
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LiveWorkflowReviewTests.LiveApprovalUsesExplicitCommandAndNeverReplaysStartedExecution(variant: \"missing\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.0010000"
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LiveWorkflowReviewTests.LiveCorrectionRetainsRequirementsWithoutApprovingOrResettingBudgets(variant: \"valid\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.0010000"
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LiveWorkflowReviewTests.LiveApprovalUsesExplicitCommandAndNeverReplaysStartedExecution(variant: \"valid\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.0010000"
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.BrowserSnapshotReceiptTests.ObservedActionChecksSurviveTransportAndEncryptedRecovery(compatible: True, action: \"follow\")",
+        "outcome": "Passed",
+        "duration": "00:00:06.2810000"
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LiveWorkflowReviewTests.LiveCorrectionRetainsRequirementsWithoutApprovingOrResettingBudgets(variant: \"already_started\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.0030000"
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"navigation\")",
+        "outcome": "Passed",
+        "duration": "00:00:11.7040000"
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"extract\")",
+        "outcome": "Passed",
+        "duration": "00:00:11.8379999"
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.BrowserSnapshotReceiptTests.ObservedActionChecksSurviveTransportAndEncryptedRecovery(compatible: True, action: \"activate\")",
+        "outcome": "Passed",
+        "duration": "00:00:06.2220000"
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"pages-compact-decision-complete-flat-lookup-indexe\"···)",
+        "outcome": "Passed",
+        "duration": "00:00:45.3140000"
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LiveWorkflowReviewTests.LiveCorrectionRetainsRequirementsWithoutApprovingOrResettingBudgets(variant: \"intent_change\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.0010000"
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"pages-compact-decision-complete-flat-consent\")",
+        "outcome": "Passed",
+        "duration": "00:00:42.6590000"
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"pages-compact-decision-complete\")",
+        "outcome": "Passed",
+        "duration": "00:00:41.0460000"
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"pages\")",
+        "outcome": "Passed",
+        "duration": "00:00:12.2250000"
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"observation\")",
+        "outcome": "Passed",
+        "duration": "00:00:12.0730000"
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"pages-compact-decision-complete-flat\")",
+        "outcome": "Passed",
+        "duration": "00:00:45.1330000"
+      }
+    ]
+  },
+  {
+    "file": "generic-browser.trx",
+    "counters": {
+      "total": "136",
+      "executed": "136",
+      "passed": "136",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "tests": [
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserActionReferenceTests.CompatibleReferenceUsesExactObservedElement(selector: \"#button-link\", action: \"activate\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.5490000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserActionSemanticsTests.LooksLikeSubmitControl_ReturnsExpectedValue(tagName: \"input\", typeAttribute: \"button\", hasAssociatedForm: True, expected: False)",
+        "outcome": "Passed",
+        "duration": "00:00:00.0010000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserActionSemanticsTests.LooksLikeSubmitControl_ReturnsExpectedValue(tagName: \"input\", typeAttribute: \"submit\", hasAssociatedForm: False, expected: False)",
+        "outcome": "Passed",
+        "duration": "00:00:00.0010000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserDomHeuristicsTests.RemoveScriptElements_IsCaseInsensitiveAndHandlesAttributes",
+        "outcome": "Passed",
+        "duration": "00:00:00.0010000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserEmptyObservationTests.EmptySelectedRegionOrNonTextContentDoesNotReload(content: \"<title>Intentionally empty</title><main></main>\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.4180000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserActionSemanticsTests.TriggeredNavigation_ReturnsExpectedValue(mainFrameNavigated: False, previousUrl: \"https://example.com/form\", currentUrl: \"https://example.com/form\", expected: False)",
+        "outcome": "Passed",
+        "duration": "00:00:00.0010000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserActionReferenceTests.ObservedLinkCannotSatisfyControlActivation(action: \"activate\", succeeds: False)",
+        "outcome": "Passed",
+        "duration": "00:00:00.5170000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserDomHeuristicsTests.RemoveScriptElements_RemovesAmazonStateScriptJson",
+        "outcome": "Passed",
+        "duration": "00:00:00.0090000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserCompleteObservationTests.ClosureIsNotRetriedAndRedirectedReadsStillRequireAllowedHost",
+        "outcome": "Passed",
+        "duration": "00:00:00.9570000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserCompleteObservationTests.KnownExpirationRetainsCauseWhileUnknownCursorsRemainInvalid(cause: \"interaction\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.5780000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserActionSemanticsTests.NavigationType_ReturnsExpectedValue(mainFrameNavigated: False, previousUrl: \"https://example.com/form\", currentUrl: \"https://example.com/form\", expected: \"none\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.0010000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserActionReferenceTests.CompatibleReferenceUsesExactObservedElement(selector: \"#input\", action: \"fill\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.4730000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserEmptyObservationTests.RedirectThenReloadRetainsOnlyFinalDocumentStatusAndIdentity",
+        "outcome": "Passed",
+        "duration": "00:00:00.6830000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserActionReferenceTests.InvalidatedReferencesRetainCause(cause: \"navigation\")",
+        "outcome": "Passed",
+        "duration": "00:00:04.6980000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserActionReferenceTests.NavigatingActionsWaitWithoutRepeatingInteraction(action: \"text\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.5940000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserObservationTests.CompactSnapshotPreservesObservedGroupsAndLinksWithBoundedContinuation",
+        "outcome": "Passed",
+        "duration": "00:00:01.8100000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserActionSemanticsTests.TriggeredNavigation_ReturnsExpectedValue(mainFrameNavigated: False, previousUrl: \"https://example.com/form\", currentUrl: \"https://example.com/submitted\", expected: True)",
+        "outcome": "Passed",
+        "duration": "00:00:00.0010000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserActionReferenceTests.InvalidatedReferencesRetainCause(cause: \"closure\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.6160000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserActionSemanticsTests.NavigationType_ReturnsExpectedValue(mainFrameNavigated: False, previousUrl: \"https://example.com/form\", currentUrl: \"https://example.com/submitted\", expected: \"navigate\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.0090000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserActionReferenceTests.ChangedOrReplacedElementNeverRetargets(mutation: \"document.querySelector('#accept').remove()\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.4960000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserDomHeuristicsTests.NormalizeWhitespace_CollapsesWhitespace(input: \"Accept   all cookies\", expected: \"Accept all cookies\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.0010000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserCompleteObservationTests.KnownExpirationRetainsCauseWhileUnknownCursorsRemainInvalid(cause: \"closure\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.5480000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserLifecycleTests.ReadinessCannotBeLostAroundWaitRegistration(state: DOMContentLoaded, ordering: \"registration\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.6270000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserActionSemanticsTests.LooksLikeSubmitControl_ReturnsExpectedValue(tagName: \"button\", typeAttribute: \"button\", hasAssociatedForm: True, expected: False)",
+        "outcome": "Passed",
+        "duration": "00:00:00.0010000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserEmptyObservationTests.EmptyRecoverySharesTheThreeAttemptCeilingWithNavigationInvalidation",
+        "outcome": "Passed",
+        "duration": "00:00:00.5110000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserActionReferenceTests.ChangedOrReplacedElementNeverRetargets(mutation: \"document.querySelector('#accept').textContent='Dif\"···)",
+        "outcome": "Passed",
+        "duration": "00:00:00.4150000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserHostBootstrapTests.ApplyVisualDebugDefaults_AddsVisibleBrowserDefaults_WhenDebuggerAttachedAndKeysMissing",
+        "outcome": "Passed",
+        "duration": "00:00:00.0010000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserActionSemanticsTests.LooksLikeSubmitControl_ReturnsExpectedValue(tagName: \"a\", typeAttribute: null, hasAssociatedForm: True, expected: False)",
+        "outcome": "Passed",
+        "duration": "00:00:00.0010000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserActionReferenceTests.ChangedOrReplacedElementNeverRetargets(mutation: \"document.querySelector('#accept').setAttribute('ro\"···)",
+        "outcome": "Passed",
+        "duration": "00:00:00.4030000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserToolsStructuredOutputTests.BrowserToolFailure_ReturnsStructuredFailure",
+        "outcome": "Passed",
+        "duration": "00:00:00.0100000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserActionSemanticsTests.LooksLikeSubmitControl_ReturnsExpectedValue(tagName: \"button\", typeAttribute: \"submit\", hasAssociatedForm: True, expected: True)",
+        "outcome": "Passed",
+        "duration": "00:00:00.0010000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserCompleteObservationTests.NavigationDiscardsWholeGenerationAndRetriesWithoutRenavigation(phase: \"publish\", sameUrl: True)",
+        "outcome": "Passed",
+        "duration": "00:00:00.5170000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserActionSemanticsTests.NavigationType_ReturnsExpectedValue(mainFrameNavigated: False, previousUrl: \"https://example.com/form\", currentUrl: \" https://example.com/form \", expected: \"none\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.0010000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserCompleteObservationTests.InvalidLimitsFailBeforeNavigation(characters: 24000, records: 0, pages: 100)",
+        "outcome": "Passed",
+        "duration": "00:00:00.0040000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserLifecycleTests.ReadinessCannotBeLostAroundWaitRegistration(state: DOMContentLoaded, ordering: \"after\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.6879999"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserNavigationPolicyTests.IsHostAllowed_AllowsWildcardSubdomainsOnly",
+        "outcome": "Passed",
+        "duration": "00:00:00.0010000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserEmptyObservationTests.BlankDocumentReloadsOnceAndPublishesOnlyNewGeneration(remainsEmpty: False)",
+        "outcome": "Passed",
+        "duration": "00:00:00.4720000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserEmptyObservationTests.LegacyAcquisitionSerializationOmitsNewOptionalMetadata",
+        "outcome": "Passed",
+        "duration": "00:00:00.0010000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserEmptyObservationTests.ReloadDoesNotResetDeadlineOrIgnoreCancellation(cancel: True)",
+        "outcome": "Passed",
+        "duration": "00:00:00.5400000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserLifecycleTests.NetworkIdleStillRequiresNetworkQuiescence",
+        "outcome": "Passed",
+        "duration": "00:00:01.1270000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserActionSemanticsTests.TriggeredNavigation_ReturnsExpectedValue(mainFrameNavigated: False, previousUrl: \"https://example.com/form\", currentUrl: \" https://example.com/form \", expected: False)",
+        "outcome": "Passed",
+        "duration": "00:00:00.0010000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserHostBootstrapTests.PlaywrightBrowserHost_DisposeAsync_IsIdempotent",
+        "outcome": "Passed",
+        "duration": "00:00:00.0010000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserLifecycleTests.NavigationKindsPreserveReadinessAndDoNotRepeatActions(kind: \"same_document\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.4840000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserActionSemanticsTests.TriggeredNavigation_ReturnsExpectedValue(mainFrameNavigated: True, previousUrl: \"https://example.com/form\", currentUrl: \"https://example.com/form\", expected: True)",
+        "outcome": "Passed",
+        "duration": "00:00:00.0010000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserActionReferenceTests.NavigatingActionsWaitWithoutRepeatingInteraction(action: \"press\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.4840000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserHostBootstrapTests.ConfigureBundledPlaywrightBrowserPath_UsesLocalMsPlaywrightDirectory_WhenEnvironmentIsMissing",
+        "outcome": "Passed",
+        "duration": "00:00:00.0020000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserLifecycleTests.IncompleteDocumentsNeverBecomeSuccessfulOnTermination(termination: \"timeout\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.5910000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserEmptyObservationTests.UnknownSameDocumentNavigationCannotBorrowAnEarlierGetResponse",
+        "outcome": "Passed",
+        "duration": "00:00:00.4390000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserLifecycleTests.IncompleteDocumentsNeverBecomeSuccessfulOnTermination(termination: \"already_closed\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.6550000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserNavigationPolicyTests.ValidateNavigationTarget_RejectsNonHttpScheme",
+        "outcome": "Passed",
+        "duration": "00:00:00.0010000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserCompleteObservationTests.CompletenessAndOriginalLimitsAreEnforced(variant: \"oversized\", succeeds: False)",
+        "outcome": "Passed",
+        "duration": "00:00:01.2820000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserActionSemanticsTests.LooksLikeSubmitControl_ReturnsExpectedValue(tagName: \"input\", typeAttribute: \"image\", hasAssociatedForm: True, expected: True)",
+        "outcome": "Passed",
+        "duration": "00:00:00.0010000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserCompleteObservationTests.InvalidLimitsFailBeforeNavigation(characters: 100, records: 1, pages: 100)",
+        "outcome": "Passed",
+        "duration": "00:00:03.3070000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserObservationTests.PageInitiatedNavigationInvalidatesUnconsumedSnapshot(format: \"observation_pages\")",
+        "outcome": "Passed",
+        "duration": "00:00:04.6660000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserCompleteObservationTests.NavigationDiscardsWholeGenerationAndRetriesWithoutRenavigation(phase: \"capture\", sameUrl: False)",
+        "outcome": "Passed",
+        "duration": "00:00:00.5200000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserActionSemanticsTests.LooksLikeSubmitControl_ReturnsExpectedValue(tagName: \"BUTTON\", typeAttribute: \"SUBMIT\", hasAssociatedForm: True, expected: True)",
+        "outcome": "Passed",
+        "duration": "00:00:00.0010000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserEmptyObservationTests.CurrentDocumentAndPostInteractionReadsNeverReload(interact: True)",
+        "outcome": "Passed",
+        "duration": "00:00:00.6470000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserEmptyObservationTests.IntentionalNoContentDoesNotReload(status: 205)",
+        "outcome": "Passed",
+        "duration": "00:00:00.7530000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserActionReferenceTests.IncompatibleTargetsPerformNoInteraction(selector: \"#disabled\", action: \"activate\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.5659999"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserEmptyObservationTests.BlankHttpFailureIsPreservedWithoutReload(status: 401)",
+        "outcome": "Passed",
+        "duration": "00:00:00.5200000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserActionReferenceTests.InvalidatedReferencesRetainCause(cause: \"replacement\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.6060000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserEmptyObservationTests.EmptySelectedRegionOrNonTextContentDoesNotReload(content: \"<main></main><iframe src='about:blank'></iframe>\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.4720000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserDomHeuristicsTests.NormalizeWhitespace_ReturnsEmptyString_ForNullOrWhitespace",
+        "outcome": "Passed",
+        "duration": "00:00:00.0010000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserDomHeuristicsTests.RemoveScriptElements_RemovesInlineAndExternalScripts",
+        "outcome": "Passed",
+        "duration": "00:00:00.0040000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserLifecycleTests.IncompleteDocumentsNeverBecomeSuccessfulOnTermination(termination: \"close\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.5980000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserActionSemanticsTests.LooksLikeSubmitControl_ReturnsExpectedValue(tagName: \"input\", typeAttribute: \"submit\", hasAssociatedForm: True, expected: True)",
+        "outcome": "Passed",
+        "duration": "00:00:00.0010000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserEmptyObservationTests.EmptySelectedRegionOrNonTextContentDoesNotReload(content: \"<main></main><canvas></canvas>\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.4079999"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserActionReferenceTests.CompatibleReferenceUsesExactObservedElement(selector: \"#input\", action: \"press\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.5460000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserDomHeuristicsTests.RemoveScriptElements_RemovesUnclosedScriptToEnd",
+        "outcome": "Passed",
+        "duration": "00:00:00.0010000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserCompleteObservationTests.RestartSharesDeadlineAndNeverFallsBackToBroaderSelector",
+        "outcome": "Passed",
+        "duration": "00:00:01.1950000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserLifecycleTests.NavigationKindsPreserveReadinessAndDoNotRepeatActions(kind: \"no_navigation\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.4670000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserLifecycleTests.ReadinessCannotBeLostAroundWaitRegistration(state: Load, ordering: \"registration\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.4900000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserDomHeuristicsTests.RemoveScriptElements_RemovesSelfClosingScriptWithoutDroppingFollowingHtml",
+        "outcome": "Passed",
+        "duration": "00:00:00.0010000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserLifecycleTests.ReloadDoesNotReusePreviousDocumentReadiness(state: Load)",
+        "outcome": "Passed",
+        "duration": "00:00:04.5660000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserActionSemanticsTests.LooksLikeSubmitControl_ReturnsExpectedValue(tagName: \"button\", typeAttribute: null, hasAssociatedForm: True, expected: True)",
+        "outcome": "Passed",
+        "duration": "00:00:00.0010000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserEmptyObservationTests.EmptySelectedRegionOrNonTextContentDoesNotReload(content: \"<main></main><button></button>\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.4109999"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserLifecycleTests.ReadinessCannotBeLostAroundWaitRegistration(state: Load, ordering: \"before\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.4840000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserHostBootstrapTests.ApplyVisualDebugDefaults_DoesNotOverrideExistingConfiguration",
+        "outcome": "Passed",
+        "duration": "00:00:00.0010000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserEmptyObservationTests.EmptySelectedRegionOrNonTextContentDoesNotReload(content: \"<main></main><p>Elsewhere</p>\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.4670000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserCompleteObservationTests.InvalidLimitsFailBeforeNavigation(characters: 24000, records: 1, pages: 0)",
+        "outcome": "Passed",
+        "duration": "00:00:00.0030000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserHostBootstrapTests.ConfigureBundledPlaywrightBrowserPath_PreservesExplicitEnvironmentValue",
+        "outcome": "Passed",
+        "duration": "00:00:00.0010000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserNavigationPolicyTests.InvalidReferencesFailBeforeNavigation(reference: \"/items/7\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.0090000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserDomHeuristicsTests.NormalizeWhitespace_CollapsesWhitespace(input: \"  Bonjour\\r\\nle\\tmonde  \", expected: \"Bonjour le monde\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.0010000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserEmptyObservationTests.EmptySelectedRegionOrNonTextContentDoesNotReload(content: \"<main></main><svg></svg>\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.4470000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserObservationTests.PageInitiatedNavigationInvalidatesUnconsumedSnapshot(format: \"observation\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.6899999"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserEmptyObservationTests.BlankDocumentReloadsOnceAndPublishesOnlyNewGeneration(remainsEmpty: True)",
+        "outcome": "Passed",
+        "duration": "00:00:00.6240000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserActionReferenceTests.CompatibleReferenceUsesExactObservedElement(selector: \"#editable\", action: \"fill\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.6240000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserEmptyObservationTests.EmptySelectedRegionOrNonTextContentDoesNotReload(content: \"<main></main><img alt='' src='data:image/gif;base6\"···)",
+        "outcome": "Passed",
+        "duration": "00:00:00.5540000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserLifecycleTests.IncompleteDocumentsNeverBecomeSuccessfulOnTermination(termination: \"dispose\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.4580000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserLifecycleTests.ReadinessCannotBeLostAroundWaitRegistration(state: Load, ordering: \"after\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.6800000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserNavigationPolicyTests.InvalidReferencesFailBeforeNavigation(reference: \"https://example.invalid/item 7\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.0010000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserCompleteObservationTests.CompletenessAndOriginalLimitsAreEnforced(variant: \"empty\", succeeds: True)",
+        "outcome": "Passed",
+        "duration": "00:00:00.6060000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserEmptyObservationTests.DirectHostCancellationKeepsItsExceptionContractAndAcquisitionEvidence",
+        "outcome": "Passed",
+        "duration": "00:00:00.5960000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserLifecycleTests.ReloadDoesNotReusePreviousDocumentReadiness(state: DOMContentLoaded)",
+        "outcome": "Passed",
+        "duration": "00:00:00.6899999"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserActionReferenceTests.UnknownCrossSessionConflictingAndUndeliveredReferencesFailClosed",
+        "outcome": "Passed",
+        "duration": "00:00:01.0340000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserEmptyObservationTests.ReloadDoesNotResetDeadlineOrIgnoreCancellation(cancel: False)",
+        "outcome": "Passed",
+        "duration": "00:00:01.3270000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserActionReferenceTests.ChangedOrReplacedElementNeverRetargets(mutation: \"document.querySelector('#accept').disabled=true\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.4140000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserCompleteObservationTests.KnownExpirationRetainsCauseWhileUnknownCursorsRemainInvalid(cause: \"replacement\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.5200000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserNavigationPolicyTests.ValidateNavigationTarget_RejectsHostOutsideWhitelist",
+        "outcome": "Passed",
+        "duration": "00:00:00.0010000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserActionSemanticsTests.TriggeredNavigation_ReturnsExpectedValue(mainFrameNavigated: False, previousUrl: null, currentUrl: \"https://example.com/submitted\", expected: True)",
+        "outcome": "Passed",
+        "duration": "00:00:00.0010000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserLifecycleTests.IncompleteDocumentsNeverBecomeSuccessfulOnTermination(termination: \"cancel\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.5080000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserCompleteObservationTests.CompletenessAndOriginalLimitsAreEnforced(variant: \"limit\", succeeds: False)",
+        "outcome": "Passed",
+        "duration": "00:00:00.7100000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserActionReferenceTests.CompatibleReferenceUsesExactObservedElement(selector: \"#aria\", action: \"activate\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.4780000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserCompleteObservationTests.AcquisitionDeadlineIsSharedAndCancellationIsNotRetried",
+        "outcome": "Passed",
+        "duration": "00:00:00.6600000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserActionReferenceTests.ObservedLinkCannotSatisfyControlActivation(action: \"follow\", succeeds: True)",
+        "outcome": "Passed",
+        "duration": "00:00:00.5430000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserActionSemanticsTests.LooksLikeSubmitControl_ReturnsExpectedValue(tagName: \"button\", typeAttribute: null, hasAssociatedForm: False, expected: False)",
+        "outcome": "Passed",
+        "duration": "00:00:00.0050000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserCompleteObservationTests.NavigationDiscardsWholeGenerationAndRetriesWithoutRenavigation(phase: \"publish\", sameUrl: False)",
+        "outcome": "Passed",
+        "duration": "00:00:00.5380000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserLifecycleTests.ReadinessCannotBeLostAroundWaitRegistration(state: DOMContentLoaded, ordering: \"before\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.5689999"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserActionSemanticsTests.NavigationType_ReturnsExpectedValue(mainFrameNavigated: True, previousUrl: \"https://example.com/form\", currentUrl: \"https://example.com/form\", expected: \"reload\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.0010000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserHostBootstrapTests.ApplyVisualDebugDefaults_DoesNothing_WhenDebuggerIsNotAttached",
+        "outcome": "Passed",
+        "duration": "00:00:00.0010000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserToolsStructuredOutputTests.McpToolRegistration_CreatesToolDescriptorsWithOutputSchemas",
+        "outcome": "Passed",
+        "duration": "00:00:00.0850000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserDomHeuristicsTests.NormalizeWhitespace_CollapsesWhitespace(input: \"one\\n\\n two\\t\\tthree\", expected: \"one two three\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.0010000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserEmptyObservationTests.SubmittedDocumentIsNotReloadRequestedEvenInsideAnExplicitAcquisition",
+        "outcome": "Passed",
+        "duration": "00:00:00.4540000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserEmptyObservationTests.BlankHttpFailureIsPreservedWithoutReload(status: 403)",
+        "outcome": "Passed",
+        "duration": "00:00:00.5270000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserActionReferenceTests.ChangedOrReplacedElementNeverRetargets(mutation: \"document.querySelector('#accept').replaceWith(docu\"···)",
+        "outcome": "Passed",
+        "duration": "00:00:00.4150000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserActionReferenceTests.CompatibleReferenceUsesExactObservedElement(selector: \"#accept\", action: \"activate\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.4850000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserEmptyObservationTests.FailedReloadPreservesOriginalEvidenceAndDoesNotRetryAgain",
+        "outcome": "Passed",
+        "duration": "00:00:00.5050000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserActionReferenceTests.CompatibleReferenceUsesExactObservedElement(selector: \"#select\", action: \"select\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.5970000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserActionReferenceTests.IncompatibleTargetsPerformNoInteraction(selector: \"#readonly\", action: \"fill\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.5920000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserActionSemanticsTests.NavigationType_ReturnsExpectedValue(mainFrameNavigated: False, previousUrl: null, currentUrl: \"https://example.com/submitted\", expected: \"navigate\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.0010000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserEmptyObservationTests.CurrentDocumentAndPostInteractionReadsNeverReload(interact: False)",
+        "outcome": "Passed",
+        "duration": "00:00:00.5669999"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserEmptyObservationTests.IntentionalNoContentDoesNotReload(status: 204)",
+        "outcome": "Passed",
+        "duration": "00:00:04.6040000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserEmptyObservationTests.BlankHttpFailureIsPreservedWithoutReload(status: 503)",
+        "outcome": "Passed",
+        "duration": "00:00:00.4570000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserEmptyObservationTests.BlankHttpFailureIsPreservedWithoutReload(status: 429)",
+        "outcome": "Passed",
+        "duration": "00:00:00.4890000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserHostBootstrapTests.CreateBuilder_UsesAppContextBaseDirectoryAsContentRoot",
+        "outcome": "Passed",
+        "duration": "00:00:00.1140000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserNavigationPolicyTests.ValidateNavigationTarget_AllowsHttps_WhenNoHostRestrictions",
+        "outcome": "Passed",
+        "duration": "00:00:00.0010000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserActionReferenceTests.NavigatingActionsWaitWithoutRepeatingInteraction(action: \"selector\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.5240000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserCompleteObservationTests.RepeatedNavigationStopsAfterThreeAttemptsWithNoPartialResult",
+        "outcome": "Passed",
+        "duration": "00:00:00.6290000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserNavigationPolicyTests.InvalidReferencesFailBeforeNavigation(reference: \"https%3A%2F%2Fexample.invalid%2Fitems%2F7\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.0010000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserLifecycleTests.NavigationKindsPreserveReadinessAndDoNotRepeatActions(kind: \"redirect\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.5400000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserToolsStructuredOutputTests.AllBrowserMcpTools_DeclareStructuredOutputSchemas",
+        "outcome": "Passed",
+        "duration": "00:00:00.0100000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserActionReferenceTests.IncompatibleTargetsPerformNoInteraction(selector: \"#info\", action: \"fill\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.6870000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserCompleteObservationTests.CompletenessAndOriginalLimitsAreEnforced(variant: \"capture\", succeeds: False)",
+        "outcome": "Passed",
+        "duration": "00:00:00.7790000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserActionReferenceTests.NavigatingActionsWaitWithoutRepeatingInteraction(action: \"fill_submit\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.6140000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserNavigationPolicyTests.InvalidReferencesFailBeforeNavigation(reference: \"https://example.invalid/items/7\\n\")",
+        "outcome": "Passed",
+        "duration": "00:00:00.0220000"
+      },
+      {
+        "test": "GnOuGo.Browser.Mcp.Tests.BrowserLifecycleTests.NavigationDuringReadinessReadRequiresNewDocumentCompletion",
+        "outcome": "Passed",
+        "duration": "00:00:00.5130000"
+      }
+    ]
+  }
+]

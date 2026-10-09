@@ -140,6 +140,10 @@ public sealed class BrowserSnapshotReceiptTests
             });
             EncryptedWorkflowRunStore Store() => new(new KeyVaultRecordStore(Path.Combine(root, "vault.db")), Path.Combine(root, "index.db"), Path.Combine(root, "owners"));
             var tools = await (await transport.GetClientAsync("browser", ct)).ListToolsAsync(ct);
+            var readDescription = tools.Single(t => t.Name == "browser_get_content").Description;
+            Assert.False(string.IsNullOrWhiteSpace(readDescription));
+            Assert.DoesNotContain("cookie", readDescription, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("consent", readDescription, StringComparison.OrdinalIgnoreCase);
             var clickContract = tools.Single(t => t.Name == "browser_click").InputSchema!;
             Assert.NotNull(clickContract["properties"]!["reference"]);
             Assert.NotNull(clickContract["properties"]!["requestedAction"]);

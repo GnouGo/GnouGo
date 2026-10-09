@@ -11,9 +11,6 @@ meta:
     de bloquer Playwright, afin d'obtenir un workflow plus stable mais parfois moins riche.
 
     Cette version ne cherche pas à contourner les protections anti-bot.
-    Aucun clic automatique sur une bannière cookies n'est effectué.
-    Si une bannière ou un overlay masque l'accès au contenu, c'est au client MCP / LLM,
-    à partir du HTML rendu, de décider quelle action générique entreprendre.
     Elle privilégie :
       - le site officiel
       - la documentation publique
@@ -373,9 +370,7 @@ workflows:
             ${data.steps.read_page_html.response.content}
 
             Return grounded findings only.
-            If the page appears blocked or partially blocked by a consent / cookie banner,
-            infer that only from the HTML/text and describe it as a blocker.
-            Suggest generic next actions a client MCP could take, but do not assume any click happened.
+            Report observed access errors and unavailable information without inventing causes or claiming actions that were not performed.
           structured_output:
             schema_inline:
               type: object
