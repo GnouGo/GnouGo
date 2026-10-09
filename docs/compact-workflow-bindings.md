@@ -1,6 +1,12 @@
+# Compact bindings v5: checked consumer expressions
+
+Fresh sessions and explicit revisions select approval-fingerprinted `compact-bindings-v5`. It retains v4's ordered intermediate checks but moves eligible pure computations into the immediately following consumer's input. Already validated values use direct references. One dynamic input subtree receives one compiler-owned checked expression; fixed MCP arguments remain literal and protected. Input resolution completes before durable dispatch, and committed resolved inputs are reused during recovery.
+
+Shared computations, independently observed identities, failure-preservation uses, conditional consumers, retries and handlers retain their materializations. No evaluation crosses an effect, scope or execution-phase boundary. Existing expression ceilings still apply, and errors retain their original compiler locations. `mapping.dynamic` and runtime executors are unchanged. Omitted/v1–v4 profiles reproduce their previous lowering and existing artifacts are never rewritten.
+
 # Compact bindings v4: checked deterministic sequences
 
-Fresh sessions and explicit revisions select `compact-bindings-v4` through the existing approval-fingerprinted option. Omitted, v1, v2 and v3 profiles keep their lowering. Public compiler overloads remain compatible; no saved YAML, receipt, journal or approval is rewritten.
+The v4 profile selects fusion through the existing approval-fingerprinted option. Omitted, v1, v2 and v3 profiles keep their lowering. Public compiler overloads remain compatible; no saved YAML, receipt, journal or approval is rewritten.
 
 Within one execution phase and scope, consecutive pure sets/projections/assemblies/assertions lower to one `set`. Its compiler-owned `checkedMapping` expression uses a closed constant/return JavaScript sequence and literal intermediate schemas. Each intermediate is checked before evaluating the next value; only externally consumed results are published. The existing expression evaluator preserves exact JSON wiring and shares the existing statement/time/memory allowance across the sequence. Learned mapping scripts cannot access this compiler recipe; `mapping.dynamic` is unchanged.
 
@@ -34,7 +40,7 @@ The v2 profile resolves exports from their actual graph dependencies. Direct val
 
 Exports depending on actual `always` results remain after those producers, with the existing presence guards. Mixed dependencies wait for both. Failure-evidence preservation remains explicit and ordered before cleanup; a failed workflow publishes no successful business outputs. Normal glue uses normal execution allowance. Genuine finalization and nested preservation work still use the unchanged bounded finalization allowance.
 
-The public compiler overloads preserve their previous behavior: omission uses historical lowering; `compactBindings: true` retains v1. Saved requests with v1, v2 or no profile reproduce their original YAML. Stored v3 requests include v2's normal exports and descriptions; fresh requests now select v4 as described above. No stored workflow, pending request or approval is rewritten.
+The public compiler overloads preserve their previous behavior: omission uses historical lowering; `compactBindings: true` retains v1. Stored v3 requests include v2's normal exports and descriptions; fresh requests now select v5 as described above. No stored workflow, pending request or approval is rewritten.
 
 ## Literal descriptions
 

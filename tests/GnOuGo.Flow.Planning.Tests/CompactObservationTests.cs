@@ -257,7 +257,7 @@ public sealed partial class CompactObservationTests(ITestOutputHelper output)
         if (adaptive) request.Options["mapping_profile"] = TaskPlanCompiler.AdaptiveMappingProfile;
         var compiled = new TaskPlanCompiler().Compile(plan, catalog, request);
         Assert.Empty(compiled.Diagnostics); Assert.Empty(PlanningExecutableValidation.Validate(compiled.Graph!, catalog));
-        var yaml = new PlanningGraphCompiler().Compile(compiled.Graph!, catalog, "generated", true, true);
+        var yaml = new PlanningGraphCompiler().Compile(compiled.Graph!, catalog, "generated", true, true, true);
         var doc = new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml));
         return await engine.ExecuteAsync(doc.Workflows[doc.Entrypoint!], values, PlannerFixture.Ct);
     }

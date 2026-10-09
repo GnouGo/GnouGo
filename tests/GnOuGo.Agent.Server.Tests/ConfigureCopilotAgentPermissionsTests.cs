@@ -76,7 +76,7 @@ public sealed partial class ConfigureProvidersServiceTests
                 return new McpCallResult { Content = new JsonObject { ["success"] = accepted, ["grantId"] = accepted ? "new-grant" : null, ["errorMessage"] = accepted ? null : "Cancelled" } };
             });
         var service = new ConfigureProvidersService(llm, human, new FakeModelCatalog(), vault,
-            SmartFlowTestFactory.CreateRuntimeOptionsStore(new LLMOptions()), SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
+            SmartFlowTestFactory.CreateRuntimeOptionsStore(new LLMOptions()), _telemetry.Telemetry,
             NullLogger<ConfigureProvidersService>.Instance, bundledMcpSettings: Options.Create(CreateBundledCopilotMcpSettings()),
             mcpFactory: new FakeMcpClientFactory(agentSession, copilot),
             openTelemetrySettings: Options.Create(new OpenTelemetrySettings { TenantId = "tenant-test" }));

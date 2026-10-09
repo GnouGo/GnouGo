@@ -19,7 +19,7 @@ public static class PlanningArtifactApproval
         PlanningConfirmationGuards.Apply(graph, state.Catalog);
         if (!JsonNode.DeepEquals(JsonSerializer.SerializeToNode(graph, PlanningJsonContext.Default.PlanningGraph), JsonSerializer.SerializeToNode(state.Graph, PlanningJsonContext.Default.PlanningGraph)) ||
             PlanningExecutableValidation.Validate(graph, state.Catalog).Any(d => d.Required) ||
-            new PlanningGraphCompiler().Compile(graph, state.Catalog, state.Request.Name, TaskPlanCompiler.UsesNormalExports(state.Request), TaskPlanCompiler.UsesFusedBindings(state.Request)) != state.Yaml)
+            new PlanningGraphCompiler().Compile(graph, state.Catalog, state.Request.Name, TaskPlanCompiler.UsesNormalExports(state.Request), TaskPlanCompiler.UsesFusedBindings(state.Request), TaskPlanCompiler.UsesConsumerBindings(state.Request)) != state.Yaml)
             throw new PlanningConflictException("Recompilation does not reproduce the reviewed executable artifact.");
     }
 }

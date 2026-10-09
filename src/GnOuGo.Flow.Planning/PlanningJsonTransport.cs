@@ -56,6 +56,10 @@ internal static class PlanningJsonTransport
                     "string" => ["kind", "nullable", "enum"], "number" or "integer" or "boolean" or "any" => ["kind", "nullable"], _ => null };
                 defaults = JsonSerializer.SerializeToNode(new TaskType(), PlanningJsonContext.Default.TaskType)!.AsObject();
                 if (JsonNode.DeepEquals(obj["nullable"], defaults["nullable"])) obj.Remove("nullable");
+                // The fresh strict array wire shape uses null for an absent
+                // bound. Stored DTOs continue omitting absent properties.
+                if (kind == "array" && (obj.ContainsKey("minItems") || obj.ContainsKey("maxItems")))
+                { obj.TryAdd("minItems", null); obj.TryAdd("maxItems", null); }
             }
             else if (obj.ContainsKey("id") && obj.ContainsKey("description") && obj["execution"] is not null)
             {

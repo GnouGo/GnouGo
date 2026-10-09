@@ -19,8 +19,11 @@ using GnOuGo.Flow.Integrations;
 
 namespace GnOuGo.Agent.Server.Tests;
 
-public sealed class ConfigureAgentsServiceTests
+public sealed class ConfigureAgentsServiceTests : IDisposable
 {
+    private readonly TelemetryHarness _telemetry = SmartFlowTestFactory.CreateTelemetryHarness();
+    public void Dispose() => _telemetry.Dispose();
+
     [Theory]
     [InlineData("/gnougo add", "/planning")]
     [InlineData("  /GnOuGo add  ", "/planning")]
@@ -31,7 +34,7 @@ public sealed class ConfigureAgentsServiceTests
         string expectedLink)
     {
         var llm = new RecordingLlmClient();
-        var service = SmartFlowTestFactory.CreateAgentsService(llm, new FakeMcpClientFactory());
+        var service = SmartFlowTestFactory.CreateAgentsService(llm, new FakeMcpClientFactory(), telemetry: _telemetry.Telemetry);
 
         var events = await SmartFlowTestFactory.CollectAsync(
             service.ExecuteAsync(command, TestContext.Current.CancellationToken),
@@ -185,7 +188,7 @@ public sealed class ConfigureAgentsServiceTests
                 keyVaultStore,
                 runtimeFactory,
                 runtimeStore,
-                SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
+                _telemetry.Telemetry,
                 NullLogger<ConfigureAgentsService>.Instance,
                 userConfigClient);
 
@@ -436,7 +439,7 @@ public sealed class ConfigureAgentsServiceTests
                     "reviewer",
                     "2026-04-01T12:35:00+00:00")));
 
-        var service = SmartFlowTestFactory.CreateAgentsService(llm, new FakeMcpClientFactory(agentMcp));
+        var service = SmartFlowTestFactory.CreateAgentsService(llm, new FakeMcpClientFactory(agentMcp), telemetry: _telemetry.Telemetry);
 
         var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/GnOuGo list", CancellationToken.None), TestContext.Current.CancellationToken);
 
@@ -449,7 +452,7 @@ public sealed class ConfigureAgentsServiceTests
         Assert.Equal(0, llm.CallCount);
     }
 
-    private static async Task<(RunResult Result, List<SmartFlowEvent> Events)> ExecuteConfigureAgentsWorkflowAsync(
+    private async Task<(RunResult Result, List<SmartFlowEvent> Events)> ExecuteConfigureAgentsWorkflowAsync(
         RecordingLlmClient llm,
         string command,
         AgentHumanInputProvider? humanInput = null,
@@ -483,7 +486,7 @@ public sealed class ConfigureAgentsServiceTests
         return response;
     }
 
-    private static ConfigureAgentsService CreateConfigureAgentsServiceForStreaming(
+    private ConfigureAgentsService CreateConfigureAgentsServiceForStreaming(
         RecordingLlmClient llm,
         AgentHumanInputProvider humanInput,
         params IMcpSession[] sessions)
@@ -515,19 +518,19 @@ public sealed class ConfigureAgentsServiceTests
             keyVaultStore,
             runtimeFactory,
             runtimeStore,
-            SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
+            _telemetry.Telemetry,
             NullLogger<ConfigureAgentsService>.Instance,
             exchangeRateProvider: new TestExchangeRateProvider());
     }
 
-    private static async Task<(RunResult Result, List<SmartFlowEvent> Events)> ExecuteConfigureAgentsWorkflowByNameAsync(
+    private async Task<(RunResult Result, List<SmartFlowEvent> Events)> ExecuteConfigureAgentsWorkflowByNameAsync(
         RecordingLlmClient llm,
         string workflowName,
         JsonObject inputs,
         AgentHumanInputProvider? humanInput = null,
         params IMcpSession[] sessions)
     {
-        var service = SmartFlowTestFactory.CreateAgentsService(llm, new FakeMcpClientFactory(sessions));
+        var service = SmartFlowTestFactory.CreateAgentsService(llm, new FakeMcpClientFactory(sessions), telemetry: _telemetry.Telemetry);
         var workflowYaml = (string)(typeof(ConfigureAgentsService)
             .GetField("_workflowYaml", BindingFlags.Instance | BindingFlags.NonPublic)
             ?.GetValue(service)

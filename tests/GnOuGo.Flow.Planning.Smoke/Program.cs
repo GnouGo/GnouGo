@@ -165,7 +165,7 @@ var indexedPlan = new TaskPlan { Inputs = compactPlan.Inputs, Root = new()
 var indexedRequest = new PlanningRequest(); indexedRequest.Options["compilation_profile"] = TaskPlanCompiler.CompactProfile;
 var indexedGraph = new TaskPlanCompiler().Compile(indexedPlan, compactCatalog, indexedRequest);
 if (indexedGraph.Diagnostics.Count != 0) throw new InvalidOperationException("Indexed projection compilation failed.");
-var indexedYaml = new PlanningGraphCompiler().Compile(indexedGraph.Graph!, compactCatalog, "generated", true, true);
+var indexedYaml = new PlanningGraphCompiler().Compile(indexedGraph.Graph!, compactCatalog, "generated", true, true, true);
 var indexedDocument = new WorkflowCompiler().Compile(WorkflowParser.Parse(indexedYaml));
 var indexedResult = await compactEngine.ExecuteAsync(indexedDocument.Workflows["main"], new JsonObject
     { ["rows"] = new JsonArray(Enumerable.Range(0, 1602).Select(_ => (JsonNode)new JsonObject { ["label"] = "same" }).ToArray()) }, CancellationToken.None);
@@ -173,6 +173,19 @@ if (!indexedResult.Success || indexedYaml.Contains("loop.", StringComparison.Ord
     !indexedRows.Select(r => r!["position"]!.GetValue<int>()).SequenceEqual(Enumerable.Range(0, 1602)) || indexedRows.Any(r => r!["original"]!["label"]!.ToString() != "same"))
     throw new InvalidOperationException("Indexed projection lost positions or original values in Native AOT: " + indexedResult.Error?.Message);
 Console.WriteLine("indexed projections: 1602 original positions and records, unchanged expression limits, zero per-record workflow calls");
+
+var consumerGraph = new PlanningGraph { Workflows = [new() { Steps = [
+    new() { Key = "copy", Input = new() { Kind = "object", Members = [new("text", new() { Kind = "string", Text = "observed" })] },
+        OutputSchema = new() { Contract = JsonNode.Parse("""{"type":"object","properties":{"text":{"type":"string"}},"required":["text"],"additionalProperties":false}""")!.AsObject() } },
+    new() { Key = "render", Type = "template.render", Input = new() { Kind = "object", Members = [
+        new("template", new() { Kind = "string", Text = "{{text}}" }), new("data", new() { Kind = "object", Members = [new("text", new() { Kind = "output", Source = "copy", Path = ["text"] })] })] } }
+], Outputs = [new() { Name = "text", Value = new() { Kind = "output", Source = "render", Path = ["text"] } }] }] };
+var consumerYaml = new PlanningGraphCompiler().Compile(consumerGraph, compactCatalog, "consumer", true, true, true);
+var consumerWorkflow = new WorkflowCompiler().Compile(WorkflowParser.Parse(consumerYaml)).Workflows["main"];
+var consumerResult = await compactEngine.ExecuteAsync(consumerWorkflow, new JsonObject(), CancellationToken.None);
+if (consumerWorkflow.Steps.Count != 1 || !consumerResult.Success || consumerResult.Outputs?["text"]?.ToString() != "observed")
+    throw new InvalidOperationException("Checked consumer input failed in Native AOT: " + consumerResult.Error?.Message);
+Console.WriteLine("consumer bindings: checked input, zero materialization steps");
 
 var lookupPlan = JsonSerializer.Deserialize("""
     {"inputs":[{"name":"rows","type":{"kind":"array","items":{"kind":"object","fields":[{"name":"label"}]}}}],
@@ -524,7 +537,7 @@ structuralPatch = JsonSerializer.Deserialize(JsonSerializer.Serialize(structural
 var structurallyRepaired = PlanningRepairPatch.Apply(repairState, structuralPatch, structuralRequest);
 if (structurallyRepaired.Root.Tasks[0].Operation != "owned_operation" || structurallyRepaired.Root.Tasks[0].Inputs.Single().Value.Text != "business" ||
     repairState.Plan.Root.Tasks[0].Operation != "unresolved_operation") throw new InvalidOperationException("Structural repair lost authority or business intent");
-Console.WriteLine("structural repair: passed; version-eight authority, preserved arguments and atomic AOT round trip; no inference");
+Console.WriteLine("structural repair: passed; version-nine authority, preserved arguments and atomic AOT round trip; no inference");
 
 repairState.Plan = structurallyRepaired;
 repairState.Diagnostics.Clear();

@@ -42,7 +42,7 @@ public sealed class DynamicMappingCompilationTests
             {"id":"extract","kind":"transform","objective":"Extract one value per observation","dependsOn":[],"requires":null,
              "mode":"extract","each":{"input":"observations","output":"rows"},
              "inputs":[{"name":"observations","value":{"kind":"input","source":"records"}}],
-             "resultType":{"kind":"object","fields":[{"name":"rows","type":{"kind":"array","items":{"kind":"string"}}}]}}
+             "resultType":{"kind":"object","fields":[{"name":"rows","type":{"kind":"array","minItems":null,"maxItems":null,"items":{"kind":"string"}}}]}}
             """)!.AsObject();
         Assert.Empty(PlanningContractValidation.ValidateInstance(task, schema));
         var fields = task["resultType"]!["fields"]!.AsArray();

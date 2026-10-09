@@ -20,9 +20,10 @@ internal static class TaskPlanRevisions
                 throw new ArgumentException("Editable paths must be distinct, nonoverlapping semantic paths.");
             var binding = symbols.Values.ContainsKey(path) && (path.Contains("/inputs/", StringComparison.Ordinal) || path.Contains("/outputs/", StringComparison.Ordinal));
             var field = path.Split('/') is ["", "tasks", var id, var name] && symbols.Tasks.TryGetValue(id, out var task) &&
-                (name == "inputs" && task.Task.Kind is "operation" or "transform" or "call" || name == "requires" || name == "condition" && task.Task.Kind == "conditional");
+                (name == "inputs" && task.Task.Kind is "operation" or "transform" or "call" || name == "requires" || name == "condition" && task.Task.Kind == "conditional" ||
+                    name is "mode" or "each" or "resultType" && task.Task.Kind == "transform");
             if (PlanningRepairPatch.FindSite(index, path) is null || !binding && !field || OwnedInput(symbols, path, state.Catalog) is not null)
-                throw new ArgumentException("EditablePaths supports existing business bindings, input lists, conditions and export values only: " + path);
+                throw new ArgumentException("EditablePaths supports existing business bindings, input lists, conditions, transform declarations and export values only: " + path);
         }
     }
 
@@ -132,6 +133,23 @@ internal static class TaskPlanRevisions
         var symbols = new TaskPlanSymbols(state.Plan!);
         var catalog = PlanningStructuralRepair.Catalog(state);
         var exports = Exports(state.Plan!, state.RevisionScope);
+        foreach (var finding in state.Diagnostics.Where(d => d.Required && d.Code is "TASK_FIELD_TYPE" or "TASK_FIELD_UNKNOWN" or "TASK_CONDITION_TYPE"))
+        {
+            if (finding.Location.Split('/') is not ["", "tasks", var consumer, "requires"] ||
+                !symbols.Tasks.TryGetValue(consumer, out var site) || site.Task.Requires is not { } condition) continue;
+            var dependencies = new HashSet<string>(StringComparer.Ordinal);
+            Visit(condition);
+            if (!state.RevisionScope.Any(p => dependencies.Any(d => p == d || p.StartsWith(d + "/", StringComparison.Ordinal))))
+                yield return finding with { Code = "REVISION_REQUIRED", Message = finding.Message +
+                    " The required binding and its producers are outside repair authority. Explicitly revise this binding; unrelated edits cannot correct its type." };
+            void Visit(TaskValue value)
+            {
+                foreach (var reference in TaskPlanCompiler.Values(value))
+                    if (reference.Kind == "input" && reference.Source is { } input) dependencies.Add("/inputs/" + input);
+                    else if (reference.Kind == "output" && reference.Source is { } id && dependencies.Add("/tasks/" + id) && symbols.Tasks.TryGetValue(id, out var producer))
+                        foreach (var binding in symbols.Values.Values.Where(v => v.Path.StartsWith("/tasks/" + id + "/", StringComparison.Ordinal))) Visit(binding.Value);
+            }
+        }
         foreach (var finding in state.Diagnostics.Where(d => d.Required && !d.Location.EndsWith("/requires", StringComparison.Ordinal)))
             if (!exports.Consumers.ContainsKey(finding.Location) && ReferenceRepairs(state, finding.Location) is { Count: 0 })
                 yield return finding with { Code = "REVISION_REQUIRED", Message = finding.Message +
@@ -212,7 +230,7 @@ internal static class TaskPlanRevisions
         if (previous is null) yield break;
         var symbols = new TaskPlanSymbols(previous); var revised = new TaskPlanSymbols(candidate);
         foreach (var (id, original) in symbols.Tasks)
-            if (revised.Tasks.TryGetValue(id, out var updated) && original.Task.Each != updated.Task.Each)
+            if (editablePaths?.Contains("/tasks/" + id + "/each") != true && revised.Tasks.TryGetValue(id, out var updated) && original.Task.Each != updated.Task.Each)
                 yield return new("REVISION_SCOPE_CHANGED", "/tasks/" + id + "/each", "Independent extraction semantics require an explicit revision and fresh approval.");
         foreach (var (id, original) in symbols.Tasks)
             if (editablePaths?.Contains("/tasks/" + id + "/requires") != true && revised.Tasks.TryGetValue(id, out var updated) && !JsonNode.DeepEquals(

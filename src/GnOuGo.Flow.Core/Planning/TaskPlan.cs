@@ -76,6 +76,11 @@ public sealed class TaskType
     /// <summary>Explicit finite string domain; null means unrestricted. Nullability is declared separately.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<string>? Enum { get; set; }
+    /// <summary>Optional array cardinality constraints; these do not authorize runtime iterations.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? MinItems { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? MaxItems { get; set; }
     public TaskType? Items { get; set; }
     public List<TaskInput> Fields { get; set; } = [];
 }

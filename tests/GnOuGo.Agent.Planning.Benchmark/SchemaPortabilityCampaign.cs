@@ -75,7 +75,7 @@ internal static class SchemaPortabilityCampaign
             if (args.Contains("--compare-bindings", StringComparer.Ordinal))
             {
                 var measurements = new JsonArray();
-                foreach (var profile in new[] { "compact-bindings-v3", TaskPlanCompiler.CompactProfile })
+                foreach (var profile in new[] { "compact-bindings-v3", "compact-bindings-v4", TaskPlanCompiler.CompactProfile })
                 {
                     var request = JsonSerializer.SerializeToNode(session.Request, PlanningJsonContext.Default.PlanningRequest)!.Deserialize(PlanningJsonContext.Default.PlanningRequest)!;
                     request.Options["compilation_profile"] = profile;
@@ -84,14 +84,17 @@ internal static class SchemaPortabilityCampaign
                     PlanningConfirmationGuards.Apply(compiled.Graph, catalog);
                     var graphFindings = PlanningExecutableValidation.Validate(compiled.Graph, catalog);
                     if (graphFindings.Count > 0) throw new InvalidOperationException(profile + ": " + string.Join("; ", graphFindings.Select(d => compiled.Locate(d).Message + " at " + compiled.Locate(d).Location)));
-                    var yaml = new PlanningGraphCompiler().Compile(compiled.Graph, catalog, request.Name, true, TaskPlanCompiler.UsesFusedBindings(request));
+                    var yaml = new PlanningGraphCompiler().Compile(compiled.Graph, catalog, request.Name, true, TaskPlanCompiler.UsesFusedBindings(request), TaskPlanCompiler.UsesConsumerBindings(request));
                     var document = GnOuGo.Flow.Core.Parsing.WorkflowParser.Parse(yaml);
-                    var types = new Dictionary<string, int>(StringComparer.Ordinal); var pairs = new JsonArray();
+                    var types = new Dictionary<string, int>(StringComparer.Ordinal); var pairs = new JsonArray(); var sets = new JsonArray();
                     void Count(List<GnOuGo.Flow.Core.Models.StepDef> steps, string path)
                     {
                         for (var i = 0; i < steps.Count; i++)
                         {
                             var step = steps[i]; types[step.Type] = types.GetValueOrDefault(step.Type) + 1;
+                            if (step.Type == "set") sets.Add((JsonNode)new JsonObject { ["scope"] = path, ["id"] = step.Id,
+                                ["description"] = step.Description,
+                                ["guarded"] = step.If is not null, ["next_type"] = i + 1 < steps.Count ? steps[i + 1].Type : null });
                             if (i > 0 && steps[i - 1].Type == "set" && step.Type == "set")
                                 pairs.Add((JsonNode)new JsonObject { ["scope"] = path, ["before"] = steps[i - 1].Id, ["after"] = step.Id });
                             Count(step.Steps ?? [], path + "/" + step.Id); Count(step.Default ?? [], path + "/" + step.Id + "/default");
@@ -102,7 +105,7 @@ internal static class SchemaPortabilityCampaign
                     foreach (var (name, workflow) in document.Workflows) { Count(workflow.Steps, name); Count(workflow.Finally, name + "/finally"); }
                     measurements.Add((JsonNode)new JsonObject { ["profile"] = profile, ["steps"] = types.Values.Sum(), ["sets"] = types.GetValueOrDefault("set"),
                         ["workflows"] = document.Workflows.Count, ["yaml_bytes"] = System.Text.Encoding.UTF8.GetByteCount(yaml), ["yaml_lines"] = yaml.Count(c => c == '\n'),
-                        ["yaml_hash"] = PlanningGraphCompiler.Fingerprint(yaml), ["matches_saved_yaml"] = yaml == session.Yaml, ["adjacent_set_pairs"] = pairs });
+                        ["yaml_hash"] = PlanningGraphCompiler.Fingerprint(yaml), ["matches_saved_yaml"] = yaml == session.Yaml, ["adjacent_set_pairs"] = pairs, ["materialized_sets"] = sets });
                 }
                 Console.WriteLine(new JsonObject { ["run"] = label, ["measurements"] = measurements, ["model_calls"] = 0, ["saved_session_modified"] = false }.ToJsonString());
                 return;

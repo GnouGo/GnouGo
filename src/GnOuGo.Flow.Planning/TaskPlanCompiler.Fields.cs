@@ -35,10 +35,16 @@ public sealed partial class TaskPlanCompiler
             var isObject = type?.ToString() == "object" || type is JsonArray types &&
                 types.Any(t => t?.ToString() == "object") && types.All(t => t?.ToString() is "object" or "null");
             if (!isObject || PlanningContractShapes.IsOpaque(contract))
-                Fail("TASK_FIELD_TYPE", "Field selection requires an authoritative object contract; opaque values cannot supply fields.");
+                Fail("TASK_FIELD_TYPE", "Field '" + value.Port + "' requires a declared object; received " +
+                    (type?.ToJsonString() ?? "opaque") + " from " + Origin() +
+                    ". Arrays have no field/index/length ports; use typed iteration, flatten or lookup, or declare a scalar result. Opaque values cannot supply fields.");
             if (contract["properties"] is not JsonObject fields || fields[value.Port!] is not JsonObject)
-                Fail("TASK_FIELD_UNKNOWN", "The source contract does not declare field '" + value.Port + "'. Field names are literal, not paths.");
+                Fail("TASK_FIELD_UNKNOWN", Origin() + " does not declare field '" + value.Port + "'. Available fields: " +
+                    string.Join(", ", (contract["properties"] as JsonObject ?? []).Select(p => p.Key)) + ". Field names are literal, not paths.");
             return contract["properties"]![value.Port!]!.AsObject();
         }
+
+        string Origin() => string.Join(", ", Values(value.Items[0]).Where(v => v.Kind is "output" or "input" or "item")
+            .Select(v => v.Kind + ":" + v.Source + (v.Port is null ? "" : "." + v.Port)).DefaultIfEmpty("the explicit binding"));
     }
 }

@@ -15,7 +15,7 @@ public sealed partial class PlanningGraphCompiler
     private static IEnumerable<PlanningValue> BindingValues(PlanningValue? value) => value is null ? [] :
         new[] { value }.Concat(value.Items.SelectMany(BindingValues)).Concat(value.Members.SelectMany(m => BindingValues(m.Value)));
 
-    private static void PrepareFusion(PlanningWorkflow workflow, LoweringScope scope)
+    private static void PrepareFusion(PlanningWorkflow workflow, LoweringScope scope, bool consumerBindings = false)
     {
         var blocked = new HashSet<string>(StringComparer.Ordinal);
         IEnumerable<PlanningValue> Values(PlanningNode n) => BindingValues(n.Input).Concat(BindingValues(n.If)).Concat(BindingValues(n.Expr))
@@ -42,15 +42,17 @@ public sealed partial class PlanningGraphCompiler
         void Scan(List<PlanningNode> nodes)
         {
             var run = new List<string>();
-            void Flush()
+            void Flush(PlanningNode? consumer = null)
             {
-                if (run.Count > 1) { var group = run.ToArray(); foreach (var key in group) scope.FusedOutputs.Add(key, group); }
+                var group = run.ToArray();
+                var inline = consumerBindings && group.Length > 0 && consumer is not null && TryConsumer(consumer, group);
+                if (run.Count > 1 || inline) foreach (var key in group) scope.FusedOutputs.Add(key, group);
                 run.Clear();
             }
             foreach (var node in nodes)
             {
                 if (node.InternalRole?.StartsWith("inline:", StringComparison.Ordinal) == true) continue;
-                if (Eligible(node)) run.Add(node.Key); else Flush();
+                if (Eligible(node)) run.Add(node.Key); else Flush(node);
                 // Each branch and nested execution scope has its own sequence.
                 Scan(node.Steps); Scan(node.Default);
                 foreach (var branch in node.Branches) Scan(branch.Steps);
@@ -65,9 +67,42 @@ public sealed partial class PlanningGraphCompiler
                     scope.FusedExports.Add(value.Source!);
         foreach (var value in workflow.Outputs.SelectMany(o => BindingValues(o.Value)))
             if (value.Kind == "output" && value.Source is not null) scope.FusedExports.Add(value.Source);
+
+        bool TryConsumer(PlanningNode consumer, string[] group)
+        {
+            if (consumer.If is not null || consumer.Expr is not null || consumer.Output is not null || consumer.Retry is not null || consumer.OnError.Count > 0 ||
+                consumer.Type == "set" || consumer.Input.Kind != "object" ||
+                consumer.Steps.Count + consumer.Default.Count + consumer.Cases.Count + consumer.Branches.Count != 0) return false;
+            bool Reads(PlanningValue value) => value.Kind is "output" or "present" && value.Source is { } source && group.Contains(source, StringComparer.Ordinal);
+            if (!BindingValues(consumer.Input).Any(Reads) || workflow.Outputs.SelectMany(o => BindingValues(o.Value)).Any(Reads) ||
+                scope.Nodes.Values.Where(n => n.Key != consumer.Key && !group.Contains(n.Key, StringComparer.Ordinal)).SelectMany(Values).Any(Reads)) return false;
+            // Exactly one dynamic input subtree: check once, before the consumer,
+            // without changing the evaluation order of independent expressions.
+            var value = consumer.Input; var path = new List<string>();
+            while (value.Kind == "object")
+            {
+                var dynamic = value.Members.Where(m => !Static(m.Value)).ToArray();
+                if (dynamic.Length != 1) break;
+                path.Add(dynamic[0].Name); value = dynamic[0].Value;
+            }
+            if (path.Count == 0) return false;
+            if (consumer.CapabilityId is { } id)
+            {
+                var contract = scope.Catalog.Capabilities.Single(c => c.Id == id);
+                if (contract.FixedInput.ContainsKey(path[0]) || consumer.Type == "mcp.call" && path[0] != "request") return false;
+                var pointer = "/" + string.Join('/', path.Select(p => p.Replace("~", "~0", StringComparison.Ordinal).Replace("/", "~1", StringComparison.Ordinal)));
+                if (contract.RequestBindings.Any(b => pointer == "/request" + b.Path || pointer.StartsWith("/request" + b.Path + "/", StringComparison.Ordinal) ||
+                    ("/request" + b.Path).StartsWith(pointer + "/", StringComparison.Ordinal))) return false;
+            }
+            scope.ConsumerBindings.Add(consumer.Key, (group, path.ToArray(), value));
+            return true;
+        }
+
+        static bool Static(PlanningValue value) => value.Kind is "null" or "string" or "number" or "boolean" or "workflow" ||
+            value.Kind == "array" && value.Items.All(Static) || value.Kind == "object" && value.Members.All(m => Static(m.Value));
     }
 
-    private static JsonObject LowerFused(string[] group, LoweringScope scope)
+    private static JsonObject LowerFused(string[] group, LoweringScope scope, PlanningValue? consumerInput = null)
     {
         var local = scope with { LocalOutputs = new(StringComparer.Ordinal) };
         var program = new StringBuilder("(()=>{"); var contracts = new JsonObject(); var fields = new JsonObject();
@@ -96,7 +131,8 @@ public sealed partial class PlanningGraphCompiler
             if (scope.FusedExports.Contains(key)) fields[id] = lowered["output_schema"]?.DeepClone() ?? new JsonObject { ["type"] = "object" };
             local.LocalOutputs.Add(key);
         }
-        program.Append("return ({").Append(string.Join(',', group.Where(scope.FusedExports.Contains).Select(k => LocalName(k, scope) + ":" + LocalName(k, scope)))).Append("});})()");
+        if (consumerInput is not null) program.Append("return ").Append(ToExpression(consumerInput, local)[2..^1]).Append(";})()");
+        else program.Append("return ({").Append(string.Join(',', group.Where(scope.FusedExports.Contains).Select(k => LocalName(k, scope) + ":" + LocalName(k, scope)))).Append("});})()");
         ExpressionEvaluator.Validate(program.ToString());
         var result = new JsonObject { ["id"] = scope.NodeIds[group[0]], ["type"] = "set",
             ["input"] = "${checkedMapping(\n" + JsonValue.Create(program.ToString())!.ToJsonString(new System.Text.Json.JsonSerializerOptions(PlanningJsonContext.Default.Options) { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping }) + ",data," + contracts.ToJsonString() + "\n)}",

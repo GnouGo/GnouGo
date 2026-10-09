@@ -52,6 +52,17 @@ public sealed class TaskFieldBindingTests
     }
 
     [Theory]
+    [InlineData("0")]
+    [InlineData("length")]
+    public async Task NumericAndLengthPropertyNamesRemainValidOnDeclaredObjects(string property)
+    {
+        var plan = Plan(new() { Kind = "object", Fields = [new() { Name = property, Type = new() { Kind = "string" } }] }, Field(Input(), property));
+        var result = await Run(plan, await Catalog(), new() { ["record"] = new JsonObject { [property] = "observed" } });
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal("observed", result.Outputs!["selected"]!.ToString());
+    }
+
+    [Theory]
     [InlineData("unknown", "TASK_FIELD_UNKNOWN")]
     [InlineData("opaque", "TASK_FIELD_TYPE")]
     [InlineData("scalar", "TASK_FIELD_TYPE")]

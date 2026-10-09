@@ -332,8 +332,11 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
                     var origin = Assert.Single(session.Graph!.Workflows.SelectMany(w => w.Steps), n => n.Purpose == "Attach observation positions").Key;
                     var indexing = Assert.Single(WorkflowParser.Parse(session.Yaml!).Workflows.Values.SelectMany(w => w.Steps),
                         s => s.Input?.ToJsonString().Contains(origin, StringComparison.Ordinal) == true);
-                    Assert.Equal("set", indexing.Type);
-                    Assert.Equal("set", Assert.Single(checkpoint.Invocations.Values, i => i.Id.EndsWith("/step/" + indexing.Id, StringComparison.Ordinal)).StepType);
+                    // v5 checks the typed indexing projection in the collection consumer;
+                    // there is no materialization or workflow invocation per copied record.
+                    Assert.Equal("workflow.call", indexing.Type);
+                    Assert.Equal("workflow.call", Assert.Single(checkpoint.Invocations.Values, i => i.Id.EndsWith("/step/" + indexing.Id, StringComparison.Ordinal)).StepType);
+                    Assert.DoesNotContain(checkpoint.Invocations.Values, i => i.Id.EndsWith("/step/" + origin, StringComparison.Ordinal));
                 }
             }
             if (variant is "each" or "each-parallel") Assert.Equal(1, extractionModel.Calls);

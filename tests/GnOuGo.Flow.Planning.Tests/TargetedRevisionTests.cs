@@ -6,6 +6,54 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class TargetedRevisionTests
 {
+    [Fact]
+    public async Task ExplicitExtractionRevisionChangesOnlySelectedDeclarationsAcrossRestart()
+    {
+        var runtime = new TestRuntime();
+        runtime.Proposal.Plan = new() { Root = new() { Tasks = [new() { Id = "adapt", Kind = "transform", Objective = "Expose each supplied record",
+            Inputs = [new("records", new() { Kind = "array", Items = [new() { Kind = "object", Members = [new("text", Text("observed"))] }] })],
+            ResultType = new() { Kind = "object", Fields = [new() { Name = "rows", Type = new() { Kind = "array", Items = new() { Kind = "object", Fields = [new() { Name = "text", Type = new() }] } } }] } }],
+            Outputs = [new("message", Text("retained"))] } };
+        var state = await PlannerFixture.RunAsync(runtime); Assert.Equal(PlanningStatus.FinalReview, state.Status);
+        var baseline = Plan(state.Plan); var planner = new HybridWorkflowPlanner();
+        state = await planner.AdvanceAsync(state, Revise(state, "/tasks/adapt/mode", "/tasks/adapt/each", "/tasks/adapt/resultType"), runtime, PlannerFixture.Ct);
+        var task = runtime.Proposal.Plan.Root.Tasks[0]; task.Mode = "extract"; task.Each = new("records", "rows"); task.ResultType!.Fields[0].Type.MinItems = 1;
+        state = await planner.AdvanceAsync(PlannerFixture.Clone(state), new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
+        Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Equal(2, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);
+        Assert.Equal("extract", state.Plan!.Root.Tasks[0].Mode); Assert.Equal(task.Each, state.Plan.Root.Tasks[0].Each);
+        Assert.Null(state.ApprovedHash); Assert.NotEqual(baseline, Plan(state.Plan));
+        Assert.Equal("retained", state.Plan.Root.Outputs[0].Value.Text);
+    }
+
+    [Theory]
+    [InlineData("0")][InlineData("length")]
+    public async Task InvalidArrayAccessInImmutableRequirementStopsBeforeUnrelatedRepair(string field)
+    {
+        var runtime = new TestRuntime(); var task = runtime.Proposal.Plan!.Root.Tasks[0];
+        task.Outputs.Add(new("rows", new() { Kind = "array", Items = [Text("observed")] }));
+        runtime.Proposal.Plan.Root.Tasks.Add(new() { Id = "consumer", Kind = "value", Objective = "Preserve the guarded business action",
+            Requires = new() { Kind = "predicate", Predicate = "not_equal", Items = [new() { Kind = "field", Port = field, Items = [Output(task.Id, "rows")] }, new()] },
+            Outputs = [new("unrelated", Output(task.Id, "invalid"))] });
+        var state = await PlannerFixture.RunAsync(runtime);
+        Assert.Equal(PlanningStatus.Stopped, state.Status); Assert.Single(runtime.Calls); Assert.Equal(0, state.ReplanAttempts);
+        var diagnostic = Assert.Single(state.Diagnostics, d => d.Code == "REVISION_REQUIRED" && d.Location == "/tasks/consumer/requires");
+        Assert.Contains("array", diagnostic.Message); Assert.Contains(task.Id, diagnostic.Message);
+    }
+
+    [Fact]
+    public async Task IssuedVersionEightKeepsItsUnextendedAuthorityAfterRestart()
+    {
+        var state = await PlannerFixture.RunAsync(new TestRuntime()); state.RevisionScope = ["/root/outputs/message"]; state.EditablePaths = ["/root/outputs/message"];
+        var template = PlanningSchemas.FullProposal(state, compact: false, flatten: false, lookup: false, arrayBounds: false);
+        var schema = PlanningRepairPatch.Schema(state, template, version: 8);
+        var request = new GnOuGo.Flow.Core.Runtime.LLMRequest { StructuredOutputSchema = schema,
+            Prompt = "Repair\n" + new JsonObject { ["repair"] = new JsonObject { ["version"] = 8, ["authority"] = PlanningRepairPatch.Authority(state, version: 8) } }.ToJsonString() };
+        var original = schema.ToJsonString();
+        Assert.True(PlanningRepairPatch.Verify(PlannerFixture.Clone(state), request));
+        Assert.Equal(original, request.StructuredOutputSchema.ToJsonString());
+        Assert.NotEqual(PlanningRepairPatch.Authority(state, version: 8), PlanningRepairPatch.Authority(state));
+    }
+
     private static TaskValue Text(string text) => new() { Kind = "string", Text = text };
     private static TaskValue Output(string task, string port) => new() { Kind = "output", Source = task, Port = port };
     private static string Plan(TaskPlan? plan) => JsonSerializer.Serialize(plan, PlanningJsonContext.Default.TaskPlan);
@@ -78,7 +126,7 @@ public sealed class TargetedRevisionTests
         Assert.Equal(new[] { id, "consume", "persist" }, state.Plan!.Root.Tasks.Select(t => t.Id)); Assert.Single(state.Plan.Root.Always);
         var request = runtime.Calls[1]; Assert.True(PlanningRepairPatch.Issued(request.StructuredOutputSchema!.AsObject()));
         Assert.DoesNotContain("plan", request.StructuredOutputSchema["properties"]!.AsObject().Select(p => p.Key));
-        Assert.Equal(8, PlanningRepairPatch.RequestContext(request)["repair"]!["version"]!.GetValue<int>());
+        Assert.Equal(9, PlanningRepairPatch.RequestContext(request)["repair"]!["version"]!.GetValue<int>());
     }
 
     [Theory]

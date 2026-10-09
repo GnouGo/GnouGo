@@ -20,7 +20,7 @@ public sealed class CompactProposalTests
             {"discoveryRequests":null,"clarifications":null,"plan":{"inputs":[],"groups":[],"choices":[],"root":{"tasks":[
               {"id":"interpret","kind":"transform","objective":"Interpret supplied text","dependsOn":[],"requires":null,
                "inputs":[{"name":"text","value":{"kind":"string","text":"one"}}],
-               "resultType":{"kind":"object","fields":[{"name":"items","type":{"kind":"array","items":{"kind":"string","nullable":true}}}]}}
+               "resultType":{"kind":"object","fields":[{"name":"items","type":{"kind":"array","minItems":null,"maxItems":null,"items":{"kind":"string","nullable":true}}}]}}
             ],"always":[],"outputs":[{"name":"items","value":{"kind":"output","source":"interpret","port":"items"}}]}}}
             """)!;
         Assert.Empty(PlanningContractValidation.ValidateInstance(wire, schema));

@@ -16,8 +16,11 @@ using OtlpTenantCollector.Models;
 
 namespace GnOuGo.Agent.Server.Tests;
 
-public sealed class SmartFlowServiceTests
+public sealed class SmartFlowServiceTests : IDisposable
 {
+    private readonly TelemetryHarness _telemetry = SmartFlowTestFactory.CreateTelemetryHarness();
+    public void Dispose() => _telemetry.Dispose();
+
     [Fact]
     public async Task ExecuteAsync_Help_ReturnsCommandOverviewWithoutCallingLlm()
     {
@@ -25,8 +28,8 @@ public sealed class SmartFlowServiceTests
         var service = SmartFlowTestFactory.CreateSmartFlowService(
             llm,
             new FakeMcpClientFactory(),
-            SmartFlowTestFactory.CreateProvidersService(llm),
-            SmartFlowTestFactory.CreateAgentsService(llm, new FakeMcpClientFactory()));
+            SmartFlowTestFactory.CreateProvidersService(llm, telemetry: _telemetry.Telemetry),
+            SmartFlowTestFactory.CreateAgentsService(llm, new FakeMcpClientFactory(), telemetry: _telemetry.Telemetry), telemetry: _telemetry.Telemetry);
 
         var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/help", CancellationToken.None), TestContext.Current.CancellationToken);
 
@@ -121,10 +124,10 @@ workflows:
             new RecordingLlmClient(),
             new Microsoft.Extensions.Caching.Memory.MemoryCache(new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions()),
             runtimeFactory,
-            SmartFlowTestFactory.CreateProvidersService(new RecordingLlmClient()),
-            SmartFlowTestFactory.CreateAgentsService(new RecordingLlmClient(), new FakeMcpClientFactory()),
+            SmartFlowTestFactory.CreateProvidersService(new RecordingLlmClient(), telemetry: _telemetry.Telemetry),
+            SmartFlowTestFactory.CreateAgentsService(new RecordingLlmClient(), new FakeMcpClientFactory(), telemetry: _telemetry.Telemetry),
             new AgentHumanInputProvider(),
-            SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
+            _telemetry.Telemetry,
             NullLogger<SmartFlowService>.Instance, null!);
 
         var events = await SmartFlowTestFactory.CollectAsync(smartFlow.ExecuteAsync("draw it", correlationId: "corr-diagram", agentName: agentName, CancellationToken.None), TestContext.Current.CancellationToken);
@@ -190,10 +193,10 @@ workflows:
             llm,
             new Microsoft.Extensions.Caching.Memory.MemoryCache(new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions()),
             runtimeFactory,
-            SmartFlowTestFactory.CreateProvidersService(llm),
-            SmartFlowTestFactory.CreateAgentsService(llm, new FakeMcpClientFactory()),
+            SmartFlowTestFactory.CreateProvidersService(llm, telemetry: _telemetry.Telemetry),
+            SmartFlowTestFactory.CreateAgentsService(llm, new FakeMcpClientFactory(), telemetry: _telemetry.Telemetry),
             new AgentHumanInputProvider(),
-            SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
+            _telemetry.Telemetry,
             NullLogger<SmartFlowService>.Instance, null!,
             llmUsageBudgetScopeFactory: new FixedBudgetScopeFactory(budget));
 
@@ -214,9 +217,9 @@ workflows:
         var service = SmartFlowTestFactory.CreateSmartFlowService(
             llm,
             new FakeMcpClientFactory(),
-            SmartFlowTestFactory.CreateProvidersService(llm),
-            SmartFlowTestFactory.CreateAgentsService(llm, new FakeMcpClientFactory()),
-            traceFileExporter: exporter);
+            SmartFlowTestFactory.CreateProvidersService(llm, telemetry: _telemetry.Telemetry),
+            SmartFlowTestFactory.CreateAgentsService(llm, new FakeMcpClientFactory(), telemetry: _telemetry.Telemetry),
+            traceFileExporter: exporter, telemetry: _telemetry.Telemetry);
 
         var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/help", correlationId: "corr-export", agentName: null, CancellationToken.None), TestContext.Current.CancellationToken);
 
@@ -295,10 +298,10 @@ workflows:
                 new RecordingLlmClient(),
                 new Microsoft.Extensions.Caching.Memory.MemoryCache(new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions()),
                 runtimeFactory,
-                SmartFlowTestFactory.CreateProvidersService(new RecordingLlmClient()),
-                SmartFlowTestFactory.CreateAgentsService(new RecordingLlmClient(), new FakeMcpClientFactory()),
+                SmartFlowTestFactory.CreateProvidersService(new RecordingLlmClient(), telemetry: _telemetry.Telemetry),
+                SmartFlowTestFactory.CreateAgentsService(new RecordingLlmClient(), new FakeMcpClientFactory(), telemetry: _telemetry.Telemetry),
                 new AgentHumanInputProvider(),
-                SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
+                _telemetry.Telemetry,
                 NullLogger<SmartFlowService>.Instance, null!,
                 userConfigClient);
 
@@ -402,10 +405,10 @@ workflows:
             new RecordingLlmClient(),
             new Microsoft.Extensions.Caching.Memory.MemoryCache(new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions()),
             runtimeFactory,
-            SmartFlowTestFactory.CreateProvidersService(new RecordingLlmClient()),
-            SmartFlowTestFactory.CreateAgentsService(new RecordingLlmClient(), new FakeMcpClientFactory()),
+            SmartFlowTestFactory.CreateProvidersService(new RecordingLlmClient(), telemetry: _telemetry.Telemetry),
+            SmartFlowTestFactory.CreateAgentsService(new RecordingLlmClient(), new FakeMcpClientFactory(), telemetry: _telemetry.Telemetry),
             humanInput,
-            SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
+            _telemetry.Telemetry,
             NullLogger<SmartFlowService>.Instance, planning);
 
         var events = await SmartFlowTestFactory.CollectAsync(smartFlow.ExecuteAsync("clone and fix issue 1679", correlationId: "corr-handled-mcp-repair", agentName: agentName, CancellationToken.None), TestContext.Current.CancellationToken);
@@ -522,10 +525,10 @@ workflows:
             new RecordingLlmClient(),
             new Microsoft.Extensions.Caching.Memory.MemoryCache(new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions()),
             runtimeFactory,
-            SmartFlowTestFactory.CreateProvidersService(new RecordingLlmClient()),
-            SmartFlowTestFactory.CreateAgentsService(new RecordingLlmClient(), new FakeMcpClientFactory()),
+            SmartFlowTestFactory.CreateProvidersService(new RecordingLlmClient(), telemetry: _telemetry.Telemetry),
+            SmartFlowTestFactory.CreateAgentsService(new RecordingLlmClient(), new FakeMcpClientFactory(), telemetry: _telemetry.Telemetry),
             humanInput,
-            SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
+            _telemetry.Telemetry,
             NullLogger<SmartFlowService>.Instance, planning,
             candidateProvider: new SingleWorkflowCandidateProvider(new WorkflowRouteCandidate
             {
@@ -636,10 +639,10 @@ workflows:
             new RecordingLlmClient(),
             new Microsoft.Extensions.Caching.Memory.MemoryCache(new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions()),
             runtimeFactory,
-            SmartFlowTestFactory.CreateProvidersService(new RecordingLlmClient()),
-            SmartFlowTestFactory.CreateAgentsService(new RecordingLlmClient(), new FakeMcpClientFactory()),
+            SmartFlowTestFactory.CreateProvidersService(new RecordingLlmClient(), telemetry: _telemetry.Telemetry),
+            SmartFlowTestFactory.CreateAgentsService(new RecordingLlmClient(), new FakeMcpClientFactory(), telemetry: _telemetry.Telemetry),
             humanInput,
-            SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
+            _telemetry.Telemetry,
             NullLogger<SmartFlowService>.Instance, null!,
             candidateProvider: new SingleWorkflowCandidateProvider(new WorkflowRouteCandidate
             {
@@ -742,10 +745,10 @@ workflows:
             new RecordingLlmClient(),
             new Microsoft.Extensions.Caching.Memory.MemoryCache(new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions()),
             runtimeFactory,
-            SmartFlowTestFactory.CreateProvidersService(new RecordingLlmClient()),
-            SmartFlowTestFactory.CreateAgentsService(new RecordingLlmClient(), new FakeMcpClientFactory()),
+            SmartFlowTestFactory.CreateProvidersService(new RecordingLlmClient(), telemetry: _telemetry.Telemetry),
+            SmartFlowTestFactory.CreateAgentsService(new RecordingLlmClient(), new FakeMcpClientFactory(), telemetry: _telemetry.Telemetry),
             new AgentHumanInputProvider(),
-            SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
+            _telemetry.Telemetry,
             NullLogger<SmartFlowService>.Instance, null!,
             candidateProvider: new SingleWorkflowCandidateProvider(new WorkflowRouteCandidate
             {
@@ -823,10 +826,10 @@ workflows:
                 new RecordingLlmClient(),
                 new Microsoft.Extensions.Caching.Memory.MemoryCache(new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions()),
                 runtimeFactory,
-                SmartFlowTestFactory.CreateProvidersService(new RecordingLlmClient()),
-                SmartFlowTestFactory.CreateAgentsService(new RecordingLlmClient(), new FakeMcpClientFactory()),
+                SmartFlowTestFactory.CreateProvidersService(new RecordingLlmClient(), telemetry: _telemetry.Telemetry),
+                SmartFlowTestFactory.CreateAgentsService(new RecordingLlmClient(), new FakeMcpClientFactory(), telemetry: _telemetry.Telemetry),
                 new AgentHumanInputProvider(),
-                SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
+                _telemetry.Telemetry,
                 NullLogger<SmartFlowService>.Instance, null!,
                 userConfigClient);
 
@@ -892,10 +895,10 @@ workflows:
                 new RecordingLlmClient(),
                 new Microsoft.Extensions.Caching.Memory.MemoryCache(new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions()),
                 runtimeFactory,
-                SmartFlowTestFactory.CreateProvidersService(new RecordingLlmClient()),
-                SmartFlowTestFactory.CreateAgentsService(new RecordingLlmClient(), new FakeMcpClientFactory()),
+                SmartFlowTestFactory.CreateProvidersService(new RecordingLlmClient(), telemetry: _telemetry.Telemetry),
+                SmartFlowTestFactory.CreateAgentsService(new RecordingLlmClient(), new FakeMcpClientFactory(), telemetry: _telemetry.Telemetry),
                 new AgentHumanInputProvider(),
-                SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
+                _telemetry.Telemetry,
                 NullLogger<SmartFlowService>.Instance, null!,
                 userConfigClient);
 
@@ -955,15 +958,15 @@ workflows:
             var runtimeStore = SmartFlowTestFactory.CreateRuntimeOptionsStore(options);
             var keyVaultStore = new FakeKeyVaultRuntimeConfigStore();
             var runtimeFactory = new SecureWorkflowRuntimeFactory(runtimeStore, keyVaultStore);
-            var telemetryHarness = SmartFlowTestFactory.CreateTelemetryHarness();
+            using var telemetryHarness = SmartFlowTestFactory.CreateTelemetryHarness();
             var userConfigClient = new AgentUserConfigMcpClient(runtimeStore, NullLogger<AgentUserConfigMcpClient>.Instance);
 
             var smartFlow = new SmartFlowService(
                 new RecordingLlmClient(),
                 new Microsoft.Extensions.Caching.Memory.MemoryCache(new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions()),
                 runtimeFactory,
-                SmartFlowTestFactory.CreateProvidersService(new RecordingLlmClient()),
-                SmartFlowTestFactory.CreateAgentsService(new RecordingLlmClient(), new FakeMcpClientFactory()),
+                SmartFlowTestFactory.CreateProvidersService(new RecordingLlmClient(), telemetry: _telemetry.Telemetry),
+                SmartFlowTestFactory.CreateAgentsService(new RecordingLlmClient(), new FakeMcpClientFactory(), telemetry: _telemetry.Telemetry),
                 new AgentHumanInputProvider(),
                 telemetryHarness.Telemetry,
                 NullLogger<SmartFlowService>.Instance, null!,
@@ -1003,8 +1006,8 @@ workflows:
         var smartFlow = SmartFlowTestFactory.CreateSmartFlowService(
             new RecordingLlmClient(),
             new FakeMcpClientFactory(),
-            SmartFlowTestFactory.CreateProvidersService(new RecordingLlmClient()),
-            SmartFlowTestFactory.CreateAgentsService(new RecordingLlmClient(), new FakeMcpClientFactory()));
+            SmartFlowTestFactory.CreateProvidersService(new RecordingLlmClient(), telemetry: _telemetry.Telemetry),
+            SmartFlowTestFactory.CreateAgentsService(new RecordingLlmClient(), new FakeMcpClientFactory(), telemetry: _telemetry.Telemetry), telemetry: _telemetry.Telemetry);
 
         var schema = await smartFlow.GetActiveWorkflowInputSchemaAsync(agentName: null, CancellationToken.None);
 

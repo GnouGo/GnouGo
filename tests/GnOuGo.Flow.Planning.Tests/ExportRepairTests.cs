@@ -51,7 +51,7 @@ public sealed class ExportRepairTests
             return;
         }
         var request = new PlanningPrompt(state).Request();
-        Assert.Equal(8, PlanningRepairPatch.RequestContext(request)["repair"]!["version"]!.GetValue<int>());
+        Assert.Equal(9, PlanningRepairPatch.RequestContext(request)["repair"]!["version"]!.GetValue<int>());
         foreach (var code in new[] { "LLM_BUDGET_UNVERIFIABLE", "MODEL_DISPATCH_UNVERIFIABLE", "PLANNING_HOST_FAILURE" })
         {
             var interrupted = PlannerFixture.Clone(state); interrupted.Diagnostics.Add(new(code, "/", "Transport interruption"));

@@ -26,7 +26,7 @@ public sealed partial class PlanningGraphCompiler
     public string Compile(PlanningGraph graph, PlanningCatalog catalog, string name = "generated")
         => Compile(graph, catalog, name, false);
 
-    internal string Compile(PlanningGraph graph, PlanningCatalog catalog, string name, bool descriptions, bool fuseBindings = false)
+    internal string Compile(PlanningGraph graph, PlanningCatalog catalog, string name, bool descriptions, bool fuseBindings = false, bool consumerBindings = false)
     {
         ArgumentNullException.ThrowIfNull(graph);
         var diagnostics = PlanningExecutableValidation.Validate(graph, catalog);
@@ -47,7 +47,7 @@ public sealed partial class PlanningGraphCompiler
             if (allNodes.Length > 300) throw new InvalidOperationException("A workflow exceeds the 300-node planning limit.");
             var nodeIds = allNodes.ToDictionary(n => n.Key, n => "n_" + Fingerprint(n.Key)[..16], StringComparer.Ordinal);
             var scope = new LoweringScope(catalog, nodeIds, workflowIds, workflow.Inputs.Select(p => p.Name).ToHashSet(StringComparer.Ordinal), allNodes.ToDictionary(n => n.Key, n => n.Type, StringComparer.Ordinal), LoopVariables(allNodes), allNodes.ToDictionary(n => n.Key, StringComparer.Ordinal), graph.Workflows.ToDictionary(w => w.Key, StringComparer.Ordinal), descriptions);
-            if (fuseBindings) PrepareFusion(workflow, scope);
+            if (fuseBindings) PrepareFusion(workflow, scope, consumerBindings);
             var lowered = new JsonObject();
             if (workflow.Inputs.Count > 0)
             {
@@ -125,6 +125,7 @@ public sealed partial class PlanningGraphCompiler
         var result = new JsonArray();
         foreach (var node in nodes.Where(n => n.InternalRole?.StartsWith("inline:", StringComparison.Ordinal) != true))
         {
+            if (scope.ConsumerBindings.Values.Any(b => b.Group.Contains(node.Key, StringComparer.Ordinal))) continue;
             if (scope.FusedOutputs.TryGetValue(node.Key, out var group))
             {
                 if (group[0] == node.Key) result.Add((JsonNode)LowerFused(group, scope));
@@ -237,6 +238,12 @@ public sealed partial class PlanningGraphCompiler
             return (JsonNode)branch;
         }).ToArray());
         if (node.Default.Count > 0 || node.Type == "switch") result["default"] = LowerSteps(node.Default, scope);
+        if (scope.ConsumerBindings.TryGetValue(node.Key, out var consumerBinding))
+        {
+            var inputOwner = result["input"]!;
+            foreach (var part in consumerBinding.Path.SkipLast(1)) inputOwner = inputOwner[part]!;
+            inputOwner[consumerBinding.Path[^1]] = LowerFused(consumerBinding.Group, scope, consumerBinding.Value)["input"]!.DeepClone();
+        }
         return result;
     }
 
@@ -658,6 +665,7 @@ public sealed partial class PlanningGraphCompiler
         internal Dictionary<string, string[]> FusedOutputs { get; init; } = new(StringComparer.Ordinal);
         internal HashSet<string> FusedExports { get; init; } = new(StringComparer.Ordinal);
         internal HashSet<string> LocalOutputs { get; init; } = new(StringComparer.Ordinal);
+        internal Dictionary<string, (string[] Group, string[] Path, PlanningValue Value)> ConsumerBindings { get; init; } = new(StringComparer.Ordinal);
     }
     [GeneratedRegex(@"^[A-Za-z_][A-Za-z0-9_]*$", RegexOptions.CultureInvariant)]
     private static partial Regex Identifier();

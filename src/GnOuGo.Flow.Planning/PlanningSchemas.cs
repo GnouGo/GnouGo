@@ -33,7 +33,7 @@ internal static class PlanningSchemas
     internal static JsonObject Proposal(PlanningSession state, IReadOnlySet<string>? admitted = null) => PlanningRepairPatch.Active(state)
         ? PlanningRepairPatch.Schema(state, FullProposal(state, compact: false, flatten: false, lookup: false)) : FullProposal(state, admitted: admitted);
 
-    internal static JsonObject FullProposal(PlanningSession state, bool compact = true, bool clarifications = true, IReadOnlySet<string>? admitted = null, bool scopeGuidance = true, bool flatten = true, bool lookup = true)
+    internal static JsonObject FullProposal(PlanningSession state, bool compact = true, bool clarifications = true, IReadOnlySet<string>? admitted = null, bool scopeGuidance = true, bool flatten = true, bool lookup = true, bool arrayBounds = true)
     {
         var actions = new List<JsonNode?>();
         if (PlanningDiscoveryContext.CanDiscover(state))
@@ -98,9 +98,9 @@ internal static class PlanningSchemas
                 Object(("kind", Enum("number")), ("number", Type("number"))), Object(("kind", Enum("boolean")), ("boolean", Type("boolean"))),
                 Object(("kind", Enum("object")), ("members", Array(Object(("name", String()), ("value", Ref("literal")))))),
                 Object(("kind", Enum("array")), ("items", Array(Ref("literal"))))) },
-            ["businessType"] = BusinessTypes(transform: false),
+            ["businessType"] = BusinessTypes(transform: false, arrayBounds),
             ["field"] = Input(objectField: true),
-            ["resultType"] = BusinessTypes(transform: true),
+            ["resultType"] = BusinessTypes(transform: true, arrayBounds),
             ["resultField"] = Object(("name", Ref("goal")), ("type", Ref("resultType"))),
             ["input"] = Described(Input(objectField: false), "Omitted required=true/default=absent. Declare inputs once."),
             ["output"] = Object(("name", String()), ("value", Ref("value"))),
@@ -129,7 +129,7 @@ internal static class PlanningSchemas
         if (lookup)
             definitions["value"]!["anyOf"]!.AsArray().Add((JsonNode)Described(Object(("kind", Enum("lookup")), ("port", Ref("goal")),
                 ("items", Array(Ref("value"), 2, 2))), "items=[records,IDs]; port=key. Preserve order/repeats; reject missing/ambiguous IDs."));
-        definitions["task"] = Tasks(state, definitions, admitted);
+        definitions["task"] = Tasks(state, definitions, admitted, arrayBounds);
         if (scopeGuidance)
         {
             definitions["scope"]!["properties"]!["outputs"]!["description"] = "Explicit business exports via enclosingTask.export. Conditional alternatives project the same consumer-facing ports, types, nullability and requiredness from their own values. Prefer direct ports over differently shaped whole results. Nullable ports need explicit null guards on the consuming path; a separate boolean does not prove non-null.";
@@ -257,19 +257,31 @@ internal static class PlanningSchemas
         }
     }
     // Omitted flags use the existing DTO defaults. Every actual business value stays explicit.
-    private static JsonObject BusinessTypes(bool transform)
+    private static JsonObject BusinessTypes(bool transform, bool arrayBounds)
     {
         var alternatives = new List<JsonNode?>();
         foreach (var nullable in new[] { false, true })
         {
             JsonObject Shape(params (string Name, JsonObject Schema)[] fields) => Object(nullable ? [..fields, ("nullable", Boolean(true))] : fields);
             var nested = transform ? "resultType" : "businessType";
-            alternatives.Add(Shape(("kind", Enum("array")), ("items", Ref(nested))));
+            alternatives.AddRange(ArrayTypeShapes(nested, nullable, arrayBounds));
             alternatives.Add(Shape(("kind", Enum("object")), ("fields", Array(Ref(transform ? "resultField" : "field")))));
             alternatives.Add(Shape(("kind", Enum("string")), ("enum", Array(String(), 1, 256))));
             alternatives.Add(Shape(("kind", transform ? Enum("string", "number", "integer", "boolean") : Enum("string", "number", "integer", "boolean", "any"))));
         }
         return new() { ["anyOf"] = new JsonArray(alternatives.ToArray()) };
+    }
+
+    private static IEnumerable<JsonObject> ArrayTypeShapes(string nested, bool nullable, bool bounds)
+    {
+        var fields = new List<(string, JsonObject)> { ("kind", Enum("array")), ("items", Ref(nested)) };
+        if (bounds)
+        {
+            fields.Add(("minItems", Nullable(Integer(0, int.MaxValue))));
+            fields.Add(("maxItems", Nullable(Integer(0, int.MaxValue))));
+        }
+        if (nullable) fields.Add(("nullable", Boolean(true)));
+        yield return Object(fields.ToArray());
     }
 
     private static JsonObject Input(bool objectField)
@@ -288,7 +300,7 @@ internal static class PlanningSchemas
     }
 
     private static JsonObject Boolean(bool value) => new() { ["type"] = "boolean", ["enum"] = new JsonArray(value) };
-    private static JsonObject Tasks(PlanningSession state, JsonObject definitions, IReadOnlySet<string>? admitted = null)
+    private static JsonObject Tasks(PlanningSession state, JsonObject definitions, IReadOnlySet<string>? admitted = null, bool arrayBounds = true)
     {
         JsonObject Task(string kind, params (string Name, JsonObject Schema)[] fields) => Object(new (string Name, JsonObject Schema)[]
         { ("id", Ref("id")), ("kind", Enum(kind)), ("objective", Ref("goal")), ("dependsOn", Ref("identities")),
@@ -300,7 +312,8 @@ internal static class PlanningSchemas
                 ("each", Object(("input", Described(Ref("id"), "Exact named binding in this task's inputs.")),
                     ("output", Described(Ref("id"), "Exact name of the sole array result field.")))), ("inputs", NonEmptyArray(Ref("output"))),
                 ("resultType", Object(("kind", Enum("object")), ("fields", Array(Object(("name", Ref("goal")),
-                    ("type", Object(("kind", Enum("array")), ("items", Ref("resultType"))))), 1, 1))))),
+                    ("type", arrayBounds ? new JsonObject { ["anyOf"] = new JsonArray(ArrayTypeShapes("resultType", false, true).Cast<JsonNode?>().ToArray()) }
+                        : Object(("kind", Enum("array")), ("items", Ref("resultType"))))), 1, 1))))),
                 "Independent extraction: each names one collection input and the sole array result field. Produce exactly one result per item in order; nested arrays stay nested. No global comparison, filtering or implicit flattening. Shared inputs are read-only. Mapping examples are bounded; " +
                 (state.Request.Options["mapping_profile"]?.ToString() == TaskPlanCompiler.AdaptiveMappingProfile
                     ? "all items are checked under the configured shared runtime budget; unresolved items may require specialization."
@@ -314,7 +327,9 @@ internal static class PlanningSchemas
             Task("sequence", ("body", Ref("scope"))),
             Task("conditional", ("condition", Ref("value")), ("body", Ref("scope")), ("otherwise", Ref("scope"))),
             Task("parallel", ("branches", Array(Ref("scope"), 2)), ("maxConcurrency", Integer(1, 100))),
-            Task("foreach", ("items", Ref("value")), ("body", Ref("scope")), ("parallel", Type("boolean")), ("maxItems", Described(Integer(1, 10000), "TOTAL items limit: requested bound, else 100. Excess fails. 1 accepts only a singleton, regardless of workers.")), ("maxConcurrency", Integer(1, 100))),
+            Task("foreach", ("items", Ref("value")), ("body", Ref("scope")), ("parallel", Type("boolean")), ("maxItems", Described(Integer(1, 10000), arrayBounds
+                ? "TOTAL iteration ceiling, not a nonempty guarantee; declare array cardinality in its type."
+                : "TOTAL items limit: requested bound, else 100. Excess fails. 1 accepts only a singleton, regardless of workers.")), ("maxConcurrency", Integer(1, 100))),
             Task("call", ("group", Ref("id")), ("inputs", Array(Ref("output")))) }).ToArray()) };
     }
     private static IEnumerable<JsonNode?> OperationTasks(PlanningSession state, JsonObject definitions, Func<JsonObject, JsonObject, JsonObject> task, IReadOnlySet<string>? admitted)

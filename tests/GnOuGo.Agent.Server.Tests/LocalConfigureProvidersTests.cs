@@ -3,8 +3,11 @@ using GnOuGo.AI.Core;
 
 namespace GnOuGo.Agent.Server.Tests;
 
-public sealed class LocalConfigureProvidersTests
+public sealed class LocalConfigureProvidersTests : IDisposable
 {
+    private readonly TelemetryHarness _telemetry = SmartFlowTestFactory.CreateTelemetryHarness();
+    public void Dispose() => _telemetry.Dispose();
+
     [Fact]
     public async Task LlmList_IncludesBuiltInLocalCatalogAndInstallState()
     {
@@ -12,7 +15,7 @@ public sealed class LocalConfigureProvidersTests
         var service = SmartFlowTestFactory.CreateProvidersService(
             new RecordingLlmClient(),
             options: options,
-            localModels: new InstalledModelManager());
+            localModels: new InstalledModelManager(), telemetry: _telemetry.Telemetry);
 
         var events = await SmartFlowTestFactory.CollectAsync(
             service.ExecuteAsync("/llm list", CancellationToken.None),
@@ -33,7 +36,7 @@ public sealed class LocalConfigureProvidersTests
             llm,
             options: options,
             runtimeOptionsStore: store,
-            localModels: new InstalledModelManager());
+            localModels: new InstalledModelManager(), telemetry: _telemetry.Telemetry);
 
         var events = await SmartFlowTestFactory.CollectAsync(
             service.ExecuteAsync("/llm default local qwen3:0.6b", CancellationToken.None),

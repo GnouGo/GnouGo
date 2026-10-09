@@ -493,4 +493,4 @@ Only after focused probes pass, freeze a fresh Amazon/code cohort and attempt re
 
 ### Compare compiled glue without inference
 
-`--schema-portability replay-compile --compare-bindings --campaign schema-portability-20261002 --run <retained-run> --workspace <workspace>` loads the saved TaskPlan and its contracts read-only, recompiles under v3/v4 and reports steps, sets, workflows, YAML bytes/lines and remaining adjacent set pairs. It neither executes the workflow nor changes saved artifacts, approvals or campaign accounting. Compare the identical plan separately from any changed extraction composition.
+`--schema-portability replay-compile --compare-bindings --campaign schema-portability-20261002 --run <retained-run> --workspace <workspace>` loads the saved TaskPlan and its contracts read-only, recompiles under v3/v4/v5 and reports steps, sets, workflows, YAML bytes/lines and remaining adjacent set pairs. It neither executes the workflow nor changes saved artifacts, approvals or campaign accounting. Compare the identical plan separately from any changed extraction composition.

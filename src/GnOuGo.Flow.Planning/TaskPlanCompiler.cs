@@ -76,10 +76,11 @@ public sealed partial class TaskPlanCompiler
     private readonly Dictionary<string, string> _sources = new(StringComparer.Ordinal);
     private readonly HashSet<string> _compilingGroups = new(StringComparer.Ordinal);
     private readonly Dictionary<string, PlanningWorkflow> _groups = new(StringComparer.Ordinal);
-    internal const string CompactProfile = "compact-bindings-v4";
-    internal static bool UsesCompactBindings(PlanningRequest request) => request.Options["compilation_profile"]?.ToString() is "compact-bindings-v1" or "compact-bindings-v2" or "compact-bindings-v3" or CompactProfile;
-    internal static bool UsesNormalExports(PlanningRequest request) => request.Options["compilation_profile"]?.ToString() is "compact-bindings-v2" or "compact-bindings-v3" or CompactProfile;
-    internal static bool UsesFusedBindings(PlanningRequest request) => request.Options["compilation_profile"]?.ToString() == CompactProfile;
+    internal const string CompactProfile = "compact-bindings-v5";
+    internal static bool UsesCompactBindings(PlanningRequest request) => request.Options["compilation_profile"]?.ToString() is "compact-bindings-v1" or "compact-bindings-v2" or "compact-bindings-v3" or "compact-bindings-v4" or CompactProfile;
+    internal static bool UsesNormalExports(PlanningRequest request) => request.Options["compilation_profile"]?.ToString() is "compact-bindings-v2" or "compact-bindings-v3" or "compact-bindings-v4" or CompactProfile;
+    internal static bool UsesFusedBindings(PlanningRequest request) => request.Options["compilation_profile"]?.ToString() is "compact-bindings-v4" or CompactProfile;
+    internal static bool UsesConsumerBindings(PlanningRequest request) => request.Options["compilation_profile"]?.ToString() == CompactProfile;
     internal const string AdaptiveMappingProfile = "adaptive-each-v1";
     private bool _adaptiveMappings;
     private bool _compactBindings;
@@ -93,7 +94,7 @@ public sealed partial class TaskPlanCompiler
 
     internal TaskCompilation Compile(TaskPlan plan, PlanningCatalog catalog, PlanningRequest request)
         => Compile(plan, catalog, UsesCompactBindings(request), UsesNormalExports(request), request.Options["mapping_profile"]?.ToString() == AdaptiveMappingProfile,
-            request.Options["compilation_profile"]?.ToString() is "compact-bindings-v3" or CompactProfile, UsesFusedBindings(request));
+            request.Options["compilation_profile"]?.ToString() is "compact-bindings-v3" or "compact-bindings-v4" or CompactProfile, UsesFusedBindings(request));
 
     internal TaskCompilation Compile(TaskPlan plan, PlanningCatalog catalog, bool compactBindings, bool normalExports, bool adaptiveMappings = false, bool indexedProjections = false, bool fusedBindings = false)
     {
@@ -121,6 +122,9 @@ public sealed partial class TaskPlanCompiler
 
     public static JsonObject TypeSchema(TaskType type)
     {
+        if ((type.MinItems is not null || type.MaxItems is not null) && type.Kind != "array" ||
+            type.MinItems < 0 || type.MaxItems < 0 || type.MinItems > type.MaxItems)
+            throw new ArgumentException("Array cardinality requires nonnegative bounds with minItems <= maxItems.");
         if (!ValidEnum(type)) throw new ArgumentException("A string enum requires 1–256 distinct non-null strings; declare nullability separately.");
         if (type.Kind is not ("string" or "number" or "integer" or "boolean" or "object" or "array" or "any"))
             throw new ArgumentException("Unknown business type.");
@@ -131,7 +135,12 @@ public sealed partial class TaskPlanCompiler
             schema["enum"] = new JsonArray(values.Select(v => (JsonNode?)JsonValue.Create(v)).ToArray());
             if (type.Nullable) schema["enum"]!.AsArray().Add((JsonNode?)null);
         }
-        if (type.Kind == "array") schema["items"] = TypeSchema(type.Items ?? throw new ArgumentException("Array items require a business type."));
+        if (type.Kind == "array")
+        {
+            schema["items"] = TypeSchema(type.Items ?? throw new ArgumentException("Array items require a business type."));
+            if (type.MinItems is { } min) schema["minItems"] = min;
+            if (type.MaxItems is { } max) schema["maxItems"] = max;
+        }
         if (type.Kind == "object")
         {
             if (type.Fields.Select(f => f.Name).Distinct(StringComparer.Ordinal).Count() != type.Fields.Count) throw new ArgumentException("Duplicate business fields.");

@@ -9,6 +9,83 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class FusedBindingCompilationTests(Xunit.ITestOutputHelper output)
 {
+    [Theory]
+    [InlineData("observed", true, null)]
+    [InlineData("", false, "first")]
+    [InlineData("observed", false, "guard")]
+    public async Task ConsumerBindingsCheckBeforeDispatchAndReplayDurableInputs(string label, bool authorized, string? failure)
+    {
+        var requests = new List<JsonNode?>(); var factory = new InMemoryMcpClientFactory();
+        factory.RegisterServer("arbitrary", new() { Tools = [new() { Name = "publish", EffectKind = "none",
+            InputSchema = JsonNode.Parse("""{"type":"object","properties":{"text":{"type":"string"},"fixed":{"type":"string"}},"required":["text","fixed"],"additionalProperties":false}"""),
+            OutputSchema = JsonNode.Parse("""{"type":"object","properties":{"done":{"type":"boolean"}},"required":["done"],"additionalProperties":false}""") }],
+            ToolHandlers = new() { ["publish"] = request => { requests.Add(request?.DeepClone()); return new() { Content = new JsonObject { ["done"] = true } }; } } });
+        var store = new InMemoryWorkflowRunStore(); var engine = new WorkflowEngine { McpClientFactory = factory, RunStore = store,
+            Limits = new() { TenantId = "tenant", RunId = "consumer" } };
+        var catalog = await TaskPlanCompilerTests.Catalog(new(engine, (_, _) => Task.CompletedTask));
+        var capability = catalog.Capabilities.Single(c => c.Method == "publish"); capability.RequestBindings.Add(new("/fixed", JsonValue.Create("host")));
+        var graph = Graph(); var workflow = graph.Workflows[0]; workflow.Outputs.Clear();
+        workflow.Steps.Add(new() { Key = "publish", Type = "mcp.call", CapabilityId = capability.Id,
+            Input = Obj("request", Obj("text", Ref("export", "chosen"))) });
+        workflow.Finally.Add(new() { Key = "cleanup", Input = Obj("cleaned", new() { Kind = "boolean", Boolean = true }) });
+        var compiler = new PlanningGraphCompiler(); var previous = compiler.Compile(graph, catalog, "test", true, true);
+        var yaml = compiler.Compile(graph, catalog, "test", true, true, true);
+        var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml));
+        var step = Assert.Single(document.Workflows["main"].Steps);
+        Assert.Equal("mcp.call", step.Type); Assert.Equal("host", step.Source.Input!["request"]!["fixed"]!.ToString());
+        Assert.Equal("arbitrary", step.Source.Input["server"]!.ToString());
+        Assert.Contains("checkedMapping", step.Source.Input["request"]!["text"]!.ToString());
+        Assert.True(yaml.Length < previous.Length, $"before={previous.Length}, after={yaml.Length}");
+        Assert.Equal(previous, compiler.Compile(graph, catalog, "test", true, true));
+        var values = new JsonObject { ["label"] = label, ["authorized"] = authorized };
+        var result = await engine.ExecuteAsync(document.Workflows["main"], values, PlannerFixture.Ct);
+        Assert.Equal(failure is null, result.Success);
+        Assert.Contains(result.StepResults, r => r.Output?["cleaned"]?.GetValue<bool>() == true);
+        if (failure is not null)
+        {
+            Assert.Empty(requests); Assert.Equal("INPUT_VALIDATION", result.Error!.Code);
+            Assert.Equal(failure, result.Error.Details?["location"]?.ToString());
+        }
+        else
+        {
+            Assert.Equal(label, Assert.Single(requests)!["text"]!.ToString());
+            var replay = new WorkflowEngine { McpClientFactory = factory, RunStore = store, Limits = engine.Limits };
+            var committed = (await store.ReadAsync("tenant", "consumer", PlannerFixture.Ct))!;
+            Assert.True((await replay.ResumeAsync("tenant", "consumer", committed.Revision, document.Workflows["main"], PlannerFixture.Ct)).Success);
+            Assert.Single(requests);
+            var oldStore = new InMemoryWorkflowRunStore();
+            var oldEngine = new WorkflowEngine { McpClientFactory = factory, RunStore = oldStore, Limits = engine.Limits };
+            Assert.True((await oldEngine.ExecuteAsync(new WorkflowCompiler().Compile(WorkflowParser.Parse(previous)).Workflows["main"], values, PlannerFixture.Ct)).Success);
+            var oldJournal = (await oldStore.ReadAsync("tenant", "consumer", PlannerFixture.Ct))!;
+            var currentJournal = (await store.ReadAsync("tenant", "consumer", PlannerFixture.Ct))!;
+            Assert.True(currentJournal.Invocations.Count < oldJournal.Invocations.Count);
+            int Bytes(WorkflowRun journal) => System.Text.Encoding.UTF8.GetByteCount(System.Text.Json.JsonSerializer.Serialize(journal, WorkflowRunJsonContext.Default.WorkflowRun));
+            Assert.True(Bytes(currentJournal) < Bytes(oldJournal));
+            output.WriteLine($"consumer v4→v5: invocations={oldJournal.Invocations.Count}→{currentJournal.Invocations.Count}; logical journal bytes={Bytes(oldJournal)}→{Bytes(currentJournal)}; yaml bytes={previous.Length}→{yaml.Length}");
+        }
+        var run = (await store.ReadAsync("tenant", "consumer", PlannerFixture.Ct))!;
+        Assert.Equal(1, run.FinalizationStepsStarted);
+        Assert.DoesNotContain(run.Invocations.Values, i => i.Status == "needs_reconciliation");
+        output.WriteLine($"v4_steps=2; v5_steps=1; normal_sets=1→0; yaml={previous.Length}→{yaml.Length}; invocations={run.Invocations.Count}");
+    }
+
+    [Theory]
+    [InlineData("shared")][InlineData("presence")][InlineData("conditional")][InlineData("retry")][InlineData("failure")]
+    public async Task ConsumerInliningRetainsIndependentBoundaries(string boundary)
+    {
+        var graph = Graph(); var workflow = graph.Workflows[0]; workflow.Outputs.Clear();
+        workflow.Steps.Add(new() { Key = "render", Type = "template.render", Input = new() { Kind = "object", Members = [
+            new("template", new() { Kind = "string", Text = "{{chosen}}" }), new("data", Obj("chosen", Ref("export", "chosen")))] } });
+        var consumer = workflow.Steps[^1];
+        if (boundary == "shared") workflow.Outputs.Add(new() { Name = "chosen", Value = Ref("export", "chosen") });
+        if (boundary == "presence") consumer.If = new() { Kind = "present", Source = "export" };
+        if (boundary == "conditional") consumer.If = new() { Kind = "input", Source = "authorized" };
+        if (boundary == "retry") consumer.Retry = new() { Max = 1 };
+        if (boundary == "failure") workflow.Finally.Add(new() { Key = "save", If = new() { Kind = "present", Source = "export" }, Input = Obj("saved", Ref("export", "chosen")) });
+        var yaml = new PlanningGraphCompiler().Compile(graph, await Catalog(), "test", true, true, true);
+        Assert.True(new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml)).Workflows["main"].Steps.Count > 1);
+    }
+
     private static PlanningValue Ref(string source, params string[] path) => new() { Kind = "output", Source = source, Path = [.. path] };
     private static PlanningValue Obj(string field, PlanningValue value) => new() { Kind = "object", Members = [new(field, value)] };
     private static PlanningValue Project(PlanningValue value) => new() { Kind = "projection", Members = [new("value", value), new("paths", new() { Kind = "array", Items = [new() { Kind = "array" }] })] };

@@ -64,7 +64,7 @@ internal static class PlanningRepairPatch
             ? new(null, parent, path[(split + 1)..], null, -1) : null;
     }
 
-    internal static IReadOnlyList<Slot> Slots(PlanningSession state, JsonObject definitions, bool structural = true, bool scopedDependencies = true, int version = 8)
+    internal static IReadOnlyList<Slot> Slots(PlanningSession state, JsonObject definitions, bool structural = true, bool scopedDependencies = true, int version = 9)
     {
         var plan = state.Plan!; var symbols = new TaskPlanSymbols(plan);
         var index = Index(JsonSerializer.SerializeToNode(plan, PlanningJsonContext.Default.TaskPlan)!);
@@ -83,6 +83,14 @@ internal static class PlanningRepairPatch
                 kind = symbols.Values.ContainsKey(path) ? "value" : "field";
                 schema = path.Split('/') is ["", "tasks", _, "inputs"]
                     ? PlanningSchemas.Array(PlanningSchemas.Ref("output")) : PlanningSchemas.Ref("value");
+                if (version >= 9 && path.Split('/') is ["", "tasks", _, var field])
+                    schema = field switch
+                    {
+                        "mode" => PlanningSchemas.Nullable(PlanningSchemas.Enum("extract", "interpret")),
+                        "each" => PlanningSchemas.Nullable(PlanningSchemas.Object(("input", PlanningSchemas.Ref("id")), ("output", PlanningSchemas.Ref("id")))),
+                        "resultType" => PlanningSchemas.Object(("kind", PlanningSchemas.Enum("object")), ("fields", PlanningSchemas.NonEmptyArray(PlanningSchemas.Ref("resultField")))),
+                        _ => schema
+                    };
                 actions.Add("replace");
             }
             else if (exportRepair.Additions.TryGetValue(path, out var export))
@@ -208,7 +216,7 @@ internal static class PlanningRepairPatch
         return schema;
     }
 
-    internal static JsonObject Schema(PlanningSession state, JsonObject template, int version = 8)
+    internal static JsonObject Schema(PlanningSession state, JsonObject template, int version = 9)
     {
         var definitions = template["$defs"]!.DeepClone().AsObject();
         var slots = Slots(state, definitions, version: version); var edits = new JsonArray();
@@ -245,7 +253,7 @@ internal static class PlanningRepairPatch
         return PlanningSchemas.Compact(schema);
     }
 
-    internal static string Authority(PlanningSession state, bool scopedDependencies = true, int version = 8)
+    internal static string Authority(PlanningSession state, bool scopedDependencies = true, int version = 9)
     {
         var authority = new JsonObject
         {
@@ -271,7 +279,7 @@ internal static class PlanningRepairPatch
 
     private static JsonObject PermissionDescriptors(PlanningSession state, bool scopedDependencies, int version)
     {
-        var definitions = PlanningSchemas.FullProposal(state, compact: false, clarifications: false, scopeGuidance: scopedDependencies, flatten: false, lookup: false)["$defs"]!.AsObject();
+        var definitions = PlanningSchemas.FullProposal(state, compact: false, clarifications: false, scopeGuidance: scopedDependencies, flatten: false, lookup: false, arrayBounds: version >= 9)["$defs"]!.AsObject();
         var slots = Slots(state, definitions, scopedDependencies: scopedDependencies, version: version);
         return new() { ["definitions"] = definitions.DeepClone(), ["slots"] = new JsonArray(slots.Select(s => (JsonNode)new JsonObject
         { ["id"] = s.Id, ["location"] = s.Location, ["kind"] = s.Kind, ["schema"] = s.ValueSchema.DeepClone(),
@@ -289,7 +297,7 @@ internal static class PlanningRepairPatch
     {
         var repair = RequestContext(request)["repair"];
         var version = repair?["version"]?.GetValue<int>();
-        if (state.IntentVersion == 2 && version == 8)
+        if (state.IntentVersion == 2 && version is 8 or 9)
         {
             if (state.EditablePaths is not null)
             {
@@ -297,7 +305,7 @@ internal static class PlanningRepairPatch
                 if (!state.EditablePaths.SequenceEqual(state.RevisionScope, StringComparer.Ordinal))
                     throw new PlanningConflictException("The explicit revision authority changed.");
             }
-            if (repair!["authority"]?.ToString() == Authority(state)) return true;
+            if (repair!["authority"]?.ToString() == Authority(state, version: version.Value)) return true;
         }
         if (state.IntentVersion == 2 && version == 7 && state.EditablePaths is null)
         {
