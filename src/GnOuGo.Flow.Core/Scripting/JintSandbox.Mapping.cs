@@ -14,7 +14,7 @@ namespace GnOuGo.Flow.Core.Scripting;
 
 public sealed partial class JintSandbox
 {
-    public const int MappingProfileVersion = 4;
+    public const int MappingProfileVersion = 5;
     public const string MappingFunction = "checkedMapping";
     private static readonly HashSet<string> MappingHelpers = ["select", "optional", "parse", "text", "texts", "trim", "decode", "percentDecode", "resolveUri", "number", "has", "test", "scalar"];
 
@@ -102,6 +102,7 @@ public sealed partial class JintSandbox
         var containers = new HashSet<ObjectInstance>();
         var absent = new HashSet<ObjectInstance>();
         var patterns = new Dictionary<string, Regex>(StringComparer.Ordinal);
+        var literalNullPaths = new List<string>();
         long importedBytes = allowance?.ImportedBytes ?? 0;
         void ChargeOutput(JsonNode? value)
         {
@@ -172,7 +173,7 @@ public sealed partial class JintSandbox
             }));
             engine.SetValue("__mappingSave", new ClrFunction(engine, "__mappingSave", (_, args) =>
             {
-                var value = Export(args[0], 0, target);
+                var value = ExportResult(args[0]);
                 var errors = JsonSchemaContractValidator.ValidateInstance(value, target!);
                 if (errors.Count > 0) throw Unsatisfied("The mapped item does not satisfy its target: " + string.Join("; ", errors));
                 ChargeOutput(value);
@@ -211,7 +212,7 @@ public sealed partial class JintSandbox
                         try
                         {
                             engine.SetValue("source", Load(index));
-                            var value = Export(engine.Evaluate(prepared), 0, target);
+                            var value = ExportResult(engine.Evaluate(prepared));
                             var findings = JsonSchemaContractValidator.ValidateInstance(value, target!);
                             if (findings.Count != 0) throw Unsatisfied("The mapped item does not satisfy its target: " + findings[0]);
                             ChargeOutput(value);
@@ -233,7 +234,7 @@ public sealed partial class JintSandbox
             allowance?.Start();
             try
             {
-                if (items is null) { var value = Export(engine.Evaluate(expression), 0, target); ChargeOutput(value); return value; }
+                if (items is null) { var value = ExportResult(engine.Evaluate(expression)); ChargeOutput(value); return value; }
                 engine.Evaluate("(()=>{for(let i=0;i<" + items.Count.ToString(System.Globalization.CultureInfo.InvariantCulture) +
                     ";i++){source=__mappingLoad(i);__mappingSave(" + expression + ");}})()");
                 return results;
@@ -277,6 +278,17 @@ public sealed partial class JintSandbox
             foreach (var value in values) { ct.ThrowIfCancellationRequested(); array.Push(value); }
             return array;
         }
+        JsonNode? ExportResult(JsValue value)
+        {
+            literalNullPaths.Clear();
+            var result = Export(value, 0, target);
+            foreach (var path in literalNullPaths)
+                if (target is null || !AllowsLiteralNull(target, target, result,
+                    path.Split('/').Skip(1).Select(p => p.Replace("~1", "/", StringComparison.Ordinal).Replace("~0", "~", StringComparison.Ordinal)).ToArray(),
+                    0, new(), ct))
+                    throw InvalidProgram("Mapping result " + path + " contains literal null without an explicitly nullable target contract.");
+            return result;
+        }
         JsonNode? Export(JsValue value, int depth, JsonObject? contract, string path = "$")
         {
             ct.ThrowIfCancellationRequested();
@@ -286,6 +298,10 @@ public sealed partial class JintSandbox
                 if (depth > 64) throw allowance.Exhausted("nesting");
             }
             if (depth > 64) throw Unsatisfied("Mapping result nesting exceeded its limit.");
+            // Literal null represents an unavailable fact only where the immutable
+            // target explicitly permits it. Check after assembling this private result
+            // so conditional schema alternatives see their actual sibling values.
+            if (value.IsNull()) { literalNullPaths.Add(path); return null; }
             if (value.IsObject() && absent.Contains(value.AsObject()))
             {
                 if (contract is null || !contract.TryGetPropertyValue("default", out var fallback) ||
@@ -432,6 +448,54 @@ public sealed partial class JintSandbox
                 default: throw Unsatisfied("Unsupported extraction helper.");
             }
         }
+    }
+
+    private static bool AllowsLiteralNull(JsonObject schema, JsonObject root, JsonNode? value, string[] path,
+        int offset, HashSet<(JsonObject Schema, int Offset)> visited, CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        if (visited.Count >= 64 || !visited.Add((schema, offset))) return false;
+        try
+        {
+            var leaf = offset == path.Length;
+            var declared = leaf && (schema["type"]?.ToString() == "null" ||
+                schema["type"] is JsonArray types && types.Any(t => t?.ToString() == "null") ||
+                schema.TryGetPropertyValue("const", out var constant) && constant is null ||
+                schema["enum"] is JsonArray values && values.Any(v => v is null));
+            // A nullable declaration must satisfy its other assertions too. References
+            // and alternatives retain the original root and exact matching semantics.
+            if (leaf || schema.ContainsKey("$ref") || schema.ContainsKey("allOf") || schema.ContainsKey("anyOf") ||
+                schema.ContainsKey("oneOf") || schema.ContainsKey("if"))
+                if (!JsonSchemaInstanceValidator.MatchesSchema(value, schema, root)) return false;
+            if (declared) return true;
+            if (schema["$ref"] is JsonValue reference && reference.TryGetValue<string>(out var address) &&
+                JsonSchemaInstanceValidator.TryResolveLocalReference(root, address, out var resolved) && resolved is JsonObject referenced &&
+                AllowsLiteralNull(referenced, root, value, path, offset, visited, ct)) return true;
+            foreach (var keyword in new[] { "allOf", "anyOf", "oneOf" })
+                if (schema[keyword] is JsonArray alternatives)
+                    foreach (var alternative in alternatives.OfType<JsonObject>())
+                        if (JsonSchemaInstanceValidator.MatchesSchema(value, alternative, root) &&
+                            AllowsLiteralNull(alternative, root, value, path, offset, visited, ct)) return true;
+            if (schema["if"] is JsonObject condition &&
+                schema[JsonSchemaInstanceValidator.MatchesSchema(value, condition, root) ? "then" : "else"] is JsonObject selected &&
+                AllowsLiteralNull(selected, root, value, path, offset, visited, ct)) return true;
+            if (leaf) return false;
+            if (value is JsonObject obj && obj.TryGetPropertyValue(path[offset], out var property))
+            {
+                var child = schema["properties"]?[path[offset]] as JsonObject;
+                if (child is null && (schema["properties"] as JsonObject)?.ContainsKey(path[offset]) != true)
+                    child = schema["additionalProperties"] as JsonObject;
+                return child is not null && AllowsLiteralNull(child, root, property, path, offset + 1, visited, ct);
+            }
+            if (value is JsonArray array && int.TryParse(path[offset], System.Globalization.NumberStyles.None,
+                System.Globalization.CultureInfo.InvariantCulture, out var index) && index >= 0 && index < array.Count)
+            {
+                var child = schema["prefixItems"] is JsonArray tuple && index < tuple.Count ? tuple[index] : schema["items"];
+                return child is JsonObject item && AllowsLiteralNull(item, root, array[index], path, offset + 1, visited, ct);
+            }
+            return false;
+        }
+        finally { visited.Remove((schema, offset)); }
     }
 
     private static JsonObject WithIndex(JsonNode? details, int index)

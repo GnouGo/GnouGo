@@ -35,6 +35,7 @@ Requirements, clarification and tool selection are responsibilities inside one b
 - Already typed collected records use direct bindings and scope outputs, not another extraction, interpretation or forwarding `value` task. Preserve accepted output types, requiredness, bounds and nullability through revisions: a non-null record with nullable fields is distinct from a nullable record. Structural revisions do not authorize changing the accepted business interface.
 - Preserve requested work without adding unrequested goals, side effects, filtering or deduplication. `choice` names a declared business choice, never an operation. Read operation results through typed `output` bindings; `present` establishes completion, not success.
 - Defaults require authoritative declarations or accepted public-input defaults; absence differs from explicit null. Never create caller inputs to hide missing producer data.
+- Extraction may return literal null for an unavailable fact only at an explicitly nullable target path. Every non-null scalar still needs an observed origin; never fill a missing fact with an unrelated observed value. Missing properties and defaults keep their existing semantics. Nullability does not prove that extraction preserved all relevant facts; retain independent execution oracles.
 - Never generate a numeric executor. Ordinary formulas compile to JavaScript Number expressions; exact business arithmetic belongs to the owning MCP. Validate declared decimal conversions automatically at MCP boundaries.
 
 ## Contracts, scopes and compilation
