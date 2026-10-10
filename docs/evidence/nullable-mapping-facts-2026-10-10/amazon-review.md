@@ -1,6 +1,6 @@
 # Review: one fresh Amazon execution
 
-Status: **awaiting explicit artifact approval; execution has not started**.
+Status: **approved by the user and executed once; failed before search submission**. The unchanged reviewed artifact remains below; see [execution evidence](amazon-execution.json) and [approval](amazon-approval.json).
 
 - Frozen production/harness candidate: `ce58f8da5b2abf0acfa2508ffdc7701a89bd58c6`.
 - Campaign/cohort/run: `schema-portability-20261002` / `nullfacts20261010a` / `nullfacts20261010a-amazon-1`.
@@ -28,13 +28,13 @@ The final targeted revision removed invented extraction capability booleans and 
 
 The plan contains real search submission, individual product navigation, actual writing and cleanup. It contains no consent action, deduplication or extra ranking criterion. Two pure projections retain original page records for deterministic reconnection. Selection and per-product reconciliation remain explicit interpretation, and bounded TSV formatting remains an explicit transform. Contract/provenance checks do not prove semantic relevance or successful extraction; the unchanged independent live oracle must verify those outcomes.
 
-## Inference and limits disclosed for approval
+## Inference and limits disclosed for approval (retained pre-execution review)
 
 Independent extraction uses the existing adaptive mapping profile: first a generic script, then specialization only for unresolved observations when necessary. Possible per-item inference shares the unchanged 30-minute cumulative runtime inference/execution deadline and campaign monetary admission. It is not a two-call promise. Every item and the complete target validate before publication. Mapping sandbox limits remain 50,000,000 bytes, 10,000 statements and 5,000 ms per invocation, cumulatively across its items/attempts. Request limits remain 96,000 input / 32,768 output tokens, with stricter existing bindings enforced.
 
 Planning used five logical calls, six transport attempts, one automatic repair, two explicit revisions and two discovery reads. Verified usage: 49,468 input / 16,313 output tokens; cost €0.6537669713372970094950749845. Active planning time: 517,725 ms. No workflow execution has started. Campaign committed/reserved upper bound: €127.62158578606425266549552572 / €150. Five historical unknown transport reservations remain unchanged (€6.5016147947905255187922165013).
 
-## Required execution evidence
+## Required execution evidence (retained review criteria)
 
 One execution only after approval of this revision/hash and all five requirement IDs. Independently check complete observations, actual visited product pages, source-grounded values, XLSX cells/order/output location and Browser closure. A workflow status alone is insufficient. Preserve every failed invocation; never replay an uncertain one.
 

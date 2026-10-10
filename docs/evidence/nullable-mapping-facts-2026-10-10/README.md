@@ -94,4 +94,27 @@ Fresh session `nullfacts20261010a-amazon-1` reached clean review at revision 7 o
 
 Final planning totals: **5 logical calls, 6 transport attempts, 1 automatic repair, 2 explicit revisions, 2 discovery reads**, 49,468 input / 16,313 output tokens, €0.6537669713372970094950749845 and 517,725 ms active planning. The campaign upper bound is **€127.62158578606425266549552572 / €150**, including five unchanged historical unknown reservations. Full accounting is retained in the exact [session inspection](amazon-planning-r7.json).
 
-**Execution and live oracles remain unverified pending the current artifact approval.** See [concrete review](amazon-review.md) for revision 7, its hash, all five requirement IDs, actual operations/loops/bindings and adaptive inference disclosure. Historical approvals are not reused. The independent retained mapping replay and local XLSX evidence are not reported as a live workbook result.
+The user explicitly approved revision 7 and all five requirement IDs. Approval persisted as revision 8 with the same artifact hash. The single execution is complete; see the result below. Historical approvals were not reused. The independent retained mapping replay and local XLSX evidence are not reported as a live workbook result.
+
+## Authorized live execution: failed identity reconnection
+
+The approved artifact ran once, without changes, on the frozen candidate. It acquired **4 complete home-page observation pages / 153 records**, HTTP 200, in one acquisition attempt. Mapping processed and validated all four pages. There were **three mapping calls: one generation, two global program repairs, zero specializations**; one further interpretation call selected the search control. All four requests have verified receipts. The public encrypted-run API confirms terminal `failed` status, completed finalization, 16 normal steps and 1 finalization steps; see [durability check](execution-durability.json).
+
+The final learned script shortened the opaque observed reference with `m.text(r.reference, ":(record:.+)$")`. It emitted `record:13`; the original reference was `9a3574379e43411eac69443f958e7ac6:record:13`. Selection returned the offered shortened key correctly. The first lookup therefore passed, while the second lookup against original `reference` values correctly failed:
+
+```text
+CONTRACT_UNSATISFIED: A selected identity is absent from the lookup source.
+workflow main; step n_8b14d33e667c7b2f; compiled_node v16
+```
+
+This is an identity-preservation failure in learned adaptation, not a null rejection, memory exhaustion, Browser timeout or uncertain provider completion. A source-derived substring can satisfy scalar provenance while failing exact identity reconnection. The declared string schema alone does not require equality to its source reference. The runtime safety check remained intact and prevented action on the wrong reference.
+
+**No search submission, product visit, product extraction or workbook writing occurred.** The workflow closed Browser; the independent cleanup probe observed `No active page`. The unchanged E2E oracle returned `workflow_execution_failed` and `workbook_missing`. Consequently the null correction is still supported by offline retained-product evidence, not by a successful fresh product extraction.
+
+Mapping resources remained below existing limits: **3,427,592 allocated bytes**, 860,553 materialized bytes, 89 output bytes, 196 statements and 27.3078 ms active sandbox time. Three complete example pages were packed (one omitted from generation examples but still executed); the recorded mapping request size was 53,571 bytes. All invocation allowances remained cumulative.
+
+Execution used **4 logical calls / 4 transport attempts**, 60,237 verified input / 3,981 output tokens, **€0.3732496228591711775667761115**, and 92,320 ms workflow time (93,402 ms including the independent oracle). Planning remains separate: five calls and €0.6537669713372970094950749845. Combined fresh planning/execution cost: **€1.027016594196468187061851096**. Campaign upper bound: **€127.99483540892342384306230182 / €150**; five historical unknown reservations remain **€6.5016147947905255187922165013**, with zero new unknown attempts.
+
+[Execution evidence](amazon-execution.json), [exact accounting](execution-accounting.json), [approval](amazon-approval.json), [readiness](execution-readiness.jsonl), and [execution log](execution-log.txt) retain separate facts. Full observations, issued requests and durable receipts remain in the existing encrypted stores. Post-run inspection uses only public read APIs ([inspection source](inspection-source.cs.txt)); it performs zero inference/MCP calls and never resumes the workflow.
+
+Minimal next correction proposed, **not applied to the approved artifact**: preserve opaque candidate identities verbatim (`key: r.reference`), compact only decision facts, and add a generic regression showing selection reconnection retains the exact original identity. Do not append guessed prefixes, weaken lookup equality, or grant authority to derived strings. No retry, new workflow or production change was made after this failure. PR #117 remains draft.
