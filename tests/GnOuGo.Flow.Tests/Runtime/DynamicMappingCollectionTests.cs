@@ -30,6 +30,7 @@ public sealed partial class DynamicMappingCollectionTests
         Assert.Equal(new[] { "first", "second", "first" }, Result(result).Select(v => v!.GetValue<string>()));
         var prompt = Assert.Single(model.Requests).Prompt;
         Assert.Contains("Use item for the current original element", prompt);
+        Assert.Contains("Copy opaque IDs/references verbatim: key:record.reference", prompt);
         Assert.Contains("\"context\":{\"approved\":{\"label\":\"shared\"}}", prompt);
         Assert.DoesNotContain("source[item_input]", prompt);
         Assert.DoesNotContain("source.note", prompt);

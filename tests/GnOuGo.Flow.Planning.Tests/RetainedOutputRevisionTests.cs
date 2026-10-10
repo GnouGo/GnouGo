@@ -25,7 +25,8 @@ public sealed class RetainedOutputRevisionTests
         Assert.Contains("T[]/item→array<array<T>>", instructions);
         Assert.Contains("flatten(output(extract,rows))", instructions);
         Assert.Contains("inline copies/assembly/field/flatten/lookup in bindings/exports", instructions);
-        Assert.Contains("Pure foreach:only necessary projections", instructions);
+        Assert.Contains("Pure foreach:necessary projections", instructions);
+        Assert.Contains("Selection:unchanged IDs→lookup offered→originals/actions", instructions);
         Assert.Contains("requires:local typed assertion, short-circuit", instructions);
         Assert.Contains("lookup:[records,IDs],port:key→array", instructions);
         Assert.Contains("json:text", instructions);
