@@ -106,6 +106,7 @@ public sealed class SplitJournalTests(ITestOutputHelper output) : IDisposable
             state["steps"]!.AsObject().Remove("branch0"); state["unexpected"] = true;
             await owner.RestoreSnapshotAsync(saved, state, false, Ct);
             Assert.Null(state["unexpected"]); Assert.NotNull(state["steps"]!["branch0"]);
+            Assert.Equal(new[] { "observed", "branch0", "branch1", "branch2" }, state["steps"]!.AsObject().Select(p => p.Key));
             Assert.Equal("1.2300", state["steps"]!["observed"]!["pages"]![0]!["records"]![0]!["price"]!.ToJsonString());
             Assert.False(saved.TryGetMaterializedSnapshot(false, out _));
             revision = owner.Run.Revision;

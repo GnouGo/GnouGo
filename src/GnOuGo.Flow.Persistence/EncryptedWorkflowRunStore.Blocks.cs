@@ -493,6 +493,13 @@ public sealed partial class EncryptedWorkflowRunStore
                 var current = target[pair.Key]; var value = RestoreValue(current, pair.Value, ct);
                 if (!target.ContainsKey(pair.Key) || !ReferenceEquals(current, value)) target[pair.Key] = value;
             }
+            if (!target.Select(p => p.Key).SequenceEqual(fields.Keys, StringComparer.Ordinal))
+            {
+                // Restore ordering without copying the already verified subtrees.
+                var ordered = fields.Keys.Select(key => new KeyValuePair<string, JsonNode?>(key, target[key])).ToArray();
+                target.Clear();
+                foreach (var pair in ordered) target.Add(pair.Key, pair.Value);
+            }
         }
 
         private JsonNode? RestoreValue(JsonNode? current, JsonNode reference, CancellationToken ct)
