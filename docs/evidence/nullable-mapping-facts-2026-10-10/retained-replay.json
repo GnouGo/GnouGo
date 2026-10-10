@@ -1,0 +1,82 @@
+{
+  "provider_calls": 0,
+  "mcp_calls": 0,
+  "historical_run_resumed": false,
+  "live_storage_writes": 0,
+  "source_pages": 15,
+  "source_records": 610,
+  "input_sha256": "0c83d36e662465da9d73750dad7a840941c0ba74c1266f1a1f5292f2cd5838d1",
+  "original_script_sha256": "7bd3773bf6d670b5b966e40c4b605d96b365de4e0c7b7017c80df285af5e93f7",
+  "source_unchanged": true,
+  "measurements": [
+    {
+      "phase": "cold",
+      "success": true,
+      "error": null,
+      "independent_expected_output_matches": true,
+      "output_pages": 15,
+      "output_fact_records": 31,
+      "elapsed_ms": 794.2258,
+      "total_managed_allocated_bytes": 144477360,
+      "saved_response_consumptions": 1,
+      "sandbox_and_mapping": {
+        "gnougo.mapping.source_items": 15,
+        "gnougo.mapping.model_attempts": 1,
+        "gnougo.mapping.specializations": 0,
+        "gnougo.mapping.cache_hits": 0,
+        "gnougo.mapping.cache_hit": false,
+        "gnougo.mapping.failure_groups": 9,
+        "gnougo.mapping.sample_items": 2,
+        "gnougo.mapping.omitted_items": 13,
+        "gnougo.mapping.request_bytes": 49553,
+        "gnougo.mapping.program_repairs": 0,
+        "gnougo.mapping.processed_items": 15,
+        "gnougo.mapping.validated_items": 15,
+        "gnougo.mapping.sandbox.statements": 686,
+        "gnougo.mapping.sandbox.statement_limit": 10000,
+        "gnougo.mapping.sandbox.elapsed_ms": 71.1749,
+        "gnougo.mapping.sandbox.time_limit_ms": 5000,
+        "gnougo.mapping.sandbox.allocated_bytes": 14615312,
+        "gnougo.mapping.sandbox.materialized_bytes": 1873046,
+        "gnougo.mapping.sandbox.output_bytes": 3466,
+        "gnougo.mapping.sandbox.memory_limit_bytes": 50000000,
+        "gnougo.mapping.sandbox.nesting_depth": 4,
+        "gnougo.mapping.sandbox.nesting_limit": 64
+      },
+      "control_phases": [
+        "generation"
+      ]
+    },
+    {
+      "phase": "warm",
+      "success": true,
+      "error": null,
+      "independent_expected_output_matches": true,
+      "output_pages": 15,
+      "output_fact_records": 31,
+      "elapsed_ms": 139.1175,
+      "total_managed_allocated_bytes": 86399088,
+      "saved_response_consumptions": 1,
+      "sandbox_and_mapping": {
+        "gnougo.mapping.source_items": 15,
+        "gnougo.mapping.model_attempts": 0,
+        "gnougo.mapping.specializations": 0,
+        "gnougo.mapping.processed_items": 15,
+        "gnougo.mapping.validated_items": 15,
+        "gnougo.mapping.cache_hits": 15,
+        "gnougo.mapping.cache_hit": true,
+        "gnougo.mapping.sandbox.statements": 686,
+        "gnougo.mapping.sandbox.statement_limit": 10000,
+        "gnougo.mapping.sandbox.elapsed_ms": 33.4255,
+        "gnougo.mapping.sandbox.time_limit_ms": 5000,
+        "gnougo.mapping.sandbox.allocated_bytes": 14596616,
+        "gnougo.mapping.sandbox.materialized_bytes": 1873046,
+        "gnougo.mapping.sandbox.output_bytes": 3466,
+        "gnougo.mapping.sandbox.memory_limit_bytes": 50000000,
+        "gnougo.mapping.sandbox.nesting_depth": 4,
+        "gnougo.mapping.sandbox.nesting_limit": 64
+      },
+      "control_phases": []
+    }
+  ]
+}

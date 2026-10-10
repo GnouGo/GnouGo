@@ -1,0 +1,272 @@
+[
+  {
+    "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"notice-cookie\")",
+    "outcome": "Passed",
+    "output": "LOCAL notice-cookie: success=True, calls=1, discovery=2, repairs=0, inputEstimate=21678, executionAdapterCalls=4, planningMs=134,3, executionMs=794,5; error="
+  },
+  {
+    "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"unrelated-modal\")",
+    "outcome": "Passed",
+    "output": "LOCAL unrelated-modal: success=False, calls=1, discovery=2, repairs=0, inputEstimate=21678, executionAdapterCalls=0, planningMs=268,2, executionMs=715,8; error=CONTRACT_UNSATISFIED The observed blocker is not authorized cookie consent. [workflow 'w_81be22d7f1c8baf9', step 'n_579837f884f69a11']"
+  },
+  {
+    "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"observation\")",
+    "outcome": "Passed",
+    "output": "LOCAL observation: success=True, calls=1, discovery=2, repairs=0, inputEstimate=21678, executionAdapterCalls=1, planningMs=172,4, executionMs=818,2; error="
+  },
+  {
+    "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RetainedCompositionVisitsProductsAndWritesIndependentlyCheckedExcel(variant: \"absent\")",
+    "outcome": "Passed",
+    "output": "RETAINED absent: success=True; planningCalls=1; repairs=0; planningMs=14281,9; executionMs=12865,5; yamlBytes=195072; mappingCalls=13; unsampledPages=21; interpretationCalls=15; requestEstimates=[6898,4548,6918,4546,6806,5240,6775,4670,6788,4674,6456,4569,6771,4668,6761,4660,6761,4660,6773,4664,6783,4675,6763,4664,6763,4660,4571,7491]; invocations=233; steps=232; cleanupSteps=1; journalBytes=45338329; error= \nCOVERAGE absent: pages=43; records=77; offered=12; selected=10; typedProjectionCalls=0; normalizationCalls=0\nORACLE absent: cellsMatch=True; firstTenVisits=True; workbookRows=11; browserClosed=true; noUnresolvedReceipts=true"
+  },
+  {
+    "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"navigation\")",
+    "outcome": "Passed",
+    "output": "LOCAL navigation: success=False, calls=1, discovery=2, repairs=0, inputEstimate=21678, executionAdapterCalls=1, planningMs=128,7, executionMs=469,4; error=MCP_CALL_ERROR mcp.call (tool) to 'browser/browser_get_content' returned an MCP error: PlaywrightException: net::ERR_CONNECTION_RESET at http://127.0.0.1:49258/broken\nCall log:\n  - navigating to \"http://127.0.0.1:49258/broken\", waiting until \"load\" [workflow 'w_44f7d67dca04387e', step 'n_645d82931af1a31d']"
+  },
+  {
+    "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"pages-compact-decision-complete-flat-consent\")",
+    "outcome": "Passed",
+    "output": "LOCAL pages-compact-decision-complete-flat-consent: success=True, calls=1, discovery=2, repairs=0, inputEstimate=21678, executionAdapterCalls=3, planningMs=1466,4, executionMs=19779,5; error= \nCOMPACT pages-compact-decision-complete-flat-consent: mapping requests=80; complete request estimates=[6401,6381,6383,6381,6385,6386,6381,6388,6379,6381,6383,6380,6389,6376,6379,6376,6383,6386,6383,6388,6380,6384,6381,6378,6379,6384,6375,6383,6383,6381,6378,6390,6380,6379,6383,6381,6379,6378,6385,6383,6380,6384,6374,6383,6379,6379,6381,6383,6378,6381,6380,6378,6380,6379,6380,6380,6381,6380,6380,6380,6178,6273,6183,6201,6384,6385,6383,6383,6386,6391,6389,6386,6389,6388,6383,6391,6385,6393,6391,6459]"
+  },
+  {
+    "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"incomplete-observation\")",
+    "outcome": "Passed",
+    "output": "LOCAL incomplete-observation: success=False, calls=1, discovery=2, repairs=0, inputEstimate=21678, executionAdapterCalls=0, planningMs=335,9, executionMs=804,5; error=CONTRACT_UNSATISFIED The observation is incomplete; narrow or continue it before deciding. [workflow 'w_81be22d7f1c8baf9', step 'n_579837f884f69a11']"
+  },
+  {
+    "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"missing\")",
+    "outcome": "Passed",
+    "output": "LOCAL missing: success=True, calls=1, discovery=2, repairs=0, inputEstimate=21678, executionAdapterCalls=3, planningMs=130,2, executionMs=600,8; error="
+  },
+  {
+    "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"required-consent\")",
+    "outcome": "Passed",
+    "output": "LOCAL required-consent: success=True, calls=1, discovery=2, repairs=0, inputEstimate=21678, executionAdapterCalls=4, planningMs=427,3, executionMs=1101,1; error="
+  },
+  {
+    "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionRemovesForwardersWithoutChangingContractsOrLowering",
+    "outcome": "Passed",
+    "output": "COMPOSITION tasks=23\u219213; steps=61\u219260; sets=39\u219236; yamlBytes=92585\u219277588; profile=compact-bindings-v5"
+  },
+  {
+    "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"pages-compact-decision-complete-flat-lookup\")",
+    "outcome": "Passed",
+    "output": "LOCAL pages-compact-decision-complete-flat-lookup: success=True, calls=1, discovery=2, repairs=0, inputEstimate=21678, executionAdapterCalls=3, planningMs=2223,7, executionMs=19058,9; error= \nCOMPACT pages-compact-decision-complete-flat-lookup: mapping requests=79; complete request estimates=[6380,6380,6376,6376,6383,6379,6371,6383,6375,6378,6385,6379,6379,6379,6379,6378,6380,6373,6378,6376,6379,6378,6383,6376,6380,6383,6379,6380,6378,6380,6380,6381,6380,6376,6380,6376,6378,6375,6378,6385,6374,6378,6383,6379,6381,6380,6373,6381,6383,6379,6380,6383,6381,6388,6380,6379,6389,6381,6376,6376,6176,6268,6183,6273,6269,6271,6265,6268,6266,6268,6273,6268,6271,6269,6265,6274,6269,6268,6336]"
+  },
+  {
+    "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RetainedCompositionVisitsProductsAndWritesIndependentlyCheckedExcel(variant: \"unknown-id\")",
+    "outcome": "Passed",
+    "output": "RETAINED unknown-id: success=False; planningCalls=1; repairs=0; planningMs=14373,0; executionMs=3633,6; yamlBytes=195072; mappingCalls=3; unsampledPages=21; interpretationCalls=3; requestEstimates=[6909,4555,6918,4546,6808,5255]; invocations=63; steps=62; cleanupSteps=1; journalBytes=22848727; error=CONTRACT_UNSATISFIED A selected identity is absent from the lookup source. [workflow 'w_81be22d7f1c8baf9', step 'n_278f8d9cd23c0011']"
+  },
+  {
+    "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"pages-compact-decision-complete-flat\")",
+    "outcome": "Passed",
+    "output": "LOCAL pages-compact-decision-complete-flat: success=True, calls=1, discovery=2, repairs=0, inputEstimate=21678, executionAdapterCalls=3, planningMs=1659,9, executionMs=19030,3; error= \nCOMPACT pages-compact-decision-complete-flat: mapping requests=79; complete request estimates=[6379,6374,6384,6381,6383,6378,6371,6380,6376,6381,6379,6383,6376,6379,6380,6374,6374,6374,6378,6378,6380,6383,6375,6375,6380,6381,6379,6376,6378,6380,6384,6381,6378,6379,6380,6378,6375,6371,6380,6379,6385,6379,6374,6373,6383,6375,6383,6376,6373,6380,6381,6383,6379,6380,6380,6375,6375,6380,6378,6375,6180,6269,6181,6371,6366,6375,6364,6373,6368,6369,6371,6364,6369,6371,6375,6366,6365,6366,6431]"
+  },
+  {
+    "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RetainedCompositionVisitsProductsAndWritesIndependentlyCheckedExcel(variant: \"consent\")",
+    "outcome": "Passed",
+    "output": "RETAINED consent: success=True; planningCalls=1; repairs=0; planningMs=14615,5; executionMs=12381,1; yamlBytes=195072; mappingCalls=13; unsampledPages=22; interpretationCalls=15; requestEstimates=[6914,4638,6895,4534,6815,5285,6768,4666,6756,4659,6475,4581,6790,4679,6764,4664,6790,4675,6771,4671,6758,4656,6758,4660,6780,4668,4571,7491]; invocations=237; steps=236; cleanupSteps=1; journalBytes=52704515; error= \nCOVERAGE consent: pages=44; records=79; offered=12; selected=10; typedProjectionCalls=0; normalizationCalls=0\nORACLE consent: cellsMatch=True; firstTenVisits=True; workbookRows=11; browserClosed=true; noUnresolvedReceipts=true"
+  },
+  {
+    "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"required-incomplete-observation\")",
+    "outcome": "Passed",
+    "output": "LOCAL required-incomplete-observation: success=False, calls=1, discovery=2, repairs=0, inputEstimate=21678, executionAdapterCalls=0, planningMs=427,9, executionMs=851,2; error=INPUT_VALIDATION set output does not satisfy output_schema: $.value: value is not included in enum; received false; allowed values: true [workflow 'w_81be22d7f1c8baf9', step 'n_6f7654d8f54fbacb']"
+  },
+  {
+    "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"changed\")",
+    "outcome": "Passed",
+    "output": "LOCAL changed: success=True, calls=1, discovery=2, repairs=0, inputEstimate=21678, executionAdapterCalls=4, planningMs=136,1, executionMs=793,9; error="
+  },
+  {
+    "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RetainedCompositionVisitsProductsAndWritesIndependentlyCheckedExcel(variant: \"incomplete\")",
+    "outcome": "Passed",
+    "output": "RETAINED incomplete: success=False; planningCalls=1; repairs=0; planningMs=14974,0; executionMs=1083,8; yamlBytes=195072; mappingCalls=0; unsampledPages=0; interpretationCalls=0; requestEstimates=[]; invocations=5; steps=4; cleanupSteps=1; journalBytes=795742; error=MCP_CALL_ERROR mcp.call (tool) to 'browser/browser_get_content' returned an MCP error: A complete snapshot exceeds capture or page bounds. Narrow the requested observation explicitly. [workflow 'w_81be22d7f1c8baf9', step 'n_38250c12b4a947a5']"
+  },
+  {
+    "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"pages-compact-consent\")",
+    "outcome": "Passed",
+    "output": "LOCAL pages-compact-consent: success=True, calls=1, discovery=2, repairs=0, inputEstimate=21678, executionAdapterCalls=3, planningMs=469,2, executionMs=5648,5; error= \nCOMPACT pages-compact-consent: mapping requests=16; complete request estimates=[6368,6365,6370,6366,6365,6366,6363,6371,6365,6368,6365,6373,6370,6368,6370,6431]"
+  },
+  {
+    "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"pages-compact-scoped\")",
+    "outcome": "Passed",
+    "output": "LOCAL pages-compact-scoped: success=True, calls=2, discovery=2, repairs=0, inputEstimate=4988, executionAdapterCalls=3, planningMs=210,6, executionMs=4665,2; error= \nCOMPACT pages-compact-scoped: mapping requests=16; complete request estimates=[6396,6390,6384,6385,6391,6393,6388,6384,6388,6390,6384,6383,6390,6388,6385,6468]"
+  },
+  {
+    "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"pages-parallel\")",
+    "outcome": "Passed",
+    "output": "LOCAL pages-parallel: success=True, calls=1, discovery=2, repairs=0, inputEstimate=21678, executionAdapterCalls=3, planningMs=221,0, executionMs=801,6; error="
+  },
+  {
+    "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: \"fabricated\")",
+    "outcome": "Passed",
+    "output": "BUSINESS fabricated: success=True; calls=1; repairs=0; elapsedMs=11465; tasks=13; yamlBytes=75102; inference=24; mappings=11; invocations=226; steps=225; cleanup=1; journalBytes=22598238; error= \nORACLE fabricated: cellsMatch=False; visited=10; pages=38; offered=12; decisionBytes=2597; cleanup=true; typedInference=0"
+  },
+  {
+    "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"nominal\")",
+    "outcome": "Passed",
+    "output": "LOCAL nominal: success=True, calls=1, discovery=2, repairs=0, inputEstimate=21678, executionAdapterCalls=4, planningMs=137,7, executionMs=821,9; error="
+  },
+  {
+    "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"each-parallel\")",
+    "outcome": "Passed",
+    "output": "LOCAL each-parallel: success=True, calls=1, discovery=2, repairs=0, inputEstimate=21678, executionAdapterCalls=2, planningMs=204,1, executionMs=643,1; error="
+  },
+  {
+    "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"consent\")",
+    "outcome": "Passed",
+    "output": "LOCAL consent: success=True, calls=1, discovery=2, repairs=0, inputEstimate=21678, executionAdapterCalls=4, planningMs=331,1, executionMs=939,7; error="
+  },
+  {
+    "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"pages-compact-decision-consent\")",
+    "outcome": "Passed",
+    "output": "LOCAL pages-compact-decision-consent: success=True, calls=1, discovery=2, repairs=0, inputEstimate=21678, executionAdapterCalls=3, planningMs=644,3, executionMs=20003,5; error= \nCOMPACT pages-compact-decision-consent: mapping requests=80; complete request estimates=[6391,6384,6380,6384,6380,6383,6380,6385,6379,6384,6385,6381,6388,6384,6379,6378,6378,6379,6380,6380,6375,6384,6379,6374,6381,6385,6383,6380,6385,6381,6378,6381,6380,6388,6376,6379,6380,6388,6381,6378,6378,6380,6386,6389,6383,6379,6379,6375,6378,6374,6384,6380,6384,6375,6379,6383,6379,6381,6379,6383,6188,6270,6178,6198,6380,6379,6385,6380,6379,6384,6383,6380,6375,6383,6373,6378,6383,6381,6378,6449]"
+  },
+  {
+    "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: \"compact\")",
+    "outcome": "Passed",
+    "output": "BUSINESS compact: success=True; calls=1; repairs=0; elapsedMs=10420; tasks=13; yamlBytes=75102; inference=24; mappings=11; invocations=226; steps=225; cleanup=1; journalBytes=22606869; error= \nORACLE compact: cellsMatch=True; visited=10; pages=38; offered=12; decisionBytes=2597; cleanup=true; typedInference=0"
+  },
+  {
+    "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: \"producer_revision\")",
+    "outcome": "Passed",
+    "output": "BUSINESS producer_revision: success=True; calls=2; repairs=0; elapsedMs=10380; tasks=13; yamlBytes=75102; inference=24; mappings=11; invocations=226; steps=225; cleanup=1; journalBytes=22623235; error= \nORACLE producer_revision: cellsMatch=True; visited=10; pages=38; offered=12; decisionBytes=2597; cleanup=true; typedInference=0"
+  },
+  {
+    "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"pages-compact-decision-complete-flat-lookup-consen\"\u00b7\u00b7\u00b7)",
+    "outcome": "Passed",
+    "output": "LOCAL pages-compact-decision-complete-flat-lookup-consent: success=True, calls=1, discovery=2, repairs=0, inputEstimate=21678, executionAdapterCalls=3, planningMs=2134,6, executionMs=18059,2; error= \nCOMPACT pages-compact-decision-complete-flat-lookup-consent: mapping requests=80; complete request estimates=[6399,6381,6379,6383,6376,6385,6380,6384,6381,6380,6379,6378,6381,6378,6385,6385,6379,6384,6379,6384,6379,6375,6376,6383,6381,6380,6381,6381,6374,6379,6378,6378,6379,6384,6380,6384,6383,6379,6380,6378,6380,6381,6381,6381,6381,6379,6380,6381,6376,6386,6383,6386,6383,6380,6384,6380,6384,6381,6381,6381,6179,6275,6181,6195,6264,6265,6268,6266,6269,6269,6268,6268,6270,6270,6264,6271,6270,6271,6261,6326]"
+  },
+  {
+    "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"limit\")",
+    "outcome": "Passed",
+    "output": "LOCAL limit: success=False, calls=1, discovery=2, repairs=0, inputEstimate=21678, executionAdapterCalls=1, planningMs=137,5, executionMs=479,8; error=INPUT_VALIDATION set output does not satisfy output_schema: $.value: must contain at most 3 items [workflow 'w_81be22d7f1c8baf9', step 'n_b21bb90bc2b6fb80']"
+  },
+  {
+    "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"pages\")",
+    "outcome": "Passed",
+    "output": "LOCAL pages: success=True, calls=1, discovery=2, repairs=0, inputEstimate=21678, executionAdapterCalls=3, planningMs=319,8, executionMs=755,2; error="
+  },
+  {
+    "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"pages-compact-decision-complete-flat-lookup-indexe\"\u00b7\u00b7\u00b7)",
+    "outcome": "Passed",
+    "output": "LOCAL pages-compact-decision-complete-flat-lookup-indexed-consent: success=True, calls=1, discovery=2, repairs=0, inputEstimate=21678, executionAdapterCalls=3, planningMs=2590,7, executionMs=19731,6; error= \nCOMPACT pages-compact-decision-complete-flat-lookup-indexed-consent: mapping requests=80; complete request estimates=[6399,6375,6378,6378,6380,6376,6381,6383,6376,6371,6380,6376,6379,6380,6380,6376,6383,6375,6374,6380,6373,6375,6380,6378,6376,6383,6380,6381,6383,6376,6376,6374,6383,6381,6373,6381,6378,6379,6374,6376,6383,6379,6378,6380,6374,6380,6383,6381,6380,6374,6381,6385,6384,6379,6376,6380,6378,6376,6376,6383,6184,6271,6180,6200,6288,6286,6280,6278,6274,6274,6278,6274,6278,6275,6279,6273,6279,6279,6276,6343]"
+  },
+  {
+    "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"pages-compact-decision-complete-consent\")",
+    "outcome": "Passed",
+    "output": "LOCAL pages-compact-decision-complete-consent: success=True, calls=1, discovery=2, repairs=0, inputEstimate=21678, executionAdapterCalls=3, planningMs=1365,5, executionMs=19241,2; error= \nCOMPACT pages-compact-decision-complete-consent: mapping requests=80; complete request estimates=[6398,6388,6380,6388,6388,6381,6385,6384,6384,6381,6388,6390,6391,6384,6385,6383,6389,6384,6385,6386,6390,6388,6385,6388,6384,6384,6383,6378,6385,6389,6381,6384,6383,6384,6386,6391,6388,6386,6386,6385,6385,6383,6385,6390,6388,6385,6384,6389,6380,6385,6388,6379,6383,6389,6388,6386,6383,6390,6389,6388,6189,6281,6183,6209,6380,6378,6380,6381,6380,6378,6380,6380,6381,6380,6379,6384,6381,6383,6384,6444]"
+  },
+  {
+    "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: \"incomplete\")",
+    "outcome": "Passed",
+    "output": "BUSINESS incomplete: success=False; calls=1; repairs=0; elapsedMs=995; tasks=13; yamlBytes=75102; inference=1; mappings=0; invocations=5; steps=4; cleanup=1; journalBytes=130576; error=MCP_CALL_ERROR mcp.call (tool) to 'browser/browser_get_content' returned an MCP error: A complete snapshot exceeds capture or page bounds. Narrow the requested observation explicitly. [workflow 'main', step 'n_e311f61af279e0f1']"
+  },
+  {
+    "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"notice-generic\")",
+    "outcome": "Passed",
+    "output": "LOCAL notice-generic: success=True, calls=1, discovery=2, repairs=0, inputEstimate=21678, executionAdapterCalls=4, planningMs=216,3, executionMs=641,3; error="
+  },
+  {
+    "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"no-consent\")",
+    "outcome": "Passed",
+    "output": "LOCAL no-consent: success=True, calls=1, discovery=2, repairs=0, inputEstimate=21678, executionAdapterCalls=4, planningMs=265,5, executionMs=886,4; error="
+  },
+  {
+    "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RetainedCompositionVisitsProductsAndWritesIndependentlyCheckedExcel(variant: \"repeated-selection\")",
+    "outcome": "Passed",
+    "output": "RETAINED repeated-selection: success=True; planningCalls=1; repairs=0; planningMs=14866,8; executionMs=12393,8; yamlBytes=195072; mappingCalls=13; unsampledPages=21; interpretationCalls=15; requestEstimates=[6910,4558,6908,4544,6820,5285,6775,4666,6796,4681,6455,4566,6780,4671,6769,4664,6758,4660,6783,4675,6753,4656,6796,4683,6778,4670,4571,7490]; invocations=233; steps=232; cleanupSteps=1; journalBytes=45393758; error= \nCOVERAGE repeated-selection: pages=43; records=77; offered=12; selected=10; typedProjectionCalls=0; normalizationCalls=0\nORACLE repeated-selection: cellsMatch=True; firstTenVisits=False; workbookRows=11; browserClosed=true; noUnresolvedReceipts=true"
+  },
+  {
+    "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"pages-compact-decision-complete\")",
+    "outcome": "Passed",
+    "output": "LOCAL pages-compact-decision-complete: success=True, calls=1, discovery=2, repairs=0, inputEstimate=21678, executionAdapterCalls=3, planningMs=1452,6, executionMs=18090,6; error= \nCOMPACT pages-compact-decision-complete: mapping requests=79; complete request estimates=[6378,6373,6378,6380,6379,6381,6376,6379,6379,6383,6379,6383,6376,6383,6375,6379,6386,6375,6374,6378,6375,6375,6380,6383,6374,6381,6380,6383,6378,6376,6374,6380,6379,6379,6374,6379,6381,6381,6376,6371,6378,6383,6375,6376,6375,6381,6376,6374,6379,6383,6381,6381,6378,6376,6375,6374,6384,6376,6375,6374,6181,6271,6181,6379,6384,6380,6379,6376,6379,6383,6374,6381,6373,6379,6373,6380,6371,6373,6445]"
+  },
+  {
+    "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"delayed-consent\")",
+    "outcome": "Passed",
+    "output": "LOCAL delayed-consent: success=True, calls=1, discovery=2, repairs=0, inputEstimate=21678, executionAdapterCalls=4, planningMs=271,3, executionMs=1114,9; error="
+  },
+  {
+    "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"denied\")",
+    "outcome": "Passed",
+    "output": "LOCAL denied: success=False, calls=1, discovery=2, repairs=0, inputEstimate=21678, executionAdapterCalls=4, planningMs=148,1, executionMs=705,1; error=MCP_CALL_ERROR mcp.call (tool) to 'document/document_write' returned an MCP error: {\"success\":false,\"filePath\":null,\"bytesWritten\":null,\"errorCode\":\"POLICY_VIOLATION\",\"errorMessage\":\"filePath must not contain parent traversal segments or wildcard characters.\",\"relativePath\":null,\"filePathAbsolute\":null} [workflow 'w_81be22d7f1c8baf9', step 'n_8f1f60ab0c9fe437']"
+  },
+  {
+    "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RetainedCompositionVisitsProductsAndWritesIndependentlyCheckedExcel(variant: \"fabricated\")",
+    "outcome": "Passed",
+    "output": "RETAINED fabricated: success=True; planningCalls=1; repairs=0; planningMs=14225,2; executionMs=10882,9; yamlBytes=195072; mappingCalls=13; unsampledPages=21; interpretationCalls=15; requestEstimates=[6909,4558,6903,4539,6821,5300,6756,4663,6783,4670,6460,4566,6773,4668,6773,4668,6814,4690,6769,4664,6751,4653,6783,4675,6780,4671,4571,7491]; invocations=233; steps=232; cleanupSteps=1; journalBytes=45323227; error= \nCOVERAGE fabricated: pages=43; records=77; offered=12; selected=10; typedProjectionCalls=0; normalizationCalls=0\nORACLE fabricated: cellsMatch=False; firstTenVisits=True; workbookRows=2; browserClosed=true; noUnresolvedReceipts=true"
+  },
+  {
+    "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: \"unoffered\")",
+    "outcome": "Passed",
+    "output": "BUSINESS unoffered: success=False; calls=1; repairs=0; elapsedMs=1665; tasks=13; yamlBytes=75102; inference=3; mappings=1; invocations=23; steps=22; cleanup=1; journalBytes=6047290; error=CONTRACT_UNSATISFIED A selected identity is absent from the lookup source. [workflow 'main', step 'n_7df635b72fc4e5c2']"
+  },
+  {
+    "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"pages-compact-decision\")",
+    "outcome": "Passed",
+    "output": "LOCAL pages-compact-decision: success=True, calls=1, discovery=2, repairs=0, inputEstimate=21678, executionAdapterCalls=3, planningMs=679,1, executionMs=20436,9; error= \nCOMPACT pages-compact-decision: mapping requests=79; complete request estimates=[6384,6384,6381,6386,6390,6384,6383,6384,6384,6390,6388,6384,6383,6381,6385,6386,6379,6381,6379,6390,6386,6380,6380,6384,6380,6385,6378,6384,6383,6383,6384,6385,6390,6380,6383,6381,6381,6386,6386,6380,6384,6383,6393,6386,6386,6385,6384,6383,6388,6383,6388,6385,6384,6379,6376,6381,6378,6381,6383,6388,6185,6279,6190,6370,6371,6369,6373,6374,6368,6370,6374,6369,6374,6376,6373,6373,6366,6373,6433]"
+  },
+  {
+    "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RetainedCompositionVisitsProductsAndWritesIndependentlyCheckedExcel(variant: \"denied\")",
+    "outcome": "Passed",
+    "output": "RETAINED denied: success=False; planningCalls=1; repairs=0; planningMs=14800,2; executionMs=11534,5; yamlBytes=195046; mappingCalls=13; unsampledPages=21; interpretationCalls=15; requestEstimates=[6895,4550,6893,4534,6828,5330,6765,4663,6759,4659,6481,4579,6761,4660,6768,4668,6754,4656,6776,4668,6788,4679,6780,4671,6790,4679,4571,7491]; invocations=232; steps=231; cleanupSteps=1; journalBytes=42761722; error=MCP_CALL_ERROR mcp.call (tool) to 'document/document_write' returned an MCP error: {\"success\":false,\"filePath\":null,\"bytesWritten\":null,\"errorCode\":\"POLICY_VIOLATION\",\"errorMessage\":\"filePath must not contain parent traversal segments or wildcard characters.\",\"relativePath\":null,\"filePathAbsolute\":null} [workflow 'w_81be22d7f1c8baf9', step 'n_741382036864d8cb']"
+  },
+  {
+    "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: \"repeated\")",
+    "outcome": "Passed",
+    "output": "BUSINESS repeated: success=True; calls=1; repairs=0; elapsedMs=10403; tasks=13; yamlBytes=75102; inference=24; mappings=11; invocations=226; steps=225; cleanup=1; journalBytes=22609454; error= \nORACLE repeated: cellsMatch=True; visited=10; pages=38; offered=12; decisionBytes=2597; cleanup=true; typedInference=0"
+  },
+  {
+    "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"empty\")",
+    "outcome": "Passed",
+    "output": "LOCAL empty: success=True, calls=1, discovery=2, repairs=0, inputEstimate=21678, executionAdapterCalls=2, planningMs=132,9, executionMs=837,4; error="
+  },
+  {
+    "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RetainedCompositionVisitsProductsAndWritesIndependentlyCheckedExcel(variant: \"typed-repair\")",
+    "outcome": "Passed",
+    "output": "RETAINED typed-repair: success=True; planningCalls=2; repairs=1; planningMs=16398,9; executionMs=11782,4; yamlBytes=195072; mappingCalls=13; unsampledPages=21; interpretationCalls=15; requestEstimates=[6906,4555,6904,4541,6810,5255,6760,4663,6775,4666,6465,4571,6759,4660,6766,4660,6781,4671,6769,4664,6766,4660,6794,4679,6771,4668,4571,7491]; invocations=233; steps=232; cleanupSteps=1; journalBytes=45365389; error= \nCOVERAGE typed-repair: pages=43; records=77; offered=12; selected=10; typedProjectionCalls=0; normalizationCalls=0\nORACLE typed-repair: cellsMatch=True; firstTenVisits=True; workbookRows=11; browserClosed=true; noUnresolvedReceipts=true"
+  },
+  {
+    "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: \"denied\")",
+    "outcome": "Passed",
+    "output": "BUSINESS denied: success=False; calls=1; repairs=0; elapsedMs=10163; tasks=13; yamlBytes=75076; inference=24; mappings=11; invocations=222; steps=221; cleanup=1; journalBytes=17801891; error=MCP_CALL_ERROR mcp.call (tool) to 'document/document_write' returned an MCP error: {\"success\":false,\"filePath\":null,\"bytesWritten\":null,\"errorCode\":\"POLICY_VIOLATION\",\"errorMessage\":\"filePath must not contain parent traversal segments or wildcard characters.\",\"relativePath\":null,\"filePathAbsolute\":null} [workflow 'main', step 'n_8f1f60ab0c9fe437']"
+  },
+  {
+    "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"extract\")",
+    "outcome": "Passed",
+    "output": "LOCAL extract: success=True, calls=1, discovery=2, repairs=0, inputEstimate=21678, executionAdapterCalls=1, planningMs=195,1, executionMs=618,5; error="
+  },
+  {
+    "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: \"empty\")",
+    "outcome": "Passed",
+    "output": "BUSINESS empty: success=True; calls=1; repairs=0; elapsedMs=2465; tasks=13; yamlBytes=75102; inference=4; mappings=1; invocations=36; steps=35; cleanup=1; journalBytes=8782873; error= \nORACLE empty: cellsMatch=True; visited=0; pages=13; offered=0; decisionBytes=942; cleanup=true; typedInference=0"
+  },
+  {
+    "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"each\")",
+    "outcome": "Passed",
+    "output": "LOCAL each: success=True, calls=1, discovery=2, repairs=0, inputEstimate=21678, executionAdapterCalls=2, planningMs=132,5, executionMs=661,0; error="
+  },
+  {
+    "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"pages-compact-decision-complete-flat-lookup-indexe\"\u00b7\u00b7\u00b7)",
+    "outcome": "Passed",
+    "output": "LOCAL pages-compact-decision-complete-flat-lookup-indexed: success=True, calls=1, discovery=2, repairs=0, inputEstimate=21678, executionAdapterCalls=3, planningMs=2695,2, executionMs=18797,1; error= \nCOMPACT pages-compact-decision-complete-flat-lookup-indexed: mapping requests=79; complete request estimates=[6371,6374,6368,6365,6373,6366,6369,6376,6376,6373,6373,6365,6366,6373,6375,6371,6374,6374,6371,6371,6371,6371,6369,6374,6365,6371,6369,6371,6375,6374,6365,6378,6374,6371,6373,6366,6361,6366,6376,6365,6371,6365,6369,6374,6376,6368,6369,6371,6369,6371,6369,6370,6371,6371,6368,6368,6369,6374,6374,6369,6170,6260,6169,6281,6281,6281,6285,6275,6283,6275,6281,6281,6275,6281,6281,6275,6281,6279,6348]"
+  },
+  {
+    "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RetainedCompositionVisitsProductsAndWritesIndependentlyCheckedExcel(variant: \"typed-lookup-repair\")",
+    "outcome": "Passed",
+    "output": "RETAINED typed-lookup-repair: success=True; planningCalls=2; repairs=1; planningMs=17259,1; executionMs=13302,6; yamlBytes=195072; mappingCalls=13; unsampledPages=21; interpretationCalls=15; requestEstimates=[6901,4555,6908,4544,6823,5300,6786,4674,6778,4674,6456,4569,6783,4675,6770,4664,6786,4675,6778,4671,6790,4675,6756,4656,6783,4675,4571,7491]; invocations=233; steps=232; cleanupSteps=1; journalBytes=45398180; error= \nCOVERAGE typed-lookup-repair: pages=43; records=77; offered=12; selected=10; typedProjectionCalls=0; normalizationCalls=0\nORACLE typed-lookup-repair: cellsMatch=True; firstTenVisits=True; workbookRows=11; browserClosed=true; noUnresolvedReceipts=true"
+  },
+  {
+    "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RetainedWholeProposalUsesOnlyExistingTypedBindingsAndPreservesRequirements",
+    "outcome": "Passed",
+    "output": ""
+  },
+  {
+    "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"pages-compact\")",
+    "outcome": "Passed",
+    "output": "LOCAL pages-compact: success=True, calls=1, discovery=2, repairs=0, inputEstimate=21678, executionAdapterCalls=3, planningMs=216,0, executionMs=5020,2; error= \nCOMPACT pages-compact: mapping requests=16; complete request estimates=[6380,6380,6384,6379,6383,6383,6384,6379,6384,6375,6376,6378,6375,6379,6383,6445]"
+  }
+]
