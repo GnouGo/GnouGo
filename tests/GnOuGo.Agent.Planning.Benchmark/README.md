@@ -127,6 +127,27 @@ dotnet run --no-build --project tests/GnOuGo.Agent.Planning.Benchmark -- \
 
 Replay reads the first planning-action reservation and receipt through encrypted KeyVault records, validates against the original response schema and rebuilds with the current planner. It uses an in-memory session limited to that one receipt, runs the existing independent execution variants when compilation succeeds, and reports `mode: replay` with `live_model_calls: 0`. It never initializes a provider, writes campaign records, retries a missing receipt or counts toward live cohort statistics. A first action that only selects capabilities cannot reconstruct a later graph. Diagnostics that need another model decision remain unresolved. Exit 1 means the recorded proposal did not pass construction or independent execution. Inspection and replay work without provider configuration and may inspect a dirty working tree; record the tested revision when publishing results.
 
+## Applying a committed pending response
+
+`--schema-portability recover-receipt --workspace <workspace> --campaign <id>
+--run <label> --expected-revision <revision> --request-id <exact-pending-id>
+--interrupted-ms <uncheckpointed-active-time>` validates and advances exactly one
+committed response in memory. Add `--apply` only when authorized to checkpoint
+that recovery. The command requires a clean committed build and holds the existing
+campaign lease; it creates no provider or MCP transport. A missing receipt, changed
+request/schema, wrong tenant/revision, prior execution or inconclusive closure
+rejects recovery. Additional inference and discovery are unavailable.
+
+Recovery retains the original source/manifest, request, receipt, requirements,
+financial records and allowances. The checkpoint records the validator build,
+hashes, previous session/result and interrupted active time. Interrupted time must
+come from retained execution evidence, not wall time spent waiting for an operator.
+The elapsed allowance is never reset. Repeating an applied recovery is rejected;
+a failed checkpoint leaves the committed response available without another charge.
+Review readiness or remaining diagnostics end the command—neither execution nor
+another paid repair follows. The original live harness's frozen-build checks and
+artifact approval requirements remain in force.
+
 ## Inspecting an uncertain request
 
 `--campaign <id> --inspect-campaign` reports reservation/receipt counts, pending identities, the known budget snapshot and a hash of the campaign evidence. It is read-only and does not initialize model configuration. `--inspect-run <key> --include-receipts` now includes pending reservations even when no usage receipt exists, along with any retained safe failure metadata. Private request/receipt inspection still must not be redirected to plaintext files.

@@ -447,6 +447,125 @@ public sealed class BenchmarkCampaignTests
         Assert.Equal(3, unchanged["modelCalls"]!.GetValue<int>()); Assert.Equal(2, unchanged["replanAttempts"]!.GetValue<int>());
         Assert.Equal(8, unchanged["request"]!["maxModelCalls"]!.GetValue<int>());
     }
+
+    private static async Task<(Records Records, BenchmarkCampaign Campaign)> PendingRecoveryAsync(bool receipt = true, string tenant = "benchmark")
+    {
+        var records = new Records(); var campaign = new BenchmarkCampaign(records, "recovery");
+        var request = new LLMRequest { ClientRequestId = "pending:4:hash", Prompt = "unchanged",
+            StructuredOutputSchema = JsonNode.Parse("""{"type":"object","properties":{"plan":{"type":["object","null"]}}}""") };
+        var session = new PlanningSession { IntentVersion = 2, Revision = 5, Status = PlanningStatus.Generating,
+            Request = new() { TenantId = tenant, SessionId = "pending", Name = "retained", Prompt = "original" },
+            ModelCalls = 4, ActiveMilliseconds = 1000, Catalog = new(),
+            PendingCall = new() { Id = request.ClientRequestId, Purpose = "tasks", Request = request } };
+        await campaign.SaveAsync(SchemaPortabilityCampaign.Collection, "run:pending", new()
+        {
+            ["source"] = "original-build", ["manifest"] = new JsonObject { ["frozen"] = true },
+            ["session"] = JsonSerializer.SerializeToNode(session, PlanningJsonContext.Default.PlanningSession),
+            ["result"] = new JsonObject { ["status"] = "generating", ["planning_ms"] = 1500L, ["calls"] = 4,
+                ["execution_status"] = "not_started", ["accounting"] = new JsonObject { ["retained"] = 42 } }
+        }, Ct);
+        await campaign.SaveAsync("planning-evaluation-requests", request.ClientRequestId,
+            JsonSerializer.SerializeToNode(request, PlanningJsonContext.Default.LLMRequest)!.AsObject(), Ct);
+        if (receipt) await campaign.SaveAsync("planning-evaluation-receipts", request.ClientRequestId,
+            JsonSerializer.SerializeToNode(new LLMResponse { Json = JsonNode.Parse("""{"plan":null,"discoveryRequests":null,"clarifications":null}""") },
+                PlanningJsonContext.Default.LLMResponse)!.AsObject(), Ct);
+        return (records, campaign);
+    }
+
+    [Fact]
+    public async Task ValidPendingReceiptReachesReviewWithoutApprovingOrExecuting()
+    {
+        var (_, campaign) = await PendingRecoveryAsync();
+        var run = (await campaign.LoadAsync(SchemaPortabilityCampaign.Collection, "run:pending", Ct))!;
+        var state = run["session"]!.Deserialize(PlanningJsonContext.Default.PlanningSession)!;
+        state.Requirements = new() { Summary = "Return a greeting", Inputs = [],
+            Outcomes = [new("greeting", "Return a greeting")], Outputs = [new() { Name = "message", Type = new() { Kind = "string" } }] };
+        var runtime = new GnOuGo.Flow.Planning.WorkflowPlanningRuntime(new WorkflowEngine(), (_, _) => Task.CompletedTask);
+        state.Catalog = await runtime.DiscoverAsync(state.Request, Ct);
+        run["session"] = JsonSerializer.SerializeToNode(state, PlanningJsonContext.Default.PlanningSession);
+        await campaign.SaveAsync(SchemaPortabilityCampaign.Collection, "run:pending", run, Ct);
+        await campaign.SaveAsync("planning-evaluation-receipts", "pending:4:hash",
+            JsonSerializer.SerializeToNode(new LLMResponse { Json = JsonSerializer.SerializeToNode(new PlanningProposal
+                { Plan = GnOuGo.Planning.Examples.PlanningCorpus.Greeting() }, PlanningJsonContext.Default.PlanningProposal) },
+                PlanningJsonContext.Default.LLMResponse)!.AsObject(), Ct);
+        var result = await campaign.RecoverPendingReceiptAsync("pending", 5, "pending:4:hash", 600, "validator-build", true, Ct);
+        Assert.Equal(PlanningStatus.FinalReview, result["status"]!.ToString());
+        Assert.Empty(result["diagnostics"]!.AsArray());
+        var saved = (await campaign.LoadAsync(SchemaPortabilityCampaign.Collection, "run:pending", Ct))!;
+        Assert.NotNull(saved["artifact_hash"]); Assert.Null(saved["session"]!["approvedHash"]);
+        Assert.Null(saved["execution_started"]); Assert.Equal(4, saved["result"]!["calls"]!.GetValue<int>());
+    }
+
+    [Fact]
+    public async Task PendingReceiptRecoveryCommitsOnceWithoutChangingFrozenEvidenceOrAccounting()
+    {
+        var (records, campaign) = await PendingRecoveryAsync();
+        var original = (await campaign.LoadAsync(SchemaPortabilityCampaign.Collection, "run:pending", Ct))!;
+        var before = await campaign.InspectAsync(Ct); var writes = records.Writes;
+        var dry = await campaign.RecoverPendingReceiptAsync("pending", 5, "pending:4:hash", 600, "validator-build", false, Ct);
+        Assert.False(dry["applied"]!.GetValue<bool>()); Assert.Equal(writes, records.Writes);
+        var applied = await campaign.RecoverPendingReceiptAsync("pending", 5, "pending:4:hash", 600, "validator-build", true, Ct);
+        Assert.Equal(6L, applied["revision"]!.GetValue<long>()); Assert.Equal(0, applied["new_model_calls"]!.GetValue<int>());
+        Assert.NotEmpty(applied["diagnostics"]!.AsArray()); // Stop here; do not ask for another proposal.
+        Assert.Equal(writes + 1, records.Writes);
+        var restarted = new BenchmarkCampaign(records, "recovery");
+        var recovered = (await restarted.LoadAsync(SchemaPortabilityCampaign.Collection, "run:pending", Ct))!;
+        Assert.Null(recovered["session"]!["pendingCall"]); Assert.Equal(4, recovered["session"]!["modelCalls"]!.GetValue<int>());
+        Assert.True(recovered["session"]!["activeMilliseconds"]!.GetValue<double>() >= 1600);
+        Assert.True(recovered["result"]!["planning_ms"]!.GetValue<long>() >= 2100);
+        foreach (var key in new[] { "source", "manifest" }) Assert.True(JsonNode.DeepEquals(original[key], recovered[key]));
+        Assert.True(JsonNode.DeepEquals(await LiveCampaignEvidence.AccountingAsync(restarted, "pending"), recovered["result"]!["accounting"]));
+        Assert.True(JsonNode.DeepEquals(original["result"], recovered["receipt_recoveries"]![0]!["result_before"]));
+        Assert.True(JsonNode.DeepEquals(original["session"], Assert.Single(recovered["receipt_recoveries"]!.AsArray())!["session_before"]));
+        Assert.True(JsonNode.DeepEquals(before, await restarted.InspectAsync(Ct)));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => restarted.RecoverPendingReceiptAsync("pending", 5, "pending:4:hash", 600, "validator-build", true, Ct));
+        Assert.Equal(writes + 1, records.Writes);
+    }
+
+    [Theory]
+    [InlineData("stale")]
+    [InlineData("tenant")]
+    [InlineData("receipt")]
+    [InlineData("schema")]
+    [InlineData("identity")]
+    [InlineData("executed")]
+    [InlineData("closed")]
+    [InlineData("elapsed")]
+    public async Task PendingReceiptRecoveryRejectsChangedOrUncertainAuthorityWithoutWrites(string failure)
+    {
+        var (records, campaign) = await PendingRecoveryAsync(receipt: failure != "receipt", tenant: failure == "tenant" ? "other" : "benchmark");
+        if (failure == "schema")
+        {
+            var request = (await campaign.LoadAsync("planning-evaluation-requests", "pending:4:hash", Ct))!;
+            request["structuredOutputSchema"]!["type"] = "string";
+            await campaign.SaveAsync("planning-evaluation-requests", "pending:4:hash", request, Ct);
+        }
+        if (failure == "executed")
+        {
+            var run = (await campaign.LoadAsync(SchemaPortabilityCampaign.Collection, "run:pending", Ct))!;
+            run["execution_started"] = "retained";
+            await campaign.SaveAsync(SchemaPortabilityCampaign.Collection, "run:pending", run, Ct);
+        }
+        if (failure == "closed") await campaign.SaveAsync("planning-evaluation-closures", "pending:4:hash", new(), Ct);
+        var writes = records.Writes;
+        await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.RecoverPendingReceiptAsync("pending", failure == "stale" ? 4 : 5,
+            failure == "identity" ? "pending:3:hash" : "pending:4:hash", failure == "elapsed" ? 1_800_000 : 600, "validator-build", true, Ct));
+        Assert.Equal(writes, records.Writes);
+    }
+
+    [Fact]
+    public async Task InterruptedRecoveryPublicationLeavesOriginalReceiptAvailableWithoutDuplicateCharging()
+    {
+        var (records, campaign) = await PendingRecoveryAsync();
+        var original = await campaign.LoadAsync(SchemaPortabilityCampaign.Collection, "run:pending", Ct);
+        var before = await campaign.InspectAsync(Ct);
+        records.FailCollection = SchemaPortabilityCampaign.Collection;
+        await Assert.ThrowsAsync<IOException>(() => campaign.RecoverPendingReceiptAsync("pending", 5, "pending:4:hash", 600, "validator-build", true, Ct));
+        Assert.True(JsonNode.DeepEquals(original, await campaign.LoadAsync(SchemaPortabilityCampaign.Collection, "run:pending", Ct)));
+        records.FailCollection = null;
+        await new BenchmarkCampaign(records, "recovery").RecoverPendingReceiptAsync("pending", 5, "pending:4:hash", 600, "validator-build", true, Ct);
+        Assert.True(JsonNode.DeepEquals(before, await campaign.InspectAsync(Ct)));
+    }
     [Fact]
     public async Task OfflineReplayWithoutReceiptFailsWithoutReservingOrWriting()
     {

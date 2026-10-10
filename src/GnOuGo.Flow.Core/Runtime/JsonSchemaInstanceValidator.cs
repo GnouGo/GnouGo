@@ -126,12 +126,52 @@ internal static class JsonSchemaInstanceValidator
         var matches = 0;
         foreach (var variant in variants)
         {
+            if (IsIncompatibleAlternative(value, variant, root, path, referenceStack, new(StringComparer.Ordinal)))
+                continue;
             var variantErrors = new List<PlanningInstanceFinding>();
             ValidateChild(value, variant, root, path, variantErrors, new HashSet<string>(referenceStack, StringComparer.Ordinal));
             if (variantErrors.Count == 0)
                 matches++;
         }
         return matches;
+    }
+
+    // Only reject from assertions that ordinary validation would necessarily check.
+    // Inspect this value and its immediate property tags/types, never recursive data.
+    // Diagnostic branch selection remains independent and unchanged below.
+    private static bool IsIncompatibleAlternative(JsonNode? value, JsonNode? schema, JsonObject root,
+        InstanceLocation path, HashSet<string> referenceStack, HashSet<string> visited, bool properties = true)
+    {
+        if (schema is not JsonObject contract)
+            return schema is JsonValue boolean && boolean.TryGetValue<bool>(out var allowed) && !allowed;
+
+        if (TryReadString(contract["$ref"], out var reference))
+        {
+            var key = $"{reference}|{path.Pointer}";
+            // A reference already active at this instance makes ordinary validation
+            // return before checking siblings. Unresolved references require its diagnostics.
+            if (referenceStack.Contains(key) || !visited.Add(key)) return false;
+            try
+            {
+                if (!TryResolveLocalReference(root, reference, out var resolved) || resolved is not JsonObject)
+                    return false;
+                if (IsIncompatibleAlternative(value, resolved, root, path, referenceStack, visited, properties))
+                    return true;
+            }
+            finally { visited.Remove(key); }
+        }
+
+        if (contract.TryGetPropertyValue("const", out var constant) && !JsonNode.DeepEquals(value, constant)) return true;
+        if (contract["enum"] is JsonArray allowedValues && !allowedValues.Any(v => JsonNode.DeepEquals(value, v))) return true;
+        var type = ReadApplicableType(contract, value);
+        // Keyword-based type inference is not evidence of an explicit type assertion.
+        if (contract.ContainsKey("type") && type is not null && !MatchesType(value, type)) return true;
+        if (properties && type == "object" && value is JsonObject obj && contract["properties"] is JsonObject fields)
+            foreach (var (name, field) in fields)
+                if (obj.TryGetPropertyValue(name, out var actual) &&
+                    IsIncompatibleAlternative(actual, field, root, path.Child(name), referenceStack, visited, properties: false))
+                    return true;
+        return false;
     }
 
     // Type and literal tags can identify one intended variant even when a nested

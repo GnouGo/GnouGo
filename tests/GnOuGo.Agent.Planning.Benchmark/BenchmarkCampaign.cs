@@ -244,6 +244,7 @@ internal sealed class BenchmarkCampaign(IKeyVaultRecordStore records, string id)
     {
         private readonly string _request = JsonSerializer.Serialize(original, PlanningJsonContext.Default.LLMRequest);
         private bool _used;
+        internal bool Used => _used;
         public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
@@ -252,6 +253,91 @@ internal sealed class BenchmarkCampaign(IKeyVaultRecordStore records, string id)
             _used = true;
             return Task.FromResult(JsonSerializer.Deserialize(JsonSerializer.Serialize(response, PlanningJsonContext.Default.LLMResponse), PlanningJsonContext.Default.LLMResponse)!);
         }
+    }
+
+    // Operator-only receipt recovery under the existing campaign lease. No provider,
+    // MCP transport or fresh discovery is configured; frozen live manifests stay intact.
+    internal async Task<JsonObject> RecoverPendingReceiptAsync(string label, long expectedRevision, string requestId,
+        long interruptedMilliseconds, string recoverySource, bool apply, CancellationToken ct)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(recoverySource);
+        if (interruptedMilliseconds < 0) throw new ArgumentOutOfRangeException(nameof(interruptedMilliseconds));
+        var runKey = "run:" + label;
+        var run = await LoadAsync(SchemaPortabilityCampaign.Collection, runKey, ct) ?? throw new InvalidOperationException("No retained run.");
+        var originalHash = PlanningGraphCompiler.Fingerprint(run.ToJsonString());
+        var state = run["session"]?.Deserialize(PlanningJsonContext.Default.PlanningSession) ?? throw new InvalidOperationException("No retained session.");
+        if (run["execution_started"] is not null || state.SchemaVersion != 10 || state.RequiresPlanningRevision ||
+            state.Request.TenantId != "benchmark" || state.Request.SessionId != label || state.Revision != expectedRevision ||
+            state.Status != PlanningStatus.Generating || state.PendingCall?.Id != requestId || state.PendingCall.Request.ClientRequestId != requestId ||
+            !requestId.StartsWith(label + ":", StringComparison.Ordinal) || state.Catalog is null ||
+            run["receipt_recoveries"] is JsonArray history && history.Any(r => r?["request_id"]?.ToString() == requestId))
+            throw new InvalidOperationException("Receipt recovery requires the exact unexecuted tenant/session/revision and pending request.");
+        if (await LoadAsync("planning-evaluation-closures", requestId, ct) is not null)
+            throw new InvalidOperationException("An inconclusive request cannot be recovered here.");
+        var original = state.PendingCall.Request;
+        var reserved = await LoadAsync("planning-evaluation-requests", requestId, ct);
+        if (original.StructuredOutputSchema is null || reserved is null ||
+            !JsonNode.DeepEquals(reserved, JsonSerializer.SerializeToNode(original, PlanningJsonContext.Default.LLMRequest)))
+            throw new InvalidOperationException("The original reserved request/schema does not match the pending request.");
+        var receipt = await LoadAsync("planning-evaluation-receipts", requestId, ct) ?? throw new InvalidOperationException("No committed completion receipt; no dispatch is permitted.");
+        var response = receipt.Deserialize(PlanningJsonContext.Default.LLMResponse)!;
+        var proposal = response.Json ?? JsonNode.Parse(response.Text);
+        if (proposal is not JsonObject || proposal["discoveryRequests"] is not null)
+            throw new InvalidOperationException("Receipt-only recovery cannot perform discovery or other external work.");
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        var schemaFindings = PlanningContractValidation.ValidateInstanceFindings(proposal, original.StructuredOutputSchema);
+        var validationMilliseconds = clock.Elapsed.TotalMilliseconds;
+        var priorMilliseconds = run["result"]?["planning_ms"]?.GetValue<long>() ?? throw new InvalidOperationException("Missing elapsed accounting.");
+        var elapsedBefore = Math.Max(priorMilliseconds, state.ActiveMilliseconds) + interruptedMilliseconds;
+        var remaining = TimeSpan.FromMinutes(30) - TimeSpan.FromMilliseconds(elapsedBefore);
+        if (remaining <= TimeSpan.Zero) throw new InvalidOperationException("Active planning time is exhausted; receipt recovery cannot reset it.");
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        deadline.CancelAfter(remaining);
+        var client = new ReplayReceipt(original, response);
+        state.ActiveMilliseconds += interruptedMilliseconds;
+        PlanningSession? checkpoint = null;
+        var runtime = new WorkflowPlanningRuntime(new WorkflowEngine { LLMClient = client }, (s, _) =>
+        {
+            if (!client.Used || checkpoint is not null || s.Revision != expectedRevision + 1 || s.PendingCall is not null ||
+                s.ModelCalls != state.ModelCalls || s.ReplanAttempts != state.ReplanAttempts ||
+                !JsonNode.DeepEquals(JsonSerializer.SerializeToNode(s.Request, PlanningJsonContext.Default.PlanningRequest), run["session"]?["request"]) ||
+                !JsonNode.DeepEquals(JsonSerializer.SerializeToNode(s.Requirements, PlanningJsonContext.Default.PlanningRequirements), run["session"]?["requirements"]))
+                throw new InvalidOperationException("Recovery must apply only the committed response without another reservation or changed requirements.");
+            checkpoint = s;
+            return Task.CompletedTask;
+        });
+        var recovered = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = expectedRevision }, runtime, deadline.Token);
+        if (checkpoint != recovered) throw new InvalidOperationException("No verified receipt checkpoint was produced.");
+        if (recovered.Status == PlanningStatus.FinalReview) PlanningArtifactApproval.Verify(recovered);
+        var audit = new JsonObject { ["request_id"] = requestId, ["original_run_hash"] = originalHash,
+            ["original_source"] = run["source"]?.DeepClone(), ["validator_source"] = recoverySource,
+            ["request_hash"] = PlanningGraphCompiler.Fingerprint(reserved.ToJsonString()),
+            ["schema_hash"] = PlanningGraphCompiler.Fingerprint(original.StructuredOutputSchema.ToJsonString()),
+            ["receipt_hash"] = PlanningGraphCompiler.Fingerprint(receipt.ToJsonString()),
+            ["interrupted_ms"] = interruptedMilliseconds, ["schema_validation_ms"] = validationMilliseconds,
+            ["schema_findings"] = new JsonArray(schemaFindings.Select(f => (JsonNode)new JsonObject
+                { ["path"] = f.InstancePointer, ["rule"] = f.Rule, ["message"] = f.Message }).ToArray()),
+            ["recovery_ms"] = clock.ElapsedMilliseconds, ["new_model_calls"] = 0, ["applied"] = apply,
+            ["revision"] = recovered.Revision, ["status"] = recovered.Status,
+            ["accounting"] = await LiveCampaignEvidence.AccountingAsync(this, label),
+            ["diagnostics"] = JsonSerializer.SerializeToNode(recovered.Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic) };
+        if (!apply) return audit;
+        if (await LoadAsync(SchemaPortabilityCampaign.Collection, runKey, ct) is not { } current ||
+            PlanningGraphCompiler.Fingerprint(current.ToJsonString()) != originalHash)
+            throw new InvalidOperationException("The saved run changed before receipt checkpoint publication.");
+        audit["session_before"] = run["session"]!.DeepClone(); audit["result_before"] = run["result"]!.DeepClone();
+        audit["applied_at"] = DateTimeOffset.UtcNow.ToString("O");
+        run["receipt_recoveries"] ??= new JsonArray(); run["receipt_recoveries"]!.AsArray().Add(audit.DeepClone());
+        run["session"] = JsonSerializer.SerializeToNode(recovered, PlanningJsonContext.Default.PlanningSession);
+        run["artifact_hash"] = recovered.Yaml is null ? null : recovered.ComputeArtifactHash();
+        run["result"]!["status"] = recovered.Status;
+        run["result"]!["calls"] = recovered.ModelCalls; run["result"]!["repairs"] = recovered.ReplanAttempts;
+        run["result"]!["planning_ms"] = (long)Math.Ceiling(elapsedBefore + clock.Elapsed.TotalMilliseconds);
+        run["result"]!["diagnostics"] = audit["diagnostics"]!.DeepClone();
+        run["result"]!["accounting"] = audit["accounting"]!.DeepClone();
+        await SaveAsync(SchemaPortabilityCampaign.Collection, runKey, run, ct);
+        audit.Remove("session_before"); audit.Remove("result_before");
+        return audit;
     }
     internal async Task<LLMResponse> CallAsync(LLMRequest request, Func<CancellationToken, Task> preflight, Func<CancellationToken, Task<LLMResponse>> dispatch, CancellationToken ct, bool allowHttpRecovery = false)
     {

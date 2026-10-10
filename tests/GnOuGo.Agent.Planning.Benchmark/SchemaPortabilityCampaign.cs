@@ -181,6 +181,15 @@ internal static class SchemaPortabilityCampaign
         Directory.CreateDirectory(Path.GetDirectoryName(leasePath)!);
         await using var lease = new FileStream(leasePath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
         if (Git("status", "--porcelain").Length != 0) throw new InvalidOperationException("Commit the tested source and harness before paid dispatch.");
+        if (phase == "recover-receipt")
+        {
+            string Required(string option) => Option(args, option) ?? throw new ArgumentException("Supply " + option + ".");
+            Console.WriteLine((await campaign.RecoverPendingReceiptAsync(Required("--run"),
+                long.Parse(Required("--expected-revision"), System.Globalization.CultureInfo.InvariantCulture), Required("--request-id"),
+                long.Parse(Required("--interrupted-ms"), System.Globalization.CultureInfo.InvariantCulture), Git("rev-parse", "HEAD"),
+                args.Contains("--apply", StringComparer.Ordinal), CancellationToken.None)).ToJsonString());
+            return;
+        }
         if (phase == "extend-budget")
         {
             decimal Amount(string option) => decimal.Parse(Option(args, option) ?? throw new ArgumentException("Supply " + option + "."), System.Globalization.CultureInfo.InvariantCulture);

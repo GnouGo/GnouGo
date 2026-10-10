@@ -11,6 +11,8 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\GnOuGo.Flow.Core\GnOuGo.Flow.Core.csproj" />
     <EmbeddedResource Include="../../docs/evidence/id-selection-lookup-2026-10-08/runtime-mapping-responses.json" LogicalName="MappingRetainedPrograms" />
+    <EmbeddedResource Include="../../docs/evidence/physical-output-selection-2026-10-10/pending-issued-schema.json" LogicalName="RetainedPlanningSchema" />
+    <EmbeddedResource Include="../../docs/evidence/physical-output-selection-2026-10-10/pending-received-proposal.json" LogicalName="RetainedPlanningResponse" />
   </ItemGroup>
 
   <ItemGroup>
