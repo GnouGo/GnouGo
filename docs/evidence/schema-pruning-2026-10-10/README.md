@@ -84,4 +84,23 @@ requests and receipts were neither modified nor recharged.
 
 This artifact is not approved or executed. Product visits, workbook creation and
 execution oracles remain unverified. No further repair or live run was attempted.
-Full-suite validation is recorded separately when complete.
+## Final validation
+
+- Focused schema regressions: **33 passed**; final accounting/recovery regressions:
+  **83 passed**; standalone Planning suite: **1,225 passed**.
+- Full solution with `-warnaserror`: **5,061 passed, 1 failed,
+  13 existing skips**, all 33 projects completed. The final targeted
+  host follow-up includes one valid-receipt test added while the full run was
+  already executing; it verifies the final harness's review check.
+- The full host suite passed **749 tests** with one existing skip, including its
+  local Browser/Document execution and workbook-oracle fixtures.
+- The sole failure is in unchanged Copilot fixture teardown. It passed **3/3**
+  isolated reruns. This does not make the full solution green; see
+  [the retained failure](unrelated-fixture-failure.md).
+- Flow.Core and Flow.Planning Release packages, planning Native AOT on osx-arm64,
+  published trimmed encrypted recovery and the benchmark build passed. No warnings
+  were disabled for this change. `SkipModelMetadataGeneration=true` preserves
+  frozen model metadata during builds.
+
+See [full counts](full-solution.json) and [validation/hashes](validation.json).
+The PR remains draft; there is no new E2E execution or approval.

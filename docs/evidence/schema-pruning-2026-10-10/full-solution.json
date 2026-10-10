@@ -1,0 +1,283 @@
+{
+  "command": "dotnet test GnOuGo.Agent.sln -m:1 -warnaserror -p:SkipModelMetadataGeneration=true",
+  "validator_source": "847a15b9ed6dff0b1c603798b8cef63bc0f85931",
+  "exit_code": 1,
+  "failed": 1,
+  "passed": 5061,
+  "skipped": 13,
+  "total": 5075,
+  "projects": [
+    {
+      "failed": 0,
+      "passed": 89,
+      "skipped": 0,
+      "total": 89,
+      "duration": "1 s",
+      "assembly": "GnOuGo.DocIngestor.Tests.dll"
+    },
+    {
+      "failed": 0,
+      "passed": 52,
+      "skipped": 0,
+      "total": 52,
+      "duration": "626 ms",
+      "assembly": "GnOuGo.Diff.Tests.dll"
+    },
+    {
+      "failed": 0,
+      "passed": 12,
+      "skipped": 0,
+      "total": 12,
+      "duration": "591 ms",
+      "assembly": "GnOuGo.KeyVault.Core.Tests.dll"
+    },
+    {
+      "failed": 0,
+      "passed": 1185,
+      "skipped": 0,
+      "total": 1185,
+      "duration": "1 s",
+      "assembly": "GnOuGo.Flow.Tests.dll"
+    },
+    {
+      "failed": 0,
+      "passed": 99,
+      "skipped": 0,
+      "total": 99,
+      "duration": "845 ms",
+      "assembly": "GnOuGo.Flow.Integrations.Tests.dll"
+    },
+    {
+      "failed": 0,
+      "passed": 225,
+      "skipped": 0,
+      "total": 225,
+      "duration": "1 s",
+      "assembly": "GnOuGo.AI.Core.Tests.dll"
+    },
+    {
+      "failed": 0,
+      "passed": 14,
+      "skipped": 0,
+      "total": 14,
+      "duration": "64 ms",
+      "assembly": "GnOuGo.AI.Local.Tests.dll"
+    },
+    {
+      "failed": 0,
+      "passed": 103,
+      "skipped": 0,
+      "total": 103,
+      "duration": "1 s",
+      "assembly": "GnOuGo.Agent.Mcp.Tests.dll"
+    },
+    {
+      "failed": 0,
+      "passed": 93,
+      "skipped": 7,
+      "total": 100,
+      "duration": "17 s",
+      "assembly": "GnOuGo.Cmd.Mcp.Tests.dll"
+    },
+    {
+      "failed": 0,
+      "passed": 141,
+      "skipped": 0,
+      "total": 141,
+      "duration": "12 s",
+      "assembly": "GnOuGo.Browser.Mcp.Tests.dll"
+    },
+    {
+      "failed": 0,
+      "passed": 749,
+      "skipped": 1,
+      "total": 750,
+      "duration": "22 m 29 s",
+      "assembly": "GnOuGo.Agent.Server.Tests.dll"
+    },
+    {
+      "failed": 0,
+      "passed": 64,
+      "skipped": 0,
+      "total": 64,
+      "duration": "5 s",
+      "assembly": "GnOuGo.Document.Mcp.Tests.dll"
+    },
+    {
+      "failed": 0,
+      "passed": 9,
+      "skipped": 0,
+      "total": 9,
+      "duration": "835 ms",
+      "assembly": "GnOuGo.KeyVault.Mcp.Tests.dll"
+    },
+    {
+      "failed": 0,
+      "passed": 10,
+      "skipped": 0,
+      "total": 10,
+      "duration": "463 ms",
+      "assembly": "GnOuGo.Files.Server.Tests.dll"
+    },
+    {
+      "failed": 0,
+      "passed": 7,
+      "skipped": 0,
+      "total": 7,
+      "duration": "720 ms",
+      "assembly": "GnOuGo.DocIngestor.Mcp.Tests.dll"
+    },
+    {
+      "failed": 0,
+      "passed": 7,
+      "skipped": 0,
+      "total": 7,
+      "duration": "500 ms",
+      "assembly": "GnOuGo.OtlpCollector.Server.Tests.dll"
+    },
+    {
+      "failed": 1,
+      "passed": 239,
+      "skipped": 0,
+      "total": 240,
+      "duration": "43 s",
+      "assembly": "GnOuGo.GithubCopilot.Mcp.Tests.dll"
+    },
+    {
+      "failed": 0,
+      "passed": 173,
+      "skipped": 0,
+      "total": 173,
+      "duration": "447 ms",
+      "assembly": "GnOuGo.GithubCopilot.Core.Tests.dll"
+    },
+    {
+      "failed": 0,
+      "passed": 7,
+      "skipped": 5,
+      "total": 12,
+      "duration": "23 ms",
+      "assembly": "GnOuGo.GithubCopilot.E2E.Tests.dll"
+    },
+    {
+      "failed": 0,
+      "passed": 3,
+      "skipped": 0,
+      "total": 3,
+      "duration": "16 ms",
+      "assembly": "GnOuGo.Observability.Core.Tests.dll"
+    },
+    {
+      "failed": 0,
+      "passed": 83,
+      "skipped": 0,
+      "total": 83,
+      "duration": "5 s",
+      "assembly": "GnOuGo.Git.Mcp.Tests.dll"
+    },
+    {
+      "failed": 0,
+      "passed": 30,
+      "skipped": 0,
+      "total": 30,
+      "duration": "36 ms",
+      "assembly": "GnOuGo.Workspace.Tests.dll"
+    },
+    {
+      "failed": 0,
+      "passed": 49,
+      "skipped": 0,
+      "total": 49,
+      "duration": "29 ms",
+      "assembly": "GnOuGo.Mcp.Core.Tests.dll"
+    },
+    {
+      "failed": 0,
+      "passed": 12,
+      "skipped": 0,
+      "total": 12,
+      "duration": "49 ms",
+      "assembly": "GnOuGo.Flow.Mermaid.Tests.dll"
+    },
+    {
+      "failed": 0,
+      "passed": 91,
+      "skipped": 0,
+      "total": 91,
+      "duration": "9 s",
+      "assembly": "GnOuGo.Assets.Bears.Tests.dll"
+    },
+    {
+      "failed": 0,
+      "passed": 42,
+      "skipped": 0,
+      "total": 42,
+      "duration": "81 ms",
+      "assembly": "GnOuGo.Assets.Animation.Tests.dll"
+    },
+    {
+      "failed": 0,
+      "passed": 13,
+      "skipped": 0,
+      "total": 13,
+      "duration": "4 s",
+      "assembly": "GnOuGo.Assets.Animation.Server.Tests.dll"
+    },
+    {
+      "failed": 0,
+      "passed": 28,
+      "skipped": 0,
+      "total": 28,
+      "duration": "215 ms",
+      "assembly": "GnOuGo.Assets.Bears.Server.Tests.dll"
+    },
+    {
+      "failed": 0,
+      "passed": 1225,
+      "skipped": 0,
+      "total": 1225,
+      "duration": "1 m 10 s",
+      "assembly": "GnOuGo.Flow.Planning.Tests.dll"
+    },
+    {
+      "failed": 0,
+      "passed": 177,
+      "skipped": 0,
+      "total": 177,
+      "duration": "9 s",
+      "assembly": "GnOuGo.ProxyCopilot.Server.Tests.dll"
+    },
+    {
+      "failed": 0,
+      "passed": 8,
+      "skipped": 0,
+      "total": 8,
+      "duration": "92 ms",
+      "assembly": "GnOuGo.Auth.Core.Tests.dll"
+    },
+    {
+      "failed": 0,
+      "passed": 17,
+      "skipped": 0,
+      "total": 17,
+      "duration": "4 s",
+      "assembly": "GnOuGo.Flow.Persistence.Tests.dll"
+    },
+    {
+      "failed": 0,
+      "passed": 5,
+      "skipped": 0,
+      "total": 5,
+      "duration": "55 ms",
+      "assembly": "GnOuGo.Flow.Copilot.Tests.dll"
+    }
+  ],
+  "log_sha256": "9d23e5af4844694ee021325a2aa3d16f8f6bc85808c8c835f091c39f34a692f9",
+  "failure": "GnOuGo.GithubCopilot.Mcp.Tests.CopilotTasksTests.CancellationReachesTaskOwnerAndRetainsPartialCheckpoint: IOException during fixture disposal",
+  "isolated_reruns": {
+    "passed": 3,
+    "failed": 0,
+    "does_not_replace_full_suite_result": true
+  },
+  "final_harness_followup": "83 recovery/accounting tests passed after adding review verification and one additional valid-receipt regression during the full run."
+}
