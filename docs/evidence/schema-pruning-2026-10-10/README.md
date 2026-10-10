@@ -62,4 +62,26 @@ remaining semantic diagnostics are reported without trying another model call.
 A generated artifact still needs its own concrete approval. Historical uncertain
 invocations and the original live harness's frozen-build checks remain intact.
 
-Full validation and actual recovery results will be recorded separately below.
+## Committed recovery
+
+Recovery was applied once at `2026-10-10T11:37:36.6487180Z` using validator
+candidate `847a15b9ed6dff0b1c603798b8cef63bc0f85931`. An independent subsequent
+read returned **revision 6, `final_review`, zero diagnostics**. Original-schema
+validation took 22.137 ms in this fresh process; validation plus compilation took
+8,675 ms. The original manifest/source remain unchanged, with the validator
+candidate retained separately in encrypted recovery history.
+
+Artifact: `ec011e1deed9ee48dd413d17911351ae2a08c8222a08efb271f6d84771ff86e0`.
+See [the review and actual tasks](amazon-review.md), [YAML](amazon-r6.yaml),
+[recovery audit](recovery-applied.json) and [accounting verification](accounting-verification.json).
+
+There were **zero new model calls and zero external actions**. The session still
+has four logical completions/five transport attempts, 58,273 input and 20,341 output
+tokens. Campaign inspection before/after is identical, including its evidence
+hash: **€122.38243856803248409685589484 / €150**, with
+**€6.5016147947905255187922165013** unknown reservations retained. The original
+requests and receipts were neither modified nor recharged.
+
+This artifact is not approved or executed. Product visits, workbook creation and
+execution oracles remain unverified. No further repair or live run was attempted.
+Full-suite validation is recorded separately when complete.
