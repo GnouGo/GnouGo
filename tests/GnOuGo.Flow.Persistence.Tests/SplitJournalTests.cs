@@ -123,6 +123,13 @@ public sealed class SplitJournalTests(ITestOutputHelper output) : IDisposable
         await restarted.RestoreSnapshotAsync(restarted.Run.Invocations["step11"], state, true, Ct);
         await restarted.SaveAsync([], Ct);
         Assert.Equal(reads, records.BlockReads);
+        var restored = new JsonObject();
+        await restarted.RestoreSnapshotAsync(restarted.Run.Invocations["step11"], restored, true, Ct);
+        var restoredObservation = restored["steps"]!["observed"];
+        var restoreAllocation = GC.GetTotalAllocatedBytes();
+        await restarted.RestoreSnapshotAsync(restarted.Run.Invocations["step11"], restored, true, Ct);
+        Assert.True(GC.GetTotalAllocatedBytes() - restoreAllocation < logicalSnapshotBytes * 2L);
+        Assert.Same(restoredObservation, restored["steps"]!["observed"]);
         // Public access is detached. Explicit edits remain supported by full save.
         restarted.Run.Invocations["step0"].DataBefore["edited"] = true;
         await restarted.SaveAsync(Ct);

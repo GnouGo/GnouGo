@@ -430,6 +430,15 @@ public sealed partial class EncryptedWorkflowRunStore
                 return true;
             }
             if (value is not JsonValue scalar || frozen is not JsonValue otherScalar) return false;
+            if (scalar.TryGetValue<JsonElement>(out var element) && element.ValueKind == JsonValueKind.String)
+            {
+                if (!_frozenStrings.TryGetValue(otherScalar, out var original))
+                {
+                    if (!otherScalar.TryGetValue<string>(out original)) return false;
+                    _frozenStrings.Add(otherScalar, original);
+                }
+                return element.ValueEquals(original);
+            }
             if (scalar.TryGetValue<string>(out var text))
             {
                 if (!_frozenStrings.TryGetValue(otherScalar, out var original))
