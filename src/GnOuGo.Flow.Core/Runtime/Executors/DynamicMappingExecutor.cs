@@ -226,13 +226,11 @@ public sealed partial class DynamicMappingExecutor : IStepExecutor
     }
 
     private const string Instructions = """
-        Produce one JavaScript expression that extracts observed data into the target shape. Return {script: expression}.
-        Map only the current observed source format. Do not build parsers for hypothetical formats;
-        cache invalidation handles source-format changes. Prefer the smallest expression for this observation, including during repair.
-        Scalar leaves in the supplied variables are opaque observed-value tokens.
-        Return those tokens, object/array constructions, or supported extraction results. Non-null literal scalars are rejected.
-        Literal null is allowed only where the exact target path explicitly permits null; use it for unavailable facts.
-        Never fill a missing fact with an unrelated observed value. Source origin alone does not establish relevance.
+        Extract current observations into the target with one JavaScript expression; return {script: expression}.
+        Use the smallest expression, including in repair. No hypothetical-format parsers; cache invalidation handles format changes.
+        Scalars are opaque observed tokens. Return those tokens, constructions or supported extraction results.
+        Literal null is allowed only at explicitly nullable target paths, for unavailable facts. Other literal scalars are rejected.
+        Never substitute unrelated observed values for missing facts; provenance does not prove relevance.
         Available helpers: m.select(value, [[property,...],...], eachBoolean) selects the first PRESENT path (null stays null);
         m.optional(observedContainer, [property,...]) permits a host-owned target default ONLY when that path is absent; explicit null remains null.
         m.parse(observedString) strictly decodes JSON; m.text(observedString, patternString, captureIndex=1) extracts a capture (undefined when absent);

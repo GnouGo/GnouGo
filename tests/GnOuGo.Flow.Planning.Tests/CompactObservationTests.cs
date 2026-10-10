@@ -122,6 +122,7 @@ public sealed partial class CompactObservationTests(ITestOutputHelper output)
         if (typed) broad.Inputs[0].Type.Items!.Fields.Add(new() { Name = "actionOnly", Type = new() });
         var broadModel = new Model(input, port);
         var rejected = await Execute(broad, values, broadModel);
+        output.WriteLine($"Broad view result: {rejected.Error?.Code}: {rejected.Error?.Message}; details={rejected.Error?.Details?.ToJsonString()}");
         Assert.False(rejected.Success); Assert.Equal(ErrorCodes.LlmBudgetExceeded, rejected.Error!.Code);
         Assert.Empty(broadModel.Interpretation);
         var view = new PlanTask { Id = "decision_view", Kind = "foreach", Objective = "Select only the fields needed for the group comparison; retain original references separately",
