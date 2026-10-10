@@ -349,8 +349,10 @@ public sealed partial class LocalProductOutcomeExecutionTests(ITestOutputHelper 
                 {
                     var origin = Assert.Single(session.Graph!.Workflows.SelectMany(w => w.Steps), n => n.Purpose == "Attach observation positions").Key;
                     var indexing = Assert.Single(WorkflowParser.Parse(session.Yaml!).Workflows.Values.SelectMany(w => w.Steps),
-                        s => s.Input?.ToJsonString().Contains(origin, StringComparison.Ordinal) == true);
-                    // v5 checks the typed indexing projection in the collection consumer;
+                        s => s.Input?.ToJsonString().Contains(origin, StringComparison.Ordinal) == true ||
+                            s.ExpressionContracts?.ToJsonString().Contains(origin, StringComparison.Ordinal) == true);
+                    // v8 moves literal origins out of programs into contract metadata.
+                    // The typed indexing check still belongs to the collection consumer;
                     // there is no materialization or workflow invocation per copied record.
                     Assert.Equal("workflow.call", indexing.Type);
                     Assert.Equal("workflow.call", Assert.Single(checkpoint.Invocations.Values, i => i.Id.EndsWith("/step/" + indexing.Id, StringComparison.Ordinal)).StepType);
