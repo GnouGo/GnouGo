@@ -21,6 +21,47 @@ public sealed class SplitJournalTests(ITestOutputHelper output) : IDisposable
     private static string Json(WorkflowRun run) => JsonSerializer.Serialize(run, WorkflowRunJsonContext.Default.WorkflowRun);
 
     [Fact]
+    public async Task CustomExecutorMutationCannotChangeCapturedEvidenceOrRepeatAfterRestart()
+    {
+        const string yaml = """
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - { id: mutate, type: test.mutate }
+                outputs:
+                  result: "${data.inputs.original}"
+            """;
+        var calls = new List<string>();
+        var workflow = new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml)).Workflows["main"];
+        var engine = Engine(Store(), new Mutator(calls));
+        var result = await engine.ExecuteAsync(workflow, new JsonObject { ["original"] = "before", ["removed"] = null }, Ct);
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal("after", result.Outputs!["result"]!.ToString());
+        var saved = (await Store().ReadAsync("tenant", "run", Ct))!;
+        var invocation = Assert.Single(saved.Invocations).Value;
+        Assert.False(invocation.TryGetMaterializedSnapshot(false, out _));
+        Assert.Equal("before", invocation.DataBefore["inputs"]!["original"]!.ToString());
+        Assert.True(invocation.DataBefore["inputs"]!.AsObject().ContainsKey("removed"));
+        Assert.Equal("after", invocation.DataAfter!["inputs"]!["original"]!.ToString());
+        Assert.False(invocation.DataAfter["inputs"]!.AsObject().ContainsKey("removed"));
+        Assert.True((await Engine(Store(), new Mutator(calls)).ResumeAsync("tenant", "run", saved.Revision, workflow, Ct)).Success);
+        Assert.Single(calls);
+    }
+
+    private sealed class Mutator(List<string> calls) : IStepExecutor
+    {
+        public string StepType => "test.mutate";
+        public Task<JsonNode?> ExecuteAsync(StepExecutionContext context, CancellationToken ct)
+        {
+            calls.Add("executed");
+            context.Data["inputs"]!["original"] = "after";
+            context.Data["inputs"]!.AsObject().Remove("removed");
+            return Task.FromResult<JsonNode?>(new JsonObject { ["changed"] = true });
+        }
+    }
+
+    [Fact]
     public async Task FrozenSnapshotsCheckpointRepeatedObservationStateWithoutExpandingHistory()
     {
         var records = new MeasuredRecords(Records()); var store = Store(records);
@@ -37,10 +78,14 @@ public sealed class SplitJournalTests(ITestOutputHelper output) : IDisposable
         {
             for (var i = 0; i < 12; i++)
             {
+                state["iteration"] = i;
                 var invocation = new WorkflowInvocation { Id = "step" + i, StepType = "set", Status = "completed", Output = new JsonObject { ["ok"] = true } };
                 owner.Run.Invocations[invocation.Id] = invocation;
+                var captureAllocated = GC.GetTotalAllocatedBytes(); var captureTimer = Stopwatch.StartNew();
                 await owner.CaptureSnapshotAsync(invocation, state, false, Ct);
                 await owner.CaptureSnapshotAsync(invocation, state, true, Ct);
+                captureTimer.Stop(); captureAllocated = GC.GetTotalAllocatedBytes() - captureAllocated;
+                if (i > 0) Assert.True(captureAllocated < logicalSnapshotBytes * 2L, $"unchanged observations were re-encoded: {captureAllocated}");
                 Assert.False(invocation.TryGetMaterializedSnapshot(false, out _));
                 Assert.False(invocation.TryGetMaterializedSnapshot(true, out _));
                 var writes = records.BlockWrites; var bytes = records.WrittenBytes;
@@ -50,7 +95,7 @@ public sealed class SplitJournalTests(ITestOutputHelper output) : IDisposable
                 Assert.InRange(records.BlockWrites - writes, 1, 4);
                 Assert.InRange(records.WrittenBytes - bytes, 0, 30000);
                 Assert.True(checkpointAllocations < logicalSnapshotBytes, $"checkpoint allocations={checkpointAllocations}, snapshot={logicalSnapshotBytes}");
-                output.WriteLine($"checkpoint={i}; milliseconds={timer.Elapsed.TotalMilliseconds:F2}; allocation_bytes={checkpointAllocations}; written_bytes={records.WrittenBytes - bytes}");
+                output.WriteLine($"capture_ms={captureTimer.Elapsed.TotalMilliseconds:F2}; capture_allocation_bytes={captureAllocated}; working_set_bytes={Environment.WorkingSet}; checkpoint={i}; milliseconds={timer.Elapsed.TotalMilliseconds:F2}; allocation_bytes={checkpointAllocations}; written_bytes={records.WrittenBytes - bytes}");
             }
             var saved = owner.Run.Invocations["step0"];
             var oldValue = state["steps"]!["observed"];

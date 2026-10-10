@@ -21,6 +21,8 @@ public sealed partial class EncryptedWorkflowRunStore
         private readonly System.Collections.Concurrent.ConcurrentDictionary<string, JsonObject> _loaded = new(StringComparer.Ordinal);
         private readonly HashSet<string> _written = new(StringComparer.Ordinal);
         private readonly Dictionary<(WorkflowInvocation Invocation, bool After), JsonNode> _snapshots = new();
+        private JsonNode? _lastCapture;
+        private readonly Dictionary<JsonValue, string> _frozenStrings = new(ReferenceEqualityComparer.Instance);
         private int _eventPrefixCount = head["eventCount"]?.GetValue<int>() ?? 0;
         public JsonObject Head { get; private set; } = head;
         public long Revision => Head["revision"]!.GetValue<long>();
@@ -94,7 +96,8 @@ public sealed partial class EncryptedWorkflowRunStore
 
         public async Task CaptureAsync(WorkflowInvocation invocation, JsonObject data, bool after, CancellationToken ct)
         {
-            var reference = await EncodeAsync(data, ct, force: true);
+            var reference = await EncodeAsync(data, ct, force: true, previous: _lastCapture);
+            _lastCapture = reference;
             Defer(invocation, after, reference);
         }
 
@@ -102,7 +105,8 @@ public sealed partial class EncryptedWorkflowRunStore
         {
             var reference = await SnapshotAsync(invocation, after, ct);
             if (IsNull(reference)) reference = await SnapshotAsync(invocation, false, ct);
-            RestoreObject(data, reference, ct);
+            if (!Matches(data, reference, ct)) RestoreObject(data, reference, ct);
+            _lastCapture = reference;
         }
 
         private async Task<JsonNode> SnapshotAsync(WorkflowInvocation invocation, bool after, CancellationToken ct)
@@ -256,10 +260,11 @@ public sealed partial class EncryptedWorkflowRunStore
               ["retryable"] = JsonValue.Create(error.Retryable), ["details"] = error.Details }, ct);
 
         private async Task<JsonNode> EncodeFieldsAsync(IEnumerable<KeyValuePair<string, JsonNode?>> source, CancellationToken ct,
-            string? extraName = null, JsonNode? extraReference = null)
+            string? extraName = null, JsonNode? extraReference = null, JsonNode? previous = null)
         {
+            var previousFields = IsObject(previous) ? ObjectFields(previous) : null;
             var fields = new JsonArray();
-            foreach (var pair in source) fields.Add((JsonNode)new JsonArray(pair.Key, await EncodeAsync(pair.Value, ct)));
+            foreach (var pair in source) fields.Add((JsonNode)new JsonArray(pair.Key, await EncodeAsync(pair.Value, ct, previous: previousFields?.GetValueOrDefault(pair.Key))));
             if (extraName is not null) fields.Add((JsonNode)new JsonArray(extraName, extraReference));
             return await WriteBlockAsync(new() { ["kind"] = "object", ["values"] = fields }, ct);
         }
@@ -291,25 +296,27 @@ public sealed partial class EncryptedWorkflowRunStore
             return remaining >= 0;
         }
 
-        private async Task<JsonNode> EncodeAsync(JsonNode? value, CancellationToken ct, bool force = false)
+        private async Task<JsonNode> EncodeAsync(JsonNode? value, CancellationToken ct, bool force = false, JsonNode? previous = null)
         {
             ct.ThrowIfCancellationRequested();
+            if (previous is not null && Matches(value, previous, ct)) return previous.DeepClone();
             var remaining = InlineBytes;
             if (!force && FitsInline(value, ref remaining)) return new JsonArray(0, value?.DeepClone());
-            if (value is JsonObject obj) return await EncodeFieldsAsync(obj, ct);
-            if (value is JsonArray array) return await EncodeArrayAsync(array, 0, array.Count, ct);
+            if (value is JsonObject obj) return await EncodeFieldsAsync(obj, ct, previous: previous);
+            if (value is JsonArray array) return await EncodeArrayAsync(array, 0, array.Count, ct,
+                IsArray(previous) ? References(previous!).ToArray() : null);
             return await WriteBlockAsync(new() { ["kind"] = "value", ["value"] = value?.DeepClone() }, ct);
         }
 
-        private async Task<JsonNode> EncodeArrayAsync(JsonArray array, int start, int count, CancellationToken ct)
+        private async Task<JsonNode> EncodeArrayAsync(JsonArray array, int start, int count, CancellationToken ct, IReadOnlyList<JsonNode>? previous = null)
         {
             var chunks = count > ChunkSize;
             var items = new JsonArray();
             if (chunks)
                 for (var i = start; i < start + count; i += ChunkSize)
-                    items.Add(await EncodeArrayAsync(array, i, Math.Min(ChunkSize, start + count - i), ct));
+                    items.Add(await EncodeArrayAsync(array, i, Math.Min(ChunkSize, start + count - i), ct, previous));
             else
-                for (var i = start; i < start + count; i++) items.Add(await EncodeAsync(array[i], ct));
+                for (var i = start; i < start + count; i++) items.Add(await EncodeAsync(array[i], ct, previous: previous is not null && i < previous.Count ? previous[i] : null));
             return await WriteBlockAsync(new() { ["kind"] = chunks ? "chunks" : "array", ["values"] = items }, ct);
         }
 
@@ -371,6 +378,70 @@ public sealed partial class EncryptedWorkflowRunStore
             finally { active.Remove(hash); }
         }
 
+        private bool IsObject(JsonNode? reference) => reference is not null &&
+            (reference[0]!.GetValue<int>() == 0 ? reference[1] is JsonObject : Block(reference)["kind"]?.ToString() == "object");
+        private bool IsArray(JsonNode? reference) => reference is not null &&
+            (reference[0]!.GetValue<int>() == 0 ? reference[1] is JsonArray : Block(reference)["kind"]?.ToString() is "array" or "chunks");
+        private IEnumerable<JsonNode> References(JsonNode reference) => reference[0]!.GetValue<int>() == 0
+            ? reference[1]!.AsArray().Select(item => (JsonNode)new JsonArray(0, item?.DeepClone())) : ArrayItems(reference);
+
+        // Compare live values with verified immutable blocks before reusing a
+        // reference. Node identity is only used for cached strings owned by us.
+        private bool Matches(JsonNode? value, JsonNode reference, CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+            if (reference[0]!.GetValue<int>() == 0) return MatchesInline(value, reference[1], ct);
+            var block = Block(reference);
+            switch (block["kind"]?.ToString())
+            {
+                case "object":
+                    if (value is not JsonObject obj || obj.Count != block["values"]!.AsArray().Count) return false;
+                    using (var actual = obj.GetEnumerator())
+                        foreach (var field in block["values"]!.AsArray())
+                            if (!actual.MoveNext() || actual.Current.Key != field![0]!.GetValue<string>() || !Matches(actual.Current.Value, field[1]!, ct)) return false;
+                    return true;
+                case "array": case "chunks":
+                    if (value is not JsonArray array) return false;
+                    var index = 0;
+                    foreach (var item in ArrayItems(reference))
+                        if (index >= array.Count || !Matches(array[index++], item, ct)) return false;
+                    return index == array.Count;
+                case "value": return MatchesInline(value, block["value"], ct);
+                default: throw Invalid();
+            }
+        }
+
+        private bool MatchesInline(JsonNode? value, JsonNode? frozen, CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+            if (value is null || frozen is null) return value is null && frozen is null;
+            if (value is JsonObject obj && frozen is JsonObject other)
+            {
+                if (obj.Count != other.Count) return false;
+                using var actual = obj.GetEnumerator();
+                foreach (var field in other)
+                    if (!actual.MoveNext() || actual.Current.Key != field.Key || !MatchesInline(actual.Current.Value, field.Value, ct)) return false;
+                return true;
+            }
+            if (value is JsonArray array && frozen is JsonArray otherArray)
+            {
+                if (array.Count != otherArray.Count) return false;
+                for (var i = 0; i < array.Count; i++) if (!MatchesInline(array[i], otherArray[i], ct)) return false;
+                return true;
+            }
+            if (value is not JsonValue scalar || frozen is not JsonValue otherScalar) return false;
+            if (scalar.TryGetValue<string>(out var text))
+            {
+                if (!_frozenStrings.TryGetValue(otherScalar, out var original))
+                {
+                    if (!otherScalar.TryGetValue<string>(out original)) return false;
+                    _frozenStrings.Add(otherScalar, original);
+                }
+                return string.Equals(text, original, StringComparison.Ordinal);
+            }
+            return string.Equals(scalar.ToJsonString(), otherScalar.ToJsonString(), StringComparison.Ordinal);
+        }
+
         private JsonObject Block(JsonNode reference) => _loaded[reference[1]!.GetValue<string>()];
         private bool IsNull(JsonNode reference) => reference[0]!.GetValue<int>() == 0 ? reference[1] is null
             : Block(reference)["kind"]?.ToString() == "value" && Block(reference)["value"] is null;
@@ -427,6 +498,7 @@ public sealed partial class EncryptedWorkflowRunStore
         private JsonNode? RestoreValue(JsonNode? current, JsonNode reference, CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
+            if (Matches(current, reference, ct)) return current;
             var block = reference[0]!.GetValue<int>() == 1 ? Block(reference) : null;
             if (current is JsonObject obj && block?["kind"]?.ToString() == "object")
             { RestoreObject(obj, reference, ct); return obj; }
@@ -442,13 +514,6 @@ public sealed partial class EncryptedWorkflowRunStore
                 while (array.Count > index) array.RemoveAt(array.Count - 1);
                 return array;
             }
-            var desired = reference[0]!.GetValue<int>() == 0 ? reference[1] : block?["kind"]?.ToString() == "value" ? block["value"] : null;
-            // Bound comparisons too: a changed large container must not be serialized
-            // just because the frozen value is inline. Preserve numeric token spelling.
-            var remaining = InlineBytes;
-            if ((block is null || block["kind"]?.ToString() == "value") &&
-                (current is null or JsonValue || FitsInline(current, ref remaining)) &&
-                string.Equals(current?.ToJsonString(), desired?.ToJsonString(), StringComparison.Ordinal)) return current;
             return Decode(reference);
         }
 
