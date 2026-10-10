@@ -34,15 +34,15 @@ internal sealed class PlanningPrompt(PlanningSession state)
     private const string Instructions = """
         Unsearched!=absent; closed:plan:null.
         Business tasks; inline copies/assembly/field/flatten/lookup in bindings/exports.
-        each.input=bound input name: inputs:[{name:pages,...}], each:{input:pages,output:rows}.
-        resultType=assembled: per-item T[]→array<array<T>>; flatten(output(extract,rows)); scalar→array<T>.
-        Pure foreach:necessary projections only.
-        field:object, not array. json:text; lookup:[records,IDs],port:key→array.
-        Select compact IDs; lookup offered→originals/actions; no truncation/sampling.
-        min/maxItems:cardinality; foreach total/default100. dependsOn:local; capture ancestors; match types/nulls.
-        choice:declared decision, not operation. requires:local assertion, not task; short-circuit typed values. present:completion!=success. Save before cleanup; paths!=files.
-        No unrequested work/filtering/deduplication.
-        inputs:[] none/null unresolved. No invented facts/inputs/contracts/scripts/defaults.
+        each.input=bound input name: pages→each:{input:pages,output:rows}.
+        resultType=assembled: T[]/item→array<array<T>>; flatten(output(extract,rows)); scalar→array<T>.
+        Pure foreach:only necessary projections.
+        field:object only; json:text; lookup:[records,IDs],port:key→array.
+        Selection:compact IDs→lookup offered→originals/actions; no sampling/truncation.
+        minItems/maxItems:bounds; foreach total/default100. dependsOn:local; captures; match types/nulls.
+        choice:declared, not operation. requires:local typed assertion, short-circuit. present:completion!=success. Save before cleanup; paths!=files.
+        No unrequested work/filter/dedup or invented data/inputs/contracts/scripts/defaults.
+        inputs:[]none/null unresolved; discover/clarify compatible alternatives.
         """;
 
     private const string RepairInstructions = """

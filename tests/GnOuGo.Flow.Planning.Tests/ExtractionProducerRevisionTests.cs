@@ -76,12 +76,13 @@ public sealed class ExtractionProducerRevisionTests
         plan.Choices = [new() { Id = "permission", Question = "Proceed?", Type = new() { Kind = "boolean" },
             Alternatives = [new("yes", "Proceed", new() { Kind = "boolean", Boolean = true }), new("no", "Stop", new() { Kind = "boolean", Boolean = false })],
             Recommended = "yes", Selected = "yes" }];
-        plan.Root.Tasks[2].Requires = new() { Kind = "choice", Source = "permission" };
+        var requirement = new TaskValue { Kind = "choice", Source = "permission" };
+        plan.Root.Tasks[2].Requires = requirement;
         Assert.Empty(new TaskPlanCompiler().Compile(plan, state.Catalog!).Diagnostics);
-        plan.Root.Tasks[2].Requires.Source = "missing";
+        requirement.Source = "missing";
         var unknown = Assert.Single(new TaskPlanCompiler().Compile(plan, state.Catalog!).Diagnostics, d => d.Code == "CHOICE_UNKNOWN");
         Assert.Contains("permission", unknown.Message); Assert.Contains("'missing' is not a declared choice", unknown.Message);
-        plan.Root.Tasks[2].Requires.Source = "observe";
+        requirement.Source = "observe";
         var operation = Assert.Single(new TaskPlanCompiler().Compile(plan, state.Catalog!).Diagnostics, d => d.Code == "CHOICE_UNKNOWN");
         Assert.Contains("operation task", operation.Message); Assert.Contains("not success", operation.Message);
     }
