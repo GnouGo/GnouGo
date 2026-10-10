@@ -432,11 +432,14 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
                         var clone = (JsonObject)loopInput.DeepClone();
                         var condition = clone["while"]?.DeepClone();
                         clone.Remove("while");
-                        var resolved = executionScope.Interpolator.ResolveDeep(clone, data) as JsonObject ?? clone;
+                        ExpressionEvaluator.ValidateExpressionContracts(loopInput, step.Source.ExpressionContracts);
+                        var inputContracts = step.Source.ExpressionContracts?.DeepClone().AsObject();
+                        inputContracts?.Remove("/while");
+                        var resolved = executionScope.Interpolator.ResolveDeep(clone, data, inputContracts) as JsonObject ?? clone;
                         resolved["while"] = condition;
                         return (true, resolved);
                     }
-                    return (true, executionScope.Interpolator.ResolveDeep(step.Source.Input.DeepClone(), data));
+                    return (true, executionScope.Interpolator.ResolveDeep(step.Source.Input.DeepClone(), data, step.Source.ExpressionContracts));
                 }
                 bool shouldRun;
                 if (Journal is { } journal)

@@ -28,7 +28,7 @@ public sealed class IndexedProjectionCompilationTests(Xunit.ITestOutputHelper ou
     private static TaskValue Row() => new() { Kind = "object", Members = [new("identity", new() { Kind = "index" }), new("original", new() { Kind = "item" })] };
     private static JsonArray Records(int count) => new(Enumerable.Range(0, count).Select(i => (JsonNode)new JsonObject
         { ["label"] = i % 2 == 0 ? null : "duplicate", ["children"] = new JsonArray("same", null, "same") }).ToArray());
-    private static async Task<(string Yaml, TaskCompilation Compilation)> Compile(TaskPlan plan, string? profile)
+    private static async Task<(string Yaml, TaskCompilation Compilation)> Compile(TaskPlan plan, string? profile, bool completeProfile = false)
     {
         var catalog = await new WorkflowPlanningRuntime(new(), (_, _) => Task.CompletedTask).DiscoverAsync(
             new() { Policy = new() { RequireExternalConfirmation = false } }, PlannerFixture.Ct);
@@ -36,7 +36,11 @@ public sealed class IndexedProjectionCompilationTests(Xunit.ITestOutputHelper ou
         var compiled = new TaskPlanCompiler().Compile(plan, catalog, request);
         Assert.Empty(compiled.Diagnostics); Assert.Empty(PlanningExecutableValidation.Validate(compiled.Graph!, catalog));
         var before = JsonSerializer.Serialize(compiled.Graph, PlanningJsonContext.Default.PlanningGraph);
-        var yaml = new PlanningGraphCompiler().Compile(compiled.Graph!, catalog, "generated", TaskPlanCompiler.UsesNormalExports(request));
+        // Existing size fixtures isolate indexing from later lowering changes.
+        var yaml = completeProfile ? new PlanningGraphCompiler().Compile(compiled.Graph!, catalog, "generated", TaskPlanCompiler.UsesNormalExports(request),
+            TaskPlanCompiler.UsesFusedBindings(request), TaskPlanCompiler.UsesConsumerBindings(request),
+            TaskPlanCompiler.UsesDirectProjections(request), TaskPlanCompiler.UsesNativeMappings(request), TaskPlanCompiler.UsesReadableMappings(request))
+            : new PlanningGraphCompiler().Compile(compiled.Graph!, catalog, "generated", TaskPlanCompiler.UsesNormalExports(request));
         Assert.Equal(before, JsonSerializer.Serialize(compiled.Graph, PlanningJsonContext.Default.PlanningGraph));
         Assert.DoesNotContain("checkedMapping", before);
         return (yaml, compiled);
@@ -85,6 +89,29 @@ public sealed class IndexedProjectionCompilationTests(Xunit.ITestOutputHelper ou
             _ => "009a1466afb0ca54477f05ec0d5ed453d8ddcd55bb3b5d47dcc1271031f728c3"
         };
         Assert.Equal(expected, Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(yaml))));
+    }
+
+    [Fact]
+    public async Task HistoricalV7StillCompilesIndexedProjectionWithItsOriginalVocabulary()
+    {
+        var (historical, before) = await Compile(Plan(false), "compact-bindings-v7", true);
+        var (current, after) = await Compile(Plan(false), TaskPlanCompiler.CompactProfile, true);
+        Assert.Equal(JsonSerializer.Serialize(before.Graph, PlanningJsonContext.Default.PlanningGraph),
+            JsonSerializer.Serialize(after.Graph, PlanningJsonContext.Default.PlanningGraph));
+        Assert.DoesNotContain("loop.", historical);
+        Assert.Contains("checkedMapping(", historical);
+        Assert.DoesNotContain("expression_contracts", historical);
+        Assert.DoesNotContain("checkedMapping(", current);
+        Assert.Contains("expression_contracts", current);
+        var inputs = new JsonObject { ["observations"] = Records(1000) };
+        var oldResult = await LookupCompilationTests.Execute(historical, inputs, new());
+        var newResult = await LookupCompilationTests.Execute(current, inputs, new());
+        Assert.True(oldResult.Success, oldResult.Error?.Message);
+        Assert.True(newResult.Success, newResult.Error?.Message);
+        Assert.True(JsonNode.DeepEquals(oldResult.Outputs, newResult.Outputs));
+        var large = await LookupCompilationTests.Execute(current, new() { ["observations"] = Records(1602) }, new());
+        Assert.True(large.Success, large.Error?.Message);
+        Assert.Equal(1601, large.Outputs!["records"]![1601]!["identity"]!.GetValue<int>());
     }
 
     [Theory]

@@ -70,6 +70,10 @@ public sealed class LoopSequentialExecutor : IStepExecutor
         var input = ctx.Engine.GetResolvedInput(ctx);
         var inputObj = input as JsonObject;
 
+        JsonNode? WhileValue(string expression) => ctx.Step.Source.ExpressionContracts?["/while"] is JsonObject contracts
+            ? ctx.Interpolator.ResolveDeep(JsonValue.Create(expression), ctx.Data, new JsonObject { [""] = contracts.DeepClone() })
+            : ctx.Interpolator.Interpolate(expression, ctx.Data);
+
         int maxTimes = ctx.Limits.MaxLoopIterations;
         if (inputObj?.TryGetPropertyValue("max_times", out var mt) == true && mt != null)
             maxTimes = (int)ExpressionEvaluator.GetNumber(mt);
@@ -138,7 +142,7 @@ public sealed class LoopSequentialExecutor : IStepExecutor
                 {
                     var whileStr = ExpressionEvaluator.GetString(whileExpr);
                     var condResult = await ctx.RecordControlAsync("while/" + i.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                        () => JsonValue.Create(ExpressionEvaluator.GetBool(ctx.Interpolator.Interpolate(whileStr, ctx.Data))), ct);
+                        () => JsonValue.Create(ExpressionEvaluator.GetBool(WhileValue(whileStr))), ct);
                     if (!ExpressionEvaluator.GetBool(condResult))
                         break;
                 }
@@ -201,7 +205,7 @@ public sealed class LoopSequentialExecutor : IStepExecutor
             {
                 var whileStr = ExpressionEvaluator.GetString(whileExpr2);
                 var condResult = await ctx.RecordControlAsync("while/" + iteration.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                    () => JsonValue.Create(ExpressionEvaluator.GetBool(ctx.Interpolator.Interpolate(whileStr, ctx.Data))), ct);
+                    () => JsonValue.Create(ExpressionEvaluator.GetBool(WhileValue(whileStr))), ct);
                 if (!ExpressionEvaluator.GetBool(condResult))
                     break;
             }

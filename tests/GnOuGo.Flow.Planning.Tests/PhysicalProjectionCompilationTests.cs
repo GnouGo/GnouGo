@@ -158,8 +158,9 @@ public sealed class PhysicalProjectionCompilationTests(Xunit.ITestOutputHelper o
     }
 
     [Theory]
-    [InlineData(true, true)] [InlineData(false, true)] [InlineData(true, false)] [InlineData(false, false)]
-    public async Task RealFlowRetainsBranchesAssertionsCleanupAndDurableInputs(bool route, bool allowed)
+    [InlineData(true, true, false)] [InlineData(false, true, false)] [InlineData(true, false, false)] [InlineData(false, false, false)]
+    [InlineData(true, true, true)] [InlineData(false, true, true)] [InlineData(true, false, true)] [InlineData(false, false, true)]
+    public async Task RealFlowRetainsBranchesAssertionsCleanupAndDurableInputs(bool route, bool allowed, bool readable)
     {
         var requests = new List<JsonNode?>(); var factory = new InMemoryMcpClientFactory();
         factory.RegisterServer("arbitrary", new() { Tools = [new() { Name = "consume", EffectKind = "none",
@@ -175,7 +176,8 @@ public sealed class PhysicalProjectionCompilationTests(Xunit.ITestOutputHelper o
         graph.Workflows[0].Steps.Add(new() { Key = "consume", Type = "mcp.call", CapabilityId = catalog.Capabilities.Single(c => c.Method == "consume").Id,
             Input = Obj("request", Obj("value", Ref("guard", "value"))) });
         graph.Workflows[0].Finally.Add(new() { Key = "cleanup", Input = Obj("closed", new() { Kind = "boolean", Boolean = true }) });
-        var compiled = new WorkflowCompiler().Compile(WorkflowParser.Parse(Compile(graph, catalog, true)));
+        var yaml = readable ? new PlanningGraphCompiler().Compile(graph, catalog, "projection", true, true, true, true, true, true) : Compile(graph, catalog, true);
+        var compiled = new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml));
         var result = await engine.ExecuteAsync(compiled.Workflows["main"], new JsonObject { ["route"] = route, ["signal"] = allowed }, PlannerFixture.Ct);
         Assert.Equal(allowed, result.Success); Assert.Equal(allowed ? 1 : 0, requests.Count);
         Assert.Contains(result.StepResults, r => r.Output?["closed"]?.GetValue<bool>() == true);
@@ -185,5 +187,24 @@ public sealed class PhysicalProjectionCompilationTests(Xunit.ITestOutputHelper o
         Assert.DoesNotContain(saved.Invocations.Values, i => i.Status == "needs_reconciliation");
         var recovered = await new WorkflowEngine { McpClientFactory = factory, RunStore = store }.ResumeAsync("tenant", "scalar", saved.Revision, compiled.Workflows["main"], PlannerFixture.Ct);
         Assert.Equal(allowed, recovered.Success); Assert.Equal(allowed ? 1 : 0, requests.Count);
+    }
+
+    [Theory]
+    [InlineData(true)] [InlineData(false)]
+    public async Task ReadableWholeContainerRetainsLogicalKeysAndValues(bool route)
+    {
+        var graph = Graph(); var catalog = await Catalog(); graph.Workflows[0].Steps[1].Input = Select(Ref("decision"), Array.Empty<string>());
+        graph.Workflows[0].Steps[1].OutputSchema = Schema("""{"type":"object","properties":{"value":{"type":"object"}},"required":["value"]}""");
+        graph.Workflows[0].Outputs.Clear();
+        var results = new List<JsonNode?>();
+        foreach (var readable in new[] { false, true })
+        {
+            var yaml = new PlanningGraphCompiler().Compile(graph, catalog, "container", true, true, true, true, true, readable);
+            var result = await new WorkflowEngine().ExecuteAsync(new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml)).Workflows["main"],
+                new JsonObject { ["route"] = route, ["signal"] = true }, PlannerFixture.Ct);
+            Assert.True(result.Success, result.Error?.Message); results.Add(result.StepResults.Single(s => s.StepId == Id("checked")).Output);
+        }
+        Assert.True(JsonNode.DeepEquals(results[0], results[1]));
+        Assert.True(route ? results[1]!["value"]!["inside"]!["left"]!["flag"]!.GetValue<bool>() : results[1]!["value"]!["right"]!["flag"]!.GetValue<bool>());
     }
 }

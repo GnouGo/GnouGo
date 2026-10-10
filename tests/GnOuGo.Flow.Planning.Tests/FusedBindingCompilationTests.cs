@@ -10,13 +10,17 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class FusedBindingCompilationTests(Xunit.ITestOutputHelper output)
 {
     [Theory]
-    [InlineData("é ` ${literal} \\ source", true, null)]
-    [InlineData("", false, "first")]
-    [InlineData("observed", false, "guard")]
-    public async Task NativeTemplateBindingsPreserveOrderedChecksAndLiteralValues(string label, bool authorized, string? failure)
+    [InlineData("é ` ${literal} \\ source", true, null, false)]
+    [InlineData("", false, "first", false)]
+    [InlineData("observed", false, "guard", false)]
+    [InlineData("é ` ${literal} \\ source", true, null, true)]
+    [InlineData("", false, "first", true)]
+    [InlineData("observed", false, "guard", true)]
+    public async Task NativeTemplateBindingsPreserveOrderedChecksAndLiteralValues(string label, bool authorized, string? failure, bool readable)
     {
-        var yaml = new PlanningGraphCompiler().Compile(Graph(), await Catalog(), "test", true, true, true, true, true);
-        Assert.Contains("input: |", yaml);
+        var yaml = new PlanningGraphCompiler().Compile(Graph(), await Catalog(), "test", true, true, true, true, true, readable);
+        Assert.Contains("input: |", yaml, StringComparison.Ordinal);
+        if (readable) { Assert.Contains("expression_contracts:", yaml); Assert.DoesNotContain("checkedMapping(", yaml); }
         var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml));
         var result = await new WorkflowEngine().ExecuteAsync(document.Workflows["main"], new JsonObject { ["label"] = label, ["authorized"] = authorized }, PlannerFixture.Ct);
         Assert.Equal(failure is null, result.Success);
@@ -25,10 +29,13 @@ public sealed class FusedBindingCompilationTests(Xunit.ITestOutputHelper output)
     }
 
     [Theory]
-    [InlineData("observed", true, null)]
-    [InlineData("", false, "first")]
-    [InlineData("observed", false, "guard")]
-    public async Task ConsumerBindingsCheckBeforeDispatchAndReplayDurableInputs(string label, bool authorized, string? failure)
+    [InlineData("observed", true, null, false)]
+    [InlineData("", false, "first", false)]
+    [InlineData("observed", false, "guard", false)]
+    [InlineData("observed", true, null, true)]
+    [InlineData("", false, "first", true)]
+    [InlineData("observed", false, "guard", true)]
+    public async Task ConsumerBindingsCheckBeforeDispatchAndReplayDurableInputs(string label, bool authorized, string? failure, bool readable)
     {
         var requests = new List<JsonNode?>(); var factory = new InMemoryMcpClientFactory();
         factory.RegisterServer("arbitrary", new() { Tools = [new() { Name = "publish", EffectKind = "none",
@@ -44,13 +51,21 @@ public sealed class FusedBindingCompilationTests(Xunit.ITestOutputHelper output)
             Input = Obj("request", Obj("text", Ref("export", "chosen"))) });
         workflow.Finally.Add(new() { Key = "cleanup", Input = Obj("cleaned", new() { Kind = "boolean", Boolean = true }) });
         var compiler = new PlanningGraphCompiler(); var previous = compiler.Compile(graph, catalog, "test", true, true);
-        var yaml = compiler.Compile(graph, catalog, "test", true, true, true);
+        var yaml = compiler.Compile(graph, catalog, "test", true, true, true, readable, readable, readable);
         var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml));
         var step = Assert.Single(document.Workflows["main"].Steps);
         Assert.Equal("mcp.call", step.Type); Assert.Equal("host", step.Source.Input!["request"]!["fixed"]!.ToString());
         Assert.Equal("arbitrary", step.Source.Input["server"]!.ToString());
-        Assert.Contains("checkedMapping", step.Source.Input["request"]!["text"]!.ToString());
-        Assert.True(yaml.Length < previous.Length, $"before={previous.Length}, after={yaml.Length}");
+        if (readable)
+        {
+            Assert.DoesNotContain("checkedMapping", yaml);
+            Assert.True(step.Source.ExpressionContracts!.ContainsKey("/request/text"));
+        }
+        else
+        {
+            Assert.Contains("checkedMapping", step.Source.Input["request"]!["text"]!.ToString());
+            Assert.True(yaml.Length < previous.Length, $"before={previous.Length}, after={yaml.Length}");
+        }
         Assert.Equal(previous, compiler.Compile(graph, catalog, "test", true, true));
         var values = new JsonObject { ["label"] = label, ["authorized"] = authorized };
         var result = await engine.ExecuteAsync(document.Workflows["main"], values, PlannerFixture.Ct);

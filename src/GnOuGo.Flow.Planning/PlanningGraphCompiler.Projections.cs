@@ -84,7 +84,7 @@ public sealed partial class PlanningGraphCompiler
     private static string LowerAssembly(PlanningNode node, LoweringScope scope)
     {
         var sources = new List<PlanningMember>();
-        string Resolve(PlanningValue value)
+        string Resolve(PlanningValue value, string? hint = null)
         {
             if (value.Kind == "output" && scope.Nodes[value.Source!].InternalRole == "inline:" + node.Key)
             {
@@ -94,11 +94,18 @@ public sealed partial class PlanningGraphCompiler
                 if (!value.Path.SequenceEqual(new[] { "value" })) throw new InvalidOperationException("An inline selection must consume its checked value.");
                 return SelectExpression(source, paths, false, scope);
             }
-            if (value.Kind == "object") return "({" + string.Join(",", value.Members.Select(m => Quote(m.Name) + ":" + Resolve(m.Value))) + "})";
-            if (value.Kind == "array") return "[" + string.Join(",", value.Items.Select(Resolve)) + "]";
+            if (value.Kind == "object") return "({" + string.Join(",", value.Members.Select(m => Quote(m.Name) + ":" + Resolve(m.Value, m.Name))) + "})";
+            if (value.Kind == "array") return "[" + string.Join(",", value.Items.Select(v => Resolve(v))) + "]";
             if (value.Kind == "flatten") return FlattenExpression(Resolve(value.Items.Single()));
             if (value.Kind == "lookup") return LookupExpression(Resolve(value.Items[0]), Resolve(value.Items[1]), value.Text!);
             var name = "v" + sources.Count.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            if (scope.ReadableMappings)
+            {
+                var field = hint ?? value.Path.LastOrDefault() ?? value.Source ?? "value";
+                var stem = "input_" + new string(field.Select(c => char.IsAsciiLetterOrDigit(c) || c == '_' ? c : '_').Take(48).ToArray());
+                name = stem; var suffix = 2;
+                while (sources.Any(s => s.Name == name)) name = stem + "_" + (suffix++).ToString(System.Globalization.CultureInfo.InvariantCulture);
+            }
             sources.Add(new(name, value)); return "source." + name;
         }
         var script = Resolve(node.Input); JintSandbox.ValidateMapping(script, learned: false);

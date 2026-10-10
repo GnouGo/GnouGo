@@ -26,7 +26,7 @@ public sealed partial class PlanningGraphCompiler
     public string Compile(PlanningGraph graph, PlanningCatalog catalog, string name = "generated")
         => Compile(graph, catalog, name, false);
 
-    internal string Compile(PlanningGraph graph, PlanningCatalog catalog, string name, bool descriptions, bool fuseBindings = false, bool consumerBindings = false, bool directProjections = false, bool nativeMappings = false)
+    internal string Compile(PlanningGraph graph, PlanningCatalog catalog, string name, bool descriptions, bool fuseBindings = false, bool consumerBindings = false, bool directProjections = false, bool nativeMappings = false, bool readableMappings = false)
     {
         ArgumentNullException.ThrowIfNull(graph);
         var diagnostics = PlanningExecutableValidation.Validate(graph, catalog);
@@ -46,7 +46,7 @@ public sealed partial class PlanningGraphCompiler
             EnsureUnique(allNodes.Select(n => n.Key), "node");
             if (allNodes.Length > 300) throw new InvalidOperationException("A workflow exceeds the 300-node planning limit.");
             var nodeIds = allNodes.ToDictionary(n => n.Key, n => "n_" + Fingerprint(n.Key)[..16], StringComparer.Ordinal);
-            var scope = new LoweringScope(catalog, nodeIds, workflowIds, workflow.Inputs.Select(p => p.Name).ToHashSet(StringComparer.Ordinal), allNodes.ToDictionary(n => n.Key, n => n.Type, StringComparer.Ordinal), LoopVariables(allNodes), allNodes.ToDictionary(n => n.Key, StringComparer.Ordinal), graph.Workflows.ToDictionary(w => w.Key, StringComparer.Ordinal), descriptions) { DirectProjections = directProjections, NativeMappings = nativeMappings };
+            var scope = new LoweringScope(catalog, nodeIds, workflowIds, workflow.Inputs.Select(p => p.Name).ToHashSet(StringComparer.Ordinal), allNodes.ToDictionary(n => n.Key, n => n.Type, StringComparer.Ordinal), LoopVariables(allNodes), allNodes.ToDictionary(n => n.Key, StringComparer.Ordinal), graph.Workflows.ToDictionary(w => w.Key, StringComparer.Ordinal), descriptions) { DirectProjections = directProjections, NativeMappings = nativeMappings, ReadableMappings = readableMappings };
             if (fuseBindings) PrepareFusion(workflow, scope, consumerBindings);
             var lowered = new JsonObject();
             if (workflow.Inputs.Count > 0)
@@ -128,9 +128,9 @@ public sealed partial class PlanningGraphCompiler
             if (scope.ConsumerBindings.Values.Any(b => b.Group.Contains(node.Key, StringComparer.Ordinal))) continue;
             if (scope.FusedOutputs.TryGetValue(node.Key, out var group))
             {
-                if (group[0] == node.Key) result.Add((JsonNode)LowerFused(group, scope));
+                if (group[0] == node.Key) result.Add((JsonNode)ReadableStep(LowerFused(group, scope), scope));
             }
-            else result.Add((JsonNode)LowerNode(node, scope));
+            else result.Add((JsonNode)ReadableStep(LowerNode(node, scope), scope));
         }
         return result;
     }
@@ -676,6 +676,7 @@ public sealed partial class PlanningGraphCompiler
     {
         internal bool DirectProjections { get; init; }
         internal bool NativeMappings { get; init; }
+        internal bool ReadableMappings { get; init; }
         internal Dictionary<string, string[]> FusedOutputs { get; init; } = new(StringComparer.Ordinal);
         internal HashSet<string> FusedExports { get; init; } = new(StringComparer.Ordinal);
         internal HashSet<string> LocalOutputs { get; init; } = new(StringComparer.Ordinal);

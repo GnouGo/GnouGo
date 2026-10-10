@@ -1,6 +1,44 @@
+# Compact bindings v8: native programs and separate contracts
+
+Fresh sessions and explicit revisions select approval-fingerprinted `compact-bindings-v8`. The existing final lowering composes compiler-owned expressions into native multiline JavaScript, without nested quoted `checkedMapping` programs. Direct checked property access, object/array literals, `map` and one-level `flatMap` preserve the declared bindings. Capture envelopes can bind operands directly without copying surrounding observations. Local names come from declared ports or binding identities, with deterministic collision suffixes. No filtering, truncation or deduplication is inferred.
+
+`expression_contracts` is optional common step metadata. Its keys are JSON pointers relative to `input`; `''` selects the entire input. Each pointer must resolve to one complete `${…}` expression. The value maps the outer program's checked `const` declarations to their literal `origin` and JSON `schema`, for example:
+
+```yaml
+input: |-
+  ${
+  (() => {
+    const selected = { value: data.inputs.observed };
+    return selected;
+  })()
+  }
+expression_contracts:
+  '':
+    selected:
+      origin: /tasks/select
+      schema:
+        type: object
+        properties:
+          value: { type: string }
+        required: [value]
+        additionalProperties: false
+output_schema:
+  type: object
+  properties:
+    value: { type: string }
+  required: [value]
+  additionalProperties: false
+```
+
+An empty contract map marks a closed structural expression without checked outer declarations. Unknown pointers, partial expressions, duplicate declarations and mismatched contracts fail before execution. Schemas are literal metadata, never expression inputs or MCP/LLM arguments. The engine validates each intermediate immediately, including values absent from the final result, and retains original failure locations. Final `output_schema` validation remains authoritative. Input resolution precedes durable external dispatch; recovery reuses committed resolved inputs.
+
+The existing structural evaluator copies exact JSON values without a JavaScript-number round trip; arithmetic retains Number semantics. It resolves only referenced values, charges traversal/materialization and retains the stricter nested ceilings. Unsupported programs fail closed instead of importing unrestricted context into Jint. Necessary helpers receive only bounded operands. First-present alternatives retain `m.select` (present null or invalid values never fall through); ID reconnection retains strict `m.lookup`. `flatMap` checks each declared inner array before flattening. Neither provenance nor action authority can be manufactured by syntax.
+
+Native programs use YAML block scalars. Quotes, backslashes, Unicode, backticks and interpolation-looking data remain literals. Removing escaped program strings can increase YAML bytes because schemas now appear as independently readable mappings; compare maximum line length and helper nesting separately. Metadata participates in ordinary artifact hashing. Omitted/v1–v7 profiles and existing compiler overloads reproduce their historical YAML, with no rewriting of approvals or receipts. Older binaries reject the unknown `expression_contracts` field. Learned mapping semantics and permissions are unchanged.
+
 # Compact bindings v7: readable checked JavaScript
 
-Fresh sessions and explicit revisions select approval-fingerprinted `compact-bindings-v7`. Single-path checked selections use ordinary property access; independent selections use native `map`. The existing structural evaluator still rejects missing properties, preserves explicit nulls and exact copied JSON values, and applies the same sandbox ceilings. No filtering, truncation or deduplication is inferred. Paths with first-present alternatives keep `m.select`: `??` would incorrectly fall through on null. Strict lookup, per-inner-array flatten validation and ordered intermediate schema checks retain their checked helpers where required.
+Historical `compact-bindings-v7` uses approval-fingerprinted lowering. Single-path checked selections use ordinary property access; independent selections use native `map`. The existing structural evaluator still rejects missing properties, preserves explicit nulls and exact copied JSON values, and applies the same sandbox ceilings. No filtering, truncation or deduplication is inferred. Paths with first-present alternatives keep `m.select`: `??` would incorrectly fall through on null. Strict lookup, per-inner-array flatten validation and ordered intermediate schema checks retain their checked helpers where required.
 
 Compiler programs render as multiline YAML block scalars containing constant JavaScript template literals. Backslashes, backticks and literal `${…}` are escaped; interpolation in program literals is rejected. Historical quoted programs remain supported. TaskPlan contains typed bindings, never model-authored JavaScript. Learned mapping permissions and source-grounding are unchanged.
 

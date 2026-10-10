@@ -23,6 +23,10 @@ public sealed class StepDef
     /// <summary>Input data — YAML values with ${...} expressions at any depth.</summary>
     public JsonNode? Input { get; set; }
 
+    /// <summary>Literal checked-expression contracts, keyed by JSON pointer relative to input.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public JsonObject? ExpressionContracts { get; set; }
+
     /// <summary>Optional output alias name.</summary>
     public string? Output { get; set; }
 

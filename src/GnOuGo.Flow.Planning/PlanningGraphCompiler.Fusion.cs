@@ -7,7 +7,26 @@ namespace GnOuGo.Flow.Planning;
 
 public sealed partial class PlanningGraphCompiler
 {
-    private static string LocalName(string key, LoweringScope scope) => "v" + Array.IndexOf(scope.FusedOutputs[key], key).ToString(System.Globalization.CultureInfo.InvariantCulture);
+    private static string LocalName(string key, LoweringScope scope)
+    {
+        var group = scope.FusedOutputs[key];
+        if (!scope.ReadableMappings) return "v" + Array.IndexOf(group, key).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        var used = new HashSet<string>(StringComparer.Ordinal) { "data", "m", "source", "item", "index", "checkedMapping", "arguments", "eval",
+            "const", "let", "var", "return", "if", "else", "switch", "case", "default", "class", "function", "new", "this", "null", "true", "false", "delete", "typeof", "void", "in", "of", "for", "while", "do", "break", "continue", "try", "catch", "finally", "throw", "yield", "await", "import", "export", "super", "extends", "with", "debugger", "instanceof",
+            "enum", "implements", "interface", "package", "private", "protected", "public", "static", "undefined", "NaN", "Infinity", "Number", "Object", "Array", "JSON", "json" };
+        foreach (var candidate in group)
+        {
+            var node = scope.Nodes[candidate];
+            var field = node.OutputSchema?.Properties.FirstOrDefault(p => p.Name != "value")?.Name ??
+                (node.Input.Kind == "object" ? node.Input.Members.FirstOrDefault(m => m.Name != "value")?.Name : null) ?? candidate.Split('/').Last();
+            var stem = new string(field.Select(c => char.IsAsciiLetterOrDigit(c) || c == '_' ? c : '_').Take(48).ToArray());
+            if (stem.Length == 0 || !char.IsAsciiLetter(stem[0]) && stem[0] != '_') stem = "binding_" + stem;
+            var name = stem; var suffix = 2;
+            while (!used.Add(name)) name = stem + "_" + (suffix++).ToString(System.Globalization.CultureInfo.InvariantCulture);
+            if (candidate == key) return name;
+        }
+        throw new InvalidOperationException("A fused binding has no local identity.");
+    }
     private static string OutputAddress(string key, LoweringScope scope) => scope.LocalOutputs.Contains(key)
         ? LocalName(key, scope) : scope.FusedOutputs.TryGetValue(key, out var group)
         ? "data.steps." + scope.NodeIds[group[0]] + "." + LocalName(key, scope) : "data.steps." + scope.NodeIds[key];

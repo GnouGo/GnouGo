@@ -145,6 +145,9 @@ public sealed partial class LocalProductOutcomeExecutionTests
                 Assert.Equal(expectedPlan, JsonSerializer.Serialize(session.Plan, PlanningJsonContext.Default.TaskPlan));
             }
             Assert.True(session.Status == PlanningStatus.FinalReview, string.Join('\n', session.Diagnostics));
+            Assert.Equal("compact-bindings-v8", session.Request.Options["compilation_profile"]!.ToString());
+            Assert.Contains("expression_contracts:", session.Yaml!);
+            Assert.DoesNotContain("checkedMapping(", session.Yaml!);
             Assert.Equal(variant == "producer_revision" ? 2 : 1, session.ModelCalls); Assert.Equal(0, session.ReplanAttempts); Assert.Empty(visits); Assert.Empty(model.Requests);
             session = await new HybridWorkflowPlanner().AdvanceAsync(session, new() { Kind = "approve", ExpectedRevision = session.Revision,
                 ArtifactHash = session.ComputeArtifactHash(), ReviewedRequirementIds = ["search", "select_first", "visit_extract", "write_workbook", "release"] }, new ProposalRuntime(runtime, proposal), ct);
