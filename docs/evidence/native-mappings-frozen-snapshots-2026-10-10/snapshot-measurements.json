@@ -1,0 +1,120 @@
+{
+  "candidate": "529cd7fcb744923f0cd5a491ec7bb19fa004624a",
+  "model_calls": 0,
+  "checkpoint_rows": [
+    {
+      "capture_ms": 256.22,
+      "capture_allocation_bytes": 130415672,
+      "working_set_bytes": 186515456,
+      "checkpoint": 0,
+      "milliseconds": 24.73,
+      "allocation_bytes": 1040352,
+      "written_bytes": 2210
+    },
+    {
+      "capture_ms": 48.75,
+      "capture_allocation_bytes": 12544176,
+      "working_set_bytes": 190791680,
+      "checkpoint": 1,
+      "milliseconds": 29.2,
+      "allocation_bytes": 270600,
+      "written_bytes": 2218
+    },
+    {
+      "capture_ms": 40.59,
+      "capture_allocation_bytes": 12559376,
+      "working_set_bytes": 190824448,
+      "checkpoint": 2,
+      "milliseconds": 7.9,
+      "allocation_bytes": 270600,
+      "written_bytes": 2297
+    },
+    {
+      "capture_ms": 40.53,
+      "capture_allocation_bytes": 12559528,
+      "working_set_bytes": 190824448,
+      "checkpoint": 3,
+      "milliseconds": 7.48,
+      "allocation_bytes": 270600,
+      "written_bytes": 2376
+    },
+    {
+      "capture_ms": 40.17,
+      "capture_allocation_bytes": 12559360,
+      "working_set_bytes": 190840832,
+      "checkpoint": 4,
+      "milliseconds": 12.85,
+      "allocation_bytes": 270600,
+      "written_bytes": 2455
+    },
+    {
+      "capture_ms": 40.78,
+      "capture_allocation_bytes": 12559576,
+      "working_set_bytes": 191135744,
+      "checkpoint": 5,
+      "milliseconds": 8.16,
+      "allocation_bytes": 270600,
+      "written_bytes": 2533
+    },
+    {
+      "capture_ms": 38.85,
+      "capture_allocation_bytes": 12567584,
+      "working_set_bytes": 191135744,
+      "checkpoint": 6,
+      "milliseconds": 7.13,
+      "allocation_bytes": 270600,
+      "written_bytes": 2613
+    },
+    {
+      "capture_ms": 38.2,
+      "capture_allocation_bytes": 12567736,
+      "working_set_bytes": 191135744,
+      "checkpoint": 7,
+      "milliseconds": 7.75,
+      "allocation_bytes": 278800,
+      "written_bytes": 2691
+    },
+    {
+      "capture_ms": 38.47,
+      "capture_allocation_bytes": 12567584,
+      "working_set_bytes": 191135744,
+      "checkpoint": 8,
+      "milliseconds": 21.21,
+      "allocation_bytes": 278800,
+      "written_bytes": 2771
+    },
+    {
+      "capture_ms": 42.33,
+      "capture_allocation_bytes": 12567760,
+      "working_set_bytes": 191201280,
+      "checkpoint": 9,
+      "milliseconds": 11.06,
+      "allocation_bytes": 287000,
+      "written_bytes": 2852
+    },
+    {
+      "capture_ms": 40.35,
+      "capture_allocation_bytes": 12559584,
+      "working_set_bytes": 191201280,
+      "checkpoint": 10,
+      "milliseconds": 7.22,
+      "allocation_bytes": 287000,
+      "written_bytes": 2933
+    },
+    {
+      "capture_ms": 38.6,
+      "capture_allocation_bytes": 12583976,
+      "working_set_bytes": 191201280,
+      "checkpoint": 11,
+      "milliseconds": 7.8,
+      "allocation_bytes": 287000,
+      "written_bytes": 3013
+    }
+  ],
+  "base_logical_snapshot_bytes": 9987879,
+  "nominal_logical_history_snapshot_bytes": 239709096,
+  "unique_blocks": 150,
+  "written_envelope_bytes": 1305055,
+  "process_maximum_resident_set_bytes": 206094336,
+  "process_peak_memory_footprint_bytes": 111117152
+}
