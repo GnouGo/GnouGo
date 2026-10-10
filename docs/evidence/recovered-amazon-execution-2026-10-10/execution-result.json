@@ -1,0 +1,215 @@
+{
+  "revision": 7,
+  "status": "approved",
+  "artifact_hash": "ec011e1deed9ee48dd413d17911351ae2a08c8222a08efb271f6d84771ff86e0",
+  "execution_started": "2026-10-10T12:06:28.1961470\u002B00:00",
+  "execution_ms": 477847,
+  "execution": {
+    "success": false,
+    "exception": "System.OverflowException: Arithmetic operation resulted in an overflow.\n   at System.Text.Json.Nodes.JsonNode.ToJsonString(JsonSerializerOptions options)\n   at GnOuGo.Flow.Persistence.EncryptedWorkflowRunStore.SplitJournal.EncodeAsync(JsonNode value, CancellationToken ct, Boolean force) in <frozen-candidate>/src/GnOuGo.Flow.Persistence/EncryptedWorkflowRunStore.Blocks.cs:line 158\n   at GnOuGo.Flow.Persistence.EncryptedWorkflowRunStore.SplitJournal.SaveAsync(WorkflowRun run, IReadOnlyCollection\u00601 changed, CancellationToken ct) in <frozen-candidate>/src/GnOuGo.Flow.Persistence/EncryptedWorkflowRunStore.Blocks.cs:line 132\n   at GnOuGo.Flow.Persistence.EncryptedWorkflowRunStore.Lease.SaveCoreAsync(IReadOnlyCollection\u00601 changed, CancellationToken ct) in <frozen-candidate>/src/GnOuGo.Flow.Persistence/EncryptedWorkflowRunStore.cs:line 251\n   at GnOuGo.Flow.Persistence.EncryptedWorkflowRunStore.Lease.SaveCoreAsync(IReadOnlyCollection\u00601 changed, CancellationToken ct) in <frozen-candidate>/src/GnOuGo.Flow.Persistence/EncryptedWorkflowRunStore.cs:line 253\n   at GnOuGo.Flow.Core.Runtime.WorkflowRunJournal.SaveAsync(String kind, String id, CancellationToken ct) in <frozen-candidate>/src/GnOuGo.Flow.Core/Runtime/WorkflowRunJournal.cs:line 199\n   at GnOuGo.Flow.Core.Runtime.WorkflowRunJournal.SaveAsync(String kind, String id, CancellationToken ct) in <frozen-candidate>/src/GnOuGo.Flow.Core/Runtime/WorkflowRunJournal.cs:line 197\n   at GnOuGo.Flow.Core.Runtime.WorkflowRunJournal.ChangeAsync(Action mutate, String kind, String id, CancellationToken ct) in <frozen-candidate>/src/GnOuGo.Flow.Core/Runtime/WorkflowRunJournal.cs:line 191\n   at GnOuGo.Flow.Core.Runtime.WorkflowEngine.ExecuteDurableAsync(CompiledWorkflow workflow, JsonNode inputs, Nullable\u00601 revision, CancellationToken ct) in <frozen-candidate>/src/GnOuGo.Flow.Core/Runtime/WorkflowEngine.Runs.cs:line 55\n   at GnOuGo.Flow.Core.Runtime.WorkflowEngine.ExecuteDurableAsync(CompiledWorkflow workflow, JsonNode inputs, Nullable\u00601 revision, CancellationToken ct) in <frozen-candidate>/src/GnOuGo.Flow.Core/Runtime/WorkflowEngine.Runs.cs:line 64\n   at GnOuGo.Flow.Core.Runtime.WorkflowEngine.ExecuteDurableAsync(CompiledWorkflow workflow, JsonNode inputs, Nullable\u00601 revision, CancellationToken ct) in <frozen-candidate>/src/GnOuGo.Flow.Core/Runtime/WorkflowEngine.Runs.cs:line 64\n   at LiveWorkflowEvaluation.RunAsync(String[] args, String phase, BenchmarkCampaign campaign, KeyVaultBenchmarkModel model, String root) in <frozen-candidate>/tests/GnOuGo.Agent.Planning.Benchmark/LiveWorkflowEvaluation.cs:line 100"
+  },
+  "oracle": {
+    "passed": false,
+    "findings": [
+      "workflow_execution_failed",
+      "browser_not_closed_by_workflow",
+      "workbook_missing"
+    ]
+  },
+  "result": {
+    "status": "final_review",
+    "planning_ms": 1184540,
+    "calls": 4,
+    "repairs": 0,
+    "discovery_reads": 2,
+    "review_revisions": 1,
+    "diagnostics": [],
+    "execution_success": false,
+    "execution_oracle": false,
+    "execution_status": "completed",
+    "accounting": {
+      "planning": {
+        "logical_calls": 4,
+        "physical_attempts": 5,
+        "known_input_tokens": 58273,
+        "known_output_tokens": 20341,
+        "known_cost_eur": 0.8000665542639098411571568019,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "execution": {
+        "logical_calls": 2,
+        "physical_attempts": 2,
+        "known_input_tokens": 36323,
+        "known_output_tokens": 1737,
+        "known_cost_eur": 0.2074052710977016594196468187,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "campaign": {
+        "calls": 971,
+        "session_calls": 0,
+        "known_input_tokens": 14095143,
+        "known_output_tokens": 2000344,
+        "known_cost_eur": 116.08822904433966023748332516,
+        "reserved_input_tokens": 480000,
+        "reserved_output_tokens": 163840,
+        "reserved_cost_eur": 6.5016147947905255187922165013,
+        "cost_upper_bound_eur": 122.58984383913018575627554166,
+        "unknown_attempts": 5
+      }
+    },
+    "execution_ms": 479424,
+    "total_ms": 1663964
+  },
+  "mapping_telemetry": [
+    {
+      "gnougo.mapping.source_items": 52,
+      "gnougo.mapping.model_attempts": 1,
+      "gnougo.mapping.specializations": 0,
+      "gnougo.mapping.cache_hits": 0,
+      "gnougo.mapping.cache_hit": false,
+      "gnougo.mapping.failure_groups": 9,
+      "gnougo.mapping.sample_items": 3,
+      "gnougo.mapping.omitted_items": 49,
+      "gnougo.mapping.request_bytes": 73334,
+      "gnougo.mapping.program_repairs": 0,
+      "gnougo.mapping.processed_items": 52,
+      "gnougo.mapping.validated_items": 52,
+      "gnougo.mapping.sandbox.statements": 1755,
+      "gnougo.mapping.sandbox.statement_limit": 10000,
+      "gnougo.mapping.sandbox.elapsed_ms": 23.8389,
+      "gnougo.mapping.sandbox.time_limit_ms": 5000,
+      "gnougo.mapping.sandbox.allocated_bytes": 11200992,
+      "gnougo.mapping.sandbox.materialized_bytes": 5906674,
+      "gnougo.mapping.sandbox.output_bytes": 30062,
+      "gnougo.mapping.sandbox.memory_limit_bytes": 50000000,
+      "gnougo.mapping.sandbox.nesting_depth": 4,
+      "gnougo.mapping.sandbox.nesting_limit": 64,
+      "step": "n_552b7c8c71b0b8b1",
+      "status": "Succeeded",
+      "duration_ms": 58741.8484
+    }
+  ],
+  "events": [
+    {
+      "tool": "browser_get_content",
+      "error": "false",
+      "closed": null,
+      "http_status": null,
+      "truncated": false,
+      "capture_truncated": false,
+      "manifest_truncated": false,
+      "acquisition": {
+        "attempts": 2,
+        "invalidations": [
+          {
+            "snapshotId": "63a06938d09041759369c4c34d82e308",
+            "generation": 4,
+            "reason": "navigation",
+            "atUtc": "2026-10-10T12:06:43.296082\u002B00:00"
+          }
+        ],
+        "navigation": {
+          "generation": 5,
+          "url": "https://www.amazon.fr/s?k=chaussure\u002Bgeox\u002Bhomme\u002B45",
+          "title": "Amazon.fr : chaussure geox homme 45",
+          "method": null,
+          "statusCode": null
+        },
+        "lastResponse": {
+          "url": "https://www.amazon.fr/s?k=chaussure\u002Bgeox\u002Bhomme\u002B45",
+          "method": "GET",
+          "statusCode": 200
+        },
+        "phase": "publication",
+        "elapsedMilliseconds": 8765,
+        "timingsMilliseconds": {
+          "startup": 3298,
+          "navigation": 1111,
+          "readiness": 2438,
+          "selector": 25,
+          "capture": 1847,
+          "pagination": 45,
+          "publication": 1
+        }
+      },
+      "recordCount": "1501",
+      "pages": 52,
+      "cause": null,
+      "resultKeys": [
+        "url",
+        "title",
+        "statusCode",
+        "selector",
+        "resolvedSelector",
+        "fallbackApplied",
+        "fallbackReason",
+        "format",
+        "content",
+        "truncated",
+        "maxCharacters",
+        "success",
+        "error_code",
+        "error_message",
+        "ok",
+        "observationSnapshot",
+        "acquisition"
+      ]
+    },
+    {
+      "tool": "browser_get_content",
+      "error": "false",
+      "closed": null,
+      "http_status": null,
+      "truncated": true,
+      "capture_truncated": null,
+      "manifest_truncated": null,
+      "acquisition": null,
+      "recordCount": null,
+      "pages": null,
+      "cause": null,
+      "resultKeys": [
+        "url",
+        "title",
+        "statusCode",
+        "selector",
+        "resolvedSelector",
+        "fallbackApplied",
+        "fallbackReason",
+        "format",
+        "content",
+        "truncated",
+        "maxCharacters",
+        "success",
+        "error_code",
+        "error_message",
+        "ok"
+      ]
+    },
+    {
+      "tool": "browser_close",
+      "error": "false",
+      "closed": true,
+      "http_status": null,
+      "truncated": null,
+      "capture_truncated": null,
+      "manifest_truncated": null,
+      "acquisition": null,
+      "recordCount": null,
+      "pages": null,
+      "cause": null,
+      "resultKeys": [
+        "closed",
+        "success",
+        "error_code",
+        "error_message",
+        "ok"
+      ]
+    }
+  ]
+}

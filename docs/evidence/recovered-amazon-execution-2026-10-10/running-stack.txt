@@ -1,0 +1,162 @@
+Thread (0x1C484D):
+  [Native Frames]
+  System.Private.CoreLib!System.Threading.Monitor.Wait(class System.Object,int32)
+  System.Private.CoreLib!System.Threading.ManualResetEventSlim.Wait(int32,value class System.Threading.CancellationToken)
+  System.Private.CoreLib!System.Threading.Tasks.Task.SpinThenBlockingWait(int32,value class System.Threading.CancellationToken)
+  System.Private.CoreLib!System.Threading.Tasks.Task.InternalWaitCore(int32,value class System.Threading.CancellationToken)
+  System.Private.CoreLib!System.Threading.Tasks.Task.InternalWait(int32,value class System.Threading.CancellationToken)
+  System.Private.CoreLib!System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(class System.Threading.Tasks.Task,value class System.Threading.Tasks.ConfigureAwaitOptions)
+  GnOuGo.Agent.Planning.Benchmark!Program.<Main>(class System.String[])
+
+Thread (0x1C485E):
+  [Native Frames]
+  ?!?
+  System.Net.Sockets!System.Net.Sockets.SocketAsyncEngine.EventLoop()
+  System.Private.CoreLib!System.Threading.Thread.StartCallback()
+
+Thread (0x1C485F):
+  [Native Frames]
+  ?!?
+  System.Net.Sockets!System.Net.Sockets.SocketAsyncEngine.EventLoop()
+  System.Private.CoreLib!System.Threading.Thread.StartCallback()
+
+Thread (0x1C4878):
+  [Native Frames]
+  System.Private.CoreLib!System.Threading.WaitHandle.WaitOneNoCheck(int32,bool,class System.Object,value class WaitHandleWaitSourceMap)
+  System.Private.CoreLib!System.Threading.PortableThreadPool+GateThread.GateThreadStart()
+  System.Private.CoreLib!System.Threading.Thread.StartCallback()
+
+Thread (0x1C4879):
+  [Native Frames]
+  System.Private.CoreLib!System.Threading.LowLevelLifoSemaphore.WaitForSignal(int32)
+  System.Private.CoreLib!System.Threading.LowLevelLifoSemaphore.Wait(int32,bool)
+  System.Private.CoreLib!System.Threading.PortableThreadPool+WorkerThread.WorkerThreadStart()
+  System.Private.CoreLib!System.Threading.Thread.StartCallback()
+
+Thread (0x1C487D):
+  [Native Frames]
+  System.Private.CoreLib!System.Threading.WaitHandle.WaitOneNoCheck(int32,bool,class System.Object,value class WaitHandleWaitSourceMap)
+  System.Private.CoreLib!System.Threading.TimerQueue.TimerThread()
+  System.Private.CoreLib!System.Threading.Thread.StartCallback()
+
+Thread (0x1C48AF):
+  [Native Frames]
+  System.IO.FileSystem.Watcher!System.IO.FileSystemWatcher+RunningInstance+StaticWatcherRunLoopManager.WatchForFileSystemEventsThreadStart(class System.Threading.ManualResetEventSlim,class Microsoft.Win32.SafeHandles.SafeEventStreamHandle)
+  System.Private.CoreLib!System.Threading.Thread.StartCallback()
+
+Thread (0x1C48B2):
+  [Native Frames]
+  System.Private.CoreLib!System.Threading.ManualResetEventSlim.Wait(int32,value class System.Threading.CancellationToken)
+  Microsoft.AspNetCore.Server.Kestrel.Core!Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Infrastructure.Heartbeat.TimerLoop()
+  System.Private.CoreLib!System.Threading.Thread.StartCallback()
+
+Thread (0x1C794E):
+  [Native Frames]
+  System.Private.CoreLib!System.Threading.LowLevelLifoSemaphore.WaitForSignal(int32)
+  System.Private.CoreLib!System.Threading.LowLevelLifoSemaphore.Wait(int32,bool)
+  System.Private.CoreLib!System.Threading.PortableThreadPool+WorkerThread.WorkerThreadStart()
+  System.Private.CoreLib!System.Threading.Thread.StartCallback()
+
+Thread (0x1C87D6):
+  CPU_TIME
+  System.Text.Json!System.Text.Json.Nodes.JsonObject.DeepCloneCore()
+  System.Text.Json!System.Text.Json.Nodes.JsonArray.DeepCloneCore()
+  System.Text.Json!System.Text.Json.Nodes.JsonObject.DeepCloneCore()
+  System.Text.Json!System.Text.Json.Nodes.JsonArray.DeepCloneCore()
+  System.Text.Json!System.Text.Json.Nodes.JsonObject.DeepCloneCore()
+  System.Text.Json!System.Text.Json.Nodes.JsonObject.DeepCloneCore()
+  System.Text.Json!System.Text.Json.Nodes.JsonObject.DeepCloneCore()
+  System.Text.Json!System.Text.Json.Nodes.JsonObject.DeepCloneCore()
+  System.Text.Json!System.Text.Json.Nodes.JsonObject.DeepCloneCore()
+  System.Text.Json!System.Text.Json.Nodes.JsonObject.DeepCloneCore()
+  GnOuGo.Flow.Core!GnOuGo.Flow.Core.Runtime.WorkflowRunJournal+<PrepareAsync>d__17.MoveNext()
+  System.Private.CoreLib!System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1[System.__Canon].Start(!!0&)
+  GnOuGo.Flow.Core!GnOuGo.Flow.Core.Runtime.WorkflowRunJournal.PrepareAsync(class System.String,class GnOuGo.Flow.Core.Models.CompiledStep,value class GnOuGo.Flow.Core.Runtime.StepRecovery,bool,class System.Text.Json.Nodes.JsonObject,class System.Func`1<value class System.ValueTuple`2<bool,class System.Text.Json.Nodes.JsonNode>>,value class System.Threading.CancellationToken)
+  GnOuGo.Flow.Core!GnOuGo.Flow.Core.Runtime.WorkflowEngine+<ExecuteStepsAsync>d__139.MoveNext()
+  System.Private.CoreLib!System.Threading.ExecutionContext.RunInternal(class System.Threading.ExecutionContext,class System.Threading.ContextCallback,class System.Object)
+  System.Private.CoreLib!System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1+AsyncStateMachineBox`1[System.Threading.Tasks.VoidTaskResult,System.__Canon].MoveNext()
+  System.Private.CoreLib!System.Threading.Tasks.AwaitTaskContinuation.RunOrScheduleAction(class System.Runtime.CompilerServices.IAsyncStateMachineBox,bool)
+  System.Private.CoreLib!System.Threading.Tasks.Task.RunContinuations(class System.Object)
+  System.Private.CoreLib!System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1[System.__Canon].SetExistingTaskResult(class System.Threading.Tasks.Task`1<!0>,!0)
+  GnOuGo.Flow.Core!GnOuGo.Flow.Core.Runtime.WorkflowRunJournal+<InvokeAsync>d__18.MoveNext()
+  System.Private.CoreLib!System.Threading.ExecutionContext.RunInternal(class System.Threading.ExecutionContext,class System.Threading.ContextCallback,class System.Object)
+  System.Private.CoreLib!System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1+AsyncStateMachineBox`1[System.__Canon,System.__Canon].MoveNext()
+  System.Private.CoreLib!System.Threading.Tasks.AwaitTaskContinuation.RunOrScheduleAction(class System.Runtime.CompilerServices.IAsyncStateMachineBox,bool)
+  System.Private.CoreLib!System.Threading.Tasks.Task.RunContinuations(class System.Object)
+  System.Private.CoreLib!System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1[System.__Canon].SetExistingTaskResult(class System.Threading.Tasks.Task`1<!0>,!0)
+  GnOuGo.Flow.Core!GnOuGo.Flow.Core.Runtime.WorkflowEngine+<ExecuteWithRetryAsync>d__140.MoveNext()
+  System.Private.CoreLib!System.Threading.ExecutionContext.RunInternal(class System.Threading.ExecutionContext,class System.Threading.ContextCallback,class System.Object)
+  System.Private.CoreLib!System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1+AsyncStateMachineBox`1[System.__Canon,System.__Canon].MoveNext()
+  System.Private.CoreLib!System.Threading.Tasks.AwaitTaskContinuation.RunOrScheduleAction(class System.Runtime.CompilerServices.IAsyncStateMachineBox,bool)
+  System.Private.CoreLib!System.Threading.Tasks.Task.RunContinuations(class System.Object)
+  System.Private.CoreLib!System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1[System.__Canon].SetExistingTaskResult(class System.Threading.Tasks.Task`1<!0>,!0)
+  GnOuGo.Flow.Core!GnOuGo.Flow.Core.Runtime.WorkflowEngine+<>c__DisplayClass140_1+<<ExecuteWithRetryAsync>g__ExecuteAttempt|0>d.MoveNext()
+  System.Private.CoreLib!System.Threading.ExecutionContext.RunInternal(class System.Threading.ExecutionContext,class System.Threading.ContextCallback,class System.Object)
+  System.Private.CoreLib!System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1+AsyncStateMachineBox`1[System.__Canon,System.__Canon].MoveNext()
+  System.Private.CoreLib!System.Threading.Tasks.AwaitTaskContinuation.RunOrScheduleAction(class System.Runtime.CompilerServices.IAsyncStateMachineBox,bool)
+  System.Private.CoreLib!System.Threading.Tasks.Task.RunContinuations(class System.Object)
+  System.Private.CoreLib!System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1[System.__Canon].SetExistingTaskResult(class System.Threading.Tasks.Task`1<!0>,!0)
+  GnOuGo.Flow.Core!GnOuGo.Flow.Core.Runtime.Executors.DynamicMappingExecutor+<ExecuteAsync>d__10.MoveNext()
+  System.Private.CoreLib!System.Threading.ExecutionContext.RunInternal(class System.Threading.ExecutionContext,class System.Threading.ContextCallback,class System.Object)
+  System.Private.CoreLib!System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1+AsyncStateMachineBox`1[System.__Canon,System.__Canon].MoveNext()
+  System.Private.CoreLib!System.Threading.Tasks.AwaitTaskContinuation.RunOrScheduleAction(class System.Runtime.CompilerServices.IAsyncStateMachineBox,bool)
+  System.Private.CoreLib!System.Threading.Tasks.Task.RunContinuations(class System.Object)
+  System.Private.CoreLib!System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1[System.__Canon].SetExistingTaskResult(class System.Threading.Tasks.Task`1<!0>,!0)
+  GnOuGo.Flow.Core!GnOuGo.Flow.Core.Runtime.Executors.DynamicMappingExecutor+<ExecuteAdaptiveAsync>d__1.MoveNext()
+  System.Private.CoreLib!System.Threading.ExecutionContext.RunInternal(class System.Threading.ExecutionContext,class System.Threading.ContextCallback,class System.Object)
+  System.Private.CoreLib!System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1+AsyncStateMachineBox`1[System.__Canon,System.__Canon].MoveNext()
+  System.Private.CoreLib!System.Threading.Tasks.AwaitTaskContinuation.RunOrScheduleAction(class System.Runtime.CompilerServices.IAsyncStateMachineBox,bool)
+  System.Private.CoreLib!System.Threading.Tasks.Task.RunContinuations(class System.Object)
+  System.Private.CoreLib!System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1[System.__Canon].SetExistingTaskResult(class System.Threading.Tasks.Task`1<!0>,!0)
+  GnOuGo.Flow.Core!GnOuGo.Flow.Core.Runtime.Executors.DynamicMappingExecutor+<>c__DisplayClass10_1+<<ExecuteAsync>g__Model|2>d.MoveNext()
+  System.Private.CoreLib!System.Threading.ExecutionContext.RunInternal(class System.Threading.ExecutionContext,class System.Threading.ContextCallback,class System.Object)
+  System.Private.CoreLib!System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1+AsyncStateMachineBox`1[System.__Canon,System.__Canon].MoveNext()
+  System.Private.CoreLib!System.Threading.Tasks.AwaitTaskContinuation.RunOrScheduleAction(class System.Runtime.CompilerServices.IAsyncStateMachineBox,bool)
+  System.Private.CoreLib!System.Threading.Tasks.Task.RunContinuations(class System.Object)
+  System.Private.CoreLib!System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1[System.__Canon].SetExistingTaskResult(class System.Threading.Tasks.Task`1<!0>,!0)
+  GnOuGo.Flow.Core!GnOuGo.Flow.Core.Runtime.WorkflowRunJournal+<InvokeAsync>d__18.MoveNext()
+  System.Private.CoreLib!System.Threading.ExecutionContext.RunInternal(class System.Threading.ExecutionContext,class System.Threading.ContextCallback,class System.Object)
+  System.Private.CoreLib!System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1+AsyncStateMachineBox`1[System.__Canon,System.__Canon].MoveNext()
+  System.Private.CoreLib!System.Threading.Tasks.AwaitTaskContinuation.RunOrScheduleAction(class System.Runtime.CompilerServices.IAsyncStateMachineBox,bool)
+  System.Private.CoreLib!System.Threading.Tasks.Task.RunContinuations(class System.Object)
+  System.Private.CoreLib!System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1[System.Threading.Tasks.VoidTaskResult].SetExistingTaskResult(class System.Threading.Tasks.Task`1<!0>,!0)
+  GnOuGo.Flow.Core!GnOuGo.Flow.Core.Runtime.WorkflowRunJournal+<ChangeAsync>d__27.MoveNext()
+  System.Private.CoreLib!System.Threading.ExecutionContext.RunInternal(class System.Threading.ExecutionContext,class System.Threading.ContextCallback,class System.Object)
+  System.Private.CoreLib!System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1+AsyncStateMachineBox`1[System.Threading.Tasks.VoidTaskResult,System.__Canon].MoveNext()
+  System.Private.CoreLib!System.Threading.Tasks.AwaitTaskContinuation.RunOrScheduleAction(class System.Runtime.CompilerServices.IAsyncStateMachineBox,bool)
+  System.Private.CoreLib!System.Threading.Tasks.Task.RunContinuations(class System.Object)
+  System.Private.CoreLib!System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1[System.Threading.Tasks.VoidTaskResult].SetExistingTaskResult(class System.Threading.Tasks.Task`1<!0>,!0)
+  GnOuGo.Flow.Core!GnOuGo.Flow.Core.Runtime.WorkflowRunJournal+<SaveAsync>d__28.MoveNext()
+  System.Private.CoreLib!System.Threading.ExecutionContext.RunInternal(class System.Threading.ExecutionContext,class System.Threading.ContextCallback,class System.Object)
+  System.Private.CoreLib!System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1+AsyncStateMachineBox`1[System.Threading.Tasks.VoidTaskResult,System.__Canon].MoveNext()
+  System.Private.CoreLib!System.Threading.Tasks.AwaitTaskContinuation.RunOrScheduleAction(class System.Runtime.CompilerServices.IAsyncStateMachineBox,bool)
+  System.Private.CoreLib!System.Threading.Tasks.Task.RunContinuations(class System.Object)
+  System.Private.CoreLib!System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1[System.Threading.Tasks.VoidTaskResult].SetExistingTaskResult(class System.Threading.Tasks.Task`1<!0>,!0)
+  GnOuGo.Flow.Persistence!GnOuGo.Flow.Persistence.EncryptedWorkflowRunStore+Lease+<SaveCoreAsync>d__10.MoveNext()
+  System.Private.CoreLib!System.Threading.ExecutionContext.RunInternal(class System.Threading.ExecutionContext,class System.Threading.ContextCallback,class System.Object)
+  System.Private.CoreLib!System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1+AsyncStateMachineBox`1[System.Threading.Tasks.VoidTaskResult,System.__Canon].MoveNext()
+  System.Private.CoreLib!System.Threading.Tasks.AwaitTaskContinuation.RunOrScheduleAction(class System.Runtime.CompilerServices.IAsyncStateMachineBox,bool)
+  System.Private.CoreLib!System.Threading.Tasks.Task.RunContinuations(class System.Object)
+  System.Private.CoreLib!System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1[System.__Canon].SetExistingTaskResult(class System.Threading.Tasks.Task`1<!0>,!0)
+  GnOuGo.Flow.Persistence!GnOuGo.Flow.Persistence.EncryptedWorkflowRunStore+SplitJournal+<MergeCommandsAsync>d__23.MoveNext()
+  System.Private.CoreLib!System.Threading.ExecutionContext.RunInternal(class System.Threading.ExecutionContext,class System.Threading.ContextCallback,class System.Object)
+  System.Private.CoreLib!System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1+AsyncStateMachineBox`1[System.__Canon,System.__Canon].MoveNext()
+  System.Private.CoreLib!System.Threading.Tasks.AwaitTaskContinuation.RunOrScheduleAction(class System.Runtime.CompilerServices.IAsyncStateMachineBox,bool)
+  System.Private.CoreLib!System.Threading.Tasks.Task.RunContinuations(class System.Object)
+  System.Private.CoreLib!System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1[System.Threading.Tasks.VoidTaskResult].SetExistingTaskResult(class System.Threading.Tasks.Task`1<!0>,!0)
+  GnOuGo.Flow.Persistence!GnOuGo.Flow.Persistence.EncryptedWorkflowRunStore+SplitJournal+<RefreshAsync>d__21.MoveNext()
+  System.Private.CoreLib!System.Threading.ExecutionContext.RunInternal(class System.Threading.ExecutionContext,class System.Threading.ContextCallback,class System.Object)
+  System.Private.CoreLib!System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1+AsyncStateMachineBox`1[System.Threading.Tasks.VoidTaskResult,System.__Canon].MoveNext()
+  System.Private.CoreLib!System.Threading.Tasks.AwaitTaskContinuation.RunOrScheduleAction(class System.Runtime.CompilerServices.IAsyncStateMachineBox,bool)
+  System.Private.CoreLib!System.Threading.Tasks.Task.RunContinuations(class System.Object)
+  System.Private.CoreLib!System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1[System.__Canon].SetExistingTaskResult(class System.Threading.Tasks.Task`1<!0>,!0)
+  GnOuGo.KeyVault.Core!GnOuGo.KeyVault.Core.Services.KeyVaultRecordStore+<ExecuteAsync>d__22`1[System.__Canon].MoveNext()
+  System.Private.CoreLib!System.Threading.ExecutionContext.RunInternal(class System.Threading.ExecutionContext,class System.Threading.ContextCallback,class System.Object)
+  System.Private.CoreLib!System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1+AsyncStateMachineBox`1[System.__Canon,System.__Canon].MoveNext()
+  System.Private.CoreLib!System.Threading.Tasks.AwaitTaskContinuation.RunOrScheduleAction(class System.Runtime.CompilerServices.IAsyncStateMachineBox,bool)
+  System.Private.CoreLib!System.Threading.Tasks.Task.RunContinuations(class System.Object)
+  System.Private.CoreLib!System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1[System.__Canon].SetExistingTaskResult(class System.Threading.Tasks.Task`1<!0>,!0)
+  GnOuGo.KeyVault.Core!GnOuGo.KeyVault.Core.Services.KeyVaultRecordStore+<GetCoreAsync>d__10.MoveNext()
+  System.Private.CoreLib!System.Threading.ExecutionContext.RunFromThreadPoolDispatchLoop(class System.Threading.Thread,class System.Threading.ExecutionContext,class System.Threading.ContextCallback,class System.Object)
+  System.Private.CoreLib!System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1+AsyncStateMachineBox`1[System.__Canon,System.__Canon].MoveNext(class System.Threading.Thread)
+
