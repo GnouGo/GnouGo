@@ -1,0 +1,190 @@
+{
+  "run_status": "failed",
+  "revision": 61,
+  "steps_started": 16,
+  "finalization_steps_started": 1,
+  "finalization_completed": true,
+  "invocations": [
+    {
+      "id": "/workflow/main/step/n_4ccbc8c801c6c265",
+      "type": "set",
+      "status": "completed",
+      "finalizer": false,
+      "completion_observed": true,
+      "dispatched": true,
+      "completed": true
+    },
+    {
+      "id": "/workflow/main/step/n_89baabd12aebae73",
+      "type": "template.render",
+      "status": "completed",
+      "finalizer": false,
+      "completion_observed": true,
+      "dispatched": true,
+      "completed": true
+    },
+    {
+      "id": "/workflow/main/step/n_7241a3c973016fe7",
+      "type": "llm.call",
+      "status": "completed",
+      "finalizer": false,
+      "completion_observed": true,
+      "dispatched": true,
+      "completed": true
+    },
+    {
+      "id": "/workflow/main/step/n_ccb2a3a6b7824bb5",
+      "type": "mcp.call",
+      "status": "completed",
+      "finalizer": false,
+      "completion_observed": true,
+      "dispatched": true,
+      "completed": true
+    },
+    {
+      "id": "/workflow/main/step/n_4f14e73db43f583e",
+      "type": "set",
+      "status": "completed",
+      "finalizer": false,
+      "completion_observed": true,
+      "dispatched": true,
+      "completed": true
+    },
+    {
+      "id": "/workflow/main/step/n_5fcdcd9529f3f98b",
+      "type": "switch",
+      "status": "completed",
+      "finalizer": false,
+      "completion_observed": true,
+      "dispatched": true,
+      "completed": true
+    },
+    {
+      "id": "/workflow/main/step/n_5fcdcd9529f3f98b/case/0/step/n_107c1361c08f111a",
+      "type": "set",
+      "status": "completed",
+      "finalizer": false,
+      "completion_observed": true,
+      "dispatched": true,
+      "completed": true
+    },
+    {
+      "id": "/workflow/main/step/n_5fcdcd9529f3f98b/case/0/step/n_059ddd1456cc47f7",
+      "type": "set",
+      "status": "completed",
+      "finalizer": false,
+      "completion_observed": true,
+      "dispatched": true,
+      "completed": true
+    },
+    {
+      "id": "/workflow/main/step/n_b7cf090e7307dc29",
+      "type": "set",
+      "status": "completed",
+      "finalizer": false,
+      "completion_observed": true,
+      "dispatched": true,
+      "completed": true
+    },
+    {
+      "id": "/workflow/main/step/n_67ef600dd0044b91",
+      "type": "switch",
+      "status": "completed",
+      "finalizer": false,
+      "completion_observed": true,
+      "dispatched": true,
+      "completed": true
+    },
+    {
+      "id": "/workflow/main/step/n_67ef600dd0044b91/case/0/step/n_8b8662fcc791f70e",
+      "type": "set",
+      "status": "completed",
+      "finalizer": false,
+      "completion_observed": true,
+      "dispatched": true,
+      "completed": true
+    },
+    {
+      "id": "/workflow/main/step/n_67ef600dd0044b91/case/0/step/n_6c4bbf24dbd2576f",
+      "type": "switch",
+      "status": "completed",
+      "finalizer": false,
+      "completion_observed": true,
+      "dispatched": true,
+      "completed": true
+    },
+    {
+      "id": "/workflow/main/step/n_67ef600dd0044b91/case/0/step/n_6c4bbf24dbd2576f/case/0/step/n_f1ca8a21c901ee4b",
+      "type": "set",
+      "status": "completed",
+      "finalizer": false,
+      "completion_observed": true,
+      "dispatched": true,
+      "completed": true
+    },
+    {
+      "id": "/workflow/main/step/n_67ef600dd0044b91/case/0/step/n_6c4bbf24dbd2576f/case/0/step/n_621e05894855a65a",
+      "type": "set",
+      "status": "completed",
+      "finalizer": false,
+      "completion_observed": true,
+      "dispatched": true,
+      "completed": true
+    },
+    {
+      "id": "/workflow/main/step/n_67ef600dd0044b91/case/0/step/n_29f1941a74fbf7e5",
+      "type": "set",
+      "status": "completed",
+      "finalizer": false,
+      "completion_observed": true,
+      "dispatched": true,
+      "completed": true
+    },
+    {
+      "id": "/workflow/main/step/n_67ef600dd0044b91/case/0/step/n_eb1f2cd066f41818",
+      "type": "set",
+      "status": "completed",
+      "finalizer": false,
+      "completion_observed": true,
+      "dispatched": true,
+      "completed": true
+    },
+    {
+      "id": "/workflow/main/finally/step/n_38125c2e8d49993f",
+      "type": "mcp.call",
+      "status": "completed",
+      "finalizer": true,
+      "completion_observed": true,
+      "dispatched": true,
+      "completed": true
+    }
+  ],
+  "context_bytes": 19870283,
+  "branch_result_bytes": 9934718,
+  "branch_snapshot_occurrences": 8,
+  "provider_calls": 0,
+  "external_actions": 0,
+  "journal_modified": false,
+  "replay_error": {
+    "code": "CONTRACT_UNSATISFIED",
+    "message": "The mapping exhausted its cumulative sandbox allowance (materialized_memory).",
+    "details": {
+      "mapping_resource_limit": true,
+      "exhausted_resource": "materialized_memory",
+      "sandbox": {
+        "statements": 35,
+        "statement_limit": 1000000,
+        "elapsed_ms": 148.4049,
+        "time_limit_ms": 15000,
+        "allocated_bytes": 76979048,
+        "materialized_bytes": 58751376,
+        "output_bytes": 9934784,
+        "memory_limit_bytes": 1000000000,
+        "nesting_depth": 11,
+        "nesting_limit": 64
+      },
+      "compiled_node": "v0",
+      "location": "task_5f0d604c9f4c965ee1dc7849"
+    }
+  }
+}

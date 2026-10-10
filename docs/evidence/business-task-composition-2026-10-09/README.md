@@ -1,5 +1,15 @@
 # Smaller business TaskPlans
 
+**October 10 execution update:** the user approved revision 8 and the frozen
+artifact executed once. Browser returned 54 complete pages / 1,553 records, then
+a compiler-generated boolean binding exhausted its nested materialization limit.
+No product visits or workbook write occurred; cleanup succeeded. A read-only,
+zero-inference replay reproduced the failure and found eight snapshot copies in
+the switch result. See the [execution and diagnosis](execution-2026-10-10.md),
+[bounded results](execution-2026-10-10.json), [replay](expression-replay-2026-10-10.json)
+and [exact ledger](execution-ledger-2026-10-10.json). Earlier review/pending statements
+below describe the historical pre-execution state. The approved files are unchanged.
+
 Continue PR #117 from `2663f4ac`. Production changes are confined to generation
 and repair guidance. Compiler acceptance/lowering, mapping, public contracts,
 repair authority, permissions and budgets are unchanged. Fresh generation uses
