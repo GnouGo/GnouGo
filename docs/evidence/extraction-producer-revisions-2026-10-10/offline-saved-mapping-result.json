@@ -1,0 +1,105 @@
+{
+  "provider_calls": 0,
+  "mcp_calls": 0,
+  "live_state_writes": 0,
+  "saved_responses_consumed": 4,
+  "success": false,
+  "error": {
+    "Code": "LLM_BUDGET_EXCEEDED",
+    "Type": "LLM_BUDGET_EXCEEDED",
+    "Message": "Mapping inference stopped: LLM_BUDGET_EXCEEDED. [workflow \u0027main\u0027, step \u0027map\u0027]",
+    "Retryable": false,
+    "Details": {
+      "stage": "mapping.dynamic",
+      "classification": "budget_exceeded",
+      "limit_kind": "calls",
+      "retryable": false,
+      "calls": 4,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "total_tokens": 0,
+      "estimated_cost": 0,
+      "estimated_cost_currency": "USD",
+      "estimated_cost_usd": 0,
+      "elapsed_ms": 1360.196,
+      "recommended_action": "Reduce the request or increase the explicitly configured LLM usage budget.",
+      "limit": 4,
+      "current": 4,
+      "dispatch_status": "not_started",
+      "failed_workflow": "main",
+      "failed_step_id": "map",
+      "failed_step_type": "mapping.dynamic",
+      "execution_phase": "step"
+    }
+  },
+  "controls": {
+    "mapping_adaptive_0": {
+      "indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14
+      ],
+      "failure": null,
+      "source": "f8c99088641e4ecebccb09a349952665d52bf146332069ed60ee7303ef2d4dec",
+      "phase": "generation"
+    },
+    "mapping_adaptive_1": {
+      "indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14
+      ],
+      "failure": "Mapping result $/0/descriptionFact contains a missing or invented scalar. Return observed data; defaults belong to the target contract.",
+      "source": "f8c99088641e4ecebccb09a349952665d52bf146332069ed60ee7303ef2d4dec",
+      "phase": "program_repair"
+    },
+    "mapping_adaptive_2": {
+      "indices": [
+        1
+      ],
+      "failure": "Mapping result $/0/descriptionFact has no observation or valid authoritative default.",
+      "source": "f8c99088641e4ecebccb09a349952665d52bf146332069ed60ee7303ef2d4dec",
+      "phase": "specialization"
+    },
+    "mapping_adaptive_3": {
+      "indices": [
+        2
+      ],
+      "failure": "Mapping result $/0/nameFact has no observation or valid authoritative default.",
+      "source": "f8c99088641e4ecebccb09a349952665d52bf146332069ed60ee7303ef2d4dec",
+      "phase": "specialization"
+    },
+    "mapping_adaptive_4": {
+      "indices": [
+        4
+      ],
+      "failure": "Mapping result $/0/nameFact has no observation or valid authoritative default.",
+      "source": "f8c99088641e4ecebccb09a349952665d52bf146332069ed60ee7303ef2d4dec",
+      "phase": "specialization"
+    }
+  }
+}

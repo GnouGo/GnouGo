@@ -1,0 +1,218 @@
+[
+  {
+    "invocation": "/workflow/main/step/n_e84f09f178e937f6/workflow/w_1c73caa08c45c06a/step/n_ce78a3f56bd8b9bf/iteration/5/step/n_01732b621626f078/workflow/w_7e6d4da1eb2d275e/step/n_0ee456e1dfdcbba8",
+    "status": "completed",
+    "observed_completion": true,
+    "estimated_prompt_tokens": 5713,
+    "model_calls": 0,
+    "inspection_only": true
+  },
+  {
+    "invocation": "/workflow/main/step/n_e84f09f178e937f6/workflow/w_1c73caa08c45c06a/step/n_ce78a3f56bd8b9bf/iteration/2/step/n_01732b621626f078/workflow/w_7e6d4da1eb2d275e/step/n_ae72cd447d18931a/mapping/0",
+    "status": "completed",
+    "observed_completion": true,
+    "estimated_prompt_tokens": 27324,
+    "model_calls": 0,
+    "inspection_only": true
+  },
+  {
+    "invocation": "/workflow/main/step/n_e84f09f178e937f6/workflow/w_1c73caa08c45c06a/step/n_ce78a3f56bd8b9bf/iteration/1/step/n_01732b621626f078/workflow/w_7e6d4da1eb2d275e/step/n_ae72cd447d18931a/mapping/1",
+    "status": "completed",
+    "observed_completion": true,
+    "estimated_prompt_tokens": 25980,
+    "model_calls": 0,
+    "inspection_only": true
+  },
+  {
+    "invocation": "/workflow/main/step/n_e84f09f178e937f6/workflow/w_1c73caa08c45c06a/step/n_ce78a3f56bd8b9bf/iteration/6/step/n_01732b621626f078/workflow/w_7e6d4da1eb2d275e/step/n_ae72cd447d18931a/mapping/1",
+    "status": "completed",
+    "observed_completion": true,
+    "estimated_prompt_tokens": 31379,
+    "model_calls": 0,
+    "inspection_only": true
+  },
+  {
+    "invocation": "/workflow/main/step/n_e84f09f178e937f6/workflow/w_1c73caa08c45c06a/step/n_ce78a3f56bd8b9bf/iteration/0/step/n_01732b621626f078/workflow/w_7e6d4da1eb2d275e/step/n_0ee456e1dfdcbba8",
+    "status": "completed",
+    "observed_completion": true,
+    "estimated_prompt_tokens": 5698,
+    "model_calls": 0,
+    "inspection_only": true
+  },
+  {
+    "invocation": "/workflow/main/step/n_e84f09f178e937f6/workflow/w_1c73caa08c45c06a/step/n_ce78a3f56bd8b9bf/iteration/3/step/n_01732b621626f078/workflow/w_7e6d4da1eb2d275e/step/n_0ee456e1dfdcbba8",
+    "status": "completed",
+    "observed_completion": true,
+    "estimated_prompt_tokens": 5471,
+    "model_calls": 0,
+    "inspection_only": true
+  },
+  {
+    "invocation": "/workflow/main/step/n_e84f09f178e937f6/workflow/w_1c73caa08c45c06a/step/n_ce78a3f56bd8b9bf/iteration/7/step/n_01732b621626f078/workflow/w_7e6d4da1eb2d275e/step/n_ae72cd447d18931a/mapping/2",
+    "status": "completed",
+    "observed_completion": true,
+    "estimated_prompt_tokens": 16160,
+    "model_calls": 0,
+    "inspection_only": true
+  },
+  {
+    "invocation": "/workflow/main/step/n_e84f09f178e937f6/workflow/w_1c73caa08c45c06a/step/n_ce78a3f56bd8b9bf/iteration/4/step/n_01732b621626f078/workflow/w_7e6d4da1eb2d275e/step/n_ae72cd447d18931a/mapping/1",
+    "status": "completed",
+    "observed_completion": true,
+    "estimated_prompt_tokens": 32009,
+    "model_calls": 0,
+    "inspection_only": true
+  },
+  {
+    "invocation": "/workflow/main/step/n_e84f09f178e937f6/workflow/w_1c73caa08c45c06a/step/n_ce78a3f56bd8b9bf/iteration/7/step/n_01732b621626f078/workflow/w_7e6d4da1eb2d275e/step/n_ae72cd447d18931a/mapping/0",
+    "status": "completed",
+    "observed_completion": true,
+    "estimated_prompt_tokens": 26519,
+    "model_calls": 0,
+    "inspection_only": true
+  },
+  {
+    "invocation": "/workflow/main/step/n_b835c43ab1a06880",
+    "status": "completed",
+    "observed_completion": true,
+    "estimated_prompt_tokens": 23261,
+    "model_calls": 0,
+    "inspection_only": true
+  },
+  {
+    "invocation": "/workflow/main/step/n_e84f09f178e937f6/workflow/w_1c73caa08c45c06a/step/n_ce78a3f56bd8b9bf/iteration/5/step/n_01732b621626f078/workflow/w_7e6d4da1eb2d275e/step/n_ae72cd447d18931a/mapping/0",
+    "status": "completed",
+    "observed_completion": true,
+    "estimated_prompt_tokens": 27014,
+    "model_calls": 0,
+    "inspection_only": true
+  },
+  {
+    "invocation": "/workflow/main/step/n_e84f09f178e937f6/workflow/w_1c73caa08c45c06a/step/n_ce78a3f56bd8b9bf/iteration/1/step/n_01732b621626f078/workflow/w_7e6d4da1eb2d275e/step/n_0ee456e1dfdcbba8",
+    "status": "completed",
+    "observed_completion": true,
+    "estimated_prompt_tokens": 5213,
+    "model_calls": 0,
+    "inspection_only": true
+  },
+  {
+    "invocation": "/workflow/main/step/n_d9059c213d635a4e/mapping/0",
+    "status": "completed",
+    "observed_completion": true,
+    "estimated_prompt_tokens": 27860,
+    "model_calls": 0,
+    "inspection_only": true
+  },
+  {
+    "invocation": "/workflow/main/step/n_e84f09f178e937f6/workflow/w_1c73caa08c45c06a/step/n_ce78a3f56bd8b9bf/iteration/1/step/n_01732b621626f078/workflow/w_7e6d4da1eb2d275e/step/n_ae72cd447d18931a/mapping/0",
+    "status": "completed",
+    "observed_completion": true,
+    "estimated_prompt_tokens": 25715,
+    "model_calls": 0,
+    "inspection_only": true
+  },
+  {
+    "invocation": "/workflow/main/step/n_e84f09f178e937f6/workflow/w_1c73caa08c45c06a/step/n_ce78a3f56bd8b9bf/iteration/6/step/n_01732b621626f078/workflow/w_7e6d4da1eb2d275e/step/n_ae72cd447d18931a/mapping/0",
+    "status": "completed",
+    "observed_completion": true,
+    "estimated_prompt_tokens": 30859,
+    "model_calls": 0,
+    "inspection_only": true
+  },
+  {
+    "invocation": "/workflow/main/step/n_b4b2921276abc41d/mapping/0",
+    "status": "completed",
+    "observed_completion": true,
+    "estimated_prompt_tokens": 27675,
+    "model_calls": 0,
+    "inspection_only": true
+  },
+  {
+    "invocation": "/workflow/main/step/n_e84f09f178e937f6/workflow/w_1c73caa08c45c06a/step/n_ce78a3f56bd8b9bf/iteration/3/step/n_01732b621626f078/workflow/w_7e6d4da1eb2d275e/step/n_ae72cd447d18931a/mapping/1",
+    "status": "completed",
+    "observed_completion": true,
+    "estimated_prompt_tokens": 34123,
+    "model_calls": 0,
+    "inspection_only": true
+  },
+  {
+    "invocation": "/workflow/main/step/n_e84f09f178e937f6/workflow/w_1c73caa08c45c06a/step/n_ce78a3f56bd8b9bf/iteration/6/step/n_01732b621626f078/workflow/w_7e6d4da1eb2d275e/step/n_0ee456e1dfdcbba8",
+    "status": "completed",
+    "observed_completion": true,
+    "estimated_prompt_tokens": 5515,
+    "model_calls": 0,
+    "inspection_only": true
+  },
+  {
+    "invocation": "/workflow/main/step/n_e84f09f178e937f6/workflow/w_1c73caa08c45c06a/step/n_ce78a3f56bd8b9bf/iteration/2/step/n_01732b621626f078/workflow/w_7e6d4da1eb2d275e/step/n_0ee456e1dfdcbba8",
+    "status": "completed",
+    "observed_completion": true,
+    "estimated_prompt_tokens": 5245,
+    "model_calls": 0,
+    "inspection_only": true
+  },
+  {
+    "invocation": "/workflow/main/step/n_e84f09f178e937f6/workflow/w_1c73caa08c45c06a/step/n_ce78a3f56bd8b9bf/iteration/0/step/n_01732b621626f078/workflow/w_7e6d4da1eb2d275e/step/n_ae72cd447d18931a/mapping/0",
+    "status": "completed",
+    "observed_completion": true,
+    "estimated_prompt_tokens": 29025,
+    "model_calls": 0,
+    "inspection_only": true
+  },
+  {
+    "invocation": "/workflow/main/step/n_e84f09f178e937f6/workflow/w_1c73caa08c45c06a/step/n_ce78a3f56bd8b9bf/iteration/4/step/n_01732b621626f078/workflow/w_7e6d4da1eb2d275e/step/n_0ee456e1dfdcbba8",
+    "status": "completed",
+    "observed_completion": true,
+    "estimated_prompt_tokens": 5935,
+    "model_calls": 0,
+    "inspection_only": true
+  },
+  {
+    "invocation": "/workflow/main/step/n_e84f09f178e937f6/workflow/w_1c73caa08c45c06a/step/n_ce78a3f56bd8b9bf/iteration/2/step/n_01732b621626f078/workflow/w_7e6d4da1eb2d275e/step/n_ae72cd447d18931a/mapping/1",
+    "status": "completed",
+    "observed_completion": true,
+    "estimated_prompt_tokens": 27583,
+    "model_calls": 0,
+    "inspection_only": true
+  },
+  {
+    "invocation": "/workflow/main/step/n_cae2308945cb47b7",
+    "status": "completed",
+    "observed_completion": true,
+    "estimated_prompt_tokens": 4231,
+    "model_calls": 0,
+    "inspection_only": true
+  },
+  {
+    "invocation": "/workflow/main/step/n_e84f09f178e937f6/workflow/w_1c73caa08c45c06a/step/n_ce78a3f56bd8b9bf/iteration/3/step/n_01732b621626f078/workflow/w_7e6d4da1eb2d275e/step/n_ae72cd447d18931a/mapping/0",
+    "status": "completed",
+    "observed_completion": true,
+    "estimated_prompt_tokens": 33610,
+    "model_calls": 0,
+    "inspection_only": true
+  },
+  {
+    "invocation": "/workflow/main/step/n_e84f09f178e937f6/workflow/w_1c73caa08c45c06a/step/n_ce78a3f56bd8b9bf/iteration/7/step/n_01732b621626f078/workflow/w_7e6d4da1eb2d275e/step/n_ae72cd447d18931a/mapping/3",
+    "status": "completed",
+    "observed_completion": true,
+    "estimated_prompt_tokens": 15524,
+    "model_calls": 0,
+    "inspection_only": true
+  },
+  {
+    "invocation": "/workflow/main/step/n_e84f09f178e937f6/workflow/w_1c73caa08c45c06a/step/n_ce78a3f56bd8b9bf/iteration/7/step/n_01732b621626f078/workflow/w_7e6d4da1eb2d275e/step/n_ae72cd447d18931a/mapping/1",
+    "status": "completed",
+    "observed_completion": true,
+    "estimated_prompt_tokens": 26885,
+    "model_calls": 0,
+    "inspection_only": true
+  },
+  {
+    "invocation": "/workflow/main/step/n_e84f09f178e937f6/workflow/w_1c73caa08c45c06a/step/n_ce78a3f56bd8b9bf/iteration/4/step/n_01732b621626f078/workflow/w_7e6d4da1eb2d275e/step/n_ae72cd447d18931a/mapping/0",
+    "status": "completed",
+    "observed_completion": true,
+    "estimated_prompt_tokens": 31663,
+    "model_calls": 0,
+    "inspection_only": true
+  }
+]

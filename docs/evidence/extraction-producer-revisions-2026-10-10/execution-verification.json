@@ -1,0 +1,27 @@
+{
+  "run": "extractproducer20261010a-amazon-1",
+  "reviewed_revision": 8,
+  "approved_session_revision": 9,
+  "approved_status": "approved",
+  "artifact_hash": "e6b81b19d8b3c4ccacad4a112ab5e5f4838fd58bdc84e78b4464b28b3e9d41ad",
+  "reviewed_yaml_unchanged": true,
+  "yaml_sha256": "1fba618950fe3d06233c99bb1bef63c398e0a2f92885ddadf8112aac3871e0cf",
+  "actual_product_visits": 8,
+  "completed_product_extractions": 7,
+  "failed_product_ordinal": 8,
+  "writer_calls": 0,
+  "workbook_exists": false,
+  "workflow_browser_close_success": true,
+  "independent_cleanup_probe": "INVALID_INPUT: No active page",
+  "oracle_passed": false,
+  "additional_live_execution": false,
+  "new_uncertain_model_attempts": 0,
+  "offline_replay": {
+    "provider_calls": 0,
+    "mcp_calls": 0,
+    "saved_responses_consumed": 4,
+    "invalid_null_and_missing_default_failures_reproduced": true,
+    "exact_live_memory_exhaustion_reproduced": false,
+    "note": "Disposable engine reproduced original assignments through the fourth retained response. Stopped at a local four-response ceiling before any unsaved inference; not a replay of the original workflow or a successful extraction."
+  }
+}
