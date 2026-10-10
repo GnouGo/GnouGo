@@ -1,5 +1,7 @@
 # Physical output selection — PR #117
 
+Follow-up: the user subsequently authorized fresh planning. See [the live planning result](live-planning.md): four committed model responses, local schema-validation blockage, no execution. The preparation snapshots and original offline results below remain historical evidence.
+
 Candidate: `7376b4bd` (parent `22a809e6`). No paid planning, provider inference or historical workflow resumption was performed for this correction. Local fixtures perform real localhost Browser/Document work with deterministic inference. The historical failed run remains failed; its approval, journal revision 61 and encrypted planning record remain unchanged. PR #117 remains draft.
 
 ## Reproduction and correction

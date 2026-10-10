@@ -1,0 +1,91 @@
+{
+  "summary": "Workflow autorisé: accepter une seule entrée publique query, rechercher cette requête sur Amazon.fr, traiter au maximum les 10 premiers produits observés, visiter chaque page produit, extraire nom, description, prix et erreurs/absences explicites, puis sauvegarder un classeur Excel dans le chemin demandé et fermer le navigateur même en cas d’échec.",
+  "outcomes": [
+    {
+      "id": "search_amazon_fr",
+      "description": "Amazon.fr est utilisé pour rechercher la valeur de query."
+    },
+    {
+      "id": "limit_10_products",
+      "description": "Seuls les 10 premiers produits observés sont traités."
+    },
+    {
+      "id": "extract_fields",
+      "description": "Pour chaque produit, le nom, la description, le prix, l’URL et les erreurs ou données absentes sont conservés explicitement."
+    },
+    {
+      "id": "save_xlsx",
+      "description": "Le fichier est écrit à workflows/schema-portability-20261002/physicaloutputs20261010a-amazon-1/products.xlsx."
+    },
+    {
+      "id": "cleanup",
+      "description": "Le navigateur est fermé dans une section always, indépendamment du succès ou de l’échec."
+    }
+  ],
+  "inputs": [
+    {
+      "name": "query",
+      "type": {
+        "kind": "string",
+        "nullable": false,
+        "items": null,
+        "fields": []
+      },
+      "required": true,
+      "default": null
+    }
+  ],
+  "outputs": [
+    {
+      "name": "filePath",
+      "type": {
+        "kind": "string",
+        "nullable": false,
+        "items": null,
+        "fields": []
+      },
+      "required": true,
+      "default": null
+    },
+    {
+      "name": "fileSaved",
+      "type": {
+        "kind": "boolean",
+        "nullable": false,
+        "items": null,
+        "fields": []
+      },
+      "required": true,
+      "default": null
+    },
+    {
+      "name": "completed",
+      "type": {
+        "kind": "boolean",
+        "nullable": false,
+        "items": null,
+        "fields": []
+      },
+      "required": true,
+      "default": null
+    },
+    {
+      "name": "errors",
+      "type": {
+        "kind": "array",
+        "nullable": false,
+        "minItems": 0,
+        "maxItems": 100,
+        "items": {
+          "kind": "string",
+          "nullable": false,
+          "items": null,
+          "fields": []
+        },
+        "fields": []
+      },
+      "required": true,
+      "default": null
+    }
+  ]
+}
