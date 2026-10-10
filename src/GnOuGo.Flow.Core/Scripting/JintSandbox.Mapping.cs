@@ -50,11 +50,20 @@ public sealed partial class JintSandbox
             ["output_bytes"] = OutputBytes, ["memory_limit_bytes"] = memory,
             ["nesting_depth"] = NestingDepth, ["nesting_limit"] = 64
         };
-        internal WorkflowRuntimeException Exhausted(string resource, Exception? inner = null)
+        internal WorkflowRuntimeException Exhausted(string resource, Exception? inner = null, long? memoryLimit = null)
         {
             ExhaustedResource = resource;
-            return new("CONTRACT_UNSATISFIED", "The mapping exhausted its cumulative sandbox allowance (" + resource + ").", inner: inner,
-                details: new JsonObject { ["mapping_resource_limit"] = true, ["exhausted_resource"] = resource, ["sandbox"] = Snapshot() });
+            var snapshot = Snapshot();
+            if (memoryLimit is { } effective && effective != memory)
+            {
+                snapshot["shared_memory_limit_bytes"] = memory;
+                snapshot["memory_limit_bytes"] = effective;
+                snapshot["enforcement_scope"] = "nested";
+            }
+            var limit = resource is "materialized_memory" or "allocated_memory"
+                ? " Enforced memory limit: " + (memoryLimit ?? memory).ToString(System.Globalization.CultureInfo.InvariantCulture) + " bytes." : "";
+            return new("CONTRACT_UNSATISFIED", "The mapping exhausted its cumulative sandbox allowance (" + resource + ")." + limit, inner: inner,
+                details: new JsonObject { ["mapping_resource_limit"] = true, ["exhausted_resource"] = resource, ["sandbox"] = snapshot });
         }
         public override void Check()
         {
@@ -99,7 +108,7 @@ public sealed partial class JintSandbox
             var bytes = value is null ? 4 : System.Text.Encoding.UTF8.GetByteCount(value.ToJsonString());
             importedBytes += bytes;
             if (allowance is not null) { allowance.OutputBytes += bytes; allowance.ImportedBytes = importedBytes; }
-            if (importedBytes > _memoryLimit) throw allowance?.Exhausted("materialized_memory") ?? ResourceLimit();
+            if (importedBytes > _memoryLimit) throw allowance?.Exhausted("materialized_memory", memoryLimit: _memoryLimit) ?? ResourceLimit();
         }
         var helpers = new JsObject(engine);
         foreach (var name in MappingHelpers)
@@ -237,7 +246,7 @@ public sealed partial class JintSandbox
         {
             ct.ThrowIfCancellationRequested();
             var resource = ex is Jint.Runtime.StatementsCountOverflowException ? "statements" : ex is Jint.Runtime.MemoryLimitExceededException ? "allocated_memory" : "time";
-            var error = (allowance ?? CreateMappingAllowance()).Exhausted(resource, ex);
+            var error = (allowance ?? CreateMappingAllowance()).Exhausted(resource, ex, resource == "allocated_memory" ? _memoryLimit : null);
             throw new WorkflowRuntimeException(error.Code, error.Message, inner: ex, details: WithIndex(error.Details, itemIndex));
         }
         catch (Exception ex) when (ex is not OperationCanceledException and not WorkflowRuntimeException and not OutOfMemoryException)
@@ -252,7 +261,7 @@ public sealed partial class JintSandbox
                 allowance.ImportedBytes = importedBytes;
                 allowance.NestingDepth = Math.Max(allowance.NestingDepth, depth);
                 if (depth > 64) throw allowance.Exhausted("nesting");
-                if (importedBytes > _memoryLimit) throw allowance.Exhausted("materialized_memory");
+                if (importedBytes > _memoryLimit) throw allowance.Exhausted("materialized_memory", memoryLimit: _memoryLimit);
             }
             if (depth > 64 || importedBytes > _memoryLimit) throw Unsatisfied("Observed data exceeds the mapping sandbox's nesting or memory allowance.");
             if (value is JsonArray array) { var imported = Array(array.Select(v => Import(v, depth + 1))); containers.Add(imported.AsObject()); return imported; }

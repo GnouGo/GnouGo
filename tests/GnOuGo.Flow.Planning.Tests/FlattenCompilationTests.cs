@@ -172,6 +172,6 @@ public sealed class FlattenCompilationTests
         session = await new HybridWorkflowPlanner().AdvanceAsync(session, new() { Kind = "revise", PreserveRequirements = true,
             ExpectedRevision = session.Revision, ArtifactHash = hash, Text = "Revise the explicit grouping while retaining every row." }, runtime, PlannerFixture.Ct);
         Assert.Null(session.Yaml); Assert.Equal(schema, runtime.Calls[0].StructuredOutputSchema!.ToJsonString());
-        Assert.Equal("compact-bindings-v5", session.Request.Options["compilation_profile"]!.ToString());
+        Assert.Equal("compact-bindings-v6", session.Request.Options["compilation_profile"]!.ToString());
     }
 }

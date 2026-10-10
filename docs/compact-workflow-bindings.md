@@ -1,6 +1,12 @@
+# Compact bindings v6: select physical outputs first
+
+Fresh sessions and explicit revisions select approval-fingerprinted `compact-bindings-v6`. A checked selection resolves its paths against the original producer before reconstructing logical container keys. Scalar and other identity-preserving selections read the existing physical output directly; unrelated switch observations are neither renamed nor imported into a nested sandbox. Whole-container selections that require logical keys retain their reconstruction.
+
+Alternative paths keep their first-present order: a present null or invalid value never falls through to another alternative. The same intermediate schemas, guards, locations and output checks still execute. No evaluation crosses a branch, scope, effect or cleanup boundary. Runtime result envelopes, journal data, mapping semantics and limits are unchanged. Omitted/v1–v5 profiles and public compiler overloads reproduce their previous lowering; approved artifacts are not recompiled under v6 without an explicit revision and fresh approval.
+
 # Compact bindings v5: checked consumer expressions
 
-Fresh sessions and explicit revisions select approval-fingerprinted `compact-bindings-v5`. It retains v4's ordered intermediate checks but moves eligible pure computations into the immediately following consumer's input. Already validated values use direct references. One dynamic input subtree receives one compiler-owned checked expression; fixed MCP arguments remain literal and protected. Input resolution completes before durable dispatch, and committed resolved inputs are reused during recovery.
+The `compact-bindings-v5` profile retains v4's ordered intermediate checks but moves eligible pure computations into the immediately following consumer's input. Already validated values use direct references. One dynamic input subtree receives one compiler-owned checked expression; fixed MCP arguments remain literal and protected. Input resolution completes before durable dispatch, and committed resolved inputs are reused during recovery.
 
 Shared computations, independently observed identities, failure-preservation uses, conditional consumers, retries and handlers retain their materializations. No evaluation crosses an effect, scope or execution-phase boundary. Existing expression ceilings still apply, and errors retain their original compiler locations. `mapping.dynamic` and runtime executors are unchanged. Omitted/v1–v4 profiles reproduce their previous lowering and existing artifacts are never rewritten.
 
@@ -74,7 +80,7 @@ The v2 profile resolves exports from their actual graph dependencies. Direct val
 
 Exports depending on actual `always` results remain after those producers, with the existing presence guards. Mixed dependencies wait for both. Failure-evidence preservation remains explicit and ordered before cleanup; a failed workflow publishes no successful business outputs. Normal glue uses normal execution allowance. Genuine finalization and nested preservation work still use the unchanged bounded finalization allowance.
 
-The public compiler overloads preserve their previous behavior: omission uses historical lowering; `compactBindings: true` retains v1. Stored v3 requests include v2's normal exports and descriptions; fresh requests now select v5 as described above. No stored workflow, pending request or approval is rewritten.
+The public compiler overloads preserve their previous behavior: omission uses historical lowering; `compactBindings: true` retains v1. Stored v3 requests include v2's normal exports and descriptions; fresh requests now select v6 as described above. No stored workflow, pending request or approval is rewritten.
 
 ## Literal descriptions
 

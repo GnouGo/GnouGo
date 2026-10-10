@@ -26,7 +26,7 @@ public sealed partial class PlanningGraphCompiler
     public string Compile(PlanningGraph graph, PlanningCatalog catalog, string name = "generated")
         => Compile(graph, catalog, name, false);
 
-    internal string Compile(PlanningGraph graph, PlanningCatalog catalog, string name, bool descriptions, bool fuseBindings = false, bool consumerBindings = false)
+    internal string Compile(PlanningGraph graph, PlanningCatalog catalog, string name, bool descriptions, bool fuseBindings = false, bool consumerBindings = false, bool directProjections = false)
     {
         ArgumentNullException.ThrowIfNull(graph);
         var diagnostics = PlanningExecutableValidation.Validate(graph, catalog);
@@ -46,7 +46,7 @@ public sealed partial class PlanningGraphCompiler
             EnsureUnique(allNodes.Select(n => n.Key), "node");
             if (allNodes.Length > 300) throw new InvalidOperationException("A workflow exceeds the 300-node planning limit.");
             var nodeIds = allNodes.ToDictionary(n => n.Key, n => "n_" + Fingerprint(n.Key)[..16], StringComparer.Ordinal);
-            var scope = new LoweringScope(catalog, nodeIds, workflowIds, workflow.Inputs.Select(p => p.Name).ToHashSet(StringComparer.Ordinal), allNodes.ToDictionary(n => n.Key, n => n.Type, StringComparer.Ordinal), LoopVariables(allNodes), allNodes.ToDictionary(n => n.Key, StringComparer.Ordinal), graph.Workflows.ToDictionary(w => w.Key, StringComparer.Ordinal), descriptions);
+            var scope = new LoweringScope(catalog, nodeIds, workflowIds, workflow.Inputs.Select(p => p.Name).ToHashSet(StringComparer.Ordinal), allNodes.ToDictionary(n => n.Key, n => n.Type, StringComparer.Ordinal), LoopVariables(allNodes), allNodes.ToDictionary(n => n.Key, StringComparer.Ordinal), graph.Workflows.ToDictionary(w => w.Key, StringComparer.Ordinal), descriptions) { DirectProjections = directProjections };
             if (fuseBindings) PrepareFusion(workflow, scope, consumerBindings);
             var lowered = new JsonObject();
             if (workflow.Inputs.Count > 0)
@@ -356,6 +356,18 @@ public sealed partial class PlanningGraphCompiler
                         .Select(s => (JsonNode?)JsonValue.Create(s)).ToArray())).ToArray());
                 sourceExpression = OutputAddress(source.Source, scope) + ".results";
             }
+            else if (scope.DirectProjections && !each && source is { Kind: "output", Source: not null, ResultChannel: null or "default" } &&
+                scope.Nodes[source.Source] is { Type: "switch" or "sequence" or "parallel" or "loop.sequential" or "loop.parallel" } producer &&
+                selections.AsArray().All(p => ProjectResult(producer, source.Path.Concat(p!.AsArray().Select(s => s!.GetValue<string>())).ToArray(), "source", scope) == "source"))
+            {
+                // Select leaves before renaming the surrounding container. Keep
+                // first-present semantics and the same checked output envelope.
+                // A selected container needing logical keys stays on the old path.
+                selections = new JsonArray(selections.AsArray().Select(p => (JsonNode)new JsonArray(
+                    PhysicalPath(producer.Type, source.Path.Concat(p!.AsArray().Select(s => s!.GetValue<string>())).ToArray(), scope)
+                        .Select(s => (JsonNode?)JsonValue.Create(s)).ToArray())).ToArray());
+                sourceExpression = OutputAddress(source.Source, scope);
+            }
             else sourceExpression = ExpressionBody(source);
             var script = "({value:m.select(source," + selections.ToJsonString() + "," + (each ? "true" : "false") + ")})";
             GnOuGo.Flow.Core.Scripting.JintSandbox.ValidateMapping(script, learned: false);
@@ -662,6 +674,7 @@ public sealed partial class PlanningGraphCompiler
 
     private sealed record LoweringScope(PlanningCatalog Catalog, Dictionary<string, string> NodeIds, Dictionary<string, string> WorkflowIds, HashSet<string> Inputs, Dictionary<string, string> NodeTypes, Dictionary<string, (string Item, string Index)> LoopVariables, Dictionary<string, PlanningNode> Nodes, Dictionary<string, PlanningWorkflow> Workflows, bool Descriptions)
     {
+        internal bool DirectProjections { get; init; }
         internal Dictionary<string, string[]> FusedOutputs { get; init; } = new(StringComparer.Ordinal);
         internal HashSet<string> FusedExports { get; init; } = new(StringComparer.Ordinal);
         internal HashSet<string> LocalOutputs { get; init; } = new(StringComparer.Ordinal);

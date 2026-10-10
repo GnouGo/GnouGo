@@ -4,7 +4,7 @@ A separately publishable package depending only on Flow.Core.
 
 Explicit `requires` remains a local fail-fast runtime assertion, including inside conditional paths. The compiler validates types, scope, availability and contracts; it no longer attempts conditional implication proofs or automatic guard strengthening. Branch conditions govern optional routing. Automatic repairs cannot remove or alter `requires`; explicit targeted revisions remain available. Retained guard-proof repairs require revision after accounting for any completed original receipt; unknown completion remains stopped.
 
-Fresh `compact-bindings-v5` compilation prefers direct validated references and checked expressions in consumer inputs; independently needed materializations retain v4 fusion. Checks run in their original order before publication. Effects, branches, retries, failure-preservation references and identity-sensitive uses remain boundaries. Historical profiles retain their original lowering. See [compact compilation](../../docs/compact-workflow-bindings.md).
+Fresh `compact-bindings-v6` compilation resolves checked selections to physical producer paths before reconstructing logical containers, preserving first-present alternatives and whole-container contracts. It retains direct validated references and checked expressions in consumer inputs; independently needed materializations retain v4 fusion. Checks run in their original order before publication. Effects, branches, retries, failure-preservation references and identity-sensitive uses remain boundaries. Historical profiles retain their original lowering. See [compact compilation](../../docs/compact-workflow-bindings.md).
 
 `Requirements → progressive discovery → LLM TaskPlan → deterministic compilation → PlanningGraph → YAML → validation → scoped TaskPlan repair → approval`
 
@@ -195,7 +195,7 @@ A task may declare `requires` as a boolean TaskValue. Omission preserves histori
 
 `present` can inspect preceding tasks in the same or a lexically enclosing scope. Nested finalizers capture availability independently and retain an absent payload as omission inside compiler-owned switch envelopes. They never eagerly evaluate an unavailable result. Report observed evidence in `always` and put release operations in its nested `always`, so preservation failure still permits cleanup. Unknown completion continues to block both. Required conditions cannot be weakened by scoped repairs; use an explicit revision and fresh approval.
 
-New compilation uses approval-fingerprinted `compact-bindings-v3` options for fused typed copies with original indices, normal-path exports, literal descriptions, isolated business loops and unambiguous runtime extraction. Historical profiles retain their lowering. Declared collection bounds never enlarge effective host limits. See [profile and compatibility](../../docs/compact-workflow-bindings.md).
+The approval-fingerprinted `compact-bindings-v3` profile introduced options for fused typed copies with original indices, normal-path exports, literal descriptions, isolated business loops and unambiguous runtime extraction. Historical profiles retain their lowering. Declared collection bounds never enlarge effective host limits. See [profile and compatibility](../../docs/compact-workflow-bindings.md).
 
 ### Explicit consumer views and flatten
 

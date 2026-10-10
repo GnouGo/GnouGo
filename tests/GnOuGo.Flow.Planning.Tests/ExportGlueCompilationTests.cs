@@ -15,7 +15,7 @@ public sealed class ExportGlueCompilationTests(Xunit.ITestOutputHelper output)
     {
         var runtime = new TestRuntime(); var state = await PlannerFixture.RunAsync(runtime);
         Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Single(runtime.Calls); Assert.Equal(0, state.ReplanAttempts);
-        Assert.Equal("compact-bindings-v5", state.Request.Options["compilation_profile"]!.ToString());
+        Assert.Equal("compact-bindings-v6", state.Request.Options["compilation_profile"]!.ToString());
         Assert.Contains("description:", state.Yaml);
         var hash = state.ComputeArtifactHash(); var stored = PlannerFixture.Clone(state);
         var planner = new HybridWorkflowPlanner();

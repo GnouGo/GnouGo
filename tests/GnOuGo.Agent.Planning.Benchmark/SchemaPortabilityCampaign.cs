@@ -75,7 +75,7 @@ internal static class SchemaPortabilityCampaign
             if (args.Contains("--compare-bindings", StringComparer.Ordinal))
             {
                 var measurements = new JsonArray();
-                foreach (var profile in new[] { "compact-bindings-v3", "compact-bindings-v4", TaskPlanCompiler.CompactProfile })
+                foreach (var profile in new[] { "compact-bindings-v3", "compact-bindings-v4", "compact-bindings-v5", TaskPlanCompiler.CompactProfile })
                 {
                     var request = JsonSerializer.SerializeToNode(session.Request, PlanningJsonContext.Default.PlanningRequest)!.Deserialize(PlanningJsonContext.Default.PlanningRequest)!;
                     request.Options["compilation_profile"] = profile;
@@ -84,7 +84,7 @@ internal static class SchemaPortabilityCampaign
                     PlanningConfirmationGuards.Apply(compiled.Graph, catalog);
                     var graphFindings = PlanningExecutableValidation.Validate(compiled.Graph, catalog);
                     if (graphFindings.Count > 0) throw new InvalidOperationException(profile + ": " + string.Join("; ", graphFindings.Select(d => compiled.Locate(d).Message + " at " + compiled.Locate(d).Location)));
-                    var yaml = new PlanningGraphCompiler().Compile(compiled.Graph, catalog, request.Name, true, TaskPlanCompiler.UsesFusedBindings(request), TaskPlanCompiler.UsesConsumerBindings(request));
+                    var yaml = new PlanningGraphCompiler().Compile(compiled.Graph, catalog, request.Name, true, TaskPlanCompiler.UsesFusedBindings(request), TaskPlanCompiler.UsesConsumerBindings(request), TaskPlanCompiler.UsesDirectProjections(request));
                     var document = GnOuGo.Flow.Core.Parsing.WorkflowParser.Parse(yaml);
                     var types = new Dictionary<string, int>(StringComparer.Ordinal); var pairs = new JsonArray(); var sets = new JsonArray();
                     void Count(List<GnOuGo.Flow.Core.Models.StepDef> steps, string path)
