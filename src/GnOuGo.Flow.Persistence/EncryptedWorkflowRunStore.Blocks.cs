@@ -52,7 +52,7 @@ public sealed partial class EncryptedWorkflowRunStore
             Head = Parse(record.Value, tenant, runId) ?? throw Invalid();
         }
 
-        public async Task<WorkflowRun> ReadAsync(CancellationToken ct, bool deferred = false)
+        public async Task<WorkflowRun> ReadAsync(CancellationToken ct, bool deferred = true)
         {
             var header = await DecodeAsync(Head["header"], ct) as JsonObject ?? throw Invalid();
             var result = WorkflowRunStorage.Read(header.ToJsonString(), tenant, runId);

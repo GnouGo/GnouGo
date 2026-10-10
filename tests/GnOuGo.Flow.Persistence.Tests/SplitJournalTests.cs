@@ -66,6 +66,8 @@ public sealed class SplitJournalTests(ITestOutputHelper output) : IDisposable
             revision = owner.Run.Revision;
             output.WriteLine($"logical_snapshot_bytes={logicalSnapshotBytes}; logical_history_snapshot_bytes={24L * logicalSnapshotBytes}; unique_blocks={records.BlockWrites}; written_bytes={records.WrittenBytes}");
         }
+        var inspected = (await Store(records).ReadAsync("tenant", "run", Ct))!;
+        Assert.All(inspected.Invocations.Values, i => Assert.False(i.TryGetMaterializedSnapshot(false, out _)));
         var restartAllocation = GC.GetTotalAllocatedBytes(); records.ReadKeys.Clear();
         await using var restarted = await Store(records).AcquireAsync("tenant", "run", revision, Ct);
         Assert.All(restarted.Run.Invocations.Values, i => Assert.False(i.TryGetMaterializedSnapshot(false, out _)));
