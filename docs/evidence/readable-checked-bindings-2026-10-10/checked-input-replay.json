@@ -1,0 +1,177 @@
+{
+  "provider_calls": 0,
+  "mcp_calls": 0,
+  "historical_run_resumed": false,
+  "storage_writes": 0,
+  "all_equivalent": true,
+  "measurements": [
+    {
+      "invocation": "/workflow/main/step/n_1cd317496ddf7966",
+      "equivalent": true,
+      "v8_sandbox": {
+        "": {
+          "statements": 7,
+          "statement_limit": 100000,
+          "elapsed_ms": 0.0077,
+          "time_limit_ms": 15000,
+          "allocated_bytes": 4824,
+          "materialized_bytes": 384,
+          "output_bytes": 256,
+          "memory_limit_bytes": 50000000,
+          "nesting_depth": 1,
+          "nesting_limit": 64
+        }
+      },
+      "old_error": null,
+      "new_error": null,
+      "old_allocated_bytes": 11384,
+      "new_allocated_bytes": 10336,
+      "old_ms": 10.4375,
+      "new_ms": 0.6906,
+      "old_warm_allocated_bytes": 11384,
+      "new_warm_allocated_bytes": 10336,
+      "old_warm_ms": 0.0959,
+      "new_warm_ms": 0.0973
+    },
+    {
+      "invocation": "/workflow/main/step/n_e25b22eb8a688169",
+      "equivalent": true,
+      "v8_sandbox": {
+        "": {
+          "statements": 7261,
+          "statement_limit": 100000,
+          "elapsed_ms": 3.0636,
+          "time_limit_ms": 15000,
+          "allocated_bytes": 2485872,
+          "materialized_bytes": 1794696,
+          "output_bytes": 861288,
+          "memory_limit_bytes": 50000000,
+          "nesting_depth": 7,
+          "nesting_limit": 64
+        }
+      },
+      "old_error": null,
+      "new_error": null,
+      "old_allocated_bytes": 2543448,
+      "new_allocated_bytes": 2815480,
+      "old_ms": 13.1012,
+      "new_ms": 7.031,
+      "old_warm_allocated_bytes": 2439392,
+      "new_warm_allocated_bytes": 2530184,
+      "old_warm_ms": 3.205,
+      "new_warm_ms": 3.3097
+    },
+    {
+      "invocation": "/workflow/main/step/n_9c08b85d0e393193",
+      "equivalent": true,
+      "v8_sandbox": {
+        "": {
+          "statements": 7,
+          "statement_limit": 100000,
+          "elapsed_ms": 0.0069,
+          "time_limit_ms": 15000,
+          "allocated_bytes": 4824,
+          "materialized_bytes": 384,
+          "output_bytes": 256,
+          "memory_limit_bytes": 50000000,
+          "nesting_depth": 1,
+          "nesting_limit": 64
+        }
+      },
+      "old_error": null,
+      "new_error": null,
+      "old_allocated_bytes": 11384,
+      "new_allocated_bytes": 10336,
+      "old_ms": 0.0905,
+      "new_ms": 0.0848,
+      "old_warm_allocated_bytes": 11384,
+      "new_warm_allocated_bytes": 10336,
+      "old_warm_ms": 0.0808,
+      "new_warm_ms": 0.0843
+    },
+    {
+      "invocation": "/workflow/main/step/n_bef650cba414d920/case/0/step/n_8dd4e90943b579a1",
+      "equivalent": true,
+      "v8_sandbox": {
+        "": {
+          "statements": 3629,
+          "statement_limit": 100000,
+          "elapsed_ms": 0.7482,
+          "time_limit_ms": 15000,
+          "allocated_bytes": 708224,
+          "materialized_bytes": 862056,
+          "output_bytes": 431092,
+          "memory_limit_bytes": 50000000,
+          "nesting_depth": 7,
+          "nesting_limit": 64
+        }
+      },
+      "old_error": null,
+      "new_error": null,
+      "old_allocated_bytes": 821000,
+      "new_allocated_bytes": 995896,
+      "old_ms": 0.6107,
+      "new_ms": 1.0016,
+      "old_warm_allocated_bytes": 821000,
+      "new_warm_allocated_bytes": 713952,
+      "old_warm_ms": 0.6184,
+      "new_warm_ms": 0.8255
+    },
+    {
+      "invocation": "/workflow/main/step/n_188f002b1ba99532/case/0/step/n_249bbf8cd1b660d5",
+      "equivalent": true,
+      "v8_sandbox": {
+        "": {
+          "statements": 3629,
+          "statement_limit": 100000,
+          "elapsed_ms": 1.489,
+          "time_limit_ms": 15000,
+          "allocated_bytes": 708224,
+          "materialized_bytes": 862056,
+          "output_bytes": 431092,
+          "memory_limit_bytes": 50000000,
+          "nesting_depth": 7,
+          "nesting_limit": 64
+        }
+      },
+      "old_error": null,
+      "new_error": null,
+      "old_allocated_bytes": 821000,
+      "new_allocated_bytes": 995896,
+      "old_ms": 6.463,
+      "new_ms": 1.0771,
+      "old_warm_allocated_bytes": 821000,
+      "new_warm_allocated_bytes": 713952,
+      "old_warm_ms": 0.6422,
+      "new_warm_ms": 0.8422
+    },
+    {
+      "invocation": "/workflow/main/step/n_4b726ea70631ef0e",
+      "equivalent": true,
+      "v8_sandbox": {
+        "/data/values": {
+          "statements": 73,
+          "statement_limit": 100000,
+          "elapsed_ms": 0.06,
+          "time_limit_ms": 15000,
+          "allocated_bytes": 35152,
+          "materialized_bytes": 7775,
+          "output_bytes": 4040,
+          "memory_limit_bytes": 50000000,
+          "nesting_depth": 4,
+          "nesting_limit": 64
+        }
+      },
+      "old_error": null,
+      "new_error": null,
+      "old_allocated_bytes": 8471960,
+      "new_allocated_bytes": 67632,
+      "old_ms": 553.4673,
+      "new_ms": 1.2299,
+      "old_warm_allocated_bytes": 153832,
+      "new_warm_allocated_bytes": 65456,
+      "old_warm_ms": 0.5111,
+      "new_warm_ms": 0.2259
+    }
+  ]
+}

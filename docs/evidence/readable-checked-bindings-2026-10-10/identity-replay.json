@@ -1,0 +1,33 @@
+{
+  "provider_calls": 0,
+  "mcp_calls": 0,
+  "historical_run_resumed": false,
+  "storage_writes": 0,
+  "input_sha256": "3978f18a4d41c3f5c4573238fb709025ed7b3570cafb23b8bb35c37e2d45f3d2",
+  "source_pages": 4,
+  "source_records": 153,
+  "original_script": "item.records.filter(r=>m.test(r.kind,\"^control$\")&&m.test(r.actions[0],\"^(fill|select)$\")).map(r=>({key:m.text(r.reference,\":(record:.+)$\"),label:r.text}))",
+  "corrected_script": "item.records.filter(r=>m.test(r.kind,\"^control$\")&&m.test(r.actions[0],\"^(fill|select)$\")).map(r=>({key:r.reference,label:r.text}))",
+  "measurements": [
+    {
+      "phase": "original",
+      "script_sha256": "37881c6b360dbc536d2c837ca855fde0c2ef9cfba9e679014c3a1771d4938a95",
+      "reconnected": false,
+      "error": "CONTRACT_UNSATISFIED: A selected identity is absent from the lookup source.",
+      "pages": 4,
+      "candidates": 2,
+      "elapsed_ms": 685.9615,
+      "allocated_bytes": 13328912
+    },
+    {
+      "phase": "verbatim_identity_only",
+      "script_sha256": "d33be9101d9b0f0b0263283e8816b1d37f9e9305348574ef32fb86cf8272cb38",
+      "reconnected": true,
+      "error": null,
+      "pages": 4,
+      "candidates": 2,
+      "elapsed_ms": 6.2211,
+      "allocated_bytes": 3925128
+    }
+  ]
+}
