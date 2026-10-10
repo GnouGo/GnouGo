@@ -186,6 +186,13 @@ var consumerResult = await compactEngine.ExecuteAsync(consumerWorkflow, new Json
 if (consumerWorkflow.Steps.Count != 1 || !consumerResult.Success || consumerResult.Outputs?["text"]?.ToString() != "observed")
     throw new InvalidOperationException("Checked consumer input failed in Native AOT: " + consumerResult.Error?.Message);
 Console.WriteLine("consumer bindings: checked input, zero materialization steps");
+var nativeYaml = new PlanningGraphCompiler().Compile(consumerGraph, compactCatalog, "consumer", true, true, true, true, true);
+var nativeWorkflow = new WorkflowCompiler().Compile(WorkflowParser.Parse(nativeYaml)).Workflows["main"];
+var nativeResult = await compactEngine.ExecuteAsync(nativeWorkflow, new JsonObject(), CancellationToken.None);
+if (!nativeYaml.Contains("`\n", StringComparison.Ordinal) || !nativeResult.Success || nativeResult.Outputs?["text"]?.ToString() != "observed")
+    throw new InvalidOperationException("Multiline constant checked programs failed in Native AOT: " + nativeResult.Error?.Message);
+Console.WriteLine("v7 native mappings: multiline constant program, checked consumer, unchanged value");
+
 
 var lookupPlan = JsonSerializer.Deserialize("""
     {"inputs":[{"name":"rows","type":{"kind":"array","items":{"kind":"object","fields":[{"name":"label"}]}}}],
