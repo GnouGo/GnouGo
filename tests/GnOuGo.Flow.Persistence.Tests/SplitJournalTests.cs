@@ -21,6 +21,88 @@ public sealed class SplitJournalTests(ITestOutputHelper output) : IDisposable
     private static string Json(WorkflowRun run) => JsonSerializer.Serialize(run, WorkflowRunJsonContext.Default.WorkflowRun);
 
     [Fact]
+    public async Task FrozenSnapshotsCheckpointRepeatedObservationStateWithoutExpandingHistory()
+    {
+        var records = new MeasuredRecords(Records()); var store = Store(records);
+        await store.CreateAsync(NewRun(), Ct);
+        var observation = new JsonObject { ["pages"] = new JsonArray(Enumerable.Range(0, 52).Select(page => (JsonNode)new JsonObject
+        { ["records"] = new JsonArray(Enumerable.Range(0, page == 51 ? 22 : 29).Select(i => (JsonNode)new JsonObject
+          { ["id"] = page * 29 + i, ["text"] = new string('x', 780), ["price"] = JsonNode.Parse("1.2300"), ["missing"] = null }).ToArray()) }).ToArray()) };
+        var state = new JsonObject { ["steps"] = new JsonObject { ["observed"] = observation } };
+        // Retained shape: repeated switch envelopes, not inferred business data.
+        for (var i = 0; i < 3; i++) state["steps"]!["branch" + i] = state["steps"]!.DeepClone();
+        var logicalSnapshotBytes = Encoding.UTF8.GetByteCount(state.ToJsonString());
+        long revision;
+        await using (var owner = await store.AcquireAsync("tenant", "run", 0, Ct))
+        {
+            for (var i = 0; i < 12; i++)
+            {
+                var invocation = new WorkflowInvocation { Id = "step" + i, StepType = "set", Status = "completed", Output = new JsonObject { ["ok"] = true } };
+                owner.Run.Invocations[invocation.Id] = invocation;
+                await owner.CaptureSnapshotAsync(invocation, state, false, Ct);
+                await owner.CaptureSnapshotAsync(invocation, state, true, Ct);
+                Assert.False(invocation.TryGetMaterializedSnapshot(false, out _));
+                Assert.False(invocation.TryGetMaterializedSnapshot(true, out _));
+                var writes = records.BlockWrites; var bytes = records.WrittenBytes;
+                var allocated = GC.GetTotalAllocatedBytes(); var timer = Stopwatch.StartNew();
+                await owner.SaveAsync([invocation.Id], Ct);
+                var checkpointAllocations = GC.GetTotalAllocatedBytes() - allocated;
+                Assert.InRange(records.BlockWrites - writes, 1, 4);
+                Assert.InRange(records.WrittenBytes - bytes, 0, 30000);
+                Assert.True(checkpointAllocations < logicalSnapshotBytes, $"checkpoint allocations={checkpointAllocations}, snapshot={logicalSnapshotBytes}");
+                output.WriteLine($"checkpoint={i}; milliseconds={timer.Elapsed.TotalMilliseconds:F2}; allocation_bytes={checkpointAllocations}; written_bytes={records.WrittenBytes - bytes}");
+            }
+            var saved = owner.Run.Invocations["step0"];
+            var oldValue = state["steps"]!["observed"];
+            await owner.RestoreSnapshotAsync(saved, state, true, Ct);
+            Assert.Same(oldValue, state["steps"]!["observed"]);
+            // An arbitrary custom executor can mutate, remove and replace nodes.
+            state["steps"]!["observed"]!["pages"]![0]!["records"]![0]!["price"] = JsonNode.Parse("1.23");
+            state["steps"]!.AsObject().Remove("branch0"); state["unexpected"] = true;
+            await owner.RestoreSnapshotAsync(saved, state, false, Ct);
+            Assert.Null(state["unexpected"]); Assert.NotNull(state["steps"]!["branch0"]);
+            Assert.Equal("1.2300", state["steps"]!["observed"]!["pages"]![0]!["records"]![0]!["price"]!.ToJsonString());
+            Assert.False(saved.TryGetMaterializedSnapshot(false, out _));
+            revision = owner.Run.Revision;
+            output.WriteLine($"logical_snapshot_bytes={logicalSnapshotBytes}; logical_history_snapshot_bytes={24L * logicalSnapshotBytes}; unique_blocks={records.BlockWrites}; written_bytes={records.WrittenBytes}");
+        }
+        var restartAllocation = GC.GetTotalAllocatedBytes(); records.ReadKeys.Clear();
+        await using var restarted = await Store(records).AcquireAsync("tenant", "run", revision, Ct);
+        Assert.All(restarted.Run.Invocations.Values, i => Assert.False(i.TryGetMaterializedSnapshot(false, out _)));
+        Assert.All(records.ReadKeys.Values, count => Assert.Equal(1, count));
+        Assert.True(GC.GetTotalAllocatedBytes() - restartAllocation < logicalSnapshotBytes * 4L);
+        var reads = records.BlockReads;
+        await restarted.RestoreSnapshotAsync(restarted.Run.Invocations["step11"], state, true, Ct);
+        await restarted.SaveAsync([], Ct);
+        Assert.Equal(reads, records.BlockReads);
+        // Public access is detached. Explicit edits remain supported by full save.
+        restarted.Run.Invocations["step0"].DataBefore["edited"] = true;
+        await restarted.SaveAsync(Ct);
+        await restarted.RestoreSnapshotAsync(restarted.Run.Invocations["step1"], state, false, Ct);
+        Assert.Null(state["edited"]);
+    }
+
+    [Fact]
+    public async Task SnapshotCaptureDoesNotCommitAReceiptBeforeTheCheckpoint()
+    {
+        var records = new MeasuredRecords(Records()); var store = Store(records);
+        await store.CreateAsync(NewRun(), Ct);
+        await using (var owner = await store.AcquireAsync("tenant", "run", 0, Ct))
+        {
+            var invocation = new WorkflowInvocation { Id = "external", StepType = "custom", Recovery = StepRecovery.External, Status = "dispatched", DispatchedAt = DateTimeOffset.UtcNow };
+            owner.Run.Invocations[invocation.Id] = invocation;
+            await owner.SaveAsync([invocation.Id], Ct);
+            await owner.CaptureSnapshotAsync(invocation, new() { ["observed"] = new string('a', 10000) }, true, Ct);
+            invocation.Status = "completed"; invocation.CompletedAt = DateTimeOffset.UtcNow;
+            records.Fault = "before_head";
+            await Assert.ThrowsAsync<IOException>(() => owner.SaveAsync([invocation.Id], Ct));
+        }
+        var saved = (await Store().ReadAsync("tenant", "run", Ct))!;
+        Assert.Equal("dispatched", saved.Invocations["external"].Status);
+        Assert.Null(saved.Invocations["external"].DataAfter);
+    }
+
+    [Fact]
     public async Task GrowingSnapshotsReusePayloadsAndCancellationNeverReadsThem()
     {
         var records = new MeasuredRecords(Records()); var store = Store(records); var run = NewRun();

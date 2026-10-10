@@ -10,6 +10,23 @@ public sealed class IndexedProjectionTests
 {
     private static string Expression(string script) => "checkedMapping(" + JsonValue.Create(script).ToJsonString() + ", data.inputs)";
 
+    [Theory]
+    [InlineData("é \u2603", "é \u2603")]
+    [InlineData("` ${untrusted} \\ \n", "` ${untrusted} \\ \n")]
+    public void ConstantTemplateProgramsPreserveLiteralDataAndMissingNullDistinction(string value, string expected)
+    {
+        var literal = JsonValue.Create(value).ToJsonString();
+        var program = "({copied:source.value,label:" + literal + "})";
+        var template = "`\n" + program.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("`", "\\`", StringComparison.Ordinal).Replace("${", "\\${", StringComparison.Ordinal) + "\n`";
+        var evaluator = new ExpressionEvaluator();
+        var context = new JsonObject { ["inputs"] = new JsonObject { ["value"] = null } };
+        var result = evaluator.Evaluate("checkedMapping(" + template + ",data.inputs)", context)!;
+        Assert.Null(result["copied"]); Assert.Equal(expected, result["label"]!.GetValue<string>());
+        context["inputs"]!.AsObject().Remove("value");
+        Assert.Throws<WorkflowRuntimeException>(() => evaluator.Evaluate("checkedMapping(" + template + ",data.inputs)", context));
+        Assert.Throws<WorkflowRuntimeException>(() => evaluator.Evaluate("checkedMapping(`source.${data.secret}`,data.inputs)", context));
+    }
+
     [Fact]
     public void CompilerIndexIsStructuralWhileLearnedIndexIsNotAnObservedBusinessValue()
     {

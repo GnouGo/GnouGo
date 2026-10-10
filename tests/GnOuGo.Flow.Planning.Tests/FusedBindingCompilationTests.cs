@@ -10,6 +10,21 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class FusedBindingCompilationTests(Xunit.ITestOutputHelper output)
 {
     [Theory]
+    [InlineData("é ` ${literal} \\ source", true, null)]
+    [InlineData("", false, "first")]
+    [InlineData("observed", false, "guard")]
+    public async Task NativeTemplateBindingsPreserveOrderedChecksAndLiteralValues(string label, bool authorized, string? failure)
+    {
+        var yaml = new PlanningGraphCompiler().Compile(Graph(), await Catalog(), "test", true, true, true, true, true);
+        Assert.Contains("input: |", yaml);
+        var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml));
+        var result = await new WorkflowEngine().ExecuteAsync(document.Workflows["main"], new JsonObject { ["label"] = label, ["authorized"] = authorized }, PlannerFixture.Ct);
+        Assert.Equal(failure is null, result.Success);
+        if (failure is null) Assert.Equal(label, result.Outputs!["chosen"]!.GetValue<string>());
+        else { Assert.Equal("INPUT_VALIDATION", result.Error!.Code); Assert.Equal(failure, result.Error.Details!["location"]!.GetValue<string>()); }
+    }
+
+    [Theory]
     [InlineData("observed", true, null)]
     [InlineData("", false, "first")]
     [InlineData("observed", false, "guard")]

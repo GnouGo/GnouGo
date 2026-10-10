@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.KeyVault.Core.Services;
 using GnOuGo.Workspace;
@@ -132,7 +133,7 @@ public sealed partial class EncryptedWorkflowRunStore : IWorkflowRunStore, IMapp
         var record = await _records.GetAsync(Collection, tenant, id, Author, ct) ?? throw new WorkflowRunConflictException("Run not found for this tenant.");
         var head = SplitJournal.Parse(record.Value, tenant, id);
         var journal = head is null ? null : new SplitJournal(_records, tenant, id, head);
-        var run = journal is null ? WorkflowRunStorage.Read(record.Value, tenant, id) : await journal.ReadAsync(ct);
+        var run = journal is null ? WorkflowRunStorage.Read(record.Value, tenant, id) : await journal.ReadAsync(ct, deferred: true);
         if (run.Revision != revision) throw new WorkflowRunConflictException("The run changed. Inspect its current revision before issuing a command.");
         return (run, journal);
     }
@@ -227,10 +228,45 @@ public sealed partial class EncryptedWorkflowRunStore : IWorkflowRunStore, IMapp
     private sealed class Lease(EncryptedWorkflowRunStore store, WorkflowRun run, FileStream owner, SplitJournal? journal) : IWorkflowRunLease
     {
         private bool _disposed;
+        private readonly SemaphoreSlim _snapshotGate = new(1, 1);
         public WorkflowRun Run { get; } = run;
         public Task SaveAsync(CancellationToken ct = default) => SaveCoreAsync(null, ct);
         public Task SaveAsync(IReadOnlyCollection<string> changedInvocationIds, CancellationToken ct = default) => SaveCoreAsync(changedInvocationIds, ct);
         private async Task SaveCoreAsync(IReadOnlyCollection<string>? changed, CancellationToken ct)
+        {
+            await _snapshotGate.WaitAsync(ct);
+            try { await SaveLockedAsync(changed, ct); }
+            finally { _snapshotGate.Release(); }
+        }
+        public async Task CaptureSnapshotAsync(WorkflowInvocation invocation, JsonObject data, bool after, CancellationToken ct = default)
+        {
+            await _snapshotGate.WaitAsync(ct);
+            try
+            {
+                ObjectDisposedException.ThrowIf(_disposed, this);
+                if (journal is not null) await journal.CaptureAsync(invocation, data, after, ct);
+                else if (after) invocation.DataAfter = (JsonObject)data.DeepClone();
+                else invocation.DataBefore = (JsonObject)data.DeepClone();
+            }
+            finally { _snapshotGate.Release(); }
+        }
+        public async Task RestoreSnapshotAsync(WorkflowInvocation invocation, JsonObject data, bool after, CancellationToken ct = default)
+        {
+            await _snapshotGate.WaitAsync(ct);
+            try
+            {
+                ObjectDisposedException.ThrowIf(_disposed, this);
+                if (journal is not null) await journal.RestoreAsync(invocation, data, after, ct);
+                else
+                {
+                    var source = after ? invocation.DataAfter ?? invocation.DataBefore : invocation.DataBefore;
+                    var copy = (JsonObject)source.DeepClone(); data.Clear();
+                    foreach (var key in copy.Select(p => p.Key).ToArray()) { var value = copy[key]; copy.Remove(key); data.Add(key, value); }
+                }
+            }
+            finally { _snapshotGate.Release(); }
+        }
+        private async Task SaveLockedAsync(IReadOnlyCollection<string>? changed, CancellationToken ct)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
             await using var write = await store.WriteLockAsync(Run.TenantId, Run.RunId, ct);

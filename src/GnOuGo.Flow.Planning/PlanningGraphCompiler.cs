@@ -26,7 +26,7 @@ public sealed partial class PlanningGraphCompiler
     public string Compile(PlanningGraph graph, PlanningCatalog catalog, string name = "generated")
         => Compile(graph, catalog, name, false);
 
-    internal string Compile(PlanningGraph graph, PlanningCatalog catalog, string name, bool descriptions, bool fuseBindings = false, bool consumerBindings = false, bool directProjections = false)
+    internal string Compile(PlanningGraph graph, PlanningCatalog catalog, string name, bool descriptions, bool fuseBindings = false, bool consumerBindings = false, bool directProjections = false, bool nativeMappings = false)
     {
         ArgumentNullException.ThrowIfNull(graph);
         var diagnostics = PlanningExecutableValidation.Validate(graph, catalog);
@@ -46,7 +46,7 @@ public sealed partial class PlanningGraphCompiler
             EnsureUnique(allNodes.Select(n => n.Key), "node");
             if (allNodes.Length > 300) throw new InvalidOperationException("A workflow exceeds the 300-node planning limit.");
             var nodeIds = allNodes.ToDictionary(n => n.Key, n => "n_" + Fingerprint(n.Key)[..16], StringComparer.Ordinal);
-            var scope = new LoweringScope(catalog, nodeIds, workflowIds, workflow.Inputs.Select(p => p.Name).ToHashSet(StringComparer.Ordinal), allNodes.ToDictionary(n => n.Key, n => n.Type, StringComparer.Ordinal), LoopVariables(allNodes), allNodes.ToDictionary(n => n.Key, StringComparer.Ordinal), graph.Workflows.ToDictionary(w => w.Key, StringComparer.Ordinal), descriptions) { DirectProjections = directProjections };
+            var scope = new LoweringScope(catalog, nodeIds, workflowIds, workflow.Inputs.Select(p => p.Name).ToHashSet(StringComparer.Ordinal), allNodes.ToDictionary(n => n.Key, n => n.Type, StringComparer.Ordinal), LoopVariables(allNodes), allNodes.ToDictionary(n => n.Key, StringComparer.Ordinal), graph.Workflows.ToDictionary(w => w.Key, StringComparer.Ordinal), descriptions) { DirectProjections = directProjections, NativeMappings = nativeMappings };
             if (fuseBindings) PrepareFusion(workflow, scope, consumerBindings);
             var lowered = new JsonObject();
             if (workflow.Inputs.Count > 0)
@@ -369,21 +369,21 @@ public sealed partial class PlanningGraphCompiler
                 sourceExpression = OutputAddress(source.Source, scope);
             }
             else sourceExpression = ExpressionBody(source);
-            var script = "({value:m.select(source," + selections.ToJsonString() + "," + (each ? "true" : "false") + ")})";
+            var script = "({value:" + SelectExpression("source", selections, each, scope) + "})";
             GnOuGo.Flow.Core.Scripting.JintSandbox.ValidateMapping(script, learned: false);
-            expression = "checkedMapping(" + JsonValue.Create(script)!.ToJsonString() + "," + sourceExpression + ")";
+            expression = "checkedMapping(" + ProgramLiteral(script, scope) + "," + sourceExpression + ")";
         }
         else if (value.Kind == "flatten")
         {
             var script = FlattenExpression("source");
             GnOuGo.Flow.Core.Scripting.JintSandbox.ValidateMapping(script, learned: false);
-            expression = "checkedMapping(" + Quote(script) + "," + ExpressionBody(value.Items.Single()) + ")";
+            expression = "checkedMapping(" + ProgramLiteral(script, scope) + "," + ExpressionBody(value.Items.Single()) + ")";
         }
         else if (value.Kind == "lookup")
         {
             var script = LookupExpression("source.records", "source.selected", value.Text!);
             GnOuGo.Flow.Core.Scripting.JintSandbox.ValidateMapping(script, learned: false);
-            expression = "checkedMapping(" + Quote(script) + ",({records:" + ExpressionBody(value.Items[0]) + ",selected:" + ExpressionBody(value.Items[1]) + "}))";
+            expression = "checkedMapping(" + ProgramLiteral(script, scope) + ",({records:" + ExpressionBody(value.Items[0]) + ",selected:" + ExpressionBody(value.Items[1]) + "}))";
         }
         else if (value.Kind == "arithmetic")
         {
@@ -422,7 +422,7 @@ public sealed partial class PlanningGraphCompiler
             var previous = "m.scalar(source) ? source : " + ProjectChildren(scope.Nodes[value.Source].Steps, value.Path,
                 "source" + ResultPath("sequence", value.Path, scope), scope);
             GnOuGo.Flow.Core.Scripting.JintSandbox.ValidateMapping(previous, learned: false);
-            expression = "checkedMapping(" + JsonValue.Create(previous)!.ToJsonString() + ",data" + Segment(variable) + ")";
+            expression = "checkedMapping(" + ProgramLiteral(previous, scope) + ",data" + Segment(variable) + ")";
         }
         else if (value.Kind == "artifact_collection")
         {
@@ -449,7 +449,7 @@ public sealed partial class PlanningGraphCompiler
             expression = OutputAddress(value.Source, scope) + envelope + ResultPath(type, value.Path, scope);
             var projection = ProjectResult(scope.Nodes[value.Source], value.Path, "source", scope);
             GnOuGo.Flow.Core.Scripting.JintSandbox.ValidateMapping(projection, learned: false);
-            if (projection != "source") expression = "checkedMapping(" + JsonValue.Create(projection)!.ToJsonString() + "," + expression + ")";
+            if (projection != "source") expression = "checkedMapping(" + ProgramLiteral(projection, scope) + "," + expression + ")";
         }
         else if (value.Kind == "template")
         {
@@ -675,6 +675,7 @@ public sealed partial class PlanningGraphCompiler
     private sealed record LoweringScope(PlanningCatalog Catalog, Dictionary<string, string> NodeIds, Dictionary<string, string> WorkflowIds, HashSet<string> Inputs, Dictionary<string, string> NodeTypes, Dictionary<string, (string Item, string Index)> LoopVariables, Dictionary<string, PlanningNode> Nodes, Dictionary<string, PlanningWorkflow> Workflows, bool Descriptions)
     {
         internal bool DirectProjections { get; init; }
+        internal bool NativeMappings { get; init; }
         internal Dictionary<string, string[]> FusedOutputs { get; init; } = new(StringComparer.Ordinal);
         internal HashSet<string> FusedExports { get; init; } = new(StringComparer.Ordinal);
         internal HashSet<string> LocalOutputs { get; init; } = new(StringComparer.Ordinal);

@@ -135,7 +135,7 @@ public sealed partial class PlanningGraphCompiler
         else program.Append("return ({").Append(string.Join(',', group.Where(scope.FusedExports.Contains).Select(k => LocalName(k, scope) + ":" + LocalName(k, scope)))).Append("});})()");
         ExpressionEvaluator.Validate(program.ToString());
         var result = new JsonObject { ["id"] = scope.NodeIds[group[0]], ["type"] = "set",
-            ["input"] = "${checkedMapping(\n" + JsonValue.Create(program.ToString())!.ToJsonString(new System.Text.Json.JsonSerializerOptions(PlanningJsonContext.Default.Options) { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping }) + ",data," + contracts.ToJsonString() + "\n)}",
+            ["input"] = "${checkedMapping(\n" + (scope.NativeMappings ? ProgramLiteral(program.ToString(), scope) : JsonValue.Create(program.ToString())!.ToJsonString(new System.Text.Json.JsonSerializerOptions(PlanningJsonContext.Default.Options) { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping })) + ",data," + contracts.ToJsonString() + "\n)}",
             ["output_schema"] = new JsonObject { ["type"] = "object", ["properties"] = fields,
                 ["required"] = new JsonArray(group.Where(scope.FusedExports.Contains).Select(k => (JsonNode?)JsonValue.Create(LocalName(k, scope))).ToArray()), ["additionalProperties"] = false } };
         if (scope.Descriptions) result["description"] = "Check and assemble consecutive deterministic values.";

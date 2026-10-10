@@ -54,8 +54,8 @@ public sealed partial class PlanningGraphCompiler
             "flatten" => FlattenExpression(Resolve(value.Items.Single())),
             "lookup" => LookupExpression(Resolve(value.Items[0]), Resolve(value.Items[1]), value.Text!),
             "null" or "string" or "number" or "boolean" => LowerValue(value, scope, allowReferences: false)?.ToJsonString() ?? "null",
-            "projection" => "({value:m.select(" + Resolve(PlanningGraphValidation.Member(value, "value")!) + "," +
-                PlanningGraphValidation.Literal(PlanningGraphValidation.Member(value, "paths")!)!.ToJsonString() + ",false)})",
+            "projection" => "({value:" + SelectExpression(Resolve(PlanningGraphValidation.Member(value, "value")!),
+                PlanningGraphValidation.Literal(PlanningGraphValidation.Member(value, "paths")!)!, false, scope) + "})",
             _ => throw new InvalidOperationException("A compiled copy loop contains a non-structural value.")
         };
         foreach (var node in body.Steps.Concat(body.Finally))
@@ -75,7 +75,7 @@ public sealed partial class PlanningGraphCompiler
             ["required"] = new JsonArray(body.Outputs.Select(o => (JsonNode?)JsonValue.Create(o.Name)).ToArray()), ["additionalProperties"] = false };
         static JsonObject ObjectSchema(string name, JsonObject value) => new() { ["type"] = "object", ["properties"] = new JsonObject { [name] = value }, ["required"] = new JsonArray(name) };
         return new() { ["id"] = scope.NodeIds[loop.Key], ["type"] = "set",
-            ["input"] = "${checkedMapping(" + Quote(script) + "," + source + ")}",
+            ["input"] = "${checkedMapping(" + ProgramLiteral(script, scope) + "," + source + ")}",
             ["output_schema"] = new JsonObject { ["type"] = "object", ["properties"] = new JsonObject {
                 ["results"] = new JsonObject { ["type"] = "array", ["items"] = ObjectSchema(callId, ObjectSchema("outputs", outputSchema)) },
                 ["count"] = new JsonObject { ["type"] = "integer" } }, ["required"] = new JsonArray("results", "count") } };
@@ -92,7 +92,7 @@ public sealed partial class PlanningGraphCompiler
                 var source = Resolve(PlanningGraphValidation.Member(selection, "value")!);
                 var paths = PlanningGraphValidation.Literal(PlanningGraphValidation.Member(selection, "paths")!)!;
                 if (!value.Path.SequenceEqual(new[] { "value" })) throw new InvalidOperationException("An inline selection must consume its checked value.");
-                return "m.select(" + source + "," + paths.ToJsonString() + ",false)";
+                return SelectExpression(source, paths, false, scope);
             }
             if (value.Kind == "object") return "({" + string.Join(",", value.Members.Select(m => Quote(m.Name) + ":" + Resolve(m.Value))) + "})";
             if (value.Kind == "array") return "[" + string.Join(",", value.Items.Select(Resolve)) + "]";
@@ -103,7 +103,7 @@ public sealed partial class PlanningGraphCompiler
         }
         var script = Resolve(node.Input); JintSandbox.ValidateMapping(script, learned: false);
         var sourceExpression = ToExpression(new() { Kind = "object", Members = sources }, scope)[2..^1];
-        return "${checkedMapping(" + Quote(script) + "," + sourceExpression + ")}";
+        return "${checkedMapping(" + ProgramLiteral(script, scope) + "," + sourceExpression + ")}";
     }
 
     private static string FlattenExpression(string source)
@@ -111,6 +111,40 @@ public sealed partial class PlanningGraphCompiler
 
     private static string LookupExpression(string records, string selected, string field)
         => "m.lookup(" + records + "," + selected + "," + Quote(field) + ")";
+
+    private static string SelectExpression(string source, JsonNode paths, bool each, LoweringScope scope)
+    {
+        if (scope.NativeMappings && paths is JsonArray { Count: 1 } selections && selections[0] is JsonArray path &&
+            path.All(p => p!.GetValue<string>() is not ("length" or "__proto__" or "constructor" or "prototype")))
+        {
+            var suffix = string.Concat(path.Select(p => Segment(p!.GetValue<string>())));
+            // The checked structural evaluator rejects missing members and keeps
+            // present nulls and exact JSON scalars. map still requires an array.
+            return each ? "(" + source + ").map(item=>item" + suffix + ")" : "(" + source + ")" + suffix;
+        }
+        return "m.select(" + source + "," + paths.ToJsonString() + "," + (each ? "true" : "false") + ")";
+    }
+
+    private static string ProgramLiteral(string script, LoweringScope scope)
+    {
+        if (!scope.NativeMappings) return Quote(script);
+        // Lexical whitespace only: never split strings, regexes or template data.
+        var tokens = new Acornima.Tokenizer(script);
+        var formatted = new System.Text.StringBuilder(); var position = 0; var indent = 0;
+        while (true)
+        {
+            var token = tokens.GetToken();
+            if (token.Kind == Acornima.TokenKind.EOF) break;
+            formatted.Append(script.AsSpan(position, token.End - position)); position = token.End;
+            if (token.Kind != Acornima.TokenKind.Punctuator) continue;
+            if (token.Value is "{") indent++;
+            if (token.Value is "}") indent = Math.Max(0, indent - 1);
+            if (token.Value is "{" or "," or ";") formatted.Append('\n').Append(' ', indent * 2);
+        }
+        formatted.Append(script.AsSpan(position));
+        return "`\n" + formatted.ToString().Replace("\\", "\\\\", StringComparison.Ordinal)
+            .Replace("`", "\\`", StringComparison.Ordinal).Replace("${", "\\${", StringComparison.Ordinal) + "\n`";
+    }
 
     private static string Quote(string value) => JsonValue.Create(value)!.ToJsonString();
 }

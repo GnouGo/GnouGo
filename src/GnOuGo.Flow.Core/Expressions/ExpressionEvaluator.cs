@@ -164,13 +164,24 @@ public sealed partial class ExpressionEvaluator
     /// </summary>
     public JsonNode? Evaluate(string expression, JsonNode? context) => EvaluateCore(expression, context);
 
+    private static bool TryMappingProgram(Node node, out string program)
+    {
+        program = node switch
+        {
+            StringLiteral literal => literal.Value,
+            TemplateLiteral { Expressions.Count: 0, Quasis.Count: 1 } template => template.Quasis[0].Value.Cooked!,
+            _ => null!
+        };
+        return program is not null;
+    }
+
     private JsonNode? EvaluateCore(string expression, JsonNode? context,
         Dictionary<string, JsonNode?>? locals = null, JintSandbox.MappingAllowance? allowance = null)
     {
         // Preserve exact JSON scalar values when wiring data; do not round decimals through JS doubles.
         var syntax = new Acornima.Parser().ParseExpression(expression);
         if (syntax is CallExpression { Callee: Identifier { Name: JintSandbox.MappingFunction }, Arguments.Count: 3 } compiled &&
-            compiled.Arguments[0] is Literal { Value: string program } && compiled.Arguments[1] is Identifier { Name: "data" })
+            TryMappingProgram(compiled.Arguments[0], out var program) && compiled.Arguments[1] is Identifier { Name: "data" })
         {
             if (allowance is not null) throw new WorkflowRuntimeException(ErrorCodes.EvalError, "Compiled binding groups cannot nest.");
             var contracts = JsonNode.Parse(expression[compiled.Arguments[2].Start..compiled.Arguments[2].End]) as JsonObject
@@ -178,7 +189,7 @@ public sealed partial class ExpressionEvaluator
             return EvaluateCompiledBindings(program, context, contracts);
         }
         if (syntax is CallExpression { Callee: Identifier { Name: JintSandbox.MappingFunction }, Arguments.Count: 2 } mapping &&
-            mapping.Arguments[0] is Literal { Value: string script })
+            TryMappingProgram(mapping.Arguments[0], out var script))
         {
             if (!Structural(mapping.Arguments[1], out var source))
                 throw new WorkflowRuntimeException(ErrorCodes.EvalError, "checkedMapping requires a direct structured source binding.");
@@ -193,7 +204,7 @@ public sealed partial class ExpressionEvaluator
             allowance?.Check();
             if (node is Identifier local && locals?.TryGetValue(local.Name, out value) == true) return true;
             if (node is CallExpression { Callee: Identifier { Name: JintSandbox.MappingFunction }, Arguments.Count: 2 } nested &&
-                nested.Arguments[0] is Literal { Value: string nestedScript } && Structural(nested.Arguments[1], out var nestedSource))
+                TryMappingProgram(nested.Arguments[0], out var nestedScript) && Structural(nested.Arguments[1], out var nestedSource))
             {
                 if (TrySelectMapping(nestedScript, nestedSource, out value, allowance)) return true;
                 value = Mapping(nestedScript, nestedSource); return true;

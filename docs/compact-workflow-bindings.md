@@ -1,6 +1,14 @@
+# Compact bindings v7: readable checked JavaScript
+
+Fresh sessions and explicit revisions select approval-fingerprinted `compact-bindings-v7`. Single-path checked selections use ordinary property access; independent selections use native `map`. The existing structural evaluator still rejects missing properties, preserves explicit nulls and exact copied JSON values, and applies the same sandbox ceilings. No filtering, truncation or deduplication is inferred. Paths with first-present alternatives keep `m.select`: `??` would incorrectly fall through on null. Strict lookup, per-inner-array flatten validation and ordered intermediate schema checks retain their checked helpers where required.
+
+Compiler programs render as multiline YAML block scalars containing constant JavaScript template literals. Backslashes, backticks and literal `${…}` are escaped; interpolation in program literals is rejected. Historical quoted programs remain supported. TaskPlan contains typed bindings, never model-authored JavaScript. Learned mapping permissions and source-grounding are unchanged.
+
+Pure expressions keep native short-circuit predicates when no independent materialized check is needed. Business branches, presence-observable steps and separately ordered validation boundaries remain explicit. The runtime validates intermediate values before consumers and preserves their original diagnostic locations. Omitted/v1–v6 options and public compiler overloads keep their exact lowering; metadata/program rendering changes require a fresh approval.
+
 # Compact bindings v6: select physical outputs first
 
-Fresh sessions and explicit revisions select approval-fingerprinted `compact-bindings-v6`. A checked selection resolves its paths against the original producer before reconstructing logical container keys. Scalar and other identity-preserving selections read the existing physical output directly; unrelated switch observations are neither renamed nor imported into a nested sandbox. Whole-container selections that require logical keys retain their reconstruction.
+The historical `compact-bindings-v6` profile selects physical paths. A checked selection resolves its paths against the original producer before reconstructing logical container keys. Scalar and other identity-preserving selections read the existing physical output directly; unrelated switch observations are neither renamed nor imported into a nested sandbox. Whole-container selections that require logical keys retain their reconstruction.
 
 Alternative paths keep their first-present order: a present null or invalid value never falls through to another alternative. The same intermediate schemas, guards, locations and output checks still execute. No evaluation crosses a branch, scope, effect or cleanup boundary. Runtime result envelopes, journal data, mapping semantics and limits are unchanged. Omitted/v1–v5 profiles and public compiler overloads reproduce their previous lowering; approved artifacts are not recompiled under v6 without an explicit revision and fresh approval.
 
