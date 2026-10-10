@@ -109,7 +109,11 @@ internal static class PlanningRepairContext
             if (!selection.EditableTasks.Contains(id) && task.Kind is "operation" or "transform")
             {
                 node.Remove("inputs");
-                    node["fixedInputs"] = PlanningJsonTransport.TaskPlanPart(JsonSerializer.SerializeToNode(task.Inputs.Where(i => IsLiteral(i.Value)).ToList(), PlanningJsonContext.Default.ListTaskOutput));
+                node["fixedInputs"] = PlanningJsonTransport.TaskPlanPart(JsonSerializer.SerializeToNode(task.Inputs.Where(i => IsLiteral(i.Value)).ToList(), PlanningJsonContext.Default.ListTaskOutput));
+                // Each binds a named collection. Read-only references explain its
+                // declaration without importing observed payloads or granting edits.
+                if (task.Each is not null)
+                    node["boundInputs"] = PlanningJsonTransport.TaskPlanPart(JsonSerializer.SerializeToNode(task.Inputs.Where(i => !IsLiteral(i.Value)).ToList(), PlanningJsonContext.Default.ListTaskOutput));
             }
             // A context task is not a replacement payload; omitted bodies stay host-owned.
             taskNodes.Add(PlanningJsonTransport.TaskPlanPart(node));

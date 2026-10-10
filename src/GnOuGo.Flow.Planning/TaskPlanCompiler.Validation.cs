@@ -288,7 +288,13 @@ public sealed partial class TaskPlanCompiler
                         if (collection.Length != 1 || string.IsNullOrWhiteSpace(each.Input) ||
                             task.ResultType is not { Fields.Count: 1 } || task.ResultType.Fields[0].Name != each.Output ||
                             task.ResultType.Fields[0].Type is not { Kind: "array", Nullable: false, Items: not null })
-                            findings.Add(new("TASK_TRANSFORM_EACH", path + "/each", "Identify one bound collection input and the sole nonnullable array result field."));
+                            findings.Add(new("TASK_TRANSFORM_EACH", path + "/each", "Identify one bound collection input and the sole nonnullable array result field. " +
+                                "Task '" + task.Id + "' declares each.input='" + each.Input + "', each.output='" + each.Output +
+                                "'; bound inputs: " + new JsonArray(task.Inputs.Select(i => (JsonNode?)JsonValue.Create(i.Name)).ToArray()).ToJsonString() +
+                                "; declared fields: " + string.Join(", ", task.ResultType?.Fields.Select(f => f.Name + ":" + (f.Type?.Kind ?? "unspecified") +
+                                    (f.Type?.Nullable == true ? "?" : "") + (f.Type?.Items is { } item ? "<" + item.Kind + (item.Nullable ? "?" : "") + ">" : "")) ?? []) +
+                                ". Inspect " + path + "/inputs and " + path + "/resultType. resultType describes the assembled collection; " +
+                                "an array per source item requires an array-of-arrays result before flatten."));
                         else if (Read(collection[0].Value, scope, path + "/inputs/" + each.Input) is { } collected &&
                             PlanningContractShapes.IterationItems(collected.Schema) is null)
                             findings.Add(new("TASK_TRANSFORM_EACH", path + "/inputs/" + each.Input, "Independent extraction requires an authoritative array; its contents may be opaque."));

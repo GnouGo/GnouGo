@@ -48,6 +48,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
 
     [Theory]
     [InlineData("compact")]
+    [InlineData("producer_revision")]
     [InlineData("repeated")]
     [InlineData("empty")]
     [InlineData("unoffered")]
@@ -105,12 +106,46 @@ public sealed partial class LocalProductOutcomeExecutionTests
             var catalog = await RetainedCatalog(runtime, ct);
             catalog.Policy.RequireExternalConfirmation = false;
             var proposal = BusinessProposal("compact", catalog);
+            var expectedPlan = JsonSerializer.Serialize(proposal.Plan, PlanningJsonContext.Default.TaskPlan);
+            var corrections = new Dictionary<string, JsonNode?>();
+            if (variant == "producer_revision")
+            {
+                var extraction = proposal.Plan!.Root.Tasks.Single(t => t.Id == "extract_choices");
+                corrections["/tasks/extract_choices/each"] = JsonNode.Parse("""{"input":"pages","output":"pageViews"}""");
+                corrections["/tasks/extract_choices/resultType"] = JsonSerializer.SerializeToNode(extraction.ResultType, PlanningJsonContext.Default.TaskType);
+                corrections["/tasks/extract_choices/requires"] = JsonSerializer.SerializeToNode(extraction.Requires, PlanningJsonContext.Default.TaskValue);
+                extraction.Each = new("page", "pageViews");
+                extraction.ResultType!.Fields[0].Type.Items = extraction.ResultType.Fields[0].Type.Items!.Items;
+                extraction.Requires = new() { Kind = "choice", Source = "acquire" };
+            }
             if (variant == "denied") proposal.Plan!.Root.Tasks.Single(t => t.Id == "write").Inputs.Single(i => i.Name == "filePath").Value.Text = "../outside.xlsx";
+            var adapter = new ProposalRuntime(runtime, proposal);
             var session = await new HybridWorkflowPlanner().AdvanceAsync(new() { Catalog = catalog, Request = new() {
                 TenantId = "local", Prompt = proposal.Requirements!.Summary, Policy = new() { RequireExternalConfirmation = false },
-                Generation = new() { MaxInputTokensPerRequest = 96000, MaxOutputTokens = 32768 } } }, new(), new ProposalRuntime(runtime, proposal), ct);
+                Generation = new() { MaxInputTokensPerRequest = 96000, MaxOutputTokens = 32768 } } }, new(), adapter, ct);
+            if (variant == "producer_revision")
+            {
+                Assert.Equal(PlanningStatus.Stopped, session.Status); Assert.Equal(1, session.ModelCalls); Assert.Equal(0, session.ReplanAttempts);
+                Assert.Contains(session.Diagnostics, d => d.Code == "TASK_TRANSFORM_EACH");
+                Assert.Contains(session.Diagnostics, d => d.Code == "TASK_FLATTEN_INVALID");
+                Assert.Contains(session.Diagnostics, d => d.Code == "CHOICE_UNKNOWN");
+                Assert.Empty(visits); Assert.Empty(model.Requests);
+                adapter.Patch = request =>
+                {
+                    var context = JsonNode.Parse(request.Prompt[request.Prompt.IndexOf("\n{", StringComparison.Ordinal)..])!["repair"]!;
+                    var edits = context["slots"]!.AsArray().Select(slot => (JsonNode)new JsonObject {
+                        ["slot"] = slot!["id"]!.ToString(), ["action"] = "replace", ["value"] = corrections[slot["location"]!.ToString()]!.DeepClone() }).ToArray();
+                    Assert.Equal(3, edits.Length);
+                    return new() { ["discoveryRequests"] = null, ["clarifications"] = null, ["patch"] = new JsonObject { ["edits"] = new JsonArray(edits) } };
+                };
+                session = await new HybridWorkflowPlanner().AdvanceAsync(session, new() { Kind = "revise", PreserveRequirements = true,
+                    ExpectedRevision = session.Revision, ArtifactHash = session.ComputeArtifactHash(), EditablePaths = corrections.Keys.ToList(),
+                    Text = "Correct only the extraction declaration and its assertion. Preserve every business operation and accepted output." }, adapter, ct);
+                session = await new HybridWorkflowPlanner().AdvanceAsync(session, new() { ExpectedRevision = session.Revision }, adapter, ct);
+                Assert.Equal(expectedPlan, JsonSerializer.Serialize(session.Plan, PlanningJsonContext.Default.TaskPlan));
+            }
             Assert.True(session.Status == PlanningStatus.FinalReview, string.Join('\n', session.Diagnostics));
-            Assert.Equal(1, session.ModelCalls); Assert.Equal(0, session.ReplanAttempts); Assert.Empty(visits); Assert.Empty(model.Requests);
+            Assert.Equal(variant == "producer_revision" ? 2 : 1, session.ModelCalls); Assert.Equal(0, session.ReplanAttempts); Assert.Empty(visits); Assert.Empty(model.Requests);
             session = await new HybridWorkflowPlanner().AdvanceAsync(session, new() { Kind = "approve", ExpectedRevision = session.Revision,
                 ArtifactHash = session.ComputeArtifactHash(), ReviewedRequirementIds = ["search", "select_first", "visit_extract", "write_workbook", "release"] }, new ProposalRuntime(runtime, proposal), ct);
             Assert.Equal(PlanningStatus.Approved, session.Status);

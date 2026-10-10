@@ -133,6 +133,16 @@ internal static class TaskPlanRevisions
         var symbols = new TaskPlanSymbols(state.Plan!);
         var catalog = PlanningStructuralRepair.Catalog(state);
         var exports = Exports(state.Plan!, state.RevisionScope);
+        foreach (var finding in state.Diagnostics.Where(d => d.Required && d.Code == "TASK_TRANSFORM_EACH" && d.Location.EndsWith("/each", StringComparison.Ordinal)))
+            if (state.EditablePaths?.Contains(finding.Location) != true && finding.Location.Split('/') is ["", "tasks", var id, "each"])
+                yield return finding with { Code = "REVISION_REQUIRED", Message = finding.Message +
+                    " Independent extraction declarations are outside automatic repair authority. Explicitly revise /tasks/" + id +
+                    "/each and the diagnosed inputs/resultType; changing a consumer cannot correct this declaration." };
+        foreach (var finding in state.Diagnostics.Where(d => d.Required && d.Code == "CHOICE_UNKNOWN" && d.Location.EndsWith("/requires", StringComparison.Ordinal)))
+            if (state.EditablePaths?.Contains(finding.Location) != true)
+                yield return finding with { Code = "REVISION_REQUIRED", Message = finding.Message +
+                    " The required assertion is immutable during automatic repair. Explicitly revise " + finding.Location +
+                    " to the intended typed value or declared decision; never substitute a completion flag." };
         foreach (var finding in state.Diagnostics.Where(d => d.Required && d.Code is "TASK_FIELD_TYPE" or "TASK_FIELD_UNKNOWN" or "TASK_CONDITION_TYPE"))
         {
             if (finding.Location.Split('/') is not ["", "tasks", var consumer, "requires"] ||

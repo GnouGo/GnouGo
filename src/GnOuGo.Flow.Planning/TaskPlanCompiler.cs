@@ -657,7 +657,10 @@ public sealed partial class TaskPlanCompiler
                 return new(Array(items.Select(i => i.Value)), new() { ["type"] = "array", ["items"] = schemas.Length == 1 ? schemas[0].DeepClone() : schemas.Length == 0 ? new JsonObject() : new JsonObject { ["anyOf"] = new JsonArray(schemas.Select(s => s.DeepClone()).ToArray()) } });
             case "choice":
                 var choice = _plan.Choices.SingleOrDefault(c => c.Id == value.Source);
-                if (choice is null) Fail("CHOICE_UNKNOWN", "Choose a declared business decision.");
+                if (choice is null) Fail("CHOICE_UNKNOWN", "Choose a declared business decision. '" + value.Source + "' is " +
+                    (value.Source is not null && _symbols.Tasks.TryGetValue(value.Source, out var namedTask) ? "a " + namedTask.Task.Kind + " task, not a declared choice" : "not a declared choice") +
+                    ". Declared choices: " + new JsonArray(_plan.Choices.Select(c => (JsonNode?)JsonValue.Create(c.Id)).ToArray()).ToJsonString() +
+                    ". Operation data uses typed output references; present only establishes completion, not success.");
                 if (choice!.Selected is null) Fail("CHOICE_REQUIRED", "Select a business alternative before compiling this task.");
                 return Value(choice.Alternatives.Single(a => a.Id == choice.Selected).Value, scope);
             case "input":
@@ -771,7 +774,17 @@ public sealed partial class TaskPlanCompiler
         var computation = new PlanningValue { Kind = "flatten", Items = [source.Value] };
         JsonObject schema;
         try { schema = PlanningValues.ComputationContract(computation, _ => source.Schema); }
-        catch (InvalidOperationException ex) { Fail("TASK_FLATTEN_INVALID", ex.Message); throw; }
+        catch (InvalidOperationException ex)
+        {
+            Fail("TASK_FLATTEN_INVALID", ex.Message + " Received " + Describe(source.Schema) +
+                (source.Schema["items"] is JsonObject element ? " with items " + Describe(element) : "") +
+                " from " + string.Join(", ", Values(value.Items[0]).Where(v => v.Kind is "output" or "input" or "item")
+                    .Select(v => v.Kind + ":" + v.Source + (v.Port is null ? "" : "." + v.Port) +
+                        (v.Kind == "output" && v.Source is { } id && _symbols.Tasks.TryGetValue(id, out var producer) && producer.Task.Kind == "transform"
+                            ? " (declaration /tasks/" + id + "/resultType)" : "")).DefaultIfEmpty("the explicit " + value.Items[0].Kind + " binding")) +
+                ". Per-item array extraction must declare the assembled array-of-arrays; do not use json text or cast the consumer.");
+            throw;
+        }
         // Validate the original collection before removing a boundary, including
         // constraints that cannot be transferred to the concatenated result.
         var checkedSource = Consume(source with { SelectionSource = source, SelectionPath = [] }, scope);

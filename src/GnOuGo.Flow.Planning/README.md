@@ -57,6 +57,50 @@ Task, group and choice declarations share one case-sensitive namespace throughou
 
 For large observations, declare a compact view for each consumer, using typed field selections or existing independent extraction. Avoid a shared superset containing all fields needed by later tasks. Keep full observations and exact action references in existing bindings; include a reference in interpretation only when that decision needs it. Explicit existing bindings and control flow reconnect decisions to the original action data; no runtime field removal is inferred from prose. Then bind global interpretation only to those results and necessary shared context. A complete bounded item can be a declared record; a whole page may be too large even for mapping examples. Preserve necessary source references, grouping, order and original completeness guards. Global comparisons and synthesis stay global; no runtime partitioning or automatic TaskPlan rewrite is performed. The review diagram shows transform mode, named input sources (including assembled bindings) and nested declared result fields. This makes broad collection bindings visible for review, without claiming that static validation proves semantic completeness. See [compaction correction and validation](../../docs/compact-interpretation-2026-10-05.md).
 
+### Independent extraction declarations and producer repairs
+
+`each.input` is the exact name in `inputs`, not the sandbox's `item` alias.
+`resultType` describes the **assembled** result. This task produces one candidate
+array per source page (the inspected `observe.pages` port is a collection):
+
+```json
+{
+  "id": "adapt", "kind": "transform", "mode": "extract",
+  "objective": "Extract observed candidate identities and labels from every complete page",
+  "inputs": [{"name": "pages", "value": {"kind": "output", "source": "observe", "port": "pages"}}],
+  "each": {"input": "pages", "output": "rows"},
+  "resultType": {"kind": "object", "fields": [{"name": "rows", "type": {
+    "kind": "array", "items": {"kind": "array", "items": {"kind": "object", "fields": [
+      {"name": "id", "type": {"kind": "string"}},
+      {"name": "label", "type": {"kind": "string", "nullable": true}}
+    ]}}
+  }}]}
+}
+```
+
+Bind `flatten(output(adapt, rows))` directly to the compact decision input.
+Interpretation selects IDs only; use `lookup` against offered candidates, then
+retained original records for action arguments. Preserve order and repeated IDs.
+A scalar per item has one assembled array, so it must not be flattened. Keep
+complete original observations and their completeness checks separately. Typed
+copying uses direct bindings. Do not add unrequested goals, side effects, filtering
+or deduplication.
+
+`choice` resolves a declared business choice; it cannot refer to an operation.
+Use typed operation outputs for assertions; `present` proves only completion.
+Invalid independent declarations and immutable invalid choice assertions stop
+before a futile consumer-only repair, with `REVISION_REQUIRED`. Explicit
+`EditablePaths` may select the diagnosed producer's `each`, `resultType`, inputs
+and `requires`; automatic slots retain their existing authority. Read-only repair
+context includes bound input names/references and producer contracts, without
+observations or edit permission. Pending requests keep their original schemas,
+fingerprints and receipts; receipt recovery precedes checks for new requests.
+
+The parameterized [producer regression](../../tests/GnOuGo.Flow.Planning.Tests/ExtractionProducerRevisionTests.cs)
+retains the failed and corrected compositions. The real
+[Browser/Document fixture](../../tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.BusinessTasks.cs)
+executes an explicit three-slot correction and independently inspects the workbook.
+
 String business types may include `enum: ["allow", "deny"]` (1–256 distinct strings). Omitting it preserves the unrestricted string contract; `nullable` remains independent. Generated structured results enforce these constraints before downstream calls. Diagnostics report the produced and required types and, when unambiguous, the exact producer enum/nullability slots implicated by its consumer. Objectives describing a decision never establish its finite domain. The final YAML validator recognizes runtime-checked structured results while rejecting unknown domains, optional/nullable selectors and unsafe error fallbacks.
 
 Compact discovery entries expose declared `enum`/`const` constraints without full schemas. Resolved operation inputs constrain scalar literals in newly issued response schemas; typed references retain semantic compatibility checks. Index-only selections still resolve exact contracts before compilation. Identical schema fragments are shared without changing TaskPlan values. Successful discovery batches clear only their resolved response errors, preserving other findings, history and cumulative counters. See [enum generation and repair evidence](../../docs/planning-enum-discovery.md).

@@ -206,6 +206,14 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
             state.Diagnostics = state.Diagnostics.Concat(baselineFindings.Where(d => d.Code == "TASK_TRANSFORM_CONSTRAINT")).Distinct().ToList();
             state.RevisionScope = TaskPlanRevisions.Scope(baseline, state.Diagnostics).ToList();
         }
+        if (repair && state.PendingCall is null && state.Plan is not null)
+        {
+            // A saved producer/guard defect cannot be fixed by an unrelated value
+            // slot. Issued requests bypass this check until their receipt is applied.
+            var immutable = TaskPlanRevisions.UnrepairableRequirements(state).ToArray();
+            if (immutable.Length > 0)
+            { state.Diagnostics = state.Diagnostics.Concat(immutable).Distinct().ToList(); Stop(state); return; }
+        }
         if (repair && state.PendingCall is null && state.ReplanAttempts >= state.Request.MaxReplanAttempts) { Stop(state); return; }
         state.Phase = repair ? PlanningPhase.Replanning : state.Requirements is null ? PlanningPhase.Requirements : PlanningPhase.Tasks;
         var recovering = state.PendingCall is not null;
