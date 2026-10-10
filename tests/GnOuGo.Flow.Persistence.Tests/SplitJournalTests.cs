@@ -308,9 +308,11 @@ public sealed class SplitJournalTests(ITestOutputHelper output) : IDisposable
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task RealFlowRecoveryDoesNotRepeatEffectsAndOnlyCleansUpAfterCommittedReceipt(bool committed)
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public async Task RealFlowRecoveryDoesNotRepeatEffectsAndOnlyCleansUpAfterCommittedReceipt(bool committed, bool readable)
     {
         const string yaml = """
             version: 1
@@ -321,7 +323,15 @@ public sealed class SplitJournalTests(ITestOutputHelper output) : IDisposable
                 finally:
                   - { id: cleanup, type: test.effect, input: { value: cleanup } }
             """;
-        var workflow = new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml)).Workflows["main"];
+        var document = WorkflowParser.Parse(yaml);
+        if (readable)
+        {
+            var step = document.Workflows["main"].Steps[0];
+            step.Input = JsonValue.Create("${(()=>{const request={value:'observed'};return request;})()}");
+            step.ExpressionContracts = new JsonObject { [""] = new JsonObject { ["request"] = new JsonObject {
+                ["origin"] = "/tasks/work", ["schema"] = JsonNode.Parse("""{"type":"object","properties":{"value":{"type":"string"}},"required":["value"],"additionalProperties":false}""") } } };
+        }
+        var workflow = new WorkflowCompiler().Compile(document).Workflows["main"];
         var records = new MeasuredRecords(Records()); var effects = new List<string>();
         var first = Engine(Store(records), new Effect(effects, () => records.Fault = committed ? "after_head" : "before_head"));
         await Assert.ThrowsAnyAsync<Exception>(() => first.ExecuteAsync(workflow, null, Ct));

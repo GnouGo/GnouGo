@@ -20,7 +20,11 @@ public sealed class FusedBindingCompilationTests(Xunit.ITestOutputHelper output)
     {
         var yaml = new PlanningGraphCompiler().Compile(Graph(), await Catalog(), "test", true, true, true, true, true, readable);
         Assert.Contains("input: |", yaml, StringComparison.Ordinal);
-        if (readable) { Assert.Contains("expression_contracts:", yaml); Assert.DoesNotContain("checkedMapping(", yaml); }
+        if (readable)
+        {
+            Assert.Contains("expression_contracts:", yaml); Assert.DoesNotContain("checkedMapping(", yaml);
+            Assert.Contains("const chosen=", yaml); Assert.Contains("const chosen_2=", yaml);
+        }
         var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml));
         var result = await new WorkflowEngine().ExecuteAsync(document.Workflows["main"], new JsonObject { ["label"] = label, ["authorized"] = authorized }, PlannerFixture.Ct);
         Assert.Equal(failure is null, result.Success);

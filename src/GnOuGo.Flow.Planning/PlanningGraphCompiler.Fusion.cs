@@ -17,8 +17,15 @@ public sealed partial class PlanningGraphCompiler
         foreach (var candidate in group)
         {
             var node = scope.Nodes[candidate];
+            var declaredFields = (node.OutputSchema?.Contract?["properties"] as JsonObject)?.Select(p => p.Key).ToArray() ?? [];
+            var projectedField = node.Input.Kind == "projection"
+                ? node.Input.Members.FirstOrDefault(m => m.Name == "paths")?.Value.Items.FirstOrDefault()?.Items.LastOrDefault()?.Text
+                    ?? node.Input.Members.FirstOrDefault(m => m.Name == "value")?.Value.Path.LastOrDefault()
+                : null;
             var field = node.OutputSchema?.Properties.FirstOrDefault(p => p.Name != "value")?.Name ??
-                (node.Input.Kind == "object" ? node.Input.Members.FirstOrDefault(m => m.Name != "value")?.Name : null) ?? candidate.Split('/').Last();
+                declaredFields.FirstOrDefault(p => p != "value") ??
+                (node.Input.Kind == "object" ? node.Input.Members.FirstOrDefault(m => m.Name != "value")?.Name : null) ??
+                projectedField ?? node.OutputSchema?.Properties.FirstOrDefault()?.Name ?? declaredFields.FirstOrDefault() ?? "binding";
             var stem = new string(field.Select(c => char.IsAsciiLetterOrDigit(c) || c == '_' ? c : '_').Take(48).ToArray());
             if (stem.Length == 0 || !char.IsAsciiLetter(stem[0]) && stem[0] != '_') stem = "binding_" + stem;
             var name = stem; var suffix = 2;
