@@ -1,0 +1,27 @@
+{
+  "candidate": "3d7c5d2d71a8722f4fb8ba5ebd2ab31de828cbea",
+  "campaign": "schema-portability-20261002",
+  "proposed_run": "typedcomposition20261011a-amazon-1",
+  "proposed_cohort": "typedcomposition20261011a",
+  "max_products": 10,
+  "cost_ceiling_eur": 150,
+  "paid_planning_authorized": true,
+  "execution_authorized": false,
+  "authorization": {
+    "answer": "Authorize one paid planning session",
+    "scope": "One fresh planning session only; execution requires separate revision/hash-bound approval and requirement acknowledgments.",
+    "recorded_at_utc": "2026-10-11T17:36:24.065691+00:00"
+  },
+  "configuration_hash": "0d9b3f888b2a23348f7efbdc00cc764d2e388e63c076dd350b945bc161539d31",
+  "source_hashes": {
+    "src/GnOuGo.Flow.Planning/PlanningPrompt.cs": "f92b29a771fb1a0193aef2b36a170348ec022ef1a740e6796f2073b37c9e6b26",
+    "tests/GnOuGo.Agent.Planning.Benchmark/LiveWorkflowEvaluation.cs": "155a0b6a9217eed83096d68a08a9b2e073859d1855d8d12c4f482f5b393efa99",
+    "tests/GnOuGo.Agent.Planning.Benchmark/LiveWorkflowOracles.cs": "4671fe4cd74cd34167d282a3449686b900492257058fc6add39588bd08d7d514",
+    "tests/GnOuGo.Agent.Planning.Benchmark/SchemaPortabilityCampaign.cs": "6bc74b117b7c64c205d0f08062cb8b38368913b83e781ba8f0342a25711b68a6",
+    ".agents/skills/gnougo-planning/SKILL.md": "ae53a63065be22856d88b0d77a9d2484539e745c8c4b57becd4a42c20fb567c8"
+  },
+  "business_prompt_sha256": "bbfda29f11bdcbfa32bdfa7ced9886e82c0cbb0962aab02f8e4108721601e49a",
+  "binary_manifest_sha256": "dbbffcf58ffb777dd16a1a285e66755f24873ed07663554d18f70e4f94925dac",
+  "frozen_checkout": "/tmp/gnougo-typedcomposition-3d7c5d2d",
+  "oracle_version": "observed-products-v2"
+}
