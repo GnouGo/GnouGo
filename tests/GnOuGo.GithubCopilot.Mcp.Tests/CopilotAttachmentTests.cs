@@ -14,6 +14,7 @@ using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 using Xunit;
+using System.Collections.Concurrent;
 
 namespace GnOuGo.GithubCopilot.Mcp.Tests;
 
@@ -166,6 +167,19 @@ public sealed class CopilotAttachmentTests
         private ServiceProvider services = null!;
         private McpServer server = null!; private McpClient client = null!; private Task running = null!;
         private readonly CancellationTokenSource stop = CancellationTokenSource.CreateLinkedTokenSource(Ct);
+        private readonly ConcurrentDictionary<string, SdkExecutionScope> owners = new(StringComparer.Ordinal);
+        private Task? disposal;
+        internal Func<string, Task>? BeforeTerminalBookkeeping;
+        internal TaskCompletionSource TeardownWaitingForOwners { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        internal Task OwnerCompleted(string taskId) => owners[taskId].Completion.Task;
+
+        // The Tasks SDK disposes its execution scope after terminal task-store
+        // bookkeeping. A partial logical checkpoint is an earlier boundary.
+        private sealed class SdkExecutionScope : IAsyncDisposable
+        {
+            internal TaskCompletionSource Completion { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            public ValueTask DisposeAsync() { Completion.TrySetResult(); return ValueTask.CompletedTask; }
+        }
 
         internal static async Task<Fixture> CreateAsync(McpClientOptions? clientOptions = null, Action<CodeServerSettings>? configure = null)
         {
@@ -184,7 +198,13 @@ public sealed class CopilotAttachmentTests
             serverOptions.Filters.Request.CallToolFilters.Add(next => async (request, ct) =>
             {
                 using var scope = f.Host.Trace.Push(CodeMcpTraceContext.FromMcpMeta(request.Params.Meta));
-                return await next(request, ct);
+                var taskId = f.tasks.CurrentTaskId;
+                if (taskId is not null) f.owners.TryAdd(taskId, request.Services!.GetRequiredService<SdkExecutionScope>());
+                try { return await next(request, ct); }
+                finally
+                {
+                    if (taskId is not null && f.BeforeTerminalBookkeeping is { } barrier) await barrier(taskId);
+                }
             });
             foreach (var method in typeof(CopilotTools).GetMethods().Where(m => Methods.Contains(m.GetCustomAttribute<McpServerToolAttribute>()?.Name)))
                 serverOptions.ToolCollection.Add(McpServerTool.Create(method, target, new() { SerializerOptions = CodeMcpJson.SerializerOptions }));
@@ -194,6 +214,7 @@ public sealed class CopilotAttachmentTests
                 new() { SerializerOptions = CodeMcpJson.SerializerOptions }));
             var incoming = new Pipe(); var outgoing = new Pipe();
             var registrations = new ServiceCollection(); registrations.AddLogging();
+            registrations.AddScoped(_ => new SdkExecutionScope());
             registrations.AddMcpServer().WithCopilotTasks(f.tasks, f.Host.Trace);
             f.services = registrations.BuildServiceProvider();
             foreach (var registration in f.services.GetServices<IConfigureOptions<McpServerOptions>>()) registration.Configure(serverOptions);
@@ -208,8 +229,12 @@ public sealed class CopilotAttachmentTests
             => McpTaskPolling.CallAsync(client, name, JsonSerializer.SerializeToNode(args),
                 tenant is null ? null : new JsonObject { ["gnougo"] = new JsonObject { ["tenantId"] = tenant } }, cancellation ?? Ct);
 
-        public async ValueTask DisposeAsync()
+        public ValueTask DisposeAsync() => new(disposal ??= DisposeCoreAsync());
+
+        private async Task DisposeCoreAsync()
         {
+            TeardownWaitingForOwners.TrySetResult();
+            await Task.WhenAll(owners.Values.Select(owner => owner.Completion.Task)).WaitAsync(Ct);
             await client.DisposeAsync(); await stop.CancelAsync(); await running; await server.DisposeAsync();
             await Host.Manager.DisposeAsync(); await tasks.DisposeAsync(); await services.DisposeAsync(); stop.Dispose(); Directory.Delete(Root, true);
         }

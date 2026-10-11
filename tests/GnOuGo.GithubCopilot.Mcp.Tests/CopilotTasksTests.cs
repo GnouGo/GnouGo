@@ -190,8 +190,8 @@ public sealed class CopilotTasksTests
         await cancelled.Task.WaitAsync(TimeSpan.FromSeconds(5), Ct);
         using var scope = fixture.Host.Trace.Push(Context("fixture-tenant"));
         Assert.Equal(McpTaskStatus.Cancelled, (await fixture.tasks.GetTaskAsync(id, Ct))!.Status);
-        // Cancellation acknowledgement precedes the owner's durable partial-result
-        // flush. Keep the fixture alive until that work has actually completed.
+        // The partial checkpoint is required evidence, but not the SDK owner's
+        // terminal boundary. Fixture teardown also joins its execution scope.
         using var flush = CancellationTokenSource.CreateLinkedTokenSource(Ct);
         flush.CancelAfter(TimeSpan.FromSeconds(5));
         JsonObject? checkpoint;
@@ -200,6 +200,63 @@ public sealed class CopilotTasksTests
         Assert.Equal("reconciliation_required", checkpoint["phase"]!.ToString());
         Assert.False(checkpoint["result"]!["completed"]!.GetValue<bool>());
         Assert.Equal(1, fixture.Host.SessionsCreated); Assert.Equal(0, fixture.Host.DisposedSessions);
+    }
+
+    [Theory]
+    [InlineData("success")]
+    [InlineData("cancel")]
+    [InlineData("failure")]
+    public async Task TeardownWaitsForSdkScopeAfterLogicalCheckpoint(string outcome)
+    {
+        await using var fixture = await CopilotAttachmentTests.Fixture.CreateAsync();
+        var started = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var checkpointPublished = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseBookkeeping = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        fixture.Host.OnSend = async (_, handle, _, ct) =>
+        {
+            started.TrySetResult(fixture.tasks.CurrentTaskId!);
+            if (outcome == "cancel") await Task.Delay(Timeout.InfiniteTimeSpan, ct);
+            if (outcome == "failure") throw new CopilotSendInterruptedException(new(handle, "retained", "Partial evidence", null, [], false), false);
+            return new(handle, "verified", "Exact result", "mock", []);
+        };
+        fixture.BeforeTerminalBookkeeping = async id =>
+        {
+            var checkpoint = (await fixture.tasks.ReadOperationAsync(id, Ct))!;
+            Assert.NotNull(checkpoint["result"]);
+            checkpointPublished.TrySetResult();
+            await releaseBookkeeping.Task.WaitAsync(Ct);
+        };
+        using var cancel = CancellationTokenSource.CreateLinkedTokenSource(Ct);
+        var call = fixture.Call("copilot_interactive_one_shot", Args, "fixture-tenant", cancel.Token);
+        Task? disposing = null;
+        try
+        {
+            var id = await started.Task.WaitAsync(Ct);
+            if (outcome == "cancel") await cancel.CancelAsync();
+            if (outcome == "cancel") await Assert.ThrowsAnyAsync<OperationCanceledException>(() => call);
+            else if (outcome == "failure") await Assert.ThrowsAsync<McpException>(() => call);
+            else Assert.False((await call).IsError == true);
+            await checkpointPublished.Task.WaitAsync(Ct);
+            Assert.False(fixture.OwnerCompleted(id).IsCompleted);
+            using var tenant = fixture.Host.Trace.Push(Context("fixture-tenant"));
+            var partial = (await fixture.tasks.ReadOperationAsync(id, Ct))!;
+            Assert.Equal(outcome == "success", partial["result"]!["completed"]!.GetValue<bool>());
+            Assert.Equal(outcome == "success" ? 1 : 0, fixture.Host.DisposedSessions);
+            disposing = fixture.DisposeAsync().AsTask();
+            await fixture.TeardownWaitingForOwners.Task.WaitAsync(Ct);
+            Assert.False(disposing.IsCompleted);
+            Assert.True(Directory.Exists(fixture.Root));
+            Assert.NotNull(await fixture.tasks.GetTaskAsync(id, Ct));
+            releaseBookkeeping.TrySetResult();
+            await fixture.OwnerCompleted(id).WaitAsync(Ct);
+            await disposing;
+            Assert.False(Directory.Exists(fixture.Root));
+        }
+        finally
+        {
+            releaseBookkeeping.TrySetResult();
+            if (disposing is not null) await disposing;
+        }
     }
 
     [Fact]
