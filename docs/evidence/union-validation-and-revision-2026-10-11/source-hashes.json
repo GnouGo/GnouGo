@@ -1,0 +1,11 @@
+{
+  "source_candidate": "73afa82051174bb57f91e7aba544cb72f6997855",
+  "sha256": {
+    "src/GnOuGo.Flow.Core/Runtime/StepExpressionTypeValidator.Schema.cs": "ad037a46207ba46d24ecd2d060b69682b1afe64455639da87704f09cbb9de230",
+    "src/GnOuGo.Flow.Core/Runtime/StepExpressionTypeValidator.cs": "de2952921760f033315d58e79dc360f769735d0f30bc17cec6f1f017bda6cb25",
+    "src/GnOuGo.Flow.Core/Runtime/WorkflowPlanSemanticValidator.cs": "01943e82fa087ee96bdd2c1fb282d9744d2b928559f4f36815230169536e65cc",
+    "src/GnOuGo.Flow.Planning/PlanningGraphCompiler.cs": "b518f36041834d390cf872bc121687bcfd557041c1f1c23eec86db42bbab2154",
+    ".agents/skills/gnougo-planning/SKILL.md": "45de7d928d15a87fe5fe057d570f76085ed7ef2f010ce05c2a3f938ce533b801",
+    "tests/GnOuGo.Agent.Planning.Benchmark/LiveWorkflowOracles.cs": "4671fe4cd74cd34167d282a3449686b900492257058fc6add39588bd08d7d514"
+  }
+}

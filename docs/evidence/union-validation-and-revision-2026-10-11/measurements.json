@@ -1,0 +1,34 @@
+{
+  "validator_commit": "4803cb87",
+  "composition_candidate": "73afa820",
+  "same_retained_plan": {
+    "before_utf8_bytes": 75217,
+    "after_utf8_bytes": 75217,
+    "sha256": "86de0c717fb8ed177d5bab3ec16b1fae77ea4bb16889e49d99f469482ae3730b",
+    "lowering": "compact-bindings-v9"
+  },
+  "composition": {
+    "tasks_before": 14,
+    "tasks_after": 19,
+    "steps_before": 30,
+    "steps_after": 67,
+    "sets_before": 9,
+    "sets_after": 40,
+    "yaml_characters_before": 74949,
+    "yaml_characters_after": 200332,
+    "local_execution_yaml_utf8_bytes": 200410,
+    "typed_assembly_inference": 0,
+    "local_adapter_calls": 23,
+    "local_mapping_calls": 11,
+    "local_interpretation_calls": 12,
+    "offered_candidates": 12,
+    "source_pages": 29,
+    "visits": 10,
+    "product_decision_request_utf8_bytes": 2597,
+    "actual_invocations": 331,
+    "normal_steps": 330,
+    "cleanup_steps": 1
+  },
+  "provider_calls": 0,
+  "historical_session_modified": false
+}

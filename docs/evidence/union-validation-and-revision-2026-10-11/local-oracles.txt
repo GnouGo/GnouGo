@@ -1,0 +1,6 @@
+UNION REVISION tasks=14→19; steps=30→67; sets=9→40; YAML=74949→200332; deterministicPlanningCalls=2; repairs=0
+BUSINESS union_revision: success=True; calls=2; repairs=0; elapsedMs=18447; tasks=19; yamlBytes=200410; inference=23; mappings=11; invocations=331; steps=330; cleanup=1; journalBytes=33180696; error=
+ORACLE union_revision: cellsMatch=True; visited=10; pages=29; offered=12; decisionBytes=2597; cleanup=true; typedInference=0
+UNION REVISION tasks=14→19; steps=30→67; sets=9→40; YAML=74949→200332; deterministicPlanningCalls=2; repairs=0
+BUSINESS union_missing_description: success=True; calls=2; repairs=0; elapsedMs=15700; tasks=19; yamlBytes=200410; inference=23; mappings=11; invocations=331; steps=330; cleanup=1; journalBytes=33112766; error=
+ORACLE union_missing_description: cellsMatch=True; visited=10; pages=29; offered=12; decisionBytes=2597; cleanup=true; typedInference=0

@@ -1,0 +1,49 @@
+{
+  "frozen_source": "1cc0fe8aba01cc0eb93e35d4e3de4ff2242581a2",
+  "run": "sequential20261011a-amazon-1",
+  "provider_calls": 0,
+  "mcp_calls": 0,
+  "expression_rows": [],
+  "literal_rows": [],
+  "reversed_branches_expression_rows": [],
+  "generic_names_expression_rows": [],
+  "resolved_rows_schema_errors": [],
+  "both_content_and_rows_errors": [
+    "$: value must match exactly one allowed schema variant"
+  ],
+  "task_compilation_diagnostics": [],
+  "recompiled_error": "success",
+  "disposable_revision": {
+    "status": "final_review",
+    "model_calls_before": 2,
+    "model_calls_after": 3,
+    "repairs_before": 0,
+    "repairs_after": 0,
+    "diagnostics": [],
+    "approval": null,
+    "historical_session_unchanged": true,
+    "requirements_unchanged": true
+  },
+  "saved_record_unchanged": true,
+  "issued_request_checks": [
+    {
+      "request_id": "schema-portability-20261002:sequential20261011a-amazon-1:1:70446ddb7a8178c713675601ee575c74a4f3e47fca0c6749a390b673f1ca5e31",
+      "original_request_sha256": "07931A01A6EA938354FDA25C6D8DE25DCC16510767B94CE390CDE69E9DF26FBE",
+      "committed_receipt_sha256": "39280137E30A534A6144D465EF81D3083C8C895AF46E6F796812A5CAC554BC07",
+      "each_guidance_present": true,
+      "verbatim_guidance_present": true,
+      "unrequested_work_guidance_present": true,
+      "has_committed_receipt": true
+    },
+    {
+      "request_id": "schema-portability-20261002:sequential20261011a-amazon-1:2:625100950391008f6a38a999305f0d17a937e076366b02dc6051893161264ef2",
+      "original_request_sha256": "50FE9EDB77DB354C05C42262AEC65AFA4B63E92A42C9166C576D3456ECF9C57E",
+      "committed_receipt_sha256": "11C46C96678AE0F11E462D28714C9536ACF78A74835C97B5A8B9C67EA32541F3",
+      "each_guidance_present": true,
+      "verbatim_guidance_present": true,
+      "unrequested_work_guidance_present": true,
+      "has_committed_receipt": true
+    }
+  ],
+  "validator_assembly_sha256": "811F078C7749AF30C96520C282CC46DF6D327B9ADF7A066142B1251F6508DFD3"
+}

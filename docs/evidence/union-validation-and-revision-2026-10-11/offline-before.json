@@ -1,0 +1,55 @@
+{
+  "source": "1cc0fe8aba01cc0eb93e35d4e3de4ff2242581a2",
+  "run": "sequential20261011a-amazon-1",
+  "provider_calls": 0,
+  "mcp_calls": 0,
+  "expression_rows": [
+    {
+      "Field": "input.rows",
+      "Expression": "${data.steps.source.rows}",
+      "ExpectedType": "null",
+      "ActualType": "array",
+      "Message": "Expression assigned to \u0027input.rows\u0027 resolves to array, but the step contract requires null."
+    }
+  ],
+  "literal_rows": [],
+  "reversed_branches_expression_rows": [],
+  "generic_names_expression_rows": [
+    {
+      "Field": "input.entries",
+      "Expression": "${data.steps.source.rows}",
+      "ExpectedType": "null",
+      "ActualType": "array",
+      "Message": "Expression assigned to \u0027input.entries\u0027 resolves to array, but the step contract requires null."
+    }
+  ],
+  "resolved_rows_schema_errors": [],
+  "both_content_and_rows_errors": [
+    "$: value must match exactly one allowed schema variant"
+  ],
+  "task_compilation_diagnostics": [],
+  "recompiled_diagnostics": [
+    {
+      "Code": "MCP_REQUEST_EXPR_TYPE_MISMATCH",
+      "Field": "input.request.rows",
+      "Message": "mcp.call request field \u0027input.request.rows\u0027 for \u0027GnOuGo.Document.Mcp/document_write\u0027 resolves to array, but the MCP input_schema requires null."
+    }
+  ],
+  "saved_record_unchanged": true,
+  "issued_request_checks": [
+    {
+      "request_id": "schema-portability-20261002:sequential20261011a-amazon-1:1:70446ddb7a8178c713675601ee575c74a4f3e47fca0c6749a390b673f1ca5e31",
+      "each_guidance_present": true,
+      "verbatim_guidance_present": true,
+      "unrequested_work_guidance_present": true,
+      "has_committed_receipt": true
+    },
+    {
+      "request_id": "schema-portability-20261002:sequential20261011a-amazon-1:2:625100950391008f6a38a999305f0d17a937e076366b02dc6051893161264ef2",
+      "each_guidance_present": true,
+      "verbatim_guidance_present": true,
+      "unrequested_work_guidance_present": true,
+      "has_committed_receipt": true
+    }
+  ]
+}

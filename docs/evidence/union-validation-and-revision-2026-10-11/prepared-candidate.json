@@ -1,0 +1,16 @@
+{
+  "candidate": "73afa820",
+  "cohort": "unionrevision20261011a",
+  "proposed_run": "unionrevision20261011a-amazon-1",
+  "max_products": 10,
+  "status": "blocked_on_full_validation",
+  "live_manifest_created": false,
+  "paid_planning_started": false,
+  "execution_started": false,
+  "new_planning_authorization_required": true,
+  "artifact_approval_required": true,
+  "currency_readiness": "not rerun while full-validation gate is failed",
+  "last_retained_campaign_upper_eur": "132.71304909248008370640421330",
+  "campaign_ceiling_eur": 150,
+  "unknown_reservations_retained": true
+}
