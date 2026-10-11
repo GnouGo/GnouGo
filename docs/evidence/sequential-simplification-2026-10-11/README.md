@@ -150,3 +150,19 @@ workbook cells before replay and reports zero provider/MCP calls. To reproduce,
 build host tests, compile that file in a disposable net10 console referencing those
 built assemblies, and pass record path, workbook path, and a new report path.
 No workflow engine or campaign mutation is involved.
+
+## Gate 7 — integrated validation (in progress)
+
+All nine real local Flow/Browser/Document scenarios passed with v9: clean review,
+explicit producer revision, repeated selections, genuinely empty collections, unknown
+IDs, incomplete capture, denied write, fabricated cells and structured exact rows.
+Independent assertions check visits, exact cells/order, null fields, writer path and
+Browser closure. The fabrication scenario deliberately completes its workflow and
+then fails the independent data oracle. Structured rows retain 23 inference calls,
+11 mappings, 221 invocations, 220 normal steps and one finalization step.
+
+The nine structured-row producer checks pass as well, including a new empty-row
+overhead check that rejects over-budget input before directory creation. The planning
+skill validates with the existing validator in `/tmp/gnougo-skill-validation`.
+Full solution, publish/recovery and CI outcomes are recorded below when complete.
+No paid work or historical invocation resume has occurred.

@@ -146,6 +146,8 @@ public sealed class DocumentOperationHost
         {
             if (row is null) return DocumentWriteResult.Error("INVALID_INPUT", "Each row must be an array; cells may be null.");
             bytes = checked(bytes + 3);
+            if (bytes > _policy.MaxFileSizeBytes)
+                return DocumentWriteResult.Error("FILE_TOO_LARGE", "Structured row data exceeds MaxFileSizeBytes.");
             foreach (var cell in row)
             {
                 try { if (cell is not null) System.Xml.XmlConvert.VerifyXmlChars(cell); }

@@ -52,6 +52,14 @@ public sealed class StructuredRowsTests : IDisposable
     }
 
     [Fact]
+    public void EmptyRowOverheadIsValidatedBeforeCreatingDirectories()
+    {
+        var result = Host(4).Write("not-created/exact.xlsx", null, null, false, [[]]);
+        Assert.False(result.Success); Assert.Equal("FILE_TOO_LARGE", result.ErrorCode);
+        Assert.False(Directory.Exists(Path.Combine(_root, "not-created")));
+    }
+
+    [Fact]
     public async Task ActualMcpContractAndTransportWriteRowsWithoutFormattingInference()
     {
         var ct = TestContext.Current.CancellationToken;

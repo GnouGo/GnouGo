@@ -4,6 +4,13 @@ namespace GnOuGo.Agent.Server.Tests;
 
 public sealed class ObservedProductOracleTests
 {
+    [Fact]
+    public async Task UnknownOracleVersionFailsBeforeContactingBrowser()
+    {
+        await Assert.ThrowsAsync<InvalidOperationException>(() => LiveWorkflowOracles.VerifyAsync("amazon", Path.GetTempPath(),
+            new JsonObject { ["workspace_relative"] = "unused", ["oracle_version"] = "future-unknown", ["events"] = new JsonArray() }, null!));
+    }
+
     [Theory]
     [InlineData("/arbitrary?q=red%2Fblue&n=1", false)]
     [InlineData("/jump?target=opaque", true)]

@@ -74,6 +74,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
         {
             var yaml = new PlanningGraphCompiler().Compile(compiled.Graph, catalog, "composition", true, true, true, true, true, true, lean);
             lengths.Add(Encoding.UTF8.GetByteCount(yaml));
+            output.WriteLine($"PROFILE {(lean ? "v9" : "v8")}: bytes={lengths.Last()}; maxLine={yaml.Split('\n').Max(l => l.Length)}; selects={System.Text.RegularExpressions.Regex.Matches(yaml, @"m\.select\(").Count}; checkedWrappers={System.Text.RegularExpressions.Regex.Matches(yaml, @"checkedMapping\(").Count}");
             new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml));
             var diagnostics = await runtime.ValidateAsync(new(yaml, new(), catalog, PlanningGraphCompiler.CapabilityBindings(compiled.Graph)), TestContext.Current.CancellationToken);
             Assert.True(diagnostics.Count == 0, string.Join('\n', diagnostics));
