@@ -14,9 +14,18 @@ identities. Effects, conditions, retries, handlers, scopes and independently nee
 checkpoints remain boundaries. Omitted/v1–v10 lowering and public overloads remain
 unchanged. No engine validation, mapping semantics or limits change.
 
+V11 derives checked local and lexical producer names from existing contracts,
+ports and operations, with deterministic reserved-name and collision handling.
+A single-use capture can become direct checked-local access when that access is
+its first evaluation; literal captures can also inline. Other lexical boundaries
+remain where nullable refinements or evaluation order require them. Single-argument
+native callbacks and known checked-local paths omit redundant parentheses.
+Required object-valued check declarations remain: the existing contract engine
+validates each intermediate object in order, even if its value is not returned.
+
 ## v10: direct pure-projection exports
 
-The historical `compact-bindings-v10` profile The compiler
+Under the historical `compact-bindings-v10` profile, the compiler
 omits synthetic call/outputs envelopes only when every observer selects declared
 ports of an already eligible pure projection. A single export becomes the direct
 array item; multiple exports share one object. Whole-result, presence, handler and

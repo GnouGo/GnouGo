@@ -33,8 +33,8 @@ public sealed partial class PlanningGraphCompiler
                 contracts = JsonNode.Parse(program[group.Arguments[2].Start..group.Arguments[2].End])!.AsObject();
                 program = MappingProgram(group.Arguments[0]);
             }
-            var expanded = Expand(program);
-            if (scope.LeanMappings) expanded = SimplifyReadableProgram(expanded);
+            var expanded = Expand(program, contracts.Select(c => c.Key).ToHashSet(StringComparer.Ordinal));
+            if (scope.LeanMappings) expanded = SimplifyReadableProgram(expanded, scope.InlineConsumers);
             ExpressionEvaluator.Validate(expanded);
             metadata[pointer] = contracts;
             return JsonValue.Create("${\n" + FormatProgram(expanded, scope.CompactProjections) + "\n}");
@@ -49,7 +49,7 @@ public sealed partial class PlanningGraphCompiler
             TemplateLiteral { Expressions.Count: 0, Quasis.Count: 1 } template => template.Quasis[0].Value.Cooked!,
             _ => throw new InvalidOperationException("Compiler programs must be constant.")
         };
-        static string Expand(string program)
+        string Expand(string program, HashSet<string> checkedLocals)
         {
             var syntax = new Parser().ParseExpression(program);
             string Rewrite(Node node)
@@ -60,7 +60,7 @@ public sealed partial class PlanningGraphCompiler
                 if (node is CallExpression { Callee: Identifier { Name: "checkedMapping" }, Arguments.Count: 2 } mapping)
                 {
                     var source = Rewrite(mapping.Arguments[1]);
-                    var body = Expand(MappingProgram(mapping.Arguments[0]));
+                    var body = Expand(MappingProgram(mapping.Arguments[0]), checkedLocals);
                     static bool Address(Node value) => value is Identifier || value is MemberExpression member && Address(member.Object) &&
                         (member.Computed ? member.Property is StringLiteral : member.Property is Identifier);
                     if (Address(mapping.Arguments[1]) && SubstituteSource(body, "(" + source + ")", null) is { } direct)
@@ -68,16 +68,37 @@ public sealed partial class PlanningGraphCompiler
                     if (mapping.Arguments[1] is ObjectExpression captured && captured.Properties.All(p => p is Property { Computed: false, Method: false, Shorthand: false }))
                     {
                         var properties = captured.Properties.Cast<Property>().ToArray();
+                        if (scope.InlineConsumers && properties.Length == 1)
+                        {
+                            var argument = properties[0].Value;
+                            Node root = argument;
+                            while (root is MemberExpression member) root = member.Object;
+                            var bodySyntax = new Parser().ParseExpression(body);
+                            // Literal operands cannot fail. A single checked
+                            // address may move into a sole assembly expression
+                            // only when it is that expression's first operand.
+                            Node? first = bodySyntax is ObjectExpression { Properties.Count: 1 } obj && obj.Properties[0] is Property property ? property.Value : null;
+                            while (first is CallExpression { Callee: MemberExpression method }) first = method.Object;
+                            while (first is MemberExpression member) first = member.Object;
+                            if (argument is Literal || Address(argument) && root is Identifier local && checkedLocals.Contains(local.Name) && first is Identifier { Name: "source" })
+                            {
+                                var field = properties[0].Key is Identifier key ? key.Name : ((StringLiteral)properties[0].Key).Value;
+                                var directCapture = SubstituteSource(body, null, new(StringComparer.Ordinal) { [field] = "(" + Rewrite(argument) + ")" }, single: true);
+                                if (directCapture is not null) return directCapture;
+                            }
+                        }
                         // Keep the capture boundary: an enclosing branch can
                         // refine a nullable input even when its declared producer
                         // contract remains nullable. Ordered checks still belong
                         // at this independent export boundary.
                         IEnumerable<Node> Nodes(Node value) => new[] { value }.Concat(value.ChildNodes.SelectMany(Nodes));
                         var used = Nodes(new Parser().ParseExpression(body)).OfType<Identifier>().Select(n => n.Name).ToHashSet(StringComparer.Ordinal);
+                        if (scope.InlineConsumers) used.UnionWith(BindingNames());
                         var bindings = properties.Select((p, i) =>
                         {
                             var field = p.Key is Identifier id ? id.Name : ((StringLiteral)p.Key).Value;
                             var stem = "binding_" + (Identifier().IsMatch(field) ? field : i.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                            if (scope.InlineConsumers) stem = ProducerName(p.Value, field);
                             var name = stem; var suffix = 2;
                             while (!used.Add(name)) name = stem + "_" + (suffix++).ToString(System.Globalization.CultureInfo.InvariantCulture);
                             return (Field: field, Name: name);
@@ -113,7 +134,28 @@ public sealed partial class PlanningGraphCompiler
             return program[..syntax.Start] + Rewrite(syntax) + program[syntax.End..];
         }
 
-        static string? SubstituteSource(string program, string? source, Dictionary<string, string>? fields)
+        string ProducerName(Node value, string fallback)
+        {
+            var path = new List<string>();
+            while (value is MemberExpression member && (!member.Computed || member.Property is StringLiteral))
+            {
+                path.Insert(0, member.Property is Identifier property ? property.Name : ((StringLiteral)member.Property).Value);
+                value = member.Object;
+            }
+            if (value is Identifier { Name: "data" } && path.Count >= 2 && path[0] == "steps")
+            {
+                var producer = scope.NodeIds.FirstOrDefault(p => p.Value == path[1]).Key;
+                if (producer is not null && scope.Nodes[producer].CapabilityId is { } capability &&
+                    scope.Catalog.Capabilities.Single(c => c.Id == capability).Method is { } method)
+                    return FunctionalName(method + " " + string.Join(' ', path.Skip(2).Where(p => p is not ("response" or "outputs" or "value"))));
+            }
+            if (value is Identifier id && id.Name != "data")
+                return FunctionalName(id.Name + " " + string.Join(' ', path.Where(p => p != "value")));
+            var name = fallback.StartsWith("input_", StringComparison.Ordinal) ? fallback[6..] : fallback.Trim('_');
+            return FunctionalName(name == "value" ? "inputValue" : name);
+        }
+
+        static string? SubstituteSource(string program, string? source, Dictionary<string, string>? fields, bool single = false)
         {
             var syntax = new Parser().ParseExpression(program); var wholeSource = false; var references = 0;
             string Rewrite(Node node, bool shadowed = false)
@@ -139,14 +181,14 @@ public sealed partial class PlanningGraphCompiler
                 return text.Append(program.AsSpan(position, node.End - position)).ToString();
             }
             var result = program[..syntax.Start] + Rewrite(syntax) + program[syntax.End..];
-            return wholeSource || references == 0 ? null : result;
+            return wholeSource || references == 0 || single && references != 1 ? null : result;
         }
     }
 
     // Only compiler-owned expressions enter here. Reuse a checked local when
     // an object literal copies exactly its known fields; keep both declarations
     // and their ordered contracts. Never infer an object's shape from its name.
-    private static string SimplifyReadableProgram(string program)
+    private static string SimplifyReadableProgram(string program, bool inlineConsumers = false)
     {
         var syntax = new Parser().ParseExpression(program);
         var fields = new Dictionary<string, string[]>(StringComparer.Ordinal);
@@ -169,16 +211,27 @@ public sealed partial class PlanningGraphCompiler
                                 Key(p.Key) == (member.Computed ? (member.Property as StringLiteral)?.Value : Key(member.Property))))
                             expression = source.Name;
                     }
+                    else if (inlineConsumers && value is Identifier alias && fields.TryGetValue(alias.Name, out var aliasFields)) fields[name.Name] = aliasFields;
                     return "const " + name.Name + " = " + expression + ";";
                 }
                 case ReturnStatement { Argument: not null } returned:
                     return "return " + Write(returned.Argument) + ";";
+                case MemberExpression { Object: ObjectExpression { Properties.Count: 1 } wrapper } selection
+                    when inlineConsumers && wrapper.Properties[0] is Property { Computed: false, Method: false, Shorthand: false } only &&
+                        Key(only.Key) == (selection.Computed ? (selection.Property as StringLiteral)?.Value : Key(selection.Property)):
+                    // A one-member literal immediately read at the same position
+                    // has no independent contract. Checked const declarations
+                    // remain untouched, including ones not used by the return.
+                    return Operand(only.Value);
                 case MemberExpression member:
                     // Existing semantic validation treats a parenthesized
                     // producer address as a checked projection boundary. Keep
                     // that single boundary, removing only redundant nesting.
                     var address = Operand(member.Object);
-                    if (program.AsSpan(member.Object.End, member.Property.Start - member.Object.End).Contains(')'))
+                    Node root = member.Object;
+                    while (root is MemberExpression parent) root = parent.Object;
+                    if (program.AsSpan(member.Object.End, member.Property.Start - member.Object.End).Contains(')') &&
+                        !(inlineConsumers && root is Identifier local && fields.ContainsKey(local.Name)))
                         address = "(" + address + ")";
                     return address + (member.Computed ? "[" + Write(member.Property) + "]" : "." + Write(member.Property));
                 case CallExpression call:
@@ -187,7 +240,8 @@ public sealed partial class PlanningGraphCompiler
                     // Keep each callback's names and lexical boundary intact.
                     var saved = fields.ToArray();
                     foreach (var parameter in arrow.Params.OfType<Identifier>()) fields.Remove(parameter.Name);
-                    var callback = "(" + string.Join(", ", arrow.Params.Select(Write)) + ") => " +
+                    var parameters = string.Join(", ", arrow.Params.Select(Write));
+                    var callback = (inlineConsumers && arrow.Params.Count == 1 ? parameters : "(" + parameters + ")") + " => " +
                         (arrow.Body is ObjectExpression ? "(" + Write(arrow.Body) + ")" : Write(arrow.Body));
                     fields.Clear(); foreach (var field in saved) fields.Add(field.Key, field.Value);
                     return callback;

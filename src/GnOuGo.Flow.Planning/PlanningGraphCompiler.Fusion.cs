@@ -7,13 +7,24 @@ namespace GnOuGo.Flow.Planning;
 
 public sealed partial class PlanningGraphCompiler
 {
+    private static HashSet<string> BindingNames() => new(StringComparer.Ordinal) { "data", "m", "source", "item", "index", "checkedMapping", "arguments", "eval",
+        "const", "let", "var", "return", "if", "else", "switch", "case", "default", "class", "function", "new", "this", "null", "true", "false", "delete", "typeof", "void", "in", "of", "for", "while", "do", "break", "continue", "try", "catch", "finally", "throw", "yield", "await", "import", "export", "super", "extends", "with", "debugger", "instanceof",
+        "enum", "implements", "interface", "package", "private", "protected", "public", "static", "undefined", "NaN", "Infinity", "Number", "Object", "Array", "JSON", "json" };
+
+    private static string FunctionalName(string name)
+    {
+        var words = System.Text.RegularExpressions.Regex.Split(name, "[^A-Za-z0-9]+").Where(w => w.Length > 0).ToArray();
+        var result = string.Concat(words.Select((w, i) => (i == 0 ? char.ToLowerInvariant(w[0]) : char.ToUpperInvariant(w[0])) + w[1..]));
+        if (result.Length == 0) result = "binding";
+        if (!char.IsAsciiLetter(result[0])) result = "binding" + result;
+        return result.Length > 64 ? result[..64] : result;
+    }
+
     private static string LocalName(string key, LoweringScope scope)
     {
         var group = scope.FusedOutputs[key];
         if (!scope.ReadableMappings) return "v" + Array.IndexOf(group, key).ToString(System.Globalization.CultureInfo.InvariantCulture);
-        var used = new HashSet<string>(StringComparer.Ordinal) { "data", "m", "source", "item", "index", "checkedMapping", "arguments", "eval",
-            "const", "let", "var", "return", "if", "else", "switch", "case", "default", "class", "function", "new", "this", "null", "true", "false", "delete", "typeof", "void", "in", "of", "for", "while", "do", "break", "continue", "try", "catch", "finally", "throw", "yield", "await", "import", "export", "super", "extends", "with", "debugger", "instanceof",
-            "enum", "implements", "interface", "package", "private", "protected", "public", "static", "undefined", "NaN", "Infinity", "Number", "Object", "Array", "JSON", "json" };
+        var used = BindingNames();
         foreach (var candidate in group)
         {
             var node = scope.Nodes[candidate];
@@ -29,7 +40,14 @@ public sealed partial class PlanningGraphCompiler
             if (scope.CompactProjections && field is "value" or "binding")
                 field = BindingValues(node.Input).SelectMany(v => v.Path).LastOrDefault(p =>
                     p is not ("value" or "outputs" or "results") && !scope.Nodes.ContainsKey(p)) ?? "checkedValue";
+            if (scope.InlineConsumers && field == "checkedValue")
+            {
+                var shape = node.OutputSchema?.Contract?["properties"]?["value"];
+                field = shape?["type"]?.ToString() == "boolean" ? shape["enum"] is not null ? "requiredCondition" : "condition" :
+                    BindingValues(node.Input).FirstOrDefault(v => v.Kind == "input" && v.Source is { } input && !input.StartsWith("task_", StringComparison.Ordinal))?.Source ?? "checkedRecord";
+            }
             var stem = new string(field.Select(c => char.IsAsciiLetterOrDigit(c) || c == '_' ? c : '_').Take(48).ToArray());
+            if (scope.InlineConsumers) stem = FunctionalName(field);
             if (stem.Length == 0 || !char.IsAsciiLetter(stem[0]) && stem[0] != '_') stem = "binding_" + stem;
             var name = stem; var suffix = 2;
             while (!used.Add(name)) name = stem + "_" + (suffix++).ToString(System.Globalization.CultureInfo.InvariantCulture);

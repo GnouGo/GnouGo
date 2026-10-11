@@ -34,6 +34,26 @@ public sealed class CompactProjectionCompilationTests(Xunit.ITestOutputHelper ou
         .Compile(graph, catalog, "projection", true, true, true, true, true, true, true, compact);
 
     [Theory]
+    [InlineData(0)] [InlineData(3)] [InlineData(1602)]
+    public async Task V11UnwrapsSinglePropertyLiteralsWithoutDroppingProjectionContracts(int count)
+    {
+        var (catalog, compilation) = await Compile(Plan(false)); var graph = compilation.Graph!;
+        var before = Yaml(graph, catalog, true);
+        var after = new PlanningGraphCompiler().Compile(graph, catalog, "projection", true, true, true, true, true, true, true, true, true);
+        Assert.Contains("expression_contracts:", after);
+        Assert.True(after.Length < before.Length);
+        JsonNode? expected = null;
+        foreach (var yaml in new[] { before, after })
+        {
+            var result = await new WorkflowEngine().ExecuteAsync(new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml)).Workflows["main"],
+                new JsonObject { ["observations"] = Records(count) }, PlannerFixture.Ct);
+            Assert.True(result.Success, result.Error?.Message);
+            if (expected is null) expected = result.Outputs; else Assert.Equal(expected.ToJsonString(), result.Outputs!.ToJsonString());
+            Assert.Equal(Enumerable.Range(0, count), result.Outputs!["positions"]!.AsArray().Select(n => n!.GetValue<int>()));
+        }
+    }
+
+    [Theory]
     [InlineData("nominal")]
     [InlineData("alternate")]
     public async Task GuardedNullableCaptureKeepsItsCheckedExportBoundary(string variant)

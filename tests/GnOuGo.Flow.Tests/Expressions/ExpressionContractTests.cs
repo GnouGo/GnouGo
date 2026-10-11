@@ -8,7 +8,7 @@ using Xunit;
 
 namespace GnOuGo.Flow.Tests.Expressions;
 
-public sealed class ExpressionContractTests
+public sealed partial class ExpressionContractTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
     private static JsonObject Metadata(string pointer = "") => new() { [pointer] = new JsonObject() };

@@ -1,0 +1,341 @@
+[
+  {
+    "suite": "gate-b-flow",
+    "counters": {
+      "total": "42",
+      "executed": "42",
+      "passed": "42",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "tests": [
+      {
+        "name": "GnOuGo.Flow.Tests.Expressions.ExpressionContractTests.NativeProducerAliasesDoNotImportUnrelatedObservationsAndKeepExactCounters",
+        "outcome": "Passed",
+        "output": "unreadBytes=0; allocated=35440; counters={\"statements\":60,\"statement_limit\":100000,\"elapsed_ms\":0.0417,\"time_limit_ms\":15000,\"allocated_bytes\":28720,\"materialized_bytes\":5026,\"output_bytes\":2688,\"memory_limit_bytes\":50000000,\"nesting_depth\":3,\"nesting_limit\":64}\nunreadBytes=9600000; allocated=35440; counters={\"statements\":60,\"statement_limit\":100000,\"elapsed_ms\":0.052,\"time_limit_ms\":15000,\"allocated_bytes\":28720,\"materialized_bytes\":5026,\"output_bytes\":2688,\"memory_limit_bytes\":50000000,\"nesting_depth\":3,\"nesting_limit\":64}"
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Expressions.ExpressionContractTests.ExactCopiesDoNotRoundTripThroughJavaScriptNumbers(program: \"{value:data.inputs.value.map(item=>item)}\", input: \"{\\\"value\\\":[null,1,1,[2]]}\")",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Expressions.ExpressionContractTests.ExactCopiesDoNotRoundTripThroughJavaScriptNumbers(program: \"{value:data.inputs.value}\", input: \"{\\\"value\\\":null}\")",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Runtime.CheckedProjectionSelectorTests.OnlyEnforcedAvailableFiniteDomainsProveSelectors(executor: \"set\", variant: \"fallback\", valid: False)",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Expressions.ExpressionContractTests.MetadataPointersMustIdentifyExactlyOneCompleteExpression(pointer: \"\", value: \"literal\")",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Runtime.CheckedProjectionSelectorTests.OnlyEnforcedAvailableFiniteDomainsProveSelectors(executor: \"set\", variant: \"valid\", valid: True)",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Expressions.ExpressionContractTests.LargeUnrelatedSnapshotsAreNeitherImportedNorCopiedForScalarSelection",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Runtime.CheckedProjectionSelectorTests.OnlyEnforcedAvailableFiniteDomainsProveSelectors(executor: \"set\", variant: \"subset\", valid: True)",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Expressions.ExpressionContractTests.MetadataPointersMustIdentifyExactlyOneCompleteExpression(pointer: \"\", value: \"prefix ${data.inputs}\")",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Runtime.CheckedProjectionSelectorTests.ArrayProjectionChecksElementsBeforeScalarSelection(selected: \"allow\", valid: True)",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Expressions.ExpressionContractTests.UnusedInvalidIntermediateStopsBeforeDependentEvaluationAndExternalDispatch",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Runtime.CheckedProjectionSelectorTests.ArrayProjectionChecksElementsBeforeScalarSelection(selected: \"outside\", valid: False)",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Expressions.ExpressionContractTests.CommonMetadataRoundTripsAndRejectsDuplicatePointers",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Runtime.CheckedProjectionSelectorTests.OnlyEnforcedAvailableFiniteDomainsProveSelectors(executor: \"set\", variant: \"unchecked\", valid: False)",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Expressions.ExpressionContractTests.OptionalCompletionChecksShortCircuitWithoutMakingMissingSelectionsValid",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Expressions.ExpressionContractTests.InvalidOrUnsupportedExpressionsFailWithoutContextFallback(program: \"{value:m.scalar()}\")",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Expressions.ExpressionContractTests.InvalidOrUnsupportedExpressionsFailWithoutContextFallback(program: \"{value:Object.keys(data)}\")",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Expressions.ExpressionContractTests.DeferredWhileContractsRunInTheIterationScopeAndReplayCommittedControls",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Expressions.ExpressionContractTests.ExactCopiesDoNotRoundTripThroughJavaScriptNumbers(program: \"{value:data.inputs.value}\", input: \"{\\\"value\\\":9007199254740993}\")",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Runtime.CheckedProjectionSelectorTests.OnlyEnforcedAvailableFiniteDomainsProveSelectors(executor: \"set\", variant: \"checked_fallback\", valid: True)",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Runtime.CheckedProjectionSelectorTests.OnlyEnforcedAvailableFiniteDomainsProveSelectors(executor: \"set\", variant: \"nullable\", valid: False)",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Expressions.ExpressionContractTests.InvalidOrUnsupportedExpressionsFailWithoutContextFallback(program: \"{value:data.inputs.absent}\")",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Runtime.CheckedProjectionSelectorTests.OnlyEnforcedAvailableFiniteDomainsProveSelectors(executor: \"set\", variant: \"conditional\", valid: False)",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Expressions.ExpressionContractTests.ContractDeclarationsMustMatchLiteralMetadata(name: \"selected\", contract: \"{\\\"origin\\\":\\\"stage\\\",\\\"schema\\\":\\\"not a schema\\\"}\")",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Runtime.CheckedProjectionSelectorTests.OnlyEnforcedAvailableFiniteDomainsProveSelectors(executor: \"set\", variant: \"expression\", valid: False)",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Expressions.ExpressionContractTests.InvalidOrUnsupportedExpressionsFailWithoutContextFallback(program: \"{value:m.lookup(data.inputs.rows,[],data.inputs.ke\"\u00b7\u00b7\u00b7)",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Expressions.ExpressionContractTests.InvalidOrUnsupportedExpressionsFailWithoutContextFallback(program: \"{value:eval('1')}\")",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Expressions.ExpressionContractTests.InvalidOrUnsupportedExpressionsFailWithoutContextFallback(program: \"{value:data.inputs.rows.flatMap(item=>item)}\")",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Expressions.ExpressionContractTests.MetadataPointersMustIdentifyExactlyOneCompleteExpression(pointer: \"/absent\", value: \"${data.inputs}\")",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Expressions.ExpressionContractTests.EscapedPointersAndArrayIndicesAreLiteralAndNotConsumerArguments",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Expressions.ExpressionContractTests.FirstPresentNullAndInvalidValuesNeverFallThrough",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Runtime.CheckedProjectionSelectorTests.OnlyEnforcedAvailableFiniteDomainsProveSelectors(executor: \"set\", variant: \"dynamic\", valid: False)",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Runtime.CheckedProjectionSelectorTests.OnlyEnforcedAvailableFiniteDomainsProveSelectors(executor: \"set\", variant: \"optional\", valid: False)",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Expressions.ExpressionContractTests.ExactCopiesDoNotRoundTripThroughJavaScriptNumbers(program: \"{value:data.inputs.value}\", input: \"{\\\"value\\\":1.23000000000000000000001}\")",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Expressions.ExpressionContractTests.NewExpressionsKeepNestedResourceCeilingsAndCannotHideUncheckedConstants",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Expressions.ExpressionContractTests.TraversalRetainsCumulativeAccountingWithoutBecomingRepeatedProgramStatements",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Runtime.CheckedProjectionSelectorTests.OnlyEnforcedAvailableFiniteDomainsProveSelectors(executor: \"set\", variant: \"wider\", valid: False)",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Expressions.ExpressionContractTests.MetadataPointersMustIdentifyExactlyOneCompleteExpression(pointer: \"/bad~2key\", value: \"${data.inputs}\")",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Expressions.ExpressionContractTests.ContractDeclarationsMustMatchLiteralMetadata(name: \"selected\", contract: \"{\\\"schema\\\":{}}\")",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Expressions.ExpressionContractTests.ContractDeclarationsMustMatchLiteralMetadata(name: \"wrong\", contract: \"{}\")",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Runtime.CheckedProjectionSelectorTests.RuntimeChecksRejectMissingNullAndInvalidDataBeforeDispatch(executor: \"set\")",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Expressions.ExpressionContractTests.ExactCopiesDoNotRoundTripThroughJavaScriptNumbers(program: \"{value:data.inputs.value.flatMap(item=>item)}\", input: \"{\\\"value\\\":[[null,1],[],[1,[2]]]}\")",
+        "outcome": "Passed",
+        "output": ""
+      }
+    ]
+  },
+  {
+    "suite": "gate-b",
+    "counters": {
+      "total": "9",
+      "executed": "9",
+      "passed": "9",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "tests": [
+      {
+        "name": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V11CompositionExecutesOriginalObservationsAndExactWorkbook(variant: \"empty\")",
+        "outcome": "Passed",
+        "output": "compact-bindings-v11 RUNTIME empty: success=True; elapsedMs=1861; tasks=24; YAML=261961; inference=3; mappings=1; invocations=19; steps=18; cleanup=1; allocatedBytes=298162544; logicalJournalBytes=1912225; physicalBytes=2053797; error= \nV10 ORACLE empty: exactCells=true; visits=0; pages=13; offered=0; decisionBytes=1081; inferenceForTypedCopies=0; cleanup=true; committedRecovery=true; oracle={\"version\":\"observed-products-v2\",\"passed\":false,\"visit_count\":0,\"visits\":[],\"rows\":[],\"findings\":[\"product_visits_do_not_match_rows\"]}"
+      },
+      {
+        "name": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V11CompositionExecutesOriginalObservationsAndExactWorkbook(variant: \"incomplete\")",
+        "outcome": "Passed",
+        "output": "compact-bindings-v11 RUNTIME incomplete: success=False; elapsedMs=955; tasks=24; YAML=261961; inference=1; mappings=0; invocations=4; steps=3; cleanup=1; allocatedBytes=73269592; logicalJournalBytes=338093; physicalBytes=819200; error=MCP_CALL_ERROR mcp.call (tool) to 'browser/browser_get_content' returned an MCP error: A complete snapshot exceeds capture or page bounds. Narrow the requested observation explicitly. [workflow 'main', step 'n_62737a68773ca42a']"
+      },
+      {
+        "name": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V11CompositionExecutesOriginalObservationsAndExactWorkbook(variant: \"denied\")",
+        "outcome": "Passed",
+        "output": "compact-bindings-v11 RUNTIME denied: success=False; elapsedMs=22374; tasks=24; YAML=261896; inference=23; mappings=11; invocations=359; steps=358; cleanup=1; allocatedBytes=7582248816; logicalJournalBytes=56159139; physicalBytes=30203904; error=MCP_CALL_ERROR mcp.call (tool) to 'document/document_write' returned an MCP error: {\"success\":false,\"filePath\":null,\"bytesWritten\":null,\"errorCode\":\"POLICY_VIOLATION\",\"errorMessage\":\"filePath must not contain parent traversal segments or wildcard characters.\",\"relativePath\":null,\"filePathAbsolute\":null} [workflow 'main', step 'n_db5a1e8bb35c43c6']"
+      },
+      {
+        "name": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V11InlinesPreparationWithoutMovingMappingInferenceOrContracts",
+        "outcome": "Passed",
+        "output": "v10\u2192v11: tasks=24; steps=67\u219261; sets=33\u219227; YAML=266864\u2192261904"
+      },
+      {
+        "name": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V11CompositionExecutesOriginalObservationsAndExactWorkbook(variant: \"missing\")",
+        "outcome": "Passed",
+        "output": "compact-bindings-v11 RUNTIME missing: success=True; elapsedMs=20445; tasks=24; YAML=261961; inference=23; mappings=11; invocations=359; steps=358; cleanup=1; allocatedBytes=7554576144; logicalJournalBytes=55920439; physicalBytes=30156653; error= \nV10 ORACLE missing: exactCells=true; visits=10; pages=39; offered=12; decisionBytes=2690; inferenceForTypedCopies=0; cleanup=true; committedRecovery=true; oracle={\"version\":\"observed-products-v2\",\"passed\":false,\"visit_count\":10,\"visits\":[{\"event_index\":1,\"redirected\":false},{\"event_index\":2,\"redirected\":false},{\"event_index\":3,\"redirected\":false},{\"event_index\":4,\"redirected\":false},{\"event_index\":5,\"redirected\":false},{\"event_index\":6,\"redirected\":false},{\"event_index\":7,\"redirected\":false},{\"event_index\":8,\"redirected\":false},{\"event_index\":9,\"redirected\":false},{\"event_index\":10,\"redirected\":false}],\"rows\":[{\"row\":1,\"name_exact\":true,\"description_block_exact\":true,\"price_exact\":true,\"description_in_combined_observation\":true},{\"row\":2,\"name_exact\":true,\"description_block_exact\":true,\"price_exact\":true,\"description_in_combined_observation\":true},{\"row\":3,\"name_exact\":true,\"description_block_exact\":true,\"price_exact\":false,\"description_in_combined_observation\":true},{\"row\":4,\"name_exact\":true,\"description_block_exact\":false,\"price_exact\":true,\"description_in_combined_observation\":false},{\"row\":5,\"name_exact\":true,\"description_block_exact\":true,\"price_exact\":true,\"description_in_combined_observation\":true},{\"row\":6,\"name_exact\":true,\"description_block_exact\":true,\"price_exact\":true,\"description_in_combined_observation\":true},{\"row\":7,\"name_exact\":true,\"description_block_exact\":true,\"price_exact\":true,\"description_in_combined_observation\":true},{\"row\":8,\"name_exact\":true,\"description_block_exact\":true,\"price_exact\":true,\"description_in_combined_observation\":true},{\"row\":9,\"name_exact\":true,\"description_block_exact\":true,\"price_exact\":true,\"description_in_combined_observation\":true},{\"row\":10,\"name_exact\":true,\"description_block_exact\":true,\"price_exact\":true,\"description_in_combined_observation\":true}],\"findings\":[\"workbook_price_not_exact_observed_value\",\"workbook_absence_not_independently_established\",\"workbook_description_not_one_observed_block\"]}"
+      },
+      {
+        "name": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V11CompositionExecutesOriginalObservationsAndExactWorkbook(variant: \"complete\")",
+        "outcome": "Passed",
+        "output": "compact-bindings-v11 RUNTIME complete: success=True; elapsedMs=20366; tasks=24; YAML=261961; inference=23; mappings=11; invocations=359; steps=358; cleanup=1; allocatedBytes=7568912104; logicalJournalBytes=56273124; physicalBytes=30263144; error= \nV10 ORACLE complete: exactCells=true; visits=10; pages=39; offered=12; decisionBytes=2690; inferenceForTypedCopies=0; cleanup=true; committedRecovery=true; oracle={\"version\":\"observed-products-v2\",\"passed\":true,\"visit_count\":10,\"visits\":[{\"event_index\":1,\"redirected\":false},{\"event_index\":2,\"redirected\":false},{\"event_index\":3,\"redirected\":false},{\"event_index\":4,\"redirected\":false},{\"event_index\":5,\"redirected\":false},{\"event_index\":6,\"redirected\":false},{\"event_index\":7,\"redirected\":false},{\"event_index\":8,\"redirected\":false},{\"event_index\":9,\"redirected\":false},{\"event_index\":10,\"redirected\":false}],\"rows\":[{\"row\":1,\"name_exact\":true,\"description_block_exact\":true,\"price_exact\":true,\"description_in_combined_observation\":true},{\"row\":2,\"name_exact\":true,\"description_block_exact\":true,\"price_exact\":true,\"description_in_combined_observation\":true},{\"row\":3,\"name_exact\":true,\"description_block_exact\":true,\"price_exact\":true,\"description_in_combined_observation\":true},{\"row\":4,\"name_exact\":true,\"description_block_exact\":true,\"price_exact\":true,\"description_in_combined_observation\":true},{\"row\":5,\"name_exact\":true,\"description_block_exact\":true,\"price_exact\":true,\"description_in_combined_observation\":true},{\"row\":6,\"name_exact\":true,\"description_block_exact\":true,\"price_exact\":true,\"description_in_combined_observation\":true},{\"row\":7,\"name_exact\":true,\"description_block_exact\":true,\"price_exact\":true,\"description_in_combined_observation\":true},{\"row\":8,\"name_exact\":true,\"description_block_exact\":true,\"price_exact\":true,\"description_in_combined_observation\":true},{\"row\":9,\"name_exact\":true,\"description_block_exact\":true,\"price_exact\":true,\"description_in_combined_observation\":true},{\"row\":10,\"name_exact\":true,\"description_block_exact\":true,\"price_exact\":true,\"description_in_combined_observation\":true}],\"findings\":[]}"
+      },
+      {
+        "name": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V11CompositionExecutesOriginalObservationsAndExactWorkbook(variant: \"one\")",
+        "outcome": "Passed",
+        "output": "compact-bindings-v11 RUNTIME one: success=True; elapsedMs=3484; tasks=24; YAML=261961; inference=5; mappings=2; invocations=53; steps=52; cleanup=1; allocatedBytes=906338640; logicalJournalBytes=8146201; physicalBytes=4994814; error= \nV10 ORACLE one: exactCells=true; visits=1; pages=21; offered=12; decisionBytes=2690; inferenceForTypedCopies=0; cleanup=true; committedRecovery=true; oracle={\"version\":\"observed-products-v2\",\"passed\":true,\"visit_count\":1,\"visits\":[{\"event_index\":1,\"redirected\":false}],\"rows\":[{\"row\":1,\"name_exact\":true,\"description_block_exact\":true,\"price_exact\":true,\"description_in_combined_observation\":true}],\"findings\":[]}"
+      },
+      {
+        "name": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V11CompositionExecutesOriginalObservationsAndExactWorkbook(variant: \"unoffered\")",
+        "outcome": "Passed",
+        "output": "compact-bindings-v11 RUNTIME unoffered: success=False; elapsedMs=1337; tasks=24; YAML=261961; inference=3; mappings=1; invocations=14; steps=13; cleanup=1; allocatedBytes=238474512; logicalJournalBytes=1747873; physicalBytes=1564672; error=CONTRACT_UNSATISFIED A selected identity is absent from the lookup source. [workflow 'main', step 'n_ed27e42a862310f9']"
+      },
+      {
+        "name": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V11CompositionExecutesOriginalObservationsAndExactWorkbook(variant: \"repeated\")",
+        "outcome": "Passed",
+        "output": "compact-bindings-v11 RUNTIME repeated: success=True; elapsedMs=20091; tasks=24; YAML=261961; inference=23; mappings=11; invocations=359; steps=358; cleanup=1; allocatedBytes=7556684720; logicalJournalBytes=56273802; physicalBytes=30238566; error= \nV10 ORACLE repeated: exactCells=true; visits=10; pages=39; offered=12; decisionBytes=2690; inferenceForTypedCopies=0; cleanup=true; committedRecovery=true; oracle={\"version\":\"observed-products-v2\",\"passed\":true,\"visit_count\":10,\"visits\":[{\"event_index\":1,\"redirected\":false},{\"event_index\":2,\"redirected\":false},{\"event_index\":3,\"redirected\":false},{\"event_index\":4,\"redirected\":false},{\"event_index\":5,\"redirected\":false},{\"event_index\":6,\"redirected\":false},{\"event_index\":7,\"redirected\":false},{\"event_index\":8,\"redirected\":false},{\"event_index\":9,\"redirected\":false},{\"event_index\":10,\"redirected\":false}],\"rows\":[{\"row\":1,\"name_exact\":true,\"description_block_exact\":true,\"price_exact\":true,\"description_in_combined_observation\":true},{\"row\":2,\"name_exact\":true,\"description_block_exact\":true,\"price_exact\":true,\"description_in_combined_observation\":true},{\"row\":3,\"name_exact\":true,\"description_block_exact\":true,\"price_exact\":true,\"description_in_combined_observation\":true},{\"row\":4,\"name_exact\":true,\"description_block_exact\":true,\"price_exact\":true,\"description_in_combined_observation\":true},{\"row\":5,\"name_exact\":true,\"description_block_exact\":true,\"price_exact\":true,\"description_in_combined_observation\":true},{\"row\":6,\"name_exact\":true,\"description_block_exact\":true,\"price_exact\":true,\"description_in_combined_observation\":true},{\"row\":7,\"name_exact\":true,\"description_block_exact\":true,\"price_exact\":true,\"description_in_combined_observation\":true},{\"row\":8,\"name_exact\":true,\"description_block_exact\":true,\"price_exact\":true,\"description_in_combined_observation\":true},{\"row\":9,\"name_exact\":true,\"description_block_exact\":true,\"price_exact\":true,\"description_in_combined_observation\":true},{\"row\":10,\"name_exact\":true,\"description_block_exact\":true,\"price_exact\":true,\"description_in_combined_observation\":true}],\"findings\":[]}"
+      }
+    ]
+  },
+  {
+    "suite": "gate-b-final",
+    "counters": {
+      "total": "3",
+      "executed": "3",
+      "passed": "3",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "tests": [
+      {
+        "name": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V11InlinesPreparationWithoutMovingMappingInferenceOrContracts",
+        "outcome": "Passed",
+        "output": "v10\u2192v11: tasks=24; steps=67\u219261; sets=33\u219227; YAML=266864\u2192261414"
+      },
+      {
+        "name": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V11CompositionExecutesOriginalObservationsAndExactWorkbook(variant: \"incomplete\")",
+        "outcome": "Passed",
+        "output": "compact-bindings-v11 RUNTIME incomplete: success=False; elapsedMs=819; tasks=24; YAML=261471; inference=1; mappings=0; invocations=4; steps=3; cleanup=1; allocatedBytes=82062352; logicalJournalBytes=337582; physicalBytes=819200; error=MCP_CALL_ERROR mcp.call (tool) to 'browser/browser_get_content' returned an MCP error: A complete snapshot exceeds capture or page bounds. Narrow the requested observation explicitly. [workflow 'main', step 'n_62737a68773ca42a']"
+      },
+      {
+        "name": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V11CompositionExecutesOriginalObservationsAndExactWorkbook(variant: \"complete\")",
+        "outcome": "Passed",
+        "output": "compact-bindings-v11 RUNTIME complete: success=True; elapsedMs=21783; tasks=24; YAML=261471; inference=23; mappings=11; invocations=359; steps=358; cleanup=1; allocatedBytes=7574389104; logicalJournalBytes=56203364; physicalBytes=30242661; error= \nV10 ORACLE complete: exactCells=true; visits=10; pages=39; offered=12; decisionBytes=2690; inferenceForTypedCopies=0; cleanup=true; committedRecovery=true; oracle={\"version\":\"observed-products-v2\",\"passed\":true,\"visit_count\":10,\"visits\":[{\"event_index\":1,\"redirected\":false},{\"event_index\":2,\"redirected\":false},{\"event_index\":3,\"redirected\":false},{\"event_index\":4,\"redirected\":false},{\"event_index\":5,\"redirected\":false},{\"event_index\":6,\"redirected\":false},{\"event_index\":7,\"redirected\":false},{\"event_index\":8,\"redirected\":false},{\"event_index\":9,\"redirected\":false},{\"event_index\":10,\"redirected\":false}],\"rows\":[{\"row\":1,\"name_exact\":true,\"description_block_exact\":true,\"price_exact\":true,\"description_in_combined_observation\":true},{\"row\":2,\"name_exact\":true,\"description_block_exact\":true,\"price_exact\":true,\"description_in_combined_observation\":true},{\"row\":3,\"name_exact\":true,\"description_block_exact\":true,\"price_exact\":true,\"description_in_combined_observation\":true},{\"row\":4,\"name_exact\":true,\"description_block_exact\":true,\"price_exact\":true,\"description_in_combined_observation\":true},{\"row\":5,\"name_exact\":true,\"description_block_exact\":true,\"price_exact\":true,\"description_in_combined_observation\":true},{\"row\":6,\"name_exact\":true,\"description_block_exact\":true,\"price_exact\":true,\"description_in_combined_observation\":true},{\"row\":7,\"name_exact\":true,\"description_block_exact\":true,\"price_exact\":true,\"description_in_combined_observation\":true},{\"row\":8,\"name_exact\":true,\"description_block_exact\":true,\"price_exact\":true,\"description_in_combined_observation\":true},{\"row\":9,\"name_exact\":true,\"description_block_exact\":true,\"price_exact\":true,\"description_in_combined_observation\":true},{\"row\":10,\"name_exact\":true,\"description_block_exact\":true,\"price_exact\":true,\"description_in_combined_observation\":true}],\"findings\":[]}"
+      }
+    ]
+  }
+]
