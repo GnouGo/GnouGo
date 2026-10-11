@@ -120,6 +120,10 @@ public sealed partial class LocalProductOutcomeExecutionTests
     [InlineData("verbatim_unknown")]
     [InlineData("union_revision")]
     [InlineData("union_missing_description")]
+    [InlineData("union_compact")]
+    [InlineData("union_compact_missing_description")]
+    [InlineData("union_compact_repeated")]
+    [InlineData("union_compact_unoffered")]
     public async Task BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(string variant)
     {
         var ct = TestContext.Current.CancellationToken;
@@ -144,7 +148,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
             else if (path.StartsWith("/entry/", StringComparison.Ordinal))
             {
                 var i = int.Parse(path[7..], System.Globalization.CultureInfo.InvariantCulture);
-                body = "<h1>" + ProductName(i) + "</h1>" + (variant == "union_missing_description" && i == 3 ? "" : "<p>" + ProductDescription(i) + "</p>") + (i == 2 ? "" : "<price>" + ProductPrice(i) + "</price>");
+                body = "<h1>" + ProductName(i) + "</h1>" + (variant.EndsWith("missing_description", StringComparison.Ordinal) && i == 3 ? "" : "<p>" + ProductDescription(i) + "</p>") + (i == 2 ? "" : "<price>" + ProductPrice(i) + "</price>");
                 if (unionRevision) body += "<button>Report a problem</button>";
             }
             else { context.Response.StatusCode = 404; body = "Unavailable"; }
@@ -173,7 +177,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
             var runtime = new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask);
             var catalog = await RetainedCatalog(runtime, ct);
             catalog.Policy.RequireExternalConfirmation = false;
-            var proposal = unionRevision ? UnionRevisionProposal(catalog) : BusinessProposal(verbatim ? "verbatim_rows" : variant == "exact_rows" ? variant : "compact", catalog);
+            var proposal = variant.StartsWith("union_compact", StringComparison.Ordinal) ? CompactUnionProposal(catalog) : unionRevision ? UnionRevisionProposal(catalog) : BusinessProposal(verbatim ? "verbatim_rows" : variant == "exact_rows" ? variant : "compact", catalog);
             var expectedPlan = JsonSerializer.Serialize(proposal.Plan, PlanningJsonContext.Default.TaskPlan);
             var corrections = new Dictionary<string, JsonNode?>();
             if (variant == "producer_revision")
@@ -232,10 +236,10 @@ public sealed partial class LocalProductOutcomeExecutionTests
             Assert.True(closed.IsError); Assert.Contains("No active page", closed.Content!["error_message"]!.ToString());
             var file = Path.Combine(workspace, proposal.Plan!.Root.Tasks.Single(t => t.Id == "write").Inputs.Single(i => i.Name == "filePath").Value.Text!);
             output.WriteLine($"BUSINESS {variant}: success={result.Success}; calls={session.ModelCalls}; repairs={session.ReplanAttempts}; elapsedMs={timer.ElapsedMilliseconds}; tasks={RetainedTasks(session.Plan!.Root).Count()}; yamlBytes={Encoding.UTF8.GetByteCount(session.Yaml!)}; inference={model.Requests.Count}; mappings={model.MappingCalls}; invocations={journal.Invocations.Count}; steps={journal.StepsStarted}; cleanup={journal.FinalizationStepsStarted}; journalBytes={Encoding.UTF8.GetByteCount(JsonSerializer.Serialize(journal, WorkflowRunJsonContext.Default.WorkflowRun))}; error={result.Error?.Code} {result.Error?.Message}");
-            if (variant is "unoffered" or "incomplete" or "denied" or "verbatim_unknown")
+            if (variant is "unoffered" or "incomplete" or "denied" or "verbatim_unknown" || variant.EndsWith("_unoffered", StringComparison.Ordinal))
             {
                 Assert.False(result.Success); Assert.False(File.Exists(file)); Assert.False(File.Exists(Path.Combine(root, "outside.xlsx")));
-                if (variant is "unoffered" or "incomplete") Assert.DoesNotContain(visits, p => p.StartsWith("/entry/", StringComparison.Ordinal));
+                if (variant is "unoffered" or "incomplete" || variant.EndsWith("_unoffered", StringComparison.Ordinal)) Assert.DoesNotContain(visits, p => p.StartsWith("/entry/", StringComparison.Ordinal));
                 if (variant == "incomplete") Assert.Equal(0, model.MappingCalls);
                 if (variant == "verbatim_unknown")
                 {
@@ -253,7 +257,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
                 Assert.Null(writer.ResolvedInput!["request"]!["content"]);
                 Assert.Equal(11, writer.ResolvedInput["request"]!["rows"]!.AsArray().Count);
             }
-            var selected = variant == "empty" ? [] : variant == "repeated" ? Enumerable.Range(0, 9).Append(0).ToArray() : Enumerable.Range(0, 10).ToArray();
+            var selected = variant == "empty" ? [] : variant.EndsWith("repeated", StringComparison.Ordinal) ? Enumerable.Range(0, 9).Append(0).ToArray() : Enumerable.Range(0, 10).ToArray();
             Assert.Equal(selected.Select(i => "/entry/" + i), visits.Where(p => p.StartsWith("/entry/", StringComparison.Ordinal)));
             Assert.Equal(file, result.Outputs![unionRevision ? "products_file_path" : "filePath"]!.ToString());
             var records = result.Outputs[unionRevision ? "products" : "rows"]!.AsArray(); Assert.Equal(selected.Length, records.Count);
@@ -261,7 +265,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
             for (var i = 0; i < selected.Length; i++)
             {
                 var n = selected[i]; Assert.NotNull(records[i]); Assert.Equal(ProductName(n), records[i]!["name"]!.ToString());
-                var description = variant == "union_missing_description" && n == 3 ? null : ProductDescription(n);
+                var description = variant.EndsWith("missing_description", StringComparison.Ordinal) && n == 3 ? null : ProductDescription(n);
                 Assert.Equal(description, records[i]!["description"]?.ToString()); Assert.Equal(n == 2 ? null : ProductPrice(n), records[i]!["price"]?.ToString());
                 expected.Add([ProductName(n), description ?? "", n == 2 ? "" : ProductPrice(n), n == 2 && !verbatim ? "missing_price" : ""]);
             }
@@ -329,8 +333,8 @@ public sealed partial class LocalProductOutcomeExecutionTests
                 Offered = offered.DeepClone().AsArray(); DecisionBytes = Encoding.UTF8.GetByteCount(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
                 Assert.All(offered, c => Assert.Equal(new[] { "candidateKey", "observedText" }, c!.AsObject().Select(p => p.Key)));
                 Assert.DoesNotContain("?source=", request.Prompt); Assert.DoesNotContain("selector", request.Prompt);
-                var chosen = variant == "repeated" ? offered.Take(9).Append(offered[0]) : offered.Take(10);
-                result = new() { ["productKeys"] = variant == "unoffered" ? new JsonArray(_unoffered ?? throw new InvalidOperationException("Fixture needs an unoffered original record.")) : new JsonArray(chosen.Select(c => c!["candidateKey"]!.DeepClone()).ToArray()), ["searchError"] = null };
+                var chosen = variant.EndsWith("repeated", StringComparison.Ordinal) ? offered.Take(9).Append(offered[0]) : offered.Take(10);
+                result = new() { ["productKeys"] = variant.EndsWith("unoffered", StringComparison.Ordinal) ? new JsonArray(_unoffered ?? throw new InvalidOperationException("Fixture needs an unoffered original record.")) : new JsonArray(chosen.Select(c => c!["candidateKey"]!.DeepClone()).ToArray()), ["searchError"] = null };
             }
             else if (input["offeredBlocks"] is JsonArray blocks)
             {

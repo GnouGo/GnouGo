@@ -1,0 +1,16 @@
+Offline rejected attempts (no paid calls):
+1. Removed forwarding/format loops, moved cells through every branch: 17 tasks,
+   64 steps, 37 sets, YAML 200254 -> 204585 characters. Rejected size gate.
+2. Narrowed captured ports: 203050 characters. Still rejected size gate.
+3. Transported only the description through the branch, assembled cells locally:
+   200412 characters; narrowed ports: 199336 characters. Planner requirement review
+   rejected /outputs/products with REQUIREMENTS_OUTPUTS_CHANGED: final flatten
+   does not declare the accepted ten-record bound.
+4. Restored a record-only cardinality projection with separately exported cells:
+   18 tasks, 65 steps, 38 sets, 207091 characters. Rejected size gate.
+5. Kept the necessary bounded row/record projection and removed the forwarding
+   loop; narrowed captured ports: 18 tasks, 65 steps, 38 sets, 195627 characters
+   (195705 using actual local MCP contracts). All five gates pass.
+
+The failed candidates are disposable builder attempts only. No historical
+proposal, schema, artifact, approval, receipt or campaign reservation was changed.

@@ -7,6 +7,21 @@ namespace GnOuGo.Agent.Server.Tests;
 
 public sealed partial class LocalProductOutcomeExecutionTests
 {
+    [Fact]
+    public async Task CompactUnionUsesExistingBindingsAndPreservesRequirements()
+    {
+        var factory = new GnOuGo.Planning.Examples.RealProductContracts.Factory(GnOuGo.Planning.Examples.RealProductContracts.Capture(
+            new GnOuGo.Document.Mcp.DocumentPolicy(new GnOuGo.Document.Mcp.DocumentServerSettings(), AppContext.BaseDirectory)));
+        var runtime = new WorkflowPlanningRuntime(new() { McpClientFactory = factory }, (_, _) => Task.CompletedTask);
+        var catalog = await RetainedCatalog(runtime, TestContext.Current.CancellationToken);
+        catalog.Policy.RequireExternalConfirmation = false;
+        var original = UnionRevisionProposal(catalog); var compact = CompactUnionProposal(catalog);
+        Assert.Equal(JsonSerializer.Serialize(original.Requirements, PlanningJsonContext.Default.PlanningRequirements),
+            JsonSerializer.Serialize(compact.Requirements, PlanningJsonContext.Default.PlanningRequirements));
+        Assert.Equal(RetainedOperations(original.Plan!), RetainedOperations(compact.Plan!));
+        Assert.Equal(0, factory.InvocationAttempts);
+    }
+
     private static PlanningProposal UnionRevisionProposal(PlanningCatalog catalog)
     {
         var directory = Path.Combine(AppContext.BaseDirectory, "Fixtures", "UnionRevision");
@@ -78,6 +93,44 @@ public sealed partial class LocalProductOutcomeExecutionTests
         static TaskValue Product(TaskValue description) => new() { Kind = "object", Members =
         [new("name", Field(Output("chosen_facts", "record"), "name")), new("description", description),
          new("price", Field(Output("chosen_facts", "record"), "price")), new("observed_error", Field(Output("chosen_facts", "record"), "error"))] };
+    }
+
+    private PlanningProposal CompactUnionProposal(PlanningCatalog catalog)
+    {
+        var proposal = UnionRevisionProposal(catalog);
+        var plan = proposal.Plan!;
+        var before = BusinessCompilation(plan, catalog, "compact-bindings-v9");
+        var visit = plan.Root.Tasks.Single(t => t.Id == "visit");
+        var offered = plan.Root.Tasks.Single(t => t.Id == "verified_ids").Items!;
+        // Evaluate the strict offered lookup before the original-data lookup.
+        // This is an assertion over actual typed data, not a declared success flag.
+        visit.Requires = new() { Kind = "predicate", Predicate = "not_equal", Items = [offered, new() { Kind = "null" }] };
+        visit.Items!.Items[1] = Output("choose", "productKeys");
+        visit.DependsOn.Remove("verified_ids");
+        plan.Root.Tasks.RemoveAll(t => t.Id == "verified_ids");
+
+        var selected = visit.Body!.Tasks.Single(t => t.Id == "selected_block");
+        var description = selected.Body!.Tasks.Single(t => t.Id == "exact_description");
+        selected.Body.Tasks.Single(t => t.Id == "chosen_facts").Outputs = new[] { "name", "price", "error" }
+            .Select(name => new TaskOutput(name, Field(new() { Kind = "item" }, name))).ToList();
+        foreach (var product in new[] { description.Body!.Tasks.Single().Body!.Outputs.Single().Value,
+            description.Otherwise!.Outputs.Single().Value.Items.Single() })
+            foreach (var member in product.Members.Where(m => m.Value.Kind == "field" && m.Value.Items.Single() is { Kind: "output", Source: "chosen_facts" }))
+            { member.Value.Kind = "output"; member.Value.Source = "chosen_facts"; member.Value.Items.Clear(); }
+        // Keep the existing row projection: besides cells, it enforces the
+        // accepted <=10 product contract after flatten. Moving cells to every
+        // branch increases v9 YAML; dropping this loop loses the required bound.
+        // Its independent check takes priority over the 17-task size target.
+
+        var after = BusinessCompilation(plan, catalog, "compact-bindings-v9");
+        Assert.Equal(18, RetainedTasks(plan.Root).Count());
+        output.WriteLine($"COMPACT UNION v9 tasks=19→18; steps={before.Steps}→{after.Steps}; sets={before.Sets}→{after.Sets}; YAML={before.Yaml.Length}→{after.Yaml.Length}");
+        Assert.True(after.Steps < before.Steps, $"steps {before.Steps}→{after.Steps}"); Assert.True(after.Sets < before.Sets, $"sets {before.Sets}→{after.Sets}");
+        Assert.True(after.Yaml.Length < before.Yaml.Length, $"YAML {before.Yaml.Length}→{after.Yaml.Length}");
+        return proposal;
+
+        static TaskValue Output(string source, string port) => new() { Kind = "output", Source = source, Port = port };
+        static TaskValue Field(TaskValue value, string port) => new() { Kind = "field", Port = port, Items = [value] };
     }
 
     private async Task<PlanningSession> ReviseUnionFixture(PlanningSession state, WorkflowPlanningRuntime runtime, PlanningProposal corrected, CancellationToken ct)
