@@ -94,3 +94,30 @@ heterogeneous specialization, late atomic failure, cancellation, cumulative limi
 and committed/unknown receipt recovery. Constructed-helper fixtures use one initial
 call and one global repair, zero shape specializations. Retained script replay uses
 zero provider and MCP calls. These are deterministic adapter results, not live claims.
+
+## Gate 5 — bounded accounting and persistence work
+
+Sandbox accounting now traverses JSON with bounded string-encoding scratch space,
+retaining exact default escaping and numeric writers. The retained-shaped 1,265,747
+byte observation charges exactly the same bytes: temporary allocation falls from
+4,596,048 to 852,664 bytes. An exhaustive UTF-16 fixture checks the default writer's
+escaping, Unicode, invalid surrogates, numeric spelling and null representation.
+
+Block writing reuses its canonical hashed body when adding the owner envelope;
+canonical bytes/hashes remain identical. Verified immutable scalar representations
+are cached within the lease; live nodes are still compared by content on every
+capture. Repeated capture allocation falls from approximately 12.57 MB to 9.75 MB
+for a 9,987,879-byte logical snapshot. The 24-snapshot logical history remains
+239,709,096 bytes; 150 unique blocks and approximately 1.305 MB were written.
+Checkpoint writes remain 2.2–3.0 KB and approximately 6–9 ms in these local runs.
+Process working-set measurements varied with the surrounding test suite and are
+not evidence of an isolated peak-memory improvement.
+
+Validation: 427 runtime/expression/mapping tests, 22 persistence tests and a separate
+canonical-envelope check passed with `-warnaserror`. Coverage includes immutable
+snapshot reuse, mutable executors, numeric spelling/nulls, owner/tenant isolation,
+cancellation without payload reads, corrupt references, commit fault injection and
+unknown-completion protection. A proposed direct clone changed a historical numeric
+accessor and was reverted; that existing normalization boundary is retained.
+A concurrent-build file lock and missing test cancellation arguments were corrected
+by serializing dependent builds and forwarding the test token; no checks were disabled.

@@ -106,7 +106,7 @@ public sealed partial class JintSandbox
         long importedBytes = allowance?.ImportedBytes ?? 0;
         void ChargeOutput(JsonNode? value)
         {
-            var bytes = value is null ? 4 : System.Text.Encoding.UTF8.GetByteCount(value.ToJsonString());
+            var bytes = JsonBytes(value, ct);
             importedBytes += bytes;
             if (allowance is not null) { allowance.OutputBytes += bytes; allowance.ImportedBytes = importedBytes; }
             if (importedBytes > _memoryLimit) throw allowance?.Exhausted("materialized_memory", memoryLimit: _memoryLimit) ?? ResourceLimit();

@@ -26,3 +26,8 @@ Reads return the same public schema-9 `WorkflowRun` with lazy detached snapshots
 Schema-8 data is never migrated or deleted automatically. Regenerate and approve workflows before creating schema-9 runs.
 
 `CreateWorkspace(databasePath, indexPath, logger, ownerPath)` accepts explicit host paths; omitted paths use workspace helpers. Run `scripts/verify-flow-v9-published.py` against published CLI/server binaries to check encryption, native EF queries, index rebuilding, restart and tenant/revision boundaries.
+
+Canonical block bodies are serialized once for hashing and reused verbatim inside
+the tenant/run envelope. Lease-local scalar comparison caches contain only verified
+immutable block values; live workflow values are compared again on every capture.
+Neither checkpointing nor cancellation polling materializes historical snapshots.

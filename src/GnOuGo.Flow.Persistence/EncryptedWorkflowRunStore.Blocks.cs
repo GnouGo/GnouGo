@@ -22,7 +22,7 @@ public sealed partial class EncryptedWorkflowRunStore
         private readonly HashSet<string> _written = new(StringComparer.Ordinal);
         private readonly Dictionary<(WorkflowInvocation Invocation, bool After), JsonNode> _snapshots = new();
         private JsonNode? _lastCapture;
-        private readonly Dictionary<JsonValue, string> _frozenStrings = new(ReferenceEqualityComparer.Instance);
+        private readonly Dictionary<JsonValue, string> _frozenScalars = new(ReferenceEqualityComparer.Instance);
         private int _eventPrefixCount = head["eventCount"]?.GetValue<int>() ?? 0;
         public JsonObject Head { get; private set; } = head;
         public long Revision => Head["revision"]!.GetValue<long>();
@@ -327,8 +327,11 @@ public sealed partial class EncryptedWorkflowRunStore
             var body = block.ToJsonString(); var hash = Hash(body);
             if (!_written.Contains(hash))
             {
-                var envelope = new JsonObject { ["tenantId"] = tenant, ["runId"] = runId, ["body"] = block.DeepClone() };
-                await records.UpsertAsync(Blocks, tenant, _prefix + hash, envelope.ToJsonString(), Author, ct);
+                // Reuse exactly the canonical body just hashed; do not clone and
+                // serialize its complete contents again to add two owner fields.
+                var envelope = "{\"tenantId\":" + JsonValue.Create(tenant)!.ToJsonString() +
+                    ",\"runId\":" + JsonValue.Create(runId)!.ToJsonString() + ",\"body\":" + body + "}";
+                await records.UpsertAsync(Blocks, tenant, _prefix + hash, envelope, Author, ct);
                 _written.Add(hash);
             }
             _loaded.TryAdd(hash, block);
@@ -432,23 +435,35 @@ public sealed partial class EncryptedWorkflowRunStore
             if (value is not JsonValue scalar || frozen is not JsonValue otherScalar) return false;
             if (scalar.TryGetValue<JsonElement>(out var element) && element.ValueKind == JsonValueKind.String)
             {
-                if (!_frozenStrings.TryGetValue(otherScalar, out var original))
+                if (!_frozenScalars.TryGetValue(otherScalar, out var original))
                 {
                     if (!otherScalar.TryGetValue<string>(out original)) return false;
-                    _frozenStrings.Add(otherScalar, original);
+                    _frozenScalars.Add(otherScalar, original);
                 }
                 return element.ValueEquals(original);
             }
             if (scalar.TryGetValue<string>(out var text))
             {
-                if (!_frozenStrings.TryGetValue(otherScalar, out var original))
+                if (!_frozenScalars.TryGetValue(otherScalar, out var original))
                 {
                     if (!otherScalar.TryGetValue<string>(out original)) return false;
-                    _frozenStrings.Add(otherScalar, original);
+                    _frozenScalars.Add(otherScalar, original);
                 }
                 return string.Equals(text, original, StringComparison.Ordinal);
             }
-            return string.Equals(scalar.ToJsonString(), otherScalar.ToJsonString(), StringComparison.Ordinal);
+            if (!_frozenScalars.TryGetValue(otherScalar, out var canonical))
+            {
+                canonical = otherScalar.ToJsonString();
+                _frozenScalars.Add(otherScalar, canonical);
+            }
+            // Only the verified frozen value is memoized. Live scalar contents
+            // are compared each time; numeric spelling remains significant.
+            var current = scalar.TryGetValue<JsonElement>(out element) && element.ValueKind is JsonValueKind.Number or JsonValueKind.True or JsonValueKind.False
+                ? element.GetRawText()
+                : scalar.TryGetValue<int>(out var integer) ? integer.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                : scalar.TryGetValue<bool>(out var boolean) ? boolean ? "true" : "false"
+                : scalar.ToJsonString();
+            return string.Equals(current, canonical, StringComparison.Ordinal);
         }
 
         private JsonObject Block(JsonNode reference) => _loaded[reference[1]!.GetValue<string>()];

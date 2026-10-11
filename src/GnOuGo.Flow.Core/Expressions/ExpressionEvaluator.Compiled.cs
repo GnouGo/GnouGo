@@ -130,7 +130,7 @@ public sealed partial class ExpressionEvaluator
                     if (contract["schema"] is JsonObject schema && JsonSchemaContractValidator.ValidateInstance(value, schema) is { Count: > 0 } errors)
                         throw new WorkflowRuntimeException(ErrorCodes.InputValidation, "set output does not satisfy output_schema: " + string.Join("; ", errors));
                     locals.Add(name, value);
-                    allowance.ImportedBytes += System.Text.Encoding.UTF8.GetByteCount(value.ToJsonString());
+                    allowance.ImportedBytes += JintSandbox.JsonBytes(value);
                     allowance.Check();
                 }
                 catch (WorkflowRuntimeException ex)

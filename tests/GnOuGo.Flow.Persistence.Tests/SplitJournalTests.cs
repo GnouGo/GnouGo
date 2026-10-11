@@ -21,6 +21,26 @@ public sealed class SplitJournalTests(ITestOutputHelper output) : IDisposable
     private static string Json(WorkflowRun run) => JsonSerializer.Serialize(run, WorkflowRunJsonContext.Default.WorkflowRun);
 
     [Fact]
+    public async Task CanonicalBlockEnvelopeRetainsExactHistoricalBytesAndHashes()
+    {
+        var run = NewRun();
+        run.Inputs = new JsonObject { ["text"] = new string('x', 6000) + "é\r\n\"\\${literal}",
+            ["number"] = JsonNode.Parse("1.2300"), ["zero"] = JsonNode.Parse("-0"), ["missing"] = null };
+        await Store().CreateAsync(run, Ct);
+        var blocks = await Records().ListAsync("flow-execution-blocks-v1", "tenant", "test", Ct);
+        Assert.NotEmpty(blocks);
+        foreach (var record in blocks)
+        {
+            var envelope = JsonNode.Parse(record.Value)!.AsObject();
+            Assert.Equal(envelope.ToJsonString(), record.Value);
+            var body = envelope["body"]!.ToJsonString();
+            var hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(body))).ToLowerInvariant();
+            Assert.EndsWith("/" + hash, record.Key, StringComparison.OrdinalIgnoreCase);
+        }
+        Assert.Equal(Json(run), Json((await Store().ReadAsync("tenant", "run", Ct))!));
+    }
+
+    [Fact]
     public async Task CustomExecutorMutationCannotChangeCapturedEvidenceOrRepeatAfterRestart()
     {
         const string yaml = """
