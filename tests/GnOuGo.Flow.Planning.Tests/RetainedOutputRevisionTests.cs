@@ -24,12 +24,12 @@ public sealed class RetainedOutputRevisionTests
         var instructions = request.Prompt[..request.Prompt.IndexOf("\n{", StringComparison.Ordinal)];
         Assert.Contains("T[]/item→array<array<T>>", instructions);
         Assert.Contains("flatten(output(extract,rows))", instructions);
-        Assert.Contains("inline copies/rows/field/flatten/lookup in bindings/exports", instructions);
+        Assert.Contains("bind copies/rows/field/flatten/lookup", instructions);
         Assert.Contains("Pure foreach:necessary projections", instructions);
         Assert.Contains("No inference for typed copying", instructions);
         Assert.Contains("Extract closed consumer fields", instructions);
         Assert.Contains("interpret no raw originals", instructions);
-        Assert.Contains("Selection:unchanged IDs; requires:lookup offered!=null, then lookup originals/actions", instructions);
+        Assert.Contains("Unchanged IDs; requires:lookup offered!=null, then lookup originals/actions", instructions);
         Assert.Contains("Verbatim:choose block IDs, lookup text", instructions);
         Assert.Contains("requires:local typed assertion, short-circuit", instructions);
         Assert.Contains("lookup:[records,IDs],port:key→array", instructions);
@@ -38,7 +38,7 @@ public sealed class RetainedOutputRevisionTests
         Assert.Contains("each:{input:pages,output:rows}", instructions);
         Assert.Contains("resultType=assembled", instructions);
         Assert.Contains("interpret(flatten(output(extract,rows)))→IDs", instructions);
-        Assert.Contains("preserve accepted types/bounds/nulls in revisions", instructions);
+        Assert.Contains("revisions preserve accepted contracts", instructions);
         Assert.Contains("scalar→array<T>", instructions);
         Assert.Contains("choice:declared, not operation", instructions);
         Assert.Contains("No unrequested work/filter/dedup", instructions);

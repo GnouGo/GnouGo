@@ -111,6 +111,36 @@ arrays from their existing scope where contracts permit. Retain a projection whe
 it independently enforces a bound or captures values across scopes. No formatting
 inference or identity-forwarding loop is needed merely to transport typed values.
 
+A nullable selected ID requires an explicit `ID != null` branch before lookup.
+On that branch validate `[ID]` against the offered candidates, then look up the
+original records and project `field(item, "text")` in a bounded singleton scope.
+The other branch exports `[null]` only where the accepted fact contract permits
+absence. Both branches expose the same typed array interface. Lookup always
+returns an array; neither `field(array, "0")` nor a learned copy is a scalar access.
+Retain necessary captures when nested item scopes would otherwise shadow values.
+One selected description identifies one complete original block, copied verbatim.
+An interface control such as “report a problem” is not producer error evidence.
+
+Prepend a supplied header with **`flatten([[headerRow], productRows])`**, not
+`flatten([headerRow, productRows])`. For two illustrative columns, the writer's
+existing `rows` binding is:
+
+```json
+{"kind":"flatten","items":[{"kind":"array","items":[
+  {"kind":"array","items":[{"kind":"array","items":[
+    {"kind":"string","text":"label"},{"kind":"string","text":"detail"}
+  ]}]},
+  {"kind":"output","source":"collect","port":"rows"}
+]}]}
+```
+
+Here `collect.rows` is already `array<array<string|null>>`. The binding returns
+the complete header followed by every row, preserving order, repetitions and
+blank positions. No header task or formatting inference is needed. Type checking
+cannot prove that a required business header exists: independently inspect the
+written workbook, including zero, one and maximum-row fixtures. The retained v10
+offline regression exercises this assembly through real Browser and Document MCPs.
+
 A scalar per item has one assembled array, so it must not be flattened. Keep
 complete original observations and their completeness checks separately. Typed
 copying uses direct bindings. Do not add unrequested goals, side effects, filtering

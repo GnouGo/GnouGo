@@ -232,7 +232,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
                 Assert.Contains("interpret(flatten(output(extract,rows)))→IDs", request.Prompt);
                 Assert.Contains("requires:lookup offered!=null, then lookup originals/actions", request.Prompt);
                 Assert.Contains("No inference for typed copying", request.Prompt);
-                Assert.Contains("preserve accepted types/bounds/nulls in revisions", request.Prompt);
+                Assert.Contains("revisions preserve accepted contracts", request.Prompt);
                 Assert.InRange(adapter.InputEstimate, 1, initial.Request.Generation.MaxInputTokensPerRequest);
                 output.WriteLine($"INITIAL REQUEST: estimatedTokens={adapter.InputEstimate}; calls=1; repairs=0; tasks=18");
             }

@@ -33,16 +33,16 @@ internal sealed class PlanningPrompt(PlanningSession state)
 
     private const string Instructions = """
         Unsearched!=absent; closed:plan:null.
-        Business tasks; inline copies/rows/field/flatten/lookup in bindings/exports. No inference for typed copying.
-        Example: inputs.pages→each:{input:pages,output:rows}; each.input=bound input name.
+        Business tasks; bind copies/rows/field/flatten/lookup. No inference for typed copying.
+        inputs.pages→each:{input:pages,output:rows}; each.input=bound input name.
         resultType=assembled: T[]/item→array<array<T>>; interpret(flatten(output(extract,rows)))→IDs; scalar→array<T>.
         Pure foreach:necessary projections. Extract closed consumer fields; interpret no raw originals.
         field:object only; json:text; lookup:[records,IDs],port:key→array.
-        Selection:unchanged IDs; requires:lookup offered!=null, then lookup originals/actions. Verbatim:choose block IDs, lookup text.
-        dependsOn:local; capture ancestors; preserve accepted types/bounds/nulls in revisions.
+        Unchanged IDs; requires:lookup offered!=null, then lookup originals/actions. Nullable ID:branch ID!=null; else allowed null. Verbatim:choose block IDs, lookup text (whole block).
+        Rows:flatten([[headerRow],productRows])
+        dependsOn:local; capture ancestors; revisions preserve accepted contracts.
         choice:declared, not operation. requires:local typed assertion, short-circuit. present:completion!=success. Save before cleanup; paths!=files.
         No unrequested work/filter/dedup/invention or sampling/truncation.
-        Discover/clarify inputs/compatible alternatives.
         """;
 
     private const string RepairInstructions = """
