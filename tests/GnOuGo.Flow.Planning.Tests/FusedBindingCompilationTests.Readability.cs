@@ -51,6 +51,12 @@ public sealed partial class FusedBindingCompilationTests
         var catalog = await Catalog(); var compiler = new PlanningGraphCompiler();
         var before = compiler.Compile(graph, catalog, "readable", true, true, true, true, true, true, true, true);
         var after = compiler.Compile(graph, catalog, "readable", true, true, true, true, true, true, true, true, true);
+        if (Environment.GetEnvironmentVariable("GNOU_GO_V11_EXAMPLES") is { Length: > 0 } folder)
+        {
+            Directory.CreateDirectory(folder);
+            File.WriteAllText(Path.Combine(folder, "flatten-v10.yaml"), before);
+            File.WriteAllText(Path.Combine(folder, "flatten-v11.yaml"), after);
+        }
         Assert.Contains("binding_input_value", before);
         Assert.DoesNotContain("binding_input_value", after); Assert.DoesNotContain("checkedValue", after);
         Assert.Contains("const searchPages", after); Assert.Contains("searchPages.value.flatMap(item => item)", after);

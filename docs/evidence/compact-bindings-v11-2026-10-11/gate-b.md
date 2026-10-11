@@ -1,6 +1,6 @@
 # Gate B: native checked expressions
 
-The same TaskPlan now emits 261,126 UTF-8 YAML bytes (v10: 266,864), 61 steps and 27 sets. `before-v10.yaml` and `after-v11.yaml` are complete compiler outputs, not hand-edited illustrations. Contracts still occupy most of this fixture's YAML. All 117 ordered const declarations remain.
+The same TaskPlan now emits 261,126 UTF-8 YAML bytes (v10: 266,864), 61 steps and 27 sets. `before-v10.yaml` and `after-v11.yaml` are complete compiler outputs, not hand-edited illustrations. Contracts still occupy most of this fixture's YAML. The v11 expressions contain 113 checked const declarations versus 109 in v10: four formerly independent branch projections now validate as input declarations. Their checks remain in their original order.
 
 Names derive from declared fields, ports and available producer operations; reserved names and collisions have deterministic suffixes. Single-use checked captures, literal captures and immediately selected one-member object literals lose their redundant reconstruction. Direct physical paths remain authoritative. Necessary lexical nullable refinements and checked-object boundaries remain. Seven first-present `m.select` helpers remain; there are no `checkedMapping` program-string wrappers.
 

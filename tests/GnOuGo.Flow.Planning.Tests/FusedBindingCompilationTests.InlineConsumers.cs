@@ -56,6 +56,11 @@ public sealed partial class FusedBindingCompilationTests
         {
             var yaml = new PlanningGraphCompiler().Compile(graph, catalog, "test", true, true, true, true, true, true, true, true, inline);
             var doc = new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml));
+            if (failure is null && Environment.GetEnvironmentVariable("GNOU_GO_V11_EXAMPLES") is { Length: > 0 } folder)
+            {
+                Directory.CreateDirectory(folder);
+                File.WriteAllText(Path.Combine(folder, inline ? "multiple-inputs-v11.yaml" : "multiple-inputs-v10.yaml"), yaml);
+            }
             Assert.Equal(inline ? 1 : 2, doc.Workflows["main"].Steps.Count);
             if (inline) Assert.True(doc.Workflows["main"].Steps[0].Source.ExpressionContracts!.ContainsKey(""));
             var result = await new WorkflowEngine().ExecuteAsync(doc.Workflows["main"], new JsonObject {

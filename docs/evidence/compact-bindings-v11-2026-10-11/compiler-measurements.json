@@ -1,0 +1,34 @@
+[
+  {
+    "profile": "before-v10",
+    "steps": 67,
+    "sets": 33,
+    "yamlBytes": 266864,
+    "yamlMaxLine": 290,
+    "expressionBytes": 15601,
+    "expressionMaxLine": 172,
+    "checkedDeclarations": 109,
+    "checkedMapping": 0,
+    "firstPresent": 7,
+    "strictLookup": 8,
+    "arrowFunctions": 77,
+    "genericCaptureNames": 73,
+    "immediatelyUnwrappedObjectLiterals": 10
+  },
+  {
+    "profile": "after-v11",
+    "steps": 61,
+    "sets": 27,
+    "yamlBytes": 261126,
+    "yamlMaxLine": 290,
+    "expressionBytes": 14510,
+    "expressionMaxLine": 183,
+    "checkedDeclarations": 113,
+    "checkedMapping": 0,
+    "firstPresent": 7,
+    "strictLookup": 8,
+    "arrowFunctions": 77,
+    "genericCaptureNames": 0,
+    "immediatelyUnwrappedObjectLiterals": 0
+  }
+]

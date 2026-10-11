@@ -23,6 +23,17 @@ native callbacks and known checked-local paths omit redundant parentheses.
 Required object-valued check declarations remain: the existing contract engine
 validates each intermediate object in order, even if its value is not returned.
 
+`gnougo-flow.input.check` events identify the checked local, original compiler
+origin, input/contract pointers, order and passed/failed outcome. Only metadata
+and error codes are buffered until the existing step span opens, including input
+failures before dispatch. No observed values, schemas or error messages are copied.
+`gnougo-flow.input.reused` identifies committed resolved-input reuse during recovery;
+checks and external work are not repeated. Existing executor validation remains at
+its existing boundary. No journal fields, checkpoints or steps are added.
+
+See [complete before/after YAML and the retained-set inventory](evidence/compact-bindings-v11-2026-10-11/README.md)
+for measured examples. The profile changes compilation, not business composition.
+
 ## v10: direct pure-projection exports
 
 Under the historical `compact-bindings-v10` profile, the compiler
