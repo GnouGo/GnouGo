@@ -30,6 +30,9 @@ public sealed partial class PlanningGraphCompiler
         => Compile(graph, catalog, name, descriptions, fuseBindings, consumerBindings, directProjections, nativeMappings, readableMappings, leanMappings, false);
 
     internal string Compile(PlanningGraph graph, PlanningCatalog catalog, string name, bool descriptions, bool fuseBindings, bool consumerBindings, bool directProjections, bool nativeMappings, bool readableMappings, bool leanMappings, bool compactProjections)
+        => Compile(graph, catalog, name, descriptions, fuseBindings, consumerBindings, directProjections, nativeMappings, readableMappings, leanMappings, compactProjections, false);
+
+    internal string Compile(PlanningGraph graph, PlanningCatalog catalog, string name, bool descriptions, bool fuseBindings, bool consumerBindings, bool directProjections, bool nativeMappings, bool readableMappings, bool leanMappings, bool compactProjections, bool inlineConsumers)
     {
         ArgumentNullException.ThrowIfNull(graph);
         var diagnostics = PlanningExecutableValidation.Validate(graph, catalog);
@@ -49,7 +52,7 @@ public sealed partial class PlanningGraphCompiler
             EnsureUnique(allNodes.Select(n => n.Key), "node");
             if (allNodes.Length > 300) throw new InvalidOperationException("A workflow exceeds the 300-node planning limit.");
             var nodeIds = allNodes.ToDictionary(n => n.Key, n => "n_" + Fingerprint(n.Key)[..16], StringComparer.Ordinal);
-            var scope = new LoweringScope(catalog, nodeIds, workflowIds, workflow.Inputs.Select(p => p.Name).ToHashSet(StringComparer.Ordinal), allNodes.ToDictionary(n => n.Key, n => n.Type, StringComparer.Ordinal), LoopVariables(allNodes), allNodes.ToDictionary(n => n.Key, StringComparer.Ordinal), graph.Workflows.ToDictionary(w => w.Key, StringComparer.Ordinal), descriptions) { DirectProjections = directProjections, NativeMappings = nativeMappings, ReadableMappings = readableMappings, LeanMappings = leanMappings, CompactProjections = compactProjections };
+            var scope = new LoweringScope(catalog, nodeIds, workflowIds, workflow.Inputs.Select(p => p.Name).ToHashSet(StringComparer.Ordinal), allNodes.ToDictionary(n => n.Key, n => n.Type, StringComparer.Ordinal), LoopVariables(allNodes), allNodes.ToDictionary(n => n.Key, StringComparer.Ordinal), graph.Workflows.ToDictionary(w => w.Key, StringComparer.Ordinal), descriptions) { DirectProjections = directProjections, NativeMappings = nativeMappings, ReadableMappings = readableMappings, LeanMappings = leanMappings, CompactProjections = compactProjections, InlineConsumers = inlineConsumers };
             if (compactProjections) PrepareCopyProjections(workflow, scope);
             if (fuseBindings) PrepareFusion(workflow, scope, consumerBindings);
             var lowered = new JsonObject();
@@ -244,9 +247,14 @@ public sealed partial class PlanningGraphCompiler
         if (node.Default.Count > 0 || node.Type == "switch") result["default"] = LowerSteps(node.Default, scope);
         if (scope.ConsumerBindings.TryGetValue(node.Key, out var consumerBinding))
         {
-            var inputOwner = result["input"]!;
-            foreach (var part in consumerBinding.Path.SkipLast(1)) inputOwner = inputOwner[part]!;
-            inputOwner[consumerBinding.Path[^1]] = LowerFused(consumerBinding.Group, scope, consumerBinding.Value)["input"]!.DeepClone();
+            var expression = LowerFused(consumerBinding.Group, scope, consumerBinding.Value)["input"]!.DeepClone();
+            if (consumerBinding.Path.Length == 0) result["input"] = expression;
+            else
+            {
+                var inputOwner = result["input"]!;
+                foreach (var part in consumerBinding.Path.SkipLast(1)) inputOwner = inputOwner[part]!;
+                inputOwner[consumerBinding.Path[^1]] = expression;
+            }
         }
         return result;
     }
@@ -690,6 +698,7 @@ public sealed partial class PlanningGraphCompiler
         internal bool ReadableMappings { get; init; }
         internal bool LeanMappings { get; init; }
         internal bool CompactProjections { get; init; }
+        internal bool InlineConsumers { get; init; }
         internal HashSet<string> DirectCopyOutputs { get; } = new(StringComparer.Ordinal);
         internal Dictionary<string, string[]> FusedOutputs { get; init; } = new(StringComparer.Ordinal);
         internal HashSet<string> FusedExports { get; init; } = new(StringComparer.Ordinal);

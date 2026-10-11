@@ -7,7 +7,7 @@ using GnOuGo.Flow.Core.Runtime;
 
 namespace GnOuGo.Flow.Planning.Tests;
 
-public sealed class FusedBindingCompilationTests(Xunit.ITestOutputHelper output)
+public sealed partial class FusedBindingCompilationTests(Xunit.ITestOutputHelper output)
 {
     [Theory]
     [InlineData("exact ` ${literal} \\ é", true, null)]

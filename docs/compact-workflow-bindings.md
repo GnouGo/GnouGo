@@ -1,6 +1,22 @@
+## v11: checked preparation in consumer inputs
+
+Fresh sessions and explicit revisions select `compact-bindings-v11`. Consecutive,
+single-use pure preparation runs in one checked consumer-input expression,
+including multiple dynamic fields and preparation for `mapping.dynamic`. Inference,
+its budgets, receipts and recovery boundaries remain independent. A shared prefix
+retains its checked origin and materialization; only an eligible suffix moves.
+
+Existing root `expression_contracts` pointers are supported where the consumer
+permits an expression input. MCP routing and host-owned request arguments remain
+literal. A typed container selection protects its addressed children without
+blocking unrelated sibling preparation; whole-envelope observers retain all child
+identities. Effects, conditions, retries, handlers, scopes and independently needed
+checkpoints remain boundaries. Omitted/v1–v10 lowering and public overloads remain
+unchanged. No engine validation, mapping semantics or limits change.
+
 ## v10: direct pure-projection exports
 
-Fresh sessions and explicit revisions select `compact-bindings-v10`. The compiler
+The historical `compact-bindings-v10` profile The compiler
 omits synthetic call/outputs envelopes only when every observer selects declared
 ports of an already eligible pure projection. A single export becomes the direct
 array item; multiple exports share one object. Whole-result, presence, handler and

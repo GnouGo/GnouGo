@@ -31,7 +31,10 @@ public sealed partial class LocalProductOutcomeExecutionTests
     [InlineData("unoffered")]
     [InlineData("incomplete")]
     [InlineData("denied")]
-    public async Task V10CompositionExecutesOriginalObservationsAndExactWorkbook(string variant)
+    public Task V10CompositionExecutesOriginalObservationsAndExactWorkbook(string variant)
+        => ExecuteTypedComposition(variant, "compact-bindings-v10");
+
+    private async Task ExecuteTypedComposition(string variant, string profile)
     {
         var ct = TestContext.Current.CancellationToken;
         var root = Directory.CreateTempSubdirectory("gnougo-v10-execution-").FullName;
@@ -87,7 +90,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
             var writerTask = proposal.Plan!.Root.Tasks.Single(t => t.Id == "save_products_xlsx");
             if (variant == "denied") writerTask.Inputs.Single(i => i.Name == "filePath").Value.Text = "../outside.xlsx";
             var adapter = new ProposalRuntime(runtime, proposal);
-            var session = await V10PlanningSession(catalog, runtime, adapter, false, ct);
+            var session = await V10PlanningSession(catalog, runtime, adapter, false, ct, profile);
             Assert.True(session.Status == PlanningStatus.FinalReview, string.Join('\n', session.Diagnostics));
             Assert.Equal(1, session.ModelCalls); Assert.Equal(0, session.ReplanAttempts);
             Assert.Empty(visits); Assert.Empty(model.Requests);
@@ -105,7 +108,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
             var closed = await (await transport.GetClientAsync("browser", ct)).CallToolAsync("browser_get_content", new JsonObject(), ct);
             Assert.True(closed.IsError); Assert.Contains("No active page", closed.Content!["error_message"]!.ToString());
             var path = Path.Combine(workspace, writerTask.Inputs.Single(i => i.Name == "filePath").Value.Text!);
-            output.WriteLine($"V10 RUNTIME {variant}: success={result.Success}; elapsedMs={timer.ElapsedMilliseconds}; tasks={RetainedTasks(proposal.Plan.Root).Count()}; YAML={Encoding.UTF8.GetByteCount(session.Yaml!)}; " +
+            output.WriteLine($"{profile} RUNTIME {variant}: success={result.Success}; elapsedMs={timer.ElapsedMilliseconds}; tasks={RetainedTasks(proposal.Plan.Root).Count()}; YAML={Encoding.UTF8.GetByteCount(session.Yaml!)}; " +
                 $"inference={model.Requests.Count}; mappings={model.MappingCalls}; invocations={journal.Invocations.Count}; steps={journal.StepsStarted}; cleanup={journal.FinalizationStepsStarted}; allocatedBytes={allocated}; " +
                 $"logicalJournalBytes={Encoding.UTF8.GetByteCount(JsonSerializer.Serialize(journal, WorkflowRunJsonContext.Default.WorkflowRun))}; physicalBytes={Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories).Sum(f => new FileInfo(f).Length)}; error={result.Error?.Code} {result.Error?.Message}");
             if (variant is "unoffered" or "incomplete" or "denied")

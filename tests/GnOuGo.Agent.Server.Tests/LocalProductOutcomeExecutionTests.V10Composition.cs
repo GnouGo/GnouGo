@@ -249,12 +249,12 @@ public sealed partial class LocalProductOutcomeExecutionTests
     }
 
     private static async Task<PlanningSession> V10PlanningSession(PlanningCatalog catalog, WorkflowPlanningRuntime runtime,
-        ProposalRuntime adapter, bool revision, CancellationToken ct)
+        ProposalRuntime adapter, bool revision, CancellationToken ct, string profile = "compact-bindings-v10")
     {
         var planner = new HybridWorkflowPlanner();
         var session = new PlanningSession { Catalog = catalog, Request = new()
         {
-            TenantId = "local", Options = new() { ["compilation_profile"] = "compact-bindings-v10" },
+            TenantId = "local", Options = new() { ["compilation_profile"] = profile },
             Prompt = "Preserve the accepted observed-data task and its exact output contracts.",
             Policy = new() { RequireExternalConfirmation = false }, Generation = new() { MaxInputTokensPerRequest = 96000, MaxOutputTokens = 32768 }
         } };

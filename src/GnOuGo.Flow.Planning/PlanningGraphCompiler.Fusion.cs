@@ -51,13 +51,34 @@ public sealed partial class PlanningGraphCompiler
             .Concat(n.Cases.SelectMany(c => BindingValues(c.When)))
             .Concat(n.OnError.SelectMany(e => BindingValues(e.If).Concat(BindingValues(e.SetOutput))));
         var values = scope.Nodes.Values.SelectMany(Values).Concat(workflow.Outputs.SelectMany(o => BindingValues(o.Value))).ToArray();
+        var selectedContainers = new HashSet<PlanningValue>(ReferenceEqualityComparer.Instance);
+        var selectedOccurrences = new Dictionary<PlanningValue, int>(ReferenceEqualityComparer.Instance);
+        if (scope.InlineConsumers)
+            foreach (var projection in values.Where(v => v.Kind == "projection"))
+                if (PlanningGraphValidation.Member(projection, "each")?.Boolean != true &&
+                    PlanningGraphValidation.Member(projection, "value") is { Kind: "output", Source: not null, Path.Count: 0, ResultChannel: null or "default" } source &&
+                    scope.Nodes.TryGetValue(source.Source, out var owner) && owner.Type is "sequence" or "switch" &&
+                    PlanningGraphValidation.Literal(PlanningGraphValidation.Member(projection, "paths")!) is JsonArray { Count: > 0 } paths)
+                {
+                    var children = Enumerate([owner]).Skip(1).ToDictionary(n => n.Key, StringComparer.Ordinal);
+                    if (!paths.All(p => p is JsonArray { Count: > 0 } path && path[0] is JsonValue id &&
+                        id.TryGetValue<string>(out var key) && children.ContainsKey(key))) continue;
+                    // A checked selection observes these child addresses, not
+                    // every sibling in the historical container envelope.
+                    selectedContainers.Add(source);
+                    selectedOccurrences[source] = selectedOccurrences.GetValueOrDefault(source) + 1;
+                    foreach (var path in paths)
+                        blocked.UnionWith(Enumerate([children[path![0]!.GetValue<string>()]]).Select(n => n.Key));
+                }
+        // The graph may reuse a value instance in a second, whole-result use.
+        selectedContainers.RemoveWhere(source => values.Count(v => ReferenceEquals(v, source)) != selectedOccurrences[source]);
         foreach (var value in values)
         {
             if (value.Kind == "present" && value.Source is not null) blocked.Add(value.Source);
             // Container results and raw expressions observe physical child identities.
             if (value.Kind is "expression" or "template") blocked.UnionWith(scope.Nodes.Keys);
             if (value.Kind == "output" && value.Source is not null && scope.Nodes.TryGetValue(value.Source, out var owner) &&
-                owner.Type is "sequence" or "switch" or "parallel" or "loop.sequential" or "loop.parallel")
+                owner.Type is "sequence" or "switch" or "parallel" or "loop.sequential" or "loop.parallel" && !selectedContainers.Contains(value))
                 blocked.UnionWith(Enumerate([owner]).Skip(1).Select(n => n.Key));
         }
         // A failure handler may need a successfully completed earlier value even
@@ -74,6 +95,23 @@ public sealed partial class PlanningGraphCompiler
             void Flush(PlanningNode? consumer = null)
             {
                 var group = run.ToArray();
+                if (scope.InlineConsumers && consumerBindings && consumer is not null)
+                {
+                    // A shared prefix remains a checkpoint; it must not prevent
+                    // a single-use suffix from being checked at its consumer.
+                    for (var start = 0; start < group.Length; start++)
+                    {
+                        var suffix = group[start..];
+                        if (!TryConsumer(consumer, suffix)) continue;
+                        var prefix = group[..start];
+                        // Keep the prefix's checked origin even when splitting
+                        // leaves a single independently published value.
+                        foreach (var key in prefix) scope.FusedOutputs.Add(key, prefix);
+                        foreach (var key in suffix) scope.FusedOutputs.Add(key, suffix);
+                        run.Clear();
+                        return;
+                    }
+                }
                 var inline = consumerBindings && group.Length > 0 && consumer is not null && TryConsumer(consumer, group);
                 if (run.Count > 1 || inline) foreach (var key in group) scope.FusedOutputs.Add(key, group);
                 run.Clear();
@@ -99,26 +137,31 @@ public sealed partial class PlanningGraphCompiler
 
         bool TryConsumer(PlanningNode consumer, string[] group)
         {
+            var mapping = scope.InlineConsumers && consumer.Type == "set" && consumer.Input.Kind == "dynamic_mapping";
             if (consumer.If is not null || consumer.Expr is not null || consumer.Output is not null || consumer.Retry is not null || consumer.OnError.Count > 0 ||
-                consumer.Type == "set" || consumer.Input.Kind != "object" ||
+                !mapping && ((!scope.InlineConsumers && consumer.Type == "set") || consumer.Input.Kind != "object") ||
                 consumer.Steps.Count + consumer.Default.Count + consumer.Cases.Count + consumer.Branches.Count != 0) return false;
             bool Reads(PlanningValue value) => value.Kind is "output" or "present" && value.Source is { } source && group.Contains(source, StringComparer.Ordinal);
             if (!BindingValues(consumer.Input).Any(Reads) || workflow.Outputs.SelectMany(o => BindingValues(o.Value)).Any(Reads) ||
                 scope.Nodes.Values.Where(n => n.Key != consumer.Key && !group.Contains(n.Key, StringComparer.Ordinal)).SelectMany(Values).Any(Reads)) return false;
             // Exactly one dynamic input subtree: check once, before the consumer,
             // without changing the evaluation order of independent expressions.
-            var value = consumer.Input; var path = new List<string>();
+            var value = mapping ? new PlanningValue { Kind = "object", Members = consumer.Input.Members } : consumer.Input;
+            var path = new List<string>();
             while (value.Kind == "object")
             {
                 var dynamic = value.Members.Where(m => !Static(m.Value)).ToArray();
                 if (dynamic.Length != 1) break;
                 path.Add(dynamic[0].Name); value = dynamic[0].Value;
             }
-            if (path.Count == 0) return false;
+            if (path.Count == 0 && (!scope.InlineConsumers || consumer.Type == "human.input" || consumer.StructuredOutput is not null)) return false;
             if (consumer.CapabilityId is { } id)
             {
                 var contract = scope.Catalog.Capabilities.Single(c => c.Id == id);
-                if (contract.FixedInput.ContainsKey(path[0]) || consumer.Type == "mcp.call" && path[0] != "request") return false;
+                // Literal capability/host bindings remain inspectable. Never
+                // hide them in a generated whole-input expression.
+                if (path.Count == 0 && (contract.FixedInput.Count > 0 || consumer.Type == "mcp.call" || contract.RequestBindings.Count > 0)) return false;
+                if (path.Count > 0 && (contract.FixedInput.ContainsKey(path[0]) || consumer.Type == "mcp.call" && path[0] != "request")) return false;
                 var pointer = "/" + string.Join('/', path.Select(p => p.Replace("~", "~0", StringComparison.Ordinal).Replace("/", "~1", StringComparison.Ordinal)));
                 if (contract.RequestBindings.Any(b => pointer == "/request" + b.Path || pointer.StartsWith("/request" + b.Path + "/", StringComparison.Ordinal) ||
                     ("/request" + b.Path).StartsWith(pointer + "/", StringComparison.Ordinal))) return false;

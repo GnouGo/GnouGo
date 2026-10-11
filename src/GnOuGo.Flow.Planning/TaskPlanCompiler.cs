@@ -76,16 +76,17 @@ public sealed partial class TaskPlanCompiler
     private readonly Dictionary<string, string> _sources = new(StringComparer.Ordinal);
     private readonly HashSet<string> _compilingGroups = new(StringComparer.Ordinal);
     private readonly Dictionary<string, PlanningWorkflow> _groups = new(StringComparer.Ordinal);
-    internal const string CompactProfile = "compact-bindings-v10";
-    internal static bool UsesCompactBindings(PlanningRequest request) => request.Options["compilation_profile"]?.ToString() is "compact-bindings-v1" or "compact-bindings-v2" or "compact-bindings-v3" or "compact-bindings-v4" or "compact-bindings-v5" or "compact-bindings-v6" or "compact-bindings-v7" or "compact-bindings-v8" or "compact-bindings-v9" or CompactProfile;
-    internal static bool UsesNormalExports(PlanningRequest request) => request.Options["compilation_profile"]?.ToString() is "compact-bindings-v2" or "compact-bindings-v3" or "compact-bindings-v4" or "compact-bindings-v5" or "compact-bindings-v6" or "compact-bindings-v7" or "compact-bindings-v8" or "compact-bindings-v9" or CompactProfile;
-    internal static bool UsesFusedBindings(PlanningRequest request) => request.Options["compilation_profile"]?.ToString() is "compact-bindings-v4" or "compact-bindings-v5" or "compact-bindings-v6" or "compact-bindings-v7" or "compact-bindings-v8" or "compact-bindings-v9" or CompactProfile;
-    internal static bool UsesConsumerBindings(PlanningRequest request) => request.Options["compilation_profile"]?.ToString() is "compact-bindings-v5" or "compact-bindings-v6" or "compact-bindings-v7" or "compact-bindings-v8" or "compact-bindings-v9" or CompactProfile;
-    internal static bool UsesDirectProjections(PlanningRequest request) => request.Options["compilation_profile"]?.ToString() is "compact-bindings-v6" or "compact-bindings-v7" or "compact-bindings-v8" or "compact-bindings-v9" or CompactProfile;
-    internal static bool UsesNativeMappings(PlanningRequest request) => request.Options["compilation_profile"]?.ToString() is "compact-bindings-v7" or "compact-bindings-v8" or "compact-bindings-v9" or CompactProfile;
-    internal static bool UsesReadableMappings(PlanningRequest request) => request.Options["compilation_profile"]?.ToString() is "compact-bindings-v8" or "compact-bindings-v9" or CompactProfile;
-    internal static bool UsesLeanMappings(PlanningRequest request) => request.Options["compilation_profile"]?.ToString() is "compact-bindings-v9" or CompactProfile;
-    internal static bool UsesCompactProjections(PlanningRequest request) => request.Options["compilation_profile"]?.ToString() == CompactProfile;
+    internal const string CompactProfile = "compact-bindings-v11";
+    internal static bool UsesCompactBindings(PlanningRequest request) => request.Options["compilation_profile"]?.ToString() is "compact-bindings-v1" or "compact-bindings-v2" or "compact-bindings-v3" or "compact-bindings-v4" or "compact-bindings-v5" or "compact-bindings-v6" or "compact-bindings-v7" or "compact-bindings-v8" or "compact-bindings-v9" or "compact-bindings-v10" or CompactProfile;
+    internal static bool UsesNormalExports(PlanningRequest request) => request.Options["compilation_profile"]?.ToString() is "compact-bindings-v2" or "compact-bindings-v3" or "compact-bindings-v4" or "compact-bindings-v5" or "compact-bindings-v6" or "compact-bindings-v7" or "compact-bindings-v8" or "compact-bindings-v9" or "compact-bindings-v10" or CompactProfile;
+    internal static bool UsesFusedBindings(PlanningRequest request) => request.Options["compilation_profile"]?.ToString() is "compact-bindings-v4" or "compact-bindings-v5" or "compact-bindings-v6" or "compact-bindings-v7" or "compact-bindings-v8" or "compact-bindings-v9" or "compact-bindings-v10" or CompactProfile;
+    internal static bool UsesConsumerBindings(PlanningRequest request) => request.Options["compilation_profile"]?.ToString() is "compact-bindings-v5" or "compact-bindings-v6" or "compact-bindings-v7" or "compact-bindings-v8" or "compact-bindings-v9" or "compact-bindings-v10" or CompactProfile;
+    internal static bool UsesDirectProjections(PlanningRequest request) => request.Options["compilation_profile"]?.ToString() is "compact-bindings-v6" or "compact-bindings-v7" or "compact-bindings-v8" or "compact-bindings-v9" or "compact-bindings-v10" or CompactProfile;
+    internal static bool UsesNativeMappings(PlanningRequest request) => request.Options["compilation_profile"]?.ToString() is "compact-bindings-v7" or "compact-bindings-v8" or "compact-bindings-v9" or "compact-bindings-v10" or CompactProfile;
+    internal static bool UsesReadableMappings(PlanningRequest request) => request.Options["compilation_profile"]?.ToString() is "compact-bindings-v8" or "compact-bindings-v9" or "compact-bindings-v10" or CompactProfile;
+    internal static bool UsesLeanMappings(PlanningRequest request) => request.Options["compilation_profile"]?.ToString() is "compact-bindings-v9" or "compact-bindings-v10" or CompactProfile;
+    internal static bool UsesCompactProjections(PlanningRequest request) => request.Options["compilation_profile"]?.ToString() is "compact-bindings-v10" or CompactProfile;
+    internal static bool UsesInlineConsumers(PlanningRequest request) => request.Options["compilation_profile"]?.ToString() == CompactProfile;
     internal const string AdaptiveMappingProfile = "adaptive-each-v1";
     private bool _adaptiveMappings;
     private bool _compactBindings;
@@ -99,7 +100,7 @@ public sealed partial class TaskPlanCompiler
 
     internal TaskCompilation Compile(TaskPlan plan, PlanningCatalog catalog, PlanningRequest request)
         => Compile(plan, catalog, UsesCompactBindings(request), UsesNormalExports(request), request.Options["mapping_profile"]?.ToString() == AdaptiveMappingProfile,
-            request.Options["compilation_profile"]?.ToString() is "compact-bindings-v3" or "compact-bindings-v4" or "compact-bindings-v5" or "compact-bindings-v6" or "compact-bindings-v7" or "compact-bindings-v8" or "compact-bindings-v9" or CompactProfile, UsesFusedBindings(request));
+            request.Options["compilation_profile"]?.ToString() is "compact-bindings-v3" or "compact-bindings-v4" or "compact-bindings-v5" or "compact-bindings-v6" or "compact-bindings-v7" or "compact-bindings-v8" or "compact-bindings-v9" or "compact-bindings-v10" or CompactProfile, UsesFusedBindings(request));
 
     internal TaskCompilation Compile(TaskPlan plan, PlanningCatalog catalog, bool compactBindings, bool normalExports, bool adaptiveMappings = false, bool indexedProjections = false, bool fusedBindings = false)
     {
