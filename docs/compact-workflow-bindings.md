@@ -1,6 +1,10 @@
+## v9: checked aliases
+
+The v9 lowering removes redundant parentheses and reuses a checked local when an assembly copies exactly its known ordered fields. Both local declarations and both schemas remain: an alias never removes an intermediate validation. Scope, effects and first-present boundaries are unchanged. Historical v8 output retains its original formatter and copies.
+
 # Compact bindings v8: native programs and separate contracts
 
-Fresh sessions and explicit revisions select approval-fingerprinted `compact-bindings-v8`. The existing final lowering composes compiler-owned expressions into native multiline JavaScript, without nested quoted `checkedMapping` programs. Direct checked property access, object/array literals, `map` and one-level `flatMap` preserve the declared bindings. Capture envelopes can bind operands directly without copying surrounding observations. Local names come from declared ports or binding identities, with deterministic collision suffixes. No filtering, truncation or deduplication is inferred.
+Fresh sessions and explicit revisions select approval-fingerprinted `compact-bindings-v9`. The existing final lowering composes compiler-owned expressions into native multiline JavaScript, without nested quoted `checkedMapping` programs. Direct checked property access, object/array literals, `map` and one-level `flatMap` preserve the declared bindings. Capture envelopes can bind operands directly without copying surrounding observations. Local names come from declared ports or binding identities, with deterministic collision suffixes. No filtering, truncation or deduplication is inferred.
 
 `expression_contracts` is optional common step metadata. Its keys are JSON pointers relative to `input`; `''` selects the entire input. Each pointer must resolve to one complete `${…}` expression. The value maps the outer program's checked `const` declarations to their literal `origin` and JSON `schema`, for example:
 

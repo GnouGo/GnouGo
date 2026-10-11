@@ -10,6 +10,31 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class FusedBindingCompilationTests(Xunit.ITestOutputHelper output)
 {
     [Theory]
+    [InlineData("exact ` ${literal} \\ é", true, null)]
+    [InlineData("", false, "first")]
+    [InlineData("observed", false, "guard")]
+    public async Task LeanBindingsReuseCopiesWithoutRemovingOrderedContracts(string label, bool authorized, string? failure)
+    {
+        var graph = Graph(); var catalog = await Catalog(); var compiler = new PlanningGraphCompiler();
+        var previous = compiler.Compile(graph, catalog, "test", true, true, true, true, true, true);
+        var lean = compiler.Compile(graph, catalog, "test", true, true, true, true, true, true, true);
+        Assert.True(lean.Length < previous.Length, $"v8={previous.Length}, v9={lean.Length}\n{lean}");
+        Assert.Contains("const chosen_2 = chosen;", lean);
+        Assert.DoesNotContain("checkedMapping", lean);
+        Assert.Equal(previous, compiler.Compile(graph, catalog, "test", true, true, true, true, true, true));
+        foreach (var yaml in new[] { previous, lean })
+        {
+            var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml));
+            var result = await new WorkflowEngine().ExecuteAsync(document.Workflows["main"],
+                new JsonObject { ["label"] = label, ["authorized"] = authorized }, PlannerFixture.Ct);
+            Assert.Equal(failure is null, result.Success);
+            if (failure is null) Assert.Equal(label, result.Outputs!["chosen"]!.ToString());
+            else { Assert.Equal("INPUT_VALIDATION", result.Error!.Code); Assert.Equal(failure, result.Error.Details!["location"]!.ToString()); }
+        }
+        output.WriteLine($"v8→v9 same graph: YAML {previous.Length}→{lean.Length} bytes; ordered contracts retained");
+    }
+
+    [Theory]
     [InlineData("é ` ${literal} \\ source", true, null, false)]
     [InlineData("", false, "first", false)]
     [InlineData("observed", false, "guard", false)]

@@ -91,6 +91,28 @@ public sealed class PhysicalProjectionCompilationTests(Xunit.ITestOutputHelper o
     }
 
     [Fact]
+    public async Task LeanScalarSelectionKeepsFirstPresentSemanticsWithoutImportingSnapshots()
+    {
+        var graph = Graph(); var catalog = await Catalog();
+        var context = Context(JsonValue.Create(true), true, JsonValue.Create(false), 1_250_000);
+        var fingerprint = PlanningGraphCompiler.Fingerprint(context.ToJsonString());
+        foreach (var lean in new[] { false, true })
+        {
+            var yaml = new PlanningGraphCompiler().Compile(graph, catalog, "scalar", true, true, true, true, true, true, lean);
+            var parsed = WorkflowParser.Parse(yaml);
+            var workflow = parsed.Workflows["main"];
+            var step = workflow.Steps.Single(s => s.Id == Id("checked"));
+            step.Input = JsonValue.Create(step.Input!.ToString().Replace("data.steps", "data.inputs", StringComparison.Ordinal));
+            workflow.Inputs!.Clear(); workflow.Steps.Clear(); workflow.Steps.Add(step);
+            var result = await new WorkflowEngine().ExecuteAsync(new WorkflowCompiler().Compile(parsed).Workflows["main"], context["steps"]!.AsObject(), PlannerFixture.Ct);
+            Assert.True(result.Success, result.Error?.Message);
+            Assert.True(result.Outputs!["accepted"]!.GetValue<bool>());
+            Assert.Equal(fingerprint, PlanningGraphCompiler.Fingerprint(context.ToJsonString()));
+            output.WriteLine($"lean={lean}; YAML bytes={Encoding.UTF8.GetByteCount(yaml)}; unused observation bytes=10000000");
+        }
+    }
+
+    [Fact]
     public async Task ScalarSelectionDoesNotImportEightUnrelatedLargeObservations()
     {
         var graph = Graph(); var catalog = await Catalog();

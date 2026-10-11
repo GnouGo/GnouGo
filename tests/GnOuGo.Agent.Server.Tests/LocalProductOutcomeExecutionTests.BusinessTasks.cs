@@ -24,6 +24,29 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed partial class LocalProductOutcomeExecutionTests
 {
     [Fact]
+    public async Task ReadableProfilesPreserveBusinessCompositionContracts()
+    {
+        var factory = new RealProductContracts.Factory(RealProductContracts.Capture(new DocumentPolicy(new DocumentServerSettings(), AppContext.BaseDirectory)));
+        var runtime = new WorkflowPlanningRuntime(new() { McpClientFactory = factory }, (_, _) => Task.CompletedTask);
+        var catalog = await RetainedCatalog(runtime, TestContext.Current.CancellationToken);
+        catalog.Policy.RequireExternalConfirmation = false;
+        var plan = BusinessProposal("compact", catalog).Plan!;
+        var compiled = new TaskPlanCompiler().Compile(plan, catalog, new PlanningRequest { Options = new() { ["compilation_profile"] = "compact-bindings-v9" } });
+        Assert.NotNull(compiled.Graph);
+        var lengths = new List<int>();
+        foreach (var lean in new[] { false, true })
+        {
+            var yaml = new PlanningGraphCompiler().Compile(compiled.Graph, catalog, "composition", true, true, true, true, true, true, lean);
+            lengths.Add(Encoding.UTF8.GetByteCount(yaml));
+            new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml));
+            var diagnostics = await runtime.ValidateAsync(new(yaml, new(), catalog, PlanningGraphCompiler.CapabilityBindings(compiled.Graph)), TestContext.Current.CancellationToken);
+            Assert.True(diagnostics.Count == 0, string.Join('\n', diagnostics));
+        }
+        Assert.True(lengths[1] < lengths[0]);
+        output.WriteLine($"SAME BUSINESS PLAN v8→v9 YAML bytes={lengths[0]}→{lengths[1]}; contracts unchanged");
+    }
+
+    [Fact]
     public async Task BusinessCompositionRemovesForwardersWithoutChangingContractsOrLowering()
     {
         var factory = new RealProductContracts.Factory(RealProductContracts.Capture(new DocumentPolicy(new DocumentServerSettings(), AppContext.BaseDirectory)));
@@ -145,7 +168,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
                 Assert.Equal(expectedPlan, JsonSerializer.Serialize(session.Plan, PlanningJsonContext.Default.TaskPlan));
             }
             Assert.True(session.Status == PlanningStatus.FinalReview, string.Join('\n', session.Diagnostics));
-            Assert.Equal("compact-bindings-v8", session.Request.Options["compilation_profile"]!.ToString());
+            Assert.Equal("compact-bindings-v9", session.Request.Options["compilation_profile"]!.ToString());
             Assert.Contains("expression_contracts:", session.Yaml!);
             Assert.DoesNotContain("checkedMapping(", session.Yaml!);
             Assert.Equal(variant == "producer_revision" ? 2 : 1, session.ModelCalls); Assert.Equal(0, session.ReplanAttempts); Assert.Empty(visits); Assert.Empty(model.Requests);

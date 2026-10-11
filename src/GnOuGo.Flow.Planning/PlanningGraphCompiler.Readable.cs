@@ -34,6 +34,7 @@ public sealed partial class PlanningGraphCompiler
                 program = MappingProgram(group.Arguments[0]);
             }
             var expanded = Expand(program);
+            if (scope.LeanMappings) expanded = SimplifyReadableProgram(expanded);
             ExpressionEvaluator.Validate(expanded);
             metadata[pointer] = contracts;
             return JsonValue.Create("${\n" + FormatProgram(expanded) + "\n}");
@@ -136,6 +137,77 @@ public sealed partial class PlanningGraphCompiler
             var result = program[..syntax.Start] + Rewrite(syntax) + program[syntax.End..];
             return wholeSource || references == 0 ? null : result;
         }
+    }
+
+    // Only compiler-owned expressions enter here. Reuse a checked local when
+    // an object literal copies exactly its known fields; keep both declarations
+    // and their ordered contracts. Never infer an object's shape from its name.
+    private static string SimplifyReadableProgram(string program)
+    {
+        var syntax = new Parser().ParseExpression(program);
+        var fields = new Dictionary<string, string[]>(StringComparer.Ordinal);
+        static string? Key(Node key) => key is Identifier id ? id.Name : (key as StringLiteral)?.Value;
+        string Write(Node node)
+        {
+            switch (node)
+            {
+                case VariableDeclaration { Kind: VariableDeclarationKind.Const, Declarations.Count: 1 } declaration
+                    when declaration.Declarations[0] is { Id: Identifier name, Init: Expression value }:
+                {
+                    var expression = Write(value);
+                    if (value is ObjectExpression obj && obj.Properties.All(p => p is Property { Computed: false, Method: false, Shorthand: false }))
+                    {
+                        var properties = obj.Properties.Cast<Property>().ToArray();
+                        fields[name.Name] = properties.Select(p => Key(p.Key)!).ToArray();
+                        if (properties.Length > 0 && properties[0].Value is MemberExpression { Object: Identifier source } &&
+                            fields.TryGetValue(source.Name, out var original) && original.SequenceEqual(fields[name.Name]) &&
+                            properties.All(p => p.Value is MemberExpression { Object: Identifier owner } member && owner.Name == source.Name &&
+                                Key(p.Key) == (member.Computed ? (member.Property as StringLiteral)?.Value : Key(member.Property))))
+                            expression = source.Name;
+                    }
+                    return "const " + name.Name + " = " + expression + ";";
+                }
+                case ReturnStatement { Argument: not null } returned:
+                    return "return " + Write(returned.Argument) + ";";
+                case MemberExpression member:
+                    // Existing semantic validation treats a parenthesized
+                    // producer address as a checked projection boundary. Keep
+                    // that single boundary, removing only redundant nesting.
+                    var address = Operand(member.Object);
+                    if (program.AsSpan(member.Object.End, member.Property.Start - member.Object.End).Contains(')'))
+                        address = "(" + address + ")";
+                    return address + (member.Computed ? "[" + Write(member.Property) + "]" : "." + Write(member.Property));
+                case CallExpression call:
+                    return Operand(call.Callee) + "(" + string.Join(", ", call.Arguments.Select(Write)) + ")";
+                case ArrowFunctionExpression arrow:
+                    // Keep each callback's names and lexical boundary intact.
+                    var saved = fields.ToArray();
+                    foreach (var parameter in arrow.Params.OfType<Identifier>()) fields.Remove(parameter.Name);
+                    var callback = "(" + string.Join(", ", arrow.Params.Select(Write)) + ") => " +
+                        (arrow.Body is ObjectExpression ? "(" + Write(arrow.Body) + ")" : Write(arrow.Body));
+                    fields.Clear(); foreach (var field in saved) fields.Add(field.Key, field.Value);
+                    return callback;
+                case ObjectExpression obj:
+                    return "{" + string.Join(", ", obj.Properties.Select(Write)) + "}";
+                case ArrayExpression array:
+                    return "[" + string.Join(", ", array.Elements.Select(e => e is null ? "" : Write(e))) + "]";
+                case Property { Computed: false, Method: false, Shorthand: false } property:
+                    var key = Key(property.Key);
+                    if (property.Value is Identifier identifier && identifier.Name == key) return identifier.Name;
+                    return (key is not null && Identifier().IsMatch(key) ? key : Write(property.Key)) + ": " + Write(property.Value);
+            }
+            var result = new StringBuilder(); var position = node.Start;
+            foreach (var child in node.ChildNodes)
+            {
+                if (child.Start < position) continue;
+                result.Append(program.AsSpan(position, child.Start - position)).Append(Write(child));
+                position = child.End;
+            }
+            return result.Append(program.AsSpan(position, node.End - position)).ToString();
+        }
+        string Operand(Node node) => node is Acornima.Ast.Identifier or MemberExpression or CallExpression or ArrayExpression
+            ? Write(node) : "(" + Write(node) + ")";
+        return Write(syntax);
     }
 
     private static string FormatProgram(string program)
