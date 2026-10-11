@@ -13,6 +13,26 @@ public sealed class FusedBindingCompilationTests(Xunit.ITestOutputHelper output)
     [InlineData("exact ` ${literal} \\ é", true, null)]
     [InlineData("", false, "first")]
     [InlineData("observed", false, "guard")]
+    public async Task CompactSyntaxPreservesEveryIntermediateAndFailureOrder(string label, bool authorized, string? failure)
+    {
+        var graph = Graph(); var catalog = await Catalog();
+        foreach (var compact in new[] { false, true })
+        {
+            var yaml = new PlanningGraphCompiler().Compile(graph, catalog, "test", true, true, true, true, true, true, true, compact);
+            Assert.Contains("expression_contracts:", yaml); Assert.DoesNotContain("checkedMapping(", yaml);
+            var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml));
+            var result = await new WorkflowEngine().ExecuteAsync(document.Workflows["main"],
+                new JsonObject { ["label"] = label, ["authorized"] = authorized }, PlannerFixture.Ct);
+            Assert.Equal(failure is null, result.Success);
+            if (failure is null) Assert.Equal(label, result.Outputs!["chosen"]!.ToString());
+            else { Assert.Equal("INPUT_VALIDATION", result.Error!.Code); Assert.Equal(failure, result.Error.Details!["location"]!.ToString()); }
+        }
+    }
+
+    [Theory]
+    [InlineData("exact ` ${literal} \\ é", true, null)]
+    [InlineData("", false, "first")]
+    [InlineData("observed", false, "guard")]
     public async Task LeanBindingsReuseCopiesWithoutRemovingOrderedContracts(string label, bool authorized, string? failure)
     {
         var graph = Graph(); var catalog = await Catalog(); var compiler = new PlanningGraphCompiler();

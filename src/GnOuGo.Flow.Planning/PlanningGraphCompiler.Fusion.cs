@@ -26,6 +26,9 @@ public sealed partial class PlanningGraphCompiler
                 declaredFields.FirstOrDefault(p => p != "value") ??
                 (node.Input.Kind == "object" ? node.Input.Members.FirstOrDefault(m => m.Name != "value")?.Name : null) ??
                 projectedField ?? node.OutputSchema?.Properties.FirstOrDefault()?.Name ?? declaredFields.FirstOrDefault() ?? "binding";
+            if (scope.CompactProjections && field is "value" or "binding")
+                field = BindingValues(node.Input).SelectMany(v => v.Path).LastOrDefault(p =>
+                    p is not ("value" or "outputs" or "results") && !scope.Nodes.ContainsKey(p)) ?? "checkedValue";
             var stem = new string(field.Select(c => char.IsAsciiLetterOrDigit(c) || c == '_' ? c : '_').Take(48).ToArray());
             if (stem.Length == 0 || !char.IsAsciiLetter(stem[0]) && stem[0] != '_') stem = "binding_" + stem;
             var name = stem; var suffix = 2;

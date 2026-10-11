@@ -33,11 +33,11 @@ public sealed partial class PlanningGraphCompiler
                 contracts = JsonNode.Parse(program[group.Arguments[2].Start..group.Arguments[2].End])!.AsObject();
                 program = MappingProgram(group.Arguments[0]);
             }
-            var expanded = Expand(program);
+            var expanded = Expand(program, scope.CompactProjections);
             if (scope.LeanMappings) expanded = SimplifyReadableProgram(expanded);
             ExpressionEvaluator.Validate(expanded);
             metadata[pointer] = contracts;
-            return JsonValue.Create("${\n" + FormatProgram(expanded) + "\n}");
+            return JsonValue.Create("${\n" + FormatProgram(expanded, scope.CompactProjections) + "\n}");
         }
         step["input"] = RewriteInput(step["input"], "");
         if (metadata.Count != 0) step["expression_contracts"] = metadata;
@@ -49,7 +49,7 @@ public sealed partial class PlanningGraphCompiler
             TemplateLiteral { Expressions.Count: 0, Quasis.Count: 1 } template => template.Quasis[0].Value.Cooked!,
             _ => throw new InvalidOperationException("Compiler programs must be constant.")
         };
-        static string Expand(string program)
+        static string Expand(string program, bool compact)
         {
             var syntax = new Parser().ParseExpression(program);
             string Rewrite(Node node)
@@ -60,7 +60,7 @@ public sealed partial class PlanningGraphCompiler
                 if (node is CallExpression { Callee: Identifier { Name: "checkedMapping" }, Arguments.Count: 2 } mapping)
                 {
                     var source = Rewrite(mapping.Arguments[1]);
-                    var body = Expand(MappingProgram(mapping.Arguments[0]));
+                    var body = Expand(MappingProgram(mapping.Arguments[0]), compact);
                     static bool Address(Node value) => value is Identifier || value is MemberExpression member && Address(member.Object) &&
                         (member.Computed ? member.Property is StringLiteral : member.Property is Identifier);
                     if (Address(mapping.Arguments[1]) && SubstituteSource(body, "(" + source + ")", null) is { } direct)
@@ -68,6 +68,29 @@ public sealed partial class PlanningGraphCompiler
                     if (mapping.Arguments[1] is ObjectExpression captured && captured.Properties.All(p => p is Property { Computed: false, Method: false, Shorthand: false }))
                     {
                         var properties = captured.Properties.Cast<Property>().ToArray();
+                        var keys = properties.Select(p => p.Key is Identifier id ? id.Name : ((StringLiteral)p.Key).Value).ToArray();
+                        var reads = new List<string>();
+                        bool OrderedCopy(Node value)
+                        {
+                            if (value is MemberExpression { Object: Identifier { Name: "source" } } member &&
+                                (member.Computed ? member.Property is StringLiteral : member.Property is Identifier))
+                            { reads.Add(member.Property is Identifier name ? name.Name : ((StringLiteral)member.Property).Value); return true; }
+                            return value switch
+                            {
+                                ObjectExpression obj => obj.Properties.All(p => p is Property { Computed: false, Method: false, Shorthand: false } prop && OrderedCopy(prop.Value)),
+                                ArrayExpression array => array.Elements.All(e => e is not null && OrderedCopy(e)),
+                                StringLiteral or NumericLiteral or BooleanLiteral or NullLiteral => true,
+                                _ => false
+                            };
+                        }
+                        // Inline only eager structural copies using every capture
+                        // exactly once and in argument order. Keep callbacks and
+                        // conditional evaluation in their original lexical scope.
+                        if (compact && properties.All(p => Address(p.Value) || p.Value is StringLiteral or NumericLiteral or BooleanLiteral or NullLiteral) &&
+                            OrderedCopy(new Parser().ParseExpression(body)) && reads.SequenceEqual(keys) &&
+                            SubstituteSource(body, null, properties.Select((p, i) => (Key: keys[i], Text: "(" + Rewrite(p.Value) + ")"))
+                                .ToDictionary(p => p.Key, p => p.Text, StringComparer.Ordinal)) is { } copied)
+                            return copied;
                         IEnumerable<Node> Nodes(Node value) => new[] { value }.Concat(value.ChildNodes.SelectMany(Nodes));
                         var used = Nodes(new Parser().ParseExpression(body)).OfType<Identifier>().Select(n => n.Name).ToHashSet(StringComparer.Ordinal);
                         var bindings = properties.Select((p, i) =>
@@ -210,8 +233,24 @@ public sealed partial class PlanningGraphCompiler
         return Write(syntax);
     }
 
-    private static string FormatProgram(string program)
+    private static string FormatProgram(string program, bool compact)
     {
+        var propertyCommas = new HashSet<int>();
+        if (compact)
+        {
+            void Inspect(Node node)
+            {
+                if (node is ObjectExpression obj)
+                    for (var i = 1; i < obj.Properties.Count; i++)
+                    {
+                        var start = obj.Properties[i - 1].End;
+                        var comma = program.AsSpan(start, obj.Properties[i].Start - start).IndexOf(',');
+                        if (comma >= 0) propertyCommas.Add(start + comma);
+                    }
+                foreach (var child in node.ChildNodes) Inspect(child);
+            }
+            Inspect(new Parser().ParseExpression(program));
+        }
         var tokens = new Tokenizer(program); var result = new StringBuilder(); var position = 0; var indent = 0;
         while (true)
         {
@@ -228,7 +267,7 @@ public sealed partial class PlanningGraphCompiler
             result.Append(program.AsSpan(token.Start, token.End - token.Start)); position = token.End;
             if (token.Kind != TokenKind.Punctuator) continue;
             if (token.Value is "{") indent++;
-            if (token.Value is "{" or "," or ";") NewLine();
+            if (token.Value is "{" or ";" || token.Value is "," && (!compact || propertyCommas.Contains(token.Start))) NewLine();
         }
         return result.ToString().Trim();
 

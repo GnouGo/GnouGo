@@ -193,7 +193,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
             if (variant == "denied") proposal.Plan!.Root.Tasks.Single(t => t.Id == "write").Inputs.Single(i => i.Name == "filePath").Value.Text = "../outside.xlsx";
             var adapter = new ProposalRuntime(runtime, proposal);
             var initial = new PlanningSession { Catalog = catalog, Request = new() {
-                TenantId = "local", Prompt = proposal.Requirements!.Summary, Policy = new() { RequireExternalConfirmation = false },
+                TenantId = "local", Options = new() { ["compilation_profile"] = "compact-bindings-v9" }, Prompt = proposal.Requirements!.Summary, Policy = new() { RequireExternalConfirmation = false },
                 Generation = new() { MaxInputTokensPerRequest = 96000, MaxOutputTokens = 32768 } } };
             var session = unionRevision ? await ReviseUnionFixture(initial, runtime, proposal, ct) :
                 await new HybridWorkflowPlanner().AdvanceAsync(initial, new(), adapter, ct);
@@ -219,7 +219,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
                 Assert.Equal(expectedPlan, JsonSerializer.Serialize(session.Plan, PlanningJsonContext.Default.TaskPlan));
             }
             Assert.True(session.Status == PlanningStatus.FinalReview, string.Join('\n', session.Diagnostics));
-            Assert.Equal("compact-bindings-v9", session.Request.Options["compilation_profile"]!.ToString());
+            Assert.Equal(unionRevision || variant == "producer_revision" ? "compact-bindings-v10" : "compact-bindings-v9", session.Request.Options["compilation_profile"]!.ToString());
             Assert.Contains("expression_contracts:", session.Yaml!);
             Assert.DoesNotContain("checkedMapping(", session.Yaml!);
             Assert.Equal(variant == "producer_revision" || unionRevision ? 2 : 1, session.ModelCalls); Assert.Equal(0, session.ReplanAttempts); Assert.Empty(visits); Assert.Empty(model.Requests);
@@ -401,7 +401,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
         var request = new PlanningRequest { Options = new() { ["compilation_profile"] = profile } };
         var compiled = new TaskPlanCompiler().Compile(plan, catalog, request);
         Assert.True(compiled.Graph is not null, string.Join('\n', compiled.Diagnostics));
-        var yaml = new PlanningGraphCompiler().Compile(compiled.Graph!, catalog, "business", true, true, true, TaskPlanCompiler.UsesDirectProjections(request), TaskPlanCompiler.UsesNativeMappings(request), TaskPlanCompiler.UsesReadableMappings(request), TaskPlanCompiler.UsesLeanMappings(request));
+        var yaml = new PlanningGraphCompiler().Compile(compiled.Graph!, catalog, "business", true, true, true, TaskPlanCompiler.UsesDirectProjections(request), TaskPlanCompiler.UsesNativeMappings(request), TaskPlanCompiler.UsesReadableMappings(request), TaskPlanCompiler.UsesLeanMappings(request), TaskPlanCompiler.UsesCompactProjections(request));
         var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml));
         static IEnumerable<CompiledStep> All(IEnumerable<CompiledStep> steps) => steps.SelectMany(s => new[] { s }
             .Concat(All(s.Steps ?? [])).Concat(All(s.Default ?? [])).Concat((s.Cases ?? []).SelectMany(c => All(c.Steps)))

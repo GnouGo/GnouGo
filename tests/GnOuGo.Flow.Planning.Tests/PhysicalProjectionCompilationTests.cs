@@ -96,9 +96,9 @@ public sealed class PhysicalProjectionCompilationTests(Xunit.ITestOutputHelper o
         var graph = Graph(); var catalog = await Catalog();
         var context = Context(JsonValue.Create(true), true, JsonValue.Create(false), 1_250_000);
         var fingerprint = PlanningGraphCompiler.Fingerprint(context.ToJsonString());
-        foreach (var lean in new[] { false, true })
+        foreach (var profile in new[] { 8, 9, 10 })
         {
-            var yaml = new PlanningGraphCompiler().Compile(graph, catalog, "scalar", true, true, true, true, true, true, lean);
+            var yaml = new PlanningGraphCompiler().Compile(graph, catalog, "scalar", true, true, true, true, true, true, profile >= 9, profile >= 10);
             var parsed = WorkflowParser.Parse(yaml);
             var workflow = parsed.Workflows["main"];
             var step = workflow.Steps.Single(s => s.Id == Id("checked"));
@@ -108,7 +108,7 @@ public sealed class PhysicalProjectionCompilationTests(Xunit.ITestOutputHelper o
             Assert.True(result.Success, result.Error?.Message);
             Assert.True(result.Outputs!["accepted"]!.GetValue<bool>());
             Assert.Equal(fingerprint, PlanningGraphCompiler.Fingerprint(context.ToJsonString()));
-            output.WriteLine($"lean={lean}; YAML bytes={Encoding.UTF8.GetByteCount(yaml)}; unused observation bytes=10000000");
+            output.WriteLine($"profile={profile}; YAML bytes={Encoding.UTF8.GetByteCount(yaml)}; unused observation bytes=10000000");
         }
     }
 
@@ -152,12 +152,23 @@ public sealed class PhysicalProjectionCompilationTests(Xunit.ITestOutputHelper o
     {
         var graph = Graph(); var catalog = await Catalog(); var evaluator = new ExpressionEvaluator();
         var context = Context(JsonNode.Parse(first), present, JsonNode.Parse(second));
-        foreach (var direct in new[] { false, true })
-            Assert.Equal(expected, evaluator.Evaluate(Selection(Compile(graph, catalog, direct)), context)!["value"]?.ToJsonString() ?? "null");
+        var expressions = new[] { Selection(Compile(graph, catalog, false)), Selection(Compile(graph, catalog, true)) };
+        foreach (var expression in expressions)
+            Assert.Equal(expected, evaluator.Evaluate(expression, context)!["value"]?.ToJsonString() ?? "null");
+        // V10 helpers are authorized by expression_contracts, so exercise the
+        // actual checked step boundary rather than a bare expression evaluator.
+        var parsed = WorkflowParser.Parse(new PlanningGraphCompiler().Compile(graph, catalog, "projection", true, true, true, true, true, true, true, true));
+        var workflow = parsed.Workflows["main"]; var step = workflow.Steps.Single(s => s.Id == Id("checked"));
+        step.Input = JsonValue.Create(step.Input!.ToString().Replace("data.steps", "data.inputs", StringComparison.Ordinal));
+        workflow.Inputs!.Clear(); workflow.Steps.Clear(); workflow.Steps.Add(step);
+        var result = await new WorkflowEngine().ExecuteAsync(new WorkflowCompiler().Compile(parsed).Workflows["main"], context["steps"]!.AsObject(), PlannerFixture.Ct);
+        Assert.Equal(expected is "true" or "false", result.Success);
+        if (result.Success) Assert.Equal(expected, result.Outputs!["accepted"]!.ToJsonString());
+        else Assert.Null(result.Outputs);
         context["steps"]![Id("decision")]!.AsObject().Remove(Id("inside"));
         context["steps"]![Id("decision")]!.AsObject().Remove(Id("right"));
-        foreach (var direct in new[] { false, true })
-            Assert.Equal("CONTRACT_UNSATISFIED", Assert.Throws<WorkflowRuntimeException>(() => evaluator.Evaluate(Selection(Compile(graph, catalog, direct)), context)).Code);
+        foreach (var expression in expressions)
+            Assert.Equal("CONTRACT_UNSATISFIED", Assert.Throws<WorkflowRuntimeException>(() => evaluator.Evaluate(expression, context)).Code);
     }
 
     [Fact]

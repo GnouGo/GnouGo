@@ -20,6 +20,13 @@ public sealed partial class LocalProductOutcomeExecutionTests
             JsonSerializer.Serialize(compact.Requirements, PlanningJsonContext.Default.PlanningRequirements));
         Assert.Equal(RetainedOperations(original.Plan!), RetainedOperations(compact.Plan!));
         Assert.Equal(0, factory.InvocationAttempts);
+        var previous = BusinessCompilation(compact.Plan!, catalog, "compact-bindings-v9");
+        var current = BusinessCompilation(compact.Plan!, catalog, "compact-bindings-v10");
+        Assert.True(current.Yaml.Length < previous.Yaml.Length);
+        Assert.Equal(previous.Steps, current.Steps); Assert.Equal(previous.Sets, current.Sets);
+        output.WriteLine($"SAME COMPOSITION v9→v10 YAML={previous.Yaml.Length}→{current.Yaml.Length}; " +
+            $"maxLine={previous.Yaml.Split('\n').Max(l => l.Length)}→{current.Yaml.Split('\n').Max(l => l.Length)}; " +
+            $"steps={previous.Steps}→{current.Steps}; sets={previous.Sets}→{current.Sets}");
     }
 
     private static PlanningProposal UnionRevisionProposal(PlanningCatalog catalog)

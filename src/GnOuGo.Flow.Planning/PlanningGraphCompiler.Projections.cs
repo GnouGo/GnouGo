@@ -6,6 +6,44 @@ namespace GnOuGo.Flow.Planning;
 
 public sealed partial class PlanningGraphCompiler
 {
+    // A pure loop's historical call/outputs envelope is unnecessary only when
+    // every observer selects declared iteration exports. Whole-result, presence,
+    // handler and raw-expression observers retain the historical representation.
+    private static void PrepareCopyProjections(PlanningWorkflow workflow, LoweringScope scope)
+    {
+        var candidates = scope.Nodes.Values.Where(n => n.InternalRole is "typed_projection" or "typed_index_projection" &&
+            n.If is null && n.Expr is null && n.Output is null && n.CapabilityId is null && n.Retry is null && n.OnError.Count == 0 && n.Steps.Count == 1)
+            .ToDictionary(n => n.Key, StringComparer.Ordinal);
+        var used = new HashSet<string>(StringComparer.Ordinal);
+        void Inspect(PlanningValue? value)
+        {
+            if (value is null) return;
+            if (value.Kind is "expression" or "template") { candidates.Clear(); return; }
+            if (value.Kind == "projection" && PlanningGraphValidation.Member(value, "each")?.Boolean == true &&
+                PlanningGraphValidation.Member(value, "value") is { Kind: "output", Source: not null, ResultChannel: null or "default", Path.Count: 1 } source &&
+                source.Path[0] == "results" && candidates.TryGetValue(source.Source, out var loop) &&
+                PlanningGraphValidation.Literal(PlanningGraphValidation.Member(value, "paths")!) is JsonArray { Count: > 0 } paths)
+            {
+                var call = loop.Steps[0];
+                var body = scope.Workflows[PlanningGraphValidation.Member(call.Input, "ref")!.Source!];
+                if (paths.All(p => p is JsonArray { Count: >= 3 } path && path[0]?.ToString() == call.Key &&
+                    path[1]?.ToString() == "outputs" && body.Outputs.Any(o => o.Name == path[2]?.ToString())))
+                { used.Add(source.Source); return; }
+            }
+            if (value.Source is not null && value.Kind is "output" or "present" or "loop_previous") candidates.Remove(value.Source);
+            foreach (var member in value.Members) Inspect(member.Value);
+            foreach (var item in value.Items) Inspect(item);
+        }
+        foreach (var node in scope.Nodes.Values)
+        {
+            Inspect(node.Input); Inspect(node.If); Inspect(node.Expr);
+            foreach (var branch in node.Cases) Inspect(branch.When);
+            foreach (var handler in node.OnError) { Inspect(handler.If); Inspect(handler.SetOutput); }
+        }
+        foreach (var port in workflow.Outputs) Inspect(port.Value);
+        scope.DirectCopyOutputs.UnionWith(used.Where(candidates.ContainsKey));
+    }
+
     // Only compiler-marked copy loops qualify. Business loops retain their scopes,
     // effects, ordering and runtime receipts.
     private static JsonObject LowerCopyLoop(PlanningNode loop, LoweringScope scope)
@@ -36,7 +74,7 @@ public sealed partial class PlanningGraphCompiler
         {
             // Drop only sole-property wrappers: discarding siblings could skip
             // missing-value checks or an independently constrained value.
-            if (indexed && definitions.TryGetValue(value.Source!, out var definition))
+            if ((indexed || scope.CompactProjections) && definitions.TryGetValue(value.Source!, out var definition))
             {
                 var remaining = value.Path;
                 while (remaining.Count > 0 && definition.Kind == "object" && definition.Members.Count == 1 && definition.Members[0].Name == remaining[0])
@@ -67,7 +105,9 @@ public sealed partial class PlanningGraphCompiler
         }
         var outputs = "({" + string.Join(",", body.Outputs.Select(o => Quote(o.Name) + ":" + Resolve(o.Value))) + "})";
         var callId = scope.NodeIds[call.Key];
-        var script = "({results:source." + collection + ".map(" + (indexed ? "(item,index)" : "item") + "=>({" + Quote(callId) + ":{outputs:" + outputs + "}})),count:source." + collection + ".length})";
+        var direct = scope.DirectCopyOutputs.Contains(loop.Key);
+        var record = direct ? body.Outputs.Count == 1 ? Resolve(body.Outputs[0].Value) : outputs : "({" + Quote(callId) + ":{outputs:" + outputs + "}})";
+        var script = "({results:source." + collection + ".map(" + (indexed ? "(item,index)" : "item") + "=>" + record + "),count:source." + collection + ".length})";
         JintSandbox.ValidateMapping(script, learned: false);
         var source = ToExpression(new() { Kind = "object", Members = captures }, scope)[2..^1];
         var properties = new JsonObject(body.Outputs.Select(o => new KeyValuePair<string, JsonNode?>(o.Name, ToJsonSchema(o.Schema, scope.Catalog))));
@@ -77,7 +117,8 @@ public sealed partial class PlanningGraphCompiler
         return new() { ["id"] = scope.NodeIds[loop.Key], ["type"] = "set",
             ["input"] = "${checkedMapping(" + ProgramLiteral(script, scope) + "," + source + ")}",
             ["output_schema"] = new JsonObject { ["type"] = "object", ["properties"] = new JsonObject {
-                ["results"] = new JsonObject { ["type"] = "array", ["items"] = ObjectSchema(callId, ObjectSchema("outputs", outputSchema)) },
+                ["results"] = new JsonObject { ["type"] = "array", ["items"] = direct ? body.Outputs.Count == 1 ?
+                    ToJsonSchema(body.Outputs[0].Schema, scope.Catalog) : outputSchema : ObjectSchema(callId, ObjectSchema("outputs", outputSchema)) },
                 ["count"] = new JsonObject { ["type"] = "integer" } }, ["required"] = new JsonArray("results", "count") } };
     }
 

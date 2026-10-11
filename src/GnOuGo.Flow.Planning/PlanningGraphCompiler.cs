@@ -27,6 +27,9 @@ public sealed partial class PlanningGraphCompiler
         => Compile(graph, catalog, name, false);
 
     internal string Compile(PlanningGraph graph, PlanningCatalog catalog, string name, bool descriptions, bool fuseBindings = false, bool consumerBindings = false, bool directProjections = false, bool nativeMappings = false, bool readableMappings = false, bool leanMappings = false)
+        => Compile(graph, catalog, name, descriptions, fuseBindings, consumerBindings, directProjections, nativeMappings, readableMappings, leanMappings, false);
+
+    internal string Compile(PlanningGraph graph, PlanningCatalog catalog, string name, bool descriptions, bool fuseBindings, bool consumerBindings, bool directProjections, bool nativeMappings, bool readableMappings, bool leanMappings, bool compactProjections)
     {
         ArgumentNullException.ThrowIfNull(graph);
         var diagnostics = PlanningExecutableValidation.Validate(graph, catalog);
@@ -46,7 +49,8 @@ public sealed partial class PlanningGraphCompiler
             EnsureUnique(allNodes.Select(n => n.Key), "node");
             if (allNodes.Length > 300) throw new InvalidOperationException("A workflow exceeds the 300-node planning limit.");
             var nodeIds = allNodes.ToDictionary(n => n.Key, n => "n_" + Fingerprint(n.Key)[..16], StringComparer.Ordinal);
-            var scope = new LoweringScope(catalog, nodeIds, workflowIds, workflow.Inputs.Select(p => p.Name).ToHashSet(StringComparer.Ordinal), allNodes.ToDictionary(n => n.Key, n => n.Type, StringComparer.Ordinal), LoopVariables(allNodes), allNodes.ToDictionary(n => n.Key, StringComparer.Ordinal), graph.Workflows.ToDictionary(w => w.Key, StringComparer.Ordinal), descriptions) { DirectProjections = directProjections, NativeMappings = nativeMappings, ReadableMappings = readableMappings, LeanMappings = leanMappings };
+            var scope = new LoweringScope(catalog, nodeIds, workflowIds, workflow.Inputs.Select(p => p.Name).ToHashSet(StringComparer.Ordinal), allNodes.ToDictionary(n => n.Key, n => n.Type, StringComparer.Ordinal), LoopVariables(allNodes), allNodes.ToDictionary(n => n.Key, StringComparer.Ordinal), graph.Workflows.ToDictionary(w => w.Key, StringComparer.Ordinal), descriptions) { DirectProjections = directProjections, NativeMappings = nativeMappings, ReadableMappings = readableMappings, LeanMappings = leanMappings, CompactProjections = compactProjections };
+            if (compactProjections) PrepareCopyProjections(workflow, scope);
             if (fuseBindings) PrepareFusion(workflow, scope, consumerBindings);
             var lowered = new JsonObject();
             if (workflow.Inputs.Count > 0)
@@ -351,8 +355,15 @@ public sealed partial class PlanningGraphCompiler
             {
                 // Select declared exports using physical addresses before any
                 // whole-container key projection imports surrounding step results.
+                var compactPrefix = 0;
+                if (scope.DirectCopyOutputs.Contains(source.Source))
+                {
+                    var call = scope.Nodes[source.Source].Steps.Single();
+                    compactPrefix = scope.Workflows[PlanningGraphValidation.Member(call.Input, "ref")!.Source!].Outputs.Count == 1 ? 3 : 2;
+                }
                 selections = new JsonArray(selections.AsArray().Select(p => (JsonNode)new JsonArray(
-                    PhysicalPath("sequence", p!.AsArray().Select(s => s!.GetValue<string>()).ToArray(), scope)
+                    (compactPrefix > 0 ? p!.AsArray().Skip(compactPrefix).Select(s => s!.GetValue<string>()).ToArray() :
+                    PhysicalPath("sequence", p!.AsArray().Select(s => s!.GetValue<string>()).ToArray(), scope))
                         .Select(s => (JsonNode?)JsonValue.Create(s)).ToArray())).ToArray());
                 sourceExpression = OutputAddress(source.Source, scope) + ".results";
             }
@@ -678,6 +689,8 @@ public sealed partial class PlanningGraphCompiler
         internal bool NativeMappings { get; init; }
         internal bool ReadableMappings { get; init; }
         internal bool LeanMappings { get; init; }
+        internal bool CompactProjections { get; init; }
+        internal HashSet<string> DirectCopyOutputs { get; } = new(StringComparer.Ordinal);
         internal Dictionary<string, string[]> FusedOutputs { get; init; } = new(StringComparer.Ordinal);
         internal HashSet<string> FusedExports { get; init; } = new(StringComparer.Ordinal);
         internal HashSet<string> LocalOutputs { get; init; } = new(StringComparer.Ordinal);

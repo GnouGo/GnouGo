@@ -1,10 +1,29 @@
+## v10: direct pure-projection exports
+
+Fresh sessions and explicit revisions select `compact-bindings-v10`. The compiler
+omits synthetic call/outputs envelopes only when every observer selects declared
+ports of an already eligible pure projection. A single export becomes the direct
+array item; multiple exports share one object. Whole-result, presence, handler and
+raw-expression observers retain the historical envelope. Effectful loops and all
+scope, retry, error and recovery boundaries are unchanged.
+
+Eager structural capture copies can inline direct addresses only when all captured
+values are read once, in the original argument order. Checked locals and their
+ordered `expression_contracts` remain, including unused final values. Required
+checked-set object wrappers, strict lookup and first-present helpers remain.
+Generated local names use binding paths with collision protection; multiline
+formatting follows object properties and statements, keeping ordinary arguments
+and callback parameters together. No runtime imports, sandbox limits or validation
+rules change. Omitted/v1–v9 profiles and existing compiler overloads keep their
+exact lowering and approval hashes.
+
 ## v9: checked aliases
 
 The v9 lowering removes redundant parentheses and reuses a checked local when an assembly copies exactly its known ordered fields. Both local declarations and both schemas remain: an alias never removes an intermediate validation. Scope, effects and first-present boundaries are unchanged. Historical v8 output retains its original formatter and copies.
 
 # Compact bindings v8: native programs and separate contracts
 
-Fresh sessions and explicit revisions select approval-fingerprinted `compact-bindings-v9`. The existing final lowering composes compiler-owned expressions into native multiline JavaScript, without nested quoted `checkedMapping` programs. Direct checked property access, object/array literals, `map` and one-level `flatMap` preserve the declared bindings. Capture envelopes can bind operands directly without copying surrounding observations. Local names come from declared ports or binding identities, with deterministic collision suffixes. No filtering, truncation or deduplication is inferred.
+The v8/v9 profiles select readable checked bindings. The existing final lowering composes compiler-owned expressions into native multiline JavaScript, without nested quoted `checkedMapping` programs. Direct checked property access, object/array literals, `map` and one-level `flatMap` preserve the declared bindings. Capture envelopes can bind operands directly without copying surrounding observations. Local names come from declared ports or binding identities, with deterministic collision suffixes. No filtering, truncation or deduplication is inferred.
 
 `expression_contracts` is optional common step metadata. Its keys are JSON pointers relative to `input`; `''` selects the entire input. Each pointer must resolve to one complete `${…}` expression. The value maps the outer program's checked `const` declarations to their literal `origin` and JSON `schema`, for example:
 
