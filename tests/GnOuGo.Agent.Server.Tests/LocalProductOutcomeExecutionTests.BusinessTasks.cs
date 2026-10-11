@@ -337,6 +337,8 @@ public sealed partial class LocalProductOutcomeExecutionTests
                 // The judgment can only choose identities. No generated product
                 // text flows into either the public records or the workbook.
                 var block = Assert.Single(blocks);
+                if (variant.StartsWith("union_", StringComparison.Ordinal))
+                    Assert.Equal(new[] { "key", "description" }, block!.AsObject().Select(p => p.Key));
                 result = new() { ["selectedIds"] = new JsonArray(variant == "verbatim_unknown" ? JsonValue.Create("unoffered-block") : block!["key"]!.DeepClone()) };
                 Assert.Equal(new[] { "selectedIds" }, request.StructuredOutputSchema!["properties"]!.AsObject().Select(p => p.Key));
             }

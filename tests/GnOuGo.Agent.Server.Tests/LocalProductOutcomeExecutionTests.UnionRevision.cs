@@ -28,6 +28,16 @@ public sealed partial class LocalProductOutcomeExecutionTests
             Requires = new() { Kind = "present", Source = "extract_facts" },
             Body = new() { Outputs = [new("records", Field(new() { Kind = "item" }, "records"))] }
         });
+        var decision = visit.Body.Tasks.Single(t => t.Id == "reconcile");
+        visit.Body.Tasks.Insert(visit.Body.Tasks.IndexOf(decision), new()
+        {
+            Id = "description_view", Kind = "foreach", MaxItems = 2000,
+            Objective = "Give description selection only the block identity and observed description.",
+            Items = Flatten(Output("extract_facts", "pageFacts")),
+            Body = new() { Outputs = [new("candidate", new() { Kind = "object", Members =
+                [new("key", Field(new() { Kind = "item" }, "key")), new("description", Field(new() { Kind = "item" }, "description"))] })] }
+        });
+        decision.Inputs = [new("offeredBlocks", Output("description_view", "candidate"))];
         var selected = visit.Body.Tasks.Single(t => t.Id == "selected_block");
         var item = new TaskValue { Kind = "item" };
         selected.Body!.Tasks =
