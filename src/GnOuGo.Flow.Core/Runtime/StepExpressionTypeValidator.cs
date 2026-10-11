@@ -16,7 +16,7 @@ internal sealed record StepExpressionTypeMismatch(
 /// Conservative static type inference for interpolated step inputs. Unknown or opaque
 /// expressions are deliberately accepted and remain protected by runtime validation.
 /// </summary>
-internal static class StepExpressionTypeValidator
+internal static partial class StepExpressionTypeValidator
 {
     private static readonly Regex ExactExpression = new(
         @"^\s*\$\{(?<expression>[\s\S]*)\}\s*$",
@@ -59,7 +59,7 @@ internal static class StepExpressionTypeValidator
 
         return ValidateInput(
             input,
-            FlowTypeDescriptorConverter.FromJsonSchema(inputSchema),
+            inputSchema,
             FlowTypeDescriptorConverter.InputMap(workflowInputs),
             knownTypes,
             dataVariables: null,

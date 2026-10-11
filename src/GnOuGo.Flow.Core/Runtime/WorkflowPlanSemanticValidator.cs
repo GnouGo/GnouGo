@@ -909,7 +909,7 @@ public static class WorkflowPlanSemanticValidator
         {
             foreach (var mismatch in StepExpressionTypeValidator.ValidateInput(
                          step.Input,
-                         stepContract.InputType,
+                         stepContract.InputSchema,
                          symbols.WorkflowInputs,
                          symbols.StepOutputs,
                          symbols.DataVariables,
@@ -1186,7 +1186,7 @@ public static class WorkflowPlanSemanticValidator
 
         foreach (var mismatch in StepExpressionTypeValidator.ValidateInput(
                      step.Input,
-                     outputType,
+                     outputSchema,
                      symbols.WorkflowInputs,
                      symbols.StepOutputs,
                      symbols.DataVariables,
@@ -1823,7 +1823,7 @@ public static class WorkflowPlanSemanticValidator
                 inputSchema) ?? new JsonObject();
             foreach (var mismatch in StepExpressionTypeValidator.ValidateInput(
                          requestValue,
-                         FlowTypeDescriptorConverter.FromJsonSchema(inputSchema),
+                         inputSchema,
                          symbols.WorkflowInputs,
                          symbols.StepOutputs,
                          symbols.DataVariables,
@@ -2808,7 +2808,12 @@ public static class WorkflowPlanSemanticValidator
                 matchCount++;
         }
 
-        return matchCount == 1;
+        // An unresolved expression is not proof of membership in either branch.
+        // Static expression checks eliminate incompatible types separately; the
+        // complete resolved request must still match exactly one branch at runtime.
+        return allowDynamicExpressions && StepExpressionTypeValidator.ContainsExpression(value)
+            ? matchCount > 0
+            : matchCount == 1;
     }
 
     private static void ValidateObjectAgainstSchema(
