@@ -1,0 +1,15 @@
+{
+  "kind": "revise",
+  "preserveRequirements": true,
+  "expectedRevision": 6,
+  "artifactHash": "e2b138a387ba8cfda9431956181691ff1ef7f8eed99eacf4cd236eb61e334e4d",
+  "editablePaths": [
+    "/tasks/extractSearchControlsByPage/requires",
+    "/tasks/extractProductCandidatesByPage/requires",
+    "/tasks/extractProductFactsByPage/requires",
+    "/tasks/assembleProductRow/inputs",
+    "/tasks/assembleProductRow/resultType",
+    "/tasks/visitEachProduct/body/outputs/rows"
+  ],
+  "text": "Targeted revision only in these six declared slots. Preserve all requirements, tasks, objectives, operations, ordering, selected IDs/lookups, accepted non-null product objects with nullable fields, cardinality, file writer and cleanup.\n1. In each selected extraction requires, retain the existing success==true and observationSnapshot!=null checks, then short-circuit require observationSnapshot.captureTruncated==false and observationSnapshot.manifestTruncated==false for that same existing producer (openAmazonFr, readSearchResults or readProductPage respectively). Keep these real typed local assertions, with the non-null check before any field access.\n2. In assembleProductRow.inputs remove only productUrl; retain compact facts and actual error fields. In its resultType remove only the row.url member; preserve the other name, description, price, error nullable string members and non-null row object exactly. Interpretation reconciles facts but does not need to repeat an authoritative URL.\n3. Change visitEachProduct body output rows to one typed object binding with name, description, price and error selected directly from output(assembleProductRow,row), and url bound directly to output(readProductPage,url). This preserves the accepted complete product interface and copies the actual Browser URL deterministically, with no extra task or inference. Preserve every other value.\nNo structural edit, no new work, no inferred action arguments or fabricated values. Do not change requires outside the three authorized assertions."
+}

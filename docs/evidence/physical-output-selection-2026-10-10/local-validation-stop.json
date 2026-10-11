@@ -1,0 +1,23 @@
+{
+  "at_utc": "2026-10-10T07:38:41.456504+00:00",
+  "run": "physicaloutputs20261010a-amazon-1",
+  "candidate": "7376b4bd713d72d43dbe62270e41823273e0e618",
+  "action": "SIGINT and SIGTERM did not stop synchronous validation; SIGKILL to the verified owned harness only",
+  "reason": "Response receipt committed; recursive JSON Schema validation occupied a CPU core for approximately ten minutes without the next checkpoint. No validation bypass.",
+  "saved_revision": 5,
+  "saved_status": "generating",
+  "receipt_ids": [
+    "schema-portability-20261002:physicaloutputs20261010a-amazon-1:1:8544baa42cd97c36f734fe9e84482b47057e52c3e80c2d02a5122640d496103c",
+    "schema-portability-20261002:physicaloutputs20261010a-amazon-1:2:359a7d8f2b167cd9c1d5975fa5ea4a6df5ba7e760997594eaa08e2a9f0085667",
+    "schema-portability-20261002:physicaloutputs20261010a-amazon-1:3:5cf24b81b1dab21ca876325dafaa8b360b80c29f64c6c7d7a08e26e0e175042f",
+    "schema-portability-20261002:physicaloutputs20261010a-amazon-1:4:d19af3262db78a5ee9af7388c502de4188e9e4aa88be9e8002daa10bf62efab6"
+  ],
+  "execution_started": false,
+  "process_statistics_before_stop": "  PID ELAPSED      TIME  %CPU\n 9213   10:42   9:43.66  99.0\n",
+  "saved_session_rewritten": false,
+  "unknown_reservations_released": false,
+  "process_statistics_before_termination": "  PID ELAPSED      TIME  %CPU\n 9213   11:03  10:04.73  98.6\n",
+  "termination_requested_at_utc": "2026-10-10T07:39:02.521928+00:00",
+  "process_statistics_before_kill": "  PID ELAPSED      TIME  %CPU\n 9213   11:21  10:23.11 100.0\n",
+  "kill_at_utc": "2026-10-10T07:39:20.919478+00:00"
+}

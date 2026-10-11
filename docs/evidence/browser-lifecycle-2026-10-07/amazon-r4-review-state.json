@@ -1,0 +1,171 @@
+{
+  "status": "final_review",
+  "revision": 4,
+  "artifact_hash": "8213fa3b5db1d54acddc78d052d901b88bde08de0ece32523cf41b46df3ebfeb",
+  "requirements": {
+    "summary": "Créer un workflow qui accepte une seule entrée publique nommée query, recherche cette requête sur Amazon.fr, traite au maximum les 10 premiers produits, visite chaque page produit, extrait le nom, la description et le prix lorsque disponibles, puis sauvegarde ces données dans un fichier Excel à workflows/schema-portability-20261002/lifecycle20261007a-amazon-1/products.xlsx. Le navigateur doit être fermé même en cas d’échec; CAPTCHA et données absentes doivent rester explicites et ne jamais être inventés.",
+    "outcomes": [
+      {
+        "id": "search_amazon_fr",
+        "description": "Utiliser Amazon.fr pour rechercher l’article correspondant à l’entrée query."
+      },
+      {
+        "id": "limit_products",
+        "description": "Considérer au maximum les 10 premiers produits observés dans les résultats de recherche."
+      },
+      {
+        "id": "visit_each_product",
+        "description": "Naviguer sur la page de chaque produit retenu et tenter d’extraire nom, description et prix."
+      },
+      {
+        "id": "explicit_missing_data",
+        "description": "Si CAPTCHA, prix, description, nom ou autres données nécessaires sont absents ou inaccessibles, inscrire explicitement l’état correspondant sans inventer de valeur."
+      },
+      {
+        "id": "write_excel",
+        "description": "Créer le classeur Excel products.xlsx au chemin workflows/schema-portability-20261002/lifecycle20261007a-amazon-1/products.xlsx avec les données extraites."
+      },
+      {
+        "id": "close_browser",
+        "description": "Fermer le navigateur dans tous les cas, y compris en cas d’échec."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "query",
+        "type": {
+          "kind": "string",
+          "nullable": false,
+          "items": null,
+          "fields": []
+        },
+        "required": true,
+        "default": null
+      }
+    ],
+    "outputs": [
+      {
+        "name": "productsFile",
+        "type": {
+          "kind": "string",
+          "nullable": false,
+          "items": null,
+          "fields": []
+        },
+        "required": true,
+        "default": null
+      }
+    ]
+  },
+  "review": [
+    {
+      "id": "static",
+      "outcome": "passed",
+      "description": "Business bindings, contracts and control flow validated. External execution has not been observed.",
+      "diagnostics": []
+    },
+    {
+      "id": "operation:task_a6c6bb062d4b898156a9a47a",
+      "outcome": "declared",
+      "description": "Ouvrir Amazon.fr directement sur la page de résultats correspondant à query et capturer une observation structurée complète bornée de la page. — operation: cap_490d9e16075cbdca5954ec27 (GnOuGo.Browser.Mcp/browser_get_content); contract effect: read. Resource lifecycle is not established by this contract; review cleanup and retained artifacts. Execution has not been observed; review the business requirements separately.",
+      "diagnostics": []
+    },
+    {
+      "id": "operation:task_6cdc956b5576d30ff12004bf",
+      "outcome": "declared",
+      "description": "Créer le classeur Excel products.xlsx au chemin relatif demandé dans l’espace de travail, en préservant le filePath retourné par document_write. — operation: cap_37c513d225bb1b870053c5d3 (GnOuGo.Document.Mcp/document_write); contract effect: write. Declared resource locations checked; dynamic relationships still require execution evidence. Execution has not been observed; review the business requirements separately.",
+      "diagnostics": []
+    },
+    {
+      "id": "operation:task_a6ce291176e2a61016b9e35b",
+      "outcome": "declared",
+      "description": "Fermer le navigateur et son contexte dans tous les cas, y compris en cas d’échec d’une étape précédente. — operation: cap_bdb7ba9ab04b18783883fa86 (GnOuGo.Browser.Mcp/browser_close); contract effect: lifecycle. Resource lifecycle is not established by this contract; review cleanup and retained artifacts. Execution has not been observed; review the business requirements separately.",
+      "diagnostics": []
+    },
+    {
+      "id": "operation:task_44af0d5d7d64cf751395a554",
+      "outcome": "declared",
+      "description": "Activer le bouton de consentement cookies observé via sa référence exacte, avec l’action activate uniquement. — operation: cap_dd05fbf36e155a64318f3588 (GnOuGo.Browser.Mcp/browser_click); contract effect: execute. Resource lifecycle is not established by this contract; review cleanup and retained artifacts. Execution has not been observed; review the business requirements separately.",
+      "diagnostics": []
+    },
+    {
+      "id": "operation:task_5959ab95a00ffd52a9963338",
+      "outcome": "declared",
+      "description": "Capturer une nouvelle observation complète bornée de la page de recherche après l’action de consentement, afin d’obtenir des références fraîches. — operation: cap_490d9e16075cbdca5954ec27 (GnOuGo.Browser.Mcp/browser_get_content); contract effect: read. Resource lifecycle is not established by this contract; review cleanup and retained artifacts. Execution has not been observed; review the business requirements separately.",
+      "diagnostics": []
+    },
+    {
+      "id": "operation:task_38f2d5dbecba3a03b7365712",
+      "outcome": "declared",
+      "description": "Naviguer vers l’URL exacte observée pour le produit courant et capturer une observation structurée complète bornée de la page produit. — operation: cap_490d9e16075cbdca5954ec27 (GnOuGo.Browser.Mcp/browser_get_content); contract effect: read. Resource lifecycle is not established by this contract; review cleanup and retained artifacts. Execution has not been observed; review the business requirements separately.",
+      "diagnostics": []
+    },
+    {
+      "id": "mapping:task_1464f003d53367ecfd55761b",
+      "outcome": "declared",
+      "description": "Pour chaque page complète de l’observation initiale, copier uniquement les faits observés nécessaires à la décision de consentement/CAPTCHA: textes de blocage visibles, contrôles de consentement observés avec référence exacte et actions supportées, sans statut synthétique ni données produit. — runtime extraction, at most two model attempts per invocation; cache hits still validate the complete result. Unambiguous source/target collections use one result per item; ambiguous collections require explicit selection. Independent items preserve order and nesting; bounded examples generate one mapping, all items are validated, and the two attempts are shared. No execution evidence yet.",
+      "diagnostics": []
+    },
+    {
+      "id": "mapping:task_60704171071f30187007b9e5",
+      "outcome": "declared",
+      "description": "Pour chaque page complète de l’observation active des résultats, extraire uniquement les faits observés nécessaires à la sélection: textes de blocage visibles et liens candidats produit observés, en conservant l’ordre, l’URL exacte, la référence, les actions supportées, le texte et le groupement. Ne pas inventer position, compte, statut, CAPTCHA ou classification finale. — runtime extraction, at most two model attempts per invocation; cache hits still validate the complete result. Unambiguous source/target collections use one result per item; ambiguous collections require explicit selection. Independent items preserve order and nesting; bounded examples generate one mapping, all items are validated, and the two attempts are shared. No execution evidence yet.",
+      "diagnostics": []
+    },
+    {
+      "id": "mapping:task_a595102440cc8616152b8339",
+      "outcome": "declared",
+      "description": "Pour chaque page complète de l’observation produit courante, copier uniquement les faits observés utiles au consommateur: titres/noms visibles, prix visibles, descriptions/caractéristiques visibles et textes de blocage. Ne pas inventer statut, CAPTCHA, position ni champ absent. — runtime extraction, at most two model attempts per invocation; cache hits still validate the complete result. Unambiguous source/target collections use one result per item; ambiguous collections require explicit selection. Independent items preserve order and nesting; bounded examples generate one mapping, all items are validated, and the two attempts are shared. No execution evidence yet.",
+      "diagnostics": []
+    }
+  ],
+  "diagnostics": [],
+  "result": {
+    "status": "final_review",
+    "planning_ms": 469179,
+    "calls": 3,
+    "repairs": 0,
+    "discovery_reads": 2,
+    "review_revisions": 1,
+    "diagnostics": [],
+    "execution_success": false,
+    "execution_oracle": false,
+    "execution_status": "not_started",
+    "accounting": {
+      "planning": {
+        "logical_calls": 3,
+        "physical_attempts": 4,
+        "known_input_tokens": 36732,
+        "known_output_tokens": 12421,
+        "known_cost_eur": 0.49364628627207385,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "execution": {
+        "logical_calls": 0,
+        "physical_attempts": 0,
+        "known_input_tokens": 0,
+        "known_output_tokens": 0,
+        "known_cost_eur": 0,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "campaign": {
+        "calls": 816,
+        "session_calls": 0,
+        "known_input_tokens": 12245574,
+        "known_output_tokens": 1510061,
+        "known_cost_eur": 94.8296124856388,
+        "reserved_input_tokens": 192000,
+        "reserved_output_tokens": 65536,
+        "reserved_cost_eur": 2.606752783964365,
+        "cost_upper_bound_eur": 97.43636526960316,
+        "unknown_attempts": 2
+      }
+    }
+  }
+}

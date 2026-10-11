@@ -6,7 +6,7 @@
     <IsAotCompatible>true</IsAotCompatible>
     <IsPackable>true</IsPackable>
     <PackageId>GnOuGo.Flow.Planning</PackageId>
-    <PackageReleaseNotes>Breaking planning format 10: semantic TaskPlan compilation and local business choices; regenerate and approve previous planning sessions. Execution journals remain schema 9.</PackageReleaseNotes>
+    <PackageReleaseNotes>Typed add/subtract/multiply/divide/remainder/negate formulas lower to JavaScript only after contract closure. Retired numeric executors require revision and fresh approval. Numeric literal APIs use double; historical serialized tokens and planning format 10 remain unchanged.</PackageReleaseNotes>
     <Authors>GnOuGo</Authors>
     <Description>Provider-neutral, resumable typed workflow planning and deterministic YAML generation.</Description>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
@@ -17,6 +17,7 @@
     <InternalsVisibleTo Include="GnOuGo.Flow.Integrations.Tests" />
     <InternalsVisibleTo Include="GnOuGo.Flow.Planning.Smoke" />
     <InternalsVisibleTo Include="GnOuGo.Agent.Planning.Benchmark" />
+    <InternalsVisibleTo Include="GnOuGo.Agent.Server.Tests" />
     <ProjectReference Include="../GnOuGo.Flow.Core/GnOuGo.Flow.Core.csproj" />
     <None Include="README.md" Pack="true" PackagePath="/" />
   </ItemGroup>

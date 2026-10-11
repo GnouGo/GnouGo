@@ -1,0 +1,325 @@
+{
+  "run": "pagination20261004b-code-2",
+  "source": "b93a5890fb0d15672de1aaaf24f1c2b9dcd675bc",
+  "result": {
+    "status": "final_review",
+    "planning_ms": 94484,
+    "calls": 4,
+    "repairs": 0,
+    "discovery_reads": 4,
+    "review_revisions": 1,
+    "diagnostics": [],
+    "execution_success": false,
+    "execution_oracle": false,
+    "execution_status": "completed",
+    "accounting": {
+      "planning": {
+        "logical_calls": 4,
+        "physical_attempts": 4,
+        "known_input_tokens": 92561,
+        "known_output_tokens": 7518,
+        "known_cost_eur": 0.6132249443207127,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "execution": {
+        "logical_calls": 18,
+        "physical_attempts": 18,
+        "known_input_tokens": 381166,
+        "known_output_tokens": 4426,
+        "known_cost_eur": 1.8161336302895323,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "campaign": {
+        "calls": 622,
+        "session_calls": 0,
+        "known_input_tokens": 9839228,
+        "known_output_tokens": 920451,
+        "known_cost_eur": 68.36536722190222,
+        "reserved_input_tokens": 192000,
+        "reserved_output_tokens": 65536,
+        "reserved_cost_eur": 2.606752783964365,
+        "cost_upper_bound_eur": 70.97212000586659,
+        "unknown_attempts": 2
+      }
+    },
+    "execution_ms": 698491,
+    "total_ms": 792975
+  },
+  "oracle": {
+    "passed": false,
+    "findings": [
+      "workflow_execution_failed",
+      "repository_not_cleaned_by_workflow",
+      "local_review_missing",
+      "repository_required_checks_not_independently_verified"
+    ]
+  },
+  "verified_checks": {
+    "pinned_head": true,
+    "pinned_base": true,
+    "manifest_observed": true,
+    "node_toolchain": true,
+    "pnpm_toolchain": true,
+    "python_toolchain": true,
+    "node_dependencies": true,
+    "python_dependencies": false,
+    "python_lint": false,
+    "python_tests": false,
+    "node_tests": true
+  },
+  "terminal": {
+    "phase": "failed",
+    "sessions": 1,
+    "inferenceAttempts": 18,
+    "reservedTokens": 1938576,
+    "completionVerified": true,
+    "admissionStop": {
+      "kind": "Tokens",
+      "maxModelCalls": 32,
+      "maxTotalTokens": 2000000,
+      "deadline": "2026-10-04T21:08:15.681126+00:00",
+      "modelCalls": 18,
+      "chargedTokens": 1938576,
+      "requiredInputTokens": 168928
+    },
+    "termination": "verified_failure"
+  },
+  "durable_task_status": "completed",
+  "durable_result_is_error": true,
+  "execution_error_code": "MCP_CALL_ERROR",
+  "finalization_errors": [
+    {
+      "code": "WORKFLOW_FINALIZATION_TIMEOUT",
+      "type": "WORKFLOW_FINALIZATION_TIMEOUT",
+      "message": "Workflow finalization exceeded 30 seconds.",
+      "retryable": true
+    }
+  ],
+  "tool_counts": {
+    "bash": 22,
+    "project_read": 2,
+    "read_bash": 1
+  },
+  "completed_tool_count": 25,
+  "conflicting_tool_count": 0,
+  "correlated_terminals": 1,
+  "pre_execution_refusals": 1,
+  "bounded_log_reads": {
+    "call_VWf5YLiPLjEn69KAloqT91xv": {
+      "utf8_bytes": 4133,
+      "is_object": true,
+      "keys": [
+        "text",
+        "offset",
+        "nextOffset",
+        "truncated"
+      ],
+      "truncation_artifact_notice": false,
+      "text_characters": 4000,
+      "next_offset": 4000,
+      "truncated": true
+    }
+  },
+  "serialized_inference_inputs": [
+    {
+      "request_id": "schema-portability-20261002:pagination20261004b-code-2-copilot:1459e20bd01c177234e0bf8ac1680168ab03195f17422fda0b6ddc58b106dc89",
+      "serialized_utf8_bytes": 49653,
+      "messages": 12,
+      "tool_message_utf8_bytes": 6328
+    },
+    {
+      "request_id": "schema-portability-20261002:pagination20261004b-code-2-copilot:26cefd03f5f9f19084e3f45fd91adb256aaee1c55007198b46a994060046d8ef",
+      "serialized_utf8_bytes": 53372,
+      "messages": 14,
+      "tool_message_utf8_bytes": 8976
+    },
+    {
+      "request_id": "schema-portability-20261002:pagination20261004b-code-2-copilot:2c7296b243fd46324866a230af747cd35d908b7adb905493e3c693b7b5952912",
+      "serialized_utf8_bytes": 109323,
+      "messages": 22,
+      "tool_message_utf8_bytes": 61378
+    },
+    {
+      "request_id": "schema-portability-20261002:pagination20261004b-code-2-copilot:372316d4f28d30133139458d9adf6441bd70898dd6204c77776be217112ca99f",
+      "serialized_utf8_bytes": 75927,
+      "messages": 18,
+      "tool_message_utf8_bytes": 29598
+    },
+    {
+      "request_id": "schema-portability-20261002:pagination20261004b-code-2-copilot:3981d0b2802f09d7eda7a52daaac88b2ac5e141eef0178f5f24e8224a8cf128c",
+      "serialized_utf8_bytes": 40915,
+      "messages": 4,
+      "tool_message_utf8_bytes": 48
+    },
+    {
+      "request_id": "schema-portability-20261002:pagination20261004b-code-2-copilot:3cedd33c9a6e24dad0bcce6d6233a957213fe139495479c9e21211b76adc96bc",
+      "serialized_utf8_bytes": 116492,
+      "messages": 27,
+      "tool_message_utf8_bytes": 66677
+    },
+    {
+      "request_id": "schema-portability-20261002:pagination20261004b-code-2-copilot:3e761be7b5e678bba9b023f4e743e189ba237eb5f1423823860a0ad97c6fe8a3",
+      "serialized_utf8_bytes": 40397,
+      "messages": 2,
+      "tool_message_utf8_bytes": 0
+    },
+    {
+      "request_id": "schema-portability-20261002:pagination20261004b-code-2-copilot:4e9ea649af7bebe6dc36d8b61225d9eba445c99384df30e0ad14d26829e9a89e",
+      "serialized_utf8_bytes": 122576,
+      "messages": 32,
+      "tool_message_utf8_bytes": 71310
+    },
+    {
+      "request_id": "schema-portability-20261002:pagination20261004b-code-2-copilot:591a6bfaf7152eab2ec0f0b3f310c6f09cd6fddfafc70c7c4e065d84904c4976",
+      "serialized_utf8_bytes": 126252,
+      "messages": 39,
+      "tool_message_utf8_bytes": 72738
+    },
+    {
+      "request_id": "schema-portability-20261002:pagination20261004b-code-2-copilot:6903183cd7e0fc7108eb2d1547a35eeec52e18ef0b5f84357161f6df8be382b9",
+      "serialized_utf8_bytes": 44457,
+      "messages": 10,
+      "tool_message_utf8_bytes": 2015
+    },
+    {
+      "request_id": "schema-portability-20261002:pagination20261004b-code-2-copilot:6e23702aa26bb27f458a015fd4567fa96722ce6ae515c9183ad5df9916d0416a",
+      "serialized_utf8_bytes": 95036,
+      "messages": 20,
+      "tool_message_utf8_bytes": 47712
+    },
+    {
+      "request_id": "schema-portability-20261002:pagination20261004b-code-2-copilot:7468a67d5b47974e3801dc9c6c94f8fc83a03f81474913db1b14a11411fb209b",
+      "serialized_utf8_bytes": 123959,
+      "messages": 36,
+      "tool_message_utf8_bytes": 71507
+    },
+    {
+      "request_id": "schema-portability-20261002:pagination20261004b-code-2-copilot:772de82f7e87ddf7e1352f0f70ab5820a0e1dd4bcda4be5ba55ac290d117221a",
+      "serialized_utf8_bytes": 41756,
+      "messages": 8,
+      "tool_message_utf8_bytes": 149
+    },
+    {
+      "request_id": "schema-portability-20261002:pagination20261004b-code-2-copilot:93877bf02b9e6328b6f8fbaec15a40b2b2dc5060539dfe2d3c7912310d6c98cd",
+      "serialized_utf8_bytes": 148108,
+      "messages": 45,
+      "tool_message_utf8_bytes": 92730
+    },
+    {
+      "request_id": "schema-portability-20261002:pagination20261004b-code-2-copilot:c9753c394b8c4e1acbf4884b9e246839b2f3d54035e4e079f1f1d911338be8f6",
+      "serialized_utf8_bytes": 117155,
+      "messages": 29,
+      "tool_message_utf8_bytes": 66738
+    },
+    {
+      "request_id": "schema-portability-20261002:pagination20261004b-code-2-copilot:e4848215133a4eeebcc2dc93e1fdb498a5c5dd15e91f83702aab5e2c4e805932",
+      "serialized_utf8_bytes": 115711,
+      "messages": 25,
+      "tool_message_utf8_bytes": 66475
+    },
+    {
+      "request_id": "schema-portability-20261002:pagination20261004b-code-2-copilot:f2e969dfadda4159653a024e059d59460eec80d5c3bcb1114a46451dc9403976",
+      "serialized_utf8_bytes": 41330,
+      "messages": 6,
+      "tool_message_utf8_bytes": 95
+    },
+    {
+      "request_id": "schema-portability-20261002:pagination20261004b-code-2-copilot:f65164206b2253a301339f0c899b21744174a78a0b3d2f1ce327a6eb8cc6c653",
+      "serialized_utf8_bytes": 123308,
+      "messages": 34,
+      "tool_message_utf8_bytes": 71466
+    }
+  ],
+  "commands": [
+    {
+      "command": "node --version",
+      "exits": [
+        0
+      ],
+      "correlated": false
+    },
+    {
+      "command": "pnpm --version",
+      "exits": [
+        0
+      ],
+      "correlated": false
+    },
+    {
+      "command": "python --version",
+      "exits": [
+        0
+      ],
+      "correlated": false
+    },
+    {
+      "command": "uv --version",
+      "exits": [
+        0
+      ],
+      "correlated": false
+    },
+    {
+      "command": "uv sync --native-tls --group tests --group dev",
+      "exits": [
+        0
+      ],
+      "correlated": false
+    },
+    {
+      "command": "pnpm install",
+      "exits": [
+        0
+      ],
+      "correlated": false
+    },
+    {
+      "command": "uv sync --native-tls --group tests --group dev --group ci",
+      "exits": [
+        0
+      ],
+      "correlated": false
+    },
+    {
+      "command": "uv tool run ruff==0.15.22 check production/api/src packages/axa-fr-smartguide-production/src",
+      "exits": [
+        0
+      ],
+      "correlated": false
+    },
+    {
+      "command": "pnpm --filter axa-fr-smartguide-smi run lint",
+      "exits": [
+        1
+      ],
+      "correlated": false
+    },
+    {
+      "command": "pnpm --filter demo run lint",
+      "exits": [
+        2
+      ],
+      "correlated": false
+    },
+    {
+      "command": "uv run coverage run --omit=*.venv*,config.py,config-3.py,_remote_module_non_scriptable.py -m pytest --junitxml=dist/test-results.xml -W ignore::DeprecationWarning",
+      "exits": [
+        2
+      ],
+      "correlated": true
+    },
+    {
+      "command": "pnpm recursive run test",
+      "exits": [
+        1
+      ],
+      "correlated": false
+    }
+  ]
+}

@@ -84,7 +84,7 @@ public sealed class StreamingWorkflowTelemetry : IWorkflowTelemetry
 			StepId: info.StepId,
 			StepType: info.StepType,
 			CallDepth: info.CallDepth,
-			Input: info.Input?.DeepClone()));
+			Input: info.Input?.DeepClone()) { Description = info.Description });
 
 		return new StreamingStepSpan(innerStepSpan, info, _emit);
 	}

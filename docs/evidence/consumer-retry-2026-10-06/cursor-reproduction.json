@@ -1,0 +1,28 @@
+{
+  "baseline": "716d4b5510a3759fb54283eb1e9d6476b0adcc5e",
+  "test": "GnOuGo.Browser.Mcp.Tests.BrowserObservationTests.CompactSnapshotPreservesObservedGroupsAndLinksWithBoundedContinuation",
+  "source": "Local arbitrary HTML fixture; actual Playwright Browser host and MCP tool method; no inference or external site",
+  "sequence": [
+    "Capture observation_pages manifest with more than three pages",
+    "Read issued page cursor with format=observation and no other overrides"
+  ],
+  "before": {
+    "success": false,
+    "error": "InvalidOperationException: The observation cursor is invalid or expired. Capture the current page again."
+  },
+  "after": {
+    "success": true,
+    "assertions": [
+      "Both observation formats return identical serialized pages",
+      "All captured records consumed exactly once, with observed grouping and links preserved",
+      "Frozen bounds, new URL/selector and html/text continuation rejected",
+      "Malformed and navigation-invalidated cursors rejected",
+      "Legacy cursor layout and limits preserved"
+    ]
+  },
+  "browser_suite": {
+    "passed": 50,
+    "failed": 0
+  },
+  "live_replayed": false
+}

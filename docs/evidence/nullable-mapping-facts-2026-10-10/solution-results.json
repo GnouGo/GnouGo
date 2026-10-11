@@ -1,0 +1,225 @@
+{
+  "candidate": "ce58f8da5b2abf0acfa2508ffdc7701a89bd58c6",
+  "command": "Kestrel__Endpoints__Grpc__Url=http://127.0.0.1:0 dotnet test GnOuGo.Agent.sln -m:1 -warnaserror -p:SkipModelMetadataGeneration=true",
+  "exit_code": 0,
+  "totals": {
+    "passed": 5111,
+    "failed": 0,
+    "skipped": 13
+  },
+  "assemblies": [
+    {
+      "assembly": "gnougo.docingestor.tests.dll",
+      "passed": 89,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "assembly": "gnougo.diff.tests.dll",
+      "passed": 52,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "assembly": "gnougo.keyvault.core.tests.dll",
+      "passed": 12,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "assembly": "gnougo.flow.tests.dll",
+      "passed": 1218,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "assembly": "gnougo.flow.integrations.tests.dll",
+      "passed": 99,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "assembly": "gnougo.ai.core.tests.dll",
+      "passed": 225,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "assembly": "gnougo.ai.local.tests.dll",
+      "passed": 14,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "assembly": "gnougo.agent.mcp.tests.dll",
+      "passed": 103,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "assembly": "gnougo.cmd.mcp.tests.dll",
+      "passed": 93,
+      "failed": 0,
+      "skipped": 7
+    },
+    {
+      "assembly": "gnougo.browser.mcp.tests.dll",
+      "passed": 141,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "assembly": "gnougo.agent.server.tests.dll",
+      "passed": 751,
+      "failed": 0,
+      "skipped": 1
+    },
+    {
+      "assembly": "gnougo.document.mcp.tests.dll",
+      "passed": 64,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "assembly": "gnougo.keyvault.mcp.tests.dll",
+      "passed": 9,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "assembly": "gnougo.files.server.tests.dll",
+      "passed": 10,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "assembly": "gnougo.docingestor.mcp.tests.dll",
+      "passed": 7,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "assembly": "gnougo.otlpcollector.server.tests.dll",
+      "passed": 7,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "assembly": "gnougo.githubcopilot.mcp.tests.dll",
+      "passed": 240,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "assembly": "gnougo.githubcopilot.core.tests.dll",
+      "passed": 173,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "assembly": "gnougo.githubcopilot.e2e.tests.dll",
+      "passed": 7,
+      "failed": 0,
+      "skipped": 5
+    },
+    {
+      "assembly": "gnougo.observability.core.tests.dll",
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "assembly": "gnougo.git.mcp.tests.dll",
+      "passed": 83,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "assembly": "gnougo.workspace.tests.dll",
+      "passed": 30,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "assembly": "gnougo.mcp.core.tests.dll",
+      "passed": 49,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "assembly": "gnougo.flow.mermaid.tests.dll",
+      "passed": 12,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "assembly": "gnougo.assets.bears.tests.dll",
+      "passed": 91,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "assembly": "gnougo.assets.animation.tests.dll",
+      "passed": 42,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "assembly": "gnougo.assets.animation.server.tests.dll",
+      "passed": 13,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "assembly": "gnougo.assets.bears.server.tests.dll",
+      "passed": 28,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "assembly": "gnougo.flow.planning.tests.dll",
+      "passed": 1236,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "assembly": "gnougo.proxycopilot.server.tests.dll",
+      "passed": 177,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "assembly": "gnougo.auth.core.tests.dll",
+      "passed": 8,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "assembly": "gnougo.flow.persistence.tests.dll",
+      "passed": 20,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "assembly": "gnougo.flow.copilot.tests.dll",
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0
+    }
+  ],
+  "existing_skips": [
+    "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.LaunchInitializationPreservesLeadingScriptDeclarations(script: \"using namespace System\\n[Console]::WriteLine('names\"\u00b7\u00b7\u00b7, expected: \"namespace declaration\", exitCode: 0)",
+    "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.PrivateEofPreservesRepeatedCommandsUnicodeQuotesAndExitCodes(exitCode: 3)",
+    "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.DefaultLaunchUsesOnlyTheSelectedShellsBuiltInModulePath",
+    "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.LaunchInitializationPreservesLeadingScriptDeclarations(script: \"param([string]$text = 'parameter default'); [Conso\"\u00b7\u00b7\u00b7, expected: \"parameter default\", exitCode: 3)",
+    "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.PrivateEofPreservesRepeatedCommandsUnicodeQuotesAndExitCodes(exitCode: 0)",
+    "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.TimeoutAndCancellationTerminateTheChildTree(cancel: False)",
+    "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.TimeoutAndCancellationTerminateTheChildTree(cancel: True)",
+    "GnOuGo.Agent.Server.Tests.PlanningClarificationBrowserTests.DesignerBrowserUsesRealPersistedQuestionsAndExplicitSubmission",
+    "GnOuGo.GithubCopilot.E2E.Tests.LiveControlledEditingTests.RealModel_InspectsEditsAndVerifiesResults(managed: True, bounded: True, executeTests: False)",
+    "GnOuGo.GithubCopilot.E2E.Tests.LivePullRequestReviewTests.ConfiguredOpenAiProvider_CanReviewExactDiffWithoutPublishing",
+    "GnOuGo.GithubCopilot.E2E.Tests.LiveControlledEditingTests.RealModel_InspectsEditsAndVerifiesResults(managed: True, bounded: True, executeTests: True)",
+    "GnOuGo.GithubCopilot.E2E.Tests.LiveControlledEditingTests.RealModel_InspectsEditsAndVerifiesResults(managed: True, bounded: False, executeTests: True)",
+    "GnOuGo.GithubCopilot.E2E.Tests.LiveControlledEditingTests.RealModel_InspectsEditsAndVerifiesResults(managed: False, bounded: False, executeTests: True)"
+  ]
+}

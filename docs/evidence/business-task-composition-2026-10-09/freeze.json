@@ -1,0 +1,18 @@
+{
+  "source": "1022ed33437179386eb8a43c5d9f3cbf11453bfd",
+  "campaign": "schema-portability-20261002",
+  "cohort": "businesstasks20261009a",
+  "run": "businesstasks20261009a-amazon-1",
+  "max_products": 10,
+  "configuration_hash": "0d9b3f888b2a23348f7efbdc00cc764d2e388e63c076dd350b945bc161539d31",
+  "sha256": {
+    "tests/GnOuGo.Agent.Planning.Benchmark/LiveWorkflowEvaluation.cs": "c184cbd99aa2d4fed60f2f01a7e26d34baede6138934c225dffaa91114272d23",
+    "tests/GnOuGo.Agent.Planning.Benchmark/LiveWorkflowOracles.cs": "e2d6ddf002b75cfd5ddc5be10852c118e7b9d2a3c3d3875c03a0770de054f62a",
+    "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Planning.Benchmark.dll": "d9cd891845e2496f0113547643fff7c3bd7b9e0eb1e849891fde132cfaf8968f",
+    "src/GnOuGo.Browser.Mcp/bin/Debug/net10.0/GnOuGo.Browser.Mcp.dll": "5a89542a505efb88e4b33d783d25da8b134d418f828e560752b7f8e5dfd9da36",
+    "src/GnOuGo.Document.Mcp/bin/Debug/net10.0/GnOuGo.Document.Mcp.dll": "48ca643548b81555a1b4a6d0cf716b179bb8bdaa43ad8a010ab88e63ad2225f9",
+    "src/GnOuGo.Flow.Planning/bin/Debug/net10.0/GnOuGo.Flow.Planning.dll": "7b5089849bd9f90c2e0ab6b3d3976f543c801eecf4fa079c742484ee86468453",
+    "src/GnOuGo.Flow.Core/bin/Debug/net10.0/GnOuGo.Flow.Core.dll": "b5f276b529d516acea652356c05b0babfb2f6aeda0eb3c6f0baf9fa9599b680a",
+    "src/GnOuGo.Flow.Planning/PlanningPrompt.cs": "e9e19ff5613d4cf7e2cca9957608ab3967c76a6b40b348cf6db336c8a81507e2"
+  }
+}

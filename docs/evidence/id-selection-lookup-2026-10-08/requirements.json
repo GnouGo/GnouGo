@@ -1,0 +1,138 @@
+{
+  "summary": "Créer un workflow qui accepte une entrée publique query, utilise Amazon.fr pour rechercher l’article demandé, collecte au maximum les 10 premiers produits, visite chaque page produit, extrait le nom, la description et le prix sans inventer les données absentes, sauvegarde les résultats dans un classeur Excel à workflows/schema-portability-20261002/lookupselection20261008a-amazon-1/products.xlsx, et ferme le navigateur même en cas d’échec.",
+  "outcomes": [
+    {
+      "id": "search_amazon_fr",
+      "description": "Rechercher sur Amazon.fr l’article fourni par l’entrée query."
+    },
+    {
+      "id": "collect_products",
+      "description": "Lister et conserver les identifiants/original indexes des 10 premiers produits au maximum, sans renumérotation."
+    },
+    {
+      "id": "visit_each_product",
+      "description": "Naviguer sur la page de chaque produit sélectionné et extraire les observations disponibles."
+    },
+    {
+      "id": "handle_absence_and_captcha",
+      "description": "Indiquer explicitement les données absentes, les prix absents ou un blocage CAPTCHA, sans inventer de valeurs."
+    },
+    {
+      "id": "save_excel",
+      "description": "Créer et sauvegarder le fichier Excel products.xlsx au chemin imposé."
+    },
+    {
+      "id": "cleanup_browser",
+      "description": "Fermer le navigateur dans tous les cas, y compris en cas d’échec."
+    }
+  ],
+  "inputs": [
+    {
+      "name": "query",
+      "type": {
+        "kind": "string",
+        "nullable": false,
+        "items": null,
+        "fields": []
+      },
+      "required": true,
+      "default": null
+    }
+  ],
+  "outputs": [
+    {
+      "name": "products_file",
+      "type": {
+        "kind": "string",
+        "nullable": false,
+        "items": null,
+        "fields": []
+      },
+      "required": false,
+      "default": null
+    },
+    {
+      "name": "products",
+      "type": {
+        "kind": "array",
+        "nullable": false,
+        "items": {
+          "kind": "object",
+          "nullable": false,
+          "items": null,
+          "fields": [
+            {
+              "name": "id",
+              "type": {
+                "kind": "string",
+                "nullable": false,
+                "items": null,
+                "fields": []
+              },
+              "required": true,
+              "default": null
+            },
+            {
+              "name": "original_index",
+              "type": {
+                "kind": "integer",
+                "nullable": false,
+                "items": null,
+                "fields": []
+              },
+              "required": true,
+              "default": null
+            },
+            {
+              "name": "name",
+              "type": {
+                "kind": "string",
+                "nullable": true,
+                "items": null,
+                "fields": []
+              },
+              "required": true,
+              "default": null
+            },
+            {
+              "name": "description",
+              "type": {
+                "kind": "string",
+                "nullable": true,
+                "items": null,
+                "fields": []
+              },
+              "required": true,
+              "default": null
+            },
+            {
+              "name": "price",
+              "type": {
+                "kind": "string",
+                "nullable": true,
+                "items": null,
+                "fields": []
+              },
+              "required": true,
+              "default": null
+            },
+            {
+              "name": "status",
+              "type": {
+                "kind": "string",
+                "nullable": false,
+                "items": null,
+                "fields": []
+              },
+              "required": true,
+              "default": null
+            }
+          ]
+        },
+        "fields": []
+      },
+      "required": false,
+      "default": null
+    }
+  ]
+}

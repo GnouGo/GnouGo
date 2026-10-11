@@ -1,0 +1,402 @@
+[
+  {
+    "invocation": "/workflow/main/step/n_575964d6f73194a2/mapping/0",
+    "request_id": "72f5cc898fbfef0c7e8c3ca906b47c90cccde6e4b6901891d9e97cf1fb11c7f3",
+    "status": "completed",
+    "usage": {
+      "input_tokens": 19582,
+      "output_tokens": 4941,
+      "total_tokens": 24523,
+      "benchmark_cost_eur": 0.21842222025024402,
+      "transport_attempts": 1,
+      "uncertain_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "benchmark_usage_bounded": true
+    },
+    "response": {
+      "script": "item.records.flatMap((r,i)=>m.test(r.kind,\"^link$\")&&m.test(r.text,\"\\\\S\")&&m.test(r.href,\"(ref_=sbx_s_sparkle_sbtcd_(hl|asin_[0-9]+_title)|/dp/[A-Z0-9]{10}|/gp/(aw/)?d/[A-Z0-9]{10}|/sspa/click)\")?[{reference:r.reference,observed_title_text:r.text,observed_result_text:r.text,observed_price_text:m.has(item.records.slice(i,i+12).filter(p=>m.test(p.text,\"[0-9]+(?:[,.][0-9]{2})?\\\\s*€(?:\\\\s*[0-9]{2})?\")),\"0\")?m.text(item.records.slice(i,i+12).filter(p=>m.test(p.text,\"[0-9]+(?:[,.][0-9]{2})?\\\\s*€(?:\\\\s*[0-9]{2})?\"))[0].text,\"([0-9]+(?:[,.][0-9]{2})?\\\\s*€(?:\\\\s*[0-9]{2})?)\"):m.select(r,[[\"role\"]])}]:[])"
+    }
+  },
+  {
+    "invocation": "/workflow/main/step/n_575964d6f73194a2/mapping/1",
+    "request_id": "0eca965f1b4c1db3a9541842338240ab3cb1e275d97db47ad311ec5f953f920d",
+    "status": "completed",
+    "usage": {
+      "input_tokens": 19584,
+      "output_tokens": 3851,
+      "total_tokens": 23435,
+      "benchmark_cost_eur": 0.18941343508740793,
+      "transport_attempts": 1,
+      "uncertain_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "benchmark_usage_bounded": true
+    },
+    "response": {
+      "script": "item.records.flatMap((r,i)=>m.test(r.kind,\"^link$\")&&m.test(r.text,\"\\\\S\")&&m.test(r.href,\"(ref_=sbx_be_s_3psl_mbd_mb[0-9]_hl|ref_=sbx_s_sparkle_sbtcd_(hl|asin_[0-9]+_title)|/dp/[A-Z0-9]{10}|/gp/(aw/)?d/[A-Z0-9]{10}|/sspa/click)\")?[{reference:r.reference,observed_title_text:r.text,observed_result_text:r.text,observed_price_text:m.select({p:item.records.slice(i).slice(0,12).filter(p=>m.test(p.text,\"[0-9]+(?:[,.][0-9]{2})?\\\\s*(?:€|EUR)(?:\\\\s*[0-9]{2})?\")),n:r},[[\"p\",\"0\",\"text\"],[\"n\",\"role\"]])}]:[])"
+    }
+  },
+  {
+    "invocation": "/workflow/main/step/n_575964d6f73194a2/mapping/2",
+    "request_id": "2a80d781928e874e08913680bcfbbd554d7e2a1a6ce8e0741cd36865a1c07653",
+    "status": "completed",
+    "usage": {
+      "input_tokens": 23381,
+      "output_tokens": 6964,
+      "total_tokens": 30345,
+      "benchmark_cost_eur": 0.2891339071789866,
+      "transport_attempts": 1,
+      "uncertain_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "benchmark_usage_bounded": true
+    },
+    "response": {
+      "script": "item.records.flatMap((r,i)=>m.test(r.kind,\"^link$\")&&m.test(r.text,\"(Chauss|Baskets|Mocassins|Sneakers|Derbies|Sandales|Bottes|Boots|Tennis|Homme|Hommes|Geox|Sport|Course|Marche|Lacets|Chaussons)\")&&m.test(m.percentDecode(r.href),\"(/dp/[A-Z0-9]{10}|/gp/aw/d/[A-Z0-9]{10}|/gp/d/[A-Z0-9]{10}|/sspa/click)\")?[{reference:r.reference,observed_title_text:r.text,observed_result_text:r.text,observed_price_text:m.select({p:item.records.slice(i).slice(0,12).filter(q=>m.test(q.text,\"[0-9]+[,.][0-9]{2}\\\\s*€\")),r:r},[[\"p\",\"0\",\"text\"],[\"r\",\"role\"]])}]:[])"
+    }
+  },
+  {
+    "invocation": "/workflow/main/step/n_575964d6f73194a2/mapping/3",
+    "request_id": "206db096bb7628433b7d19dcb253bb07772b164356f47e1c048b431777b80d77",
+    "status": "completed",
+    "usage": {
+      "input_tokens": 23325,
+      "output_tokens": 749,
+      "total_tokens": 24074,
+      "benchmark_cost_eur": 0.12343153784719141,
+      "transport_attempts": 1,
+      "uncertain_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "benchmark_usage_bounded": true
+    },
+    "response": {
+      "script": "item.records.flatMap((r,i)=>m.test(r.kind,\"^link$\")&&m.test(r.text,\"(Chauss|Baskets|Mocassins|Sneakers|Derbies|Sandales|Bottes|Boots|Tennis|Homme|Hommes|Geox|Sport|Course|Marche|Lacets|Chaussons)\")&&m.test(m.percentDecode(r.href),\"(/dp/[A-Z0-9]{10}|/gp/aw/d/[A-Z0-9]{10}|/gp/d/[A-Z0-9]{10}|/sspa/click)\")?[{reference:r.reference,observed_title_text:r.text,observed_result_text:r.text,observed_price_text:m.select({p:item.records.slice(i).slice(0,12).filter(q=>m.test(q.text,\"[0-9]+[,.][0-9]{2}\\\\s*€\")),r:r},[[\"p\",\"0\",\"text\"],[\"r\",\"role\"]],false)}]:[])"
+    }
+  },
+  {
+    "invocation": "/workflow/main/step/n_575964d6f73194a2/mapping/4",
+    "request_id": "1ad5de58b3f77002612c9de1362415a4d9877e2800ac4ed3f361495cdd8aaa71",
+    "status": "completed",
+    "usage": {
+      "input_tokens": 13083,
+      "output_tokens": 3705,
+      "total_tokens": 16788,
+      "benchmark_cost_eur": 0.15668204809654807,
+      "transport_attempts": 1,
+      "uncertain_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "benchmark_usage_bounded": true
+    },
+    "response": {
+      "script": "item.records.flatMap((r,i)=>m.test(r.kind,\"^link$\")&&m.test(r.text,\"\\\\S\")&&m.test(r.href,\"(ref_=sbx_s_sparkle_sbtcd_(hl|asin_[0-9]+_title)|/ref=sr_[0-9]+_[0-9]+)\")?[{reference:r.reference,observed_title_text:r.text,observed_result_text:r.text,observed_price_text:m.select({p:item.records.slice(i).slice(0,16).filter(p=>m.test(p.text,\"[0-9]+(?:[,.][0-9]{2})?\\\\s*€(?:\\\\s*[0-9]{2})?\")),n:r.role},[[\"p\",\"0\",\"text\"],[\"n\"]])}]:[])"
+    }
+  },
+  {
+    "invocation": "/workflow/main/step/n_575964d6f73194a2/mapping/5",
+    "request_id": "a3d0ed17fc98e44f27bbf1d917b4c7543261ee3471fab2aa8d3b7caf418d81c4",
+    "status": "completed",
+    "usage": {
+      "input_tokens": 12980,
+      "output_tokens": 1219,
+      "total_tokens": 14199,
+      "benchmark_cost_eur": 0.09004348211908776,
+      "transport_attempts": 1,
+      "uncertain_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "benchmark_usage_bounded": true
+    },
+    "response": {
+      "script": "item.records.flatMap((r,i)=>m.test(r.kind,\"^link$\")&&m.test(r.text,\"\\\\S\")&&m.test(r.href,\"(ref_=sbx_s_sparkle_sbtcd_(hl|asin_[0-9]+_title)|/ref=sr_[0-9]+_[0-9]+)\")?[{reference:r.reference,observed_title_text:r.text,observed_result_text:r.text,observed_price_text:m.select({p:item.records.slice(i).slice(0,16).filter(p=>m.test(p.text,\"[0-9]+(?:[,.][0-9]{2})?\\\\s*€(?:\\\\s*[0-9]{2})?\")),n:r.role},[[\"p\",\"0\",\"text\"],[\"n\"]],false)}]:[])"
+    }
+  },
+  {
+    "invocation": "/workflow/main/step/n_575964d6f73194a2/mapping/6",
+    "request_id": "1f36438f092a82555cf16b5578fe6617620e228ed02df98e8e48e166b1481755",
+    "status": "completed",
+    "usage": {
+      "input_tokens": 22391,
+      "output_tokens": 3384,
+      "total_tokens": 25775,
+      "benchmark_cost_eur": 0.18943561984204454,
+      "transport_attempts": 1,
+      "uncertain_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "benchmark_usage_bounded": true
+    },
+    "response": {
+      "script": "item.records.flatMap((r,i)=>m.test(r.kind,\"^link$\")&&m.test(r.text,\"[A-Za-z].*[A-Za-z]\")&&!m.test(r.text,\"[0-9]+(?:[,.][0-9]{2})?\\\\s*(?:€|EUR)(?:\\\\s*[0-9]{2})?\")&&m.test(r.href,\"(ref_=sbx_be_s_3psl_mbd_mb[0-9]_hl|ref_=sbx_s_sparkle_sbtcd_(hl|asin_[0-9]+_title)|/dp/[A-Z0-9]{10}|/gp/(aw/)?d/[A-Z0-9]{10}|/sspa/click)\")?[{reference:r.reference,observed_title_text:r.text,observed_result_text:r.text,observed_price_text:m.select({p:item.records.slice(i).slice(0,12).filter(p=>m.test(p.text,\"[0-9]+(?:[,.][0-9]{2})?\\\\s*(?:€|EUR)(?:\\\\s*[0-9]{2})?\")),n:r},[[\"p\",\"0\",\"text\"],[\"n\",\"role\"]],false)}]:[])"
+    }
+  },
+  {
+    "invocation": "/workflow/main/step/n_575964d6f73194a2/mapping/7",
+    "request_id": "83326ced366f79084cc6bdb177bc35e5e42b6fcf888a1148eb1523168a44cef6",
+    "status": "completed",
+    "usage": {
+      "input_tokens": 13241,
+      "output_tokens": 2820,
+      "total_tokens": 16061,
+      "benchmark_cost_eur": 0.1338228769189813,
+      "transport_attempts": 1,
+      "uncertain_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "benchmark_usage_bounded": true
+    },
+    "response": {
+      "script": "item.records.flatMap((r,i)=>m.test(r.kind,\"^link$\")?(m.test(r.href,\"ref_=sbx__sbtcd2_asin_[0-9]+_title\")?[{reference:m.text(r.href,\"%2Fd%2F([A-Z0-9]{10})\"),observed_title_text:r.text,observed_result_text:r.text,observed_price_text:m.has(item.records.slice(i).slice(0,12).filter(p=>m.test(p.text,\"[0-9]+(?:[,.][0-9]{2})?\\\\s*€\")),\"0\")?m.text(m.select(item.records.slice(i).slice(0,12).filter(p=>m.test(p.text,\"[0-9]+(?:[,.][0-9]{2})?\\\\s*€\")),[[\"0\",\"text\"]]),\"([0-9]+(?:[,.][0-9]{2})?\\\\s*€)\"):m.select(r,[[\"role\"]])}]:[]):[])"
+    }
+  },
+  {
+    "invocation": "/workflow/main/step/n_575964d6f73194a2/mapping/8",
+    "request_id": "8ff8b1919467887ea3ab91918b81e6c5f9fe8b27fea515c1f4187dea63fa5263",
+    "status": "completed",
+    "usage": {
+      "input_tokens": 13193,
+      "output_tokens": 2767,
+      "total_tokens": 15960,
+      "benchmark_cost_eur": 0.13219895287958114,
+      "transport_attempts": 1,
+      "uncertain_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "benchmark_usage_bounded": true
+    },
+    "response": {
+      "script": "item.records.flatMap((r,i)=>m.test(r.kind,\"^link$\")?(m.test(r.href,\"ref_=sbx__sbtcd2_asin_[0-9]+_title\")?[{reference:m.text(r.href,\"%2Fd%2F([A-Z0-9]{10})\"),observed_title_text:r.text,observed_result_text:r.text,observed_price_text:m.has(item.records.slice(i).slice(0,12).filter(p=>m.test(p.text,\"[0-9]+(?:[,.][0-9]{2})?\\\\s*€\")),\"0\")?m.text(m.select(item.records.slice(i).slice(0,12).filter(p=>m.test(p.text,\"[0-9]+(?:[,.][0-9]{2})?\\\\s*€\")),[[\"0\",\"text\"]],false),\"([0-9]+(?:[,.][0-9]{2})?\\\\s*€)\"):m.select(r,[[\"role\"]],false)}]:[]):[])"
+    }
+  },
+  {
+    "invocation": "/workflow/main/step/n_575964d6f73194a2/mapping/9",
+    "request_id": "87a4945308b378d8124ab5684c77dc68a555e0a974a418b4a42d7933aee903c6",
+    "status": "completed",
+    "usage": {
+      "input_tokens": 18727,
+      "output_tokens": 3335,
+      "total_tokens": 22062,
+      "benchmark_cost_eur": 0.17187416807170114,
+      "transport_attempts": 1,
+      "uncertain_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "benchmark_usage_bounded": true
+    },
+    "response": {
+      "script": "item.records.filter(r=>m.test(r.kind,\"^link$\")).filter(r=>m.test(r.href,\"(/dp/[A-Z0-9]{10}|/gp/(aw/)?d/[A-Z0-9]{10}|/sspa/click[^&]*url=%2F[^&]*%2Fdp%2F[A-Z0-9]{10})\")).filter(r=>m.test(r.text,\"[A-Za-zÀ-ÿ€]\")).map(r=>({reference:r.reference,observed_title_text:m.test(r.text,\"€\")?m.select(r,[[\"role\"]]):r.text,observed_result_text:r.text,observed_price_text:m.test(r.text,\"[0-9]+(?:[,.][0-9]{2})?\\\\s*€\")?m.text(r.text,\"([0-9]+(?:[,.][0-9]{2})?\\\\s*€(?:\\\\s*[0-9]{2})?)\"):m.select(r,[[\"role\"]])}))"
+    }
+  },
+  {
+    "invocation": "/workflow/main/step/n_7117a9ac28dd5252/mapping/0",
+    "request_id": "4c9a81e02c93fe5786ebb935359718e337447f3d997826e2332bf40cd7b4e15e",
+    "status": "completed",
+    "usage": {
+      "input_tokens": 19208,
+      "output_tokens": 3235,
+      "total_tokens": 22443,
+      "benchmark_cost_eur": 0.1713461709113497,
+      "transport_attempts": 1,
+      "uncertain_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "benchmark_usage_bounded": true
+    },
+    "response": {
+      "script": "item.records.filter(r=>m.has(r.actions,\"0\")&&(m.test(r.actions[0],\"^fill$\")&&m.test(r.selector,\"^#twotabsearchtextbox$\")||m.test(r.actions[0],\"^activate$\")&&(m.test(r.selector,\"^#sp-cc-accept$\")||m.test(r.text,\"^(Accepter|Tout accepter)( les cookies)?$\")))).map(r=>({reference:r.reference,observed_text:r.text,observed_role:r.role,observed_action:r.actions[0]}))"
+    }
+  },
+  {
+    "invocation": "/workflow/main/step/n_ed6de7e31b5c0f85/mapping/0",
+    "request_id": "f914413d56c60ae20b5d9802e77b3bf6c621d2444398efb9a46348a0fb521173",
+    "status": "completed",
+    "usage": {
+      "input_tokens": 18655,
+      "output_tokens": 1092,
+      "total_tokens": 19747,
+      "benchmark_cost_eur": 0.1118422220250244,
+      "transport_attempts": 1,
+      "uncertain_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "benchmark_usage_bounded": true
+    },
+    "response": {
+      "script": "item.records.filter(r=>m.test(r.actions[0],\"^fill$\")).map(r=>({reference:r.reference,observed_text:r.text,observed_role:r.role,observed_action:r.actions[0]}))"
+    }
+  },
+  {
+    "invocation": "/workflow/main/step/n_ed6de7e31b5c0f85/mapping/1",
+    "request_id": "baa2d7a8a2b5a28704f213d40077d575995973709c1d31e2e5da52757778a6e5",
+    "status": "completed",
+    "usage": {
+      "input_tokens": 8666,
+      "output_tokens": 475,
+      "total_tokens": 9141,
+      "benchmark_cost_eur": 0.051095926879048716,
+      "transport_attempts": 1,
+      "uncertain_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "benchmark_usage_bounded": true
+    },
+    "response": {
+      "script": "item.records.filter(r=>m.has(r.actions,\"0\")&&m.test(r.actions[0],\"^fill$\")).map(r=>({reference:r.reference,observed_text:r.text,observed_role:r.role,observed_action:r.actions[0]}))"
+    }
+  },
+  {
+    "invocation": "/workflow/main/step/n_ed6de7e31b5c0f85/mapping/2",
+    "request_id": "7bc9b4fefbd7b030b5c27004ed28c812b6f1843d115e2131c1e38beb76c2b3b4",
+    "status": "completed",
+    "usage": {
+      "input_tokens": 10319,
+      "output_tokens": 583,
+      "total_tokens": 10902,
+      "benchmark_cost_eur": 0.061305350962818354,
+      "transport_attempts": 1,
+      "uncertain_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "benchmark_usage_bounded": true
+    },
+    "response": {
+      "script": "item.records.filter(r=>m.has(r.actions,0)?m.test(r.actions[0],\"^fill$\"):false).map(r=>({reference:r.reference,observed_text:r.text,observed_role:r.role,observed_action:r.actions[0]}))"
+    }
+  },
+  {
+    "invocation": "/workflow/main/step/n_ed6de7e31b5c0f85/mapping/3",
+    "request_id": "b6444d785df99693c5b3f0ee9960d1c1cb4e2d4786d1e955c3885a1a8fce5c05",
+    "status": "completed",
+    "usage": {
+      "input_tokens": 10331,
+      "output_tokens": 581,
+      "total_tokens": 10912,
+      "benchmark_cost_eur": 0.061305350962818354,
+      "transport_attempts": 1,
+      "uncertain_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "benchmark_usage_bounded": true
+    },
+    "response": {
+      "script": "item.records.filter(r=>m.has(r.actions,0)&&m.test(r.actions[0],\"^fill$\")).map(r=>({reference:r.reference,observed_text:r.text,observed_role:r.role,observed_action:r.actions[0]}))"
+    }
+  },
+  {
+    "invocation": "/workflow/main/step/n_ed6de7e31b5c0f85/mapping/4",
+    "request_id": "8fb5fce6f45e8594bf5386ecc16c0d36cd1d3b07c82927811c4957aff801ab91",
+    "status": "completed",
+    "usage": {
+      "input_tokens": 10327,
+      "output_tokens": 496,
+      "total_tokens": 10823,
+      "benchmark_cost_eur": 0.05902475818617446,
+      "transport_attempts": 1,
+      "uncertain_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "benchmark_usage_bounded": true
+    },
+    "response": {
+      "script": "item.records.flatMap(r=>r.actions.filter(a=>m.test(a,\"^fill$\")).map(a=>({reference:r.reference,observed_text:r.text,observed_role:r.role,observed_action:a})))"
+    }
+  },
+  {
+    "invocation": "/workflow/main/step/n_ed6de7e31b5c0f85/mapping/5",
+    "request_id": "e7600dd687e8c4c9c4d7deda8b1631845a6078a36fd499910656a8808e51db54",
+    "status": "completed",
+    "usage": {
+      "input_tokens": 11800,
+      "output_tokens": 1545,
+      "total_tokens": 13345,
+      "benchmark_cost_eur": 0.09348655603869022,
+      "transport_attempts": 1,
+      "uncertain_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "benchmark_usage_bounded": true
+    },
+    "response": {
+      "script": "item.records.filter(r=>m.has(r.actions,0)&&m.test(r.actions[0],\"^fill$\")).map(r=>({reference:r.reference,observed_text:r.text,observed_role:r.role,observed_action:r.actions[0]}))"
+    }
+  },
+  {
+    "invocation": "/workflow/main/step/n_ed6de7e31b5c0f85/mapping/6",
+    "request_id": "2d8b68a7eaf43a29ccb7c12965b096abab83f5ac32812b464b1f2e16cf88a9ba",
+    "status": "completed",
+    "usage": {
+      "input_tokens": 11808,
+      "output_tokens": 573,
+      "total_tokens": 12381,
+      "benchmark_cost_eur": 0.06764575383796255,
+      "transport_attempts": 1,
+      "uncertain_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "benchmark_usage_bounded": true
+    },
+    "response": {
+      "script": "item.records.flatMap(r=>r.actions.filter(a=>m.test(a,\"^fill$\")).map(a=>({reference:r.reference,observed_text:r.text,observed_role:r.role,observed_action:a})))"
+    }
+  },
+  {
+    "invocation": "/workflow/main/step/n_ed6de7e31b5c0f85/mapping/7",
+    "request_id": "ee4e81b78cac23240f2462a2ef90377fd569c08734c5a8aa6a2405c33a67f745",
+    "status": "completed",
+    "usage": {
+      "input_tokens": 10502,
+      "output_tokens": 573,
+      "total_tokens": 11075,
+      "benchmark_cost_eur": 0.06185109592687905,
+      "transport_attempts": 1,
+      "uncertain_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "benchmark_usage_bounded": true
+    },
+    "response": {
+      "script": "item.records.flatMap(r=>r.actions.filter(a=>m.test(a,\"^fill$\")).map(a=>({reference:r.reference,observed_text:r.text,observed_role:r.role,observed_action:a})))"
+    }
+  },
+  {
+    "invocation": "/workflow/main/step/n_ed6de7e31b5c0f85/mapping/8",
+    "request_id": "4de66505ecbeac797d05d3f0253916d6c6a4436d2a3bee1f2015228b4e18cf81",
+    "status": "completed",
+    "usage": {
+      "input_tokens": 9384,
+      "output_tokens": 573,
+      "total_tokens": 9957,
+      "benchmark_cost_eur": 0.056890584790132225,
+      "transport_attempts": 1,
+      "uncertain_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "benchmark_usage_bounded": true
+    },
+    "response": {
+      "script": "item.records.flatMap(r=>r.actions.filter(a=>m.test(a,\"^fill$\")).map(a=>({reference:r.reference,observed_text:r.text,observed_role:r.role,observed_action:a})))"
+    }
+  }
+]

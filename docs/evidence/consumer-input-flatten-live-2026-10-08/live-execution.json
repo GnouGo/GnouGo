@@ -1,0 +1,226 @@
+{
+  "run": "consumerflat20261008a-amazon-1",
+  "execution_started": "2026-10-08T05:38:19.4948210+00:00",
+  "execution_ms": 31332,
+  "execution": {
+    "success": false,
+    "outputs": null,
+    "error": {
+      "Code": "MCP_CALL_ERROR",
+      "Type": "MCP_CALL_ERROR",
+      "Message": "mcp.call (tool) to 'GnOuGo.Browser.Mcp/browser_get_content' returned an MCP error: Complete snapshot acquisition exceeded its shared timeout. [workflow 'main', step 'n_846de17ed34af09d']",
+      "Retryable": false,
+      "Details": {
+        "message": "Complete snapshot acquisition exceeded its shared timeout.",
+        "mcp_error_code": "TIMEOUT",
+        "mcp_error_message": "Complete snapshot acquisition exceeded its shared timeout.",
+        "content": {
+          "url": "https://www.amazon.fr/",
+          "title": null,
+          "statusCode": null,
+          "selector": null,
+          "resolvedSelector": "",
+          "fallbackApplied": false,
+          "fallbackReason": null,
+          "format": "observation_complete",
+          "content": "",
+          "truncated": false,
+          "maxCharacters": 0,
+          "success": false,
+          "error_code": "TIMEOUT",
+          "error_message": "Complete snapshot acquisition exceeded its shared timeout.",
+          "ok": false,
+          "acquisition": {
+            "attempts": 0,
+            "invalidations": []
+          }
+        },
+        "correlation_id": "consumerflat20261008a-amazon-1",
+        "run_id": "consumerflat20261008a-amazon-1",
+        "trace_id": null,
+        "span_id": null,
+        "traceparent": null,
+        "server": "GnOuGo.Browser.Mcp",
+        "method": "browser_get_content",
+        "kind": "tool",
+        "status": "error",
+        "response": {
+          "url": "https://www.amazon.fr/",
+          "title": null,
+          "statusCode": null,
+          "selector": null,
+          "resolvedSelector": "",
+          "fallbackApplied": false,
+          "fallbackReason": null,
+          "format": "observation_complete",
+          "content": "",
+          "truncated": false,
+          "maxCharacters": 0,
+          "success": false,
+          "error_code": "TIMEOUT",
+          "error_message": "Complete snapshot acquisition exceeded its shared timeout.",
+          "ok": false,
+          "acquisition": {
+            "attempts": 0,
+            "invalidations": []
+          }
+        },
+        "failed_workflow": "main",
+        "failed_step_id": "n_846de17ed34af09d",
+        "failed_step_type": "mcp.call",
+        "execution_phase": "step"
+      }
+    }
+  },
+  "oracle": {
+    "passed": false,
+    "findings": [
+      "workflow_execution_failed",
+      "workbook_missing"
+    ]
+  },
+  "events": [
+    {
+      "server": "GnOuGo.Browser.Mcp",
+      "tool": "browser_get_content",
+      "arguments": {
+        "url": "https://www.amazon.fr/",
+        "format": "observation_complete",
+        "waitUntil": "domcontentloaded",
+        "timeoutMs": 30000,
+        "maxRecords": 200
+      },
+      "started": "2026-10-08T05:38:19.6712390+00:00",
+      "error": true,
+      "result": {
+        "url": "https://www.amazon.fr/",
+        "title": null,
+        "statusCode": null,
+        "selector": null,
+        "resolvedSelector": "",
+        "fallbackApplied": false,
+        "fallbackReason": null,
+        "format": "observation_complete",
+        "content": "",
+        "truncated": false,
+        "maxCharacters": 0,
+        "success": false,
+        "error_code": "TIMEOUT",
+        "error_message": "Complete snapshot acquisition exceeded its shared timeout.",
+        "ok": false,
+        "acquisition": {
+          "attempts": 0,
+          "invalidations": []
+        }
+      },
+      "latency_ms": 30030
+    },
+    {
+      "server": "GnOuGo.Browser.Mcp",
+      "tool": "browser_close",
+      "arguments": {},
+      "started": "2026-10-08T05:38:49.7680100+00:00",
+      "error": false,
+      "result": {
+        "closed": true,
+        "success": true,
+        "error_code": null,
+        "error_message": null,
+        "ok": true
+      },
+      "latency_ms": 1033
+    },
+    {
+      "server": "GnOuGo.Browser.Mcp",
+      "tool": "browser_get_content",
+      "arguments": {},
+      "started": "2026-10-08T05:38:50.8701060+00:00",
+      "error": true,
+      "result": {
+        "url": "",
+        "title": null,
+        "statusCode": null,
+        "selector": null,
+        "resolvedSelector": "",
+        "fallbackApplied": false,
+        "fallbackReason": null,
+        "format": "html",
+        "content": "",
+        "truncated": false,
+        "maxCharacters": 0,
+        "success": false,
+        "error_code": "INVALID_INPUT",
+        "error_message": "InvalidOperationException: No active page. Call browser_get_content with url first.",
+        "ok": false
+      },
+      "latency_ms": 1
+    },
+    {
+      "server": "GnOuGo.Browser.Mcp",
+      "tool": "browser_close",
+      "arguments": {},
+      "started": "2026-10-08T05:38:50.8899950+00:00",
+      "error": false,
+      "result": {
+        "closed": true,
+        "success": true,
+        "error_code": null,
+        "error_message": null,
+        "ok": true
+      },
+      "latency_ms": 1003
+    }
+  ],
+  "mapping_telemetry": [],
+  "runtime_llm_inputs": [],
+  "result": {
+    "status": "final_review",
+    "planning_ms": 268817,
+    "calls": 7,
+    "repairs": 0,
+    "discovery_reads": 2,
+    "review_revisions": 4,
+    "diagnostics": [],
+    "execution_success": false,
+    "execution_oracle": false,
+    "execution_status": "completed",
+    "accounting": {
+      "planning": {
+        "logical_calls": 7,
+        "physical_attempts": 7,
+        "known_input_tokens": 108688,
+        "known_output_tokens": 26490,
+        "known_cost_eur": 1.1874523027775312,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "execution": {
+        "logical_calls": 0,
+        "physical_attempts": 0,
+        "known_input_tokens": 0,
+        "known_output_tokens": 0,
+        "known_cost_eur": 0,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "campaign": {
+        "calls": 830,
+        "session_calls": 0,
+        "known_input_tokens": 12418003,
+        "known_output_tokens": 1549300,
+        "known_cost_eur": 96.63928060170943,
+        "reserved_input_tokens": 288000,
+        "reserved_output_tokens": 98304,
+        "reserved_cost_eur": 3.9050401209064187,
+        "cost_upper_bound_eur": 100.54432072261585,
+        "unknown_attempts": 3
+      }
+    },
+    "execution_ms": 32394,
+    "total_ms": 301211
+  }
+}

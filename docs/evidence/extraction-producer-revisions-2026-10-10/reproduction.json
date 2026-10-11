@@ -1,0 +1,25 @@
+{
+  "baseline": "a23beb8fe4f15dede647d0c7f5189e6ef2380ae5",
+  "candidate": "96cbf217",
+  "inference_calls": 0,
+  "original_commit_new_regressions": {
+    "failed": 5,
+    "passed": 0
+  },
+  "candidate_focused_gate": {
+    "passed": 8,
+    "failed": 0
+  },
+  "local_browser_document_execution_variants": {
+    "passed": 8,
+    "failed": 0
+  },
+  "limitations": [
+    "Local adapters are deterministic and do not establish live-provider acceptance."
+  ],
+  "planning_suite": {
+    "passed": 1236,
+    "failed": 0,
+    "warnings": 0
+  }
+}

@@ -1,0 +1,133 @@
+{
+  "origin": "approvedlive20261005a-code-1, minimized and renamed; existing export, hidden dependency/presence",
+  "plan": {
+    "root": {
+      "always": [
+        {
+          "id": "preserve",
+          "kind": "sequence",
+          "objective": "Preserve data in finalization",
+          "body": {
+            "tasks": [
+              {
+                "id": "choose",
+                "kind": "conditional",
+                "objective": "Select available observation",
+                "condition": {
+                  "kind": "boolean",
+                  "boolean": true
+                },
+                "body": {
+                  "tasks": [
+                    {
+                      "id": "first",
+                      "kind": "value",
+                      "objective": "Retain observation",
+                      "outputs": [
+                        {
+                          "name": "payload",
+                          "value": {
+                            "kind": "string",
+                            "text": "observed value"
+                          }
+                        }
+                      ]
+                    }
+                  ],
+                  "outputs": [
+                    {
+                      "name": "payload",
+                      "value": {
+                        "kind": "output",
+                        "source": "first",
+                        "port": "payload"
+                      }
+                    }
+                  ]
+                },
+                "otherwise": {
+                  "tasks": [
+                    {
+                      "id": "second",
+                      "kind": "value",
+                      "objective": "Retain observation",
+                      "outputs": [
+                        {
+                          "name": "payload",
+                          "value": {
+                            "kind": "string",
+                            "text": "observed value"
+                          }
+                        }
+                      ]
+                    }
+                  ],
+                  "outputs": [
+                    {
+                      "name": "payload",
+                      "value": {
+                        "kind": "output",
+                        "source": "second",
+                        "port": "payload"
+                      }
+                    }
+                  ]
+                }
+              }
+            ],
+            "outputs": [
+              {
+                "name": "payload",
+                "value": {
+                  "kind": "output",
+                  "source": "choose",
+                  "port": "payload"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "consume",
+          "kind": "value",
+          "objective": "Retain selected data",
+          "dependsOn": [
+            "choose"
+          ],
+          "requires": {
+            "kind": "present",
+            "source": "choose"
+          },
+          "outputs": [
+            {
+              "name": "result",
+              "value": {
+                "kind": "output",
+                "source": "choose",
+                "port": "payload"
+              }
+            }
+          ]
+        },
+        {
+          "id": "copy",
+          "kind": "value",
+          "objective": "Return selected data",
+          "dependsOn": [
+            "choose"
+          ],
+          "outputs": [
+            {
+              "name": "result",
+              "value": {
+                "kind": "output",
+                "source": "choose",
+                "port": "payload"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

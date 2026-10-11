@@ -1,0 +1,61 @@
+[
+  {
+    "run": "preconditions20261004b-amazon-1",
+    "revision": 10,
+    "artifact_hash": "d1cd804c0aa5a8c0c41e401bbd543bd84707ae6eb58150f5db21d00decc38e1f",
+    "decision": "not_approved",
+    "resolved": [
+      "explicit observed consent click",
+      "real sequential product-page visits",
+      "bounded search and product continuations",
+      "completeness checks bind directly to Browser metadata",
+      "actual write result exposed; Browser cleanup in always"
+    ],
+    "remaining": [
+      "extract-only result requires synthesized status but source does not establish it and result schema declares no default"
+    ],
+    "attempts": "8/8 physical planning attempts, no further revision dispatch permitted",
+    "execution": "not_started"
+  },
+  {
+    "run": "preconditions20261004b-amazon-2",
+    "revision": 7,
+    "artifact_hash": "41e678e2a5a7e940994a879fdf7689b180e66f6f6112632cc8d49d3ca36c4592",
+    "decision": "approved_for_bounded_execution",
+    "reviewed_requirements": {
+      "search_amazon_fr": "query-derived navigation; observed conditional consent and fresh read; at most three actual product links",
+      "extract_product_fields": "sequential product visits followed by own-page observation extraction; up to three continuation reads; require last actual nextCursor null, truncated false and captureTruncated false before selection/extraction; absent continuation preserves actual previous metadata",
+      "save_workbook": "actual Document write to fixed run-owned path then read; path/success returned from actual operation",
+      "cleanup_browser": "root always Browser close"
+    },
+    "limitations": [
+      "interpretation is explicit and can be semantically wrong; independent oracle decides correctness",
+      "CAPTCHA/missing-data markers are not successful product coverage; unchanged oracle must fail them",
+      "bounded incomplete observations fail before selection/extraction/publication"
+    ]
+  },
+  {
+    "run": "preconditions20261004b-code-1",
+    "revision": 4,
+    "artifact_hash": "e1bd7d8952c6acd45f6f942592c0ef34bee16ca1db3899757101127d6edf1d2d",
+    "decision": "approved_for_bounded_execution",
+    "reviewed_requirements": {
+      "local_review_json": "finalize_review captures each preceding root result using present guards; interpret assembles report with missing/failed work explicit, writes fixed review.json outside clone; root exports all four accepted results",
+      "checks_observed": "explicit node/pnpm/python commands, dependency installation and repository-declared checks in interactive Copilot, with actual command/exit-code oracle; code review uses local pinned diff and reviewText",
+      "local_only_cleanup": "no publication operation admitted; exactly one fixed clone; nested always cleanup deletes only that clone even if report write fails"
+    },
+    "limitations": "Review authorizes execution; it does not establish successful checks, truthful extraction, complete receipts or a passing execution oracle."
+  },
+  {
+    "run": "preconditions20261004b-code-2",
+    "revision": 4,
+    "artifact_hash": "fab7c2aca2715026eea95ac3bfb937f9621e4268e429a39e74e56f41e8267af8",
+    "decision": "approved_for_bounded_execution",
+    "reviewed_requirements": {
+      "local_review_report": "exact pinned single clone and diff; actual Copilot declared-check and review operations; guarded optional captures in finalizer; enum-constrained truthful report assembly; actual fixed-path local write",
+      "cleanup": "delete only the fixed newly created clone in nested always, including report failure",
+      "no_publication": "local-only objectives and no GitHub publication operation"
+    },
+    "limitations": "Exact evidence and artifact contents remain subject to the independent execution oracle. Report assembly is explicit paid interpretation. No uncertain operation may be resumed."
+  }
+]

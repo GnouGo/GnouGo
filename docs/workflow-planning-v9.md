@@ -2,6 +2,8 @@
 
 Flow uses one semantic planner, one executable graph and one execution journal.
 
+Fresh sessions use the [simplified business-intent profile](planner-simplification.md), with contract-aware generation and TaskPlan-only repairs. TaskPlan, PlanningGraph and storage format 10 remain unchanged.
+
 ```mermaid
 flowchart LR
   Requirements --> Discovery[Progressive discovery]
@@ -61,30 +63,46 @@ requests with the superseded singular `sourceId`/`cursor` contract stop with
 `PLANNING_REQUEST_INCOMPATIBLE`: regenerate in a new session. Their encrypted records,
 reservations and accounting are preserved. Planning storage remains format 10.
 
-Requirements are reviewable intent, not another executable program. They are generated once and then owned by the host: subsequent discovery, TaskPlan and repair responses omit them. Only explicit user revision resets them. Recovery validates responses against their original persisted request schemas; identical historical requirements are accepted without replacing the saved intent, while changes are rejected. New generated glue permits literals, typed references,
+Requirements are reviewable intent, not another executable program. Accepted requirements are host-owned. New sessions also declare the caller input interface; an unresolved interface may remain null during discovery but must be declared before proposing a plan. Further responses omit the accepted requirements. Only explicit user revision, including a submitted clarification answer, resets them. Recovery validates responses against their original persisted request schemas; identical historical requirements are accepted without replacing saved intent, while changes are rejected. New generated glue permits literals, typed references,
 simple conditions, deterministic JSON encoding and registered typed transformations. Authored YAML retains its
 existing expression runtime. Opaque output needs whole-value validation before
 field access; assistant descriptions and sample values cannot establish a contract.
 
-`value` tasks only copy or assemble business values. Use an explicit `transform`
-for interpretation such as HTML extraction or tabular formatting: its `objective`
-is the instruction, `inputs` bind named data, and `resultType` is a nonempty,
-nonnullable, closed object of named business fields. Every field is required;
-explicit nullable types represent missing values. Nested types must be complete,
-with no opaque types or defaults. The compiler validates policy and inputs, renders
-a fixed prompt with instruction and data as separate template values, then lowers
-to `llm.call` with strict structured output. Data is never template code. The
-runtime's existing model configuration, permissions and inference budgets apply.
-Only validated structured fields become business ports; schema validity alone
-does not prove factual accuracy or external success. Transform result types do not
-change the source MCP contract. Text-mode template output is guaranteed by a shared
-mode-aware graph/runtime contract; unresolved modes remain conservative.
+`value` tasks copy or assemble already typed business values without inference.
+An explicit `transform` in `extract` mode structures observed JSON, text or HTML
+through bounded `mapping.dynamic`; `interpret` handles decisions, comparison and
+formatting through `llm.call`. Omitted mode preserves historical interpretation.
+The `objective` is the instruction, `inputs` bind named data, and `resultType` is a
+nonempty, nonnullable, closed object of declared business fields. Missing fields
+use explicit nullable types. Runtime permissions, budgets, complete-result
+validation and source-grounding remain authoritative. A transform never changes
+its producer's contract; shape validity alone does not prove factual correctness.
+
+For page-object arrays, project inside the existing item scope before flattening:
+
+```text
+extract.each → typed page views
+foreach loop over views:
+    export candidates = field(item, "candidates")
+flatten(output(loop, "candidates"))
+interpret compact candidates → selected IDs
+lookup offered candidates → lookup original observations → actions
+```
+
+Group related exports in that same scope; use one compact view per page and
+consumer when sufficient. `field` selects an object property, never an array
+index or length. `lookup` accepts an ID array and returns records in selected order,
+including repetitions; iterate the result even for a single selection. Keep full
+observations, completeness metadata and exact action arguments separately.
+Accepted output types and nullability survive every revision: a non-null product
+record with nullable fields is not a nullable record. Typed normalization stays a
+`value` task with direct bindings.
 
 String types may explicitly declare an `enum` of 1–256 distinct strings. The compiler
 preserves that domain in strict structured outputs and business interfaces; nullability
 is separate. The final YAML validator accepts direct references to runtime-checked
-structured enum results, including fields checked by `value.project`, `value.validate` and `array.project`, never unchecked results or unsafe fallback envelopes. Selector values must be required, non-null and a subset of the consumer enum. MCP telemetry preserves complete response content; progress arrays remain available to downstream contract validation. See [checked-output regression evidence](checked-output-contracts.md).
-`{ "kind": "field", "items": [{ "kind": "item" }], "port": "message" }` explicitly selects one declared business field. Its single source may be a typed input, output or loop item; nested selections compose. Field names are literal names, not executor paths. The compiler uses the existing checked `value.project` only where consumed, preserving branch/loop/cleanup availability. Missing fields fail and nullable fields stay nullable. There is no cast, default, inferred field mapping or inference call; opaque objects remain inaccessible. Producer type locations survive iteration and field selection, allowing exact nested enum repairs without opening unrelated tasks. This is an additive format-10 value, not a new planning representation or phase.
+structured enum results, including fields checked by compiler-owned expressions and schemas, never unchecked results or unsafe fallback envelopes. Selector values must be required, non-null and a subset of the consumer enum. MCP telemetry preserves complete response content; progress arrays remain available to downstream contract validation. See [checked-output regression evidence](checked-output-contracts.md).
+`{ "kind": "field", "items": [{ "kind": "item" }], "port": "message" }` explicitly selects one declared business field. Its single source may be a typed input, output or loop item; nested selections compose. Field names are literal names, not executor paths. Final lowering emits checked consumer expressions or necessary materializations, preserving branch/loop/cleanup availability. Missing fields fail and nullable fields stay nullable. There is no cast, default, inferred field mapping or inference call; opaque objects remain inaccessible. Producer type locations survive iteration and field selection, allowing exact nested enum repairs without opening unrelated tasks. This is an additive format-10 value, not a new planning representation or phase.
 
 `{ "kind": "json", "items": [<business value>] }` serializes one value using existing
 typed `set` stages and the existing `json` runtime function. It performs no inference,
@@ -92,7 +110,7 @@ does not expose arbitrary expressions and does not grant typed access to opaque 
 
 Explicit string literals retain their `const` contract through named values and scope captures. Runtime inputs (including inputs with defaults) and transform results keep their declared types. Producer-supplied patterns and string bounds are checked by the existing generic validators and appear in input diagnostics; Flow does not interpret tool names or filesystem rules. Declare a fixed resource location once and reuse its business binding for creation and cleanup, including partial failure. This guidance does not prove resource ownership or automatically reconcile independent paths.
 
-Generation requests the smallest sufficient semantic plan: concise objectives, necessary inputs/outputs and direct business bindings, with required scope exports and cleanup retained. Prefer data shapes consumable downstream, including scalar iteration items when records are unnecessary. Optional user inputs, policy-query tasks and extra outputs need a request or contract justification. Runtime permissions remain mandatory. The compiler does not optimize or rewrite submitted tasks.
+Generation requests the smallest sufficient semantic plan: concise objectives, necessary inputs/outputs and direct business bindings, with required scope exports and cleanup retained. Prefer data shapes consumable downstream, including scalar iteration items when records are unnecessary. Optional user inputs, policy-query tasks and extra outputs need a request or contract justification. Runtime permissions remain mandatory. Existing compact lowering optimizes pure typed glue while preserving business operations, scopes, assertions and execution order.
 
 The strict response schema is a compact wire representation of TaskPlan. Types expose only their kind-specific fields; nullable values and array item types stay explicit. New responses omit representation defaults `nullable: false`, `required: true` and absent `default: null`. Strict alternatives retain `nullable: true`, `required: false` and actual literal defaults, including an explicit null literal. Optional workflow/group inputs still require defaults; optional object fields do not. Existing DTO initializers supply these representation constants, never business values. Choice selections remain host-owned and are absent from generation. New schemas omit `explanation`. Historical responses still deserialize, and pending requests keep their original schemas and identities without redispatch. Optional string enum declarations and the JSON encoding value are additive format-10 contracts; existing records are not rewritten.
 
@@ -121,7 +139,7 @@ Catalog-owned fixed inputs and request bindings are injected deterministically; 
 
 Artifact consumers must bind the producer-declared business port of the required kind. Preflight reports incorrect origins at the consumer binding; checked projections and captures preserve valid origins without manufacturing them from strings, types or transforms. Unconstrained MCP responses remain opaque across exports. See [artifact provenance evidence](artifact-provenance.md).
 
-Initial generation returns a complete TaskPlan; semantic repair returns a private typed `RepairPatch`, not another plan representation. Host-issued slots reuse the existing revision permissions. Explicit replace/add/remove edits are applied to a clone and pass both scope checks and full compilation/validation before replacing the baseline. No task insertion, deletion, renaming or reordering is authorized. Recovery verifies the retained baseline/scope/contract/policy fingerprint and original request schema; historical pending full-plan responses are not converted or redispatched. See [bounded patch measurements and limitations](bounded-semantic-repairs.md).
+Initial generation returns a complete TaskPlan; semantic repair returns a private typed `RepairPatch`, not another plan representation. Host-issued slots reuse the existing revision permissions. Explicit replace/add/remove edits are applied to a clone and pass both scope checks and full compilation/validation before replacing the baseline. Version-2 structural slots additionally authorize contract-proven prerequisite insertion (at most eight tasks before the diagnosed consumer), identity-preserving replacement of an invalid leaf operation, and equivalent removal of a diagnosed pure forwarder. Other structure and ordering remain fixed. Every inserted task must be used on the declared required-artifact chain. Version-1 pending requests keep their original narrower permissions; TaskPlan, PlanningGraph and storage format 10 are unchanged. Recovery verifies the retained baseline/scope/contract/policy fingerprint and original request schema; historical pending full-plan responses are not converted or redispatched. See [bounded patch measurements and limitations](bounded-semantic-repairs.md).
 
 A semantic failure opens a bounded revision scope over diagnosed business slots and the explicit export declarations required by their consumers. Conditional alternatives must explicitly provide matching outputs; the compiler invents neither exports nor fallback values. Added exports must belong to the diagnosed connection, with unrelated declarations and ordering preserved. Revalidation of a dependent task grants no edit permission. Unknown or ambiguous locations never authorize whole-plan repair. Rejected revisions identify unauthorized changed slots and retain the last accepted baseline. Diagnosed optional operation bindings may be explicitly omitted under the authoritative contract; remaining bindings retain their order and values, and full request validation still enforces conditional requirements. Null is not omission. Producer constraint diagnostics expose only incompatible enum/nullability leaves. See [contract-aware repair evidence](contract-aware-repairs.md). Optional workflow/group inputs require literal defaults, while optional object fields may remain absent. Composite outputs use the existing typed `set` primitive after cleanup; opaque payloads remain opaque. Generated executor validation failures stop with compiler diagnostics. Dependent findings are
 invalidated; unaffected validated stages and interfaces remain unchanged. Repairs,
@@ -181,6 +199,13 @@ The encrypted journal records intent before dispatch and completion receipts aft
 execution, along with control state, resolved inputs, outputs, pending human input,
 budgets and finalization progress. Recovery reuses completed receipts.
 
+New runs use a versioned private split layout in Flow.Persistence: immutable,
+tenant/run-owned blocks are written before publishing an authoritative checkpoint.
+Repeated observation subtrees are shared. Incremental owner saves and cancellation
+polling avoid full-run reads; the public schema-9 inspection/recovery result stays
+complete. Historical monolithic runs remain unchanged. See the
+[persistence contract and rollout](../src/GnOuGo.Flow.Persistence/README.md).
+
 An interrupted external effect without a receipt enters `needs_reconciliation`.
 The agent adapter may inspect the original invocation without dispatching it again.
 If its outcome remains unknown, an operator must establish that it stopped before
@@ -237,11 +262,15 @@ gnougo-flow runs --tenant default --id RUN_ID --command reconcile --revision REV
 
 ## Business choices
 
+Material ambiguities can now pause the existing planning loop before a TaskPlan exists, or during repair. An exclusive clarification response presents up to three questions, recommended alternatives and custom text, including in auto mode. Clear requests do not acquire a mandatory confirmation round. Answer batches persist before continuation and consume the existing cumulative allowance when another model request is needed. Caller inputs are frozen in accepted requirements; tool arguments cannot silently change that interface. See [clarification behavior, contracts and evidence](planning-clarification.md).
+
 Each `PlanningChoice` targets one semantic value slot and supplies typed literal
 alternatives, a recommendation and a host-owned selection. Interactive mode presents
 the alternatives. Auto mode validates and records the recommendation without another
 model call. Selection recompiles deterministically. Choices cannot change agent scope,
 grant permissions, raise budgets or replace runtime confirmation.
+
+A custom answer to a literal choice requests an intent revision; it is never inserted as an unchecked literal or expression. Repair envelope 8 includes clarification as an exclusive action and fingerprints accepted requirements, explicit revision paths and reference-preserving permissions. Already-issued version-7 requests retain their original schema and authority. Retired requests preserve their original schemas and fingerprints for accounting; unfinished sessions require explicit revision. Nullable interaction metadata leaves absent historical fields and stored approval hashes unchanged.
 
 ## Migration to planning format 10
 
@@ -278,13 +307,18 @@ preserving presence tests and short-circuit evaluation. Successful switch envelo
 remain distinct from verified payloads and external success. See the
 [conditional cleanup regression](conditional-cleanup-compilation.md).
 
-Use the [repository planning skill](../.agents/skills/gnougo-planning/SKILL.md) for deterministic regression work. Historical live reports retain their original outcomes and accounting; they do not authorize more dispatches. The latest completed cohort is [8/9 correct](evidence/flow-v9-112/taskplan-stabilization/README.md). The semantic preflight/repair follow-up runs no paid/live evaluation.
+Effective operation results retain approved agent payload contracts and nested opaque
+contents across scope exports. The same resolver serves semantic compilation and graph
+validation; successful agent envelopes participate in guarded export availability.
+See the [operation-output diagnosis and execution regressions](operation-output-contracts.md).
+
+Use the [repository planning skill](../.agents/skills/gnougo-planning/SKILL.md) for deterministic regression work. Historical live reports retain their original outcomes and accounting; they do not authorize more dispatches. The historical cohort remains [8/9 correct](evidence/flow-v9-112/taskplan-stabilization/README.md). The separately authorized [stabilization campaign](evidence/planner-stabilization/README.md) freezes eleven execution scenarios and a fresh cumulative EUR 50 ceiling, including real Cmd MCP filesystem workflows.
 
 Real Copilot command edit/test execution remains unverified because the available host does not satisfy mandatory sandbox enforcement. Keep that limitation visible; do not relax permissions or substitute simulated execution for external evidence.
 
 Designer exposes read-only issued discovery requests, retained tool status, inspection selections, contract sizes and a sanitized copy report. Historical ranking/exclusion reasons that were not recorded remain unknown; the UI never reruns discovery to reconstruct them. See [controllable discovery](controllable-discovery.md).
 
-Artifact prerequisites remain producer-declared. Compact discovery includes business-port origins; bounded exact-kind searches inspect only already-selected sources and preserve cursor/filter receipts. A resolved plan without a required producer stops for explicit semantic revision instead of consuming binding repairs. No automatic task insertion or provenance inference is allowed. See [artifact prerequisite evidence and limits](artifact-prerequisites.md).
+Artifact prerequisites remain producer-declared. Compact discovery includes business-port origins; bounded exact-kind searches inspect only already-selected sources and preserve cursor/filter receipts. Automatic prerequisite discovery is limited to selected operations, explicit inspections and admitted shortlist candidates. A missing producer permits a typed structural patch only when exact available contracts establish the complete required dependency chain. Missing or ambiguous evidence still stops for explicit semantic revision; types and text never manufacture provenance. See [artifact prerequisite evidence and limits](artifact-prerequisites.md).
 
 ### Workspace and producer contract update
 
@@ -294,3 +328,9 @@ Copilot message/one-shot attachments use a typed file/blob array instead of enco
 JSON. Refresh discovery and explicitly revise/regenerate and approve workflows using
 the removed argument; business context belongs in the prompt. See
 [contract migration and deterministic evidence](copilot-attachments.md).
+
+## Business requirements and review
+
+Accepted requirements and public inputs remain host-owned until explicit revision. Fresh requests no longer ask the model for outcome proofs or mappings. Technical review derives from compiled operations and authoritative contracts; it does not prove business completeness or execution success. See [simplification and compatibility](planner-simplification.md). Historical outcome reports remain evidence of earlier implementations, not current planning rules.
+
+See [compact observations, accepted outputs and resource lifecycle](compact-observations-and-execution.md) for the current producer/compiler boundaries and executor simplification.

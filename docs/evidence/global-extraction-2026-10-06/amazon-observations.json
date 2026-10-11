@@ -1,0 +1,75 @@
+{
+  "manifest_count": 1,
+  "manifest_pages": 3,
+  "manifest_record_count": 79,
+  "manifest_capture_truncated": false,
+  "manifest_truncated": false,
+  "initial_http_status": 202,
+  "successful_pages_read": 0,
+  "first_requested_cursor_matches_issued_cursor": true,
+  "product_visits": 0,
+  "consent_clicks": 0,
+  "workflow_cleanup_verified_by_oracle": true,
+  "events": [
+    {
+      "tool": "browser_get_content",
+      "arguments": {
+        "url": "https://www.amazon.fr/s?k=chaussure+geox+homme+45",
+        "format": "observation_pages",
+        "maxRecords": 100,
+        "waitUntil": "domcontentloaded",
+        "timeoutMs": 45000
+      },
+      "error": false,
+      "started": "2026-10-06T21:03:56.4339090+00:00",
+      "latency_ms": 4963,
+      "error_code": null,
+      "error_message": null,
+      "result_sha256": "ddf8220998748dfc4775a5e5130799dc5759a46eb20a88e3248fa4a8613ad0fd"
+    },
+    {
+      "tool": "browser_get_content",
+      "arguments": {
+        "cursor": "59c01c90042c426d970ef615d8206101:page:0",
+        "format": "observation"
+      },
+      "error": true,
+      "started": "2026-10-06T21:04:02.1628730+00:00",
+      "latency_ms": 2,
+      "error_code": "INVALID_INPUT",
+      "error_message": "InvalidOperationException: The observation cursor is invalid or expired. Capture the current page again.",
+      "result_sha256": "b51669af76eae7ef4048e37b209e72c21b2db97d41730923a075b7a0cc38f79b"
+    },
+    {
+      "tool": "browser_close",
+      "arguments": {},
+      "error": false,
+      "started": "2026-10-06T21:04:02.2440130+00:00",
+      "latency_ms": 1025,
+      "error_code": null,
+      "error_message": null,
+      "result_sha256": "3cb97848349f3a3a095e2c408fa43d687399654cd3c6ba87f80a3abd30f34a13"
+    },
+    {
+      "tool": "browser_get_content",
+      "arguments": {},
+      "error": true,
+      "started": "2026-10-06T21:04:03.3300050+00:00",
+      "latency_ms": 0,
+      "error_code": "INVALID_INPUT",
+      "error_message": "InvalidOperationException: No active page. Call browser_get_content with url first.",
+      "result_sha256": "a1b6b3ecc1268c5ea2360c20fa7b245ab4295003aefa96a693251dc735ac1e26"
+    },
+    {
+      "tool": "browser_close",
+      "arguments": {},
+      "error": false,
+      "started": "2026-10-06T21:04:03.3491240+00:00",
+      "latency_ms": 1002,
+      "error_code": null,
+      "error_message": null,
+      "result_sha256": "3cb97848349f3a3a095e2c408fa43d687399654cd3c6ba87f80a3abd30f34a13"
+    }
+  ],
+  "diagnosis": "The first matching page cursor was rejected. Page-initiated navigation is a supported snapshot-invalidation mechanism reproduced locally; the live run did not retain the triggering navigation event, so its precise navigation cause is not established."
+}

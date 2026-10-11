@@ -1,0 +1,40 @@
+{
+  "provider": {
+    "provider": "OpenAi",
+    "model": "gpt-5.5-2026-04-24",
+    "configuration_hash": "0d9b3f888b2a23348f7efbdc00cc764d2e388e63c076dd350b945bc161539d31",
+    "metadata_sources": {
+      "host_metadata_files": 0,
+      "host_overrides_hash": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "persisted_user_config_available": true,
+      "persisted_override_count": 3,
+      "persisted_overrides_hash": "06c4f42ec6cb1ea0a999c84bf0a7910ac2bbcae0c9bb3cbc515131cec5d68c6d"
+    },
+    "declared_metadata_hash": "0027a030d8aa6ebcc7ec8d0e2e23dc04b1a28a208443c579251e1374a75fa094",
+    "max_input_tokens": 1050000,
+    "context_window_tokens": 1050000,
+    "max_output_tokens": 128000,
+    "planning_input_allowance": 96000,
+    "mapping_input_allowance": 96000,
+    "model_calls": 0,
+    "accounting": {
+      "ready": true,
+      "quote": {
+        "source_currency": "USD",
+        "target_currency": "EUR",
+        "rate": 0.8873901854645487,
+        "as_of_utc": "2026-10-06T00:00:00+00:00",
+        "source": "ecb_reference_rates"
+      },
+      "reservation_estimate_eur": 1.2982873369420533
+    },
+    "ready": true,
+    "limitation": null
+  },
+  "local_execution": {
+    "browser_local_page": true,
+    "browser_cleanup": true,
+    "xlsx_independent_read": true,
+    "model_calls": 0
+  }
+}

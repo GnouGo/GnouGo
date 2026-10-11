@@ -205,6 +205,7 @@ public sealed class ConstrainedBindingTests
         type.Nullable = false;
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(null, TaskPlanCompiler.TypeSchema(type)));
         var state = PlannerFixture.Session(); state.Requirements = PlannerFixture.Requirements();
+        state.Catalog = Retained().Catalog;
         var response = PlanningSchemas.Proposal(state);
         Assert.Empty(PlanningContractValidation.ValidateSchema(response, strict: true));
         var wire = TestRuntime.Response(new() { StructuredOutputSchema = response }, new() { Plan = Repair(Retained().Plan) }).Json!;
@@ -219,7 +220,7 @@ public sealed class ConstrainedBindingTests
         var (baseline, catalog) = Retained(); var plan = Repair(baseline);
         var graph = new TaskPlanCompiler().Compile(plan, catalog).Graph!;
         var state = PlannerFixture.Session(); state.Plan = plan; state.Catalog = catalog; state.Graph = graph;
-        state.Requirements = PlannerFixture.Requirements(); state.Yaml = new PlanningGraphCompiler().Compile(graph, catalog, state.Request.Name);
+        state.Requirements = PlannerFixture.Requirements(); state.Requirements.Inputs = plan.Inputs; state.Yaml = new PlanningGraphCompiler().Compile(graph, catalog, state.Request.Name);
         PlanningArtifactApproval.Verify(state);
         var hash = PlanningArtifactApproval.Hash(state);
         plan.Root.Tasks.Single(t => t.Id == "make_github_feedback").ResultType!.Fields.Single(f => f.Name == "event").Type.Enum = ["APPROVE"];

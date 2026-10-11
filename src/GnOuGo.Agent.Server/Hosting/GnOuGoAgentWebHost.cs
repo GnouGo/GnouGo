@@ -474,7 +474,14 @@ public static class GnOuGoAgentWebHost
         builder.Services.AddSingleton<AgentHumanInputProvider>();
         builder.Services.AddSingleton<AgentOTelTelemetry>();
         builder.Services.AddSingleton<IWorkflowCandidateProvider, DatabaseAgentWorkflowCandidateProvider>();
-        builder.Services.AddSingleton<ConfigureProvidersService>();
+        builder.Services.AddSingleton<ConfigureProvidersService>(sp => new ConfigureProvidersService(
+            sp.GetRequiredService<ILLMClient>(), sp.GetRequiredService<AgentHumanInputProvider>(),
+            sp.GetRequiredService<ILLMModelCatalog>(), sp.GetRequiredService<IKeyVaultRuntimeConfigStore>(),
+            sp.GetRequiredService<LLMRuntimeOptionsStore>(), sp.GetRequiredService<AgentOTelTelemetry>(),
+            sp.GetRequiredService<ILogger<ConfigureProvidersService>>(), sp.GetService<AgentUserConfigMcpClient>(),
+            sp.GetRequiredService<IOptions<BundledMcpSettings>>(), mcpFactory: null,
+            openTelemetrySettings: sp.GetRequiredService<IOptions<OpenTelemetrySettings>>(),
+            localModels: sp.GetService<ILocalModelManager>()));
         builder.Services.AddSingleton<LocalModelsService>();
         builder.Services.AddSingleton<ConfigureAgentsService>();
         builder.Services.Configure<GnOuGo.Agent.Server.Configuration.TypedWorkflowPlanningSettings>(

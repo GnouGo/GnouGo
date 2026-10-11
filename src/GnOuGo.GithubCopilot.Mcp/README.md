@@ -1,4 +1,6 @@
-﻿# GnOuGo.GithubCopilot.Mcp
+# GnOuGo.GithubCopilot.Mcp
+
+Interactive permission and business-question callbacks are serialized within each MCP invocation, including captured asynchronous callbacks. Each question still requires its own answer and retains cancellation, tenant context and permission checks. MCP SDK 2.2.0 has a separate ten-round input-required limit; sufficiently long interactive calls can still stop at that limit. See the [live validation evidence](../../docs/planning-schema-portability-2026-10-02.md).
 
 MCP stdio server for safe code operations on a local project.
 
@@ -98,14 +100,18 @@ Relevant Copilot settings:
 
 MCP transport sessions are never used as Copilot session identity. Managed calls use a `cps_*` opaque handle bound to `TenantId`; the session-create tool advertises that handle as a materialized `session.handle` artifact and lifecycle consumers declare the matching required artifact. One-shot calls create, execute, disconnect, and permanently delete one SDK session, and advertise a complete-operation composition encapsulating those lower-level session phases so a provider-neutral planner can avoid redundant wrapper-plus-phase execution. Request `_meta.gnougo` propagates tenant, correlation, stable execution and agent identity, run, step, repository, PR number, and head SHA. The host owns the execution and agent fields; workflow inputs cannot override them.
 
-Interactive permission, user-input, and nested MCP elicitation callbacks are bridged through stable MCP form elicitation. `copilot_session_create` publishes the managed-session permission enum and defaults to `interactive`. `copilot_one_shot` is deliberately non-interactive, publishes only `auto_approve_allowlist`, `deny`, and `approve_all`, and defaults to `deny`; its `permissionAllowlistJson` argument supplies the explicit allowlist when that mode is selected. Use `copilot_interactive_one_shot` for dependency installation, tests, linting, edits, or other one-turn work that may execute tools: it creates a managed interactive session and permanently deletes it after success, failure, or cancellation. `deny` is appropriate for pure review inference. `auto_approve_allowlist` permits only explicitly named read-only paths/tools. `approve_all` is rejected unless the host gate is enabled and must not be generated without explicit unattended intent and established host availability.
+Interactive permission, user-input, and nested MCP elicitation callbacks are bridged through stable MCP form elicitation. `copilot_session_create` publishes the managed-session permission enum and defaults to `interactive`. `copilot_one_shot` is deliberately non-interactive, publishes only `auto_approve_allowlist`, `deny`, and `approve_all`, and defaults to `deny`; its native `permissionAllowlist` array supplies the explicit allowlist when that mode is selected. Use `copilot_interactive_one_shot` for dependency installation, tests, linting, edits, or other one-turn work that may execute tools: it runs one logical MCP task, retaining the managed SDK session through human interactions. Verified completion permits session deletion; unknown completion retains its identity and partial evidence for reconciliation. `deny` is appropriate for pure review inference. `auto_approve_allowlist` permits only explicitly named read-only paths/tools. `approve_all` is rejected unless the host gate is enabled and must not be generated without explicit unattended intent and established host availability.
 Interactive permission prompts show the exact operation, warnings, sandbox-bypass status, and remembered scope. They offer **Allow once**, **Refuse**, and **Allow similar operations for this task** only when the SDK marks a matching scope as safe. When `EnableApproveAll` is enabled, the same interactive callback may also offer **Allow all for this Copilot task**, **Allow all for this workflow run**, and **Allow all future runs for this agent** when the required stable identities are available. Ordinary broad grants never include sandbox bypass. When `EnableSandboxBypassGrants` is also enabled, a bypass request offers explicit task, workflow, and future-agent choices that include ordinary and bypass operations. Future-agent approval requires a second confirmation and is stored by tenant plus stable agent ID, so it follows renames and survives restarts. Workflow grants are tenant/run scoped and expire after inactivity.
 Automatically reused permissions do not create an elicitation card. They emit redacted `permission.requested` and `permission.auto_approved` progress entries, including the sandbox-bypass flag, while explicit answers emit `permission.granted` or `permission.refused`. Grant revocation emits `permission.grant.revoked`. Raw model reasoning and likely credentials are never included.
 Every interactive elicitation carries the originating `_meta.gnougo` correlation back to the Flow client. The active tool cancellation token is linked to the Copilot callback, so cancelling the workflow releases the pending permission request instead of leaving the stdio server waiting. Interactive one-shot progress includes session creation, request processing, permission requested/resolved, completion or cancellation, and session deletion; it never includes raw reasoning.
 
-Future-agent permission grants are encrypted and stored through the storage-agnostic `IKeyVaultRecordStore` contract in `GnOuGo.KeyVault.Core`, using the tenant-isolated `github-copilot.permission-grants` collection. The MCP contains no SQL or storage-path logic. Workflow-run grants remain in memory and expire after inactivity. Management-only tools list and revoke future-agent grants; their `gnougo.management.visibility=management_only` metadata excludes them from ordinary workflow generation. Agent Server exposes them as `/mcp copilot permissions` and `/mcp copilot permissions revoke <grant-id>`. Deleting an agent revokes its persistent grants. Existing grants in the legacy `gnougo-copilot-permissions.db` file are not migrated or deleted; they require explicit approval again.
+Future-agent permission grants are encrypted and stored through the storage-agnostic `IKeyVaultRecordStore` contract in `GnOuGo.KeyVault.Core`, using the tenant-isolated `github-copilot.permission-grants` collection. The MCP contains no SQL or storage-path logic. Workflow-run grants remain in memory and expire after inactivity. Management-only tools create (with explicit human confirmation), list and revoke future-agent grants; their `gnougo.management.visibility=management_only` metadata excludes them from ordinary workflow generation. Agent Server exposes them as `/mcp copilot permissions` and `/mcp copilot permissions revoke <grant-id>`. Deleting an agent revokes its persistent grants. Existing grants in the legacy `gnougo-copilot-permissions.db` file are not migrated or deleted; they require explicit approval again.
 
 When hosted by Agent Server/Desktop, `/mcp edit GnOuGo.GithubCopilot.Mcp` edits provider, fallback model, reasoning effort, logged-in-user authentication, request timeout, managed-session TTL, broad approvals, and reusable sandbox-bypass approvals. Every override is encrypted separately under `LLM--McpServerOverrides--GnOuGo.GithubCopilot.Mcp--...`. Selecting a field under **inherit fields** deletes only that override. Enabling reusable sandbox bypass automatically enables broad approvals. Command, arguments, roots, extensions, write policy, and credentials remain protected. Provider credentials remain in `LLM--Models--<provider>` and are never copied into MCP-specific entries. Agent Server passes only `KeyVault__DatabasePath` to this direct-reader MCP; it never injects decrypted `Code__Copilot__...` values.
+
+The editor's **agent_permissions → Configure agent permissions** action lists existing agents with their stable IDs, displays the current tenant-owned grant, and offers **Keep current**, **Allow All including sandbox bypass**, or **Remove persistent approval**. Allow All explicitly persists both host gates and opens a fresh MCP process using the refreshed KeyVault configuration. The management-only `copilot_permission_grant_create` tool then asks **Confirm persistent sandbox-bypass approval**; cancelling stores no grant. Confirmation uses MCP elicitation directly, never the reusable auto-approval callback. The default broad-approval gate displayed by the editor is `false`, matching the MCP.
+
+A confirmed grant automatically approves permission callbacks from the selected agent's first subsequent request. It follows renames and survives restart; other agents receive no grant. Business questions remain interactive. Explicit denial modes, host filesystem confinement, approved capabilities and bounded-run restrictions still apply; bounded runs prohibit sandbox expansion even with a persistent grant. See [diagnosis and validation](../../docs/agent-permissions-and-animation.md).
 
 Provider resolution order is an explicit tool argument, the MCP provider override, then the Agent default. Model resolution order is the selected provider's KeyVault model, the MCP fallback model, then the packaged fallback. An existing managed session keeps the configuration captured when it was created; editor changes apply to the next workflow/MCP process.
 
@@ -140,8 +146,10 @@ Policy, input, provider, cancellation, and unexpected tool failures are returned
 
 ## Agent edit mode
 
-`code_agent_edit` is a compatibility wrapper over Core's ephemeral managed interactive
-session. `code_suggest_change` also uses Core, with tool execution disabled. MCP never
+`code_agent_edit` is a compatibility wrapper over the same bounded logical operation
+and durable MCP Tasks receipt as `copilot_interactive_one_shot`. Its existing
+`CodeAgentEditResult` contract is preserved, including truthful `toolExecutions`.
+`code_suggest_change` also uses Core, with tool execution disabled. MCP never
 creates SDK clients or sessions. The shared configuration builder preserves provider,
 telemetry, trace, and timeout settings for both legacy and managed tools.
 
@@ -202,6 +210,37 @@ dotnet build "C:\github\GnouGo\src\GnOuGo.GithubCopilot.Mcp\GnOuGo.GithubCopilot
 dotnet test "C:\github\GnouGo\tests\GnOuGo.GithubCopilot.Mcp.Tests\GnOuGo.GithubCopilot.Mcp.Tests.csproj" -p:SkipModelMetadataGeneration=true
 dotnet test "C:\github\GnouGo\tests\GnOuGo.GithubCopilot.Core.Tests\GnOuGo.GithubCopilot.Core.Tests.csproj"
 ```
+
+## Native list parameters (breaking migration)
+
+List inputs are native JSON arrays, visible to discovery and validated before tool
+binding, filesystem reads or session creation:
+
+| Tools | Optional list parameters |
+| --- | --- |
+| `copilot_session_create` | `permissionAllowlist`, `availableTools`, `excludedTools`, `skillDirectories`, `disabledSkills` |
+| `copilot_one_shot`, `copilot_interactive_one_shot` | `permissionAllowlist` |
+| `code_suggest_change`, `code_agent_edit` | `contextFiles` |
+
+For example, use `"contextFiles": ["src/App.cs"]`, with no JSON encoding around the
+array. Entries must be nonblank strings. Objects, encoded JSON strings, null items
+and blank entries produce a structured `INVALID_INPUT` error with the parameter
+and index, without echoing the supplied value. Omission and explicit null retain
+their previous defaults; `[]` remains an explicitly empty Copilot configuration
+list. Context-file omission/null/empty arrays all mean no supplied file context.
+Deduplication preserves the first occurrence, with ordinal comparison for Copilot
+configuration and ordinal case-insensitive comparison for context files.
+
+The corresponding six `*Json` argument names are removed and explicitly rejected,
+even when null or accompanied by the new argument. Refresh MCP discovery, revise
+the affected TaskPlan and approve the newly compiled artifact. Historical stored
+workflows and approvals are not rewritten. This does not change object-based JSON
+parameters such as review files/comments.
+
+An allowlist still permits only read-only operations: `["npm"]` does not authorize
+`npm install`. Installation/testing/editing uses `copilot_interactive_one_shot` with
+the existing tenant/agent grants or human approval. No command/scope object is
+flattened into broader permissions. See [diagnosis and execution evidence](../../docs/copilot-list-contracts.md).
 
 ## Native AOT publish
 
@@ -287,3 +326,55 @@ dotnet test tests/GnOuGo.Flow.Copilot.Tests
 ```
 
 Agent budget stops retain safe admission diagnostics and execution observations. Only verified cessation permits a terminal failure and cleanup; unknown outcomes require explicit reconciliation. See [budget stops and recovery](../../docs/agent-budget-interruptions.md).
+
+## Long interactive operations
+
+`copilot_interactive_one_shot` and `code_agent_edit` require the negotiated MCP Tasks extension, pinned
+with `ModelContextProtocol.Extensions.Tasks` 2.2.0 (protocol 2026-07-28 or later).
+The generic Flow MCP client polls task status, presents each new human-input request
+once, resends retained answers on repeated pending IDs, and returns one final tool
+result. Older clients must add Tasks support for these operations. Other tools retain
+their existing synchronous behavior, including bounded `agent.run` tasks.
+
+The MCP owns encrypted task records in KeyVault and cross-process owner/write leases
+beside the resolved vault path. Records retain tenant identity, objective, workspace,
+pending questions, answers, refusals, SDK identities, conservative reservations and
+execution observations. A restarted host can inspect those records; an abandoned
+active invocation becomes `COPILOT_NEEDS_RECONCILIATION`, never a blind redispatch.
+Cancellation is durable and observed by the owner, while completed partial evidence
+remains retained. Refusals survive internal continuation; SDK-session approvals do
+not. Existing applicable persistent grants and all host restrictions still apply.
+
+`Code:Copilot:LogicalLimits` accepts stricter positive host values for `Sessions`
+(default/maximum 3), `Interactions` (64 distinct requests), `Seconds` (1800),
+`InferenceAttempts` (32) and `ReservedTokens` (2,000,000). Invalid or broader values
+fail configuration. These allowances belong to the complete logical operation;
+SDK continuation cannot reset them. Existing request timeout and campaign limits
+can stop work earlier. Tokens here are conservative non-refundable reservations,
+not measured provider usage.
+
+An internal successor requires SDK context-limit evidence followed by an interactive
+idle event, paired tool completions, no transport uncertainty or cancellation, and
+successful prior-session disposal. The approved objective, human decisions and
+observed evidence carry forward. Assistant prose alone never permits continuation.
+A final result consolidates tool observations; `completed` still describes turn
+completion, not independent verification of requested work.
+
+See [recovery and execution validation](../../docs/planning-recovery-and-live-blockers.md).
+
+## Logical task completion receipts
+
+Interactive tasks distinguish verified terminal completion from eligibility to continue
+in another SDK session. A verified stop without a valid final response, including an
+inference admission limit, returns a completed MCP transport task with `isError: true`
+and `completed: false` in its existing result (`success: false` for `code_agent_edit`). Tool/exit observations remain truthful
+partial evidence. This is not successful execution of the objective.
+
+The exact terminal result is committed through encrypted KeyVault storage before
+releasing ownership and disposing the final SDK session. Repeated polling and restart
+return that receipt without inference or command replay. A failed receipt write keeps
+ownership until commit or host exit. Missing tool completions, missing shell exits,
+conflicting events and unverified cancellation remain reconciliation cases; their
+SDK identities and evidence are retained. Host ceilings and permission rules are unchanged.
+
+See [deterministic browsing/review and receipt regressions](../../docs/browsing-review-and-copilot-receipts.md).

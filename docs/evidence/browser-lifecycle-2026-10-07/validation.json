@@ -1,0 +1,264 @@
+{
+  "checks": {
+    "browser": {
+      "passed": 110,
+      "failed": 0,
+      "skipped": 0,
+      "sha256": "5d4cbe5dd30661abc36aa1dde125b9a12d75c705c1373c58acf6a582c384c83e"
+    },
+    "reproduction_after": {
+      "sha256": "89a8bfc59544474b24c8aeda8e26f8645932613cee7c08ee8f198ba709211fc4",
+      "passed": 80,
+      "failed": 0,
+      "timeout_ms": 30000
+    },
+    "published_browser": {
+      "sha256": "8da899c3ad87208dbb9016b50db19968b9f9df039c50fc450ace981369c15f7a",
+      "rid": "osx-arm64",
+      "self_contained": true,
+      "native_aot": false,
+      "exit_code": 0
+    },
+    "published_receipts": {
+      "passed": 4,
+      "failed": 0,
+      "sha256": "2540938d3ffa5734e1298406c7dc89ad0bd96deb055ad0e30d6f1bca940223c9"
+    }
+  },
+  "full_solution": {
+    "exit_code": 0,
+    "suites": 33,
+    "failed": 0,
+    "passed": 4750,
+    "skipped": 12,
+    "log_sha256": "70a147e4067c1ec0da5ece2fc74b06ef410c8325f76ab11d46ca4fff6b870bb9",
+    "results": [
+      {
+        "suite": "GnOuGo.DocIngestor.Tests.dll (net10.0)",
+        "failed": 0,
+        "passed": 89,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.Diff.Tests.dll (net10.0)",
+        "failed": 0,
+        "passed": 52,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.KeyVault.Core.Tests.dll (net10.0)",
+        "failed": 0,
+        "passed": 12,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.Flow.Tests.dll (net10.0)",
+        "failed": 0,
+        "passed": 1120,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.Flow.Integrations.Tests.dll (net10.0)",
+        "failed": 0,
+        "passed": 97,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.AI.Core.Tests.dll (net10.0)",
+        "failed": 0,
+        "passed": 225,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.AI.Local.Tests.dll (net10.0)",
+        "failed": 0,
+        "passed": 14,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.Agent.Mcp.Tests.dll (net10.0)",
+        "failed": 0,
+        "passed": 103,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.Cmd.Mcp.Tests.dll (net10.0)",
+        "failed": 0,
+        "passed": 93,
+        "skipped": 7
+      },
+      {
+        "suite": "GnOuGo.Browser.Mcp.Tests.dll (net10.0)",
+        "failed": 0,
+        "passed": 109,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.Agent.Server.Tests.dll (net10.0)",
+        "failed": 0,
+        "passed": 702,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.Document.Mcp.Tests.dll (net10.0)",
+        "failed": 0,
+        "passed": 64,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.KeyVault.Mcp.Tests.dll (net10.0)",
+        "failed": 0,
+        "passed": 9,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.Files.Server.Tests.dll (net10.0)",
+        "failed": 0,
+        "passed": 10,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.DocIngestor.Mcp.Tests.dll (net10.0)",
+        "failed": 0,
+        "passed": 7,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.OtlpCollector.Server.Tests.dll (net10.0)",
+        "failed": 0,
+        "passed": 7,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.GithubCopilot.Mcp.Tests.dll (net10.0)",
+        "failed": 0,
+        "passed": 240,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.GithubCopilot.Core.Tests.dll (net10.0)",
+        "failed": 0,
+        "passed": 173,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.GithubCopilot.E2E.Tests.dll (net10.0)",
+        "failed": 0,
+        "passed": 7,
+        "skipped": 5
+      },
+      {
+        "suite": "GnOuGo.Observability.Core.Tests.dll (net10.0)",
+        "failed": 0,
+        "passed": 3,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.Git.Mcp.Tests.dll (net10.0)",
+        "failed": 0,
+        "passed": 83,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.Workspace.Tests.dll (net10.0)",
+        "failed": 0,
+        "passed": 30,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.Mcp.Core.Tests.dll (net10.0)",
+        "failed": 0,
+        "passed": 49,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.Flow.Mermaid.Tests.dll (net10.0)",
+        "failed": 0,
+        "passed": 12,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.Assets.Bears.Tests.dll (net10.0)",
+        "failed": 0,
+        "passed": 91,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.Assets.Animation.Tests.dll (net10.0)",
+        "failed": 0,
+        "passed": 42,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.Assets.Animation.Server.Tests.dll (net10.0)",
+        "failed": 0,
+        "passed": 13,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.Assets.Bears.Server.Tests.dll (net10.0)",
+        "failed": 0,
+        "passed": 28,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.Flow.Planning.Tests.dll (net10.0)",
+        "failed": 0,
+        "passed": 1059,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.ProxyCopilot.Server.Tests.dll (net10.0)",
+        "failed": 0,
+        "passed": 177,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.Auth.Core.Tests.dll (net10.0)",
+        "failed": 0,
+        "passed": 8,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.Flow.Persistence.Tests.dll (net10.0)",
+        "failed": 0,
+        "passed": 17,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.Flow.Copilot.Tests.dll (net10.0)",
+        "failed": 0,
+        "passed": 5,
+        "skipped": 0
+      }
+    ],
+    "command": "PLAYWRIGHT_MODULE_PATH=\"$PWD/src/GnOuGo.Browser.Mcp/bin/Debug/net10.0/.playwright/package/index.mjs\" dotnet test GnOuGo.Agent.sln -m:1 -warnaserror -p:SkipModelMetadataGeneration=true -p:SkipClientBuild=true",
+    "note": "Full run passed before the test-only closure-ordering follow-up. All production changes were included. Complete Browser suite then passed 110 cases on the frozen candidate; current CI also passed."
+  },
+  "ci": {
+    "successful": 29,
+    "skipped": 4,
+    "failed": 0,
+    "evidence": "ci-frozen-candidate.json",
+    "previous_failed_attempt": "ci-first-attempt.json"
+  },
+  "live": {
+    "run": "lifecycle20261007a-amazon-1",
+    "executions": 1,
+    "planning_reached_review": true,
+    "execution_oracle_passed": false,
+    "error": "CONTRACT_UNSATISFIED",
+    "mapping_provider_dispatches": 0,
+    "workflow_cleanup": true,
+    "new_unknown_reservations": 0,
+    "report": "live-report.json"
+  },
+  "frozen_candidate": "603e7926154d3f55b8f812497a03bffa1bce5993",
+  "execution_readiness": {
+    "model_calls": 0,
+    "browser_local_page": true,
+    "browser_cleanup": true,
+    "xlsx_independent_read": true,
+    "run": "lifecycle20261007a-preflight"
+  }
+}

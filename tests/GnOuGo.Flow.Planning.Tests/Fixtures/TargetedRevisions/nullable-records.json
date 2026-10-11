@@ -1,0 +1,57 @@
+{
+  "requirements": {
+    "summary": "Preserve observed records, persist them and release the resource.",
+    "outcomes": [
+      { "id": "records", "description": "Preserve every observed record and explicit missing fields." },
+      { "id": "persist", "description": "Persist the actual records." },
+      { "id": "release", "description": "Release the resource after processing." }
+    ],
+    "inputs": [{ "name": "observed", "type": {
+      "kind": "array", "minItems": 0, "maxItems": 10,
+      "items": { "kind": "object", "fields": [
+        { "name": "identity", "type": { "kind": "integer" } },
+        { "name": "label", "type": { "kind": "string", "nullable": true } },
+        { "name": "detail", "type": { "kind": "string", "nullable": true } }
+      ] }
+    } }],
+    "outputs": [{ "name": "rows", "type": {
+      "kind": "array", "minItems": 0, "maxItems": 10,
+      "items": { "kind": "object", "fields": [
+        { "name": "identity", "type": { "kind": "integer" } },
+        { "name": "label", "type": { "kind": "string", "nullable": true } },
+        { "name": "detail", "type": { "kind": "string", "nullable": true } }
+      ] }
+    } }]
+  },
+  "plan": {
+    "inputs": [{ "name": "observed", "type": {
+      "kind": "array", "minItems": 0, "maxItems": 10,
+      "items": { "kind": "object", "fields": [
+        { "name": "identity", "type": { "kind": "integer" } },
+        { "name": "label", "type": { "kind": "string", "nullable": true } },
+        { "name": "detail", "type": { "kind": "string", "nullable": true } }
+      ] }
+    } }],
+    "root": {
+      "tasks": [{
+        "id": "normalize", "kind": "transform", "mode": "interpret",
+        "objective": "Preserve the collected records without inventing missing fields.",
+        "inputs": [{ "name": "records", "value": { "kind": "input", "source": "observed" } }],
+        "resultType": { "kind": "object", "fields": [{ "name": "rows", "type": {
+          "kind": "array", "minItems": 0, "maxItems": 10,
+          "items": { "kind": "object", "nullable": true, "fields": [
+            { "name": "identity", "type": { "kind": "integer" } },
+            { "name": "label", "type": { "kind": "string", "nullable": true } },
+            { "name": "detail", "type": { "kind": "string", "nullable": true } }
+          ] }
+        } }] }
+      }],
+      "outputs": [{ "name": "rows", "value": { "kind": "output", "source": "normalize", "port": "rows" } }]
+    }
+  },
+  "correctedNormalization": {
+    "id": "normalize", "kind": "value",
+    "objective": "Preserve the collected records without inventing missing fields.",
+    "outputs": [{ "name": "rows", "value": { "kind": "input", "source": "observed" } }]
+  }
+}

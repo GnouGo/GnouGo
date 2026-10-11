@@ -43,25 +43,34 @@ public sealed class ComposedOutputAvailabilityTests
     }
 
     [Theory]
-    [InlineData("root", "first_id")]
-    [InlineData("conditional", "first_id")]
-    [InlineData("conditional", "renamed_case")]
-    [InlineData("group", "call_id")]
-    [InlineData("iteration", "renamed_loop")]
-    public async Task ComposedExportsKeepNestedValuesScopeAndIterationOrder(string scope, string id)
+    [InlineData("root", "first_id", false)]
+    [InlineData("root", "first_id", true)]
+    [InlineData("conditional", "first_id", false)]
+    [InlineData("conditional", "first_id", true)]
+    [InlineData("conditional", "renamed_case", false)]
+    [InlineData("conditional", "renamed_case", true)]
+    [InlineData("group", "call_id", false)]
+    [InlineData("group", "call_id", true)]
+    [InlineData("iteration", "renamed_loop", false)]
+    [InlineData("iteration", "renamed_loop", true)]
+    public async Task ComposedExportsKeepNestedValuesScopeAndIterationOrder(string scope, string id, bool current)
     {
         var plan = Plan(scope, id); var runtime = new WorkflowPlanningRuntime(new(), (_, _) => Task.CompletedTask);
         var catalog = await runtime.DiscoverAsync(new(), PlannerFixture.Ct);
-        var compiled = new TaskPlanCompiler().Compile(plan, catalog);
+        var compiled = new TaskPlanCompiler().Compile(plan, catalog, current, current);
         Assert.Empty(compiled.Diagnostics); Assert.NotNull(compiled.Graph);
         var graph = compiled.Graph;
-        Assert.Contains(graph.Workflows.SelectMany(w => w.Finally), n => n.Type == "value.project");
-        Assert.Contains(graph.Workflows.SelectMany(w => w.Finally), n => n.Type == "set" && n.If is not null);
+        if (current) Assert.Empty(graph.Workflows.SelectMany(w => w.Finally));
+        else
+        {
+            Assert.Contains(graph.Workflows.SelectMany(w => w.Finally), n => n.Type == "set" && n.Input.Kind == "projection");
+            Assert.Contains(graph.Workflows.SelectMany(w => w.Finally), n => n.Type == "set" && n.If is not null);
+        }
         Assert.DoesNotContain(graph.Workflows.SelectMany(w => w.Steps.Concat(w.Finally)), n => n.Type is "llm.call" or "mcp.call");
         Assert.True(PlanningExecutableValidation.Validate(graph, catalog).Count == 0,
             string.Join("; ", PlanningExecutableValidation.Validate(graph, catalog).Select(d => compiled.Locate(d).Location + ": " + d.Message)));
         var copy = JsonSerializer.Deserialize(JsonSerializer.Serialize(plan, PlanningJsonContext.Default.TaskPlan), PlanningJsonContext.Default.TaskPlan)!;
-        Assert.Equal(JsonSerializer.Serialize(graph, PlanningJsonContext.Default.PlanningGraph), JsonSerializer.Serialize(new TaskPlanCompiler().Compile(copy, catalog).Graph, PlanningJsonContext.Default.PlanningGraph));
+        Assert.Equal(JsonSerializer.Serialize(graph, PlanningJsonContext.Default.PlanningGraph), JsonSerializer.Serialize(new TaskPlanCompiler().Compile(copy, catalog, current, current).Graph, PlanningJsonContext.Default.PlanningGraph));
         var yaml = new PlanningGraphCompiler().Compile(graph, catalog);
         Assert.Empty(await runtime.ValidateAsync(new(yaml, new(), catalog, []), PlannerFixture.Ct));
         var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml));
@@ -88,14 +97,21 @@ public sealed class ComposedOutputAvailabilityTests
     private static JsonObject Expected(string status, JsonNode? value) => new() { ["status"] = status, ["events"] = new JsonArray(value?.DeepClone()), ["nested"] = new JsonObject { ["event"] = value?.DeepClone() } };
 
     [Theory]
-    [InlineData("success", "observe")]
-    [InlineData("success", "renamed_read")]
-    [InlineData("missing", "observe")]
-    [InlineData("invalid", "observe")]
-    [InlineData("null", "observe")]
-    [InlineData("failure", "observe")]
-    [InlineData("cancelled", "observe")]
-    public async Task CleanupRunsWithoutPublishingOutputsAfterFailureOrCancellation(string mode, string method)
+    [InlineData("success", "observe", false)]
+    [InlineData("success", "observe", true)]
+    [InlineData("success", "renamed_read", false)]
+    [InlineData("success", "renamed_read", true)]
+    [InlineData("missing", "observe", false)]
+    [InlineData("missing", "observe", true)]
+    [InlineData("invalid", "observe", false)]
+    [InlineData("invalid", "observe", true)]
+    [InlineData("null", "observe", false)]
+    [InlineData("null", "observe", true)]
+    [InlineData("failure", "observe", false)]
+    [InlineData("failure", "observe", true)]
+    [InlineData("cancelled", "observe", false)]
+    [InlineData("cancelled", "observe", true)]
+    public async Task CleanupRunsWithoutPublishingOutputsAfterFailureOrCancellation(string mode, string method, bool current)
     {
         using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(PlannerFixture.Ct);
         var effects = new List<string>(); var factory = new InMemoryMcpClientFactory();
@@ -121,7 +137,7 @@ public sealed class ComposedOutputAvailabilityTests
         var plan = new TaskPlan { Root = Export(new() { Kind = "output", Source = "producer" }, "observed") };
         plan.Root.Tasks.Add(new() { Id = "producer", Kind = "operation", Objective = "Read the declared record", Operation = catalog.Capabilities.Single(c => c.Method == method).Id });
         plan.Root.Always.Add(new() { Id = "cleanup", Kind = "operation", Objective = "Finish regardless of producer outcome", Operation = catalog.Capabilities.Single(c => c.Method == "finish").Id });
-        var compilation = new TaskPlanCompiler().Compile(plan, catalog); Assert.Empty(compilation.Diagnostics);
+        var compilation = new TaskPlanCompiler().Compile(plan, catalog, current, current); Assert.Empty(compilation.Diagnostics);
         var yaml = new PlanningGraphCompiler().Compile(compilation.Graph!, catalog);
         Assert.Empty(await runtime.ValidateAsync(new(yaml, new(), catalog, PlanningGraphCompiler.CapabilityBindings(compilation.Graph!)), PlannerFixture.Ct));
         var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml));
@@ -145,8 +161,8 @@ public sealed class ComposedOutputAvailabilityTests
             {"workflows":[{"key":"main","inputs":[{"name":"records","required":true,"schema":{"contract":{"type":"array","items":{"type":"object","required":["event"],"properties":{"event":{"type":["string","null"]}}}}}}],
             "steps":[{"key":"noop","type":"set","input":{"kind":"object"}}],
             "finally":[
-              {"key":"project","type":"array.project","input":{"kind":"object","members":[{"name":"items","value":{"kind":"input","source":"records"}},{"name":"path","value":{"kind":"array","items":[{"kind":"string","text":"event"}]}}]},"outputSchema":{"contract":{"type":"object","required":["values"],"properties":{"values":{"type":"array","items":{"type":["string","null"]}}}}}},
-              {"key":"export","type":"set","if":{"kind":"present","source":"project"},"input":{"kind":"object","members":[{"name":"events","value":{"kind":"output","source":"project","path":["values"]}}]}}
+              {"key":"project","type":"set","input":{"kind":"projection","members":[{"name":"value","value":{"kind":"input","source":"records"}},{"name":"paths","value":{"kind":"array","items":[{"kind":"array","items":[{"kind":"string","text":"event"}]}]}},{"name":"each","value":{"kind":"boolean","boolean":true}}]},"outputSchema":{"contract":{"type":"object","required":["value"],"properties":{"value":{"type":"array","items":{"type":["string","null"]}}}}}},
+              {"key":"export","type":"set","if":{"kind":"present","source":"project"},"input":{"kind":"object","members":[{"name":"events","value":{"kind":"output","source":"project","path":["value"]}}]}}
             ],"outputs":[{"name":"publication","value":{"kind":"output","source":"export"},"schema":{"contract":{"type":"object","required":["events"],"properties":{"events":{"type":"array","items":{"type":["string","null"]}}}}}}]}]}
             """, PlanningJsonContext.Default.PlanningGraph)!;
         var engine = new WorkflowEngine(); var runtime = new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask);
@@ -161,12 +177,10 @@ public sealed class ComposedOutputAvailabilityTests
     }
 
     [Theory]
-    [InlineData("value.project")]
-    [InlineData("array.project")]
-    [InlineData("value.validate")]
+    [InlineData("set")]
     public void SuccessfulProjectionEnvelopesSupportGuardedExportsButUnsafeChainsDoNot(string type)
     {
-        var project = new PlanningNode { Key = "project", Type = type };
+        var project = new PlanningNode { Key = "project", Type = type, Input = new() { Kind = "projection" } };
         var export = new PlanningNode { Key = "export", Type = "set", Input = new() { Kind = "object" }, If = new() { Kind = "present", Source = "project" } };
         var workflow = new PlanningWorkflow { Finally = [project, export] };
         Assert.True(PlanningGraphTopology.FinalizerAvailableOnSuccess(export, workflow));

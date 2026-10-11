@@ -1071,7 +1071,7 @@ public static class WorkflowPlanSemanticValidator
             // llm.call validates its structured json before returning the envelope.
             // A continuation must itself satisfy that contract; assistant claims,
             // dynamic schemas and unvalidated output declarations are insufficient.
-            JsonNode? checkedSchema = step.Type is "set" or "value.project" or "value.validate" or "array.project"
+            JsonNode? checkedSchema = step.Type is "set" or "mapping.dynamic"
                 ? step.OutputSchema : null;
             if (step.Type == "llm.call" && step.Input?["structured_output"] is JsonObject structured)
             {
@@ -1101,11 +1101,11 @@ public static class WorkflowPlanSemanticValidator
     {
         if (step.OutputSchema == null)
         {
-            if (step.Type is "value.validate" or "array.project" or "value.project") errors.Add(new WorkflowSemanticValidationError { Code = "VALIDATION_SCHEMA_REQUIRED", WorkflowName = workflowName, StepId = step.Id, Field = "output_schema", Message = "value.validate requires a literal output schema." });
+            if (step.Type is "mapping.dynamic") errors.Add(new WorkflowSemanticValidationError { Code = "VALIDATION_SCHEMA_REQUIRED", WorkflowName = workflowName, StepId = step.Id, Field = "output_schema", Message = "mapping.dynamic requires a literal output schema." });
             return;
         }
 
-        if (step.Type is not ("set" or "value.validate" or "array.project" or "value.project"))
+        if (step.Type is not ("set" or "mapping.dynamic"))
         {
             errors.Add(new WorkflowSemanticValidationError
             {
@@ -1116,7 +1116,7 @@ public static class WorkflowPlanSemanticValidator
                 InvalidPath = "output_schema",
                 AllowedPaths = Array.Empty<string>(),
                 Suggestion = "Remove output_schema or move the reshaping into a set step.",
-                Message = "output_schema is supported on set, value.validate, array.project and value.project steps."
+                Message = "output_schema is supported on set and mapping.dynamic steps."
             });
             return;
         }
@@ -1169,7 +1169,7 @@ public static class WorkflowPlanSemanticValidator
 
         // This executor validates the whole value at runtime before publishing output.
         // Its source may be opaque; the ordinary set assertion rules remain unchanged.
-        if (step.Type is "value.validate" or "array.project" or "value.project") return;
+        if (step.Type is "mapping.dynamic") return;
 
         if (step.Input == null)
             return;
@@ -2034,7 +2034,7 @@ public static class WorkflowPlanSemanticValidator
         if (mismatch.ActualType.Split(" or ", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Any(static type => string.Equals(type, "null", StringComparison.Ordinal)))
         {
-            return $"Do not pass a nullable expression into required MCP field '{field}' for '{serverName}/{methodName}'. Make the upstream structured_output non-null, refine it with assert.non_null, add a step guard that proves the exact expression is non-null, or normalize to a guaranteed {mismatch.ExpectedType} before the mcp.call.";
+            return $"Do not pass a nullable expression into required MCP field '{field}' for '{serverName}/{methodName}'. Make the upstream structured_output non-null, check it with a whole-value set expression and a nonnullable output_schema, add a step guard that proves the exact expression is non-null, or normalize to a guaranteed {mismatch.ExpectedType} before the mcp.call.";
         }
 
         return $"Align MCP field '{field}' for '{serverName}/{methodName}' with the discovered input_schema, or add a normalization step that produces a {mismatch.ExpectedType} value.";
@@ -2962,17 +2962,9 @@ public static class WorkflowPlanSemanticValidator
             errors.Add(new SchemaValidationError(path, $"expected {expectedType}"));
     }
 
-    private static bool IsJsonNumber(JsonValue jsonValue) =>
-        jsonValue.TryGetValue<double>(out _)
-        || jsonValue.TryGetValue<float>(out _)
-        || jsonValue.TryGetValue<decimal>(out _)
-        || jsonValue.TryGetValue<long>(out _)
-        || jsonValue.TryGetValue<int>(out _)
-        || jsonValue.TryGetValue<short>(out _)
-        || jsonValue.TryGetValue<byte>(out _);
+    private static bool IsJsonNumber(JsonValue value) => JsonSchemaInstanceValidator.TryReadNumber(value, out _);
 
-    private static bool IsJsonInteger(JsonValue jsonValue) =>
-        TryReadDecimal(jsonValue, out var number) && decimal.Truncate(number) == number;
+    private static bool IsJsonInteger(JsonValue value) => IsJsonNumber(value) && JsonSchemaInstanceValidator.IsMultiple(value, JsonValue.Create(1)!);
 
     private static void ValidateConstAndEnum(
         JsonNode? value,
@@ -3039,23 +3031,9 @@ public static class WorkflowPlanSemanticValidator
         string path,
         List<SchemaValidationError> errors)
     {
-        if (!TryReadDecimal(value, out var number))
-            return;
-
-        if (TryReadSchemaDecimal(schema, "minimum", out var minimum) && number < minimum)
-            errors.Add(new SchemaValidationError(path, $"number must be greater than or equal to {minimum}"));
-        if (TryReadSchemaDecimal(schema, "maximum", out var maximum) && number > maximum)
-            errors.Add(new SchemaValidationError(path, $"number must be less than or equal to {maximum}"));
-        if (TryReadSchemaDecimal(schema, "exclusiveMinimum", out var exclusiveMinimum) && number <= exclusiveMinimum)
-            errors.Add(new SchemaValidationError(path, $"number must be greater than {exclusiveMinimum}"));
-        if (TryReadSchemaDecimal(schema, "exclusiveMaximum", out var exclusiveMaximum) && number >= exclusiveMaximum)
-            errors.Add(new SchemaValidationError(path, $"number must be less than {exclusiveMaximum}"));
-        if (TryReadSchemaDecimal(schema, "multipleOf", out var multipleOf)
-            && multipleOf > 0
-            && number % multipleOf != 0)
-        {
-            errors.Add(new SchemaValidationError(path, $"number must be a multiple of {multipleOf}"));
-        }
+        foreach (var finding in JsonSchemaInstanceValidator.ValidateInstanceFindings(value, schema))
+            if (finding.Rule is "minimum" or "maximum" or "exclusiveMinimum" or "exclusiveMaximum" or "multipleOf")
+                errors.Add(new SchemaValidationError(path, finding.Message));
     }
 
     private static void ValidateCountConstraint(
@@ -3085,57 +3063,6 @@ public static class WorkflowPlanSemanticValidator
         {
             value = intValue;
             return value >= 0;
-        }
-
-        return false;
-    }
-
-    private static bool TryReadSchemaDecimal(JsonObject schema, string propertyName, out decimal value) =>
-        TryReadDecimal(schema[propertyName], out value);
-
-    private static bool TryReadDecimal(JsonNode? node, out decimal value)
-    {
-        value = 0;
-        if (node is not JsonValue jsonValue)
-            return false;
-
-        if (jsonValue.TryGetValue<decimal>(out value))
-            return true;
-        if (jsonValue.TryGetValue<long>(out var longValue))
-        {
-            value = longValue;
-            return true;
-        }
-        if (jsonValue.TryGetValue<int>(out var intValue))
-        {
-            value = intValue;
-            return true;
-        }
-        if (jsonValue.TryGetValue<short>(out var shortValue))
-        {
-            value = shortValue;
-            return true;
-        }
-        if (jsonValue.TryGetValue<float>(out var floatValue)
-            && !float.IsNaN(floatValue)
-            && !float.IsInfinity(floatValue))
-        {
-            value = (decimal)floatValue;
-            return true;
-        }
-        if (jsonValue.TryGetValue<double>(out var doubleValue)
-            && !double.IsNaN(doubleValue)
-            && !double.IsInfinity(doubleValue))
-        {
-            try
-            {
-                value = (decimal)doubleValue;
-                return true;
-            }
-            catch (OverflowException)
-            {
-                return false;
-            }
         }
 
         return false;

@@ -1,0 +1,541 @@
+{
+  "run_id": "compactbindings20261006d-amazon-1",
+  "Status": "failed",
+  "Revision": 1165,
+  "StepsStarted": 307,
+  "FinalizationStepsStarted": 50,
+  "normal_step_limit": 10000,
+  "finalization_step_limit": 50,
+  "FinalizationStarted": true,
+  "FinalizationCompleted": true,
+  "logical_json_bytes": 72921343,
+  "active_records": [
+    {
+      "collection": "flow-execution-journal-v9",
+      "read_calls": 1,
+      "unique_records": 1,
+      "json_bytes": 86069
+    },
+    {
+      "collection": "flow-execution-blocks-v1",
+      "read_calls": 1444,
+      "unique_records": 1444,
+      "json_bytes": 3195152
+    }
+  ],
+  "inspection_ms": 2536,
+  "snapshot_bytes": 55459852,
+  "invocation_counts": [
+    {
+      "Key": {
+        "StepType": "set",
+        "IsFinalization": false,
+        "Status": "completed"
+      },
+      "count": 236
+    },
+    {
+      "Key": {
+        "StepType": "set",
+        "IsFinalization": true,
+        "Status": "completed"
+      },
+      "count": 50
+    },
+    {
+      "Key": {
+        "StepType": "mcp.call",
+        "IsFinalization": false,
+        "Status": "completed"
+      },
+      "count": 30
+    },
+    {
+      "Key": {
+        "StepType": "workflow.call",
+        "IsFinalization": false,
+        "Status": "completed"
+      },
+      "count": 28
+    },
+    {
+      "Key": {
+        "StepType": "workflow.call",
+        "IsFinalization": false,
+        "Status": "failed"
+      },
+      "count": 2
+    },
+    {
+      "Key": {
+        "StepType": "switch",
+        "IsFinalization": false,
+        "Status": "completed"
+      },
+      "count": 4
+    },
+    {
+      "Key": {
+        "StepType": "llm.call",
+        "IsFinalization": false,
+        "Status": "completed"
+      },
+      "count": 2
+    },
+    {
+      "Key": {
+        "StepType": "template.render",
+        "IsFinalization": false,
+        "Status": "completed"
+      },
+      "count": 2
+    },
+    {
+      "Key": {
+        "StepType": "loop.sequential",
+        "IsFinalization": false,
+        "Status": "failed"
+      },
+      "count": 1
+    },
+    {
+      "Key": {
+        "StepType": "loop.sequential",
+        "IsFinalization": false,
+        "Status": "completed"
+      },
+      "count": 2
+    }
+  ],
+  "finalization_steps": [
+    {
+      "Id": "/workflow/main/step/n_8a6daf9e08e761be/workflow/w_5983ecbb4f01dd25/step/n_5bb1304c79b07def/iteration/0/step/n_1c5984810e75d712/workflow/w_69559c3df710b4e3/finally/step/n_b0db66bbf07943d4",
+      "StepType": "set",
+      "Status": "completed",
+      "error": null
+    },
+    {
+      "Id": "/workflow/main/step/n_5b38145cf071b26c/workflow/w_0f9ac5993ed0938a/step/n_2da6521e0dcee104/iteration/2/step/n_adec48b9b765342e/workflow/w_abc8a98a666310dc/finally/step/n_481ee33cea3e38e4",
+      "StepType": "set",
+      "Status": "completed",
+      "error": null
+    },
+    {
+      "Id": "/workflow/main/step/n_8a6daf9e08e761be/workflow/w_5983ecbb4f01dd25/step/n_5bb1304c79b07def/iteration/9/step/n_1c5984810e75d712/workflow/w_69559c3df710b4e3/finally/step/n_a6c2a43669643bca",
+      "StepType": "set",
+      "Status": "completed",
+      "error": null
+    },
+    {
+      "Id": "/workflow/main/step/n_71c6123a8c6f1826/workflow/w_c19c8917cf28402a/step/n_06717dbfad34b1c1/iteration/1/step/n_354adcb29cfa7fb3/workflow/w_1cd0e5cdf69e7013/finally/step/n_f228acf56a64e6fa",
+      "StepType": "set",
+      "Status": "completed",
+      "error": null
+    },
+    {
+      "Id": "/workflow/main/step/n_8a6daf9e08e761be/workflow/w_5983ecbb4f01dd25/step/n_5bb1304c79b07def/iteration/1/step/n_1c5984810e75d712/workflow/w_69559c3df710b4e3/finally/step/n_b0db66bbf07943d4",
+      "StepType": "set",
+      "Status": "completed",
+      "error": null
+    },
+    {
+      "Id": "/workflow/main/step/n_8a6daf9e08e761be/workflow/w_5983ecbb4f01dd25/step/n_5bb1304c79b07def/iteration/7/step/n_1c5984810e75d712/workflow/w_69559c3df710b4e3/finally/step/n_b0db66bbf07943d4",
+      "StepType": "set",
+      "Status": "completed",
+      "error": null
+    },
+    {
+      "Id": "/workflow/main/step/n_8a6daf9e08e761be/workflow/w_5983ecbb4f01dd25/step/n_5bb1304c79b07def/iteration/3/step/n_1c5984810e75d712/workflow/w_69559c3df710b4e3/finally/step/n_a6c2a43669643bca",
+      "StepType": "set",
+      "Status": "completed",
+      "error": null
+    },
+    {
+      "Id": "/workflow/main/step/n_8a6daf9e08e761be/workflow/w_5983ecbb4f01dd25/step/n_5bb1304c79b07def/iteration/12/step/n_1c5984810e75d712/workflow/w_69559c3df710b4e3/finally/step/n_a6c2a43669643bca",
+      "StepType": "set",
+      "Status": "completed",
+      "error": null
+    },
+    {
+      "Id": "/workflow/main/step/n_5b38145cf071b26c/workflow/w_0f9ac5993ed0938a/step/n_2da6521e0dcee104/iteration/4/step/n_adec48b9b765342e/workflow/w_abc8a98a666310dc/finally/step/n_481ee33cea3e38e4",
+      "StepType": "set",
+      "Status": "completed",
+      "error": null
+    },
+    {
+      "Id": "/workflow/main/step/n_5b38145cf071b26c/workflow/w_0f9ac5993ed0938a/step/n_2da6521e0dcee104/iteration/4/step/n_adec48b9b765342e/workflow/w_abc8a98a666310dc/finally/step/n_bd5de578e82e9706",
+      "StepType": "set",
+      "Status": "completed",
+      "error": null
+    },
+    {
+      "Id": "/workflow/main/step/n_71c6123a8c6f1826/workflow/w_c19c8917cf28402a/step/n_06717dbfad34b1c1/iteration/0/step/n_354adcb29cfa7fb3/workflow/w_1cd0e5cdf69e7013/finally/step/n_eaeacafeea9d3193",
+      "StepType": "set",
+      "Status": "completed",
+      "error": null
+    },
+    {
+      "Id": "/workflow/main/step/n_5b38145cf071b26c/workflow/w_0f9ac5993ed0938a/step/n_2da6521e0dcee104/iteration/3/step/n_adec48b9b765342e/workflow/w_abc8a98a666310dc/finally/step/n_481ee33cea3e38e4",
+      "StepType": "set",
+      "Status": "completed",
+      "error": null
+    },
+    {
+      "Id": "/workflow/main/step/n_5b38145cf071b26c/workflow/w_0f9ac5993ed0938a/step/n_2da6521e0dcee104/iteration/0/step/n_adec48b9b765342e/workflow/w_abc8a98a666310dc/finally/step/n_bd5de578e82e9706",
+      "StepType": "set",
+      "Status": "completed",
+      "error": null
+    },
+    {
+      "Id": "/workflow/main/step/n_5b38145cf071b26c/workflow/w_0f9ac5993ed0938a/step/n_2da6521e0dcee104/iteration/2/step/n_adec48b9b765342e/workflow/w_abc8a98a666310dc/finally/step/n_bd5de578e82e9706",
+      "StepType": "set",
+      "Status": "completed",
+      "error": null
+    },
+    {
+      "Id": "/workflow/main/step/n_5b38145cf071b26c/workflow/w_0f9ac5993ed0938a/step/n_2da6521e0dcee104/iteration/6/step/n_adec48b9b765342e/workflow/w_abc8a98a666310dc/finally/step/n_bd5de578e82e9706",
+      "StepType": "set",
+      "Status": "completed",
+      "error": null
+    },
+    {
+      "Id": "/workflow/main/step/n_8a6daf9e08e761be/workflow/w_5983ecbb4f01dd25/step/n_5bb1304c79b07def/iteration/9/step/n_1c5984810e75d712/workflow/w_69559c3df710b4e3/finally/step/n_b0db66bbf07943d4",
+      "StepType": "set",
+      "Status": "completed",
+      "error": null
+    },
+    {
+      "Id": "/workflow/main/step/n_8a6daf9e08e761be/workflow/w_5983ecbb4f01dd25/step/n_5bb1304c79b07def/iteration/12/step/n_1c5984810e75d712/workflow/w_69559c3df710b4e3/finally/step/n_b0db66bbf07943d4",
+      "StepType": "set",
+      "Status": "completed",
+      "error": null
+    },
+    {
+      "Id": "/workflow/main/step/n_8a6daf9e08e761be/workflow/w_5983ecbb4f01dd25/step/n_5bb1304c79b07def/iteration/5/step/n_1c5984810e75d712/workflow/w_69559c3df710b4e3/finally/step/n_a6c2a43669643bca",
+      "StepType": "set",
+      "Status": "completed",
+      "error": null
+    },
+    {
+      "Id": "/workflow/main/step/n_8a6daf9e08e761be/workflow/w_5983ecbb4f01dd25/step/n_5bb1304c79b07def/iteration/10/step/n_1c5984810e75d712/workflow/w_69559c3df710b4e3/finally/step/n_a6c2a43669643bca",
+      "StepType": "set",
+      "Status": "completed",
+      "error": null
+    },
+    {
+      "Id": "/workflow/main/step/n_8a6daf9e08e761be/workflow/w_5983ecbb4f01dd25/step/n_5bb1304c79b07def/iteration/2/step/n_1c5984810e75d712/workflow/w_69559c3df710b4e3/finally/step/n_a6c2a43669643bca",
+      "StepType": "set",
+      "Status": "completed",
+      "error": null
+    },
+    {
+      "Id": "/workflow/main/step/n_71c6123a8c6f1826/workflow/w_c19c8917cf28402a/step/n_06717dbfad34b1c1/iteration/0/step/n_354adcb29cfa7fb3/workflow/w_1cd0e5cdf69e7013/finally/step/n_f228acf56a64e6fa",
+      "StepType": "set",
+      "Status": "completed",
+      "error": null
+    },
+    {
+      "Id": "/workflow/main/step/n_5b38145cf071b26c/workflow/w_0f9ac5993ed0938a/step/n_2da6521e0dcee104/iteration/1/step/n_adec48b9b765342e/workflow/w_abc8a98a666310dc/finally/step/n_481ee33cea3e38e4",
+      "StepType": "set",
+      "Status": "completed",
+      "error": null
+    },
+    {
+      "Id": "/workflow/main/step/n_8a6daf9e08e761be/workflow/w_5983ecbb4f01dd25/step/n_5bb1304c79b07def/iteration/14/step/n_1c5984810e75d712/workflow/w_69559c3df710b4e3/finally/step/n_a6c2a43669643bca",
+      "StepType": "set",
+      "Status": "completed",
+      "error": null
+    },
+    {
+      "Id": "/workflow/main/step/n_8a6daf9e08e761be/workflow/w_5983ecbb4f01dd25/step/n_5bb1304c79b07def/iteration/2/step/n_1c5984810e75d712/workflow/w_69559c3df710b4e3/finally/step/n_b0db66bbf07943d4",
+      "StepType": "set",
+      "Status": "completed",
+      "error": null
+    },
+    {
+      "Id": "/workflow/main/step/n_5b38145cf071b26c/workflow/w_0f9ac5993ed0938a/step/n_2da6521e0dcee104/iteration/5/step/n_adec48b9b765342e/workflow/w_abc8a98a666310dc/finally/step/n_481ee33cea3e38e4",
+      "StepType": "set",
+      "Status": "completed",
+      "error": null
+    },
+    {
+      "Id": "/workflow/main/step/n_5b38145cf071b26c/workflow/w_0f9ac5993ed0938a/step/n_2da6521e0dcee104/iteration/1/step/n_adec48b9b765342e/workflow/w_abc8a98a666310dc/finally/step/n_bd5de578e82e9706",
+      "StepType": "set",
+      "Status": "completed",
+      "error": null
+    },
+    {
+      "Id": "/workflow/main/step/n_5b38145cf071b26c/workflow/w_0f9ac5993ed0938a/step/n_2da6521e0dcee104/iteration/3/step/n_adec48b9b765342e/workflow/w_abc8a98a666310dc/finally/step/n_bd5de578e82e9706",
+      "StepType": "set",
+      "Status": "completed",
+      "error": null
+    },
+    {
+      "Id": "/workflow/main/step/n_8a6daf9e08e761be/workflow/w_5983ecbb4f01dd25/step/n_5bb1304c79b07def/iteration/3/step/n_1c5984810e75d712/workflow/w_69559c3df710b4e3/finally/step/n_b0db66bbf07943d4",
+      "StepType": "set",
+      "Status": "completed",
+      "error": null
+    },
+    {
+      "Id": "/workflow/main/step/n_8a6daf9e08e761be/workflow/w_5983ecbb4f01dd25/step/n_5bb1304c79b07def/iteration/7/step/n_1c5984810e75d712/workflow/w_69559c3df710b4e3/finally/step/n_a6c2a43669643bca",
+      "StepType": "set",
+      "Status": "completed",
+      "error": null
+    },
+    {
+      "Id": "/workflow/main/step/n_8a6daf9e08e761be/workflow/w_5983ecbb4f01dd25/step/n_5bb1304c79b07def/iteration/10/step/n_1c5984810e75d712/workflow/w_69559c3df710b4e3/finally/step/n_b0db66bbf07943d4",
+      "StepType": "set",
+      "Status": "completed",
+      "error": null
+    },
+    {
+      "Id": "/workflow/main/step/n_8a6daf9e08e761be/workflow/w_5983ecbb4f01dd25/step/n_5bb1304c79b07def/iteration/0/step/n_1c5984810e75d712/workflow/w_69559c3df710b4e3/finally/step/n_a6c2a43669643bca",
+      "StepType": "set",
+      "Status": "completed",
+      "error": null
+    },
+    {
+      "Id": "/workflow/main/step/n_8a6daf9e08e761be/workflow/w_5983ecbb4f01dd25/step/n_5bb1304c79b07def/iteration/11/step/n_1c5984810e75d712/workflow/w_69559c3df710b4e3/finally/step/n_a6c2a43669643bca",
+      "StepType": "set",
+      "Status": "completed",
+      "error": null
+    },
+    {
+      "Id": "/workflow/main/step/n_8a6daf9e08e761be/workflow/w_5983ecbb4f01dd25/step/n_5bb1304c79b07def/iteration/8/step/n_1c5984810e75d712/workflow/w_69559c3df710b4e3/finally/step/n_b0db66bbf07943d4",
+      "StepType": "set",
+      "Status": "completed",
+      "error": null
+    },
+    {
+      "Id": "/workflow/main/step/n_8a6daf9e08e761be/workflow/w_5983ecbb4f01dd25/step/n_5bb1304c79b07def/iteration/1/step/n_1c5984810e75d712/workflow/w_69559c3df710b4e3/finally/step/n_a6c2a43669643bca",
+      "StepType": "set",
+      "Status": "completed",
+      "error": null
+    },
+    {
+      "Id": "/workflow/main/step/n_71c6123a8c6f1826/workflow/w_c19c8917cf28402a/step/n_06717dbfad34b1c1/iteration/1/step/n_354adcb29cfa7fb3/workflow/w_1cd0e5cdf69e7013/finally/step/n_eaeacafeea9d3193",
+      "StepType": "set",
+      "Status": "completed",
+      "error": null
+    },
+    {
+      "Id": "/workflow/main/step/n_8a6daf9e08e761be/workflow/w_5983ecbb4f01dd25/step/n_5bb1304c79b07def/iteration/5/step/n_1c5984810e75d712/workflow/w_69559c3df710b4e3/finally/step/n_b0db66bbf07943d4",
+      "StepType": "set",
+      "Status": "completed",
+      "error": null
+    },
+    {
+      "Id": "/workflow/main/step/n_5b38145cf071b26c/workflow/w_0f9ac5993ed0938a/step/n_2da6521e0dcee104/iteration/5/step/n_adec48b9b765342e/workflow/w_abc8a98a666310dc/finally/step/n_bd5de578e82e9706",
+      "StepType": "set",
+      "Status": "completed",
+      "error": null
+    },
+    {
+      "Id": "/workflow/main/step/n_8a6daf9e08e761be/workflow/w_5983ecbb4f01dd25/step/n_5bb1304c79b07def/iteration/4/step/n_1c5984810e75d712/workflow/w_69559c3df710b4e3/finally/step/n_a6c2a43669643bca",
+      "StepType": "set",
+      "Status": "completed",
+      "error": null
+    },
+    {
+      "Id": "/workflow/main/step/n_8a6daf9e08e761be/workflow/w_5983ecbb4f01dd25/step/n_5bb1304c79b07def/iteration/11/step/n_1c5984810e75d712/workflow/w_69559c3df710b4e3/finally/step/n_b0db66bbf07943d4",
+      "StepType": "set",
+      "Status": "completed",
+      "error": null
+    },
+    {
+      "Id": "/workflow/main/step/n_8a6daf9e08e761be/workflow/w_5983ecbb4f01dd25/step/n_5bb1304c79b07def/iteration/15/step/n_1c5984810e75d712/workflow/w_69559c3df710b4e3/finally/step/n_b0db66bbf07943d4",
+      "StepType": "set",
+      "Status": "completed",
+      "error": null
+    },
+    {
+      "Id": "/workflow/main/step/n_8a6daf9e08e761be/workflow/w_5983ecbb4f01dd25/step/n_5bb1304c79b07def/iteration/4/step/n_1c5984810e75d712/workflow/w_69559c3df710b4e3/finally/step/n_b0db66bbf07943d4",
+      "StepType": "set",
+      "Status": "completed",
+      "error": null
+    },
+    {
+      "Id": "/workflow/main/step/n_8a6daf9e08e761be/workflow/w_5983ecbb4f01dd25/step/n_5bb1304c79b07def/iteration/8/step/n_1c5984810e75d712/workflow/w_69559c3df710b4e3/finally/step/n_a6c2a43669643bca",
+      "StepType": "set",
+      "Status": "completed",
+      "error": null
+    },
+    {
+      "Id": "/workflow/main/step/n_5b38145cf071b26c/workflow/w_0f9ac5993ed0938a/step/n_2da6521e0dcee104/iteration/6/step/n_adec48b9b765342e/workflow/w_abc8a98a666310dc/finally/step/n_481ee33cea3e38e4",
+      "StepType": "set",
+      "Status": "completed",
+      "error": null
+    },
+    {
+      "Id": "/workflow/main/step/n_8a6daf9e08e761be/workflow/w_5983ecbb4f01dd25/step/n_5bb1304c79b07def/iteration/13/step/n_1c5984810e75d712/workflow/w_69559c3df710b4e3/finally/step/n_b0db66bbf07943d4",
+      "StepType": "set",
+      "Status": "completed",
+      "error": null
+    },
+    {
+      "Id": "/workflow/main/step/n_8a6daf9e08e761be/workflow/w_5983ecbb4f01dd25/step/n_5bb1304c79b07def/iteration/6/step/n_1c5984810e75d712/workflow/w_69559c3df710b4e3/finally/step/n_b0db66bbf07943d4",
+      "StepType": "set",
+      "Status": "completed",
+      "error": null
+    },
+    {
+      "Id": "/workflow/main/step/n_8a6daf9e08e761be/workflow/w_5983ecbb4f01dd25/step/n_5bb1304c79b07def/iteration/6/step/n_1c5984810e75d712/workflow/w_69559c3df710b4e3/finally/step/n_a6c2a43669643bca",
+      "StepType": "set",
+      "Status": "completed",
+      "error": null
+    },
+    {
+      "Id": "/workflow/main/step/n_8a6daf9e08e761be/workflow/w_5983ecbb4f01dd25/step/n_5bb1304c79b07def/iteration/15/step/n_1c5984810e75d712/workflow/w_69559c3df710b4e3/finally/step/n_a6c2a43669643bca",
+      "StepType": "set",
+      "Status": "completed",
+      "error": null
+    },
+    {
+      "Id": "/workflow/main/step/n_8a6daf9e08e761be/workflow/w_5983ecbb4f01dd25/step/n_5bb1304c79b07def/iteration/14/step/n_1c5984810e75d712/workflow/w_69559c3df710b4e3/finally/step/n_b0db66bbf07943d4",
+      "StepType": "set",
+      "Status": "completed",
+      "error": null
+    },
+    {
+      "Id": "/workflow/main/step/n_5b38145cf071b26c/workflow/w_0f9ac5993ed0938a/step/n_2da6521e0dcee104/iteration/0/step/n_adec48b9b765342e/workflow/w_abc8a98a666310dc/finally/step/n_481ee33cea3e38e4",
+      "StepType": "set",
+      "Status": "completed",
+      "error": null
+    },
+    {
+      "Id": "/workflow/main/step/n_8a6daf9e08e761be/workflow/w_5983ecbb4f01dd25/step/n_5bb1304c79b07def/iteration/13/step/n_1c5984810e75d712/workflow/w_69559c3df710b4e3/finally/step/n_a6c2a43669643bca",
+      "StepType": "set",
+      "Status": "completed",
+      "error": null
+    }
+  ],
+  "failed_steps": [
+    {
+      "Id": "/workflow/main/step/n_8a6daf9e08e761be",
+      "StepType": "workflow.call",
+      "Status": "failed",
+      "error": {
+        "Code": "WORKFLOW_FINALIZATION_FAILED",
+        "Type": "WORKFLOW_FINALIZATION_FAILED",
+        "Message": "Workflow finalization failed. [workflow 'w_5983ecbb4f01dd25', step 'n_1c5984810e75d712']",
+        "Retryable": false,
+        "Details": {
+          "finalization_errors": [
+            {
+              "code": "LOOP_LIMIT",
+              "type": "LOOP_LIMIT",
+              "message": "The persisted execution step budget is exhausted. [workflow 'w_69559c3df710b4e3', step 'n_b0db66bbf07943d4']",
+              "retryable": false,
+              "details": {
+                "failed_workflow": "w_69559c3df710b4e3",
+                "failed_step_id": "n_b0db66bbf07943d4",
+                "failed_step_type": "set",
+                "execution_phase": "finalization"
+              }
+            }
+          ],
+          "workflow": "w_69559c3df710b4e3",
+          "step_id": "n_b0db66bbf07943d4",
+          "step_type": "set",
+          "step_status": "Failed",
+          "failed_workflow": "w_5983ecbb4f01dd25",
+          "failed_step_id": "n_1c5984810e75d712",
+          "failed_step_type": "workflow.call",
+          "execution_phase": "step"
+        }
+      }
+    },
+    {
+      "Id": "/workflow/main/step/n_8a6daf9e08e761be/workflow/w_5983ecbb4f01dd25/step/n_5bb1304c79b07def",
+      "StepType": "loop.sequential",
+      "Status": "failed",
+      "error": {
+        "Code": "WORKFLOW_FINALIZATION_FAILED",
+        "Type": "WORKFLOW_FINALIZATION_FAILED",
+        "Message": "Workflow finalization failed. [workflow 'w_5983ecbb4f01dd25', step 'n_1c5984810e75d712']",
+        "Retryable": false,
+        "Details": {
+          "finalization_errors": [
+            {
+              "code": "LOOP_LIMIT",
+              "type": "LOOP_LIMIT",
+              "message": "The persisted execution step budget is exhausted. [workflow 'w_69559c3df710b4e3', step 'n_b0db66bbf07943d4']",
+              "retryable": false,
+              "details": {
+                "failed_workflow": "w_69559c3df710b4e3",
+                "failed_step_id": "n_b0db66bbf07943d4",
+                "failed_step_type": "set",
+                "execution_phase": "finalization"
+              }
+            }
+          ],
+          "workflow": "w_69559c3df710b4e3",
+          "step_id": "n_b0db66bbf07943d4",
+          "step_type": "set",
+          "step_status": "Failed",
+          "failed_workflow": "w_5983ecbb4f01dd25",
+          "failed_step_id": "n_1c5984810e75d712",
+          "failed_step_type": "workflow.call",
+          "execution_phase": "step"
+        }
+      }
+    },
+    {
+      "Id": "/workflow/main/step/n_8a6daf9e08e761be/workflow/w_5983ecbb4f01dd25/step/n_5bb1304c79b07def/iteration/16/step/n_1c5984810e75d712",
+      "StepType": "workflow.call",
+      "Status": "failed",
+      "error": {
+        "Code": "WORKFLOW_FINALIZATION_FAILED",
+        "Type": "WORKFLOW_FINALIZATION_FAILED",
+        "Message": "Workflow finalization failed.",
+        "Retryable": false,
+        "Details": {
+          "finalization_errors": [
+            {
+              "code": "LOOP_LIMIT",
+              "type": "LOOP_LIMIT",
+              "message": "The persisted execution step budget is exhausted. [workflow 'w_69559c3df710b4e3', step 'n_b0db66bbf07943d4']",
+              "retryable": false,
+              "details": {
+                "failed_workflow": "w_69559c3df710b4e3",
+                "failed_step_id": "n_b0db66bbf07943d4",
+                "failed_step_type": "set",
+                "execution_phase": "finalization"
+              }
+            }
+          ],
+          "workflow": "w_69559c3df710b4e3",
+          "step_id": "n_b0db66bbf07943d4",
+          "step_type": "set",
+          "step_status": "Failed"
+        }
+      }
+    }
+  ],
+  "loops": [
+    {
+      "Id": "/workflow/main/step/n_8a6daf9e08e761be/workflow/w_5983ecbb4f01dd25/step/n_5bb1304c79b07def",
+      "Status": "failed",
+      "output_bytes": 0,
+      "collected_bytes": 0,
+      "count": null
+    },
+    {
+      "Id": "/workflow/main/step/n_71c6123a8c6f1826/workflow/w_c19c8917cf28402a/step/n_06717dbfad34b1c1",
+      "Status": "completed",
+      "output_bytes": 27999,
+      "collected_bytes": 27977,
+      "count": 2
+    },
+    {
+      "Id": "/workflow/main/step/n_5b38145cf071b26c/workflow/w_0f9ac5993ed0938a/step/n_2da6521e0dcee104",
+      "Status": "completed",
+      "output_bytes": 95053,
+      "collected_bytes": 95031,
+      "count": 7
+    }
+  ],
+  "incomplete_external": [],
+  "source": "71315a5a7621f46f5a8b4ff1f3ab58213a5f445f",
+  "note": "Read-only public KeyVault API reconstruction. Active referenced JSON only; excludes superseded blocks and encryption/database overhead. Read time is inspection, not checkpoint latency. No inference or execution."
+}

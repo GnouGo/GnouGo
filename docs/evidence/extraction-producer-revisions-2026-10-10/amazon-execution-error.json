@@ -1,0 +1,35 @@
+{
+  "success": false,
+  "outputs": null,
+  "error": {
+    "Code": "CONTRACT_UNSATISFIED",
+    "Type": "CONTRACT_UNSATISFIED",
+    "Message": "The mapping exhausted its cumulative sandbox allowance (allocated_memory). Enforced memory limit: 50000000 bytes. [workflow 'w_7e6d4da1eb2d275e', step 'n_ae72cd447d18931a']",
+    "Retryable": false,
+    "Details": {
+      "mapping_resource_limit": true,
+      "exhausted_resource": "allocated_memory",
+      "sandbox": {
+        "statements": 946,
+        "statement_limit": 10000,
+        "elapsed_ms": 76.6962,
+        "time_limit_ms": 5000,
+        "allocated_bytes": 53055008,
+        "materialized_bytes": 2454227,
+        "output_bytes": 611,
+        "memory_limit_bytes": 50000000,
+        "nesting_depth": 4,
+        "nesting_limit": 64
+      },
+      "source_index": 2,
+      "failed_workflow": "w_7e6d4da1eb2d275e",
+      "failed_step_id": "n_ae72cd447d18931a",
+      "failed_step_type": "mapping.dynamic",
+      "execution_phase": "step",
+      "workflow": "w_7e6d4da1eb2d275e",
+      "step_id": "n_ae72cd447d18931a",
+      "step_type": "mapping.dynamic",
+      "step_status": "Failed"
+    }
+  }
+}

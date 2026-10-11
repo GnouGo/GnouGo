@@ -17,10 +17,10 @@ public sealed class CompactProposalTests
         Assert.False(schema["properties"]!.AsObject().ContainsKey("requirements"));
         Assert.False(schema["properties"]!.AsObject().ContainsKey("explanation"));
         var wire = JsonNode.Parse("""
-            {"discoveryRequests":null,"plan":{"inputs":[],"groups":[],"choices":[],"root":{"tasks":[
-              {"id":"interpret","kind":"transform","objective":"Interpret supplied text","dependsOn":[],
+            {"discoveryRequests":null,"clarifications":null,"plan":{"inputs":[],"groups":[],"choices":[],"root":{"tasks":[
+              {"id":"interpret","kind":"transform","objective":"Interpret supplied text","dependsOn":[],"requires":null,
                "inputs":[{"name":"text","value":{"kind":"string","text":"one"}}],
-               "resultType":{"kind":"object","fields":[{"name":"items","type":{"kind":"array","items":{"kind":"string","nullable":true}}}]}}
+               "resultType":{"kind":"object","fields":[{"name":"items","type":{"kind":"array","minItems":null,"maxItems":null,"items":{"kind":"string","nullable":true}}}]}}
             ],"always":[],"outputs":[{"name":"items","value":{"kind":"output","source":"interpret","port":"items"}}]}}}
             """)!;
         Assert.Empty(PlanningContractValidation.ValidateInstance(wire, schema));
@@ -70,10 +70,10 @@ public sealed class CompactProposalTests
     [Fact]
     public async Task RepairOmitsRequirementsAndRetainsAcceptedIntent()
     {
-        var runtime = new TestRuntime(); runtime.Proposal.Plan!.Root.Outputs.Add(new("broken", PlanningCorpus.Business("output", "absent", "value")));
+        var runtime = new TestRuntime(); runtime.Proposal.Plan!.Root.Outputs.Add(new("broken", PlanningCorpus.Business("output", runtime.Proposal.Plan.Root.Tasks[0].Id, "missing_port")));
         var planner = new HybridWorkflowPlanner(); var state = await planner.AdvanceAsync(PlannerFixture.Session(), new(), runtime, PlannerFixture.Ct);
         var accepted = JsonSerializer.Serialize(state.Requirements, PlanningJsonContext.Default.PlanningRequirements);
-        runtime.Proposal.Plan.Root.Outputs[^1] = new("broken", PlanningCorpus.String("fixed"));
+        runtime.Proposal.Plan.Root.Outputs[^1] = new("broken", runtime.Proposal.Plan.Root.Outputs[0].Value);
         runtime.Respond = (request, _) =>
         {
             Assert.False(request.StructuredOutputSchema!["properties"]!.AsObject().ContainsKey("requirements"));

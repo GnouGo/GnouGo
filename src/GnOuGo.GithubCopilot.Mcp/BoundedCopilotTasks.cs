@@ -296,11 +296,7 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
         JsonSerializer.Serialize(task, AgentTaskJsonContext.Default.AgentTaskDefinition);
 
     private static bool CommandCompleted(CopilotToolExecutionObservation tool, IReadOnlyList<CopilotToolExecutionObservation> all)
-        => tool.CompletionObserved && !tool.ConflictingCompletion && tool.Terminals.Count > 0 && tool.Terminals.All(t => Terminal(tool, t, all) is not null);
-    private static CopilotTerminalObservation? Terminal(CopilotToolExecutionObservation tool, CopilotTerminalObservation terminal, IReadOnlyList<CopilotToolExecutionObservation> all)
-        => terminal.ExitCode is not null ? terminal : terminal.ShellId is null ? null :
-            all.Where(t => t.CompletionObserved && !t.ConflictingCompletion && t.ToolSucceeded == true)
-                .SelectMany(t => t.Terminals).LastOrDefault(t => t.ShellId == terminal.ShellId && t.ExitCode is not null);
+        => tool.GetVerifiedTerminals(all) is { Count: > 0 };
     private static List<AgentTaskEvidence> CommandEvidence(CopilotSendResult sent, string workingDirectory, IReadOnlyList<AgentVerificationRequirement> requirements)
     {
         var evidence = new List<AgentTaskEvidence>();
@@ -318,7 +314,7 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
             { lastMutation = Math.Max(lastMutation, tool.CompletedSequence ?? long.MaxValue); continue; }
             if (!CommandCompleted(tool, sent.ToolExecutions)) continue;
             if (!commands.TryGetValue(text, out var attempts)) commands[text] = attempts = [];
-            attempts.AddRange(tool.Terminals.Select(t => (tool, Terminal(tool, t, sent.ToolExecutions)!)));
+            attempts.AddRange(tool.GetVerifiedTerminals(sent.ToolExecutions)!.Select(t => (tool, t)));
         }
         foreach (var (command, attempts) in commands)
         {

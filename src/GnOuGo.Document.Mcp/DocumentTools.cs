@@ -1,3 +1,5 @@
+using GnOuGo.Mcp.Core;
+using ModelContextProtocol;
 using System.ComponentModel;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Server;
@@ -16,10 +18,12 @@ public sealed class DocumentTools
         _logger = logger;
     }
 
+    [McpMeta("gnougo", JsonValue = McpEffectMetadata.Read)]
     [McpServerTool(Name = "document_get_policy", UseStructuredContent = true, OutputSchemaType = typeof(DocumentPolicyInfo)), Description(
         "Returns the active document server policy: allowed file extensions, working roots, max file size. Call this first to discover the default workspace.")]
     public DocumentPolicyInfo GetPolicy() => _host.GetPolicy();
 
+    [McpMeta("gnougo", JsonValue = McpEffectMetadata.Read)]
     [McpServerTool(Name = "document_list", UseStructuredContent = true, OutputSchemaType = typeof(DocumentListResult)), Description(
         "Lists files with allowed extensions in a directory inside the workspace. " +
         "Returns relative paths, sizes, and last-modified timestamps. " +
@@ -44,6 +48,7 @@ public sealed class DocumentTools
         }
     }
 
+    [McpMeta("gnougo", JsonValue = McpEffectMetadata.Read)]
     [McpServerTool(Name = "document_read", UseStructuredContent = true, OutputSchemaType = typeof(DocumentReadResult)), Description(
         "Reads a document (PDF, DOCX, XLSX, PPTX, TXT, MD, CSV, JSON, XML, YAML) " +
         "and returns its text content. For Office/PDF formats, extracts text and optionally " +
@@ -69,6 +74,7 @@ public sealed class DocumentTools
         }
     }
 
+    [McpMeta("gnougo", JsonValue = McpEffectMetadata.Write)]
     [McpServerTool(Name = "document_write", UseStructuredContent = true, OutputSchemaType = typeof(DocumentWriteResult)), Description(
         "Writes text content to a file, creating missing parent directories within the allowed workspace. For .docx, automatically detects Markdown and maps headings, lists, emphasis, code, links, blockquotes, and tables to Word structures. " +
         "For .pdf, generates a readable A4 PDF and automatically renders Markdown headings, lists, emphasis, code, links, blockquotes, tables, and separators. " +
@@ -86,7 +92,11 @@ public sealed class DocumentTools
     {
         try
         {
-            return _host.Write(filePath, content, encoding, append);
+            var result = _host.Write(filePath, content, encoding, append);
+            if (result.Success && (string.IsNullOrWhiteSpace(result.FilePath) || string.IsNullOrWhiteSpace(result.FilePathAbsolute) ||
+                result.BytesWritten is null or < 0 || result.ErrorCode is not null || result.ErrorMessage is not null))
+                throw new InvalidOperationException("The completed write did not provide its required receipt.");
+            return result;
         }
         catch (InvalidOperationException ex)
         {

@@ -1,0 +1,17 @@
+{
+  "kind": "revise",
+  "preserveRequirements": true,
+  "expectedRevision": 5,
+  "artifactHash": "3a9e3e66dc82577a736c2fcc58c48f87d43b3f59942787cb421c07e00deaa8eb",
+  "editablePaths": [
+    "/tasks/extract_home_search_controls/resultType",
+    "/tasks/extract_search_product_candidates/resultType",
+    "/tasks/extract_home_search_controls/requires",
+    "/tasks/project_home_records_by_page/requires",
+    "/tasks/extract_search_product_candidates/requires",
+    "/tasks/project_search_records_by_page/requires",
+    "/tasks/extract_product_page_facts/requires",
+    "/tasks/assemble_product_record/inputs"
+  ],
+  "text": "Targeted revision only in these eight slots. Preserve all accepted requirements, objectives, task kinds, ordering, operations, each declarations, field nullability, array bounds, lookups, individual product visits, non-null product objects with nullable facts, real writer outputs, and cleanup. No other change.\n1. In extract_home_search_controls.resultType remove only the supportsFill and supportsSubmitByEnter fields from each nested candidate object. Keep key and label exactly as declared. In extract_search_product_candidates.resultType remove only hasHref and supportsFollow. Keep key and label exactly as declared. These booleans do not exist on original observations; source-grounded extraction cannot export invented predicates as scalar facts. Existing extraction objectives still identify appropriate observed candidates; Browser remains authoritative for action compatibility. Do not replace these flags with new fields or nullable flags.\n2. For each of the five selected requires bindings, retain existing actual success==true and observationSnapshot!=null checks, then short-circuit require the SAME producer snapshot's captureTruncated==false and manifestTruncated==false. Existing producers are open_amazon_fr_complete for the two home tasks, read_search_results_complete for the two search tasks, and read_product_complete for extract_product_page_facts. Check non-null before accessing fields. These remain local assertions, not a proof layer or optional skip.\n3. In assemble_product_record.inputs remove only visitedUrl. Keep facts=flatten(output(extract_product_page_facts,factsByPage)) exactly. Interpretation reconciles complete compact facts; it does not need to repeat the authoritative URL. The original observation and loop item already retain the URL separately for navigation/evidence.\nPreserve every other declaration and binding. Do not add tasks, replace lookups, modify requirements, infer business defaults, or restore unrequested work."
+}

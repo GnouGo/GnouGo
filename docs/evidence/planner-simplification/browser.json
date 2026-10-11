@@ -1,0 +1,14 @@
+{
+  "recommendation": true,
+  "custom": true,
+  "textOnly": true,
+  "reload": true,
+  "keyboard": true,
+  "mobile": true,
+  "cancellation": true,
+  "businessRequirementsReview": true,
+  "legacyRevisionRequired": true,
+  "separateApproval": true,
+  "savedResponseRecovery": true,
+  "errors": []
+}

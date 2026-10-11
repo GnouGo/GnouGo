@@ -1,0 +1,3685 @@
+[
+  {
+    "id": "schema-portability-20261002:consumerretry20261008b-amazon-1:1:72d5fb5f4644e6739f8ab488d7bfaf64f93870a0f8bf75d8ffed1c0f32cddfe9",
+    "response": {
+      "discoveryRequests": [
+        {
+          "sourceId": "source_258c29d9064381a5dd37bf0c",
+          "cursor": null,
+          "query": "Available Playwright/browser navigation operations for opening Amazon.fr, searching a query, listing product result links, navigating product pages, extracting observed text/HTML, detecting CAPTCHA/blocker pages, and closing browser even on failure.",
+          "operationIds": null
+        },
+        {
+          "sourceId": "source_0002e1b8daaf46eef1b331cc",
+          "cursor": null,
+          "query": "Available document/file operations to create and save an XLSX workbook at a specified path with rows/columns for product name, description, price, source URL, status/notes, preserving explicit missing data.",
+          "operationIds": null
+        }
+      ],
+      "plan": null,
+      "clarifications": null,
+      "requirements": null
+    }
+  },
+  {
+    "id": "schema-portability-20261002:consumerretry20261008b-amazon-1:2:c874f0d3cac313a0c93dfd3c2431f2d5df0d12439def91a626c0d2b2e9216de2",
+    "response": {
+      "discoveryRequests": null,
+      "plan": {
+        "inputs": [
+          {
+            "name": "query",
+            "type": {
+              "kind": "string"
+            }
+          }
+        ],
+        "root": {
+          "tasks": [
+            {
+              "id": "build_search_url",
+              "kind": "transform",
+              "objective": "Construire l’URL de recherche Amazon.fr en encodant l’entrée publique query pour le paramètre k, sans modifier le texte recherché.",
+              "dependsOn": [],
+              "requires": null,
+              "mode": "interpret",
+              "inputs": [
+                {
+                  "name": "query",
+                  "value": {
+                    "kind": "input",
+                    "source": "query"
+                  }
+                }
+              ],
+              "resultType": {
+                "kind": "object",
+                "fields": [
+                  {
+                    "name": "url",
+                    "type": {
+                      "kind": "string"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "id": "open_amazon_search",
+              "kind": "operation",
+              "objective": "Ouvrir Amazon.fr sur la page de recherche de l’article demandé et observer la page initiale.",
+              "dependsOn": [
+                "build_search_url"
+              ],
+              "requires": null,
+              "operation": "cap_490d9e16075cbdca5954ec27",
+              "inputs": [
+                {
+                  "name": "url",
+                  "value": {
+                    "kind": "field",
+                    "items": [
+                      {
+                        "kind": "output",
+                        "source": "build_search_url",
+                        "port": null
+                      }
+                    ],
+                    "port": "url"
+                  }
+                },
+                {
+                  "name": "format",
+                  "value": {
+                    "kind": "string",
+                    "text": "observation_complete"
+                  }
+                },
+                {
+                  "name": "waitUntil",
+                  "value": {
+                    "kind": "string",
+                    "text": "domcontentloaded"
+                  }
+                },
+                {
+                  "name": "timeoutMs",
+                  "value": {
+                    "kind": "number",
+                    "number": 30000
+                  }
+                },
+                {
+                  "name": "maxRecords",
+                  "value": {
+                    "kind": "number",
+                    "number": 200
+                  }
+                }
+              ]
+            },
+            {
+              "id": "detect_initial_blockers_and_consent",
+              "kind": "transform",
+              "objective": "Examiner l’observation initiale pour détecter un CAPTCHA, une page de blocage, ou une bannière de consentement cookies avec un contrôle observé autorisé pour accepter/refuser.",
+              "dependsOn": [
+                "open_amazon_search"
+              ],
+              "requires": null,
+              "mode": "interpret",
+              "inputs": [
+                {
+                  "name": "observation",
+                  "value": {
+                    "kind": "output",
+                    "source": "open_amazon_search",
+                    "port": null
+                  }
+                }
+              ],
+              "resultType": {
+                "kind": "object",
+                "fields": [
+                  {
+                    "name": "isCaptchaOrBlocked",
+                    "type": {
+                      "kind": "boolean"
+                    }
+                  },
+                  {
+                    "name": "blockerNote",
+                    "type": {
+                      "kind": "string",
+                      "nullable": true
+                    }
+                  },
+                  {
+                    "name": "consentReference",
+                    "type": {
+                      "kind": "string",
+                      "nullable": true
+                    }
+                  },
+                  {
+                    "name": "consentAction",
+                    "type": {
+                      "kind": "string",
+                      "enum": [
+                        "activate",
+                        "follow"
+                      ],
+                      "nullable": true
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "id": "accept_observed_cookie_consent",
+              "kind": "operation",
+              "objective": "Cliquer uniquement sur un contrôle de consentement cookies observé et autorisé, si présent, afin de rendre les résultats accessibles.",
+              "dependsOn": [
+                "detect_initial_blockers_and_consent"
+              ],
+              "requires": {
+                "kind": "predicate",
+                "predicate": "and",
+                "items": [
+                  {
+                    "kind": "present",
+                    "source": "detect_initial_blockers_and_consent"
+                  },
+                  {
+                    "kind": "predicate",
+                    "predicate": "not_equal",
+                    "items": [
+                      {
+                        "kind": "field",
+                        "items": [
+                          {
+                            "kind": "output",
+                            "source": "detect_initial_blockers_and_consent",
+                            "port": null
+                          }
+                        ],
+                        "port": "consentReference"
+                      },
+                      {
+                        "kind": "null"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "operation": "cap_dd05fbf36e155a64318f3588",
+              "inputs": [
+                {
+                  "name": "reference",
+                  "value": {
+                    "kind": "field",
+                    "items": [
+                      {
+                        "kind": "output",
+                        "source": "detect_initial_blockers_and_consent",
+                        "port": null
+                      }
+                    ],
+                    "port": "consentReference"
+                  }
+                },
+                {
+                  "name": "requestedAction",
+                  "value": {
+                    "kind": "field",
+                    "items": [
+                      {
+                        "kind": "output",
+                        "source": "detect_initial_blockers_and_consent",
+                        "port": null
+                      }
+                    ],
+                    "port": "consentAction"
+                  }
+                },
+                {
+                  "name": "waitUntil",
+                  "value": {
+                    "kind": "string",
+                    "text": "domcontentloaded"
+                  }
+                },
+                {
+                  "name": "timeoutMs",
+                  "value": {
+                    "kind": "number",
+                    "number": 15000
+                  }
+                }
+              ]
+            },
+            {
+              "id": "reobserve_after_consent",
+              "kind": "operation",
+              "objective": "Réobserver la page de résultats après l’action de consentement, car les références précédentes sont invalidées après interaction.",
+              "dependsOn": [
+                "accept_observed_cookie_consent"
+              ],
+              "requires": {
+                "kind": "present",
+                "source": "accept_observed_cookie_consent"
+              },
+              "operation": "cap_490d9e16075cbdca5954ec27",
+              "inputs": [
+                {
+                  "name": "format",
+                  "value": {
+                    "kind": "string",
+                    "text": "observation_complete"
+                  }
+                },
+                {
+                  "name": "timeoutMs",
+                  "value": {
+                    "kind": "number",
+                    "number": 30000
+                  }
+                },
+                {
+                  "name": "maxRecords",
+                  "value": {
+                    "kind": "number",
+                    "number": 200
+                  }
+                }
+              ]
+            },
+            {
+              "id": "select_search_snapshot",
+              "kind": "transform",
+              "objective": "Choisir l’observation de résultats la plus récente disponible: après consentement si elle existe, sinon l’observation initiale.",
+              "dependsOn": [
+                "open_amazon_search",
+                "detect_initial_blockers_and_consent",
+                "reobserve_after_consent"
+              ],
+              "requires": null,
+              "mode": "interpret",
+              "inputs": [
+                {
+                  "name": "initial",
+                  "value": {
+                    "kind": "output",
+                    "source": "open_amazon_search",
+                    "port": null
+                  }
+                },
+                {
+                  "name": "afterConsent",
+                  "value": {
+                    "kind": "output",
+                    "source": "reobserve_after_consent",
+                    "port": null
+                  }
+                },
+                {
+                  "name": "blockerDetection",
+                  "value": {
+                    "kind": "output",
+                    "source": "detect_initial_blockers_and_consent",
+                    "port": null
+                  }
+                }
+              ],
+              "resultType": {
+                "kind": "object",
+                "fields": [
+                  {
+                    "name": "snapshot",
+                    "type": {
+                      "kind": "object",
+                      "fields": [
+                        {
+                          "name": "content",
+                          "type": {
+                            "kind": "string"
+                          }
+                        },
+                        {
+                          "name": "url",
+                          "type": {
+                            "kind": "string"
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "name": "isCaptchaOrBlocked",
+                    "type": {
+                      "kind": "boolean"
+                    }
+                  },
+                  {
+                    "name": "blockerNote",
+                    "type": {
+                      "kind": "string",
+                      "nullable": true
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "id": "extract_product_candidates",
+              "kind": "transform",
+              "objective": "Extraire depuis l’observation complète de la page de recherche les liens candidats des produits Amazon.fr, conserver l’ordre observé, exclure publicités/navigation non-produits si identifiable, et limiter strictement aux 10 premiers produits. Si CAPTCHA ou blocage empêche la lecture, retourner une liste vide avec une note explicite.",
+              "dependsOn": [
+                "select_search_snapshot"
+              ],
+              "requires": null,
+              "mode": "interpret",
+              "inputs": [
+                {
+                  "name": "searchSnapshot",
+                  "value": {
+                    "kind": "output",
+                    "source": "select_search_snapshot",
+                    "port": null
+                  }
+                }
+              ],
+              "resultType": {
+                "kind": "object",
+                "fields": [
+                  {
+                    "name": "products",
+                    "type": {
+                      "kind": "array",
+                      "items": {
+                        "kind": "object",
+                        "fields": [
+                          {
+                            "name": "rank",
+                            "type": {
+                              "kind": "integer"
+                            }
+                          },
+                          {
+                            "name": "searchTitle",
+                            "type": {
+                              "kind": "string",
+                              "nullable": true
+                            }
+                          },
+                          {
+                            "name": "url",
+                            "type": {
+                              "kind": "string"
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  {
+                    "name": "searchStatus",
+                    "type": {
+                      "kind": "string"
+                    }
+                  },
+                  {
+                    "name": "notes",
+                    "type": {
+                      "kind": "string",
+                      "nullable": true
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "id": "visit_each_product",
+              "kind": "foreach",
+              "objective": "Visiter chaque fiche produit candidate, jusqu’à 10 produits au total, et extraire uniquement les informations observées.",
+              "dependsOn": [
+                "extract_product_candidates"
+              ],
+              "requires": null,
+              "items": {
+                "kind": "field",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "extract_product_candidates",
+                    "port": null
+                  }
+                ],
+                "port": "products"
+              },
+              "body": {
+                "tasks": [
+                  {
+                    "id": "open_product_page",
+                    "kind": "operation",
+                    "objective": "Naviguer vers la fiche produit observée depuis les résultats Amazon.fr.",
+                    "dependsOn": [],
+                    "requires": null,
+                    "operation": "cap_490d9e16075cbdca5954ec27",
+                    "inputs": [
+                      {
+                        "name": "url",
+                        "value": {
+                          "kind": "field",
+                          "items": [
+                            {
+                              "kind": "item"
+                            }
+                          ],
+                          "port": "url"
+                        }
+                      },
+                      {
+                        "name": "format",
+                        "value": {
+                          "kind": "string",
+                          "text": "observation_complete"
+                        }
+                      },
+                      {
+                        "name": "waitUntil",
+                        "value": {
+                          "kind": "string",
+                          "text": "domcontentloaded"
+                        }
+                      },
+                      {
+                        "name": "timeoutMs",
+                        "value": {
+                          "kind": "number",
+                          "number": 30000
+                        }
+                      },
+                      {
+                        "name": "maxRecords",
+                        "value": {
+                          "kind": "number",
+                          "number": 200
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "extract_product_fields",
+                    "kind": "transform",
+                    "objective": "Extraire de la fiche produit le nom, la description et le prix visibles. Si une donnée, le prix, ou la description est absent(e), l’indiquer explicitement; ne jamais inventer. Détecter aussi CAPTCHA/blocage sur la fiche.",
+                    "dependsOn": [
+                      "open_product_page"
+                    ],
+                    "requires": null,
+                    "mode": "interpret",
+                    "inputs": [
+                      {
+                        "name": "candidate",
+                        "value": {
+                          "kind": "item"
+                        }
+                      },
+                      {
+                        "name": "productObservation",
+                        "value": {
+                          "kind": "output",
+                          "source": "open_product_page",
+                          "port": null
+                        }
+                      }
+                    ],
+                    "resultType": {
+                      "kind": "object",
+                      "fields": [
+                        {
+                          "name": "rank",
+                          "type": {
+                            "kind": "integer"
+                          }
+                        },
+                        {
+                          "name": "url",
+                          "type": {
+                            "kind": "string"
+                          }
+                        },
+                        {
+                          "name": "name",
+                          "type": {
+                            "kind": "string"
+                          }
+                        },
+                        {
+                          "name": "description",
+                          "type": {
+                            "kind": "string"
+                          }
+                        },
+                        {
+                          "name": "price",
+                          "type": {
+                            "kind": "string"
+                          }
+                        },
+                        {
+                          "name": "status",
+                          "type": {
+                            "kind": "string"
+                          }
+                        },
+                        {
+                          "name": "notes",
+                          "type": {
+                            "kind": "string",
+                            "nullable": true
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "outputs": [
+                  {
+                    "name": "product",
+                    "value": {
+                      "kind": "output",
+                      "source": "extract_product_fields",
+                      "port": null
+                    }
+                  }
+                ],
+                "always": []
+              },
+              "parallel": false,
+              "maxItems": 10,
+              "maxConcurrency": 1
+            },
+            {
+              "id": "assemble_workbook_tsv",
+              "kind": "transform",
+              "objective": "Assembler le contenu du classeur Excel sous forme TSV avec en-têtes: Rang, Nom, Description, Prix, URL, Statut, Notes. Normaliser les tabulations et retours à la ligne dans les cellules. Inclure les produits extraits; si aucun produit n’a pu être listé à cause d’un CAPTCHA/blocage/absence vérifiée, créer une ligne explicite décrivant la situation.",
+              "dependsOn": [
+                "extract_product_candidates",
+                "visit_each_product"
+              ],
+              "requires": null,
+              "mode": "interpret",
+              "inputs": [
+                {
+                  "name": "candidateExtraction",
+                  "value": {
+                    "kind": "output",
+                    "source": "extract_product_candidates",
+                    "port": null
+                  }
+                },
+                {
+                  "name": "productRows",
+                  "value": {
+                    "kind": "output",
+                    "source": "visit_each_product",
+                    "port": null
+                  }
+                }
+              ],
+              "resultType": {
+                "kind": "object",
+                "fields": [
+                  {
+                    "name": "tsv",
+                    "type": {
+                      "kind": "string"
+                    }
+                  },
+                  {
+                    "name": "rowCount",
+                    "type": {
+                      "kind": "integer"
+                    }
+                  },
+                  {
+                    "name": "completeness",
+                    "type": {
+                      "kind": "string"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "id": "write_products_xlsx",
+              "kind": "operation",
+              "objective": "Sauvegarder le classeur Excel demandé sur le disque à l’emplacement relatif fixé.",
+              "dependsOn": [
+                "assemble_workbook_tsv"
+              ],
+              "requires": null,
+              "operation": "cap_37c513d225bb1b870053c5d3",
+              "inputs": [
+                {
+                  "name": "filePath",
+                  "value": {
+                    "kind": "string",
+                    "text": "workflows/schema-portability-20261002/consumerretry20261008b-amazon-1/products.xlsx"
+                  }
+                },
+                {
+                  "name": "content",
+                  "value": {
+                    "kind": "field",
+                    "items": [
+                      {
+                        "kind": "output",
+                        "source": "assemble_workbook_tsv",
+                        "port": null
+                      }
+                    ],
+                    "port": "tsv"
+                  }
+                },
+                {
+                  "name": "append",
+                  "value": {
+                    "kind": "boolean",
+                    "boolean": false
+                  }
+                }
+              ]
+            }
+          ],
+          "outputs": [
+            {
+              "name": "filePath",
+              "value": {
+                "kind": "field",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "write_products_xlsx",
+                    "port": null
+                  }
+                ],
+                "port": "filePath"
+              }
+            },
+            {
+              "name": "rowCount",
+              "value": {
+                "kind": "field",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "assemble_workbook_tsv",
+                    "port": null
+                  }
+                ],
+                "port": "rowCount"
+              }
+            },
+            {
+              "name": "completeness",
+              "value": {
+                "kind": "field",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "assemble_workbook_tsv",
+                    "port": null
+                  }
+                ],
+                "port": "completeness"
+              }
+            }
+          ],
+          "always": [
+            {
+              "id": "close_browser",
+              "kind": "operation",
+              "objective": "Fermer le navigateur même en cas d’échec d’une étape précédente.",
+              "dependsOn": [],
+              "requires": null,
+              "operation": "cap_bdb7ba9ab04b18783883fa86",
+              "inputs": []
+            }
+          ]
+        },
+        "groups": [],
+        "choices": []
+      },
+      "clarifications": null,
+      "requirements": {
+        "summary": "Automatiser Amazon.fr avec une entrée publique query, rechercher l’article demandé, visiter au maximum les 10 premiers produits, extraire nom, description et prix observés, puis sauvegarder un classeur Excel à l’emplacement demandé. Le navigateur doit être fermé même en cas d’échec; CAPTCHA et données absentes doivent rester explicites.",
+        "outcomes": [
+          {
+            "id": "search_amazon_fr",
+            "description": "Utilise Amazon.fr et recherche l’article fourni via l’entrée query."
+          },
+          {
+            "id": "limit_10_products",
+            "description": "Traite au maximum les 10 premiers produits observés dans les résultats."
+          },
+          {
+            "id": "extract_observed_fields",
+            "description": "Extrait uniquement les champs observés: nom, description et prix; les absences, CAPTCHA ou blocages sont notés explicitement."
+          },
+          {
+            "id": "save_xlsx",
+            "description": "Sauvegarde le fichier Excel relatif workflows/schema-portability-20261002/consumerretry20261008b-amazon-1/products.xlsx."
+          },
+          {
+            "id": "always_close_browser",
+            "description": "Ferme le navigateur dans tous les cas."
+          }
+        ],
+        "inputs": [
+          {
+            "name": "query",
+            "type": {
+              "kind": "string"
+            }
+          }
+        ],
+        "outputs": [
+          {
+            "name": "filePath",
+            "type": {
+              "kind": "string"
+            },
+            "required": true
+          },
+          {
+            "name": "rowCount",
+            "type": {
+              "kind": "integer"
+            },
+            "required": true
+          },
+          {
+            "name": "completeness",
+            "type": {
+              "kind": "string"
+            },
+            "required": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "id": "schema-portability-20261002:consumerretry20261008b-amazon-1:3:2f48a473630718f1d3101d95b23189555fe4433ad1deee7e88d4f193e7c99d4b",
+    "response": {
+      "discoveryRequests": null,
+      "plan": {
+        "inputs": [
+          {
+            "name": "query",
+            "type": {
+              "kind": "string"
+            }
+          }
+        ],
+        "root": {
+          "tasks": [
+            {
+              "id": "build_search_url",
+              "kind": "transform",
+              "objective": "Construire l’URL Amazon.fr de recherche en encodant exactement l’entrée publique query dans le paramètre k.",
+              "dependsOn": [],
+              "requires": null,
+              "mode": "interpret",
+              "inputs": [
+                {
+                  "name": "query",
+                  "value": {
+                    "kind": "input",
+                    "source": "query"
+                  }
+                }
+              ],
+              "resultType": {
+                "kind": "object",
+                "fields": [
+                  {
+                    "name": "url",
+                    "type": {
+                      "kind": "string"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "id": "open_amazon_search",
+              "kind": "operation",
+              "objective": "Ouvrir Amazon.fr sur la page de recherche de l’article demandé et capturer une observation complète, en conservant les pages et métadonnées de complétude originales.",
+              "dependsOn": [
+                "build_search_url"
+              ],
+              "requires": null,
+              "operation": "cap_490d9e16075cbdca5954ec27",
+              "inputs": [
+                {
+                  "name": "url",
+                  "value": {
+                    "kind": "field",
+                    "items": [
+                      {
+                        "kind": "output",
+                        "source": "build_search_url",
+                        "port": null
+                      }
+                    ],
+                    "port": "url"
+                  }
+                },
+                {
+                  "name": "format",
+                  "value": {
+                    "kind": "string",
+                    "text": "observation_complete"
+                  }
+                },
+                {
+                  "name": "waitUntil",
+                  "value": {
+                    "kind": "string",
+                    "text": "domcontentloaded"
+                  }
+                },
+                {
+                  "name": "timeoutMs",
+                  "value": {
+                    "kind": "number",
+                    "number": 30000
+                  }
+                },
+                {
+                  "name": "maxRecords",
+                  "value": {
+                    "kind": "number",
+                    "number": 200
+                  }
+                }
+              ]
+            },
+            {
+              "id": "extract_initial_consent_arrays",
+              "kind": "transform",
+              "objective": "Pour chaque page observée initiale, extraire uniquement les contrôles de consentement actionnables observés et le texte de blocage/CAPTCHA éventuel; retourner [] pour une page seulement après absence vérifiée dans cette page.",
+              "dependsOn": [
+                "open_amazon_search"
+              ],
+              "requires": null,
+              "mode": "extract",
+              "each": {
+                "input": "pages",
+                "output": "candidateArrays"
+              },
+              "inputs": [
+                {
+                  "name": "pages",
+                  "value": {
+                    "kind": "field",
+                    "items": [
+                      {
+                        "kind": "field",
+                        "items": [
+                          {
+                            "kind": "output",
+                            "source": "open_amazon_search",
+                            "port": null
+                          }
+                        ],
+                        "port": "observationSnapshot"
+                      }
+                    ],
+                    "port": "pages"
+                  }
+                }
+              ],
+              "resultType": {
+                "kind": "object",
+                "fields": [
+                  {
+                    "name": "candidateArrays",
+                    "type": {
+                      "kind": "array",
+                      "items": {
+                        "kind": "array",
+                        "items": {
+                          "kind": "object",
+                          "fields": [
+                            {
+                              "name": "kind",
+                              "type": {
+                                "kind": "string",
+                                "enum": [
+                                  "consentControl",
+                                  "blockerText"
+                                ]
+                              }
+                            },
+                            {
+                              "name": "text",
+                              "type": {
+                                "kind": "string"
+                              }
+                            },
+                            {
+                              "name": "reference",
+                              "type": {
+                                "kind": "string",
+                                "nullable": true
+                              }
+                            },
+                            {
+                              "name": "actions",
+                              "type": {
+                                "kind": "array",
+                                "items": {
+                                  "kind": "string",
+                                  "enum": [
+                                    "activate",
+                                    "follow"
+                                  ]
+                                }
+                              }
+                            },
+                            {
+                              "name": "pageId",
+                              "type": {
+                                "kind": "string"
+                              }
+                            },
+                            {
+                              "name": "sourceRecordText",
+                              "type": {
+                                "kind": "string",
+                                "nullable": true
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "id": "flatten_initial_consent_candidates",
+              "kind": "value",
+              "objective": "Aplatir d’un seul niveau les tableaux de candidats de consentement/blocage extraits page par page, sans inclure l’observation brute dans la décision globale.",
+              "dependsOn": [
+                "extract_initial_consent_arrays"
+              ],
+              "requires": null,
+              "outputs": [
+                {
+                  "name": "candidates",
+                  "value": {
+                    "kind": "flatten",
+                    "items": [
+                      {
+                        "kind": "field",
+                        "items": [
+                          {
+                            "kind": "output",
+                            "source": "extract_initial_consent_arrays",
+                            "port": null
+                          }
+                        ],
+                        "port": "candidateArrays"
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "id": "decide_initial_consent",
+              "kind": "transform",
+              "objective": "Décider si la page initiale est bloquée et sélectionner au plus un contrôle de consentement observé compatible avec requestedAction=activate; ne jamais convertir un lien follow en contrôle de consentement.",
+              "dependsOn": [
+                "flatten_initial_consent_candidates"
+              ],
+              "requires": null,
+              "mode": "interpret",
+              "inputs": [
+                {
+                  "name": "candidates",
+                  "value": {
+                    "kind": "output",
+                    "source": "flatten_initial_consent_candidates",
+                    "port": "candidates"
+                  }
+                }
+              ],
+              "resultType": {
+                "kind": "object",
+                "fields": [
+                  {
+                    "name": "isCaptchaOrBlocked",
+                    "type": {
+                      "kind": "boolean"
+                    }
+                  },
+                  {
+                    "name": "blockerNote",
+                    "type": {
+                      "kind": "string",
+                      "nullable": true
+                    }
+                  },
+                  {
+                    "name": "hasConsentControl",
+                    "type": {
+                      "kind": "boolean"
+                    }
+                  },
+                  {
+                    "name": "consentReference",
+                    "type": {
+                      "kind": "string",
+                      "nullable": true
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "id": "consent_branch",
+              "kind": "conditional",
+              "objective": "Traiter le consentement de façon optionnelle: si aucun contrôle observé n’existe, continuer avec l’observation initiale complète; si un contrôle existe, l’activer puis réobserver complètement.",
+              "dependsOn": [
+                "open_amazon_search",
+                "decide_initial_consent"
+              ],
+              "requires": null,
+              "condition": {
+                "kind": "field",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "decide_initial_consent",
+                    "port": null
+                  }
+                ],
+                "port": "hasConsentControl"
+              },
+              "body": {
+                "tasks": [
+                  {
+                    "id": "activate_observed_cookie_consent",
+                    "kind": "operation",
+                    "objective": "Activer uniquement le contrôle de consentement cookies observé; les liens follow ne sont pas utilisés pour simuler un consentement.",
+                    "dependsOn": [],
+                    "requires": null,
+                    "operation": "cap_dd05fbf36e155a64318f3588",
+                    "inputs": [
+                      {
+                        "name": "reference",
+                        "value": {
+                          "kind": "field",
+                          "items": [
+                            {
+                              "kind": "output",
+                              "source": "decide_initial_consent",
+                              "port": null
+                            }
+                          ],
+                          "port": "consentReference"
+                        }
+                      },
+                      {
+                        "name": "requestedAction",
+                        "value": {
+                          "kind": "string",
+                          "text": "activate"
+                        }
+                      },
+                      {
+                        "name": "waitUntil",
+                        "value": {
+                          "kind": "string",
+                          "text": "domcontentloaded"
+                        }
+                      },
+                      {
+                        "name": "timeoutMs",
+                        "value": {
+                          "kind": "number",
+                          "number": 15000
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "observe_after_consent",
+                    "kind": "operation",
+                    "objective": "Réobserver la page complète après consentement, car toute référence précédente est invalidée après interaction.",
+                    "dependsOn": [
+                      "activate_observed_cookie_consent"
+                    ],
+                    "requires": null,
+                    "operation": "cap_490d9e16075cbdca5954ec27",
+                    "inputs": [
+                      {
+                        "name": "format",
+                        "value": {
+                          "kind": "string",
+                          "text": "observation_complete"
+                        }
+                      },
+                      {
+                        "name": "timeoutMs",
+                        "value": {
+                          "kind": "number",
+                          "number": 30000
+                        }
+                      },
+                      {
+                        "name": "maxRecords",
+                        "value": {
+                          "kind": "number",
+                          "number": 200
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "consent_branch_snapshot",
+                    "kind": "value",
+                    "objective": "Exporter l’interface typée explicite de la branche avec consentement, incluant la source d’observation et les métadonnées de complétude d’origine.",
+                    "dependsOn": [
+                      "observe_after_consent"
+                    ],
+                    "requires": null,
+                    "outputs": [
+                      {
+                        "name": "pages",
+                        "value": {
+                          "kind": "field",
+                          "items": [
+                            {
+                              "kind": "field",
+                              "items": [
+                                {
+                                  "kind": "output",
+                                  "source": "observe_after_consent",
+                                  "port": null
+                                }
+                              ],
+                              "port": "observationSnapshot"
+                            }
+                          ],
+                          "port": "pages"
+                        }
+                      },
+                      {
+                        "name": "recordCount",
+                        "value": {
+                          "kind": "field",
+                          "items": [
+                            {
+                              "kind": "field",
+                              "items": [
+                                {
+                                  "kind": "output",
+                                  "source": "observe_after_consent",
+                                  "port": null
+                                }
+                              ],
+                              "port": "observationSnapshot"
+                            }
+                          ],
+                          "port": "recordCount"
+                        }
+                      },
+                      {
+                        "name": "captureTruncated",
+                        "value": {
+                          "kind": "field",
+                          "items": [
+                            {
+                              "kind": "field",
+                              "items": [
+                                {
+                                  "kind": "output",
+                                  "source": "observe_after_consent",
+                                  "port": null
+                                }
+                              ],
+                              "port": "observationSnapshot"
+                            }
+                          ],
+                          "port": "captureTruncated"
+                        }
+                      },
+                      {
+                        "name": "manifestTruncated",
+                        "value": {
+                          "kind": "field",
+                          "items": [
+                            {
+                              "kind": "field",
+                              "items": [
+                                {
+                                  "kind": "output",
+                                  "source": "observe_after_consent",
+                                  "port": null
+                                }
+                              ],
+                              "port": "observationSnapshot"
+                            }
+                          ],
+                          "port": "manifestTruncated"
+                        }
+                      },
+                      {
+                        "name": "snapshotSource",
+                        "value": {
+                          "kind": "string",
+                          "text": "afterConsent"
+                        }
+                      }
+                    ]
+                  }
+                ],
+                "outputs": [
+                  {
+                    "name": "pages",
+                    "value": {
+                      "kind": "output",
+                      "source": "consent_branch_snapshot",
+                      "port": "pages"
+                    }
+                  },
+                  {
+                    "name": "recordCount",
+                    "value": {
+                      "kind": "output",
+                      "source": "consent_branch_snapshot",
+                      "port": "recordCount"
+                    }
+                  },
+                  {
+                    "name": "captureTruncated",
+                    "value": {
+                      "kind": "output",
+                      "source": "consent_branch_snapshot",
+                      "port": "captureTruncated"
+                    }
+                  },
+                  {
+                    "name": "manifestTruncated",
+                    "value": {
+                      "kind": "output",
+                      "source": "consent_branch_snapshot",
+                      "port": "manifestTruncated"
+                    }
+                  },
+                  {
+                    "name": "snapshotSource",
+                    "value": {
+                      "kind": "output",
+                      "source": "consent_branch_snapshot",
+                      "port": "snapshotSource"
+                    }
+                  }
+                ],
+                "always": []
+              },
+              "otherwise": {
+                "tasks": [
+                  {
+                    "id": "initial_branch_snapshot",
+                    "kind": "value",
+                    "objective": "Exporter l’interface typée explicite de la branche sans consentement, en conservant l’observation initiale complète et ses métadonnées de complétude d’origine.",
+                    "dependsOn": [],
+                    "requires": null,
+                    "outputs": [
+                      {
+                        "name": "pages",
+                        "value": {
+                          "kind": "field",
+                          "items": [
+                            {
+                              "kind": "field",
+                              "items": [
+                                {
+                                  "kind": "output",
+                                  "source": "open_amazon_search",
+                                  "port": null
+                                }
+                              ],
+                              "port": "observationSnapshot"
+                            }
+                          ],
+                          "port": "pages"
+                        }
+                      },
+                      {
+                        "name": "recordCount",
+                        "value": {
+                          "kind": "field",
+                          "items": [
+                            {
+                              "kind": "field",
+                              "items": [
+                                {
+                                  "kind": "output",
+                                  "source": "open_amazon_search",
+                                  "port": null
+                                }
+                              ],
+                              "port": "observationSnapshot"
+                            }
+                          ],
+                          "port": "recordCount"
+                        }
+                      },
+                      {
+                        "name": "captureTruncated",
+                        "value": {
+                          "kind": "field",
+                          "items": [
+                            {
+                              "kind": "field",
+                              "items": [
+                                {
+                                  "kind": "output",
+                                  "source": "open_amazon_search",
+                                  "port": null
+                                }
+                              ],
+                              "port": "observationSnapshot"
+                            }
+                          ],
+                          "port": "captureTruncated"
+                        }
+                      },
+                      {
+                        "name": "manifestTruncated",
+                        "value": {
+                          "kind": "field",
+                          "items": [
+                            {
+                              "kind": "field",
+                              "items": [
+                                {
+                                  "kind": "output",
+                                  "source": "open_amazon_search",
+                                  "port": null
+                                }
+                              ],
+                              "port": "observationSnapshot"
+                            }
+                          ],
+                          "port": "manifestTruncated"
+                        }
+                      },
+                      {
+                        "name": "snapshotSource",
+                        "value": {
+                          "kind": "string",
+                          "text": "initialNoConsent"
+                        }
+                      }
+                    ]
+                  }
+                ],
+                "outputs": [
+                  {
+                    "name": "pages",
+                    "value": {
+                      "kind": "output",
+                      "source": "initial_branch_snapshot",
+                      "port": "pages"
+                    }
+                  },
+                  {
+                    "name": "recordCount",
+                    "value": {
+                      "kind": "output",
+                      "source": "initial_branch_snapshot",
+                      "port": "recordCount"
+                    }
+                  },
+                  {
+                    "name": "captureTruncated",
+                    "value": {
+                      "kind": "output",
+                      "source": "initial_branch_snapshot",
+                      "port": "captureTruncated"
+                    }
+                  },
+                  {
+                    "name": "manifestTruncated",
+                    "value": {
+                      "kind": "output",
+                      "source": "initial_branch_snapshot",
+                      "port": "manifestTruncated"
+                    }
+                  },
+                  {
+                    "name": "snapshotSource",
+                    "value": {
+                      "kind": "output",
+                      "source": "initial_branch_snapshot",
+                      "port": "snapshotSource"
+                    }
+                  }
+                ],
+                "always": []
+              }
+            },
+            {
+              "id": "extract_search_candidate_arrays",
+              "kind": "transform",
+              "objective": "Pour chaque page de l’observation de recherche sélectionnée, extraire seulement les faits candidats nécessaires à la sélection: URL produit observée, nom/titre observé, référence/lien si utile, texte de blocage/CAPTCHA. Ne pas extraire d’enregistrements non liés; [] seulement après absence vérifiée sur la page.",
+              "dependsOn": [
+                "consent_branch"
+              ],
+              "requires": null,
+              "mode": "extract",
+              "each": {
+                "input": "pages",
+                "output": "candidateArrays"
+              },
+              "inputs": [
+                {
+                  "name": "pages",
+                  "value": {
+                    "kind": "output",
+                    "source": "consent_branch",
+                    "port": "pages"
+                  }
+                }
+              ],
+              "resultType": {
+                "kind": "object",
+                "fields": [
+                  {
+                    "name": "candidateArrays",
+                    "type": {
+                      "kind": "array",
+                      "items": {
+                        "kind": "array",
+                        "items": {
+                          "kind": "object",
+                          "fields": [
+                            {
+                              "name": "kind",
+                              "type": {
+                                "kind": "string",
+                                "enum": [
+                                  "productLink",
+                                  "blockerText"
+                                ]
+                              }
+                            },
+                            {
+                              "name": "observedName",
+                              "type": {
+                                "kind": "string",
+                                "nullable": true
+                              }
+                            },
+                            {
+                              "name": "url",
+                              "type": {
+                                "kind": "string",
+                                "nullable": true
+                              }
+                            },
+                            {
+                              "name": "reference",
+                              "type": {
+                                "kind": "string",
+                                "nullable": true
+                              }
+                            },
+                            {
+                              "name": "text",
+                              "type": {
+                                "kind": "string",
+                                "nullable": true
+                              }
+                            },
+                            {
+                              "name": "pageId",
+                              "type": {
+                                "kind": "string"
+                              }
+                            },
+                            {
+                              "name": "sourceRecordText",
+                              "type": {
+                                "kind": "string",
+                                "nullable": true
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "id": "flatten_search_candidates",
+              "kind": "value",
+              "objective": "Aplatir d’un seul niveau les tableaux de candidats produits/blocages extraits par page avant toute décision globale.",
+              "dependsOn": [
+                "extract_search_candidate_arrays"
+              ],
+              "requires": null,
+              "outputs": [
+                {
+                  "name": "candidates",
+                  "value": {
+                    "kind": "flatten",
+                    "items": [
+                      {
+                        "kind": "field",
+                        "items": [
+                          {
+                            "kind": "output",
+                            "source": "extract_search_candidate_arrays",
+                            "port": null
+                          }
+                        ],
+                        "port": "candidateArrays"
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "id": "select_product_candidates",
+              "kind": "transform",
+              "objective": "À partir des seuls candidats extraits, sélectionner les liens produits Amazon.fr dans l’ordre observé, au maximum 10, et rapporter explicitement CAPTCHA/blocage/absence vérifiée sans inventer de produit ni de complétude.",
+              "dependsOn": [
+                "flatten_search_candidates",
+                "consent_branch",
+                "decide_initial_consent"
+              ],
+              "requires": null,
+              "mode": "interpret",
+              "inputs": [
+                {
+                  "name": "candidates",
+                  "value": {
+                    "kind": "output",
+                    "source": "flatten_search_candidates",
+                    "port": "candidates"
+                  }
+                },
+                {
+                  "name": "snapshotSource",
+                  "value": {
+                    "kind": "output",
+                    "source": "consent_branch",
+                    "port": "snapshotSource"
+                  }
+                },
+                {
+                  "name": "recordCount",
+                  "value": {
+                    "kind": "output",
+                    "source": "consent_branch",
+                    "port": "recordCount"
+                  }
+                },
+                {
+                  "name": "captureTruncated",
+                  "value": {
+                    "kind": "output",
+                    "source": "consent_branch",
+                    "port": "captureTruncated"
+                  }
+                },
+                {
+                  "name": "manifestTruncated",
+                  "value": {
+                    "kind": "output",
+                    "source": "consent_branch",
+                    "port": "manifestTruncated"
+                  }
+                },
+                {
+                  "name": "initialBlockerNote",
+                  "value": {
+                    "kind": "field",
+                    "items": [
+                      {
+                        "kind": "output",
+                        "source": "decide_initial_consent",
+                        "port": null
+                      }
+                    ],
+                    "port": "blockerNote"
+                  }
+                }
+              ],
+              "resultType": {
+                "kind": "object",
+                "fields": [
+                  {
+                    "name": "products",
+                    "type": {
+                      "kind": "array",
+                      "items": {
+                        "kind": "object",
+                        "fields": [
+                          {
+                            "name": "rank",
+                            "type": {
+                              "kind": "integer"
+                            }
+                          },
+                          {
+                            "name": "searchTitle",
+                            "type": {
+                              "kind": "string",
+                              "nullable": true
+                            }
+                          },
+                          {
+                            "name": "url",
+                            "type": {
+                              "kind": "string"
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  {
+                    "name": "searchStatus",
+                    "type": {
+                      "kind": "string"
+                    }
+                  },
+                  {
+                    "name": "notes",
+                    "type": {
+                      "kind": "string",
+                      "nullable": true
+                    }
+                  },
+                  {
+                    "name": "sourceCompleteness",
+                    "type": {
+                      "kind": "string"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "id": "visit_each_product",
+              "kind": "foreach",
+              "objective": "Visiter séquentiellement chaque produit sélectionné, déjà limité à 10, et extraire les informations seulement depuis la fiche produit réellement visitée.",
+              "dependsOn": [
+                "select_product_candidates"
+              ],
+              "requires": null,
+              "items": {
+                "kind": "field",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "select_product_candidates",
+                    "port": null
+                  }
+                ],
+                "port": "products"
+              },
+              "body": {
+                "tasks": [
+                  {
+                    "id": "open_product_page",
+                    "kind": "operation",
+                    "objective": "Naviguer vers l’URL produit observée dans les résultats et capturer une observation complète de la fiche produit.",
+                    "dependsOn": [],
+                    "requires": null,
+                    "operation": "cap_490d9e16075cbdca5954ec27",
+                    "inputs": [
+                      {
+                        "name": "url",
+                        "value": {
+                          "kind": "field",
+                          "items": [
+                            {
+                              "kind": "item"
+                            }
+                          ],
+                          "port": "url"
+                        }
+                      },
+                      {
+                        "name": "format",
+                        "value": {
+                          "kind": "string",
+                          "text": "observation_complete"
+                        }
+                      },
+                      {
+                        "name": "waitUntil",
+                        "value": {
+                          "kind": "string",
+                          "text": "domcontentloaded"
+                        }
+                      },
+                      {
+                        "name": "timeoutMs",
+                        "value": {
+                          "kind": "number",
+                          "number": 30000
+                        }
+                      },
+                      {
+                        "name": "maxRecords",
+                        "value": {
+                          "kind": "number",
+                          "number": 200
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "extract_product_detail_arrays",
+                    "kind": "transform",
+                    "objective": "Pour chaque page de la fiche produit visitée, extraire seulement les candidats observés nécessaires: nom, description, prix et texte CAPTCHA/blocage; [] seulement après absence vérifiée sur la page.",
+                    "dependsOn": [
+                      "open_product_page"
+                    ],
+                    "requires": null,
+                    "mode": "extract",
+                    "each": {
+                      "input": "pages",
+                      "output": "candidateArrays"
+                    },
+                    "inputs": [
+                      {
+                        "name": "pages",
+                        "value": {
+                          "kind": "field",
+                          "items": [
+                            {
+                              "kind": "field",
+                              "items": [
+                                {
+                                  "kind": "output",
+                                  "source": "open_product_page",
+                                  "port": null
+                                }
+                              ],
+                              "port": "observationSnapshot"
+                            }
+                          ],
+                          "port": "pages"
+                        }
+                      }
+                    ],
+                    "resultType": {
+                      "kind": "object",
+                      "fields": [
+                        {
+                          "name": "candidateArrays",
+                          "type": {
+                            "kind": "array",
+                            "items": {
+                              "kind": "array",
+                              "items": {
+                                "kind": "object",
+                                "fields": [
+                                  {
+                                    "name": "kind",
+                                    "type": {
+                                      "kind": "string",
+                                      "enum": [
+                                        "name",
+                                        "description",
+                                        "price",
+                                        "blockerText"
+                                      ]
+                                    }
+                                  },
+                                  {
+                                    "name": "text",
+                                    "type": {
+                                      "kind": "string"
+                                    }
+                                  },
+                                  {
+                                    "name": "pageId",
+                                    "type": {
+                                      "kind": "string"
+                                    }
+                                  },
+                                  {
+                                    "name": "sourceRecordText",
+                                    "type": {
+                                      "kind": "string",
+                                      "nullable": true
+                                    }
+                                  }
+                                ]
+                              }
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "id": "flatten_product_detail_candidates",
+                    "kind": "value",
+                    "objective": "Aplatir d’un seul niveau les candidats de détail extraits page par page, sans transmettre l’observation brute à l’interprétation globale.",
+                    "dependsOn": [
+                      "extract_product_detail_arrays"
+                    ],
+                    "requires": null,
+                    "outputs": [
+                      {
+                        "name": "candidates",
+                        "value": {
+                          "kind": "flatten",
+                          "items": [
+                            {
+                              "kind": "field",
+                              "items": [
+                                {
+                                  "kind": "output",
+                                  "source": "extract_product_detail_arrays",
+                                  "port": null
+                                }
+                              ],
+                              "port": "candidateArrays"
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "interpret_product_detail",
+                    "kind": "transform",
+                    "objective": "Choisir, depuis la page produit réellement visitée, le nom, la description et le prix observés; noter explicitement tout champ absent, CAPTCHA ou blocage. Ne jamais utiliser le titre de recherche comme fallback.",
+                    "dependsOn": [
+                      "flatten_product_detail_candidates",
+                      "open_product_page"
+                    ],
+                    "requires": null,
+                    "mode": "interpret",
+                    "inputs": [
+                      {
+                        "name": "candidate",
+                        "value": {
+                          "kind": "item"
+                        }
+                      },
+                      {
+                        "name": "detailCandidates",
+                        "value": {
+                          "kind": "output",
+                          "source": "flatten_product_detail_candidates",
+                          "port": "candidates"
+                        }
+                      },
+                      {
+                        "name": "recordCount",
+                        "value": {
+                          "kind": "field",
+                          "items": [
+                            {
+                              "kind": "field",
+                              "items": [
+                                {
+                                  "kind": "output",
+                                  "source": "open_product_page",
+                                  "port": null
+                                }
+                              ],
+                              "port": "observationSnapshot"
+                            }
+                          ],
+                          "port": "recordCount"
+                        }
+                      },
+                      {
+                        "name": "captureTruncated",
+                        "value": {
+                          "kind": "field",
+                          "items": [
+                            {
+                              "kind": "field",
+                              "items": [
+                                {
+                                  "kind": "output",
+                                  "source": "open_product_page",
+                                  "port": null
+                                }
+                              ],
+                              "port": "observationSnapshot"
+                            }
+                          ],
+                          "port": "captureTruncated"
+                        }
+                      },
+                      {
+                        "name": "manifestTruncated",
+                        "value": {
+                          "kind": "field",
+                          "items": [
+                            {
+                              "kind": "field",
+                              "items": [
+                                {
+                                  "kind": "output",
+                                  "source": "open_product_page",
+                                  "port": null
+                                }
+                              ],
+                              "port": "observationSnapshot"
+                            }
+                          ],
+                          "port": "manifestTruncated"
+                        }
+                      }
+                    ],
+                    "resultType": {
+                      "kind": "object",
+                      "fields": [
+                        {
+                          "name": "rank",
+                          "type": {
+                            "kind": "integer"
+                          }
+                        },
+                        {
+                          "name": "url",
+                          "type": {
+                            "kind": "string"
+                          }
+                        },
+                        {
+                          "name": "name",
+                          "type": {
+                            "kind": "string"
+                          }
+                        },
+                        {
+                          "name": "description",
+                          "type": {
+                            "kind": "string"
+                          }
+                        },
+                        {
+                          "name": "price",
+                          "type": {
+                            "kind": "string"
+                          }
+                        },
+                        {
+                          "name": "status",
+                          "type": {
+                            "kind": "string"
+                          }
+                        },
+                        {
+                          "name": "notes",
+                          "type": {
+                            "kind": "string",
+                            "nullable": true
+                          }
+                        },
+                        {
+                          "name": "sourceCompleteness",
+                          "type": {
+                            "kind": "string"
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "outputs": [
+                  {
+                    "name": "product",
+                    "value": {
+                      "kind": "output",
+                      "source": "interpret_product_detail",
+                      "port": null
+                    }
+                  }
+                ],
+                "always": []
+              },
+              "parallel": false,
+              "maxItems": 10,
+              "maxConcurrency": 1
+            },
+            {
+              "id": "assemble_workbook_tsv",
+              "kind": "transform",
+              "objective": "Assembler uniquement les sorties déclarées de chaque produit visité en TSV pour le writer XLSX: Rang, Nom, Description, Prix, URL, Statut, Notes. Normaliser tabulations/retours ligne. Si aucun produit n’a été visité à cause d’un blocage ou d’une absence vérifiée, créer une ligne explicite.",
+              "dependsOn": [
+                "select_product_candidates",
+                "visit_each_product"
+              ],
+              "requires": null,
+              "mode": "interpret",
+              "inputs": [
+                {
+                  "name": "candidateExtraction",
+                  "value": {
+                    "kind": "output",
+                    "source": "select_product_candidates",
+                    "port": null
+                  }
+                },
+                {
+                  "name": "productRows",
+                  "value": {
+                    "kind": "output",
+                    "source": "visit_each_product",
+                    "port": null
+                  }
+                }
+              ],
+              "resultType": {
+                "kind": "object",
+                "fields": [
+                  {
+                    "name": "tsv",
+                    "type": {
+                      "kind": "string"
+                    }
+                  },
+                  {
+                    "name": "rowCount",
+                    "type": {
+                      "kind": "integer"
+                    }
+                  },
+                  {
+                    "name": "completeness",
+                    "type": {
+                      "kind": "string"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "id": "write_products_xlsx",
+              "kind": "operation",
+              "objective": "Écrire le vrai classeur Excel demandé sur le disque au chemin relatif fixé, en utilisant le contenu TSV préparé.",
+              "dependsOn": [
+                "assemble_workbook_tsv"
+              ],
+              "requires": null,
+              "operation": "cap_37c513d225bb1b870053c5d3",
+              "inputs": [
+                {
+                  "name": "filePath",
+                  "value": {
+                    "kind": "string",
+                    "text": "workflows/schema-portability-20261002/consumerretry20261008b-amazon-1/products.xlsx"
+                  }
+                },
+                {
+                  "name": "content",
+                  "value": {
+                    "kind": "field",
+                    "items": [
+                      {
+                        "kind": "output",
+                        "source": "assemble_workbook_tsv",
+                        "port": null
+                      }
+                    ],
+                    "port": "tsv"
+                  }
+                },
+                {
+                  "name": "append",
+                  "value": {
+                    "kind": "boolean",
+                    "boolean": false
+                  }
+                }
+              ]
+            }
+          ],
+          "outputs": [
+            {
+              "name": "filePath",
+              "value": {
+                "kind": "field",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "write_products_xlsx",
+                    "port": null
+                  }
+                ],
+                "port": "filePath"
+              }
+            },
+            {
+              "name": "rowCount",
+              "value": {
+                "kind": "field",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "assemble_workbook_tsv",
+                    "port": null
+                  }
+                ],
+                "port": "rowCount"
+              }
+            },
+            {
+              "name": "completeness",
+              "value": {
+                "kind": "field",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "assemble_workbook_tsv",
+                    "port": null
+                  }
+                ],
+                "port": "completeness"
+              }
+            }
+          ],
+          "always": [
+            {
+              "id": "close_browser",
+              "kind": "operation",
+              "objective": "Fermer le navigateur même en cas d’échec d’une étape précédente.",
+              "dependsOn": [],
+              "requires": null,
+              "operation": "cap_bdb7ba9ab04b18783883fa86",
+              "inputs": []
+            }
+          ]
+        },
+        "groups": [],
+        "choices": []
+      },
+      "clarifications": null
+    }
+  },
+  {
+    "id": "schema-portability-20261002:consumerretry20261008b-amazon-1:4:6d4e853037344ea7aaca58d72c69049669595eaf5c24c2677014c90bb90fe370",
+    "response": {
+      "discoveryRequests": null,
+      "plan": {
+        "inputs": [
+          {
+            "name": "query",
+            "type": {
+              "kind": "string"
+            }
+          }
+        ],
+        "root": {
+          "tasks": [
+            {
+              "id": "build_search_url",
+              "kind": "transform",
+              "objective": "Construire l’URL Amazon.fr de recherche en encodant exactement l’entrée publique query dans le paramètre k.",
+              "dependsOn": [],
+              "requires": null,
+              "mode": "interpret",
+              "inputs": [
+                {
+                  "name": "query",
+                  "value": {
+                    "kind": "input",
+                    "source": "query"
+                  }
+                }
+              ],
+              "resultType": {
+                "kind": "object",
+                "fields": [
+                  {
+                    "name": "url",
+                    "type": {
+                      "kind": "string"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "id": "open_amazon_search",
+              "kind": "operation",
+              "objective": "Ouvrir Amazon.fr sur la page de recherche de l’article demandé et capturer une observation complète, en conservant les pages et métadonnées de complétude originales.",
+              "dependsOn": [
+                "build_search_url"
+              ],
+              "requires": null,
+              "operation": "cap_490d9e16075cbdca5954ec27",
+              "inputs": [
+                {
+                  "name": "url",
+                  "value": {
+                    "kind": "field",
+                    "items": [
+                      {
+                        "kind": "output",
+                        "source": "build_search_url",
+                        "port": null
+                      }
+                    ],
+                    "port": "url"
+                  }
+                },
+                {
+                  "name": "format",
+                  "value": {
+                    "kind": "string",
+                    "text": "observation_complete"
+                  }
+                },
+                {
+                  "name": "waitUntil",
+                  "value": {
+                    "kind": "string",
+                    "text": "domcontentloaded"
+                  }
+                },
+                {
+                  "name": "timeoutMs",
+                  "value": {
+                    "kind": "number",
+                    "number": 30000
+                  }
+                },
+                {
+                  "name": "maxRecords",
+                  "value": {
+                    "kind": "number",
+                    "number": 200
+                  }
+                }
+              ]
+            },
+            {
+              "id": "extract_initial_consent_arrays",
+              "kind": "transform",
+              "objective": "Pour chaque page observée initiale, extraire uniquement les enregistrements observés nécessaires à la décision immédiate: contrôles actionnables pouvant être du consentement et texte de blocage/CAPTCHA éventuel. Copier kind depuis l’enregistrement source autoritatif, préserver text, reference, actions, pageId et ne pas classifier ici; retourner [] pour une page seulement après absence vérifiée dans cette page.",
+              "dependsOn": [
+                "open_amazon_search"
+              ],
+              "requires": null,
+              "mode": "extract",
+              "each": {
+                "input": "pages",
+                "output": "candidateArrays"
+              },
+              "inputs": [
+                {
+                  "name": "pages",
+                  "value": {
+                    "kind": "field",
+                    "items": [
+                      {
+                        "kind": "field",
+                        "items": [
+                          {
+                            "kind": "output",
+                            "source": "open_amazon_search",
+                            "port": null
+                          }
+                        ],
+                        "port": "observationSnapshot"
+                      }
+                    ],
+                    "port": "pages"
+                  }
+                }
+              ],
+              "resultType": {
+                "kind": "object",
+                "fields": [
+                  {
+                    "name": "candidateArrays",
+                    "type": {
+                      "kind": "array",
+                      "items": {
+                        "kind": "array",
+                        "items": {
+                          "kind": "object",
+                          "fields": [
+                            {
+                              "name": "kind",
+                              "type": {
+                                "kind": "string"
+                              }
+                            },
+                            {
+                              "name": "text",
+                              "type": {
+                                "kind": "string"
+                              }
+                            },
+                            {
+                              "name": "reference",
+                              "type": {
+                                "kind": "string",
+                                "nullable": true
+                              }
+                            },
+                            {
+                              "name": "actions",
+                              "type": {
+                                "kind": "array",
+                                "items": {
+                                  "kind": "string",
+                                  "enum": [
+                                    "activate",
+                                    "follow",
+                                    "fill",
+                                    "select",
+                                    "press"
+                                  ]
+                                }
+                              }
+                            },
+                            {
+                              "name": "pageId",
+                              "type": {
+                                "kind": "string"
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "id": "flatten_initial_consent_candidates",
+              "kind": "value",
+              "objective": "Aplatir d’un seul niveau les tableaux de candidats initiaux extraits page par page, sans inclure l’observation brute dans la décision globale.",
+              "dependsOn": [
+                "extract_initial_consent_arrays"
+              ],
+              "requires": null,
+              "outputs": [
+                {
+                  "name": "candidates",
+                  "value": {
+                    "kind": "flatten",
+                    "items": [
+                      {
+                        "kind": "field",
+                        "items": [
+                          {
+                            "kind": "output",
+                            "source": "extract_initial_consent_arrays",
+                            "port": null
+                          }
+                        ],
+                        "port": "candidateArrays"
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "id": "decide_initial_consent",
+              "kind": "transform",
+              "objective": "Décider si la page initiale est bloquée et sélectionner au plus un contrôle de consentement observé compatible avec requestedAction=activate; ne jamais convertir un lien follow en contrôle de consentement. La classification métier est faite ici à partir des seuls candidats extraits.",
+              "dependsOn": [
+                "flatten_initial_consent_candidates"
+              ],
+              "requires": null,
+              "mode": "interpret",
+              "inputs": [
+                {
+                  "name": "candidates",
+                  "value": {
+                    "kind": "output",
+                    "source": "flatten_initial_consent_candidates",
+                    "port": "candidates"
+                  }
+                }
+              ],
+              "resultType": {
+                "kind": "object",
+                "fields": [
+                  {
+                    "name": "isCaptchaOrBlocked",
+                    "type": {
+                      "kind": "boolean"
+                    }
+                  },
+                  {
+                    "name": "blockerNote",
+                    "type": {
+                      "kind": "string",
+                      "nullable": true
+                    }
+                  },
+                  {
+                    "name": "hasConsentControl",
+                    "type": {
+                      "kind": "boolean"
+                    }
+                  },
+                  {
+                    "name": "consentReference",
+                    "type": {
+                      "kind": "string",
+                      "nullable": true
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "id": "consent_branch",
+              "kind": "conditional",
+              "objective": "Traiter le consentement de façon optionnelle: si aucun contrôle observé valide n’existe ou si CAPTCHA/blocage est détecté, continuer avec l’observation initiale complète; si un contrôle observé valide existe, l’activer puis réobserver complètement.",
+              "dependsOn": [
+                "open_amazon_search",
+                "decide_initial_consent"
+              ],
+              "requires": null,
+              "condition": {
+                "kind": "predicate",
+                "predicate": "and",
+                "items": [
+                  {
+                    "kind": "predicate",
+                    "predicate": "not_equal",
+                    "items": [
+                      {
+                        "kind": "field",
+                        "items": [
+                          {
+                            "kind": "output",
+                            "source": "decide_initial_consent",
+                            "port": null
+                          }
+                        ],
+                        "port": "consentReference"
+                      },
+                      {
+                        "kind": "null"
+                      }
+                    ]
+                  },
+                  {
+                    "kind": "predicate",
+                    "predicate": "not",
+                    "items": [
+                      {
+                        "kind": "field",
+                        "items": [
+                          {
+                            "kind": "output",
+                            "source": "decide_initial_consent",
+                            "port": null
+                          }
+                        ],
+                        "port": "isCaptchaOrBlocked"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "body": {
+                "tasks": [
+                  {
+                    "id": "activate_observed_cookie_consent",
+                    "kind": "operation",
+                    "objective": "Activer uniquement le contrôle de consentement cookies observé par référence; les liens follow ne sont pas utilisés pour simuler un consentement.",
+                    "dependsOn": [],
+                    "requires": null,
+                    "operation": "cap_dd05fbf36e155a64318f3588",
+                    "inputs": [
+                      {
+                        "name": "reference",
+                        "value": {
+                          "kind": "field",
+                          "items": [
+                            {
+                              "kind": "output",
+                              "source": "decide_initial_consent",
+                              "port": null
+                            }
+                          ],
+                          "port": "consentReference"
+                        }
+                      },
+                      {
+                        "name": "requestedAction",
+                        "value": {
+                          "kind": "string",
+                          "text": "activate"
+                        }
+                      },
+                      {
+                        "name": "waitUntil",
+                        "value": {
+                          "kind": "string",
+                          "text": "domcontentloaded"
+                        }
+                      },
+                      {
+                        "name": "timeoutMs",
+                        "value": {
+                          "kind": "number",
+                          "number": 15000
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "observe_after_consent",
+                    "kind": "operation",
+                    "objective": "Réobserver la page complète après consentement, car toute référence précédente est invalidée après interaction.",
+                    "dependsOn": [
+                      "activate_observed_cookie_consent"
+                    ],
+                    "requires": null,
+                    "operation": "cap_490d9e16075cbdca5954ec27",
+                    "inputs": [
+                      {
+                        "name": "format",
+                        "value": {
+                          "kind": "string",
+                          "text": "observation_complete"
+                        }
+                      },
+                      {
+                        "name": "timeoutMs",
+                        "value": {
+                          "kind": "number",
+                          "number": 30000
+                        }
+                      },
+                      {
+                        "name": "maxRecords",
+                        "value": {
+                          "kind": "number",
+                          "number": 200
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "consent_branch_snapshot",
+                    "kind": "value",
+                    "objective": "Exporter l’interface typée explicite de la branche avec consentement, incluant la source d’observation et les métadonnées de complétude d’origine.",
+                    "dependsOn": [
+                      "observe_after_consent"
+                    ],
+                    "requires": null,
+                    "outputs": [
+                      {
+                        "name": "pages",
+                        "value": {
+                          "kind": "field",
+                          "items": [
+                            {
+                              "kind": "field",
+                              "items": [
+                                {
+                                  "kind": "output",
+                                  "source": "observe_after_consent",
+                                  "port": null
+                                }
+                              ],
+                              "port": "observationSnapshot"
+                            }
+                          ],
+                          "port": "pages"
+                        }
+                      },
+                      {
+                        "name": "recordCount",
+                        "value": {
+                          "kind": "field",
+                          "items": [
+                            {
+                              "kind": "field",
+                              "items": [
+                                {
+                                  "kind": "output",
+                                  "source": "observe_after_consent",
+                                  "port": null
+                                }
+                              ],
+                              "port": "observationSnapshot"
+                            }
+                          ],
+                          "port": "recordCount"
+                        }
+                      },
+                      {
+                        "name": "captureTruncated",
+                        "value": {
+                          "kind": "field",
+                          "items": [
+                            {
+                              "kind": "field",
+                              "items": [
+                                {
+                                  "kind": "output",
+                                  "source": "observe_after_consent",
+                                  "port": null
+                                }
+                              ],
+                              "port": "observationSnapshot"
+                            }
+                          ],
+                          "port": "captureTruncated"
+                        }
+                      },
+                      {
+                        "name": "manifestTruncated",
+                        "value": {
+                          "kind": "field",
+                          "items": [
+                            {
+                              "kind": "field",
+                              "items": [
+                                {
+                                  "kind": "output",
+                                  "source": "observe_after_consent",
+                                  "port": null
+                                }
+                              ],
+                              "port": "observationSnapshot"
+                            }
+                          ],
+                          "port": "manifestTruncated"
+                        }
+                      },
+                      {
+                        "name": "snapshotSource",
+                        "value": {
+                          "kind": "string",
+                          "text": "afterConsent"
+                        }
+                      }
+                    ]
+                  }
+                ],
+                "outputs": [
+                  {
+                    "name": "pages",
+                    "value": {
+                      "kind": "output",
+                      "source": "consent_branch_snapshot",
+                      "port": "pages"
+                    }
+                  },
+                  {
+                    "name": "recordCount",
+                    "value": {
+                      "kind": "output",
+                      "source": "consent_branch_snapshot",
+                      "port": "recordCount"
+                    }
+                  },
+                  {
+                    "name": "captureTruncated",
+                    "value": {
+                      "kind": "output",
+                      "source": "consent_branch_snapshot",
+                      "port": "captureTruncated"
+                    }
+                  },
+                  {
+                    "name": "manifestTruncated",
+                    "value": {
+                      "kind": "output",
+                      "source": "consent_branch_snapshot",
+                      "port": "manifestTruncated"
+                    }
+                  },
+                  {
+                    "name": "snapshotSource",
+                    "value": {
+                      "kind": "output",
+                      "source": "consent_branch_snapshot",
+                      "port": "snapshotSource"
+                    }
+                  }
+                ],
+                "always": []
+              },
+              "otherwise": {
+                "tasks": [
+                  {
+                    "id": "initial_branch_snapshot",
+                    "kind": "value",
+                    "objective": "Exporter l’interface typée explicite de la branche sans consentement, en conservant l’observation initiale complète et ses métadonnées de complétude d’origine.",
+                    "dependsOn": [],
+                    "requires": null,
+                    "outputs": [
+                      {
+                        "name": "pages",
+                        "value": {
+                          "kind": "field",
+                          "items": [
+                            {
+                              "kind": "field",
+                              "items": [
+                                {
+                                  "kind": "output",
+                                  "source": "open_amazon_search",
+                                  "port": null
+                                }
+                              ],
+                              "port": "observationSnapshot"
+                            }
+                          ],
+                          "port": "pages"
+                        }
+                      },
+                      {
+                        "name": "recordCount",
+                        "value": {
+                          "kind": "field",
+                          "items": [
+                            {
+                              "kind": "field",
+                              "items": [
+                                {
+                                  "kind": "output",
+                                  "source": "open_amazon_search",
+                                  "port": null
+                                }
+                              ],
+                              "port": "observationSnapshot"
+                            }
+                          ],
+                          "port": "recordCount"
+                        }
+                      },
+                      {
+                        "name": "captureTruncated",
+                        "value": {
+                          "kind": "field",
+                          "items": [
+                            {
+                              "kind": "field",
+                              "items": [
+                                {
+                                  "kind": "output",
+                                  "source": "open_amazon_search",
+                                  "port": null
+                                }
+                              ],
+                              "port": "observationSnapshot"
+                            }
+                          ],
+                          "port": "captureTruncated"
+                        }
+                      },
+                      {
+                        "name": "manifestTruncated",
+                        "value": {
+                          "kind": "field",
+                          "items": [
+                            {
+                              "kind": "field",
+                              "items": [
+                                {
+                                  "kind": "output",
+                                  "source": "open_amazon_search",
+                                  "port": null
+                                }
+                              ],
+                              "port": "observationSnapshot"
+                            }
+                          ],
+                          "port": "manifestTruncated"
+                        }
+                      },
+                      {
+                        "name": "snapshotSource",
+                        "value": {
+                          "kind": "string",
+                          "text": "initialNoConsent"
+                        }
+                      }
+                    ]
+                  }
+                ],
+                "outputs": [
+                  {
+                    "name": "pages",
+                    "value": {
+                      "kind": "output",
+                      "source": "initial_branch_snapshot",
+                      "port": "pages"
+                    }
+                  },
+                  {
+                    "name": "recordCount",
+                    "value": {
+                      "kind": "output",
+                      "source": "initial_branch_snapshot",
+                      "port": "recordCount"
+                    }
+                  },
+                  {
+                    "name": "captureTruncated",
+                    "value": {
+                      "kind": "output",
+                      "source": "initial_branch_snapshot",
+                      "port": "captureTruncated"
+                    }
+                  },
+                  {
+                    "name": "manifestTruncated",
+                    "value": {
+                      "kind": "output",
+                      "source": "initial_branch_snapshot",
+                      "port": "manifestTruncated"
+                    }
+                  },
+                  {
+                    "name": "snapshotSource",
+                    "value": {
+                      "kind": "output",
+                      "source": "initial_branch_snapshot",
+                      "port": "snapshotSource"
+                    }
+                  }
+                ],
+                "always": []
+              }
+            },
+            {
+              "id": "extract_search_candidate_arrays",
+              "kind": "transform",
+              "objective": "Pour chaque page de l’observation de recherche sélectionnée, extraire seulement les faits observés nécessaires à la sélection: enregistrements avec URL produit potentielle, nom/titre observé, référence/lien si utile, et texte de blocage/CAPTCHA. Copier kind depuis l’enregistrement source autoritatif, ne pas classifier ici; [] seulement après absence vérifiée sur la page.",
+              "dependsOn": [
+                "consent_branch"
+              ],
+              "requires": null,
+              "mode": "extract",
+              "each": {
+                "input": "pages",
+                "output": "candidateArrays"
+              },
+              "inputs": [
+                {
+                  "name": "pages",
+                  "value": {
+                    "kind": "output",
+                    "source": "consent_branch",
+                    "port": "pages"
+                  }
+                }
+              ],
+              "resultType": {
+                "kind": "object",
+                "fields": [
+                  {
+                    "name": "candidateArrays",
+                    "type": {
+                      "kind": "array",
+                      "items": {
+                        "kind": "array",
+                        "items": {
+                          "kind": "object",
+                          "fields": [
+                            {
+                              "name": "kind",
+                              "type": {
+                                "kind": "string"
+                              }
+                            },
+                            {
+                              "name": "text",
+                              "type": {
+                                "kind": "string",
+                                "nullable": true
+                              }
+                            },
+                            {
+                              "name": "observedName",
+                              "type": {
+                                "kind": "string",
+                                "nullable": true
+                              }
+                            },
+                            {
+                              "name": "url",
+                              "type": {
+                                "kind": "string",
+                                "nullable": true
+                              }
+                            },
+                            {
+                              "name": "reference",
+                              "type": {
+                                "kind": "string",
+                                "nullable": true
+                              }
+                            },
+                            {
+                              "name": "actions",
+                              "type": {
+                                "kind": "array",
+                                "items": {
+                                  "kind": "string",
+                                  "enum": [
+                                    "activate",
+                                    "follow",
+                                    "fill",
+                                    "select",
+                                    "press"
+                                  ]
+                                }
+                              }
+                            },
+                            {
+                              "name": "pageId",
+                              "type": {
+                                "kind": "string"
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "id": "flatten_search_candidates",
+              "kind": "value",
+              "objective": "Aplatir d’un seul niveau les tableaux de candidats produits/blocages extraits par page avant toute décision globale.",
+              "dependsOn": [
+                "extract_search_candidate_arrays"
+              ],
+              "requires": null,
+              "outputs": [
+                {
+                  "name": "candidates",
+                  "value": {
+                    "kind": "flatten",
+                    "items": [
+                      {
+                        "kind": "field",
+                        "items": [
+                          {
+                            "kind": "output",
+                            "source": "extract_search_candidate_arrays",
+                            "port": null
+                          }
+                        ],
+                        "port": "candidateArrays"
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "id": "select_product_candidates",
+              "kind": "transform",
+              "objective": "À partir des seuls candidats extraits, classifier et sélectionner les liens produits Amazon.fr dans l’ordre observé, au maximum 10, et rapporter explicitement CAPTCHA/blocage/absence vérifiée sans inventer de produit ni de complétude.",
+              "dependsOn": [
+                "flatten_search_candidates",
+                "consent_branch",
+                "decide_initial_consent"
+              ],
+              "requires": null,
+              "mode": "interpret",
+              "inputs": [
+                {
+                  "name": "candidates",
+                  "value": {
+                    "kind": "output",
+                    "source": "flatten_search_candidates",
+                    "port": "candidates"
+                  }
+                },
+                {
+                  "name": "snapshotSource",
+                  "value": {
+                    "kind": "output",
+                    "source": "consent_branch",
+                    "port": "snapshotSource"
+                  }
+                },
+                {
+                  "name": "recordCount",
+                  "value": {
+                    "kind": "output",
+                    "source": "consent_branch",
+                    "port": "recordCount"
+                  }
+                },
+                {
+                  "name": "captureTruncated",
+                  "value": {
+                    "kind": "output",
+                    "source": "consent_branch",
+                    "port": "captureTruncated"
+                  }
+                },
+                {
+                  "name": "manifestTruncated",
+                  "value": {
+                    "kind": "output",
+                    "source": "consent_branch",
+                    "port": "manifestTruncated"
+                  }
+                },
+                {
+                  "name": "initialBlockerNote",
+                  "value": {
+                    "kind": "field",
+                    "items": [
+                      {
+                        "kind": "output",
+                        "source": "decide_initial_consent",
+                        "port": null
+                      }
+                    ],
+                    "port": "blockerNote"
+                  }
+                }
+              ],
+              "resultType": {
+                "kind": "object",
+                "fields": [
+                  {
+                    "name": "products",
+                    "type": {
+                      "kind": "array",
+                      "items": {
+                        "kind": "object",
+                        "fields": [
+                          {
+                            "name": "rank",
+                            "type": {
+                              "kind": "integer"
+                            }
+                          },
+                          {
+                            "name": "searchTitle",
+                            "type": {
+                              "kind": "string",
+                              "nullable": true
+                            }
+                          },
+                          {
+                            "name": "url",
+                            "type": {
+                              "kind": "string"
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  {
+                    "name": "searchStatus",
+                    "type": {
+                      "kind": "string"
+                    }
+                  },
+                  {
+                    "name": "notes",
+                    "type": {
+                      "kind": "string",
+                      "nullable": true
+                    }
+                  },
+                  {
+                    "name": "sourceCompleteness",
+                    "type": {
+                      "kind": "string"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "id": "visit_each_product",
+              "kind": "foreach",
+              "objective": "Visiter séquentiellement chaque produit sélectionné, déjà limité à 10, et extraire les informations seulement depuis la fiche produit réellement visitée.",
+              "dependsOn": [
+                "select_product_candidates"
+              ],
+              "requires": null,
+              "items": {
+                "kind": "field",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "select_product_candidates",
+                    "port": null
+                  }
+                ],
+                "port": "products"
+              },
+              "body": {
+                "tasks": [
+                  {
+                    "id": "open_product_page",
+                    "kind": "operation",
+                    "objective": "Naviguer vers l’URL produit observée dans les résultats et capturer une observation complète de la fiche produit.",
+                    "dependsOn": [],
+                    "requires": null,
+                    "operation": "cap_490d9e16075cbdca5954ec27",
+                    "inputs": [
+                      {
+                        "name": "url",
+                        "value": {
+                          "kind": "field",
+                          "items": [
+                            {
+                              "kind": "item"
+                            }
+                          ],
+                          "port": "url"
+                        }
+                      },
+                      {
+                        "name": "format",
+                        "value": {
+                          "kind": "string",
+                          "text": "observation_complete"
+                        }
+                      },
+                      {
+                        "name": "waitUntil",
+                        "value": {
+                          "kind": "string",
+                          "text": "domcontentloaded"
+                        }
+                      },
+                      {
+                        "name": "timeoutMs",
+                        "value": {
+                          "kind": "number",
+                          "number": 30000
+                        }
+                      },
+                      {
+                        "name": "maxRecords",
+                        "value": {
+                          "kind": "number",
+                          "number": 200
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "extract_product_detail_arrays",
+                    "kind": "transform",
+                    "objective": "Pour chaque page de la fiche produit visitée, extraire seulement les candidats observés nécessaires: textes pouvant correspondre au nom, à la description, au prix, et texte CAPTCHA/blocage. Copier kind depuis l’enregistrement source autoritatif, ne pas classifier ici; [] seulement après absence vérifiée sur la page.",
+                    "dependsOn": [
+                      "open_product_page"
+                    ],
+                    "requires": null,
+                    "mode": "extract",
+                    "each": {
+                      "input": "pages",
+                      "output": "candidateArrays"
+                    },
+                    "inputs": [
+                      {
+                        "name": "pages",
+                        "value": {
+                          "kind": "field",
+                          "items": [
+                            {
+                              "kind": "field",
+                              "items": [
+                                {
+                                  "kind": "output",
+                                  "source": "open_product_page",
+                                  "port": null
+                                }
+                              ],
+                              "port": "observationSnapshot"
+                            }
+                          ],
+                          "port": "pages"
+                        }
+                      }
+                    ],
+                    "resultType": {
+                      "kind": "object",
+                      "fields": [
+                        {
+                          "name": "candidateArrays",
+                          "type": {
+                            "kind": "array",
+                            "items": {
+                              "kind": "array",
+                              "items": {
+                                "kind": "object",
+                                "fields": [
+                                  {
+                                    "name": "kind",
+                                    "type": {
+                                      "kind": "string"
+                                    }
+                                  },
+                                  {
+                                    "name": "text",
+                                    "type": {
+                                      "kind": "string"
+                                    }
+                                  },
+                                  {
+                                    "name": "pageId",
+                                    "type": {
+                                      "kind": "string"
+                                    }
+                                  }
+                                ]
+                              }
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "id": "flatten_product_detail_candidates",
+                    "kind": "value",
+                    "objective": "Aplatir d’un seul niveau les candidats de détail extraits page par page, sans transmettre l’observation brute à l’interprétation globale.",
+                    "dependsOn": [
+                      "extract_product_detail_arrays"
+                    ],
+                    "requires": null,
+                    "outputs": [
+                      {
+                        "name": "candidates",
+                        "value": {
+                          "kind": "flatten",
+                          "items": [
+                            {
+                              "kind": "field",
+                              "items": [
+                                {
+                                  "kind": "output",
+                                  "source": "extract_product_detail_arrays",
+                                  "port": null
+                                }
+                              ],
+                              "port": "candidateArrays"
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "interpret_product_detail",
+                    "kind": "transform",
+                    "objective": "Choisir, depuis la page produit réellement visitée, le nom, la description et le prix observés; noter explicitement tout champ absent, CAPTCHA ou blocage. Ne jamais utiliser le titre de recherche comme fallback.",
+                    "dependsOn": [
+                      "flatten_product_detail_candidates",
+                      "open_product_page"
+                    ],
+                    "requires": null,
+                    "mode": "interpret",
+                    "inputs": [
+                      {
+                        "name": "candidate",
+                        "value": {
+                          "kind": "object",
+                          "members": [
+                            {
+                              "name": "rank",
+                              "value": {
+                                "kind": "field",
+                                "items": [
+                                  {
+                                    "kind": "item"
+                                  }
+                                ],
+                                "port": "rank"
+                              }
+                            },
+                            {
+                              "name": "url",
+                              "value": {
+                                "kind": "field",
+                                "items": [
+                                  {
+                                    "kind": "item"
+                                  }
+                                ],
+                                "port": "url"
+                              }
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "name": "detailCandidates",
+                        "value": {
+                          "kind": "output",
+                          "source": "flatten_product_detail_candidates",
+                          "port": "candidates"
+                        }
+                      },
+                      {
+                        "name": "recordCount",
+                        "value": {
+                          "kind": "field",
+                          "items": [
+                            {
+                              "kind": "field",
+                              "items": [
+                                {
+                                  "kind": "output",
+                                  "source": "open_product_page",
+                                  "port": null
+                                }
+                              ],
+                              "port": "observationSnapshot"
+                            }
+                          ],
+                          "port": "recordCount"
+                        }
+                      },
+                      {
+                        "name": "captureTruncated",
+                        "value": {
+                          "kind": "field",
+                          "items": [
+                            {
+                              "kind": "field",
+                              "items": [
+                                {
+                                  "kind": "output",
+                                  "source": "open_product_page",
+                                  "port": null
+                                }
+                              ],
+                              "port": "observationSnapshot"
+                            }
+                          ],
+                          "port": "captureTruncated"
+                        }
+                      },
+                      {
+                        "name": "manifestTruncated",
+                        "value": {
+                          "kind": "field",
+                          "items": [
+                            {
+                              "kind": "field",
+                              "items": [
+                                {
+                                  "kind": "output",
+                                  "source": "open_product_page",
+                                  "port": null
+                                }
+                              ],
+                              "port": "observationSnapshot"
+                            }
+                          ],
+                          "port": "manifestTruncated"
+                        }
+                      }
+                    ],
+                    "resultType": {
+                      "kind": "object",
+                      "fields": [
+                        {
+                          "name": "rank",
+                          "type": {
+                            "kind": "integer"
+                          }
+                        },
+                        {
+                          "name": "url",
+                          "type": {
+                            "kind": "string"
+                          }
+                        },
+                        {
+                          "name": "name",
+                          "type": {
+                            "kind": "string"
+                          }
+                        },
+                        {
+                          "name": "description",
+                          "type": {
+                            "kind": "string"
+                          }
+                        },
+                        {
+                          "name": "price",
+                          "type": {
+                            "kind": "string"
+                          }
+                        },
+                        {
+                          "name": "status",
+                          "type": {
+                            "kind": "string"
+                          }
+                        },
+                        {
+                          "name": "notes",
+                          "type": {
+                            "kind": "string",
+                            "nullable": true
+                          }
+                        },
+                        {
+                          "name": "sourceCompleteness",
+                          "type": {
+                            "kind": "string"
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "outputs": [
+                  {
+                    "name": "product",
+                    "value": {
+                      "kind": "output",
+                      "source": "interpret_product_detail",
+                      "port": null
+                    }
+                  }
+                ],
+                "always": []
+              },
+              "parallel": false,
+              "maxItems": 10,
+              "maxConcurrency": 1
+            },
+            {
+              "id": "assemble_workbook_tsv",
+              "kind": "transform",
+              "objective": "Assembler uniquement les sorties déclarées de chaque produit visité en TSV pour le writer XLSX: Rang, Nom, Description, Prix, URL, Statut, Notes. Normaliser tabulations/retours ligne. Si aucun produit n’a été visité à cause d’un blocage ou d’une absence vérifiée, créer une ligne explicite.",
+              "dependsOn": [
+                "select_product_candidates",
+                "visit_each_product"
+              ],
+              "requires": null,
+              "mode": "interpret",
+              "inputs": [
+                {
+                  "name": "candidateExtraction",
+                  "value": {
+                    "kind": "output",
+                    "source": "select_product_candidates",
+                    "port": null
+                  }
+                },
+                {
+                  "name": "productRows",
+                  "value": {
+                    "kind": "output",
+                    "source": "visit_each_product",
+                    "port": "product"
+                  }
+                }
+              ],
+              "resultType": {
+                "kind": "object",
+                "fields": [
+                  {
+                    "name": "tsv",
+                    "type": {
+                      "kind": "string"
+                    }
+                  },
+                  {
+                    "name": "rowCount",
+                    "type": {
+                      "kind": "integer"
+                    }
+                  },
+                  {
+                    "name": "completeness",
+                    "type": {
+                      "kind": "string"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "id": "write_products_xlsx",
+              "kind": "operation",
+              "objective": "Écrire le vrai classeur Excel demandé sur le disque au chemin relatif fixé, en utilisant le contenu TSV préparé.",
+              "dependsOn": [
+                "assemble_workbook_tsv"
+              ],
+              "requires": null,
+              "operation": "cap_37c513d225bb1b870053c5d3",
+              "inputs": [
+                {
+                  "name": "filePath",
+                  "value": {
+                    "kind": "string",
+                    "text": "workflows/schema-portability-20261002/consumerretry20261008b-amazon-1/products.xlsx"
+                  }
+                },
+                {
+                  "name": "content",
+                  "value": {
+                    "kind": "field",
+                    "items": [
+                      {
+                        "kind": "output",
+                        "source": "assemble_workbook_tsv",
+                        "port": null
+                      }
+                    ],
+                    "port": "tsv"
+                  }
+                },
+                {
+                  "name": "append",
+                  "value": {
+                    "kind": "boolean",
+                    "boolean": false
+                  }
+                }
+              ]
+            }
+          ],
+          "outputs": [
+            {
+              "name": "filePath",
+              "value": {
+                "kind": "field",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "write_products_xlsx",
+                    "port": null
+                  }
+                ],
+                "port": "filePath"
+              }
+            },
+            {
+              "name": "rowCount",
+              "value": {
+                "kind": "field",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "assemble_workbook_tsv",
+                    "port": null
+                  }
+                ],
+                "port": "rowCount"
+              }
+            },
+            {
+              "name": "completeness",
+              "value": {
+                "kind": "field",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "assemble_workbook_tsv",
+                    "port": null
+                  }
+                ],
+                "port": "completeness"
+              }
+            }
+          ],
+          "always": [
+            {
+              "id": "close_browser",
+              "kind": "operation",
+              "objective": "Fermer le navigateur même en cas d’échec d’une étape précédente.",
+              "dependsOn": [],
+              "requires": null,
+              "operation": "cap_bdb7ba9ab04b18783883fa86",
+              "inputs": []
+            }
+          ]
+        },
+        "groups": [],
+        "choices": []
+      },
+      "clarifications": null
+    }
+  }
+]

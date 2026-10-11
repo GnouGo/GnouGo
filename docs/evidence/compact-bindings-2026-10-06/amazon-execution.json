@@ -1,0 +1,256 @@
+{
+  "run": "compactbindings20261006d-amazon-1",
+  "cohort": "compactbindings20261006d",
+  "production_and_harness_sha": "71315a5a7621f46f5a8b4ff1f3ab58213a5f445f",
+  "approved_revision": 8,
+  "approved_artifact_hash": "0e86683a295778310311f8acda2d3c88a9b771a50cfdca30e940193fe24aad9f",
+  "approval_recorded_revision": 9,
+  "approval_source": "User explicitly approved the pending four-requirement, one-execution request in chat.",
+  "max_products": 10,
+  "result": {
+    "status": "final_review",
+    "planning_ms": 288310,
+    "calls": 6,
+    "repairs": 2,
+    "discovery_reads": 2,
+    "review_revisions": 2,
+    "diagnostics": [],
+    "execution_success": false,
+    "execution_oracle": false,
+    "execution_status": "completed",
+    "accounting": {
+      "planning": {
+        "logical_calls": 6,
+        "physical_attempts": 6,
+        "known_input_tokens": 66235,
+        "known_output_tokens": 24537,
+        "known_cost_eur": 0.9470982340935309,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "execution": {
+        "logical_calls": 2,
+        "physical_attempts": 2,
+        "known_input_tokens": 46735,
+        "known_output_tokens": 395,
+        "known_cost_eur": 0.21787647528618334,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "campaign": {
+        "calls": 775,
+        "session_calls": 0,
+        "known_input_tokens": 11739495,
+        "known_output_tokens": 1344035,
+        "known_cost_eur": 88.16426950933212,
+        "reserved_input_tokens": 192000,
+        "reserved_output_tokens": 65536,
+        "reserved_cost_eur": 2.606752783964365,
+        "cost_upper_bound_eur": 90.77102229329648,
+        "unknown_attempts": 2
+      }
+    },
+    "execution_ms": 45348,
+    "total_ms": 333658
+  },
+  "execution": {
+    "success": false,
+    "outputs": null,
+    "error": {
+      "Code": "WORKFLOW_FINALIZATION_FAILED",
+      "Type": "WORKFLOW_FINALIZATION_FAILED",
+      "Message": "Workflow finalization failed. [workflow 'w_5983ecbb4f01dd25', step 'n_1c5984810e75d712']",
+      "Retryable": false,
+      "Details": {
+        "finalization_errors": [
+          {
+            "code": "LOOP_LIMIT",
+            "type": "LOOP_LIMIT",
+            "message": "The persisted execution step budget is exhausted. [workflow 'w_69559c3df710b4e3', step 'n_b0db66bbf07943d4']",
+            "retryable": false,
+            "details": {
+              "failed_workflow": "w_69559c3df710b4e3",
+              "failed_step_id": "n_b0db66bbf07943d4",
+              "failed_step_type": "set",
+              "execution_phase": "finalization"
+            }
+          },
+          {
+            "code": "LOOP_LIMIT",
+            "type": "LOOP_LIMIT",
+            "message": "The persisted execution step budget is exhausted. [workflow 'main', step 'n_38125c2e8d49993f']",
+            "retryable": false,
+            "details": {
+              "failed_workflow": "main",
+              "failed_step_id": "n_38125c2e8d49993f",
+              "failed_step_type": "mcp.call",
+              "execution_phase": "finalization"
+            }
+          }
+        ],
+        "workflow": "w_69559c3df710b4e3",
+        "step_id": "n_b0db66bbf07943d4",
+        "step_type": "set",
+        "step_status": "Failed",
+        "failed_workflow": "w_5983ecbb4f01dd25",
+        "failed_step_id": "n_1c5984810e75d712",
+        "failed_step_type": "workflow.call",
+        "execution_phase": "step"
+      }
+    }
+  },
+  "oracle": {
+    "passed": false,
+    "findings": [
+      "workflow_execution_failed",
+      "browser_not_closed_by_workflow",
+      "workbook_missing"
+    ]
+  },
+  "snapshot_coverage": [
+    {
+      "capture_index": 0,
+      "site_path": "/",
+      "manifest_pages": 2,
+      "manifest_records": 125,
+      "read_pages": 2,
+      "read_records": 125,
+      "capture_truncated": false,
+      "manifest_truncated": false,
+      "complete": true,
+      "page_record_counts": [
+        64,
+        61
+      ]
+    },
+    {
+      "capture_index": 1,
+      "site_path": "/",
+      "manifest_pages": 7,
+      "manifest_records": 276,
+      "read_pages": 7,
+      "read_records": 276,
+      "capture_truncated": false,
+      "manifest_truncated": false,
+      "complete": true,
+      "page_record_counts": [
+        76,
+        33,
+        31,
+        19,
+        26,
+        46,
+        45
+      ]
+    },
+    {
+      "capture_index": 2,
+      "site_path": "/s",
+      "manifest_pages": 53,
+      "manifest_records": 1515,
+      "read_pages": 17,
+      "read_records": 480,
+      "capture_truncated": false,
+      "manifest_truncated": false,
+      "complete": false,
+      "page_record_counts": [
+        78,
+        23,
+        27,
+        28,
+        29,
+        29,
+        16,
+        17,
+        17,
+        24,
+        25,
+        28,
+        26,
+        27,
+        29,
+        29,
+        28,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    }
+  ],
+  "runtime_llm_inputs": [
+    {
+      "invocation": "/workflow/main/step/n_f7a950f2453b6923",
+      "status": "completed",
+      "observed_completion": true,
+      "estimated_prompt_tokens": 49366,
+      "model_calls": 0,
+      "inspection_only": true
+    },
+    {
+      "invocation": "/workflow/main/step/n_f5d79a913b7a47f2",
+      "status": "completed",
+      "observed_completion": true,
+      "estimated_prompt_tokens": 17029,
+      "model_calls": 0,
+      "inspection_only": true
+    }
+  ],
+  "mapping_telemetry": [],
+  "workflow_external_calls": 30,
+  "observation_page_reads": 26,
+  "product_page_observations": 0,
+  "cookie_click_calls": 0,
+  "document_write_calls": 0,
+  "post_execution_oracle_events": [
+    {
+      "tool": "browser_get_content",
+      "error": false,
+      "counts_as_workflow_cleanup": false
+    },
+    {
+      "tool": "browser_close",
+      "error": false,
+      "counts_as_workflow_cleanup": false
+    }
+  ],
+  "new_uncertain_external_invocations": [],
+  "artifact_yaml_sha256": "9f2c05835b5bee543dd7add31fdcaa526dac19f2578b4a39fbf58e1932567ded",
+  "retention": "Complete observations, requests, receipts, events and journal remain in encrypted stores. Public evidence excludes raw website content, URLs, selectors and local paths. No source changes, retry, limit increase or approval reuse."
+}

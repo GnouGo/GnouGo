@@ -1,0 +1,147 @@
+{
+  "run": "boundeddecision20261006a-amazon-1",
+  "source": "4d0337b589aada4406531923c7596895c8246253",
+  "approved_revision": 7,
+  "approved_session_revision": 8,
+  "artifact_hash": "fccc98605562f6c42ec84d0ca66c3dc7e6f72a01ed116f5c02cb8285197950e5",
+  "approval_source": "User approved this exact hash in response to the concrete revision-7 execution request and its six reviewed requirements.",
+  "execution_attempts": 1,
+  "replayed": false,
+  "saved_yaml_unchanged": true,
+  "execution": {
+    "success": false,
+    "outputs": null,
+    "error": {
+      "Code": "MCP_CALL_ERROR",
+      "Type": "MCP_CALL_ERROR",
+      "Message": "mcp.call (tool) to 'GnOuGo.Browser.Mcp/browser_get_content' returned an MCP error: InvalidOperationException: The observation cursor is invalid or expired. Capture the current page again. [workflow 'w_7d8978c60e044edb', step 'n_49a59ecda6cbc0f1']",
+      "Retryable": false,
+      "Details": {
+        "message": "InvalidOperationException: The observation cursor is invalid or expired. Capture the current page again.",
+        "mcp_error_code": "INVALID_INPUT",
+        "mcp_error_message": "InvalidOperationException: The observation cursor is invalid or expired. Capture the current page again.",
+        "content": {
+          "url": "",
+          "title": null,
+          "statusCode": null,
+          "selector": null,
+          "resolvedSelector": "",
+          "fallbackApplied": false,
+          "fallbackReason": null,
+          "format": "observation",
+          "content": "",
+          "truncated": false,
+          "maxCharacters": 0,
+          "success": false,
+          "error_code": "INVALID_INPUT",
+          "error_message": "InvalidOperationException: The observation cursor is invalid or expired. Capture the current page again.",
+          "ok": false
+        },
+        "correlation_id": "boundeddecision20261006a-amazon-1",
+        "run_id": "boundeddecision20261006a-amazon-1",
+        "trace_id": null,
+        "span_id": null,
+        "traceparent": null,
+        "server": "GnOuGo.Browser.Mcp",
+        "method": "browser_get_content",
+        "kind": "tool",
+        "status": "error",
+        "response": {
+          "url": "",
+          "title": null,
+          "statusCode": null,
+          "selector": null,
+          "resolvedSelector": "",
+          "fallbackApplied": false,
+          "fallbackReason": null,
+          "format": "observation",
+          "content": "",
+          "truncated": false,
+          "maxCharacters": 0,
+          "success": false,
+          "error_code": "INVALID_INPUT",
+          "error_message": "InvalidOperationException: The observation cursor is invalid or expired. Capture the current page again.",
+          "ok": false
+        },
+        "failed_workflow": "w_7d8978c60e044edb",
+        "failed_step_id": "n_49a59ecda6cbc0f1",
+        "failed_step_type": "mcp.call",
+        "execution_phase": "step",
+        "workflow": "w_7d8978c60e044edb",
+        "step_id": "n_49a59ecda6cbc0f1",
+        "step_type": "mcp.call",
+        "step_status": "Failed"
+      }
+    }
+  },
+  "oracle": {
+    "passed": false,
+    "findings": [
+      "workflow_execution_failed",
+      "workbook_missing"
+    ]
+  },
+  "result": {
+    "status": "final_review",
+    "planning_ms": 331564,
+    "calls": 5,
+    "repairs": 0,
+    "discovery_reads": 2,
+    "review_revisions": 2,
+    "diagnostics": [],
+    "execution_success": false,
+    "execution_oracle": false,
+    "execution_status": "completed",
+    "accounting": {
+      "planning": {
+        "logical_calls": 5,
+        "physical_attempts": 5,
+        "known_input_tokens": 72806,
+        "known_output_tokens": 21846,
+        "known_cost_eur": 0.9046144289644157,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "execution": {
+        "logical_calls": 1,
+        "physical_attempts": 1,
+        "known_input_tokens": 116,
+        "known_output_tokens": 96,
+        "known_cost_eur": 0.0030703700417073388,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "campaign": {
+        "calls": 789,
+        "session_calls": 0,
+        "known_input_tokens": 11905533,
+        "known_output_tokens": 1393104,
+        "known_cost_eur": 90.20727243771972,
+        "reserved_input_tokens": 192000,
+        "reserved_output_tokens": 65536,
+        "reserved_cost_eur": 2.606752783964365,
+        "cost_upper_bound_eur": 92.81402522168409,
+        "unknown_attempts": 2
+      }
+    },
+    "execution_ms": 17167,
+    "total_ms": 348731
+  },
+  "mapping_telemetry": [],
+  "runtime_mapping_receipts": [],
+  "runtime_llm_inputs": [
+    {
+      "invocation": "/workflow/main/step/n_3981b1c1638bb00a",
+      "status": "completed",
+      "observed_completion": true,
+      "estimated_prompt_tokens": 4203,
+      "model_calls": 0,
+      "inspection_only": true
+    }
+  ],
+  "note": "Full original MCP results, planning requests and durable invocation records remain encrypted. Zero mapping calls; this failure occurred before extraction."
+}

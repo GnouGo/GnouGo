@@ -1,0 +1,4 @@
+Série de tests pour /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Browser.Mcp.Tests/bin/Debug/net10.0/GnOuGo.Browser.Mcp.Tests.dll (.NETCoreApp,Version=v10.0)
+Au total, 1 fichiers de test ont correspondu au modèle spécifié.
+
+Réussi!  - échec :     0, réussite :    25, ignorée(s) :     0, total :    25, durée : 12 s - GnOuGo.Browser.Mcp.Tests.dll (net10.0)

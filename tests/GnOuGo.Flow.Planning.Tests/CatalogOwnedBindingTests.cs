@@ -68,7 +68,12 @@ public sealed class CatalogOwnedBindingTests
         var prompt = HybridWorkflowPlanner.BuildPrompt(state, []);
         Assert.DoesNotContain("\"name\":\"selector\"", prompt);
         var schema = PlanningSchemas.Proposal(state);
-        JsonObject Response() => new() { ["discoveryRequests"] = null, ["plan"] = PlanningJsonTransport.TaskPlanPrompt(plan) };
+        JsonObject Response()
+        {
+            var wire = PlanningJsonTransport.TaskPlanPrompt(plan)!;
+            foreach (var task in wire["root"]!["tasks"]!.AsArray()) task!["requires"] = null;
+            return new() { ["discoveryRequests"] = null, ["clarifications"] = null, ["plan"] = wire };
+        }
         Assert.Empty(PlanningContractValidation.ValidateSchema(schema, strict: true));
         Assert.Empty(PlanningContractValidation.ValidateInstance(Response(), schema));
         plan.Root.Tasks[0].Inputs.Add(new("selector", Text("host")));
@@ -224,7 +229,12 @@ public sealed class CatalogOwnedBindingTests
         var state = PlannerFixture.Session(); state.Catalog = catalog; state.Requirements = PlannerFixture.Requirements();
         var schema = PlanningSchemas.Proposal(state);
         plan.Root.Tasks[0].Inputs.Add(new("selector", Text("host")));
-        JsonObject Response() => new() { ["discoveryRequests"] = null, ["plan"] = PlanningJsonTransport.TaskPlanPrompt(plan) };
+        JsonObject Response()
+        {
+            var wire = PlanningJsonTransport.TaskPlanPrompt(plan)!;
+            foreach (var task in wire["root"]!["tasks"]!.AsArray()) task!["requires"] = null;
+            return new() { ["discoveryRequests"] = null, ["clarifications"] = null, ["plan"] = wire };
+        }
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(Response(), schema));
         plan.Root.Tasks[0].Operation = "other";
         Assert.Empty(PlanningContractValidation.ValidateInstance(Response(), schema));
@@ -241,17 +251,15 @@ public sealed class CatalogOwnedBindingTests
         cap.InputSchema["then"] = JsonNode.Parse("""{"required":["extra"]}""");
         var preflight = new TaskPlanCompiler().Compile(plan, catalog);
         Assert.Null(preflight.Graph); Assert.Contains(preflight.Diagnostics, d => d.Code == "TASK_INPUT_TYPE");
-        var yaml = new PlanningGraphCompiler().Compile(result.Graph!, catalog);
-        var findings = await new WorkflowPlanningRuntime(new(), (_, _) => Task.CompletedTask).ValidateAsync(
-            new(yaml, new(), catalog, PlanningGraphCompiler.CapabilityBindings(result.Graph!)), PlannerFixture.Ct);
-        Assert.Contains(findings, d => d.Code == "MCP_REQUEST_SCHEMA_INVALID" && d.Message.Contains("missing required property", StringComparison.Ordinal));
+        Assert.Contains(PlanningExecutableValidation.Validate(result.Graph!, catalog), d => d.Code == "CONTRACT_UNSATISFIED");
+        Assert.Throws<InvalidOperationException>(() => new PlanningGraphCompiler().Compile(result.Graph!, catalog));
     }
 
     [Fact]
-    public async Task IndexOnlySelectionResolvesOnceAndRejectsOwnershipBeforeLowering()
+    public async Task IndexOnlySelectionIsRejectedBeforeResolutionOrLowering()
     {
         var (plan, catalog, cap) = await Fixture(true); catalog.Capabilities.Remove(cap);
-        // An oversized optional contract remains index-only until the proposal selects it.
+        // An oversized optional contract requires explicit inspection before selection.
         cap.InputSchema["properties"]!["text"]!["description"] = new string('x', 90000);
         plan.Root.Tasks[0].Inputs.Add(new("selector", Text("host")));
         var source = new ExactCatalog(cap); var runtime = new TestRuntime { Capabilities = source,
@@ -261,8 +269,9 @@ public sealed class CatalogOwnedBindingTests
         state.Discovery.Pages = [new("source", null, [new(cap.Id, "source", "name", "description", cap.StepType, cap.EffectKind, cap.Version,
             Operation: TaskOperations.Describe(cap))], null)];
         state = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
-        Assert.Equal(1, source.Resolutions); Assert.Single(runtime.Calls);
-        Assert.Contains(state.Diagnostics, d => d.Code == "TASK_INPUT_HOST_OWNED");
+        Assert.Equal(0, source.Resolutions); Assert.Single(runtime.Calls);
+        Assert.DoesNotContain(cap.Id, runtime.Calls[0].StructuredOutputSchema!.ToJsonString());
+        Assert.Equal(PlanningStatus.Stopped, state.Status);
         Assert.Null(state.Graph); Assert.Null(state.Yaml);
     }
 

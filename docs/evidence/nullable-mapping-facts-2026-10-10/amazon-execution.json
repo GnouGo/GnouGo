@@ -1,0 +1,290 @@
+{
+  "run": "nullfacts20261010a-amazon-1",
+  "candidate": "ce58f8da5b2abf0acfa2508ffdc7701a89bd58c6",
+  "artifact_hash": "7e4c67f5932426a4e9273c3b8b8301b5f3e518269011f953573840d88ccf66ab",
+  "approved_artifact_revision": 7,
+  "saved_approved_revision": 8,
+  "execution_started": "2026-10-10T19:11:10.4356430+00:00",
+  "execution": {
+    "success": false,
+    "outputs": null,
+    "error": {
+      "Code": "CONTRACT_UNSATISFIED",
+      "Type": "CONTRACT_UNSATISFIED",
+      "Message": "A selected identity is absent from the lookup source. [workflow 'main', step 'n_8b14d33e667c7b2f']",
+      "Retryable": false,
+      "Details": {
+        "compiled_node": "v16",
+        "location": "task_98d5498fb969879055593524",
+        "failed_workflow": "main",
+        "failed_step_id": "n_8b14d33e667c7b2f",
+        "failed_step_type": "workflow.call",
+        "execution_phase": "step"
+      }
+    }
+  },
+  "oracle": {
+    "passed": false,
+    "findings": [
+      "workflow_execution_failed",
+      "workbook_missing"
+    ]
+  },
+  "workflow_ms": 92320,
+  "including_oracle_ms": 93402,
+  "acquisition": {
+    "pages": 4,
+    "records": 153,
+    "capture_truncated": false,
+    "manifest_truncated": false,
+    "acquisition": {
+      "attempts": 1,
+      "invalidations": [],
+      "navigation": {
+        "generation": 3,
+        "url": "https://www.amazon.fr/",
+        "title": "Amazon.fr : livres, DVD, jeux vidéo, musique, high-tech, informatique, jouets, vêtements, chaussures, sport, bricolage, maison, beauté, puériculture, épicerie et plus encore !",
+        "method": "GET",
+        "statusCode": 200
+      },
+      "lastResponse": {
+        "url": "https://www.amazon.fr/",
+        "method": "GET",
+        "statusCode": 200
+      },
+      "phase": "publication",
+      "elapsedMilliseconds": 5829,
+      "timingsMilliseconds": {
+        "startup": 3363,
+        "navigation": 2354,
+        "readiness": 12,
+        "selector": 39,
+        "capture": 47,
+        "pagination": 13,
+        "publication": 1
+      }
+    }
+  },
+  "mapping_telemetry": [
+    {
+      "gnougo.mapping.source_items": 4,
+      "gnougo.mapping.model_attempts": 3,
+      "gnougo.mapping.specializations": 0,
+      "gnougo.mapping.cache_hits": 0,
+      "gnougo.mapping.cache_hit": false,
+      "gnougo.mapping.failure_groups": 1,
+      "gnougo.mapping.sample_items": 3,
+      "gnougo.mapping.omitted_items": 1,
+      "gnougo.mapping.request_bytes": 53571,
+      "gnougo.mapping.program_repairs": 2,
+      "gnougo.mapping.processed_items": 4,
+      "gnougo.mapping.validated_items": 4,
+      "gnougo.mapping.sandbox.statements": 196,
+      "gnougo.mapping.sandbox.statement_limit": 10000,
+      "gnougo.mapping.sandbox.elapsed_ms": 27.3078,
+      "gnougo.mapping.sandbox.time_limit_ms": 5000,
+      "gnougo.mapping.sandbox.allocated_bytes": 3427592,
+      "gnougo.mapping.sandbox.materialized_bytes": 860553,
+      "gnougo.mapping.sandbox.output_bytes": 89,
+      "gnougo.mapping.sandbox.memory_limit_bytes": 50000000,
+      "gnougo.mapping.sandbox.nesting_depth": 4,
+      "gnougo.mapping.sandbox.nesting_limit": 64,
+      "step": "n_9c5fd213b408a23c",
+      "status": "Succeeded",
+      "duration_ms": 75981.4746
+    }
+  ],
+  "mapping_receipts": [
+    {
+      "invocation": "/workflow/main/step/n_9c5fd213b408a23c/mapping/0",
+      "request_id": "babdb037db06a5eb614c57525113cbaed1d24126ebb0a78193247d94e7e76cd2",
+      "status": "completed",
+      "usage": {
+        "input_tokens": 19980,
+        "output_tokens": 2127,
+        "total_tokens": 22107,
+        "benchmark_cost_eur": 0.14527464726240127,
+        "transport_attempts": 1,
+        "uncertain_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0,
+        "benchmark_usage_bounded": true
+      },
+      "response": {
+        "script": "item.records.filter(r=>r.actions.filter(a=>m.test(a,\"^(fill|select)$\")).length).map(r=>({key:m.text(r.reference,\":(record:[0-9]+)$\"),label:r.text}))"
+      }
+    },
+    {
+      "invocation": "/workflow/main/step/n_9c5fd213b408a23c/mapping/1",
+      "request_id": "ed37ad218568d9894b9bc17e42cccda2d70c927d8baaeac899390d938a220a54",
+      "status": "completed",
+      "usage": {
+        "input_tokens": 20063,
+        "output_tokens": 573,
+        "total_tokens": 20636,
+        "benchmark_cost_eur": 0.1042727837430118,
+        "transport_attempts": 1,
+        "uncertain_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0,
+        "benchmark_usage_bounded": true
+      },
+      "response": {
+        "script": "item.records.filter(r=>m.test(r.actions[0],\"^(fill|select)$\")).map(r=>({key:m.text(r.reference,\":(record:[0-9]+)$\"),label:r.text}))"
+      }
+    },
+    {
+      "invocation": "/workflow/main/step/n_9c5fd213b408a23c/mapping/2",
+      "request_id": "e66c9a3343ba1304f98433a686540385a4cf6a74518448f0299b2596cd576cfb",
+      "status": "completed",
+      "usage": {
+        "input_tokens": 20055,
+        "output_tokens": 1217,
+        "total_tokens": 21272,
+        "benchmark_cost_eur": 0.1213816665187683,
+        "transport_attempts": 1,
+        "uncertain_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0,
+        "benchmark_usage_bounded": true
+      },
+      "response": {
+        "script": "item.records.filter(r=>m.test(r.kind,\"^control$\")&&m.test(r.actions[0],\"^(fill|select)$\")).map(r=>({key:m.text(r.reference,\":(record:.+)$\"),label:r.text}))"
+      }
+    }
+  ],
+  "mapping_attempts": [
+    {
+      "phase": "generation",
+      "assigned_indices": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "failure": null
+    },
+    {
+      "phase": "program_repair",
+      "assigned_indices": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "failure": "Array filters require explicit observation predicates, such as m.test(value, patternString)."
+    },
+    {
+      "phase": "program_repair",
+      "assigned_indices": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "failure": "Extraction helpers require an observed scalar, not a literal or computed replacement."
+    }
+  ],
+  "offered_candidates": [
+    {
+      "key": "record:12",
+      "label": ""
+    },
+    {
+      "key": "record:13",
+      "label": "Rechercher Amazon.fr"
+    }
+  ],
+  "selected_ids": [
+    "record:13"
+  ],
+  "original_selected_control_reference": "9a3574379e43411eac69443f958e7ac6:record:13",
+  "identity_check": {
+    "selected_id_is_offered": true,
+    "selected_id_matches_original_reference": false,
+    "source_reference_was_shortened": true
+  },
+  "runtime_llm_inputs": [
+    {
+      "invocation": "/workflow/main/step/n_9c5fd213b408a23c/mapping/0",
+      "status": "completed",
+      "observed_completion": true,
+      "estimated_prompt_tokens": 29033,
+      "model_calls": 0,
+      "inspection_only": true
+    },
+    {
+      "invocation": "/workflow/main/step/n_9c5fd213b408a23c/mapping/2",
+      "status": "completed",
+      "observed_completion": true,
+      "estimated_prompt_tokens": 29126,
+      "model_calls": 0,
+      "inspection_only": true
+    },
+    {
+      "invocation": "/workflow/main/step/n_9c5fd213b408a23c/mapping/1",
+      "status": "completed",
+      "observed_completion": true,
+      "estimated_prompt_tokens": 29136,
+      "model_calls": 0,
+      "inspection_only": true
+    },
+    {
+      "invocation": "/workflow/main/step/n_0ded6a973b1b510a",
+      "status": "completed",
+      "observed_completion": true,
+      "estimated_prompt_tokens": 4223,
+      "model_calls": 0,
+      "inspection_only": true
+    }
+  ],
+  "business_oracles": {
+    "search_submitted": false,
+    "product_visits": 0,
+    "product_extraction_reached": false,
+    "workbook_written": false,
+    "workflow_browser_cleanup_verified": true,
+    "live_product_null_fix_exercised": false
+  },
+  "events": [
+    {
+      "tool": "browser_get_content",
+      "error": false,
+      "error_code": null,
+      "error_message": null,
+      "latency_ms": 5866
+    },
+    {
+      "tool": "browser_close",
+      "error": false,
+      "error_code": null,
+      "error_message": null,
+      "latency_ms": 1037
+    },
+    {
+      "tool": "browser_get_content",
+      "error": true,
+      "error_code": "INVALID_INPUT",
+      "error_message": "InvalidOperationException: No active page. Call browser_get_content with url first.",
+      "latency_ms": 1
+    },
+    {
+      "tool": "browser_close",
+      "error": false,
+      "error_code": null,
+      "error_message": null,
+      "latency_ms": 1002
+    }
+  ],
+  "offline_inspection": {
+    "provider_calls": 0,
+    "mcp_calls": 0,
+    "workflow_resumed": false,
+    "source": "Public encrypted campaign/run APIs; original evidence unchanged"
+  },
+  "reservations": "Historical unknown reservations retained; zero new unknown attempts",
+  "accounting_reference": "execution-accounting.json"
+}

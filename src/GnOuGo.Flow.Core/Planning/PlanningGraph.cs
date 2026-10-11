@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using System.Text.Json.Nodes;
 
 namespace GnOuGo.Flow.Core.Planning;
@@ -52,13 +53,19 @@ public sealed class PlanningSchema
     public string? SchemaPointer { get; set; }
 }
 
-/// <summary>Literal, input/output reference, stage-presence condition, expression, object, array, or workflow reference.</summary>
+/// <summary>Literal, reference, object, array, workflow, or compiler-owned computation, including one-level flattening and identity lookup. Historical expressions remain readable.</summary>
 public sealed class PlanningValue
 {
     public string Kind { get; set; } = "null";
     public string? Text { get; set; }
-    public decimal? Number { get; set; }
+    // Keep original JSON tokens when reading saved plans so historical hashes do
+    // not change through floating-point reserialization. New values use Number.
+    [JsonIgnore]
+    public double? Number { get => NumberToken?.GetValue<double>(); set => NumberToken = value is { } number ? JsonValue.Create(number) : null; }
+    [JsonInclude, JsonPropertyName("number")]
+    internal JsonNode? NumberToken { get; set; }
     public bool? Boolean { get; set; }
+    /// <summary>Binding identity; input with no source/path forwards the complete accepted input object, preserving omission.</summary>
     public string? Source { get; set; }
     /// <summary>The default channel is the declared raw result; structured selects validated post-processing JSON.</summary>
     public string? ResultChannel { get; set; }

@@ -1,0 +1,21 @@
+{
+  "candidate": "e04173619b3a3444586cc185fb3e7f64cb4dd820",
+  "command": "dotnet test GnOuGo.Agent.sln -m:1 -warnaserror --logger trx",
+  "status": "interrupted host test process; remaining solution projects continued",
+  "reason": "No progress; synchronous CollectorTracePersistence.Persist waits for bounded queue admission from a planning Activity.Stop callback. Browser acquisition is not on the waiting stack.",
+  "frames": [
+    "System.Private.CoreLib!System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(class System.Threading.Tasks.Task,value class System.Threading.Tasks.ConfigureAwaitOptions)",
+    "System.Private.CoreLib!System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(class System.Threading.Tasks.Task,value class System.Threading.Tasks.ConfigureAwaitOptions)",
+    "GnOuGo.Agent.Server!GnOuGo.Agent.Server.Telemetry.CollectorTracePersistence.Persist(class System.Diagnostics.Activity)",
+    "GnOuGo.Agent.Server!GnOuGo.Agent.Server.SmartFlow.AgentOTelTelemetry.<.ctor>b__15_4(class System.Diagnostics.Activity)",
+    "GnOuGo.Agent.Server.Tests!GnOuGo.Agent.Server.Tests.ChatPlanningChoiceTests.ScopedBusinessClarificationRecoversInOriginatingChat(bool)",
+    "System.Private.CoreLib!dynamicClass.InvokeStub_ChatPlanningChoiceTests.ScopedBusinessClarificationRecoversInOriginatingChat(class System.Object,pMT: 0x109a66d98<class System.Object>)"
+  ],
+  "action": "Retained stack evidence; terminated only the deterministic host test process, then ran unfinished host classes in a fresh process without changing assertions or production code.",
+  "isolated_chat_reproduction": {
+    "passed": 10,
+    "failed": 0,
+    "seconds": 2
+  },
+  "limitation": "The uninterrupted full solution has not passed; isolated test success does not establish the queue lifecycle issue is fixed."
+}

@@ -1,0 +1,176 @@
+[
+  {
+    "revision": 2,
+    "artifact_hash": "2289a6866b3123fcaef4ca20e23778882db2028477148341239d7df521423f46",
+    "diagnostics": [],
+    "result": {
+      "status": "final_review",
+      "planning_ms": 363163,
+      "calls": 2,
+      "repairs": 0,
+      "discovery_reads": 2,
+      "review_revisions": 0,
+      "diagnostics": [],
+      "execution_success": false,
+      "execution_oracle": false,
+      "execution_status": "not_started",
+      "accounting": {
+        "planning": {
+          "logical_calls": 2,
+          "physical_attempts": 3,
+          "known_input_tokens": 18857,
+          "known_output_tokens": 5255,
+          "known_cost_eur": 0.22356464637501108,
+          "unknown_attempts": 1,
+          "reserved_input_tokens": 96000,
+          "reserved_output_tokens": 32768,
+          "reserved_cost_eur": 1.2982873369420533
+        },
+        "execution": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "campaign": {
+          "calls": 833,
+          "session_calls": 0,
+          "known_input_tokens": 12436860,
+          "known_output_tokens": 1554555,
+          "known_cost_eur": 96.86284524808444,
+          "reserved_input_tokens": 384000,
+          "reserved_output_tokens": 131072,
+          "reserved_cost_eur": 5.203327457848472,
+          "cost_upper_bound_eur": 102.06617270593291,
+          "unknown_attempts": 4
+        }
+      }
+    },
+    "responses": [
+      "schema-portability-20261002:consumerretry20261008b-amazon-1:1:72d5fb5f4644e6739f8ab488d7bfaf64f93870a0f8bf75d8ffed1c0f32cddfe9",
+      "schema-portability-20261002:consumerretry20261008b-amazon-1:2:c874f0d3cac313a0c93dfd3c2431f2d5df0d12439def91a626c0d2b2e9216de2"
+    ]
+  },
+  {
+    "revision": 4,
+    "artifact_hash": "3a5fbe7c23a9b84c7822c904746adba6d64707e3b72dde20c2fcd0669a6d23ae",
+    "diagnostics": [],
+    "result": {
+      "status": "final_review",
+      "planning_ms": 407379,
+      "calls": 3,
+      "repairs": 0,
+      "discovery_reads": 2,
+      "review_revisions": 1,
+      "diagnostics": [],
+      "execution_success": false,
+      "execution_oracle": false,
+      "execution_status": "not_started",
+      "accounting": {
+        "planning": {
+          "logical_calls": 3,
+          "physical_attempts": 4,
+          "known_input_tokens": 36776,
+          "known_output_tokens": 10144,
+          "known_cost_eur": 0.4332238885437927,
+          "unknown_attempts": 1,
+          "reserved_input_tokens": 96000,
+          "reserved_output_tokens": 32768,
+          "reserved_cost_eur": 1.2982873369420533
+        },
+        "execution": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "campaign": {
+          "calls": 834,
+          "session_calls": 0,
+          "known_input_tokens": 12454779,
+          "known_output_tokens": 1559444,
+          "known_cost_eur": 97.07250449025322,
+          "reserved_input_tokens": 384000,
+          "reserved_output_tokens": 131072,
+          "reserved_cost_eur": 5.203327457848472,
+          "cost_upper_bound_eur": 102.2758319481017,
+          "unknown_attempts": 4
+        }
+      }
+    },
+    "responses": [
+      "schema-portability-20261002:consumerretry20261008b-amazon-1:1:72d5fb5f4644e6739f8ab488d7bfaf64f93870a0f8bf75d8ffed1c0f32cddfe9",
+      "schema-portability-20261002:consumerretry20261008b-amazon-1:2:c874f0d3cac313a0c93dfd3c2431f2d5df0d12439def91a626c0d2b2e9216de2",
+      "schema-portability-20261002:consumerretry20261008b-amazon-1:3:2f48a473630718f1d3101d95b23189555fe4433ad1deee7e88d4f193e7c99d4b"
+    ]
+  },
+  {
+    "revision": 6,
+    "artifact_hash": "74dcc283cc848642f5ade605b69f613818c1aba5e546c682d7255c73f92f226a",
+    "diagnostics": [],
+    "result": {
+      "status": "final_review",
+      "planning_ms": 450181,
+      "calls": 4,
+      "repairs": 0,
+      "discovery_reads": 2,
+      "review_revisions": 2,
+      "diagnostics": [],
+      "execution_success": false,
+      "execution_oracle": false,
+      "execution_status": "not_started",
+      "accounting": {
+        "planning": {
+          "logical_calls": 4,
+          "physical_attempts": 5,
+          "known_input_tokens": 57009,
+          "known_output_tokens": 15206,
+          "known_cost_eur": 0.6577557902209602,
+          "unknown_attempts": 1,
+          "reserved_input_tokens": 96000,
+          "reserved_output_tokens": 32768,
+          "reserved_cost_eur": 1.2982873369420533
+        },
+        "execution": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "campaign": {
+          "calls": 835,
+          "session_calls": 0,
+          "known_input_tokens": 12475012,
+          "known_output_tokens": 1564506,
+          "known_cost_eur": 97.29703639193039,
+          "reserved_input_tokens": 384000,
+          "reserved_output_tokens": 131072,
+          "reserved_cost_eur": 5.203327457848472,
+          "cost_upper_bound_eur": 102.50036384977886,
+          "unknown_attempts": 4
+        }
+      }
+    },
+    "responses": [
+      "schema-portability-20261002:consumerretry20261008b-amazon-1:1:72d5fb5f4644e6739f8ab488d7bfaf64f93870a0f8bf75d8ffed1c0f32cddfe9",
+      "schema-portability-20261002:consumerretry20261008b-amazon-1:2:c874f0d3cac313a0c93dfd3c2431f2d5df0d12439def91a626c0d2b2e9216de2",
+      "schema-portability-20261002:consumerretry20261008b-amazon-1:3:2f48a473630718f1d3101d95b23189555fe4433ad1deee7e88d4f193e7c99d4b",
+      "schema-portability-20261002:consumerretry20261008b-amazon-1:4:6d4e853037344ea7aaca58d72c69049669595eaf5c24c2677014c90bb90fe370"
+    ]
+  }
+]

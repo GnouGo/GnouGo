@@ -1,0 +1,117 @@
+{
+  "production_sha": "df47ec31640e7fb0ba6a275780639c5ab6ff2642",
+  "amazon": {
+    "run": "preconditions20261004b-amazon-2",
+    "execution_error": "INPUT_VALIDATION",
+    "oracle": {
+      "passed": false,
+      "findings": [
+        "workflow_execution_failed",
+        "workbook_missing"
+      ]
+    },
+    "observations": [
+      {
+        "tool": "browser_get_content",
+        "navigation": true,
+        "continuation": false,
+        "record_count": 61,
+        "next_cursor_present": false,
+        "truncated": false,
+        "capture_truncated": false
+      },
+      {
+        "tool": "browser_get_content",
+        "navigation": false,
+        "continuation": false,
+        "record_count": 70,
+        "next_cursor_present": true,
+        "truncated": true,
+        "capture_truncated": false
+      },
+      {
+        "tool": "browser_get_content",
+        "navigation": false,
+        "continuation": true,
+        "record_count": 32,
+        "next_cursor_present": true,
+        "truncated": true,
+        "capture_truncated": false
+      },
+      {
+        "tool": "browser_get_content",
+        "navigation": false,
+        "continuation": true,
+        "record_count": 22,
+        "next_cursor_present": true,
+        "truncated": true,
+        "capture_truncated": false
+      },
+      {
+        "tool": "browser_get_content",
+        "navigation": false,
+        "continuation": true,
+        "record_count": 19,
+        "next_cursor_present": true,
+        "truncated": true,
+        "capture_truncated": false
+      }
+    ],
+    "product_visits": 0,
+    "workbook_written": false,
+    "browser_cleanup_verified": true,
+    "runtime_calls": 2,
+    "finding": "The direct required condition rejected remaining continuation before product extraction and XLSX publication. No cookie control was detected in the initial observation; consent acceptance was not exercised live."
+  },
+  "code": {
+    "run": "preconditions20261004b-code-2",
+    "execution_error": "RUN_NEEDS_RECONCILIATION",
+    "oracle": {
+      "passed": false,
+      "findings": [
+        "workflow_execution_failed",
+        "repository_not_cleaned_by_workflow",
+        "local_review_missing",
+        "no_independent_command_completion_evidence",
+        "repository_required_checks_not_independently_verified"
+      ]
+    },
+    "completion_verified": false,
+    "termination": "completion_unverified",
+    "sdk_sessions": 1,
+    "issued_interactions": 43,
+    "tools_observed": 49,
+    "successful_shell_callbacks_without_terminal_exit": 2,
+    "inference_attempts": 12,
+    "reserved_tokens": 1915633,
+    "admission_stop": {
+      "kind": "Tokens",
+      "maxModelCalls": 32,
+      "maxTotalTokens": 2000000,
+      "deadline": "2026-10-04T17:07:12.01233+00:00",
+      "modelCalls": 12,
+      "chargedTokens": 1915633,
+      "requiredInputTokens": 221003
+    },
+    "terminal_idle_observed": true,
+    "report_written": false,
+    "cleanup_blocked": true,
+    "review_call_started": false,
+    "individual_refusals": 1,
+    "finding": "An admission refusal plus idle does not establish completion while successful shell callbacks lack terminal exit evidence. Invocation and checkout remain untouched. Host-shell attempts to read memory-only session paths returned missing paths and contributed to repeated command attempts; not classified as a fixed defect."
+  },
+  "operator_error": {
+    "run": "preconditions20261004b-code-1",
+    "finding": "Submitted bare true instead of the human-input object {response:true}; execution rejected before external calls. Retained as failed, never replayed."
+  },
+  "unattempted": [
+    "preconditions20261004b-amazon-3",
+    "preconditions20261004b-code-3"
+  ],
+  "acceptance": "0/6, incomplete. No claim of live success. Remaining budget is not exhausted. Third repetitions were not dispatched after incomplete-observation and unverified-completion blockers.",
+  "retained_evidence_hashes": {
+    "amazon_run": "c5f63d1a56f27b915acb141f21fa6e60411b2b9dcbfeb617514c8aa9e0a63be5",
+    "code_run": "78f1355abe8c8c6034f581a16e5c524d665e914e5d0b95829a68bb5e9148792c",
+    "logical_checkpoint": "6d541847e0ab58e2fcc6a1f3308f03b40496dbe83496c8fb3139f76b9a1cb6a2"
+  }
+}

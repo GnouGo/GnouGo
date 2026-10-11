@@ -1,0 +1,35 @@
+{
+  "campaign": "schema-portability-20261002",
+  "reserved_requests": 910,
+  "completed_receipts": 907,
+  "uncertain_requests": [
+    "gluev420261008b-amazon-1:8:26c2e690e30bf67f6766c07acf36960302e08ceb65c2a1a0a11ad5a5dc0652e7",
+    "observations1-mapping:1:observations1-mapping-plan:1:dbfe9974cd61088546ba1b389abf828515fb805417762f5e49be28f4154ed0d3",
+    "schema-diagnostic:1:7dff37f9c9780e6b7a24ff13d47e7c80adb3572fa0fadc7b479cf7ade021e0bd"
+  ],
+  "retained_inconclusive_requests": [
+    "gluev420261008b-amazon-1:8:26c2e690e30bf67f6766c07acf36960302e08ceb65c2a1a0a11ad5a5dc0652e7",
+    "observations1-mapping:1:observations1-mapping-plan:1:dbfe9974cd61088546ba1b389abf828515fb805417762f5e49be28f4154ed0d3",
+    "schema-diagnostic:1:7dff37f9c9780e6b7a24ff13d47e7c80adb3572fa0fadc7b479cf7ade021e0bd"
+  ],
+  "transport_accounting": {
+    "calls": 939,
+    "session_calls": 0,
+    "known_input_tokens": 13760179,
+    "known_output_tokens": 1921943,
+    "known_cost_eur": 112.51484187600174,
+    "reserved_input_tokens": 480000,
+    "reserved_output_tokens": 163840,
+    "reserved_cost_eur": 6.501614794790526,
+    "cost_upper_bound_eur": 119.01645667079227,
+    "unknown_attempts": 5
+  },
+  "cost_ceiling_eur": 150,
+  "recorded_failures": 5,
+  "known_budget_cost": null,
+  "budget_currency": null,
+  "known_input_tokens": null,
+  "known_output_tokens": null,
+  "completion_receipts_complete": false,
+  "evidence_hash": "c8ce64e20bc4b2ad883b7b1866f0d021005631967eeeea3cef282cbe524bb508"
+}

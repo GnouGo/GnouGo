@@ -1,0 +1,55 @@
+{
+  "summary": "Automatiser une recherche Amazon.fr pour une entrée publique `query`, extraire jusqu’aux 10 premiers produits, visiter chaque page produit, collecter nom, description et prix sans inventer les données absentes, puis sauvegarder les résultats dans un classeur Excel au chemin demandé et fermer le navigateur même en cas d’échec.",
+  "outcomes": [
+    {
+      "id": "search_amazon_fr",
+      "description": "Ouvrir Amazon.fr et rechercher l’article fourni par l’entrée `query`."
+    },
+    {
+      "id": "list_first_products",
+      "description": "Identifier la liste des produits retournés, en conservant au maximum les 10 premiers produits et leur ordre d’origine."
+    },
+    {
+      "id": "visit_each_product",
+      "description": "Naviguer sur la page de chaque produit retenu et extraire les informations disponibles par produit."
+    },
+    {
+      "id": "explicit_missing_or_blocked",
+      "description": "Si un CAPTCHA, un blocage, un prix absent ou une donnée absente est observé, le représenter explicitement sans inventer de valeur."
+    },
+    {
+      "id": "write_excel",
+      "description": "Créer un fichier Excel contenant les produits et les champs extraits au chemin `workflows/schema-portability-20261002/indexprojection20261008a-amazon-1/products.xlsx`."
+    },
+    {
+      "id": "close_browser",
+      "description": "Fermer le navigateur dans tous les cas, y compris en cas d’échec."
+    }
+  ],
+  "inputs": [
+    {
+      "name": "query",
+      "type": {
+        "kind": "string",
+        "nullable": false,
+        "items": null,
+        "fields": []
+      },
+      "required": true,
+      "default": null
+    }
+  ],
+  "outputs": [
+    {
+      "name": "workbookPath",
+      "type": {
+        "kind": "string",
+        "nullable": false,
+        "items": null,
+        "fields": []
+      },
+      "required": true,
+      "default": null
+    }
+  ]
+}

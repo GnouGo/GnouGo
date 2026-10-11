@@ -1,0 +1,12 @@
+{
+  "source": "First local published-binary smoke setup, not a paid live evaluation",
+  "failure": "The requested two-record pages made the 30-page manifest exceed the 2400-character fixture allowance; the completion assertion correctly failed.",
+  "captured_records": 60,
+  "delivered_manifest_pages": 28,
+  "captureTruncated": false,
+  "manifestTruncated": true,
+  "correction": "Retain the limit case as an assertion, then recapture the same complete fixture using four-record pages within the same character allowance. All 60 records and all rejection assertions remain required.",
+  "production_changed": false,
+  "existing_oracles_changed": false,
+  "model_calls": 0
+}

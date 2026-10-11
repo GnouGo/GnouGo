@@ -1,0 +1,42 @@
+{
+  "source": "b93a5890fb0d15672de1aaaf24f1c2b9dcd675bc",
+  "runs": [
+    {
+      "run": "pagination20261004b-amazon-2",
+      "final_revision": 7,
+      "artifact_hash": "a02f85aa5aa23da4f8c96beae3f681f1bfe614c192041ca232ed5ac57c478a32",
+      "approved": false,
+      "earlier_rejections": [
+        "HTML truncation ignored; placeholder product rows were possible",
+        "Completeness was certified by model-produced booleans instead of producer metadata"
+      ],
+      "final_review": "Authoritative manifest guards added. Full snapshot aggregation remains; execution was not attempted after the first run demonstrated collection and cleanup limits."
+    },
+    {
+      "run": "pagination20261004b-code-1",
+      "final_revision": 11,
+      "approved": false,
+      "earlier_rejections": [
+        "A fixed empty array replaced the assembled report",
+        "A string content field was used as a boolean precondition",
+        "Legacy code_agent_edit does not exercise the durable MCP task result contract"
+      ],
+      "final_status": "clarification",
+      "planning_calls": 8,
+      "limitation": "The exact durable operation had not been inspected before the discovery/planning allowance closed; no code was executed."
+    },
+    {
+      "run": "pagination20261004b-code-2",
+      "earlier_rejections": [
+        "JSON-encoded report text was incorrectly bound to contentBase64",
+        "Nullable stdout was used for a nonnullable accepted report output"
+      ],
+      "revision": "Actual text bound to inspected document_write; direct typed report export. Required review acknowledged explicitly before execution."
+    }
+  ],
+  "unused_slots": [
+    "pagination20261004b-amazon-3",
+    "pagination20261004b-code-3"
+  ],
+  "reason": "Failed cohort closed with unresolved existing execution bounds; no budget or permission expansion. Remaining campaign budget is not exhausted."
+}

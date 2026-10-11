@@ -53,19 +53,24 @@ public sealed class WorkflowRunTests
     [InlineData(true)]
     public async Task CrashAroundReceipt_NeverRepeatsUncertainEffect_AndDefersCleanup(bool receiptPersisted)
     {
+        const string description = "Custom ${metadata} remains literal";
+        var yaml = Simple.Replace("type: test.effect,", "type: test.effect, description: '" + description + "',", StringComparison.Ordinal);
         var store = new InMemoryWorkflowRunStore();
         var effect = new Effect();
         var fault = new FaultStore(store, r => r.Invocations.Values.Any(i => i.Id.EndsWith("/write") && i.Status == "completed"), receiptPersisted);
         var engine = Engine(fault, effect);
-        await Assert.ThrowsAnyAsync<Exception>(() => engine.ExecuteAsync(Compile(Simple), null, TestContext.Current.CancellationToken));
+        var failure = await Assert.ThrowsAsync<IOException>(() => engine.ExecuteAsync(Compile(yaml), null, TestContext.Current.CancellationToken));
+        Assert.Equal(receiptPersisted ? "Injected process crash after commit." : "Injected persistence crash before commit.", failure.Message);
         Assert.Equal(["written"], effect.Values);
         var saved = (await store.ReadAsync("tenant", "run", TestContext.Current.CancellationToken))!;
         Assert.False(saved.FinalizationStarted);
+        Assert.Equal(description, saved.Invocations["/workflow/main/step/write"].Description);
         var recovered = Engine(store, effect);
-        var result = await recovered.ResumeAsync("tenant", "run", saved.Revision, Compile(Simple), TestContext.Current.CancellationToken);
+        var result = await recovered.ResumeAsync("tenant", "run", saved.Revision, Compile(yaml), TestContext.Current.CancellationToken);
         if (receiptPersisted)
         {
             Assert.True(result.Success, result.Error?.Message);
+            Assert.Equal(description, (await store.ReadAsync("tenant", "run", TestContext.Current.CancellationToken))!.Invocations["/workflow/main/step/write"].Description);
             Assert.Equal(["written", "cleanup"], effect.Values);
         }
         else
@@ -75,7 +80,7 @@ public sealed class WorkflowRunTests
             saved = (await store.ReadAsync("tenant", "run", TestContext.Current.CancellationToken))!;
             var reconciled = await recovered.ReconcileAsync("tenant", "run", saved.Revision, "/workflow/main/step/write",
                 "Operator observed the external operation stopped; its result is unavailable.", TestContext.Current.CancellationToken);
-            result = await recovered.ResumeAsync("tenant", "run", reconciled.Revision, Compile(Simple), TestContext.Current.CancellationToken);
+            result = await recovered.ResumeAsync("tenant", "run", reconciled.Revision, Compile(yaml), TestContext.Current.CancellationToken);
             Assert.False(result.Success);
             Assert.Equal(["written", "cleanup"], effect.Values);
         }
@@ -89,7 +94,8 @@ public sealed class WorkflowRunTests
         var fault = new FaultStore(store, r => r.Events.Last().Kind == "dispatch", false);
         var engine = Engine(fault, effect);
         engine.Limits.MaxTotalStepsExecuted = 2;
-        await Assert.ThrowsAnyAsync<Exception>(() => engine.ExecuteAsync(Compile(Simple), null, TestContext.Current.CancellationToken));
+        var failure = await Assert.ThrowsAsync<IOException>(() => engine.ExecuteAsync(Compile(Simple), null, TestContext.Current.CancellationToken));
+        Assert.Equal("Injected persistence crash before commit.", failure.Message);
         Assert.Empty(effect.Values);
         var run = (await store.ReadAsync("tenant", "run", TestContext.Current.CancellationToken))!;
         var result = await Engine(store, effect).ResumeAsync("tenant", "run", run.Revision, Compile(Simple), TestContext.Current.CancellationToken);
@@ -321,6 +327,59 @@ public sealed class WorkflowRunTests
             if (Volatile.Read(ref state.Count) != 0) state.Raced = true;
             Interlocked.Increment(ref state.Cleanups);
             return Task.FromResult<JsonNode?>(new JsonObject());
+        }
+    }
+
+    [Theory]
+    [InlineData("rejected", true, "LLM_PROVIDER")]
+    [InlineData("budget", true, "LLM_BUDGET_EXCEEDED")]
+    [InlineData("unverified_budget", false, "RUN_NEEDS_RECONCILIATION")]
+    [InlineData("transport", false, "RUN_NEEDS_RECONCILIATION")]
+    [InlineData("invalid_result", true, "LLM_SCHEMA")]
+    public async Task KnownModelRejectionHasAFailureReceiptWhileUnknownCompletionStillBlocksCleanup(string failure, bool known, string code)
+    {
+        const string yaml = """
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: model
+                    type: llm.call
+                    input:
+                      model: test
+                      prompt: observed
+                      structured_output:
+                        strict: true
+                        schema_inline: {type: object, properties: {name: {type: string}}, required: [name], additionalProperties: false}
+                  - { id: downstream, type: test.effect, input: { value: downstream } }
+                finally:
+                  - { id: cleanup, type: test.effect, input: { value: cleanup } }
+            """;
+        var store = new InMemoryWorkflowRunStore(); var effects = new Effect(); var client = new RejectedModel(failure);
+        var engine = Engine(store, effects); engine.LLMClient = client;
+        var result = await engine.ExecuteAsync(Compile(yaml), null, TestContext.Current.CancellationToken);
+        Assert.Equal(code, result.Error?.Code);
+        Assert.Equal(known ? ["cleanup"] : Array.Empty<string>(), effects.Values);
+        var saved = (await store.ReadAsync("tenant", "run", TestContext.Current.CancellationToken))!;
+        var invocation = saved.Invocations["/workflow/main/step/model"];
+        Assert.Equal(known ? "failed" : "needs_reconciliation", invocation.Status);
+        Assert.Equal(known, invocation.ExternalCompletionObserved);
+        var recovered = Engine(store, effects); recovered.LLMClient = client;
+        await recovered.ResumeAsync("tenant", "run", saved.Revision, Compile(yaml), TestContext.Current.CancellationToken);
+        Assert.Equal(1, client.Calls);
+        Assert.Equal(known ? ["cleanup"] : Array.Empty<string>(), effects.Values);
+    }
+    private sealed class RejectedModel(string failure) : ILLMClient
+    {
+        public int Calls;
+        public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
+        {
+            Calls++;
+            if (failure == "invalid_result") return Task.FromResult(new LLMResponse { Json = new JsonObject { ["name"] = 42 } });
+            if (failure is "budget" or "unverified_budget") throw new GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException(
+                "LLM_BUDGET_EXCEEDED", "Budget stopped the request.", details: failure == "budget" ? new JsonObject { ["dispatch_status"] = "not_started" } : null);
+            throw new LLMClientException(failure == "rejected" ? LLMClientFailureKind.InvalidRequest : LLMClientFailureKind.Transport,
+                "Redacted known rejection or uncertain transport failure.", retryable: false);
         }
     }
 

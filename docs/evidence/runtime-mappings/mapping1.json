@@ -1,0 +1,251 @@
+{
+  "source_sha": "559fe1975b03223b19fab2bbcbe7f8c0882566cb",
+  "harness_sha": "559fe1975b03223b19fab2bbcbe7f8c0882566cb",
+  "prompt": "Read the observation from the available fixture MCP. Extract the observed displayName as a business field named name, using extract mode; it may be supplied as JSON, plain text or HTML. Return result with exactly name:string. Use no caller inputs, no synthetic values, no defaults, no other external operations. Keep the original observation available to extraction.",
+  "model": "gpt-5.5-2026-04-24",
+  "provider_policy_hash": "7a7fec4a3c4569be8862a2a27f071dcc6a4d080f76f86d11d40a47e9cdf85486",
+  "profile": 1,
+  "model_attempts_per_mapping": 2,
+  "reasoning": "medium",
+  "planning_input_limit": 96000,
+  "planning_output_limit": 32768,
+  "planning_attempt_limit": 8,
+  "planning_repair_limit": 2,
+  "mapping_output_limit": 8192,
+  "environment": "macOS 26.5.2; .NET 10.0.8",
+  "accounting_before": {
+    "campaign": "schema-portability-20261002",
+    "reserved_requests": 206,
+    "completed_receipts": 205,
+    "uncertain_requests": [
+      "schema-diagnostic:1:7dff37f9c9780e6b7a24ff13d47e7c80adb3572fa0fadc7b479cf7ade021e0bd"
+    ],
+    "retained_inconclusive_requests": [
+      "schema-diagnostic:1:7dff37f9c9780e6b7a24ff13d47e7c80adb3572fa0fadc7b479cf7ade021e0bd"
+    ],
+    "transport_accounting": {
+      "calls": 206,
+      "session_calls": 0,
+      "known_input_tokens": 3032354,
+      "known_output_tokens": 309186,
+      "known_cost_eur": 21.708511988049207,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "cost_upper_bound_eur": 21.708511988049207,
+      "unknown_attempts": 0
+    },
+    "recorded_failures": 1,
+    "known_budget_cost": null,
+    "budget_currency": null,
+    "known_input_tokens": null,
+    "known_output_tokens": null,
+    "completion_receipts_complete": false,
+    "evidence_hash": "812b0d4c8fe0d373486a0b37e4fe47c36593f2c673e017bc4c110c29d31dab5c"
+  },
+  "corpus_hash": "eb05efbd5854bfffabe2f9e5ac7998ae1ef26d2fed9acdaac91c866842d1a302",
+  "runs": [
+    {
+      "case": "json-cold",
+      "phase": "live-provider",
+      "artifact_hash": "0870196e4550a1f1f26df80dbf3c45ccd5842fdfc6e03066d533476788bf5488",
+      "source_hash": "82761f9d9fbf20c9b6fce6004d7f836e16fa9b68425cccd033c3c0566a35ad74",
+      "execution_ms": 11161,
+      "model_calls": 1,
+      "success": true,
+      "error": null,
+      "outputs": {
+        "name": "Observed alpha"
+      },
+      "mapping_telemetry": [
+        {
+          "gnougo.mapping.cache_hit": false,
+          "gnougo.mapping.model_attempts": 1,
+          "gnougo.mapping.repairs": 0
+        }
+      ],
+      "usage_receipts": [
+        {
+          "request_id": "mapping1-execution:2:72ae396e8d3af5fbaa43f659ee018e3d2afb72d52715087f876be2e520f4f7cb",
+          "usage": {
+            "input_tokens": 432,
+            "output_tokens": 471,
+            "total_tokens": 903,
+            "benchmark_cost_eur": 0.014512249443207127,
+            "transport_attempts": 1,
+            "uncertain_attempts": 0,
+            "reserved_input_tokens": 0,
+            "reserved_output_tokens": 0,
+            "reserved_cost_eur": 0,
+            "benchmark_usage_bounded": true
+          }
+        }
+      ],
+      "injected_attempts": 0,
+      "oracle": false
+    }
+  ],
+  "catalog_hash": "e74412e3896922823aaa119170bfcd7616cad0af719cb52a48ce8962f4635fda",
+  "planning_ms": 13084,
+  "planning_calls": 1,
+  "repairs": 0,
+  "discovery_reads": 1,
+  "planning_usage_receipts": [
+    {
+      "request_id": "mapping1:1:mapping1-plan:1:87a77028cf22e76e18d67749ef38dba29bc642dffe3cc76454ea95b7cdd4ac05",
+      "usage": {
+        "input_tokens": 4406,
+        "output_tokens": 750,
+        "total_tokens": 5156,
+        "benchmark_cost_eur": 0.03967037861915367,
+        "transport_attempts": 1,
+        "uncertain_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0,
+        "benchmark_usage_bounded": true
+      }
+    }
+  ],
+  "accounting": {
+    "campaign": "schema-portability-20261002",
+    "reserved_requests": 208,
+    "completed_receipts": 207,
+    "uncertain_requests": [
+      "schema-diagnostic:1:7dff37f9c9780e6b7a24ff13d47e7c80adb3572fa0fadc7b479cf7ade021e0bd"
+    ],
+    "retained_inconclusive_requests": [
+      "schema-diagnostic:1:7dff37f9c9780e6b7a24ff13d47e7c80adb3572fa0fadc7b479cf7ade021e0bd"
+    ],
+    "transport_accounting": {
+      "calls": 208,
+      "session_calls": 0,
+      "known_input_tokens": 3037192,
+      "known_output_tokens": 310407,
+      "known_cost_eur": 21.76269461611157,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "cost_upper_bound_eur": 21.76269461611157,
+      "unknown_attempts": 0
+    },
+    "recorded_failures": 1,
+    "known_budget_cost": null,
+    "budget_currency": null,
+    "known_input_tokens": null,
+    "known_output_tokens": null,
+    "completion_receipts_complete": false,
+    "evidence_hash": "a63f932df1b2de483cda666c5ff25888382bc14cfbc6036d8a544bacc11978de"
+  },
+  "passed": false,
+  "generated_plan": {
+    "inputs": [],
+    "root": {
+      "tasks": [
+        {
+          "id": "read_observation",
+          "objective": "Read the current observation from the available fixture MCP and keep its original unstructured payload available for extraction.",
+          "kind": "operation",
+          "dependsOn": [],
+          "operation": "cap_644dc8039f8abf160f1652ee",
+          "inputs": [],
+          "outputs": [],
+          "condition": null,
+          "body": null,
+          "otherwise": null,
+          "branches": [],
+          "items": null,
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4,
+          "group": null
+        },
+        {
+          "id": "extract_name",
+          "objective": "Using extract mode, extract the observed displayName from originalObservation, which may be JSON, plain text, or HTML. Return exactly one business field named name as a string. Do not synthesize values, use defaults, or add other fields; fail if displayName is not observed.",
+          "kind": "transform",
+          "mode": "extract",
+          "dependsOn": [
+            "read_observation"
+          ],
+          "operation": null,
+          "inputs": [
+            {
+              "name": "originalObservation",
+              "value": {
+                "kind": "output",
+                "text": null,
+                "number": null,
+                "boolean": null,
+                "source": "read_observation",
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            }
+          ],
+          "outputs": [],
+          "resultType": {
+            "kind": "object",
+            "nullable": false,
+            "items": null,
+            "fields": [
+              {
+                "name": "name",
+                "type": {
+                  "kind": "string",
+                  "nullable": false,
+                  "items": null,
+                  "fields": []
+                },
+                "required": true,
+                "default": null
+              }
+            ]
+          },
+          "condition": null,
+          "body": null,
+          "otherwise": null,
+          "branches": [],
+          "items": null,
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4,
+          "group": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "name",
+          "value": {
+            "kind": "field",
+            "text": null,
+            "number": null,
+            "boolean": null,
+            "source": null,
+            "port": "name",
+            "members": [],
+            "items": [
+              {
+                "kind": "output",
+                "text": null,
+                "number": null,
+                "boolean": null,
+                "source": "extract_name",
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            ],
+            "predicate": null
+          }
+        }
+      ],
+      "always": []
+    },
+    "groups": [],
+    "choices": []
+  }
+}

@@ -29,6 +29,20 @@ builder.Services
             Version = "1.0.0"
         };
         options.AddGnOuGoToolErrorNormalizer();
+        // Outermost filter: preserve the complete error as MCP content, without
+        // advertising an error envelope as a successful output-schema instance.
+        options.Filters.Request.CallToolFilters.Insert(0, next => async (request, cancellationToken) =>
+        {
+            var result = await next(request, cancellationToken);
+            if (request.Params?.Name == "document_write" && result.IsError == true && result.StructuredContent is { } error)
+            {
+                var json = error.GetRawText();
+                if (!result.Content.OfType<TextContentBlock>().Any(c => c.Text == json))
+                    result.Content.Add(new TextContentBlock { Text = json });
+                result.StructuredContent = null;
+            }
+            return result;
+        });
         options.Filters.Request.ListToolsFilters.Add(next => async (request, cancellationToken) =>
         {
             var result = await next(request, cancellationToken);
@@ -39,7 +53,21 @@ builder.Services
             foreach (var tool in result.Tools)
             {
                 if (string.Equals(tool.Name, "document_write", StringComparison.Ordinal))
+                {
+                    tool.OutputSchema = DocumentMcpJson.SuccessfulWriteSchema(tool.OutputSchema!.Value);
                     tool.Description = policy.BuildDocumentWriteToolDescription();
+                    tool.Meta ??= new();
+                    ((System.Text.Json.Nodes.JsonObject)tool.Meta["gnougo"]!)["artifacts"] = new System.Text.Json.Nodes.JsonObject
+                    {
+                        ["version"] = 1,
+                        ["produces"] = new System.Text.Json.Nodes.JsonArray(new System.Text.Json.Nodes.JsonObject { ["kind"] = "document.file", ["pointer"] = "/filePath", ["mode"] = "materialize" }),
+                        ["locations"] = new System.Text.Json.Nodes.JsonArray(new System.Text.Json.Nodes.JsonObject
+                        {
+                            ["pointer"] = "/filePath", ["outputPointer"] = "/filePath", ["kind"] = "file", ["action"] = "materialize",
+                            ["space"] = new UriBuilder(new Uri(policy.DefaultWorkingDirectory.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar)) { Host = Environment.MachineName }.Uri.AbsoluteUri
+                        })
+                    };
+                }
             }
 
             return result;

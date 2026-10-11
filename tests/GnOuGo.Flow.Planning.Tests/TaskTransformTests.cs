@@ -149,8 +149,8 @@ public sealed class TaskTransformTests
         }
         var result = new TaskPlanCompiler().Compile(plan, catalog);
         Assert.Null(result.Graph); Assert.Contains(result.Diagnostics, d => d.Code == "TASK_TRANSFORM_TYPE");
-        var schema = PlanningSchemas.Proposal(PlannerFixture.Session());
-        var contract = schema["$defs"]!["task"]!["anyOf"]!.AsArray().Single(n => n!["properties"]!["kind"]!["enum"]![0]!.ToString() == "transform")!["properties"]!["resultType"]!.DeepClone().AsObject();
+        var schema = PlanningSchemas.FullProposal(PlannerFixture.Session(), compact: false);
+        var contract = schema["$defs"]!["task"]!["anyOf"]!.AsArray().Single(n => n!["properties"]!["kind"]!["enum"]![0]!.ToString() == "transform" && n["properties"]!["mode"] is null)!["properties"]!["resultType"]!.DeepClone().AsObject();
         contract["$defs"] = schema["$defs"]!.DeepClone();
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(JsonSerializer.SerializeToNode(task.ResultType, PlanningJsonContext.Default.TaskType), contract));
     }

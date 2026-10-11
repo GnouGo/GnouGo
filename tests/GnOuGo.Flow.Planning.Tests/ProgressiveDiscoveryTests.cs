@@ -143,12 +143,14 @@ public sealed class ProgressiveDiscoveryTests
     {
         var source = new RepairCatalog(); var runtime = new TestRuntime { Capabilities = source };
         runtime.Proposal.Plan!.Root.Tasks.Add(new() { Id = "work", Objective = "Read the requested value", Operation = "selected",
-            Inputs = [new("value", GnOuGo.Planning.Examples.PlanningCorpus.Number(1))] });
+            Inputs = [new("value", GnOuGo.Planning.Examples.PlanningCorpus.Business("output", "numeric", "data"))] });
+        runtime.Proposal.Plan.Root.Tasks.Insert(1, new() { Id = "numeric", Kind = "value", Objective = "Retain a supplied number", Outputs = [new("data", GnOuGo.Planning.Examples.PlanningCorpus.Number(1))] });
         var planner = new HybridWorkflowPlanner();
-        var state = await planner.AdvanceAsync(PlannerFixture.Session(), new(), runtime, Ct);
+        var legacy = PlannerFixture.Session(); legacy.IntentVersion = 2;
+        var state = await planner.AdvanceAsync(legacy, new(), runtime, Ct);
         Assert.Contains(state.Diagnostics, d => d.Code == "TASK_INPUT_TYPE"); Assert.Equal(["/tasks/work/inputs/value"], state.RevisionScope);
         var receipt = System.Text.Json.JsonSerializer.Serialize(state.Discovery.Resolved[0], PlanningJsonContext.Default.PlanningCapability);
-        runtime.Proposal.Plan.Root.Tasks[1].Inputs[0].Value.Kind = "string"; runtime.Proposal.Plan.Root.Tasks[1].Inputs[0].Value.Text = "business value";
+        runtime.Proposal.Plan.Root.Tasks[2].Inputs[0] = new("value", GnOuGo.Planning.Examples.PlanningCorpus.String("business value"));
         state = await planner.AdvanceAsync(PlannerFixture.Clone(state), new() { ExpectedRevision = state.Revision }, runtime, Ct);
         Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Equal(2, state.ModelCalls); Assert.Equal(1, state.ReplanAttempts);
         Assert.Equal(1, source.Resolutions); Assert.Single(state.Discovery.Pages);
@@ -171,12 +173,13 @@ public sealed class ProgressiveDiscoveryTests
         state.Diagnostics = new TaskPlanCompiler().Compile(state.Plan, state.Catalog).Diagnostics.ToList();
         state.RevisionScope = TaskPlanRevisions.Scope(state.Plan, state.Diagnostics).ToList();
         Assert.Contains("/tasks/work/operation", state.RevisionScope);
+        Assert.Empty(PlanningContractValidation.ValidateSchema(new PlanningPrompt(state).Request().StructuredOutputSchema!, strict: true));
         var baseline = System.Text.Json.JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan);
         runtime.Proposal.Plan = null; runtime.Proposal.DiscoveryRequests = [new("source", Query: "declared value")];
         state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
-        Assert.Equal(PlanningPhase.Discovery, state.Phase); Assert.Equal(1, state.ReplanAttempts);
+        Assert.True(state.Phase == PlanningPhase.Discovery, string.Join("; ", state.Diagnostics.Select(d => d.Code + ": " + d.Message))); Assert.Equal(1, state.ReplanAttempts);
         Assert.Equal(baseline, System.Text.Json.JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan));
-        runtime.Respond = (_, _) => new() { Json = new JsonObject { ["discoveryRequests"] = null,
+        runtime.Respond = (_, _) => new() { Json = new JsonObject { ["discoveryRequests"] = null, ["clarifications"] = null,
             ["patch"] = new JsonObject { ["edits"] = new JsonArray((JsonNode)RepairPatchTests.Edit(state, "/tasks/work/operation", "replace", JsonValue.Create("selected"))) } } };
         state = await planner.AdvanceAsync(PlannerFixture.Clone(state), new() { ExpectedRevision = state.Revision }, runtime, Ct);
         Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Equal(3, state.ModelCalls); Assert.Equal(2, state.ReplanAttempts);

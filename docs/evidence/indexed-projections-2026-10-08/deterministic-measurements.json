@@ -1,0 +1,20 @@
+{
+  "baseline": "65b1c315",
+  "historical_profile_hashes": {
+    "omitted": "009a1466afb0ca54477f05ec0d5ed453d8ddcd55bb3b5d47dcc1271031f728c3",
+    "compact-bindings-v1": "383d37741610f6f7c915873dfc8207fd1cb2685b2f70d5b5902945eb9861b873",
+    "compact-bindings-v2": "053805dfc79b11618bde21d47b24c6c690a9d90372b79ec368b1ff4a8903cc04"
+  },
+  "measurements": [
+    "pages=54; records=1578; candidates=147; mapping_calls=1; selected=4; global_bytes_with_framing=17318; estimated_input=2603; yaml_bytes=21661",
+    "items=12; invocations=29->4; logical_journal_bytes=445395->45345",
+    "items=0; parallel=True; YAML=10626->8220; invocations=4; journal=16022",
+    "pages=54; records=1578; candidates=147; mapping_calls=1; selected=5; global_bytes_with_framing=18053; estimated_input=2848; yaml_bytes=21846",
+    "pages=58; records=1602; candidates=147; mapping_calls=1; selected=4; global_bytes_with_framing=17906; estimated_input=2799; yaml_bytes=21809",
+    "items=1602; parallel=False; YAML=10609->8220; invocations=4; journal=3985623",
+    "items=1602; parallel=True; YAML=10605->8220; invocations=4; journal=3985622",
+    "items=1602; parallel=False; YAML=10630->8220; invocations=4; journal=3985625",
+    "items=2; parallel=False; YAML=10609->8220; invocations=4; journal=20868"
+  ],
+  "note": "Journal sizes are reconstructed logical serialized sizes, not encrypted physical storage. No inference was used for indexing. The bounded extraction fixture uses a deterministic model adapter."
+}

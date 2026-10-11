@@ -1,0 +1,82 @@
+[
+  {
+    "invocation": "/workflow/main/step/n_e84f09f178e937f6/workflow/w_1c73caa08c45c06a/step/n_ce78a3f56bd8b9bf/iteration/7/step/n_01732b621626f078/workflow/w_7e6d4da1eb2d275e/step/n_ae72cd447d18931a/mapping/0",
+    "request_id": "815f32a644f4f723e8237843fbacaf463143b8b465ab5ffad041747dfc5c3938",
+    "status": "completed",
+    "usage": {
+      "input_tokens": 17969,
+      "output_tokens": 3835,
+      "total_tokens": 21804,
+      "benchmark_cost_eur": 0.18182181205075873,
+      "transport_attempts": 1,
+      "uncertain_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "benchmark_usage_bounded": true
+    },
+    "response": {
+      "script": "item.records.filter(r=>m.test(r.text,\"\\\\S\")&&m.test(r.selector,\"^(#title$|#apex-pricetopay-accessibility-label$|#corePriceDisplay_desktop_feature_div|#price-block-amount( |>|$)|#feature-bullets|#productDescription|#productFacts|#detailBullets|#productOverview|#poExpander|#prodDetails|#inline-twister-expanded-dimension-text-)\" )).map(r=>({nameFact:m.test(r.selector,\"^#title$\")?r.text:null,descriptionFact:m.test(r.selector,\"^(#feature-bullets|#productDescription|#productFacts|#detailBullets|#productOverview|#poExpander|#prodDetails|#inline-twister-expanded-dimension-text-)\")?r.text:null,priceFact:m.test(r.selector,\"^(#apex-pricetopay-accessibility-label$|#corePriceDisplay_desktop_feature_div|#price-block-amount( |>|$))\")?r.text:null,errorFact:null}))"
+    }
+  },
+  {
+    "invocation": "/workflow/main/step/n_e84f09f178e937f6/workflow/w_1c73caa08c45c06a/step/n_ce78a3f56bd8b9bf/iteration/7/step/n_01732b621626f078/workflow/w_7e6d4da1eb2d275e/step/n_ae72cd447d18931a/mapping/1",
+    "request_id": "b032217176cdae38d82658f9f9fc3751a19ed9cbaf95b4c5a4ef2c931c3979e6",
+    "status": "completed",
+    "usage": {
+      "input_tokens": 18262,
+      "output_tokens": 2333,
+      "total_tokens": 20595,
+      "benchmark_cost_eur": 0.14313603691543172,
+      "transport_attempts": 1,
+      "uncertain_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "benchmark_usage_bounded": true
+    },
+    "response": {
+      "script": "item.records.filter(r=>m.test(r.text,\"\\\\S\")&&m.test(r.selector,\"^(#title$|#apex-pricetopay-accessibility-label$|#corePriceDisplay_desktop_feature_div|#price-block-amount( |>|$)|#feature-bullets|#productDescription|#productFacts|#detailBullets|#productOverview|#poExpander|#prodDetails|#inline-twister-expanded-dimension-text-)\")).map(r=>({nameFact:m.test(r.selector,\"^#title$\")?r.text:m.optional(r,[\"x\"]),descriptionFact:m.test(r.selector,\"^(#feature-bullets|#productDescription|#productFacts|#detailBullets|#productOverview|#poExpander|#prodDetails|#inline-twister-expanded-dimension-text-)\")?r.text:m.optional(r,[\"x\"]),priceFact:m.test(r.selector,\"^(#apex-pricetopay-accessibility-label$|#corePriceDisplay_desktop_feature_div|#price-block-amount( |>|$))\")?r.text:m.optional(r,[\"x\"]),errorFact:m.optional(r,[\"x\"])}))"
+    }
+  },
+  {
+    "invocation": "/workflow/main/step/n_e84f09f178e937f6/workflow/w_1c73caa08c45c06a/step/n_ce78a3f56bd8b9bf/iteration/7/step/n_01732b621626f078/workflow/w_7e6d4da1eb2d275e/step/n_ae72cd447d18931a/mapping/2",
+    "request_id": "1078ecd5986b5f76ca0e03709c19d12e26b6b0b8e0226f9c8fe2b5fc0b3b995f",
+    "status": "completed",
+    "usage": {
+      "input_tokens": 9682,
+      "output_tokens": 693,
+      "total_tokens": 10375,
+      "benchmark_cost_eur": 0.06140740083414677,
+      "transport_attempts": 1,
+      "uncertain_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "benchmark_usage_bounded": true
+    },
+    "response": {
+      "script": "item.records.filter(r=>m.test(r.text,\"\\\\S\")&&m.test(r.selector,\"^(#title$|#apex-pricetopay-accessibility-label$|#corePriceDisplay_desktop_feature_div|#price-block-amount( |>|$)|#inline-twister-expanded-dimension-text-)\" )).map(r=>({nameFact:m.test(r.selector,\"^#title$\")?r.text:r.href,descriptionFact:m.test(r.selector,\"^#inline-twister-expanded-dimension-text-\")?r.text:r.href,priceFact:m.test(r.selector,\"^(#apex-pricetopay-accessibility-label$|#corePriceDisplay_desktop_feature_div|#price-block-amount( |>|$))\")?r.text:r.href,errorFact:r.href}))"
+    }
+  },
+  {
+    "invocation": "/workflow/main/step/n_e84f09f178e937f6/workflow/w_1c73caa08c45c06a/step/n_ce78a3f56bd8b9bf/iteration/7/step/n_01732b621626f078/workflow/w_7e6d4da1eb2d275e/step/n_ae72cd447d18931a/mapping/3",
+    "request_id": "44a94aa809c1848d7a9cfc1ceafe5d8f110fccaeb65b2c82b72e65c05a902733",
+    "status": "completed",
+    "usage": {
+      "input_tokens": 9173,
+      "output_tokens": 5940,
+      "total_tokens": 15113,
+      "benchmark_cost_eur": 0.19883308190611412,
+      "transport_attempts": 1,
+      "uncertain_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "benchmark_usage_bounded": true
+    },
+    "response": {
+      "script": "item.records.filter(r=>m.test(r.text,\"\\\\S\")&&(m.test(r.selector,\"^(div:nth-of-type\\\\(3\\\\) > div:nth-of-type\\\\(1\\\\) > div:nth-of-type\\\\(1\\\\) > p:nth-of-type\\\\(1\\\\) > span:nth-of-type\\\\(1\\\\)$|#productFactsDesktopExpander|#corePrice_feature_div)\")||m.test(r.text,\"^(Matériau de la semelle|Caoutchouc|Hauteur de la tige|Kurzschaft|Pays d'origine)$\"))).map(r=>({nameFact:m.test(r.selector,\"^div:nth-of-type\\\\(3\\\\) > div:nth-of-type\\\\(1\\\\) > div:nth-of-type\\\\(1\\\\) > p:nth-of-type\\\\(1\\\\) > span:nth-of-type\\\\(1\\\\)$\")?r.text:r.href,descriptionFact:m.test(r.selector,\"^#productFactsDesktopExpander\")||m.test(r.text,\"^(Matériau de la semelle|Caoutchouc|Hauteur de la tige|Kurzschaft|Pays d'origine)$\")?r.text:r.href,priceFact:m.test(r.selector,\"^#corePrice_feature_div\")?r.text:r.href,errorFact:r.href}))"
+    }
+  }
+]

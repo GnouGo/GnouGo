@@ -11,8 +11,7 @@ result. Invalid fallbacks stop downstream execution with
 `STRUCTURED_FALLBACK_INVALID`; workflow finalization still runs.
 
 The semantic validator recognizes finite selector domains from direct references
-to validated structured `llm.call` results and checked `set`, `value.project`,
-`value.validate` and `array.project` outputs. A consumed selector must be a required,
+to validated structured `llm.call` results and checked `set` and `mapping.dynamic` outputs. A consumed selector must be a required,
 non-null string enum whose values are a subset of the consumer contract.
 Dynamic schemas, optional/nullable selectors and incompatible continuation outputs
 cannot establish that proof. TaskPlan string enums and deterministic JSON encoding
@@ -68,7 +67,7 @@ client is used for validation, but never substitutes for live-session setup.
   - [loop.sequential](#loopsequential--iterate-sequentially)
   - [loop.parallel](#loopparallel--iterate-in-parallel)
   - [switch](#switch--conditional-branching)
-  - [decision.evaluate](#decisionevaluate--finite-runtime-decisions)
+  - [Checked decisions](#checked-decisions)
   - [workflow.call](#workflowcall--call-a-sub-workflow)
   - [workflow.route](#workflowroute--route-to-workflow-candidates)
   - [workflow.plan](#workflowplan--typed-workflow-planning)
@@ -121,6 +120,8 @@ workflow outputs; nullability does not erase nested validation.
 String workflow inputs and outputs may declare `enum: [value_a, value_b]`. Values must be non-empty and unique, and `enum` is valid only with `type: string`. The constraint is preserved through JSON Schema conversion and local `workflow.call` compatibility, enforced at runtime, and included in generated contracts. Existing unconstrained string contracts remain valid.
 
 During workflow.plan semantic validation, a `WorkflowSymbolTable` is built as steps are walked. It tracks workflow inputs, scoped data variables, available step output types, and control-flow availability so expressions such as `data.steps.<id>.<field>` and loop-local `data.<item_var>.<field>` can be checked against known symbols before generated YAML is accepted.
+
+Common C# workflow steps accept optional literal `description` metadata, including custom steps, nested steps and finalizers. The engine forwards it to step telemetry and encrypted invocation records; supported OTel adapters expose `gnougo-flow.step.description`. It is not an expression or executable input: `${...}` stays literal. Descriptions never affect permissions, validation, role classification or reconciliation. Omission preserves historical serialization; changing the YAML still changes the artifact approval hash.
 
 Step outputs are resolved through `StepOutputTypeResolver`: each step starts from its executor contract and can be refined by static input, such as `set.output_schema`, `llm.call.input.structured_output`, validated protocol-declared MCP tool output schemas, local `workflow.call` targets, `template.render` mode, `human.input` form fields, and loop body output snapshots.
 
@@ -656,13 +657,13 @@ Combine `mcp.list` → `mcp.call` with a prompt to let an LLM choose the best to
 | Batch/auto | `data.steps.<id>.results` (array) |
 | LLM-assisted | `data.steps.<id>.text`, `data.steps.<id>.json` |
 
-> **Important:** The `response` object is tool-specific. `workflow.plan` treats single-tool MCP responses as opaque unless the tool advertises a valid protocol `ReturnJsonSchema`, exposed through the compatibility `OutputSchema` property. Access `data.steps.<id>.response.<field>` only when that authoritative schema declares the field. Otherwise pass the whole response intact, or use `value.validate` with explicit `json_value` / `json_text` format and a literal `output_schema` before accessing fields. Samples never establish output contracts.
+> **Important:** The `response` object is tool-specific. `workflow.plan` treats single-tool MCP responses as opaque unless the tool advertises a valid protocol `ReturnJsonSchema`, exposed through the compatibility `OutputSchema` property. Access `data.steps.<id>.response.<field>` only when that authoritative schema declares the field. Otherwise pass the whole response intact, or bind the observed whole result to an approved target through bounded runtime extraction before accessing fields; see the mapping migration guide. Samples never establish output contracts.
 >
 > When an MCP server returns protocol `structuredContent`, `mcp.call` uses that value as `response`. `McpOutputContractResolution` records the discovered schema provenance as `protocol_schema`, `example`, or `description`. Only an error-free `protocol_schema` resolution is authoritative. Example- and description-derived shapes remain prompt hints and never prove nested response fields or capability data flow.
 
 Resolved request properties whose discovered input schema marks them optional are omitted when their value is JSON `null`. This lets one typed request represent optional scalar fields without sending schema-invalid nulls. A null value for a required property is never omitted and still fails before transport.
 
-Documented action selectors (`method`, `action`, `operation`, `command`, `mode`, `event`, `kind`, JSON Schema `const`, and explicit discriminators) must resolve to documented scalars. Validation accepts literals, proven finite expressions, and direct required enum references from runtime-checked `set`, `llm.call`, `value.project`, `value.validate` and `array.project` outputs. Array indexing itself does not prove item presence; select and check the scalar before consuming it. Optional, nullable, opaque, conditional, or unchecked fallback values cannot prove a selector. Generated expressions cannot hide or replace the logical MCP operation selected during planning.
+Documented action selectors (`method`, `action`, `operation`, `command`, `mode`, `event`, `kind`, JSON Schema `const`, and explicit discriminators) must resolve to documented scalars. Validation accepts literals, proven finite expressions, and direct required enum references from runtime-checked `set`, `llm.call` and `mapping.dynamic` outputs. Array indexing itself does not prove item presence; select and check the scalar before consuming it. Optional, nullable, opaque, conditional, or unchecked fallback values cannot prove a selector. Generated expressions cannot hide or replace the logical MCP operation selected during planning.
 
 #### MCP progress events → thinking telemetry
 
@@ -1025,28 +1026,11 @@ Two forms: expression-based and when-based.
 
 ---
 
-### `decision.evaluate` — Finite Runtime Decisions
+### Checked decisions
 
-Use `decision.evaluate` when several runtime results must be reduced to one or more finite decisions before conditional effects execute. The step is provider-neutral and evaluates every field atomically.
+Use `set` with a literal `output_schema` to check boolean conditions and compute finite selectors, then route with `switch`. A switch chooses the first matching case; it does not establish exclusivity. Check overlapping conditions and unresolved selections before entering any branch. A failed checked set publishes no partial output.
 
-```yaml
-- id: compute_decisions
-  type: decision.evaluate
-  input:
-    decisions:
-      publication:
-        allowed_values: [PUBLISH_A, PUBLISH_B, NO_EFFECT]
-        cases:
-          - when: "${data.steps.first.is_valid}"
-            value: PUBLISH_A
-          - when: "${data.steps.second.needs_attention}"
-            value: PUBLISH_B
-        default: NO_EFFECT
-```
-
-`allowed_values` and case values must be non-empty unique strings; every case value and optional default must be allowed. Each `when` must resolve to a boolean. More than one matching case, or no match without a default, fails closed with non-retryable `DECISION_EVALUATION_UNRESOLVED`. Malformed or over-limit contracts use `INPUT_VALIDATION`. Decision and per-field case counts are bounded by `ExecutionLimits.MaxSwitchCases`. If any field fails, no partial output is exposed.
-
-Output is the selected field map, for example `{ "publication": "PUBLISH_A" }`.
+The retired `decision.evaluate` step is no longer available. See [runtime primitive migration](../../docs/flow-runtime-primitives.md) for explicit checked-composition examples and compatibility rules.
 
 ---
 
@@ -1315,9 +1299,11 @@ Before each selected workflow runs, `workflow.route` emits a `gnougo-flow.step.t
 
 ---
 
-### `value.validate` — Validate an opaque whole value
+### Checked mapping and runtime extraction
 
-Accepts `input.value` and `input.format` (`json_value` by default, or explicit `json_text`). The step requires a literal `output_schema` describing its `{value: ...}` output. JSON text is parsed only in text mode. Parsing or schema failure stops the step before downstream effects; the source producer's contract is unchanged. Typed extraction follows through ordinary expressions. Finalizers retain resource-availability guards.
+Typed bindings compile to checked `set` expressions at final lowering. Insufficiently typed observations use the compiler-owned `mapping.dynamic` step with a restricted source-grounded Jint expression, immutable target schema and validated tenant cache. Historical bindings retain at most two model attempts. Fresh adaptive independent bindings specialize only unresolved items under an explicitly configured finite cumulative runtime budget; all items and the complete result still validate before publication. Business plans contain neither scripts nor mapping executors.
+
+`value.project` and its public C# executor are retired. See [runtime mappings and migration](../../docs/runtime-mappings.md) for checked `set` examples, approval, default ownership, sandbox restrictions and encrypted recovery. Saved artifacts are never rewritten automatically.
 
 ### `workflow.plan` — Typed workflow planning
 
@@ -1741,3 +1727,7 @@ unknown outcomes still require reconciliation. A completed result with a failure
 invalid. The field uses existing source-generated serialization; journal schema remains 9.
 
 Agent budget stops retain safe admission diagnostics and execution observations. Only verified cessation permits a terminal failure and cleanup; unknown outcomes require explicit reconciliation. See [budget stops and recovery](../../docs/agent-budget-interruptions.md).
+
+## Numeric execution
+
+Ordinary calculations use JavaScript `Number` (binary64) through expressions and `set`; nonfinite expression results fail before publication. `NumericTransformExecutor`, `number.add`, `number.multiply` and `number.default` are removed, including their public C# API. Saved uses fail preflight and require explicit revision and approval. Exact business arithmetic belongs to the MCP producer. The optional `type: number, format: decimal` annotation enables validated MCP boundary conversion; see [numeric compilation](../../docs/numeric-compilation.md).

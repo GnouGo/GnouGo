@@ -1,0 +1,362 @@
+[
+  {
+    "revision": 3,
+    "diagnostics": [],
+    "command": {
+      "mode": null,
+      "kind": "revise",
+      "expectedRevision": 3,
+      "artifactHash": "c9a722a3e4d35489ff1dd0217ef2636ecf261535d98809c80292279adcde0217",
+      "text": "Do not execute revision 3. Preserve all accepted requirements, the query interface, real per-product navigation, workbook writing and root cleanup. Correct the data composition with existing typed forms:\n1. The tasks named lookup_selected_products, lookup_search_box and lookup_consent_reference currently use learned extract transforms. Use the new VALUE BINDING instead: {kind:\"lookup\", port:\"identityField\", items:[typedRecords,selectedIds]}. It is valid inside value outputs; it is not a transform or an operation. Verify selected IDs against the offered compact candidate view, project the verified IDs, then lookup the original observed records. Repeated IDs preserve ordering; unknown IDs must fail. Do not ask inference to reconnect, rewrite or synthesize action arguments.\n2. The extract_result_candidates and landing extraction pass a complete snapshot object instead of bounded complete items, demand synthesized booleans/status strings/indices, limit extraction prematurely and retain broad action fields for decisions. Preserve original snapshots separately. Bind observationSnapshot.pages using explicit field bindings. Use extract each {input:pages,output:candidateArrays} with resultType {candidateArrays:array<array<Candidate>>}; every complete page yields only observed candidate facts, [] only after checked absence. Flatten candidateArrays explicitly. ResultType defines the minimal immediate decision view: the existing producer record identity plus observed text and only genuine decision facts; do not carry action URLs/selectors/references solely for later execution. Keep all original record collections separately through typed field projections and one-level flatten. Prefer the producer's observed stable record identity; no invented IDs or hashes. If only original indices are available, attach them deterministically before extraction. No synthesized support/captcha booleans or status constants inside extract; classification belongs to interpret.\n3. Global interpretation chooses IDs only from compact offered candidates. Pass all candidates; apply the ten-product selection bound globally, not per page or by truncating extraction. Resolve IDs deterministically to original records and use their exact action references and href fields. A link reference expires after navigation; do not attempt sequential visits using stale references from the search snapshot. Use retained observed URLs for those visits, with explicit nonnull checks. Consent remains conditional with activate and a fresh observation afterward; fill uses the exact current observed fill reference. Preserve completeness guards tied to original metadata.\n4. Extract product fields from complete visited-page observations, processing all pages through independent extraction/flatten before any global interpretation. Missing observed fields remain nullable and explicit; do not substitute search-list fields. Give workbook rendering only the exact declared collected product output and necessary context, not whole loop envelopes or broad search results. Remove unnecessary LLM assembly where typed bindings already suffice. Keep the actual document writer before exporting its actual filePath, and preserve failure cleanup. No larger limits, hidden inference, fabricated facts or weakened checks.\nReturn a complete revised plan using the current schema, within the remaining cumulative budget.",
+      "preserveRequirements": true,
+      "selections": null,
+      "generation": null
+    },
+    "result": {
+      "status": "final_review",
+      "planning_ms": 82853,
+      "calls": 3,
+      "repairs": 0,
+      "discovery_reads": 2,
+      "review_revisions": 0,
+      "diagnostics": [],
+      "execution_success": false,
+      "execution_oracle": false,
+      "execution_status": "not_started",
+      "accounting": {
+        "planning": {
+          "logical_calls": 3,
+          "physical_attempts": 3,
+          "known_input_tokens": 34818,
+          "known_output_tokens": 6574,
+          "known_cost_eur": 0.3294968497648416,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "execution": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "campaign": {
+          "calls": 842,
+          "session_calls": 0,
+          "known_input_tokens": 12564135,
+          "known_output_tokens": 1576919,
+          "known_cost_eur": 98.02292600059133,
+          "reserved_input_tokens": 384000,
+          "reserved_output_tokens": 131072,
+          "reserved_cost_eur": 5.203327457848472,
+          "cost_upper_bound_eur": 103.2262534584398,
+          "unknown_attempts": 4
+        }
+      }
+    }
+  },
+  {
+    "revision": 5,
+    "diagnostics": [
+      {
+        "code": "TASK_IDENTITY_INVALID",
+        "location": "/root/outputs",
+        "message": "Business identities must be distinct, nonempty and outside reserved namespaces.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      },
+      {
+        "code": "TASK_TRANSFORM_EACH",
+        "location": "/tasks/extract_landing_candidate_arrays/each",
+        "message": "Identify one bound collection input and the sole nonnullable array result field.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      },
+      {
+        "code": "CONTRACT_UNSATISFIED",
+        "location": "/tasks/extract_landing_candidate_arrays/requires",
+        "message": "TASK_FIELD_TYPE: Field selection requires an authoritative object contract; opaque values cannot supply fields.",
+        "required": true,
+        "validationStage": "contract:TASK_FIELD_TYPE",
+        "rule": null
+      }
+    ],
+    "command": {
+      "mode": null,
+      "kind": "revise",
+      "expectedRevision": 5,
+      "artifactHash": null,
+      "text": "Revision 5 is incomplete and cannot be approved: it has only three tasks and a reserved __placeholder export. Return the COMPLETE workflow preserving ALL accepted requirements, including search submission, per-product visits, actual workbook writing, actual writer path output and finally cleanup. Do not return placeholders or omit business work. Use the previous full revision 3 as the business baseline; the last feedback changed composition, not its objectives.\nFix the concrete errors: each.output must exactly equal the sole resultType array field name (candidateArrays). A direct output port already denotes that field: do not access field(captureTruncated, output(bind_landing_pages,captureTruncated)); use output(bind_landing_pages,captureTruncated) directly, likewise manifestTruncated.\nUse the schema's lookup VALUE binding for deterministic ID reconnection, e.g. value.outputs rows={kind:lookup,port:id,items:[records,selectedIds]}. No extract transform for lookup. Keep original observations separately; compact extraction resultType is identity plus observed decision text, not URLs or action references. Global interpretation selects IDs, lookup verifies offered IDs then reconnects original typed records. Use original indices attached deterministically before extraction when producer records have no suitable unique nonnullable identity. Process each complete source page or record with explicit extract.each and flatten only one level. Preserve complete observations/guards and every requested action. Keep nullable fields guarded; no invented defaults/classifications in extract. Retain the ten-product global bound and cleanup. You still have planning capacity; provide the complete implementation, not a partial sketch.",
+      "preserveRequirements": true,
+      "selections": null,
+      "generation": null
+    },
+    "result": {
+      "status": "stopped",
+      "planning_ms": 142920,
+      "calls": 4,
+      "repairs": 0,
+      "discovery_reads": 2,
+      "review_revisions": 1,
+      "diagnostics": [
+        {
+          "code": "TASK_IDENTITY_INVALID",
+          "location": "/root/outputs",
+          "message": "Business identities must be distinct, nonempty and outside reserved namespaces.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "TASK_TRANSFORM_EACH",
+          "location": "/tasks/extract_landing_candidate_arrays/each",
+          "message": "Identify one bound collection input and the sole nonnullable array result field.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "CONTRACT_UNSATISFIED",
+          "location": "/tasks/extract_landing_candidate_arrays/requires",
+          "message": "TASK_FIELD_TYPE: Field selection requires an authoritative object contract; opaque values cannot supply fields.",
+          "required": true,
+          "validationStage": "contract:TASK_FIELD_TYPE",
+          "rule": null
+        }
+      ],
+      "execution_success": false,
+      "execution_oracle": false,
+      "execution_status": "not_started",
+      "accounting": {
+        "planning": {
+          "logical_calls": 4,
+          "physical_attempts": 4,
+          "known_input_tokens": 56075,
+          "known_output_tokens": 10416,
+          "known_cost_eur": 0.526093708403585,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "execution": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "campaign": {
+          "calls": 843,
+          "session_calls": 0,
+          "known_input_tokens": 12585392,
+          "known_output_tokens": 1580761,
+          "known_cost_eur": 98.21952285923007,
+          "reserved_input_tokens": 384000,
+          "reserved_output_tokens": 131072,
+          "reserved_cost_eur": 5.203327457848472,
+          "cost_upper_bound_eur": 103.42285031707854,
+          "unknown_attempts": 4
+        }
+      }
+    }
+  },
+  {
+    "revision": 7,
+    "diagnostics": [],
+    "command": {
+      "mode": null,
+      "kind": "revise",
+      "expectedRevision": 7,
+      "artifactHash": "93afabb3659c2c741f254d23ec9028a991a7f6b108dc13925cd7468f26872d3d",
+      "text": "Revision 7 still cannot execute: project_landing_records, project_search_records and project_result_records omit mode, so they are GLOBAL LLM interpretation of entire raw page collections. Their objectives say deterministic projection, but they regenerate authoritative records/IDs. Replace those three tasks with deterministic foreach/value bindings, not inference. Preserve the rest of the COMPLETE business workflow, writer, cleanup, accepted requirements and existing bounds.\nConcrete composition for each snapshot: foreach over its pages with body.outputs records=field(records,item); flatten that declared records export once. This is the original typed record collection. The observed reference field is the producer identity; use it unchanged, never synthesize identityField or page/index strings. The checked lookup rejects a missing reference. If original_index is needed for the accepted final report, a second deterministic foreach over the flattened records exports an object {reference:field(reference,item), original_index:index, record:item}; do not compute or infer index in a transform. Keep those wrappers separately from decisions. Dynamic extraction must COPY each candidate identity from the observed reference. Its candidate resultType should have reference + observed text/role/action only when the immediate decision needs them, no invented original_index. Product selection can use the source order, already preserved.\nAll three ID-selection paths must verify membership in offered candidates first with lookup(port:reference,items:[offeredCandidates,selectedIds]); deterministically project reference from those verified records; then lookup(port:reference,items:[originalRecordsOrIndexedWrappers,verifiedIds]). Existing repetitions/order remain. Action arguments come only from the resulting original record fields; when wrapped, select record then href/reference. No inference may recreate URLs or references. Keep product detail IDs/index from the resolved wrapper and visited-page fields from extraction.\nRetain extract.each over complete pages, matching each.output/resultType and one-level flatten. Keep compact decisions global with all candidates, ten visits maximum, original completeness guards, null guards, observed-reference consent/fill and real URL navigation, actual document_write/filePath and root cleanup. Do not omit tasks or use placeholders. Return the complete corrected plan.",
+      "preserveRequirements": true,
+      "selections": null,
+      "generation": null
+    },
+    "result": {
+      "status": "final_review",
+      "planning_ms": 252845,
+      "calls": 5,
+      "repairs": 0,
+      "discovery_reads": 2,
+      "review_revisions": 2,
+      "diagnostics": [],
+      "execution_success": false,
+      "execution_oracle": false,
+      "execution_status": "not_started",
+      "accounting": {
+        "planning": {
+          "logical_calls": 5,
+          "physical_attempts": 5,
+          "known_input_tokens": 73554,
+          "known_output_tokens": 20729,
+          "known_cost_eur": 0.8781968231431361,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "execution": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "campaign": {
+          "calls": 844,
+          "session_calls": 0,
+          "known_input_tokens": 12602871,
+          "known_output_tokens": 1591074,
+          "known_cost_eur": 98.57162597396962,
+          "reserved_input_tokens": 384000,
+          "reserved_output_tokens": 131072,
+          "reserved_cost_eur": 5.203327457848472,
+          "cost_upper_bound_eur": 103.77495343181809,
+          "unknown_attempts": 4
+        }
+      }
+    }
+  },
+  {
+    "revision": 9,
+    "diagnostics": [],
+    "command": {
+      "mode": null,
+      "kind": "revise",
+      "expectedRevision": 9,
+      "artifactHash": "bc067d41d7b58bd9eee38c2f1cbac1e9b5e0dffe024074d2c891193457b8ca04",
+      "text": "The revision 9 composition now uses the required deterministic lookups and retained records. Preserve it exactly, including every task, output, extraction contract, operation, scope, cleanup, accepted requirement and all runtime/inference limits. One concrete coverage error remains: index_result_records is a deterministic loop over ALL source observation records but maxItems=100. The producer capture permits up to 10,000 records; a normal complete snapshot can have more than 1,500. Give this source-indexing task the existing producer capture bound of 10,000 (not the ten-product action bound). This changes only the declared task bound to match the authoritative source, not host runtime or campaign ceilings. Keep selected IDs and product visits bounded at ten, and page lists at their existing producer maximum. Do not truncate source records, drop original_index, renumber filtered items or turn this projection into inference. Return the same complete plan with only that task-bound correction.",
+      "preserveRequirements": true,
+      "selections": null,
+      "generation": null
+    },
+    "result": {
+      "status": "final_review",
+      "planning_ms": 315230,
+      "calls": 6,
+      "repairs": 0,
+      "discovery_reads": 2,
+      "review_revisions": 3,
+      "diagnostics": [],
+      "execution_success": false,
+      "execution_oracle": false,
+      "execution_status": "not_started",
+      "accounting": {
+        "planning": {
+          "logical_calls": 6,
+          "physical_attempts": 6,
+          "known_input_tokens": 97102,
+          "known_output_tokens": 28179,
+          "known_cost_eur": 1.1810098500310586,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "execution": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "campaign": {
+          "calls": 845,
+          "session_calls": 0,
+          "known_input_tokens": 12626419,
+          "known_output_tokens": 1598524,
+          "known_cost_eur": 98.87443900085754,
+          "reserved_input_tokens": 384000,
+          "reserved_output_tokens": 131072,
+          "reserved_cost_eur": 5.203327457848472,
+          "cost_upper_bound_eur": 104.07776645870601,
+          "unknown_attempts": 4
+        }
+      }
+    }
+  },
+  {
+    "revision": 11,
+    "diagnostics": [],
+    "command": {
+      "mode": null,
+      "kind": "revise",
+      "expectedRevision": 11,
+      "artifactHash": "b4b86cf4d22e70205a6f893ff9903ee50d0e7dfc90ce5186c74bc3e38b69c141",
+      "text": "Preserve revision 11's complete workflow and all requirements, but correct index_result_records without changing any host limit. The host loop ceiling is 1,000; indexing every raw record would fail for a complete 1,578-record snapshot. Stable identity already comes from the producer reference, so indexing raw observations is unnecessary.\nMove the auxiliary original_index computation to the COMPLETE offered product-candidate collection before global selection. First process all pages through extract each and flatten, unchanged. Deterministically project all offered references in source order; use lookup(port:reference,items:[flatten_result_records.records,allOfferedReferences]) to recover those original candidate records; iterate that complete offered record collection to attach original_index using kind:index and retain the exact original record. Here original_index is the product's ordinal in the complete offered product list before global selection, not a new ID. IDs remain exact producer references and are never assigned from these ordinals, renumbered or hashed. Give that indexing loop the existing host bound of 1,000; exceeding it must fail, never truncate. Keep ALL candidate processing/global decision inputs; no cap at ten before selection. Then use the existing selected-ID verification and original-record lookup, ten-product visits, exact action arguments, per-product extraction, writer and cleanup unchanged. Return the complete plan; no placeholders, new synthesis or raw-data interpretation.",
+      "preserveRequirements": true,
+      "selections": null,
+      "generation": null
+    },
+    "result": {
+      "status": "final_review",
+      "planning_ms": 377222,
+      "calls": 7,
+      "repairs": 0,
+      "discovery_reads": 2,
+      "review_revisions": 4,
+      "diagnostics": [],
+      "execution_success": false,
+      "execution_oracle": false,
+      "execution_status": "not_started",
+      "accounting": {
+        "planning": {
+          "logical_calls": 7,
+          "physical_attempts": 7,
+          "known_input_tokens": 121071,
+          "known_output_tokens": 35624,
+          "known_cost_eur": 1.4855577247315646,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "execution": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "campaign": {
+          "calls": 846,
+          "session_calls": 0,
+          "known_input_tokens": 12650388,
+          "known_output_tokens": 1605969,
+          "known_cost_eur": 99.17898687555805,
+          "reserved_input_tokens": 384000,
+          "reserved_output_tokens": 131072,
+          "reserved_cost_eur": 5.203327457848472,
+          "cost_upper_bound_eur": 104.38231433340651,
+          "unknown_attempts": 4
+        }
+      }
+    }
+  }
+]

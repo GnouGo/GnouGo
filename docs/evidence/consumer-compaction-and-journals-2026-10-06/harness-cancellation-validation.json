@@ -1,0 +1,10 @@
+{
+  "regression": "LiveConsoleCancellationFinishesWithoutInputAndNeverAcceptsALateApproval",
+  "baseline": "Failed with TimeoutException after cancellation; synchronized console read waited for an input line.",
+  "correction": "Bound the console read on a worker with cancellation; reject a late response.",
+  "affected_tests_passed": 49,
+  "affected_tests_failed": 0,
+  "command": "dotnet test tests/GnOuGo.Agent.Server.Tests -m:1 -warnaserror -p:SkipClientBuild=true -p:SkipModelMetadataGeneration=true --filter FullyQualifiedName~BenchmarkCampaignTests|FullyQualifiedName~LiveWorkflowApprovalTests",
+  "paid_dispatch_after_correction": 0,
+  "scope": "Benchmark console interaction only; production and frozen failed candidate unchanged."
+}

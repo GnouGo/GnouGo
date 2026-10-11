@@ -1,0 +1,34 @@
+{
+  "requirements_unchanged": true,
+  "operation_identities_and_contracts_unchanged": true,
+  "operations": [
+    [
+      "close_browser",
+      "cap_bdb7ba9ab04b18783883fa86"
+    ],
+    [
+      "fill_search",
+      "cap_416310ac4ff2808dc91e3a14"
+    ],
+    [
+      "open_amazon",
+      "cap_490d9e16075cbdca5954ec27"
+    ],
+    [
+      "open_product_page",
+      "cap_490d9e16075cbdca5954ec27"
+    ],
+    [
+      "read_search_results",
+      "cap_490d9e16075cbdca5954ec27"
+    ],
+    [
+      "write_products_xlsx",
+      "cap_37c513d225bb1b870053c5d3"
+    ]
+  ],
+  "runtime_changes": false,
+  "approval_submitted": false,
+  "execution_started": false,
+  "historical_runs_replayed": false
+}

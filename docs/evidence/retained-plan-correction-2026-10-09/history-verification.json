@@ -1,0 +1,14 @@
+{
+  "original_responses_unchanged": 3,
+  "completed_responses_now": 6,
+  "accepted_requirements_unchanged": true,
+  "revision_baselines_retained": [
+    3,
+    5
+  ],
+  "intermediate_unapproved_artifact_retained": "6f80c50fffa968d9561853a221408566300beff335b44a5a5713329470405855",
+  "executions": 0,
+  "workflow_events": 0,
+  "saved_final_status": "clarification",
+  "saved_final_revision": 8
+}

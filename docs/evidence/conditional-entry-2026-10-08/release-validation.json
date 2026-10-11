@@ -1,0 +1,92 @@
+[
+  {
+    "check": "pack-planning",
+    "command": [
+      "dotnet",
+      "pack",
+      "src/GnOuGo.Flow.Planning",
+      "-c",
+      "Release",
+      "-m:1",
+      "-warnaserror",
+      "-p:SkipModelMetadataGeneration=true"
+    ],
+    "exit_code": 0,
+    "seconds": 6.805,
+    "log_sha256": "2946b6f791f923aa4202e258d7ee36663533e42d207cf5846222e581f9a90ff4"
+  },
+  {
+    "check": "aot",
+    "command": [
+      "dotnet",
+      "publish",
+      "tests/GnOuGo.Flow.Planning.Smoke",
+      "-c",
+      "Release",
+      "-r",
+      "osx-arm64",
+      "--self-contained",
+      "true",
+      "-m:1",
+      "-warnaserror",
+      "-p:SkipModelMetadataGeneration=true",
+      "-o",
+      "/path/to/validation/aot"
+    ],
+    "exit_code": 0,
+    "seconds": 39.699,
+    "log_sha256": "834d2387447c408d6102d44f15edb05e3378eab58a1fe829782922d6b6c277a4"
+  },
+  {
+    "check": "aot-execution",
+    "command": [
+      "/path/to/validation/aot/GnOuGo.Flow.Planning.Smoke"
+    ],
+    "exit_code": 0,
+    "seconds": 6.409,
+    "log_sha256": "721d573bade08495b9f2c1effdfa281a42b40dcf18a32fe4496c9a5686595a9d"
+  },
+  {
+    "check": "cli-publish",
+    "command": [
+      "dotnet",
+      "publish",
+      "src/GnOuGo.Flow.Cli",
+      "-c",
+      "Release",
+      "-r",
+      "osx-arm64",
+      "--self-contained",
+      "true",
+      "-m:1",
+      "-p:PublishAot=true",
+      "-p:PublishTrimmed=true",
+      "-p:PublishSingleFile=true",
+      "-p:SkipModelMetadataGeneration=true",
+      "-o",
+      "/path/to/validation/cli"
+    ],
+    "exit_code": 0,
+    "seconds": 68.948,
+    "log_sha256": "85520db7daaf3f8f6f7a2f6ab36697f9b6aac1599c033e6cf1669bf82d30b5c3",
+    "notices": [
+      "Existing upstream EF query-precompilation experimental warning",
+      "Existing upstream EF NativeAOT experimental warning"
+    ],
+    "warnaserror": false
+  },
+  {
+    "check": "encrypted-recovery",
+    "command": [
+      "python3",
+      "scripts/verify-flow-v9-published.py",
+      "--cli",
+      "/path/to/validation/cli/GnOuGo.Flow.Cli",
+      "--data-directory",
+      "/path/to/validation/recovery"
+    ],
+    "exit_code": 0,
+    "seconds": 2.976,
+    "log_sha256": "ca976fdf735170ace31d6549266dc931786493708851e3eb84e77478c0334714"
+  }
+]

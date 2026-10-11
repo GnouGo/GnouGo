@@ -1,0 +1,21 @@
+{
+  "run": "targetedlive20261005a-amazon-1",
+  "candidate": "5afe0fa6bfcd923268edfac259754237f7b2d609",
+  "reviewed_revision": 10,
+  "approved_session_revision": 11,
+  "artifact_hash": "6a473e95d4e9e26f2e4b017499ac83b86cfcb91b3af0701309c93b41047bd59b",
+  "user_authorization": "I give you my approval",
+  "reviewed_requirement_ids": [
+    "search_amazon_fr",
+    "limit_first_three",
+    "extract_product_fields",
+    "save_xlsx",
+    "cleanup_browser"
+  ],
+  "campaign": "schema-portability-20261002",
+  "campaign_ceiling_eur": 150,
+  "confirmation_response": {
+    "response": true
+  },
+  "execution_replay_permitted": false
+}

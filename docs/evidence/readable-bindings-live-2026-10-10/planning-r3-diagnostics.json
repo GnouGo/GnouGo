@@ -1,0 +1,10 @@
+[
+  {
+    "code": "REQUIREMENTS_OUTPUTS_CHANGED",
+    "location": "/outputs/products",
+    "message": "Preserve the accepted output type, requiredness and nullability. A missing or incompatible result requires a corrected plan or explicit intent revision.",
+    "required": true,
+    "validationStage": null,
+    "rule": null
+  }
+]

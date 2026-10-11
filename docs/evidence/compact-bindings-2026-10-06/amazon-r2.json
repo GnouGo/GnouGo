@@ -1,0 +1,2453 @@
+{
+  "responses": [
+    {
+      "id": "schema-portability-20261002:compactbindings20261006b-amazon-1:1:d57d30c70bfe66ea4c8fc9e5febfda4392bc11ca6085e25d9d1c34bfb05125eb",
+      "response": {
+        "discoveryRequests": [
+          {
+            "sourceId": "source_258c29d9064381a5dd37bf0c",
+            "cursor": null,
+            "query": "Available operations for browser automation: open/navigate to URL, search Amazon.fr, observe page, click links/buttons, extract text/HTML/structured product fields, handle pagination or truncated observations, close browser in cleanup.",
+            "operationIds": null
+          },
+          {
+            "sourceId": "source_0002e1b8daaf46eef1b331cc",
+            "cursor": null,
+            "query": "Available operations for creating and saving an Excel XLSX workbook at a specified disk path with rows/columns for product name, description, price, and explicit missing/CAPTCHA status.",
+            "operationIds": null
+          }
+        ],
+        "plan": null,
+        "clarifications": null,
+        "requirements": {
+          "summary": "Accept one public input named query, search Amazon.fr for that article, inspect at most the first 10 products, extract each product’s name, description, and price without inventing missing data, save the results to workflows/schema-portability-20261002/compactbindings20261006b-amazon-1/products.xlsx, and close the browser even on failure.",
+          "outcomes": [
+            {
+              "id": "search_amazon_fr",
+              "description": "Amazon.fr is used to search for the provided query."
+            },
+            {
+              "id": "limit_products",
+              "description": "At most the first 10 observed product results are processed."
+            },
+            {
+              "id": "extract_product_details",
+              "description": "For each processed product, visit its page and extract name, description, and price; CAPTCHA, absent prices, or absent data are recorded explicitly rather than inferred."
+            },
+            {
+              "id": "save_excel",
+              "description": "An Excel workbook is saved on disk at workflows/schema-portability-20261002/compactbindings20261006b-amazon-1/products.xlsx."
+            },
+            {
+              "id": "cleanup_browser",
+              "description": "The browser is closed even if the workflow fails."
+            }
+          ],
+          "inputs": [
+            {
+              "name": "query",
+              "type": {
+                "kind": "string"
+              }
+            }
+          ],
+          "outputs": [
+            {
+              "name": "xlsxPath",
+              "type": {
+                "kind": "string"
+              },
+              "required": true
+            },
+            {
+              "name": "products",
+              "type": {
+                "kind": "array",
+                "items": {
+                  "kind": "object",
+                  "fields": [
+                    {
+                      "name": "name",
+                      "type": {
+                        "kind": "string",
+                        "nullable": true
+                      }
+                    },
+                    {
+                      "name": "description",
+                      "type": {
+                        "kind": "string",
+                        "nullable": true
+                      }
+                    },
+                    {
+                      "name": "price",
+                      "type": {
+                        "kind": "string",
+                        "nullable": true
+                      }
+                    },
+                    {
+                      "name": "status",
+                      "type": {
+                        "kind": "string"
+                      }
+                    }
+                  ]
+                }
+              },
+              "required": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "schema-portability-20261002:compactbindings20261006b-amazon-1:2:eb27614ac5876abf8eaec75ef7698c73e07a2acc1e0a971578c60ebf3b232a02",
+      "response": {
+        "discoveryRequests": null,
+        "plan": {
+          "inputs": [
+            {
+              "name": "query",
+              "type": {
+                "kind": "string"
+              }
+            }
+          ],
+          "root": {
+            "tasks": [
+              {
+                "id": "build_search_url",
+                "kind": "transform",
+                "objective": "Build the Amazon.fr search URL from the single public input query by percent-encoding the query and appending it to https://www.amazon.fr/s?k=. Do not add any other public inputs.",
+                "dependsOn": [],
+                "requires": null,
+                "mode": "interpret",
+                "inputs": [
+                  {
+                    "name": "query",
+                    "value": {
+                      "kind": "input",
+                      "source": "query"
+                    }
+                  }
+                ],
+                "resultType": {
+                  "kind": "object",
+                  "fields": [
+                    {
+                      "name": "url",
+                      "type": {
+                        "kind": "string"
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "open_search_page",
+                "kind": "operation",
+                "objective": "Open the Amazon.fr search results page for the encoded query and capture rendered HTML for later extraction. Use Amazon.fr only.",
+                "dependsOn": [
+                  "build_search_url"
+                ],
+                "requires": null,
+                "operation": "cap_490d9e16075cbdca5954ec27",
+                "inputs": [
+                  {
+                    "name": "url",
+                    "value": {
+                      "kind": "field",
+                      "items": [
+                        {
+                          "kind": "output",
+                          "source": "build_search_url",
+                          "port": null
+                        }
+                      ],
+                      "port": "url"
+                    }
+                  },
+                  {
+                    "name": "format",
+                    "value": {
+                      "kind": "string",
+                      "text": "html"
+                    }
+                  },
+                  {
+                    "name": "waitUntil",
+                    "value": {
+                      "kind": "string",
+                      "text": "domcontentloaded"
+                    }
+                  },
+                  {
+                    "name": "maxCharacters",
+                    "value": {
+                      "kind": "number",
+                      "number": 80000
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "extract_search_page_controls",
+                "kind": "transform",
+                "objective": "From the rendered Amazon.fr search page HTML, extract only fields needed before interaction: whether a CAPTCHA/blocker is visible and, if present, the CSS selector of an observed cookie/consent accept button. Do not infer product data here.",
+                "dependsOn": [
+                  "open_search_page"
+                ],
+                "requires": null,
+                "mode": "extract",
+                "inputs": [
+                  {
+                    "name": "searchPageHtml",
+                    "value": {
+                      "kind": "output",
+                      "source": "open_search_page",
+                      "port": "content"
+                    }
+                  }
+                ],
+                "resultType": {
+                  "kind": "object",
+                  "fields": [
+                    {
+                      "name": "captchaDetected",
+                      "type": {
+                        "kind": "boolean"
+                      }
+                    },
+                    {
+                      "name": "consentAcceptSelector",
+                      "type": {
+                        "kind": "string",
+                        "nullable": true
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "accept_cookie_if_observed",
+                "kind": "conditional",
+                "objective": "If an observed Amazon.fr cookie/consent accept control exists, click it once; otherwise do nothing. This is limited to an observed consent control and does not grant any other authority.",
+                "dependsOn": [
+                  "extract_search_page_controls"
+                ],
+                "requires": null,
+                "condition": {
+                  "kind": "predicate",
+                  "predicate": "not_equal",
+                  "items": [
+                    {
+                      "kind": "field",
+                      "items": [
+                        {
+                          "kind": "output",
+                          "source": "extract_search_page_controls",
+                          "port": null
+                        }
+                      ],
+                      "port": "consentAcceptSelector"
+                    },
+                    {
+                      "kind": "null"
+                    }
+                  ]
+                },
+                "body": {
+                  "tasks": [
+                    {
+                      "id": "click_observed_consent",
+                      "kind": "operation",
+                      "objective": "Click the observed cookie/consent accept control so product search results can be read.",
+                      "dependsOn": [],
+                      "requires": null,
+                      "operation": "cap_dd05fbf36e155a64318f3588",
+                      "inputs": [
+                        {
+                          "name": "selector",
+                          "value": {
+                            "kind": "field",
+                            "items": [
+                              {
+                                "kind": "output",
+                                "source": "extract_search_page_controls",
+                                "port": null
+                              }
+                            ],
+                            "port": "consentAcceptSelector"
+                          }
+                        },
+                        {
+                          "name": "waitUntil",
+                          "value": {
+                            "kind": "string",
+                            "text": "domcontentloaded"
+                          }
+                        },
+                        {
+                          "name": "timeoutMs",
+                          "value": {
+                            "kind": "number",
+                            "number": 10000
+                          }
+                        }
+                      ]
+                    }
+                  ],
+                  "outputs": [],
+                  "always": []
+                },
+                "otherwise": {
+                  "tasks": [],
+                  "outputs": [],
+                  "always": []
+                }
+              },
+              {
+                "id": "read_search_results_after_consent",
+                "kind": "operation",
+                "objective": "Read the current Amazon.fr search page after any consent handling. Capture enough HTML to extract the first observed product-result links and explicit blockers such as CAPTCHA.",
+                "dependsOn": [
+                  "accept_cookie_if_observed"
+                ],
+                "requires": null,
+                "operation": "cap_490d9e16075cbdca5954ec27",
+                "inputs": [
+                  {
+                    "name": "format",
+                    "value": {
+                      "kind": "string",
+                      "text": "html"
+                    }
+                  },
+                  {
+                    "name": "selector",
+                    "value": {
+                      "kind": "string",
+                      "text": "body"
+                    }
+                  },
+                  {
+                    "name": "maxCharacters",
+                    "value": {
+                      "kind": "number",
+                      "number": 100000
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "extract_first_product_links",
+                "kind": "transform",
+                "objective": "Extract, in page order, at most the first 10 observed Amazon.fr product result links from the search results HTML. Also preserve whether the search page shows CAPTCHA/blocking or no observed product links. Return only fields needed for visiting product pages.",
+                "dependsOn": [
+                  "read_search_results_after_consent"
+                ],
+                "requires": null,
+                "mode": "extract",
+                "inputs": [
+                  {
+                    "name": "searchResultsHtml",
+                    "value": {
+                      "kind": "output",
+                      "source": "read_search_results_after_consent",
+                      "port": "content"
+                    }
+                  },
+                  {
+                    "name": "searchResultsUrl",
+                    "value": {
+                      "kind": "output",
+                      "source": "read_search_results_after_consent",
+                      "port": "url"
+                    }
+                  }
+                ],
+                "resultType": {
+                  "kind": "object",
+                  "fields": [
+                    {
+                      "name": "captchaDetected",
+                      "type": {
+                        "kind": "boolean"
+                      }
+                    },
+                    {
+                      "name": "resultStatus",
+                      "type": {
+                        "kind": "string"
+                      }
+                    },
+                    {
+                      "name": "productLinks",
+                      "type": {
+                        "kind": "array",
+                        "items": {
+                          "kind": "object",
+                          "fields": [
+                            {
+                              "name": "index",
+                              "type": {
+                                "kind": "integer"
+                              }
+                            },
+                            {
+                              "name": "url",
+                              "type": {
+                                "kind": "string"
+                              }
+                            },
+                            {
+                              "name": "nameHint",
+                              "type": {
+                                "kind": "string",
+                                "nullable": true
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "visit_product_pages",
+                "kind": "foreach",
+                "objective": "For each of the at most 10 extracted Amazon.fr product links, visit the product page and extract per-item details. Preserve order and keep CAPTCHA or absent fields explicit.",
+                "dependsOn": [
+                  "extract_first_product_links"
+                ],
+                "requires": null,
+                "items": {
+                  "kind": "field",
+                  "items": [
+                    {
+                      "kind": "output",
+                      "source": "extract_first_product_links",
+                      "port": null
+                    }
+                  ],
+                  "port": "productLinks"
+                },
+                "body": {
+                  "tasks": [
+                    {
+                      "id": "open_product_page",
+                      "kind": "operation",
+                      "objective": "Open this product page from the observed search result link and capture rendered HTML for detail extraction.",
+                      "dependsOn": [],
+                      "requires": null,
+                      "operation": "cap_490d9e16075cbdca5954ec27",
+                      "inputs": [
+                        {
+                          "name": "url",
+                          "value": {
+                            "kind": "field",
+                            "items": [
+                              {
+                                "kind": "item"
+                              }
+                            ],
+                            "port": "url"
+                          }
+                        },
+                        {
+                          "name": "format",
+                          "value": {
+                            "kind": "string",
+                            "text": "html"
+                          }
+                        },
+                        {
+                          "name": "waitUntil",
+                          "value": {
+                            "kind": "string",
+                            "text": "domcontentloaded"
+                          }
+                        },
+                        {
+                          "name": "maxCharacters",
+                          "value": {
+                            "kind": "number",
+                            "number": 100000
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "id": "read_product_title_region",
+                      "kind": "operation",
+                      "objective": "Read the current product page title region, if present, as text. Empty or absent content remains explicit and is not invented.",
+                      "dependsOn": [
+                        "open_product_page"
+                      ],
+                      "requires": null,
+                      "operation": "cap_490d9e16075cbdca5954ec27",
+                      "inputs": [
+                        {
+                          "name": "format",
+                          "value": {
+                            "kind": "string",
+                            "text": "text"
+                          }
+                        },
+                        {
+                          "name": "selector",
+                          "value": {
+                            "kind": "string",
+                            "text": "#productTitle"
+                          }
+                        },
+                        {
+                          "name": "maxCharacters",
+                          "value": {
+                            "kind": "number",
+                            "number": 5000
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "id": "read_product_price_region",
+                      "kind": "operation",
+                      "objective": "Read observed price regions on the current product page, if present, as text. Empty or absent price remains explicit and is not invented.",
+                      "dependsOn": [
+                        "open_product_page"
+                      ],
+                      "requires": null,
+                      "operation": "cap_490d9e16075cbdca5954ec27",
+                      "inputs": [
+                        {
+                          "name": "format",
+                          "value": {
+                            "kind": "string",
+                            "text": "text"
+                          }
+                        },
+                        {
+                          "name": "selector",
+                          "value": {
+                            "kind": "string",
+                            "text": "#corePrice_feature_div, #corePriceDisplay_desktop_feature_div, .a-price"
+                          }
+                        },
+                        {
+                          "name": "maxCharacters",
+                          "value": {
+                            "kind": "number",
+                            "number": 10000
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "id": "read_product_description_region",
+                      "kind": "operation",
+                      "objective": "Read observed product description/bullets regions on the current product page, if present, as text. Empty or absent description remains explicit and is not invented.",
+                      "dependsOn": [
+                        "open_product_page"
+                      ],
+                      "requires": null,
+                      "operation": "cap_490d9e16075cbdca5954ec27",
+                      "inputs": [
+                        {
+                          "name": "format",
+                          "value": {
+                            "kind": "string",
+                            "text": "text"
+                          }
+                        },
+                        {
+                          "name": "selector",
+                          "value": {
+                            "kind": "string",
+                            "text": "#feature-bullets, #productDescription, #aplus"
+                          }
+                        },
+                        {
+                          "name": "maxCharacters",
+                          "value": {
+                            "kind": "number",
+                            "number": 30000
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "id": "extract_product_detail",
+                      "kind": "transform",
+                      "objective": "For this product visit, produce one product record with name, description, price, and status. Use the specific title/price/description reads first, fall back only to fields explicitly present in the product page HTML, and mark CAPTCHA or missing fields in status instead of inventing values.",
+                      "dependsOn": [
+                        "read_product_title_region",
+                        "read_product_price_region",
+                        "read_product_description_region"
+                      ],
+                      "requires": null,
+                      "mode": "interpret",
+                      "inputs": [
+                        {
+                          "name": "searchResultItem",
+                          "value": {
+                            "kind": "item"
+                          }
+                        },
+                        {
+                          "name": "productPageHtml",
+                          "value": {
+                            "kind": "output",
+                            "source": "open_product_page",
+                            "port": "content"
+                          }
+                        },
+                        {
+                          "name": "productPageUrl",
+                          "value": {
+                            "kind": "output",
+                            "source": "open_product_page",
+                            "port": "url"
+                          }
+                        },
+                        {
+                          "name": "titleText",
+                          "value": {
+                            "kind": "output",
+                            "source": "read_product_title_region",
+                            "port": "content"
+                          }
+                        },
+                        {
+                          "name": "priceText",
+                          "value": {
+                            "kind": "output",
+                            "source": "read_product_price_region",
+                            "port": "content"
+                          }
+                        },
+                        {
+                          "name": "descriptionText",
+                          "value": {
+                            "kind": "output",
+                            "source": "read_product_description_region",
+                            "port": "content"
+                          }
+                        }
+                      ],
+                      "resultType": {
+                        "kind": "object",
+                        "fields": [
+                          {
+                            "name": "name",
+                            "type": {
+                              "kind": "string",
+                              "nullable": true
+                            }
+                          },
+                          {
+                            "name": "description",
+                            "type": {
+                              "kind": "string",
+                              "nullable": true
+                            }
+                          },
+                          {
+                            "name": "price",
+                            "type": {
+                              "kind": "string",
+                              "nullable": true
+                            }
+                          },
+                          {
+                            "name": "status",
+                            "type": {
+                              "kind": "string"
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ],
+                  "outputs": [
+                    {
+                      "name": "product",
+                      "value": {
+                        "kind": "output",
+                        "source": "extract_product_detail",
+                        "port": null
+                      }
+                    }
+                  ],
+                  "always": []
+                },
+                "parallel": false,
+                "maxItems": 10,
+                "maxConcurrency": 1
+              },
+              {
+                "id": "assemble_products_and_tsv",
+                "kind": "transform",
+                "objective": "Combine the per-product visit results with search-page blocker information. If CAPTCHA blocked the search or no product links were observed, create an explicit status record. Generate TSV rows for an .xlsx workbook with columns name, description, price, status, normalizing embedded tabs/newlines and leaving absent data explicit rather than invented.",
+                "dependsOn": [
+                  "visit_product_pages"
+                ],
+                "requires": null,
+                "mode": "interpret",
+                "inputs": [
+                  {
+                    "name": "searchExtraction",
+                    "value": {
+                      "kind": "output",
+                      "source": "extract_first_product_links",
+                      "port": null
+                    }
+                  },
+                  {
+                    "name": "visitedProducts",
+                    "value": {
+                      "kind": "output",
+                      "source": "visit_product_pages",
+                      "port": null
+                    }
+                  }
+                ],
+                "resultType": {
+                  "kind": "object",
+                  "fields": [
+                    {
+                      "name": "products",
+                      "type": {
+                        "kind": "array",
+                        "items": {
+                          "kind": "object",
+                          "fields": [
+                            {
+                              "name": "name",
+                              "type": {
+                                "kind": "string",
+                                "nullable": true
+                              }
+                            },
+                            {
+                              "name": "description",
+                              "type": {
+                                "kind": "string",
+                                "nullable": true
+                              }
+                            },
+                            {
+                              "name": "price",
+                              "type": {
+                                "kind": "string",
+                                "nullable": true
+                              }
+                            },
+                            {
+                              "name": "status",
+                              "type": {
+                                "kind": "string"
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    {
+                      "name": "tsv",
+                      "type": {
+                        "kind": "string"
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "write_products_xlsx",
+                "kind": "operation",
+                "objective": "Save the extracted Amazon.fr product details to the required Excel workbook path as tab-separated rows converted to .xlsx by the document writer.",
+                "dependsOn": [
+                  "assemble_products_and_tsv"
+                ],
+                "requires": null,
+                "operation": "cap_37c513d225bb1b870053c5d3",
+                "inputs": [
+                  {
+                    "name": "filePath",
+                    "value": {
+                      "kind": "string",
+                      "text": "workflows/schema-portability-20261002/compactbindings20261006b-amazon-1/products.xlsx"
+                    }
+                  },
+                  {
+                    "name": "content",
+                    "value": {
+                      "kind": "field",
+                      "items": [
+                        {
+                          "kind": "output",
+                          "source": "assemble_products_and_tsv",
+                          "port": null
+                        }
+                      ],
+                      "port": "tsv"
+                    }
+                  },
+                  {
+                    "name": "append",
+                    "value": {
+                      "kind": "boolean",
+                      "boolean": false
+                    }
+                  },
+                  {
+                    "name": "encoding",
+                    "value": {
+                      "kind": "string",
+                      "text": "utf-8"
+                    }
+                  }
+                ]
+              }
+            ],
+            "outputs": [
+              {
+                "name": "xlsxPath",
+                "value": {
+                  "kind": "output",
+                  "source": "write_products_xlsx",
+                  "port": "filePath"
+                }
+              },
+              {
+                "name": "products",
+                "value": {
+                  "kind": "field",
+                  "items": [
+                    {
+                      "kind": "output",
+                      "source": "assemble_products_and_tsv",
+                      "port": null
+                    }
+                  ],
+                  "port": "products"
+                }
+              }
+            ],
+            "always": [
+              {
+                "id": "close_browser_always",
+                "kind": "operation",
+                "objective": "Close the browser page and context even if any previous search, extraction, or write step fails.",
+                "dependsOn": [],
+                "requires": null,
+                "operation": "cap_bdb7ba9ab04b18783883fa86",
+                "inputs": []
+              }
+            ]
+          },
+          "groups": [],
+          "choices": []
+        },
+        "clarifications": null
+      }
+    }
+  ],
+  "runtime_mapping_receipts": [],
+  "mapping_telemetry": null,
+  "runtime_llm_inputs": [],
+  "failures": [],
+  "result": {
+    "status": "final_review",
+    "planning_ms": 107649,
+    "calls": 2,
+    "repairs": 0,
+    "discovery_reads": 2,
+    "review_revisions": 0,
+    "diagnostics": [],
+    "execution_success": false,
+    "execution_oracle": false,
+    "execution_status": "not_started",
+    "accounting": {
+      "planning": {
+        "logical_calls": 2,
+        "physical_attempts": 2,
+        "known_input_tokens": 17584,
+        "known_output_tokens": 5821,
+        "known_cost_eur": 0.23298429319371727,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "execution": {
+        "logical_calls": 0,
+        "physical_attempts": 0,
+        "known_input_tokens": 0,
+        "known_output_tokens": 0,
+        "known_cost_eur": 0,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "campaign": {
+        "calls": 765,
+        "session_calls": 0,
+        "known_input_tokens": 11591465,
+        "known_output_tokens": 1306230,
+        "known_cost_eur": 86.50103408471591,
+        "reserved_input_tokens": 192000,
+        "reserved_output_tokens": 65536,
+        "reserved_cost_eur": 2.606752783964365,
+        "cost_upper_bound_eur": 89.10778686868028,
+        "unknown_attempts": 2
+      }
+    }
+  },
+  "status": "final_review",
+  "revision": 2,
+  "artifact_hash": "1f4f37b1a3b5e9f3feee0c16e61e354c313e3cc8789210df3f28388dbbb389c8",
+  "requirements": {
+    "summary": "Accept one public input named query, search Amazon.fr for that article, inspect at most the first 10 products, extract each product’s name, description, and price without inventing missing data, save the results to workflows/schema-portability-20261002/compactbindings20261006b-amazon-1/products.xlsx, and close the browser even on failure.",
+    "outcomes": [
+      {
+        "id": "search_amazon_fr",
+        "description": "Amazon.fr is used to search for the provided query."
+      },
+      {
+        "id": "limit_products",
+        "description": "At most the first 10 observed product results are processed."
+      },
+      {
+        "id": "extract_product_details",
+        "description": "For each processed product, visit its page and extract name, description, and price; CAPTCHA, absent prices, or absent data are recorded explicitly rather than inferred."
+      },
+      {
+        "id": "save_excel",
+        "description": "An Excel workbook is saved on disk at workflows/schema-portability-20261002/compactbindings20261006b-amazon-1/products.xlsx."
+      },
+      {
+        "id": "cleanup_browser",
+        "description": "The browser is closed even if the workflow fails."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "query",
+        "type": {
+          "kind": "string",
+          "nullable": false,
+          "items": null,
+          "fields": []
+        },
+        "required": true,
+        "default": null
+      }
+    ],
+    "outputs": [
+      {
+        "name": "xlsxPath",
+        "type": {
+          "kind": "string",
+          "nullable": false,
+          "items": null,
+          "fields": []
+        },
+        "required": true,
+        "default": null
+      },
+      {
+        "name": "products",
+        "type": {
+          "kind": "array",
+          "nullable": false,
+          "items": {
+            "kind": "object",
+            "nullable": false,
+            "items": null,
+            "fields": [
+              {
+                "name": "name",
+                "type": {
+                  "kind": "string",
+                  "nullable": true,
+                  "items": null,
+                  "fields": []
+                },
+                "required": true,
+                "default": null
+              },
+              {
+                "name": "description",
+                "type": {
+                  "kind": "string",
+                  "nullable": true,
+                  "items": null,
+                  "fields": []
+                },
+                "required": true,
+                "default": null
+              },
+              {
+                "name": "price",
+                "type": {
+                  "kind": "string",
+                  "nullable": true,
+                  "items": null,
+                  "fields": []
+                },
+                "required": true,
+                "default": null
+              },
+              {
+                "name": "status",
+                "type": {
+                  "kind": "string",
+                  "nullable": false,
+                  "items": null,
+                  "fields": []
+                },
+                "required": true,
+                "default": null
+              }
+            ]
+          },
+          "fields": []
+        },
+        "required": true,
+        "default": null
+      }
+    ]
+  },
+  "planning_revisions": null,
+  "review": [
+    {
+      "id": "static",
+      "outcome": "passed",
+      "description": "Business bindings, contracts and control flow validated. External execution has not been observed.",
+      "diagnostics": []
+    },
+    {
+      "id": "operation:task_986aeffd2bf3a1d6197a4587",
+      "outcome": "declared",
+      "description": "Open the Amazon.fr search results page for the encoded query and capture rendered HTML for later extraction. Use Amazon.fr only. — operation: cap_490d9e16075cbdca5954ec27 (GnOuGo.Browser.Mcp/browser_get_content); contract effect: read. Resource lifecycle is not established by this contract; review cleanup and retained artifacts. Execution has not been observed; review the business requirements separately.",
+      "diagnostics": []
+    },
+    {
+      "id": "operation:task_ae4c0a704a1b8d1729e760b5",
+      "outcome": "declared",
+      "description": "Read the current Amazon.fr search page after any consent handling. Capture enough HTML to extract the first observed product-result links and explicit blockers such as CAPTCHA. — operation: cap_490d9e16075cbdca5954ec27 (GnOuGo.Browser.Mcp/browser_get_content); contract effect: read. Resource lifecycle is not established by this contract; review cleanup and retained artifacts. Execution has not been observed; review the business requirements separately.",
+      "diagnostics": []
+    },
+    {
+      "id": "operation:task_4202ba4c0b016582d3117620",
+      "outcome": "declared",
+      "description": "Save the extracted Amazon.fr product details to the required Excel workbook path as tab-separated rows converted to .xlsx by the document writer. — operation: cap_37c513d225bb1b870053c5d3 (GnOuGo.Document.Mcp/document_write); contract effect: write. Declared resource locations checked; dynamic relationships still require execution evidence. Execution has not been observed; review the business requirements separately.",
+      "diagnostics": []
+    },
+    {
+      "id": "operation:task_adac80523aec0e3ba65a6f52",
+      "outcome": "declared",
+      "description": "Close the browser page and context even if any previous search, extraction, or write step fails. — operation: cap_bdb7ba9ab04b18783883fa86 (GnOuGo.Browser.Mcp/browser_close); contract effect: lifecycle. Resource lifecycle is not established by this contract; review cleanup and retained artifacts. Execution has not been observed; review the business requirements separately.",
+      "diagnostics": []
+    },
+    {
+      "id": "operation:task_31e478ace11eb379e4383757",
+      "outcome": "declared",
+      "description": "Click the observed cookie/consent accept control so product search results can be read. — operation: cap_dd05fbf36e155a64318f3588 (GnOuGo.Browser.Mcp/browser_click); contract effect: execute. Resource lifecycle is not established by this contract; review cleanup and retained artifacts. Execution has not been observed; review the business requirements separately.",
+      "diagnostics": []
+    },
+    {
+      "id": "operation:task_2f03ebd712f4a32d3275653a",
+      "outcome": "declared",
+      "description": "Open this product page from the observed search result link and capture rendered HTML for detail extraction. — operation: cap_490d9e16075cbdca5954ec27 (GnOuGo.Browser.Mcp/browser_get_content); contract effect: read. Resource lifecycle is not established by this contract; review cleanup and retained artifacts. Execution has not been observed; review the business requirements separately.",
+      "diagnostics": []
+    },
+    {
+      "id": "operation:task_6d1877c97084f817f3b6d799",
+      "outcome": "declared",
+      "description": "Read the current product page title region, if present, as text. Empty or absent content remains explicit and is not invented. — operation: cap_490d9e16075cbdca5954ec27 (GnOuGo.Browser.Mcp/browser_get_content); contract effect: read. Resource lifecycle is not established by this contract; review cleanup and retained artifacts. Execution has not been observed; review the business requirements separately.",
+      "diagnostics": []
+    },
+    {
+      "id": "operation:task_9ab74728e186f68d68c0fcc1",
+      "outcome": "declared",
+      "description": "Read observed price regions on the current product page, if present, as text. Empty or absent price remains explicit and is not invented. — operation: cap_490d9e16075cbdca5954ec27 (GnOuGo.Browser.Mcp/browser_get_content); contract effect: read. Resource lifecycle is not established by this contract; review cleanup and retained artifacts. Execution has not been observed; review the business requirements separately.",
+      "diagnostics": []
+    },
+    {
+      "id": "operation:task_82361c911f743f1e91e6839f",
+      "outcome": "declared",
+      "description": "Read observed product description/bullets regions on the current product page, if present, as text. Empty or absent description remains explicit and is not invented. — operation: cap_490d9e16075cbdca5954ec27 (GnOuGo.Browser.Mcp/browser_get_content); contract effect: read. Resource lifecycle is not established by this contract; review cleanup and retained artifacts. Execution has not been observed; review the business requirements separately.",
+      "diagnostics": []
+    },
+    {
+      "id": "mapping:task_09053c197de081d88161d5d2",
+      "outcome": "declared",
+      "description": "From the rendered Amazon.fr search page HTML, extract only fields needed before interaction: whether a CAPTCHA/blocker is visible and, if present, the CSS selector of an observed cookie/consent accept button. Do not infer product data here. — runtime extraction, at most two model attempts per invocation; cache hits still validate the complete result. Unambiguous source/target collections use one result per item; ambiguous collections require explicit selection. No execution evidence yet.",
+      "diagnostics": []
+    },
+    {
+      "id": "mapping:task_d41070994483a86a90c482e5",
+      "outcome": "declared",
+      "description": "Extract, in page order, at most the first 10 observed Amazon.fr product result links from the search results HTML. Also preserve whether the search page shows CAPTCHA/blocking or no observed product links. Return only fields needed for visiting product pages. — runtime extraction, at most two model attempts per invocation; cache hits still validate the complete result. Unambiguous source/target collections use one result per item; ambiguous collections require explicit selection. No execution evidence yet.",
+      "diagnostics": []
+    }
+  ],
+  "diagnostics": [],
+  "questions": null,
+  "plan": {
+    "inputs": [
+      {
+        "name": "query",
+        "type": {
+          "kind": "string",
+          "nullable": false,
+          "items": null,
+          "fields": []
+        },
+        "required": true,
+        "default": null
+      }
+    ],
+    "root": {
+      "tasks": [
+        {
+          "id": "build_search_url",
+          "objective": "Build the Amazon.fr search URL from the single public input query by percent-encoding the query and appending it to https://www.amazon.fr/s?k=. Do not add any other public inputs.",
+          "kind": "transform",
+          "mode": "interpret",
+          "dependsOn": [],
+          "operation": null,
+          "inputs": [
+            {
+              "name": "query",
+              "value": {
+                "kind": "input",
+                "text": null,
+                "number": null,
+                "boolean": null,
+                "source": "query",
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            }
+          ],
+          "outputs": [],
+          "resultType": {
+            "kind": "object",
+            "nullable": false,
+            "items": null,
+            "fields": [
+              {
+                "name": "url",
+                "type": {
+                  "kind": "string",
+                  "nullable": false,
+                  "items": null,
+                  "fields": []
+                },
+                "required": true,
+                "default": null
+              }
+            ]
+          },
+          "condition": null,
+          "body": null,
+          "otherwise": null,
+          "branches": [],
+          "items": null,
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4,
+          "group": null
+        },
+        {
+          "id": "open_search_page",
+          "objective": "Open the Amazon.fr search results page for the encoded query and capture rendered HTML for later extraction. Use Amazon.fr only.",
+          "kind": "operation",
+          "dependsOn": [
+            "build_search_url"
+          ],
+          "operation": "cap_490d9e16075cbdca5954ec27",
+          "inputs": [
+            {
+              "name": "url",
+              "value": {
+                "kind": "field",
+                "text": null,
+                "number": null,
+                "boolean": null,
+                "source": null,
+                "port": "url",
+                "members": [],
+                "items": [
+                  {
+                    "kind": "output",
+                    "text": null,
+                    "number": null,
+                    "boolean": null,
+                    "source": "build_search_url",
+                    "port": null,
+                    "members": [],
+                    "items": [],
+                    "predicate": null
+                  }
+                ],
+                "predicate": null
+              }
+            },
+            {
+              "name": "format",
+              "value": {
+                "kind": "string",
+                "text": "html",
+                "number": null,
+                "boolean": null,
+                "source": null,
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            },
+            {
+              "name": "waitUntil",
+              "value": {
+                "kind": "string",
+                "text": "domcontentloaded",
+                "number": null,
+                "boolean": null,
+                "source": null,
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            },
+            {
+              "name": "maxCharacters",
+              "value": {
+                "kind": "number",
+                "text": null,
+                "number": 80000,
+                "boolean": null,
+                "source": null,
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            }
+          ],
+          "outputs": [],
+          "condition": null,
+          "body": null,
+          "otherwise": null,
+          "branches": [],
+          "items": null,
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4,
+          "group": null
+        },
+        {
+          "id": "extract_search_page_controls",
+          "objective": "From the rendered Amazon.fr search page HTML, extract only fields needed before interaction: whether a CAPTCHA/blocker is visible and, if present, the CSS selector of an observed cookie/consent accept button. Do not infer product data here.",
+          "kind": "transform",
+          "mode": "extract",
+          "dependsOn": [
+            "open_search_page"
+          ],
+          "operation": null,
+          "inputs": [
+            {
+              "name": "searchPageHtml",
+              "value": {
+                "kind": "output",
+                "text": null,
+                "number": null,
+                "boolean": null,
+                "source": "open_search_page",
+                "port": "content",
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            }
+          ],
+          "outputs": [],
+          "resultType": {
+            "kind": "object",
+            "nullable": false,
+            "items": null,
+            "fields": [
+              {
+                "name": "captchaDetected",
+                "type": {
+                  "kind": "boolean",
+                  "nullable": false,
+                  "items": null,
+                  "fields": []
+                },
+                "required": true,
+                "default": null
+              },
+              {
+                "name": "consentAcceptSelector",
+                "type": {
+                  "kind": "string",
+                  "nullable": true,
+                  "items": null,
+                  "fields": []
+                },
+                "required": true,
+                "default": null
+              }
+            ]
+          },
+          "condition": null,
+          "body": null,
+          "otherwise": null,
+          "branches": [],
+          "items": null,
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4,
+          "group": null
+        },
+        {
+          "id": "accept_cookie_if_observed",
+          "objective": "If an observed Amazon.fr cookie/consent accept control exists, click it once; otherwise do nothing. This is limited to an observed consent control and does not grant any other authority.",
+          "kind": "conditional",
+          "dependsOn": [
+            "extract_search_page_controls"
+          ],
+          "operation": null,
+          "inputs": [],
+          "outputs": [],
+          "condition": {
+            "kind": "predicate",
+            "text": null,
+            "number": null,
+            "boolean": null,
+            "source": null,
+            "port": null,
+            "members": [],
+            "items": [
+              {
+                "kind": "field",
+                "text": null,
+                "number": null,
+                "boolean": null,
+                "source": null,
+                "port": "consentAcceptSelector",
+                "members": [],
+                "items": [
+                  {
+                    "kind": "output",
+                    "text": null,
+                    "number": null,
+                    "boolean": null,
+                    "source": "extract_search_page_controls",
+                    "port": null,
+                    "members": [],
+                    "items": [],
+                    "predicate": null
+                  }
+                ],
+                "predicate": null
+              },
+              {
+                "kind": "null",
+                "text": null,
+                "number": null,
+                "boolean": null,
+                "source": null,
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            ],
+            "predicate": "not_equal"
+          },
+          "body": {
+            "tasks": [
+              {
+                "id": "click_observed_consent",
+                "objective": "Click the observed cookie/consent accept control so product search results can be read.",
+                "kind": "operation",
+                "dependsOn": [],
+                "operation": "cap_dd05fbf36e155a64318f3588",
+                "inputs": [
+                  {
+                    "name": "selector",
+                    "value": {
+                      "kind": "field",
+                      "text": null,
+                      "number": null,
+                      "boolean": null,
+                      "source": null,
+                      "port": "consentAcceptSelector",
+                      "members": [],
+                      "items": [
+                        {
+                          "kind": "output",
+                          "text": null,
+                          "number": null,
+                          "boolean": null,
+                          "source": "extract_search_page_controls",
+                          "port": null,
+                          "members": [],
+                          "items": [],
+                          "predicate": null
+                        }
+                      ],
+                      "predicate": null
+                    }
+                  },
+                  {
+                    "name": "waitUntil",
+                    "value": {
+                      "kind": "string",
+                      "text": "domcontentloaded",
+                      "number": null,
+                      "boolean": null,
+                      "source": null,
+                      "port": null,
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  },
+                  {
+                    "name": "timeoutMs",
+                    "value": {
+                      "kind": "number",
+                      "text": null,
+                      "number": 10000,
+                      "boolean": null,
+                      "source": null,
+                      "port": null,
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  }
+                ],
+                "outputs": [],
+                "condition": null,
+                "body": null,
+                "otherwise": null,
+                "branches": [],
+                "items": null,
+                "parallel": false,
+                "maxItems": 100,
+                "maxConcurrency": 4,
+                "group": null
+              }
+            ],
+            "outputs": [],
+            "always": []
+          },
+          "otherwise": {
+            "tasks": [],
+            "outputs": [],
+            "always": []
+          },
+          "branches": [],
+          "items": null,
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4,
+          "group": null
+        },
+        {
+          "id": "read_search_results_after_consent",
+          "objective": "Read the current Amazon.fr search page after any consent handling. Capture enough HTML to extract the first observed product-result links and explicit blockers such as CAPTCHA.",
+          "kind": "operation",
+          "dependsOn": [
+            "accept_cookie_if_observed"
+          ],
+          "operation": "cap_490d9e16075cbdca5954ec27",
+          "inputs": [
+            {
+              "name": "format",
+              "value": {
+                "kind": "string",
+                "text": "html",
+                "number": null,
+                "boolean": null,
+                "source": null,
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            },
+            {
+              "name": "selector",
+              "value": {
+                "kind": "string",
+                "text": "body",
+                "number": null,
+                "boolean": null,
+                "source": null,
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            },
+            {
+              "name": "maxCharacters",
+              "value": {
+                "kind": "number",
+                "text": null,
+                "number": 100000,
+                "boolean": null,
+                "source": null,
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            }
+          ],
+          "outputs": [],
+          "condition": null,
+          "body": null,
+          "otherwise": null,
+          "branches": [],
+          "items": null,
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4,
+          "group": null
+        },
+        {
+          "id": "extract_first_product_links",
+          "objective": "Extract, in page order, at most the first 10 observed Amazon.fr product result links from the search results HTML. Also preserve whether the search page shows CAPTCHA/blocking or no observed product links. Return only fields needed for visiting product pages.",
+          "kind": "transform",
+          "mode": "extract",
+          "dependsOn": [
+            "read_search_results_after_consent"
+          ],
+          "operation": null,
+          "inputs": [
+            {
+              "name": "searchResultsHtml",
+              "value": {
+                "kind": "output",
+                "text": null,
+                "number": null,
+                "boolean": null,
+                "source": "read_search_results_after_consent",
+                "port": "content",
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            },
+            {
+              "name": "searchResultsUrl",
+              "value": {
+                "kind": "output",
+                "text": null,
+                "number": null,
+                "boolean": null,
+                "source": "read_search_results_after_consent",
+                "port": "url",
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            }
+          ],
+          "outputs": [],
+          "resultType": {
+            "kind": "object",
+            "nullable": false,
+            "items": null,
+            "fields": [
+              {
+                "name": "captchaDetected",
+                "type": {
+                  "kind": "boolean",
+                  "nullable": false,
+                  "items": null,
+                  "fields": []
+                },
+                "required": true,
+                "default": null
+              },
+              {
+                "name": "resultStatus",
+                "type": {
+                  "kind": "string",
+                  "nullable": false,
+                  "items": null,
+                  "fields": []
+                },
+                "required": true,
+                "default": null
+              },
+              {
+                "name": "productLinks",
+                "type": {
+                  "kind": "array",
+                  "nullable": false,
+                  "items": {
+                    "kind": "object",
+                    "nullable": false,
+                    "items": null,
+                    "fields": [
+                      {
+                        "name": "index",
+                        "type": {
+                          "kind": "integer",
+                          "nullable": false,
+                          "items": null,
+                          "fields": []
+                        },
+                        "required": true,
+                        "default": null
+                      },
+                      {
+                        "name": "url",
+                        "type": {
+                          "kind": "string",
+                          "nullable": false,
+                          "items": null,
+                          "fields": []
+                        },
+                        "required": true,
+                        "default": null
+                      },
+                      {
+                        "name": "nameHint",
+                        "type": {
+                          "kind": "string",
+                          "nullable": true,
+                          "items": null,
+                          "fields": []
+                        },
+                        "required": true,
+                        "default": null
+                      }
+                    ]
+                  },
+                  "fields": []
+                },
+                "required": true,
+                "default": null
+              }
+            ]
+          },
+          "condition": null,
+          "body": null,
+          "otherwise": null,
+          "branches": [],
+          "items": null,
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4,
+          "group": null
+        },
+        {
+          "id": "visit_product_pages",
+          "objective": "For each of the at most 10 extracted Amazon.fr product links, visit the product page and extract per-item details. Preserve order and keep CAPTCHA or absent fields explicit.",
+          "kind": "foreach",
+          "dependsOn": [
+            "extract_first_product_links"
+          ],
+          "operation": null,
+          "inputs": [],
+          "outputs": [],
+          "condition": null,
+          "body": {
+            "tasks": [
+              {
+                "id": "open_product_page",
+                "objective": "Open this product page from the observed search result link and capture rendered HTML for detail extraction.",
+                "kind": "operation",
+                "dependsOn": [],
+                "operation": "cap_490d9e16075cbdca5954ec27",
+                "inputs": [
+                  {
+                    "name": "url",
+                    "value": {
+                      "kind": "field",
+                      "text": null,
+                      "number": null,
+                      "boolean": null,
+                      "source": null,
+                      "port": "url",
+                      "members": [],
+                      "items": [
+                        {
+                          "kind": "item",
+                          "text": null,
+                          "number": null,
+                          "boolean": null,
+                          "source": null,
+                          "port": null,
+                          "members": [],
+                          "items": [],
+                          "predicate": null
+                        }
+                      ],
+                      "predicate": null
+                    }
+                  },
+                  {
+                    "name": "format",
+                    "value": {
+                      "kind": "string",
+                      "text": "html",
+                      "number": null,
+                      "boolean": null,
+                      "source": null,
+                      "port": null,
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  },
+                  {
+                    "name": "waitUntil",
+                    "value": {
+                      "kind": "string",
+                      "text": "domcontentloaded",
+                      "number": null,
+                      "boolean": null,
+                      "source": null,
+                      "port": null,
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  },
+                  {
+                    "name": "maxCharacters",
+                    "value": {
+                      "kind": "number",
+                      "text": null,
+                      "number": 100000,
+                      "boolean": null,
+                      "source": null,
+                      "port": null,
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  }
+                ],
+                "outputs": [],
+                "condition": null,
+                "body": null,
+                "otherwise": null,
+                "branches": [],
+                "items": null,
+                "parallel": false,
+                "maxItems": 100,
+                "maxConcurrency": 4,
+                "group": null
+              },
+              {
+                "id": "read_product_title_region",
+                "objective": "Read the current product page title region, if present, as text. Empty or absent content remains explicit and is not invented.",
+                "kind": "operation",
+                "dependsOn": [
+                  "open_product_page"
+                ],
+                "operation": "cap_490d9e16075cbdca5954ec27",
+                "inputs": [
+                  {
+                    "name": "format",
+                    "value": {
+                      "kind": "string",
+                      "text": "text",
+                      "number": null,
+                      "boolean": null,
+                      "source": null,
+                      "port": null,
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  },
+                  {
+                    "name": "selector",
+                    "value": {
+                      "kind": "string",
+                      "text": "#productTitle",
+                      "number": null,
+                      "boolean": null,
+                      "source": null,
+                      "port": null,
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  },
+                  {
+                    "name": "maxCharacters",
+                    "value": {
+                      "kind": "number",
+                      "text": null,
+                      "number": 5000,
+                      "boolean": null,
+                      "source": null,
+                      "port": null,
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  }
+                ],
+                "outputs": [],
+                "condition": null,
+                "body": null,
+                "otherwise": null,
+                "branches": [],
+                "items": null,
+                "parallel": false,
+                "maxItems": 100,
+                "maxConcurrency": 4,
+                "group": null
+              },
+              {
+                "id": "read_product_price_region",
+                "objective": "Read observed price regions on the current product page, if present, as text. Empty or absent price remains explicit and is not invented.",
+                "kind": "operation",
+                "dependsOn": [
+                  "open_product_page"
+                ],
+                "operation": "cap_490d9e16075cbdca5954ec27",
+                "inputs": [
+                  {
+                    "name": "format",
+                    "value": {
+                      "kind": "string",
+                      "text": "text",
+                      "number": null,
+                      "boolean": null,
+                      "source": null,
+                      "port": null,
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  },
+                  {
+                    "name": "selector",
+                    "value": {
+                      "kind": "string",
+                      "text": "#corePrice_feature_div, #corePriceDisplay_desktop_feature_div, .a-price",
+                      "number": null,
+                      "boolean": null,
+                      "source": null,
+                      "port": null,
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  },
+                  {
+                    "name": "maxCharacters",
+                    "value": {
+                      "kind": "number",
+                      "text": null,
+                      "number": 10000,
+                      "boolean": null,
+                      "source": null,
+                      "port": null,
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  }
+                ],
+                "outputs": [],
+                "condition": null,
+                "body": null,
+                "otherwise": null,
+                "branches": [],
+                "items": null,
+                "parallel": false,
+                "maxItems": 100,
+                "maxConcurrency": 4,
+                "group": null
+              },
+              {
+                "id": "read_product_description_region",
+                "objective": "Read observed product description/bullets regions on the current product page, if present, as text. Empty or absent description remains explicit and is not invented.",
+                "kind": "operation",
+                "dependsOn": [
+                  "open_product_page"
+                ],
+                "operation": "cap_490d9e16075cbdca5954ec27",
+                "inputs": [
+                  {
+                    "name": "format",
+                    "value": {
+                      "kind": "string",
+                      "text": "text",
+                      "number": null,
+                      "boolean": null,
+                      "source": null,
+                      "port": null,
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  },
+                  {
+                    "name": "selector",
+                    "value": {
+                      "kind": "string",
+                      "text": "#feature-bullets, #productDescription, #aplus",
+                      "number": null,
+                      "boolean": null,
+                      "source": null,
+                      "port": null,
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  },
+                  {
+                    "name": "maxCharacters",
+                    "value": {
+                      "kind": "number",
+                      "text": null,
+                      "number": 30000,
+                      "boolean": null,
+                      "source": null,
+                      "port": null,
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  }
+                ],
+                "outputs": [],
+                "condition": null,
+                "body": null,
+                "otherwise": null,
+                "branches": [],
+                "items": null,
+                "parallel": false,
+                "maxItems": 100,
+                "maxConcurrency": 4,
+                "group": null
+              },
+              {
+                "id": "extract_product_detail",
+                "objective": "For this product visit, produce one product record with name, description, price, and status. Use the specific title/price/description reads first, fall back only to fields explicitly present in the product page HTML, and mark CAPTCHA or missing fields in status instead of inventing values.",
+                "kind": "transform",
+                "mode": "interpret",
+                "dependsOn": [
+                  "read_product_title_region",
+                  "read_product_price_region",
+                  "read_product_description_region"
+                ],
+                "operation": null,
+                "inputs": [
+                  {
+                    "name": "searchResultItem",
+                    "value": {
+                      "kind": "item",
+                      "text": null,
+                      "number": null,
+                      "boolean": null,
+                      "source": null,
+                      "port": null,
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  },
+                  {
+                    "name": "productPageHtml",
+                    "value": {
+                      "kind": "output",
+                      "text": null,
+                      "number": null,
+                      "boolean": null,
+                      "source": "open_product_page",
+                      "port": "content",
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  },
+                  {
+                    "name": "productPageUrl",
+                    "value": {
+                      "kind": "output",
+                      "text": null,
+                      "number": null,
+                      "boolean": null,
+                      "source": "open_product_page",
+                      "port": "url",
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  },
+                  {
+                    "name": "titleText",
+                    "value": {
+                      "kind": "output",
+                      "text": null,
+                      "number": null,
+                      "boolean": null,
+                      "source": "read_product_title_region",
+                      "port": "content",
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  },
+                  {
+                    "name": "priceText",
+                    "value": {
+                      "kind": "output",
+                      "text": null,
+                      "number": null,
+                      "boolean": null,
+                      "source": "read_product_price_region",
+                      "port": "content",
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  },
+                  {
+                    "name": "descriptionText",
+                    "value": {
+                      "kind": "output",
+                      "text": null,
+                      "number": null,
+                      "boolean": null,
+                      "source": "read_product_description_region",
+                      "port": "content",
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  }
+                ],
+                "outputs": [],
+                "resultType": {
+                  "kind": "object",
+                  "nullable": false,
+                  "items": null,
+                  "fields": [
+                    {
+                      "name": "name",
+                      "type": {
+                        "kind": "string",
+                        "nullable": true,
+                        "items": null,
+                        "fields": []
+                      },
+                      "required": true,
+                      "default": null
+                    },
+                    {
+                      "name": "description",
+                      "type": {
+                        "kind": "string",
+                        "nullable": true,
+                        "items": null,
+                        "fields": []
+                      },
+                      "required": true,
+                      "default": null
+                    },
+                    {
+                      "name": "price",
+                      "type": {
+                        "kind": "string",
+                        "nullable": true,
+                        "items": null,
+                        "fields": []
+                      },
+                      "required": true,
+                      "default": null
+                    },
+                    {
+                      "name": "status",
+                      "type": {
+                        "kind": "string",
+                        "nullable": false,
+                        "items": null,
+                        "fields": []
+                      },
+                      "required": true,
+                      "default": null
+                    }
+                  ]
+                },
+                "condition": null,
+                "body": null,
+                "otherwise": null,
+                "branches": [],
+                "items": null,
+                "parallel": false,
+                "maxItems": 100,
+                "maxConcurrency": 4,
+                "group": null
+              }
+            ],
+            "outputs": [
+              {
+                "name": "product",
+                "value": {
+                  "kind": "output",
+                  "text": null,
+                  "number": null,
+                  "boolean": null,
+                  "source": "extract_product_detail",
+                  "port": null,
+                  "members": [],
+                  "items": [],
+                  "predicate": null
+                }
+              }
+            ],
+            "always": []
+          },
+          "otherwise": null,
+          "branches": [],
+          "items": {
+            "kind": "field",
+            "text": null,
+            "number": null,
+            "boolean": null,
+            "source": null,
+            "port": "productLinks",
+            "members": [],
+            "items": [
+              {
+                "kind": "output",
+                "text": null,
+                "number": null,
+                "boolean": null,
+                "source": "extract_first_product_links",
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            ],
+            "predicate": null
+          },
+          "parallel": false,
+          "maxItems": 10,
+          "maxConcurrency": 1,
+          "group": null
+        },
+        {
+          "id": "assemble_products_and_tsv",
+          "objective": "Combine the per-product visit results with search-page blocker information. If CAPTCHA blocked the search or no product links were observed, create an explicit status record. Generate TSV rows for an .xlsx workbook with columns name, description, price, status, normalizing embedded tabs/newlines and leaving absent data explicit rather than invented.",
+          "kind": "transform",
+          "mode": "interpret",
+          "dependsOn": [
+            "visit_product_pages"
+          ],
+          "operation": null,
+          "inputs": [
+            {
+              "name": "searchExtraction",
+              "value": {
+                "kind": "output",
+                "text": null,
+                "number": null,
+                "boolean": null,
+                "source": "extract_first_product_links",
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            },
+            {
+              "name": "visitedProducts",
+              "value": {
+                "kind": "output",
+                "text": null,
+                "number": null,
+                "boolean": null,
+                "source": "visit_product_pages",
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            }
+          ],
+          "outputs": [],
+          "resultType": {
+            "kind": "object",
+            "nullable": false,
+            "items": null,
+            "fields": [
+              {
+                "name": "products",
+                "type": {
+                  "kind": "array",
+                  "nullable": false,
+                  "items": {
+                    "kind": "object",
+                    "nullable": false,
+                    "items": null,
+                    "fields": [
+                      {
+                        "name": "name",
+                        "type": {
+                          "kind": "string",
+                          "nullable": true,
+                          "items": null,
+                          "fields": []
+                        },
+                        "required": true,
+                        "default": null
+                      },
+                      {
+                        "name": "description",
+                        "type": {
+                          "kind": "string",
+                          "nullable": true,
+                          "items": null,
+                          "fields": []
+                        },
+                        "required": true,
+                        "default": null
+                      },
+                      {
+                        "name": "price",
+                        "type": {
+                          "kind": "string",
+                          "nullable": true,
+                          "items": null,
+                          "fields": []
+                        },
+                        "required": true,
+                        "default": null
+                      },
+                      {
+                        "name": "status",
+                        "type": {
+                          "kind": "string",
+                          "nullable": false,
+                          "items": null,
+                          "fields": []
+                        },
+                        "required": true,
+                        "default": null
+                      }
+                    ]
+                  },
+                  "fields": []
+                },
+                "required": true,
+                "default": null
+              },
+              {
+                "name": "tsv",
+                "type": {
+                  "kind": "string",
+                  "nullable": false,
+                  "items": null,
+                  "fields": []
+                },
+                "required": true,
+                "default": null
+              }
+            ]
+          },
+          "condition": null,
+          "body": null,
+          "otherwise": null,
+          "branches": [],
+          "items": null,
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4,
+          "group": null
+        },
+        {
+          "id": "write_products_xlsx",
+          "objective": "Save the extracted Amazon.fr product details to the required Excel workbook path as tab-separated rows converted to .xlsx by the document writer.",
+          "kind": "operation",
+          "dependsOn": [
+            "assemble_products_and_tsv"
+          ],
+          "operation": "cap_37c513d225bb1b870053c5d3",
+          "inputs": [
+            {
+              "name": "filePath",
+              "value": {
+                "kind": "string",
+                "text": "workflows/schema-portability-20261002/compactbindings20261006b-amazon-1/products.xlsx",
+                "number": null,
+                "boolean": null,
+                "source": null,
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            },
+            {
+              "name": "content",
+              "value": {
+                "kind": "field",
+                "text": null,
+                "number": null,
+                "boolean": null,
+                "source": null,
+                "port": "tsv",
+                "members": [],
+                "items": [
+                  {
+                    "kind": "output",
+                    "text": null,
+                    "number": null,
+                    "boolean": null,
+                    "source": "assemble_products_and_tsv",
+                    "port": null,
+                    "members": [],
+                    "items": [],
+                    "predicate": null
+                  }
+                ],
+                "predicate": null
+              }
+            },
+            {
+              "name": "append",
+              "value": {
+                "kind": "boolean",
+                "text": null,
+                "number": null,
+                "boolean": false,
+                "source": null,
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            },
+            {
+              "name": "encoding",
+              "value": {
+                "kind": "string",
+                "text": "utf-8",
+                "number": null,
+                "boolean": null,
+                "source": null,
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            }
+          ],
+          "outputs": [],
+          "condition": null,
+          "body": null,
+          "otherwise": null,
+          "branches": [],
+          "items": null,
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4,
+          "group": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "xlsxPath",
+          "value": {
+            "kind": "output",
+            "text": null,
+            "number": null,
+            "boolean": null,
+            "source": "write_products_xlsx",
+            "port": "filePath",
+            "members": [],
+            "items": [],
+            "predicate": null
+          }
+        },
+        {
+          "name": "products",
+          "value": {
+            "kind": "field",
+            "text": null,
+            "number": null,
+            "boolean": null,
+            "source": null,
+            "port": "products",
+            "members": [],
+            "items": [
+              {
+                "kind": "output",
+                "text": null,
+                "number": null,
+                "boolean": null,
+                "source": "assemble_products_and_tsv",
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            ],
+            "predicate": null
+          }
+        }
+      ],
+      "always": [
+        {
+          "id": "close_browser_always",
+          "objective": "Close the browser page and context even if any previous search, extraction, or write step fails.",
+          "kind": "operation",
+          "dependsOn": [],
+          "operation": "cap_bdb7ba9ab04b18783883fa86",
+          "inputs": [],
+          "outputs": [],
+          "condition": null,
+          "body": null,
+          "otherwise": null,
+          "branches": [],
+          "items": null,
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4,
+          "group": null
+        }
+      ]
+    },
+    "groups": [],
+    "choices": []
+  },
+  "failure": null,
+  "execution": null,
+  "oracle": null,
+  "events": [],
+  "observed_commands": null,
+  "verified_checks": null,
+  "evidence_note": "YAML is retained beside this file. Full issued requests, contracts and revision sessions remain in the encrypted campaign; public revision history omits duplicate session payloads."
+}

@@ -1,0 +1,12 @@
+{
+  "kind": "revise",
+  "expectedRevision": 5,
+  "artifactHash": null,
+  "preserveRequirements": true,
+  "editablePaths": [
+    "/tasks/extract_product_row/resultType",
+    "/tasks/finalize_rows/outputs/rows",
+    "/tasks/open_product_page/requires"
+  ],
+  "text": "Correct only the three explicitly selected fields. Preserve the entire accepted interface and all unrelated operations, objectives, bindings, scopes, choices, budgets and cleanup.\n\nThe compiler already accepts the retained TaskPlan, but /outputs/rows fails the accepted maxItems:10 contract because flatten conservatively returns an unbounded array. A read-only compile of these exact two binding changes preserves the row item contract and produces maxItems:10 without inference or new operators:\n1. In extract_product_row.resultType, keep the outer object and its required member named rows. Replace ONLY rows.type (currently an array with minItems=maxItems=1) with its existing non-null object items type. This yields exactly one row object per actual visited product. Preserve required nom, description, prix, status; the first three remain nullable strings, status remains a non-null string. Do not change the accepted public rows array.\n2. Replace finalize_rows.outputs.rows.value (currently flatten of output(scrape_products,rows)) with its existing single operand: {kind:\"output\",source:\"scrape_products\",port:\"rows\"}, with all unrelated optional fields absent/null/empty according to the issued schema. The loop already bounds and collects at most ten row objects; no second flatten or inference is needed.\n3. Set open_product_page.requires to the typed predicate not_equal(field(item,\"href\"), null). The current-page read behavior of a null URL must not silently substitute for visiting the selected product. This is an explicit local runtime precondition, not a new permission or inferred condition proof.\n\nReturn only the authorized typed patch. No new tasks, broad plan rewrite, invented values, widened constraints, requirement edits, truncation or new mechanisms."
+}

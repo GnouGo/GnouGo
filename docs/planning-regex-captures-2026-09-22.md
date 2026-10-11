@@ -1,5 +1,7 @@
 # Workflow Designer: regex capture typing
 
+> Historical evidence: executor names below describe the implementation at collection time. See [current .NET primitive migration](flow-runtime-primitives.md); retained measurements and recordings are unchanged.
+
 Tested implementation: `9142625f70770a04e97ff044ab5f03bcd6cb6f3a` on `feat/semantic-grounded-planner`.
 
 Designer session `7d5fb82aed7d42239e8ffb7ae12e91b4`, trace `2b3877048d6d528d16ba8ed4c399a488`, stopped with `GROUNDED_CONTRACT_INVALID` after seven calls and two replans. Its final calculation called `.replace()` on regex captures that the checker treated as opaque. A later `value.validate` could not establish types inside that earlier calculation. The replan allowance was exhausted; the eight-call allowance was not. This failure is separate from the saved-history compatibility exception.

@@ -23,6 +23,15 @@ public sealed class RoutingLLMClientAdapter : ILLMClient, ILLMCapabilityResolver
         return Task.FromResult(_inner.ResolveDeclaredCapabilities(provider, model)?.SupportsStructuredOutput);
     }
 
+    public Task<int?> InputTokenAllowanceAsync(string? provider, string model, int outputTokens, CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        var metadata = _inner.ResolveDeclaredMetadata(provider, model);
+        return Task.FromResult(metadata?.MaxInputTokens is > 0 && metadata.ContextWindowTokens is > 0 &&
+            metadata.MaxOutputTokens >= outputTokens && outputTokens > 0
+            ? (int?)Math.Max(0, Math.Min(metadata.MaxInputTokens.Value, metadata.ContextWindowTokens.Value - outputTokens)) : null);
+    }
+
     public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string model, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();

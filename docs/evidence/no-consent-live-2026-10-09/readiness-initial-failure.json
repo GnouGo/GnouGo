@@ -1,0 +1,8 @@
+{
+  "initial_readiness": "failed",
+  "cause": "Harness --workspace pointed to repository rather than configured document workspace; MCP write succeeded at its authorized destination. No permission or policy changed.",
+  "paid_calls": 0,
+  "verified_completion": true,
+  "probe_sha256": "38c2e2d4201821f5a2bb4f298d9dafae9febd8bf0cba55b8a3eca9368b8fa35a",
+  "disposable_probe_cleaned": true
+}

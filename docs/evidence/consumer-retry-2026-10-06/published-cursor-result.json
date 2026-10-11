@@ -1,0 +1,11 @@
+{
+  "passed": true,
+  "transport": "published MCP stdio",
+  "pages": 15,
+  "records": 60,
+  "equivalent_formats": true,
+  "manifest_cap_reported": true,
+  "bounds_and_stale_cursors_rejected": true,
+  "cleanup_verified": true,
+  "model_calls": 0
+}

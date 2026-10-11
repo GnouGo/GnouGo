@@ -46,12 +46,39 @@ public sealed class WorkflowInvocation
     public string? ParentInvocationId { get; set; }
     public string Id { get; set; } = "";
     public string StepType { get; set; } = "";
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Description { get; set; }
     public StepRecovery Recovery { get; set; }
     public bool IsFinalization { get; set; }
     public string Status { get; set; } = "prepared";
     public JsonNode? ResolvedInput { get; set; }
-    public JsonObject DataBefore { get; set; } = new();
-    public JsonObject? DataAfter { get; set; }
+    private JsonObject? _before = new(), _after;
+    private Func<JsonObject?>? _readBefore, _readAfter;
+    public JsonObject DataBefore
+    {
+        get { if (_readBefore is { } read) { _before = read(); _readBefore = null; } return _before!; }
+        set { _before = value; _readBefore = null; }
+    }
+    public JsonObject? DataAfter
+    {
+        get { if (_readAfter is { } read) { _after = read(); _readAfter = null; } return _after; }
+        set { _after = value; _readAfter = null; }
+    }
+
+    /// <summary>Store-owned immutable snapshot backing. Public access materializes a detached, editable value.</summary>
+    public void DeferSnapshot(bool after, Func<JsonObject?> read)
+    {
+        ArgumentNullException.ThrowIfNull(read);
+        if (after) { _after = null; _readAfter = read; }
+        else { _before = null; _readBefore = read; }
+    }
+
+    /// <summary>Inspect an already materialized snapshot without invoking its store-backed reader.</summary>
+    public bool TryGetMaterializedSnapshot(bool after, out JsonObject? value)
+    {
+        value = after ? _after : _before;
+        return (after ? _readAfter : _readBefore) is null;
+    }
     public JsonNode? Output { get; set; }
     public JsonNode? Observation { get; set; }
     public bool ExternalCompletionObserved { get; set; }
@@ -84,6 +111,27 @@ public interface IWorkflowRunLease : IAsyncDisposable
     WorkflowRun Run { get; }
     /// <summary>Atomically persists a new revision; merges cancellation requested while the owner was active.</summary>
     Task SaveAsync(CancellationToken ct = default);
+    /// <summary>Persists run metadata/events and the specified changed invocations. Stores without incremental persistence retain full-save semantics.</summary>
+    Task SaveAsync(IReadOnlyCollection<string> changedInvocationIds, CancellationToken ct = default) => SaveAsync(ct);
+    /// <summary>Freeze execution state before dispatch or receipt commit. Custom stores retain clone semantics.</summary>
+    Task CaptureSnapshotAsync(WorkflowInvocation invocation, JsonObject data, bool after, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        if (after) invocation.DataAfter = (JsonObject)data.DeepClone();
+        else invocation.DataBefore = (JsonObject)data.DeepClone();
+        return Task.CompletedTask;
+    }
+    /// <summary>Restore the selected frozen state; completed invocations fall back to their before-state when absent.</summary>
+    Task RestoreSnapshotAsync(WorkflowInvocation invocation, JsonObject data, bool after, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        var source = after ? invocation.DataAfter ?? invocation.DataBefore : invocation.DataBefore;
+        // Clone before clearing: callers may explicitly supply the public snapshot itself.
+        var copy = (JsonObject)source.DeepClone();
+        data.Clear();
+        foreach (var key in copy.Select(p => p.Key).ToArray()) { var value = copy[key]; copy.Remove(key); data.Add(key, value); }
+        return Task.CompletedTask;
+    }
     Task<bool> IsCancellationRequestedAsync(CancellationToken ct = default);
 }
 

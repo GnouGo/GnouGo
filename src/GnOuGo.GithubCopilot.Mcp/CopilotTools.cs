@@ -11,7 +11,7 @@ using ModelContextProtocol.Server;
 namespace GnOuGo.GithubCopilot.Mcp;
 
 [McpServerToolType]
-internal sealed class CopilotTools
+internal sealed partial class CopilotTools
 {
     private const string ReviewProjectRootDescription = "Required workspace-relative path to an existing project root outside the reserved .GnOuGo internal directory. Pass a documented workspace.directory artifact output or a caller-provided existing directory; a URL, repository identifier, absolute path, or invented path is invalid.";
     private const string ReviewFilesJsonDescription = "Required JSON array of per-file exact comparison patches returned by a documented revision-comparison capability. A raw aggregate diff or invented file list is invalid.";
@@ -22,6 +22,7 @@ internal sealed class CopilotTools
     private const string CompleteReviewMetadataJson = """{"artifacts":{"version":1,"consumes":[{"kind":"workspace.directory","pointer":"/projectRoot","required":true},{"kind":"revision.comparison.files","pointer":"/filesJson","required":true}]},"composition":{"version":1,"kind":"complete_operation","encapsulates":[{"kind":"tool","method":"copilot_review_start"},{"kind":"tool","method":"copilot_review_analyze_batch"},{"kind":"tool","method":"copilot_review_finish"}]}}""";
 
     private readonly CopilotSessionManager _sessions;
+    private readonly CopilotLogicalOperations _logical;
     private readonly CopilotMcpConfiguration _configuration;
     private readonly CopilotReviewManager _reviews;
     private readonly CodePolicy _policy;
@@ -40,9 +41,11 @@ internal sealed class CopilotTools
         McpCopilotHumanInputProvider humanInput,
         CodeProgressReporter progress,
         ICopilotPermissionGrantStore permissionGrants,
-        CopilotMcpConfiguration configuration)
+        CopilotMcpConfiguration configuration,
+        CopilotLogicalOperations logical)
     {
         _sessions = sessions;
+        _logical = logical;
         _configuration = configuration;
         _reviews = reviews;
         _policy = policy;
@@ -139,18 +142,18 @@ internal sealed class CopilotTools
         [Description("Permission mode. interactive is the safe choice for work that may need user approval; auto_approve_allowlist permits only explicitly listed read-only operations; deny rejects tool execution; approve_all is host-policy gated and generated workflows must not select it unless unattended execution was explicitly requested and availability is established.")] CopilotManagedPermissionModeInput permissionMode = CopilotManagedPermissionModeInput.Interactive,
         [Description("Optional configured KeyVault-backed LLM provider name, for example OpenAi.")] string? provider = null,
         [Description("Optional model override. Provider configuration may select its own model.")] string? model = null,
-        [Description("Optional JSON array of read-only tool/path allowlist entries for auto_approve_allowlist.")] string? permissionAllowlistJson = null,
-        [Description("Optional JSON array of available Copilot tool names.")] string? availableToolsJson = null,
-        [Description("Optional JSON array of excluded Copilot tool names.")] string? excludedToolsJson = null,
-        [Description("Optional JSON array of skill directories inside the project.")] string? skillDirectoriesJson = null,
-        [Description("Optional JSON array of disabled skill names.")] string? disabledSkillsJson = null,
+        [Description("Optional array of nonblank read-only tool/path allowlist entries for auto_approve_allowlist.")] IReadOnlyList<string>? permissionAllowlist = null,
+        [Description("Optional array of nonblank available Copilot tool names.")] IReadOnlyList<string>? availableTools = null,
+        [Description("Optional array of nonblank excluded Copilot tool names.")] IReadOnlyList<string>? excludedTools = null,
+        [Description("Optional array of nonblank skill directories inside the project.")] IReadOnlyList<string>? skillDirectories = null,
+        [Description("Optional array of nonblank disabled skill names.")] IReadOnlyList<string>? disabledSkills = null,
         [Description("Enable stable Copilot configuration discovery for MCP servers, skills, and repository instructions. Keep false for isolated reviews.")] bool enableConfigDiscovery = false,
         [Description("Enable response streaming events. Raw reasoning is never returned.")] bool streaming = false,
         CancellationToken cancellationToken = default)
         => WithServerAsync(requestContext, () => _sessions.CreateAsync(
             new CopilotSessionCreateRequest(
                 BuildContext(),
-                BuildConfiguration(projectRoot, provider, model, permissionAllowlistJson, availableToolsJson, excludedToolsJson, skillDirectoriesJson, disabledSkillsJson, enableConfigDiscovery),
+                BuildConfiguration(projectRoot, provider, model, permissionAllowlist, availableTools, excludedTools, skillDirectories, disabledSkills, enableConfigDiscovery),
                 CopilotSessionKind.Managed,
                 ToCorePermissionMode(permissionMode),
                 streaming),
@@ -201,19 +204,19 @@ internal sealed class CopilotTools
         RequestContext<CallToolRequestParams> requestContext,
         [Description(ReviewProjectRootDescription)] string projectRoot,
         string prompt,
-        [Description("Non-interactive permission mode. deny is the safe default; auto_approve_allowlist permits only entries supplied in permissionAllowlistJson; approve_all is host-policy gated and must not be selected by generated workflows without explicit unattended intent and established availability.")] CopilotOneShotPermissionModeInput permissionMode = CopilotOneShotPermissionModeInput.Deny,
+        [Description("Non-interactive permission mode. deny is the safe default; auto_approve_allowlist permits only entries supplied in permissionAllowlist; approve_all is host-policy gated and must not be selected by generated workflows without explicit unattended intent and established availability.")] CopilotOneShotPermissionModeInput permissionMode = CopilotOneShotPermissionModeInput.Deny,
         string? provider = null,
         string? model = null,
-        [Description("Optional JSON array of read-only tool/path allowlist entries used only with auto_approve_allowlist.")] string? permissionAllowlistJson = null,
+        [Description("Optional array of nonblank read-only tool/path allowlist entries used only with auto_approve_allowlist.")] IReadOnlyList<string>? permissionAllowlist = null,
         [Description(CopilotAttachmentContract.Description)] IReadOnlyList<CopilotAttachmentInput>? attachments = null,
         CancellationToken cancellationToken = default)
         => WithServerAsync(requestContext, () => OneShotWithProgressAsync(
-            new CopilotSessionCreateRequest(BuildContext(), BuildConfiguration(projectRoot, provider, model, permissionAllowlistJson), CopilotSessionKind.OneShot, ToCorePermissionMode(permissionMode)),
+            new CopilotSessionCreateRequest(BuildContext(), BuildConfiguration(projectRoot, provider, model, permissionAllowlist), CopilotSessionKind.OneShot, ToCorePermissionMode(permissionMode)),
             prompt,
             CopilotAttachmentContract.ToCore(attachments),
             cancellationToken));
 
-    [McpServerTool(Name = "copilot_interactive_one_shot", UseStructuredContent = true, OutputSchemaType = typeof(CopilotSendResult)), Description("Runs one turn in an ephemeral managed Copilot session with interactive MCP permission and elicitation callbacks, then permanently deletes the session after success, failure, or cancellation. Use this capability for work that may install dependencies, run commands, edit files, or otherwise require user permission.")]
+    [McpServerTool(Name = "copilot_interactive_one_shot", UseStructuredContent = true, OutputSchemaType = typeof(CopilotSendResult)), Description("Runs one bounded logical MCP task with interactive permission and elicitation callbacks. A verified terminal result is saved before the final SDK session is deleted. Verified failure returns an MCP error with partial evidence; unknown external completion retains the session for reconciliation and prohibits automatic replay. Use this capability for work that may install dependencies, run commands, edit files, or otherwise require user permission.")]
     [McpMeta(McpArtifactContractMetadata.MetaPropertyName, JsonValue = CompleteOneShotMetadataJson)]
     public Task<CopilotSendResult> InteractiveOneShotAsync(
         RequestContext<CallToolRequestParams> requestContext,
@@ -221,13 +224,14 @@ internal sealed class CopilotTools
         string prompt,
         string? provider = null,
         string? model = null,
-        [Description("Optional JSON array of read-only tool/path allowlist entries retained in the ephemeral managed session configuration.")] string? permissionAllowlistJson = null,
+        [Description("Optional array of nonblank read-only tool/path allowlist entries retained in the ephemeral managed session configuration.")] IReadOnlyList<string>? permissionAllowlist = null,
         [Description(CopilotAttachmentContract.Description)] IReadOnlyList<CopilotAttachmentInput>? attachments = null,
         CancellationToken cancellationToken = default)
         => WithServerAsync(requestContext, cancellationToken, () => InteractiveOneShotWithProgressAsync(
+            requestContext.Server,
             new CopilotSessionCreateRequest(
                 BuildContext(),
-                BuildConfiguration(projectRoot, provider, model, permissionAllowlistJson),
+                BuildConfiguration(projectRoot, provider, model, permissionAllowlist),
                 CopilotSessionKind.Managed,
                 CopilotPermissionMode.Interactive),
             prompt,
@@ -356,20 +360,20 @@ internal sealed class CopilotTools
         string? projectRoot,
         string? provider = null,
         string? model = null,
-        string? permissionAllowlistJson = null,
-        string? availableToolsJson = null,
-        string? excludedToolsJson = null,
-        string? skillDirectoriesJson = null,
-        string? disabledSkillsJson = null,
+        IReadOnlyList<string>? permissionAllowlist = null,
+        IReadOnlyList<string>? availableTools = null,
+        IReadOnlyList<string>? excludedTools = null,
+        IReadOnlyList<string>? skillDirectories = null,
+        IReadOnlyList<string>? disabledSkills = null,
         bool enableConfigDiscovery = false)
     {
         return _configuration.Build(projectRoot, provider, model) with
         {
-            PermissionAllowlist = ParseStringList(permissionAllowlistJson),
-            AvailableTools = ParseStringList(availableToolsJson),
-            ExcludedTools = ParseStringList(excludedToolsJson),
-            SkillDirectories = ParseStringList(skillDirectoriesJson),
-            DisabledSkills = ParseStringList(disabledSkillsJson),
+            PermissionAllowlist = CopilotListContract.Normalize(permissionAllowlist, nameof(permissionAllowlist)),
+            AvailableTools = CopilotListContract.Normalize(availableTools, nameof(availableTools)),
+            ExcludedTools = CopilotListContract.Normalize(excludedTools, nameof(excludedTools)),
+            SkillDirectories = CopilotListContract.Normalize(skillDirectories, nameof(skillDirectories)),
+            DisabledSkills = CopilotListContract.Normalize(disabledSkills, nameof(disabledSkills)),
             EnableConfigDiscovery = enableConfigDiscovery
         };
     }
@@ -408,17 +412,14 @@ internal sealed class CopilotTools
     }
 
     private async Task<CopilotSendResult> InteractiveOneShotWithProgressAsync(
+        McpServer server,
         CopilotSessionCreateRequest request,
         string prompt,
         IReadOnlyList<CopilotAttachment>? attachments,
         CancellationToken cancellationToken)
     {
-        var result = await _sessions.InteractiveOneShotAsync(
-            request,
-            prompt,
-            attachments,
-            cancellationToken,
-            CaptureProgress("copilot_interactive_one_shot"), _configuration.RequestHeaders());
+        var result = await _logical.RunAsync(request, prompt, attachments, server,
+            CaptureProgress("copilot_interactive_one_shot"), _configuration.RequestHeaders(), cancellationToken);
         return result;
     }
 
@@ -481,11 +482,6 @@ internal sealed class CopilotTools
             CopilotOneShotPermissionModeInput.ApproveAll => CopilotPermissionMode.ApproveAll,
             _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, "Unsupported one-shot Copilot permission mode.")
         };
-
-    private static IReadOnlyList<string>? ParseStringList(string? json)
-        => string.IsNullOrWhiteSpace(json)
-            ? null
-            : JsonSerializer.Deserialize(json, CodeMcpJsonContext.Default.ListString)?.Where(static value => !string.IsNullOrWhiteSpace(value)).Distinct(StringComparer.Ordinal).ToArray();
 
     private static IReadOnlyList<ReviewFilePatch> ParseReviewFiles(string json)
         => JsonSerializer.Deserialize(json, CopilotCoreJsonContext.Default.IReadOnlyListReviewFilePatch)

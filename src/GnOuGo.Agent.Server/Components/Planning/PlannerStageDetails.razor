@@ -1,7 +1,44 @@
 @using GnOuGo.Flow.Core.Planning
+@if (Session.Requirements is { } requirements)
+{
+    var accepted = System.Text.Json.JsonSerializer.Deserialize(requirements, PlanningJsonContext.Default.PlanningRequirements)!;
+    <details open><summary>Business requirements</summary>
+        <p>Review these requirements against the business tasks. Compilation does not prove business completeness or execution success.</p>
+        <p>Check each requested action inside its iteration and condition. Partial observations with continuation are incomplete. Missing or uncertain coverage requires revision.</p>
+        <ul>@foreach (var outcome in accepted.Outcomes)
+        {
+            <li>@if (ReviewEnabled)
+                {
+                    <label><input type="checkbox" checked="@_reviewed.Contains(outcome.Id)" disabled="@Busy"
+                        @onchange="e => ReviewAsync(outcome.Id, e.Value is true)" /> @outcome.Description</label>
+                }
+                else { @outcome.Description }
+            </li>
+        }</ul>
+        @if (accepted.Inputs is { } inputs)
+        { <p>Caller inputs: @(inputs.Count == 0 ? "none" : string.Join(", ", inputs.Select(i => i.Name)))</p> }
+        @if (accepted.Outputs is { } outputs)
+        { <p>Business outputs: @(outputs.Count == 0 ? "none" : string.Join(", ", outputs.Select(o => o.Name + ": " + o.Type.Kind + (o.Type.Nullable ? " (nullable)" : ""))))</p> }
+    </details>
+}
 @if (Session.Graph is { } graph)
 {
     <PlannerAgentStages Graph="@(System.Text.Json.JsonSerializer.Deserialize(graph, PlanningJsonContext.Default.PlanningGraph)!)" />
+}
+@if (Session.ValidationResults.Any(r => r.Id.StartsWith("operation:", StringComparison.Ordinal)))
+{
+    <details><summary>Resolved operations</summary><ul>
+        @foreach (var operation in Session.ValidationResults.Where(r => r.Id.StartsWith("operation:", StringComparison.Ordinal)))
+        { <li>@operation.Description</li> }
+    </ul></details>
+}
+@if (Session.ValidationResults.Any(r => r.Id.StartsWith("outcome:", StringComparison.Ordinal)))
+{
+    <details open><summary>Historical outcome checks</summary>
+        <p>These retained checks used the previous planning contract. They do not establish execution success.</p>
+        <ul>@foreach (var outcome in Session.ValidationResults.Where(r => r.Id.StartsWith("outcome:", StringComparison.Ordinal)))
+        { <li>@outcome.Description</li> }</ul>
+    </details>
 }
 @if (Session.RevisionScope.Count > 0)
 {
@@ -44,4 +81,20 @@
 @code {
     [Parameter, EditorRequired] public PlanningSessionDto Session { get; set; } = default!;
     [Parameter] public bool ShowFindings { get; set; } = true;
+    [Parameter] public bool ReviewEnabled { get; set; }
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public EventCallback<IReadOnlyList<string>> Reviewed { get; set; }
+    private readonly HashSet<string> _reviewed = new(StringComparer.Ordinal);
+    private (string, long, string?) _key;
+    protected override void OnParametersSet()
+    {
+        var key = (Session.Id, Session.Revision, Session.ArtifactHash);
+        if (_key != key) { _reviewed.Clear(); _key = key; }
+    }
+    private Task ReviewAsync(string id, bool selected)
+    {
+        if (Busy || !ReviewEnabled) return Task.CompletedTask;
+        if (selected) _reviewed.Add(id); else _reviewed.Remove(id);
+        return Reviewed.InvokeAsync(_reviewed.ToArray());
+    }
 }

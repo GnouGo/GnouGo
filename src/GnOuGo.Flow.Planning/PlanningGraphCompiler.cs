@@ -12,7 +12,7 @@ using YamlDotNet.RepresentationModel;
 
 namespace GnOuGo.Flow.Planning;
 
-/// <summary>Deterministic lowering. Planning metadata has no route into executable YAML.</summary>
+/// <summary>Deterministic lowering. Descriptions are literal metadata, never executable bindings.</summary>
 public sealed partial class PlanningGraphCompiler
 {
     public static string Fingerprint(string text) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(text)));
@@ -24,6 +24,9 @@ public sealed partial class PlanningGraphCompiler
                 "n_" + Fingerprint(n.Key)[..16], n.CapabilityId!))).ToArray();
 
     public string Compile(PlanningGraph graph, PlanningCatalog catalog, string name = "generated")
+        => Compile(graph, catalog, name, false);
+
+    internal string Compile(PlanningGraph graph, PlanningCatalog catalog, string name, bool descriptions, bool fuseBindings = false, bool consumerBindings = false, bool directProjections = false, bool nativeMappings = false, bool readableMappings = false)
     {
         ArgumentNullException.ThrowIfNull(graph);
         var diagnostics = PlanningExecutableValidation.Validate(graph, catalog);
@@ -43,7 +46,8 @@ public sealed partial class PlanningGraphCompiler
             EnsureUnique(allNodes.Select(n => n.Key), "node");
             if (allNodes.Length > 300) throw new InvalidOperationException("A workflow exceeds the 300-node planning limit.");
             var nodeIds = allNodes.ToDictionary(n => n.Key, n => "n_" + Fingerprint(n.Key)[..16], StringComparer.Ordinal);
-            var scope = new LoweringScope(catalog, nodeIds, workflowIds, workflow.Inputs.Select(p => p.Name).ToHashSet(StringComparer.Ordinal), allNodes.ToDictionary(n => n.Key, n => n.Type, StringComparer.Ordinal), LoopVariables(allNodes), allNodes.ToDictionary(n => n.Key, StringComparer.Ordinal));
+            var scope = new LoweringScope(catalog, nodeIds, workflowIds, workflow.Inputs.Select(p => p.Name).ToHashSet(StringComparer.Ordinal), allNodes.ToDictionary(n => n.Key, n => n.Type, StringComparer.Ordinal), LoopVariables(allNodes), allNodes.ToDictionary(n => n.Key, StringComparer.Ordinal), graph.Workflows.ToDictionary(w => w.Key, StringComparer.Ordinal), descriptions) { DirectProjections = directProjections, NativeMappings = nativeMappings, ReadableMappings = readableMappings };
+            if (fuseBindings) PrepareFusion(workflow, scope, consumerBindings);
             var lowered = new JsonObject();
             if (workflow.Inputs.Count > 0)
             {
@@ -75,6 +79,21 @@ public sealed partial class PlanningGraphCompiler
             }
             workflows[workflowIds[workflow.Key]] = lowered;
         }
+        // Copy-loop lowering removes calls. Do not publish their unused adapters.
+        var reachable = new HashSet<string>(StringComparer.Ordinal) { "main" };
+        void Visit(JsonNode? value)
+        {
+            if (value is JsonObject obj)
+            {
+                if (obj["type"]?.ToString() == "workflow.call" && obj["input"]?["ref"]?["name"]?.ToString() is { } name && reachable.Add(name))
+                    Visit(workflows[name]);
+                foreach (var child in obj) Visit(child.Value);
+            }
+            else if (value is JsonArray array) foreach (var child in array) Visit(child);
+        }
+        Visit(workflows["main"]);
+        if (graph.Workflows.Any(w => Enumerate(w.Steps).Any(n => n.InternalRole is "typed_projection" or "typed_index_projection")))
+            foreach (var unused in workflows.Select(p => p.Key).Where(n => !reachable.Contains(n)).ToArray()) workflows.Remove(unused);
         root["workflows"] = workflows;
         var main = (JsonObject)workflows["main"]!;
         root["skill"] = new JsonObject
@@ -101,52 +120,40 @@ public sealed partial class PlanningGraphCompiler
         }
     }
 
-    internal static IReadOnlyList<PlanningDiagnostic> ValidateValues(PlanningGraph graph, PlanningCatalog catalog)
-    {
-        var errors = new List<PlanningDiagnostic>();
-        if (graph.Workflows.Select(w => w.Key).Distinct(StringComparer.Ordinal).Count() != graph.Workflows.Count) return errors;
-        var workflowIds = graph.Workflows.ToDictionary(w => w.Key, w => w.Key == graph.Entrypoint ? "main" : "w_" + Fingerprint(w.Key)[..16], StringComparer.Ordinal);
-        for (var wi = 0; wi < graph.Workflows.Count; wi++)
-        {
-            var workflow = graph.Workflows[wi]; var path = "/workflows/" + wi;
-            var nodes = Enumerate(workflow.Steps.Concat(workflow.Finally)).ToArray();
-            if (nodes.Select(n => n.Key).Distinct(StringComparer.Ordinal).Count() != nodes.Length) continue;
-            var scope = new LoweringScope(catalog, nodes.ToDictionary(n => n.Key, n => "n_" + Fingerprint(n.Key)[..16], StringComparer.Ordinal), workflowIds,
-                workflow.Inputs.Select(p => p.Name).ToHashSet(StringComparer.Ordinal), nodes.ToDictionary(n => n.Key, n => n.Type, StringComparer.Ordinal), LoopVariables(nodes), nodes.ToDictionary(n => n.Key, StringComparer.Ordinal));
-            void Check(PlanningValue? value, string location, bool expression = false, bool literal = false)
-            {
-                if (value is null) return;
-                try { if (expression) ToExpression(value, scope); else LowerValue(value, scope, !literal); }
-                catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or FormatException or GnOuGo.Flow.Core.Expressions.ExpressionParseException or Acornima.ParseErrorException)
-                { errors.Add(new("VALUE_LOWERING_INVALID", location + (ex.Data[ValueLocationKey] as string ?? ""), ex.Message, ValidationStage: "conversion")); }
-            }
-            foreach (var (node, location) in PlanningGraphValidation.Located(workflow.Steps, path + "/steps").Concat(PlanningGraphValidation.Located(workflow.Finally, path + "/finally")))
-            {
-                Check(node.Input, location + "/input"); Check(node.Expr, location + "/expr", true); Check(node.If, location + "/if", true);
-                for (var i = 0; i < node.Cases.Count; i++) Check(node.Cases[i].When, location + "/cases/" + i + "/when", true);
-                for (var i = 0; i < node.OnError.Count; i++) { Check(node.OnError[i].If, location + "/onError/" + i + "/if", true); Check(node.OnError[i].SetOutput, location + "/onError/" + i + "/setOutput"); }
-            }
-            for (var i = 0; i < workflow.Inputs.Count; i++) Check(workflow.Inputs[i].Default, path + "/inputs/" + i + "/default", literal: true);
-            for (var i = 0; i < workflow.Outputs.Count; i++) Check(workflow.Outputs[i].Value, path + "/outputs/" + i + "/value", true);
-        }
-        return errors;
-    }
-
     private static JsonArray LowerSteps(List<PlanningNode> nodes, LoweringScope scope)
-        => new(nodes.Select(n => (JsonNode)LowerNode(n, scope)).ToArray());
+    {
+        var result = new JsonArray();
+        foreach (var node in nodes.Where(n => n.InternalRole?.StartsWith("inline:", StringComparison.Ordinal) != true))
+        {
+            if (scope.ConsumerBindings.Values.Any(b => b.Group.Contains(node.Key, StringComparer.Ordinal))) continue;
+            if (scope.FusedOutputs.TryGetValue(node.Key, out var group))
+            {
+                if (group[0] == node.Key) result.Add((JsonNode)ReadableStep(LowerFused(group, scope), scope));
+            }
+            else result.Add((JsonNode)ReadableStep(LowerNode(node, scope), scope));
+        }
+        return result;
+    }
 
     private static JsonObject LowerNode(PlanningNode node, LoweringScope scope)
     {
         if (!scope.Catalog.AllowedStepTypes.Contains(node.Type, StringComparer.Ordinal))
             throw new InvalidOperationException("A node uses a step type outside the locked policy.");
+        if (node.InternalRole is "typed_projection" or "typed_index_projection" && node.Type is "loop.sequential" or "loop.parallel")
+        {
+            var projection = LowerCopyLoop(node, scope);
+            if (scope.Descriptions && !string.IsNullOrWhiteSpace(node.Purpose)) projection["description"] = node.Purpose;
+            return projection;
+        }
         // A reviewed empty grouping is an explicit no-op. Runtime sequences require
         // children; a native empty set preserves the same empty-object result and id.
         var emptySequence = node.Type == "sequence" && node.Steps.Count == 0 && node.CapabilityId is null && node.Input.Kind == "object" && node.Input.Members.Count == 0;
         if (emptySequence && !scope.Catalog.AllowedStepTypes.Contains("set", StringComparer.Ordinal))
             throw new InvalidOperationException("An empty grouping requires the native set step in the locked policy.");
         var result = new JsonObject { ["id"] = scope.NodeIds[node.Key], ["type"] = emptySequence ? "set" : node.Type };
-        var loweredInput = LowerValue(node.Input, scope);
-        var computedSetInput = node.Type == "set" && node.Input.Kind is "expression" or "input" or "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection";
+        if (scope.Descriptions && !string.IsNullOrWhiteSpace(node.Purpose)) result["description"] = node.Purpose;
+        var loweredInput = node.InternalRole == "typed_assembly" ? JsonValue.Create(LowerAssembly(node, scope)) : LowerValue(node.Input, scope);
+        var computedSetInput = node.InternalRole == "typed_assembly" || node.Type == "set" && node.Input.Kind is "expression" or "input" or "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection" or "projection";
         var input = loweredInput as JsonObject ?? (computedSetInput ? new JsonObject() : throw new InvalidOperationException("A step input must be a typed object."));
         if (node.CapabilityId is { Length: > 0 })
         {
@@ -178,9 +185,23 @@ public sealed partial class PlanningGraphCompiler
         if (emptySequence) result["input"] = new JsonObject();
         else if (computedSetInput) result["input"] = loweredInput;
         else if (input.Count > 0 || node.Type == "set") result["input"] = input;
+        if (node.InternalRole == "isolated_collection" && node.Type == "loop.sequential")
+        {
+            // The collection lives in captured inputs. A counted loop avoids
+            // embedding that entire collection in each legacy steps snapshot.
+            input.Remove("items");
+            input["times"] = "${" + ToExpression(PlanningGraphValidation.Member(node.Input, "items")!, scope)[2..^1] + ".length}";
+        }
         if (node.If is not null) result["if"] = ToExpression(node.If, scope);
         if (node.Expr is not null) result["expr"] = ToExpression(node.Expr, scope);
-        if (node.OutputSchema is not null && node.Type is "set" or "value.validate" or "array.project" or "value.project") result["output_schema"] = ToJsonSchema(node.OutputSchema, scope.Catalog);
+        if (node.Input.Kind == "dynamic_mapping")
+        {
+            if (node.Type != "set" || !scope.Catalog.AllowedStepTypes.Contains("mapping.dynamic"))
+                throw new InvalidOperationException("The host does not permit bounded runtime extraction for this binding.");
+            result["type"] = "mapping.dynamic";
+            result["input"] = LowerValue(new() { Kind = "object", Members = node.Input.Members }, scope);
+        }
+        if (node.OutputSchema is not null && node.Type is "set" or "mapping.dynamic") result["output_schema"] = ToJsonSchema(node.OutputSchema, scope.Catalog);
         if (node.StructuredOutput is { } structured)
         {
             if (input.ContainsKey("structured_output")) throw new InvalidOperationException("Use one typed structured-output declaration, not a second input schema.");
@@ -217,6 +238,12 @@ public sealed partial class PlanningGraphCompiler
             return (JsonNode)branch;
         }).ToArray());
         if (node.Default.Count > 0 || node.Type == "switch") result["default"] = LowerSteps(node.Default, scope);
+        if (scope.ConsumerBindings.TryGetValue(node.Key, out var consumerBinding))
+        {
+            var inputOwner = result["input"]!;
+            foreach (var part in consumerBinding.Path.SkipLast(1)) inputOwner = inputOwner[part]!;
+            inputOwner[consumerBinding.Path[^1]] = LowerFused(consumerBinding.Group, scope, consumerBinding.Value)["input"]!.DeepClone();
+        }
         return result;
     }
 
@@ -266,10 +293,11 @@ public sealed partial class PlanningGraphCompiler
                 return JsonValue.Create(value.Text ?? "");
             case "number":
                 var number = value.Number ?? throw new InvalidOperationException("Missing number.");
-                if (number is > 9007199254740991m or < -9007199254740991m)
-                    throw new InvalidOperationException("A numeric literal exceeds Flow's exact numeric range. Represent identifiers requiring larger exact integers as strings.");
+                if (!double.IsFinite(number))
+                    throw new InvalidOperationException("A numeric literal must be a finite JavaScript Number.");
                 return JsonValue.Create(number);
             case "boolean": return JsonValue.Create(value.Boolean ?? throw new InvalidOperationException("Missing boolean."));
+            case "dynamic_mapping":
             case "object":
                 EnsureUnique(value.Members.Select(m => m.Name), "member");
                 var obj = new JsonObject();
@@ -284,7 +312,13 @@ public sealed partial class PlanningGraphCompiler
             case "workflow" when allowReferences:
                 if (value.Source is null || !scope.WorkflowIds.TryGetValue(value.Source, out var workflow)) throw new InvalidOperationException("Unknown workflow reference.");
                 return new JsonObject { ["kind"] = "local", ["name"] = workflow };
-            case "input" or "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection" or "present" or "expression" when allowReferences: return JsonValue.Create(ToExpression(value, scope));
+            case "projection" when allowReferences && PlanningGraphValidation.Member(value, "value") is { Kind: "json" or "predicate" or "arithmetic" or "flatten" or "present" } computed &&
+                PlanningGraphValidation.Member(value, "each")?.Boolean != true && PlanningGraphValidation.Member(value, "paths") is { Kind: "array", Items.Count: 1 } paths &&
+                paths.Items[0] is { Kind: "array", Items.Count: 0 }:
+                // Keep the envelope visible to final contract validation. The
+                // expression computes only its value; set checks the whole result.
+                return new JsonObject { ["value"] = LowerValue(computed, scope, allowReferences, depth + 1) };
+            case "input" or "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection" or "present" or "expression" or "predicate" or "arithmetic" or "json" or "flatten" or "lookup" or "projection" when allowReferences: return JsonValue.Create(ToExpression(value, scope));
             case "template" when allowReferences:
                 var template = value.Text ?? "";
                 EnsureUnique(value.Members.Select(m => m.Name), "template binding");
@@ -305,14 +339,79 @@ public sealed partial class PlanningGraphCompiler
     {
         string expression;
         if (value.ResultChannel is not null && value.Kind != "output") throw new InvalidOperationException("Only output references can select a result channel.");
-        if (value.Kind == "input")
+        if (value.Kind == "projection")
         {
+            var source = PlanningGraphValidation.Member(value, "value") ?? throw new InvalidOperationException("Projection needs a value.");
+            var paths = PlanningGraphValidation.Member(value, "paths") ?? throw new InvalidOperationException("Projection needs paths.");
+            var each = PlanningGraphValidation.Member(value, "each")?.Boolean == true;
+            var selections = PlanningGraphValidation.Literal(paths)!;
+            string sourceExpression;
+            if (each && source is { Kind: "output", Source: not null, Path.Count: 1 } && source.Path[0] == "results" &&
+                scope.NodeTypes[source.Source] is "loop.sequential" or "loop.parallel")
+            {
+                // Select declared exports using physical addresses before any
+                // whole-container key projection imports surrounding step results.
+                selections = new JsonArray(selections.AsArray().Select(p => (JsonNode)new JsonArray(
+                    PhysicalPath("sequence", p!.AsArray().Select(s => s!.GetValue<string>()).ToArray(), scope)
+                        .Select(s => (JsonNode?)JsonValue.Create(s)).ToArray())).ToArray());
+                sourceExpression = OutputAddress(source.Source, scope) + ".results";
+            }
+            else if (scope.DirectProjections && !each && source is { Kind: "output", Source: not null, ResultChannel: null or "default" } &&
+                scope.Nodes[source.Source] is { Type: "switch" or "sequence" or "parallel" or "loop.sequential" or "loop.parallel" } producer &&
+                selections.AsArray().All(p => ProjectResult(producer, source.Path.Concat(p!.AsArray().Select(s => s!.GetValue<string>())).ToArray(), "source", scope) == "source"))
+            {
+                // Select leaves before renaming the surrounding container. Keep
+                // first-present semantics and the same checked output envelope.
+                // A selected container needing logical keys stays on the old path.
+                selections = new JsonArray(selections.AsArray().Select(p => (JsonNode)new JsonArray(
+                    PhysicalPath(producer.Type, source.Path.Concat(p!.AsArray().Select(s => s!.GetValue<string>())).ToArray(), scope)
+                        .Select(s => (JsonNode?)JsonValue.Create(s)).ToArray())).ToArray());
+                sourceExpression = OutputAddress(source.Source, scope);
+            }
+            else sourceExpression = ExpressionBody(source);
+            var script = "({value:" + SelectExpression("source", selections, each, scope) + "})";
+            GnOuGo.Flow.Core.Scripting.JintSandbox.ValidateMapping(script, learned: false);
+            expression = "checkedMapping(" + ProgramLiteral(script, scope) + "," + sourceExpression + ")";
+        }
+        else if (value.Kind == "flatten")
+        {
+            var script = FlattenExpression("source");
+            GnOuGo.Flow.Core.Scripting.JintSandbox.ValidateMapping(script, learned: false);
+            expression = "checkedMapping(" + ProgramLiteral(script, scope) + "," + ExpressionBody(value.Items.Single()) + ")";
+        }
+        else if (value.Kind == "lookup")
+        {
+            var script = LookupExpression("source.records", "source.selected", value.Text!);
+            GnOuGo.Flow.Core.Scripting.JintSandbox.ValidateMapping(script, learned: false);
+            expression = "checkedMapping(" + ProgramLiteral(script, scope) + ",({records:" + ExpressionBody(value.Items[0]) + ",selected:" + ExpressionBody(value.Items[1]) + "}))";
+        }
+        else if (value.Kind == "arithmetic")
+        {
+            var op = PlanningValues.ArithmeticOperator(value.Text);
+            var unary = value.Text == "negate";
+            expression = "((a" + (unary ? "" : ",b") + ")=>{if(!Number.isFinite(a)" + (unary ? "" : "||!Number.isFinite(b)") +
+                ")throw new Error('Arithmetic operands must be finite numbers.');return (" + (unary ? "-a" : "a" + op + "b") + ");})(" +
+                string.Join(",", value.Items.Select(ExpressionBody)) + ")";
+        }
+        else if (value.Kind == "predicate")
+        {
+            var op = PlanningValues.PredicateOperator(value.Text);
+            expression = value.Text == "not" ? "!(" + ExpressionBody(value.Items[0]) + ")" :
+                "(" + ExpressionBody(value.Items[0]) + " " + op + " " + ExpressionBody(value.Items[1]) + ")";
+        }
+        else if (value.Kind == "json") expression = "json(" + ExpressionBody(value.Items.Single()) + ")";
+        else if (value.Kind == "input")
+        {
+            if (value.Source is null && value.Path.Count == 0) return "${data.inputs}";
             if (value.Source is null || !scope.Inputs.Contains(value.Source)) throw new InvalidOperationException("Unknown input reference.");
             expression = "data.inputs" + Segment(value.Source) + string.Concat(value.Path.Select(Segment));
         }
         else if (value.Kind is "loop_item" or "loop_index")
         {
             if (value.Source is null || !scope.NodeTypes.TryGetValue(value.Source, out var type) || type is not ("loop.sequential" or "loop.parallel")) throw new InvalidOperationException("Unknown loop binding producer.");
+            if (value.Kind == "loop_item" && scope.Nodes[value.Source].InternalRole == "isolated_collection" && type == "loop.sequential")
+                return "${" + ExpressionBody(PlanningGraphValidation.Member(scope.Nodes[value.Source].Input, "items")!) +
+                    "[data" + Segment(scope.LoopVariables[value.Source].Index) + "]" + string.Concat(value.Path.Select(Segment)) + "}";
             expression = "data" + Segment(value.Kind == "loop_index" ? scope.LoopVariables[value.Source].Index : scope.LoopVariables[value.Source].Item) + string.Concat(value.Path.Select(Segment));
         }
         else if (value.Kind == "loop_previous")
@@ -320,8 +419,10 @@ public sealed partial class PlanningGraphCompiler
             if (value.Source is null || !scope.NodeIds.TryGetValue(value.Source, out var loopId) || scope.NodeTypes[value.Source] != "loop.sequential")
                 throw new InvalidOperationException("Previous iteration results require a sequential loop.");
             var variable = GnOuGo.Flow.Core.Runtime.LoopIterationContract.PreviousResultVariable(loopId);
-            expression = "((previous) => previous == null ? null : previous" + ResultPath("sequence", value.Path, scope) + ")(data" + Segment(variable) + ")";
-            expression = ProjectChildren(scope.Nodes[value.Source].Steps, value.Path, expression, scope);
+            var previous = "m.scalar(source) ? source : " + ProjectChildren(scope.Nodes[value.Source].Steps, value.Path,
+                "source" + ResultPath("sequence", value.Path, scope), scope);
+            GnOuGo.Flow.Core.Scripting.JintSandbox.ValidateMapping(previous, learned: false);
+            expression = "checkedMapping(" + ProgramLiteral(previous, scope) + ",data" + Segment(variable) + ")";
         }
         else if (value.Kind == "artifact_collection")
         {
@@ -345,8 +446,10 @@ public sealed partial class PlanningGraphCompiler
                 throw new InvalidOperationException("This producer does not support the structured result channel.");
             if (value.ResultChannel == "envelope" && type != "mcp.call") throw new InvalidOperationException("This producer does not expose an MCP result envelope.");
             var envelope = value.ResultChannel == "envelope" ? "" : value.ResultChannel == "structured" ? ".json" : type switch { "workflow.call" => ".outputs", "mcp.call" => ".response", _ => "" };
-            expression = "data.steps." + node + envelope + ResultPath(type, value.Path, scope);
-            expression = ProjectResult(scope.Nodes[value.Source], value.Path, expression, scope);
+            expression = OutputAddress(value.Source, scope) + envelope + ResultPath(type, value.Path, scope);
+            var projection = ProjectResult(scope.Nodes[value.Source], value.Path, "source", scope);
+            GnOuGo.Flow.Core.Scripting.JintSandbox.ValidateMapping(projection, learned: false);
+            if (projection != "source") expression = "checkedMapping(" + ProgramLiteral(projection, scope) + "," + expression + ")";
         }
         else if (value.Kind == "template")
         {
@@ -406,13 +509,16 @@ public sealed partial class PlanningGraphCompiler
     }
 
     private static string ResultPath(string type, IReadOnlyList<string> path, LoweringScope scope)
+        => string.Concat(PhysicalPath(type, path, scope).Select(Segment));
+
+    private static IEnumerable<string> PhysicalPath(string type, IReadOnlyList<string> path, LoweringScope scope)
     {
-        if (path.Count == 0) return "";
+        if (path.Count == 0) return [];
         var childIndex = type is "switch" or "sequence" ? 0 :
             ((type is "loop.sequential" or "loop.parallel" && path[0] == "results") || (type == "parallel" && path[0] == "branches")) && path.Count >= 3 ? 2 : -1;
         if (childIndex >= 0 && scope.NodeIds.TryGetValue(path[childIndex], out var child))
-            return string.Concat(path.Take(childIndex).Select(Segment)) + Segment(child) + ResultPath(scope.NodeTypes[path[childIndex]], path.Skip(childIndex + 1).ToArray(), scope);
-        return string.Concat(path.Select(Segment));
+            return path.Take(childIndex).Append(child).Concat(PhysicalPath(scope.NodeTypes[path[childIndex]], path.Skip(childIndex + 1).ToArray(), scope));
+        return path;
     }
 
     // A whole container binding must have the same logical keys as its typed
@@ -462,11 +568,11 @@ public sealed partial class PlanningGraphCompiler
         foreach (var child in children.Reverse())
             body = "entry[0] === " + JsonValue.Create(scope.NodeIds[child.Key])!.ToJsonString() + " ? [" + JsonValue.Create(child.Key)!.ToJsonString() + "," +
                 ProjectResult(child, [], "entry[1]", scope) + "] : " + body;
-        return "((result) => result == null || typeof result !== 'object' || Array.isArray(result) ? result : Object.fromEntries(Object.entries(result).map(entry => " + body + ")))(" + expression + ")";
+        return "((result) => m.scalar(result) || typeof result !== 'object' || Array.isArray(result) ? result : Object.fromEntries(Object.entries(result).map(entry => " + body + ")))(" + expression + ")";
     }
 
     private static string ProjectMember(string expression, string name, Func<string, string> project)
-        => "((result) => result == null || typeof result !== 'object' || Array.isArray(result) ? result : Object.fromEntries(Object.entries(result).map(entry => entry[0] === " +
+        => "((result) => m.scalar(result) || typeof result !== 'object' || Array.isArray(result) ? result : Object.fromEntries(Object.entries(result).map(entry => entry[0] === " +
            JsonValue.Create(name)!.ToJsonString() + " ? [entry[0]," + project("entry[1]") + "] : entry)))(" + expression + ")";
 
     private static string ProjectArray(string expression, Func<string, string> project)
@@ -566,7 +672,16 @@ public sealed partial class PlanningGraphCompiler
 
     private static Dictionary<string, (string Item, string Index)> LoopVariables(IEnumerable<PlanningNode> nodes) => nodes.Where(n => n.Type is "loop.sequential" or "loop.parallel").ToDictionary(n => n.Key, n => (n.ItemVar ?? "item", n.IndexVar ?? "i"), StringComparer.Ordinal);
 
-    private sealed record LoweringScope(PlanningCatalog Catalog, Dictionary<string, string> NodeIds, Dictionary<string, string> WorkflowIds, HashSet<string> Inputs, Dictionary<string, string> NodeTypes, Dictionary<string, (string Item, string Index)> LoopVariables, Dictionary<string, PlanningNode> Nodes);
+    private sealed record LoweringScope(PlanningCatalog Catalog, Dictionary<string, string> NodeIds, Dictionary<string, string> WorkflowIds, HashSet<string> Inputs, Dictionary<string, string> NodeTypes, Dictionary<string, (string Item, string Index)> LoopVariables, Dictionary<string, PlanningNode> Nodes, Dictionary<string, PlanningWorkflow> Workflows, bool Descriptions)
+    {
+        internal bool DirectProjections { get; init; }
+        internal bool NativeMappings { get; init; }
+        internal bool ReadableMappings { get; init; }
+        internal Dictionary<string, string[]> FusedOutputs { get; init; } = new(StringComparer.Ordinal);
+        internal HashSet<string> FusedExports { get; init; } = new(StringComparer.Ordinal);
+        internal HashSet<string> LocalOutputs { get; init; } = new(StringComparer.Ordinal);
+        internal Dictionary<string, (string[] Group, string[] Path, PlanningValue Value)> ConsumerBindings { get; init; } = new(StringComparer.Ordinal);
+    }
     [GeneratedRegex(@"^[A-Za-z_][A-Za-z0-9_]*$", RegexOptions.CultureInvariant)]
     private static partial Regex Identifier();
     [GeneratedRegex(@"\{\{[^{}]+\}\}", RegexOptions.CultureInvariant)]

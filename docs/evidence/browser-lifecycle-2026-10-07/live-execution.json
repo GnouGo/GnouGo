@@ -1,0 +1,1039 @@
+{
+  "result": {
+    "status": "final_review",
+    "planning_ms": 469179,
+    "calls": 3,
+    "repairs": 0,
+    "discovery_reads": 2,
+    "review_revisions": 1,
+    "diagnostics": [],
+    "execution_success": false,
+    "execution_oracle": false,
+    "execution_status": "completed",
+    "accounting": {
+      "planning": {
+        "logical_calls": 3,
+        "physical_attempts": 4,
+        "known_input_tokens": 36732,
+        "known_output_tokens": 12421,
+        "known_cost_eur": 0.49364628627207385,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "execution": {
+        "logical_calls": 1,
+        "physical_attempts": 1,
+        "known_input_tokens": 122,
+        "known_output_tokens": 135,
+        "known_cost_eur": 0.004135238264264797,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "campaign": {
+        "calls": 817,
+        "session_calls": 0,
+        "known_input_tokens": 12245696,
+        "known_output_tokens": 1510196,
+        "known_cost_eur": 94.83374772390306,
+        "reserved_input_tokens": 192000,
+        "reserved_output_tokens": 65536,
+        "reserved_cost_eur": 2.606752783964365,
+        "cost_upper_bound_eur": 97.44050050786743,
+        "unknown_attempts": 2
+      }
+    },
+    "execution_ms": 20189,
+    "total_ms": 489368
+  },
+  "status": "approved",
+  "revision": 5,
+  "artifact_hash": "8213fa3b5db1d54acddc78d052d901b88bde08de0ece32523cf41b46df3ebfeb",
+  "execution": {
+    "success": false,
+    "outputs": null,
+    "error": {
+      "Code": "CONTRACT_UNSATISFIED",
+      "Type": "CONTRACT_UNSATISFIED",
+      "Message": "A required complete mapping example exceeds the safe request allowance. [workflow 'main', step 'n_3fe68cf1cbe7307d']",
+      "Retryable": false,
+      "Details": {
+        "source_index": 2,
+        "failed_workflow": "main",
+        "failed_step_id": "n_3fe68cf1cbe7307d",
+        "failed_step_type": "mapping.dynamic",
+        "execution_phase": "step"
+      }
+    }
+  },
+  "oracle": {
+    "passed": false,
+    "findings": [
+      "workflow_execution_failed",
+      "workbook_missing"
+    ]
+  },
+  "mapping_telemetry": [
+    {
+      "gnougo.mapping.source_items": 53,
+      "gnougo.mapping.cache_hit": false,
+      "gnougo.mapping.model_attempts": 1,
+      "gnougo.mapping.repairs": 0,
+      "step": "n_3fe68cf1cbe7307d",
+      "status": "Failed",
+      "duration_ms": 299.1787
+    }
+  ],
+  "runtime_llm_inputs": [
+    {
+      "invocation": "/workflow/main/step/n_65527e8331a079bf",
+      "status": "completed",
+      "observed_completion": true,
+      "estimated_prompt_tokens": 4209,
+      "model_calls": 0,
+      "inspection_only": true
+    }
+  ],
+  "events": [
+    {
+      "server": "GnOuGo.Browser.Mcp",
+      "tool": "browser_get_content",
+      "started": "2026-10-07T15:10:35.2553750+00:00",
+      "error": false,
+      "argument_names": [
+        "url",
+        "format",
+        "waitUntil",
+        "maxRecords",
+        "timeoutMs"
+      ],
+      "result_fields": [
+        "url",
+        "title",
+        "statusCode",
+        "selector",
+        "resolvedSelector",
+        "fallbackApplied",
+        "fallbackReason",
+        "format",
+        "content",
+        "truncated",
+        "maxCharacters",
+        "success",
+        "error_code",
+        "error_message",
+        "ok",
+        "observationSnapshot",
+        "acquisition"
+      ],
+      "result_metadata": {
+        "success": true,
+        "ok": true,
+        "error_code": null,
+        "error_message": null,
+        "truncated": false,
+        "format": "observation_complete",
+        "maxCharacters": 24000
+      },
+      "snapshot_metadata": {
+        "id": "cd00b772ec38444f8f6e6d15150d7a7a",
+        "recordCount": 1504,
+        "captureTruncated": false,
+        "manifestTruncated": false
+      },
+      "pages": [
+        {
+          "index": 0,
+          "record_count": 63,
+          "utf8_bytes_python_compact": 22213,
+          "characters_python_compact": 22126,
+          "max_record_field_lengths": {
+            "text": 928,
+            "selector": 110,
+            "group": 54,
+            "href": 405,
+            "reference": 42
+          },
+          "captureTruncated": false,
+          "has_next_cursor": false
+        },
+        {
+          "index": 1,
+          "record_count": 36,
+          "utf8_bytes_python_compact": 21970,
+          "characters_python_compact": 21936,
+          "max_record_field_lengths": {
+            "text": 227,
+            "selector": 201,
+            "group": 82,
+            "href": 2369,
+            "reference": 42
+          },
+          "captureTruncated": false,
+          "has_next_cursor": false
+        },
+        {
+          "index": 2,
+          "record_count": 9,
+          "utf8_bytes_python_compact": 21362,
+          "characters_python_compact": 21349,
+          "max_record_field_lengths": {
+            "text": 186,
+            "selector": 141,
+            "group": 54,
+            "href": 2220,
+            "reference": 43
+          },
+          "captureTruncated": false,
+          "has_next_cursor": false
+        },
+        {
+          "index": 3,
+          "record_count": 30,
+          "utf8_bytes_python_compact": 21221,
+          "characters_python_compact": 21181,
+          "max_record_field_lengths": {
+            "text": 177,
+            "selector": 313,
+            "group": 54,
+            "href": 2203,
+            "reference": 43
+          },
+          "captureTruncated": false,
+          "has_next_cursor": false
+        },
+        {
+          "index": 4,
+          "record_count": 24,
+          "utf8_bytes_python_compact": 20596,
+          "characters_python_compact": 20573,
+          "max_record_field_lengths": {
+            "text": 73,
+            "selector": 500,
+            "group": 269,
+            "href": 854,
+            "reference": 43
+          },
+          "captureTruncated": false,
+          "has_next_cursor": false
+        },
+        {
+          "index": 5,
+          "record_count": 18,
+          "utf8_bytes_python_compact": 20727,
+          "characters_python_compact": 20700,
+          "max_record_field_lengths": {
+            "text": 67,
+            "selector": 502,
+            "group": 269,
+            "href": 874,
+            "reference": 43
+          },
+          "captureTruncated": false,
+          "has_next_cursor": false
+        },
+        {
+          "index": 6,
+          "record_count": 19,
+          "utf8_bytes_python_compact": 20515,
+          "characters_python_compact": 20493,
+          "max_record_field_lengths": {
+            "text": 73,
+            "selector": 502,
+            "group": 269,
+            "href": 883,
+            "reference": 43
+          },
+          "captureTruncated": false,
+          "has_next_cursor": false
+        },
+        {
+          "index": 7,
+          "record_count": 24,
+          "utf8_bytes_python_compact": 20803,
+          "characters_python_compact": 20771,
+          "max_record_field_lengths": {
+            "text": 73,
+            "selector": 268,
+            "group": 269,
+            "href": 839,
+            "reference": 43
+          },
+          "captureTruncated": false,
+          "has_next_cursor": false
+        },
+        {
+          "index": 8,
+          "record_count": 29,
+          "utf8_bytes_python_compact": 21079,
+          "characters_python_compact": 21046,
+          "max_record_field_lengths": {
+            "text": 73,
+            "selector": 290,
+            "group": 37,
+            "href": 823,
+            "reference": 43
+          },
+          "captureTruncated": false,
+          "has_next_cursor": false
+        },
+        {
+          "index": 9,
+          "record_count": 27,
+          "utf8_bytes_python_compact": 20855,
+          "characters_python_compact": 20830,
+          "max_record_field_lengths": {
+            "text": 67,
+            "selector": 310,
+            "group": 19,
+            "href": 522,
+            "reference": 43
+          },
+          "captureTruncated": false,
+          "has_next_cursor": false
+        },
+        {
+          "index": 10,
+          "record_count": 30,
+          "utf8_bytes_python_compact": 20944,
+          "characters_python_compact": 20908,
+          "max_record_field_lengths": {
+            "text": 73,
+            "selector": 288,
+            "group": 19,
+            "href": 526,
+            "reference": 43
+          },
+          "captureTruncated": false,
+          "has_next_cursor": false
+        },
+        {
+          "index": 11,
+          "record_count": 27,
+          "utf8_bytes_python_compact": 21332,
+          "characters_python_compact": 21301,
+          "max_record_field_lengths": {
+            "text": 73,
+            "selector": 291,
+            "group": 19,
+            "href": 525,
+            "reference": 43
+          },
+          "captureTruncated": false,
+          "has_next_cursor": false
+        },
+        {
+          "index": 12,
+          "record_count": 28,
+          "utf8_bytes_python_compact": 21434,
+          "characters_python_compact": 21404,
+          "max_record_field_lengths": {
+            "text": 67,
+            "selector": 291,
+            "group": 19,
+            "href": 528,
+            "reference": 43
+          },
+          "captureTruncated": false,
+          "has_next_cursor": false
+        },
+        {
+          "index": 13,
+          "record_count": 25,
+          "utf8_bytes_python_compact": 20510,
+          "characters_python_compact": 20489,
+          "max_record_field_lengths": {
+            "text": 86,
+            "selector": 500,
+            "group": 270,
+            "href": 878,
+            "reference": 43
+          },
+          "captureTruncated": false,
+          "has_next_cursor": false
+        },
+        {
+          "index": 14,
+          "record_count": 16,
+          "utf8_bytes_python_compact": 19659,
+          "characters_python_compact": 19633,
+          "max_record_field_lengths": {
+            "text": 80,
+            "selector": 503,
+            "group": 270,
+            "href": 896,
+            "reference": 43
+          },
+          "captureTruncated": false,
+          "has_next_cursor": false
+        },
+        {
+          "index": 15,
+          "record_count": 16,
+          "utf8_bytes_python_compact": 20873,
+          "characters_python_compact": 20848,
+          "max_record_field_lengths": {
+            "text": 67,
+            "selector": 503,
+            "group": 270,
+            "href": 884,
+            "reference": 43
+          },
+          "captureTruncated": false,
+          "has_next_cursor": false
+        },
+        {
+          "index": 16,
+          "record_count": 17,
+          "utf8_bytes_python_compact": 20418,
+          "characters_python_compact": 20394,
+          "max_record_field_lengths": {
+            "text": 67,
+            "selector": 405,
+            "group": 270,
+            "href": 889,
+            "reference": 43
+          },
+          "captureTruncated": false,
+          "has_next_cursor": false
+        },
+        {
+          "index": 17,
+          "record_count": 20,
+          "utf8_bytes_python_compact": 20853,
+          "characters_python_compact": 20821,
+          "max_record_field_lengths": {
+            "text": 141,
+            "selector": 402,
+            "group": 270,
+            "href": 1547,
+            "reference": 43
+          },
+          "captureTruncated": false,
+          "has_next_cursor": false
+        },
+        {
+          "index": 18,
+          "record_count": 12,
+          "utf8_bytes_python_compact": 20318,
+          "characters_python_compact": 20274,
+          "max_record_field_lengths": {
+            "text": 267,
+            "selector": 245,
+            "group": 142,
+            "href": 1233,
+            "reference": 43
+          },
+          "captureTruncated": false,
+          "has_next_cursor": false
+        },
+        {
+          "index": 19,
+          "record_count": 20,
+          "utf8_bytes_python_compact": 21497,
+          "characters_python_compact": 21473,
+          "max_record_field_lengths": {
+            "text": 267,
+            "selector": 288,
+            "group": 142,
+            "href": 1235,
+            "reference": 43
+          },
+          "captureTruncated": false,
+          "has_next_cursor": false
+        },
+        {
+          "index": 20,
+          "record_count": 28,
+          "utf8_bytes_python_compact": 21461,
+          "characters_python_compact": 21429,
+          "max_record_field_lengths": {
+            "text": 73,
+            "selector": 313,
+            "group": 19,
+            "href": 529,
+            "reference": 43
+          },
+          "captureTruncated": false,
+          "has_next_cursor": false
+        },
+        {
+          "index": 21,
+          "record_count": 29,
+          "utf8_bytes_python_compact": 21251,
+          "characters_python_compact": 21199,
+          "max_record_field_lengths": {
+            "text": 103,
+            "selector": 336,
+            "group": 19,
+            "href": 821,
+            "reference": 43
+          },
+          "captureTruncated": false,
+          "has_next_cursor": false
+        },
+        {
+          "index": 22,
+          "record_count": 28,
+          "utf8_bytes_python_compact": 20774,
+          "characters_python_compact": 20746,
+          "max_record_field_lengths": {
+            "text": 63,
+            "selector": 336,
+            "group": 19,
+            "href": 808,
+            "reference": 43
+          },
+          "captureTruncated": false,
+          "has_next_cursor": false
+        },
+        {
+          "index": 23,
+          "record_count": 31,
+          "utf8_bytes_python_compact": 21535,
+          "characters_python_compact": 21496,
+          "max_record_field_lengths": {
+            "text": 76,
+            "selector": 313,
+            "group": 19,
+            "href": 525,
+            "reference": 43
+          },
+          "captureTruncated": false,
+          "has_next_cursor": false
+        },
+        {
+          "index": 24,
+          "record_count": 27,
+          "utf8_bytes_python_compact": 21256,
+          "characters_python_compact": 21231,
+          "max_record_field_lengths": {
+            "text": 67,
+            "selector": 291,
+            "group": 19,
+            "href": 523,
+            "reference": 43
+          },
+          "captureTruncated": false,
+          "has_next_cursor": false
+        },
+        {
+          "index": 25,
+          "record_count": 28,
+          "utf8_bytes_python_compact": 21299,
+          "characters_python_compact": 21267,
+          "max_record_field_lengths": {
+            "text": 73,
+            "selector": 291,
+            "group": 19,
+            "href": 523,
+            "reference": 43
+          },
+          "captureTruncated": false,
+          "has_next_cursor": false
+        },
+        {
+          "index": 26,
+          "record_count": 29,
+          "utf8_bytes_python_compact": 21194,
+          "characters_python_compact": 21162,
+          "max_record_field_lengths": {
+            "text": 76,
+            "selector": 313,
+            "group": 19,
+            "href": 526,
+            "reference": 43
+          },
+          "captureTruncated": false,
+          "has_next_cursor": false
+        },
+        {
+          "index": 27,
+          "record_count": 26,
+          "utf8_bytes_python_compact": 21044,
+          "characters_python_compact": 21027,
+          "max_record_field_lengths": {
+            "text": 67,
+            "selector": 291,
+            "group": 19,
+            "href": 526,
+            "reference": 43
+          },
+          "captureTruncated": false,
+          "has_next_cursor": false
+        },
+        {
+          "index": 28,
+          "record_count": 29,
+          "utf8_bytes_python_compact": 21122,
+          "characters_python_compact": 21090,
+          "max_record_field_lengths": {
+            "text": 73,
+            "selector": 291,
+            "group": 19,
+            "href": 529,
+            "reference": 43
+          },
+          "captureTruncated": false,
+          "has_next_cursor": false
+        },
+        {
+          "index": 29,
+          "record_count": 28,
+          "utf8_bytes_python_compact": 21349,
+          "characters_python_compact": 21305,
+          "max_record_field_lengths": {
+            "text": 73,
+            "selector": 310,
+            "group": 19,
+            "href": 780,
+            "reference": 43
+          },
+          "captureTruncated": false,
+          "has_next_cursor": false
+        },
+        {
+          "index": 30,
+          "record_count": 26,
+          "utf8_bytes_python_compact": 21323,
+          "characters_python_compact": 21285,
+          "max_record_field_lengths": {
+            "text": 73,
+            "selector": 294,
+            "group": 19,
+            "href": 800,
+            "reference": 43
+          },
+          "captureTruncated": false,
+          "has_next_cursor": false
+        },
+        {
+          "index": 31,
+          "record_count": 28,
+          "utf8_bytes_python_compact": 20780,
+          "characters_python_compact": 20748,
+          "max_record_field_lengths": {
+            "text": 73,
+            "selector": 291,
+            "group": 19,
+            "href": 526,
+            "reference": 43
+          },
+          "captureTruncated": false,
+          "has_next_cursor": false
+        },
+        {
+          "index": 32,
+          "record_count": 29,
+          "utf8_bytes_python_compact": 21244,
+          "characters_python_compact": 21210,
+          "max_record_field_lengths": {
+            "text": 73,
+            "selector": 313,
+            "group": 19,
+            "href": 529,
+            "reference": 43
+          },
+          "captureTruncated": false,
+          "has_next_cursor": false
+        },
+        {
+          "index": 33,
+          "record_count": 33,
+          "utf8_bytes_python_compact": 20695,
+          "characters_python_compact": 20646,
+          "max_record_field_lengths": {
+            "text": 76,
+            "selector": 313,
+            "group": 19,
+            "href": 524,
+            "reference": 43
+          },
+          "captureTruncated": false,
+          "has_next_cursor": false
+        },
+        {
+          "index": 34,
+          "record_count": 29,
+          "utf8_bytes_python_compact": 21096,
+          "characters_python_compact": 21066,
+          "max_record_field_lengths": {
+            "text": 67,
+            "selector": 291,
+            "group": 19,
+            "href": 524,
+            "reference": 43
+          },
+          "captureTruncated": false,
+          "has_next_cursor": false
+        },
+        {
+          "index": 35,
+          "record_count": 28,
+          "utf8_bytes_python_compact": 20754,
+          "characters_python_compact": 20724,
+          "max_record_field_lengths": {
+            "text": 67,
+            "selector": 310,
+            "group": 19,
+            "href": 523,
+            "reference": 43
+          },
+          "captureTruncated": false,
+          "has_next_cursor": false
+        },
+        {
+          "index": 36,
+          "record_count": 32,
+          "utf8_bytes_python_compact": 21182,
+          "characters_python_compact": 21137,
+          "max_record_field_lengths": {
+            "text": 67,
+            "selector": 288,
+            "group": 19,
+            "href": 525,
+            "reference": 43
+          },
+          "captureTruncated": false,
+          "has_next_cursor": false
+        },
+        {
+          "index": 37,
+          "record_count": 29,
+          "utf8_bytes_python_compact": 21023,
+          "characters_python_compact": 20993,
+          "max_record_field_lengths": {
+            "text": 67,
+            "selector": 313,
+            "group": 19,
+            "href": 532,
+            "reference": 44
+          },
+          "captureTruncated": false,
+          "has_next_cursor": false
+        },
+        {
+          "index": 38,
+          "record_count": 30,
+          "utf8_bytes_python_compact": 21388,
+          "characters_python_compact": 21351,
+          "max_record_field_lengths": {
+            "text": 73,
+            "selector": 291,
+            "group": 19,
+            "href": 525,
+            "reference": 44
+          },
+          "captureTruncated": false,
+          "has_next_cursor": false
+        },
+        {
+          "index": 39,
+          "record_count": 29,
+          "utf8_bytes_python_compact": 21417,
+          "characters_python_compact": 21384,
+          "max_record_field_lengths": {
+            "text": 73,
+            "selector": 313,
+            "group": 19,
+            "href": 752,
+            "reference": 44
+          },
+          "captureTruncated": false,
+          "has_next_cursor": false
+        },
+        {
+          "index": 40,
+          "record_count": 29,
+          "utf8_bytes_python_compact": 20989,
+          "characters_python_compact": 20967,
+          "max_record_field_lengths": {
+            "text": 49,
+            "selector": 336,
+            "group": 19,
+            "href": 774,
+            "reference": 44
+          },
+          "captureTruncated": false,
+          "has_next_cursor": false
+        },
+        {
+          "index": 41,
+          "record_count": 27,
+          "utf8_bytes_python_compact": 21863,
+          "characters_python_compact": 21814,
+          "max_record_field_lengths": {
+            "text": 73,
+            "selector": 291,
+            "group": 19,
+            "href": 796,
+            "reference": 44
+          },
+          "captureTruncated": false,
+          "has_next_cursor": false
+        },
+        {
+          "index": 42,
+          "record_count": 21,
+          "utf8_bytes_python_compact": 20991,
+          "characters_python_compact": 20962,
+          "max_record_field_lengths": {
+            "text": 93,
+            "selector": 403,
+            "group": 172,
+            "href": 908,
+            "reference": 44
+          },
+          "captureTruncated": false,
+          "has_next_cursor": false
+        },
+        {
+          "index": 43,
+          "record_count": 18,
+          "utf8_bytes_python_compact": 20984,
+          "characters_python_compact": 20955,
+          "max_record_field_lengths": {
+            "text": 80,
+            "selector": 405,
+            "group": 172,
+            "href": 908,
+            "reference": 44
+          },
+          "captureTruncated": false,
+          "has_next_cursor": false
+        },
+        {
+          "index": 44,
+          "record_count": 19,
+          "utf8_bytes_python_compact": 21033,
+          "characters_python_compact": 20999,
+          "max_record_field_lengths": {
+            "text": 73,
+            "selector": 405,
+            "group": 172,
+            "href": 906,
+            "reference": 44
+          },
+          "captureTruncated": false,
+          "has_next_cursor": false
+        },
+        {
+          "index": 45,
+          "record_count": 25,
+          "utf8_bytes_python_compact": 22391,
+          "characters_python_compact": 22374,
+          "max_record_field_lengths": {
+            "text": 89,
+            "selector": 186,
+            "group": 59,
+            "href": 1510,
+            "reference": 44
+          },
+          "captureTruncated": false,
+          "has_next_cursor": false
+        },
+        {
+          "index": 46,
+          "record_count": 55,
+          "utf8_bytes_python_compact": 21196,
+          "characters_python_compact": 21187,
+          "max_record_field_lengths": {
+            "text": 80,
+            "selector": 110,
+            "group": 49,
+            "href": 223,
+            "reference": 44
+          },
+          "captureTruncated": false,
+          "has_next_cursor": false
+        },
+        {
+          "index": 47,
+          "record_count": 45,
+          "utf8_bytes_python_compact": 21021,
+          "characters_python_compact": 21012,
+          "max_record_field_lengths": {
+            "text": 34,
+            "selector": 89,
+            "group": 49,
+            "href": 239,
+            "reference": 44
+          },
+          "captureTruncated": false,
+          "has_next_cursor": false
+        },
+        {
+          "index": 48,
+          "record_count": 45,
+          "utf8_bytes_python_compact": 20633,
+          "characters_python_compact": 20616,
+          "max_record_field_lengths": {
+            "text": 30,
+            "selector": 115,
+            "group": 49,
+            "href": 234,
+            "reference": 44
+          },
+          "captureTruncated": false,
+          "has_next_cursor": false
+        },
+        {
+          "index": 49,
+          "record_count": 42,
+          "utf8_bytes_python_compact": 20748,
+          "characters_python_compact": 20720,
+          "max_record_field_lengths": {
+            "text": 28,
+            "selector": 133,
+            "group": 49,
+            "href": 233,
+            "reference": 44
+          },
+          "captureTruncated": false,
+          "has_next_cursor": false
+        },
+        {
+          "index": 50,
+          "record_count": 45,
+          "utf8_bytes_python_compact": 21048,
+          "characters_python_compact": 21023,
+          "max_record_field_lengths": {
+            "text": 56,
+            "selector": 133,
+            "group": 49,
+            "href": 221,
+            "reference": 44
+          },
+          "captureTruncated": false,
+          "has_next_cursor": false
+        },
+        {
+          "index": 51,
+          "record_count": 52,
+          "utf8_bytes_python_compact": 21473,
+          "characters_python_compact": 21449,
+          "max_record_field_lengths": {
+            "text": 76,
+            "selector": 120,
+            "group": 101,
+            "href": 114,
+            "reference": 44
+          },
+          "captureTruncated": false,
+          "has_next_cursor": false
+        },
+        {
+          "index": 52,
+          "record_count": 15,
+          "utf8_bytes_python_compact": 5779,
+          "characters_python_compact": 5767,
+          "max_record_field_lengths": {
+            "text": 79,
+            "selector": 90,
+            "group": 79,
+            "href": 106,
+            "reference": 44
+          },
+          "captureTruncated": false,
+          "has_next_cursor": false
+        }
+      ],
+      "all_page_ids_match": true,
+      "record_count_matches": true,
+      "content_sha256": "b0698eecddcd1daab6ca995e00e3433143a2a4b93794074846817db5a21c0942"
+    },
+    {
+      "server": "GnOuGo.Browser.Mcp",
+      "tool": "browser_close",
+      "started": "2026-10-07T15:10:42.5305590+00:00",
+      "error": false,
+      "argument_names": [],
+      "result_fields": [
+        "closed",
+        "success",
+        "error_code",
+        "error_message",
+        "ok"
+      ],
+      "result_metadata": {
+        "success": true,
+        "ok": true,
+        "error_code": null,
+        "error_message": null
+      }
+    },
+    {
+      "server": "GnOuGo.Browser.Mcp",
+      "tool": "browser_get_content",
+      "started": "2026-10-07T15:10:43.9665960+00:00",
+      "error": true,
+      "argument_names": [],
+      "result_fields": [
+        "url",
+        "title",
+        "statusCode",
+        "selector",
+        "resolvedSelector",
+        "fallbackApplied",
+        "fallbackReason",
+        "format",
+        "content",
+        "truncated",
+        "maxCharacters",
+        "success",
+        "error_code",
+        "error_message",
+        "ok"
+      ],
+      "result_metadata": {
+        "success": false,
+        "ok": false,
+        "error_code": "INVALID_INPUT",
+        "error_message": "InvalidOperationException: No active page. Call browser_get_content with url first.",
+        "truncated": false,
+        "format": "html",
+        "maxCharacters": 0
+      }
+    },
+    {
+      "server": "GnOuGo.Browser.Mcp",
+      "tool": "browser_close",
+      "started": "2026-10-07T15:10:43.9853770+00:00",
+      "error": false,
+      "argument_names": [],
+      "result_fields": [
+        "closed",
+        "success",
+        "error_code",
+        "error_message",
+        "ok"
+      ],
+      "result_metadata": {
+        "success": true,
+        "ok": true,
+        "error_code": null,
+        "error_message": null
+      }
+    }
+  ],
+  "measurement_notes": {
+    "page_bytes": "Python compact UTF-8 serialization of each observed page, not exact .NET request bytes or token usage. Raw observations remain encrypted.",
+    "mapping_attempt_counter": "One invocation attempt was admitted locally; packing failed before any mapping provider call. No sampled-count/request-bytes event was published.",
+    "cleanup": "First browser_close is workflow finalization; the following oracle read reports no active page. The last close is defensive oracle cleanup.",
+    "retained_plan_status": "result.status is the planning-stage final_review snapshot. The session is approved at revision 5; execution_status=completed means the attempt ended, not success."
+  },
+  "source_metrics": {
+    "pages": 53,
+    "records": 1504,
+    "page_bytes_python_compact": 1102515,
+    "rejected_source_index": 2,
+    "exact_rejected_request_bytes": null,
+    "sample_items": null,
+    "product_visits": 0,
+    "consent_clicks": 0,
+    "xlsx_written": false
+  }
+}

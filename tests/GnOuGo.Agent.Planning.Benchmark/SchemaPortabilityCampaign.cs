@@ -1,0 +1,257 @@
+using System.Diagnostics;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using GnOuGo.Flow.Core.Planning;
+using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Flow.Planning;
+using GnOuGo.KeyVault.Core.Services;
+using GnOuGo.Workspace;
+
+internal static class SchemaPortabilityCampaign
+{
+    internal const string Model = "gpt-5.5-2026-04-24";
+    private const string OriginalSession = "a425b85bb133470cbab4e5f201b9d729";
+    internal const string Collection = "planning-schema-portability";
+    public static async Task RunAsync(string[] args)
+    {
+        var phase = args.ElementAtOrDefault(1) ?? "inspect";
+        var root = Option(args, "--workspace") ?? GnOuGoWorkspace.ResolveDefaultWorkingDirectory();
+        var records = KeyVaultRecordStoreFactory.CreateWorkspaceStore(null, root);
+        if (phase == "capture")
+        {
+            var folder = Option(args, "--output") ?? throw new ArgumentException("Supply --output.");
+            var requests = (await records.ListAsync("agent-planning-model-requests-v10", "default", BenchmarkCampaign.Author))
+                .Where(r => r.Key.StartsWith(OriginalSession + ":", StringComparison.Ordinal)).OrderBy(r => r.UpdatedAt).ToArray();
+            var receipts = (await records.ListAsync("agent-planning-model-receipts-v10", "default", BenchmarkCampaign.Author))
+                .Where(r => r.Key.StartsWith(OriginalSession + ":", StringComparison.Ordinal)).OrderBy(r => r.UpdatedAt).ToArray();
+            var states = (await records.ListAsync("agent-planning-sessions-v10", "default", BenchmarkCampaign.Author))
+                .Where(r => r.Key.StartsWith(OriginalSession, StringComparison.Ordinal)).OrderBy(r => r.UpdatedAt).ToArray();
+            if (requests.Length != 2 || receipts.Length != 1 || states.Length == 0) throw new InvalidOperationException("The retained reproduction has changed.");
+            var state = JsonNode.Parse(states[^1].Value)!.AsObject();
+            var retained = new JsonObject
+            {
+                ["session"] = OriginalSession, ["origin"] = "Designer", ["modelCalls"] = state["modelCalls"]?.DeepClone(),
+                ["repairs"] = state["replanAttempts"]?.DeepClone(), ["status"] = state["status"]?.DeepClone(),
+                ["diagnostics"] = state["diagnostics"]?.DeepClone(),
+                ["schemas"] = new JsonArray(requests.Select(r => JsonNode.Parse(r.Value)!["structuredOutputSchema"]!.DeepClone()).ToArray()),
+                ["discoveryResponse"] = JsonNode.Parse(receipts[0].Value)!["json"]?.DeepClone()
+            };
+            Directory.CreateDirectory(folder);
+            await File.WriteAllTextAsync(Path.Combine(folder, "retained-schema-rejection.json"), retained.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+            Console.WriteLine("Captured two issued schemas, the discovery response and stopped-session diagnostics; request prompts and host configuration excluded.");
+            return;
+        }
+        var campaignId = Option(args, "--campaign") ?? throw new ArgumentException("Supply a new --campaign.");
+        var campaign = new BenchmarkCampaign(records, campaignId);
+        if (phase == "provider-readiness")
+        {
+            using var configured = await KeyVaultBenchmarkModel.CreateAsync("OpenAi", Model, campaign, root, CancellationToken.None, pinConfiguration: false);
+            var readiness = await configured.ReadinessAsync(CancellationToken.None);
+            Console.WriteLine(readiness.ToJsonString());
+            Console.WriteLine((await campaign.InspectAsync()).ToJsonString());
+            if (readiness["ready"]?.GetValue<bool>() != true) Environment.ExitCode = 1;
+            return;
+        }
+        if (phase == "mapping-report")
+        {
+            var label = Option(args, "--run") ?? throw new ArgumentException("Supply --run.");
+            var saved = await campaign.LoadAsync(MappingLiveEvaluation.Collection, label)
+                ?? throw new ArgumentException("No retained mapping matrix.");
+            saved["generated_plan"] = saved["planning_session"]?["plan"]?.DeepClone();
+            saved.Remove("planning_session");
+            foreach (var row in saved["runs"]!.AsArray().OfType<JsonObject>())
+                foreach (var usage in (row["usage_receipts"] as JsonArray ?? []).OfType<JsonObject>())
+                    if (await campaign.LoadAsync("planning-evaluation-receipts", usage["request_id"]!.ToString()) is { } receipt)
+                        usage["mapping_response"] = receipt["json"]?.DeepClone() ?? receipt["text"]?.DeepClone();
+            Console.WriteLine(saved.ToJsonString()); return;
+        }
+        if (phase == "report") { Console.WriteLine((await LiveCampaignEvidence.ReportAsync(campaign, Option(args, "--cohort") ?? "final")).ToJsonString()); return; }
+        if (phase == "replay-compile")
+        {
+            var label = Option(args, "--run") ?? throw new ArgumentException("Supply --run.");
+            var saved = await campaign.LoadAsync(Collection, "run:" + label) ?? throw new ArgumentException("No run.");
+            var session = saved["session"]!.Deserialize(PlanningJsonContext.Default.PlanningSession)!;
+            var catalog = session.Catalog ?? throw new InvalidOperationException("No retained contracts.");
+            if (args.Contains("--compare-bindings", StringComparer.Ordinal))
+            {
+                var measurements = new JsonArray();
+                foreach (var profile in new[] { "compact-bindings-v3", "compact-bindings-v4", "compact-bindings-v5", "compact-bindings-v6", TaskPlanCompiler.CompactProfile })
+                {
+                    var request = JsonSerializer.SerializeToNode(session.Request, PlanningJsonContext.Default.PlanningRequest)!.Deserialize(PlanningJsonContext.Default.PlanningRequest)!;
+                    request.Options["compilation_profile"] = profile;
+                    var compiled = new TaskPlanCompiler().Compile(session.Plan!, catalog, request);
+                    if (compiled.Diagnostics.Count != 0 || compiled.Graph is null) throw new InvalidOperationException(string.Join("; ", compiled.Diagnostics.Select(d => d.Message)));
+                    PlanningConfirmationGuards.Apply(compiled.Graph, catalog);
+                    var graphFindings = PlanningExecutableValidation.Validate(compiled.Graph, catalog);
+                    if (graphFindings.Count > 0) throw new InvalidOperationException(profile + ": " + string.Join("; ", graphFindings.Select(d => compiled.Locate(d).Message + " at " + compiled.Locate(d).Location)));
+                    var yaml = new PlanningGraphCompiler().Compile(compiled.Graph, catalog, request.Name, true, TaskPlanCompiler.UsesFusedBindings(request), TaskPlanCompiler.UsesConsumerBindings(request), TaskPlanCompiler.UsesDirectProjections(request), TaskPlanCompiler.UsesNativeMappings(request));
+                    var document = GnOuGo.Flow.Core.Parsing.WorkflowParser.Parse(yaml);
+                    var types = new Dictionary<string, int>(StringComparer.Ordinal); var pairs = new JsonArray(); var sets = new JsonArray();
+                    void Count(List<GnOuGo.Flow.Core.Models.StepDef> steps, string path)
+                    {
+                        for (var i = 0; i < steps.Count; i++)
+                        {
+                            var step = steps[i]; types[step.Type] = types.GetValueOrDefault(step.Type) + 1;
+                            if (step.Type == "set") sets.Add((JsonNode)new JsonObject { ["scope"] = path, ["id"] = step.Id,
+                                ["description"] = step.Description,
+                                ["guarded"] = step.If is not null, ["next_type"] = i + 1 < steps.Count ? steps[i + 1].Type : null });
+                            if (i > 0 && steps[i - 1].Type == "set" && step.Type == "set")
+                                pairs.Add((JsonNode)new JsonObject { ["scope"] = path, ["before"] = steps[i - 1].Id, ["after"] = step.Id });
+                            Count(step.Steps ?? [], path + "/" + step.Id); Count(step.Default ?? [], path + "/" + step.Id + "/default");
+                            foreach (var branch in step.Branches ?? []) Count(branch.Steps, path + "/" + step.Id + "/branch");
+                            foreach (var branch in step.Cases ?? []) Count(branch.Steps, path + "/" + step.Id + "/case");
+                        }
+                    }
+                    foreach (var (name, workflow) in document.Workflows) { Count(workflow.Steps, name); Count(workflow.Finally, name + "/finally"); }
+                    measurements.Add((JsonNode)new JsonObject { ["profile"] = profile, ["steps"] = types.Values.Sum(), ["sets"] = types.GetValueOrDefault("set"),
+                        ["workflows"] = document.Workflows.Count, ["yaml_bytes"] = System.Text.Encoding.UTF8.GetByteCount(yaml), ["yaml_lines"] = yaml.Count(c => c == '\n'),
+                        ["yaml_hash"] = PlanningGraphCompiler.Fingerprint(yaml), ["matches_saved_yaml"] = yaml == session.Yaml, ["adjacent_set_pairs"] = pairs, ["materialized_sets"] = sets });
+                }
+                Console.WriteLine(new JsonObject { ["run"] = label, ["measurements"] = measurements, ["model_calls"] = 0, ["saved_session_modified"] = false }.ToJsonString());
+                return;
+            }
+            var compilation = new TaskPlanCompiler().Compile(session.Plan ?? throw new InvalidOperationException("No retained plan."), catalog);
+            var diagnostics = compilation.Diagnostics.ToList();
+            if (compilation.Graph is { } graph) diagnostics.AddRange(PlanningGraphValidation.Validate(graph, catalog));
+            Console.WriteLine(new JsonObject { ["run"] = label, ["source"] = Git("rev-parse", "HEAD"),
+                ["working_tree_dirty"] = Git("status", "--porcelain").Length != 0,
+                ["compiled"] = compilation.Graph is not null, ["valid"] = diagnostics.Count == 0,
+                ["diagnostics"] = new JsonArray(diagnostics.Select(d => (JsonNode)new JsonObject
+                    { ["code"] = d.Code, ["message"] = d.Message, ["location"] = d.Location }).ToArray()),
+                ["model_calls"] = 0, ["repairs"] = 0, ["saved_session_modified"] = false }.ToJsonString());
+            return;
+        }
+        if (phase == "inspect-run")
+        {
+            var label = Option(args, "--run") ?? throw new ArgumentException("Supply --run.");
+            var saved = await campaign.LoadAsync(Collection, "run:" + label) ?? throw new ArgumentException("No run.");
+            var executionRun = await GnOuGo.Flow.Persistence.EncryptedWorkflowRunStore.CreateWorkspace(baseDirectory: root).ReadAsync("benchmark", label);
+            var mappings = new JsonArray((executionRun?.Invocations.Values.Where(i => i.Id.Contains("/mapping/", StringComparison.Ordinal)) ?? [])
+                .OrderBy(i => i.Id, StringComparer.Ordinal).Select(i => (JsonNode)new JsonObject
+                {
+                    ["invocation"] = i.Id, ["request_id"] = i.ResolvedInput?["clientRequestId"]?.DeepClone(),
+                    ["status"] = i.Status, ["usage"] = i.Output?["usage"]?.DeepClone(), ["response"] = i.Output?["json"]?.DeepClone()
+                }).ToArray());
+            var responses = new JsonArray();
+            var failures = new JsonArray();
+            foreach (var failure in (await records.ListAsync("planning-evaluation-failures", "benchmark", BenchmarkCampaign.Author))
+                .Where(r => new[] { label + ":", label + "-execution:", label + "-copilot:" }.Any(prefix => r.Key.StartsWith(campaignId + ":" + prefix, StringComparison.Ordinal))))
+                failures.Add(JsonNode.Parse(failure.Value));
+            foreach (var receipt in (await records.ListAsync("planning-evaluation-receipts", "benchmark", BenchmarkCampaign.Author))
+                .Where(r => r.Key.StartsWith(campaignId + ":" + label + ":", StringComparison.Ordinal)).OrderBy(r => r.UpdatedAt))
+            {
+                var content = JsonNode.Parse(receipt.Value)!;
+                responses.Add(new JsonObject { ["id"] = receipt.Key, ["response"] = content["json"]?.DeepClone() ?? (content["text"] is { } responseText ? JsonNode.Parse(responseText.ToString()) : null) });
+            }
+            Console.WriteLine(new JsonObject
+            {
+                ["responses"] = responses,
+                ["runtime_mapping_receipts"] = mappings,
+                ["mapping_telemetry"] = saved["mapping_telemetry"]?.DeepClone(),
+                ["runtime_llm_inputs"] = new JsonArray((executionRun?.Invocations.Values.Where(i => i.StepType == "llm.call" && i.ResolvedInput is JsonObject input && input["prompt"] is JsonValue) ?? [])
+                    .Select(i => (JsonNode)new JsonObject { ["invocation"] = i.Id, ["status"] = i.Status,
+                        ["observed_completion"] = i.ExternalCompletionObserved,
+                        ["estimated_prompt_tokens"] = KeyVaultBenchmarkModel.ExecutionInputEstimate(i.ResolvedInput!["prompt"]!.GetValue<string>()),
+                        ["model_calls"] = 0, ["inspection_only"] = true }).ToArray()),
+                ["failures"] = failures,
+                ["result"] = saved["result"]?.DeepClone(), ["status"] = saved["session"]?["status"]?.DeepClone(),
+                ["revision"] = saved["session"]?["revision"]?.DeepClone(), ["artifact_hash"] = saved["artifact_hash"]?.DeepClone(),
+                ["requirements"] = saved["session"]?["requirements"]?.DeepClone(),
+                ["planning_revisions"] = saved["planning_revisions"]?.DeepClone(),
+                ["review"] = saved["session"]?["validationResults"]?.DeepClone(),
+                ["diagnostics"] = saved["session"]?["diagnostics"]?.DeepClone(), ["questions"] = saved["session"]?["pendingQuestions"]?.DeepClone(),
+                ["plan"] = saved["session"]?["plan"]?.DeepClone(), ["yaml"] = saved["session"]?["yaml"]?.DeepClone(),
+                ["failure"] = saved["failure"]?.DeepClone(),
+                ["execution"] = saved["execution"]?.DeepClone(), ["oracle"] = saved["oracle"]?.DeepClone(),
+                ["events"] = saved["events"]?.DeepClone(), ["observed_commands"] = saved["observed_commands"]?.DeepClone(), ["verified_checks"] = saved["verified_checks"]?.DeepClone()
+            }.ToJsonString()); return;
+        }
+        if (phase == "inspect")
+        {
+            var diagnostic = await campaign.LoadAsync(Collection, "original-rejection");
+            if (diagnostic?["request_id"]?.ToString() is { } id && await campaign.LoadAsync(BenchmarkHttpJournal.Collection, id) is { } journal)
+            {
+                var body = journal["transport"]?["Attempts"]?.AsArray().LastOrDefault()?["Body"]?.ToString();
+                var message = body is null ? null : JsonNode.Parse(body)?["error"]?["message"]?.ToString();
+                Console.WriteLine(new JsonObject { ["provider_message"] = message }.ToJsonString());
+            }
+            Console.WriteLine((await campaign.InspectAsync()).ToJsonString()); return;
+        }
+        var leasePath = GnOuGoWorkspace.ResolveDatabasePath(null, root, ".GnOuGo/data/planning-evaluation/" + campaignId + ".lock");
+        Directory.CreateDirectory(Path.GetDirectoryName(leasePath)!);
+        await using var lease = new FileStream(leasePath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+        if (Git("status", "--porcelain").Length != 0) throw new InvalidOperationException("Commit the tested source and harness before paid dispatch.");
+        if (phase == "recover-receipt")
+        {
+            string Required(string option) => Option(args, option) ?? throw new ArgumentException("Supply " + option + ".");
+            Console.WriteLine((await campaign.RecoverPendingReceiptAsync(Required("--run"),
+                long.Parse(Required("--expected-revision"), System.Globalization.CultureInfo.InvariantCulture), Required("--request-id"),
+                long.Parse(Required("--interrupted-ms"), System.Globalization.CultureInfo.InvariantCulture), Git("rev-parse", "HEAD"),
+                args.Contains("--apply", StringComparer.Ordinal), CancellationToken.None)).ToJsonString());
+            return;
+        }
+        if (phase == "extend-budget")
+        {
+            decimal Amount(string option) => decimal.Parse(Option(args, option) ?? throw new ArgumentException("Supply " + option + "."), System.Globalization.CultureInfo.InvariantCulture);
+            Console.WriteLine((await campaign.ExtendBudgetAsync(Amount("--from-eur"), Amount("--to-eur"),
+                Option(args, "--authorization") ?? throw new ArgumentException("Supply the explicit authorization."), CancellationToken.None)).ToJsonString());
+            return;
+        }
+        if (phase == "retain-exhausted-request")
+        {
+            Console.WriteLine((await campaign.RetainExhaustedRequestAsync(
+                Option(args, "--request-id") ?? throw new ArgumentException("Supply the exact --request-id."), CancellationToken.None)).ToJsonString());
+            return;
+        }
+        if (phase == "retain-inconclusive")
+        {
+            var label = Option(args, "--run") ?? throw new ArgumentException("Supply the exact --run.");
+            Console.WriteLine((await campaign.RetainInconclusiveAsync("run:" + label, CancellationToken.None, liveWorkflow: true)).ToJsonString());
+            return;
+        }
+        using var model = await KeyVaultBenchmarkModel.CreateAsync("OpenAi", Model, campaign, root, CancellationToken.None);
+        if (phase == "copilot-probe") { await LiveExecutionReadiness.CopilotAsync(args, campaign, model, root); return; }
+        if (phase == "mapping") { await MappingLiveEvaluation.RunAsync(args, campaign, model, root); return; }
+        if (phase is "readiness" or "plan" or "revise" or "execute")
+        { await LiveWorkflowEvaluation.RunAsync(args, phase, campaign, model, root); return; }
+        if (phase == "diagnose")
+        {
+            const string key = "original-rejection";
+            if (await campaign.LoadAsync(Collection, key) is not null) throw new InvalidOperationException("Diagnostic identity already retained; do not repeat.");
+            var saved = (await records.ListAsync("agent-planning-model-requests-v10", "default", BenchmarkCampaign.Author))
+                .Where(r => r.Key.StartsWith(OriginalSession + ":", StringComparison.Ordinal))
+                .Single(r => JsonSerializer.Deserialize(r.Value, PlanningJsonContext.Default.LLMRequest)!.ClientRequestId!.StartsWith(OriginalSession + ":2:", StringComparison.Ordinal));
+            var request = JsonSerializer.Deserialize(saved.Value, PlanningJsonContext.Default.LLMRequest)!;
+            var originalHash = PlanningGraphCompiler.Fingerprint(saved.Value);
+            request.ClientRequestId = "schema-diagnostic:1:" + originalHash;
+            var result = new JsonObject { ["source"] = Git("rev-parse", "HEAD"), ["phase"] = "diagnostic", ["request_id"] = request.ClientRequestId,
+                ["original_request_hash"] = originalHash, ["schema_hash"] = PlanningGraphCompiler.Fingerprint(request.StructuredOutputSchema!.ToJsonString()) };
+            await campaign.SaveAsync(Collection, key, result);
+            var timer = Stopwatch.StartNew();
+            using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(10));
+            try { await model.DiagnosticAsync(request, timeout.Token); result["provider_accepted"] = true; }
+            catch (LLMClientException ex)
+            {
+                result["provider_accepted"] = false; result["status"] = ex.StatusCode; result["provider_code"] = ex.SafeProviderCode;
+                if (ex.StatusCode == 400 && ex.SafeProviderCode == "invalid_json_schema")
+                    await campaign.RetainSchemaRejectionAsync(request.ClientRequestId, CancellationToken.None);
+            }
+            catch (Exception ex) { result["exception_type"] = ex.GetType().Name; }
+            result["latency_ms"] = timer.ElapsedMilliseconds;
+            result["accounting"] = await BenchmarkHttpJournal.AccountingAsync(campaign, request.ClientRequestId);
+            await campaign.SaveAsync(Collection, key, result);
+            Console.WriteLine(result.ToJsonString()); return;
+        }
+        throw new ArgumentException("Unknown phase.");
+    }
+
+    internal static string? Option(string[] args, string name)
+    { var index = Array.IndexOf(args, name); return index < 0 ? null : args.ElementAtOrDefault(index + 1) ?? throw new ArgumentException("Missing " + name); }
+    internal static string Git(params string[] args)
+    {
+        var start = new ProcessStartInfo("git") { RedirectStandardOutput = true, UseShellExecute = false };
+        foreach (var arg in args) start.ArgumentList.Add(arg);
+        using var process = Process.Start(start)!; var result = process.StandardOutput.ReadToEnd().Trim(); process.WaitForExit();
+        if (process.ExitCode != 0) throw new InvalidOperationException("Cannot identify the source revision."); return result;
+    }
+}

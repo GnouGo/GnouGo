@@ -1,0 +1,148 @@
+{
+  "recorded_effects": [
+    {
+      "invocation_id": "/workflow/main/step/n_7d6ef7fcc9a24787/workflow/w_81be22d7f1c8baf9/step/n_e0f14bca877bee21",
+      "stepType": "mcp.call",
+      "status": "completed",
+      "externalCompletionObserved": true,
+      "dispatchedAt": "2026-10-06T13:23:38.333847+00:00",
+      "completedAt": "2026-10-06T13:23:38.389756+00:00"
+    },
+    {
+      "invocation_id": "/workflow/main/step/n_7d6ef7fcc9a24787/workflow/w_81be22d7f1c8baf9/step/n_26f44e7a92c226a5",
+      "stepType": "mcp.call",
+      "status": "completed",
+      "externalCompletionObserved": true,
+      "dispatchedAt": "2026-10-06T13:23:38.408002+00:00",
+      "completedAt": "2026-10-06T13:23:43.389473+00:00"
+    },
+    {
+      "invocation_id": "/workflow/main/step/n_7d6ef7fcc9a24787/workflow/w_81be22d7f1c8baf9/step/n_4bad4e02be805975/iteration/0/step/n_8a07774b850a9909/workflow/w_8fb3502cda2cf7c7/step/n_b558190c172d95cc",
+      "stepType": "mcp.call",
+      "status": "completed",
+      "externalCompletionObserved": true,
+      "dispatchedAt": "2026-10-06T13:23:43.672027+00:00",
+      "completedAt": "2026-10-06T13:23:43.717104+00:00"
+    },
+    {
+      "invocation_id": "/workflow/main/step/n_7d6ef7fcc9a24787/workflow/w_81be22d7f1c8baf9/step/n_4bad4e02be805975/iteration/1/step/n_8a07774b850a9909/workflow/w_8fb3502cda2cf7c7/step/n_b558190c172d95cc",
+      "stepType": "mcp.call",
+      "status": "completed",
+      "externalCompletionObserved": true,
+      "dispatchedAt": "2026-10-06T13:24:01.650832+00:00",
+      "completedAt": "2026-10-06T13:24:01.705303+00:00"
+    },
+    {
+      "invocation_id": "/workflow/main/step/n_7d6ef7fcc9a24787/workflow/w_81be22d7f1c8baf9/step/n_209ed833e745f7f4",
+      "stepType": "llm.call",
+      "status": "completed",
+      "externalCompletionObserved": true,
+      "dispatchedAt": "2026-10-06T13:24:15.234604+00:00",
+      "completedAt": "2026-10-06T13:24:26.652025+00:00"
+    },
+    {
+      "invocation_id": "/workflow/main/step/n_7d6ef7fcc9a24787/workflow/w_81be22d7f1c8baf9/step/n_1c6fcc90f1620f97",
+      "stepType": "mcp.call",
+      "status": "completed",
+      "externalCompletionObserved": true,
+      "dispatchedAt": "2026-10-06T13:24:26.932863+00:00",
+      "completedAt": "2026-10-06T13:24:27.093552+00:00"
+    },
+    {
+      "invocation_id": "/workflow/main/step/n_7d6ef7fcc9a24787/workflow/w_81be22d7f1c8baf9/step/n_91f0670214f2ca52/iteration/0/step/n_57814b525698032e/workflow/w_1dc093158abb695f/step/n_e0ba0b5d399ecd61",
+      "stepType": "mcp.call",
+      "status": "completed",
+      "externalCompletionObserved": true,
+      "dispatchedAt": "2026-10-06T13:24:28.042331+00:00",
+      "completedAt": "2026-10-06T13:24:28.095581+00:00"
+    },
+    {
+      "invocation_id": "/workflow/main/step/n_7d6ef7fcc9a24787/workflow/w_81be22d7f1c8baf9/step/n_91f0670214f2ca52/iteration/1/step/n_57814b525698032e/workflow/w_1dc093158abb695f/step/n_e0ba0b5d399ecd61",
+      "stepType": "mcp.call",
+      "status": "completed",
+      "externalCompletionObserved": true,
+      "dispatchedAt": "2026-10-06T13:24:55.398372+00:00",
+      "completedAt": "2026-10-06T13:24:55.446891+00:00"
+    },
+    {
+      "invocation_id": "/workflow/main/step/n_7d6ef7fcc9a24787/workflow/w_81be22d7f1c8baf9/step/n_91f0670214f2ca52/iteration/2/step/n_57814b525698032e/workflow/w_1dc093158abb695f/step/n_e0ba0b5d399ecd61",
+      "stepType": "mcp.call",
+      "status": "completed",
+      "externalCompletionObserved": true,
+      "dispatchedAt": "2026-10-06T13:25:08.536169+00:00",
+      "completedAt": "2026-10-06T13:25:08.582826+00:00"
+    },
+    {
+      "invocation_id": "/workflow/main/step/n_7d6ef7fcc9a24787/workflow/w_81be22d7f1c8baf9/step/n_91f0670214f2ca52/iteration/3/step/n_57814b525698032e/workflow/w_1dc093158abb695f/step/n_e0ba0b5d399ecd61",
+      "stepType": "mcp.call",
+      "status": "completed",
+      "externalCompletionObserved": true,
+      "dispatchedAt": "2026-10-06T13:25:18.300558+00:00",
+      "completedAt": "2026-10-06T13:25:18.344932+00:00"
+    },
+    {
+      "invocation_id": "/workflow/main/step/n_7d6ef7fcc9a24787/workflow/w_81be22d7f1c8baf9/step/n_91f0670214f2ca52/iteration/4/step/n_57814b525698032e/workflow/w_1dc093158abb695f/step/n_e0ba0b5d399ecd61",
+      "stepType": "mcp.call",
+      "status": "completed",
+      "externalCompletionObserved": true,
+      "dispatchedAt": "2026-10-06T13:25:25.890994+00:00",
+      "completedAt": "2026-10-06T13:25:25.935826+00:00"
+    },
+    {
+      "invocation_id": "/workflow/main/step/n_7d6ef7fcc9a24787/workflow/w_81be22d7f1c8baf9/step/n_91f0670214f2ca52/iteration/5/step/n_57814b525698032e/workflow/w_1dc093158abb695f/step/n_e0ba0b5d399ecd61",
+      "stepType": "mcp.call",
+      "status": "completed",
+      "externalCompletionObserved": true,
+      "dispatchedAt": "2026-10-06T13:25:34.526381+00:00",
+      "completedAt": "2026-10-06T13:25:34.578448+00:00"
+    },
+    {
+      "invocation_id": "/workflow/main/step/n_7d6ef7fcc9a24787/workflow/w_81be22d7f1c8baf9/step/n_91f0670214f2ca52/iteration/6/step/n_57814b525698032e/workflow/w_1dc093158abb695f/step/n_e0ba0b5d399ecd61",
+      "stepType": "mcp.call",
+      "status": "completed",
+      "externalCompletionObserved": true,
+      "dispatchedAt": "2026-10-06T13:25:50.677066+00:00",
+      "completedAt": "2026-10-06T13:25:50.74231+00:00"
+    },
+    {
+      "invocation_id": "/workflow/main/step/n_7d6ef7fcc9a24787/workflow/w_81be22d7f1c8baf9/step/n_7755f9b88f898319",
+      "stepType": "llm.call",
+      "status": "completed",
+      "externalCompletionObserved": true,
+      "dispatchedAt": "2026-10-06T13:26:16.108105+00:00",
+      "completedAt": "2026-10-06T13:26:27.200878+00:00"
+    },
+    {
+      "invocation_id": "/workflow/main/step/n_7d6ef7fcc9a24787/workflow/w_81be22d7f1c8baf9/step/n_ab953b561481ff5c/case/0/step/n_b918eb983ad05bbf/workflow/w_0c7ba5e95f7a19ed/step/n_8940b3277adf0a3e",
+      "stepType": "mcp.call",
+      "status": "completed",
+      "externalCompletionObserved": true,
+      "dispatchedAt": "2026-10-06T13:26:28.841411+00:00",
+      "completedAt": "2026-10-06T13:26:31.773871+00:00"
+    },
+    {
+      "invocation_id": "/workflow/main/step/n_7d6ef7fcc9a24787/workflow/w_81be22d7f1c8baf9/step/n_ab953b561481ff5c/case/0/step/n_b918eb983ad05bbf/workflow/w_0c7ba5e95f7a19ed/step/n_201b05fb12678684",
+      "stepType": "mcp.call",
+      "status": "completed",
+      "externalCompletionObserved": true,
+      "dispatchedAt": "2026-10-06T13:26:31.814133+00:00",
+      "completedAt": "2026-10-06T13:26:34.37534+00:00"
+    },
+    {
+      "invocation_id": "/workflow/main/step/n_7d6ef7fcc9a24787/workflow/w_81be22d7f1c8baf9/step/n_ab953b561481ff5c/case/0/step/n_b918eb983ad05bbf/workflow/w_0c7ba5e95f7a19ed/step/n_ec77d622b2a6b24a",
+      "stepType": "mcp.call",
+      "status": "completed",
+      "externalCompletionObserved": true,
+      "dispatchedAt": "2026-10-06T13:26:34.423507+00:00",
+      "completedAt": "2026-10-06T13:26:36.204241+00:00"
+    },
+    {
+      "invocation_id": "/workflow/main/step/n_7d6ef7fcc9a24787/workflow/w_81be22d7f1c8baf9/step/n_ab953b561481ff5c/case/0/step/n_b918eb983ad05bbf/workflow/w_0c7ba5e95f7a19ed/step/n_40ca538d8ec654c6/iteration/0/step/n_33808175e50a6f2d/workflow/w_b1fcb92d8ef7595d/step/n_6bd65057114a13e9",
+      "stepType": "mcp.call",
+      "status": "completed",
+      "externalCompletionObserved": true,
+      "dispatchedAt": "2026-10-06T13:26:37.098608+00:00",
+      "completedAt": "2026-10-06T13:26:37.15236+00:00"
+    }
+  ]
+}

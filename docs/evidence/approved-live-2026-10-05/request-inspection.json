@@ -1,0 +1,68 @@
+{
+  "read_only": true,
+  "model_calls": 0,
+  "run": "approvedlive20261005a-amazon-1",
+  "note": "Reconstructed envelope without durable identity; estimates are not measured provider tokens. Source contents remain encrypted.",
+  "measurements": [
+    {
+      "invocation": "/workflow/main/step/n_7d6ef7fcc9a24787/workflow/w_81be22d7f1c8baf9/step/n_dbd4b51881b6a8ce",
+      "status": "completed",
+      "prompt_bytes": 12469,
+      "prompt_estimate": 9228,
+      "reconstructed_request_bytes": 19761,
+      "reconstructed_request_estimate": 14304,
+      "business_fields": [
+        {
+          "name": "homeManifest",
+          "bytes": 189,
+          "keys": [
+            "id",
+            "pages",
+            "recordCount",
+            "captureTruncated",
+            "manifestTruncated"
+          ]
+        },
+        {
+          "name": "homeObservationPages",
+          "bytes": 11694,
+          "keys": [
+            "homeObservationPage"
+          ]
+        }
+      ],
+      "page_count": null,
+      "record_count": null
+    },
+    {
+      "invocation": "/workflow/main/step/n_7d6ef7fcc9a24787/workflow/w_81be22d7f1c8baf9/step/n_3d5623a0a914a894",
+      "status": "failed",
+      "prompt_bytes": 127565,
+      "prompt_estimate": 68315,
+      "reconstructed_request_bytes": 167301,
+      "reconstructed_request_estimate": 97398,
+      "business_fields": [
+        {
+          "name": "currentManifest",
+          "bytes": 540,
+          "keys": [
+            "id",
+            "pages",
+            "recordCount",
+            "captureTruncated",
+            "manifestTruncated"
+          ]
+        },
+        {
+          "name": "currentHomeObservationPages",
+          "bytes": 126544,
+          "keys": [
+            "currentHomeObservationPage"
+          ]
+        }
+      ],
+      "page_count": 6,
+      "record_count": 271
+    }
+  ]
+}

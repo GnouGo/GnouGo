@@ -1,0 +1,10 @@
+{
+  "kind": "revise",
+  "preserveRequirements": true,
+  "expectedRevision": 3,
+  "artifactHash": null,
+  "editablePaths": [
+    "/tasks/normalize_products/resultType"
+  ],
+  "text": "Apply exactly one declaration change in normalize_products.resultType: set the products field array items.nullable from true to false. Accepted products must be non-null objects even when individual observed fields are missing. Keep every other type member unchanged, including nullable name/description/price/url, all required members, minItems 0 and maxItems 10. Change no other task, value, binding, requirement, objective, operation, condition, order, scope, output or cleanup. Data-adaptation restructuring will be a separately reviewed explicit revision."
+}

@@ -488,7 +488,30 @@ internal static class StepExpressionTypeValidator
         if (expression.StartsWith('['))
             return FlowTypeDescriptor.Array();
         if (expression.StartsWith('{'))
-            return FlowTypeDescriptor.Object(allowsAdditionalProperties: true);
+        {
+            // Native compiler assemblies expose real keys. Treating an object
+            // literal as an empty shape incorrectly reports every required field
+            // missing once the former program-string wrapper is removed.
+            try
+            {
+                if (new Acornima.Parser().ParseExpression(expression) is Acornima.Ast.ObjectExpression obj)
+                {
+                    var properties = new Dictionary<string, FlowPropertyDescriptor>(StringComparer.Ordinal);
+                    foreach (var member in obj.Properties)
+                    {
+                        if (member is not Acornima.Ast.Property { Computed: false, Method: false, Kind: Acornima.Ast.PropertyKind.Init } property)
+                            return null;
+                        var key = property.Key is Acornima.Ast.Identifier name ? name.Name : (property.Key as Acornima.Ast.StringLiteral)?.Value;
+                        if (key is null || properties.ContainsKey(key)) return null;
+                        var type = InferExpressionType(expression[property.Value.Start..property.Value.End], workflowInputs, knownStepOutputs, dataVariables, nonNullReferences);
+                        properties.Add(key, new FlowPropertyDescriptor(type ?? FlowTypeDescriptor.Any, Required: true));
+                    }
+                    return FlowTypeDescriptor.Object(properties, allowsAdditionalProperties: false);
+                }
+            }
+            catch (Acornima.ParseErrorException) { /* Syntax validation reports malformed expressions. */ }
+            return null;
+        }
 
         if (LooksBoolean(expression))
             return FlowTypeDescriptor.Boolean;

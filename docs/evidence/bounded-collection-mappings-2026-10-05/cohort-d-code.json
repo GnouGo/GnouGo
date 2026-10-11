@@ -1,0 +1,4182 @@
+{
+  "responses": [
+    {
+      "id": "schema-portability-20261002:collections20261005d-code-1:1:0fd1b3ac9b270a4d9a234cb7d2575c18b1ea3c68cd1bb4145a090cb836a10c06",
+      "response": {
+        "discoveryRequests": [
+          {
+            "sourceId": "runner_9623c1ece5cf9eac8c087030",
+            "cursor": null,
+            "query": "Capabilities for bounded project clone, GitHub Copilot-assisted dependency install/checks/review, command execution with evidence capture, artifact write, and guaranteed cleanup of clone directory. Need operations for PR review workflow using inputs pullRequestUrl and reviewText, fixed clone destination, local-only feedback, save review.json, cleanup always.",
+            "operationIds": null
+          },
+          {
+            "sourceId": "source_694108d6539e9f2f1953f6ac",
+            "cursor": null,
+            "query": "Allowlisted command execution capabilities: git clone/fetch/checkout, node --version, pnpm --version, python --version, dependency install, linters/tests, capturing exit codes/stdout/stderr, rm cleanup. Need compatible operations and constraints.",
+            "operationIds": null
+          },
+          {
+            "sourceId": "source_d15a1ef6ddddd137066d25b7",
+            "cursor": null,
+            "query": "Code project operations and GitHub Copilot capabilities for repository inspection, dependency/check discovery, review assistance, reading diffs/files, writing JSON report, and cleanup constraints.",
+            "operationIds": null
+          },
+          {
+            "sourceId": "source_d3b3c4f5a92aefa3c249f95e",
+            "cursor": null,
+            "query": "Git repository workflow capabilities for cloning GitHub PR repository, checking out exact base/head commits, obtaining PR diff locally, and constraints/evidence available.",
+            "operationIds": null
+          }
+        ],
+        "plan": null,
+        "clarifications": null,
+        "requirements": null
+      }
+    },
+    {
+      "id": "schema-portability-20261002:collections20261005d-code-1:2:5b6d9d06334d7d21b49f09b14247b51c59c3f6cb02a9280969215370569e87d0",
+      "response": {
+        "discoveryRequests": null,
+        "plan": {
+          "inputs": [
+            {
+              "name": "pullRequestUrl",
+              "type": {
+                "kind": "string"
+              }
+            },
+            {
+              "name": "reviewText",
+              "type": {
+                "kind": "string"
+              }
+            }
+          ],
+          "root": {
+            "tasks": [
+              {
+                "id": "clone_pr_head",
+                "kind": "operation",
+                "objective": "Cloner une seule fois le dépôt SmartGuide au chemin demandé, en checkout du head exact de la PR #610. Conserver ce chemin exact pour le nettoyage même en cas d’échec partiel.",
+                "dependsOn": [],
+                "requires": null,
+                "operation": "cap_fa8aa0024ff2ec0a4f9e61ad",
+                "inputs": [
+                  {
+                    "name": "remoteUrl",
+                    "value": {
+                      "kind": "string",
+                      "text": "https://github.com/AxaFrance/SmartGuide.git"
+                    }
+                  },
+                  {
+                    "name": "branch",
+                    "value": {
+                      "kind": "string",
+                      "text": "f2f6bda0e02a6c5c363e88cd6cb5d4eb7c313488"
+                    }
+                  },
+                  {
+                    "name": "fetchAllBranches",
+                    "value": {
+                      "kind": "boolean",
+                      "boolean": false
+                    }
+                  },
+                  {
+                    "name": "historyDepth",
+                    "value": {
+                      "kind": "number",
+                      "number": 0
+                    }
+                  },
+                  {
+                    "name": "tagFetchMode",
+                    "value": {
+                      "kind": "string",
+                      "text": "none"
+                    }
+                  },
+                  {
+                    "name": "targetDirectory",
+                    "value": {
+                      "kind": "string",
+                      "text": "workflows/schema-portability-20261002/collections20261005d-code-1/repository"
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "summarize_project",
+                "kind": "operation",
+                "objective": "Observer la structure du projet cloné afin d’identifier les toolchains/checks déclarés par le dépôt.",
+                "dependsOn": [
+                  "clone_pr_head"
+                ],
+                "requires": {
+                  "kind": "field",
+                  "items": [
+                    {
+                      "kind": "output",
+                      "source": "clone_pr_head",
+                      "port": "success"
+                    }
+                  ],
+                  "port": "success"
+                },
+                "operation": "cap_e521e4ae474d627359935e32",
+                "inputs": [
+                  {
+                    "name": "projectRoot",
+                    "value": {
+                      "kind": "output",
+                      "source": "clone_pr_head",
+                      "port": "projectRootRelative"
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "compare_pr_diff_page",
+                "kind": "operation",
+                "objective": "Obtenir la comparaison exacte par fichier entre base et head de la PR, depuis le merge-base comme GitHub, avec patches et métadonnées de troncature.",
+                "dependsOn": [
+                  "clone_pr_head"
+                ],
+                "requires": {
+                  "kind": "field",
+                  "items": [
+                    {
+                      "kind": "output",
+                      "source": "clone_pr_head",
+                      "port": "success"
+                    }
+                  ],
+                  "port": "success"
+                },
+                "operation": "cap_6c40004fe4610a44cf97c2c7",
+                "inputs": [
+                  {
+                    "name": "projectRoot",
+                    "value": {
+                      "kind": "output",
+                      "source": "clone_pr_head",
+                      "port": "projectRootRelative"
+                    }
+                  },
+                  {
+                    "name": "baseRef",
+                    "value": {
+                      "kind": "string",
+                      "text": "8f1779dc25c1843e9ce4d4ec76d02e066ae892c4"
+                    }
+                  },
+                  {
+                    "name": "headRef",
+                    "value": {
+                      "kind": "string",
+                      "text": "f2f6bda0e02a6c5c363e88cd6cb5d4eb7c313488"
+                    }
+                  },
+                  {
+                    "name": "compareFromMergeBase",
+                    "value": {
+                      "kind": "boolean",
+                      "boolean": true
+                    }
+                  },
+                  {
+                    "name": "pageSize",
+                    "value": {
+                      "kind": "number",
+                      "number": 100
+                    }
+                  },
+                  {
+                    "name": "cursor",
+                    "value": {
+                      "kind": "null"
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "run_declared_checks_with_copilot",
+                "kind": "operation",
+                "objective": "Via GitHub Copilot, dans l’unique répertoire cloné uniquement, vérifier explicitement node --version, pnpm --version et python --version, installer les dépendances selon les fichiers du dépôt, puis exécuter les linters, tests unitaires et tests d’intégration présents. Ne rien publier sur GitHub. Capturer les observations terminal exactes avec codes de sortie; les capacités absentes, prérequis indisponibles et tests échoués doivent rester explicites.",
+                "dependsOn": [
+                  "clone_pr_head",
+                  "summarize_project"
+                ],
+                "requires": {
+                  "kind": "field",
+                  "items": [
+                    {
+                      "kind": "output",
+                      "source": "clone_pr_head",
+                      "port": "success"
+                    }
+                  ],
+                  "port": "success"
+                },
+                "operation": "cap_1ff6cc617981dc592bd62a5a",
+                "inputs": [
+                  {
+                    "name": "projectRoot",
+                    "value": {
+                      "kind": "output",
+                      "source": "clone_pr_head",
+                      "port": "projectRootRelative"
+                    }
+                  },
+                  {
+                    "name": "prompt",
+                    "value": {
+                      "kind": "string",
+                      "text": "Contexte: PR GitHub locale uniquement https://github.com/AxaFrance/SmartGuide/pull/610, base 8f1779dc25c1843e9ce4d4ec76d02e066ae892c4, head f2f6bda0e02a6c5c363e88cd6cb5d4eb7c313488. ReviewText fourni par l’appelant: utiliser l’entrée publique reviewText comme consigne métier de revue, sans publication GitHub.\n\nTâche bornée dans ce projectRoot uniquement: inspecter les fichiers du dépôt pour déterminer les toolchains et scripts déclarés; exécuter explicitement, avant tout check, les commandes node --version, pnpm --version et python --version; installer les dépendances avec le gestionnaire déclaré par le dépôt (pnpm si applicable); exécuter les linters, tests unitaires et tests d’intégration s’ils sont présents/déclarés. N’exécuter aucune publication ou écriture GitHub. Ne pas utiliser d’autre clone ni d’autre répertoire de travail. Rapporter toute capacité absente, prérequis indisponible, commande impossible, test échoué ou script absent comme tel, jamais comme succès. Retourner un résumé structuré des commandes réellement lancées et des résultats observés; les preuves machine sont les toolExecutions avec codes de sortie."
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "review_pr_with_copilot",
+                "kind": "operation",
+                "objective": "Réaliser la revue de code locale demandée avec GitHub Copilot sur les patches exacts de la PR, en tenant compte des résultats d’installation/checks et du reviewText. Produire des findings de diff locaux uniquement, sans publication GitHub.",
+                "dependsOn": [
+                  "clone_pr_head",
+                  "compare_pr_diff_page",
+                  "run_declared_checks_with_copilot"
+                ],
+                "requires": {
+                  "kind": "predicate",
+                  "predicate": "and",
+                  "items": [
+                    {
+                      "kind": "field",
+                      "items": [
+                        {
+                          "kind": "output",
+                          "source": "clone_pr_head",
+                          "port": "success"
+                        }
+                      ],
+                      "port": "success"
+                    },
+                    {
+                      "kind": "field",
+                      "items": [
+                        {
+                          "kind": "output",
+                          "source": "compare_pr_diff_page",
+                          "port": "success"
+                        }
+                      ],
+                      "port": "success"
+                    }
+                  ]
+                },
+                "operation": "cap_bed15f26b6b53fb1f2f33e52",
+                "inputs": [
+                  {
+                    "name": "projectRoot",
+                    "value": {
+                      "kind": "output",
+                      "source": "clone_pr_head",
+                      "port": "projectRootRelative"
+                    }
+                  },
+                  {
+                    "name": "baseSha",
+                    "value": {
+                      "kind": "output",
+                      "source": "compare_pr_diff_page",
+                      "port": "baseSha"
+                    }
+                  },
+                  {
+                    "name": "headSha",
+                    "value": {
+                      "kind": "output",
+                      "source": "compare_pr_diff_page",
+                      "port": "headSha"
+                    }
+                  },
+                  {
+                    "name": "filesJson",
+                    "value": {
+                      "kind": "output",
+                      "source": "compare_pr_diff_page",
+                      "port": "filesJson"
+                    }
+                  },
+                  {
+                    "name": "existingCommentsJson",
+                    "value": {
+                      "kind": "string",
+                      "text": "[]"
+                    }
+                  },
+                  {
+                    "name": "reviewInstructions",
+                    "value": {
+                      "kind": "field",
+                      "items": [
+                        {
+                          "kind": "input",
+                          "source": "reviewText"
+                        }
+                      ],
+                      "port": "reviewText"
+                    }
+                  },
+                  {
+                    "name": "runtimeContextJson",
+                    "value": {
+                      "kind": "json",
+                      "items": [
+                        {
+                          "kind": "field",
+                          "items": [
+                            {
+                              "kind": "output",
+                              "source": "run_declared_checks_with_copilot",
+                              "port": null
+                            }
+                          ],
+                          "port": "checksCopilotResult"
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "name": "maxBatchCharacters",
+                    "value": {
+                      "kind": "number",
+                      "number": 60000
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "assemble_review_json",
+                "kind": "transform",
+                "objective": "Assembler le contenu JSON final local review.json à partir des seules observations déclarées: décision approve si aucune finding bloquante et aucune commande/check requis n’a échoué; sinon request_changes. Inclure findings de diff Copilot, couverture/troncature, capacités absentes ou prérequis indisponibles explicitement, et les commandes exactes observées avec leurs codes de sortie issus des toolExecutions. Ne pas inventer de commande, code de sortie, label ou succès.",
+                "dependsOn": [
+                  "clone_pr_head",
+                  "compare_pr_diff_page",
+                  "run_declared_checks_with_copilot",
+                  "review_pr_with_copilot"
+                ],
+                "requires": {
+                  "kind": "present",
+                  "source": "run_declared_checks_with_copilot"
+                },
+                "mode": "interpret",
+                "inputs": [
+                  {
+                    "name": "pullRequestUrl",
+                    "value": {
+                      "kind": "input",
+                      "source": "pullRequestUrl"
+                    }
+                  },
+                  {
+                    "name": "reviewText",
+                    "value": {
+                      "kind": "input",
+                      "source": "reviewText"
+                    }
+                  },
+                  {
+                    "name": "cloneResult",
+                    "value": {
+                      "kind": "output",
+                      "source": "clone_pr_head",
+                      "port": null
+                    }
+                  },
+                  {
+                    "name": "comparison",
+                    "value": {
+                      "kind": "output",
+                      "source": "compare_pr_diff_page",
+                      "port": null
+                    }
+                  },
+                  {
+                    "name": "checks",
+                    "value": {
+                      "kind": "output",
+                      "source": "run_declared_checks_with_copilot",
+                      "port": null
+                    }
+                  },
+                  {
+                    "name": "review",
+                    "value": {
+                      "kind": "output",
+                      "source": "review_pr_with_copilot",
+                      "port": null
+                    }
+                  }
+                ],
+                "resultType": {
+                  "kind": "object",
+                  "fields": [
+                    {
+                      "name": "contentBase64",
+                      "type": {
+                        "kind": "string"
+                      }
+                    },
+                    {
+                      "name": "decision",
+                      "type": {
+                        "kind": "string",
+                        "enum": [
+                          "approve",
+                          "request_changes"
+                        ]
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "write_review_json",
+                "kind": "operation",
+                "objective": "Sauvegarder le rapport local review.json hors du clone, au chemin demandé, avec decision, findings et preuves exactes de commandes/codes de sortie observés.",
+                "dependsOn": [
+                  "assemble_review_json"
+                ],
+                "requires": {
+                  "kind": "present",
+                  "source": "assemble_review_json"
+                },
+                "operation": "cap_5c01f9aa688163d23a30ff8b",
+                "inputs": [
+                  {
+                    "name": "commandName",
+                    "value": {
+                      "kind": "string",
+                      "text": "write_file"
+                    }
+                  },
+                  {
+                    "name": "parameters",
+                    "value": {
+                      "kind": "object",
+                      "members": [
+                        {
+                          "name": "path",
+                          "value": {
+                            "kind": "string",
+                            "text": "workflows/schema-portability-20261002/collections20261005d-code-1/review.json"
+                          }
+                        },
+                        {
+                          "name": "contentBase64",
+                          "value": {
+                            "kind": "field",
+                            "items": [
+                              {
+                                "kind": "output",
+                                "source": "assemble_review_json",
+                                "port": "contentBase64"
+                              }
+                            ],
+                            "port": "contentBase64"
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "name": "timeoutMs",
+                    "value": {
+                      "kind": "number",
+                      "number": 60000
+                    }
+                  }
+                ]
+              }
+            ],
+            "outputs": [
+              {
+                "name": "reviewJsonWrite",
+                "value": {
+                  "kind": "output",
+                  "source": "write_review_json",
+                  "port": null
+                }
+              },
+              {
+                "name": "decision",
+                "value": {
+                  "kind": "output",
+                  "source": "assemble_review_json",
+                  "port": "decision"
+                }
+              }
+            ],
+            "always": [
+              {
+                "id": "cleanup_clone_directory",
+                "kind": "operation",
+                "objective": "Nettoyer quoi qu’il arrive le répertoire cloné demandé, y compris après échec partiel. Ne supprimer que ce clone, pas review.json.",
+                "dependsOn": [],
+                "requires": null,
+                "operation": "cap_5c01f9aa688163d23a30ff8b",
+                "inputs": [
+                  {
+                    "name": "commandName",
+                    "value": {
+                      "kind": "string",
+                      "text": "delete_directory"
+                    }
+                  },
+                  {
+                    "name": "parameters",
+                    "value": {
+                      "kind": "object",
+                      "members": [
+                        {
+                          "name": "path",
+                          "value": {
+                            "kind": "string",
+                            "text": "workflows/schema-portability-20261002/collections20261005d-code-1/repository"
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "name": "timeoutMs",
+                    "value": {
+                      "kind": "number",
+                      "number": 300000
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "groups": [],
+          "choices": []
+        },
+        "clarifications": null,
+        "requirements": {
+          "summary": "À partir de deux entrées publiques, pullRequestUrl et reviewText, réaliser localement une revue automatique de la PR GitHub SmartGuide #610 en clonant une seule fois le dépôt dans le répertoire fixé, en utilisant GitHub Copilot pour installer les dépendances et exécuter les checks déclarés, puis sauvegarder un rapport local review.json et nettoyer le clone quoi qu’il arrive.",
+          "outcomes": [
+            {
+              "id": "local_pr_review",
+              "description": "Le rapport local workflows/schema-portability-20261002/collections20261005d-code-1/review.json contient decision (approve ou request_changes), findings, et les preuves exactes des commandes observées avec codes de sortie."
+            },
+            {
+              "id": "checks_observed",
+              "description": "node --version, pnpm --version et python --version sont vérifiés explicitement avant les checks; linters, tests unitaires et tests d’intégration déclarés sont exécutés si présents, via GitHub Copilot."
+            },
+            {
+              "id": "local_only_cleanup",
+              "description": "Aucun feedback n’est publié sur GitHub; le clone workflows/schema-portability-20261002/collections20261005d-code-1/repository est supprimé même en cas d’échec."
+            }
+          ],
+          "inputs": [
+            {
+              "name": "pullRequestUrl",
+              "type": {
+                "kind": "string"
+              }
+            },
+            {
+              "name": "reviewText",
+              "type": {
+                "kind": "string"
+              }
+            }
+          ],
+          "outputs": [
+            {
+              "name": "reviewJsonWrite",
+              "type": {
+                "kind": "object",
+                "fields": [
+                  {
+                    "name": "commandName",
+                    "type": {
+                      "kind": "string"
+                    }
+                  },
+                  {
+                    "name": "exitCode",
+                    "type": {
+                      "kind": "integer"
+                    }
+                  },
+                  {
+                    "name": "success",
+                    "type": {
+                      "kind": "boolean"
+                    }
+                  },
+                  {
+                    "name": "stdout",
+                    "type": {
+                      "kind": "string",
+                      "nullable": true
+                    }
+                  },
+                  {
+                    "name": "stderr",
+                    "type": {
+                      "kind": "string",
+                      "nullable": true
+                    }
+                  }
+                ]
+              },
+              "required": false
+            },
+            {
+              "name": "decision",
+              "type": {
+                "kind": "string",
+                "enum": [
+                  "approve",
+                  "request_changes"
+                ]
+              },
+              "required": false
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "schema-portability-20261002:collections20261005d-code-1:3:9b61d405f950edf14b44a65e5298eb9e381f31061ebdc585b32d8eeb2f0409e3",
+      "response": {
+        "discoveryRequests": null,
+        "patch": {
+          "edits": [
+            {
+              "slot": "s0",
+              "action": "replace",
+              "value": {
+                "kind": "input",
+                "source": "reviewText"
+              }
+            },
+            {
+              "slot": "s1",
+              "action": "replace",
+              "value": {
+                "kind": "json",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "run_declared_checks_with_copilot",
+                    "port": null
+                  }
+                ]
+              }
+            },
+            {
+              "slot": "s2",
+              "action": "replace",
+              "value": {
+                "kind": "output",
+                "source": "assemble_review_json",
+                "port": null
+              }
+            }
+          ]
+        },
+        "clarifications": null
+      }
+    },
+    {
+      "id": "schema-portability-20261002:collections20261005d-code-1:4:d8f7d2662d4d3e9cd0065f4b9b2f34ff981a4dee2d57e71a96ce889ba4b02d95",
+      "response": {
+        "discoveryRequests": null,
+        "patch": {
+          "edits": [
+            {
+              "slot": "s0",
+              "action": "replace",
+              "value": [
+                "ew=="
+              ]
+            },
+            {
+              "slot": "s1",
+              "action": "replace",
+              "value": {
+                "kind": "input",
+                "source": "reviewText"
+              }
+            },
+            {
+              "slot": "s2",
+              "action": "replace",
+              "value": {
+                "kind": "json",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "run_declared_checks_with_copilot",
+                    "port": null
+                  }
+                ]
+              }
+            },
+            {
+              "slot": "s3",
+              "action": "replace",
+              "value": {
+                "kind": "output",
+                "source": "assemble_review_json",
+                "port": null
+              }
+            }
+          ]
+        },
+        "clarifications": null
+      }
+    },
+    {
+      "id": "schema-portability-20261002:collections20261005d-code-1:5:e4a631efda60a4618f336240bf890abf009ecd6e851c4af8e6bf9e2d28e53bf1",
+      "response": {
+        "discoveryRequests": [
+          {
+            "sourceId": "source_0002e1b8daaf46eef1b331cc",
+            "cursor": null,
+            "query": "plain text file writer read file JSON text UTF-8 write local workspace path create overwrite without base64 read back document txt json yaml capabilities",
+            "operationIds": null
+          }
+        ],
+        "plan": null,
+        "clarifications": null
+      }
+    },
+    {
+      "id": "schema-portability-20261002:collections20261005d-code-1:6:acd6de01f090eaae769d931c765fdb125c5452935cc66b582692dffa1869a661",
+      "response": {
+        "discoveryRequests": null,
+        "plan": {
+          "inputs": [
+            {
+              "name": "pullRequestUrl",
+              "type": {
+                "kind": "string"
+              }
+            },
+            {
+              "name": "reviewText",
+              "type": {
+                "kind": "string"
+              }
+            }
+          ],
+          "root": {
+            "tasks": [
+              {
+                "id": "clone_pr_head",
+                "kind": "operation",
+                "objective": "Cloner une seule fois le dépôt SmartGuide au chemin demandé, en checkout du head exact de la PR #610. Conserver ce chemin exact pour le nettoyage même en cas d’échec partiel.",
+                "dependsOn": [],
+                "requires": null,
+                "operation": "cap_fa8aa0024ff2ec0a4f9e61ad",
+                "inputs": [
+                  {
+                    "name": "remoteUrl",
+                    "value": {
+                      "kind": "string",
+                      "text": "https://github.com/AxaFrance/SmartGuide.git"
+                    }
+                  },
+                  {
+                    "name": "branch",
+                    "value": {
+                      "kind": "string",
+                      "text": "f2f6bda0e02a6c5c363e88cd6cb5d4eb7c313488"
+                    }
+                  },
+                  {
+                    "name": "fetchAllBranches",
+                    "value": {
+                      "kind": "boolean",
+                      "boolean": false
+                    }
+                  },
+                  {
+                    "name": "historyDepth",
+                    "value": {
+                      "kind": "number",
+                      "number": 0
+                    }
+                  },
+                  {
+                    "name": "tagFetchMode",
+                    "value": {
+                      "kind": "string",
+                      "text": "none"
+                    }
+                  },
+                  {
+                    "name": "targetDirectory",
+                    "value": {
+                      "kind": "string",
+                      "text": "workflows/schema-portability-20261002/collections20261005d-code-1/repository"
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "summarize_project",
+                "kind": "operation",
+                "objective": "Observer la structure du projet cloné afin d’identifier les toolchains/checks déclarés par le dépôt.",
+                "dependsOn": [
+                  "clone_pr_head"
+                ],
+                "requires": {
+                  "kind": "output",
+                  "source": "clone_pr_head",
+                  "port": "success"
+                },
+                "operation": "cap_e521e4ae474d627359935e32",
+                "inputs": [
+                  {
+                    "name": "projectRoot",
+                    "value": {
+                      "kind": "output",
+                      "source": "clone_pr_head",
+                      "port": "projectRootRelative"
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "compare_pr_diff_page_1",
+                "kind": "operation",
+                "objective": "Obtenir la première page de comparaison exacte par fichier entre base et head de la PR, depuis le merge-base comme GitHub, avec patches et métadonnées de troncature.",
+                "dependsOn": [
+                  "clone_pr_head"
+                ],
+                "requires": {
+                  "kind": "output",
+                  "source": "clone_pr_head",
+                  "port": "success"
+                },
+                "operation": "cap_6c40004fe4610a44cf97c2c7",
+                "inputs": [
+                  {
+                    "name": "projectRoot",
+                    "value": {
+                      "kind": "output",
+                      "source": "clone_pr_head",
+                      "port": "projectRootRelative"
+                    }
+                  },
+                  {
+                    "name": "baseRef",
+                    "value": {
+                      "kind": "string",
+                      "text": "8f1779dc25c1843e9ce4d4ec76d02e066ae892c4"
+                    }
+                  },
+                  {
+                    "name": "headRef",
+                    "value": {
+                      "kind": "string",
+                      "text": "f2f6bda0e02a6c5c363e88cd6cb5d4eb7c313488"
+                    }
+                  },
+                  {
+                    "name": "compareFromMergeBase",
+                    "value": {
+                      "kind": "boolean",
+                      "boolean": true
+                    }
+                  },
+                  {
+                    "name": "pageSize",
+                    "value": {
+                      "kind": "number",
+                      "number": 100
+                    }
+                  },
+                  {
+                    "name": "cursor",
+                    "value": {
+                      "kind": "null"
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "compare_pr_diff_page_2_if_needed",
+                "kind": "conditional",
+                "objective": "Consommer explicitement la continuation de diff si la première page indique hasMore, afin de ne pas traiter une page tronquée comme une couverture complète.",
+                "dependsOn": [
+                  "compare_pr_diff_page_1"
+                ],
+                "requires": null,
+                "condition": {
+                  "kind": "output",
+                  "source": "compare_pr_diff_page_1",
+                  "port": "hasMore"
+                },
+                "body": {
+                  "tasks": [
+                    {
+                      "id": "compare_pr_diff_page_2",
+                      "kind": "operation",
+                      "objective": "Obtenir la deuxième page de comparaison de la PR avec le nextCursor observé sur la première page.",
+                      "dependsOn": [],
+                      "requires": null,
+                      "operation": "cap_6c40004fe4610a44cf97c2c7",
+                      "inputs": [
+                        {
+                          "name": "projectRoot",
+                          "value": {
+                            "kind": "output",
+                            "source": "clone_pr_head",
+                            "port": "projectRootRelative"
+                          }
+                        },
+                        {
+                          "name": "baseRef",
+                          "value": {
+                            "kind": "string",
+                            "text": "8f1779dc25c1843e9ce4d4ec76d02e066ae892c4"
+                          }
+                        },
+                        {
+                          "name": "headRef",
+                          "value": {
+                            "kind": "string",
+                            "text": "f2f6bda0e02a6c5c363e88cd6cb5d4eb7c313488"
+                          }
+                        },
+                        {
+                          "name": "compareFromMergeBase",
+                          "value": {
+                            "kind": "boolean",
+                            "boolean": true
+                          }
+                        },
+                        {
+                          "name": "pageSize",
+                          "value": {
+                            "kind": "number",
+                            "number": 100
+                          }
+                        },
+                        {
+                          "name": "cursor",
+                          "value": {
+                            "kind": "output",
+                            "source": "compare_pr_diff_page_1",
+                            "port": "nextCursor"
+                          }
+                        }
+                      ]
+                    }
+                  ],
+                  "outputs": [],
+                  "always": []
+                },
+                "otherwise": {
+                  "tasks": [],
+                  "outputs": [],
+                  "always": []
+                }
+              },
+              {
+                "id": "assemble_complete_diff_input",
+                "kind": "transform",
+                "objective": "Assembler les pages de diff disponibles en un JSON de comparaison pour la revue, et marquer explicitement si une continuation reste non consommée ou si des fichiers/patches sont tronqués. Ne pas inventer de couverture complète.",
+                "dependsOn": [
+                  "compare_pr_diff_page_1",
+                  "compare_pr_diff_page_2_if_needed"
+                ],
+                "requires": {
+                  "kind": "output",
+                  "source": "compare_pr_diff_page_1",
+                  "port": "success"
+                },
+                "mode": "interpret",
+                "inputs": [
+                  {
+                    "name": "page1",
+                    "value": {
+                      "kind": "output",
+                      "source": "compare_pr_diff_page_1",
+                      "port": null
+                    }
+                  },
+                  {
+                    "name": "page2_if_present",
+                    "value": {
+                      "kind": "output",
+                      "source": "compare_pr_diff_page_2_if_needed",
+                      "port": null
+                    }
+                  }
+                ],
+                "resultType": {
+                  "kind": "object",
+                  "fields": [
+                    {
+                      "name": "filesJson",
+                      "type": {
+                        "kind": "string"
+                      }
+                    },
+                    {
+                      "name": "baseSha",
+                      "type": {
+                        "kind": "string"
+                      }
+                    },
+                    {
+                      "name": "headSha",
+                      "type": {
+                        "kind": "string"
+                      }
+                    },
+                    {
+                      "name": "diffComplete",
+                      "type": {
+                        "kind": "boolean"
+                      }
+                    },
+                    {
+                      "name": "coverageNote",
+                      "type": {
+                        "kind": "string"
+                      }
+                    },
+                    {
+                      "name": "totalFiles",
+                      "type": {
+                        "kind": "integer"
+                      }
+                    },
+                    {
+                      "name": "truncatedFileCount",
+                      "type": {
+                        "kind": "integer"
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "run_declared_checks_with_copilot",
+                "kind": "operation",
+                "objective": "Via GitHub Copilot, dans l’unique répertoire cloné uniquement, vérifier explicitement node --version, pnpm --version et python --version, installer les dépendances selon les fichiers du dépôt, puis exécuter les linters, tests unitaires et tests d’intégration présents. Ne rien publier sur GitHub. Capturer les observations terminal exactes avec codes de sortie; les capacités absentes, prérequis indisponibles et tests échoués doivent rester explicites.",
+                "dependsOn": [
+                  "clone_pr_head",
+                  "summarize_project"
+                ],
+                "requires": {
+                  "kind": "output",
+                  "source": "clone_pr_head",
+                  "port": "success"
+                },
+                "operation": "cap_1ff6cc617981dc592bd62a5a",
+                "inputs": [
+                  {
+                    "name": "projectRoot",
+                    "value": {
+                      "kind": "output",
+                      "source": "clone_pr_head",
+                      "port": "projectRootRelative"
+                    }
+                  },
+                  {
+                    "name": "prompt",
+                    "value": {
+                      "kind": "string",
+                      "text": "Contexte: PR GitHub locale uniquement https://github.com/AxaFrance/SmartGuide/pull/610, base 8f1779dc25c1843e9ce4d4ec76d02e066ae892c4, head f2f6bda0e02a6c5c363e88cd6cb5d4eb7c313488. Utiliser l’entrée publique reviewText comme consigne métier de revue; aucun feedback ne doit être publié sur GitHub.\n\nTâche bornée dans ce projectRoot uniquement: inspecter les fichiers du dépôt pour déterminer les toolchains et scripts déclarés; exécuter explicitement, avant tout check, les commandes node --version, pnpm --version et python --version; installer les dépendances avec le gestionnaire déclaré par le dépôt (pnpm si applicable); exécuter les linters, tests unitaires et tests d’intégration s’ils sont présents/déclarés. N’exécuter aucune publication ou écriture GitHub. Ne pas utiliser d’autre clone ni d’autre répertoire de travail. Rapporter toute capacité absente, prérequis indisponible, commande impossible, test échoué ou script absent comme tel, jamais comme succès. Retourner un résumé structuré des commandes réellement lancées et des résultats observés; les preuves machine sont les toolExecutions avec codes de sortie."
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "review_pr_with_copilot",
+                "kind": "operation",
+                "objective": "Réaliser la revue de code locale demandée avec GitHub Copilot sur les patches exacts disponibles de la PR, en tenant compte des résultats d’installation/checks, de la couverture de diff et du reviewText. Produire des findings de diff locaux uniquement, sans publication GitHub.",
+                "dependsOn": [
+                  "clone_pr_head",
+                  "assemble_complete_diff_input",
+                  "run_declared_checks_with_copilot"
+                ],
+                "requires": {
+                  "kind": "predicate",
+                  "predicate": "and",
+                  "items": [
+                    {
+                      "kind": "output",
+                      "source": "clone_pr_head",
+                      "port": "success"
+                    },
+                    {
+                      "kind": "output",
+                      "source": "compare_pr_diff_page_1",
+                      "port": "success"
+                    }
+                  ]
+                },
+                "operation": "cap_bed15f26b6b53fb1f2f33e52",
+                "inputs": [
+                  {
+                    "name": "projectRoot",
+                    "value": {
+                      "kind": "output",
+                      "source": "clone_pr_head",
+                      "port": "projectRootRelative"
+                    }
+                  },
+                  {
+                    "name": "baseSha",
+                    "value": {
+                      "kind": "output",
+                      "source": "assemble_complete_diff_input",
+                      "port": "baseSha"
+                    }
+                  },
+                  {
+                    "name": "headSha",
+                    "value": {
+                      "kind": "output",
+                      "source": "assemble_complete_diff_input",
+                      "port": "headSha"
+                    }
+                  },
+                  {
+                    "name": "filesJson",
+                    "value": {
+                      "kind": "output",
+                      "source": "assemble_complete_diff_input",
+                      "port": "filesJson"
+                    }
+                  },
+                  {
+                    "name": "existingCommentsJson",
+                    "value": {
+                      "kind": "string",
+                      "text": "[]"
+                    }
+                  },
+                  {
+                    "name": "reviewInstructions",
+                    "value": {
+                      "kind": "input",
+                      "source": "reviewText"
+                    }
+                  },
+                  {
+                    "name": "runtimeContextJson",
+                    "value": {
+                      "kind": "json",
+                      "items": [
+                        {
+                          "kind": "object",
+                          "members": [
+                            {
+                              "name": "pullRequestUrl",
+                              "value": {
+                                "kind": "input",
+                                "source": "pullRequestUrl"
+                              }
+                            },
+                            {
+                              "name": "pinnedBase",
+                              "value": {
+                                "kind": "string",
+                                "text": "8f1779dc25c1843e9ce4d4ec76d02e066ae892c4"
+                              }
+                            },
+                            {
+                              "name": "pinnedHead",
+                              "value": {
+                                "kind": "string",
+                                "text": "f2f6bda0e02a6c5c363e88cd6cb5d4eb7c313488"
+                              }
+                            },
+                            {
+                              "name": "diffCoverage",
+                              "value": {
+                                "kind": "output",
+                                "source": "assemble_complete_diff_input",
+                                "port": null
+                              }
+                            },
+                            {
+                              "name": "checks",
+                              "value": {
+                                "kind": "output",
+                                "source": "run_declared_checks_with_copilot",
+                                "port": null
+                              }
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "name": "maxBatchCharacters",
+                    "value": {
+                      "kind": "number",
+                      "number": 60000
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "assemble_review_json",
+                "kind": "transform",
+                "objective": "Assembler le contenu texte JSON final local review.json à partir des seules observations déclarées: décision approve seulement si aucune finding bloquante, aucune commande/check requis n’a échoué, et la couverture de diff est explicitement complète/non tronquée; sinon request_changes. Inclure findings de diff Copilot, couverture/troncature, capacités absentes ou prérequis indisponibles explicitement, et les commandes exactes observées avec leurs codes de sortie issus des toolExecutions. Ne pas inventer de commande, code de sortie, label ou succès.",
+                "dependsOn": [
+                  "clone_pr_head",
+                  "assemble_complete_diff_input",
+                  "run_declared_checks_with_copilot",
+                  "review_pr_with_copilot"
+                ],
+                "requires": {
+                  "kind": "present",
+                  "source": "run_declared_checks_with_copilot"
+                },
+                "mode": "interpret",
+                "inputs": [
+                  {
+                    "name": "pullRequestUrl",
+                    "value": {
+                      "kind": "input",
+                      "source": "pullRequestUrl"
+                    }
+                  },
+                  {
+                    "name": "reviewText",
+                    "value": {
+                      "kind": "input",
+                      "source": "reviewText"
+                    }
+                  },
+                  {
+                    "name": "cloneResult",
+                    "value": {
+                      "kind": "output",
+                      "source": "clone_pr_head",
+                      "port": null
+                    }
+                  },
+                  {
+                    "name": "comparison",
+                    "value": {
+                      "kind": "output",
+                      "source": "assemble_complete_diff_input",
+                      "port": null
+                    }
+                  },
+                  {
+                    "name": "checks",
+                    "value": {
+                      "kind": "output",
+                      "source": "run_declared_checks_with_copilot",
+                      "port": null
+                    }
+                  },
+                  {
+                    "name": "review",
+                    "value": {
+                      "kind": "output",
+                      "source": "review_pr_with_copilot",
+                      "port": null
+                    }
+                  }
+                ],
+                "resultType": {
+                  "kind": "object",
+                  "fields": [
+                    {
+                      "name": "content",
+                      "type": {
+                        "kind": "string"
+                      }
+                    },
+                    {
+                      "name": "decision",
+                      "type": {
+                        "kind": "string",
+                        "enum": [
+                          "approve",
+                          "request_changes"
+                        ]
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "write_review_json",
+                "kind": "operation",
+                "objective": "Sauvegarder le rapport local review.json hors du clone, au chemin demandé, avec decision, findings et preuves exactes de commandes/codes de sortie observés, en utilisant le writer texte compatible découvert.",
+                "dependsOn": [
+                  "assemble_review_json"
+                ],
+                "requires": {
+                  "kind": "present",
+                  "source": "assemble_review_json"
+                },
+                "operation": "cap_37c513d225bb1b870053c5d3",
+                "inputs": [
+                  {
+                    "name": "filePath",
+                    "value": {
+                      "kind": "string",
+                      "text": "workflows/schema-portability-20261002/collections20261005d-code-1/review.json"
+                    }
+                  },
+                  {
+                    "name": "content",
+                    "value": {
+                      "kind": "output",
+                      "source": "assemble_review_json",
+                      "port": "content"
+                    }
+                  },
+                  {
+                    "name": "append",
+                    "value": {
+                      "kind": "boolean",
+                      "boolean": false
+                    }
+                  },
+                  {
+                    "name": "encoding",
+                    "value": {
+                      "kind": "string",
+                      "text": "utf-8"
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "read_back_review_json",
+                "kind": "operation",
+                "objective": "Relire réellement le rapport review.json écrit pour disposer d’une preuve locale de contenu lisible avant nettoyage du clone.",
+                "dependsOn": [
+                  "write_review_json"
+                ],
+                "requires": {
+                  "kind": "output",
+                  "source": "write_review_json",
+                  "port": "success"
+                },
+                "operation": "cap_14c5ec54d0147c07ee2021dc",
+                "inputs": [
+                  {
+                    "name": "filePath",
+                    "value": {
+                      "kind": "string",
+                      "text": "workflows/schema-portability-20261002/collections20261005d-code-1/review.json"
+                    }
+                  },
+                  {
+                    "name": "format",
+                    "value": {
+                      "kind": "string",
+                      "text": "plain"
+                    }
+                  }
+                ]
+              }
+            ],
+            "outputs": [
+              {
+                "name": "reviewJsonWrite",
+                "value": {
+                  "kind": "output",
+                  "source": "write_review_json",
+                  "port": null
+                }
+              },
+              {
+                "name": "decision",
+                "value": {
+                  "kind": "output",
+                  "source": "assemble_review_json",
+                  "port": "decision"
+                }
+              }
+            ],
+            "always": [
+              {
+                "id": "cleanup_clone_directory",
+                "kind": "operation",
+                "objective": "Nettoyer quoi qu’il arrive le répertoire cloné demandé, y compris après échec partiel. Ne supprimer que ce clone, pas review.json.",
+                "dependsOn": [],
+                "requires": null,
+                "operation": "cap_5c01f9aa688163d23a30ff8b",
+                "inputs": [
+                  {
+                    "name": "commandName",
+                    "value": {
+                      "kind": "string",
+                      "text": "delete_directory"
+                    }
+                  },
+                  {
+                    "name": "parameters",
+                    "value": {
+                      "kind": "object",
+                      "members": [
+                        {
+                          "name": "path",
+                          "value": {
+                            "kind": "string",
+                            "text": "workflows/schema-portability-20261002/collections20261005d-code-1/repository"
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "name": "timeoutMs",
+                    "value": {
+                      "kind": "number",
+                      "number": 300000
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "groups": [],
+          "choices": []
+        },
+        "clarifications": null
+      }
+    },
+    {
+      "id": "schema-portability-20261002:collections20261005d-code-1:7:558a008b78556344fd8903fad73cc595bf196a1b3131f04bfc7e68804bf5bdfe",
+      "response": {
+        "discoveryRequests": null,
+        "plan": {
+          "inputs": [
+            {
+              "name": "pullRequestUrl",
+              "type": {
+                "kind": "string"
+              }
+            },
+            {
+              "name": "reviewText",
+              "type": {
+                "kind": "string"
+              }
+            }
+          ],
+          "root": {
+            "tasks": [
+              {
+                "id": "clone_pr_head",
+                "kind": "operation",
+                "objective": "Cloner une seule fois le dépôt SmartGuide au chemin demandé, en checkout du head exact de la PR #610. Conserver ce chemin exact pour le nettoyage même en cas d’échec partiel.",
+                "dependsOn": [],
+                "requires": null,
+                "operation": "cap_fa8aa0024ff2ec0a4f9e61ad",
+                "inputs": [
+                  {
+                    "name": "remoteUrl",
+                    "value": {
+                      "kind": "string",
+                      "text": "https://github.com/AxaFrance/SmartGuide.git"
+                    }
+                  },
+                  {
+                    "name": "branch",
+                    "value": {
+                      "kind": "string",
+                      "text": "f2f6bda0e02a6c5c363e88cd6cb5d4eb7c313488"
+                    }
+                  },
+                  {
+                    "name": "fetchAllBranches",
+                    "value": {
+                      "kind": "boolean",
+                      "boolean": false
+                    }
+                  },
+                  {
+                    "name": "historyDepth",
+                    "value": {
+                      "kind": "number",
+                      "number": 0
+                    }
+                  },
+                  {
+                    "name": "tagFetchMode",
+                    "value": {
+                      "kind": "string",
+                      "text": "none"
+                    }
+                  },
+                  {
+                    "name": "targetDirectory",
+                    "value": {
+                      "kind": "string",
+                      "text": "workflows/schema-portability-20261002/collections20261005d-code-1/repository"
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "summarize_project",
+                "kind": "operation",
+                "objective": "Observer la structure du projet cloné afin d’identifier les toolchains/checks déclarés par le dépôt.",
+                "dependsOn": [
+                  "clone_pr_head"
+                ],
+                "requires": {
+                  "kind": "output",
+                  "source": "clone_pr_head",
+                  "port": "success"
+                },
+                "operation": "cap_e521e4ae474d627359935e32",
+                "inputs": [
+                  {
+                    "name": "projectRoot",
+                    "value": {
+                      "kind": "output",
+                      "source": "clone_pr_head",
+                      "port": "projectRootRelative"
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "compare_pr_diff",
+                "kind": "operation",
+                "objective": "Obtenir la comparaison exacte déclarée par Git entre base et head de la PR, depuis le merge-base comme GitHub, avec filesJson, baseSha, headSha et métadonnées authoritatives de pagination/troncature. Cette sortie est la seule source revision.comparison.files utilisée par la revue.",
+                "dependsOn": [
+                  "clone_pr_head"
+                ],
+                "requires": {
+                  "kind": "output",
+                  "source": "clone_pr_head",
+                  "port": "success"
+                },
+                "operation": "cap_6c40004fe4610a44cf97c2c7",
+                "inputs": [
+                  {
+                    "name": "projectRoot",
+                    "value": {
+                      "kind": "output",
+                      "source": "clone_pr_head",
+                      "port": "projectRootRelative"
+                    }
+                  },
+                  {
+                    "name": "baseRef",
+                    "value": {
+                      "kind": "string",
+                      "text": "8f1779dc25c1843e9ce4d4ec76d02e066ae892c4"
+                    }
+                  },
+                  {
+                    "name": "headRef",
+                    "value": {
+                      "kind": "string",
+                      "text": "f2f6bda0e02a6c5c363e88cd6cb5d4eb7c313488"
+                    }
+                  },
+                  {
+                    "name": "compareFromMergeBase",
+                    "value": {
+                      "kind": "boolean",
+                      "boolean": true
+                    }
+                  },
+                  {
+                    "name": "pageSize",
+                    "value": {
+                      "kind": "number",
+                      "number": 100
+                    }
+                  },
+                  {
+                    "name": "cursor",
+                    "value": {
+                      "kind": "null"
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "run_declared_checks_with_copilot",
+                "kind": "operation",
+                "objective": "Via GitHub Copilot, dans l’unique répertoire cloné uniquement, vérifier explicitement node --version, pnpm --version et python --version, installer les dépendances selon les fichiers du dépôt, puis exécuter les linters, tests unitaires et tests d’intégration présents. Ne rien publier sur GitHub. Capturer les observations terminal exactes avec codes de sortie; les capacités absentes, prérequis indisponibles et tests échoués doivent rester explicites.",
+                "dependsOn": [
+                  "clone_pr_head",
+                  "summarize_project"
+                ],
+                "requires": {
+                  "kind": "output",
+                  "source": "clone_pr_head",
+                  "port": "success"
+                },
+                "operation": "cap_1ff6cc617981dc592bd62a5a",
+                "inputs": [
+                  {
+                    "name": "projectRoot",
+                    "value": {
+                      "kind": "output",
+                      "source": "clone_pr_head",
+                      "port": "projectRootRelative"
+                    }
+                  },
+                  {
+                    "name": "prompt",
+                    "value": {
+                      "kind": "string",
+                      "text": "Contexte: PR GitHub locale uniquement https://github.com/AxaFrance/SmartGuide/pull/610, base 8f1779dc25c1843e9ce4d4ec76d02e066ae892c4, head f2f6bda0e02a6c5c363e88cd6cb5d4eb7c313488. Utiliser l’entrée publique reviewText comme consigne métier de revue; aucun feedback ne doit être publié sur GitHub.\n\nTâche bornée dans ce projectRoot uniquement: inspecter les fichiers du dépôt pour déterminer les toolchains et scripts déclarés; exécuter explicitement, avant tout check, les commandes node --version, pnpm --version et python --version; installer les dépendances avec le gestionnaire déclaré par le dépôt (pnpm si applicable); exécuter les linters, tests unitaires et tests d’intégration s’ils sont présents/déclarés. N’exécuter aucune publication ou écriture GitHub. Ne pas utiliser d’autre clone ni d’autre répertoire de travail. Rapporter toute capacité absente, prérequis indisponible, commande impossible, test échoué ou script absent comme tel, jamais comme succès. Retourner un résumé structuré des commandes réellement lancées et des résultats observés; les preuves machine sont les toolExecutions avec codes de sortie."
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "review_pr_with_copilot",
+                "kind": "operation",
+                "objective": "Réaliser la revue de code locale demandée avec GitHub Copilot sur les patches exacts et complets déclarés par git_compare_refs, en tenant compte des résultats d’installation/checks et du reviewText. Produire des findings de diff locaux uniquement, sans publication GitHub. Ne consommer la comparaison que si success=true, hasMore=false et truncatedFileCount=0; sinon cette tâche ne s’exécute pas et l’incomplétude sera rapportée explicitement.",
+                "dependsOn": [
+                  "clone_pr_head",
+                  "compare_pr_diff",
+                  "run_declared_checks_with_copilot"
+                ],
+                "requires": {
+                  "kind": "predicate",
+                  "predicate": "and",
+                  "items": [
+                    {
+                      "kind": "output",
+                      "source": "clone_pr_head",
+                      "port": "success"
+                    },
+                    {
+                      "kind": "output",
+                      "source": "compare_pr_diff",
+                      "port": "success兑},{"
+                    }
+                  ]
+                },
+                "operation": "cap_bed15f26b6b53fb1f2f33e52",
+                "inputs": [
+                  {
+                    "name": "projectRoot",
+                    "value": {
+                      "kind": "output",
+                      "source": "clone_pr_head",
+                      "port": "projectRootRelative"
+                    }
+                  },
+                  {
+                    "name": "baseSha",
+                    "value": {
+                      "kind": "output",
+                      "source": "compare_pr_diff",
+                      "port": "baseSha"
+                    }
+                  },
+                  {
+                    "name": "headSha",
+                    "value": {
+                      "kind": "output",
+                      "source": "compare_pr_diff",
+                      "port": "headSha"
+                    }
+                  },
+                  {
+                    "name": "filesJson",
+                    "value": {
+                      "kind": "output",
+                      "source": "compare_pr_diff",
+                      "port": "filesJson"
+                    }
+                  },
+                  {
+                    "name": "existingCommentsJson",
+                    "value": {
+                      "kind": "string",
+                      "text": "[]"
+                    }
+                  },
+                  {
+                    "name": "reviewInstructions",
+                    "value": {
+                      "kind": "input",
+                      "source": "reviewText"
+                    }
+                  },
+                  {
+                    "name": "runtimeContextJson",
+                    "value": {
+                      "kind": "json",
+                      "items": [
+                        {
+                          "kind": "object",
+                          "members": [
+                            {
+                              "name": "pullRequestUrl",
+                              "value": {
+                                "kind": "input",
+                                "source": "pullRequestUrl"
+                              }
+                            },
+                            {
+                              "name": "pinnedBase",
+                              "value": {
+                                "kind": "string",
+                                "text": "8f1779dc25c1843e9ce4d4ec76d02e066ae892c4"
+                              }
+                            },
+                            {
+                              "name": "pinnedHead",
+                              "value": {
+                                "kind": "string",
+                                "text": "f2f6bda0e02a6c5c363e88cd6cb5d4eb7c313488"
+                              }
+                            },
+                            {
+                              "name": "comparison",
+                              "value": {
+                                "kind": "output",
+                                "source": "compare_pr_diff",
+                                "port": null
+                              }
+                            },
+                            {
+                              "name": "checks",
+                              "value": {
+                                "kind": "output",
+                                "source": "run_declared_checks_with_copilot",
+                                "port": null
+                              }
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "name": "maxBatchCharacters",
+                    "value": {
+                      "kind": "number",
+                      "number": 60000
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "assemble_review_json",
+                "kind": "transform",
+                "objective": "Assembler le contenu texte JSON final local review.json à partir des seules observations déclarées: décision approve seulement si la revue Copilot est présente et ne contient aucune finding bloquante, si aucune commande/check requis n’a échoué, et si la comparaison authoritativement observée a success=true, hasMore=false et truncatedFileCount=0; sinon request_changes avec une raison explicite, notamment couverture de diff incomplète. Inclure findings de diff Copilot lorsqu’ils existent, couverture/troncature, capacités absentes ou prérequis indisponibles explicitement, et les commandes exactes observées avec leurs codes de sortie issus des toolExecutions. Ne pas inventer de commande, code de sortie, label, succès, booléen de complétude ou artifact de diff assemblé.",
+                "dependsOn": [
+                  "clone_pr_head",
+                  "compare_pr_diff",
+                  "run_declared_checks_with_copilot",
+                  "review_pr_with_copilot"
+                ],
+                "requires": {
+                  "kind": "present",
+                  "source": "run_declared_checks_with_copilot"
+                },
+                "mode": "interpret",
+                "inputs": [
+                  {
+                    "name": "pullRequestUrl",
+                    "value": {
+                      "kind": "input",
+                      "source": "pullRequestUrl"
+                    }
+                  },
+                  {
+                    "name": "reviewText",
+                    "value": {
+                      "kind": "input",
+                      "source": "reviewText"
+                    }
+                  },
+                  {
+                    "name": "cloneResult",
+                    "value": {
+                      "kind": "output",
+                      "source": "clone_pr_head",
+                      "port": null
+                    }
+                  },
+                  {
+                    "name": "comparison",
+                    "value": {
+                      "kind": "output",
+                      "source": "compare_pr_diff",
+                      "port": null
+                    }
+                  },
+                  {
+                    "name": "checks",
+                    "value": {
+                      "kind": "output",
+                      "source": "run_declared_checks_with_copilot",
+                      "port": null
+                    }
+                  },
+                  {
+                    "name": "review_if_present",
+                    "value": {
+                      "kind": "output",
+                      "source": "review_pr_with_copilot",
+                      "port": null
+                    }
+                  }
+                ],
+                "resultType": {
+                  "kind": "object",
+                  "fields": [
+                    {
+                      "name": "content",
+                      "type": {
+                        "kind": "string"
+                      }
+                    },
+                    {
+                      "name": "decision",
+                      "type": {
+                        "kind": "string",
+                        "enum": [
+                          "approve",
+                          "request_changes"
+                        ]
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "write_review_json",
+                "kind": "operation",
+                "objective": "Sauvegarder le rapport local review.json hors du clone, au chemin demandé, avec decision, findings et preuves exactes de commandes/codes de sortie observés, en utilisant le writer texte compatible découvert.",
+                "dependsOn": [
+                  "assemble_review_json"
+                ],
+                "requires": {
+                  "kind": "present",
+                  "source": "assemble_review_json"
+                },
+                "operation": "cap_37c513d225bb1b870053c5d3",
+                "inputs": [
+                  {
+                    "name": "filePath",
+                    "value": {
+                      "kind": "string",
+                      "text": "workflows/schema-portability-20261002/collections20261005d-code-1/review.json"
+                    }
+                  },
+                  {
+                    "name": "content",
+                    "value": {
+                      "kind": "output",
+                      "source": "assemble_review_json",
+                      "port": "content"
+                    }
+                  },
+                  {
+                    "name": "append",
+                    "value": {
+                      "kind": "boolean",
+                      "boolean": false
+                    }
+                  },
+                  {
+                    "name": "encoding",
+                    "value": {
+                      "kind": "string",
+                      "text": "utf-8"
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "read_back_review_json",
+                "kind": "operation",
+                "objective": "Relire réellement le rapport review.json écrit pour disposer d’une preuve locale de contenu lisible avant nettoyage du clone.",
+                "dependsOn": [
+                  "write_review_json"
+                ],
+                "requires": {
+                  "kind": "output",
+                  "source": "write_review_json",
+                  "port": "success"
+                },
+                "operation": "cap_14c5ec54d0147c07ee2021dc",
+                "inputs": [
+                  {
+                    "name": "filePath",
+                    "value": {
+                      "kind": "string",
+                      "text": "workflows/schema-portability-20261002/collections20261005d-code-1/review.json"
+                    }
+                  },
+                  {
+                    "name": "format",
+                    "value": {
+                      "kind": "string",
+                      "text": "plain"
+                    }
+                  }
+                ]
+              }
+            ],
+            "outputs": [
+              {
+                "name": "reviewJsonWrite",
+                "value": {
+                  "kind": "output",
+                  "source": "write_review_json",
+                  "port": null
+                }
+              },
+              {
+                "name": "decision",
+                "value": {
+                  "kind": "output",
+                  "source": "assemble_review_json",
+                  "port": "decision"
+                }
+              }
+            ],
+            "always": [
+              {
+                "id": "cleanup_clone_directory",
+                "kind": "operation",
+                "objective": "Nettoyer quoi qu’il arrive le répertoire cloné demandé, y compris après échec partiel. Ne supprimer que ce clone, pas review.json.",
+                "dependsOn": [],
+                "requires": null,
+                "operation": "cap_5c01f9aa688163d23a30ff8b",
+                "inputs": [
+                  {
+                    "name": "commandName",
+                    "value": {
+                      "kind": "string",
+                      "text": "delete_directory"
+                    }
+                  },
+                  {
+                    "name": "parameters",
+                    "value": {
+                      "kind": "object",
+                      "members": [
+                        {
+                          "name": "path",
+                          "value": {
+                            "kind": "string",
+                            "text": "workflows/schema-portability-20261002/collections20261005d-code-1/repository"
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "name": "timeoutMs",
+                    "value": {
+                      "kind": "number",
+                      "number": 300000
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "groups": [],
+          "choices": []
+        },
+        "clarifications": null
+      }
+    },
+    {
+      "id": "schema-portability-20261002:collections20261005d-code-1:8:0c352da6ccc6c8aad0002a37137ec7a4279c88502583034606ed84fee2c9cc53",
+      "response": {
+        "discoveryRequests": null,
+        "plan": {
+          "inputs": [
+            {
+              "name": "pullRequestUrl",
+              "type": {
+                "kind": "string"
+              }
+            },
+            {
+              "name": "reviewText",
+              "type": {
+                "kind": "string"
+              }
+            }
+          ],
+          "root": {
+            "tasks": [
+              {
+                "id": "clone_pr_head",
+                "kind": "operation",
+                "objective": "Cloner une seule fois le dépôt SmartGuide au chemin demandé, en checkout du head exact de la PR #610. Conserver ce chemin exact pour le nettoyage même en cas d’échec partiel.",
+                "dependsOn": [],
+                "requires": null,
+                "operation": "cap_fa8aa0024ff2ec0a4f9e61ad",
+                "inputs": [
+                  {
+                    "name": "remoteUrl",
+                    "value": {
+                      "kind": "string",
+                      "text": "https://github.com/AxaFrance/SmartGuide.git"
+                    }
+                  },
+                  {
+                    "name": "branch",
+                    "value": {
+                      "kind": "string",
+                      "text": "f2f6bda0e02a6c5c363e88cd6cb5d4eb7c313488"
+                    }
+                  },
+                  {
+                    "name": "fetchAllBranches",
+                    "value": {
+                      "kind": "boolean",
+                      "boolean": false
+                    }
+                  },
+                  {
+                    "name": "historyDepth",
+                    "value": {
+                      "kind": "number",
+                      "number": 0
+                    }
+                  },
+                  {
+                    "name": "tagFetchMode",
+                    "value": {
+                      "kind": "string",
+                      "text": "none"
+                    }
+                  },
+                  {
+                    "name": "targetDirectory",
+                    "value": {
+                      "kind": "string",
+                      "text": "workflows/schema-portability-20261002/collections20261005d-code-1/repository"
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "summarize_project",
+                "kind": "operation",
+                "objective": "Observer la structure du projet cloné afin d’identifier les toolchains/checks déclarés par le dépôt.",
+                "dependsOn": [
+                  "clone_pr_head"
+                ],
+                "requires": {
+                  "kind": "output",
+                  "source": "clone_pr_head",
+                  "port": "success"
+                },
+                "operation": "cap_e521e4ae474d627359935e32",
+                "inputs": [
+                  {
+                    "name": "projectRoot",
+                    "value": {
+                      "kind": "output",
+                      "source": "clone_pr_head",
+                      "port": "projectRootRelative"
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "compare_pr_diff",
+                "kind": "operation",
+                "objective": "Obtenir la comparaison exacte déclarée par Git entre base et head de la PR, depuis le merge-base comme GitHub, avec filesJson, baseSha, headSha et métadonnées authoritatives de pagination/troncature. Cette sortie est la seule source revision.comparison.files utilisée par la revue.",
+                "dependsOn": [
+                  "clone_pr_head"
+                ],
+                "requires": {
+                  "kind": "output",
+                  "source": "clone_pr_head",
+                  "port": "success"
+                },
+                "operation": "cap_6c40004fe4610a44cf97c2c7",
+                "inputs": [
+                  {
+                    "name": "projectRoot",
+                    "value": {
+                      "kind": "output",
+                      "source": "clone_pr_head",
+                      "port": "projectRootRelative"
+                    }
+                  },
+                  {
+                    "name": "baseRef",
+                    "value": {
+                      "kind": "string",
+                      "text": "8f1779dc25c1843e9ce4d4ec76d02e066ae892c4"
+                    }
+                  },
+                  {
+                    "name": "headRef",
+                    "value": {
+                      "kind": "string",
+                      "text": "f2f6bda0e02a6c5c363e88cd6cb5d4eb7c313488"
+                    }
+                  },
+                  {
+                    "name": "compareFromMergeBase",
+                    "value": {
+                      "kind": "boolean",
+                      "boolean": true
+                    }
+                  },
+                  {
+                    "name": "pageSize",
+                    "value": {
+                      "kind": "number",
+                      "number": 100
+                    }
+                  },
+                  {
+                    "name": "cursor",
+                    "value": {
+                      "kind": "null"
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "run_declared_checks_with_copilot",
+                "kind": "operation",
+                "objective": "Via GitHub Copilot, dans l’unique répertoire cloné uniquement, vérifier explicitement node --version, pnpm --version et python --version, installer les dépendances selon les fichiers du dépôt, puis exécuter les linters, tests unitaires et tests d’intégration présents. Ne rien publier sur GitHub. Capturer les observations terminal exactes avec codes de sortie; les capacités absentes, prérequis indisponibles et tests échoués doivent rester explicites.",
+                "dependsOn": [
+                  "clone_pr_head",
+                  "summarize_project"
+                ],
+                "requires": {
+                  "kind": "output",
+                  "source": "clone_pr_head",
+                  "port": "success"
+                },
+                "operation": "cap_1ff6cc617981dc592bd62a5a",
+                "inputs": [
+                  {
+                    "name": "projectRoot",
+                    "value": {
+                      "kind": "output",
+                      "source": "clone_pr_head",
+                      "port": "projectRootRelative"
+                    }
+                  },
+                  {
+                    "name": "prompt",
+                    "value": {
+                      "kind": "string",
+                      "text": "Contexte: PR GitHub locale uniquement https://github.com/AxaFrance/SmartGuide/pull/610, base 8f1779dc25c1843e9ce4d4ec76d02e066ae892c4, head f2f6bda0e02a6c5c363e88cd6cb5d4eb7c313488. Utiliser l’entrée publique reviewText comme consigne métier de revue; aucun feedback ne doit être publié sur GitHub.\n\nTâche bornée dans ce projectRoot uniquement: inspecter les fichiers du dépôt pour déterminer les toolchains et scripts déclarés; exécuter explicitement, avant tout check, les commandes node --version, pnpm --version et python --version; installer les dépendances avec le gestionnaire déclaré par le dépôt (pnpm si applicable); exécuter les linters, tests unitaires et tests d’intégration s’ils sont présents/déclarés. N’exécuter aucune publication ou écriture GitHub. Ne pas utiliser d’autre clone ni d’autre répertoire de travail. Rapporter toute capacité absente, prérequis indisponible, commande impossible, test échoué ou script absent comme tel, jamais comme succès. Retourner un résumé structuré des commandes réellement lancées et des résultats observés; les preuves machine sont les toolExecutions avec codes de sortie."
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "review_pr_with_copilot",
+                "kind": "operation",
+                "objective": "Réaliser la revue de code locale demandée avec GitHub Copilot sur les patches exacts et complets déclarés par git_compare_refs, en tenant compte des résultats d’installation/checks et du reviewText. Produire des findings de diff locaux uniquement, sans publication GitHub. Ne consommer la comparaison que si success=true, hasMore=false et truncatedFileCount=0; sinon cette tâche ne s’exécute pas et l’incomplétude sera rapportée explicitement.",
+                "dependsOn": [
+                  "clone_pr_head",
+                  "compare_pr_diff",
+                  "run_declared_checks_with_copilot"
+                ],
+                "requires": {
+                  "kind": "predicate",
+                  "predicate": "and",
+                  "items": [
+                    {
+                      "kind": "output",
+                      "source": "clone_pr_head",
+                      "port": "success"
+                    },
+                    {
+                      "kind": "output",
+                      "source": "compare_pr_diff",
+                      "port": "successд},{"
+                    }
+                  ]
+                },
+                "operation": "cap_bed15f26b6b53fb1f2f33e52",
+                "inputs": [
+                  {
+                    "name": "projectRoot",
+                    "value": {
+                      "kind": "output",
+                      "source": "clone_pr_head",
+                      "port": "projectRootRelative"
+                    }
+                  },
+                  {
+                    "name": "baseSha",
+                    "value": {
+                      "kind": "output",
+                      "source": "compare_pr_diff",
+                      "port": "baseSha"
+                    }
+                  },
+                  {
+                    "name": "headSha",
+                    "value": {
+                      "kind": "output",
+                      "source": "compare_pr_diff",
+                      "port": "headSha"
+                    }
+                  },
+                  {
+                    "name": "filesJson",
+                    "value": {
+                      "kind": "output",
+                      "source": "compare_pr_diff",
+                      "port": "filesJson"
+                    }
+                  },
+                  {
+                    "name": "existingCommentsJson",
+                    "value": {
+                      "kind": "string",
+                      "text": "[]"
+                    }
+                  },
+                  {
+                    "name": "reviewInstructions",
+                    "value": {
+                      "kind": "input",
+                      "source": "reviewText"
+                    }
+                  },
+                  {
+                    "name": "runtimeContextJson",
+                    "value": {
+                      "kind": "json",
+                      "items": [
+                        {
+                          "kind": "object",
+                          "members": [
+                            {
+                              "name": "pullRequestUrl",
+                              "value": {
+                                "kind": "input",
+                                "source": "pullRequestUrl"
+                              }
+                            },
+                            {
+                              "name": "pinnedBase",
+                              "value": {
+                                "kind": "string",
+                                "text": "8f1779dc25c1843e9ce4d4ec76d02e066ae892c4"
+                              }
+                            },
+                            {
+                              "name": "pinnedHead",
+                              "value": {
+                                "kind": "string",
+                                "text": "f2f6bda0e02a6c5c363e88cd6cb5d4eb7c313488"
+                              }
+                            },
+                            {
+                              "name": "comparison",
+                              "value": {
+                                "kind": "output",
+                                "source": "compare_pr_diff",
+                                "port": null
+                              }
+                            },
+                            {
+                              "name": "checks",
+                              "value": {
+                                "kind": "output",
+                                "source": "run_declared_checks_with_copilot",
+                                "port": null
+                              }
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "name": "maxBatchCharacters",
+                    "value": {
+                      "kind": "number",
+                      "number": 60000
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "assemble_review_json",
+                "kind": "transform",
+                "objective": "Assembler le contenu texte JSON final local review.json à partir des seules observations déclarées: décision approve seulement si la revue Copilot est présente et ne contient aucune finding bloquante, si aucune commande/check requis n’a échoué, et si la comparaison authoritativement observée a success=true, hasMore=false et truncatedFileCount=0; sinon request_changes avec une raison explicite, notamment couverture de diff incomplète. Inclure findings de diff Copilot lorsqu’ils existent, couverture/troncature, capacités absentes ou prérequis indisponibles explicitement, et les commandes exactes observées avec leurs codes de sortie issus des toolExecutions. Ne pas inventer de commande, code de sortie, label, succès, booléen de complétude ou artifact de diff assemblé.",
+                "dependsOn": [
+                  "clone_pr_head",
+                  "compare_pr_diff",
+                  "run_declared_checks_with_copilot",
+                  "review_pr_with_copilot"
+                ],
+                "requires": {
+                  "kind": "present",
+                  "source": "run_declared_checks_with_copilot"
+                },
+                "mode": "interpret",
+                "inputs": [
+                  {
+                    "name": "pullRequestUrl",
+                    "value": {
+                      "kind": "input",
+                      "source": "pullRequestUrl"
+                    }
+                  },
+                  {
+                    "name": "reviewText",
+                    "value": {
+                      "kind": "input",
+                      "source": "reviewText"
+                    }
+                  },
+                  {
+                    "name": "cloneResult",
+                    "value": {
+                      "kind": "output",
+                      "source": "clone_pr_head",
+                      "port": null
+                    }
+                  },
+                  {
+                    "name": "comparison",
+                    "value": {
+                      "kind": "output",
+                      "source": "compare_pr_diff",
+                      "port": null
+                    }
+                  },
+                  {
+                    "name": "checks",
+                    "value": {
+                      "kind": "output",
+                      "source": "run_declared_checks_with_copilot",
+                      "port": null
+                    }
+                  },
+                  {
+                    "name": "review_if_present",
+                    "value": {
+                      "kind": "output",
+                      "source": "review_pr_with_copilot",
+                      "port": null
+                    }
+                  }
+                ],
+                "resultType": {
+                  "kind": "object",
+                  "fields": [
+                    {
+                      "name": "content",
+                      "type": {
+                        "kind": "string"
+                      }
+                    },
+                    {
+                      "name": "decision",
+                      "type": {
+                        "kind": "string",
+                        "enum": [
+                          "approve",
+                          "request_changes"
+                        ]
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "write_review_json",
+                "kind": "operation",
+                "objective": "Sauvegarder le rapport local review.json hors du clone, au chemin demandé, avec decision, findings et preuves exactes de commandes/codes de sortie observés, en utilisant le writer texte compatible découvert.",
+                "dependsOn": [
+                  "assemble_review_json"
+                ],
+                "requires": {
+                  "kind": "present",
+                  "source": "assemble_review_json"
+                },
+                "operation": "cap_37c513d225bb1b870053c5d3",
+                "inputs": [
+                  {
+                    "name": "filePath",
+                    "value": {
+                      "kind": "string",
+                      "text": "workflows/schema-portability-20261002/collections20261005d-code-1/review.json"
+                    }
+                  },
+                  {
+                    "name": "content",
+                    "value": {
+                      "kind": "output",
+                      "source": "assemble_review_json",
+                      "port": "content"
+                    }
+                  },
+                  {
+                    "name": "append",
+                    "value": {
+                      "kind": "boolean",
+                      "boolean": false
+                    }
+                  },
+                  {
+                    "name": "encoding",
+                    "value": {
+                      "kind": "string",
+                      "text": "utf-8"
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "read_back_review_json",
+                "kind": "operation",
+                "objective": "Relire réellement le rapport review.json écrit pour disposer d’une preuve locale de contenu lisible avant nettoyage du clone.",
+                "dependsOn": [
+                  "write_review_json"
+                ],
+                "requires": {
+                  "kind": "output",
+                  "source": "write_review_json",
+                  "port": "success"
+                },
+                "operation": "cap_14c5ec54d0147c07ee2021dc",
+                "inputs": [
+                  {
+                    "name": "filePath",
+                    "value": {
+                      "kind": "string",
+                      "text": "workflows/schema-portability-20261002/collections20261005d-code-1/review.json"
+                    }
+                  },
+                  {
+                    "name": "format",
+                    "value": {
+                      "kind": "string",
+                      "text": "plain"
+                    }
+                  }
+                ]
+              }
+            ],
+            "outputs": [
+              {
+                "name": "reviewJsonWrite",
+                "value": {
+                  "kind": "output",
+                  "source": "write_review_json",
+                  "port": null
+                }
+              },
+              {
+                "name": "decision",
+                "value": {
+                  "kind": "output",
+                  "source": "assemble_review_json",
+                  "port": "decision"
+                }
+              }
+            ],
+            "always": [
+              {
+                "id": "cleanup_clone_directory",
+                "kind": "operation",
+                "objective": "Nettoyer quoi qu’il arrive le répertoire cloné demandé, y compris après échec partiel. Ne supprimer que ce clone, pas review.json.",
+                "dependsOn": [],
+                "requires": null,
+                "operation": "cap_5c01f9aa688163d23a30ff8b",
+                "inputs": [
+                  {
+                    "name": "commandName",
+                    "value": {
+                      "kind": "string",
+                      "text": "delete_directory"
+                    }
+                  },
+                  {
+                    "name": "parameters",
+                    "value": {
+                      "kind": "object",
+                      "members": [
+                        {
+                          "name": "path",
+                          "value": {
+                            "kind": "string",
+                            "text": "workflows/schema-portability-20261002/collections20261005d-code-1/repository"
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "name": "timeoutMs",
+                    "value": {
+                      "kind": "number",
+                      "number": 300000
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "groups": [],
+          "choices": []
+        },
+        "clarifications": null
+      }
+    }
+  ],
+  "requirements": {
+    "summary": "À partir de deux entrées publiques, pullRequestUrl et reviewText, réaliser localement une revue automatique de la PR GitHub SmartGuide #610 en clonant une seule fois le dépôt dans le répertoire fixé, en utilisant GitHub Copilot pour installer les dépendances et exécuter les checks déclarés, puis sauvegarder un rapport local review.json et nettoyer le clone quoi qu’il arrive.",
+    "outcomes": [
+      {
+        "id": "local_pr_review",
+        "description": "Le rapport local workflows/schema-portability-20261002/collections20261005d-code-1/review.json contient decision (approve ou request_changes), findings, et les preuves exactes des commandes observées avec codes de sortie."
+      },
+      {
+        "id": "checks_observed",
+        "description": "node --version, pnpm --version et python --version sont vérifiés explicitement avant les checks; linters, tests unitaires et tests d’intégration déclarés sont exécutés si présents, via GitHub Copilot."
+      },
+      {
+        "id": "local_only_cleanup",
+        "description": "Aucun feedback n’est publié sur GitHub; le clone workflows/schema-portability-20261002/collections20261005d-code-1/repository est supprimé même en cas d’échec."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "pullRequestUrl",
+        "type": {
+          "kind": "string",
+          "nullable": false,
+          "items": null,
+          "fields": []
+        },
+        "required": true,
+        "default": null
+      },
+      {
+        "name": "reviewText",
+        "type": {
+          "kind": "string",
+          "nullable": false,
+          "items": null,
+          "fields": []
+        },
+        "required": true,
+        "default": null
+      }
+    ],
+    "outputs": [
+      {
+        "name": "reviewJsonWrite",
+        "type": {
+          "kind": "object",
+          "nullable": false,
+          "items": null,
+          "fields": [
+            {
+              "name": "commandName",
+              "type": {
+                "kind": "string",
+                "nullable": false,
+                "items": null,
+                "fields": []
+              },
+              "required": true,
+              "default": null
+            },
+            {
+              "name": "exitCode",
+              "type": {
+                "kind": "integer",
+                "nullable": false,
+                "items": null,
+                "fields": []
+              },
+              "required": true,
+              "default": null
+            },
+            {
+              "name": "success",
+              "type": {
+                "kind": "boolean",
+                "nullable": false,
+                "items": null,
+                "fields": []
+              },
+              "required": true,
+              "default": null
+            },
+            {
+              "name": "stdout",
+              "type": {
+                "kind": "string",
+                "nullable": true,
+                "items": null,
+                "fields": []
+              },
+              "required": true,
+              "default": null
+            },
+            {
+              "name": "stderr",
+              "type": {
+                "kind": "string",
+                "nullable": true,
+                "items": null,
+                "fields": []
+              },
+              "required": true,
+              "default": null
+            }
+          ]
+        },
+        "required": false,
+        "default": null
+      },
+      {
+        "name": "decision",
+        "type": {
+          "kind": "string",
+          "nullable": false,
+          "enum": [
+            "approve",
+            "request_changes"
+          ],
+          "items": null,
+          "fields": []
+        },
+        "required": false,
+        "default": null
+      }
+    ]
+  },
+  "planning_revisions": [
+    {
+      "result": {
+        "status": "stopped",
+        "planning_ms": 119916,
+        "calls": 4,
+        "repairs": 2,
+        "discovery_reads": 3,
+        "review_revisions": 0,
+        "diagnostics": [
+          {
+            "code": "CONTRACT_UNSATISFIED",
+            "location": "/tasks/compare_pr_diff_page/requires",
+            "message": "TASK_FIELD_TYPE: Field selection requires an authoritative object contract; opaque values cannot supply fields.",
+            "required": true,
+            "validationStage": "contract:TASK_FIELD_TYPE",
+            "rule": null
+          },
+          {
+            "code": "CONTRACT_UNSATISFIED",
+            "location": "/tasks/review_pr_with_copilot/inputs/reviewInstructions",
+            "message": "TASK_FIELD_TYPE: Field selection requires an authoritative object contract; opaque values cannot supply fields.",
+            "required": true,
+            "validationStage": "contract:TASK_FIELD_TYPE",
+            "rule": null
+          },
+          {
+            "code": "CONTRACT_UNSATISFIED",
+            "location": "/tasks/review_pr_with_copilot/inputs/runtimeContextJson",
+            "message": "TASK_FIELD_UNKNOWN: The source contract does not declare field 'checksCopilotResult'. Field names are literal, not paths.",
+            "required": true,
+            "validationStage": "contract:TASK_FIELD_UNKNOWN",
+            "rule": null
+          },
+          {
+            "code": "CONTRACT_UNSATISFIED",
+            "location": "/tasks/review_pr_with_copilot/requires",
+            "message": "TASK_FIELD_TYPE: Field selection requires an authoritative object contract; opaque values cannot supply fields.",
+            "required": true,
+            "validationStage": "contract:TASK_FIELD_TYPE",
+            "rule": null
+          },
+          {
+            "code": "CONTRACT_UNSATISFIED",
+            "location": "/tasks/run_declared_checks_with_copilot/requires",
+            "message": "TASK_FIELD_TYPE: Field selection requires an authoritative object contract; opaque values cannot supply fields.",
+            "required": true,
+            "validationStage": "contract:TASK_FIELD_TYPE",
+            "rule": null
+          },
+          {
+            "code": "CONTRACT_UNSATISFIED",
+            "location": "/tasks/summarize_project/requires",
+            "message": "TASK_FIELD_TYPE: Field selection requires an authoritative object contract; opaque values cannot supply fields.",
+            "required": true,
+            "validationStage": "contract:TASK_FIELD_TYPE",
+            "rule": null
+          },
+          {
+            "code": "CONTRACT_UNSATISFIED",
+            "location": "/tasks/write_review_json/inputs/parameters",
+            "message": "TASK_FIELD_TYPE: Field selection requires an authoritative object contract; opaque values cannot supply fields.",
+            "required": true,
+            "validationStage": "contract:TASK_FIELD_TYPE",
+            "rule": null
+          },
+          {
+            "code": "TASK_TRANSFORM_CONSTRAINT",
+            "location": "/tasks/assemble_review_json/resultType/fields/contentBase64/type/enum",
+            "message": "Declare a compatible finite string domain for /tasks/write_review_json/inputs/parameters; expected \"string\" pattern \"^(?:[A-Za-z0-9\\u002B/]{4})*(?:[A-Za-z0-9\\u002B/]{2}==|[A-Za-z0-9\\u002B/]{3}=)?$\" minLength 1 maxLength 65536.",
+            "required": true,
+            "validationStage": null,
+            "rule": null
+          },
+          {
+            "code": "CONTRACT_UNSATISFIED",
+            "location": "/tasks/write_review_json/inputs/parameters",
+            "message": "TASK_INPUT_TYPE: Produced \"object\" from /tasks/assemble_review_json/resultType; expected \"object\". The business value does not satisfy its authoritative contract. This argument may be omitted; if supplied it must satisfy the contract. Null is not omission.",
+            "required": true,
+            "validationStage": "contract:TASK_INPUT_TYPE",
+            "rule": null
+          }
+        ],
+        "execution_success": false,
+        "execution_oracle": false,
+        "execution_status": "not_started",
+        "accounting": {
+          "planning": {
+            "logical_calls": 4,
+            "physical_attempts": 4,
+            "known_input_tokens": 52924,
+            "known_output_tokens": 8587,
+            "known_cost_eur": 0.4652383073496659,
+            "unknown_attempts": 0,
+            "reserved_input_tokens": 0,
+            "reserved_output_tokens": 0,
+            "reserved_cost_eur": 0
+          },
+          "execution": {
+            "logical_calls": 0,
+            "physical_attempts": 0,
+            "known_input_tokens": 0,
+            "known_output_tokens": 0,
+            "known_cost_eur": 0,
+            "unknown_attempts": 0,
+            "reserved_input_tokens": 0,
+            "reserved_output_tokens": 0,
+            "reserved_cost_eur": 0
+          },
+          "campaign": {
+            "calls": 665,
+            "session_calls": 0,
+            "known_input_tokens": 10415639,
+            "known_output_tokens": 1035982,
+            "known_cost_eur": 74.02058771187994,
+            "reserved_input_tokens": 192000,
+            "reserved_output_tokens": 65536,
+            "reserved_cost_eur": 2.606752783964365,
+            "cost_upper_bound_eur": 76.62734049584431,
+            "unknown_attempts": 2
+          }
+        }
+      },
+      "artifact_hash": null,
+      "command": {
+        "mode": null,
+        "kind": "revise",
+        "expectedRevision": 5,
+        "artifactHash": null,
+        "text": "Review correction: keep the accepted requirements, two public inputs, pinned commits, one fixed clone, local report path, local-only feedback and cleanup. Several bindings incorrectly select a field from an already selected scalar: clone_pr_head output port success is already Boolean; reviewText is already the string input; a selected content port is already its value. Use those direct values, not field selection again. The checks operation has no checksCopilotResult field; use the actual declared result/ports, keeping command receipts intact. Do not ask a model to generate base64 that must satisfy a regex the declared transform contract does not establish. Inspect and use a compatible discovered plain-text file writer for the exact local report when available, then a real read-back if needed; retain any public output contract truthfully using actual operation results rather than manufactured command/exit receipts. Pass the actual reviewText input to the code review, retain the exact pinned diff and all required version/install/check commands. Verify complete diff coverage rather than silently treating truncation or continuation as complete. Keep review global; no collection partitioning or new runtime limits. Never replace execution with fabricated success or publish GitHub feedback.",
+        "preserveRequirements": true,
+        "selections": null,
+        "generation": null
+      },
+      "prior_session": {
+        "status": "stopped",
+        "revision": 5,
+        "modelCalls": 4,
+        "replanAttempts": 2,
+        "diagnostics": [
+          {
+            "code": "CONTRACT_UNSATISFIED",
+            "location": "/tasks/compare_pr_diff_page/requires",
+            "message": "TASK_FIELD_TYPE: Field selection requires an authoritative object contract; opaque values cannot supply fields.",
+            "required": true,
+            "validationStage": "contract:TASK_FIELD_TYPE",
+            "rule": null
+          },
+          {
+            "code": "CONTRACT_UNSATISFIED",
+            "location": "/tasks/review_pr_with_copilot/inputs/reviewInstructions",
+            "message": "TASK_FIELD_TYPE: Field selection requires an authoritative object contract; opaque values cannot supply fields.",
+            "required": true,
+            "validationStage": "contract:TASK_FIELD_TYPE",
+            "rule": null
+          },
+          {
+            "code": "CONTRACT_UNSATISFIED",
+            "location": "/tasks/review_pr_with_copilot/inputs/runtimeContextJson",
+            "message": "TASK_FIELD_UNKNOWN: The source contract does not declare field 'checksCopilotResult'. Field names are literal, not paths.",
+            "required": true,
+            "validationStage": "contract:TASK_FIELD_UNKNOWN",
+            "rule": null
+          },
+          {
+            "code": "CONTRACT_UNSATISFIED",
+            "location": "/tasks/review_pr_with_copilot/requires",
+            "message": "TASK_FIELD_TYPE: Field selection requires an authoritative object contract; opaque values cannot supply fields.",
+            "required": true,
+            "validationStage": "contract:TASK_FIELD_TYPE",
+            "rule": null
+          },
+          {
+            "code": "CONTRACT_UNSATISFIED",
+            "location": "/tasks/run_declared_checks_with_copilot/requires",
+            "message": "TASK_FIELD_TYPE: Field selection requires an authoritative object contract; opaque values cannot supply fields.",
+            "required": true,
+            "validationStage": "contract:TASK_FIELD_TYPE",
+            "rule": null
+          },
+          {
+            "code": "CONTRACT_UNSATISFIED",
+            "location": "/tasks/summarize_project/requires",
+            "message": "TASK_FIELD_TYPE: Field selection requires an authoritative object contract; opaque values cannot supply fields.",
+            "required": true,
+            "validationStage": "contract:TASK_FIELD_TYPE",
+            "rule": null
+          },
+          {
+            "code": "CONTRACT_UNSATISFIED",
+            "location": "/tasks/write_review_json/inputs/parameters",
+            "message": "TASK_FIELD_TYPE: Field selection requires an authoritative object contract; opaque values cannot supply fields.",
+            "required": true,
+            "validationStage": "contract:TASK_FIELD_TYPE",
+            "rule": null
+          },
+          {
+            "code": "TASK_TRANSFORM_CONSTRAINT",
+            "location": "/tasks/assemble_review_json/resultType/fields/contentBase64/type/enum",
+            "message": "Declare a compatible finite string domain for /tasks/write_review_json/inputs/parameters; expected \"string\" pattern \"^(?:[A-Za-z0-9\\u002B/]{4})*(?:[A-Za-z0-9\\u002B/]{2}==|[A-Za-z0-9\\u002B/]{3}=)?$\" minLength 1 maxLength 65536.",
+            "required": true,
+            "validationStage": null,
+            "rule": null
+          },
+          {
+            "code": "CONTRACT_UNSATISFIED",
+            "location": "/tasks/write_review_json/inputs/parameters",
+            "message": "TASK_INPUT_TYPE: Produced \"object\" from /tasks/assemble_review_json/resultType; expected \"object\". The business value does not satisfy its authoritative contract. This argument may be omitted; if supplied it must satisfy the contract. Null is not omission.",
+            "required": true,
+            "validationStage": "contract:TASK_INPUT_TYPE",
+            "rule": null
+          }
+        ],
+        "sha256": "6d77d3c06cc22469ad2275e93c5b4614f01ef9b1db85726b18fb36d6bfe05e51"
+      }
+    },
+    {
+      "result": {
+        "status": "stopped",
+        "planning_ms": 185240,
+        "calls": 6,
+        "repairs": 2,
+        "discovery_reads": 4,
+        "review_revisions": 1,
+        "diagnostics": [
+          {
+            "code": "TASK_EXPORT_REQUIRED",
+            "location": "/tasks/assemble_complete_diff_input/inputs/page2_if_present",
+            "message": "This scope declares no business outputs. Select explicit scope exports for data; use dependsOn or present for ordering or presence.",
+            "required": true,
+            "validationStage": null,
+            "rule": null
+          },
+          {
+            "code": "TASK_ARTIFACT_BINDING",
+            "location": "/tasks/review_pr_with_copilot/inputs/filesJson",
+            "message": "Bind a declared producer business port of artifact kind 'revision.comparison.files'. A matching type or literal does not establish provenance.",
+            "required": true,
+            "validationStage": null,
+            "rule": null
+          }
+        ],
+        "execution_success": false,
+        "execution_oracle": false,
+        "execution_status": "not_started",
+        "accounting": {
+          "planning": {
+            "logical_calls": 6,
+            "physical_attempts": 6,
+            "known_input_tokens": 113506,
+            "known_output_tokens": 13341,
+            "known_cost_eur": 0.8621469933184855,
+            "unknown_attempts": 0,
+            "reserved_input_tokens": 0,
+            "reserved_output_tokens": 0,
+            "reserved_cost_eur": 0
+          },
+          "execution": {
+            "logical_calls": 0,
+            "physical_attempts": 0,
+            "known_input_tokens": 0,
+            "known_output_tokens": 0,
+            "known_cost_eur": 0,
+            "unknown_attempts": 0,
+            "reserved_input_tokens": 0,
+            "reserved_output_tokens": 0,
+            "reserved_cost_eur": 0
+          },
+          "campaign": {
+            "calls": 667,
+            "session_calls": 0,
+            "known_input_tokens": 10476221,
+            "known_output_tokens": 1040736,
+            "known_cost_eur": 74.41749639784877,
+            "reserved_input_tokens": 192000,
+            "reserved_output_tokens": 65536,
+            "reserved_cost_eur": 2.606752783964365,
+            "cost_upper_bound_eur": 77.02424918181313,
+            "unknown_attempts": 2
+          }
+        }
+      },
+      "artifact_hash": null,
+      "command": {
+        "mode": null,
+        "kind": "revise",
+        "expectedRevision": 9,
+        "artifactHash": null,
+        "text": "Preserve the accepted requirements and corrected direct bindings/plain-text report writing. The remaining defects are technical: an interpretation cannot manufacture the revision.comparison.files artifact, and a scope with no explicit exports cannot be consumed as data. Remove the redundant synthetic diff assembly and bind the reviewer directly to the resolved comparison operation's declared filesJson, baseSha and headSha ports. Require the comparison's authoritative success=true, hasMore=false and truncatedFileCount=0 before full-review consumption. If the producer reports incomplete coverage, fail explicitly as incomplete; do not invent a merged artifact, a Boolean proof of completeness, or permission to ignore continuation. Keep actual version/install/check commands, their receipt evidence, the user reviewText, local report writing/read-back, pinned commit checks and unconditional confined cleanup. No changes to public inputs, accepted work, permissions or budgets.",
+        "preserveRequirements": true,
+        "selections": null,
+        "generation": null
+      },
+      "prior_session": {
+        "status": "stopped",
+        "revision": 9,
+        "modelCalls": 6,
+        "replanAttempts": 2,
+        "diagnostics": [
+          {
+            "code": "TASK_EXPORT_REQUIRED",
+            "location": "/tasks/assemble_complete_diff_input/inputs/page2_if_present",
+            "message": "This scope declares no business outputs. Select explicit scope exports for data; use dependsOn or present for ordering or presence.",
+            "required": true,
+            "validationStage": null,
+            "rule": null
+          },
+          {
+            "code": "TASK_ARTIFACT_BINDING",
+            "location": "/tasks/review_pr_with_copilot/inputs/filesJson",
+            "message": "Bind a declared producer business port of artifact kind 'revision.comparison.files'. A matching type or literal does not establish provenance.",
+            "required": true,
+            "validationStage": null,
+            "rule": null
+          }
+        ],
+        "sha256": "d0d3d53b27a6bf6156c3718eb5eaf1a6f364f8643d4d6dd9afbcb3bb47ae92e3"
+      }
+    },
+    {
+      "result": {
+        "status": "stopped",
+        "planning_ms": 215384,
+        "calls": 7,
+        "repairs": 2,
+        "discovery_reads": 4,
+        "review_revisions": 2,
+        "diagnostics": [
+          {
+            "code": "TASK_OUTPUT_UNKNOWN",
+            "location": "/tasks/review_pr_with_copilot/requires",
+            "message": "This task has no declared business output 'success兑},{'. Opaque results cannot supply typed fields.",
+            "required": true,
+            "validationStage": null,
+            "rule": null
+          }
+        ],
+        "execution_success": false,
+        "execution_oracle": false,
+        "execution_status": "not_started",
+        "accounting": {
+          "planning": {
+            "logical_calls": 7,
+            "physical_attempts": 7,
+            "known_input_tokens": 145868,
+            "known_output_tokens": 16486,
+            "known_cost_eur": 1.0903518930957683,
+            "unknown_attempts": 0,
+            "reserved_input_tokens": 0,
+            "reserved_output_tokens": 0,
+            "reserved_cost_eur": 0
+          },
+          "execution": {
+            "logical_calls": 0,
+            "physical_attempts": 0,
+            "known_input_tokens": 0,
+            "known_output_tokens": 0,
+            "known_cost_eur": 0,
+            "unknown_attempts": 0,
+            "reserved_input_tokens": 0,
+            "reserved_output_tokens": 0,
+            "reserved_cost_eur": 0
+          },
+          "campaign": {
+            "calls": 668,
+            "session_calls": 0,
+            "known_input_tokens": 10508583,
+            "known_output_tokens": 1043881,
+            "known_cost_eur": 74.64570129762605,
+            "reserved_input_tokens": 192000,
+            "reserved_output_tokens": 65536,
+            "reserved_cost_eur": 2.606752783964365,
+            "cost_upper_bound_eur": 77.25245408159041,
+            "unknown_attempts": 2
+          }
+        }
+      },
+      "artifact_hash": null,
+      "command": {
+        "mode": null,
+        "kind": "revise",
+        "expectedRevision": 11,
+        "artifactHash": null,
+        "text": "Preserve this plan's accepted requirements, operations, paths, commands, artifact provenance, outputs, cleanup, and permissions. Correct only the corrupted output-port identifier in review_pr_with_copilot.requires: the comparison's actual Boolean port is exactly success, without punctuation or extra characters. Keep the hasMore=false and truncatedFileCount=0 checks and direct producer filesJson binding. Do not otherwise change the implementation.",
+        "preserveRequirements": true,
+        "selections": null,
+        "generation": null
+      },
+      "prior_session": {
+        "status": "stopped",
+        "revision": 11,
+        "modelCalls": 7,
+        "replanAttempts": 2,
+        "diagnostics": [
+          {
+            "code": "TASK_OUTPUT_UNKNOWN",
+            "location": "/tasks/review_pr_with_copilot/requires",
+            "message": "This task has no declared business output 'success兑},{'. Opaque results cannot supply typed fields.",
+            "required": true,
+            "validationStage": null,
+            "rule": null
+          }
+        ],
+        "sha256": "4492107c32237542fa7286bbccc9696d4d1133f17a16d35e9652612de2725965"
+      }
+    }
+  ],
+  "diagnostics": [
+    {
+      "code": "TASK_OUTPUT_UNKNOWN",
+      "location": "/tasks/review_pr_with_copilot/requires",
+      "message": "This task has no declared business output 'successд},{'. Opaque results cannot supply typed fields.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    }
+  ],
+  "questions": null,
+  "plan": {
+    "inputs": [
+      {
+        "name": "pullRequestUrl",
+        "type": {
+          "kind": "string",
+          "nullable": false,
+          "items": null,
+          "fields": []
+        },
+        "required": true,
+        "default": null
+      },
+      {
+        "name": "reviewText",
+        "type": {
+          "kind": "string",
+          "nullable": false,
+          "items": null,
+          "fields": []
+        },
+        "required": true,
+        "default": null
+      }
+    ],
+    "root": {
+      "tasks": [
+        {
+          "id": "clone_pr_head",
+          "objective": "Cloner une seule fois le dépôt SmartGuide au chemin demandé, en checkout du head exact de la PR #610. Conserver ce chemin exact pour le nettoyage même en cas d’échec partiel.",
+          "kind": "operation",
+          "dependsOn": [],
+          "operation": "cap_fa8aa0024ff2ec0a4f9e61ad",
+          "inputs": [
+            {
+              "name": "remoteUrl",
+              "value": {
+                "kind": "string",
+                "text": "https://github.com/AxaFrance/SmartGuide.git",
+                "number": null,
+                "boolean": null,
+                "source": null,
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            },
+            {
+              "name": "branch",
+              "value": {
+                "kind": "string",
+                "text": "f2f6bda0e02a6c5c363e88cd6cb5d4eb7c313488",
+                "number": null,
+                "boolean": null,
+                "source": null,
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            },
+            {
+              "name": "fetchAllBranches",
+              "value": {
+                "kind": "boolean",
+                "text": null,
+                "number": null,
+                "boolean": false,
+                "source": null,
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            },
+            {
+              "name": "historyDepth",
+              "value": {
+                "kind": "number",
+                "text": null,
+                "number": 0,
+                "boolean": null,
+                "source": null,
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            },
+            {
+              "name": "tagFetchMode",
+              "value": {
+                "kind": "string",
+                "text": "none",
+                "number": null,
+                "boolean": null,
+                "source": null,
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            },
+            {
+              "name": "targetDirectory",
+              "value": {
+                "kind": "string",
+                "text": "workflows/schema-portability-20261002/collections20261005d-code-1/repository",
+                "number": null,
+                "boolean": null,
+                "source": null,
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            }
+          ],
+          "outputs": [],
+          "condition": null,
+          "body": null,
+          "otherwise": null,
+          "branches": [],
+          "items": null,
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4,
+          "group": null
+        },
+        {
+          "id": "summarize_project",
+          "objective": "Observer la structure du projet cloné afin d’identifier les toolchains/checks déclarés par le dépôt.",
+          "kind": "operation",
+          "dependsOn": [
+            "clone_pr_head"
+          ],
+          "operation": "cap_e521e4ae474d627359935e32",
+          "inputs": [
+            {
+              "name": "projectRoot",
+              "value": {
+                "kind": "output",
+                "text": null,
+                "number": null,
+                "boolean": null,
+                "source": "clone_pr_head",
+                "port": "projectRootRelative",
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            }
+          ],
+          "outputs": [],
+          "requires": {
+            "kind": "output",
+            "text": null,
+            "number": null,
+            "boolean": null,
+            "source": "clone_pr_head",
+            "port": "success",
+            "members": [],
+            "items": [],
+            "predicate": null
+          },
+          "condition": null,
+          "body": null,
+          "otherwise": null,
+          "branches": [],
+          "items": null,
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4,
+          "group": null
+        },
+        {
+          "id": "compare_pr_diff",
+          "objective": "Obtenir la comparaison exacte déclarée par Git entre base et head de la PR, depuis le merge-base comme GitHub, avec filesJson, baseSha, headSha et métadonnées authoritatives de pagination/troncature. Cette sortie est la seule source revision.comparison.files utilisée par la revue.",
+          "kind": "operation",
+          "dependsOn": [
+            "clone_pr_head"
+          ],
+          "operation": "cap_6c40004fe4610a44cf97c2c7",
+          "inputs": [
+            {
+              "name": "projectRoot",
+              "value": {
+                "kind": "output",
+                "text": null,
+                "number": null,
+                "boolean": null,
+                "source": "clone_pr_head",
+                "port": "projectRootRelative",
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            },
+            {
+              "name": "baseRef",
+              "value": {
+                "kind": "string",
+                "text": "8f1779dc25c1843e9ce4d4ec76d02e066ae892c4",
+                "number": null,
+                "boolean": null,
+                "source": null,
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            },
+            {
+              "name": "headRef",
+              "value": {
+                "kind": "string",
+                "text": "f2f6bda0e02a6c5c363e88cd6cb5d4eb7c313488",
+                "number": null,
+                "boolean": null,
+                "source": null,
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            },
+            {
+              "name": "compareFromMergeBase",
+              "value": {
+                "kind": "boolean",
+                "text": null,
+                "number": null,
+                "boolean": true,
+                "source": null,
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            },
+            {
+              "name": "pageSize",
+              "value": {
+                "kind": "number",
+                "text": null,
+                "number": 100,
+                "boolean": null,
+                "source": null,
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            },
+            {
+              "name": "cursor",
+              "value": {
+                "kind": "null",
+                "text": null,
+                "number": null,
+                "boolean": null,
+                "source": null,
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            }
+          ],
+          "outputs": [],
+          "requires": {
+            "kind": "output",
+            "text": null,
+            "number": null,
+            "boolean": null,
+            "source": "clone_pr_head",
+            "port": "success",
+            "members": [],
+            "items": [],
+            "predicate": null
+          },
+          "condition": null,
+          "body": null,
+          "otherwise": null,
+          "branches": [],
+          "items": null,
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4,
+          "group": null
+        },
+        {
+          "id": "run_declared_checks_with_copilot",
+          "objective": "Via GitHub Copilot, dans l’unique répertoire cloné uniquement, vérifier explicitement node --version, pnpm --version et python --version, installer les dépendances selon les fichiers du dépôt, puis exécuter les linters, tests unitaires et tests d’intégration présents. Ne rien publier sur GitHub. Capturer les observations terminal exactes avec codes de sortie; les capacités absentes, prérequis indisponibles et tests échoués doivent rester explicites.",
+          "kind": "operation",
+          "dependsOn": [
+            "clone_pr_head",
+            "summarize_project"
+          ],
+          "operation": "cap_1ff6cc617981dc592bd62a5a",
+          "inputs": [
+            {
+              "name": "projectRoot",
+              "value": {
+                "kind": "output",
+                "text": null,
+                "number": null,
+                "boolean": null,
+                "source": "clone_pr_head",
+                "port": "projectRootRelative",
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            },
+            {
+              "name": "prompt",
+              "value": {
+                "kind": "string",
+                "text": "Contexte: PR GitHub locale uniquement https://github.com/AxaFrance/SmartGuide/pull/610, base 8f1779dc25c1843e9ce4d4ec76d02e066ae892c4, head f2f6bda0e02a6c5c363e88cd6cb5d4eb7c313488. Utiliser l’entrée publique reviewText comme consigne métier de revue; aucun feedback ne doit être publié sur GitHub.\n\nTâche bornée dans ce projectRoot uniquement: inspecter les fichiers du dépôt pour déterminer les toolchains et scripts déclarés; exécuter explicitement, avant tout check, les commandes node --version, pnpm --version et python --version; installer les dépendances avec le gestionnaire déclaré par le dépôt (pnpm si applicable); exécuter les linters, tests unitaires et tests d’intégration s’ils sont présents/déclarés. N’exécuter aucune publication ou écriture GitHub. Ne pas utiliser d’autre clone ni d’autre répertoire de travail. Rapporter toute capacité absente, prérequis indisponible, commande impossible, test échoué ou script absent comme tel, jamais comme succès. Retourner un résumé structuré des commandes réellement lancées et des résultats observés; les preuves machine sont les toolExecutions avec codes de sortie.",
+                "number": null,
+                "boolean": null,
+                "source": null,
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            }
+          ],
+          "outputs": [],
+          "requires": {
+            "kind": "output",
+            "text": null,
+            "number": null,
+            "boolean": null,
+            "source": "clone_pr_head",
+            "port": "success",
+            "members": [],
+            "items": [],
+            "predicate": null
+          },
+          "condition": null,
+          "body": null,
+          "otherwise": null,
+          "branches": [],
+          "items": null,
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4,
+          "group": null
+        },
+        {
+          "id": "review_pr_with_copilot",
+          "objective": "Réaliser la revue de code locale demandée avec GitHub Copilot sur les patches exacts et complets déclarés par git_compare_refs, en tenant compte des résultats d’installation/checks et du reviewText. Produire des findings de diff locaux uniquement, sans publication GitHub. Ne consommer la comparaison que si success=true, hasMore=false et truncatedFileCount=0; sinon cette tâche ne s’exécute pas et l’incomplétude sera rapportée explicitement.",
+          "kind": "operation",
+          "dependsOn": [
+            "clone_pr_head",
+            "compare_pr_diff",
+            "run_declared_checks_with_copilot"
+          ],
+          "operation": "cap_bed15f26b6b53fb1f2f33e52",
+          "inputs": [
+            {
+              "name": "projectRoot",
+              "value": {
+                "kind": "output",
+                "text": null,
+                "number": null,
+                "boolean": null,
+                "source": "clone_pr_head",
+                "port": "projectRootRelative",
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            },
+            {
+              "name": "baseSha",
+              "value": {
+                "kind": "output",
+                "text": null,
+                "number": null,
+                "boolean": null,
+                "source": "compare_pr_diff",
+                "port": "baseSha",
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            },
+            {
+              "name": "headSha",
+              "value": {
+                "kind": "output",
+                "text": null,
+                "number": null,
+                "boolean": null,
+                "source": "compare_pr_diff",
+                "port": "headSha",
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            },
+            {
+              "name": "filesJson",
+              "value": {
+                "kind": "output",
+                "text": null,
+                "number": null,
+                "boolean": null,
+                "source": "compare_pr_diff",
+                "port": "filesJson",
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            },
+            {
+              "name": "existingCommentsJson",
+              "value": {
+                "kind": "string",
+                "text": "[]",
+                "number": null,
+                "boolean": null,
+                "source": null,
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            },
+            {
+              "name": "reviewInstructions",
+              "value": {
+                "kind": "input",
+                "text": null,
+                "number": null,
+                "boolean": null,
+                "source": "reviewText",
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            },
+            {
+              "name": "runtimeContextJson",
+              "value": {
+                "kind": "json",
+                "text": null,
+                "number": null,
+                "boolean": null,
+                "source": null,
+                "port": null,
+                "members": [],
+                "items": [
+                  {
+                    "kind": "object",
+                    "text": null,
+                    "number": null,
+                    "boolean": null,
+                    "source": null,
+                    "port": null,
+                    "members": [
+                      {
+                        "name": "pullRequestUrl",
+                        "value": {
+                          "kind": "input",
+                          "text": null,
+                          "number": null,
+                          "boolean": null,
+                          "source": "pullRequestUrl",
+                          "port": null,
+                          "members": [],
+                          "items": [],
+                          "predicate": null
+                        }
+                      },
+                      {
+                        "name": "pinnedBase",
+                        "value": {
+                          "kind": "string",
+                          "text": "8f1779dc25c1843e9ce4d4ec76d02e066ae892c4",
+                          "number": null,
+                          "boolean": null,
+                          "source": null,
+                          "port": null,
+                          "members": [],
+                          "items": [],
+                          "predicate": null
+                        }
+                      },
+                      {
+                        "name": "pinnedHead",
+                        "value": {
+                          "kind": "string",
+                          "text": "f2f6bda0e02a6c5c363e88cd6cb5d4eb7c313488",
+                          "number": null,
+                          "boolean": null,
+                          "source": null,
+                          "port": null,
+                          "members": [],
+                          "items": [],
+                          "predicate": null
+                        }
+                      },
+                      {
+                        "name": "comparison",
+                        "value": {
+                          "kind": "output",
+                          "text": null,
+                          "number": null,
+                          "boolean": null,
+                          "source": "compare_pr_diff",
+                          "port": null,
+                          "members": [],
+                          "items": [],
+                          "predicate": null
+                        }
+                      },
+                      {
+                        "name": "checks",
+                        "value": {
+                          "kind": "output",
+                          "text": null,
+                          "number": null,
+                          "boolean": null,
+                          "source": "run_declared_checks_with_copilot",
+                          "port": null,
+                          "members": [],
+                          "items": [],
+                          "predicate": null
+                        }
+                      }
+                    ],
+                    "items": [],
+                    "predicate": null
+                  }
+                ],
+                "predicate": null
+              }
+            },
+            {
+              "name": "maxBatchCharacters",
+              "value": {
+                "kind": "number",
+                "text": null,
+                "number": 60000,
+                "boolean": null,
+                "source": null,
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            }
+          ],
+          "outputs": [],
+          "requires": {
+            "kind": "predicate",
+            "text": null,
+            "number": null,
+            "boolean": null,
+            "source": null,
+            "port": null,
+            "members": [],
+            "items": [
+              {
+                "kind": "output",
+                "text": null,
+                "number": null,
+                "boolean": null,
+                "source": "clone_pr_head",
+                "port": "success",
+                "members": [],
+                "items": [],
+                "predicate": null
+              },
+              {
+                "kind": "output",
+                "text": null,
+                "number": null,
+                "boolean": null,
+                "source": "compare_pr_diff",
+                "port": "successд},{",
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            ],
+            "predicate": "and"
+          },
+          "condition": null,
+          "body": null,
+          "otherwise": null,
+          "branches": [],
+          "items": null,
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4,
+          "group": null
+        },
+        {
+          "id": "assemble_review_json",
+          "objective": "Assembler le contenu texte JSON final local review.json à partir des seules observations déclarées: décision approve seulement si la revue Copilot est présente et ne contient aucune finding bloquante, si aucune commande/check requis n’a échoué, et si la comparaison authoritativement observée a success=true, hasMore=false et truncatedFileCount=0; sinon request_changes avec une raison explicite, notamment couverture de diff incomplète. Inclure findings de diff Copilot lorsqu’ils existent, couverture/troncature, capacités absentes ou prérequis indisponibles explicitement, et les commandes exactes observées avec leurs codes de sortie issus des toolExecutions. Ne pas inventer de commande, code de sortie, label, succès, booléen de complétude ou artifact de diff assemblé.",
+          "kind": "transform",
+          "mode": "interpret",
+          "dependsOn": [
+            "clone_pr_head",
+            "compare_pr_diff",
+            "run_declared_checks_with_copilot",
+            "review_pr_with_copilot"
+          ],
+          "operation": null,
+          "inputs": [
+            {
+              "name": "pullRequestUrl",
+              "value": {
+                "kind": "input",
+                "text": null,
+                "number": null,
+                "boolean": null,
+                "source": "pullRequestUrl",
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            },
+            {
+              "name": "reviewText",
+              "value": {
+                "kind": "input",
+                "text": null,
+                "number": null,
+                "boolean": null,
+                "source": "reviewText",
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            },
+            {
+              "name": "cloneResult",
+              "value": {
+                "kind": "output",
+                "text": null,
+                "number": null,
+                "boolean": null,
+                "source": "clone_pr_head",
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            },
+            {
+              "name": "comparison",
+              "value": {
+                "kind": "output",
+                "text": null,
+                "number": null,
+                "boolean": null,
+                "source": "compare_pr_diff",
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            },
+            {
+              "name": "checks",
+              "value": {
+                "kind": "output",
+                "text": null,
+                "number": null,
+                "boolean": null,
+                "source": "run_declared_checks_with_copilot",
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            },
+            {
+              "name": "review_if_present",
+              "value": {
+                "kind": "output",
+                "text": null,
+                "number": null,
+                "boolean": null,
+                "source": "review_pr_with_copilot",
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            }
+          ],
+          "outputs": [],
+          "resultType": {
+            "kind": "object",
+            "nullable": false,
+            "items": null,
+            "fields": [
+              {
+                "name": "content",
+                "type": {
+                  "kind": "string",
+                  "nullable": false,
+                  "items": null,
+                  "fields": []
+                },
+                "required": true,
+                "default": null
+              },
+              {
+                "name": "decision",
+                "type": {
+                  "kind": "string",
+                  "nullable": false,
+                  "enum": [
+                    "approve",
+                    "request_changes"
+                  ],
+                  "items": null,
+                  "fields": []
+                },
+                "required": true,
+                "default": null
+              }
+            ]
+          },
+          "requires": {
+            "kind": "present",
+            "text": null,
+            "number": null,
+            "boolean": null,
+            "source": "run_declared_checks_with_copilot",
+            "port": null,
+            "members": [],
+            "items": [],
+            "predicate": null
+          },
+          "condition": null,
+          "body": null,
+          "otherwise": null,
+          "branches": [],
+          "items": null,
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4,
+          "group": null
+        },
+        {
+          "id": "write_review_json",
+          "objective": "Sauvegarder le rapport local review.json hors du clone, au chemin demandé, avec decision, findings et preuves exactes de commandes/codes de sortie observés, en utilisant le writer texte compatible découvert.",
+          "kind": "operation",
+          "dependsOn": [
+            "assemble_review_json"
+          ],
+          "operation": "cap_37c513d225bb1b870053c5d3",
+          "inputs": [
+            {
+              "name": "filePath",
+              "value": {
+                "kind": "string",
+                "text": "workflows/schema-portability-20261002/collections20261005d-code-1/review.json",
+                "number": null,
+                "boolean": null,
+                "source": null,
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            },
+            {
+              "name": "content",
+              "value": {
+                "kind": "output",
+                "text": null,
+                "number": null,
+                "boolean": null,
+                "source": "assemble_review_json",
+                "port": "content",
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            },
+            {
+              "name": "append",
+              "value": {
+                "kind": "boolean",
+                "text": null,
+                "number": null,
+                "boolean": false,
+                "source": null,
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            },
+            {
+              "name": "encoding",
+              "value": {
+                "kind": "string",
+                "text": "utf-8",
+                "number": null,
+                "boolean": null,
+                "source": null,
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            }
+          ],
+          "outputs": [],
+          "requires": {
+            "kind": "present",
+            "text": null,
+            "number": null,
+            "boolean": null,
+            "source": "assemble_review_json",
+            "port": null,
+            "members": [],
+            "items": [],
+            "predicate": null
+          },
+          "condition": null,
+          "body": null,
+          "otherwise": null,
+          "branches": [],
+          "items": null,
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4,
+          "group": null
+        },
+        {
+          "id": "read_back_review_json",
+          "objective": "Relire réellement le rapport review.json écrit pour disposer d’une preuve locale de contenu lisible avant nettoyage du clone.",
+          "kind": "operation",
+          "dependsOn": [
+            "write_review_json"
+          ],
+          "operation": "cap_14c5ec54d0147c07ee2021dc",
+          "inputs": [
+            {
+              "name": "filePath",
+              "value": {
+                "kind": "string",
+                "text": "workflows/schema-portability-20261002/collections20261005d-code-1/review.json",
+                "number": null,
+                "boolean": null,
+                "source": null,
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            },
+            {
+              "name": "format",
+              "value": {
+                "kind": "string",
+                "text": "plain",
+                "number": null,
+                "boolean": null,
+                "source": null,
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            }
+          ],
+          "outputs": [],
+          "requires": {
+            "kind": "output",
+            "text": null,
+            "number": null,
+            "boolean": null,
+            "source": "write_review_json",
+            "port": "success",
+            "members": [],
+            "items": [],
+            "predicate": null
+          },
+          "condition": null,
+          "body": null,
+          "otherwise": null,
+          "branches": [],
+          "items": null,
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4,
+          "group": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "reviewJsonWrite",
+          "value": {
+            "kind": "output",
+            "text": null,
+            "number": null,
+            "boolean": null,
+            "source": "write_review_json",
+            "port": null,
+            "members": [],
+            "items": [],
+            "predicate": null
+          }
+        },
+        {
+          "name": "decision",
+          "value": {
+            "kind": "output",
+            "text": null,
+            "number": null,
+            "boolean": null,
+            "source": "assemble_review_json",
+            "port": "decision",
+            "members": [],
+            "items": [],
+            "predicate": null
+          }
+        }
+      ],
+      "always": [
+        {
+          "id": "cleanup_clone_directory",
+          "objective": "Nettoyer quoi qu’il arrive le répertoire cloné demandé, y compris après échec partiel. Ne supprimer que ce clone, pas review.json.",
+          "kind": "operation",
+          "dependsOn": [],
+          "operation": "cap_5c01f9aa688163d23a30ff8b",
+          "inputs": [
+            {
+              "name": "commandName",
+              "value": {
+                "kind": "string",
+                "text": "delete_directory",
+                "number": null,
+                "boolean": null,
+                "source": null,
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            },
+            {
+              "name": "parameters",
+              "value": {
+                "kind": "object",
+                "text": null,
+                "number": null,
+                "boolean": null,
+                "source": null,
+                "port": null,
+                "members": [
+                  {
+                    "name": "path",
+                    "value": {
+                      "kind": "string",
+                      "text": "workflows/schema-portability-20261002/collections20261005d-code-1/repository",
+                      "number": null,
+                      "boolean": null,
+                      "source": null,
+                      "port": null,
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  }
+                ],
+                "items": [],
+                "predicate": null
+              }
+            },
+            {
+              "name": "timeoutMs",
+              "value": {
+                "kind": "number",
+                "text": null,
+                "number": 300000,
+                "boolean": null,
+                "source": null,
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            }
+          ],
+          "outputs": [],
+          "condition": null,
+          "body": null,
+          "otherwise": null,
+          "branches": [],
+          "items": null,
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4,
+          "group": null
+        }
+      ]
+    },
+    "groups": [],
+    "choices": []
+  },
+  "result": {
+    "status": "stopped",
+    "planning_ms": 247952,
+    "calls": 8,
+    "repairs": 2,
+    "discovery_reads": 4,
+    "review_revisions": 3,
+    "diagnostics": [
+      {
+        "code": "TASK_OUTPUT_UNKNOWN",
+        "location": "/tasks/review_pr_with_copilot/requires",
+        "message": "This task has no declared business output 'successд},{'. Opaque results cannot supply typed fields.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      }
+    ],
+    "execution_success": false,
+    "execution_oracle": false,
+    "execution_status": "not_started",
+    "accounting": {
+      "planning": {
+        "logical_calls": 8,
+        "physical_attempts": 8,
+        "known_input_tokens": 176231,
+        "known_output_tokens": 19630,
+        "known_cost_eur": 1.3096258351893095,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "execution": {
+        "logical_calls": 0,
+        "physical_attempts": 0,
+        "known_input_tokens": 0,
+        "known_output_tokens": 0,
+        "known_cost_eur": 0,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "campaign": {
+        "calls": 669,
+        "session_calls": 0,
+        "known_input_tokens": 10538946,
+        "known_output_tokens": 1047025,
+        "known_cost_eur": 74.86497523971958,
+        "reserved_input_tokens": 192000,
+        "reserved_output_tokens": 65536,
+        "reserved_cost_eur": 2.606752783964365,
+        "cost_upper_bound_eur": 77.47172802368395,
+        "unknown_attempts": 2
+      }
+    }
+  },
+  "execution": null,
+  "oracle": null,
+  "mapping_telemetry": null,
+  "source": "43b5358a1b8a617b19352704d60cfde6977b574a",
+  "run": "collections20261005d-code-1",
+  "classification": "Planning allowance exhausted on an invalid output-port reference. No execution, Copilot task, final report or cleanup was attempted. Earlier uncertain Copilot invocations remain untouched."
+}

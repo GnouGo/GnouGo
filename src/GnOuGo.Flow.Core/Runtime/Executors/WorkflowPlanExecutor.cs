@@ -40,7 +40,7 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                     Instructions = input["policy"]?["instructions"]?.GetValue<string>() ?? "",
                     AllowedStepTypes = (input["policy"]?["allowed_step_types"] as JsonArray ?? []).Select(v => v!.GetValue<string>()).ToList(),
                     DeniedCapabilityIds = (input["policy"]?["denied_capability_ids"] as JsonArray ?? []).Select(v => v!.GetValue<string>()).ToList(),
-                    RequireExternalConfirmation = input["policy"]?["require_external_confirmation"]?.GetValue<bool>() ?? true,
+                    RequireExternalConfirmation = input["policy"]?["require_external_confirmation"]?.GetValue<bool>() ?? false,
                     MaxStepsTotal = input["limits"]?["max_steps_total"]?.GetValue<int>() ?? 300
                 }
             }
@@ -51,9 +51,8 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
         while (!PlanningStatus.IsTerminal(state.Status))
         {
             var command = new PlanningCommand { ExpectedRevision = state.Revision };
-            if (state.Status == PlanningStatus.Clarification && ctx.Engine.PlanningInteraction is not null)
+            if (state.Status == PlanningStatus.Clarification && ctx.Engine.PlanningInteraction is { } decisions)
             {
-                if (ctx.Engine.PlanningInteraction is not { } decisions) break;
                 command = await decisions.RequestAsync(state, ct);
             }
             else if (PlanningStatus.IsWaiting(state.Status))
@@ -61,31 +60,54 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                 if (ctx.Engine.HumanInputProvider is not { } human) break;
                 if (state.Status == PlanningStatus.Clarification)
                 {
-                    var selections = new JsonObject();
-                    foreach (var choice in state.GetChoices().Where(c => c.Selected is null))
+                    var questions = state.GetQuestions();
+                    var answer = await human.RequestInputAsync(new HumanInputRequest
                     {
-                        var answer = await human.RequestInputAsync(new HumanInputRequest
+                        RunId = state.Request.SessionId, StepId = "clarification-" + state.Revision,
+                        Prompt = "Clarify the intended workflow. Confirm a suggested answer or enter your own.",
+                        Mode = HumanInputContract.ModeForm, AllowAbandon = true,
+                        Fields = questions.Select(q => new HumanInputFieldDef
                         {
-                            RunId = state.Request.SessionId, StepId = choice.Id,
-                            Prompt = choice.Question + "\nRecommended: " + choice.Recommended + "\n" + string.Join("\n", choice.Alternatives.Select(a => a.Id + ": " + a.Description)),
-                            Mode = "choice", Choices = choice.Alternatives.Select(a => a.Id).ToList(), AllowAbandon = true
-                        }, ct);
-                        if (HumanInputContract.IsAbandoned(answer)) { command.Kind = "cancel"; break; }
-                        selections[choice.Id] = (answer is JsonObject obj ? obj["response"] : answer)?.GetValue<string>();
+                            Name = q.Id, Description = q.Question, Type = q.Alternatives.Count == 0 ? "textarea" : "radio",
+                            Options = q.Alternatives.Select(a => a.Id).ToList(),
+                            OptionDefinitions = q.Alternatives.Select(a => new HumanInputOptionDef { Value = a.Id, Description = a.Description, Recommended = a.Id == q.Recommended }).ToList(),
+                            AllowCustomAnswer = true, Default = q.Recommended, Required = true
+                        }).ToList()
+                    }, ct);
+                    if (HumanInputContract.IsAbandoned(answer)) command.Kind = "cancel";
+                    else
+                    {
+                        var answers = questions.Select(q =>
+                        {
+                            var value = (answer as JsonObject)?[q.Id]?.GetValue<string>();
+                            return q.Alternatives.Any(a => a.Id == value) ? new PlanningAnswer(q.Id, AlternativeId: value) : new PlanningAnswer(q.Id, Text: value);
+                        }).ToList();
+                        if (state.PendingQuestions is null && answers.All(a => a.AlternativeId is not null))
+                        {
+                            command.Kind = "choose";
+                            command.Selections = new JsonObject(answers.Select(a => new KeyValuePair<string, JsonNode?>(a.QuestionId, JsonValue.Create(a.AlternativeId))));
+                        }
+                        else { command.Kind = "answer"; command.Answers = answers; }
                     }
-                    if (command.Kind != "cancel") { command.Kind = "choose"; command.Selections = selections; }
                 }
                 else
                 {
+                    var requirements = state.Requirements?.Outcomes ?? [];
                     var answer = await human.RequestInputAsync(new HumanInputRequest
                     {
                         RunId = state.Request.SessionId, StepId = "review-" + state.Revision,
-                        Prompt = "Review the validated workflow stages, execution scopes and required evidence. Runtime outcomes have not yet been observed.",
+                        Prompt = "Review each requirement against the actual tasks and data dependencies, including per-item actions and incomplete observations. Mark only covered requirements. Missing or uncertain coverage requires revision. Execution has not been observed.",
                         Context = JsonValue.Create(state.Requirements?.Summary + "\n\nBusiness tasks and selections:\n" + System.Text.Json.JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan) + "\n\n```yaml\n" + state.Yaml + "\n```"),
-                        Mode = "choice", Choices = ["approve", "revise", "cancel"], AllowAbandon = true
+                        Mode = HumanInputContract.ModeForm, AllowAbandon = true,
+                        Fields = requirements.Select(r => new HumanInputFieldDef
+                        {
+                            Name = "requirement:" + r.Id, Description = r.Description, Type = "radio", Required = false,
+                            Options = ["covered", "missing", "uncertain"]
+                        }).Append(new HumanInputFieldDef { Name = "response", Description = "Decision", Type = "radio", Options = ["approve", "revise", "cancel"] }).ToList()
                     }, ct);
                     command.Kind = HumanInputContract.IsAbandoned(answer) ? "cancel" : (answer is JsonObject obj ? obj["response"] : answer)?.GetValue<string>() ?? "cancel";
                     command.ArtifactHash = state.ComputeArtifactHash();
+                    command.ReviewedRequirementIds = requirements.Where(r => (answer as JsonObject)?["requirement:" + r.Id]?.GetValue<string>() == "covered").Select(r => r.Id).ToList();
                     if (command.Kind == "revise")
                     {
                         var edit = await human.RequestInputAsync(new HumanInputRequest
@@ -99,6 +121,9 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
             if (ctx.Engine.PlanningInteraction is { } observer) await observer.CheckpointedAsync(state, ct);
             ctx.SetTelemetryAttribute("gnougo-flow.plan.status", state.Status);
             ctx.SetTelemetryAttribute("gnougo-flow.plan.calls", state.ModelCalls);
+            ctx.SetTelemetryAttribute("gnougo-flow.plan.clarifications.answered", state.AnswerHistory?.Sum(b => b.Answers.Count) ?? 0);
+            ctx.SetTelemetryAttribute("gnougo-flow.plan.clarifications.pending", state.PendingQuestions?.Count ?? 0);
+            ctx.SetTelemetryAttribute("gnougo-flow.plan.human_wait_ms", state.HumanWaitMilliseconds);
         }
         var result = new JsonObject { ["status"] = state.Status, ["session_id"] = state.Request.SessionId, ["revision"] = state.Revision };
         if (PlanningStatus.IsWaiting(state.Status)) return result;

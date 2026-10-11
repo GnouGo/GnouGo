@@ -4,6 +4,22 @@ using GnOuGo.Flow.Core.Planning;
 namespace GnOuGo.Flow.Planning;
 public static class PlanningReviewFormatter
 {
+    internal static IEnumerable<PlanningValidationResult> Operations(PlanningSession state) =>
+        PlanningGraphCompiler.Enumerate(state.Graph!.Workflows.SelectMany(w => w.Steps.Concat(w.Finally)))
+            .Where(n => n.CapabilityId is not null).Select(n =>
+            {
+                var contract = state.Catalog!.Capabilities.Single(c => c.Id == n.CapabilityId);
+                return new PlanningValidationResult("operation:" + n.Key, "declared", (n.Purpose ?? n.Key) +
+                    " — operation: " + contract.Id + (contract.Server is null ? "" : " (" + contract.Server + "/" + contract.Method + ")") +
+                    "; contract effect: " + contract.EffectKind + ". " + (contract.ArtifactContract?.Locations is { Count: > 0 } ? "Declared resource locations checked; dynamic relationships still require execution evidence. " : "Resource lifecycle is not established by this contract; review cleanup and retained artifacts. ") + "Execution has not been observed; review the business requirements separately.", []);
+            }).Concat(PlanningGraphCompiler.Enumerate(state.Graph!.Workflows.SelectMany(w => w.Steps.Concat(w.Finally)))
+                .Where(n => n.Input.Kind == "dynamic_mapping").Select(n => new PlanningValidationResult("mapping:" + n.Key, "declared",
+                    n.Purpose + (PlanningGraphValidation.Member(n.Input, "adaptive_each")?.Boolean == true
+                        ? " — adaptive independent extraction; unresolved items may require specialized or per-item inference within the configured shared runtime and campaign budgets. Execution requires a finite runtime budget; every item and the complete result are validated. "
+                        : " — runtime extraction, at most two model attempts per invocation; cache hits still validate the complete result. ") +
+                    (PlanningGraphValidation.Member(n.Input, "infer_each")?.Boolean == true ? "Unambiguous source/target collections use one result per item; ambiguous collections require explicit selection. " : "") +
+                    (PlanningGraphValidation.Member(n.Input, "each") is null ? "" : "Independent items preserve order and nesting; bounded examples generate one mapping, all items are validated, and inference allowances are shared. ") + "No execution evidence yet.", [])));
+
     public static string TaskDiagram(TaskPlan? plan)
     {
         var result = new StringBuilder("flowchart TD\n");
@@ -18,17 +34,52 @@ public static class PlanningReviewFormatter
             foreach (var task in scope.Tasks.Concat(scope.Always))
             {
                 var id = "t" + PlanningGraphCompiler.Fingerprint(task.Id)[..12];
-                var businessResult = task.ResultType is null ? "" : " → " + string.Join(", ", task.ResultType.Fields.Select(f => f.Name + ": " + f.Type.Kind));
-                result.AppendLine(id + "[\"" + Label(task.Id + ": " + task.Objective + " (" + task.Kind + (scope.Always.Contains(task) ? ", always" : "") + ")" + businessResult) + "\"]");
+                var businessResult = (task.Each is null ? "" : " · each " + task.Each.Input + " → " + task.Each.Output) +
+                    (task.ResultType is null ? "" : " → " + string.Join(", ", task.ResultType.Fields.Select(f => f.Name + ": " + DescribeType(f.Type))));
+                var transform = task.Kind == "transform" ? ", " + (task.Mode ?? "interpret") : "";
+                var inputs = task.Kind == "transform" ? "; inputs: " + string.Join(", ", task.Inputs.Select(i => i.Name + " ← " + Describe(i.Value))) : "";
+                result.AppendLine(id + "[\"" + Label(task.Id + ": " + task.Objective + " (" + task.Kind + transform + (task.Requires is null ? "" : ", required precondition") + (scope.Always.Contains(task) ? ", always" : "") + ")" + businessResult + inputs + (task.Requires is null ? "" : "; requires " + Describe(task.Requires))) + "\"]");
                 if (previous is not null) result.AppendLine(previous + " --> " + id);
                 previous = id;
                 if (task.Body is not null) Draw(task.Body, task.Id + " body");
                 if (task.Otherwise is not null) Draw(task.Otherwise, task.Id + " otherwise");
                 for (var i = 0; i < task.Branches.Count; i++) Draw(task.Branches[i], task.Id + " branch " + i);
             }
+            if (scope.Outputs.Count > 0)
+            {
+                var exports = "e" + PlanningGraphCompiler.Fingerprint(name)[..12];
+                result.AppendLine(exports + "[\"" + Label("Exports: " + string.Join(", ", scope.Outputs.Select(o => o.Name + " ← " + Describe(o.Value)))) + "\"]");
+                if (previous is not null) result.AppendLine(previous + " --> " + exports);
+            }
             result.AppendLine("end");
         }
     }
+    private static string DescribeType(TaskType type) => (type.Kind switch
+    {
+        "array" => "array<" + (type.Items is null ? "unknown" : DescribeType(type.Items)) + ">",
+        "object" => "{" + string.Join(", ", type.Fields.Select(f => f.Name + ": " + DescribeType(f.Type))) + "}",
+        _ => type.Kind
+    }) + (type.Nullable ? "?" : "");
+
+    private static string Describe(TaskValue value) => value.Kind switch
+    {
+        "input" => "input " + value.Source,
+        "output" => value.Source + (value.Port is null ? "" : "." + value.Port),
+        "present" => "present(" + value.Source + ")",
+        "field" when value.Items.Count == 1 => Describe(value.Items[0]) + "." + value.Port,
+        "object" => "{" + string.Join(", ", value.Members.Select(m => m.Name + ": " + Describe(m.Value))) + "}",
+        "array" => "[" + string.Join(", ", value.Items.Select(Describe)) + "]",
+        "json" => "json(" + string.Join(", ", value.Items.Select(Describe)) + ")",
+        "flatten" => "flatten one level(" + string.Join(", ", value.Items.Select(Describe)) + ")",
+        "lookup" => "lookup by " + value.Port + "(" + string.Join(", ", value.Items.Select(Describe)) + "; retain order and repeats)",
+        "boolean" => value.Boolean == true ? "true" : "false",
+        "null" => "null", "string" => "\"" + value.Text + "\"",
+        "predicate" => value.Predicate + "(" + string.Join(", ", value.Items.Select(Describe)) + ")",
+        "arithmetic" => value.Text + "(" + string.Join(", ", value.Items.Select(Describe)) + ")",
+        "number" => value.Number?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "invalid number",
+        _ => value.Kind
+    };
+
     public static string Diagram(PlanningGraph? graph)
     {
         var result = new StringBuilder("flowchart TD\n");
@@ -51,7 +102,7 @@ public static class PlanningReviewFormatter
                 foreach (var node in nodes)
                 {
                     var id = prefix + "n" + PlanningGraphCompiler.Fingerprint(node.Key)[..12];
-                    var label = node.Key + ": " + node.Type + (node.If is null ? "" : " (conditional)");
+                    var label = node.Key + ": " + (node.Input.Kind == "dynamic_mapping" ? (PlanningGraphValidation.Member(node.Input, "adaptive_each")?.Boolean == true ? "adaptive extraction · shared runtime budget" : "runtime extraction · max 2 model attempts") : node.Type) + (node.If is null ? "" : " (conditional)");
                     if (node.Type == "agent.run")
                     {
                         var calls = PlanningGraphValidation.Member(PlanningGraphValidation.Member(node.Input, "budget") ?? new(), "max_model_calls")?.Number;

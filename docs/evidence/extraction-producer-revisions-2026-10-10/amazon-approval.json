@@ -1,0 +1,19 @@
+{
+  "run": "extractproducer20261010a-amazon-1",
+  "user_response": "Approve all five requirements and execute once",
+  "command": {
+    "kind": "approve",
+    "expectedRevision": 8,
+    "artifactHash": "e6b81b19d8b3c4ccacad4a112ab5e5f4838fd58bdc84e78b4464b28b3e9d41ad",
+    "reviewedRequirementIds": [
+      "search_amazon_fr",
+      "collect_products",
+      "extract_product_data",
+      "save_workbook",
+      "cleanup_browser"
+    ]
+  },
+  "observed_saved_status": "approved",
+  "observed_saved_revision": 9,
+  "execution_authorized_once": true
+}

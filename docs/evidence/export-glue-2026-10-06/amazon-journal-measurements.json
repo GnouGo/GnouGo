@@ -1,0 +1,75 @@
+{
+  "run_id": "exportglue20261006a-amazon-1",
+  "status": "failed",
+  "steps_started": 1169,
+  "finalization_steps_started": 1,
+  "finalization_started": true,
+  "finalization_completed": true,
+  "logical_json_bytes": 373418808,
+  "checkpoint_json_bytes": 358629,
+  "referenced_block_count": 4498,
+  "referenced_block_json_bytes": 11853658,
+  "checkpoint_read_ms": 46.9822,
+  "reconstruction_ms": 6252.4423,
+  "invocations": 1170,
+  "events": 3623,
+  "invocation_types": {
+    "set": 1056,
+    "workflow.call": 54,
+    "mcp.call": 54,
+    "mapping.dynamic": 1,
+    "loop.sequential": 1,
+    "llm.call": 2,
+    "template.render": 1,
+    "switch": 1
+  },
+  "finalizers": [
+    {
+      "id": "/workflow/main/finally/step/n_74bb86b6b29fd7c5",
+      "type": "mcp.call",
+      "status": "completed",
+      "observed_completion": true,
+      "description": "Fermer le navigateur même en cas d’échec, de CAPTCHA, de capture incomplète ou d’erreur d’écriture."
+    }
+  ],
+  "mappings": [
+    {
+      "id": "/workflow/main/step/n_7e4e9c6d0819b314",
+      "description": "Depuis les seuls enregistrements compacts de consentement observés, détecter une bannière de consentement visible et extraire le libellé exact du bouton d’acceptation autorisé s’il est observé; ne pas inventer de bouton absent.",
+      "status": "failed",
+      "input_bytes": 207994,
+      "source_fields": [
+        {
+          "name": "consentPages",
+          "bytes": 207455
+        },
+        {
+          "name": "observedUrl",
+          "bytes": 66
+        }
+      ]
+    }
+  ],
+  "request_sizes": [
+    {
+      "id": "/workflow/main/step/n_7e4e9c6d0819b314/mapping/0",
+      "status": "completed",
+      "complete_request_bytes": 325336,
+      "complete_request_estimated_tokens": 181033,
+      "prompt_estimated_tokens": 97193,
+      "retained_receipt": {
+        "error": "LLM_BUDGET_EXCEEDED"
+      },
+      "observed_completion": true
+    }
+  ],
+  "non_completed": [
+    {
+      "id": "/workflow/main/step/n_7e4e9c6d0819b314",
+      "type": "mapping.dynamic",
+      "status": "failed",
+      "observed_completion": false
+    }
+  ],
+  "note": "Read-only public KeyVault APIs. Referenced immutable blocks only; superseded blocks and encryption/SQLite overhead excluded. Read/reconstruction timings are inspection, not checkpoint-write latency. No execution or dispatch."
+}

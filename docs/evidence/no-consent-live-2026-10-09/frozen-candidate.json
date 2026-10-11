@@ -1,0 +1,23 @@
+{
+  "candidate": "3c765087fdfbdad233996fe10c765d060237c987",
+  "cohort": "noconsent20261009a",
+  "run": "noconsent20261009a-amazon-1",
+  "max_products": 10,
+  "campaign": "schema-portability-20261002",
+  "cost_ceiling_eur": 150,
+  "hash_algorithm": "sha256",
+  "files": {
+    "tests/GnOuGo.Agent.Planning.Benchmark/LiveWorkflowEvaluation.cs": "c565a7f98f004096ab086318a9790f1308849bcca56a0486df6bd6db97a8d256",
+    "tests/GnOuGo.Agent.Planning.Benchmark/LiveWorkflowOracles.cs": "e2d6ddf002b75cfd5ddc5be10852c118e7b9d2a3c3d3875c03a0770de054f62a",
+    "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Planning.Benchmark.dll": "51a138f59d9bce6da0d98b0997dc82f0021985eec8f44d0741767d90fe9b68f9",
+    "src/GnOuGo.Browser.Mcp/bin/Debug/net10.0/GnOuGo.Browser.Mcp.dll": "f06d0b0366aec9ab4fdf5c206e61de91d8f21b20607c02a4c58fdb26be847275",
+    "src/GnOuGo.Document.Mcp/bin/Debug/net10.0/GnOuGo.Document.Mcp.dll": "a2533b221a938fc4f3941b4c5b6124cecaef93331fe2dd78d5339125db5b7a16"
+  },
+  "build": {
+    "warnings": 0,
+    "errors": 0,
+    "initial_attempt": "network EOF downloading pinned Copilot CLI; unchanged rebuild succeeded"
+  },
+  "consent_actions": "prohibited",
+  "obstacle_policy": "stop and report if actually blocking"
+}

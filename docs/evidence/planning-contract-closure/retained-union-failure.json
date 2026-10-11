@@ -1,0 +1,85 @@
+{
+  "campaign": "schema-portability-20261002",
+  "cohort": "closure1",
+  "source": "f58f16259532bd0d3be4a59734a5c8612d92349b",
+  "run": "closure1-amazon-1",
+  "result": {
+    "status": "stopped",
+    "planning_ms": 171289,
+    "calls": 4,
+    "repairs": 2,
+    "discovery_reads": 2,
+    "diagnostics": [
+      {
+        "code": "TASK_TRANSFORM_CONSTRAINT",
+        "location": "/tasks/analyze_home/resultType/fields/searchSelector/type/nullable",
+        "message": "The consumer /tasks/fill_search/inputs/selector rejects null; declare non-null only when consistent with accepted requirements and producer guarantees, or change the diagnosed consumer binding. Expected \"string\".",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      },
+      {
+        "code": "CONTRACT_UNSATISFIED",
+        "location": "/tasks/fill_search/inputs/selector",
+        "message": "TASK_INPUT_TYPE: Produced [\"string\",\"null\"] from /tasks/analyze_home/resultType/fields/searchSelector/type; expected \"string\". The business value does not satisfy its authoritative contract.",
+        "required": true,
+        "validationStage": "contract:TASK_INPUT_TYPE",
+        "rule": null
+      },
+      {
+        "code": "CONTRACT_UNSATISFIED",
+        "location": "/tasks/inspect_products/items",
+        "message": "TASK_FIELD_TYPE: Field selection requires an authoritative object contract; opaque values cannot supply fields.",
+        "required": true,
+        "validationStage": "contract:TASK_FIELD_TYPE",
+        "rule": null
+      }
+    ],
+    "execution_success": false,
+    "execution_oracle": false,
+    "execution_status": "not_started",
+    "accounting": {
+      "planning": {
+        "logical_calls": 4,
+        "physical_attempts": 4,
+        "known_input_tokens": 25737,
+        "known_output_tokens": 12560,
+        "known_cost_eur": 0.4503207126948775,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "execution": {
+        "logical_calls": 0,
+        "physical_attempts": 0,
+        "known_input_tokens": 0,
+        "known_output_tokens": 0,
+        "known_cost_eur": 0,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "campaign": {
+        "calls": 180,
+        "session_calls": 0,
+        "known_input_tokens": 2418003,
+        "known_output_tokens": 279740,
+        "known_cost_eur": 18.185006420120477,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0,
+        "cost_upper_bound_eur": 18.185006420120477,
+        "unknown_attempts": 0
+      }
+    }
+  },
+  "reproduction": {
+    "modelCalls": 0,
+    "case": "conditional branches export objects declaring the same array field; selecting that field must preserve typed and empty alternatives",
+    "before": "TASK_FIELD_TYPE /root/outputs/rows",
+    "after": "Compiled=True; exact values and empty collections covered through both branch choices and sequential/parallel Flow execution"
+  },
+  "retainedEncryptedEvidence": "planning-schema-portability run:closure1-amazon-1"
+}

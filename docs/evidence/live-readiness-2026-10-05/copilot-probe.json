@@ -1,0 +1,41 @@
+{
+  "source_sha": "f199a5d705e2a16d8a37607597c54191c261c6e7",
+  "label": "focused20261005a-copilot",
+  "provider_hash": "0d9b3f888b2a23348f7efbdc00cc764d2e388e63c076dd350b945bc161539d31",
+  "artifact_hash": "0a6507878f08d8d666b6c8f5c9533061642974f2a56bce0d60ea4849e46f78d7",
+  "execution_success": true,
+  "error": null,
+  "completion_verified": true,
+  "command_count": 1,
+  "report": {
+    "observed": "observed-focused20261005a-copilot",
+    "exit_code": 0
+  },
+  "receipt_reloaded": true,
+  "passed": true,
+  "cleanup": true,
+  "execution_ms": 92400,
+  "task_result_hash": "2e361f40ccd3205349a9d2b1ec91a96fd2c3fecab868d1bed7bcdf103a79783e",
+  "sdk_sessions": 1,
+  "inference_attempts": 3,
+  "reserved_tokens": 142427,
+  "observed_commands": [
+    {
+      "command": "python3 probe.py",
+      "exit_code": 0,
+      "output": "observed-focused20261005a-copilot\n"
+    }
+  ],
+  "paid_usage": {
+    "calls": 3,
+    "known_input_tokens": 19375,
+    "known_output_tokens": 161,
+    "known_cost_eur": "0.090605790645879732739420934"
+  },
+  "campaign": {
+    "cost_upper_bound_eur": "77.562333814329831915379311069",
+    "reserved_cost_eur": "2.6067527839643652561247216036",
+    "unknown_attempts": 2,
+    "remaining_eur": "22.43766618567016808462068893"
+  }
+}

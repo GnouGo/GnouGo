@@ -1,0 +1,845 @@
+{
+  "candidate_sha": "269b8ac92181adf3eb748a250981e8c27ca7f4f9",
+  "recorded_utc": "2026-10-04T08:34:05.959999+00:00",
+  "corrections": [
+    "Explicit requirements review and complete observation guidance",
+    "Verified Copilot terminal receipts before session disposal"
+  ],
+  "architecture_changed": false,
+  "dynamic_mapping_changed": false,
+  "paid_calls": 0,
+  "historical_invocations_replayed": 0,
+  "solution": {
+    "passed": 4278,
+    "failed": 0,
+    "skipped": 12,
+    "suites": [
+      {
+        "suite": "DocIngestor.Tests",
+        "passed": 89,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.Diff.Tests",
+        "passed": 52,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.KeyVault.Core.Tests",
+        "passed": 12,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.Flow.Tests",
+        "passed": 1044,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.Flow.Integrations.Tests",
+        "passed": 87,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.AI.Core.Tests",
+        "passed": 225,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.AI.Local.Tests",
+        "passed": 14,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.Agent.Mcp.Tests",
+        "passed": 103,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.Cmd.Mcp.Tests",
+        "passed": 93,
+        "failed": 0,
+        "skipped": 7
+      },
+      {
+        "suite": "GnOuGo.Browser.Mcp.Tests",
+        "passed": 48,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.Agent.Server.Tests",
+        "passed": 614,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.Document.Mcp.Tests",
+        "passed": 63,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.KeyVault.Mcp.Tests",
+        "passed": 9,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.Files.Server.Tests",
+        "passed": 10,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.DocIngestor.Mcp.Tests",
+        "passed": 7,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.OtlpCollector.Server.Tests",
+        "passed": 7,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.GithubCopilot.Mcp.Tests",
+        "passed": 225,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.GithubCopilot.Core.Tests",
+        "passed": 162,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.GithubCopilot.E2E.Tests",
+        "passed": 7,
+        "failed": 0,
+        "skipped": 5
+      },
+      {
+        "suite": "GnOuGo.Observability.Core.Tests",
+        "passed": 3,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.Git.Mcp.Tests",
+        "passed": 83,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.Workspace.Tests",
+        "passed": 30,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.Mcp.Core.Tests",
+        "passed": 49,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.Flow.Mermaid.Tests",
+        "passed": 12,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.Assets.Bears.Tests",
+        "passed": 91,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.Assets.Animation.Tests",
+        "passed": 42,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.Assets.Animation.Server.Tests",
+        "passed": 13,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.Assets.Bears.Server.Tests",
+        "passed": 28,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.Flow.Planning.Tests",
+        "passed": 862,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.ProxyCopilot.Server.Tests",
+        "passed": 177,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.Auth.Core.Tests",
+        "passed": 8,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.Flow.Persistence.Tests",
+        "passed": 4,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.Flow.Copilot.Tests",
+        "passed": 5,
+        "failed": 0,
+        "skipped": 0
+      }
+    ]
+  },
+  "solution_command": "PLAYWRIGHT_MODULE_PATH=<playwright/index.mjs> dotnet test GnOuGo.Agent.sln -m:1 -warnaserror",
+  "focused": {
+    "RequirementsReviewTests": [
+      {
+        "name": "GnOuGo.Flow.Planning.Tests.RequirementsReviewTests.ApprovalRequiresExactExplicitReviewWithoutChangingStateOrSpending(variant: \"stale\")",
+        "outcome": "Passed"
+      },
+      {
+        "name": "GnOuGo.Flow.Planning.Tests.RequirementsReviewTests.ApprovalRequiresExactExplicitReviewWithoutChangingStateOrSpending(variant: \"missing\")",
+        "outcome": "Passed"
+      },
+      {
+        "name": "GnOuGo.Flow.Planning.Tests.RequirementsReviewTests.ApprovalRequiresExactExplicitReviewWithoutChangingStateOrSpending(variant: \"partial\")",
+        "outcome": "Passed"
+      },
+      {
+        "name": "GnOuGo.Flow.Planning.Tests.RequirementsReviewTests.ApprovalRequiresExactExplicitReviewWithoutChangingStateOrSpending(variant: \"empty\")",
+        "outcome": "Passed"
+      },
+      {
+        "name": "GnOuGo.Flow.Planning.Tests.RequirementsReviewTests.ExplicitReviewSurvivesRestartWithoutChangingArtifactIdentityAndRevisionClearsIt",
+        "outcome": "Passed"
+      },
+      {
+        "name": "GnOuGo.Flow.Planning.Tests.RequirementsReviewTests.AbsentReviewCommandFieldKeepsHistoricalSerialization",
+        "outcome": "Passed"
+      },
+      {
+        "name": "GnOuGo.Flow.Planning.Tests.RequirementsReviewTests.ApprovalRequiresExactExplicitReviewWithoutChangingStateOrSpending(variant: \"unknown\")",
+        "outcome": "Passed"
+      },
+      {
+        "name": "GnOuGo.Flow.Planning.Tests.RequirementsReviewTests.ApprovalRequiresExactExplicitReviewWithoutChangingStateOrSpending(variant: \"duplicate\")",
+        "outcome": "Passed"
+      }
+    ],
+    "PlannerChoiceUiTests": [
+      {
+        "name": "GnOuGo.Agent.Server.Tests.PlannerChoiceUiTests.StoppedPlanningShowsRevisionScopeAndDiscoveryLimitations",
+        "outcome": "Passed"
+      },
+      {
+        "name": "GnOuGo.Agent.Server.Tests.PlannerChoiceUiTests.TextOnlyQuestionIsAccessibleAndRevisionClearsStaleAnswers",
+        "outcome": "Passed"
+      },
+      {
+        "name": "GnOuGo.Agent.Server.Tests.PlannerChoiceUiTests.EarlyQuestionSubmitsRecommendationOrCustomTextOnlyExplicitly(custom: True)",
+        "outcome": "Passed"
+      },
+      {
+        "name": "GnOuGo.Agent.Server.Tests.PlannerChoiceUiTests.EarlyQuestionSubmitsRecommendationOrCustomTextOnlyExplicitly(custom: False)",
+        "outcome": "Passed"
+      },
+      {
+        "name": "GnOuGo.Agent.Server.Tests.PlannerChoiceUiTests.CancellationDoesNotSelectTheRecommendation",
+        "outcome": "Passed"
+      },
+      {
+        "name": "GnOuGo.Agent.Server.Tests.PlannerChoiceUiTests.RequirementReviewIsExplicitAccessibleAndClearedForAnotherArtifact",
+        "outcome": "Passed"
+      },
+      {
+        "name": "GnOuGo.Agent.Server.Tests.PlannerChoiceUiTests.BusyAndCancellationCannotSubmitAnswers",
+        "outcome": "Passed"
+      },
+      {
+        "name": "GnOuGo.Agent.Server.Tests.PlannerChoiceUiTests.CustomLiteralChoiceUsesRevisionAnswerRatherThanUncheckedSelection",
+        "outcome": "Passed"
+      },
+      {
+        "name": "GnOuGo.Agent.Server.Tests.PlannerChoiceUiTests.HistoricalChecksRemainReadableAndSeparateFromExecutionApproval",
+        "outcome": "Passed"
+      },
+      {
+        "name": "GnOuGo.Agent.Server.Tests.PlannerChoiceUiTests.ChatRadioFieldsRequireAnExplicitDefaultOrSelection(suppliedDefault: null, expected: \"\")",
+        "outcome": "Passed"
+      },
+      {
+        "name": "GnOuGo.Agent.Server.Tests.PlannerChoiceUiTests.BusinessRequirementsAreReviewedWithoutTechnicalProofAnnotations",
+        "outcome": "Passed"
+      },
+      {
+        "name": "GnOuGo.Agent.Server.Tests.PlannerChoiceUiTests.ChatRadioFieldsRequireAnExplicitDefaultOrSelection(suppliedDefault: \"covered\", expected: \"covered\")",
+        "outcome": "Passed"
+      },
+      {
+        "name": "GnOuGo.Agent.Server.Tests.PlannerChoiceUiTests.RecommendationRequiresExplicitSubmitAndBusinessTextIsEncoded",
+        "outcome": "Passed"
+      }
+    ],
+    "PlanningClarificationBrowserTests": [
+      {
+        "name": "GnOuGo.Agent.Server.Tests.PlanningClarificationBrowserTests.DesignerBrowserUsesRealPersistedQuestionsAndExplicitSubmission",
+        "outcome": "Passed"
+      }
+    ],
+    "BrowserObservationTests": [
+      {
+        "name": "GnOuGo.Browser.Mcp.Tests.BrowserObservationTests.CompactSnapshotPreservesObservedGroupsAndLinksWithBoundedContinuation",
+        "outcome": "Passed"
+      }
+    ],
+    "LocalProductOutcomeExecutionTests": [
+      {
+        "name": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"denied\")",
+        "outcome": "Passed"
+      },
+      {
+        "name": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"empty\")",
+        "outcome": "Passed"
+      },
+      {
+        "name": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"consent\")",
+        "outcome": "Passed"
+      },
+      {
+        "name": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"unrelated-modal\")",
+        "outcome": "Passed"
+      },
+      {
+        "name": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"navigation\")",
+        "outcome": "Passed"
+      },
+      {
+        "name": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"extract\")",
+        "outcome": "Passed"
+      },
+      {
+        "name": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"no-consent\")",
+        "outcome": "Passed"
+      },
+      {
+        "name": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"incomplete-observation\")",
+        "outcome": "Passed"
+      },
+      {
+        "name": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"observation\")",
+        "outcome": "Passed"
+      },
+      {
+        "name": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"delayed-consent\")",
+        "outcome": "Passed"
+      },
+      {
+        "name": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"missing\")",
+        "outcome": "Passed"
+      },
+      {
+        "name": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"nominal\")",
+        "outcome": "Passed"
+      },
+      {
+        "name": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"limit\")",
+        "outcome": "Passed"
+      },
+      {
+        "name": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"changed\")",
+        "outcome": "Passed"
+      }
+    ],
+    "CopilotLogicalOperationTests": [
+      {
+        "name": "GnOuGo.GithubCopilot.Core.Tests.CopilotLogicalOperationTests.TerminalReceiptDoesNotRequireContinuationButRequiresEveryExternalCompletion(scenario: \"pending-shell\", verified: False)",
+        "outcome": "Passed"
+      },
+      {
+        "name": "GnOuGo.GithubCopilot.Core.Tests.CopilotLogicalOperationTests.TerminalReceiptDoesNotRequireContinuationButRequiresEveryExternalCompletion(scenario: \"pending-tool\", verified: False)",
+        "outcome": "Passed"
+      },
+      {
+        "name": "GnOuGo.GithubCopilot.Core.Tests.CopilotLogicalOperationTests.TerminalReceiptDoesNotRequireContinuationButRequiresEveryExternalCompletion(scenario: \"idle-before-complete\", verified: False)",
+        "outcome": "Passed"
+      },
+      {
+        "name": "GnOuGo.GithubCopilot.Core.Tests.CopilotLogicalOperationTests.TerminalReceiptDoesNotRequireContinuationButRequiresEveryExternalCompletion(scenario: \"transport\", verified: False)",
+        "outcome": "Passed"
+      },
+      {
+        "name": "GnOuGo.GithubCopilot.Core.Tests.CopilotLogicalOperationTests.LateIdleIsObservedWithinTheExistingBoundWithoutAnotherSend",
+        "outcome": "Passed"
+      },
+      {
+        "name": "GnOuGo.GithubCopilot.Core.Tests.CopilotLogicalOperationTests.TerminalReceiptDoesNotRequireContinuationButRequiresEveryExternalCompletion(scenario: \"conflict\", verified: False)",
+        "outcome": "Passed"
+      },
+      {
+        "name": "GnOuGo.GithubCopilot.Core.Tests.CopilotLogicalOperationTests.RetainedBudgetCannotRenewCallsOrReservationsAndStopClosesAdmission",
+        "outcome": "Passed"
+      },
+      {
+        "name": "GnOuGo.GithubCopilot.Core.Tests.CopilotLogicalOperationTests.OnlyVerifiedContextLimitIdleAllowsInternalContinuation(scenario: \"bounded\", expected: False)",
+        "outcome": "Passed"
+      },
+      {
+        "name": "GnOuGo.GithubCopilot.Core.Tests.CopilotLogicalOperationTests.TerminalReceiptDoesNotRequireContinuationButRequiresEveryExternalCompletion(scenario: \"missing-exit\", verified: False)",
+        "outcome": "Passed"
+      },
+      {
+        "name": "GnOuGo.GithubCopilot.Core.Tests.CopilotLogicalOperationTests.DenialSurvivesSuccessorEvenWhenItFindsBroadApproval",
+        "outcome": "Passed"
+      },
+      {
+        "name": "GnOuGo.GithubCopilot.Core.Tests.CopilotLogicalOperationTests.TerminalReceiptDoesNotRequireContinuationButRequiresEveryExternalCompletion(scenario: \"shell-exit\", verified: True)",
+        "outcome": "Passed"
+      },
+      {
+        "name": "GnOuGo.GithubCopilot.Core.Tests.CopilotLogicalOperationTests.TerminalReceiptDoesNotRequireContinuationButRequiresEveryExternalCompletion(scenario: \"budget\", verified: True)",
+        "outcome": "Passed"
+      },
+      {
+        "name": "GnOuGo.GithubCopilot.Core.Tests.CopilotLogicalOperationTests.OnlyVerifiedContextLimitIdleAllowsInternalContinuation(scenario: \"other-error\", expected: False)",
+        "outcome": "Passed"
+      },
+      {
+        "name": "GnOuGo.GithubCopilot.Core.Tests.CopilotLogicalOperationTests.OnlyVerifiedContextLimitIdleAllowsInternalContinuation(scenario: \"complete\", expected: True)",
+        "outcome": "Passed"
+      },
+      {
+        "name": "GnOuGo.GithubCopilot.Core.Tests.CopilotLogicalOperationTests.OnlyVerifiedContextLimitIdleAllowsInternalContinuation(scenario: \"transport\", expected: False)",
+        "outcome": "Passed"
+      },
+      {
+        "name": "GnOuGo.GithubCopilot.Core.Tests.CopilotLogicalOperationTests.TerminalReceiptDoesNotRequireContinuationButRequiresEveryExternalCompletion(scenario: \"cancelled\", verified: False)",
+        "outcome": "Passed"
+      },
+      {
+        "name": "GnOuGo.GithubCopilot.Core.Tests.CopilotLogicalOperationTests.OnlyVerifiedContextLimitIdleAllowsInternalContinuation(scenario: \"missing-completion\", expected: False)",
+        "outcome": "Passed"
+      },
+      {
+        "name": "GnOuGo.GithubCopilot.Core.Tests.CopilotLogicalOperationTests.OnlyVerifiedContextLimitIdleAllowsInternalContinuation(scenario: \"autopilot\", expected: False)",
+        "outcome": "Passed"
+      },
+      {
+        "name": "GnOuGo.GithubCopilot.Core.Tests.CopilotLogicalOperationTests.OnlyVerifiedContextLimitIdleAllowsInternalContinuation(scenario: \"idle-before-error\", expected: False)",
+        "outcome": "Passed"
+      },
+      {
+        "name": "GnOuGo.GithubCopilot.Core.Tests.CopilotLogicalOperationTests.OnlyVerifiedContextLimitIdleAllowsInternalContinuation(scenario: \"cancelled\", expected: False)",
+        "outcome": "Passed"
+      },
+      {
+        "name": "GnOuGo.GithubCopilot.Core.Tests.CopilotLogicalOperationTests.TerminalReceiptDoesNotRequireContinuationButRequiresEveryExternalCompletion(scenario: \"empty-final\", verified: True)",
+        "outcome": "Passed"
+      },
+      {
+        "name": "GnOuGo.GithubCopilot.Core.Tests.CopilotLogicalOperationTests.OnlyVerifiedContextLimitIdleAllowsInternalContinuation(scenario: \"aborted\", expected: False)",
+        "outcome": "Passed"
+      }
+    ],
+    "CopilotCompletionReceiptTests": [
+      {
+        "name": "GnOuGo.GithubCopilot.Mcp.Tests.CopilotCompletionReceiptTests.RealFlowOnlyReleasesCleanupForAVerifiedFinalToolResult(verified: False)",
+        "outcome": "Passed"
+      },
+      {
+        "name": "GnOuGo.GithubCopilot.Mcp.Tests.CopilotCompletionReceiptTests.BoundedLocalCommandAndRealMcpTransportSeparateTerminalFailureFromUnknownCompletion(scenario: \"late-idle\")",
+        "outcome": "Passed"
+      },
+      {
+        "name": "GnOuGo.GithubCopilot.Mcp.Tests.CopilotCompletionReceiptTests.BoundedLocalCommandAndRealMcpTransportSeparateTerminalFailureFromUnknownCompletion(scenario: \"completed\")",
+        "outcome": "Passed"
+      },
+      {
+        "name": "GnOuGo.GithubCopilot.Mcp.Tests.CopilotCompletionReceiptTests.RealFlowOnlyReleasesCleanupForAVerifiedFinalToolResult(verified: True)",
+        "outcome": "Passed"
+      },
+      {
+        "name": "GnOuGo.GithubCopilot.Mcp.Tests.CopilotCompletionReceiptTests.BoundedLocalCommandAndRealMcpTransportSeparateTerminalFailureFromUnknownCompletion(scenario: \"budget\")",
+        "outcome": "Passed"
+      },
+      {
+        "name": "GnOuGo.GithubCopilot.Mcp.Tests.CopilotCompletionReceiptTests.BoundedLocalCommandAndRealMcpTransportSeparateTerminalFailureFromUnknownCompletion(scenario: \"empty-final\")",
+        "outcome": "Passed"
+      },
+      {
+        "name": "GnOuGo.GithubCopilot.Mcp.Tests.CopilotCompletionReceiptTests.BoundedLocalCommandAndRealMcpTransportSeparateTerminalFailureFromUnknownCompletion(scenario: \"disposal-failure\")",
+        "outcome": "Passed"
+      },
+      {
+        "name": "GnOuGo.GithubCopilot.Mcp.Tests.CopilotCompletionReceiptTests.BoundedLocalCommandAndRealMcpTransportSeparateTerminalFailureFromUnknownCompletion(scenario: \"pending-command\")",
+        "outcome": "Passed"
+      },
+      {
+        "name": "GnOuGo.GithubCopilot.Mcp.Tests.CopilotCompletionReceiptTests.BoundedLocalCommandAndRealMcpTransportSeparateTerminalFailureFromUnknownCompletion(scenario: \"pending-shell\")",
+        "outcome": "Passed"
+      },
+      {
+        "name": "GnOuGo.GithubCopilot.Mcp.Tests.CopilotCompletionReceiptTests.FailedReceiptWriteRetainsOwnershipUntilDurableCommit",
+        "outcome": "Passed"
+      }
+    ]
+  },
+  "published_browser_execution": {
+    "passed": 15,
+    "failed": 0,
+    "skipped": 0,
+    "suites": [
+      {
+        "suite": "GnOuGo.Agent.Server.Tests",
+        "passed": 15,
+        "failed": 0,
+        "skipped": 0
+      }
+    ]
+  },
+  "publication": [
+    {
+      "check": "pack-Flow.Core",
+      "exit_code": 0,
+      "seconds": 4.62,
+      "command": [
+        "dotnet",
+        "pack",
+        "src/GnOuGo.Flow.Core",
+        "-c",
+        "Release",
+        "-m:1",
+        "-warnaserror",
+        "-o",
+        "/tmp/gnougo-browsing-receipts-packages"
+      ]
+    },
+    {
+      "check": "pack-Flow.Planning",
+      "exit_code": 0,
+      "seconds": 6.96,
+      "command": [
+        "dotnet",
+        "pack",
+        "src/GnOuGo.Flow.Planning",
+        "-c",
+        "Release",
+        "-m:1",
+        "-warnaserror",
+        "-o",
+        "/tmp/gnougo-browsing-receipts-packages"
+      ]
+    },
+    {
+      "check": "pack-GithubCopilot.Core",
+      "exit_code": 0,
+      "seconds": 1.94,
+      "command": [
+        "dotnet",
+        "pack",
+        "src/GnOuGo.GithubCopilot.Core",
+        "-c",
+        "Release",
+        "-m:1",
+        "-warnaserror",
+        "-o",
+        "/tmp/gnougo-browsing-receipts-packages"
+      ]
+    },
+    {
+      "check": "pack-Agent.Shared",
+      "exit_code": 0,
+      "seconds": 1.14,
+      "command": [
+        "dotnet",
+        "pack",
+        "src/GnOuGo.Agent.Shared",
+        "-c",
+        "Release",
+        "-m:1",
+        "-warnaserror",
+        "-o",
+        "/tmp/gnougo-browsing-receipts-packages"
+      ]
+    },
+    {
+      "check": "planning-aot-publish",
+      "exit_code": 0,
+      "seconds": 20.06,
+      "command": [
+        "dotnet",
+        "publish",
+        "tests/GnOuGo.Flow.Planning.Smoke",
+        "-c",
+        "Release",
+        "-r",
+        "osx-arm64",
+        "--self-contained",
+        "true",
+        "-m:1",
+        "-warnaserror",
+        "-o",
+        "/tmp/gnougo-browsing-receipts-planning-aot"
+      ]
+    },
+    {
+      "check": "planning-aot-smoke",
+      "exit_code": 0,
+      "seconds": 1.29,
+      "command": [
+        "/tmp/gnougo-browsing-receipts-planning-aot/GnOuGo.Flow.Planning.Smoke"
+      ]
+    },
+    {
+      "check": "copilot-aot-publish",
+      "exit_code": 0,
+      "seconds": 95.85,
+      "command": [
+        "dotnet",
+        "publish",
+        "src/GnOuGo.GithubCopilot.Mcp",
+        "-c",
+        "Release",
+        "-r",
+        "osx-arm64",
+        "--self-contained",
+        "true",
+        "-m:1",
+        "-warnaserror",
+        "-o",
+        "/tmp/gnougo-browsing-receipts-copilot-aot"
+      ]
+    },
+    {
+      "check": "copilot-aot-recovery",
+      "exit_code": 0,
+      "seconds": 1.55,
+      "command": [
+        "/tmp/gnougo-browsing-receipts-copilot-aot/GnOuGo.GithubCopilot.Mcp",
+        "--copilot-task-persistence-smoke",
+        "/tmp/gnougo-browsing-receipts-copilot-vault"
+      ]
+    },
+    {
+      "check": "copilot-aot-boundary",
+      "exit_code": 0,
+      "seconds": 6.78,
+      "command": [
+        "dotnet",
+        "test",
+        "tests/GnOuGo.GithubCopilot.Mcp.Tests",
+        "--no-build",
+        "-m:1",
+        "-warnaserror",
+        "--filter",
+        "FullyQualifiedName~CopilotListStdioTests"
+      ]
+    },
+    {
+      "check": "browser-release-publish",
+      "exit_code": 0,
+      "seconds": 151.49,
+      "command": [
+        "dotnet",
+        "publish",
+        "src/GnOuGo.Browser.Mcp",
+        "-c",
+        "Release",
+        "-r",
+        "osx-arm64",
+        "--self-contained",
+        "true",
+        "-m:1",
+        "-warnaserror",
+        "-o",
+        "/tmp/gnougo-browsing-receipts-browser-release",
+        "-p:PublishTrimmed=false",
+        "-p:PublishAot=false"
+      ]
+    },
+    {
+      "check": "browser-release-execution",
+      "exit_code": 0,
+      "seconds": 195.05,
+      "command": [
+        "dotnet",
+        "test",
+        "tests/GnOuGo.Agent.Server.Tests",
+        "-m:1",
+        "-warnaserror",
+        "--filter",
+        "FullyQualifiedName~LocalProductOutcomeExecutionTests|FullyQualifiedName~SaveRequiresApprovalAndReconcilesCommittedWriteAfterRestart",
+        "--logger",
+        "trx",
+        "--results-directory",
+        "/tmp/gnougo-browsing-receipts-published-browser-results"
+      ]
+    },
+    {
+      "check": "server-release-publish",
+      "exit_code": 0,
+      "seconds": 35.35,
+      "command": [
+        "dotnet",
+        "publish",
+        "src/GnOuGo.Agent.Server",
+        "-c",
+        "Release",
+        "-r",
+        "osx-arm64",
+        "--self-contained",
+        "true",
+        "-m:1",
+        "-warnaserror",
+        "-o",
+        "/tmp/gnougo-browsing-receipts-server-release",
+        "-p:PublishAot=false",
+        "-p:PublishTrimmed=true",
+        "-p:SkipClientBuild=true",
+        "-p:SkipBundledServerTools=true",
+        "-p:SkipModelMetadataGeneration=true"
+      ]
+    },
+    {
+      "check": "server-release-recovery",
+      "exit_code": 0,
+      "seconds": 2.2,
+      "command": [
+        "/tmp/gnougo-browsing-receipts-server-release/GnOuGo.Agent.Server",
+        "--planning-persistence-smoke",
+        "/tmp/gnougo-browsing-receipts-planning-vault"
+      ]
+    }
+  ],
+  "designer_browser": {
+    "recommendation": true,
+    "custom": true,
+    "textOnly": true,
+    "reload": true,
+    "keyboard": true,
+    "mobile": true,
+    "cancellation": true,
+    "businessRequirementsReview": true,
+    "legacyRevisionRequired": true,
+    "separateApproval": true,
+    "savedResponseRecovery": true,
+    "errors": []
+  },
+  "frontend_build": "passed; included in solution build",
+  "planning_skill": "quick_validate.py passed",
+  "scope_limitations": [
+    "Deterministic SDK/model fixtures; no new live-provider acceptance.",
+    "Human acknowledgment records review, not automatic proof of arbitrary business requirements.",
+    "macOS arm64 publications; Server bundled tools skipped, Browser and Copilot published separately."
+  ],
+  "retained_live_gate": {
+    "campaign": "schema-portability-20261002",
+    "cohort": "observations4",
+    "passed": 0,
+    "required": 6,
+    "ceiling_eur": 50,
+    "retained_upper_bound_eur": 48.634552,
+    "unknown_reservation_eur": 1.303376,
+    "new_spend_eur": 0,
+    "draft": true
+  },
+  "source_sha256": {
+    ".agents/skills/gnougo-planning/SKILL.md": "f888fa757548a38cfc85d49554d3e27d100432f9f09339266776286cfcd31949",
+    "scripts/smoke-planning-clarification.mjs": "02dac11b8765ab3441f422de4d75d9130ca10a258ac6a762251afbd6d4e49c79",
+    "src/GnOuGo.Agent.Server/Components/Pages/ChatPage.razor": "bbbded55c1055a6391f1dfdb783794d2636ccbff1b1e5c78c7676115a96bcfef",
+    "src/GnOuGo.Agent.Server/Components/Pages/PlanningPage.razor": "42156d5e137183a3cc795094fffef51d4492f33e6a9e6b012f4b2fbbd4dfaedc",
+    "src/GnOuGo.Agent.Server/Components/Planning/PlannerStageDetails.razor": "2078d137165530ea9c4b9e78c5ce72220e67a1373068c453d87c7cd4911e7021",
+    "src/GnOuGo.Agent.Server/Components/Planning/PlannerTasks.razor": "2033a8e92b6f4cb40f9e5b9d77350e1f0ca33ebf4b2a867be5a426b6755cab22",
+    "src/GnOuGo.Agent.Server/Components/Planning/PlannerTasks.razor.css": "2a83d3d752e2ca2f9f2f92037b629fbc16146a8b75f387ffaf76d3d899ab65c7",
+    "src/GnOuGo.Agent.Server/Planning/PlanningEndpoints.cs": "32e3d9565f3b019c617a1a5befdd44415bf28fee610252e007c16b82eb9e8a71",
+    "src/GnOuGo.Agent.Shared/PlanningDtos.cs": "78a09ae41eee10c5f9ae11fc346199dcc8336ff0dc7fbee9b0575a5a672dd10d",
+    "src/GnOuGo.Browser.Mcp/BrowserTools.cs": "988a8791be670e8dc886eb969ea861d59fd4f1c03f2137827385dfae00f79b8e",
+    "src/GnOuGo.Browser.Mcp/PlaywrightBrowserHost.Observations.cs": "68f3534e18a42b82cd929c3e105bcc5df376495773f067fb0b247110f697c91e",
+    "src/GnOuGo.Browser.Mcp/README.md": "0781d9f6ddafd621255a5838967ae3c939c558ae9300ffbc22062190270bdbe3",
+    "src/GnOuGo.Flow.Core/Planning/PlanningContracts.cs": "b48f0adf28d0b4348bb7918dab5efc0f87dadf02b5c26a65a717856c1faa6145",
+    "src/GnOuGo.Flow.Core/Runtime/Executors/WorkflowPlanExecutor.cs": "51b5109d432ede1900639b419921a252664cd4fb78263153f29e2bd3015e4b57",
+    "src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.cs": "6cc757320fb1b778948143de8dec58060a58ba3b8370b94174a52f1528c2d6d7",
+    "src/GnOuGo.Flow.Planning/PlanningPrompt.cs": "9bbf6571f87ceb4bfdb662f9979b2f4553d8ac9d66caaddc79608668298915f3",
+    "src/GnOuGo.Flow.Planning/PlanningReviewFormatter.cs": "834d0e452ba31d28c115698ca512d4a528a831e7df83d603d085776b8509b62d",
+    "src/GnOuGo.Flow.Planning/README.md": "c375cdcf827d99ea171e8b3eaf706660230dc8f413f62e45c07df556df33bb64",
+    "src/GnOuGo.GithubCopilot.Core/CopilotAdmissionStop.cs": "f35cd840be90948d51769c84e7b4d91d35b15a8c16af3493adf52ed572513d50",
+    "src/GnOuGo.GithubCopilot.Core/CopilotExecutionObservations.cs": "d0de0d1289d475b6e2e81904fe550baa95f8d5aaadc97de774ddf5a8022131ec",
+    "src/GnOuGo.GithubCopilot.Core/GitHubCopilotSdkAdapter.cs": "f3624545ea760512840c66269081d05685369ad7cd38b781e897c9a7425ba719",
+    "src/GnOuGo.GithubCopilot.Mcp/CopilotLogicalOperations.cs": "a9ad3f86412a05556d1c61c8b530282c28ea69ebd6b1d88141112a1fa513d71b",
+    "src/GnOuGo.GithubCopilot.Mcp/CopilotTools.cs": "0dad7ac164fa749b1d8bff366e28c8a79982bec1a176f4edbe6dd84fcfa0ced1",
+    "src/GnOuGo.GithubCopilot.Mcp/KeyVaultCopilotTaskStore.cs": "7c3713d7391a9479ffe202e7643b195c1934bbbcfade00bb19a6344f7c3b60b6",
+    "src/GnOuGo.GithubCopilot.Mcp/README.md": "3a0fea3e3310115014642761d61187e4cbb09e4047b11ad058cf4a423415f137",
+    "tests/GnOuGo.Agent.Server.Tests/CopilotListPlanningTests.cs": "b1b460b2540a7a5dff2e10b4822d8e23e316a0b8dfacd8791ca90e901946b3a2",
+    "tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.cs": "be881acccdeddf977e1b05a68c2688ffff8a4ebe613dcdb0ce84187b2be5c3ac",
+    "tests/GnOuGo.Agent.Server.Tests/PlannerChoiceUiTests.cs": "860bf71698d08900389e2de886ed172e4e712c5e6b013befcdd7c91ca5415e7b",
+    "tests/GnOuGo.Agent.Server.Tests/PlanningSessionLifecycleTests.cs": "21561ce036aa10eada4864081d19cc83fba146a5f80dae224721f65793775e24",
+    "tests/GnOuGo.Browser.Mcp.Tests/BrowserObservationTests.cs": "8a9d514143d0106e8fd8c707a0d7a5116420c74cbb9607310ed79bd69f6e3643",
+    "tests/GnOuGo.Flow.Integrations.Tests/ApprovedExecutionTests.cs": "3f14c3931ca55a82e4fba62c6d58f73da6e6a8dc0b7381a74a20b69d62f8d2a4",
+    "tests/GnOuGo.Flow.Integrations.Tests/PlanningClarificationExecutionTests.cs": "40f84ef07e824c9390ee35c7d0bbf6f2459b309ddf9d678d8d57be1265601e53",
+    "tests/GnOuGo.Flow.Planning.Smoke/Program.cs": "736231b4df8a61c8b32d862170420eef2f68570297d2359f1f2d2b7dc0c34864",
+    "tests/GnOuGo.Flow.Planning.Tests/BatchedDiscoveryTests.cs": "00a1149ec58781c42322e03b0828a41ef279faac815e49fc0251a61290e7a1fd",
+    "tests/GnOuGo.Flow.Planning.Tests/PlanningLifecycleTests.cs": "37b6ae8b0e68fea9048b71d56c5c9a631db89fbe966e7b67845c680ff9ba3659",
+    "tests/GnOuGo.Flow.Planning.Tests/RequirementsReviewTests.cs": "f75a9c07cac1d41fe98b5979a7c80708bd3dec818fade912a7abbf2239e31bfd",
+    "tests/GnOuGo.GithubCopilot.Core.Tests/CopilotLogicalOperationTests.cs": "211de23da6363d6a59ea41f7b0883b6153d730c8bb2d90f1bd34986d94c9b097",
+    "tests/GnOuGo.GithubCopilot.Mcp.Tests/CodeToolsStructuredOutputTests.cs": "2c76fc357a062469ca0d9ce4fafba8b11ca77061d08ec6bdb2a980e645d3ff2f",
+    "tests/GnOuGo.GithubCopilot.Mcp.Tests/CopilotCompletionReceiptTests.cs": "1f644eb438c93eb818edf1030492cdca621561557e99778cfc9ec18a492d42a7",
+    "tests/GnOuGo.GithubCopilot.Mcp.Tests/CopilotTasksTests.cs": "5df3a680bfd78b3b2e6eb50ac6ded457945d0c6552631bad311d800ff4087313"
+  },
+  "log_sha256": {
+    "gnougo-browsing-receipts-solution-gate.log": "66578212fda3945f2602b9e0fc7b838f240a2ca35df03f8f1de20d602de8c1d4",
+    "gnougo-browsing-receipts-prompt-final.log": "cdfed403b119ccb7ade76510313a0f72842c229c033a7ec6da0f9546d9699f92",
+    "gnougo-browsing-receipts-pack-Flow.Core.log": "f1506c89801d3a50366b47ae984d40dc3c9c4ec0d5b1a52fc7f9007e80a9d54d",
+    "gnougo-browsing-receipts-pack-Flow.Planning.log": "aa56ef9e4a1c5aa045ba3cd7d999270340b4b6ecdd8c9c51b7d3a5b20b751c5a",
+    "gnougo-browsing-receipts-pack-GithubCopilot.Core.log": "1e024876585fef57ba751228509ae1a22dfaa543d4f893747bfde03a63b798db",
+    "gnougo-browsing-receipts-pack-Agent.Shared.log": "771f03c5167e2a5920717ace890810a53919f99e8b087a8921e75254295ccf5d",
+    "gnougo-browsing-receipts-planning-aot-publish.log": "bcd3025c31ed5cc68c834ea50f92c43572ae3c194b159399d0b250e56d3508e1",
+    "gnougo-browsing-receipts-planning-aot-smoke.log": "7929467301b746c043d17a8a2049f0907af4d3b03c5ccd68478da600f8353325",
+    "gnougo-browsing-receipts-copilot-aot-publish.log": "8f54a3ecbffb9be724f5cc047d03591c5a5ae13e813a99f425ed2e9ff2fcd19d",
+    "gnougo-browsing-receipts-copilot-aot-recovery.log": "8106da92aaf89232b85ae84be49c4760a0b88b9c0fd41639e448dcaa2cb6a44f",
+    "gnougo-browsing-receipts-copilot-aot-boundary.log": "f9512bb8bf1df860bb49e7e4a6486caba6ab133f32246e3820fa233f7d4d7b11",
+    "gnougo-browsing-receipts-browser-release-publish.log": "cf7de3bf614e4a4cbfe69a20b443a911bb9bdd2c7386f14a8d93179777dcb87c",
+    "gnougo-browsing-receipts-browser-release-execution.log": "f976281fd076707352fc0d573b3980ef8ec1206978acb86345e0410473037406",
+    "gnougo-browsing-receipts-server-release-publish.log": "93a102d18b8322cc107b56ccf2f0e9cf0276e3dd181df2269327af8a341e7330",
+    "gnougo-browsing-receipts-server-release-recovery.log": "d7cc8ec7a3dff2ab353e25932595d885ee30f565a6de92f436e3354a2c1d3b88"
+  },
+  "prompt_regression": {
+    "fixture": "TenRecordedMcpContractsReachReviewAfterSixScriptedDiscoveryCalls",
+    "input_token_estimates": [
+      8033,
+      21268,
+      20929,
+      20929,
+      20929,
+      20929,
+      23931
+    ],
+    "per_request_limit": 24000,
+    "scripted_planning_calls": 7,
+    "repairs": 0,
+    "discovery_reads": 8,
+    "live_inference": false
+  }
+}

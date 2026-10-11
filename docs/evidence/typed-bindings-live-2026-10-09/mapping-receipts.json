@@ -1,0 +1,22 @@
+[
+  {
+    "invocation": "/workflow/main/step/n_b2e74a3e235fa902/mapping/0",
+    "request_id": "0a52330bbcc31805797c7bef39470f09153e4d48343d2fd012c93470e536f4a2",
+    "status": "completed",
+    "usage": {
+      "input_tokens": 34979,
+      "output_tokens": 2365,
+      "total_tokens": 37344,
+      "benchmark_cost_eur": 0.218160440145532,
+      "transport_attempts": 1,
+      "uncertain_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "benchmark_usage_bounded": true
+    },
+    "response": {
+      "script": "({pageId:item.id,captchaSignals:item.records.flatMap(r=>m.test(r.text,\"(?i)(captcha|robot|v[ée]rification|caract[èe]res|automatis[ée])\")?[m.text(r.text,\"(?i)(captcha|robot|v[ée]rification|caract[èe]res|automatis[ée])\")]:m.test(r.selector,\"(?i)captcha\")?[r.selector]:[]).slice(0,20),consentCandidates:item.records.filter(r=>m.test(r.text,\"(?i)(cookies?|consentement|accepter|refuser|param[èe]tres de confidentialit[ée])\")).slice(0,20).map(r=>({id:r.reference,label:r.text,actions:r.actions.slice(0,5)})),statusHints:item.records.flatMap(r=>m.test(r.text,\"(?i)(r[ée]sultats|captcha|robot|cookies?|consentement|d[ée]sol[ée]|erreur|v[ée]rification)\")?[m.text(r.text,\"(?i)(r[ée]sultats|captcha|robot|cookies?|consentement|d[ée]sol[ée]|erreur|v[ée]rification)\")]:[]).slice(0,20)})"
+    }
+  }
+]

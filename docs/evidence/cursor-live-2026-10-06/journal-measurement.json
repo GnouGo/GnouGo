@@ -1,0 +1,166 @@
+{
+  "checkpoint": {
+    "checkpoint_revision": 11853,
+    "invocations": 3758,
+    "checkpoint_events": 11853,
+    "checkpoint_bytes": 1329124
+  },
+  "latest_invocations": [
+    {
+      "invocation_id": "/workflow/main/step/n_7d6ef7fcc9a24787/workflow/w_81be22d7f1c8baf9/step/n_ab953b561481ff5c/case/0/step/n_b918eb983ad05bbf/workflow/w_0c7ba5e95f7a19ed/step/n_40ca538d8ec654c6/iteration/0/step/n_33808175e50a6f2d/workflow/w_b1fcb92d8ef7595d/step/n_0897d60a9b116ded/iteration/77/step/n_27f8ad654df0d94b/workflow/w_c6e18914385965ec/step/n_6299417a6600efbe",
+      "stepType": "set",
+      "recovery": 1,
+      "status": "completed",
+      "resolvedInput_logical_bytes": 100,
+      "dataBefore_logical_bytes": 585,
+      "dataAfter_logical_bytes": 585,
+      "output_logical_bytes": 100,
+      "dispatchedAt": "2026-10-06T13:32:07.197069+00:00",
+      "completedAt": "2026-10-06T13:32:07.224132+00:00"
+    },
+    {
+      "invocation_id": "/workflow/main/step/n_7d6ef7fcc9a24787/workflow/w_81be22d7f1c8baf9/step/n_ab953b561481ff5c/case/0/step/n_b918eb983ad05bbf/workflow/w_0c7ba5e95f7a19ed/step/n_40ca538d8ec654c6/iteration/0/step/n_33808175e50a6f2d/workflow/w_b1fcb92d8ef7595d/step/n_0897d60a9b116ded/iteration/77/step/n_27f8ad654df0d94b/workflow/w_c6e18914385965ec/step/n_1f02bbc92f24cf0a",
+      "stepType": "set",
+      "recovery": 1,
+      "status": "completed",
+      "resolvedInput_logical_bytes": 212,
+      "dataBefore_logical_bytes": 707,
+      "dataAfter_logical_bytes": 707,
+      "output_logical_bytes": 212,
+      "dispatchedAt": "2026-10-06T13:32:07.26599+00:00",
+      "completedAt": "2026-10-06T13:32:07.285363+00:00"
+    },
+    {
+      "invocation_id": "/workflow/main/step/n_7d6ef7fcc9a24787/workflow/w_81be22d7f1c8baf9/step/n_ab953b561481ff5c/case/0/step/n_b918eb983ad05bbf/workflow/w_0c7ba5e95f7a19ed/step/n_40ca538d8ec654c6/iteration/0/step/n_33808175e50a6f2d/workflow/w_b1fcb92d8ef7595d/step/n_1e057a41eb4778a8",
+      "stepType": "set",
+      "recovery": 1,
+      "status": "dispatched",
+      "resolvedInput_logical_bytes": 16268,
+      "dataBefore_logical_bytes": 745539907,
+      "dataAfter_logical_bytes": 4,
+      "output_logical_bytes": 4,
+      "dispatchedAt": "2026-10-06T13:35:25.569343+00:00",
+      "completedAt": null
+    }
+  ],
+  "inspection_unique_blocks": 183,
+  "inspection_read_bytes": 326173,
+  "snapshot_breakdown": [
+    {
+      "path": "dataBefore/inputs",
+      "logical_bytes": 4491
+    },
+    {
+      "path": "dataBefore/steps",
+      "logical_bytes": 745535387
+    },
+    {
+      "path": "dataBefore/steps/n_97abcef49c552a91",
+      "logical_bytes": 51
+    },
+    {
+      "path": "dataBefore/steps/n_6bd65057114a13e9",
+      "logical_bytes": 23972
+    },
+    {
+      "path": "dataBefore/steps/n_54581377dc537820",
+      "logical_bytes": 15
+    },
+    {
+      "path": "dataBefore/steps/n_4021af837a9ed053",
+      "logical_bytes": 44
+    },
+    {
+      "path": "dataBefore/steps/n_a129a2ae2057dc64",
+      "logical_bytes": 44
+    },
+    {
+      "path": "dataBefore/steps/n_7778dac55548a5ca",
+      "logical_bytes": 14
+    },
+    {
+      "path": "dataBefore/steps/n_0759369cf7f2394f",
+      "logical_bytes": 24273
+    },
+    {
+      "path": "dataBefore/steps/n_768e82770e162f42",
+      "logical_bytes": 14
+    },
+    {
+      "path": "dataBefore/steps/n_38eba4c865ea3816",
+      "logical_bytes": 14
+    },
+    {
+      "path": "dataBefore/steps/n_3997b88a1d8d7f0b",
+      "logical_bytes": 17
+    },
+    {
+      "path": "dataBefore/steps/n_e69140cf724babbc",
+      "logical_bytes": 23203
+    },
+    {
+      "path": "dataBefore/steps/n_2f5f02e764cd4fd0",
+      "logical_bytes": 23203
+    },
+    {
+      "path": "dataBefore/steps/n_ac55295801101e08",
+      "logical_bytes": 200
+    },
+    {
+      "path": "dataBefore/steps/n_ee2d5f12b8818501",
+      "logical_bytes": 9251798
+    },
+    {
+      "path": "dataBefore/steps/n_ee2d5f12b8818501/results",
+      "logical_bytes": 9251775
+    },
+    {
+      "path": "dataBefore/steps/n_ee2d5f12b8818501/count",
+      "logical_bytes": 2
+    },
+    {
+      "path": "dataBefore/steps/n_91a32822838f0eb2",
+      "logical_bytes": 10111
+    },
+    {
+      "path": "dataBefore/steps/n_d8fdaf02cd53a208",
+      "logical_bytes": 10112
+    },
+    {
+      "path": "dataBefore/steps/n_7a5dc386f3e4e7a0",
+      "logical_bytes": 23203
+    },
+    {
+      "path": "dataBefore/steps/n_fb62c069401f3810",
+      "logical_bytes": 23203
+    },
+    {
+      "path": "dataBefore/steps/n_27f8ad654df0d94b",
+      "logical_bytes": 298
+    },
+    {
+      "path": "dataBefore/steps/n_0897d60a9b116ded",
+      "logical_bytes": 736121157
+    },
+    {
+      "path": "dataBefore/steps/n_0897d60a9b116ded/results",
+      "logical_bytes": 736121134
+    },
+    {
+      "path": "dataBefore/steps/n_0897d60a9b116ded/count",
+      "logical_bytes": 2
+    },
+    {
+      "path": "dataBefore/env",
+      "logical_bytes": 2
+    }
+  ],
+  "method": "Read-only public KeyVault APIs. Tenant/run ownership and SHA-256 blocks verified. Logical JSON lengths computed over the referenced DAG without materializing snapshots. Last three invocation records and the final snapshot breakdown only; not full logical journal or total physical disk size.",
+  "process_sample": {
+    "sample_time_utc": "2026-10-06T13:31:27Z",
+    "physical_footprint_gb": 12.5,
+    "physical_footprint_peak_gb": 15.1,
+    "source": "macOS sample; approximate process footprint, not journal bytes"
+  },
+  "limitation": "Terminal journal persistence error masks its original exception. Snapshot amplification is measured; exact storage failure cause is not established."
+}

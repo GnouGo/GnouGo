@@ -1,0 +1,63 @@
+{
+  "candidate": "789fda4e",
+  "dynamic_mapping": {
+    "passed": 77
+  },
+  "flow": {
+    "passed": 1120
+  },
+  "browser": {
+    "passed": 88
+  },
+  "focused_host": {
+    "passed": 7
+  },
+  "published_browser_host": {
+    "passed": 7
+  },
+  "release_packages": [
+    "GnOuGo.Flow.Core",
+    "GnOuGo.Flow.Planning"
+  ],
+  "planning_native_aot": "passed",
+  "browser_self_contained_osx_arm64": "passed",
+  "skill_validation": "passed",
+  "full_solution": {
+    "failed": 0,
+    "passed": 4709,
+    "skipped": 12,
+    "suites": 33,
+    "command": "dotnet test GnOuGo.Agent.sln -m:1 -warnaserror -p:SkipModelMetadataGeneration=true -p:SkipClientBuild=true",
+    "log_sha256": "369f266106415dbf104da4cb65be53962c64fb9d7746b9a411a208e48d80931c",
+    "exit_code": 0
+  },
+  "paid_calls_before_gates": 0,
+  "production_commit": "da8e4b50",
+  "retained_failures": [
+    {
+      "stage": "pre-freeze full solution",
+      "reason": "test assertion used internal schema validator; corrected to public validation and real MCP conflict rejection",
+      "fixed": true
+    },
+    {
+      "stage": "da8e4b50 full solution",
+      "reason": "BrowserObservationTests listener Stop/Dispose race; same close-once correction as complete-observation fixture",
+      "failed": 1,
+      "fixed_by": "789fda4e",
+      "browser_rerun_passed": 88
+    },
+    {
+      "stage": "pre-freeze full solution, older loaded assertion binary",
+      "passed": 4707,
+      "failed": 2,
+      "skipped": 12,
+      "reason": "Retired anyOf assertions were loaded before the producer schema correction; both new transport cases subsequently pass standalone and against the published binary."
+    }
+  ],
+  "ci_at_frozen_candidate": {
+    "head": "789fda4e",
+    "failed_job": "https://github.com/GnouGo/GnouGo/actions/runs/37605294610/job/112739167954",
+    "failure": "ObservedActionChecksSurviveTransportAndEncryptedRecovery(true): expected successful Flow result, got false; original assertion omitted runtime cause. The same test passes in the local full suite and published-binary smoke.",
+    "diagnostic_followup": "4d31fe69 adds the runtime code/message to that assertion without changing behavior; all 3 receipt tests pass locally. CI follow-up pending."
+  }
+}

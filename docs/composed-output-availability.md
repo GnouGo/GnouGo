@@ -1,5 +1,7 @@
 # Availability of composed TaskPlan outputs
 
+> Historical evidence: executor names below describe the implementation at collection time. See [current .NET primitive migration](flow-runtime-primitives.md); retained measurements and recordings are unchanged.
+
 This correction continues `feat/flow-hybrid-planning-v9` from `4e99e82`, under [issue #112](https://github.com/GnouGo/GnouGo/issues/112) and [draft PR #113](https://github.com/GnouGo/GnouGo/pull/113). TaskPlan architecture, public contracts, planning format 10 and execution journal schema 9 are unchanged.
 
 ## Retained failure

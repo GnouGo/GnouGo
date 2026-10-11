@@ -1,0 +1,34 @@
+{
+  "before": "0348550a",
+  "after": "11e8e6d1",
+  "before_tests": {
+    "failed": 2,
+    "cause": "Copy-only loops with entry requirements emitted five workflows instead of one."
+  },
+  "after_tests": {
+    "passed": 16,
+    "failed": 0,
+    "covers": [
+      "sequential and parallel copy loops",
+      "entry requirement true preserves exact values",
+      "entry requirement false publishes no result and executes only the guard",
+      "no per-item workflow, loop or model invocation"
+    ]
+  },
+  "retained_r6_read_only_compile": [
+    {
+      "label": "before",
+      "bytes": 98442,
+      "lines": 3247,
+      "workflows": 17
+    },
+    {
+      "label": "after",
+      "bytes": 85393,
+      "lines": 2668,
+      "workflows": 11
+    }
+  ],
+  "historical_artifacts_changed": false,
+  "model_calls": 0
+}

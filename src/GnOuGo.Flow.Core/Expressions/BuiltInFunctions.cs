@@ -27,6 +27,7 @@ public static class BuiltInFunctions
         ["toString"] = ToStringValue,
         ["toNumber"] = ToNumber,
         ["json"] = Json,
+        ["checkedMapping"] = _ => throw new WorkflowRuntimeException("EVAL_ERROR", "checkedMapping must be a complete expression with a direct source binding."),
         ["pick"] = Pick,
         ["omit"] = Omit,
         ["fromJson"] = FromJson,

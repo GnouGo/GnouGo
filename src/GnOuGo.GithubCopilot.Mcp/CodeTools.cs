@@ -58,35 +58,33 @@ internal sealed class CodeTools
     public async Task<CodeSuggestionResult> SuggestChangeAsync(
         [Description(RequiredProjectRootDescription)] string projectRoot,
         [Description("Coding task to perform.")] string task,
-        [Description("Optional JSON array of file paths relative to the existing projectRoot, for example [\"src/App.cs\"].")] string? contextFilesJson = null,
+        [Description("Optional array of nonblank file paths relative to the existing projectRoot, for example [\"src/App.cs\"].")] IReadOnlyList<string>? contextFiles = null,
         [Description("Optional configured LLM provider name. When provided, Code:Copilot:Providers:<name> configures a custom Copilot provider for this call.")] string? provider = null,
         RequestContext<CallToolRequestParams>? requestContext = null,
         CancellationToken cancellationToken = default)
         => await ExecuteAsync("code_suggest_change", async () =>
         {
             using var humanScope = requestContext is null ? null : _humanInput.Push(requestContext.Server, cancellationToken);
-            var contextFiles = ParseContextFiles(contextFilesJson);
-            var files = _projectService.ReadContextFiles(projectRoot, contextFiles);
+            var files = _projectService.ReadContextFiles(projectRoot, CopilotListContract.Normalize(contextFiles, nameof(contextFiles), StringComparer.OrdinalIgnoreCase) ?? []);
             var resolvedRoot = _projectService.GetSummary(projectRoot).RootPath;
             return await _assistantClient.SuggestChangeAsync(task, resolvedRoot, files, provider, cancellationToken);
         });
 
-    [McpServerTool(Name = "code_agent_edit", UseStructuredContent = true, OutputSchemaType = typeof(CodeAgentEditResult)), Description("Runs GitHub Copilot SDK in agent mode with controlled file editing inside an existing project root. Requires Code:AllowWrites=true." + RequiredProjectRootToolSuffix)]
+    [McpServerTool(Name = "code_agent_edit", UseStructuredContent = true, OutputSchemaType = typeof(CodeAgentEditResult)), Description("Runs GitHub Copilot SDK in agent mode with controlled file editing inside an existing project root. Interactive execution uses one bounded MCP task; its exact terminal result is saved before session disposal. Requires Code:AllowWrites=true." + RequiredProjectRootToolSuffix)]
     [McpMeta(McpArtifactContractMetadata.MetaPropertyName, JsonValue = McpArtifactContractMetadata.WorkspaceDirectoryConsumerProjectRootJson)]
     public async Task<CodeAgentEditResult> AgentEditAsync(
         [Description(RequiredProjectRootDescription)] string projectRoot,
         [Description("Coding task to implement by editing files.")] string task,
-        [Description("Optional JSON array of file paths relative to the existing projectRoot, for example [\"src/App.cs\"].")] string? contextFilesJson = null,
+        [Description("Optional array of nonblank file paths relative to the existing projectRoot, for example [\"src/App.cs\"].")] IReadOnlyList<string>? contextFiles = null,
         [Description("Optional configured LLM provider name. When provided, Code:Copilot:Providers:<name> configures a custom Copilot provider for this call.")] string? provider = null,
         RequestContext<CallToolRequestParams>? requestContext = null,
         CancellationToken cancellationToken = default)
         => await ExecuteAsync("code_agent_edit", async () =>
         {
             using var humanScope = requestContext is null ? null : _humanInput.Push(requestContext.Server, cancellationToken);
-            var contextFiles = ParseContextFiles(contextFilesJson);
-            var files = _projectService.ReadContextFiles(projectRoot, contextFiles);
+            var files = _projectService.ReadContextFiles(projectRoot, CopilotListContract.Normalize(contextFiles, nameof(contextFiles), StringComparer.OrdinalIgnoreCase) ?? []);
             var resolvedRoot = _projectService.GetSummary(projectRoot).RootPath;
-            return await _assistantClient.AgentEditAsync(task, resolvedRoot, files, provider, cancellationToken);
+            return await _assistantClient.AgentEditAsync(task, resolvedRoot, files, provider, cancellationToken, requestContext?.Server);
         });
 
     [McpServerTool(Name = "code_write_file", UseStructuredContent = true, OutputSchemaType = typeof(CodeWriteResult)), Description("Writes one allowlisted text/code file inside an existing project root. Disabled unless Code:AllowWrites=true." + RequiredProjectRootToolSuffix)]
@@ -146,24 +144,6 @@ internal sealed class CodeTools
             _logger.LogError(ex, "Code MCP async tool unexpected error");
             return CodeToolFailure.Create<T>(toolName, "INTERNAL_ERROR", $"{ex.GetType().Name}: {ex.Message}");
         }
-    }
-
-    internal static IReadOnlyList<string> ParseContextFiles(string? contextFilesJson)
-    {
-        if (string.IsNullOrWhiteSpace(contextFilesJson))
-            return [];
-        var values = JsonSerializer.Deserialize(contextFilesJson, CodeMcpJsonContext.Default.ListString);
-        if (values is null)
-            return [];
-
-        var result = new List<string>();
-        foreach (var value in values)
-        {
-            if (!string.IsNullOrWhiteSpace(value) && !result.Contains(value, StringComparer.OrdinalIgnoreCase))
-                result.Add(value);
-        }
-
-        return result;
     }
 }
 

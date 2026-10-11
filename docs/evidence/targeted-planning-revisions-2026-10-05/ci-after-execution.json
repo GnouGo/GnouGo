@@ -1,0 +1,19 @@
+{
+  "head": "1bc161286c94ab3795c3ba14017fa157f03bb165",
+  "run_url": "https://github.com/GnouGo/GnouGo/actions/runs/37368761076",
+  "attempt_1": {
+    "status": "failure",
+    "passed_planner_tests": 1006,
+    "failed_test": "CopilotTasksTests.CancellationReachesTaskOwnerAndRetainsPartialCheckpoint",
+    "cause": "System.IO.IOException: Directory not empty, during CopilotAttachmentTests.Fixture.DisposeAsync temporary-directory teardown."
+  },
+  "attempt_2": {
+    "status": "completed",
+    "conclusion": "failure",
+    "job_conclusion": "cancelled",
+    "failure_annotations": [
+      "The job was not acquired by Runner of type hosted even after multiple attempts"
+    ]
+  },
+  "limitation": "The failed teardown check remains unresolved. The retry did not validate it; no source or test changes were made during the approved execution."
+}

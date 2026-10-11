@@ -1,0 +1,336 @@
+{
+  "status": "approved",
+  "revision": 6,
+  "artifact_hash": "e7fcd7d58f7c72481ced3432001224df54a35e4e2be506d0eeee461517808e4d",
+  "result": {
+    "status": "final_review",
+    "planning_ms": 171128,
+    "calls": 4,
+    "repairs": 0,
+    "discovery_reads": 2,
+    "review_revisions": 1,
+    "diagnostics": [],
+    "execution_success": false,
+    "execution_oracle": false,
+    "execution_status": "completed",
+    "accounting": {
+      "planning": {
+        "logical_calls": 4,
+        "physical_attempts": 4,
+        "known_input_tokens": 49458,
+        "known_output_tokens": 13738,
+        "known_cost_eur": 0.5885665833630846,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "execution": {
+        "logical_calls": 1,
+        "physical_attempts": 1,
+        "known_input_tokens": 4192,
+        "known_output_tokens": 178,
+        "known_cost_eur": 0.02347375937165298,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "campaign": {
+        "calls": 719,
+        "session_calls": 0,
+        "known_input_tokens": 11112387,
+        "known_output_tokens": 1139388,
+        "known_cost_eur": 79.89702158730941,
+        "reserved_input_tokens": 192000,
+        "reserved_output_tokens": 65536,
+        "reserved_cost_eur": 2.606752783964365,
+        "cost_upper_bound_eur": 82.50377437127378,
+        "unknown_attempts": 2
+      }
+    },
+    "execution_ms": 74020,
+    "total_ms": 245148
+  },
+  "execution": {
+    "success": false,
+    "outputs": null,
+    "error": {
+      "Code": "LLM_BUDGET_EXCEEDED",
+      "Type": "LLM_BUDGET_EXCEEDED",
+      "Message": "Execution request exceeds the campaign input or output allowance. [workflow 'w_81be22d7f1c8baf9', step 'n_3d5623a0a914a894']",
+      "Retryable": false,
+      "Details": {
+        "dispatch_status": "not_started",
+        "failed_workflow": "w_81be22d7f1c8baf9",
+        "failed_step_id": "n_3d5623a0a914a894",
+        "failed_step_type": "llm.call",
+        "execution_phase": "step",
+        "workflow": "w_81be22d7f1c8baf9",
+        "step_id": "n_3d5623a0a914a894",
+        "step_type": "llm.call",
+        "step_status": "Failed"
+      }
+    }
+  },
+  "oracle": {
+    "passed": false,
+    "findings": [
+      "workflow_execution_failed",
+      "workbook_missing"
+    ]
+  },
+  "runtime_llm_inputs": [
+    {
+      "invocation": "/workflow/main/step/n_7d6ef7fcc9a24787/workflow/w_81be22d7f1c8baf9/step/n_dbd4b51881b6a8ce",
+      "status": "completed",
+      "observed_completion": true,
+      "estimated_prompt_tokens": 9228,
+      "model_calls": 0,
+      "inspection_only": true
+    },
+    {
+      "invocation": "/workflow/main/step/n_7d6ef7fcc9a24787/workflow/w_81be22d7f1c8baf9/step/n_3d5623a0a914a894",
+      "status": "failed",
+      "observed_completion": true,
+      "estimated_prompt_tokens": 68315,
+      "model_calls": 0,
+      "inspection_only": true
+    }
+  ],
+  "run": "approvedlive20261005a-amazon-1",
+  "candidate": "34bfd6040181cf789a5472506821c5a7f5e2e552",
+  "events": [
+    {
+      "server": "GnOuGo.Browser.Mcp",
+      "tool": "browser_get_content",
+      "arguments": {
+        "url": "https://www.amazon.fr/",
+        "format": "observation_pages",
+        "selector": "body",
+        "waitUntil": "domcontentloaded",
+        "maxRecords": 200,
+        "timeoutMs": 20000
+      },
+      "started": "2026-10-05T15:51:48.4287010+00:00",
+      "error": false,
+      "latency_ms": 4886,
+      "statusCode": 202,
+      "manifest": {
+        "id": "287343f3d8344d6388e39aeff284e8c7",
+        "pages": [
+          {
+            "cursor": "287343f3d8344d6388e39aeff284e8c7:page:0",
+            "recordCount": 46
+          }
+        ],
+        "recordCount": 46,
+        "captureTruncated": false,
+        "manifestTruncated": false
+      },
+      "observation_count": 0,
+      "nextCursor": null,
+      "captureTruncated": null
+    },
+    {
+      "server": "GnOuGo.Browser.Mcp",
+      "tool": "browser_get_content",
+      "arguments": {
+        "format": "observation_pages",
+        "cursor": "287343f3d8344d6388e39aeff284e8c7:page:0"
+      },
+      "started": "2026-10-05T15:51:53.9036770+00:00",
+      "error": false,
+      "latency_ms": 1,
+      "statusCode": 202,
+      "manifest": null,
+      "observation_count": 46,
+      "nextCursor": null,
+      "captureTruncated": false
+    },
+    {
+      "server": "GnOuGo.Browser.Mcp",
+      "tool": "browser_get_content",
+      "arguments": {
+        "format": "observation_pages",
+        "selector": "body",
+        "maxRecords": 200,
+        "timeoutMs": 10000
+      },
+      "started": "2026-10-05T15:52:07.6000650+00:00",
+      "error": false,
+      "latency_ms": 60,
+      "statusCode": null,
+      "manifest": {
+        "id": "71fa0d08423b4e4b8ccd021ce8087f5f",
+        "pages": [
+          {
+            "cursor": "71fa0d08423b4e4b8ccd021ce8087f5f:page:0",
+            "recordCount": 79
+          },
+          {
+            "cursor": "71fa0d08423b4e4b8ccd021ce8087f5f:page:1",
+            "recordCount": 38
+          },
+          {
+            "cursor": "71fa0d08423b4e4b8ccd021ce8087f5f:page:2",
+            "recordCount": 32
+          },
+          {
+            "cursor": "71fa0d08423b4e4b8ccd021ce8087f5f:page:3",
+            "recordCount": 40
+          },
+          {
+            "cursor": "71fa0d08423b4e4b8ccd021ce8087f5f:page:4",
+            "recordCount": 57
+          },
+          {
+            "cursor": "71fa0d08423b4e4b8ccd021ce8087f5f:page:5",
+            "recordCount": 25
+          }
+        ],
+        "recordCount": 271,
+        "captureTruncated": false,
+        "manifestTruncated": false
+      },
+      "observation_count": 0,
+      "nextCursor": null,
+      "captureTruncated": null
+    },
+    {
+      "server": "GnOuGo.Browser.Mcp",
+      "tool": "browser_get_content",
+      "arguments": {
+        "format": "observation_pages",
+        "cursor": "71fa0d08423b4e4b8ccd021ce8087f5f:page:0"
+      },
+      "started": "2026-10-05T15:52:10.9770930+00:00",
+      "error": false,
+      "latency_ms": 2,
+      "statusCode": null,
+      "manifest": null,
+      "observation_count": 79,
+      "nextCursor": "71fa0d08423b4e4b8ccd021ce8087f5f:page:1",
+      "captureTruncated": false
+    },
+    {
+      "server": "GnOuGo.Browser.Mcp",
+      "tool": "browser_get_content",
+      "arguments": {
+        "format": "observation_pages",
+        "cursor": "71fa0d08423b4e4b8ccd021ce8087f5f:page:1"
+      },
+      "started": "2026-10-05T15:52:12.4342430+00:00",
+      "error": false,
+      "latency_ms": 1,
+      "statusCode": null,
+      "manifest": null,
+      "observation_count": 38,
+      "nextCursor": "71fa0d08423b4e4b8ccd021ce8087f5f:page:2",
+      "captureTruncated": false
+    },
+    {
+      "server": "GnOuGo.Browser.Mcp",
+      "tool": "browser_get_content",
+      "arguments": {
+        "format": "observation_pages",
+        "cursor": "71fa0d08423b4e4b8ccd021ce8087f5f:page:2"
+      },
+      "started": "2026-10-05T15:52:14.1482660+00:00",
+      "error": false,
+      "latency_ms": 2,
+      "statusCode": null,
+      "manifest": null,
+      "observation_count": 32,
+      "nextCursor": "71fa0d08423b4e4b8ccd021ce8087f5f:page:3",
+      "captureTruncated": false
+    },
+    {
+      "server": "GnOuGo.Browser.Mcp",
+      "tool": "browser_get_content",
+      "arguments": {
+        "format": "observation_pages",
+        "cursor": "71fa0d08423b4e4b8ccd021ce8087f5f:page:3"
+      },
+      "started": "2026-10-05T15:52:16.2941910+00:00",
+      "error": false,
+      "latency_ms": 1,
+      "statusCode": null,
+      "manifest": null,
+      "observation_count": 40,
+      "nextCursor": "71fa0d08423b4e4b8ccd021ce8087f5f:page:4",
+      "captureTruncated": false
+    },
+    {
+      "server": "GnOuGo.Browser.Mcp",
+      "tool": "browser_get_content",
+      "arguments": {
+        "format": "observation_pages",
+        "cursor": "71fa0d08423b4e4b8ccd021ce8087f5f:page:4"
+      },
+      "started": "2026-10-05T15:52:19.0389690+00:00",
+      "error": false,
+      "latency_ms": 1,
+      "statusCode": null,
+      "manifest": null,
+      "observation_count": 57,
+      "nextCursor": "71fa0d08423b4e4b8ccd021ce8087f5f:page:5",
+      "captureTruncated": false
+    },
+    {
+      "server": "GnOuGo.Browser.Mcp",
+      "tool": "browser_get_content",
+      "arguments": {
+        "format": "observation_pages",
+        "cursor": "71fa0d08423b4e4b8ccd021ce8087f5f:page:5"
+      },
+      "started": "2026-10-05T15:52:21.6760930+00:00",
+      "error": false,
+      "latency_ms": 0,
+      "statusCode": null,
+      "manifest": null,
+      "observation_count": 25,
+      "nextCursor": null,
+      "captureTruncated": false
+    },
+    {
+      "server": "GnOuGo.Browser.Mcp",
+      "tool": "browser_close",
+      "arguments": {},
+      "started": "2026-10-05T15:52:34.5791330+00:00",
+      "error": false,
+      "latency_ms": 1042,
+      "statusCode": null,
+      "manifest": null,
+      "observation_count": 0,
+      "nextCursor": null,
+      "captureTruncated": null
+    },
+    {
+      "server": "GnOuGo.Browser.Mcp",
+      "tool": "browser_get_content",
+      "arguments": {},
+      "started": "2026-10-05T15:52:38.4255920+00:00",
+      "error": true,
+      "latency_ms": 3,
+      "statusCode": null,
+      "manifest": null,
+      "observation_count": 0,
+      "nextCursor": null,
+      "captureTruncated": null
+    },
+    {
+      "server": "GnOuGo.Browser.Mcp",
+      "tool": "browser_close",
+      "arguments": {},
+      "started": "2026-10-05T15:52:38.4350600+00:00",
+      "error": false,
+      "latency_ms": 1002,
+      "statusCode": null,
+      "manifest": null,
+      "observation_count": 0,
+      "nextCursor": null,
+      "captureTruncated": null
+    }
+  ]
+}

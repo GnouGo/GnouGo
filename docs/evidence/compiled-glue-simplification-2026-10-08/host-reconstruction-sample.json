@@ -1,0 +1,16 @@
+{
+  "candidate": "8fc8fd0c",
+  "source": "Read-only stack sample of serial host verification; no production modification",
+  "frames": [
+    "GnOuGo.KeyVault.Core!GnOuGo.KeyVault.Core.Services.KeyVaultRecordStore.WriteAuditAsync(class Microsoft.Data.Sqlite.SqliteConnection,class Microsoft.Data.Sqlite.SqliteTransaction,class System.String,class System.String,class System.String,class System.String,class System.String,class System.String,value class System.Threading.CancellationToken)",
+    "GnOuGo.KeyVault.Core!GnOuGo.KeyVault.Core.Services.KeyVaultRecordStore.WriteAuditAsync(class Microsoft.Data.Sqlite.SqliteConnection,class System.String,class System.String,class System.String,class System.String,class System.String,class System.String,value class System.Threading.CancellationToken)",
+    "GnOuGo.KeyVault.Core!GnOuGo.KeyVault.Core.Services.KeyVaultRecordStore.GetAsync(class System.String,class System.String,class System.String,class System.String,value class System.Threading.CancellationToken)",
+    "GnOuGo.Flow.Persistence!GnOuGo.Flow.Persistence.EncryptedWorkflowRunStore+SplitJournal.DecodeAsync(class System.Text.Json.Nodes.JsonNode,class System.Collections.Generic.HashSet`1<class System.String>,value class System.Threading.CancellationToken)",
+    "GnOuGo.Flow.Persistence!GnOuGo.Flow.Persistence.EncryptedWorkflowRunStore+SplitJournal.DecodeAsync(class System.Text.Json.Nodes.JsonNode,value class System.Threading.CancellationToken)",
+    "GnOuGo.Flow.Persistence!GnOuGo.Flow.Persistence.EncryptedWorkflowRunStore+SplitJournal.ReadAsync(value class System.Threading.CancellationToken)",
+    "GnOuGo.Flow.Persistence!GnOuGo.Flow.Persistence.EncryptedWorkflowRunStore.ReadAsync(class System.String,class System.String,value class System.Threading.CancellationToken)",
+    "GnOuGo.Agent.Server.Tests!GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests+<RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook>d__2.MoveNext()"
+  ],
+  "interpretation": "The serial process is active in encrypted journal reconstruction following workflow execution. This identifies a performance boundary, not proof of the cause of the earlier interrupted process.",
+  "raw_stack_sha256": "529a674d764f781fb61b4df0c520e1c483d9f5570909ae10c4623716f9a60e88"
+}

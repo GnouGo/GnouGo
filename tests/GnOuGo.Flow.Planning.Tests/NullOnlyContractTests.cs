@@ -154,4 +154,61 @@ public sealed class NullOnlyContractTests
         Assert.Null(compilation.Graph);
         Assert.Contains(compilation.Diagnostics, d => d.Code == "TASK_GROUP_INPUT_TYPE" && d.Location == "/tasks/consume/inputs/text");
     }
+
+    [Theory]
+    [InlineData("direct", true)]
+    [InlineData("and", true)]
+    [InlineData("not_or", true)]
+    [InlineData("or_false", true)]
+    [InlineData("or", false)]
+    [InlineData("unrelated", false)]
+    [InlineData("mixed", false)]
+    [InlineData("null_only", false)]
+    public async Task NullGuardsRefineConditionalExportsOnlyOnGuaranteedPaths(string guard, bool accepted)
+    {
+        var engine = new WorkflowEngine();
+        var runtime = new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask);
+        var catalog = await runtime.DiscoverAsync(new(), PlannerFixture.Ct);
+        var plan = Plan("conditional");
+        plan.Inputs.Single(i => i.Name == "candidate").Type.Enum = ["observed"];
+        if (guard == "mixed") plan.Root.Tasks[0].Otherwise = Export(new() { Kind = "number", Number = 12 });
+        if (guard == "null_only") plan.Root.Tasks[0].Body = Export(new());
+        plan.Inputs.Add(new() { Name = "enabled", Type = new() { Kind = "boolean" } });
+        plan.Groups.Add(new() { Id = "require_text", Inputs = [new() { Name = "text", Type = new() { Kind = "string", Enum = ["observed"] } }], Body = Export(Input("text")) });
+        TaskValue Predicate(string op, params TaskValue[] values) => new() { Kind = "predicate", Predicate = op, Items = [.. values] };
+        var nonnull = Predicate("not_equal", Output("choose"), new());
+        var absent = Predicate("equal", Output("choose"), new());
+        var condition = guard switch
+        {
+            "and" => Predicate("and", Input("enabled"), nonnull),
+            "not_or" => Predicate("not", Predicate("or", absent, Predicate("not", Input("enabled")))),
+            "or_false" => Predicate("or", absent, Predicate("not", Input("enabled"))),
+            "or" => Predicate("or", Input("enabled"), nonnull),
+            "unrelated" => Input("enabled"),
+            _ => nonnull
+        };
+        var consume = new TaskScope { Tasks = [new() { Id = "consume", Kind = "call", Group = "require_text", Objective = "Consume only the observed nonnull value", Inputs = [new("text", Output("choose"))] }],
+            Outputs = [new("cursor", Output("consume"))] };
+        plan.Root.Tasks.Add(new() { Id = "guard", Kind = "conditional", Objective = "Guard the nullable conditional export", Condition = condition,
+            Body = guard == "or_false" ? Export(new()) : consume, Otherwise = guard == "or_false" ? consume : Export(new()) });
+        plan.Root.Outputs = [new("cursor", Output("guard"))];
+        var original = JsonSerializer.Serialize(plan, PlanningJsonContext.Default.TaskPlan);
+        var compilation = new TaskPlanCompiler().Compile(plan, catalog);
+        Assert.Equal(original, JsonSerializer.Serialize(plan, PlanningJsonContext.Default.TaskPlan));
+        if (!accepted) { Assert.Contains(compilation.Diagnostics, d => d.Code == "TASK_GROUP_INPUT_TYPE"); return; }
+        Assert.Empty(compilation.Diagnostics);
+        Assert.Empty(PlanningExecutableValidation.Validate(compilation.Graph!, catalog));
+        var yaml = new PlanningGraphCompiler().Compile(compilation.Graph!, catalog);
+        Assert.DoesNotContain("llm.call", yaml); Assert.DoesNotContain("mapping.dynamic", yaml);
+        var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml));
+        foreach (var selected in new[] { true, false })
+            foreach (var enabled in new[] { true, false })
+                foreach (var observed in new string?[] { "observed", null })
+                {
+                    var result = await engine.ExecuteAsync(document.Workflows[document.Entrypoint!],
+                        new JsonObject { ["selected"] = selected, ["enabled"] = enabled, ["candidate"] = observed }, PlannerFixture.Ct);
+                    Assert.True(result.Success, result.Error?.Message);
+                    Assert.Equal(selected && (guard == "direct" || enabled) ? observed : null, result.Outputs!["cursor"]?.GetValue<string>());
+                }
+    }
 }

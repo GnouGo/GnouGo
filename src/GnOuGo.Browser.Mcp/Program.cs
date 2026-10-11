@@ -37,6 +37,14 @@ builder.Services
             Version = "1.0.0"
         };
         options.AddGnOuGoToolErrorNormalizer();
+        options.Filters.Request.ListToolsFilters.Add(next => async (request, ct) =>
+        {
+            var result = await next(request, ct);
+            foreach (var tool in result.Tools)
+                if (tool.Name == "browser_get_content" && tool.OutputSchema is { } schema)
+                    tool.OutputSchema = BrowserMcpJson.ContentSchema(schema);
+            return result;
+        });
     })
     .WithStdioServerTransport()
     .WithTools<BrowserTools>(BrowserMcpJson.SerializerOptions);

@@ -1,0 +1,11 @@
+{
+  "kind": "approve",
+  "expectedRevision": 6,
+  "artifactHash": "e4229b3d32b7375133feb9962e00a0bf0d517ee451d1fa15db887d445cb6ab0d",
+  "reviewedRequirementIds": [
+    "search_amazon_fr",
+    "extract_up_to_three_products",
+    "save_xlsx",
+    "cleanup_browser"
+  ]
+}

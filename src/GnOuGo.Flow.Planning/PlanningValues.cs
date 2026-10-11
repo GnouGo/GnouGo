@@ -1,9 +1,126 @@
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
 namespace GnOuGo.Flow.Planning;
 internal static class PlanningValues
 {
+    internal static PlanningValue? ReadGuard(PlanningValue value)
+    {
+        // Presence is safe even when the producer did not run.
+        if (value.Kind == "present") return null;
+        if (value.Kind == "output") return new() { Kind = "present", Source = value.Source };
+        if (value.Kind == "predicate" && value.Text is "and" or "or" && value.Items.Count == 2)
+        {
+            var left = ReadGuard(value.Items[0]); var right = ReadGuard(value.Items[1]);
+            if (right is null) return left;
+            // Only require the right operand when short-circuit evaluation reaches it.
+            var test = value.Text == "and" ? Predicate("not", value.Items[0]) : value.Items[0];
+            return And(left, Predicate("or", test, right));
+        }
+        return value.Members.Select(m => ReadGuard(m.Value)).Concat(value.Items.Select(ReadGuard)).Aggregate((PlanningValue?)null, And);
+    }
+
+    internal static PlanningValue? And(PlanningValue? left, PlanningValue? right) => left is null ? right :
+        right is null || Same(left, right) ? left : Predicate("and", left, right);
+    internal static bool Same(PlanningValue left, PlanningValue right) => JsonNode.DeepEquals(
+        JsonSerializer.SerializeToNode(left, PlanningJsonContext.Default.PlanningValue), JsonSerializer.SerializeToNode(right, PlanningJsonContext.Default.PlanningValue));
+    internal static bool ContainsGuard(PlanningValue? guard, PlanningValue required) => guard is not null &&
+        (Same(guard, required) || guard.Kind == "predicate" && guard.Text == "and" && guard.Items.Any(v => ContainsGuard(v, required)));
+
     internal const string Omitted = "omitted";
+    internal static PlanningValue Predicate(string operation, params PlanningValue[] operands)
+        => new() { Kind = "predicate", Text = operation, Items = operands.ToList() };
+
+    internal static string ArithmeticOperator(string? operation) => operation switch
+    {
+        "add" => "+", "subtract" or "negate" => "-", "multiply" => "*", "divide" => "/", "remainder" => "%",
+        _ => throw new InvalidOperationException("Unknown typed arithmetic operator.")
+    };
+
+    internal static string PredicateOperator(string? operation) => operation switch
+    {
+        "not" => "!", "and" => "&&", "or" => "||", "equal" => "===", "not_equal" => "!==",
+        "less" => "<", "less_equal" => "<=", "greater" => ">", "greater_equal" => ">=",
+        _ => throw new InvalidOperationException("Unknown typed predicate.")
+    };
+
+    internal static JsonObject ComputationContract(PlanningValue value, Func<PlanningValue, JsonObject?> resolve)
+    {
+        if (value.Source is not null || value.ResultChannel is not null || value.Path.Count != 0 || value.Members.Count != 0 ||
+            value.Number is not null || value.Boolean is not null)
+            throw new InvalidOperationException("A typed computation contains unsupported fields.");
+        if (value.Kind == "json")
+        {
+            if (value.Text is not null || value.Items.Count != 1 || resolve(value.Items[0]) is null)
+                throw new InvalidOperationException("JSON encoding requires exactly one established value.");
+            return new() { ["type"] = "string" };
+        }
+        if (value.Kind == "flatten")
+        {
+            if (value.Text is not null || value.Items.Count != 1 || resolve(value.Items[0]) is not { } source ||
+                PlanningContractShapes.IterationItems(source) is not { } arrays ||
+                PlanningContractShapes.IterationItems(arrays) is not { } element || (PlanningContractShapes.IsOpaque(element) || !Established(element)))
+                throw new InvalidOperationException("Flatten requires one established nonnullable array of nonnullable typed arrays.");
+            // Outer/per-group constraints remain on the checked source. They do
+            // not imply uniqueness or cardinality constraints on concatenation.
+            return new() { ["type"] = "array", ["items"] = element.DeepClone() };
+        }
+        if (value.Kind == "lookup")
+        {
+            if (string.IsNullOrWhiteSpace(value.Text) || value.Text is "__proto__" or "prototype" or "constructor" || value.Items.Count != 2 ||
+                resolve(value.Items[0]) is not { } source || PlanningContractShapes.IterationItems(source) is not { } record ||
+                record["type"]?.ToString() != "object" || PlanningContractShapes.IsOpaque(record) ||
+                record["properties"]?[value.Text] is not JsonObject key ||
+                resolve(value.Items[1]) is not { } selected || !IdentityType(key, out var kind) ||
+                !(selected["const"] is JsonArray { Count: 0 } || PlanningContractShapes.IterationItems(selected) is { } identity &&
+                    IdentityType(identity, out var selectedKind) && kind == selectedKind))
+                throw new InvalidOperationException("Lookup requires typed records, a literal declared identity field and compatible string or integer selections.");
+            // The source is checked before selecting. Its cardinality/uniqueness
+            // does not constrain the selected list, which may repeat identities.
+            return new() { ["type"] = "array", ["items"] = record.DeepClone() };
+        }
+        if (value.Kind == "arithmetic")
+        {
+            _ = ArithmeticOperator(value.Text);
+            if (value.Items.Count != (value.Text == "negate" ? 1 : 2)) throw new InvalidOperationException("Arithmetic arity is invalid.");
+            if (value.Items.Any(operand => resolve(operand) is not { } schema || !PlanningContractCompatibility.Fits(schema, new() { ["type"] = "number" })))
+                throw new InvalidOperationException("Arithmetic requires established, nonnullable numeric operands.");
+            return new() { ["type"] = "number" };
+        }
+        _ = PredicateOperator(value.Text);
+        if (value.Items.Count != (value.Text == "not" ? 1 : 2)) throw new InvalidOperationException("Predicate arity is invalid.");
+        foreach (var operand in value.Items)
+        {
+            var schema = resolve(operand) ?? throw new InvalidOperationException("The predicate operand has no established contract.");
+            if (value.Text is "and" or "or" or "not" && schema["type"]?.ToString() != "boolean")
+                throw new InvalidOperationException("Logical predicates require boolean operands.");
+            if (value.Text is "less" or "less_equal" or "greater" or "greater_equal" && schema["type"]?.ToString() is not ("number" or "integer"))
+                throw new InvalidOperationException("Ordering predicates require numeric operands.");
+        }
+        return new() { ["type"] = "boolean" };
+    }
+
+    private static bool IdentityType(JsonObject schema, out string? kind)
+    {
+        if ((schema["anyOf"] ?? schema["oneOf"]) is JsonArray alternatives)
+        {
+            var kinds = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var alternative in alternatives)
+            {
+                if (alternative?["type"]?.ToString() == "null") continue;
+                if (alternative is not JsonObject option || !IdentityType(option, out var resolved)) { kind = null; return false; }
+                kinds.Add(resolved!);
+            }
+            kind = kinds.Count == 1 ? kinds.Single() : null;
+            return kind is not null;
+        }
+        var types = schema["type"] is JsonArray union ? union.Select(t => t?.ToString()).Where(t => t != "null").ToArray() : [schema["type"]?.ToString()];
+        kind = types.Length == 1 ? types[0] : null;
+        // Nullable/missing identities are rejected by the checked lookup, never
+        // converted to a default. Unknown schemas cannot establish an identity.
+        if (kind == "number") kind = "integer"; // Checked execution rejects fractions and unsafe integers.
+        return kind is "string" or "integer";
+    }
     internal static string LiteralLocation(PlanningValue value, string root, string pointer)
     {
         foreach (var token in pointer.Split('/').Skip(1))

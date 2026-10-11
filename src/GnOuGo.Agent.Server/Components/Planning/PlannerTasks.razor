@@ -4,6 +4,15 @@
     {
         <li><strong>@task.Id</strong>: @task.Objective <small>(@task.Kind@(Scope.Always.Contains(task) ? ", always" : ""))</small>
             @if (task.DependsOn.Count > 0) { <p>After: @string.Join(", ", task.DependsOn)</p> }
+            @if (task.Operation is not null) { <p>Operation: <code>@task.Operation</code></p> }
+            @if (task.Items is not null) { <p>For each: <code>@Binding(task.Items)</code></p> }
+            @if (task.Condition is not null) { <p>When: <code>@Binding(task.Condition)</code></p> }
+            @if (task.Inputs.Count > 0)
+            {
+                <details><summary>Data dependencies</summary><ul>
+                    @foreach (var input in task.Inputs) { <li>@input.Name: <code>@Binding(input.Value)</code></li> }
+                </ul></details>
+            }
             @if (task.Kind == "transform" && task.ResultType is { } result)
             {
                 <p>Transforms: @string.Join(", ", task.Inputs.Select(i => i.Name))</p>
@@ -18,6 +27,7 @@
 @if (Scope.Outputs.Count > 0) { <p>Business outputs: @string.Join(", ", Scope.Outputs.Select(o => o.Name))</p> }
 @code {
     [Parameter, EditorRequired] public TaskScope Scope { get; set; } = default!;
+    private static string Binding(TaskValue value) => System.Text.Json.JsonSerializer.Serialize(value, PlanningJsonContext.Default.TaskValue);
     private static string Describe(TaskType type) => (type.Kind switch
     {
         "object" => "{ " + string.Join(", ", type.Fields.Select(f => f.Name + ": " + Describe(f.Type))) + " }",

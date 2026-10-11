@@ -1,0 +1,26 @@
+{
+  "source": "7376b4bd713d72d43dbe62270e41823273e0e618",
+  "candidate_worktree": "/private/tmp/gnougo-physicaloutputs-candidate",
+  "campaign": "schema-portability-20261002",
+  "cohort": "physicaloutputs20261010a",
+  "run": "physicaloutputs20261010a-amazon-1",
+  "run_record_absent": true,
+  "run_journal_absent": true,
+  "max_products": 10,
+  "configuration_hash": "0d9b3f888b2a23348f7efbdc00cc764d2e388e63c076dd350b945bc161539d31",
+  "sha256": {
+    "tests/GnOuGo.Agent.Planning.Benchmark/LiveWorkflowEvaluation.cs": "c184cbd99aa2d4fed60f2f01a7e26d34baede6138934c225dffaa91114272d23",
+    "tests/GnOuGo.Agent.Planning.Benchmark/LiveWorkflowOracles.cs": "e2d6ddf002b75cfd5ddc5be10852c118e7b9d2a3c3d3875c03a0770de054f62a",
+    "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Planning.Benchmark.dll": "5ab432315d67bac8768cbcce269d28bb5496395ef881ae2744231e3bd22d51b9",
+    "src/GnOuGo.Browser.Mcp/bin/Debug/net10.0/GnOuGo.Browser.Mcp.dll": "a7cf8a8140c76619c99c7af3430eca8d670d516a5ca8b50681492fef5615cd3c",
+    "src/GnOuGo.Document.Mcp/bin/Debug/net10.0/GnOuGo.Document.Mcp.dll": "20746602b6c24a595cd2eced104a8f2371becf68046c61a21ac5525dd5bb59ce",
+    "src/GnOuGo.Flow.Planning/bin/Debug/net10.0/GnOuGo.Flow.Planning.dll": "8dd789671014b2fc0f28851ab495ddc052e322050c33231f7188ec081c422efc",
+    "src/GnOuGo.Flow.Core/bin/Debug/net10.0/GnOuGo.Flow.Core.dll": "4e19fb18a30e12624665f01b49f209fa8c94ccce73875b0bf8446adc50c6f236",
+    "src/GnOuGo.Flow.Planning/PlanningPrompt.cs": "e9e19ff5613d4cf7e2cca9957608ab3967c76a6b40b348cf6db336c8a81507e2"
+  },
+  "oracle_unchanged": true,
+  "paid_planning_authorized": false,
+  "paid_calls": 0,
+  "artifact_approval": null,
+  "status": "awaiting_new_GO"
+}

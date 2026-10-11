@@ -1,0 +1,50 @@
+[
+  {
+    "id": "static",
+    "outcome": "passed",
+    "description": "Business bindings, contracts and control flow validated. External execution has not been observed.",
+    "diagnostics": []
+  },
+  {
+    "id": "operation:task_a6c6bb062d4b898156a9a47a",
+    "outcome": "declared",
+    "description": "Ouvrir Amazon.fr directement sur la recherche correspondant à query et acquérir une observation complète bornée de la page de résultats. — operation: cap_490d9e16075cbdca5954ec27 (GnOuGo.Browser.Mcp/browser_get_content); contract effect: read. Resource lifecycle is not established by this contract; review cleanup and retained artifacts. Execution has not been observed; review the business requirements separately.",
+    "diagnostics": []
+  },
+  {
+    "id": "operation:task_365a0c0510954ee546d4010c",
+    "outcome": "declared",
+    "description": "Écrire le classeur Excel au chemin exact demandé avant le nettoyage navigateur. — operation: cap_37c513d225bb1b870053c5d3 (GnOuGo.Document.Mcp/document_write); contract effect: write. Declared resource locations checked; dynamic relationships still require execution evidence. Execution has not been observed; review the business requirements separately.",
+    "diagnostics": []
+  },
+  {
+    "id": "operation:task_84f93e85c947c8318bf9dc7f",
+    "outcome": "declared",
+    "description": "Fermer le navigateur même en cas d’échec d’une étape précédente. — operation: cap_bdb7ba9ab04b18783883fa86 (GnOuGo.Browser.Mcp/browser_close); contract effect: lifecycle. Resource lifecycle is not established by this contract; review cleanup and retained artifacts. Execution has not been observed; review the business requirements separately.",
+    "diagnostics": []
+  },
+  {
+    "id": "operation:task_dcbe3c17582006c40b2c245f",
+    "outcome": "declared",
+    "description": "Ouvrir la page détail du produit courant avec l’href original observé et non nul. — operation: cap_490d9e16075cbdca5954ec27 (GnOuGo.Browser.Mcp/browser_get_content); contract effect: read. Resource lifecycle is not established by this contract; review cleanup and retained artifacts. Execution has not been observed; review the business requirements separately.",
+    "diagnostics": []
+  },
+  {
+    "id": "mapping:task_e289055c2dffe6f9d6f84092",
+    "outcome": "declared",
+    "description": "Projeter les enregistrements originaux observés par page en conservant leurs identités de sélecteur, textes, hrefs et actions pour permettre les validations par lookup. — adaptive independent extraction; unresolved items may require specialized or per-item inference within the configured shared runtime and campaign budgets. Execution requires a finite runtime budget; every item and the complete result are validated. Unambiguous source/target collections use one result per item; ambiguous collections require explicit selection. Independent items preserve order and nesting; bounded examples generate one mapping, all items are validated, and inference allowances are shared. No execution evidence yet.",
+    "diagnostics": []
+  },
+  {
+    "id": "mapping:task_b214cc58926383f5aa11e264",
+    "outcome": "declared",
+    "description": "Examiner chaque page d’observation de résultats indépendamment et extraire seulement les candidats produits observés, avec identité de sélecteur et texte décisionnel observé; un tableau vide signifie que la page a été examinée sans candidat produit. — adaptive independent extraction; unresolved items may require specialized or per-item inference within the configured shared runtime and campaign budgets. Execution requires a finite runtime budget; every item and the complete result are validated. Unambiguous source/target collections use one result per item; ambiguous collections require explicit selection. Independent items preserve order and nesting; bounded examples generate one mapping, all items are validated, and inference allowances are shared. No execution evidence yet.",
+    "diagnostics": []
+  },
+  {
+    "id": "mapping:task_ad8b293d2f81c06ff44f58ba",
+    "outcome": "declared",
+    "description": "Extraire, page par page, uniquement les faits observés de nom, description et prix; les tableaux vides représentent l’absence observée de faits correspondants. — adaptive independent extraction; unresolved items may require specialized or per-item inference within the configured shared runtime and campaign budgets. Execution requires a finite runtime budget; every item and the complete result are validated. Unambiguous source/target collections use one result per item; ambiguous collections require explicit selection. Independent items preserve order and nesting; bounded examples generate one mapping, all items are validated, and inference allowances are shared. No execution evidence yet.",
+    "diagnostics": []
+  }
+]

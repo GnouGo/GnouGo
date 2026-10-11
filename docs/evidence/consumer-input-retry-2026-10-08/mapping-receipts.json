@@ -1,0 +1,42 @@
+[
+  {
+    "invocation": "/workflow/main/step/n_0b2ad3ad78eb3a8d/mapping/0",
+    "request_id": "5b6d90d74fb8346e05765ce2852d4f7b4e597c48948e6949d8e6bfe502972632",
+    "status": "completed",
+    "usage": {
+      "input_tokens": 31683,
+      "output_tokens": 2263,
+      "total_tokens": 33946,
+      "benchmark_cost_eur": 0.2008208359215547,
+      "transport_attempts": 1,
+      "uncertain_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "benchmark_usage_bounded": true
+    },
+    "response": {
+      "script": "item.records.filter(r=>(m.test(r.kind,'^(control|link)$')&&m.test(r.text,'(?i)(cookie|cookies|consent|confidentialité|privacy|accepter|accept|autoriser|allow|refuser|reject|decline|préférences|preferences|personnalis|paramétrer|gérer les|manage choices|continuer sans)'))||m.test(r.text,'(?i)(captcha|robot|automatisé|automated|trafic inhabituel|unusual traffic|accès refusé|access denied|bloqué|blocked|saisissez les caractères|enter the characters|characters you see|vérifier que vous|verify you are|pas un robot|not a robot)')).map(r=>({kind:r.kind,text:r.text,reference:r.reference,actions:r.actions,pageId:item.id}))"
+    }
+  },
+  {
+    "invocation": "/workflow/main/step/n_5a01848fcc913a84/mapping/0",
+    "request_id": "107a1668d941f71b87f71b3a8eb75458574bd575018bff2d0558519b0d004ec0",
+    "status": "completed",
+    "usage": {
+      "input_tokens": 22142,
+      "output_tokens": 3340,
+      "total_tokens": 25482,
+      "benchmark_cost_eur": 0.187159464016328,
+      "transport_attempts": 1,
+      "uncertain_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "benchmark_usage_bounded": true
+    },
+    "response": {
+      "script": "item.records.filter(r=>m.test(r.kind,\"^link$\")&&m.test(r.href,\"(?:/dp/|/gp/aw/d/|%2Fdp%2F|%2Fgp%2Faw%2Fd%2F)\")&&m.test(r.text,\"[A-Za-zÀ-ÿ]\")&&!m.test(r.text,\"(?:sur 5 étoiles|€)\")||m.test(r.text,\"(?:[Cc][Aa][Pp][Tt][Cc][Hh][Aa]|[Rr]obot|[Aa]utomatis|[Bb]loqu|[Cc]aractères)\")).map(r=>({kind:r.kind,text:r.text,observedName:m.test(r.kind,\"^link$\")&&m.test(r.href,\"(?:/dp/|/gp/aw/d/|%2Fdp%2F|%2Fgp%2Faw%2Fd%2F)\")?r.text:null,url:r.href,reference:r.reference,actions:r.actions,pageId:item.id}))"
+    }
+  }
+]

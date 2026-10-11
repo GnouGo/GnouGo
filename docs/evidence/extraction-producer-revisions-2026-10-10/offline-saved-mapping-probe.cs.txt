@@ -1,0 +1,28 @@
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using GnOuGo.Flow.Core.Compilation;
+using GnOuGo.Flow.Core.Expressions;
+using GnOuGo.Flow.Core.Models;
+using GnOuGo.Flow.Core.Planning;
+using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Flow.Core.Parsing;
+var input=JsonNode.Parse(await File.ReadAllTextAsync("/tmp/gnougo-extraction-offline/input.json"))!;
+var inspection=JsonNode.Parse(await File.ReadAllTextAsync("/tmp/extraction-live-progress-latest.json"))!;
+var receipts=inspection["runtime_mapping_receipts"]!.AsArray().Where(r=>r!["invocation"]!.ToString().Contains("/iteration/7/")).OrderBy(r=>r!["invocation"]!.ToString()).ToArray();
+var scripts=receipts.Select(r=>r!["response"]!["script"]!.GetValue<string>()).ToArray();
+var original=WorkflowParser.Parse(await File.ReadAllTextAsync(args[0]));
+var schema=original.Workflows.Values.SelectMany(w=>w.Steps).Single(s=>s.Id=="n_ae72cd447d18931a").OutputSchema!;
+var doc=new WorkflowDocument{Workflows=new(){["main"]=new(){Steps=[new(){Id="map",Type="mapping.dynamic",Input=JsonValue.Create("${data.inputs.mapping}"),OutputSchema=schema.DeepClone()}]}}};
+var model=new SavedResponses(scripts); var store=new InMemoryWorkflowRunStore();
+var engine=new WorkflowEngine{LLMClient=model,RunStore=store,LlmDefaults=new(){Model="saved-responses-only"},LLMUsageBudget=new(new(){MaxCalls=4}),Limits=new(){TenantId="offline",RunId="saved-pure-mapping",MaxMappingInputTokens=96000}};
+var result=await engine.ExecuteAsync(new WorkflowCompiler().Compile(doc).Workflows["main"],new JsonObject{["mapping"]=input},CancellationToken.None);
+var journal=(await store.ReadAsync("offline","saved-pure-mapping"))!;
+var invocation=journal.Invocations["/workflow/main/step/map"];
+Console.WriteLine(JsonSerializer.Serialize(new { provider_calls=0,mcp_calls=0,live_state_writes=0,saved_responses_consumed=model.Calls,success=result.Success,error=result.Error,controls=invocation.Control.Where(p=>p.Key.StartsWith("mapping_adaptive_")&&p.Key!="mapping_adaptive_cache").ToDictionary(p=>p.Key,p=>p.Value)},new JsonSerializerOptions{WriteIndented=true}));
+sealed class SavedResponses(string[] scripts):ILLMClient,ILLMCapabilityResolver {
+ public int Calls {get;private set;}
+ public Task<int?> InputTokenAllowanceAsync(string? provider,string model,int outputTokens,CancellationToken ct)=>Task.FromResult<int?>(96000);
+ public Task<bool?> SupportsStructuredOutputAsync(string? provider,string model,CancellationToken ct)=>Task.FromResult<bool?>(true);
+ public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider,string model,CancellationToken ct)=>Task.FromResult<IReadOnlyList<string>?>([]);
+ public Task<LLMResponse> CallAsync(LLMRequest request,CancellationToken ct){ if(Calls>=scripts.Length)throw new InvalidOperationException("No retained response; stop without dispatch."); return Task.FromResult(new LLMResponse{Json=new JsonObject{["script"]=scripts[Calls++]},Usage=new JsonObject{["input_tokens"]=0,["output_tokens"]=0,["total_tokens"]=0}});}
+}

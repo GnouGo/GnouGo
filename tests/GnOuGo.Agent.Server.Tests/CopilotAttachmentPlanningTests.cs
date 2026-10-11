@@ -40,6 +40,7 @@ public sealed class CopilotAttachmentPlanningTests
         var runtime = new WorkflowPlanningRuntime(new() { McpClientFactory = factory, LLMClient = model }, (_, _) => Task.CompletedTask);
         var state = new PlanningSession
         {
+            IntentVersion = 2,
             Request = new() { TenantId = "fixture", Mode = PlanningMode.Auto, Prompt = "Summarize the supplied review context without executing commands.", Generation = new() { MaxInputTokensPerRequest = 24000, MaxOutputTokens = 32768 } },
             Requirements = new() { Summary = "Summarize supplied review context", Outcomes = [new("report", "Return the summary")] },
             Phase = PlanningPhase.Tasks,
@@ -76,6 +77,7 @@ public sealed class CopilotAttachmentPlanningTests
 
         // Explicitly synthetic corrected intent, not an edited historical recording.
         model.Plan = SyntheticCorrectedProposal(clone.Id, send.Id);
+        state.Requirements!.Inputs = model.Plan.Inputs;
         state = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
         Assert.True(state.Status == PlanningStatus.FinalReview, string.Join("; ", state.Diagnostics.Select(d => d.Code + " " + d.Location + " " + d.Message)));
         Assert.Equal(1, model.Calls); Assert.Equal(0, state.ReplanAttempts); Assert.Equal(0, factory.InvocationAttempts);
@@ -113,7 +115,7 @@ public sealed class CopilotAttachmentPlanningTests
     private static IReadOnlyList<string> Scope(TaskPlan plan, IReadOnlyList<PlanningDiagnostic> diagnostics)
         => (IReadOnlyList<string>)Revisions.GetMethod("Scope", BindingFlags.Static | BindingFlags.NonPublic)!.Invoke(null, [plan, diagnostics])!;
     private static IEnumerable<PlanningDiagnostic> ValidateRevision(TaskPlan plan, TaskPlan changed, IReadOnlyList<string> scope, PlanningCatalog catalog)
-        => (IEnumerable<PlanningDiagnostic>)Revisions.GetMethod("Validate", BindingFlags.Static | BindingFlags.NonPublic)!.Invoke(null, [plan, changed, scope, catalog])!;
+        => (IEnumerable<PlanningDiagnostic>)Revisions.GetMethod("Validate", BindingFlags.Static | BindingFlags.NonPublic)!.Invoke(null, [plan, changed, scope, catalog, null])!;
 
     private static TaskPlan SyntheticCorrectedProposal(string clone, string send) => new()
     {
@@ -134,12 +136,12 @@ public sealed class CopilotAttachmentPlanningTests
     private static TaskValue Input(string name) => new() { Kind = "input", Source = name };
     private static TaskValue Output(string task, string port) => new() { Kind = "output", Source = task, Port = port };
 
-    private static JsonObject Capture(bool renamed)
+    internal static JsonObject Capture(bool renamed, string copilotMethod = "copilot_one_shot")
     {
         var result = new JsonObject();
         var copilot = typeof(GnOuGo.GithubCopilot.Mcp.CodePolicy).Assembly;
         CaptureTools(typeof(GitTools), "GnOuGo.Git.Mcp.GitMcpJson", "git_clone", "prepare", "producer");
-        CaptureTools(copilot.GetType("GnOuGo.GithubCopilot.Mcp.CopilotTools")!, "GnOuGo.GithubCopilot.Mcp.CodeMcpJson", "copilot_one_shot", "summarize", "consumer");
+        CaptureTools(copilot.GetType("GnOuGo.GithubCopilot.Mcp.CopilotTools")!, "GnOuGo.GithubCopilot.Mcp.CodeMcpJson", copilotMethod, "summarize", "consumer");
         return result;
         void CaptureTools(Type type, string serializer, string method, string alias, string source)
         {
@@ -150,7 +152,10 @@ public sealed class CopilotAttachmentPlanningTests
             if (type == typeof(GitTools))
                 type.Assembly.GetType("GnOuGo.Git.Mcp.GitCloneTargetContract")!.GetMethod("Publish", BindingFlags.Static | BindingFlags.NonPublic)!.Invoke(null, [tool]);
             else
+            {
                 tool.InputSchema = (JsonElement)copilot.GetType("GnOuGo.GithubCopilot.Mcp.CopilotAttachmentContract")!.GetMethod("InputSchema", BindingFlags.Static | BindingFlags.NonPublic)!.Invoke(null, [tool.InputSchema])!;
+                copilot.GetType("GnOuGo.GithubCopilot.Mcp.CopilotListContract")!.GetMethod("Publish", BindingFlags.Static | BindingFlags.NonPublic)!.Invoke(null, [tool]);
+            }
             result[source] = JsonSerializer.SerializeToNode(new[] { new McpToolInfo { Name = renamed ? alias : method, Description = tool.Description, InputSchema = JsonNode.Parse(tool.InputSchema.GetRawText()), OutputSchema = JsonNode.Parse(tool.OutputSchema!.Value.GetRawText()), Meta = tool.Meta?.DeepClone() } }, RealProductContracts.Json);
         }
     }

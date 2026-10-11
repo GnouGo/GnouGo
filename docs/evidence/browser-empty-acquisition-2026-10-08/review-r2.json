@@ -1,0 +1,351 @@
+{
+  "revision": 2,
+  "artifact_hash": null,
+  "status": "stopped",
+  "requirements": {
+    "summary": "Automatiser une recherche Amazon.fr pour une entr\u00e9e publique nomm\u00e9e query, collecter au maximum les 10 premiers produits, visiter chaque page produit, extraire nom, description et prix sans invention, puis sauvegarder les r\u00e9sultats dans un classeur Excel au chemin demand\u00e9 et fermer le navigateur m\u00eame en cas d\u2019\u00e9chec.",
+    "outcomes": [
+      {
+        "id": "search_amazon_fr",
+        "description": "Utiliser Amazon.fr pour rechercher l\u2019article fourni par l\u2019entr\u00e9e query."
+      },
+      {
+        "id": "collect_up_to_10_products",
+        "description": "Lister les produits trouv\u00e9s et traiter au maximum les 10 premiers r\u00e9sultats produits."
+      },
+      {
+        "id": "visit_each_product",
+        "description": "Naviguer sur la page de chaque produit s\u00e9lectionn\u00e9 pour extraire les donn\u00e9es disponibles."
+      },
+      {
+        "id": "explicit_missing_data",
+        "description": "Si CAPTCHA, prix, description ou autres donn\u00e9es sont absents ou inaccessibles, le consigner explicitement sans inventer de valeur."
+      },
+      {
+        "id": "save_excel",
+        "description": "Cr\u00e9er et sauvegarder le classeur Excel \u00e0 workflows/schema-portability-20261002/emptyacquire20261008a-amazon-1/products.xlsx."
+      },
+      {
+        "id": "close_browser_always",
+        "description": "Fermer le navigateur m\u00eame en cas d\u2019\u00e9chec."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "query",
+        "type": {
+          "kind": "string",
+          "nullable": false,
+          "items": null,
+          "fields": []
+        },
+        "required": true,
+        "default": null
+      }
+    ],
+    "outputs": [
+      {
+        "name": "productsWorkbook",
+        "type": {
+          "kind": "object",
+          "nullable": false,
+          "items": null,
+          "fields": [
+            {
+              "name": "path",
+              "type": {
+                "kind": "string",
+                "nullable": false,
+                "items": null,
+                "fields": []
+              },
+              "required": true,
+              "default": null
+            },
+            {
+              "name": "products",
+              "type": {
+                "kind": "array",
+                "nullable": false,
+                "items": {
+                  "kind": "object",
+                  "nullable": false,
+                  "items": null,
+                  "fields": [
+                    {
+                      "name": "originalIndex",
+                      "type": {
+                        "kind": "integer",
+                        "nullable": false,
+                        "items": null,
+                        "fields": []
+                      },
+                      "required": true,
+                      "default": null
+                    },
+                    {
+                      "name": "name",
+                      "type": {
+                        "kind": "string",
+                        "nullable": true,
+                        "items": null,
+                        "fields": []
+                      },
+                      "required": true,
+                      "default": null
+                    },
+                    {
+                      "name": "description",
+                      "type": {
+                        "kind": "string",
+                        "nullable": true,
+                        "items": null,
+                        "fields": []
+                      },
+                      "required": true,
+                      "default": null
+                    },
+                    {
+                      "name": "price",
+                      "type": {
+                        "kind": "string",
+                        "nullable": true,
+                        "items": null,
+                        "fields": []
+                      },
+                      "required": true,
+                      "default": null
+                    },
+                    {
+                      "name": "status",
+                      "type": {
+                        "kind": "string",
+                        "nullable": false,
+                        "items": null,
+                        "fields": []
+                      },
+                      "required": true,
+                      "default": null
+                    },
+                    {
+                      "name": "url",
+                      "type": {
+                        "kind": "string",
+                        "nullable": true,
+                        "items": null,
+                        "fields": []
+                      },
+                      "required": true,
+                      "default": null
+                    }
+                  ]
+                },
+                "fields": []
+              },
+              "required": true,
+              "default": null
+            }
+          ]
+        },
+        "required": true,
+        "default": null
+      }
+    ]
+  },
+  "diagnostics": [
+    {
+      "code": "TASK_CONDITION_TYPE",
+      "location": "/tasks/acceptCookiesIfOffered/requires",
+      "message": "Conditions require a boolean business value.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "TASK_CONDITION_TYPE",
+      "location": "/tasks/clickCookieConsent/requires",
+      "message": "Conditions require a boolean business value.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "TASK_CONDITION_TYPE",
+      "location": "/tasks/compileRows/requires",
+      "message": "Conditions require a boolean business value.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "TASK_CONDITION_TYPE",
+      "location": "/tasks/extractProductFacts/requires",
+      "message": "Conditions require a boolean business value.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "TASK_CONDITION_TYPE",
+      "location": "/tasks/extractUpTo10ProductLinks/requires",
+      "message": "Conditions require a boolean business value.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "TASK_CONDITION_TYPE",
+      "location": "/tasks/interpretHomeControls/requires",
+      "message": "Conditions require a boolean business value.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "TASK_CONDITION_TYPE",
+      "location": "/tasks/openAmazonHome/requires",
+      "message": "Conditions require a boolean business value.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "TASK_CONDITION_TYPE",
+      "location": "/tasks/selectFreshSearchControls/requires",
+      "message": "Conditions require a boolean business value.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "TASK_CONDITION_TYPE",
+      "location": "/tasks/writeProductsWorkbook/requires",
+      "message": "Conditions require a boolean business value.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    }
+  ],
+  "result": {
+    "status": "stopped",
+    "planning_ms": 364586,
+    "calls": 2,
+    "repairs": 0,
+    "discovery_reads": 2,
+    "review_revisions": 0,
+    "diagnostics": [
+      {
+        "code": "TASK_CONDITION_TYPE",
+        "location": "/tasks/acceptCookiesIfOffered/requires",
+        "message": "Conditions require a boolean business value.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      },
+      {
+        "code": "TASK_CONDITION_TYPE",
+        "location": "/tasks/clickCookieConsent/requires",
+        "message": "Conditions require a boolean business value.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      },
+      {
+        "code": "TASK_CONDITION_TYPE",
+        "location": "/tasks/compileRows/requires",
+        "message": "Conditions require a boolean business value.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      },
+      {
+        "code": "TASK_CONDITION_TYPE",
+        "location": "/tasks/extractProductFacts/requires",
+        "message": "Conditions require a boolean business value.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      },
+      {
+        "code": "TASK_CONDITION_TYPE",
+        "location": "/tasks/extractUpTo10ProductLinks/requires",
+        "message": "Conditions require a boolean business value.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      },
+      {
+        "code": "TASK_CONDITION_TYPE",
+        "location": "/tasks/interpretHomeControls/requires",
+        "message": "Conditions require a boolean business value.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      },
+      {
+        "code": "TASK_CONDITION_TYPE",
+        "location": "/tasks/openAmazonHome/requires",
+        "message": "Conditions require a boolean business value.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      },
+      {
+        "code": "TASK_CONDITION_TYPE",
+        "location": "/tasks/selectFreshSearchControls/requires",
+        "message": "Conditions require a boolean business value.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      },
+      {
+        "code": "TASK_CONDITION_TYPE",
+        "location": "/tasks/writeProductsWorkbook/requires",
+        "message": "Conditions require a boolean business value.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      }
+    ],
+    "execution_success": false,
+    "execution_oracle": false,
+    "execution_status": "not_started",
+    "accounting": {
+      "planning": {
+        "logical_calls": 2,
+        "physical_attempts": 3,
+        "known_input_tokens": 19412,
+        "known_output_tokens": 4465,
+        "known_cost_eur": 0.2049960067441654,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "execution": {
+        "logical_calls": 0,
+        "physical_attempts": 0,
+        "known_input_tokens": 0,
+        "known_output_tokens": 0,
+        "known_cost_eur": 0,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "campaign": {
+        "calls": 903,
+        "session_calls": 0,
+        "known_input_tokens": 13391567,
+        "known_output_tokens": 1801888,
+        "known_cost_eur": 107.68325965930106,
+        "reserved_input_tokens": 384000,
+        "reserved_output_tokens": 131072,
+        "reserved_cost_eur": 5.203327457848472,
+        "cost_upper_bound_eur": 112.88658711714953,
+        "unknown_attempts": 4
+      }
+    }
+  },
+  "review": []
+}

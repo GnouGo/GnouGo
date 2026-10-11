@@ -24,6 +24,7 @@ public sealed class SharedWorkspaceExecutionTests
     [InlineData("missing")]
     [InlineData("isolation")]
     [InlineData("budget")]
+    [InlineData("verification")]
     public async Task LocalLifecycleSliceUsesExactApprovedPathAndRealCleanup(string mode)
     {
         using var current = new RecordedWorkspaceContractTests.CurrentContracts();
@@ -33,6 +34,16 @@ public sealed class SharedWorkspaceExecutionTests
         // Explicit lifecycle slice of the corrected proposal. Review/inference effects are not executed.
         plan.Root.Tasks = plan.Root.Tasks.Where(t => t.Id is "paths" or "clone_once" or "validate_project").ToList();
         plan.Root.Outputs.Clear();
+        if (mode == "verification")
+        {
+            // The saved declaration requires presence only. This variant explicitly
+            // requires a successful command result before testing failed evidence.
+            var check = plan.Root.Tasks.Single(t => t.Id == "validate_project").Inputs.Single(i => i.Name == "verification").Value.Items[0];
+            check.Members.Single(m => m.Name == "facts_schema").Value.Members.Add(new("properties", new() { Kind = "object", Members = [
+                new("exit_code", new() { Kind = "object", Members = [new("type", new() { Kind = "string", Text = "integer" }), new("const", new() { Kind = "number", Number = 0 })] }),
+                new("working_directory", new() { Kind = "object", Members = [new("type", new() { Kind = "string", Text = "string" })] }),
+                new("tool_success", new() { Kind = "object", Members = [new("type", new() { Kind = "string", Text = "boolean" })] })] }));
+        }
         var clone = plan.Root.Tasks.Single(t => t.Id == "clone_once");
         clone.DependsOn = ["paths"];
         var source = Path.Combine(current.Root, "source"); Repository.Init(source);
@@ -50,8 +61,10 @@ public sealed class SharedWorkspaceExecutionTests
         var compilation = new TaskPlanCompiler().Compile(plan, catalog);
         Assert.Empty(compilation.Diagnostics); Assert.Empty(PlanningGraphValidation.Validate(compilation.Graph!, catalog));
         var generation = replay.State(replay.Recording["responses"]![4]!["pendingSession"]!);
-        generation.PendingCall = null; generation.ModelCalls--; generation.Plan = null; generation.Graph = null; generation.Yaml = null;
+        generation.IntentVersion = 2; generation.Requirements!.Inputs = plan.Inputs; generation.PendingCall = null; generation.ModelCalls--; generation.Plan = null; generation.Graph = null; generation.Yaml = null;
         generation.Catalog = catalog; replay.Proposal = plan;
+        var used = plan.Root.Tasks.Concat(plan.Root.Always).Select(t => t.Operation).ToHashSet();
+        generation.Catalog.Capabilities.RemoveAll(c => c.Kind != "registered" && !used.Contains(c.Id));
         var reviewed = await new HybridWorkflowPlanner().AdvanceAsync(generation, new() { ExpectedRevision = generation.Revision }, replay, TestContext.Current.CancellationToken);
         Assert.True(reviewed.Status == PlanningStatus.FinalReview, string.Join("; ", reviewed.Diagnostics.Select(d => d.Code + " " + d.Message)));
         PlanningArtifactApproval.Verify(reviewed);
@@ -96,7 +109,7 @@ public sealed class SharedWorkspaceExecutionTests
         Assert.Equal(1, cleanupCalls); Assert.False(Directory.Exists(target));
         Assert.Equal("untouched", File.ReadAllText(Path.Combine(unrelated, "keep")));
         Assert.Equal("local source\n", File.ReadAllText(Path.Combine(source, "README.md")));
-        Assert.Equal(mode is "success" or "cancelled" or "isolation" or "budget" ? 1 : 0, runner.Runs);
+        Assert.Equal(mode is "success" or "cancelled" or "isolation" or "budget" or "verification" ? 1 : 0, runner.Runs);
         if (mode == "isolation")
         {
             Assert.Equal("AGENT_ISOLATION_REQUIRED", resultRun.Error!.Code);
@@ -131,7 +144,7 @@ public sealed class SharedWorkspaceExecutionTests
             if (mode == "cancelled") { cancellation.Cancel(); throw new OperationCanceledException(cancellation.Token); }
             // Explicit mocked observations; no claims about actual shell/model execution.
             var evidence = context.Task.Verification.Select(v => new AgentTaskEvidence(v.Id, v.Kind, v.Subject,
-                v.Kind == "command.exit" ? new() { ["exit_code"] = 0, ["working_directory"] = target, ["tool_success"] = true } : new() { ["exists"] = true, ["sha256"] = "mock" })).ToArray();
+                v.Kind == "command.exit" ? new() { ["exit_code"] = mode == "verification" ? 1 : 0, ["working_directory"] = target, ["tool_success"] = true } : new() { ["exists"] = true, ["sha256"] = "mock" })).ToArray();
             return Task.FromResult(new AgentTaskResult("completed", new JsonObject { ["validationPassed"] = true, ["summary"] = "Mocked validation", ["commands"] = new JsonArray() }, evidence, [], new(0, 0, 0)));
         }
         public Task<AgentTaskResult> ReconcileAsync(AgentTaskContext context, CancellationToken ct) => throw new InvalidOperationException("No uncertain work in this fixture");

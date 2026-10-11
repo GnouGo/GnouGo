@@ -1,0 +1,25 @@
+{
+  "production_sha": "bb6b6bb4f52e69f4c26eb49c5ca16ffd26d58a3d",
+  "browser_tests": {
+    "passed": 110,
+    "failed": 0,
+    "skipped": 0
+  },
+  "focused_flatten_consumer_contract_tests": {
+    "passed": 23,
+    "failed": 0,
+    "skipped": 0
+  },
+  "benchmark_build": {
+    "warnings": 0,
+    "errors": 0
+  },
+  "previous_full_solution": {
+    "passed": 4801,
+    "failed": 0,
+    "skipped": 12,
+    "rerun_for_this_evidence_only_update": false
+  },
+  "production_changes": false,
+  "paid_execution_runs": 1
+}

@@ -1,0 +1,60 @@
+{
+  "source": "90bf33d84e894f689daa813240846304e287afba",
+  "cohort": "pagination20261004a",
+  "saved_invocations_replayed": false,
+  "oracles_changed": false,
+  "copilot_completion_verified": true,
+  "termination": "verified_failure",
+  "inference_attempts": 11,
+  "reserved_tokens": 2000000,
+  "stop": {
+    "kind": "Tokens",
+    "maxModelCalls": 32,
+    "maxTotalTokens": 2000000,
+    "deadline": "2026-10-04T19:51:46.94498+00:00",
+    "modelCalls": 11,
+    "chargedTokens": 2000000,
+    "requiredInputTokens": 281912
+  },
+  "tool_completions": 49,
+  "unresolved_command_exits": 0,
+  "log_reads": 1,
+  "virtual_shell_requests": 5,
+  "encrypted_log_characters": 364671,
+  "log_registration_failure": "SDK truncated a double-encoded project_read result into a new text-only output artifact; subsequent read was correctly refused as unregistered.",
+  "finalization_errors": [
+    {
+      "code": "WORKFLOW_FINALIZATION_TIMEOUT",
+      "type": "WORKFLOW_FINALIZATION_TIMEOUT",
+      "message": "Workflow finalization exceeded 30 seconds.",
+      "retryable": true
+    }
+  ],
+  "oracle": {
+    "passed": false,
+    "findings": [
+      "workflow_execution_failed",
+      "repository_not_cleaned_by_workflow",
+      "local_review_missing",
+      "repository_required_checks_not_independently_verified"
+    ]
+  },
+  "verified_checks": {
+    "pinned_head": true,
+    "pinned_base": true,
+    "manifest_observed": true,
+    "node_toolchain": true,
+    "pnpm_toolchain": true,
+    "python_toolchain": true,
+    "node_dependencies": false,
+    "python_dependencies": false,
+    "python_lint": false,
+    "python_tests": false,
+    "node_tests": true
+  },
+  "evidence_sha256": {
+    "pagination-a-code-1-final.json": "1d7b3fd0dc45152489c6980307ed768b9dd86da09a5b51801e9ffe00a49bcd73",
+    "gnougo-pagination20261004a-code-1-checkpoint.json": "d1f9ee43aa787b68f9e79adf912e2d1832dfa8fb789a178c947298cd2bef7a16",
+    "pagination-a-amazon-1-final.json": "c19d7f903376cb6900f9e605745cf55e90bb6b6852a439813391430e29a4232e"
+  }
+}

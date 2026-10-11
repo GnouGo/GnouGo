@@ -1,0 +1,229 @@
+{
+  "origin": "snapshotlive20261007a-amazon-1 revision 12; structural reduction with renamed operations and no live data",
+  "plan": {
+    "inputs": [
+      {
+        "name": "branch",
+        "type": {
+          "kind": "boolean"
+        }
+      },
+      {
+        "name": "first",
+        "type": {
+          "kind": "object",
+          "fields": [
+            {
+              "name": "ready",
+              "type": {
+                "kind": "boolean"
+              }
+            },
+            {
+              "name": "blocked",
+              "type": {
+                "kind": "boolean"
+              }
+            },
+            {
+              "name": "selector",
+              "type": {
+                "kind": "string",
+                "nullable": true
+              }
+            },
+            {
+              "name": "secondary",
+              "type": {
+                "kind": "string",
+                "nullable": true
+              }
+            },
+            {
+              "name": "address",
+              "type": {
+                "kind": "string"
+              }
+            },
+            {
+              "name": "label",
+              "type": {
+                "kind": "string"
+              }
+            },
+            {
+              "name": "extra",
+              "type": {
+                "kind": "boolean"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "name": "second",
+        "type": {
+          "kind": "object",
+          "fields": [
+            {
+              "name": "ready",
+              "type": {
+                "kind": "boolean"
+              }
+            },
+            {
+              "name": "blocked",
+              "type": {
+                "kind": "boolean"
+              }
+            },
+            {
+              "name": "selector",
+              "type": {
+                "kind": "string",
+                "nullable": true
+              }
+            },
+            {
+              "name": "secondary",
+              "type": {
+                "kind": "string",
+                "nullable": true
+              }
+            },
+            {
+              "name": "address",
+              "type": {
+                "kind": "string"
+              }
+            },
+            {
+              "name": "label",
+              "type": {
+                "kind": "string"
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "root": {
+      "tasks": [
+        {
+          "id": "container",
+          "kind": "sequence",
+          "objective": "Expose the selected observations",
+          "body": {
+            "tasks": [
+              {
+                "id": "choose",
+                "kind": "conditional",
+                "objective": "Select branch-specific observations",
+                "condition": {
+                  "kind": "input",
+                  "source": "branch"
+                },
+                "body": {
+                  "outputs": [
+                    {
+                      "name": "state",
+                      "value": {
+                        "kind": "input",
+                        "source": "first"
+                      }
+                    }
+                  ]
+                },
+                "otherwise": {
+                  "outputs": [
+                    {
+                      "name": "state",
+                      "value": {
+                        "kind": "input",
+                        "source": "second"
+                      }
+                    }
+                  ]
+                }
+              }
+            ],
+            "outputs": [
+              {
+                "name": "state",
+                "value": {
+                  "kind": "output",
+                  "source": "choose",
+                  "port": "state"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "consume",
+          "kind": "operation",
+          "objective": "Use the observed selector",
+          "operation": "dispatch",
+          "inputs": [
+            {
+              "name": "selector",
+              "value": {
+                "kind": "field",
+                "port": "selector",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "container",
+                    "port": "state"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "check",
+          "kind": "value",
+          "objective": "Require the observed boolean",
+          "requires": {
+            "kind": "field",
+            "port": "ready",
+            "items": [
+              {
+                "kind": "output",
+                "source": "container",
+                "port": "state"
+              }
+            ]
+          },
+          "outputs": [
+            {
+              "name": "label",
+              "value": {
+                "kind": "field",
+                "port": "label",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "container",
+                    "port": "state"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "name": "selected",
+          "value": {
+            "kind": "output",
+            "source": "container",
+            "port": "state"
+          }
+        }
+      ]
+    }
+  }
+}

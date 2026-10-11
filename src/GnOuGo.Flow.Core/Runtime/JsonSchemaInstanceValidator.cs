@@ -1,4 +1,6 @@
 using System.Globalization;
+using System.Numerics;
+using System.Text.Json;
 using GnOuGo.Flow.Core.Planning;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
@@ -24,6 +26,13 @@ internal static class JsonSchemaInstanceValidator
 
         ValidateInstanceNode(instance, root, root, new("$", ""), errors, new HashSet<string>(StringComparer.Ordinal));
         return errors;
+    }
+
+    internal static bool MatchesSchema(JsonNode? value, JsonObject schema, JsonObject root)
+    {
+        var errors = new List<PlanningInstanceFinding>();
+        ValidateInstanceNode(value, schema, root, new("$", ""), errors, new(StringComparer.Ordinal));
+        return errors.Count == 0;
     }
 
     private static void ValidateInstanceNode(
@@ -117,12 +126,52 @@ internal static class JsonSchemaInstanceValidator
         var matches = 0;
         foreach (var variant in variants)
         {
+            if (IsIncompatibleAlternative(value, variant, root, path, referenceStack, new(StringComparer.Ordinal)))
+                continue;
             var variantErrors = new List<PlanningInstanceFinding>();
             ValidateChild(value, variant, root, path, variantErrors, new HashSet<string>(referenceStack, StringComparer.Ordinal));
             if (variantErrors.Count == 0)
                 matches++;
         }
         return matches;
+    }
+
+    // Only reject from assertions that ordinary validation would necessarily check.
+    // Inspect this value and its immediate property tags/types, never recursive data.
+    // Diagnostic branch selection remains independent and unchanged below.
+    private static bool IsIncompatibleAlternative(JsonNode? value, JsonNode? schema, JsonObject root,
+        InstanceLocation path, HashSet<string> referenceStack, HashSet<string> visited, bool properties = true)
+    {
+        if (schema is not JsonObject contract)
+            return schema is JsonValue boolean && boolean.TryGetValue<bool>(out var allowed) && !allowed;
+
+        if (TryReadString(contract["$ref"], out var reference))
+        {
+            var key = $"{reference}|{path.Pointer}";
+            // A reference already active at this instance makes ordinary validation
+            // return before checking siblings. Unresolved references require its diagnostics.
+            if (referenceStack.Contains(key) || !visited.Add(key)) return false;
+            try
+            {
+                if (!TryResolveLocalReference(root, reference, out var resolved) || resolved is not JsonObject)
+                    return false;
+                if (IsIncompatibleAlternative(value, resolved, root, path, referenceStack, visited, properties))
+                    return true;
+            }
+            finally { visited.Remove(key); }
+        }
+
+        if (contract.TryGetPropertyValue("const", out var constant) && !JsonNode.DeepEquals(value, constant)) return true;
+        if (contract["enum"] is JsonArray allowedValues && !allowedValues.Any(v => JsonNode.DeepEquals(value, v))) return true;
+        var type = ReadApplicableType(contract, value);
+        // Keyword-based type inference is not evidence of an explicit type assertion.
+        if (contract.ContainsKey("type") && type is not null && !MatchesType(value, type)) return true;
+        if (properties && type == "object" && value is JsonObject obj && contract["properties"] is JsonObject fields)
+            foreach (var (name, field) in fields)
+                if (obj.TryGetPropertyValue(name, out var actual) &&
+                    IsIncompatibleAlternative(actual, field, root, path.Child(name), referenceStack, visited, properties: false))
+                    return true;
+        return false;
     }
 
     // Type and literal tags can identify one intended variant even when a nested
@@ -182,8 +231,8 @@ internal static class JsonSchemaInstanceValidator
         {
             "string" => jsonValue.TryGetValue<string>(out _),
             "boolean" => jsonValue.TryGetValue<bool>(out _),
-            "number" => TryReadDecimal(jsonValue, out _),
-            "integer" => TryReadDecimal(jsonValue, out var number) && decimal.Truncate(number) == number,
+            "number" => TryReadNumber(jsonValue, out _),
+            "integer" => TryReadNumber(jsonValue, out _) && IsMultiple(jsonValue, JsonValue.Create(1)!),
             _ => false
         };
     }
@@ -268,13 +317,57 @@ internal static class JsonSchemaInstanceValidator
 
     private static void ValidateNumber(JsonNode? value, JsonObject schema, InstanceLocation path, List<PlanningInstanceFinding> errors)
     {
-        if (!TryReadDecimal(value, out var number))
-            return;
-        if (TryReadDecimal(schema["minimum"], out var minimum) && number < minimum) errors.Add(new(path.Pointer, $"{path}: number must be >= {minimum}", "minimum"));
-        if (TryReadDecimal(schema["maximum"], out var maximum) && number > maximum) errors.Add(new(path.Pointer, $"{path}: number must be <= {maximum}", "maximum"));
-        if (TryReadDecimal(schema["exclusiveMinimum"], out var exclusiveMinimum) && number <= exclusiveMinimum) errors.Add(new(path.Pointer, $"{path}: number must be > {exclusiveMinimum}", "exclusiveMinimum"));
-        if (TryReadDecimal(schema["exclusiveMaximum"], out var exclusiveMaximum) && number >= exclusiveMaximum) errors.Add(new(path.Pointer, $"{path}: number must be < {exclusiveMaximum}", "exclusiveMaximum"));
-        if (TryReadDecimal(schema["multipleOf"], out var multipleOf) && multipleOf > 0 && number % multipleOf != 0) errors.Add(new(path.Pointer, $"{path}: number must be a multiple of {multipleOf}", "multipleOf"));
+        if (!TryReadNumber(value, out _)) return;
+        foreach (var keyword in new[] { "minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum" })
+        {
+            if (!TryReadNumber(schema[keyword], out _)) continue;
+            var comparison = CompareNumbers(value!, schema[keyword]!);
+            var invalid = keyword switch { "minimum" => comparison < 0, "maximum" => comparison > 0,
+                "exclusiveMinimum" => comparison <= 0, _ => comparison >= 0 };
+            if (invalid) errors.Add(new(path.Pointer, $"{path}: number violates {keyword} {schema[keyword]}", keyword));
+        }
+        if (TryReadNumber(schema["multipleOf"], out var multiple) && multiple > 0 && !IsMultiple(value!, schema["multipleOf"]!))
+            errors.Add(new(path.Pointer, $"{path}: number must be a multiple of {schema["multipleOf"]}", "multipleOf"));
+    }
+
+    // JSON Schema compares the serialized numbers, not a rounded decimal or an epsilon.
+    // Arithmetic remains JavaScript Number; these helpers only check contracts.
+    internal static bool TryReadNumber(JsonNode? node, out double value)
+    {
+        value = 0;
+        if (node is not JsonValue scalar || scalar.GetValueKind() != JsonValueKind.Number) return false;
+        if (!scalar.TryGetValue<double>(out value) && !double.TryParse(scalar.ToJsonString(), NumberStyles.Float, CultureInfo.InvariantCulture, out value)) return false;
+        if (!double.IsFinite(value)) return false;
+        if (value != 0) return true;
+        var text = scalar.ToJsonString(); var exponent = text.IndexOfAny(['e', 'E']);
+        // Reject nonzero JSON observations outside binary64 range. A calculated
+        // JavaScript zero remains zero; no missing observation is replaced.
+        return !(exponent < 0 ? text : text[..exponent]).Any(c => c is >= '1' and <= '9');
+    }
+
+    internal static int CompareNumbers(JsonNode left, JsonNode right)
+    {
+        var (a, ae) = NumberParts(left); var (b, be) = NumberParts(right);
+        var exponent = Math.Min(ae, be);
+        return (a * BigInteger.Pow(10, ae - exponent)).CompareTo(b * BigInteger.Pow(10, be - exponent));
+    }
+
+    internal static bool IsMultiple(JsonNode value, JsonNode divisor)
+    {
+        var (a, ae) = NumberParts(value); var (b, be) = NumberParts(divisor);
+        if (b.IsZero) return false;
+        var exponent = Math.Min(ae, be);
+        return a * BigInteger.Pow(10, ae - exponent) % (b * BigInteger.Pow(10, be - exponent)) == 0;
+    }
+
+    private static (BigInteger Coefficient, int Exponent) NumberParts(JsonNode value)
+    {
+        var text = value.ToJsonString(); var e = text.IndexOfAny(['e', 'E']);
+        var mantissa = e < 0 ? text : text[..e]; var point = mantissa.IndexOf('.');
+        var coefficient = BigInteger.Parse(mantissa.Replace(".", "", StringComparison.Ordinal), CultureInfo.InvariantCulture);
+        if (coefficient.IsZero) return (coefficient, 0);
+        var exponent = e < 0 ? 0 : int.Parse(text[(e + 1)..], NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture);
+        return (coefficient, checked(exponent - (point < 0 ? 0 : mantissa.Length - point - 1)));
     }
 
     private static void ValidateCount(int count, JsonObject schema, string minimumKeyword, string maximumKeyword, InstanceLocation path, string unit, List<PlanningInstanceFinding> errors)
@@ -306,35 +399,19 @@ internal static class JsonSchemaInstanceValidator
     private static bool TryReadInteger(JsonNode? node, out long value)
     {
         value = 0;
-        if (node is not JsonValue jsonValue)
-            return false;
-        if (jsonValue.TryGetValue<long>(out value))
-            return true;
-        if (jsonValue.TryGetValue<int>(out var intValue))
-        {
-            value = intValue;
-            return true;
-        }
+        if (node is not JsonValue scalar) return false;
+        if (scalar.TryGetValue<long>(out value)) return true;
+        if (scalar.TryGetValue<int>(out var integer)) { value = integer; return true; }
+        if (scalar.TryGetValue<decimal>(out var number) && number == decimal.Truncate(number) && number >= long.MinValue && number <= long.MaxValue)
+        { value = (long)number; return true; }
+        // The upper bound is exclusive: double cannot represent Int64.MaxValue exactly.
+        if (scalar.TryGetValue<double>(out var floating) && double.IsFinite(floating) && floating == Math.Truncate(floating) &&
+            floating >= -9223372036854775808d && floating < 9223372036854775808d)
+        { value = (long)floating; return true; }
         return false;
     }
 
-    private static bool TryReadDecimal(JsonNode? node, out decimal value)
-    {
-        value = 0;
-        if (node is not JsonValue jsonValue)
-            return false;
-        if (jsonValue.TryGetValue<decimal>(out value)) return true;
-        if (jsonValue.TryGetValue<long>(out var longValue)) { value = longValue; return true; }
-        if (jsonValue.TryGetValue<int>(out var intValue)) { value = intValue; return true; }
-        if (jsonValue.TryGetValue<double>(out var doubleValue) && double.IsFinite(doubleValue))
-        {
-            try { value = (decimal)doubleValue; return true; }
-            catch (OverflowException) { return false; }
-        }
-        return false;
-    }
-
-    private static bool TryResolveLocalReference(JsonObject root, string reference, out JsonNode? resolved)
+    internal static bool TryResolveLocalReference(JsonObject root, string reference, out JsonNode? resolved)
     {
         resolved = null;
         if (!reference.StartsWith('#')) return false;

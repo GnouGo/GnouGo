@@ -1,0 +1,275 @@
+{
+  "baseline": "d2ec98ca34271f77541108e7853e43d51314807d",
+  "environment": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+  "full_solution": {
+    "passed": 4473,
+    "failed": 0,
+    "skipped": 12,
+    "projects": [
+      {
+        "name": "GnOuGo.DocIngestor.Tests.dll",
+        "passed": 89,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "name": "GnOuGo.Diff.Tests.dll",
+        "passed": 52,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "name": "GnOuGo.KeyVault.Core.Tests.dll",
+        "passed": 12,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.dll",
+        "passed": 1104,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "name": "GnOuGo.Flow.Integrations.Tests.dll",
+        "passed": 97,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "name": "GnOuGo.AI.Core.Tests.dll",
+        "passed": 225,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "name": "GnOuGo.AI.Local.Tests.dll",
+        "passed": 14,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "name": "GnOuGo.Agent.Mcp.Tests.dll",
+        "passed": 103,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "name": "GnOuGo.Cmd.Mcp.Tests.dll",
+        "passed": 93,
+        "failed": 0,
+        "skipped": 7
+      },
+      {
+        "name": "GnOuGo.Browser.Mcp.Tests.dll",
+        "passed": 48,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "name": "GnOuGo.Agent.Server.Tests.dll",
+        "passed": 650,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "name": "GnOuGo.Document.Mcp.Tests.dll",
+        "passed": 64,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "name": "GnOuGo.KeyVault.Mcp.Tests.dll",
+        "passed": 9,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "name": "GnOuGo.Files.Server.Tests.dll",
+        "passed": 10,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "name": "GnOuGo.DocIngestor.Mcp.Tests.dll",
+        "passed": 7,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "name": "GnOuGo.OtlpCollector.Server.Tests.dll",
+        "passed": 7,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "name": "GnOuGo.GithubCopilot.Mcp.Tests.dll",
+        "passed": 227,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "name": "GnOuGo.GithubCopilot.Core.Tests.dll",
+        "passed": 173,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "name": "GnOuGo.GithubCopilot.E2E.Tests.dll",
+        "passed": 7,
+        "failed": 0,
+        "skipped": 5
+      },
+      {
+        "name": "GnOuGo.Observability.Core.Tests.dll",
+        "passed": 3,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "name": "GnOuGo.Git.Mcp.Tests.dll",
+        "passed": 83,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "name": "GnOuGo.Workspace.Tests.dll",
+        "passed": 30,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "name": "GnOuGo.Mcp.Core.Tests.dll",
+        "passed": 49,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "name": "GnOuGo.Flow.Mermaid.Tests.dll",
+        "passed": 12,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "name": "GnOuGo.Assets.Bears.Tests.dll",
+        "passed": 91,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "name": "GnOuGo.Assets.Animation.Tests.dll",
+        "passed": 42,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "name": "GnOuGo.Assets.Animation.Server.Tests.dll",
+        "passed": 13,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "name": "GnOuGo.Assets.Bears.Server.Tests.dll",
+        "passed": 28,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "name": "GnOuGo.Flow.Planning.Tests.dll",
+        "passed": 937,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "name": "GnOuGo.ProxyCopilot.Server.Tests.dll",
+        "passed": 177,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "name": "GnOuGo.Auth.Core.Tests.dll",
+        "passed": 8,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "name": "GnOuGo.Flow.Persistence.Tests.dll",
+        "passed": 4,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "name": "GnOuGo.Flow.Copilot.Tests.dll",
+        "passed": 5,
+        "failed": 0,
+        "skipped": 0
+      }
+    ]
+  },
+  "logs": {
+    "solution": {
+      "sha256": "b61e3f5db9fb48d0efb7a0e1e12a1dd28918d21a672f873b3ecc639b5e61b63b",
+      "result": "initial failure retained"
+    },
+    "solution-final": {
+      "sha256": "f00ee8654d57a7232bd0086c69565f175aca696eb0fc60b335f85da222ae5437",
+      "result": "passed"
+    },
+    "focused-final": {
+      "sha256": "e4bde8887ab65bc78753b0e07208d602acf2eeffca7ac737719025af673def8a",
+      "result": "passed"
+    },
+    "benchmark-build": {
+      "sha256": "1c864b6329de64fe9fb880467a957124570a9c892bf3d68e5c0511e2ff9cae21",
+      "result": "passed"
+    },
+    "frontend": {
+      "sha256": "93c5bf57d568ffff5437f11b638c508c6b265730118be04abde20f1c9393ed68",
+      "result": "passed"
+    },
+    "pack-AI.Core": {
+      "sha256": "549417f9144508bb0b2c8969daa72d2469af5d4d0280b542c898cd98c8147d95",
+      "result": "passed"
+    },
+    "pack-Flow.Core": {
+      "sha256": "32a8efd6d6864b183fd45918f8b8a5e19ea1a427ce48f84f53c480ba4db158e5",
+      "result": "passed"
+    },
+    "pack-Flow.Planning": {
+      "sha256": "51d92f588002f45336ee914a5b76ad42a308d193ba5617499453f28b67c14813",
+      "result": "passed"
+    },
+    "pack-Flow.Integrations": {
+      "sha256": "f5d91bfdb3a5be820cfceb2dc9c17808188f62a3edbb00036d2ba5b81f9bcca3",
+      "result": "passed"
+    },
+    "pack-Flow.Persistence": {
+      "sha256": "faa931a20793710afe353d9a1ef767365f044eca29a1e68ab18adab006109a1b",
+      "result": "passed"
+    },
+    "aot-publish": {
+      "sha256": "d0e805c7c8e7aaea67b2a86583704345eee65f17ef21ead3f0b116c8a2f06792",
+      "result": "passed"
+    },
+    "aot-smoke": {
+      "sha256": "58d18fa680a7a61dde7fbbc9ac47ee44981e3fcbfeb5101a33e13e88ecc84a34",
+      "result": "passed"
+    },
+    "server-publish": {
+      "sha256": "db1a9e1e13d765ecc4f120ab5a1aed039040d1fc110c2caf7770e6123df3ef51",
+      "result": "passed"
+    },
+    "persistence-smoke": {
+      "sha256": "d7cc8ec7a3dff2ab353e25932595d885ee30f565a6de92f436e3354a2c1d3b88",
+      "result": "passed"
+    }
+  },
+  "paid_calls_at_validation": 0,
+  "historical_benchmarks_modified": false,
+  "toolchains": {
+    "node": "24.20.0",
+    "pnpm": "10.34.5",
+    "python": "3.11.13",
+    "isolation": "temporary toolchain directory; repository pins retained"
+  }
+}

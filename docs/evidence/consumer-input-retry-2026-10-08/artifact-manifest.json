@@ -1,0 +1,24 @@
+{
+  "run": "consumerretry20261008b-amazon-1",
+  "prompt_hash": "d821adb4f1df9e977fb914cdeb9232e4374bb7ae078e51bfac5dc0738d2a97a8",
+  "artifact_hash": "74dcc283cc848642f5ade605b69f613818c1aba5e546c682d7255c73f92f226a",
+  "yaml_sha256": "4d707e1db93451c4cdeb8805b7d944903bc1a9a7151713221faeec59f7938986",
+  "reviewed_revision": 6,
+  "approved_revision": 7,
+  "max_products": 10,
+  "compilation_options": {
+    "generator": {
+      "provider": "OpenAi",
+      "model": "gpt-5.5-2026-04-24"
+    },
+    "compilation_profile": "compact-bindings-v2",
+    "mapping_profile": "adaptive-each-v1"
+  },
+  "frozen_files_sha256": {
+    "tests/GnOuGo.Agent.Planning.Benchmark/LiveWorkflowOracles.cs": "e2d6ddf002b75cfd5ddc5be10852c118e7b9d2a3c3d3875c03a0770de054f62a",
+    "tests/GnOuGo.Agent.Planning.Benchmark/LiveWorkflowEvaluation.cs": "be0407b5ccb33768f13c093d51c6a142a7094c69012085fd108d1c4670f5af5e",
+    "tests/GnOuGo.Agent.Planning.Benchmark/LiveCampaignEvidence.cs": "81a2ab2301e1a252cc3e397c1ce73784d41c34f7b27d6c60d9de0cbe4479f3c4",
+    "src/GnOuGo.Flow.Planning/PlanningPrompt.cs": "c14cd2891c56c5046c5e1fe020136a65e2a6b775c79a5e6d94fe398c1c0686d6",
+    ".agents/skills/gnougo-planning/SKILL.md": "7d8e41856baaf9af5b5f11b212f9aae8e4f777c571aba74bc9bc85aff6da4bec"
+  }
+}

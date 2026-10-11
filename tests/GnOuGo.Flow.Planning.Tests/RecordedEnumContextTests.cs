@@ -29,12 +29,13 @@ public sealed class RecordedEnumContextTests(ITestOutputHelper output)
             state.Discovery.PresentationQuery = compact["presentationQuery"]?.ToString();
             var issued = state.PendingCall!.Request; state.PendingCall = null;
             var retained = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
-            var schema = PlanningSchemas.Proposal(state);
-            var prompt = HybridWorkflowPlanner.BuildPrompt(state, HybridWorkflowPlanner.Shortlist(state, resolvedOnly: true));
+            var presentation = new PlanningPrompt(state);
+            var prompt = presentation.Build(presentation.Shortlist(resolvedOnly: true));
+            var schema = presentation.Schema;
             var estimate = PlanningJsonTransport.EstimateInputTokens(prompt, schema); estimates.Add(estimate);
             Assert.InRange(estimate, 1, state.Request.Generation.MaxInputTokensPerRequest);
             Assert.Equal(retained, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
-            Assert.Equal(schema.ToJsonString(), PlanningSchemas.Proposal(state).ToJsonString());
+            Assert.Equal(schema.ToJsonString(), new PlanningPrompt(state).Request().StructuredOutputSchema!.ToJsonString());
             Assert.Empty(PlanningContractValidation.ValidateSchema(schema, strict: true));
             output.WriteLine($"Call {state.ModelCalls}: complete tokens {PlanningJsonTransport.EstimateInputTokens(issued.Prompt, issued.StructuredOutputSchema!.AsObject())} -> {estimate}; prompt bytes {Encoding.UTF8.GetByteCount(issued.Prompt)} -> {Encoding.UTF8.GetByteCount(prompt)}; schema bytes {Encoding.UTF8.GetByteCount(issued.StructuredOutputSchema.ToJsonString())} -> {Encoding.UTF8.GetByteCount(schema.ToJsonString())}.");
             if (state.ModelCalls == 7)

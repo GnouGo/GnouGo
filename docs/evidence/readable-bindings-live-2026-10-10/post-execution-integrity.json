@@ -1,0 +1,17 @@
+{
+  "candidate": "e18452151b12fc9e978afc6450a8ca495e57d5ef",
+  "artifact_hash": "c8677c56bdd5b5a6924efb70670f500569d933e9dda17fc6f32485796b2e0998",
+  "reviewed_yaml_sha256": "837f018c470b9090d2f424b8131e6b183288a49a4ebbe47327c1ed0f7e901e3d",
+  "frozen_source_binary_and_oracle_hashes_unchanged": {
+    "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Planning.Benchmark.dll": true,
+    "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Flow.Core.dll": true,
+    "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Flow.Planning.dll": true,
+    "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Flow.Persistence.dll": true,
+    "src/GnOuGo.Browser.Mcp/bin/Debug/net10.0/GnOuGo.Browser.Mcp.dll": true,
+    "src/GnOuGo.Document.Mcp/bin/Debug/net10.0/GnOuGo.Document.Mcp.dll": true,
+    "tests/GnOuGo.Agent.Planning.Benchmark/LiveWorkflowEvaluation.cs": true,
+    "tests/GnOuGo.Agent.Planning.Benchmark/LiveWorkflowOracles.cs": true
+  },
+  "historical_replay": false,
+  "execution_count": 1
+}

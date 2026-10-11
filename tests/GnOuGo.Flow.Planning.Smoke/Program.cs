@@ -7,12 +7,253 @@ using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Planning;
 using GnOuGo.Planning.Examples;
 
+if (args is ["--decimal-boundary-host"])
+{
+    var inputSchema = JsonDocument.Parse("""{"type":"object","properties":{"amount":{"type":"number","format":"decimal"},"ordinary":{"type":"number"}},"required":["amount","ordinary"]}""").RootElement.Clone();
+    var numericOutputSchema = JsonDocument.Parse("""{"type":"object","properties":{"result":{"type":"number","format":"decimal"},"ordinary":{"type":"number"}},"required":["result","ordinary"]}""").RootElement.Clone();
+    var options = new ModelContextProtocol.Server.McpServerOptions { ServerInfo = new() { Name = "numeric-smoke", Version = "1" } };
+    options.Handlers.ListToolsHandler = (_, _) => ValueTask.FromResult(new ModelContextProtocol.Protocol.ListToolsResult
+    { Tools = [new() { Name = "exchange", InputSchema = inputSchema, OutputSchema = numericOutputSchema }] });
+    options.Handlers.CallToolHandler = (request, _) =>
+    {
+        var amount = request.Params!.Arguments!["amount"].GetDecimal();
+        var content = new JsonObject { ["result"] = amount + 0.1m, ["ordinary"] = request.Params.Arguments["ordinary"].GetDouble() }.ToJsonString();
+        return ValueTask.FromResult(new ModelContextProtocol.Protocol.CallToolResult
+        { StructuredContent = JsonDocument.Parse(content).RootElement.Clone(), Content = [new ModelContextProtocol.Protocol.TextContentBlock { Text = content }] });
+    };
+    await using var transport = new ModelContextProtocol.Server.StreamServerTransport(Console.OpenStandardInput(), Console.OpenStandardOutput(), "numeric-smoke");
+    await using var server = ModelContextProtocol.Server.McpServer.Create(transport, options);
+    await server.RunAsync();
+    return;
+}
+
+var historicalNumber = JsonSerializer.Deserialize("""{"kind":"number","number":0.1234567890123456789012345678}""", PlanningJsonContext.Default.TaskValue)!;
+if (JsonSerializer.SerializeToNode(historicalNumber, PlanningJsonContext.Default.TaskValue)!["number"]!.ToJsonString() != "0.1234567890123456789012345678")
+    throw new InvalidOperationException("Historical numeric tokens changed during Native AOT serialization.");
+
+// Native publication provides a self-contained executable for a real stdio MCP
+// exchange. Managed runs exercise the same conversions in the integration suite.
+if (!System.Runtime.CompilerServices.RuntimeFeature.IsDynamicCodeSupported)
+{
+    await using var numericFactory = new GnOuGo.Flow.Integrations.ConfiguredMcpClientFactory(new Dictionary<string, GnOuGo.AI.Core.McpServerOptions>
+    { ["numeric-smoke"] = new() { Type = "stdio", Command = Environment.ProcessPath!, Args = ["--decimal-boundary-host"] } });
+    var numericDocument = new WorkflowCompiler().Compile(WorkflowParser.Parse("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: exchange
+                type: mcp.call
+                input: {server: numeric-smoke, method: exchange, request: {amount: 1.25, ordinary: 1e-100}}
+            outputs:
+              amount: "${data.steps.exchange.response.result}"
+              ordinary: "${data.steps.exchange.response.ordinary}"
+        """));
+    var numericResult = await new WorkflowEngine { McpClientFactory = numericFactory }.ExecuteAsync(numericDocument.Workflows["main"], new JsonObject(), CancellationToken.None);
+    if (!numericResult.Success || numericResult.Outputs?["amount"]?.GetValue<double>() != 1.35 || numericResult.Outputs?["ordinary"]?.GetValue<double>() != 1e-100)
+        throw new InvalidOperationException("Published decimal MCP boundary failed: " + numericResult.Error?.Message);
+    Console.WriteLine("numeric MCP: real native stdio decimal input/output conversion; exact producer-owned calculation");
+}
+
+var authoritativePattern = JsonNode.Parse("""{"type":"object","properties":{"path":{"type":"string","pattern":"^(?!blocked)[a-z]+$"}},"required":["path"],"additionalProperties":false}""")!.AsObject();
+var projectedPattern = PlanningContractValidation.ProjectStructuredOutputSchema(authoritativePattern);
+if (projectedPattern["properties"]!["path"]!["pattern"] is not null || authoritativePattern["properties"]!["path"]!["pattern"] is null ||
+    PlanningContractValidation.ValidateSchema(projectedPattern, true).Count != 0 ||
+    PlanningContractValidation.ValidateInstance(new JsonObject { ["path"] = "blocked" }, authoritativePattern).Count == 0)
+    throw new InvalidOperationException("Structured-output projection weakened authoritative pattern validation.");
+Console.WriteLine("schema projection: portable wire, unchanged authoritative restrictions");
+
+foreach (var complete in new[] { true, false })
+{
+    var finalizerPlan = new TaskPlan
+    {
+        Root = new()
+        {
+            Tasks = [new() { Id = "observed", Kind = "value", Objective = "Require the observed business condition",
+                Requires = new() { Kind = "boolean", Boolean = complete }, Outputs = [new("record", new() { Kind = "string", Text = "observed" })] }],
+            Always = [new() { Id = "finalize", Kind = "sequence", Objective = "Preserve available evidence", Body = new()
+            {
+                Tasks = [new() { Id = "collect", Kind = "conditional", Objective = "Read only available observations",
+                    Condition = new() { Kind = "present", Source = "observed" },
+                    Body = new() { Outputs = [new("record", new() { Kind = "output", Source = "observed", Port = "record" })] },
+                    Otherwise = new() { Outputs = [new("record", new() { Kind = "null" })] } }],
+                Outputs = [new("record", new() { Kind = "output", Source = "collect", Port = "record" })],
+                Always = [new() { Id = "release", Kind = "value", Objective = "Finalize after evidence", Outputs = [new("released", new() { Kind = "boolean", Boolean = true })] }]
+            } }]
+        }
+    };
+    finalizerPlan = JsonSerializer.Deserialize(JsonSerializer.Serialize(finalizerPlan, PlanningJsonContext.Default.TaskPlan), PlanningJsonContext.Default.TaskPlan)!;
+    if (finalizerPlan.Root.Tasks[0].Requires?.Boolean != complete) throw new InvalidOperationException("Required condition serialization failed.");
+    var finalizerEngine = new WorkflowEngine();
+    var finalizerCatalog = await new WorkflowPlanningRuntime(finalizerEngine, (_, _) => Task.CompletedTask).DiscoverAsync(new(), CancellationToken.None);
+    var finalizerCompilation = new TaskPlanCompiler().Compile(finalizerPlan, finalizerCatalog);
+    if (finalizerCompilation.Graph is null || finalizerCompilation.Diagnostics.Count != 0 || PlanningExecutableValidation.Validate(finalizerCompilation.Graph, finalizerCatalog).Count != 0)
+        throw new InvalidOperationException("Required condition/finalizer capture compilation failed.");
+    var finalizerDocument = new WorkflowCompiler().Compile(WorkflowParser.Parse(new PlanningGraphCompiler().Compile(finalizerCompilation.Graph, finalizerCatalog)));
+    var finalizerResult = await finalizerEngine.ExecuteAsync(finalizerDocument.Workflows[finalizerDocument.Entrypoint!], new JsonObject(), CancellationToken.None);
+    if (finalizerResult.Success != complete || !complete && finalizerResult.Error?.Code != "INPUT_VALIDATION" ||
+        !finalizerResult.StepResults.Any(r => r.Output?["outputs"] is JsonObject obj && obj.ContainsKey("record") && obj["record"]?.ToString() == (complete ? "observed" : null)))
+        throw new InvalidOperationException("Required condition/finalizer capture execution failed: " + finalizerResult.Error?.Code + ": " + finalizerResult.Error?.Message + "; " + string.Join("; ", finalizerResult.StepResults.Select(r => r.Output?.ToJsonString())));
+}
+Console.WriteLine("required conditions: true/false and guarded ancestor payloads survive Native AOT serialization and execution");
+
+var guardPlan = JsonSerializer.Deserialize("""
+    {"inputs":[{"name":"authorized","type":{"kind":"boolean"}}],"root":{"tasks":[
+      {"id":"route","kind":"conditional","objective":"Use only an authorized action","condition":{"kind":"boolean","boolean":true},
+       "body":{"tasks":[{"id":"perform","objective":"Perform authorized work","operation":"guarded-action","requires":{"kind":"input","source":"authorized"}}]},
+       "otherwise":{}}]}}
+    """, PlanningJsonContext.Default.TaskPlan)!;
+var guardCatalog = new PlanningCatalog { AllowedStepTypes = ["mcp.call", "set", "workflow.call", "switch"],
+    Capabilities = [new() { Id = "guarded-action", Version = "1", StepType = "mcp.call", Kind = "tool", Server = "smoke", Method = "perform",
+        InputSchema = new() { ["type"] = "object" }, OutputSchema = new() { ["type"] = "object" } }] };
+if (new TaskPlanCompiler().Compile(guardPlan, guardCatalog).Diagnostics.Count != 0)
+    throw new InvalidOperationException("Local runtime authorization was rejected by conditional proof logic.");
+guardPlan.Root.Tasks[0].Condition = new() { Kind = "input", Source = "authorized" };
+if (new TaskPlanCompiler().Compile(guardPlan, guardCatalog).Diagnostics.Count != 0)
+    throw new InvalidOperationException("Explicit conditional authorization guard was rejected.");
+Console.WriteLine("conditional entries: runtime requires preserved without automatic guard proof");
+
+var mapped = new GnOuGo.Flow.Core.Scripting.JintSandbox().ExecuteMapping(
+    "({name:m.decode(m.text(source.html,'<h1>([^<]+)</h1>')),amount:source.amount})",
+    JsonNode.Parse("{\"html\":\"<h1>A &amp; B</h1>\",\"amount\":7922816251426433759354395033.5}"), CancellationToken.None);
+if (mapped?["name"]?.ToString() != "A & B" || mapped["amount"]!.ToJsonString() != "7922816251426433759354395033.5")
+    throw new InvalidOperationException("Restricted mapping extraction/decimal preservation failed in Native AOT.");
+var mappingArtifact = new MappingArtifact("smoke", "source", null, GnOuGo.Flow.Core.Scripting.JintSandbox.MappingProfileVersion);
+if (JsonSerializer.Deserialize(JsonSerializer.Serialize(mappingArtifact, MappingArtifactJsonContext.Default.MappingArtifact), MappingArtifactJsonContext.Default.MappingArtifact) != mappingArtifact)
+    throw new InvalidOperationException("Mapping artifact serialization failed.");
+Console.WriteLine("restricted mappings: observed HTML extraction, exact decimals, source-generated artifact serialization");
+var eachDeclaration = new TaskPlan { Root = new() { Tasks = [new() { Id = "extract", Kind = "transform", Mode = "extract", Each = new("pages", "rows") }] } };
+if (JsonSerializer.Deserialize(JsonSerializer.Serialize(eachDeclaration, PlanningJsonContext.Default.TaskPlan), PlanningJsonContext.Default.TaskPlan)!.Root.Tasks[0].Each != new TaskExtractionEach("pages", "rows"))
+    throw new InvalidOperationException("Independent extraction declaration did not survive Native AOT serialization.");
+var eachValues = new GnOuGo.Flow.Core.Scripting.JintSandbox().ExecuteMappingItems("m.text(item,'<h1>([^<]+)</h1>')",
+    JsonNode.Parse("{\"pages\":[\"<h1>first</h1>\",\"<h1>second</h1>\"]}")!.AsObject(), "pages", new JsonObject { ["type"] = "string" });
+if (eachValues.ToJsonString() != "[\"first\",\"second\"]") throw new InvalidOperationException("Independent extraction failed in Native AOT.");
+var repeatedPages = new JsonObject { ["pages"] = new JsonArray(Enumerable.Range(0, 80)
+    .Select(i => (JsonNode?)JsonValue.Create("<h1>row-" + i + "</h1><pre>" + new string('x', 14000) + "</pre>")).ToArray()) };
+var repeatedValues = new GnOuGo.Flow.Core.Scripting.JintSandbox().ExecuteMappingItems("m.text(source.pages,'<h1>([^<]+)</h1>')",
+    repeatedPages, "pages", new JsonObject { ["type"] = "string" });
+if (!repeatedValues.Select(v => v!.GetValue<string>()).SequenceEqual(Enumerable.Range(0, 80).Select(i => "row-" + i)))
+    throw new InvalidOperationException("Repeated extraction exceeded the unchanged sandbox allowance or lost values in Native AOT.");
+Console.WriteLine("collection mappings: independent extraction, ordered complete results, optional declaration serialization");
+
+var compactPlan = JsonSerializer.Deserialize("""
+    {"inputs":[{"name":"rows","type":{"kind":"array","items":{"kind":"object","fields":[{"name":"label"}]}}}],
+     "root":{"tasks":[{"id":"copy","kind":"foreach","objective":"Select labels","items":{"kind":"input","source":"rows"},
+       "body":{"outputs":[{"name":"labels","value":{"kind":"field","port":"label","items":[{"kind":"item"}]}}]}}],
+       "outputs":[{"name":"labels","value":{"kind":"output","source":"copy","port":"labels"}}]}}
+    """, PlanningJsonContext.Default.TaskPlan)!;
+var compactEngine = new WorkflowEngine();
+var compactCatalog = await new WorkflowPlanningRuntime(compactEngine, (_, _) => Task.CompletedTask).DiscoverAsync(new(), CancellationToken.None);
+var compactGraph = new TaskPlanCompiler().Compile(compactPlan, compactCatalog, compactBindings: true, normalExports: true);
+if (compactGraph.Diagnostics.Count != 0) throw new InvalidOperationException("Compact typed compilation failed.");
+var compactYaml = new PlanningGraphCompiler().Compile(compactGraph.Graph!, compactCatalog, "generated", true);
+var compactDoc = new WorkflowCompiler().Compile(WorkflowParser.Parse(compactYaml));
+var compactResult = await compactEngine.ExecuteAsync(compactDoc.Workflows["main"], JsonNode.Parse("{\"rows\":[{\"label\":\"same\"},{\"label\":\"same\"}]}"), CancellationToken.None);
+if (!compactResult.Success || compactDoc.Workflows.Count != 1 || compactDoc.Workflows["main"].Finally.Count != 0 ||
+    compactDoc.Workflows["main"].Steps.Any(s => string.IsNullOrWhiteSpace(s.Description)) || compactYaml.Contains("loop.sequential", StringComparison.Ordinal) ||
+    compactResult.Outputs?["labels"]?.ToJsonString() != "[\"same\",\"same\"]")
+    throw new InvalidOperationException("Compact typed collection failed in Native AOT: " + compactResult.Error?.Message);
+Console.WriteLine("compact bindings: fused collection, zero per-item calls, exact duplicates, no inference");
+
+var indexedPlan = new TaskPlan { Inputs = compactPlan.Inputs, Root = new()
+{
+    Tasks = [new() { Id = "positions", Kind = "foreach", Objective = "Retain original positions", MaxItems = 2000,
+        Items = new() { Kind = "input", Source = "rows" }, Body = new() { Outputs = [new("rows", new() { Kind = "object",
+            Members = [new("position", new() { Kind = "index" }), new("original", new() { Kind = "item" })] })] } }],
+    Outputs = [new("rows", new() { Kind = "output", Source = "positions", Port = "rows" })]
+} };
+var indexedRequest = new PlanningRequest(); indexedRequest.Options["compilation_profile"] = TaskPlanCompiler.CompactProfile;
+var indexedGraph = new TaskPlanCompiler().Compile(indexedPlan, compactCatalog, indexedRequest);
+if (indexedGraph.Diagnostics.Count != 0) throw new InvalidOperationException("Indexed projection compilation failed.");
+var indexedYaml = new PlanningGraphCompiler().Compile(indexedGraph.Graph!, compactCatalog, "generated", true, true, true);
+var indexedDocument = new WorkflowCompiler().Compile(WorkflowParser.Parse(indexedYaml));
+var indexedResult = await compactEngine.ExecuteAsync(indexedDocument.Workflows["main"], new JsonObject
+    { ["rows"] = new JsonArray(Enumerable.Range(0, 1602).Select(_ => (JsonNode)new JsonObject { ["label"] = "same" }).ToArray()) }, CancellationToken.None);
+if (!indexedResult.Success || indexedYaml.Contains("loop.", StringComparison.Ordinal) || indexedResult.Outputs?["rows"] is not JsonArray indexedRows ||
+    !indexedRows.Select(r => r!["position"]!.GetValue<int>()).SequenceEqual(Enumerable.Range(0, 1602)) || indexedRows.Any(r => r!["original"]!["label"]!.ToString() != "same"))
+    throw new InvalidOperationException("Indexed projection lost positions or original values in Native AOT: " + indexedResult.Error?.Message);
+Console.WriteLine("indexed projections: 1602 original positions and records, unchanged expression limits, zero per-record workflow calls");
+
+var consumerGraph = new PlanningGraph { Workflows = [new() { Steps = [
+    new() { Key = "copy", Input = new() { Kind = "object", Members = [new("text", new() { Kind = "string", Text = "observed" })] },
+        OutputSchema = new() { Contract = JsonNode.Parse("""{"type":"object","properties":{"text":{"type":"string"}},"required":["text"],"additionalProperties":false}""")!.AsObject() } },
+    new() { Key = "render", Type = "template.render", Input = new() { Kind = "object", Members = [
+        new("template", new() { Kind = "string", Text = "{{text}}" }), new("data", new() { Kind = "object", Members = [new("text", new() { Kind = "output", Source = "copy", Path = ["text"] })] })] } }
+], Outputs = [new() { Name = "text", Value = new() { Kind = "output", Source = "render", Path = ["text"] } }] }] };
+var consumerYaml = new PlanningGraphCompiler().Compile(consumerGraph, compactCatalog, "consumer", true, true, true);
+var consumerWorkflow = new WorkflowCompiler().Compile(WorkflowParser.Parse(consumerYaml)).Workflows["main"];
+var consumerResult = await compactEngine.ExecuteAsync(consumerWorkflow, new JsonObject(), CancellationToken.None);
+if (consumerWorkflow.Steps.Count != 1 || !consumerResult.Success || consumerResult.Outputs?["text"]?.ToString() != "observed")
+    throw new InvalidOperationException("Checked consumer input failed in Native AOT: " + consumerResult.Error?.Message);
+Console.WriteLine("consumer bindings: checked input, zero materialization steps");
+var nativeYaml = new PlanningGraphCompiler().Compile(consumerGraph, compactCatalog, "consumer", true, true, true, true, true);
+var nativeWorkflow = new WorkflowCompiler().Compile(WorkflowParser.Parse(nativeYaml)).Workflows["main"];
+var nativeResult = await compactEngine.ExecuteAsync(nativeWorkflow, new JsonObject(), CancellationToken.None);
+if (!nativeYaml.Contains("`\n", StringComparison.Ordinal) || !nativeResult.Success || nativeResult.Outputs?["text"]?.ToString() != "observed")
+    throw new InvalidOperationException("Multiline constant checked programs failed in Native AOT: " + nativeResult.Error?.Message);
+Console.WriteLine("v7 native mappings: multiline constant program, checked consumer, unchanged value");
+
+
+var lookupPlan = JsonSerializer.Deserialize("""
+    {"inputs":[{"name":"rows","type":{"kind":"array","items":{"kind":"object","fields":[{"name":"label"}]}}}],
+     "root":{"tasks":[{"id":"resolve","kind":"value","objective":"Reconnect selected original records",
+       "outputs":[{"name":"rows","value":{"kind":"lookup","port":"label","items":[{"kind":"input","source":"rows"},
+         {"kind":"array","items":[{"kind":"string","text":"second"},{"kind":"string","text":"first"},{"kind":"string","text":"second"}]}]}}]}],
+       "outputs":[{"name":"rows","value":{"kind":"output","source":"resolve","port":"rows"}}]}}
+    """, PlanningJsonContext.Default.TaskPlan)!;
+var lookupGraph = new TaskPlanCompiler().Compile(lookupPlan, compactCatalog, compactBindings: true, normalExports: true);
+if (lookupGraph.Diagnostics.Count != 0) throw new InvalidOperationException("Lookup compilation failed: " + string.Join("; ", lookupGraph.Diagnostics.Select(d => d.Code + ": " + d.Message)));
+var lookupDoc = new WorkflowCompiler().Compile(WorkflowParser.Parse(new PlanningGraphCompiler().Compile(lookupGraph.Graph!, compactCatalog)));
+var lookupResult = await compactEngine.ExecuteAsync(lookupDoc.Workflows["main"], JsonNode.Parse("""{"rows":[{"label":"first"},{"label":"second"}]}"""), CancellationToken.None);
+if (!lookupResult.Success || lookupResult.Outputs?["rows"]?.ToJsonString() != """[{"label":"second"},{"label":"first"},{"label":"second"}]""")
+    throw new InvalidOperationException("Lookup lost original records or repeated selections: " + lookupResult.Error?.Message);
+Console.WriteLine("lookup: typed binding, original records, selected order/repeats, zero inference");
+
+
+var flattenPlan = JsonSerializer.Deserialize("""
+    {"inputs":[{"name":"batches","type":{"kind":"array","items":{"kind":"array","items":{"kind":"string","nullable":true}}}}],
+     "root":{"tasks":[{"id":"join","kind":"value","objective":"Join candidate groups once",
+       "outputs":[{"name":"rows","value":{"kind":"flatten","items":[{"kind":"input","source":"batches"}]}}]}],
+       "outputs":[{"name":"rows","value":{"kind":"output","source":"join","port":"rows"}}]}}
+    """, PlanningJsonContext.Default.TaskPlan)!;
+var flattenGraph = new TaskPlanCompiler().Compile(flattenPlan, compactCatalog, compactBindings: true, normalExports: true);
+if (flattenGraph.Diagnostics.Count != 0) throw new InvalidOperationException("Flatten compilation failed.");
+var flattenDoc = new WorkflowCompiler().Compile(WorkflowParser.Parse(new PlanningGraphCompiler().Compile(flattenGraph.Graph!, compactCatalog)));
+var flattenResult = await compactEngine.ExecuteAsync(flattenDoc.Workflows["main"], JsonNode.Parse("{\"batches\":[[],[\"same\",null],[\"same\"]]}"), CancellationToken.None);
+if (!flattenResult.Success || flattenResult.Outputs?["rows"]?.ToJsonString() != "[\"same\",null,\"same\"]")
+    throw new InvalidOperationException("Flatten execution failed in Native AOT: " + flattenResult.Error?.Message);
+Console.WriteLine("flatten: one typed level, empty candidates, null elements and duplicates, zero inference");
+
 // Additive host failure contracts must survive source-generated Native AOT serialization.
 var taskFailure = new AgentTaskResult("failed", null, [], [], new(0, 0, 0))
 { Failure = new() { Code = "AGENT_ISOLATION_REQUIRED", Message = "Mandatory host isolation is not configured." } };
 var restoredFailure = JsonSerializer.Deserialize(JsonSerializer.Serialize(taskFailure, AgentTaskJsonContext.Default.AgentTaskResult), AgentTaskJsonContext.Default.AgentTaskResult)!;
 if (restoredFailure.Failure?.Code != taskFailure.Failure.Code) throw new InvalidOperationException("Agent failure serialization failed");
 Console.WriteLine("agent failure: structured host diagnostic survives source-generated serialization");
+
+// Clarification is a response in the existing planning loop, not a separate model phase.
+var clarificationRuntime = new ClarificationRuntime(); var clarificationPlanner = new HybridWorkflowPlanner();
+var clarificationState = new PlanningSession { Request = new() { TenantId = "smoke", Mode = "auto", Prompt = "Return a value with the intended interface" } };
+clarificationState = await clarificationPlanner.AdvanceAsync(clarificationState, new(), clarificationRuntime, CancellationToken.None);
+clarificationState = JsonSerializer.Deserialize(JsonSerializer.Serialize(clarificationState, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
+if (clarificationState.Status != PlanningStatus.Clarification || clarificationState.Plan is not null || clarificationState.PendingQuestions?.Count != 1)
+    throw new InvalidOperationException("Early clarification did not survive Native AOT recovery.");
+clarificationState = await clarificationPlanner.AdvanceAsync(clarificationState, new() { Kind = "answer", ExpectedRevision = clarificationState.Revision,
+    Answers = [new("interface", Text: "Use no caller inputs")] }, clarificationRuntime, CancellationToken.None);
+if (clarificationRuntime.Calls != 1 || clarificationState.AnswerHistory?.Single().Answers.Single().Text != "Use no caller inputs")
+    throw new InvalidOperationException("Answer was not retained before dispatch.");
+clarificationState = JsonSerializer.Deserialize(JsonSerializer.Serialize(clarificationState, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
+clarificationState = await clarificationPlanner.AdvanceAsync(clarificationState, new() { ExpectedRevision = clarificationState.Revision }, clarificationRuntime, CancellationToken.None);
+PlanningArtifactApproval.Verify(clarificationState);
+if (clarificationState.Status != PlanningStatus.FinalReview || clarificationState.ApprovedHash is not null || clarificationRuntime.Calls != 2)
+    throw new InvalidOperationException("Clarification bypassed review or lost accounting.");
+if (clarificationState.IntentVersion != 2 || clarificationState.OutcomeVersion is not null || clarificationState.OutcomeBindings is not null)
+    throw new InvalidOperationException("Business planning profile did not survive Native AOT recovery.");
+var intentHash = clarificationState.ComputeArtifactHash();
+clarificationState.Requirements!.Summary += " revised";
+if (intentHash == clarificationState.ComputeArtifactHash()) throw new InvalidOperationException("Requirements were not bound to approval.");
+Console.WriteLine("business intent: persisted requirements and approval identity survive Native AOT serialization");
+Console.WriteLine("clarification: auto pause, custom answer, restart, unchanged budget and separate approval passed with deterministic inference");
 
 // A shared location is lowered to an approved literal without an agent dispatch.
 var workspacePlan = JsonSerializer.Deserialize("""
@@ -35,6 +276,24 @@ if (workspaceGraph.Workflows[0].Steps.Single(s => s.Type == "agent.run").Input.M
     PlanningGeneratedGraph.Validate(workspaceGraph, workspaceCatalog).Any()) throw new InvalidOperationException("Workspace scope was not preserved");
 Console.WriteLine("constant workspace: approved literal survives compilation and source-generated serialization; no agent execution");
 
+// Use the real executor contract: an agent payload can contain open objects while
+// evidence, usage and other envelope fields retain their authoritative shapes.
+workspaceCatalog.Capabilities[0].OutputSchema = new GnOuGo.Flow.Core.Runtime.Executors.AgentRunExecutor().Contract.OutputSchema;
+workspacePlan.Root.Outputs = [new("observed", new() { Kind = "output", Source = "work" })];
+var outputCompiled = new TaskPlanCompiler().Compile(workspacePlan, workspaceCatalog);
+var outputGraph = JsonSerializer.Deserialize(JsonSerializer.Serialize(outputCompiled.Graph, PlanningJsonContext.Default.PlanningGraph), PlanningJsonContext.Default.PlanningGraph)!;
+if (outputCompiled.Diagnostics.Count != 0 || PlanningGraphValidation.Validate(outputGraph, workspaceCatalog).Count != 0)
+    throw new InvalidOperationException("Partial operation output contract did not survive serialization");
+var outputSchema = outputGraph.Workflows[0].Outputs[0].Schema.Contract!;
+if (outputSchema["properties"]?["output"]?["type"]?.ToString() != "object" ||
+    outputSchema["properties"]?["output"]?["additionalProperties"]?["x-gnougo-opaque"]?.ToString() != "true")
+    throw new InvalidOperationException("Output schema specialization or nested opacity was lost");
+workspaceCatalog.AllowedStepTypes.AddRange(["human.input", "set", "workflow.call"]);
+PlanningConfirmationGuards.Apply(outputGraph, workspaceCatalog);
+_ = new WorkflowCompiler().Compile(WorkflowParser.Parse(new PlanningGraphCompiler().Compile(outputGraph, workspaceCatalog)));
+Console.WriteLine("operation outputs: approved payload and partial envelope survive source-generated serialization and YAML compilation");
+
+
 foreach (var name in PlanningCorpus.Names)
 {
     var environment = new PlanningBenchmarkCases.Environment(name); var engine = new WorkflowEngine { McpClientFactory = environment.Factory(), HumanInputProvider = new PlanningCorpus.Human() };
@@ -48,7 +307,7 @@ foreach (var name in PlanningCorpus.Names)
         state = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
     }
     if (state.Status != PlanningStatus.FinalReview || state.ModelCalls > state.Request.MaxModelCalls || environment.Effects.Count != 0) throw new InvalidOperationException(JsonSerializer.Serialize(state.Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic));
-    state = await planner.AdvanceAsync(state, new() { Kind = "approve", ExpectedRevision = state.Revision, ArtifactHash = PlanningArtifactApproval.Hash(state) }, runtime, CancellationToken.None);
+    state = await planner.AdvanceAsync(state, new() { Kind = "approve", ReviewedRequirementIds = state.Requirements!.Outcomes.Select(r => r.Id).ToList(), ExpectedRevision = state.Revision, ArtifactHash = PlanningArtifactApproval.Hash(state) }, runtime, CancellationToken.None);
     if (state.Status != PlanningStatus.Approved) throw new InvalidOperationException("Approval failed.");
     var compiled = new WorkflowCompiler().Compile(WorkflowParser.Parse(state.Yaml!));
     var result = await engine.ExecuteAsync(compiled.Workflows[compiled.Entrypoint!], PlanningBenchmarkCases.Inputs(name, "nominal"), CancellationToken.None);
@@ -99,8 +358,8 @@ Console.WriteLine("typed transforms: passed; mocked inference; ordered products 
 var bounded = new PlanningSession { Request = new() { TenantId = "smoke", Prompt = "Return declared data" }, ModelCalls = 6 };
 bounded.Discovery.Sources.Add(new("declared", "Declared source"));
 var boundedSchema = PlanningSchemas.Proposal(bounded);
-var noPlan = new JsonObject { ["requirements"] = new JsonObject { ["summary"] = "Return data", ["outcomes"] =
-    new JsonArray(new JsonObject { ["id"] = "data", ["description"] = "Return declared data" }) }, ["discoveryRequests"] = null, ["plan"] = null };
+var noPlan = new JsonObject { ["requirements"] = new JsonObject { ["summary"] = "Return data", ["outputs"] = new JsonArray(), ["outcomes"] =
+    new JsonArray(new JsonObject { ["id"] = "data", ["description"] = "Return declared data" }), ["inputs"] = null }, ["discoveryRequests"] = null, ["plan"] = null, ["clarifications"] = null };
 if (!PlanningSchemas.AllowsNoPlan(boundedSchema) || PlanningContractValidation.ValidateInstance(noPlan, boundedSchema).Count != 0)
     throw new InvalidOperationException("Closed discovery must permit a safe no-plan response");
 bounded.PendingCall = new() { Id = "retained", Purpose = "tasks", Request = new() { StructuredOutputSchema = boundedSchema } };
@@ -166,6 +425,31 @@ if (!JsonNode.DeepEquals(JsonNode.Parse("""[{"state":"deny"},{"state":"allow"}]"
     throw new InvalidOperationException("Composite scope exports changed their values or order");
 Console.WriteLine("typed field bindings: passed; checked MCP selectors; ordered records and composed exports; no inference");
 
+// A typed collection and a literal empty branch retain their element contract.
+var conditionalRows = JsonSerializer.Deserialize(JsonSerializer.Serialize(fieldPlan, PlanningJsonContext.Default.TaskPlan), PlanningJsonContext.Default.TaskPlan)!;
+conditionalRows.Inputs.Add(new() { Name = "selected", Type = new() { Kind = "boolean" } });
+conditionalRows.Root.Tasks[0].Items = new() { Kind = "output", Source = "choose_rows", Port = "rows" };
+conditionalRows.Root.Tasks.Insert(0, new() { Id = "choose_rows", Kind = "conditional", Objective = "Select rows",
+    Condition = new() { Kind = "input", Source = "selected" },
+    Body = new() { Outputs = [new("rows", new() { Kind = "input", Source = "records" })] },
+    Otherwise = new() { Outputs = [new("rows", new() { Kind = "array" })] } });
+var conditionalRowsGraph = new TaskPlanCompiler().Compile(conditionalRows, encodingCatalog);
+if (conditionalRowsGraph.Graph is null || conditionalRowsGraph.Diagnostics.Count != 0) throw new InvalidOperationException("Conditional array compilation failed");
+var conditionalRowsYaml = new PlanningGraphCompiler().Compile(conditionalRowsGraph.Graph, encodingCatalog);
+if ((await encodingRuntime.ValidateAsync(new(conditionalRowsYaml, new(), encodingCatalog, PlanningGraphCompiler.CapabilityBindings(conditionalRowsGraph.Graph)), CancellationToken.None)).Count != 0)
+    throw new InvalidOperationException("Conditional array validation failed");
+var conditionalRowsDocument = new WorkflowCompiler().Compile(WorkflowParser.Parse(conditionalRowsYaml));
+foreach (var selected in new[] { false, true })
+{
+    selectedStates.Clear();
+    var result = await encodingEngine.ExecuteAsync(conditionalRowsDocument.Workflows["main"], new JsonObject
+        { ["selected"] = selected, ["records"] = new JsonArray(new JsonObject { ["state"] = "deny" }, new JsonObject { ["state"] = "allow" }) }, CancellationToken.None);
+    var expected = selected ? new JsonArray("deny", "allow") : new JsonArray();
+    if (!result.Success || !JsonNode.DeepEquals(expected, result.Outputs!["states"]) || selectedStates.Count != expected.Count)
+        throw new InvalidOperationException("Conditional array execution changed values or ran an empty body");
+}
+Console.WriteLine("conditional arrays: passed; typed and empty branches execute with preserved contracts; no inference");
+
 // Literal null exports use authoritative schemas across conditional boundaries.
 var nullPlan = new TaskPlan { Inputs = [new() { Name = "selected", Type = new() { Kind = "boolean" } }],
     Root = new() { Tasks = [new() { Id = "choose", Kind = "conditional", Objective = "Choose a continuation", Condition = new() { Kind = "input", Source = "selected" },
@@ -230,11 +514,11 @@ Console.WriteLine("catalog-owned bindings: passed; host injection and explicit o
 
 // Patch-only repair is a private wire contract, round-tripped through source generation.
 var repairState = new PlanningSession { Request = new() { TenantId = "smoke", Prompt = "Use the declared business text" },
-    Requirements = new() { Summary = "Use text", Outcomes = [new("text", "Use business text")] }, Plan = ownedPlan, Catalog = ownedCatalog,
+    IntentVersion = 2, Requirements = new() { Summary = "Use text", Inputs = [], Outcomes = [new("text", "Use business text")] }, Plan = ownedPlan, Catalog = ownedCatalog,
     Diagnostics = ownedRejection.Diagnostics.ToList(), RevisionScope = TaskPlanRevisions.Scope(ownedPlan, ownedRejection.Diagnostics).ToList() };
 var repairSchema = PlanningSchemas.Proposal(repairState);
 var repairRequest = new LLMRequest { Prompt = HybridWorkflowPlanner.Prompt(repairState), StructuredOutputSchema = repairSchema };
-var removeOwned = JsonNode.Parse("""{"discoveryRequests":null,"patch":{"edits":[{"slot":"s0","action":"remove"}]}}""")!;
+var removeOwned = JsonNode.Parse("""{"discoveryRequests":null,"clarifications":null,"patch":{"edits":[{"slot":"s0","action":"remove"}]}}""")!;
 if (PlanningContractValidation.ValidateSchema(repairSchema, strict: true).Count != 0 || PlanningContractValidation.ValidateInstance(removeOwned, repairSchema).Count != 0)
     throw new InvalidOperationException("Typed repair schema failed");
 var patchResponse = removeOwned.Deserialize(RepairJsonContext.Default.PlanningRepairResponse)!;
@@ -245,3 +529,100 @@ if (repairedPlan.Root.Tasks[0].Inputs.Any(i => i.Name == "selector") || repairSt
     new TaskPlanCompiler().Compile(repairedPlan, ownedCatalog).Diagnostics.Count != 0)
     throw new InvalidOperationException("Atomic source-generated repair failed");
 Console.WriteLine("typed repair patches: passed; source-generated recovery; owned removal; immutable baseline; no inference");
+
+// Structural replacement must preserve business arguments under Native AOT too.
+repairState.Plan = repairedPlan;
+repairState.Plan.Root.Tasks[0].Operation = "unresolved_operation";
+repairState.Diagnostics = new TaskPlanCompiler().Compile(repairState.Plan, ownedCatalog).Diagnostics.ToList();
+repairState.RevisionScope = TaskPlanRevisions.Scope(repairState.Plan, repairState.Diagnostics).ToList();
+var structuralRequest = new PlanningPrompt(repairState).Request();
+var structuralSlot = PlanningRepairPatch.Slots(repairState, PlanningSchemas.FullProposal(repairState, compact: false)["$defs"]!.AsObject()).Single(s => s.Kind == "task");
+var structuralPatch = new RepairPatch { Edits = [new() { Slot = structuralSlot.Id, Action = "replace_task", Value = JsonNode.Parse("""
+{"id":"work","kind":"operation","objective":"Use the business text","dependsOn":[],"operation":"owned_operation","inputs":[{"name":"text","value":{"kind":"string","text":"business"}}]}
+""") }] };
+structuralPatch = JsonSerializer.Deserialize(JsonSerializer.Serialize(structuralPatch, RepairJsonContext.Default.RepairPatch), RepairJsonContext.Default.RepairPatch)!;
+var structurallyRepaired = PlanningRepairPatch.Apply(repairState, structuralPatch, structuralRequest);
+if (structurallyRepaired.Root.Tasks[0].Operation != "owned_operation" || structurallyRepaired.Root.Tasks[0].Inputs.Single().Value.Text != "business" ||
+    repairState.Plan.Root.Tasks[0].Operation != "unresolved_operation") throw new InvalidOperationException("Structural repair lost authority or business intent");
+Console.WriteLine("structural repair: passed; version-nine authority, preserved arguments and atomic AOT round trip; no inference");
+
+repairState.Plan = structurallyRepaired;
+repairState.Diagnostics.Clear();
+repairState.EditablePaths = ["/tasks/work/inputs/text"];
+repairState.RevisionScope = [.. repairState.EditablePaths];
+TaskPlanRevisions.ValidateEditablePaths(repairState, repairState.EditablePaths);
+repairState = JsonSerializer.Deserialize(JsonSerializer.Serialize(repairState, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
+var targetedRequest = new PlanningPrompt(repairState).Request();
+var targetedPatch = JsonNode.Parse("""{"edits":[{"slot":"s0","action":"replace","value":{"kind":"string","text":"explicit revision"}}]}""")!
+    .Deserialize(RepairJsonContext.Default.RepairPatch)!;
+var targetedPlan = PlanningRepairPatch.Apply(repairState, targetedPatch, targetedRequest);
+if (targetedPlan.Root.Tasks[0].Inputs.Single().Value.Text != "explicit revision" ||
+    repairState.Plan!.Root.Tasks[0].Inputs.Single().Value.Text != "business" || repairState.EditablePaths?.Single() != "/tasks/work/inputs/text")
+    throw new InvalidOperationException("Targeted revision lost its serialized authority or changed the retained baseline");
+Console.WriteLine("targeted revision: passed; optional authority round trip, typed patches and unchanged baseline; no inference");
+
+var adaptiveModel = new AdaptiveSmokeModel();
+var adaptiveStore = new InMemoryWorkflowRunStore();
+var adaptiveEngine = new WorkflowEngine { LLMClient = adaptiveModel, LlmDefaults = new() { Model = "deterministic" },
+    RunStore = adaptiveStore, Limits = new() { TenantId = "smoke", RunId = "adaptive" }, LLMUsageBudget = new(new() { MaxCalls = 3 }) };
+var adaptiveDocument = new WorkflowCompiler().Compile(WorkflowParser.Parse("""
+version: 1
+workflows:
+  main:
+    steps:
+      - id: map
+        type: mapping.dynamic
+        input:
+          sources: {records: '${data.inputs.items}'}
+          objective: Extract each observed label.
+          binding: smoke
+          producer_contract: smoke-v1
+          adaptive_each: true
+          each: {input: records, output: rows}
+        output_schema:
+          type: object
+          properties:
+            value:
+              type: object
+              properties: {rows: {type: array, items: {type: string}}}
+              required: [rows]
+              additionalProperties: false
+          required: [value]
+          additionalProperties: false
+"""));
+var adaptiveResult = await adaptiveEngine.ExecuteAsync(adaptiveDocument.Workflows["main"],
+    JsonNode.Parse("""{"items":[{"label":"a"},{"name":"b"},{"title":"c"}]}"""), CancellationToken.None);
+if (!adaptiveResult.Success || adaptiveModel.Calls != 3 || adaptiveResult.StepResults[0].Output?["value"]?["rows"]?.ToJsonString() != "[\"a\",\"b\",\"c\"]")
+    throw new InvalidOperationException("Native adaptive specialization failed: " + adaptiveResult.Error?.Message);
+var adaptiveSaved = (await adaptiveStore.ReadAsync("smoke", "adaptive", CancellationToken.None))!;
+if (!(await new WorkflowEngine { RunStore = adaptiveStore }.ResumeAsync("smoke", "adaptive", adaptiveSaved.Revision, adaptiveDocument.Workflows["main"], CancellationToken.None)).Success || adaptiveModel.Calls != 3)
+    throw new InvalidOperationException("Native adaptive receipt recovery repeated inference.");
+Console.WriteLine("adaptive mappings: three source-grounded specializations, shared budget, ordered values and durable replay");
+
+sealed class AdaptiveSmokeModel : ILLMClient, ILLMCapabilityResolver
+{
+    internal int Calls;
+    public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct) => Task.FromResult(new LLMResponse
+    { Json = new JsonObject { ["script"] = "item." + new[] { "label", "name", "title" }[Calls++] }, Usage = JsonNode.Parse("""{"input_tokens":20,"output_tokens":10,"total_tokens":30}""")!.AsObject() });
+    public Task<int?> InputTokenAllowanceAsync(string? provider, string model, int outputTokens, CancellationToken ct) => Task.FromResult<int?>(12000);
+    public Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<bool?>(true);
+    public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<IReadOnlyList<string>?>([]);
+}
+
+sealed class ClarificationRuntime : IPlanningRuntime
+{
+    private readonly WorkflowPlanningRuntime _inner = new(new(), (_, _) => Task.CompletedTask);
+    internal int Calls;
+    public ICapabilityCatalog Capabilities => _inner.Capabilities;
+    public Task<PlanningCatalog> DiscoverAsync(PlanningRequest request, CancellationToken ct) => _inner.DiscoverAsync(request, ct);
+    public Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(PlanningArtifactValidationRequest request, CancellationToken ct) => _inner.ValidateAsync(request, ct);
+    public Task<IReadOnlyList<PlanningDiagnostic>> ValidateCatalogAsync(PlanningCatalog catalog, CancellationToken ct) => _inner.ValidateCatalogAsync(catalog, ct);
+    public Task CheckpointAsync(PlanningSession state, CancellationToken ct) => Task.CompletedTask;
+    public Task<LLMResponse> CallAsync(LLMRequest request, string purpose, CancellationToken ct)
+    {
+        var proposal = ++Calls == 1 ? new PlanningProposal { Clarifications = [new("interface", "Which caller interface?", [new("none", "No caller inputs"), new("value", "A caller-supplied value")], "none")] }
+            : new PlanningProposal { Requirements = PlanningCorpus.Requirements("local"), Plan = PlanningCorpus.LiteralResult() };
+        return Task.FromResult(new LLMResponse { Json = PlanningCorpus.Transport(JsonSerializer.SerializeToNode(proposal, PlanningJsonContext.Default.PlanningProposal),
+            request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject()) });
+    }
+}

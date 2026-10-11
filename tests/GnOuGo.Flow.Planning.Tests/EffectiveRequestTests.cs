@@ -29,6 +29,6 @@ public sealed class EffectiveRequestTests
                 [new("action", new() { Kind = "string", Text = variant == "other-branch" ? "second" : "first" }), new("payload", value)] }] } };
         var result = new TaskPlanCompiler().Compile(plan, new() { Capabilities = [capability], AllowedStepTypes = ["mcp.call"] });
         if (valid) { Assert.Empty(result.Diagnostics); Assert.NotNull(result.Graph); }
-        else { Assert.Null(result.Graph); Assert.Contains(result.Diagnostics, d => d.Code == "TASK_INPUT_TYPE" && d.Location == "/tasks/invoke/inputs"); }
+        else { Assert.Null(result.Graph); Assert.Contains(result.Diagnostics, d => d.Code == "TASK_INPUT_TYPE" && d.Location == "/tasks/invoke/inputs/payload"); }
     }
 }

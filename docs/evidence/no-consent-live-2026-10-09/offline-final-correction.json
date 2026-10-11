@@ -1,0 +1,26 @@
+{
+  "run": "noconsent20261009a-amazon-1",
+  "saved_revision": 10,
+  "candidate": "3c765087",
+  "production_reference": "7a76fc95",
+  "production_source_trees_identical": true,
+  "changes": [
+    "/root/tasks/2/outputs/0/value/kind",
+    "/root/tasks/5/body/tasks/1/outputs/0/value/kind",
+    "/root/tasks/5/body/tasks/4/dependsOn",
+    "/root/tasks/5/body/tasks/8/outputs/0/value/kind",
+    "/root/tasks/5/body/tasks/11/body/tasks/1/outputs/0/value/kind",
+    "/root/tasks/5/body/tasks/11/body/tasks/4/dependsOn",
+    "/root/tasks/5/body/tasks/11/body/tasks/5/body/tasks/2/outputs/0/value/kind"
+  ],
+  "replacement": "Five json value kinds replaced by existing one-level flatten; two cross-scope dependsOn entries removed while preserving data references.",
+  "compiler_diagnostics": [],
+  "graph_validation_diagnostics": [],
+  "model_calls": 0,
+  "saved_session_modified": false,
+  "executed": false,
+  "limitations": [
+    "Public compiler-overload replay; no claim of current-profile YAML approval or E2E success.",
+    "Corrected copy was not applied to the exhausted session."
+  ]
+}

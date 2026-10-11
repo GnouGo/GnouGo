@@ -1,0 +1,9 @@
+{
+  "candidate": "8fc8fd0c",
+  "checks": {
+    "browser_local_page": true,
+    "browser_cleanup": true,
+    "xlsx_independent_read": true,
+    "model_calls": 0
+  }
+}

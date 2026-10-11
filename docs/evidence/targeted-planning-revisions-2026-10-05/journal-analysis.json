@@ -1,0 +1,193 @@
+{
+  "payload": {
+    "prompt_characters": 902865,
+    "prompt_utf8_bytes": 902877,
+    "business_input_bytes": 902390,
+    "named_inputs": [
+      {
+        "name": "query",
+        "bytes": 25
+      },
+      {
+        "name": "initialManifestComplete",
+        "bytes": 4
+      },
+      {
+        "name": "initialManifestStatus",
+        "bytes": 242
+      },
+      {
+        "name": "initialPageCompacts",
+        "bytes": 902034
+      }
+    ],
+    "compact_pages": 44,
+    "selected_records": 1223,
+    "per_page_fields": [
+      {
+        "name": "pageComplete",
+        "bytes": 176
+      },
+      {
+        "name": "pageStatus",
+        "bytes": 19228
+      },
+      {
+        "name": "cursor",
+        "bytes": 1838
+      },
+      {
+        "name": "expectedRecordCount",
+        "bytes": 88
+      },
+      {
+        "name": "observedUrl",
+        "bytes": 2904
+      },
+      {
+        "name": "observedTitle",
+        "bytes": 1628
+      },
+      {
+        "name": "selectedRecords",
+        "bytes": 871067
+      }
+    ],
+    "record_fields": [
+      {
+        "name": "kind",
+        "bytes": 7914,
+        "characters": 5468,
+        "max_characters": 7,
+        "unique_values": 4
+      },
+      {
+        "name": "selector",
+        "bytes": 351723,
+        "characters": 290147,
+        "max_characters": 557,
+        "unique_values": 1223
+      },
+      {
+        "name": "group",
+        "bytes": 58499,
+        "characters": 49878,
+        "max_characters": 172,
+        "unique_values": 21
+      },
+      {
+        "name": "text",
+        "bytes": 27583,
+        "characters": 21467,
+        "max_characters": 227,
+        "unique_values": 423
+      },
+      {
+        "name": "href",
+        "bytes": 362936,
+        "characters": 338418,
+        "max_characters": 1501,
+        "unique_values": 558
+      }
+    ],
+    "mapping_source_bytes": 1005332,
+    "mapping_keys": [
+      {
+        "input_keys": [
+          "sources",
+          "objective",
+          "binding",
+          "producer_contract",
+          "each"
+        ],
+        "output_keys": [
+          "value"
+        ]
+      }
+    ]
+  },
+  "run_id": "targetedlive20261005a-amazon-1",
+  "Status": "failed",
+  "Revision": 2360,
+  "StepsStarted": 736,
+  "FinalizationStepsStarted": 3,
+  "FinalizationCompleted": true,
+  "CancelRequested": false,
+  "invocations": 739,
+  "events": 2360,
+  "read_ms": 961,
+  "serialize_ms": 398,
+  "serialized_bytes": 148723254,
+  "fields": {
+    "data_before_bytes": 66511789,
+    "data_after_bytes": 48215424,
+    "resolved_input_bytes": 6802997,
+    "output_bytes": 11207416,
+    "observation_bytes": 1040003
+  },
+  "by_type": [
+    {
+      "type": "set",
+      "count": 547,
+      "context_bytes": 69184776
+    },
+    {
+      "type": "mapping.dynamic",
+      "count": 44,
+      "context_bytes": 6279430
+    },
+    {
+      "type": "workflow.call",
+      "count": 45,
+      "context_bytes": 10025282
+    },
+    {
+      "type": "switch",
+      "count": 46,
+      "context_bytes": 2130566
+    },
+    {
+      "type": "mcp.call",
+      "count": 46,
+      "context_bytes": 12921914
+    },
+    {
+      "type": "llm.call",
+      "count": 7,
+      "context_bytes": 5403579
+    },
+    {
+      "type": "human.input",
+      "count": 1,
+      "context_bytes": 132
+    },
+    {
+      "type": "template.render",
+      "count": 2,
+      "context_bytes": 8713196
+    },
+    {
+      "type": "loop.sequential",
+      "count": 1,
+      "context_bytes": 68338
+    }
+  ],
+  "unresolved_external": [],
+  "error": {
+    "Code": "LLM_BUDGET_EXCEEDED",
+    "Type": "LLM_BUDGET_EXCEEDED",
+    "Message": "Execution request exceeds the campaign input or output allowance. [workflow 'w_81be22d7f1c8baf9', step 'n_2f6b6f5d077b0ec5']",
+    "Retryable": false,
+    "Details": {
+      "dispatch_status": "not_started",
+      "failed_workflow": "w_81be22d7f1c8baf9",
+      "failed_step_id": "n_2f6b6f5d077b0ec5",
+      "failed_step_type": "llm.call",
+      "execution_phase": "step",
+      "workflow": "w_81be22d7f1c8baf9",
+      "step_id": "n_2f6b6f5d077b0ec5",
+      "step_type": "llm.call",
+      "step_status": "Failed"
+    }
+  }
+}

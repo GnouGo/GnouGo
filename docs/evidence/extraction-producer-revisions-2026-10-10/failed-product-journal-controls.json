@@ -1,0 +1,98 @@
+{
+  "status": "failed",
+  "invocation": "/workflow/main/step/n_e84f09f178e937f6/workflow/w_1c73caa08c45c06a/step/n_ce78a3f56bd8b9bf/iteration/7/step/n_01732b621626f078/workflow/w_7e6d4da1eb2d275e/step/n_ae72cd447d18931a",
+  "inputKeys": [
+    "sources",
+    "objective",
+    "binding",
+    "producer_contract",
+    "adaptive_each",
+    "infer_each",
+    "each"
+  ],
+  "controls": {
+    "mapping_adaptive_0": {
+      "indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14
+      ],
+      "failure": null,
+      "source": "f8c99088641e4ecebccb09a349952665d52bf146332069ed60ee7303ef2d4dec",
+      "phase": "generation"
+    },
+    "mapping_adaptive_1": {
+      "indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14
+      ],
+      "failure": "Mapping result $/0/descriptionFact contains a missing or invented scalar. Return observed data; defaults belong to the target contract.",
+      "source": "f8c99088641e4ecebccb09a349952665d52bf146332069ed60ee7303ef2d4dec",
+      "phase": "program_repair"
+    },
+    "mapping_adaptive_2": {
+      "indices": [
+        1
+      ],
+      "failure": "Mapping result $/0/descriptionFact has no observation or valid authoritative default.",
+      "source": "f8c99088641e4ecebccb09a349952665d52bf146332069ed60ee7303ef2d4dec",
+      "phase": "specialization"
+    },
+    "mapping_adaptive_3": {
+      "indices": [
+        2
+      ],
+      "failure": "Mapping result $/0/nameFact has no observation or valid authoritative default.",
+      "source": "f8c99088641e4ecebccb09a349952665d52bf146332069ed60ee7303ef2d4dec",
+      "phase": "specialization"
+    }
+  },
+  "error": {
+    "Code": "CONTRACT_UNSATISFIED",
+    "Type": "CONTRACT_UNSATISFIED",
+    "Message": "The mapping exhausted its cumulative sandbox allowance (allocated_memory). Enforced memory limit: 50000000 bytes.",
+    "Retryable": false,
+    "Details": {
+      "mapping_resource_limit": true,
+      "exhausted_resource": "allocated_memory",
+      "sandbox": {
+        "statements": 946,
+        "statement_limit": 10000,
+        "elapsed_ms": 76.6962,
+        "time_limit_ms": 5000,
+        "allocated_bytes": 53055008,
+        "materialized_bytes": 2454227,
+        "output_bytes": 611,
+        "memory_limit_bytes": 50000000,
+        "nesting_depth": 4,
+        "nesting_limit": 64
+      },
+      "source_index": 2
+    }
+  }
+}

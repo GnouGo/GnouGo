@@ -1,0 +1,11 @@
+{
+  "run": "contractsreview20261004e-code-1",
+  "source": "0cbc626b0e3d3e150f91306d069f0dc7c1a2b200",
+  "working_tree_dirty": false,
+  "compiled": true,
+  "valid": true,
+  "diagnostics": [],
+  "model_calls": 0,
+  "repairs": 0,
+  "saved_session_modified": false
+}

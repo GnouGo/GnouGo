@@ -1,0 +1,162 @@
+{
+  "candidate": "6d2c65c4ecb329cc6da00e2b6b7b05ef930eb0d6",
+  "run": "nativesnapshots20261010a-amazon-1",
+  "max_products": 10,
+  "binaries_and_harness": [
+    {
+      "file": "src/GnOuGo.Browser.Mcp/bin/Debug/net10.0/GnOuGo.Browser.Mcp.dll",
+      "bytes": 414208,
+      "sha256": "8c01b675f2e99a0a73fe4e86bf053963ab2502f162495eca46af1482460c5c66"
+    },
+    {
+      "file": "src/GnOuGo.Document.Mcp/bin/Debug/net10.0/GnOuGo.Document.Mcp.dll",
+      "bytes": 163328,
+      "sha256": "15724aba0abc4c932c9bdaacbc7d86d651695fcda2a31f0541e78968d20b84fa"
+    },
+    {
+      "file": "tests/GnOuGo.Agent.Planning.Benchmark/LiveWorkflowEvaluation.cs",
+      "bytes": 26340,
+      "sha256": "c184cbd99aa2d4fed60f2f01a7e26d34baede6138934c225dffaa91114272d23"
+    },
+    {
+      "file": "tests/GnOuGo.Agent.Planning.Benchmark/LiveWorkflowOracles.cs",
+      "bytes": 13205,
+      "sha256": "e2d6ddf002b75cfd5ddc5be10852c118e7b9d2a3c3d3875c03a0770de054f62a"
+    },
+    {
+      "file": "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.AI.Core.dll",
+      "bytes": 441856,
+      "sha256": "fb52267d1afa97c550662151c42226da3d38de3518375507e7fda383c40ce0f0"
+    },
+    {
+      "file": "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.AI.Local.dll",
+      "bytes": 68096,
+      "sha256": "ae96d687a27939f5d58706af3cf49d3ba64051c504a8e9bfd3676223352a3b19"
+    },
+    {
+      "file": "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Mcp.dll",
+      "bytes": 212480,
+      "sha256": "e5634eb3ee786849b0956847f35c79ab65e9ace2a41f703e98a362a469972ba5"
+    },
+    {
+      "file": "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Planning.Benchmark.dll",
+      "bytes": 467968,
+      "sha256": "41ef9e95e1d928039981a74cd5b2b5a8d83de6e27394d45ecb44069bec788568"
+    },
+    {
+      "file": "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Server.dll",
+      "bytes": 1938944,
+      "sha256": "4c9120ce2fd376fc961f49142fc33b9a39167c08b78b924f53e6f57d2052e963"
+    },
+    {
+      "file": "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Shared.dll",
+      "bytes": 216064,
+      "sha256": "87588378da054b821059511de9977438c20d2be691d46d4bb0c72fd2edc825a1"
+    },
+    {
+      "file": "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Assets.Animation.dll",
+      "bytes": 241664,
+      "sha256": "e11f40dd0020468afad692147b680072cf0b1de197e02653348935040bbff0c8"
+    },
+    {
+      "file": "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Assets.Bears.dll",
+      "bytes": 280576,
+      "sha256": "69a10e1ca3aac7e54de1b434b256a004f48c0668cf992f0f8129e3f0da8cc873"
+    },
+    {
+      "file": "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Auth.Core.dll",
+      "bytes": 20992,
+      "sha256": "4c93f036c56d22932d15be14bc12685178635004a36fcc102c9fd20f138cb715"
+    },
+    {
+      "file": "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Browser.Mcp.dll",
+      "bytes": 414208,
+      "sha256": "8c01b675f2e99a0a73fe4e86bf053963ab2502f162495eca46af1482460c5c66"
+    },
+    {
+      "file": "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Diff.Core.dll",
+      "bytes": 64000,
+      "sha256": "d6ea9196a12d8cedb9921bfa95370e7a1d0956b9d7d874a641631221175a3577"
+    },
+    {
+      "file": "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.DocIngestor.Core.dll",
+      "bytes": 225792,
+      "sha256": "f901ee1581ba8d60802d3379857685bb7a3e688415bb27cae16480e8c36c80e8"
+    },
+    {
+      "file": "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.DocIngestor.Mcp.dll",
+      "bytes": 293376,
+      "sha256": "1b328e397956929f4932ee2c85725d0730bf30c55a6fcb08db094c7665b3db10"
+    },
+    {
+      "file": "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Document.Mcp.dll",
+      "bytes": 163328,
+      "sha256": "15724aba0abc4c932c9bdaacbc7d86d651695fcda2a31f0541e78968d20b84fa"
+    },
+    {
+      "file": "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Files.Server.dll",
+      "bytes": 139264,
+      "sha256": "84ca4124bbf1b62e75653a486df4e79b9dcd025693f549d78269de0a9facf8e3"
+    },
+    {
+      "file": "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Flow.Copilot.dll",
+      "bytes": 16896,
+      "sha256": "b85d884f7af9fbfb2ff7430b22a035a5dd081e67c580abec963f2ec8162dbe32"
+    },
+    {
+      "file": "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Flow.Core.dll",
+      "bytes": 2074624,
+      "sha256": "db545be0058754eecec7d80a7b96f145b6850bc8cff40a7dc9dc6ee84508fe41"
+    },
+    {
+      "file": "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Flow.Integrations.dll",
+      "bytes": 117248,
+      "sha256": "f398c9c7e521cb4f1c51e82491c0abd96191effd63b47688e82d2e61495740b8"
+    },
+    {
+      "file": "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Flow.Mermaid.dll",
+      "bytes": 34304,
+      "sha256": "35c616e0b0c88e47b9e8565284712c5cc63e26370fe0109c17ea742c0cde1a83"
+    },
+    {
+      "file": "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Flow.Persistence.dll",
+      "bytes": 120832,
+      "sha256": "713e620309989ce3a83f33d356ec2ba90a6bae9da1bafdd1f495aa985c58a2d3"
+    },
+    {
+      "file": "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Flow.Planning.dll",
+      "bytes": 893440,
+      "sha256": "ac80273be60c5a3532b95ae505531f0098d3b480fe35803246b04b6d51d4330e"
+    },
+    {
+      "file": "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.KeyVault.Core.dll",
+      "bytes": 147456,
+      "sha256": "3d3952e6498d367462934136f45a78d8e4a6727af52229e0838e75a3578a8608"
+    },
+    {
+      "file": "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.KeyVault.Mcp.dll",
+      "bytes": 119808,
+      "sha256": "d841e0b13a96c8a4bdd06e8a387f64d1077e1d1aa2fce1e00b18af0fd81242d4"
+    },
+    {
+      "file": "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Mcp.Core.dll",
+      "bytes": 47104,
+      "sha256": "dc70f84bdf12ce81ca9c1fdbfd1e9959e394404f6e8b5feea0e2f4112ed91b9f"
+    },
+    {
+      "file": "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Observability.Core.dll",
+      "bytes": 16896,
+      "sha256": "43c96188814699a630787e83c55a8dbe04fcdd91bf7221670606caaa8c1ec129"
+    },
+    {
+      "file": "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.OtlpCollector.Server.dll",
+      "bytes": 531968,
+      "sha256": "37617ebf1f03c69cad89255c9e9fde05426feedfbec84f3136706a43a83b5602"
+    },
+    {
+      "file": "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Workspace.dll",
+      "bytes": 9216,
+      "sha256": "b41c0f9a2e808d1e0f4505d2518d4feefe45d4abd326e7fbe38a08a5bbbc2fa6"
+    }
+  ]
+}

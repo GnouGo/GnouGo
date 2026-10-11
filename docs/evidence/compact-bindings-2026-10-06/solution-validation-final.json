@@ -1,0 +1,215 @@
+{
+  "production_and_harness": "71315a5a",
+  "exit_code": 0,
+  "command": "PLAYWRIGHT_MODULE_PATH=<repository>/src/GnOuGo.Browser.Mcp/bin/Debug/net10.0/.playwright/package/index.mjs dotnet test GnOuGo.Agent.sln -m:1 -warnaserror -p:SkipModelMetadataGeneration=true -p:SkipClientBuild=true",
+  "passed": 4603,
+  "failed": 0,
+  "skipped": 12,
+  "projects": [
+    {
+      "project": "GnOuGo.DocIngestor.Tests.dll",
+      "passed": 89,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "project": "GnOuGo.Diff.Tests.dll",
+      "passed": 52,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "project": "GnOuGo.KeyVault.Core.Tests.dll",
+      "passed": 12,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "project": "GnOuGo.Flow.Tests.dll",
+      "passed": 1111,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "project": "GnOuGo.Flow.Integrations.Tests.dll",
+      "passed": 97,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "project": "GnOuGo.AI.Core.Tests.dll",
+      "passed": 225,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "project": "GnOuGo.AI.Local.Tests.dll",
+      "passed": 14,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "project": "GnOuGo.Agent.Mcp.Tests.dll",
+      "passed": 103,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "project": "GnOuGo.Cmd.Mcp.Tests.dll",
+      "passed": 93,
+      "failed": 0,
+      "skipped": 7
+    },
+    {
+      "project": "GnOuGo.Browser.Mcp.Tests.dll",
+      "passed": 50,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "project": "GnOuGo.Agent.Server.Tests.dll",
+      "passed": 666,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "project": "GnOuGo.Document.Mcp.Tests.dll",
+      "passed": 64,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "project": "GnOuGo.KeyVault.Mcp.Tests.dll",
+      "passed": 9,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "project": "GnOuGo.Files.Server.Tests.dll",
+      "passed": 10,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "project": "GnOuGo.DocIngestor.Mcp.Tests.dll",
+      "passed": 7,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "project": "GnOuGo.OtlpCollector.Server.Tests.dll",
+      "passed": 7,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "project": "GnOuGo.GithubCopilot.Mcp.Tests.dll",
+      "passed": 240,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "project": "GnOuGo.GithubCopilot.Core.Tests.dll",
+      "passed": 173,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "project": "GnOuGo.GithubCopilot.E2E.Tests.dll",
+      "passed": 7,
+      "failed": 0,
+      "skipped": 5
+    },
+    {
+      "project": "GnOuGo.Observability.Core.Tests.dll",
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "project": "GnOuGo.Git.Mcp.Tests.dll",
+      "passed": 83,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "project": "GnOuGo.Workspace.Tests.dll",
+      "passed": 30,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "project": "GnOuGo.Mcp.Core.Tests.dll",
+      "passed": 49,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "project": "GnOuGo.Flow.Mermaid.Tests.dll",
+      "passed": 12,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "project": "GnOuGo.Assets.Bears.Tests.dll",
+      "passed": 91,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "project": "GnOuGo.Assets.Animation.Tests.dll",
+      "passed": 42,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "project": "GnOuGo.Assets.Animation.Server.Tests.dll",
+      "passed": 13,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "project": "GnOuGo.Assets.Bears.Server.Tests.dll",
+      "passed": 28,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "project": "GnOuGo.Flow.Planning.Tests.dll",
+      "passed": 1016,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "project": "GnOuGo.ProxyCopilot.Server.Tests.dll",
+      "passed": 177,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "project": "GnOuGo.Auth.Core.Tests.dll",
+      "passed": 8,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "project": "GnOuGo.Flow.Persistence.Tests.dll",
+      "passed": 17,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "project": "GnOuGo.Flow.Copilot.Tests.dll",
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0
+    }
+  ],
+  "log_sha256": "7c4fe029a032ec06ea4ad7b38655fd1c58f33d9e55f0804a7085cd8dde7f3d0c",
+  "prior_attempt": {
+    "passed": 4603,
+    "failed_tests": 0,
+    "exit_code": 1,
+    "build_error": "xUnit2031 in new guard test; corrected to Assert.Single(predicate), no assertion weakened."
+  }
+}

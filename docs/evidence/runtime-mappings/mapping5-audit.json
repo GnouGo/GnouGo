@@ -1,0 +1,8 @@
+{
+  "run": "mapping5",
+  "passed": 9,
+  "required": 9,
+  "metadata_correction": "Retained manifest has hardcoded profile=1; production SHA 9860dec9 actually uses mapping profile 2. Raw record remains unchanged. Subsequent manifests read the runtime constant.",
+  "cohort_comparison": "Do not compare profile metadata without this correction; new profile 3 gets a new cohort.",
+  "fault_injection": "One separately labelled deterministic response; not a paid or naturally occurring provider failure."
+}

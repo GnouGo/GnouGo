@@ -1,0 +1,46 @@
+{
+  "run": "businesstasks20261009a-amazon-1",
+  "run_revision": 61,
+  "run_status": "failed",
+  "model_calls": 0,
+  "external_actions": 0,
+  "saved_state_modified": false,
+  "historical_yaml_identical": true,
+  "yaml_bytes": 79833,
+  "error": {
+    "code": "CONTRACT_UNSATISFIED",
+    "message": "The mapping exhausted its cumulative sandbox allowance (materialized_memory). Enforced memory limit: 50000000 bytes.",
+    "details": {
+      "mapping_resource_limit": true,
+      "exhausted_resource": "materialized_memory",
+      "sandbox": {
+        "statements": 35,
+        "statement_limit": 1000000,
+        "elapsed_ms": 123.0887,
+        "time_limit_ms": 15000,
+        "allocated_bytes": 76984376,
+        "materialized_bytes": 58751376,
+        "output_bytes": 9934784,
+        "memory_limit_bytes": 50000000,
+        "nesting_depth": 11,
+        "nesting_limit": 64,
+        "shared_memory_limit_bytes": 1000000000,
+        "enforcement_scope": "nested"
+      },
+      "compiled_node": "v0",
+      "location": "task_5f0d604c9f4c965ee1dc7849"
+    }
+  },
+  "observations_unchanged": true,
+  "corrected_yaml_bytes": 75119,
+  "corrected_pages": 54,
+  "exact_original_pages": true,
+  "expected_scalar": true,
+  "boolean_and_enum_checks_passed": true,
+  "corrected_expression_bytes": 1748,
+  "old_expression_bytes": 3007,
+  "corrected_result_hash": "afa20b687d0560725acbc7cfc29dfb59d607f1a67171aa09816b13349f6137b2",
+  "corrected_success": true,
+  "saved_journal_unchanged": true,
+  "saved_session_unchanged": true
+}

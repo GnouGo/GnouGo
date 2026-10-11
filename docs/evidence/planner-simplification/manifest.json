@@ -1,0 +1,201 @@
+{
+  "baseline": "fa02b055cce700e8df02f242de0e1c773fef8401",
+  "candidate": "61b550ef903ae89f9f42bda2db5ab28441140a66",
+  "profile": "offline, deterministic planning and mocked MCP integration; real Flow",
+  "scenarios": [
+    "local",
+    "read_transform",
+    "conditional",
+    "collections",
+    "protected_cleanup"
+  ],
+  "repetitions": 3,
+  "warmupsPerScenario": 1,
+  "model": "deterministic adapter; no provider dispatch",
+  "verifiedTokens": null,
+  "costEUR": 0,
+  "inputTokens": "byte estimate, not provider usage",
+  "sha256": {
+    "docs/evidence/planner-simplification/harness/Program.cs": "8d88f4f7febaded6e9aa740f324ccc016d706e9a80daf05871647808d9b06bcf",
+    "tests/Shared/PlanningCorpus.cs": "27c1b8b327c75b5eee5b4f078dec858d40270a2381858a2710424e4b55aa2ef6",
+    "tests/Shared/PlanningBenchmarkCases.cs": "a25de6fc75d94a06c5dc8fce96d04eb09ba4132caec76f35e7f644912433f998",
+    "docs/evidence/planner-simplification/harness/Measurements.csproj": "b2b3c915a6bef41522698b1849f059ee43155902e433a8923fe76ba6e6b75dd4"
+  },
+  "system": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+  "limits": {
+    "logicalCalls": 8,
+    "repairs": 2,
+    "inputTokensPerRequest": 12000,
+    "outputTokens": 8192
+  },
+  "environment": {
+    "dotnet": "10.0.300",
+    "node": "22.20.0",
+    "pnpm": "10.14.0",
+    "rid": "osx-arm64"
+  },
+  "resultSha256": {
+    "before": "799fabba8b75b2f76b780df2f395477ad3f211299c735326a7a1f658ac860a02",
+    "after": "3fd3418b7c16f1e82630ad9e89723acc64c1bd60e552ea96cf53d3732ecbfd19"
+  },
+  "collectedAtUtc": "2026-10-02",
+  "productionPlanningDiff": {
+    "addedLines": 204,
+    "removedLines": 742,
+    "netLines": -538
+  },
+  "validation": {
+    "baselineSolution": {
+      "passed": 4097,
+      "skipped": 13,
+      "failed": 0,
+      "warningAsError": true
+    },
+    "packages": [
+      "Flow.Core",
+      "Flow.Planning",
+      "Flow.Integrations",
+      "Flow.Copilot",
+      "Flow.Persistence"
+    ],
+    "planningNativeAot": "passed, osx-arm64",
+    "trimmedServerEncryptedPersistence": "passed, osx-arm64",
+    "frontendProductionBuild": "passed",
+    "browser": "passed: recommendations, custom text, keyboard, mobile, reload, legacy revision gate",
+    "packagedCmd": {
+      "passed": 54,
+      "failed": 0
+    },
+    "packagedGitDiscovery": {
+      "passed": 1,
+      "failed": 0
+    },
+    "liveEvaluation": "not dispatched; historical cohorts unchanged",
+    "benchmarkHostBuild": "passed, warning as error; no inference dispatched",
+    "candidateSolution": {
+      "passed": 4042,
+      "skipped": 12,
+      "failed": 0,
+      "projects": 33,
+      "warningAsError": true,
+      "browserEnabled": true
+    },
+    "projects": {
+      "GnOuGo.AI.Core.Tests": {
+        "Passed": 225
+      },
+      "GnOuGo.AI.Local.Tests": {
+        "Passed": 14
+      },
+      "GnOuGo.Agent.Mcp.Tests": {
+        "Passed": 103
+      },
+      "GnOuGo.Agent.Server.Tests": {
+        "Passed": 593
+      },
+      "GnOuGo.Assets.Animation.Server.Tests": {
+        "Passed": 13
+      },
+      "GnOuGo.Assets.Animation.Tests": {
+        "Passed": 42
+      },
+      "GnOuGo.Assets.Bears.Server.Tests": {
+        "Passed": 28
+      },
+      "GnOuGo.Assets.Bears.Tests": {
+        "Passed": 91
+      },
+      "GnOuGo.Auth.Core.Tests": {
+        "Passed": 8
+      },
+      "GnOuGo.Browser.Mcp.Tests": {
+        "Passed": 43
+      },
+      "GnOuGo.Cmd.Mcp.Tests": {
+        "Passed": 93,
+        "NotExecuted": 7
+      },
+      "GnOuGo.Diff.Tests": {
+        "Passed": 52
+      },
+      "GnOuGo.DocIngestor.Mcp.Tests": {
+        "Passed": 7
+      },
+      "GnOuGo.DocIngestor.Tests": {
+        "Passed": 89
+      },
+      "GnOuGo.Document.Mcp.Tests": {
+        "Passed": 63
+      },
+      "GnOuGo.Files.Server.Tests": {
+        "Passed": 10
+      },
+      "GnOuGo.Flow.Copilot.Tests": {
+        "Passed": 5
+      },
+      "GnOuGo.Flow.Integrations.Tests": {
+        "Passed": 85
+      },
+      "GnOuGo.Flow.Mermaid.Tests": {
+        "Passed": 12
+      },
+      "GnOuGo.Flow.Persistence.Tests": {
+        "Passed": 3
+      },
+      "GnOuGo.Flow.Planning.Tests": {
+        "Passed": 777
+      },
+      "GnOuGo.Flow.Tests": {
+        "Passed": 949
+      },
+      "GnOuGo.Git.Mcp.Tests": {
+        "Passed": 83
+      },
+      "GnOuGo.GithubCopilot.Core.Tests": {
+        "Passed": 151
+      },
+      "GnOuGo.GithubCopilot.E2E.Tests": {
+        "Passed": 7,
+        "NotExecuted": 5
+      },
+      "GnOuGo.GithubCopilot.Mcp.Tests": {
+        "Passed": 215
+      },
+      "GnOuGo.KeyVault.Core.Tests": {
+        "Passed": 12
+      },
+      "GnOuGo.KeyVault.Mcp.Tests": {
+        "Passed": 9
+      },
+      "GnOuGo.Mcp.Core.Tests": {
+        "Passed": 43
+      },
+      "GnOuGo.Observability.Core.Tests": {
+        "Passed": 3
+      },
+      "GnOuGo.OtlpCollector.Server.Tests": {
+        "Passed": 7
+      },
+      "GnOuGo.ProxyCopilot.Server.Tests": {
+        "Passed": 177
+      },
+      "GnOuGo.Workspace.Tests": {
+        "Passed": 30
+      }
+    },
+    "skippedTests": [
+      "GnOuGo.GithubCopilot.E2E.Tests.LiveControlledEditingTests.RealModel_InspectsEditsAndVerifiesResults(managed: True, bounded: True, executeTests: True)",
+      "GnOuGo.GithubCopilot.E2E.Tests.LiveControlledEditingTests.RealModel_InspectsEditsAndVerifiesResults(managed: True, bounded: True, executeTests: False)",
+      "GnOuGo.GithubCopilot.E2E.Tests.LivePullRequestReviewTests.ConfiguredOpenAiProvider_CanReviewExactDiffWithoutPublishing",
+      "GnOuGo.GithubCopilot.E2E.Tests.LiveControlledEditingTests.RealModel_InspectsEditsAndVerifiesResults(managed: True, bounded: False, executeTests: True)",
+      "GnOuGo.GithubCopilot.E2E.Tests.LiveControlledEditingTests.RealModel_InspectsEditsAndVerifiesResults(managed: False, bounded: False, executeTests: True)",
+      "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.LaunchInitializationPreservesLeadingScriptDeclarations(script: \"using namespace System\\n[Console]::WriteLine('names\"\u00b7\u00b7\u00b7, expected: \"namespace declaration\", exitCode: 0)",
+      "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.PrivateEofPreservesRepeatedCommandsUnicodeQuotesAndExitCodes(exitCode: 3)",
+      "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.TimeoutAndCancellationTerminateTheChildTree(cancel: False)",
+      "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.DefaultLaunchUsesOnlyTheSelectedShellsBuiltInModulePath",
+      "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.TimeoutAndCancellationTerminateTheChildTree(cancel: True)",
+      "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.PrivateEofPreservesRepeatedCommandsUnicodeQuotesAndExitCodes(exitCode: 0)",
+      "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.LaunchInitializationPreservesLeadingScriptDeclarations(script: \"param([string]$text = 'parameter default'); [Conso\"\u00b7\u00b7\u00b7, expected: \"parameter default\", exitCode: 3)"
+    ]
+  }
+}

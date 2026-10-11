@@ -44,7 +44,11 @@ public sealed record StepStartedStreamData(
 	string StepId,
 	string StepType,
 	int CallDepth,
-	JsonNode? Input);
+	JsonNode? Input)
+{
+	[System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+	public string? Description { get; init; }
+}
 
 public sealed record StepTelemetryEventStreamData(
 	string StepId,

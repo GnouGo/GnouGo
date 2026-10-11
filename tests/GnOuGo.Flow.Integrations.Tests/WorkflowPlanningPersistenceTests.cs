@@ -17,6 +17,34 @@ public sealed class WorkflowPlanningPersistenceTests : IDisposable
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
     private WorkflowPlanningRuntimeFactory Factory() => new(new KeyVaultRecordStore(Path.Combine(_directory, "keyvault.db")), Path.Combine(_directory, "leases"));
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task RetiredGuardRepairSettlesOnlyItsVerifiedReceipt(bool interrupted)
+    {
+        var client = new Client { Fail = interrupted }; LLMRequest request;
+        await using (var session = await Factory().OpenAsync(Context(client), Initial(), Ct))
+        {
+            request = Request(session.Session, "retired");
+            session.Session.IntentVersion = 2;
+            session.Session.Diagnostics.Add(new("TASK_CONDITIONAL_REQUIREMENT", "/tasks/route/condition", "Retained proof repair"));
+            session.Session.PendingCall = new() { Id = request.ClientRequestId!, Purpose = "replan", Request = request };
+            await session.Runtime.CheckpointAsync(session.Session, Ct);
+            if (interrupted) await Assert.ThrowsAsync<IOException>(() => session.Runtime.CallAsync(request, "replan", Ct));
+            else await session.Runtime.CallAsync(request, "replan", Ct);
+        }
+        await using (var restored = await Factory().OpenAsync(Context(client), Initial(), Ct))
+        {
+            Assert.True(restored.Session.RequiresPlanningRevision);
+            Assert.Equal(interrupted, restored.Session.PendingCall is not null);
+            Assert.Equal(1, restored.Session.Usage!.Calls);
+            Assert.Null(restored.Session.Plan);
+            Assert.Single(restored.Session.Diagnostics, d => d.Code == "TASK_CONDITIONAL_REQUIREMENT");
+            if (!interrupted) Assert.Equal(PlanningStatus.Stopped, restored.Session.Status);
+        }
+        Assert.Equal(1, client.Calls);
+    }
+
     [Fact]
     public async Task CompletedRequestReplaysFromEncryptedStorageAfterRestartWithoutChargingAgain()
     {

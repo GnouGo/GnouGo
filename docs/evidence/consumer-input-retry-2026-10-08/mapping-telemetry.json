@@ -1,0 +1,34 @@
+[
+  {
+    "gnougo.mapping.source_items": 54,
+    "gnougo.mapping.model_attempts": 1,
+    "gnougo.mapping.specializations": 0,
+    "gnougo.mapping.cache_hits": 0,
+    "gnougo.mapping.cache_hit": false,
+    "gnougo.mapping.failure_groups": 11,
+    "gnougo.mapping.sample_items": 3,
+    "gnougo.mapping.omitted_items": 51,
+    "gnougo.mapping.request_bytes": 72075,
+    "gnougo.mapping.processed_items": 54,
+    "gnougo.mapping.validated_items": 54,
+    "step": "n_0b2ad3ad78eb3a8d",
+    "status": "Succeeded",
+    "duration_ms": 36667.2357
+  },
+  {
+    "gnougo.mapping.source_items": 54,
+    "gnougo.mapping.model_attempts": 1,
+    "gnougo.mapping.specializations": 0,
+    "gnougo.mapping.cache_hits": 0,
+    "gnougo.mapping.cache_hit": false,
+    "gnougo.mapping.failure_groups": 11,
+    "gnougo.mapping.sample_items": 3,
+    "gnougo.mapping.omitted_items": 51,
+    "gnougo.mapping.request_bytes": 50952,
+    "gnougo.mapping.processed_items": 54,
+    "gnougo.mapping.validated_items": 54,
+    "step": "n_5a01848fcc913a84",
+    "status": "Succeeded",
+    "duration_ms": 48589.4707
+  }
+]

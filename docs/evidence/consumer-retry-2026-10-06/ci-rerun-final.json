@@ -1,0 +1,125 @@
+{
+  "attempt": 2,
+  "conclusion": "success",
+  "databaseId": 37444588607,
+  "headSha": "716d4b5510a3759fb54283eb1e9d6476b0adcc5e",
+  "jobs": [
+    {
+      "completedAt": "2026-10-06T10:09:10Z",
+      "conclusion": "success",
+      "databaseId": 112209414928,
+      "name": "validate",
+      "startedAt": "2026-10-06T09:49:05Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-10-06T09:49:08Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-06T09:49:06Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-06T09:49:10Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@v7.0.1",
+          "number": 2,
+          "startedAt": "2026-10-06T09:49:08Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-06T09:49:11Z",
+          "conclusion": "success",
+          "name": "Run actions/setup-dotnet@v6.0.0",
+          "number": 3,
+          "startedAt": "2026-10-06T09:49:10Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-06T09:49:17Z",
+          "conclusion": "success",
+          "name": "Run ./.github/actions/ensure-otlp-protos",
+          "number": 4,
+          "startedAt": "2026-10-06T09:49:11Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-06T09:49:54Z",
+          "conclusion": "success",
+          "name": "Prepare local browser execution",
+          "number": 5,
+          "startedAt": "2026-10-06T09:49:17Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-06T10:05:49Z",
+          "conclusion": "success",
+          "name": "Test planner, runtime and host integration",
+          "number": 6,
+          "startedAt": "2026-10-06T09:49:54Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-06T10:06:45Z",
+          "conclusion": "success",
+          "name": "Pack independently publishable Flow libraries",
+          "number": 7,
+          "startedAt": "2026-10-06T10:05:49Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-06T10:06:58Z",
+          "conclusion": "success",
+          "name": "Build isolated live benchmark host",
+          "number": 8,
+          "startedAt": "2026-10-06T10:06:45Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-06T10:08:18Z",
+          "conclusion": "success",
+          "name": "Publish and run Native AOT smoke",
+          "number": 9,
+          "startedAt": "2026-10-06T10:06:58Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-06T10:09:07Z",
+          "conclusion": "success",
+          "name": "Verify published Git MCP path contract",
+          "number": 10,
+          "startedAt": "2026-10-06T10:08:18Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-06T10:09:07Z",
+          "conclusion": "success",
+          "name": "Post Run actions/setup-dotnet@v6.0.0",
+          "number": 19,
+          "startedAt": "2026-10-06T10:09:07Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-06T10:09:07Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@v7.0.1",
+          "number": 20,
+          "startedAt": "2026-10-06T10:09:07Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-06T10:09:07Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 21,
+          "startedAt": "2026-10-06T10:09:07Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/GnouGo/GnouGo/actions/runs/37444588607/job/112209414928"
+    }
+  ],
+  "status": "completed",
+  "url": "https://github.com/GnouGo/GnouGo/actions/runs/37444588607"
+}

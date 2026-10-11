@@ -1,0 +1,34 @@
+[
+  {
+    "code": "TASK_LOOKUP_INVALID",
+    "location": "/tasks/home_selected_offered_records/outputs/records",
+    "message": "Lookup requires typed records, a literal declared identity field and compatible string or integer selections.",
+    "required": true,
+    "validationStage": null,
+    "rule": null
+  },
+  {
+    "code": "TASK_DEPENDENCY_UNKNOWN",
+    "location": "/tasks/home_selected_search_records/dependsOn",
+    "message": "Dependencies home_records_value must name preceding tasks in scope /tasks/search_sequence/body. Ancestor values may be captured without cross-scope dependsOn entries. Consumer scope: /tasks/search_sequence/body; phase: tasks. Producer 'home_records_value': scope /root; phase: tasks.",
+    "required": true,
+    "validationStage": null,
+    "rule": null
+  },
+  {
+    "code": "TASK_LOOKUP_INVALID",
+    "location": "/tasks/selected_product_offered_records/outputs/records",
+    "message": "Lookup requires typed records, a literal declared identity field and compatible string or integer selections.",
+    "required": true,
+    "validationStage": null,
+    "rule": null
+  },
+  {
+    "code": "TASK_DEPENDENCY_UNKNOWN",
+    "location": "/tasks/selected_product_records/dependsOn",
+    "message": "Dependencies search_records_value must name preceding tasks in scope /tasks/products_sequence/body. Ancestor values may be captured without cross-scope dependsOn entries. Consumer scope: /tasks/products_sequence/body; phase: tasks. Producer 'search_records_value': scope /tasks/search_sequence/body; phase: tasks.",
+    "required": true,
+    "validationStage": null,
+    "rule": null
+  }
+]

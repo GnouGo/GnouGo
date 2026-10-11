@@ -1,0 +1,56 @@
+{
+  "id": "schema-portability-20261002:repairvocabulary20261009a-amazon-1:3:b2f5eaabec3d57fc51e4dad5408231b1cd3663b48244fd42a71d0ce387520567",
+  "response": {
+    "discoveryRequests": null,
+    "patch": {
+      "edits": [
+        {
+          "slot": "s0",
+          "action": "replace",
+          "value": {
+            "kind": "object",
+            "fields": [
+              {
+                "name": "nom",
+                "type": {
+                  "kind": "string"
+                }
+              },
+              {
+                "name": "description",
+                "type": {
+                  "kind": "string"
+                }
+              },
+              {
+                "name": "prix",
+                "type": {
+                  "kind": "string"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "slot": "s1",
+          "action": "replace",
+          "value": {
+            "kind": "output",
+            "source": "scrape_products",
+            "port": "rows"
+          }
+        },
+        {
+          "slot": "s2",
+          "action": "replace",
+          "value": {
+            "kind": "output",
+            "source": "extract_product_row",
+            "port": null
+          }
+        }
+      ]
+    },
+    "clarifications": null
+  }
+}

@@ -7,23 +7,23 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class ArtifactProjectionTests
 {
     [Theory]
-    [InlineData("value.project")]
-    [InlineData("value.validate")]
-    [InlineData("array.project")]
+    [InlineData("field")]
+    [InlineData("whole")]
+    [InlineData("each")]
     public async Task CheckedIdentityPreservingOperationsKeepProvenance(string type)
     {
         var (_, catalog) = await TaskArtifactBindingTests.Fixture();
         var original = PlanningCorpus.Ref("output", "origin", "handle");
-        var array = type == "array.project";
-        var projection = new PlanningNode { Key = "select", Type = type, Input = type switch
+        var array = type == "each";
+        var projection = new PlanningNode { Key = "select", Type = "set", Input = type switch
         {
-            "value.validate" => PlanningCorpus.Obj(("value", original)),
-            "array.project" => PlanningCorpus.Obj(("items", new() { Kind = "array", Items = [PlanningCorpus.Obj(("kept", original))] }), ("path", Path("kept"))),
-            _ => PlanningCorpus.Obj(("value", PlanningCorpus.Obj(("kept", original))), ("paths", new() { Kind = "array", Items = [Path("kept")] }))
+            "whole" => PlanningCorpus.Projection(("value", original), ("paths", new() { Kind = "array", Items = [Path()] })),
+            "each" => PlanningCorpus.Projection(("value", new() { Kind = "array", Items = [PlanningCorpus.Obj(("kept", original))] }), ("paths", new() { Kind = "array", Items = [Path("kept")] }), ("each", new() { Kind = "boolean", Boolean = true })),
+            _ => PlanningCorpus.Projection(("value", PlanningCorpus.Obj(("kept", original))), ("paths", new() { Kind = "array", Items = [Path("kept")] }))
         }, OutputSchema = new() { Contract = JsonNode.Parse(array
-            ? """{"type":"object","required":["values"],"properties":{"values":{"type":"array","items":{"type":"string"}}}}"""
+            ? """{"type":"object","required":["value"],"properties":{"value":{"type":"array","items":{"type":"string"}}}}"""
             : """{"type":"object","required":["value"],"properties":{"value":{"type":"string"}}}""")!.AsObject() } };
-        var selected = PlanningCorpus.Ref("output", "select", array ? ["values", "0"] : ["value"]);
+        var selected = PlanningCorpus.Ref("output", "select", array ? ["value", "0"] : ["value"]);
         var graph = new PlanningGraph { Workflows = [new() { Steps = [
             new() { Key = "origin", Type = "mcp.call", CapabilityId = "allocate", Input = PlanningCorpus.Obj(("request", PlanningCorpus.Obj())) },
             projection,
@@ -43,7 +43,7 @@ public sealed class ArtifactProjectionTests
     public async Task EveryProjectionAlternativeMustProveItsOriginAndCyclesFailClosed()
     {
         var (_, catalog) = await TaskArtifactBindingTests.Fixture();
-        var projection = new PlanningNode { Key = "select", Type = "value.project", Input = PlanningCorpus.Obj(
+        var projection = new PlanningNode { Key = "select", Type = "set", Input = PlanningCorpus.Projection(
             ("value", PlanningCorpus.Obj(("first", PlanningCorpus.Ref("output", "origin", "handle")), ("second", PlanningCorpus.Text("invented")))),
             ("paths", new() { Kind = "array", Items = [Path("first"), Path("second")] })),
             OutputSchema = new() { Contract = JsonNode.Parse("""{"type":"object","required":["value"],"properties":{"value":{"type":"string"}}}""")!.AsObject() } };

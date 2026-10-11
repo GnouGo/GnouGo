@@ -1,0 +1,49 @@
+{
+  "run": "physicaloutputs20261010a-amazon-1",
+  "revision": 2,
+  "artifact_hash": "62eab0248da21a00a7a9e8ce2c94d2834b2da3d130e7482e8b6081e573dc3956",
+  "compilation": "passed",
+  "execution": "not_started",
+  "approval": "not_requested_due_to_review_findings",
+  "findings": [
+    {
+      "tasks": [
+        "detectConsentAndSearchState",
+        "acceptCookiesIfOffered",
+        "clickAcceptCookies"
+      ],
+      "problem": "Unrequested consent work introduced by model; not present in accepted requirements or harness objective."
+    },
+    {
+      "tasks": [
+        "detectConsentAndSearchState",
+        "extractProductLinks",
+        "extractProductData"
+      ],
+      "problem": "Whole snapshot input without independent page extraction; no explicit each declaration."
+    },
+    {
+      "tasks": [
+        "extractProductLinks"
+      ],
+      "problem": "Source-grounded extraction also selects first ten products and generates ranks; no explicit ID selection and deterministic reconnection."
+    },
+    {
+      "tasks": [
+        "openSearchPage",
+        "readSearchResults",
+        "extractProductLinks",
+        "openProductPage",
+        "extractProductData"
+      ],
+      "problem": "No explicit local requires checking producer success and original completeness metadata."
+    },
+    {
+      "tasks": [
+        "assembleWorkbookTsv"
+      ],
+      "problem": "Public completed derives from formatter-generated boolean rather than verified writing and preceding work."
+    }
+  ],
+  "next_action": "Existing explicit revision inside the authorized planning session; cumulative allowances preserved. No production source changes."
+}

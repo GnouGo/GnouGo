@@ -1,0 +1,68 @@
+using System.Diagnostics;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using GnOuGo.Flow.Core.Compilation;
+using GnOuGo.Flow.Core.Models;
+using GnOuGo.Flow.Core.Parsing;
+using GnOuGo.Flow.Core.Planning;
+using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Flow.Persistence;
+var vault=EncryptedWorkflowRunStore.CreateWorkspace(baseDirectory:args[0]);
+var retained=await vault.ReadAsync("benchmark","extractproducer20261010a-amazon-1")??throw new Exception("Missing retained run");
+var mapping=retained.Invocations.Values.Single(i=>i.StepType=="mapping.dynamic"&&i.Id.Contains("/iteration/7/"));
+var savedInput=mapping.ResolvedInput!.DeepClone();
+var script=retained.Invocations[mapping.Id+"/mapping/0"].Output!["json"]!["script"]!.GetValue<string>();
+var doc=WorkflowParser.Parse(await File.ReadAllTextAsync(args[1]));
+var target=doc.Workflows.Values.SelectMany(w=>w.Steps).Single(s=>s.Id==mapping.Id.Split('/')[^1]).OutputSchema!;
+var isolated=new WorkflowDocument{Workflows=new(){["main"]=new(){Steps=[new(){Id="map",Type="mapping.dynamic",Input=JsonValue.Create("${data.inputs.mapping}"),OutputSchema=target.DeepClone()}]}}};
+var compiled=new WorkflowCompiler().Compile(isolated).Workflows["main"];
+var pages=savedInput["sources"]![savedInput["each"]!["input"]!.GetValue<string>()]!.AsArray();
+var expected=new JsonArray();
+foreach(var page in pages){var facts=new JsonArray();foreach(var record in page!["records"]!.AsArray()){
+ var text=record!["text"]!.GetValue<string>();var selector=record["selector"]!.GetValue<string>();
+ bool name=selector=="#title";
+ bool description=new[]{"#feature-bullets","#productDescription","#productFacts","#detailBullets","#productOverview","#poExpander","#prodDetails","#inline-twister-expanded-dimension-text-"}.Any(p=>selector.StartsWith(p,StringComparison.Ordinal));
+ bool price=selector=="#apex-pricetopay-accessibility-label"||selector.StartsWith("#corePriceDisplay_desktop_feature_div",StringComparison.Ordinal)||selector=="#price-block-amount"||selector.StartsWith("#price-block-amount ",StringComparison.Ordinal)||selector.StartsWith("#price-block-amount>",StringComparison.Ordinal);
+ if(!string.IsNullOrWhiteSpace(text)&&(name||description||price))facts.Add(new JsonObject{["nameFact"]=name?text:null,["descriptionFact"]=description?text:null,["priceFact"]=price?text:null,["errorFact"]=null});
+}expected.Add(facts);}
+var before=Hash(savedInput.ToJsonString()); var cache=new Cache();var model=new SavedModel(script);var measurements=new JsonArray();
+foreach(var phase in new[]{"cold","warm"}) {
+ var telemetry=new Metrics();var journal=new InMemoryWorkflowRunStore();
+ var engine=new WorkflowEngine{LLMClient=phase=="cold"?model:null,MappingArtifacts=cache,RunStore=journal,Telemetry=telemetry,LlmDefaults=new(){Model="saved-response-only"},LLMUsageBudget=new(new(){MaxCalls=1}),Limits=new(){TenantId="offline-null-replay",RunId=phase,MaxMappingInputTokens=96000}};
+ var start=GC.GetTotalAllocatedBytes(true);var watch=Stopwatch.StartNew();
+ var result=await engine.ExecuteAsync(compiled,new JsonObject{["mapping"]=savedInput.DeepClone()},CancellationToken.None);watch.Stop();
+ var output=result.StepResults.Single(r=>r.StepId=="map").Output?["value"]?["facts"];
+ var saved=(await journal.ReadAsync("offline-null-replay",phase))!;
+ var matches=result.Success&&JsonNode.DeepEquals(expected,output);
+ measurements.Add(new JsonObject{["phase"]=phase,["success"]=result.Success,["error"]=JsonSerializer.SerializeToNode(result.Error),["independent_expected_output_matches"]=matches,
+ ["output_pages"]=(output as JsonArray)?.Count,["output_fact_records"]=(output as JsonArray)?.Sum(p=>p!.AsArray().Count),["elapsed_ms"]=watch.Elapsed.TotalMilliseconds,["total_managed_allocated_bytes"]=GC.GetTotalAllocatedBytes(true)-start,
+ ["saved_response_consumptions"]=model.Calls,["sandbox_and_mapping"]=JsonSerializer.SerializeToNode(telemetry.Attributes),["control_phases"]=new JsonArray(saved.Invocations["/workflow/main/step/map"].Control.Where(p=>p.Key.StartsWith("mapping_adaptive_")&&p.Key!="mapping_adaptive_cache").Select(p=>p.Value?["phase"]?.DeepClone()).ToArray())});
+ if(!matches){Console.WriteLine(measurements.ToJsonString(new(){WriteIndented=true}));throw new Exception("Offline replay gate failed");}
+}
+if(before!=Hash(savedInput.ToJsonString())||model.Calls!=1)throw new Exception("Replay modified sources or reused inference");
+Console.WriteLine(new JsonObject{["provider_calls"]=0,["mcp_calls"]=0,["historical_run_resumed"]=false,["live_storage_writes"]=0,["source_pages"]=pages.Count,["source_records"]=pages.Sum(p=>p!["records"]!.AsArray().Count),["input_sha256"]=before,["original_script_sha256"]=Hash(script),["source_unchanged"]=true,["measurements"]=measurements}.ToJsonString(new(){WriteIndented=true}));
+static string Hash(string text)=>Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(text))).ToLowerInvariant();
+sealed class SavedModel(string script):ILLMClient,ILLMCapabilityResolver{
+ public int Calls{get;private set;}
+ public Task<int?> InputTokenAllowanceAsync(string? p,string m,int o,CancellationToken c)=>Task.FromResult<int?>(96000);
+ public Task<bool?> SupportsStructuredOutputAsync(string? p,string m,CancellationToken c)=>Task.FromResult<bool?>(true);
+ public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? p,string m,CancellationToken c)=>Task.FromResult<IReadOnlyList<string>?>([]);
+ public Task<LLMResponse> CallAsync(LLMRequest r,CancellationToken c){if(++Calls!=1)throw new Exception("No second retained response authorized");return Task.FromResult(new LLMResponse{Json=new JsonObject{["script"]=script},Usage=new JsonObject{["input_tokens"]=0,["output_tokens"]=0,["total_tokens"]=0}});}
+}
+sealed class Cache:IMappingArtifactStore{
+ readonly Dictionary<(string,string),MappingArtifact> values=[];
+ public Task<MappingArtifact?> ReadAsync(string tenant,string key,CancellationToken c)=>Task.FromResult(values.GetValueOrDefault((tenant,key)));
+ public Task WriteAsync(string tenant,MappingArtifact a,CancellationToken c){values[(tenant,a.Key)]=a;return Task.CompletedTask;}
+ public Task RemoveAsync(string tenant,string key,CancellationToken c){values.Remove((tenant,key));return Task.CompletedTask;}
+}
+sealed class Metrics:IWorkflowTelemetry,IStepSpan{
+ public Dictionary<string,object?> Attributes{get;}=[];
+ public IWorkflowSpan WorkflowStart(WorkflowTelemetryInfo i)=>NullTelemetrySpan.Instance;
+ public void WorkflowEnd(IWorkflowSpan s,WorkflowResultInfo r){}
+ public IStepSpan StepStart(ITelemetrySpan s,StepTelemetryInfo i)=>this;
+ public void StepEnd(IStepSpan s,StepResultInfo r){}
+ public void SetAttribute(string key,object? value){if(key.StartsWith("gnougo.mapping."))Attributes[key]=value;}
+ public void Dispose(){}
+}

@@ -1,5 +1,7 @@
 # Checked enum bindings and complete MCP responses
 
+> Historical evidence: executor names below describe the implementation at collection time. See [current .NET primitive migration](flow-runtime-primitives.md); retained measurements and recordings are unchanged.
+
 This pass continues `feat/flow-hybrid-planning-v9` from `deef18c`, tracked by [issue #112](https://github.com/GnouGo/GnouGo/issues/112) and [draft PR #113](https://github.com/GnouGo/GnouGo/pull/113). TaskPlan, public contracts, approval/recovery protections, planning format 10 and execution journal schema 9 are unchanged.
 
 ## Reproduction

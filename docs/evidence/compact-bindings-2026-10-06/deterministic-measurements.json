@@ -1,0 +1,70 @@
+{
+  "candidate": "0348550a2d376fda5827f2994c3326797ef5b15e",
+  "measurement": "deterministic local execution; no provider inference",
+  "same_guarded_loop_fixture": [
+    {
+      "compact": false,
+      "count": 4,
+      "yaml_bytes": 14461,
+      "workflows": 3,
+      "invocations": 48,
+      "collected_bytes": 229486,
+      "snapshot_bytes": 2358464,
+      "model_calls": 0,
+      "execution_oracle": true
+    },
+    {
+      "compact": false,
+      "count": 8,
+      "yaml_bytes": 14461,
+      "workflows": 3,
+      "invocations": 88,
+      "collected_bytes": 1450586,
+      "snapshot_bytes": 13185824,
+      "model_calls": 0,
+      "execution_oracle": true
+    },
+    {
+      "compact": true,
+      "count": 4,
+      "yaml_bytes": 17691,
+      "workflows": 5,
+      "invocations": 50,
+      "collected_bytes": 1898,
+      "snapshot_bytes": 283010,
+      "model_calls": 0,
+      "execution_oracle": true
+    },
+    {
+      "compact": true,
+      "count": 8,
+      "yaml_bytes": 17691,
+      "workflows": 5,
+      "invocations": 90,
+      "collected_bytes": 3794,
+      "snapshot_bytes": 698226,
+      "model_calls": 0,
+      "execution_oracle": true
+    }
+  ],
+  "typed_copy_fixture": {
+    "legacy_yaml_chars_sequential": 13765,
+    "legacy_yaml_chars_parallel": 13815,
+    "compact_yaml_chars": 11737,
+    "legacy_workflows": 3,
+    "compact_workflows": 1,
+    "per_item_invocations": 0,
+    "model_calls": 0
+  },
+  "historical_r8_recompile_without_execution": {
+    "original_yaml_bytes": 170243,
+    "compact_yaml_bytes": 189294,
+    "original_workflows": 18,
+    "compact_workflows": 17,
+    "original_steps": 223,
+    "compact_steps": 195,
+    "interpretations_preserved": 10,
+    "saved_artifact_modified": false,
+    "note": "Read-only comparison only. Isolation adds explicit contracts; the historical interpretation-heavy plan is not automatically rewritten."
+  }
+}

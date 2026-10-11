@@ -13,6 +13,27 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class PlanningPersistenceTests
 {
     [Fact]
+    public async Task TargetedRevisionAuthorityAndBaselineRemainEncryptedAndTenantOwned()
+    {
+        await using var fixture = await StoreFixture.CreateAsync();
+        var plan = new TaskPlan { Root = new() { Outputs = [new("private_edit_scope", new() { Kind = "string", Text = "PRIVATE_RETAINED_WORK" })] } };
+        var state = new PlanningSession { IntentVersion = 2, Request = new() { TenantId = "tenant", SessionId = "targeted", Prompt = "Correct selected output", Baseline = plan },
+            Plan = plan, ModelCalls = 3, ReplanAttempts = 1, EditablePaths = ["/root/outputs/private_edit_scope"], RevisionScope = ["/root/outputs/private_edit_scope"] };
+        Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
+        var restored = await fixture.Store.LoadAsync("tenant", "targeted", Ct);
+        Assert.NotNull(restored); Assert.Equal(state.EditablePaths, restored.EditablePaths); Assert.Equal(state.RevisionScope, restored.RevisionScope);
+        Assert.Equal(3, restored.ModelCalls); Assert.Equal(1, restored.ReplanAttempts);
+        Assert.Equal("PRIVATE_RETAINED_WORK", restored.Plan!.Root.Outputs[0].Value.Text);
+        Assert.Equal("PRIVATE_RETAINED_WORK", restored.Request.Baseline!.Root.Outputs[0].Value.Text);
+        Assert.Null(await fixture.Store.LoadAsync("other", "targeted", Ct));
+        foreach (var file in Directory.GetFiles(fixture.Root, "*", SearchOption.AllDirectories))
+        {
+            var bytes = Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file, Ct));
+            Assert.DoesNotContain("PRIVATE_RETAINED_WORK", bytes); Assert.DoesNotContain("/root/outputs/private_edit_scope", bytes);
+        }
+    }
+
+    [Fact]
     public async Task ModelReceipt_ReplaysWithoutDispatchOrDoubleCounting()
     {
         await using var fixture = await StoreFixture.CreateAsync();

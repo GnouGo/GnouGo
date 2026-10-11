@@ -30,7 +30,16 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
     public IHumanInputProvider? HumanInputProvider { get; set; }
     public IDictionary<string, IAgentTaskRunner> AgentTaskRunners { get; } = new Dictionary<string, IAgentTaskRunner>(StringComparer.Ordinal);
     public IAgentTaskVerifier AgentTaskVerifier { get; set; } = new EvidenceAgentTaskVerifier();
-    public IWorkflowRunStore? RunStore { get; set; }
+    private IWorkflowRunStore? _runStore;
+    public IWorkflowRunStore? RunStore
+    {
+        get => _runStore;
+        set { _runStore = value; MappingArtifacts ??= value as IMappingArtifactStore; }
+    }
+    public IMappingArtifactStore? MappingArtifacts { get; set; }
+    internal string MappingExecutionId { get; private set; } = "";
+    internal System.Collections.Concurrent.ConcurrentDictionary<string, MappingArtifact> MappingMemory { get; } = new(StringComparer.Ordinal);
+    internal System.Collections.Concurrent.ConcurrentDictionary<string, JsonObject> MappingAttempts { get; } = new(StringComparer.Ordinal);
     internal WorkflowRunJournal? Journal { get; set; }
     /// <summary>Optional separately injected TaskPlan planner; Flow.Core does not reference its implementation.</summary>
     public Planning.IPlanningInteraction? PlanningInteraction { get; set; }
@@ -66,10 +75,49 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
     }
 
     public Task<RunResult> ExecuteAsync(CompiledWorkflow workflow, JsonNode? inputs, CancellationToken ct)
-        => RunStore is null ? ExecuteCoreAsync(workflow, inputs, ct) : ExecuteDurableAsync(workflow, inputs, null, ct);
+    {
+        RejectRetiredSteps(workflow);
+        return RunStore is null ? ExecuteCoreAsync(workflow, inputs, ct) : ExecuteDurableAsync(workflow, inputs, null, ct);
+    }
+
+    private void RejectRetiredSteps(CompiledWorkflow workflow)
+    {
+        foreach (var current in workflow.Document.Workflows.Values.Append(workflow).Distinct())
+            Check(current.Steps.Concat(current.Finally));
+
+        static void Check(IEnumerable<CompiledStep> steps)
+        {
+            foreach (var step in steps)
+            {
+                if (Compilation.WorkflowValidator.IsRetiredStep(step.Type))
+                    throw new WorkflowRuntimeException(ErrorCodes.StepTypeRetired,
+                        $"Retired step type '{step.Type}'. Revise and approve a new workflow; existing runs cannot be migrated automatically.");
+                Check((step.Steps ?? []).Concat(step.Default ?? []).Concat((step.Branches ?? []).SelectMany(b => b)).Concat((step.Cases ?? []).SelectMany(c => c.Steps)));
+            }
+        }
+    }
 
     private async Task<RunResult> ExecuteCoreAsync(CompiledWorkflow workflow, JsonNode? inputs, CancellationToken ct)
     {
+        // Before any external work, including an earlier step or workflow, require the
+        // explicitly configured cumulative budget disclosed by adaptive artifacts.
+        if (LLMUsageBudget is null)
+            foreach (var current in workflow.Document.Workflows.Values.Append(workflow).Distinct())
+                RequireMappingBudget(current.Steps.Concat(current.Finally));
+
+        static void RequireMappingBudget(IEnumerable<CompiledStep> steps)
+        {
+            foreach (var step in steps)
+            {
+                if (step.Type == "mapping.dynamic" && step.Source.Input?["adaptive_each"] is { } flag &&
+                    !(flag is JsonValue literal && literal.TryGetValue<bool>(out var value) && !value))
+                    throw new WorkflowRuntimeException(ErrorCodes.LlmBudgetUnverifiable,
+                        "Adaptive mapping requires an explicit finite cumulative runtime budget before execution.",
+                        details: new JsonObject { ["dispatch_status"] = "not_started" });
+                RequireMappingBudget((step.Steps ?? []).Concat(step.Default ?? []).Concat((step.Branches ?? []).SelectMany(b => b)).Concat((step.Cases ?? []).SelectMany(c => c.Steps)));
+            }
+        }
+        MappingMemory.Clear(); MappingAttempts.Clear(); MappingExecutionId = Limits.RunId ?? Guid.NewGuid().ToString("N");
         _totalStepsExecuted = Journal?.Run.StepsStarted ?? 0;
         CompiledDocument = workflow.Document;
 
@@ -175,7 +223,7 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
 
     /// <summary>
     /// Executes a sub-workflow under an existing telemetry span without creating a detached trace.
-    /// Intended for executors that need isolated engine state, such as parallel workflow routing.
+    /// Keeps document/evaluator state in the child scope and shares cumulative budgets and the run journal.
     /// </summary>
     public async Task<RunResult> ExecuteChildWorkflowAsync(
         CompiledWorkflow workflow,
@@ -187,10 +235,8 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
         CancellationToken ct,
         string? invocationPath = null)
     {
-        _totalStepsExecuted = 0;
-        CompiledDocument = workflow.Document;
-        var executionScope = PrepareEvaluator(workflow);
-        if (invocationPath is not null) executionScope = CreateExecutionScopeForWorkflow(workflow, path: invocationPath);
+        RejectRetiredSteps(workflow);
+        var executionScope = CreateExecutionScopeForWorkflow(workflow, path: invocationPath ?? "/workflow/" + workflow.Name);
 
         var data = new JsonObject
         {
@@ -230,7 +276,7 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
             await ExecuteStepsAsync(workflow.Steps, data, result, limits, callDepth, callStack, executionScope, ct, workflowSpan);
 
             Logger.LogInformation("Child workflow '{WorkflowName}' completed successfully in {DurationMs:F1}ms ({StepsExecuted} steps)",
-                workflow.Name, workflowSw.Elapsed.TotalMilliseconds, _totalStepsExecuted);
+                workflow.Name, workflowSw.Elapsed.TotalMilliseconds, result.StepResults.Count);
         }
         catch (WorkflowRuntimeException ex)
         {
@@ -279,7 +325,7 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
             Telemetry.WorkflowEnd(workflowSpan, new WorkflowResultInfo
             {
                 Success = result.Success,
-                StepsExecuted = _totalStepsExecuted,
+                StepsExecuted = result.StepResults.Count,
                 Duration = workflowSw.Elapsed,
                 ErrorCode = result.Error?.Code,
                 ErrorMessage = result.Error?.Message
@@ -386,11 +432,14 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
                         var clone = (JsonObject)loopInput.DeepClone();
                         var condition = clone["while"]?.DeepClone();
                         clone.Remove("while");
-                        var resolved = executionScope.Interpolator.ResolveDeep(clone, data) as JsonObject ?? clone;
+                        ExpressionEvaluator.ValidateExpressionContracts(loopInput, step.Source.ExpressionContracts);
+                        var inputContracts = step.Source.ExpressionContracts?.DeepClone().AsObject();
+                        inputContracts?.Remove("/while");
+                        var resolved = executionScope.Interpolator.ResolveDeep(clone, data, inputContracts) as JsonObject ?? clone;
                         resolved["while"] = condition;
                         return (true, resolved);
                     }
-                    return (true, executionScope.Interpolator.ResolveDeep(step.Source.Input.DeepClone(), data));
+                    return (true, executionScope.Interpolator.ResolveDeep(step.Source.Input.DeepClone(), data, step.Source.ExpressionContracts));
                 }
                 bool shouldRun;
                 if (Journal is { } journal)
@@ -404,7 +453,7 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
                 else (shouldRun, resolvedInput) = Resolve();
                 if (!shouldRun)
                 {
-                    stepSpan = Telemetry.StepStart(parentSpan, new StepTelemetryInfo { StepId = step.Id, StepType = step.Type, CallDepth = callDepth });
+                    stepSpan = Telemetry.StepStart(parentSpan, new StepTelemetryInfo { StepId = step.Id, StepType = step.Type, Description = step.Description, CallDepth = callDepth });
                     stepResult.Status = StepStatus.Skipped;
                     Telemetry.StepEnd(stepSpan, new StepResultInfo { Status = StepStatus.Skipped, Duration = sw.Elapsed });
                     continue;
@@ -415,6 +464,7 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
                 {
                     StepId = step.Id,
                     StepType = step.Type,
+                    Description = step.Description,
                     Input = resolvedInput?.DeepClone(),
                     CallDepth = callDepth
                 };
@@ -482,6 +532,7 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
                 {
                     StepId = step.Id,
                     StepType = step.Type,
+                    Description = step.Description,
                     Input = resolvedInput?.DeepClone(),
                     CallDepth = callDepth
                 });
@@ -754,6 +805,7 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
             MaxExpressionStatements = source.MaxExpressionStatements,
             ExpressionTimeoutSeconds = source.ExpressionTimeoutSeconds,
             ExpressionMemoryLimitBytes = source.ExpressionMemoryLimitBytes,
+            MaxMappingInputTokens = source.MaxMappingInputTokens,
             MaxSwitchCases = source.MaxSwitchCases,
             MaxFunctionCallDepth = source.MaxFunctionCallDepth,
             FinalizationTimeoutSeconds = source.FinalizationTimeoutSeconds,
@@ -1088,14 +1140,8 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
         registry.Register(new Executors.LoopSequentialExecutor());
         registry.Register(new Executors.LoopParallelExecutor());
         registry.Register(new Executors.SwitchExecutor());
-        registry.Register(new Executors.DecisionEvaluateExecutor());
         registry.Register(new Executors.SetExecutor());
-        registry.Register(new Executors.ValidateValueExecutor());
-        registry.Register(new Executors.ArrayProjectExecutor());
-        registry.Register(new Executors.ValueProjectExecutor());
-        foreach (var type in new[] { "number.add", "number.multiply", "number.default" })
-            registry.Register(new Executors.NumericTransformExecutor(type));
-        registry.Register(new Executors.AssertNonNullExecutor());
+        registry.Register(new Executors.DynamicMappingExecutor());
         registry.Register(new Executors.TemplateRenderExecutor());
         registry.Register(new Executors.LlmCallExecutor());
         registry.Register(new Executors.AgentRunExecutor());

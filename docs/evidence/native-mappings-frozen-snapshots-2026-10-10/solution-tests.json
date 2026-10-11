@@ -1,0 +1,243 @@
+{
+  "candidate": "6d2c65c4ecb329cc6da00e2b6b7b05ef930eb0d6",
+  "command": "dotnet test GnOuGo.Agent.sln -m:1 -warnaserror -p:SkipModelMetadataGeneration=true",
+  "assemblies": [
+    {
+      "assembly": "GnOuGo.DocIngestor.Tests.dll",
+      "total": 89,
+      "passed": 89,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "assembly": "GnOuGo.Diff.Tests.dll",
+      "total": 52,
+      "passed": 52,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "assembly": "GnOuGo.KeyVault.Core.Tests.dll",
+      "total": 12,
+      "passed": 12,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "assembly": "GnOuGo.Flow.Tests.dll",
+      "total": 1187,
+      "passed": 1187,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "assembly": "GnOuGo.Flow.Integrations.Tests.dll",
+      "total": 99,
+      "passed": 99,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "assembly": "GnOuGo.AI.Core.Tests.dll",
+      "total": 225,
+      "passed": 225,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "assembly": "GnOuGo.AI.Local.Tests.dll",
+      "total": 14,
+      "passed": 14,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "assembly": "GnOuGo.Agent.Mcp.Tests.dll",
+      "total": 103,
+      "passed": 103,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "assembly": "GnOuGo.Cmd.Mcp.Tests.dll",
+      "total": 100,
+      "passed": 93,
+      "failed": 0,
+      "skipped": 7
+    },
+    {
+      "assembly": "GnOuGo.Browser.Mcp.Tests.dll",
+      "total": 141,
+      "passed": 141,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "assembly": "GnOuGo.Agent.Server.Tests.dll",
+      "total": 751,
+      "passed": 750,
+      "failed": 0,
+      "skipped": 1
+    },
+    {
+      "assembly": "GnOuGo.Document.Mcp.Tests.dll",
+      "total": 64,
+      "passed": 64,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "assembly": "GnOuGo.KeyVault.Mcp.Tests.dll",
+      "total": 9,
+      "passed": 9,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "assembly": "GnOuGo.Files.Server.Tests.dll",
+      "total": 10,
+      "passed": 10,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "assembly": "GnOuGo.DocIngestor.Mcp.Tests.dll",
+      "total": 7,
+      "passed": 7,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "assembly": "GnOuGo.OtlpCollector.Server.Tests.dll",
+      "total": 7,
+      "passed": 7,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "assembly": "GnOuGo.GithubCopilot.Mcp.Tests.dll",
+      "total": 240,
+      "passed": 240,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "assembly": "GnOuGo.GithubCopilot.Core.Tests.dll",
+      "total": 173,
+      "passed": 173,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "assembly": "GnOuGo.GithubCopilot.E2E.Tests.dll",
+      "total": 12,
+      "passed": 7,
+      "failed": 0,
+      "skipped": 5
+    },
+    {
+      "assembly": "GnOuGo.Observability.Core.Tests.dll",
+      "total": 3,
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "assembly": "GnOuGo.Git.Mcp.Tests.dll",
+      "total": 83,
+      "passed": 83,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "assembly": "GnOuGo.Workspace.Tests.dll",
+      "total": 30,
+      "passed": 30,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "assembly": "GnOuGo.Mcp.Core.Tests.dll",
+      "total": 49,
+      "passed": 49,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "assembly": "GnOuGo.Flow.Mermaid.Tests.dll",
+      "total": 12,
+      "passed": 12,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "assembly": "GnOuGo.Assets.Bears.Tests.dll",
+      "total": 91,
+      "passed": 91,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "assembly": "GnOuGo.Assets.Animation.Tests.dll",
+      "total": 42,
+      "passed": 42,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "assembly": "GnOuGo.Assets.Animation.Server.Tests.dll",
+      "total": 13,
+      "passed": 13,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "assembly": "GnOuGo.Assets.Bears.Server.Tests.dll",
+      "total": 28,
+      "passed": 28,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "assembly": "GnOuGo.Flow.Planning.Tests.dll",
+      "total": 1229,
+      "passed": 1229,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "assembly": "GnOuGo.ProxyCopilot.Server.Tests.dll",
+      "total": 177,
+      "passed": 177,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "assembly": "GnOuGo.Auth.Core.Tests.dll",
+      "total": 8,
+      "passed": 8,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "assembly": "GnOuGo.Flow.Persistence.Tests.dll",
+      "total": 20,
+      "passed": 20,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "assembly": "GnOuGo.Flow.Copilot.Tests.dll",
+      "total": 5,
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0
+    }
+  ],
+  "totals": {
+    "total": 5085,
+    "passed": 5072,
+    "failed": 0,
+    "skipped": 13
+  }
+}

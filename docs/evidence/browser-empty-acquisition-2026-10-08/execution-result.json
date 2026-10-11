@@ -1,0 +1,226 @@
+{
+  "status": "approved",
+  "revision": 5,
+  "artifact_hash": "c243211195ab1f815c0464005fbc45c4c11abd922a54f9b7330466059ef4f028",
+  "result": {
+    "status": "final_review",
+    "planning_ms": 401478,
+    "calls": 3,
+    "repairs": 0,
+    "discovery_reads": 2,
+    "review_revisions": 1,
+    "diagnostics": [],
+    "execution_success": false,
+    "execution_oracle": false,
+    "execution_status": "completed",
+    "accounting": {
+      "planning": {
+        "logical_calls": 3,
+        "physical_attempts": 4,
+        "known_input_tokens": 29245,
+        "known_output_tokens": 6540,
+        "known_cost_eur": 0.30386458425769813,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "execution": {
+        "logical_calls": 1,
+        "physical_attempts": 1,
+        "known_input_tokens": 22855,
+        "known_output_tokens": 304,
+        "known_cost_eur": 0.10949951193539799,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "campaign": {
+        "calls": 905,
+        "session_calls": 0,
+        "known_input_tokens": 13424255,
+        "known_output_tokens": 1804267,
+        "known_cost_eur": 107.89162774874998,
+        "reserved_input_tokens": 384000,
+        "reserved_output_tokens": 131072,
+        "reserved_cost_eur": 5.203327457848472,
+        "cost_upper_bound_eur": 113.09495520659846,
+        "unknown_attempts": 4
+      }
+    },
+    "execution_ms": 23494,
+    "total_ms": 424972
+  },
+  "execution": {
+    "success": false,
+    "outputs": null,
+    "error": {
+      "Code": "LLM_BUDGET_EXCEEDED",
+      "Type": "LLM_BUDGET_EXCEEDED",
+      "Message": "Execution request exceeds the campaign input or output allowance. [workflow 'main', step 'n_0035e86c067c6f97']",
+      "Retryable": false,
+      "Details": {
+        "dispatch_status": "not_started",
+        "failed_workflow": "main",
+        "failed_step_id": "n_0035e86c067c6f97",
+        "failed_step_type": "llm.call",
+        "execution_phase": "step"
+      }
+    }
+  },
+  "oracle": {
+    "passed": false,
+    "findings": [
+      "workflow_execution_failed",
+      "workbook_missing"
+    ]
+  },
+  "mapping_telemetry": [],
+  "runtime_llm_inputs": [
+    {
+      "invocation": "/workflow/main/step/n_c29a2c7dbda42883",
+      "status": "completed",
+      "observed_completion": true,
+      "estimated_prompt_tokens": 32535,
+      "model_calls": 0,
+      "inspection_only": true
+    },
+    {
+      "invocation": "/workflow/main/step/n_0035e86c067c6f97",
+      "status": "failed",
+      "observed_completion": true,
+      "estimated_prompt_tokens": 72213,
+      "model_calls": 0,
+      "inspection_only": true
+    }
+  ],
+  "failures": [],
+  "events": [
+    {
+      "server": "GnOuGo.Browser.Mcp",
+      "tool": "browser_get_content",
+      "error": false,
+      "arguments": {
+        "url": "https://www.amazon.fr/",
+        "waitUntil": "domcontentloaded",
+        "format": "observation_complete",
+        "maxRecords": 200,
+        "timeoutMs": 30000
+      },
+      "success": true,
+      "error_code": null,
+      "message": null,
+      "statusCode": 200,
+      "url": "https://www.amazon.fr/",
+      "title": "Amazon.fr : livres, DVD, jeux vid\u00e9o, musique, high-tech, informatique, jouets, v\u00eatements, chaussures, sport, bricolage, maison, beaut\u00e9, pu\u00e9riculture, \u00e9picerie et plus encore !",
+      "acquisition": {
+        "attempts": 1,
+        "invalidations": [],
+        "navigation": {
+          "generation": 3,
+          "url": "https://www.amazon.fr/",
+          "title": "Amazon.fr : livres, DVD, jeux vid\u00e9o, musique, high-tech, informatique, jouets, v\u00eatements, chaussures, sport, bricolage, maison, beaut\u00e9, pu\u00e9riculture, \u00e9picerie et plus encore !",
+          "method": "GET",
+          "statusCode": 200
+        },
+        "lastResponse": {
+          "url": "https://www.amazon.fr/",
+          "method": "GET",
+          "statusCode": 200
+        }
+      },
+      "snapshot_id": "589a488a252c4c379ffce5ad89c5b540",
+      "record_count": 133,
+      "page_count": 3,
+      "capture_truncated": false,
+      "manifest_truncated": false
+    },
+    {
+      "server": "GnOuGo.Browser.Mcp",
+      "tool": "browser_get_content",
+      "error": false,
+      "arguments": {
+        "format": "observation_complete",
+        "maxRecords": 200,
+        "timeoutMs": 30000
+      },
+      "success": true,
+      "error_code": null,
+      "message": null,
+      "statusCode": null,
+      "url": "https://www.amazon.fr/",
+      "title": "Amazon.fr : livres, DVD, jeux vid\u00e9o, musique, high-tech, informatique, jouets, v\u00eatements, chaussures, sport, bricolage, maison, beaut\u00e9, pu\u00e9riculture, \u00e9picerie et plus encore !",
+      "acquisition": {
+        "attempts": 1,
+        "invalidations": [],
+        "navigation": {
+          "generation": 5,
+          "url": "https://www.amazon.fr/",
+          "title": "Amazon.fr : livres, DVD, jeux vid\u00e9o, musique, high-tech, informatique, jouets, v\u00eatements, chaussures, sport, bricolage, maison, beaut\u00e9, pu\u00e9riculture, \u00e9picerie et plus encore !",
+          "method": null,
+          "statusCode": null
+        }
+      },
+      "snapshot_id": "3d81684a32dc417483b6e37bc7fcc125",
+      "record_count": 263,
+      "page_count": 6,
+      "capture_truncated": false,
+      "manifest_truncated": false
+    },
+    {
+      "server": "GnOuGo.Browser.Mcp",
+      "tool": "browser_close",
+      "error": false,
+      "arguments": {},
+      "success": true,
+      "error_code": null,
+      "message": null,
+      "statusCode": null,
+      "url": null,
+      "title": null,
+      "acquisition": null,
+      "snapshot_id": null,
+      "record_count": null,
+      "page_count": 0,
+      "capture_truncated": null,
+      "manifest_truncated": null
+    },
+    {
+      "server": "GnOuGo.Browser.Mcp",
+      "tool": "browser_get_content",
+      "error": true,
+      "arguments": {},
+      "success": false,
+      "error_code": null,
+      "message": null,
+      "statusCode": null,
+      "url": "",
+      "title": null,
+      "acquisition": null,
+      "snapshot_id": null,
+      "record_count": null,
+      "page_count": 0,
+      "capture_truncated": null,
+      "manifest_truncated": null
+    },
+    {
+      "server": "GnOuGo.Browser.Mcp",
+      "tool": "browser_close",
+      "error": false,
+      "arguments": {},
+      "success": true,
+      "error_code": null,
+      "message": null,
+      "statusCode": null,
+      "url": null,
+      "title": null,
+      "acquisition": null,
+      "snapshot_id": null,
+      "record_count": null,
+      "page_count": 0,
+      "capture_truncated": null,
+      "manifest_truncated": null
+    }
+  ]
+}

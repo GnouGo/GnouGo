@@ -1,0 +1,91 @@
+{
+  "source": "90bf33d84e894f689daa813240846304e287afba",
+  "architecture_changes": false,
+  "mapping_dynamic_changes": false,
+  "oracles_changed": false,
+  "paid_calls_during_implementation": 0,
+  "checks": {
+    "pagination-receipts-core-tests.log": {
+      "passed": 170,
+      "failed": 0,
+      "skipped": 0
+    },
+    "pagination-receipts-new-receipts.log": {
+      "passed": 12,
+      "failed": 0,
+      "skipped": 0
+    },
+    "pagination-receipts-published-mcp.log": {
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0
+    }
+  },
+  "logs": {
+    "pagination-receipts-core-tests.log": {
+      "sha256": "4c8b4e1d90202ba92e92f390928e436cac782a9a587ab718f345416c0cb79333",
+      "bytes": 413
+    },
+    "pagination-receipts-new-receipts.log": {
+      "sha256": "e167e400180f1686df2fccd356eab89fadf7d1c322a2e20f8acdf97b0ea60475",
+      "bytes": 407
+    },
+    "pagination-receipts-pages-final.log": {
+      "sha256": "b25f8138a0f1503184ac2549ea2bf1d8df3151196602951acf85f63e2a1c1196",
+      "bytes": 12029
+    },
+    "pagination-receipts-aot-run.log": {
+      "sha256": "15f7c56b07b4d10f1cb8648fabaa9351beeccf414c4dba1deae4465fe8d2651b",
+      "bytes": 2267
+    },
+    "pagination-receipts-copilot-publish.log": {
+      "sha256": "4f466a989bf7b1486c0087554d890deb31aa335263a66068b3dc28b379cc977e",
+      "bytes": 2472
+    },
+    "pagination-receipts-published-mcp.log": {
+      "sha256": "f0b9631d89b830b4a541c708861d7c6be95a7427202c1de2f3c19bd26701ea64",
+      "bytes": 407
+    },
+    "pagination-receipts-recovery.log": {
+      "sha256": "d7cc8ec7a3dff2ab353e25932595d885ee30f565a6de92f436e3354a2c1d3b88",
+      "bytes": 86
+    },
+    "pagination-receipts-pack.log": {
+      "sha256": "cb968f59688be15962b4b04f6c86c28de8ef563d14fe32f0bb7f72326df0fc1e",
+      "bytes": 427
+    },
+    "pagination-receipts-amazon-readiness.log": {
+      "sha256": "1b1e9648eacb643ae82eb4dddaa215b54bffc5588d9f92ea793e81adc48e6181",
+      "bytes": 809
+    },
+    "pagination-receipts-code-readiness.log": {
+      "sha256": "fb3615f163dfc42eb471697f9279c9124aa9bccb4ea070a013027e4010a5ec62",
+      "bytes": 10252
+    }
+  },
+  "notes": [
+    "Focused counts overlap the solution totals.",
+    "Initial two new paging cases executed successfully but failed their expected-success classification; fixed and rerun. Existing oracles unchanged.",
+    "Trimmed publish found a reflection-dependent MaxLength attribute; removed while retaining the producer-enforced hard cap.",
+    "An overlapping Release publish lost debug-symbol artifacts; sequential publication with the existing symbol-free release configuration succeeded."
+  ],
+  "final_solution": {
+    "failed": 0,
+    "passed": 4432,
+    "skipped": 13,
+    "projects": 33,
+    "exit_code": 0,
+    "log_sha256": "c66f13a3084686c60a72a043ce03758b370ad4679a1c334d9769abc66e20f238"
+  },
+  "ci": {
+    "deterministic_planner": {
+      "run": 37226299635,
+      "conclusion": "success"
+    },
+    "build": {
+      "run": 37226299874,
+      "conclusion": "success",
+      "non_skipped_checks": "all passed"
+    }
+  }
+}

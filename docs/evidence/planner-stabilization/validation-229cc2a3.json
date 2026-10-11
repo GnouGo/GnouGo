@@ -1,0 +1,22 @@
+{
+  "production": "229cc2a3dc78be95e23935fdbf39aa29e193a040",
+  "solution": {
+    "command": "dotnet test GnOuGo.Agent.sln -m:1 -warnaserror",
+    "projects": 33,
+    "failed": 0,
+    "passed": 3764,
+    "skipped": 12
+  },
+  "planner_tests": 662,
+  "native_aot": "osx-arm64",
+  "logs": {
+    "final-solution-229cc2a3.log": "0bc681fccf0517871a29ffd7c65eecac187f35b0dccba101101201fd6a203cc2",
+    "input-constraint-final-tests.log": "b467bb2b9bbb733e07034ceccf47bbf89da53e9abf7f450bf15bfa8554bcd5a0",
+    "input-constraint-counterexample.log": "0111d70ce8fccccdd742bf4e616320b6e6105f9fad8ba5b3957a5c47b6cb5818",
+    "input-constraint-focused.log": "7041718a5af6ffa151ff7f7a86e717e01b483ba413f8a49a79bbf28687d684d0",
+    "pack-229cc2a3.log": "51d92f588002f45336ee914a5b76ad42a308d193ba5617499453f28b67c14813",
+    "aot-publish-229cc2a3.log": "bf122d654d6b8457687c4141d12b759234a29d7861f6e530936401b754c82baf",
+    "aot-smoke-229cc2a3.log": "fa4d33e6be712395cad32abd9cb768fb3da858367cedbeab9e59eb5ddf776c7d"
+  },
+  "production_ci": "https://github.com/GnouGo/GnouGo/actions/runs/36698609901"
+}

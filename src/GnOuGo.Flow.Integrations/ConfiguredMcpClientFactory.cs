@@ -1,3 +1,4 @@
+using GnOuGo.Mcp.Core;
 using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Http.Headers;
@@ -1095,7 +1096,7 @@ internal sealed class McpSessionAdapter : IMcpSession, ILiveMcpToolDiscoverySess
             var mapped = new McpToolInfo
             {
                 Name = t.Name,
-                EffectKind = t.ProtocolTool.Annotations?.ReadOnlyHint == true ? "read" : "unknown",
+                EffectKind = McpEffectMetadata.Resolve(t.ProtocolTool.Meta, t.ProtocolTool.Annotations?.ReadOnlyHint),
                 Description = t.Description,
                 Meta = t.ProtocolTool.Meta?.DeepClone(),
                 InputSchema = t.JsonSchema.ValueKind != JsonValueKind.Undefined
@@ -1136,7 +1137,11 @@ internal sealed class McpSessionAdapter : IMcpSession, ILiveMcpToolDiscoverySess
                         artifact.Kind,
                         artifact.Pointer,
                         artifact.Required))
-                    .ToArray());
+                    .ToArray())
+            {
+                Locations = validation.Contract.Locations?.Select(l => new GnOuGo.Flow.Core.Runtime.McpArtifactLocation(
+                    l.Pointer, l.Kind, l.Action, l.Space, l.OutputPointer, l.SelectorPointer, l.SelectorValue)).ToArray()
+            };
         return new McpArtifactContractResolution(contract, validation.Errors);
     }
 
@@ -1198,7 +1203,9 @@ internal sealed class McpSessionAdapter : IMcpSession, ILiveMcpToolDiscoverySess
     public async Task<McpCallResult> CallToolAsync(string toolName, JsonNode? arguments, CancellationToken ct)
     {
         var args = ConvertArguments(arguments);
-        var result = await _client.CallToolAsync(toolName, args, progress: null, CreateRequestOptions(), ct);
+        var result = McpTaskPolling.Supported(_client)
+            ? await McpTaskPolling.CallAsync(_client, toolName, arguments, CreateRequestOptions().Meta, ct)
+            : await _client.CallToolAsync(toolName, args, progress: null, CreateRequestOptions(), ct);
 
         return new McpCallResult
         {
@@ -1252,6 +1259,7 @@ internal sealed class McpSessionAdapter : IMcpSession, ILiveMcpToolDiscoverySess
             JsonValue jv when jv.TryGetValue<bool>(out var b) => b,
             JsonValue jv when jv.TryGetValue<int>(out var i) => i,
             JsonValue jv when jv.TryGetValue<long>(out var l) => l,
+            JsonValue jv when !jv.TryGetValue<JsonElement>(out _) && jv.TryGetValue<decimal>(out var m) => m,
             JsonValue jv when jv.TryGetValue<double>(out var d) => d,
             JsonArray arr => arr.Select(ConvertArgumentValue).ToList(),
             JsonObject obj => obj.ToDictionary(kvp => kvp.Key, kvp => ConvertArgumentValue(kvp.Value)),

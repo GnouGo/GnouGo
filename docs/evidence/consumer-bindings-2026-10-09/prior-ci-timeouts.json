@@ -1,0 +1,20 @@
+[
+  {
+    "job": "validate",
+    "url": "https://github.com/GnouGo/GnouGo/actions/runs/37844369147/job/113541423930",
+    "started_at": "2026-10-08T21:29:20Z",
+    "completed_at": "2026-10-09T03:30:20Z",
+    "annotations": [
+      "The job has exceeded the maximum execution time of 6h0m0s"
+    ]
+  },
+  {
+    "job": "Agent Server Tests (non-blocking) / Agent Server Tests",
+    "url": "https://github.com/GnouGo/GnouGo/actions/runs/37844369547/job/113541425903",
+    "started_at": "2026-10-08T21:31:24Z",
+    "completed_at": "2026-10-09T03:32:30Z",
+    "annotations": [
+      "The job has exceeded the maximum execution time of 6h0m0s"
+    ]
+  }
+]

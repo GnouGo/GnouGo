@@ -1,0 +1,11 @@
+{
+  "candidate": "e2179af7d761f1f5d083671d0b9b1073a2e2b8fe",
+  "command": "dotnet test GnOuGo.Agent.sln -m:1 -warnaserror -p:SkipModelMetadataGeneration=true",
+  "exit_code": 0,
+  "projects": 33,
+  "passed": 4589,
+  "failed": 0,
+  "skipped": 12,
+  "browser_smoke_enabled": true,
+  "log_sha256": "70d61028766116b148db76e19cd48b6ece2666af514566029cf2d37a6ba1caef"
+}

@@ -1,0 +1,26 @@
+{
+  "production": "efdf57cc8a290d26fd8fec54ac43f735c04e9c8d",
+  "harness": "efdf57cc8a290d26fd8fec54ac43f735c04e9c8d",
+  "solution": {
+    "projects": 33,
+    "failed": 0,
+    "passed": 3752,
+    "skipped": 12
+  },
+  "commands": [
+    "dotnet test GnOuGo.Agent.sln -m:1 -warnaserror",
+    "dotnet pack src/GnOuGo.Flow.Planning -c Release -m:1 -warnaserror",
+    "dotnet publish tests/GnOuGo.Flow.Planning.Smoke -c Release -r osx-arm64 --self-contained true -warnaserror -o artifacts/planner-stabilization/aot-smoke",
+    "artifacts/planner-stabilization/aot-smoke/GnOuGo.Flow.Planning.Smoke"
+  ],
+  "logs": {
+    "final-solution-efdf57cc.log": "4253891484a41625c72143883fd1c889a9a03829fcd6319ca3b311daa772c95e",
+    "lifecycle-regression.log": "4850ea691fba1bd8639f4487d7af249bf573ce0a771a44c6b8e6da9e6e8fba59",
+    "lifecycle-planner-tests.log": "c21f57f39c61f01d503b1c149d8a31b2ce6b824dc692b309b16402bebd550b68",
+    "pack-efdf57cc.log": "51d92f588002f45336ee914a5b76ad42a308d193ba5617499453f28b67c14813",
+    "aot-publish-efdf57cc.log": "c6d5eb166c1abe1bdb523a9c65a478912e15a0163bb9115ba3c72f819bc92150",
+    "aot-smoke-efdf57cc.log": "fa4d33e6be712395cad32abd9cb768fb3da858367cedbeab9e59eb5ddf776c7d"
+  },
+  "cmd_assembly_sha256": "80b0e4bde0fdd8ddd464bad5b13263930cccefc1c4732d5c083608c81d2dadba",
+  "production_ci": "https://github.com/GnouGo/GnouGo/actions/runs/36691544694"
+}

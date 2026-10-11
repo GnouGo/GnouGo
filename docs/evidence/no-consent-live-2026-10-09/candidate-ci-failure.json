@@ -1,0 +1,8 @@
+{
+  "source": "3c765087fdfbdad233996fe10c765d060237c987",
+  "job": "Server (linux-x64) / Server (linux-x64)",
+  "url": "https://github.com/GnouGo/GnouGo/actions/runs/37941315243/job/113856116242",
+  "result": "failed",
+  "cause": "NuGet package downloads failed during Publish Server: System.Interactive.Async 7.0.0 and SkiaSharp 4.152.1. No source workaround or dependency change applied.",
+  "other_jobs": "still running at this inspection"
+}

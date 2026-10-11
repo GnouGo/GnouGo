@@ -1,0 +1,143 @@
+[
+  {
+    "request": "schema-portability-20261002:genericbrowser20261009a-amazon-1:1:da962aafd646e6f1b53399e29a38d4287ebbf46bd597813f15fdbe11c753bce0",
+    "updated_at": "2026-10-09T18:57:04.5172820+00:00",
+    "input_ceiling": 96000,
+    "attempts": [
+      {
+        "Id": "genericbrowser20261009a-amazon-1:1:da962aafd646e6f1b53399e29a38d4287ebbf46bd597813f15fdbe11c753bce0:72962cc0e3a343d89f20950615be9507",
+        "Status": 200,
+        "ContentType": "application/json",
+        "RetryAfter": null,
+        "NotBefore": null,
+        "Failure": null
+      }
+    ],
+    "usage": {
+      "input_tokens": 4129,
+      "output_tokens": 755,
+      "total_tokens": 4884,
+      "benchmark_cost_eur": 0.03841955807968764,
+      "transport_attempts": 1,
+      "uncertain_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "benchmark_usage_bounded": true
+    }
+  },
+  {
+    "request": "schema-portability-20261002:genericbrowser20261009a-amazon-1:2:a9286608d9d03d7dc4e6cb4963e9ea19a457cec10d1aed97d6362e980fc71278",
+    "updated_at": "2026-10-09T18:57:30.4489890+00:00",
+    "input_ceiling": 96000,
+    "attempts": [
+      {
+        "Id": "genericbrowser20261009a-amazon-1:2:a9286608d9d03d7dc4e6cb4963e9ea19a457cec10d1aed97d6362e980fc71278:aa0a5ecf42ba488faf77b468f00dd259",
+        "Status": 200,
+        "ContentType": "application/json",
+        "RetryAfter": null,
+        "NotBefore": null,
+        "Failure": null
+      }
+    ],
+    "usage": {
+      "input_tokens": 15198,
+      "output_tokens": 1830,
+      "total_tokens": 17028,
+      "benchmark_cost_eur": 0.11615050137545478,
+      "transport_attempts": 1,
+      "uncertain_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "benchmark_usage_bounded": true
+    }
+  },
+  {
+    "request": "schema-portability-20261002:genericbrowser20261009a-amazon-1:3:0e56a0163b20d81ea0e6024f03f50b657be2127b5df67274944e814eec707bf3",
+    "updated_at": "2026-10-09T19:00:23.8327030+00:00",
+    "input_ceiling": 105658,
+    "attempts": [
+      {
+        "Id": "genericbrowser20261009a-amazon-1:3:0e56a0163b20d81ea0e6024f03f50b657be2127b5df67274944e814eec707bf3:da48ddc269f54f79895f609f0e034569",
+        "Status": 200,
+        "ContentType": "application/json",
+        "RetryAfter": null,
+        "NotBefore": null,
+        "Failure": null
+      }
+    ],
+    "usage": {
+      "input_tokens": 18063,
+      "output_tokens": 8954,
+      "total_tokens": 27017,
+      "benchmark_cost_eur": 0.3185153962197178,
+      "transport_attempts": 1,
+      "uncertain_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "benchmark_usage_bounded": true
+    }
+  },
+  {
+    "request": "schema-portability-20261002:genericbrowser20261009a-amazon-1:4:72e58b3f13434d766a87dc070df95dd23b9e423df405d5b6a7f5f1f7223ca95d",
+    "updated_at": "2026-10-09T19:18:38.7409570+00:00",
+    "input_ceiling": 125287,
+    "attempts": [
+      {
+        "Id": "genericbrowser20261009a-amazon-1:4:72e58b3f13434d766a87dc070df95dd23b9e423df405d5b6a7f5f1f7223ca95d:d3aace1cffd7459badeaef972932a824",
+        "Status": 500,
+        "ContentType": "application/json; charset=UTF-8",
+        "RetryAfter": null,
+        "NotBefore": "2026-10-09T19:07:47.100327+00:00",
+        "Failure": null,
+        "error_type": null,
+        "error_code": null,
+        "error_message": null
+      },
+      {
+        "Id": "genericbrowser20261009a-amazon-1:4:72e58b3f13434d766a87dc070df95dd23b9e423df405d5b6a7f5f1f7223ca95d:e5f7c7a8c40245c6a23c38d002f49381",
+        "Status": 500,
+        "ContentType": "application/json; charset=UTF-8",
+        "RetryAfter": null,
+        "NotBefore": "2026-10-09T19:12:53.727841+00:00",
+        "Failure": null,
+        "error_type": null,
+        "error_code": null,
+        "error_message": null
+      },
+      {
+        "Id": "genericbrowser20261009a-amazon-1:4:72e58b3f13434d766a87dc070df95dd23b9e423df405d5b6a7f5f1f7223ca95d:ae0d7300c4e947f98c09b41f42755cf7",
+        "Status": 500,
+        "ContentType": "application/json; charset=UTF-8",
+        "RetryAfter": null,
+        "NotBefore": "2026-10-09T19:18:01.391392+00:00",
+        "Failure": null,
+        "error_type": null,
+        "error_code": null,
+        "error_message": null
+      },
+      {
+        "Id": "genericbrowser20261009a-amazon-1:4:72e58b3f13434d766a87dc070df95dd23b9e423df405d5b6a7f5f1f7223ca95d:b9ca81f9afa44ea7b1963212fe9b4fea",
+        "Status": 200,
+        "ContentType": "application/json",
+        "RetryAfter": null,
+        "NotBefore": null,
+        "Failure": null
+      }
+    ],
+    "usage": {
+      "input_tokens": 20734,
+      "output_tokens": 4435,
+      "total_tokens": 25169,
+      "benchmark_cost_eur": 0.210063004703168,
+      "transport_attempts": 4,
+      "uncertain_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "benchmark_usage_bounded": true
+    }
+  }
+]

@@ -141,7 +141,7 @@ public static class WorkflowParser
 
     private static readonly HashSet<string> StepFields = new(StringComparer.Ordinal)
     {
-        "id", "type", "if", "input", "output", "output_schema", "retry", "on_error",
+        "id", "type", "description", "if", "input", "expression_contracts", "output", "output_schema", "retry", "on_error",
         "steps", "branches", "cases", "expr", "default", "item_var", "index_var"
     };
 
@@ -631,6 +631,7 @@ public static class WorkflowParser
         {
             Id = node.GetScalar("id") ?? throw new WorkflowParseException("Step missing 'id'"),
             Type = node.GetScalar("type") ?? throw new WorkflowParseException("Step missing 'type'"),
+            Description = node.GetScalar("description"),
             If = node.GetScalar("if"),
             Output = node.GetScalar("output"),
             ItemVar = node.GetScalar("item_var"),
@@ -650,6 +651,10 @@ public static class WorkflowParser
             var outputSchemaNode = node.Children[new YamlScalarNode("output_schema")];
             step.OutputSchema = YamlToJson(outputSchemaNode);
         }
+
+        if (node.HasKey("expression_contracts"))
+            step.ExpressionContracts = YamlToJson(node.Children[new YamlScalarNode("expression_contracts")]) as JsonObject
+                ?? throw new WorkflowParseException("expression_contracts must be a literal object.");
 
         // retry
         var retryNode = node.GetMapping("retry");

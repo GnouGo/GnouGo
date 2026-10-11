@@ -2,6 +2,12 @@
 
 Exercises typed HTML → product records → tabular text transformations with mocked inference, ordered collection and cleanup, plus batched-discovery serialization and the eight-case corpus, strict semantic TaskPlan transport, source-generated format-10 restart after each advance, deterministic compiler, contract validation, final approval and independently asserted outputs/effects.
 
+Also checks early clarification in automatic mode, a custom answer checkpoint, restart with cumulative budgets and separate artifact approval; caller input contracts and version-three repair authority use the same source-generated serializers. All model responses are deterministic adapters, not live provider evaluation.
+
+Mapping checks execute the restricted HTML extraction profile, preserve exact decimal observations and round-trip mapping artifacts through source-generated serialization. Encrypted mapping persistence is covered separately by the published Agent.Server persistence smoke.
+
+Numeric checks preserve historical numeric JSON tokens and execute the corpus arithmetic as compiled JavaScript Number formulas. The native binary also launches itself as a bounded local stdio MCP to verify annotated decimal arguments and results through actual transport; exact arithmetic occurs only in that MCP. This check makes no provider calls.
+
 ```bash
 dotnet publish tests/GnOuGo.Flow.Planning.Smoke -c Release -r osx-arm64 -m:1 -warnaserror
 tests/GnOuGo.Flow.Planning.Smoke/bin/Release/net10.0/osx-arm64/publish/GnOuGo.Flow.Planning.Smoke

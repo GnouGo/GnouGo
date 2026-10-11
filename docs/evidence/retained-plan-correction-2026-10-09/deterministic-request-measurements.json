@@ -1,0 +1,42 @@
+[
+  {
+    "test": "GnOuGo.Flow.Planning.Tests.LookupSelectionTests.EveryCandidateReachesDecisionWhileOriginalActionDataStaysOutsideInference(key: \"identity\", invalidSelection: True, oversized: False, pageCount: 54, recordCount: 1578)",
+    "outcome": "Passed",
+    "measurement": "pages=54; records=1578; candidates=147; mapping_calls=1; selected=5; global_bytes_with_framing=18053; estimated_input=2848; yaml_bytes=21846"
+  },
+  {
+    "test": "GnOuGo.Flow.Planning.Tests.LookupSelectionTests.EveryCandidateReachesDecisionWhileOriginalActionDataStaysOutsideInference(key: \"another\", invalidSelection: False, oversized: False, pageCount: 58, recordCount: 1602)",
+    "outcome": "Passed",
+    "measurement": "pages=58; records=1602; candidates=147; mapping_calls=1; selected=4; global_bytes_with_framing=17906; estimated_input=2799; yaml_bytes=21809"
+  },
+  {
+    "test": "GnOuGo.Flow.Planning.Tests.LookupSelectionTests.EveryCandidateReachesDecisionWhileOriginalActionDataStaysOutsideInference(key: \"key\", invalidSelection: False, oversized: False, pageCount: 54, recordCount: 1578)",
+    "outcome": "Passed",
+    "measurement": "pages=54; records=1578; candidates=147; mapping_calls=1; selected=4; global_bytes_with_framing=17318; estimated_input=2603; yaml_bytes=21661"
+  },
+  {
+    "test": "GnOuGo.Flow.Planning.Tests.LookupSelectionTests.EveryCandidateReachesDecisionWhileOriginalActionDataStaysOutsideInference(key: \"entry\", invalidSelection: False, oversized: True, pageCount: 54, recordCount: 1578)",
+    "outcome": "Passed",
+    "measurement": null
+  },
+  {
+    "test": "GnOuGo.Flow.Planning.Tests.CompactObservationTests.ExplicitNarrowContractAndFlattenKeepAllSourcesAndBoundTheGlobalRequest(input: \"observations\", port: \"decisionRows\", pageCount: 6, recordCount: 263, absent: False)",
+    "outcome": "Passed",
+    "measurement": "pages=6; records=263; processed=6; mapping_calls=1; global_calls=1; serialized_global_bytes=2113; estimate=813"
+  },
+  {
+    "test": "GnOuGo.Flow.Planning.Tests.CompactObservationTests.ExplicitNarrowContractAndFlattenKeepAllSourcesAndBoundTheGlobalRequest(input: \"bundles\", port: \"candidates\", pageCount: 52, recordCount: 1474, absent: False)",
+    "outcome": "Passed",
+    "measurement": "pages=52; records=1474; processed=52; mapping_calls=1; global_calls=1; serialized_global_bytes=2113; estimate=813"
+  },
+  {
+    "test": "GnOuGo.Flow.Planning.Tests.CompactObservationTests.ExplicitNarrowContractAndFlattenKeepAllSourcesAndBoundTheGlobalRequest(input: \"sources\", port: \"matches\", pageCount: 53, recordCount: 1504, absent: False)",
+    "outcome": "Passed",
+    "measurement": "pages=53; records=1504; processed=53; mapping_calls=1; global_calls=1; serialized_global_bytes=2110; estimate=812"
+  },
+  {
+    "test": "GnOuGo.Flow.Planning.Tests.CompactObservationTests.ExplicitNarrowContractAndFlattenKeepAllSourcesAndBoundTheGlobalRequest(input: \"bundles\", port: \"candidates\", pageCount: 52, recordCount: 1474, absent: True)",
+    "outcome": "Passed",
+    "measurement": "pages=52; records=1474; processed=52; mapping_calls=1; global_calls=1; serialized_global_bytes=846; estimate=431"
+  }
+]

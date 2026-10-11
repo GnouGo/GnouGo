@@ -1,0 +1,73 @@
+{
+  "summary": "Automatiser Amazon.fr avec une entrée publique query, rechercher l’article demandé, visiter au maximum les 10 premiers produits, extraire nom, description et prix observés, puis sauvegarder un classeur Excel à l’emplacement demandé. Le navigateur doit être fermé même en cas d’échec; CAPTCHA et données absentes doivent rester explicites.",
+  "outcomes": [
+    {
+      "id": "search_amazon_fr",
+      "description": "Utilise Amazon.fr et recherche l’article fourni via l’entrée query."
+    },
+    {
+      "id": "limit_10_products",
+      "description": "Traite au maximum les 10 premiers produits observés dans les résultats."
+    },
+    {
+      "id": "extract_observed_fields",
+      "description": "Extrait uniquement les champs observés: nom, description et prix; les absences, CAPTCHA ou blocages sont notés explicitement."
+    },
+    {
+      "id": "save_xlsx",
+      "description": "Sauvegarde le fichier Excel relatif workflows/schema-portability-20261002/consumerretry20261008b-amazon-1/products.xlsx."
+    },
+    {
+      "id": "always_close_browser",
+      "description": "Ferme le navigateur dans tous les cas."
+    }
+  ],
+  "inputs": [
+    {
+      "name": "query",
+      "type": {
+        "kind": "string",
+        "nullable": false,
+        "items": null,
+        "fields": []
+      },
+      "required": true,
+      "default": null
+    }
+  ],
+  "outputs": [
+    {
+      "name": "filePath",
+      "type": {
+        "kind": "string",
+        "nullable": false,
+        "items": null,
+        "fields": []
+      },
+      "required": true,
+      "default": null
+    },
+    {
+      "name": "rowCount",
+      "type": {
+        "kind": "integer",
+        "nullable": false,
+        "items": null,
+        "fields": []
+      },
+      "required": true,
+      "default": null
+    },
+    {
+      "name": "completeness",
+      "type": {
+        "kind": "string",
+        "nullable": false,
+        "items": null,
+        "fields": []
+      },
+      "required": true,
+      "default": null
+    }
+  ]
+}

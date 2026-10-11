@@ -1,0 +1,8 @@
+{
+  "checks": {
+    "amazon-r8.yaml": "0a789dd17031c9c9e1bb41a0501b31ad9771fe29c12bf2ed91b5e5cb56d049ff",
+    "approved-r8-command.json": "c9da4390ef1e50c4e295e8334c7d4dcad0965c57d93fcc3a7869b3197d44fd79"
+  },
+  "unchanged": true,
+  "historical_execution_resumed": false
+}

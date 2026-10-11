@@ -1,0 +1,127 @@
+{
+  "summary": "Accepter une entrée publique `query`, rechercher cette requête sur Amazon.fr, traiter au maximum les 10 premiers produits, visiter chaque page produit, extraire les informations disponibles, puis sauvegarder un classeur Excel à l’emplacement demandé et fermer le navigateur même en cas d’échec.",
+  "outcomes": [
+    {
+      "id": "search_amazon_fr",
+      "description": "Amazon.fr est utilisé pour rechercher l’article fourni par `query`."
+    },
+    {
+      "id": "collect_first_products",
+      "description": "Les articles listés sont collectés en conservant leur ordre d’origine, avec une limite maximale de 10 premiers produits."
+    },
+    {
+      "id": "visit_each_product",
+      "description": "Chaque produit retenu est visité individuellement pour extraire les données disponibles."
+    },
+    {
+      "id": "explicit_missing_data",
+      "description": "CAPTCHA, prix absent, description absente ou autres données absentes sont indiqués explicitement sans invention."
+    },
+    {
+      "id": "save_excel",
+      "description": "Un fichier Excel est sauvegardé sur le disque à `workflows/schema-portability-20261002/conditionalentry20261008a-amazon-1/products.xlsx`."
+    },
+    {
+      "id": "close_browser",
+      "description": "Le navigateur est fermé dans tous les cas, y compris en cas d’échec."
+    }
+  ],
+  "inputs": [
+    {
+      "name": "query",
+      "type": {
+        "kind": "string",
+        "nullable": false,
+        "items": null,
+        "fields": []
+      },
+      "required": true,
+      "default": null
+    }
+  ],
+  "outputs": [
+    {
+      "name": "products_file",
+      "type": {
+        "kind": "string",
+        "nullable": false,
+        "items": null,
+        "fields": []
+      },
+      "required": true,
+      "default": null
+    },
+    {
+      "name": "products",
+      "type": {
+        "kind": "array",
+        "nullable": false,
+        "items": {
+          "kind": "object",
+          "nullable": false,
+          "items": null,
+          "fields": [
+            {
+              "name": "original_index",
+              "type": {
+                "kind": "integer",
+                "nullable": false,
+                "items": null,
+                "fields": []
+              },
+              "required": true,
+              "default": null
+            },
+            {
+              "name": "name",
+              "type": {
+                "kind": "string",
+                "nullable": true,
+                "items": null,
+                "fields": []
+              },
+              "required": true,
+              "default": null
+            },
+            {
+              "name": "description",
+              "type": {
+                "kind": "string",
+                "nullable": true,
+                "items": null,
+                "fields": []
+              },
+              "required": true,
+              "default": null
+            },
+            {
+              "name": "price",
+              "type": {
+                "kind": "string",
+                "nullable": true,
+                "items": null,
+                "fields": []
+              },
+              "required": true,
+              "default": null
+            },
+            {
+              "name": "status",
+              "type": {
+                "kind": "string",
+                "nullable": false,
+                "items": null,
+                "fields": []
+              },
+              "required": true,
+              "default": null
+            }
+          ]
+        },
+        "fields": []
+      },
+      "required": true,
+      "default": null
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "run": "nullfacts20261010a-amazon-1",
+  "user_response": "Approve all five requirements and execute once",
+  "command": {
+    "kind": "approve",
+    "expectedRevision": 7,
+    "artifactHash": "7e4c67f5932426a4e9273c3b8b8301b5f3e518269011f953573840d88ccf66ab",
+    "reviewedRequirementIds": [
+      "search_amazon_fr",
+      "max_10_products",
+      "xlsx_saved",
+      "explicit_absences",
+      "browser_closed"
+    ]
+  },
+  "execution_authorized_once": true,
+  "observed_saved_status": "approved",
+  "observed_saved_revision": 8,
+  "execution_started": "2026-10-10T19:11:10.4356430+00:00"
+}

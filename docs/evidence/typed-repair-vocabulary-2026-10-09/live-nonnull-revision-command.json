@@ -1,0 +1,10 @@
+{
+  "kind": "revise",
+  "expectedRevision": 9,
+  "artifactHash": null,
+  "preserveRequirements": true,
+  "editablePaths": [
+    "/tasks/extract_search_page_views/resultType"
+  ],
+  "text": "Explicit targeted producer correction within the authorized data-adaptation revision. Replace only extract_search_page_views.resultType, with exactly one semantic change: searchPageViews.items.fields[candidates].type.items.nullable must be false rather than true. A missing candidate is represented by an empty candidates array, never a null record. Preserve every other field, requiredness, bounds, nullability, accepted requirement, operation, guard, selection, lookup, writing and cleanup. The existing lookup bindings are correct and immutable in this revision. Do not broaden authority, replace the lookup, invent data, change requirements, or answer the prior clarification by treating an automatically recommended option as permission. This explicit revision grants only the one producer declaration site."
+}

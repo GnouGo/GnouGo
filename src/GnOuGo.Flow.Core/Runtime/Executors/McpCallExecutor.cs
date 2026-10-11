@@ -86,7 +86,7 @@ public sealed class McpCallExecutor : IStepExecutor
         By default, MCP tool errors raise MCP_CALL_ERROR/MCP_PROMPT_ERROR runtime exceptions so `on_error` handlers can run. Set `raise_on_error: false` only when the workflow intentionally wants to inspect `data.steps.<id>.status == "error"` as normal output.
         Optional `error_policy.detect_result_errors: true` treats common structured failure envelopes like `{ success: false, error_code, error_message }` as MCP errors even when the transport did not set IsError.
         For generated plans, do NOT use `mcp.call` with only `server` as the default next step after `mcp.list` unless calling everything is the explicit goal.
-        Request fields must statically match the discovered MCP input_schema. Do not pass nullable structured_output fields such as `string|null` into required request fields; make the source non-null, refine it with `assert.non_null`, add an exact `if: "${data.steps.x.json.field != null}"` guard on the same mcp.call step, or skip the call. A request property that is optional in the discovered schema is omitted automatically when its resolved value is null, unless preserve_optional_nulls=true. That explicit option keeps JSON null and still validates it against the tool schema.
+        Request fields must statically match the discovered MCP input_schema. Do not pass nullable structured_output fields such as `string|null` into required request fields; make the source non-null, validate it with a checked whole-value `set` and a nonnullable output_schema, add an exact `if: "${data.steps.x.json.field != null}"` guard on the same mcp.call step, or skip the call. A request property that is optional in the discovered schema is omitted automatically when its resolved value is null, unless preserve_optional_nulls=true. That explicit option keeps JSON null and still validates it against the tool schema.
 
         Output access patterns:
         - Single tool: `data.steps.<id>.status` ("ok"|"error") and `data.steps.<id>.response` (opaque tool-specific JSON).
@@ -382,7 +382,7 @@ public sealed class McpCallExecutor : IStepExecutor
                     ["status"] = hasError ? "error" : "ok",
                     ["results"] = resultsArr
                 };
-                await ctx.RecordExternalCompletionAsync(batchResult, CancellationToken.None);
+                await RecordToolCompletionAsync(ctx, batchResult);
                 if (errorPolicy.RaiseOnError && hasError)
                     ThrowMcpBatchError(kind, serverName, batchMethods!, batchResult);
                 return await ApplyDirectStructuredOutputAsync(
@@ -400,7 +400,7 @@ public sealed class McpCallExecutor : IStepExecutor
                 // ── Single mode (backward compatible) ──
                 var singleCorrelation = correlation with { MethodName = singleMethod };
                 var singleResult = await CallSingleAsync(session, kind, singleMethod!, requestArgs, singleCorrelation, errorPolicy.DetectResultErrors, runtimeToolCatalog, GetBoolProperty(input, "preserve_optional_nulls") ?? false, ctx, realtimeProgressFingerprints, linkedCts.Token);
-                await ctx.RecordExternalCompletionAsync(singleResult, CancellationToken.None);
+                await RecordToolCompletionAsync(ctx, singleResult);
                 var statusStr = (singleResult as JsonObject)?["status"]?.GetValue<string>();
                 ctx.SetTelemetryAttribute("gen_ai.response.finish_reason", statusStr == "error" ? "error" : "stop");
                 if (errorPolicy.RaiseOnError && statusStr == "error")
@@ -641,6 +641,7 @@ public sealed class McpCallExecutor : IStepExecutor
             ["results"] = resultsArr
         };
 
+        await RecordToolCompletionAsync(ctx, response);
         if (errorPolicy.RaiseOnError && hasError)
             ThrowMcpLlmAssistedError(defaultKind, session.ServerName, response);
 
@@ -1175,7 +1176,19 @@ Produce the final answer strictly from the executed MCP results.
         }
         else
         {
-            ValidateResolvedToolCall(session, method, requestArgs, runtimeToolCatalog);
+            var tool = runtimeToolCatalog?.FirstOrDefault(t => t.Name == method);
+            try
+            {
+                requestArgs = McpRequestSchemaNormalizer.ConvertDecimals(requestArgs, tool?.InputSchema, false, session.ServerName, method, out _);
+                ValidateResolvedToolCall(session, method, requestArgs, runtimeToolCatalog);
+            }
+            catch (WorkflowRuntimeException failure)
+            {
+                // Validation completed before this external call. It is a verified
+                // non-dispatch, not an uncertain invocation that could be replayed.
+                await ctx.RecordExternalCompletionAsync(new JsonObject { ["status"] = "not_dispatched", ["error"] = failure.Details?.DeepClone() }, CancellationToken.None);
+                throw;
+            }
             var callResult = await session.CallToolAsync(method, requestArgs, ct);
 
             // ── Telemetry: extract LLM metrics from tool result ──
@@ -1195,9 +1208,40 @@ Produce the final answer strictly from the executed MCP results.
                 ["trace_id"] = correlation.TraceId
             };
 
+            if (!isError && tool is not null)
+            {
+                try
+                {
+                    var normalized = McpRequestSchemaNormalizer.ConvertDecimals(responseContent,
+                        McpToolContractEnricher.GetAuthoritativeOutputSchema(tool), true, session.ServerName, method, out var converted);
+                    if (converted)
+                    {
+                        result["raw_response"] = responseContent?.DeepClone();
+                        result["response"] = normalized;
+                    }
+                }
+                catch (WorkflowRuntimeException failure)
+                {
+                    result["status"] = "error";
+                    result["error"] = new JsonObject { ["code"] = failure.Code, ["message"] = failure.Message, ["details"] = failure.Details?.DeepClone() };
+                }
+            }
             EmitMcpContentEvent(ctx, "gen_ai.content.completion", "gen_ai.completion",
                 result, correlation);
             return result;
+        }
+    }
+
+    private static async Task RecordToolCompletionAsync(StepExecutionContext ctx, JsonNode? result)
+    {
+        // Retain the exact producer response in the encrypted receipt. Only the
+        // converted response is exposed to workflow bindings.
+        await ctx.RecordExternalCompletionAsync(result, CancellationToken.None);
+        if (result is JsonObject obj)
+        {
+            obj.Remove("raw_response");
+            if (obj["results"] is JsonArray items)
+                foreach (var item in items.OfType<JsonObject>()) item.Remove("raw_response");
         }
     }
 

@@ -1,5 +1,37 @@
 # GnOuGo.GithubCopilot.Core
 
+## Command completion and bounded output reads
+
+Native asynchronous shell calls can finish through a later polling callback.
+Execution observations correlate those exits within the same SDK session and
+unambiguous shell/command instance. Resolved terminals identify their original
+`sourceToolCallId`; conflicting exits and ambiguous reused shells remain unknown.
+A native structured pre-execution denial is a completed refusal, not a successful
+command. Idle, assistant claims and budget refusal alone never establish an exit.
+Finalization can read durable SDK event history once within the existing shutdown
+allowance. It never sends another prompt or re-executes a command.
+
+`project_read` returns a JSON range result (`text`, `offset`, `nextOffset`,
+`truncated`). `offset` defaults to zero; `maxCharacters` defaults to and cannot
+exceed 16,384. The result is a structured object, not an encoded JSON string.
+Its serialized UTF-8 representation is also capped at 16,384 bytes; escaping may
+therefore shorten a range. Follow the returned `nextOffset`, rather than adding
+the requested length. Read subsequent ranges instead of repeating completed commands.
+Permission callbacks and pre-tool hooks reject shell access to the virtual SDK
+namespace and direct the caller to `project_read`. This routing is not an OS
+sandbox and does not broaden project access or override individual refusals.
+SDK `outputFilePath` values under the virtual session namespace are readable only
+after the SDK publishes that exact log path in the current session. They are not
+host shell paths. Other session state and all virtual writes remain inaccessible
+to these tools. Project policies, tool permissions and bounded-task restrictions
+still apply. Complete registered logs are host-only evidence, persisted by the
+MCP logical task in its existing encrypted record, and omitted from tool results
+and continuation prompts. Session retirement clears transient log access.
+
+Verified terminal failures retain partial evidence and a durable error receipt;
+unknown completion continues to prohibit automatic replay and cleanup. Historical
+uncertain invocations are never reconciled automatically by this correction.
+
 Publishable .NET 10 library containing the GitHub Copilot SDK integration used by GnOuGo. It is independent of MCP transport and can be tested with fake SDK clients.
 
 Hosts can inject the SDK's `CopilotRequestHandler` into `GitHubCopilotSdkClientFactory`.

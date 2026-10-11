@@ -1,0 +1,19 @@
+{
+  "run": "cursorlive20261006a-amazon-1",
+  "execution_started": "2026-10-06T13:23:24.5634140+00:00",
+  "execution_ms": 814619,
+  "execution": {
+    "success": false,
+    "exception": "GnOuGo.Flow.Core.Runtime.WorkflowRunConflictException: Journal persistence failed. Stop execution and inspect the durable run.\n   at GnOuGo.Flow.Core.Runtime.WorkflowRunJournal.SaveAsync(String kind, String id, CancellationToken ct) in <frozen-checkout>/src/GnOuGo.Flow.Core/Runtime/WorkflowRunJournal.cs:line 196\n   at GnOuGo.Flow.Core.Runtime.WorkflowRunJournal.ChangeAsync(Action mutate, String kind, String id, CancellationToken ct) in <frozen-checkout>/src/GnOuGo.Flow.Core/Runtime/WorkflowRunJournal.cs:line 190\n   at GnOuGo.Flow.Core.Runtime.WorkflowEngine.ExecuteDurableAsync(CompiledWorkflow workflow, JsonNode inputs, Nullable`1 revision, CancellationToken ct) in <frozen-checkout>/src/GnOuGo.Flow.Core/Runtime/WorkflowEngine.Runs.cs:line 55\n   at GnOuGo.Flow.Core.Runtime.WorkflowEngine.ExecuteDurableAsync(CompiledWorkflow workflow, JsonNode inputs, Nullable`1 revision, CancellationToken ct) in <frozen-checkout>/src/GnOuGo.Flow.Core/Runtime/WorkflowEngine.Runs.cs:line 64\n   at GnOuGo.Flow.Core.Runtime.WorkflowEngine.ExecuteDurableAsync(CompiledWorkflow workflow, JsonNode inputs, Nullable`1 revision, CancellationToken ct) in <frozen-checkout>/src/GnOuGo.Flow.Core/Runtime/WorkflowEngine.Runs.cs:line 64\n   at LiveWorkflowEvaluation.RunAsync(String[] args, String phase, BenchmarkCampaign campaign, KeyVaultBenchmarkModel model, String root) in <frozen-checkout>/tests/GnOuGo.Agent.Planning.Benchmark/LiveWorkflowEvaluation.cs:line 88"
+  },
+  "oracle": {
+    "passed": false,
+    "findings": [
+      "workflow_execution_failed",
+      "workbook_missing"
+    ]
+  },
+  "mapping_telemetry": [],
+  "replay_forbidden": true,
+  "note": "Exact decimal accounting is retained in cohort-final.json. No automatic reconciliation or replay."
+}

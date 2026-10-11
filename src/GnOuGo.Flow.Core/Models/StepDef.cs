@@ -13,11 +13,19 @@ public sealed class StepDef
     /// <summary>Step type (e.g. "sequence", "parallel", "llm.call", etc.).</summary>
     public string Type { get; set; } = "";
 
+    /// <summary>Literal human-readable metadata; never evaluated or used as authority.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? Description { get; set; }
+
     /// <summary>Optional conditional guard expression (${...}).</summary>
     public string? If { get; set; }
 
     /// <summary>Input data — YAML values with ${...} expressions at any depth.</summary>
     public JsonNode? Input { get; set; }
+
+    /// <summary>Literal checked-expression contracts, keyed by JSON pointer relative to input.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public JsonObject? ExpressionContracts { get; set; }
 
     /// <summary>Optional output alias name.</summary>
     public string? Output { get; set; }

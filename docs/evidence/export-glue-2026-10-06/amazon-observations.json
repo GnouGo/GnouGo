@@ -1,0 +1,480 @@
+{
+  "manifest_count": 1,
+  "manifest_pages": 52,
+  "pages_read": 52,
+  "all_listed_cursors_read_in_order": true,
+  "records": 1488,
+  "manifest_record_count": 1488,
+  "capture_truncated": false,
+  "manifest_truncated": false,
+  "page_capture_truncation_count": 0,
+  "record_kinds": {
+    "heading": 172,
+    "link": 1055,
+    "text": 231,
+    "control": 30
+  },
+  "unique_groups": 128,
+  "record_field_utf8_json_bytes": {
+    "kind": 9534,
+    "tag": 5457,
+    "selector": 342838,
+    "group": 88914,
+    "text": 30770,
+    "href": 483903,
+    "role": 7284
+  },
+  "field_measurement_note": "Sum of individually encoded field values, UTF-8 with ensure_ascii=false; excludes property names and separators. This is not the complete inference-request size.",
+  "product_page_visits": 0,
+  "consent_clicks": 0,
+  "events": [
+    {
+      "tool": "browser_get_content",
+      "error": false,
+      "latency_ms": 6879,
+      "started": "2026-10-06T18:53:48.7297500+00:00",
+      "result_sha256": "ded0e05993691b05c7c9e83efad6158b598678194ce717d1a39b03a40c4e460b",
+      "cursor": null
+    },
+    {
+      "tool": "browser_get_content",
+      "error": false,
+      "latency_ms": 1,
+      "started": "2026-10-06T18:53:56.3269850+00:00",
+      "result_sha256": "870bbe9ef4092033d5b6bfc3bba438832f07c2ade2c22d4b9ca88bd4f7a5b17f",
+      "cursor": "c131c14ffbb04a82a3167ace0616b701:page:0"
+    },
+    {
+      "tool": "browser_get_content",
+      "error": false,
+      "latency_ms": 0,
+      "started": "2026-10-06T18:53:57.0573700+00:00",
+      "result_sha256": "4a101e9733b3ca7939e3ff2b6aa8d053658893b7dc9c5898d9c0c784614a1dc9",
+      "cursor": "c131c14ffbb04a82a3167ace0616b701:page:1"
+    },
+    {
+      "tool": "browser_get_content",
+      "error": false,
+      "latency_ms": 0,
+      "started": "2026-10-06T18:53:57.6022080+00:00",
+      "result_sha256": "14dd4dc35727a58eb11cccc6dfbc5ad9433250f13487ae57cf47de9265528763",
+      "cursor": "c131c14ffbb04a82a3167ace0616b701:page:2"
+    },
+    {
+      "tool": "browser_get_content",
+      "error": false,
+      "latency_ms": 0,
+      "started": "2026-10-06T18:53:58.0976850+00:00",
+      "result_sha256": "17834682b1bdf99b5745e38f5acc679d715d876bb81e2a63b9afcc6e11ba468e",
+      "cursor": "c131c14ffbb04a82a3167ace0616b701:page:3"
+    },
+    {
+      "tool": "browser_get_content",
+      "error": false,
+      "latency_ms": 0,
+      "started": "2026-10-06T18:53:58.5851950+00:00",
+      "result_sha256": "3e93dd57615b72d27d973edc7d5d61fc7f60f5da9b072e06c85d9ae3280d93b0",
+      "cursor": "c131c14ffbb04a82a3167ace0616b701:page:4"
+    },
+    {
+      "tool": "browser_get_content",
+      "error": false,
+      "latency_ms": 0,
+      "started": "2026-10-06T18:53:59.0403910+00:00",
+      "result_sha256": "ac32688c8a8484e502d84d79d29ec346d5d8906b9b597562420920076bd43d38",
+      "cursor": "c131c14ffbb04a82a3167ace0616b701:page:5"
+    },
+    {
+      "tool": "browser_get_content",
+      "error": false,
+      "latency_ms": 0,
+      "started": "2026-10-06T18:53:59.6285640+00:00",
+      "result_sha256": "7a08ba10dfa4723b70b01aaac05695a046cf06a0348735b3295504cf27c700cf",
+      "cursor": "c131c14ffbb04a82a3167ace0616b701:page:6"
+    },
+    {
+      "tool": "browser_get_content",
+      "error": false,
+      "latency_ms": 0,
+      "started": "2026-10-06T18:54:00.1793130+00:00",
+      "result_sha256": "1f30fd8c20f6854ca87993e09a22edf165bc1237d1403593dff3b17b8993aa87",
+      "cursor": "c131c14ffbb04a82a3167ace0616b701:page:7"
+    },
+    {
+      "tool": "browser_get_content",
+      "error": false,
+      "latency_ms": 0,
+      "started": "2026-10-06T18:54:00.7438400+00:00",
+      "result_sha256": "f25ac42d8b95b8336291a210e448242cac72a701a794402c90de48140bd21bd0",
+      "cursor": "c131c14ffbb04a82a3167ace0616b701:page:8"
+    },
+    {
+      "tool": "browser_get_content",
+      "error": false,
+      "latency_ms": 0,
+      "started": "2026-10-06T18:54:01.3548460+00:00",
+      "result_sha256": "065811f80b26e9c3c298720b65482934628253da28e92779fc83cf9631d8517b",
+      "cursor": "c131c14ffbb04a82a3167ace0616b701:page:9"
+    },
+    {
+      "tool": "browser_get_content",
+      "error": false,
+      "latency_ms": 0,
+      "started": "2026-10-06T18:54:01.9857890+00:00",
+      "result_sha256": "8925a9ca2145b380ebf8c9182e4fa90b9e75448bb43c6b91bbb75364c821e8e6",
+      "cursor": "c131c14ffbb04a82a3167ace0616b701:page:10"
+    },
+    {
+      "tool": "browser_get_content",
+      "error": false,
+      "latency_ms": 0,
+      "started": "2026-10-06T18:54:02.6252800+00:00",
+      "result_sha256": "3a7cb08014ffee8e6b431d09d20060809445ba2494fc3e5d6f24c4037180c935",
+      "cursor": "c131c14ffbb04a82a3167ace0616b701:page:11"
+    },
+    {
+      "tool": "browser_get_content",
+      "error": false,
+      "latency_ms": 0,
+      "started": "2026-10-06T18:54:03.2741340+00:00",
+      "result_sha256": "a1516dcc0fd70e404b7a86d8428e67a54deecddc5309a64781b187eadba19f08",
+      "cursor": "c131c14ffbb04a82a3167ace0616b701:page:12"
+    },
+    {
+      "tool": "browser_get_content",
+      "error": false,
+      "latency_ms": 1,
+      "started": "2026-10-06T18:54:03.9364800+00:00",
+      "result_sha256": "dac3c62f7f337ca5d03641e00e7c34258a287408b6d91f037cddc95ae075815a",
+      "cursor": "c131c14ffbb04a82a3167ace0616b701:page:13"
+    },
+    {
+      "tool": "browser_get_content",
+      "error": false,
+      "latency_ms": 0,
+      "started": "2026-10-06T18:54:04.5684460+00:00",
+      "result_sha256": "84fcd7196a7733ce415367fef5e5b6450e01581a685f9368024ac38443a86872",
+      "cursor": "c131c14ffbb04a82a3167ace0616b701:page:14"
+    },
+    {
+      "tool": "browser_get_content",
+      "error": false,
+      "latency_ms": 0,
+      "started": "2026-10-06T18:54:05.1842990+00:00",
+      "result_sha256": "0084a5b9569531cbb1fb5fb97f9d9e79385841a69192babd28c57924235f997c",
+      "cursor": "c131c14ffbb04a82a3167ace0616b701:page:15"
+    },
+    {
+      "tool": "browser_get_content",
+      "error": false,
+      "latency_ms": 0,
+      "started": "2026-10-06T18:54:05.8298670+00:00",
+      "result_sha256": "9bc0d13d985b6e655e4bbb475318c28c26b72996bd7286663e836207b0c3c906",
+      "cursor": "c131c14ffbb04a82a3167ace0616b701:page:16"
+    },
+    {
+      "tool": "browser_get_content",
+      "error": false,
+      "latency_ms": 0,
+      "started": "2026-10-06T18:54:06.4611470+00:00",
+      "result_sha256": "7fec075e3fad73c2c918b88730232dbc0bb31a8ef0765e1f597e0c7d7d230346",
+      "cursor": "c131c14ffbb04a82a3167ace0616b701:page:17"
+    },
+    {
+      "tool": "browser_get_content",
+      "error": false,
+      "latency_ms": 0,
+      "started": "2026-10-06T18:54:07.1317750+00:00",
+      "result_sha256": "66c69bb4cfb9515ede6089b1119762ddbeadfc0976e06e3a48fb765d95c53ae5",
+      "cursor": "c131c14ffbb04a82a3167ace0616b701:page:18"
+    },
+    {
+      "tool": "browser_get_content",
+      "error": false,
+      "latency_ms": 1,
+      "started": "2026-10-06T18:54:07.7866240+00:00",
+      "result_sha256": "ed7e6bc06c4e25ecd1e4e9d38edcaed1af87392d9409efa5638ba286fb46bfc4",
+      "cursor": "c131c14ffbb04a82a3167ace0616b701:page:19"
+    },
+    {
+      "tool": "browser_get_content",
+      "error": false,
+      "latency_ms": 0,
+      "started": "2026-10-06T18:54:08.4444190+00:00",
+      "result_sha256": "c291b2cdd31fc1732410a80150a990599241163f511b0ef6b360780c0be7749e",
+      "cursor": "c131c14ffbb04a82a3167ace0616b701:page:20"
+    },
+    {
+      "tool": "browser_get_content",
+      "error": false,
+      "latency_ms": 0,
+      "started": "2026-10-06T18:54:09.1098570+00:00",
+      "result_sha256": "0f1336878936e245defe213709b0d4ac395d54bbcd8e0088a7efaf266debdb15",
+      "cursor": "c131c14ffbb04a82a3167ace0616b701:page:21"
+    },
+    {
+      "tool": "browser_get_content",
+      "error": false,
+      "latency_ms": 0,
+      "started": "2026-10-06T18:54:09.7770730+00:00",
+      "result_sha256": "8db0fe0d9f5f4a24dd0e159c42dbc831cf312effb839fe84825ecc0b407d9631",
+      "cursor": "c131c14ffbb04a82a3167ace0616b701:page:22"
+    },
+    {
+      "tool": "browser_get_content",
+      "error": false,
+      "latency_ms": 0,
+      "started": "2026-10-06T18:54:10.4425100+00:00",
+      "result_sha256": "e9024bfc5e1b74437a4be291f45175132d6ea756087e8f9ff035f0d1b387d475",
+      "cursor": "c131c14ffbb04a82a3167ace0616b701:page:23"
+    },
+    {
+      "tool": "browser_get_content",
+      "error": false,
+      "latency_ms": 0,
+      "started": "2026-10-06T18:54:11.1018640+00:00",
+      "result_sha256": "299926504c074aece7002f3f42ff725b0ab01b9b96a7d7b27362ebd6cd0a195f",
+      "cursor": "c131c14ffbb04a82a3167ace0616b701:page:24"
+    },
+    {
+      "tool": "browser_get_content",
+      "error": false,
+      "latency_ms": 0,
+      "started": "2026-10-06T18:54:11.7921770+00:00",
+      "result_sha256": "65c9615e2a9d163656c428f780935e51068b0feb8f194b5bc5d1dcff356d17a0",
+      "cursor": "c131c14ffbb04a82a3167ace0616b701:page:25"
+    },
+    {
+      "tool": "browser_get_content",
+      "error": false,
+      "latency_ms": 0,
+      "started": "2026-10-06T18:54:12.4515120+00:00",
+      "result_sha256": "60a4ed77313da9754fdb8e30fc8f0a505ef515290fb2027fa7adf5cd4fa6b066",
+      "cursor": "c131c14ffbb04a82a3167ace0616b701:page:26"
+    },
+    {
+      "tool": "browser_get_content",
+      "error": false,
+      "latency_ms": 0,
+      "started": "2026-10-06T18:54:13.1212830+00:00",
+      "result_sha256": "f29f3c9c4cc3806df8316071e7917fb73375e9e379af7a8cb6d4bdadd52dd250",
+      "cursor": "c131c14ffbb04a82a3167ace0616b701:page:27"
+    },
+    {
+      "tool": "browser_get_content",
+      "error": false,
+      "latency_ms": 1,
+      "started": "2026-10-06T18:54:13.8155000+00:00",
+      "result_sha256": "d0e652967c0a9da4b36d46a9776f650617e022c24f50b084834ae195432f5ab8",
+      "cursor": "c131c14ffbb04a82a3167ace0616b701:page:28"
+    },
+    {
+      "tool": "browser_get_content",
+      "error": false,
+      "latency_ms": 0,
+      "started": "2026-10-06T18:54:14.5120430+00:00",
+      "result_sha256": "039327d7e7f32c5a2888c976c066983033064b3e0831803a1a78d91786e964da",
+      "cursor": "c131c14ffbb04a82a3167ace0616b701:page:29"
+    },
+    {
+      "tool": "browser_get_content",
+      "error": false,
+      "latency_ms": 0,
+      "started": "2026-10-06T18:54:15.2010680+00:00",
+      "result_sha256": "e0c9d8d9c8f6173e1d9817094b5e72721c156bf035f8e5ca3cd1db24728d401e",
+      "cursor": "c131c14ffbb04a82a3167ace0616b701:page:30"
+    },
+    {
+      "tool": "browser_get_content",
+      "error": false,
+      "latency_ms": 0,
+      "started": "2026-10-06T18:54:15.9265180+00:00",
+      "result_sha256": "32543f13d9aca9e0288d67c76838a5d62affe04200e7672b52e04d8edb2dd6f1",
+      "cursor": "c131c14ffbb04a82a3167ace0616b701:page:31"
+    },
+    {
+      "tool": "browser_get_content",
+      "error": false,
+      "latency_ms": 0,
+      "started": "2026-10-06T18:54:16.6908440+00:00",
+      "result_sha256": "b21216996b5b3a08b14195c3150e6a582b2b4a4a4fd62fc160132514740d608e",
+      "cursor": "c131c14ffbb04a82a3167ace0616b701:page:32"
+    },
+    {
+      "tool": "browser_get_content",
+      "error": false,
+      "latency_ms": 1,
+      "started": "2026-10-06T18:54:17.3974600+00:00",
+      "result_sha256": "7aaff26b0137719b431a2d7595b6649c70a0dfd26fba21549734c5bed9205a81",
+      "cursor": "c131c14ffbb04a82a3167ace0616b701:page:33"
+    },
+    {
+      "tool": "browser_get_content",
+      "error": false,
+      "latency_ms": 0,
+      "started": "2026-10-06T18:54:18.2138500+00:00",
+      "result_sha256": "5f50f18eff75a9c76fc236e358a3db4d0945ba9316fbd32a323ecfcd174826eb",
+      "cursor": "c131c14ffbb04a82a3167ace0616b701:page:34"
+    },
+    {
+      "tool": "browser_get_content",
+      "error": false,
+      "latency_ms": 0,
+      "started": "2026-10-06T18:54:19.0195630+00:00",
+      "result_sha256": "05cc9a04242eb3b12ade9927fe2e7fa4beabf3014aa95b47694e58154b5f370c",
+      "cursor": "c131c14ffbb04a82a3167ace0616b701:page:35"
+    },
+    {
+      "tool": "browser_get_content",
+      "error": false,
+      "latency_ms": 0,
+      "started": "2026-10-06T18:54:19.7682000+00:00",
+      "result_sha256": "06a27fa45e659229cd7841632b25c6c6192749e4c738d30c254409d8a36e8fa4",
+      "cursor": "c131c14ffbb04a82a3167ace0616b701:page:36"
+    },
+    {
+      "tool": "browser_get_content",
+      "error": false,
+      "latency_ms": 0,
+      "started": "2026-10-06T18:54:20.5192560+00:00",
+      "result_sha256": "040c6bcd5ceda669f920ce4ed7f077bcbed0fdac6f6d568ff2e51c3f8600307b",
+      "cursor": "c131c14ffbb04a82a3167ace0616b701:page:37"
+    },
+    {
+      "tool": "browser_get_content",
+      "error": false,
+      "latency_ms": 0,
+      "started": "2026-10-06T18:54:21.2619040+00:00",
+      "result_sha256": "3246ae6a6f9247a127d6e5262420d064ecae07e9e80943cfd67710f61924e9e9",
+      "cursor": "c131c14ffbb04a82a3167ace0616b701:page:38"
+    },
+    {
+      "tool": "browser_get_content",
+      "error": false,
+      "latency_ms": 3,
+      "started": "2026-10-06T18:54:22.0375490+00:00",
+      "result_sha256": "20c1ffb96b222ae1fef00e0fc0a251ce4044142b98e65f86becf49c050a5d096",
+      "cursor": "c131c14ffbb04a82a3167ace0616b701:page:39"
+    },
+    {
+      "tool": "browser_get_content",
+      "error": false,
+      "latency_ms": 0,
+      "started": "2026-10-06T18:54:22.7727290+00:00",
+      "result_sha256": "3ce7572b715d2a8968311cb827db2cb39b12eedc6a9f1ead87c0da48a38fa5a5",
+      "cursor": "c131c14ffbb04a82a3167ace0616b701:page:40"
+    },
+    {
+      "tool": "browser_get_content",
+      "error": false,
+      "latency_ms": 0,
+      "started": "2026-10-06T18:54:23.5876290+00:00",
+      "result_sha256": "7fd2d8087e2ba164638029b5208847b8aa8a89f2a63643eae799f4274b65fd35",
+      "cursor": "c131c14ffbb04a82a3167ace0616b701:page:41"
+    },
+    {
+      "tool": "browser_get_content",
+      "error": false,
+      "latency_ms": 0,
+      "started": "2026-10-06T18:54:24.3369410+00:00",
+      "result_sha256": "fc00120104257081c94d85a789debc15c061cc8cbc510bba54809d0902fe79ee",
+      "cursor": "c131c14ffbb04a82a3167ace0616b701:page:42"
+    },
+    {
+      "tool": "browser_get_content",
+      "error": false,
+      "latency_ms": 0,
+      "started": "2026-10-06T18:54:25.0686300+00:00",
+      "result_sha256": "07998dc19db49cbb042b02394fc65d3ed70f5954bad2ac83b6840d269e163b1f",
+      "cursor": "c131c14ffbb04a82a3167ace0616b701:page:43"
+    },
+    {
+      "tool": "browser_get_content",
+      "error": false,
+      "latency_ms": 3,
+      "started": "2026-10-06T18:54:25.8828720+00:00",
+      "result_sha256": "7d103de7ba6dbb80198c77cd2d580bf722200062d350801b0460ccf70ac44959",
+      "cursor": "c131c14ffbb04a82a3167ace0616b701:page:44"
+    },
+    {
+      "tool": "browser_get_content",
+      "error": false,
+      "latency_ms": 0,
+      "started": "2026-10-06T18:54:26.6942000+00:00",
+      "result_sha256": "005caa114a79ac9f6f8049ee800fa2dc130482b65c5b3c5b8bcfdb25d4d4d145",
+      "cursor": "c131c14ffbb04a82a3167ace0616b701:page:45"
+    },
+    {
+      "tool": "browser_get_content",
+      "error": false,
+      "latency_ms": 0,
+      "started": "2026-10-06T18:54:27.4933070+00:00",
+      "result_sha256": "19a888e64f3f73bcd6022b168003dabe0bd92323994333b461c2549ecf1f6858",
+      "cursor": "c131c14ffbb04a82a3167ace0616b701:page:46"
+    },
+    {
+      "tool": "browser_get_content",
+      "error": false,
+      "latency_ms": 0,
+      "started": "2026-10-06T18:54:28.3129350+00:00",
+      "result_sha256": "c1a436d5b59fd03484efe60fd1e0047504251780b070a32ecab8267de5c043d1",
+      "cursor": "c131c14ffbb04a82a3167ace0616b701:page:47"
+    },
+    {
+      "tool": "browser_get_content",
+      "error": false,
+      "latency_ms": 1,
+      "started": "2026-10-06T18:54:29.2091290+00:00",
+      "result_sha256": "9855b25a1a2810cd61ca59ec56c747e68c36a60e8bdda396c75188ba7c66232d",
+      "cursor": "c131c14ffbb04a82a3167ace0616b701:page:48"
+    },
+    {
+      "tool": "browser_get_content",
+      "error": false,
+      "latency_ms": 0,
+      "started": "2026-10-06T18:54:30.1162830+00:00",
+      "result_sha256": "b0fe6b72f91135ac76c0e8893b0a5f956f2d62370369c86f212579fc57ab2a86",
+      "cursor": "c131c14ffbb04a82a3167ace0616b701:page:49"
+    },
+    {
+      "tool": "browser_get_content",
+      "error": false,
+      "latency_ms": 1,
+      "started": "2026-10-06T18:54:31.0126740+00:00",
+      "result_sha256": "a1ec95debc3b215fa3adf5c909e644a244cf2a12cc79811a03664bf0c58b5f75",
+      "cursor": "c131c14ffbb04a82a3167ace0616b701:page:50"
+    },
+    {
+      "tool": "browser_get_content",
+      "error": false,
+      "latency_ms": 0,
+      "started": "2026-10-06T18:54:32.2594130+00:00",
+      "result_sha256": "17d53f78278649656e08d1900cd4d71346ea88e5d3bd421a5f9061468b5a9d96",
+      "cursor": "c131c14ffbb04a82a3167ace0616b701:page:51"
+    },
+    {
+      "tool": "browser_close",
+      "error": false,
+      "latency_ms": 1046,
+      "started": "2026-10-06T18:54:37.3526000+00:00",
+      "result_sha256": "3cb97848349f3a3a095e2c408fa43d687399654cd3c6ba87f80a3abd30f34a13",
+      "cursor": null
+    },
+    {
+      "tool": "browser_get_content",
+      "error": true,
+      "latency_ms": 1,
+      "started": "2026-10-06T18:54:38.7086650+00:00",
+      "result_sha256": "a1b6b3ecc1268c5ea2360c20fa7b245ab4295003aefa96a693251dc735ac1e26",
+      "cursor": null
+    },
+    {
+      "tool": "browser_close",
+      "error": false,
+      "latency_ms": 1001,
+      "started": "2026-10-06T18:54:38.7376300+00:00",
+      "result_sha256": "3cb97848349f3a3a095e2c408fa43d687399654cd3c6ba87f80a3abd30f34a13",
+      "cursor": null
+    }
+  ]
+}

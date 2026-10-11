@@ -1,0 +1,129 @@
+{
+  "description": "Interleaved deterministic contract comparison on one candidate build, after one warm-up pair. No live provider baseline/candidate reliability claim.",
+  "productionCommit": "c20750e3a7ab4d2d2a6a2d4c97dafec3a82d0e31",
+  "providerInputTokens": null,
+  "providerOutputTokens": null,
+  "providerCalls": 0,
+  "samples": [
+    {
+      "contract": "outcome-v1",
+      "repetition": 0,
+      "planningCalls": 1,
+      "repairs": 0,
+      "discoveryReads": 0,
+      "inputTokenEstimate": 6270,
+      "planningMs": 5.4075,
+      "executionMs": 0.587,
+      "totalMs": 5.9944999999999995,
+      "executionSuccess": true,
+      "oracleCorrect": true
+    },
+    {
+      "contract": "outcome-v2",
+      "repetition": 0,
+      "planningCalls": 1,
+      "repairs": 0,
+      "discoveryReads": 0,
+      "inputTokenEstimate": 6677,
+      "planningMs": 19.8209,
+      "executionMs": 0.6397,
+      "totalMs": 20.460600000000003,
+      "executionSuccess": true,
+      "oracleCorrect": true
+    },
+    {
+      "contract": "outcome-v1",
+      "repetition": 1,
+      "planningCalls": 1,
+      "repairs": 0,
+      "discoveryReads": 0,
+      "inputTokenEstimate": 6270,
+      "planningMs": 6.6295,
+      "executionMs": 0.5957,
+      "totalMs": 7.2252,
+      "executionSuccess": true,
+      "oracleCorrect": true
+    },
+    {
+      "contract": "outcome-v2",
+      "repetition": 1,
+      "planningCalls": 1,
+      "repairs": 0,
+      "discoveryReads": 0,
+      "inputTokenEstimate": 6677,
+      "planningMs": 17.7049,
+      "executionMs": 0.6722,
+      "totalMs": 18.3771,
+      "executionSuccess": true,
+      "oracleCorrect": true
+    },
+    {
+      "contract": "outcome-v1",
+      "repetition": 2,
+      "planningCalls": 1,
+      "repairs": 0,
+      "discoveryReads": 0,
+      "inputTokenEstimate": 6270,
+      "planningMs": 6.4697,
+      "executionMs": 0.6044,
+      "totalMs": 7.0741,
+      "executionSuccess": true,
+      "oracleCorrect": true
+    },
+    {
+      "contract": "outcome-v2",
+      "repetition": 2,
+      "planningCalls": 1,
+      "repairs": 0,
+      "discoveryReads": 0,
+      "inputTokenEstimate": 6677,
+      "planningMs": 17.2547,
+      "executionMs": 0.6696,
+      "totalMs": 17.9243,
+      "executionSuccess": true,
+      "oracleCorrect": true
+    }
+  ],
+  "summary": {
+    "outcome-v1": {
+      "runs": 3,
+      "oraclesPassed": 3,
+      "inputTokenEstimate": {
+        "median": 6270,
+        "p95NearestRank": 6270
+      },
+      "planningMs": {
+        "median": 6.4697,
+        "p95NearestRank": 6.6295
+      },
+      "executionMs": {
+        "median": 0.5957,
+        "p95NearestRank": 0.6044
+      },
+      "totalMs": {
+        "median": 7.0741,
+        "p95NearestRank": 7.2252
+      }
+    },
+    "outcome-v2": {
+      "runs": 3,
+      "oraclesPassed": 3,
+      "inputTokenEstimate": {
+        "median": 6677,
+        "p95NearestRank": 6677
+      },
+      "planningMs": {
+        "median": 17.7049,
+        "p95NearestRank": 19.8209
+      },
+      "executionMs": {
+        "median": 0.6696,
+        "p95NearestRank": 0.6722
+      },
+      "totalMs": {
+        "median": 18.3771,
+        "p95NearestRank": 20.460600000000003
+      }
+    }
+  }
+}

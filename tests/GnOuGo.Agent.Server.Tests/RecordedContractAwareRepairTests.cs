@@ -18,67 +18,28 @@ public sealed class RecordedContractAwareRepairTests
     }
 
     [Fact]
-    public async Task AllEightOriginalResponsesRetainTheTypeErrorsRejectedRewriteAndExhaustedBudget()
+    public async Task RetiredResponsesRequireRevisionAndRetainOriginalRequestsAndAccounting()
     {
-        var runtime = new Replay(); var planner = new HybridWorkflowPlanner(); PlanningSession? state = null;
-        foreach (var entry in runtime.Recording["responses"]!.AsArray())
+        var replay = new Replay();
+        foreach (var entry in replay.Recording["responses"]!.AsArray())
         {
-            runtime.Expected = entry!.AsObject(); state = runtime.State(entry["pendingSession"]!);
-            var baseline = PlanJson(state);
-            var discovery = JsonSerializer.Serialize(state.Discovery, PlanningJsonContext.Default.CapabilityDiscoveryState);
-            var usage = JsonSerializer.Serialize(state.Usage, PlanningJsonContext.Default.LLMUsageBudgetSnapshot);
-            var scope = state.RevisionScope.ToArray(); var calls = state.ModelCalls; var repairs = state.ReplanAttempts;
-            state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
-            Assert.Equal(calls, state.ModelCalls); Assert.Equal(repairs, state.ReplanAttempts);
-            Assert.Equal(usage, JsonSerializer.Serialize(state.Usage, PlanningJsonContext.Default.LLMUsageBudgetSnapshot));
-            Assert.Null(state.PendingCall);
-            if (calls < 7) Assert.Empty(state.Diagnostics);
-            if (calls == 7)
-            {
-                Assert.Equal(new[] { "/tasks/add_inline_comment/inputs/startLine", "/tasks/add_inline_comment/inputs/startSide", "/tasks/run_checks_with_copilot/inputs/permissionMode" },
-                    state.Diagnostics.Where(d => d.Code == "TASK_INPUT_TYPE").Select(d => d.Location));
-                Assert.Contains(state.Diagnostics, d => d.Code == "TASK_DEPENDENCY_UNKNOWN" && d.Location == "/tasks/compare_pr/dependsOn");
-            }
-            if (calls == 8)
-            {
-                Assert.Contains(state.Diagnostics, d => d.Code == "REVISION_SCOPE_CHANGED" && d.Location == "/tasks/format_inline_comment/resultType/fields");
-                Assert.Contains(state.Diagnostics, d => d.Code == "REVISION_SCOPE_CHANGED" && d.Location == "/tasks/parse_pr_url/objective");
-                Assert.DoesNotContain(state.Diagnostics, d => d.Code == "REVISION_SCOPE_CHANGED" && d.Location == "/tasks/add_inline_comment/inputs");
-                Assert.Equal(baseline, PlanJson(state)); Assert.Equal(scope, state.RevisionScope);
-                Assert.Equal(discovery, JsonSerializer.Serialize(state.Discovery, PlanningJsonContext.Default.CapabilityDiscoveryState));
-            }
+            replay.Expected = entry!.AsObject();
+            var pending = replay.State(entry["pendingSession"]!);
+            await RecordedPlanCompilation.RetiredAsync(pending, replay);
         }
-        state = await planner.AdvanceAsync(state!, new() { ExpectedRevision = state!.Revision }, runtime, Ct);
-        Assert.Equal(PlanningStatus.Stopped, state.Status); Assert.Equal(8, state.ModelCalls); Assert.Equal(1, state.ReplanAttempts);
-        Assert.Contains(state.Diagnostics, d => d.Code == "LLM_BUDGET_EXCEEDED"); Assert.Equal(8, runtime.Identities.Count);
-        Assert.Null(state.Graph); Assert.Null(state.Yaml); Assert.Null(state.ApprovedHash);
-        // The original recording retains the old blanket input-list rejection as historical evidence.
-        Assert.Contains(runtime.Recording["finalSession"]!["diagnostics"]!.AsArray(), d => d!["location"]!.ToString() == "/tasks/add_inline_comment/inputs");
+        Assert.Empty(replay.Identities);
     }
 
     [Fact]
-    public async Task MinimalExplicitRepairRecoversTheIssuedRequestAndReachesReviewWithoutAnotherReservation()
+    public async Task CorrectedRecordedPlanCompilesOfflineWithoutRedispatchingItsOldRequest()
     {
-        var runtime = new Replay { Corrected = true }; runtime.Expected = runtime.Recording["responses"]!.AsArray()[7]!.AsObject();
-        var state = runtime.State(runtime.Expected["pendingSession"]!);
-        var calls = state.ModelCalls; var usage = JsonSerializer.Serialize(state.Usage, PlanningJsonContext.Default.LLMUsageBudgetSnapshot);
-        var baseline = PlanJson(state); var receipts = ReceiptJson(state);
-        var planner = new HybridWorkflowPlanner();
-        state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
-        Assert.True(state.Status == PlanningStatus.FinalReview, string.Join("; ", state.Diagnostics.Select(d => d.Code + ": " + d.Message)));
-        Assert.Empty(state.Diagnostics); Assert.Null(state.ApprovedHash); Assert.Null(state.PendingCall);
-        Assert.Equal(calls, state.ModelCalls); Assert.Equal(1, state.ReplanAttempts); Assert.Single(runtime.Identities);
-        Assert.Equal(usage, JsonSerializer.Serialize(state.Usage, PlanningJsonContext.Default.LLMUsageBudgetSnapshot));
-        Assert.Equal(receipts, ReceiptJson(state));
-        Assert.Contains(state.Discovery.Limitations, l => l.StartsWith("Discovery is incomplete:", StringComparison.Ordinal));
-        Assert.NotEqual(baseline, PlanJson(state)); Assert.NotNull(state.Yaml);
-        PlanningArtifactApproval.Verify(state);
-        var recovered = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
-        PlanningArtifactApproval.Verify(recovered); var hash = recovered.ComputeArtifactHash();
-        recovered.Plan!.Root.Tasks[0].Objective += " changed intent";
-        Assert.NotEqual(hash, recovered.ComputeArtifactHash());
-        Assert.Throws<PlanningConflictException>(() => PlanningArtifactApproval.Verify(recovered));
-        Assert.Equal(0, runtime.MetadataReads);
+        var runtime = new Replay();
+        var plan = JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "ContractAwareRepair", "synthetic-minimal-repair.json")))!["proposal"]!["plan"]!.Deserialize(PlanningJsonContext.Default.TaskPlan)!;
+        var state = await RecordedPlanCompilation.CompileAsync(runtime.Recording, plan);
+        Assert.True(state.Status == PlanningStatus.FinalReview, string.Join(';', state.Diagnostics.Select(d => d.Message)));
+        Assert.Empty(runtime.Identities); Assert.Null(state.ApprovedHash); PlanningArtifactApproval.Verify(state);
+        state.Plan!.Root.Tasks[0].Objective += " changed";
+        Assert.Throws<PlanningConflictException>(() => PlanningArtifactApproval.Verify(state));
     }
 
     private sealed class Replay : IPlanningRuntime, ICapabilityCatalog
@@ -86,7 +47,7 @@ public sealed class RecordedContractAwareRepairTests
         private static JsonObject FileData(string name) => JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "ContractAwareRepair", name + ".json")))!.AsObject();
         internal readonly JsonObject Recording = FileData("retained-optional-repair");
         internal JsonObject Expected = null!;
-        internal bool Corrected;
+        internal bool Corrected = false;
         internal int MetadataReads;
         internal readonly List<string> Identities = [];
         private readonly WorkflowPlanningRuntime actual = new(new(), (_, _) => Task.CompletedTask);

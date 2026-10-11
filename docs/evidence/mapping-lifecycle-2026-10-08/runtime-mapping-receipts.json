@@ -1,0 +1,48 @@
+[
+  {
+    "invocation": "/workflow/main/step/n_0674b829b22fdf71/mapping/0",
+    "status": "completed",
+    "output": {
+      "json": {
+        "script": "({id:item.id,tag:item.record.tag,text:item.record.text,actions:item.record.actions})"
+      },
+      "text": "{\u0022script\u0022:\u0022({id:item.id,tag:item.record.tag,text:item.record.text,actions:item.record.actions})\u0022}",
+      "usage": {
+        "input_tokens": 1450,
+        "output_tokens": 176,
+        "total_tokens": 1626,
+        "benchmark_cost_eur": 0.0111189990238707959889963617,
+        "transport_attempts": 1,
+        "uncertain_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0,
+        "benchmark_usage_bounded": true
+      }
+    },
+    "externalCompletionObserved": true
+  },
+  {
+    "invocation": "/workflow/main/step/n_4a0c4e1b8d209666/mapping/0",
+    "status": "completed",
+    "output": {
+      "json": {
+        "script": "({id:item.id,tag:item.record.tag,text:item.record.text,actions:item.record.actions})"
+      },
+      "text": "{\u0022script\u0022:\u0022({id:item.id,tag:item.record.tag,text:item.record.text,actions:item.record.actions})\u0022}",
+      "usage": {
+        "input_tokens": 1584,
+        "output_tokens": 126,
+        "total_tokens": 1710,
+        "benchmark_cost_eur": 0.0103824651699352205164610879,
+        "transport_attempts": 1,
+        "uncertain_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0,
+        "benchmark_usage_bounded": true
+      }
+    },
+    "externalCompletionObserved": true
+  }
+]

@@ -32,6 +32,7 @@ workflows:
     steps:
       - id: copy
         type: set
+        description: 'Private literal ${metadata}'
         input: {value: "${data.inputs.marker}"}
     finally:
       - id: cleanup
@@ -57,6 +58,8 @@ run = json.loads(cli('runs', '--tenant', 'smoke', '--id', 'cli'))
 assert run['schemaVersion'] == 9 and run['status'] == 'completed' and run['finalizationCompleted']
 assert run['result']['outputs']['value'] == marker
 assert len(run['invocations']) == 2
+assert run['invocations']['/workflow/main/step/copy']['description'] == 'Private literal ${metadata}'
+assert 'description' not in next(i for i in run['invocations'].values() if i['isFinalization'])
 assert all(i['completedAt'] for i in run['invocations'].values())
 assert json.loads(cli('runs', '--tenant', 'other', '--id', 'cli')) is None
 cli('run', str(workflow), '--mock', '--run-id', 'cli', '--input-json', json.dumps({'marker': marker}), success=False)

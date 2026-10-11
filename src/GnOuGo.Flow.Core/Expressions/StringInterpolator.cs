@@ -100,6 +100,27 @@ public sealed class StringInterpolator
     /// Recursively resolve expressions in a JsonNode tree.
     /// </summary>
     public JsonNode? ResolveDeep(JsonNode? node, JsonNode? context)
+        => ResolveDeep(node, context, null);
+
+    internal JsonNode? ResolveDeep(JsonNode? node, JsonNode? context, JsonObject? contracts)
+    {
+        ExpressionEvaluator.ValidateExpressionContracts(node, contracts);
+        return Resolve(node, "");
+
+        JsonNode? Resolve(JsonNode? value, string pointer)
+        {
+            if (contracts?[pointer] is JsonObject checks)
+                return _evaluator.EvaluateCheckedExpression(ExpressionEvaluator.ContractExpression(value), context, checks);
+            if (value is JsonObject obj)
+                return new JsonObject(obj.Select(p => new KeyValuePair<string, JsonNode?>(p.Key,
+                    Resolve(p.Value, pointer + "/" + p.Key.Replace("~", "~0", StringComparison.Ordinal).Replace("/", "~1", StringComparison.Ordinal)))));
+            if (value is JsonArray array)
+                return new JsonArray(array.Select((item, index) => Resolve(item, pointer + "/" + index.ToString(System.Globalization.CultureInfo.InvariantCulture))).ToArray());
+            return ResolveUncontracted(value, context);
+        }
+    }
+
+    private JsonNode? ResolveUncontracted(JsonNode? node, JsonNode? context)
     {
         if (node == null) return null;
         if (node is JsonValue val && val.TryGetValue(out string? s) && HasExpressions(s))

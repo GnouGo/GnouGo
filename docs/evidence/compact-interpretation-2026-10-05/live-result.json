@@ -1,0 +1,67 @@
+{
+  "candidate": "c1160e17465a65e138371b182fa3510a1f8e01d2",
+  "cohort": "compactlive20261005a",
+  "run": "compactlive20261005a-amazon-1",
+  "result": "incomplete_rejected_before_execution",
+  "review_reason": "Required workbook-writing operation was removed in planning call 7. Scoped repair call 8 replaced its unresolved filePath output with a literal path. Compilation passes, but save_excel is not implemented. Publication guards also still omit original search/blocker fields. Reject before approval/execution; session has exhausted eight calls and two repairs.",
+  "revision": 12,
+  "artifact_hash": "2bb69386cb6d0df78a8d746d56fd6e5e4ee133a05e39f421b31c540bb891b3fa",
+  "planning": {
+    "status": "final_review",
+    "planning_ms": 741646,
+    "calls": 8,
+    "repairs": 2,
+    "discovery_reads": 2,
+    "review_revisions": 4,
+    "diagnostics": [],
+    "execution_success": false,
+    "execution_oracle": false,
+    "execution_status": "not_started",
+    "accounting": {
+      "planning": {
+        "logical_calls": 8,
+        "physical_attempts": 8,
+        "known_input_tokens": 113337,
+        "known_output_tokens": 48915,
+        "known_cost_eur": 1.8155435558729025,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "execution": {
+        "logical_calls": 0,
+        "physical_attempts": 0,
+        "known_input_tokens": 0,
+        "known_output_tokens": 0,
+        "known_cost_eur": 0,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "campaign": {
+        "calls": 727,
+        "session_calls": 0,
+        "known_input_tokens": 11225724,
+        "known_output_tokens": 1188303,
+        "known_cost_eur": 81.71256514318232,
+        "reserved_input_tokens": 192000,
+        "reserved_output_tokens": 65536,
+        "reserved_cost_eur": 2.606752783964365,
+        "cost_upper_bound_eur": 84.31931792714668,
+        "unknown_attempts": 2
+      }
+    }
+  },
+  "runtime_request_bytes": null,
+  "runtime_processed_items": null,
+  "runtime_sampled_items": null,
+  "runtime_cache_results": null,
+  "runtime_latency_ms": null,
+  "runtime_measurement_limitation": "No execution started. Provider planning metrics are measured; runtime compaction size/count/cache metrics exist only in deterministic fixtures for this candidate.",
+  "approved": false,
+  "paid_code_review_attempted": false,
+  "new_unknown_attempts": 0,
+  "historical_unknown_reservations_retained": true
+}

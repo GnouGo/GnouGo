@@ -17,8 +17,11 @@ using OtlpTenantCollector.Models;
 
 namespace GnOuGo.Agent.Server.Tests;
 
-public sealed class ConfigureProvidersServiceTests
+public sealed partial class ConfigureProvidersServiceTests : IDisposable
 {
+    private readonly TelemetryHarness _telemetry = SmartFlowTestFactory.CreateTelemetryHarness();
+    public void Dispose() => _telemetry.Dispose();
+
     [Fact]
     public async Task McpCopilotPermissions_ListsAndRevokesTenantScopedPersistentGrants()
     {
@@ -57,17 +60,18 @@ public sealed class ConfigureProvidersServiceTests
         Assert.Contains(listEvents, item => item.Text?.Contains("| yes |", StringComparison.Ordinal) == true);
         Assert.Contains(revokeEvents, item => item.Text?.Contains("revoked", StringComparison.OrdinalIgnoreCase) == true);
         Assert.Equal("grant-1", revokeRequest?["grantId"]?.GetValue<string>());
-        Assert.Equal("tenant-test", revokeRequest?["tenantId"]?.GetValue<string>());
+        // Tenant identity is carried by trusted transport metadata, never business arguments.
+        Assert.False(revokeRequest!.ContainsKey("tenantId"));
     }
 
-    private static ConfigureProvidersService CreatePermissionManagementService(IMcpClientFactory mcpFactory)
+    private ConfigureProvidersService CreatePermissionManagementService(IMcpClientFactory mcpFactory)
         => new(
             new RecordingLlmClient(),
             new AgentHumanInputProvider(),
             new FakeModelCatalog(),
             new FakeKeyVaultRuntimeConfigStore(),
             SmartFlowTestFactory.CreateRuntimeOptionsStore(new LLMOptions()),
-            SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
+            _telemetry.Telemetry,
             NullLogger<ConfigureProvidersService>.Instance,
             mcpFactory: mcpFactory,
             openTelemetrySettings: Options.Create(new OpenTelemetrySettings { TenantId = "tenant-test" }));
@@ -92,7 +96,7 @@ public sealed class ConfigureProvidersServiceTests
             new FakeModelCatalog(),
             new FakeKeyVaultRuntimeConfigStore(),
             runtimeStore,
-            SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
+            _telemetry.Telemetry,
             NullLogger<ConfigureProvidersService>.Instance);
 
         var useInjected = ConfigureProvidersServiceTestHelpers.InvokeShouldUseInjectedModelCatalog(
@@ -125,7 +129,7 @@ public sealed class ConfigureProvidersServiceTests
             new FakeModelCatalog(),
             new FakeKeyVaultRuntimeConfigStore(),
             runtimeStore,
-            SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
+            _telemetry.Telemetry,
             NullLogger<ConfigureProvidersService>.Instance);
 
         var useInjected = ConfigureProvidersServiceTestHelpers.InvokeShouldUseInjectedModelCatalog(
@@ -161,7 +165,7 @@ public sealed class ConfigureProvidersServiceTests
             new FakeModelCatalog(),
             new FakeKeyVaultRuntimeConfigStore(),
             runtimeStore,
-            SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
+            _telemetry.Telemetry,
             NullLogger<ConfigureProvidersService>.Instance);
 
         var useInjected = ConfigureProvidersServiceTestHelpers.InvokeShouldUseInjectedModelCatalog(
@@ -197,7 +201,7 @@ public sealed class ConfigureProvidersServiceTests
             new FakeModelCatalog(),
             new FakeKeyVaultRuntimeConfigStore(),
             runtimeStore,
-            SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
+            _telemetry.Telemetry,
             NullLogger<ConfigureProvidersService>.Instance);
 
         var useInjected = ConfigureProvidersServiceTestHelpers.InvokeShouldUseInjectedModelCatalog(
@@ -219,7 +223,7 @@ public sealed class ConfigureProvidersServiceTests
     public async Task ExecuteAsync_LlmHelp_ReturnsDeterministicMarkdownWithoutCallingLlm()
     {
         var llm = new RecordingLlmClient();
-        var service = SmartFlowTestFactory.CreateProvidersService(llm);
+        var service = SmartFlowTestFactory.CreateProvidersService(llm, telemetry: _telemetry.Telemetry);
 
         var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/llm", CancellationToken.None), TestContext.Current.CancellationToken);
 
@@ -234,7 +238,7 @@ public sealed class ConfigureProvidersServiceTests
     public async Task ExecuteAsync_WizardHelp_IncludesGlobalHelpAndAgentCommands()
     {
         var llm = new RecordingLlmClient();
-        var service = SmartFlowTestFactory.CreateProvidersService(llm);
+        var service = SmartFlowTestFactory.CreateProvidersService(llm, telemetry: _telemetry.Telemetry);
 
         var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/unknown", CancellationToken.None), TestContext.Current.CancellationToken);
 
@@ -250,7 +254,7 @@ public sealed class ConfigureProvidersServiceTests
     public async Task ExecuteAsync_EmbeddingHelp_ReturnsDeterministicMarkdownWithoutCallingLlm()
     {
         var llm = new RecordingLlmClient();
-        var service = SmartFlowTestFactory.CreateProvidersService(llm);
+        var service = SmartFlowTestFactory.CreateProvidersService(llm, telemetry: _telemetry.Telemetry);
 
         var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/embedding", CancellationToken.None), TestContext.Current.CancellationToken);
 
@@ -265,7 +269,7 @@ public sealed class ConfigureProvidersServiceTests
     public async Task ExecuteAsync_McpUnknownCommand_ReturnsHelpWithoutCallingLlm()
     {
         var llm = new RecordingLlmClient();
-        var service = SmartFlowTestFactory.CreateProvidersService(llm);
+        var service = SmartFlowTestFactory.CreateProvidersService(llm, telemetry: _telemetry.Telemetry);
 
         var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/mcp nope", CancellationToken.None), TestContext.Current.CancellationToken);
 
@@ -281,7 +285,7 @@ public sealed class ConfigureProvidersServiceTests
     {
         var llm = new RecordingLlmClient();
         var settings = CreateBundledGitMcpSettings();
-        var service = SmartFlowTestFactory.CreateProvidersService(llm, bundledMcpSettings: settings);
+        var service = SmartFlowTestFactory.CreateProvidersService(llm, bundledMcpSettings: settings, telemetry: _telemetry.Telemetry);
 
         var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/mcp list", CancellationToken.None), TestContext.Current.CancellationToken);
 
@@ -342,7 +346,7 @@ public sealed class ConfigureProvidersServiceTests
             new FakeModelCatalog(),
             keyVaultStore,
             runtimeStore,
-            SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
+            _telemetry.Telemetry,
             NullLogger<ConfigureProvidersService>.Instance,
             bundledMcpSettings: Options.Create(settings));
 
@@ -387,7 +391,7 @@ public sealed class ConfigureProvidersServiceTests
             {
                 Assert.Equal("mcp_edit.bundled_fields", request.StepId);
                 Assert.NotNull(request.Fields);
-                Assert.Equal(9, request.Fields!.Count);
+                Assert.Equal(10, request.Fields!.Count);
                 Assert.DoesNotContain(request.Fields!, field => field.Name is "command" or "args" or "allow_writes");
                 var providerField = Assert.Single(request.Fields!, field => field.Name == "provider");
                 Assert.Contains("Copilot", providerField.Options!);
@@ -415,7 +419,7 @@ public sealed class ConfigureProvidersServiceTests
             new FakeModelCatalog(),
             keyVaultStore,
             runtimeStore,
-            SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
+            _telemetry.Telemetry,
             NullLogger<ConfigureProvidersService>.Instance,
             bundledMcpSettings: Options.Create(settings));
 
@@ -468,7 +472,7 @@ public sealed class ConfigureProvidersServiceTests
             new RecordingLlmClient(),
             keyVaultStore: keyVaultStore,
             humanInput: humanInput,
-            bundledMcpSettings: CreateBundledCopilotMcpSettings());
+            bundledMcpSettings: CreateBundledCopilotMcpSettings(), telemetry: _telemetry.Telemetry);
 
         var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync($"/mcp edit {serverName}", token), token);
         await responder;
@@ -509,7 +513,7 @@ public sealed class ConfigureProvidersServiceTests
             new RecordingLlmClient(),
             keyVaultStore: keyVaultStore,
             humanInput: humanInput,
-            bundledMcpSettings: CreateBundledCopilotMcpSettings());
+            bundledMcpSettings: CreateBundledCopilotMcpSettings(), telemetry: _telemetry.Telemetry);
 
         var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync($"/mcp edit {serverName}", token), token);
         await responder;
@@ -530,7 +534,7 @@ public sealed class ConfigureProvidersServiceTests
 
         var service = SmartFlowTestFactory.CreateProvidersService(
             llm,
-            keyVaultStore: keyVaultStore);
+            keyVaultStore: keyVaultStore, telemetry: _telemetry.Telemetry);
 
         var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/llm list", CancellationToken.None), TestContext.Current.CancellationToken);
 
@@ -595,7 +599,7 @@ public sealed class ConfigureProvidersServiceTests
             modelCatalog,
             keyVaultStore,
             runtimeStore,
-            SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
+            _telemetry.Telemetry,
             NullLogger<ConfigureProvidersService>.Instance);
 
         var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/llm default", token), token);
@@ -681,7 +685,7 @@ public sealed class ConfigureProvidersServiceTests
             modelCatalog,
             keyVaultStore,
             runtimeStore,
-            SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
+            _telemetry.Telemetry,
             NullLogger<ConfigureProvidersService>.Instance);
 
         var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/llm add", token), token);
@@ -751,7 +755,7 @@ public sealed class ConfigureProvidersServiceTests
             new FakeModelCatalog(),
             keyVaultStore,
             runtimeStore,
-            SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
+            _telemetry.Telemetry,
             NullLogger<ConfigureProvidersService>.Instance);
 
         var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/llm add", token), token);
@@ -784,6 +788,7 @@ public sealed class ConfigureProvidersServiceTests
         var agentMcpAddress = $"http://127.0.0.1:{agentMcpPort}";
         var app = AgentMcpWebHost.Build([
             $"--Agent:DatabasePath={dbPath}",
+            "--OtlpCollector:Enabled=false",
             $"--Kestrel:Endpoints:Http:Url={agentMcpAddress}"
         ], urls: agentMcpAddress);
 
@@ -847,7 +852,7 @@ public sealed class ConfigureProvidersServiceTests
                 modelCatalog,
                 keyVaultStore,
                 runtimeStore,
-                SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
+                _telemetry.Telemetry,
                 NullLogger<ConfigureProvidersService>.Instance,
                 userConfigClient);
 
@@ -897,7 +902,7 @@ public sealed class ConfigureProvidersServiceTests
 
         var service = SmartFlowTestFactory.CreateProvidersService(
             llm,
-            keyVaultStore: keyVaultStore);
+            keyVaultStore: keyVaultStore, telemetry: _telemetry.Telemetry);
 
         var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/mcp list", CancellationToken.None), TestContext.Current.CancellationToken);
 
@@ -921,7 +926,7 @@ public sealed class ConfigureProvidersServiceTests
 
         var service = SmartFlowTestFactory.CreateProvidersService(
             llm,
-            keyVaultStore: keyVaultStore);
+            keyVaultStore: keyVaultStore, telemetry: _telemetry.Telemetry);
 
         var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/embedding list", CancellationToken.None), TestContext.Current.CancellationToken);
 
@@ -945,7 +950,7 @@ public sealed class ConfigureProvidersServiceTests
 
         var service = SmartFlowTestFactory.CreateProvidersService(
             llm,
-            keyVaultStore: keyVaultStore);
+            keyVaultStore: keyVaultStore, telemetry: _telemetry.Telemetry);
 
         var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/status", CancellationToken.None), TestContext.Current.CancellationToken);
 
@@ -980,7 +985,7 @@ public sealed class ConfigureProvidersServiceTests
                 {
                     ["openai"] = new() { Url = "https://api.openai.com/v1", Type = "openai", ApiKey = "secret" }
                 }
-            });
+            }, telemetry: _telemetry.Telemetry);
 
         var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/llm models openai", CancellationToken.None), TestContext.Current.CancellationToken);
 
@@ -1015,7 +1020,7 @@ public sealed class ConfigureProvidersServiceTests
                 {
                     ["openai"] = new() { Url = "https://api.openai.com/v1", Type = "openai", ApiKey = "secret" }
                 }
-            });
+            }, telemetry: _telemetry.Telemetry);
 
         var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/llm models openai", CancellationToken.None), TestContext.Current.CancellationToken);
 
@@ -1049,7 +1054,7 @@ public sealed class ConfigureProvidersServiceTests
                 {
                     ["copilot"] = new() { Url = "https://models.github.ai/inference", Type = "copilot" }
                 }
-            });
+            }, telemetry: _telemetry.Telemetry);
 
         var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/llm models copilot", CancellationToken.None), TestContext.Current.CancellationToken);
 
@@ -1135,7 +1140,7 @@ public sealed class ConfigureProvidersServiceTests
                 ModelOverrides = TestModelOverrides("llama3:8b")
             },
             humanInput,
-            keyVaultStore);
+            keyVaultStore, telemetry: _telemetry.Telemetry);
 
         var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/llm add", token), token);
         await responder;
@@ -1199,7 +1204,7 @@ public sealed class ConfigureProvidersServiceTests
             modelCatalog,
             keyVaultStore,
             runtimeStore,
-            SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
+            _telemetry.Telemetry,
             NullLogger<ConfigureProvidersService>.Instance);
 
         var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/llm add", token), token);
@@ -1255,7 +1260,7 @@ public sealed class ConfigureProvidersServiceTests
             modelCatalog,
             keyVaultStore,
             runtimeStore,
-            SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
+            _telemetry.Telemetry,
             NullLogger<ConfigureProvidersService>.Instance);
 
         var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/llm add", token), token);
@@ -1324,7 +1329,7 @@ public sealed class ConfigureProvidersServiceTests
             modelCatalog,
             keyVaultStore,
             runtimeStore,
-            SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
+            _telemetry.Telemetry,
             NullLogger<ConfigureProvidersService>.Instance);
 
         var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/llm add", token), token);
@@ -1404,7 +1409,7 @@ public sealed class ConfigureProvidersServiceTests
             modelCatalog,
             keyVaultStore,
             runtimeStore,
-            SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
+            _telemetry.Telemetry,
             NullLogger<ConfigureProvidersService>.Instance);
 
         var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/llm add", token), token);
@@ -1489,7 +1494,7 @@ public sealed class ConfigureProvidersServiceTests
             modelCatalog,
             keyVaultStore,
             runtimeStore,
-            SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
+            _telemetry.Telemetry,
             NullLogger<ConfigureProvidersService>.Instance);
 
         var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/llm add", token), token);
@@ -1553,7 +1558,7 @@ public sealed class ConfigureProvidersServiceTests
                 ModelOverrides = TestModelOverrides("gpt-5-search-api")
             },
             humanInput,
-            keyVaultStore);
+            keyVaultStore, telemetry: _telemetry.Telemetry);
 
         var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/llm add", token), token);
         await responder;
@@ -1605,7 +1610,7 @@ public sealed class ConfigureProvidersServiceTests
                 }
             },
             humanInput: humanInput,
-            keyVaultStore: keyVaultStore);
+            keyVaultStore: keyVaultStore, telemetry: _telemetry.Telemetry);
 
         var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/llm remove openai", token), token);
         await responder;
@@ -1653,7 +1658,7 @@ public sealed class ConfigureProvidersServiceTests
         var service = SmartFlowTestFactory.CreateProvidersService(
             llm,
             humanInput: humanInput,
-            keyVaultStore: keyVaultStore);
+            keyVaultStore: keyVaultStore, telemetry: _telemetry.Telemetry);
 
         var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/mcp add", token), token);
         await responder;
@@ -1706,7 +1711,7 @@ public sealed class ConfigureProvidersServiceTests
         var service = SmartFlowTestFactory.CreateProvidersService(
             llm,
             humanInput: humanInput,
-            keyVaultStore: keyVaultStore);
+            keyVaultStore: keyVaultStore, telemetry: _telemetry.Telemetry);
 
         var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/mcp edit Github", token), token);
         await responder;
@@ -1832,7 +1837,7 @@ public sealed class ConfigureProvidersServiceTests
         var service = SmartFlowTestFactory.CreateProvidersService(
             llm,
             humanInput: humanInput,
-            keyVaultStore: keyVaultStore);
+            keyVaultStore: keyVaultStore, telemetry: _telemetry.Telemetry);
 
         await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/mcp edit Local", token), token);
         await responder;
@@ -1893,7 +1898,7 @@ public sealed class ConfigureProvidersServiceTests
             llm,
             humanInput: humanInput,
             keyVaultStore: keyVaultStore,
-            runtimeOptionsStore: runtimeOptionsStore);
+            runtimeOptionsStore: runtimeOptionsStore, telemetry: _telemetry.Telemetry);
 
         var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/mcp remove Github", token), token);
         await responder;
@@ -1922,7 +1927,7 @@ public sealed class ConfigureProvidersServiceTests
         var keyVaultStore = new FakeKeyVaultRuntimeConfigStore()
             .AddSecret("LLM--Models--openai", "{}", 2, "2026-04-01T12:10:00+00:00")
             .AddSecret("LLM--McpServers--github", "{}", 5, "2026-04-01T12:11:00+00:00");
-        var telemetryHarness = SmartFlowTestFactory.CreateTelemetryHarness();
+        using var telemetryHarness = SmartFlowTestFactory.CreateTelemetryHarness();
 
         var service = SmartFlowTestFactory.CreateProvidersService(
             llm,
@@ -1953,7 +1958,7 @@ public sealed class ConfigureProvidersServiceTests
         var llm = new RecordingLlmClient();
         var modelCatalog = new FakeModelCatalog()
             .Add("openai", new LLMModelDescriptor("gpt-4o", "gpt-4o", "openai", "openai"));
-        var telemetryHarness = SmartFlowTestFactory.CreateTelemetryHarness();
+        using var telemetryHarness = SmartFlowTestFactory.CreateTelemetryHarness();
 
         var service = SmartFlowTestFactory.CreateProvidersService(
             llm,
@@ -1991,7 +1996,7 @@ public sealed class ConfigureProvidersServiceTests
         var modelCatalog = new FakeModelCatalog()
             .Add("openai", new LLMModelDescriptor("gpt-4o-mini", "gpt-4o-mini", "openai", "openai"));
         var humanInput = new AgentHumanInputProvider();
-        var telemetryHarness = SmartFlowTestFactory.CreateTelemetryHarness();
+        using var telemetryHarness = SmartFlowTestFactory.CreateTelemetryHarness();
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         var token = cts.Token;
@@ -2059,7 +2064,7 @@ public sealed class ConfigureProvidersServiceTests
         var modelCatalog = new FakeModelCatalog()
             .Add("openai", new LLMModelDescriptor("gpt-5-search-api", "gpt-5-search-api", "openai", "openai"));
         var humanInput = new AgentHumanInputProvider();
-        var telemetryHarness = SmartFlowTestFactory.CreateTelemetryHarness();
+        using var telemetryHarness = SmartFlowTestFactory.CreateTelemetryHarness();
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         var token = cts.Token;
@@ -2143,7 +2148,7 @@ public sealed class ConfigureProvidersServiceTests
         var llm = new RecordingLlmClient();
         var keyVaultStore = new FakeKeyVaultRuntimeConfigStore();
         var humanInput = new AgentHumanInputProvider();
-        var telemetryHarness = SmartFlowTestFactory.CreateTelemetryHarness();
+        using var telemetryHarness = SmartFlowTestFactory.CreateTelemetryHarness();
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         var token = cts.Token;
@@ -2202,7 +2207,7 @@ public sealed class ConfigureProvidersServiceTests
         var keyVaultStore = new FakeKeyVaultRuntimeConfigStore()
             .AddSecret("LLM--McpServers--Github", "{\"name\":\"Github\",\"transport\":\"http\",\"description\":\"Old description\",\"url\":\"https://old.example/mcp\",\"authType\":\"api_key\",\"apiKey\":\"gh-secret\"}");
         var humanInput = new AgentHumanInputProvider();
-        var telemetryHarness = SmartFlowTestFactory.CreateTelemetryHarness();
+        using var telemetryHarness = SmartFlowTestFactory.CreateTelemetryHarness();
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         var token = cts.Token;
@@ -2254,7 +2259,7 @@ public sealed class ConfigureProvidersServiceTests
         Assert.Contains(spans, span => span.Name == "configure.providers.mcp.save");
     }
 
-    private static async Task<(JsonObject Saved, IReadOnlyList<HumanInputRequest> Requests)> ExecuteHttpMcpEditAsync(
+    private async Task<(JsonObject Saved, IReadOnlyList<HumanInputRequest> Requests)> ExecuteHttpMcpEditAsync(
         string existingJson,
         string authSelection,
         JsonNode? authResponse = null)
@@ -2295,7 +2300,7 @@ public sealed class ConfigureProvidersServiceTests
         var service = SmartFlowTestFactory.CreateProvidersService(
             llm,
             humanInput: humanInput,
-            keyVaultStore: keyVaultStore);
+            keyVaultStore: keyVaultStore, telemetry: _telemetry.Telemetry);
 
         var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/mcp edit Github", token), token);
         await responder;
@@ -2359,7 +2364,7 @@ public sealed class ConfigureProvidersServiceTests
                         ["provider"] = CopilotField("Provider override", "Provider", "select", "Copilot", optionsSource: "llm_providers"),
                         ["model"] = CopilotField("Fallback model", "Model", "string", "gpt-5.4-mini"),
                         ["reasoning_effort"] = CopilotField("Reasoning effort", "ReasoningEffort", "select", "high", ["low", "medium", "high", "xhigh"]),
-                        ["enable_approve_all"] = CopilotField("Enable broad approvals", "EnableApproveAll", "boolean", "true"),
+                        ["enable_approve_all"] = CopilotField("Enable broad approvals", "EnableApproveAll", "boolean", "false"),
                         ["enable_sandbox_bypass_grants"] = CopilotField(
                             "Enable reusable sandbox bypass",
                             "EnableSandboxBypassGrants",

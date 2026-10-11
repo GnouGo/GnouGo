@@ -1,0 +1,22 @@
+{
+  "run": "compactbindings20261006d-amazon-1",
+  "revision": 8,
+  "artifact_hash": "0e86683a295778310311f8acda2d3c88a9b771a50cfdca30e940193fe24aad9f",
+  "yaml_sha256": "9f2c05835b5bee543dd7add31fdcaa526dac19f2578b4a39fbf58e1932567ded",
+  "yaml_bytes": 110213,
+  "yaml_lines": 3443,
+  "business_tasks": 33,
+  "workflows": 13,
+  "compiled_steps": 136,
+  "step_types": {
+    "mcp.call": 12,
+    "set": 91,
+    "switch": 5,
+    "workflow.call": 12,
+    "template.render": 5,
+    "llm.call": 5,
+    "loop.sequential": 5,
+    "mapping.dynamic": 1
+  },
+  "execution_status": "not_started"
+}

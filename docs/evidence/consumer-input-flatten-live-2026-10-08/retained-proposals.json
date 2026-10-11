@@ -1,0 +1,392 @@
+[
+  {
+    "revision": 2,
+    "status": "stopped",
+    "artifact_hash": null,
+    "provider_response_id": "schema-portability-20261002:consumerflat20261008a-amazon-1:2:c31ef043c4338a1175cfc5aac605be77808a70998dfe9f950df7998741b319f8",
+    "normalized_plan_sha256": "cbcf9ab982631ae877d6133dac1ed721aaf057168aec54c3f58b95a782e19127",
+    "diagnostics": [
+      {
+        "code": "REQUIREMENTS_OUTPUTS_CHANGED",
+        "location": "/outputs/products_file",
+        "message": "Preserve the accepted output type, requiredness and nullability. A missing or incompatible result requires a corrected plan or explicit intent revision.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      }
+    ],
+    "result": {
+      "status": "stopped",
+      "planning_ms": 48444,
+      "calls": 2,
+      "repairs": 0,
+      "discovery_reads": 2,
+      "review_revisions": 0,
+      "diagnostics": [
+        {
+          "code": "REQUIREMENTS_OUTPUTS_CHANGED",
+          "location": "/outputs/products_file",
+          "message": "Preserve the accepted output type, requiredness and nullability. A missing or incompatible result requires a corrected plan or explicit intent revision.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        }
+      ],
+      "execution_success": false,
+      "execution_oracle": false,
+      "execution_status": "not_started",
+      "accounting": {
+        "planning": {
+          "logical_calls": 2,
+          "physical_attempts": 2,
+          "known_input_tokens": 18908,
+          "known_output_tokens": 4426,
+          "known_cost_eur": 0.20172153695980122,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "execution": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "campaign": {
+          "calls": 825,
+          "session_calls": 0,
+          "known_input_tokens": 12328223,
+          "known_output_tokens": 1527236,
+          "known_cost_eur": 95.65354983589171,
+          "reserved_input_tokens": 288000,
+          "reserved_output_tokens": 98304,
+          "reserved_cost_eur": 3.9050401209064187,
+          "cost_upper_bound_eur": 99.55858995679813,
+          "unknown_attempts": 3
+        }
+      }
+    }
+  },
+  {
+    "revision": 4,
+    "status": "stopped",
+    "artifact_hash": null,
+    "provider_response_id": "schema-portability-20261002:consumerflat20261008a-amazon-1:3:347344df8dab9ccc69c5e9787e49c5664821ffd2272af5a4cdf342e5d9d86717",
+    "normalized_plan_sha256": "2b798ac03c3aba4c89069d1de852efb5a7e266a49bdade79537fd03acb16373e",
+    "diagnostics": [
+      {
+        "code": "TASK_TRANSFORM_EACH",
+        "location": "/tasks/extract_after_cookie_candidates/each",
+        "message": "Identify one bound collection input and the sole nonnullable array result field.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      },
+      {
+        "code": "TASK_TRANSFORM_EACH",
+        "location": "/tasks/extract_initial_page_candidates/each",
+        "message": "Identify one bound collection input and the sole nonnullable array result field.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      },
+      {
+        "code": "TASK_TRANSFORM_EACH",
+        "location": "/tasks/extract_product_fact_candidates_by_page/each",
+        "message": "Identify one bound collection input and the sole nonnullable array result field.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      },
+      {
+        "code": "TASK_TRANSFORM_EACH",
+        "location": "/tasks/extract_search_result_candidates_by_page/each",
+        "message": "Identify one bound collection input and the sole nonnullable array result field.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      }
+    ],
+    "result": {
+      "status": "stopped",
+      "planning_ms": 98412,
+      "calls": 3,
+      "repairs": 0,
+      "discovery_reads": 2,
+      "review_revisions": 1,
+      "diagnostics": [
+        {
+          "code": "TASK_TRANSFORM_EACH",
+          "location": "/tasks/extract_after_cookie_candidates/each",
+          "message": "Identify one bound collection input and the sole nonnullable array result field.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "TASK_TRANSFORM_EACH",
+          "location": "/tasks/extract_initial_page_candidates/each",
+          "message": "Identify one bound collection input and the sole nonnullable array result field.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "TASK_TRANSFORM_EACH",
+          "location": "/tasks/extract_product_fact_candidates_by_page/each",
+          "message": "Identify one bound collection input and the sole nonnullable array result field.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "TASK_TRANSFORM_EACH",
+          "location": "/tasks/extract_search_result_candidates_by_page/each",
+          "message": "Identify one bound collection input and the sole nonnullable array result field.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        }
+      ],
+      "execution_success": false,
+      "execution_oracle": false,
+      "execution_status": "not_started",
+      "accounting": {
+        "planning": {
+          "logical_calls": 3,
+          "physical_attempts": 3,
+          "known_input_tokens": 38172,
+          "known_output_tokens": 10161,
+          "known_cost_eur": 0.43987044103292217,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "execution": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "campaign": {
+          "calls": 826,
+          "session_calls": 0,
+          "known_input_tokens": 12347487,
+          "known_output_tokens": 1532971,
+          "known_cost_eur": 95.89169873996482,
+          "reserved_input_tokens": 288000,
+          "reserved_output_tokens": 98304,
+          "reserved_cost_eur": 3.9050401209064187,
+          "cost_upper_bound_eur": 99.79673886087124,
+          "unknown_attempts": 3
+        }
+      }
+    }
+  },
+  {
+    "revision": 8,
+    "status": "stopped",
+    "artifact_hash": null,
+    "provider_response_id": "schema-portability-20261002:consumerflat20261008a-amazon-1:5:5c5e883d7079d1f7a23fc502e681b364f89072ac78e47f7a681f0a33c302691c",
+    "normalized_plan_sha256": "c72de838dd7d51e37ea217f18caf629dca7da56a8895cc3b9a5c4658bcecec9f",
+    "diagnostics": [
+      {
+        "code": "CONTRACT_UNSATISFIED",
+        "location": "/root/outputs/products",
+        "message": "TASK_REFERENCE_UNKNOWN: Business reference 'search_or_missing_input' is unavailable in this scope. Consumer scope: /root; phase: outputs. Producer 'search_or_missing_input': scope /tasks/collect_products/otherwise; phase: tasks. Scope /tasks/search_or_missing_input/body exports [products] through 'search_or_missing_input'. Scope /tasks/search_or_missing_input/otherwise exports [products] through 'search_or_missing_input'. Scope /tasks/collect_products/otherwise exports [products] through 'collect_products'.",
+        "required": true,
+        "validationStage": "contract:TASK_REFERENCE_UNKNOWN",
+        "rule": null
+      },
+      {
+        "code": "TASK_DEPENDENCY_UNKNOWN",
+        "location": "/tasks/build_products_tsv/dependsOn",
+        "message": "Dependencies results_blocked_incomplete_or_visit must name preceding tasks in scope /tasks/collect_products/otherwise. Ancestor values may be captured without cross-scope dependsOn entries. Consumer scope: /tasks/collect_products/otherwise; phase: tasks. Producer 'results_blocked_incomplete_or_visit': scope /tasks/search_or_missing_input/otherwise; phase: tasks. Scope /tasks/results_blocked_incomplete_or_visit/body exports [products] through 'results_blocked_incomplete_or_visit'. Scope /tasks/results_blocked_incomplete_or_visit/otherwise exports [products] through 'results_blocked_incomplete_or_visit'. Scope /tasks/search_or_missing_input/otherwise exports [products] through 'search_or_missing_input'.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      },
+      {
+        "code": "TASK_EXPORT_REQUIRED",
+        "location": "/tasks/collect_products/body/outputs",
+        "message": "Declare the business outputs needed by consumers outside this scope; exports are never implicit. Consumer scope: /root; phase: outputs. Producer 'search_or_missing_input': scope /tasks/collect_products/otherwise; phase: tasks. Scope /tasks/search_or_missing_input/body exports [products] through 'search_or_missing_input'. Scope /tasks/search_or_missing_input/otherwise exports [products] through 'search_or_missing_input'. Scope /tasks/collect_products/otherwise exports [products] through 'collect_products'.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      },
+      {
+        "code": "TASK_EXPORT_REQUIRED",
+        "location": "/tasks/collect_products/otherwise/outputs",
+        "message": "Declare the business outputs needed by consumers outside this scope; exports are never implicit. Consumer scope: /root; phase: outputs. Producer 'search_or_missing_input': scope /tasks/collect_products/otherwise; phase: tasks. Scope /tasks/search_or_missing_input/body exports [products] through 'search_or_missing_input'. Scope /tasks/search_or_missing_input/otherwise exports [products] through 'search_or_missing_input'. Scope /tasks/collect_products/otherwise exports [products] through 'collect_products'.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      },
+      {
+        "code": "MODEL_SCHEMA_INVALID",
+        "location": "/",
+        "message": "The response schema is outside the supported structured-output profile. Planning stopped before dispatch without consuming a model call or repair. $: strict structured output supports at most 10 levels of nesting, found 12",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      }
+    ],
+    "result": {
+      "status": "stopped",
+      "planning_ms": 190998,
+      "calls": 5,
+      "repairs": 0,
+      "discovery_reads": 2,
+      "review_revisions": 2,
+      "diagnostics": [
+        {
+          "code": "CONTRACT_UNSATISFIED",
+          "location": "/root/outputs/products",
+          "message": "TASK_REFERENCE_UNKNOWN: Business reference 'search_or_missing_input' is unavailable in this scope. Consumer scope: /root; phase: outputs. Producer 'search_or_missing_input': scope /tasks/collect_products/otherwise; phase: tasks. Scope /tasks/search_or_missing_input/body exports [products] through 'search_or_missing_input'. Scope /tasks/search_or_missing_input/otherwise exports [products] through 'search_or_missing_input'. Scope /tasks/collect_products/otherwise exports [products] through 'collect_products'.",
+          "required": true,
+          "validationStage": "contract:TASK_REFERENCE_UNKNOWN",
+          "rule": null
+        },
+        {
+          "code": "TASK_DEPENDENCY_UNKNOWN",
+          "location": "/tasks/build_products_tsv/dependsOn",
+          "message": "Dependencies results_blocked_incomplete_or_visit must name preceding tasks in scope /tasks/collect_products/otherwise. Ancestor values may be captured without cross-scope dependsOn entries. Consumer scope: /tasks/collect_products/otherwise; phase: tasks. Producer 'results_blocked_incomplete_or_visit': scope /tasks/search_or_missing_input/otherwise; phase: tasks. Scope /tasks/results_blocked_incomplete_or_visit/body exports [products] through 'results_blocked_incomplete_or_visit'. Scope /tasks/results_blocked_incomplete_or_visit/otherwise exports [products] through 'results_blocked_incomplete_or_visit'. Scope /tasks/search_or_missing_input/otherwise exports [products] through 'search_or_missing_input'.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "TASK_EXPORT_REQUIRED",
+          "location": "/tasks/collect_products/body/outputs",
+          "message": "Declare the business outputs needed by consumers outside this scope; exports are never implicit. Consumer scope: /root; phase: outputs. Producer 'search_or_missing_input': scope /tasks/collect_products/otherwise; phase: tasks. Scope /tasks/search_or_missing_input/body exports [products] through 'search_or_missing_input'. Scope /tasks/search_or_missing_input/otherwise exports [products] through 'search_or_missing_input'. Scope /tasks/collect_products/otherwise exports [products] through 'collect_products'.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "TASK_EXPORT_REQUIRED",
+          "location": "/tasks/collect_products/otherwise/outputs",
+          "message": "Declare the business outputs needed by consumers outside this scope; exports are never implicit. Consumer scope: /root; phase: outputs. Producer 'search_or_missing_input': scope /tasks/collect_products/otherwise; phase: tasks. Scope /tasks/search_or_missing_input/body exports [products] through 'search_or_missing_input'. Scope /tasks/search_or_missing_input/otherwise exports [products] through 'search_or_missing_input'. Scope /tasks/collect_products/otherwise exports [products] through 'collect_products'.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "MODEL_SCHEMA_INVALID",
+          "location": "/",
+          "message": "The response schema is outside the supported structured-output profile. Planning stopped before dispatch without consuming a model call or repair. $: strict structured output supports at most 10 levels of nesting, found 12",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        }
+      ],
+      "execution_success": false,
+      "execution_oracle": false,
+      "execution_status": "not_started",
+      "accounting": {
+        "planning": {
+          "logical_calls": 5,
+          "physical_attempts": 5,
+          "known_input_tokens": 80176,
+          "known_output_tokens": 19241,
+          "known_cost_eur": 0.8679652143047298,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "execution": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "campaign": {
+          "calls": 828,
+          "session_calls": 0,
+          "known_input_tokens": 12389491,
+          "known_output_tokens": 1542051,
+          "known_cost_eur": 96.31979351323663,
+          "reserved_input_tokens": 288000,
+          "reserved_output_tokens": 98304,
+          "reserved_cost_eur": 3.9050401209064187,
+          "cost_upper_bound_eur": 100.22483363414305,
+          "unknown_attempts": 3
+        }
+      }
+    }
+  },
+  {
+    "revision": 10,
+    "status": "final_review",
+    "artifact_hash": "6884806ad1e4c7515e441a04335c25950955f650c520f0aebcd64756c4f187ce",
+    "provider_response_id": "schema-portability-20261002:consumerflat20261008a-amazon-1:6:cd89f671c4f18c749f3e9993ea0c3ed212c4890ea63115e8c56580969ce8ff4c",
+    "normalized_plan_sha256": "860e226dde6427534a2ef67af353fecb0de586c176ee02982ef862228d8dafb4",
+    "diagnostics": [],
+    "result": {
+      "status": "final_review",
+      "planning_ms": 251148,
+      "calls": 6,
+      "repairs": 0,
+      "discovery_reads": 2,
+      "review_revisions": 3,
+      "diagnostics": [],
+      "execution_success": false,
+      "execution_oracle": false,
+      "execution_status": "not_started",
+      "accounting": {
+        "planning": {
+          "logical_calls": 6,
+          "physical_attempts": 6,
+          "known_input_tokens": 102584,
+          "known_output_tokens": 26160,
+          "known_cost_eur": 1.1515839914810542,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "execution": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "campaign": {
+          "calls": 829,
+          "session_calls": 0,
+          "known_input_tokens": 12411899,
+          "known_output_tokens": 1548970,
+          "known_cost_eur": 96.60341229041296,
+          "reserved_input_tokens": 288000,
+          "reserved_output_tokens": 98304,
+          "reserved_cost_eur": 3.9050401209064187,
+          "cost_upper_bound_eur": 100.50845241131938,
+          "unknown_attempts": 3
+        }
+      }
+    }
+  }
+]

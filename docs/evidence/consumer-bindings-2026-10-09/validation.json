@@ -1,0 +1,289 @@
+{
+  "candidate": "2bccddfc",
+  "planner": {
+    "passed": 1193,
+    "failed": 0
+  },
+  "telemetry_and_host_focused": {
+    "passed": 90,
+    "failed": 0
+  },
+  "local_and_recovery": {
+    "passed_initial": 52,
+    "initial_failures": 2,
+    "corrected_cases_passed": 2,
+    "note": "Both original failures asserted the retired indexing set; corrected assertions verify checked consumer inlining and no indexing invocation. Exact visits, workbook and cleanup oracles are unchanged."
+  },
+  "release_packs": [
+    {
+      "component": "Core",
+      "exit_code": 0
+    },
+    {
+      "component": "Planning",
+      "exit_code": 0
+    },
+    {
+      "component": "Integrations",
+      "exit_code": 0
+    },
+    {
+      "component": "Persistence",
+      "exit_code": 0
+    }
+  ],
+  "native_aot": {
+    "target": "osx-arm64",
+    "published": true,
+    "smoke_passed": true,
+    "includes": "encrypted planning/run/mapping recovery"
+  },
+  "skill": "valid",
+  "full_solution": {
+    "source": "2bccddfc",
+    "command": "dotnet test GnOuGo.Agent.sln -m:1 -warnaserror",
+    "exit_code": 0,
+    "passed": 4965,
+    "failed": 0,
+    "skipped": 13,
+    "suites": [
+      {
+        "project": "GnOuGo.AI.Core.Tests",
+        "total": 225,
+        "passed": 225,
+        "failed": 0,
+        "not_executed": 0
+      },
+      {
+        "project": "GnOuGo.AI.Local.Tests",
+        "total": 14,
+        "passed": 14,
+        "failed": 0,
+        "not_executed": 0
+      },
+      {
+        "project": "GnOuGo.Agent.Mcp.Tests",
+        "total": 103,
+        "passed": 103,
+        "failed": 0,
+        "not_executed": 0
+      },
+      {
+        "project": "GnOuGo.Agent.Server.Tests",
+        "total": 711,
+        "passed": 710,
+        "failed": 0,
+        "not_executed": 1
+      },
+      {
+        "project": "GnOuGo.Assets.Animation.Server.Tests",
+        "total": 13,
+        "passed": 13,
+        "failed": 0,
+        "not_executed": 0
+      },
+      {
+        "project": "GnOuGo.Assets.Animation.Tests",
+        "total": 42,
+        "passed": 42,
+        "failed": 0,
+        "not_executed": 0
+      },
+      {
+        "project": "GnOuGo.Assets.Bears.Server.Tests",
+        "total": 28,
+        "passed": 28,
+        "failed": 0,
+        "not_executed": 0
+      },
+      {
+        "project": "GnOuGo.Assets.Bears.Tests",
+        "total": 91,
+        "passed": 91,
+        "failed": 0,
+        "not_executed": 0
+      },
+      {
+        "project": "GnOuGo.Auth.Core.Tests",
+        "total": 8,
+        "passed": 8,
+        "failed": 0,
+        "not_executed": 0
+      },
+      {
+        "project": "GnOuGo.Browser.Mcp.Tests",
+        "total": 136,
+        "passed": 136,
+        "failed": 0,
+        "not_executed": 0
+      },
+      {
+        "project": "GnOuGo.Cmd.Mcp.Tests",
+        "total": 100,
+        "passed": 93,
+        "failed": 0,
+        "not_executed": 7
+      },
+      {
+        "project": "GnOuGo.Diff.Tests",
+        "total": 52,
+        "passed": 52,
+        "failed": 0,
+        "not_executed": 0
+      },
+      {
+        "project": "GnOuGo.DocIngestor.Mcp.Tests",
+        "total": 7,
+        "passed": 7,
+        "failed": 0,
+        "not_executed": 0
+      },
+      {
+        "project": "GnOuGo.DocIngestor.Tests",
+        "total": 89,
+        "passed": 89,
+        "failed": 0,
+        "not_executed": 0
+      },
+      {
+        "project": "GnOuGo.Document.Mcp.Tests",
+        "total": 64,
+        "passed": 64,
+        "failed": 0,
+        "not_executed": 0
+      },
+      {
+        "project": "GnOuGo.Files.Server.Tests",
+        "total": 10,
+        "passed": 10,
+        "failed": 0,
+        "not_executed": 0
+      },
+      {
+        "project": "GnOuGo.Flow.Copilot.Tests",
+        "total": 5,
+        "passed": 5,
+        "failed": 0,
+        "not_executed": 0
+      },
+      {
+        "project": "GnOuGo.Flow.Integrations.Tests",
+        "total": 99,
+        "passed": 99,
+        "failed": 0,
+        "not_executed": 0
+      },
+      {
+        "project": "GnOuGo.Flow.Mermaid.Tests",
+        "total": 12,
+        "passed": 12,
+        "failed": 0,
+        "not_executed": 0
+      },
+      {
+        "project": "GnOuGo.Flow.Persistence.Tests",
+        "total": 17,
+        "passed": 17,
+        "failed": 0,
+        "not_executed": 0
+      },
+      {
+        "project": "GnOuGo.Flow.Planning.Tests",
+        "total": 1193,
+        "passed": 1193,
+        "failed": 0,
+        "not_executed": 0
+      },
+      {
+        "project": "GnOuGo.Flow.Tests",
+        "total": 1164,
+        "passed": 1164,
+        "failed": 0,
+        "not_executed": 0
+      },
+      {
+        "project": "GnOuGo.Git.Mcp.Tests",
+        "total": 83,
+        "passed": 83,
+        "failed": 0,
+        "not_executed": 0
+      },
+      {
+        "project": "GnOuGo.GithubCopilot.Core.Tests",
+        "total": 173,
+        "passed": 173,
+        "failed": 0,
+        "not_executed": 0
+      },
+      {
+        "project": "GnOuGo.GithubCopilot.E2E.Tests",
+        "total": 12,
+        "passed": 7,
+        "failed": 0,
+        "not_executed": 5
+      },
+      {
+        "project": "GnOuGo.GithubCopilot.Mcp.Tests",
+        "total": 240,
+        "passed": 240,
+        "failed": 0,
+        "not_executed": 0
+      },
+      {
+        "project": "GnOuGo.KeyVault.Core.Tests",
+        "total": 12,
+        "passed": 12,
+        "failed": 0,
+        "not_executed": 0
+      },
+      {
+        "project": "GnOuGo.KeyVault.Mcp.Tests",
+        "total": 9,
+        "passed": 9,
+        "failed": 0,
+        "not_executed": 0
+      },
+      {
+        "project": "GnOuGo.Mcp.Core.Tests",
+        "total": 49,
+        "passed": 49,
+        "failed": 0,
+        "not_executed": 0
+      },
+      {
+        "project": "GnOuGo.Observability.Core.Tests",
+        "total": 3,
+        "passed": 3,
+        "failed": 0,
+        "not_executed": 0
+      },
+      {
+        "project": "GnOuGo.OtlpCollector.Server.Tests",
+        "total": 7,
+        "passed": 7,
+        "failed": 0,
+        "not_executed": 0
+      },
+      {
+        "project": "GnOuGo.ProxyCopilot.Server.Tests",
+        "total": 177,
+        "passed": 177,
+        "failed": 0,
+        "not_executed": 0
+      },
+      {
+        "project": "GnOuGo.Workspace.Tests",
+        "total": 30,
+        "passed": 30,
+        "failed": 0,
+        "not_executed": 0
+      }
+    ]
+  },
+  "subsequent_campaign_harness": {
+    "source": "cedb77e8",
+    "passed": 56,
+    "failed": 0,
+    "note": "No production code changed after the full-solution candidate."
+  }
+}

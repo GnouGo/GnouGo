@@ -1,0 +1,46 @@
+{
+  "inspection_only": true,
+  "provider_calls": 0,
+  "external_actions": 0,
+  "status": "failed",
+  "normal_steps_started": 25,
+  "finalization_steps_started": 1,
+  "finalization_completed": true,
+  "invocations": [
+    {
+      "invocation": "/workflow/main/step/n_c29a2c7dbda42883",
+      "status": "completed",
+      "completion_observed": true,
+      "error_code": null,
+      "prompt_characters": 60514,
+      "prompt_only_estimate": 32535,
+      "complete_request_estimate": 51006,
+      "complete_request_bytes": 85949,
+      "max_output_tokens": 32768,
+      "admission_failure": null
+    },
+    {
+      "invocation": "/workflow/main/step/n_0035e86c067c6f97",
+      "status": "failed",
+      "completion_observed": true,
+      "error_code": "LLM_BUDGET_EXCEEDED",
+      "prompt_characters": 136420,
+      "prompt_only_estimate": 72213,
+      "complete_request_estimate": 108576,
+      "complete_request_bytes": 185904,
+      "max_output_tokens": 32768,
+      "admission_failure": "Execution request exceeds the campaign input or output allowance."
+    }
+  ],
+  "close_receipts": [
+    {
+      "id": "/workflow/main/finally/step/n_4d16c09c26d8cd6c",
+      "status": "completed",
+      "completed": true,
+      "is_finalization": true
+    }
+  ],
+  "candidate": "e04173619b3a3444586cc185fb3e7f64cb4dd820",
+  "method": "Read encrypted journal through EncryptedWorkflowRunStore; reconstruct llm.call requests from retained resolved inputs; invoke frozen ExecutionRequest, ExecutionInputEstimate and CreateDispatchRequest helpers locally. No client dispatch or workflow resume.",
+  "input_allowance": 96000
+}

@@ -1,0 +1,38 @@
+{
+  "runtime_inference": [
+    {
+      "request_id": "cursorlive20261006a-amazon-1-execution:1:5916013ebf1246a4a44810bb3c775d52175d118338ebe1c5d48a9caf9edfe7df",
+      "reserved_request_utf8_bytes": 41281,
+      "prompt_characters": 28589,
+      "usage": {
+        "input_tokens": 10461,
+        "output_tokens": 187,
+        "total_tokens": 10648,
+        "benchmark_cost_eur": 0.05169136022848982,
+        "transport_attempts": 1,
+        "uncertain_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0,
+        "benchmark_usage_bounded": true
+      }
+    },
+    {
+      "request_id": "cursorlive20261006a-amazon-1-execution:2:08241bca30c0ad8bf82425eec74e553cac96180b7ba9271d186a01575c5ad346",
+      "reserved_request_utf8_bytes": 133583,
+      "prompt_characters": 106247,
+      "usage": {
+        "input_tokens": 40931,
+        "output_tokens": 201,
+        "total_tokens": 41132,
+        "benchmark_cost_eur": 0.18804444841128168,
+        "transport_attempts": 1,
+        "uncertain_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0,
+        "benchmark_usage_bounded": true
+      }
+    }
+  ]
+}
