@@ -195,7 +195,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
             if (variant == "denied") proposal.Plan!.Root.Tasks.Single(t => t.Id == "write").Inputs.Single(i => i.Name == "filePath").Value.Text = "../outside.xlsx";
             var adapter = new ProposalRuntime(runtime, proposal);
             var initial = new PlanningSession { Catalog = catalog, Request = new() {
-                TenantId = "local", Options = new() { ["compilation_profile"] = initialComposition ? "compact-bindings-v10" : "compact-bindings-v9" }, Prompt = proposal.Requirements!.Summary, Policy = new() { RequireExternalConfirmation = false },
+                TenantId = "local", Options = new() { ["compilation_profile"] = "compact-bindings-v10" }, Prompt = proposal.Requirements!.Summary, Policy = new() { RequireExternalConfirmation = false },
                 Generation = new() { MaxInputTokensPerRequest = 96000, MaxOutputTokens = 32768 } } };
             var session = unionRevision && !initialComposition ? await ReviseUnionFixture(initial, runtime, proposal, ct) :
                 await new HybridWorkflowPlanner().AdvanceAsync(initial, new(), adapter, ct);
@@ -221,7 +221,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
                 Assert.Equal(expectedPlan, JsonSerializer.Serialize(session.Plan, PlanningJsonContext.Default.TaskPlan));
             }
             Assert.True(session.Status == PlanningStatus.FinalReview, string.Join('\n', session.Diagnostics));
-            Assert.Equal(unionRevision || variant == "producer_revision" ? "compact-bindings-v10" : "compact-bindings-v9", session.Request.Options["compilation_profile"]!.ToString());
+            Assert.Equal("compact-bindings-v10", session.Request.Options["compilation_profile"]!.ToString());
             Assert.Contains("expression_contracts:", session.Yaml!);
             Assert.DoesNotContain("checkedMapping(", session.Yaml!);
             Assert.Equal(variant == "producer_revision" || unionRevision && !initialComposition ? 2 : 1, session.ModelCalls); Assert.Equal(0, session.ReplanAttempts); Assert.Empty(visits); Assert.Empty(model.Requests);
