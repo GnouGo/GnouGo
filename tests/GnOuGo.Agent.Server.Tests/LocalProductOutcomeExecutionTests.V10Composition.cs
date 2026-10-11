@@ -13,6 +13,20 @@ namespace GnOuGo.Agent.Server.Tests;
 
 public sealed partial class LocalProductOutcomeExecutionTests
 {
+    [Fact]
+    public void V10CommittedResponsesStillValidateAgainstTheirOriginalIssuedSchemas()
+    {
+        var directory = Path.Combine(AppContext.BaseDirectory, "Fixtures", "V10Composition");
+        var responses = JsonNode.Parse(File.ReadAllText(Path.Combine(directory, "responses.json")))!.AsArray();
+        var schemas = JsonNode.Parse(File.ReadAllText(Path.Combine(directory, "issued-schemas.json")))!.AsArray();
+        Assert.Equal(4, responses.Count); Assert.Equal(4, schemas.Count);
+        foreach (var response in responses)
+        {
+            var original = Assert.Single(schemas, s => s!["id"]!.ToString() == response!["id"]!.ToString())!;
+            Assert.Empty(PlanningContractValidation.ValidateInstance(response!["response"], original["schema"]!));
+        }
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
@@ -39,6 +53,10 @@ public sealed partial class LocalProductOutcomeExecutionTests
         Assert.Equal(revision ? 2 : 1, session.ModelCalls); Assert.Equal(0, session.ReplanAttempts);
         Assert.Null(session.ApprovedHash); Assert.Equal(0, factory.InvocationAttempts);
         Assert.InRange(adapter.InputEstimate, 1, session.Request.Generation.MaxInputTokensPerRequest);
+        var issued = Assert.Single(adapter.Requests);
+        Assert.Contains("Nullable ID:branch ID!=null", issued.Prompt);
+        Assert.Contains("flatten([[headerRow],productRows])", issued.Prompt);
+        Assert.Contains("No inference for typed copying", issued.Prompt);
         Assert.Contains("expression_contracts:", session.Yaml!); Assert.DoesNotContain("checkedMapping(", session.Yaml!);
         output.WriteLine($"GATE D: tasks={RetainedTasks(before.Plan!.Root).Count()}→{RetainedTasks(corrected.Plan!.Root).Count()}; " +
             $"steps={original.Steps}→{compact.Steps}; sets={original.Sets}→{compact.Sets}; YAML={Encoding.UTF8.GetByteCount(original.Yaml)}→{Encoding.UTF8.GetByteCount(compact.Yaml)}; " +

@@ -3,12 +3,14 @@ using System.Text.Json.Nodes;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using GnOuGo.AI.Core;
+using GnOuGo.Document.Mcp;
 using GnOuGo.Flow.Core.Compilation;
 using GnOuGo.Flow.Core.Parsing;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Integrations;
 using GnOuGo.Flow.Planning;
+using GnOuGo.Planning.Examples;
 
 namespace GnOuGo.Agent.Server.Tests;
 
@@ -49,6 +51,10 @@ public sealed partial class LocalProductOutcomeExecutionTests
                     Path.Combine(AppContext.BaseDirectory, "GnOuGo.Document.Mcp" + (OperatingSystem.IsWindows() ? ".exe" : "")),
                 EnvironmentVariables = new() { ["Document__DefaultWorkingDirectory"] = root, ["OpenTelemetry__Enabled"] = "false" }
             } });
+            var published = Assert.Single(await (await transport.GetClientAsync("document", ct)).ListToolsAsync(ct), t => t.Name == "document_write");
+            var captured = Assert.Single(RealProductContracts.Capture(new DocumentPolicy(new(), root))["document"]!.AsArray(), t => t!["name"]!.ToString() == "document_write")!;
+            Assert.True(JsonNode.DeepEquals(published.InputSchema, captured["inputSchema"]));
+            Assert.True(JsonNode.DeepEquals(published.OutputSchema, captured["outputSchema"]));
             var engine = new WorkflowEngine { McpClientFactory = transport };
             var runtime = new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask);
             var catalog = await RetainedCatalog(runtime, ct); catalog.Policy.RequireExternalConfirmation = false;

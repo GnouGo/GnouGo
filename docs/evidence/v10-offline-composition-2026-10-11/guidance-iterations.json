@@ -1,0 +1,65 @@
+[
+  {
+    "log": "/tmp/gnougo-v10-planning-focused.txt",
+    "status": "failed",
+    "input_limit": 24000,
+    "rejected_estimates": [
+      24047
+    ],
+    "retained_checks": []
+  },
+  {
+    "log": "/tmp/gnougo-v10-planning-focused-green.txt",
+    "status": "failed",
+    "input_limit": 24000,
+    "rejected_estimates": [
+      24054
+    ],
+    "retained_checks": []
+  },
+  {
+    "log": "/tmp/gnougo-v10-guidance-budget.txt",
+    "status": "failed",
+    "input_limit": 24000,
+    "rejected_estimates": [
+      24043
+    ],
+    "retained_checks": []
+  },
+  {
+    "log": "/tmp/gnougo-v10-guidance-original-budget.txt",
+    "status": "passed",
+    "input_limit": 24000,
+    "rejected_estimates": [],
+    "retained_checks": [
+      "Synthetic targeted continuation: calls=7, repairs=0, discovered=74, requested=10, metadata reads=19, resolutions=24 (unrecorded exact contracts unavailable=3), input estimates=[9560,21299,21077,21437,21594,21582,23980], cumulative=140529, prompt bytes=[6662,32925,34650,35476,36792,34780,38226], detailed counts=[3,8,7,6,7,6,13]. Preserved all distractor metadata; exact resolution is limited to retained receipts. No live model or execution claim."
+    ]
+  },
+  {
+    "log": "/tmp/gnougo-v10-guidance-final-budget.txt",
+    "status": "failed",
+    "input_limit": 24000,
+    "rejected_estimates": [
+      24045
+    ],
+    "retained_checks": []
+  },
+  {
+    "log": "/tmp/gnougo-v10-guidance-restored-budget.txt",
+    "status": "failed",
+    "input_limit": 24000,
+    "rejected_estimates": [
+      24035
+    ],
+    "retained_checks": []
+  },
+  {
+    "log": "/tmp/gnougo-v10-guidance-compact-budget.txt",
+    "status": "passed",
+    "input_limit": 24000,
+    "rejected_estimates": [],
+    "retained_checks": [
+      "Synthetic targeted continuation: calls=7, repairs=0, discovered=74, requested=10, metadata reads=19, resolutions=24 (unrecorded exact contracts unavailable=3), input estimates=[9560,21299,21077,21437,21594,21582,23980], cumulative=140529, prompt bytes=[6662,32925,34650,35476,36792,34780,38226], detailed counts=[3,8,7,6,7,6,13]. Preserved all distractor metadata; exact resolution is limited to retained receipts. No live model or execution claim."
+    ]
+  }
+]
