@@ -85,6 +85,32 @@ array per source page (the inspected `observe.pages` port is a collection):
 Bind `flatten(output(adapt, rows))` directly to the compact decision input.
 Interpretation selects IDs only; use `lookup` against offered candidates, then
 retained original records for action arguments. Preserve order and repeated IDs.
+For example, the effectful consumer can validate offered identities in its own
+assertion before resolving the exact same selected identities against originals:
+
+```json
+{
+  "requires": {"kind": "predicate", "predicate": "not_equal", "items": [
+    {"kind": "lookup", "port": "id", "items": [
+      {"kind": "flatten", "items": [{"kind": "output", "source": "adapt", "port": "rows"}]},
+      {"kind": "output", "source": "choose", "port": "ids"}
+    ]}, {"kind": "null"}
+  ]},
+  "items": {"kind": "lookup", "port": "reference", "items": [
+    {"kind": "output", "source": "retained", "port": "records"},
+    {"kind": "output", "source": "choose", "port": "ids"}
+  ]}
+}
+```
+
+This excerpt belongs to an existing effectful `foreach`; its body performs the
+requested operation. `id` is an unchanged copy of the original `reference`, never
+a newly generated identity. Strict lookup rejects unknown or ambiguous identities;
+the assertion does not manufacture a success flag. Export typed records and cell
+arrays from their existing scope where contracts permit. Retain a projection when
+it independently enforces a bound or captures values across scopes. No formatting
+inference or identity-forwarding loop is needed merely to transport typed values.
+
 A scalar per item has one assembled array, so it must not be flattened. Keep
 complete original observations and their completeness checks separately. Typed
 copying uses direct bindings. Do not add unrequested goals, side effects, filtering

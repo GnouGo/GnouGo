@@ -497,11 +497,13 @@ public sealed partial class LocalProductOutcomeExecutionTests(ITestOutputHelper 
     internal sealed class ProposalRuntime(WorkflowPlanningRuntime actual, PlanningProposal proposal) : IPlanningRuntime
     {
         public int InputEstimate;
+        public List<LLMRequest> Requests { get; } = [];
         public Func<LLMRequest, JsonObject>? Patch;
         public ICapabilityCatalog Capabilities => actual.Capabilities;
         public Task<PlanningCatalog> DiscoverAsync(PlanningRequest request, CancellationToken ct) => actual.DiscoverAsync(request, ct);
         public Task<LLMResponse> CallAsync(LLMRequest request, string purpose, CancellationToken ct)
         {
+            Requests.Add(request);
             InputEstimate = (System.Text.Encoding.UTF8.GetByteCount(request.Prompt) + System.Text.Encoding.UTF8.GetByteCount(request.StructuredOutputSchema!.ToJsonString()) + 2) / 3 + 256;
             return Task.FromResult(new LLMResponse { Json = PlanningCorpus.Transport(Patch?.Invoke(request) ?? JsonSerializer.SerializeToNode(proposal, PlanningJsonContext.Default.PlanningProposal), request.StructuredOutputSchema.AsObject(), request.StructuredOutputSchema.AsObject()) });
         }

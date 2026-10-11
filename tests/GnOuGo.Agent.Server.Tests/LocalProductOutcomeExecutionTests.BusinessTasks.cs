@@ -124,10 +124,12 @@ public sealed partial class LocalProductOutcomeExecutionTests
     [InlineData("union_compact_missing_description")]
     [InlineData("union_compact_repeated")]
     [InlineData("union_compact_unoffered")]
+    [InlineData("union_initial")]
     public async Task BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(string variant)
     {
         var ct = TestContext.Current.CancellationToken;
         var unionRevision = variant.StartsWith("union_", StringComparison.Ordinal);
+        var initialComposition = variant == "union_initial";
         var verbatim = unionRevision || variant is "verbatim_rows" or "verbatim_unknown";
         var root = Directory.CreateTempSubdirectory("gnougo-business-tasks-").FullName;
         var workspace = Directory.CreateDirectory(Path.Combine(root, "workspace")).FullName;
@@ -177,7 +179,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
             var runtime = new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask);
             var catalog = await RetainedCatalog(runtime, ct);
             catalog.Policy.RequireExternalConfirmation = false;
-            var proposal = variant.StartsWith("union_compact", StringComparison.Ordinal) ? CompactUnionProposal(catalog) : unionRevision ? UnionRevisionProposal(catalog) : BusinessProposal(verbatim ? "verbatim_rows" : variant == "exact_rows" ? variant : "compact", catalog);
+            var proposal = (initialComposition || variant.StartsWith("union_compact", StringComparison.Ordinal)) ? CompactUnionProposal(catalog) : unionRevision ? UnionRevisionProposal(catalog) : BusinessProposal(verbatim ? "verbatim_rows" : variant == "exact_rows" ? variant : "compact", catalog);
             var expectedPlan = JsonSerializer.Serialize(proposal.Plan, PlanningJsonContext.Default.TaskPlan);
             var corrections = new Dictionary<string, JsonNode?>();
             if (variant == "producer_revision")
@@ -193,9 +195,9 @@ public sealed partial class LocalProductOutcomeExecutionTests
             if (variant == "denied") proposal.Plan!.Root.Tasks.Single(t => t.Id == "write").Inputs.Single(i => i.Name == "filePath").Value.Text = "../outside.xlsx";
             var adapter = new ProposalRuntime(runtime, proposal);
             var initial = new PlanningSession { Catalog = catalog, Request = new() {
-                TenantId = "local", Options = new() { ["compilation_profile"] = "compact-bindings-v9" }, Prompt = proposal.Requirements!.Summary, Policy = new() { RequireExternalConfirmation = false },
+                TenantId = "local", Options = new() { ["compilation_profile"] = initialComposition ? "compact-bindings-v10" : "compact-bindings-v9" }, Prompt = proposal.Requirements!.Summary, Policy = new() { RequireExternalConfirmation = false },
                 Generation = new() { MaxInputTokensPerRequest = 96000, MaxOutputTokens = 32768 } } };
-            var session = unionRevision ? await ReviseUnionFixture(initial, runtime, proposal, ct) :
+            var session = unionRevision && !initialComposition ? await ReviseUnionFixture(initial, runtime, proposal, ct) :
                 await new HybridWorkflowPlanner().AdvanceAsync(initial, new(), adapter, ct);
             if (variant == "producer_revision")
             {
@@ -222,7 +224,18 @@ public sealed partial class LocalProductOutcomeExecutionTests
             Assert.Equal(unionRevision || variant == "producer_revision" ? "compact-bindings-v10" : "compact-bindings-v9", session.Request.Options["compilation_profile"]!.ToString());
             Assert.Contains("expression_contracts:", session.Yaml!);
             Assert.DoesNotContain("checkedMapping(", session.Yaml!);
-            Assert.Equal(variant == "producer_revision" || unionRevision ? 2 : 1, session.ModelCalls); Assert.Equal(0, session.ReplanAttempts); Assert.Empty(visits); Assert.Empty(model.Requests);
+            Assert.Equal(variant == "producer_revision" || unionRevision && !initialComposition ? 2 : 1, session.ModelCalls); Assert.Equal(0, session.ReplanAttempts); Assert.Empty(visits); Assert.Empty(model.Requests);
+            if (initialComposition)
+            {
+                var request = Assert.Single(adapter.Requests);
+                Assert.Contains("inputs.pages→each:{input:pages,output:rows}", request.Prompt);
+                Assert.Contains("interpret(flatten(output(extract,rows)))→IDs", request.Prompt);
+                Assert.Contains("requires:lookup offered!=null, then lookup originals/actions", request.Prompt);
+                Assert.Contains("No inference for typed copying", request.Prompt);
+                Assert.Contains("preserve accepted types/bounds/nulls in revisions", request.Prompt);
+                Assert.InRange(adapter.InputEstimate, 1, initial.Request.Generation.MaxInputTokensPerRequest);
+                output.WriteLine($"INITIAL REQUEST: estimatedTokens={adapter.InputEstimate}; calls=1; repairs=0; tasks=18");
+            }
             session = await new HybridWorkflowPlanner().AdvanceAsync(session, new() { Kind = "approve", ExpectedRevision = session.Revision,
                 ArtifactHash = session.ComputeArtifactHash(), ReviewedRequirementIds = unionRevision ? ["search_amazon_fr", "collect_up_to_10_products", "extract_product_fields", "save_excel_file", "cleanup_browser", "truthful_status"] : ["search", "select_first", "visit_extract", "write_workbook", "release"] }, new ProposalRuntime(runtime, proposal), ct);
             Assert.Equal(PlanningStatus.Approved, session.Status);
