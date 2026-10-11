@@ -1,0 +1,37 @@
+numeric MCP: real native stdio decimal input/output conversion; exact producer-owned calculation
+schema projection: portable wire, unchanged authoritative restrictions
+required conditions: true/false and guarded ancestor payloads survive Native AOT serialization and execution
+conditional entries: runtime requires preserved without automatic guard proof
+restricted mappings: observed HTML extraction, exact decimals, source-generated artifact serialization
+collection mappings: independent extraction, ordered complete results, optional declaration serialization
+compact bindings: fused collection, zero per-item calls, exact duplicates, no inference
+indexed projections: 1602 original positions and records, unchanged expression limits, zero per-record workflow calls
+consumer bindings: checked input, zero materialization steps
+v7 native mappings: multiline constant program, checked consumer, unchanged value
+lookup: typed binding, original records, selected order/repeats, zero inference
+flatten: one typed level, empty candidates, null elements and duplicates, zero inference
+agent failure: structured host diagnostic survives source-generated serialization
+business intent: persisted requirements and approval identity survive Native AOT serialization
+clarification: auto pause, custom answer, restart, unchanged budget and separate approval passed with deterministic inference
+constant workspace: approved literal survives compilation and source-generated serialization; no agent execution
+operation outputs: approved payload and partial envelope survive source-generated serialization and YAML compilation
+local: passed, calls=1, replans=0, validations=2
+read_transform: passed, calls=1, replans=0, validations=3
+nullable_defaults: passed, calls=1, replans=0, validations=3
+conditional: passed, calls=1, replans=0, validations=3
+collections: passed, calls=1, replans=0, validations=2
+protected_cleanup: passed, calls=1, replans=0, validations=4
+review_french: passed, calls=1, replans=0, validations=11
+review_distractors: passed, calls=1, replans=0, validations=11
+typed transforms: passed; mocked inference; ordered products and cleanup verified
+bounded discovery: passed; issued no-plan schema and counters survive serialization
+enum contracts and JSON encoding: passed; no inference
+typed field bindings: passed; checked MCP selectors; ordered records and composed exports; no inference
+conditional arrays: passed; typed and empty branches execute with preserved contracts; no inference
+null-only contracts: passed; both conditional branches; no inference
+conditional cleanup: passed; guarded field selection and explicit branch exports; no inference
+catalog-owned bindings: passed; host injection and explicit override rejection verified
+typed repair patches: passed; source-generated recovery; owned removal; immutable baseline; no inference
+structural repair: passed; version-nine authority, preserved arguments and atomic AOT round trip; no inference
+targeted revision: passed; optional authority round trip, typed patches and unchanged baseline; no inference
+adaptive mappings: three source-grounded specializations, shared budget, ordered values and durable replay
