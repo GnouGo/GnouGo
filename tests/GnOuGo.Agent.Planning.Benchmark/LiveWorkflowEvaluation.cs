@@ -140,7 +140,7 @@ internal static class LiveWorkflowEvaluation
         {
             run["max_products"] = productLimit;
             run["prompt"] = prompt; run["prompt_hash"] = PlanningGraphCompiler.Fingerprint(prompt);
-            run["oracle_version"] = "real-workflows-v1"; run["workspace_relative"] = relative;
+            run["oracle_version"] = scenario == "amazon" ? LiveWorkflowOracles.ObservedProductsVersion : "real-workflows-v1"; run["workspace_relative"] = relative;
             run["inputs"] = scenario == "amazon" ? new JsonObject { ["query"] = "chaussure geox homme 45" }
                 : new JsonObject { ["pullRequestUrl"] = "https://github.com/AxaFrance/SmartGuide/pull/610", ["reviewText"] = "Review correctness, regressions, security and test coverage of the pinned pull-request diff. Report checks truthfully and keep proposed comments local." };
             await Save();

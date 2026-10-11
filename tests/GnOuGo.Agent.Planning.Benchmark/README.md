@@ -533,3 +533,20 @@ Only after focused probes pass, freeze a fresh Amazon/code cohort and attempt re
 ### Compare compiled glue without inference
 
 `--schema-portability replay-compile --compare-bindings --campaign schema-portability-20261002 --run <retained-run> --workspace <workspace>` loads the saved TaskPlan and its contracts read-only, recompiles under v3/v4/v5 and reports steps, sets, workflows, YAML bytes/lines and remaining adjacent set pairs. It neither executes the workflow nor changes saved artifacts, approvals or campaign accounting. Compare the identical plan separately from any changed extraction composition.
+
+## Observed-product oracle v2
+
+Fresh product runs freeze `observed-products-v2`. Navigation arguments must match
+previous complete observations, and redirects require the same call's producer
+final-navigation evidence. Visits are occurrences, not deduplicated URLs. No
+product-path or hostname heuristic participates in this version. Each workbook
+row is checked against its own visit: names are exact observed values, descriptions
+one complete observed block, and prices exact displayed segments (no punctuation
+or whitespace rewriting). UI labels cannot establish producer errors. Missing
+facts without independent absence evidence remain incomplete. A complete snapshot
+proves capture coverage, not semantic relevance of the selected fact.
+
+Historical `real-workflows-v1` manifests and verdicts remain frozen. Offline v2
+replay is separate evidence and performs no Browser/LLM calls. Unknown oracle
+versions fail closed. Workbook existence still requires a successful writer receipt
+for the expected output path, and live cleanup is independently probed.

@@ -126,3 +126,27 @@ Gate 5 follow-up: review of the scalar cache identified a cross-kind comparison
 hazard. Numeric/string/boolean kinds are now checked before cached text is used.
 A dedicated mutation/restore regression passes; cached numeric spelling cannot
 make a newly assigned string compare equal.
+
+## Gate 6 — independent visits and cells
+
+Fresh runs use `observed-products-v2`; old manifests keep v1. Correlation uses exact
+previously observed URLs, actual navigation arguments, producer final-navigation
+metadata and complete snapshots. Repeated visits remain repeated rows. No new
+site/path heuristic is used. Workbook checks compare the corresponding visit's
+observations, with exact block descriptions and no price normalization. Unsupported
+absence, borrowed product text and interface labels presented as errors fail.
+
+31 generic oracle checks passed. Read-only replay of the exported retained record
+and actual XLSX recognized ten visits, including the three previously missed URL
+paths. The five rewritten descriptions (rows 4, 5, 7, 8, 10) still fail. Under the
+new one-block rule, rows 1, 2, 3 and 6 additionally fail because they assemble
+multiple blocks; row 9 is exact. The UI-label error in row 3 also fails. Names and
+prices match their own captured pages. Historical verdicts were not rewritten.
+
+`retained-oracle-replay.json` contains only counts, diagnostics and source hashes.
+`oracle-replay.cs` loads the previously exported record and XLSX read-only, invoking
+the tested pure oracle from the built host-test assembly. It verifies the retained
+workbook cells before replay and reports zero provider/MCP calls. To reproduce,
+build host tests, compile that file in a disposable net10 console referencing those
+built assemblies, and pass record path, workbook path, and a new report path.
+No workflow engine or campaign mutation is involved.

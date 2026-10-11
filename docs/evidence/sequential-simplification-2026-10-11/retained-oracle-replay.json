@@ -1,0 +1,128 @@
+{
+  "version": "observed-products-v2",
+  "passed": false,
+  "visit_count": 10,
+  "visits": [
+    {
+      "event_index": 1,
+      "redirected": true
+    },
+    {
+      "event_index": 2,
+      "redirected": true
+    },
+    {
+      "event_index": 3,
+      "redirected": true
+    },
+    {
+      "event_index": 4,
+      "redirected": true
+    },
+    {
+      "event_index": 5,
+      "redirected": true
+    },
+    {
+      "event_index": 6,
+      "redirected": true
+    },
+    {
+      "event_index": 7,
+      "redirected": true
+    },
+    {
+      "event_index": 8,
+      "redirected": true
+    },
+    {
+      "event_index": 9,
+      "redirected": true
+    },
+    {
+      "event_index": 10,
+      "redirected": true
+    }
+  ],
+  "rows": [
+    {
+      "row": 1,
+      "name_exact": true,
+      "description_block_exact": false,
+      "price_exact": true,
+      "description_in_combined_observation": true
+    },
+    {
+      "row": 2,
+      "name_exact": true,
+      "description_block_exact": false,
+      "price_exact": true,
+      "description_in_combined_observation": true
+    },
+    {
+      "row": 3,
+      "name_exact": true,
+      "description_block_exact": false,
+      "price_exact": true,
+      "description_in_combined_observation": true
+    },
+    {
+      "row": 4,
+      "name_exact": true,
+      "description_block_exact": false,
+      "price_exact": true,
+      "description_in_combined_observation": false
+    },
+    {
+      "row": 5,
+      "name_exact": true,
+      "description_block_exact": false,
+      "price_exact": true,
+      "description_in_combined_observation": false
+    },
+    {
+      "row": 6,
+      "name_exact": true,
+      "description_block_exact": false,
+      "price_exact": true,
+      "description_in_combined_observation": true
+    },
+    {
+      "row": 7,
+      "name_exact": true,
+      "description_block_exact": false,
+      "price_exact": true,
+      "description_in_combined_observation": false
+    },
+    {
+      "row": 8,
+      "name_exact": true,
+      "description_block_exact": false,
+      "price_exact": true,
+      "description_in_combined_observation": false
+    },
+    {
+      "row": 9,
+      "name_exact": true,
+      "description_block_exact": true,
+      "price_exact": true,
+      "description_in_combined_observation": true
+    },
+    {
+      "row": 10,
+      "name_exact": true,
+      "description_block_exact": false,
+      "price_exact": true,
+      "description_in_combined_observation": false
+    }
+  ],
+  "findings": [
+    "workbook_description_not_one_observed_block",
+    "workbook_error_not_producer_failure"
+  ],
+  "record_sha256": "09cb00db018ab34f405a48c8688b3a8c2fd6d904c845757f8d732fd74c1147ac",
+  "workbook_sha256": "ba32b993aaad352a27ffa26a87fc6227a0fbf80b24da59e893fa333e31d30a1c",
+  "provider_calls": 0,
+  "mcp_calls": 0,
+  "historical_records_modified": false
+}

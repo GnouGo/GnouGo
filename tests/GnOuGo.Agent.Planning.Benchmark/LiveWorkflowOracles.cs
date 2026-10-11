@@ -8,6 +8,7 @@ using GnOuGo.Flow.Core.Runtime;
 
 internal static class LiveWorkflowOracles
 {
+    internal const string ObservedProductsVersion = "observed-products-v2";
     internal static async Task<JsonObject> VerifyAsync(string scenario, string root, JsonObject run, IMcpClientFactory transport)
     {
         var findings = new List<string>();
@@ -16,6 +17,8 @@ internal static class LiveWorkflowOracles
         var events = run["events"]!.AsArray().OfType<JsonObject>().ToArray();
         if (scenario == "amazon")
         {
+            if (run["oracle_version"]?.ToString() is { } version && version is not ("real-workflows-v1" or ObservedProductsVersion))
+                throw new InvalidOperationException("Unknown retained execution oracle version.");
             var productLimit = run["max_products"]?.GetValue<int>() ?? 3;
             if (productLimit is < 1 or > 10) throw new InvalidOperationException("Invalid retained product bound.");
             var browser = await transport.GetClientAsync("GnOuGo.Browser.Mcp", CancellationToken.None);
@@ -39,6 +42,16 @@ internal static class LiveWorkflowOracles
                     var descriptionIndex = Array.FindIndex(names, n => n == "description");
                     var priceIndex = Array.FindIndex(names, n => n is "prix" or "price");
                     if (nameIndex < 0 || descriptionIndex < 0 || priceIndex < 0) findings.Add("workbook_columns_missing");
+                    else if (run["oracle_version"]?.ToString() == ObservedProductsVersion)
+                    {
+                        var evidence = VerifyObservedProducts(events, rows, productLimit);
+                        run["product_evidence"] = evidence;
+                        findings.AddRange(evidence["findings"]!.AsArray().Select(f => f!.ToString()));
+                        if (!events.Any(e => e["tool"]?.ToString() == "document_write" && e["error"]?.GetValue<bool>() == false &&
+                            e["result"]?["success"]?.GetValue<bool>() == true &&
+                            e["result"]?["filePath"]?.ToString() is { } written && Path.GetFullPath(written) == path))
+                            findings.Add("workbook_writer_receipt_missing");
+                    }
                     else
                     {
                         var observations = CompleteBrowserObservations(events).Where(r => Uri.TryCreate(r["url"]?.ToString(), UriKind.Absolute, out var url) &&
@@ -92,6 +105,14 @@ internal static class LiveWorkflowOracles
     // Adapt producer formats, not the oracle: only complete observed snapshots
     // supply text. Never read generated rows, mapping examples or assistant claims.
     internal static IEnumerable<JsonObject> CompleteBrowserObservations(IReadOnlyList<JsonObject> events)
+        => CompleteSnapshots(events).Select(s => new JsonObject { ["url"] = s.Url, ["content"] = s.Content });
+
+    private sealed record Snapshot(JsonObject Read, string? Url, IReadOnlyList<JsonNode?> Records, string? LegacyText = null)
+    {
+        internal string Content => LegacyText ?? string.Join("\n", Records.Select(r => r?["text"]?.ToString() ?? ""));
+    }
+
+    private static IEnumerable<Snapshot> CompleteSnapshots(IReadOnlyList<JsonObject> events)
     {
         var reads = events.Where(e => e["tool"]?.ToString() == "browser_get_content" && e["error"]?.GetValue<bool>() == false && e["result"] is JsonObject).ToArray();
         foreach (var read in reads)
@@ -111,7 +132,7 @@ internal static class LiveWorkflowOracles
                     records.AddRange(values);
                 }
                 if (valid && records.Count == snapshot["recordCount"]?.GetValue<int>())
-                    yield return new JsonObject { ["url"] = url, ["content"] = string.Join("\n", records.Select(r => r?["text"]?.ToString() ?? "")) };
+                    yield return new Snapshot(read, url, records);
             }
             else if (result["observationManifest"] is JsonObject manifest)
             {
@@ -133,17 +154,17 @@ internal static class LiveWorkflowOracles
                     records.AddRange(values);
                 }
                 if (valid && records.Count == manifest["recordCount"]?.GetValue<int>())
-                    yield return new JsonObject { ["url"] = url, ["content"] = string.Join("\n", records.Select(r => r?["text"]?.ToString() ?? "")) };
+                    yield return new Snapshot(read, url, records);
             }
             else if (result["observation"] is JsonObject observation)
             {
                 if (read["arguments"]?["cursor"] is not null || observation["captureTruncated"]?.GetValue<bool>() != false) continue;
                 var id = observation["id"]?.ToString(); var current = observation;
-                var text = new List<string>(); var seen = new HashSet<string>(StringComparer.Ordinal); var valid = true;
+                var allRecords = new List<JsonNode?>(); var seen = new HashSet<string>(StringComparer.Ordinal); var valid = true;
                 while (true)
                 {
                     if (current["records"] is not JsonArray records) { valid = false; break; }
-                    text.AddRange(records.Select(r => r?["text"]?.ToString() ?? ""));
+                    allRecords.AddRange(records);
                     if (current["nextCursor"]?.ToString() is not { } cursor) break;
                     if (!seen.Add(cursor) || seen.Count > 100) { valid = false; break; }
                     var next = reads.SkipWhile(r => !ReferenceEquals(r, read)).Skip(1)
@@ -152,10 +173,94 @@ internal static class LiveWorkflowOracles
                         following["id"]?.ToString() != id || following["captureTruncated"]?.GetValue<bool>() != false) { valid = false; break; }
                     current = following;
                 }
-                if (valid) yield return new JsonObject { ["url"] = url, ["content"] = string.Join("\n", text) };
+                if (valid) yield return new Snapshot(read, url, allRecords);
             }
-            else if (result["truncated"]?.GetValue<bool>() == false && result["nextCursor"] is null) yield return result;
+            else if (result["truncated"]?.GetValue<bool>() == false && result["nextCursor"] is null) yield return new Snapshot(read, url, [], result["content"]?.ToString() ?? "");
         }
+    }
+
+    // Pure evidence replay: no Browser actions, inference or artifact mutation.
+    internal static JsonObject VerifyObservedProducts(IReadOnlyList<JsonObject> events, string[][] rows, int maximum)
+    {
+        var findings = new List<string>();
+        var complete = CompleteSnapshots(events).ToDictionary(s => s.Read);
+        var observedUrls = new HashSet<string>(StringComparer.Ordinal);
+        var visits = new List<Snapshot>();
+        var visitEvents = new JsonArray();
+        for (var index = 0; index < events.Count; index++)
+        {
+            var read = events[index];
+            if (read["tool"]?.ToString() != "browser_get_content") continue;
+            complete.TryGetValue(read, out var snapshot);
+            var requested = read["arguments"]?["url"]?.ToString();
+            if (requested is not null && observedUrls.Contains(requested))
+            {
+                if (snapshot is null || snapshot.Records.Count == 0 || !HttpUrl(snapshot.Url) || read["result"]?["success"]?.GetValue<bool>() == false)
+                    findings.Add("visited_observation_incomplete");
+                else if (read["result"]?["acquisition"]?["navigation"]?["url"] is { } navigation && navigation.ToString() != snapshot.Url ||
+                    requested != snapshot.Url && read["result"]?["acquisition"]?["navigation"]?["url"]?.ToString() != snapshot.Url)
+                    findings.Add("redirect_without_producer_evidence");
+                else
+                {
+                    visits.Add(snapshot);
+                    visitEvents.Add(new JsonObject { ["event_index"] = index, ["redirected"] = requested != snapshot.Url });
+                }
+            }
+            else if (requested is not null && visits.Count > 0) findings.Add("navigation_not_offered_by_observations");
+            if (snapshot is not null)
+                foreach (var record in snapshot.Records)
+                    if (record?["href"]?.ToString() is { } href && HttpUrl(href)) observedUrls.Add(href);
+        }
+        if (rows.Length < 2 || rows.Length > maximum + 1 || visits.Count != rows.Length - 1)
+            findings.Add("product_visits_do_not_match_rows");
+        var headers = rows.FirstOrDefault()?.Select(Normalize).ToArray() ?? [];
+        var name = Array.FindIndex(headers, h => h is "nom" or "name" or "nom du produit" or "product name");
+        var description = Array.FindIndex(headers, h => h == "description");
+        var price = Array.FindIndex(headers, h => h is "prix" or "price");
+        var error = Array.FindIndex(headers, h => h is "error" or "erreur");
+        var rowEvidence = new JsonArray();
+        if (name < 0 || description < 0 || price < 0) findings.Add("workbook_columns_missing");
+        else for (var index = 0; index < Math.Min(visits.Count, rows.Length - 1); index++)
+        {
+            var row = rows[index + 1]; var visit = visits[index];
+            if (row.Length <= new[] { name, description, price, error }.Max())
+            { findings.Add("workbook_row_shape_or_product_bound"); continue; }
+            var texts = visit.Records.Select(r => r?["text"]?.ToString()).OfType<string>().ToArray();
+            var nameMatches = row[name].Length > 0 && texts.Contains(row[name], StringComparer.Ordinal);
+            var descriptionMatches = row[description].Length > 0 && texts.Contains(row[description], StringComparer.Ordinal);
+            // A displayed price may be an exact substring of a larger observed
+            // label. No culture, whitespace or punctuation substitutions.
+            var priceMatches = row[price].Length > 0 && texts.Any(t => ExactSegment(t, row[price]));
+            if (!nameMatches) findings.Add("workbook_name_not_exact_observed_value");
+            if (!descriptionMatches) findings.Add("workbook_description_not_one_observed_block");
+            if (!priceMatches) findings.Add("workbook_price_not_exact_observed_value");
+            if (new[] { name, description, price }.Any(i => row[i].Length == 0)) findings.Add("workbook_absence_not_independently_established");
+            if (error >= 0 && row[error].Length > 0 &&
+                visit.Read["result"]?["error_message"]?.ToString() != row[error]) findings.Add("workbook_error_not_producer_failure");
+            rowEvidence.Add(new JsonObject { ["row"] = index + 1, ["name_exact"] = nameMatches,
+                ["description_block_exact"] = descriptionMatches, ["price_exact"] = priceMatches,
+                // Classification only: this never makes a non-exact value pass.
+                ["description_in_combined_observation"] = row[description].Length > 0 && Normalize(visit.Content).Contains(Normalize(row[description]), StringComparison.Ordinal) });
+        }
+        return new JsonObject { ["version"] = ObservedProductsVersion, ["passed"] = findings.Count == 0,
+            ["visit_count"] = visits.Count, ["visits"] = visitEvents, ["rows"] = rowEvidence,
+            ["findings"] = new JsonArray(findings.Distinct().Select(f => (JsonNode)JsonValue.Create(f)).ToArray()) };
+    }
+
+    private static bool HttpUrl(string? value) => Uri.TryCreate(value, UriKind.Absolute, out var uri) && uri.Scheme is "http" or "https";
+
+    private static bool ExactSegment(string text, string value)
+    {
+        for (var start = 0; start <= text.Length - value.Length;)
+        {
+            var at = text.IndexOf(value, start, StringComparison.Ordinal);
+            if (at < 0) break;
+            var end = at + value.Length;
+            if ((at == 0 || !Part(text[at - 1])) && (end == text.Length || !Part(text[end]))) return true;
+            start = at + 1;
+        }
+        return false;
+        static bool Part(char character) => char.IsLetterOrDigit(character) || character is ',' or '.';
     }
 
     private static string CellText(Cell cell, WorkbookPart workbook) => cell.DataType?.Value == CellValues.SharedString
