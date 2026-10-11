@@ -30,7 +30,7 @@ public sealed class RetainedOutputRevisionTests
         Assert.Contains("Extract closed consumer fields", instructions);
         Assert.Contains("interpret no raw originals", instructions);
         Assert.Contains("Unchanged IDs; requires:lookup offered!=null, then lookup originals/actions", instructions);
-        Assert.Contains("Verbatim:choose block IDs, lookup text", instructions);
+        Assert.Contains("Verbatim:lookup complete block text", instructions);
         Assert.Contains("requires:local typed assertion, short-circuit", instructions);
         Assert.Contains("lookup:[records,IDs],port:key→array", instructions);
         Assert.Contains("json:text", instructions);
@@ -38,7 +38,7 @@ public sealed class RetainedOutputRevisionTests
         Assert.Contains("each:{input:pages,output:rows}", instructions);
         Assert.Contains("resultType=assembled", instructions);
         Assert.Contains("interpret(flatten(output(extract,rows)))→IDs", instructions);
-        Assert.Contains("revisions preserve accepted contracts", instructions);
+        Assert.Contains("revisions:keep accepted contracts", instructions);
         Assert.Contains("scalar→array<T>", instructions);
         Assert.Contains("choice:declared, not operation", instructions);
         Assert.Contains("No unrequested work/filter/dedup", instructions);

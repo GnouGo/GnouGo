@@ -1,0 +1,28 @@
+  Identification des projets à restaurer...
+  Restauration effectuée de /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Flow.Core/GnOuGo.Flow.Core.csproj (en 118 ms).
+  Restauration effectuée de /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Flow.Planning/GnOuGo.Flow.Planning.csproj (en 118 ms).
+  Sur l'ensemble des projets, 1 sur 3 sont à jour pour la restauration.
+  GnOuGo.Flow.Core -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Flow.Core/bin/Debug/net10.0/GnOuGo.Flow.Core.dll
+  GnOuGo.Flow.Planning -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Flow.Planning/bin/Debug/net10.0/GnOuGo.Flow.Planning.dll
+  GnOuGo.Flow.Planning.Tests -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Flow.Planning.Tests/bin/Debug/net10.0/GnOuGo.Flow.Planning.Tests.dll
+Série de tests pour /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Flow.Planning.Tests/bin/Debug/net10.0/GnOuGo.Flow.Planning.Tests.dll (.NETCoreApp,Version=v10.0)
+Au total, 1 fichiers de test ont correspondu au modèle spécifié.
+/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Flow.Planning.Tests/bin/Debug/net10.0/GnOuGo.Flow.Planning.Tests.dll
+[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v4.0.0+05679a7ab5 (64-bit .NET 10.0.8)
+[xUnit.net 00:00:00.82]   Discovering: GnOuGo.Flow.Planning.Tests
+[xUnit.net 00:00:01.21]   Discovered:  GnOuGo.Flow.Planning.Tests
+[xUnit.net 00:00:01.37]   Starting:    GnOuGo.Flow.Planning.Tests
+  Réussi GnOuGo.Flow.Planning.Tests.RetainedOutputRevisionTests.CompactGenerationReceivesProjectionGuidanceAndUnchangedAcceptedContracts [232 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.CapabilityAlternativeTests.UnsupportedRunnerUsesExistingClarificationWithoutLosingIntentOrGrantingPermissions(custom: False) [552 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.CapabilityAlternativeTests.UnsupportedRunnerUsesExistingClarificationWithoutLosingIntentOrGrantingPermissions(custom: True) [146 ms]
+[xUnit.net 00:00:31.28]   Finished:    GnOuGo.Flow.Planning.Tests (ID = 'c66a0949152f91115fe382ea0022846c528179218259b3832b2877c7b8d17925')
+  Réussi GnOuGo.Flow.Planning.Tests.RecordedTargetedDiscoveryTests.FullRetainedCatalogKeepsRequestedReviewContractsVisibleWithinSevenCalls [29 s]
+  Messages de sortie standard :
+ Synthetic targeted continuation: calls=7, repairs=0, discovered=74, requested=10, metadata reads=19, resolutions=24 (unrecorded exact contracts unavailable=3), input estimates=[9560,21299,21077,21437,21594,21582,23980], cumulative=140529, prompt bytes=[6662,32925,34650,35476,36792,34780,38226], detailed counts=[3,8,7,6,7,6,13]. Preserved all distractor metadata; exact resolution is limited to retained receipts. No live model or execution claim.
+
+
+
+Série de tests réussie.
+Nombre total de tests : 4
+     Réussi(s) : 4
+ Durée totale : 31,7488 Secondes

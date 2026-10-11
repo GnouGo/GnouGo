@@ -38,11 +38,12 @@ internal sealed class PlanningPrompt(PlanningSession state)
         resultType=assembled: T[]/item→array<array<T>>; interpret(flatten(output(extract,rows)))→IDs; scalar→array<T>.
         Pure foreach:necessary projections. Extract closed consumer fields; interpret no raw originals.
         field:object only; json:text; lookup:[records,IDs],port:key→array.
-        Unchanged IDs; requires:lookup offered!=null, then lookup originals/actions. Nullable ID:branch ID!=null; else allowed null. Verbatim:choose block IDs, lookup text (whole block).
+        Unchanged IDs; requires:lookup offered!=null, then lookup originals/actions. ID!=null:lookup; else allowed null. Verbatim:lookup complete block text.
         Rows:flatten([[headerRow],productRows])
-        dependsOn:local; capture ancestors; revisions preserve accepted contracts.
+        dependsOn:local; capture ancestors; revisions:keep accepted contracts.
         choice:declared, not operation. requires:local typed assertion, short-circuit. present:completion!=success. Save before cleanup; paths!=files.
         No unrequested work/filter/dedup/invention or sampling/truncation.
+        Clarify compatible alternatives.
         """;
 
     private const string RepairInstructions = """
