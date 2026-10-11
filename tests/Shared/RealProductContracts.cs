@@ -40,7 +40,9 @@ public static class RealProductContracts
                     : t.InputSchema).GetRawText()),
                 OutputSchema = t.OutputSchema is { } output ? JsonNode.Parse((typeof(T) == typeof(BrowserTools)
                     && t.Name == "browser_get_content" ? (JsonElement)typeof(T).Assembly.GetType(serializerType, throwOnError: true)!
-                        .GetMethod("ContentSchema")!.Invoke(null, [output])! : output).GetRawText()) : null,
+                        .GetMethod("ContentSchema")!.Invoke(null, [output])! : typeof(T) == typeof(DocumentTools) && t.Name == "document_write"
+                        ? (JsonElement)typeof(T).Assembly.GetType(serializerType, throwOnError: true)!
+                            .GetMethod("SuccessfulWriteSchema", BindingFlags.NonPublic | BindingFlags.Static)!.Invoke(null, [output])! : output).GetRawText()) : null,
                 Meta = t.Meta?.DeepClone()
             }).ToArray();
             result[source] = JsonSerializer.SerializeToNode(tools, Json);

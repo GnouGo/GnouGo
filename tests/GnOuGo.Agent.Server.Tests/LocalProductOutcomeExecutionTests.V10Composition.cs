@@ -14,6 +14,44 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed partial class LocalProductOutcomeExecutionTests
 {
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task V10CorrectedCompositionReachesReviewWithoutPaidCallsOrAutomaticRepair(bool revision)
+    {
+        var factory = new RealProductContracts.Factory(RealProductContracts.Capture(new DocumentPolicy(new(), AppContext.BaseDirectory)));
+        var runtime = new WorkflowPlanningRuntime(new() { McpClientFactory = factory }, (_, _) => Task.CompletedTask);
+        var catalog = await RetainedCatalog(runtime, TestContext.Current.CancellationToken); catalog.Policy.RequireExternalConfirmation = false;
+        var corrected = V10Proposal(catalog, 4);
+        var before = V10Proposal(catalog, 3);
+        Assert.Equal(RetainedOperations(before.Plan!), RetainedOperations(corrected.Plan!));
+        var original = BusinessCompilation(before.Plan!, catalog, "compact-bindings-v10");
+        var compact = BusinessCompilation(corrected.Plan!, catalog, "compact-bindings-v10");
+        var changes = $"steps={original.Steps}→{compact.Steps}; sets={original.Sets}→{compact.Sets}; YAML={original.Yaml.Length}→{compact.Yaml.Length}";
+        // v10 already fuses these forwarding steps. Fewer source tasks and
+        // smaller checked programs must not be bought by dropping the nullable
+        // boundaries that were missing from the retained plan.
+        Assert.Equal(original.Steps, compact.Steps); Assert.Equal(original.Sets, compact.Sets);
+        Assert.True(RetainedTasks(corrected.Plan!.Root).Count() < RetainedTasks(before.Plan!.Root).Count());
+        Assert.True(compact.Yaml.Length < original.Yaml.Length, changes);
+        var adapter = new ProposalRuntime(runtime, corrected);
+        var session = await V10PlanningSession(catalog, runtime, adapter, revision, TestContext.Current.CancellationToken);
+        Assert.Equal(PlanningStatus.FinalReview, session.Status); Assert.Empty(session.Diagnostics);
+        Assert.Equal(revision ? 2 : 1, session.ModelCalls); Assert.Equal(0, session.ReplanAttempts);
+        Assert.Null(session.ApprovedHash); Assert.Equal(0, factory.InvocationAttempts);
+        Assert.InRange(adapter.InputEstimate, 1, session.Request.Generation.MaxInputTokensPerRequest);
+        Assert.Contains("expression_contracts:", session.Yaml!); Assert.DoesNotContain("checkedMapping(", session.Yaml!);
+        output.WriteLine($"GATE D: tasks={RetainedTasks(before.Plan!.Root).Count()}→{RetainedTasks(corrected.Plan!.Root).Count()}; " +
+            $"steps={original.Steps}→{compact.Steps}; sets={original.Sets}→{compact.Sets}; YAML={Encoding.UTF8.GetByteCount(original.Yaml)}→{Encoding.UTF8.GetByteCount(compact.Yaml)}; " +
+            $"maxLine={compact.Yaml.Split('\n').Max(l => l.Length)}; revision={revision}; planningCalls={session.ModelCalls}; repairs=0; estimate={adapter.InputEstimate}");
+        if (Environment.GetEnvironmentVariable("GNOU_GO_V10_EVIDENCE") is { Length: > 0 } folder)
+        {
+            Directory.CreateDirectory(folder);
+            await File.WriteAllTextAsync(Path.Combine(folder, "corrected-taskplan.json"), JsonSerializer.Serialize(corrected.Plan, PlanningJsonContext.Default.TaskPlan), TestContext.Current.CancellationToken);
+            await File.WriteAllTextAsync(Path.Combine(folder, "corrected.yaml"), session.Yaml, TestContext.Current.CancellationToken);
+        }
+    }
+
+    [Theory]
     [InlineData("complete", "source")]
     [InlineData("missing", "different")]
     [InlineData("all_missing", "source")]
@@ -142,7 +180,8 @@ public sealed partial class LocalProductOutcomeExecutionTests
             fields.RemoveAll(f => f.Name is not ("reference" or "observedText"));
             foreach (var field in fields) field.Type.Nullable = false;
             if (task.Id == "extract_product_detail") fields.Add(new() { Name = "tag", Type = new() { Kind = "string" } });
-            task.Objective = "Extract candidate block identities and complete observed text from every bounded page. " +
+            task.Objective = (task.Id == "extract_product_links" ? "Extract item-link candidates for the requested catalogue selection from every bounded page. " :
+                "Extract observed name, complete description and price block candidates, with their native tags, from every bounded page. ") +
                 "Copy all retained fields verbatim; emit only the declared decision view, without selection or invented classifications.";
         }
         if (gate == 1) return proposal;
@@ -177,7 +216,45 @@ public sealed partial class LocalProductOutcomeExecutionTests
             V10Output("checked_products_projection", "rows"))];
         writer.DependsOn.Remove("build_xlsx_rows"); writer.DependsOn.Add("checked_products_projection");
         plan.Root.Tasks.RemoveAll(t => t.Id == "build_xlsx_rows");
+        if (gate == 3) return proposal;
+        var offeredLookup = plan.Root.Tasks.Single(t => t.Id == "validate_selected_candidates").Outputs.Single().Value;
+        var originalLookup = plan.Root.Tasks.Single(t => t.Id == "resolve_selected_product_records").Outputs.Single().Value;
+        visit.Requires = V10PresentValue(offeredLookup); visit.Items = originalLookup;
+        visit.DependsOn.Remove("resolve_selected_product_records");
+        plan.Root.Tasks.RemoveAll(t => t.Id is "validate_selected_candidates" or "resolve_selected_product_records");
+        // The bounded final projection already exports rows and records. Do not
+        // carry a second cell array through every nullable assembly scope.
+        visit.Body.Outputs.RemoveAll(o => o.Name == "rows");
+        foreach (var task in RetainedTasks(visit.Body))
+            task.Body?.Outputs.RemoveAll(o => o.Name is "row" or "rows");
         return proposal;
+    }
+
+    private static async Task<PlanningSession> V10PlanningSession(PlanningCatalog catalog, WorkflowPlanningRuntime runtime,
+        ProposalRuntime adapter, bool revision, CancellationToken ct)
+    {
+        var planner = new HybridWorkflowPlanner();
+        var session = new PlanningSession { Catalog = catalog, Request = new()
+        {
+            TenantId = "local", Options = new() { ["compilation_profile"] = "compact-bindings-v10" },
+            Prompt = "Preserve the accepted observed-data task and its exact output contracts.",
+            Policy = new() { RequireExternalConfirmation = false }, Generation = new() { MaxInputTokensPerRequest = 96000, MaxOutputTokens = 32768 }
+        } };
+        if (!revision) return await planner.AdvanceAsync(session, new(), adapter, ct);
+        session = await planner.AdvanceAsync(session, new(), new ProposalRuntime(runtime, V10Proposal(catalog, 0)), ct);
+        Assert.True(session.Status == PlanningStatus.FinalReview, string.Join('\n', session.Diagnostics));
+        var saved = JsonSerializer.Serialize(session, PlanningJsonContext.Default.PlanningSession);
+        var copy = JsonSerializer.Deserialize(saved, PlanningJsonContext.Default.PlanningSession)!;
+        copy = await planner.AdvanceAsync(copy, new() { Kind = "revise", PreserveRequirements = true,
+            ExpectedRevision = copy.Revision, ArtifactHash = copy.ComputeArtifactHash(),
+            Text = "Revise only data adaptation: typed original-record projections, compact page extraction, strict offered/original lookup, guarded nullable facts, exact observed blocks and header-plus-rows assembly. Preserve all accepted requirements, public output contracts, operations, order, writing and cleanup." }, adapter, ct);
+        Assert.Null(copy.Yaml); Assert.Null(copy.ApprovedHash);
+        Assert.Equal(JsonSerializer.Serialize(session.Plan, PlanningJsonContext.Default.TaskPlan), JsonSerializer.Serialize(copy.Request.Baseline, PlanningJsonContext.Default.TaskPlan));
+        copy = await planner.AdvanceAsync(copy, new() { ExpectedRevision = copy.Revision }, adapter, ct);
+        Assert.Equal(saved, JsonSerializer.Serialize(session, PlanningJsonContext.Default.PlanningSession));
+        Assert.Equal(JsonSerializer.Serialize(session.Requirements, PlanningJsonContext.Default.PlanningRequirements),
+            JsonSerializer.Serialize(copy.Requirements, PlanningJsonContext.Default.PlanningRequirements));
+        return copy;
     }
 
     // Existing nullable branches and bounded projections are deliberately explicit:
