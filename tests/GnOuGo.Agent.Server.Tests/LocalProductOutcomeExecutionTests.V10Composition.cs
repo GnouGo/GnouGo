@@ -171,6 +171,12 @@ public sealed partial class LocalProductOutcomeExecutionTests
         writer.Inputs.Single(i => i.Name == "rows").Value.Source = null;
         writer.Inputs.Single(i => i.Name == "rows").Value.Port = null;
         writer.Inputs.Single(i => i.Name == "rows").Value.Items = [V10Output("scrape_products", "rows")];
+        if (gate == 2) return proposal;
+        writer.Inputs.Single(i => i.Name == "rows").Value.Items = [V10Array(
+            V10Array(V10Array(new[] { "name", "description", "price", "error" }.Select(f => new TaskValue { Kind = "string", Text = f }).ToArray())),
+            V10Output("checked_products_projection", "rows"))];
+        writer.DependsOn.Remove("build_xlsx_rows"); writer.DependsOn.Add("checked_products_projection");
+        plan.Root.Tasks.RemoveAll(t => t.Id == "build_xlsx_rows");
         return proposal;
     }
 
