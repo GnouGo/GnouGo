@@ -21,6 +21,24 @@ public sealed class SplitJournalTests(ITestOutputHelper output) : IDisposable
     private static string Json(WorkflowRun run) => JsonSerializer.Serialize(run, WorkflowRunJsonContext.Default.WorkflowRun);
 
     [Fact]
+    public async Task CachedScalarTextNeverEquatesDifferentJsonKinds()
+    {
+        var store = Store(); await store.CreateAsync(NewRun(), Ct);
+        await using var lease = await store.AcquireAsync("tenant", "run", 0, Ct);
+        var invocation = new WorkflowInvocation { Id = "kind", StepType = "set" };
+        lease.Run.Invocations[invocation.Id] = invocation;
+        var data = new JsonObject { ["number"] = JsonNode.Parse("1.2300"), ["string"] = "1.2300", ["boolean"] = true };
+        await lease.CaptureSnapshotAsync(invocation, data, false, Ct);
+        await lease.CaptureSnapshotAsync(invocation, data, true, Ct); // prime verified scalar comparisons
+        data["number"] = "1.2300"; data["string"] = JsonNode.Parse("1.2300"); data["boolean"] = "true";
+        await lease.RestoreSnapshotAsync(invocation, data, false, Ct);
+        Assert.Equal(JsonValueKind.Number, data["number"]!.GetValueKind());
+        Assert.Equal(JsonValueKind.String, data["string"]!.GetValueKind());
+        Assert.Equal(JsonValueKind.True, data["boolean"]!.GetValueKind());
+        Assert.Equal("1.2300", data["number"]!.ToJsonString());
+    }
+
+    [Fact]
     public async Task CanonicalBlockEnvelopeRetainsExactHistoricalBytesAndHashes()
     {
         var run = NewRun();

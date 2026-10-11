@@ -121,3 +121,8 @@ unknown-completion protection. A proposed direct clone changed a historical nume
 accessor and was reverted; that existing normalization boundary is retained.
 A concurrent-build file lock and missing test cancellation arguments were corrected
 by serializing dependent builds and forwarding the test token; no checks were disabled.
+
+Gate 5 follow-up: review of the scalar cache identified a cross-kind comparison
+hazard. Numeric/string/boolean kinds are now checked before cached text is used.
+A dedicated mutation/restore regression passes; cached numeric spelling cannot
+make a newly assigned string compare equal.
