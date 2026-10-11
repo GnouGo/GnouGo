@@ -166,3 +166,11 @@ overhead check that rejects over-budget input before directory creation. The pla
 skill validates with the existing validator in `/tmp/gnougo-skill-validation`.
 Full solution, publish/recovery and CI outcomes are recorded below when complete.
 No paid work or historical invocation resume has occurred.
+
+CI exposed two guidance regressions on candidate `46c80276`: shortening generation
+instructions had removed compatible-alternative clarification guidance (two tests),
+and verbose new mapping examples crowded out a required complete example before
+the expected global-request rejection. The correction restores compatible alternatives
+and compresses mapping instructions while retaining the helper/null/identity/verbatim
+rules. The original limits, assertions and error classifications are unchanged.
+All 112 focused planning/discovery/compaction checks pass after that correction.

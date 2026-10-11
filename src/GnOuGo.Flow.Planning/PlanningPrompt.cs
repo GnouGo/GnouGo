@@ -42,7 +42,7 @@ internal sealed class PlanningPrompt(PlanningSession state)
         dependsOn:local; capture ancestors; match types/nulls.
         choice:declared, not operation. requires:local typed assertion, short-circuit. present:completion!=success. Save before cleanup; paths!=files.
         No unrequested work/filter/dedup or invented values/contracts/defaults.
-        Discover/clarify unresolved inputs.
+        Discover/clarify inputs/compatible alternatives.
         """;
 
     private const string RepairInstructions = """
