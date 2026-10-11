@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Text.Json;
 using System.Security.Cryptography;
 using System.Text.Json.Nodes;
 using DocumentFormat.OpenXml.Packaging;
@@ -20,3 +21,24 @@ report["workbook_sha256"] = Convert.ToHexString(SHA256.HashData(await File.ReadA
 report["provider_calls"] = 0; report["mcp_calls"] = 0; report["historical_records_modified"] = false;
 await File.WriteAllTextAsync(args[2], report.ToJsonString(new() { WriteIndented = true }));
 Console.WriteLine($"visits={report["visit_count"]}; passed={report["passed"]}; rows={rows.Length}; provider_calls=0; mcp_calls=0");
+
+var state = run["session"]!.Deserialize(GnOuGo.Flow.Core.Planning.PlanningJsonContext.Default.PlanningSession)!;
+var comparison = new JsonArray();
+var compile = typeof(GnOuGo.Flow.Planning.PlanningGraphCompiler).GetMethods(BindingFlags.Instance | BindingFlags.NonPublic).Single(m => m.Name == "Compile" && m.GetParameters().Length == 10);
+foreach (var profile in new[] { "compact-bindings-v8", "compact-bindings-v9" })
+{
+    var request = System.Text.Json.JsonSerializer.SerializeToNode(state.Request, GnOuGo.Flow.Core.Planning.PlanningJsonContext.Default.PlanningRequest)!.Deserialize(GnOuGo.Flow.Core.Planning.PlanningJsonContext.Default.PlanningRequest)!;
+    request.Options["compilation_profile"] = profile;
+    var taskCompile = typeof(GnOuGo.Flow.Planning.TaskPlanCompiler).GetMethods(BindingFlags.Instance | BindingFlags.NonPublic).Single(m => m.Name == "Compile" && m.GetParameters().Length == 3 && m.GetParameters()[2].ParameterType == typeof(GnOuGo.Flow.Core.Planning.PlanningRequest));
+    var compiled = (GnOuGo.Flow.Planning.TaskCompilation)taskCompile.Invoke(new GnOuGo.Flow.Planning.TaskPlanCompiler(), [state.Plan!, state.Catalog!, request])!;
+    if (compiled.Graph is null || compiled.Diagnostics.Count > 0) throw new Exception("Retained compilation failed");
+    var yaml = (string)compile.Invoke(new GnOuGo.Flow.Planning.PlanningGraphCompiler(), [compiled.Graph, state.Catalog!, request.Name, true, true, true, true, true, true, profile.EndsWith("v9")])!;
+    var document = GnOuGo.Flow.Core.Parsing.WorkflowParser.Parse(yaml);
+    var steps = new List<GnOuGo.Flow.Core.Models.StepDef>();
+    void Add(List<GnOuGo.Flow.Core.Models.StepDef> list) { foreach(var s in list) { steps.Add(s); Add(s.Steps ?? []); Add(s.Default ?? []); foreach(var c in s.Cases ?? []) Add(c.Steps); } }
+    foreach(var w in document.Workflows.Values) { Add(w.Steps); Add(w.Finally ?? []); }
+    comparison.Add(new JsonObject { ["profile"] = profile, ["yaml_bytes"] = System.Text.Encoding.UTF8.GetByteCount(yaml), ["max_line"] = yaml.Split('\n').Max(l => l.Length),
+        ["steps"] = steps.Count, ["sets"] = steps.Count(s => s.Type == "set"), ["select_helpers"] = System.Text.RegularExpressions.Regex.Matches(yaml, @"m\.select\(").Count,
+        ["checked_wrappers"] = System.Text.RegularExpressions.Regex.Matches(yaml, @"checkedMapping\(").Count, ["reproduces_retained_yaml"] = yaml == state.Yaml });
+}
+await File.WriteAllTextAsync(Path.Combine(Path.GetDirectoryName(args[2])!, "retained-compilation-comparison.json"), comparison.ToJsonString(new() { WriteIndented = true }));

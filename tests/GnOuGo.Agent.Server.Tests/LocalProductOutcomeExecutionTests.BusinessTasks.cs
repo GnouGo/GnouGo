@@ -116,9 +116,12 @@ public sealed partial class LocalProductOutcomeExecutionTests
     [InlineData("denied")]
     [InlineData("fabricated")]
     [InlineData("exact_rows")]
+    [InlineData("verbatim_rows")]
+    [InlineData("verbatim_unknown")]
     public async Task BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(string variant)
     {
         var ct = TestContext.Current.CancellationToken;
+        var verbatim = variant is "verbatim_rows" or "verbatim_unknown";
         var root = Directory.CreateTempSubdirectory("gnougo-business-tasks-").FullName;
         var workspace = Directory.CreateDirectory(Path.Combine(root, "workspace")).FullName;
         var visits = new List<string>(); var queries = new List<string>();
@@ -155,7 +158,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
             await using var transport = new ConfiguredMcpClientFactory(new Dictionary<string, McpServerOptions>
             {
                 ["browser"] = Server("Browser", new() { ["Browser__AllowedHosts__0"] = "127.0.0.1", ["Browser__Headless"] = "true", ["Browser__KeepBrowserOpen"] = "false",
-                    ["Browser__MaxObservationRecords"] = "2", ["Browser__MaxObservationPages"] = variant == "incomplete" ? "1" : "100", ["Browser__SlowMoMs"] = "0", ["Browser__HoldOpenMs"] = "0", ["OpenTelemetry__Enabled"] = "false" }),
+                    ["Browser__MaxObservationRecords"] = verbatim ? "200" : "2", ["Browser__MaxObservationPages"] = variant == "incomplete" ? "1" : "100", ["Browser__SlowMoMs"] = "0", ["Browser__HoldOpenMs"] = "0", ["OpenTelemetry__Enabled"] = "false" }),
                 ["document"] = Server("Document", new() { ["Document__DefaultWorkingDirectory"] = workspace, ["OpenTelemetry__Enabled"] = "false" })
             });
             var model = new BusinessModel(variant, site.Urls.Single());
@@ -166,7 +169,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
             var runtime = new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask);
             var catalog = await RetainedCatalog(runtime, ct);
             catalog.Policy.RequireExternalConfirmation = false;
-            var proposal = BusinessProposal(variant == "exact_rows" ? "exact_rows" : "compact", catalog);
+            var proposal = BusinessProposal(verbatim ? "verbatim_rows" : variant == "exact_rows" ? variant : "compact", catalog);
             var expectedPlan = JsonSerializer.Serialize(proposal.Plan, PlanningJsonContext.Default.TaskPlan);
             var corrections = new Dictionary<string, JsonNode?>();
             if (variant == "producer_revision")
@@ -223,16 +226,21 @@ public sealed partial class LocalProductOutcomeExecutionTests
             Assert.True(closed.IsError); Assert.Contains("No active page", closed.Content!["error_message"]!.ToString());
             var file = Path.Combine(workspace, "workflows/business-composition/items.xlsx");
             output.WriteLine($"BUSINESS {variant}: success={result.Success}; calls={session.ModelCalls}; repairs={session.ReplanAttempts}; elapsedMs={timer.ElapsedMilliseconds}; tasks={RetainedTasks(session.Plan!.Root).Count()}; yamlBytes={Encoding.UTF8.GetByteCount(session.Yaml!)}; inference={model.Requests.Count}; mappings={model.MappingCalls}; invocations={journal.Invocations.Count}; steps={journal.StepsStarted}; cleanup={journal.FinalizationStepsStarted}; journalBytes={Encoding.UTF8.GetByteCount(JsonSerializer.Serialize(journal, WorkflowRunJsonContext.Default.WorkflowRun))}; error={result.Error?.Code} {result.Error?.Message}");
-            if (variant is "unoffered" or "incomplete" or "denied")
+            if (variant is "unoffered" or "incomplete" or "denied" or "verbatim_unknown")
             {
                 Assert.False(result.Success); Assert.False(File.Exists(file)); Assert.False(File.Exists(Path.Combine(root, "outside.xlsx")));
                 if (variant is "unoffered" or "incomplete") Assert.DoesNotContain(visits, p => p.StartsWith("/entry/", StringComparison.Ordinal));
                 if (variant == "incomplete") Assert.Equal(0, model.MappingCalls);
+                if (variant == "verbatim_unknown")
+                {
+                    Assert.Equal("CONTRACT_UNSATISFIED", result.Error?.Code);
+                    Assert.Single(visits, p => p.StartsWith("/entry/", StringComparison.Ordinal));
+                }
                 Assert.DoesNotContain(journal.Invocations.Values, i => i.StepType == "mcp.call" && i.ResolvedInput?["method"]?.ToString() == "document_write" && i.Status == "completed");
                 return;
             }
             Assert.True(result.Success, result.Error?.Message + " " + string.Join("; ", model.MappingFailures)); Assert.Equal(["observed lamps"], queries);
-            if (variant == "exact_rows")
+            if (variant is "exact_rows" or "verbatim_rows")
             {
                 Assert.DoesNotContain(model.Requests, r => r.StructuredOutputSchema?["properties"]?["content"] is not null);
                 var writer = Assert.Single(journal.Invocations.Values, i => i.StepType == "mcp.call" && i.ResolvedInput?["method"]?.ToString() == "document_write");
@@ -248,7 +256,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
             {
                 var n = selected[i]; Assert.NotNull(records[i]); Assert.Equal(ProductName(n), records[i]!["name"]!.ToString());
                 Assert.Equal(ProductDescription(n), records[i]!["description"]!.ToString()); Assert.Equal(n == 2 ? null : ProductPrice(n), records[i]!["price"]?.ToString());
-                expected.Add([ProductName(n), ProductDescription(n), n == 2 ? "" : ProductPrice(n), n == 2 ? "missing_price" : ""]);
+                expected.Add([ProductName(n), ProductDescription(n), n == 2 ? "" : ProductPrice(n), n == 2 && variant != "verbatim_rows" ? "missing_price" : ""]);
             }
             using (var workbook = SpreadsheetDocument.Open(file, false))
             {
@@ -298,6 +306,8 @@ public sealed partial class LocalProductOutcomeExecutionTests
                 const string candidates = "item.records.filter(r=>m.test(r.kind,'^link$')).map(r=>({candidateKey:r.reference,observedText:r.text}))";
                 var script = target["type"]?.ToString() == "array" ? candidates :
                     "({nameFacts:item.records.filter(r=>m.test(r.tag,'^h1$')).map(r=>r.text),descriptionFacts:item.records.filter(r=>m.test(r.tag,'^p$')).map(r=>r.text),priceFacts:item.records.filter(r=>m.test(r.tag,'^price$')).map(r=>r.text)})";
+                if (target["items"]?["properties"]?["description"] is not null)
+                    script = "item.records.filter(r=>m.test(r.tag,'^p$')).map(r=>({key:r.reference,name:item.records.filter(n=>m.test(n.tag,'^h1$'))[0].text,description:r.text,price:m.has(item.records.filter(p=>m.test(p.tag,'^price$')),'0')?item.records.filter(p=>m.test(p.tag,'^price$'))[0].text:null,error:null}))";
                 return Task.FromResult(new LLMResponse { Json = new JsonObject { ["script"] = script } });
             }
             var input = RetainedModel.BusinessData(request)!;
@@ -311,6 +321,14 @@ public sealed partial class LocalProductOutcomeExecutionTests
                 Assert.DoesNotContain("?source=", request.Prompt); Assert.DoesNotContain("selector", request.Prompt);
                 var chosen = variant == "repeated" ? offered.Take(9).Append(offered[0]) : offered.Take(10);
                 result = new() { ["productKeys"] = variant == "unoffered" ? new JsonArray(_unoffered ?? throw new InvalidOperationException("Fixture needs an unoffered original record.")) : new JsonArray(chosen.Select(c => c!["candidateKey"]!.DeepClone()).ToArray()), ["searchError"] = null };
+            }
+            else if (input["offeredBlocks"] is JsonArray blocks)
+            {
+                // The judgment can only choose identities. No generated product
+                // text flows into either the public records or the workbook.
+                var block = Assert.Single(blocks);
+                result = new() { ["selectedIds"] = new JsonArray(variant == "verbatim_unknown" ? JsonValue.Create("unoffered-block") : block!["key"]!.DeepClone()) };
+                Assert.Equal(new[] { "selectedIds" }, request.StructuredOutputSchema!["properties"]!.AsObject().Select(p => p.Key));
             }
             else if (input["compactFacts"] is JsonArray facts)
             {
@@ -335,8 +353,8 @@ public sealed partial class LocalProductOutcomeExecutionTests
 
     private static PlanningProposal BusinessProposal(string name, PlanningCatalog catalog)
     {
-        var proposal = JsonSerializer.Deserialize(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "BusinessTaskComposition", (name == "exact_rows" ? "compact" : name) + ".json")), PlanningJsonContext.Default.PlanningProposal)!;
-        if (name == "exact_rows")
+        var proposal = JsonSerializer.Deserialize(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "BusinessTaskComposition", (name is "exact_rows" or "verbatim_rows" ? "compact" : name) + ".json")), PlanningJsonContext.Default.PlanningProposal)!;
+        if (name is "exact_rows" or "verbatim_rows")
         {
             var formatting = proposal.Plan!.Root.Tasks.Single(t => t.Id == "format");
             formatting.Kind = "foreach"; formatting.Mode = null; formatting.ResultType = null;
@@ -352,6 +370,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
             ] }] }));
             var success = proposal.Plan.Root.Outputs.FindIndex(o => o.Name == "success");
             proposal.Plan.Root.Outputs[success] = new("success", new() { Kind = "output", Source = "write", Port = "success" });
+            if (name == "verbatim_rows") UseVerbatimBlocks(proposal.Plan);
         }
         foreach (var task in RetainedTasks(proposal.Plan!.Root).Where(t => t.Kind == "operation"))
         {

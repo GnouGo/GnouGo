@@ -30,6 +30,7 @@ public sealed class RetainedOutputRevisionTests
         Assert.Contains("Extract closed consumer fields", instructions);
         Assert.Contains("interpret no raw originals", instructions);
         Assert.Contains("Selection:unchanged IDs→lookup offered→originals/actions", instructions);
+        Assert.Contains("Verbatim:choose block IDs, lookup text", instructions);
         Assert.Contains("requires:local typed assertion, short-circuit", instructions);
         Assert.Contains("lookup:[records,IDs],port:key→array", instructions);
         Assert.Contains("json:text", instructions);

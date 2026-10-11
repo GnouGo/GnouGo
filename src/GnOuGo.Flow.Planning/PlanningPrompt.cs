@@ -38,10 +38,10 @@ internal sealed class PlanningPrompt(PlanningSession state)
         resultType=assembled: T[]/item→array<array<T>>; flatten(output(extract,rows)); scalar→array<T>.
         Pure foreach:necessary projections. Extract closed consumer fields; interpret no raw originals.
         field:object only; json:text; lookup:[records,IDs],port:key→array.
-        Selection:unchanged IDs→lookup offered→originals/actions; no sampling/truncation.
+        Selection:unchanged IDs→lookup offered→originals/actions. Verbatim:choose block IDs, lookup text.
         dependsOn:local; capture ancestors; match types/nulls.
         choice:declared, not operation. requires:local typed assertion, short-circuit. present:completion!=success. Save before cleanup; paths!=files.
-        No unrequested work/filter/dedup or invented values/contracts/defaults.
+        No unrequested work/filter/dedup/invention or sampling/truncation.
         Discover/clarify inputs/compatible alternatives.
         """;
 

@@ -151,7 +151,7 @@ build host tests, compile that file in a disposable net10 console referencing th
 built assemblies, and pass record path, workbook path, and a new report path.
 No workflow engine or campaign mutation is involved.
 
-## Gate 7 — integrated validation (in progress)
+## Gate 7 — integrated validation
 
 All nine real local Flow/Browser/Document scenarios passed with v9: clean review,
 explicit producer revision, repeated selections, genuinely empty collections, unknown
@@ -174,3 +174,56 @@ the expected global-request rejection. The correction restores compatible altern
 and compresses mapping instructions while retaining the helper/null/identity/verbatim
 rules. The original limits, assertions and error classifications are unchanged.
 All 112 focused planning/discovery/compaction checks pass after that correction.
+
+
+### Verbatim selection follow-up
+
+A final composition audit found that the original local `exact_rows` fixture still
+let interpretation return fact text. It remains as historical/comparison coverage;
+the additional `verbatim_rows` fixture instead returns only offered block identities,
+uses strict lookup, and copies the selected record through typed bindings. The actual
+compact generation instructions now also describe this distinction. No compiler,
+lookup, mapping, or repair semantics changed for this follow-up.
+
+The first fixture correctly failed review because flattening alone did not establish
+the accepted ten-record cardinality. The correction reuses the existing bounded row
+projection to export both cells and public records, preserving the accepted contract.
+A generated fixture script's implicit array-length predicate was also rejected; its
+replacement uses the existing explicit `m.has` predicate. Neither validation was
+weakened. An unknown selected block is tested before writing.
+
+Positive execution: one deterministic planning call, zero repairs, ten real visits,
+29 complete pages, all 12 offered candidates, exact cells/null positions and cleanup.
+Interpretation returns IDs only; structured writing uses no formatting inference.
+It uses 23 inference calls, 11 mappings, 231 invocations, 230 normal steps and one
+finalization step. YAML is 120,803 bytes; logical journal approximately 18.32 MB.
+This extra strict block-reconnection validation is larger than the earlier fixture;
+it is a safety/composition cost, not claimed as a compiler reduction. Compiler-only
+and forwarding-task comparisons above use identical plans and remain separate.
+
+The retained original TaskPlan was additionally compiled without inference:
+v8 reproduces its saved YAML byte-for-byte (100,225 bytes); v9 produces 99,758 bytes.
+Both retain 38 steps, 18 sets, three necessary selection helpers, zero nested checked
+wrappers, and maximum line length 483. These current v8 numbers must not be confused
+with the older v7 workflow's 63 wrappers and 9,343-character line. The read-only
+`oracle-replay.cs` reproduces this comparison as well as the independent workbook audit.
+
+
+### Broad checks before the final composition follow-up
+
+The solution run completed with `-m:1 -warnaserror`: 5,195 passed, zero failed,
+13 existing skips across 33 test projects. A preceding run was intentionally stopped
+when CI exposed the guidance regressions; that incomplete run is not counted.
+The source frozen for publishing was `38627582`; all ten package/publish/smoke checks
+passed: Flow Core/Planning/Persistence packages, Planning Native AOT and execution,
+Document Native AOT and actual protocol tests, trimmed Server publish and encrypted
+receipt recovery. Browser Native AOT is unsupported; its supported self-contained
+host is included in the Server publish. The skill validator passed.
+
+The final block-selection follow-up passed 137 focused Planning/discovery checks.
+Its two real local cases preserve the original assertions: exact data succeeds;
+an unknown selected block fails before writing, then Browser cleanup runs normally.
+A test analyzer caught use of `Where` before `Assert.Single`; using its predicate
+overload fixes the cause without suppressing the warning. Full final-candidate and
+CI confirmation will be attached to PR #117 after completion, before live readiness
+or a new authorization request. No current file claims live acceptance.
