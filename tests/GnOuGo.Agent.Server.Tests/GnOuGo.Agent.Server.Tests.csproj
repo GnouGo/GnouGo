@@ -32,6 +32,11 @@
     <Using Include="Xunit" />
   </ItemGroup>
   <ItemGroup><None Update="Fixtures/**/*.json" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
+  <ItemGroup>
+    <None Include="../../docs/evidence/compact-bindings-v10-live-2026-10-11/amazon-r5-taskplan.json" Link="Fixtures/V10Composition/retained.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../docs/evidence/compact-bindings-v10-live-2026-10-11/amazon-r2-requirements.json" Link="Fixtures/V10Composition/requirements.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../docs/evidence/compact-bindings-v10-live-2026-10-11/planning-responses.json" Link="Fixtures/V10Composition/responses.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
   <ItemGroup><None Include="../../src/GnOuGo.Cmd.Mcp/appsettings.json" Link="Fixtures/ClonePlanning/cmdsettings.json" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
 
   <Import Project="..\..\build\GnOuGo.BundledMcpTools.targets" />

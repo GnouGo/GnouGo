@@ -1,0 +1,88 @@
+  Identification des projets à restaurer...
+  Tous les projets sont à jour pour la restauration.
+  GnOuGo.Flow.Core -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Flow.Core/bin/Debug/net10.0/GnOuGo.Flow.Core.dll
+  GnOuGo.Flow.Copilot -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Flow.Copilot/bin/Debug/net10.0/GnOuGo.Flow.Copilot.dll
+  GnOuGo.Workspace -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Workspace/bin/Debug/net10.0/GnOuGo.Workspace.dll
+  GnOuGo.KeyVault.Core -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.KeyVault.Core/bin/Debug/net10.0/GnOuGo.KeyVault.Core.dll
+  GnOuGo.Flow.Persistence -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Flow.Persistence/bin/Debug/net10.0/GnOuGo.Flow.Persistence.dll
+  GnOuGo.Agent.Shared -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Agent.Shared/bin/Debug/net10.0/GnOuGo.Agent.Shared.dll
+  GnOuGo.Auth.Core -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Auth.Core/bin/Debug/net10.0/GnOuGo.Auth.Core.dll
+  GnOuGo.AI.Core -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.AI.Core/bin/Debug/net10.0/GnOuGo.AI.Core.dll
+  GnOuGo.Diff.Core -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Diff.Core/bin/Debug/net10.0/GnOuGo.Diff.Core.dll
+  GnOuGo.Mcp.Core -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Mcp.Core/bin/Debug/net10.0/GnOuGo.Mcp.Core.dll
+  GnOuGo.Observability.Core -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Observability.Core/bin/Debug/net10.0/GnOuGo.Observability.Core.dll
+  GnOuGo.Agent.Mcp -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Agent.Mcp/bin/Debug/net10.0/GnOuGo.Agent.Mcp.dll
+  GnOuGo.AI.Local -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.AI.Local/bin/Debug/net10.0/GnOuGo.AI.Local.dll
+  GnOuGo.Assets.Bears -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Assets.Bears/bin/Debug/net10.0/GnOuGo.Assets.Bears.dll
+  GnOuGo.Assets.Animation -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Assets.Animation/bin/Debug/net10.0/GnOuGo.Assets.Animation.dll
+  GnOuGo.DocIngestor.Core -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.DocIngestor.Core/bin/Debug/net10.0/GnOuGo.DocIngestor.Core.dll
+  GnOuGo.DocIngestor.Mcp -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.DocIngestor.Mcp/bin/Debug/net10.0/GnOuGo.DocIngestor.Mcp.dll
+  GnOuGo.Flow.Planning -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Flow.Planning/bin/Debug/net10.0/GnOuGo.Flow.Planning.dll
+  GnOuGo.Flow.Integrations -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Flow.Integrations/bin/Debug/net10.0/GnOuGo.Flow.Integrations.dll
+  GnOuGo.Flow.Mermaid -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Flow.Mermaid/bin/Debug/net10.0/GnOuGo.Flow.Mermaid.dll
+  GnOuGo.Files.Server -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Files.Server/bin/Debug/net10.0/GnOuGo.Files.Server.dll
+  GnOuGo.KeyVault.Mcp -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.KeyVault.Mcp/bin/Debug/net10.0/GnOuGo.KeyVault.Mcp.dll
+  GnOuGo.Auth.Core -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Auth.Core/bin/Debug/net10.0/GnOuGo.Auth.Core.dll
+  GnOuGo.AI.Core -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.AI.Core/bin/Debug/net10.0/GnOuGo.AI.Core.dll
+  GnOuGo.Workspace -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Workspace/bin/Debug/net10.0/GnOuGo.Workspace.dll
+  GnOuGo.OtlpCollector.Server -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.OtlpCollector.Server/bin/Debug/net10.0/GnOuGo.OtlpCollector.Server.dll
+  GnOuGo.Mcp.Core -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Mcp.Core/bin/Debug/net10.0/GnOuGo.Mcp.Core.dll
+  GnOuGo.Observability.Core -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Observability.Core/bin/Debug/net10.0/GnOuGo.Observability.Core.dll
+  GnOuGo.Browser.Mcp -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Browser.Mcp/bin/Debug/net10.0/GnOuGo.Browser.Mcp.dll
+  GnOuGo.Workspace -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Workspace/bin/Debug/net10.0/GnOuGo.Workspace.dll
+  GnOuGo.Cmd.Mcp -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Cmd.Mcp/bin/Debug/net10.0/GnOuGo.Cmd.Mcp.dll
+  GnOuGo.Diff.Core -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Diff.Core/bin/Debug/net10.0/GnOuGo.Diff.Core.dll
+  GnOuGo.Document.Mcp -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Document.Mcp/bin/Debug/net10.0/GnOuGo.Document.Mcp.dll
+  GnOuGo.Auth.Core -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Auth.Core/bin/Debug/net10.0/GnOuGo.Auth.Core.dll
+  GnOuGo.Flow.Core -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Flow.Core/bin/Debug/net10.0/GnOuGo.Flow.Core.dll
+  GnOuGo.GithubCopilot.Core -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.GithubCopilot.Core/bin/Debug/net10.0/GnOuGo.GithubCopilot.Core.dll
+  GnOuGo.KeyVault.Core -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.KeyVault.Core/bin/Debug/net10.0/GnOuGo.KeyVault.Core.dll
+  GnOuGo.GithubCopilot.Mcp -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.GithubCopilot.Mcp/bin/Debug/net10.0/GnOuGo.GithubCopilot.Mcp.dll
+  GnOuGo.Git.Mcp -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Git.Mcp/bin/Debug/net10.0/GnOuGo.Git.Mcp.dll
+  GnOuGo.Agent.Server -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Agent.Server/bin/Debug/net10.0/GnOuGo.Agent.Server.dll
+  Staging GnOuGo MCP development tools into bin/Debug/net10.0/tools...
+  GnOuGo.Document.Mcp -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Document.Mcp/bin/Debug/net10.0/GnOuGo.Document.Mcp.dll
+  GnOuGo.Browser.Mcp -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Browser.Mcp/bin/Debug/net10.0/GnOuGo.Browser.Mcp.dll
+  Installing Playwright Chromium browsers...
+  GnOuGo.Git.Mcp -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Git.Mcp/bin/Debug/net10.0/GnOuGo.Git.Mcp.dll
+  GnOuGo.Cmd.Mcp -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Cmd.Mcp/bin/Debug/net10.0/GnOuGo.Cmd.Mcp.dll
+  GnOuGo.GithubCopilot.Core -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.GithubCopilot.Core/bin/Debug/net10.0/GnOuGo.GithubCopilot.Core.dll
+  GnOuGo.GithubCopilot.Mcp -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.GithubCopilot.Mcp/bin/Debug/net10.0/GnOuGo.GithubCopilot.Mcp.dll
+  GnOuGo.OtlpCollector.Server -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.OtlpCollector.Server/bin/Debug/net10.0/GnOuGo.OtlpCollector.Server.dll
+  🔍 Vérification des dépendances pnpm...
+  🔨 Construction du frontend React...
+  
+  > otlp-tenant-collector-ui@0.1.0 build /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.OtlpCollector.Server/ClientApp
+  > tsc && vite build
+  
+  vite v8.3.0 building client environment for production...
+  transforming...
+  ✓ 56 modules transformed.
+  rendering chunks...
+  computing gzip size...
+  ../wwwroot/index.html                   0.40 kB │ gzip:   0.27 kB
+  ../wwwroot/assets/index-DrXxYbax.css   59.47 kB │ gzip:   9.70 kB
+  ../wwwroot/assets/index-Cs5bBauP.js   410.50 kB │ gzip: 121.60 kB │ map: 1,808.56 kB
+  
+  ✓ built in 348ms
+  ✅ Frontend construit et copié vers wwwroot/
+  GnOuGo.Agent.Server.Tests -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Agent.Server.Tests/bin/Debug/net10.0/GnOuGo.Agent.Server.Tests.dll
+  Staging GnOuGo MCP development tools into bin/Debug/net10.0/tools...
+Série de tests pour /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Agent.Server.Tests/bin/Debug/net10.0/GnOuGo.Agent.Server.Tests.dll (.NETCoreApp,Version=v10.0)
+Au total, 1 fichiers de test ont correspondu au modèle spécifié.
+/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Agent.Server.Tests/bin/Debug/net10.0/GnOuGo.Agent.Server.Tests.dll
+[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v4.0.0+05679a7ab5 (64-bit .NET 10.0.8)
+[xUnit.net 00:00:00.45]   Discovering: GnOuGo.Agent.Server.Tests
+[xUnit.net 00:00:00.70]   Discovered:  GnOuGo.Agent.Server.Tests
+[xUnit.net 00:00:00.83]   Starting:    GnOuGo.Agent.Server.Tests
+[xUnit.net 00:00:03.67]   Finished:    GnOuGo.Agent.Server.Tests (ID = '2baf028ce2ab75b8f0ed2d783ac1df4e1a042624d79640bf5403195bb8cfea65')
+  Réussi GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V10TypedOriginalsRetainProducerRecordsAndNarrowConsumerViews [2 s]
+  Messages de sortie standard :
+ GATE A: typed copy mapping stages=2→0; tasks=18; steps=46→42; sets=24→22; YAML=120290→126493; paidCalls=0
+
+
+
+Série de tests réussie.
+Nombre total de tests : 1
+     Réussi(s) : 1
+ Durée totale : 3,9643 Secondes
