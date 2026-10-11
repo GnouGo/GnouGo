@@ -33,16 +33,16 @@ internal sealed class PlanningPrompt(PlanningSession state)
 
     private const string Instructions = """
         Unsearched!=absent; closed:plan:null.
-        Business tasks; inline copies/assembly/field/flatten/lookup in bindings/exports.
+        Business tasks; inline copies/assembly/field/flatten/lookup in bindings/exports. No inference for typed copying.
         each.input=bound input name: pages→each:{input:pages,output:rows}.
         resultType=assembled: T[]/item→array<array<T>>; flatten(output(extract,rows)); scalar→array<T>.
-        Pure foreach:necessary projections.
+        Pure foreach:necessary projections. Extract closed consumer fields; interpret no raw originals.
         field:object only; json:text; lookup:[records,IDs],port:key→array.
         Selection:unchanged IDs→lookup offered→originals/actions; no sampling/truncation.
-        minItems/maxItems:bounds; foreach total/default100. dependsOn:local; captures; match types/nulls.
+        dependsOn:local; capture ancestors; match types/nulls.
         choice:declared, not operation. requires:local typed assertion, short-circuit. present:completion!=success. Save before cleanup; paths!=files.
-        No unrequested work/filter/dedup or invented data/inputs/contracts/scripts/defaults.
-        inputs:[]none/null unresolved; discover/clarify compatible alternatives.
+        No unrequested work/filter/dedup or invented values/contracts/defaults.
+        Discover/clarify unresolved inputs.
         """;
 
     private const string RepairInstructions = """

@@ -24,6 +24,42 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed partial class LocalProductOutcomeExecutionTests
 {
     [Fact]
+    public async Task RetainedReadableCompositionUsesBindingsWithoutDroppingValidationOrWork()
+    {
+        var factory = new RealProductContracts.Factory(RealProductContracts.Capture(new DocumentPolicy(new DocumentServerSettings(), AppContext.BaseDirectory)));
+        var runtime = new WorkflowPlanningRuntime(new() { McpClientFactory = factory }, (_, _) => Task.CompletedTask);
+        var catalog = await RetainedCatalog(runtime, TestContext.Current.CancellationToken);
+        catalog.Policy.RequireExternalConfirmation = false;
+        TaskPlan Load(string name)
+        {
+            var plan = JsonSerializer.Deserialize(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "BusinessTaskComposition", name + ".json")), PlanningJsonContext.Default.TaskPlan)!;
+            foreach (var task in RetainedTasks(plan.Root).Where(t => t.Kind == "operation"))
+            {
+                var method = task.Operation switch { "acquire" => "browser_get_content", "persist" => "document_write", "release" => "browser_close", _ => throw new InvalidOperationException() };
+                task.Operation = TaskOperations.Describe(catalog.Capabilities.Single(c => c.Method == method)).Id;
+            }
+            return plan;
+        }
+        var baseline = Load("retained-readable"); var compact = Load("retained-readable-compact");
+        Assert.Equal(RetainedOperations(baseline), RetainedOperations(compact));
+        Assert.Equal(17, RetainedTasks(baseline.Root).Count()); Assert.Equal(14, RetainedTasks(compact.Root).Count());
+        foreach (var task in RetainedTasks(compact.Root))
+            Assert.True(JsonNode.DeepEquals(JsonSerializer.SerializeToNode(task.Requires, PlanningJsonContext.Default.TaskValue),
+                JsonSerializer.SerializeToNode(RetainedTasks(baseline.Root).Single(t => t.Id == task.Id).Requires, PlanningJsonContext.Default.TaskValue)));
+        // These two remaining values are independent checks, not forwarding:
+        // validate offered IDs before original lookup; verify the writer receipt.
+        Assert.Equal(new[] { "resolve_selected_offers", "validate_public_outputs" }, RetainedTasks(compact.Root).Where(t => t.Kind == "value").Select(t => t.Id));
+        var before = BusinessCompilation(baseline, catalog, "compact-bindings-v9"); var after = BusinessCompilation(compact, catalog, "compact-bindings-v9");
+        // v9 already fused these forwarding tasks. Do not drop independent
+        // checks merely to reduce a counter: composition is smaller without
+        // increasing executable work. The older composition below must reduce
+        // steps and sets as well.
+        Assert.Equal(before.Steps, after.Steps); Assert.Equal(before.Sets, after.Sets);
+        Assert.True(after.Yaml.Length < before.Yaml.Length);
+        output.WriteLine($"RETAINED COMPOSITION tasks=17→14; steps={before.Steps}→{after.Steps}; sets={before.Sets}→{after.Sets}; YAML={before.Yaml.Length}→{after.Yaml.Length}");
+    }
+
+    [Fact]
     public async Task ReadableProfilesPreserveBusinessCompositionContracts()
     {
         var factory = new RealProductContracts.Factory(RealProductContracts.Capture(new DocumentPolicy(new DocumentServerSettings(), AppContext.BaseDirectory)));
@@ -299,11 +335,12 @@ public sealed partial class LocalProductOutcomeExecutionTests
         return proposal;
     }
 
-    private static (string Yaml, int Steps, int Sets) BusinessCompilation(TaskPlan plan, PlanningCatalog catalog)
+    private static (string Yaml, int Steps, int Sets) BusinessCompilation(TaskPlan plan, PlanningCatalog catalog, string profile = "compact-bindings-v5")
     {
-        var compiled = new TaskPlanCompiler().Compile(plan, catalog, new PlanningRequest { Options = new() { ["compilation_profile"] = "compact-bindings-v5" } });
+        var request = new PlanningRequest { Options = new() { ["compilation_profile"] = profile } };
+        var compiled = new TaskPlanCompiler().Compile(plan, catalog, request);
         Assert.True(compiled.Graph is not null, string.Join('\n', compiled.Diagnostics));
-        var yaml = new PlanningGraphCompiler().Compile(compiled.Graph!, catalog, "business", true, true, true);
+        var yaml = new PlanningGraphCompiler().Compile(compiled.Graph!, catalog, "business", true, true, true, TaskPlanCompiler.UsesDirectProjections(request), TaskPlanCompiler.UsesNativeMappings(request), TaskPlanCompiler.UsesReadableMappings(request), TaskPlanCompiler.UsesLeanMappings(request));
         var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml));
         static IEnumerable<CompiledStep> All(IEnumerable<CompiledStep> steps) => steps.SelectMany(s => new[] { s }
             .Concat(All(s.Steps ?? [])).Concat(All(s.Default ?? [])).Concat((s.Cases ?? []).SelectMany(c => All(c.Steps)))

@@ -33,3 +33,9 @@ no new runtime feature hides inference.
 Tests compare compilation metrics, exercise actual Browser/Document transport,
 and inspect visited pages and workbook cells independently. Deterministic
 adapters establish execution regression coverage, not live-provider acceptance.
+
+`retained-readable.json` sanitizes the later 17-task readable-bindings proposal.
+Its compact counterpart has 14 tasks: three flatten/lookup forwarders move into
+existing bindings. The offered-ID check and writer-receipt assertion remain
+independent boundaries. Requirements, operations, guards and output contracts
+are preserved; this comparison uses v9 for both plans.
