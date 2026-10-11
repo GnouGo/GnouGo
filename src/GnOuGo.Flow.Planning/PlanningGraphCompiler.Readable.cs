@@ -33,7 +33,7 @@ public sealed partial class PlanningGraphCompiler
                 contracts = JsonNode.Parse(program[group.Arguments[2].Start..group.Arguments[2].End])!.AsObject();
                 program = MappingProgram(group.Arguments[0]);
             }
-            var expanded = Expand(program, scope.CompactProjections);
+            var expanded = Expand(program);
             if (scope.LeanMappings) expanded = SimplifyReadableProgram(expanded);
             ExpressionEvaluator.Validate(expanded);
             metadata[pointer] = contracts;
@@ -49,7 +49,7 @@ public sealed partial class PlanningGraphCompiler
             TemplateLiteral { Expressions.Count: 0, Quasis.Count: 1 } template => template.Quasis[0].Value.Cooked!,
             _ => throw new InvalidOperationException("Compiler programs must be constant.")
         };
-        static string Expand(string program, bool compact)
+        static string Expand(string program)
         {
             var syntax = new Parser().ParseExpression(program);
             string Rewrite(Node node)
@@ -60,7 +60,7 @@ public sealed partial class PlanningGraphCompiler
                 if (node is CallExpression { Callee: Identifier { Name: "checkedMapping" }, Arguments.Count: 2 } mapping)
                 {
                     var source = Rewrite(mapping.Arguments[1]);
-                    var body = Expand(MappingProgram(mapping.Arguments[0]), compact);
+                    var body = Expand(MappingProgram(mapping.Arguments[0]));
                     static bool Address(Node value) => value is Identifier || value is MemberExpression member && Address(member.Object) &&
                         (member.Computed ? member.Property is StringLiteral : member.Property is Identifier);
                     if (Address(mapping.Arguments[1]) && SubstituteSource(body, "(" + source + ")", null) is { } direct)
@@ -68,29 +68,10 @@ public sealed partial class PlanningGraphCompiler
                     if (mapping.Arguments[1] is ObjectExpression captured && captured.Properties.All(p => p is Property { Computed: false, Method: false, Shorthand: false }))
                     {
                         var properties = captured.Properties.Cast<Property>().ToArray();
-                        var keys = properties.Select(p => p.Key is Identifier id ? id.Name : ((StringLiteral)p.Key).Value).ToArray();
-                        var reads = new List<string>();
-                        bool OrderedCopy(Node value)
-                        {
-                            if (value is MemberExpression { Object: Identifier { Name: "source" } } member &&
-                                (member.Computed ? member.Property is StringLiteral : member.Property is Identifier))
-                            { reads.Add(member.Property is Identifier name ? name.Name : ((StringLiteral)member.Property).Value); return true; }
-                            return value switch
-                            {
-                                ObjectExpression obj => obj.Properties.All(p => p is Property { Computed: false, Method: false, Shorthand: false } prop && OrderedCopy(prop.Value)),
-                                ArrayExpression array => array.Elements.All(e => e is not null && OrderedCopy(e)),
-                                StringLiteral or NumericLiteral or BooleanLiteral or NullLiteral => true,
-                                _ => false
-                            };
-                        }
-                        // Inline only eager structural copies using every capture
-                        // exactly once and in argument order. Keep callbacks and
-                        // conditional evaluation in their original lexical scope.
-                        if (compact && properties.All(p => Address(p.Value) || p.Value is StringLiteral or NumericLiteral or BooleanLiteral or NullLiteral) &&
-                            OrderedCopy(new Parser().ParseExpression(body)) && reads.SequenceEqual(keys) &&
-                            SubstituteSource(body, null, properties.Select((p, i) => (Key: keys[i], Text: "(" + Rewrite(p.Value) + ")"))
-                                .ToDictionary(p => p.Key, p => p.Text, StringComparer.Ordinal)) is { } copied)
-                            return copied;
+                        // Keep the capture boundary: an enclosing branch can
+                        // refine a nullable input even when its declared producer
+                        // contract remains nullable. Ordered checks still belong
+                        // at this independent export boundary.
                         IEnumerable<Node> Nodes(Node value) => new[] { value }.Concat(value.ChildNodes.SelectMany(Nodes));
                         var used = Nodes(new Parser().ParseExpression(body)).OfType<Identifier>().Select(n => n.Name).ToHashSet(StringComparer.Ordinal);
                         var bindings = properties.Select((p, i) =>

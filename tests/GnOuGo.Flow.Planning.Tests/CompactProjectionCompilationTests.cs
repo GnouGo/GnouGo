@@ -34,6 +34,35 @@ public sealed class CompactProjectionCompilationTests(Xunit.ITestOutputHelper ou
         .Compile(graph, catalog, "projection", true, true, true, true, true, true, true, compact);
 
     [Theory]
+    [InlineData("nominal")]
+    [InlineData("alternate")]
+    public async Task GuardedNullableCaptureKeepsItsCheckedExportBoundary(string variant)
+    {
+        var sample = new GnOuGo.Planning.Examples.PlanningBenchmarkCases.Environment("nullable_defaults", variant);
+        var engine = new WorkflowEngine { McpClientFactory = sample.Factory() };
+        var runtime = new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask);
+        var catalog = await TaskPlanCompilerTests.Catalog(runtime);
+        var plan = GnOuGo.Planning.Examples.PlanningCorpus.Tasks("nullable_defaults", catalog);
+        var compilation = new TaskPlanCompiler().Compile(plan, catalog, new PlanningRequest
+            { Options = new() { ["compilation_profile"] = "compact-bindings-v10" } });
+        Assert.Empty(compilation.Diagnostics);
+        JsonNode? expected = null;
+        foreach (var compact in new[] { false, true })
+        {
+            var yaml = Yaml(compilation.Graph!, catalog, compact);
+            Assert.Empty(await runtime.ValidateAsync(new(yaml, new(), catalog,
+                PlanningGraphCompiler.CapabilityBindings(compilation.Graph!)), PlannerFixture.Ct));
+            var observed = new GnOuGo.Planning.Examples.PlanningBenchmarkCases.Environment("nullable_defaults", variant);
+            var result = await LookupCompilationTests.Execute(yaml,
+                GnOuGo.Planning.Examples.PlanningBenchmarkCases.Inputs("nullable_defaults", variant),
+                new() { McpClientFactory = observed.Factory() });
+            Assert.True(observed.Verify(result), result.Error?.Message);
+            if (expected is null) expected = result.Outputs; else Assert.True(JsonNode.DeepEquals(expected, result.Outputs));
+        }
+
+    }
+
+    [Theory]
     [InlineData(false, 0, false)] [InlineData(false, 3, false)] [InlineData(true, 3, false)] [InlineData(false, 1602, false)]
     [InlineData(false, 1602, true)] [InlineData(false, 0, true)]
     public async Task DeclaredProjectionPortsAvoidUnobservedCallEnvelopes(bool parallel, int count, bool single)

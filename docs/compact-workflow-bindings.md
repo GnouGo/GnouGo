@@ -7,15 +7,14 @@ array item; multiple exports share one object. Whole-result, presence, handler a
 raw-expression observers retain the historical envelope. Effectful loops and all
 scope, retry, error and recovery boundaries are unchanged.
 
-Eager structural capture copies can inline direct addresses only when all captured
-values are read once, in the original argument order. Checked locals and their
-ordered `expression_contracts` remain, including unused final values. Required
-checked-set object wrappers, strict lookup and first-present helpers remain.
-Generated local names use binding paths with collision protection; multiline
-formatting follows object properties and statements, keeping ordinary arguments
-and callback parameters together. No runtime imports, sandbox limits or validation
-rules change. Omitted/v1–v9 profiles and existing compiler overloads keep their
-exact lowering and approval hashes.
+Capture/export boundaries remain when a branch refines an upstream nullable
+contract. Removing their lexical wrapper can lose that refinement during static
+validation; ordered runtime contracts must still execute at the same boundary.
+Formatting follows JavaScript syntax: callback arguments stay together, while
+statements and object properties use separate lines. Locals use declared binding
+paths/ports with stable collision suffixes. Required checked-set object wrappers,
+strict lookup and first-present helpers remain. Omitted and v1–v9 profiles retain
+exact lowering; no runtime or mapping allowance changes.
 
 ## v9: checked aliases
 

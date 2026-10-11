@@ -1,0 +1,23 @@
+numeric MCP: real native stdio decimal input/output conversion; exact producer-owned calculation
+schema projection: portable wire, unchanged authoritative restrictions
+required conditions: true/false and guarded ancestor payloads survive Native AOT serialization and execution
+conditional entries: runtime requires preserved without automatic guard proof
+restricted mappings: observed HTML extraction, exact decimals, source-generated artifact serialization
+collection mappings: independent extraction, ordered complete results, optional declaration serialization
+compact bindings: fused collection, zero per-item calls, exact duplicates, no inference
+indexed projections: 1602 original positions and records, unchanged expression limits, zero per-record workflow calls
+consumer bindings: checked input, zero materialization steps
+v7 native mappings: multiline constant program, checked consumer, unchanged value
+lookup: typed binding, original records, selected order/repeats, zero inference
+flatten: one typed level, empty candidates, null elements and duplicates, zero inference
+agent failure: structured host diagnostic survives source-generated serialization
+business intent: persisted requirements and approval identity survive Native AOT serialization
+clarification: auto pause, custom answer, restart, unchanged budget and separate approval passed with deterministic inference
+constant workspace: approved literal survives compilation and source-generated serialization; no agent execution
+operation outputs: approved payload and partial envelope survive source-generated serialization and YAML compilation
+local: passed, calls=1, replans=0, validations=2
+read_transform: passed, calls=1, replans=0, validations=3
+Unhandled exception. System.InvalidOperationException: [{"code":"TASK_COMPILER_VALIDATION","location":"/tasks/fallback/body/outputs/value","message":"EXPR_TYPE_MISMATCH: Expression assigned to \u0027input\u0027 has an incompatible nested contract: \u0027input.value\u0027 resolves to null or number, but the set output_schema requires number.","required":true,"validationStage":null,"rule":null}]
+   at Program.<<Main>$>d__0.MoveNext() + 0xac44
+--- End of stack trace from previous location ---
+   at Program.<Main>(String[] args) + 0x2c
