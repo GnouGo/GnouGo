@@ -253,9 +253,9 @@ workflows:
             value: (data.steps.n_62737a68773ca42a.response).observationSnapshot.pages
           };
           const checkedRecord = pages;
-          const items = (checkedRecord => ({
-            results: checkedRecord.map((item, index) => (item).records),
-            count: checkedRecord.length
+          const items = (collection => ({
+            results: collection.map((item, index) => (item).records),
+            count: collection.length
           }))(checkedRecord.value);
           const pageRecords = {
             value: (items.results).map(item => item)
@@ -1133,7 +1133,7 @@ workflows:
                 value: data.steps.n_b03285831dc942c7.json.selectedProductReferenceIds
               };
               const requiredCondition = {
-                value: ((checkedRecord, selectedProductReferenceIds) => m.lookup(checkedRecord, selectedProductReferenceIds, "reference"))(checkedRecord.value, selectedProductReferenceIds.value) !== null
+                value: ((records_2, selectedProductReferenceIds) => m.lookup(records_2, selectedProductReferenceIds, "reference"))(checkedRecord.value, selectedProductReferenceIds.value) !== null
               };
               const pageRecords = {
                 value: data.steps.n_e2bfee3ab9860925.pageRecords_2.pageRecords
@@ -1145,7 +1145,7 @@ workflows:
                 value: data.steps.n_b03285831dc942c7.json.selectedProductReferenceIds
               };
               const checkedRecord_3 = {
-                value: ((checkedRecord2, selectedProductReferenceIds2) => m.lookup(checkedRecord2, selectedProductReferenceIds2, "reference"))(checkedRecord_2.value, selectedProductReferenceIds_2.value)
+                value: ((records_2, selectedProductReferenceIds2) => m.lookup(records_2, selectedProductReferenceIds2, "reference"))(checkedRecord_2.value, selectedProductReferenceIds_2.value)
               };
               return checkedRecord_3.value;
             })()
@@ -1426,12 +1426,12 @@ workflows:
           const checkedRecord = {
             value: products.value.flatMap(item => item)
           };
-          const items = (checkedRecord => ({
-            results: checkedRecord.map((item, index) => ({
+          const items = (collection => ({
+            results: collection.map((item, index) => ({
               products: item,
               rows: [(item).name, (item).description, (item).price, (item).error]
             })),
-            count: checkedRecord.length
+            count: collection.length
           }))(checkedRecord.value);
           const products_2 = {
             value: (items.results).map(item => item.products)
@@ -2417,9 +2417,9 @@ workflows:
             value: (data.steps.n_0525c15c1750c572.response).observationSnapshot.pages
           };
           const checkedRecord = pages;
-          const items = (checkedRecord => ({
-            results: checkedRecord.map((item, index) => (item).records),
-            count: checkedRecord.length
+          const items = (collection => ({
+            results: collection.map((item, index) => (item).records),
+            count: collection.length
           }))(checkedRecord.value);
           const pageRecords = {
             value: (items.results).map(item => item)
@@ -3879,7 +3879,7 @@ workflows:
             value: [checkedRecord_2.value]
           };
           const requiredCondition = {
-            value: ((checkedRecord3, checkedRecord4) => m.lookup(checkedRecord3, checkedRecord4, "reference"))(checkedRecord_3.value, checkedRecord_4.value) !== null
+            value: ((records_2, selected_2) => m.lookup(records_2, selected_2, "reference"))(checkedRecord_3.value, checkedRecord_4.value) !== null
           };
           const checkedRecord_5 = {
             value: data.inputs.task_d6c0472d253b1e2aa1c44483
@@ -3894,11 +3894,11 @@ workflows:
             value: [checkedRecord_6.value]
           };
           const checkedRecord_9 = {
-            value: ((checkedRecord7, checkedRecord8) => m.lookup(checkedRecord7, checkedRecord8, "reference"))(checkedRecord_7.value, checkedRecord_8.value)
+            value: ((records_2, selected_2) => m.lookup(records_2, selected_2, "reference"))(checkedRecord_7.value, checkedRecord_8.value)
           };
-          const items = (checkedRecord9 => ({
-            results: checkedRecord9.map((item, index) => (item).text),
-            count: checkedRecord9.length
+          const items = (collection => ({
+            results: collection.map((item, index) => (item).text),
+            count: collection.length
           }))(checkedRecord_9.value);
           const text = {
             value: (items.results).map(item => item)
@@ -4402,7 +4402,7 @@ workflows:
             value: [checkedRecord_2.value]
           };
           const requiredCondition = {
-            value: ((checkedRecord3, checkedRecord4) => m.lookup(checkedRecord3, checkedRecord4, "reference"))(checkedRecord_3.value, checkedRecord_4.value) !== null
+            value: ((records_2, selected_2) => m.lookup(records_2, selected_2, "reference"))(checkedRecord_3.value, checkedRecord_4.value) !== null
           };
           const checkedRecord_5 = {
             value: data.inputs.task_d6c0472d253b1e2aa1c44483
@@ -4417,11 +4417,11 @@ workflows:
             value: [checkedRecord_6.value]
           };
           const checkedRecord_9 = {
-            value: ((checkedRecord7, checkedRecord8) => m.lookup(checkedRecord7, checkedRecord8, "reference"))(checkedRecord_7.value, checkedRecord_8.value)
+            value: ((records_2, selected_2) => m.lookup(records_2, selected_2, "reference"))(checkedRecord_7.value, checkedRecord_8.value)
           };
-          const items = (checkedRecord9 => ({
-            results: checkedRecord9.map((item, index) => (item).text),
-            count: checkedRecord9.length
+          const items = (collection => ({
+            results: collection.map((item, index) => (item).text),
+            count: collection.length
           }))(checkedRecord_9.value);
           const text = {
             value: (items.results).map(item => item)
@@ -4925,7 +4925,7 @@ workflows:
             value: [checkedRecord_2.value]
           };
           const requiredCondition = {
-            value: ((checkedRecord3, checkedRecord4) => m.lookup(checkedRecord3, checkedRecord4, "reference"))(checkedRecord_3.value, checkedRecord_4.value) !== null
+            value: ((records_2, selected_2) => m.lookup(records_2, selected_2, "reference"))(checkedRecord_3.value, checkedRecord_4.value) !== null
           };
           const checkedRecord_5 = {
             value: data.inputs.task_d6c0472d253b1e2aa1c44483
@@ -4940,11 +4940,11 @@ workflows:
             value: [checkedRecord_6.value]
           };
           const checkedRecord_9 = {
-            value: ((checkedRecord7, checkedRecord8) => m.lookup(checkedRecord7, checkedRecord8, "reference"))(checkedRecord_7.value, checkedRecord_8.value)
+            value: ((records_2, selected_2) => m.lookup(records_2, selected_2, "reference"))(checkedRecord_7.value, checkedRecord_8.value)
           };
-          const items = (checkedRecord9 => ({
-            results: checkedRecord9.map((item, index) => (item).text),
-            count: checkedRecord9.length
+          const items = (collection => ({
+            results: collection.map((item, index) => (item).text),
+            count: collection.length
           }))(checkedRecord_9.value);
           const text = {
             value: (items.results).map(item => item)
@@ -7746,14 +7746,14 @@ workflows:
           const checkedRecord = {
             value: data.inputs.task_b8da957bcbc3c72b4f7d91bd
           };
-          const items = ((task182fb082d704e4550289f4a4, descriptionDescription, taskA1e1eaf22ffbbaf655a19006, checkedRecord) => ({
-            results: checkedRecord.map((item, index) => ({
-              name: task182fb082d704e4550289f4a4,
+          const items = ((name, descriptionDescription, inputValue, collection) => ({
+            results: collection.map((item, index) => ({
+              name,
               description: descriptionDescription,
               price: item,
-              error: (taskA1e1eaf22ffbbaf655a19006).error_message
+              error: (inputValue).error_message
             })),
-            count: checkedRecord.length
+            count: collection.length
           }))(data.inputs.task_182fb082d704e4550289f4a4, description.description, data.inputs.task_a1e1eaf22ffbbaf655a19006, checkedRecord.value);
           const product = {
             value: (items.results).map(item => item)

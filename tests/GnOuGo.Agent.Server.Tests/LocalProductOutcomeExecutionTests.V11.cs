@@ -21,6 +21,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
         Assert.True(after.Sets <= before.Sets - 2, $"sets {before.Sets}→{after.Sets}");
         Assert.True(after.Steps <= before.Steps - 2, $"steps {before.Steps}→{after.Steps}");
         Assert.True(after.Yaml.Length < before.Yaml.Length);
+        Assert.DoesNotMatch(@"\btask[A-Fa-f0-9]{12,}\b", after.Yaml);
         Assert.Equal(before.Yaml, BusinessCompilation(proposal.Plan!, catalog, "compact-bindings-v10").Yaml);
         var oldDocument = WorkflowParser.Parse(before.Yaml); var newDocument = WorkflowParser.Parse(after.Yaml);
         var oldMappings = oldDocument.Workflows.Values.SelectMany(w => V11Steps(w.Steps)).Where(s => s.Type == "mapping.dynamic").ToArray();

@@ -92,13 +92,31 @@ public sealed partial class PlanningGraphCompiler
                         // contract remains nullable. Ordered checks still belong
                         // at this independent export boundary.
                         IEnumerable<Node> Nodes(Node value) => new[] { value }.Concat(value.ChildNodes.SelectMany(Nodes));
-                        var used = Nodes(new Parser().ParseExpression(body)).OfType<Identifier>().Select(n => n.Name).ToHashSet(StringComparer.Ordinal);
+                        var bodyNodes = Nodes(new Parser().ParseExpression(body)).ToArray();
+                        var used = bodyNodes.OfType<Identifier>().Select(n => n.Name).ToHashSet(StringComparer.Ordinal);
                         if (scope.InlineConsumers) used.UnionWith(BindingNames());
                         var bindings = properties.Select((p, i) =>
                         {
                             var field = p.Key is Identifier id ? id.Name : ((StringLiteral)p.Key).Value;
                             var stem = "binding_" + (Identifier().IsMatch(field) ? field : i.ToString(System.Globalization.CultureInfo.InvariantCulture));
-                            if (scope.InlineConsumers) stem = ProducerName(p.Value, field);
+                            if (scope.InlineConsumers)
+                            {
+                                // Use the declared receiving field when a
+                                // captured input has only a physical identity.
+                                // This affects lexical names, never addressing.
+                                var hint = field.Contains("task_", StringComparison.Ordinal) ? bodyNodes.OfType<Property>().FirstOrDefault(property =>
+                                {
+                                    Node selected = property.Value;
+                                    while (selected is MemberExpression member)
+                                    {
+                                        if (member.Object is Identifier { Name: "source" })
+                                            return (member.Computed ? (member.Property as StringLiteral)?.Value : (member.Property as Identifier)?.Name) == field;
+                                        selected = member.Object;
+                                    }
+                                    return false;
+                                })?.Key : null;
+                                stem = ProducerName(p.Value, hint is Identifier target ? target.Name : hint is StringLiteral label ? label.Value : field);
+                            }
                             var name = stem; var suffix = 2;
                             while (!used.Add(name)) name = stem + "_" + (suffix++).ToString(System.Globalization.CultureInfo.InvariantCulture);
                             return (Field: field, Name: name);
@@ -149,7 +167,7 @@ public sealed partial class PlanningGraphCompiler
                     scope.Catalog.Capabilities.Single(c => c.Id == capability).Method is { } method)
                     return FunctionalName(method + " " + string.Join(' ', path.Skip(2).Where(p => p is not ("response" or "outputs" or "value"))));
             }
-            if (value is Identifier id && id.Name != "data")
+            if (value is Identifier id && id.Name != "data" && !id.Name.StartsWith("checkedRecord", StringComparison.Ordinal))
                 return FunctionalName(id.Name + " " + string.Join(' ', path.Where(p => p != "value")));
             var name = fallback.StartsWith("input_", StringComparison.Ordinal) ? fallback[6..] : fallback.Trim('_');
             return FunctionalName(name == "value" ? "inputValue" : name);
