@@ -1,0 +1,37 @@
+{
+  "revision": 5,
+  "artifact_hash": "c5e0562dc246190a18014cfb4d7b41a252ff04c3e8aef4d7f22cf208f51485bf",
+  "tasks": 18,
+  "steps": 46,
+  "sets": 24,
+  "yaml_bytes": 120555,
+  "max_line": 370,
+  "extract_tasks": [
+    "project_search_page_records",
+    "extract_product_links",
+    "project_product_page_records",
+    "extract_product_detail",
+    "assemble_product_detail",
+    "checked_products_projection"
+  ],
+  "interpret_tasks": [
+    "make_search_url",
+    "select_product_ids",
+    "choose_product_detail_ids"
+  ],
+  "independent_extractions": 4,
+  "requirements_unchanged": true,
+  "execution_started": false,
+  "review_verdict": "blocked_composition",
+  "writer_rows_binding": {
+    "kind": "output",
+    "text": null,
+    "number": null,
+    "boolean": null,
+    "source": "scrape_products",
+    "port": "row",
+    "members": [],
+    "items": [],
+    "predicate": null
+  }
+}

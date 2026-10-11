@@ -1,0 +1,2043 @@
+[
+  {
+    "id": "schema-portability-20261002:compactv1020261011a-amazon-1:1:810bc7c334945e4039ea4738215a91a5f222146a0b560d3c5fe1a4d802490da4",
+    "response": {
+      "discoveryRequests": [
+        {
+          "sourceId": "source_258c29d9064381a5dd37bf0c",
+          "cursor": null,
+          "query": "Playwright web navigation operations: open browser/page, navigate to URL, fill search input, click, wait, extract text/links from Amazon.fr search results and product detail pages, close browser even on failure",
+          "operationIds": null
+        },
+        {
+          "sourceId": "source_0002e1b8daaf46eef1b331cc",
+          "cursor": null,
+          "query": "XLSX document operations: create workbook, add worksheet rows with columns, write/save Excel file to disk path workflows/schema-portability-20261002/compactv1020261011a-amazon-1/products.xlsx",
+          "operationIds": null
+        }
+      ],
+      "plan": null,
+      "clarifications": null,
+      "requirements": {
+        "summary": "Accepter une seule entrée publique nommée query, rechercher cette requête sur Amazon.fr, collecter au maximum les 10 premiers produits listés, visiter chaque page produit, extraire le nom, la description, le prix et les erreurs/données absentes explicites, puis sauvegarder les résultats dans un classeur Excel au chemin demandé. Le navigateur doit être fermé même en cas d’échec, et aucune réussite ne doit être déclarée si le travail n’a pas abouti.",
+        "outcomes": [
+          {
+            "id": "search_amazon_fr",
+            "description": "Amazon.fr est utilisé pour rechercher l’article correspondant à query."
+          },
+          {
+            "id": "collect_products",
+            "description": "Au maximum les 10 premiers produits issus des résultats sont listés sans inventer, filtrer, dédupliquer ou tronquer au-delà de la limite demandée."
+          },
+          {
+            "id": "extract_details",
+            "description": "Pour chaque produit retenu, la page produit est visitée et le nom, la description, le prix, ainsi que les erreurs observées ou données absentes sont consignés explicitement."
+          },
+          {
+            "id": "save_excel",
+            "description": "Un fichier Excel est sauvegardé sur le disque à workflows/schema-portability-20261002/compactv1020261011a-amazon-1/products.xlsx."
+          },
+          {
+            "id": "cleanup_browser",
+            "description": "Le navigateur est fermé même si une étape échoue."
+          },
+          {
+            "id": "truthful_status",
+            "description": "Le résultat final ne déclare pas de réussite si la recherche, l’extraction ou la sauvegarde n’a pas réellement abouti."
+          }
+        ],
+        "inputs": [
+          {
+            "name": "query",
+            "type": {
+              "kind": "string"
+            }
+          }
+        ],
+        "outputs": [
+          {
+            "name": "productsFile",
+            "type": {
+              "kind": "string"
+            },
+            "required": true
+          },
+          {
+            "name": "products",
+            "type": {
+              "kind": "array",
+              "items": {
+                "kind": "object",
+                "fields": [
+                  {
+                    "name": "name",
+                    "type": {
+                      "kind": "string",
+                      "nullable": true
+                    }
+                  },
+                  {
+                    "name": "description",
+                    "type": {
+                      "kind": "string",
+                      "nullable": true
+                    }
+                  },
+                  {
+                    "name": "price",
+                    "type": {
+                      "kind": "string",
+                      "nullable": true
+                    }
+                  },
+                  {
+                    "name": "error",
+                    "type": {
+                      "kind": "string",
+                      "nullable": true
+                    }
+                  }
+                ]
+              },
+              "minItems": 0,
+              "maxItems": 10
+            },
+            "required": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "id": "schema-portability-20261002:compactv1020261011a-amazon-1:2:225b5dec9f741b8ff134466fdb0b8ca0d250735751acc746b9d701f968db9b16",
+    "response": {
+      "discoveryRequests": null,
+      "plan": {
+        "inputs": [
+          {
+            "name": "query",
+            "type": {
+              "kind": "string"
+            }
+          }
+        ],
+        "root": {
+          "tasks": [
+            {
+              "id": "make_search_url",
+              "kind": "transform",
+              "objective": "Construire l’URL Amazon.fr de recherche à partir de l’unique entrée publique query, en encodant la valeur pour un paramètre d’URL sans modifier le texte recherché.",
+              "dependsOn": [],
+              "requires": null,
+              "mode": "interpret",
+              "inputs": [
+                {
+                  "name": "query",
+                  "value": {
+                    "kind": "input",
+                    "source": "query"
+                  }
+                }
+              ],
+              "resultType": {
+                "kind": "object",
+                "fields": [
+                  {
+                    "name": "url",
+                    "type": {
+                      "kind": "string"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "id": "open_search_results",
+              "kind": "operation",
+              "objective": "Ouvrir Amazon.fr sur la page de résultats correspondant à query et capturer les éléments observables nécessaires pour sélectionner les produits listés.",
+              "dependsOn": [
+                "make_search_url"
+              ],
+              "requires": null,
+              "operation": "cap_490d9e16075cbdca5954ec27",
+              "inputs": [
+                {
+                  "name": "url",
+                  "value": {
+                    "kind": "output",
+                    "source": "make_search_url",
+                    "port": "url"
+                  }
+                },
+                {
+                  "name": "format",
+                  "value": {
+                    "kind": "string",
+                    "text": "observation_complete"
+                  }
+                },
+                {
+                  "name": "maxRecords",
+                  "value": {
+                    "kind": "number",
+                    "number": 200
+                  }
+                },
+                {
+                  "name": "timeoutMs",
+                  "value": {
+                    "kind": "number",
+                    "number": 60000
+                  }
+                },
+                {
+                  "name": "waitUntil",
+                  "value": {
+                    "kind": "string",
+                    "text": "domcontentloaded"
+                  }
+                }
+              ]
+            },
+            {
+              "id": "extract_product_links",
+              "kind": "transform",
+              "objective": "Depuis l’observation de la page de résultats Amazon.fr, extraire dans l’ordre affiché au maximum les 10 premiers liens de pages produit, sans dédoublonner, filtrer, échantillonner ni inventer; conserver explicitement toute erreur observée empêchant la collecte.",
+              "dependsOn": [
+                "open_search_results"
+              ],
+              "requires": null,
+              "mode": "extract",
+              "inputs": [
+                {
+                  "name": "observationSnapshot",
+                  "value": {
+                    "kind": "output",
+                    "source": "open_search_results",
+                    "port": "observationSnapshot"
+                  }
+                },
+                {
+                  "name": "content",
+                  "value": {
+                    "kind": "output",
+                    "source": "open_search_results",
+                    "port": "content"
+                  }
+                },
+                {
+                  "name": "errorCode",
+                  "value": {
+                    "kind": "output",
+                    "source": "open_search_results",
+                    "port": "error_code"
+                  }
+                },
+                {
+                  "name": "errorMessage",
+                  "value": {
+                    "kind": "output",
+                    "source": "open_search_results",
+                    "port": "error_message"
+                  }
+                },
+                {
+                  "name": "statusCode",
+                  "value": {
+                    "kind": "output",
+                    "source": "open_search_results",
+                    "port": "statusCode"
+                  }
+                },
+                {
+                  "name": "url",
+                  "value": {
+                    "kind": "output",
+                    "source": "open_search_results",
+                    "port": "url"
+                  }
+                }
+              ],
+              "resultType": {
+                "kind": "object",
+                "fields": [
+                  {
+                    "name": "productLinks",
+                    "type": {
+                      "kind": "array",
+                      "items": {
+                        "kind": "object",
+                        "fields": [
+                          {
+                            "name": "url",
+                            "type": {
+                              "kind": "string"
+                            }
+                          },
+                          {
+                            "name": "listedName",
+                            "type": {
+                              "kind": "string",
+                              "nullable": true
+                            }
+                          },
+                          {
+                            "name": "searchError",
+                            "type": {
+                              "kind": "string",
+                              "nullable": true
+                            }
+                          }
+                        ]
+                      },
+                      "minItems": 0,
+                      "maxItems": 10
+                    }
+                  },
+                  {
+                    "name": "searchError",
+                    "type": {
+                      "kind": "string",
+                      "nullable": true
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "id": "scrape_products",
+              "kind": "foreach",
+              "objective": "Visiter chaque page produit retenue et extraire uniquement les champs demandés pour chaque article.",
+              "dependsOn": [
+                "extract_product_links"
+              ],
+              "requires": null,
+              "items": {
+                "kind": "output",
+                "source": "extract_product_links",
+                "port": "productLinks"
+              },
+              "body": {
+                "tasks": [
+                  {
+                    "id": "open_product_page",
+                    "kind": "operation",
+                    "objective": "Ouvrir la page produit Amazon.fr correspondant au lien observé dans les résultats de recherche.",
+                    "dependsOn": [],
+                    "requires": null,
+                    "operation": "cap_490d9e16075cbdca5954ec27",
+                    "inputs": [
+                      {
+                        "name": "url",
+                        "value": {
+                          "kind": "field",
+                          "items": [
+                            {
+                              "kind": "item"
+                            }
+                          ],
+                          "port": "url"
+                        }
+                      },
+                      {
+                        "name": "format",
+                        "value": {
+                          "kind": "string",
+                          "text": "html"
+                        }
+                      },
+                      {
+                        "name": "maxCharacters",
+                        "value": {
+                          "kind": "number",
+                          "number": 80000
+                        }
+                      },
+                      {
+                        "name": "timeoutMs",
+                        "value": {
+                          "kind": "number",
+                          "number": 60000
+                        }
+                      },
+                      {
+                        "name": "waitUntil",
+                        "value": {
+                          "kind": "string",
+                          "text": "domcontentloaded"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "extract_product_detail",
+                    "kind": "transform",
+                    "objective": "Extraire depuis la page produit le nom, la description et le prix; laisser les données absentes à null et remplir error avec les erreurs observées, les échecs de navigation ou les champs absents, sans inventer de valeur.",
+                    "dependsOn": [
+                      "open_product_page"
+                    ],
+                    "requires": null,
+                    "mode": "extract",
+                    "inputs": [
+                      {
+                        "name": "listedName",
+                        "value": {
+                          "kind": "field",
+                          "items": [
+                            {
+                              "kind": "item"
+                            }
+                          ],
+                          "port": "listedName"
+                        }
+                      },
+                      {
+                        "name": "productUrl",
+                        "value": {
+                          "kind": "field",
+                          "items": [
+                            {
+                              "kind": "item"
+                            }
+                          ],
+                          "port": "url"
+                        }
+                      },
+                      {
+                        "name": "html",
+                        "value": {
+                          "kind": "output",
+                          "source": "open_product_page",
+                          "port": "content"
+                        }
+                      },
+                      {
+                        "name": "errorCode",
+                        "value": {
+                          "kind": "output",
+                          "source": "open_product_page",
+                          "port": "error_code"
+                        }
+                      },
+                      {
+                        "name": "errorMessage",
+                        "value": {
+                          "kind": "output",
+                          "source": "open_product_page",
+                          "port": "error_message"
+                        }
+                      },
+                      {
+                        "name": "statusCode",
+                        "value": {
+                          "kind": "output",
+                          "source": "open_product_page",
+                          "port": "statusCode"
+                        }
+                      },
+                      {
+                        "name": "openedUrl",
+                        "value": {
+                          "kind": "output",
+                          "source": "open_product_page",
+                          "port": "url"
+                        }
+                      }
+                    ],
+                    "resultType": {
+                      "kind": "object",
+                      "fields": [
+                        {
+                          "name": "name",
+                          "type": {
+                            "kind": "string",
+                            "nullable": true
+                          }
+                        },
+                        {
+                          "name": "description",
+                          "type": {
+                            "kind": "string",
+                            "nullable": true
+                          }
+                        },
+                        {
+                          "name": "price",
+                          "type": {
+                            "kind": "string",
+                            "nullable": true
+                          }
+                        },
+                        {
+                          "name": "error",
+                          "type": {
+                            "kind": "string",
+                            "nullable": true
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "outputs": [
+                  {
+                    "name": "product",
+                    "value": {
+                      "kind": "output",
+                      "source": "extract_product_detail",
+                      "port": null
+                    }
+                  }
+                ],
+                "always": []
+              },
+              "parallel": false,
+              "maxItems": 10,
+              "maxConcurrency": 1
+            },
+            {
+              "id": "finalize_products",
+              "kind": "transform",
+              "objective": "Assembler le tableau final products: utiliser les détails extraits pour les pages visitées; si la recherche a échoué avant toute page produit, produire une ligne explicite d’erreur avec nom, description et prix à null; ne pas déclarer ni fabriquer de produit absent.",
+              "dependsOn": [
+                "scrape_products",
+                "extract_product_links"
+              ],
+              "requires": null,
+              "mode": "interpret",
+              "inputs": [
+                {
+                  "name": "scrapedProducts",
+                  "value": {
+                    "kind": "output",
+                    "source": "scrape_products",
+                    "port": "product"
+                  }
+                },
+                {
+                  "name": "searchError",
+                  "value": {
+                    "kind": "output",
+                    "source": "extract_product_links",
+                    "port": "searchError"
+                  }
+                },
+                {
+                  "name": "productLinks",
+                  "value": {
+                    "kind": "output",
+                    "source": "extract_product_links",
+                    "port": "productLinks"
+                  }
+                }
+              ],
+              "resultType": {
+                "kind": "object",
+                "fields": [
+                  {
+                    "name": "products",
+                    "type": {
+                      "kind": "array",
+                      "items": {
+                        "kind": "object",
+                        "fields": [
+                          {
+                            "name": "name",
+                            "type": {
+                              "kind": "string",
+                              "nullable": true
+                            }
+                          },
+                          {
+                            "name": "description",
+                            "type": {
+                              "kind": "string",
+                              "nullable": true
+                            }
+                          },
+                          {
+                            "name": "price",
+                            "type": {
+                              "kind": "string",
+                              "nullable": true
+                            }
+                          },
+                          {
+                            "name": "error",
+                            "type": {
+                              "kind": "string",
+                              "nullable": true
+                            }
+                          }
+                        ]
+                      },
+                      "minItems": 0,
+                      "maxItems": 10
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "id": "build_xlsx_rows",
+              "kind": "transform",
+              "objective": "Construire les lignes exactes du classeur Excel avec un en-tête puis une ligne par produit: name, description, price, error. Les valeurs nulles deviennent des cellules vides sauf error qui conserve le texte explicite observé.",
+              "dependsOn": [
+                "finalize_products"
+              ],
+              "requires": null,
+              "mode": "interpret",
+              "inputs": [
+                {
+                  "name": "products",
+                  "value": {
+                    "kind": "output",
+                    "source": "finalize_products",
+                    "port": "products"
+                  }
+                }
+              ],
+              "resultType": {
+                "kind": "object",
+                "fields": [
+                  {
+                    "name": "rows",
+                    "type": {
+                      "kind": "array",
+                      "items": {
+                        "kind": "array",
+                        "items": {
+                          "kind": "string",
+                          "nullable": true
+                        },
+                        "minItems": 4,
+                        "maxItems": 4
+                      },
+                      "minItems": 1,
+                      "maxItems": 11
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "id": "save_products_xlsx",
+              "kind": "operation",
+              "objective": "Sauvegarder le classeur Excel demandé sur le disque au chemin relatif autorisé, avant la fermeture du navigateur.",
+              "dependsOn": [
+                "build_xlsx_rows"
+              ],
+              "requires": null,
+              "operation": "cap_37c513d225bb1b870053c5d3",
+              "inputs": [
+                {
+                  "name": "filePath",
+                  "value": {
+                    "kind": "string",
+                    "text": "workflows/schema-portability-20261002/compactv1020261011a-amazon-1/products.xlsx"
+                  }
+                },
+                {
+                  "name": "rows",
+                  "value": {
+                    "kind": "output",
+                    "source": "build_xlsx_rows",
+                    "port": "rows"
+                  }
+                },
+                {
+                  "name": "append",
+                  "value": {
+                    "kind": "boolean",
+                    "boolean": false
+                  }
+                }
+              ]
+            }
+          ],
+          "outputs": [
+            {
+              "name": "productsFile",
+              "value": {
+                "kind": "output",
+                "source": "save_products_xlsx",
+                "port": "filePath"
+              }
+            },
+            {
+              "name": "products",
+              "value": {
+                "kind": "output",
+                "source": "finalize_products",
+                "port": "products"
+              }
+            }
+          ],
+          "always": [
+            {
+              "id": "close_browser",
+              "kind": "operation",
+              "objective": "Fermer le navigateur même si la recherche, l’extraction ou la sauvegarde échoue.",
+              "dependsOn": [],
+              "requires": null,
+              "operation": "cap_bdb7ba9ab04b18783883fa86",
+              "inputs": []
+            }
+          ]
+        },
+        "groups": [],
+        "choices": []
+      },
+      "clarifications": null
+    }
+  },
+  {
+    "id": "schema-portability-20261002:compactv1020261011a-amazon-1:3:59f82f18c43a7ca02a5959f6e5052eeb2c1ae69af480383acf1a7f459c1b368e",
+    "response": {
+      "discoveryRequests": null,
+      "plan": {
+        "inputs": [
+          {
+            "name": "query",
+            "type": {
+              "kind": "string"
+            }
+          }
+        ],
+        "root": {
+          "tasks": [
+            {
+              "id": "make_search_url",
+              "kind": "transform",
+              "objective": "Construire l’URL Amazon.fr de recherche à partir de l’unique entrée publique query, en encodant la valeur pour un paramètre d’URL sans modifier le texte recherché.",
+              "dependsOn": [],
+              "requires": null,
+              "mode": "interpret",
+              "inputs": [
+                {
+                  "name": "query",
+                  "value": {
+                    "kind": "input",
+                    "source": "query"
+                  }
+                }
+              ],
+              "resultType": {
+                "kind": "object",
+                "fields": [
+                  {
+                    "name": "url",
+                    "type": {
+                      "kind": "string"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "id": "open_search_results",
+              "kind": "operation",
+              "objective": "Ouvrir Amazon.fr sur la page de résultats correspondant à query et capturer une observation complète des éléments observables nécessaires à la sélection des produits listés.",
+              "dependsOn": [
+                "make_search_url"
+              ],
+              "requires": null,
+              "operation": "cap_490d9e16075cbdca5954ec27",
+              "inputs": [
+                {
+                  "name": "url",
+                  "value": {
+                    "kind": "output",
+                    "source": "make_search_url",
+                    "port": "url"
+                  }
+                },
+                {
+                  "name": "format",
+                  "value": {
+                    "kind": "string",
+                    "text": "observation_complete"
+                  }
+                },
+                {
+                  "name": "maxRecords",
+                  "value": {
+                    "kind": "number",
+                    "number": 200
+                  }
+                },
+                {
+                  "name": "timeoutMs",
+                  "value": {
+                    "kind": "number",
+                    "number": 60000
+                  }
+                },
+                {
+                  "name": "waitUntil",
+                  "value": {
+                    "kind": "string",
+                    "text": "domcontentloaded"
+                  }
+                }
+              ]
+            },
+            {
+              "id": "project_search_page_records",
+              "kind": "transform",
+              "objective": "Projeter, page par page, les enregistrements observés complets de la recherche dans un format typé minimal conservant les références opaques inchangées et les textes/hrefs/actions originaux nécessaires aux lookups ultérieurs; traiter chaque page complète sans appliquer la limite de 10.",
+              "dependsOn": [
+                "open_search_results"
+              ],
+              "requires": {
+                "kind": "predicate",
+                "predicate": "and",
+                "items": [
+                  {
+                    "kind": "predicate",
+                    "predicate": "equal",
+                    "items": [
+                      {
+                        "kind": "output",
+                        "source": "open_search_results",
+                        "port": "success"
+                      },
+                      {
+                        "kind": "boolean",
+                        "boolean": true
+                      }
+                    ]
+                  },
+                  {
+                    "kind": "predicate",
+                    "predicate": "not_equal",
+                    "items": [
+                      {
+                        "kind": "output",
+                        "source": "open_search_results",
+                        "port": "observationSnapshot"
+                      },
+                      {
+                        "kind": "null"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "mode": "extract",
+              "each": {
+                "input": "pages",
+                "output": "pageRecords"
+              },
+              "inputs": [
+                {
+                  "name": "pages",
+                  "value": {
+                    "kind": "field",
+                    "items": [
+                      {
+                        "kind": "output",
+                        "source": "open_search_results",
+                        "port": "observationSnapshot"
+                      }
+                    ],
+                    "port": "pages"
+                  }
+                }
+              ],
+              "resultType": {
+                "kind": "object",
+                "fields": [
+                  {
+                    "name": "pageRecords",
+                    "type": {
+                      "kind": "array",
+                      "items": {
+                        "kind": "array",
+                        "items": {
+                          "kind": "object",
+                          "fields": [
+                            {
+                              "name": "reference",
+                              "type": {
+                                "kind": "string",
+                                "nullable": true
+                              }
+                            },
+                            {
+                              "name": "text",
+                              "type": {
+                                "kind": "string"
+                              }
+                            },
+                            {
+                              "name": "href",
+                              "type": {
+                                "kind": "string",
+                                "nullable": true
+                              }
+                            },
+                            {
+                              "name": "role",
+                              "type": {
+                                "kind": "string",
+                                "nullable": true
+                              }
+                            },
+                            {
+                              "name": "tag",
+                              "type": {
+                                "kind": "string"
+                              }
+                            },
+                            {
+                              "name": "actions",
+                              "type": {
+                                "kind": "array",
+                                "items": {
+                                  "kind": "string"
+                                },
+                                "minItems": 0,
+                                "maxItems": 5
+                              }
+                            }
+                          ]
+                        },
+                        "minItems": 0,
+                        "maxItems": 200
+                      },
+                      "minItems": 0,
+                      "maxItems": 100
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "id": "extract_product_links",
+              "kind": "transform",
+              "objective": "Depuis observationSnapshot.pages, extraire pour chaque page originale un Candidate[] compact des liens de produits observés, dans l’ordre de la page, sans sélectionner les dix premiers ici, sans dédoublonner, filtrer, échantillonner ni inventer; chaque candidat contient la référence opaque verbatim et seulement les faits nécessaires à la décision.",
+              "dependsOn": [
+                "open_search_results"
+              ],
+              "requires": {
+                "kind": "predicate",
+                "predicate": "and",
+                "items": [
+                  {
+                    "kind": "predicate",
+                    "predicate": "equal",
+                    "items": [
+                      {
+                        "kind": "output",
+                        "source": "open_search_results",
+                        "port": "success"
+                      },
+                      {
+                        "kind": "boolean",
+                        "boolean": true
+                      }
+                    ]
+                  },
+                  {
+                    "kind": "predicate",
+                    "predicate": "not_equal",
+                    "items": [
+                      {
+                        "kind": "output",
+                        "source": "open_search_results",
+                        "port": "observationSnapshot"
+                      },
+                      {
+                        "kind": "null"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "mode": "extract",
+              "each": {
+                "input": "pages",
+                "output": "pageCandidates"
+              },
+              "inputs": [
+                {
+                  "name": "pages",
+                  "value": {
+                    "kind": "field",
+                    "items": [
+                      {
+                        "kind": "output",
+                        "source": "open_search_results",
+                        "port": "observationSnapshot"
+                      }
+                    ],
+                    "port": "pages"
+                  }
+                },
+                {
+                  "name": "searchErrorCode",
+                  "value": {
+                    "kind": "output",
+                    "source": "open_search_results",
+                    "port": "error_code"
+                  }
+                },
+                {
+                  "name": "searchErrorMessage",
+                  "value": {
+                    "kind": "output",
+                    "source": "open_search_results",
+                    "port": "error_message"
+                  }
+                },
+                {
+                  "name": "statusCode",
+                  "value": {
+                    "kind": "output",
+                    "source": "open_search_results",
+                    "port": "statusCode"
+                  }
+                },
+                {
+                  "name": "url",
+                  "value": {
+                    "kind": "output",
+                    "source": "open_search_results",
+                    "port": "url"
+                  }
+                }
+              ],
+              "resultType": {
+                "kind": "object",
+                "fields": [
+                  {
+                    "name": "pageCandidates",
+                    "type": {
+                      "kind": "array",
+                      "items": {
+                        "kind": "array",
+                        "items": {
+                          "kind": "object",
+                          "fields": [
+                            {
+                              "name": "reference",
+                              "type": {
+                                "kind": "string"
+                              }
+                            },
+                            {
+                              "name": "observedText",
+                              "type": {
+                                "kind": "string",
+                                "nullable": true
+                              }
+                            },
+                            {
+                              "name": "href",
+                              "type": {
+                                "kind": "string",
+                                "nullable": true
+                              }
+                            },
+                            {
+                              "name": "supportsFollow",
+                              "type": {
+                                "kind": "boolean"
+                              }
+                            },
+                            {
+                              "name": "observedReason",
+                              "type": {
+                                "kind": "string",
+                                "nullable": true
+                              }
+                            }
+                          ]
+                        },
+                        "minItems": 0,
+                        "maxItems": 200
+                      },
+                      "minItems": 0,
+                      "maxItems": 100
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "id": "select_product_ids",
+              "kind": "transform",
+              "objective": "Décider uniquement les IDs de référence inchangés des produits à visiter: prendre au maximum les 10 premiers produits observés dans l’ordre global issu du flatten d’un seul niveau des Candidate[] par page; ne transmettre ni snapshot brut ni actions non nécessaires.",
+              "dependsOn": [
+                "extract_product_links"
+              ],
+              "requires": null,
+              "mode": "interpret",
+              "inputs": [
+                {
+                  "name": "candidates",
+                  "value": {
+                    "kind": "flatten",
+                    "items": [
+                      {
+                        "kind": "output",
+                        "source": "extract_product_links",
+                        "port": "pageCandidates"
+                      }
+                    ]
+                  }
+                }
+              ],
+              "resultType": {
+                "kind": "object",
+                "fields": [
+                  {
+                    "name": "selectedProductReferenceIds",
+                    "type": {
+                      "kind": "array",
+                      "items": {
+                        "kind": "string"
+                      },
+                      "minItems": 0,
+                      "maxItems": 10
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "id": "validate_selected_candidates",
+              "kind": "value",
+              "objective": "Vérifier localement que les IDs sélectionnés existent dans les candidats offerts avant toute résolution contre les originaux; conserver l’ordre et les répétitions sélectionnés.",
+              "dependsOn": [
+                "select_product_ids",
+                "extract_product_links"
+              ],
+              "requires": {
+                "kind": "predicate",
+                "predicate": "not_equal",
+                "items": [
+                  {
+                    "kind": "lookup",
+                    "port": "reference",
+                    "items": [
+                      {
+                        "kind": "flatten",
+                        "items": [
+                          {
+                            "kind": "output",
+                            "source": "extract_product_links",
+                            "port": "pageCandidates"
+                          }
+                        ]
+                      },
+                      {
+                        "kind": "output",
+                        "source": "select_product_ids",
+                        "port": "selectedProductReferenceIds"
+                      }
+                    ]
+                  },
+                  {
+                    "kind": "null"
+                  }
+                ]
+              },
+              "outputs": [
+                {
+                  "name": "offeredSelectedCandidates",
+                  "value": {
+                    "kind": "lookup",
+                    "port": "reference",
+                    "items": [
+                      {
+                        "kind": "flatten",
+                        "items": [
+                          {
+                            "kind": "output",
+                            "source": "extract_product_links",
+                            "port": "pageCandidates"
+                          }
+                        ]
+                      },
+                      {
+                        "kind": "output",
+                        "source": "select_product_ids",
+                        "port": "selectedProductReferenceIds"
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "id": "resolve_selected_product_records",
+              "kind": "value",
+              "objective": "Résoudre les IDs sélectionnés inchangés contre les enregistrements observés originaux de la recherche afin d’utiliser les href/actions réels, sans raccourcir les IDs ni régénérer d’URL.",
+              "dependsOn": [
+                "project_search_page_records",
+                "select_product_ids",
+                "validate_selected_candidates"
+              ],
+              "requires": {
+                "kind": "predicate",
+                "predicate": "not_equal",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "validate_selected_candidates",
+                    "port": "offeredSelectedCandidates"
+                  },
+                  {
+                    "kind": "null"
+                  }
+                ]
+              },
+              "outputs": [
+                {
+                  "name": "productRecords",
+                  "value": {
+                    "kind": "lookup",
+                    "port": "reference",
+                    "items": [
+                      {
+                        "kind": "flatten",
+                        "items": [
+                          {
+                            "kind": "output",
+                            "source": "project_search_page_records",
+                            "port": "pageRecords"
+                          }
+                        ]
+                      },
+                      {
+                        "kind": "output",
+                        "source": "select_product_ids",
+                        "port": "selectedProductReferenceIds"
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "id": "scrape_products",
+              "kind": "foreach",
+              "objective": "Visiter chaque produit sélectionné, dans l’ordre retenu et avec répétitions préservées, puis produire exactement un produit et une ligne XLSX par page produit correctement traitée.",
+              "dependsOn": [
+                "resolve_selected_product_records"
+              ],
+              "requires": null,
+              "items": {
+                "kind": "output",
+                "source": "resolve_selected_product_records",
+                "port": "productRecords"
+              },
+              "body": {
+                "tasks": [
+                  {
+                    "id": "open_product_page",
+                    "kind": "operation",
+                    "objective": "Ouvrir la page produit Amazon.fr depuis le href original résolu pour la référence sélectionnée, puis capturer une observation complète de la page produit.",
+                    "dependsOn": [],
+                    "requires": {
+                      "kind": "predicate",
+                      "predicate": "not_equal",
+                      "items": [
+                        {
+                          "kind": "field",
+                          "items": [
+                            {
+                              "kind": "item"
+                            }
+                          ],
+                          "port": "href"
+                        },
+                        {
+                          "kind": "null"
+                        }
+                      ]
+                    },
+                    "operation": "cap_490d9e16075cbdca5954ec27",
+                    "inputs": [
+                      {
+                        "name": "url",
+                        "value": {
+                          "kind": "field",
+                          "items": [
+                            {
+                              "kind": "item"
+                            }
+                          ],
+                          "port": "href"
+                        }
+                      },
+                      {
+                        "name": "format",
+                        "value": {
+                          "kind": "string",
+                          "text": "observation_complete"
+                        }
+                      },
+                      {
+                        "name": "maxRecords",
+                        "value": {
+                          "kind": "number",
+                          "number": 200
+                        }
+                      },
+                      {
+                        "name": "timeoutMs",
+                        "value": {
+                          "kind": "number",
+                          "number": 60000
+                        }
+                      },
+                      {
+                        "name": "waitUntil",
+                        "value": {
+                          "kind": "string",
+                          "text": "domcontentloaded"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "project_product_page_records",
+                    "kind": "transform",
+                    "objective": "Projeter, page par page, les enregistrements originaux observés sur la page produit dans un format typé minimal conservant références, texte et href inchangés pour les lookups de champs.",
+                    "dependsOn": [
+                      "open_product_page"
+                    ],
+                    "requires": {
+                      "kind": "predicate",
+                      "predicate": "and",
+                      "items": [
+                        {
+                          "kind": "predicate",
+                          "predicate": "equal",
+                          "items": [
+                            {
+                              "kind": "output",
+                              "source": "open_product_page",
+                              "port": "success"
+                            },
+                            {
+                              "kind": "boolean",
+                              "boolean": true
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "predicate",
+                          "predicate": "not_equal",
+                          "items": [
+                            {
+                              "kind": "output",
+                              "source": "open_product_page",
+                              "port": "observationSnapshot"
+                            },
+                            {
+                              "kind": "null"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    "mode": "extract",
+                    "each": {
+                      "input": "pages",
+                      "output": "pageRecords"
+                    },
+                    "inputs": [
+                      {
+                        "name": "pages",
+                        "value": {
+                          "kind": "field",
+                          "items": [
+                            {
+                              "kind": "output",
+                              "source": "open_product_page",
+                              "port": "observationSnapshot"
+                            }
+                          ],
+                          "port": "pages"
+                        }
+                      }
+                    ],
+                    "resultType": {
+                      "kind": "object",
+                      "fields": [
+                        {
+                          "name": "pageRecords",
+                          "type": {
+                            "kind": "array",
+                            "items": {
+                              "kind": "array",
+                              "items": {
+                                "kind": "object",
+                                "fields": [
+                                  {
+                                    "name": "reference",
+                                    "type": {
+                                      "kind": "string",
+                                      "nullable": true
+                                    }
+                                  },
+                                  {
+                                    "name": "text",
+                                    "type": {
+                                      "kind": "string"
+                                    }
+                                  },
+                                  {
+                                    "name": "href",
+                                    "type": {
+                                      "kind": "string",
+                                      "nullable": true
+                                    }
+                                  },
+                                  {
+                                    "name": "role",
+                                    "type": {
+                                      "kind": "string",
+                                      "nullable": true
+                                    }
+                                  },
+                                  {
+                                    "name": "tag",
+                                    "type": {
+                                      "kind": "string"
+                                    }
+                                  },
+                                  {
+                                    "name": "actions",
+                                    "type": {
+                                      "kind": "array",
+                                      "items": {
+                                        "kind": "string"
+                                      },
+                                      "minItems": 0,
+                                      "maxItems": 5
+                                    }
+                                  }
+                                ]
+                              },
+                              "minItems": 0,
+                              "maxItems": 200
+                            },
+                            "minItems": 0,
+                            "maxItems": 100
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "id": "extract_product_detail",
+                    "kind": "transform",
+                    "objective": "Traiter chaque page complète du produit et produire seulement des faits/candidats compacts observés pour nom, description, prix et erreurs réellement observées; ne pas recevoir de snapshot brut dans une décision et ne pas inventer d’explication pour les champs manquants.",
+                    "dependsOn": [
+                      "open_product_page"
+                    ],
+                    "requires": {
+                      "kind": "predicate",
+                      "predicate": "and",
+                      "items": [
+                        {
+                          "kind": "predicate",
+                          "predicate": "equal",
+                          "items": [
+                            {
+                              "kind": "output",
+                              "source": "open_product_page",
+                              "port": "success"
+                            },
+                            {
+                              "kind": "boolean",
+                              "boolean": true
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "predicate",
+                          "predicate": "not_equal",
+                          "items": [
+                            {
+                              "kind": "output",
+                              "source": "open_product_page",
+                              "port": "observationSnapshot"
+                            },
+                            {
+                              "kind": "null"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    "mode": "extract",
+                    "each": {
+                      "input": "pages",
+                      "output": "detailCandidates"
+                    },
+                    "inputs": [
+                      {
+                        "name": "pages",
+                        "value": {
+                          "kind": "field",
+                          "items": [
+                            {
+                              "kind": "output",
+                              "source": "open_product_page",
+                              "port": "observationSnapshot"
+                            }
+                          ],
+                          "port": "pages"
+                        }
+                      },
+                      {
+                        "name": "openErrorCode",
+                        "value": {
+                          "kind": "output",
+                          "source": "open_product_page",
+                          "port": "error_code"
+                        }
+                      },
+                      {
+                        "name": "openErrorMessage",
+                        "value": {
+                          "kind": "output",
+                          "source": "open_product_page",
+                          "port": "error_message"
+                        }
+                      },
+                      {
+                        "name": "statusCode",
+                        "value": {
+                          "kind": "output",
+                          "source": "open_product_page",
+                          "port": "statusCode"
+                        }
+                      },
+                      {
+                        "name": "openedUrl",
+                        "value": {
+                          "kind": "output",
+                          "source": "open_product_page",
+                          "port": "url"
+                        }
+                      }
+                    ],
+                    "resultType": {
+                      "kind": "object",
+                      "fields": [
+                        {
+                          "name": "detailCandidates",
+                          "type": {
+                            "kind": "array",
+                            "items": {
+                              "kind": "array",
+                              "items": {
+                                "kind": "object",
+                                "fields": [
+                                  {
+                                    "name": "reference",
+                                    "type": {
+                                      "kind": "string",
+                                      "nullable": true
+                                    }
+                                  },
+                                  {
+                                    "name": "kind",
+                                    "type": {
+                                      "kind": "string",
+                                      "enum": [
+                                        "name",
+                                        "description",
+                                        "price",
+                                        "observed_error",
+                                        "other"
+                                      ]
+                                    }
+                                  },
+                                  {
+                                    "name": "observedText",
+                                    "type": {
+                                      "kind": "string",
+                                      "nullable": true
+                                    }
+                                  },
+                                  {
+                                    "name": "observedFact",
+                                    "type": {
+                                      "kind": "string",
+                                      "nullable": true
+                                    }
+                                  }
+                                ]
+                              },
+                              "minItems": 0,
+                              "maxItems": 200
+                            },
+                            "minItems": 0,
+                            "maxItems": 100
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "id": "choose_product_detail_ids",
+                    "kind": "transform",
+                    "objective": "À partir des seuls candidats compacts, choisir les références inchangées du nom, du bloc de description complet et du prix à copier; si une donnée demandée n’est pas observée, laisser sa référence à null; ne déclarer que les erreurs effectivement observées.",
+                    "dependsOn": [
+                      "extract_product_detail"
+                    ],
+                    "requires": null,
+                    "mode": "interpret",
+                    "inputs": [
+                      {
+                        "name": "detailCandidates",
+                        "value": {
+                          "kind": "flatten",
+                          "items": [
+                            {
+                              "kind": "output",
+                              "source": "extract_product_detail",
+                              "port": "detailCandidates"
+                            }
+                          ]
+                        }
+                      }
+                    ],
+                    "resultType": {
+                      "kind": "object",
+                      "fields": [
+                        {
+                          "name": "selectedNameReferenceId",
+                          "type": {
+                            "kind": "string",
+                            "nullable": true
+                          }
+                        },
+                        {
+                          "name": "selectedDescriptionReferenceId",
+                          "type": {
+                            "kind": "string",
+                            "nullable": true
+                          }
+                        },
+                        {
+                          "name": "selectedPriceReferenceId",
+                          "type": {
+                            "kind": "string",
+                            "nullable": true
+                          }
+                        },
+                        {
+                          "name": "observedError",
+                          "type": {
+                            "kind": "string",
+                            "nullable": true
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "id": "assemble_product_detail",
+                    "kind": "transform",
+                    "objective": "Résoudre les références choisies contre les enregistrements originaux de la page produit et copier verbatim le texte du nom, le bloc complet de description et le prix; produire null pour les faits permis non observés et seulement les erreurs réellement observées.",
+                    "dependsOn": [
+                      "project_product_page_records",
+                      "choose_product_detail_ids"
+                    ],
+                    "requires": {
+                      "kind": "predicate",
+                      "predicate": "not_equal",
+                      "items": [
+                        {
+                          "kind": "output",
+                          "source": "project_product_page_records",
+                          "port": "pageRecords"
+                        },
+                        {
+                          "kind": "null"
+                        }
+                      ]
+                    },
+                    "mode": "extract",
+                    "inputs": [
+                      {
+                        "name": "originalRecords",
+                        "value": {
+                          "kind": "flatten",
+                          "items": [
+                            {
+                              "kind": "output",
+                              "source": "project_product_page_records",
+                              "port": "pageRecords"
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "name": "selectedNameReferenceId",
+                        "value": {
+                          "kind": "output",
+                          "source": "choose_product_detail_ids",
+                          "port": "selectedNameReferenceId"
+                        }
+                      },
+                      {
+                        "name": "selectedDescriptionReferenceId",
+                        "value": {
+                          "kind": "output",
+                          "source": "choose_product_detail_ids",
+                          "port": "selectedDescriptionReferenceId"
+                        }
+                      },
+                      {
+                        "name": "selectedPriceReferenceId",
+                        "value": {
+                          "kind": "output",
+                          "source": "choose_product_detail_ids",
+                          "port": "selectedPriceReferenceId"
+                        }
+                      },
+                      {
+                        "name": "observedError",
+                        "value": {
+                          "kind": "output",
+                          "source": "choose_product_detail_ids",
+                          "port": "observedError"
+                        }
+                      }
+                    ],
+                    "resultType": {
+                      "kind": "object",
+                      "fields": [
+                        {
+                          "name": "name",
+                          "type": {
+                            "kind": "string",
+                            "nullable": true
+                          }
+                        },
+                        {
+                          "name": "description",
+                          "type": {
+                            "kind": "string",
+                            "nullable": true
+                          }
+                        },
+                        {
+                          "name": "price",
+                          "type": {
+                            "kind": "string",
+                            "nullable": true
+                          }
+                        },
+                        {
+                          "name": "error",
+                          "type": {
+                            "kind": "string",
+                            "nullable": true
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "id": "make_product_row",
+                    "kind": "value",
+                    "objective": "Construire la ligne XLSX déterministe pour ce produit, dans l’ordre name, description, price, error; les valeurs null restent null afin que les cellules soient vides.",
+                    "dependsOn": [
+                      "assemble_product_detail"
+                    ],
+                    "requires": null,
+                    "outputs": [
+                      {
+                        "name": "row",
+                        "value": {
+                          "kind": "array",
+                          "items": [
+                            {
+                              "kind": "field",
+                              "items": [
+                                {
+                                  "kind": "output",
+                                  "source": "assemble_product_detail",
+                                  "port": null
+                                }
+                              ],
+                              "port": "name"
+                            },
+                            {
+                              "kind": "field",
+                              "items": [
+                                {
+                                  "kind": "output",
+                                  "source": "assemble_product_detail",
+                                  "port": null
+                                }
+                              ],
+                              "port": "description"
+                            },
+                            {
+                              "kind": "field",
+                              "items": [
+                                {
+                                  "kind": "output",
+                                  "source": "assemble_product_detail",
+                                  "port": null
+                                }
+                              ],
+                              "port": "price"
+                            },
+                            {
+                              "kind": "field",
+                              "items": [
+                                {
+                                  "kind": "output",
+                                  "source": "assemble_product_detail",
+                                  "port": null
+                                }
+                              ],
+                              "port": "error"
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                ],
+                "outputs": [
+                  {
+                    "name": "product",
+                    "value": {
+                      "kind": "output",
+                      "source": "assemble_product_detail",
+                      "port": null
+                    }
+                  },
+                  {
+                    "name": "row",
+                    "value": {
+                      "kind": "output",
+                      "source": "make_product_row",
+                      "port": "row"
+                    }
+                  }
+                ],
+                "always": []
+              },
+              "parallel": false,
+              "maxItems": 10,
+              "maxConcurrency": 1
+            },
+            {
+              "id": "checked_products_projection",
+              "kind": "transform",
+              "objective": "Contrôler la forme publique bornée de products sans filtrer, dédupliquer, réordonner ni inventer de lignes: conserver les produits produits par les visites réussies, minItems=0/maxItems=10, champs nullable inchangés.",
+              "dependsOn": [
+                "scrape_products"
+              ],
+              "requires": null,
+              "mode": "extract",
+              "inputs": [
+                {
+                  "name": "products",
+                  "value": {
+                    "kind": "output",
+                    "source": "scrape_products",
+                    "port": "product"
+                  }
+                }
+              ],
+              "resultType": {
+                "kind": "object",
+                "fields": [
+                  {
+                    "name": "products",
+                    "type": {
+                      "kind": "array",
+                      "items": {
+                        "kind": "object",
+                        "fields": [
+                          {
+                            "name": "name",
+                            "type": {
+                              "kind": "string",
+                              "nullable": true
+                            }
+                          },
+                          {
+                            "name": "description",
+                            "type": {
+                              "kind": "string",
+                              "nullable": true
+                            }
+                          },
+                          {
+                            "name": "price",
+                            "type": {
+                              "kind": "string",
+                              "nullable": true
+                            }
+                          },
+                          {
+                            "name": "error",
+                            "type": {
+                              "kind": "string",
+                              "nullable": true
+                            }
+                          }
+                        ]
+                      },
+                      "minItems": 0,
+                      "maxItems": 10
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "id": "build_xlsx_rows",
+              "kind": "value",
+              "objective": "Assembler les lignes exactes du classeur Excel avec un en-tête littéral puis les lignes produit déjà déterministes; aucune ligne synthétique n’est ajoutée en cas d’échec de recherche, les null restent des cellules vides.",
+              "dependsOn": [
+                "scrape_products",
+                "checked_products_projection"
+              ],
+              "requires": null,
+              "outputs": [
+                {
+                  "name": "rows",
+                  "value": {
+                    "kind": "flatten",
+                    "items": [
+                      {
+                        "kind": "array",
+                        "items": [
+                          {
+                            "kind": "array",
+                            "items": [
+                              {
+                                "kind": "string",
+                                "text": "name"
+                              },
+                              {
+                                "kind": "string",
+                                "text": "description"
+                              },
+                              {
+                                "kind": "string",
+                                "text": "price"
+                              },
+                              {
+                                "kind": "string",
+                                "text": "error"
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "id": "save_products_xlsx",
+              "kind": "operation",
+              "objective": "Sauvegarder le classeur Excel demandé sur le disque au chemin relatif autorisé, avant la fermeture du navigateur; productsFile provient uniquement de la sortie réelle du writer réussi.",
+              "dependsOn": [
+                "build_xlsx_rows"
+              ],
+              "requires": null,
+              "operation": "cap_37c513d225bb1b870053c5d3",
+              "inputs": [
+                {
+                  "name": "filePath",
+                  "value": {
+                    "kind": "string",
+                    "text": "workflows/schema-portability-20261002/compactv1020261011a-amazon-1/products.xlsx"
+                  }
+                },
+                {
+                  "name": "rows",
+                  "value": {
+                    "kind": "output",
+                    "source": "build_xlsx_rows",
+                    "port": "rows"
+                  }
+                },
+                {
+                  "name": "append",
+                  "value": {
+                    "kind": "boolean",
+                    "boolean": false
+                  }
+                }
+              ]
+            }
+          ],
+          "outputs": [
+            {
+              "name": "productsFile",
+              "value": {
+                "kind": "output",
+                "source": "save_products_xlsx",
+                "port": "filePath"
+              }
+            },
+            {
+              "name": "products",
+              "value": {
+                "kind": "output",
+                "source": "checked_products_projection",
+                "port": "products"
+              }
+            }
+          ],
+          "always": [
+            {
+              "id": "close_browser",
+              "kind": "operation",
+              "objective": "Fermer le navigateur même si la recherche, l’extraction ou la sauvegarde échoue.",
+              "dependsOn": [],
+              "requires": null,
+              "operation": "cap_bdb7ba9ab04b18783883fa86",
+              "inputs": []
+            }
+          ]
+        },
+        "groups": [],
+        "choices": []
+      },
+      "clarifications": null
+    }
+  },
+  {
+    "id": "schema-portability-20261002:compactv1020261011a-amazon-1:4:de9d5caff675e2fa9a55b304aaf7d19a5cbf5d5b04b3c9ee7d1a538c7115f4f4",
+    "response": {
+      "discoveryRequests": null,
+      "patch": {
+        "edits": [
+          {
+            "slot": "s0",
+            "action": "replace",
+            "value": {
+              "kind": "output",
+              "source": "scrape_products",
+              "port": "row"
+            }
+          }
+        ]
+      },
+      "clarifications": null
+    }
+  }
+]

@@ -1,0 +1,17 @@
+{
+  "revision": 2,
+  "tasks": 10,
+  "steps": 18,
+  "sets": 3,
+  "yaml_bytes": 37986,
+  "max_line": 291,
+  "interpret_tasks": [
+    "make_search_url",
+    "finalize_products",
+    "build_xlsx_rows"
+  ],
+  "independent_extractions": 0,
+  "requires": 0,
+  "review_verdict": "blocked_composition",
+  "execution_started": false
+}
