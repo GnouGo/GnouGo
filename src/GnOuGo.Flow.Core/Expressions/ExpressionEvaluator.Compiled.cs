@@ -74,9 +74,10 @@ public sealed partial class ExpressionEvaluator
         return result;
     }
 
-    internal JsonNode? EvaluateCheckedExpression(string program, JsonNode? context, JsonObject contracts, JintSandbox.MappingAllowance? allowance = null)
+    internal JsonNode? EvaluateCheckedExpression(string program, JsonNode? context, JsonObject contracts, JintSandbox.MappingAllowance? allowance = null,
+        Action<string, string, string?>? observeCheck = null)
     {
-        if (contracts.Count != 0) return EvaluateCompiledBindings(program, context, contracts, readable: true, allowance);
+        if (contracts.Count != 0) return EvaluateCompiledBindings(program, context, contracts, readable: true, allowance, observeCheck);
         allowance ??= new JintSandbox.MappingAllowance(_maxStatements, _timeout, _memoryLimitBytes);
         allowance.Start();
         try { return ReadableValue(program, context, new(StringComparer.Ordinal), allowance); }
@@ -94,7 +95,8 @@ public sealed partial class ExpressionEvaluator
     // The third checkedMapping argument is compiler-owned validation metadata.
     // Execute the closed const/return recipe in order, retaining exact JSON wiring.
     // Learned mapping programs cannot access this expression entry point.
-    private JsonNode? EvaluateCompiledBindings(string program, JsonNode? context, JsonObject contracts, bool readable = false, JintSandbox.MappingAllowance? allowance = null)
+    private JsonNode? EvaluateCompiledBindings(string program, JsonNode? context, JsonObject contracts, bool readable = false, JintSandbox.MappingAllowance? allowance = null,
+        Action<string, string, string?>? observeCheck = null)
     {
         if (program.Length > 65536 || new Acornima.Parser().ParseExpression(program) is not
             CallExpression { Arguments.Count: 0, Callee: ArrowFunctionExpression { Params.Count: 0, Async: false, Body: BlockStatement body } } ||
@@ -135,10 +137,12 @@ public sealed partial class ExpressionEvaluator
                 }
                 catch (WorkflowRuntimeException ex)
                 {
+                    observeCheck?.Invoke(name, contract["origin"]!.GetValue<string>(), ex.Code);
                     var details = ex.Details?.DeepClone() as JsonObject ?? new JsonObject();
                     details["compiled_node"] = name; details["location"] = contract["origin"]?.DeepClone();
                     throw new WorkflowRuntimeException(ex.Code, ex.Message, ex.Retryable, ex, details);
                 }
+                observeCheck?.Invoke(name, contract["origin"]!.GetValue<string>(), null);
             }
             var returned = ((ReturnStatement)body.Body.Last()).Argument!;
             var returnText = "(" + program[returned.Start..returned.End] + ")";

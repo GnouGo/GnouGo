@@ -1,0 +1,543 @@
+[
+  {
+    "suite": "gate-c",
+    "counters": {
+      "total": "79",
+      "executed": "79",
+      "passed": "79",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "tests": [
+      {
+        "name": "GnOuGo.Flow.Tests.Expressions.ExpressionContractTests.LargeUnrelatedSnapshotsAreNeitherImportedNorCopiedForScalarSelection",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Expressions.ExpressionContractTests.NativeProducerAliasesDoNotImportUnrelatedObservationsAndKeepExactCounters",
+        "outcome": "Passed",
+        "output": "unreadBytes=0; allocated=35440; counters={\"statements\":60,\"statement_limit\":100000,\"elapsed_ms\":0.0464,\"time_limit_ms\":15000,\"allocated_bytes\":28720,\"materialized_bytes\":5026,\"output_bytes\":2688,\"memory_limit_bytes\":50000000,\"nesting_depth\":3,\"nesting_limit\":64}\nunreadBytes=9600000; allocated=35440; counters={\"statements\":60,\"statement_limit\":100000,\"elapsed_ms\":0.0378,\"time_limit_ms\":15000,\"allocated_bytes\":28720,\"materialized_bytes\":5026,\"output_bytes\":2688,\"memory_limit_bytes\":50000000,\"nesting_depth\":3,\"nesting_limit\":64}"
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Runtime.WorkflowRunTests.NestedCallsLoopsAndParallelBranches_HaveDistinctReceiptsAcrossRecovery",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Runtime.WorkflowTelemetryTests.InputChecksAreOrderedPrivateAndRecordedBeforeDispatch(variant: \"second\", checks: 2, calls: 0)",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Expressions.ExpressionContractTests.InvalidOrUnsupportedExpressionsFailWithoutContextFallback(program: \"{value:data.inputs.absent}\")",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Expressions.ExpressionContractTests.NewExpressionsKeepNestedResourceCeilingsAndCannotHideUncheckedConstants",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Runtime.WorkflowTelemetryTests.InputChecksAreOrderedPrivateAndRecordedBeforeDispatch(variant: \"skipped\", checks: 0, calls: 0)",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Expressions.ExpressionContractTests.ContractDeclarationsMustMatchLiteralMetadata(name: \"selected\", contract: \"{\\\"schema\\\":{}}\")",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Runtime.WorkflowRunTests.OwnershipRevisionAndTenantIsolation_AreEnforced",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Expressions.ExpressionContractTests.MetadataPointersMustIdentifyExactlyOneCompleteExpression(pointer: \"\", value: \"literal\")",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Runtime.WorkflowRunTests.RecoveredInputsReportReuseWithoutRepeatingChecksOrUncertainEffects(receiptPersisted: True)",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Expressions.ExpressionContractTests.ExactCopiesDoNotRoundTripThroughJavaScriptNumbers(program: \"{value:data.inputs.value}\", input: \"{\\\"value\\\":null}\")",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Expressions.ExpressionContractTests.ContractDeclarationsMustMatchLiteralMetadata(name: \"wrong\", contract: \"{}\")",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Runtime.WorkflowRunTests.ResumeRejectsChangedWorkflow_AndOldSchemaIsNeverMutated",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Runtime.WorkflowTelemetryTests.CustomTelemetry_CancelledWorkflowCallFinalizesAndDisposesChildLifecycle",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Runtime.WorkflowTelemetryTests.InputChecksAreOrderedPrivateAndRecordedBeforeDispatch(variant: \"first\", checks: 1, calls: 0)",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Expressions.ExpressionContractTests.InvalidOrUnsupportedExpressionsFailWithoutContextFallback(program: \"{value:Object.keys(data)}\")",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Runtime.WorkflowTelemetryTests.CustomTelemetry_LlmCall_HasGenAiAttributes",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Expressions.ExpressionContractTests.ExactCopiesDoNotRoundTripThroughJavaScriptNumbers(program: \"{value:data.inputs.value}\", input: \"{\\\"value\\\":9007199254740993}\")",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Runtime.WorkflowTelemetryTests.LogStepContent_LlmCall_EmitsStandardGenAiPromptAndCompletionEvents",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Runtime.WorkflowRunTests.KnownModelRejectionHasAFailureReceiptWhileUnknownCompletionStillBlocksCleanup(failure: \"budget\", known: True, code: \"LLM_BUDGET_EXCEEDED\")",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Expressions.ExpressionContractTests.MetadataPointersMustIdentifyExactlyOneCompleteExpression(pointer: \"\", value: \"prefix ${data.inputs}\")",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Runtime.WorkflowTelemetryTests.StepDescriptionsAreLiteralMetadataInTelemetryAndJournal(variant: \"failure\")",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Runtime.WorkflowRunTests.KnownModelRejectionHasAFailureReceiptWhileUnknownCompletionStillBlocksCleanup(failure: \"rejected\", known: True, code: \"LLM_PROVIDER\")",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Expressions.ExpressionContractTests.OptionalCompletionChecksShortCircuitWithoutMakingMissingSelectionsValid",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Runtime.WorkflowRunTests.CrashBeforeDispatch_ResumesPreparedIntent_WithoutReplenishingStepBudget",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Expressions.ExpressionContractTests.MetadataPointersMustIdentifyExactlyOneCompleteExpression(pointer: \"/absent\", value: \"${data.inputs}\")",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Runtime.WorkflowRunTests.KnownModelRejectionHasAFailureReceiptWhileUnknownCompletionStillBlocksCleanup(failure: \"transport\", known: False, code: \"RUN_NEEDS_RECONCILIATION\")",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Expressions.ExpressionContractTests.InvalidOrUnsupportedExpressionsFailWithoutContextFallback(program: \"{value:m.scalar()}\")",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Runtime.WorkflowRunTests.ParallelNestedFinalization_WaitsUntilOtherExternalWorkStops",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Expressions.ExpressionContractTests.CheckObservationPreservesResultsCountersAndFirstFailure(allowed: False)",
+        "outcome": "Passed",
+        "output": "allowed=False; trace=False; allocated=14328; elapsedMs=0,1443; work=8|384|256; outcomes=0\nallowed=False; trace=True; allocated=11952; elapsedMs=0,0957; work=8|384|256; outcomes=1"
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Runtime.WorkflowRunTests.CrashAroundReceipt_NeverRepeatsUncertainEffect_AndDefersCleanup(receiptPersisted: False)",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Runtime.WorkflowTelemetryTests.Telemetry_CanBeSet",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Expressions.ExpressionContractTests.UnusedInvalidIntermediateStopsBeforeDependentEvaluationAndExternalDispatch",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Runtime.WorkflowRunTests.AnswerCommittedBeforeAcknowledgement_IsConsumedAfterProcessRestart(nullAnswer: False)",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Runtime.WorkflowTelemetryTests.NullTelemetry_SpansAreDisposable",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Runtime.WorkflowRunTests.KnownModelRejectionHasAFailureReceiptWhileUnknownCompletionStillBlocksCleanup(failure: \"invalid_result\", known: True, code: \"LLM_SCHEMA\")",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Expressions.ExpressionContractTests.CheckObservationPreservesResultsCountersAndFirstFailure(allowed: True)",
+        "outcome": "Passed",
+        "output": "allowed=True; trace=False; allocated=22560; elapsedMs=0,0653; work=22|1067|768; outcomes=0\nallowed=True; trace=True; allocated=19176; elapsedMs=0,0382; work=22|1067|768; outcomes=2"
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Runtime.WorkflowRunTests.CrashAroundReceipt_NeverRepeatsUncertainEffect_AndDefersCleanup(receiptPersisted: True)",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Expressions.ExpressionContractTests.ContractDeclarationsMustMatchLiteralMetadata(name: \"selected\", contract: \"{\\\"origin\\\":\\\"stage\\\",\\\"schema\\\":\\\"not a schema\\\"}\")",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Runtime.WorkflowTelemetryTests.InputChecksAreOrderedPrivateAndRecordedBeforeDispatch(variant: \"valid\", checks: 2, calls: 1)",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Runtime.WorkflowRunTests.AdapterDialogsAreDurableDistinctAndMergedWithTheExecutionOwner",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Runtime.WorkflowTelemetryTests.CustomTelemetry_McpCall_HasMcpAttributes",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Runtime.WorkflowTelemetryTests.NullTelemetry_IsDefault",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Runtime.WorkflowRunTests.HumanInput_IsRetainedAndPresentedWithStableInvocationIdentity",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Runtime.WorkflowTelemetryTests.CustomTelemetry_FailedWorkflowCallEndsAndDisposesChildLifecycle",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Expressions.ExpressionContractTests.DeferredWhileContractsRunInTheIterationScopeAndReplayCommittedControls",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Expressions.ExpressionContractTests.ExactCopiesDoNotRoundTripThroughJavaScriptNumbers(program: \"{value:data.inputs.value.flatMap(item=>item)}\", input: \"{\\\"value\\\":[[null,1],[],[1,[2]]]}\")",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Runtime.WorkflowTelemetryTests.CustomTelemetry_WorkflowCallCreatesNestedWorkflowLifecycles",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Expressions.ExpressionContractTests.ExactCopiesDoNotRoundTripThroughJavaScriptNumbers(program: \"{value:data.inputs.value.map(item=>item)}\", input: \"{\\\"value\\\":[null,1,1,[2]]}\")",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Runtime.WorkflowTelemetryTests.CustomTelemetry_WorkflowEnd_HasDuration",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Runtime.WorkflowTelemetryTests.CheckEventsStayConstantWhenUnrelatedObservationsGrow",
+        "outcome": "Passed",
+        "output": "unreadBytes=0; referenceOnlyEventCharacters=291; gnougo-flow.check.name=selected|gnougo-flow.check.origin=/original/selection|gnougo-flow.check.reference=selected|gnougo-flow.check.input_pointer=|gnougo-flow.check.contract_pointer=/expression_contracts//selected/schema|gnougo-flow.check.order=0|gnougo-flow.check.outcome=passed|error.type=\nunreadBytes=1200000; referenceOnlyEventCharacters=291; gnougo-flow.check.name=selected|gnougo-flow.check.origin=/original/selection|gnougo-flow.check.reference=selected|gnougo-flow.check.input_pointer=|gnougo-flow.check.contract_pointer=/expression_contracts//selected/schema|gnougo-flow.check.order=0|gnougo-flow.check.outcome=passed|error.type="
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Runtime.WorkflowTelemetryTests.CustomTelemetry_WorkflowStart_AddsSingleSerializedInputsAttribute",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Expressions.ExpressionContractTests.InvalidOrUnsupportedExpressionsFailWithoutContextFallback(program: \"{value:eval('1')}\")",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Expressions.ExpressionContractTests.MetadataPointersMustIdentifyExactlyOneCompleteExpression(pointer: \"/bad~2key\", value: \"${data.inputs}\")",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Runtime.WorkflowTelemetryTests.CustomTelemetry_SkippedStep_RecordsSkipped",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Expressions.ExpressionContractTests.InvalidOrUnsupportedExpressionsFailWithoutContextFallback(program: \"{value:m.lookup(data.inputs.rows,[],data.inputs.ke\"\u00b7\u00b7\u00b7)",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Runtime.WorkflowTelemetryTests.LogStepContent_Disabled_NoEvents",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Runtime.WorkflowTelemetryTests.LogStepContent_EmitsInputAndOutputEvents",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Expressions.ExpressionContractTests.TraversalRetainsCumulativeAccountingWithoutBecomingRepeatedProgramStatements",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Runtime.WorkflowRunTests.KnownModelRejectionHasAFailureReceiptWhileUnknownCompletionStillBlocksCleanup(failure: \"unverified_budget\", known: False, code: \"RUN_NEEDS_RECONCILIATION\")",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Expressions.ExpressionContractTests.InvalidOrUnsupportedExpressionsFailWithoutContextFallback(program: \"{value:data.inputs.rows.flatMap(item=>item)}\")",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Runtime.WorkflowTelemetryTests.CustomTelemetry_McpCallLlmAssisted_AccumulatesSelectionAndFinalizeCost",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Expressions.ExpressionContractTests.EscapedPointersAndArrayIndicesAreLiteralAndNotConsumerArguments",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Runtime.WorkflowRunTests.HumanDeadlineSurvivesRecoveryAndRejectsLateAnswers",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Runtime.WorkflowRunTests.AnswerCommittedBeforeAcknowledgement_IsConsumedAfterProcessRestart(nullAnswer: True)",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Runtime.WorkflowRunTests.RecoveredInputsReportReuseWithoutRepeatingChecksOrUncertainEffects(receiptPersisted: False)",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Runtime.WorkflowTelemetryTests.CustomTelemetry_FailedStep_RecordsFailed",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Runtime.WorkflowTelemetryTests.CustomTelemetry_McpCallPrompt_HasPromptAttributes",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Runtime.WorkflowTelemetryTests.LogStepContent_McpCall_EmitsStandardContentEvents",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Expressions.ExpressionContractTests.FirstPresentNullAndInvalidValuesNeverFallThrough",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Runtime.WorkflowTelemetryTests.CustomTelemetry_ReceivesWorkflowAndStepEvents",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Expressions.ExpressionContractTests.CommonMetadataRoundTripsAndRejectsDuplicatePointers",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Runtime.WorkflowTelemetryTests.WorkflowTelemetrySourceFormatter_RedactsSensitiveValuesAndTruncates",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Runtime.WorkflowTelemetryTests.CustomTelemetry_NestedSequence_KeepsChildStepsUnderParentStepSpan",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Runtime.WorkflowTelemetryTests.StepDescriptionsAreLiteralMetadataInTelemetryAndJournal(variant: \"success\")",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Runtime.WorkflowTelemetryTests.CustomTelemetry_MultipleSteps_TracksAll",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Runtime.WorkflowTelemetryTests.StepDescriptionsAreLiteralMetadataInTelemetryAndJournal(variant: \"skipped\")",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Flow.Tests.Expressions.ExpressionContractTests.ExactCopiesDoNotRoundTripThroughJavaScriptNumbers(program: \"{value:data.inputs.value}\", input: \"{\\\"value\\\":1.23000000000000000000001}\")",
+        "outcome": "Passed",
+        "output": ""
+      }
+    ]
+  },
+  {
+    "suite": "gate-c-local",
+    "counters": {
+      "total": "20",
+      "executed": "20",
+      "passed": "20",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "tests": [
+      {
+        "name": "GnOuGo.Agent.Server.Tests.WorkflowTelemetryAdapterTests.AgentStreamingTelemetry_PreservesWorkflowHierarchyAndUniqueStepOccurrences",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V11CompositionExecutesOriginalObservationsAndExactWorkbook(variant: \"complete\")",
+        "outcome": "Passed",
+        "output": "compact-bindings-v11 RUNTIME complete: success=True; elapsedMs=22766; tasks=24; YAML=261471; inference=23; mappings=11; invocations=359; steps=358; cleanup=1; allocatedBytes=7585884944; logicalJournalBytes=56202964; physicalBytes=30246760; error= \nV10 ORACLE complete: exactCells=true; visits=10; pages=39; offered=12; decisionBytes=2690; inferenceForTypedCopies=0; cleanup=true; committedRecovery=true; oracle={\"version\":\"observed-products-v2\",\"passed\":true,\"visit_count\":10,\"visits\":[{\"event_index\":1,\"redirected\":false},{\"event_index\":2,\"redirected\":false},{\"event_index\":3,\"redirected\":false},{\"event_index\":4,\"redirected\":false},{\"event_index\":5,\"redirected\":false},{\"event_index\":6,\"redirected\":false},{\"event_index\":7,\"redirected\":false},{\"event_index\":8,\"redirected\":false},{\"event_index\":9,\"redirected\":false},{\"event_index\":10,\"redirected\":false}],\"rows\":[{\"row\":1,\"name_exact\":true,\"description_block_exact\":true,\"price_exact\":true,\"description_in_combined_observation\":true},{\"row\":2,\"name_exact\":true,\"description_block_exact\":true,\"price_exact\":true,\"description_in_combined_observation\":true},{\"row\":3,\"name_exact\":true,\"description_block_exact\":true,\"price_exact\":true,\"description_in_combined_observation\":true},{\"row\":4,\"name_exact\":true,\"description_block_exact\":true,\"price_exact\":true,\"description_in_combined_observation\":true},{\"row\":5,\"name_exact\":true,\"description_block_exact\":true,\"price_exact\":true,\"description_in_combined_observation\":true},{\"row\":6,\"name_exact\":true,\"description_block_exact\":true,\"price_exact\":true,\"description_in_combined_observation\":true},{\"row\":7,\"name_exact\":true,\"description_block_exact\":true,\"price_exact\":true,\"description_in_combined_observation\":true},{\"row\":8,\"name_exact\":true,\"description_block_exact\":true,\"price_exact\":true,\"description_in_combined_observation\":true},{\"row\":9,\"name_exact\":true,\"description_block_exact\":true,\"price_exact\":true,\"description_in_combined_observation\":true},{\"row\":10,\"name_exact\":true,\"description_block_exact\":true,\"price_exact\":true,\"description_in_combined_observation\":true}],\"findings\":[]}"
+      },
+      {
+        "name": "GnOuGo.Agent.Server.Tests.WorkflowTelemetryAdapterTests.ChatPage_SnapshotsMutableCollectionsBeforeAwaitingAnimationInterop",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Agent.Server.Tests.WorkflowTelemetryAdapterTests.AnimationPayload_UsesSingleLineSourceGeneratedJson",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Agent.Server.Tests.WorkflowTelemetryAdapterTests.CheckedInputsUseExistingStreamingAndPersistedStepEvents(allowed: False)",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Agent.Server.Tests.WorkflowTelemetryAdapterTests.CompositeTelemetry_RoutedChildKeepsLiveAnimationMovingAfterRootStart",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Agent.Server.Tests.WorkflowTelemetryAdapterTests.ChatPage_ShowsTypingDotsUntilTheFinalResponseStarts",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V11InlinesPreparationWithoutMovingMappingInferenceOrContracts",
+        "outcome": "Passed",
+        "output": "v10\u2192v11: tasks=24; steps=67\u219261; sets=33\u219227; YAML=266864\u2192261414"
+      },
+      {
+        "name": "GnOuGo.Agent.Server.Tests.WorkflowTelemetryAdapterTests.AskHuman_RenderingDoesNotBlockAnimationInteropOrRepeatContextFormatting",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Agent.Server.Tests.WorkflowTelemetryAdapterTests.AnimationBridge_PreStartFailureDoesNotLeavePreparedSceneStatic",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Agent.Server.Tests.WorkflowTelemetryAdapterTests.AgentAnimationClient_QueuesTelemetryAndFollowsInsideScrollableMessagePanel",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Agent.Server.Tests.WorkflowTelemetryAdapterTests.AgentStreamingTelemetry_McpElicitationEmitsVisibleRequestAndResumeAnimationEvents",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Agent.Server.Tests.WorkflowTelemetryAdapterTests.AnimationBridge_EmitsPreparedSceneAndLiveEventsWithoutWorkflowSource",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Agent.Server.Tests.WorkflowTelemetryAdapterTests.ChatPage_KeepsThinkingOutOfHistoryAndOwnsAnimationPerAssistantResponse",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Agent.Server.Tests.WorkflowTelemetryAdapterTests.WorkflowEngine_LocalCallTraversesChildAnimationLaneAndReturnsToParent",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V11CompositionExecutesOriginalObservationsAndExactWorkbook(variant: \"incomplete\")",
+        "outcome": "Passed",
+        "output": "compact-bindings-v11 RUNTIME incomplete: success=False; elapsedMs=764; tasks=24; YAML=261471; inference=1; mappings=0; invocations=4; steps=3; cleanup=1; allocatedBytes=78957400; logicalJournalBytes=337581; physicalBytes=819200; error=MCP_CALL_ERROR mcp.call (tool) to 'browser/browser_get_content' returned an MCP error: A complete snapshot exceeds capture or page bounds. Narrow the requested observation explicitly. [workflow 'main', step 'n_62737a68773ca42a']"
+      },
+      {
+        "name": "GnOuGo.Agent.Server.Tests.WorkflowTelemetryAdapterTests.ChatPage_RendersWorkflowExceptionsInsideTheirAssistantResponse",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Agent.Server.Tests.WorkflowTelemetryAdapterTests.AgentStreamingTelemetry_EmitsLiveStepAndSpanEvents",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Agent.Server.Tests.WorkflowTelemetryAdapterTests.CompositeWorkflowTelemetry_ForwardsInternalSpansToBothPipelines",
+        "outcome": "Passed",
+        "output": ""
+      },
+      {
+        "name": "GnOuGo.Agent.Server.Tests.WorkflowTelemetryAdapterTests.CheckedInputsUseExistingStreamingAndPersistedStepEvents(allowed: True)",
+        "outcome": "Passed",
+        "output": ""
+      }
+    ]
+  }
+]

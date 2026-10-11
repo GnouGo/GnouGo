@@ -7,6 +7,41 @@ namespace GnOuGo.Flow.Tests.Expressions;
 
 public sealed partial class ExpressionContractTests
 {
+    [Theory]
+    [InlineData(true)] [InlineData(false)]
+    public void CheckObservationPreservesResultsCountersAndFirstFailure(bool allowed)
+    {
+        const string program = "(()=>{const permission={value:data.inputs.allowed};const selected={value:data.inputs.exact};return selected;})()";
+        var contracts = JsonNode.Parse("""{"permission":{"origin":"/guard","schema":{"type":"object","properties":{"value":{"const":true}},"required":["value"]}},"selected":{"origin":"/copy","schema":{"type":"object","properties":{"value":{"type":"number"}},"required":["value"]}}}""")!.AsObject();
+        var context = new JsonObject { ["inputs"] = new JsonObject { ["allowed"] = allowed, ["exact"] = JsonNode.Parse("9007199254740993.00") } };
+        var evaluator = new ExpressionEvaluator();
+        string? previous = null;
+        foreach (var traced in new[] { false, true })
+        {
+            var events = new List<(string Name, string Origin, string? Error)>();
+            Action<string, string, string?>? observe = traced ? (name, origin, error) => events.Add((name, origin, error)) : null;
+            var allowance = new JintSandbox.MappingAllowance(100000, TimeSpan.FromSeconds(15), 50000000);
+            var before = GC.GetAllocatedBytesForCurrentThread(); var time = System.Diagnostics.Stopwatch.StartNew();
+            if (allowed)
+            {
+                var result = evaluator.EvaluateCheckedExpression(program, context, contracts, allowance, observe);
+                Assert.Equal("9007199254740993.00", result!["value"]!.ToJsonString());
+            }
+            else
+            {
+                var error = Assert.Throws<WorkflowRuntimeException>(() => evaluator.EvaluateCheckedExpression(program, context, contracts, allowance, observe));
+                Assert.Equal("/guard", error.Details!["location"]!.GetValue<string>());
+            }
+            time.Stop(); var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+            Assert.Equal(traced ? allowed ? 2 : 1 : 0, events.Count);
+            if (traced) Assert.Equal(allowed ? null : "INPUT_VALIDATION", events[0].Error);
+            var snapshot = allowance.Snapshot();
+            var work = string.Join('|', new[] { "statements", "materialized_bytes", "output_bytes" }.Select(k => snapshot[k]!.ToJsonString()));
+            if (previous is not null) Assert.Equal(previous, work); previous = work;
+            TestContext.Current.TestOutputHelper?.WriteLine($"allowed={allowed}; trace={traced}; allocated={allocated}; elapsedMs={time.Elapsed.TotalMilliseconds}; work={work}; outcomes={events.Count}");
+        }
+    }
+
     [Fact]
     public void NativeProducerAliasesDoNotImportUnrelatedObservationsAndKeepExactCounters()
     {

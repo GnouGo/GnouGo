@@ -419,11 +419,41 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
             JsonNode? resolvedInput = null;
             var invocationScope = executionScope.Child("step", step.Id);
             WorkflowInvocation? invocation = null;
+            var resolvedNow = false;
+            List<(string Pointer, string Name, string Origin, string? Error)>? inputChecks = null;
+            Action<string, string, string, string?>? observeCheck = null;
+            if (step.Source.ExpressionContracts is not null && Telemetry is not NullWorkflowTelemetry)
+                observeCheck = (pointer, name, origin, error) => (inputChecks ??= []).Add((pointer, name, origin, error));
+
+            void ReportInputChecks()
+            {
+                if (stepSpan is null || inputChecks is null) return;
+                for (var index = 0; index < inputChecks.Count; index++)
+                {
+                    var check = inputChecks[index];
+                    // References only: no observed values, program text, schemas
+                    // or error messages are copied into these existing spans.
+                    string Escape(string part) => part.Replace("~", "~0", StringComparison.Ordinal).Replace("/", "~1", StringComparison.Ordinal);
+                    stepSpan.AddEvent("gnougo-flow.input.check", new KeyValuePair<string, object?>[]
+                    {
+                        new("gnougo-flow.check.name", check.Name),
+                        new("gnougo-flow.check.origin", check.Origin),
+                        new("gnougo-flow.check.reference", check.Name),
+                        new("gnougo-flow.check.input_pointer", check.Pointer),
+                        new("gnougo-flow.check.contract_pointer", "/expression_contracts/" + Escape(check.Pointer) + "/" + Escape(check.Name) + "/schema"),
+                        new("gnougo-flow.check.order", index),
+                        new("gnougo-flow.check.outcome", check.Error is null ? "passed" : "failed"),
+                        new("error.type", check.Error)
+                    });
+                }
+                inputChecks = null;
+            }
 
             try
             {
                 (bool Run, JsonNode? Input) Resolve()
                 {
+                    resolvedNow = true;
                     if (step.Source.If is not null && !ExpressionEvaluator.GetBool(executionScope.Interpolator.Interpolate(step.Source.If, data)))
                         return (false, null);
                     if (step.Source.Input is null) return (true, null);
@@ -435,11 +465,11 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
                         ExpressionEvaluator.ValidateExpressionContracts(loopInput, step.Source.ExpressionContracts);
                         var inputContracts = step.Source.ExpressionContracts?.DeepClone().AsObject();
                         inputContracts?.Remove("/while");
-                        var resolved = executionScope.Interpolator.ResolveDeep(clone, data, inputContracts) as JsonObject ?? clone;
+                        var resolved = executionScope.Interpolator.ResolveDeep(clone, data, inputContracts, observeCheck) as JsonObject ?? clone;
                         resolved["while"] = condition;
                         return (true, resolved);
                     }
-                    return (true, executionScope.Interpolator.ResolveDeep(step.Source.Input.DeepClone(), data, step.Source.ExpressionContracts));
+                    return (true, executionScope.Interpolator.ResolveDeep(step.Source.Input.DeepClone(), data, step.Source.ExpressionContracts, observeCheck));
                 }
                 bool shouldRun;
                 if (Journal is { } journal)
@@ -469,6 +499,13 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
                     CallDepth = callDepth
                 };
                 stepSpan = Telemetry.StepStart(parentSpan, stepTelemetryInfo);
+                ReportInputChecks();
+                if (!resolvedNow && invocation is not null && observeCheck is not null)
+                    stepSpan.AddEvent("gnougo-flow.input.reused", new KeyValuePair<string, object?>[]
+                    {
+                        new("gnougo-flow.invocation.id", invocation.Id),
+                        new("gnougo-flow.input.source", "committed_resolved_input")
+                    });
 
                 Logger.LogDebug("Step '{StepId}' ({StepType}) starting at depth {CallDepth}",
                     step.Id, step.Type, callDepth);
@@ -537,6 +574,7 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
                     CallDepth = callDepth
                 });
 
+                ReportInputChecks();
                 stepResult.Error = ex.ToWorkflowError();
 
                 Logger.LogError(ex, "Step '{StepId}' ({StepType}) failed: [{ErrorCode}] {ErrorMessage}",

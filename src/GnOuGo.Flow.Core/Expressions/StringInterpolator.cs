@@ -102,7 +102,8 @@ public sealed class StringInterpolator
     public JsonNode? ResolveDeep(JsonNode? node, JsonNode? context)
         => ResolveDeep(node, context, null);
 
-    internal JsonNode? ResolveDeep(JsonNode? node, JsonNode? context, JsonObject? contracts)
+    internal JsonNode? ResolveDeep(JsonNode? node, JsonNode? context, JsonObject? contracts,
+        Action<string, string, string, string?>? observeCheck = null)
     {
         ExpressionEvaluator.ValidateExpressionContracts(node, contracts);
         return Resolve(node, "");
@@ -110,7 +111,8 @@ public sealed class StringInterpolator
         JsonNode? Resolve(JsonNode? value, string pointer)
         {
             if (contracts?[pointer] is JsonObject checks)
-                return _evaluator.EvaluateCheckedExpression(ExpressionEvaluator.ContractExpression(value), context, checks);
+                return _evaluator.EvaluateCheckedExpression(ExpressionEvaluator.ContractExpression(value), context, checks, observeCheck: observeCheck is null ? null :
+                    (name, origin, error) => observeCheck(pointer, name, origin, error));
             if (value is JsonObject obj)
                 return new JsonObject(obj.Select(p => new KeyValuePair<string, JsonNode?>(p.Key,
                     Resolve(p.Value, pointer + "/" + p.Key.Replace("~", "~0", StringComparison.Ordinal).Replace("/", "~1", StringComparison.Ordinal)))));

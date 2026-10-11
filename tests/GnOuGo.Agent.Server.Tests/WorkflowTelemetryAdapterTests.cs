@@ -9,7 +9,7 @@ using GnOuGo.Flow.Core.Runtime;
 
 namespace GnOuGo.Agent.Server.Tests;
 
-public sealed class WorkflowTelemetryAdapterTests
+public sealed partial class WorkflowTelemetryAdapterTests
 {
     [Fact]
     public void CompositeWorkflowTelemetry_ForwardsInternalSpansToBothPipelines()

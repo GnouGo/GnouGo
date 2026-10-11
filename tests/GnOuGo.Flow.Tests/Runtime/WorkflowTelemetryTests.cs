@@ -8,7 +8,7 @@ using Xunit;
 
 namespace GnOuGo.Flow.Tests.Runtime;
 
-public class WorkflowTelemetryTests
+public partial class WorkflowTelemetryTests
 {
     private static readonly IModelUsageCostEstimator UsageCostEstimator = new TestUsageCostEstimator();
     private const string ValidGeneratedTemplateWorkflowYaml = """
@@ -121,7 +121,7 @@ public class WorkflowTelemetryTests
 
     // ────── Custom telemetry receives events ──────
 
-    private sealed class TestSpan : IWorkflowSpan, IStepSpan
+    internal sealed class TestSpan : IWorkflowSpan, IStepSpan
     {
         public string Name { get; init; } = "";
         public string? ParentName { get; init; }
@@ -134,7 +134,7 @@ public class WorkflowTelemetryTests
         public void Dispose() => Disposed = true;
     }
 
-    private sealed class RecordingTelemetry : IWorkflowTelemetry
+    internal sealed class RecordingTelemetry : IWorkflowTelemetry
     {
         public List<(string Event, object? Info)> Events { get; } = new();
 

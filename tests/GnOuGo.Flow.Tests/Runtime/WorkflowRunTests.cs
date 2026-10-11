@@ -7,7 +7,7 @@ using GnOuGo.Flow.Core.Runtime;
 
 namespace GnOuGo.Flow.Tests.Runtime;
 
-public sealed class WorkflowRunTests
+public sealed partial class WorkflowRunTests
 {
     private const string Simple = """
         version: 1
