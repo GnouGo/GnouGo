@@ -10,8 +10,11 @@ namespace GnOuGo.Document.Mcp;
 internal static class XlsxWriter
 {
     public static void WriteSimpleXlsx(string path, string content)
+        => WriteRows(path, TextRows(content), preserve: false);
+
+    internal static void WriteRows(string path, IEnumerable<string?[]> rows, bool preserve = true)
     {
-        using var xlsx = SpreadsheetDocument.Create(path, SpreadsheetDocumentType.Workbook);
+        using var xlsx = SpreadsheetDocument.Create(path, SpreadsheetDocumentType.Workbook, autoSave: false);
         var wbPart = xlsx.AddWorkbookPart();
         wbPart.Workbook = new Workbook();
 
@@ -27,14 +30,18 @@ internal static class XlsxWriter
             Name = "Sheet1"
         });
 
-        AppendRows(sheetData, content, 1);
+        AppendRows(sheetData, rows, 1);
 
+        SaveWorksheet(wsPart, preserve);
         wbPart.Workbook.Save();
     }
 
     public static void AppendSimpleXlsx(string path, string content)
+        => AppendRows(path, TextRows(content), preserve: false);
+
+    internal static void AppendRows(string path, IEnumerable<string?[]> rows, bool preserve = true)
     {
-        using var xlsx = SpreadsheetDocument.Open(path, true);
+        using var xlsx = SpreadsheetDocument.Open(path, true, new OpenSettings { AutoSave = false });
         var wbPart = xlsx.WorkbookPart ?? xlsx.AddWorkbookPart();
         wbPart.Workbook ??= new Workbook();
 
@@ -65,32 +72,47 @@ internal static class XlsxWriter
             .DefaultIfEmpty(0U)
             .Max() + 1U;
 
-        AppendRows(sheetData, content, nextRowIndex);
+        AppendRows(sheetData, rows, nextRowIndex);
 
-        wsPart.Worksheet.Save();
+        SaveWorksheet(wsPart, preserve);
         wbPart.Workbook.Save();
     }
 
-    private static void AppendRows(SheetData sheetData, string content, uint firstRowIndex)
+    private static void SaveWorksheet(WorksheetPart part, bool preserve)
     {
-        var lines = content.Split('\n', StringSplitOptions.None);
-        var rowIndex = firstRowIndex;
+        var worksheet = part.Worksheet ?? throw new InvalidOperationException("The worksheet is missing.");
+        if (!preserve) { worksheet.Save(); return; }
+        // XML normalizes literal carriage returns when read. Entity-encode them
+        // so XLSX cell values survive without a spreadsheet-specific escape DSL.
+        using var stream = part.GetStream(FileMode.Create, FileAccess.Write);
+        using var writer = System.Xml.XmlWriter.Create(stream, new() { NewLineHandling = System.Xml.NewLineHandling.Entitize });
+        worksheet.WriteTo(writer);
+    }
 
-        foreach (var line in lines)
+    private static IEnumerable<string?[]> TextRows(string content)
+    {
+        foreach (var line in content.Split('\n', StringSplitOptions.None))
         {
             if (string.IsNullOrWhiteSpace(line)) continue;
-
-            var row = new Row { RowIndex = rowIndex };
             // Split by tab first; fall back to comma if no tabs found
             var separator = line.Contains('\t') ? '\t' : ',';
-            var values = line.TrimEnd('\r').Split(separator);
+            yield return line.TrimEnd('\r').Split(separator).Select(v => v.Trim()).ToArray();
+        }
+    }
+
+    private static void AppendRows(SheetData sheetData, IEnumerable<string?[]> rows, uint firstRowIndex)
+    {
+        var rowIndex = firstRowIndex;
+        foreach (var values in rows)
+        {
+            var row = new Row { RowIndex = rowIndex };
 
             foreach (var val in values)
             {
                 var cell = new Cell
                 {
                     DataType = CellValues.String,
-                    CellValue = new CellValue(val.Trim())
+                    CellValue = val is null ? null : new CellValue(val) { Space = SpaceProcessingModeValues.Preserve }
                 };
                 row.Append(cell);
             }

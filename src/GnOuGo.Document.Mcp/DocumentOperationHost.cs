@@ -127,6 +127,56 @@ public sealed class DocumentOperationHost
 
     // ────────────────────────────────── WRITE ─────────────────────────────────
 
+    /// <summary>Write exact string/null cells; the legacy text overload is unchanged.</summary>
+    public DocumentWriteResult Write(string filePath, string? content, string? encoding, bool append, string?[][]? rows)
+    {
+        if ((content is null) == (rows is null))
+            return DocumentWriteResult.Error("INVALID_INPUT", "Supply exactly one of content or rows.");
+        if (rows is null) return Write(filePath, content!, encoding, append);
+        var resolved = _policy.ResolveFilePath(filePath);
+        if (!_policy.IsExtensionAllowed(resolved))
+            return DocumentWriteResult.Error("EXTENSION_NOT_ALLOWED", "The target extension is not allowed.");
+        if (!Path.GetExtension(resolved).Equals(".xlsx", StringComparison.OrdinalIgnoreCase))
+            return DocumentWriteResult.Error("INVALID_INPUT", "Structured rows require an XLSX target.");
+        if (append && !File.Exists(resolved))
+            return DocumentWriteResult.Error("FILE_NOT_FOUND", "Initialize the workbook before appending rows.");
+        // Validate before creating directories or opening an existing workbook.
+        long bytes = 2;
+        foreach (var row in rows)
+        {
+            if (row is null) return DocumentWriteResult.Error("INVALID_INPUT", "Each row must be an array; cells may be null.");
+            bytes = checked(bytes + 3);
+            foreach (var cell in row)
+            {
+                try { if (cell is not null) System.Xml.XmlConvert.VerifyXmlChars(cell); }
+                catch (System.Xml.XmlException) { return DocumentWriteResult.Error("INVALID_INPUT", "A cell contains characters unsupported by XML."); }
+                bytes = checked(bytes + (cell is null ? 5 : 3L + System.Text.Encoding.UTF8.GetByteCount(cell)));
+                if (bytes > _policy.MaxFileSizeBytes)
+                    return DocumentWriteResult.Error("FILE_TOO_LARGE", "Structured row data exceeds MaxFileSizeBytes.");
+            }
+        }
+        string? temporary = null;
+        try
+        {
+            var directory = Path.GetDirectoryName(resolved)!;
+            Directory.CreateDirectory(directory);
+            temporary = Path.Combine(directory, "." + Guid.NewGuid().ToString("N") + ".xlsx");
+            if (append) { File.Copy(resolved, temporary); XlsxWriter.AppendRows(temporary, rows); }
+            else XlsxWriter.WriteRows(temporary, rows);
+            var size = new FileInfo(temporary).Length;
+            if (size > _policy.MaxFileSizeBytes)
+                return DocumentWriteResult.Error("FILE_TOO_LARGE", "Workbook exceeds MaxFileSizeBytes.");
+            File.Move(temporary, resolved, overwrite: true);
+            return new(true, resolved, size, null, null, ToWorkspaceRelativePath(resolved), resolved);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to write structured rows to {FilePath}", resolved);
+            return DocumentWriteResult.Error("WRITE_FAILED", $"{ex.GetType().Name}: {ex.Message}");
+        }
+        finally { if (temporary is not null && File.Exists(temporary)) File.Delete(temporary); }
+    }
+
     /// <summary>
     /// Write text content to a file. Supports plain text, markdown, and simple DOCX generation.
     /// </summary>

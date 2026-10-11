@@ -8,6 +8,17 @@ internal static class DocumentMcpJson
 {
     public static JsonSerializerOptions SerializerOptions { get; } = CreateSerializerOptions();
 
+    internal static JsonElement WriteInputSchema(JsonElement original)
+    {
+        var schema = JsonNode.Parse(original.GetRawText())!.AsObject();
+        schema["oneOf"] = JsonNode.Parse("""
+            [{"required":["content"],"properties":{"content":{"type":"string"},"rows":{"type":"null"}}},
+             {"required":["rows"],"properties":{"rows":{"type":"array"},"content":{"type":"null"}}}]
+            """);
+        using var document = JsonDocument.Parse(schema.ToJsonString());
+        return document.RootElement.Clone();
+    }
+
     // The CLR result also represents host failures. MCP exposes those as isError
     // content, so its successful structured output can state the actual guarantees.
     internal static JsonElement SuccessfulWriteSchema(JsonElement original)
@@ -39,6 +50,7 @@ internal static class DocumentMcpJson
     }
 }
 
+[JsonSerializable(typeof(string[][]))]
 [JsonSerializable(typeof(DocumentPolicyInfo))]
 [JsonSerializable(typeof(DocumentReadResult))]
 [JsonSerializable(typeof(DocumentWriteResult))]

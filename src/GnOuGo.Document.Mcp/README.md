@@ -129,3 +129,19 @@ This allows packaged agent/server builds to start the document MCP server withou
 - **DocumentFormat.OpenXml** — DOCX, XLSX, PPTX reading and writing
 - **PdfPig** — PDF text extraction
 - **ModelContextProtocol** — MCP stdio transport
+
+### Exact XLSX rows
+
+`document_write` accepts exactly one of legacy `content` or optional `rows`.
+`rows` is an ordered array of string/null cell arrays and requires an `.xlsx`
+target. Supply headers as the first row when required. Strings remain literal:
+no trimming, delimiter splitting, numeric conversion or formula evaluation.
+Empty strings, blank null cells, blank rows and repeated rows keep their positions.
+CR/LF, tabs, Unicode and leading/trailing spaces survive workbook round-trips.
+
+Structured rows are validated before writing. Unsupported XML characters, denied
+paths, mismatched arguments and oversized data fail without replacing the target.
+Writes and appends prepare a temporary workbook in the authorized directory and
+publish it only after the existing file-size check. Legacy text splitting/trim
+behavior and the original C# overload remain available. Typed workflow projections
+can bind rows directly, without a formatting inference call.

@@ -74,25 +74,29 @@ public sealed class DocumentTools
         }
     }
 
+    public DocumentWriteResult Write(string filePath, string content, string? encoding = null, bool append = false)
+        => WriteDocument(filePath, content, encoding, append, null);
+
     [McpMeta("gnougo", JsonValue = McpEffectMetadata.Write)]
     [McpServerTool(Name = "document_write", UseStructuredContent = true, OutputSchemaType = typeof(DocumentWriteResult)), Description(
         "Writes text content to a file, creating missing parent directories within the allowed workspace. For .docx, automatically detects Markdown and maps headings, lists, emphasis, code, links, blockquotes, and tables to Word structures. " +
         "For .pdf, generates a readable A4 PDF and automatically renders Markdown headings, lists, emphasis, code, links, blockquotes, tables, and separators. " +
-        "For .xlsx, generates a spreadsheet from tab/comma-separated text: each nonblank line is a row; tabs separate cells when present, otherwise commas do. Cells are trimmed. Quotes are literal, not CSV escaping. Prefer TSV for values containing commas; normalize embedded tabs and line breaks inside cell values before writing. " +
+        "For .xlsx, generates a spreadsheet from tab/comma-separated text: each nonblank line is a row; tabs separate cells when present, otherwise commas do. Cells are trimmed. Quotes are literal, not CSV escaping. Use optional structured rows instead to preserve exact strings, whitespace and cell boundaries; null cells are blank. Supply exactly one of content or rows. " +
         "For other allowed extensions, writes plain text. " +
         "Allowed targets come from document_get_policy: paths must be relative to the workspace root, resolve inside AllowedRoots, and use an extension from AllowedExtensions. " +
         "Use relative paths only; only workspace paths are authorized. " +
         "For long LLM workflows, initialize the document with append=false, then call document_write repeatedly with append=true as each section is ready. " +
         "This avoids sending one very large final save payload that can exceed the model context window.")]
-    public DocumentWriteResult Write(
+    public DocumentWriteResult WriteDocument(
         [Description("Relative file path only inside the workspace root, for example 'output/result.md'. The target must match document_get_policy.AllowedRoots and document_get_policy.AllowedExtensions.")] string filePath,
-        [Description("Text content to write or append. For .xlsx, use rows of tab-separated cells, normalizing embedded tabs/newlines inside values. Quotes are literal; CSV quote escaping is not parsed.")] string content,
+        [Description("Legacy text content; mutually exclusive with rows. XLSX text is split and trimmed; use rows for exact values.")] string? content = null,
         [Description("Text encoding: 'utf-8' (default), 'utf-8-bom', 'ascii', 'latin1'.")] string? encoding = null,
-        [Description("When false (default), overwrite/create the target file. When true, append content to an existing document; initialize the file first with append=false, then append incrementally to avoid oversized LLM context payloads.")] bool append = false)
+        [Description("When false (default), overwrite/create the target file. When true, append content to an existing document; initialize the file first with append=false, then append incrementally to avoid oversized LLM context payloads.")] bool append = false,
+        [Description("XLSX only: ordered arrays of exact strings or null cells. Headers are ordinary rows. No trimming, splitting, numeric conversion or formulas. Mutually exclusive with content.")] string?[][]? rows = null)
     {
         try
         {
-            var result = _host.Write(filePath, content, encoding, append);
+            var result = _host.Write(filePath, content, encoding, append, rows);
             if (result.Success && (string.IsNullOrWhiteSpace(result.FilePath) || string.IsNullOrWhiteSpace(result.FilePathAbsolute) ||
                 result.BytesWritten is null or < 0 || result.ErrorCode is not null || result.ErrorMessage is not null))
                 throw new InvalidOperationException("The completed write did not provide its required receipt.");

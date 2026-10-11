@@ -114,6 +114,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
     [InlineData("incomplete")]
     [InlineData("denied")]
     [InlineData("fabricated")]
+    [InlineData("exact_rows")]
     public async Task BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(string variant)
     {
         var ct = TestContext.Current.CancellationToken;
@@ -164,7 +165,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
             var runtime = new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask);
             var catalog = await RetainedCatalog(runtime, ct);
             catalog.Policy.RequireExternalConfirmation = false;
-            var proposal = BusinessProposal("compact", catalog);
+            var proposal = BusinessProposal(variant == "exact_rows" ? "exact_rows" : "compact", catalog);
             var expectedPlan = JsonSerializer.Serialize(proposal.Plan, PlanningJsonContext.Default.TaskPlan);
             var corrections = new Dictionary<string, JsonNode?>();
             if (variant == "producer_revision")
@@ -230,6 +231,13 @@ public sealed partial class LocalProductOutcomeExecutionTests
                 return;
             }
             Assert.True(result.Success, result.Error?.Message + " " + string.Join("; ", model.MappingFailures)); Assert.Equal(["observed lamps"], queries);
+            if (variant == "exact_rows")
+            {
+                Assert.DoesNotContain(model.Requests, r => r.StructuredOutputSchema?["properties"]?["content"] is not null);
+                var writer = Assert.Single(journal.Invocations.Values, i => i.StepType == "mcp.call" && i.ResolvedInput?["method"]?.ToString() == "document_write");
+                Assert.Null(writer.ResolvedInput!["request"]!["content"]);
+                Assert.Equal(11, writer.ResolvedInput["request"]!["rows"]!.AsArray().Count);
+            }
             var selected = variant == "empty" ? [] : variant == "repeated" ? Enumerable.Range(0, 9).Append(0).ToArray() : Enumerable.Range(0, 10).ToArray();
             Assert.Equal(selected.Select(i => "/entry/" + i), visits.Where(p => p.StartsWith("/entry/", StringComparison.Ordinal)));
             Assert.Equal(file, result.Outputs!["filePath"]!.ToString());
@@ -326,7 +334,24 @@ public sealed partial class LocalProductOutcomeExecutionTests
 
     private static PlanningProposal BusinessProposal(string name, PlanningCatalog catalog)
     {
-        var proposal = JsonSerializer.Deserialize(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "BusinessTaskComposition", name + ".json")), PlanningJsonContext.Default.PlanningProposal)!;
+        var proposal = JsonSerializer.Deserialize(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "BusinessTaskComposition", (name == "exact_rows" ? "compact" : name) + ".json")), PlanningJsonContext.Default.PlanningProposal)!;
+        if (name == "exact_rows")
+        {
+            var formatting = proposal.Plan!.Root.Tasks.Single(t => t.Id == "format");
+            formatting.Kind = "foreach"; formatting.Mode = null; formatting.ResultType = null;
+            formatting.Objective = "Project exact observed cells into structured rows without inference.";
+            formatting.Items = formatting.Inputs.Single().Value; formatting.Inputs.Clear(); formatting.MaxItems = 10;
+            formatting.Body = new() { Outputs = [new("cells", new() { Kind = "array", Items =
+                new[] { "name", "description", "price", "error" }.Select(f => new TaskValue { Kind = "field", Port = f, Items = [new() { Kind = "item" }] }).ToList() })] };
+            var writer = proposal.Plan.Root.Tasks.Single(t => t.Id == "write");
+            writer.Inputs.RemoveAll(i => i.Name is "content" or "encoding");
+            writer.Inputs.Add(new("rows", new() { Kind = "flatten", Items = [new() { Kind = "array", Items = [
+                new() { Kind = "array", Items = [new() { Kind = "array", Items = new[] { "name", "description", "price", "error" }.Select(f => new TaskValue { Kind = "string", Text = f }).ToList() }] },
+                new() { Kind = "output", Source = "format", Port = "cells" }
+            ] }] }));
+            var success = proposal.Plan.Root.Outputs.FindIndex(o => o.Name == "success");
+            proposal.Plan.Root.Outputs[success] = new("success", new() { Kind = "output", Source = "write", Port = "success" });
+        }
         foreach (var task in RetainedTasks(proposal.Plan!.Root).Where(t => t.Kind == "operation"))
         {
             var method = task.Operation switch { "acquire" => "browser_get_content", "persist" => "document_write", "release" => "browser_close", _ => throw new InvalidOperationException() };

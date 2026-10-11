@@ -46,3 +46,31 @@ Validation: 98 Planning discovery/input-budget/revision tests and seven host
 composition/contract/discovery checks passed with `-warnaserror`. The unchanged
 compact execution composition passed all eight real local workbook scenarios in
 Gate 1. Integrated structured-row execution is validated in Gates 3 and 7.
+
+## Gate 3 — exact cells and observed facts
+
+`document_write` now offers optional XLSX string/null rows, exclusive with legacy
+text. Existing C# calls and text semantics remain available. Structured writes
+validate input before effects and publish a checked temporary workbook atomically.
+Worksheet XML entity-encodes carriage returns: an initial implementation normalized
+CRLF; independent cell assertions caught it and the final serializer preserves it.
+Formula-looking and numeric-looking values remain literal strings; null cells keep
+their positions. Actual discovery publishes the exclusive input contract.
+
+Mapping instructions/skill distinguish verbatim observations from compact decision
+fields and interface labels from actual business failures. No scalar provenance
+rule or sandbox limit changed.
+
+Validation: 72 Document tests (including actual stdio discovery/write, append,
+OpenXML validation and exact whitespace/null cells), 151 mapping checks, and the
+real local `exact_rows` Flow/Browser/Document execution passed with `-warnaserror`.
+The latter reached review in one deterministic call, no repairs; visited ten pages,
+consumed 38 complete observation pages, offered all 12 candidates and matched every
+workbook cell independently. Cleanup completed; no formatting inference occurred.
+
+Local comparison: inference calls 24 → 23; mappings unchanged at 11; invocations
+226 → 221; normal steps 225 → 220; finalization 1 → 1. Logical journal bytes roughly
+22.64 MB → 17.52 MB. The complete selection request remained 2,597 bytes. YAML grew
+99,451 → 101,212 bytes because structured row contracts replace the text contract;
+this overhead is reported separately from compiler simplification. These synthetic
+results are not live-provider acceptance.

@@ -54,6 +54,7 @@ builder.Services
             {
                 if (string.Equals(tool.Name, "document_write", StringComparison.Ordinal))
                 {
+                    tool.InputSchema = DocumentMcpJson.WriteInputSchema(tool.InputSchema);
                     tool.OutputSchema = DocumentMcpJson.SuccessfulWriteSchema(tool.OutputSchema!.Value);
                     tool.Description = policy.BuildDocumentWriteToolDescription();
                     tool.Meta ??= new();

@@ -34,7 +34,10 @@ public static class RealProductContracts
                 Name = t.Name,
                 EffectKind = GnOuGo.Mcp.Core.McpEffectMetadata.Resolve(t.Meta, t.Annotations?.ReadOnlyHint),
                 Description = typeof(T) == typeof(DocumentTools) && t.Name == "document_write" ? policy.BuildDocumentWriteToolDescription() : t.Description,
-                InputSchema = JsonNode.Parse(t.InputSchema.GetRawText()),
+                InputSchema = JsonNode.Parse((typeof(T) == typeof(DocumentTools) && t.Name == "document_write"
+                    ? (JsonElement)typeof(T).Assembly.GetType(serializerType, throwOnError: true)!
+                        .GetMethod("WriteInputSchema", BindingFlags.NonPublic | BindingFlags.Static)!.Invoke(null, [t.InputSchema])!
+                    : t.InputSchema).GetRawText()),
                 OutputSchema = t.OutputSchema is { } output ? JsonNode.Parse((typeof(T) == typeof(BrowserTools)
                     && t.Name == "browser_get_content" ? (JsonElement)typeof(T).Assembly.GetType(serializerType, throwOnError: true)!
                         .GetMethod("ContentSchema")!.Invoke(null, [output])! : output).GetRawText()) : null,

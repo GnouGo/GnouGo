@@ -231,7 +231,9 @@ public sealed partial class DynamicMappingExecutor : IStepExecutor
         Scalars are opaque tokens. Return tokens, constructions or supported extractions.
         Literal null is allowed only at explicitly nullable target paths, for unavailable facts. Other literal scalars are rejected.
         Never substitute unrelated observed values for missing facts; provenance does not prove relevance.
-        Copy opaque IDs/references verbatim: key:record.reference. Never shorten prefixes or decode identity components; compact descriptive facts only.
+        Copy opaque IDs/references verbatim: key:record.reference. Never shorten prefixes or decode identity components; compact decision fields, never rewrite requested verbatim facts.
+        For verbatim facts, copy one complete observed scalar unchanged; do not join blocks, trim or paraphrase it.
+        UI labels describing an action are not evidence that a business failure occurred. Use actual producer error observations.
         Available helpers: m.select(value, [[property,...],...], eachBoolean) selects the first PRESENT path (null stays null);
         m.optional(observedContainer, [property,...]) permits a host-owned target default ONLY when that path is absent; explicit null remains null.
         m.parse(observedString) strictly decodes JSON; m.text(observedString, patternString, captureIndex=1) extracts a capture (undefined when absent);

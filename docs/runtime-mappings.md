@@ -170,3 +170,9 @@ An extraction result's declared `resultType` controls its decision view; neither
 Use an existing producer key or attach the original collection index before extraction. Indices stay bound to that immutable capture; never use content hashes or renumber after filtering. Lookup is compiler-owned reconnection, unavailable to learned mapping scripts. It grants no permissions, artifact ownership or immunity from producer-side stale-reference checks. There is no change to adaptive mapping, cache profiles, inference admission or cumulative limits.
 
 Opaque IDs and action references are copied verbatim, for example `key: record.reference`. Compact descriptive facts, never identity prefixes or encoded components. Selection returns offered keys; strict deterministic lookup reconnects original observations. Source grounding alone does not prove identity equivalence. Text extraction remains available for ordinary facts.
+
+For requested verbatim facts, copy one complete observed scalar unchanged. A
+semantic decision may choose its observed ID; strict typed lookup reconnects the
+original. Do not join, shorten or paraphrase multiple blocks, and do not treat a
+control's label as evidence that its described business failure occurred. Missing
+facts remain contract-authorized nulls, never unrelated observed placeholders.
