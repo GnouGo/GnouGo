@@ -1,0 +1,57 @@
+{
+  "status": "stopped",
+  "planning_ms": 107136,
+  "calls": 2,
+  "repairs": 0,
+  "discovery_reads": 2,
+  "review_revisions": 0,
+  "diagnostics": [
+    {
+      "code": "TASK_COMPILER_VALIDATION",
+      "location": "/tasks/write_products_file/inputs/rows",
+      "message": "MCP_REQUEST_EXPR_TYPE_MISMATCH: mcp.call request field \u0027input.request.rows\u0027 for \u0027GnOuGo.Document.Mcp/document_write\u0027 resolves to array, but the MCP input_schema requires null.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    }
+  ],
+  "execution_success": false,
+  "execution_oracle": false,
+  "execution_status": "not_started",
+  "accounting": {
+    "planning": {
+      "logical_calls": 2,
+      "physical_attempts": 2,
+      "known_input_tokens": 19854,
+      "known_output_tokens": 8702,
+      "known_cost_eur": 0.3197533055284408554441387879,
+      "unknown_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0
+    },
+    "execution": {
+      "logical_calls": 0,
+      "physical_attempts": 0,
+      "known_input_tokens": 0,
+      "known_output_tokens": 0,
+      "known_cost_eur": 0,
+      "unknown_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0
+    },
+    "campaign": {
+      "calls": 1061,
+      "session_calls": 0,
+      "known_input_tokens": 15135029,
+      "known_output_tokens": 2207291,
+      "known_cost_eur": 126.21143429768955818761199680,
+      "reserved_input_tokens": 480000,
+      "reserved_output_tokens": 163840,
+      "reserved_cost_eur": 6.5016147947905255187922165013,
+      "cost_upper_bound_eur": 132.71304909248008370640421330,
+      "unknown_attempts": 5
+    }
+  }
+}
