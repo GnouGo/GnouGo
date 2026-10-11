@@ -24,7 +24,8 @@ public sealed partial class DynamicMappingExecutor
         var sourceHash = Hash(sources, ct);
         var shapes = items.Select(v => Hash(Shape(v), ct)).ToArray();
         var shapeKeys = shapes.Select(s => Hash(JsonValue.Create(baseKey + ":" + s), ct)).ToArray();
-        var contentKeys = items.Select((v, i) => Hash(JsonValue.Create(shapeKeys[i] + ":" + Hash(v, ct)), ct)).ToArray();
+        var contentHashes = items.Select(v => Hash(v, ct)).ToArray();
+        var contentKeys = contentHashes.Select((hash, i) => Hash(JsonValue.Create(shapeKeys[i] + ":" + hash), ct)).ToArray();
         var results = new JsonNode?[items.Count];
         var scripts = new string?[items.Count];
         var previous = new string?[items.Count];
@@ -40,6 +41,7 @@ public sealed partial class DynamicMappingExecutor
         var specializations = 0;
         int[]? repairIndices = null;
         var hits = 0;
+        var evicted = new HashSet<string>(StringComparer.Ordinal);
         // Pin cache assignments before doing work: a restart must not consult a changed cache.
         var pinned = ctx.ReadRecordedControl("mapping_adaptive_cache") as JsonObject;
         if (pinned is null)
@@ -56,7 +58,7 @@ public sealed partial class DynamicMappingExecutor
                         reads[key] = artifact;
                     }
                     if (artifact is null || artifact.Key != key || artifact.ProfileVersion != JintSandbox.MappingProfileVersion ||
-                        artifact.ContentHash is not null && artifact.ContentHash != Hash(items[index], ct)) continue;
+                        artifact.ContentHash is not null && artifact.ContentHash != contentHashes[index]) continue;
                     entries[index.ToString(System.Globalization.CultureInfo.InvariantCulture)] = new JsonObject { ["key"] = key, ["script"] = artifact.Script };
                     break;
                 }
@@ -80,8 +82,11 @@ public sealed partial class DynamicMappingExecutor
                     else
                     {
                         var key = pinned["entries"]![index.ToString(System.Globalization.CultureInfo.InvariantCulture)]!["key"]!.GetValue<string>();
-                        ctx.Engine.MappingMemory.TryRemove(key, out _);
-                        if (store is not null) await store.RemoveAsync(tenant!, key, ct);
+                        if (evicted.Add(key))
+                        {
+                            ctx.Engine.MappingMemory.TryRemove(key, out _);
+                            if (store is not null) await store.RemoveAsync(tenant!, key, ct);
+                        }
                     }
             }
             ctx.SetTelemetryAttribute("gnougo.mapping.cache_hits", hits);
@@ -147,7 +152,7 @@ public sealed partial class DynamicMappingExecutor
                 {
                     var contentSpecific = !generic || items[index] is JsonValue scalar && scalar.TryGetValue<string>(out _) || ContentDependent(new Acornima.Parser().ParseExpression(scripts[index]!));
                     var key = contentSpecific ? contentKeys[index] : shapeKeys[index];
-                    writes[key] = new(key, scripts[index]!, contentSpecific ? Hash(items[index], ct) : null, JintSandbox.MappingProfileVersion);
+                    writes[key] = new(key, scripts[index]!, contentSpecific ? contentHashes[index] : null, JintSandbox.MappingProfileVersion);
                 }
             }
             foreach (var artifact in writes.Values)

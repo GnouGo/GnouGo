@@ -236,6 +236,8 @@ public sealed partial class DynamicMappingExecutor : IStepExecutor
         UI labels describing an action are not evidence that a business failure occurred. Use actual producer error observations.
         Available helpers: m.select(value, [[property,...],...], eachBoolean) selects the first PRESENT path (null stays null);
         m.optional(observedContainer, [property,...]) permits a host-owned target default ONLY when that path is absent; explicit null remains null.
+        Example: m.optional(item,['label']), never m.optional(item.records.filter(...),['0','label']); constructed containers are invalid helper arguments.
+        Nullable fact example: ({key:item.reference,fact:m.has(item,'fact')?item.fact:null}); null needs an explicitly nullable target, not a default.
         m.parse(observedString) strictly decodes JSON; m.text(observedString, patternString, captureIndex=1) extracts a capture (undefined when absent);
         m.texts(observedString, patternString, captureIndex=1) returns ordered captures; m.trim(token), m.decode(token) (HTML entities),
         m.percentDecode(token) decodes URI percent escapes (not HTML entities or plus signs); m.resolveUri(observedReference, observedAbsoluteBase) resolves a URI.

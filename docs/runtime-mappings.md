@@ -176,3 +176,5 @@ semantic decision may choose its observed ID; strict typed lookup reconnects the
 original. Do not join, shorten or paraphrase multiple blocks, and do not treat a
 control's label as evidence that its described business failure occurred. Missing
 facts remain contract-authorized nulls, never unrelated observed placeholders.
+
+Observed-container helpers require original imported containers. Passing a constructed object, array, or filtered collection to `m.optional` is a program defect: repair the program globally, not by specializing data shapes. Missing or scalar observations remain data failures. Cache reads and invalid-entry eviction are deduplicated within an invocation; text/HTML content matching and pinned recovery assignments remain conservative.

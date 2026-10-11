@@ -388,7 +388,15 @@ public sealed partial class JintSandbox
             {
                 case "optional":
                     if (args.Length != 2) throw Unsatisfied("optional requires an observed container and literal path.");
-                    if (!args[0].IsObject() || !containers.Contains(args[0].AsObject())) throw Unsatisfied("optional requires an observed container, not a constructed or null observation.");
+                    if (!args[0].IsObject() || !containers.Contains(args[0].AsObject()))
+                    {
+                        const string message = "optional requires an observed container, not a constructed or null observation.";
+                        // A real missing/scalar observation is a data failure.
+                        // Constructed containers can never satisfy this helper,
+                        // regardless of the next item's shape.
+                        throw args[0].IsUndefined() || args[0].IsObject() && origins.ContainsKey(args[0].AsObject())
+                            ? Unsatisfied(message) : InvalidProgram(message, helper: "optional");
+                    }
                     return Select(args[0], Array([args[1]]), optional: true);
                 case "select":
                     if (args.Length != 3 || !args[2].IsBoolean()) throw Unsatisfied("select requires source, paths and a per-item boolean.");
@@ -602,7 +610,13 @@ public sealed partial class JintSandbox
                 Require(args[1] is ArrayExpression paths && paths.Elements.Count > 0 && paths.Elements.All(p => p is not null && Path(p)), "paths must be literal property arrays");
                 Require(args[2] is Literal { Value: bool }, "third argument must be a literal per-item boolean");
             }
-            if (name == "optional") Require(Path(args[1]), "path must be a literal property array");
+            if (name == "optional")
+            {
+                Require(Path(args[1]), "path must be a literal property array");
+                Require(args[0] is not (ArrayExpression or ObjectExpression or
+                    CallExpression { Callee: MemberExpression { Property: Identifier { Name: "map" or "filter" or "flatMap" or "slice" } } }),
+                    "container must be observed, not an array/object constructed by the program");
+            }
             if (name is "has" or "lookup") Require(args[name == "has" ? 1 : 2] is Literal { Value: string }, "property must be a literal string");
             if (name is "test" or "text" or "texts")
             {

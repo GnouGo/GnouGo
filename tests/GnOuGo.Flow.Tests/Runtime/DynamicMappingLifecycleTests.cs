@@ -10,6 +10,58 @@ namespace GnOuGo.Flow.Tests.Runtime;
 public sealed partial class DynamicMappingCollectionTests
 {
     [Fact]
+    public async Task RetainedConstructedContainersAreProgramFailuresBeforeItemExecution()
+    {
+        await using var stream = typeof(DynamicMappingCollectionTests).Assembly.GetManifestResourceStream("RetainedHelperFailures")!;
+        var receipts = (await JsonNode.ParseAsync(stream, cancellationToken: Ct))!.AsArray();
+        var retained = receipts.Where(r => r!["diagnostic"]!.ToString().StartsWith("optional requires", StringComparison.Ordinal)).ToArray();
+        Assert.Equal(3, retained.Length);
+        foreach (var receipt in retained)
+        {
+            var error = Assert.Throws<WorkflowRuntimeException>(() => JintSandbox.ValidateMapping(receipt!["previous_script"]!.ToString()));
+            Assert.Equal("program", error.Details!["mapping_failure_kind"]!.ToString());
+            Assert.Equal("optional", error.Details["helper"]!.ToString());
+        }
+    }
+
+    [Theory]
+    [InlineData("m.optional([item],['0','label'])")]
+    [InlineData("m.optional({label:item.label},['label'])")]
+    [InlineData("m.optional(item.records.filter(r=>m.has(r,'label')),['0','label'])")]
+    public async Task ConstructedHelpersRepairGloballyIncludingUnsampledItems(string script)
+    {
+        var store = new InMemoryWorkflowRunStore(); var model = new Model(script, "item.label");
+        var engine = AdaptiveEngine(model, calls: 2); engine.RunStore = store; engine.Limits.RunId = "constructed-helper";
+        var values = JsonNode.Parse("[{\"label\":\"a\",\"records\":[]},{\"label\":\"b\",\"records\":[],\"extra\":{}}]")!.AsArray();
+        var result = await AdaptiveRun(engine, values);
+        Assert.True(result.Success, result.Error?.Message); Assert.Equal(2, model.Requests.Count);
+        var journal = (await store.ReadAsync("tenant", "constructed-helper", Ct))!;
+        var controls = journal.Invocations["/workflow/main/step/map"].Control;
+        Assert.Equal("program_repair", controls["mapping_adaptive_1"]!["phase"]!.ToString());
+        Assert.Equal(new[] { 0, 1 }, controls["mapping_adaptive_1"]!["indices"]!.AsArray().Select(i => i!.GetValue<int>()));
+        Assert.Equal(new[] { "a", "b" }, Result(result).Select(i => i!.ToString()));
+    }
+
+    [Fact]
+    public async Task LateConstructedHelperRollsBackEarlierSuccessesButMissingObservationsSpecialize()
+    {
+        var model = new Model("m.optional(m.has(item,'object')?item.object:[],['label'])", "m.has(item,'object')?item.object.label:item.label");
+        var store = new InMemoryWorkflowRunStore(); var engine = AdaptiveEngine(model, calls: 2);
+        engine.RunStore = store; engine.Limits.RunId = "late-helper";
+        var result = await AdaptiveRun(engine, JsonNode.Parse("[{\"object\":{\"label\":\"a\"}},{\"label\":\"b\"}]")!.AsArray());
+        Assert.True(result.Success, result.Error?.Message);
+        var saved = (await store.ReadAsync("tenant", "late-helper", Ct))!;
+        Assert.Equal("program_repair", saved.Invocations["/workflow/main/step/map"].Control["mapping_adaptive_1"]!["phase"]!.ToString());
+        Assert.Contains("\"assigned_count\":2", model.Requests[1].Prompt);
+
+        model = new Model("m.optional(item.object,['label'])", "item.label");
+        result = await AdaptiveRun(AdaptiveEngine(model, calls: 2), JsonNode.Parse("[{\"object\":{\"label\":\"a\"}},{\"object\":null,\"label\":\"b\"}]")!.AsArray());
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Contains("\"failing_index\":1", model.Requests[1].Prompt);
+        Assert.Contains("\"assigned_count\":1", model.Requests[1].Prompt);
+    }
+
+    [Fact]
     public async Task RetainedProgramsWithInvalidSignaturesAreRejectedWithoutInferenceOrItemExecution()
     {
         await using var stream = typeof(DynamicMappingCollectionTests).Assembly.GetManifestResourceStream("MappingRetainedPrograms")!;

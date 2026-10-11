@@ -74,3 +74,23 @@ Local comparison: inference calls 24 → 23; mappings unchanged at 11; invocatio
 99,451 → 101,212 bytes because structured row contracts replace the text contract;
 this overhead is reported separately from compiler simplification. These synthetic
 results are not live-provider acceptance.
+
+## Gate 4 — program classification and cache work
+
+The three retained `m.optional` constructed-container failures now fail preflight
+with `mapping_failure_kind: program`, before item execution, without inference.
+Runtime provenance also catches indirectly constructed containers. A late defect
+discards earlier apparent successes before global repair; genuinely absent/scalar
+observations retain data-specific specialization. Every original item and the
+assembled output still validate before publication.
+
+Content hashes are computed once per item per invocation rather than recomputed
+during cache matching and writes. Existing cache-read deduplication is retained;
+invalid repeated assignments evict each key once (30-item regression). Cache
+identity, conservative text matching, pinned assignments and receipts are unchanged.
+
+Validation: 157 mapping tests passed with `-warnaserror`, including cold/warm cache,
+heterogeneous specialization, late atomic failure, cancellation, cumulative limits
+and committed/unknown receipt recovery. Constructed-helper fixtures use one initial
+call and one global repair, zero shape specializations. Retained script replay uses
+zero provider and MCP calls. These are deterministic adapter results, not live claims.

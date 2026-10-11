@@ -333,8 +333,9 @@ public sealed partial class DynamicMappingCollectionTests
     private sealed class Store : IMappingArtifactStore
     {
         internal readonly Dictionary<(string, string), MappingArtifact> Values = [];
-        public Task<MappingArtifact?> ReadAsync(string tenant, string key, CancellationToken ct) => Task.FromResult(Values.GetValueOrDefault((tenant, key)));
+        internal readonly List<(string, string)> Reads = [], Removes = [];
+        public Task<MappingArtifact?> ReadAsync(string tenant, string key, CancellationToken ct) { Reads.Add((tenant, key)); return Task.FromResult(Values.GetValueOrDefault((tenant, key))); }
         public Task WriteAsync(string tenant, MappingArtifact artifact, CancellationToken ct) { Values[(tenant, artifact.Key)] = artifact; return Task.CompletedTask; }
-        public Task RemoveAsync(string tenant, string key, CancellationToken ct) { Values.Remove((tenant, key)); return Task.CompletedTask; }
+        public Task RemoveAsync(string tenant, string key, CancellationToken ct) { Removes.Add((tenant, key)); Values.Remove((tenant, key)); return Task.CompletedTask; }
     }
 }

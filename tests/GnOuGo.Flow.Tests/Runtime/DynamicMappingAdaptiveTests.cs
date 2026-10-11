@@ -224,6 +224,21 @@ public sealed partial class DynamicMappingCollectionTests
 
 
     [Fact]
+    public async Task RepeatedInvalidAssignmentsReadAndEvictEachCacheKeyOnce()
+    {
+        var store = new Store(); var model = new Model("item.label");
+        var values = new JsonArray(Enumerable.Range(0, 30).Select(_ => (JsonNode)new JsonObject { ["label"] = "same" }).ToArray());
+        Assert.True((await AdaptiveRun(AdaptiveEngine(model, store), values)).Success);
+        foreach (var key in store.Values.Keys.ToArray()) store.Values[key] = store.Values[key] with { Script = "m.optional([],['label'])" };
+        store.Reads.Clear();
+        var result = await AdaptiveRun(AdaptiveEngine(model, store), values);
+        Assert.True(result.Success, result.Error?.Message); Assert.Equal(2, model.Requests.Count);
+        Assert.Single(store.Removes); Assert.Equal(store.Reads.Count, store.Reads.Distinct().Count());
+        Assert.Equal(30, Result(result).Count);
+        Assert.Contains("Nullable fact example", model.Requests[1].Prompt);
+    }
+
+    [Fact]
     public async Task AdaptiveRevalidatesInvalidCacheAndUnknownCapacityStopsBeforeDispatch()
     {
         var model = new Model("item.label"); var store = new Store(); var values = JsonNode.Parse("[{\"label\":\"a\"}]")!.AsArray();
