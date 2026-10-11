@@ -97,7 +97,12 @@ public sealed partial class LocalProductOutcomeExecutionTests
             session = await new HybridWorkflowPlanner().AdvanceAsync(session, new() { Kind = "approve", ExpectedRevision = session.Revision,
                 ArtifactHash = session.ComputeArtifactHash(), ReviewedRequirementIds = ["search_amazon_fr", "collect_products", "extract_details", "save_excel", "cleanup_browser", "truthful_status"] }, adapter, ct);
             Assert.Equal(PlanningStatus.Approved, session.Status);
-            var workflow = new WorkflowCompiler().Compile(WorkflowParser.Parse(session.Yaml!));
+            Assert.Equal(profile, session.Request.Options["compilation_profile"]?.ToString());
+            var document = WorkflowParser.Parse(session.Yaml!);
+            var generatedSteps = document.Workflows.Values.SelectMany(w => V11Steps(w.Steps.Concat(w.Finally ?? []))).ToArray();
+            Assert.Equal(profile == "compact-bindings-v10" ? 67 : 61, generatedSteps.Length);
+            Assert.Equal(profile == "compact-bindings-v10" ? 33 : 27, generatedSteps.Count(s => s.Type == "set"));
+            var workflow = new WorkflowCompiler().Compile(document);
             var allocated = GC.GetTotalAllocatedBytes(); var timer = Stopwatch.StartNew();
             var result = await engine.ExecuteAsync(workflow.Workflows[workflow.Entrypoint!], new JsonObject { ["query"] = "observed lamps" }, ct);
             allocated = GC.GetTotalAllocatedBytes() - allocated;

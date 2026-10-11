@@ -43,6 +43,8 @@ Owning compiler tests cover historical lowering, exact values, null/missing dist
 
 Final solution, Release/package, Native AOT, published encrypted-recovery and CI results are reported separately on PR #117 for the validated commit. The full local command is `dotnet test GnOuGo.Agent.sln -m:1 -warnaserror`; publishing uses an isolated checkout of the same production commit to avoid file-copy collisions. Skill validation uses the existing quick validator. No skipped environment-specific test is counted as a pass.
 
+Runtime profile comparisons explicitly seed the historical session before issuing any request, then assert its profile through approval and its actual generated step/set counts. Fresh sessions intentionally select the current profile; a test's printed profile label alone is not proof of historical execution. The final pinned comparison and its runtime/storage measurements are reported on PR #117 separately from the earlier gate samples.
+
 ## Budget and live boundary
 
 The existing campaign command recorded the explicitly authorized extension from EUR 150 to EUR 200. [Before](budget-before.jsonl), [extension](budget-extension.json), [after](budget-after.jsonl): spending/reservations remain EUR 137.52423908271879166629417691, leaving EUR 62.47576091728120833370582309. Request/receipt counts and all eight unknown transport reservations are unchanged.

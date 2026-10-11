@@ -252,14 +252,21 @@ public sealed partial class LocalProductOutcomeExecutionTests
         ProposalRuntime adapter, bool revision, CancellationToken ct, string profile = "compact-bindings-v10")
     {
         var planner = new HybridWorkflowPlanner();
-        var session = new PlanningSession { Catalog = catalog, Request = new()
+        // The comparison's historical session is already versioned. A brand
+        // new session deliberately selects the current compiler profile.
+        var session = new PlanningSession { Catalog = catalog, Revision = profile == "compact-bindings-v10" ? 1 : 0, Request = new()
         {
-            TenantId = "local", Options = new() { ["compilation_profile"] = profile },
+            TenantId = "local", Options = new() { ["compilation_profile"] = profile, ["mapping_profile"] = "adaptive-each-v1" },
             Prompt = "Preserve the accepted observed-data task and its exact output contracts.",
             Policy = new() { RequireExternalConfirmation = false }, Generation = new() { MaxInputTokensPerRequest = 96000, MaxOutputTokens = 32768 }
         } };
-        if (!revision) return await planner.AdvanceAsync(session, new(), adapter, ct);
-        session = await planner.AdvanceAsync(session, new(), new ProposalRuntime(runtime, V10Proposal(catalog, 0)), ct);
+        if (!revision)
+        {
+            session = await planner.AdvanceAsync(session, new() { ExpectedRevision = session.Revision }, adapter, ct);
+            Assert.Equal(profile, session.Request.Options["compilation_profile"]?.ToString());
+            return session;
+        }
+        session = await planner.AdvanceAsync(session, new() { ExpectedRevision = session.Revision }, new ProposalRuntime(runtime, V10Proposal(catalog, 0)), ct);
         Assert.True(session.Status == PlanningStatus.FinalReview, string.Join('\n', session.Diagnostics));
         var saved = JsonSerializer.Serialize(session, PlanningJsonContext.Default.PlanningSession);
         var copy = JsonSerializer.Deserialize(saved, PlanningJsonContext.Default.PlanningSession)!;
