@@ -56,7 +56,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
         var issued = Assert.Single(adapter.Requests);
         Assert.Contains("ID!=null:lookup", issued.Prompt);
         Assert.Contains("flatten([[headerRow],productRows])", issued.Prompt);
-        Assert.Contains("No inference for typed copying", issued.Prompt);
+        Assert.Contains("typed copying=bindings,no LLM", issued.Prompt);
         Assert.Contains("expression_contracts:", session.Yaml!); Assert.DoesNotContain("checkedMapping(", session.Yaml!);
         output.WriteLine($"GATE D: tasks={RetainedTasks(before.Plan!.Root).Count()}→{RetainedTasks(corrected.Plan!.Root).Count()}; " +
             $"steps={original.Steps}→{compact.Steps}; sets={original.Sets}→{compact.Sets}; YAML={Encoding.UTF8.GetByteCount(original.Yaml)}→{Encoding.UTF8.GetByteCount(compact.Yaml)}; " +

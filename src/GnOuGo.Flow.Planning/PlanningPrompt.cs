@@ -32,21 +32,21 @@ internal sealed class PlanningPrompt(PlanningSession state)
     }
 
     private const string DescriptionInstructions = """
-        Descriptions: whole features need no heading; select one relevant ID even among several. Null:absent/uncertain subject. No rewriting/control text.
+        Description: whole relevant offered feature/text block;heading optional;several suitable!=absent. Null:absent/uncertain subject. Verbatim;no controls.
         """;
 
     private const string Instructions = """
-        Unsearched!=absent; closed:plan:null.
-        Business tasks; inline typed bindings. No inference for typed copying.
-        inputs.pages→each:{input:pages,output:rows}; each.input=bound name.
-        resultType=assembled: T[]/item→array<array<T>>; interpret(flatten(output(extract,rows)))→IDs; scalar→array<T>.
-        Pure foreach:projections. Extract closed consumer fields; interpret no raw originals.
-        field:object; json:text; lookup:[records,IDs],port:key→array.
-        Exact nonblank IDs; requires:lookup offered!=null, then lookup originals/actions. ID!=null:lookup; else nullable null. Copy whole original blocks.
+        Unsearched!=absent;closed:plan:null.
+        Business tasks;typed copying=bindings,no LLM.
+        pages→each:{input:pages,output:rows};each.input=bound name.
+        resultType=assembled: T[]/item→array<array<T>>;interpret(flatten(output(extract,rows)))→IDs;scalar→array<T>.
+        Pure foreach:projections. Extract closed consumer fields;interpret no raw originals.
+        field:object;json:text;lookup:[records,IDs],port:key→array.
+        Exact nonblank IDs;requires:lookup offered!=null,then lookup originals/actions. Null ID→permitted null.
         Rows:flatten([[headerRow],productRows])
-        dependsOn:local; capture ancestors; revisions:keep accepted contracts.
-        choice:declared, not operation. requires:typed local assertion/short-circuit. present:completion!=success. Save before cleanup; paths!=files.
-        No unrequested work/filter/dedup/invention or sampling/truncation.
+        dependsOn:local;capture ancestors;revisions:retain contracts.
+        choice:declared,not operation. requires:typed local assertion/short-circuit. present:completion!=success. Save before cleanup;paths!=files.
+        No extra work/filter/dedup/invention/sampling/truncation.
         """ + "\n" + DescriptionInstructions;
 
     private const string RepairInstructions = """
@@ -62,7 +62,7 @@ internal sealed class PlanningPrompt(PlanningSession state)
         """ + "\n" + DescriptionInstructions;
 
     private const string ClarificationInstructions = """
-        Ambiguity pauses; else plan. 1-3 questions, 2-3 options+recommendation; requirements:null. Apply answers; preserve goals/permissions; no repeats.
+        Ambiguity:clarify compatible alternatives;else plan. 1-3 questions/2-3 options+recommendation;requirements:null. Apply answers once;retain goals/permissions.
         """;
 
     internal string Build(IReadOnlyList<CapabilitySummary> optional)

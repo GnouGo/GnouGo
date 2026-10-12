@@ -234,9 +234,9 @@ public sealed partial class LocalProductOutcomeExecutionTests
                 var request = Assert.Single(adapter.Requests);
                 Assert.Contains("inputs.pages→each:{input:pages,output:rows}", request.Prompt);
                 Assert.Contains("interpret(flatten(output(extract,rows)))→IDs", request.Prompt);
-                Assert.Contains("requires:lookup offered!=null, then lookup originals/actions", request.Prompt);
-                Assert.Contains("No inference for typed copying", request.Prompt);
-                Assert.Contains("revisions:keep accepted contracts", request.Prompt);
+                Assert.Contains("requires:lookup offered!=null,then lookup originals/actions", request.Prompt);
+                Assert.Contains("typed copying=bindings,no LLM", request.Prompt);
+                Assert.Contains("revisions:retain contracts", request.Prompt);
                 Assert.InRange(adapter.InputEstimate, 1, initial.Request.Generation.MaxInputTokensPerRequest);
                 output.WriteLine($"INITIAL REQUEST: estimatedTokens={adapter.InputEstimate}; calls=1; repairs=0; tasks=18");
             }
@@ -364,7 +364,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
                 {
                     Assert.Single(blocks);
                     Assert.Contains("without a Description heading", request.Prompt);
-                    Assert.Contains("Never join, paraphrase or shorten", request.Prompt);
+                    Assert.Contains("Never join,paraphrase or shorten", request.Prompt);
                     block = blocks[0]; // Independent fixture oracle expects this complete characteristics block.
                 }
                 else block = Assert.Single(blocks);

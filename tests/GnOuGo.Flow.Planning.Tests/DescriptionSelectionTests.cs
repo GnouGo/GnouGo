@@ -21,10 +21,10 @@ public sealed class DescriptionSelectionTests
         Assert.Equal(2, runtime.Calls.Count);
         foreach (var request in runtime.Calls)
         {
-            Assert.Contains("whole features need no heading", request.Prompt);
-            Assert.Contains("even among several", request.Prompt);
+            Assert.Contains("heading optional", request.Prompt);
+            Assert.Contains("several suitable!=absent", request.Prompt);
             Assert.Contains("absent/uncertain subject", request.Prompt);
-            Assert.Contains("No rewriting/control text", request.Prompt);
+            Assert.Contains("Verbatim;no controls", request.Prompt);
             Assert.InRange(PlanningJsonTransport.EstimateInputTokens(request.Prompt, request.StructuredOutputSchema!.AsObject()),
                 1, state.Request.Generation.MaxInputTokensPerRequest);
         }
@@ -33,7 +33,7 @@ public sealed class DescriptionSelectionTests
         state.Diagnostics = [new("TASK_VALUE_TYPE", "/tasks/greet/outputs/message", "Incompatible value")];
         state.RevisionScope = ["/tasks/greet/outputs/message"];
         var repair = new PlanningPrompt(state).Request();
-        Assert.Contains("whole features need no heading", repair.Prompt);
+        Assert.Contains("heading optional", repair.Prompt);
         Assert.DoesNotContain("editablePaths\":[\"/tasks/greet/objective", repair.Prompt);
     }
 
