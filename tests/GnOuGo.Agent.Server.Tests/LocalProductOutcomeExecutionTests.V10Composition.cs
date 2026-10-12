@@ -54,7 +54,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
         Assert.Null(session.ApprovedHash); Assert.Equal(0, factory.InvocationAttempts);
         Assert.InRange(adapter.InputEstimate, 1, session.Request.Generation.MaxInputTokensPerRequest);
         var issued = Assert.Single(adapter.Requests);
-        Assert.Contains("ID!=null:lookup", issued.Prompt);
+        Assert.Contains("Null ID→permitted null", issued.Prompt);
         Assert.Contains("flatten([[headerRow],productRows])", issued.Prompt);
         Assert.Contains("typed copying=bindings,no LLM", issued.Prompt);
         Assert.Contains("expression_contracts:", session.Yaml!); Assert.DoesNotContain("checkedMapping(", session.Yaml!);
