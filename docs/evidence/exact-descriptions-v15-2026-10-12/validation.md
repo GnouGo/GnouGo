@@ -1,6 +1,6 @@
 # Validation record
 
-Baseline `616d5071`; description guidance `e47e6b10`; local compiler simplification `0efb485c`; bounded clarification guidance `2a95320d`; fixture assertion alignment `fa692da5`. Only fresh v15 compilation changes. Retained live approvals, receipts, reservations and the unsupported-absence verdict remain unchanged.
+Baseline `616d5071`; description guidance `e47e6b10`; local compiler simplification `0efb485c`; bounded clarification guidance `2a95320d`; fixture assertion alignment `fa692da5`; derived identity preservation `bc321f85`. Only fresh v15 compilation changes. Retained live approvals, receipts, reservations and the unsupported-absence verdict remain unchanged.
 
 ## Owning gates
 
@@ -18,6 +18,8 @@ Baseline `616d5071`; description guidance `e47e6b10`; local compiler simplificat
 | Skill | Existing `quick_validate.py` passed using the system Python with its existing PyYAML installation. |
 
 Local tests use deterministic inference adapters and actual stdio Browser/Document components. The independent workbook inspection opens XLSX XML, rejects formulas, checks headers and all ten rows against each corresponding complete source observation, and confirms writer success and Browser closure. This is separate from the workflow's success flag.
+
+After the final identity audit, the complete Planning suite passes **1,316** checks and the complete Flow suite **1,384**. The actual compiled branch regression fails before the correction and passes afterward; it preserves object identity reached through a derived selection. The retained v15 business YAML is byte-for-byte unchanged. All ten refreshed local Browser/Document/workbook/recovery cases pass after that correction. All five Release packs, Planning Native AOT smoke, CLI/Server publishing and published encrypted recovery pass again on `bc321f85`; see [final publish results](validation/final-publish-results.json). Final full-solution and exact-head CI outcomes are recorded in the PR delivery update.
 
 ## Full solution, packages and CI
 
@@ -37,6 +39,7 @@ The original stall has not reproduced here, and available evidence does not iden
 
 ## Failures encountered during implementation
 
+- The first full-solution run reused earlier Planning assemblies after concurrent guidance edits: 5,486 passed, four prompt-assertion failures, 13 skips. It is retained as a failed mixed-build run, not final acceptance. The isolated frozen `4b87827d` rerun was later stopped after the identity audit proved that candidate needed the additional conservative compiler guard. Final acceptance requires a complete fresh run on the corrected source.
 - Initial longer description guidance exceeded the retained compact-discovery request budget. Redundant wording was shortened while preserving the rule and existing assertions; all discovery checks pass at the unchanged limit.
 - Candidate CI on `0efb485c` caught two capability-clarification regressions: compacting the prompt had removed the explicit "compatible alternatives" instruction. The instruction was restored in production guidance; the existing assertions were kept. The initial failing CI log remains part of the evidence, independently of subsequent results.
 - The first local heading-free fixture added enough page text to exceed its existing mapping request allowance. The integrated fixture now uses one complete heading-free block; the separate retained-data replay covers all five offered blocks. No production allowance changed.

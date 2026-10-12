@@ -134,6 +134,12 @@ These allocations measure the expression evaluator, not the whole host. Individu
 
 The retained-data replay additionally evaluates the **actual saved candidate preparation** from both generated artifacts. Its 333,597-byte source observations remain separate from the 6,240-byte mapping output. All 44 offered candidates are byte-for-byte equivalent as JSON values. Warm allocated bytes decrease **634,760 → 574,888**; charged materialization **287,390 → 241,407**; statements **1,322 → 1,127**. All four original checks run in the same order. Both remain below the unchanged 50,000,000-byte ceiling. This evaluates saved expressions only; no workflow, inference or MCP invocation is resumed.
 
+## Derived identity counterexample
+
+A final compiler audit found a reference-identity observer reached through a selected descendant inside a lexical branch. An identity map cannot disappear in that case: the original selected copy compares unequal to the original record. A compiled generic regression fails on the earlier v15 candidate (`false → true`) and passes with the dependency guard in `bc321f85`. The existing alias analysis now follows derived local dependencies conservatively before reusing containers or removing an identity projection. Unknown derivations retain the copy. No runtime, metadata or historical-profile behavior changes.
+
+The complete retained business v15 YAML remains byte-for-byte identical after this correction, so the reported expression measurements and retained-set inventory remain applicable. See the preserved [failing regression](validation/derived-identity-before.log) and [corrected regression](validation/derived-identity-after.log).
+
 ## Validation and limitations
 
 See [validation](validation.md) for owning tests, real local Browser/Document execution, independent workbook checks, full solution, packages, Native AOT, recovery, skill and candidate CI. Retained historical evidence and approvals are untouched. This work makes no paid calls, live executions or financial changes. The PR remains draft; further live work needs new authorization and artifact approval.

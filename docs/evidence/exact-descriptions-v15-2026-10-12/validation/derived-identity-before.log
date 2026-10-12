@@ -1,0 +1,18 @@
+  Identification des projets à restaurer...
+  Tous les projets sont à jour pour la restauration.
+  GnOuGo.Flow.Core -> /private/tmp/gnougo-v15-publish-source/src/GnOuGo.Flow.Core/bin/Debug/net10.0/GnOuGo.Flow.Core.dll
+  GnOuGo.Flow.Planning -> /private/tmp/gnougo-v15-publish-source/src/GnOuGo.Flow.Planning/bin/Debug/net10.0/GnOuGo.Flow.Planning.dll
+  GnOuGo.Flow.Planning.Tests -> /private/tmp/gnougo-v15-publish-source/tests/GnOuGo.Flow.Planning.Tests/bin/Debug/net10.0/GnOuGo.Flow.Planning.Tests.dll
+Série de tests pour /private/tmp/gnougo-v15-publish-source/tests/GnOuGo.Flow.Planning.Tests/bin/Debug/net10.0/GnOuGo.Flow.Planning.Tests.dll (.NETCoreApp,Version=v10.0)
+Au total, 1 fichiers de test ont correspondu au modèle spécifié.
+[xUnit.net 00:00:01.16]     GnOuGo.Flow.Planning.Tests.FusedBindingCompilationTests.DerivedSelectionsPreserveCopiedElementIdentityInsideBranches [FAIL]
+  Échoué GnOuGo.Flow.Planning.Tests.FusedBindingCompilationTests.DerivedSelectionsPreserveCopiedElementIdentityInsideBranches [213 ms]
+  Message d'erreur :
+   Assert.False() Failure
+Expected: False
+Actual:   True
+  Arborescence des appels de procédure :
+     at GnOuGo.Flow.Planning.Tests.FusedBindingCompilationTests.DerivedSelectionsPreserveCopiedElementIdentityInsideBranches() in /private/tmp/gnougo-v15-publish-source/tests/GnOuGo.Flow.Planning.Tests/FusedBindingCompilationTests.LocalReuse.cs:line 71
+--- End of stack trace from previous location ---
+
+Échoué!  - échec :     1, réussite :     0, ignorée(s) :     0, total :     1, durée : 230 ms - GnOuGo.Flow.Planning.Tests.dll (net10.0)

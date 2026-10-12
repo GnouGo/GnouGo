@@ -1,0 +1,303 @@
+  Identification des projets à restaurer...
+  Tous les projets sont à jour pour la restauration.
+  GnOuGo.Auth.Core -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Auth.Core/bin/Debug/net10.0/GnOuGo.Auth.Core.dll
+  GnOuGo.AI.Core -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.AI.Core/bin/Debug/net10.0/GnOuGo.AI.Core.dll
+  GnOuGo.DocIngestor.Core -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.DocIngestor.Core/bin/Debug/net10.0/GnOuGo.DocIngestor.Core.dll
+  GnOuGo.DocIngestor.Tests -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.DocIngestor.Tests/bin/Debug/net10.0/GnOuGo.DocIngestor.Tests.dll
+Série de tests pour /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.DocIngestor.Tests/bin/Debug/net10.0/GnOuGo.DocIngestor.Tests.dll (.NETCoreApp,Version=v10.0)
+Au total, 1 fichiers de test ont correspondu au modèle spécifié.
+
+Réussi!  - échec :     0, réussite :    89, ignorée(s) :     0, total :    89, durée : 1 s - GnOuGo.DocIngestor.Tests.dll (net10.0)
+  GnOuGo.Diff.Core -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Diff.Core/bin/Debug/net10.0/GnOuGo.Diff.Core.dll
+  GnOuGo.Diff.Tests -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Diff.Tests/bin/Debug/net10.0/GnOuGo.Diff.Tests.dll
+Série de tests pour /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Diff.Tests/bin/Debug/net10.0/GnOuGo.Diff.Tests.dll (.NETCoreApp,Version=v10.0)
+Au total, 1 fichiers de test ont correspondu au modèle spécifié.
+
+Réussi!  - échec :     0, réussite :    52, ignorée(s) :     0, total :    52, durée : 694 ms - GnOuGo.Diff.Tests.dll (net10.0)
+  GnOuGo.Workspace -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Workspace/bin/Debug/net10.0/GnOuGo.Workspace.dll
+  GnOuGo.KeyVault.Core -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.KeyVault.Core/bin/Debug/net10.0/GnOuGo.KeyVault.Core.dll
+  GnOuGo.KeyVault.Core.Tests -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.KeyVault.Core.Tests/bin/Debug/net10.0/GnOuGo.KeyVault.Core.Tests.dll
+Série de tests pour /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.KeyVault.Core.Tests/bin/Debug/net10.0/GnOuGo.KeyVault.Core.Tests.dll (.NETCoreApp,Version=v10.0)
+Au total, 1 fichiers de test ont correspondu au modèle spécifié.
+
+Réussi!  - échec :     0, réussite :    12, ignorée(s) :     0, total :    12, durée : 854 ms - GnOuGo.KeyVault.Core.Tests.dll (net10.0)
+  GnOuGo.Flow.Core -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Flow.Core/bin/Debug/net10.0/GnOuGo.Flow.Core.dll
+  GnOuGo.Flow.Tests -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Flow.Tests/bin/Debug/net10.0/GnOuGo.Flow.Tests.dll
+Série de tests pour /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Flow.Tests/bin/Debug/net10.0/GnOuGo.Flow.Tests.dll (.NETCoreApp,Version=v10.0)
+Au total, 1 fichiers de test ont correspondu au modèle spécifié.
+
+Réussi!  - échec :     0, réussite :  1384, ignorée(s) :     0, total :  1384, durée : 1 s - GnOuGo.Flow.Tests.dll (net10.0)
+  GnOuGo.Flow.Planning -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Flow.Planning/bin/Debug/net10.0/GnOuGo.Flow.Planning.dll
+  GnOuGo.Mcp.Core -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Mcp.Core/bin/Debug/net10.0/GnOuGo.Mcp.Core.dll
+  GnOuGo.Flow.Integrations -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Flow.Integrations/bin/Debug/net10.0/GnOuGo.Flow.Integrations.dll
+  GnOuGo.Flow.Integrations.Tests -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Flow.Integrations.Tests/bin/Debug/net10.0/GnOuGo.Flow.Integrations.Tests.dll
+Série de tests pour /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Flow.Integrations.Tests/bin/Debug/net10.0/GnOuGo.Flow.Integrations.Tests.dll (.NETCoreApp,Version=v10.0)
+Au total, 1 fichiers de test ont correspondu au modèle spécifié.
+
+Réussi!  - échec :     0, réussite :    99, ignorée(s) :     0, total :    99, durée : 1 s - GnOuGo.Flow.Integrations.Tests.dll (net10.0)
+  GnOuGo.AI.Core.Tests -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.AI.Core.Tests/bin/Debug/net10.0/GnOuGo.AI.Core.Tests.dll
+Série de tests pour /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.AI.Core.Tests/bin/Debug/net10.0/GnOuGo.AI.Core.Tests.dll (.NETCoreApp,Version=v10.0)
+Au total, 1 fichiers de test ont correspondu au modèle spécifié.
+
+Réussi!  - échec :     0, réussite :   225, ignorée(s) :     0, total :   225, durée : 1 s - GnOuGo.AI.Core.Tests.dll (net10.0)
+  GnOuGo.AI.Local -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.AI.Local/bin/Debug/net10.0/GnOuGo.AI.Local.dll
+  GnOuGo.AI.Local.Tests -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.AI.Local.Tests/bin/Debug/net10.0/GnOuGo.AI.Local.Tests.dll
+Série de tests pour /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.AI.Local.Tests/bin/Debug/net10.0/GnOuGo.AI.Local.Tests.dll (.NETCoreApp,Version=v10.0)
+Au total, 1 fichiers de test ont correspondu au modèle spécifié.
+
+Réussi!  - échec :     0, réussite :    14, ignorée(s) :     0, total :    14, durée : 87 ms - GnOuGo.AI.Local.Tests.dll (net10.0)
+  GnOuGo.Observability.Core -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Observability.Core/bin/Debug/net10.0/GnOuGo.Observability.Core.dll
+  GnOuGo.Agent.Mcp -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Agent.Mcp/bin/Debug/net10.0/GnOuGo.Agent.Mcp.dll
+  GnOuGo.Agent.Mcp.Tests -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Agent.Mcp.Tests/bin/Debug/net10.0/GnOuGo.Agent.Mcp.Tests.dll
+Série de tests pour /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Agent.Mcp.Tests/bin/Debug/net10.0/GnOuGo.Agent.Mcp.Tests.dll (.NETCoreApp,Version=v10.0)
+Au total, 1 fichiers de test ont correspondu au modèle spécifié.
+
+Réussi!  - échec :     0, réussite :   103, ignorée(s) :     0, total :   103, durée : 1 s - GnOuGo.Agent.Mcp.Tests.dll (net10.0)
+  GnOuGo.Cmd.Mcp -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Cmd.Mcp/bin/Debug/net10.0/GnOuGo.Cmd.Mcp.dll
+  GnOuGo.Cmd.Mcp.Tests -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Cmd.Mcp.Tests/bin/Debug/net10.0/GnOuGo.Cmd.Mcp.Tests.dll
+Série de tests pour /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Cmd.Mcp.Tests/bin/Debug/net10.0/GnOuGo.Cmd.Mcp.Tests.dll (.NETCoreApp,Version=v10.0)
+Au total, 1 fichiers de test ont correspondu au modèle spécifié.
+[xUnit.net 00:00:00.85]     GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.DefaultLaunchUsesOnlyTheSelectedShellsBuiltInModulePath [SKIP]
+  Ignoré GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.DefaultLaunchUsesOnlyTheSelectedShellsBuiltInModulePath [1 ms]
+[xUnit.net 00:00:00.86]     GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.LaunchInitializationPreservesLeadingScriptDeclarations(script: "using namespace System\n[Console]::WriteLine('names"···, expected: "namespace declaration", exitCode: 0) [SKIP]
+[xUnit.net 00:00:00.86]     GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.LaunchInitializationPreservesLeadingScriptDeclarations(script: "param([string]$text = 'parameter default'); [Conso"···, expected: "parameter default", exitCode: 3) [SKIP]
+[xUnit.net 00:00:00.87]     GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.PrivateEofPreservesRepeatedCommandsUnicodeQuotesAndExitCodes(exitCode: 0) [SKIP]
+[xUnit.net 00:00:00.87]     GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.PrivateEofPreservesRepeatedCommandsUnicodeQuotesAndExitCodes(exitCode: 3) [SKIP]
+[xUnit.net 00:00:00.87]     GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.TimeoutAndCancellationTerminateTheChildTree(cancel: False) [SKIP]
+  Ignoré GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.LaunchInitializationPreservesLeadingScriptDeclarations(script: "using namespace System\n[Console]::WriteLine('names"···, expected: "namespace declaration", exitCode: 0) [1 ms]
+  Ignoré GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.LaunchInitializationPreservesLeadingScriptDeclarations(script: "param([string]$text = 'parameter default'); [Conso"···, expected: "parameter default", exitCode: 3) [1 ms]
+  Ignoré GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.PrivateEofPreservesRepeatedCommandsUnicodeQuotesAndExitCodes(exitCode: 0) [1 ms]
+  Ignoré GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.PrivateEofPreservesRepeatedCommandsUnicodeQuotesAndExitCodes(exitCode: 3) [1 ms]
+  Ignoré GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.TimeoutAndCancellationTerminateTheChildTree(cancel: False) [1 ms]
+[xUnit.net 00:00:00.87]     GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.TimeoutAndCancellationTerminateTheChildTree(cancel: True) [SKIP]
+  Ignoré GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.TimeoutAndCancellationTerminateTheChildTree(cancel: True) [1 ms]
+
+Réussi!  - échec :     0, réussite :    93, ignorée(s) :     7, total :   100, durée : 18 s - GnOuGo.Cmd.Mcp.Tests.dll (net10.0)
+  GnOuGo.Browser.Mcp -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Browser.Mcp/bin/Debug/net10.0/GnOuGo.Browser.Mcp.dll
+  Installing Playwright Chromium browsers...
+  GnOuGo.Browser.Mcp.Tests -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Browser.Mcp.Tests/bin/Debug/net10.0/GnOuGo.Browser.Mcp.Tests.dll
+Série de tests pour /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Browser.Mcp.Tests/bin/Debug/net10.0/GnOuGo.Browser.Mcp.Tests.dll (.NETCoreApp,Version=v10.0)
+Au total, 1 fichiers de test ont correspondu au modèle spécifié.
+
+Réussi!  - échec :     0, réussite :   141, ignorée(s) :     0, total :   141, durée : 15 s - GnOuGo.Browser.Mcp.Tests.dll (net10.0)
+  GnOuGo.Flow.Copilot -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Flow.Copilot/bin/Debug/net10.0/GnOuGo.Flow.Copilot.dll
+  GnOuGo.Flow.Persistence -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Flow.Persistence/bin/Debug/net10.0/GnOuGo.Flow.Persistence.dll
+  GnOuGo.Agent.Shared -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Agent.Shared/bin/Debug/net10.0/GnOuGo.Agent.Shared.dll
+  GnOuGo.Assets.Bears -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Assets.Bears/bin/Debug/net10.0/GnOuGo.Assets.Bears.dll
+  GnOuGo.Assets.Animation -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Assets.Animation/bin/Debug/net10.0/GnOuGo.Assets.Animation.dll
+  GnOuGo.DocIngestor.Mcp -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.DocIngestor.Mcp/bin/Debug/net10.0/GnOuGo.DocIngestor.Mcp.dll
+  GnOuGo.Flow.Mermaid -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Flow.Mermaid/bin/Debug/net10.0/GnOuGo.Flow.Mermaid.dll
+  GnOuGo.Files.Server -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Files.Server/bin/Debug/net10.0/GnOuGo.Files.Server.dll
+  GnOuGo.KeyVault.Mcp -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.KeyVault.Mcp/bin/Debug/net10.0/GnOuGo.KeyVault.Mcp.dll
+  GnOuGo.Auth.Core -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Auth.Core/bin/Debug/net10.0/GnOuGo.Auth.Core.dll
+  GnOuGo.AI.Core -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.AI.Core/bin/Debug/net10.0/GnOuGo.AI.Core.dll
+  GnOuGo.Workspace -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Workspace/bin/Debug/net10.0/GnOuGo.Workspace.dll
+  GnOuGo.OtlpCollector.Server -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.OtlpCollector.Server/bin/Debug/net10.0/GnOuGo.OtlpCollector.Server.dll
+  GnOuGo.Mcp.Core -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Mcp.Core/bin/Debug/net10.0/GnOuGo.Mcp.Core.dll
+  GnOuGo.Observability.Core -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Observability.Core/bin/Debug/net10.0/GnOuGo.Observability.Core.dll
+  GnOuGo.Browser.Mcp -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Browser.Mcp/bin/Debug/net10.0/GnOuGo.Browser.Mcp.dll
+  GnOuGo.Workspace -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Workspace/bin/Debug/net10.0/GnOuGo.Workspace.dll
+  GnOuGo.Cmd.Mcp -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Cmd.Mcp/bin/Debug/net10.0/GnOuGo.Cmd.Mcp.dll
+  GnOuGo.Diff.Core -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Diff.Core/bin/Debug/net10.0/GnOuGo.Diff.Core.dll
+  GnOuGo.Document.Mcp -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Document.Mcp/bin/Debug/net10.0/GnOuGo.Document.Mcp.dll
+  GnOuGo.Auth.Core -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Auth.Core/bin/Debug/net10.0/GnOuGo.Auth.Core.dll
+  GnOuGo.Flow.Core -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Flow.Core/bin/Debug/net10.0/GnOuGo.Flow.Core.dll
+  GnOuGo.GithubCopilot.Core -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.GithubCopilot.Core/bin/Debug/net10.0/GnOuGo.GithubCopilot.Core.dll
+  GnOuGo.KeyVault.Core -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.KeyVault.Core/bin/Debug/net10.0/GnOuGo.KeyVault.Core.dll
+  GnOuGo.GithubCopilot.Mcp -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.GithubCopilot.Mcp/bin/Debug/net10.0/GnOuGo.GithubCopilot.Mcp.dll
+  GnOuGo.Git.Mcp -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Git.Mcp/bin/Debug/net10.0/GnOuGo.Git.Mcp.dll
+  GnOuGo.Agent.Server -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Agent.Server/bin/Debug/net10.0/GnOuGo.Agent.Server.dll
+  Staging GnOuGo MCP development tools into bin/Debug/net10.0/tools...
+  GnOuGo.Document.Mcp -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Document.Mcp/bin/Debug/net10.0/GnOuGo.Document.Mcp.dll
+  GnOuGo.Git.Mcp -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Git.Mcp/bin/Debug/net10.0/GnOuGo.Git.Mcp.dll
+  GnOuGo.GithubCopilot.Core -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.GithubCopilot.Core/bin/Debug/net10.0/GnOuGo.GithubCopilot.Core.dll
+  GnOuGo.GithubCopilot.Mcp -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.GithubCopilot.Mcp/bin/Debug/net10.0/GnOuGo.GithubCopilot.Mcp.dll
+  GnOuGo.OtlpCollector.Server -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.OtlpCollector.Server/bin/Debug/net10.0/GnOuGo.OtlpCollector.Server.dll
+  🔍 Vérification des dépendances pnpm...
+  🔨 Construction du frontend React...
+  
+  > otlp-tenant-collector-ui@0.1.0 build /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.OtlpCollector.Server/ClientApp
+  > tsc && vite build
+  
+  vite v8.3.0 building client environment for production...
+  transforming...
+  ✓ 56 modules transformed.
+  rendering chunks...
+  computing gzip size...
+  ../wwwroot/index.html                   0.40 kB │ gzip:   0.27 kB
+  ../wwwroot/assets/index-DrXxYbax.css   59.47 kB │ gzip:   9.70 kB
+  ../wwwroot/assets/index-Cs5bBauP.js   410.50 kB │ gzip: 121.60 kB │ map: 1,808.56 kB
+  
+  ✓ built in 488ms
+  ✅ Frontend construit et copié vers wwwroot/
+  GnOuGo.Agent.Server.Tests -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Agent.Server.Tests/bin/Debug/net10.0/GnOuGo.Agent.Server.Tests.dll
+  Staging GnOuGo MCP development tools into bin/Debug/net10.0/tools...
+Série de tests pour /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Agent.Server.Tests/bin/Debug/net10.0/GnOuGo.Agent.Server.Tests.dll (.NETCoreApp,Version=v10.0)
+Au total, 1 fichiers de test ont correspondu au modèle spécifié.
+[xUnit.net 00:02:03.04]     GnOuGo.Agent.Server.Tests.PlanningClarificationBrowserTests.DesignerBrowserUsesRealPersistedQuestionsAndExplicitSubmission [SKIP]
+  Ignoré GnOuGo.Agent.Server.Tests.PlanningClarificationBrowserTests.DesignerBrowserUsesRealPersistedQuestionsAndExplicitSubmission [1 ms]
+
+Réussi!  - échec :     0, réussite :   869, ignorée(s) :     1, total :   870, durée : 55 m 32 s - GnOuGo.Agent.Server.Tests.dll (net10.0)
+  GnOuGo.Document.Mcp.Tests -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Document.Mcp.Tests/bin/Debug/net10.0/GnOuGo.Document.Mcp.Tests.dll
+Série de tests pour /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Document.Mcp.Tests/bin/Debug/net10.0/GnOuGo.Document.Mcp.Tests.dll (.NETCoreApp,Version=v10.0)
+Au total, 1 fichiers de test ont correspondu au modèle spécifié.
+
+Réussi!  - échec :     0, réussite :    73, ignorée(s) :     0, total :    73, durée : 6 s - GnOuGo.Document.Mcp.Tests.dll (net10.0)
+  GnOuGo.KeyVault.Mcp.Tests -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.KeyVault.Mcp.Tests/bin/Debug/net10.0/GnOuGo.KeyVault.Mcp.Tests.dll
+Série de tests pour /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.KeyVault.Mcp.Tests/bin/Debug/net10.0/GnOuGo.KeyVault.Mcp.Tests.dll (.NETCoreApp,Version=v10.0)
+Au total, 1 fichiers de test ont correspondu au modèle spécifié.
+
+Réussi!  - échec :     0, réussite :     9, ignorée(s) :     0, total :     9, durée : 931 ms - GnOuGo.KeyVault.Mcp.Tests.dll (net10.0)
+  GnOuGo.Files.Server.Tests -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Files.Server.Tests/bin/Debug/net10.0/GnOuGo.Files.Server.Tests.dll
+Série de tests pour /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Files.Server.Tests/bin/Debug/net10.0/GnOuGo.Files.Server.Tests.dll (.NETCoreApp,Version=v10.0)
+Au total, 1 fichiers de test ont correspondu au modèle spécifié.
+
+Réussi!  - échec :     0, réussite :    10, ignorée(s) :     0, total :    10, durée : 558 ms - GnOuGo.Files.Server.Tests.dll (net10.0)
+  GnOuGo.DocIngestor.Mcp.Tests -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.DocIngestor.Mcp.Tests/bin/Debug/net10.0/GnOuGo.DocIngestor.Mcp.Tests.dll
+Série de tests pour /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.DocIngestor.Mcp.Tests/bin/Debug/net10.0/GnOuGo.DocIngestor.Mcp.Tests.dll (.NETCoreApp,Version=v10.0)
+Au total, 1 fichiers de test ont correspondu au modèle spécifié.
+
+Réussi!  - échec :     0, réussite :     7, ignorée(s) :     0, total :     7, durée : 902 ms - GnOuGo.DocIngestor.Mcp.Tests.dll (net10.0)
+  GnOuGo.OtlpCollector.Server.Tests -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.OtlpCollector.Server.Tests/bin/Debug/net10.0/GnOuGo.OtlpCollector.Server.Tests.dll
+Série de tests pour /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.OtlpCollector.Server.Tests/bin/Debug/net10.0/GnOuGo.OtlpCollector.Server.Tests.dll (.NETCoreApp,Version=v10.0)
+Au total, 1 fichiers de test ont correspondu au modèle spécifié.
+
+Réussi!  - échec :     0, réussite :     7, ignorée(s) :     0, total :     7, durée : 558 ms - GnOuGo.OtlpCollector.Server.Tests.dll (net10.0)
+  GnOuGo.GithubCopilot.Mcp.Tests -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.GithubCopilot.Mcp.Tests/bin/Debug/net10.0/GnOuGo.GithubCopilot.Mcp.Tests.dll
+Série de tests pour /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.GithubCopilot.Mcp.Tests/bin/Debug/net10.0/GnOuGo.GithubCopilot.Mcp.Tests.dll (.NETCoreApp,Version=v10.0)
+Au total, 1 fichiers de test ont correspondu au modèle spécifié.
+
+Réussi!  - échec :     0, réussite :   243, ignorée(s) :     0, total :   243, durée : 44 s - GnOuGo.GithubCopilot.Mcp.Tests.dll (net10.0)
+  GnOuGo.GithubCopilot.Core.Tests -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.GithubCopilot.Core.Tests/bin/Debug/net10.0/GnOuGo.GithubCopilot.Core.Tests.dll
+Série de tests pour /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.GithubCopilot.Core.Tests/bin/Debug/net10.0/GnOuGo.GithubCopilot.Core.Tests.dll (.NETCoreApp,Version=v10.0)
+Au total, 1 fichiers de test ont correspondu au modèle spécifié.
+
+Réussi!  - échec :     0, réussite :   173, ignorée(s) :     0, total :   173, durée : 466 ms - GnOuGo.GithubCopilot.Core.Tests.dll (net10.0)
+  GnOuGo.GithubCopilot.E2E.Tests -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.GithubCopilot.E2E.Tests/bin/Debug/net10.0/GnOuGo.GithubCopilot.E2E.Tests.dll
+Série de tests pour /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.GithubCopilot.E2E.Tests/bin/Debug/net10.0/GnOuGo.GithubCopilot.E2E.Tests.dll (.NETCoreApp,Version=v10.0)
+Au total, 1 fichiers de test ont correspondu au modèle spécifié.
+[xUnit.net 00:00:00.85]     GnOuGo.GithubCopilot.E2E.Tests.LiveControlledEditingTests.RealModel_InspectsEditsAndVerifiesResults(managed: True, bounded: True, executeTests: True) [SKIP]
+[xUnit.net 00:00:00.85]     GnOuGo.GithubCopilot.E2E.Tests.LivePullRequestReviewTests.ConfiguredOpenAiProvider_CanReviewExactDiffWithoutPublishing [SKIP]
+[xUnit.net 00:00:00.85]     GnOuGo.GithubCopilot.E2E.Tests.LiveControlledEditingTests.RealModel_InspectsEditsAndVerifiesResults(managed: True, bounded: True, executeTests: False) [SKIP]
+[xUnit.net 00:00:00.85]     GnOuGo.GithubCopilot.E2E.Tests.LiveControlledEditingTests.RealModel_InspectsEditsAndVerifiesResults(managed: True, bounded: False, executeTests: True) [SKIP]
+[xUnit.net 00:00:00.85]     GnOuGo.GithubCopilot.E2E.Tests.LiveControlledEditingTests.RealModel_InspectsEditsAndVerifiesResults(managed: False, bounded: False, executeTests: True) [SKIP]
+  Ignoré GnOuGo.GithubCopilot.E2E.Tests.LiveControlledEditingTests.RealModel_InspectsEditsAndVerifiesResults(managed: True, bounded: True, executeTests: True) [1 ms]
+  Ignoré GnOuGo.GithubCopilot.E2E.Tests.LivePullRequestReviewTests.ConfiguredOpenAiProvider_CanReviewExactDiffWithoutPublishing [1 ms]
+  Ignoré GnOuGo.GithubCopilot.E2E.Tests.LiveControlledEditingTests.RealModel_InspectsEditsAndVerifiesResults(managed: True, bounded: True, executeTests: False) [1 ms]
+  Ignoré GnOuGo.GithubCopilot.E2E.Tests.LiveControlledEditingTests.RealModel_InspectsEditsAndVerifiesResults(managed: True, bounded: False, executeTests: True) [1 ms]
+  Ignoré GnOuGo.GithubCopilot.E2E.Tests.LiveControlledEditingTests.RealModel_InspectsEditsAndVerifiesResults(managed: False, bounded: False, executeTests: True) [1 ms]
+
+Réussi!  - échec :     0, réussite :     7, ignorée(s) :     5, total :    12, durée : 25 ms - GnOuGo.GithubCopilot.E2E.Tests.dll (net10.0)
+  GnOuGo.Observability.Core.Tests -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Observability.Core.Tests/bin/Debug/net10.0/GnOuGo.Observability.Core.Tests.dll
+Série de tests pour /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Observability.Core.Tests/bin/Debug/net10.0/GnOuGo.Observability.Core.Tests.dll (.NETCoreApp,Version=v10.0)
+Au total, 1 fichiers de test ont correspondu au modèle spécifié.
+
+Réussi!  - échec :     0, réussite :     3, ignorée(s) :     0, total :     3, durée : 20 ms - GnOuGo.Observability.Core.Tests.dll (net10.0)
+  GnOuGo.Git.Mcp.Tests -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Git.Mcp.Tests/bin/Debug/net10.0/GnOuGo.Git.Mcp.Tests.dll
+Série de tests pour /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Git.Mcp.Tests/bin/Debug/net10.0/GnOuGo.Git.Mcp.Tests.dll (.NETCoreApp,Version=v10.0)
+Au total, 1 fichiers de test ont correspondu au modèle spécifié.
+
+Réussi!  - échec :     0, réussite :    83, ignorée(s) :     0, total :    83, durée : 6 s - GnOuGo.Git.Mcp.Tests.dll (net10.0)
+  GnOuGo.Workspace.Tests -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Workspace.Tests/bin/Debug/net10.0/GnOuGo.Workspace.Tests.dll
+Série de tests pour /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Workspace.Tests/bin/Debug/net10.0/GnOuGo.Workspace.Tests.dll (.NETCoreApp,Version=v10.0)
+Au total, 1 fichiers de test ont correspondu au modèle spécifié.
+
+Réussi!  - échec :     0, réussite :    30, ignorée(s) :     0, total :    30, durée : 64 ms - GnOuGo.Workspace.Tests.dll (net10.0)
+  GnOuGo.Mcp.Core.Tests -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Mcp.Core.Tests/bin/Debug/net10.0/GnOuGo.Mcp.Core.Tests.dll
+Série de tests pour /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Mcp.Core.Tests/bin/Debug/net10.0/GnOuGo.Mcp.Core.Tests.dll (.NETCoreApp,Version=v10.0)
+Au total, 1 fichiers de test ont correspondu au modèle spécifié.
+
+Réussi!  - échec :     0, réussite :    49, ignorée(s) :     0, total :    49, durée : 34 ms - GnOuGo.Mcp.Core.Tests.dll (net10.0)
+  GnOuGo.Flow.Mermaid.Tests -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Flow.Mermaid.Tests/bin/Debug/net10.0/GnOuGo.Flow.Mermaid.Tests.dll
+Série de tests pour /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Flow.Mermaid.Tests/bin/Debug/net10.0/GnOuGo.Flow.Mermaid.Tests.dll (.NETCoreApp,Version=v10.0)
+Au total, 1 fichiers de test ont correspondu au modèle spécifié.
+
+Réussi!  - échec :     0, réussite :    12, ignorée(s) :     0, total :    12, durée : 62 ms - GnOuGo.Flow.Mermaid.Tests.dll (net10.0)
+  GnOuGo.Assets.Bears.Tests -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Assets.Bears.Tests/bin/Debug/net10.0/GnOuGo.Assets.Bears.Tests.dll
+Série de tests pour /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Assets.Bears.Tests/bin/Debug/net10.0/GnOuGo.Assets.Bears.Tests.dll (.NETCoreApp,Version=v10.0)
+Au total, 1 fichiers de test ont correspondu au modèle spécifié.
+
+Réussi!  - échec :     0, réussite :    91, ignorée(s) :     0, total :    91, durée : 10 s - GnOuGo.Assets.Bears.Tests.dll (net10.0)
+  GnOuGo.Assets.Animation.Tests -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Assets.Animation.Tests/bin/Debug/net10.0/GnOuGo.Assets.Animation.Tests.dll
+Série de tests pour /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Assets.Animation.Tests/bin/Debug/net10.0/GnOuGo.Assets.Animation.Tests.dll (.NETCoreApp,Version=v10.0)
+Au total, 1 fichiers de test ont correspondu au modèle spécifié.
+
+Réussi!  - échec :     0, réussite :    42, ignorée(s) :     0, total :    42, durée : 100 ms - GnOuGo.Assets.Animation.Tests.dll (net10.0)
+  GnOuGo.Assets.Bears -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Assets.Bears/bin/Debug/net10.0/GnOuGo.Assets.Bears.dll
+  GnOuGo.Assets.Animation -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Assets.Animation/bin/Debug/net10.0/GnOuGo.Assets.Animation.dll
+  GnOuGo.Observability.Core -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Observability.Core/bin/Debug/net10.0/GnOuGo.Observability.Core.dll
+  GnOuGo.Assets.Animation.Server -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Assets.Animation.Server/bin/Debug/net10.0/GnOuGo.Assets.Animation.Server.dll
+  GnOuGo.Assets.Animation.Server.Tests -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Assets.Animation.Server.Tests/bin/Debug/net10.0/GnOuGo.Assets.Animation.Server.Tests.dll
+Série de tests pour /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Assets.Animation.Server.Tests/bin/Debug/net10.0/GnOuGo.Assets.Animation.Server.Tests.dll (.NETCoreApp,Version=v10.0)
+Au total, 1 fichiers de test ont correspondu au modèle spécifié.
+
+Réussi!  - échec :     0, réussite :    13, ignorée(s) :     0, total :    13, durée : 4 s - GnOuGo.Assets.Animation.Server.Tests.dll (net10.0)
+  GnOuGo.Assets.Bears.Server -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Assets.Bears.Server/bin/Debug/net10.0/GnOuGo.Assets.Bears.Server.dll
+  GnOuGo.Assets.Bears.Server.Tests -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Assets.Bears.Server.Tests/bin/Debug/net10.0/GnOuGo.Assets.Bears.Server.Tests.dll
+Série de tests pour /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Assets.Bears.Server.Tests/bin/Debug/net10.0/GnOuGo.Assets.Bears.Server.Tests.dll (.NETCoreApp,Version=v10.0)
+Au total, 1 fichiers de test ont correspondu au modèle spécifié.
+
+Réussi!  - échec :     0, réussite :    28, ignorée(s) :     0, total :    28, durée : 280 ms - GnOuGo.Assets.Bears.Server.Tests.dll (net10.0)
+  GnOuGo.Flow.Planning.Tests -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Flow.Planning.Tests/bin/Debug/net10.0/GnOuGo.Flow.Planning.Tests.dll
+Série de tests pour /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Flow.Planning.Tests/bin/Debug/net10.0/GnOuGo.Flow.Planning.Tests.dll (.NETCoreApp,Version=v10.0)
+Au total, 1 fichiers de test ont correspondu au modèle spécifié.
+[xUnit.net 00:00:01.99]     GnOuGo.Flow.Planning.Tests.DescriptionSelectionTests.FreshGenerationAndExplicitRevisionReceiveDescriptionGuidance [FAIL]
+  Échoué GnOuGo.Flow.Planning.Tests.DescriptionSelectionTests.FreshGenerationAndExplicitRevisionReceiveDescriptionGuidance [565 ms]
+  Message d'erreur :
+   Assert.Contains() Failure: Sub-string not found
+String:    "Unsearched!=absent; closed:plan:null.\nBusiness tas"···
+Not found: "heading optional"
+  Arborescence des appels de procédure :
+     at GnOuGo.Flow.Planning.Tests.DescriptionSelectionTests.FreshGenerationAndExplicitRevisionReceiveDescriptionGuidance() in /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Flow.Planning.Tests/DescriptionSelectionTests.cs:line 24
+--- End of stack trace from previous location ---
+[xUnit.net 00:00:18.35]     GnOuGo.Flow.Planning.Tests.CapabilityAlternativeTests.UnsupportedRunnerUsesExistingClarificationWithoutLosingIntentOrGrantingPermissions(custom: False) [FAIL]
+  Échoué GnOuGo.Flow.Planning.Tests.CapabilityAlternativeTests.UnsupportedRunnerUsesExistingClarificationWithoutLosingIntentOrGrantingPermissions(custom: False) [406 ms]
+  Message d'erreur :
+   Assert.Contains() Failure: Sub-string not found
+String:    "Unsearched!=absent; closed:plan:null.\nBusiness tas"···
+Not found: "compatible alternatives"
+  Arborescence des appels de procédure :
+     at GnOuGo.Flow.Planning.Tests.CapabilityAlternativeTests.UnsupportedRunnerUsesExistingClarificationWithoutLosingIntentOrGrantingPermissions(Boolean custom) in /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Flow.Planning.Tests/CapabilityAlternativeTests.cs:line 31
+--- End of stack trace from previous location ---
+[xUnit.net 00:00:18.68]     GnOuGo.Flow.Planning.Tests.RetainedOutputRevisionTests.CompactGenerationReceivesProjectionGuidanceAndUnchangedAcceptedContracts [FAIL]
+  Échoué GnOuGo.Flow.Planning.Tests.RetainedOutputRevisionTests.CompactGenerationReceivesProjectionGuidanceAndUnchangedAcceptedContracts [73 ms]
+  Message d'erreur :
+   Assert.Contains() Failure: Sub-string not found
+String:    "Unsearched!=absent; closed:plan:null.\nBusiness tas"···
+Not found: "typed copying=bindings,no LLM"
+  Arborescence des appels de procédure :
+     at GnOuGo.Flow.Planning.Tests.RetainedOutputRevisionTests.CompactGenerationReceivesProjectionGuidanceAndUnchangedAcceptedContracts() in /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Flow.Planning.Tests/RetainedOutputRevisionTests.cs:line 29
+   at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)
+   at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)
+[xUnit.net 00:00:18.77]     GnOuGo.Flow.Planning.Tests.CapabilityAlternativeTests.UnsupportedRunnerUsesExistingClarificationWithoutLosingIntentOrGrantingPermissions(custom: True) [FAIL]
+  Échoué GnOuGo.Flow.Planning.Tests.CapabilityAlternativeTests.UnsupportedRunnerUsesExistingClarificationWithoutLosingIntentOrGrantingPermissions(custom: True) [413 ms]
+  Message d'erreur :
+   Assert.Contains() Failure: Sub-string not found
+String:    "Unsearched!=absent; closed:plan:null.\nBusiness tas"···
+Not found: "compatible alternatives"
+  Arborescence des appels de procédure :
+     at GnOuGo.Flow.Planning.Tests.CapabilityAlternativeTests.UnsupportedRunnerUsesExistingClarificationWithoutLosingIntentOrGrantingPermissions(Boolean custom) in /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Flow.Planning.Tests/CapabilityAlternativeTests.cs:line 31
+--- End of stack trace from previous location ---
+
+Échoué!  - échec :     4, réussite :  1311, ignorée(s) :     0, total :  1315, durée : 1 m 27 s - GnOuGo.Flow.Planning.Tests.dll (net10.0)
+  GnOuGo.ProxyCopilot.Server -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.ProxyCopilot.Server/bin/Debug/net10.0/GnOuGo.ProxyCopilot.Server.dll
+  GnOuGo.ProxyCopilot.Server.Tests -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.ProxyCopilot.Server.Tests/bin/Debug/net10.0/GnOuGo.ProxyCopilot.Server.Tests.dll
+Série de tests pour /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.ProxyCopilot.Server.Tests/bin/Debug/net10.0/GnOuGo.ProxyCopilot.Server.Tests.dll (.NETCoreApp,Version=v10.0)
+Au total, 1 fichiers de test ont correspondu au modèle spécifié.
+
+Réussi!  - échec :     0, réussite :   177, ignorée(s) :     0, total :   177, durée : 10 s - GnOuGo.ProxyCopilot.Server.Tests.dll (net10.0)
+  GnOuGo.Auth.Core.Tests -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Auth.Core.Tests/bin/Debug/net10.0/GnOuGo.Auth.Core.Tests.dll
+Série de tests pour /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Auth.Core.Tests/bin/Debug/net10.0/GnOuGo.Auth.Core.Tests.dll (.NETCoreApp,Version=v10.0)
+Au total, 1 fichiers de test ont correspondu au modèle spécifié.
+
+Réussi!  - échec :     0, réussite :     8, ignorée(s) :     0, total :     8, durée : 140 ms - GnOuGo.Auth.Core.Tests.dll (net10.0)
+  GnOuGo.Flow.Persistence.Tests -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Flow.Persistence.Tests/bin/Debug/net10.0/GnOuGo.Flow.Persistence.Tests.dll
+Série de tests pour /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Flow.Persistence.Tests/bin/Debug/net10.0/GnOuGo.Flow.Persistence.Tests.dll (.NETCoreApp,Version=v10.0)
+Au total, 1 fichiers de test ont correspondu au modèle spécifié.
+
+Réussi!  - échec :     0, réussite :    24, ignorée(s) :     0, total :    24, durée : 8 s - GnOuGo.Flow.Persistence.Tests.dll (net10.0)
+  GnOuGo.Flow.Copilot.Tests -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Flow.Copilot.Tests/bin/Debug/net10.0/GnOuGo.Flow.Copilot.Tests.dll
+Série de tests pour /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Flow.Copilot.Tests/bin/Debug/net10.0/GnOuGo.Flow.Copilot.Tests.dll (.NETCoreApp,Version=v10.0)
+Au total, 1 fichiers de test ont correspondu au modèle spécifié.
+
+Réussi!  - échec :     0, réussite :     5, ignorée(s) :     0, total :     5, durée : 62 ms - GnOuGo.Flow.Copilot.Tests.dll (net10.0)

@@ -1,0 +1,361 @@
+  Identification des projets à restaurer...
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/src/GnOuGo.Agent.Shared/GnOuGo.Agent.Shared.csproj (en 45 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/src/GnOuGo.AI.Core/GnOuGo.AI.Core.csproj (en 659 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/src/GnOuGo.ProxyCopilot.Server/GnOuGo.ProxyCopilot.Server.csproj (en 660 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/src/GnOuGo.Diff.Server/GnOuGo.Diff.Server.csproj (en 664 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/src/GnOuGo.AI.Local/GnOuGo.AI.Local.csproj (en 670 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/src/GnOuGo.Agent.Mcp/GnOuGo.Agent.Mcp.csproj (en 670 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/src/GnOuGo.Flow.Core/GnOuGo.Flow.Core.csproj (en 5 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/src/GnOuGo.Flow.Copilot/GnOuGo.Flow.Copilot.csproj (en 5 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/tests/GnOuGo.Workspace.Tests/GnOuGo.Workspace.Tests.csproj (en 617 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/tests/GnOuGo.Auth.Core.Tests/GnOuGo.Auth.Core.Tests.csproj (en 735 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/tests/GnOuGo.AI.Local.Tests/GnOuGo.AI.Local.Tests.csproj (en 735 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/src/GnOuGo.Diff.Cli/GnOuGo.Diff.Cli.csproj (en 4 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/tests/GnOuGo.Git.Mcp.Tests/GnOuGo.Git.Mcp.Tests.csproj (en 760 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/src/GnOuGo.DocIngestor.Server/GnOuGo.DocIngestor.Server.csproj (en 88 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/src/GnOuGo.DocIngestor.Core/GnOuGo.DocIngestor.Core.csproj (en 87 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/src/GnOuGo.DocIngestor.Cli/GnOuGo.DocIngestor.Cli.csproj (en 27 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/tests/GnOuGo.DocIngestor.Tests/GnOuGo.DocIngestor.Tests.csproj (en 770 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/src/GnOuGo.Git.Mcp/GnOuGo.Git.Mcp.csproj (en 772 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/src/GnOuGo.Cmd.Mcp/GnOuGo.Cmd.Mcp.csproj (en 14 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/src/GnOuGo.Flow.Cli/GnOuGo.Flow.Cli.csproj (en 94 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/src/GnOuGo.Assets.Bears/GnOuGo.Assets.Bears.csproj (en 0,5 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/src/GnOuGo.Auth.Core/GnOuGo.Auth.Core.csproj (en 0,5 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/src/GnOuGo.Document.Mcp/GnOuGo.Document.Mcp.csproj (en 778 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/src/GnOuGo.DocIngestor.Mcp/GnOuGo.DocIngestor.Mcp.csproj (en 97 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/src/GnOuGo.Assets.Animation/GnOuGo.Assets.Animation.csproj (en 0,8 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/src/GnOuGo.Assets.Bears.Server/GnOuGo.Assets.Bears.Server.csproj (en 0,9 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/src/GnOuGo.Assets.Animation.Server/GnOuGo.Assets.Animation.Server.csproj (en 2 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/src/GnOuGo.Agent.Desktop/GnOuGo.Agent.Desktop.csproj (en 786 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/tests/GnOuGo.KeyVault.Core.Tests/GnOuGo.KeyVault.Core.Tests.csproj (en 2 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/tests/GnOuGo.KeyVault.Mcp.Tests/GnOuGo.KeyVault.Mcp.Tests.csproj (en 3 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/tests/GnOuGo.Flow.Tests/GnOuGo.Flow.Tests.csproj (en 6 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/tests/GnOuGo.Flow.Planning.Tests/GnOuGo.Flow.Planning.Tests.csproj (en 1 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/tests/GnOuGo.GithubCopilot.Core.Tests/GnOuGo.GithubCopilot.Core.Tests.csproj (en 15 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/tests/GnOuGo.GithubCopilot.Mcp.Tests/GnOuGo.GithubCopilot.Mcp.Tests.csproj (en 17 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/tests/GnOuGo.GithubCopilot.E2E.Tests/GnOuGo.GithubCopilot.E2E.Tests.csproj (en 16 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/tests/GnOuGo.Flow.Planning.Smoke/GnOuGo.Flow.Planning.Smoke.csproj (en 7 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/tests/GnOuGo.Flow.Mermaid.Tests/GnOuGo.Flow.Mermaid.Tests.csproj (en 7 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/tests/GnOuGo.Flow.Persistence.Tests/GnOuGo.Flow.Persistence.Tests.csproj (en 3 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/src/GnOuGo.KeyVault.Mcp/GnOuGo.KeyVault.Mcp.csproj (en 8 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/src/GnOuGo.GithubCopilot.Core/GnOuGo.GithubCopilot.Core.csproj (en 0,7 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/src/GnOuGo.Flow.Planning/GnOuGo.Flow.Planning.csproj (en 1 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/src/GnOuGo.Browser.Mcp/GnOuGo.Browser.Mcp.csproj (en 74 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/tests/GnOuGo.OtlpCollector.Server.Tests/GnOuGo.OtlpCollector.Server.Tests.csproj (en 63 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/src/GnOuGo.Flow.Server/GnOuGo.Flow.Server.csproj (en 7 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/src/GnOuGo.Flow.Mermaid/GnOuGo.Flow.Mermaid.csproj (en 0,9 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/src/GnOuGo.GithubCopilot.Mcp/GnOuGo.GithubCopilot.Mcp.csproj (en 15 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/src/GnOuGo.Flow.Integrations/GnOuGo.Flow.Integrations.csproj (en 3 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/tests/GnOuGo.ProxyCopilot.Server.Tests/GnOuGo.ProxyCopilot.Server.Tests.csproj (en 74 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/tests/GnOuGo.Flow.Copilot.Tests/GnOuGo.Flow.Copilot.Tests.csproj (en 1 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/tests/GnOuGo.Mcp.Core.Tests/GnOuGo.Mcp.Core.Tests.csproj (en 72 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/tests/GnOuGo.Flow.Integrations.Tests/GnOuGo.Flow.Integrations.Tests.csproj (en 4 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/tests/GnOuGo.Files.Server.Tests/GnOuGo.Files.Server.Tests.csproj (en 5 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/tests/GnOuGo.Document.Mcp.Tests/GnOuGo.Document.Mcp.Tests.csproj (en 7 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/tests/GnOuGo.Observability.Core.Tests/GnOuGo.Observability.Core.Tests.csproj (en 81 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/tests/GnOuGo.Diff.Tests/GnOuGo.Diff.Tests.csproj (en 2 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/tests/GnOuGo.DocIngestor.Mcp.Tests/GnOuGo.DocIngestor.Mcp.Tests.csproj (en 4 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/tests/GnOuGo.Assets.Bears.Tests/GnOuGo.Assets.Bears.Tests.csproj (en 5 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/tests/GnOuGo.Assets.Animation.Tests/GnOuGo.Assets.Animation.Tests.csproj (en 1 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/tests/GnOuGo.Cmd.Mcp.Tests/GnOuGo.Cmd.Mcp.Tests.csproj (en 7 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/tests/GnOuGo.Browser.Mcp.Tests/GnOuGo.Browser.Mcp.Tests.csproj (en 7 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/src/GnOuGo.Workspace/GnOuGo.Workspace.csproj (en 0,7 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/tests/GnOuGo.AI.Core.Tests/GnOuGo.AI.Core.Tests.csproj (en 2 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/tests/GnOuGo.Assets.Bears.Server.Tests/GnOuGo.Assets.Bears.Server.Tests.csproj (en 14 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/src/GnOuGo.OtlpCollector.Cli/GnOuGo.OtlpCollector.Cli.csproj (en 6 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/src/GnOuGo.Observability.Core/GnOuGo.Observability.Core.csproj (en 3 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/tests/GnOuGo.Assets.Animation.Server.Tests/GnOuGo.Assets.Animation.Server.Tests.csproj (en 10 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/tests/GnOuGo.Agent.Mcp.Tests/GnOuGo.Agent.Mcp.Tests.csproj (en 10 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/src/GnOuGo.Mcp.Core/GnOuGo.Mcp.Core.csproj (en 0,9 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/src/GnOuGo.KeyVault.Server/GnOuGo.KeyVault.Server.csproj (en 4 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/src/GnOuGo.Diff.Core/GnOuGo.Diff.Core.csproj (en 175 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/src/GnOuGo.Flow.Persistence/GnOuGo.Flow.Persistence.csproj (en 69 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/src/GnOuGo.Files.Server/GnOuGo.Files.Server.csproj (en 238 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/src/GnOuGo.KeyVault.Core/GnOuGo.KeyVault.Core.csproj (en 79 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj (en 32 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/src/GnOuGo.Agent.Server/GnOuGo.Agent.Server.csproj (en 921 ms).
+  Restauration effectuée de /private/tmp/gnougo-v15-final-validation/tests/GnOuGo.Agent.Server.Tests/GnOuGo.Agent.Server.Tests.csproj (en 64 ms).
+  GnOuGo.Auth.Core -> /private/tmp/gnougo-v15-final-validation/src/GnOuGo.Auth.Core/bin/Debug/net10.0/GnOuGo.Auth.Core.dll
+  Metadata JSON path : /private/tmp/gnougo-v15-final-validation/src/GnOuGo.AI.Core/Telemetry/model-metadata.json
+  Generated output   : /private/tmp/gnougo-v15-final-validation/src/GnOuGo.AI.Core/ModelMetadataCatalog.Generated.cs
+  Generated /private/tmp/gnougo-v15-final-validation/src/GnOuGo.AI.Core/ModelMetadataCatalog.Generated.cs (504 models, 27 aliases)
+  GnOuGo.AI.Core -> /private/tmp/gnougo-v15-final-validation/src/GnOuGo.AI.Core/bin/Debug/net10.0/GnOuGo.AI.Core.dll
+  GnOuGo.DocIngestor.Core -> /private/tmp/gnougo-v15-final-validation/src/GnOuGo.DocIngestor.Core/bin/Debug/net10.0/GnOuGo.DocIngestor.Core.dll
+  GnOuGo.DocIngestor.Tests -> /private/tmp/gnougo-v15-final-validation/tests/GnOuGo.DocIngestor.Tests/bin/Debug/net10.0/GnOuGo.DocIngestor.Tests.dll
+Série de tests pour /private/tmp/gnougo-v15-final-validation/tests/GnOuGo.DocIngestor.Tests/bin/Debug/net10.0/GnOuGo.DocIngestor.Tests.dll (.NETCoreApp,Version=v10.0)
+Au total, 1 fichiers de test ont correspondu au modèle spécifié.
+
+Réussi!  - échec :     0, réussite :    89, ignorée(s) :     0, total :    89, durée : 1 s - GnOuGo.DocIngestor.Tests.dll (net10.0)
+  GnOuGo.Diff.Core -> /private/tmp/gnougo-v15-final-validation/src/GnOuGo.Diff.Core/bin/Debug/net10.0/GnOuGo.Diff.Core.dll
+  GnOuGo.Diff.Tests -> /private/tmp/gnougo-v15-final-validation/tests/GnOuGo.Diff.Tests/bin/Debug/net10.0/GnOuGo.Diff.Tests.dll
+Série de tests pour /private/tmp/gnougo-v15-final-validation/tests/GnOuGo.Diff.Tests/bin/Debug/net10.0/GnOuGo.Diff.Tests.dll (.NETCoreApp,Version=v10.0)
+Au total, 1 fichiers de test ont correspondu au modèle spécifié.
+
+Réussi!  - échec :     0, réussite :    52, ignorée(s) :     0, total :    52, durée : 887 ms - GnOuGo.Diff.Tests.dll (net10.0)
+  GnOuGo.Workspace -> /private/tmp/gnougo-v15-final-validation/src/GnOuGo.Workspace/bin/Debug/net10.0/GnOuGo.Workspace.dll
+  GnOuGo.KeyVault.Core -> /private/tmp/gnougo-v15-final-validation/src/GnOuGo.KeyVault.Core/bin/Debug/net10.0/GnOuGo.KeyVault.Core.dll
+  GnOuGo.KeyVault.Core.Tests -> /private/tmp/gnougo-v15-final-validation/tests/GnOuGo.KeyVault.Core.Tests/bin/Debug/net10.0/GnOuGo.KeyVault.Core.Tests.dll
+Série de tests pour /private/tmp/gnougo-v15-final-validation/tests/GnOuGo.KeyVault.Core.Tests/bin/Debug/net10.0/GnOuGo.KeyVault.Core.Tests.dll (.NETCoreApp,Version=v10.0)
+Au total, 1 fichiers de test ont correspondu au modèle spécifié.
+
+Réussi!  - échec :     0, réussite :    12, ignorée(s) :     0, total :    12, durée : 964 ms - GnOuGo.KeyVault.Core.Tests.dll (net10.0)
+  GnOuGo.Flow.Core -> /private/tmp/gnougo-v15-final-validation/src/GnOuGo.Flow.Core/bin/Debug/net10.0/GnOuGo.Flow.Core.dll
+  GnOuGo.Flow.Tests -> /private/tmp/gnougo-v15-final-validation/tests/GnOuGo.Flow.Tests/bin/Debug/net10.0/GnOuGo.Flow.Tests.dll
+Série de tests pour /private/tmp/gnougo-v15-final-validation/tests/GnOuGo.Flow.Tests/bin/Debug/net10.0/GnOuGo.Flow.Tests.dll (.NETCoreApp,Version=v10.0)
+Au total, 1 fichiers de test ont correspondu au modèle spécifié.
+
+Réussi!  - échec :     0, réussite :  1384, ignorée(s) :     0, total :  1384, durée : 2 s - GnOuGo.Flow.Tests.dll (net10.0)
+  GnOuGo.Flow.Planning -> /private/tmp/gnougo-v15-final-validation/src/GnOuGo.Flow.Planning/bin/Debug/net10.0/GnOuGo.Flow.Planning.dll
+  GnOuGo.Mcp.Core -> /private/tmp/gnougo-v15-final-validation/src/GnOuGo.Mcp.Core/bin/Debug/net10.0/GnOuGo.Mcp.Core.dll
+  GnOuGo.Flow.Integrations -> /private/tmp/gnougo-v15-final-validation/src/GnOuGo.Flow.Integrations/bin/Debug/net10.0/GnOuGo.Flow.Integrations.dll
+  GnOuGo.Flow.Integrations.Tests -> /private/tmp/gnougo-v15-final-validation/tests/GnOuGo.Flow.Integrations.Tests/bin/Debug/net10.0/GnOuGo.Flow.Integrations.Tests.dll
+Série de tests pour /private/tmp/gnougo-v15-final-validation/tests/GnOuGo.Flow.Integrations.Tests/bin/Debug/net10.0/GnOuGo.Flow.Integrations.Tests.dll (.NETCoreApp,Version=v10.0)
+Au total, 1 fichiers de test ont correspondu au modèle spécifié.
+
+Réussi!  - échec :     0, réussite :    99, ignorée(s) :     0, total :    99, durée : 1 s - GnOuGo.Flow.Integrations.Tests.dll (net10.0)
+  GnOuGo.AI.Core.Tests -> /private/tmp/gnougo-v15-final-validation/tests/GnOuGo.AI.Core.Tests/bin/Debug/net10.0/GnOuGo.AI.Core.Tests.dll
+Série de tests pour /private/tmp/gnougo-v15-final-validation/tests/GnOuGo.AI.Core.Tests/bin/Debug/net10.0/GnOuGo.AI.Core.Tests.dll (.NETCoreApp,Version=v10.0)
+Au total, 1 fichiers de test ont correspondu au modèle spécifié.
+
+Réussi!  - échec :     0, réussite :   225, ignorée(s) :     0, total :   225, durée : 1 s - GnOuGo.AI.Core.Tests.dll (net10.0)
+  GnOuGo.AI.Local -> /private/tmp/gnougo-v15-final-validation/src/GnOuGo.AI.Local/bin/Debug/net10.0/GnOuGo.AI.Local.dll
+  GnOuGo.AI.Local.Tests -> /private/tmp/gnougo-v15-final-validation/tests/GnOuGo.AI.Local.Tests/bin/Debug/net10.0/GnOuGo.AI.Local.Tests.dll
+Série de tests pour /private/tmp/gnougo-v15-final-validation/tests/GnOuGo.AI.Local.Tests/bin/Debug/net10.0/GnOuGo.AI.Local.Tests.dll (.NETCoreApp,Version=v10.0)
+Au total, 1 fichiers de test ont correspondu au modèle spécifié.
+
+Réussi!  - échec :     0, réussite :    14, ignorée(s) :     0, total :    14, durée : 100 ms - GnOuGo.AI.Local.Tests.dll (net10.0)
+  GnOuGo.Observability.Core -> /private/tmp/gnougo-v15-final-validation/src/GnOuGo.Observability.Core/bin/Debug/net10.0/GnOuGo.Observability.Core.dll
+  GnOuGo.Agent.Mcp -> /private/tmp/gnougo-v15-final-validation/src/GnOuGo.Agent.Mcp/bin/Debug/net10.0/GnOuGo.Agent.Mcp.dll
+  GnOuGo.Agent.Mcp.Tests -> /private/tmp/gnougo-v15-final-validation/tests/GnOuGo.Agent.Mcp.Tests/bin/Debug/net10.0/GnOuGo.Agent.Mcp.Tests.dll
+Série de tests pour /private/tmp/gnougo-v15-final-validation/tests/GnOuGo.Agent.Mcp.Tests/bin/Debug/net10.0/GnOuGo.Agent.Mcp.Tests.dll (.NETCoreApp,Version=v10.0)
+Au total, 1 fichiers de test ont correspondu au modèle spécifié.
+
+Réussi!  - échec :     0, réussite :   103, ignorée(s) :     0, total :   103, durée : 2 s - GnOuGo.Agent.Mcp.Tests.dll (net10.0)
+  GnOuGo.Cmd.Mcp -> /private/tmp/gnougo-v15-final-validation/src/GnOuGo.Cmd.Mcp/bin/Debug/net10.0/GnOuGo.Cmd.Mcp.dll
+  GnOuGo.Cmd.Mcp.Tests -> /private/tmp/gnougo-v15-final-validation/tests/GnOuGo.Cmd.Mcp.Tests/bin/Debug/net10.0/GnOuGo.Cmd.Mcp.Tests.dll
+Série de tests pour /private/tmp/gnougo-v15-final-validation/tests/GnOuGo.Cmd.Mcp.Tests/bin/Debug/net10.0/GnOuGo.Cmd.Mcp.Tests.dll (.NETCoreApp,Version=v10.0)
+Au total, 1 fichiers de test ont correspondu au modèle spécifié.
+[xUnit.net 00:00:00.92]     GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.DefaultLaunchUsesOnlyTheSelectedShellsBuiltInModulePath [SKIP]
+  Ignoré GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.DefaultLaunchUsesOnlyTheSelectedShellsBuiltInModulePath [1 ms]
+[xUnit.net 00:00:00.95]     GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.LaunchInitializationPreservesLeadingScriptDeclarations(script: "using namespace System\n[Console]::WriteLine('names"···, expected: "namespace declaration", exitCode: 0) [SKIP]
+[xUnit.net 00:00:00.95]     GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.LaunchInitializationPreservesLeadingScriptDeclarations(script: "param([string]$text = 'parameter default'); [Conso"···, expected: "parameter default", exitCode: 3) [SKIP]
+[xUnit.net 00:00:00.95]     GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.TimeoutAndCancellationTerminateTheChildTree(cancel: True) [SKIP]
+[xUnit.net 00:00:00.95]     GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.TimeoutAndCancellationTerminateTheChildTree(cancel: False) [SKIP]
+  Ignoré GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.LaunchInitializationPreservesLeadingScriptDeclarations(script: "using namespace System\n[Console]::WriteLine('names"···, expected: "namespace declaration", exitCode: 0) [1 ms]
+  Ignoré GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.LaunchInitializationPreservesLeadingScriptDeclarations(script: "param([string]$text = 'parameter default'); [Conso"···, expected: "parameter default", exitCode: 3) [1 ms]
+  Ignoré GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.TimeoutAndCancellationTerminateTheChildTree(cancel: True) [1 ms]
+  Ignoré GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.TimeoutAndCancellationTerminateTheChildTree(cancel: False) [1 ms]
+[xUnit.net 00:00:00.96]     GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.PrivateEofPreservesRepeatedCommandsUnicodeQuotesAndExitCodes(exitCode: 3) [SKIP]
+[xUnit.net 00:00:00.96]     GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.PrivateEofPreservesRepeatedCommandsUnicodeQuotesAndExitCodes(exitCode: 0) [SKIP]
+  Ignoré GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.PrivateEofPreservesRepeatedCommandsUnicodeQuotesAndExitCodes(exitCode: 3) [1 ms]
+  Ignoré GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.PrivateEofPreservesRepeatedCommandsUnicodeQuotesAndExitCodes(exitCode: 0) [1 ms]
+
+Réussi!  - échec :     0, réussite :    93, ignorée(s) :     7, total :   100, durée : 18 s - GnOuGo.Cmd.Mcp.Tests.dll (net10.0)
+  GnOuGo.Browser.Mcp -> /private/tmp/gnougo-v15-final-validation/src/GnOuGo.Browser.Mcp/bin/Debug/net10.0/GnOuGo.Browser.Mcp.dll
+  Installing Playwright Chromium browsers...
+  GnOuGo.Browser.Mcp.Tests -> /private/tmp/gnougo-v15-final-validation/tests/GnOuGo.Browser.Mcp.Tests/bin/Debug/net10.0/GnOuGo.Browser.Mcp.Tests.dll
+Série de tests pour /private/tmp/gnougo-v15-final-validation/tests/GnOuGo.Browser.Mcp.Tests/bin/Debug/net10.0/GnOuGo.Browser.Mcp.Tests.dll (.NETCoreApp,Version=v10.0)
+Au total, 1 fichiers de test ont correspondu au modèle spécifié.
+
+Réussi!  - échec :     0, réussite :   141, ignorée(s) :     0, total :   141, durée : 18 s - GnOuGo.Browser.Mcp.Tests.dll (net10.0)
+  GnOuGo.Flow.Copilot -> /private/tmp/gnougo-v15-final-validation/src/GnOuGo.Flow.Copilot/bin/Debug/net10.0/GnOuGo.Flow.Copilot.dll
+  GnOuGo.Flow.Persistence -> /private/tmp/gnougo-v15-final-validation/src/GnOuGo.Flow.Persistence/bin/Debug/net10.0/GnOuGo.Flow.Persistence.dll
+  GnOuGo.Agent.Shared -> /private/tmp/gnougo-v15-final-validation/src/GnOuGo.Agent.Shared/bin/Debug/net10.0/GnOuGo.Agent.Shared.dll
+  GnOuGo.Assets.Bears -> /private/tmp/gnougo-v15-final-validation/src/GnOuGo.Assets.Bears/bin/Debug/net10.0/GnOuGo.Assets.Bears.dll
+  GnOuGo.Assets.Animation -> /private/tmp/gnougo-v15-final-validation/src/GnOuGo.Assets.Animation/bin/Debug/net10.0/GnOuGo.Assets.Animation.dll
+  GnOuGo.DocIngestor.Mcp -> /private/tmp/gnougo-v15-final-validation/src/GnOuGo.DocIngestor.Mcp/bin/Debug/net10.0/GnOuGo.DocIngestor.Mcp.dll
+  GnOuGo.Flow.Mermaid -> /private/tmp/gnougo-v15-final-validation/src/GnOuGo.Flow.Mermaid/bin/Debug/net10.0/GnOuGo.Flow.Mermaid.dll
+  GnOuGo.Files.Server -> /private/tmp/gnougo-v15-final-validation/src/GnOuGo.Files.Server/bin/Debug/net10.0/GnOuGo.Files.Server.dll
+  GnOuGo.KeyVault.Mcp -> /private/tmp/gnougo-v15-final-validation/src/GnOuGo.KeyVault.Mcp/bin/Debug/net10.0/GnOuGo.KeyVault.Mcp.dll
+  OpenTelemetry Proto v1.4.0 will be refreshed because required files are missing: opentelemetry/proto/common/v1/common.proto, opentelemetry/proto/resource/v1/resource.proto, opentelemetry/proto/trace/v1/trace.proto, opentelemetry/proto/logs/v1/logs.proto, opentelemetry/proto/metrics/v1/metrics.proto, opentelemetry/proto/collector/trace/v1/trace_service.proto, opentelemetry/proto/collector/logs/v1/logs_service.proto, opentelemetry/proto/collector/metrics/v1/metrics_service.proto
+  Downloading OpenTelemetry Proto v1.4.0 ...
+  Téléchargement de "https://raw.githubusercontent.com/open-telemetry/opentelemetry-proto/v1.4.0/opentelemetry/proto/common/v1/common.proto" vers "/private/tmp/gnougo-v15-final-validation/src/GnOuGo.OtlpCollector.Server/Protos/otlp-proto/opentelemetry/proto/common/v1/common.proto" (3 142 octets).
+  Téléchargement de "https://raw.githubusercontent.com/open-telemetry/opentelemetry-proto/v1.4.0/opentelemetry/proto/resource/v1/resource.proto" vers "/private/tmp/gnougo-v15-final-validation/src/GnOuGo.OtlpCollector.Server/Protos/otlp-proto/opentelemetry/proto/resource/v1/resource.proto" (1 424 octets).
+  Téléchargement de "https://raw.githubusercontent.com/open-telemetry/opentelemetry-proto/v1.4.0/opentelemetry/proto/trace/v1/trace.proto" vers "/private/tmp/gnougo-v15-final-validation/src/GnOuGo.OtlpCollector.Server/Protos/otlp-proto/opentelemetry/proto/trace/v1/trace.proto" (15 721 octets).
+  Téléchargement de "https://raw.githubusercontent.com/open-telemetry/opentelemetry-proto/v1.4.0/opentelemetry/proto/logs/v1/logs.proto" vers "/private/tmp/gnougo-v15-final-validation/src/GnOuGo.OtlpCollector.Server/Protos/otlp-proto/opentelemetry/proto/logs/v1/logs.proto" (8 852 octets).
+  Téléchargement de "https://raw.githubusercontent.com/open-telemetry/opentelemetry-proto/v1.4.0/opentelemetry/proto/metrics/v1/metrics.proto" vers "/private/tmp/gnougo-v15-final-validation/src/GnOuGo.OtlpCollector.Server/Protos/otlp-proto/opentelemetry/proto/metrics/v1/metrics.proto" (30 410 octets).
+  Téléchargement de "https://raw.githubusercontent.com/open-telemetry/opentelemetry-proto/v1.4.0/opentelemetry/proto/collector/trace/v1/trace_service.proto" vers "/private/tmp/gnougo-v15-final-validation/src/GnOuGo.OtlpCollector.Server/Protos/otlp-proto/opentelemetry/proto/collector/trace/v1/trace_service.proto" (3 523 octets).
+  Téléchargement de "https://raw.githubusercontent.com/open-telemetry/opentelemetry-proto/v1.4.0/opentelemetry/proto/collector/logs/v1/logs_service.proto" vers "/private/tmp/gnougo-v15-final-validation/src/GnOuGo.OtlpCollector.Server/Protos/otlp-proto/opentelemetry/proto/collector/logs/v1/logs_service.proto" (3 517 octets).
+  Téléchargement de "https://raw.githubusercontent.com/open-telemetry/opentelemetry-proto/v1.4.0/opentelemetry/proto/collector/metrics/v1/metrics_service.proto" vers "/private/tmp/gnougo-v15-final-validation/src/GnOuGo.OtlpCollector.Server/Protos/otlp-proto/opentelemetry/proto/collector/metrics/v1/metrics_service.proto" (3 504 octets).
+  OpenTelemetry Proto v1.4.0 ready.
+  GnOuGo.Auth.Core -> /private/tmp/gnougo-v15-final-validation/src/GnOuGo.Auth.Core/bin/Debug/net10.0/GnOuGo.Auth.Core.dll
+  GnOuGo.AI.Core -> /private/tmp/gnougo-v15-final-validation/src/GnOuGo.AI.Core/bin/Debug/net10.0/GnOuGo.AI.Core.dll
+  GnOuGo.Workspace -> /private/tmp/gnougo-v15-final-validation/src/GnOuGo.Workspace/bin/Debug/net10.0/GnOuGo.Workspace.dll
+  GnOuGo.OtlpCollector.Server -> /private/tmp/gnougo-v15-final-validation/src/GnOuGo.OtlpCollector.Server/bin/Debug/net10.0/GnOuGo.OtlpCollector.Server.dll
+  GnOuGo.Mcp.Core -> /private/tmp/gnougo-v15-final-validation/src/GnOuGo.Mcp.Core/bin/Debug/net10.0/GnOuGo.Mcp.Core.dll
+  GnOuGo.Observability.Core -> /private/tmp/gnougo-v15-final-validation/src/GnOuGo.Observability.Core/bin/Debug/net10.0/GnOuGo.Observability.Core.dll
+  GnOuGo.Browser.Mcp -> /private/tmp/gnougo-v15-final-validation/src/GnOuGo.Browser.Mcp/bin/Debug/net10.0/GnOuGo.Browser.Mcp.dll
+  GnOuGo.Workspace -> /private/tmp/gnougo-v15-final-validation/src/GnOuGo.Workspace/bin/Debug/net10.0/GnOuGo.Workspace.dll
+  GnOuGo.Cmd.Mcp -> /private/tmp/gnougo-v15-final-validation/src/GnOuGo.Cmd.Mcp/bin/Debug/net10.0/GnOuGo.Cmd.Mcp.dll
+  GnOuGo.Diff.Core -> /private/tmp/gnougo-v15-final-validation/src/GnOuGo.Diff.Core/bin/Debug/net10.0/GnOuGo.Diff.Core.dll
+  GnOuGo.Document.Mcp -> /private/tmp/gnougo-v15-final-validation/src/GnOuGo.Document.Mcp/bin/Debug/net10.0/GnOuGo.Document.Mcp.dll
+  GnOuGo.Auth.Core -> /private/tmp/gnougo-v15-final-validation/src/GnOuGo.Auth.Core/bin/Debug/net10.0/GnOuGo.Auth.Core.dll
+  GnOuGo.Flow.Core -> /private/tmp/gnougo-v15-final-validation/src/GnOuGo.Flow.Core/bin/Debug/net10.0/GnOuGo.Flow.Core.dll
+  Downloading Copilot CLI 1.0.88 for darwin-arm64...
+  Téléchargement de "https://github.com/github/copilot-cli/releases/download/v1.0.88/SHA256SUMS.txt" vers "/private/tmp/gnougo-v15-final-validation/src/GnOuGo.GithubCopilot.Core/obj/Debug/net10.0/copilot-cli/1.0.88/darwin-arm64/SHA256SUMS.txt" (1 740 octets).
+  Téléchargement de "https://github.com/github/copilot-cli/releases/download/v1.0.88/github-copilot-1.0.88-darwin-arm64.tgz" vers "/private/tmp/gnougo-v15-final-validation/src/GnOuGo.GithubCopilot.Core/obj/Debug/net10.0/copilot-cli/1.0.88/darwin-arm64/copilot.tgz" (55 323 492 octets).
+  GnOuGo.GithubCopilot.Core -> /private/tmp/gnougo-v15-final-validation/src/GnOuGo.GithubCopilot.Core/bin/Debug/net10.0/GnOuGo.GithubCopilot.Core.dll
+  GnOuGo.KeyVault.Core -> /private/tmp/gnougo-v15-final-validation/src/GnOuGo.KeyVault.Core/bin/Debug/net10.0/GnOuGo.KeyVault.Core.dll
+  GnOuGo.GithubCopilot.Mcp -> /private/tmp/gnougo-v15-final-validation/src/GnOuGo.GithubCopilot.Mcp/bin/Debug/net10.0/GnOuGo.GithubCopilot.Mcp.dll
+  GnOuGo.Git.Mcp -> /private/tmp/gnougo-v15-final-validation/src/GnOuGo.Git.Mcp/bin/Debug/net10.0/GnOuGo.Git.Mcp.dll
+  GnOuGo.Agent.Server -> /private/tmp/gnougo-v15-final-validation/src/GnOuGo.Agent.Server/bin/Debug/net10.0/GnOuGo.Agent.Server.dll
+  Building GnOuGo.Agent frontend (Vite)
+  Scope: all 10 workspace projects
+  ../../..                                 | Progress: resolved 1, reused 0, downloaded 0, added 0
+  ../../..                                 | +264 ++++++++++++++++++++++++++
+  ../../..                                 | Progress: resolved 264, reused 264, downloaded 0, added 211
+  ../../..                                 | Progress: resolved 264, reused 264, downloaded 0, added 259
+  ../../..                                 | Progress: resolved 264, reused 264, downloaded 0, added 263
+  ../../..                                 | Progress: resolved 264, reused 264, downloaded 0, added 264, done
+  
+  dependencies:
+  + github-markdown-css 5.9.0
+  + mermaid 12.0.0
+  
+  devDependencies:
+  + sass 1.105.0
+  + typescript 7.0.2
+  + vite 8.3.0
+  
+  Done in 3.3s using pnpm v10.14.0
+  
+  > gnougo-agent-ui@0.0.0 build /private/tmp/gnougo-v15-final-validation/src/GnOuGo.Agent.Server/ClientApp
+  > vite build
+  
+  vite v8.3.0 building client environment for production...
+  transforming...
+  ✓ 2119 modules transformed.
+  rendering chunks...
+  computing gzip size...
+  ../wwwroot/ui/app.css                                    73.43 kB │ gzip:  14.05 kB
+  ../wwwroot/ui/chunks/pie-WAS4IAKB.js                      0.10 kB │ gzip:   0.10 kB
+  ../wwwroot/ui/chunks/channel.js                           0.10 kB │ gzip:   0.11 kB
+  ../wwwroot/ui/chunks/info-A6RAGUB7.js                     0.10 kB │ gzip:   0.11 kB
+  ../wwwroot/ui/chunks/radar-RG4KPBEZ.js                    0.10 kB │ gzip:   0.11 kB
+  ../wwwroot/ui/chunks/array.js                             0.10 kB │ gzip:   0.11 kB
+  ../wwwroot/ui/chunks/packet-AYTQ26CC.js                   0.10 kB │ gzip:   0.11 kB
+  ../wwwroot/ui/chunks/cynefin-OW5HDTMX.js                  0.10 kB │ gzip:   0.11 kB
+  ../wwwroot/ui/chunks/treemap-WGGIJYW6.js                  0.10 kB │ gzip:   0.11 kB
+  ../wwwroot/ui/chunks/wardley-WFR3VGLG.js                  0.10 kB │ gzip:   0.11 kB
+  ../wwwroot/ui/chunks/gitGraph-4MIJSDKK.js                 0.10 kB │ gzip:   0.11 kB
+  ../wwwroot/ui/chunks/railroad-74A4TZTK.js                 0.10 kB │ gzip:   0.11 kB
+  ../wwwroot/ui/chunks/treeView-Q6P3EWNA.js                 0.10 kB │ gzip:   0.11 kB
+  ../wwwroot/ui/chunks/railroad-peg-WCYAUIDC.js             0.11 kB │ gzip:   0.11 kB
+  ../wwwroot/ui/chunks/architecture-7GRP2DOG.js             0.11 kB │ gzip:   0.11 kB
+  ../wwwroot/ui/chunks/railroad-abnf-HS5TGJTU.js            0.11 kB │ gzip:   0.11 kB
+  ../wwwroot/ui/chunks/railroad-ebnf-LZEXJU2U.js            0.11 kB │ gzip:   0.11 kB
+  ../wwwroot/ui/chunks/eventmodeling-NTZA5JFV.js            0.11 kB │ gzip:   0.11 kB
+  ../wwwroot/ui/chunks/init.js                              0.14 kB │ gzip:   0.12 kB
+  ../wwwroot/ui/chunks/chunk-Y2CYZVJY.js                    0.15 kB │ gzip:   0.14 kB
+  ../wwwroot/ui/chunks/chunk-2Q5K7J3B.js                    0.18 kB │ gzip:   0.15 kB
+  ../wwwroot/ui/chunks/chunk-JWPE2WC7.js                    0.21 kB │ gzip:   0.16 kB
+  ../wwwroot/ui/chunks/chunk-XXDRQBXY.js                    0.24 kB │ gzip:   0.20 kB
+  ../wwwroot/ui/chunks/chunk-5VM5RSS4.js                    0.35 kB │ gzip:   0.26 kB
+  ../wwwroot/ui/chunks/flowDiagram-KWPJA3E3.js              0.44 kB │ gzip:   0.20 kB
+  ../wwwroot/ui/chunks/chunk-WEXAMYUT.js                    0.54 kB │ gzip:   0.37 kB
+  ../wwwroot/ui/chunks/infoDiagram-VRGFBTTK.js              0.60 kB │ gzip:   0.37 kB
+  ../wwwroot/ui/chunks/chunk-J5ZVWO5B.js                    0.62 kB │ gzip:   0.42 kB
+  ../wwwroot/ui/chunks/swimlanesDiagram-TC7HE7FX.js         0.68 kB │ gzip:   0.36 kB
+  ../wwwroot/ui/chunks/sizeCapture-INFHLROL.js              0.86 kB │ gzip:   0.50 kB
+  ../wwwroot/ui/chunks/chunk-DUW6YSOI.js                    0.88 kB │ gzip:   0.45 kB
+  ../wwwroot/ui/chunks/line.js                              0.91 kB │ gzip:   0.44 kB
+  ../wwwroot/ui/chunks/ordinal.js                           1.16 kB │ gzip:   0.55 kB
+  ../wwwroot/ui/chunks/chunk-5DYCD2WN.js                    1.38 kB │ gzip:   0.75 kB
+  ../wwwroot/ui/chunks/railroadDiagram-XR7U4H2S.js          1.60 kB │ gzip:   0.71 kB
+  ../wwwroot/ui/chunks/abnfDiagram-O67JEVCF.js              1.79 kB │ gzip:   0.83 kB
+  ../wwwroot/ui/chunks/chunk-7PRAP22T.js                    1.93 kB │ gzip:   0.93 kB
+  ../wwwroot/ui/chunks/chunk-GWA4HPMP.js                    1.93 kB │ gzip:   0.85 kB
+  ../wwwroot/ui/chunks/pegDiagram-GJSIUBJH.js               1.94 kB │ gzip:   0.88 kB
+  ../wwwroot/ui/chunks/ebnfDiagram-ZINNZB2B.js              2.00 kB │ gzip:   0.83 kB
+  ../wwwroot/ui/chunks/dist.js                              2.15 kB │ gzip:   0.95 kB
+  ../wwwroot/ui/chunks/path.js                              2.27 kB │ gzip:   0.98 kB
+  ../wwwroot/ui/chunks/arc.js                               3.45 kB │ gzip:   1.45 kB
+  ../wwwroot/ui/chunks/diagram-MLGK6HIB.js                  4.21 kB │ gzip:   1.78 kB
+  ../wwwroot/ui/chunks/defaultLocale.js                     4.63 kB │ gzip:   2.12 kB
+  ../wwwroot/ui/chunks/chunk-NETBCI7D.js                    5.42 kB │ gzip:   2.48 kB
+  ../wwwroot/ui/chunks/linear.js                            5.49 kB │ gzip:   2.22 kB
+  ../wwwroot/ui/chunks/chunk-742MDFTN.js                    5.80 kB │ gzip:   2.66 kB
+  ../wwwroot/ui/chunks/graphlib.js                          5.84 kB │ gzip:   1.81 kB
+  ../wwwroot/ui/chunks/diagram-MPIPVDR6.js                  6.00 kB │ gzip:   2.50 kB
+  ../wwwroot/ui/chunks/pieDiagram-5QR66LMP.js               6.10 kB │ gzip:   2.50 kB
+  ../wwwroot/ui/chunks/_basePickBy.js                       7.58 kB │ gzip:   3.14 kB
+  ../wwwroot/ui/chunks/diagram-CDSNMT55.js                  8.11 kB │ gzip:   3.57 kB
+  ../wwwroot/ui/chunks/cynefinDiagram-VND7K2PF.js           9.87 kB │ gzip:   3.45 kB
+  ../wwwroot/ui/chunks/chunk-3FUC2YCW.js                   10.59 kB │ gzip:   4.21 kB
+  ../wwwroot/ui/chunks/diagram-ATOU4E4O.js                 10.59 kB │ gzip:   4.06 kB
+  ../wwwroot/ui/chunks/chunk-UA2S7LBM.js                   14.74 kB │ gzip:   4.15 kB
+  ../wwwroot/ui/chunks/chunk-GTNCS2PH.js                   15.60 kB │ gzip:   4.32 kB
+  ../wwwroot/ui/chunks/diagram-3UASUU5V.js                 15.65 kB │ gzip:   5.42 kB
+  ../wwwroot/ui/chunks/mermaid-parser.core.js              16.28 kB │ gzip:   3.77 kB
+  ../wwwroot/ui/chunks/ishikawaDiagram-OU5B5YK6.js         17.25 kB │ gzip:   6.48 kB
+  ../wwwroot/ui/chunks/_baseUniq.js                        18.23 kB │ gzip:   6.72 kB
+  ../wwwroot/ui/chunks/kanban-definition-PNTS6WVX.js       20.15 kB │ gzip:   7.04 kB
+  ../wwwroot/ui/chunks/sankeyDiagram-IPEJSGJF.js           22.75 kB │ gzip:   8.22 kB
+  ../wwwroot/ui/chunks/journeyDiagram-ZHPQQLJL.js          23.10 kB │ gzip:   8.10 kB
+  ../wwwroot/ui/chunks/mindmap-definition-NLK3R4M7.js      23.31 kB │ gzip:   7.84 kB
+  ../wwwroot/ui/chunks/wardleyDiagram-VNRHLVJA.js          25.13 kB │ gzip:   6.48 kB
+  ../wwwroot/ui/chunks/rough.esm.js                        27.10 kB │ gzip:   8.85 kB
+  ../wwwroot/ui/chunks/gitGraphDiagram-X574FWY7.js         28.94 kB │ gzip:   8.49 kB
+  ../wwwroot/ui/chunks/timeline-definition-EJHVYXUP.js     30.39 kB │ gzip:   9.96 kB
+  ../wwwroot/ui/chunks/erDiagram-OPXOYQCR.js               30.50 kB │ gzip:  10.41 kB
+  ../wwwroot/ui/chunks/chunk-ZIGJFQKS.js                   30.70 kB │ gzip:   8.48 kB
+  ../wwwroot/ui/chunks/requirementDiagram-PLB6GJNP.js      30.93 kB │ gzip:   9.70 kB
+  ../wwwroot/ui/chunks/quadrantDiagram-O4NWA36T.js         33.47 kB │ gzip:   9.70 kB
+  ../wwwroot/ui/chunks/chunk-Z7XXMR3K.js                   37.32 kB │ gzip:   7.98 kB
+  ../wwwroot/ui/chunks/dagre-6A5THRUB.js                   40.62 kB │ gzip:  14.42 kB
+  ../wwwroot/ui/chunks/vennDiagram-UO4OBE2U.js             41.13 kB │ gzip:  15.07 kB
+  ../wwwroot/ui/chunks/stateDiagram-v2-GCMORJYK.js         41.39 kB │ gzip:  13.75 kB
+  ../wwwroot/ui/chunks/blockDiagram-BEXU5L5S.js            42.32 kB │ gzip:  13.74 kB
+  ../wwwroot/ui/chunks/xychartDiagram-PMCCYNJV.js          44.04 kB │ gzip:  12.12 kB
+  ../wwwroot/ui/chunks/src.js                              46.60 kB │ gzip:  16.41 kB
+  ../wwwroot/ui/chunks/classDiagram-v2-NBCMYWYE.js         49.54 kB │ gzip:  15.99 kB
+  ../wwwroot/ui/chunks/chunk-MBY4JIJT.js                   51.82 kB │ gzip:  16.59 kB
+  ../wwwroot/ui/chunks/chunk-7M6MHVWA.js                   62.61 kB │ gzip:  20.24 kB
+  ../wwwroot/ui/chunks/c4Diagram-YGBWAQC7.js               64.99 kB │ gzip:  18.52 kB
+  ../wwwroot/ui/chunks/ganttDiagram-FUAMR5RP.js            69.25 kB │ gzip:  22.67 kB
+  ../wwwroot/ui/app.js                                     70.94 kB │ gzip:  20.44 kB
+  ../wwwroot/ui/chunks/diagram-22UHCM2B.js                 80.32 kB │ gzip:  25.04 kB
+  ../wwwroot/ui/chunks/cose-bilkent-JH36ORCC.js            81.19 kB │ gzip:  21.49 kB
+  ../wwwroot/ui/chunks/mermaid.core.js                     82.68 kB │ gzip:  28.00 kB
+  ../wwwroot/ui/chunks/swimlanes-2SLR337P.js              106.12 kB │ gzip:  36.00 kB
+  ../wwwroot/ui/chunks/chunk-7INBJB4K.js                  115.40 kB │ gzip:  29.13 kB
+  ../wwwroot/ui/chunks/sequenceDiagram-PO4LG4MO.js        117.24 kB │ gzip:  31.18 kB
+  ../wwwroot/ui/chunks/architectureDiagram-NJMV4G6O.js    148.78 kB │ gzip:  41.02 kB
+  ../wwwroot/ui/chunks/usecaseDiagram-POWQR4AR.js         186.51 kB │ gzip:  50.00 kB
+  ../wwwroot/ui/chunks/chunk-O7XYJQB3.js                  238.26 kB │ gzip:  39.17 kB
+  ../wwwroot/ui/chunks/katex.js                           258.68 kB │ gzip:  77.43 kB
+  ../wwwroot/ui/chunks/cytoscape.esm.js                   434.85 kB │ gzip: 137.78 kB
+  ../wwwroot/ui/chunks/chunk-FOHPRMQF.js                  662.10 kB │ gzip: 143.16 kB
+  ../wwwroot/ui/chunks/elk-276RUBZZ.js                  1,456.26 kB │ gzip: 453.08 kB
+  
+  ✓ built in 871ms
+  Staging GnOuGo MCP development tools into bin/Debug/net10.0/tools...
+  GnOuGo.Document.Mcp -> /private/tmp/gnougo-v15-final-validation/src/GnOuGo.Document.Mcp/bin/Debug/net10.0/GnOuGo.Document.Mcp.dll
+  GnOuGo.Git.Mcp -> /private/tmp/gnougo-v15-final-validation/src/GnOuGo.Git.Mcp/bin/Debug/net10.0/GnOuGo.Git.Mcp.dll
+  GnOuGo.GithubCopilot.Core -> /private/tmp/gnougo-v15-final-validation/src/GnOuGo.GithubCopilot.Core/bin/Debug/net10.0/GnOuGo.GithubCopilot.Core.dll
+  GnOuGo.GithubCopilot.Mcp -> /private/tmp/gnougo-v15-final-validation/src/GnOuGo.GithubCopilot.Mcp/bin/Debug/net10.0/GnOuGo.GithubCopilot.Mcp.dll
+  GnOuGo.OtlpCollector.Server -> /private/tmp/gnougo-v15-final-validation/src/GnOuGo.OtlpCollector.Server/bin/Debug/net10.0/GnOuGo.OtlpCollector.Server.dll
+  🔍 Vérification des dépendances pnpm...
+  🔨 Construction du frontend React...
+  
+  > otlp-tenant-collector-ui@0.1.0 build /private/tmp/gnougo-v15-final-validation/src/GnOuGo.OtlpCollector.Server/ClientApp
+  > tsc && vite build
+  
+  vite v8.3.0 building client environment for production...
+  transforming...
+  ✓ 56 modules transformed.
+  rendering chunks...
+  computing gzip size...
+  ../wwwroot/index.html                   0.40 kB │ gzip:   0.27 kB
+  ../wwwroot/assets/index-DrXxYbax.css   59.47 kB │ gzip:   9.70 kB
+  ../wwwroot/assets/index-Cs5bBauP.js   410.50 kB │ gzip: 121.60 kB │ map: 1,808.56 kB
+  
+  ✓ built in 405ms
+  ✅ Frontend construit et copié vers wwwroot/
+  GnOuGo.Agent.Server.Tests -> /private/tmp/gnougo-v15-final-validation/tests/GnOuGo.Agent.Server.Tests/bin/Debug/net10.0/GnOuGo.Agent.Server.Tests.dll
+  Staging GnOuGo MCP development tools into bin/Debug/net10.0/tools...
+Série de tests pour /private/tmp/gnougo-v15-final-validation/tests/GnOuGo.Agent.Server.Tests/bin/Debug/net10.0/GnOuGo.Agent.Server.Tests.dll (.NETCoreApp,Version=v10.0)
+Au total, 1 fichiers de test ont correspondu au modèle spécifié.
+[xUnit.net 00:01:23.80]     GnOuGo.Agent.Server.Tests.PlanningClarificationBrowserTests.DesignerBrowserUsesRealPersistedQuestionsAndExplicitSubmission [SKIP]
+  Ignoré GnOuGo.Agent.Server.Tests.PlanningClarificationBrowserTests.DesignerBrowserUsesRealPersistedQuestionsAndExplicitSubmission [1 ms]
+Tentative d'annulation de la génération en cours...

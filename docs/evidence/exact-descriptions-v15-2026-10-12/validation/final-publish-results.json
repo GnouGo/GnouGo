@@ -1,0 +1,173 @@
+[
+  {
+    "name": "pack-Core",
+    "exit_code": 0,
+    "elapsed_seconds": 3.371,
+    "command": [
+      "dotnet",
+      "pack",
+      "src/GnOuGo.Flow.Core/GnOuGo.Flow.Core.csproj",
+      "-c",
+      "Release",
+      "-m:1",
+      "-warnaserror",
+      "-o",
+      "/tmp/gnougo-v15-final-publish/packages"
+    ]
+  },
+  {
+    "name": "pack-Planning",
+    "exit_code": 0,
+    "elapsed_seconds": 4.439,
+    "command": [
+      "dotnet",
+      "pack",
+      "src/GnOuGo.Flow.Planning/GnOuGo.Flow.Planning.csproj",
+      "-c",
+      "Release",
+      "-m:1",
+      "-warnaserror",
+      "-o",
+      "/tmp/gnougo-v15-final-publish/packages"
+    ]
+  },
+  {
+    "name": "pack-Integrations",
+    "exit_code": 0,
+    "elapsed_seconds": 2.371,
+    "command": [
+      "dotnet",
+      "pack",
+      "src/GnOuGo.Flow.Integrations/GnOuGo.Flow.Integrations.csproj",
+      "-c",
+      "Release",
+      "-m:1",
+      "-warnaserror",
+      "-o",
+      "/tmp/gnougo-v15-final-publish/packages"
+    ]
+  },
+  {
+    "name": "pack-Copilot",
+    "exit_code": 0,
+    "elapsed_seconds": 1.091,
+    "command": [
+      "dotnet",
+      "pack",
+      "src/GnOuGo.Flow.Copilot/GnOuGo.Flow.Copilot.csproj",
+      "-c",
+      "Release",
+      "-m:1",
+      "-warnaserror",
+      "-o",
+      "/tmp/gnougo-v15-final-publish/packages"
+    ]
+  },
+  {
+    "name": "pack-Persistence",
+    "exit_code": 0,
+    "elapsed_seconds": 1.6,
+    "command": [
+      "dotnet",
+      "pack",
+      "src/GnOuGo.Flow.Persistence/GnOuGo.Flow.Persistence.csproj",
+      "-c",
+      "Release",
+      "-m:1",
+      "-warnaserror",
+      "-o",
+      "/tmp/gnougo-v15-final-publish/packages"
+    ]
+  },
+  {
+    "name": "planning-aot",
+    "exit_code": 0,
+    "elapsed_seconds": 33.28,
+    "command": [
+      "dotnet",
+      "publish",
+      "tests/GnOuGo.Flow.Planning.Smoke/GnOuGo.Flow.Planning.Smoke.csproj",
+      "-c",
+      "Release",
+      "-r",
+      "osx-arm64",
+      "--self-contained",
+      "true",
+      "-m:1",
+      "-warnaserror",
+      "-o",
+      "/tmp/gnougo-v15-final-publish/planning"
+    ]
+  },
+  {
+    "name": "planning-smoke",
+    "exit_code": 0,
+    "elapsed_seconds": 6.586,
+    "command": [
+      "/tmp/gnougo-v15-final-publish/planning/GnOuGo.Flow.Planning.Smoke"
+    ]
+  },
+  {
+    "name": "publish-Cli-supported",
+    "exit_code": 0,
+    "elapsed_seconds": 53.427,
+    "command": [
+      "dotnet",
+      "publish",
+      "src/GnOuGo.Flow.Cli/GnOuGo.Flow.Cli.csproj",
+      "-c",
+      "Release",
+      "-r",
+      "osx-arm64",
+      "--self-contained",
+      "true",
+      "-m:1",
+      "-p:PublishAot=true",
+      "-p:PublishTrimmed=true",
+      "-p:PublishSingleFile=true",
+      "-p:SkipClientBuild=true",
+      "-p:SkipModelMetadataGeneration=true",
+      "-o",
+      "/tmp/gnougo-v15-final-publish/Cli"
+    ]
+  },
+  {
+    "name": "publish-Server-supported",
+    "exit_code": 0,
+    "elapsed_seconds": 54.181,
+    "command": [
+      "dotnet",
+      "publish",
+      "src/GnOuGo.Flow.Server/GnOuGo.Flow.Server.csproj",
+      "-c",
+      "Release",
+      "-r",
+      "osx-arm64",
+      "--self-contained",
+      "true",
+      "-m:1",
+      "-p:PublishAot=true",
+      "-p:PublishTrimmed=true",
+      "-p:PublishSingleFile=true",
+      "-p:SkipClientBuild=true",
+      "-p:SkipModelMetadataGeneration=true",
+      "-o",
+      "/tmp/gnougo-v15-final-publish/Server"
+    ]
+  },
+  {
+    "name": "encrypted-recovery",
+    "exit_code": 0,
+    "elapsed_seconds": 4.5,
+    "command": [
+      "python3",
+      "scripts/verify-flow-v9-published.py",
+      "--cli",
+      "/tmp/gnougo-v15-final-publish/Cli/GnOuGo.Flow.Cli",
+      "--server",
+      "/tmp/gnougo-v15-final-publish/Server/GnOuGo.Flow.Server",
+      "--data-directory",
+      "/tmp/gnougo-v15-final-publish/recovery-data"
+    ]
+  }
+]
