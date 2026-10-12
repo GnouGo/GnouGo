@@ -1,0 +1,20 @@
+{
+  "approved_revision": 7,
+  "saved_approval_revision": 8,
+  "artifact_hash": "62cc3e938a7fe7f1b24c7ea4ffb8606d721ccf744cc5c463144f5ef8679e1ba9",
+  "execution_count": 1,
+  "runtime_success": true,
+  "independent_oracle_passed": false,
+  "product_visits": 10,
+  "complete_observation_pages": 204,
+  "observation_records": 7514,
+  "workflow_mcp_calls": 13,
+  "oracle_mcp_calls": 2,
+  "writer_success": true,
+  "workflow_close_success": true,
+  "oracle_no_active_page": true,
+  "explicit_output_success": true,
+  "uncertain_execution_attempts": 0,
+  "historical_replay": false,
+  "oracle_unchanged": true
+}

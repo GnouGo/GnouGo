@@ -1,0 +1,92 @@
+[
+  {
+    "product": 1,
+    "name_exact": true,
+    "description_exact": true,
+    "description_blank": false,
+    "price_observed": true,
+    "url_matches_navigation_argument": true,
+    "writer_cells_match_typed_product": true
+  },
+  {
+    "product": 2,
+    "name_exact": true,
+    "description_exact": true,
+    "description_blank": false,
+    "price_observed": true,
+    "url_matches_navigation_argument": true,
+    "writer_cells_match_typed_product": true
+  },
+  {
+    "product": 3,
+    "name_exact": true,
+    "description_exact": false,
+    "description_blank": true,
+    "price_observed": true,
+    "url_matches_navigation_argument": true,
+    "writer_cells_match_typed_product": true
+  },
+  {
+    "product": 4,
+    "name_exact": true,
+    "description_exact": true,
+    "description_blank": false,
+    "price_observed": true,
+    "url_matches_navigation_argument": true,
+    "writer_cells_match_typed_product": true
+  },
+  {
+    "product": 5,
+    "name_exact": true,
+    "description_exact": true,
+    "description_blank": false,
+    "price_observed": true,
+    "url_matches_navigation_argument": true,
+    "writer_cells_match_typed_product": true
+  },
+  {
+    "product": 6,
+    "name_exact": true,
+    "description_exact": true,
+    "description_blank": false,
+    "price_observed": true,
+    "url_matches_navigation_argument": true,
+    "writer_cells_match_typed_product": true
+  },
+  {
+    "product": 7,
+    "name_exact": true,
+    "description_exact": true,
+    "description_blank": false,
+    "price_observed": true,
+    "url_matches_navigation_argument": true,
+    "writer_cells_match_typed_product": true
+  },
+  {
+    "product": 8,
+    "name_exact": true,
+    "description_exact": true,
+    "description_blank": false,
+    "price_observed": true,
+    "url_matches_navigation_argument": true,
+    "writer_cells_match_typed_product": true
+  },
+  {
+    "product": 9,
+    "name_exact": true,
+    "description_exact": true,
+    "description_blank": false,
+    "price_observed": true,
+    "url_matches_navigation_argument": true,
+    "writer_cells_match_typed_product": true
+  },
+  {
+    "product": 10,
+    "name_exact": true,
+    "description_exact": true,
+    "description_blank": false,
+    "price_observed": true,
+    "url_matches_navigation_argument": true,
+    "writer_cells_match_typed_product": true
+  }
+]

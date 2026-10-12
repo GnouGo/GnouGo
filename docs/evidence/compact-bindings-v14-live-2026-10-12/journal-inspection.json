@@ -1,0 +1,32 @@
+{
+  "status": "completed",
+  "revision": 606,
+  "invocations": 147,
+  "steps_started": 146,
+  "finalization_steps_started": 1,
+  "finalization_completed": true,
+  "events": 606,
+  "model_usage": {
+    "StartedAtUtc": "2026-10-12T16:36:34.727273\u002B00:00",
+    "Calls": 25,
+    "InputTokens": 296366,
+    "OutputTokens": 36065,
+    "TotalTokens": 332431,
+    "EstimatedCost": 0,
+    "EstimatedCostCurrency": "USD",
+    "ExchangeRates": [],
+    "EstimatedCostUsd": 0
+  },
+  "provider_calls": 0,
+  "mcp_calls": 0,
+  "historical_writes": 0,
+  "step_types": {
+    "mcp.call": 13,
+    "loop.sequential": 21,
+    "workflow.call": 51,
+    "set": 14,
+    "template.render": 12,
+    "llm.call": 25,
+    "mapping.dynamic": 11
+  }
+}

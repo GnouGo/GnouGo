@@ -1,0 +1,7 @@
+{
+  "pricing_currency_ready": true,
+  "no_unclosed_logical_request": true,
+  "cost_upper_bound_eur": 141.3208492522103,
+  "ceiling_eur": 200,
+  "parser_note": "Readiness JSONL includes a separate ledger row without a ready key; validated each record by its documented shape."
+}

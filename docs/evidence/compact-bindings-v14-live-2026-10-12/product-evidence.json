@@ -1,0 +1,123 @@
+{
+  "version": "observed-products-v2",
+  "passed": false,
+  "visit_count": 10,
+  "visits": [
+    {
+      "event_index": 1,
+      "redirected": true
+    },
+    {
+      "event_index": 2,
+      "redirected": true
+    },
+    {
+      "event_index": 3,
+      "redirected": true
+    },
+    {
+      "event_index": 4,
+      "redirected": true
+    },
+    {
+      "event_index": 5,
+      "redirected": true
+    },
+    {
+      "event_index": 6,
+      "redirected": true
+    },
+    {
+      "event_index": 7,
+      "redirected": true
+    },
+    {
+      "event_index": 8,
+      "redirected": true
+    },
+    {
+      "event_index": 9,
+      "redirected": true
+    },
+    {
+      "event_index": 10,
+      "redirected": true
+    }
+  ],
+  "rows": [
+    {
+      "row": 1,
+      "name_exact": true,
+      "description_block_exact": true,
+      "price_exact": true,
+      "description_in_combined_observation": true
+    },
+    {
+      "row": 2,
+      "name_exact": true,
+      "description_block_exact": true,
+      "price_exact": true,
+      "description_in_combined_observation": true
+    },
+    {
+      "row": 3,
+      "name_exact": true,
+      "description_block_exact": false,
+      "price_exact": true,
+      "description_in_combined_observation": false
+    },
+    {
+      "row": 4,
+      "name_exact": true,
+      "description_block_exact": true,
+      "price_exact": true,
+      "description_in_combined_observation": true
+    },
+    {
+      "row": 5,
+      "name_exact": true,
+      "description_block_exact": true,
+      "price_exact": true,
+      "description_in_combined_observation": true
+    },
+    {
+      "row": 6,
+      "name_exact": true,
+      "description_block_exact": true,
+      "price_exact": true,
+      "description_in_combined_observation": true
+    },
+    {
+      "row": 7,
+      "name_exact": true,
+      "description_block_exact": true,
+      "price_exact": true,
+      "description_in_combined_observation": true
+    },
+    {
+      "row": 8,
+      "name_exact": true,
+      "description_block_exact": true,
+      "price_exact": true,
+      "description_in_combined_observation": true
+    },
+    {
+      "row": 9,
+      "name_exact": true,
+      "description_block_exact": true,
+      "price_exact": true,
+      "description_in_combined_observation": true
+    },
+    {
+      "row": 10,
+      "name_exact": true,
+      "description_block_exact": true,
+      "price_exact": true,
+      "description_in_combined_observation": true
+    }
+  ],
+  "findings": [
+    "workbook_description_not_one_observed_block",
+    "workbook_absence_not_independently_established"
+  ]
+}
