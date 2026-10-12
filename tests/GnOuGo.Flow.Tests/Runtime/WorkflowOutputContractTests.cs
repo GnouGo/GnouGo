@@ -92,6 +92,8 @@ public sealed class WorkflowOutputContractTests
     [InlineData("pointer")]
     [InlineData("no_schema")]
     [InlineData("no_expression")]
+    [InlineData("invalid_schema")]
+    [InlineData("invalid_source")]
     public void InvalidOutputMetadataIsRejectedBeforeExecution(string variant)
     {
         var document = WorkflowParser.Parse(CheckedOutputYaml); var output = document.Workflows["main"].Outputs!["products"];
@@ -100,7 +102,35 @@ public sealed class WorkflowOutputContractTests
             case "pointer": var entry = output.ExpressionContracts![""]!.DeepClone(); output.ExpressionContracts.Clear(); output.ExpressionContracts["/products"] = entry; break;
             case "no_schema": output.Schema = null; output.Type = "any"; break;
             case "no_expression": output.Expr = ""; break;
+            case "invalid_schema": output.Schema!["type"] = "unsupported"; break;
+            case "invalid_source": output.ExpressionContracts![""]!["pages"]!["source"] = "unavailable"; break;
         }
+        Assert.Throws<WorkflowCompilationException>(() => new WorkflowCompiler().Compile(document));
+    }
+
+    [Fact]
+    public void OutputMetadataCannotHideInUnevaluatedSchemaDescriptors()
+    {
+        var document = WorkflowParser.Parse(CheckedOutputYaml);
+        var output = document.Workflows["main"].Outputs!["products"];
+        var hidden = new OutputDef { Type = "string", Expr = "${'never evaluated'}", ExpressionContracts = new() { [""] = new JsonObject() } };
+        output.Items = hidden;
+        Assert.Throws<WorkflowCompilationException>(() => new WorkflowCompiler().Compile(document));
+        output.Items = null;
+        output.Properties = new() { ["hidden"] = hidden };
+        Assert.Throws<WorkflowCompilationException>(() => new WorkflowCompiler().Compile(document));
+    }
+
+    [Fact]
+    public void NestedMetadataBesideAuthoritativeSchemaStillRequiresCorrespondence()
+    {
+        var document = WorkflowParser.Parse(CheckedOutputYaml);
+        var products = document.Workflows["main"].Outputs!["products"];
+        products.ExpressionContracts![""]!["pages"]!["source"] = "unavailable";
+        document.Workflows["main"].Outputs = new()
+        {
+            ["report"] = new() { Schema = JsonNode.Parse("""{"type":"object"}""")!.AsObject(), Properties = new() { ["products"] = products } }
+        };
         Assert.Throws<WorkflowCompilationException>(() => new WorkflowCompiler().Compile(document));
     }
 

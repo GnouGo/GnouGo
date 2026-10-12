@@ -112,6 +112,7 @@ public sealed class WorkflowValidator
                     ValidateExpression(outputDef.Expr, name, null, "outputs." + key, errors);
 
                 ValidateOutputDef(outputDef, name, key, errors);
+                ValidateOutputExpressionContracts(outputDef, name, key, errors, evaluatesExpression: true);
             }
         }
 
@@ -799,21 +800,6 @@ public sealed class WorkflowValidator
 
     private void ValidateOutputDef(OutputDef def, string wfName, string path, List<ValidationError> errors)
     {
-        if (def.ExpressionContracts is { } contracts)
-        {
-            try
-            {
-                if (string.IsNullOrWhiteSpace(def.Expr) || contracts.Count != 1 || !contracts.ContainsKey(""))
-                    throw new WorkflowRuntimeException(ErrorCodes.InputValidation, "Output expression_contracts must identify the complete expr using the root pointer.");
-                if (def.Schema is null && def.Type.Equals("any", StringComparison.OrdinalIgnoreCase))
-                    throw new WorkflowRuntimeException(ErrorCodes.InputValidation, "Checked outputs require a declared final schema or type.");
-                ExpressionEvaluator.ValidateExpressionContracts(JsonValue.Create(def.Expr), contracts);
-            }
-            catch (WorkflowRuntimeException ex)
-            {
-                errors.Add(new() { Code = ex.Code, WorkflowName = wfName, Field = "outputs." + path + ".expression_contracts", Message = ex.Message });
-            }
-        }
         if (def.Schema is not null)
         {
             foreach (var message in JsonSchemaContractValidator.ValidateSchema(def.Schema, strictProfile: false))
@@ -899,6 +885,40 @@ public sealed class WorkflowValidator
 
         if (def.AdditionalProperties != null)
             ValidateOutputDef(def.AdditionalProperties, wfName, $"{path}.additional_properties", errors);
+    }
+
+    // Metadata must describe an expression that output evaluation actually reaches.
+    // A schema descriptor's items/properties are not separately evaluated when its
+    // enclosing output has an expr. Check metadata even beside an authoritative schema.
+    private static void ValidateOutputExpressionContracts(OutputDef def, string wfName, string path,
+        List<ValidationError> errors, bool evaluatesExpression)
+    {
+        if (def.ExpressionContracts is { } contracts)
+        {
+            try
+            {
+                if (!evaluatesExpression || string.IsNullOrWhiteSpace(def.Expr) || contracts.Count != 1 || !contracts.ContainsKey(""))
+                    throw new WorkflowRuntimeException(ErrorCodes.InputValidation, "Output expression_contracts must identify the complete expr using the root pointer.");
+                if (def.Schema is null && def.Type.Equals("any", StringComparison.OrdinalIgnoreCase))
+                    throw new WorkflowRuntimeException(ErrorCodes.InputValidation, "Checked outputs require a declared final schema or type.");
+                var finalSchema = JsonSchemaConverter.OutputDefToSchema(def, runtime: true);
+                if (JsonSchemaContractValidator.ValidateSchema(finalSchema, strictProfile: false) is { Count: > 0 } schemaErrors)
+                    throw new WorkflowRuntimeException(ErrorCodes.InputValidation, "Invalid checked output schema: " + string.Join("; ", schemaErrors));
+                ExpressionEvaluator.ValidateExpressionContracts(JsonValue.Create(def.Expr), contracts);
+            }
+            catch (Exception ex) when (ex is WorkflowRuntimeException or Acornima.ParseErrorException or ArgumentException)
+            {
+                errors.Add(new() { Code = ErrorCodes.InputValidation, WorkflowName = wfName, Field = "outputs." + path + ".expression_contracts", Message = ex.Message });
+            }
+        }
+        if (def.Properties is not null)
+            foreach (var (name, child) in def.Properties)
+                ValidateOutputExpressionContracts(child, wfName, path + ".properties." + name, errors,
+                    evaluatesExpression && string.IsNullOrEmpty(def.Expr));
+        if (def.Items is not null)
+            ValidateOutputExpressionContracts(def.Items, wfName, path + ".items", errors, evaluatesExpression: false);
+        if (def.AdditionalProperties is not null)
+            ValidateOutputExpressionContracts(def.AdditionalProperties, wfName, path + ".additional_properties", errors, evaluatesExpression: false);
     }
 
     private static void ValidateStringEnum(
