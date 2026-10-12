@@ -102,4 +102,28 @@ public sealed partial class ExpressionContractTests
         }
     }
 
+    [Fact]
+    public void LexicalLookupValidatesTheSelectedOriginalWithinLargeObservations()
+    {
+        var original = new JsonArray(Enumerable.Range(0, 610).Select(i => (JsonNode)new JsonObject
+        {
+            ["key"] = "snapshot:opaque:" + i,
+            ["text"] = "  Complete observed block " + i + "\n" + new string('x', 2000) + " é  ",
+            ["number"] = JsonNode.Parse("9007199254740993"),
+            ["optional"] = null
+        }).ToArray());
+        var context = new JsonObject { ["inputs"] = new JsonObject
+        {
+            ["key"] = "snapshot:opaque:609", ["offered"] = new JsonArray(new JsonObject { ["key"] = "snapshot:opaque:609" }),
+            ["original"] = original
+        } };
+        var before = context.ToJsonString();
+        Assert.InRange(System.Text.Encoding.UTF8.GetByteCount(before), 1200000, 1400000);
+        var allowance = new GnOuGo.Flow.Core.Scripting.JintSandbox.MappingAllowance(100000, TimeSpan.FromSeconds(15), 50000000);
+        var result = new ExpressionEvaluator().EvaluateCheckedExpression(LexicalProgram, context, LexicalContracts(), allowance);
+        Assert.Equal(original[609]!["text"]!.GetValue<string>(), result![0]!.GetValue<string>());
+        Assert.Equal(before, context.ToJsonString());
+        Assert.InRange(allowance.Snapshot()["materialized_bytes"]!.GetValue<long>(), 1, 50000000);
+    }
+
 }

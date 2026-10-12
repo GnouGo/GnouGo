@@ -57,6 +57,8 @@ Single paired local runs; values are evidence, not portable performance threshol
 
 Checkpoint timing is measured around the existing public lease save; it includes its durable work, not individual private block writes. The measurement wrapper delegates capture/restore hooks exactly. Trace volume rises because former child input/final-output validations now have explicit check events. Events contain check names, origins, references, pointers, order and outcomes, never values or schemas. These bytes measure event attributes, not backend transport overhead.
 
+A generic 610-record original-observation regression (over 1.2 MB) also passes strict selection within the unchanged ceiling, preserves its exact large integer and leaves the source unchanged. The final focused expression/recovery run passes 58 cases.
+
 A separate lexical probe returns exact observed text with 61 statements, 5,144 charged materialized bytes and 396 output bytes for both 1-byte and 1.2 MB unrelated observations. The unchanged memory ceiling is 50,000,000 bytes. Warm measured allocation is 67,928 bytes for the large unrelated payload. First-process/JIT costs are retained in the raw measurements; payload size does not change charged traversal/materialization.
 
 [Raw compilation metrics](compilation-metrics.json) · [Runtime measurements](measurements/) · [Lexical probe](measurements/lexical-probe.cs.txt)
