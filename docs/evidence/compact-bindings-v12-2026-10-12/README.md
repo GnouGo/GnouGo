@@ -55,11 +55,11 @@ No set disappears from this unchanged comparison: its eligible input preparation
 
 ## Local execution and independent oracles
 
-All 16 v11/v12 real local Browser/Document cases pass: complete, repeated selections, missing values, one result, empty collection, unknown offered ID, incomplete acquisition and denied writing. Models are deterministic adapters; Browser/Document are actual local MCP components. [Raw measurements and independent verdicts](local-execution.txt) are retained.
+The eight final v12 cases and eight unchanged historical v11 cases pass: complete, repeated selections, missing values, one result, empty collection, unknown offered ID, incomplete acquisition and denied writing. The initial comparison log is preserved separately in `local-execution-initial.txt`. Models are deterministic adapters; Browser/Document are actual local MCP components. [Raw measurements and independent verdicts](local-execution.txt) are retained.
 
 For the complete ten-product case, both versions visit all ten products, process 39 complete pages, offer all 12 candidates, preserve exact header/cells/order, close Browser and recover the committed result without another inference/navigation/write. The unchanged independent observed-products oracle passes and rejects deliberately rewritten cells. Typed copying and row assembly use zero inference. Both perform 23 deterministic model calls (11 mappings), 359 invocations, 358 normal steps and one cleanup step; the compact decision input is 2,690 bytes.
 
-The complete run measured total process allocations 7,563,816,584 → 7,242,830,448 bytes, logical journal 56,157,929 → 53,912,719 bytes and fixture-directory storage 30,250,855 → 30,201,703 bytes. Runtime was 19.8 → 29.0 seconds under concurrent build load, so this does **not** establish an end-to-end speedup. Directory bytes include the workbook and encrypted storage, not just payload blocks. Persistence algorithms/checkpoint writes were not changed by this correction.
+The complete run measured total process allocations 7,563,816,584 → 7,256,644,472 bytes, logical journal 56,157,929 → 53,930,524 bytes and fixture-directory storage 30,250,855 → 30,209,894 bytes. Runtime was 19.8 → 29.2 seconds under concurrent build load, so this does **not** establish an end-to-end speedup. Directory bytes include the workbook and encrypted storage, not just payload blocks. Persistence algorithms/checkpoint writes were not changed by this correction.
 
 The missing/empty cases intentionally do **not** pass the strict live business oracle: exact fixture cells and blanks are checked independently, while the unchanged live oracle conservatively rejects unsupported absence claims and a zero-product outcome. These negative verdicts are retained, not recategorized as successful live acceptance. Invalid IDs/incomplete observations/denied writes create no successful workbook and retain cleanup.
 
@@ -72,7 +72,7 @@ Direct-value metadata is explicit (`order`/`source`); historical metadata remain
 ## Validation status
 
 - Gates A/B/C passed their focused checks; see [A](gate-a.md), [B](gate-b.md), [C](gate-c.md).
-- Complete Planning suite: 1,290 passed, no failures/skips.
+- Complete final Planning suite: 1,294 passed, no failures/skips.
 - Local v11/v12 Browser/Document: 16 passed, independently inspected XLSX and committed recovery.
 - Planning Native AOT publish and execution: passed, including direct checked outputs, exact numbers/nulls and source-generated metadata.
 - Full-solution and final candidate CI results are reported in PR #117; [validation commands and publish evidence](validation.md) identify the source candidate and retained logs.
