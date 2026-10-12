@@ -1,6 +1,20 @@
+## v13: checked controls, lexical branches and terminal outputs
+
+Fresh sessions and explicit revisions select `compact-bindings-v13`. Omitted/v1–v12 profiles and existing public compiler overloads retain their lowering. Metadata remains part of definition and approval hashes; historical runs are never optimized during recovery.
+
+`control_contracts` uses the existing ordered value entries, keyed by `/if`, `/expr` or `/cases/<index>/when`. The guard runs before input resolution; a false guard never resolves skipped inputs. Switch checks run inside the existing recorded branch decision, in first-match order. A contract must target a complete, unambiguous expression. The existing step span reports reached checks and committed-decision reuse.
+
+An optional `scope` on each ordered expression entry identifies `block0`, `block1`, etc., in preorder among zero-argument lexical IIFEs. This is a static syntax address, not a data path or executable metadata. Each scoped block retains declaration/check correspondence and its own contiguous order. Aliases refer to already evaluated locals; unselected blocks emit no checks. Unsupported syntax cannot import unrestricted context into Jint. Exact JSON values and existing cumulative/nested resource limits remain enforced.
+
+Final lowering replaces eligible pure predicate and nullable-result switches with native conditional expressions and checked blocks. Offered-record membership still precedes original-record lookup. Effectful branches, inference, retries, handlers, whole-envelope/presence observers and unknown dependencies retain their boundaries. Inner scopes retain their input and final output contracts. Physical IDs of external operations remain stable; removed origins remain attached to checks.
+
+A terminal pure sequence may move to a sole checked output when no finalizer, handler, later work, shared output or identity observer distinguishes the move. An empty finalizer alone does not prove safety. The checked output commits through its existing parent call or terminal workflow result; no per-check journal or hidden checkpoint is added. Uncommitted pure calculations may be recomputed. Committed inputs, decisions, results and failures retain their outcomes. Uncertain external completion still prevents replay and unsafe cleanup.
+
+The comparison and every removed/retained materialization are documented in [v13 evidence](evidence/compact-bindings-v13-2026-10-12/README.md). Capture loops remain where native projections would otherwise lose iteration/cancellation constraints. There is no artificial set-count target.
+
 ## v12: direct values, ordered aliases and checked outputs
 
-Fresh sessions and explicit revisions select `compact-bindings-v12`. Generated JavaScript should be readable by a developer: direct scalar/array/object locals, functional names, native projections and multiline code. The model still supplies typed business bindings, never scripts. Omitted and v1–v11 profiles retain their exact lowering and approvals; v12 artifacts require the corresponding runtime.
+The historical `compact-bindings-v12` profile uses direct values. Generated JavaScript should be readable by a developer: direct scalar/array/object locals, functional names, native projections and multiline code. The model still supplies typed business bindings, never scripts. Omitted and v1–v11 profiles retain their exact lowering and approvals; v12 artifacts require the corresponding runtime.
 
 The existing `expression_contracts` map gains explicit `order` (contiguous, zero-based) and `source` (a local identifier) on v12 entries. Each declaration is checked when evaluated. A later entry may validate the same already evaluated local without another JavaScript declaration or object copy. Sources cannot be expressions, workflow paths or forward references; a malformed or mixed declaration is rejected. Historical entries without these fields keep their object-only checks and declaration correspondence.
 

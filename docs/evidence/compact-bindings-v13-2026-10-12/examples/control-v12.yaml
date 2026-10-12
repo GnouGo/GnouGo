@@ -1,0 +1,53 @@
+version: 1
+name: "controls"
+entrypoint: "main"
+workflows:
+  main:
+    inputs:
+      label:
+        type: "string"
+        required: true
+      authorized:
+        type: "boolean"
+        required: true
+    steps:
+    - id: "n_e61a3d78c65133c7"
+      type: "set"
+      input: |-
+        ${
+        {
+          value: data.inputs.authorized
+        }
+        }
+      output_schema:
+        type: "object"
+        properties:
+          value:
+            type: "boolean"
+        required:
+        - "value"
+        additionalProperties: false
+      expression_contracts:
+        '': {}
+    - id: "n_f38c764c8aa00b65"
+      type: "switch"
+      expr: "${data.steps.n_e61a3d78c65133c7.value}"
+      cases:
+      - steps:
+        - id: "n_a96a5b946ce5cda6"
+          type: "set"
+          input:
+            visited: true
+        value: "true"
+      default: []
+skill:
+  description: ""
+  inputs:
+    label:
+      type: "string"
+      required: true
+    authorized:
+      type: "boolean"
+      required: true
+  outputs: {}
+...
