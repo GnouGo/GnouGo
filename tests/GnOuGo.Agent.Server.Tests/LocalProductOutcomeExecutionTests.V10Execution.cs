@@ -81,7 +81,8 @@ public sealed partial class LocalProductOutcomeExecutionTests
             var observed = new LiveWorkflowEvaluation.ObservedMcp(transport, e => { events.Add(e); return Task.CompletedTask; });
             var model = new V10Model(variant, site.Urls.Single());
             var store = new GnOuGo.Flow.Persistence.EncryptedWorkflowRunStore(new GnOuGo.KeyVault.Core.Services.KeyVaultRecordStore(Path.Combine(root, "vault.db")), Path.Combine(root, "index.db"), Path.Combine(root, "owners"));
-            var engine = new WorkflowEngine { McpClientFactory = observed, LLMClient = model, RunStore = store,
+            var runMetrics = Environment.GetEnvironmentVariable("GNOU_GO_V13_METRICS") is { Length: > 0 } ? new RunMetrics(store) : null;
+            var engine = new WorkflowEngine { McpClientFactory = observed, LLMClient = model, RunStore = (IWorkflowRunStore?)runMetrics ?? store,
                 LLMUsageBudget = new(new() { MaxElapsed = TimeSpan.FromMinutes(2) }), LlmDefaults = new() { Model = "deterministic" },
                 Limits = new() { TenantId = "local", RunId = "v10-" + variant } };
             var checkMetrics = Environment.GetEnvironmentVariable("GNOU_GO_V13_METRICS") is { Length: > 0 } ? new CheckMetrics() : null;
@@ -136,6 +137,9 @@ public sealed partial class LocalProductOutcomeExecutionTests
                     ["logical_journal_bytes"] = Encoding.UTF8.GetByteCount(JsonSerializer.Serialize(journal, WorkflowRunJsonContext.Default.WorkflowRun)),
                     ["physical_store_bytes"] = Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories).Sum(f => new FileInfo(f).Length),
                     ["check_events"] = checkMetrics?.Events.Count, ["check_event_bytes"] = checkMetrics?.Bytes,
+                    ["checkpoint_count"] = runMetrics?.Checkpoints, ["checkpoint_ms"] = runMetrics?.CheckpointMilliseconds,
+                    ["snapshot_captures"] = runMetrics?.Captures, ["snapshot_capture_ms"] = runMetrics?.CaptureMilliseconds,
+                    ["snapshot_restores"] = runMetrics?.Restores, ["snapshot_restore_ms"] = runMetrics?.RestoreMilliseconds,
                     ["decision_request_bytes"] = model.DecisionBytes,
                     ["yaml_bytes"] = Encoding.UTF8.GetByteCount(session.Yaml!) };
                 File.WriteAllText(Path.Combine(metricsFolder, profile + "-" + variant + ".json"), metrics.ToJsonString(new() { WriteIndented = true }));
@@ -191,8 +195,16 @@ public sealed partial class LocalProductOutcomeExecutionTests
             Assert.Equal(path, writer["result"]!["filePath"]!.ToString());
             Assert.Equal(rows.Length, writer["arguments"]!["rows"]!.AsArray().Count);
             var calls = model.Requests.Count; var external = events.Count; var content = await File.ReadAllBytesAsync(path, ct);
+            var recoveryStarted = Stopwatch.GetTimestamp(); var recoveryAllocated = GC.GetTotalAllocatedBytes();
             var restored = await new WorkflowEngine { RunStore = new GnOuGo.Flow.Persistence.EncryptedWorkflowRunStore(new GnOuGo.KeyVault.Core.Services.KeyVaultRecordStore(Path.Combine(root, "vault.db")), Path.Combine(root, "index.db"), Path.Combine(root, "owners")) }
                 .ResumeAsync("local", engine.Limits.RunId, journal.Revision, workflow.Workflows[workflow.Entrypoint!], ct);
+            if (Environment.GetEnvironmentVariable("GNOU_GO_V13_METRICS") is { Length: > 0 } recoveryFolder)
+                File.WriteAllText(Path.Combine(recoveryFolder, profile + "-" + variant + "-recovery.json"), new JsonObject
+                {
+                    ["elapsed_ms"] = Stopwatch.GetElapsedTime(recoveryStarted).TotalMilliseconds,
+                    ["allocated_bytes"] = GC.GetTotalAllocatedBytes() - recoveryAllocated,
+                    ["repeated_inference_calls"] = model.Requests.Count - calls, ["repeated_external_calls"] = events.Count - external
+                }.ToJsonString(new() { WriteIndented = true }));
             Assert.True(restored.Success, restored.Error?.Message); Assert.True(JsonNode.DeepEquals(result.Outputs, restored.Outputs));
             Assert.Equal(calls, model.Requests.Count); Assert.Equal(external, events.Count); Assert.Equal(content, await File.ReadAllBytesAsync(path, ct));
             if (Environment.GetEnvironmentVariable("GNOU_GO_V10_EVIDENCE") is { Length: > 0 } evidence)
