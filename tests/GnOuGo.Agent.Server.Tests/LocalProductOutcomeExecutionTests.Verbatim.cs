@@ -23,7 +23,9 @@ public sealed partial class LocalProductOutcomeExecutionTests
             Kind = "array", MinItems = 0, MaxItems = 100, Items = new()
             { Kind = "array", MinItems = 0, MaxItems = 20, Items = recordType }
         } }] };
-        decision.Objective = "Select one offered block identity. Never return rewritten text.";
+        decision.Objective = "Select one relevant offered block identity and recover its original complete text. " +
+            "A complete features or characteristics block can describe the subject without a Description heading; several suitable blocks do not imply absence. " +
+            "Keep permitted null when none is observable or subject association is uncertain. Never join, paraphrase or shorten blocks; interface controls are not descriptions.";
         decision.Inputs = [new("offeredBlocks", Flatten(Output("extract_facts", "pageFacts")))];
         decision.ResultType = new() { Kind = "object", Fields = [new() { Name = "selectedIds", Type = new()
         { Kind = "array", MinItems = 1, MaxItems = 1, Items = new() { Kind = "string" } } }] };

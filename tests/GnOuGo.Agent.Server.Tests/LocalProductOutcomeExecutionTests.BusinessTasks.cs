@@ -125,6 +125,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
     [InlineData("union_compact_repeated")]
     [InlineData("union_compact_unoffered")]
     [InlineData("union_initial")]
+    [InlineData("union_features")]
     public async Task BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(string variant)
     {
         var ct = TestContext.Current.CancellationToken;
@@ -150,7 +151,10 @@ public sealed partial class LocalProductOutcomeExecutionTests
             else if (path.StartsWith("/entry/", StringComparison.Ordinal))
             {
                 var i = int.Parse(path[7..], System.Globalization.CultureInfo.InvariantCulture);
-                body = "<h1>" + ProductName(i) + "</h1>" + (variant.EndsWith("missing_description", StringComparison.Ordinal) && i == 3 ? "" : "<p>" + ProductDescription(i) + "</p>") + (i == 2 ? "" : "<price>" + ProductPrice(i) + "</price>");
+                var description = variant == "union_features"
+                    ? "<p>" + FeatureDescription(i, 2) + "</p>"
+                    : variant.EndsWith("missing_description", StringComparison.Ordinal) && i == 3 ? "" : "<p>" + ProductDescription(i) + "</p>";
+                body = "<h1>" + ProductName(i) + "</h1>" + description + (i == 2 ? "" : "<price>" + ProductPrice(i) + "</price>");
                 if (unionRevision) body += "<button>Report a problem</button>";
             }
             else { context.Response.StatusCode = 404; body = "Unavailable"; }
@@ -249,6 +253,8 @@ public sealed partial class LocalProductOutcomeExecutionTests
             Assert.True(closed.IsError); Assert.Contains("No active page", closed.Content!["error_message"]!.ToString());
             var file = Path.Combine(workspace, proposal.Plan!.Root.Tasks.Single(t => t.Id == "write").Inputs.Single(i => i.Name == "filePath").Value.Text!);
             output.WriteLine($"BUSINESS {variant}: success={result.Success}; calls={session.ModelCalls}; repairs={session.ReplanAttempts}; elapsedMs={timer.ElapsedMilliseconds}; tasks={RetainedTasks(session.Plan!.Root).Count()}; yamlBytes={Encoding.UTF8.GetByteCount(session.Yaml!)}; inference={model.Requests.Count}; mappings={model.MappingCalls}; invocations={journal.Invocations.Count}; steps={journal.StepsStarted}; cleanup={journal.FinalizationStepsStarted}; journalBytes={Encoding.UTF8.GetByteCount(JsonSerializer.Serialize(journal, WorkflowRunJsonContext.Default.WorkflowRun))}; error={result.Error?.Code} {result.Error?.Message}");
+            foreach (var invocation in journal.Invocations.Values.Where(i => i.StepType == "mapping.dynamic"))
+                output.WriteLine($"MAPPING {invocation.Status}: inputBytes={Encoding.UTF8.GetByteCount(invocation.ResolvedInput?.ToJsonString() ?? "")}; {invocation.ResolvedInput?["each"]}");
             if (variant is "unoffered" or "incomplete" or "denied" or "verbatim_unknown" || variant.EndsWith("_unoffered", StringComparison.Ordinal))
             {
                 Assert.False(result.Success); Assert.False(File.Exists(file)); Assert.False(File.Exists(Path.Combine(root, "outside.xlsx")));
@@ -278,7 +284,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
             for (var i = 0; i < selected.Length; i++)
             {
                 var n = selected[i]; Assert.NotNull(records[i]); Assert.Equal(ProductName(n), records[i]!["name"]!.ToString());
-                var description = variant.EndsWith("missing_description", StringComparison.Ordinal) && n == 3 ? null : ProductDescription(n);
+                var description = variant == "union_features" ? FeatureDescription(n, 2) : variant.EndsWith("missing_description", StringComparison.Ordinal) && n == 3 ? null : ProductDescription(n);
                 Assert.Equal(description, records[i]!["description"]?.ToString()); Assert.Equal(n == 2 ? null : ProductPrice(n), records[i]!["price"]?.ToString());
                 expected.Add([ProductName(n), description ?? "", n == 2 ? "" : ProductPrice(n), n == 2 && !verbatim ? "missing_price" : ""]);
             }
@@ -353,7 +359,15 @@ public sealed partial class LocalProductOutcomeExecutionTests
             {
                 // The judgment can only choose identities. No generated product
                 // text flows into either the public records or the workbook.
-                var block = Assert.Single(blocks);
+                JsonNode? block;
+                if (variant == "union_features")
+                {
+                    Assert.Single(blocks);
+                    Assert.Contains("without a Description heading", request.Prompt);
+                    Assert.Contains("Never join, paraphrase or shorten", request.Prompt);
+                    block = blocks[0]; // Independent fixture oracle expects this complete characteristics block.
+                }
+                else block = Assert.Single(blocks);
                 if (variant.StartsWith("union_", StringComparison.Ordinal))
                     Assert.Equal(new[] { "key", "description" }, block!.AsObject().Select(p => p.Key));
                 result = new() { ["selectedIds"] = new JsonArray(variant == "verbatim_unknown" ? JsonValue.Create("unoffered-block") : block!["key"]!.DeepClone()) };
@@ -379,6 +393,8 @@ public sealed partial class LocalProductOutcomeExecutionTests
         public Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<bool?>(true);
         public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<IReadOnlyList<string>?>([]);
     }
+
+    private static string FeatureDescription(int product, int block) => $"Feature {block}: stable base, model {product}.";
 
     private static PlanningProposal BusinessProposal(string name, PlanningCatalog catalog)
     {

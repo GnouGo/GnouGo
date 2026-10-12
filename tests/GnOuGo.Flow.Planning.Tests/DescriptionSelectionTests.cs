@@ -1,0 +1,40 @@
+using System.Text.Json.Nodes;
+using GnOuGo.Flow.Core.Expressions;
+using GnOuGo.Flow.Core.Planning;
+
+namespace GnOuGo.Flow.Planning.Tests;
+
+public sealed class DescriptionSelectionTests
+{
+    [Fact]
+    public async Task FreshGenerationAndExplicitRevisionReceiveDescriptionGuidance()
+    {
+        var runtime = new TestRuntime();
+        var planner = new HybridWorkflowPlanner();
+        var state = await PlannerFixture.RunAsync(runtime);
+        Assert.Equal(PlanningStatus.FinalReview, state.Status);
+        state = await planner.AdvanceAsync(state, new() { Kind = "revise", PreserveRequirements = true,
+            ExpectedRevision = state.Revision, ArtifactHash = state.ComputeArtifactHash(),
+            Text = "Keep the accepted business result and explain the same observed-block selection rule." }, runtime, PlannerFixture.Ct);
+        state = await PlannerFixture.RunAsync(runtime, state);
+        Assert.Equal(PlanningStatus.FinalReview, state.Status);
+        Assert.Equal(2, runtime.Calls.Count);
+        foreach (var request in runtime.Calls)
+        {
+            Assert.Contains("whole features need no heading", request.Prompt);
+            Assert.Contains("even among several", request.Prompt);
+            Assert.Contains("absent/uncertain subject", request.Prompt);
+            Assert.Contains("No rewriting/control text", request.Prompt);
+            Assert.InRange(PlanningJsonTransport.EstimateInputTokens(request.Prompt, request.StructuredOutputSchema!.AsObject()),
+                1, state.Request.Generation.MaxInputTokensPerRequest);
+        }
+        // The actual issued typed-repair envelope also receives the instruction,
+        // without acquiring permission to change a task's objective.
+        state.Diagnostics = [new("TASK_VALUE_TYPE", "/tasks/greet/outputs/message", "Incompatible value")];
+        state.RevisionScope = ["/tasks/greet/outputs/message"];
+        var repair = new PlanningPrompt(state).Request();
+        Assert.Contains("whole features need no heading", repair.Prompt);
+        Assert.DoesNotContain("editablePaths\":[\"/tasks/greet/objective", repair.Prompt);
+    }
+
+}
