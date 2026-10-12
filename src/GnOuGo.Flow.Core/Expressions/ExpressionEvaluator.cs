@@ -31,11 +31,13 @@ public sealed partial class ExpressionEvaluator
     // Only this closed compiler recipe bypasses JS import. Learned programs still
     // use Jint; selection cannot compute values or grant new artifact provenance.
     private bool TrySelectMapping(string script, JsonNode? source, out JsonNode? result, JintSandbox.MappingAllowance? allowance = null,
-        Dictionary<string, JsonNode?>? initialBindings = null)
+        Dictionary<string, JsonNode?>? initialBindings = null, JsonObject? lexicalContracts = null,
+        Action<string, string, string?>? observeCheck = null)
     {
         result = null;
         if (script.Length > 65536) return false;
         var syntax = new Acornima.Parser().ParseExpression(script);
+        var lexicalChecks = lexicalContracts is null ? null : LexicalValueChecks(syntax, lexicalContracts);
         static string? Key(Property property) => property.Key is Identifier id ? id.Name : (property.Key as StringLiteral)?.Value;
         var readable = initialBindings is not null;
         bool FunctionSupported(ArrowFunctionExpression arrow, HashSet<string> names)
@@ -147,6 +149,40 @@ public sealed partial class ExpressionEvaluator
             var local = new Dictionary<string, JsonNode?>(bindings, StringComparer.Ordinal);
             for (var i = 0; i < arrow.Params.Count; i++) local[((Identifier)arrow.Params[i]).Name] = arguments[i];
             if (arrow.Body is not BlockStatement block) return EvaluateSelection(arrow.Body, local);
+            if (lexicalChecks?.TryGetValue(block.Start, out var checks) == true)
+            {
+                foreach (var (name, sourceName, expression) in checks)
+                {
+                    var contract = lexicalContracts![name]!.AsObject();
+                    var origin = contract["origin"]!.GetValue<string>();
+                    try
+                    {
+                        Check();
+                        var value = expression is null ? local[sourceName] : EvaluateSelection(expression, local);
+                        if (contract.ContainsKey("object_only") && value is not JsonObject)
+                            throw new WorkflowRuntimeException(ErrorCodes.InputValidation, "set input must be object");
+                        var findings = JsonSchemaInstanceValidator.ValidateInstanceFindings(value, contract["schema"], contract["instance_path"]?.GetValue<string>() ?? "");
+                        if (findings.Count != 0)
+                            throw new WorkflowRuntimeException(ErrorCodes.InputValidation, "set output does not satisfy output_schema: " + string.Join("; ", findings.Select(f => f.Message)));
+                        if (expression is not null)
+                        {
+                            local[sourceName] = value;
+                            if (allowance is not null) allowance.ImportedBytes += JintSandbox.JsonBytes(value);
+                        }
+                        allowance?.Check();
+                    }
+                    catch (WorkflowRuntimeException ex)
+                    {
+                        if (ex.Details?["location"] is not null) throw; // A reached inner check owns its failure.
+                        observeCheck?.Invoke(name, origin, ex.Code);
+                        var details = ex.Details?.DeepClone() as JsonObject ?? new JsonObject();
+                        details["compiled_node"] = name; details["location"] = origin;
+                        throw new WorkflowRuntimeException(ex.Code, ex.Message, ex.Retryable, ex, details);
+                    }
+                    observeCheck?.Invoke(name, origin, null);
+                }
+                return EvaluateSelection(((ReturnStatement)block.Body.Last()).Argument!, local);
+            }
             foreach (var statement in block.Body.SkipLast(1))
             {
                 if (statement is IfStatement check)

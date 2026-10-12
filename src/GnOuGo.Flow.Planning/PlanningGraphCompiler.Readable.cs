@@ -37,11 +37,25 @@ public sealed partial class PlanningGraphCompiler
             if (scope.LeanMappings) expanded = SimplifyReadableProgram(expanded, scope.InlineConsumers);
             if (scope.DirectValues && contracts.Count != 0) expanded = DirectCheckedValues(expanded, contracts);
             ExpressionEvaluator.Validate(expanded);
+            if (step["__lexical_contracts"] is JsonObject nested && (step["__lexical_pointer"] is null || step["__lexical_pointer"]!.GetValue<string>() == pointer))
+            {
+                foreach (var (name, entry) in nested) contracts.Add(name, entry?.DeepClone());
+                QualifyLexicalContracts(expanded, contracts);
+            }
             metadata[pointer] = contracts;
             return JsonValue.Create("${\n" + FormatProgram(expanded, scope.CompactProjections) + "\n}");
         }
         step["input"] = RewriteInput(step["input"], "");
         if (metadata.Count != 0) step["expression_contracts"] = metadata;
+        if (step["__lexical_contracts"] is JsonObject standalone && metadata.Count == 0)
+        {
+            var text = step["input"]!.GetValue<string>();
+            var program = ExpressionSegments.Read(text).Single().Expression;
+            var checks = standalone.DeepClone().AsObject(); QualifyLexicalContracts(program, checks);
+            step["expression_contracts"] = new JsonObject { [""] = checks };
+            step["input"] = "${\n" + FormatProgram(program, true) + "\n}";
+        }
+        step.Remove("__lexical_contracts"); step.Remove("__lexical_pointer");
         return step;
 
         static string MappingProgram(Node node) => node switch

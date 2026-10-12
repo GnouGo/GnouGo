@@ -41,6 +41,11 @@ public sealed partial class ExpressionEvaluator
             var program = ContractExpression(selected);
             if (entry is not JsonObject contracts) { Invalid("Expression contracts must be literal objects."); continue; }
             var syntax = new Acornima.Parser().ParseExpression(program);
+            if (HasLexicalValueContracts(contracts))
+            {
+                _ = LexicalValueChecks(syntax, contracts);
+                continue;
+            }
             if (HasOrderedValueContracts(contracts))
             {
                 _ = OrderedValueChecks(syntax, contracts);
@@ -103,6 +108,8 @@ public sealed partial class ExpressionEvaluator
     private JsonNode? EvaluateCompiledBindings(string program, JsonNode? context, JsonObject contracts, bool readable = false, JintSandbox.MappingAllowance? allowance = null,
         Action<string, string, string?>? observeCheck = null)
     {
+        if (readable && HasLexicalValueContracts(contracts))
+            return EvaluateLexicalValues(program, context, contracts, allowance, observeCheck);
         if (readable && HasOrderedValueContracts(contracts))
             return EvaluateOrderedValues(program, context, contracts, allowance, observeCheck);
         if (program.Length > 65536 || new Acornima.Parser().ParseExpression(program) is not

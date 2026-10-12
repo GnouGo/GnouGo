@@ -491,6 +491,8 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
                 {
                     stepSpan = Telemetry.StepStart(parentSpan, new StepTelemetryInfo { StepId = step.Id, StepType = step.Type, Description = step.Description, CallDepth = callDepth });
                     ReportInputChecks();
+                    if (!resolvedNow && invocation is not null && step.Source.ControlContracts?["/if"] is not null)
+                        stepSpan.AddEvent("gnougo-flow.control.reused", new KeyValuePair<string, object?>[] { new("gnougo-flow.invocation.id", invocation.Id) });
                     stepResult.Status = StepStatus.Skipped;
                     Telemetry.StepEnd(stepSpan, new StepResultInfo { Status = StepStatus.Skipped, Duration = sw.Elapsed });
                     continue;
@@ -507,12 +509,15 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
                 };
                 stepSpan = Telemetry.StepStart(parentSpan, stepTelemetryInfo);
                 ReportInputChecks();
-                if (!resolvedNow && invocation is not null && observeCheck is not null)
+                if (!resolvedNow && invocation is not null && step.Source.ExpressionContracts is not null)
                     stepSpan.AddEvent("gnougo-flow.input.reused", new KeyValuePair<string, object?>[]
                     {
                         new("gnougo-flow.invocation.id", invocation.Id),
                         new("gnougo-flow.input.source", "committed_resolved_input")
                     });
+
+                if (!resolvedNow && invocation is not null && step.Source.ControlContracts?["/if"] is not null)
+                    stepSpan.AddEvent("gnougo-flow.control.reused", new KeyValuePair<string, object?>[] { new("gnougo-flow.invocation.id", invocation.Id) });
 
                 Logger.LogDebug("Step '{StepId}' ({StepType}) starting at depth {CallDepth}",
                     step.Id, step.Type, callDepth);

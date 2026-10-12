@@ -414,6 +414,11 @@ public sealed partial class LocalProductOutcomeExecutionTests
         var request = new PlanningRequest { Options = new() { ["compilation_profile"] = profile } };
         var compiled = new TaskPlanCompiler().Compile(plan, catalog, request);
         Assert.True(compiled.Graph is not null, string.Join('\n', compiled.Diagnostics));
+        if (profile == "compact-bindings-v13" && Environment.GetEnvironmentVariable("GNOU_GO_V13_EVIDENCE") is { Length: > 0 } evidence)
+        {
+            Directory.CreateDirectory(evidence);
+            File.WriteAllText(Path.Combine(evidence, "graph.json"), JsonSerializer.Serialize(compiled.Graph!, PlanningJsonContext.Default.PlanningGraph));
+        }
         var yaml = new PlanningGraphCompiler().Compile(compiled.Graph!, catalog, "business", true, true, true, TaskPlanCompiler.UsesDirectProjections(request), TaskPlanCompiler.UsesNativeMappings(request), TaskPlanCompiler.UsesReadableMappings(request), TaskPlanCompiler.UsesLeanMappings(request), TaskPlanCompiler.UsesCompactProjections(request), TaskPlanCompiler.UsesInlineConsumers(request), TaskPlanCompiler.UsesDirectValues(request), TaskPlanCompiler.UsesCheckedControls(request));
         var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml));
         static IEnumerable<CompiledStep> All(IEnumerable<CompiledStep> steps) => steps.SelectMany(s => new[] { s }

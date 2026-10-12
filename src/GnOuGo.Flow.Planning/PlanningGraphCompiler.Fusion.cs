@@ -55,7 +55,7 @@ public sealed partial class PlanningGraphCompiler
         }
         throw new InvalidOperationException("A fused binding has no local identity.");
     }
-    private static string OutputAddress(string key, LoweringScope scope) => scope.LocalOutputs.Contains(key)
+    private static string OutputAddress(string key, LoweringScope scope) => scope.LexicalOutputs.TryGetValue(key, out var lexical) ? lexical : scope.LocalOutputs.Contains(key)
         ? LocalName(key, scope) : scope.FusedOutputs.TryGetValue(key, out var group)
         ? "data.steps." + scope.NodeIds[group[0]] + "." + LocalName(key, scope) : "data.steps." + scope.NodeIds[key];
 
@@ -105,8 +105,8 @@ public sealed partial class PlanningGraphCompiler
             .SelectMany(n => n.OnError).SelectMany(e => BindingValues(e.If).Concat(BindingValues(e.SetOutput)))))
             if (value.Source is not null) blocked.Add(value.Source);
         bool Eligible(PlanningNode n) => !blocked.Contains(n.Key) &&
-            (n.Type == "set" && n.Input.Kind != "dynamic_mapping" || n.InternalRole is "typed_projection" or "typed_index_projection") &&
-            n.CapabilityId is null && n.If is null && n.Expr is null && n.Output is null && n.Retry is null && n.OnError.Count == 0;
+            (n.Type == "set" && n.Input.Kind != "dynamic_mapping" || n.InternalRole is "typed_projection" or "typed_index_projection" || scope.PureBranches.Contains(n.Key)) &&
+            n.CapabilityId is null && n.If is null && (n.Expr is null || scope.PureBranches.Contains(n.Key)) && n.Output is null && n.Retry is null && n.OnError.Count == 0;
         void Scan(List<PlanningNode> nodes)
         {
             var run = new List<string>();
@@ -138,6 +138,7 @@ public sealed partial class PlanningGraphCompiler
             {
                 if (node.InternalRole?.StartsWith("inline:", StringComparison.Ordinal) == true) continue;
                 if (Eligible(node)) run.Add(node.Key); else Flush(node);
+                if (scope.PureBranches.Contains(node.Key)) continue;
                 // Each branch and nested execution scope has its own sequence.
                 Scan(node.Steps); Scan(node.Default);
                 foreach (var branch in node.Branches) Scan(branch.Steps);
@@ -208,19 +209,22 @@ public sealed partial class PlanningGraphCompiler
     private static JsonObject LowerFused(string[] group, LoweringScope scope, PlanningValue? consumerInput = null)
     {
         var local = scope with { LocalOutputs = new(StringComparer.Ordinal) };
-        var program = new StringBuilder("(()=>{"); var contracts = new JsonObject(); var fields = new JsonObject();
+        var program = new StringBuilder("(()=>{"); var contracts = new JsonObject(); var fields = new JsonObject(); var lexical = new JsonObject();
         foreach (var key in group)
         {
             var node = scope.Nodes[key]; var lowered = LowerNode(node, local); var id = LocalName(key, scope);
             var whole = node.Input.Kind == "projection" && PlanningGraphValidation.Literal(PlanningGraphValidation.Member(node.Input, "paths")!) is JsonArray { Count: 1 } paths &&
                 paths[0] is JsonArray { Count: 0 } && PlanningGraphValidation.Member(node.Input, "each")?.Boolean != true;
-            var expression = whole ? ToExpression(new() { Kind = "object", Members = [new("value", PlanningGraphValidation.Member(node.Input, "value")!)] }, local) :
+            if (lowered["__lexical_contracts"] is JsonObject branchChecks)
+                foreach (var (check, entry) in branchChecks) lexical.Add(check, entry?.DeepClone());
+            var expression = scope.PureBranches.Contains(key) ? lowered["input"]!.GetValue<string>() : whole ? ToExpression(new() { Kind = "object", Members = [new("value", PlanningGraphValidation.Member(node.Input, "value")!)] }, local) :
                 node.InternalRole is "typed_assembly" or "typed_projection" or "typed_index_projection"
                 ? lowered["input"]!.GetValue<string>() : ToExpression(node.Input, local);
             // A closed, already checked record need not be assembled again under
             // identical property names. Its own check still runs at this position.
             if (node.Input is { Kind: "object", Members.Count: > 0 } assembly && assembly.Members[0].Value.Source is { } source &&
                 scope.Nodes.TryGetValue(source, out var producer) && producer.OutputSchema is { } output &&
+                (!scope.CheckedControls || producer.InternalRole?.StartsWith("inline:", StringComparison.Ordinal) != true) &&
                 assembly.Members.All(m => m.Value.Kind == "output" && m.Value.Source == source && m.Value.Path.SequenceEqual([m.Name]) && m.Value.ResultChannel is null))
             {
                 var shape = ToJsonSchema(output, scope.Catalog);
@@ -241,6 +245,7 @@ public sealed partial class PlanningGraphCompiler
             ["input"] = "${checkedMapping(\n" + (scope.NativeMappings ? ProgramLiteral(program.ToString(), scope) : JsonValue.Create(program.ToString())!.ToJsonString(new System.Text.Json.JsonSerializerOptions(PlanningJsonContext.Default.Options) { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping })) + ",data," + contracts.ToJsonString() + "\n)}",
             ["output_schema"] = new JsonObject { ["type"] = "object", ["properties"] = fields,
                 ["required"] = new JsonArray(group.Where(scope.FusedExports.Contains).Select(k => (JsonNode?)JsonValue.Create(LocalName(k, scope))).ToArray()), ["additionalProperties"] = false } };
+        if (lexical.Count > 0) result["__lexical_contracts"] = lexical;
         if (scope.Descriptions) result["description"] = "Check and assemble consecutive deterministic values.";
         return result;
     }

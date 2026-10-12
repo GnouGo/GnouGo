@@ -16,6 +16,7 @@ public sealed partial class FusedBindingCompilationTests
         var graph = Graph(); var catalog = await Catalog(); var compiler = new PlanningGraphCompiler();
         var before = compiler.Compile(graph, catalog, "outputs", true, true, true, true, true, true, true, true, true, true);
         var after = compiler.Compile(graph, catalog, "outputs", true, true, true, true, true, true, true, true, true, true, true);
+        SaveV13Comparison("output", before, after);
         Assert.Empty(WorkflowParser.Parse(after).Workflows["main"].Steps);
         Assert.Equal(4, WorkflowParser.Parse(after).Workflows["main"].Outputs!["chosen"].ExpressionContracts![""]!.AsObject().Count);
         string? outcome = null;
@@ -46,6 +47,8 @@ public sealed partial class FusedBindingCompilationTests
             case "handler": workflow.Steps[^1].OnError.Add(new(null, "stop", null, null)); break;
         }
         var yaml = new PlanningGraphCompiler().Compile(graph, await Catalog(), "retained", true, true, true, true, true, true, true, true, true, true, true);
+        if (boundary == "finalizer") SaveV13Comparison("retained-finalizer",
+            new PlanningGraphCompiler().Compile(graph, await Catalog(), "retained", true, true, true, true, true, true, true, true, true, true), yaml);
         Assert.NotEmpty(WorkflowParser.Parse(yaml).Workflows["main"].Steps);
         Assert.Null(WorkflowParser.Parse(yaml).Workflows["main"].Outputs!["chosen"].ExpressionContracts);
     }

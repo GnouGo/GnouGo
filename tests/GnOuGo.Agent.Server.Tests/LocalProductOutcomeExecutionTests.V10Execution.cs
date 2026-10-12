@@ -84,6 +84,8 @@ public sealed partial class LocalProductOutcomeExecutionTests
             var engine = new WorkflowEngine { McpClientFactory = observed, LLMClient = model, RunStore = store,
                 LLMUsageBudget = new(new() { MaxElapsed = TimeSpan.FromMinutes(2) }), LlmDefaults = new() { Model = "deterministic" },
                 Limits = new() { TenantId = "local", RunId = "v10-" + variant } };
+            var checkMetrics = Environment.GetEnvironmentVariable("GNOU_GO_V13_METRICS") is { Length: > 0 } ? new CheckMetrics() : null;
+            if (checkMetrics is not null) engine.Telemetry = checkMetrics;
             var runtime = new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask);
             var catalog = await RetainedCatalog(runtime, ct); catalog.Policy.RequireExternalConfirmation = false;
             var proposal = V10Proposal(catalog, 4);
@@ -124,6 +126,21 @@ public sealed partial class LocalProductOutcomeExecutionTests
             output.WriteLine($"{profile} RUNTIME {variant}: success={result.Success}; elapsedMs={timer.ElapsedMilliseconds}; tasks={RetainedTasks(proposal.Plan.Root).Count()}; YAML={Encoding.UTF8.GetByteCount(session.Yaml!)}; " +
                 $"inference={model.Requests.Count}; mappings={model.MappingCalls}; invocations={journal.Invocations.Count}; steps={journal.StepsStarted}; cleanup={journal.FinalizationStepsStarted}; allocatedBytes={allocated}; " +
                 $"logicalJournalBytes={Encoding.UTF8.GetByteCount(JsonSerializer.Serialize(journal, WorkflowRunJsonContext.Default.WorkflowRun))}; physicalBytes={Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories).Sum(f => new FileInfo(f).Length)}; error={result.Error?.Code} {result.Error?.Message}");
+            if (Environment.GetEnvironmentVariable("GNOU_GO_V13_METRICS") is { Length: > 0 } metricsFolder)
+            {
+                Directory.CreateDirectory(metricsFolder);
+                var metrics = new JsonObject { ["profile"] = profile, ["variant"] = variant, ["success"] = result.Success,
+                    ["elapsed_ms"] = timer.ElapsedMilliseconds, ["allocated_bytes"] = allocated,
+                    ["invocations"] = journal.Invocations.Count, ["steps_started"] = journal.StepsStarted, ["finalization_steps"] = journal.FinalizationStepsStarted,
+                    ["inference_calls"] = model.Requests.Count, ["mapping_calls"] = model.MappingCalls,
+                    ["logical_journal_bytes"] = Encoding.UTF8.GetByteCount(JsonSerializer.Serialize(journal, WorkflowRunJsonContext.Default.WorkflowRun)),
+                    ["physical_store_bytes"] = Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories).Sum(f => new FileInfo(f).Length),
+                    ["check_events"] = checkMetrics?.Events.Count, ["check_event_bytes"] = checkMetrics?.Bytes,
+                    ["decision_request_bytes"] = model.DecisionBytes,
+                    ["yaml_bytes"] = Encoding.UTF8.GetByteCount(session.Yaml!) };
+                File.WriteAllText(Path.Combine(metricsFolder, profile + "-" + variant + ".json"), metrics.ToJsonString(new() { WriteIndented = true }));
+                File.WriteAllLines(Path.Combine(metricsFolder, profile + "-" + variant + "-checks.txt"), checkMetrics!.Events);
+            }
             if (variant is "unoffered" or "incomplete" or "denied")
             {
                 Assert.False(result.Success); Assert.False(File.Exists(path)); Assert.False(File.Exists(Path.Combine(root, "outside.xlsx")));
@@ -194,6 +211,25 @@ public sealed partial class LocalProductOutcomeExecutionTests
     private static string V10Name(int i) => "=Observed lamp " + i % 3;
     private static string V10Description(int i) => "Complete observed block " + i + " — café; all supplied words retained.";
     private static string V10Price(int i) => (10 + i).ToString(System.Globalization.CultureInfo.InvariantCulture) + ",00 €";
+
+    // Measurement-only sink for existing lightweight events. It never retains
+    // inputs, results, observations or schema payloads.
+    private sealed class CheckMetrics : IWorkflowTelemetry, IWorkflowSpan, IStepSpan
+    {
+        internal List<string> Events { get; } = [];
+        internal long Bytes;
+        public IWorkflowSpan WorkflowStart(WorkflowTelemetryInfo info) => this;
+        public IStepSpan StepStart(ITelemetrySpan parentSpan, StepTelemetryInfo info) => this;
+        public void WorkflowEnd(IWorkflowSpan span, WorkflowResultInfo result) { }
+        public void StepEnd(IStepSpan span, StepResultInfo result) { }
+        public void Dispose() { }
+        public void AddEvent(string name, IReadOnlyList<KeyValuePair<string, object?>>? attributes = null)
+        {
+            if (!name.EndsWith(".check", StringComparison.Ordinal)) return;
+            var text = name + " " + string.Join("; ", (attributes ?? []).Select(p => p.Key + "=" + p.Value));
+            Events.Add(text); Bytes += Encoding.UTF8.GetByteCount(text);
+        }
+    }
 
     private sealed class V10Model(string variant, string origin) : ILLMClient, ILLMCapabilityResolver
     {

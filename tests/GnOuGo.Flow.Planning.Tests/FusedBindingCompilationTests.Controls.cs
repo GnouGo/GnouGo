@@ -20,6 +20,7 @@ public sealed partial class FusedBindingCompilationTests
         var compiler = new PlanningGraphCompiler(); var catalog = await Catalog();
         var before = compiler.Compile(graph, catalog, "controls", true, true, true, true, true, true, true, true, true, true);
         var after = compiler.Compile(graph, catalog, "controls", true, true, true, true, true, true, true, true, true, true, true);
+        SaveV13Comparison("control", before, after);
         Assert.Contains("control_contracts:", after);
         Assert.Single(WorkflowParser.Parse(after).Workflows["main"].Steps);
         foreach (var yaml in new[] { before, after })
@@ -29,5 +30,13 @@ public sealed partial class FusedBindingCompilationTests
             Assert.True(result.Success, result.Error?.Message);
             Assert.Equal(allowed, result.StepResults.Last().Output?.AsObject().Any(p => p.Value is JsonObject obj && obj.ContainsKey("visited")) == true);
         }
+    }
+
+    private static void SaveV13Comparison(string name, string before, string after)
+    {
+        if (Environment.GetEnvironmentVariable("GNOU_GO_V13_EXAMPLES") is not { Length: > 0 } folder) return;
+        Directory.CreateDirectory(folder);
+        File.WriteAllText(Path.Combine(folder, name + "-v12.yaml"), before);
+        File.WriteAllText(Path.Combine(folder, name + "-v13.yaml"), after);
     }
 }

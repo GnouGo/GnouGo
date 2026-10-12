@@ -8,6 +8,7 @@ using GnOuGo.Flow.Core.Compilation;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Parsing;
 using YamlDotNet.Core;
+using YamlDotNet.Core.Events;
 using YamlDotNet.RepresentationModel;
 
 namespace GnOuGo.Flow.Planning;
@@ -60,6 +61,7 @@ public sealed partial class PlanningGraphCompiler
             var nodeIds = allNodes.ToDictionary(n => n.Key, n => "n_" + Fingerprint(n.Key)[..16], StringComparer.Ordinal);
             var scope = new LoweringScope(catalog, nodeIds, workflowIds, workflow.Inputs.Select(p => p.Name).ToHashSet(StringComparer.Ordinal), allNodes.ToDictionary(n => n.Key, n => n.Type, StringComparer.Ordinal), LoopVariables(allNodes), allNodes.ToDictionary(n => n.Key, StringComparer.Ordinal), graph.Workflows.ToDictionary(w => w.Key, StringComparer.Ordinal), descriptions) { DirectProjections = directProjections, NativeMappings = nativeMappings, ReadableMappings = readableMappings, LeanMappings = leanMappings, CompactProjections = compactProjections, InlineConsumers = inlineConsumers, DirectValues = directValues, CheckedControls = checkedControls };
             if (compactProjections) PrepareCopyProjections(workflow, scope);
+            if (checkedControls) PreparePureBranches(workflow, scope);
             if (fuseBindings) PrepareFusion(workflow, scope, consumerBindings);
             if (checkedControls) PrepareTerminalOutput(workflow, scope);
             var lowered = new JsonObject();
@@ -86,14 +88,13 @@ public sealed partial class PlanningGraphCompiler
                 foreach (var output in workflow.Outputs)
                 {
                     var schema = LowerSchema(output.Schema, catalog);
-                    schema["expr"] = scope.TerminalOutput is { } terminal
-                        ? LowerFused(terminal, scope, output.Value)["input"]!.DeepClone()
-                        : JsonValue.Create(ToExpression(output.Value, scope));
+                    var terminalExpression = scope.TerminalOutput is { } terminal ? LowerFused(terminal, scope, output.Value) : null;
+                    schema["expr"] = terminalExpression?["input"]?.DeepClone() ?? JsonValue.Create(ToExpression(output.Value, scope));
                     if (scope.DirectValues)
                     {
                         // Terminal inlining is proven separately; finalization and
                         // independently observable checks retain their boundaries.
-                        var expression = ReadableStep(new JsonObject { ["input"] = schema["expr"]!.DeepClone() }, scope);
+                        var expression = ReadableStep(terminalExpression ?? new JsonObject { ["input"] = schema["expr"]!.DeepClone() }, scope);
                         schema["expr"] = expression["input"]?.DeepClone();
                         if (expression["expression_contracts"] is { } contracts)
                             schema["expression_contracts"] = contracts.DeepClone();
@@ -117,7 +118,7 @@ public sealed partial class PlanningGraphCompiler
             else if (value is JsonArray array) foreach (var child in array) Visit(child);
         }
         Visit(workflows["main"]);
-        if (graph.Workflows.Any(w => Enumerate(w.Steps).Any(n => n.InternalRole is "typed_projection" or "typed_index_projection")))
+        if (checkedControls || graph.Workflows.Any(w => Enumerate(w.Steps).Any(n => n.InternalRole is "typed_projection" or "typed_index_projection")))
             foreach (var unused in workflows.Select(p => p.Key).Where(n => !reachable.Contains(n)).ToArray()) workflows.Remove(unused);
         root["workflows"] = workflows;
         var main = (JsonObject)workflows["main"]!;
@@ -127,7 +128,7 @@ public sealed partial class PlanningGraphCompiler
             ["inputs"] = main["inputs"]?.DeepClone() ?? new JsonObject(),
             ["outputs"] = main["outputs"]?.DeepClone() ?? new JsonObject()
         };
-        var stream = new YamlStream(new YamlDocument(ToYaml(root)));
+        var stream = new YamlStream(new YamlDocument(ToYaml(root, checkedControls)));
         using var writer = new StringWriter(CultureInfo.InvariantCulture) { NewLine = "\n" };
         stream.Save(writer, assignAnchors: false);
         var yaml = writer.ToString();
@@ -166,6 +167,7 @@ public sealed partial class PlanningGraphCompiler
     {
         if (!scope.Catalog.AllowedStepTypes.Contains(node.Type, StringComparer.Ordinal))
             throw new InvalidOperationException("A node uses a step type outside the locked policy.");
+        if (scope.PureBranches.Contains(node.Key)) return LowerPureBranch(node, scope);
         if (node.InternalRole is "typed_projection" or "typed_index_projection" && node.Type is "loop.sequential" or "loop.parallel")
         {
             var projection = LowerCopyLoop(node, scope);
@@ -267,7 +269,13 @@ public sealed partial class PlanningGraphCompiler
         if (node.Default.Count > 0 || node.Type == "switch") result["default"] = LowerSteps(node.Default, scope);
         if (scope.ConsumerBindings.TryGetValue(node.Key, out var consumerBinding))
         {
-            var expression = LowerFused(consumerBinding.Group, scope, consumerBinding.Value)["input"]!.DeepClone();
+            var prepared = LowerFused(consumerBinding.Group, scope, consumerBinding.Value);
+            var expression = prepared["input"]!.DeepClone();
+            if (prepared["__lexical_contracts"] is { } lexical)
+            {
+                result["__lexical_contracts"] = lexical.DeepClone();
+                result["__lexical_pointer"] = consumerBinding.Path.Length == 0 ? "" : "/" + string.Join('/', consumerBinding.Path.Select(p => p.Replace("~", "~0", StringComparison.Ordinal).Replace("/", "~1", StringComparison.Ordinal)));
+            }
             if (consumerBinding.Path.Length == 0) result["input"] = expression;
             else
             {
@@ -697,14 +705,31 @@ public sealed partial class PlanningGraphCompiler
         return result;
     }
 
-    private static YamlNode ToYaml(JsonNode? value) => value switch
+    private static YamlNode ToYaml(JsonNode? value, bool compactContracts = false, bool schema = false)
     {
-        JsonObject obj => new YamlMappingNode(obj.Select(p => new KeyValuePair<YamlNode, YamlNode>(new YamlScalarNode(p.Key), ToYaml(p.Value)))),
-        JsonArray array => new YamlSequenceNode(array.Select(ToYaml)),
-        JsonValue scalar when scalar.TryGetValue<string>(out var text) => new YamlScalarNode(text) { Style = text.Contains('\n') ? ScalarStyle.Literal : ScalarStyle.DoubleQuoted },
-        null => new YamlScalarNode("null") { Style = ScalarStyle.Plain },
-        _ => new YamlScalarNode(value.ToJsonString()) { Style = ScalarStyle.Plain }
-    };
+        if (!compactContracts) return value switch
+        {
+            JsonObject obj => new YamlMappingNode(obj.Select(p => new KeyValuePair<YamlNode, YamlNode>(new YamlScalarNode(p.Key), ToYaml(p.Value)))),
+            JsonArray array => new YamlSequenceNode(array.Select(item => ToYaml(item))),
+            JsonValue scalar when scalar.TryGetValue<string>(out var text) => new YamlScalarNode(text) { Style = text.Contains('\n') ? ScalarStyle.Literal : ScalarStyle.DoubleQuoted },
+            null => new YamlScalarNode("null") { Style = ScalarStyle.Plain },
+            _ => new YamlScalarNode(value.ToJsonString()) { Style = ScalarStyle.Plain }
+        };
+        static bool ShortScalar(JsonNode? node) => node is null || node is JsonValue scalar &&
+            (!scalar.TryGetValue<string>(out var text) || text.Length <= 48 && !text.Contains('\n'));
+        static bool ShortArray(JsonNode? node) => node is JsonArray { Count: <= 6 } array && array.All(ShortScalar);
+        return value switch
+        {
+            JsonObject obj => new YamlMappingNode(obj.Select(p => new KeyValuePair<YamlNode, YamlNode>(new YamlScalarNode(p.Key),
+                ToYaml(p.Value, compactContracts, schema || p.Key is "schema" or "output_schema"))))
+                { Style = compactContracts && schema && obj.Count <= 4 && obj.All(p => ShortScalar(p.Value) || ShortArray(p.Value)) ? MappingStyle.Flow : MappingStyle.Block },
+            JsonArray array => new YamlSequenceNode(array.Select(item => ToYaml(item, compactContracts, schema)))
+                { Style = compactContracts && schema && ShortArray(array) ? SequenceStyle.Flow : SequenceStyle.Block },
+            JsonValue scalar when scalar.TryGetValue<string>(out var text) => new YamlScalarNode(text) { Style = text.Contains('\n') ? ScalarStyle.Literal : ScalarStyle.DoubleQuoted },
+            null => new YamlScalarNode("null") { Style = ScalarStyle.Plain },
+            _ => new YamlScalarNode(value.ToJsonString()) { Style = ScalarStyle.Plain }
+        };
+    }
 
     private static void EnsureUnique(IEnumerable<string> values, string kind)
     {
@@ -725,6 +750,8 @@ public sealed partial class PlanningGraphCompiler
         internal bool LeanMappings { get; init; }
         internal bool CompactProjections { get; init; }
         internal bool InlineConsumers { get; init; }
+        internal HashSet<string> PureBranches { get; } = new(StringComparer.Ordinal);
+        internal Dictionary<string, string> LexicalOutputs { get; init; } = new(StringComparer.Ordinal);
         internal string[]? TerminalOutput { get; set; }
         internal bool CheckedControls { get; init; }
         internal Dictionary<string, (string[] Group, string Pointer, PlanningValue Value)> ControlBindings { get; } = new(StringComparer.Ordinal);

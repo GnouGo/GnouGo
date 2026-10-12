@@ -55,6 +55,37 @@ if (!checkedOutputResult.Success || checkedOutputResult.Outputs?["observed"]?.To
     throw new InvalidOperationException("Ordered direct-value/output contracts changed exact values under Native AOT: " + checkedOutputResult.Error?.Message);
 Console.WriteLine("v12 checked outputs: ordered aliases, serialization and exact numbers/nulls");
 
+var controlDocument = WorkflowParser.Parse("""
+    version: 1
+    workflows:
+      main:
+        steps:
+        - id: choose
+          type: switch
+          expr: '${(() => { const enabled = true; return enabled; })()}'
+          control_contracts:
+            /expr:
+              enabled: {order: 0, source: enabled, origin: acquisition, schema: {type: boolean}}
+          cases:
+          - value: 'true'
+            steps:
+            - id: copy
+              type: set
+              input: '${(() => { const value = true ? (() => { const original = data.inputs.exact; return original; })() : null; return {value}; })()}'
+              expression_contracts:
+                '':
+                  value: {scope: block0, order: 0, source: value, origin: result, schema: {type: integer}}
+                  original: {scope: block1, order: 0, source: original, origin: observed, schema: {type: integer}}
+        outputs:
+          exact: {type: number, expr: '${data.steps.choose.copy.value}'}
+    """);
+controlDocument = JsonSerializer.Deserialize(JsonSerializer.Serialize(controlDocument, WorkflowRunJsonContext.Default.WorkflowDocument), WorkflowRunJsonContext.Default.WorkflowDocument)!;
+var checkedControlResult = await new WorkflowEngine().ExecuteAsync(new WorkflowCompiler().Compile(controlDocument).Workflows["main"],
+    JsonNode.Parse("{\"exact\":9007199254740993}"), CancellationToken.None);
+if (!checkedControlResult.Success || checkedControlResult.Outputs?["exact"]?.ToJsonString() != "9007199254740993")
+    throw new InvalidOperationException("Checked control/lexical contracts failed under Native AOT: " + checkedControlResult.Error?.Message);
+Console.WriteLine("v13 checked controls and lexical scopes: source-generated metadata and exact values");
+
 // Native publication provides a self-contained executable for a real stdio MCP
 // exchange. Managed runs exercise the same conversions in the integration suite.
 if (!System.Runtime.CompilerServices.RuntimeFeature.IsDynamicCodeSupported)

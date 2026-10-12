@@ -22,7 +22,8 @@ public sealed partial class PlanningGraphCompiler
         bool Reads(PlanningValue v) => v.Source is { } source && group.Contains(source, StringComparer.Ordinal);
         var outputs = workflow.Outputs.SelectMany(o => BindingValues(o.Value)).ToArray();
         if (!outputs.Any(v => v.Kind == "output" && Reads(v)) || outputs.Any(v => v.Kind is "expression" or "template" or "present")) return;
-        var other = scope.Nodes.Values.Where(n => !group.Contains(n.Key, StringComparer.Ordinal)).SelectMany(n =>
+        var owned = group.SelectMany(key => Enumerate([scope.Nodes[key]])).Select(n => n.Key).ToHashSet(StringComparer.Ordinal);
+        var other = scope.Nodes.Values.Where(n => !owned.Contains(n.Key)).SelectMany(n =>
             BindingValues(n.Input).Concat(BindingValues(n.Expr)).Concat(BindingValues(n.If)).Concat(n.Cases.SelectMany(c => BindingValues(c.When))));
         if (other.Any(v => Reads(v) || v.Kind is "expression" or "template")) return;
         foreach (var key in group) scope.FusedOutputs[key] = group;

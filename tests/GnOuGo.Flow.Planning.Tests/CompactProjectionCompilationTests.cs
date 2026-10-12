@@ -56,6 +56,24 @@ public sealed class CompactProjectionCompilationTests(Xunit.ITestOutputHelper ou
     [Theory]
     [InlineData("nominal")]
     [InlineData("alternate")]
+    public async Task V13NullableCaptureKeepsPhysicalReferencesInItsLexicalScope(string variant)
+    {
+        var sample = new GnOuGo.Planning.Examples.PlanningBenchmarkCases.Environment("nullable_defaults", variant);
+        var runtime = new WorkflowPlanningRuntime(new WorkflowEngine { McpClientFactory = sample.Factory() }, (_, _) => Task.CompletedTask);
+        var catalog = await TaskPlanCompilerTests.Catalog(runtime);
+        var plan = GnOuGo.Planning.Examples.PlanningCorpus.Tasks("nullable_defaults", catalog);
+        var compilation = new TaskPlanCompiler().Compile(plan, catalog, new PlanningRequest { Options = new() { ["compilation_profile"] = "compact-bindings-v13" } });
+        Assert.Empty(compilation.Diagnostics);
+        var yaml = new PlanningGraphCompiler().Compile(compilation.Graph!, catalog, "nullable", true, true, true, true, true, true, true, true, true, true, true);
+        if (Environment.GetEnvironmentVariable("GNOU_GO_V13_EVIDENCE") is { Length: > 0 } evidence) File.WriteAllText(Path.Combine(evidence, "nullable.yaml"), yaml);
+        Assert.Empty(await runtime.ValidateAsync(new(yaml, new(), catalog, PlanningGraphCompiler.CapabilityBindings(compilation.Graph!)), PlannerFixture.Ct));
+        var result = await LookupCompilationTests.Execute(yaml, GnOuGo.Planning.Examples.PlanningBenchmarkCases.Inputs("nullable_defaults", variant), new() { McpClientFactory = sample.Factory() });
+        Assert.True(sample.Verify(result), result.Error?.Message);
+    }
+
+    [Theory]
+    [InlineData("nominal")]
+    [InlineData("alternate")]
     public async Task GuardedNullableCaptureKeepsItsCheckedExportBoundary(string variant)
     {
         var sample = new GnOuGo.Planning.Examples.PlanningBenchmarkCases.Environment("nullable_defaults", variant);
