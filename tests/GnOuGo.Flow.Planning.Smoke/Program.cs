@@ -31,6 +31,30 @@ var historicalNumber = JsonSerializer.Deserialize("""{"kind":"number","number":0
 if (JsonSerializer.SerializeToNode(historicalNumber, PlanningJsonContext.Default.TaskValue)!["number"]!.ToJsonString() != "0.1234567890123456789012345678")
     throw new InvalidOperationException("Historical numeric tokens changed during Native AOT serialization.");
 
+var checkedOutputDocument = WorkflowParser.Parse("""
+    version: 1
+    workflows:
+      main:
+        steps: []
+        outputs:
+          observed:
+            type: array
+            schema: {type: array, maxItems: 2, items: {type: [number, 'null']}}
+            expr: |-
+              ${(()=>{const pages=data.inputs.pages;const observed=pages.flatMap(page=>page);return observed;})()}
+            expression_contracts:
+              '':
+                pages: {origin: sourcePages, order: 0, source: pages, schema: {type: array}}
+                observed: {origin: flattenPages, order: 1, source: observed, schema: {type: array}}
+                exported: {origin: originalExport, order: 2, source: observed, schema: {type: array}}
+    """);
+checkedOutputDocument = JsonSerializer.Deserialize(JsonSerializer.Serialize(checkedOutputDocument, WorkflowRunJsonContext.Default.WorkflowDocument), WorkflowRunJsonContext.Default.WorkflowDocument)!;
+var checkedOutputResult = await new WorkflowEngine().ExecuteAsync(new WorkflowCompiler().Compile(checkedOutputDocument).Workflows["main"],
+    JsonNode.Parse("{\"pages\":[[9007199254740993],[],[null]]}"), CancellationToken.None);
+if (!checkedOutputResult.Success || checkedOutputResult.Outputs?["observed"]?.ToJsonString() != "[9007199254740993,null]")
+    throw new InvalidOperationException("Ordered direct-value/output contracts changed exact values under Native AOT: " + checkedOutputResult.Error?.Message);
+Console.WriteLine("v12 checked outputs: ordered aliases, serialization and exact numbers/nulls");
+
 // Native publication provides a self-contained executable for a real stdio MCP
 // exchange. Managed runs exercise the same conversions in the integration suite.
 if (!System.Runtime.CompilerServices.RuntimeFeature.IsDynamicCodeSupported)

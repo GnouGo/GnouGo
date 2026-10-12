@@ -7,11 +7,13 @@ namespace GnOuGo.Flow.Tests.Runtime;
 public sealed partial class WorkflowRunTests
 {
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task RecoveredInputsReportReuseWithoutRepeatingChecksOrUncertainEffects(bool receiptPersisted)
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public async Task RecoveredInputsReportReuseWithoutRepeatingChecksOrUncertainEffects(bool receiptPersisted, bool directValues)
     {
-        const string yaml = """
+        var yaml = """
             version: 1
             workflows:
               main:
@@ -28,6 +30,10 @@ public sealed partial class WorkflowRunTests
                 finally:
                 - {id: cleanup, type: test.effect, input: {value: cleanup}}
             """;
+        if (directValues)
+            yaml = yaml.Replace("const writtenValue={value:data.inputs.value};return writtenValue;", "const writtenValue=data.inputs.value;return {value:writtenValue};", StringComparison.Ordinal)
+                .Replace("schema: {type: object, properties: {value: {const: written}}, required: [value]}",
+                    "schema: {const: written}\n            source: writtenValue\n            order: 0\n            instance_path: /value", StringComparison.Ordinal);
         var ct = TestContext.Current.CancellationToken;
         var store = new InMemoryWorkflowRunStore(); var effect = new Effect();
         var fault = new FaultStore(store, r => r.Invocations.Values.Any(i => i.Id.EndsWith("/write", StringComparison.Ordinal) && i.Status == "completed"), receiptPersisted);

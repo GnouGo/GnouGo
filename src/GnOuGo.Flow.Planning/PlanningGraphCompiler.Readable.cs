@@ -69,6 +69,15 @@ public sealed partial class PlanningGraphCompiler
                     if (mapping.Arguments[1] is ObjectExpression captured && captured.Properties.All(p => p is Property { Computed: false, Method: false, Shorthand: false }))
                     {
                         var properties = captured.Properties.Cast<Property>().ToArray();
+                        // Strict lookup already evaluates its two operands once,
+                        // in order. Its capture envelope has no independent check.
+                        if (scope.DirectValues && properties.Length == 2 && new Parser().ParseExpression(body) is
+                            CallExpression { Callee: MemberExpression { Object: Identifier { Name: "m" }, Property: Identifier { Name: "lookup" } }, Arguments.Count: 3 } lookup &&
+                            lookup.Arguments[2] is StringLiteral && Enumerable.Range(0, 2).All(i =>
+                                lookup.Arguments[i] is MemberExpression { Object: Identifier { Name: "source" }, Computed: false, Property: Identifier field } &&
+                                field.Name == (properties[i].Key is Identifier key ? key.Name : (properties[i].Key as StringLiteral)?.Value)))
+                            return "m.lookup(" + string.Join(", ", properties.Select(p => Rewrite(p.Value))) + ", " +
+                                body[lookup.Arguments[2].Start..lookup.Arguments[2].End] + ")";
                         if (scope.InlineConsumers && properties.Length == 1)
                         {
                             var argument = properties[0].Value;

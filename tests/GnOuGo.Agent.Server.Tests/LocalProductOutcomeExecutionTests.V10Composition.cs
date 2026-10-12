@@ -254,7 +254,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
         var planner = new HybridWorkflowPlanner();
         // The comparison's historical session is already versioned. A brand
         // new session deliberately selects the current compiler profile.
-        var session = new PlanningSession { Catalog = catalog, Revision = profile == "compact-bindings-v10" ? 1 : 0, Request = new()
+        var session = new PlanningSession { Catalog = catalog, Revision = profile == TaskPlanCompiler.CompactProfile ? 0 : 1, Request = new()
         {
             TenantId = "local", Options = new() { ["compilation_profile"] = profile, ["mapping_profile"] = "adaptive-each-v1" },
             Prompt = "Preserve the accepted observed-data task and its exact output contracts.",

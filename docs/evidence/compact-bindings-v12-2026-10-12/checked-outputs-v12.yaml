@@ -42,7 +42,7 @@ workflows:
           - "text"
         expr: |-
           ${
-          ((records_2, selected_2) => m.lookup(records_2, selected_2, "key"))((data.inputs.observationPages).flatMap(item => item), data.inputs.selectedKeys)
+          m.lookup((data.inputs.observationPages).flatMap(item => item), data.inputs.selectedKeys, "key")
           }
         expression_contracts:
           '': {}
@@ -86,7 +86,7 @@ skill:
         - "text"
       expr: |-
         ${
-        ((records_2, selected_2) => m.lookup(records_2, selected_2, "key"))((data.inputs.observationPages).flatMap(item => item), data.inputs.selectedKeys)
+        m.lookup((data.inputs.observationPages).flatMap(item => item), data.inputs.selectedKeys, "key")
         }
       expression_contracts:
         '': {}

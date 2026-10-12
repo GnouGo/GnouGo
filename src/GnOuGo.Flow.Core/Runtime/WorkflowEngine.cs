@@ -205,7 +205,7 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
                 new HashSet<string>(),
                 executionScope,
                 workflowSpan);
-            EvaluateWorkflowOutputsIntoResult(workflow, data, result, executionScope);
+            EvaluateWorkflowOutputsIntoResult(workflow, data, result, executionScope, workflowSpan);
             workflowSw.Stop();
             Telemetry.WorkflowEnd(workflowSpan, new WorkflowResultInfo
             {
@@ -320,7 +320,7 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
                 callStack,
                 executionScope,
                 workflowSpan);
-            EvaluateWorkflowOutputsIntoResult(workflow, data, result, executionScope);
+            EvaluateWorkflowOutputsIntoResult(workflow, data, result, executionScope, workflowSpan);
             workflowSw.Stop();
             Telemetry.WorkflowEnd(workflowSpan, new WorkflowResultInfo
             {
@@ -340,7 +340,8 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
         CompiledWorkflow workflow,
         JsonObject data,
         RunResult result,
-        WorkflowExecutionScope executionScope)
+        WorkflowExecutionScope executionScope,
+        ITelemetrySpan? workflowSpan)
     {
         if (!result.Success)
             return;
@@ -348,7 +349,7 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
         try
         {
             result.Outputs = workflow.Outputs != null
-                ? EvaluateWorkflowOutputs(workflow.Outputs, data, executionScope, workflow.Name)
+                ? EvaluateWorkflowOutputs(workflow.Outputs, data, executionScope, workflow.Name, workflowSpan)
                 : data["steps"]?.DeepClone();
         }
         catch (WorkflowRuntimeException ex)
@@ -438,7 +439,7 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
                     {
                         new("gnougo-flow.check.name", check.Name),
                         new("gnougo-flow.check.origin", check.Origin),
-                        new("gnougo-flow.check.reference", check.Name),
+                        new("gnougo-flow.check.reference", step.Source.ExpressionContracts?[check.Pointer]?[check.Name]?["source"]?.GetValue<string>() ?? check.Name),
                         new("gnougo-flow.check.input_pointer", check.Pointer),
                         new("gnougo-flow.check.contract_pointer", "/expression_contracts/" + Escape(check.Pointer) + "/" + Escape(check.Name) + "/schema"),
                         new("gnougo-flow.check.order", index),
@@ -1049,13 +1050,17 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
     internal JsonNode? EvaluateOutputDef(Models.OutputDef def, JsonObject data)
         => EvaluateOutputDef(def, data, new WorkflowExecutionScope(null, _evaluator, _interpolator));
 
-    internal JsonNode? EvaluateOutputDef(Models.OutputDef def, JsonObject data, WorkflowExecutionScope executionScope)
+    internal JsonNode? EvaluateOutputDef(Models.OutputDef def, JsonObject data, WorkflowExecutionScope executionScope,
+        Action<string, string, string, string, string?>? observeCheck = null, string contractPath = "")
     {
         // Simple expression output
         if (!string.IsNullOrEmpty(def.Expr))
         {
             if (def.ExpressionContracts is not null)
-                return executionScope.Interpolator.ResolveDeep(JsonValue.Create(def.Expr), data, def.ExpressionContracts);
+                return executionScope.Interpolator.ResolveDeep(JsonValue.Create(def.Expr), data, def.ExpressionContracts,
+                    observeCheck is null ? null : (pointer, name, origin, error) => observeCheck(
+                        contractPath + "/expression_contracts/" + EscapeCheckPointer(pointer) + "/" + EscapeCheckPointer(name) + "/schema",
+                        name, origin, def.ExpressionContracts[pointer]?[name]?["source"]?.GetValue<string>() ?? name, error));
             return executionScope.Interpolator.Interpolate(def.Expr, data)?.DeepClone();
         }
 
@@ -1065,7 +1070,7 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
             var obj = new JsonObject();
             foreach (var (key, propDef) in def.Properties)
             {
-                obj[key] = EvaluateOutputDef(propDef, data, executionScope)?.DeepClone();
+                obj[key] = EvaluateOutputDef(propDef, data, executionScope, observeCheck, contractPath + "/properties/" + EscapeCheckPointer(key))?.DeepClone();
             }
             return obj;
         }
@@ -1077,15 +1082,31 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
         IReadOnlyDictionary<string, Models.OutputDef> outputs,
         JsonObject data,
         WorkflowExecutionScope executionScope,
-        string workflowName)
+        string workflowName,
+        ITelemetrySpan? workflowSpan = null)
     {
         var outputObj = new JsonObject();
+        var order = 0;
+        Action<string, string, string, string, string?>? observeCheck = workflowSpan is null || Telemetry is NullWorkflowTelemetry ? null :
+            (pointer, name, origin, reference, error) => workflowSpan.AddEvent("gnougo-flow.output.check", new KeyValuePair<string, object?>[]
+            {
+                new("gnougo-flow.check.name", name), new("gnougo-flow.check.origin", origin),
+                new("gnougo-flow.check.reference", reference), new("gnougo-flow.check.contract_pointer", pointer),
+                new("gnougo-flow.check.order", order++), new("gnougo-flow.check.outcome", error is null ? "passed" : "failed"), new("error.type", error)
+            });
         foreach (var (name, definition) in outputs)
         {
             try
             {
-                var value = EvaluateOutputDef(definition, data, executionScope);
-                ValidateWorkflowOutputValue(workflowName, name, definition, value);
+                var path = "/outputs/" + EscapeCheckPointer(name);
+                var value = EvaluateOutputDef(definition, data, executionScope, observeCheck, path);
+                try { ValidateWorkflowOutputValue(workflowName, name, definition, value); }
+                catch (WorkflowRuntimeException ex)
+                {
+                    if (definition.ExpressionContracts is not null) observeCheck?.Invoke(path + (definition.Schema is null ? "" : "/schema"), name, path, name, ex.Code);
+                    throw;
+                }
+                if (definition.ExpressionContracts is not null) observeCheck?.Invoke(path + (definition.Schema is null ? "" : "/schema"), name, path, name, null);
                 outputObj[name] = value?.DeepClone();
             }
             catch (WorkflowRuntimeException ex)
@@ -1096,6 +1117,8 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
 
         return outputObj;
     }
+
+    private static string EscapeCheckPointer(string part) => part.Replace("~", "~0", StringComparison.Ordinal).Replace("/", "~1", StringComparison.Ordinal);
 
     private static WorkflowRuntimeException EnrichStepExecutionError(
         WorkflowRuntimeException error,
