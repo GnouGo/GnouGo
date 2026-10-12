@@ -29,6 +29,7 @@ public sealed partial class FusedBindingCompilationTests
         var after = compiler.Compile(graph, catalog, "branches", true, true, true, true, true, true, true, true, true, true, true);
         SaveV13Comparison("nullable-branch", before, after);
         Assert.DoesNotContain("type: switch", after); Assert.Contains("scope:", after);
+        Assert.Empty(WorkflowParser.Parse(after).Workflows["main"].Steps);
         Assert.Contains("m.select", after); // First-present includes a present null.
         foreach (var yaml in new[] { before, after })
         {

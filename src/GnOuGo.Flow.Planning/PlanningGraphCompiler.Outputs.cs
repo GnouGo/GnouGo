@@ -15,10 +15,11 @@ public sealed partial class PlanningGraphCompiler
         var last = workflow.Steps[^1];
         var group = scope.FusedOutputs.GetValueOrDefault(last.Key) ?? [last.Key];
         if (!workflow.Steps.TakeLast(group.Length).Select(n => n.Key).SequenceEqual(group)) return;
-        if (group.Any(key => scope.Nodes[key] is not { CapabilityId: null, If: null, Expr: null, Output: null, Retry: null } node ||
+        if (group.Any(key => scope.Nodes[key] is not { CapabilityId: null, If: null, Output: null, Retry: null } node ||
+            node.Expr is not null && !scope.PureBranches.Contains(key) ||
             node.Input.Kind == "dynamic_mapping" ||
             !(node.Type == "set" && node.Steps.Count + node.Cases.Count + node.Branches.Count + node.Default.Count == 0 ||
-              node.InternalRole is "typed_projection" or "typed_index_projection"))) return;
+              node.InternalRole is "typed_projection" or "typed_index_projection" || scope.PureBranches.Contains(key)))) return;
         bool Reads(PlanningValue v) => v.Source is { } source && group.Contains(source, StringComparer.Ordinal);
         var outputs = workflow.Outputs.SelectMany(o => BindingValues(o.Value)).ToArray();
         if (!outputs.Any(v => v.Kind == "output" && Reads(v)) || outputs.Any(v => v.Kind is "expression" or "template" or "present")) return;
