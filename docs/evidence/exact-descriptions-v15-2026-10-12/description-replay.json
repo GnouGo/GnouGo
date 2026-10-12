@@ -1,0 +1,136 @@
+{
+  "historical_verdict_preserved": true,
+  "historical_description_acceptable": false,
+  "original_pages": 15,
+  "original_records": 585,
+  "offered_candidates": 44,
+  "retained_source_bytes": 333597,
+  "retained_candidate_output_bytes": 6240,
+  "acceptable_reconnections": [
+    {
+      "reference": "0fec30be96f2449d958a13eefa9dde5d:record:136",
+      "text_sha256": "9f7fb63e88e64c9cfda8973134621c439dd016ee12abef56482a0770bffb9294",
+      "exact_offered_original_match": true
+    },
+    {
+      "reference": "0fec30be96f2449d958a13eefa9dde5d:record:137",
+      "text_sha256": "a4370f81ec335dd1ffd2013fcac54ea1f236a1d9d7843587fb731c59ee7c3d26",
+      "exact_offered_original_match": true
+    },
+    {
+      "reference": "0fec30be96f2449d958a13eefa9dde5d:record:138",
+      "text_sha256": "b6300d8cc6204a42609e534a54fc56d256ac7580af68d9a713886ce9ad1b55b9",
+      "exact_offered_original_match": true
+    },
+    {
+      "reference": "0fec30be96f2449d958a13eefa9dde5d:record:139",
+      "text_sha256": "23c81ffd60c3d24e3fd35bc6e07d09ac374f5fd06de4ec7e30689f245c5a92da",
+      "exact_offered_original_match": true
+    },
+    {
+      "reference": "0fec30be96f2449d958a13eefa9dde5d:record:140",
+      "text_sha256": "4f4cbf36fd20f3f4525fd91cb719710a9ba0ff112640cf744d533b39ff35246f",
+      "exact_offered_original_match": true
+    }
+  ],
+  "source_sha256": "a42ab2a2763f419ad0a28249cbae37e2b599ed022bf59fe5d6dece91a7220ad3",
+  "provider_calls": 0,
+  "mcp_calls": 0,
+  "historical_writes": 0,
+  "workflow_resumed": false,
+  "expression_measurements": [
+    {
+      "statements": 1322,
+      "statement_limit": 10000,
+      "elapsed_ms": 10.312,
+      "time_limit_ms": 5000,
+      "allocated_bytes": 613528,
+      "materialized_bytes": 287390,
+      "output_bytes": 155488,
+      "memory_limit_bytes": 50000000,
+      "nesting_depth": 3,
+      "nesting_limit": 64,
+      "profile": "v14",
+      "warm": false,
+      "total_allocated_bytes": 642208,
+      "evaluation_ms": 27.6241,
+      "checks": [
+        "task_bb82258d6dfa99ce7e5921cf:passed",
+        "task_38aa59c2a2ca2b950e540a8e:passed",
+        "task_40181c1b8e526ba23959b04f:passed",
+        "task_fc8e685df2e4a1380633e019:passed"
+      ],
+      "exact_candidates": true
+    },
+    {
+      "statements": 1127,
+      "statement_limit": 10000,
+      "elapsed_ms": 0.9733,
+      "time_limit_ms": 5000,
+      "allocated_bytes": 554464,
+      "materialized_bytes": 241407,
+      "output_bytes": 115720,
+      "memory_limit_bytes": 50000000,
+      "nesting_depth": 3,
+      "nesting_limit": 64,
+      "profile": "v15",
+      "warm": false,
+      "total_allocated_bytes": 574888,
+      "evaluation_ms": 1.2649,
+      "checks": [
+        "task_bb82258d6dfa99ce7e5921cf:passed",
+        "task_38aa59c2a2ca2b950e540a8e:passed",
+        "task_40181c1b8e526ba23959b04f:passed",
+        "task_fc8e685df2e4a1380633e019:passed"
+      ],
+      "exact_candidates": true
+    },
+    {
+      "statements": 1322,
+      "statement_limit": 10000,
+      "elapsed_ms": 0.8912,
+      "time_limit_ms": 5000,
+      "allocated_bytes": 612984,
+      "materialized_bytes": 287390,
+      "output_bytes": 155488,
+      "memory_limit_bytes": 50000000,
+      "nesting_depth": 3,
+      "nesting_limit": 64,
+      "profile": "v14",
+      "warm": true,
+      "total_allocated_bytes": 634760,
+      "evaluation_ms": 1.0007,
+      "checks": [
+        "task_bb82258d6dfa99ce7e5921cf:passed",
+        "task_38aa59c2a2ca2b950e540a8e:passed",
+        "task_40181c1b8e526ba23959b04f:passed",
+        "task_fc8e685df2e4a1380633e019:passed"
+      ],
+      "exact_candidates": true
+    },
+    {
+      "statements": 1127,
+      "statement_limit": 10000,
+      "elapsed_ms": 0.7096,
+      "time_limit_ms": 5000,
+      "allocated_bytes": 554464,
+      "materialized_bytes": 241407,
+      "output_bytes": 115720,
+      "memory_limit_bytes": 50000000,
+      "nesting_depth": 3,
+      "nesting_limit": 64,
+      "profile": "v15",
+      "warm": true,
+      "total_allocated_bytes": 574888,
+      "evaluation_ms": 0.8116,
+      "checks": [
+        "task_bb82258d6dfa99ce7e5921cf:passed",
+        "task_38aa59c2a2ca2b950e540a8e:passed",
+        "task_40181c1b8e526ba23959b04f:passed",
+        "task_fc8e685df2e4a1380633e019:passed"
+      ],
+      "exact_candidates": true
+    }
+  ],
+  "limitation": "Deterministic independently reviewed IDs; no claim of future model compliance or changed historical workbook."
+}

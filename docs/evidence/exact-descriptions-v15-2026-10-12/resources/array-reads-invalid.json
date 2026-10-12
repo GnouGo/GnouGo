@@ -1,0 +1,146 @@
+[
+  {
+    "statements": 7,
+    "statement_limit": 10000,
+    "elapsed_ms": 0.2487,
+    "time_limit_ms": 5000,
+    "allocated_bytes": 20472,
+    "materialized_bytes": 384,
+    "output_bytes": 384,
+    "memory_limit_bytes": 50000000,
+    "nesting_depth": 2,
+    "nesting_limit": 64,
+    "profile": "v14",
+    "unused_observation_bytes": 1,
+    "warm": false,
+    "checks": [
+      "first:INPUT_VALIDATION"
+    ]
+  },
+  {
+    "statements": 7,
+    "statement_limit": 10000,
+    "elapsed_ms": 0.0754,
+    "time_limit_ms": 5000,
+    "allocated_bytes": 19144,
+    "materialized_bytes": 384,
+    "output_bytes": 384,
+    "memory_limit_bytes": 50000000,
+    "nesting_depth": 2,
+    "nesting_limit": 64,
+    "profile": "v15",
+    "unused_observation_bytes": 1,
+    "warm": false,
+    "checks": [
+      "first:INPUT_VALIDATION"
+    ]
+  },
+  {
+    "statements": 7,
+    "statement_limit": 10000,
+    "elapsed_ms": 0.0659,
+    "time_limit_ms": 5000,
+    "allocated_bytes": 20408,
+    "materialized_bytes": 384,
+    "output_bytes": 384,
+    "memory_limit_bytes": 50000000,
+    "nesting_depth": 2,
+    "nesting_limit": 64,
+    "profile": "v14",
+    "unused_observation_bytes": 1,
+    "warm": true,
+    "checks": [
+      "first:INPUT_VALIDATION"
+    ]
+  },
+  {
+    "statements": 7,
+    "statement_limit": 10000,
+    "elapsed_ms": 0.055,
+    "time_limit_ms": 5000,
+    "allocated_bytes": 19144,
+    "materialized_bytes": 384,
+    "output_bytes": 384,
+    "memory_limit_bytes": 50000000,
+    "nesting_depth": 2,
+    "nesting_limit": 64,
+    "profile": "v15",
+    "unused_observation_bytes": 1,
+    "warm": true,
+    "checks": [
+      "first:INPUT_VALIDATION"
+    ]
+  },
+  {
+    "statements": 7,
+    "statement_limit": 10000,
+    "elapsed_ms": 0.0704,
+    "time_limit_ms": 5000,
+    "allocated_bytes": 20408,
+    "materialized_bytes": 384,
+    "output_bytes": 384,
+    "memory_limit_bytes": 50000000,
+    "nesting_depth": 2,
+    "nesting_limit": 64,
+    "profile": "v14",
+    "unused_observation_bytes": 1200000,
+    "warm": false,
+    "checks": [
+      "first:INPUT_VALIDATION"
+    ]
+  },
+  {
+    "statements": 7,
+    "statement_limit": 10000,
+    "elapsed_ms": 0.2445,
+    "time_limit_ms": 5000,
+    "allocated_bytes": 19144,
+    "materialized_bytes": 384,
+    "output_bytes": 384,
+    "memory_limit_bytes": 50000000,
+    "nesting_depth": 2,
+    "nesting_limit": 64,
+    "profile": "v15",
+    "unused_observation_bytes": 1200000,
+    "warm": false,
+    "checks": [
+      "first:INPUT_VALIDATION"
+    ]
+  },
+  {
+    "statements": 7,
+    "statement_limit": 10000,
+    "elapsed_ms": 0.0872,
+    "time_limit_ms": 5000,
+    "allocated_bytes": 20408,
+    "materialized_bytes": 384,
+    "output_bytes": 384,
+    "memory_limit_bytes": 50000000,
+    "nesting_depth": 2,
+    "nesting_limit": 64,
+    "profile": "v14",
+    "unused_observation_bytes": 1200000,
+    "warm": true,
+    "checks": [
+      "first:INPUT_VALIDATION"
+    ]
+  },
+  {
+    "statements": 7,
+    "statement_limit": 10000,
+    "elapsed_ms": 0.0794,
+    "time_limit_ms": 5000,
+    "allocated_bytes": 19144,
+    "materialized_bytes": 384,
+    "output_bytes": 384,
+    "memory_limit_bytes": 50000000,
+    "nesting_depth": 2,
+    "nesting_limit": 64,
+    "profile": "v15",
+    "unused_observation_bytes": 1200000,
+    "warm": true,
+    "checks": [
+      "first:INPUT_VALIDATION"
+    ]
+  }
+]
