@@ -1,0 +1,122 @@
+[
+  {
+    "server": "GnOuGo.Browser.Mcp",
+    "tool": "browser_get_content",
+    "started": "2026-10-12T10:31:31.0402420+00:00",
+    "error": false,
+    "latency_ms": 5670,
+    "phase": "workflow",
+    "success": true,
+    "error_code": null,
+    "observation": {
+      "pages": 3,
+      "records": 134,
+      "capture_truncated": false,
+      "manifest_truncated": false,
+      "snapshot_id": "27724045458644569e6cb6dc6ce1c600"
+    },
+    "acquisition": {
+      "attempts": 1,
+      "invalidations": [],
+      "phase": "publication",
+      "elapsedMilliseconds": 5632,
+      "timingsMilliseconds": {
+        "startup": 3527,
+        "navigation": 1141,
+        "readiness": 914,
+        "selector": 16,
+        "capture": 28,
+        "pagination": 6,
+        "publication": 0
+      }
+    },
+    "navigation": {
+      "generation": 3,
+      "method": "GET",
+      "statusCode": 200,
+      "url_and_title_retained_in_encrypted_receipt": true,
+      "context": "explicit_homepage_navigation"
+    }
+  },
+  {
+    "server": "GnOuGo.Browser.Mcp",
+    "tool": "browser_fill",
+    "started": "2026-10-12T10:32:05.1527400+00:00",
+    "error": false,
+    "latency_ms": 2571,
+    "phase": "workflow",
+    "success": true,
+    "error_code": null
+  },
+  {
+    "server": "GnOuGo.Browser.Mcp",
+    "tool": "browser_get_content",
+    "started": "2026-10-12T10:32:07.8016070+00:00",
+    "error": false,
+    "latency_ms": 6758,
+    "phase": "workflow",
+    "success": true,
+    "error_code": null,
+    "observation": {
+      "pages": 54,
+      "records": 1540,
+      "capture_truncated": false,
+      "manifest_truncated": false,
+      "snapshot_id": "c8600b9d7d8348cc89d49760e11d5364"
+    },
+    "acquisition": {
+      "attempts": 1,
+      "invalidations": [],
+      "phase": "publication",
+      "elapsedMilliseconds": 6715,
+      "timingsMilliseconds": {
+        "startup": 0,
+        "readiness": 5061,
+        "selector": 40,
+        "capture": 1574,
+        "pagination": 40,
+        "publication": 0
+      }
+    },
+    "navigation": {
+      "generation": 8,
+      "method": null,
+      "statusCode": null,
+      "url_and_title_retained_in_encrypted_receipt": true,
+      "context": "current_page_after_search_submission"
+    }
+  },
+  {
+    "server": "GnOuGo.Browser.Mcp",
+    "tool": "browser_close",
+    "started": "2026-10-12T10:32:49.3861480+00:00",
+    "error": false,
+    "latency_ms": 1031,
+    "phase": "workflow",
+    "success": true,
+    "error_code": null,
+    "closed": true
+  },
+  {
+    "server": "GnOuGo.Browser.Mcp",
+    "tool": "browser_get_content",
+    "started": "2026-10-12T10:32:50.5345330+00:00",
+    "error": true,
+    "latency_ms": 1,
+    "phase": "independent_oracle",
+    "success": false,
+    "error_code": "INVALID_INPUT",
+    "error_message": "InvalidOperationException: No active page. Call browser_get_content with url first."
+  },
+  {
+    "server": "GnOuGo.Browser.Mcp",
+    "tool": "browser_close",
+    "started": "2026-10-12T10:32:50.5594440+00:00",
+    "error": false,
+    "latency_ms": 1002,
+    "phase": "independent_oracle",
+    "success": true,
+    "error_code": null,
+    "closed": true
+  }
+]

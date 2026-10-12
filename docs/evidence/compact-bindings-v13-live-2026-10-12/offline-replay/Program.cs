@@ -1,0 +1,33 @@
+using System.Diagnostics;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json.Nodes;
+using GnOuGo.Flow.Core.Parsing;
+using GnOuGo.Flow.Core.Scripting;
+using GnOuGo.Flow.Persistence;
+const string run="compactv1320261012a-amazon-1";
+const string step="n_fa2c51243ab17014";
+var journal=await EncryptedWorkflowRunStore.CreateWorkspace(baseDirectory:args[0]).ReadAsync("benchmark",run)??throw new Exception("Missing retained journal");
+var invocation=journal.Invocations["/workflow/main/step/"+step];
+var original=journal.Invocations[invocation.Id+"/mapping/0"].Output!["json"]!["script"]!.GetValue<string>();
+var input=invocation.ResolvedInput!.DeepClone();var sources=input["sources"]!.AsObject();var each=input["each"]!;
+var pages=sources[each["input"]!.GetValue<string>()]!.AsArray();
+var doc=WorkflowParser.Parse(await File.ReadAllTextAsync(args[1]));
+var target=doc.Workflows.Values.SelectMany(w=>w.Steps).Single(s=>s.Id==step).OutputSchema!["properties"]!["value"]!["properties"]![each["output"]!.GetValue<string>()]!["items"]!.AsObject();
+const string unsupportedPredicate="&&m.has(r,'selector')&&m.test(r.selector,'h2')";
+var ablated=original.Replace(unsupportedPredicate,"",StringComparison.Ordinal);
+if(ablated==original)throw new Exception("Retained script differs");
+var escaped = ablated.Replace("m.test(r.text,'\\S')", "m.test(r.text,'\\\\S')", StringComparison.Ordinal);
+if (escaped == ablated) throw new Exception("Retained regex string differs");
+var before=Hash(input.ToJsonString());var measurements=new JsonArray();
+foreach(var script in new[]{original,ablated,escaped}){
+ var start=GC.GetTotalAllocatedBytes(true);var watch=Stopwatch.StartNew();
+ var extracted=new JintSandbox().ExecuteMappingItems(script,sources,each["input"]!.GetValue<string>(),target);watch.Stop();
+ var count=extracted.Sum(p=>p!.AsArray().Count);
+ if(extracted.Count!=54 || (script==original ? count!=0 : script==ablated ? count!=29 : count!=194))throw new Exception($"Unexpected retained replay result: pages={extracted.Count}, candidates={count}, original={script==original}");
+ measurements.Add(new JsonObject{["phase"]=script==original?"original_unchanged":script==ablated?"diagnostic_predicate_removal_only_not_a_proposed_business_mapping":"diagnostic_predicate_removal_and_regex_escaping_only_not_a_proposed_business_mapping",["script_sha256"]=Hash(script),["pages"]=extracted.Count,["candidates"]=count,["elapsed_ms"]=watch.Elapsed.TotalMilliseconds,["allocated_bytes"]=GC.GetTotalAllocatedBytes(true)-start});
+}
+if(before!=Hash(input.ToJsonString()))throw new Exception("Observed inputs changed");
+var decision=journal.Invocations["/workflow/main/step/n_b23b3d2c5a6a7e42"];
+Console.WriteLine(new JsonObject{["provider_calls"]=0,["mcp_calls"]=0,["workflow_resumed"]=false,["storage_writes"]=0,["input_sha256"]=before,["source_pages"]=pages.Count,["source_records"]=pages.Sum(p=>p!["records"]!.AsArray().Count),["original_script"]=original,["measurements"]=measurements,["recorded_decision"]=decision.Output?["json"]?.DeepClone(),["journal_status"]=journal.Status,["journal_revision"]=journal.Revision,["normal_steps"]=journal.StepsStarted,["finalization_steps"]=journal.FinalizationStepsStarted,["finalization_completed"]=journal.FinalizationCompleted,["invocations"]=journal.Invocations.Count,["invocation_statuses"]=new JsonObject(journal.Invocations.Values.GroupBy(i=>i.Status).Select(g=>new KeyValuePair<string,JsonNode?>(g.Key,JsonValue.Create(g.Count())))),["unresolved_invocations"]=new JsonArray(journal.Invocations.Values.Where(i=>i.Status is "dispatched" or "prepared").Select(i=>(JsonNode)JsonValue.Create(i.Id)!).ToArray()),["model_usage"]=System.Text.Json.JsonSerializer.SerializeToNode(journal.ModelUsage)}.ToJsonString(new(){WriteIndented=true}));
+static string Hash(string value)=>Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));

@@ -1,0 +1,26 @@
+{
+  "taskplan_tasks": 26,
+  "workflows": 9,
+  "steps": 35,
+  "step_types": {
+    "mcp.call": 6,
+    "mapping.dynamic": 5,
+    "template.render": 3,
+    "llm.call": 3,
+    "set": 6,
+    "workflow.call": 8,
+    "loop.sequential": 1,
+    "switch": 3
+  },
+  "yaml_bytes": 166828,
+  "yaml_sha256": "6ee1b36a06030006c2ef2cf0515c592b51bff11f62654d2869885fa76e4d6cc2",
+  "max_line_length": 264,
+  "execution_started": false,
+  "review_accepted": false,
+  "review_blockers": [
+    "Learned original-record copies",
+    "Missing explicit selectedIds maximum",
+    "Missing completeness conjuncts",
+    "Missing offered-control ID membership check"
+  ]
+}

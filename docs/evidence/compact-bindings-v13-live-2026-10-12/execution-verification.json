@@ -1,0 +1,31 @@
+{
+  "run": "compactv1320261012a-amazon-1",
+  "candidate": "1ffe75d5401ed2cdbe52fd0c2f7ff5ca9d8024c2",
+  "artifact_hash": "243a67abc3c44ccdb97ef6fda8e1a8f794ab88501f3685fa47a38103af6a3d16",
+  "reviewed_revision": 8,
+  "approved_session_revision": 9,
+  "execution_count": 1,
+  "candidate_ci": {
+    "passed": 29,
+    "conditional_skips": 4,
+    "failed": 0,
+    "all_passed_before_execution": true
+  },
+  "compiled_workflow_executed_unchanged": true,
+  "runtime_success": false,
+  "independent_oracle_passed": false,
+  "homepage_records": 134,
+  "search_pages": 54,
+  "search_records": 1540,
+  "product_visits": 0,
+  "document_write_calls": 0,
+  "workbook_exists": false,
+  "workflow_cleanup_succeeded": true,
+  "independent_browser_closed_probe_passed": true,
+  "retries_or_historical_resume": 0,
+  "historical_protected_records_unchanged": 13,
+  "historical_closure_unchanged": true,
+  "new_unknown_completion": false,
+  "classification": "verified_nonretryable_assertion_failure_after_empty_extraction",
+  "private_observations": "retained in encrypted receipts; omitted here"
+}

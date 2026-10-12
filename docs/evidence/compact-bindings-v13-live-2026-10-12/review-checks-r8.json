@@ -1,0 +1,19 @@
+{
+  "requirements_unchanged": true,
+  "task_id_set_unchanged_from_r6": true,
+  "external_operations_inputs_and_cleanup_preserved": true,
+  "originals_are_typed_page_record_exports": true,
+  "selected_ids_cardinality": [
+    1,
+    10
+  ],
+  "visit_maximum": 10,
+  "offered_then_original_lookup_reviewed": true,
+  "verbatim_description_copied_from_original_block": true,
+  "structured_header_and_rows_unchanged": true,
+  "full_snapshots_excluded_from_interpretation": true,
+  "complete_acquisition_rejects_truncation_in_browser": true,
+  "redundant_truncation_assertions_added_by_model": false,
+  "no_artifact_approval_supplied": true,
+  "no_business_execution_started": true
+}

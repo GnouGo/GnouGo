@@ -1,0 +1,21 @@
+{
+  "run": "compactv1320261012a-amazon-1",
+  "candidate": "1ffe75d5401ed2cdbe52fd0c2f7ff5ca9d8024c2",
+  "command": {
+    "kind": "approve",
+    "expectedRevision": 8,
+    "artifactHash": "243a67abc3c44ccdb97ef6fda8e1a8f794ab88501f3685fa47a38103af6a3d16",
+    "reviewedRequirementIds": [
+      "search_amazon_fr",
+      "extract_up_to_10_products",
+      "write_excel",
+      "cleanup_browser"
+    ]
+  },
+  "user_answer": "Approve all four requirements and execute once",
+  "max_products": 10,
+  "max_executions": 1,
+  "ci_required": true,
+  "budget_ceiling_eur": 200,
+  "verified_binary_files": 710
+}
