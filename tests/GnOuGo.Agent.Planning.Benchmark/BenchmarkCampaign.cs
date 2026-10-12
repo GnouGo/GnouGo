@@ -116,7 +116,7 @@ internal sealed class BenchmarkCampaign(IKeyVaultRecordStore records, string id)
         if (request?["clientRequestId"]?.ToString() != requestId || failure?["stage"]?.ToString() != "dispatch" ||
             policy?["MaxAttempts"] is not JsonValue maximum || !maximum.TryGetValue<int>(out var limit) || limit is < 1 or > 20 ||
             journal?["transport"]?["Attempts"] is not JsonArray attempts || attempts.Count < limit ||
-            attempts[^1]?["Status"] is not null || journal["usage"] is not null ||
+            !HasExhaustedUncertainAttempts(attempts, failure) || journal["usage"] is not null ||
             await LoadAsync("planning-evaluation-receipts", requestId, ct) is not null)
             throw new InvalidOperationException("Only an uncertain request that exhausted its pinned HTTP attempt policy can be retained here.");
         var closure = new JsonObject
@@ -130,6 +130,21 @@ internal sealed class BenchmarkCampaign(IKeyVaultRecordStore records, string id)
         };
         await SaveAsync("planning-evaluation-closures", requestId, closure, ct);
         return closure;
+    }
+    private static bool HasExhaustedUncertainAttempts(JsonArray attempts, JsonObject failure)
+    {
+        // An earlier transport loss remains uncertain after later HTTP failures.
+        // A successful response without a receipt still needs reconciliation.
+        if (!attempts.Any(a => a is JsonObject && a["Status"] is null) ||
+            attempts.Any(a => a is not JsonObject || a["Status"] is { } status &&
+                (status is not JsonValue value || !value.TryGetValue<int>(out var code) || code is < 400 or >= 600)))
+            return false;
+        if (attempts[^1]!["Status"] is null) return true;
+        // For a terminal HTTP response, require the adapter's matching exhaustion
+        // evidence; this operator path never infers or changes the retry policy.
+        return failure["retry_exhausted"]?.GetValue<bool>() == true && failure["retryable"]?.GetValue<bool>() == true &&
+            failure["attempt_count"]?.GetValue<int>() == attempts.Count &&
+            failure["status_code"]?.GetValue<int>() == attempts[^1]!["Status"]!.GetValue<int>();
     }
     // Read-only audit of a permanently closed admission denial. Zero attempts is
     // proof of no dispatch because the HTTP layer persists intent before sending.
