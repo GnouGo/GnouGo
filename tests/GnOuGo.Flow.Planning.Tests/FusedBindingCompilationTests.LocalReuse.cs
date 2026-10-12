@@ -33,6 +33,46 @@ public sealed partial class FusedBindingCompilationTests
         }
     }
 
+    [Fact]
+    public async Task DerivedSelectionsPreserveCopiedElementIdentityInsideBranches()
+    {
+        var record = JsonNode.Parse("""{"type":"object","properties":{"text":{"type":"string"}},"required":["text"],"additionalProperties":false}""")!.AsObject();
+        var collection = new JsonObject { ["type"] = "array", ["items"] = record.DeepClone(), ["minItems"] = 1 };
+        static PlanningSchema Wrapped(JsonObject schema) => new() { Contract = new JsonObject { ["type"] = "object",
+            ["properties"] = new JsonObject { ["value"] = schema.DeepClone() }, ["required"] = new JsonArray("value"), ["additionalProperties"] = false } };
+        static PlanningValue Input(params string[] path) => new() { Kind = "input", Source = "records", Path = path.ToList() };
+        var boolean = new JsonObject { ["type"] = "boolean" };
+        var graph = new PlanningGraph { Workflows = [new() {
+            Inputs = [new() { Name = "records", Schema = new() { Contract = collection } }, new() { Name = "active", Schema = new() { Type = "boolean" } }],
+            Steps = [new() { Key = "choose", Type = "switch", Expr = new() { Kind = "input", Source = "active" },
+                Cases = [new("true", null, [
+                    new() { Key = "pages", Input = Project(Input()), OutputSchema = Wrapped(collection) },
+                    new() { Key = "copy", Input = new() { Kind = "projection", Members = [new("value", Ref("pages", "value")),
+                        new("paths", new() { Kind = "array", Items = [new() { Kind = "array" }] }),
+                        new("each", new() { Kind = "boolean", Boolean = true })] }, OutputSchema = Wrapped(collection) },
+                    new() { Key = "selectedCopy", Input = Project(Ref("copy", "value", "0")), OutputSchema = Wrapped(record) },
+                    new() { Key = "selectedOriginal", Input = Project(Ref("pages", "value", "0")), OutputSchema = Wrapped(record) },
+                    new() { Key = "compare", Input = Project(PlanningValues.Predicate("equal", Ref("selectedCopy", "value"), Ref("selectedOriginal", "value"))), OutputSchema = Wrapped(boolean) }
+                ])], Default = [new() { Key = "missing", Input = Project(new() { Kind = "boolean", Boolean = false }), OutputSchema = Wrapped(boolean) }] },
+                new() { Key = "merge", Input = new() { Kind = "projection", Members = [new("value", Ref("choose")),
+                    new("paths", new() { Kind = "array", Items = new[] { "compare", "missing" }.Select(n => new PlanningValue { Kind = "array", Items =
+                        [new() { Kind = "string", Text = n }, new() { Kind = "string", Text = "value" }] }).ToList() })] }, OutputSchema = Wrapped(boolean) }],
+            Outputs = [new() { Name = "same", Schema = new() { Type = "boolean" }, Value = Ref("merge", "value") }]
+        }] };
+        var compiler = new PlanningGraphCompiler(); var catalog = await Catalog();
+        foreach (var current in new[] { false, true })
+        {
+            var yaml = compiler.Compile(graph, catalog, "derived-identity", true, true, true, true, true, true, true, true, true, true, true, true, current);
+            foreach (var active in new[] { true, false })
+            {
+                var result = await new WorkflowEngine().ExecuteAsync(new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml)).Workflows["main"],
+                    new JsonObject { ["active"] = active, ["records"] = new JsonArray(new JsonObject { ["text"] = "original" }) }, PlannerFixture.Ct);
+                Assert.True(result.Success, result.Error?.Message);
+                Assert.False(result.Outputs!["same"]!.GetValue<bool>());
+            }
+        }
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

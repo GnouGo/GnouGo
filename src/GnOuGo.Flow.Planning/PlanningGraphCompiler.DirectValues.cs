@@ -138,6 +138,12 @@ public sealed partial class PlanningGraphCompiler
                     if (declaration.Declarations[0] is { Id: Identifier local, Init: Identifier source } &&
                         (aliases.Contains(local.Name) || aliases.Contains(source.Name)))
                         added |= aliases.Add(local.Name) | aliases.Add(source.Name);
+                    else if (simplifiedLocals && field is null &&
+                             declaration.Declarations[0] is { Id: Identifier derived, Init: not null } value &&
+                             Walk(value.Init, true, new(StringComparer.Ordinal)))
+                        // A selected descendant can expose container identity
+                        // later. Unknown derivations retain the copy as well.
+                        added |= aliases.Add(derived.Name);
             } while (added);
             return Walk(body, false, new(StringComparer.Ordinal));
 
