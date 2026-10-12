@@ -1,6 +1,18 @@
+## v14: readable checked lexical values
+
+Fresh sessions and explicit revisions select `compact-bindings-v14`. Omitted/v1–v13 profiles, approvals and public compiler overloads retain their exact lowering. No expression metadata or runtime permission is added.
+
+The compiler collects branch-local contracts before applying direct-value simplification. Each closed lexical block uses the existing ordered alias checks; original origins and diagnostic instance paths survive eliminated wrappers and declarations. Only scalars at the same immutable address are reused, and only schema-proven singleton wrappers are unwrapped. Coupled or unresolved constraints and observable identity retain their containers.
+
+Closed, pure zero-argument calls may merge into their sole evaluation point. Inner checks still precede the caller-result check. Conditional blocks stay conditional, and scope qualifiers are recomputed from the emitted syntax. Flat regions continue using the existing flat checked evaluator. Native predicates need no truthiness adapter; other controls keep their historical `true`/`"true"` behavior.
+
+When usage observes only selected outputs and both branches guarantee exactly one selected required path, branch results expose meaningful ports instead of physical-ID envelopes. The existing checked direct selection replaces that artificial first-present lookup. Optional, ambiguous, whole-envelope and identity observers keep their original representation. Strict ID lookup is unchanged; present null never selects another alternative.
+
+Functional aliases come from declared ports and bound source fields, with deterministic collision suffixes. Schemas and check bookkeeping remain in `expression_contracts`. Generated JavaScript must be readable by a human; no model-authored JavaScript, new executor, inference boundary or durability mechanism is introduced. See the [v14 evidence](evidence/reliable-readable-bindings-v14-2026-10-12/) for actual generated comparisons and retained materializations.
+
 ## v13: checked controls, lexical branches and terminal outputs
 
-Fresh sessions and explicit revisions select `compact-bindings-v13`. Omitted/v1–v12 profiles and existing public compiler overloads retain their lowering. Metadata remains part of definition and approval hashes; historical runs are never optimized during recovery.
+The historical `compact-bindings-v13` profile introduced checked lexical branches. Omitted/v1–v12 profiles and existing public compiler overloads retain their lowering. Metadata remains part of definition and approval hashes; historical runs are never optimized during recovery.
 
 `control_contracts` uses the existing ordered value entries, keyed by `/if`, `/expr` or `/cases/<index>/when`. The guard runs before input resolution; a false guard never resolves skipped inputs. Switch checks run inside the existing recorded branch decision, in first-match order. A contract must target a complete, unambiguous expression. The existing step span reports reached checks and committed-decision reuse.
 

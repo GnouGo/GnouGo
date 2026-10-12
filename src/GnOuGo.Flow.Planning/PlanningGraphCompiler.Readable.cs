@@ -35,15 +35,16 @@ public sealed partial class PlanningGraphCompiler
             }
             var expanded = Expand(program, contracts.Select(c => c.Key).ToHashSet(StringComparer.Ordinal));
             if (scope.LeanMappings) expanded = SimplifyReadableProgram(expanded, scope.InlineConsumers);
-            if (scope.DirectValues && contracts.Count != 0) expanded = DirectCheckedValues(expanded, contracts);
+            if (scope.DirectValues && !scope.ReadableBranches && contracts.Count != 0) expanded = DirectCheckedValues(expanded, contracts);
             ExpressionEvaluator.Validate(expanded);
             if (step["__lexical_contracts"] is JsonObject nested && (step["__lexical_pointer"] is null || step["__lexical_pointer"]!.GetValue<string>() == pointer))
             {
                 foreach (var (name, entry) in nested) contracts.Add(name, entry?.DeepClone());
-                QualifyLexicalContracts(expanded, contracts);
+                if (!scope.ReadableBranches) QualifyLexicalContracts(expanded, contracts);
             }
+            if (scope.ReadableBranches && contracts.Count != 0) expanded = DirectLexicalValues(expanded, contracts);
             metadata[pointer] = contracts;
-            return JsonValue.Create("${\n" + FormatProgram(expanded, scope.CompactProjections) + "\n}");
+            return JsonValue.Create("${\n" + FormatProgram(expanded, scope.CompactProjections, scope.ReadableBranches) + "\n}");
         }
         step["input"] = RewriteInput(step["input"], "");
         if (metadata.Count != 0) step["expression_contracts"] = metadata;
@@ -51,9 +52,11 @@ public sealed partial class PlanningGraphCompiler
         {
             var text = step["input"]!.GetValue<string>();
             var program = ExpressionSegments.Read(text).Single().Expression;
-            var checks = standalone.DeepClone().AsObject(); QualifyLexicalContracts(program, checks);
+            var checks = standalone.DeepClone().AsObject();
+            if (scope.ReadableBranches) program = DirectLexicalValues(program, checks);
+            else QualifyLexicalContracts(program, checks);
             step["expression_contracts"] = new JsonObject { [""] = checks };
-            step["input"] = "${\n" + FormatProgram(program, true) + "\n}";
+            step["input"] = "${\n" + FormatProgram(program, true, scope.ReadableBranches) + "\n}";
         }
         step.Remove("__lexical_contracts"); step.Remove("__lexical_pointer");
         return step;
@@ -76,6 +79,9 @@ public sealed partial class PlanningGraphCompiler
                 {
                     var source = Rewrite(mapping.Arguments[1]);
                     var body = Expand(MappingProgram(mapping.Arguments[0]), checkedLocals);
+                    // A replaced call may follow `return`. Whitespace from the
+                    // nested program must not introduce automatic semicolon insertion.
+                    if (scope.ReadableBranches) body = body.Trim();
                     static bool Address(Node value) => value is Identifier || value is MemberExpression member && Address(member.Object) &&
                         (member.Computed ? member.Property is StringLiteral : member.Property is Identifier);
                     if (Address(mapping.Arguments[1]) && SubstituteSource(body, "(" + source + ")", null) is { } direct)
@@ -310,13 +316,19 @@ public sealed partial class PlanningGraphCompiler
         return Write(syntax);
     }
 
-    private static string FormatProgram(string program, bool compact)
+    private static string FormatProgram(string program, bool compact, bool lexical = false)
     {
         var propertyCommas = new HashSet<int>();
+        var branchBreaks = new HashSet<int>();
         if (compact)
         {
             void Inspect(Node node)
             {
+                if (lexical && node is ConditionalExpression conditional)
+                {
+                    branchBreaks.Add(conditional.Test.End + program.AsSpan(conditional.Test.End, conditional.Consequent.Start - conditional.Test.End).IndexOf('?'));
+                    branchBreaks.Add(conditional.Consequent.End + program.AsSpan(conditional.Consequent.End, conditional.Alternate.Start - conditional.Consequent.End).IndexOf(':'));
+                }
                 if (node is ObjectExpression obj)
                     for (var i = 1; i < obj.Properties.Count; i++)
                     {
@@ -332,6 +344,7 @@ public sealed partial class PlanningGraphCompiler
         while (true)
         {
             var token = tokens.GetToken(); if (token.Kind == TokenKind.EOF) break;
+            if (branchBreaks.Contains(token.Start)) NewLine();
             var gap = program[position..token.Start];
             if (!string.IsNullOrWhiteSpace(gap)) result.Append(gap);
             else if (gap.Length > 0 && result.Length > 0 && !char.IsWhiteSpace(result[^1])) result.Append(' ');

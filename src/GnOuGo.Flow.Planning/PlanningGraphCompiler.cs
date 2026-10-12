@@ -40,6 +40,9 @@ public sealed partial class PlanningGraphCompiler
         => Compile(graph, catalog, name, descriptions, fuseBindings, consumerBindings, directProjections, nativeMappings, readableMappings, leanMappings, compactProjections, inlineConsumers, directValues, false);
 
     internal string Compile(PlanningGraph graph, PlanningCatalog catalog, string name, bool descriptions, bool fuseBindings, bool consumerBindings, bool directProjections, bool nativeMappings, bool readableMappings, bool leanMappings, bool compactProjections, bool inlineConsumers, bool directValues, bool checkedControls)
+        => Compile(graph, catalog, name, descriptions, fuseBindings, consumerBindings, directProjections, nativeMappings, readableMappings, leanMappings, compactProjections, inlineConsumers, directValues, checkedControls, false);
+
+    internal string Compile(PlanningGraph graph, PlanningCatalog catalog, string name, bool descriptions, bool fuseBindings, bool consumerBindings, bool directProjections, bool nativeMappings, bool readableMappings, bool leanMappings, bool compactProjections, bool inlineConsumers, bool directValues, bool checkedControls, bool readableBranches)
     {
         ArgumentNullException.ThrowIfNull(graph);
         var diagnostics = PlanningExecutableValidation.Validate(graph, catalog);
@@ -59,7 +62,7 @@ public sealed partial class PlanningGraphCompiler
             EnsureUnique(allNodes.Select(n => n.Key), "node");
             if (allNodes.Length > 300) throw new InvalidOperationException("A workflow exceeds the 300-node planning limit.");
             var nodeIds = allNodes.ToDictionary(n => n.Key, n => "n_" + Fingerprint(n.Key)[..16], StringComparer.Ordinal);
-            var scope = new LoweringScope(catalog, nodeIds, workflowIds, workflow.Inputs.Select(p => p.Name).ToHashSet(StringComparer.Ordinal), allNodes.ToDictionary(n => n.Key, n => n.Type, StringComparer.Ordinal), LoopVariables(allNodes), allNodes.ToDictionary(n => n.Key, StringComparer.Ordinal), graph.Workflows.ToDictionary(w => w.Key, StringComparer.Ordinal), descriptions) { DirectProjections = directProjections, NativeMappings = nativeMappings, ReadableMappings = readableMappings, LeanMappings = leanMappings, CompactProjections = compactProjections, InlineConsumers = inlineConsumers, DirectValues = directValues, CheckedControls = checkedControls };
+            var scope = new LoweringScope(catalog, nodeIds, workflowIds, workflow.Inputs.Select(p => p.Name).ToHashSet(StringComparer.Ordinal), allNodes.ToDictionary(n => n.Key, n => n.Type, StringComparer.Ordinal), LoopVariables(allNodes), allNodes.ToDictionary(n => n.Key, StringComparer.Ordinal), graph.Workflows.ToDictionary(w => w.Key, StringComparer.Ordinal), descriptions) { DirectProjections = directProjections, NativeMappings = nativeMappings, ReadableMappings = readableMappings, LeanMappings = leanMappings, CompactProjections = compactProjections, InlineConsumers = inlineConsumers, DirectValues = directValues, CheckedControls = checkedControls, ReadableBranches = readableBranches };
             if (compactProjections) PrepareCopyProjections(workflow, scope);
             if (checkedControls) PreparePureBranches(workflow, scope);
             if (fuseBindings) PrepareFusion(workflow, scope, consumerBindings);
@@ -392,7 +395,13 @@ public sealed partial class PlanningGraphCompiler
             var each = PlanningGraphValidation.Member(value, "each")?.Boolean == true;
             var selections = PlanningGraphValidation.Literal(paths)!;
             string sourceExpression;
-            if (each && source is { Kind: "output", Source: not null, Path.Count: 1 } && source.Path[0] == "results" &&
+            if (!each && source is { Kind: "output", Source: not null, Path.Count: 0 } &&
+                scope.BranchOutputs.TryGetValue(source.Source, out var outputs) && outputs.TryGetValue(selections.ToJsonString(), out var selected))
+            {
+                selections = new JsonArray(new JsonArray(selected));
+                sourceExpression = OutputAddress(source.Source, scope);
+            }
+            else if (each && source is { Kind: "output", Source: not null, Path.Count: 1 } && source.Path[0] == "results" &&
                 scope.NodeTypes[source.Source] is "loop.sequential" or "loop.parallel")
             {
                 // Select declared exports using physical addresses before any
@@ -498,7 +507,7 @@ public sealed partial class PlanningGraphCompiler
             if (value.ResultChannel == "structured" && type is not ("mcp.call" or "llm.call"))
                 throw new InvalidOperationException("This producer does not support the structured result channel.");
             if (value.ResultChannel == "envelope" && type != "mcp.call") throw new InvalidOperationException("This producer does not expose an MCP result envelope.");
-            var envelope = value.ResultChannel == "envelope" ? "" : value.ResultChannel == "structured" ? ".json" : type switch { "workflow.call" => ".outputs", "mcp.call" => ".response", _ => "" };
+            var envelope = value.ResultChannel == "envelope" ? "" : value.ResultChannel == "structured" ? ".json" : type switch { "workflow.call" when !scope.LexicalCallOutputs.Contains(value.Source) => ".outputs", "mcp.call" => ".response", _ => "" };
             expression = OutputAddress(value.Source, scope) + envelope + ResultPath(type, value.Path, scope);
             var projection = ProjectResult(scope.Nodes[value.Source], value.Path, "source", scope);
             GnOuGo.Flow.Core.Scripting.JintSandbox.ValidateMapping(projection, learned: false);
@@ -751,9 +760,13 @@ public sealed partial class PlanningGraphCompiler
         internal bool CompactProjections { get; init; }
         internal bool InlineConsumers { get; init; }
         internal HashSet<string> PureBranches { get; } = new(StringComparer.Ordinal);
+        internal Dictionary<string, Dictionary<string, string>> BranchOutputs { get; } = new(StringComparer.Ordinal);
         internal Dictionary<string, string> LexicalOutputs { get; init; } = new(StringComparer.Ordinal);
+        internal HashSet<string> LexicalCallOutputs { get; init; } = new(StringComparer.Ordinal);
+        internal Dictionary<string, string> InputAliases { get; init; } = new(StringComparer.Ordinal);
         internal string[]? TerminalOutput { get; set; }
         internal bool CheckedControls { get; init; }
+        internal bool ReadableBranches { get; init; }
         internal Dictionary<string, (string[] Group, string Pointer, PlanningValue Value)> ControlBindings { get; } = new(StringComparer.Ordinal);
         internal bool DirectValues { get; init; }
         internal HashSet<string> DirectCopyOutputs { get; } = new(StringComparer.Ordinal);

@@ -16,11 +16,13 @@ public sealed partial class FusedBindingCompilationTests
         var graph = Graph(); var catalog = await Catalog(); var compiler = new PlanningGraphCompiler();
         var before = compiler.Compile(graph, catalog, "outputs", true, true, true, true, true, true, true, true, true, true);
         var after = compiler.Compile(graph, catalog, "outputs", true, true, true, true, true, true, true, true, true, true, true);
+        var readable = compiler.Compile(graph, catalog, "outputs", true, true, true, true, true, true, true, true, true, true, true, true);
+        SaveV14Comparison("checked-output", after, readable);
         SaveV13Comparison("output", before, after);
         Assert.Empty(WorkflowParser.Parse(after).Workflows["main"].Steps);
         Assert.Equal(4, WorkflowParser.Parse(after).Workflows["main"].Outputs!["chosen"].ExpressionContracts![""]!.AsObject().Count);
         string? outcome = null;
-        foreach (var yaml in new[] { before, after })
+        foreach (var yaml in new[] { before, after, readable })
         {
             var compiled = new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml));
             var result = await new WorkflowEngine().ExecuteAsync(compiled.Workflows["main"], new JsonObject { ["label"] = label, ["authorized"] = authorized }, PlannerFixture.Ct);
@@ -51,5 +53,8 @@ public sealed partial class FusedBindingCompilationTests
             new PlanningGraphCompiler().Compile(graph, await Catalog(), "retained", true, true, true, true, true, true, true, true, true, true), yaml);
         Assert.NotEmpty(WorkflowParser.Parse(yaml).Workflows["main"].Steps);
         Assert.Null(WorkflowParser.Parse(yaml).Workflows["main"].Outputs!["chosen"].ExpressionContracts);
+        var readable = new PlanningGraphCompiler().Compile(graph, await Catalog(), "retained", true, true, true, true, true, true, true, true, true, true, true, true);
+        Assert.NotEmpty(WorkflowParser.Parse(readable).Workflows["main"].Steps);
+        Assert.Null(WorkflowParser.Parse(readable).Workflows["main"].Outputs!["chosen"].ExpressionContracts);
     }
 }

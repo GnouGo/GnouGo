@@ -419,7 +419,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
             Directory.CreateDirectory(evidence);
             File.WriteAllText(Path.Combine(evidence, "graph.json"), JsonSerializer.Serialize(compiled.Graph!, PlanningJsonContext.Default.PlanningGraph));
         }
-        var yaml = new PlanningGraphCompiler().Compile(compiled.Graph!, catalog, "business", true, true, true, TaskPlanCompiler.UsesDirectProjections(request), TaskPlanCompiler.UsesNativeMappings(request), TaskPlanCompiler.UsesReadableMappings(request), TaskPlanCompiler.UsesLeanMappings(request), TaskPlanCompiler.UsesCompactProjections(request), TaskPlanCompiler.UsesInlineConsumers(request), TaskPlanCompiler.UsesDirectValues(request), TaskPlanCompiler.UsesCheckedControls(request));
+        var yaml = new PlanningGraphCompiler().Compile(compiled.Graph!, catalog, "business", true, true, true, TaskPlanCompiler.UsesDirectProjections(request), TaskPlanCompiler.UsesNativeMappings(request), TaskPlanCompiler.UsesReadableMappings(request), TaskPlanCompiler.UsesLeanMappings(request), TaskPlanCompiler.UsesCompactProjections(request), TaskPlanCompiler.UsesInlineConsumers(request), TaskPlanCompiler.UsesDirectValues(request), TaskPlanCompiler.UsesCheckedControls(request), TaskPlanCompiler.UsesReadableBranches(request));
         var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml));
         static IEnumerable<CompiledStep> All(IEnumerable<CompiledStep> steps) => steps.SelectMany(s => new[] { s }
             .Concat(All(s.Steps ?? [])).Concat(All(s.Default ?? [])).Concat((s.Cases ?? []).SelectMany(c => All(c.Steps)))

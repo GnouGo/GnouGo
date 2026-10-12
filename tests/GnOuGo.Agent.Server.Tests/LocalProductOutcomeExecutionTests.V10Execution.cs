@@ -51,7 +51,12 @@ public sealed partial class LocalProductOutcomeExecutionTests
             {
                 Assert.Equal("observed lamps", context.Request.Query["q"].ToString());
                 body = "<h1>Observed catalogue</h1>" + string.Concat(Enumerable.Range(0, 24).Select(i => "<p>noise-" + i + new string('z', 80) + "</p>"));
-                if (variant != "empty") body += string.Concat(Enumerable.Range(0, 12).Select(i => "<a href='http://" + context.Request.Host + "/entry/" + i + "?source=" + new string('u', 300) + "'>Observed choice " + i + "</a>"));
+                if (variant != "empty") body += string.Concat(Enumerable.Range(0, 12).Select(i => "<a href='http://" + context.Request.Host +
+                    (variant == "redirected" ? "/relay?record=" + i + "&amp;source=" : "/entry/" + i + "?source=") + new string('u', 300) + "'>Observed choice " + i + "</a>"));
+            }
+            else if (variant == "redirected" && path == "/relay")
+            {
+                context.Response.Redirect("/entry/" + context.Request.Query["record"] + "?resolved=true"); return;
             }
             else if (path.StartsWith("/entry/", StringComparison.Ordinal))
             {
@@ -103,7 +108,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
             Assert.Equal(profile, session.Request.Options["compilation_profile"]?.ToString());
             var document = WorkflowParser.Parse(session.Yaml!);
             var generatedSteps = document.Workflows.Values.SelectMany(w => V11Steps(w.Steps.Concat(w.Finally ?? []))).ToArray();
-            if (profile == "compact-bindings-v13")
+            if (profile is "compact-bindings-v13" or "compact-bindings-v14")
             {
                 Assert.True(generatedSteps.Length < 61);
                 Assert.True(generatedSteps.Count(s => s.Type == "set") < 27);
@@ -156,6 +161,12 @@ public sealed partial class LocalProductOutcomeExecutionTests
             Assert.True(result.Success, $"{result.Error?.Code}: {result.Error?.Message}; {result.Error?.Details}");
             var selected = variant == "empty" ? [] : variant == "one" ? [0] : variant == "repeated" ? Enumerable.Range(0, 9).Append(0).ToArray() : Enumerable.Range(0, 10).ToArray();
             Assert.Equal(selected.Select(i => "/entry/" + i), visits.Where(p => p.StartsWith("/entry/", StringComparison.Ordinal)));
+            if (variant == "redirected")
+            {
+                Assert.Equal(10, visits.Count(p => p == "/relay"));
+                Assert.Equal(10, events.Count(e => e["tool"]?.ToString() == "browser_get_content" &&
+                    e["arguments"]?["url"]?.ToString().Contains("/relay?record=", StringComparison.Ordinal) == true));
+            }
             Assert.Equal(path, result.Outputs!["productsFile"]!.ToString());
             var products = result.Outputs["products"]!.AsArray(); Assert.Equal(selected.Length, products.Count);
             string[][] rows;

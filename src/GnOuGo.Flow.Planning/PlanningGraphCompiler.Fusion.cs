@@ -46,6 +46,29 @@ public sealed partial class PlanningGraphCompiler
                 field = shape?["type"]?.ToString() == "boolean" ? shape["enum"] is not null ? "requiredCondition" : "condition" :
                     BindingValues(node.Input).FirstOrDefault(v => v.Kind == "input" && v.Source is { } input && !input.StartsWith("task_", StringComparison.Ordinal))?.Source ?? "checkedRecord";
             }
+            if (scope.ReadableBranches && field is "checkedRecord" or "checkedValue")
+            {
+                if (scope.BranchOutputs.TryGetValue(candidate, out var ports))
+                    field = ports.Values.First() == "selectedValue" ? "selection" : ports.Values.First() + "Selection";
+                else if (node.Input.Kind == "projection" && PlanningGraphValidation.Member(node.Input, "value")?.Source is { } producer &&
+                    scope.BranchOutputs.TryGetValue(producer, out var selected)) field = selected.Values.First();
+                else
+                {
+                    string Hint(PlanningNode binding, HashSet<string> visited)
+                    {
+                        if (!visited.Add(binding.Key)) return "observedValue";
+                        var semantic = binding.Input.Kind == "projection" ? PlanningGraphValidation.Member(binding.Input, "value")! : binding.Input;
+                        var values = BindingValues(semantic).ToArray();
+                        if (values.Any(v => v.Kind == "lookup")) return "matchedRecords";
+                        var source = values.FirstOrDefault(v => v.Kind == "input" && scope.InputAliases.ContainsKey(v.Source!));
+                        var name = source is not null ? scope.InputAliases[source.Source!] :
+                            values.FirstOrDefault(v => v.Kind == "output" && v.Source != binding.Key && scope.Nodes.ContainsKey(v.Source!)) is { } reference
+                                ? Hint(scope.Nodes[reference.Source!], visited) : "observedValue";
+                        return values.Any(v => v.Kind == "flatten") ? "flattened " + name : semantic.Kind == "array" ? name + " list" : name;
+                    }
+                    field = Hint(node, new(StringComparer.Ordinal));
+                }
+            }
             var stem = new string(field.Select(c => char.IsAsciiLetterOrDigit(c) || c == '_' ? c : '_').Take(48).ToArray());
             if (scope.InlineConsumers) stem = FunctionalName(field);
             if (stem.Length == 0 || !char.IsAsciiLetter(stem[0]) && stem[0] != '_') stem = "binding_" + stem;

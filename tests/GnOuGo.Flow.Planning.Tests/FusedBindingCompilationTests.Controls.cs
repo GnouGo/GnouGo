@@ -20,10 +20,12 @@ public sealed partial class FusedBindingCompilationTests
         var compiler = new PlanningGraphCompiler(); var catalog = await Catalog();
         var before = compiler.Compile(graph, catalog, "controls", true, true, true, true, true, true, true, true, true, true);
         var after = compiler.Compile(graph, catalog, "controls", true, true, true, true, true, true, true, true, true, true, true);
+        var readable = compiler.Compile(graph, catalog, "controls", true, true, true, true, true, true, true, true, true, true, true, true);
+        SaveV14Comparison("control", after, readable);
         SaveV13Comparison("control", before, after);
         Assert.Contains("control_contracts:", after);
         Assert.Single(WorkflowParser.Parse(after).Workflows["main"].Steps);
-        foreach (var yaml in new[] { before, after })
+        foreach (var yaml in new[] { before, after, readable })
         {
             var result = await new WorkflowEngine().ExecuteAsync(new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml)).Workflows["main"],
                 new JsonObject { ["authorized"] = allowed, ["label"] = "unused" }, PlannerFixture.Ct);
