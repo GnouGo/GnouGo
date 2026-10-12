@@ -32,6 +32,12 @@ public sealed partial class FusedBindingCompilationTests
         var result = await new WorkflowEngine().ExecuteAsync(new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml)).Workflows["main"],
             new JsonObject { ["label"] = "exact", ["authorized"] = true }, PlannerFixture.Ct);
         Assert.True(result.Success, result.Error?.Message); Assert.Equal("exact", result.Outputs!["chosen"]!.GetValue<string>());
+        var lexical = compiler.Compile(graph, catalog, "names", true, true, true, true, true, true, true, true, true, true, true, true);
+        Assert.Equal(lexical, compiler.Compile(graph, catalog, "names", true, true, true, true, true, true, true, true, true, true, true, true));
+        var checkedResult = await new WorkflowEngine().ExecuteAsync(new WorkflowCompiler().Compile(WorkflowParser.Parse(lexical)).Workflows["main"],
+            new JsonObject { ["label"] = "exact", ["authorized"] = true }, PlannerFixture.Ct);
+        Assert.True(checkedResult.Success, checkedResult.Error?.Message);
+        Assert.True(JsonNode.DeepEquals(result.Outputs, checkedResult.Outputs));
     }
 
     [Fact]
@@ -64,7 +70,8 @@ public sealed partial class FusedBindingCompilationTests
         Assert.Equal(before, compiler.Compile(graph, catalog, "readable", true, true, true, true, true, true, true, true));
         var inputs = JsonNode.Parse("{\"searchPages\":[[9007199254740993,null],[],[1.23000000000000000000001,9007199254740993]]}")!;
         var expected = inputs.ToJsonString(); string? previous = null;
-        foreach (var yaml in new[] { before, after })
+        var lexical = compiler.Compile(graph, catalog, "readable", true, true, true, true, true, true, true, true, true, true, true, true);
+        foreach (var yaml in new[] { before, after, lexical })
         {
             var result = await new WorkflowEngine().ExecuteAsync(new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml)).Workflows["main"], inputs.DeepClone(), PlannerFixture.Ct);
             Assert.True(result.Success, result.Error?.Message);

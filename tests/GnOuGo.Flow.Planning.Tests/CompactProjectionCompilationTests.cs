@@ -85,9 +85,10 @@ public sealed class CompactProjectionCompilationTests(Xunit.ITestOutputHelper ou
             { Options = new() { ["compilation_profile"] = "compact-bindings-v10" } });
         Assert.Empty(compilation.Diagnostics);
         JsonNode? expected = null;
-        foreach (var compact in new[] { false, true })
+        foreach (var profile in new[] { 9, 10, 13, 14 })
         {
-            var yaml = Yaml(compilation.Graph!, catalog, compact);
+            var yaml = profile < 13 ? Yaml(compilation.Graph!, catalog, profile >= 10) :
+                new PlanningGraphCompiler().Compile(compilation.Graph!, catalog, "projection", true, true, true, true, true, true, true, true, true, true, true, profile >= 14);
             Assert.Empty(await runtime.ValidateAsync(new(yaml, new(), catalog,
                 PlanningGraphCompiler.CapabilityBindings(compilation.Graph!)), PlannerFixture.Ct));
             var observed = new GnOuGo.Planning.Examples.PlanningBenchmarkCases.Environment("nullable_defaults", variant);
