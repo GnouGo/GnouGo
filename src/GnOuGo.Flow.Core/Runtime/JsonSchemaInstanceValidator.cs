@@ -16,6 +16,10 @@ internal static class JsonSchemaInstanceValidator
         => ValidateInstanceFindings(instance, schema).Select(f => f.Message).ToArray();
 
     internal static IReadOnlyList<PlanningInstanceFinding> ValidateInstanceFindings(JsonNode? instance, JsonNode? schema)
+        => ValidateInstanceFindings(instance, schema, "");
+
+    // Compiler-owned unwrapping retains the original diagnostic property path.
+    internal static IReadOnlyList<PlanningInstanceFinding> ValidateInstanceFindings(JsonNode? instance, JsonNode? schema, string instancePath)
     {
         var errors = new List<PlanningInstanceFinding>();
         if (schema is not JsonObject root)
@@ -24,7 +28,11 @@ internal static class JsonSchemaInstanceValidator
             return errors;
         }
 
-        ValidateInstanceNode(instance, root, root, new("$", ""), errors, new HashSet<string>(StringComparer.Ordinal));
+        var location = new InstanceLocation("$", "");
+        if (instancePath.Length != 0)
+            foreach (var part in instancePath[1..].Split('/'))
+                location = location.Child(part.Replace("~1", "/", StringComparison.Ordinal).Replace("~0", "~", StringComparison.Ordinal));
+        ValidateInstanceNode(instance, root, root, location, errors, new HashSet<string>(StringComparer.Ordinal));
         return errors;
     }
 

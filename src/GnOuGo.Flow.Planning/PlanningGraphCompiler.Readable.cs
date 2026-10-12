@@ -35,6 +35,7 @@ public sealed partial class PlanningGraphCompiler
             }
             var expanded = Expand(program, contracts.Select(c => c.Key).ToHashSet(StringComparer.Ordinal));
             if (scope.LeanMappings) expanded = SimplifyReadableProgram(expanded, scope.InlineConsumers);
+            if (scope.DirectValues && contracts.Count != 0) expanded = DirectCheckedValues(expanded, contracts);
             ExpressionEvaluator.Validate(expanded);
             metadata[pointer] = contracts;
             return JsonValue.Create("${\n" + FormatProgram(expanded, scope.CompactProjections) + "\n}");
