@@ -42,7 +42,7 @@ public sealed partial class PlanningGraphCompiler
                 foreach (var (name, entry) in nested) contracts.Add(name, entry?.DeepClone());
                 if (!scope.ReadableBranches) QualifyLexicalContracts(expanded, contracts);
             }
-            if (scope.ReadableBranches && contracts.Count != 0) expanded = DirectLexicalValues(expanded, contracts);
+            if (scope.ReadableBranches && contracts.Count != 0) expanded = DirectLexicalValues(expanded, contracts, scope.SimplifiedLocals);
             metadata[pointer] = contracts;
             return JsonValue.Create("${\n" + FormatProgram(expanded, scope.CompactProjections, scope.ReadableBranches) + "\n}");
         }
@@ -53,7 +53,7 @@ public sealed partial class PlanningGraphCompiler
             var text = step["input"]!.GetValue<string>();
             var program = ExpressionSegments.Read(text).Single().Expression;
             var checks = standalone.DeepClone().AsObject();
-            if (scope.ReadableBranches) program = DirectLexicalValues(program, checks);
+            if (scope.ReadableBranches) program = DirectLexicalValues(program, checks, scope.SimplifiedLocals);
             else QualifyLexicalContracts(program, checks);
             step["expression_contracts"] = new JsonObject { [""] = checks };
             step["input"] = "${\n" + FormatProgram(program, true, scope.ReadableBranches) + "\n}";
@@ -236,7 +236,7 @@ public sealed partial class PlanningGraphCompiler
     // Only compiler-owned expressions enter here. Reuse a checked local when
     // an object literal copies exactly its known fields; keep both declarations
     // and their ordered contracts. Never infer an object's shape from its name.
-    private static string SimplifyReadableProgram(string program, bool inlineConsumers = false)
+    private static string SimplifyReadableProgram(string program, bool inlineConsumers = false, bool simplifiedLocals = false)
     {
         var syntax = new Parser().ParseExpression(program);
         var fields = new Dictionary<string, string[]>(StringComparer.Ordinal);
@@ -282,6 +282,21 @@ public sealed partial class PlanningGraphCompiler
                         !(inlineConsumers && root is Identifier local && fields.ContainsKey(local.Name)))
                         address = "(" + address + ")";
                     return address + (member.Computed ? "[" + Write(member.Property) + "]" : "." + Write(member.Property));
+                case CallExpression { Arguments.Count: 1, Callee: ArrowFunctionExpression { Params.Count: 1,
+                    Body: ObjectExpression { Properties.Count: 1 } wrapped } wrapperFunction } wrapperCall
+                    when simplifiedLocals && wrapperFunction.Params[0] is Identifier wrapperParameter &&
+                         wrapped.Properties[0] is Property { Computed: false, Method: false, Value: Identifier wrappedValue } wrapperProperty &&
+                         wrapperParameter.Name == wrappedValue.Name && Key(wrapperProperty.Key) is { } wrapperKey:
+                    // One argument, used once: preserve its evaluation before
+                    // construction. Contract-based unwrapping runs separately.
+                    return "{" + Quote(wrapperKey) + ":" + Write(wrapperCall.Arguments[0]) + "}";
+                case CallExpression { Arguments.Count: 1, Callee: ArrowFunctionExpression
+                    { Params.Count: 1, Body: Expression body } immediateFunction } immediate
+                    when simplifiedLocals && immediateFunction.Params[0] is Identifier parameter &&
+                         immediate.Arguments[0] is Identifier argument && argument.Name == parameter.Name:
+                    // The argument is an already evaluated local. The callback
+                    // binds it under exactly the same name and adds no checks.
+                    return Write(body);
                 case CallExpression call:
                     return Operand(call.Callee) + "(" + string.Join(", ", call.Arguments.Select(Write)) + ")";
                 case ArrowFunctionExpression arrow:

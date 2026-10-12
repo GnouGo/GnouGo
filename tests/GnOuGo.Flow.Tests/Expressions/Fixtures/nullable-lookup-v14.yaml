@@ -1,0 +1,351 @@
+version: 1
+name: "description"
+entrypoint: "main"
+workflows:
+  main:
+    inputs:
+      selected:
+        type: "string"
+        nullable: true
+        required: true
+      offeredBlocks:
+        type: "array"
+        items:
+          type: "object"
+          properties:
+            reference:
+              type: "string"
+            text:
+              type: "string"
+          required_properties:
+          - "reference"
+          - "text"
+        required: true
+      originalBlocks:
+        type: "array"
+        items:
+          type: "object"
+          properties:
+            reference:
+              type: "string"
+            text:
+              type: "string"
+          required_properties:
+          - "reference"
+          - "text"
+        required: true
+    steps: []
+    outputs:
+      description:
+        type: "array"
+        items:
+          type: "string"
+          nullable: true
+        expr: |-
+          ${
+          (() => {
+            const selection = ((data.inputs.selected !== null))
+            ? (() => {
+              const selected1Selected = data.inputs.selected;
+              const selected1SelectedValue = (source => ({
+                value: source
+              }))([selected1Selected]);
+              const selected1OfferedBlocks = (source => ({
+                value: source
+              }))(m.lookup(data.inputs.offeredBlocks, selected1SelectedValue.value, "reference"));
+              const selected1OriginalBlocks = (source => ({
+                value: source
+              }))(m.lookup(data.inputs.originalBlocks, selected1SelectedValue.value, "reference"));
+              const selected1SelectedValue_2 = (selected1OriginalBlocks.value).map(item => item.text);
+              return {
+                selectedValue: selected1SelectedValue_2
+              };
+            })()
+            : (() => {
+              const selected1SelectedValue_3 = (source => ({
+                value: source
+              }))([null]);
+              return {
+                selectedValue: selected1SelectedValue_3.value
+              };
+            })();
+            const selectedValue = (selection).selectedValue;
+            return selectedValue;
+          })()
+          }
+        expression_contracts:
+          '':
+            selection:
+              origin: "choose"
+              schema: {type: "object"}
+              order: 0
+              source: "selection"
+              object_only: true
+              scope: "block0"
+            selectedValue:
+              origin: "merge"
+              schema:
+                type: "array"
+                items: {type: ["string", "null"]}
+              order: 1
+              source: "selectedValue"
+              instance_path: "/value"
+              scope: "block0"
+            selected1Selected:
+              origin: "identity"
+              source: "selected1Selected"
+              order: 0
+              schema: {type: "string"}
+              instance_path: "/value"
+              scope: "block1"
+            selected1SelectedValue:
+              origin: "selection"
+              source: "selected1SelectedValue"
+              order: 1
+              schema:
+                type: "object"
+                properties:
+                  value:
+                    type: "array"
+                    items: {type: "string"}
+                required: ["value"]
+                additionalProperties: false
+              object_only: true
+              scope: "block1"
+            selected1OfferedBlocks:
+              origin: "offered"
+              source: "selected1OfferedBlocks"
+              order: 2
+              schema:
+                type: "object"
+                properties:
+                  value:
+                    type: "array"
+                    items:
+                      type: "object"
+                      properties:
+                        reference: {type: "string"}
+                        text: {type: "string"}
+                      required: ["reference", "text"]
+                      additionalProperties: false
+                required: ["value"]
+                additionalProperties: false
+              object_only: true
+              scope: "block1"
+            selected1OriginalBlocks:
+              origin: "original"
+              source: "selected1OriginalBlocks"
+              order: 3
+              schema:
+                type: "object"
+                properties:
+                  value:
+                    type: "array"
+                    items:
+                      type: "object"
+                      properties:
+                        reference: {type: "string"}
+                        text: {type: "string"}
+                      required: ["reference", "text"]
+                      additionalProperties: false
+                required: ["value"]
+                additionalProperties: false
+              object_only: true
+              scope: "block1"
+            selected1SelectedValue_2:
+              origin: "text"
+              source: "selected1SelectedValue_2"
+              order: 4
+              schema:
+                type: "array"
+                items: {type: ["string", "null"]}
+              instance_path: "/value"
+              scope: "block1"
+            selected1SelectedValue_3:
+              origin: "missing"
+              source: "selected1SelectedValue_3"
+              order: 0
+              schema:
+                type: "object"
+                properties:
+                  value:
+                    type: "array"
+                    items: {type: ["string", "null"]}
+                required: ["value"]
+                additionalProperties: false
+              object_only: true
+              scope: "block2"
+skill:
+  description: ""
+  inputs:
+    selected:
+      type: "string"
+      nullable: true
+      required: true
+    offeredBlocks:
+      type: "array"
+      items:
+        type: "object"
+        properties:
+          reference:
+            type: "string"
+          text:
+            type: "string"
+        required_properties:
+        - "reference"
+        - "text"
+      required: true
+    originalBlocks:
+      type: "array"
+      items:
+        type: "object"
+        properties:
+          reference:
+            type: "string"
+          text:
+            type: "string"
+        required_properties:
+        - "reference"
+        - "text"
+      required: true
+  outputs:
+    description:
+      type: "array"
+      items:
+        type: "string"
+        nullable: true
+      expr: |-
+        ${
+        (() => {
+          const selection = ((data.inputs.selected !== null))
+          ? (() => {
+            const selected1Selected = data.inputs.selected;
+            const selected1SelectedValue = (source => ({
+              value: source
+            }))([selected1Selected]);
+            const selected1OfferedBlocks = (source => ({
+              value: source
+            }))(m.lookup(data.inputs.offeredBlocks, selected1SelectedValue.value, "reference"));
+            const selected1OriginalBlocks = (source => ({
+              value: source
+            }))(m.lookup(data.inputs.originalBlocks, selected1SelectedValue.value, "reference"));
+            const selected1SelectedValue_2 = (selected1OriginalBlocks.value).map(item => item.text);
+            return {
+              selectedValue: selected1SelectedValue_2
+            };
+          })()
+          : (() => {
+            const selected1SelectedValue_3 = (source => ({
+              value: source
+            }))([null]);
+            return {
+              selectedValue: selected1SelectedValue_3.value
+            };
+          })();
+          const selectedValue = (selection).selectedValue;
+          return selectedValue;
+        })()
+        }
+      expression_contracts:
+        '':
+          selection:
+            origin: "choose"
+            schema: {type: "object"}
+            order: 0
+            source: "selection"
+            object_only: true
+            scope: "block0"
+          selectedValue:
+            origin: "merge"
+            schema:
+              type: "array"
+              items: {type: ["string", "null"]}
+            order: 1
+            source: "selectedValue"
+            instance_path: "/value"
+            scope: "block0"
+          selected1Selected:
+            origin: "identity"
+            source: "selected1Selected"
+            order: 0
+            schema: {type: "string"}
+            instance_path: "/value"
+            scope: "block1"
+          selected1SelectedValue:
+            origin: "selection"
+            source: "selected1SelectedValue"
+            order: 1
+            schema:
+              type: "object"
+              properties:
+                value:
+                  type: "array"
+                  items: {type: "string"}
+              required: ["value"]
+              additionalProperties: false
+            object_only: true
+            scope: "block1"
+          selected1OfferedBlocks:
+            origin: "offered"
+            source: "selected1OfferedBlocks"
+            order: 2
+            schema:
+              type: "object"
+              properties:
+                value:
+                  type: "array"
+                  items:
+                    type: "object"
+                    properties:
+                      reference: {type: "string"}
+                      text: {type: "string"}
+                    required: ["reference", "text"]
+                    additionalProperties: false
+              required: ["value"]
+              additionalProperties: false
+            object_only: true
+            scope: "block1"
+          selected1OriginalBlocks:
+            origin: "original"
+            source: "selected1OriginalBlocks"
+            order: 3
+            schema:
+              type: "object"
+              properties:
+                value:
+                  type: "array"
+                  items:
+                    type: "object"
+                    properties:
+                      reference: {type: "string"}
+                      text: {type: "string"}
+                    required: ["reference", "text"]
+                    additionalProperties: false
+              required: ["value"]
+              additionalProperties: false
+            object_only: true
+            scope: "block1"
+          selected1SelectedValue_2:
+            origin: "text"
+            source: "selected1SelectedValue_2"
+            order: 4
+            schema:
+              type: "array"
+              items: {type: ["string", "null"]}
+            instance_path: "/value"
+            scope: "block1"
+          selected1SelectedValue_3:
+            origin: "missing"
+            source: "selected1SelectedValue_3"
+            order: 0
+            schema:
+              type: "object"
+              properties:
+                value:
+                  type: "array"
+                  items: {type: ["string", "null"]}
+              required: ["value"]
+              additionalProperties: false
+            object_only: true
+            scope: "block2"
+...

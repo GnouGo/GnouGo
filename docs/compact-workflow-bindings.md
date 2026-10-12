@@ -1,6 +1,16 @@
+## v15: local read and projection reuse
+
+Fresh sessions and explicit revisions select `compact-bindings-v15`. Omitted/v1–v14 profiles, approvals and public compiler overloads retain their exact lowering. This is a compatibility version for local compiler changes; executors, expression metadata and allowances are unchanged.
+
+Inside a pure checked lexical region, repeated physical reads can share an already evaluated local when reference identity is unobservable. Each removed declaration retains its original ordered alias check, schema, origin and instance path. A later, stricter check still runs later. Assertions remain computed at their original position; the compiler does not replace a predicate with a success constant or hoist later flattening over it.
+
+An identity `map` can reuse a source already validated as an array when result identity is unobserved. Immediate parameter forwarding and singleton construction simplify only with single evaluation and schema-proven unwrapping. Coupled `results/count` contracts, unknown calls, identity comparisons and joint capture contracts retain their containers. Nullable branches keep their selected checks and offered-before-original strict lookups. Functional capture/result names replace technical prefixes without changing physical addresses or diagnostic origins.
+
+See [v15 evidence](evidence/exact-descriptions-v15-2026-10-12/) for complete generated YAML, actual before/after JavaScript, allocation/trace measurements and retained structures. Description-selection guidance is measured separately from lowering: whole descriptive features may be selected without a heading, but execution still copies one observed block verbatim through strict lookup.
+
 ## v14: readable checked lexical values
 
-Fresh sessions and explicit revisions select `compact-bindings-v14`. Omitted/v1–v13 profiles, approvals and public compiler overloads retain their exact lowering. No expression metadata or runtime permission is added.
+The historical `compact-bindings-v14` profile preserves omitted/v1–v13 profiles, approvals and public compiler overloads. No expression metadata or runtime permission was added.
 
 The compiler collects branch-local contracts before applying direct-value simplification. Each closed lexical block uses the existing ordered alias checks; original origins and diagnostic instance paths survive eliminated wrappers and declarations. Only scalars at the same immutable address are reused, and only schema-proven singleton wrappers are unwrapped. Coupled or unresolved constraints and observable identity retain their containers.
 

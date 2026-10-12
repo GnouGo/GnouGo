@@ -26,9 +26,9 @@ public sealed partial class FusedBindingCompilationTests
             OutputSchema = Schema("""{"type":"object","properties":{"same":{"type":"boolean"}},"required":["same"],"additionalProperties":false}""") });
         workflow.Outputs.Clear(); workflow.Outputs.Add(new() { Name = "same", Value = Ref("compare", "same"), Schema = new() { Type = "boolean" } });
         var catalog = await Catalog(); var compiler = new PlanningGraphCompiler(); bool? original = null;
-        foreach(var profile in new[] { 11, 12, 14 })
+        foreach(var profile in new[] { 11, 12, 14, 15 })
         {
-            var yaml = compiler.Compile(graph, catalog, "identity", true, true, true, true, true, true, true, true, true, profile >= 12, profile >= 13, profile >= 14);
+            var yaml = compiler.Compile(graph, catalog, "identity", true, true, true, true, true, true, true, true, true, profile >= 12, profile >= 13, profile >= 14, profile >= 15);
             var result = await new WorkflowEngine().ExecuteAsync(new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml)).Workflows["main"],
                 new JsonObject { ["label"]=contained ? new JsonObject { ["observed"]="exact" } : JsonValue.Create("exact"), ["authorized"]=true }, PlannerFixture.Ct);
             Assert.True(result.Success,result.Error?.Message);

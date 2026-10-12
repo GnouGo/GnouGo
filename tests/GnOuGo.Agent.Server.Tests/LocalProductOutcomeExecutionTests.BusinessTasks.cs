@@ -225,7 +225,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
                 Assert.Equal(expectedPlan, JsonSerializer.Serialize(session.Plan, PlanningJsonContext.Default.TaskPlan));
             }
             Assert.True(session.Status == PlanningStatus.FinalReview, string.Join('\n', session.Diagnostics));
-            Assert.Equal("compact-bindings-v14", session.Request.Options["compilation_profile"]!.ToString());
+            Assert.Equal("compact-bindings-v15", session.Request.Options["compilation_profile"]!.ToString());
             Assert.Contains("expression_contracts:", session.Yaml!);
             Assert.DoesNotContain("checkedMapping(", session.Yaml!);
             Assert.Equal(variant == "producer_revision" || unionRevision && !initialComposition ? 2 : 1, session.ModelCalls); Assert.Equal(0, session.ReplanAttempts); Assert.Empty(visits); Assert.Empty(model.Requests);
@@ -435,7 +435,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
             Directory.CreateDirectory(evidence);
             File.WriteAllText(Path.Combine(evidence, "graph.json"), JsonSerializer.Serialize(compiled.Graph!, PlanningJsonContext.Default.PlanningGraph));
         }
-        var yaml = new PlanningGraphCompiler().Compile(compiled.Graph!, catalog, "business", true, true, true, TaskPlanCompiler.UsesDirectProjections(request), TaskPlanCompiler.UsesNativeMappings(request), TaskPlanCompiler.UsesReadableMappings(request), TaskPlanCompiler.UsesLeanMappings(request), TaskPlanCompiler.UsesCompactProjections(request), TaskPlanCompiler.UsesInlineConsumers(request), TaskPlanCompiler.UsesDirectValues(request), TaskPlanCompiler.UsesCheckedControls(request), TaskPlanCompiler.UsesReadableBranches(request));
+        var yaml = new PlanningGraphCompiler().Compile(compiled.Graph!, catalog, "business", true, true, true, TaskPlanCompiler.UsesDirectProjections(request), TaskPlanCompiler.UsesNativeMappings(request), TaskPlanCompiler.UsesReadableMappings(request), TaskPlanCompiler.UsesLeanMappings(request), TaskPlanCompiler.UsesCompactProjections(request), TaskPlanCompiler.UsesInlineConsumers(request), TaskPlanCompiler.UsesDirectValues(request), TaskPlanCompiler.UsesCheckedControls(request), TaskPlanCompiler.UsesReadableBranches(request), TaskPlanCompiler.UsesSimplifiedLocals(request));
         var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml));
         static IEnumerable<CompiledStep> All(IEnumerable<CompiledStep> steps) => steps.SelectMany(s => new[] { s }
             .Concat(All(s.Steps ?? [])).Concat(All(s.Default ?? [])).Concat((s.Cases ?? []).SelectMany(c => All(c.Steps)))

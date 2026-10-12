@@ -1,0 +1,129 @@
+version: 1
+name: "array-reads"
+entrypoint: "main"
+workflows:
+  main:
+    inputs:
+      searchPages:
+        type: "array"
+        items:
+          type: "array"
+          items:
+            type: "number"
+            nullable: true
+        required: true
+    steps: []
+    outputs:
+      products:
+        type: "array"
+        items:
+          type: "number"
+          nullable: true
+        expr: |-
+          ${
+          (() => {
+            const searchPages = data.inputs.searchPages;
+            const requiredCondition = searchPages.flatMap(item => item) !== null;
+            const products = searchPages.flatMap(item => item);
+            return products;
+          })()
+          }
+        expression_contracts:
+          '':
+            searchPages:
+              origin: "first"
+              schema:
+                type: "array"
+                items:
+                  type: "array"
+                  items: {type: ["number", "null"]}
+              order: 0
+              source: "searchPages"
+              instance_path: "/value"
+            requiredCondition:
+              origin: "guard"
+              schema: {type: "boolean", enum: [true]}
+              order: 1
+              source: "requiredCondition"
+              instance_path: "/value"
+            searchPages_2:
+              origin: "second"
+              schema:
+                type: "array"
+                items:
+                  type: "array"
+                  items: {type: ["number", "null"]}
+              order: 2
+              source: "searchPages"
+              instance_path: "/value"
+            products:
+              origin: "assemble"
+              schema:
+                type: "array"
+                items: {type: ["number", "null"]}
+              order: 3
+              source: "products"
+              instance_path: "/products"
+skill:
+  description: ""
+  inputs:
+    searchPages:
+      type: "array"
+      items:
+        type: "array"
+        items:
+          type: "number"
+          nullable: true
+      required: true
+  outputs:
+    products:
+      type: "array"
+      items:
+        type: "number"
+        nullable: true
+      expr: |-
+        ${
+        (() => {
+          const searchPages = data.inputs.searchPages;
+          const requiredCondition = searchPages.flatMap(item => item) !== null;
+          const products = searchPages.flatMap(item => item);
+          return products;
+        })()
+        }
+      expression_contracts:
+        '':
+          searchPages:
+            origin: "first"
+            schema:
+              type: "array"
+              items:
+                type: "array"
+                items: {type: ["number", "null"]}
+            order: 0
+            source: "searchPages"
+            instance_path: "/value"
+          requiredCondition:
+            origin: "guard"
+            schema: {type: "boolean", enum: [true]}
+            order: 1
+            source: "requiredCondition"
+            instance_path: "/value"
+          searchPages_2:
+            origin: "second"
+            schema:
+              type: "array"
+              items:
+                type: "array"
+                items: {type: ["number", "null"]}
+            order: 2
+            source: "searchPages"
+            instance_path: "/value"
+          products:
+            origin: "assemble"
+            schema:
+              type: "array"
+              items: {type: ["number", "null"]}
+            order: 3
+            source: "products"
+            instance_path: "/products"
+...

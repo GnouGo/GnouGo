@@ -108,7 +108,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
             Assert.Equal(profile, session.Request.Options["compilation_profile"]?.ToString());
             var document = WorkflowParser.Parse(session.Yaml!);
             var generatedSteps = document.Workflows.Values.SelectMany(w => V11Steps(w.Steps.Concat(w.Finally ?? []))).ToArray();
-            if (profile is "compact-bindings-v13" or "compact-bindings-v14")
+            if (profile is "compact-bindings-v13" or "compact-bindings-v14" or "compact-bindings-v15")
             {
                 Assert.True(generatedSteps.Length < 61);
                 Assert.True(generatedSteps.Count(s => s.Type == "set") < 27);

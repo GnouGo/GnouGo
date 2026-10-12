@@ -163,7 +163,7 @@ public sealed partial class PlanningGraphCompiler
             parent.WorkflowIds, body.Inputs.Select(i => i.Name).ToHashSet(StringComparer.Ordinal), nodes.ToDictionary(n => n.Key, n => n.Type, StringComparer.Ordinal),
             LoopVariables(nodes), nodes.ToDictionary(n => n.Key, StringComparer.Ordinal), parent.Workflows, parent.Descriptions)
         { DirectProjections = true, NativeMappings = true, ReadableMappings = true, LeanMappings = true, CompactProjections = true, InlineConsumers = true, DirectValues = true,
-            ReadableBranches = parent.ReadableBranches,
+            ReadableBranches = parent.ReadableBranches, SimplifiedLocals = parent.SimplifiedLocals,
             InputAliases = PlanningGraphValidation.Member(call.Input, "args")!.Members.ToDictionary(m => m.Name,
                 m => m.Value.Path.LastOrDefault(p => p is not ("value" or "outputs")) ?? m.Name, StringComparer.Ordinal) };
         PrepareCopyProjections(body, scope); PrepareFusion(body, scope, true);
@@ -171,6 +171,7 @@ public sealed partial class PlanningGraphCompiler
         if (lowered.Any(n => n?["type"]?.ToString() != "set")) throw new InvalidOperationException("Pure branch contains an execution boundary.");
         var program = new StringBuilder("(() => {"); var contracts = new JsonObject(); var addresses = new Dictionary<string, string>(StringComparer.Ordinal);
         var arguments = nameSuffix is null ? prefix + "Inputs" : "observedInputs_" + nameSuffix;
+        if (scope.SimplifiedLocals) arguments = FunctionalName(prefix + " inputs");
         var inputProperties = new JsonObject();
         foreach (var port in body.Inputs) inputProperties.Add(port.Name, ToJsonSchema(port.Schema, parent.Catalog));
         var inputSchema = new JsonObject { ["type"] = "object", ["properties"] = inputProperties,
@@ -188,6 +189,7 @@ public sealed partial class PlanningGraphCompiler
         foreach (var step in lowered.Cast<JsonObject>())
         {
             var name = nameSuffix is null ? prefix + "Value" + (++serial).ToString(System.Globalization.CultureInfo.InvariantCulture) : "projectedValues_" + nameSuffix + "_" + (++serial).ToString(System.Globalization.CultureInfo.InvariantCulture);
+            if (scope.SimplifiedLocals) name = FunctionalName(prefix + " result " + serial.ToString(System.Globalization.CultureInfo.InvariantCulture));
             var original = nodes.Single(n => scope.NodeIds[n.Key] == step["id"]!.GetValue<string>());
             var expression = step["input"] is JsonValue value && value.TryGetValue<string>(out var text)
                 ? ExpressionSegments.Read(text).Single().Expression : ToExpression(original.Input, scope)[2..^1];

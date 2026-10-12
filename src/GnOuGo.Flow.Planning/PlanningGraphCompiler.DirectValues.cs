@@ -9,7 +9,7 @@ public sealed partial class PlanningGraphCompiler
 {
     // A local rewrite of the existing checked program. Do not infer equivalence
     // for arbitrary JSON Schemas: unrecognized container constraints stay put.
-    private static string DirectCheckedValues(string program, JsonObject contracts, bool lexical = false)
+    private static string DirectCheckedValues(string program, JsonObject contracts, bool lexical = false, bool simplifiedLocals = false)
     {
         if (new Parser().ParseExpression(program) is not CallExpression { Callee: ArrowFunctionExpression
             { Body: BlockStatement body } } || body.Body.Last() is not ReturnStatement { Argument: not null } returned) return program;
@@ -58,10 +58,25 @@ public sealed partial class PlanningGraphCompiler
             }
             var expression = field is not null && value is Identifier previous && locals.TryGetValue(previous.Name, out var prior)
                 ? prior.Source : Write(selected, new(StringComparer.Ordinal));
-            if (lexical && Scalar(schema) && new Parser().ParseExpression(expression) is MemberExpression address && Address(address))
+            // Only reuse reads inside this immutable checked region. An alias
+            // keeps its own check at the old position, including a stricter schema.
+            if (lexical && (Scalar(schema) || simplifiedLocals && !ObservesIdentity(name, null)) &&
+                new Parser().ParseExpression(expression) is MemberExpression address && Address(address))
             {
-                if (scalarAddresses.TryGetValue(expression, out var observed)) expression = observed;
-                else scalarAddresses.Add(expression, name);
+                if (scalarAddresses.TryGetValue(expression, out var observed) &&
+                    (Scalar(schema) || !ObservesIdentity(observed, null))) expression = observed;
+                else scalarAddresses.TryAdd(expression, name);
+            }
+            if (simplifiedLocals && !ObservesIdentity(name, null) &&
+                new Parser().ParseExpression(expression) is CallExpression { Arguments.Count: 1,
+                    Callee: MemberExpression { Computed: false, Property: Identifier { Name: "map" } } map } identity &&
+                identity.Arguments[0] is ArrowFunctionExpression { Params.Count: 1, Body: Identifier returnedItem } callback &&
+                callback.Params[0] is Identifier parameter && parameter.Name == returnedItem.Name &&
+                KnownSchema(map.Object)?["type"]?.ToString() == "array")
+            {
+                // The source already passed its authoritative array check. Keep
+                // this result's constraints as an ordered alias, never erase them.
+                expression = expression[map.Object.Start..map.Object.End];
             }
             var source = new Parser().ParseExpression(expression) is Identifier same && declared.Contains(same.Name) ? same.Name : name;
             if (source != name && !Scalar(schema) && (ObservesIdentity(name, null) || ObservesIdentity(source, null)))
@@ -86,7 +101,17 @@ public sealed partial class PlanningGraphCompiler
                 .All(c => contracts[c.Key]?["schema"] is JsonObject constraint && Unwrap(constraint, candidate) is not null);
         }
         result.Append("return ").Append(Write(returned.Argument, new(StringComparer.Ordinal))).Append(";})()");
-        return SimplifyReadableProgram(result.ToString(), inlineConsumers: true);
+        return SimplifyReadableProgram(result.ToString(), inlineConsumers: true, simplifiedLocals);
+
+        JsonObject? KnownSchema(Node node)
+        {
+            if (node is Identifier id && declared.Contains(id.Name)) return contracts[id.Name]?["schema"] as JsonObject;
+            if (node is MemberExpression { Computed: false, Property: Identifier property } member &&
+                KnownSchema(member.Object) is { } parent && parent["type"]?.ToString() == "object" &&
+                parent["required"] is JsonArray required && required.Any(r => r?.ToString() == property.Name))
+                return parent["properties"]?[property.Name] as JsonObject;
+            return null;
+        }
 
         static string Pointer(string field) => "/" + field.Replace("~", "~0", StringComparison.Ordinal).Replace("/", "~1", StringComparison.Ordinal);
         static bool Address(Node node) => node is Identifier || node is MemberExpression member && Address(member.Object) &&
@@ -126,7 +151,12 @@ public sealed partial class PlanningGraphCompiler
                 if (field is not null && node is MemberExpression { Object: Identifier owner } member && aliases.Contains(owner.Name) &&
                     (member.Computed ? (member.Property as StringLiteral)?.Value : Key(member.Property)) == field) return false;
                 if (node is Identifier identifier) return observes && aliases.Contains(identifier.Name) && !shadowed.Contains(identifier.Name);
-                observes |= node is CallExpression || node is BinaryExpression { Operator:
+                var nullComparison = simplifiedLocals && node is BinaryExpression comparison &&
+                    (comparison.Left is NullLiteral || comparison.Right is NullLiteral);
+                var readOnlyCall = simplifiedLocals && node is CallExpression call && call.Callee is MemberExpression { Computed: false } callee &&
+                    (callee.Property is Identifier { Name: "map" or "flatMap" } && call.Arguments.Count == 1 && call.Arguments[0] is ArrowFunctionExpression ||
+                     callee.Object is Identifier { Name: "m" } && callee.Property is Identifier { Name: "lookup" or "select" });
+                observes |= node is CallExpression && !readOnlyCall || !nullComparison && node is BinaryExpression { Operator:
                     Operator.Equality or Operator.StrictEquality or Operator.Inequality or Operator.StrictInequality };
                 if (node is MemberExpression { Computed: false } access) return Walk(access.Object, observes, shadowed);
                 if (node is Property { Computed: false } property) return Walk(property.Value, observes, shadowed);
@@ -177,7 +207,7 @@ public sealed partial class PlanningGraphCompiler
     // v13 creates new checked scopes after the flat v12 pass. Simplify each
     // compiler-owned block only after its contracts have been collected. Nested
     // scopes keep their checks; eliminated declarations keep ordered aliases.
-    private static string DirectLexicalValues(string program, JsonObject contracts)
+    private static string DirectLexicalValues(string program, JsonObject contracts, bool simplifiedLocals = false)
     {
         string Write(Node node)
         {
@@ -198,7 +228,7 @@ public sealed partial class PlanningGraphCompiler
             if (names.Count == 0 || names.Any(n => !contracts.ContainsKey(n))) return rewritten;
             var local = new JsonObject(contracts.Where(c => names.Contains(c.Value?["source"]?.GetValue<string>() ?? c.Key))
                 .Select(c => new KeyValuePair<string, JsonNode?>(c.Key, c.Value?.DeepClone())));
-            rewritten = DirectCheckedValues(SimplifyReadableProgram(rewritten, true), local, lexical: true);
+            rewritten = DirectCheckedValues(SimplifyReadableProgram(rewritten, true, simplifiedLocals), local, lexical: true, simplifiedLocals);
             foreach (var (name, entry) in local) contracts[name] = entry?.DeepClone();
             return rewritten;
         }
