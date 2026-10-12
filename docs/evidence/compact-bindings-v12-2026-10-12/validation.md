@@ -1,6 +1,6 @@
 # Validation provenance
 
-Production source candidate: `a09f8407` (Gate A/B/C plus nested-output correspondence). Documentation/evidence follow-ups do not change binaries. Final whole-solution counts and current-head CI verdicts are recorded in [PR #117](https://github.com/GnouGo/GnouGo/pull/117); consult the [candidate checks](https://github.com/GnouGo/GnouGo/pull/117/checks) rather than a result from an earlier profile.
+Core/runtime source: `a09f8407` (Gate A/B/C plus nested-output correspondence). The final compiler follow-up adds conservative identity-observer guards and four equivalence cases; all 55 fusion cases pass. Documentation/evidence follow-ups do not change binaries. Final whole-solution counts and current-head CI verdicts are recorded in [PR #117](https://github.com/GnouGo/GnouGo/pull/117); consult the [candidate checks](https://github.com/GnouGo/GnouGo/pull/117/checks) rather than a result from an earlier profile.
 
 ## Deterministic gates
 

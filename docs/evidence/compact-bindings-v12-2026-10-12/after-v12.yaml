@@ -237,10 +237,11 @@ workflows:
         (() => {
           const condition = m.select(data.steps.n_5045d393e201ee32, [["n_496ac96c9b178654", "value"], ["n_341937c017c6f5e7", "value"]], false);
           const pages = (data.steps.n_62737a68773ca42a.response).observationSnapshot.pages;
+          const checkedRecord = pages;
           const items = (collection => ({
             results: collection.map((item, index) => (item).records),
             count: collection.length
-          }))(pages);
+          }))(checkedRecord);
           const pageRecords = (items.results).map(item => item);
           const success = (data.steps.n_62737a68773ca42a.response).success;
           return {
@@ -493,7 +494,7 @@ workflows:
                   x-gnougo-opaque: true
               maxItems: 100
             order: 3
-            source: "pages"
+            source: "checkedRecord"
             instance_path: "/value"
           items:
             origin: "task_54db3b4a9cb40efbaf2ce706"
@@ -2260,10 +2261,11 @@ workflows:
         (() => {
           const condition = m.select(data.steps.n_0e0c569c3f5e69cc, [["n_e0de4a4c5cac4169", "value"], ["n_407cc01ca22d66a4", "value"]], false);
           const pages = (data.steps.n_0525c15c1750c572.response).observationSnapshot.pages;
+          const checkedRecord = pages;
           const items = (collection => ({
             results: collection.map((item, index) => (item).records),
             count: collection.length
-          }))(pages);
+          }))(checkedRecord);
           const pageRecords = (items.results).map(item => item);
           const success = (data.steps.n_0525c15c1750c572.response).success;
           return {
@@ -2516,7 +2518,7 @@ workflows:
                   x-gnougo-opaque: true
               maxItems: 100
             order: 3
-            source: "pages"
+            source: "checkedRecord"
             instance_path: "/value"
           items:
             origin: "task_1e27923c45ec92b95c673c36"

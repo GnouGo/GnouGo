@@ -28,18 +28,21 @@ public sealed partial class PlanningGraphCompiler
             Node selected = value;
             if (value is ObjectExpression { Properties.Count: 1 } obj &&
                 obj.Properties[0] is Property { Computed: false, Method: false } property &&
-                Key(property.Key) is { } propertyName && Unwrap(schema, propertyName) is { } child)
+                Key(property.Key) is { } propertyName && Unwrap(schema, propertyName) is { } child &&
+                !ObservesIdentity(name.Name, propertyName))
             {
                 field = propertyName; selected = property.Value; schema = child;
             }
             else if (value is Identifier alias && locals.TryGetValue(alias.Name, out var original) && original.Field is { } aliasField &&
-                Unwrap(schema, aliasField) is { } aliasSchema)
+                Unwrap(schema, aliasField) is { } aliasSchema && !ObservesIdentity(name.Name, aliasField))
             {
                 field = aliasField; schema = aliasSchema;
             }
             var expression = field is not null && value is Identifier previous && locals.TryGetValue(previous.Name, out var prior)
                 ? prior.Source : Write(selected, new(StringComparer.Ordinal));
             var source = new Parser().ParseExpression(expression) is Identifier same && declared.Contains(same.Name) ? same.Name : name.Name;
+            if (source != name.Name && !Scalar(schema) && (ObservesIdentity(name.Name, null) || ObservesIdentity(source, null)))
+                source = name.Name; // Keep the original declaration's isolated value when identity is observable.
             if (source == name.Name)
             {
                 result.Append("const ").Append(name.Name).Append(" = ").Append(expression).Append(';');
@@ -56,6 +59,41 @@ public sealed partial class PlanningGraphCompiler
         return SimplifyReadableProgram(result.ToString(), inlineConsumers: true);
 
         static string? Key(Node node) => node is Identifier key ? key.Name : (node as StringLiteral)?.Value;
+        static bool Scalar(JsonObject schema)
+        {
+            static bool ScalarType(JsonNode? type) => type is JsonValue value && value.TryGetValue<string>(out var name) &&
+                name is "string" or "number" or "integer" or "boolean" or "null";
+            return ScalarType(schema["type"]) || schema["type"] is JsonArray { Count: > 0 } types && types.All(ScalarType);
+        }
+        bool ObservesIdentity(string name, string? field)
+        {
+            // Schema equivalence does not prove reference-identity equivalence.
+            // Follow declaration aliases, retaining containers observed as whole
+            // comparison operands or passed to calls. Selecting their field is safe.
+            var aliases = new HashSet<string>(StringComparer.Ordinal) { name };
+            bool added;
+            do
+            {
+                added = false;
+                foreach (var declaration in body.Body.OfType<VariableDeclaration>())
+                    if (declaration.Declarations[0] is { Id: Identifier local, Init: Identifier source } &&
+                        (aliases.Contains(local.Name) || aliases.Contains(source.Name)))
+                        added |= aliases.Add(local.Name) | aliases.Add(source.Name);
+            } while (added);
+            return Walk(body, false);
+
+            bool Walk(Node node, bool observes)
+            {
+                if (field is not null && node is MemberExpression { Object: Identifier owner } member && aliases.Contains(owner.Name) &&
+                    (member.Computed ? (member.Property as StringLiteral)?.Value : Key(member.Property)) == field) return false;
+                if (node is Identifier identifier) return observes && aliases.Contains(identifier.Name);
+                observes |= node is CallExpression || node is BinaryExpression { Operator:
+                    Operator.Equality or Operator.StrictEquality or Operator.Inequality or Operator.StrictInequality };
+                if (node is MemberExpression { Computed: false } access) return Walk(access.Object, observes);
+                if (node is Property { Computed: false } property) return Walk(property.Value, observes);
+                return node.ChildNodes.Any(child => Walk(child, observes));
+            }
+        }
         static JsonObject? Unwrap(JsonObject schema, string field)
         {
             if (schema["type"]?.ToString() != "object" ||

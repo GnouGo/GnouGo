@@ -14,9 +14,9 @@
     "steps": 61,
     "sets": 27,
     "checks": 113,
-    "javascript_bytes": 12887,
-    "declarations": 94,
-    "yaml_bytes": 239951,
+    "javascript_bytes": 12965,
+    "declarations": 96,
+    "yaml_bytes": 240061,
     "max_line_length": 290,
     "select_calls": 7,
     "lookup_calls": 8

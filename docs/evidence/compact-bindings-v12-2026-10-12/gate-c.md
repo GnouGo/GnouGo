@@ -8,6 +8,6 @@
 - Complete-result recovery produces no new check events or invocations. Committed-input recovery reuses resolved inputs; uncertain effects still prohibit replay and cleanup.
 - Serial host build passed after the initial parallel build hit the existing generated static-asset collision. No timeout or assertion was weakened.
 
-Same retained TaskPlan: 61 steps / 27 sets in both profiles; YAML 261,126 → 239,951 bytes. All 113 intermediate checks remain; JavaScript declarations fall from 113 to 94. Every retained set still has an independent responsibility; output metadata is not permission to move it past finalization or discard a receipt.
+Same retained TaskPlan: 61 steps / 27 sets in both profiles; YAML 261,126 → 240,061 bytes. All 113 intermediate checks remain; JavaScript declarations fall from 113 to 96. Every retained set still has an independent responsibility; output metadata is not permission to move it past finalization or discard a receipt.
 
 Real local workbook runs and final package/AOT/full-solution/CI results are recorded separately.

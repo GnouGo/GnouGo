@@ -40,9 +40,9 @@ See [machine-readable compiler metrics](compiler-metrics.json) and [large-array 
 | Same retained TaskPlan | v11 | v12 |
 |---|---:|---:|
 | Steps / sets | 61 / 27 | 61 / 27 |
-| YAML bytes | 261,126 | 239,951 |
-| Expression bytes, including delimiters | 15,652 | 12,887 |
-| JavaScript declarations | 113 | 94 |
+| YAML bytes | 261,126 | 240,061 |
+| Expression bytes, including delimiters | 15,652 | 12,965 |
+| JavaScript declarations | 113 | 96 |
 | Intermediate validations | 113 | 113 |
 | Maximum YAML line length | 290 | 290 |
 | First-present / strict lookup calls | 7 / 8 | 7 / 8 |
@@ -67,7 +67,7 @@ The missing/empty cases intentionally do **not** pass the strict live business o
 
 Input checks stay on consumer spans. Output intermediate and final checks use existing workflow spans, with name, local reference, origin, pointer, order and outcome/error code only. Tests compare identical event content for one-byte and 1.2 MB observations, stop events at the first failure, and prove no new events on completed recovery. A warmed disposable probe emitted the same five events / 1,706 serialized bytes for both input sizes. Median additional allocation with its collecting telemetry adapter was 8,200 bytes (small input) and 11,416 bytes (large input); measured execution was 0.134/0.123 ms without/with tracing for small input and 1.160/1.252 ms for large input. These noisy samples include the recording adapter and do not establish a latency guarantee. See [measurements](trace-measurements.json) and [actual metadata-only events](output-check-events.json). No observations, schemas or values enter check events.
 
-Direct-value metadata is explicit (`order`/`source`); historical metadata remains object-only. Output metadata is optional and omitted in historical serialization; its presence changes artifact and durable definition hashes. Historical profile overloads retain their lowering. Ordered aliases cannot evaluate JavaScript or access context; only previously evaluated locals are legal. Coupled or unresolved wrapper schemas remain wrapped.
+Direct-value metadata is explicit (`order`/`source`); historical metadata remains object-only. Output metadata is optional and omitted in historical serialization; its presence changes artifact and durable definition hashes. Historical profile overloads retain their lowering. Ordered aliases cannot evaluate JavaScript or access context; only previously evaluated locals are legal. Coupled or unresolved wrapper schemas remain wrapped. Whole-wrapper comparisons and calls also retain their containers; observable container aliases keep their original isolated evaluation. A four-case regression reproduces the mismatch before this guard and proves v11/v12 identity equivalence afterward.
 
 ## Validation status
 

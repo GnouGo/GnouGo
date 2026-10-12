@@ -9,3 +9,5 @@ Validated from baseline `884bf783`, without inference or MCP dispatch.
 - Exact large integers, decimal representations, nulls, arrays, invalid unused aliases, missing sources, and malformed metadata are covered. A 1.2 MB unrelated observation is not imported.
 
 These are focused results; complete local workbook, recovery, package/AOT and CI gates follow separately.
+
+A final identity probe reproduced a v12-only mismatch: comparing the same whole wrapper returned false after reconstruction. The optimizer now retains whole wrappers used by comparisons/calls and keeps container alias declarations when their isolation can be observed. Four whole/contained-value and same/aliased-value cases preserve v11 truth values; all 55 fusion cases pass. These are additional conservative proof barriers, not changed equality semantics.
