@@ -1,6 +1,59 @@
+## v12: direct values, ordered aliases and checked outputs
+
+Fresh sessions and explicit revisions select `compact-bindings-v12`. Generated JavaScript should be readable by a developer: direct scalar/array/object locals, functional names, native projections and multiline code. The model still supplies typed business bindings, never scripts. Omitted and v1–v11 profiles retain their exact lowering and approvals; v12 artifacts require the corresponding runtime.
+
+The existing `expression_contracts` map gains explicit `order` (contiguous, zero-based) and `source` (a local identifier) on v12 entries. Each declaration is checked when evaluated. A later entry may validate the same already evaluated local without another JavaScript declaration or object copy. Sources cannot be expressions, workflow paths or forward references; a malformed or mixed declaration is rejected. Historical entries without these fields keep their object-only checks and declaration correspondence.
+
+```yaml
+input: |-
+  ${
+  (() => {
+    const label = data.inputs.label;
+    const authorized = data.inputs.authorized;
+    return { chosen: label };
+  })()
+  }
+expression_contracts:
+  '':
+    label:
+      origin: selectLabel
+      order: 0
+      source: label
+      instance_path: /value
+      schema: { type: string, minLength: 1 }
+    authorized:
+      origin: requireAuthorization
+      order: 1
+      source: authorized
+      instance_path: /value
+      schema: { const: true }
+    chosen:
+      origin: assembleSelection
+      order: 2
+      source: label
+      instance_path: /chosen
+      schema: { type: string }
+    chosen_2:
+      origin: exportSelection
+      order: 3
+      source: label
+      instance_path: /chosen
+      schema: { type: string }
+```
+
+All four checks run, in order, including unused results. `instance_path` retains the original diagnostic property path when an understood singleton wrapper is removed. Retained checked-set values use `object_only: true` to preserve their independent object precondition and original failure. The compiler retains wrappers for coupled or unresolved schemas; it does not infer JSON Schema equivalence from field names. First-present selection, strict lookup, exact JSON numbers/nulls and cumulative sandbox limits remain unchanged. No unrestricted context import is permitted.
+
+An output with a complete `expr` may also declare `expression_contracts`, with exactly the root pointer `''`. Ordered intermediate checks use the same evaluator, followed by mandatory final validation against its declared schema/type. Contract metadata is neither passed to consumers nor advertised as business output. It is omitted from historical serialization when absent and included in definition/approval hashes when present.
+
+Outputs still run after finalization, only on success, and publish atomically. Output-phase native expressions require no transport step, but output metadata does **not** authorize moving pre-finalization checks. Sets required for independent receipts, errors, shared values, conditions, scopes, retries or checkpoints remain. No hidden durability record replaces a removed step. Completed results and resolved inputs retain their existing recovery path.
+
+`gnougo-flow.input.check` remains on consumer spans. `gnougo-flow.output.check` uses existing workflow spans and identifies the original check, source local, contract pointer, order and outcome/error code, including final output validation. No values, schemas, snapshots or error messages are copied into check events. Recovery does not manufacture validation events for reused results.
+
+See [actual generated comparisons and gate evidence](evidence/compact-bindings-v12-2026-10-12/README.md).
+
 ## v11: checked preparation in consumer inputs
 
-Fresh sessions and explicit revisions select `compact-bindings-v11`. Consecutive,
+The historical `compact-bindings-v11` profile retains its lowering. Consecutive,
 single-use pure preparation runs in one checked consumer-input expression,
 including multiple dynamic fields and preparation for `mapping.dynamic`. Inference,
 its budgets, receipts and recovery boundaries remain independent. A shared prefix
