@@ -1,0 +1,49 @@
+version: 1
+name: "controls"
+entrypoint: "main"
+workflows:
+  main:
+    inputs:
+      label:
+        type: "string"
+        required: true
+      authorized:
+        type: "boolean"
+        required: true
+    steps:
+    - id: "n_f38c764c8aa00b65"
+      type: "switch"
+      expr: |-
+        ${
+        (() => {
+          const condition = data.inputs.authorized;
+          return condition;
+        })()
+        }
+      cases:
+      - steps:
+        - id: "n_a96a5b946ce5cda6"
+          type: "set"
+          input:
+            visited: true
+        value: "true"
+      default: []
+      control_contracts:
+        /expr:
+          condition:
+            origin: "checked"
+            schema: {type: "boolean"}
+            order: 0
+            source: "condition"
+            instance_path: "/value"
+skill:
+  description: ""
+  inputs:
+    label:
+      type: "string"
+      required: true
+    authorized:
+      type: "boolean"
+      required: true
+  outputs: {}
+...

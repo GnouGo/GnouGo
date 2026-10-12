@@ -1,0 +1,33 @@
+{
+  "provider_calls": 0,
+  "mcp_calls": 0,
+  "historical_writes": 0,
+  "historical_yaml_identical": true,
+  "validation_origins_preserved": true,
+  "before": {
+    "workflows": 9,
+    "steps": 35,
+    "sets": 8,
+    "yaml_bytes": 202763,
+    "javascript_bytes": 21546,
+    "javascript_max_line": 172,
+    "unique_programs": 40,
+    "declarations": 193,
+    "functions": 104,
+    "wrappers": 71,
+    "select_helpers": 14
+  },
+  "after": {
+    "workflows": 9,
+    "steps": 35,
+    "sets": 8,
+    "yaml_bytes": 186221,
+    "javascript_bytes": 17377,
+    "javascript_max_line": 150,
+    "unique_programs": 40,
+    "declarations": 175,
+    "functions": 91,
+    "wrappers": 9,
+    "select_helpers": 3
+  }
+}

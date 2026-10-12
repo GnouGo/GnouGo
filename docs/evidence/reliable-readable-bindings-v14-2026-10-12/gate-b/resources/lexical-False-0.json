@@ -1,0 +1,162 @@
+[
+  {
+    "statements": 33,
+    "statement_limit": 10000,
+    "elapsed_ms": 46.221,
+    "time_limit_ms": 5000,
+    "allocated_bytes": 131528,
+    "materialized_bytes": 567,
+    "output_bytes": 128,
+    "memory_limit_bytes": 50000000,
+    "nesting_depth": 1,
+    "nesting_limit": 64,
+    "profile": "v13",
+    "unused_observation_bytes": 1,
+    "warm": false,
+    "checks": [
+      "absent:passed",
+      "choose:passed",
+      "merge:passed"
+    ]
+  },
+  {
+    "statements": 30,
+    "statement_limit": 10000,
+    "elapsed_ms": 6.7543,
+    "time_limit_ms": 5000,
+    "allocated_bytes": 33768,
+    "materialized_bytes": 286,
+    "output_bytes": 128,
+    "memory_limit_bytes": 50000000,
+    "nesting_depth": 0,
+    "nesting_limit": 64,
+    "profile": "v14",
+    "unused_observation_bytes": 1,
+    "warm": false,
+    "checks": [
+      "absent:passed",
+      "choose:passed",
+      "merge:passed"
+    ]
+  },
+  {
+    "statements": 33,
+    "statement_limit": 10000,
+    "elapsed_ms": 0.2073,
+    "time_limit_ms": 5000,
+    "allocated_bytes": 42136,
+    "materialized_bytes": 567,
+    "output_bytes": 128,
+    "memory_limit_bytes": 50000000,
+    "nesting_depth": 1,
+    "nesting_limit": 64,
+    "profile": "v13",
+    "unused_observation_bytes": 1,
+    "warm": true,
+    "checks": [
+      "absent:passed",
+      "choose:passed",
+      "merge:passed"
+    ]
+  },
+  {
+    "statements": 30,
+    "statement_limit": 10000,
+    "elapsed_ms": 0.1523,
+    "time_limit_ms": 5000,
+    "allocated_bytes": 33768,
+    "materialized_bytes": 286,
+    "output_bytes": 128,
+    "memory_limit_bytes": 50000000,
+    "nesting_depth": 0,
+    "nesting_limit": 64,
+    "profile": "v14",
+    "unused_observation_bytes": 1,
+    "warm": true,
+    "checks": [
+      "absent:passed",
+      "choose:passed",
+      "merge:passed"
+    ]
+  },
+  {
+    "statements": 33,
+    "statement_limit": 10000,
+    "elapsed_ms": 0.1094,
+    "time_limit_ms": 5000,
+    "allocated_bytes": 42136,
+    "materialized_bytes": 567,
+    "output_bytes": 128,
+    "memory_limit_bytes": 50000000,
+    "nesting_depth": 1,
+    "nesting_limit": 64,
+    "profile": "v13",
+    "unused_observation_bytes": 1200000,
+    "warm": false,
+    "checks": [
+      "absent:passed",
+      "choose:passed",
+      "merge:passed"
+    ]
+  },
+  {
+    "statements": 30,
+    "statement_limit": 10000,
+    "elapsed_ms": 0.0832,
+    "time_limit_ms": 5000,
+    "allocated_bytes": 33768,
+    "materialized_bytes": 286,
+    "output_bytes": 128,
+    "memory_limit_bytes": 50000000,
+    "nesting_depth": 0,
+    "nesting_limit": 64,
+    "profile": "v14",
+    "unused_observation_bytes": 1200000,
+    "warm": false,
+    "checks": [
+      "absent:passed",
+      "choose:passed",
+      "merge:passed"
+    ]
+  },
+  {
+    "statements": 33,
+    "statement_limit": 10000,
+    "elapsed_ms": 0.1598,
+    "time_limit_ms": 5000,
+    "allocated_bytes": 42136,
+    "materialized_bytes": 567,
+    "output_bytes": 128,
+    "memory_limit_bytes": 50000000,
+    "nesting_depth": 1,
+    "nesting_limit": 64,
+    "profile": "v13",
+    "unused_observation_bytes": 1200000,
+    "warm": true,
+    "checks": [
+      "absent:passed",
+      "choose:passed",
+      "merge:passed"
+    ]
+  },
+  {
+    "statements": 30,
+    "statement_limit": 10000,
+    "elapsed_ms": 0.1279,
+    "time_limit_ms": 5000,
+    "allocated_bytes": 33768,
+    "materialized_bytes": 286,
+    "output_bytes": 128,
+    "memory_limit_bytes": 50000000,
+    "nesting_depth": 0,
+    "nesting_limit": 64,
+    "profile": "v14",
+    "unused_observation_bytes": 1200000,
+    "warm": true,
+    "checks": [
+      "absent:passed",
+      "choose:passed",
+      "merge:passed"
+    ]
+  }
+]

@@ -1,0 +1,198 @@
+[
+  {
+    "name": "pack-Core",
+    "exit_code": 0,
+    "elapsed_seconds": 5.389,
+    "command": [
+      "dotnet",
+      "pack",
+      "src/GnOuGo.Flow.Core/GnOuGo.Flow.Core.csproj",
+      "-c",
+      "Release",
+      "-m:1",
+      "-warnaserror",
+      "-o",
+      "/tmp/gnougo-v14-publish/packages"
+    ]
+  },
+  {
+    "name": "pack-Planning",
+    "exit_code": 0,
+    "elapsed_seconds": 8.481,
+    "command": [
+      "dotnet",
+      "pack",
+      "src/GnOuGo.Flow.Planning/GnOuGo.Flow.Planning.csproj",
+      "-c",
+      "Release",
+      "-m:1",
+      "-warnaserror",
+      "-o",
+      "/tmp/gnougo-v14-publish/packages"
+    ]
+  },
+  {
+    "name": "pack-Integrations",
+    "exit_code": 0,
+    "elapsed_seconds": 6.704,
+    "command": [
+      "dotnet",
+      "pack",
+      "src/GnOuGo.Flow.Integrations/GnOuGo.Flow.Integrations.csproj",
+      "-c",
+      "Release",
+      "-m:1",
+      "-warnaserror",
+      "-o",
+      "/tmp/gnougo-v14-publish/packages"
+    ]
+  },
+  {
+    "name": "pack-Copilot",
+    "exit_code": 0,
+    "elapsed_seconds": 2.259,
+    "command": [
+      "dotnet",
+      "pack",
+      "src/GnOuGo.Flow.Copilot/GnOuGo.Flow.Copilot.csproj",
+      "-c",
+      "Release",
+      "-m:1",
+      "-warnaserror",
+      "-o",
+      "/tmp/gnougo-v14-publish/packages"
+    ]
+  },
+  {
+    "name": "pack-Persistence",
+    "exit_code": 0,
+    "elapsed_seconds": 2.016,
+    "command": [
+      "dotnet",
+      "pack",
+      "src/GnOuGo.Flow.Persistence/GnOuGo.Flow.Persistence.csproj",
+      "-c",
+      "Release",
+      "-m:1",
+      "-warnaserror",
+      "-o",
+      "/tmp/gnougo-v14-publish/packages"
+    ]
+  },
+  {
+    "name": "planning-aot",
+    "exit_code": 0,
+    "elapsed_seconds": 39.786,
+    "command": [
+      "dotnet",
+      "publish",
+      "tests/GnOuGo.Flow.Planning.Smoke/GnOuGo.Flow.Planning.Smoke.csproj",
+      "-c",
+      "Release",
+      "-r",
+      "osx-arm64",
+      "--self-contained",
+      "true",
+      "-m:1",
+      "-warnaserror",
+      "-o",
+      "/tmp/gnougo-v14-publish/planning"
+    ]
+  },
+  {
+    "name": "planning-smoke",
+    "exit_code": 0,
+    "elapsed_seconds": 6.786,
+    "command": [
+      "/tmp/gnougo-v14-publish/planning/GnOuGo.Flow.Planning.Smoke"
+    ]
+  },
+  {
+    "name": "publish-Cli",
+    "exit_code": 1,
+    "elapsed_seconds": 90.398,
+    "command": [
+      "dotnet",
+      "publish",
+      "src/GnOuGo.Flow.Cli/GnOuGo.Flow.Cli.csproj",
+      "-c",
+      "Release",
+      "-r",
+      "osx-arm64",
+      "--self-contained",
+      "true",
+      "-m:1",
+      "-warnaserror",
+      "-p:PublishAot=true",
+      "-p:PublishTrimmed=true",
+      "-p:PublishSingleFile=true",
+      "-p:SkipClientBuild=true",
+      "-p:SkipModelMetadataGeneration=true",
+      "-o",
+      "/tmp/gnougo-v14-publish/Cli"
+    ]
+  },
+  {
+    "name": "publish-Cli-supported",
+    "exit_code": 0,
+    "elapsed_seconds": 61.781,
+    "command": [
+      "dotnet",
+      "publish",
+      "src/GnOuGo.Flow.Cli/GnOuGo.Flow.Cli.csproj",
+      "-c",
+      "Release",
+      "-r",
+      "osx-arm64",
+      "--self-contained",
+      "true",
+      "-m:1",
+      "-p:PublishAot=true",
+      "-p:PublishTrimmed=true",
+      "-p:PublishSingleFile=true",
+      "-p:SkipClientBuild=true",
+      "-p:SkipModelMetadataGeneration=true",
+      "-o",
+      "/tmp/gnougo-v14-publish/Cli"
+    ]
+  },
+  {
+    "name": "publish-Server-supported",
+    "exit_code": 0,
+    "elapsed_seconds": 70.393,
+    "command": [
+      "dotnet",
+      "publish",
+      "src/GnOuGo.Flow.Server/GnOuGo.Flow.Server.csproj",
+      "-c",
+      "Release",
+      "-r",
+      "osx-arm64",
+      "--self-contained",
+      "true",
+      "-m:1",
+      "-p:PublishAot=true",
+      "-p:PublishTrimmed=true",
+      "-p:PublishSingleFile=true",
+      "-p:SkipClientBuild=true",
+      "-p:SkipModelMetadataGeneration=true",
+      "-o",
+      "/tmp/gnougo-v14-publish/Server"
+    ]
+  },
+  {
+    "name": "encrypted-recovery",
+    "exit_code": 0,
+    "elapsed_seconds": 6.103,
+    "command": [
+      "python3",
+      "scripts/verify-flow-v9-published.py",
+      "--cli",
+      "/tmp/gnougo-v14-publish/Cli/GnOuGo.Flow.Cli",
+      "--server",
+      "/tmp/gnougo-v14-publish/Server/GnOuGo.Flow.Server",
+      "--data-directory",
+      "/tmp/gnougo-v14-publish/recovery-data"
+    ]
+  }
+]

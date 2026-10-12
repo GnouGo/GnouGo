@@ -1,0 +1,1 @@
+Réussi!  - échec :     0, réussite :    11, ignorée(s) :     0, total :    11, durée : 4 m 47 s - GnOuGo.Agent.Server.Tests.dll (net10.0)

@@ -1,0 +1,6 @@
+publish-Cli-supported.log
+/Users/a115vc/.nuget/packages/microsoft.entityframeworkcore.tasks/10.0.12/buildTransitive/Microsoft.EntityFrameworkCore.Tasks.targets(98,5): warning : Query precompilation is an experimental feature and should be used with caution. [/private/tmp/gnougo-v14-publish-source/src/GnOuGo.Flow.Persistence/GnOuGo.Flow.Persistence.csproj]
+/Users/a115vc/.nuget/packages/microsoft.entityframeworkcore.tasks/10.0.12/buildTransitive/Microsoft.EntityFrameworkCore.Tasks.targets(98,5): warning : NativeAOT support is experimental and can change in the future. [/private/tmp/gnougo-v14-publish-source/src/GnOuGo.Flow.Persistence/GnOuGo.Flow.Persistence.csproj]
+publish-Server-supported.log
+/Users/a115vc/.nuget/packages/microsoft.entityframeworkcore.tasks/10.0.12/buildTransitive/Microsoft.EntityFrameworkCore.Tasks.targets(98,5): warning : Query precompilation is an experimental feature and should be used with caution. [/private/tmp/gnougo-v14-publish-source/src/GnOuGo.Flow.Persistence/GnOuGo.Flow.Persistence.csproj]
+/Users/a115vc/.nuget/packages/microsoft.entityframeworkcore.tasks/10.0.12/buildTransitive/Microsoft.EntityFrameworkCore.Tasks.targets(98,5): warning : NativeAOT support is experimental and can change in the future. [/private/tmp/gnougo-v14-publish-source/src/GnOuGo.Flow.Persistence/GnOuGo.Flow.Persistence.csproj]
