@@ -1,0 +1,99 @@
+{
+  "run": "compactv1320261012a-amazon-1",
+  "snapshot_id": "c8600b9d7d8348cc89d49760e11d5364",
+  "record_count": 1540,
+  "source_input_sha256": "b829c11448894b8f80ae2b5da0b22e8d5cd37a2f049aa4862b9172d558ba1448",
+  "review_basis": "Reviewed the first ten title links in the observed main Results list, in record order. Each title also appears verbatim as the next observed heading. The first title is explicitly sponsored; it remains included. Repeated names at different identities remain included. No URL regex or mapping output was used to define this list. Carousel position before the main Results heading is retained as context, not silently classified by a URL rule.",
+  "expected_selection": [
+    {
+      "index": 110,
+      "reference": "c8600b9d7d8348cc89d49760e11d5364:record:110",
+      "text": "U Senales B ABX BasketHomme",
+      "heading_index": 111,
+      "heading_reference": "c8600b9d7d8348cc89d49760e11d5364:record:111"
+    },
+    {
+      "index": 130,
+      "reference": "c8600b9d7d8348cc89d49760e11d5364:record:130",
+      "text": "U Spherica A BasketGarçon",
+      "heading_index": 131,
+      "heading_reference": "c8600b9d7d8348cc89d49760e11d5364:record:131"
+    },
+    {
+      "index": 149,
+      "reference": "c8600b9d7d8348cc89d49760e11d5364:record:149",
+      "text": "Uomo Snake L Baskets BassesHomme",
+      "heading_index": 150,
+      "heading_reference": "c8600b9d7d8348cc89d49760e11d5364:record:150"
+    },
+    {
+      "index": 165,
+      "reference": "c8600b9d7d8348cc89d49760e11d5364:record:165",
+      "text": "SYMBOL B - Sneaker Basse - Homme",
+      "heading_index": 166,
+      "heading_reference": "c8600b9d7d8348cc89d49760e11d5364:record:166"
+    },
+    {
+      "index": 179,
+      "reference": "c8600b9d7d8348cc89d49760e11d5364:record:179",
+      "text": "U Edgware A SneakersHomme",
+      "heading_index": 180,
+      "heading_reference": "c8600b9d7d8348cc89d49760e11d5364:record:180"
+    },
+    {
+      "index": 195,
+      "reference": "c8600b9d7d8348cc89d49760e11d5364:record:195",
+      "text": "U641zb00043 MocassinsHomme",
+      "heading_index": 196,
+      "heading_reference": "c8600b9d7d8348cc89d49760e11d5364:record:196"
+    },
+    {
+      "index": 210,
+      "reference": "c8600b9d7d8348cc89d49760e11d5364:record:210",
+      "text": "U Symbol D U Symbol D U32A5D00043, Baskets mode homme",
+      "heading_index": 211,
+      "heading_reference": "c8600b9d7d8348cc89d49760e11d5364:record:211"
+    },
+    {
+      "index": 229,
+      "reference": "c8600b9d7d8348cc89d49760e11d5364:record:229",
+      "text": "U Andalo",
+      "heading_index": 230,
+      "heading_reference": "c8600b9d7d8348cc89d49760e11d5364:record:230"
+    },
+    {
+      "index": 255,
+      "reference": "c8600b9d7d8348cc89d49760e11d5364:record:255",
+      "text": "U Baltmoore A BasketHomme",
+      "heading_index": 256,
+      "heading_reference": "c8600b9d7d8348cc89d49760e11d5364:record:256"
+    },
+    {
+      "index": 279,
+      "reference": "c8600b9d7d8348cc89d49760e11d5364:record:279",
+      "text": "U Spherica A BasketGarçon",
+      "heading_index": 280,
+      "heading_reference": "c8600b9d7d8348cc89d49760e11d5364:record:280"
+    }
+  ],
+  "negative_selections": [
+    {
+      "index": 105,
+      "reference": "c8600b9d7d8348cc89d49760e11d5364:record:105",
+      "text": "En apprendre plus sur ces résultats.",
+      "reason": "help link"
+    },
+    {
+      "index": 113,
+      "reference": "c8600b9d7d8348cc89d49760e11d5364:record:113",
+      "text": "(23)",
+      "reason": "review-count link"
+    },
+    {
+      "index": 115,
+      "reference": "c8600b9d7d8348cc89d49760e11d5364:record:115",
+      "text": "125,95 € 125 , 95€",
+      "reason": "price link; title link is the selected record for this listing"
+    }
+  ]
+}

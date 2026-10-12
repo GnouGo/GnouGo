@@ -14,7 +14,7 @@ namespace GnOuGo.Flow.Core.Scripting;
 
 public sealed partial class JintSandbox
 {
-    public const int MappingProfileVersion = 5;
+    public const int MappingProfileVersion = 6;
     public const string MappingFunction = "checkedMapping";
     private static readonly HashSet<string> MappingHelpers = ["select", "optional", "parse", "text", "texts", "trim", "decode", "percentDecode", "resolveUri", "number", "has", "test", "scalar"];
 
@@ -621,6 +621,21 @@ public sealed partial class JintSandbox
             if (name is "test" or "text" or "texts")
             {
                 Require(args[1] is Literal { Value: string patternText } && patternText.Length <= 2048, "patterns must be bounded quoted JavaScript strings");
+                // Inspect the source token as well as its cooked value. JavaScript
+                // accepts identity escapes such as '\S' but discards the slash
+                // before the regex engine sees it. Never repair that silently.
+                // Historical compiler-owned programs retain their interpretation.
+                if (learned)
+                    for (var offset = args[1].Start + 1; offset < args[1].End - 1; offset++)
+                    {
+                        if (expression[offset] != '\\') continue;
+                        var escape = expression[++offset];
+                        if (escape is '\\' or '\'' or '"' or '/' or 'b' or 'f' or 'n' or 'r' or 't' or 'v' or '0' or 'x' or 'u' or '\r' or '\n') continue;
+                        var error = InvalidProgram("A regex argument contains a JavaScript escape that discards its backslash; use an explicitly escaped pattern string.", helper: name);
+                        error.Details!["script_start"] = offset - 1;
+                        error.Details["script_length"] = 2;
+                        throw error;
+                    }
                 var pattern = (string)((Literal)args[1]).Value!;
                 if (checkedPatterns.Add(pattern))
                 {

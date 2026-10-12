@@ -29,7 +29,7 @@ public sealed class RetainedOutputRevisionTests
         Assert.Contains("No inference for typed copying", instructions);
         Assert.Contains("Extract closed consumer fields", instructions);
         Assert.Contains("interpret no raw originals", instructions);
-        Assert.Contains("Unchanged IDs; requires:lookup offered!=null, then lookup originals/actions", instructions);
+        Assert.Contains("Exact nonblank IDs; requires:lookup offered!=null, then lookup originals/actions", instructions);
         Assert.Contains("Verbatim:lookup complete block text", instructions);
         Assert.Contains("requires:local typed assertion, short-circuit", instructions);
         Assert.Contains("lookup:[records,IDs],port:key→array", instructions);

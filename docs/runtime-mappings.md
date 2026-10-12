@@ -10,6 +10,22 @@ Contract closure checks structured bindings before final lowering. Known incompa
 
 ## Runtime extraction
 
+Extraction uses actual observations and declared contracts. A selector is a locator,
+not proof of DOM ancestry. An observed navigation target may use an arbitrary path
+or a redirect; do not infer business relevance from an assumed URL convention.
+Keep original identities/action arguments separate from compact decision facts.
+Explicitly requested text or URL extraction remains supported. Empty/placeholder
+IDs cannot satisfy strict reconnection, even if they satisfy a string schema.
+
+Regex-helper preflight checks the raw JavaScript string as well as the decoded
+pattern. For example, `m.test(item.text,'\\S')` preserves the regex backslash;
+`m.test(item.text,'\S')` loses it and is rejected as a program failure before item
+execution. JSON requires another escaping layer. Valid JavaScript escapes and
+the existing bounded .NET regex subset remain supported. Errors identify the
+helper and script offset, without including observations. Historical compiler-owned
+expressions keep their original interpretation; generated patterns are never
+silently rewritten.
+
 The executor receives only approved observations, an immutable target and extraction objective. A whole observed value already satisfying the exact target passes through without inference. Otherwise it validates a cached mapping or calls the existing model client. Whole-value and historical independent bindings retain one generation and at most one repair, including regeneration after a bad cache hit. The adaptive independent profile described below uses the existing explicit cumulative runtime budget instead. Every result is schema-checked before publication. Failed or unsupported extraction returns `CONTRACT_UNSATISFIED`; provider rejection, budget exhaustion, cancellation and unknown external completion retain distinct failure paths.
 
 Learned JavaScript is one restricted expression. Source scalar leaves are opaque identities inside Jint; scripts can select/reassemble them but cannot return arbitrary business constants. Host helpers support strict JSON parsing, bounded regex captures, trimming, HTML entity decoding, percent decoding, URI resolution against an observed base, and strict JSON-number conversion. Containers and bounded array callbacks are permitted. Statements, assignments, prototype access, arbitrary calls, external access and nondeterministic functions are rejected. Output scalar identities must originate from observed input or an approved extraction helper. Selection preserves observed numeric JSON values. Ordinary compiled arithmetic uses JavaScript Number; exact business arithmetic belongs to the owning MCP, as described in [numeric compilation](numeric-compilation.md).
@@ -73,6 +89,16 @@ Collection cache profile 2 isolates new mappings from profile-1 entries. Issued 
 `IMappingArtifactStore` is a narrow Core contract implemented by the existing encrypted workflow-run store. The engine reuses that implementation when its run store provides it. Identity includes tenant, approved binding/objective, producer contracts, target schema, profile version and source shape. JSON shapes include keys, nested types, nullability and array-element shapes. Raw text/HTML and scripts interpreting embedded strings use conservative content hashes. No observations are stored in the cache.
 
 Mapping profile 5 isolates newly learned mappings with contract-authorized literal nulls from prior cache entries. Issued requests and receipts are not rewritten. Existing pinned assignments with incompatible fingerprints stop rather than regenerate historical work; completed workflow receipts remain readable and replayable without inference. The null exception changes no statement, time, memory or cumulative inference allowance.
+
+Mapping profile 6 isolates newly generated regex-preflight/guidance candidates.
+Original issued requests, receipts and incompatible pending-assignment protection
+remain unchanged. For a nonempty independent collection with array item targets,
+the runtime reports `empty_item_results` and `result_elements` after complete
+validation. If every item is empty, `diagnostic: all_empty_collection_result` and
+the consumer binding identify the condition on the existing span, including cache
+hits. This does not change publication, cache eligibility or inference admission.
+Counts do not establish relevance or absence; legitimate empty observations remain
+valid when the declared contracts permit them.
 
 Every cache hit reruns sandbox and target validation. Incompatible or invalid entries cannot authorize data access or artifact ownership. Only validated scripts are cached. Without trusted tenant identity and persistent storage, reuse is local to that execution.
 

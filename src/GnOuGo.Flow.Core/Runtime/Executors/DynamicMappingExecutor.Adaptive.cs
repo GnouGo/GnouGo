@@ -143,6 +143,8 @@ public sealed partial class DynamicMappingExecutor
             if (output != "") complete = new JsonObject { [output] = complete };
             var errors = JsonSchemaContractValidator.ValidateInstance(complete, target);
             if (errors.Count != 0) throw JintSandbox.Unsatisfied("The complete mapped collection does not satisfy its target: " + string.Join("; ", errors));
+            if (itemTarget["type"]?.ToString() == "array")
+                ObserveCollectionResults(ctx, (output == "" ? complete : complete[output])!.AsArray(), identity["binding"]!.GetValue<string>());
             // No partial output or newly learned artifact is published before complete validation.
             var writes = new Dictionary<string, MappingArtifact>();
             foreach (var group in all.GroupBy(i => shapes[i]))
@@ -199,5 +201,21 @@ public sealed partial class DynamicMappingExecutor
                 object scalar = number.TryGetValue<long>(out var integer) ? integer : number.TryGetValue<int>(out var count) ? count : number.GetValue<double>();
                 ctx.SetTelemetryAttribute("gnougo.mapping.sandbox." + name, scalar);
             }
+    }
+
+    private static void ObserveCollectionResults(StepExecutionContext ctx, JsonArray results, string binding)
+    {
+        // Complete, validated arrays only. Counts cannot establish relevance and
+        // do not change publication, cache eligibility or inference admission.
+        if (results.Count == 0) return;
+        var empty = 0;
+        long elements = 0;
+        foreach (var result in results)
+            if (result is JsonArray array) { elements += array.Count; if (array.Count == 0) empty++; }
+        ctx.SetTelemetryAttribute("gnougo.mapping.empty_item_results", empty);
+        ctx.SetTelemetryAttribute("gnougo.mapping.result_elements", elements);
+        if (empty != results.Count) return;
+        ctx.SetTelemetryAttribute("gnougo.mapping.diagnostic", "all_empty_collection_result");
+        ctx.SetTelemetryAttribute("gnougo.mapping.consumer_binding", binding);
     }
 }
