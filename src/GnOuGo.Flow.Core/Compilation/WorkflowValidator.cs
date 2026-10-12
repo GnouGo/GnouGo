@@ -89,7 +89,7 @@ public sealed class WorkflowValidator
 
     private void ValidateWorkflow(string name, WorkflowDef wf, WorkflowDocument doc, List<ValidationError> errors)
     {
-        if (wf.Steps.Count == 0)
+        if (wf.Steps.Count == 0 && wf.Outputs?.Values.Any(o => o.ExpressionContracts is { Count: > 0 }) != true)
             errors.Add(new ValidationError { Code = "EMPTY_STEPS", WorkflowName = name, Message = "Workflow has no steps" });
 
         // Check unique step IDs

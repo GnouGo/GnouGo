@@ -31,6 +31,9 @@ public sealed partial class LocalProductOutcomeExecutionTests
         }
     }
 
+    [Fact]
+    public Task V13CheckedOutputsPreserveLocalWorkbook() => ExecuteTypedComposition("one", "compact-bindings-v13");
+
     [Theory]
     [InlineData("complete")]
     [InlineData("repeated")]

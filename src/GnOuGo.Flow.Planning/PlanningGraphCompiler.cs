@@ -61,6 +61,7 @@ public sealed partial class PlanningGraphCompiler
             var scope = new LoweringScope(catalog, nodeIds, workflowIds, workflow.Inputs.Select(p => p.Name).ToHashSet(StringComparer.Ordinal), allNodes.ToDictionary(n => n.Key, n => n.Type, StringComparer.Ordinal), LoopVariables(allNodes), allNodes.ToDictionary(n => n.Key, StringComparer.Ordinal), graph.Workflows.ToDictionary(w => w.Key, StringComparer.Ordinal), descriptions) { DirectProjections = directProjections, NativeMappings = nativeMappings, ReadableMappings = readableMappings, LeanMappings = leanMappings, CompactProjections = compactProjections, InlineConsumers = inlineConsumers, DirectValues = directValues, CheckedControls = checkedControls };
             if (compactProjections) PrepareCopyProjections(workflow, scope);
             if (fuseBindings) PrepareFusion(workflow, scope, consumerBindings);
+            if (checkedControls) PrepareTerminalOutput(workflow, scope);
             var lowered = new JsonObject();
             if (workflow.Inputs.Count > 0)
             {
@@ -85,11 +86,13 @@ public sealed partial class PlanningGraphCompiler
                 foreach (var output in workflow.Outputs)
                 {
                     var schema = LowerSchema(output.Schema, catalog);
-                    schema["expr"] = ToExpression(output.Value, scope);
+                    schema["expr"] = scope.TerminalOutput is { } terminal
+                        ? LowerFused(terminal, scope, output.Value)["input"]!.DeepClone()
+                        : JsonValue.Create(ToExpression(output.Value, scope));
                     if (scope.DirectValues)
                     {
-                        // This expression already belongs to the output phase.
-                        // Do not move receipt-bearing pre-finalization sets here.
+                        // Terminal inlining is proven separately; finalization and
+                        // independently observable checks retain their boundaries.
                         var expression = ReadableStep(new JsonObject { ["input"] = schema["expr"]!.DeepClone() }, scope);
                         schema["expr"] = expression["input"]?.DeepClone();
                         if (expression["expression_contracts"] is { } contracts)
@@ -147,6 +150,7 @@ public sealed partial class PlanningGraphCompiler
         var result = new JsonArray();
         foreach (var node in nodes.Where(n => n.InternalRole?.StartsWith("inline:", StringComparison.Ordinal) != true))
         {
+            if (scope.TerminalOutput?.Contains(node.Key, StringComparer.Ordinal) == true) continue;
             if (scope.ControlBindings.Values.Any(b => b.Group.Contains(node.Key, StringComparer.Ordinal))) continue;
             if (scope.ConsumerBindings.Values.Any(b => b.Group.Contains(node.Key, StringComparer.Ordinal))) continue;
             if (scope.FusedOutputs.TryGetValue(node.Key, out var group))
@@ -721,6 +725,7 @@ public sealed partial class PlanningGraphCompiler
         internal bool LeanMappings { get; init; }
         internal bool CompactProjections { get; init; }
         internal bool InlineConsumers { get; init; }
+        internal string[]? TerminalOutput { get; set; }
         internal bool CheckedControls { get; init; }
         internal Dictionary<string, (string[] Group, string Pointer, PlanningValue Value)> ControlBindings { get; } = new(StringComparer.Ordinal);
         internal bool DirectValues { get; init; }
