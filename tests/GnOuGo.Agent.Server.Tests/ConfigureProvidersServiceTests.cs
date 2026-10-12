@@ -789,12 +789,17 @@ public sealed partial class ConfigureProvidersServiceTests : IDisposable
         var app = AgentMcpWebHost.Build([
             $"--Agent:DatabasePath={dbPath}",
             "--OtlpCollector:Enabled=false",
+            // A clean test output can contain the collector's appsettings from
+            // project dependencies. Isolate its extra endpoint as well as HTTP;
+            // disabling collector services does not remove Kestrel configuration.
+            "--Kestrel:Endpoints:Grpc:Url=http://127.0.0.1:0",
             $"--Kestrel:Endpoints:Http:Url={agentMcpAddress}"
         ], urls: agentMcpAddress);
 
         try
         {
             await app.StartAsync(TestContext.Current.CancellationToken);
+            Assert.All(app.Urls, address => Assert.True(new Uri(address).IsLoopback));
 
             var llm = new RecordingLlmClient();
             var modelCatalog = new FakeModelCatalog()

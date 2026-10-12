@@ -40,6 +40,29 @@ public partial class WorkflowTelemetryTests
     }
 
     [Fact]
+    public async Task NestedCheckedOutputReportsItsContainingFinalContract()
+    {
+        var document = WorkflowParser.Parse(WorkflowOutputContractTests.CheckedOutputYaml);
+        var products = document.Workflows["main"].Outputs!["products"];
+        document.Workflows["main"].Outputs = new()
+        {
+            ["report"] = new() { Type = "object", Properties = new() { ["products"] = products } }
+        };
+        var recording = new RecordingTelemetry();
+        var result = await new WorkflowEngine { Telemetry = recording }.ExecuteAsync(new WorkflowCompiler().Compile(document).Workflows["main"],
+            JsonNode.Parse("""{"pages":[["exact"]]}"""), TestContext.Current.CancellationToken);
+        Assert.True(result.Success, result.Error?.Message);
+        var events = Assert.Single(recording.WorkflowSpans).SpanEvents.Where(e => e.Name == "gnougo-flow.output.check").ToArray();
+        Assert.Equal(5, events.Length);
+        var intermediate = events[0].Attributes!.ToDictionary(p => p.Key, p => p.Value);
+        Assert.Equal("/outputs/report/properties/products/expression_contracts//closed/schema", intermediate["gnougo-flow.check.contract_pointer"]);
+        var final = events[^1].Attributes!.ToDictionary(p => p.Key, p => p.Value);
+        Assert.Equal("report", final["gnougo-flow.check.name"]);
+        Assert.Equal("/outputs/report", final["gnougo-flow.check.contract_pointer"]);
+        Assert.Equal(4, final["gnougo-flow.check.order"]);
+    }
+
+    [Fact]
     public async Task OutputCheckEventsDoNotGrowWithObservationsOrReappearOnCompletedRecovery()
     {
         var workflow = new WorkflowCompiler().Compile(WorkflowParser.Parse(WorkflowOutputContractTests.CheckedOutputYaml)).Workflows["main"];

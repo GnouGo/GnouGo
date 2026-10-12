@@ -1100,13 +1100,14 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
             {
                 var path = "/outputs/" + EscapeCheckPointer(name);
                 var value = EvaluateOutputDef(definition, data, executionScope, observeCheck, path);
+                var hasChecks = HasOutputExpressionContracts(definition);
                 try { ValidateWorkflowOutputValue(workflowName, name, definition, value); }
                 catch (WorkflowRuntimeException ex)
                 {
-                    if (definition.ExpressionContracts is not null) observeCheck?.Invoke(path + (definition.Schema is null ? "" : "/schema"), name, path, name, ex.Code);
+                    if (hasChecks) observeCheck?.Invoke(path + (definition.Schema is null ? "" : "/schema"), name, path, name, ex.Code);
                     throw;
                 }
-                if (definition.ExpressionContracts is not null) observeCheck?.Invoke(path + (definition.Schema is null ? "" : "/schema"), name, path, name, null);
+                if (hasChecks) observeCheck?.Invoke(path + (definition.Schema is null ? "" : "/schema"), name, path, name, null);
                 outputObj[name] = value?.DeepClone();
             }
             catch (WorkflowRuntimeException ex)
@@ -1117,6 +1118,9 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
 
         return outputObj;
     }
+
+    private static bool HasOutputExpressionContracts(Models.OutputDef definition) =>
+        definition.ExpressionContracts is not null || definition.Properties?.Values.Any(HasOutputExpressionContracts) == true;
 
     private static string EscapeCheckPointer(string part) => part.Replace("~", "~0", StringComparison.Ordinal).Replace("/", "~1", StringComparison.Ordinal);
 
