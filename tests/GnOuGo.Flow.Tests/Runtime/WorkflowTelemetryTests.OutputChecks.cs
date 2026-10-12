@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Compilation;
+using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Parsing;
 using GnOuGo.Flow.Core.Runtime;
 using Xunit;
@@ -39,27 +40,45 @@ public partial class WorkflowTelemetryTests
         Assert.DoesNotContain(recording.StepSpans.SelectMany(s => s.SpanEvents), e => e.Name == "gnougo-flow.output.check");
     }
 
-    [Fact]
-    public async Task NestedCheckedOutputReportsItsContainingFinalContract()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task NestedCheckedOutputEnforcesAndReportsItsOwnFinalContract(bool invalid)
     {
         var document = WorkflowParser.Parse(WorkflowOutputContractTests.CheckedOutputYaml);
         var products = document.Workflows["main"].Outputs!["products"];
         document.Workflows["main"].Outputs = new()
         {
-            ["report"] = new() { Type = "object", Properties = new() { ["products"] = products } }
+            ["report"] = new() { Schema = JsonNode.Parse("""{"type":"object"}""")!.AsObject(), Properties = new()
+                { ["products"] = products, ["later"] = new() { Type = "string", Expr = "${data.inputs.later}" } } }
         };
         var recording = new RecordingTelemetry();
         var result = await new WorkflowEngine { Telemetry = recording }.ExecuteAsync(new WorkflowCompiler().Compile(document).Workflows["main"],
-            JsonNode.Parse("""{"pages":[["exact"]]}"""), TestContext.Current.CancellationToken);
-        Assert.True(result.Success, result.Error?.Message);
+            JsonNode.Parse(invalid ? """{"pages":[["a","b","c","d"]]}""" : """{"pages":[["exact"]],"later":"observed"}"""), TestContext.Current.CancellationToken);
+        Assert.Equal(!invalid, result.Success);
+        if (invalid)
+        {
+            Assert.Null(result.Outputs);
+            Assert.Equal(ErrorCodes.InputValidation, result.Error!.Code);
+            Assert.Contains("must contain at most 3 items", result.Error.Message);
+            Assert.DoesNotContain("later", result.Error.Message);
+        }
         var events = Assert.Single(recording.WorkflowSpans).SpanEvents.Where(e => e.Name == "gnougo-flow.output.check").ToArray();
-        Assert.Equal(5, events.Length);
+        Assert.Equal(invalid ? 5 : 6, events.Length);
         var intermediate = events[0].Attributes!.ToDictionary(p => p.Key, p => p.Value);
         Assert.Equal("/outputs/report/properties/products/expression_contracts//closed/schema", intermediate["gnougo-flow.check.contract_pointer"]);
-        var final = events[^1].Attributes!.ToDictionary(p => p.Key, p => p.Value);
-        Assert.Equal("report", final["gnougo-flow.check.name"]);
-        Assert.Equal("/outputs/report", final["gnougo-flow.check.contract_pointer"]);
-        Assert.Equal(4, final["gnougo-flow.check.order"]);
+        var child = events[4].Attributes!.ToDictionary(p => p.Key, p => p.Value);
+        Assert.Equal("products", child["gnougo-flow.check.name"]);
+        Assert.Equal("/outputs/report/properties/products/schema", child["gnougo-flow.check.contract_pointer"]);
+        Assert.Equal(invalid ? "failed" : "passed", child["gnougo-flow.check.outcome"]);
+        Assert.Equal(4, child["gnougo-flow.check.order"]);
+        if (!invalid)
+        {
+            var final = events[^1].Attributes!.ToDictionary(p => p.Key, p => p.Value);
+            Assert.Equal("report", final["gnougo-flow.check.name"]);
+            Assert.Equal("/outputs/report/schema", final["gnougo-flow.check.contract_pointer"]);
+            Assert.Equal(5, final["gnougo-flow.check.order"]);
+        }
     }
 
     [Fact]

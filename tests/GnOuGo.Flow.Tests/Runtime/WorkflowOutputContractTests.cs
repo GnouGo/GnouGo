@@ -134,6 +134,25 @@ public sealed class WorkflowOutputContractTests
         Assert.Throws<WorkflowCompilationException>(() => new WorkflowCompiler().Compile(document));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task NestedFinalContractEnforcementIsOptInAndPreservesLegacySchemaPrecedence(bool checkedExpression)
+    {
+        var document = WorkflowParser.Parse(CheckedOutputYaml);
+        var products = document.Workflows["main"].Outputs!["products"];
+        if (!checkedExpression) products.ExpressionContracts = null;
+        document.Workflows["main"].Outputs = new()
+        {
+            ["report"] = new() { Schema = JsonNode.Parse("""{"type":"object"}""")!.AsObject(), Properties = new() { ["products"] = products } }
+        };
+        var result = await new WorkflowEngine().ExecuteAsync(new WorkflowCompiler().Compile(document).Workflows["main"],
+            JsonNode.Parse("""{"pages":[["a","b","c","d"]]}"""), TestContext.Current.CancellationToken);
+        Assert.Equal(!checkedExpression, result.Success);
+        if (checkedExpression) Assert.Contains("must contain at most 3 items", result.Error!.Message);
+        else Assert.Equal(4, result.Outputs!["report"]!["products"]!.AsArray().Count);
+    }
+
     [Fact]
     public async Task MetadataRoundTripsAndCompletedRecoveryDoesNotRecomputeOutputs()
     {

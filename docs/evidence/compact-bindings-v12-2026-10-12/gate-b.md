@@ -10,3 +10,5 @@
 The complete end-to-end and broad validation gates remain separate.
 
 Final review added 96 passing expression/output/telemetry cases, including rejection of unreachable schema-descriptor metadata, nested metadata beside an authoritative parent schema, invalid sources and invalid final schemas. Output metadata failures use the existing fatal input-validation path before execution.
+
+A final nested-output probe reproduced a successful result despite a child's `maxItems` failure when its parent supplied a broad authoritative schema. New checked child outputs now validate their own final contract before the next sibling, followed by the containing output's final contract. Metadata-free historical schema precedence remains unchanged. Regression cases compare both paths and verify that the failing child's event is last, with no later output evaluation or publication.

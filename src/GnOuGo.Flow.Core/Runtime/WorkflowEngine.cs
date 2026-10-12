@@ -1051,7 +1051,7 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
         => EvaluateOutputDef(def, data, new WorkflowExecutionScope(null, _evaluator, _interpolator));
 
     internal JsonNode? EvaluateOutputDef(Models.OutputDef def, JsonObject data, WorkflowExecutionScope executionScope,
-        Action<string, string, string, string, string?>? observeCheck = null, string contractPath = "")
+        Action<string, string, string, string, string?>? observeCheck = null, string contractPath = "", string workflowName = "")
     {
         // Simple expression output
         if (!string.IsNullOrEmpty(def.Expr))
@@ -1070,7 +1070,13 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
             var obj = new JsonObject();
             foreach (var (key, propDef) in def.Properties)
             {
-                obj[key] = EvaluateOutputDef(propDef, data, executionScope, observeCheck, contractPath + "/properties/" + EscapeCheckPointer(key))?.DeepClone();
+                var path = contractPath + "/properties/" + EscapeCheckPointer(key);
+                var value = EvaluateOutputDef(propDef, data, executionScope, observeCheck, path, workflowName);
+                // A parent's authoritative schema can omit this child's constraints.
+                // New checked expressions must still enforce their own final contract.
+                if (HasOutputExpressionContracts(propDef))
+                    ValidateObservedOutputValue(workflowName, key, propDef, value, path, observeCheck);
+                obj[key] = value?.DeepClone();
             }
             return obj;
         }
@@ -1099,15 +1105,8 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
             try
             {
                 var path = "/outputs/" + EscapeCheckPointer(name);
-                var value = EvaluateOutputDef(definition, data, executionScope, observeCheck, path);
-                var hasChecks = HasOutputExpressionContracts(definition);
-                try { ValidateWorkflowOutputValue(workflowName, name, definition, value); }
-                catch (WorkflowRuntimeException ex)
-                {
-                    if (hasChecks) observeCheck?.Invoke(path + (definition.Schema is null ? "" : "/schema"), name, path, name, ex.Code);
-                    throw;
-                }
-                if (hasChecks) observeCheck?.Invoke(path + (definition.Schema is null ? "" : "/schema"), name, path, name, null);
+                var value = EvaluateOutputDef(definition, data, executionScope, observeCheck, path, workflowName);
+                ValidateObservedOutputValue(workflowName, name, definition, value, path, observeCheck);
                 outputObj[name] = value?.DeepClone();
             }
             catch (WorkflowRuntimeException ex)
@@ -1121,6 +1120,19 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
 
     private static bool HasOutputExpressionContracts(Models.OutputDef definition) =>
         definition.ExpressionContracts is not null || definition.Properties?.Values.Any(HasOutputExpressionContracts) == true;
+
+    private static void ValidateObservedOutputValue(string workflowName, string name, Models.OutputDef definition,
+        JsonNode? value, string path, Action<string, string, string, string, string?>? observeCheck)
+    {
+        var hasChecks = HasOutputExpressionContracts(definition);
+        try { ValidateWorkflowOutputValue(workflowName, name, definition, value); }
+        catch (WorkflowRuntimeException ex)
+        {
+            if (hasChecks) observeCheck?.Invoke(path + (definition.Schema is null ? "" : "/schema"), name, path, name, ex.Code);
+            throw;
+        }
+        if (hasChecks) observeCheck?.Invoke(path + (definition.Schema is null ? "" : "/schema"), name, path, name, null);
+    }
 
     private static string EscapeCheckPointer(string part) => part.Replace("~", "~0", StringComparison.Ordinal).Replace("/", "~1", StringComparison.Ordinal);
 
