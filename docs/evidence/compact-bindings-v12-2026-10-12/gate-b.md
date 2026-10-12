@@ -8,3 +8,5 @@
 - Source-generated JSON round-trip includes metadata when present and omits it from historical definitions and advertised output schemas. Changing metadata invalidates the durable definition hash; a completed run returns its committed result without a new revision or invocation.
 
 The complete end-to-end and broad validation gates remain separate.
+
+Final review added 96 passing expression/output/telemetry cases, including rejection of unreachable schema-descriptor metadata, nested metadata beside an authoritative parent schema, invalid sources and invalid final schemas. Output metadata failures use the existing fatal input-validation path before execution.

@@ -65,7 +65,7 @@ The missing/empty cases intentionally do **not** pass the strict live business o
 
 ## Observability and compatibility
 
-Input checks stay on consumer spans. Output intermediate and final checks use existing workflow spans, with name, local reference, origin, pointer, order and outcome/error code only. Tests compare identical event content for one-byte and 1.2 MB observations, stop events at the first failure, and prove no new events on completed recovery. No observations, schemas or values enter check events.
+Input checks stay on consumer spans. Output intermediate and final checks use existing workflow spans, with name, local reference, origin, pointer, order and outcome/error code only. Tests compare identical event content for one-byte and 1.2 MB observations, stop events at the first failure, and prove no new events on completed recovery. A warmed disposable probe emitted the same five events / 1,706 serialized bytes for both input sizes. Median additional allocation with its collecting telemetry adapter was 8,200 bytes (small input) and 11,416 bytes (large input); measured execution was 0.134/0.123 ms without/with tracing for small input and 1.160/1.252 ms for large input. These noisy samples include the recording adapter and do not establish a latency guarantee. See [measurements](trace-measurements.json) and [actual metadata-only events](output-check-events.json). No observations, schemas or values enter check events.
 
 Direct-value metadata is explicit (`order`/`source`); historical metadata remains object-only. Output metadata is optional and omitted in historical serialization; its presence changes artifact and durable definition hashes. Historical profile overloads retain their lowering. Ordered aliases cannot evaluate JavaScript or access context; only previously evaluated locals are legal. Coupled or unresolved wrapper schemas remain wrapped.
 
@@ -75,7 +75,7 @@ Direct-value metadata is explicit (`order`/`source`); historical metadata remain
 - Complete Planning suite: 1,290 passed, no failures/skips.
 - Local v11/v12 Browser/Document: 16 passed, independently inspected XLSX and committed recovery.
 - Planning Native AOT publish and execution: passed, including direct checked outputs, exact numbers/nulls and source-generated metadata.
-- Full solution, package/recovery and CI final results are recorded in `validation.md` when complete.
+- Full-solution and final candidate CI results are reported in PR #117; [validation commands and publish evidence](validation.md) identify the source candidate and retained logs.
 - Initial parallel host build encountered the existing generated-static-assets collision; serial `-m:1` build passed. No assertion, timeout or resource limit was weakened.
 
 This is offline validation only. A later paid planning session and its generated workflow require separate authorization and artifact approval.
