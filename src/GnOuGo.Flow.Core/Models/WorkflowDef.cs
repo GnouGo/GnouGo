@@ -80,6 +80,10 @@ public sealed class OutputDef
     /// <summary>Runtime expression evaluated against the data context (e.g. <c>"${data.steps.x.text}"</c>).</summary>
     public string Expr { get; set; } = "";
 
+    /// <summary>Ordered checks for the complete output expression, keyed by the root pointer "".</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public System.Text.Json.Nodes.JsonObject? ExpressionContracts { get; set; }
+
     /// <summary>Base type: string, number, integer, boolean, array, object, dictionary, any.</summary>
     public string Type { get; set; } = "any";
 

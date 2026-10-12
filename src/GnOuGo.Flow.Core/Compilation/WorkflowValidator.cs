@@ -799,6 +799,21 @@ public sealed class WorkflowValidator
 
     private void ValidateOutputDef(OutputDef def, string wfName, string path, List<ValidationError> errors)
     {
+        if (def.ExpressionContracts is { } contracts)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(def.Expr) || contracts.Count != 1 || !contracts.ContainsKey(""))
+                    throw new WorkflowRuntimeException(ErrorCodes.InputValidation, "Output expression_contracts must identify the complete expr using the root pointer.");
+                if (def.Schema is null && def.Type.Equals("any", StringComparison.OrdinalIgnoreCase))
+                    throw new WorkflowRuntimeException(ErrorCodes.InputValidation, "Checked outputs require a declared final schema or type.");
+                ExpressionEvaluator.ValidateExpressionContracts(JsonValue.Create(def.Expr), contracts);
+            }
+            catch (WorkflowRuntimeException ex)
+            {
+                errors.Add(new() { Code = ex.Code, WorkflowName = wfName, Field = "outputs." + path + ".expression_contracts", Message = ex.Message });
+            }
+        }
         if (def.Schema is not null)
         {
             foreach (var message in JsonSchemaContractValidator.ValidateSchema(def.Schema, strictProfile: false))

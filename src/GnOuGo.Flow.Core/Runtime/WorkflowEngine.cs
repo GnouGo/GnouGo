@@ -1053,7 +1053,11 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
     {
         // Simple expression output
         if (!string.IsNullOrEmpty(def.Expr))
+        {
+            if (def.ExpressionContracts is not null)
+                return executionScope.Interpolator.ResolveDeep(JsonValue.Create(def.Expr), data, def.ExpressionContracts);
             return executionScope.Interpolator.Interpolate(def.Expr, data)?.DeepClone();
+        }
 
         // Nested object output (backward-compat: outputs without expr, with properties containing expressions)
         if (def.Properties != null)
@@ -1147,7 +1151,7 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
         if (definition.Schema is null && string.Equals(definition.Type, "any", StringComparison.OrdinalIgnoreCase))
             return;
 
-        if (definition.Schema is null && value == null && WorkflowOutputAllowsNull(definition))
+        if (definition.ExpressionContracts is null && definition.Schema is null && value == null && WorkflowOutputAllowsNull(definition))
             return;
 
         var schema = Models.JsonSchemaConverter.OutputDefToSchema(definition, runtime: true);

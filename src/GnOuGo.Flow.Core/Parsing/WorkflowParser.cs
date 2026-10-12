@@ -479,6 +479,13 @@ public static class WorkflowParser
         {
             var hasExpr = map.HasKey("expr");
             var hasType = map.HasKey("type");
+            JsonObject? expressionContracts = null;
+            if (map.HasKey("expression_contracts"))
+            {
+                if (!hasExpr) throw new WorkflowParseException("Output expression_contracts requires expr.");
+                expressionContracts = YamlToJson(map.Children[new YamlScalarNode("expression_contracts")]) as JsonObject
+                    ?? throw new WorkflowParseException("expression_contracts must be a literal object.");
+            }
 
             // Long form with "expr" key — typed output definition
             if (hasExpr)
@@ -487,6 +494,7 @@ public static class WorkflowParser
                 var def = new OutputDef
                 {
                     Expr = map.GetScalar("expr") ?? "",
+                    ExpressionContracts = expressionContracts,
                     Type = type,
                     Nullable = nullable,
                     Schema = map.GetMapping("schema") is { } outputSchema ? YamlMapToJson(outputSchema) : null,

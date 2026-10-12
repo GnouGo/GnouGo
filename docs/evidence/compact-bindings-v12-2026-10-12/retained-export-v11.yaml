@@ -1,0 +1,116 @@
+version: 1
+name: "timing"
+entrypoint: "main"
+workflows:
+  main:
+    inputs:
+      label:
+        type: "string"
+        required: true
+      authorized:
+        type: "boolean"
+        required: true
+    steps:
+    - id: "n_a7937b64b8caa58f"
+      type: "set"
+      input: |-
+        ${
+        (() => {
+          const label = {
+            value: data.inputs.label
+          };
+          const requiredCondition = {
+            value: data.inputs.authorized
+          };
+          const chosen = {
+            chosen: label.value
+          };
+          const chosen_2 = chosen;
+          return {
+            chosen_2
+          };
+        })()
+        }
+      output_schema:
+        type: "object"
+        properties:
+          chosen_2:
+            type: "object"
+            properties:
+              chosen:
+                type: "string"
+            required:
+            - "chosen"
+            additionalProperties: false
+        required:
+        - "chosen_2"
+        additionalProperties: false
+      description: "Check and assemble consecutive deterministic values."
+      expression_contracts:
+        '':
+          label:
+            origin: "first"
+            schema:
+              type: "object"
+              properties:
+                value:
+                  type: "string"
+                  minLength: 1
+              required:
+              - "value"
+              additionalProperties: false
+          requiredCondition:
+            origin: "guard"
+            schema:
+              type: "object"
+              properties:
+                value:
+                  type: "boolean"
+                  enum:
+                  - true
+              required:
+              - "value"
+              additionalProperties: false
+          chosen:
+            origin: "assembly"
+            schema:
+              type: "object"
+              properties:
+                chosen:
+                  type: "string"
+              required:
+              - "chosen"
+              additionalProperties: false
+          chosen_2:
+            origin: "export"
+            schema:
+              type: "object"
+              properties:
+                chosen:
+                  type: "string"
+              required:
+              - "chosen"
+              additionalProperties: false
+    finally:
+    - id: "n_611496f412cac947"
+      type: "set"
+      input:
+        closed: true
+    outputs:
+      chosen:
+        type: "string"
+        expr: "${data.steps.n_a7937b64b8caa58f.chosen_2.chosen}"
+skill:
+  description: ""
+  inputs:
+    label:
+      type: "string"
+      required: true
+    authorized:
+      type: "boolean"
+      required: true
+  outputs:
+    chosen:
+      type: "string"
+      expr: "${data.steps.n_a7937b64b8caa58f.chosen_2.chosen}"
+...

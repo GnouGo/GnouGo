@@ -83,6 +83,15 @@ public sealed partial class PlanningGraphCompiler
                 {
                     var schema = LowerSchema(output.Schema, catalog);
                     schema["expr"] = ToExpression(output.Value, scope);
+                    if (scope.DirectValues)
+                    {
+                        // This expression already belongs to the output phase.
+                        // Do not move receipt-bearing pre-finalization sets here.
+                        var expression = ReadableStep(new JsonObject { ["input"] = schema["expr"]!.DeepClone() }, scope);
+                        schema["expr"] = expression["input"]?.DeepClone();
+                        if (expression["expression_contracts"] is { } contracts)
+                            schema["expression_contracts"] = contracts.DeepClone();
+                    }
                     outputs[output.Name] = schema;
                 }
                 lowered["outputs"] = outputs;

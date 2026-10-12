@@ -1,0 +1,93 @@
+version: 1
+name: "outputs"
+entrypoint: "main"
+workflows:
+  main:
+    inputs:
+      observationPages:
+        type: "array"
+        items:
+          type: "array"
+          items:
+            type: "object"
+            properties:
+              key:
+                type: "string"
+              text:
+                type: "string"
+                nullable: true
+            required_properties:
+            - "key"
+            - "text"
+        required: true
+      selectedKeys:
+        type: "array"
+        items:
+          type: "string"
+        required: true
+    steps: []
+    outputs:
+      products:
+        type: "array"
+        items:
+          type: "object"
+          properties:
+            key:
+              type: "string"
+            text:
+              type: "string"
+              nullable: true
+          required_properties:
+          - "key"
+          - "text"
+        expr: |-
+          ${
+          ((records_2, selected_2) => m.lookup(records_2, selected_2, "key"))((data.inputs.observationPages).flatMap(item => item), data.inputs.selectedKeys)
+          }
+        expression_contracts:
+          '': {}
+skill:
+  description: ""
+  inputs:
+    observationPages:
+      type: "array"
+      items:
+        type: "array"
+        items:
+          type: "object"
+          properties:
+            key:
+              type: "string"
+            text:
+              type: "string"
+              nullable: true
+          required_properties:
+          - "key"
+          - "text"
+      required: true
+    selectedKeys:
+      type: "array"
+      items:
+        type: "string"
+      required: true
+  outputs:
+    products:
+      type: "array"
+      items:
+        type: "object"
+        properties:
+          key:
+            type: "string"
+          text:
+            type: "string"
+            nullable: true
+        required_properties:
+        - "key"
+        - "text"
+      expr: |-
+        ${
+        ((records_2, selected_2) => m.lookup(records_2, selected_2, "key"))((data.inputs.observationPages).flatMap(item => item), data.inputs.selectedKeys)
+        }
+      expression_contracts:
+        '': {}
+...
