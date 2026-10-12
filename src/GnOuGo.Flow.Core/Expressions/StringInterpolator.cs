@@ -122,6 +122,14 @@ public sealed class StringInterpolator
         }
     }
 
+    internal JsonNode? ResolveControl(string expression, string pointer, JsonNode? context, JsonObject? metadata,
+        Action<string, string, string, string?>? observeCheck = null)
+    {
+        if (metadata?[pointer] is not JsonObject checks) return Interpolate(expression, context);
+        return _evaluator.EvaluateCheckedExpression(ExpressionEvaluator.ContractExpression(JsonValue.Create(expression)), context, checks,
+            observeCheck: observeCheck is null ? null : (name, origin, error) => observeCheck(pointer, name, origin, error));
+    }
+
     private JsonNode? ResolveUncontracted(JsonNode? node, JsonNode? context)
     {
         if (node == null) return null;

@@ -341,6 +341,12 @@ public sealed class WorkflowValidator
             errors.Add(new ValidationError { Code = ErrorCodes.InputValidation, WorkflowName = wfName, StepId = step.Id,
                 Field = "expression_contracts", Message = ex.Message });
         }
+        try { ExpressionEvaluator.ValidateControlContracts(step); }
+        catch (Exception ex) when (ex is WorkflowRuntimeException or Acornima.ParseErrorException or ArgumentException)
+        {
+            errors.Add(new ValidationError { Code = ErrorCodes.InputValidation, WorkflowName = wfName, StepId = step.Id,
+                Field = "control_contracts", Message = ex.Message });
+        }
         if (IsRetiredStep(step.Type))
             errors.Add(new ValidationError
             {

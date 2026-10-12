@@ -36,6 +36,9 @@ public sealed partial class PlanningGraphCompiler
         => Compile(graph, catalog, name, descriptions, fuseBindings, consumerBindings, directProjections, nativeMappings, readableMappings, leanMappings, compactProjections, inlineConsumers, false);
 
     internal string Compile(PlanningGraph graph, PlanningCatalog catalog, string name, bool descriptions, bool fuseBindings, bool consumerBindings, bool directProjections, bool nativeMappings, bool readableMappings, bool leanMappings, bool compactProjections, bool inlineConsumers, bool directValues)
+        => Compile(graph, catalog, name, descriptions, fuseBindings, consumerBindings, directProjections, nativeMappings, readableMappings, leanMappings, compactProjections, inlineConsumers, directValues, false);
+
+    internal string Compile(PlanningGraph graph, PlanningCatalog catalog, string name, bool descriptions, bool fuseBindings, bool consumerBindings, bool directProjections, bool nativeMappings, bool readableMappings, bool leanMappings, bool compactProjections, bool inlineConsumers, bool directValues, bool checkedControls)
     {
         ArgumentNullException.ThrowIfNull(graph);
         var diagnostics = PlanningExecutableValidation.Validate(graph, catalog);
@@ -55,7 +58,7 @@ public sealed partial class PlanningGraphCompiler
             EnsureUnique(allNodes.Select(n => n.Key), "node");
             if (allNodes.Length > 300) throw new InvalidOperationException("A workflow exceeds the 300-node planning limit.");
             var nodeIds = allNodes.ToDictionary(n => n.Key, n => "n_" + Fingerprint(n.Key)[..16], StringComparer.Ordinal);
-            var scope = new LoweringScope(catalog, nodeIds, workflowIds, workflow.Inputs.Select(p => p.Name).ToHashSet(StringComparer.Ordinal), allNodes.ToDictionary(n => n.Key, n => n.Type, StringComparer.Ordinal), LoopVariables(allNodes), allNodes.ToDictionary(n => n.Key, StringComparer.Ordinal), graph.Workflows.ToDictionary(w => w.Key, StringComparer.Ordinal), descriptions) { DirectProjections = directProjections, NativeMappings = nativeMappings, ReadableMappings = readableMappings, LeanMappings = leanMappings, CompactProjections = compactProjections, InlineConsumers = inlineConsumers, DirectValues = directValues };
+            var scope = new LoweringScope(catalog, nodeIds, workflowIds, workflow.Inputs.Select(p => p.Name).ToHashSet(StringComparer.Ordinal), allNodes.ToDictionary(n => n.Key, n => n.Type, StringComparer.Ordinal), LoopVariables(allNodes), allNodes.ToDictionary(n => n.Key, StringComparer.Ordinal), graph.Workflows.ToDictionary(w => w.Key, StringComparer.Ordinal), descriptions) { DirectProjections = directProjections, NativeMappings = nativeMappings, ReadableMappings = readableMappings, LeanMappings = leanMappings, CompactProjections = compactProjections, InlineConsumers = inlineConsumers, DirectValues = directValues, CheckedControls = checkedControls };
             if (compactProjections) PrepareCopyProjections(workflow, scope);
             if (fuseBindings) PrepareFusion(workflow, scope, consumerBindings);
             var lowered = new JsonObject();
@@ -144,6 +147,7 @@ public sealed partial class PlanningGraphCompiler
         var result = new JsonArray();
         foreach (var node in nodes.Where(n => n.InternalRole?.StartsWith("inline:", StringComparison.Ordinal) != true))
         {
+            if (scope.ControlBindings.Values.Any(b => b.Group.Contains(node.Key, StringComparer.Ordinal))) continue;
             if (scope.ConsumerBindings.Values.Any(b => b.Group.Contains(node.Key, StringComparer.Ordinal))) continue;
             if (scope.FusedOutputs.TryGetValue(node.Key, out var group))
             {
@@ -267,6 +271,12 @@ public sealed partial class PlanningGraphCompiler
                 foreach (var part in consumerBinding.Path.SkipLast(1)) inputOwner = inputOwner[part]!;
                 inputOwner[consumerBinding.Path[^1]] = expression;
             }
+        }
+        if (scope.ControlBindings.TryGetValue(node.Key, out var control))
+        {
+            var prepared = ReadableStep(LowerFused(control.Group, scope, control.Value), scope);
+            result[control.Pointer[1..]] = prepared["input"]!.DeepClone();
+            result["control_contracts"] = new JsonObject { [control.Pointer] = prepared["expression_contracts"]![""]!.DeepClone() };
         }
         return result;
     }
@@ -711,6 +721,8 @@ public sealed partial class PlanningGraphCompiler
         internal bool LeanMappings { get; init; }
         internal bool CompactProjections { get; init; }
         internal bool InlineConsumers { get; init; }
+        internal bool CheckedControls { get; init; }
+        internal Dictionary<string, (string[] Group, string Pointer, PlanningValue Value)> ControlBindings { get; } = new(StringComparer.Ordinal);
         internal bool DirectValues { get; init; }
         internal HashSet<string> DirectCopyOutputs { get; } = new(StringComparer.Ordinal);
         internal Dictionary<string, string[]> FusedOutputs { get; init; } = new(StringComparer.Ordinal);

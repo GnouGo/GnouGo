@@ -27,6 +27,10 @@ public sealed class StepDef
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public JsonObject? ExpressionContracts { get; set; }
 
+    /// <summary>Literal checked-expression contracts for if, expr and reached case conditions.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public JsonObject? ControlContracts { get; set; }
+
     /// <summary>Optional output alias name.</summary>
     public string? Output { get; set; }
 

@@ -100,8 +100,16 @@ public sealed partial class LocalProductOutcomeExecutionTests
             Assert.Equal(profile, session.Request.Options["compilation_profile"]?.ToString());
             var document = WorkflowParser.Parse(session.Yaml!);
             var generatedSteps = document.Workflows.Values.SelectMany(w => V11Steps(w.Steps.Concat(w.Finally ?? []))).ToArray();
-            Assert.Equal(profile == "compact-bindings-v10" ? 67 : 61, generatedSteps.Length);
-            Assert.Equal(profile == "compact-bindings-v10" ? 33 : 27, generatedSteps.Count(s => s.Type == "set"));
+            if (profile == "compact-bindings-v13")
+            {
+                Assert.True(generatedSteps.Length < 61);
+                Assert.True(generatedSteps.Count(s => s.Type == "set") < 27);
+            }
+            else
+            {
+                Assert.Equal(profile == "compact-bindings-v10" ? 67 : 61, generatedSteps.Length);
+                Assert.Equal(profile == "compact-bindings-v10" ? 33 : 27, generatedSteps.Count(s => s.Type == "set"));
+            }
             var workflow = new WorkflowCompiler().Compile(document);
             var allocated = GC.GetTotalAllocatedBytes(); var timer = Stopwatch.StartNew();
             var result = await engine.ExecuteAsync(workflow.Workflows[workflow.Entrypoint!], new JsonObject { ["query"] = "observed lamps" }, ct);

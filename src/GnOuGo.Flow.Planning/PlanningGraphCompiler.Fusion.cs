@@ -155,6 +155,19 @@ public sealed partial class PlanningGraphCompiler
 
         bool TryConsumer(PlanningNode consumer, string[] group)
         {
+            if (scope.CheckedControls && consumer.Type == "switch" && consumer.Expr is not null && consumer.If is null &&
+                consumer.Retry is null && consumer.OnError.Count == 0 && consumer.Output is null && group.Length > 0)
+            {
+                bool ReadsControl(PlanningValue value) => value.Kind is "output" or "present" && value.Source is { } source && group.Contains(source, StringComparer.Ordinal);
+                if (BindingValues(consumer.Expr).Any(ReadsControl) && !BindingValues(consumer.Input).Any(ReadsControl) &&
+                    !workflow.Outputs.SelectMany(o => BindingValues(o.Value)).Any(ReadsControl) &&
+                    !scope.Nodes.Values.Where(n => n.Key != consumer.Key && !group.Contains(n.Key, StringComparer.Ordinal)).SelectMany(Values).Any(ReadsControl) &&
+                    !consumer.Cases.SelectMany(c => BindingValues(c.When)).Any(ReadsControl))
+                {
+                    scope.ControlBindings.Add(consumer.Key, (group, "/expr", consumer.Expr));
+                    return true;
+                }
+            }
             var mapping = scope.InlineConsumers && consumer.Type == "set" && consumer.Input.Kind == "dynamic_mapping";
             if (consumer.If is not null || consumer.Expr is not null || consumer.Output is not null || consumer.Retry is not null || consumer.OnError.Count > 0 ||
                 !mapping && ((!scope.InlineConsumers && consumer.Type == "set") || consumer.Input.Kind != "object") ||

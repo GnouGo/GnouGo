@@ -421,10 +421,13 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
             var invocationScope = executionScope.Child("step", step.Id);
             WorkflowInvocation? invocation = null;
             var resolvedNow = false;
-            List<(string Pointer, string Name, string Origin, string? Error)>? inputChecks = null;
+            List<(string Pointer, string Name, string Origin, string? Error, bool Control)>? inputChecks = null;
             Action<string, string, string, string?>? observeCheck = null;
-            if (step.Source.ExpressionContracts is not null && Telemetry is not NullWorkflowTelemetry)
-                observeCheck = (pointer, name, origin, error) => (inputChecks ??= []).Add((pointer, name, origin, error));
+            if ((step.Source.ExpressionContracts is not null || step.Source.ControlContracts is not null) && Telemetry is not NullWorkflowTelemetry)
+                observeCheck = (pointer, name, origin, error) => (inputChecks ??= []).Add((pointer, name, origin, error, false));
+
+            Action<string, string, string, string?>? observeControl = observeCheck is null ? null :
+                (pointer, name, origin, error) => (inputChecks ??= []).Add((pointer, name, origin, error, true));
 
             void ReportInputChecks()
             {
@@ -435,13 +438,15 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
                     // References only: no observed values, program text, schemas
                     // or error messages are copied into these existing spans.
                     string Escape(string part) => part.Replace("~", "~0", StringComparison.Ordinal).Replace("/", "~1", StringComparison.Ordinal);
-                    stepSpan.AddEvent("gnougo-flow.input.check", new KeyValuePair<string, object?>[]
+                    var control = check.Control;
+                    var metadata = control ? step.Source.ControlContracts : step.Source.ExpressionContracts;
+                    stepSpan.AddEvent(control ? "gnougo-flow.control.check" : "gnougo-flow.input.check", new KeyValuePair<string, object?>[]
                     {
                         new("gnougo-flow.check.name", check.Name),
                         new("gnougo-flow.check.origin", check.Origin),
-                        new("gnougo-flow.check.reference", step.Source.ExpressionContracts?[check.Pointer]?[check.Name]?["source"]?.GetValue<string>() ?? check.Name),
-                        new("gnougo-flow.check.input_pointer", check.Pointer),
-                        new("gnougo-flow.check.contract_pointer", "/expression_contracts/" + Escape(check.Pointer) + "/" + Escape(check.Name) + "/schema"),
+                        new("gnougo-flow.check.reference", metadata?[check.Pointer]?[check.Name]?["source"]?.GetValue<string>() ?? check.Name),
+                        new(control ? "gnougo-flow.check.control_pointer" : "gnougo-flow.check.input_pointer", check.Pointer),
+                        new("gnougo-flow.check.contract_pointer", (control ? "/control_contracts/" : "/expression_contracts/") + Escape(check.Pointer) + "/" + Escape(check.Name) + "/schema"),
                         new("gnougo-flow.check.order", index),
                         new("gnougo-flow.check.outcome", check.Error is null ? "passed" : "failed"),
                         new("error.type", check.Error)
@@ -455,7 +460,7 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
                 (bool Run, JsonNode? Input) Resolve()
                 {
                     resolvedNow = true;
-                    if (step.Source.If is not null && !ExpressionEvaluator.GetBool(executionScope.Interpolator.Interpolate(step.Source.If, data)))
+                    if (step.Source.If is not null && !ExpressionEvaluator.GetBool(executionScope.Interpolator.ResolveControl(step.Source.If, "/if", data, step.Source.ControlContracts, observeControl)))
                         return (false, null);
                     if (step.Source.Input is null) return (true, null);
                     if (step.Type == "loop.sequential" && step.Source.Input is JsonObject loopInput && loopInput.ContainsKey("while"))
@@ -485,6 +490,7 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
                 if (!shouldRun)
                 {
                     stepSpan = Telemetry.StepStart(parentSpan, new StepTelemetryInfo { StepId = step.Id, StepType = step.Type, Description = step.Description, CallDepth = callDepth });
+                    ReportInputChecks();
                     stepResult.Status = StepStatus.Skipped;
                     Telemetry.StepEnd(stepSpan, new StepResultInfo { Status = StepStatus.Skipped, Duration = sw.Elapsed });
                     continue;
