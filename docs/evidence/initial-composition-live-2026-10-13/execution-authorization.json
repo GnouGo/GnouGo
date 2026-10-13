@@ -1,0 +1,19 @@
+{
+  "run": "initialcomposition20261013a-amazon-1",
+  "authorization": "Approve all three requirements and execute once",
+  "recorded_utc": "2026-10-13T11:15:32.672166+00:00",
+  "approval": {
+    "kind": "approve",
+    "expectedRevision": 9,
+    "artifactHash": "fc751e55508433f9e32a3851f64ef45b49a6502ea338a970dcf173b43821e4dd",
+    "reviewedRequirementIds": [
+      "amazon_search_and_product_extraction",
+      "xlsx_saved_to_requested_path",
+      "browser_cleanup_and_truthful_status"
+    ]
+  },
+  "execution_count_authorized": 1,
+  "max_products": 10,
+  "campaign_ceiling_eur": 200,
+  "historical_replay_authorized": false
+}

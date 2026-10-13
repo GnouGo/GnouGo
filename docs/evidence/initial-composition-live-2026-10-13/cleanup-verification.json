@@ -1,0 +1,51 @@
+[
+  {
+    "tool": "browser_close",
+    "arguments": {},
+    "result": {
+      "closed": true,
+      "success": true,
+      "error_code": null,
+      "error_message": null,
+      "ok": true
+    },
+    "error": false,
+    "latency_ms": 1068
+  },
+  {
+    "tool": "browser_get_content",
+    "arguments": {},
+    "result": {
+      "url": "",
+      "title": null,
+      "statusCode": null,
+      "selector": null,
+      "resolvedSelector": "",
+      "fallbackApplied": false,
+      "fallbackReason": null,
+      "format": "html",
+      "content": "",
+      "truncated": false,
+      "maxCharacters": 0,
+      "success": false,
+      "error_code": "INVALID_INPUT",
+      "error_message": "InvalidOperationException: No active page. Call browser_get_content with url first.",
+      "ok": false
+    },
+    "error": true,
+    "latency_ms": 1
+  },
+  {
+    "tool": "browser_close",
+    "arguments": {},
+    "result": {
+      "closed": true,
+      "success": true,
+      "error_code": null,
+      "error_message": null,
+      "ok": true
+    },
+    "error": false,
+    "latency_ms": 1005
+  }
+]

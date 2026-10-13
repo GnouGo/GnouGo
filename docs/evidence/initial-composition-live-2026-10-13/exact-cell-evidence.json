@@ -1,0 +1,92 @@
+[
+  {
+    "product": 1,
+    "name": "FitVille Chaussures Larges pour Hommes Chaussons Souples Chaussures de Marche Ajustables Scratch, Idéaux pour Pieds Sensibles",
+    "description": "Chaussures Confortables - L'intérieur sans coutures évite les frottements causés par les points de suture qui entraînent des irritations. Le rembourrage en mousse protectrice et souple réduit la pression et les chocs provenant de l'extérieur.",
+    "price": "69,99 €",
+    "url_sha256": "16b5df555dd2eab1b6d8ee5478b5f6ee0a6506e98cc43ca9143cd8361ef3fb25",
+    "status": "true",
+    "error": ""
+  },
+  {
+    "product": 2,
+    "name": "FitVille Chaussures Hommes Extra-Larges Chaussures de Marche Ajustables Chaussons pour Pieds Sensibles",
+    "description": "Bout extra large et cou-de-pied haut - Espace étendu pour la libre circulation des orteils, spécialement pour les personnes ayant des pieds plus larges et les personnes souffrant de problèmes de pieds.",
+    "price": "75,99 €",
+    "url_sha256": "2b8f2243c3100d6b28a418df6368ee09cbedaee83bb0e3bb5ee6f0aa89c7b88c",
+    "status": "true",
+    "error": ""
+  },
+  {
+    "product": 3,
+    "name": "FitVille Chaussures Larges pour Hommes Basket Scratch Confortables Chaussures de Marche pour Pieds Sensibles",
+    "description": "CHAUSSURES DE MARCHE AJUSTABLES : La fermeture auto-agrippante au lieu des lacets facilite l'enfilage et le retrait des chaussures de marche pour hommes. Vous pouvez ajuster le serrage à votre convenance.",
+    "price": "75,99 €",
+    "url_sha256": "969462ef9d0783c9a252ac3b43ddeddb7572c4f5037eb3c75c1ede176b31f4b8",
+    "status": "true",
+    "error": ""
+  },
+  {
+    "product": 4,
+    "name": "GEOX SYMBOL B - Sneaker Basse - Homme",
+    "description": "Réalisées en cuir lisse, les Uomo Symbol sont des chaussures pour homme éclectiques aux multiples facettes, qui grâce à leur style classique et décontracté, permettent une multitude de combinaisons, toujours sous le signe du confort maximal. - Les systèmes brevetés Geox garantissent la respirabilité de la semelle et le bien-être des pieds. - Chaussant facile à régler grâce à la fermeture à lacets.",
+    "price": "82,40€",
+    "url_sha256": "3143d464df3b7f4c2cbc6bcc953ec3cbfd266bdd92bfd357f88168440fe7034c",
+    "status": "true",
+    "error": ""
+  },
+  {
+    "product": 5,
+    "name": "Geox U Symbol D U Symbol D U32A5D00043, Baskets mode homme",
+    "description": "Réalisées en caoutchouc, les semelles evergreen de Geox reposent sur un brevet Geox exclusif : l’association d’une semelle perforée et d’une membrane respirante et imperméable permettant une thermorégulation naturelle crée un microclimat idéal à l’intérieur de la chaussure afin de conserver le pied au sec tout au long de la journée.",
+    "price": "59,90 € avec 14 % d'économies",
+    "url_sha256": "16a0b521aad3f6e6c0059436deaf81966429d802a02fab6a506d0662d93c72b3",
+    "status": "true",
+    "error": ""
+  },
+  {
+    "product": 6,
+    "name": "Geox U641zb00043 MocassinsHomme",
+    "description": "Les New Damon sont des mocassins pour homme au style classique et au confort unique grâce à leur bout large. Réalisés en cuir lisse, ils complètent parfaitement les looks de tous les jours. - Les systèmes brevetés Geox garantissent la respirabilité de la semelle et le bien-être des pieds. - Faciles à porter pour un confort unique. - Chaussures sans fermeture.",
+    "price": "69,90€",
+    "url_sha256": "34a63e7f09b0a5eef23a7ce1ab84b395e790857b9743986f7e81a62ae55b5f39",
+    "status": "true",
+    "error": ""
+  },
+  {
+    "product": 7,
+    "name": "GEOX SYMBOL B - Sneaker Basse - Homme",
+    "description": "Réalisées en cuir lisse, les Uomo Symbol sont des chaussures pour homme éclectiques aux multiples facettes, qui grâce à leur style classique et décontracté, permettent une multitude de combinaisons, toujours sous le signe du confort maximal. - Les systèmes brevetés Geox garantissent la respirabilité de la semelle et le bien-être des pieds. - Chaussant facile à régler grâce à la fermeture à lacets.",
+    "price": "82,40€",
+    "url_sha256": "02b869ca67d76c401776a842a93130d3c0b66676e60bb632530fedd33abc49a1",
+    "status": "true",
+    "error": ""
+  },
+  {
+    "product": 8,
+    "name": "Geox U Spherica A BasketGarçon",
+    "description": "Révolutionnaires et emblématiques, les baskets pour homme Spherica™ surprennent par leur excellent effet amortissant et leur confort sans égal. Leur look irrésistible réalisé en tissu à effet maille donnera une touche contemporaine aux looks décontractés de tous les jours. - Les systèmes brevetés Geox garantissent la respirabilité de la semelle et le bien-être des pieds. - Le système Zero-Shock à coussinets sphériques amortissants augmente l’amorti et assure une meilleure absorption des impacts et des sollicitations. - Des chaussures légères pour une plus grande liberté de mouvement. - Chaussant facile à régler grâce à la fermeture à lacets. - Semelle intérieure amovible.",
+    "price": "65,00€",
+    "url_sha256": "2e3f57926d82fdca560cccf5ad1598801a1e82164e91e22bd90923d8046c36a3",
+    "status": "true",
+    "error": ""
+  },
+  {
+    "product": 9,
+    "name": "Geox Uomo Snake L Baskets BassesHomme",
+    "description": "Baskets versatiles et multifonctions, dotées du idéal confort Geox et d’une semelle de marche adhérente. La semelle, légère et souple grâce à son épaisseur réduite, est perforée avec le brevet Italien Geox qui offre respirabilité, imperméabilité et bien-être longue durée. La doublure et les inserts sur la tige sont en maille, pour une respirabilité supplémentaire, tandis que la semelle intérieure est amovible, hygiénique et pratique. La tige slip-on permet un chaussant facile et rapide. Réalisées en caoutchouc, les semelles Evergreen de Geox reposent sur un brevet Geox exclusif : l’association d’une semelle perforée et d’une membrane respirante et imperméable permettant une thermorégulation naturelle crée un microclimat idéal à l’intérieur de la chaussure afin de conserver le pied au sec tout au long de la journée.",
+    "price": "79,00 € avec 21 % d'économies",
+    "url_sha256": "3da6d604305f0e94cffee37b65466bf62f66d76cd901579a2f078588ca90f819",
+    "status": "true",
+    "error": ""
+  },
+  {
+    "product": 10,
+    "name": "Geox U Andalo",
+    "description": "Les Andalo sont des bottines Chelsea pour homme au design contemporain et polyvalent, un indispensable de la garde-robe hivernale. Ce modèle réalisé en cuir pull-up est parfait avec les looks du quotidien. - Les systèmes brevetés Geox garantissent la respirabilité de la semelle et le bien-être des pieds. - Faciles à porter pour un confort unique. - Enfilage facile et rapide grâce à l’élastique sur la tige. - Semelle intérieure amovible",
+    "price": "91,80 € avec 4 % d'économies",
+    "url_sha256": "1b707b2cf66d2c6eed764dd492b6119ff79c05b34964cbb43a2c523bd7527c64",
+    "status": "true",
+    "error": ""
+  }
+]

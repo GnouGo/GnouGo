@@ -1,11 +1,16 @@
-# Initial-composition live: revised artifact ready for review
+# Initial-composition live: execution and independent oracles passed
 
-The authorized structural continuation now reaches **revision 9 / final_review**,
-artifact **`fc751e55508433f9e32a3851f64ef45b49a6502ea338a970dcf173b43821e4dd`**.
-See the concrete [artifact review](amazon-review.md), [TaskPlan](taskplan-r9.json)
-and [generated YAML](workflow-r9.yaml). Execution remains unapproved and not started.
-The chronology below preserves the initial failure; the continuation is recorded
-at the end. No production code or historical receipt was changed.
+The explicitly approved **revision 9**, artifact
+**`fc751e55508433f9e32a3851f64ef45b49a6502ea338a970dcf173b43821e4dd`**,
+executed once: **ten product visits, a real 11-row XLSX, exact original facts and
+Browser cleanup all passed**. Both the frozen oracle and separate workbook/source
+readback passed. See the [execution report](execution-report.md).
+
+The [pre-execution review](amazon-review.md), [TaskPlan](taskplan-r9.json) and
+[generated YAML](workflow-r9.yaml) remain unchanged. The chronology below preserves
+the initial failures and review state before execution. No production code or
+historical receipt was changed. Initial-generation compliance remains unproved;
+this successful workflow needed three explicit revisions. PR #117 remains draft.
 
 ## Initial generation, before the authorized revision
 
@@ -155,3 +160,12 @@ retain request identities, hashes, sizes and transport outcomes. All
 The frozen candidate's full validation remains applicable: only planning evidence
 was added. Initial model compliance remains unproved: reaching this review required
 concrete offline composition and three explicit revisions. PR #117 remains draft.
+
+## Approved execution
+
+The user then explicitly acknowledged all three requirements and approved this
+revision/hash for one execution. The [approval command](execution-approval.json)
+checkpointed the unchanged artifact at session revision 10. Execution, independent
+readback, accounting, preserved reservations and CI status are reported separately
+in the [final execution evidence](execution-report.md). No second execution or
+additional planning request was dispatched.

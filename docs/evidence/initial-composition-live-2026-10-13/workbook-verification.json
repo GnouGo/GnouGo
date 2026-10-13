@@ -1,0 +1,214 @@
+{
+  "passed": true,
+  "findings": [],
+  "read_only": true,
+  "provider_calls": 0,
+  "mcp_calls": 0,
+  "workbook_path": "/Users/a115vc/Desktop/GnOuGo/workflows/schema-portability-20261002/initialcomposition20261013a-amazon-1/products.xlsx",
+  "workbook_sha256": "0113e6137cba5b2994ef6bdd71774930c1c93a5b5bde27f28b0316362f1ba576",
+  "workbook_bytes": 6112,
+  "row_count": 11,
+  "headers": [
+    "name",
+    "description",
+    "price",
+    "url",
+    "status",
+    "error"
+  ],
+  "products": [
+    {
+      "product": 1,
+      "observed_name": "FitVille Chaussures Larges pour Hommes Chaussons Souples Chaussures de Marche Ajustables Scratch, Idéaux pour Pieds Sensibles",
+      "description_characters": 242,
+      "description_sha256": "645e59d4765cc822c852dc68657e981ddaf5983fa0c7c54fb4507107fc714857",
+      "price": "69,99 €",
+      "url_sha256": "16b5df555dd2eab1b6d8ee5478b5f6ee0a6506e98cc43ca9143cd8361ef3fb25",
+      "redirected": true,
+      "source_pages": 17,
+      "source_records": 644,
+      "offered_fact_candidates": 29,
+      "exact_selected_fields": {
+        "nomId": true,
+        "descriptionId": true,
+        "prixId": true
+      },
+      "status": "true",
+      "error": ""
+    },
+    {
+      "product": 2,
+      "observed_name": "FitVille Chaussures Hommes Extra-Larges Chaussures de Marche Ajustables Chaussons pour Pieds Sensibles",
+      "description_characters": 201,
+      "description_sha256": "6d879f21f590f3234b72cb1021ac7c020f09b07a3c15b79d679e19b507542030",
+      "price": "75,99 €",
+      "url_sha256": "2b8f2243c3100d6b28a418df6368ee09cbedaee83bb0e3bb5ee6f0aa89c7b88c",
+      "redirected": true,
+      "source_pages": 15,
+      "source_records": 557,
+      "offered_fact_candidates": 29,
+      "exact_selected_fields": {
+        "nomId": true,
+        "descriptionId": true,
+        "prixId": true
+      },
+      "status": "true",
+      "error": ""
+    },
+    {
+      "product": 3,
+      "observed_name": "FitVille Chaussures Larges pour Hommes Basket Scratch Confortables Chaussures de Marche pour Pieds Sensibles",
+      "description_characters": 204,
+      "description_sha256": "9f7fb63e88e64c9cfda8973134621c439dd016ee12abef56482a0770bffb9294",
+      "price": "75,99 €",
+      "url_sha256": "969462ef9d0783c9a252ac3b43ddeddb7572c4f5037eb3c75c1ede176b31f4b8",
+      "redirected": true,
+      "source_pages": 16,
+      "source_records": 588,
+      "offered_fact_candidates": 26,
+      "exact_selected_fields": {
+        "nomId": true,
+        "descriptionId": true,
+        "prixId": true
+      },
+      "status": "true",
+      "error": ""
+    },
+    {
+      "product": 4,
+      "observed_name": "GEOX SYMBOL B - Sneaker Basse - Homme",
+      "description_characters": 400,
+      "description_sha256": "3405fc09be368483472f749208edaa9069149b69f2fcc953602164bcda818523",
+      "price": "82,40€",
+      "url_sha256": "3143d464df3b7f4c2cbc6bcc953ec3cbfd266bdd92bfd357f88168440fe7034c",
+      "redirected": true,
+      "source_pages": 17,
+      "source_records": 654,
+      "offered_fact_candidates": 65,
+      "exact_selected_fields": {
+        "nomId": true,
+        "descriptionId": true,
+        "prixId": true
+      },
+      "status": "true",
+      "error": ""
+    },
+    {
+      "product": 5,
+      "observed_name": "Geox U Symbol D U Symbol D U32A5D00043, Baskets mode homme",
+      "description_characters": 334,
+      "description_sha256": "ec5eb8684197f401cb6658247d4782417d91d0dbb2950cebc9364d5d100debee",
+      "price": "59,90 € avec 14 % d'économies",
+      "url_sha256": "16a0b521aad3f6e6c0059436deaf81966429d802a02fab6a506d0662d93c72b3",
+      "redirected": true,
+      "source_pages": 16,
+      "source_records": 612,
+      "offered_fact_candidates": 69,
+      "exact_selected_fields": {
+        "nomId": true,
+        "descriptionId": true,
+        "prixId": true
+      },
+      "status": "true",
+      "error": ""
+    },
+    {
+      "product": 6,
+      "observed_name": "Geox U641zb00043 MocassinsHomme",
+      "description_characters": 361,
+      "description_sha256": "74ed29fe4cc11a7b4651b259ceb6ecfacf9f6df487c97430a2939328b4bb95d8",
+      "price": "69,90€",
+      "url_sha256": "34a63e7f09b0a5eef23a7ce1ab84b395e790857b9743986f7e81a62ae55b5f39",
+      "redirected": true,
+      "source_pages": 17,
+      "source_records": 647,
+      "offered_fact_candidates": 36,
+      "exact_selected_fields": {
+        "nomId": true,
+        "descriptionId": true,
+        "prixId": true
+      },
+      "status": "true",
+      "error": ""
+    },
+    {
+      "product": 7,
+      "observed_name": "GEOX SYMBOL B - Sneaker Basse - Homme",
+      "description_characters": 400,
+      "description_sha256": "3405fc09be368483472f749208edaa9069149b69f2fcc953602164bcda818523",
+      "price": "82,40€",
+      "url_sha256": "02b869ca67d76c401776a842a93130d3c0b66676e60bb632530fedd33abc49a1",
+      "redirected": true,
+      "source_pages": 16,
+      "source_records": 631,
+      "offered_fact_candidates": 41,
+      "exact_selected_fields": {
+        "nomId": true,
+        "descriptionId": true,
+        "prixId": true
+      },
+      "status": "true",
+      "error": ""
+    },
+    {
+      "product": 8,
+      "observed_name": "Geox U Spherica A BasketGarçon",
+      "description_characters": 680,
+      "description_sha256": "85e7a8d8e056c85f900eccec82843cd777069fad15c1e452a629c127137ac924",
+      "price": "65,00€",
+      "url_sha256": "2e3f57926d82fdca560cccf5ad1598801a1e82164e91e22bd90923d8046c36a3",
+      "redirected": true,
+      "source_pages": 17,
+      "source_records": 649,
+      "offered_fact_candidates": 40,
+      "exact_selected_fields": {
+        "nomId": true,
+        "descriptionId": true,
+        "prixId": true
+      },
+      "status": "true",
+      "error": ""
+    },
+    {
+      "product": 9,
+      "observed_name": "Geox Uomo Snake L Baskets BassesHomme",
+      "description_characters": 826,
+      "description_sha256": "3061cf49351c3de7ee19f629f8c3c8b86f5a9ee354667600b5ee822757ce538d",
+      "price": "79,00 € avec 21 % d'économies",
+      "url_sha256": "3da6d604305f0e94cffee37b65466bf62f66d76cd901579a2f078588ca90f819",
+      "redirected": true,
+      "source_pages": 17,
+      "source_records": 651,
+      "offered_fact_candidates": 66,
+      "exact_selected_fields": {
+        "nomId": true,
+        "descriptionId": true,
+        "prixId": true
+      },
+      "status": "true",
+      "error": ""
+    },
+    {
+      "product": 10,
+      "observed_name": "Geox U Andalo",
+      "description_characters": 439,
+      "description_sha256": "eeb3f15655ee89ecfbbcf3b26d3d7deaf5a56ebddfefb0dcd0d34d8bea3443d4",
+      "price": "91,80 € avec 4 % d'économies",
+      "url_sha256": "1b707b2cf66d2c6eed764dd492b6119ff79c05b34964cbb43a2c523bd7527c64",
+      "redirected": true,
+      "source_pages": 15,
+      "source_records": 610,
+      "offered_fact_candidates": 73,
+      "exact_selected_fields": {
+        "nomId": true,
+        "descriptionId": true,
+        "prixId": true
+      },
+      "status": "true",
+      "error": ""
+    }
+  ],
+  "complete_acquisitions": 11,
+  "source_records": 7811,
+  "raw_snapshot_in_global_interpretation": false
+}
