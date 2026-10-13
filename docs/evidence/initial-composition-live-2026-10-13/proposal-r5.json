@@ -1,0 +1,295 @@
+{
+  "discoveryRequests": null,
+  "plan": {
+    "inputs": [
+      {
+        "name": "query",
+        "type": {
+          "kind": "string"
+        }
+      }
+    ],
+    "root": {
+      "tasks": [
+        {
+          "id": "build_search_url",
+          "kind": "transform",
+          "objective": "Build the Amazon.fr search URL from the single public input query, preserving the original query separately; keep this as the only query-to-URL inference.",
+          "dependsOn": [],
+          "requires": null,
+          "mode": "interpret",
+          "inputs": [
+            {
+              "name": "query",
+              "value": {
+                "kind": "input",
+                "source": "query"
+              }
+            }
+          ],
+          "resultType": {
+            "kind": "object",
+            "fields": [
+              {
+                "name": "queryCopy",
+                "type": {
+                  "kind": "string"
+                }
+              },
+              {
+                "name": "searchUrl",
+                "type": {
+                  "kind": "string"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "open_search_observe",
+          "kind": "operation",
+          "objective": "Open Amazon.fr search results for the requested article and acquire a complete bounded observation snapshot of the page.",
+          "dependsOn": [
+            "build_search_url"
+          ],
+          "requires": {
+            "kind": "predicate",
+            "predicate": "and",
+            "items": [
+              {
+                "kind": "predicate",
+                "predicate": "not_equal",
+                "items": [
+                  {
+                    "kind": "field",
+                    "items": [
+                      {
+                        "kind": "output",
+                        "source": "build_search_url",
+                        "port": null
+                      }
+                    ],
+                    "port": "searchUrl"
+                  },
+                  {
+                    "kind": "null"
+                  }
+                ]
+              },
+              {
+                "kind": "predicate",
+                "predicate": "not_equal",
+                "items": [
+                  {
+                    "kind": "field",
+                    "items": [
+                      {
+                        "kind": "output",
+                        "source": "build_search_url",
+                        "port": null
+                      }
+                    ],
+                    "port": "searchUrl"
+                  },
+                  {
+                    "kind": "string",
+                    "text": ""
+                  }
+                ]
+              }
+            ]
+          },
+          "operation": "cap_490d9e16075cbdca5954ec27",
+          "inputs": [
+            {
+              "name": "url",
+              "value": {
+                "kind": "field",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "build_search_url",
+                    "port": null
+                  }
+                ],
+                "port": "searchUrl"
+              }
+            },
+            {
+              "name": "format",
+              "value": {
+                "kind": "string",
+                "text": "observation_complete"
+              }
+            },
+            {
+              "name": "waitUntil",
+              "value": {
+                "kind": "string",
+                "text": "domcontentloaded"
+              }
+            },
+            {
+              "name": "maxRecords",
+              "value": {
+                "kind": "number",
+                "number": 200
+              }
+            },
+            {
+              "name": "timeoutMs",
+              "value": {
+                "kind": "number",
+                "number": 45000
+              }
+            }
+          ]
+        },
+        {
+          "id": "extract_candidate_pages",
+          "kind": "transform",
+          "objective": "Extract independently over every complete bounded search observation page into Candidate[] per page, preserving original observed action data, IDs, hrefs, references, actions, and text verbatim; do not select, deduplicate, filter, or truncate products during extraction.",
+          "dependsOn": [
+            "open_search_observe"
+          ],
+          "requires": {
+            "kind": "predicate",
+            "predicate": "and",
+            "items": [
+              {
+                "kind": "predicate",
+                "predicate": "equal",
+                "items": [
+                  {
+                    "kind": "field",
+                    "items": [
+                      {
+                        "kind": "output",
+                        "source": "open_search_observe",
+                        "port": null
+                      }
+                    ],
+                    "port": "success"
+                  },
+                  {
+                    "kind": "boolean",
+                    "boolean": true
+                  }
+                ]
+              },
+              {
+                "kind": "predicate",
+                "predicate": "not_equal",
+                "items": [
+                  {
+                    "kind": "field",
+                    "items": [
+                      {
+                        "kind": "output",
+                        "source": "open_search_observe",
+                        "port": null
+                      }
+                    ],
+                    "port": "observationSnapshot"
+                  },
+                  {
+                    "kind": "null"
+                  }
+                ]
+              }
+            ]
+          },
+          "mode": "extract",
+          "each": {
+            "input": "pages",
+            "output": "candidates"
+          },
+          "inputs": [
+            {
+              "name": "pages",
+              "value": {
+                "kind": "field",
+                "items": [
+                  {
+                    "kind": "field",
+                    "items": [
+                      {
+                        "kind": "output",
+                        "source": "open_search_observe",
+                        "port": null
+                      }
+                    ],
+                    "port": "observationSnapshot"
+                  }
+                ],
+                "port": "pages"
+              }
+            }
+          ],
+          "resultType": {
+            "kind": "object",
+            "fields": [
+              {
+                "name": "candidates",
+                "type": {
+                  "kind": "array",
+                  "items": {
+                    "kind": "object",
+                    "fields": [
+                      {
+                        "name": "candidateId",
+                        "type": {
+                          "kind": "string",
+                          "nullable": true
+                        }
+                      },
+                      {
+                        "name": "offeredText",
+                        "type": {
+                          "kind": "string",
+                          "nullable": true
+                        }
+                      },
+                      {
+                        "name": "href",
+                        "type": {
+                          "kind": "string",
+                          "nullable": true
+                        }
+                      },
+                      {
+                        "name": "reference",
+                        "type": {
+                          "kind": "string",
+                          "nullable": true
+                        }
+                      },
+                      {
+                        "name": "actions",
+                        "type": {
+                          "kind": "array",
+                          "items": {
+                            "kind": "string"
+                          },
+                          "minItems": 0,
+                          "maxItems": 10
+                        }
+                      }
+                    ]
+                  },
+                  "minItems": 0,
+                  "maxItems": 10
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "outputs": [],
+      "always": []
+    },
+    "groups": [],
+    "choices": []
+  },
+  "clarifications": null
+}

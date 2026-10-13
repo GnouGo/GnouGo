@@ -1,0 +1,9 @@
+{
+  "authorization": "Authorize the scoped structural revision",
+  "recorded_utc": "2026-10-13T10:50:12.547391+00:00",
+  "run": "initialcomposition20261013a-amazon-1",
+  "revision": 3,
+  "command_sha256": "598f6a1589292f13ea4613d9f019c54db29d1959592a9a227b251962f7f06860",
+  "same_cumulative_allowance": true,
+  "artifact_execution_authorized": false
+}
