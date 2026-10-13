@@ -1,0 +1,6 @@
+Preserve requested work/outputs; no extra actions, filtering or deduplication.
+Bind typed copies, rows and status. Assert producer-declared success, availability and completeness before dependent work.
+Example: observe complete bounded pages; extract each {"input":"pages","output":"candidates"}, compact Candidate[] per page; flatten for a compact ID decision; lookup offered then originals; requested visits; typed row exports.
+Keep original action data. Copy IDs/text verbatim; branch on null; prepend supplied headers. Save before cleanup; return the writer's path.
+Description: whole relevant offered feature/text block;heading optional;several suitable!=absent. Null:absent/uncertain subject. Verbatim;no controls.
+Ambiguity:clarify compatible alternatives;else plan. 1-3 questions/2-3 options+recommendation;requirements:null. Apply answers once;retain goals/permissions.

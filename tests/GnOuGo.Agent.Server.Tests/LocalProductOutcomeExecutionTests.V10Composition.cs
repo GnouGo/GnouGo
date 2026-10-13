@@ -54,9 +54,9 @@ public sealed partial class LocalProductOutcomeExecutionTests
         Assert.Null(session.ApprovedHash); Assert.Equal(0, factory.InvocationAttempts);
         Assert.InRange(adapter.InputEstimate, 1, session.Request.Generation.MaxInputTokensPerRequest);
         var issued = Assert.Single(adapter.Requests);
-        Assert.Contains("Null ID→permitted null", issued.Prompt);
-        Assert.Contains("flatten([[headerRow],productRows])", issued.Prompt);
-        Assert.Contains("typed copying=bindings,no LLM", issued.Prompt);
+        Assert.Contains("branch on null", issued.Prompt);
+        Assert.Contains("prepend supplied headers", issued.Prompt);
+        Assert.Contains("Bind typed copies, rows and status", issued.Prompt);
         Assert.Contains("expression_contracts:", session.Yaml!); Assert.DoesNotContain("checkedMapping(", session.Yaml!);
         output.WriteLine($"GATE D: tasks={RetainedTasks(before.Plan!.Root).Count()}→{RetainedTasks(corrected.Plan!.Root).Count()}; " +
             $"steps={original.Steps}→{compact.Steps}; sets={original.Sets}→{compact.Sets}; YAML={Encoding.UTF8.GetByteCount(original.Yaml)}→{Encoding.UTF8.GetByteCount(compact.Yaml)}; " +

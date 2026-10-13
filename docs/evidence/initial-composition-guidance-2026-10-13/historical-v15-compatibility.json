@@ -1,0 +1,11 @@
+{
+  "source_candidate": "322bbb0c",
+  "historical_run": "exactdescriptions20261013a-amazon-1",
+  "recompiled_revision": 2,
+  "saved_session_unchanged": true,
+  "identical_yaml_bytes": 56720,
+  "sha256": "f30e764f40f3d90e33e29a1fb23cb7c166ffe2da6b7304728162d9c493be44da",
+  "model_calls": 0,
+  "mcp_calls": 0,
+  "session_advancement": false
+}

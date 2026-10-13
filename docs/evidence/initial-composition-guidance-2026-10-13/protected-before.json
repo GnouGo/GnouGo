@@ -1,0 +1,67 @@
+[
+  {
+    "collection": "planning-schema-portability",
+    "key": "schema-portability-20261002:run:exactdescriptions20261013a-amazon-1",
+    "sha256": "e0cb97b1854ecb95fbd5a50dc0b20a88776d466d6c5dfe4989c3eaa401f43a4f"
+  },
+  {
+    "collection": "planning-evaluation-requests",
+    "key": "schema-portability-20261002:exactdescriptions20261013a-amazon-1:1:f3899ecf0ed9ed3fa4ae29a24b1d9582991326e9507cd9f49cdd6da3af622522",
+    "sha256": "8624d5f8e86f4b3af4b011a9aa0494502d6a02d5eee3e7a52cb6ad8ef08b4e20"
+  },
+  {
+    "collection": "planning-evaluation-requests",
+    "key": "schema-portability-20261002:exactdescriptions20261013a-amazon-1:2:2e4bdad97dc3355e955ae5c9b3fa91bc8eea367a5c0818ad5d2998da7f52d4a1",
+    "sha256": "5009594a025fad53b54355610bbd80c298f5308b2a0b2ccca41f9b7f865a6b24"
+  },
+  {
+    "collection": "planning-evaluation-requests",
+    "key": "schema-portability-20261002:exactdescriptions20261013a-amazon-1:3:c7bdf5d19bfb4cf07ea29533b8849be83d36e596de5f6c8c4e16f0080358d333",
+    "sha256": "8972dc1aeb20289dc70f5ccb58ce6180f8c9544cd585517eaf7f7b8963585d79"
+  },
+  {
+    "collection": "planning-evaluation-receipts",
+    "key": "schema-portability-20261002:exactdescriptions20261013a-amazon-1:1:f3899ecf0ed9ed3fa4ae29a24b1d9582991326e9507cd9f49cdd6da3af622522",
+    "sha256": "96cb430cf987b2bb7bd4d3febd39d7d2f936d5055fb8ed2e85aa7122f3b4ab51"
+  },
+  {
+    "collection": "planning-evaluation-receipts",
+    "key": "schema-portability-20261002:exactdescriptions20261013a-amazon-1:2:2e4bdad97dc3355e955ae5c9b3fa91bc8eea367a5c0818ad5d2998da7f52d4a1",
+    "sha256": "4e36314521ce46fc0a6eca2390b148a2e83ba86a15e685e46a1bbaa628dfe8ff"
+  },
+  {
+    "collection": "planning-evaluation-failures",
+    "key": "schema-portability-20261002:exactdescriptions20261013a-amazon-1:3:c7bdf5d19bfb4cf07ea29533b8849be83d36e596de5f6c8c4e16f0080358d333",
+    "sha256": "2318923c9947b5aee8e05b76902061fa9fe278699409808fc0c00c6f1e26016e"
+  },
+  {
+    "collection": "planning-evaluation-http-attempts",
+    "key": "schema-portability-20261002:exactdescriptions20261013a-amazon-1:1:f3899ecf0ed9ed3fa4ae29a24b1d9582991326e9507cd9f49cdd6da3af622522",
+    "sha256": "51ab3e5f3b1992a88ea11506927665ba3b40236a95fa23cf430d4bda6cc21e4c"
+  },
+  {
+    "collection": "planning-evaluation-http-attempts",
+    "key": "schema-portability-20261002:exactdescriptions20261013a-amazon-1:2:2e4bdad97dc3355e955ae5c9b3fa91bc8eea367a5c0818ad5d2998da7f52d4a1",
+    "sha256": "68532570594f51a56d042990ba414ef534db5016784e552fa4821ed5ee295d0f"
+  },
+  {
+    "collection": "planning-evaluation-http-attempts",
+    "key": "schema-portability-20261002:exactdescriptions20261013a-amazon-1:3:c7bdf5d19bfb4cf07ea29533b8849be83d36e596de5f6c8c4e16f0080358d333",
+    "sha256": "7ac9a612a31933cb069e3af45917f81b397a0e1dd822e0cf5404b41e5e589a2d"
+  },
+  {
+    "collection": "planning-evaluation-configuration",
+    "key": "schema-portability-20261002:configuration",
+    "sha256": "538ca1e763cdc882fbf279d3afad1ed9d80022990dfbf0cb0b87c825e62a19d6"
+  },
+  {
+    "collection": "planning-evaluation-configuration",
+    "key": "schema-portability-20261002:http-retry-policy",
+    "sha256": "9e0d21f4a5660a5580b9b075d52f72a6531061651577ba6a520b2c02ff21949b"
+  },
+  {
+    "collection": "planning-evaluation-configuration",
+    "key": "schema-portability-20261002:spending-authorization",
+    "sha256": "21c734a99f1c45caff1c67b74218596be29186068b4d53fc14a46552b0910af2"
+  }
+]

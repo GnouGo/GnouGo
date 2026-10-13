@@ -232,11 +232,11 @@ public sealed partial class LocalProductOutcomeExecutionTests
             if (initialComposition)
             {
                 var request = Assert.Single(adapter.Requests);
-                Assert.Contains("pages→each:{input:pages,output:rows};each.input=bound name", request.Prompt);
-                Assert.Contains("interpret(flatten(output(extract,rows)))→IDs", request.Prompt);
-                Assert.Contains("requires:lookup offered!=null,then lookup originals/actions", request.Prompt);
-                Assert.Contains("typed copying=bindings,no LLM", request.Prompt);
-                Assert.Contains("revisions:retain contracts", request.Prompt);
+                Assert.Contains("extract each {\"input\":\"pages\",\"output\":\"candidates\"}", request.Prompt);
+                Assert.Contains("flatten for a compact ID decision", request.Prompt);
+                Assert.Contains("lookup offered then originals", request.Prompt);
+                Assert.Contains("Bind typed copies, rows and status", request.Prompt);
+                Assert.Contains("Preserve requested work/outputs", request.Prompt);
                 Assert.InRange(adapter.InputEstimate, 1, initial.Request.Generation.MaxInputTokensPerRequest);
                 output.WriteLine($"INITIAL REQUEST: estimatedTokens={adapter.InputEstimate}; calls=1; repairs=0; tasks=18");
             }

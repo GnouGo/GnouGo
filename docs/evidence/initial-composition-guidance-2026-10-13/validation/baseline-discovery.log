@@ -1,0 +1,25 @@
+  Identification des projets à restaurer...
+  Restauration effectuée de /private/tmp/gnougo-composition-baseline/src/GnOuGo.Flow.Planning/GnOuGo.Flow.Planning.csproj (en 770 ms).
+  Restauration effectuée de /private/tmp/gnougo-composition-baseline/src/GnOuGo.Flow.Core/GnOuGo.Flow.Core.csproj (en 770 ms).
+  Restauration effectuée de /private/tmp/gnougo-composition-baseline/tests/GnOuGo.Flow.Planning.Tests/GnOuGo.Flow.Planning.Tests.csproj (en 804 ms).
+  GnOuGo.Flow.Core -> /private/tmp/gnougo-composition-baseline/src/GnOuGo.Flow.Core/bin/Debug/net10.0/GnOuGo.Flow.Core.dll
+  GnOuGo.Flow.Planning -> /private/tmp/gnougo-composition-baseline/src/GnOuGo.Flow.Planning/bin/Debug/net10.0/GnOuGo.Flow.Planning.dll
+  GnOuGo.Flow.Planning.Tests -> /private/tmp/gnougo-composition-baseline/tests/GnOuGo.Flow.Planning.Tests/bin/Debug/net10.0/GnOuGo.Flow.Planning.Tests.dll
+Série de tests pour /private/tmp/gnougo-composition-baseline/tests/GnOuGo.Flow.Planning.Tests/bin/Debug/net10.0/GnOuGo.Flow.Planning.Tests.dll (.NETCoreApp,Version=v10.0)
+Au total, 1 fichiers de test ont correspondu au modèle spécifié.
+/private/tmp/gnougo-composition-baseline/tests/GnOuGo.Flow.Planning.Tests/bin/Debug/net10.0/GnOuGo.Flow.Planning.Tests.dll
+[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v4.0.0+05679a7ab5 (64-bit .NET 10.0.8)
+[xUnit.net 00:00:00.87]   Discovering: GnOuGo.Flow.Planning.Tests
+[xUnit.net 00:00:01.22]   Discovered:  GnOuGo.Flow.Planning.Tests
+[xUnit.net 00:00:01.39]   Starting:    GnOuGo.Flow.Planning.Tests
+[xUnit.net 00:00:29.41]   Finished:    GnOuGo.Flow.Planning.Tests (ID = '8237763cd50edd18539aaa109c5f472ddd5c9a1658b107c4203bceae3607119e')
+  Réussi GnOuGo.Flow.Planning.Tests.RecordedTargetedDiscoveryTests.FullRetainedCatalogKeepsRequestedReviewContractsVisibleWithinSevenCalls [27 s]
+  Messages de sortie standard :
+ Synthetic targeted continuation: calls=7, repairs=0, discovered=74, requested=10, metadata reads=19, resolutions=23 (unrecorded exact contracts unavailable=2), input estimates=[9532,21219,21590,21409,21327,21541,23952], cumulative=140570, prompt bytes=[6578,32686,35563,35392,36459,34882,38142], detailed counts=[3,8,8,6,6,6,13]. Preserved all distractor metadata; exact resolution is limited to retained receipts. No live model or execution claim.
+
+
+
+Série de tests réussie.
+Nombre total de tests : 1
+     Réussi(s) : 1
+ Durée totale : 29,7348 Secondes
