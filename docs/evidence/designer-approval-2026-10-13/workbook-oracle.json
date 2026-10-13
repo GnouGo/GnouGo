@@ -1,0 +1,292 @@
+[
+  {
+    "variant": "complete",
+    "workbook": "workbook-complete.xlsx",
+    "sha256": "df3aa40ef6a7fb3a233f14448b8999db76a9f3b90ef63cd2cf6690afb8286761",
+    "rows": [
+      [
+        "Nom",
+        "Description",
+        "Prix"
+      ],
+      [
+        "=Observed lamp 0",
+        "Complete observed block 0 — café; all supplied words retained.",
+        "10,00 €"
+      ],
+      [
+        "=Observed lamp 1",
+        "Complete observed block 1 — café; all supplied words retained.",
+        "11,00 €"
+      ],
+      [
+        "=Observed lamp 2",
+        "Complete observed block 2 — café; all supplied words retained.",
+        "12,00 €"
+      ],
+      [
+        "=Observed lamp 0",
+        "Complete observed block 3 — café; all supplied words retained.",
+        "13,00 €"
+      ],
+      [
+        "=Observed lamp 1",
+        "Complete observed block 4 — café; all supplied words retained.",
+        "14,00 €"
+      ],
+      [
+        "=Observed lamp 2",
+        "Complete observed block 5 — café; all supplied words retained.",
+        "15,00 €"
+      ],
+      [
+        "=Observed lamp 0",
+        "Complete observed block 6 — café; all supplied words retained.",
+        "16,00 €"
+      ],
+      [
+        "=Observed lamp 1",
+        "Complete observed block 7 — café; all supplied words retained.",
+        "17,00 €"
+      ],
+      [
+        "=Observed lamp 2",
+        "Complete observed block 8 — café; all supplied words retained.",
+        "18,00 €"
+      ],
+      [
+        "=Observed lamp 0",
+        "Complete observed block 9 — café; all supplied words retained.",
+        "19,00 €"
+      ]
+    ],
+    "visits": 10,
+    "pages": 39,
+    "records": 77,
+    "cleanup_calls": 1,
+    "exact_fixture_oracle": true
+  },
+  {
+    "variant": "missing",
+    "workbook": "workbook-missing.xlsx",
+    "sha256": "9323ce9464cc104d00ee0d109483974a11171c94c07890d28e56990cff41d6e5",
+    "rows": [
+      [
+        "Nom",
+        "Description",
+        "Prix"
+      ],
+      [
+        "=Observed lamp 0",
+        "Complete observed block 0 — café; all supplied words retained.",
+        "10,00 €"
+      ],
+      [
+        "=Observed lamp 1",
+        "Complete observed block 1 — café; all supplied words retained.",
+        "11,00 €"
+      ],
+      [
+        "=Observed lamp 2",
+        "Complete observed block 2 — café; all supplied words retained.",
+        ""
+      ],
+      [
+        "=Observed lamp 0",
+        "",
+        "13,00 €"
+      ],
+      [
+        "=Observed lamp 1",
+        "Complete observed block 4 — café; all supplied words retained.",
+        "14,00 €"
+      ],
+      [
+        "=Observed lamp 2",
+        "Complete observed block 5 — café; all supplied words retained.",
+        "15,00 €"
+      ],
+      [
+        "=Observed lamp 0",
+        "Complete observed block 6 — café; all supplied words retained.",
+        "16,00 €"
+      ],
+      [
+        "=Observed lamp 1",
+        "Complete observed block 7 — café; all supplied words retained.",
+        "17,00 €"
+      ],
+      [
+        "=Observed lamp 2",
+        "Complete observed block 8 — café; all supplied words retained.",
+        "18,00 €"
+      ],
+      [
+        "=Observed lamp 0",
+        "Complete observed block 9 — café; all supplied words retained.",
+        "19,00 €"
+      ]
+    ],
+    "visits": 10,
+    "pages": 39,
+    "records": 75,
+    "cleanup_calls": 1,
+    "exact_fixture_oracle": true
+  },
+  {
+    "variant": "null_href",
+    "workbook": "workbook-null_href.xlsx",
+    "sha256": "ff9867367d84b266e369937a932aafb6b0f1edc76bd67b442cfc76ab1269e54b",
+    "rows": [
+      [
+        "Nom",
+        "Description",
+        "Prix"
+      ],
+      [
+        "=Observed lamp 0",
+        "Complete observed block 0 — café; all supplied words retained.",
+        "10,00 €"
+      ],
+      [
+        "=Observed lamp 1",
+        "Complete observed block 1 — café; all supplied words retained.",
+        "11,00 €"
+      ],
+      [
+        "",
+        "",
+        ""
+      ],
+      [
+        "=Observed lamp 0",
+        "Complete observed block 3 — café; all supplied words retained.",
+        "13,00 €"
+      ],
+      [
+        "=Observed lamp 1",
+        "Complete observed block 4 — café; all supplied words retained.",
+        "14,00 €"
+      ],
+      [
+        "=Observed lamp 2",
+        "Complete observed block 5 — café; all supplied words retained.",
+        "15,00 €"
+      ],
+      [
+        "=Observed lamp 0",
+        "Complete observed block 6 — café; all supplied words retained.",
+        "16,00 €"
+      ],
+      [
+        "=Observed lamp 1",
+        "Complete observed block 7 — café; all supplied words retained.",
+        "17,00 €"
+      ],
+      [
+        "=Observed lamp 2",
+        "Complete observed block 8 — café; all supplied words retained.",
+        "18,00 €"
+      ],
+      [
+        "=Observed lamp 0",
+        "Complete observed block 9 — café; all supplied words retained.",
+        "19,00 €"
+      ]
+    ],
+    "visits": 9,
+    "pages": 37,
+    "records": 73,
+    "cleanup_calls": 1,
+    "exact_fixture_oracle": true
+  },
+  {
+    "variant": "one",
+    "workbook": "workbook-one.xlsx",
+    "sha256": "9f32b767c8c7abba31cb8274cdb1202523269e44fdd6090d297d6eb75c568406",
+    "rows": [
+      [
+        "Nom",
+        "Description",
+        "Prix"
+      ],
+      [
+        "=Observed lamp 0",
+        "Complete observed block 0 — café; all supplied words retained.",
+        "10,00 €"
+      ]
+    ],
+    "visits": 1,
+    "pages": 21,
+    "records": 41,
+    "cleanup_calls": 1,
+    "exact_fixture_oracle": true
+  },
+  {
+    "variant": "repeated",
+    "workbook": "workbook-repeated.xlsx",
+    "sha256": "cd06090250408bae440f842427e758a5f10fc0c3ca1fdcda8a1a1c9aaa57ed32",
+    "rows": [
+      [
+        "Nom",
+        "Description",
+        "Prix"
+      ],
+      [
+        "=Observed lamp 0",
+        "Complete observed block 0 — café; all supplied words retained.",
+        "10,00 €"
+      ],
+      [
+        "=Observed lamp 1",
+        "Complete observed block 1 — café; all supplied words retained.",
+        "11,00 €"
+      ],
+      [
+        "=Observed lamp 2",
+        "Complete observed block 2 — café; all supplied words retained.",
+        "12,00 €"
+      ],
+      [
+        "=Observed lamp 0",
+        "Complete observed block 3 — café; all supplied words retained.",
+        "13,00 €"
+      ],
+      [
+        "=Observed lamp 1",
+        "Complete observed block 4 — café; all supplied words retained.",
+        "14,00 €"
+      ],
+      [
+        "=Observed lamp 2",
+        "Complete observed block 5 — café; all supplied words retained.",
+        "15,00 €"
+      ],
+      [
+        "=Observed lamp 0",
+        "Complete observed block 6 — café; all supplied words retained.",
+        "16,00 €"
+      ],
+      [
+        "=Observed lamp 1",
+        "Complete observed block 7 — café; all supplied words retained.",
+        "17,00 €"
+      ],
+      [
+        "=Observed lamp 2",
+        "Complete observed block 8 — café; all supplied words retained.",
+        "18,00 €"
+      ],
+      [
+        "=Observed lamp 0",
+        "Complete observed block 0 — café; all supplied words retained.",
+        "10,00 €"
+      ]
+    ],
+    "visits": 10,
+    "pages": 39,
+    "records": 77,
+    "cleanup_calls": 1,
+    "exact_fixture_oracle": true
+  }
+]

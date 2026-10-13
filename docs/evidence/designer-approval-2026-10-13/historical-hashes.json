@@ -1,0 +1,88 @@
+[
+  [
+    {
+      "revision": 0,
+      "status": "created",
+      "phase": "requirements",
+      "calls": 0,
+      "diagnostics": [],
+      "pending_call": null,
+      "approved_hash": null,
+      "sha256": "3fd17f999359fb6344ec3c8e64a88a18d1b379beb4af179a37ee2862a1439c03"
+    },
+    {
+      "revision": 1,
+      "status": "generating",
+      "phase": "requirements",
+      "calls": 1,
+      "diagnostics": [],
+      "pending_call": "d055eaa394ff444c8c494c3a4369f3c9:1:8c99581fd8639ef176b37176b17b9a18a216a673e155c43f0057e44532de09ba",
+      "approved_hash": null,
+      "sha256": "7eb1caf321c3d7e612c05b6d7573fec143d637aabf6aba52be3eec701c1cbf3a"
+    },
+    {
+      "revision": 2,
+      "status": "generating",
+      "phase": "discovery",
+      "calls": 1,
+      "diagnostics": [],
+      "pending_call": null,
+      "approved_hash": null,
+      "sha256": "8bd32ec387531f0b23840d75512960ee7401e08803e2519923e59cb59fb95428"
+    },
+    {
+      "revision": 3,
+      "status": "generating",
+      "phase": "requirements",
+      "calls": 2,
+      "diagnostics": [],
+      "pending_call": "d055eaa394ff444c8c494c3a4369f3c9:2:d04d8555c0e23b1bdeb4311bb4611f22d87d28e759252b7b347ac88f4225807e",
+      "approved_hash": null,
+      "sha256": "e181bcfe9d975c3f9ef716675e94d0fe35acb9af67ead0a634b5fc7caf66a74a"
+    },
+    {
+      "revision": 4,
+      "status": "final_review",
+      "phase": "review",
+      "calls": 2,
+      "diagnostics": [],
+      "pending_call": null,
+      "approved_hash": null,
+      "sha256": "2e0c1c4abb9adb93688f55e9bb7bad14012cfe382c34bba3dcfaa355f4148247"
+    }
+  ],
+  {
+    "collection": "agent-planning-model-requests-v10",
+    "sha256": "bfff982ffae226cecbac6e16f738d468256666303761234bedb56a12312633da",
+    "key": "d055eaa394ff444c8c494c3a4369f3c9:d055eaa394ff444c8c494c3a4369f3c9:1:8c99581fd8639ef176b37176b17b9a18a216a673e155c43f0057e44532de09ba"
+  },
+  {
+    "collection": "agent-planning-model-requests-v10",
+    "sha256": "0c8fafb63c231b820c7fc63673efaf7e2a0e68d077fd50aa302653f2cd512235",
+    "key": "d055eaa394ff444c8c494c3a4369f3c9:d055eaa394ff444c8c494c3a4369f3c9:2:d04d8555c0e23b1bdeb4311bb4611f22d87d28e759252b7b347ac88f4225807e"
+  },
+  {
+    "collection": "agent-planning-model-receipts-v10",
+    "sha256": "e3f213f99d757b4751745716e5e9b75978ad5bb5330bd2ffd47e9a07661df4b9",
+    "key": "d055eaa394ff444c8c494c3a4369f3c9:d055eaa394ff444c8c494c3a4369f3c9:1:8c99581fd8639ef176b37176b17b9a18a216a673e155c43f0057e44532de09ba"
+  },
+  {
+    "collection": "agent-planning-model-receipts-v10",
+    "sha256": "e1ff863ab7c0e2512f55c5c67da8890776b57d5834124511fbdc0dcff5c204d4",
+    "key": "d055eaa394ff444c8c494c3a4369f3c9:d055eaa394ff444c8c494c3a4369f3c9:2:d04d8555c0e23b1bdeb4311bb4611f22d87d28e759252b7b347ac88f4225807e"
+  },
+  {
+    "exact_artifact_verification": "passed",
+    "artifact_hash": "f3f1e46496a6218c24750b8f16238368bd8954df95127143db16a27b8bf3e8c0",
+    "review_requirements": [
+      {
+        "id": "xlsx_saved",
+        "description": "Un fichier Excel est sauvegardé sur le disque avec les colonnes Nom, Description et Prix."
+      },
+      {
+        "id": "first_10_processed",
+        "description": "Les 10 premiers articles demandés sont traités dans l’ordre observé, sans déduplication ni filtrage supplémentaire."
+      }
+    ]
+  }
+]
