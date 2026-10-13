@@ -120,10 +120,11 @@ public sealed partial class LocalProductOutcomeExecutionTests
     }
 
     private static async Task<PlanningSession> DesignerRevision(PlanningCatalog catalog, WorkflowPlanningRuntime runtime,
-        PlanningProposal corrected, CancellationToken ct, string? origin = null)
+        PlanningProposal corrected, CancellationToken ct, string? origin = null, bool approval = false)
     {
-        var planner = new HybridWorkflowPlanner(); var retained = DesignerRetained(catalog, origin);
-        AssertDesignerBusinessPreserved(retained, corrected);
+        var planner = new HybridWorkflowPlanner(); var retained = approval ? ApprovalRetained(catalog) : DesignerRetained(catalog, origin);
+        void AssertPreserved(PlanningProposal revised) { if (approval) AssertApprovalBusinessPreserved(retained, revised); else AssertDesignerBusinessPreserved(retained, revised); }
+        AssertPreserved(corrected);
         var initialAdapter = new ProposalRuntime(runtime, retained);
         var seed = new PlanningSession { Catalog = catalog, Request = new() { TenantId = "local", Name = "designer-offline",
             Prompt = retained.Requirements!.Summary, Policy = new() { RequireExternalConfirmation = false },
@@ -132,8 +133,8 @@ public sealed partial class LocalProductOutcomeExecutionTests
         foreach (var capabilitySource in seed.Discovery.Sources)
             seed.Discovery.Pages.Add(await runtime.Capabilities.ListAsync(capabilitySource.Id, null, ct));
         var state = await planner.AdvanceAsync(seed, new(), initialAdapter, ct);
-        Assert.Equal(PlanningStatus.Stopped, state.Status); Assert.Single(initialAdapter.Requests);
-        Assert.Contains(state.Diagnostics, d => d.Code == "REVISION_REQUIRED"); Assert.Equal(0, state.ReplanAttempts);
+        Assert.Equal(approval ? PlanningStatus.FinalReview : PlanningStatus.Stopped, state.Status); Assert.Single(initialAdapter.Requests);
+        if (!approval) Assert.Contains(state.Diagnostics, d => d.Code == "REVISION_REQUIRED"); Assert.Equal(0, state.ReplanAttempts);
         var saved = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
         var copy = JsonSerializer.Deserialize(saved, PlanningJsonContext.Default.PlanningSession)!;
         var adapter = new ProposalRuntime(runtime, corrected);
@@ -141,7 +142,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
             Text = "Stale revision must fail before any call." }, adapter, ct));
         Assert.Empty(adapter.Requests);
         copy = await planner.AdvanceAsync(copy, new() { Kind = "revise", ExpectedRevision = copy.Revision, ArtifactHash = copy.ComputeArtifactHash(),
-            PreserveRequirements = false, Text = "Correct only data adaptation and the URL conditional. Preserve every previous requirement, input, output, external operation, literal argument and destination. Add only the explicitly requested Browser cleanup requirement and existing finalizer. Use complete pages, compact ID decisions, strict offered/original lookup, exact observed blocks and deterministic structured rows." }, adapter, ct);
+            PreserveRequirements = false, Text = approval ? "Correct data adaptation; preserve both previous outcomes, the article input, direct search, ordered first ten visits and exact three-column workbook. Add only Browser cleanup; explicitly remove status.rowCountIncludingHeader and status.dataRowCount. Bind the accepted destination and headers literally; all remaining status fields come from the successful writer. Use complete per-page extraction, compact ID decisions, offered/original lookup, exact descriptions and deterministic rows." : "Correct only data adaptation and the URL conditional. Preserve every previous requirement, input, output, external operation, literal argument and destination. Add only the explicitly requested Browser cleanup requirement and existing finalizer. Use complete pages, compact ID decisions, strict offered/original lookup, exact observed blocks and deterministic structured rows." }, adapter, ct);
         Assert.Null(copy.ApprovedHash); Assert.Null(copy.Yaml); Assert.Null(copy.EditablePaths);
         Assert.Equal(state.ModelCalls, copy.ModelCalls); Assert.True(copy.ActiveMilliseconds >= state.ActiveMilliseconds);
         var close = catalog.Capabilities.Single(c => c.Method == "browser_close");
@@ -161,7 +162,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
         copy = await planner.AdvanceAsync(copy, new() { ExpectedRevision = copy.Revision }, adapter, ct);
         Assert.True(copy.Status == PlanningStatus.FinalReview, string.Join('\n', copy.Diagnostics));
         Assert.Equal(3, adapter.Requests.Count); Assert.Equal(state.ModelCalls + 3, copy.ModelCalls); Assert.Equal(0, copy.ReplanAttempts);
-        AssertDesignerBusinessPreserved(retained, new() { Requirements = copy.Requirements, Plan = copy.Plan });
+        AssertPreserved(new() { Requirements = copy.Requirements, Plan = copy.Plan });
         Assert.Equal(saved, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
         var restored = JsonSerializer.Deserialize(JsonSerializer.Serialize(copy, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
         restored = await planner.AdvanceAsync(restored, new() { ExpectedRevision = restored.Revision }, adapter, ct);

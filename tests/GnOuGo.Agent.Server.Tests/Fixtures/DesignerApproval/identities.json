@@ -1,0 +1,15 @@
+{
+  "prepare_request": "prepare_url",
+  "observe_search": "read_results",
+  "bind_search_status": "check_results",
+  "extract_candidates_by_page": "extract_choices",
+  "compact_first_ten": "choose",
+  "visit_requested_products": "visit",
+  "product_has_url": "available_product",
+  "observe_product": "read_product",
+  "extract_product_detail": "extract_record",
+  "null_url_detail": "missing_link",
+  "assemble_typed_rows": "rows",
+  "write_excel": "write",
+  "bind_writer_status": "checked_writer"
+}

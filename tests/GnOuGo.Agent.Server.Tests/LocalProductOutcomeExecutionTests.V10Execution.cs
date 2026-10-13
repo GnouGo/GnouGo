@@ -34,7 +34,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
     public Task V10CompositionExecutesOriginalObservationsAndExactWorkbook(string variant)
         => ExecuteTypedComposition(variant, "compact-bindings-v10");
 
-    private async Task ExecuteTypedComposition(string variant, string profile, bool designer = false)
+    private async Task ExecuteTypedComposition(string variant, string profile, bool designer = false, bool approval = false)
     {
         var ct = TestContext.Current.CancellationToken;
         var root = Directory.CreateTempSubdirectory("gnougo-v10-execution-").FullName;
@@ -55,7 +55,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
             {
                 Assert.Equal("observed lamps", context.Request.Query["q"].ToString());
                 body = "<h1>Observed catalogue</h1>" + string.Concat(Enumerable.Range(0, 24).Select(i => "<p>noise-" + i + new string('z', 80) + "</p>"));
-                if (variant != "empty") body += string.Concat(Enumerable.Range(0, 12).Select(i => "<a " + (designer && variant == "null_href" && i == 2 ? "data-unused='http://" : "href='http://") + context.Request.Host +
+                if (variant != "empty") body += string.Concat(Enumerable.Range(0, 12).Select(i => "<a " + ((designer || approval) && variant == "null_href" && i == 2 ? "data-unused='http://" : "href='http://") + context.Request.Host +
                     (variant == "redirected" ? "/relay?record=" + i + "&amp;source=" : "/entry/" + i + "?source=") + new string('u', 300) + "'>Observed choice " + i + "</a>"));
             }
             else if (variant == "redirected" && path == "/relay")
@@ -88,7 +88,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
             });
             var events = new List<JsonObject>();
             var observed = new LiveWorkflowEvaluation.ObservedMcp(transport, e => { events.Add(e); return Task.CompletedTask; });
-            var model = new V10Model(variant, site.Urls.Single(), designer);
+            var model = new V10Model(variant, site.Urls.Single(), designer, approval);
             var store = new GnOuGo.Flow.Persistence.EncryptedWorkflowRunStore(new GnOuGo.KeyVault.Core.Services.KeyVaultRecordStore(Path.Combine(root, "vault.db")), Path.Combine(root, "index.db"), Path.Combine(root, "owners"));
             var runMetrics = Environment.GetEnvironmentVariable("GNOU_GO_V13_METRICS") is { Length: > 0 } ? new RunMetrics(store) : null;
             var engine = new WorkflowEngine { McpClientFactory = observed, LLMClient = model, RunStore = (IWorkflowRunStore?)runMetrics ?? store,
@@ -98,13 +98,13 @@ public sealed partial class LocalProductOutcomeExecutionTests
             if (checkMetrics is not null) engine.Telemetry = checkMetrics;
             var runtime = new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask);
             var catalog = await RetainedCatalog(runtime, ct); catalog.Policy.RequireExternalConfirmation = false;
-            var proposal = designer ? DesignerCorrected(catalog, site.Urls.Single()) : V10Proposal(catalog, 4);
-            var writerTask = proposal.Plan!.Root.Tasks.Single(t => t.Id == (designer ? "write" : "save_products_xlsx"));
+            var proposal = approval ? ApprovalCorrected(catalog, site.Urls.Single()) : designer ? DesignerCorrected(catalog, site.Urls.Single()) : V10Proposal(catalog, 4);
+            var writerTask = proposal.Plan!.Root.Tasks.Single(t => t.Id == (designer || approval ? "write" : "save_products_xlsx"));
             if (variant == "denied") writerTask.Inputs.Single(i => i.Name == "filePath").Value.Text = "../outside.xlsx";
             var adapter = new ProposalRuntime(runtime, proposal);
-            var session = designer ? await DesignerRevision(catalog, runtime, proposal, ct, site.Urls.Single()) : await V10PlanningSession(catalog, runtime, adapter, false, ct, profile);
+            var session = approval && variant == "denied" ? await V10PlanningSession(catalog, runtime, adapter, false, ct, profile) : approval ? await DesignerRevision(catalog, runtime, proposal, ct, site.Urls.Single(), approval: true) : designer ? await DesignerRevision(catalog, runtime, proposal, ct, site.Urls.Single()) : await V10PlanningSession(catalog, runtime, adapter, false, ct, profile);
             Assert.True(session.Status == PlanningStatus.FinalReview, string.Join('\n', session.Diagnostics));
-            Assert.Equal(designer ? 4 : 1, session.ModelCalls); Assert.Equal(0, session.ReplanAttempts);
+            Assert.Equal(designer || approval && variant != "denied" ? 4 : 1, session.ModelCalls); Assert.Equal(0, session.ReplanAttempts);
             Assert.Empty(visits); Assert.Empty(model.Requests);
             session = await new HybridWorkflowPlanner().AdvanceAsync(session, new() { Kind = "approve", ExpectedRevision = session.Revision,
                 ArtifactHash = session.ComputeArtifactHash(), ReviewedRequirementIds = session.Requirements!.Outcomes.Select(o => o.Id).ToList() }, adapter, ct);
@@ -112,7 +112,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
             Assert.Equal(profile, session.Request.Options["compilation_profile"]?.ToString());
             var document = WorkflowParser.Parse(session.Yaml!);
             var generatedSteps = document.Workflows.Values.SelectMany(w => V11Steps(w.Steps.Concat(w.Finally ?? []))).ToArray();
-            if (designer) { Assert.Contains("expression_contracts:", session.Yaml!); Assert.DoesNotContain("checkedMapping(", session.Yaml!); }
+            if (designer || approval) { Assert.Contains("expression_contracts:", session.Yaml!); Assert.DoesNotContain("checkedMapping(", session.Yaml!); }
             else if (profile is "compact-bindings-v13" or "compact-bindings-v14" or "compact-bindings-v15")
             {
                 Assert.True(generatedSteps.Length < 61);
@@ -125,7 +125,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
             }
             var workflow = new WorkflowCompiler().Compile(document);
             var allocated = GC.GetTotalAllocatedBytes(); var timer = Stopwatch.StartNew();
-            var result = await engine.ExecuteAsync(workflow.Workflows[workflow.Entrypoint!], new JsonObject { [designer ? "article" : "query"] = "observed lamps" }, ct);
+            var result = await engine.ExecuteAsync(workflow.Workflows[workflow.Entrypoint!], new JsonObject { [designer || approval ? "article" : "query"] = "observed lamps" }, ct);
             allocated = GC.GetTotalAllocatedBytes() - allocated;
             var journal = (await store.ReadAsync("local", engine.Limits.RunId, ct))!;
             Assert.True(journal.FinalizationCompleted, $"{result.Error?.Code}: {result.Error?.Message}; {result.Error?.Details}");
@@ -171,15 +171,15 @@ public sealed partial class LocalProductOutcomeExecutionTests
             }
             Assert.True(result.Success, $"{result.Error?.Code}: {result.Error?.Message}; {result.Error?.Details}");
             var selected = variant == "empty" ? [] : variant == "one" ? [0] : variant == "repeated" ? Enumerable.Range(0, 9).Append(0).ToArray() : Enumerable.Range(0, 10).ToArray();
-            Assert.Equal(selected.Where(i => !(designer && variant == "null_href" && i == 2)).Select(i => "/entry/" + i), visits.Where(p => p.StartsWith("/entry/", StringComparison.Ordinal)));
+            Assert.Equal(selected.Where(i => !((designer || approval) && variant == "null_href" && i == 2)).Select(i => "/entry/" + i), visits.Where(p => p.StartsWith("/entry/", StringComparison.Ordinal)));
             if (variant == "redirected")
             {
                 Assert.Equal(10, visits.Count(p => p == "/relay"));
                 Assert.Equal(10, events.Count(e => e["tool"]?.ToString() == "browser_get_content" &&
                     e["arguments"]?["url"]?.ToString().Contains("/relay?record=", StringComparison.Ordinal) == true));
             }
-            Assert.Equal(path, result.Outputs![designer ? "filePath" : "productsFile"]!.ToString());
-            var products = designer ? null : result.Outputs["products"]!.AsArray(); if (products is not null) Assert.Equal(selected.Length, products.Count);
+            Assert.Equal(path, result.Outputs![designer || approval ? "filePath" : "productsFile"]!.ToString());
+            var products = designer || approval ? null : result.Outputs["products"]!.AsArray(); if (products is not null) Assert.Equal(selected.Length, products.Count);
             if (designer)
             {
                 Assert.Contains("/", visits); Assert.Contains("/search", visits); Assert.Equal("completed", result.Outputs["status"]!.ToString());
@@ -193,6 +193,17 @@ public sealed partial class LocalProductOutcomeExecutionTests
                 Assert.Equal(selected.Select(i => offeredOriginals[i]!["href"]?.ToString()).Where(url => url is not null),
                     events.Where(e => e["tool"]?.ToString() == "browser_get_content" && e["arguments"]?["url"]?.ToString().Contains("/entry/", StringComparison.Ordinal) == true).Select(e => e["arguments"]!["url"]!.ToString()));
             }
+            if (approval)
+            {
+                Assert.True(result.Outputs!["status"]!["saved"]!.GetValue<bool>());
+                Assert.True(result.Outputs["status"]!["success"]!.GetValue<bool>());
+                Assert.Null(result.Outputs["status"]!["dataRowCount"]);
+                Assert.DoesNotContain(events, e => e["tool"]?.ToString() == "browser_fill");
+                var originalLinks = events.First(e => e["tool"]?.ToString() == "browser_get_content")["result"]!["observationSnapshot"]!["pages"]!.AsArray()
+                    .SelectMany(p => p!["records"]!.AsArray()).Where(r => r!["tag"]?.ToString() == "a").ToArray();
+                Assert.Equal(selected.Select(i => originalLinks[i]!["href"]?.ToString()).Where(url => url is not null),
+                    events.Where(e => e["tool"]?.ToString() == "browser_get_content" && e["arguments"]?["url"]?.ToString().Contains("/entry/", StringComparison.Ordinal) == true).Select(e => e["arguments"]!["url"]!.ToString()));
+            }
             string[][] rows;
             using (var workbook = SpreadsheetDocument.Open(path, false))
             {
@@ -200,12 +211,12 @@ public sealed partial class LocalProductOutcomeExecutionTests
                 rows = sheet.Descendants<Row>().Select(r => r.Elements<Cell>().Select(c => c.InnerText).ToArray()).ToArray();
                 Assert.Empty(sheet.Descendants<CellFormula>());
             }
-            Assert.Equal(selected.Length + 1, rows.Length); Assert.Equal(designer ? ["Nom", "Description", "Prix", "Statut"] : new[] { "name", "description", "price", "error" }, rows[0]);
+            Assert.Equal(selected.Length + 1, rows.Length); Assert.Equal(approval ? ["Nom", "Description", "Prix"] : designer ? ["Nom", "Description", "Prix", "Statut"] : new[] { "name", "description", "price", "error" }, rows[0]);
             for (var row = 0; row < selected.Length; row++)
             {
                 var i = selected[row]; var description = variant == "missing" && i == 3 ? null : V10Description(i); var price = variant == "missing" && i == 2 ? null : V10Price(i);
-                var unavailable = designer && variant == "null_href" && i == 2;
-                Assert.Equal(unavailable ? new[] { "", "", "", "href null; page not visited" } :
+                var unavailable = (designer || approval) && variant == "null_href" && i == 2;
+                Assert.Equal(approval ? (unavailable ? ["", "", ""] : new[] { V10Name(i), description ?? "", price ?? "" }) : unavailable ? new[] { "", "", "", "href null; page not visited" } :
                     new[] { V10Name(i), description ?? "", price ?? "", designer ? "observed" : "" }, rows[row + 1]);
                 if (products is not null) {
                     Assert.Equal(V10Name(i), products[row]!["name"]!.ToString()); Assert.Equal(description, products[row]!["description"]?.ToString());
@@ -224,7 +235,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
             // independently proves exact nullable cells and header-only assembly.
             else Assert.False(oracle["passed"]!.GetValue<bool>());
             var mappings = journal.Invocations.Values.Where(i => i.StepType == "mapping.dynamic").ToArray();
-            Assert.Equal(selected.Length + (designer ? 2 : 1) - (designer && variant == "null_href" ? 1 : 0), mappings.Length);
+            Assert.Equal(selected.Length + (designer ? 2 : 1) - ((designer || approval) && variant == "null_href" ? 1 : 0), mappings.Length);
             foreach (var mapping in mappings)
                 Assert.Equal(mapping.ResolvedInput!["sources"]!["pages"]!.AsArray().Count, Assert.Single(mapping.Output!["value"]!.AsObject()).Value!.AsArray().Count);
             Assert.Equal(variant == "empty" ? 0 : 12, model.Offered!.Count);
@@ -287,7 +298,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
         }
     }
 
-    private sealed class V10Model(string variant, string origin, bool designer = false) : ILLMClient, ILLMCapabilityResolver
+    private sealed class V10Model(string variant, string origin, bool designer = false, bool approval = false) : ILLMClient, ILLMCapabilityResolver
     {
         internal List<LLMRequest> Requests { get; } = [];
         internal HashSet<string> SampledReferences { get; } = new(StringComparer.Ordinal);
@@ -311,7 +322,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
                 // all other mappings keep their existing fixture behavior.
                 controlMapping |= designer && data["examples"]!.AsArray().Any(e => e!["item"]!["records"]!.AsArray().Any(r => r!["tag"]?.ToString() == "input"));
                 var script = controlMapping ? "item.records.filter(r=>m.test(r.tag,'^input$')).map(r=>({reference:r.reference,observedText:r.text}))" : details ? "item.records.filter(r=>m.test(r.tag,'^(h1|p|price)$')).map(r=>({reference:r.reference,observedText:r.text,tag:r.tag}))" :
-                    (designer ? "item.records.filter(r=>m.test(r.tag,'^a$')).map(r=>({reference:r.reference,observedText:r.text}))" : "item.records.filter(r=>m.test(r.kind,'^link$')).map(r=>({reference:r.reference,observedText:r.text}))");
+                    (designer || approval ? "item.records.filter(r=>m.test(r.tag,'^a$')).map(r=>({reference:r.reference,observedText:r.text}))" : "item.records.filter(r=>m.test(r.kind,'^link$')).map(r=>({reference:r.reference,observedText:r.text}))");
                 return Task.FromResult(new LLMResponse { Json = new JsonObject { ["script"] = script } });
             }
             var input = RetainedModel.BusinessData(request)!;
