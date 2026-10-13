@@ -69,7 +69,7 @@ public sealed class PlanningClarificationBrowserTests
         builder.Configuration.Sources.Clear(); builder.Configuration.AddInMemoryCollection();
         builder.Configuration[WebHostDefaults.StaticWebAssetsKey] = Path.Combine(AppContext.BaseDirectory, "GnOuGo.Agent.Server.staticwebassets.runtime.json");
         builder.WebHost.UseStaticWebAssets(); builder.WebHost.ConfigureKestrel(o => o.Listen(System.Net.IPAddress.Loopback, 0));
-        builder.Logging.ClearProviders(); builder.Logging.AddConsole().SetMinimumLevel(LogLevel.Warning); builder.Services.AddRazorComponents().AddInteractiveServerComponents();
+        builder.Logging.ClearProviders(); builder.Logging.AddConsole().SetMinimumLevel(LogLevel.Warning); builder.Services.AddRazorComponents().AddInteractiveServerComponents(options => options.DetailedErrors = true);
         builder.Services.AddSingleton(new AppVersionInfo()); builder.Services.AddSingleton(service); builder.Services.AddHostedService(_ => service);
         builder.Services.AddHttpClient(); builder.Services.Configure<OpenTelemetrySettings>(s => s.TenantId = "planning-tests");
         builder.Services.Configure<TraceDebugSettings>(_ => { });

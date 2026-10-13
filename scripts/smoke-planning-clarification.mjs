@@ -70,11 +70,24 @@ try {
       assert.equal(await approval.isEnabled(), false, 'Requirements are never acknowledged automatically');
       const checks = support.getByRole('checkbox');
       assert.ok(await checks.count() > 0);
+      assert.match(await page.locator('#approval-review-status').innerText(), new RegExp(`0/${await checks.count()} reviewed`));
+      const reviewLink = page.getByRole('link', { name: 'Review business requirement checkboxes' });
+      await reviewLink.focus(); await page.keyboard.press('Enter');
+      await page.waitForFunction(() => document.activeElement?.id === 'business-requirements');
+      await page.keyboard.press('Tab');
+      assert.equal(await page.evaluate(() => document.activeElement?.type), 'checkbox');
+      assert.match(await page.locator('#approval-artifact-help').innerText(), /Saving does not execute/);
       for (let i = 0; i < await checks.count(); i++) {
         assert.equal(await checks.nth(i).isChecked(), false);
         await checks.nth(i).focus(); await page.keyboard.press('Space');
       }
       await page.waitForFunction(() => [...document.querySelectorAll('button')].some(b => b.textContent.trim() === 'Approve this revision and save' && !b.disabled));
+      assert.match(await page.locator('#approval-review-status').innerText(), new RegExp(`${await checks.count()}/${await checks.count()} reviewed`));
+      assert.equal(await page.locator('#approval-missing-requirements').count(), 0);
+      await checks.first().focus(); await page.keyboard.press('Space');
+      await page.waitForFunction(() => document.querySelector('#approve-and-save').disabled);
+      await page.keyboard.press('Space');
+      await page.waitForFunction(() => !document.querySelector('#approve-and-save').disabled);
       // Acknowledgments alone neither approve nor save. Reload requires explicit review again.
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'Requirements review fits mobile');
       await support.locator('summary').focus(); await page.keyboard.press('Enter');

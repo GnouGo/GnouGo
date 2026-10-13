@@ -2,7 +2,7 @@
 @if (Session.Requirements is { } requirements)
 {
     var accepted = System.Text.Json.JsonSerializer.Deserialize(requirements, PlanningJsonContext.Default.PlanningRequirements)!;
-    <details open><summary>Business requirements</summary>
+    <details open><summary id="business-requirements" tabindex="-1" @ref="_requirementsSummary">Business requirements</summary>
         <p>Review these requirements against the business tasks. Compilation does not prove business completeness or execution success.</p>
         <p>Check each requested action inside its iteration and condition. Partial observations with continuation are incomplete. Missing or uncertain coverage requires revision.</p>
         <ul>@foreach (var outcome in accepted.Outcomes)
@@ -85,6 +85,8 @@
     [Parameter] public bool Busy { get; set; }
     [Parameter] public EventCallback<IReadOnlyList<string>> Reviewed { get; set; }
     private readonly HashSet<string> _reviewed = new(StringComparer.Ordinal);
+    private ElementReference _requirementsSummary;
+    public ValueTask FocusRequirementsAsync() => _requirementsSummary.FocusAsync();
     private (string, long, string?) _key;
     protected override void OnParametersSet()
     {

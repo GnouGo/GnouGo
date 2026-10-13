@@ -306,10 +306,10 @@ public sealed partial class PlanningTraceUiTests : BunitContext
         await DisposeComponentsAsync();
     }
 
-    private void Configure(PlanningPersistenceTests.StoreFixture fixture, IWorkflowPlanner? planner = null)
+    private void Configure(PlanningPersistenceTests.StoreFixture fixture, IWorkflowPlanner? planner = null, GnOuGo.Flow.Core.Runtime.IMcpSession? agents = null)
     {
         JSInterop.Mode = JSRuntimeMode.Loose;
-        Services.AddSingleton(PlanningSessionLifecycleTests.Create(fixture, planner ?? new HybridWorkflowPlanner(), PlanningSessionLifecycleTests.AgentCatalog(),
+        Services.AddSingleton(PlanningSessionLifecycleTests.Create(fixture, planner ?? new HybridWorkflowPlanner(), agents ?? PlanningSessionLifecycleTests.AgentCatalog(),
             settings: new() { BackgroundProcessingEnabled = false }));
         Services.AddLogging();
         Services.AddHttpClient();

@@ -80,7 +80,7 @@
                 DecisionKey="@(_state.Request.SessionId + ":" + _state.Revision)" Busy="_busy" Select='selections => SubmitAsync("choose", selections: selections)'
                 Answer='answers => SubmitAsync("answer", answers: answers)' Cancel='() => SubmitAsync("cancel")' />
         }
-        <PlannerStageDetails Session="PlanningEndpoints.ToDto(_state)" ShowFindings="false" Busy="_busy"
+        <PlannerStageDetails @ref="_reviewDetails" Session="PlanningEndpoints.ToDto(_state)" ShowFindings="false" Busy="_busy"
             ReviewEnabled="@(!IsWorkflowSession && _state.Status == PlanningStatus.FinalReview)" Reviewed="ids => _reviewedRequirements = ids" />
         @if (_state.Diagnostics.Count > 0)
         {
@@ -108,7 +108,25 @@
             <p role="status">This session uses a retired planning contract. Enter an explicit revision to continue with business tasks. Its saved responses, artifacts and usage remain retained; a new artifact requires approval.</p>
         }
         @if (!IsWorkflowSession && !_state.RequiresPlanningRevision && _state.Status == PlanningStatus.FinalReview)
-        { <button class="btn btn-primary" disabled="@(_busy || _reviewedRequirements.Count != (_state.Requirements?.Outcomes.Count ?? 0))" @onclick="ApproveAndSaveAsync">Approve this revision and save</button> }
+        {
+            <section aria-label="Approve reviewed workflow">
+                <p id="approval-review-status" role="status" aria-live="polite">
+                    @(MissingRequirements.Any() ? "Review all business requirements before approving" : "All business requirements reviewed")
+                    — @ReviewedRequirementCount/@(_state.Requirements?.Outcomes.Count ?? 0) reviewed.
+                </p>
+                @if (MissingRequirements.Any())
+                {
+                    <ul id="approval-missing-requirements">
+                        @foreach (var requirement in MissingRequirements) { <li>@requirement.Description</li> }
+                    </ul>
+                }
+                <p><a href="@(Navigation.Uri.Split('#')[0] + "#business-requirements")" @onclick="FocusRequirementsAsync" @onclick:preventDefault>Review business requirement checkboxes</a></p>
+                <p id="approval-artifact-help">Approval applies to revision @_state.Revision and this artifact:
+                    <code class="text-break">@PlanningArtifactApproval.Hash(_state)</code>. Saving does not execute the workflow.</p>
+                <button id="approve-and-save" class="btn btn-primary" aria-describedby="approval-review-status approval-artifact-help"
+                    disabled="@(!CanApprove)" @onclick="ApproveAndSaveAsync">Approve this revision and save</button>
+            </section>
+        }
         @if (!IsWorkflowSession && _state.Status == PlanningStatus.Approved)
         { <button class="btn btn-primary" disabled="@_busy" @onclick='() => SubmitAsync("save")'>Save approved workflow</button> }
         @if (!IsWorkflowSession && _state.Status == PlanningStatus.Stopped && _state.PendingCall is not null)
@@ -186,6 +204,13 @@
     [SupplyParameterFromQuery(Name = "agent")] public string? AgentName { get; set; }
     private PlanningSession? _state;
     private IReadOnlyList<string> _reviewedRequirements = [];
+    private PlannerStageDetails? _reviewDetails;
+    private async Task FocusRequirementsAsync() { if (_reviewDetails is not null) await _reviewDetails.FocusRequirementsAsync(); }
+    private IEnumerable<PlanningRequirement> MissingRequirements => (_state?.Requirements?.Outcomes ?? [])
+        .Where(requirement => !_reviewedRequirements.Contains(requirement.Id, StringComparer.Ordinal));
+    private int ReviewedRequirementCount => (_state?.Requirements?.Outcomes.Count ?? 0) - MissingRequirements.Count();
+    private bool CanApprove => !_busy && !IsWorkflowSession && _state is { RequiresPlanningRevision: false, Status: PlanningStatus.FinalReview,
+        Requirements.Outcomes.Count: > 0 } && !MissingRequirements.Any();
     private readonly HashSet<string> _revisionPaths = new(StringComparer.Ordinal);
     private IEnumerable<IGrouping<string, PlanningDiagnostic>> RevisionFindings => (_state?.Diagnostics ?? [])
         .Where(d => d.Code == "REVISION_REQUIRED" && !string.IsNullOrWhiteSpace(d.Location) && d.Location != "/")
@@ -301,7 +326,7 @@
         catch (Exception ex) { _commandError = ex.Message; await RefreshAsync(); }
         finally { _busy = false; }
     }
-    private async Task ApproveAndSaveAsync() { await SubmitAsync("approve"); if (_state?.Status == PlanningStatus.Approved) await SubmitAsync("save"); }
+    private async Task ApproveAndSaveAsync() { if (!CanApprove) return; await SubmitAsync("approve"); if (_state?.Status == PlanningStatus.Approved) await SubmitAsync("save"); }
     private Task ConfigureAsync() => SubmitAsync("configure_generation", generation: new() { Reasoning = _reasoning, MaxInputTokensPerRequest = _inputLimit, MaxOutputTokens = _outputLimit });
     private static string Phase(string status) => status switch
     {
