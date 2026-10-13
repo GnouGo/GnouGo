@@ -8,6 +8,7 @@ Production candidate `322bbb0c` changes only `PlanningPrompt` and fresh `Plannin
 |---|---|
 | Planning owner suite, `-m:1 -warnaserror` | 1,327 passed, zero failures/skips; [log](validation/planning.log). Final wording also passed the ten-check focused group below and is covered by the final solution run. |
 | Final emitted requests, retained corpus, description generation/revision, discovery | Ten focused checks passed; [log](validation/focused.log). |
+| Strengthened extraction fixture | Four checks passed: extract an observed label from text, retain the full original block for deterministic writing, and exclude the full block/action URLs from interpretation. [Log](validation/label-example.log). |
 | Authored YAML / assertion semantics | Explicit inference executes only on its allowed path; cleanup remains effective. Opposite mandatory assertions fail sequentially and succeed on separate branches. Included in Planning suite. |
 | Private repairs / issued requests | Historical envelope fingerprints, scoped authority, pending-request recovery and committed receipts remain covered by the Planning suite. Fresh hints are absent from private repair schemas. |
 | Real local Browser/Document v15 scenarios | Eight passed: complete, repeated, missing, empty, unoffered, incomplete, denied, redirected. [Log](validation/local-workbooks.log), [independent ZIP/XML inspection](local-workbooks.json), [actual complete workbook](local/workbook-complete.xlsx). |
@@ -23,7 +24,7 @@ The local fixtures compare complete captures with their original records, check 
 
 ## Request cost and discovery
 
-The [actual fresh request, deterministic response and compiler output](example/) retain the executable counterpart of the worked guide. `each` is read from the emitted example; the fixture implements the complete typed composition. It reaches review with one deterministic proposal and zero repairs. Complete runtime execution uses one generic mapping and one compact decision; typed copying, original-ID reconnection and header/row/status assembly use zero inference. Twenty source pages are processed; the selection `[19,0,19]` preserves order and repetition. Incomplete acquisition stops with zero runtime model calls; unknown IDs stop before visits/writing. These are fake-adapter logical-call counts, not paid calls.
+The [actual fresh request, deterministic response and compiler output](example/) retain the executable counterpart of the worked guide. `each` is read from the emitted example; the fixture implements the complete typed composition. It reaches review with one deterministic proposal and zero repairs. The mapping parses a compact label from observed text; original full blocks remain separate. Complete runtime execution uses one generic mapping and one compact decision; typed copying, original-ID reconnection and header/row/status assembly use zero inference. Twenty source pages are processed; the selection `[19,0,19]` preserves order and repetition. Incomplete acquisition stops with zero runtime model calls; unknown IDs stop before visits/writing. These are fake-adapter logical-call counts, not paid calls.
 
 Same-context comparisons hold packed context and operation admission constant:
 

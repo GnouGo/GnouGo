@@ -53,10 +53,10 @@ public sealed class InitialCompositionTests(ITestOutputHelper output)
         var request = new PlanningPrompt(state).Request();
         const string eachExample = "{\"input\":\"pages\",\"output\":\"candidates\"}";
         Assert.Contains(eachExample, request.Prompt);
-        var extraction = new PlanTask { Id = "adapt", Kind = "transform", Mode = "extract", Objective = "Extract unchanged IDs and complete text per page",
+        var extraction = new PlanTask { Id = "adapt", Kind = "transform", Mode = "extract", Objective = "Extract the compact observed label before the tab, keeping unchanged IDs per page; retain original full text separately",
             Requires = Ref("observe", "ready"), Inputs = [new("pages", Ref("observe", "pages"))],
             Each = JsonSerializer.Deserialize(request.Prompt.Substring(request.Prompt.IndexOf(eachExample, StringComparison.Ordinal), eachExample.Length), PlanningJsonContext.Default.TaskExtractionEach),
-            ResultType = Obj(("candidates", ArrayOf(ArrayOf(Obj(("id", new()), ("text", new())))))) };
+            ResultType = Obj(("candidates", ArrayOf(ArrayOf(Obj(("id", new()), ("label", new())))))) };
         var offered = Flatten(Ref("adapt", "candidates")); var ids = Ref("choose", "ids");
         var plan = new TaskPlan { Root = new()
         {
@@ -96,7 +96,7 @@ public sealed class InitialCompositionTests(ITestOutputHelper output)
         Assert.Single(emitted); Assert.Equal(0, state.ReplanAttempts); Assert.Empty(calls); Assert.Empty(model.Requests);
         Assert.Equal("compact-bindings-v15", state.Request.Options["compilation_profile"]!.ToString());
         var result = await Execute(state.Yaml!, new(), engine);
-        Assert.Equal(variant == "complete", result.Success);
+        Assert.True(result.Success == (variant == "complete"), result.Error?.Message);
         Assert.Equal(originalBytes, original.ToJsonString()); Assert.Equal("release", calls[^1]);
         if (variant == "incomplete")
         {
@@ -107,7 +107,11 @@ public sealed class InitialCompositionTests(ITestOutputHelper output)
             Assert.Equal(2, model.Requests.Count); // One mapping and one decision; no copy/row/status inference.
             var decision = model.Requests[1];
             Assert.DoesNotContain("href", decision.Prompt); Assert.DoesNotContain("fixture.invalid", decision.Prompt);
-            Assert.Equal(20, ExampleModel.Business(decision)["candidates"]!.AsArray().Count);
+            Assert.DoesNotContain("second line", decision.Prompt);
+            var offeredCandidates = ExampleModel.Business(decision)["candidates"]!.AsArray();
+            Assert.Equal(20, offeredCandidates.Count);
+            for (var i = 0; i < offeredCandidates.Count; i++)
+                Assert.Equal("Whole observed block " + i, offeredCandidates[i]!["label"]!.ToString());
             if (variant == "unknown") { Assert.Equal(new[] { "read", "release" }, calls); Assert.Null(written); }
             else
             {
@@ -166,7 +170,7 @@ public sealed class InitialCompositionTests(ITestOutputHelper output)
         {
             Requests.Add(request);
             if (request.StructuredOutputSchema?["properties"]?["script"] is not null)
-                return Task.FromResult(new LLMResponse { Json = new JsonObject { ["script"] = "item.records.map(record=>({id:record.id,text:record.text}))" } });
+                return Task.FromResult(new LLMResponse { Json = new JsonObject { ["script"] = """item.records.map(record=>({id:record.id,label:m.text(record.text,"^[^\\t]+",0)}))""" } });
             Assert.NotNull(request.StructuredOutputSchema?["properties"]?["ids"]);
             var candidates = Business(request)["candidates"]!.AsArray();
             return Task.FromResult(new LLMResponse { Json = new JsonObject { ["ids"] = variant == "unknown" ? new JsonArray("not-offered")

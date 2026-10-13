@@ -1,0 +1,8 @@
+  GnOuGo.Flow.Core -> /private/tmp/gnougo-initial-composition-fixture/src/GnOuGo.Flow.Core/bin/Debug/net10.0/GnOuGo.Flow.Core.dll
+  GnOuGo.Flow.Planning -> /private/tmp/gnougo-initial-composition-fixture/src/GnOuGo.Flow.Planning/bin/Debug/net10.0/GnOuGo.Flow.Planning.dll
+  GnOuGo.Flow.Planning.Tests -> /private/tmp/gnougo-initial-composition-fixture/tests/GnOuGo.Flow.Planning.Tests/bin/Debug/net10.0/GnOuGo.Flow.Planning.Tests.dll
+Série de tests pour /private/tmp/gnougo-initial-composition-fixture/tests/GnOuGo.Flow.Planning.Tests/bin/Debug/net10.0/GnOuGo.Flow.Planning.Tests.dll (.NETCoreApp,Version=v10.0)
+Au total, 1 fichiers de test ont correspondu au modèle spécifié.
+Fichier de résultats : /tmp/initial-composition-validation/label-example-final/_a115vcCX1PXQ575D_2026-10-13_09_34_47_net10.0.trx
+
+Réussi!  - échec :     0, réussite :     4, ignorée(s) :     0, total :     4, durée : 1 s - GnOuGo.Flow.Planning.Tests.dll (net10.0)
