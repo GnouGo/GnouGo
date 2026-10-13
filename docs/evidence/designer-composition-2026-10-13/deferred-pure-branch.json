@@ -1,0 +1,125 @@
+{
+  "inputs": [
+    {
+      "name": "destination",
+      "type": {
+        "kind": "string",
+        "nullable": true
+      }
+    }
+  ],
+  "root": {
+    "tasks": [
+      {
+        "id": "route",
+        "objective": "Resolve the available data alternative.",
+        "kind": "conditional",
+        "condition": {
+          "kind": "predicate",
+          "predicate": "not_equal",
+          "items": [
+            {
+              "kind": "input",
+              "source": "destination"
+            },
+            {
+              "kind": "null"
+            }
+          ]
+        },
+        "body": {
+          "tasks": [
+            {
+              "id": "available",
+              "objective": "Retain a checked branch result.",
+              "kind": "value",
+              "requires": {
+                "kind": "predicate",
+                "predicate": "not_equal",
+                "items": [
+                  {
+                    "kind": "input",
+                    "source": "destination"
+                  },
+                  {
+                    "kind": "null"
+                  }
+                ]
+              },
+              "outputs": [
+                {
+                  "name": "record",
+                  "value": {
+                    "kind": "string",
+                    "text": "visited"
+                  }
+                }
+              ]
+            }
+          ],
+          "outputs": [
+            {
+              "name": "record",
+              "value": {
+                "kind": "output",
+                "source": "available",
+                "port": "record"
+              }
+            }
+          ]
+        },
+        "otherwise": {
+          "tasks": [
+            {
+              "id": "missing",
+              "objective": "Retain a checked branch result.",
+              "kind": "value",
+              "requires": {
+                "kind": "predicate",
+                "predicate": "equal",
+                "items": [
+                  {
+                    "kind": "input",
+                    "source": "destination"
+                  },
+                  {
+                    "kind": "null"
+                  }
+                ]
+              },
+              "outputs": [
+                {
+                  "name": "record",
+                  "value": {
+                    "kind": "string",
+                    "text": "absent"
+                  }
+                }
+              ]
+            }
+          ],
+          "outputs": [
+            {
+              "name": "record",
+              "value": {
+                "kind": "output",
+                "source": "missing",
+                "port": "record"
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "name": "record",
+        "value": {
+          "kind": "output",
+          "source": "route",
+          "port": "record"
+        }
+      }
+    ]
+  }
+}

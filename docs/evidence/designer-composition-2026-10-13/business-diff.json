@@ -1,0 +1,53 @@
+{
+  "previous_requirements_unchanged": true,
+  "added_requirements": [
+    {
+      "id": "cleanup_browser",
+      "description": "Close the browser through existing finalization; unknown completion continues to prohibit unsafe cleanup or replay."
+    }
+  ],
+  "public_inputs_unchanged": true,
+  "public_outputs_unchanged": true,
+  "external_operations": [
+    {
+      "task": "open_amazon_home",
+      "operation_unchanged": true,
+      "changed_input_bindings": [],
+      "literal_arguments_unchanged": true
+    },
+    {
+      "task": "submit_article_search",
+      "operation_unchanged": true,
+      "changed_input_bindings": [
+        "reference"
+      ],
+      "literal_arguments_unchanged": true
+    },
+    {
+      "task": "observe_search_results",
+      "operation_unchanged": true,
+      "changed_input_bindings": [],
+      "literal_arguments_unchanged": true
+    },
+    {
+      "task": "visit_product_page",
+      "operation_unchanged": true,
+      "changed_input_bindings": [],
+      "literal_arguments_unchanged": true
+    },
+    {
+      "task": "write_excel_file",
+      "operation_unchanged": true,
+      "changed_input_bindings": [
+        "rows"
+      ],
+      "literal_arguments_unchanged": true
+    }
+  ],
+  "added_operation": {
+    "task": "release",
+    "method": "browser_close",
+    "placement": "root.always"
+  },
+  "operation_relative_order_unchanged": true
+}

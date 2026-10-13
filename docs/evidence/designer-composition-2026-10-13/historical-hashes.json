@@ -1,0 +1,42 @@
+{
+  "session": "58975de9fd0e427a893d076dc5800862",
+  "read_via": "KeyVaultRecordStore public API",
+  "records": [
+    {
+      "record": "receipt-1",
+      "sha256": "0db1030e7b93c21b20db24b42e64a02253c669aa153604186f74675614824924"
+    },
+    {
+      "record": "receipt-2",
+      "sha256": "979af6823b1d9990480afc62e9dc1d89ea54aa6f7a6fd66728588f5b6f9f26c1"
+    },
+    {
+      "record": "request-1",
+      "sha256": "414fb44d05e286db94de8b74c2a07b081f3e0b448ee0a72d244baaa56d43708a"
+    },
+    {
+      "record": "request-2",
+      "sha256": "eddde0f620a325d548c22701586fa41a639416c82e952e62482ff342f5beb9a0"
+    },
+    {
+      "record": "session-0",
+      "sha256": "5a796cc2347125c77c2e0edcbcf99a6069efe7a7b74e1ef0b3af433dda8bf6e5"
+    },
+    {
+      "record": "session-1",
+      "sha256": "5f00fd68b33c390c80ca73b1d44102f75cf09fb3c320e235e577e8e7af695f40"
+    },
+    {
+      "record": "session-2",
+      "sha256": "a51ebd555186349afb25bc95b250d000bbcbc852dea47d0e8521b5736121d566"
+    },
+    {
+      "record": "session-3",
+      "sha256": "260b20994bb6ef32ef7eecf98ff72c3a1b867e0ec5516275d11fc000e6dddb85"
+    },
+    {
+      "record": "session-4",
+      "sha256": "e58f26ff73fbc4f0cbb999a1f70be411c6f2694b5055c077cd1522500e14128f"
+    }
+  ]
+}

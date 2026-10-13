@@ -1,0 +1,368 @@
+[
+  {
+    "variant": "complete",
+    "workbook": "workbook-complete.xlsx",
+    "sha256": "627851f03f16b6da3179c8ed064bc7810897bd5ca37e2096ff9ce31c9b242025",
+    "rows": [
+      [
+        "Nom",
+        "Description",
+        "Prix",
+        "Statut"
+      ],
+      [
+        "=Observed lamp 0",
+        "Complete observed block 0 — café; all supplied words retained.",
+        "10,00 €",
+        "observed"
+      ],
+      [
+        "=Observed lamp 1",
+        "Complete observed block 1 — café; all supplied words retained.",
+        "11,00 €",
+        "observed"
+      ],
+      [
+        "=Observed lamp 2",
+        "Complete observed block 2 — café; all supplied words retained.",
+        "12,00 €",
+        "observed"
+      ],
+      [
+        "=Observed lamp 0",
+        "Complete observed block 3 — café; all supplied words retained.",
+        "13,00 €",
+        "observed"
+      ],
+      [
+        "=Observed lamp 1",
+        "Complete observed block 4 — café; all supplied words retained.",
+        "14,00 €",
+        "observed"
+      ],
+      [
+        "=Observed lamp 2",
+        "Complete observed block 5 — café; all supplied words retained.",
+        "15,00 €",
+        "observed"
+      ],
+      [
+        "=Observed lamp 0",
+        "Complete observed block 6 — café; all supplied words retained.",
+        "16,00 €",
+        "observed"
+      ],
+      [
+        "=Observed lamp 1",
+        "Complete observed block 7 — café; all supplied words retained.",
+        "17,00 €",
+        "observed"
+      ],
+      [
+        "=Observed lamp 2",
+        "Complete observed block 8 — café; all supplied words retained.",
+        "18,00 €",
+        "observed"
+      ],
+      [
+        "=Observed lamp 0",
+        "Complete observed block 9 — café; all supplied words retained.",
+        "19,00 €",
+        "observed"
+      ]
+    ],
+    "visits": 10,
+    "observed_pages": 40,
+    "observed_records": 79,
+    "exact_cells": true,
+    "no_formulas": true,
+    "complete_snapshots": true,
+    "cleanup": true
+  },
+  {
+    "variant": "one",
+    "workbook": "workbook-one.xlsx",
+    "sha256": "ad2c134dcf8b8163b4e8e25e7502e5f4b1f31eb5c53bb1b95db8ee3010cbffb4",
+    "rows": [
+      [
+        "Nom",
+        "Description",
+        "Prix",
+        "Statut"
+      ],
+      [
+        "=Observed lamp 0",
+        "Complete observed block 0 — café; all supplied words retained.",
+        "10,00 €",
+        "observed"
+      ]
+    ],
+    "visits": 1,
+    "observed_pages": 22,
+    "observed_records": 43,
+    "exact_cells": true,
+    "no_formulas": true,
+    "complete_snapshots": true,
+    "cleanup": true
+  },
+  {
+    "variant": "empty",
+    "workbook": "workbook-empty.xlsx",
+    "sha256": "35de10554bf0f4238b500716e9d6dee073256ebe93809ea7e2622656b92347f0",
+    "rows": [
+      [
+        "Nom",
+        "Description",
+        "Prix",
+        "Statut"
+      ]
+    ],
+    "visits": 0,
+    "observed_pages": 14,
+    "observed_records": 27,
+    "exact_cells": true,
+    "no_formulas": true,
+    "complete_snapshots": true,
+    "cleanup": true
+  },
+  {
+    "variant": "null_href",
+    "workbook": "workbook-null_href.xlsx",
+    "sha256": "849ebcad3fffc7d61757aae937b7c6212a58e4a69905a9dbd393d9dddb581473",
+    "rows": [
+      [
+        "Nom",
+        "Description",
+        "Prix",
+        "Statut"
+      ],
+      [
+        "=Observed lamp 0",
+        "Complete observed block 0 — café; all supplied words retained.",
+        "10,00 €",
+        "observed"
+      ],
+      [
+        "=Observed lamp 1",
+        "Complete observed block 1 — café; all supplied words retained.",
+        "11,00 €",
+        "observed"
+      ],
+      [
+        "",
+        "",
+        "",
+        "href null; page not visited"
+      ],
+      [
+        "=Observed lamp 0",
+        "Complete observed block 3 — café; all supplied words retained.",
+        "13,00 €",
+        "observed"
+      ],
+      [
+        "=Observed lamp 1",
+        "Complete observed block 4 — café; all supplied words retained.",
+        "14,00 €",
+        "observed"
+      ],
+      [
+        "=Observed lamp 2",
+        "Complete observed block 5 — café; all supplied words retained.",
+        "15,00 €",
+        "observed"
+      ],
+      [
+        "=Observed lamp 0",
+        "Complete observed block 6 — café; all supplied words retained.",
+        "16,00 €",
+        "observed"
+      ],
+      [
+        "=Observed lamp 1",
+        "Complete observed block 7 — café; all supplied words retained.",
+        "17,00 €",
+        "observed"
+      ],
+      [
+        "=Observed lamp 2",
+        "Complete observed block 8 — café; all supplied words retained.",
+        "18,00 €",
+        "observed"
+      ],
+      [
+        "=Observed lamp 0",
+        "Complete observed block 9 — café; all supplied words retained.",
+        "19,00 €",
+        "observed"
+      ]
+    ],
+    "visits": 9,
+    "observed_pages": 38,
+    "observed_records": 75,
+    "exact_cells": true,
+    "no_formulas": true,
+    "complete_snapshots": true,
+    "cleanup": true
+  },
+  {
+    "variant": "missing",
+    "workbook": "workbook-missing.xlsx",
+    "sha256": "5d6051063f0fa81fd6bc7425d44fbdfafe5d0ab65ce758f09d24ef782a71c022",
+    "rows": [
+      [
+        "Nom",
+        "Description",
+        "Prix",
+        "Statut"
+      ],
+      [
+        "=Observed lamp 0",
+        "Complete observed block 0 — café; all supplied words retained.",
+        "10,00 €",
+        "observed"
+      ],
+      [
+        "=Observed lamp 1",
+        "Complete observed block 1 — café; all supplied words retained.",
+        "11,00 €",
+        "observed"
+      ],
+      [
+        "=Observed lamp 2",
+        "Complete observed block 2 — café; all supplied words retained.",
+        "",
+        "observed"
+      ],
+      [
+        "=Observed lamp 0",
+        "",
+        "13,00 €",
+        "observed"
+      ],
+      [
+        "=Observed lamp 1",
+        "Complete observed block 4 — café; all supplied words retained.",
+        "14,00 €",
+        "observed"
+      ],
+      [
+        "=Observed lamp 2",
+        "Complete observed block 5 — café; all supplied words retained.",
+        "15,00 €",
+        "observed"
+      ],
+      [
+        "=Observed lamp 0",
+        "Complete observed block 6 — café; all supplied words retained.",
+        "16,00 €",
+        "observed"
+      ],
+      [
+        "=Observed lamp 1",
+        "Complete observed block 7 — café; all supplied words retained.",
+        "17,00 €",
+        "observed"
+      ],
+      [
+        "=Observed lamp 2",
+        "Complete observed block 8 — café; all supplied words retained.",
+        "18,00 €",
+        "observed"
+      ],
+      [
+        "=Observed lamp 0",
+        "Complete observed block 9 — café; all supplied words retained.",
+        "19,00 €",
+        "observed"
+      ]
+    ],
+    "visits": 10,
+    "observed_pages": 40,
+    "observed_records": 77,
+    "exact_cells": true,
+    "no_formulas": true,
+    "complete_snapshots": true,
+    "cleanup": true
+  },
+  {
+    "variant": "repeated",
+    "workbook": "workbook-repeated.xlsx",
+    "sha256": "42c71a6ade1d299fa4d90620f159832d0277bb4ed09f4a7b55f0b39e016ce83a",
+    "rows": [
+      [
+        "Nom",
+        "Description",
+        "Prix",
+        "Statut"
+      ],
+      [
+        "=Observed lamp 0",
+        "Complete observed block 0 — café; all supplied words retained.",
+        "10,00 €",
+        "observed"
+      ],
+      [
+        "=Observed lamp 1",
+        "Complete observed block 1 — café; all supplied words retained.",
+        "11,00 €",
+        "observed"
+      ],
+      [
+        "=Observed lamp 2",
+        "Complete observed block 2 — café; all supplied words retained.",
+        "12,00 €",
+        "observed"
+      ],
+      [
+        "=Observed lamp 0",
+        "Complete observed block 3 — café; all supplied words retained.",
+        "13,00 €",
+        "observed"
+      ],
+      [
+        "=Observed lamp 1",
+        "Complete observed block 4 — café; all supplied words retained.",
+        "14,00 €",
+        "observed"
+      ],
+      [
+        "=Observed lamp 2",
+        "Complete observed block 5 — café; all supplied words retained.",
+        "15,00 €",
+        "observed"
+      ],
+      [
+        "=Observed lamp 0",
+        "Complete observed block 6 — café; all supplied words retained.",
+        "16,00 €",
+        "observed"
+      ],
+      [
+        "=Observed lamp 1",
+        "Complete observed block 7 — café; all supplied words retained.",
+        "17,00 €",
+        "observed"
+      ],
+      [
+        "=Observed lamp 2",
+        "Complete observed block 8 — café; all supplied words retained.",
+        "18,00 €",
+        "observed"
+      ],
+      [
+        "=Observed lamp 0",
+        "Complete observed block 0 — café; all supplied words retained.",
+        "10,00 €",
+        "observed"
+      ]
+    ],
+    "visits": 10,
+    "observed_pages": 40,
+    "observed_records": 79,
+    "exact_cells": true,
+    "no_formulas": true,
+    "complete_snapshots": true,
+    "cleanup": true
+  }
+]

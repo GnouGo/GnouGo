@@ -1,0 +1,18 @@
+{
+  "open_amazon_home": "open_catalogue",
+  "home_snapshot_status": "check_home",
+  "extract_search_control": "search_control",
+  "submit_article_search": "submit_search",
+  "observe_search_results": "read_results",
+  "results_snapshot_status": "check_results",
+  "extract_candidates_by_page": "extract_choices",
+  "compact_first_ten_ids": "choose",
+  "lookup_selected_originals": "resolve_choices",
+  "visit_and_extract_products": "visit",
+  "visit_product_page": "read_product",
+  "product_snapshot_status": "check_product",
+  "extract_product_record": "extract_record",
+  "record_for_null_href": "missing_link",
+  "build_excel_rows": "rows",
+  "write_excel_file": "write"
+}

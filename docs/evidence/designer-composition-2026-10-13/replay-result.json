@@ -1,0 +1,18 @@
+{
+  "original_revision": 4,
+  "original_calls": 2,
+  "result_revision": 8,
+  "result_calls": 5,
+  "result_status": "final_review",
+  "repair_count": 0,
+  "deterministic_requests": 3,
+  "external_calls": 0,
+  "paid_calls": 0,
+  "retained_sha256": "e58f26ff73fbc4f0cbb999a1f70be411c6f2694b5055c077cd1522500e14128f",
+  "result_artifact_hash": "e8167c9af428bb14554938135f4f7833f395e2ecb43f249f5f5a58847194c67d",
+  "active_ms_before": 85238.4252,
+  "active_ms_after": 98176.8388,
+  "max_calls_before": 8,
+  "max_calls_after": 8,
+  "restart_requests": 0
+}
