@@ -22,6 +22,10 @@ public sealed class DescriptionSelectionTests
         foreach (var request in runtime.Calls)
         {
             Assert.Contains("heading optional", request.Prompt);
+            Assert.Contains("lookup offered then originals", request.Prompt);
+            Assert.Contains("producer-declared success", request.Prompt);
+            Assert.Contains(PlanningSchemaReferences.Walk(request.StructuredOutputSchema!.AsObject(), "", 0),
+                entry => entry.Schema["description"]?.ToString().Contains("false fails, never skips", StringComparison.Ordinal) == true);
             Assert.Contains("several suitable!=absent", request.Prompt);
             Assert.Contains("absent/uncertain subject", request.Prompt);
             Assert.Contains("Verbatim;no controls", request.Prompt);

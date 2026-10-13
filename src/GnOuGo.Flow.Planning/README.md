@@ -70,7 +70,8 @@ array per source page (the inspected `observe.pages` port is a collection):
 ```json
 {
   "id": "adapt", "kind": "transform", "mode": "extract",
-  "objective": "Extract observed candidate identities and labels from every complete page",
+  "objective": "Extract unchanged IDs and complete text per page",
+  "requires": {"kind": "output", "source": "observe", "port": "ready"},
   "inputs": [{"name": "pages", "value": {"kind": "output", "source": "observe", "port": "pages"}}],
   "each": {"input": "pages", "output": "rows"},
   "resultType": {"kind": "object", "fields": [{"name": "rows", "type": {
@@ -81,6 +82,12 @@ array per source page (the inspected `observe.pages` port is a collection):
   }}]}
 }
 ```
+
+Here the declared producer `observe` exposes `ready: boolean` and complete `pages`.
+Assert its real success/availability/completeness fields before dependent work;
+`ready` is illustrative, not a conventional field or a compiler-inferred guarantee.
+A false `requires` fails the task. Route optional work with a conditional instead
+of sequential opposite assertions.
 
 Bind `flatten(output(adapt, rows))` directly to the compact decision input.
 Interpretation selects IDs only; use `lookup` against offered candidates, then
@@ -191,6 +198,8 @@ New requests reserve one proposal call and one repair when repair allowance rema
 Explicit string literals retain their `const` contract through named values and scope captures. Runtime inputs (including inputs with defaults) and transform results keep their declared types. Producer-supplied patterns and string bounds are checked by the existing generic validators and appear in input diagnostics; Flow does not interpret tool names or filesystem rules. Declare a fixed resource location once and reuse its business binding for creation and cleanup, including partial failure. This guidance does not prove resource ownership or automatically reconcile independent paths.
 
 Generation requests business tasks with concise objectives and direct consumer bindings. Inline typed copies, selections, assembly, flatten and lookup rather than naming forwarding tasks. Independent extraction can return one candidate array per complete page, consumed directly as `flatten(output(extract, rows))`; use a minimal pure foreach only for a necessary collection projection that existing bindings cannot express. Keep `requires` local and ordered, accepted contracts intact, and original action data separate from decision views. `value` remains supported for necessary independent materialization; `transform` is extraction or interpretation/conversion, never an adapter for typed copying. See [business composition examples](../../docs/compact-workflow-bindings.md#business-taskplans-not-a-task-per-binding). Nominal generation performs no post-generation task rewriting. Empty array literals retain their exact constant contract through compilation and graph validation; no element type is invented. The strict wire schema omits unused type fields, fixed transform-field declarations, host-owned choice selections and unused `explanation`. New wire schemas also omit `nullable: false`, `required: true` and absent `default: null`. Existing DTO defaults restore these representation constants only; `nullable: true`, optionality, array item types and actual defaults remain explicit. Every optional workflow/group input still requires a literal default. Representation compaction preserves TaskPlan semantics and planning storage format 10.
+
+Fresh full-proposal requests use one worked composition guide. Its executable counterpart in the linked example and regression fixture connects complete pages to compact decisions, offered/original lookup, requested actions and deterministic header/row assembly. Available capabilities do not justify additional actions. Schema compaction retains five concise hints on task assertions, conditional routing, transform mode, independent extraction and assembled result types in one shared task-declaration annotation. These annotations change presentation only. Private repair schemas and authority fingerprints retain their historical construction, and pending requests retain their original prompts and schemas. Explicit structural revisions receive the fresh full-proposal presentation without expanding repair authority.
 
 For requested descriptions, one complete observed features, characteristics or descriptive-text block can be relevant without a Description heading. Selection returns its unchanged offered ID, then strict lookup reconnects the original text. Multiple suitable blocks do not imply absence. Preserve permitted null when none is observable or its subject association is uncertain; never concatenate, paraphrase or shorten blocks or substitute interface controls. This guidance is sent on fresh generation and revision requests. It is not a semantic validator or an automatic repair trigger; deterministic fixtures and independent workbook checks cannot prove a future model's compliance.
 

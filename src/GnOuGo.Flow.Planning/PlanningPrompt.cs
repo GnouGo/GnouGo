@@ -36,17 +36,10 @@ internal sealed class PlanningPrompt(PlanningSession state)
         """;
 
     private const string Instructions = """
-        Unsearched!=absent;closed:plan:null.
-        Business tasks;typed copying=bindings,no LLM.
-        pages→each:{input:pages,output:rows};each.input=bound name.
-        resultType=assembled: T[]/item→array<array<T>>;interpret(flatten(output(extract,rows)))→IDs;scalar→array<T>.
-        Pure foreach:projections. Extract closed consumer fields;interpret no raw originals.
-        field:object;json:text;lookup:[records,IDs],port:key→array.
-        Exact nonblank IDs;requires:lookup offered!=null,then lookup originals/actions. Null ID→permitted null.
-        Rows:flatten([[headerRow],productRows])
-        dependsOn:local;capture ancestors;revisions:retain contracts.
-        choice:declared,not operation. requires:typed local assertion/short-circuit. present:completion!=success. Save before cleanup;paths!=files.
-        No extra work/filter/dedup/invention/sampling/truncation.
+        Preserve requested work/outputs; no extra actions, filtering or deduplication.
+        Bind typed copies, rows and status. Assert producer-declared success, availability and completeness before dependent work.
+        Example: observe complete bounded pages; extract each {"input":"pages","output":"candidates"}, compact Candidate[] per page; flatten for a compact ID decision; lookup offered then originals; requested visits; typed row exports.
+        Keep original action data. Copy IDs/text verbatim; branch on null; prepend supplied headers. Save before cleanup; return the writer's path.
         """ + "\n" + DescriptionInstructions;
 
     private const string RepairInstructions = """

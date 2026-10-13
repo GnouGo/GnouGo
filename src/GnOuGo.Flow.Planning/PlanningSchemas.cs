@@ -31,7 +31,7 @@ internal static class PlanningSchemas
         alternatives.Any(a => a?["type"]?.ToString() == "null");
 
     internal static JsonObject Proposal(PlanningSession state, IReadOnlySet<string>? admitted = null) => PlanningRepairPatch.Active(state)
-        ? PlanningRepairPatch.Schema(state, PlanningRepairPatch.Template(state)) : FullProposal(state, admitted: admitted);
+        ? PlanningRepairPatch.Schema(state, PlanningRepairPatch.Template(state)) : Compact(FullProposal(state, compact: false, admitted: admitted), compositionHints: true);
 
     internal static JsonObject FullProposal(PlanningSession state, bool compact = true, bool clarifications = true, IReadOnlySet<string>? admitted = null, bool scopeGuidance = true, bool flatten = true, bool lookup = true, bool arrayBounds = true)
     {
@@ -144,12 +144,16 @@ internal static class PlanningSchemas
         return compact ? Compact(root) : root;
     }
 
-    internal static JsonObject Compact(JsonObject root)
+    internal static JsonObject Compact(JsonObject root, bool compositionHints = false)
     {
         // Contract descriptions already accompany the admitted operations in the
         // prompt. Remove only schema annotations, never properties named description.
         foreach (var (_, schema) in PlanningSchemaReferences.Walk(root, "", 0)) schema.Remove("description");
         var definitions = root["$defs"]!.AsObject();
+        // Presentation only, on fresh full proposals. Repair templates/authorities
+        // use the historical path, including its exact annotation-free bytes.
+        if (compositionHints)
+            definitions["task"]!["description"] = "requires: false fails, never skips. condition: routes body/otherwise. mode: extract observations; interpret decisions. each.input: bound collection name. resultType: assembled candidates:Candidate[][] for Candidate[] per page.";
         ShareRepeatedSchemas(root, definitions);
         for (var pass = 0; pass < 3; pass++) { ShareRepeatedSchemas(root, definitions, 30); CollapseAliases(root, definitions); PruneDefinitions(root, definitions); }
         CompactDefinitionNames(root, definitions);
