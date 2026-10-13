@@ -15,6 +15,7 @@
     <a href="/">← Back to chat</a> · <a href="/runs">Workflow executions</a>
     <h1>Workflow designer</h1>
     @if (_error is not null) { <p role="alert" class="text-danger">@_error</p> }
+    @if (_commandError is not null) { <p role="alert" class="text-danger">@_commandError</p> }
     @if (_entry is { Available: false })
     {
         <h2>@_entry.Name</h2>
@@ -135,7 +136,32 @@
         }
         @if (!IsWorkflowSession && _state.Status is not (PlanningStatus.Saved or PlanningStatus.Saving or PlanningStatus.Cancelled))
         {
+            @if (RevisionFindings.Any())
+            {
+                <fieldset id="targeted-revision" disabled="@(!CanTargetRevision)">
+                    <legend>Revise diagnosed bindings</legend>
+                    <p>The findings identify invalid bindings. Automatic repair cannot change these assertions or other protected declarations. Select the exact locations you intend to revise.</p>
+                    @foreach (var finding in RevisionFindings)
+                    {
+                        <div @key="finding.Key">
+                            <label><input type="checkbox" checked="@_revisionPaths.Contains(finding.Key)"
+                                @onchange="e => SelectRevisionPath(finding.Key, e.Value is true)" />
+                                @RevisionLocationLabel(finding.Key): <code>@finding.Key</code>
+                            </label>
+                            @foreach (var diagnostic in finding.DistinctBy(d => d.Message))
+                            { <p>@diagnostic.Message</p> }
+                        </div>
+                    }
+                </fieldset>
+                <p id="targeted-revision-help">Revise selected bindings preserves accepted requirements and permits edits only at the selected paths. Submission may use the remaining planning allowance; it does not approve execution. Unsupported paths are rejected, never broadened automatically.</p>
+            }
             <label for="plan-revision">Requested changes</label><textarea id="plan-revision" class="form-control" rows="3" @bind="_revision"></textarea>
+            @if (RevisionFindings.Any())
+            {
+                <button id="revise-selected-bindings" class="btn btn-primary" aria-describedby="targeted-revision-help"
+                    disabled="@(!CanTargetRevision || _revisionPaths.Count == 0 || string.IsNullOrWhiteSpace(_revision))"
+                    @onclick="ReviseSelectedAsync">Revise selected bindings</button>
+            }
             <button class="btn btn-secondary" disabled="@(_busy || IsCallBudgetExhausted || string.IsNullOrWhiteSpace(_revision))" @onclick='() => SubmitAsync("revise", _revision)'>Revise workflow</button>
             <button class="btn btn-outline-secondary" disabled="@_busy" @onclick='() => SubmitAsync("cancel")'>Cancel planning</button>
             @if (!_state.RequiresPlanningRevision && (PlanningStatus.IsWaiting(_state.Status) || _state.Status == PlanningStatus.Stopped))
@@ -160,6 +186,15 @@
     [SupplyParameterFromQuery(Name = "agent")] public string? AgentName { get; set; }
     private PlanningSession? _state;
     private IReadOnlyList<string> _reviewedRequirements = [];
+    private readonly HashSet<string> _revisionPaths = new(StringComparer.Ordinal);
+    private IEnumerable<IGrouping<string, PlanningDiagnostic>> RevisionFindings => (_state?.Diagnostics ?? [])
+        .Where(d => d.Code == "REVISION_REQUIRED" && !string.IsNullOrWhiteSpace(d.Location) && d.Location != "/")
+        .GroupBy(d => d.Location, StringComparer.Ordinal);
+    private bool CanTargetRevision => !_busy && !IsWorkflowSession && !IsCallBudgetExhausted &&
+        _state is { IntentVersion: 2, RequiresPlanningRevision: false, Plan: not null, Catalog: not null,
+            Requirements: not null, PendingCall: null, PendingQuestions: null,
+            Status: PlanningStatus.Stopped or PlanningStatus.FinalReview or PlanningStatus.Approved } &&
+        _requestInspection?.State != "active";
     private int CallCeiling => _state is null ? 0 : Math.Min(_state.Request.MaxModelCalls,
         PlanningBudgetOptions.Parse(_state.Request.Options)?.MaxCalls ?? _state.Request.MaxModelCalls);
     private long CallsUsed => _state is null ? 0 : Math.Max(_state.ModelCalls, _state.Usage?.Calls ?? 0);
@@ -176,6 +211,7 @@
     private string _mode = PlanningMode.Interactive;
     private int _inputLimit, _outputLimit;
     private string? _error;
+    private string? _commandError;
     private bool _busy, _reviseExisting, _loading, _tracesOpen, _traceWorkflow;
     private string? _traceSessionId;
     private long _viewVersion;
@@ -184,7 +220,7 @@
     {
         _viewVersion++;
         CloseTraces(); _traceSessionId = null;
-        _state = null; _reviewedRequirements = []; _entry = null; _renderedRevision = -1; _error = null;
+        _state = null; _reviewedRequirements = []; _revisionPaths.Clear(); _entry = null; _renderedRevision = -1; _error = null; _commandError = null;
         if (Source is not (null or "workflow")) { _error = "Unknown planning session source."; return; }
         if (SessionId is null && !string.IsNullOrWhiteSpace(AgentName)) { _name = AgentName; _reviseExisting = true; }
         try { await RefreshAsync(); } catch (Exception ex) { _error = ex.Message; }
@@ -217,7 +253,9 @@
                 var dto = !workflow && inspection?.Session is { } inspected ? await Planning.ToDtoAsync(inspected, _lifetime.Token) : null;
                 if (version == _viewVersion)
                 {
-                    if (_state?.Revision != inspection?.Session?.Revision || _state?.ComputeArtifactHash() != inspection?.Session?.ComputeArtifactHash()) _reviewedRequirements = [];
+                    if (_state?.Request.SessionId != inspection?.Session?.Request.SessionId ||
+                        _state?.Revision != inspection?.Session?.Revision || _state?.ComputeArtifactHash() != inspection?.Session?.ComputeArtifactHash())
+                    { _reviewedRequirements = []; _revisionPaths.Clear(); }
                     _inspectionDto = dto; _requestInspection = dto?.RequestInspection; _state = inspection?.Session; _entry = inspection?.Entry; _error = null;
                 }
             }
@@ -244,14 +282,23 @@
         catch (Exception ex) { _error = ex.Message; }
         finally { _busy = false; }
     }
-    private async Task SubmitAsync(string kind, string? text = null, JsonObject? selections = null, PlanningGenerationOptions? generation = null, string? mode = null, IReadOnlyList<PlanningAnswerDto>? answers = null)
+    private static string RevisionLocationLabel(string path) => path.Split('/') is ["", "tasks", var task, ..] ? "Task " + task : "Binding";
+    private void SelectRevisionPath(string path, bool selected)
     {
-        if (_state is null || IsWorkflowSession) return;
-        _busy = true; _error = null;
+        if (!CanTargetRevision || !RevisionFindings.Any(f => f.Key == path)) return;
+        if (selected) _revisionPaths.Add(path); else _revisionPaths.Remove(path);
+    }
+    private Task ReviseSelectedAsync() => CanTargetRevision && _revisionPaths.Count > 0 && !string.IsNullOrWhiteSpace(_revision)
+        ? SubmitAsync("revise", _revision, editablePaths: _revisionPaths.Order(StringComparer.Ordinal).ToArray()) : Task.CompletedTask;
+    private async Task SubmitAsync(string kind, string? text = null, JsonObject? selections = null, PlanningGenerationOptions? generation = null, string? mode = null, IReadOnlyList<PlanningAnswerDto>? answers = null, IReadOnlyList<string>? editablePaths = null)
+    {
+        if (_state is null || IsWorkflowSession || _busy) return;
+        _busy = true; _error = null; _commandError = null;
         try { _state = await Planning.SubmitAsync(_state.Request.SessionId, new() { Kind = kind, ExpectedRevision = _state.Revision, RequestId = _requestInspection?.RequestId, ArtifactHash = PlanningArtifactApproval.Hash(_state), Text = text, Selections = selections, Generation = generation, Mode = mode,
+            EditablePaths = editablePaths?.ToList(), PreserveRequirements = editablePaths is null ? null : true,
             ReviewedRequirementIds = kind == "approve" ? _reviewedRequirements.ToList() : null,
-            Answers = answers?.Select(a => new PlanningAnswer(a.QuestionId, a.AlternativeId, a.Text)).ToList() }, _lifetime.Token); _reviewedRequirements = []; }
-        catch (Exception ex) { _error = ex.Message; await RefreshAsync(); }
+            Answers = answers?.Select(a => new PlanningAnswer(a.QuestionId, a.AlternativeId, a.Text)).ToList() }, _lifetime.Token); _reviewedRequirements = []; _revisionPaths.Clear(); }
+        catch (Exception ex) { _commandError = ex.Message; await RefreshAsync(); }
         finally { _busy = false; }
     }
     private async Task ApproveAndSaveAsync() { await SubmitAsync("approve"); if (_state?.Status == PlanningStatus.Approved) await SubmitAsync("save"); }
