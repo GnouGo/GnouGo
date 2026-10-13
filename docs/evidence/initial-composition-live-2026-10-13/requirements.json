@@ -1,0 +1,65 @@
+{
+  "summary": "Accept one public input named query, search Amazon.fr for that article, process at most the first 10 offered product results, visit each product page, extract observed name, description and price into an Excel workbook, save it at the requested workspace path, and close the browser even on failure.",
+  "outcomes": [
+    {
+      "id": "amazon_search_and_product_extraction",
+      "description": "Amazon.fr is opened with the supplied query, up to the first 10 product candidates are visited in offered order, and observed missing data or errors are kept explicit rather than invented."
+    },
+    {
+      "id": "xlsx_saved_to_requested_path",
+      "description": "An XLSX workbook is written to workflows/schema-portability-20261002/initialcomposition20261013a-amazon-1/products.xlsx with headers prepended and typed rows for product name, description, price, URL, status, and error."
+    },
+    {
+      "id": "browser_cleanup_and_truthful_status",
+      "description": "The browser is closed in all cases, and final status reports success only when the required workbook write succeeds."
+    }
+  ],
+  "inputs": [
+    {
+      "name": "query",
+      "type": {
+        "kind": "string",
+        "nullable": false,
+        "items": null,
+        "fields": []
+      },
+      "required": true,
+      "default": null
+    }
+  ],
+  "outputs": [
+    {
+      "name": "filePath",
+      "type": {
+        "kind": "string",
+        "nullable": true,
+        "items": null,
+        "fields": []
+      },
+      "required": false,
+      "default": null
+    },
+    {
+      "name": "status",
+      "type": {
+        "kind": "string",
+        "nullable": false,
+        "items": null,
+        "fields": []
+      },
+      "required": false,
+      "default": null
+    },
+    {
+      "name": "success",
+      "type": {
+        "kind": "boolean",
+        "nullable": false,
+        "items": null,
+        "fields": []
+      },
+      "required": false,
+      "default": null
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "unclosed_logical_requests": [],
+  "all_709_frozen_binary_files_match": true,
+  "protected_historical_records_unchanged": 13,
+  "old_request_permanently_closed": true,
+  "new_uncertain_attempt_reservation_retained": true,
+  "new_request_3_has_committed_receipt": true,
+  "cost_upper_bound_eur": "146.93545380972281628753448203",
+  "cost_ceiling_eur": 200,
+  "remaining_eur": "53.06454619027718371246551797",
+  "execution_workbook_exists": false,
+  "structural_revision_dispatched": false
+}

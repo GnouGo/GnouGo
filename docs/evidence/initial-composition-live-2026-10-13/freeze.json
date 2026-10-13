@@ -1,0 +1,23 @@
+{
+  "source": "bd83e46e61667ce846683cf01f34f3ea292c30ca",
+  "run": "initialcomposition20261013a-amazon-1",
+  "cohort": "initialcomposition20261013a",
+  "campaign": "schema-portability-20261002",
+  "compilation_profile": "compact-bindings-v15",
+  "max_products": 10,
+  "oracle_version": "observed-products-v2",
+  "configuration_hash": "0d9b3f888b2a23348f7efbdc00cc764d2e388e63c076dd350b945bc161539d31",
+  "files": {
+    "tests/GnOuGo.Agent.Planning.Benchmark/LiveWorkflowEvaluation.cs": "155a0b6a9217eed83096d68a08a9b2e073859d1855d8d12c4f482f5b393efa99",
+    "tests/GnOuGo.Agent.Planning.Benchmark/LiveWorkflowOracles.cs": "4671fe4cd74cd34167d282a3449686b900492257058fc6add39588bd08d7d514",
+    "tests/GnOuGo.Agent.Planning.Benchmark/KeyVaultBenchmarkModel.cs": "8537217f6d31f13c771c682b7b515c59501ec1f2ce2c4a57e405975e6b50fa24",
+    "tests/GnOuGo.Agent.Planning.Benchmark/BenchmarkCampaign.cs": "1dac4e3545c8e5203f3cb0fef03dff261a65bdca51e6ffadcf04d13673757f9a",
+    "src/GnOuGo.Flow.Planning/PlanningPrompt.cs": "984d08f9164b431e08cbc43b31032b625aa056a98000b302b04dc6a85e7c4dfe",
+    "src/GnOuGo.Flow.Planning/PlanningSchemas.cs": "74c84ce2385149003f0830307a6feffd4e7f01ac0777ab4dab7d29c1a2c18aed"
+  },
+  "binary_manifest_sha256": "294b09916f81ef19a472d533ba365da2d81fc2868d9b66de67a08042882fe0d9",
+  "status": "frozen; fresh planning started after authorized archival",
+  "artifact_approved": false,
+  "prompt_sha256": "9ef9b79a0bdc7c4b34ecf401f21d157df90894f379f71e3beda5903591c9194e",
+  "binary_files": 709
+}
