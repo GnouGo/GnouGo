@@ -8,7 +8,7 @@ All model adapters and hosts used for this correction are disposable and determi
 - All nine new local execution variants pass: complete, one, null URL, missing facts, repeated IDs, unknown ID, unoffered ID, incomplete acquisition and denied writing. Eight passed in the first integrated run; the corrected negative-path fixture passed separately. The initial failed harness attempts remain in `failed-attempts/`.
 - 116 existing Planning targeted-revision, approval and recovery regressions pass with `-warnaserror`.
 - Existing approval/save/restart lifecycle checks pass in the 52 successful checks of the intermediate UI run. Its remaining failure was the keyboard focus behavior, subsequently corrected and verified by the actual browser test.
-- Agent.Server frontend production build passes. The package has no separate frontend unit-test, lint or type-check scripts; Razor interaction tests and the real browser smoke cover the affected UI.
+- Agent.Server frontend production build passes. A final real-browser rerun also verifies that every character of the approval hash remains visible on mobile. The package has no separate frontend unit-test, lint or type-check scripts; Razor interaction tests and the real browser smoke cover the affected UI.
 - Exact saved-state continuation validates both receipts under their original schemas, reaches review with three deterministic responses, reproduces the new artifact exactly, and requests nothing after review restart. Original storage hashes remain unchanged.
 
 The full serial solution and final candidate CI results are reported in the final PR report; pending checks are not counted as passed here.

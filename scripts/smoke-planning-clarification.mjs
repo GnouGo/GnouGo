@@ -90,6 +90,10 @@ try {
       await page.waitForFunction(() => !document.querySelector('#approve-and-save').disabled);
       // Acknowledgments alone neither approve nor save. Reload requires explicit review again.
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'Requirements review fits mobile');
+      assert.ok(await page.locator('#approval-artifact-help code').evaluate(code => {
+        const range = document.createRange(); range.selectNodeContents(code);
+        return [...range.getClientRects()].every(rect => rect.left >= 0 && rect.right <= window.innerWidth);
+      }), 'The complete approval hash stays visible on mobile');
       await support.locator('summary').focus(); await page.keyboard.press('Enter');
       assert.equal(await support.getAttribute('open'), null);
       await page.keyboard.press('Enter');
