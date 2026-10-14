@@ -1,0 +1,60 @@
+{
+  "run": "a62f22a7673158b16d209abdbd25ed57",
+  "journal_head_unchanged": true,
+  "provider_calls": 0,
+  "mcp_calls": 0,
+  "measurements": [
+    {
+      "kind": "original_contract_admission",
+      "host_limit": 12000,
+      "offline_adapter_calls": 0,
+      "admission_passed": false,
+      "error": "CONTRACT_UNSATISFIED",
+      "details": {
+        "classification": "mapping_request_admission",
+        "reason": "no_initial_example_fits",
+        "dispatch_status": "not_started",
+        "measurement": "serialized_utf8_bytes_plus_framing",
+        "host_limit": 12000,
+        "model_limit": 96000,
+        "effective_limit": 12000,
+        "limiting_factor": "host",
+        "framing_allowance": 4096,
+        "empty_request_bound": 10446,
+        "attempted_request_bound": 15996,
+        "smallest_complete_example_request_bound": 15996,
+        "source_items": 55,
+        "examined_items": 55,
+        "source_index": null,
+        "failed_workflow": "main",
+        "failed_step_id": "mapping",
+        "failed_step_type": "mapping.dynamic",
+        "execution_phase": "step"
+      },
+      "serialized_request_bound": null
+    },
+    {
+      "kind": "original_contract_admission",
+      "host_limit": 96000,
+      "offline_adapter_calls": 1,
+      "admission_passed": true,
+      "error": "OFFLINE_ADMISSION_CAPTURE",
+      "details": {
+        "failed_workflow": "main",
+        "failed_step_id": "mapping",
+        "failed_step_type": "mapping.dynamic",
+        "execution_phase": "step"
+      },
+      "serialized_request_bound": 78001
+    },
+    {
+      "kind": "separate_reference_coverage_fixture",
+      "success": true,
+      "exact_all_references": true,
+      "pages": 55,
+      "records": 1649,
+      "offline_adapter_calls": 1,
+      "error": null
+    }
+  ]
+}

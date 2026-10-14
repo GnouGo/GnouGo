@@ -1,0 +1,68 @@
+{
+  "run": "a62f22a7673158b16d209abdbd25ed57",
+  "status": "failed",
+  "revision": 22,
+  "max_mapping_input": null,
+  "head_sha256": "7854f24144708252fccf56afdc8f352e378c3a577e191d711637cce5b5d2428e",
+  "invocations": [
+    {
+      "step": "/workflow/main/step/n_45947512fc71c0d2",
+      "type": "mapping.dynamic",
+      "status": "failed",
+      "dispatched": "2026-10-14T07:47:10.582756+00:00",
+      "completed": "2026-10-14T07:47:10.770275+00:00",
+      "error": "CONTRACT_UNSATISFIED"
+    },
+    {
+      "step": "/workflow/main/step/n_988a63af77d62705",
+      "type": "llm.call",
+      "status": "completed",
+      "dispatched": "2026-10-14T07:46:57.02708+00:00",
+      "completed": "2026-10-14T07:46:59.713053+00:00",
+      "error": null
+    },
+    {
+      "step": "/workflow/main/step/n_62737a68773ca42a",
+      "type": "mcp.call",
+      "status": "completed",
+      "dispatched": "2026-10-14T07:46:59.729726+00:00",
+      "completed": "2026-10-14T07:47:10.426571+00:00",
+      "error": null
+    },
+    {
+      "step": "/workflow/main/step/n_fc865d9187536d80",
+      "type": "template.render",
+      "status": "completed",
+      "dispatched": "2026-10-14T07:46:56.996256+00:00",
+      "completed": "2026-10-14T07:46:57.005577+00:00",
+      "error": null
+    },
+    {
+      "step": "/workflow/main/step/n_7bb2307399131e4f",
+      "type": "set",
+      "status": "completed",
+      "dispatched": "2026-10-14T07:46:56.935996+00:00",
+      "completed": "2026-10-14T07:46:56.970364+00:00",
+      "error": null
+    }
+  ],
+  "pages": 55,
+  "first_page_keys": [
+    "id",
+    "records",
+    "nextCursor",
+    "captureTruncated"
+  ],
+  "first_record_keys": [
+    "kind",
+    "tag",
+    "selector",
+    "group",
+    "text",
+    "href",
+    "role",
+    "reference",
+    "actions"
+  ],
+  "workflow_sha256": "9bad4b3cc79a4c340ca5e365f4f01be3160e5c7f8ec3865121b9903c927cb5ed"
+}
