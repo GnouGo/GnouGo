@@ -11,6 +11,7 @@ public sealed class AutomaticCorrectionTests
     [InlineData("new_operation")]
     [InlineData("operation_branch")]
     [InlineData("independent_task")]
+    [InlineData("operation_dependency")]
     public async Task RegenerationCannotChangeIndependentWorkOrExecutionBoundaries(string defect)
     {
         var (runtime, state) = await MalformedGuardRevisionTests.Fixture("observe", "consume", "ready", "ready},{");
@@ -26,6 +27,7 @@ public sealed class AutomaticCorrectionTests
             var operation = runtime.Proposal.Plan.Root.Tasks[0]; runtime.Proposal.Plan.Root.Tasks.RemoveAt(0);
             runtime.Proposal.Plan.Root.Tasks.Insert(0, new() { Id = "route", Kind = "conditional", Objective = "Move the existing operation into a branch", Condition = new() { Kind = "boolean", Boolean = true }, Body = new() { Tasks = [operation] }, Otherwise = new() });
         }
+        else if (defect == "operation_dependency") runtime.Proposal.Plan.Root.Tasks[0].DependsOn.Add("unrelated");
         else runtime.Proposal.Plan.Root.Tasks[^1].Outputs[0].Value.Text = "changed";
         state = await PlannerFixture.RunAsync(runtime, state);
         Assert.Equal(PlanningStatus.Stopped, state.Status); Assert.Null(state.Yaml);

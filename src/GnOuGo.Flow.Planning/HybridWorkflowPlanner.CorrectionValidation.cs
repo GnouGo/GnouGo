@@ -41,6 +41,8 @@ public sealed partial class HybridWorkflowPlanner
                 !(state.RevisionScope.Contains(path + "/operation") && state.Catalog!.Capabilities.All(c => TaskOperations.Describe(c).Id != original.Operation)))
             { RejectChange(path, "the requested operation"); continue; }
             if (before.Phase(original.Id) != after.Phase(original.Id)) RejectChange(path, "normal versus cleanup execution");
+            if (!original.DependsOn.SequenceEqual(revised.Task.DependsOn, StringComparer.Ordinal))
+                RejectChange(path + "/dependsOn", "the operation's scheduling dependencies");
             if (!Boundaries(before.Tasks[original.Id].Scope).SequenceEqual(Boundaries(revised.Scope), StringComparer.Ordinal))
                 RejectChange(path, "the operation's branch, loop and scope boundaries");
             if (!JsonNode.DeepEquals(JsonSerializer.SerializeToNode(original.Inputs, PlanningJsonContext.Default.ListTaskOutput),
