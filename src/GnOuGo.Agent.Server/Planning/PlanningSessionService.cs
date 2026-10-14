@@ -88,13 +88,25 @@ public sealed partial class PlanningSessionService(
     private PlanningSessionInspection ReadWorkflowSession(KeyVaultRecordValue record)
         => PlanningSessionHistory.Read(record.Value, Tenant, record.Key, true, record.UpdatedAt);
 
-    public async Task<PlanningSession> StartAsync(string name, string prompt, bool reviseExisting, CancellationToken ct, JsonObject? failureEvidence = null, string mode = PlanningMode.Interactive)
+    internal bool AutomaticCorrectionEnabled => settings.Value.AutomaticCorrectionEnabled;
+
+    public Task<PlanningSession> StartAsync(string name, string prompt, bool reviseExisting, CancellationToken ct, JsonObject? failureEvidence = null, string mode = PlanningMode.Interactive)
+        => StartCoreAsync(name, prompt, reviseExisting, ct, failureEvidence, mode, null, null);
+
+    internal Task<PlanningSession> StartFailureRevisionAsync(string name, string prompt, string runId, string artifactHash,
+        JsonObject evidence, string mode, CancellationToken ct)
+        => StartCoreAsync(name, prompt, true, ct, evidence, mode, runId, artifactHash);
+
+    private async Task<PlanningSession> StartCoreAsync(string name, string prompt, bool reviseExisting, CancellationToken ct,
+        JsonObject? failureEvidence, string mode, string? runId, string? artifactHash)
     {
         PlanningMode.Validate(mode);
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentException.ThrowIfNullOrWhiteSpace(prompt);
         name = name.Trim();
         if (name is "." or ".." || name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0 || name.Contains('/') || name.Contains('\\')) throw new ArgumentException("The agent name is invalid.");
+        var automaticId = runId is null ? null : PlanningGraphCompiler.Fingerprint(new JsonArray(Tenant, runId, artifactHash).ToJsonString())[..32];
+        if (automaticId is not null && await store.LoadAsync(Tenant, automaticId, ct) is { } retained) return retained;
         await using var runtime = await runtimeFactory.CreateAsync(ct);
         var provider = runtime.Options.DefaultProvider;
         var model = runtime.Options.DefaultModel;
@@ -107,6 +119,8 @@ public sealed partial class PlanningSessionService(
         if (!reviseExisting && found) throw new InvalidOperationException("An agent with that name already exists.");
         if (!found && response?["error_code"]?.GetValue<string>() != "NOT_FOUND") throw new InvalidOperationException("Agent name availability could not be established.");
         var original = response?["agent"]?["workflow"]?.GetValue<string>();
+        if (automaticId is not null && (original is null || PlanningGraphCompiler.Fingerprint(original) != artifactHash))
+            throw new InvalidOperationException("The saved workflow changed after the failed execution. Review its current revision explicitly.");
         var options = CreateOptions(provider, model);
         if (reviseExisting)
             options["host_save"] = new JsonObject { ["agent_id"] = response!["agent"]!["id"]!.DeepClone(), ["original_hash"] = PlanningGraphCompiler.Fingerprint(original!) };
@@ -127,16 +141,38 @@ public sealed partial class PlanningSessionService(
             },
             UpdatedAtUtc = DateTimeOffset.UtcNow
         };
+        if (automaticId is not null)
+        {
+            state.Request.SessionId = automaticId;
+            state.Request.Options["failed_execution"] = new JsonObject { ["run"] = runId, ["artifact"] = artifactHash };
+        }
         if (original is not null)
         {
-            var saved = (await store.ListAsync(Tenant, ct)).Where(s => s.Plan is not null && s.SavedAgentId == response!["agent"]!["id"]!.ToString())
+            var saved = (await store.ListAsync(Tenant, ct)).Where(s => s.Plan is not null && s.Yaml == original && s.SavedAgentId == response!["agent"]!["id"]!.ToString())
                 .OrderByDescending(s => s.UpdatedAtUtc).FirstOrDefault();
             state.Request.Baseline = saved?.Plan;
+            if (failureEvidence is not null && saved?.Requirements is not null)
+            {
+                state.Requirements = saved.Requirements;
+                state.Request.Policy = saved.Request.Policy;
+                state.Catalog = saved.Catalog;
+                state.Discovery = saved.Discovery;
+                state.IntentVersion = saved.IntentVersion;
+            }
             if (saved is null) state.Request.RevisionContext = "No saved TaskPlan exists. Regenerate from the newly stated requirements and require renewed approval; authored YAML is not imported.";
+            if (automaticId is not null && (saved?.Plan is null || saved.Requirements is null))
+            {
+                state.Status = PlanningStatus.Clarification;
+                state.PendingQuestions = [new("preserve_authored_intent", "Describe the intended behavior and outputs to preserve when revising this authored workflow. The original YAML will remain unchanged.", [], null)];
+            }
         }
         PlanningGenerationPolicy.Validate(state.Request.Generation);
-        if (!await store.TrySaveAsync(state, expectedRevision: null, ct)) throw new PlanningConflictException("The planning session already exists.");
-        _queue.Writer.TryWrite(state.Request.SessionId);
+        if (!await store.TrySaveAsync(state, expectedRevision: null, ct))
+        {
+            if (automaticId is not null && await store.LoadAsync(Tenant, automaticId, ct) is { } winner) return winner;
+            throw new PlanningConflictException("The planning session already exists.");
+        }
+        if (!PlanningStatus.IsWaiting(state.Status)) _queue.Writer.TryWrite(state.Request.SessionId);
         return state;
     }
 
@@ -422,6 +458,7 @@ public sealed partial class PlanningSessionService(
     private JsonObject CreateOptions(string provider, string model) => new()
     {
         ["generator"] = new JsonObject { ["provider"] = provider, ["model"] = model },
+        ["automatic_correction"] = settings.Value.AutomaticCorrectionEnabled,
         ["llm_budget"] = new JsonObject { ["max_calls"] = settings.Value.MaxModelCalls, ["max_total_tokens"] = settings.Value.MaxTotalTokens,
             ["max_elapsed_ms"] = settings.Value.MaxActiveMilliseconds,
             ["max_estimated_cost"] = new JsonObject { ["amount"] = budgetSettings.Value.Amount, ["currency"] = budgetSettings.Value.Currency } }

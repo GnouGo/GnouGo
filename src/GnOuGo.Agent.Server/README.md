@@ -40,6 +40,31 @@ Trace lookup requires an exact planning-session attribute and the current tenant
 
 `TypedWorkflowPlanning` configures `MaxReplanAttempts` (2), `MaxModelCalls` (8), `Reasoning` (`medium`), request token ceilings (24,000 input / 32,768 output), cumulative token/active-time limits and `DatabasePath`. These defaults apply to new Designer sessions, including the Desktop host. Explicit configuration overrides take precedence; existing sessions retain their saved generation settings. Standalone Flow and authored `workflow.plan` defaults remain 12,000 input / 8,192 output tokens. Designer shows saved effective settings, without a separate UI default. Two host sessions may progress concurrently; workflow runtime parallelism remains independent.
 
+`TypedWorkflowPlanning.AutomaticCorrectionEnabled` defaults to `true` for new
+Agent.Server sessions. Its value is captured in session options; omission in a
+historical session retains historical behavior. Set it to `false` to keep manual
+revision offers. It never restarts an old stopped session.
+
+Before approval, diagnosed defects use existing repair slots first. Protected
+declarations use a separately scoped implementation revision; unresolved or
+structural defects use at most one complete proposal regeneration. All actions
+consume the same `MaxReplanAttempts`, model calls, tokens and active time. The
+default two correction attempts allow one targeted attempt and one escalation.
+No-progress candidates, weakened assertions, altered public contracts, unrelated
+edits, reordered operations or uncertain preservation stop with findings.
+Ordinary patches still cannot edit `requires`. New revision authority never
+changes an issued request. Pending receipts are settled against their original
+schema and authority, including at an exhausted call limit.
+
+A recognized composition failure in an executed saved TaskPlan creates one
+unapproved draft per tenant/run/artifact. It restores accepted requirements and
+supplies bounded machine diagnostics, without observations or scripts. The saved
+workflow and its execution remain untouched; approval and save are still explicit.
+Budget, admission, permission, transport, uncertain completion and unknown errors
+never trigger a corrective model call. Authored YAML without a saved TaskPlan and
+accepted requirements pauses for clarification in Designer; it is not imported.
+Existing planning spans expose the correction action and outcome without payloads.
+
 `MODEL_INPUT_LIMIT` means the conservative estimate for the complete prompt and response schema exceeds the saved per-request input allowance. Discovery can grow this request even for a short user prompt. The stop occurs before dispatch, without consuming another call or repair. With no pending request and remaining call allowance, **Generation settings** opens automatically: increase **Input token limit** and explicitly select **Apply settings and resume planning** to continue the same session. Discovery receipts, request history and cumulative budgets are retained. The resumed request may incur model usage; later requests must still fit their allowance and cumulative limits. No limit is raised and no session is resumed merely by viewing the page or restarting the host.
 
 `LLM_BUDGET_EXCEEDED` with a model-call message means the cumulative call ceiling has been reached, not a per-request token limit. Designer shows **calls used / ceiling**; increasing input/output tokens cannot resume that session. The UI disables ineffective settings/revision actions and the server rejects them without changing the saved revision. Identical findings are shown once, while historical records remain intact. Create a new session after deploying the fix. New requests reserve one proposal and one repair when available before spending further calls on discovery (six discovery calls at the default eight-call/two-repair limits); additional repairs are opportunistic. Optional detailed contracts use at most 90% of the saved input allowance; insufficient capabilities stop explicitly without approving a workflow.
@@ -607,12 +632,11 @@ as `x-mcp-header`; the shared cache cannot replace it. Consequently request
 fields such as GitHub `owner` and `repo` continue to be emitted as
 `Mcp-Param-*` headers after a runtime has been rebuilt.
 
-When an agent run offers **Improve**, the failure details carry the deepest
-failing local workflow and step. The revision planner receives
-that location: it may update the failed step and existing direct consumers,
-but it cannot remove or rename sub-workflows, `workflow.call` edges, steps,
-branches, skills, or public contracts. Any broad rewrite is rejected and
-reprompted up to three times before the original workflow is left untouched.
+Runtime composition failures carry the deepest failing workflow/step and bounded
+mapping diagnostics into the separate planning draft described above. Automatic
+correction never resumes execution. When automatic correction is disabled, the
+existing explicit **Improve** interaction remains available for workflow defects;
+runtime-budget errors still explain the configuration instead.
 
 - Service: `WorkflowEngine`
 - Default sliding expiration: `3600` seconds

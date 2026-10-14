@@ -34,7 +34,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
     public Task V10CompositionExecutesOriginalObservationsAndExactWorkbook(string variant)
         => ExecuteTypedComposition(variant, "compact-bindings-v10");
 
-    private async Task ExecuteTypedComposition(string variant, string profile, bool designer = false, bool approval = false, bool viaHost = false, bool producerStatus = false, bool guards = false)
+    private async Task ExecuteTypedComposition(string variant, string profile, bool designer = false, bool approval = false, bool viaHost = false, bool producerStatus = false, bool guards = false, string? automaticCorrection = null)
     {
         var ct = TestContext.Current.CancellationToken;
         var root = Directory.CreateTempSubdirectory("gnougo-v10-execution-").FullName;
@@ -103,9 +103,10 @@ public sealed partial class LocalProductOutcomeExecutionTests
             var writerTask = proposal.Plan!.Root.Tasks.Single(t => t.Id == (designer || approval ? "write" : "save_products_xlsx"));
             if (variant == "denied") writerTask.Inputs.Single(i => i.Name == "filePath").Value.Text = "../outside.xlsx";
             var adapter = new ProposalRuntime(runtime, proposal);
-            var session = guards && variant != "denied" ? await GuardRevision(catalog, runtime, proposal, ct) : approval && variant == "denied" ? await V10PlanningSession(catalog, runtime, adapter, false, ct, profile) : approval ? await DesignerRevision(catalog, runtime, proposal, ct, site.Urls.Single(), approval: true) : designer ? await DesignerRevision(catalog, runtime, proposal, ct, site.Urls.Single()) : await V10PlanningSession(catalog, runtime, adapter, false, ct, profile);
+            var session = automaticCorrection is not null ? await AutomaticCompositionSession(catalog, runtime, proposal, automaticCorrection, ct) : guards && variant != "denied" ? await GuardRevision(catalog, runtime, proposal, ct) : approval && variant == "denied" ? await V10PlanningSession(catalog, runtime, adapter, false, ct, profile) : approval ? await DesignerRevision(catalog, runtime, proposal, ct, site.Urls.Single(), approval: true) : designer ? await DesignerRevision(catalog, runtime, proposal, ct, site.Urls.Single()) : await V10PlanningSession(catalog, runtime, adapter, false, ct, profile);
             Assert.True(session.Status == PlanningStatus.FinalReview, string.Join('\n', session.Diagnostics));
-            Assert.Equal(designer || approval && variant != "denied" ? 4 : 1, session.ModelCalls); Assert.Equal(0, session.ReplanAttempts);
+            Assert.Equal(automaticCorrection is not null ? 2 : designer || approval && variant != "denied" ? 4 : 1, session.ModelCalls);
+            Assert.Equal(automaticCorrection is not null ? 1 : 0, session.ReplanAttempts);
             Assert.Empty(visits); Assert.Empty(model.Requests);
             session = await new HybridWorkflowPlanner().AdvanceAsync(session, new() { Kind = "approve", ExpectedRevision = session.Revision,
                 ArtifactHash = session.ComputeArtifactHash(), ReviewedRequirementIds = session.Requirements!.Outcomes.Select(o => o.Id).ToList() }, adapter, ct);

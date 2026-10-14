@@ -370,7 +370,8 @@ workflows:
         string? persistedWorkflow = null;
         var agentMcp = BuildAgentMcpForRevision(agentId, agentName, handledErrorWorkflow, value => persistedWorkflow = value);
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
-        using var planning = PlanningSessionLifecycleTests.Create(fixture, new GnOuGo.Flow.Planning.HybridWorkflowPlanner(), agentMcp);
+        using var planning = PlanningSessionLifecycleTests.Create(fixture, new GnOuGo.Flow.Planning.HybridWorkflowPlanner(), agentMcp,
+            settings: new() { AutomaticCorrectionEnabled = false, BackgroundProcessingEnabled = false });
         var gitMcp = new FakeMcpSession("GnOuGo.Git.Mcp")
             .WithTool(
                 "git_clone",
@@ -478,7 +479,8 @@ workflows:
         string? persistedWorkflow = null;
         var agentMcp = BuildAgentMcpForRevision(agentId, agentName, handledErrorWorkflow, value => persistedWorkflow = value);
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
-        using var planning = PlanningSessionLifecycleTests.Create(fixture, new GnOuGo.Flow.Planning.HybridWorkflowPlanner(), agentMcp);
+        using var planning = PlanningSessionLifecycleTests.Create(fixture, new GnOuGo.Flow.Planning.HybridWorkflowPlanner(), agentMcp,
+            settings: new() { AutomaticCorrectionEnabled = false, BackgroundProcessingEnabled = false });
         var gitMcp = new FakeMcpSession("GnOuGo.Git.Mcp")
             .WithTool(
                 "git_clone",

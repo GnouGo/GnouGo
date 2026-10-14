@@ -39,25 +39,33 @@ public sealed class MappingFailureIsolationTests
                 input: {server: fixture, method: write, arguments: {}}
         """;
 
-    [Fact]
-    public async Task MappingFailureLeavesHttpAndRevisionInteractionAliveAndDoesNotRepeatCommittedWork()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task MappingFailureLeavesHttpAndRevisionInteractionAliveAndDoesNotRepeatCommittedWork(bool automatic)
     {
         var reads = 0; var writes = 0; var model = new Model();
         var transport = new FakeMcpClientFactory(new FakeMcpSession("fixture")
             .OnTool("read", (_, _) => { reads++; return Task.FromResult(new McpCallResult { Content = new JsonObject() }); })
             .OnTool("write", (_, _) => { writes++; return Task.FromResult(new McpCallResult { Content = new JsonObject() }); }));
-        await using var host = BudgetHost.Create(Yaml, model, transport, ["--Flow:Execution:LlmBudget:MaxCalls=2"]);
+        await using var host = BudgetHost.Create(Yaml, model, transport, ["--Flow:Execution:LlmBudget:MaxCalls=2",
+            "--TypedWorkflowPlanning:AutomaticCorrectionEnabled=" + automatic.ToString()]);
         await host.App.StartAsync(Ct);
         try
         {
             using var http = new HttpClient { BaseAddress = new Uri(host.App.Urls.First()) };
             Assert.Equal("ok", (await http.GetFromJsonAsync<JsonObject>("/health", Ct))!["status"]!.ToString());
             var input = host.App.Services.GetRequiredService<AgentHumanInputProvider>();
-            var answer = AnswerRevisionAsync(input, http);
+            var answer = automatic ? Task.CompletedTask : AnswerRevisionAsync(input, http);
             var events = new List<SmartFlowEvent>();
             await foreach (var e in host.App.Services.GetRequiredService<SmartFlowService>().ExecuteAsync("fixture", "mapping-failure", "budget-fixture", Ct)) events.Add(e);
             await answer;
-            Assert.Single(events, e => e.Type == "human_input_request");
+            if (automatic)
+            {
+                Assert.DoesNotContain(events, e => e.Type == "human_input_request");
+                Assert.Contains(events, e => e.Type == "answer" && e.Text!.Contains("separate revision draft", StringComparison.Ordinal));
+            }
+            else Assert.Single(events, e => e.Type == "human_input_request");
             var error = Assert.Single(events, e => e.Type == "error");
             Assert.Equal("CONTRACT_UNSATISFIED", error.ErrorCode);
             Assert.Contains("Result path: $/outcome/ready", error.Text);
