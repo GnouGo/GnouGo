@@ -1,0 +1,23 @@
+{
+  "source_session": "f4757fdbadc94a29ae1b63c3fe2ca6f9",
+  "revision": 4,
+  "source_session_sha256": "6a62957bd4d88b91851cd4280b662a06289eb7b5ce295de335ecbefce7fb1004",
+  "source_response_sha256": "0780b0f1b15842db19f164d282d03940efc5828cb8bc029aa2ffef70c93adb6b",
+  "task_renames": {
+    "build_search_url": "prepare_url",
+    "observe_search_results": "read_results",
+    "search_producer_status": "source_flags",
+    "extract_candidates_by_page": "extract_choices",
+    "select_first_10_ids_and_originals": "choose_originals",
+    "branch_on_selected_products": "selected_path",
+    "visit_selected_products": "visit",
+    "observe_product_page": "read_product",
+    "product_producer_status": "detail_flags",
+    "extract_product_row": "extract_record",
+    "prepare_excel_rows": "format_rows",
+    "write_excel_file": "write",
+    "prepare_empty_excel_rows": "empty_rows",
+    "write_empty_excel_file": "write_empty"
+  },
+  "sanitization": "Task identities, capability IDs to public methods, site prose and workbook destination. Binding structure and malformed field literals unchanged."
+}

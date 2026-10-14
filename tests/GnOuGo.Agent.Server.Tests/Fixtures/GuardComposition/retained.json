@@ -1,0 +1,993 @@
+{
+  "plan": {
+    "inputs": [
+      {
+        "name": "article",
+        "type": {
+          "kind": "string",
+          "nullable": false
+        },
+        "required": true
+      }
+    ],
+    "root": {
+      "tasks": [
+        {
+          "id": "prepare_url",
+          "objective": "Construire l’URL catalogue de recherche pour l’article fourni, en encodant exactement la valeur d’entrée sans la modifier sémantiquement.",
+          "kind": "transform",
+          "mode": "interpret",
+          "inputs": [
+            {
+              "name": "article",
+              "value": {
+                "kind": "input",
+                "source": "article"
+              }
+            }
+          ],
+          "resultType": {
+            "kind": "object",
+            "nullable": false,
+            "fields": [
+              {
+                "name": "searchUrl",
+                "type": {
+                  "kind": "string",
+                  "nullable": false
+                },
+                "required": true
+              }
+            ]
+          },
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4
+        },
+        {
+          "id": "read_results",
+          "objective": "Ouvrir la page catalogue de résultats de recherche et observer des pages bornées complètes en une acquisition.",
+          "kind": "operation",
+          "dependsOn": [
+            "prepare_url"
+          ],
+          "operation": "browser_get_content",
+          "inputs": [
+            {
+              "name": "url",
+              "value": {
+                "kind": "field",
+                "port": "searchUrl",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "prepare_url"
+                  }
+                ]
+              }
+            },
+            {
+              "name": "format",
+              "value": {
+                "kind": "string",
+                "text": "observation_complete"
+              }
+            },
+            {
+              "name": "waitUntil",
+              "value": {
+                "kind": "string",
+                "text": "domcontentloaded"
+              }
+            },
+            {
+              "name": "timeoutMs",
+              "value": {
+                "kind": "number",
+                "number": 45000
+              }
+            },
+            {
+              "name": "maxRecords",
+              "value": {
+                "kind": "number",
+                "number": 200
+              }
+            }
+          ],
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4
+        },
+        {
+          "id": "source_flags",
+          "objective": "Extraire et lier le statut producteur déclaré de la capture de recherche: succès, disponibilité et complétude, avant toute extraction métier.",
+          "kind": "transform",
+          "mode": "interpret",
+          "dependsOn": [
+            "read_results"
+          ],
+          "inputs": [
+            {
+              "name": "browserResult",
+              "value": {
+                "kind": "output",
+                "source": "read_results"
+              }
+            }
+          ],
+          "resultType": {
+            "kind": "object",
+            "nullable": false,
+            "fields": [
+              {
+                "name": "success",
+                "type": {
+                  "kind": "boolean",
+                  "nullable": false
+                },
+                "required": true
+              },
+              {
+                "name": "available",
+                "type": {
+                  "kind": "boolean",
+                  "nullable": false
+                },
+                "required": true
+              },
+              {
+                "name": "complete",
+                "type": {
+                  "kind": "boolean",
+                  "nullable": false
+                },
+                "required": true
+              }
+            ]
+          },
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4
+        },
+        {
+          "id": "extract_choices",
+          "objective": "Extraire les faits de chaque page observée complète: candidats produits offerts, avec copies originales compactes et données d’action conservées verbatim.",
+          "kind": "transform",
+          "mode": "extract",
+          "each": {
+            "input": "pages",
+            "output": "candidates"
+          },
+          "dependsOn": [
+            "source_flags"
+          ],
+          "inputs": [
+            {
+              "name": "pages",
+              "value": {
+                "kind": "field",
+                "port": "pages",
+                "items": [
+                  {
+                    "kind": "field",
+                    "port": "observationSnapshot",
+                    "items": [
+                      {
+                        "kind": "output",
+                        "source": "read_results"
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ],
+          "resultType": {
+            "kind": "object",
+            "nullable": false,
+            "fields": [
+              {
+                "name": "candidates",
+                "type": {
+                  "kind": "array",
+                  "nullable": false,
+                  "minItems": 0,
+                  "maxItems": 10,
+                  "items": {
+                    "kind": "object",
+                    "nullable": false,
+                    "fields": [
+                      {
+                        "name": "id",
+                        "type": {
+                          "kind": "string",
+                          "nullable": false
+                        },
+                        "required": true
+                      },
+                      {
+                        "name": "titleText",
+                        "type": {
+                          "kind": "string",
+                          "nullable": true
+                        },
+                        "required": true
+                      },
+                      {
+                        "name": "url",
+                        "type": {
+                          "kind": "string",
+                          "nullable": true
+                        },
+                        "required": true
+                      },
+                      {
+                        "name": "offeredBlockText",
+                        "type": {
+                          "kind": "string",
+                          "nullable": false
+                        },
+                        "required": true
+                      },
+                      {
+                        "name": "reference",
+                        "type": {
+                          "kind": "string",
+                          "nullable": true
+                        },
+                        "required": true
+                      },
+                      {
+                        "name": "sourcePageId",
+                        "type": {
+                          "kind": "string",
+                          "nullable": false
+                        },
+                        "required": true
+                      },
+                      {
+                        "name": "sourceRecordCopy",
+                        "type": {
+                          "kind": "object",
+                          "nullable": false,
+                          "fields": [
+                            {
+                              "name": "kind",
+                              "type": {
+                                "kind": "string",
+                                "nullable": false
+                              },
+                              "required": true
+                            },
+                            {
+                              "name": "tag",
+                              "type": {
+                                "kind": "string",
+                                "nullable": false
+                              },
+                              "required": true
+                            },
+                            {
+                              "name": "text",
+                              "type": {
+                                "kind": "string",
+                                "nullable": false
+                              },
+                              "required": true
+                            },
+                            {
+                              "name": "href",
+                              "type": {
+                                "kind": "string",
+                                "nullable": true
+                              },
+                              "required": true
+                            },
+                            {
+                              "name": "reference",
+                              "type": {
+                                "kind": "string",
+                                "nullable": true
+                              },
+                              "required": true
+                            }
+                          ]
+                        },
+                        "required": true
+                      }
+                    ]
+                  }
+                },
+                "required": true
+              }
+            ]
+          },
+          "requires": {
+            "kind": "predicate",
+            "items": [
+              {
+                "kind": "field",
+                "port": "success",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "source_flags"
+                  }
+                ]
+              },
+              {
+                "kind": "field",
+                "port": "available},{",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "source_flags"
+                  }
+                ]
+              }
+            ],
+            "predicate": "and"
+          },
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4
+        },
+        {
+          "id": "choose_originals",
+          "objective": "Aplatir les Candidate[] par page en ordre d’observation, choisir les 10 premiers identifiants compacts sans filtrage ni déduplication, puis retrouver les originaux correspondants.",
+          "kind": "transform",
+          "mode": "interpret",
+          "dependsOn": [
+            "extract_choices"
+          ],
+          "inputs": [
+            {
+              "name": "candidatesByPage",
+              "value": {
+                "kind": "output",
+                "source": "extract_choices"
+              }
+            }
+          ],
+          "resultType": {
+            "kind": "object",
+            "nullable": false,
+            "fields": [
+              {
+                "name": "selectedProducts",
+                "type": {
+                  "kind": "array",
+                  "nullable": true,
+                  "minItems": 0,
+                  "maxItems": 10,
+                  "items": {
+                    "kind": "object",
+                    "nullable": false,
+                    "fields": [
+                      {
+                        "name": "id",
+                        "type": {
+                          "kind": "string",
+                          "nullable": false
+                        },
+                        "required": true
+                      },
+                      {
+                        "name": "titleText",
+                        "type": {
+                          "kind": "string",
+                          "nullable": true
+                        },
+                        "required": true
+                      },
+                      {
+                        "name": "url",
+                        "type": {
+                          "kind": "string",
+                          "nullable": true
+                        },
+                        "required": true
+                      },
+                      {
+                        "name": "offeredBlockText",
+                        "type": {
+                          "kind": "string",
+                          "nullable": false
+                        },
+                        "required": true
+                      },
+                      {
+                        "name": "reference",
+                        "type": {
+                          "kind": "string",
+                          "nullable": true
+                        },
+                        "required": true
+                      },
+                      {
+                        "name": "sourcePageId",
+                        "type": {
+                          "kind": "string",
+                          "nullable": false
+                        },
+                        "required": true
+                      },
+                      {
+                        "name": "sourceRecordCopy",
+                        "type": {
+                          "kind": "object",
+                          "nullable": false,
+                          "fields": [
+                            {
+                              "name": "kind",
+                              "type": {
+                                "kind": "string",
+                                "nullable": false
+                              },
+                              "required": true
+                            },
+                            {
+                              "name": "tag",
+                              "type": {
+                                "kind": "string",
+                                "nullable": false
+                              },
+                              "required": true
+                            },
+                            {
+                              "name": "text",
+                              "type": {
+                                "kind": "string",
+                                "nullable": false
+                              },
+                              "required": true
+                            },
+                            {
+                              "name": "href",
+                              "type": {
+                                "kind": "string",
+                                "nullable": true
+                              },
+                              "required": true
+                            },
+                            {
+                              "name": "reference",
+                              "type": {
+                                "kind": "string",
+                                "nullable": true
+                              },
+                              "required": true
+                            }
+                          ]
+                        },
+                        "required": true
+                      }
+                    ]
+                  }
+                },
+                "required": true
+              }
+            ]
+          },
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4
+        },
+        {
+          "id": "selected_path",
+          "objective": "Brancher explicitement sur null: si aucun produit offert certain n’est disponible, écrire seulement les en-têtes demandés; sinon visiter les 10 produits sélectionnés.",
+          "kind": "conditional",
+          "dependsOn": [
+            "choose_originals"
+          ],
+          "condition": {
+            "kind": "predicate",
+            "items": [
+              {
+                "kind": "field",
+                "port": "selectedProducts",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "choose_originals"
+                  }
+                ]
+              },
+              {
+                "kind": "null"
+              }
+            ],
+            "predicate": "not_equal"
+          },
+          "body": {
+            "tasks": [
+              {
+                "id": "visit",
+                "objective": "Naviguer sur la page de chaque article sélectionné dans l’ordre demandé et extraire nom, description et prix verbatim.",
+                "kind": "foreach",
+                "body": {
+                  "tasks": [
+                    {
+                      "id": "read_product",
+                      "objective": "Ouvrir la page originale du produit sélectionné et observer des pages bornées complètes.",
+                      "kind": "operation",
+                      "operation": "browser_get_content",
+                      "inputs": [
+                        {
+                          "name": "url",
+                          "value": {
+                            "kind": "field",
+                            "port": "url",
+                            "items": [
+                              {
+                                "kind": "item"
+                              }
+                            ]
+                          }
+                        },
+                        {
+                          "name": "format",
+                          "value": {
+                            "kind": "string",
+                            "text": "observation_complete"
+                          }
+                        },
+                        {
+                          "name": "waitUntil",
+                          "value": {
+                            "kind": "string",
+                            "text": "domcontentloaded"
+                          }
+                        },
+                        {
+                          "name": "timeoutMs",
+                          "value": {
+                            "kind": "number",
+                            "number": 45000
+                          }
+                        },
+                        {
+                          "name": "maxRecords",
+                          "value": {
+                            "kind": "number",
+                            "number": 200
+                          }
+                        }
+                      ],
+                      "requires": {
+                        "kind": "predicate",
+                        "items": [
+                          {
+                            "kind": "field",
+                            "port": "url",
+                            "items": [
+                              {
+                                "kind": "item"
+                              }
+                            ]
+                          },
+                          {
+                            "kind": "null"
+                          }
+                        ],
+                        "predicate": "not_equal"
+                      },
+                      "parallel": false,
+                      "maxItems": 100,
+                      "maxConcurrency": 4
+                    },
+                    {
+                      "id": "detail_flags",
+                      "objective": "Extraire et lier le statut producteur déclaré de la capture produit: succès, disponibilité et complétude, avant extraction du produit.",
+                      "kind": "transform",
+                      "mode": "interpret",
+                      "dependsOn": [
+                        "read_product"
+                      ],
+                      "inputs": [
+                        {
+                          "name": "browserResult",
+                          "value": {
+                            "kind": "output",
+                            "source": "read_product"
+                          }
+                        },
+                        {
+                          "name": "originalCandidate",
+                          "value": {
+                            "kind": "item"
+                          }
+                        }
+                      ],
+                      "resultType": {
+                        "kind": "object",
+                        "nullable": false,
+                        "fields": [
+                          {
+                            "name": "success",
+                            "type": {
+                              "kind": "boolean",
+                              "nullable": false
+                            },
+                            "required": true
+                          },
+                          {
+                            "name": "available",
+                            "type": {
+                              "kind": "boolean",
+                              "nullable": false
+                            },
+                            "required": true
+                          },
+                          {
+                            "name": "complete",
+                            "type": {
+                              "kind": "boolean",
+                              "nullable": false
+                            },
+                            "required": true
+                          }
+                        ]
+                      },
+                      "parallel": false,
+                      "maxItems": 100,
+                      "maxConcurrency": 4
+                    },
+                    {
+                      "id": "extract_record",
+                      "objective": "Extraire une ligne typée à partir de la page produit complète: nom, description et prix; texte original verbatim, sans contrôles; null si absent ou sujet incertain.",
+                      "kind": "transform",
+                      "mode": "extract",
+                      "dependsOn": [
+                        "detail_flags"
+                      ],
+                      "inputs": [
+                        {
+                          "name": "productObservation",
+                          "value": {
+                            "kind": "output",
+                            "source": "read_product"
+                          }
+                        },
+                        {
+                          "name": "originalCandidate",
+                          "value": {
+                            "kind": "item"
+                          }
+                        }
+                      ],
+                      "resultType": {
+                        "kind": "object",
+                        "nullable": false,
+                        "fields": [
+                          {
+                            "name": "nom",
+                            "type": {
+                              "kind": "string",
+                              "nullable": true
+                            },
+                            "required": true
+                          },
+                          {
+                            "name": "description",
+                            "type": {
+                              "kind": "string",
+                              "nullable": true
+                            },
+                            "required": true
+                          },
+                          {
+                            "name": "prix",
+                            "type": {
+                              "kind": "string",
+                              "nullable": true
+                            },
+                            "required": true
+                          }
+                        ]
+                      },
+                      "requires": {
+                        "kind": "predicate",
+                        "items": [
+                          {
+                            "kind": "field",
+                            "port": "success",
+                            "items": [
+                              {
+                                "kind": "output",
+                                "source": "detail_flags"
+                              }
+                            ]
+                          },
+                          {
+                            "kind": "field",
+                            "port": "available},{",
+                            "items": [
+                              {
+                                "kind": "output",
+                                "source": "detail_flags"
+                              }
+                            ]
+                          }
+                        ],
+                        "predicate": "and"
+                      },
+                      "parallel": false,
+                      "maxItems": 100,
+                      "maxConcurrency": 4
+                    }
+                  ],
+                  "outputs": [
+                    {
+                      "name": "row",
+                      "value": {
+                        "kind": "output",
+                        "source": "extract_record"
+                      }
+                    }
+                  ]
+                },
+                "items": {
+                  "kind": "field",
+                  "port": "selectedProducts",
+                  "items": [
+                    {
+                      "kind": "output",
+                      "source": "choose_originals"
+                    }
+                  ]
+                },
+                "parallel": false,
+                "maxItems": 10,
+                "maxConcurrency": 1
+              },
+              {
+                "id": "format_rows",
+                "objective": "Préparer les lignes XLSX exactes en préfixant les en-têtes fournis et en conservant les cellules null comme cellules vides.",
+                "kind": "transform",
+                "mode": "interpret",
+                "dependsOn": [
+                  "visit"
+                ],
+                "inputs": [
+                  {
+                    "name": "visitedRows",
+                    "value": {
+                      "kind": "output",
+                      "source": "visit"
+                    }
+                  }
+                ],
+                "resultType": {
+                  "kind": "object",
+                  "nullable": false,
+                  "fields": [
+                    {
+                      "name": "rows",
+                      "type": {
+                        "kind": "array",
+                        "nullable": false,
+                        "minItems": 1,
+                        "maxItems": 11,
+                        "items": {
+                          "kind": "array",
+                          "nullable": false,
+                          "minItems": 3,
+                          "maxItems": 3,
+                          "items": {
+                            "kind": "string",
+                            "nullable": true
+                          }
+                        }
+                      },
+                      "required": true
+                    }
+                  ]
+                },
+                "parallel": false,
+                "maxItems": 100,
+                "maxConcurrency": 4
+              },
+              {
+                "id": "write",
+                "objective": "Sauvegarder le fichier Excel demandé sous workflows/extraction-amazon-articles et propager le chemin matérialisé par le writer.",
+                "kind": "operation",
+                "dependsOn": [
+                  "format_rows"
+                ],
+                "operation": "document_write",
+                "inputs": [
+                  {
+                    "name": "filePath",
+                    "value": {
+                      "kind": "string",
+                      "text": "workflows/observed-product-extraction/products.xlsx"
+                    }
+                  },
+                  {
+                    "name": "append",
+                    "value": {
+                      "kind": "boolean",
+                      "boolean": false
+                    }
+                  },
+                  {
+                    "name": "rows",
+                    "value": {
+                      "kind": "field",
+                      "port": "rows",
+                      "items": [
+                        {
+                          "kind": "output",
+                          "source": "format_rows"
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "parallel": false,
+                "maxItems": 100,
+                "maxConcurrency": 4
+              }
+            ],
+            "outputs": [
+              {
+                "name": "filePath",
+                "value": {
+                  "kind": "output",
+                  "source": "write",
+                  "port": "filePath"
+                }
+              }
+            ]
+          },
+          "otherwise": {
+            "tasks": [
+              {
+                "id": "empty_rows",
+                "objective": "Préparer uniquement les en-têtes demandés lorsque la sélection est null.",
+                "kind": "value",
+                "outputs": [
+                  {
+                    "name": "rows",
+                    "value": {
+                      "kind": "array",
+                      "items": [
+                        {
+                          "kind": "array",
+                          "items": [
+                            {
+                              "kind": "string",
+                              "text": "Nom"
+                            },
+                            {
+                              "kind": "string",
+                              "text": "Description"
+                            },
+                            {
+                              "kind": "string",
+                              "text": "Prix"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "parallel": false,
+                "maxItems": 100,
+                "maxConcurrency": 4
+              },
+              {
+                "id": "write_empty",
+                "objective": "Sauvegarder le fichier Excel avec en-têtes uniquement et propager le chemin matérialisé par le writer.",
+                "kind": "operation",
+                "dependsOn": [
+                  "empty_rows"
+                ],
+                "operation": "document_write",
+                "inputs": [
+                  {
+                    "name": "filePath",
+                    "value": {
+                      "kind": "string",
+                      "text": "workflows/observed-product-extraction/products.xlsx"
+                    }
+                  },
+                  {
+                    "name": "append",
+                    "value": {
+                      "kind": "boolean",
+                      "boolean": false
+                    }
+                  },
+                  {
+                    "name": "rows",
+                    "value": {
+                      "kind": "field",
+                      "port": "rows",
+                      "items": [
+                        {
+                          "kind": "output",
+                          "source": "empty_rows"
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "parallel": false,
+                "maxItems": 100,
+                "maxConcurrency": 4
+              }
+            ],
+            "outputs": [
+              {
+                "name": "filePath",
+                "value": {
+                  "kind": "output",
+                  "source": "write_empty",
+                  "port": "filePath"
+                }
+              }
+            ]
+          },
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4
+        }
+      ],
+      "outputs": [
+        {
+          "name": "filePath",
+          "value": {
+            "kind": "output",
+            "source": "selected_path",
+            "port": "filePath"
+          }
+        }
+      ]
+    }
+  },
+  "requirements": {
+    "summary": "Workflow autonome d’agent conversationnel: accepter un article à rechercher, ouvrir catalogue, rechercher cet article, lister les 10 premiers articles dans l’ordre observé, visiter chaque page produit, extraire nom, description et prix, puis sauvegarder un fichier Excel sous workflows/extraction-amazon-articles et retourner le chemin fourni par l’opération d’écriture.",
+    "outcomes": [
+      {
+        "id": "catalogue_search",
+        "description": "Recherche catalogue effectuée à partir de l’entrée article sans modification sémantique."
+      },
+      {
+        "id": "first_10_products",
+        "description": "Les 10 premiers articles offerts sont sélectionnés en ordre d’observation, sans filtrage ni déduplication ajoutés."
+      },
+      {
+        "id": "product_details",
+        "description": "Chaque page produit sélectionnée est visitée et les champs nom, description et prix sont extraits verbatim; null est utilisé si absent ou incertain."
+      },
+      {
+        "id": "xlsx_saved",
+        "description": "Un fichier Excel est écrit avec les en-têtes Nom, Description, Prix et les lignes typées extraites; le chemin retourné est celui déclaré par le writer."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "article",
+        "type": {
+          "kind": "string",
+          "nullable": false
+        },
+        "required": true
+      }
+    ],
+    "outputs": [
+      {
+        "name": "filePath",
+        "type": {
+          "kind": "string",
+          "nullable": false
+        },
+        "required": true
+      }
+    ]
+  }
+}

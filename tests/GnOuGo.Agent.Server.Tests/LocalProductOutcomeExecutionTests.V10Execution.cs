@@ -34,7 +34,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
     public Task V10CompositionExecutesOriginalObservationsAndExactWorkbook(string variant)
         => ExecuteTypedComposition(variant, "compact-bindings-v10");
 
-    private async Task ExecuteTypedComposition(string variant, string profile, bool designer = false, bool approval = false, bool viaHost = false, bool producerStatus = false)
+    private async Task ExecuteTypedComposition(string variant, string profile, bool designer = false, bool approval = false, bool viaHost = false, bool producerStatus = false, bool guards = false)
     {
         var ct = TestContext.Current.CancellationToken;
         var root = Directory.CreateTempSubdirectory("gnougo-v10-execution-").FullName;
@@ -98,12 +98,12 @@ public sealed partial class LocalProductOutcomeExecutionTests
             if (checkMetrics is not null) engine.Telemetry = checkMetrics;
             var runtime = new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask);
             var catalog = await RetainedCatalog(runtime, ct); catalog.Policy.RequireExternalConfirmation = false;
-            var proposal = approval ? ApprovalCorrected(catalog, site.Urls.Single()) : designer ? DesignerCorrected(catalog, site.Urls.Single()) : V10Proposal(catalog, 4);
+            var proposal = guards ? GuardCorrected(catalog) : approval ? ApprovalCorrected(catalog, site.Urls.Single()) : designer ? DesignerCorrected(catalog, site.Urls.Single()) : V10Proposal(catalog, 4);
             if (producerStatus) AddProducerStatus(proposal);
             var writerTask = proposal.Plan!.Root.Tasks.Single(t => t.Id == (designer || approval ? "write" : "save_products_xlsx"));
             if (variant == "denied") writerTask.Inputs.Single(i => i.Name == "filePath").Value.Text = "../outside.xlsx";
             var adapter = new ProposalRuntime(runtime, proposal);
-            var session = approval && variant == "denied" ? await V10PlanningSession(catalog, runtime, adapter, false, ct, profile) : approval ? await DesignerRevision(catalog, runtime, proposal, ct, site.Urls.Single(), approval: true) : designer ? await DesignerRevision(catalog, runtime, proposal, ct, site.Urls.Single()) : await V10PlanningSession(catalog, runtime, adapter, false, ct, profile);
+            var session = guards && variant != "denied" ? await GuardRevision(catalog, runtime, proposal, ct) : approval && variant == "denied" ? await V10PlanningSession(catalog, runtime, adapter, false, ct, profile) : approval ? await DesignerRevision(catalog, runtime, proposal, ct, site.Urls.Single(), approval: true) : designer ? await DesignerRevision(catalog, runtime, proposal, ct, site.Urls.Single()) : await V10PlanningSession(catalog, runtime, adapter, false, ct, profile);
             Assert.True(session.Status == PlanningStatus.FinalReview, string.Join('\n', session.Diagnostics));
             Assert.Equal(designer || approval && variant != "denied" ? 4 : 1, session.ModelCalls); Assert.Equal(0, session.ReplanAttempts);
             Assert.Empty(visits); Assert.Empty(model.Requests);
@@ -166,10 +166,11 @@ public sealed partial class LocalProductOutcomeExecutionTests
                 File.WriteAllText(Path.Combine(metricsFolder, profile + "-" + variant + ".json"), metrics.ToJsonString(new() { WriteIndented = true }));
                 File.WriteAllLines(Path.Combine(metricsFolder, profile + "-" + variant + "-checks.txt"), checkMetrics!.Events);
             }
-            if (variant is "unoffered" or "unknown" or "incomplete" or "denied")
+            if (variant is "unoffered" or "unknown" or "incomplete" or "denied" || guards && variant == "null_href")
             {
                 Assert.False(result.Success); Assert.False(File.Exists(path)); Assert.False(File.Exists(Path.Combine(root, "outside.xlsx")));
-                if (variant != "denied") Assert.DoesNotContain(visits, p => p.StartsWith("/entry/", StringComparison.Ordinal));
+                if (guards && variant == "null_href") Assert.Equal(new[] { "/entry/0", "/entry/1" }, visits.Where(p => p.StartsWith("/entry/", StringComparison.Ordinal)));
+                else if (variant != "denied") Assert.DoesNotContain(visits, p => p.StartsWith("/entry/", StringComparison.Ordinal));
                 if (variant == "incomplete")
                 {
                     // Designer first acquires a complete search-control page;
@@ -206,9 +207,13 @@ public sealed partial class LocalProductOutcomeExecutionTests
             }
             if (approval)
             {
-                Assert.True(result.Outputs!["status"]!["saved"]!.GetValue<bool>());
-                Assert.True(result.Outputs["status"]!["success"]!.GetValue<bool>());
-                Assert.Null(result.Outputs["status"]!["dataRowCount"]);
+                if (guards) Assert.Equal(new[] { "filePath" }, result.Outputs!.AsObject().Select(p => p.Key));
+                else
+                {
+                    Assert.True(result.Outputs!["status"]!["saved"]!.GetValue<bool>());
+                    Assert.True(result.Outputs["status"]!["success"]!.GetValue<bool>());
+                    Assert.Null(result.Outputs["status"]!["dataRowCount"]);
+                }
                 Assert.DoesNotContain(events, e => e["tool"]?.ToString() == "browser_fill");
                 var originalLinks = events.First(e => e["tool"]?.ToString() == "browser_get_content")["result"]!["observationSnapshot"]!["pages"]!.AsArray()
                     .SelectMany(p => p!["records"]!.AsArray()).Where(r => r!["tag"]?.ToString() == "a").ToArray();

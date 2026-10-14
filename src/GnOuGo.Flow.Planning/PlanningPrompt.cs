@@ -37,7 +37,7 @@ internal sealed class PlanningPrompt(PlanningSession state)
 
     private const string Instructions = """
         Requested work/outputs only; no filtering/deduplication.
-        Extract facts; bind copies/rows/status. Producer flags: {"kind":"predicate","predicate":"and","items":[{"kind":"output","source":"p","port":"success"},{"kind":"predicate","predicate":"and","items":[{"kind":"output","source":"p","port":"available"},{"kind":"output","source":"p","port":"complete"}]}]}
+        Extract facts; bind copies/rows/status. Declared flags: {"kind":"predicate","predicate":"and","items":[{"kind":"output","source":"p","port":"success"},{"kind":"predicate","predicate":"and","items":[{"kind":"output","source":"p","port":"available"},{"kind":"output","source":"p","port":"complete"}]}]}
         Complete bounded each {"input":"pages","output":"candidates"} -> Candidate[][]; flatten -> compact IDs -> offered/original lookup -> visits/rows.
         Original IDs/actions/text; branch on null; prepend headers; save before cleanup; writer path.
         """ + "\n" + DescriptionInstructions;
