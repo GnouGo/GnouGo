@@ -8,6 +8,24 @@ namespace GnOuGo.Agent.Server.Tests;
 
 public sealed partial class LocalProductOutcomeExecutionTests
 {
+    [Fact]
+    public async Task AutomaticCorrectionReplaysBothRetainedMalformedGuardsWithoutChangingBusinessWork()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var factory = new RealProductContracts.Factory(RealProductContracts.Capture(new GnOuGo.Document.Mcp.DocumentPolicy(new(), AppContext.BaseDirectory)));
+        var runtime = new WorkflowPlanningRuntime(new() { McpClientFactory = factory }, (_, _) => Task.CompletedTask);
+        var catalog = await RetainedCatalog(runtime, ct); catalog.Policy.RequireExternalConfirmation = false;
+        var retained = GuardRetained(catalog); var corrected = GuardRetained(catalog);
+        foreach (var task in RetainedTasks(corrected.Plan!.Root).Where(t => t.Id is "extract_choices" or "extract_record"))
+            task.Requires!.Items[1].Port = "available";
+        var result = await AutomaticCompositionSession(catalog, runtime, corrected, "retained_guard", ct, retained);
+        Assert.Equal(2, result.Request.Options["automatic_correction_progress"]!["locations"]!.AsArray().Count);
+        Assert.Equal(0, factory.InvocationAttempts);
+        // This corrects the diagnosed references, not the retained plan's undiagnosed
+        // business omissions. It must still undergo requirement/artifact review.
+        Assert.Null(result.ApprovedHash);
+    }
+
     [Theory]
     [InlineData("guard", "complete")]
     [InlineData("guard", "missing")]
@@ -19,18 +37,18 @@ public sealed partial class LocalProductOutcomeExecutionTests
         => ExecuteTypedComposition(variant, "compact-bindings-v15", automaticCorrection: defect);
 
     private static async Task<PlanningSession> AutomaticCompositionSession(PlanningCatalog catalog, WorkflowPlanningRuntime runtime,
-        PlanningProposal corrected, string defect, CancellationToken ct)
+        PlanningProposal corrected, string defect, CancellationToken ct, PlanningProposal? retained = null)
     {
-        var broken = JsonSerializer.SerializeToNode(corrected, PlanningJsonContext.Default.PlanningProposal)!.Deserialize(PlanningJsonContext.Default.PlanningProposal)!;
-        if (defect == "choice") broken.Plan!.Root.Outputs[0].Value.Kind = "choice";
-        else
+        var broken = JsonSerializer.SerializeToNode(retained ?? corrected, PlanningJsonContext.Default.PlanningProposal)!.Deserialize(PlanningJsonContext.Default.PlanningProposal)!;
+        if (retained is null && defect == "choice") broken.Plan!.Root.Outputs[0].Value.Kind = "choice";
+        else if (retained is null)
         {
             var guard = RetainedTasks(broken.Plan!.Root).Select(t => t.Requires).OfType<TaskValue>()
                 .SelectMany(TaskPlanCompiler.Values).First(v => v.Kind == "output" && v.Port is not null);
             guard.Port += "},{";
         }
         var findings = new TaskPlanCompiler().Compile(broken.Plan!, catalog).Diagnostics;
-        Assert.Contains(findings, d => d.Code == (defect == "choice" ? "CHOICE_UNKNOWN" : "TASK_OUTPUT_UNKNOWN"));
+        Assert.Contains(findings, d => d.Code == (retained is not null ? "TASK_FIELD_UNKNOWN" : defect == "choice" ? "CHOICE_UNKNOWN" : "TASK_OUTPUT_UNKNOWN"));
         var original = JsonSerializer.Serialize(broken, PlanningJsonContext.Default.PlanningProposal);
         var adapter = new ProposalRuntime(runtime, corrected);
         adapter.Patch = request =>
