@@ -7,6 +7,29 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class AutomaticCorrectionTests
 {
+    [Fact]
+    public async Task UnchangedCompilingRuntimeDraftStopsWithoutPublishingAnotherReview()
+    {
+        var runtime = new TestRuntime();
+        var baseline = await PlannerFixture.RunAsync(runtime);
+        Assert.Equal(PlanningStatus.FinalReview, baseline.Status);
+        var state = new PlanningSession
+        {
+            IntentVersion = 2, Catalog = baseline.Catalog, Requirements = baseline.Requirements,
+            Request = new()
+            {
+                TenantId = "test", Prompt = baseline.Request.Prompt, Baseline = Clone(baseline.Plan!),
+                Options = new() { ["automatic_correction"] = true },
+                FailureEvidence = new() { ["error_code"] = "EXPR_TYPE_MISMATCH" }
+            }
+        };
+        state = await PlannerFixture.RunAsync(runtime, state);
+        Assert.Equal(PlanningStatus.Stopped, state.Status);
+        Assert.Null(state.Yaml); Assert.Null(state.ApprovedHash);
+        Assert.Equal(1, state.ModelCalls); Assert.Equal(1, state.ReplanAttempts);
+        Assert.Contains(state.Diagnostics, d => d.Code == "REPLAN_NO_PROGRESS");
+    }
+
     [Theory]
     [InlineData("new_operation")]
     [InlineData("operation_branch")]

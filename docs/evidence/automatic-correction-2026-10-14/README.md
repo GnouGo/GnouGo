@@ -169,3 +169,19 @@ correction/status cases, including both counterexamples and legitimate repairs.
 The full solution and CI are rerun for this final source; their final results
 are recorded in the PR delivery comment. The earlier full-run measurements
 above remain labeled as the earlier evidence and are not silently replaced.
+
+## Runtime failures whose TaskPlan already compiles
+
+A separate regression found that an unchanged TaskPlan could reach review after
+a retained runtime failure: compilation succeeded, so no required diagnostic
+remained for the original stagnation check. Neither the unchanged candidate nor
+the failed workflow was approved or executed by this reproduction.
+
+The existing candidate fingerprint now rejects that no-op before application,
+with `REPLAN_NO_PROGRESS`. It consumes the one issued structural revision and
+stops without publishing a candidate or buying another call. Ordinary discovery
+and historical sessions retain their existing behavior. The
+[before reproduction](validation/runtime-no-progress-before.log.gz) fails; the
+[after run](validation/runtime-no-progress-after.log.gz) passes all **36** focused
+correction/status cases. Final full-solution and CI outcomes for this change are
+recorded in the PR delivery comment; earlier validation remains separate evidence.

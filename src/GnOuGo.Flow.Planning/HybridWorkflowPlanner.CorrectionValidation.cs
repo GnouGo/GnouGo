@@ -9,7 +9,14 @@ public sealed partial class HybridWorkflowPlanner
     private static IReadOnlyList<PlanningDiagnostic> ValidateAutomaticCorrection(PlanningSession state, TaskPlan candidate, bool verifiedPatch)
     {
         if (!AutomaticCorrection(state) || state.Request.Options[CorrectionProgressKey] is null || state.Request.Baseline is not { } baseline) return [];
-        state.Request.Options[CorrectionProgressKey]!["candidate"] = PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(candidate, PlanningJsonContext.Default.TaskPlan));
+        var progress = state.Request.Options[CorrectionProgressKey]!;
+        var fingerprint = PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(candidate, PlanningJsonContext.Default.TaskPlan));
+        progress["candidate"] = fingerprint;
+        // A retained runtime failure can have a statically valid TaskPlan. Its
+        // unchanged revision is not progress merely because compilation succeeds.
+        if (state.Diagnostics.Any(d => d.Code == "RUNTIME_COMPOSITION_FAILURE") &&
+            progress["attempts"]!.AsArray().Any(a => a?["candidate"]?.ToString() == fingerprint))
+            return [new("REPLAN_NO_PROGRESS", "/", "The revision repeats the TaskPlan associated with the retained execution failure. Compilation alone does not resolve that failure; no candidate was applied.")];
         // Ordinary patches already passed the issued slot, producer-chain and host
         // ownership validators. Preserve their existing authority; additional checks
         // here constrain the newly policy-authorized revision paths/regeneration.
