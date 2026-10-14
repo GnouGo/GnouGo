@@ -9,7 +9,7 @@ using GnOuGo.Flow.Core.Runtime;
 namespace GnOuGo.Flow.Planning;
 
 /// <summary>One bounded planning loop: discover, propose tasks, compile, validate, revise, review.</summary>
-public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : IWorkflowPlanner
+public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : IWorkflowPlanner
 {
     private readonly TimeProvider _time = timeProvider ?? TimeProvider.System;
 
@@ -102,6 +102,7 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
                     }
                     Invalidate(state); await CompileAsync(state, runtime, deadline.Token); break;
                 case "answer":
+                    state.Request.Options.Remove(CorrectionProgressKey);
                     PlanningClarifications.Answer(state, command); break;
                 case "configure_mode":
                     PlanningMode.Validate(command.Mode ?? ""); state.Request.Mode = command.Mode!;
@@ -120,6 +121,7 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
                         command.ArtifactHash != state.ComputeArtifactHash()))
                         throw new PlanningConflictException("A correction must retain current accepted requirements and identify the exact artifact, when present.");
                     if (command.EditablePaths is not null) TaskPlanRevisions.ValidateEditablePaths(state, command.EditablePaths);
+                    state.Request.Options.Remove(CorrectionProgressKey);
                     state.Request.Prompt += "\nRequested revision: " + command.Text;
                     PlanningClarifications.Revise(state, command.PreserveRequirements == true, command.EditablePaths); break;
                 case "cancel": state.Status = PlanningStatus.Cancelled; state.ApprovedHash = null; break;
@@ -162,6 +164,8 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
         { state.Diagnostics = [new("PLANNING_RESPONSE_INVALID", "/", "The response does not satisfy the semantic TaskPlan proposal contract.")]; Invalidate(state); state.Status = PlanningStatus.Generating; }
         catch (Exception)
         { state.Diagnostics.Add(new(state.PendingCall is null ? "PLANNING_HOST_FAILURE" : "MODEL_DISPATCH_UNVERIFIABLE", "/", "Planning could not safely complete this operation.")); Stop(state); }
+        RecordCorrectionOutcome(state);
+        ContinueAutomaticCorrection(state);
         state.ActiveMilliseconds += elapsed.Elapsed.TotalMilliseconds;
         state.Revision++; state.UpdatedAtUtc = _time.GetUtcNow();
         if (PlanningStatus.IsWaiting(state.Status)) state.WaitingSinceUtc = state.UpdatedAtUtc;
@@ -180,6 +184,7 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
             if (state.Discovery.Sources.Count == 1)
                 await PlanningDiscoveryContext.DiscoverPageAsync(state, runtime, state.Discovery.Sources[0].Id, null, ct, state.PendingCall is null ? PlanningDiscoveryContext.Query(state) : null);
         }
+        if (!PrepareAutomaticCorrection(state)) return;
         if (state.PendingCall is null && state.Plan is { } retained && state.Diagnostics.Any(d => d.Code == "TASK_ARTIFACT_BINDING"))
         {
             // Reconcile pending receipts first. Fresh requests derive structural authority
@@ -210,7 +215,8 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
         {
             // A saved producer/guard defect cannot be fixed by an unrelated value
             // slot. Issued requests bypass this check until their receipt is applied.
-            var immutable = TaskPlanRevisions.UnrepairableRequirements(state).ToArray();
+            var immutable = TaskPlanRevisions.UnrepairableRequirements(state).Where(d =>
+                !AutomaticCorrection(state) || state.EditablePaths?.Contains(d.Location, StringComparer.Ordinal) != true).ToArray();
             if (immutable.Length > 0)
             { state.Diagnostics = state.Diagnostics.Concat(immutable).Distinct().ToList(); Stop(state); return; }
         }
@@ -324,13 +330,14 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
         foreach (var choice in patchRequest ? [] : plan.Choices)
         {
             if (choice.Selected is not null) Reject("CHOICE_SELECTION_FORBIDDEN", "/choices/" + choice.Id, "Only the host selects alternatives.");
-            if (state.Plan?.Choices.SingleOrDefault(c => c.Id == choice.Id) is { Selected: not null } previous)
+            if ((state.Plan ?? (AutomaticCorrection(state) ? state.Request.Baseline : null))?.Choices.SingleOrDefault(c => c.Id == choice.Id) is { Selected: not null } previous)
             {
                 var before = JsonSerializer.SerializeToNode(previous, PlanningJsonContext.Default.PlanningChoice)!.AsObject(); before["selected"] = null;
                 if (JsonNode.DeepEquals(before, JsonSerializer.SerializeToNode(choice, PlanningJsonContext.Default.PlanningChoice))) choice.Selected = previous.Selected;
             }
         }
         var findings = patchRequest ? [] : TaskPlanRevisions.Validate(state.Plan, plan, state.RevisionScope, state.Catalog).ToList();
+        findings.AddRange(ValidateAutomaticCorrection(state, plan, patchRequest));
         if (findings.Count > 0) throw new PlanningResponseException(findings);
         state.Plan = plan; state.Graph = null; state.EditablePaths = null; Invalidate(state);
         foreach (var operation in TaskPlanRevisions.Tasks(plan).Where(t => t.Kind == "operation").Select(t => t.Operation).Distinct(StringComparer.Ordinal))
@@ -467,7 +474,9 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
         state.Status = PlanningStatus.Stopped;
         // Repair still consumes the original typed diagnostics. A terminal unsatisfied
         // business dependency has one public code, retaining its precise reason/location.
-        state.Diagnostics = state.Diagnostics.Select(d => d.Code is "TASK_INPUT_REQUIRED" or "TASK_INPUT_TYPE" or
+        // Issued repair authority includes the exact diagnosed codes. Do not change
+        // them while a retained receipt still has to be applied against that request.
+        if (state.PendingCall is null) state.Diagnostics = state.Diagnostics.Select(d => d.Code is "TASK_INPUT_REQUIRED" or "TASK_INPUT_TYPE" or
             "TASK_GROUP_INPUTS" or "TASK_GROUP_INPUT_TYPE" or "TASK_REFERENCE_UNKNOWN" or "TASK_FIELD_UNKNOWN" or "TASK_FIELD_TYPE" or "TASK_OUTPUT_CONTRACT"
             ? d with { Code = "CONTRACT_UNSATISFIED", ValidationStage = "contract:" + d.Code, Message = d.Code + ": " + d.Message } : d).ToList();
         Invalidate(state);

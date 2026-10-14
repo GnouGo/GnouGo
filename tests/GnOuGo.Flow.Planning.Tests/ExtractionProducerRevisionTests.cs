@@ -137,7 +137,7 @@ public sealed class ExtractionProducerRevisionTests
 
     private static TaskPlan Clone(TaskPlan plan) => JsonSerializer.Deserialize(JsonSerializer.Serialize(plan, PlanningJsonContext.Default.TaskPlan), PlanningJsonContext.Default.TaskPlan)!;
     private static TaskValue Output(string task, string port) => new() { Kind = "output", Source = task, Port = port };
-    private static async Task<(TestRuntime, PlanningSession)> Fixture(string operation, string producer, string input, string port)
+    internal static async Task<(TestRuntime, PlanningSession)> Fixture(string operation, string producer, string input, string port)
     {
         var record = new TaskType { Kind = "object", Fields = [new() { Name = "id", Type = new() { Kind = "string" } }, new() { Name = "label", Type = new() { Kind = "string", Nullable = true } }] };
         var rows = new TaskType { Kind = "array", Items = record };

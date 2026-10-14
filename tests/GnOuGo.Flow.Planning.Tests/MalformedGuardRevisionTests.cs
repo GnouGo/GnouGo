@@ -89,7 +89,7 @@ public sealed class MalformedGuardRevisionTests
         Assert.Single(runtime.Calls); Assert.Equal(0, state.ReplanAttempts);
     }
 
-    private static async Task<(TestRuntime, PlanningSession)> Fixture(string producer, string consumer, string declared, string referenced)
+    internal static async Task<(TestRuntime, PlanningSession)> Fixture(string producer, string consumer, string declared, string referenced)
     {
         var factory = new InMemoryMcpClientFactory();
         factory.RegisterServer("observations", new() { Tools = [new() { Name = "read_flags", EffectKind = "none",

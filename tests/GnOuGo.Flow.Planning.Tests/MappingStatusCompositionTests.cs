@@ -17,7 +17,13 @@ public sealed class MappingStatusCompositionTests
     [InlineData("absent")]
     [InlineData("capture_truncated")]
     [InlineData("manifest_truncated")]
-    public async Task ExplicitRevisionSeparatesFactsAndProducerOutcomeWithNoStatusInference(string variant)
+    [InlineData("complete", true)]
+    [InlineData("missing_fact", true)]
+    [InlineData("failure", true)]
+    [InlineData("absent", true)]
+    [InlineData("capture_truncated", true)]
+    [InlineData("manifest_truncated", true)]
+    public async Task ExplicitRevisionSeparatesFactsAndProducerOutcomeWithNoStatusInference(string variant, bool automatic = false)
     {
         var rowType = Obj(("name", new() { Nullable = true }), ("description", new() { Nullable = true }), ("price", new() { Nullable = true }));
         var snapshotType = Obj(("record", rowType), ("captureTruncated", new() { Kind = "boolean" }), ("manifestTruncated", new() { Kind = "boolean" }));
@@ -52,11 +58,22 @@ public sealed class MappingStatusCompositionTests
         MappingStatusComposition.Separate(revisedPlan.Root, "acquire_source", "adapt_facts", "assemble_outcome");
         runtime.Proposal.Plan = revisedPlan;
         var planner = new HybridWorkflowPlanner();
-        state = await planner.AdvanceAsync(state, new() { Kind = "revise", ExpectedRevision = state.Revision, ArtifactHash = state.ComputeArtifactHash(),
+        if (automatic)
+            state = new() { IntentVersion = 2, Catalog = baseline.Catalog, Requirements = baseline.Requirements, Request = new()
+            {
+                TenantId = "test", Prompt = baseline.Request.Prompt, Baseline = baseline.Plan,
+                Options = new() { ["automatic_correction"] = true }, FailureEvidence = new()
+                {
+                    ["error_code"] = "CONTRACT_UNSATISFIED", ["details"] = new JsonObject
+                    { ["mapping_result_path"] = "$/status/success", ["mapping_failure_kind"] = "program", ["mapping_failure_reason"] = "ungrounded_scalar", ["mapping_attempts"] = 2 }
+                }
+            } };
+        else state = await planner.AdvanceAsync(state, new() { Kind = "revise", ExpectedRevision = state.Revision, ArtifactHash = state.ComputeArtifactHash(),
             PreserveRequirements = true, Text = "Separate facts extraction and deterministic producer status. Preserve outputs and operations." }, runtime, PlannerFixture.Ct);
         state = await PlannerFixture.RunAsync(runtime, state);
         Assert.True(state.Status == PlanningStatus.FinalReview, string.Join(';', state.Diagnostics));
-        Assert.Null(state.ApprovedHash); Assert.Equal(0, state.ReplanAttempts); Assert.Equal(2, runtime.Calls.Count);
+        Assert.Null(state.ApprovedHash); Assert.Equal(automatic ? 1 : 0, state.ReplanAttempts); Assert.Equal(2, runtime.Calls.Count);
+        if (automatic) Assert.Contains("$/status/success", runtime.Calls[^1].Prompt);
         Assert.Contains("Extract facts; bind copies/rows/status", runtime.Calls[^1].Prompt);
         Assert.True(JsonNode.DeepEquals(JsonSerializer.SerializeToNode(baseline.Requirements, PlanningJsonContext.Default.PlanningRequirements), JsonSerializer.SerializeToNode(state.Requirements, PlanningJsonContext.Default.PlanningRequirements)));
         Assert.Equal(oldYaml, baseline.Yaml); Assert.Equal(0, reads); Assert.Equal(0, model.Calls);

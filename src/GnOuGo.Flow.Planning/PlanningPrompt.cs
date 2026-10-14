@@ -6,7 +6,7 @@ using GnOuGo.Flow.Core.Runtime;
 namespace GnOuGo.Flow.Planning;
 
 // One fresh request's deterministic presentation. Never persisted or reused across revisions.
-internal sealed class PlanningPrompt(PlanningSession state)
+internal sealed partial class PlanningPrompt(PlanningSession state)
 {
     private readonly List<CapabilitySummary> _candidates = PlanningDiscoveryContext.Candidates(state);
     private readonly List<PlanningOperation> _required = PlanningDiscoveryContext.Required(state);
@@ -43,7 +43,7 @@ internal sealed class PlanningPrompt(PlanningSession state)
         """ + "\n" + DescriptionInstructions;
 
     private const string RepairInstructions = """
-        Return only typed edits for the issued slots, a permitted discovery batch, or clarifications. editablePaths identifies an explicit user revision; only those fields may change, including a required condition when expressly selected. The baseline and accepted requirements are host-owned; never regenerate tasks or a plan. Ports required unless false.
+        Return only typed edits for the issued slots, a permitted discovery batch, or clarifications. editablePaths identifies an explicitly authorized revision; only those fields may change, including a required condition when expressly selected. The baseline and accepted requirements are host-owned; never regenerate tasks or a plan. Ports required unless false.
         Context is read-only except the issued slots. Preserve objectives, identities, interfaces, ordering, choices and permissions outside them. remove omits a diagnosed binding; null is a value, not omission. remove_owned removes only catalog-owned descendants of that binding.
         insert_prerequisites supplies only the declared missing producer chain and its consumer value. The host inserts it before that consumer. replace_task preserves the diagnosed task identity, objective and dependencies. remove_forwarder lets the host inline an equivalent pure reference. These actions exist only when explicitly issued; never add unrelated work.
         Use declared business references and contracts. Inline assembly, field, flatten and lookup in an authorized consumer value; never add forwarding tasks outside issued slots. field selects object fields, json encodes text (never a typed binding description), flatten concatenates one array-of-arrays level, lookup uses items:[records,IDs] and port:key. transform extracts (mode extract) or interprets (mode interpret; historical default); never invent values, defaults, contracts, artifact origins or guarantees. Make producer constraints stricter only when justified; missing required data must fail.
@@ -110,6 +110,7 @@ internal sealed class PlanningPrompt(PlanningSession state)
             ["revisionScope"] = new JsonArray(state.RevisionScope.Select(s => (JsonNode?)JsonValue.Create(s)).ToArray()),
             ["diagnostics"] = PlanningJsonTransport.Diagnostics(state.Diagnostics), ["revisionContext"] = state.Request.RevisionContext
         };
+        if (FailureContext(state.Request.FailureEvidence) is { Count: > 0 } failure) context["executionFailure"] = failure;
         if (repair)
         {
             context.Remove("taskPlan"); context.Remove("revisionContext");

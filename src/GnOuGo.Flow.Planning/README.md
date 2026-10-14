@@ -381,3 +381,32 @@ Lookup stays structured until final lowering into a checked `set` and compiler-o
 `TaskType` arrays optionally declare `minItems`/`maxItems` (nonnegative, minimum no greater than maximum). Omitted bounds retain historical serialization. These schema constraints validate actual results; loop ceilings and separate boolean claims establish no cardinality guarantee. A required scalar can express a single selected identity directly. Object `field` bindings never provide array indexing or length access.
 
 Explicit `EditablePaths` revisions may select an existing transform’s `/mode`, `/each` and `/resultType` alongside dependent bindings. The typed patch preserves unrelated tasks, objectives, ordering and cleanup, invalidates approval, and retains cumulative accounting. Automatic repair does not acquire this authority. Invalid immutable required bindings stop with `REVISION_REQUIRED` when no issued producer/export edit can resolve them.
+
+## Bounded automatic correction
+
+Agent.Server enables `Request.Options.automatic_correction` only on newly created
+sessions; standalone and historical sessions without the flag keep their existing
+behavior. The existing loop routes compiler diagnostics to ordinary repair slots,
+a separately authorized targeted revision, or one structural regeneration. No
+issued slot is broadened. The original baseline, requirements and public contracts
+remain authoritative. Private bounded progress in session options records candidate
+and diagnostic fingerprints, action, scope/revision/hash and result. Corrections
+consume the existing replan/call/token/time allowances; explicit user revisions
+may replace the baseline but never reset usage.
+
+Regeneration preserves existing external operation identities, arguments, order,
+control boundaries and cleanup. Independent tasks stay fixed. Assertion corrections
+may replace diagnosed invalid references to declared fields on the same producer,
+but preserve other operands and ordering; new assertions may follow existing ones.
+New external work or changes whose behavior cannot be established are rejected for
+explicit review. This conservative comparison does not prove arbitrary business
+semantics or repair every structurally incomplete plan.
+
+Fresh failure drafts receive sanitized machine diagnostics in `executionFailure`.
+Compiler source maps identify the responsible TaskPlan location where available;
+ambiguous locations do not grant a guessed targeted scope. Configuration, permission,
+resource, admission, transport and unknown-completion failures stop. A valid plan
+still requires requirement acknowledgments and exact artifact approval. Internal
+mapping repair, compiler v15, handwritten YAML and runtime behavior are unchanged.
+
+See [deterministic correction evidence](../../docs/evidence/automatic-correction-2026-10-14/README.md).
