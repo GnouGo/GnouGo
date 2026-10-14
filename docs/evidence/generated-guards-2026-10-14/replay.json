@@ -1,0 +1,43 @@
+{
+  "session": "f4757fdbadc94a29ae1b63c3fe2ca6f9",
+  "source_revision": 4,
+  "source_sha256": "6a62957bd4d88b91851cd4280b662a06289eb7b5ce295de335ecbefce7fb1004",
+  "receipts": [
+    {
+      "request_sha256": "6da0b2f1566d7ed3d42e5c21b8cf62ff65911b84b69dc93286f21a8fcd4f532f",
+      "receipt_sha256": "d1db3d605bf603698c3313dc6f3fa6b788d7846b2ae3a46b3d7685d94ab68409",
+      "original_schema_valid": true,
+      "text_equals_parsed": true,
+      "malformed_field_occurrences": 0
+    },
+    {
+      "request_sha256": "8510ee60ccef7d10cd722c17d292151c8d4f4b2374d4151879b47ac0e4d6fcec",
+      "receipt_sha256": "0780b0f1b15842db19f164d282d03940efc5828cb8bc029aa2ffef70c93adb6b",
+      "original_schema_valid": true,
+      "text_equals_parsed": true,
+      "malformed_field_occurrences": 2
+    }
+  ],
+  "offline_revision": 8,
+  "offline_status": "final_review",
+  "calls_before": 2,
+  "calls_after_offline": 5,
+  "deterministic_responses": 3,
+  "repairs": 0,
+  "provider_calls": 0,
+  "mcp_invocations": 0,
+  "active_ms_before": 58316.4773,
+  "active_ms_after_offline": 66290.5576,
+  "original_unchanged": true,
+  "profile": "compact-bindings-v15",
+  "artifact_hash": "1c43f9a8e31311c41ae5576ce3ec66379834e6bd83806fccf3430cccef731e97",
+  "approved": false,
+  "tasks_before": 14,
+  "tasks_after": 27,
+  "yaml_bytes": 202113,
+  "request_bytes": [
+    84462,
+    83508,
+    84485
+  ]
+}

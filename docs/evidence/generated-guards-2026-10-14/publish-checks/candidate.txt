@@ -1,0 +1,2 @@
+6c491a2c
+Production source is unchanged by the subsequent empty-selection fixture assertion.
