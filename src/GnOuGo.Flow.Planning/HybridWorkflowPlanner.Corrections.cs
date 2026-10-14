@@ -48,7 +48,7 @@ public sealed partial class HybridWorkflowPlanner
         attempt["completedAtCall"] = state.ModelCalls;
         attempt["outcome"] = state.Status == PlanningStatus.FinalReview ? "validated" :
             state.Status == PlanningStatus.Clarification ? "clarification_required" : "rejected";
-        var candidate = progress["candidate"]?.ToString() ?? state.RejectedProposalHash;
+        var candidate = progress["candidate"]?.ToString();
         if (candidate is not null) attempt["responseCandidate"] = candidate;
         if (candidate is not null && state.Diagnostics.Any(d => d.Required) && attempts.Any(a => a?["candidate"]?.ToString() == candidate ||
             a != attempt && a?["responseCandidate"]?.ToString() == candidate))
