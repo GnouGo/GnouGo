@@ -12,10 +12,13 @@ public sealed class AutomaticCorrectionTests
     [InlineData("operation_branch")]
     [InlineData("independent_task")]
     [InlineData("operation_dependency")]
+    [InlineData("guard_order")]
+    [InlineData("guard_branch")]
     public async Task RegenerationCannotChangeIndependentWorkOrExecutionBoundaries(string defect)
     {
         var (runtime, state) = await MalformedGuardRevisionTests.Fixture("observe", "consume", "ready", "ready},{");
         runtime.Proposal.Plan!.Root.Tasks.Add(new() { Id = "unrelated", Kind = "value", Objective = "Preserve literal", Outputs = [new("value", new() { Kind = "string", Text = "original" })] });
+        if (defect == "guard_order") runtime.Proposal.Plan.Root.Tasks.Add(new() { Id = "later_read", Operation = runtime.Proposal.Plan.Root.Tasks[0].Operation, Objective = "Read only after the existing assertion" });
         state.Request.Options["automatic_correction"] = true;
         var planner = new HybridWorkflowPlanner();
         state = await planner.AdvanceAsync(state, new(), runtime, PlannerFixture.Ct);
@@ -28,7 +31,25 @@ public sealed class AutomaticCorrectionTests
             runtime.Proposal.Plan.Root.Tasks.Insert(0, new() { Id = "route", Kind = "conditional", Objective = "Move the existing operation into a branch", Condition = new() { Kind = "boolean", Boolean = true }, Body = new() { Tasks = [operation] }, Otherwise = new() });
         }
         else if (defect == "operation_dependency") runtime.Proposal.Plan.Root.Tasks[0].DependsOn.Add("unrelated");
+        else if (defect == "guard_order")
+        {
+            var guarded = runtime.Proposal.Plan.Root.Tasks[1];
+            runtime.Proposal.Plan.Root.Tasks.RemoveAt(1); runtime.Proposal.Plan.Root.Tasks.Add(guarded);
+        }
+        else if (defect == "guard_branch")
+        {
+            var guarded = runtime.Proposal.Plan.Root.Tasks[1];
+            runtime.Proposal.Plan.Root.Tasks[1] = new()
+            {
+                Id = "route", Kind = "conditional", Objective = "Make the existing assertion conditional",
+                Condition = new() { Kind = "boolean", Boolean = false },
+                Body = new() { Tasks = [guarded], Outputs = [new("message", new() { Kind = "output", Source = guarded.Id, Port = "message" })] },
+                Otherwise = new() { Outputs = [new("message", guarded.Outputs[0].Value)] }
+            };
+            runtime.Proposal.Plan.Root.Outputs[0].Value.Source = "route";
+        }
         else runtime.Proposal.Plan.Root.Tasks[^1].Outputs[0].Value.Text = "changed";
+        if (defect is "guard_order" or "guard_branch") Assert.Empty(new TaskPlanCompiler().Compile(runtime.Proposal.Plan, state.Catalog!).Diagnostics);
         state = await PlannerFixture.RunAsync(runtime, state);
         Assert.Equal(PlanningStatus.Stopped, state.Status); Assert.Null(state.Yaml);
         Assert.Equal(3, state.ModelCalls); Assert.Equal(2, state.ReplanAttempts);

@@ -7,3 +7,5 @@
 - `ci-host-failure.log.gz` and `ci-planning-failure.log.gz`: candidate `02569f7` failed to compile the newly added retained-proposal test because of a missing namespace import for `RealProductContracts`. CI completed all 1,370 Planning tests before the host compile error. Commit `a23f725` adds that import without changing production behavior or assertions.
 
 These runs are retained as failures, not included as successful final acceptance.
+
+- `guard-order-before.log.gz`: two statically valid proposals incorrectly reached review after moving an existing assertion. The new ordering/scope/dependency preservation checks reject both; `guard-order-after.log.gz` passes 35 focused cases. No proposal from the failing run was approved or executed.

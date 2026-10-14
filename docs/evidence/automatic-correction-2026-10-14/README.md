@@ -152,3 +152,20 @@ No compiler source changed in this correction. Historical profile, approval,
 manual-YAML, schema, permission, cancellation and receipt tests remain in the
 full-suite results. Failed development and CI attempts remain archived separately
 in [failed-development-runs.md](validation/failed-development-runs.md).
+
+## Final preservation review: assertion placement
+
+Two additional, statically valid regressions exposed a gap in the first
+implementation: regeneration preserved each guard's expression but could move
+it after another operation, or into an unselected conditional branch. Both
+incorrectly reached review; neither was approved or executed. The retained
+[before run](validation/guard-order-before.log.gz) has two failures.
+
+The preservation comparison now includes existing assertions in operation
+ordering and retains each assertion's scope, execution phase and explicit
+dependencies. This adds no compiler/runtime behavior or new authority. The
+[after run](validation/guard-order-after.log.gz) passes all **35** focused
+correction/status cases, including both counterexamples and legitimate repairs.
+The full solution and CI are rerun for this final source; their final results
+are recorded in the PR delivery comment. The earlier full-run measurements
+above remain labeled as the earlier evidence and are not silently replaced.

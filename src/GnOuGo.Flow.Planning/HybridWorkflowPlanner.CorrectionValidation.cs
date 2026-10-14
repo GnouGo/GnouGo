@@ -33,6 +33,10 @@ public sealed partial class HybridWorkflowPlanner
             RejectChange("/tasks", "new external work or workflow calls not established by the baseline");
         var revisedOrder = TaskPlanRevisions.Tasks(candidate).Where(t => ordered.Contains(t.Id, StringComparer.Ordinal)).Select(t => t.Id);
         if (!ordered.SequenceEqual(revisedOrder, StringComparer.Ordinal)) RejectChange("/tasks", "requested operation occurrences and relative order");
+        var checkedOrder = TaskPlanRevisions.Tasks(baseline).Where(t => t.Requires is not null || t.Kind is "operation" or "call").Select(t => t.Id).ToArray();
+        var revisedCheckedOrder = TaskPlanRevisions.Tasks(candidate).Where(t => checkedOrder.Contains(t.Id, StringComparer.Ordinal)).Select(t => t.Id);
+        if (!checkedOrder.SequenceEqual(revisedCheckedOrder, StringComparer.Ordinal))
+            RejectChange("/tasks", "ordered assertions relative to requested operations");
         foreach (var original in operations)
         {
             var path = "/tasks/" + original.Id;
@@ -71,6 +75,10 @@ public sealed partial class HybridWorkflowPlanner
             if (original.Task.Requires is { } guard && (!after.Tasks.TryGetValue(id, out var revised) ||
                 revised.Task.Requires is not { } next || !SameGuard(guard, next, "/tasks/" + id + "/requires")))
                 RejectChange("/tasks/" + id + "/requires", "the ordered assertion");
+            if (original.Task.Requires is not null && after.Tasks.TryGetValue(id, out var guarded) &&
+                (before.Phase(id) != after.Phase(id) || !Boundaries(original.Scope).SequenceEqual(Boundaries(guarded.Scope), StringComparer.Ordinal) ||
+                 !original.Task.DependsOn.SequenceEqual(guarded.Task.DependsOn, StringComparer.Ordinal)))
+                RejectChange("/tasks/" + id + "/requires", "the assertion's execution boundary and scheduling dependencies");
             if (original.Task.Kind == "conditional" && (!after.Tasks.TryGetValue(id, out var conditional) ||
                 !SameValue(original.Task.Condition, conditional.Task.Condition)))
                 RejectChange("/tasks/" + id + "/condition", "the existing conditional routing");
