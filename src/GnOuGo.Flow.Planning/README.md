@@ -155,6 +155,32 @@ or deduplication.
 
 `choice` resolves a declared business choice; it cannot refer to an operation.
 Use typed operation outputs for assertions; `present` proves only completion.
+Separate fact extraction from acquisition status. For a producer declaring
+`success`, a nullable `observationSnapshot` and its truncation flags, the tested
+composition is:
+
+```text
+acquire → require producer.success AND snapshot != null
+          AND !snapshot.captureTruncated AND !snapshot.manifestTruncated
+        → extract observed facts only
+        → typed output assembly:
+            row = extraction.row
+            status.success = producer.success
+            status.availability = snapshot != null
+            status.completeness = !snapshot.captureTruncated AND !snapshot.manifestTruncated
+            status.message = producer.error_message
+```
+
+These are existing typed `output`, `field`, `object` and `predicate` bindings,
+not a generated mapping script. Use only fields actually declared by the producer;
+the names in this example establish no guarantees on their own. Acquisition
+failure or incompleteness fails before extraction. Permitted null facts remain
+null in an otherwise successful acquisition. `m.has` and `m.test` can control a
+mapping but their computed booleans are not observed facts to export as status.
+Never substitute an unrelated observed URL for a producer error message. The
+offline revision and local workbook tests exercise this separation without
+inference for the typed status or changes to accepted output contracts.
+
 Invalid independent declarations and immutable invalid choice assertions stop
 before a futile consumer-only repair, with `REVISION_REQUIRED`. Explicit
 `EditablePaths` may select the diagnosed producer's `each`, `resultType`, inputs

@@ -34,7 +34,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
     public Task V10CompositionExecutesOriginalObservationsAndExactWorkbook(string variant)
         => ExecuteTypedComposition(variant, "compact-bindings-v10");
 
-    private async Task ExecuteTypedComposition(string variant, string profile, bool designer = false, bool approval = false, bool viaHost = false)
+    private async Task ExecuteTypedComposition(string variant, string profile, bool designer = false, bool approval = false, bool viaHost = false, bool producerStatus = false)
     {
         var ct = TestContext.Current.CancellationToken;
         var root = Directory.CreateTempSubdirectory("gnougo-v10-execution-").FullName;
@@ -99,6 +99,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
             var runtime = new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask);
             var catalog = await RetainedCatalog(runtime, ct); catalog.Policy.RequireExternalConfirmation = false;
             var proposal = approval ? ApprovalCorrected(catalog, site.Urls.Single()) : designer ? DesignerCorrected(catalog, site.Urls.Single()) : V10Proposal(catalog, 4);
+            if (producerStatus) AddProducerStatus(proposal);
             var writerTask = proposal.Plan!.Root.Tasks.Single(t => t.Id == (designer || approval ? "write" : "save_products_xlsx"));
             if (variant == "denied") writerTask.Inputs.Single(i => i.Name == "filePath").Value.Text = "../outside.xlsx";
             var adapter = new ProposalRuntime(runtime, proposal);
@@ -244,6 +245,13 @@ public sealed partial class LocalProductOutcomeExecutionTests
             // claims and a zero-product business outcome. Fixture ground truth above
             // independently proves exact nullable cells and header-only assembly.
             else Assert.False(oracle["passed"]!.GetValue<bool>());
+            if (producerStatus)
+            {
+                var outcomes = result.Outputs!["acquisitions"]!.AsArray();
+                Assert.Equal(selected.Length, outcomes.Count);
+                foreach (var outcome in outcomes)
+                    Assert.True(JsonNode.DeepEquals(JsonNode.Parse("""{"success":true,"availability":true,"completeness":true,"message":null}"""), outcome));
+            }
             var mappings = journal.Invocations.Values.Where(i => i.StepType == "mapping.dynamic").ToArray();
             Assert.Equal(selected.Length + (designer ? 2 : 1) - ((designer || approval) && variant == "null_href" ? 1 : 0), mappings.Length);
             foreach (var mapping in mappings)
