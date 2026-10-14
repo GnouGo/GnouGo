@@ -1,0 +1,893 @@
+[
+  {
+    "project": "GnOuGo.AI.Core.Tests",
+    "results": {
+      "total": "225",
+      "executed": "225",
+      "passed": "225",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "times": {
+      "creation": "2026-10-14T20:59:36.0189180+02:00",
+      "queuing": "2026-10-14T20:59:36.0189180+02:00",
+      "start": "2026-10-14T20:59:34.6985510+02:00",
+      "finish": "2026-10-14T20:59:37.2811320+02:00"
+    }
+  },
+  {
+    "project": "GnOuGo.AI.Local.Tests",
+    "results": {
+      "total": "14",
+      "executed": "14",
+      "passed": "14",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "times": {
+      "creation": "2026-10-14T20:59:38.8047420+02:00",
+      "queuing": "2026-10-14T20:59:38.8047420+02:00",
+      "start": "2026-10-14T20:59:37.6650560+02:00",
+      "finish": "2026-10-14T20:59:38.8176830+02:00"
+    }
+  },
+  {
+    "project": "GnOuGo.Agent.Mcp.Tests",
+    "results": {
+      "total": "103",
+      "executed": "103",
+      "passed": "103",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "times": {
+      "creation": "2026-10-14T20:59:40.5322450+02:00",
+      "queuing": "2026-10-14T20:59:40.5322450+02:00",
+      "start": "2026-10-14T20:59:39.4017510+02:00",
+      "finish": "2026-10-14T20:59:42.4942780+02:00"
+    }
+  },
+  {
+    "project": "GnOuGo.Agent.Server.Tests",
+    "results": {
+      "total": "1005",
+      "executed": "1004",
+      "passed": "1004",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "times": {
+      "creation": "2026-10-14T21:00:31.8565760+02:00",
+      "queuing": "2026-10-14T21:00:31.8565760+02:00",
+      "start": "2026-10-14T21:00:30.1738070+02:00",
+      "finish": "2026-10-14T22:22:24.3205820+02:00"
+    }
+  },
+  {
+    "project": "GnOuGo.Assets.Animation.Server.Tests",
+    "results": {
+      "total": "13",
+      "executed": "13",
+      "passed": "13",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "times": {
+      "creation": "2026-10-14T22:24:00.0165230+02:00",
+      "queuing": "2026-10-14T22:24:00.0165230+02:00",
+      "start": "2026-10-14T22:23:58.2544200+02:00",
+      "finish": "2026-10-14T22:24:04.0441500+02:00"
+    }
+  },
+  {
+    "project": "GnOuGo.Assets.Animation.Tests",
+    "results": {
+      "total": "42",
+      "executed": "42",
+      "passed": "42",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "times": {
+      "creation": "2026-10-14T22:23:57.3432770+02:00",
+      "queuing": "2026-10-14T22:23:57.3432770+02:00",
+      "start": "2026-10-14T22:23:56.2028650+02:00",
+      "finish": "2026-10-14T22:23:57.3636450+02:00"
+    }
+  },
+  {
+    "project": "GnOuGo.Assets.Bears.Server.Tests",
+    "results": {
+      "total": "28",
+      "executed": "28",
+      "passed": "28",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "times": {
+      "creation": "2026-10-14T22:24:05.3498140+02:00",
+      "queuing": "2026-10-14T22:24:05.3498140+02:00",
+      "start": "2026-10-14T22:24:04.3522940+02:00",
+      "finish": "2026-10-14T22:24:05.3617540+02:00"
+    }
+  },
+  {
+    "project": "GnOuGo.Assets.Bears.Tests",
+    "results": {
+      "total": "91",
+      "executed": "91",
+      "passed": "91",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "times": {
+      "creation": "2026-10-14T22:23:46.0638870+02:00",
+      "queuing": "2026-10-14T22:23:46.0638870+02:00",
+      "start": "2026-10-14T22:23:44.9310440+02:00",
+      "finish": "2026-10-14T22:23:55.7914990+02:00"
+    }
+  },
+  {
+    "project": "GnOuGo.Auth.Core.Tests",
+    "results": {
+      "total": "8",
+      "executed": "8",
+      "passed": "8",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "times": {
+      "creation": "2026-10-14T22:25:44.4095490+02:00",
+      "queuing": "2026-10-14T22:25:44.4095490+02:00",
+      "start": "2026-10-14T22:25:43.1964460+02:00",
+      "finish": "2026-10-14T22:25:44.4136560+02:00"
+    }
+  },
+  {
+    "project": "GnOuGo.Browser.Mcp.Tests",
+    "results": {
+      "total": "141",
+      "executed": "141",
+      "passed": "141",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "times": {
+      "creation": "2026-10-14T21:00:04.8337780+02:00",
+      "queuing": "2026-10-14T21:00:04.8337780+02:00",
+      "start": "2026-10-14T21:00:03.6377310+02:00",
+      "finish": "2026-10-14T21:00:21.1461270+02:00"
+    }
+  },
+  {
+    "project": "GnOuGo.Cmd.Mcp.Tests",
+    "results": {
+      "total": "100",
+      "executed": "93",
+      "passed": "93",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "times": {
+      "creation": "2026-10-14T20:59:44.7394250+02:00",
+      "queuing": "2026-10-14T20:59:44.7394250+02:00",
+      "start": "2026-10-14T20:59:43.1621620+02:00",
+      "finish": "2026-10-14T21:00:02.3249230+02:00"
+    }
+  },
+  {
+    "project": "GnOuGo.Diff.Tests",
+    "results": {
+      "total": "52",
+      "executed": "52",
+      "passed": "52",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "times": {
+      "creation": "2026-10-14T20:59:23.1854260+02:00",
+      "queuing": "2026-10-14T20:59:23.1854260+02:00",
+      "start": "2026-10-14T20:59:22.0053650+02:00",
+      "finish": "2026-10-14T20:59:23.8051680+02:00"
+    }
+  },
+  {
+    "project": "GnOuGo.DocIngestor.Mcp.Tests",
+    "results": {
+      "total": "7",
+      "executed": "7",
+      "passed": "7",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "times": {
+      "creation": "2026-10-14T22:22:38.6240560+02:00",
+      "queuing": "2026-10-14T22:22:38.6240560+02:00",
+      "start": "2026-10-14T22:22:36.8457890+02:00",
+      "finish": "2026-10-14T22:22:38.6352230+02:00"
+    }
+  },
+  {
+    "project": "GnOuGo.DocIngestor.Tests",
+    "results": {
+      "total": "89",
+      "executed": "89",
+      "passed": "89",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "times": {
+      "creation": "2026-10-14T20:59:20.1405620+02:00",
+      "queuing": "2026-10-14T20:59:20.1405620+02:00",
+      "start": "2026-10-14T20:59:18.8652720+02:00",
+      "finish": "2026-10-14T20:59:21.2195560+02:00"
+    }
+  },
+  {
+    "project": "GnOuGo.Document.Mcp.Tests",
+    "results": {
+      "total": "73",
+      "executed": "73",
+      "passed": "73",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "times": {
+      "creation": "2026-10-14T22:22:26.6456750+02:00",
+      "queuing": "2026-10-14T22:22:26.6456750+02:00",
+      "start": "2026-10-14T22:22:24.9117790+02:00",
+      "finish": "2026-10-14T22:22:32.5619750+02:00"
+    }
+  },
+  {
+    "project": "GnOuGo.Files.Server.Tests",
+    "results": {
+      "total": "10",
+      "executed": "10",
+      "passed": "10",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "times": {
+      "creation": "2026-10-14T22:22:36.0722160+02:00",
+      "queuing": "2026-10-14T22:22:36.0722160+02:00",
+      "start": "2026-10-14T22:22:34.9881480+02:00",
+      "finish": "2026-10-14T22:22:36.4896740+02:00"
+    }
+  },
+  {
+    "project": "GnOuGo.Flow.Copilot.Tests",
+    "results": {
+      "total": "5",
+      "executed": "5",
+      "passed": "5",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "times": {
+      "creation": "2026-10-14T22:25:53.7191980+02:00",
+      "queuing": "2026-10-14T22:25:53.7191990+02:00",
+      "start": "2026-10-14T22:25:52.5957670+02:00",
+      "finish": "2026-10-14T22:25:53.7226600+02:00"
+    }
+  },
+  {
+    "project": "GnOuGo.Flow.Integrations.Tests",
+    "results": {
+      "total": "99",
+      "executed": "99",
+      "passed": "99",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "times": {
+      "creation": "2026-10-14T20:59:33.1656560+02:00",
+      "queuing": "2026-10-14T20:59:33.1656560+02:00",
+      "start": "2026-10-14T20:59:31.5751170+02:00",
+      "finish": "2026-10-14T20:59:34.1922530+02:00"
+    }
+  },
+  {
+    "project": "GnOuGo.Flow.Mermaid.Tests",
+    "results": {
+      "total": "12",
+      "executed": "12",
+      "passed": "12",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "times": {
+      "creation": "2026-10-14T22:23:44.6274030+02:00",
+      "queuing": "2026-10-14T22:23:44.6274030+02:00",
+      "start": "2026-10-14T22:23:43.5162080+02:00",
+      "finish": "2026-10-14T22:23:44.6394670+02:00"
+    }
+  },
+  {
+    "project": "GnOuGo.Flow.Persistence.Tests",
+    "results": {
+      "total": "24",
+      "executed": "24",
+      "passed": "24",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "times": {
+      "creation": "2026-10-14T22:25:46.4864970+02:00",
+      "queuing": "2026-10-14T22:25:46.4864970+02:00",
+      "start": "2026-10-14T22:25:44.7399530+02:00",
+      "finish": "2026-10-14T22:25:52.3115650+02:00"
+    }
+  },
+  {
+    "project": "GnOuGo.Flow.Planning.Tests",
+    "results": {
+      "total": "1370",
+      "executed": "1370",
+      "passed": "1370",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "times": {
+      "creation": "2026-10-14T22:24:08.0856800+02:00",
+      "queuing": "2026-10-14T22:24:08.0856800+02:00",
+      "start": "2026-10-14T22:24:06.4851350+02:00",
+      "finish": "2026-10-14T22:25:29.9254060+02:00"
+    }
+  },
+  {
+    "project": "GnOuGo.Flow.Tests",
+    "results": {
+      "total": "1396",
+      "executed": "1396",
+      "passed": "1396",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "times": {
+      "creation": "2026-10-14T20:59:28.6842260+02:00",
+      "queuing": "2026-10-14T20:59:28.6842260+02:00",
+      "start": "2026-10-14T20:59:27.2766280+02:00",
+      "finish": "2026-10-14T20:59:30.6785750+02:00"
+    }
+  },
+  {
+    "project": "GnOuGo.Git.Mcp.Tests",
+    "results": {
+      "total": "83",
+      "executed": "83",
+      "passed": "83",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "times": {
+      "creation": "2026-10-14T22:23:33.3269350+02:00",
+      "queuing": "2026-10-14T22:23:33.3269350+02:00",
+      "start": "2026-10-14T22:23:32.0719250+02:00",
+      "finish": "2026-10-14T22:23:40.5481250+02:00"
+    }
+  },
+  {
+    "project": "GnOuGo.GithubCopilot.Core.Tests",
+    "results": {
+      "total": "173",
+      "executed": "173",
+      "passed": "173",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "times": {
+      "creation": "2026-10-14T22:23:28.4014790+02:00",
+      "queuing": "2026-10-14T22:23:28.4014790+02:00",
+      "start": "2026-10-14T22:23:27.2593380+02:00",
+      "finish": "2026-10-14T22:23:28.8013310+02:00"
+    }
+  },
+  {
+    "project": "GnOuGo.GithubCopilot.E2E.Tests",
+    "results": {
+      "total": "12",
+      "executed": "7",
+      "passed": "7",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "times": {
+      "creation": "2026-10-14T22:23:30.2996760+02:00",
+      "queuing": "2026-10-14T22:23:30.2996760+02:00",
+      "start": "2026-10-14T22:23:29.1751460+02:00",
+      "finish": "2026-10-14T22:23:30.3111580+02:00"
+    }
+  },
+  {
+    "project": "GnOuGo.GithubCopilot.Mcp.Tests",
+    "results": {
+      "total": "243",
+      "executed": "243",
+      "passed": "243",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "times": {
+      "creation": "2026-10-14T22:22:42.6652750+02:00",
+      "queuing": "2026-10-14T22:22:42.6652750+02:00",
+      "start": "2026-10-14T22:22:41.0689100+02:00",
+      "finish": "2026-10-14T22:23:26.8189560+02:00"
+    }
+  },
+  {
+    "project": "GnOuGo.KeyVault.Core.Tests",
+    "results": {
+      "total": "12",
+      "executed": "12",
+      "passed": "12",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "times": {
+      "creation": "2026-10-14T20:59:26.0750050+02:00",
+      "queuing": "2026-10-14T20:59:26.0750050+02:00",
+      "start": "2026-10-14T20:59:24.3212360+02:00",
+      "finish": "2026-10-14T20:59:26.1299200+02:00"
+    }
+  },
+  {
+    "project": "GnOuGo.KeyVault.Mcp.Tests",
+    "results": {
+      "total": "9",
+      "executed": "9",
+      "passed": "9",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "times": {
+      "creation": "2026-10-14T22:22:34.6001070+02:00",
+      "queuing": "2026-10-14T22:22:34.6001070+02:00",
+      "start": "2026-10-14T22:22:32.8290440+02:00",
+      "finish": "2026-10-14T22:22:34.7172610+02:00"
+    }
+  },
+  {
+    "project": "GnOuGo.Mcp.Core.Tests",
+    "results": {
+      "total": "49",
+      "executed": "49",
+      "passed": "49",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "times": {
+      "creation": "2026-10-14T22:23:43.2866210+02:00",
+      "queuing": "2026-10-14T22:23:43.2866210+02:00",
+      "start": "2026-10-14T22:23:42.1897920+02:00",
+      "finish": "2026-10-14T22:23:43.2990300+02:00"
+    }
+  },
+  {
+    "project": "GnOuGo.Observability.Core.Tests",
+    "results": {
+      "total": "3",
+      "executed": "3",
+      "passed": "3",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "times": {
+      "creation": "2026-10-14T22:23:31.7149900+02:00",
+      "queuing": "2026-10-14T22:23:31.7149900+02:00",
+      "start": "2026-10-14T22:23:30.6044700+02:00",
+      "finish": "2026-10-14T22:23:31.7187910+02:00"
+    }
+  },
+  {
+    "project": "GnOuGo.OtlpCollector.Server.Tests",
+    "results": {
+      "total": "7",
+      "executed": "7",
+      "passed": "7",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "times": {
+      "creation": "2026-10-14T22:22:40.5766550+02:00",
+      "queuing": "2026-10-14T22:22:40.5766550+02:00",
+      "start": "2026-10-14T22:22:38.8802440+02:00",
+      "finish": "2026-10-14T22:22:40.5806400+02:00"
+    }
+  },
+  {
+    "project": "GnOuGo.ProxyCopilot.Server.Tests",
+    "results": {
+      "total": "177",
+      "executed": "177",
+      "passed": "177",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "times": {
+      "creation": "2026-10-14T22:25:32.3155030+02:00",
+      "queuing": "2026-10-14T22:25:32.3155030+02:00",
+      "start": "2026-10-14T22:25:31.0292780+02:00",
+      "finish": "2026-10-14T22:25:42.9084170+02:00"
+    }
+  },
+  {
+    "project": "GnOuGo.Workspace.Tests",
+    "results": {
+      "total": "30",
+      "executed": "30",
+      "passed": "30",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "times": {
+      "creation": "2026-10-14T22:23:41.9430870+02:00",
+      "queuing": "2026-10-14T22:23:41.9430870+02:00",
+      "start": "2026-10-14T22:23:40.8034840+02:00",
+      "finish": "2026-10-14T22:23:41.9564570+02:00"
+    }
+  }
+]
