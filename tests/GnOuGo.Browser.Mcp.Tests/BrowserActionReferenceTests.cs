@@ -1,6 +1,10 @@
+using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Sockets;
-using System.Text;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Playwright;
@@ -12,12 +16,37 @@ public sealed class BrowserActionReferenceTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
+    [Fact]
+    public async Task ConcurrentFixturePortsStayOwnedByTheirHttpServers()
+    {
+        var starts = Enumerable.Range(0, 4).Select(_ => Fixture.CreateAsync()).ToArray();
+        try
+        {
+            var fixtures = await Task.WhenAll(starts);
+            Assert.Equal(fixtures.Length, fixtures.Select(f => f.Origin).Distinct().Count());
+            using var http = new HttpClient();
+            foreach (var fixture in fixtures)
+            {
+                var competitor = new TcpListener(IPAddress.Loopback, new Uri(fixture.Origin).Port);
+                try { Assert.Throws<SocketException>(() => competitor.Start()); }
+                finally { competitor.Stop(); }
+                Assert.Contains("<dialog open>", await http.GetStringAsync(fixture.Origin, Ct));
+                Assert.Equal(["/"], fixture.Visits);
+            }
+        }
+        finally
+        {
+            foreach (var started in starts.Where(t => t.IsCompletedSuccessfully))
+                await (await started).DisposeAsync();
+        }
+    }
+
     [Theory]
     [InlineData("activate", false)]
     [InlineData("follow", true)]
     public async Task ObservedLinkCannotSatisfyControlActivation(string action, bool succeeds)
     {
-        await using var fixture = new Fixture();
+        await using var fixture = await Fixture.CreateAsync();
         var records = await fixture.Capture(); var link = records.Single(r => r.Selector == "#info");
         Assert.Contains("follow", link.Actions!); Assert.DoesNotContain("activate", link.Actions!);
         var result = await fixture.Tools.ClickTargetAsync(reference: link.Reference, requestedAction: action, cancellationToken: Ct);
@@ -43,7 +72,7 @@ public sealed class BrowserActionReferenceTests
     [InlineData("press")]
     public async Task NavigatingActionsWaitWithoutRepeatingInteraction(string action)
     {
-        await using var fixture = new Fixture();
+        await using var fixture = await Fixture.CreateAsync();
         var records = await fixture.Capture();
         var field = records.Single(r => r.Selector == "#query");
         if (action == "press")
@@ -77,7 +106,7 @@ public sealed class BrowserActionReferenceTests
     [InlineData("#input", "press")]
     public async Task CompatibleReferenceUsesExactObservedElement(string selector, string action)
     {
-        await using var fixture = new Fixture();
+        await using var fixture = await Fixture.CreateAsync();
         var record = (await fixture.Capture()).Single(r => r.Selector == selector);
         Assert.Contains(action, record.Actions!);
         switch (action)
@@ -98,7 +127,7 @@ public sealed class BrowserActionReferenceTests
     [InlineData("#info", "fill")]
     public async Task IncompatibleTargetsPerformNoInteraction(string selector, string action)
     {
-        await using var fixture = new Fixture();
+        await using var fixture = await Fixture.CreateAsync();
         var record = (await fixture.Capture()).Single(r => r.Selector == selector);
         var result = action == "fill"
             ? await fixture.Tools.FillTargetAsync("never entered", reference: record.Reference, cancellationToken: Ct)
@@ -114,7 +143,7 @@ public sealed class BrowserActionReferenceTests
     [InlineData("document.querySelector('#accept').setAttribute('role','link')")]
     public async Task ChangedOrReplacedElementNeverRetargets(string mutation)
     {
-        await using var fixture = new Fixture();
+        await using var fixture = await Fixture.CreateAsync();
         var record = (await fixture.Capture()).Single(r => r.Selector == "#accept");
         await fixture.Page!.EvaluateAsync(mutation);
         var result = await fixture.Tools.ClickTargetAsync(reference: record.Reference, requestedAction: "activate", cancellationToken: Ct);
@@ -127,7 +156,7 @@ public sealed class BrowserActionReferenceTests
     [InlineData("closure")]
     public async Task InvalidatedReferencesRetainCause(string cause)
     {
-        await using var fixture = new Fixture();
+        await using var fixture = await Fixture.CreateAsync();
         var record = (await fixture.Capture()).Single(r => r.Selector == "#accept");
         if (cause == "navigation") await fixture.Page!.ReloadAsync();
         else if (cause == "replacement") await fixture.Capture();
@@ -139,13 +168,13 @@ public sealed class BrowserActionReferenceTests
     [Fact]
     public async Task UnknownCrossSessionConflictingAndUndeliveredReferencesFailClosed()
     {
-        await using var fixture = new Fixture();
+        await using var fixture = await Fixture.CreateAsync();
         var record = (await fixture.Capture()).Single(r => r.Selector == "#accept");
         foreach (var reference in new[] { "invented", Guid.NewGuid().ToString("N") + ":record:0", record.Reference!.Split(':')[0] + ":record:9999" })
             Assert.Equal("INVALID_REFERENCE", (await fixture.Tools.ClickTargetAsync(reference: reference, requestedAction: "activate", cancellationToken: Ct)).ErrorCode);
         Assert.Equal("INVALID_REFERENCE", (await fixture.Tools.ClickTargetAsync(selector: "#accept", reference: record.Reference, requestedAction: "activate", cancellationToken: Ct)).ErrorCode);
         Assert.Equal("ACTION_MISMATCH", (await fixture.Tools.ClickTargetAsync(reference: record.Reference, cancellationToken: Ct)).ErrorCode);
-        await using var other = new Fixture(); await other.Capture();
+        await using var other = await Fixture.CreateAsync(); await other.Capture();
         Assert.Equal("INVALID_REFERENCE", (await other.Tools.ClickTargetAsync(reference: record.Reference, requestedAction: "activate", cancellationToken: Ct)).ErrorCode);
         var manifest = await fixture.Tools.GetContentAsync(format: "observation_pages", maxRecords: 1, cancellationToken: Ct);
         Assert.Equal("INVALID_REFERENCE", (await fixture.Tools.ClickTargetAsync(reference: manifest.ObservationManifest!.Id + ":record:0", requestedAction: "activate", cancellationToken: Ct)).ErrorCode);
@@ -154,27 +183,28 @@ public sealed class BrowserActionReferenceTests
 
     private sealed class Fixture : IAsyncDisposable
     {
-        private readonly HttpListener _listener = new();
-        private readonly Task _serving;
+        private readonly WebApplication _server;
         internal readonly PlaywrightBrowserHost Host;
         internal readonly BrowserTools Tools;
         internal IPage? Page;
-        internal readonly List<string> Visits = [];
-        private readonly string _origin;
-        internal Fixture()
+        internal readonly ConcurrentQueue<string> Visits;
+        internal readonly string Origin;
+
+        internal static async Task<Fixture> CreateAsync()
         {
-            var probe = new TcpListener(IPAddress.Loopback, 0); probe.Start();
-            var port = ((IPEndPoint)probe.LocalEndpoint).Port; probe.Stop();
-            _origin = "http://127.0.0.1:" + port; _listener.Prefixes.Add(_origin + "/"); _listener.Start();
-            _serving = Task.Run(async () =>
+            var builder = WebApplication.CreateSlimBuilder();
+            builder.Logging.ClearProviders();
+            // Bind once to port zero: the actual server owns the assigned port.
+            // Probing and releasing a port before HttpListener.Start leaves a race.
+            builder.WebHost.ConfigureKestrel(server => server.Listen(IPAddress.Loopback, 0));
+            var app = builder.Build();
+            var visits = new ConcurrentQueue<string>();
+            var cancellationToken = Ct;
+            app.Run(async context =>
             {
-                try
-                {
-                    while (_listener.IsListening)
-                    {
-                        var request = await _listener.GetContextAsync(); Visits.Add(request.Request.Url!.AbsolutePath);
-                        request.Response.ContentType = "text/html; charset=utf-8";
-                        await request.Response.OutputStream.WriteAsync(Encoding.UTF8.GetBytes("""
+                visits.Enqueue(context.Request.Path.Value ?? "/");
+                context.Response.ContentType = "text/html; charset=utf-8";
+                await context.Response.WriteAsync("""
                             <html><body><script>window.actions=[];</script>
                             <footer><a id="info" href="/help">Accept choice information</a></footer>
                             <dialog open><button id="accept" onclick="actions.push('accept')">Accept choice</button></dialog>
@@ -186,22 +216,29 @@ public sealed class BrowserActionReferenceTests
                             <button id="disabled" disabled>Disabled</button><input id="readonly" readonly>
                             <form action="/submitted"><input id="query" name="query"><button>Submit query</button></form>
                             </body></html>
-                            """), Ct);
-                        request.Response.Close();
-                    }
-                }
-                catch (Exception ex) when (ex is HttpListenerException or ObjectDisposedException) { }
-            }, Ct);
+                            """, cancellationToken);
+            });
+            try { await app.StartAsync(cancellationToken); return new(app, visits); }
+            catch { await app.DisposeAsync(); throw; }
+        }
+
+        private Fixture(WebApplication server, ConcurrentQueue<string> visits)
+        {
+            _server = server; Visits = visits; Origin = server.Urls.Single();
             Host = new(Options.Create(new BrowserServerSettings { AllowedHosts = ["127.0.0.1"] }), NullLogger<PlaywrightBrowserHost>.Instance)
             { ObservationCheckpoint = (page, _, _) => { Page = page; return Task.CompletedTask; } };
             Tools = new(Host, NullLogger<BrowserTools>.Instance);
         }
         internal async Task<BrowserObservationRecord[]> Capture()
         {
-            var result = await Tools.GetContentAsync(url: Page is null ? _origin : null, format: "observation_complete", cancellationToken: Ct);
+            var result = await Tools.GetContentAsync(url: Page is null ? Origin : null, format: "observation_complete", cancellationToken: Ct);
             Assert.True(result.Success, result.ErrorMessage);
             return result.ObservationSnapshot!.Pages.SelectMany(p => p.Records).ToArray();
         }
-        public async ValueTask DisposeAsync() { await Host.DisposeAsync(); _listener.Close(); await _serving; }
+        public async ValueTask DisposeAsync()
+        {
+            try { await Host.DisposeAsync(); }
+            finally { await _server.DisposeAsync(); }
+        }
     }
 }

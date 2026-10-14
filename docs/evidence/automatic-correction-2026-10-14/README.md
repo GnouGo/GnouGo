@@ -185,3 +185,28 @@ and historical sessions retain their existing behavior. The
 [after run](validation/runtime-no-progress-after.log.gz) passes all **36** focused
 correction/status cases. Final full-solution and CI outcomes for this change are
 recorded in the PR delivery comment; earlier validation remains separate evidence.
+
+## CI fixture port ownership
+
+The next candidate's stable .NET CI job failed in
+`BrowserActionReferenceTests.InvalidatedReferencesRetainCause("replacement")`
+with `HttpListenerException: Address already in use`, before Browser behavior
+was exercised. The fixture released a probed ephemeral port before binding its
+HTTP listener. The [original CI log](validation/ci-browser-port-failure.log.gz)
+is retained.
+
+Only that test fixture now uses the solution's existing Kestrel HTTP server,
+binding once to loopback port zero and retaining the assigned port until
+disposal. Its test project references the ASP.NET shared framework; no production
+dependency, Browser code, assertion, retry or timeout changed. A concurrent
+fixture regression checks distinct owned ports and real HTTP responses.
+
+All **142 Browser tests pass with `-warnaserror`** in the
+[accepted run](validation/browser-port-accepted.log.gz). A cleanup edit initially
+triggered the existing xUnit blocking-task analyzer; it was corrected to await
+completion, without disabling the analyzer. That
+[development log](validation/browser-port-cleanup-analyzer.log.gz) is retained.
+The intermediate full run was deliberately interrupted to validate the harness
+fix serially; it is [retained as interrupted](validation/interrupted-full-runtime-check.log.gz),
+not counted as passing evidence. Final full-solution and CI results are recorded
+in the delivery comment.
