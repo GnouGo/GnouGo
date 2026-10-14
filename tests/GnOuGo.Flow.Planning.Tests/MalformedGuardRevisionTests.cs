@@ -7,6 +7,36 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class MalformedGuardRevisionTests
 {
+    [Fact]
+    public async Task TwoMalformedGuardsRequireBothExplicitSlotsWithoutBroadeningTheRevision()
+    {
+        var (runtime, state) = await Fixture("read_left", "use_left", "available", "available},{");
+        var tasks = runtime.Proposal.Plan!.Root.Tasks;
+        PlanTask Clone(PlanTask task) => JsonSerializer.Deserialize(JsonSerializer.Serialize(task, PlanningJsonContext.Default.PlanTask), PlanningJsonContext.Default.PlanTask)!;
+        var producer = Clone(tasks[0]); producer.Id = "read_right";
+        var consumer = Clone(tasks[1]); consumer.Id = "use_right";
+        foreach (var field in consumer.Requires!.Items) field.Items.Single().Source = producer.Id;
+        consumer.Outputs.Single().Value.Items.Single().Source = producer.Id;
+        tasks.AddRange([producer, consumer]);
+        state = await PlannerFixture.RunAsync(runtime, state);
+        Assert.Equal(PlanningStatus.Stopped, state.Status);
+        var paths = new[] { "/tasks/use_left/requires", "/tasks/use_right/requires" };
+        Assert.Equal(paths, state.Diagnostics.Where(d => d.Code == "REVISION_REQUIRED").Select(d => d.Location));
+        Assert.Single(runtime.Calls); Assert.Equal(0, state.ReplanAttempts);
+        var baseline = JsonSerializer.SerializeToNode(state.Plan, PlanningJsonContext.Default.TaskPlan)!;
+        var planner = new HybridWorkflowPlanner();
+        state = await planner.AdvanceAsync(state, new() { Kind = "revise", PreserveRequirements = true,
+            EditablePaths = paths.ToList(), ExpectedRevision = state.Revision, ArtifactHash = state.ComputeArtifactHash(),
+            Text = "Correct only the two malformed property references. Preserve both ordered assertions in each guard." }, runtime, PlannerFixture.Ct);
+        foreach (var task in tasks.Where(t => t.Requires is not null)) task.Requires!.Items[1].Port = "available";
+        state = await PlannerFixture.RunAsync(runtime, state);
+        Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Null(state.ApprovedHash);
+        Assert.Equal(2, runtime.Calls.Count); Assert.Equal(0, state.ReplanAttempts);
+        foreach (var index in new[] { 1, 3 }) baseline["root"]!["tasks"]![index]!["requires"]!["items"]![1]!["port"] = "available";
+        Assert.True(JsonNode.DeepEquals(baseline, JsonSerializer.SerializeToNode(state.Plan, PlanningJsonContext.Default.TaskPlan)));
+        Assert.Equal(paths, PlanningRepairPatch.RequestContext(runtime.Calls[1])["repair"]!["slots"]!.AsArray().Select(s => s!["location"]!.ToString()));
+    }
+
     [Theory]
     [InlineData("inspect", "adapt", "ready")]
     [InlineData("acquire", "consume", "disponible")]

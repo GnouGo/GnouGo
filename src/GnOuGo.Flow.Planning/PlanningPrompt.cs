@@ -36,10 +36,10 @@ internal sealed class PlanningPrompt(PlanningSession state)
         """;
 
     private const string Instructions = """
-        Preserve requested work/outputs; no extra actions, filtering or deduplication.
-        Extract facts; bind copies, rows, producer status. Assert producer-declared success, availability and completeness first.
-        Example: observe complete bounded pages; extract each {"input":"pages","output":"candidates"}, compact Candidate[] per page; flatten for a compact ID decision; lookup offered then originals; requested visits; typed row exports.
-        Keep original action data. Copy IDs/text verbatim; branch on null; prepend supplied headers. Save before cleanup; return the writer's path.
+        Requested work/outputs only; no filtering/deduplication.
+        Extract facts; bind copies/rows/status. Producer flags: {"kind":"predicate","predicate":"and","items":[{"kind":"output","source":"p","port":"success"},{"kind":"predicate","predicate":"and","items":[{"kind":"output","source":"p","port":"available"},{"kind":"output","source":"p","port":"complete"}]}]}
+        Complete bounded each {"input":"pages","output":"candidates"} -> Candidate[][]; flatten -> compact IDs -> offered/original lookup -> visits/rows.
+        Original IDs/actions/text; branch on null; prepend headers; save before cleanup; writer path.
         """ + "\n" + DescriptionInstructions;
 
     private const string RepairInstructions = """

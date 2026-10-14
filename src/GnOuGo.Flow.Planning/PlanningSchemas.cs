@@ -153,7 +153,7 @@ internal static class PlanningSchemas
         // Presentation only, on fresh full proposals. Repair templates/authorities
         // use the historical path, including its exact annotation-free bytes.
         if (compositionHints)
-            definitions["task"]!["description"] = "requires: false fails, never skips. condition: routes body/otherwise. mode: extract observations; interpret decisions. each.input: bound collection name. resultType: assembled candidates:Candidate[][] for Candidate[] per page.";
+            definitions["task"]!["description"] = "requires: false fails. and/or: binary; nest. field.port: exact property. condition: routing. mode: extract facts/interpret decisions. each.input: bound input. resultType: Candidate[][] for Candidate[]/page.";
         ShareRepeatedSchemas(root, definitions);
         for (var pass = 0; pass < 3; pass++) { ShareRepeatedSchemas(root, definitions, 30); CollapseAliases(root, definitions); PruneDefinitions(root, definitions); }
         CompactDefinitionNames(root, definitions);

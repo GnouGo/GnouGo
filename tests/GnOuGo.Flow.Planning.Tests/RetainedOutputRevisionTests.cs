@@ -22,18 +22,18 @@ public sealed class RetainedOutputRevisionTests
         var requirements = JsonSerializer.Serialize(state.Requirements, PlanningJsonContext.Default.PlanningRequirements);
         var request = new PlanningPrompt(state).Request();
         var instructions = request.Prompt[..request.Prompt.IndexOf("\n{", StringComparison.Ordinal)];
-        Assert.Contains("Extract facts; bind copies, rows, producer status", instructions);
-        Assert.Contains("observe complete bounded pages", instructions);
-        Assert.Contains("compact ID decision", instructions);
-        Assert.Contains("lookup offered then originals", instructions);
+        Assert.Contains("Extract facts; bind copies/rows/status", instructions);
+        Assert.Contains("Complete bounded each", instructions);
+        Assert.Contains("compact IDs", instructions);
+        Assert.Contains("offered/original lookup", instructions);
         Assert.Contains("whole relevant offered feature/text block", instructions);
-        Assert.Contains("Preserve requested work/outputs", instructions);
-        Assert.Contains("no extra actions, filtering or deduplication", instructions);
+        Assert.Contains("Requested work/outputs only", instructions);
+        Assert.Contains("no filtering/deduplication", instructions);
         var hints = PlanningSchemaReferences.Walk(request.StructuredOutputSchema!.AsObject(), "", 0)
             .Select(e => e.Schema["description"]?.ToString()).OfType<string>().ToArray();
         var hint = Assert.Single(hints);
-        Assert.Contains("false fails, never skips", hint);
-        Assert.Contains("each.input: bound collection name", hint);
+        Assert.Contains("requires: false fails", hint);
+        Assert.Contains("each.input: bound input", hint);
         var context = JsonNode.Parse(request.Prompt[(request.Prompt.IndexOf("\n{", StringComparison.Ordinal) + 1)..])!;
         var transmitted = context["taskPlan"]!.Deserialize(PlanningJsonContext.Default.TaskPlan)!;
         Assert.False(transmitted.Root.Tasks[0].ResultType!.Fields[0].Type.Items!.Nullable);

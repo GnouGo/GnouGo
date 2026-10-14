@@ -89,6 +89,28 @@ Assert its real success/availability/completeness fields before dependent work;
 A false `requires` fails the task. Route optional work with a conditional instead
 of sequential opposite assertions.
 
+Predicates are binary except `not`: three declared producer flags use
+`success AND (available AND complete)`, not three operands in one `and`:
+
+```json
+{"kind":"predicate","predicate":"and","items":[
+  {"kind":"output","source":"p","port":"success"},
+  {"kind":"predicate","predicate":"and","items":[
+    {"kind":"output","source":"p","port":"available"},
+    {"kind":"output","source":"p","port":"complete"}
+  ]}
+]}
+```
+
+This is the tested fresh-generation example, not a convention for producer field
+names. Bind status from actual declared results and metadata without interpretation;
+guard nullable snapshots before reading completeness. `field.port` selects exactly
+one literal declared property: `available},{` is a different name from `available`.
+Punctuation and Unicode remain valid when declared. An unknown name inside
+`requires` needs an explicit targeted revision, never sanitization or removal of
+the assertion. Correct references do not prove the rest of a plan meets its business
+requirements; review extraction, original-ID reconnection and deterministic rows.
+
 Bind `flatten(output(adapt, rows))` directly to the compact decision input.
 Interpretation selects IDs only; use `lookup` against offered candidates, then
 retained original records for action arguments. Preserve order and repeated IDs.
