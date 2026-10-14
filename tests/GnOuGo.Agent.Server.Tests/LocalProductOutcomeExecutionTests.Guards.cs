@@ -14,6 +14,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
     [InlineData("complete")]
     [InlineData("one")]
     [InlineData("empty")]
+    [InlineData("empty_selection")]
     [InlineData("missing")]
     [InlineData("repeated")]
     [InlineData("null_href")]
@@ -110,6 +111,18 @@ public sealed partial class LocalProductOutcomeExecutionTests
         read.Inputs[read.Inputs.FindIndex(i => i.Name == "url")] = new("url", V10Output("prepare_url", "url"));
         tasks[tasks.FindIndex(t => t.Id == read.Id)] = read;
         var visit = tasks.Single(t => t.Id == "visit");
+        // No collection-length binding exists. The existing json conversion has
+        // an exact empty-array representation; only bounded compact values enter
+        // this assertion, never raw observations. Empty selection cannot conceal
+        // an unresolved decision over offered candidates.
+        TaskValue Json(TaskValue value) => new() { Kind = "json", Items = [value] };
+        TaskValue Empty(TaskValue value) => new() { Kind = "predicate", Predicate = "equal", Items = [Json(value), new() { Kind = "string", Text = "[]" }] };
+        var choose = tasks.Single(t => t.Id == "choose");
+        visit.Requires = new() { Kind = "predicate", Predicate = "and", Items = [visit.Requires!,
+            new() { Kind = "predicate", Predicate = "or", Items = [
+                new() { Kind = "predicate", Predicate = "not", Items = [Empty(V10Output(choose.Id, "selectedProductReferenceIds"))] },
+                Empty(choose.Inputs.Single().Value)] }] };
+        choose.Objective += " An empty selection is allowed only when no candidates were offered after complete acquisition; uncertainty is not an empty business result.";
         var branch = visit.Body!.Tasks.Single();
         visit.Body = branch.Body!;
         var product = originals["read_product"]; product.DependsOn.Clear();

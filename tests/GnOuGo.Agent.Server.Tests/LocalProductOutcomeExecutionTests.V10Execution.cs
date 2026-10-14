@@ -166,7 +166,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
                 File.WriteAllText(Path.Combine(metricsFolder, profile + "-" + variant + ".json"), metrics.ToJsonString(new() { WriteIndented = true }));
                 File.WriteAllLines(Path.Combine(metricsFolder, profile + "-" + variant + "-checks.txt"), checkMetrics!.Events);
             }
-            if (variant is "unoffered" or "unknown" or "incomplete" or "denied" || guards && variant == "null_href")
+            if (variant is "unoffered" or "unknown" or "incomplete" or "denied" || guards && variant is "null_href" or "empty_selection")
             {
                 Assert.False(result.Success); Assert.False(File.Exists(path)); Assert.False(File.Exists(Path.Combine(root, "outside.xlsx")));
                 if (guards && variant == "null_href") Assert.Equal(new[] { "/entry/0", "/entry/1" }, visits.Where(p => p.StartsWith("/entry/", StringComparison.Ordinal)));
@@ -374,7 +374,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
                 Assert.All(candidates, c => Assert.Equal(new[] { "reference", "observedText" }, c!.AsObject().Select(p => p.Key)));
                 Assert.DoesNotContain("?source=", request.Prompt); Assert.DoesNotContain("selector", input.ToJsonString());
                 var chosen = variant == "one" ? candidates.Take(1) : variant == "repeated" ? candidates.Take(9).Append(candidates[0]) : candidates.Take(10);
-                result = new() { ["selectedProductReferenceIds"] = variant == "unknown" ? new JsonArray("unknown-original") : variant == "unoffered" ? new JsonArray(_unoffered ?? throw new InvalidOperationException("Missing unoffered fixture record.")) :
+                result = new() { ["selectedProductReferenceIds"] = variant == "empty_selection" ? new JsonArray() : variant == "unknown" ? new JsonArray("unknown-original") : variant == "unoffered" ? new JsonArray(_unoffered ?? throw new InvalidOperationException("Missing unoffered fixture record.")) :
                     new JsonArray(chosen.Select(c => c!["reference"]!.DeepClone()).ToArray()) };
             }
             else if (input["detailCandidates"] is JsonArray blocks)
