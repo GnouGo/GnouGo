@@ -1,0 +1,34 @@
+[
+  {
+    "check": "protos",
+    "exit_code": 0
+  },
+  {
+    "check": "pack-Core",
+    "exit_code": 0
+  },
+  {
+    "check": "pack-Planning",
+    "exit_code": 0
+  },
+  {
+    "check": "pack-Persistence",
+    "exit_code": 0
+  },
+  {
+    "check": "planning-aot",
+    "exit_code": 0
+  },
+  {
+    "check": "planning-smoke",
+    "exit_code": 0
+  },
+  {
+    "check": "server-publish",
+    "exit_code": 0
+  },
+  {
+    "check": "published-recovery",
+    "exit_code": 0
+  }
+]
