@@ -92,6 +92,10 @@ public sealed class RuntimeExecutionBudgetTests
     [InlineData("MaxElapsed", "00:00:00")]
     [InlineData("MaxEstimatedCost:Amount", "-1")]
     [InlineData("UnknownLimit", "5")]
+    [InlineData("MaxCalls:Nested", "2")]
+    [InlineData("MaxEstimatedCost:Unknown", "1")]
+    [InlineData("MaxEstimatedCost:Currency:Nested", "EUR")]
+    [InlineData("MaxEstimatedCost", "1")]
     public void InvalidExplicitPolicyFailsAtHostStartup(string field, string value)
     {
         var error = Assert.Throws<InvalidOperationException>(() => BudgetHost.Create(AdaptiveYaml, new BudgetModel(),

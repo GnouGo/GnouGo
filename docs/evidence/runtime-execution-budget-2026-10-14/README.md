@@ -31,7 +31,7 @@ restart the host; this delivery does not configure their production instance.
 
 ## Focused evidence
 
-- 23 new host/configuration/accounting/recovery checks pass with `-warnaserror`.
+- 27 new host/configuration/accounting/recovery checks pass with `-warnaserror`, including invalid nested/scalar configuration.
 - A focused run passed 63 checks: the first 20 new host checks, 39 existing
   SmartFlow/error/configuration/interruption checks and all four new local
   Browser/Document scenarios. The final three host regressions additionally
@@ -78,6 +78,28 @@ generations; typed copying/row construction uses zero inference. Its decision
 request is 2,692 bytes, YAML is 187,476 bytes, and it has 143 recorded invocations.
 Recorded allocation totals cover the process, not peak memory; this change makes
 no compiler or performance-improvement claim.
+
+## Published-host correction
+
+The first trimmed-host smoke rejected valid supplied limits because reflection
+binding no longer populated the immutable budget record. Debug tests did not
+expose this. Configuration now reads the existing scalar fields explicitly,
+checks their structural shape, and delegates limit validation to the unchanged
+Core type. No linker suppression or default allowance was added.
+
+The corrected managed/partially trimmed Server publishes with `-warnaserror`.
+Actual startup with all four limit dimensions, HTTP health, the UI, Blazor
+negotiation, invalid-policy rejection and published encrypted planning persistence
+pass without model calls or workflow execution. The existing publish verification
+script now includes the explicit-policy startup case. See
+[published smoke evidence](published-host-smoke.json).
+
+The initial full-solution run was deliberately superseded after discovering this
+publish defect. Its partial log is retained and is not counted as a passing gate.
+The initial Flow Native AOT invocation also promoted the two pre-existing EF
+experimental-tooling notices to errors; the supported publish verification uses
+the repository's existing exact-notice policy. Neither event weakened an assertion
+or changed a limit. Failed logs are retained in `failed-attempts/`.
 
 ## Full validation and deployment boundary
 
