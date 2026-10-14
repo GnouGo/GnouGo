@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Planning;
+using GnOuGo.Planning.Examples;
 
 namespace GnOuGo.Agent.Server.Tests;
 
