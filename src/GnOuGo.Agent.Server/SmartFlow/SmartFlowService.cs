@@ -72,6 +72,7 @@ public sealed class SmartFlowService
     private readonly ILogger<SmartFlowService> _logger;
     private readonly IWorkflowTraceFileExporter? _traceFileExporter;
     private readonly ILLMUsageBudgetScopeFactory? _llmUsageBudgetScopeFactory;
+    private readonly IExchangeRateProvider? _exchangeRateProvider;
     private readonly WorkflowMermaidMarkdownOptions _workflowMermaidOptions;
     private readonly string _routingWorkflowYaml;
     private readonly TimeSpan _mcpCacheSlidingExpiration;
@@ -102,7 +103,8 @@ public sealed class SmartFlowService
         LocalModelsService? localModels = null,
         ILLMUsageBudgetScopeFactory? llmUsageBudgetScopeFactory = null,
         ChatPlanningService? chatPlanning = null,
-        IWorkflowRunStore? runStore = null)
+        IWorkflowRunStore? runStore = null,
+        IExchangeRateProvider? exchangeRateProvider = null)
     {
         _runStore = runStore;
         _planning = planning;
@@ -120,6 +122,7 @@ public sealed class SmartFlowService
         _scopeFactory = scopeFactory;
         _traceFileExporter = traceFileExporter;
         _llmUsageBudgetScopeFactory = llmUsageBudgetScopeFactory;
+        _exchangeRateProvider = exchangeRateProvider;
         _workflowMermaidOptions = workflowMermaidOptions?.Value ?? new WorkflowMermaidMarkdownOptions();
         _otel = otel;
         _logger = logger;
@@ -411,6 +414,7 @@ public sealed class SmartFlowService
                 LLMClient = runtime.LlmClient,
                 ModelUsageCostEstimator = new ModelMetadataUsageCostEstimator(runtime.Options),
                 LLMUsageBudget = _llmUsageBudgetScopeFactory?.CreateScope(),
+                ExchangeRateProvider = _exchangeRateProvider,
                 LLMCapabilities = runtime.LlmCapabilityResolver,
                 LlmDefaults = new LlmRuntimeDefaults
                 {
@@ -473,12 +477,15 @@ public sealed class SmartFlowService
 
             if (error is not null)
             {
+                var workflowError = error is WorkflowRuntimeException runtimeError
+                    ? runtimeError.ToWorkflowError()
+                    : new WorkflowError { Code = "INTERNAL_ERROR", Message = error.Message, Type = error.GetType().FullName ?? error.GetType().Name, Retryable = false };
                 var repaired = false;
                 await foreach (var evt in OfferWorkflowRevisionAsync(
                                    runtime,
                                    resolvedWorkflow,
                                    task,
-                                   new WorkflowFailure("INTERNAL_ERROR", error.Message, error.GetType().FullName, null),
+                                   new WorkflowFailure(workflowError.Code, workflowError.Message, workflowError.Type, workflowError.Details),
                                    parentActivity,
                                    repairedValue => repaired = repairedValue,
                                    ct, conversationId: workflowInputs?["conversation_id"]?.GetValue<string>(), planningMode: workflowInputs?["planning_mode"]?.GetValue<string>() ?? "interactive"))
@@ -489,12 +496,7 @@ public sealed class SmartFlowService
                 if (repaired)
                     yield break;
 
-                var runtimeError = error as WorkflowRuntimeException;
-                yield return new SmartFlowEvent(
-                    "error",
-                    error.Message,
-                    ErrorCode: runtimeError?.Code,
-                    Retryable: runtimeError?.Retryable);
+                yield return PresentWorkflowFailure(workflowError, parentActivity);
                 yield break;
             }
 
@@ -525,6 +527,13 @@ public sealed class SmartFlowService
                 var routedRepair = await TryResolveRoutedWorkflowRepairAsync(runtime, result, ct);
                 if (routedRepair is not null)
                 {
+                    if (IsRuntimeBudgetFailure(routedRepair.Failure.Code))
+                    {
+                        var failure = routedRepair.Failure;
+                        yield return PresentWorkflowFailure(new WorkflowError { Code = failure.Code, Message = failure.Message,
+                            Type = failure.Type ?? "", Details = failure.Details, Retryable = false }, parentActivity);
+                        yield break;
+                    }
                     var repaired = false;
                     await foreach (var evt in OfferWorkflowRevisionAsync(
                                        runtime,
@@ -575,11 +584,8 @@ public sealed class SmartFlowService
                 if (repaired)
                     yield break;
 
-                yield return new SmartFlowEvent(
-                    "error",
-                    errMsg,
-                    ErrorCode: result.Error?.Code,
-                    Retryable: result.Error?.Retryable);
+                yield return PresentWorkflowFailure(result.Error ?? new WorkflowError
+                    { Code = "WORKFLOW_EXECUTION_ERROR", Message = errMsg, Retryable = false }, parentActivity);
             }
         }
         finally
@@ -1206,6 +1212,19 @@ public sealed class SmartFlowService
         }
     }
 
+    private static SmartFlowEvent PresentWorkflowFailure(WorkflowError error, Activity? activity)
+    {
+        var presentation = WorkflowFailureFormatter.Format(error);
+        activity?.SetTag("error.code", error.Code);
+        activity?.SetTag("error.type", error.Type);
+        activity?.AddEvent(new ActivityEvent("gnougo.agent.workflow.error.details", tags: new ActivityTagsCollection
+        {
+            ["error.code"] = error.Code,
+            ["gnougo.agent.workflow.error.details"] = presentation.TraceDetails
+        }));
+        return new("error", presentation.UserMessage, ErrorCode: error.Code, Retryable: error.Retryable);
+    }
+
     private async IAsyncEnumerable<SmartFlowEvent> OfferWorkflowRevisionAsync(
         SecureWorkflowRuntimeSession runtime,
         ResolvedWorkflow resolvedWorkflow,
@@ -1217,6 +1236,10 @@ public sealed class SmartFlowService
         bool handledFailure = false, string? conversationId = null, string planningMode = "interactive")
     {
         setRevisionStarted(false);
+
+        // Host admission/accounting cannot be corrected by editing a workflow.
+        if (IsRuntimeBudgetFailure(failure.Code))
+            yield break;
 
         var agent = resolvedWorkflow.Agent;
         if (agent is null || string.IsNullOrWhiteSpace(agent.Id) || string.IsNullOrWhiteSpace(agent.Workflow))
@@ -1352,7 +1375,7 @@ public sealed class SmartFlowService
         if (TryGetBoolean(routeResult["success"]) == false)
         {
             var errorCode = GetString(routeResult["error_code"]);
-            if (IsRepairableMcpErrorCode(errorCode))
+            if (IsRepairableMcpErrorCode(errorCode) || IsRuntimeBudgetFailure(errorCode))
             {
                 return new WorkflowFailure(
                     errorCode!,
@@ -1451,6 +1474,9 @@ public sealed class SmartFlowService
 
     private static bool IsRepairableHandledError(WorkflowError error)
         => IsRepairableMcpErrorCode(error.Code);
+
+    private static bool IsRuntimeBudgetFailure(string? code)
+        => code is ErrorCodes.LlmBudgetUnverifiable or ErrorCodes.LlmBudgetExceeded;
 
     private static bool IsRepairableMcpErrorCode(string? errorCode)
         => errorCode is ErrorCodes.McpCallError

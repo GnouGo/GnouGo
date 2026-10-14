@@ -669,6 +669,54 @@ unspecified fields. Malformed settings fail validation; `Retry-After` cannot be 
 Uncertain generation recovery requires a host accounting journal. The live planning benchmark
 supplies it; ordinary planning journals retain their single-attempt safety boundary.
 
+### Runtime execution budgets
+
+Adaptive `mapping.dynamic` requires an explicitly configured cumulative execution
+budget. Configure it separately under `Flow:Execution:LlmBudget`; Designer's
+`WorkflowPlanningBudget` does not supply an execution allowance. No runtime
+allowance is enabled by default, and approving or saving YAML does not configure one.
+
+| Property under `Flow:Execution:LlmBudget` | Meaning |
+| --- | --- |
+| `MaxCalls` | Positive maximum logical model calls per execution. |
+| `MaxTotalTokens` | Positive cumulative model-token ceiling. |
+| `MaxElapsed` | Positive duration in `hh:mm:ss` format; existing elapsed accounting includes pauses and downtime. |
+| `MaxEstimatedCost:Amount`, `MaxEstimatedCost:Currency` | Positive amount and uppercase three-letter currency; requires verifiable pricing, usage and exchange rates. |
+| `MaxEstimatedCostUsd` | Legacy USD ceiling, mutually exclusive with `MaxEstimatedCost`. |
+
+Specify at least one finite limit; every supplied limit is enforced. Put these
+properties in the `Flow` → `Execution` → `LlmBudget` object in appsettings, or use
+the normal configuration overrides. After explicitly choosing an allowance:
+
+```sh
+export Flow__Execution__LlmBudget__MaxCalls="$EXECUTION_MAX_CALLS"
+dotnet GnOuGo.Agent.Server.dll
+```
+
+The equivalent command-line override is
+`--Flow:Execution:LlmBudget:MaxCalls=<chosen-positive-integer>`. Monetary settings
+use `Flow__Execution__LlmBudget__MaxEstimatedCost__Amount` and
+`Flow__Execution__LlmBudget__MaxEstimatedCost__Currency` for environment variables.
+These examples do not choose or grant an allowance. Restart the host after
+changing its execution policy. Invalid explicit settings fail startup; omission
+retains unbudgeted nonadaptive behavior and blocks adaptive workflows before
+workflow operations start.
+
+Each new root execution receives its own scope. Nested calls, mapping generation,
+repair and specialization share it; parallel work cannot reset it. Monetary
+admission uses existing model metadata and the configured exchange-rate provider.
+Missing pricing, usage or conversion evidence stops admission.
+
+`LLM_BUDGET_UNVERIFIABLE` and `LLM_BUDGET_EXCEEDED` retain their codes and available
+dispatch/stage/limit diagnostics. Budget failures do not open automatic Designer
+revisions. A missing policy reports `dispatch_status: not_started` and the
+configuration section above; editing the workflow cannot supply that policy.
+
+Recovery restores saved limits, usage and receipts. Changing host configuration
+does not replenish an existing run, grant a budget to an old unbudgeted run, or
+authorize replay. New executions still require existing approvals and permissions;
+unknown completion continues to prohibit unsafe replay and cleanup.
+
 ### Generation protocol
 
 `/llm add` and `/llm edit openai` expose **Generation protocol** on the connection card.

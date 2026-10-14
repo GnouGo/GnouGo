@@ -18,6 +18,24 @@ internal static class WorkflowFailureFormatter
             builder.Append('[').Append(error.Code.Trim()).Append("] ");
         builder.AppendLine(string.IsNullOrWhiteSpace(error.Message) ? "Workflow execution failed." : error.Message.Trim());
 
+        if (error.Code is ErrorCodes.LlmBudgetUnverifiable or ErrorCodes.LlmBudgetExceeded)
+        {
+            var classification = ReadBoundedStringDeep(error.Details, "classification", 80);
+            var dispatch = ReadBoundedStringDeep(error.Details, "dispatch_status", 80);
+            builder.AppendLine().AppendLine("Runtime execution budget:");
+            foreach (var (key, label) in new[]
+            {
+                ("classification", "Classification"), ("dispatch_status", "Dispatch"),
+                ("stage", "Stage"), ("limit_kind", "Limit"), ("recommended_action", "Recommended action")
+            })
+                if (ReadBoundedStringDeep(error.Details, key, 240) is { } text)
+                    builder.Append("- ").Append(label).Append(": ").AppendLine(Sanitize(text, 240));
+
+            if (error.Code == ErrorCodes.LlmBudgetUnverifiable && classification is null && dispatch == "not_started")
+                builder.AppendLine("Configure explicit finite limits in Flow:Execution:LlmBudget on Agent.Server before starting a new execution. Designer planning budgets do not supply a runtime allowance.");
+            builder.AppendLine("A workflow revision cannot configure or replenish this execution budget. No automatic retry or budget increase was requested.");
+        }
+
         if (error.Code is ErrorCodes.LlmNetwork or ErrorCodes.LlmTimeout or ErrorCodes.LlmProvider)
         {
             var classification = ReadBoundedStringDeep(error.Details, "classification", 80);

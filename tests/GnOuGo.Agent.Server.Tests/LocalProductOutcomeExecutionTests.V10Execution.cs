@@ -34,7 +34,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
     public Task V10CompositionExecutesOriginalObservationsAndExactWorkbook(string variant)
         => ExecuteTypedComposition(variant, "compact-bindings-v10");
 
-    private async Task ExecuteTypedComposition(string variant, string profile, bool designer = false, bool approval = false)
+    private async Task ExecuteTypedComposition(string variant, string profile, bool designer = false, bool approval = false, bool viaHost = false)
     {
         var ct = TestContext.Current.CancellationToken;
         var root = Directory.CreateTempSubdirectory("gnougo-v10-execution-").FullName;
@@ -125,7 +125,17 @@ public sealed partial class LocalProductOutcomeExecutionTests
             }
             var workflow = new WorkflowCompiler().Compile(document);
             var allocated = GC.GetTotalAllocatedBytes(); var timer = Stopwatch.StartNew();
-            var result = await engine.ExecuteAsync(workflow.Workflows[workflow.Entrypoint!], new JsonObject { [designer || approval ? "article" : "query"] = "observed lamps" }, ct);
+            var inputs = new JsonObject { [designer || approval ? "article" : "query"] = "observed lamps" };
+            GnOuGo.Flow.Core.Models.RunResult result;
+            if (viaHost)
+            {
+                await using var host = BudgetHost.Create(session.Yaml!, model, observed,
+                    ["--Flow:Execution:LlmBudget:MaxElapsed=00:02:00"], store);
+                var execution = await host.ExecuteAsync(engine.Limits.RunId!, ct, inputs);
+                Assert.DoesNotContain(execution, e => e.Type == "human_input_request");
+                result = (await store.ReadAsync("local", engine.Limits.RunId!, ct))!.Result!;
+            }
+            else result = await engine.ExecuteAsync(workflow.Workflows[workflow.Entrypoint!], inputs, ct);
             allocated = GC.GetTotalAllocatedBytes() - allocated;
             var journal = (await store.ReadAsync("local", engine.Limits.RunId, ct))!;
             Assert.True(journal.FinalizationCompleted, $"{result.Error?.Code}: {result.Error?.Message}; {result.Error?.Details}");
@@ -251,7 +261,18 @@ public sealed partial class LocalProductOutcomeExecutionTests
             }
             var calls = model.Requests.Count; var external = events.Count; var content = await File.ReadAllBytesAsync(path, ct);
             var recoveryStarted = Stopwatch.GetTimestamp(); var recoveryAllocated = GC.GetTotalAllocatedBytes();
-            var restored = await new WorkflowEngine { RunStore = new GnOuGo.Flow.Persistence.EncryptedWorkflowRunStore(new GnOuGo.KeyVault.Core.Services.KeyVaultRecordStore(Path.Combine(root, "vault.db")), Path.Combine(root, "index.db"), Path.Combine(root, "owners")) }
+            var restoredStore = new GnOuGo.Flow.Persistence.EncryptedWorkflowRunStore(new GnOuGo.KeyVault.Core.Services.KeyVaultRecordStore(Path.Combine(root, "vault.db")), Path.Combine(root, "index.db"), Path.Combine(root, "owners"));
+            GnOuGo.Flow.Core.Models.RunResult restored;
+            if (viaHost)
+            {
+                await using var restarted = BudgetHost.Create(session.Yaml!, model, observed,
+                    ["--Flow:Execution:LlmBudget:MaxCalls=1"], restoredStore);
+                var run = await Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<GnOuGo.Agent.Server.SmartFlow.WorkflowRunService>(restarted.App.Services)
+                    .CommandAsync(engine.Limits.RunId!, "resume", new(journal.Revision), ct);
+                Assert.Equal(TimeSpan.FromMinutes(2), run.ModelBudget!.MaxElapsed); Assert.Null(run.ModelBudget.MaxCalls);
+                restored = run.Result!;
+            }
+            else restored = await new WorkflowEngine { RunStore = restoredStore }
                 .ResumeAsync("local", engine.Limits.RunId, journal.Revision, workflow.Workflows[workflow.Entrypoint!], ct);
             if (Environment.GetEnvironmentVariable("GNOU_GO_V13_METRICS") is { Length: > 0 } recoveryFolder)
                 File.WriteAllText(Path.Combine(recoveryFolder, profile + "-" + variant + "-recovery.json"), new JsonObject
