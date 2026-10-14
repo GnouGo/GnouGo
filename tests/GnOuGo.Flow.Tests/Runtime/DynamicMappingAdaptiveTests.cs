@@ -121,6 +121,9 @@ public sealed partial class DynamicMappingCollectionTests
         var failed = await AdaptiveRun(AdaptiveEngine(invalid), values);
         Assert.False(failed.Success); Assert.Equal("CONTRACT_UNSATISFIED", failed.Error!.Code); Assert.Single(invalid.Requests);
         Assert.Contains("required complete", failed.Error.Message);
+        Assert.Equal("required_example_too_large", failed.Error.Details!["reason"]!.ToString());
+        Assert.Equal(0, failed.Error.Details["source_index"]!.GetValue<int>());
+        Assert.Equal("not_started", failed.Error.Details["dispatch_status"]!.ToString());
     }
 
     [Fact]

@@ -671,10 +671,33 @@ supplies it; ordinary planning journals retain their single-attempt safety bound
 
 ### Runtime execution budgets
 
+`Flow:Execution:MaxMappingInputTokens` configures the existing per-request ceiling
+for independent mapping generation. Shipped appsettings uses **96,000**; omission
+retains Core's historical **12,000** ceiling. The effective allowance is the smaller
+of this ceiling and the model's verified input capacity after reserving output.
+Admission conservatively counts serialized UTF-8 bytes plus 4,096 framing units;
+this is an upper bound, not an exact tokenizer count. Complete examples are never
+truncated to fit. This setting is separate from the cumulative execution budget below.
+
+Use `Flow__Execution__MaxMappingInputTokens=96000` or
+`--Flow:Execution:MaxMappingInputTokens=96000` to override it. The value must be a
+positive integer and is validated at startup. New runs persist it in their existing
+execution limits; recovery keeps the saved value, including historical omission.
+Restart the host to apply changed policy to new executions.
+
+Mapping admission failures retain `CONTRACT_UNSATISFIED` and report host/model/effective
+limits, request bounds, framing and examined-item counts with `dispatch_status: not_started`.
+No provider request was sent for that mapping attempt; earlier workflow operations
+may already have completed. These diagnostics contain no observations or URLs.
+
 Adaptive `mapping.dynamic` requires an explicitly configured cumulative execution
-budget. Configure it separately under `Flow:Execution:LlmBudget`; Designer's
-`WorkflowPlanningBudget` does not supply an execution allowance. No runtime
-allowance is enabled by default, and approving or saving YAML does not configure one.
+budget. Configure it under `Flow:Execution:LlmBudget`; Designer's
+`WorkflowPlanningBudget` does not supply an execution allowance. The shipped
+`appsettings.json` configures **50 logical calls, 1,000,000 total tokens and 30 minutes
+per new execution**. All three limits apply cumulatively, including mapping repairs
+and specializations. These defaults do not set a monetary spending ceiling;
+configure `MaxEstimatedCost` separately if needed. Approving or saving YAML does
+not change the execution policy.
 
 | Property under `Flow:Execution:LlmBudget` | Meaning |
 | --- | --- |
@@ -697,13 +720,15 @@ The equivalent command-line override is
 `--Flow:Execution:LlmBudget:MaxCalls=<chosen-positive-integer>`. Monetary settings
 use `Flow__Execution__LlmBudget__MaxEstimatedCost__Amount` and
 `Flow__Execution__LlmBudget__MaxEstimatedCost__Currency` for environment variables.
-These examples do not choose or grant an allowance. Restart the host after
-changing its execution policy. Invalid explicit settings fail startup; omission
-retains unbudgeted nonadaptive behavior and blocks adaptive workflows before
-workflow operations start.
+Overrides change only the specified settings; the other appsettings limits remain
+active. Restart the host after changing its execution policy. Invalid explicit
+settings fail startup. If the entire budget section is absent from all configuration
+sources, nonadaptive workflows retain their unbudgeted behavior and adaptive
+workflows are blocked before workflow operations start.
 
 Each new root execution receives its own scope. Nested calls, mapping generation,
-repair and specialization share it; parallel work cannot reset it. Monetary
+repair and specialization share it; parallel work cannot reset it. Token limits
+require provider-reported usage; missing usage remains an unverifiable-budget error. Monetary
 admission uses existing model metadata and the configured exchange-rate provider.
 Missing pricing, usage or conversion evidence stops admission.
 

@@ -269,7 +269,9 @@ public sealed partial class LocalProductOutcomeExecutionTests
                     ["--Flow:Execution:LlmBudget:MaxCalls=1"], restoredStore);
                 var run = await Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<GnOuGo.Agent.Server.SmartFlow.WorkflowRunService>(restarted.App.Services)
                     .CommandAsync(engine.Limits.RunId!, "resume", new(journal.Revision), ct);
-                Assert.Equal(TimeSpan.FromMinutes(2), run.ModelBudget!.MaxElapsed); Assert.Null(run.ModelBudget.MaxCalls);
+                Assert.Equal(TimeSpan.FromMinutes(2), run.ModelBudget!.MaxElapsed);
+                Assert.Equal(50, run.ModelBudget.MaxCalls); Assert.Equal(1_000_000, run.ModelBudget.MaxTotalTokens);
+                Assert.Equal(model.Requests.Count * 30L, run.ModelUsage!.TotalTokens);
                 restored = run.Result!;
             }
             else restored = await new WorkflowEngine { RunStore = restoredStore }
@@ -344,7 +346,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
                 controlMapping |= designer && data["examples"]!.AsArray().Any(e => e!["item"]!["records"]!.AsArray().Any(r => r!["tag"]?.ToString() == "input"));
                 var script = controlMapping ? "item.records.filter(r=>m.test(r.tag,'^input$')).map(r=>({reference:r.reference,observedText:r.text}))" : details ? "item.records.filter(r=>m.test(r.tag,'^(h1|p|price)$')).map(r=>({reference:r.reference,observedText:r.text,tag:r.tag}))" :
                     (designer || approval ? "item.records.filter(r=>m.test(r.tag,'^a$')).map(r=>({reference:r.reference,observedText:r.text}))" : "item.records.filter(r=>m.test(r.kind,'^link$')).map(r=>({reference:r.reference,observedText:r.text}))");
-                return Task.FromResult(new LLMResponse { Json = new JsonObject { ["script"] = script } });
+                return Response(new JsonObject { ["script"] = script });
             }
             var input = RetainedModel.BusinessData(request)!;
             Assert.DoesNotContain("observationSnapshot", input.ToJsonString()); Assert.DoesNotContain("noise-", input.ToJsonString());
@@ -370,8 +372,14 @@ public sealed partial class LocalProductOutcomeExecutionTests
                     result["selected" + name + "ReferenceId"] = blocks.SingleOrDefault(b => b!["tag"]!.ToString() == tag)?["reference"]?.DeepClone();
             }
             else throw new InvalidOperationException("Unexpected inference for typed copying, ID lookup or cell assembly.");
-            return Task.FromResult(new LLMResponse { Json = result });
+            return Response(result);
         }
+        // Deterministic provider usage lets host token ceilings exercise settlement and recovery.
+        private static Task<LLMResponse> Response(JsonObject result) => Task.FromResult(new LLMResponse
+        {
+            Json = result,
+            Usage = new JsonObject { ["input_tokens"] = 20, ["output_tokens"] = 10, ["total_tokens"] = 30 }
+        });
         public Task<int?> InputTokenAllowanceAsync(string? provider, string model, int outputTokens, CancellationToken ct) => Task.FromResult<int?>(12000);
         public Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<bool?>(true);
         public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<IReadOnlyList<string>?>([]);

@@ -18,6 +18,25 @@ internal static class WorkflowFailureFormatter
             builder.Append('[').Append(error.Code.Trim()).Append("] ");
         builder.AppendLine(string.IsNullOrWhiteSpace(error.Message) ? "Workflow execution failed." : error.Message.Trim());
 
+        if (error.Code == "CONTRACT_UNSATISFIED" &&
+            ReadBoundedStringDeep(error.Details, "classification", 80) == "mapping_request_admission")
+        {
+            builder.AppendLine().AppendLine("Mapping request allowance (serialized UTF-8 bytes plus framing; conservative token bound):");
+            foreach (var (key, label) in new[]
+            {
+                ("host_limit", "Host limit"), ("model_limit", "Model input allowance"), ("effective_limit", "Effective limit"),
+                ("framing_allowance", "Framing reserve"), ("empty_request_bound", "Request without examples"),
+                ("smallest_complete_example_request_bound", "Smallest complete example request tried"),
+                ("attempted_request_bound", "Last attempted request"), ("examined_items", "Examined source items")
+            })
+                if (ReadLongDeep(error.Details, key) is { } value)
+                    builder.Append("- ").Append(label).Append(": ").AppendLine(value.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            foreach (var key in new[] { "reason", "limiting_factor", "dispatch_status" })
+                if (ReadBoundedStringDeep(error.Details, key, 80) is { } value)
+                    builder.Append("- ").Append(key).Append(": ").AppendLine(Sanitize(value, 80));
+            builder.AppendLine("Review Flow:Execution:MaxMappingInputTokens and the declared model allowance, or explicitly revise the input view. A changed host policy applies only to new runs. No automatic retry, truncation or limit increase was requested.");
+        }
+
         if (error.Code is ErrorCodes.LlmBudgetUnverifiable or ErrorCodes.LlmBudgetExceeded)
         {
             var classification = ReadBoundedStringDeep(error.Details, "classification", 80);
@@ -433,6 +452,17 @@ internal static class WorkflowFailureFormatter
                 return result;
             }
         }
+        return null;
+    }
+
+    private static long? ReadLongDeep(JsonNode? details, string property)
+    {
+        foreach (var scope in EnumerateDiagnosticScopes(details))
+            if (scope is JsonObject obj && obj[property] is JsonValue value)
+            {
+                if (value.TryGetValue<long>(out var result)) return result;
+                if (value.TryGetValue<int>(out var integer)) return integer;
+            }
         return null;
     }
 

@@ -18,7 +18,12 @@ public sealed partial class DynamicMappingExecutor
             ? await resolver.InputTokenAllowanceAsync(request.Provider, request.Model, request.MaxTokens!.Value, ct) : null;
         if (allowance is null)
             throw new WorkflowRuntimeException(ErrorCodes.LlmBudgetUnverifiable, "No verified input allowance for mapping generation.");
-        var limit = Math.Min(allowance.Value, ctx.Limits.MaxMappingInputTokens ?? 12_000);
+        var hostLimit = ctx.Limits.MaxMappingInputTokens ?? 12_000;
+        var limit = Math.Min(allowance.Value, hostLimit);
+        const int framingAllowance = 4096;
+        long requestBound = 0, emptyRequestBound = 0;
+        long? smallestExampleRequestBound = null;
+        var examined = new HashSet<int>();
         var examples = new JsonArray();
         var payload = new JsonObject
         {
@@ -41,9 +46,39 @@ public sealed partial class DynamicMappingExecutor
             request.Prompt = Instructions + collectionInstruction + payload.ToJsonString();
             // UTF-8 bytes are a conservative bound for the supported byte-level
             // tokenizers. Reserve framing in addition to the complete Flow request.
-            return Encoding.UTF8.GetByteCount(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest)) + 4096 <= limit;
+            requestBound = (long)Encoding.UTF8.GetByteCount(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest)) + framingAllowance;
+            return requestBound <= limit;
         }
-        if (!Fits()) throw JintSandbox.Unsatisfied("The approved mapping context and target exceed the safe request allowance.");
+        void ObserveAdmission(string outcome)
+        {
+            ctx.SetTelemetryAttribute("gnougo.mapping.admission.outcome", outcome);
+            ctx.SetTelemetryAttribute("gnougo.mapping.admission.host_limit", hostLimit);
+            ctx.SetTelemetryAttribute("gnougo.mapping.admission.model_limit", allowance.Value);
+            ctx.SetTelemetryAttribute("gnougo.mapping.admission.effective_limit", limit);
+            ctx.SetTelemetryAttribute("gnougo.mapping.admission.framing_allowance", framingAllowance);
+            ctx.SetTelemetryAttribute("gnougo.mapping.admission.empty_request_bound", emptyRequestBound);
+            ctx.SetTelemetryAttribute("gnougo.mapping.admission.request_bound", requestBound);
+            ctx.SetTelemetryAttribute("gnougo.mapping.admission.examined_items", examined.Count);
+            if (smallestExampleRequestBound is { } smallest)
+                ctx.SetTelemetryAttribute("gnougo.mapping.admission.smallest_complete_example_request_bound", smallest);
+        }
+        WorkflowRuntimeException Rejected(string reason, string message, int? sourceIndex = null)
+        {
+            ObserveAdmission(reason);
+            return new WorkflowRuntimeException("CONTRACT_UNSATISFIED", message, details: new JsonObject
+            {
+                ["classification"] = "mapping_request_admission", ["reason"] = reason,
+                ["dispatch_status"] = "not_started", ["measurement"] = "serialized_utf8_bytes_plus_framing",
+                ["host_limit"] = hostLimit, ["model_limit"] = allowance.Value, ["effective_limit"] = limit,
+                ["limiting_factor"] = hostLimit == allowance.Value ? "host_and_model" : hostLimit < allowance.Value ? "host" : "model",
+                ["framing_allowance"] = framingAllowance, ["empty_request_bound"] = emptyRequestBound,
+                ["attempted_request_bound"] = requestBound, ["smallest_complete_example_request_bound"] = smallestExampleRequestBound,
+                ["source_items"] = items.Count, ["examined_items"] = examined.Count, ["source_index"] = sourceIndex
+            });
+        }
+        var contextFits = Fits();
+        emptyRequestBound = requestBound;
+        if (!contextFits) throw Rejected("context_too_large", "The approved mapping context and target exceed the safe request allowance.");
         var shapes = new HashSet<string>(StringComparer.Ordinal);
         var required = new List<int>();
         if (failedIndex is >= 0 && failedIndex < items.Count) required.Add(failedIndex.Value);
@@ -58,11 +93,14 @@ public sealed partial class DynamicMappingExecutor
             if (!selected.Add(index)) return;
             examples.Add((JsonNode)new JsonObject { ["index"] = index, ["item"] = items[index]?.DeepClone() });
             payload["omitted_count"] = items.Count - examples.Count;
-            if (Fits()) return;
+            examined.Add(index);
+            var fits = Fits();
+            if (examples.Count == 1)
+                smallestExampleRequestBound = Math.Min(smallestExampleRequestBound ?? long.MaxValue, requestBound);
+            if (fits) return;
             examples.RemoveAt(examples.Count - 1); selected.Remove(index);
             payload["omitted_count"] = items.Count - examples.Count;
-            if (mandatory) throw new WorkflowRuntimeException("CONTRACT_UNSATISFIED",
-                "A required complete mapping example exceeds the safe request allowance.", details: new JsonObject { ["source_index"] = index });
+            if (mandatory) throw Rejected("required_example_too_large", "A required complete mapping example exceeds the safe request allowance.", index);
         }
         if (adaptiveIndices is not null && failedIndex is { } requiredIndex) Add(requiredIndex, true);
         // Invalid syntax/signatures have no failing data item. Still reserve one
@@ -81,8 +119,9 @@ public sealed partial class DynamicMappingExecutor
         if (adaptiveIndices is not null && examples.Count == 0)
             foreach (var index in adaptiveIndices)
             { Add(index, false); if (examples.Count != 0) break; }
-        if (examples.Count == 0) throw JintSandbox.Unsatisfied("No complete initial mapping example fits the safe request allowance.");
+        if (examples.Count == 0) throw Rejected("no_initial_example_fits", "No complete initial mapping example fits the safe request allowance.");
         _ = Fits();
+        ObserveAdmission("accepted");
         ctx.SetTelemetryAttribute("gnougo.mapping.sample_items", examples.Count);
         ctx.SetTelemetryAttribute("gnougo.mapping.omitted_items", items.Count - examples.Count);
         ctx.SetTelemetryAttribute("gnougo.mapping.request_bytes", Encoding.UTF8.GetByteCount(request.Prompt));

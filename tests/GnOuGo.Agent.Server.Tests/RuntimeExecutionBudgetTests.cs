@@ -61,7 +61,8 @@ public sealed class RuntimeExecutionBudgetTests
         var model = new BudgetModel(); var effects = 0;
         var mcp = new FakeMcpClientFactory(new FakeMcpSession("fixture").OnTool("effect", (_, _) =>
         { effects++; return Task.FromResult(new McpCallResult { Content = new JsonObject() }); }));
-        await using var host = BudgetHost.Create(AdaptiveYaml, model, mcp, calls is null ? [] : ["--Flow:Execution:LlmBudget:MaxCalls=" + calls]);
+        await using var host = BudgetHost.Create(AdaptiveYaml, model, mcp, calls is null ? [] : ["--Flow:Execution:LlmBudget:MaxCalls=" + calls],
+            withoutAppSettings: calls is null);
         var factory = host.App.Services.GetRequiredService<ILLMUsageBudgetScopeFactory>();
         Assert.Equal(calls is null, factory.CreateScope() is null);
         var events = await host.ExecuteAsync("budget-run", Ct);
@@ -83,6 +84,28 @@ public sealed class RuntimeExecutionBudgetTests
             var resumed = await host.App.Services.GetRequiredService<WorkflowRunService>().CommandAsync("budget-run", "resume", new(run.Revision), Ct);
             Assert.True(resumed.Result!.Success); Assert.Equal(1, model.Calls); Assert.Equal(1, effects);
         }
+    }
+
+    [Fact]
+    public async Task ShippedDefaultsPermitAdaptiveExecutionAndPersistAllLimits()
+    {
+        var model = new BudgetModel(); var effects = 0;
+        var mcp = new FakeMcpClientFactory(new FakeMcpSession("fixture").OnTool("effect", (_, _) =>
+        { effects++; return Task.FromResult(new McpCallResult { Content = new JsonObject() }); }));
+        await using var host = BudgetHost.Create(AdaptiveYaml, model, mcp, []);
+
+        var events = await host.ExecuteAsync("shipped-defaults", Ct);
+        Assert.DoesNotContain(events, e => e.Type is "error" or "human_input_request" or "planner_session");
+        var run = (await host.Store.ReadAsync("local", "shipped-defaults", Ct))!;
+        Assert.Equal(50, run.ModelBudget!.MaxCalls);
+        Assert.Equal(1_000_000, run.ModelBudget.MaxTotalTokens);
+        Assert.Equal(TimeSpan.FromMinutes(30), run.ModelBudget.MaxElapsed);
+        Assert.Null(run.ModelBudget.MaxEstimatedCost);
+        Assert.Null(run.ModelBudget.MaxEstimatedCostUsd);
+        Assert.Equal(1, run.ModelUsage!.Calls);
+        Assert.Equal(96000, run.Limits.MaxMappingInputTokens);
+        Assert.Equal(1, model.Calls); Assert.Equal(1, effects);
+        Assert.True(JsonNode.DeepEquals(new JsonArray("first", "second", "first"), run.Result!.Outputs!["labels"]));
     }
 
     [Theory]
@@ -135,7 +158,7 @@ public sealed class RuntimeExecutionBudgetTests
               main:
                 steps: [{id: value, type: set, input: {text: unchanged}}]
                 outputs: {answer: {type: string, expr: '${data.steps.value.text}'}}
-            """, new BudgetModel(), new FakeMcpClientFactory(), []);
+            """, new BudgetModel(), new FakeMcpClientFactory(), [], withoutAppSettings: true);
         Assert.Contains(await host.ExecuteAsync("manual", Ct), e => e.Type == "answer" && e.Text == "unchanged");
     }
 
@@ -301,6 +324,7 @@ public sealed class RuntimeExecutionBudgetTests
         Assert.Equal(success, resumed.Result!.Success); Assert.Equal(savedCalls, resumed.ModelBudget!.MaxCalls);
         Assert.Equal(savedCalls, model.Calls); Assert.Equal(savedCalls, resumed.ModelUsage!.Calls);
         Assert.Equal(saved.ModelUsage.StartedAtUtc, resumed.ModelUsage.StartedAtUtc);
+        Assert.Null(resumed.Limits.MaxMappingInputTokens); // Historical omission keeps Core's 12,000 default.
         if (!success) Assert.Equal(ErrorCodes.LlmBudgetExceeded, resumed.Result.Error!.Code);
     }
 
@@ -332,7 +356,7 @@ public sealed class RuntimeExecutionBudgetTests
     public async Task NewPolicyCannotGiveAnUnbudgetedHistoricalRunAnAllowance()
     {
         var model = new BudgetModel(); var store = new InMemoryWorkflowRunStore();
-        await using (var original = BudgetHost.Create(AdaptiveYaml, model, new FakeMcpClientFactory(), [], store))
+        await using (var original = BudgetHost.Create(AdaptiveYaml, model, new FakeMcpClientFactory(), [], store, withoutAppSettings: true))
             Assert.Contains(await original.ExecuteAsync("unbudgeted", Ct), e => e.ErrorCode == ErrorCodes.LlmBudgetUnverifiable);
         var saved = (await store.ReadAsync("local", "unbudgeted", Ct))!;
         await using var restarted = BudgetHost.Create(AdaptiveYaml, model, new FakeMcpClientFactory(), ["--Flow:Execution:LlmBudget:MaxCalls=5"], store);
@@ -379,6 +403,7 @@ public sealed class RuntimeExecutionBudgetTests
         internal int Calls => _calls;
         internal bool Unknown { get; set; }
         internal bool Route { get; set; }
+        internal int InputAllowance { get; set; } = 12000;
         public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
         {
             Interlocked.Increment(ref _calls);
@@ -388,7 +413,7 @@ public sealed class RuntimeExecutionBudgetTests
                 : new JsonObject { ["script"] = "item.label" },
                 Usage = new JsonObject { ["input_tokens"] = 20, ["output_tokens"] = 10, ["total_tokens"] = 30 } });
         }
-        public Task<int?> InputTokenAllowanceAsync(string? provider, string model, int outputTokens, CancellationToken ct) => Task.FromResult<int?>(12000);
+        public Task<int?> InputTokenAllowanceAsync(string? provider, string model, int outputTokens, CancellationToken ct) => Task.FromResult<int?>(InputAllowance);
         public Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<bool?>(true);
         public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<IReadOnlyList<string>?>([]);
     }
@@ -400,7 +425,7 @@ internal sealed class BudgetHost(WebApplication app, IWorkflowRunStore store, st
     internal WebApplication App => app;
     internal IWorkflowRunStore Store => store;
     internal static BudgetHost Create(string yaml, ILLMClient model, IMcpClientFactory transport, string[] budgetArgs,
-        IWorkflowRunStore? store = null, Action<IServiceCollection>? configure = null)
+        IWorkflowRunStore? store = null, Action<IServiceCollection>? configure = null, bool withoutAppSettings = false)
     {
         var args = TelemetryTestHostArgs.Create(["--OpenTelemetry:TenantId=local", .. budgetArgs]);
         var directory = Path.GetDirectoryName(args.Single(a => a.StartsWith("--Database:Path=", StringComparison.Ordinal))["--Database:Path=".Length..])!;
@@ -413,7 +438,8 @@ internal sealed class BudgetHost(WebApplication app, IWorkflowRunStore store, st
         var runtime = SmartFlowTestFactory.CreateRuntimeOptionsStore();
         try
         {
-            var app = GnOuGoAgentWebHost.Build(args, urls: "http://127.0.0.1:0", contentRoot: Path.GetFullPath(Path.Combine(
+            // Missing-policy regressions use an isolated content root, not the shipped defaults.
+            var app = GnOuGoAgentWebHost.Build(args, urls: "http://127.0.0.1:0", contentRoot: withoutAppSettings ? directory : Path.GetFullPath(Path.Combine(
                 AppContext.BaseDirectory, "..", "..", "..", "..", "..", "src", "GnOuGo.Agent.Server")), enableHttpsRedirection: false,
                 configureServices: services =>
                 {

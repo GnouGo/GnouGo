@@ -73,6 +73,7 @@ public sealed class SmartFlowService
     private readonly IWorkflowTraceFileExporter? _traceFileExporter;
     private readonly ILLMUsageBudgetScopeFactory? _llmUsageBudgetScopeFactory;
     private readonly IExchangeRateProvider? _exchangeRateProvider;
+    private readonly WorkflowExecutionSettings _executionSettings;
     private readonly WorkflowMermaidMarkdownOptions _workflowMermaidOptions;
     private readonly string _routingWorkflowYaml;
     private readonly TimeSpan _mcpCacheSlidingExpiration;
@@ -104,7 +105,8 @@ public sealed class SmartFlowService
         ILLMUsageBudgetScopeFactory? llmUsageBudgetScopeFactory = null,
         ChatPlanningService? chatPlanning = null,
         IWorkflowRunStore? runStore = null,
-        IExchangeRateProvider? exchangeRateProvider = null)
+        IExchangeRateProvider? exchangeRateProvider = null,
+        IOptions<WorkflowExecutionSettings>? executionSettings = null)
     {
         _runStore = runStore;
         _planning = planning;
@@ -123,6 +125,7 @@ public sealed class SmartFlowService
         _traceFileExporter = traceFileExporter;
         _llmUsageBudgetScopeFactory = llmUsageBudgetScopeFactory;
         _exchangeRateProvider = exchangeRateProvider;
+        _executionSettings = executionSettings?.Value ?? new();
         _workflowMermaidOptions = workflowMermaidOptions?.Value ?? new WorkflowMermaidMarkdownOptions();
         _otel = otel;
         _logger = logger;
@@ -431,6 +434,7 @@ public sealed class SmartFlowService
                 Logger = _logger,
                 Limits = new ExecutionLimits
                 {
+                    MaxMappingInputTokens = _executionSettings.MaxMappingInputTokens,
                     LogStepContent = false,
                     RunId = correlationId,
                     ExecutionId = correlationId,

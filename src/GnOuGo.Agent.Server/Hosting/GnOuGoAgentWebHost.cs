@@ -183,6 +183,8 @@ public static class GnOuGoAgentWebHost
             .Get<WorkflowPlanningBudgetSettings>() ?? new WorkflowPlanningBudgetSettings();
         workflowPlanningBudget.Validate();
         var executionBudget = ConfiguredExecutionBudgetFactory.Read(builder.Configuration);
+        var executionSettings = WorkflowExecutionSettings.Read(builder.Configuration);
+        builder.Services.AddSingleton(Options.Create(executionSettings));
 
         // Resolve the dotnet executable used by this process so stdio MCP servers are spawned
         // with the SAME dotnet installation that's running the agent server.
