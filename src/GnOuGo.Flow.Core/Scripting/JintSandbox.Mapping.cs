@@ -325,7 +325,12 @@ public sealed partial class JintSandbox
                 return obj;
             }
             var message = "Mapping result " + path + " contains a missing or invented scalar. Return observed data; defaults belong to the target contract.";
-            throw value.IsUndefined() ? Unsatisfied(message) : InvalidProgram(message);
+            throw new WorkflowRuntimeException("CONTRACT_UNSATISFIED", message, details: new JsonObject
+            {
+                ["mapping_failure_kind"] = value.IsUndefined() ? "data" : "program",
+                ["mapping_failure_reason"] = value.IsUndefined() ? "missing_scalar" : "ungrounded_scalar",
+                ["mapping_result_path"] = path
+            });
         }
         JsonNode? Observed(JsValue value)
         {

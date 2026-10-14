@@ -90,6 +90,7 @@ public sealed partial class DynamicMappingExecutor : IStepExecutor
             Math.Min(ctx.Limits.ExpressionMemoryLimitBytes, 50000000));
         var client = ctx.Engine.LLMClient;
         string? previous = null; string? failure = null; int? failedIndex = null;
+        JsonNode? failureDetails = null;
         if (adaptive)
             return await ExecuteAdaptiveAsync(ctx, sources, collection!, eachInput!, eachOutput!, target, itemTarget!,
                 fingerprintData, sandbox, Model, ct);
@@ -135,10 +136,19 @@ public sealed partial class DynamicMappingExecutor : IStepExecutor
                     return result;
                 }
                 catch (WorkflowRuntimeException ex) when (ex.Code == "CONTRACT_UNSATISFIED" && ex.Details?["mapping_resource_limit"]?.GetValue<bool>() != true)
-                { previous = script; failure = ex.Message; failedIndex = ex.Details?["source_index"]?.GetValue<int>(); }
+                { previous = script; failure = ex.Message; failedIndex = ex.Details?["source_index"]?.GetValue<int>(); failureDetails = ex.Details; }
             }
+            var details = new JsonObject { ["consumer_binding"] = input["binding"]!.DeepClone(), ["mapping_attempts"] = 2, ["source_index"] = failedIndex };
+            // Carry only bounded structural diagnostics, never scripts or observations.
+            foreach (var name in new[] { "mapping_failure_kind", "mapping_failure_reason", "mapping_result_path" })
+                if (failureDetails?[name] is JsonValue field && field.TryGetValue<string>(out var text))
+                {
+                    var diagnostic = text[..Math.Min(text.Length, 512)];
+                    details[name] = diagnostic;
+                    ctx.SetTelemetryAttribute("gnougo.mapping." + name["mapping_".Length..], diagnostic);
+                }
             throw new WorkflowRuntimeException("CONTRACT_UNSATISFIED", "The required mapping could not be established after two bounded attempts: " + failure,
-                details: new JsonObject { ["consumer_binding"] = input["binding"]!.DeepClone(), ["mapping_attempts"] = 2, ["source_index"] = failedIndex });
+                details: details);
 
         }
         finally { ObserveSandbox(ctx, allowance); }

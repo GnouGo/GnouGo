@@ -18,6 +18,19 @@ internal static class WorkflowFailureFormatter
             builder.Append('[').Append(error.Code.Trim()).Append("] ");
         builder.AppendLine(string.IsNullOrWhiteSpace(error.Message) ? "Workflow execution failed." : error.Message.Trim());
 
+        if (error.Code == "CONTRACT_UNSATISFIED" && ReadBoundedStringDeep(error.Details, "mapping_result_path", 512) is { } resultPath)
+        {
+            builder.AppendLine().AppendLine("Mapping result rejected:");
+            builder.Append("- Result path: ").AppendLine(Sanitize(resultPath, 512));
+            foreach (var (key, label) in new[] { ("mapping_failure_kind", "Failure kind"),
+                ("mapping_failure_reason", "Reason"), ("consumer_binding", "Binding") })
+                if (ReadBoundedStringDeep(error.Details, key, 240) is { } value)
+                    builder.Append("- ").Append(label).Append(": ").AppendLine(Sanitize(value, 240));
+            if (ReadLongDeep(error.Details, "mapping_attempts") is { } attempts)
+                builder.Append("- Mapping attempts: ").AppendLine(attempts.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            builder.AppendLine("Extraction must preserve observed values. Assemble typed status and other computed values with deterministic bindings from the producer's declared results. Review the composition; increasing limits or inventing defaults cannot supply missing evidence.");
+        }
+
         if (error.Code == "CONTRACT_UNSATISFIED" &&
             ReadBoundedStringDeep(error.Details, "classification", 80) == "mapping_request_admission")
         {
