@@ -176,3 +176,12 @@ under failed-attempts, and is not counted as a pass. This work does not establis
 future model compliance or real Amazon business acceptance. Applying a paid
 revision to the retained session, approving its new artifact and executing it are
 separate actions requiring authorization. PR #117 remains draft.
+
+The full run subsequently exposed obsolete prompt-text assertions in the older
+v10 and initial-composition host fixtures. Their expectations were updated to the
+replacement guidance; compilation, call-count, request-size, workbook, effect and
+recovery assertions are unchanged. The two v10 review cases and the real
+initial-composition execution then passed (ten visits, 29 complete pages, exact
+workbook cells, zero typed-copy inference). The failed full-run evidence and
+[three-case verification](host-guidance-final.log.gz) are retained. A fresh complete
+serial run, rather than that isolated rerun alone, is required for final acceptance.
