@@ -235,7 +235,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
                 Assert.Contains("extract each {\"input\":\"pages\",\"output\":\"candidates\"}", request.Prompt);
                 Assert.Contains("flatten for a compact ID decision", request.Prompt);
                 Assert.Contains("lookup offered then originals", request.Prompt);
-                Assert.Contains("Bind typed copies and rows. Extract facts; assemble producer status with bindings", request.Prompt);
+                Assert.Contains("Extract facts; bind copies, rows, producer status", request.Prompt);
                 Assert.Contains("Preserve requested work/outputs", request.Prompt);
                 Assert.InRange(adapter.InputEstimate, 1, initial.Request.Generation.MaxInputTokensPerRequest);
                 output.WriteLine($"INITIAL REQUEST: estimatedTokens={adapter.InputEstimate}; calls=1; repairs=0; tasks=18");

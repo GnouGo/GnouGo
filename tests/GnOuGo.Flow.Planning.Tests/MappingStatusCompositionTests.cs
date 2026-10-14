@@ -57,7 +57,7 @@ public sealed class MappingStatusCompositionTests
         state = await PlannerFixture.RunAsync(runtime, state);
         Assert.True(state.Status == PlanningStatus.FinalReview, string.Join(';', state.Diagnostics));
         Assert.Null(state.ApprovedHash); Assert.Equal(0, state.ReplanAttempts); Assert.Equal(2, runtime.Calls.Count);
-        Assert.Contains("Extract facts; assemble producer status with bindings", runtime.Calls[^1].Prompt);
+        Assert.Contains("Extract facts; bind copies, rows, producer status", runtime.Calls[^1].Prompt);
         Assert.True(JsonNode.DeepEquals(JsonSerializer.SerializeToNode(baseline.Requirements, PlanningJsonContext.Default.PlanningRequirements), JsonSerializer.SerializeToNode(state.Requirements, PlanningJsonContext.Default.PlanningRequirements)));
         Assert.Equal(oldYaml, baseline.Yaml); Assert.Equal(0, reads); Assert.Equal(0, model.Calls);
         var result = await Execute(state.Yaml!, new(), engine);

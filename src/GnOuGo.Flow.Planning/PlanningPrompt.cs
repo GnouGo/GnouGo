@@ -37,7 +37,7 @@ internal sealed class PlanningPrompt(PlanningSession state)
 
     private const string Instructions = """
         Preserve requested work/outputs; no extra actions, filtering or deduplication.
-        Bind typed copies and rows. Extract facts; assemble producer status with bindings from declared results. Assert success, availability and completeness before dependent work.
+        Extract facts; bind copies, rows, producer status. Assert producer-declared success, availability and completeness first.
         Example: observe complete bounded pages; extract each {"input":"pages","output":"candidates"}, compact Candidate[] per page; flatten for a compact ID decision; lookup offered then originals; requested visits; typed row exports.
         Keep original action data. Copy IDs/text verbatim; branch on null; prepend supplied headers. Save before cleanup; return the writer's path.
         """ + "\n" + DescriptionInstructions;
