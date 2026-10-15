@@ -1,0 +1,28 @@
+[
+  {
+    "variant": "complete",
+    "passed": true,
+    "rows_with_header": 11,
+    "visits": 10,
+    "complete_pages": 39,
+    "exact_cells_compared_to_original_observations": true,
+    "formula_count": 0,
+    "cleanup": true,
+    "writer_path_matches_requested_suffix": true,
+    "workbook_sha256": "f36b636bd24e945cef9052dd946a1848331b4b325c97072f0447ccd7b4df094f",
+    "observation_sha256": "a8f246b6f050eebd303fe091e7c0fd08ff8bfe20dd0a5b31bb0e6f9e18ebbc98"
+  },
+  {
+    "variant": "repeated",
+    "passed": true,
+    "rows_with_header": 11,
+    "visits": 10,
+    "complete_pages": 39,
+    "exact_cells_compared_to_original_observations": true,
+    "formula_count": 0,
+    "cleanup": true,
+    "writer_path_matches_requested_suffix": true,
+    "workbook_sha256": "16b4cfb22c6079a466a46dd12322ca29fa85481762cac0705923d6e17e871651",
+    "observation_sha256": "9405191ecbb758250bb69368f9d575765a645c90b8640c52284db6694e7c8b41"
+  }
+]
