@@ -10,6 +10,25 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class LiveWorkflowReviewTests
 {
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void FreshLiveCorrectionPolicyIsExplicitAndKeepsCumulativeLimits(bool enabled)
+    {
+        var request = LiveWorkflowEvaluation.FreshPlanningRequest(enabled ? ["--automatic-correction"] : [],
+            "fresh-run", "amazon", "requested work", "provider", "model");
+        Assert.Equal(enabled, request.Options.ContainsKey("automatic_correction"));
+        if (enabled) Assert.True(request.Options["automatic_correction"]!.GetValue<bool>());
+        Assert.Equal(8, request.MaxModelCalls);
+        Assert.Equal(2, request.MaxReplanAttempts);
+        Assert.Equal(96000, request.Generation.MaxInputTokensPerRequest);
+        Assert.Equal(32768, request.Generation.MaxOutputTokens);
+        Assert.Equal("requested work", request.Prompt);
+        var recovered = JsonSerializer.Deserialize(JsonSerializer.Serialize(request, PlanningJsonContext.Default.PlanningRequest),
+            PlanningJsonContext.Default.PlanningRequest)!;
+        Assert.Equal(request.Options.ToJsonString(), recovered.Options.ToJsonString());
+    }
+
+    [Theory]
     [InlineData(1)]
     [InlineData(10)]
     public void LivePromptRetainsBusinessConstraintsWithoutInjectingNoticeHandling(int productLimit)

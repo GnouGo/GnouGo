@@ -150,11 +150,8 @@ internal static class LiveWorkflowEvaluation
         var remainingTime = TimeSpan.FromMinutes(30) - TimeSpan.FromMilliseconds(priorMilliseconds);
         if (remainingTime <= TimeSpan.Zero) throw new InvalidOperationException("Planning time is exhausted; revision cannot reset it.");
         var clock = Stopwatch.StartNew(); using var timeout = new CancellationTokenSource(remainingTime);
-        var state = phase == "revise" ? run["session"]!.Deserialize(PlanningJsonContext.Default.PlanningSession)! : new PlanningSession { Request = new() { SessionId = label, TenantId = "benchmark", Name = "Live " + scenario,
-            Prompt = prompt, Mode = PlanningMode.Auto, MaxModelCalls = 8, MaxReplanAttempts = 2,
-            Generation = new() { MaxInputTokensPerRequest = 96000, MaxOutputTokens = 32768, Reasoning = "medium" },
-            Policy = new() { RequireExternalConfirmation = false },
-            Options = new() { ["generator"] = new JsonObject { ["provider"] = model.Provider, ["model"] = model.Model } } } };
+        var state = phase == "revise" ? run["session"]!.Deserialize(PlanningJsonContext.Default.PlanningSession)! : new PlanningSession
+        { Request = FreshPlanningRequest(args, label, scenario, prompt, model.Provider, model.Model) };
         if (phase == "revise")
         {
             var commandPath = SchemaPortabilityCampaign.Option(args, "--revision-command") ?? throw new ArgumentException("Supply --revision-command <file> with concrete review feedback.");
@@ -186,6 +183,17 @@ internal static class LiveWorkflowEvaluation
         if (run["artifact_hash"] is not null) Console.WriteLine("artifact_hash=" + run["artifact_hash"]);
 
         Task Save() => campaign.SaveAsync(SchemaPortabilityCampaign.Collection, key, run, CancellationToken.None);
+    }
+
+    internal static PlanningRequest FreshPlanningRequest(string[] args, string label, string scenario, string prompt, string provider, string model)
+    {
+        var request = new PlanningRequest { SessionId = label, TenantId = "benchmark", Name = "Live " + scenario,
+            Prompt = prompt, Mode = PlanningMode.Auto, MaxModelCalls = 8, MaxReplanAttempts = 2,
+            Generation = new() { MaxInputTokensPerRequest = 96000, MaxOutputTokens = 32768, Reasoning = "medium" },
+            Policy = new() { RequireExternalConfirmation = false },
+            Options = new() { ["generator"] = new JsonObject { ["provider"] = provider, ["model"] = model } } };
+        if (args.Contains("--automatic-correction", StringComparer.Ordinal)) request.Options["automatic_correction"] = true;
+        return request;
     }
 
     internal static async Task<PlanningSession> ApproveAsync(JsonObject run, PlanningCommand command, IPlanningRuntime runtime, CancellationToken ct)

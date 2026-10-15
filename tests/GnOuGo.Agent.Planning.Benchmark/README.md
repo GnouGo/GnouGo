@@ -391,6 +391,13 @@ prompts and approvals keep their original semantics; never replay an execution
 that has already started. Visit, observation, workbook and cleanup oracles remain
 unchanged.
 
+For a fresh session testing Agent.Server's automatic-correction policy, add
+`--automatic-correction` to `plan`. The option is captured in that new session;
+revisions and execution reuse the saved policy. Omitting it preserves the
+historical harness behavior. Both policies retain eight planning calls and two
+correction attempts within the existing cumulative allowance; artifact approval
+remains separate.
+
 ```sh
 dotnet build tests/GnOuGo.Agent.Planning.Benchmark -m:1 -warnaserror -p:SkipClientBuild=true
 dotnet run --no-build --project tests/GnOuGo.Agent.Planning.Benchmark -- \
