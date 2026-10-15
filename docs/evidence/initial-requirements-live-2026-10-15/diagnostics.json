@@ -1,0 +1,114 @@
+[
+  {
+    "code": "REVISION_SCOPE_CHANGED",
+    "location": "/tasks/build_search_url",
+    "message": "Automatic correction cannot establish preservation of the independent task declaration. Review this difference explicitly; no candidate was applied.",
+    "required": true,
+    "validationStage": null,
+    "rule": null
+  },
+  {
+    "code": "REVISION_SCOPE_CHANGED",
+    "location": "/tasks/open_search",
+    "message": "Automatic correction cannot establish preservation of the independent task declaration. Review this difference explicitly; no candidate was applied.",
+    "required": true,
+    "validationStage": null,
+    "rule": null
+  },
+  {
+    "code": "REVISION_SCOPE_CHANGED",
+    "location": "/tasks/cookie_decision",
+    "message": "Automatic correction cannot establish preservation of the independent task declaration. Review this difference explicitly; no candidate was applied.",
+    "required": true,
+    "validationStage": null,
+    "rule": null
+  },
+  {
+    "code": "REVISION_SCOPE_CHANGED",
+    "location": "/tasks/accept_cookies_if_present",
+    "message": "Automatic correction cannot establish preservation of the independent task declaration. Review this difference explicitly; no candidate was applied.",
+    "required": true,
+    "validationStage": null,
+    "rule": null
+  },
+  {
+    "code": "REVISION_SCOPE_CHANGED",
+    "location": "/tasks/accept_cookies/requires",
+    "message": "Automatic correction cannot establish preservation of the ordered assertion. Review this difference explicitly; no candidate was applied.",
+    "required": true,
+    "validationStage": null,
+    "rule": null
+  },
+  {
+    "code": "REVISION_SCOPE_CHANGED",
+    "location": "/tasks/extract_candidates_by_page/requires",
+    "message": "Automatic correction cannot establish preservation of the ordered assertion. Review this difference explicitly; no candidate was applied.",
+    "required": true,
+    "validationStage": null,
+    "rule": null
+  },
+  {
+    "code": "REVISION_SCOPE_CHANGED",
+    "location": "/tasks/prepare_visits",
+    "message": "Automatic correction cannot establish preservation of the independent task declaration. Review this difference explicitly; no candidate was applied.",
+    "required": true,
+    "validationStage": null,
+    "rule": null
+  },
+  {
+    "code": "REVISION_SCOPE_CHANGED",
+    "location": "/tasks/prepare_visits/resultType",
+    "message": "Automatic correction cannot establish preservation of the existing intermediate contract. Review this difference explicitly; no candidate was applied.",
+    "required": true,
+    "validationStage": null,
+    "rule": null
+  },
+  {
+    "code": "REVISION_SCOPE_CHANGED",
+    "location": "/tasks/visit_products",
+    "message": "Automatic correction cannot establish preservation of the independent task declaration. Review this difference explicitly; no candidate was applied.",
+    "required": true,
+    "validationStage": null,
+    "rule": null
+  },
+  {
+    "code": "REVISION_SCOPE_CHANGED",
+    "location": "/tasks/has_product_url",
+    "message": "Automatic correction cannot establish preservation of the independent task declaration. Review this difference explicitly; no candidate was applied.",
+    "required": true,
+    "validationStage": null,
+    "rule": null
+  },
+  {
+    "code": "REVISION_SCOPE_CHANGED",
+    "location": "/tasks/extract_product_facts",
+    "message": "Automatic correction cannot establish preservation of the independent task declaration. Review this difference explicitly; no candidate was applied.",
+    "required": true,
+    "validationStage": null,
+    "rule": null
+  },
+  {
+    "code": "REVISION_SCOPE_CHANGED",
+    "location": "/tasks/make_null_visit_row",
+    "message": "Automatic correction cannot establish preservation of the independent task declaration. Review this difference explicitly; no candidate was applied.",
+    "required": true,
+    "validationStage": null,
+    "rule": null
+  },
+  {
+    "code": "REVISION_SCOPE_CHANGED",
+    "location": "/tasks/assemble_rows",
+    "message": "Automatic correction cannot establish preservation of the independent task declaration. Review this difference explicitly; no candidate was applied.",
+    "required": true,
+    "validationStage": null,
+    "rule": null
+  },
+  {
+    "code": "REVISION_SCOPE_CHANGED",
+    "location": "/tasks/assemble_rows/resultType",
+    "message": "Automatic correction cannot establish preservation of the existing intermediate contract. Review this difference explicitly; no candidate was applied.",
+    "required": true,
+    "validationStage": null,
+    "rule": null
+  }
+]

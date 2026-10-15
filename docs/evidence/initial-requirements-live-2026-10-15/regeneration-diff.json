@@ -1,0 +1,85 @@
+[
+  {
+    "task": "build_search_url",
+    "changed_fields": [
+      "objective"
+    ]
+  },
+  {
+    "task": "open_search",
+    "changed_fields": [
+      "objective"
+    ]
+  },
+  {
+    "task": "cookie_decision",
+    "changed_fields": [
+      "objective"
+    ]
+  },
+  {
+    "task": "accept_cookies_if_present",
+    "changed_fields": [
+      "body",
+      "objective",
+      "otherwise"
+    ]
+  },
+  {
+    "task": "accept_cookies",
+    "changed_fields": [
+      "objective",
+      "requires"
+    ]
+  },
+  {
+    "task": "extract_candidates_by_page",
+    "changed_fields": [
+      "objective",
+      "requires",
+      "resultType"
+    ]
+  },
+  {
+    "task": "prepare_visits",
+    "changed_fields": [
+      "objective",
+      "resultType"
+    ]
+  },
+  {
+    "task": "visit_products",
+    "changed_fields": [
+      "body",
+      "objective"
+    ]
+  },
+  {
+    "task": "has_product_url",
+    "changed_fields": [
+      "body",
+      "objective",
+      "otherwise"
+    ]
+  },
+  {
+    "task": "extract_product_facts",
+    "changed_fields": [
+      "objective"
+    ]
+  },
+  {
+    "task": "make_null_visit_row",
+    "changed_fields": [
+      "objective"
+    ]
+  },
+  {
+    "task": "assemble_rows",
+    "changed_fields": [
+      "inputs",
+      "objective",
+      "resultType"
+    ]
+  }
+]

@@ -1,0 +1,161 @@
+{
+  "status": "stopped",
+  "planning_ms": 435621,
+  "calls": 4,
+  "repairs": 2,
+  "discovery_reads": 2,
+  "review_revisions": 0,
+  "diagnostics": [
+    {
+      "code": "REVISION_SCOPE_CHANGED",
+      "location": "/tasks/build_search_url",
+      "message": "Automatic correction cannot establish preservation of the independent task declaration. Review this difference explicitly; no candidate was applied.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "REVISION_SCOPE_CHANGED",
+      "location": "/tasks/open_search",
+      "message": "Automatic correction cannot establish preservation of the independent task declaration. Review this difference explicitly; no candidate was applied.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "REVISION_SCOPE_CHANGED",
+      "location": "/tasks/cookie_decision",
+      "message": "Automatic correction cannot establish preservation of the independent task declaration. Review this difference explicitly; no candidate was applied.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "REVISION_SCOPE_CHANGED",
+      "location": "/tasks/accept_cookies_if_present",
+      "message": "Automatic correction cannot establish preservation of the independent task declaration. Review this difference explicitly; no candidate was applied.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "REVISION_SCOPE_CHANGED",
+      "location": "/tasks/accept_cookies/requires",
+      "message": "Automatic correction cannot establish preservation of the ordered assertion. Review this difference explicitly; no candidate was applied.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "REVISION_SCOPE_CHANGED",
+      "location": "/tasks/extract_candidates_by_page/requires",
+      "message": "Automatic correction cannot establish preservation of the ordered assertion. Review this difference explicitly; no candidate was applied.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "REVISION_SCOPE_CHANGED",
+      "location": "/tasks/prepare_visits",
+      "message": "Automatic correction cannot establish preservation of the independent task declaration. Review this difference explicitly; no candidate was applied.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "REVISION_SCOPE_CHANGED",
+      "location": "/tasks/prepare_visits/resultType",
+      "message": "Automatic correction cannot establish preservation of the existing intermediate contract. Review this difference explicitly; no candidate was applied.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "REVISION_SCOPE_CHANGED",
+      "location": "/tasks/visit_products",
+      "message": "Automatic correction cannot establish preservation of the independent task declaration. Review this difference explicitly; no candidate was applied.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "REVISION_SCOPE_CHANGED",
+      "location": "/tasks/has_product_url",
+      "message": "Automatic correction cannot establish preservation of the independent task declaration. Review this difference explicitly; no candidate was applied.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "REVISION_SCOPE_CHANGED",
+      "location": "/tasks/extract_product_facts",
+      "message": "Automatic correction cannot establish preservation of the independent task declaration. Review this difference explicitly; no candidate was applied.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "REVISION_SCOPE_CHANGED",
+      "location": "/tasks/make_null_visit_row",
+      "message": "Automatic correction cannot establish preservation of the independent task declaration. Review this difference explicitly; no candidate was applied.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "REVISION_SCOPE_CHANGED",
+      "location": "/tasks/assemble_rows",
+      "message": "Automatic correction cannot establish preservation of the independent task declaration. Review this difference explicitly; no candidate was applied.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "REVISION_SCOPE_CHANGED",
+      "location": "/tasks/assemble_rows/resultType",
+      "message": "Automatic correction cannot establish preservation of the existing intermediate contract. Review this difference explicitly; no candidate was applied.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    }
+  ],
+  "execution_success": false,
+  "execution_oracle": false,
+  "execution_status": "not_started",
+  "accounting": {
+    "planning": {
+      "logical_calls": 4,
+      "physical_attempts": 5,
+      "known_input_tokens": 44604,
+      "known_output_tokens": 10577,
+      "known_cost_eur": 0.48325731151059836,
+      "unknown_attempts": 1,
+      "reserved_input_tokens": 96000,
+      "reserved_output_tokens": 32768,
+      "reserved_cost_eur": 1.3085055004024684
+    },
+    "execution": {
+      "logical_calls": 0,
+      "physical_attempts": 0,
+      "known_input_tokens": 0,
+      "known_output_tokens": 0,
+      "known_cost_eur": 0,
+      "unknown_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0
+    },
+    "campaign": {
+      "calls": 1160,
+      "session_calls": 0,
+      "known_input_tokens": 16117669,
+      "known_output_tokens": 2387391,
+      "known_cost_eur": 135.39483653134295,
+      "reserved_input_tokens": 1226641,
+      "reserved_output_tokens": 393216,
+      "reserved_cost_eur": 15.952427492135337,
+      "cost_upper_bound_eur": 151.3472640234783,
+      "unknown_attempts": 12
+    }
+  }
+}

@@ -1,0 +1,95 @@
+{
+  "summary": "Automatiser une recherche Amazon.fr pour une entrée publique unique query, récupérer au maximum les 10 premiers produits retournés, visiter chaque page produit, extraire nom, description et prix en conservant les absences/erreurs explicitement, puis sauvegarder un classeur XLSX au chemin imposé et fermer le navigateur même en cas d’échec.",
+  "outcomes": [
+    {
+      "id": "input",
+      "description": "Le workflow accepte une seule entrée publique nommée query, par exemple « chaussure geox homme 45 »."
+    },
+    {
+      "id": "search",
+      "description": "Le workflow utilise Amazon.fr et recherche l’article correspondant à query."
+    },
+    {
+      "id": "limit",
+      "description": "Le workflow traite au maximum les 10 premiers produits observés dans l’ordre, sans filtrage ni déduplication supplémentaire."
+    },
+    {
+      "id": "extract",
+      "description": "Pour chaque produit traité, le workflow extrait les faits verbatim disponibles: nom, description pertinente et prix; les données absentes/incertaines et erreurs observées restent explicites et ne sont jamais inventées."
+    },
+    {
+      "id": "save",
+      "description": "Le workflow crée un fichier Excel à workflows/schema-portability-20261002/initialrequirements20261015a-amazon-1/products.xlsx avec en-têtes et lignes produits."
+    },
+    {
+      "id": "cleanup",
+      "description": "Le navigateur est fermé même si une étape échoue; la réussite finale n’est déclarée que si le travail a abouti et que le fichier a été sauvegardé."
+    }
+  ],
+  "inputs": [
+    {
+      "name": "query",
+      "type": {
+        "kind": "string",
+        "nullable": false,
+        "items": null,
+        "fields": []
+      },
+      "required": true,
+      "default": null
+    }
+  ],
+  "outputs": [
+    {
+      "name": "success",
+      "type": {
+        "kind": "boolean",
+        "nullable": false,
+        "items": null,
+        "fields": []
+      },
+      "required": true,
+      "default": null
+    },
+    {
+      "name": "filePath",
+      "type": {
+        "kind": "string",
+        "nullable": true,
+        "items": null,
+        "fields": []
+      },
+      "required": true,
+      "default": null
+    },
+    {
+      "name": "status",
+      "type": {
+        "kind": "string",
+        "nullable": false,
+        "items": null,
+        "fields": []
+      },
+      "required": true,
+      "default": null
+    },
+    {
+      "name": "errors",
+      "type": {
+        "kind": "array",
+        "nullable": false,
+        "minItems": 0,
+        "maxItems": 30,
+        "items": {
+          "kind": "string",
+          "nullable": false,
+          "items": null,
+          "fields": []
+        },
+        "fields": []
+      },
+      "required": true,
+      "default": null
+    }
+  ]
+}

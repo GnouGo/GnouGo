@@ -1,0 +1,9 @@
+{
+  "source": "83e60ff4a5f07d99eaef78b400aeddad703645e1",
+  "run": "initialrequirements20261015a-amazon-1",
+  "started_utc": "2026-10-15T10:03:48.983260+00:00",
+  "user_go": "go",
+  "ci_passed": true,
+  "readiness_passed": true,
+  "artifact_execution_approved": false
+}

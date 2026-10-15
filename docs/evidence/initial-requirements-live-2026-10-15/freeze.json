@@ -1,0 +1,27 @@
+{
+  "source": "83e60ff4a5f07d99eaef78b400aeddad703645e1",
+  "run": "initialrequirements20261015a-amazon-1",
+  "cohort": "initialrequirements20261015a",
+  "campaign": "schema-portability-20261002",
+  "compilation_profile": "compact-bindings-v15",
+  "max_products": 10,
+  "automatic_correction": true,
+  "max_model_calls": 8,
+  "max_replan_attempts": 2,
+  "oracle_version": "observed-products-v2",
+  "configuration_hash": "0d9b3f888b2a23348f7efbdc00cc764d2e388e63c076dd350b945bc161539d31",
+  "files": {
+    "tests/GnOuGo.Agent.Planning.Benchmark/LiveWorkflowEvaluation.cs": "a2d69f2a4bff10356a4ea1db654f8a4f63cd608ca92f4b885468253ba0f322f8",
+    "tests/GnOuGo.Agent.Planning.Benchmark/LiveWorkflowOracles.cs": "4671fe4cd74cd34167d282a3449686b900492257058fc6add39588bd08d7d514",
+    "tests/GnOuGo.Agent.Planning.Benchmark/KeyVaultBenchmarkModel.cs": "8537217f6d31f13c771c682b7b515c59501ec1f2ce2c4a57e405975e6b50fa24",
+    "tests/GnOuGo.Agent.Planning.Benchmark/BenchmarkCampaign.cs": "1dac4e3545c8e5203f3cb0fef03dff261a65bdca51e6ffadcf04d13673757f9a",
+    "src/GnOuGo.Flow.Planning/PlanningPrompt.cs": "aeb114eca149e5a9c51e9a24db002d5fdd7194c681f14d89a0f019abdb540afd",
+    "src/GnOuGo.Flow.Planning/PlanningSchemas.cs": "d05539c58dc7edd8f7386e2418aaf8cc2095ff999da4a73104796c07bca47c62",
+    "src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.Corrections.cs": "41ddf0cf452443ec7b435189e187cb560d310d03f203034e4553f211f2b3542e"
+  },
+  "binary_manifest_sha256": "b147f3de27e5875ba53b1ae69c5affc1e76b47e86c4b480d64f4caa4c377ff63",
+  "binary_files": 710,
+  "prompt_sha256": "7452f8fefc1252d0a45d67b61afd661f6f57f023e5e51bf12aff36cd9620d96e",
+  "status": "frozen; paid dispatch awaits candidate CI",
+  "artifact_approved": false
+}

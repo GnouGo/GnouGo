@@ -1,0 +1,10 @@
+{
+  "authorization": "go for a live test",
+  "recorded_utc": "2026-10-15T07:42:41.693050+00:00",
+  "paid_planning_authorized": true,
+  "historical_archival_authorized": false,
+  "historical_replay_authorized": false,
+  "execution_requires_revision_hash_approval": true,
+  "ceiling_eur": 200,
+  "run": "initialrequirements20261015a-amazon-1"
+}
