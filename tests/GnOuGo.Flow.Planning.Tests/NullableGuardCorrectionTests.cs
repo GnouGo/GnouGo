@@ -203,6 +203,8 @@ public sealed class NullableGuardCorrectionTests
     public async Task UnsafeReplacementStopsWithoutStructuralRegeneration(string defect)
     {
         var (runtime, state) = await Fixture("string");
+        if (defect == "unrelated") runtime.Proposal.Plan!.Root.Tasks.Add(new() { Id = "unrelated_read",
+            Operation = runtime.Proposal.Plan.Root.Tasks[0].Operation, Objective = "Independent producer with the same Boolean contract" });
         var planner = new HybridWorkflowPlanner();
         state = await planner.AdvanceAsync(state, new(), runtime, PlannerFixture.Ct);
         var guard = NonNull(Field("payload"));
@@ -211,7 +213,7 @@ public sealed class NullableGuardCorrectionTests
             "literal" => new() { Kind = "boolean", Boolean = true },
             "or" => new() { Kind = "predicate", Predicate = "or", Items = [guard, Field("ready")] },
             "completion" => And(new() { Kind = "present", Source = "read" }, guard),
-            "unrelated" => And(new() { Kind = "boolean", Boolean = true }, guard),
+            "unrelated" => And(new() { Kind = "field", Port = "ready", Items = [new() { Kind = "output", Source = "unrelated_read" }] }, guard),
             _ => new() { Kind = "predicate", Predicate = "equal", Items = [Field("payload"), new() { Kind = "null" }] }
         };
         state = await PlannerFixture.RunAsync(runtime, state);
