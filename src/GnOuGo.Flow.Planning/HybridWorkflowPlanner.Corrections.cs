@@ -95,12 +95,22 @@ public sealed partial class HybridWorkflowPlanner
         {
             baseline = state.Plan ?? baseline;
             state.Request.Baseline = baseline is null ? null : ClonePlan(baseline);
-            progress = new JsonObject { ["version"] = 1, ["attempts"] = new JsonArray(),
+            progress = new JsonObject { ["version"] = 2, ["attempts"] = new JsonArray(),
+                ["conditionLocations"] = new JsonArray(state.Diagnostics.Where(d => d.Code == "TASK_CONDITION_TYPE" && d.Location.EndsWith("/requires", StringComparison.Ordinal))
+                    .Select(d => d.Location).Distinct().Select(p => (JsonNode?)JsonValue.Create(p)).ToArray()),
                 ["locations"] = new JsonArray(state.Diagnostics.Where(d => d.Required).Select(d => d.Location).Distinct().Order(StringComparer.Ordinal)
                     .Select(p => (JsonNode?)JsonValue.Create(p)).ToArray()) };
             state.Request.Options[CorrectionProgressKey] = progress;
         }
         var findings = state.Diagnostics.ToList();
+        if (DirectGuardCorrections(progress) && baseline is not null)
+        {
+            var guardSources = GuardSources(baseline, state.Catalog!);
+            var guards = TaskPlanRevisions.Tasks(baseline).Where(t => t.Requires is not null).ToDictionary(t => "/tasks/" + t.Id + "/requires", t => t.Requires!);
+            foreach (var path in progress["conditionLocations"]!.AsArray().Select(p => p!.ToString()))
+                if (!guards.TryGetValue(path, out var guard) || !CorrectableGuard(guard, guardSources.GetValueOrDefault(path) ?? []))
+                { state.Diagnostics.Add(UnsafeGuard(path)); Stop(state); return false; }
+        }
         var attempted = progress["attempts"]!.AsArray();
         var fingerprint = PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(state.Plan ?? baseline, PlanningJsonContext.Default.TaskPlan));
         var diagnosticKey = string.Join('\n', findings.Where(d => d.Required && d.Code != "REVISION_REQUIRED")
@@ -131,6 +141,8 @@ public sealed partial class HybridWorkflowPlanner
             state.Request.RevisionContext = "Correct the recorded diagnostics while preserving accepted requirements, public contracts, requested operations, ordered assertions and cleanup. " +
                 (paths is null ? "Return a corrected complete TaskPlan. Preserve independent regions and existing operation identities. Never drop work or weaken a check to pass validation." :
                     "Change only the issued editable paths. Preserve guard operands and ordering except the diagnosed invalid references.");
+            if (DirectGuardCorrections(progress))
+                state.Request.RevisionContext += " " + PlanningPrompt.GuardCorrectionInstructions;
             progress["revision"] = revision; progress["artifact"] = artifact;
         }
         progress["action"] = action;

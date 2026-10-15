@@ -58,6 +58,10 @@ internal sealed partial class PlanningPrompt(PlanningSession state)
         Ambiguity:clarify compatible alternatives;else plan. 1-3 questions/2-3 options+recommendation;requirements:null. Apply answers once;retain goals/permissions.
         """;
 
+    internal const string GuardCorrectionInstructions = "For a diagnosed nullable nonboolean reference v used as requires, use v != null; optionally conjoin declared nonnullable Boolean fields of that same producer. " +
+        "For example, keep ready AND payload as ready AND (payload != null) only when payload is the diagnosed nullable operand. " +
+        "An already valid Boolean assertion remains unchanged. Do not replace success with presence, add OR, change producers or remove assertions. Preserve independent objectives and contracts exactly.";
+
     private const string InitialRequirementsInstructions = """
         Discovery may leave requirements null. Clarify ambiguity with 1-3 questions, compatible alternatives/recommendation, plan:null and requirements:null. Otherwise, the first plan must include requirements and caller/output interfaces. Preserve accepted requirements; apply answers once.
         """;
@@ -122,7 +126,9 @@ internal sealed partial class PlanningPrompt(PlanningSession state)
         }
         foreach (var key in new[] { "revisionContext", "userAnswers", "instructions", "revisionScope" })
             if (context[key] is null || context[key] is JsonArray { Count: 0 } || context[key]?.ToString() == "") context.Remove(key);
-        string Render() => (repair ? RepairInstructions : Instructions) + "\n" + (state.Requirements is null ? InitialRequirementsInstructions : ClarificationInstructions) + "\n" + PlanningJsonTransport.Prompt(context);
+        var guardGuidance = repair && state.Request.Options["automatic_correction_progress"]?["version"]?.ToString() == "2" &&
+            state.Request.Options["automatic_correction_progress"]?["conditionLocations"] is JsonArray { Count: > 0 } ? GuardCorrectionInstructions + "\n" : "";
+        string Render() => (repair ? RepairInstructions : Instructions) + "\n" + guardGuidance + (state.Requirements is null ? InitialRequirementsInstructions : ClarificationInstructions) + "\n" + PlanningJsonTransport.Prompt(context);
         // Bound the retained directory against mandatory context before optional
         // contracts compete for space. Pagination cannot erase earlier identities.
         var schema = Schema;

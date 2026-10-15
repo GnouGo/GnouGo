@@ -412,6 +412,24 @@ New external work or changes whose behavior cannot be established are rejected f
 explicit review. This conservative comparison does not prove arbitrary business
 semantics or repair every structurally incomplete plan.
 
+Fresh private correction progress uses version 2. A compiler-confirmed
+`TASK_CONDITION_TYPE` at a `requires` slot permits a known nullable nonboolean
+producer reference `value` to become `value != null`, optionally conjoined with
+declared nonnullable Boolean fields of that same producer. For example,
+`ready AND payload` becomes `ready AND (payload != null)` when only `payload`
+is the diagnosed operand. Valid surrounding predicates, their order and the
+original reference remain intact. Unknown/ambiguous types, literal success,
+new disjunctions, completion checks, unrelated producers and weakened assertions
+do not acquire this authority. Unsupported guard edits stop explicitly instead
+of spending a structural fallback on the same unpreservable assertion.
+The new guidance is included in the actual targeted patch request, not only
+structural-revision context. Independent declaration changes report the changed
+field, including objectives, which influence extraction and interpretation.
+Version-1 progress and already-issued requests retain their original handling;
+restart never upgrades pending authority. Complete compilation and separate
+artifact review still follow preservation validation. See the
+[nullable-guard replay and local execution evidence](../../docs/evidence/nullable-guard-correction-2026-10-15/README.md).
+
 Fresh failure drafts receive sanitized machine diagnostics in `executionFailure`.
 Compiler source maps identify the responsible TaskPlan location where available;
 ambiguous locations do not grant a guessed targeted scope. Configuration, permission,

@@ -72,18 +72,32 @@ public sealed partial class HybridWorkflowPlanner
 
         var sourcePlan = ClonePlan(baseline);
         foreach (var choice in sourcePlan.Choices.Where(c => c.Selected is null)) choice.Selected = choice.Recommended;
-        var sources = TaskPlanCompiler.RepairSources(sourcePlan, state.Catalog!);
+        var directGuards = DirectGuardCorrections(progress);
+        var conditionLocations = directGuards ? progress["conditionLocations"]!.AsArray().Select(p => p!.ToString()).ToHashSet(StringComparer.Ordinal) : [];
+        // Require a real compiler diagnosis on the retained baseline, not merely a
+        // model claim or a permissive editable path.
+        if (directGuards) conditionLocations.IntersectWith(new TaskPlanCompiler().Compile(sourcePlan, state.Catalog!).Diagnostics
+            .Where(d => d.Code == "TASK_CONDITION_TYPE").Select(d => d.Location));
+        var sources = directGuards ? GuardSources(sourcePlan, state.Catalog!, candidate) : TaskPlanCompiler.RepairSources(sourcePlan, state.Catalog!);
         foreach (var (id, original) in before.Tasks)
         {
-            if (!affected.Contains(id) && (!after.Tasks.TryGetValue(id, out var untouched) || !SameDeclaration(original.Task, untouched.Task)))
-                RejectChange("/tasks/" + id, "the independent task declaration");
+            if (!affected.Contains(id))
+            {
+                if (!after.Tasks.TryGetValue(id, out var untouched)) RejectChange("/tasks/" + id, "the independent task declaration");
+                else if (DeclarationDifference(original.Task, untouched.Task) is { } difference)
+                    RejectChange("/tasks/" + id + (directGuards ? difference : ""), "the independent task declaration");
+            }
             if (original.Task.ResultType is { } contract && after.Tasks.TryGetValue(id, out var adapted) && adapted.Task.ResultType is { } replacement &&
                 !locations.Any(p => p == "/" || p.StartsWith("/tasks/" + id + "/", StringComparison.Ordinal)) &&
                 !JsonNode.DeepEquals(TaskPlanCompiler.TypeSchema(replacement), TaskPlanCompiler.TypeSchema(contract)))
                 RejectChange("/tasks/" + id + "/resultType", "the existing intermediate contract");
             if (original.Task.Requires is { } guard && (!after.Tasks.TryGetValue(id, out var revised) ||
                 revised.Task.Requires is not { } next || !SameGuard(guard, next, "/tasks/" + id + "/requires")))
-                RejectChange("/tasks/" + id + "/requires", "the ordered assertion");
+            {
+                var path = "/tasks/" + id + "/requires";
+                if (conditionLocations.Contains(path)) findings.Add(UnsafeGuard(path));
+                else RejectChange(path, "the ordered assertion");
+            }
             if (original.Task.Requires is not null && after.Tasks.TryGetValue(id, out var guarded) &&
                 (before.Phase(id) != after.Phase(id) || !Boundaries(original.Scope).SequenceEqual(Boundaries(guarded.Scope), StringComparer.Ordinal) ||
                  !original.Task.DependsOn.SequenceEqual(guarded.Task.DependsOn, StringComparer.Ordinal)))
@@ -103,22 +117,42 @@ public sealed partial class HybridWorkflowPlanner
                 yield return current.Path;
         }
 
-        static bool SameDeclaration(PlanTask old, PlanTask next)
+        static string? DeclarationDifference(PlanTask old, PlanTask next)
         {
             var left = JsonSerializer.SerializeToNode(old, PlanningJsonContext.Default.PlanTask)!.AsObject();
             var right = JsonSerializer.SerializeToNode(next, PlanningJsonContext.Default.PlanTask)!.AsObject();
             // Child scopes are compared through their own identities and assertions.
             foreach (var name in new[] { "body", "otherwise", "branches" }) { left.Remove(name); right.Remove(name); }
-            return JsonNode.DeepEquals(left, right);
+            return Difference(left, right, "");
+            static string? Difference(JsonNode? left, JsonNode? right, string path)
+            {
+                if (JsonNode.DeepEquals(left, right)) return null;
+                if (left is JsonObject oldObject && right is JsonObject newObject)
+                    foreach (var key in oldObject.Select(p => p.Key).Union(newObject.Select(p => p.Key), StringComparer.Ordinal))
+                    {
+                        var child = path + "/" + key.Replace("~", "~0", StringComparison.Ordinal).Replace("/", "~1", StringComparison.Ordinal);
+                        if (!oldObject.ContainsKey(key) || !newObject.ContainsKey(key)) return child;
+                        if (Difference(oldObject[key], newObject[key], child) is { } change) return change;
+                    }
+                if (left is JsonArray oldArray && right is JsonArray newArray)
+                {
+                    for (var i = 0; i < Math.Min(oldArray.Count, newArray.Count); i++)
+                        if (Difference(oldArray[i], newArray[i], path + "/" + i) is { } change) return change;
+                    if (oldArray.Count != newArray.Count) return path + "/" + Math.Min(oldArray.Count, newArray.Count);
+                }
+                return path;
+            }
         }
 
-        bool SameGuard(TaskValue old, TaskValue next, string path)
+        bool SameGuard(TaskValue old, TaskValue next, string path, bool conditionOperand = true)
         {
             if (SameValue(old, next)) return true;
+            var available = sources.GetValueOrDefault(path) ?? [];
+            if (conditionOperand && conditionLocations.Contains(path) && NullableGuardReference(old, available))
+                return NullableGuardReplacement(old, next, available);
             // A diagnosed missing precondition may follow the original assertion;
             // it cannot run earlier, replace it, or turn failure into skipping.
-            if (next.Kind == "predicate" && next.Predicate == "and" && next.Items.Count == 2 && SameGuard(old, next.Items[0], path)) return true;
-            var available = sources.GetValueOrDefault(path) ?? [];
+            if (!conditionLocations.Contains(path) && next.Kind == "predicate" && next.Predicate == "and" && next.Items.Count == 2 && SameGuard(old, next.Items[0], path)) return true;
             if (old.Kind is "output" or "choice" && next.Kind == "output" && old.Source == next.Source &&
                 before.Tasks.TryGetValue(old.Source ?? "", out var producer) &&
                 (old.Kind == "choice" && baseline.Choices.All(c => c.Id != old.Source) ||
@@ -135,8 +169,9 @@ public sealed partial class HybridWorkflowPlanner
                     next.Port is null || !properties.ContainsKey(next.Port)) return false;
                 left.Remove("port"); right.Remove("port");
             }
-            return JsonNode.DeepEquals(left, right) && old.Items.Zip(next.Items).All(p => SameGuard(p.First, p.Second, path)) &&
-                old.Members.Zip(next.Members).All(p => p.First.Name == p.Second.Name && SameGuard(p.First.Value, p.Second.Value, path));
+            var booleanChildren = conditionOperand && old.Kind == "predicate" && old.Predicate is "and" or "or" or "not";
+            return JsonNode.DeepEquals(left, right) && old.Items.Zip(next.Items).All(p => SameGuard(p.First, p.Second, path, booleanChildren)) &&
+                old.Members.Zip(next.Members).All(p => p.First.Name == p.Second.Name && SameGuard(p.First.Value, p.Second.Value, path, false));
         }
     }
 

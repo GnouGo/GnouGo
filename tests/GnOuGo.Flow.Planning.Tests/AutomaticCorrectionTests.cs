@@ -37,7 +37,7 @@ public sealed class AutomaticCorrectionTests
         if (replaceProducer)
         {
             Assert.Equal(PlanningStatus.Stopped, state.Status); Assert.Null(state.Yaml);
-            Assert.Contains(state.Diagnostics, d => d.Code == "REVISION_SCOPE_CHANGED" && d.Location == "/tasks/observed_flags");
+            Assert.Contains(state.Diagnostics, d => d.Code == "REVISION_SCOPE_CHANGED" && d.Location == "/tasks/observed_flags/outputs/0/value/kind");
         }
         else Assert.Equal(PlanningStatus.FinalReview, state.Status);
     }
