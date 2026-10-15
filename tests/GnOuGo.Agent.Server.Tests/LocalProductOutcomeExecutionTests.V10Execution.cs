@@ -34,7 +34,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
     public Task V10CompositionExecutesOriginalObservationsAndExactWorkbook(string variant)
         => ExecuteTypedComposition(variant, "compact-bindings-v10");
 
-    private async Task ExecuteTypedComposition(string variant, string profile, bool designer = false, bool approval = false, bool viaHost = false, bool producerStatus = false, bool guards = false, string? automaticCorrection = null)
+    private async Task ExecuteTypedComposition(string variant, string profile, bool designer = false, bool approval = false, bool viaHost = false, bool producerStatus = false, bool guards = false, string? automaticCorrection = null, bool nullableGuards = false)
     {
         var ct = TestContext.Current.CancellationToken;
         var root = Directory.CreateTempSubdirectory("gnougo-v10-execution-").FullName;
@@ -98,14 +98,14 @@ public sealed partial class LocalProductOutcomeExecutionTests
             if (checkMetrics is not null) engine.Telemetry = checkMetrics;
             var runtime = new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask);
             var catalog = await RetainedCatalog(runtime, ct); catalog.Policy.RequireExternalConfirmation = false;
-            var proposal = guards ? GuardCorrected(catalog) : approval ? ApprovalCorrected(catalog, site.Urls.Single()) : designer ? DesignerCorrected(catalog, site.Urls.Single()) : V10Proposal(catalog, 4);
+            var proposal = nullableGuards ? NullableGuardComposition(catalog) : guards ? GuardCorrected(catalog) : approval ? ApprovalCorrected(catalog, site.Urls.Single()) : designer ? DesignerCorrected(catalog, site.Urls.Single()) : V10Proposal(catalog, 4);
             if (producerStatus) AddProducerStatus(proposal);
             var writerTask = proposal.Plan!.Root.Tasks.Single(t => t.Id == (designer || approval ? "write" : "save_products_xlsx"));
             if (variant == "denied") writerTask.Inputs.Single(i => i.Name == "filePath").Value.Text = "../outside.xlsx";
             var adapter = new ProposalRuntime(runtime, proposal);
-            var session = automaticCorrection is not null ? await AutomaticCompositionSession(catalog, runtime, proposal, automaticCorrection, ct) : guards && variant != "denied" ? await GuardRevision(catalog, runtime, proposal, ct) : approval && variant == "denied" ? await V10PlanningSession(catalog, runtime, adapter, false, ct, profile) : approval ? await DesignerRevision(catalog, runtime, proposal, ct, site.Urls.Single(), approval: true) : designer ? await DesignerRevision(catalog, runtime, proposal, ct, site.Urls.Single()) : await V10PlanningSession(catalog, runtime, adapter, false, ct, profile);
+            var session = nullableGuards && variant != "denied" ? await NullableGuardRevision(catalog, runtime, proposal, ct) : automaticCorrection is not null ? await AutomaticCompositionSession(catalog, runtime, proposal, automaticCorrection, ct) : guards && variant != "denied" ? await GuardRevision(catalog, runtime, proposal, ct) : approval && variant == "denied" ? await V10PlanningSession(catalog, runtime, adapter, false, ct, profile) : approval ? await DesignerRevision(catalog, runtime, proposal, ct, site.Urls.Single(), approval: true) : designer ? await DesignerRevision(catalog, runtime, proposal, ct, site.Urls.Single()) : await V10PlanningSession(catalog, runtime, adapter, false, ct, profile);
             Assert.True(session.Status == PlanningStatus.FinalReview, string.Join('\n', session.Diagnostics));
-            Assert.Equal(automaticCorrection is not null ? 2 : designer || approval && variant != "denied" ? 4 : 1, session.ModelCalls);
+            Assert.Equal(nullableGuards && variant != "denied" ? 2 : automaticCorrection is not null ? 2 : designer || approval && variant != "denied" ? 4 : 1, session.ModelCalls);
             Assert.Equal(automaticCorrection is not null ? 1 : 0, session.ReplanAttempts);
             Assert.Empty(visits); Assert.Empty(model.Requests);
             session = await new HybridWorkflowPlanner().AdvanceAsync(session, new() { Kind = "approve", ExpectedRevision = session.Revision,
@@ -127,7 +127,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
             }
             var workflow = new WorkflowCompiler().Compile(document);
             var allocated = GC.GetTotalAllocatedBytes(); var timer = Stopwatch.StartNew();
-            var inputs = new JsonObject { [designer || approval ? "article" : "query"] = "observed lamps" };
+            var inputs = new JsonObject { [nullableGuards ? "query" : designer || approval ? "article" : "query"] = "observed lamps" };
             GnOuGo.Flow.Core.Models.RunResult result;
             if (viaHost)
             {
@@ -208,7 +208,12 @@ public sealed partial class LocalProductOutcomeExecutionTests
             }
             if (approval)
             {
-                if (guards) Assert.Equal(new[] { "filePath" }, result.Outputs!.AsObject().Select(p => p.Key));
+                if (nullableGuards)
+                {
+                    Assert.True(result.Outputs!["success"]!.GetValue<bool>());
+                    Assert.Equal("completed", result.Outputs["status"]!.ToString()); Assert.Empty(result.Outputs["errors"]!.AsArray());
+                }
+                else if (guards) Assert.Equal(new[] { "filePath" }, result.Outputs!.AsObject().Select(p => p.Key));
                 else
                 {
                     Assert.True(result.Outputs!["status"]!["saved"]!.GetValue<bool>());

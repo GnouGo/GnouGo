@@ -75,4 +75,5 @@
     <Compile Include="../Shared/MappingStatusComposition.cs" Link="MappingStatusComposition.cs" />
     <Compile Include="../Shared/ProductTransformationPlan.cs" Link="ProductTransformationPlan.cs" />
   </ItemGroup>
+  <ItemGroup><None Include="../../docs/evidence/initial-requirements-live-2026-10-15/initial-proposal.json.gz" Link="Fixtures/NullableGuards/initial-proposal.json.gz" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
 </Project>

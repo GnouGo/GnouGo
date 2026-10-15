@@ -1,0 +1,46 @@
+[
+  {
+    "variant": "complete",
+    "passed": true,
+    "visits": 10,
+    "rowsWithHeader": 11,
+    "exactObservedCells": true,
+    "originalNavigationArguments": true,
+    "cleanup": true,
+    "workbookSha256": "26edc23b2ebef705771c890ba775852bd3fa144f3a96ab4eb30af5265fb324ca",
+    "observationsSha256": "6fc7bd580f4f3994ee397b0be9b69e30689e69d77d24faa448273d24ee119199"
+  },
+  {
+    "variant": "missing",
+    "passed": true,
+    "visits": 10,
+    "rowsWithHeader": 11,
+    "exactObservedCells": true,
+    "originalNavigationArguments": true,
+    "cleanup": true,
+    "workbookSha256": "4b1a5b35c74d81c8c65231384d5bae4071a11ecaf30ae0db8bf28e9b86390b4e",
+    "observationsSha256": "7975a6246cf8517f717d2f33de079e93327cafcc568fb9316a61f15a6829bb99"
+  },
+  {
+    "variant": "repeated",
+    "passed": true,
+    "visits": 10,
+    "rowsWithHeader": 11,
+    "exactObservedCells": true,
+    "originalNavigationArguments": true,
+    "cleanup": true,
+    "workbookSha256": "af66c56bf644418e024bc65e99f4b470d121580dc0ff66b8eceb33c0b97581ef",
+    "observationsSha256": "80b1c0c996030b29e5c5a0e0bc396c58736e3e626fc6188cc99fdd49ca59166c"
+  },
+  {
+    "variant": "empty",
+    "passed": true,
+    "visits": 0,
+    "rowsWithHeader": 1,
+    "exactObservedCells": true,
+    "originalNavigationArguments": true,
+    "cleanup": true,
+    "workbookSha256": "cf8721c3b3f7ad7b953fc0a33f92cd095ecb198cc2af28fb611e6d0b4b69bbe6",
+    "observationsSha256": "36e656d4b2f4880feef5fc53cbbcd4cc40713a7abbf4ef0d1982367b10f333f1"
+  }
+]

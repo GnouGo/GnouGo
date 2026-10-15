@@ -1,0 +1,57 @@
+{
+  "requirements": "all six unchanged after DTO default expansion",
+  "publicInputs": "unchanged",
+  "publicOutputs": "unchanged",
+  "removedWork": [
+    "cookie_decision",
+    "accept_cookies_if_present",
+    "accept_cookies",
+    "read_search_after_cookie"
+  ],
+  "operations": [
+    {
+      "retained": "open_search",
+      "corrected": "read_results",
+      "changedInputs": [
+        "url"
+      ],
+      "fixedArgumentsIdentical": true
+    },
+    {
+      "retained": "open_product",
+      "corrected": "read_product",
+      "changedInputs": [
+        "url"
+      ],
+      "fixedArgumentsIdentical": true
+    },
+    {
+      "retained": "write_products_xlsx",
+      "corrected": "write",
+      "changedInputs": [
+        "rows"
+      ],
+      "fixedArgumentsIdentical": true
+    },
+    {
+      "retained": "close_browser",
+      "corrected": "release",
+      "changedInputs": [],
+      "fixedArgumentsIdentical": true
+    }
+  ],
+  "interpretStagesBefore": [
+    "build_search_url",
+    "cookie_decision",
+    "prepare_visits",
+    "make_null_visit_row",
+    "assemble_rows",
+    "final_status"
+  ],
+  "interpretStagesAfter": [
+    "prepare_url",
+    "choose",
+    "choose_details"
+  ],
+  "inferenceForTypedCopyLookupStatusRows": 0
+}
