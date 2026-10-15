@@ -7,6 +7,41 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class AutomaticCorrectionTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task RegenerationCannotRewriteUndiagnosedGuardProducerFromReadOnlyContext(bool replaceProducer)
+    {
+        var (runtime, state) = await MalformedGuardRevisionTests.Fixture("observe", "consume", "ready", "ready},{");
+        var tasks = runtime.Proposal.Plan!.Root.Tasks;
+        var consumer = tasks[1];
+        var status = new PlanTask
+        {
+            Id = "observed_flags", Kind = "value", Objective = "Copy the declared producer flags",
+            Outputs = [new("success", new() { Kind = "output", Source = "observe", Port = "success" }),
+                new("ready", new() { Kind = "output", Source = "observe", Port = "ready" })]
+        };
+        tasks.Insert(1, status);
+        foreach (var field in consumer.Requires!.Items) field.Items[0].Source = status.Id;
+        state.Request.Options["automatic_correction"] = true;
+        var planner = new HybridWorkflowPlanner();
+        state = await planner.AdvanceAsync(state, new(), runtime, PlannerFixture.Ct);
+        state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
+        consumer.Requires.Items[1].Port = "ready";
+        if (replaceProducer) status.Outputs = status.Outputs.Select(output => new TaskOutput(output.Name, new() { Kind = "boolean", Boolean = true })).ToList();
+        Assert.Empty(new TaskPlanCompiler().Compile(runtime.Proposal.Plan, state.Catalog!).Diagnostics);
+        state = await PlannerFixture.RunAsync(runtime, state);
+        Assert.Equal(3, state.ModelCalls); Assert.Equal(2, state.ReplanAttempts);
+        Assert.Null(state.ApprovedHash);
+        Assert.All(state.Request.Baseline!.Root.Tasks[1].Outputs, output => Assert.Equal("observe", output.Value.Source));
+        if (replaceProducer)
+        {
+            Assert.Equal(PlanningStatus.Stopped, state.Status); Assert.Null(state.Yaml);
+            Assert.Contains(state.Diagnostics, d => d.Code == "REVISION_SCOPE_CHANGED" && d.Location == "/tasks/observed_flags");
+        }
+        else Assert.Equal(PlanningStatus.FinalReview, state.Status);
+    }
+
     [Fact]
     public async Task UnchangedCompilingRuntimeDraftStopsWithoutPublishingAnotherReview()
     {

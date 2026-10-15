@@ -24,8 +24,10 @@ public sealed partial class HybridWorkflowPlanner
         var findings = new List<PlanningDiagnostic>();
         var before = new TaskPlanSymbols(baseline); var after = new TaskPlanSymbols(candidate);
         var locations = state.Request.Options[CorrectionProgressKey]!["locations"]!.AsArray().Select(p => p!.ToString()).ToList();
+        // Read-only producer/consumer context is not revision authority. Otherwise
+        // a guard could retain its syntax while its observed producer becomes true.
         var affected = locations.Contains("/") ? before.Tasks.Keys.ToHashSet(StringComparer.Ordinal) :
-            PlanningRepairContext.Select(new() { Plan = baseline, RevisionScope = locations }).Tasks;
+            PlanningRepairContext.Select(new() { Plan = baseline, RevisionScope = locations }).EditableTasks;
         void RejectChange(string path, string responsibility) => findings.Add(new("REVISION_SCOPE_CHANGED", path,
             "Automatic correction cannot establish preservation of " + responsibility + ". Review this difference explicitly; no candidate was applied."));
         if (!PlanningClarifications.SameInputs(baseline.Inputs, candidate.Inputs)) RejectChange("/inputs", "the accepted caller interface");

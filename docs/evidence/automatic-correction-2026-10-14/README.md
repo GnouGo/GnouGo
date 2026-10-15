@@ -210,3 +210,36 @@ The intermediate full run was deliberately interrupted to validate the harness
 fix serially; it is [retained as interrupted](validation/interrupted-full-runtime-check.log.gz),
 not counted as passing evidence. Final full-solution and CI results are recorded
 in the delivery comment.
+
+## Context-only producers remain immutable
+
+A final preservation regression reproduced an unsafe structural escalation after
+an empty targeted patch: the malformed guard reference was corrected, but a
+separate, valid value task supplying the guard was changed from observed flags
+to literal `true`. The guard's operators, ordering and reference identity stayed
+unchanged, and the unsafe proposal incorrectly reached review. It was never
+approved or executed. The [before run](validation/producer-before.log.gz) is retained.
+
+The cause was using all read-only repair-context tasks as the affected edit
+region. The existing selection already distinguishes `EditableTasks` from
+context `Tasks`; the preservation comparison now uses the former. Merely
+including a producer or consumer in diagnostic context grants no edit permission.
+Existing issued patches retain their verified authority, and genuinely diagnosed
+producer declarations remain correctable. Broader unestablished changes stop for
+review rather than silently replacing source-derived checks.
+
+The [after run](validation/producer-after.log.gz) passes all **38** focused
+correction/status cases, including both the unsafe producer replacement and a
+valid reference-only correction through the same escalation route. Both consume
+three deterministic calls/two replans; neither approves or executes anything.
+The original producer remains intact in the retained baseline. An initial test
+construction attempted to assign an init-only property; its
+[build error](validation/producer-test-build.log.gz) is retained, and the fixture
+now replaces the immutable output record normally.
+
+The preceding `8da2933` source passed **5,699 tests, zero failures and 13 existing
+skips** across 33 assemblies, including all 204 local composition cases. Its four
+Release packages, Native AOT smoke, trimmed host publish, published encrypted
+recovery and three skill validations also passed. Those results predate this
+last regression and are not claimed as final acceptance of the fix. Final
+source validation and CI are recorded in the PR delivery comment.
