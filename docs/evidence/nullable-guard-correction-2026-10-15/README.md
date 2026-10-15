@@ -36,8 +36,16 @@ reaches review under version 2: two deterministic responses, one correction,
 zero approval, zero provider/MCP calls. No subsequent compiler diagnostics remain.
 This does **not** certify the retained proposal's business composition.
 
+A separate replay deliberately returns an empty targeted patch, then the retained
+regeneration. It rejects the changed independent objectives at their exact
+`/tasks/.../objective` locations, preserves the contract diagnostics and stops
+without another request. No fields in the rejected response are silently restored.
+
 The initial 11 regression cases failed before the change. The expanded focused
-correction/revision suite passed 105 checks. Two normal Agent.Server background
+correction/revision suite passed 105 checks. Four additional parameterized
+runtime cases pass for nullable strings, objects, arrays and numbers: present
+values (including `""`, `{}`, `[]` and `0`) reach the dependent operation, while
+null, absence and a false producer flag prevent it. All 25 guard regressions pass. Two normal Agent.Server background
 tests prove review or a bounded stop, exact cumulative accounting, no save or
 approval, tenant isolation and no further calls after polling/restart.
 

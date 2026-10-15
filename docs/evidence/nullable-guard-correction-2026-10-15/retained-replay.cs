@@ -29,13 +29,15 @@ foreach (var receipt in receipts)
         ["schema"] = PlanningGraphCompiler.Fingerprint(issued.StructuredOutputSchema!.ToJsonString()), ["schemaFindings"] = 0 });
 }
 var reports = new JsonArray();
-foreach (var version in new[] { 1, 2 })
+foreach (var (version, regenerate) in new[] { (1, false), (2, false), (2, true) })
 {
     var copy = JsonSerializer.Deserialize(JsonSerializer.Serialize(retained, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
     var state = new PlanningSession { Catalog = copy.Catalog, Discovery = copy.Discovery, Request = copy.Request };
     state.Request.SessionId = "offline-guard-v" + version; state.Request.Baseline = null; state.Request.RevisionContext = null;
     state.Request.Options.Remove("automatic_correction_progress"); state.Request.Options["automatic_correction"] = true;
-    var runtime = new OfflineRuntime(state.Catalog!, state.Discovery, [responses[1], responses[2]]);
+    var runtime = new OfflineRuntime(state.Catalog!, state.Discovery, regenerate
+        ? [responses[1], new LLMResponse { Json = JsonNode.Parse("""{"discoveryRequests":null,"patch":{"edits":[]},"clarifications":null}""") }, responses[3]]
+        : [responses[1], responses[2]]);
     var planner = new HybridWorkflowPlanner();
     state = await planner.AdvanceAsync(state, new(), runtime, CancellationToken.None);
     if (state.Diagnostics.Count(d => d.Code == "TASK_CONDITION_TYPE" || d.ValidationStage == "contract:TASK_CONDITION_TYPE") != 2)
@@ -48,12 +50,21 @@ foreach (var version in new[] { 1, 2 })
     }
     state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, CancellationToken.None);
     if (version == 1 && !state.Diagnostics.Any(d => d.Code == "REVISION_SCOPE_CHANGED")) throw new Exception("Legacy preservation changed");
-    if (version == 2 && state.Diagnostics.Any(d => d.Code is "REVISION_SCOPE_CHANGED" or "AUTOMATIC_GUARD_CORRECTION_UNSAFE")) throw new Exception("Guard correction rejected");
-    reports.Add(new JsonObject { ["version"] = version, ["status"] = state.Status, ["deterministicCalls"] = runtime.Calls,
+    if (version == 2 && !regenerate && state.Diagnostics.Any(d => d.Code is "REVISION_SCOPE_CHANGED" or "AUTOMATIC_GUARD_CORRECTION_UNSAFE")) throw new Exception("Guard correction rejected");
+    if (regenerate)
+    {
+        state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, CancellationToken.None);
+        if (!state.Diagnostics.Any(d => d.Code == "REVISION_SCOPE_CHANGED" && d.Location.EndsWith("/objective", StringComparison.Ordinal)))
+            throw new Exception("Expected the exact independent objective difference: " + string.Join(';', state.Diagnostics));
+        var calls = runtime.Calls;
+        state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, CancellationToken.None);
+        if (state.Status != PlanningStatus.Stopped || runtime.Calls != calls) throw new Exception("Rejected regeneration did not stop without another call");
+    }
+    reports.Add(new JsonObject { ["version"] = version, ["regenerationProbe"] = regenerate, ["status"] = state.Status, ["deterministicCalls"] = runtime.Calls,
         ["corrections"] = state.ReplanAttempts, ["approved"] = state.ApprovedHash is not null,
         ["diagnostics"] = JsonSerializer.SerializeToNode(state.Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic),
         ["progress"] = state.Request.Options["automatic_correction_progress"]!.DeepClone() });
-    if (version == 2) await File.WriteAllTextAsync(Path.Combine(args[1], "minimal-guard-taskplan.json"), JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan));
+    if (version == 2 && !regenerate) await File.WriteAllTextAsync(Path.Combine(args[1], "minimal-guard-taskplan.json"), JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan));
 }
 if ((await store.GetAsync("planning-schema-portability", tenant, key, author))!.Value != record.Value) throw new Exception("Historical run changed");
 foreach (var receipt in receipts)

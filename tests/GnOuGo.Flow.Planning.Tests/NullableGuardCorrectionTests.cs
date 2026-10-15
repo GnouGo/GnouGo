@@ -1,5 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using GnOuGo.Flow.Core.Compilation;
+using GnOuGo.Flow.Core.Parsing;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
 
@@ -7,6 +9,41 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class NullableGuardCorrectionTests
 {
+    [Theory]
+    [InlineData("string", "\"\"")]
+    [InlineData("object", "{}")]
+    [InlineData("array", "[]")]
+    [InlineData("number", "0")]
+    public async Task CorrectedGuardPreservesNullAbsenceAndNonTruthyObservedValues(string type, string json)
+    {
+        var (runtime, state) = await Fixture(type);
+        runtime.Proposal.Plan!.Root.Tasks.Add(new() { Id = "after", Objective = "Dispatch only after the assertion",
+            Operation = runtime.Proposal.Plan.Root.Tasks[0].Operation, DependsOn = ["use"] });
+        var planner = new HybridWorkflowPlanner();
+        state = await planner.AdvanceAsync(state, new(), runtime, PlannerFixture.Ct);
+        runtime.Proposal.Plan.Root.Tasks[1].Requires = And(Field("ready"), NonNull(Field("payload")));
+        state = await PlannerFixture.RunAsync(runtime, state);
+        Assert.True(state.Status == PlanningStatus.FinalReview, string.Join(';', state.Diagnostics));
+        var workflow = new WorkflowCompiler().Compile(WorkflowParser.Parse(state.Yaml!));
+        foreach (var variant in new[] { "present", "null", "absent", "false_flag" })
+        {
+            var effects = 0;
+            var result = new JsonObject { ["ready"] = variant != "false_flag" };
+            if (variant != "absent") result["payload"] = variant == "null" ? null : JsonNode.Parse(json);
+            var factory = new InMemoryMcpClientFactory();
+            var contract = state.Catalog!.Capabilities.Single(c => c.Method == "read");
+            factory.RegisterServer("records", new() { Tools = [new() { Name = "read", EffectKind = "none",
+                InputSchema = contract.InputSchema, OutputSchema = contract.OutputSchema }], ToolHandlers = new() { ["read"] = _ =>
+            { effects++; return new() { Content = result.DeepClone() }; } } });
+            var engine = new WorkflowEngine { McpClientFactory = factory };
+            var outcome = await engine.ExecuteAsync(workflow.Workflows[workflow.Entrypoint!], null, PlannerFixture.Ct);
+            Assert.True((variant == "present") == outcome.Success, $"{variant}: {outcome.Error?.Code}: {outcome.Error?.Message}; {outcome.Error?.Details}");
+            Assert.Equal(variant == "present" ? 2 : 1, effects);
+            if (variant != "present") Assert.NotNull(outcome.Error);
+        }
+        Assert.Equal(2, runtime.Calls.Count); // No runtime inference for the guard.
+    }
+
     [Fact]
     public async Task CommittedGuardReceiptKeepsVersionAndAllowanceAcrossRestart()
     {
