@@ -27,11 +27,16 @@ public sealed partial class HybridWorkflowPlanner
         "REVISION_REQUIRED" or "REVISION_SCOPE_CHANGED" or "REPAIR_SCOPE_INVALID" or "REPLAN_NO_PROGRESS" or
         "REQUIREMENTS_CHANGED" or "REQUIREMENTS_INPUTS_CHANGED" or "REQUIREMENTS_OUTPUTS_CHANGED" or "RUNTIME_COMPOSITION_FAILURE";
 
+    private static bool InitialProposalDefect(PlanningDiagnostic diagnostic) => diagnostic.Code == "PLANNING_RESPONSE_INVALID" ||
+        diagnostic.Code is "REQUIREMENTS_INVALID" or "REQUIREMENTS_INPUTS_REQUIRED" or "REQUIREMENTS_OUTPUTS_REQUIRED" &&
+        (diagnostic.Location == "/requirements" || diagnostic.Location.StartsWith("/requirements/", StringComparison.Ordinal));
+
     private static bool CanCorrect(PlanningSession state) => AutomaticCorrection(state) && state.PendingCall is null &&
-        state.ApprovedHash is null && (state.Requirements is not null ||
-            state.Plan is null && state.Request.Baseline is null && state.Diagnostics.All(d => d.Code == "PLANNING_RESPONSE_INVALID")) &&
+        state.ApprovedHash is null &&
         PlanningModelCalls.RemainingCalls(state) > 0 && PlanningModelCalls.RemainingRepairs(state) > 0 &&
-        state.Diagnostics.Any(d => d.Required) && state.Diagnostics.Where(d => d.Required).All(Correctable);
+        state.Diagnostics.Any(d => d.Required) && (state.Requirements is not null
+            ? state.Diagnostics.Where(d => d.Required).All(Correctable)
+            : state.Plan is null && state.Request.Baseline is null && state.Diagnostics.Where(d => d.Required).All(InitialProposalDefect));
 
     private static void ContinueAutomaticCorrection(PlanningSession state)
     {

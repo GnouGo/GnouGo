@@ -445,10 +445,26 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
     {
         var requirements = proposal.Requirements;
         if (requirements is null && (state.Requirements is not null || proposal.DiscoveryRequests is not null)) return;
-        if (requirements is null || string.IsNullOrWhiteSpace(requirements.Summary) || requirements.Outcomes.Count == 0 ||
-            requirements.Outcomes.Any(o => string.IsNullOrWhiteSpace(o.Id) || string.IsNullOrWhiteSpace(o.Description)) ||
-            requirements.Outcomes.Select(o => o.Id).Distinct().Count() != requirements.Outcomes.Count)
-            Reject("REQUIREMENTS_INVALID", "/requirements", "Declare distinct concrete business outcomes.");
+        if (requirements is null)
+        {
+            Reject("REQUIREMENTS_INVALID", "/requirements", "The first TaskPlan must include requirements. None are accepted; null is valid only during discovery or clarification.");
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(requirements.Summary))
+            Reject("REQUIREMENTS_INVALID", "/requirements/summary", "Describe the requested business outcome in a nonblank summary.");
+        if (requirements.Outcomes.Count == 0)
+            Reject("REQUIREMENTS_INVALID", "/requirements/outcomes", "Declare at least one concrete business outcome.");
+        var outcomeIds = new HashSet<string>(StringComparer.Ordinal);
+        for (var i = 0; i < requirements.Outcomes.Count; i++)
+        {
+            var outcome = requirements.Outcomes[i];
+            if (string.IsNullOrWhiteSpace(outcome.Id))
+                Reject("REQUIREMENTS_INVALID", $"/requirements/outcomes/{i}/id", "Give each business outcome a nonblank identifier.");
+            if (string.IsNullOrWhiteSpace(outcome.Description))
+                Reject("REQUIREMENTS_INVALID", $"/requirements/outcomes/{i}/description", "Describe this business outcome with nonblank text.");
+            if (!outcomeIds.Add(outcome.Id))
+                Reject("REQUIREMENTS_INVALID", $"/requirements/outcomes/{i}/id", "This business outcome identifier is duplicated; use distinct identifiers.");
+        }
         if (state.Requirements is { } accepted && (accepted.Summary != requirements!.Summary || !accepted.Outcomes.OrderBy(o => o.Id, StringComparer.Ordinal)
                 .SequenceEqual(requirements.Outcomes.OrderBy(o => o.Id, StringComparer.Ordinal)) ||
                 accepted.Inputs is not null && !PlanningClarifications.SameInputs(accepted.Inputs, requirements.Inputs) ||

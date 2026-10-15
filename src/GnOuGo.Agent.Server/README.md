@@ -56,6 +56,13 @@ Ordinary patches still cannot edit `requires`. New revision authority never
 changes an issued request. Pending receipts are settled against their original
 schema and authority, including at an exhausted call limit.
 
+The same bounded regeneration covers an initial plan returned without valid
+requirements or required interfaces, before any intent/plan baseline is accepted.
+The finding identifies the missing or invalid requirement field. One corrective
+proposal is counted against the existing allowance; a second invalid response
+stops. Discovery and clarification may legitimately leave requirements null.
+This does not reopen stopped sessions or approve the corrected artifact.
+
 A recognized composition failure in an executed saved TaskPlan creates one
 unapproved draft per tenant/run/artifact. It restores accepted requirements and
 supplies bounded machine diagnostics, without observations or scripts. The saved

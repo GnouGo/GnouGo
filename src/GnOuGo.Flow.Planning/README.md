@@ -394,6 +394,16 @@ and diagnostic fingerprints, action, scope/revision/hash and result. Corrections
 consume the existing replan/call/token/time allowances; explicit user revisions
 may replace the baseline but never reset usage.
 
+Before any requirements or TaskPlan have been accepted, an incomplete initial
+proposal can use that same single regeneration: missing/invalid requirements or
+their required caller/output interfaces are diagnosed explicitly. Discovery may
+leave requirements null; a clarification returns questions without a plan. A
+first plan must declare business requirements and interfaces. A second invalid
+proposal stops, even when the remaining allowance is larger. No requirements are
+inferred from the rejected plan, and accepted intent is never replaced through
+this initial-proposal path. Already-issued requests and stopped sessions remain
+unchanged.
+
 Regeneration preserves existing external operation identities, arguments, order,
 control boundaries and cleanup. Independent tasks stay fixed. Assertion corrections
 may replace diagnosed invalid references to declared fields on the same producer,

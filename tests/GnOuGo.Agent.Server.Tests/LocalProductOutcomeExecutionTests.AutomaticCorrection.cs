@@ -34,6 +34,8 @@ public sealed partial class LocalProductOutcomeExecutionTests
     [InlineData("choice", "repeated")]
     [InlineData("choice", "unknown")]
     [InlineData("choice", "denied")]
+    [InlineData("requirements", "complete")]
+    [InlineData("requirements", "repeated")]
     public Task AutomaticCorrectionProducesIndependentlyVerifiedLocalWorkbook(string defect, string variant)
         => ExecuteTypedComposition(variant, "compact-bindings-v15", automaticCorrection: defect);
 
@@ -41,7 +43,8 @@ public sealed partial class LocalProductOutcomeExecutionTests
         PlanningProposal corrected, string defect, CancellationToken ct, PlanningProposal? retained = null)
     {
         var broken = JsonSerializer.SerializeToNode(retained ?? corrected, PlanningJsonContext.Default.PlanningProposal)!.Deserialize(PlanningJsonContext.Default.PlanningProposal)!;
-        if (retained is null && defect == "choice") broken.Plan!.Root.Outputs[0].Value.Kind = "choice";
+        if (defect == "requirements") broken.Requirements = null;
+        else if (retained is null && defect == "choice") broken.Plan!.Root.Outputs[0].Value.Kind = "choice";
         else if (retained is null)
         {
             var guard = RetainedTasks(broken.Plan!.Root).Select(t => t.Requires).OfType<TaskValue>()
@@ -49,12 +52,19 @@ public sealed partial class LocalProductOutcomeExecutionTests
             guard.Port += "},{";
         }
         var findings = new TaskPlanCompiler().Compile(broken.Plan!, catalog).Diagnostics;
-        Assert.Contains(findings, d => d.Code == (retained is not null ? "TASK_FIELD_UNKNOWN" : defect == "choice" ? "CHOICE_UNKNOWN" : "TASK_OUTPUT_UNKNOWN"));
+        if (defect == "requirements") Assert.Empty(findings); // Valid bindings cannot replace missing business intent.
+        else Assert.Contains(findings, d => d.Code == (retained is not null ? "TASK_FIELD_UNKNOWN" : defect == "choice" ? "CHOICE_UNKNOWN" : "TASK_OUTPUT_UNKNOWN"));
         var original = JsonSerializer.Serialize(broken, PlanningJsonContext.Default.PlanningProposal);
         var adapter = new ProposalRuntime(runtime, corrected);
         adapter.Patch = request =>
         {
             if (adapter.Requests.Count == 1) return JsonSerializer.SerializeToNode(broken, PlanningJsonContext.Default.PlanningProposal)!.AsObject();
+            if (defect == "requirements")
+            {
+                Assert.False(PlanningRepairPatch.Issued(request.StructuredOutputSchema!.AsObject()));
+                Assert.Contains("REQUIREMENTS_INVALID", request.Prompt);
+                return JsonSerializer.SerializeToNode(corrected, PlanningJsonContext.Default.PlanningProposal)!.AsObject();
+            }
             Assert.True(PlanningRepairPatch.Issued(request.StructuredOutputSchema!.AsObject()));
             var context = PlanningRepairPatch.RequestContext(request)["repair"]!;
             var index = PlanningRepairPatch.Index(JsonSerializer.SerializeToNode(corrected.Plan, PlanningJsonContext.Default.TaskPlan)!);

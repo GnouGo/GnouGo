@@ -153,7 +153,11 @@ internal static class PlanningSchemas
         // Presentation only, on fresh full proposals. Repair templates/authorities
         // use the historical path, including its exact annotation-free bytes.
         if (compositionHints)
+        {
             definitions["task"]!["description"] = "requires: false fails. and/or: binary; nest. field.port: exact property. condition: routing. mode: extract facts/interpret decisions. each.input: bound input. resultType: Candidate[][] for Candidate[]/page.";
+            if (root["properties"]?["requirements"] is not null)
+                definitions["task"]!["description"] += " First plan requires requirements/interfaces; null only for discovery or clarification.";
+        }
         ShareRepeatedSchemas(root, definitions);
         for (var pass = 0; pass < 3; pass++) { ShareRepeatedSchemas(root, definitions, 30); CollapseAliases(root, definitions); PruneDefinitions(root, definitions); }
         CompactDefinitionNames(root, definitions);
