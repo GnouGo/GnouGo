@@ -180,6 +180,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
                     Assert.Null(model.Offered);
                 }
                 Assert.DoesNotContain(events, e => e["tool"]?.ToString() == "document_write" && e["error"]?.GetValue<bool>() == false);
+                if (automaticCorrection == "commitment") SaveCommitmentOutcome(variant, result.Success, visits, model.Requests, null, true, null);
                 return;
             }
             Assert.True(result.Success, $"{result.Error?.Code}: {result.Error?.Message}; {result.Error?.Details}");
@@ -304,6 +305,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
                 }.ToJsonString(new() { WriteIndented = true }));
             Assert.True(restored.Success, restored.Error?.Message); Assert.True(JsonNode.DeepEquals(result.Outputs, restored.Outputs));
             Assert.Equal(calls, model.Requests.Count); Assert.Equal(external, events.Count); Assert.Equal(content, await File.ReadAllBytesAsync(path, ct));
+            if (automaticCorrection == "commitment") SaveCommitmentOutcome(variant, result.Success, visits, model.Requests, rows, true, oracle["passed"]!.GetValue<bool>());
             if (Environment.GetEnvironmentVariable("GNOU_GO_V10_EVIDENCE") is { Length: > 0 } evidence)
             {
                 Directory.CreateDirectory(evidence);

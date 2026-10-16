@@ -103,6 +103,37 @@ public sealed class PlannerChoiceUiTests : BunitContext
         Assert.DoesNotContain("Historical outcome checks", cut.Markup); Assert.Empty(cut.FindAll("button"));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void CommitmentEvidenceKeepsVerificationHumanReviewAndUncertaintySeparate(bool violation)
+    {
+        IReadOnlyList<string>? reviewed = null;
+        var state = new PlanningSession { IntentVersion = 3, Revision = 1, Status = PlanningStatus.FinalReview,
+            Requirements = new() { Outcomes = [new("deliver", "Deliver exact results") { Commitments = [new("observed_operation") { Result = new("location", "filePath") }] }] },
+            ValidationResults = [new("coverage:deliver:0:operation", "verified", "Declared operation at /tasks/write; execution unobserved.", []),
+                new("coverage:deliver:limits", "unverified", "Per-item relevance has not been established.", [])] };
+        if (violation) state.ValidationResults.Add(new("coverage:deliver:0:result", "violation", "Disconnected result", [new("REQUIREMENT_RESULT_DISCONNECTED", "/root/outputs/filePath", "Producer-owned result is missing.")]));
+        var cut = Render<PlannerStageDetails>(p => p.Add(c => c.Session, PlanningEndpoints.ToDto(state))
+            .Add(c => c.ReviewEnabled, true).Add(c => c.Reviewed, ids => reviewed = ids));
+        Assert.Contains("Verified clause", cut.Markup); Assert.Contains("Unverified", cut.Markup);
+        Assert.Contains("observed_operation", cut.Markup); Assert.Contains("location", cut.Markup); Assert.Contains("filePath", cut.Markup);
+        Assert.Contains("remain unverified after approval", cut.Markup); Assert.Null(reviewed);
+        var checkbox = cut.Find("input[type=checkbox]"); Assert.False(checkbox.HasAttribute("checked"));
+        Assert.Equal(violation, checkbox.HasAttribute("disabled"));
+        checkbox.Change(true);
+        if (violation) { Assert.Null(reviewed); Assert.Contains("Violation", cut.Markup); }
+        else
+        {
+            Assert.Equal(["deliver"], reviewed);
+            state.ValidationResults.Add(new("requirement:deliver", "human_reviewed", "Human reviewed the artifact", []));
+            cut.Render(p => p.Add(c => c.Session, PlanningEndpoints.ToDto(state)));
+            Assert.True(cut.Find("input").HasAttribute("checked")); Assert.Contains("Unverified", cut.Markup);
+            state.Revision++; cut.Render(p => p.Add(c => c.Session, PlanningEndpoints.ToDto(state)));
+            Assert.False(cut.Find("input").HasAttribute("checked"));
+        }
+    }
+
     private static PlanningQuestionDto Question(string id = "interface") => new(id, "Which interface?",
         [new("compact", "Reference and instructions", null), new("coordinates", "Explicit coordinates", null)], "compact");
 

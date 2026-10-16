@@ -210,7 +210,8 @@
         .Where(requirement => !_reviewedRequirements.Contains(requirement.Id, StringComparer.Ordinal));
     private int ReviewedRequirementCount => (_state?.Requirements?.Outcomes.Count ?? 0) - MissingRequirements.Count();
     private bool CanApprove => !_busy && !IsWorkflowSession && _state is { RequiresPlanningRevision: false, Status: PlanningStatus.FinalReview,
-        Requirements.Outcomes.Count: > 0 } && !MissingRequirements.Any();
+        Requirements.Outcomes.Count: > 0 } && !MissingRequirements.Any() &&
+        !_state.Diagnostics.Any(d => d.Required) && !_state.ValidationResults.Any(r => r.Id.StartsWith("coverage:", StringComparison.Ordinal) && r.Outcome == "violation");
     private readonly HashSet<string> _revisionPaths = new(StringComparer.Ordinal);
     private IEnumerable<IGrouping<string, PlanningDiagnostic>> RevisionFindings => (_state?.Diagnostics ?? [])
         .Where(d => d.Code == "REVISION_REQUIRED" && !string.IsNullOrWhiteSpace(d.Location) && d.Location != "/")

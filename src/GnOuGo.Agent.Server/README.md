@@ -821,3 +821,12 @@ Discovery can request exact contracts for known operation IDs within its existin
 Use `/mcp edit GnOuGo.GithubCopilot.Mcp`, choose **Configure agent permissions**, select the agent by name and stable ID, then choose **Allow All including sandbox bypass** and confirm the persistent grant. The editor also displays and removes the current grant. The grant applies to that tenant and agent's future permission callbacks; business questions and host restrictions remain enforced. Configuration is refreshed before grant creation and subsequent workflow runs.
 
 Nested workflow animation distinguishes outgoing calls from return handoffs, including calls inside loops and parallel branches. See [causes, boundaries and validation evidence](../../docs/agent-permissions-and-animation.md).
+
+
+### Contractual business coverage in Designer
+
+New sessions capture intent version 3 while keeping compiler v15. Optional requirement `commitments` identify exact inspected operations and producer ports that supply public outputs. Designer displays these obligations alongside **Verified clause**, **Violation** and **Unverified** results. A verified clause describes declared operation presence or supported lineage, never runtime success or full business understanding.
+
+Confirmed violations block approval. Individual requirement checkboxes may explicitly acknowledge unverified aspects; they remain unverified after approval, separately from `human_reviewed`. No checkbox is preselected, polling does not submit, and a changed artifact clears acknowledgments. Approval recomputes coverage instead of trusting displayed labels. Saving still does not execute the workflow.
+
+With the existing automatic-correction policy, disconnected exports use bounded scoped repair. Missing committed operations may use the existing structural fallback with captured exact-contract authority; unrelated additions, weakened checks and changed independent work are rejected. Existing sessions, pending requests, receipts and approved workflows retain their captured behavior. No stopped session is automatically reopened. See [coverage and offline evidence](../../docs/evidence/business-commitments-2026-10-16/README.md).

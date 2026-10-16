@@ -42,6 +42,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
     private static async Task<PlanningSession> AutomaticCompositionSession(PlanningCatalog catalog, WorkflowPlanningRuntime runtime,
         PlanningProposal corrected, string defect, CancellationToken ct, PlanningProposal? retained = null)
     {
+        if (defect == "commitment") return await CommitmentCompositionSession(catalog, runtime, corrected, ct);
         var broken = JsonSerializer.SerializeToNode(retained ?? corrected, PlanningJsonContext.Default.PlanningProposal)!.Deserialize(PlanningJsonContext.Default.PlanningProposal)!;
         if (defect == "requirements") broken.Requirements = null;
         else if (retained is null && defect == "choice") broken.Plan!.Root.Outputs[0].Value.Kind = "choice";

@@ -19,7 +19,19 @@ public sealed partial class CodeReviewCompositionTests
     [InlineData("denied")]
     [InlineData("post_failure")]
     [InlineData("unknown")]
-    public async Task RetainedTransformsBecomeRealOperationsWithoutChangingAcceptedInterfaces(string variant)
+    public Task RetainedTransformsBecomeRealOperationsWithoutChangingAcceptedInterfaces(string variant) => RunRetainedReview(variant, false);
+
+    [Theory]
+    [InlineData("approve")]
+    [InlineData("findings")]
+    [InlineData("failed_checks")]
+    [InlineData("incomplete")]
+    [InlineData("denied")]
+    [InlineData("post_failure")]
+    [InlineData("unknown")]
+    public Task CommitmentsDistinguishSimulatedWorkFromIndependentLocalReviewEvidence(string variant) => RunRetainedReview(variant, true);
+
+    private async Task RunRetainedReview(string variant, bool commitments)
     {
         using var fixture = new Execution(variant, report: true);
         var store = new InMemoryWorkflowRunStore();
@@ -58,13 +70,35 @@ public sealed partial class CodeReviewCompositionTests
         root.Outputs = [new("summary", Ref("submit", "summary")), new("decision", Ref("submit", "decision")),
             new("pullRequestState", Ref("inspect", "state")), new("githubReviewUrl", Ref("submit", "url")),
             new("reportPath", Ref("report", "path")), new("cleanupStatus", Ref("release", "status"))];
+        if (commitments)
+        {
+            PlanningCommitment Obligation(string method, string? port = null, string? export = null) =>
+                new(TaskOperations.Describe(catalog.Capabilities.Single(c => c.Method == method)).Id)
+                { Result = port is null ? null : new(port, export!) };
+            original.Requirements!.Outcomes = original.Requirements.Outcomes.Select(r => r with { Commitments = r.Id switch
+            {
+                "github_review_posted" => [Obligation("begin"), Obligation("submit", "url", "githubReviewUrl"), Obligation("submit", "decision", "decision")],
+                "checks_executed" => [Obligation("checks")],
+                "single_clone_cleaned" => [Obligation("clone"), Obligation("cleanup", "status", "cleanupStatus")],
+                "summary_returned" => [Obligation("submit", "summary", "summary"), Obligation("inspect", "state", "pullRequestState"), Obligation("write_report", "path", "reportPath")],
+                _ => throw new InvalidOperationException("Fixture requirement changed; review the commitments independently.")
+            } }).ToList();
+        }
         var runtime = new LocalProductOutcomeExecutionTests.ProposalRuntime(actual, original);
         var planner = new HybridWorkflowPlanner();
-        var state = new PlanningSession { IntentVersion = 2, Catalog = catalog, Discovery = discovery, Plan = original.Plan, Requirements = original.Requirements,
+        var state = new PlanningSession { IntentVersion = commitments ? 3 : 2, Catalog = catalog, Discovery = discovery, Plan = original.Plan, Requirements = original.Requirements,
             Request = new() { TenantId = "fixture", Prompt = "Perform the accepted review outcomes using real operations; preserve every public contract.",
                 Generation = JsonSerializer.Deserialize(File.ReadAllText(Path.Combine(AppContext.BaseDirectory,
                     "Fixtures", "UsefulClarifications", "retained-generation.json")), PlanningJsonContext.Default.PlanningGenerationOptions)!,
                 Options = new() { ["compilation_profile"] = "compact-bindings-v15", ["clarification_policy"] = 1 } } };
+        if (commitments) await CommitmentEvidence.WriteCompilingBaseline(state, actual, "review", Ct);
+        var coverageBefore = PlanningCommitments.Assess(state);
+        if (commitments)
+        {
+            Assert.Empty(new TaskPlanCompiler().Compile(original.Plan!, catalog, state.Request).Diagnostics);
+            Assert.Contains(coverageBefore, r => r.Outcome == "violation" && r.Diagnostics.Any(d => d.Code == PlanningCommitments.MissingOperation));
+            Assert.DoesNotContain(coverageBefore, r => r.Outcome == "verified");
+        }
         var accepted = JsonSerializer.Serialize(state.Requirements, PlanningJsonContext.Default.PlanningRequirements);
         RecordedPlanCompilation.InspectSelected(state, corrected.Plan);
         runtime.Patch = _ => JsonSerializer.SerializeToNode(corrected, PlanningJsonContext.Default.PlanningProposal)!.AsObject();
@@ -120,6 +154,26 @@ public sealed partial class CodeReviewCompositionTests
                 ["requestEstimate"] = runtime.InputEstimate, ["yamlBytes"] = Encoding.UTF8.GetByteCount(state.Yaml!),
                 ["effects"] = JsonSerializer.SerializeToNode(before), ["acceptedRequirementsUnchanged"] = true,
                 ["publicInterfacesUnchanged"] = true, ["recoveredAdditionalEffects"] = 0 }.ToJsonString(new() { WriteIndented = true }), Ct);
+        }
+        if (commitments && Environment.GetEnvironmentVariable("GNOU_GO_COMMITMENT_EVIDENCE") is { Length: > 0 } evidence)
+        {
+            Directory.CreateDirectory(evidence);
+            await File.WriteAllTextAsync(Path.Combine(evidence, "review-before.json"), JsonSerializer.Serialize(original, PlanningJsonContext.Default.PlanningProposal), Ct);
+            await File.WriteAllTextAsync(Path.Combine(evidence, "review-after.json"), JsonSerializer.Serialize(corrected, PlanningJsonContext.Default.PlanningProposal), Ct);
+            await File.WriteAllTextAsync(Path.Combine(evidence, "review-after.yaml"), state.Yaml, Ct);
+            await File.WriteAllTextAsync(Path.Combine(evidence, "review-" + variant + ".json"), new JsonObject
+            {
+                ["before"] = JsonSerializer.SerializeToNode(coverageBefore, PlanningJsonContext.Default.ListPlanningValidationResult),
+                ["after"] = JsonSerializer.SerializeToNode(PlanningCommitments.Assess(state), PlanningJsonContext.Default.ListPlanningValidationResult),
+                ["explicitRevisionCalls"] = 1, ["automaticCorrections"] = 0, ["providerCalls"] = 0, ["paidCost"] = 0,
+                ["requestEstimatedTokens"] = runtime.InputEstimate,
+                ["requestSerializedBytes"] = Encoding.UTF8.GetByteCount(JsonSerializer.Serialize(Assert.Single(runtime.Requests), PlanningJsonContext.Default.LLMRequest)),
+                ["success"] = result.Success,
+                ["effects"] = JsonSerializer.SerializeToNode(fixture.Calls), ["cloneCount"] = fixture.CloneCount,
+                ["checks"] = JsonSerializer.SerializeToNode(fixture.Checks), ["cleanupCount"] = fixture.CleanupCount,
+                ["exactFeedbackAndReportVerified"] = success, ["repeatedEffectsAfterRecovery"] = 0,
+                ["uncertainReplayProhibited"] = variant == "unknown", ["estimatedCost"] = null
+            }.ToJsonString(new() { WriteIndented = true }), Ct);
         }
         output.WriteLine($"{variant}: explicit revision=1; repairs=0; runtimeLLM=0; clone={fixture.CloneCount}; checks={fixture.Checks.Count}; cleanup={fixture.CleanupCount}; recovery added no effects.");
         static void Rename(JsonNode? node)

@@ -339,9 +339,21 @@ validates the patch, and ambiguous display identities never grant broader permis
 
 ## Business intent and compatibility
 
-Fresh sessions use `IntentVersion=2`: requirements contain a summary, descriptive outcomes and the accepted public inputs; the model returns the existing TaskPlan. There is no separate outcome proof, effect/coverage/placement declaration or outcome-mapping repair. Producer contracts remain authoritative. Technical review lists the operations actually compiled, their declared effects and the fact that execution is unobserved. Compare the plan with accepted requirements; compilation cannot prove arbitrary business prose complete.
+Fresh sessions use `IntentVersion=3`, independently of compiler profile v15. Requirements keep their summary, outcomes and accepted public interfaces. An outcome may also declare `commitments`: exact inspected operation IDs, optionally with an exact producer result port supplying an accepted public output. These are obligations, not task IDs, scheduling, predicates or model-authored proof mappings. `OutcomeBindings` remains historical. Existing intent-version 2 sessions retain their captured behavior, schemas and approvals; omitted metadata leaves historical serialization unchanged.
 
-New approvals require an explicit `reviewedRequirementIds` array containing each accepted requirement ID exactly once, alongside the existing expected revision and artifact hash. Missing/uncertain coverage requires revision. Designer checkboxes and `workflow.plan` human-input forms never preselect these acknowledgments. Successful acknowledgments are retained as `human_reviewed` results; revisions clear them. This is a human review gate, not automatic semantic proof. API clients and evaluation harnesses must collect explicit review rather than fill the array automatically.
+```json
+{"id":"deliver","description":"Save the requested report and return its location",
+ "commitments":[{"operation":"<exact inspected operation ID>",
+                 "result":{"port":"location","output":"filePath"}}]}
+```
+
+During discovery a null commitment list can be completed without changing the accepted prose or interfaces. Before the first accepted TaskPlan, every supplied commitment must resolve to an inspected contract and declared result/output ports. Thereafter commitments are immutable during automatic correction. Null or empty commitments leave coverage explicitly unverified; the planner never infers obligations from its generated plan.
+
+After compilation, coverage reports **verified clauses**, **violations** and **unverified aspects** through existing validation results. Reachable operations and supported direct bindings/exports/collection provenance establish contractual clauses. Uncalled groups and simulated effects cannot satisfy an operation commitment; literals or disconnected inferred outputs cannot establish producer-owned results. Ambiguous repeated operations, conditional or potentially empty execution and unsupported transformations remain unverified. The executable catalog still contains only selected operations; commitment contracts remain bounded read-only correction context.
+
+Operation presence does not prove correct arguments, relevant extraction, per-product work, successful effects or complete prose coverage. Every requirement retains a limitations entry. Independent execution oracles remain necessary. No correspondence is inferred from task names, descriptions or compatible types.
+
+New approvals require an explicit `reviewedRequirementIds` array containing each accepted requirement ID exactly once, alongside the existing expected revision and artifact hash. Confirmed violations block approval; coverage is recomputed during approval verification. In intent version 3, explicitly acknowledging an unverified requirement permits human review but never changes its coverage label. Designer checkboxes and `workflow.plan` human-input forms never preselect these acknowledgments. Successful acknowledgments are retained as `human_reviewed` results; revisions clear them. This is a human review gate, not automatic semantic proof. API clients and evaluation harnesses must collect explicit review rather than fill the array automatically.
 
 TaskPlan/PlanningGraph versions and storage format 10 are unchanged. Optional transform mode is described below. Historical annotation fields remain readable and hash-identical. Already-approved artifacts retain approval; unapproved legacy artifacts require fresh generation and approval. An explicit revision keeps discovery, history, baseline and cumulative accounting. If a pending legacy request has a receipt, the Designer validates the original identity/schema and settles usage before revision, without applying the proposal. Unknown completion remains stopped for reconciliation. Other hosts receive `PLANNING_REVISION_REQUIRED` through the existing diagnostic/command channel.
 
@@ -433,9 +445,7 @@ requests are always processed against their issued schema, not a recomputed rese
 `TASK_LITERAL_INVALID` can use an existing diagnosed editable value slot. This adds
 no permission over protected assertions, host-owned arguments or unrelated work.
 Patches remain atomic, fully validated and subject to existing stagnation/fallback
-limits. A repair cannot introduce missing operations or replace accepted requirements
-merely to turn a document-only proposal into an executable workflow; that needs an
-explicit requirement-changing revision.
+limits. An ordinary patch cannot add operations or replace accepted requirements. A document-generation requirement cannot silently become execution; changing that intent requires an explicit revision. Intent-version 3 structural correction may add only a missing operation already required by a captured commitment.
 
 Before any requirements or TaskPlan have been accepted, an incomplete initial
 proposal can use that same single regeneration: missing/invalid requirements or
@@ -451,11 +461,10 @@ Regeneration preserves existing external operation identities, arguments, order,
 control boundaries and cleanup. Independent tasks stay fixed. Assertion corrections
 may replace diagnosed invalid references to declared fields on the same producer,
 but preserve other operands and ordering; new assertions may follow existing ones.
-New external work or changes whose behavior cannot be established are rejected for
-explicit review. This conservative comparison does not prove arbitrary business
+New external work not captured by an accepted commitment, or changes whose preservation cannot be established, are rejected for explicit review. This conservative comparison does not prove arbitrary business
 semantics or repair every structurally incomplete plan.
 
-Fresh private correction progress uses version 3. A diagnosed unaccepted public
+Intent-version 2 private correction progress retains version 3. A diagnosed unaccepted public
 export may be removed without preserving the rejected proposal's extra interface.
 Only names recorded from `REQUIREMENTS_OUTPUTS_CHANGED` before request issuance
 and absent from accepted requirements receive this authority. Remaining export
@@ -492,3 +501,14 @@ still requires requirement acknowledgments and exact artifact approval. Internal
 mapping repair, compiler v15, handwritten YAML and runtime behavior are unchanged.
 
 See [deterministic correction evidence](../../docs/evidence/automatic-correction-2026-10-14/README.md).
+
+
+### Coverage correction authority (intent 3)
+
+`REQUIREMENT_RESULT_DISCONNECTED` identifies an existing export binding for scoped repair. `REQUIREMENT_OPERATION_MISSING` requires structural regeneration, never a futile consumer patch. Private correction version 4 captures exact permitted additions (operation/capability/version/contract fingerprint), diagnosed locations, exclusive pure adaptation tasks and preserved task identities before issuing the request. Only the existing single structural fallback and cumulative allowances are used.
+
+Candidates preserve existing operations, arguments, relative order, branches, assertions, finalizers, public interfaces and independent scope exports. New operation occurrences must match captured commitments; duplicate effects and unrelated new work are rejected. A diagnosed exclusive pure producer may be replaced without treating its old simulated effect as real evidence. Shared or guarded producers remain protected. Uncalled existing occurrences, denied capabilities and unavailable contracts do not authorize a new effect or a corrective call. A conservative stop is preferable to guessing placement or permissions.
+
+Committed responses are applied under their original request/authority before fresh-request decisions. Historical progress versions are not upgraded. No execution is resumed to test a correction, no approval is automatic, and no allowance is reset. Coverage emits reference-only events on existing planning traces; it records no observations or schema copies.
+
+See [offline coverage/correction evidence](../../docs/evidence/business-commitments-2026-10-16/README.md). Progressive generation remains deferred: these checks do not establish that another construction pipeline is necessary.

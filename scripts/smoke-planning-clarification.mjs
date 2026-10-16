@@ -66,6 +66,8 @@ try {
       const support = page.locator('details').filter({ has: page.locator('summary', { hasText: 'Business requirements' }) });
       await support.waitFor();
       assert.match(await support.innerText(), /does not prove business completeness or execution success/);
+      assert.match(await support.innerText(), /Unverified/);
+      assert.match(await support.innerText(), /remain unverified after approval/);
       const approval = page.getByRole('button', { name: 'Approve this revision and save', exact: true });
       assert.equal(await approval.isEnabled(), false, 'Requirements are never acknowledged automatically');
       const checks = support.getByRole('checkbox');
@@ -84,6 +86,7 @@ try {
       await page.waitForFunction(() => [...document.querySelectorAll('button')].some(b => b.textContent.trim() === 'Approve this revision and save' && !b.disabled));
       assert.match(await page.locator('#approval-review-status').innerText(), new RegExp(`${await checks.count()}/${await checks.count()} reviewed`));
       assert.equal(await page.locator('#approval-missing-requirements').count(), 0);
+      assert.match(await support.innerText(), /Unverified/, 'Acknowledgments never relabel deterministic coverage');
       await checks.first().focus(); await page.keyboard.press('Space');
       await page.waitForFunction(() => document.querySelector('#approve-and-save').disabled);
       await page.keyboard.press('Space');
