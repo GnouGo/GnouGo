@@ -1,0 +1,192 @@
+{
+  "session": "51b24cad299443eb8f3d0391db2f8285",
+  "retainedRevision": 19,
+  "providerCalls": 0,
+  "externalOperations": 0,
+  "receipts": [
+    {
+      "call": 1,
+      "strict": true,
+      "schemaFindings": 0,
+      "requestSha256": "b9d9944673dd8be3a23a498169cc270ada5870ac75bedc7dc08ecb8266d43398",
+      "receiptSha256": "a94ef5b524589ba1729e317fe3bd10dac4bf77c83cc48e94294d10a104b52912"
+    },
+    {
+      "call": 2,
+      "strict": true,
+      "schemaFindings": 0,
+      "requestSha256": "cf0e14a66918c6eeca273613beebb6c5f61eddc644a83a3990010ebfab48e57f",
+      "receiptSha256": "95c45718b09e02222dc6d057e47f63f4ace2d7568a9138d5b556a740c410e9b5"
+    },
+    {
+      "call": 3,
+      "strict": true,
+      "schemaFindings": 0,
+      "requestSha256": "460cd8d172737f323682d95cc698be278fcd7185c6a01b2924e4ea4f448bab5a",
+      "receiptSha256": "a859d5e279b267e97e272c84fbee491dce9637bc9ed6882dac4193bb9fc511a1"
+    },
+    {
+      "call": 4,
+      "strict": true,
+      "schemaFindings": 0,
+      "requestSha256": "03d8a254a3d05140fae8572272b9357da261e1933e88fb0472ad82f8c3fefc8f",
+      "receiptSha256": "8e4f98652dee02ee7fecd07fc82347489c8bda6751f193db793ae867a70b89df"
+    },
+    {
+      "call": 5,
+      "strict": true,
+      "schemaFindings": 0,
+      "requestSha256": "5a03a10229c4b0f547042af0179080f2c47b11d4c3f7faa8bd73afb7939f0ef4",
+      "receiptSha256": "45fbb9d63070dfa4af305773ca20b22c8254e9390dd8c98a1603ddb5aed1006e"
+    },
+    {
+      "call": 6,
+      "strict": true,
+      "schemaFindings": 0,
+      "requestSha256": "7fcd692e36afe232029e4f5a960e6c9555d4fe4402136bab844a8e2411da4008",
+      "receiptSha256": "40561177bdef17193cb08ce73c0c739a227b6a290fbe83954fdd2a96b9e78f7c"
+    },
+    {
+      "call": 7,
+      "strict": true,
+      "schemaFindings": 0,
+      "requestSha256": "bd4230482fe9a9d9d214495e9087d711c9fd3e0265c1f212906b0b3abda450b2",
+      "receiptSha256": "14c1d02260935648d4d7549cc03bbf77b910d35bfbcd99db80f8ab7e81a19194"
+    },
+    {
+      "call": 8,
+      "strict": true,
+      "schemaFindings": 0,
+      "requestSha256": "83ce16ca6cdffcd1fe1fd4369dc6f71db8d26cd937f3788f48368f47504e85b5",
+      "receiptSha256": "c1435545c64bb9da6e2437b25fd47715ace4271ce37763f3130f9ea5254ed3c0"
+    }
+  ],
+  "replays": [
+    {
+      "name": "historical_call_6",
+      "status": "generating",
+      "version": 2,
+      "sampleReads": 1,
+      "modelCalls": 6,
+      "replanAttempts": 1,
+      "diagnostics": [
+        {
+          "code": "REVISION_SCOPE_CHANGED",
+          "location": "/root/outputs",
+          "message": "Automatic correction cannot establish preservation of the public output names and ordering. Review this difference explicitly; no candidate was applied.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "REVISION_SCOPE_CHANGED",
+          "location": "/tasks/generate_workflow/inputs",
+          "message": "Automatic correction cannot establish preservation of original action arguments. Review this difference explicitly; no candidate was applied.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "REVISION_SCOPE_CHANGED",
+          "location": "/tasks/generate_workflow/inputs/4/value/text",
+          "message": "Automatic correction cannot establish preservation of the independent task declaration. Review this difference explicitly; no candidate was applied.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        }
+      ],
+      "requestEstimate": 21498,
+      "requestLimit": 24000,
+      "yamlBytes": null,
+      "approved": false
+    },
+    {
+      "name": "historical_call_8",
+      "status": "generating",
+      "version": 2,
+      "sampleReads": 1,
+      "modelCalls": 8,
+      "replanAttempts": 2,
+      "diagnostics": [
+        {
+          "code": "REVISION_SCOPE_CHANGED",
+          "location": "/root/outputs",
+          "message": "Automatic correction cannot establish preservation of the public output names and ordering. Review this difference explicitly; no candidate was applied.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        }
+      ],
+      "requestEstimate": 21427,
+      "requestLimit": 24000,
+      "yamlBytes": null,
+      "approved": false
+    },
+    {
+      "name": "retained_call_8",
+      "status": "final_review",
+      "version": 3,
+      "sampleReads": 1,
+      "modelCalls": 8,
+      "replanAttempts": 2,
+      "diagnostics": [],
+      "requestEstimate": 21504,
+      "requestLimit": 24000,
+      "yamlBytes": 6292,
+      "approved": false
+    },
+    {
+      "name": "retained_call_6",
+      "status": "generating",
+      "version": 3,
+      "sampleReads": 1,
+      "modelCalls": 6,
+      "replanAttempts": 1,
+      "diagnostics": [
+        {
+          "code": "REVISION_SCOPE_CHANGED",
+          "location": "/root/outputs",
+          "message": "Automatic correction cannot establish preservation of the public output names and ordering. Review this difference explicitly; no candidate was applied.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "REVISION_SCOPE_CHANGED",
+          "location": "/tasks/generate_workflow/inputs",
+          "message": "Automatic correction cannot establish preservation of original action arguments. Review this difference explicitly; no candidate was applied.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "REVISION_SCOPE_CHANGED",
+          "location": "/tasks/generate_workflow/inputs/4/value/text",
+          "message": "Automatic correction cannot establish preservation of the independent task declaration. Review this difference explicitly; no candidate was applied.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        }
+      ],
+      "requestEstimate": 21579,
+      "requestLimit": 24000,
+      "yamlBytes": null,
+      "approved": false
+    },
+    {
+      "name": "minimal_call_5",
+      "status": "final_review",
+      "version": 3,
+      "sampleReads": 1,
+      "modelCalls": 6,
+      "replanAttempts": 1,
+      "diagnostics": [],
+      "requestEstimate": 21579,
+      "requestLimit": 24000,
+      "yamlBytes": 6113,
+      "approved": false
+    }
+  ],
+  "historicalRecordsUnchanged": true,
+  "limitation": "Static review of the export correction does not establish that the retained file-generation composition performs the requested code review. No execution or approval occurred."
+}

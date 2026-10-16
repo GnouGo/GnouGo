@@ -95,7 +95,11 @@ public sealed partial class HybridWorkflowPlanner
         {
             baseline = state.Plan ?? baseline;
             state.Request.Baseline = baseline is null ? null : ClonePlan(baseline);
-            progress = new JsonObject { ["version"] = 2, ["attempts"] = new JsonArray(),
+            progress = new JsonObject { ["version"] = 3, ["attempts"] = new JsonArray(),
+                ["outputRemovals"] = new JsonArray((baseline?.Root.Outputs ?? []).Where(o =>
+                    state.Requirements?.Outputs is { } accepted && accepted.All(a => a.Name != o.Name) &&
+                    state.Diagnostics.Any(d => d.Required && d.Code == "REQUIREMENTS_OUTPUTS_CHANGED" && d.Location == "/outputs/" + o.Name))
+                    .Select(o => (JsonNode?)JsonValue.Create(o.Name)).ToArray()),
                 ["conditionLocations"] = new JsonArray(state.Diagnostics.Where(d => d.Code == "TASK_CONDITION_TYPE" && d.Location.EndsWith("/requires", StringComparison.Ordinal))
                     .Select(d => d.Location).Distinct().Select(p => (JsonNode?)JsonValue.Create(p)).ToArray()),
                 ["locations"] = new JsonArray(state.Diagnostics.Where(d => d.Required).Select(d => d.Location).Distinct().Order(StringComparer.Ordinal)
@@ -143,6 +147,9 @@ public sealed partial class HybridWorkflowPlanner
                     "Change only the issued editable paths. Preserve guard operands and ordering except the diagnosed invalid references.");
             if (DirectGuardCorrections(progress))
                 state.Request.RevisionContext += " " + PlanningPrompt.GuardCorrectionInstructions;
+            if (progress["version"]?.ToString() == "3" && progress["outputRemovals"] is JsonArray { Count: > 0 } removals)
+                state.Request.RevisionContext += " Remove only the diagnosed unaccepted exports: " + removals.ToJsonString() +
+                    ". Keep remaining exports, their bindings and order unchanged. Preserve all operation arguments verbatim; do not rewrite instructions or add replacement exports.";
             progress["revision"] = revision; progress["artifact"] = artifact;
         }
         progress["action"] = action;

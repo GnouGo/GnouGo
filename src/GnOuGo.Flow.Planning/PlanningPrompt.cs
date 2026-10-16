@@ -126,7 +126,7 @@ internal sealed partial class PlanningPrompt(PlanningSession state)
         }
         foreach (var key in new[] { "revisionContext", "userAnswers", "instructions", "revisionScope" })
             if (context[key] is null || context[key] is JsonArray { Count: 0 } || context[key]?.ToString() == "") context.Remove(key);
-        var guardGuidance = repair && state.Request.Options["automatic_correction_progress"]?["version"]?.ToString() == "2" &&
+        var guardGuidance = repair && state.Request.Options["automatic_correction_progress"]?["version"]?.ToString() is "2" or "3" &&
             state.Request.Options["automatic_correction_progress"]?["conditionLocations"] is JsonArray { Count: > 0 } ? GuardCorrectionInstructions + "\n" : "";
         string Render() => (repair ? RepairInstructions : Instructions) + "\n" + guardGuidance + (state.Requirements is null ? InitialRequirementsInstructions : ClarificationInstructions) + "\n" + PlanningJsonTransport.Prompt(context);
         // Bound the retained directory against mandatory context before optional

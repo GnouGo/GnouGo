@@ -31,8 +31,19 @@ public sealed partial class HybridWorkflowPlanner
         void RejectChange(string path, string responsibility) => findings.Add(new("REVISION_SCOPE_CHANGED", path,
             "Automatic correction cannot establish preservation of " + responsibility + ". Review this difference explicitly; no candidate was applied."));
         if (!PlanningClarifications.SameInputs(baseline.Inputs, candidate.Inputs)) RejectChange("/inputs", "the accepted caller interface");
-        if (!baseline.Root.Outputs.Select(o => o.Name).SequenceEqual(candidate.Root.Outputs.Select(o => o.Name), StringComparer.Ordinal))
+        // A rejected proposal is not authority for extra public exports. Fresh
+        // corrections may remove only the unaccepted names diagnosed before the
+        // request was issued; historical progress keeps its exact comparison.
+        var outputRemovals = progress["version"]?.ToString() == "3" && progress["outputRemovals"] is JsonArray removals && state.Requirements?.Outputs is { } accepted
+            ? removals.Select(n => n!.ToString()).Where(name => accepted.All(o => o.Name != name)).ToHashSet(StringComparer.Ordinal) : [];
+        var retainedOutputs = baseline.Root.Outputs.Where(o => !outputRemovals.Contains(o.Name) || candidate.Root.Outputs.Any(c => c.Name == o.Name)).ToList();
+        if (!retainedOutputs.Select(o => o.Name).SequenceEqual(candidate.Root.Outputs.Select(o => o.Name), StringComparer.Ordinal))
             RejectChange("/root/outputs", "the public output names and ordering");
+        if (outputRemovals.Count > 0)
+            foreach (var output in retainedOutputs)
+                if (candidate.Root.Outputs.SingleOrDefault(o => o.Name == output.Name) is { } revised && !SameValue(output.Value, revised.Value) &&
+                    !locations.Contains("/root/outputs/" + output.Name) && !locations.Contains("/outputs/" + output.Name))
+                    RejectChange("/root/outputs/" + output.Name, "the independent public output binding");
         if (!JsonNode.DeepEquals(JsonSerializer.SerializeToNode(baseline.Choices, PlanningJsonContext.Default.ListPlanningChoice),
                 JsonSerializer.SerializeToNode(candidate.Choices, PlanningJsonContext.Default.ListPlanningChoice))) RejectChange("/choices", "declared choices and host selections");
 

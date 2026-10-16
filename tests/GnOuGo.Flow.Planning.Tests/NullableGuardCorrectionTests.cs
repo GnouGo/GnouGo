@@ -55,7 +55,7 @@ public sealed class NullableGuardCorrectionTests
         runtime.Respond = (_, _) => throw new InvalidOperationException("Interrupted after the request was issued");
         state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
         Assert.Equal(PlanningStatus.Stopped, state.Status); Assert.NotNull(state.PendingCall);
-        Assert.Equal(2, state.Request.Options["automatic_correction_progress"]!["version"]!.GetValue<int>());
+        Assert.Equal(3, state.Request.Options["automatic_correction_progress"]!["version"]!.GetValue<int>());
         var issued = JsonSerializer.Serialize(state.PendingCall.Request, PlanningJsonContext.Default.LLMRequest);
         var response = TestRuntime.PatchResponse(state.PendingCall.Request, state, runtime.Proposal.Plan);
         var restored = PlannerFixture.Clone(state); restored.Status = PlanningStatus.Generating;
@@ -185,11 +185,11 @@ public sealed class NullableGuardCorrectionTests
         Assert.True(state.Status == PlanningStatus.FinalReview, string.Join(';', state.Diagnostics));
         Assert.Equal(2, state.ModelCalls); Assert.Equal(1, state.ReplanAttempts); Assert.Null(state.ApprovedHash);
         var progress = state.Request.Options["automatic_correction_progress"]!;
-        Assert.Equal(2, progress["version"]!.GetValue<int>());
+        Assert.Equal(3, progress["version"]!.GetValue<int>());
         Assert.Equal("targeted_revision", Assert.Single(progress["attempts"]!.AsArray())!["action"]!.ToString());
         Assert.Equal("/tasks/use/requires", Assert.Single(PlanningRepairPatch.RequestContext(runtime.Calls[1])["repair"]!["editablePaths"]!.AsArray())!.ToString());
         Assert.Contains("nullable nonboolean", runtime.Calls[1].Prompt);
-        Assert.Contains(runtime.Checkpoints, s => s.PendingCall is not null && s.Request.Options["automatic_correction_progress"]?["version"]?.GetValue<int>() == 2);
+        Assert.Contains(runtime.Checkpoints, s => s.PendingCall is not null && s.Request.Options["automatic_correction_progress"]?["version"]?.GetValue<int>() == 3);
         state = await PlannerFixture.RunAsync(runtime, PlannerFixture.Clone(state));
         Assert.Equal(2, runtime.Calls.Count);
     }

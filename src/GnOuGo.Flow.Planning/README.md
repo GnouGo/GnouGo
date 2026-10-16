@@ -412,7 +412,18 @@ New external work or changes whose behavior cannot be established are rejected f
 explicit review. This conservative comparison does not prove arbitrary business
 semantics or repair every structurally incomplete plan.
 
-Fresh private correction progress uses version 2. A compiler-confirmed
+Fresh private correction progress uses version 3. A diagnosed unaccepted public
+export may be removed without preserving the rejected proposal's extra interface.
+Only names recorded from `REQUIREMENTS_OUTPUTS_CHANGED` before request issuance
+and absent from accepted requirements receive this authority. Remaining export
+names, order and independent bindings stay fixed; operation arguments, including
+instructions, remain verbatim. This uses the existing structural revision because
+binding patches cannot remove export declarations. It grants no new patch slot.
+Complete output validation still distinguishes optional omission from explicit
+null and checks the authoritative types. Versions 1–2 and pending receipts keep
+their original preservation rules; no stopped session is automatically reopened.
+
+A compiler-confirmed
 `TASK_CONDITION_TYPE` at a `requires` slot permits a known nullable nonboolean
 producer reference `value` to become `value != null`, optionally conjoined with
 declared nonnullable Boolean fields of that same producer. For example,
@@ -425,7 +436,7 @@ of spending a structural fallback on the same unpreservable assertion.
 The new guidance is included in the actual targeted patch request, not only
 structural-revision context. Independent declaration changes report the changed
 field, including objectives, which influence extraction and interpretation.
-Version-1 progress and already-issued requests retain their original handling;
+Historical progress and already-issued requests retain their original handling;
 restart never upgrades pending authority. Complete compilation and separate
 artifact review still follow preservation validation. See the
 [nullable-guard replay and local execution evidence](../../docs/evidence/nullable-guard-correction-2026-10-15/README.md).
