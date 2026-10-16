@@ -311,7 +311,8 @@ clarificationState = await clarificationPlanner.AdvanceAsync(clarificationState,
 PlanningArtifactApproval.Verify(clarificationState);
 if (clarificationState.Status != PlanningStatus.FinalReview || clarificationState.ApprovedHash is not null || clarificationRuntime.Calls != 2)
     throw new InvalidOperationException("Clarification bypassed review or lost accounting.");
-if (clarificationState.IntentVersion != 2 || clarificationState.OutcomeVersion is not null || clarificationState.OutcomeBindings is not null)
+if (clarificationState.IntentVersion != 3 || clarificationState.OutcomeVersion is not null || clarificationState.OutcomeBindings is not null ||
+    !clarificationState.ValidationResults.Any(r => r.Id.StartsWith("coverage:", StringComparison.Ordinal) && r.Outcome == "unverified"))
     throw new InvalidOperationException("Business planning profile did not survive Native AOT recovery.");
 var intentHash = clarificationState.ComputeArtifactHash();
 clarificationState.Requirements!.Summary += " revised";
