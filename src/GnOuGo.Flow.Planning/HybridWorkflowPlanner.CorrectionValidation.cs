@@ -23,6 +23,10 @@ public sealed partial class HybridWorkflowPlanner
         if (verifiedPatch && state.EditablePaths is null) return [];
         var findings = new List<PlanningDiagnostic>();
         var before = new TaskPlanSymbols(baseline); var after = new TaskPlanSymbols(candidate);
+        var commitmentRevision = state.IntentVersion == 3 && progress["version"]?.ToString() == "4";
+        var additions = AuthorizedCommitmentAdditions(state, progress);
+        var adaptations = commitmentRevision && progress["action"]?.ToString() == "regenerate" && progress["adaptationTasks"] is JsonArray tasks
+            ? tasks.Select(n => n!.ToString()).ToHashSet(StringComparer.Ordinal) : [];
         var locations = state.Request.Options[CorrectionProgressKey]!["locations"]!.AsArray().Select(p => p!.ToString()).ToList();
         // Read-only producer/consumer context is not revision authority. Otherwise
         // a guard could retain its syntax while its observed producer becomes true.
@@ -34,12 +38,12 @@ public sealed partial class HybridWorkflowPlanner
         // A rejected proposal is not authority for extra public exports. Fresh
         // corrections may remove only the unaccepted names diagnosed before the
         // request was issued; historical progress keeps its exact comparison.
-        var outputRemovals = progress["version"]?.ToString() == "3" && progress["outputRemovals"] is JsonArray removals && state.Requirements?.Outputs is { } accepted
+        var outputRemovals = progress["version"]?.ToString() is "3" or "4" && progress["outputRemovals"] is JsonArray removals && state.Requirements?.Outputs is { } accepted
             ? removals.Select(n => n!.ToString()).Where(name => accepted.All(o => o.Name != name)).ToHashSet(StringComparer.Ordinal) : [];
         var retainedOutputs = baseline.Root.Outputs.Where(o => !outputRemovals.Contains(o.Name) || candidate.Root.Outputs.Any(c => c.Name == o.Name)).ToList();
         if (!retainedOutputs.Select(o => o.Name).SequenceEqual(candidate.Root.Outputs.Select(o => o.Name), StringComparer.Ordinal))
             RejectChange("/root/outputs", "the public output names and ordering");
-        if (outputRemovals.Count > 0)
+        if (outputRemovals.Count > 0 || commitmentRevision)
             foreach (var output in retainedOutputs)
                 if (candidate.Root.Outputs.FirstOrDefault(o => o.Name == output.Name) is { } revised && !SameValue(output.Value, revised.Value) &&
                     !locations.Contains("/root/outputs/" + output.Name) && !locations.Contains("/outputs/" + output.Name))
@@ -49,8 +53,29 @@ public sealed partial class HybridWorkflowPlanner
 
         var operations = TaskPlanRevisions.Tasks(baseline).Where(t => t.Kind is "operation" or "call").ToArray();
         var ordered = operations.Select(t => t.Id).ToArray();
-        if (TaskPlanRevisions.Tasks(candidate).Any(t => t.Kind is "operation" or "call" && !ordered.Contains(t.Id, StringComparer.Ordinal)))
+        var addedOperations = TaskPlanRevisions.Tasks(candidate).Where(t => t.Kind is "operation" or "call" && !ordered.Contains(t.Id, StringComparer.Ordinal)).ToArray();
+        if (addedOperations.Any(t => t.Kind != "operation" || t.Operation is null || !additions.Contains(t.Operation) ||
+                before.Tasks.ContainsKey(t.Id) && !adaptations.Contains(t.Id)) ||
+            addedOperations.GroupBy(t => t.Operation, StringComparer.Ordinal).Any(g => g.Count() > 1))
             RejectChange("/tasks", "new external work or workflow calls not established by the baseline");
+        if (commitmentRevision)
+        {
+            var needed = addedOperations.Select(t => t.Id).Concat(affected).Concat(adaptations).ToHashSet(StringComparer.Ordinal);
+            foreach (var location in locations)
+                if (after.Values.TryGetValue(location, out var value))
+                    needed.UnionWith(TaskPlanCompiler.Values(value.Value).Where(v => v.Kind is "output" or "present" && v.Source is not null).Select(v => v.Source!));
+            var queue = new Queue<string>(needed);
+            while (queue.TryDequeue(out var id))
+            {
+                if (!after.Tasks.TryGetValue(id, out var site)) continue;
+                foreach (var reference in TaskPlanCompiler.Values(site.Task).Where(v => v.Kind is "output" or "present" && v.Source is not null))
+                    if (needed.Add(reference.Source!)) queue.Enqueue(reference.Source!);
+                for (var scope = site.Scope; scope.Owner is not null; scope = scope.Parent!)
+                    if (needed.Add(scope.Owner.Id)) queue.Enqueue(scope.Owner.Id);
+            }
+            foreach (var task in after.Tasks.Values.Select(t => t.Task).Where(t => !before.Tasks.ContainsKey(t.Id) && !needed.Contains(t.Id)))
+                RejectChange("/tasks/" + task.Id, "new work outside the diagnosed adaptation and committed-operation inputs");
+        }
         var revisedOrder = TaskPlanRevisions.Tasks(candidate).Where(t => ordered.Contains(t.Id, StringComparer.Ordinal)).Select(t => t.Id);
         if (!ordered.SequenceEqual(revisedOrder, StringComparer.Ordinal)) RejectChange("/tasks", "requested operation occurrences and relative order");
         var checkedOrder = TaskPlanRevisions.Tasks(baseline).Where(t => t.Requires is not null || t.Kind is "operation" or "call").Select(t => t.Id).ToArray();
@@ -92,7 +117,7 @@ public sealed partial class HybridWorkflowPlanner
         var sources = directGuards ? GuardSources(sourcePlan, state.Catalog!, candidate) : TaskPlanCompiler.RepairSources(sourcePlan, state.Catalog!);
         foreach (var (id, original) in before.Tasks)
         {
-            if (!affected.Contains(id))
+            if (!affected.Contains(id) && !adaptations.Contains(id))
             {
                 if (!after.Tasks.TryGetValue(id, out var untouched)) RejectChange("/tasks/" + id, "the independent task declaration");
                 else if (DeclarationDifference(original.Task, untouched.Task) is { } difference)
@@ -120,6 +145,18 @@ public sealed partial class HybridWorkflowPlanner
                 original.Task.MaxItems != loop.Task.MaxItems || !SameValue(original.Task.Items, loop.Task.Items)))
                 RejectChange("/tasks/" + id + "/items", "the original collection and iteration bound");
         }
+        if (commitmentRevision)
+            foreach (var scope in before.Scopes)
+            {
+                if (scope.Path == "/root") continue;
+                var replacement = after.Scopes.SingleOrDefault(s => s.Path == scope.Path);
+                if (replacement is null || !scope.Source.Outputs.Select(o => o.Name).SequenceEqual(replacement.Source.Outputs.Select(o => o.Name), StringComparer.Ordinal))
+                { RejectChange(scope.Path + "/outputs", "the independent scope exports"); continue; }
+                foreach (var output in scope.Source.Outputs)
+                    if (!locations.Contains(scope.Path + "/outputs/" + output.Name) &&
+                        !SameValue(output.Value, replacement.Source.Outputs.Single(o => o.Name == output.Name).Value))
+                        RejectChange(scope.Path + "/outputs/" + output.Name, "the independent scope export binding");
+            }
         return findings;
 
         static IEnumerable<string> Boundaries(TaskPlanSymbols.Scope scope)

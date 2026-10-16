@@ -143,7 +143,7 @@ internal sealed partial class PlanningPrompt(PlanningSession state)
         }
         foreach (var key in new[] { "revisionContext", "userAnswers", "instructions", "revisionScope" })
             if (context[key] is null || context[key] is JsonArray { Count: 0 } || context[key]?.ToString() == "") context.Remove(key);
-        var guardGuidance = repair && state.Request.Options["automatic_correction_progress"]?["version"]?.ToString() is "2" or "3" &&
+        var guardGuidance = repair && state.Request.Options["automatic_correction_progress"]?["version"]?.ToString() is "2" or "3" or "4" &&
             state.Request.Options["automatic_correction_progress"]?["conditionLocations"] is JsonArray { Count: > 0 } ? GuardCorrectionInstructions + "\n" : "";
         var literalGuidance = state.Diagnostics.Any(d => d.Code == "TASK_LITERAL_INVALID")
             ? "Use typed input/output bindings for runtime values; never strip or escape interpolation, invent success, change requirements or replace requested work with text.\n" : "";

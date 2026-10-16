@@ -25,6 +25,7 @@ public sealed partial class HybridWorkflowPlanner
         "TASK_KIND_INVALID" or "TASK_OPERATION_UNKNOWN" or "TASK_ARTIFACT_BINDING" or "TASK_ARTIFACT_PREREQUISITE_MISSING" or "TASK_OUTPUT_CONTRACT" or
         "CHOICE_UNKNOWN" or "CHOICE_SLOT_INVALID" or "CHOICE_INVALID" or "PLANNING_RESPONSE_INVALID" or "PROPOSAL_ACTION_INVALID" or
         "REVISION_REQUIRED" or "REVISION_SCOPE_CHANGED" or "REPAIR_SCOPE_INVALID" or "REPLAN_NO_PROGRESS" or
+        PlanningCommitments.MissingOperation or PlanningCommitments.DisconnectedResult or
         "REQUIREMENTS_CHANGED" or "REQUIREMENTS_INPUTS_CHANGED" or "REQUIREMENTS_OUTPUTS_CHANGED" or "RUNTIME_COMPOSITION_FAILURE";
 
     private static bool InitialProposalDefect(PlanningDiagnostic diagnostic) => diagnostic.Code == "PLANNING_RESPONSE_INVALID" ||
@@ -109,7 +110,7 @@ public sealed partial class HybridWorkflowPlanner
         {
             baseline = state.Plan ?? baseline;
             state.Request.Baseline = baseline is null ? null : ClonePlan(baseline);
-            progress = new JsonObject { ["version"] = 3, ["attempts"] = new JsonArray(),
+            progress = new JsonObject { ["version"] = state.IntentVersion == 3 ? 4 : 3, ["attempts"] = new JsonArray(),
                 ["outputRemovals"] = new JsonArray((baseline?.Root.Outputs ?? []).Where(o =>
                     state.Requirements?.Outputs is { } accepted && accepted.All(a => a.Name != o.Name) &&
                     state.Diagnostics.Any(d => d.Required && d.Code == "REQUIREMENTS_OUTPUTS_CHANGED" && d.Location == "/outputs/" + o.Name))
@@ -118,6 +119,14 @@ public sealed partial class HybridWorkflowPlanner
                     .Select(d => d.Location).Distinct().Select(p => (JsonNode?)JsonValue.Create(p)).ToArray()),
                 ["locations"] = new JsonArray(state.Diagnostics.Where(d => d.Required).Select(d => d.Location).Distinct().Order(StringComparer.Ordinal)
                     .Select(p => (JsonNode?)JsonValue.Create(p)).ToArray()) };
+            if (state.IntentVersion == 3)
+            {
+                progress["operationAdditions"] = CommitmentAdditions(state);
+                progress["adaptationTasks"] = CommitmentAdaptations(state);
+                progress["preservedTasks"] = new JsonArray((baseline is null ? [] : TaskPlanRevisions.Tasks(baseline))
+                    .Where(t => !progress["adaptationTasks"]!.AsArray().Any(n => n?.ToString() == t.Id))
+                    .Select(t => (JsonNode?)JsonValue.Create(t.Id)).ToArray());
+            }
             state.Request.Options[CorrectionProgressKey] = progress;
         }
         var findings = state.Diagnostics.ToList();
@@ -141,6 +150,8 @@ public sealed partial class HybridWorkflowPlanner
             action = continuation;
             paths = state.EditablePaths;
         }
+        else if (progress["version"]?.ToString() == "4" && findings.Any(d => d.Code == PlanningCommitments.MissingOperation))
+            action = "regenerate"; // A value patch cannot insert the committed external work.
         else if (!escalate && state.Plan is not null)
         {
             var immutable = TaskPlanRevisions.UnrepairableRequirements(state).Any();
@@ -152,6 +163,13 @@ public sealed partial class HybridWorkflowPlanner
         }
         else action = "regenerate";
 
+        if (action == "regenerate" && progress["version"]?.ToString() == "4" &&
+            findings.Any(d => d.Code == PlanningCommitments.MissingOperation &&
+                !progress["operationAdditions"]!.AsArray().Any(a => a?["operation"]?.ToString() == d.Rule)))
+        {
+            state.Diagnostics.Add(new("REVISION_SCOPE_CHANGED", "/tasks", "The missing committed invocation has no safe addition authority (existing uncalled occurrence, unavailable contract or denied capability). Explicitly review its placement or permissions; no corrective call was sent."));
+            Stop(state); return false;
+        }
         if (action != "patch" && continuation is null)
         {
             // The same existing revision transition used by explicit commands. The
@@ -166,9 +184,14 @@ public sealed partial class HybridWorkflowPlanner
                     "Change only the issued editable paths. Preserve guard operands and ordering except the diagnosed invalid references.");
             if (DirectGuardCorrections(progress))
                 state.Request.RevisionContext += " " + PlanningPrompt.GuardCorrectionInstructions;
-            if (progress["version"]?.ToString() == "3" && progress["outputRemovals"] is JsonArray { Count: > 0 } removals)
+            if (progress["version"]?.ToString() is "3" or "4" && progress["outputRemovals"] is JsonArray { Count: > 0 } removals)
                 state.Request.RevisionContext += " Remove only the diagnosed unaccepted exports: " + removals.ToJsonString() +
                     ". Keep remaining exports, their bindings and order unchanged. Preserve all operation arguments verbatim; do not rewrite instructions or add replacement exports.";
+            if (progress["version"]?.ToString() == "4" && progress["operationAdditions"] is JsonArray { Count: > 0 } additions)
+                state.Request.RevisionContext += " The accepted commitments authorize adding only these exact inspected operations: " +
+                    new JsonArray(additions.Select(a => a!["operation"]!.DeepClone()).ToArray()).ToJsonString() +
+                    ". Preserve existing external arguments, ordering, branches, assertions and finalizers. Infer neither arguments nor placement from matching types. Only the captured disconnected adaptation tasks may be replaced: " +
+                    progress["adaptationTasks"]!.ToJsonString() + ". Unknown business decisions need clarification, not invented defaults.";
             progress["revision"] = revision; progress["artifact"] = artifact;
         }
         progress["action"] = action;

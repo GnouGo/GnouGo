@@ -13,3 +13,11 @@ The initial test run exposed a routing issue: patchable output findings entered 
 Verified clauses mean declared operation presence or supported producer lineage. They never prove prose completeness, relevant arguments, per-item execution, extraction relevance, successful execution or a remote capability being available at runtime. Every requirement retains an explicit limitations entry.
 
 Remaining gates: bounded scoped additions/correction, review UI, retained fixture execution, measurements and complete validation. No live business acceptance is claimed.
+
+## Gate B: bounded correction
+
+70 owning correction/coverage checks passed with `-warnaserror`. A disconnected public result uses an ordinary diagnostic-derived patch (two deterministic calls total, one correction). A missing committed operation uses one structural regeneration, with the exact inspected contract fingerprint captured in private correction version 4. A simulated external-work transform can be replaced only in its diagnosed exclusive adaptation region.
+
+Unrelated effects, duplicate occurrences, changed independent data/outputs and weakened assertions are rejected. Existing operations retain their arguments, phase, order and scope; independent scope exports remain fixed. New technical work must serve the diagnosed region or the committed operation's inputs. An existing uncalled occurrence, denied capability or unavailable contract does not authorize another effect or a speculative model call.
+
+A retained full correction response is consumed at the exhausted two-call limit: calls and attempts stay at two/one, the original request is unchanged, and repeated advancement issues no request. Historical correction versions retain their original authority. These scripted responses establish mechanics, not model compliance.
