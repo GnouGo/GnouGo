@@ -236,7 +236,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
                 Assert.Contains("Candidate[][]; flatten -> compact IDs", request.Prompt);
                 Assert.Contains("offered/original lookup", request.Prompt);
                 Assert.Contains("Extract facts; bind copies/rows/status", request.Prompt);
-                Assert.Contains("Execute requested work; artifacts only on request", request.Prompt);
+                Assert.Contains("Return executable business tasks; GnOuGo compiles/saves YAML. Artifacts only if requested", request.Prompt);
                 Assert.InRange(adapter.InputEstimate, 1, initial.Request.Generation.MaxInputTokensPerRequest);
                 output.WriteLine($"INITIAL REQUEST: estimatedTokens={adapter.InputEstimate}; calls=1; repairs=0; tasks=18");
             }

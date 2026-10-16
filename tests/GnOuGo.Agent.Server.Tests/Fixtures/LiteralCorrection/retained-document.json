@@ -1,0 +1,148 @@
+{
+  "discoveryRequests": null,
+  "plan": {
+    "inputs": [
+      {
+        "name": "pullRequestUrl",
+        "type": {
+          "kind": "string"
+        }
+      },
+      {
+        "name": "reviewInstructions",
+        "type": {
+          "kind": "string"
+        }
+      }
+    ],
+    "root": {
+      "tasks": [
+        {
+          "id": "define_workflow",
+          "kind": "value",
+          "objective": "Produce the self-contained chat-agent workflow definition requested by the caller, preserving runtime review instructions, strict approval policy, single-clone constraint, GitHub publication, summary output, and guaranteed cleanup.",
+          "dependsOn": [],
+          "requires": {
+            "kind": "boolean",
+            "boolean": true
+          },
+          "outputs": [
+            {
+              "name": "workflowPath",
+              "value": {
+                "kind": "string",
+                "text": "workflows/github-pr-auto-review/workflow.yaml"
+              }
+            },
+            {
+              "name": "workflowDefinition",
+              "value": {
+                "kind": "string",
+                "text": "name: github-pr-auto-review\npurpose: R\u00E9aliser une review automatique d\u0027une Pull Request GitHub avec GitHub Copilot, publier les commentaires dans le diff, approuver ou demander des changements, puis nettoyer le clone.\n\ncaller_inputs:\n  pullRequestUrl:\n    type: string\n    required: true\n    default: https://fixture.invalid/change\n  reviewInstructions:\n    type: string\n    required: true\n    description: Texte fourni \u00E0 l\u0027ex\u00E9cution qui explique ce qu\u0027il faut reviewer.\n\ncaller_outputs:\n  pullRequestSummary:\n    type: string\n  reviewDecision:\n    type: string\n    enum: [APPROVE, REQUEST_CHANGES]\n  inlineCommentCount:\n    type: integer\n  checksSummary:\n    type: object\n  cleanupStatus:\n    type: string\n\nconstraints:\n  - Ne jamais demander une review du YAML du workflow pendant l\u0027ex\u00E9cution.\n  - La configuration h\u00F4te, les credentials GitHub/Copilot et l\u0027enregistrement de l\u0027agent appartiennent \u00E0 l\u0027h\u00F4te.\n  - Le r\u00E9pertoire .GnOuGo est r\u00E9serv\u00E9 \u00E0 l\u0027\u00E9tat interne.\n  - Tous les fichiers cr\u00E9\u00E9s par le workflow doivent \u00EAtre sous workflows/github-pr-auto-review.\n  - R\u00E9aliser un unique clone du projet, puis effectuer tout le travail uniquement dans ce r\u00E9pertoire clon\u00E9.\n  - Ne pas filtrer ni d\u00E9dupliquer les findings avant publication, sauf impossibilit\u00E9 technique de positionnement dans le diff.\n  - Quoi qu\u0027il arrive, supprimer le r\u00E9pertoire clon\u00E9 en fin d\u0027ex\u00E9cution.\n\npolicy:\n  approval: strict_quality_gate\n  approve_when:\n    - l\u0027installation des d\u00E9pendances r\u00E9ussit ou aucune d\u00E9pendance installable n\u0027est d\u00E9tect\u00E9e avec justification\n    - les linters d\u00E9tect\u00E9s r\u00E9ussissent ou aucun linter n\u0027est pr\u00E9sent avec justification\n    - les tests unitaires d\u00E9tect\u00E9s r\u00E9ussissent ou aucun test unitaire n\u0027est pr\u00E9sent avec justification\n    - les tests d\u0027int\u00E9gration d\u00E9tect\u00E9s r\u00E9ussissent ou aucun test d\u0027int\u00E9gration n\u0027est pr\u00E9sent avec justification\n    - aucune anomalie bloquante High ou Critical n\u0027est identifi\u00E9e par la review Copilot ou par les consignes utilisateur\n  request_changes_when:\n    - \u00E9chec d\u0027installation, lint ou tests d\u00E9tect\u00E9s\n    - anomalie bloquante High ou Critical\n    - impossibilit\u00E9 d\u0027\u00E9valuer correctement la PR pour une raison imputable au contenu du d\u00E9p\u00F4t ou aux changements\n\nsteps:\n  - id: parse_pull_request_url\n    action: parse\n    input: ${pullRequestUrl}\n    outputs: [owner, repo, pullNumber]\n    validation:\n      owner: ExampleOrg\n      repo: ExampleProject\n      pullNumber: 610\n\n  - id: prepare_workspace\n    action: filesystem.create_directory\n    path: workflows/github-pr-auto-review/${run.id}\n\n  - id: read_pull_request_metadata\n    action: github.pull_request_read\n    with:\n      owner: ${owner}\n      repo: ${repo}\n      pullNumber: ${pullNumber}\n      include: [base, head, commits, files, existing_reviews, existing_review_comments, check_runs]\n    outputs: [baseRef, baseSha, headRef, headSha, headRepoCloneUrl, files, existingReviewComments, checkRuns]\n\n  - id: clone_repository_once\n    action: git.clone\n    with:\n      remoteUrl: ${headRepoCloneUrl}\n      targetDirectory: workflows/github-pr-auto-review/${run.id}/repo\n      branch: ${headRef}\n      fetchAllBranches: true\n      historyDepth: 0\n    outputs: [projectRoot]\n\n  - id: ensure_pull_request_head\n    action: git.checkout\n    workingDirectory: ${projectRoot}\n    with:\n      ref: ${headSha}\n\n  - id: collect_project_facts\n    action: project.inspect\n    workingDirectory: ${projectRoot}\n    outputs:\n      - packageManagers\n      - solutionFiles\n      - projectFiles\n      - testProjects\n      - lintScripts\n      - integrationTestMarkers\n      - dependencyInstallCommands\n      - unitTestCommands\n      - integrationTestCommands\n      - linterCommands\n\n  - id: install_dependencies\n    action: shell.run_detected_commands\n    workingDirectory: ${projectRoot}\n    commands: ${dependencyInstallCommands}\n    continueOnError: true\n    outputs: [installResults]\n    notes:\n      - Exemples de d\u00E9tection: npm ci, yarn install --frozen-lockfile, pnpm install --frozen-lockfile, dotnet restore, mvn dependency:resolve, gradle dependencies.\n\n  - id: run_linters\n    action: shell.run_detected_commands\n    workingDirectory: ${projectRoot}\n    commands: ${linterCommands}\n    continueOnError: true\n    outputs: [lintResults]\n\n  - id: run_unit_tests\n    action: shell.run_detected_commands\n    workingDirectory: ${projectRoot}\n    commands: ${unitTestCommands}\n    continueOnError: true\n    outputs: [unitTestResults]\n\n  - id: run_integration_tests\n    action: shell.run_detected_commands\n    workingDirectory: ${projectRoot}\n    commands: ${integrationTestCommands}\n    continueOnError: true\n    outputs: [integrationTestResults]\n\n  - id: compare_pull_request\n    action: git.compare_refs\n    workingDirectory: ${projectRoot}\n    with:\n      baseRef: ${baseSha}\n      headRef: ${headSha}\n      compareFromMergeBase: true\n    outputs: [filesJson, exactBaseSha, exactHeadSha]\n\n  - id: copilot_review\n    action: github.copilot_review\n    workingDirectory: ${projectRoot}\n    with:\n      baseSha: ${exactBaseSha}\n      headSha: ${exactHeadSha}\n      filesJson: ${filesJson}\n      existingCommentsJson: ${existingReviewComments}\n      reviewInstructions: |\n        ${reviewInstructions}\n\n        Contraintes suppl\u00E9mentaires de review:\n        - R\u00E9aliser la revue de code uniquement \u00E0 partir du clone situ\u00E9 dans projectRoot et du diff exact fourni.\n        - Tenir compte des r\u00E9sultats d\u0027installation, lint, tests unitaires et tests d\u0027int\u00E9gration.\n        - Produire des findings positionnables dans le diff quand c\u0027est possible.\n        - Les commentaires doivent \u00EAtre verbatim, sans caract\u00E8res de contr\u00F4le.\n        - Si le sujet est absent ou incertain, indiquer null/absent dans le raisonnement interne et ne pas inventer.\n      runtimeContextJson:\n        installResults: ${installResults}\n        lintResults: ${lintResults}\n        unitTestResults: ${unitTestResults}\n        integrationTestResults: ${integrationTestResults}\n        checkRuns: ${checkRuns}\n    outputs: [findings, blockingFindingCount, coverage, copilotSummary]\n\n  - id: create_pending_review\n    action: github.pull_request_review_write\n    with:\n      owner: ${owner}\n      repo: ${repo}\n      pullNumber: ${pullNumber}\n      method: create\n      commitID: ${headSha}\n\n  - id: publish_inline_comments\n    action: foreach\n    items: ${findings}\n    noFiltering: true\n    noDeduplication: true\n    body:\n      - action: github.add_comment_to_pending_review\n        with:\n          owner: ${owner}\n          repo: ${repo}\n          pullNumber: ${pullNumber}\n          path: ${item.path}\n          subjectType: LINE\n          side: RIGHT\n          startLine: ${item.startLine}\n          line: ${item.endLine}\n          body: |\n            ${item.severity} \u2014 ${item.category}\n\n            ${item.explanation}\n\n            Evidence:\n            ${item.evidence}\n\n            Suggested patch:\n            ${item.suggestedPatch}\n\n  - id: decide_review_event\n    action: evaluate\n    with:\n      approvalPolicy: strict_quality_gate\n      installResults: ${installResults}\n      lintResults: ${lintResults}\n      unitTestResults: ${unitTestResults}\n      integrationTestResults: ${integrationTestResults}\n      blockingFindingCount: ${blockingFindingCount}\n    outputs: [reviewDecision, decisionReasons]\n\n  - id: submit_review\n    action: github.pull_request_review_write\n    with:\n      owner: ${owner}\n      repo: ${repo}\n      pullNumber: ${pullNumber}\n      method: submit_pending\n      event: ${reviewDecision}\n      body: |\n        Review automatique GitHub Copilot termin\u00E9e.\n\n        D\u00E9cision: ${reviewDecision}\n\n        R\u00E9sum\u00E9:\n        ${copilotSummary}\n\n        Quality gate:\n        - Installation: ${installResults.status}\n        - Linters: ${lintResults.status}\n        - Tests unitaires: ${unitTestResults.status}\n        - Tests d\u0027int\u00E9gration: ${integrationTestResults.status}\n        - Findings bloquants: ${blockingFindingCount}\n\n        Raisons:\n        ${decisionReasons}\n\n  - id: add_conversation_summary\n    action: github.add_issue_comment\n    with:\n      owner: ${owner}\n      repo: ${repo}\n      issue_number: ${pullNumber}\n      body: |\n        R\u00E9sum\u00E9 court de la Pull Request:\n        - D\u00E9cision: ${reviewDecision}\n        - Commentaires inline publi\u00E9s: ${count(findings)}\n        - Installation: ${installResults.status}\n        - Linters: ${lintResults.status}\n        - Tests unitaires: ${unitTestResults.status}\n        - Tests d\u0027int\u00E9gration: ${integrationTestResults.status}\n        - Couverture review: ${coverage.reviewedFiles}/${coverage.totalFiles} fichiers, ${coverage.truncatedFiles} tronqu\u00E9s, ${coverage.skippedFiles} ignor\u00E9s.\n\n        ${copilotSummary}\n\nfinally:\n  - id: cleanup_clone\n    action: filesystem.delete_directory\n    path: workflows/github-pr-auto-review/${run.id}/repo\n    mustRun: true\n    outputs: [cleanupStatus]\n\nreturn:\n  pullRequestSummary: |\n    PR ${owner}/${repo}#${pullNumber}: ${reviewDecision}. Inline comments: ${count(findings)}. Installation: ${installResults.status}; lint: ${lintResults.status}; unit tests: ${unitTestResults.status}; integration tests: ${integrationTestResults.status}. Cleanup: ${cleanupStatus}.\n  reviewDecision: ${reviewDecision}\n  inlineCommentCount: ${count(findings)}\n  checksSummary:\n    install: ${installResults}\n    lint: ${lintResults}\n    unitTests: ${unitTestResults}\n    integrationTests: ${integrationTestResults}\n    copilotCoverage: ${coverage}\n  cleanupStatus: ${cleanupStatus}\n"
+              }
+            },
+            {
+              "name": "pullRequestSummary",
+              "value": {
+                "kind": "string",
+                "text": "Workflow g\u00E9n\u00E9r\u00E9 pour reviewer automatiquement https://fixture.invalid/change avec consignes de review fournies \u00E0 l\u0027ex\u00E9cution, quality gate strict, publication GitHub, et nettoyage garanti."
+              }
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "name": "workflowPath",
+          "value": {
+            "kind": "output",
+            "source": "define_workflow",
+            "port": "workflowPath"
+          }
+        },
+        {
+          "name": "workflowDefinition",
+          "value": {
+            "kind": "output",
+            "source": "define_workflow",
+            "port": "workflowDefinition"
+          }
+        },
+        {
+          "name": "pullRequestSummary",
+          "value": {
+            "kind": "output",
+            "source": "define_workflow",
+            "port": "pullRequestSummary"
+          }
+        }
+      ],
+      "always": []
+    },
+    "groups": [],
+    "choices": []
+  },
+  "clarifications": null,
+  "requirements": {
+    "summary": "G\u00E9n\u00E9rer un workflow de chat-agent autonome pour effectuer une review automatique de la Pull Request GitHub https://fixture.invalid/change Le workflow doit recevoir les consignes de review \u00E0 l\u0027ex\u00E9cution, cloner une seule fois le d\u00E9p\u00F4t, travailler uniquement dans ce clone, installer les d\u00E9pendances, ex\u00E9cuter linters et tests disponibles, demander une analyse GitHub Copilot, publier les commentaires dans le diff, puis approuver ou demander des changements selon une quality gate stricte. Le clone doit \u00EAtre supprim\u00E9 quoi qu\u0027il arrive.",
+    "outcomes": [
+      {
+        "id": "workflow_generated",
+        "description": "Un workflow autonome est produit sous le chemin logique workflows/github-pr-auto-review/workflow.yaml."
+      },
+      {
+        "id": "runtime_review_instructions",
+        "description": "Le texte expliquant ce qu\u0027il faut reviewer est expos\u00E9 comme entr\u00E9e obligatoire reviewInstructions \u00E0 l\u0027ex\u00E9cution."
+      },
+      {
+        "id": "strict_quality_gate",
+        "description": "La Pull Request est approuv\u00E9e uniquement si installation, linters, tests d\u00E9tect\u00E9s et review Copilot ne r\u00E9v\u00E8lent aucun probl\u00E8me bloquant ; sinon des changements sont demand\u00E9s."
+      },
+      {
+        "id": "github_feedback",
+        "description": "Les commentaires inline sont publi\u00E9s dans le diff et une synth\u00E8se courte est ajout\u00E9e \u00E0 la Pull Request."
+      },
+      {
+        "id": "cleanup_preserved",
+        "description": "Le r\u00E9pertoire clon\u00E9 est supprim\u00E9 dans un bloc finally, m\u00EAme en cas d\u0027erreur."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "pullRequestUrl",
+        "type": {
+          "kind": "string"
+        }
+      },
+      {
+        "name": "reviewInstructions",
+        "type": {
+          "kind": "string"
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "name": "workflowPath",
+        "type": {
+          "kind": "string"
+        },
+        "required": false
+      },
+      {
+        "name": "workflowDefinition",
+        "type": {
+          "kind": "string"
+        },
+        "required": false
+      },
+      {
+        "name": "pullRequestSummary",
+        "type": {
+          "kind": "string"
+        },
+        "required": false
+      }
+    ]
+  }
+}

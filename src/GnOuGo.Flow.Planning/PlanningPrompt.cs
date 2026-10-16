@@ -36,10 +36,10 @@ internal sealed partial class PlanningPrompt(PlanningSession state)
         """;
 
     private const string Instructions = """
-        Execute requested work; artifacts only on request; no filtering/deduplication.
+        Return executable business tasks; GnOuGo compiles/saves YAML. Artifacts only if requested; no filtering/deduplication.
         Extract facts; bind copies/rows/status. Declared flags: {"kind":"predicate","predicate":"and","items":[{"kind":"output","source":"p","port":"success"},{"kind":"predicate","predicate":"and","items":[{"kind":"output","source":"p","port":"available"},{"kind":"output","source":"p","port":"complete"}]}]}
         Complete bounded each {"input":"pages","output":"candidates"} -> Candidate[][]; flatten -> compact IDs -> offered/original lookup -> visits/rows.
-        Original IDs/actions/text; branch on null; prepend headers; save before cleanup; writer path.
+        Original IDs/actions/text; null branches; headers first; save before cleanup; writer path.
         """ + "\n" + DescriptionInstructions;
 
     private const string RepairInstructions = """
@@ -55,7 +55,7 @@ internal sealed partial class PlanningPrompt(PlanningSession state)
         """ + "\n" + DescriptionInstructions;
 
     private const string ClarificationInstructions = """
-        Ambiguous:1-3 questions/2-3 compatible alternatives+recommendation;else plan. Apply answers once;keep goals/permissions.
+        Ambiguous:1-3 questions,2-3 compatible alternatives+recommendation;else plan. Apply answers once.
         """;
 
     internal const string GuardCorrectionInstructions = "For a diagnosed nullable nonboolean reference v used as requires, use v != null; optionally conjoin declared nonnullable Boolean fields of that same producer. " +
@@ -63,6 +63,7 @@ internal sealed partial class PlanningPrompt(PlanningSession state)
         "An already valid Boolean assertion remains unchanged. Do not replace success with presence, add OR, change producers or remove assertions. Preserve independent objectives and contracts exactly.";
 
     private const string InitialRequirementsInstructions = """
+        Runtime input: {"kind":"input","source":"name"}.
         Discovery may leave requirements null. Clarify ambiguity with 1-3 questions, compatible alternatives/recommendation, plan:null and requirements:null. Otherwise, the first plan must include requirements and caller/output interfaces. Preserve accepted requirements; apply answers once.
         """;
 
@@ -118,6 +119,8 @@ internal sealed partial class PlanningPrompt(PlanningSession state)
             ["revisionScope"] = new JsonArray(state.RevisionScope.Select(s => (JsonNode?)JsonValue.Create(s)).ToArray()),
             ["diagnostics"] = PlanningJsonTransport.Diagnostics(state.Diagnostics), ["revisionContext"] = state.Request.RevisionContext
         };
+        if (state.Request.Options["automatic_correction"] is JsonValue option && option.TryGetValue<bool>(out var enabled) && enabled)
+            context["budget"]!["reservedCalls"] = PlanningDiscoveryContext.ReservedCalls(state);
         if (FailureContext(state.Request.FailureEvidence) is { Count: > 0 } failure) context["executionFailure"] = failure;
         if (repair)
         {
@@ -128,7 +131,9 @@ internal sealed partial class PlanningPrompt(PlanningSession state)
             if (context[key] is null || context[key] is JsonArray { Count: 0 } || context[key]?.ToString() == "") context.Remove(key);
         var guardGuidance = repair && state.Request.Options["automatic_correction_progress"]?["version"]?.ToString() is "2" or "3" &&
             state.Request.Options["automatic_correction_progress"]?["conditionLocations"] is JsonArray { Count: > 0 } ? GuardCorrectionInstructions + "\n" : "";
-        string Render() => (repair ? RepairInstructions : Instructions) + "\n" + guardGuidance + (state.Requirements is null ? InitialRequirementsInstructions : ClarificationInstructions) + "\n" + PlanningJsonTransport.Prompt(context);
+        var literalGuidance = state.Diagnostics.Any(d => d.Code == "TASK_LITERAL_INVALID")
+            ? "Use typed input/output bindings for runtime values; never strip or escape interpolation, invent success, change requirements or replace requested work with text.\n" : "";
+        string Render() => (repair ? RepairInstructions : Instructions) + "\n" + guardGuidance + literalGuidance + (state.Requirements is null ? InitialRequirementsInstructions : ClarificationInstructions) + "\n" + PlanningJsonTransport.Prompt(context);
         // Bound the retained directory against mandatory context before optional
         // contracts compete for space. Pagination cannot erase earlier identities.
         var schema = Schema;

@@ -35,8 +35,18 @@ public sealed partial class HybridWorkflowPlanner
         state.ApprovedHash is null &&
         PlanningModelCalls.RemainingCalls(state) > 0 && PlanningModelCalls.RemainingRepairs(state) > 0 &&
         state.Diagnostics.Any(d => d.Required) && (state.Requirements is not null
-            ? state.Diagnostics.Where(d => d.Required).All(Correctable)
+            ? state.Diagnostics.Where(d => d.Required).All(d => Correctable(d) || CorrectableLiteral(state, d))
             : state.Plan is null && state.Request.Baseline is null && state.Diagnostics.Where(d => d.Required).All(InitialProposalDefect));
+
+    private static bool CorrectableLiteral(PlanningSession state, PlanningDiagnostic diagnostic)
+    {
+        if (CorrectionCode(diagnostic) != "TASK_LITERAL_INVALID" || state.Plan is null || state.Catalog is null ||
+            !state.RevisionScope.Contains(diagnostic.Location, StringComparer.Ordinal)) return false;
+        var symbols = new TaskPlanSymbols(state.Plan);
+        return symbols.Values.ContainsKey(diagnostic.Location) &&
+            !diagnostic.Location.EndsWith("/requires", StringComparison.Ordinal) &&
+            TaskPlanRevisions.OwnedInput(symbols, diagnostic.Location, state.Catalog) is null;
+    }
 
     private static void ContinueAutomaticCorrection(PlanningSession state)
     {

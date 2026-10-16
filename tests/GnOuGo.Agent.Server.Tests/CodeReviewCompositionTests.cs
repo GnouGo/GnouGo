@@ -23,14 +23,21 @@ public sealed class CodeReviewCompositionTests(ITestOutputHelper output)
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     [Theory]
-    [InlineData("approve")]
-    [InlineData("findings")]
-    [InlineData("failed_checks")]
-    [InlineData("incomplete")]
-    [InlineData("denied")]
-    [InlineData("post_failure")]
-    [InlineData("unknown")]
-    public async Task ExplicitBusinessRevisionExecutesLocalReviewAndNeverRegeneratesAWorkflow(string variant)
+    [InlineData("approve", false)]
+    [InlineData("approve", true)]
+    [InlineData("findings", false)]
+    [InlineData("findings", true)]
+    [InlineData("failed_checks", false)]
+    [InlineData("failed_checks", true)]
+    [InlineData("incomplete", false)]
+    [InlineData("incomplete", true)]
+    [InlineData("denied", false)]
+    [InlineData("denied", true)]
+    [InlineData("post_failure", false)]
+    [InlineData("post_failure", true)]
+    [InlineData("unknown", false)]
+    [InlineData("unknown", true)]
+    public async Task ExplicitBusinessRevisionExecutesLocalReviewAndNeverRegeneratesAWorkflow(string variant, bool literalDocument)
     {
         using var fixture = new Execution(variant);
         var store = new InMemoryWorkflowRunStore();
@@ -51,23 +58,35 @@ public sealed class CodeReviewCompositionTests(ITestOutputHelper output)
         }
         catalog.Policy.RequireExternalConfirmation = false; // Test adapters only; no external service exists.
         var corrected = Proposal(catalog);
-        var blueprint = Blueprint(catalog, corrected.Plan!.Inputs);
+        var blueprint = literalDocument
+            ? JsonSerializer.Deserialize(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "LiteralCorrection", "retained-document.json")), PlanningJsonContext.Default.PlanningProposal)!
+            : Blueprint(catalog, corrected.Plan!.Inputs);
+        if (literalDocument) corrected = ExecutableRevision(corrected, blueprint);
         var runtime = new LocalProductOutcomeExecutionTests.ProposalRuntime(actual, blueprint);
         var planner = new HybridWorkflowPlanner();
         var state = await planner.AdvanceAsync(new() { Catalog = catalog, Discovery = discovery, Request = new()
         {
             TenantId = "fixture", Prompt = "Review the supplied change in one temporary clone, run available checks, publish exact findings and a review decision, then clean up.",
+            Generation = literalDocument ? JsonSerializer.Deserialize(File.ReadAllText(Path.Combine(AppContext.BaseDirectory,
+                "Fixtures", "LiteralCorrection", "retained-generation.json")), PlanningJsonContext.Default.PlanningGenerationOptions)! : new(),
             Options = new() { ["compilation_profile"] = "compact-bindings-v15" }
         } }, new(), runtime, Ct);
-        Assert.True(state.Status == PlanningStatus.FinalReview, string.Join(';', state.Diagnostics));
+        if (literalDocument)
+        {
+            Assert.Null(state.Yaml);
+            Assert.Contains(state.Diagnostics, d => d.Code == "TASK_LITERAL_INVALID" && d.Location == "/tasks/define_workflow/outputs/workflowDefinition");
+        }
+        else Assert.True(state.Status == PlanningStatus.FinalReview, string.Join(';', state.Diagnostics));
         Assert.Empty(fixture.Calls); // Compilation does not establish business completeness.
         var retained = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
         var oldHash = state.ComputeArtifactHash();
-        RecordedPlanCompilation.InspectSelected(state, corrected.Plan);
+        RecordedPlanCompilation.InspectSelected(state, corrected.Plan!);
         runtime.Patch = _ => JsonSerializer.SerializeToNode(corrected, PlanningJsonContext.Default.PlanningProposal)!.AsObject();
         state = await planner.AdvanceAsync(state, new() { Kind = "revise", PreserveRequirements = false,
             ExpectedRevision = state.Revision, ArtifactHash = oldHash,
-            Text = "Explicit disposable requirement revision: replace workflow-file generation with execution of the requested review. Remove workflow_file and its artifact outcome; return the submitted decision and summary. Inspect, clone once, run checks, review, post findings, submit, then release the clone. Preserve caller inputs." }, runtime, Ct);
+            Text = literalDocument
+                ? "Explicit disposable requirement revision: perform the review. Replace workflow_generated with review_performed; preserve other outcomes and caller inputs. Remove workflowPath and workflowDefinition, keep the original pullRequestSummary contract. Inspect, clone once, run checks, review, publish exact findings, submit a truthful decision and clean up after known completion."
+                : "Explicit disposable requirement revision: replace workflow-file generation with execution of the requested review. Remove workflow_file and its artifact outcome; return the submitted decision and summary. Inspect, clone once, run checks, review, post findings, submit, then release the clone. Preserve caller inputs." }, runtime, Ct);
         if (state.Status != PlanningStatus.FinalReview)
             state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
         Assert.True(state.Status == PlanningStatus.FinalReview, string.Join(';', state.Diagnostics));
@@ -75,12 +94,12 @@ public sealed class CodeReviewCompositionTests(ITestOutputHelper output)
         Assert.Null(state.ApprovedHash); Assert.NotEqual(oldHash, state.ComputeArtifactHash());
         Assert.Equal("compact-bindings-v15", state.Request.Options["compilation_profile"]!.ToString());
         Assert.Empty(fixture.Calls); Assert.DoesNotContain(state.Plan!.Root.Tasks, t => t.Kind == "transform");
-        Assert.Contains("Execute requested work; artifacts only on request", runtime.Requests[1].Prompt);
+        Assert.Contains("Return executable business tasks; GnOuGo compiles/saves YAML. Artifacts only if requested", runtime.Requests[1].Prompt);
         Assert.InRange(runtime.InputEstimate, 1, state.Request.Generation.MaxInputTokensPerRequest);
         PlanningArtifactApproval.Verify(state);
         var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(state.Yaml!));
         var result = await engine.ExecuteAsync(document.Workflows[document.Entrypoint!], new JsonObject
-        { ["changeUrl"] = Execution.ChangeUrl, ["instructions"] = Execution.Instructions }, Ct);
+        { [literalDocument ? "pullRequestUrl" : "changeUrl"] = Execution.ChangeUrl, [literalDocument ? "reviewInstructions" : "instructions"] = Execution.Instructions }, Ct);
         var success = variant is "approve" or "findings" or "failed_checks";
         if (!result.Success) output.WriteLine(JsonSerializer.Serialize(result, RealProductContracts.Json));
         output.WriteLine("Operations: " + string.Join(",", fixture.Calls));
@@ -94,8 +113,10 @@ public sealed class CodeReviewCompositionTests(ITestOutputHelper output)
         if (variant != "denied") Assert.Equal(new[] { "install", "lint", "unit", "integration" }, fixture.Checks);
         if (success)
         {
-            Assert.Equal(variant == "approve" ? "APPROVE" : "REQUEST_CHANGES", result.Outputs!["decision"]!.ToString());
-            Assert.Equal(Execution.Summary, result.Outputs["summary"]!.ToString());
+            Assert.Equal(variant == "approve" ? "APPROVE" : "REQUEST_CHANGES", fixture.SubmittedEvent);
+            if (!literalDocument) Assert.Equal(fixture.SubmittedEvent, result.Outputs!["decision"]!.ToString());
+            Assert.Equal(Execution.Summary, result.Outputs![literalDocument ? "pullRequestSummary" : "summary"]!.ToString());
+            if (literalDocument) Assert.Equal("pullRequestSummary", Assert.Single(result.Outputs.AsObject()).Key);
             Assert.Equal(new[] { "inspect", "clone", "checks", "review", "begin" }, fixture.Calls.Take(5));
             Assert.Equal(new[] { "submit", "cleanup" }, fixture.Calls.TakeLast(2));
             Assert.Equal(variant == "findings" ? 3 : 0, fixture.Posted.Count);
@@ -115,7 +136,7 @@ public sealed class CodeReviewCompositionTests(ITestOutputHelper output)
         Assert.Equal(result.Success, recovered.Success); Assert.True(JsonNode.DeepEquals(result.Outputs, recovered.Outputs));
         Assert.Equal(before, fixture.Calls);
         if (variant == "unknown") Assert.Equal("RUN_NEEDS_RECONCILIATION", recovered.Error?.Code);
-        if (variant == "approve" && Environment.GetEnvironmentVariable("GNOU_GO_CODE_REVIEW_EVIDENCE") is { Length: > 0 } directory)
+        if (variant == "approve" && Environment.GetEnvironmentVariable(literalDocument ? "GNOU_GO_LITERAL_REVIEW_EVIDENCE" : "GNOU_GO_CODE_REVIEW_EVIDENCE") is { Length: > 0 } directory)
         {
             Directory.CreateDirectory(directory);
             await File.WriteAllTextAsync(Path.Combine(directory, "artifact-only-plan.json"), JsonSerializer.Serialize(blueprint, PlanningJsonContext.Default.PlanningProposal), Ct);
@@ -128,7 +149,38 @@ public sealed class CodeReviewCompositionTests(ITestOutputHelper output)
                 ["originalRequirements"] = JsonNode.Parse(retained)!["requirements"]!.DeepClone(),
                 ["correctedRequirements"] = JsonSerializer.SerializeToNode(state.Requirements, PlanningJsonContext.Default.PlanningRequirements) }.ToJsonString(new() { WriteIndented = true }), Ct);
         }
-        output.WriteLine($"{variant}: planning=2, corrections=0, runtimeLLM=0, cloned={fixture.CloneCount}, checks={fixture.Checks.Count}, posted={fixture.Posted.Count}, cleanup={fixture.CleanupCount}; committed recovery added zero effects.");
+        output.WriteLine($"{variant}, retainedLiteral={literalDocument}: planning=2, corrections=0, runtimeLLM=0, cloned={fixture.CloneCount}, checks={fixture.Checks.Count}, posted={fixture.Posted.Count}, cleanup={fixture.CleanupCount}; committed recovery added zero effects.");
+    }
+
+    private static PlanningProposal ExecutableRevision(PlanningProposal corrected, PlanningProposal retained)
+    {
+        // Preserve the retained caller contracts exactly; only the explicitly
+        // unwanted document outputs/outcome are removed from this new draft.
+        var tree = JsonSerializer.SerializeToNode(corrected.Plan, PlanningJsonContext.Default.TaskPlan)!;
+        RenameInputs(tree);
+        corrected.Plan = tree.Deserialize(PlanningJsonContext.Default.TaskPlan)!;
+        corrected.Plan.Inputs = retained.Plan!.Inputs;
+        corrected.Plan.Root.Outputs = [new("pullRequestSummary", Ref("submit", "summary"))];
+        corrected.Requirements = JsonSerializer.Deserialize(JsonSerializer.Serialize(retained.Requirements, PlanningJsonContext.Default.PlanningRequirements), PlanningJsonContext.Default.PlanningRequirements)!;
+        corrected.Requirements.Summary = "Perform the requested review in one clone, publish exact findings under the strict quality gate, return the submitted summary and clean up after known completion";
+        corrected.Requirements.Outcomes = corrected.Requirements.Outcomes.Select(o => o.Id == "workflow_generated"
+            ? new PlanningRequirement("review_performed", "Inspect the supplied change and run installation, lint, unit and integration checks in one clone before review") : o).ToList();
+        corrected.Requirements.Outputs = corrected.Requirements.Outputs!.Where(o => o.Name == "pullRequestSummary").ToList();
+        Assert.Equal(JsonSerializer.Serialize(retained.Plan.Inputs, PlanningJsonContext.Default.ListTaskInput), JsonSerializer.Serialize(corrected.Plan.Inputs, PlanningJsonContext.Default.ListTaskInput));
+        Assert.Equal(JsonSerializer.Serialize(retained.Requirements!.Outputs!.Single(o => o.Name == "pullRequestSummary"), PlanningJsonContext.Default.TaskInput), JsonSerializer.Serialize(Assert.Single(corrected.Requirements.Outputs), PlanningJsonContext.Default.TaskInput));
+        Assert.Equal(retained.Requirements.Outcomes.Where(o => o.Id != "workflow_generated"), corrected.Requirements.Outcomes.Where(o => o.Id != "review_performed"));
+        return corrected;
+
+        static void RenameInputs(JsonNode? node)
+        {
+            if (node is JsonObject obj)
+            {
+                if (obj["kind"]?.ToString() == "input" && obj["source"]?.ToString() is { } source)
+                    obj["source"] = source == "changeUrl" ? "pullRequestUrl" : source == "instructions" ? "reviewInstructions" : source;
+                foreach (var value in obj.Select(p => p.Value).ToArray()) RenameInputs(value);
+            }
+            else if (node is JsonArray array) foreach (var value in array) RenameInputs(value);
+        }
     }
 
     private static TaskValue Ref(string id, string port) => new() { Kind = "output", Source = id, Port = port };
@@ -185,6 +237,7 @@ public sealed class CodeReviewCompositionTests(ITestOutputHelper output)
         internal readonly List<string> Calls = [], Checks = [];
         internal readonly List<JsonObject> Posted = [];
         internal int CloneCount, CleanupCount;
+        internal string? SubmittedEvent;
         internal Execution(string variant)
         {
             Directory.CreateDirectory(Source); Repository.Init(Source);
@@ -262,7 +315,7 @@ public sealed class CodeReviewCompositionTests(ITestOutputHelper output)
                 });
             }
             Tool("submit", Obj(("review", new()), ("event", new()), ("summary", new())), Obj(("event", new()), ("summary", new())), a =>
-            { Assert.Equal("review:original", a["review"]!.ToString()); return new() { ["event"] = a["event"]!.DeepClone(), ["summary"] = a["summary"]!.DeepClone() }; });
+            { Assert.Equal("review:original", a["review"]!.ToString()); SubmittedEvent = a["event"]!.ToString(); return new() { ["event"] = a["event"]!.DeepClone(), ["summary"] = a["summary"]!.DeepClone() }; });
             Tool("cleanup", Obj(("path", new())), Obj(), a => { AssertClone(a); CleanupCount++; Delete(Target); return new(); });
             Factory.RegisterServer("local-review", config);
         }

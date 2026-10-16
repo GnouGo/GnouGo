@@ -23,8 +23,16 @@ internal static class PlanningDiscoveryContext
         var calls = PlanningModelCalls.RemainingCalls(state);
         var repairs = PlanningModelCalls.RemainingRepairs(state);
         if (PlanningModelCalls.IsRepair(state) && repairs <= 1) return false;
-        return state.Plan is null ? calls > 1 + Math.Min(1, repairs) : calls > 1;
+        return calls > ReservedCalls(state);
     }
+
+    // A clarification is a model response too. Leave room for it before the
+    // first proposal; answers release that reserve without granting another call.
+    internal static int ReservedCalls(PlanningSession state) => state.Plan is null
+        ? 1 + Math.Min(1, PlanningModelCalls.RemainingRepairs(state)) +
+            (state.Request.Baseline is null && state.AnswerHistory is not { Count: > 0 } &&
+             state.Request.Options["automatic_correction"] is JsonValue option && option.TryGetValue<bool>(out var enabled) && enabled ? 1 : 0)
+        : 1;
 
     internal static List<CapabilitySummary> Candidates(PlanningSession state) => TaskPlanRevisions.FixedOperations(state) ? [] :
         PrioritizePrerequisites(state, CapabilityRelevance.Rank(state.Discovery.Pages.SelectMany(p => p.Capabilities)

@@ -154,7 +154,7 @@ internal static class PlanningSchemas
         // use the historical path, including its exact annotation-free bytes.
         if (compositionHints)
         {
-            definitions["task"]!["description"] = "requires: false fails. and/or: binary; nest. field.port: exact property. condition: routing. mode: extract facts/interpret decisions. each.input: bound input. resultType: Candidate[][] for Candidate[]/page.";
+            definitions["task"]!["description"] = "requires: false fails. and/or: binary; nest. field.port: exact property. condition: routing. mode: extract/interpret. each.input: bound input. resultType: assembled. Literal strings exclude ${}.";
             if (root["properties"]?["requirements"] is not null)
                 definitions["task"]!["description"] += " First plan requires requirements/interfaces; null only for discovery or clarification.";
         }

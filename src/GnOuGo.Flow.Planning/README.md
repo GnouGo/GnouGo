@@ -394,6 +394,21 @@ Lookup stays structured until final lowering into a checked `set` and compiler-o
 
 Explicit `EditablePaths` revisions may select an existing transform’s `/mode`, `/each` and `/resultType` alongside dependent bindings. The typed patch preserves unrelated tasks, objectives, ordering and cleanup, invalidates approval, and retains cumulative accounting. Automatic repair does not acquire this authority. Invalid immutable required bindings stop with `REVISION_REQUIRED` when no issued producer/export edit can resolve them.
 
+## Executable tasks versus workflow documents
+
+The planner returns business tasks; GnOuGo compiles and saves their YAML. A request
+to build an agent that performs work must describe that work as actual operations,
+not return another workflow's source as a successful business result. Generate an
+artifact only when the artifact itself is requested. Missing executable capabilities
+remain a limitation, never authority to invent operation names.
+
+Runtime input values use typed bindings, for example
+`{"kind":"input","source":"greeting"}`. The scoped regression replaces an invalid
+literal `${greeting}` with that binding and verifies exact Unicode, whitespace and
+literal `${...}` in the caller's data without evaluating the data a second time.
+Do not escape or strip an invalid TaskPlan literal to bypass validation. Handwritten
+YAML expressions and existing artifact-producing operations keep their semantics.
+
 ## Bounded automatic correction
 
 Agent.Server enables `Request.Options.automatic_correction` only on newly created
@@ -405,6 +420,22 @@ remain authoritative. Private bounded progress in session options records candid
 and diagnostic fingerprints, action, scope/revision/hash and result. Corrections
 consume the existing replan/call/token/time allowances; explicit user revisions
 may replace the baseline but never reset usage.
+
+Initial discovery with automatic correction reserves one proposal call, one repair
+when available, and one clarification until answers have been recorded. At the
+default eight-call ceiling, this allows five discovery calls before clarification;
+answering releases that reserve but adds no allowance. The request budget exposes
+`reservedCalls`. Early proposals need not consume the reserve, repeated clarification
+may still exhaust the allowance, and missing contracts cause an explicit stop.
+Sessions without the policy retain their existing discovery allocation. Pending
+requests are always processed against their issued schema, not a recomputed reserve.
+
+`TASK_LITERAL_INVALID` can use an existing diagnosed editable value slot. This adds
+no permission over protected assertions, host-owned arguments or unrelated work.
+Patches remain atomic, fully validated and subject to existing stagnation/fallback
+limits. A repair cannot introduce missing operations or replace accepted requirements
+merely to turn a document-only proposal into an executable workflow; that needs an
+explicit requirement-changing revision.
 
 Before any requirements or TaskPlan have been accepted, an incomplete initial
 proposal can use that same single regeneration: missing/invalid requirements or
