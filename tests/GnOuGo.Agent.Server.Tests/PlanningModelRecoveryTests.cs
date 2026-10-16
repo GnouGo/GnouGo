@@ -158,9 +158,10 @@ public sealed class PlanningModelRecoveryTests
             {
                 Assert.Null(state.PendingCall); Assert.Null(state.Plan);
                 Assert.Contains(state.Diagnostics, d => d.Code == "PLANNING_REVISION_REQUIRED");
+                Assert.Equal(invalid == "retired_guard" ? 2 : 1, state.IntentVersion);
                 var revised = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { Kind = "revise", ExpectedRevision = state.Revision, Text = "Keep the original business request" },
                     new WorkflowPlanningRuntime(new(), (_, _) => Task.CompletedTask), Ct);
-                Assert.Equal(2, revised.IntentVersion); Assert.Equal(4, revised.ModelCalls); Assert.Equal(15, revised.Usage!.TotalTokens);
+                Assert.Equal(invalid == "retired_guard" ? 2 : 3, revised.IntentVersion); Assert.Equal(4, revised.ModelCalls); Assert.Equal(15, revised.Usage!.TotalTokens);
                 Assert.Null(revised.ApprovedHash);
                 Assert.NotNull(await fixture.Records.GetAsync(PlanningModelJournal.Collection, "planning-tests", key, EfPlanningSessionStore.Author, Ct));
             }
