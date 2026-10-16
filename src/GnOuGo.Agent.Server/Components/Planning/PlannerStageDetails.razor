@@ -1,4 +1,16 @@
 @using GnOuGo.Flow.Core.Planning
+@if (Session.Status == PlanningStatus.Clarification)
+{
+    <p role="status">Waiting for a business decision. Submit your answers to continue planning within its remaining allowance.</p>
+}
+else if (Session.Status == PlanningStatus.Generating && Session.Diagnostics.Count > 0)
+{
+    <p role="status">Correcting the diagnosed plan within the remaining allowance. No workflow is executing.</p>
+}
+else if (Session.Status == PlanningStatus.Stopped && Session.Diagnostics.Any(d => d.Code is "LLM_BUDGET_EXCEEDED" or "CLARIFICATION_CONTINUATION_UNAVAILABLE"))
+{
+    <p role="status">Planning stopped because its allowance cannot support another continuation. Answers and retries do not reset that allowance.</p>
+}
 @if (Session.Requirements is { } requirements)
 {
     var accepted = System.Text.Json.JsonSerializer.Deserialize(requirements, PlanningJsonContext.Default.PlanningRequirements)!;

@@ -102,7 +102,7 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
                     }
                     Invalidate(state); await CompileAsync(state, runtime, deadline.Token); break;
                 case "answer":
-                    state.Request.Options.Remove(CorrectionProgressKey);
+                    if (!PlanningClarifications.PreservesIntent(state)) state.Request.Options.Remove(CorrectionProgressKey);
                     PlanningClarifications.Answer(state, command); break;
                 case "configure_mode":
                     PlanningMode.Validate(command.Mode ?? ""); state.Request.Mode = command.Mode!;
@@ -248,8 +248,8 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
             Reject("PROPOSAL_ACTION_INVALID", "/", "Return one discovery batch, clarification or complete TaskPlan.");
         if (proposal.Clarifications is { } questions)
         {
-            PlanningClarifications.ValidateQuestions(questions);
             if (proposal.Requirements is not null) Reject("CLARIFICATION_INVALID", "/requirements", "Clarify intent before accepting new requirements.");
+            PlanningClarifications.Suspend(state, questions);
             state.PendingQuestions = questions; state.Graph = null; Invalidate(state);
             state.Status = PlanningStatus.Clarification; return;
         }
@@ -330,7 +330,7 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
         foreach (var choice in patchRequest ? [] : plan.Choices)
         {
             if (choice.Selected is not null) Reject("CHOICE_SELECTION_FORBIDDEN", "/choices/" + choice.Id, "Only the host selects alternatives.");
-            if ((state.Plan ?? (AutomaticCorrection(state) ? state.Request.Baseline : null))?.Choices.SingleOrDefault(c => c.Id == choice.Id) is { Selected: not null } previous)
+            if ((state.Plan ?? (AutomaticCorrection(state) || PlanningClarifications.PreservesIntent(state) ? state.Request.Baseline : null))?.Choices.SingleOrDefault(c => c.Id == choice.Id) is { Selected: not null } previous)
             {
                 var before = JsonSerializer.SerializeToNode(previous, PlanningJsonContext.Default.PlanningChoice)!.AsObject(); before["selected"] = null;
                 if (JsonNode.DeepEquals(before, JsonSerializer.SerializeToNode(choice, PlanningJsonContext.Default.PlanningChoice))) choice.Selected = previous.Selected;
@@ -387,7 +387,8 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
         if (compilation.Diagnostics.Count > 0) { SemanticFailure(state, compilation.Diagnostics); return; }
         if (plan.Choices.Any(c => c.Selected is null))
         {
-            if (state.Request.Mode == PlanningMode.Interactive) { state.Diagnostics.Clear(); state.Status = PlanningStatus.Clarification; return; }
+            if (state.Request.Mode == PlanningMode.Interactive || PlanningClarifications.PreservesIntent(state))
+            { state.Diagnostics.Clear(); state.Status = PlanningStatus.Clarification; return; }
             foreach (var choice in plan.Choices.Where(c => c.Selected is null)) choice.Selected = choice.Recommended;
         }
         var graph = compilation.Graph!;

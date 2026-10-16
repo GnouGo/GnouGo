@@ -58,13 +58,18 @@ internal sealed partial class PlanningPrompt(PlanningSession state)
         Ambiguous:1-3 questions,2-3 compatible alternatives+recommendation;else plan. Apply answers once.
         """;
 
+    private const string InteractiveInstructions = """
+        External work needs discovered operations; transforms cannot call tools or simulate effects. Discover missing contracts.
+        Correct technical defects with typed edits, then bounded regeneration. Clarify only a missing business decision/fact that can unblock work, never permission to weaken checks or invent data. Use 1-3 questions, stable IDs, 2-3 meaningful alternatives+recommendation and custom answers; text-only for unknown facts. Reuse answers; do not repeat settled questions. Auto uses accepted decisions/defaults, not recommendations as authorization. Answers preserve accepted requirements/interfaces; changes need explicit revision. If clarificationAllowed=false, explain the blocker without asking an unusable question. No extra judge call.
+        """;
+
     internal const string GuardCorrectionInstructions = "For a diagnosed nullable nonboolean reference v used as requires, use v != null; optionally conjoin declared nonnullable Boolean fields of that same producer. " +
         "For example, keep ready AND payload as ready AND (payload != null) only when payload is the diagnosed nullable operand. " +
         "An already valid Boolean assertion remains unchanged. Do not replace success with presence, add OR, change producers or remove assertions. Preserve independent objectives and contracts exactly.";
 
     private const string InitialRequirementsInstructions = """
         Runtime input: {"kind":"input","source":"name"}.
-        Discovery may leave requirements null. Clarify ambiguity with 1-3 questions, compatible alternatives/recommendation, plan:null and requirements:null. Otherwise, the first plan must include requirements and caller/output interfaces. Preserve accepted requirements; apply answers once.
+        Discovery may leave requirements null. Clarification: questions, plan:null and requirements:null. Otherwise, the first plan must include requirements and caller/output interfaces. Preserve accepted requirements; apply answers once.
         """;
 
     internal string Build(IReadOnlyList<CapabilitySummary> optional)
@@ -121,6 +126,10 @@ internal sealed partial class PlanningPrompt(PlanningSession state)
         };
         if (state.Request.Options["automatic_correction"] is JsonValue option && option.TryGetValue<bool>(out var enabled) && enabled)
             context["budget"]!["reservedCalls"] = PlanningDiscoveryContext.ReservedCalls(state);
+        if (PlanningClarifications.PreservesIntent(state))
+            context["interaction"] = new JsonObject { ["mode"] = state.Request.Mode,
+                ["clarificationAllowed"] = PlanningModelCalls.RemainingCalls(state) > 1 &&
+                    (!PlanningModelCalls.IsRepair(state) || PlanningModelCalls.RemainingRepairs(state) > 1) };
         if (FailureContext(state.Request.FailureEvidence) is { Count: > 0 } failure) context["executionFailure"] = failure;
         if (repair)
         {
@@ -133,7 +142,9 @@ internal sealed partial class PlanningPrompt(PlanningSession state)
             state.Request.Options["automatic_correction_progress"]?["conditionLocations"] is JsonArray { Count: > 0 } ? GuardCorrectionInstructions + "\n" : "";
         var literalGuidance = state.Diagnostics.Any(d => d.Code == "TASK_LITERAL_INVALID")
             ? "Use typed input/output bindings for runtime values; never strip or escape interpolation, invent success, change requirements or replace requested work with text.\n" : "";
-        string Render() => (repair ? RepairInstructions : Instructions) + "\n" + guardGuidance + literalGuidance + (state.Requirements is null ? InitialRequirementsInstructions : ClarificationInstructions) + "\n" + PlanningJsonTransport.Prompt(context);
+        string Render() => (repair ? RepairInstructions : Instructions) + "\n" + guardGuidance + literalGuidance +
+            (state.Requirements is null ? InitialRequirementsInstructions : "") +
+            (PlanningClarifications.PreservesIntent(state) ? InteractiveInstructions : state.Requirements is not null ? ClarificationInstructions : "") + "\n" + PlanningJsonTransport.Prompt(context);
         // Bound the retained directory against mandatory context before optional
         // contracts compete for space. Pagination cannot erase earlier identities.
         var schema = Schema;

@@ -31,7 +31,7 @@ internal static class PlanningSchemas
         alternatives.Any(a => a?["type"]?.ToString() == "null");
 
     internal static JsonObject Proposal(PlanningSession state, IReadOnlySet<string>? admitted = null) => PlanningRepairPatch.Active(state)
-        ? PlanningRepairPatch.Schema(state, PlanningRepairPatch.Template(state)) : Compact(FullProposal(state, compact: false, admitted: admitted), compositionHints: true);
+        ? PlanningRepairPatch.Schema(state, PlanningRepairPatch.Template(state)) : Compact(FullProposal(state, compact: false, admitted: admitted), compositionHints: true, interactionHints: PlanningClarifications.PreservesIntent(state));
 
     internal static JsonObject FullProposal(PlanningSession state, bool compact = true, bool clarifications = true, IReadOnlySet<string>? admitted = null, bool scopeGuidance = true, bool flatten = true, bool lookup = true, bool arrayBounds = true)
     {
@@ -144,7 +144,7 @@ internal static class PlanningSchemas
         return compact ? Compact(root) : root;
     }
 
-    internal static JsonObject Compact(JsonObject root, bool compositionHints = false)
+    internal static JsonObject Compact(JsonObject root, bool compositionHints = false, bool interactionHints = false)
     {
         // Contract descriptions already accompany the admitted operations in the
         // prompt. Remove only schema annotations, never properties named description.
@@ -154,7 +154,8 @@ internal static class PlanningSchemas
         // use the historical path, including its exact annotation-free bytes.
         if (compositionHints)
         {
-            definitions["task"]!["description"] = "requires: false fails. and/or: binary; nest. field.port: exact property. condition: routing. mode: extract/interpret. each.input: bound input. resultType: assembled. Literal strings exclude ${}.";
+            definitions["task"]!["description"] = (interactionHints ? "operation: external work. transform: supplied data, no tool calls. " : "") +
+                "requires: false fails. and/or: binary; nest. field.port: exact property. condition: routing. mode: extract/interpret. each.input: bound input. resultType: assembled. Literal strings exclude ${}.";
             if (root["properties"]?["requirements"] is not null)
                 definitions["task"]!["description"] += " First plan requires requirements/interfaces; null only for discovery or clarification.";
         }

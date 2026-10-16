@@ -40,9 +40,12 @@ public sealed partial class HybridWorkflowPlanner
 
     private static bool CorrectableLiteral(PlanningSession state, PlanningDiagnostic diagnostic)
     {
-        if (CorrectionCode(diagnostic) != "TASK_LITERAL_INVALID" || state.Plan is null || state.Catalog is null ||
-            !state.RevisionScope.Contains(diagnostic.Location, StringComparer.Ordinal)) return false;
-        var symbols = new TaskPlanSymbols(state.Plan);
+        var suspendedRegeneration = PlanningClarifications.CorrectionContinuation(state) == "regenerate";
+        var plan = state.Plan ?? (suspendedRegeneration ? state.Request.Baseline : null);
+        var authorized = state.RevisionScope.Contains(diagnostic.Location, StringComparer.Ordinal) || suspendedRegeneration &&
+            state.Request.Options[CorrectionProgressKey]?["locations"]?.AsArray().Any(p => p?.ToString() == diagnostic.Location) == true;
+        if (CorrectionCode(diagnostic) != "TASK_LITERAL_INVALID" || plan is null || state.Catalog is null || !authorized) return false;
+        var symbols = new TaskPlanSymbols(plan);
         return symbols.Values.ContainsKey(diagnostic.Location) &&
             !diagnostic.Location.EndsWith("/requires", StringComparison.Ordinal) &&
             TaskPlanRevisions.OwnedInput(symbols, diagnostic.Location, state.Catalog) is null;
@@ -99,7 +102,8 @@ public sealed partial class HybridWorkflowPlanner
         state.Diagnostics = state.Diagnostics.Select(d => d with { Code = CorrectionCode(d) }).ToList();
 
         var progress = state.Request.Options[CorrectionProgressKey] as JsonObject;
-        if (progress?["action"]?.ToString() == "regenerate") { Stop(state); return false; }
+        var continuation = PlanningClarifications.CorrectionContinuation(state);
+        if (progress?["action"]?.ToString() == "regenerate" && continuation is null) { Stop(state); return false; }
         var baseline = state.Request.Baseline;
         if (progress is null)
         {
@@ -132,7 +136,12 @@ public sealed partial class HybridWorkflowPlanner
         var escalate = attempted.Count > 0;
         var action = "patch";
         List<string>? paths = null;
-        if (!escalate && state.Plan is not null)
+        if (continuation is not null)
+        {
+            action = continuation;
+            paths = state.EditablePaths;
+        }
+        else if (!escalate && state.Plan is not null)
         {
             var immutable = TaskPlanRevisions.UnrepairableRequirements(state).Any();
             if (immutable || state.RevisionScope.Count == 0)
@@ -143,7 +152,7 @@ public sealed partial class HybridWorkflowPlanner
         }
         else action = "regenerate";
 
-        if (action != "patch")
+        if (action != "patch" && continuation is null)
         {
             // The same existing revision transition used by explicit commands. The
             // current revision/hash and diagnosed scope are retained as evidence.
@@ -165,7 +174,8 @@ public sealed partial class HybridWorkflowPlanner
         progress["action"] = action;
         attempted.Add((JsonNode)new JsonObject { ["action"] = action, ["candidate"] = fingerprint,
             ["diagnostics"] = PlanningGraphCompiler.Fingerprint(diagnosticKey), ["callsUsed"] = state.ModelCalls,
-            ["outcome"] = escalate ? "targeted_correction_did_not_resolve_findings" : "diagnosed" });
+            ["outcome"] = continuation is not null ? "answered_clarification" : escalate ? "targeted_correction_did_not_resolve_findings" : "diagnosed" });
+        PlanningClarifications.ConsumedContinuation(state);
         Activity.Current?.AddEvent(new("planning.correction.selected", tags: new ActivityTagsCollection
         { ["action"] = action, ["reason"] = escalate ? "unresolved_after_targeted_correction" : "diagnostic_authority",
             ["diagnostics"] = string.Join(',', findings.Select(d => d.Code).Distinct()), ["attempt"] = attempted.Count }));

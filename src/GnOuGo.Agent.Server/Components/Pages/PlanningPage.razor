@@ -77,7 +77,7 @@
         @if (!IsWorkflowSession && !_state.RequiresPlanningRevision && _state.Status == PlanningStatus.Clarification)
         {
             <PlannerChoiceCard Choices="PlanningEndpoints.ToDto(_state).Choices" Questions="PlanningEndpoints.ToDto(_state).Questions"
-                DecisionKey="@(_state.Request.SessionId + ":" + _state.Revision)" Busy="_busy" Select='selections => SubmitAsync("choose", selections: selections)'
+                DecisionKey="@_state.Request.SessionId" Busy="_busy" Select='selections => SubmitAsync("choose", selections: selections)'
                 Answer='answers => SubmitAsync("answer", answers: answers)' Cancel='() => SubmitAsync("cancel")' />
         }
         <PlannerStageDetails @ref="_reviewDetails" Session="PlanningEndpoints.ToDto(_state)" ShowFindings="false" Busy="_busy"

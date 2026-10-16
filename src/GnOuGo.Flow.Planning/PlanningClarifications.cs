@@ -1,5 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Diagnostics;
+using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Planning;
 
 namespace GnOuGo.Flow.Planning;
@@ -7,6 +9,46 @@ namespace GnOuGo.Flow.Planning;
 /// <summary>Deterministic interaction validation. Answers are intent, never executable bindings.</summary>
 internal static class PlanningClarifications
 {
+    private const string ContextKey = "clarification_context";
+    internal static bool PreservesIntent(PlanningSession state) => state.Request.Options["clarification_policy"]?.ToString() == "1";
+
+    internal static void Suspend(PlanningSession state, List<PlanningQuestion> questions)
+    {
+        ValidateQuestions(questions);
+        if (!PreservesIntent(state)) return;
+        if (state.AnswerHistory?.Any(batch => batch.Questions.Any(old => questions.Any(next =>
+            old.Question == next.Question && old.Recommended == next.Recommended && old.Alternatives.SequenceEqual(next.Alternatives)))) == true)
+            throw new WorkflowRuntimeException("CLARIFICATION_NO_PROGRESS", "An answered question was repeated. Retain the recorded decision; no additional question or allowance was created.");
+        if (PlanningModelCalls.RemainingCalls(state) == 0 || PlanningModelCalls.IsRepair(state) && PlanningModelCalls.RemainingRepairs(state) == 0)
+            throw new WorkflowRuntimeException("CLARIFICATION_CONTINUATION_UNAVAILABLE", "The remaining planning allowance cannot use another answer. Review the retained diagnostics; answering cannot reset calls or correction attempts.");
+        state.Request.Options[ContextKey] = new JsonObject
+        {
+            ["version"] = 1, ["baseline"] = Baseline(state), ["requirements"] = Requirements(state),
+            ["scope"] = Scope(state), ["action"] = state.Request.Options["automatic_correction_progress"]?["action"]?.DeepClone(),
+            ["resume"] = false
+        };
+        Activity.Current?.AddEvent(new("planning.clarification.requested", tags: new ActivityTagsCollection
+        { ["question.ids"] = string.Join(',', questions.Select(q => q.Id)), ["question.count"] = questions.Count,
+            ["correction.action"] = state.Request.Options[ContextKey]!["action"]?.ToString() }));
+    }
+
+    internal static string? CorrectionContinuation(PlanningSession state) => PreservesIntent(state) &&
+        state.Request.Options[ContextKey]?["resume"]?.ToString() == "true"
+        ? state.Request.Options[ContextKey]?["action"]?.ToString() : null;
+
+    internal static void ConsumedContinuation(PlanningSession state) => state.Request.Options.Remove(ContextKey);
+
+    private static string Baseline(PlanningSession state) => PlanningGraphCompiler.Fingerprint(
+        JsonSerializer.Serialize(state.Plan ?? state.Request.Baseline, PlanningJsonContext.Default.TaskPlan));
+    private static string Requirements(PlanningSession state) => PlanningGraphCompiler.Fingerprint(
+        JsonSerializer.Serialize(state.Requirements, PlanningJsonContext.Default.PlanningRequirements));
+    private static string Scope(PlanningSession state) => PlanningGraphCompiler.Fingerprint(new JsonObject
+    {
+        ["editablePaths"] = new JsonArray(state.EditablePaths?.Select(p => (JsonNode?)JsonValue.Create(p)).ToArray() ?? []),
+        ["revisionScope"] = new JsonArray(state.RevisionScope.Select(p => (JsonNode?)JsonValue.Create(p)).ToArray()),
+        ["diagnostics"] = JsonSerializer.SerializeToNode(state.Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic)
+    }.ToJsonString());
+
     internal static void ValidateQuestions(List<PlanningQuestion> questions)
     {
         if (questions.Count is < 1 or > 3 || questions.Any(q => q is null) ||
@@ -39,13 +81,33 @@ internal static class PlanningClarifications
         // The existing choose command is the model-free path for finite literal selections.
         if (state.PendingQuestions is null && answers.All(a => a.Text is null))
             throw new ArgumentException("Use choose for declared literal alternatives.");
+        var context = PreservesIntent(state) ? state.Request.Options[ContextKey] as JsonObject : null;
+        if (PreservesIntent(state) && context is null && state.Requirements is not null)
+            throw new PlanningConflictException("The clarification has no retained intent-preserving scope. Use an explicit revision; accepted requirements remain unchanged.");
+        if (context is not null && (context["baseline"]?.ToString() != Baseline(state) || context["requirements"]?.ToString() != Requirements(state) ||
+            context["scope"]?.ToString() != Scope(state)))
+            throw new PlanningConflictException("The clarification baseline or correction scope changed. Reload the current decision.");
+        // A custom answer to a compiled literal choice can change its domain. Keep
+        // that change on the explicit revision path instead of granting edit authority.
+        if (PreservesIntent(state) && state.PendingQuestions is null)
+            throw new PlanningConflictException("A different business alternative requires an explicit revision. The accepted requirements and choices remain unchanged.");
         state.AnswerHistory ??= [];
         state.AnswerHistory.Add(new(state.Revision, questions, [.. answers]));
-        Revise(state);
+        if (context is null) Revise(state);
+        else
+        {
+            context["resume"] = true;
+            state.PendingQuestions = null; state.Graph = null; state.Yaml = null; state.ApprovedHash = null;
+            state.Status = PlanningStatus.Generating;
+            Activity.Current?.AddEvent(new("planning.clarification.answered", tags: new ActivityTagsCollection
+            { ["question.ids"] = string.Join(',', questions.Select(q => q.Id)), ["question.count"] = questions.Count,
+                ["correction.action"] = context["action"]?.ToString() }));
+        }
     }
 
     internal static void Revise(PlanningSession state, bool preserveRequirements = false, List<string>? editablePaths = null)
     {
+        state.Request.Options.Remove(ContextKey);
         state.Request.Baseline = state.Plan ?? state.Request.Baseline;
         if (state.Requirements is not null)
             state.Request.RevisionContext = "Preserve unrelated accepted outcomes and inputs when applying the explicit user revision. Previous requirements:\n" +

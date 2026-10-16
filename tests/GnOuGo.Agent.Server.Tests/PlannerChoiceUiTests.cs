@@ -106,6 +106,35 @@ public sealed class PlannerChoiceUiTests : BunitContext
     private static PlanningQuestionDto Question(string id = "interface") => new(id, "Which interface?",
         [new("compact", "Reference and instructions", null), new("coordinates", "Explicit coordinates", null)], "compact");
 
+    [Fact]
+    public void PollingKeepsAnswersButAChangedBatchWithTheSameSessionClearsThem()
+    {
+        IReadOnlyList<PlanningAnswerDto>? answers = null;
+        var cut = Render<PlannerChoiceCard>(p => p.Add(c => c.Questions, [Question()]).Add(c => c.DecisionKey, "session")
+            .Add(c => c.Answer, a => answers = a));
+        cut.Find("select").Change(""); cut.Find("textarea").Input("Retained custom decision");
+        cut.Render(p => p.Add(c => c.Questions, [Question()]));
+        cut.Find("form").Submit(); Assert.Equal("Retained custom decision", Assert.Single(answers!).Text);
+        answers = null;
+        cut.Render(p => p.Add(c => c.Questions, [new("resource", "Which resource?", [], null)]));
+        cut.Find("form").Submit(); Assert.Null(answers); Assert.Contains("Enter an answer", cut.Markup);
+    }
+
+    [Fact]
+    public async Task InFlightSubmissionCannotBeSentTwiceAndFailedSubmissionRetainsText()
+    {
+        var pending = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously); var calls = 0;
+        var cut = Render<PlannerChoiceCard>(p => p.Add(c => c.Questions, [new("resource", "Which resource?", [], null)])
+            .Add(c => c.Answer, async _ => { calls++; await pending.Task; }));
+        cut.Find("textarea").Input("Existing resource");
+        var first = cut.Find("form").SubmitAsync();
+        cut.WaitForAssertion(() => Assert.Equal(1, calls));
+        await cut.Find("form").SubmitAsync(); Assert.Equal(1, calls);
+        // Parent handlers display service errors; the card keeps the entered value.
+        pending.SetResult(); await first;
+        cut.Render(); Assert.Equal("Existing resource", cut.Find("textarea").GetAttribute("value"));
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

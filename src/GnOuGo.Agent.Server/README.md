@@ -794,7 +794,9 @@ when trace links have expired. See [configuration, retention and limitations](..
 
 ## TaskPlan choices and semantic repair
 
-Designer and Chat expose the semantic TaskPlan, typed business alternatives and located validation findings. Interactive mode presents a recommendation and alternatives. Auto mode validates and records the recommendation without another model call. The host owns the selection; choices never approve execution or replace runtime permissions.
+Designer and Chat expose the semantic TaskPlan, typed business alternatives and located validation findings. Interactive mode presents a recommendation and alternatives. New sessions capture clarification policy version 1: Auto reuses explicitly accepted selections and pauses for unresolved choices; a recommendation alone is not authorization. Older sessions retain their captured behavior. The host owns the selection; choices never approve execution or replace runtime permissions.
+
+Technical corrections can pause for a material business question through the existing response envelope. Answers checkpoint before continuation and preserve accepted requirements, public interfaces, diagnosed scope, correction history and usage. Changing accepted intent requires a separate explicit revision. The unchanged two-correction default supports question → correction, but cannot support failed patch → question → correction: the unusable question is stopped without resetting attempts. See [bounded clarification](../../docs/planning-clarification.md#bounded-corrective-clarification-policy-1). Same-batch polling and failed submissions retain entered text; a changed question batch clears it. Exact repeated answered questions stop; paraphrased repetition remains a model-quality limitation.
 
 `POST /api/planning` accepts `mode`. Planning commands use `choose`, `expectedRevision` and `selections: { "choice_id": "alternative_id" }`; `configure_mode` changes the mode. Stale revisions conflict. Final approval requires the exact artifact hash. Chat clients use `GET /api/chat/conversations/{conversationId}/planning` and `POST /api/chat/conversations/{conversationId}/planning/{id}/commands`.
 

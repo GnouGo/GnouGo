@@ -63,7 +63,7 @@ requests with the superseded singular `sourceId`/`cursor` contract stop with
 `PLANNING_REQUEST_INCOMPATIBLE`: regenerate in a new session. Their encrypted records,
 reservations and accounting are preserved. Planning storage remains format 10.
 
-Requirements are reviewable intent, not another executable program. Accepted requirements are host-owned. New sessions also declare the caller input interface; an unresolved interface may remain null during discovery but must be declared before proposing a plan. Further responses omit the accepted requirements. Only explicit user revision, including a submitted clarification answer, resets them. Recovery validates responses against their original persisted request schemas; identical historical requirements are accepted without replacing saved intent, while changes are rejected. New generated glue permits literals, typed references,
+Requirements are reviewable intent, not another executable program. Accepted requirements are host-owned. New sessions also declare the caller input interface; an unresolved interface may remain null during discovery but must be declared before proposing a plan. Further responses omit the accepted requirements. Only an explicit requirement-changing revision resets them. Fresh Agent.Server clarification answers preserve accepted requirements and correction authority; historical clarification states retain their recorded behavior. Recovery validates responses against their original persisted request schemas; identical historical requirements are accepted without replacing saved intent, while changes are rejected. New generated glue permits literals, typed references,
 simple conditions, deterministic JSON encoding and registered typed transformations. Authored YAML retains its
 existing expression runtime. Opaque output needs whole-value validation before
 field access; assistant descriptions and sample values cannot establish a contract.
@@ -266,8 +266,7 @@ Material ambiguities can now pause the existing planning loop before a TaskPlan 
 
 Each `PlanningChoice` targets one semantic value slot and supplies typed literal
 alternatives, a recommendation and a host-owned selection. Interactive mode presents
-the alternatives. Auto mode validates and records the recommendation without another
-model call. Selection recompiles deterministically. Choices cannot change agent scope,
+the alternatives. Fresh Agent.Server Auto sessions reuse explicitly accepted selections and pause for unresolved choices; a recommendation alone is not authorization. Historical sessions without the versioned interaction policy retain recommendation selection. Selection recompiles deterministically. Choices cannot change agent scope,
 grant permissions, raise budgets or replace runtime confirmation.
 
 A custom answer to a literal choice requests an intent revision; it is never inserted as an unchecked literal or expression. Repair envelope 8 includes clarification as an exclusive action and fingerprints accepted requirements, explicit revision paths and reference-preserving permissions. Already-issued version-7 requests retain their original schema and authority. Retired requests preserve their original schemas and fingerprints for accounting; unfinished sessions require explicit revision. Nullable interaction metadata leaves absent historical fields and stored approval hashes unchanged.

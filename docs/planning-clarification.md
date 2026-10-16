@@ -10,9 +10,21 @@ The [sanitized input-interface excerpt](../tests/GnOuGo.Flow.Planning.Tests/Fixt
 - Material uncertainty about caller inputs, missing facts or business alternatives can produce one to three questions instead of a plan/discovery/repair response. Alternatives include tradeoffs and exactly one recommendation; missing facts can use a text-only question.
 - Designer and originating chat share a question component with recommended selections, a custom-answer textarea and explicit submission/cancellation. Auto mode also pauses for material clarification. Switching modes cannot answer it.
 - Generic `workflow.plan` hosts use existing human-input forms. Hosts without an interaction provider return a waiting session ID and revision.
-- Declared literal choices still compile locally without another model call. A custom answer requests an intent revision and retains the previous plan/requirements as context; it is never an unchecked binding.
-- Questions and answers are encrypted with the session. Continuation happens after the answer checkpoint and preserves call, token, repair and active-time budgets. Human wait is measured separately. A final-call question may be answered and retained, but continuation stops at the existing ceiling.
+- Declared literal choices still compile locally without another model call. Under fresh Agent.Server interaction policy 1, a custom answer that changes a compiled choice domain requires an explicit revision; it is never an unchecked binding. Historical states retain their prior revision behavior.
+- Questions and answers are encrypted with the session. Continuation happens after the answer checkpoint and preserves call, token, repair and active-time budgets. Human wait is measured separately. Policy 1 refuses another question when no call or corrective attempt remains to use its answer. Historical questions retain their original handling.
 - Clarification does not grant permissions or approval. Final approval still identifies the exact validated artifact.
+
+## Bounded corrective clarification (policy 1)
+
+New Designer sessions store `clarification_policy: 1` in existing private options. Technical defects keep using scoped repairs and the single structural fallback. An already-authorized request can return a genuine business question, without a separate classification call. Its baseline, accepted requirements and diagnosed scope are fingerprinted in private session bookkeeping; the answer resumes that action without broadening it. Answering cannot change public contracts, reset stagnation history or create a new fallback.
+
+A clarification response consumes its model call and, during correction, its repair attempt. With the unchanged two-correction default, a question returned by the first corrective request leaves one continuation. If the first patch fails and the second request asks a question, planning stops with `CLARIFICATION_CONTINUATION_UNAVAILABLE`. A configured three-correction allowance can cover failed patch → question → regeneration. No allowance is increased automatically.
+
+Recorded answers accompany subsequent requests. Exact repeated questions (same question, alternatives and recommendation) stop with `CLARIFICATION_NO_PROGRESS`; paraphrase detection is not claimed. Auto pauses for unresolved choices instead of treating a recommendation as accepted intent. Interface or accepted-requirement changes need a separate explicit revision.
+
+Designer and chat keep entered text during polling of the same question batch and on failed submission. A changed batch clears it. Answers checkpoint before dispatch; the background owner wakes after command ownership is released. Duplicate submissions and restart cannot create another allowance or resend a committed response. Existing spans expose question IDs, correction action and outcome, never answer text.
+
+See [retained failure and offline evidence](evidence/useful-clarifications-2026-10-16/README.md). Deterministic fixtures establish mechanics, preservation and execution; they cannot prove future models will ask only useful questions.
 
 ## Contracts and recovery
 

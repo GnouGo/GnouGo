@@ -181,6 +181,7 @@ public sealed partial class PlanningSessionService(
         if (command.Kind == "cancel") return await RequestCancellationAsync(id, command, ct);
         var gate = _locks.GetOrAdd(id, _ => new SemaphoreSlim(1, 1));
         await gate.WaitAsync(ct);
+        PlanningSession result;
         try
         {
             await using var lease = await PlanningSessionLease.TryAcquireAsync(contexts, Tenant, id, ct)
@@ -188,11 +189,18 @@ public sealed partial class PlanningSessionService(
             var current = await store.LoadAsync(Tenant, id, ct) ?? throw new KeyNotFoundException("Planning session not found.");
             if (current.Revision != command.ExpectedRevision) throw new PlanningConflictException("The session changed; reload its current revision.");
             if (await IsCancellationRequestedAsync(current, ct)) throw new PlanningConflictException("Cancellation is pending for this revision.");
-            var result = command.Kind == "save" ? await SaveAsync(current, command, ct) : await AdvanceAsync(current, command, ct);
-            if (!PlanningStatus.IsWaiting(result.Status) && !PlanningStatus.IsTerminal(result.Status)) _queue.Writer.TryWrite(id);
-            return result;
+            result = command.Kind == "save" ? await SaveAsync(current, command, ct) : await AdvanceAsync(current, command, ct);
         }
         finally { gate.Release(); }
+        if (!PlanningStatus.IsWaiting(result.Status) && !PlanningStatus.IsTerminal(result.Status))
+        {
+            // Publish the wake-up after releasing command ownership. A previous
+            // owner may still be finishing its monitoring scope after publishing
+            // the question; don't let its final task hide this continuation.
+            if (_running.TryGetValue(id, out var previous)) await previous.WaitAsync(ct);
+            _queue.Writer.TryWrite(id);
+        }
+        return result;
     }
 
     public override async Task StartAsync(CancellationToken ct)
@@ -232,7 +240,12 @@ public sealed partial class PlanningSessionService(
     }
     private async Task RunAsync(string id, CancellationToken stoppingToken)
     {
-        await using var lease = await PlanningSessionLease.TryAcquireAsync(contexts, Tenant, id, stoppingToken);
+        var ownerGate = _locks.GetOrAdd(id, _ => new SemaphoreSlim(1, 1));
+        await ownerGate.WaitAsync(stoppingToken);
+        FileStream? acquired;
+        try { acquired = await PlanningSessionLease.TryAcquireAsync(contexts, Tenant, id, stoppingToken); }
+        finally { ownerGate.Release(); }
+        await using var lease = acquired;
         // Another host owns this work. Periodic recovery will try again after it releases
         // ownership; contention must never write a diagnostic or a competing checkpoint.
         if (lease is null) return;
@@ -459,6 +472,7 @@ public sealed partial class PlanningSessionService(
     {
         ["generator"] = new JsonObject { ["provider"] = provider, ["model"] = model },
         ["automatic_correction"] = settings.Value.AutomaticCorrectionEnabled,
+        ["clarification_policy"] = 1,
         ["llm_budget"] = new JsonObject { ["max_calls"] = settings.Value.MaxModelCalls, ["max_total_tokens"] = settings.Value.MaxTotalTokens,
             ["max_elapsed_ms"] = settings.Value.MaxActiveMilliseconds,
             ["max_estimated_cost"] = new JsonObject { ["amount"] = budgetSettings.Value.Amount, ["currency"] = budgetSettings.Value.Currency } }

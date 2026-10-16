@@ -1,5 +1,6 @@
 @using System.Text.Json.Nodes
 <form @onsubmit="Submit" @onsubmit:preventDefault>
+    <p>Your answer resumes planning within its remaining allowance. It does not approve execution.</p>
     @foreach (var question in Pending)
     {
         <div class="planner-question">
@@ -23,7 +24,7 @@
         </div>
     }
     @if (_error is not null) { <p role="alert">@_error</p> }
-    <button type="submit" disabled="@Busy">Confirm selections</button>
+    <button type="submit" disabled="@(Busy || _submitting)">Confirm selections</button>
     <button type="button" disabled="@Busy" @onclick="Cancel">Cancel planning</button>
 </form>
 @code {
@@ -38,25 +39,32 @@
     private readonly Dictionary<string, string> _text = new();
     private const string Custom = "";
     private readonly string _id = "planning-" + Guid.NewGuid().ToString("N");
-    private string? _key, _error;
+    private string? _key, _questionsKey, _error;
+    private bool _submitting;
     private IReadOnlyList<PlanningQuestionDto> Pending => Questions.Count > 0 ? Questions : Choices.Where(c => c.Selected is null)
         .Select(c => new PlanningQuestionDto(c.Id, c.Question, c.Alternatives, c.Recommended)).ToArray();
     private string Selection(PlanningQuestionDto question) => _selections.GetValueOrDefault(question.Id, question.Recommended ?? Custom);
     private string ControlId(PlanningQuestionDto question) => _id + "-" + question.Id;
     protected override void OnParametersSet()
     {
-        if (_key == DecisionKey) return;
-        _key = DecisionKey; _selections.Clear(); _text.Clear(); _error = null;
+        var questionsKey = string.Join("\n", Pending.Select(q => System.Text.Json.JsonSerializer.Serialize(q, ChatJsonContext.Default.PlanningQuestionDto)));
+        if (_key == DecisionKey && _questionsKey == questionsKey) return;
+        _key = DecisionKey; _questionsKey = questionsKey; _selections.Clear(); _text.Clear(); _error = null;
     }
-    private Task Submit()
+    private async Task Submit()
     {
-        if (Busy) return Task.CompletedTask;
+        if (Busy || _submitting) return;
         _error = null;
         if (Pending.Any(q => Selection(q) == Custom && string.IsNullOrWhiteSpace(_text.GetValueOrDefault(q.Id))))
-        { _error = "Enter an answer for each question."; return Task.CompletedTask; }
-        if (Questions.Count == 0 && Pending.All(q => Selection(q) != Custom))
-            return Select.InvokeAsync(new JsonObject(Pending.Select(q => new KeyValuePair<string, JsonNode?>(q.Id, JsonValue.Create(Selection(q))))));
-        return Answer.InvokeAsync(Pending.Select(q => Selection(q) == Custom
-            ? new PlanningAnswerDto(q.Id, Text: _text[q.Id]) : new PlanningAnswerDto(q.Id, Selection(q))).ToArray());
+        { _error = "Enter an answer for each question."; return; }
+        _submitting = true;
+        try
+        {
+            if (Questions.Count == 0 && Pending.All(q => Selection(q) != Custom))
+                await Select.InvokeAsync(new JsonObject(Pending.Select(q => new KeyValuePair<string, JsonNode?>(q.Id, JsonValue.Create(Selection(q))))));
+            else await Answer.InvokeAsync(Pending.Select(q => Selection(q) == Custom
+                ? new PlanningAnswerDto(q.Id, Text: _text[q.Id]) : new PlanningAnswerDto(q.Id, Selection(q))).ToArray());
+        }
+        finally { _submitting = false; }
     }
 }
