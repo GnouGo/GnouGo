@@ -110,6 +110,11 @@ Development failures were preserved and corrected without increasing a limit:
 - The first disposable retained-composition run used the test helper's 12,000
   standalone default. It now reads the retained Agent.Server generation settings;
   all fourteen execution scenarios pass without changing production limits.
+- The first full solution attempt on `c80a8d7` found two older v10 composition
+  tests still asserting the replaced phrases “branch on null” and “prepend headers”.
+  Those assertions now check the equivalent “null branches” and “headers first”
+  guidance. No execution, schema, request-size or workbook assertion was removed;
+  the failed attempt is retained and complete validation is rerun.
 
 Final solution, packaging, Native AOT, encrypted recovery, skill and candidate CI
 results are reported in [PR #117's validation report](https://github.com/GnouGo/GnouGo/pull/117#issuecomment-6215420596).
