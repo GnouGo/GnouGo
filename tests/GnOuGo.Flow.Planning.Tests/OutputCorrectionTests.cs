@@ -41,6 +41,7 @@ public sealed class OutputCorrectionTests
     [InlineData("binding")]
     [InlineData("rename")]
     [InlineData("new_output")]
+    [InlineData("duplicate")]
     [InlineData("requirements")]
     public async Task RemovingAnUnacceptedExportGrantsNoOtherAuthority(string change)
     {
@@ -56,6 +57,7 @@ public sealed class OutputCorrectionTests
             case "binding": runtime.Proposal.Plan.Root.Outputs[0] = new("result", new() { Kind = "string", Text = "invented" }); break;
             case "rename": runtime.Proposal.Plan.Root.Outputs[0] = new("replacement", Port()); break;
             case "new_output": runtime.Proposal.Plan.Root.Outputs.Add(new("another", Port())); break;
+            case "duplicate": runtime.Proposal.Plan.Root.Outputs.Add(new("result", Port())); break;
             case "requirements":
                 runtime.Proposal.Requirements!.Outputs![0].Type.Kind = "any";
                 runtime.Respond = (request, _) =>

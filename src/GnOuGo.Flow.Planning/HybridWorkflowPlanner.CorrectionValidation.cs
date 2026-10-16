@@ -41,7 +41,7 @@ public sealed partial class HybridWorkflowPlanner
             RejectChange("/root/outputs", "the public output names and ordering");
         if (outputRemovals.Count > 0)
             foreach (var output in retainedOutputs)
-                if (candidate.Root.Outputs.SingleOrDefault(o => o.Name == output.Name) is { } revised && !SameValue(output.Value, revised.Value) &&
+                if (candidate.Root.Outputs.FirstOrDefault(o => o.Name == output.Name) is { } revised && !SameValue(output.Value, revised.Value) &&
                     !locations.Contains("/root/outputs/" + output.Name) && !locations.Contains("/outputs/" + output.Name))
                     RejectChange("/root/outputs/" + output.Name, "the independent public output binding");
         if (!JsonNode.DeepEquals(JsonSerializer.SerializeToNode(baseline.Choices, PlanningJsonContext.Default.ListPlanningChoice),
