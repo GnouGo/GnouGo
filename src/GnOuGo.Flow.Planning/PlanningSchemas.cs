@@ -238,7 +238,8 @@ internal static class PlanningSchemas
 
     // Lossless JSON Schema factoring keeps per-operation domains affordable.
     // DTO values and contract checks do not change; only duplicate wire schemas do.
-    private static void ShareRepeatedSchemas(JsonObject root, JsonObject definitions, int minimumSize = 80)
+    internal static void ShareRepeatedSchemas(JsonObject root, JsonObject definitions, int minimumSize = 80,
+        IEnumerable<JsonObject>? schemaNodes = null, string referencePrefix = "#/$defs/")
     {
         var nodes = new List<JsonObject>();
         void Visit(JsonNode? node)
@@ -252,7 +253,7 @@ internal static class PlanningSchemas
             }
             else if (node is JsonArray array) foreach (var value in array) Visit(value);
         }
-        Visit(root);
+        if (schemaNodes is null) Visit(root); else nodes.AddRange(schemaNodes);
         var groups = nodes.GroupBy(n => n.ToJsonString(), StringComparer.Ordinal).Where(g => g.Count() > 1 && g.Key.Length > minimumSize)
             .OrderByDescending(g => g.Key.Length).ThenBy(g => g.Key, StringComparer.Ordinal).ToArray();
         foreach (var group in groups)
@@ -267,13 +268,14 @@ internal static class PlanningSchemas
             var schema = attached[0]; var ordinal = definitions.Count;
             while (definitions.ContainsKey("s" + ordinal)) ordinal++;
             var name = "s" + ordinal;
-            var referenceLength = Ref(name).ToJsonString().Length;
+            JsonObject Reference() => new() { ["$ref"] = referencePrefix + name };
+            var referenceLength = Reference().ToJsonString().Length;
             var size = schema.ToJsonString().Length;
             if ((size - referenceLength) * attached.Length <= size + name.Length + 4) continue;
             definitions[name] = schema.DeepClone();
             foreach (var node in attached)
-                if (node.Parent is JsonArray array) array[array.IndexOf(node)] = Ref(name);
-                else if (node.Parent is JsonObject obj) obj[obj.Single(p => ReferenceEquals(p.Value, node)).Key] = Ref(name);
+                if (node.Parent is JsonArray array) array[array.IndexOf(node)] = Reference();
+                else if (node.Parent is JsonObject obj) obj[obj.Single(p => ReferenceEquals(p.Value, node)).Key] = Reference();
         }
     }
     // Omitted flags use the existing DTO defaults. Every actual business value stays explicit.

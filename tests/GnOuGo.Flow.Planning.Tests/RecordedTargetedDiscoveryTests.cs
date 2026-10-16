@@ -49,6 +49,16 @@ public sealed class RecordedTargetedDiscoveryTests(ITestOutputHelper output)
         var final = TargetedDiscoveryTests.Context(runtime.Calls[^1].Prompt);
         var shown = final["operations"]!.AsArray().Select(o => o!["id"]!.ToString()).ToHashSet(StringComparer.Ordinal);
         Assert.All(inspections.SelectMany(i => i.OperationIds!), id => Assert.Contains(id, shown));
+        foreach (var operation in final["operations"]!.AsArray())
+        {
+            var capability = state.Catalog!.Capabilities.Single(c => TaskOperations.Describe(c).Id == operation!["id"]!.ToString());
+            var contract = PlanningCapabilityArguments.Editable(capability);
+            foreach (var (key, ports) in new[] { ("inputs", contract.Inputs), ("outputs", contract.Outputs) })
+                foreach (var port in ports)
+                    Assert.True(JsonNode.DeepEquals(port.Schema, CommitmentPromptContractTests.Expand(
+                        operation![key]!.AsArray().Single(p => p!["name"]!.ToString() == port.Name)!["type"]!, final)),
+                        "Presentation must retain every inspected port contract exactly.");
+        }
         Assert.Null(final["sources"]); Assert.Equal(19, catalog.Reads - catalog.FilterReads);
         Assert.InRange(catalog.FilterReads, 0, metadata.Sources.Count);
         foreach (var capability in successful.Catalog.Capabilities.Where(c => c.Kind != "registered"))

@@ -67,10 +67,6 @@ internal sealed partial class PlanningPrompt(PlanningSession state)
         "For example, keep ready AND payload as ready AND (payload != null) only when payload is the diagnosed nullable operand. " +
         "An already valid Boolean assertion remains unchanged. Do not replace success with presence, add OR, change producers or remove assertions. Preserve independent objectives and contracts exactly.";
 
-    private const string CommitmentInstructions = """
-        Requirements may declare commitments: exact inspected operation, optionally result:{port,output} linking its exact result port to an accepted public output. No task IDs or proof mappings. Finalize before the first plan and preserve thereafter; null means unverified, never derive obligations from the plan. Example: {"operation":"<inspected ID>","result":{"port":"<declared port>","output":"<accepted output>"}}. Operations perform external work; inference cannot replace them or manufacture their status/artifacts. Coverage checks contractual clauses, not prose completeness or execution success.
-        """;
-
     private const string InitialRequirementsInstructions = """
         Runtime input: {"kind":"input","source":"name"}.
         Discovery may leave requirements null. Clarification: questions, plan:null and requirements:null. Otherwise, the first plan must include requirements and caller/output interfaces. Preserve accepted requirements; apply answers once.
@@ -143,12 +139,14 @@ internal sealed partial class PlanningPrompt(PlanningSession state)
         }
         foreach (var key in new[] { "revisionContext", "userAnswers", "instructions", "revisionScope" })
             if (context[key] is null || context[key] is JsonArray { Count: 0 } || context[key]?.ToString() == "") context.Remove(key);
+        // Fresh intent only. Reuse lossless schema factoring for duplicated read-only
+        // operation contracts; declarations/permissions/receipts are never changed.
+        if (state.IntentVersion == 3 && !repair) ShareOperationSchemas(context);
         var guardGuidance = repair && state.Request.Options["automatic_correction_progress"]?["version"]?.ToString() is "2" or "3" or "4" &&
             state.Request.Options["automatic_correction_progress"]?["conditionLocations"] is JsonArray { Count: > 0 } ? GuardCorrectionInstructions + "\n" : "";
         var literalGuidance = state.Diagnostics.Any(d => d.Code == "TASK_LITERAL_INVALID")
             ? "Use typed input/output bindings for runtime values; never strip or escape interpolation, invent success, change requirements or replace requested work with text.\n" : "";
         string Render() => (repair ? RepairInstructions : Instructions) + "\n" + guardGuidance + literalGuidance +
-            (state.IntentVersion == 3 && !repair ? CommitmentInstructions + "\n" : "") +
             (state.Requirements is null ? InitialRequirementsInstructions + "\n" : "") +
             (PlanningClarifications.PreservesIntent(state) ? InteractiveInstructions : state.Requirements is not null ? ClarificationInstructions : "") + "\n" + PlanningJsonTransport.Prompt(context);
         // Bound the retained directory against mandatory context before optional
@@ -203,5 +201,22 @@ internal sealed partial class PlanningPrompt(PlanningSession state)
         if (!p.Required) port["required"] = false;
         return (JsonNode)port;
     }).ToArray());
+
+    internal static void ShareOperationSchemas(JsonObject context)
+    {
+        var nodes = new List<JsonObject>();
+        foreach (var operation in context["operations"]!.AsArray())
+            foreach (var port in operation!["inputs"]!.AsArray().Concat(operation["outputs"]!.AsArray()))
+            {
+                if (port!["type"] is not JsonObject schema || schema.ToJsonString().Contains("\"$", StringComparison.Ordinal)) continue;
+                var schemas = PlanningSchemaReferences.Walk(schema, "", 0).Select(p => p.Schema).ToArray();
+                // Existing references keep their original containing schema and base.
+                // Walk only schema positions, never examples, defaults or enum values.
+                nodes.AddRange(schemas);
+            }
+        var shared = new JsonObject(); context["schemas"] = shared;
+        PlanningSchemas.ShareRepeatedSchemas(context, shared, 30, nodes, "#/schemas/");
+        if (shared.Count == 0) context.Remove("schemas");
+    }
 
 }
