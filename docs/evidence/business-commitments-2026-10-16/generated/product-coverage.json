@@ -176,8 +176,8 @@
       {
         "operation": "cap_9e3b22c88e81b232338b7ab5",
         "capability": "cap_9e3b22c88e81b232338b7ab5",
-        "version": "9c9f302fbc6475bd73f3cdff95f34880454e7c189cfbe54aaeeba88a3db2f620",
-        "contract": "12f591d9322d33b033e565996ceb46cefbfc9af0b0af004b0584fc17a1e5393c"
+        "version": "c3e6ba5efa05f78d9df4f585361abbf32f8303bd5eb455c1b60efba28a333497",
+        "contract": "616e8ce54ccc58a2a4fb7b69b3951dc49b25de96c505e60801a3adb0649e0841"
       }
     ],
     "adaptationTasks": [
@@ -219,12 +219,12 @@
   "costBasis": "No provider pricing used; deterministic adapters only.",
   "requests": [
     {
-      "serializedBytes": 87118,
-      "estimatedInputTokens": 22714
+      "serializedBytes": 81284,
+      "estimatedInputTokens": 21496
     },
     {
-      "serializedBytes": 87040,
-      "estimatedInputTokens": 21280
+      "serializedBytes": 85358,
+      "estimatedInputTokens": 20930
     }
   ]
 }

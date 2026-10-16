@@ -370,8 +370,8 @@
   "automaticCorrections": 0,
   "providerCalls": 0,
   "paidCost": 0,
-  "requestEstimatedTokens": 17462,
-  "requestSerializedBytes": 71390,
+  "requestEstimatedTokens": 17263,
+  "requestSerializedBytes": 70691,
   "success": true,
   "effects": [
     "parse_change",

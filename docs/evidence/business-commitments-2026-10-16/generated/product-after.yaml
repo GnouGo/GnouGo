@@ -458,7 +458,7 @@ workflows:
             }
         objective: "Extract item-link candidates for the requested catalogue selection from every bounded page. Copy all retained fields verbatim; emit only the declared decision view, without selection or invented classifications."
         binding: "task_e664cd43372cf354703014e8"
-        producer_contract: "f4c826238c7133895c010ce5cdff09d4eb6d95fd7094c6aa806785c6f7dec4f0"
+        producer_contract: "92b72dbf4865a4862dd7b0164d22158d2891fb432359a3d8e56e70c30e457e64"
         adaptive_each: true
         infer_each: true
         each:
@@ -1825,7 +1825,7 @@ workflows:
             }
         objective: "Extract observed name, complete description and price block candidates, with their native tags, from every bounded page. Copy all retained fields verbatim; emit only the declared decision view, without selection or invented classifications."
         binding: "task_dddf31cd76f7db9b290ccf8e"
-        producer_contract: "f4c826238c7133895c010ce5cdff09d4eb6d95fd7094c6aa806785c6f7dec4f0"
+        producer_contract: "92b72dbf4865a4862dd7b0164d22158d2891fb432359a3d8e56e70c30e457e64"
         adaptive_each: true
         infer_each: true
         each:
