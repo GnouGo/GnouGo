@@ -139,6 +139,30 @@ public sealed class CommitmentCorrectionTests
         Assert.Equal(1, receipt.Reads); Assert.Null(resumed.ApprovedHash);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task UnknownPlacementOrDeniedPermissionDoesNotAuthorizeAnotherEffect(bool denied)
+    {
+        var (runtime, state) = await CommitmentCoverageTests.Fixture(); state.Request.Options["automatic_correction"] = true;
+        var operation = runtime.Proposal.Plan!.Root.Tasks[0];
+        runtime.Proposal.Plan.Root.Tasks.Clear();
+        runtime.Proposal.Plan.Root.Outputs[0] = new("filePath", CommitmentCoverageTests.Text("not performed"));
+        if (denied)
+        {
+            var capability = state.Catalog!.Capabilities.Single(c => TaskOperations.Describe(c).Id == operation.Operation);
+            state.Catalog.Policy.DeniedCapabilityIds.Add(capability.Id);
+            state.Request.Policy.DeniedCapabilityIds.Add(capability.Id);
+        }
+        else runtime.Proposal.Plan.Groups.Add(new() { Id = "unused", Body = new() { Tasks = [operation], Outputs = [new("location", CommitmentCoverageTests.Output(operation.Id, "location"))] } });
+        state = await PlannerFixture.RunAsync(runtime, state);
+        Assert.Equal(PlanningStatus.Stopped, state.Status); Assert.Single(runtime.Calls); Assert.Equal(0, state.ReplanAttempts);
+        Assert.Null(state.ApprovedHash);
+        Assert.Contains(state.Diagnostics, d => d.Code == "REVISION_SCOPE_CHANGED" && d.Message.Contains("no corrective call", StringComparison.Ordinal));
+        state = await new HybridWorkflowPlanner().AdvanceAsync(PlannerFixture.Clone(state), new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
+        Assert.Equal(PlanningStatus.Stopped, state.Status); Assert.Single(runtime.Calls);
+    }
+
     private sealed class ReceiptOnly(TestRuntime runtime, string issued, JsonNode response) : IPlanningRuntime
     {
         internal int Reads;

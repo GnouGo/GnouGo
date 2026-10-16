@@ -85,8 +85,8 @@ internal sealed class CommitmentBindings
                     var selection = value.Port is null ? path : new[] { value.Port }.Concat(path).ToArray();
                     var task = source.Task;
                     if (task.Kind == "operation")
-                        return task.Operation == operation && selection.Count > 0 && selection[0] == port
-                            ? Evidence.Established : Evidence.Disconnected;
+                        return task.Operation != operation ? Evidence.Disconnected : selection.Count == 0 ? Evidence.Unknown :
+                            selection[0] == port ? Evidence.Established : Evidence.Disconnected;
                     if (task.Kind == "value") return Export(task.Outputs, source.Scope, selection, operation, port);
                     if (task.Kind == "sequence" && task.Body is { } body) return ExportScope(body, selection, operation, port);
                     if (task.Kind == "call" && _plan.Groups.SingleOrDefault(g => g.Id == task.Group) is { } target)

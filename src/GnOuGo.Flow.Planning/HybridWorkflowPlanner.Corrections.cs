@@ -34,6 +34,7 @@ public sealed partial class HybridWorkflowPlanner
 
     private static bool CanCorrect(PlanningSession state) => AutomaticCorrection(state) && state.PendingCall is null &&
         state.ApprovedHash is null &&
+        state.Request.Options[CorrectionProgressKey]?["blocked"] is null &&
         PlanningModelCalls.RemainingCalls(state) > 0 && PlanningModelCalls.RemainingRepairs(state) > 0 &&
         state.Diagnostics.Any(d => d.Required) && (state.Requirements is not null
             ? state.Diagnostics.Where(d => d.Required).All(d => Correctable(d) || CorrectableLiteral(state, d))
@@ -167,6 +168,7 @@ public sealed partial class HybridWorkflowPlanner
             findings.Any(d => d.Code == PlanningCommitments.MissingOperation &&
                 !progress["operationAdditions"]!.AsArray().Any(a => a?["operation"]?.ToString() == d.Rule)))
         {
+            progress["blocked"] = "commitment_authority";
             state.Diagnostics.Add(new("REVISION_SCOPE_CHANGED", "/tasks", "The missing committed invocation has no safe addition authority (existing uncalled occurrence, unavailable contract or denied capability). Explicitly review its placement or permissions; no corrective call was sent."));
             Stop(state); return false;
         }

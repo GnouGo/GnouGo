@@ -15,6 +15,7 @@ public sealed class CommitmentCoverageTests
     [InlineData("fabricated", "violation")]
     [InlineData("caller", "violation")]
     [InlineData("inferred", "unverified")]
+    [InlineData("inferred_whole", "unverified")]
     [InlineData("simulated", "violation")]
     [InlineData("uncalled", "violation")]
     [InlineData("conditional", "unverified")]
@@ -43,11 +44,12 @@ public sealed class CommitmentCoverageTests
             runtime.Proposal.Requirements!.Inputs = plan.Inputs;
             plan.Root.Outputs[0] = plan.Root.Outputs[0] with { Value = new() { Kind = "input", Source = "supplied" } };
         }
-        if (variant is "inferred" or "simulated")
+        if (variant is "inferred" or "inferred_whole" or "simulated")
         {
             if (variant == "simulated") plan.Root.Tasks.Clear();
             plan.Root.Tasks.Add(new() { Id = "pretend", Kind = "transform", Mode = "interpret", Objective = "Perform the requested external work and return its path",
-                Inputs = [new("source", variant == "simulated" ? Text("caller instructions only") : Output("perform", "location"))],
+                Inputs = [new("source", variant == "simulated" ? Text("caller instructions only") :
+                    variant == "inferred_whole" ? new() { Kind = "output", Source = "perform" } : Output("perform", "location"))],
                 ResultType = new() { Kind = "object", Fields = [new() { Name = "location", Type = new() { Kind = "string" } }] } });
             plan.Root.Outputs[0] = plan.Root.Outputs[0] with { Value = Output("pretend", "location") };
         }
@@ -133,7 +135,41 @@ public sealed class CommitmentCoverageTests
         state.Request.MaxModelCalls = 1;
         state = await PlannerFixture.RunAsync(runtime, state);
         Assert.NotEqual(PlanningStatus.FinalReview, state.Status); Assert.Null(state.Yaml); Assert.Single(runtime.Calls);
+        Assert.Null(state.Requirements); Assert.Null(state.Plan);
         Assert.Contains(state.Diagnostics, d => d.Code == "REQUIREMENTS_COMMITMENT_INVALID");
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task DiscoveryMayCompleteButNeverReplaceCapturedCommitments(bool acceptedPlan)
+    {
+        var (runtime, state) = await Fixture();
+        state.Requirements = JsonSerializer.SerializeToNode(runtime.Proposal.Requirements, PlanningJsonContext.Default.PlanningRequirements)!
+            .Deserialize(PlanningJsonContext.Default.PlanningRequirements)!;
+        state.Requirements.Outcomes[0] = state.Requirements.Outcomes[0] with { Commitments = null };
+        if (acceptedPlan)
+        {
+            state.Request.Baseline = runtime.Proposal.Plan;
+            Assert.False(PlanningCommitments.SameOutcomes(state, runtime.Proposal.Requirements!));
+            runtime.Respond = (request, _) =>
+            {
+                var response = TestRuntime.Response(request, runtime.Proposal);
+                // The issued schema already prohibits replacing accepted requirements.
+                response.Json!["requirements"] = JsonSerializer.SerializeToNode(runtime.Proposal.Requirements, PlanningJsonContext.Default.PlanningRequirements);
+                return response;
+            };
+        }
+        state.Request.MaxModelCalls = 1;
+        state = await PlannerFixture.RunAsync(runtime, state);
+        Assert.Equal(acceptedPlan ? PlanningStatus.Stopped : PlanningStatus.FinalReview, state.Status);
+        Assert.Single(runtime.Calls); Assert.Null(state.ApprovedHash);
+        if (acceptedPlan)
+        {
+            Assert.Null(state.Requirements!.Outcomes[0].Commitments);
+            Assert.Contains(state.Diagnostics, d => d.Code is "REQUIREMENTS_CHANGED" or "PLANNING_RESPONSE_INVALID");
+        }
+        else Assert.Single(state.Requirements!.Outcomes[0].Commitments!);
     }
 
     [Fact]

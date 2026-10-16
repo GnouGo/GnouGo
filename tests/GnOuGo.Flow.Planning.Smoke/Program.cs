@@ -31,6 +31,15 @@ var historicalNumber = JsonSerializer.Deserialize("""{"kind":"number","number":0
 if (JsonSerializer.SerializeToNode(historicalNumber, PlanningJsonContext.Default.TaskValue)!["number"]!.ToJsonString() != "0.1234567890123456789012345678")
     throw new InvalidOperationException("Historical numeric tokens changed during Native AOT serialization.");
 
+var committedIntent = new PlanningRequirements { Summary = "Retain contractual obligations", Outcomes =
+    [new("report", "Return the producer location") { Commitments = [new("inspected-operation") { Result = new("location", "filePath") }] }] };
+var committedJson = JsonSerializer.Serialize(committedIntent, PlanningJsonContext.Default.PlanningRequirements);
+var committedRoundtrip = JsonSerializer.Deserialize(committedJson, PlanningJsonContext.Default.PlanningRequirements)!;
+if (committedRoundtrip.Outcomes[0].Commitments?[0].Result?.Port != "location" ||
+    JsonSerializer.Serialize(new PlanningRequirement("legacy", "No added metadata"), PlanningJsonContext.Default.PlanningRequirement).Contains("commitments", StringComparison.Ordinal))
+    throw new InvalidOperationException("Commitment serialization must round-trip under Native AOT without changing omitted historical fields.");
+Console.WriteLine("intent v3 commitments: source-generated round-trip and historical omission");
+
 var checkedOutputDocument = WorkflowParser.Parse("""
     version: 1
     workflows:

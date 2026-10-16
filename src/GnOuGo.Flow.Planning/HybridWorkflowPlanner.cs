@@ -259,11 +259,12 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
             Reject("REQUIREMENTS_INPUTS_REQUIRED", "/requirements/inputs", "Declare the intended caller input interface before proposing a plan, or clarify it with the user.");
         if (state.Requirements is null && proposal.Requirements is { Outputs: null } && PlanningSchemas.DeclaresOutputs(issuedRequest.StructuredOutputSchema))
             Reject("REQUIREMENTS_OUTPUTS_REQUIRED", "/requirements/outputs", "Declare the intended business output names and types, or clarify them before accepting requirements. Empty means no public outputs.");
+        if (proposal.Plan is not null && (proposal.Requirements ?? state.Requirements) is { } obligations &&
+            PlanningCommitments.Validate(state, obligations, final: true) is { Count: > 0 } invalidCommitments)
+            throw new PlanningResponseException(invalidCommitments);
         if (state.IntentVersion == 3 && state.Requirements is { } captured && proposal.Requirements is { } completed && PlanningCommitments.CanComplete(state))
             captured.Outcomes = completed.Outcomes;
         state.Requirements ??= proposal.Requirements;
-        if (proposal.Plan is not null && state.Requirements is { } obligations && PlanningCommitments.Validate(state, obligations, final: true) is { Count: > 0 } invalidCommitments)
-            throw new PlanningResponseException(invalidCommitments);
         if (state.IntentVersion is 2 or 3 && state.Requirements is { Inputs: null } && proposal.Requirements?.Inputs is { } acceptedInputs) state.Requirements.Inputs = acceptedInputs;
         if (proposal.DiscoveryRequests is { } requests)
         {
@@ -399,6 +400,9 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
         if (PlanningClarifications.OutputFindings(state, graph) is { Count: > 0 } outputFindings)
         { state.Diagnostics = outputFindings; state.Graph = null; Stop(state); return; }
         var coverage = PlanningCommitments.Assess(state);
+        foreach (var result in coverage)
+            Activity.Current?.AddEvent(new("planning.coverage.checked", tags: new ActivityTagsCollection
+            { ["clause"] = result.Id, ["outcome"] = result.Outcome, ["diagnostics"] = string.Join(',', result.Diagnostics.Select(d => d.Code)) }));
         var violations = coverage.SelectMany(r => r.Diagnostics).Where(d => d.Required).ToList();
         if (violations.Count > 0)
         {

@@ -68,7 +68,7 @@ internal static class PlanningCommitments
         for (var i = 0; i < state.Requirements.Outcomes.Count; i++)
         {
             var requirement = state.Requirements.Outcomes[i];
-            var prefix = "coverage:" + requirement.Id;
+            var prefix = "coverage:" + Uri.EscapeDataString(requirement.Id);
             var commitments = requirement.Commitments ?? [];
             for (var j = 0; j < commitments.Count; j++)
             {
