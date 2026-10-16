@@ -59,6 +59,18 @@ Task, group and choice declarations share one case-sensitive namespace throughou
 
 `value` copies or assembles data; `transform` interprets named `inputs` using its `objective` and a declared `resultType`. Results must be nonempty closed objects with fully typed required fields, explicit nullable values, and no defaults or opaque types. The compiler emits fixed `template.render` prompt assembly and strict structured `llm.call`, using existing runtime configuration and budgets. The model never supplies templates, model settings or executor envelopes. Transform repairs edit diagnosed bindings or exact type slots without renaming business fields; replacing a `value` task requires explicit revision/regeneration.
 
+Fresh composition guidance distinguishes performing the requested work from
+generating its implementation as an artifact. For example, a requested review
+workflow performs inspection, checks, review, authorized feedback and cleanup;
+writing another workflow file is sufficient only when that file is the requested
+deliverable. This is generation guidance, not a tool-name heuristic or a ban on
+handwritten artifact-generation workflows. If accepted requirements already
+describe the wrong deliverable, correct them through an explicit requirement
+revision and review the resulting artifact; automatic correction cannot silently
+replace that accepted intent. The verbatim-description guidance applies when
+such descriptions are requested, rather than prescribing descriptions for every
+business domain.
+
 For large observations, declare a compact view for each consumer, using typed field selections or existing independent extraction. Avoid a shared superset containing all fields needed by later tasks. Keep full observations and exact action references in existing bindings; include a reference in interpretation only when that decision needs it. Explicit existing bindings and control flow reconnect decisions to the original action data; no runtime field removal is inferred from prose. Then bind global interpretation only to those results and necessary shared context. A complete bounded item can be a declared record; a whole page may be too large even for mapping examples. Preserve necessary source references, grouping, order and original completeness guards. Global comparisons and synthesis stay global; no runtime partitioning or automatic TaskPlan rewrite is performed. The review diagram shows transform mode, named input sources (including assembled bindings) and nested declared result fields. This makes broad collection bindings visible for review, without claiming that static validation proves semantic completeness. See [compaction correction and validation](../../docs/compact-interpretation-2026-10-05.md).
 
 ### Independent extraction declarations and producer repairs

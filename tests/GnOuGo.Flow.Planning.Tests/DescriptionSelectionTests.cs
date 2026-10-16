@@ -21,6 +21,8 @@ public sealed class DescriptionSelectionTests
         Assert.Equal(2, runtime.Calls.Count);
         foreach (var request in runtime.Calls)
         {
+            Assert.Contains("Execute the requested work; create code or another workflow only when that artifact is a requested deliverable", request.Prompt);
+            Assert.Contains("For requested verbatim descriptions:", request.Prompt);
             Assert.Contains("heading optional", request.Prompt);
             Assert.Contains("offered/original lookup", request.Prompt);
             Assert.Contains("Declared flags:", request.Prompt);
