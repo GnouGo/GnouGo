@@ -90,7 +90,14 @@ public sealed class RecordedProductPlanningTests(ITestOutputHelper output)
             var session = await Plan(factory, replay);
             Assert.True(session.Status == PlanningStatus.FinalReview, string.Join("; ", session.Diagnostics.Select(d => d.Code + ": " + d.Location + ": " + d.Message)));
             Assert.Equal(compact ? 2 : 0, replay.Calls); Assert.Equal(2, session.Discovery.Pages.Count);
-            if (compact) Assert.Equal(new[] { "browser", "document" }, factory.DiscoveryReads.Order(StringComparer.Ordinal));
+            if (compact)
+            {
+                Assert.Equal(new[] { "browser", "document" }, factory.DiscoveryReads.Order(StringComparer.Ordinal));
+                Assert.Equal(3, session.IntentVersion);
+                var coverage = session.ValidationResults.Where(r => r.Id.StartsWith("coverage:", StringComparison.Ordinal)).ToArray();
+                Assert.NotEmpty(coverage);
+                Assert.All(coverage, r => Assert.Equal("unverified", r.Outcome));
+            }
             Assert.Equal(0, factory.InvocationAttempts);
             PlanningArtifactApproval.Verify(session);
             var changed = JsonSerializer.Deserialize(JsonSerializer.Serialize(session, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
@@ -210,7 +217,10 @@ public sealed class RecordedProductPlanningTests(ITestOutputHelper output)
             {
                 Assert.Equal(RealProductContracts.Prompt, recording["prompt"]!.ToString());
                 Assert.Equal(32768, request.MaxTokens);
-                Assert.Equal(Calls == 0, request.StructuredOutputSchema!["properties"]!.AsObject().ContainsKey("requirements"));
+                // Neither synthetic request has accepted a TaskPlan yet. Fresh intent 3
+                // may complete commitments during discovery without changing the intent.
+                Assert.True(request.StructuredOutputSchema!["properties"]!.AsObject().ContainsKey("requirements"));
+                Assert.Contains("commitments", request.StructuredOutputSchema.ToJsonString(), StringComparison.Ordinal);
                 // The explicitly synthetic fixture uses today's wire representation;
                 // historical recordings below still use their original request schemas.
                 var proposal = responses[Calls++]!.Deserialize(PlanningJsonContext.Default.PlanningProposal)!;
