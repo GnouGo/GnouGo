@@ -1,0 +1,106 @@
+{
+  "artifacts": {
+    "product-after.json": {
+      "bytes": 40182,
+      "sha256": "f377c14f73c87a0d08e5f9d9d7e9019c2f4e27f15a94e67401922b82021e9836"
+    },
+    "product-after.yaml": {
+      "bytes": 187476,
+      "sha256": "c97660530e9cae1e78dbb6e3c1087ba2afe25e258e4d48983c4ee2aef36c1429"
+    },
+    "product-before.json": {
+      "bytes": 38737,
+      "sha256": "2c3717ec19679b9200692b25960b8f5624614dc3a78861b8ca1190dcf1b45865"
+    },
+    "product-before.yaml": {
+      "bytes": 186173,
+      "sha256": "4b8a9dcca53e4fe0443d5b15db3e092a61a48db10b79d4fd64b089a7fdd0ceec"
+    },
+    "product-coverage.json": {
+      "bytes": 10205,
+      "sha256": "1b9b4fcfa2d83e14c4a2cef0b0c3989a0563fa7632df5341f6b94561aa4de126"
+    },
+    "product-execution-complete.json": {
+      "bytes": 2248,
+      "sha256": "f0ca350b9b789b275206a224ed4af5c98b848ceb0ffdc99c25b3771f90cb958a"
+    },
+    "product-execution-denied.json": {
+      "bytes": 652,
+      "sha256": "ac1e30b87fa822d89cb510d521db135558d35ac56d40c61b57d427d8b60c0e4b"
+    },
+    "product-execution-empty.json": {
+      "bytes": 368,
+      "sha256": "f18aae0cad47804f2a66246a4b2ffeeb5d5b58c1b6fd17f58f50f0bfd3bbe6fc"
+    },
+    "product-execution-incomplete.json": {
+      "bytes": 271,
+      "sha256": "d497ad0da30867dfbffab9fbabf6e603d5334e20915243ddff8c742156f1821c"
+    },
+    "product-execution-missing.json": {
+      "bytes": 2165,
+      "sha256": "db5aa3da7268e1fd6254a78b757835b9967a7cd17b158eb1f00e704387603164"
+    },
+    "product-execution-redirected.json": {
+      "bytes": 2388,
+      "sha256": "b00f10b23dd62a479a4f3f55d6ab2a5579628730ef021d49d680fc456b7be41e"
+    },
+    "product-execution-repeated.json": {
+      "bytes": 2248,
+      "sha256": "7402316b7265c1723127f7b3689c67b056822d44d8e826dadd145077f0654243"
+    },
+    "product-execution-unoffered.json": {
+      "bytes": 291,
+      "sha256": "4f79453e5faa9bed63bc1ce7b0e27d96b433fce7b0496b2c25422e8082554dcc"
+    },
+    "review-after.json": {
+      "bytes": 15889,
+      "sha256": "4159f189c3886cbbf890a5159fa241062664d8f3f024e7d4f474c4315d1963f7"
+    },
+    "review-after.yaml": {
+      "bytes": 24025,
+      "sha256": "a849d312f44231c00ffa5d332461e91f699bb3a2c67b409632511f1e53f2bfef"
+    },
+    "review-approve.json": {
+      "bytes": 20538,
+      "sha256": "139d3716a881ba1b216a07470f1ff51f2c55dd2dcc06be07405823ab36047f76"
+    },
+    "review-before.json": {
+      "bytes": 31625,
+      "sha256": "33e35332c946a6c9ad55073cbfbd543baf764f0722d296542311f12a06cc6277"
+    },
+    "review-before.yaml": {
+      "bytes": 30534,
+      "sha256": "dfd305e69e28b66da2a97d65e9919e0b150465b929eddebfa027f26eba837085"
+    },
+    "review-denied.json": {
+      "bytes": 20390,
+      "sha256": "4e0b18f6517a1aec0a84bccfde9ee200a9722a4c607e8e56b09ab2bd24df13e6"
+    },
+    "review-failed_checks.json": {
+      "bytes": 20538,
+      "sha256": "139d3716a881ba1b216a07470f1ff51f2c55dd2dcc06be07405823ab36047f76"
+    },
+    "review-findings.json": {
+      "bytes": 20580,
+      "sha256": "7405004937c03b916c4cd5e111596b7df91e52946c02cffd2a2753264f1266d8"
+    },
+    "review-incomplete.json": {
+      "bytes": 20493,
+      "sha256": "daefa9fea9cca95c0e5b2cb0671e3a7423f266d4a55d8d72db1acd52a160e726"
+    },
+    "review-post_failure.json": {
+      "bytes": 20520,
+      "sha256": "ce457a1db92f20455470bda71a14d3bfb0187b80d89d9d4c5c2bf60484079bb5"
+    },
+    "review-unknown.json": {
+      "bytes": 20504,
+      "sha256": "8dcc69b5a56df25cbc779a51de523c62f957e0d98d74942c77dddba59ac914ee"
+    }
+  },
+  "compilerProfile": "compact-bindings-v15",
+  "intentVersion": 3,
+  "paidProviderCalls": 0,
+  "paidCost": 0,
+  "estimatedCost": null,
+  "pricingBasis": null
+}

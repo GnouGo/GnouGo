@@ -1,0 +1,16 @@
+{
+  "success": false,
+  "localVisits": [
+    "/search"
+  ],
+  "cells": null,
+  "cleanupVerified": true,
+  "exactFixtureOracle": true,
+  "unchangedLiveOracle": null,
+  "deterministicRuntimeCalls": 1,
+  "providerCalls": 0,
+  "paidCost": 0,
+  "requestBytes": [
+    888
+  ]
+}

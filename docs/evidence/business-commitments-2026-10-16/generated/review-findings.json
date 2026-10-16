@@ -1,0 +1,402 @@
+{
+  "before": [
+    {
+      "id": "coverage:github_review_posted:0:operation",
+      "outcome": "violation",
+      "description": "github_review_posted: cap_7a8089f49774e1d79d5725a9 \u2014 No reachable task invokes the committed operation. Transforms and uncalled groups do not perform it.",
+      "diagnostics": [
+        {
+          "code": "REQUIREMENT_OPERATION_MISSING",
+          "location": "/requirements/outcomes/0/commitments/0",
+          "message": "Committed operation \u0027cap_7a8089f49774e1d79d5725a9\u0027 has no reachable invocation. Add only this inspected operation; preserve existing work.",
+          "required": true,
+          "validationStage": null,
+          "rule": "cap_7a8089f49774e1d79d5725a9"
+        }
+      ]
+    },
+    {
+      "id": "coverage:github_review_posted:1:operation",
+      "outcome": "violation",
+      "description": "github_review_posted: cap_112d9f587753b36a3f7b88cf \u2014 No reachable task invokes the committed operation. Transforms and uncalled groups do not perform it.",
+      "diagnostics": [
+        {
+          "code": "REQUIREMENT_OPERATION_MISSING",
+          "location": "/requirements/outcomes/0/commitments/1",
+          "message": "Committed operation \u0027cap_112d9f587753b36a3f7b88cf\u0027 has no reachable invocation. Add only this inspected operation; preserve existing work.",
+          "required": true,
+          "validationStage": null,
+          "rule": "cap_112d9f587753b36a3f7b88cf"
+        }
+      ]
+    },
+    {
+      "id": "coverage:github_review_posted:1:result",
+      "outcome": "violation",
+      "description": "github_review_posted: cap_112d9f587753b36a3f7b88cf \u2014 Public output \u0027githubReviewUrl\u0027 must retain producer \u0027cap_112d9f587753b36a3f7b88cf.url\u0027 at /root/outputs/githubReviewUrl. The binding is disconnected or manufactures a producer-owned result.",
+      "diagnostics": [
+        {
+          "code": "REQUIREMENT_RESULT_DISCONNECTED",
+          "location": "/root/outputs/githubReviewUrl",
+          "message": "Public output \u0027githubReviewUrl\u0027 must derive from committed operation \u0027cap_112d9f587753b36a3f7b88cf\u0027, port \u0027url\u0027. Literal or inferred replacements do not establish producer ownership.",
+          "required": true,
+          "validationStage": null,
+          "rule": "cap_112d9f587753b36a3f7b88cf"
+        }
+      ]
+    },
+    {
+      "id": "coverage:github_review_posted:2:operation",
+      "outcome": "violation",
+      "description": "github_review_posted: cap_112d9f587753b36a3f7b88cf \u2014 No reachable task invokes the committed operation. Transforms and uncalled groups do not perform it.",
+      "diagnostics": [
+        {
+          "code": "REQUIREMENT_OPERATION_MISSING",
+          "location": "/requirements/outcomes/0/commitments/2",
+          "message": "Committed operation \u0027cap_112d9f587753b36a3f7b88cf\u0027 has no reachable invocation. Add only this inspected operation; preserve existing work.",
+          "required": true,
+          "validationStage": null,
+          "rule": "cap_112d9f587753b36a3f7b88cf"
+        }
+      ]
+    },
+    {
+      "id": "coverage:github_review_posted:2:result",
+      "outcome": "violation",
+      "description": "github_review_posted: cap_112d9f587753b36a3f7b88cf \u2014 Public output \u0027decision\u0027 must retain producer \u0027cap_112d9f587753b36a3f7b88cf.decision\u0027 at /root/outputs/decision. The binding is disconnected or manufactures a producer-owned result.",
+      "diagnostics": [
+        {
+          "code": "REQUIREMENT_RESULT_DISCONNECTED",
+          "location": "/root/outputs/decision",
+          "message": "Public output \u0027decision\u0027 must derive from committed operation \u0027cap_112d9f587753b36a3f7b88cf\u0027, port \u0027decision\u0027. Literal or inferred replacements do not establish producer ownership.",
+          "required": true,
+          "validationStage": null,
+          "rule": "cap_112d9f587753b36a3f7b88cf"
+        }
+      ]
+    },
+    {
+      "id": "coverage:github_review_posted:limits",
+      "outcome": "unverified",
+      "description": "github_review_posted: Verified clauses do not prove the complete prose requirement, correct arguments, per-item execution, relevant extraction or successful effects. Human acknowledgment is not verification or execution evidence.",
+      "diagnostics": []
+    },
+    {
+      "id": "coverage:checks_executed:0:operation",
+      "outcome": "violation",
+      "description": "checks_executed: cap_61963d4c7acb78f3178054c5 \u2014 No reachable task invokes the committed operation. Transforms and uncalled groups do not perform it.",
+      "diagnostics": [
+        {
+          "code": "REQUIREMENT_OPERATION_MISSING",
+          "location": "/requirements/outcomes/1/commitments/0",
+          "message": "Committed operation \u0027cap_61963d4c7acb78f3178054c5\u0027 has no reachable invocation. Add only this inspected operation; preserve existing work.",
+          "required": true,
+          "validationStage": null,
+          "rule": "cap_61963d4c7acb78f3178054c5"
+        }
+      ]
+    },
+    {
+      "id": "coverage:checks_executed:limits",
+      "outcome": "unverified",
+      "description": "checks_executed: Verified clauses do not prove the complete prose requirement, correct arguments, per-item execution, relevant extraction or successful effects. Human acknowledgment is not verification or execution evidence.",
+      "diagnostics": []
+    },
+    {
+      "id": "coverage:single_clone_cleaned:0:operation",
+      "outcome": "violation",
+      "description": "single_clone_cleaned: cap_624c99724b659aa2977742ea \u2014 No reachable task invokes the committed operation. Transforms and uncalled groups do not perform it.",
+      "diagnostics": [
+        {
+          "code": "REQUIREMENT_OPERATION_MISSING",
+          "location": "/requirements/outcomes/2/commitments/0",
+          "message": "Committed operation \u0027cap_624c99724b659aa2977742ea\u0027 has no reachable invocation. Add only this inspected operation; preserve existing work.",
+          "required": true,
+          "validationStage": null,
+          "rule": "cap_624c99724b659aa2977742ea"
+        }
+      ]
+    },
+    {
+      "id": "coverage:single_clone_cleaned:1:operation",
+      "outcome": "violation",
+      "description": "single_clone_cleaned: cap_05d5310d9bc4441ee2acf5e3 \u2014 No reachable task invokes the committed operation. Transforms and uncalled groups do not perform it.",
+      "diagnostics": [
+        {
+          "code": "REQUIREMENT_OPERATION_MISSING",
+          "location": "/requirements/outcomes/2/commitments/1",
+          "message": "Committed operation \u0027cap_05d5310d9bc4441ee2acf5e3\u0027 has no reachable invocation. Add only this inspected operation; preserve existing work.",
+          "required": true,
+          "validationStage": null,
+          "rule": "cap_05d5310d9bc4441ee2acf5e3"
+        }
+      ]
+    },
+    {
+      "id": "coverage:single_clone_cleaned:1:result",
+      "outcome": "violation",
+      "description": "single_clone_cleaned: cap_05d5310d9bc4441ee2acf5e3 \u2014 Public output \u0027cleanupStatus\u0027 must retain producer \u0027cap_05d5310d9bc4441ee2acf5e3.status\u0027 at /root/outputs/cleanupStatus. The binding is disconnected or manufactures a producer-owned result.",
+      "diagnostics": [
+        {
+          "code": "REQUIREMENT_RESULT_DISCONNECTED",
+          "location": "/root/outputs/cleanupStatus",
+          "message": "Public output \u0027cleanupStatus\u0027 must derive from committed operation \u0027cap_05d5310d9bc4441ee2acf5e3\u0027, port \u0027status\u0027. Literal or inferred replacements do not establish producer ownership.",
+          "required": true,
+          "validationStage": null,
+          "rule": "cap_05d5310d9bc4441ee2acf5e3"
+        }
+      ]
+    },
+    {
+      "id": "coverage:single_clone_cleaned:limits",
+      "outcome": "unverified",
+      "description": "single_clone_cleaned: Verified clauses do not prove the complete prose requirement, correct arguments, per-item execution, relevant extraction or successful effects. Human acknowledgment is not verification or execution evidence.",
+      "diagnostics": []
+    },
+    {
+      "id": "coverage:summary_returned:0:operation",
+      "outcome": "violation",
+      "description": "summary_returned: cap_112d9f587753b36a3f7b88cf \u2014 No reachable task invokes the committed operation. Transforms and uncalled groups do not perform it.",
+      "diagnostics": [
+        {
+          "code": "REQUIREMENT_OPERATION_MISSING",
+          "location": "/requirements/outcomes/3/commitments/0",
+          "message": "Committed operation \u0027cap_112d9f587753b36a3f7b88cf\u0027 has no reachable invocation. Add only this inspected operation; preserve existing work.",
+          "required": true,
+          "validationStage": null,
+          "rule": "cap_112d9f587753b36a3f7b88cf"
+        }
+      ]
+    },
+    {
+      "id": "coverage:summary_returned:0:result",
+      "outcome": "violation",
+      "description": "summary_returned: cap_112d9f587753b36a3f7b88cf \u2014 Public output \u0027summary\u0027 must retain producer \u0027cap_112d9f587753b36a3f7b88cf.summary\u0027 at /root/outputs/summary. The binding is disconnected or manufactures a producer-owned result.",
+      "diagnostics": [
+        {
+          "code": "REQUIREMENT_RESULT_DISCONNECTED",
+          "location": "/root/outputs/summary",
+          "message": "Public output \u0027summary\u0027 must derive from committed operation \u0027cap_112d9f587753b36a3f7b88cf\u0027, port \u0027summary\u0027. Literal or inferred replacements do not establish producer ownership.",
+          "required": true,
+          "validationStage": null,
+          "rule": "cap_112d9f587753b36a3f7b88cf"
+        }
+      ]
+    },
+    {
+      "id": "coverage:summary_returned:1:operation",
+      "outcome": "violation",
+      "description": "summary_returned: cap_ca71767ce0a68981ca67d885 \u2014 No reachable task invokes the committed operation. Transforms and uncalled groups do not perform it.",
+      "diagnostics": [
+        {
+          "code": "REQUIREMENT_OPERATION_MISSING",
+          "location": "/requirements/outcomes/3/commitments/1",
+          "message": "Committed operation \u0027cap_ca71767ce0a68981ca67d885\u0027 has no reachable invocation. Add only this inspected operation; preserve existing work.",
+          "required": true,
+          "validationStage": null,
+          "rule": "cap_ca71767ce0a68981ca67d885"
+        }
+      ]
+    },
+    {
+      "id": "coverage:summary_returned:1:result",
+      "outcome": "violation",
+      "description": "summary_returned: cap_ca71767ce0a68981ca67d885 \u2014 Public output \u0027pullRequestState\u0027 must retain producer \u0027cap_ca71767ce0a68981ca67d885.state\u0027 at /root/outputs/pullRequestState. The binding is disconnected or manufactures a producer-owned result.",
+      "diagnostics": [
+        {
+          "code": "REQUIREMENT_RESULT_DISCONNECTED",
+          "location": "/root/outputs/pullRequestState",
+          "message": "Public output \u0027pullRequestState\u0027 must derive from committed operation \u0027cap_ca71767ce0a68981ca67d885\u0027, port \u0027state\u0027. Literal or inferred replacements do not establish producer ownership.",
+          "required": true,
+          "validationStage": null,
+          "rule": "cap_ca71767ce0a68981ca67d885"
+        }
+      ]
+    },
+    {
+      "id": "coverage:summary_returned:2:operation",
+      "outcome": "violation",
+      "description": "summary_returned: cap_efb858edde6bfdc14b5ec476 \u2014 No reachable task invokes the committed operation. Transforms and uncalled groups do not perform it.",
+      "diagnostics": [
+        {
+          "code": "REQUIREMENT_OPERATION_MISSING",
+          "location": "/requirements/outcomes/3/commitments/2",
+          "message": "Committed operation \u0027cap_efb858edde6bfdc14b5ec476\u0027 has no reachable invocation. Add only this inspected operation; preserve existing work.",
+          "required": true,
+          "validationStage": null,
+          "rule": "cap_efb858edde6bfdc14b5ec476"
+        }
+      ]
+    },
+    {
+      "id": "coverage:summary_returned:2:result",
+      "outcome": "violation",
+      "description": "summary_returned: cap_efb858edde6bfdc14b5ec476 \u2014 Public output \u0027reportPath\u0027 must retain producer \u0027cap_efb858edde6bfdc14b5ec476.path\u0027 at /root/outputs/reportPath. The binding is disconnected or manufactures a producer-owned result.",
+      "diagnostics": [
+        {
+          "code": "REQUIREMENT_RESULT_DISCONNECTED",
+          "location": "/root/outputs/reportPath",
+          "message": "Public output \u0027reportPath\u0027 must derive from committed operation \u0027cap_efb858edde6bfdc14b5ec476\u0027, port \u0027path\u0027. Literal or inferred replacements do not establish producer ownership.",
+          "required": true,
+          "validationStage": null,
+          "rule": "cap_efb858edde6bfdc14b5ec476"
+        }
+      ]
+    },
+    {
+      "id": "coverage:summary_returned:limits",
+      "outcome": "unverified",
+      "description": "summary_returned: Verified clauses do not prove the complete prose requirement, correct arguments, per-item execution, relevant extraction or successful effects. Human acknowledgment is not verification or execution evidence.",
+      "diagnostics": []
+    }
+  ],
+  "after": [
+    {
+      "id": "coverage:github_review_posted:0:operation",
+      "outcome": "verified",
+      "description": "github_review_posted: cap_7a8089f49774e1d79d5725a9 \u2014 Declared invocation at /tasks/begin; presence only, execution unobserved.",
+      "diagnostics": []
+    },
+    {
+      "id": "coverage:github_review_posted:1:operation",
+      "outcome": "verified",
+      "description": "github_review_posted: cap_112d9f587753b36a3f7b88cf \u2014 Declared invocation at /tasks/submit; presence only, execution unobserved.",
+      "diagnostics": []
+    },
+    {
+      "id": "coverage:github_review_posted:1:result",
+      "outcome": "verified",
+      "description": "github_review_posted: cap_112d9f587753b36a3f7b88cf \u2014 Public output \u0027githubReviewUrl\u0027 must retain producer \u0027cap_112d9f587753b36a3f7b88cf.url\u0027 at /root/outputs/githubReviewUrl. Supported direct data lineage established; result content and execution remain unobserved.",
+      "diagnostics": []
+    },
+    {
+      "id": "coverage:github_review_posted:2:operation",
+      "outcome": "verified",
+      "description": "github_review_posted: cap_112d9f587753b36a3f7b88cf \u2014 Declared invocation at /tasks/submit; presence only, execution unobserved.",
+      "diagnostics": []
+    },
+    {
+      "id": "coverage:github_review_posted:2:result",
+      "outcome": "verified",
+      "description": "github_review_posted: cap_112d9f587753b36a3f7b88cf \u2014 Public output \u0027decision\u0027 must retain producer \u0027cap_112d9f587753b36a3f7b88cf.decision\u0027 at /root/outputs/decision. Supported direct data lineage established; result content and execution remain unobserved.",
+      "diagnostics": []
+    },
+    {
+      "id": "coverage:github_review_posted:limits",
+      "outcome": "unverified",
+      "description": "github_review_posted: Verified clauses do not prove the complete prose requirement, correct arguments, per-item execution, relevant extraction or successful effects. Human acknowledgment is not verification or execution evidence.",
+      "diagnostics": []
+    },
+    {
+      "id": "coverage:checks_executed:0:operation",
+      "outcome": "verified",
+      "description": "checks_executed: cap_61963d4c7acb78f3178054c5 \u2014 Declared invocation at /tasks/checks; presence only, execution unobserved.",
+      "diagnostics": []
+    },
+    {
+      "id": "coverage:checks_executed:limits",
+      "outcome": "unverified",
+      "description": "checks_executed: Verified clauses do not prove the complete prose requirement, correct arguments, per-item execution, relevant extraction or successful effects. Human acknowledgment is not verification or execution evidence.",
+      "diagnostics": []
+    },
+    {
+      "id": "coverage:single_clone_cleaned:0:operation",
+      "outcome": "verified",
+      "description": "single_clone_cleaned: cap_624c99724b659aa2977742ea \u2014 Declared invocation at /tasks/clone; presence only, execution unobserved.",
+      "diagnostics": []
+    },
+    {
+      "id": "coverage:single_clone_cleaned:1:operation",
+      "outcome": "unverified",
+      "description": "single_clone_cleaned: cap_05d5310d9bc4441ee2acf5e3 \u2014 Declared invocation at /tasks/cleanup; conditional, repeated or potentially empty execution is not established.",
+      "diagnostics": []
+    },
+    {
+      "id": "coverage:single_clone_cleaned:1:result",
+      "outcome": "unverified",
+      "description": "single_clone_cleaned: cap_05d5310d9bc4441ee2acf5e3 \u2014 Public output \u0027cleanupStatus\u0027 must retain producer \u0027cap_05d5310d9bc4441ee2acf5e3.status\u0027 at /root/outputs/cleanupStatus. Ambiguous or unsupported lineage cannot establish this obligation.",
+      "diagnostics": []
+    },
+    {
+      "id": "coverage:single_clone_cleaned:limits",
+      "outcome": "unverified",
+      "description": "single_clone_cleaned: Verified clauses do not prove the complete prose requirement, correct arguments, per-item execution, relevant extraction or successful effects. Human acknowledgment is not verification or execution evidence.",
+      "diagnostics": []
+    },
+    {
+      "id": "coverage:summary_returned:0:operation",
+      "outcome": "verified",
+      "description": "summary_returned: cap_112d9f587753b36a3f7b88cf \u2014 Declared invocation at /tasks/submit; presence only, execution unobserved.",
+      "diagnostics": []
+    },
+    {
+      "id": "coverage:summary_returned:0:result",
+      "outcome": "verified",
+      "description": "summary_returned: cap_112d9f587753b36a3f7b88cf \u2014 Public output \u0027summary\u0027 must retain producer \u0027cap_112d9f587753b36a3f7b88cf.summary\u0027 at /root/outputs/summary. Supported direct data lineage established; result content and execution remain unobserved.",
+      "diagnostics": []
+    },
+    {
+      "id": "coverage:summary_returned:1:operation",
+      "outcome": "verified",
+      "description": "summary_returned: cap_ca71767ce0a68981ca67d885 \u2014 Declared invocation at /tasks/inspect; presence only, execution unobserved.",
+      "diagnostics": []
+    },
+    {
+      "id": "coverage:summary_returned:1:result",
+      "outcome": "verified",
+      "description": "summary_returned: cap_ca71767ce0a68981ca67d885 \u2014 Public output \u0027pullRequestState\u0027 must retain producer \u0027cap_ca71767ce0a68981ca67d885.state\u0027 at /root/outputs/pullRequestState. Supported direct data lineage established; result content and execution remain unobserved.",
+      "diagnostics": []
+    },
+    {
+      "id": "coverage:summary_returned:2:operation",
+      "outcome": "verified",
+      "description": "summary_returned: cap_efb858edde6bfdc14b5ec476 \u2014 Declared invocation at /tasks/report; presence only, execution unobserved.",
+      "diagnostics": []
+    },
+    {
+      "id": "coverage:summary_returned:2:result",
+      "outcome": "verified",
+      "description": "summary_returned: cap_efb858edde6bfdc14b5ec476 \u2014 Public output \u0027reportPath\u0027 must retain producer \u0027cap_efb858edde6bfdc14b5ec476.path\u0027 at /root/outputs/reportPath. Supported direct data lineage established; result content and execution remain unobserved.",
+      "diagnostics": []
+    },
+    {
+      "id": "coverage:summary_returned:limits",
+      "outcome": "unverified",
+      "description": "summary_returned: Verified clauses do not prove the complete prose requirement, correct arguments, per-item execution, relevant extraction or successful effects. Human acknowledgment is not verification or execution evidence.",
+      "diagnostics": []
+    }
+  ],
+  "explicitRevisionCalls": 1,
+  "automaticCorrections": 0,
+  "providerCalls": 0,
+  "paidCost": 0,
+  "requestEstimatedTokens": 17462,
+  "requestSerializedBytes": 71390,
+  "success": true,
+  "effects": [
+    "parse_change",
+    "inspect",
+    "clone",
+    "checks",
+    "review",
+    "begin",
+    "inline",
+    "global",
+    "inline",
+    "submit",
+    "write_report",
+    "cleanup"
+  ],
+  "cloneCount": 1,
+  "checks": [
+    "install",
+    "lint",
+    "unit",
+    "integration"
+  ],
+  "cleanupCount": 1,
+  "exactFeedbackAndReportVerified": true,
+  "repeatedEffectsAfterRecovery": 0,
+  "uncertainReplayProhibited": false,
+  "estimatedCost": null
+}

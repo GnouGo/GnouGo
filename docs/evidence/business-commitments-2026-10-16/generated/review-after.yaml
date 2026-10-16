@@ -1,0 +1,783 @@
+version: 1
+name: "generated"
+entrypoint: "main"
+workflows:
+  main:
+    inputs:
+      pullRequestUrl:
+        type: "string"
+        required: true
+      reviewInstructions:
+        type: "string"
+        required: true
+      name:
+        type: "string"
+        nullable: true
+        required: true
+    steps:
+    - id: "n_641ecab72d75c707"
+      type: "mcp.call"
+      description: "parse the requested change"
+      input:
+        request:
+          url: "${data.inputs.pullRequestUrl}"
+        preserve_optional_nulls: true
+        server: "local-review"
+        method: "parse_change"
+        kind: "tool"
+    - id: "n_2c03c57a0a2f58f1"
+      type: "mcp.call"
+      description: "inspect the requested change"
+      input:
+        request:
+          url: "${data.steps.n_641ecab72d75c707.response.url}"
+        preserve_optional_nulls: true
+        server: "local-review"
+        method: "inspect"
+        kind: "tool"
+    - id: "n_995d0ea4269a0c49"
+      type: "set"
+      description: "Required condition: clone the requested change"
+      input: |-
+        ${
+        {
+          value: data.steps.n_2c03c57a0a2f58f1.response.open
+        }
+        }
+      output_schema:
+        type: "object"
+        properties:
+          value: {type: "boolean", enum: [true]}
+        required: ["value"]
+        additionalProperties: false
+      expression_contracts:
+        '': {}
+    - id: "n_cf677205cab06b18"
+      type: "mcp.call"
+      description: "clone the requested change"
+      input:
+        request:
+          source: "${data.steps.n_2c03c57a0a2f58f1.response.source}"
+        preserve_optional_nulls: true
+        server: "local-review"
+        method: "clone"
+        kind: "tool"
+    - id: "n_b18f74d95774ce55"
+      type: "mcp.call"
+      description: "checks the requested change"
+      input:
+        request:
+          path: "${data.steps.n_cf677205cab06b18.response.path}"
+        preserve_optional_nulls: true
+        server: "local-review"
+        method: "checks"
+        kind: "tool"
+    - id: "n_7e47bdae45211b33"
+      type: "mcp.call"
+      description: "review the requested change"
+      input:
+        request:
+          path: "${data.steps.n_cf677205cab06b18.response.path}"
+          instructions: "${data.inputs.reviewInstructions}"
+          checks: "${data.steps.n_b18f74d95774ce55.response.passed}"
+        preserve_optional_nulls: true
+        server: "local-review"
+        method: "review"
+        kind: "tool"
+    - id: "n_773a49411de7a78a"
+      type: "set"
+      description: "Required condition: begin the requested change"
+      input: |-
+        ${
+        {
+          value: data.steps.n_7e47bdae45211b33.response.complete
+        }
+        }
+      output_schema:
+        type: "object"
+        properties:
+          value: {type: "boolean", enum: [true]}
+        required: ["value"]
+        additionalProperties: false
+      expression_contracts:
+        '': {}
+    - id: "n_cb0c8cbf202a9df8"
+      type: "mcp.call"
+      description: "begin the requested change"
+      input:
+        request:
+          url: "${data.inputs.pullRequestUrl}"
+        preserve_optional_nulls: true
+        server: "local-review"
+        method: "begin"
+        kind: "tool"
+    - id: "n_a594fb240020aad3"
+      type: "workflow.call"
+      description: "Post each exact finding once per occurrence"
+      input:
+        ref:
+          kind: "local"
+          name: "w_b9b2becf8d73391b"
+        args: |-
+          ${
+          (() => {
+            const findings = data.steps.n_7e47bdae45211b33.response.findings;
+            return {
+              __items: findings,
+              task_38773d6f648f51ab36fa18cd: data.steps.n_cb0c8cbf202a9df8.response.id
+            };
+          })()
+          }
+      expression_contracts:
+        /args:
+          findings:
+            origin: "task_26febf536f6f26ec56f23cbf"
+            schema:
+              type: "array"
+              items:
+                type: "object"
+                properties:
+                  key: {type: "string"}
+                  text: {type: "string"}
+                  line: {type: ["integer", "null"]}
+                required: ["key", "text", "line"]
+                additionalProperties: false
+              maxItems: 10
+            order: 0
+            source: "findings"
+            instance_path: "/value"
+    - id: "n_550612f435f959bf"
+      type: "mcp.call"
+      description: "submit the requested change"
+      input:
+        request: |-
+          ${
+          (() => {
+            const eventSelection = ((data.steps.n_b18f74d95774ce55.response.passed && data.steps.n_7e47bdae45211b33.response.approvable))
+            ? (() => {
+              const approvable1SelectedValueInputs = {
+              };
+              const approvable1SelectedValueResult1 = {
+              };
+              const event_1_0 = "APPROVE";
+              const approvable1SelectedValue = {
+                event: event_1_0
+              };
+              return {
+                event: approvable1SelectedValue.event
+              };
+            })()
+            : (() => {
+              const approvable1SelectedValue2Inputs = {
+              };
+              const approvable1SelectedValue2Result1 = {
+              };
+              const event_1_1 = "REQUEST_CHANGES";
+              const approvable1SelectedValue_2 = {
+                event: event_1_1
+              };
+              return {
+                event: approvable1SelectedValue_2.event
+              };
+            })();
+            const event = (eventSelection).event;
+            return {
+              review: data.steps.n_cb0c8cbf202a9df8.response.id,
+              event,
+              summary: data.steps.n_7e47bdae45211b33.response.summary
+            };
+          })()
+          }
+        preserve_optional_nulls: true
+        server: "local-review"
+        method: "submit"
+        kind: "tool"
+      expression_contracts:
+        /request:
+          eventSelection:
+            origin: "task_3734c8df8d1cfa812b028ebc"
+            schema: {type: "object"}
+            order: 0
+            source: "eventSelection"
+            object_only: true
+            scope: "block0"
+          event:
+            origin: "task_18fd8c6a63fba5da7fb17799"
+            schema:
+              anyOf:
+              - {type: "string", const: "APPROVE"}
+              - {type: "string", const: "REQUEST_CHANGES"}
+            order: 1
+            source: "event"
+            instance_path: "/value"
+            scope: "block0"
+          event_2:
+            origin: "task_5fd2874a38fa82d04e953130"
+            schema:
+              anyOf:
+              - {type: "string", const: "APPROVE"}
+              - {type: "string", const: "REQUEST_CHANGES"}
+            order: 2
+            source: "event"
+            instance_path: "/event"
+            scope: "block0"
+          approvable1SelectedValueInputs:
+            source: "approvable1SelectedValueInputs"
+            order: 0
+            origin: "task_00195cc64f6d740c4ee02133/inputs"
+            schema:
+              type: "object"
+              properties: {}
+              required: []
+            scope: "block1"
+          approvable1SelectedValueResult1:
+            source: "approvable1SelectedValueResult1"
+            order: 1
+            origin: "task_173f5fd6646f1f3b70504e37"
+            schema: {type: "object"}
+            scope: "block1"
+          event_1_0:
+            source: "event_1_0"
+            order: 2
+            origin: "task_7113ae89183a438853498585/outputs/event"
+            schema: {type: "string", const: "APPROVE"}
+            scope: "block1"
+          approvable1SelectedValue:
+            origin: "task_00195cc64f6d740c4ee02133"
+            source: "approvable1SelectedValue"
+            order: 3
+            schema: {type: "object"}
+            object_only: true
+            scope: "block1"
+          approvable1SelectedValue2Inputs:
+            source: "approvable1SelectedValue2Inputs"
+            order: 0
+            origin: "task_6e939ac49022cc5641be9777/inputs"
+            schema:
+              type: "object"
+              properties: {}
+              required: []
+            scope: "block2"
+          approvable1SelectedValue2Result1:
+            source: "approvable1SelectedValue2Result1"
+            order: 1
+            origin: "task_09670c51863fa0b1764707d7"
+            schema: {type: "object"}
+            scope: "block2"
+          event_1_1:
+            source: "event_1_1"
+            order: 2
+            origin: "task_4398554e02114c9fa2cd9f67/outputs/event"
+            schema: {type: "string", const: "REQUEST_CHANGES"}
+            scope: "block2"
+          approvable1SelectedValue_2:
+            origin: "task_6e939ac49022cc5641be9777"
+            source: "approvable1SelectedValue_2"
+            order: 3
+            schema: {type: "object"}
+            object_only: true
+            scope: "block2"
+    - id: "n_4fc84199c67936da"
+      type: "mcp.call"
+      description: "report the requested change"
+      input:
+        request:
+          summary: "${data.steps.n_550612f435f959bf.response.summary}"
+          decision: "${data.steps.n_550612f435f959bf.response.decision}"
+          reviewUrl: "${data.steps.n_550612f435f959bf.response.url}"
+          name: "${data.inputs.name}"
+        preserve_optional_nulls: true
+        server: "local-review"
+        method: "write_report"
+        kind: "tool"
+    finally:
+    - id: "n_e50c87b33309332f"
+      type: "switch"
+      description: "Select the declared branch"
+      expr: "${data.steps.n_cf677205cab06b18 != null}"
+      cases:
+      - steps:
+        - id: "n_b6c82a8912e70179"
+          type: "set"
+          description: "Assemble declared values"
+          input:
+            value: "${data.steps.n_cf677205cab06b18.response}"
+          if: "${data.steps.n_cf677205cab06b18 != null}"
+          output_schema:
+            type: "object"
+            properties:
+              value:
+                type: "object"
+                properties:
+                  path: {type: "string"}
+                required: ["path"]
+                additionalProperties: false
+            required: ["value"]
+            additionalProperties: false
+        value: "true"
+      default:
+      - id: "n_b2b19ce477cd2d00"
+        type: "set"
+        description: "Assemble declared values"
+        input: {}
+        output_schema:
+          type: "object"
+          properties: {}
+          required: []
+          additionalProperties: false
+    - id: "n_dc13271e1101c90f"
+      type: "switch"
+      description: "Release the successfully acquired clone after known completion"
+      expr: "${data.steps.n_cf677205cab06b18 != null}"
+      cases:
+      - steps:
+        - id: "n_432f9efa90691cf8"
+          type: "workflow.call"
+          description: "Execute scoped workflow"
+          input:
+            ref:
+              kind: "local"
+              name: "w_03e89c61526862f1"
+            args:
+              task_4cfc507890b17b8f2025985e: |-
+                ${
+                (result => m.scalar(result) || typeof result !== "object" || Array.isArray(result)
+                ? result
+                : Object.fromEntries(Object.entries(result).map(entry => entry[0] === "n_b6c82a8912e70179"
+                ? ["task_06a8755e65f9b992cba5a233", entry[1]]
+                : entry[0] === "n_b2b19ce477cd2d00"
+                ? ["task_8bbaad4f569fcad8d29ac324", entry[1]]
+                : entry)))(data.steps.n_e50c87b33309332f)
+                }
+          if: "${data.steps.n_e50c87b33309332f != null}"
+          expression_contracts:
+            /args/task_4cfc507890b17b8f2025985e: {}
+        value: "true"
+      default:
+      - id: "n_95d53fb4482952e9"
+        type: "workflow.call"
+        description: "Execute scoped workflow"
+        input:
+          ref:
+            kind: "local"
+            name: "w_1069082e838dc5eb"
+          args: {}
+    - id: "n_4643be22827494cd"
+      type: "set"
+      description: "Select and validate declared values"
+      input: |-
+        ${
+        {
+          value: m.select(data.steps.n_dc13271e1101c90f, [["n_432f9efa90691cf8", "outputs", "status"], ["n_95d53fb4482952e9", "outputs", "status"]], false)
+        }
+        }
+      if: "${data.steps.n_dc13271e1101c90f != null}"
+      output_schema:
+        type: "object"
+        properties:
+          value:
+            anyOf:
+            - {type: "string", enum: ["cleaned"]}
+            - {type: "string", const: "nothing_to_clean"}
+        required: ["value"]
+        additionalProperties: false
+      expression_contracts:
+        '': {}
+    - id: "n_39787dfb5cf5c024"
+      type: "set"
+      description: "Assemble declared values"
+      input:
+        status: "${data.steps.n_4643be22827494cd.value}"
+      if: "${data.steps.n_4643be22827494cd != null}"
+      output_schema:
+        type: "object"
+        properties:
+          status:
+            anyOf:
+            - {type: "string", enum: ["cleaned"]}
+            - {type: "string", const: "nothing_to_clean"}
+        required: ["status"]
+        additionalProperties: false
+    outputs:
+      summary:
+        type: "string"
+        expr: "${data.steps.n_550612f435f959bf.response.summary}"
+      decision:
+        type: "string"
+        enum:
+        - "ACCEPT"
+        - "REFUSE"
+        expr: "${data.steps.n_550612f435f959bf.response.decision}"
+      pullRequestState:
+        type: "string"
+        expr: "${data.steps.n_2c03c57a0a2f58f1.response.state}"
+      githubReviewUrl:
+        type: "string"
+        expr: "${data.steps.n_550612f435f959bf.response.url}"
+      reportPath:
+        type: "string"
+        expr: "${data.steps.n_4fc84199c67936da.response.path}"
+      cleanupStatus:
+        type: "any"
+        nullable: false
+        schema:
+          anyOf:
+          - {type: "string", enum: ["cleaned"]}
+          - {type: "string", const: "nothing_to_clean"}
+        expr: "${data.steps.n_39787dfb5cf5c024.status}"
+  w_b9b2becf8d73391b:
+    inputs:
+      __items:
+        type: "array"
+        schema:
+          type: "array"
+          items:
+            type: "object"
+            properties:
+              key: {type: "string"}
+              text: {type: "string"}
+              line: {type: ["integer", "null"]}
+            required: ["key", "text", "line"]
+            additionalProperties: false
+          maxItems: 10
+        required: true
+      task_38773d6f648f51ab36fa18cd:
+        type: "string"
+        required: true
+    steps:
+    - id: "n_77262a4ad9e1fdaa"
+      type: "loop.sequential"
+      description: "Post each exact finding once per occurrence"
+      input:
+        times: "${data.inputs.__items.length}"
+      item_var: "item"
+      index_var: "index"
+      steps:
+      - id: "n_0093fc279aeaedec"
+        type: "workflow.call"
+        description: "Execute scoped workflow"
+        input:
+          ref:
+            kind: "local"
+            name: "w_00f1d30f33ac27d5"
+          args:
+            task_4c61cbac0e00e1e9bdfe6a04: "${data.inputs.__items[data.index]}"
+            task_38773d6f648f51ab36fa18cd: "${data.inputs.task_38773d6f648f51ab36fa18cd}"
+    - id: "n_6300fdd02ca0a3ef"
+      type: "set"
+      description: "Assemble declared values"
+      input: {}
+      output_schema:
+        type: "object"
+        properties: {}
+        required: []
+        additionalProperties: false
+  w_00f1d30f33ac27d5:
+    inputs:
+      task_4c61cbac0e00e1e9bdfe6a04:
+        type: "object"
+        properties:
+          key:
+            type: "string"
+          text:
+            type: "string"
+          line:
+            type: "integer"
+            nullable: true
+        required_properties:
+        - "key"
+        - "text"
+        - "line"
+        required: true
+      task_38773d6f648f51ab36fa18cd:
+        type: "string"
+        required: true
+    steps:
+    - id: "n_376e22f89dd8dfdd"
+      type: "switch"
+      description: "Post inline when a location is available, otherwise globally"
+      expr: |-
+        ${
+        (() => {
+          const line = (data.inputs.task_4c61cbac0e00e1e9bdfe6a04).line;
+          return line !== null;
+        })()
+        }
+      cases:
+      - steps:
+        - id: "n_b634504904ae4a0d"
+          type: "workflow.call"
+          description: "Execute scoped workflow"
+          input:
+            ref:
+              kind: "local"
+              name: "w_9383d17bdfba16cc"
+            args:
+              task_38773d6f648f51ab36fa18cd: "${data.inputs.task_38773d6f648f51ab36fa18cd}"
+              task_4c61cbac0e00e1e9bdfe6a04: "${data.inputs.task_4c61cbac0e00e1e9bdfe6a04}"
+        value: "true"
+      default:
+      - id: "n_1af14e39e398a0cb"
+        type: "workflow.call"
+        description: "Execute scoped workflow"
+        input:
+          ref:
+            kind: "local"
+            name: "w_1afef3a960559100"
+          args:
+            task_38773d6f648f51ab36fa18cd: "${data.inputs.task_38773d6f648f51ab36fa18cd}"
+            task_4c61cbac0e00e1e9bdfe6a04: "${data.inputs.task_4c61cbac0e00e1e9bdfe6a04}"
+      control_contracts:
+        /expr:
+          line:
+            origin: "task_c994339678e5abca936d9497"
+            schema: {type: ["integer", "null"]}
+            order: 0
+            source: "line"
+            instance_path: "/value"
+    - id: "n_852f37c016887e64"
+      type: "set"
+      description: "Assemble declared values"
+      input: {}
+      output_schema:
+        type: "object"
+        properties: {}
+        required: []
+        additionalProperties: false
+  w_9383d17bdfba16cc:
+    inputs:
+      task_38773d6f648f51ab36fa18cd:
+        type: "string"
+        required: true
+      task_4c61cbac0e00e1e9bdfe6a04:
+        type: "object"
+        properties:
+          key:
+            type: "string"
+          text:
+            type: "string"
+          line:
+            type: "integer"
+            nullable: true
+        required_properties:
+        - "key"
+        - "text"
+        - "line"
+        required: true
+    steps:
+    - id: "n_862b817bdbc79339"
+      type: "mcp.call"
+      description: "inline the requested change"
+      input:
+        request: |-
+          ${
+          (() => {
+            const key = (data.inputs.task_4c61cbac0e00e1e9bdfe6a04).key;
+            const text = (data.inputs.task_4c61cbac0e00e1e9bdfe6a04).text;
+            const line = (data.inputs.task_4c61cbac0e00e1e9bdfe6a04).line;
+            return {
+              review: data.inputs.task_38773d6f648f51ab36fa18cd,
+              key,
+              text,
+              line
+            };
+          })()
+          }
+        preserve_optional_nulls: true
+        server: "local-review"
+        method: "inline"
+        kind: "tool"
+      expression_contracts:
+        /request:
+          key:
+            origin: "task_ea3d6dd003491a1d6b05b5c5"
+            schema: {type: "string"}
+            order: 0
+            source: "key"
+            instance_path: "/value"
+          text:
+            origin: "task_9ea01e793fbcb5da82ff511d"
+            schema: {type: "string"}
+            order: 1
+            source: "text"
+            instance_path: "/value"
+          line:
+            origin: "task_26e325dd52f8f97da8469441"
+            schema: {type: ["integer", "null"]}
+            order: 2
+            source: "line"
+            instance_path: "/value"
+          observedValue:
+            origin: "task_2d010c1ab577c6c6e96b049c"
+            schema: {type: "integer"}
+            order: 3
+            source: "line"
+            instance_path: "/value"
+  w_1afef3a960559100:
+    inputs:
+      task_38773d6f648f51ab36fa18cd:
+        type: "string"
+        required: true
+      task_4c61cbac0e00e1e9bdfe6a04:
+        type: "object"
+        properties:
+          key:
+            type: "string"
+          text:
+            type: "string"
+          line:
+            type: "integer"
+            nullable: true
+        required_properties:
+        - "key"
+        - "text"
+        - "line"
+        required: true
+    steps:
+    - id: "n_85b5f1b1a445ac33"
+      type: "mcp.call"
+      description: "global the requested change"
+      input:
+        request: |-
+          ${
+          (() => {
+            const key = (data.inputs.task_4c61cbac0e00e1e9bdfe6a04).key;
+            const text = (data.inputs.task_4c61cbac0e00e1e9bdfe6a04).text;
+            return {
+              review: data.inputs.task_38773d6f648f51ab36fa18cd,
+              key,
+              text
+            };
+          })()
+          }
+        preserve_optional_nulls: true
+        server: "local-review"
+        method: "global"
+        kind: "tool"
+      expression_contracts:
+        /request:
+          key:
+            origin: "task_d0875601f51832ba1671357d"
+            schema: {type: "string"}
+            order: 0
+            source: "key"
+            instance_path: "/value"
+          text:
+            origin: "task_c418ee1637888bf490c6c86c"
+            schema: {type: "string"}
+            order: 1
+            source: "text"
+            instance_path: "/value"
+  w_03e89c61526862f1:
+    inputs:
+      task_4cfc507890b17b8f2025985e:
+        type: "any"
+        nullable: false
+        schema:
+          anyOf:
+          - type: "object"
+            properties:
+              task_06a8755e65f9b992cba5a233:
+                type: "object"
+                properties:
+                  value:
+                    type: "object"
+                    properties:
+                      path: {type: "string"}
+                    required: ["path"]
+                    additionalProperties: false
+                required: ["value"]
+                additionalProperties: false
+            required: []
+          - type: "object"
+            properties:
+              task_8bbaad4f569fcad8d29ac324:
+                type: "object"
+                properties: {}
+                required: []
+                additionalProperties: false
+            required: ["task_8bbaad4f569fcad8d29ac324"]
+        required: true
+    steps:
+    - id: "n_1ac8c85859f44ec8"
+      type: "mcp.call"
+      description: "cleanup the requested change"
+      input:
+        request:
+          path: |-
+            ${
+            (() => {
+              const path = (data.inputs.task_4cfc507890b17b8f2025985e).task_06a8755e65f9b992cba5a233.value.path;
+              return path;
+            })()
+            }
+        preserve_optional_nulls: true
+        server: "local-review"
+        method: "cleanup"
+        kind: "tool"
+      expression_contracts:
+        /request/path:
+          path:
+            origin: "task_2a52547aeacd6e885b1181fc"
+            schema: {type: "string"}
+            order: 0
+            source: "path"
+            instance_path: "/value"
+    outputs:
+      status:
+        type: "string"
+        enum:
+        - "cleaned"
+        expr: "${data.steps.n_1ac8c85859f44ec8.response.status}"
+  w_1069082e838dc5eb:
+    steps:
+    - id: "n_268e183f189d71f3"
+      type: "set"
+      description: "Assemble declared values"
+      input: {}
+    outputs:
+      status:
+        type: "string"
+        schema: {type: "string", const: "nothing_to_clean"}
+        expr: "${\"nothing_to_clean\"}"
+skill:
+  description: ""
+  inputs:
+    pullRequestUrl:
+      type: "string"
+      required: true
+    reviewInstructions:
+      type: "string"
+      required: true
+    name:
+      type: "string"
+      nullable: true
+      required: true
+  outputs:
+    summary:
+      type: "string"
+      expr: "${data.steps.n_550612f435f959bf.response.summary}"
+    decision:
+      type: "string"
+      enum:
+      - "ACCEPT"
+      - "REFUSE"
+      expr: "${data.steps.n_550612f435f959bf.response.decision}"
+    pullRequestState:
+      type: "string"
+      expr: "${data.steps.n_2c03c57a0a2f58f1.response.state}"
+    githubReviewUrl:
+      type: "string"
+      expr: "${data.steps.n_550612f435f959bf.response.url}"
+    reportPath:
+      type: "string"
+      expr: "${data.steps.n_4fc84199c67936da.response.path}"
+    cleanupStatus:
+      type: "any"
+      nullable: false
+      schema:
+        anyOf:
+        - {type: "string", enum: ["cleaned"]}
+        - {type: "string", const: "nothing_to_clean"}
+      expr: "${data.steps.n_39787dfb5cf5c024.status}"
+...
