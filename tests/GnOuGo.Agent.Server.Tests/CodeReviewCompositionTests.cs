@@ -18,7 +18,7 @@ namespace GnOuGo.Agent.Server.Tests;
 // Disposable composition, not a modification of a saved agent. Tool contracts are
 // deterministic fixture contracts, not evidence that the operator enabled remote
 // review, command execution or GitHub permissions in the retained host.
-public sealed class CodeReviewCompositionTests(ITestOutputHelper output)
+public sealed partial class CodeReviewCompositionTests(ITestOutputHelper output)
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
@@ -238,7 +238,7 @@ public sealed class CodeReviewCompositionTests(ITestOutputHelper output)
         internal readonly List<JsonObject> Posted = [];
         internal int CloneCount, CleanupCount;
         internal string? SubmittedEvent;
-        internal Execution(string variant)
+        internal Execution(string variant, bool report = false)
         {
             Directory.CreateDirectory(Source); Repository.Init(Source);
             File.WriteAllText(Path.Combine(Source, "readme.txt"), "original source\n");
@@ -271,7 +271,8 @@ public sealed class CodeReviewCompositionTests(ITestOutputHelper output)
                 };
             }
             Tool("write_blueprint", Obj(("instructions", new())), Obj(("path", new())), _ => throw new InvalidOperationException("Artifact generation is not review execution."));
-            Tool("inspect", Obj(("url", new())), Obj(("source", new()), ("open", Bool())), a => { Assert.Equal(ChangeUrl, a["url"]!.ToString()); return new() { ["source"] = Source, ["open"] = true }; });
+            Tool("inspect", Obj(("url", new())), report ? Obj(("source", new()), ("open", Bool()), ("state", new())) : Obj(("source", new()), ("open", Bool())), a =>
+            { Assert.Equal(ChangeUrl, a["url"]!.ToString()); var result = new JsonObject { ["source"] = Source, ["open"] = true }; if (report) result["state"] = "open"; return result; });
             Tool("clone", Obj(("source", new())), Obj(("path", new())), a =>
             {
                 Assert.Equal(Source, a["source"]!.ToString());
@@ -314,9 +315,27 @@ public sealed class CodeReviewCompositionTests(ITestOutputHelper output)
                     return new() { ["id"] = "posted:" + Posted.Count };
                 });
             }
-            Tool("submit", Obj(("review", new()), ("event", new()), ("summary", new())), Obj(("event", new()), ("summary", new())), a =>
-            { Assert.Equal("review:original", a["review"]!.ToString()); SubmittedEvent = a["event"]!.ToString(); return new() { ["event"] = a["event"]!.DeepClone(), ["summary"] = a["summary"]!.DeepClone() }; });
-            Tool("cleanup", Obj(("path", new())), Obj(), a => { AssertClone(a); CleanupCount++; Delete(Target); return new(); });
+            var submitted = Obj(("event", new()), ("summary", new()));
+            if (report) submitted.Fields.AddRange([new() { Name = "decision", Type = new() { Enum = ["ACCEPT", "REFUSE"] } }, new() { Name = "url" }]);
+            Tool("submit", Obj(("review", new()), ("event", new()), ("summary", new())), submitted, a =>
+            {
+                Assert.Equal("review:original", a["review"]!.ToString()); SubmittedEvent = a["event"]!.ToString();
+                var result = new JsonObject { ["event"] = a["event"]!.DeepClone(), ["summary"] = a["summary"]!.DeepClone() };
+                if (report) { result["decision"] = SubmittedEvent == "APPROVE" ? "ACCEPT" : "REFUSE"; result["url"] = ChangeUrl + "&review=original"; }
+                return result;
+            });
+            Tool("cleanup", Obj(("path", new())), report ? Obj(("status", new() { Enum = ["cleaned"] })) : Obj(), a =>
+            { AssertClone(a); CleanupCount++; Delete(Target); return report ? new() { ["status"] = "cleaned" } : new(); });
+            if (report)
+            {
+                Tool("parse_change", Obj(("url", new())), Obj(("url", new())), a =>
+                { var url = a["url"]!.GetValue<string>(); Assert.True(Uri.TryCreate(url, UriKind.Absolute, out var parsed)); Assert.Equal("https", parsed.Scheme); return new() { ["url"] = url }; });
+                Tool("write_report", Obj(("summary", new()), ("decision", new()), ("reviewUrl", new()), ("name", new() { Nullable = true })), Obj(("path", new())), a =>
+                {
+                    Assert.Equal(Summary, a["summary"]!.ToString()); Assert.Equal(ChangeUrl + "&review=original", a["reviewUrl"]!.ToString());
+                    var path = Path.Combine(Root, "report.json"); File.WriteAllText(path, a.ToJsonString()); return new() { ["path"] = path };
+                });
+            }
             Factory.RegisterServer("local-review", config);
         }
         private static void Delete(string path)
