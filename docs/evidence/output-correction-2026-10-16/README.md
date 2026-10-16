@@ -118,5 +118,12 @@ seven calls and zero repairs, with request estimates
 `[9617, 21221, 21591, 21410, 21329, 21543, 23953]`. The generated disposable v15 YAML
 is byte-identical after the wording correction.
 
+The subsequent full host run exposed one additional assertion of the old
+introductory sentence in the local `union_initial` Browser/Document scenario.
+That assertion now checks the replacement execution/artifact guidance; all
+remaining request-budget, visit, workbook and recovery assertions are unchanged.
+The failed attempt is retained, and complete validation is rerun after this
+test-only correction.
+
 Full solution, package/AOT/recovery and final candidate CI results are reported in
 [PR #117's validation report](https://github.com/GnouGo/GnouGo/pull/117#issuecomment-6210037000).
