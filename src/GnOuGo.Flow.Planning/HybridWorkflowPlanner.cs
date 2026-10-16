@@ -46,7 +46,7 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
         if (command.Kind is "configure_generation" or "revise" && PlanningModelCalls.RemainingCalls(session) == 0)
             throw new PlanningConflictException("The session model-call budget is exhausted. Token settings and revisions cannot extend it. Start a new planning session; retained requests and accounting remain unchanged.");
         var state = JsonSerializer.Deserialize(JsonSerializer.Serialize(session, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
-        if (!state.RequiresPlanningRevision) state.IntentVersion = 2;
+        if (!state.RequiresPlanningRevision && state.IntentVersion is null) state.IntentVersion = 3;
         if (state.Revision == 0 && state.PendingCall is null && state.Plan is null)
         {
             state.Request.Options["compilation_profile"] = TaskPlanCompiler.CompactProfile;
@@ -78,13 +78,13 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
                     var reviewed = command.ReviewedRequirementIds ?? [];
                     if (reviewed.Count != requirements.Count || reviewed.Distinct(StringComparer.Ordinal).Count() != reviewed.Count ||
                         !reviewed.ToHashSet(StringComparer.Ordinal).SetEquals(requirements.Select(r => r.Id)))
-                        throw new PlanningConflictException("REQUIREMENTS_REVIEW_REQUIRED: Review every accepted requirement against the actual tasks, iterations and data sources. Missing or uncertain coverage requires revision.");
+                        throw new PlanningConflictException("REQUIREMENTS_REVIEW_REQUIRED: Review every accepted requirement against the actual tasks, iterations and data sources. Confirmed violations require revision; explicitly acknowledged uncertainty remains unverified.");
                     state.Diagnostics = (await runtime.ValidateCatalogAsync(state.Catalog!, deadline.Token)).ToList();
                     if (state.Diagnostics.Any(d => d.Required)) Stop(state);
                     else
                     {
                         state.ValidationResults.AddRange(requirements.Select(r => new PlanningValidationResult("requirement:" + r.Id,
-                            "human_reviewed", r.Description + " — explicitly reviewed against this artifact; execution has not been observed.", [])));
+                            "human_reviewed", r.Description + " — explicitly reviewed against this artifact; unverified coverage remains unverified and execution has not been observed.", [])));
                         state.ApprovedHash = command.ArtifactHash; state.Status = PlanningStatus.Approved;
                     }
                     break;
@@ -117,7 +117,7 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
                 case "revise":
                     if (state.PendingCall is not null) throw new PlanningConflictException("Reconcile the pending model request before revising.");
                     ArgumentException.ThrowIfNullOrWhiteSpace(command.Text);
-                    if (command.PreserveRequirements == true && (state.IntentVersion != 2 || state.Requirements is null ||
+                    if (command.PreserveRequirements == true && (state.IntentVersion is not (2 or 3) || state.Requirements is null ||
                         command.ArtifactHash != state.ComputeArtifactHash()))
                         throw new PlanningConflictException("A correction must retain current accepted requirements and identify the exact artifact, when present.");
                     if (command.EditablePaths is not null) TaskPlanRevisions.ValidateEditablePaths(state, command.EditablePaths);
@@ -254,13 +254,17 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
             state.Status = PlanningStatus.Clarification; return;
         }
         ValidateRequirements(state, proposal);
-        if (proposal.Plan is not null && state.IntentVersion == 2 &&
+        if (proposal.Plan is not null && state.IntentVersion is 2 or 3 &&
             (state.Requirements?.Inputs ?? proposal.Requirements?.Inputs) is null)
             Reject("REQUIREMENTS_INPUTS_REQUIRED", "/requirements/inputs", "Declare the intended caller input interface before proposing a plan, or clarify it with the user.");
         if (state.Requirements is null && proposal.Requirements is { Outputs: null } && PlanningSchemas.DeclaresOutputs(issuedRequest.StructuredOutputSchema))
             Reject("REQUIREMENTS_OUTPUTS_REQUIRED", "/requirements/outputs", "Declare the intended business output names and types, or clarify them before accepting requirements. Empty means no public outputs.");
+        if (state.IntentVersion == 3 && state.Requirements is { } captured && proposal.Requirements is { } completed && PlanningCommitments.CanComplete(state))
+            captured.Outcomes = completed.Outcomes;
         state.Requirements ??= proposal.Requirements;
-        if (state.IntentVersion == 2 && state.Requirements is { Inputs: null } && proposal.Requirements?.Inputs is { } acceptedInputs) state.Requirements.Inputs = acceptedInputs;
+        if (proposal.Plan is not null && state.Requirements is { } obligations && PlanningCommitments.Validate(state, obligations, final: true) is { Count: > 0 } invalidCommitments)
+            throw new PlanningResponseException(invalidCommitments);
+        if (state.IntentVersion is 2 or 3 && state.Requirements is { Inputs: null } && proposal.Requirements?.Inputs is { } acceptedInputs) state.Requirements.Inputs = acceptedInputs;
         if (proposal.DiscoveryRequests is { } requests)
         {
             if (requests.Count is < 1 or > 4 || requests.Distinct().Count() != requests.Count)
@@ -394,6 +398,15 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
         var graph = compilation.Graph!;
         if (PlanningClarifications.OutputFindings(state, graph) is { Count: > 0 } outputFindings)
         { state.Diagnostics = outputFindings; state.Graph = null; Stop(state); return; }
+        var coverage = PlanningCommitments.Assess(state);
+        var violations = coverage.SelectMany(r => r.Diagnostics).Where(d => d.Required).ToList();
+        if (violations.Count > 0)
+        {
+            SemanticFailure(state, violations);
+            Stop(state); // Only the captured correction policy authorizes repairing new coverage obligations.
+            state.ValidationResults = coverage;
+            return;
+        }
         var findings = PlanningGeneratedGraph.Validate(graph, state.Catalog!, TaskPlanCompiler.UsesCompactBindings(state.Request)).Select(compilation.Locate).ToList();
         if (findings.Count > 0)
         {
@@ -417,6 +430,7 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
                 state.Discovery.Limitations = state.Discovery.Limitations.Distinct(StringComparer.Ordinal).ToList();
                 state.Diagnostics.Clear(); state.ValidationResults = [new("static", "passed", "Business bindings, contracts and control flow validated. External execution has not been observed.", [])];
                 state.ValidationResults.AddRange(PlanningReviewFormatter.Operations(state));
+                state.ValidationResults.AddRange(coverage);
                 state.Status = PlanningStatus.FinalReview; state.Phase = PlanningPhase.Review; return;
             }
         }
@@ -466,11 +480,13 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
             if (!outcomeIds.Add(outcome.Id))
                 Reject("REQUIREMENTS_INVALID", $"/requirements/outcomes/{i}/id", "This business outcome identifier is duplicated; use distinct identifiers.");
         }
-        if (state.Requirements is { } accepted && (accepted.Summary != requirements!.Summary || !accepted.Outcomes.OrderBy(o => o.Id, StringComparer.Ordinal)
-                .SequenceEqual(requirements.Outcomes.OrderBy(o => o.Id, StringComparer.Ordinal)) ||
+        if (state.Requirements is { } accepted && (accepted.Summary != requirements!.Summary || !(state.IntentVersion == 3 ? PlanningCommitments.SameOutcomes(state, requirements) : accepted.Outcomes.OrderBy(o => o.Id, StringComparer.Ordinal)
+                .SequenceEqual(requirements.Outcomes.OrderBy(o => o.Id, StringComparer.Ordinal))) ||
                 accepted.Inputs is not null && !PlanningClarifications.SameInputs(accepted.Inputs, requirements.Inputs) ||
                 accepted.Outputs is not null && !PlanningClarifications.SameInputs(accepted.Outputs, requirements.Outputs)))
             Reject("REQUIREMENTS_CHANGED", "/requirements", "Preserve accepted requirements. Only an explicit user revision may change their scope.");
+        if (PlanningCommitments.Validate(state, requirements, final: false) is { Count: > 0 } invalidCommitments)
+            throw new PlanningResponseException(invalidCommitments);
         if (requirements?.Outputs is { } outputs)
         {
             if (outputs.Any(o => string.IsNullOrWhiteSpace(o.Name) || o.Default is not null) || outputs.Select(o => o.Name).Distinct(StringComparer.Ordinal).Count() != outputs.Count)

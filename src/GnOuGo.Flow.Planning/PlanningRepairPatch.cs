@@ -301,7 +301,7 @@ internal static class PlanningRepairPatch
     {
         var repair = RequestContext(request)["repair"];
         var version = repair?["version"]?.GetValue<int>();
-        if (state.IntentVersion == 2 && version is 8 or 9 or 10)
+        if (state.IntentVersion is 2 or 3 && version is 8 or 9 or 10)
         {
             if (state.EditablePaths is not null)
             {
@@ -311,7 +311,7 @@ internal static class PlanningRepairPatch
             }
             if (repair!["authority"]?.ToString() == Authority(state, version: version.Value)) return true;
         }
-        if (state.IntentVersion == 2 && version == 7 && state.EditablePaths is null)
+        if (state.IntentVersion is 2 or 3 && version == 7 && state.EditablePaths is null)
         {
             if (repair!["authority"]?.ToString() == Authority(state, version: 7)) return true;
             // Already-issued version-7 requests keep their original schemas and authority.

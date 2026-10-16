@@ -216,7 +216,7 @@
         .Where(d => d.Code == "REVISION_REQUIRED" && !string.IsNullOrWhiteSpace(d.Location) && d.Location != "/")
         .GroupBy(d => d.Location, StringComparer.Ordinal);
     private bool CanTargetRevision => !_busy && !IsWorkflowSession && !IsCallBudgetExhausted &&
-        _state is { IntentVersion: 2, RequiresPlanningRevision: false, Plan: not null, Catalog: not null,
+        _state is { IntentVersion: 2 or 3, RequiresPlanningRevision: false, Plan: not null, Catalog: not null,
             Requirements: not null, PendingCall: null, PendingQuestions: null,
             Status: PlanningStatus.Stopped or PlanningStatus.FinalReview or PlanningStatus.Approved } &&
         _requestInspection?.State != "active";

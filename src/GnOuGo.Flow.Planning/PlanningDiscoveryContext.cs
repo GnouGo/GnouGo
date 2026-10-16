@@ -65,6 +65,8 @@ internal static class PlanningDiscoveryContext
     {
         var plan = state.Plan ?? state.Request.Baseline;
         var used = plan is null ? [] : TaskPlanRevisions.Tasks(plan).Select(t => t.Operation).ToHashSet(StringComparer.Ordinal);
+        if (state.IntentVersion == 3)
+            used.UnionWith((state.Requirements?.Outcomes ?? []).SelectMany(r => r.Commitments ?? []).Select(c => c.Operation));
         var operations = state.Catalog!.Capabilities.Concat(state.Discovery.Resolved).DistinctBy(c => (c.Id, c.Version))
             .Where(c => plan is not null || state.Catalog.AllowedStepTypes.Contains(c.StepType) && !state.Catalog.Policy.DeniedCapabilityIds.Contains(c.Id))
             .Where(c => c.Kind == "registered" || used.Contains(TaskOperations.Describe(c).Id) || plan is null && state.Catalog.Capabilities.Contains(c))

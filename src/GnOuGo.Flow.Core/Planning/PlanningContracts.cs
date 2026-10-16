@@ -89,7 +89,7 @@ public sealed class PlanningSession
             ["options"] = Request.Options.DeepClone(),
             ["diagnostics"] = JsonSerializer.SerializeToNode(Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic)
         };
-        if (IntentVersion == 2) artifact["intentVersion"] = IntentVersion;
+        if (IntentVersion is 2 or 3) artifact["intentVersion"] = IntentVersion;
         // Absent annotations preserve byte-for-byte historical approval identities.
         if (OutcomeVersion is not null)
         {
@@ -100,7 +100,7 @@ public sealed class PlanningSession
     }
 
     [JsonIgnore]
-    public bool RequiresPlanningRevision => IntentVersion != 2 &&
+    public bool RequiresPlanningRevision => IntentVersion is not (2 or 3) &&
         (IntentVersion is not null || OutcomeVersion is not null || Requirements is not null || Plan is not null || PendingCall is not null || ModelCalls > 0) ||
         Diagnostics.Any(d => d.Code == "TASK_CONDITIONAL_REQUIREMENT");
 
@@ -229,6 +229,9 @@ public sealed class PlanningConflictException(string message) : InvalidOperation
 [JsonSerializable(typeof(PlanningOperation))]
 [JsonSerializable(typeof(PlanningSession))]
 [JsonSerializable(typeof(PlanningRequirements))]
+[JsonSerializable(typeof(PlanningRequirement))]
+[JsonSerializable(typeof(PlanningCommitment))]
+[JsonSerializable(typeof(PlanningCommittedResult))]
 [JsonSerializable(typeof(CapabilityDiscoveryState))]
 [JsonSerializable(typeof(CapabilityPage))]
 [JsonSerializable(typeof(CapabilitySummary))]

@@ -117,7 +117,7 @@ internal static class PlanningClarifications
         if (!preserveRequirements) state.Requirements = null;
         state.Request.Options["compilation_profile"] = TaskPlanCompiler.CompactProfile;
         state.Request.Options["mapping_profile"] = TaskPlanCompiler.AdaptiveMappingProfile;
-        state.IntentVersion = 2; state.OutcomeVersion = null; state.OutcomeBindings = null;
+        if (state.IntentVersion is not (2 or 3)) state.IntentVersion = 3; state.OutcomeVersion = null; state.OutcomeBindings = null;
         state.EditablePaths = editablePaths?.Order(StringComparer.Ordinal).ToList();
         if (editablePaths is null) state.Plan = null;
         state.Graph = null; state.PendingQuestions = null;

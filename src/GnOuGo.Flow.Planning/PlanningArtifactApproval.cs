@@ -11,8 +11,11 @@ public static class PlanningArtifactApproval
             state.Yaml is null || state.PendingCall is not null || state.Diagnostics.Any(d => d.Required) ||
             state.Requirements.Outcomes.Count == 0 || state.Plan.Choices.Any(c => c.Selected is null) || state.PendingQuestions is not null ||
             PlanningClarifications.InputFindings(state).Count > 0 ||
-            state.IntentVersion != 2 && (state.ApprovedHash is null || state.ApprovedHash != state.ComputeArtifactHash()))
+            state.IntentVersion is not (2 or 3) && (state.ApprovedHash is null || state.ApprovedHash != state.ComputeArtifactHash()))
             throw new PlanningConflictException("Approval requires a complete format-10 TaskPlan. Regenerate incompatible planning sessions; execution journals remain schema 9.");
+        if (PlanningCommitments.Validate(state, state.Requirements, final: true).Count > 0 ||
+            PlanningCommitments.Assess(state).Any(r => r.Diagnostics.Any(d => d.Required)))
+            throw new PlanningConflictException("Approval cannot accept a violated business commitment. Recomputed coverage disagrees with the required operations or producer results.");
         var compilation = new TaskPlanCompiler().Compile(state.Plan, state.Catalog, state.Request);
         if (compilation.Graph is not { } graph || compilation.Diagnostics.Count > 0 || PlanningClarifications.OutputFindings(state, graph).Count > 0 || PlanningGeneratedGraph.Validate(graph, state.Catalog, TaskPlanCompiler.UsesCompactBindings(state.Request)).Any(d => d.Required))
             throw new PlanningConflictException("The saved TaskPlan no longer compiles to an approvable artifact.");

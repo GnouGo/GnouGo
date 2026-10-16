@@ -1,0 +1,22 @@
+{
+  "baseline": "21983fdbae9332441a1b39a4af1407eb1b7aa9bf",
+  "scope": "Offline retained fixtures; commitments will be explicit reviewed test obligations, not inferred historical intent.",
+  "fixtures": [
+    {
+      "path": "docs/evidence/useful-clarifications-2026-10-16/retained-proposal.json",
+      "sha256": "684925551859627db1e40a3d58cdbf94096bc524f7685fa8fc3f03760108bfb8"
+    },
+    {
+      "path": "docs/evidence/useful-clarifications-2026-10-16/corrected-proposal.json",
+      "sha256": "affee15fdd94cc23f9a52b751d3ecc3932aa753e487ce2b7dc5d2389b4c2ccab"
+    },
+    {
+      "path": "docs/evidence/generated-guards-2026-10-14/generic/retained-proposal.json",
+      "sha256": "58415e6225d6c64a95cd7d3a75acaf136733289dc767966dc65e9de18ebaf2e2"
+    },
+    {
+      "path": "docs/evidence/generated-guards-2026-10-14/generic/corrected-proposal.json",
+      "sha256": "144afac059929eddea6f7b604d7a4499dbb1a87f9830932e49ae7a33063f41c4"
+    }
+  ]
+}

@@ -48,7 +48,10 @@ public sealed class PlanningRequirements
 
 public sealed record PlanningRequirement(string Id, string Description)
 {
-    /// <summary>Version 3 review evidence: an inspected operation determines the external effect.</summary>
+    /// <summary>Intent-version 3 contractual obligations; omission is unverified, never inferred from tasks.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public List<PlanningCommitment>? Commitments { get; init; }
+    /// <summary>Historical outcome evidence; not emitted by fresh proposal schemas.</summary>
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public string? Operation { get; init; }
     /// <summary>Data production or an authoritative operation effect. Null retains historical intent.</summary>
@@ -63,6 +66,16 @@ public sealed record PlanningRequirement(string Id, string Description)
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public string? Coverage { get; init; }
 }
+
+/// <summary>A required inspected operation, optionally owning a public result. No scheduling or task proof.</summary>
+public sealed record PlanningCommitment(string Operation)
+{
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public PlanningCommittedResult? Result { get; init; }
+}
+
+/// <summary>Exact declared operation port and accepted public output name, not inferred by type similarity.</summary>
+public sealed record PlanningCommittedResult(string Port, string Output);
 
 /// <summary>Review annotations referencing the TaskPlan, never another executable representation.</summary>
 public sealed record PlanningOutcomeBinding(string OutcomeId, List<string> TaskIds, List<string> Outputs)

@@ -39,7 +39,7 @@ public sealed class SimplifiedIntentTests
         await Assert.ThrowsAsync<PlanningConflictException>(() => new HybridWorkflowPlanner().AdvanceAsync(state,
             new() { Kind = "approve", ExpectedRevision = state.Revision, ArtifactHash = hash }, runtime, PlannerFixture.Ct));
         var revised = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { Kind = "revise", ExpectedRevision = state.Revision, Text = "Keep the greeting" }, runtime, PlannerFixture.Ct);
-        Assert.Equal(2, revised.IntentVersion); Assert.Null(revised.Yaml); Assert.Null(revised.ApprovedHash);
+        Assert.Equal(3, revised.IntentVersion); Assert.Null(revised.Yaml); Assert.Null(revised.ApprovedHash);
         Assert.Equal(state.ModelCalls, revised.ModelCalls); Assert.NotNull(revised.Request.Baseline); Assert.Single(runtime.Calls);
         Assert.DoesNotContain("coverage", revised.Request.RevisionContext!); Assert.DoesNotContain("outcomeBindings", revised.Request.RevisionContext!);
     }

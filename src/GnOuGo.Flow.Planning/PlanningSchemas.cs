@@ -69,7 +69,9 @@ internal static class PlanningSchemas
             root["properties"]!["clarifications"] = Nullable(Clarifications());
             root["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("clarifications"));
         }
-        if (state.Requirements is null || clarifications && state.IntentVersion == 2 && state.Requirements.Inputs is null)
+        var declareRequirements = state.Requirements is null || clarifications &&
+            (state.IntentVersion is 2 or 3 && state.Requirements.Inputs is null || PlanningCommitments.CanComplete(state));
+        if (declareRequirements)
         {
             root["properties"]!["requirements"] = clarifications ? Nullable(Ref("requirements")) : Ref("requirements");
             root["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("requirements"));
@@ -126,6 +128,13 @@ internal static class PlanningSchemas
                 foreach (var value in definitions["value"]!["anyOf"]!.AsArray().OfType<JsonObject>()) value.Remove("description");
             }
         }
+        if (state.IntentVersion == 3 && declareRequirements)
+        {
+            var outcome = definitions["requirements"]!["properties"]!["outcomes"]!["items"]!;
+            outcome["properties"]!["commitments"] = Nullable(Array(Object(("operation", Ref("goal")),
+                ("result", Nullable(Object(("port", Ref("goal")), ("output", Ref("goal"))))))));
+            outcome["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("commitments"));
+        }
         if (lookup)
             definitions["value"]!["anyOf"]!.AsArray().Add((JsonNode)Described(Object(("kind", Enum("lookup")), ("port", Ref("goal")),
                 ("items", Array(Ref("value"), 2, 2))), "items=[records,IDs]; port=key. Preserve order/repeats; reject missing/ambiguous IDs."));
@@ -140,7 +149,7 @@ internal static class PlanningSchemas
                 if (value["properties"]?["kind"]?["enum"] is JsonArray kinds && kinds.Any(k => k?.ToString() == "present"))
                     value["description"] = "Choice selects a declared alternative. present tests preceding local or lexical-ancestor task completion, never a hidden descendant or the presence of a business field.";
         }
-        if (state.Requirements is not null && (!clarifications || state.IntentVersion != 2 || state.Requirements.Inputs is not null)) root["$defs"]!.AsObject().Remove("requirements");
+        if (!declareRequirements) root["$defs"]!.AsObject().Remove("requirements");
         return compact ? Compact(root) : root;
     }
 
@@ -150,6 +159,8 @@ internal static class PlanningSchemas
         // prompt. Remove only schema annotations, never properties named description.
         foreach (var (_, schema) in PlanningSchemaReferences.Walk(root, "", 0)) schema.Remove("description");
         var definitions = root["$defs"]!.AsObject();
+        if (compositionHints && definitions["requirements"]?["properties"]?["outcomes"]?["items"]?["properties"]?["commitments"] is JsonObject obligations)
+            obligations["description"] = "Non-executable obligations: exact inspected operation; optional exact result port -> accepted public output. No task IDs/proof mappings. Finalize before first plan; absent means unverified, never infer from tasks.";
         // Presentation only, on fresh full proposals. Repair templates/authorities
         // use the historical path, including its exact annotation-free bytes.
         if (compositionHints)
