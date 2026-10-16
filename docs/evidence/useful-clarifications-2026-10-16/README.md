@@ -32,7 +32,7 @@ Designer/browser checks cover explicit recommended/custom/text-only submission, 
 
 ## Corrected disposable review composition
 
-The [corrected TaskPlan](corrected-proposal.json) and [actual compiled v15 YAML](corrected-v15.yaml) come from one explicit structural revision with deterministic adapters. All four accepted requirements, all three caller inputs and all six public output contracts are unchanged. The draft is not approved or applied to the saved agent.
+The [corrected TaskPlan](corrected-proposal.json) and [actual compiled v15 YAML](corrected-v15.yaml) come from one explicit structural revision with deterministic adapters. All four accepted requirements, all three caller inputs and all six public output contracts are unchanged; the [explicit composition diff](composition-diff.json) records their comparison and every task. The draft is not approved or applied to the saved agent.
 
 | Retained composition | Disposable correction |
 |---|---|

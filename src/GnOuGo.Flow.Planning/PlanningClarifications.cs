@@ -29,6 +29,8 @@ internal static class PlanningClarifications
         };
         Activity.Current?.AddEvent(new("planning.clarification.requested", tags: new ActivityTagsCollection
         { ["question.ids"] = string.Join(',', questions.Select(q => q.Id)), ["question.count"] = questions.Count,
+            ["diagnostic.locations"] = string.Join(',', state.Diagnostics.Where(d => d.Required).Take(8)
+                .Select(d => d.Location[..Math.Min(d.Location.Length, 192)])),
             ["correction.action"] = state.Request.Options[ContextKey]!["action"]?.ToString() }));
     }
 
@@ -84,7 +86,7 @@ internal static class PlanningClarifications
         var context = PreservesIntent(state) ? state.Request.Options[ContextKey] as JsonObject : null;
         if (PreservesIntent(state) && context is null && state.Requirements is not null)
             throw new PlanningConflictException("The clarification has no retained intent-preserving scope. Use an explicit revision; accepted requirements remain unchanged.");
-        if (context is not null && (context["baseline"]?.ToString() != Baseline(state) || context["requirements"]?.ToString() != Requirements(state) ||
+        if (context is not null && (context["version"]?.ToString() != "1" || context["baseline"]?.ToString() != Baseline(state) || context["requirements"]?.ToString() != Requirements(state) ||
             context["scope"]?.ToString() != Scope(state)))
             throw new PlanningConflictException("The clarification baseline or correction scope changed. Reload the current decision.");
         // A custom answer to a compiled literal choice can change its domain. Keep

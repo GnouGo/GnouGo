@@ -143,7 +143,7 @@ internal sealed partial class PlanningPrompt(PlanningSession state)
         var literalGuidance = state.Diagnostics.Any(d => d.Code == "TASK_LITERAL_INVALID")
             ? "Use typed input/output bindings for runtime values; never strip or escape interpolation, invent success, change requirements or replace requested work with text.\n" : "";
         string Render() => (repair ? RepairInstructions : Instructions) + "\n" + guardGuidance + literalGuidance +
-            (state.Requirements is null ? InitialRequirementsInstructions : "") +
+            (state.Requirements is null ? InitialRequirementsInstructions + "\n" : "") +
             (PlanningClarifications.PreservesIntent(state) ? InteractiveInstructions : state.Requirements is not null ? ClarificationInstructions : "") + "\n" + PlanningJsonTransport.Prompt(context);
         // Bound the retained directory against mandatory context before optional
         // contracts compete for space. Pagination cannot erase earlier identities.

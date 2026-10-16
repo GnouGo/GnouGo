@@ -89,13 +89,16 @@ public sealed class CorrectionClarificationTests
         Assert.Single(runtime.Calls); Assert.Null(state.ApprovedHash);
     }
 
-    [Fact]
-    public async Task ChangedClarificationBaselineRejectsAnswerAtomically()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ChangedClarificationBaselineRejectsAnswerAtomically(bool unknownVersion)
     {
         var runtime = new TestRuntime { Proposal = new() { Clarifications = [Question] } };
         var state = PlannerFixture.Session(); state.Request.Options["clarification_policy"] = 1;
         state = await Advance(state, runtime);
-        state.Requirements = PlannerFixture.Requirements();
+        if (unknownVersion) state.Request.Options["clarification_context"]!["version"] = 2;
+        else state.Requirements = PlannerFixture.Requirements();
         await Assert.ThrowsAsync<PlanningConflictException>(() => Answer(state, runtime));
         Assert.Null(state.AnswerHistory); Assert.Single(runtime.Calls);
     }
@@ -151,6 +154,20 @@ public sealed class CorrectionClarificationTests
             Assert.Equal("subject", item.Tags.Single(t => t.Key == "question.ids").Value);
             Assert.DoesNotContain(item.Tags, t => t.Value?.ToString()?.Contains("private business answer", StringComparison.Ordinal) == true);
         }
+        Assert.Equal("", activity.Events.First().Tags.Single(t => t.Key == "diagnostic.locations").Value);
         Assert.Equal("private business answer", Assert.Single(Assert.Single(state.AnswerHistory!).Answers).Text);
+    }
+
+    [Fact]
+    public void DiagnosticLocationTelemetryIsBoundedAndExcludesDiagnosticText()
+    {
+        using var activity = new System.Diagnostics.Activity("fixture").Start();
+        var state = PlannerFixture.Session(); state.Request.Options["clarification_policy"] = 1;
+        state.Diagnostics = Enumerable.Range(0, 40).Select(i => new PlanningDiagnostic("TASK_FIELD_UNKNOWN",
+            "/tasks/" + new string('x', 300) + i, "private diagnostic context")).ToList();
+        PlanningClarifications.Suspend(state, [Question]);
+        var item = Assert.Single(activity.Events);
+        Assert.InRange(item.Tags.Single(t => t.Key == "diagnostic.locations").Value!.ToString()!.Length, 1, 1543);
+        Assert.DoesNotContain(item.Tags, t => t.Value?.ToString()?.Contains("private diagnostic context", StringComparison.Ordinal) == true);
     }
 }
