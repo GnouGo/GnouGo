@@ -5,8 +5,8 @@
   "runtimeLlmCalls": 0,
   "reviewAdapterCalls": 1,
   "requestEstimates": [
-    9714,
-    10151
+    9683,
+    10120
   ],
   "yamlBytes": 20537,
   "effects": [

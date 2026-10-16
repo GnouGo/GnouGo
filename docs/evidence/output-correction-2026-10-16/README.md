@@ -92,7 +92,7 @@ with no inference/tool adapters returns its recorded outcome without further eff
 
 [Measurements](composition-metrics.json): two deterministic planning responses
 (initial proposal plus explicit revision), zero repairs, zero runtime LLM calls,
-one scripted review operation, requests estimated at 9,714 and 10,151 within the
+one scripted review operation, requests estimated at 9,683 and 10,120 within the
 unchanged allowance, and 20,537 YAML bytes. A successful approval path has seven
 fixture operations; the findings path adds three ordered comment occurrences.
 This is a composition correction, not a step-count optimization: no compiler or
@@ -101,3 +101,22 @@ runtime lowering changed.
 The passing predetermined proposal proves that the composition is expressible and
 executes correctly against these contracts. It does not prove future model
 compliance, arbitrary repository check coverage or the quality of a real code review.
+
+## Request-budget regression found during complete validation
+
+Initial candidate `6acf5645` failed CI: a wording assertion still expected the
+replaced introductory sentence, and the retained seven-call discovery scenario
+reached 24,049 against its unchanged 24,000 request ceiling. The failed CI runs
+remain available. No model dispatch occurred for the oversized request.
+
+The corrected presentation shortens the execution/artifact distinction and removes
+redundancy in the existing clarification prose. No schema constraints, contracts,
+discovery assertions or budgets changed. All **1,443 Planning tests** then passed
+with `-warnaserror`, and all nine host/composition checks passed again. The retained
+scenario still exposes all ten requested contracts, discovers 74 identities, uses
+seven calls and zero repairs, with request estimates
+`[9617, 21221, 21591, 21410, 21329, 21543, 23953]`. The generated disposable v15 YAML
+is byte-identical after the wording correction.
+
+Full solution, package/AOT/recovery and final candidate CI results are reported in
+[PR #117's validation report](https://github.com/GnouGo/GnouGo/pull/117#issuecomment-6210037000).

@@ -27,7 +27,7 @@ public sealed class RetainedOutputRevisionTests
         Assert.Contains("compact IDs", instructions);
         Assert.Contains("offered/original lookup", instructions);
         Assert.Contains("whole relevant offered feature/text block", instructions);
-        Assert.Contains("Requested work/outputs only", instructions);
+        Assert.Contains("Execute requested work; artifacts only on request", instructions);
         Assert.Contains("no filtering/deduplication", instructions);
         var hints = PlanningSchemaReferences.Walk(request.StructuredOutputSchema!.AsObject(), "", 0)
             .Select(e => e.Schema["description"]?.ToString()).OfType<string>().ToArray();

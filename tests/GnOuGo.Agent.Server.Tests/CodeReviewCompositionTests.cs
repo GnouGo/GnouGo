@@ -75,7 +75,7 @@ public sealed class CodeReviewCompositionTests(ITestOutputHelper output)
         Assert.Null(state.ApprovedHash); Assert.NotEqual(oldHash, state.ComputeArtifactHash());
         Assert.Equal("compact-bindings-v15", state.Request.Options["compilation_profile"]!.ToString());
         Assert.Empty(fixture.Calls); Assert.DoesNotContain(state.Plan!.Root.Tasks, t => t.Kind == "transform");
-        Assert.Contains("Execute the requested work", runtime.Requests[1].Prompt);
+        Assert.Contains("Execute requested work; artifacts only on request", runtime.Requests[1].Prompt);
         Assert.InRange(runtime.InputEstimate, 1, state.Request.Generation.MaxInputTokensPerRequest);
         PlanningArtifactApproval.Verify(state);
         var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(state.Yaml!));

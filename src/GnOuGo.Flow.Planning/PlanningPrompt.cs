@@ -32,11 +32,11 @@ internal sealed partial class PlanningPrompt(PlanningSession state)
     }
 
     private const string DescriptionInstructions = """
-        For requested verbatim descriptions: whole relevant offered feature/text block;heading optional;several suitable!=absent. Null:absent/uncertain subject. Verbatim;no controls.
+        Requested descriptions: whole relevant offered feature/text block;heading optional;several suitable!=absent. Null:absent/uncertain subject. Verbatim;no controls.
         """;
 
     private const string Instructions = """
-        Execute the requested work; create code or another workflow only when that artifact is a requested deliverable. No extra work/outputs/filtering/deduplication.
+        Execute requested work; artifacts only on request; no filtering/deduplication.
         Extract facts; bind copies/rows/status. Declared flags: {"kind":"predicate","predicate":"and","items":[{"kind":"output","source":"p","port":"success"},{"kind":"predicate","predicate":"and","items":[{"kind":"output","source":"p","port":"available"},{"kind":"output","source":"p","port":"complete"}]}]}
         Complete bounded each {"input":"pages","output":"candidates"} -> Candidate[][]; flatten -> compact IDs -> offered/original lookup -> visits/rows.
         Original IDs/actions/text; branch on null; prepend headers; save before cleanup; writer path.
@@ -55,7 +55,7 @@ internal sealed partial class PlanningPrompt(PlanningSession state)
         """ + "\n" + DescriptionInstructions;
 
     private const string ClarificationInstructions = """
-        Ambiguity:clarify compatible alternatives;else plan. 1-3 questions/2-3 options+recommendation;requirements:null. Apply answers once;retain goals/permissions.
+        Ambiguous:1-3 questions/2-3 compatible alternatives+recommendation;else plan. Apply answers once;keep goals/permissions.
         """;
 
     internal const string GuardCorrectionInstructions = "For a diagnosed nullable nonboolean reference v used as requires, use v != null; optionally conjoin declared nonnullable Boolean fields of that same producer. " +
