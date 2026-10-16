@@ -1,0 +1,132 @@
+{
+  "planningCalls": 2,
+  "repairs": 0,
+  "providerCalls": 0,
+  "runtimeLlmCalls": 0,
+  "reviewAdapterCalls": 1,
+  "requestEstimates": [
+    9714,
+    10151
+  ],
+  "yamlBytes": 20537,
+  "effects": [
+    "inspect",
+    "clone",
+    "checks",
+    "review",
+    "begin",
+    "submit",
+    "cleanup"
+  ],
+  "originalRequirements": {
+    "summary": "Create a workflow artifact",
+    "outcomes": [
+      {
+        "id": "artifact",
+        "description": "Write another workflow file"
+      }
+    ],
+    "inputs": [
+      {
+        "name": "changeUrl",
+        "type": {
+          "kind": "string",
+          "nullable": false,
+          "items": null,
+          "fields": []
+        },
+        "required": true,
+        "default": null
+      },
+      {
+        "name": "instructions",
+        "type": {
+          "kind": "string",
+          "nullable": false,
+          "items": null,
+          "fields": []
+        },
+        "required": true,
+        "default": null
+      }
+    ],
+    "outputs": [
+      {
+        "name": "workflow_file",
+        "type": {
+          "kind": "string",
+          "nullable": false,
+          "items": null,
+          "fields": []
+        },
+        "required": true,
+        "default": null
+      }
+    ]
+  },
+  "correctedRequirements": {
+    "summary": "Execute the requested review, publish original findings and the observed decision, then release the clone",
+    "outcomes": [
+      {
+        "id": "review",
+        "description": "Inspect the supplied change and run available checks in one clone"
+      },
+      {
+        "id": "feedback",
+        "description": "Publish exact findings inline where possible, otherwise globally, and submit a truthful decision"
+      },
+      {
+        "id": "cleanup",
+        "description": "Release the clone after known completion"
+      }
+    ],
+    "inputs": [
+      {
+        "name": "changeUrl",
+        "type": {
+          "kind": "string",
+          "nullable": false,
+          "items": null,
+          "fields": []
+        },
+        "required": true,
+        "default": null
+      },
+      {
+        "name": "instructions",
+        "type": {
+          "kind": "string",
+          "nullable": false,
+          "items": null,
+          "fields": []
+        },
+        "required": true,
+        "default": null
+      }
+    ],
+    "outputs": [
+      {
+        "name": "decision",
+        "type": {
+          "kind": "string",
+          "nullable": false,
+          "items": null,
+          "fields": []
+        },
+        "required": true,
+        "default": null
+      },
+      {
+        "name": "summary",
+        "type": {
+          "kind": "string",
+          "nullable": false,
+          "items": null,
+          "fields": []
+        },
+        "required": true,
+        "default": null
+      }
+    ]
+  }
+}
