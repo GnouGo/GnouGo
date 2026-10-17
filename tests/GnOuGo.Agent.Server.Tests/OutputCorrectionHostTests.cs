@@ -49,7 +49,8 @@ public sealed class OutputCorrectionHostTests
                 if (repeatInvalid)
                 {
                     Assert.Null(result.Yaml);
-                    Assert.Contains(result.Diagnostics, d => d.Code == "REPLAN_NO_PROGRESS");
+                    Assert.Contains(result.Diagnostics, d => d.Code == (literal ? "REPLAN_NO_PROGRESS" : "PLANNING_RESPONSE_INVALID"));
+                    if (!literal) Assert.Contains(result.Diagnostics, d => d.Location == "/plan/root/outputs/1/name");
                 }
                 else PlanningArtifactApproval.Verify(result);
             }
@@ -103,7 +104,10 @@ public sealed class OutputCorrectionHostTests
                 Assert.Contains("Remove only the diagnosed unaccepted exports", request.Prompt);
                 Assert.Contains("Preserve all operation arguments verbatim", request.Prompt);
             }
-            Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(response, request.StructuredOutputSchema));
+            var findings = PlanningContractValidation.ValidateInstanceFindings(response, request.StructuredOutputSchema);
+            if (!literal && repeatInvalid && Requests.Count == 2)
+                Assert.NotEmpty(findings); // Fresh accepted-output domains reject this response before semantic correction.
+            else Assert.Empty(findings);
             return Task.FromResult(new LLMResponse { Json = response, Usage = new JsonObject { ["input_tokens"] = 10, ["output_tokens"] = 5 } });
         }
     }
