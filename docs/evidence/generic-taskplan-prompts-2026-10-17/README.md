@@ -44,7 +44,11 @@ Local host execution passes **48/48** cases: eight v15 Browser/Document variants
 
 A nullable test assertion warning found during host validation was fixed using the existing nonnullable question accessor. The subsequent owning build and **18/18** checks pass with `-warnaserror`; [validation logs and counters](validation/counters.json) retain the failed build as well. Skill validation passes using the existing validation environment.
 
-Full serial solution, isolated packaging/AOT/published encrypted recovery and candidate CI are running. Their final outcomes are maintained in the [PR validation report](https://github.com/GnouGo/GnouGo/pull/117#issuecomment-6236662068); this evidence commit records only the completed gates above.
+Release packs for Core, Planning, Integrations, Copilot and Persistence pass. The osx-arm64 Native AOT Planning smoke passes; the trimmed, self-contained Agent.Server publish passes its encrypted-planning/mapping/recovery smoke. These ran on isolated source commit `958ee5e`, with `-warnaserror`; local host publishing omitted bundled tools because this gate checks published persistence. Candidate CI covers the complete Linux distribution and its bundles.
+
+The first serial solution run exposed one further obsolete mock assertion: an undeclared root name was expected to pass the fresh response schema. The mock now returns that invalid response for host rejection instead of throwing a fake transport exception. All four owning cases pass, retaining the same calls, usage, receipts and restart assertions. The failed full-run log is retained; that run was stopped after the identified failure and a fresh full serial run started. No production correction or allowance was weakened.
+
+The full serial solution and candidate CI are running. Their final outcomes are maintained in the [PR validation report](https://github.com/GnouGo/GnouGo/pull/117#issuecomment-6236662068); this evidence commit records only the completed gates above.
 
 ## Limits
 
