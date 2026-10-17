@@ -112,15 +112,15 @@ public sealed partial class HybridWorkflowPlanner
         {
             baseline = state.Plan ?? baseline;
             state.Request.Baseline = baseline is null ? null : ClonePlan(baseline);
-            progress = new JsonObject { ["version"] = state.IntentVersion == 3 ? 4 : 3, ["attempts"] = new JsonArray(),
+            progress = new JsonObject { ["version"] = state.IntentVersion == 3 ? 5 : 3, ["attempts"] = new JsonArray(),
                 ["outputRemovals"] = new JsonArray((baseline?.Root.Outputs ?? []).Where(o =>
                     state.Requirements?.Outputs is { } accepted && accepted.All(a => a.Name != o.Name) &&
                     state.Diagnostics.Any(d => d.Required && d.Code == "REQUIREMENTS_OUTPUTS_CHANGED" && d.Location == "/outputs/" + o.Name))
                     .Select(o => (JsonNode?)JsonValue.Create(o.Name)).ToArray()),
                 ["conditionLocations"] = new JsonArray(state.Diagnostics.Where(d => d.Code == "TASK_CONDITION_TYPE" && d.Location.EndsWith("/requires", StringComparison.Ordinal))
-                    .Select(d => d.Location).Distinct().Select(p => (JsonNode?)JsonValue.Create(p)).ToArray()),
-                ["locations"] = new JsonArray(state.Diagnostics.Where(d => d.Required).Select(d => d.Location).Distinct().Order(StringComparer.Ordinal)
-                    .Select(p => (JsonNode?)JsonValue.Create(p)).ToArray()) };
+                    .Select(d => d.Location).Distinct().Select(p => (JsonNode?)JsonValue.Create(p)).ToArray()) };
+            progress["locations"] = new JsonArray(state.Diagnostics.Where(d => d.Required).Select(d => CorrectionLocation(state, progress, d))
+                .Distinct().Order(StringComparer.Ordinal).Select(p => (JsonNode?)JsonValue.Create(p)).ToArray());
             if (state.IntentVersion == 3)
             {
                 progress["operationAdditions"] = CommitmentAdditions(state);
@@ -152,7 +152,7 @@ public sealed partial class HybridWorkflowPlanner
             action = continuation;
             paths = state.EditablePaths;
         }
-        else if (progress["version"]?.ToString() == "4" && findings.Any(d => d.Code == PlanningCommitments.MissingOperation))
+        else if (progress["version"]?.ToString() is "4" or "5" && findings.Any(d => d.Code == PlanningCommitments.MissingOperation))
             action = "regenerate"; // A value patch cannot insert the committed external work.
         else if (!escalate && state.Plan is not null)
         {
@@ -165,7 +165,7 @@ public sealed partial class HybridWorkflowPlanner
         }
         else action = "regenerate";
 
-        if (action == "regenerate" && progress["version"]?.ToString() == "4" &&
+        if (action == "regenerate" && progress["version"]?.ToString() is "4" or "5" &&
             findings.Any(d => d.Code == PlanningCommitments.MissingOperation &&
                 !progress["operationAdditions"]!.AsArray().Any(a => a?["operation"]?.ToString() == d.Rule)))
         {
@@ -187,10 +187,10 @@ public sealed partial class HybridWorkflowPlanner
                     "Change only the issued editable paths. Preserve guard operands and ordering except the diagnosed invalid references.");
             if (DirectGuardCorrections(progress))
                 state.Request.RevisionContext += " " + PlanningPrompt.GuardCorrectionInstructions;
-            if (progress["version"]?.ToString() is "3" or "4" && progress["outputRemovals"] is JsonArray { Count: > 0 } removals)
+            if (progress["version"]?.ToString() is "3" or "4" or "5" && progress["outputRemovals"] is JsonArray { Count: > 0 } removals)
                 state.Request.RevisionContext += " Remove only the diagnosed unaccepted exports: " + removals.ToJsonString() +
                     ". Keep remaining exports, their bindings and order unchanged. Preserve all operation arguments verbatim; do not rewrite instructions or add replacement exports.";
-            if (progress["version"]?.ToString() == "4" && progress["operationAdditions"] is JsonArray { Count: > 0 } additions)
+            if (progress["version"]?.ToString() is "4" or "5" && progress["operationAdditions"] is JsonArray { Count: > 0 } additions)
                 state.Request.RevisionContext += " The accepted commitments authorize adding only these exact inspected operations: " +
                     new JsonArray(additions.Select(a => a!["operation"]!.DeepClone()).ToArray()).ToJsonString() +
                     ". Preserve existing external arguments, ordering, branches, assertions and finalizers. Infer neither arguments nor placement from matching types. Only the captured disconnected adaptation tasks may be replaced: " +
@@ -215,7 +215,7 @@ public sealed partial class HybridWorkflowPlanner
         var symbols = new TaskPlanSymbols(state.Plan!);
         foreach (var finding in findings.Where(d => d.Required && d.Code != "REVISION_REQUIRED"))
         {
-            var path = finding.Location;
+            var path = CorrectionLocation(state, state.Request.Options[CorrectionProgressKey], finding);
             if (finding.Code == "TASK_REFERENCE_UNKNOWN" && symbols.Values.TryGetValue(path, out var site) &&
                 TaskPlanCompiler.Values(site.Value).Any(v => v.Kind is "output" or "present" && (v.Source is null || !symbols.Tasks.ContainsKey(v.Source))))
                 return null; // A value slot cannot insert the absent business work.
@@ -228,6 +228,19 @@ public sealed partial class HybridWorkflowPlanner
         var result = paths.Where(p => !paths.Any(parent => p.StartsWith(parent + "/", StringComparison.Ordinal))).Order(StringComparer.Ordinal).ToList();
         try { TaskPlanRevisions.ValidateEditablePaths(state, result); return result; }
         catch (Exception ex) when (ex is ArgumentException or PlanningConflictException) { return null; }
+    }
+
+    private static string CorrectionLocation(PlanningSession state, JsonNode? progress, PlanningDiagnostic finding)
+    {
+        // Public-interface findings use /outputs/name; editable values live at
+        // /root/outputs/name. Resolve only an exact accepted, existing declaration.
+        // Keep the original diagnostic and every historical issued scope intact.
+        if (progress?["version"]?.ToString() != "5" || finding.Code != "REQUIREMENTS_OUTPUTS_CHANGED" || state.Plan is null)
+            return finding.Location;
+        var names = state.Requirements?.Outputs?.Where(o => "/outputs/" + o.Name == finding.Location).Select(o => o.Name).ToArray();
+        if (names is not { Length: 1 } || state.Plan.Root.Outputs.Count(o => o.Name == names[0]) != 1) return finding.Location;
+        var path = "/root/outputs/" + names[0];
+        return new TaskPlanSymbols(state.Plan).Values.ContainsKey(path) ? path : finding.Location;
     }
 
     private static TaskPlan ClonePlan(TaskPlan plan) => JsonSerializer.SerializeToNode(plan, PlanningJsonContext.Default.TaskPlan)!.Deserialize(PlanningJsonContext.Default.TaskPlan)!;

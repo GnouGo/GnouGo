@@ -19,7 +19,7 @@ public sealed class CommitmentCorrectionTests
         Assert.Equal(2, state.ModelCalls); Assert.Equal(1, state.ReplanAttempts); Assert.Null(state.ApprovedHash);
         Assert.True(PlanningRepairPatch.Issued(runtime.Calls[1].StructuredOutputSchema!.AsObject()));
         var progress = state.Request.Options["automatic_correction_progress"]!;
-        Assert.Equal("4", progress["version"]!.ToString()); Assert.Equal("patch", progress["action"]!.ToString());
+        Assert.Equal("5", progress["version"]!.ToString()); Assert.Equal("patch", progress["action"]!.ToString());
         Assert.Empty(progress["operationAdditions"]!.AsArray());
         Assert.Equal("verified", Assert.Single(state.ValidationResults, r => r.Id == "coverage:deliver:0:result").Outcome);
     }
@@ -45,7 +45,7 @@ public sealed class CommitmentCorrectionTests
         Assert.Equal(2, state.ModelCalls); Assert.Equal(1, state.ReplanAttempts); Assert.Null(state.ApprovedHash);
         Assert.False(PlanningRepairPatch.Issued(runtime.Calls[1].StructuredOutputSchema!.AsObject()));
         var progress = state.Request.Options["automatic_correction_progress"]!;
-        Assert.Equal("4", progress["version"]!.ToString()); Assert.Equal("regenerate", progress["action"]!.ToString());
+        Assert.Equal("5", progress["version"]!.ToString()); Assert.Equal("regenerate", progress["action"]!.ToString());
         Assert.Equal(operation, Assert.Single(progress["operationAdditions"]!.AsArray())!["operation"]!.ToString());
         Assert.Contains("authorize adding only", runtime.Calls[1].Prompt, StringComparison.Ordinal);
         Assert.DoesNotContain(state.Plan!.Root.Tasks, t => t.Kind == "transform");

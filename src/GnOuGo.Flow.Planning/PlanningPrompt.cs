@@ -142,7 +142,7 @@ internal sealed partial class PlanningPrompt(PlanningSession state)
         // Fresh intent only. Reuse lossless schema factoring for duplicated read-only
         // operation contracts; declarations/permissions/receipts are never changed.
         if (state.IntentVersion == 3 && !repair) ShareOperationSchemas(context);
-        var guardGuidance = repair && state.Request.Options["automatic_correction_progress"]?["version"]?.ToString() is "2" or "3" or "4" &&
+        var guardGuidance = repair && state.Request.Options["automatic_correction_progress"]?["version"]?.ToString() is "2" or "3" or "4" or "5" &&
             state.Request.Options["automatic_correction_progress"]?["conditionLocations"] is JsonArray { Count: > 0 } ? GuardCorrectionInstructions + "\n" : "";
         var literalGuidance = state.Diagnostics.Any(d => d.Code == "TASK_LITERAL_INVALID")
             ? "Use typed input/output bindings for runtime values; never strip or escape interpolation, invent success, change requirements or replace requested work with text.\n" : "";

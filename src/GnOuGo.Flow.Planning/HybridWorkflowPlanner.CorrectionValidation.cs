@@ -23,7 +23,7 @@ public sealed partial class HybridWorkflowPlanner
         if (verifiedPatch && state.EditablePaths is null) return [];
         var findings = new List<PlanningDiagnostic>();
         var before = new TaskPlanSymbols(baseline); var after = new TaskPlanSymbols(candidate);
-        var commitmentRevision = state.IntentVersion == 3 && progress["version"]?.ToString() == "4";
+        var commitmentRevision = state.IntentVersion == 3 && progress["version"]?.ToString() is "4" or "5";
         var additions = AuthorizedCommitmentAdditions(state, progress);
         var adaptations = commitmentRevision && progress["action"]?.ToString() == "regenerate" && progress["adaptationTasks"] is JsonArray tasks
             ? tasks.Select(n => n!.ToString()).ToHashSet(StringComparer.Ordinal) : [];
@@ -38,7 +38,7 @@ public sealed partial class HybridWorkflowPlanner
         // A rejected proposal is not authority for extra public exports. Fresh
         // corrections may remove only the unaccepted names diagnosed before the
         // request was issued; historical progress keeps its exact comparison.
-        var outputRemovals = progress["version"]?.ToString() is "3" or "4" && progress["outputRemovals"] is JsonArray removals && state.Requirements?.Outputs is { } accepted
+        var outputRemovals = progress["version"]?.ToString() is "3" or "4" or "5" && progress["outputRemovals"] is JsonArray removals && state.Requirements?.Outputs is { } accepted
             ? removals.Select(n => n!.ToString()).Where(name => accepted.All(o => o.Name != name)).ToHashSet(StringComparer.Ordinal) : [];
         var retainedOutputs = baseline.Root.Outputs.Where(o => !outputRemovals.Contains(o.Name) || candidate.Root.Outputs.Any(c => c.Name == o.Name)).ToList();
         if (!retainedOutputs.Select(o => o.Name).SequenceEqual(candidate.Root.Outputs.Select(o => o.Name), StringComparer.Ordinal))
