@@ -51,8 +51,8 @@ public sealed class InitialCompositionTests(ITestOutputHelper output)
         state.Catalog = await TaskPlanCompilerTests.Catalog(runtime.Actual); state.Catalog.Policy.RequireExternalConfirmation = false;
         string Operation(string method) => TaskOperations.Describe(state.Catalog.Capabilities.Single(c => c.Method == method)).Id;
         var request = new PlanningPrompt(state).Request();
-        const string eachGuidance = "Per-item arrays assemble as array<array<T>>";
-        Assert.Contains(eachGuidance, request.Prompt);
+        const string eachGuidance = "each.input: bound input";
+        Assert.Contains(eachGuidance, request.StructuredOutputSchema!.ToJsonString());
         var extraction = new PlanTask { Id = "adapt", Kind = "transform", Mode = "extract", Objective = "Extract the compact observed label before the tab, keeping unchanged IDs per page; retain original full text separately",
             Requires = Ref("observe", "ready"), Inputs = [new("pages", Ref("observe", "pages"))],
             Each = new("pages", "candidates"),
@@ -86,7 +86,7 @@ public sealed class InitialCompositionTests(ITestOutputHelper output)
         runtime.Respond = (issued, _) =>
         {
             emitted.Add(issued);
-            Assert.Contains(eachGuidance, issued.Prompt);
+            Assert.Contains(eachGuidance, issued.StructuredOutputSchema!.ToJsonString());
             var response = TestRuntime.Response(issued, runtime.Proposal);
             Assert.Empty(PlanningContractValidation.ValidateInstance(response.Json, issued.StructuredOutputSchema!));
             return response;

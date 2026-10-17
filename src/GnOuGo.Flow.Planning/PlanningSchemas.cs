@@ -30,8 +30,62 @@ internal static class PlanningSchemas
         schema["properties"]?["plan"]?["anyOf"] is JsonArray alternatives &&
         alternatives.Any(a => a?["type"]?.ToString() == "null");
 
-    internal static JsonObject Proposal(PlanningSession state, IReadOnlySet<string>? admitted = null) => PlanningRepairPatch.Active(state)
-        ? PlanningRepairPatch.Schema(state, PlanningRepairPatch.Template(state)) : Compact(FullProposal(state, compact: false, admitted: admitted), compositionHints: true, interactionHints: PlanningClarifications.PreservesIntent(state));
+    internal static JsonObject Proposal(PlanningSession state, IReadOnlySet<string>? admitted = null, bool commitmentDomains = false)
+    {
+        if (PlanningRepairPatch.Active(state)) return PlanningRepairPatch.Schema(state, PlanningRepairPatch.Template(state));
+        var narrowed = Compact(FreshProposal(state, admitted, commitmentDomains), compositionHints: true, interactionHints: PlanningClarifications.PreservesIntent(state));
+        // Extra model-facing domains must not make a previously supported schema
+        // unusable (for example, accepted names exceeding the enum ceiling).
+        // Semantic compilation/coverage enforce the same contracts in either case.
+        return PlanningContractValidation.ValidateSchema(narrowed, strict: true).Count == 0 ? narrowed :
+            Compact(FullProposal(state, compact: false, admitted: admitted), compositionHints: true, interactionHints: PlanningClarifications.PreservesIntent(state));
+    }
+
+    // Fresh model-facing constraints only. FullProposal also supplies historical
+    // repair templates, whose bytes and authority must not acquire these domains.
+    private static JsonObject FreshProposal(PlanningSession state, IReadOnlySet<string>? admitted, bool commitmentDomains)
+    {
+        var root = FullProposal(state, compact: false, admitted: admitted);
+        var definitions = root["$defs"]!.AsObject();
+        var outputs = state.IntentVersion is 2 or 3 ? state.Requirements?.Outputs : null;
+        var names = outputs?.Select(o => o.Name).ToArray();
+        if (names is not null)
+        {
+            // Public names do not constrain reusable groups or nested exports.
+            var scope = definitions["scope"]!.DeepClone();
+            scope["properties"]!["outputs"] = names.Length == 0 ? Array(Ref("output"), 0, 0) :
+                Array(Object(("name", Enum(names)), ("value", Ref("value"))));
+            definitions["rootScope"] = scope;
+            definitions["plan"]!["properties"]!["root"] = Ref("rootScope");
+        }
+
+        if (definitions["requirements"]?["properties"]?["outcomes"]?["items"]?["properties"] is not JsonObject outcome ||
+            outcome["commitments"] is null) return root;
+
+        JsonObject Result(JsonObject port) => names is { Length: 0 } ? Type("null") :
+            Nullable(Object(("port", port), ("output", names is null ? Ref("goal") : Enum(names))));
+        var commitment = Object(("operation", Ref("goal")), ("result", Result(Ref("goal"))));
+        if (commitmentDomains && !PlanningDiscoveryContext.CanDiscover(state) && admitted is { Count: > 0 } && state.Catalog is { } catalog)
+        {
+            var contracts = admitted.Order(StringComparer.Ordinal).Select(id => PlanningCommitments.Contract(state, id)).ToArray();
+            // An incomplete/ambiguous inspection does not establish a closed domain.
+            // Keep semantic validation authoritative; never hide unavailable contracts.
+            if (contracts.All(c => c is not null && catalog.AllowedStepTypes.Contains(c.StepType) &&
+                !catalog.Policy.DeniedCapabilityIds.Contains(c.Id)))
+            {
+                var pairs = contracts.Select(c => TaskOperations.Describe(c!))
+                    .Select(o => (o.Id, Result: o.Outputs.Count == 0 ? Type("null") : Result(Enum(o.Outputs.Select(p => p.Name).ToArray()))))
+                    .GroupBy(o => o.Result.ToJsonString(), StringComparer.Ordinal)
+                    .Select(g => Object(("operation", Enum(g.Select(o => o.Id).ToArray())), ("result", g.First().Result))).ToArray();
+                // Factoring also keeps the operation/result union within the
+                // existing structured-output nesting ceiling.
+                definitions["commitment"] = pairs.Length == 1 ? pairs[0] : new() { ["anyOf"] = new JsonArray(pairs.Cast<JsonNode>().ToArray()) };
+                commitment = Ref("commitment");
+            }
+        }
+        outcome["commitments"] = Nullable(Array(commitment));
+        return root;
+    }
 
     internal static JsonObject FullProposal(PlanningSession state, bool compact = true, bool clarifications = true, IReadOnlySet<string>? admitted = null, bool scopeGuidance = true, bool flatten = true, bool lookup = true, bool arrayBounds = true)
     {

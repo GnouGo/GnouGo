@@ -71,7 +71,10 @@ public sealed class OutputCorrectionTests
         state = await PlannerFixture.RunAsync(runtime, state);
         Assert.Equal(PlanningStatus.Stopped, state.Status); Assert.Null(state.Yaml); Assert.Null(state.ApprovedHash);
         Assert.Equal(2, runtime.Calls.Count); Assert.Equal(1, state.ReplanAttempts);
-        Assert.Contains(state.Diagnostics, d => d.Code == (change == "requirements" ? "PLANNING_RESPONSE_INVALID" : "REVISION_SCOPE_CHANGED"));
+        Assert.Contains(state.Diagnostics, d => d.Code == (change is "requirements" or "rename" or "new_output" ? "PLANNING_RESPONSE_INVALID" : "REVISION_SCOPE_CHANGED"));
+        if (change is "rename" or "new_output")
+            Assert.Contains(state.Diagnostics, d => d.Code == "PLANNING_RESPONSE_INVALID" &&
+                d.Location == "/plan/root/outputs/" + (change == "rename" ? "0" : "2") + "/name");
         Assert.Equal("Keep the original operation instructions.", state.Request.Baseline!.Root.Tasks[0].Inputs[0].Value.Text);
         Assert.Equal(new[] { "result", "audit", "extra" }, state.Request.Baseline.Root.Outputs.Select(o => o.Name));
     }
@@ -105,8 +108,9 @@ public sealed class OutputCorrectionTests
         state = await PlannerFixture.RunAsync(runtime, state);
         Assert.Equal(PlanningStatus.Stopped, state.Status); Assert.Equal(2, runtime.Calls.Count);
         Assert.Equal(1, state.ReplanAttempts); Assert.Null(state.Yaml);
-        Assert.Contains(state.Diagnostics, d => d.Code == "REPLAN_NO_PROGRESS");
-        Assert.Contains(state.Diagnostics, d => d.Code == "REQUIREMENTS_OUTPUTS_CHANGED");
+        Assert.Contains(state.Diagnostics, d => d.Code == "PLANNING_RESPONSE_INVALID" && d.Location == "/plan/root/outputs/2/name");
+        Assert.Contains(state.Diagnostics, d => d.Code == "LLM_BUDGET_EXCEEDED");
+        Assert.Equal(new[] { "result", "audit", "extra" }, state.Request.Baseline!.Root.Outputs.Select(o => o.Name));
     }
 
     [Theory]

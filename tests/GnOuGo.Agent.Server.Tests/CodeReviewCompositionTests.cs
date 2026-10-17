@@ -94,7 +94,7 @@ public sealed partial class CodeReviewCompositionTests(ITestOutputHelper output)
         Assert.Null(state.ApprovedHash); Assert.NotEqual(oldHash, state.ComputeArtifactHash());
         Assert.Equal("compact-bindings-v15", state.Request.Options["compilation_profile"]!.ToString());
         Assert.Empty(fixture.Calls); Assert.DoesNotContain(state.Plan!.Root.Tasks, t => t.Kind == "transform");
-        Assert.Contains("Return the issued structured response with executable requested tasks. Generate artifacts only when explicitly requested", runtime.Requests[1].Prompt);
+        Assert.Contains("Return executable requested tasks in the issued structured response", runtime.Requests[1].Prompt);
         Assert.InRange(runtime.InputEstimate, 1, state.Request.Generation.MaxInputTokensPerRequest);
         PlanningArtifactApproval.Verify(state);
         var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(state.Yaml!));

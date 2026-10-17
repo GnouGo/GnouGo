@@ -28,8 +28,8 @@ public sealed class DescriptionSelectionTests
             Assert.Contains(criteria, request.Prompt);
             Assert.DoesNotContain(criteria, instructions);
             Assert.DoesNotContain("Requested descriptions:", instructions);
-            Assert.Contains("Preserve original IDs and requested exact values", instructions);
-            Assert.Contains("Validate selected IDs against offered values before lookup of originals", instructions);
+            Assert.Contains("Keep original IDs/exact values", instructions);
+            Assert.Contains("Lookup offered IDs before originals", instructions);
             Assert.Contains(PlanningSchemaReferences.Walk(request.StructuredOutputSchema!.AsObject(), "", 0),
                 entry => entry.Schema["description"]?.ToString().Contains("requires: false fails", StringComparison.Ordinal) == true);
             Assert.InRange(PlanningJsonTransport.EstimateInputTokens(request.Prompt, request.StructuredOutputSchema!.AsObject()),

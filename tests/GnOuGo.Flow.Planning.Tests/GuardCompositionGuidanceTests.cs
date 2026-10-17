@@ -17,7 +17,7 @@ public sealed class GuardCompositionGuidanceTests
         var runtime = new TestRuntime(); var state = PlannerFixture.Session();
         state.Catalog = await TaskPlanCompilerTests.Catalog(runtime.Actual); state.Catalog.Policy.RequireExternalConfirmation = false;
         var request = new PlanningPrompt(state).Request();
-        Assert.Contains("Use exact inspected contracts", request.Prompt);
+        Assert.Contains("Use exact contracts and declared guarantees", request.Prompt);
         // This fixture declares its own flags. The shared prompt supplies no
         // conventional field names or prescribed acquisition sequence.
         var guard = new TaskValue { Kind = "predicate", Predicate = "and", Items = [

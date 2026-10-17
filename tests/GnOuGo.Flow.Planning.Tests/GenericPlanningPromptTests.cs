@@ -95,7 +95,7 @@ public sealed class GenericPlanningPromptTests
         const string domains = @"\b(amazon|github|excel|xlsx|browser|products?|cookies?|workbook|headers?|writer|visits?|cloning|headings?|yaml)\b";
         Assert.False(Regex.IsMatch(instructions, domains, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant), instructions);
         Assert.DoesNotContain("\"port\":\"success\"", instructions);
-        Assert.Contains("Preserve original IDs and requested exact values", instructions);
+        Assert.Contains("Keep original IDs/exact values", instructions);
         foreach (var (_, schema) in PlanningSchemaReferences.Walk(request.StructuredOutputSchema!.AsObject(), "", 0))
             if (schema["description"] is { } annotation)
                 Assert.False(Regex.IsMatch(annotation.ToString(), domains, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant), annotation.ToString());

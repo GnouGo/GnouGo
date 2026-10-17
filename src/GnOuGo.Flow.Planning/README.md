@@ -358,6 +358,20 @@ During discovery a null commitment list can be completed without changing the ac
 
 Fresh intent-version 3 proposal prompts reuse lossless schema factoring for repeated read-only operation contracts. Their JSON Schema references resolve through the prompt's `schemas` dictionary. Existing scoped references and literal examples/defaults retain their original meaning. Catalogs, executable contracts, repair authorities and issued requests stay unchanged; the complete serialized request still passes the existing admission check. Commitment instructions live beside their response-schema declaration instead of being repeated in prose.
 
+Fresh full-proposal schemas restrict root export names only after the public
+interface is accepted; nested exports keep their own names. With discovery closed,
+fully inspected and included operation contracts constrain commitment operation/port
+pairs together when the complete request fits the existing admission margin.
+Otherwise exact contracts remain visible and semantic validation still enforces
+the pairs; no contract is displaced to add these redundant schema domains.
+Accepted public names constrain their result obligations too.
+Unresolved discovery and interfaces declared in the same response remain semantic
+checks. New local producer references are never guessed or globally restricted by
+another operation's port names. These model-facing constraints use the existing
+schema factoring; domains that exceed the supported structured-schema ceilings
+retain the broad presentation and full semantic checks. Historical repair
+templates and issued requests are unchanged.
+
 After compilation, coverage reports **verified clauses**, **violations** and **unverified aspects** through existing validation results. Reachable operations and supported direct bindings/exports/collection provenance establish contractual clauses. Uncalled groups and simulated effects cannot satisfy an operation commitment; literals or disconnected inferred outputs cannot establish producer-owned results. Ambiguous repeated operations, conditional or potentially empty execution and unsupported transformations remain unverified. The executable catalog still contains only selected operations; commitment contracts remain bounded read-only correction context.
 
 Operation presence does not prove correct arguments, relevant extraction, per-product work, successful effects or complete prose coverage. Every requirement retains a limitations entry. Independent execution oracles remain necessary. No correspondence is inferred from task names, descriptions or compatible types.

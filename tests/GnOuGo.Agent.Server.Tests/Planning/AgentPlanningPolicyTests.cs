@@ -26,7 +26,7 @@ public sealed class AgentPlanningPolicyTests
         Assert.Contains(intent, request.Prompt);
         Assert.Contains("The host manages approval of the generated plan before execution", request.Prompt);
         Assert.Contains("do not add that approval as a business task", request.Prompt);
-        Assert.Contains("Generate artifacts only when explicitly requested", request.Prompt);
+        Assert.Contains("No unrequested actions, artifacts", request.Prompt);
         Assert.DoesNotContain("YAML", policy.Instructions, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("YAML", request.Prompt[..request.Prompt.IndexOf("{\"request\"", StringComparison.Ordinal)], StringComparison.OrdinalIgnoreCase);
         Assert.Null(state.ApprovedHash);

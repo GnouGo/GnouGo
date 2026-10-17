@@ -28,7 +28,7 @@ public sealed class CapabilityAlternativeTests
         state = await PlannerFixture.RunAsync(runtime, state);
         Assert.True(state.Status == PlanningStatus.Clarification, string.Join("; ", state.Diagnostics.Select(d => d.Code + " " + d.Message))); Assert.Null(state.ApprovedHash); Assert.Equal(1, state.ModelCalls);
         Assert.Contains("file.content", runtime.Calls.Single().Prompt); Assert.Contains("external", runtime.Calls.Single().Prompt);
-        Assert.Contains("compatible alternatives", runtime.Calls.Single().Prompt);
+        Assert.Contains("Clarify material ambiguity; reuse answers.", runtime.Calls.Single().Prompt);
         var expected = state.Requirements;
         expected!.Outcomes[0] = expected.Outcomes[0] with { Operation = "external" };
         state = await new HybridWorkflowPlanner().AdvanceAsync(PlannerFixture.Clone(state), new() { Kind = "answer", ExpectedRevision = state.Revision,

@@ -127,16 +127,25 @@ public sealed class CommitmentCoverageTests
     {
         var (runtime, state) = await Fixture(); var outcome = runtime.Proposal.Requirements!.Outcomes[0];
         var original = outcome.Commitments![0];
-        runtime.Proposal.Requirements.Outcomes[0] = outcome with { Commitments = variant switch
+        var invalid = outcome with { Commitments = variant switch
         {
             "operation" => [new("uninspected")], "port" => [original with { Result = new("made_up", "filePath") }],
             "output" => [original with { Result = new("location", "undeclared") }], _ => [original, original]
         } };
+        // Mutate an already transported valid response, so invalid alternative
+        // values test host admission rather than the scripted schema encoder.
+        runtime.Respond = (request, _) =>
+        {
+            var response = TestRuntime.Response(request, runtime.Proposal);
+            response.Json!["requirements"]!["outcomes"]![0]!["commitments"] =
+                JsonSerializer.SerializeToNode(invalid, PlanningJsonContext.Default.PlanningRequirement)!["commitments"]!.DeepClone();
+            return response;
+        };
         state.Request.MaxModelCalls = 1;
         state = await PlannerFixture.RunAsync(runtime, state);
         Assert.NotEqual(PlanningStatus.FinalReview, state.Status); Assert.Null(state.Yaml); Assert.Single(runtime.Calls);
         Assert.Null(state.Requirements); Assert.Null(state.Plan);
-        Assert.Contains(state.Diagnostics, d => d.Code == "REQUIREMENTS_COMMITMENT_INVALID");
+        Assert.Contains(state.Diagnostics, d => d.Code == (variant is "operation" or "port" ? "PLANNING_RESPONSE_INVALID" : "REQUIREMENTS_COMMITMENT_INVALID"));
     }
 
     [Theory]

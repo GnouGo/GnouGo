@@ -159,11 +159,11 @@ public sealed partial class PlanningSessionService(
                 state.Discovery = saved.Discovery;
                 state.IntentVersion = saved.IntentVersion;
             }
-            if (saved is null) state.Request.RevisionContext = "No saved TaskPlan exists. Regenerate from the newly stated requirements and require renewed approval; authored YAML is not imported.";
+            if (saved is null) state.Request.RevisionContext = "No saved TaskPlan exists. Regenerate from the newly stated requirements and require renewed approval; the original authored workflow remains unchanged.";
             if (automaticId is not null && (saved?.Plan is null || saved.Requirements is null))
             {
                 state.Status = PlanningStatus.Clarification;
-                state.PendingQuestions = [new("preserve_authored_intent", "Describe the intended behavior and outputs to preserve when revising this authored workflow. The original YAML will remain unchanged.", [], null)];
+                state.PendingQuestions = [new("preserve_authored_intent", "Describe the intended behavior and outputs to preserve when revising this authored workflow. The original will remain unchanged.", [], null)];
             }
         }
         PlanningGenerationPolicy.Validate(state.Request.Generation);

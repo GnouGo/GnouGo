@@ -75,6 +75,9 @@ public sealed class AutomaticFailureRevisionTests
         { ["success"] = true, ["agent"] = new JsonObject { ["id"] = "authored", ["workflow"] = yaml } });
         using var service = PlanningSessionLifecycleTests.Create(fixture, new HybridWorkflowPlanner(), agents, settings: new() { BackgroundProcessingEnabled = false });
         var draft = await service.StartFailureRevisionAsync("authored", "Preserve behavior", "failed", PlanningGraphCompiler.Fingerprint(yaml), Evidence(), "interactive", Ct);
+        Assert.DoesNotContain("YAML", draft.Request.RevisionContext!, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("original authored workflow remains unchanged", draft.Request.RevisionContext);
+        Assert.DoesNotContain("YAML", Assert.Single(draft.GetQuestions()).Question, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(PlanningStatus.Clarification, draft.Status); Assert.Null(draft.Request.Baseline); Assert.Null(draft.Plan);
         Assert.Single(draft.GetQuestions()); Assert.Equal(0, draft.ModelCalls);
         await Assert.ThrowsAsync<InvalidOperationException>(() => service.StartFailureRevisionAsync("authored", "Preserve behavior", "other", "stale", Evidence(), "interactive", Ct));

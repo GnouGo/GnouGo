@@ -32,13 +32,13 @@ internal sealed partial class PlanningPrompt(PlanningSession state)
     }
 
     private const string EvidenceInstructions = """
-        Preserve original IDs and requested exact values. Validate selected IDs against offered values before lookup of originals. Preserve order/repeats; absence differs from null. Never invent results or provenance.
+        Keep original IDs/exact values. Lookup offered IDs before originals. Preserve order/repeats and missing/null; never invent results/provenance.
         """;
 
     private const string Instructions = """
-        Return the issued structured response with executable requested tasks. Generate artifacts only when explicitly requested. No unrequested actions, filtering or deduplication.
-        Operations perform external work; extract reads evidence; interpret decides or synthesizes requested content. Bind typed copies, projections and assembly directly; compact decision inputs.
-        Use exact inspected contracts; check declared guarantees. Preserve dependencies and cleanup. Per-item arrays assemble as array<array<T>>; flatten removes one level.
+        Return executable requested tasks in the issued structured response. No unrequested actions, artifacts, filtering or deduplication.
+        Operations act; extract reads evidence; interpret decides/synthesizes. Bind typed copies/assembly; compact decision inputs.
+        Use exact contracts and declared guarantees; preserve dependencies/cleanup.
         """ + "\n" + EvidenceInstructions;
 
     private const string RepairInstructions = """
@@ -54,7 +54,7 @@ internal sealed partial class PlanningPrompt(PlanningSession state)
         """ + "\n" + EvidenceInstructions;
 
     private const string ClarificationInstructions = """
-        Ambiguity:1-3 questions,2-3 compatible alternatives+recommendation. Reuse answers.
+        Clarify material ambiguity; reuse answers.
         """;
 
     private const string InteractiveInstructions = """
@@ -74,9 +74,9 @@ internal sealed partial class PlanningPrompt(PlanningSession state)
     internal string Build(IReadOnlyList<CapabilitySummary> optional)
     {
         var repair = PlanningRepairPatch.Active(state);
+        var admitted = _required.Select(o => o.Id).Concat(optional.Select(c => c.Operation!.Id)).ToHashSet(StringComparer.Ordinal);
         if (!repair)
-            Schema = PlanningContractValidation.ProjectStructuredOutputSchema(PlanningSchemas.Proposal(state,
-                _required.Select(o => o.Id).Concat(optional.Select(c => c.Operation!.Id)).ToHashSet(StringComparer.Ordinal)));
+            Schema = PlanningContractValidation.ProjectStructuredOutputSchema(PlanningSchemas.Proposal(state, admitted));
         var repairSelection = repair ? PlanningRepairContext.Select(state) : null;
         var relevant = repairSelection?.Tasks.Select(id => repairSelection.Symbols.Tasks[id].Task.Operation).OfType<string>().ToHashSet(StringComparer.Ordinal);
         var editableOperations = repairSelection?.EditableTasks.Select(id => repairSelection.Symbols.Tasks[id].Task.Operation).OfType<string>().ToHashSet(StringComparer.Ordinal);
@@ -186,7 +186,16 @@ internal sealed partial class PlanningPrompt(PlanningSession state)
                 foreach (var source in closed) coverage.Remove(source);
             }
         }
-        return Render();
+        var prompt = Render();
+        if (!repair && !PlanningDiscoveryContext.CanDiscover(state))
+        {
+            var constrained = PlanningContractValidation.ProjectStructuredOutputSchema(PlanningSchemas.Proposal(state, admitted, commitmentDomains: true));
+            // Exact pair domains are presentation, not permission or coverage.
+            // Admit them only after all mandatory context, without displacing an
+            // inspected contract or spending the existing safety margin.
+            if (PlanningJsonTransport.EstimateInputTokens(prompt, constrained) <= target) Schema = constrained;
+        }
+        return prompt;
     }
 
     private static JsonObject OperationPrompt(PlanningOperation operation) => new()
