@@ -105,8 +105,8 @@ public sealed partial class LocalProductOutcomeExecutionTests
             var adapter = new ProposalRuntime(runtime, proposal);
             var session = nullableGuards && variant != "denied" ? await NullableGuardRevision(catalog, runtime, proposal, ct) : automaticCorrection is not null ? await AutomaticCompositionSession(catalog, runtime, proposal, automaticCorrection, ct) : guards && variant != "denied" ? await GuardRevision(catalog, runtime, proposal, ct) : approval && variant == "denied" ? await V10PlanningSession(catalog, runtime, adapter, false, ct, profile) : approval ? await DesignerRevision(catalog, runtime, proposal, ct, site.Urls.Single(), approval: true) : designer ? await DesignerRevision(catalog, runtime, proposal, ct, site.Urls.Single()) : await V10PlanningSession(catalog, runtime, adapter, false, ct, profile);
             Assert.True(session.Status == PlanningStatus.FinalReview, string.Join('\n', session.Diagnostics));
-            Assert.Equal(nullableGuards && variant != "denied" ? 2 : automaticCorrection is not null ? 2 : designer || approval && variant != "denied" ? 4 : 1, session.ModelCalls);
-            Assert.Equal(automaticCorrection is not null ? 1 : 0, session.ReplanAttempts);
+            Assert.Equal(automaticCorrection == "initial_followup" ? 3 : nullableGuards && variant != "denied" ? 2 : automaticCorrection is not null ? 2 : designer || approval && variant != "denied" ? 4 : 1, session.ModelCalls);
+            Assert.Equal(automaticCorrection == "initial_followup" ? 2 : automaticCorrection is not null ? 1 : 0, session.ReplanAttempts);
             Assert.Empty(visits); Assert.Empty(model.Requests);
             session = await new HybridWorkflowPlanner().AdvanceAsync(session, new() { Kind = "approve", ExpectedRevision = session.Revision,
                 ArtifactHash = session.ComputeArtifactHash(), ReviewedRequirementIds = session.Requirements!.Outcomes.Select(o => o.Id).ToList() }, adapter, ct);

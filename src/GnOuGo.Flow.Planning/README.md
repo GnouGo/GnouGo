@@ -455,8 +455,9 @@ Before any requirements or TaskPlan have been accepted, an incomplete initial
 proposal can use that same single regeneration: missing/invalid requirements or
 their required caller/output interfaces are diagnosed explicitly. Intent version 3 also routes invalid initial commitment declarations through that single regeneration. This requires no accepted requirements, plan, revision baseline or approval; pending receipts are consumed first and all existing admission limits apply. Discovery may
 leave requirements null; a clarification returns questions without a plan. A
-first plan must declare business requirements and interfaces. A second invalid
-proposal stops, even when the remaining allowance is larger. No requirements are
+first plan must declare business requirements and interfaces. A second proposal with invalid
+requirements stops, even when the remaining allowance is larger. Once intent is accepted,
+version 5 permits the bounded value-only follow-up described below. No requirements are
 inferred from the rejected plan, and accepted intent is never replaced through
 this initial-proposal path. Already-issued requests and stopped sessions remain
 unchanged.
@@ -512,6 +513,8 @@ See [deterministic correction evidence](../../docs/evidence/automatic-correction
 `REQUIREMENT_RESULT_DISCONNECTED` identifies an existing export binding for scoped repair. `REQUIREMENT_OPERATION_MISSING` requires structural regeneration, never a futile consumer patch. Private correction versions 4–5 capture exact permitted additions (operation/capability/version/contract fingerprint), diagnosed locations, exclusive pure adaptation tasks and preserved task identities before issuing the request. Only the existing single structural fallback and cumulative allowances are used.
 
 Fresh intent-version 3 corrections capture private progress version 5. For an accepted, uniquely declared public output, its `REQUIREMENTS_OUTPUTS_CHANGED` location `/outputs/name` resolves to the exact existing `/root/outputs/name` binding before selecting a revision scope. The original diagnostic remains visible. Names are literal and case-sensitive; this does not authorize another output, a new declaration, a guessed producer or a wider ancestor. Historical progress and issued requests retain their original locations and authority.
+
+If the initial regeneration first establishes accepted requirements and a candidate, version 5 may spend one remaining correction on diagnosed existing input/output value bindings. It captures that candidate as the preservation baseline before issuing the scoped request. It cannot change guards, declarations, operations or independent outputs. A failed follow-up stops, even when a larger configured allowance remains; no second structural fallback or counter reset is granted. Invalid requirements and defects requiring structural changes still stop after the initial regeneration. Committed responses retain their issued scope on recovery.
 
 Candidates preserve existing operations, arguments, relative order, branches, assertions, finalizers, public interfaces and independent scope exports. New operation occurrences must match captured commitments; duplicate effects and unrelated new work are rejected. A diagnosed exclusive pure producer may be replaced without treating its old simulated effect as real evidence. Shared or guarded producers remain protected. Uncalled existing occurrences, denied capabilities and unavailable contracts do not authorize a new effect or a corrective call. A conservative stop is preferable to guessing placement or permissions.
 

@@ -152,9 +152,10 @@ public sealed class InitialCommitmentCorrectionTests
     [Theory]
     [InlineData("compiler")]
     [InlineData("coverage")]
-    public async Task CorrectMetadataDoesNotHideTheNextPlanFailure(string defect)
+    public async Task CorrectMetadataDoesNotHideTheNextPlanFailureWithoutRemainingAllowance(string defect)
     {
         var (runtime, state) = await CommitmentCoverageTests.Fixture(); state.Request.Options["automatic_correction"] = true;
+        state.Request.MaxReplanAttempts = 1;
         runtime.Respond = (request, _) =>
         {
             if (runtime.Calls.Count == 1) return Response(runtime, request, "path");

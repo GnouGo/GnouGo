@@ -57,7 +57,9 @@ public sealed partial class HybridWorkflowPlanner
     private static void ContinueAutomaticCorrection(PlanningSession state)
     {
         if (state.Status != PlanningStatus.Stopped || !CanCorrect(state)) return;
-        if (state.Request.Options[CorrectionProgressKey]?["action"]?.ToString() == "regenerate") return;
+        var progress = state.Request.Options[CorrectionProgressKey];
+        if (progress?["initialValueFollowup"]?.GetValue<bool>() == true ||
+            progress?["action"]?.ToString() == "regenerate" && InitialValueFollowupPaths(state) is null) return;
         state.Status = PlanningStatus.Generating;
     }
 
@@ -106,7 +108,10 @@ public sealed partial class HybridWorkflowPlanner
 
         var progress = state.Request.Options[CorrectionProgressKey] as JsonObject;
         var continuation = PlanningClarifications.CorrectionContinuation(state);
-        if (progress?["action"]?.ToString() == "regenerate" && continuation is null) { Stop(state); return false; }
+        List<string>? followupPaths = null;
+        if (continuation is null && (progress?["initialValueFollowup"]?.GetValue<bool>() == true ||
+            progress?["action"]?.ToString() == "regenerate" && (followupPaths = InitialValueFollowupPaths(state)) is null))
+        { Stop(state); return false; }
         var baseline = state.Request.Baseline;
         if (progress is null)
         {
@@ -121,6 +126,8 @@ public sealed partial class HybridWorkflowPlanner
                     .Select(d => d.Location).Distinct().Select(p => (JsonNode?)JsonValue.Create(p)).ToArray()) };
             progress["locations"] = new JsonArray(state.Diagnostics.Where(d => d.Required).Select(d => CorrectionLocation(state, progress, d))
                 .Distinct().Order(StringComparer.Ordinal).Select(p => (JsonNode?)JsonValue.Create(p)).ToArray());
+            if (progress["version"]!.ToString() == "5" && state.Requirements is null && baseline is null)
+                progress["initialRegeneration"] = true;
             if (state.IntentVersion == 3)
             {
                 progress["operationAdditions"] = CommitmentAdditions(state);
@@ -130,6 +137,16 @@ public sealed partial class HybridWorkflowPlanner
                     .Select(t => (JsonNode?)JsonValue.Create(t.Id)).ToArray());
             }
             state.Request.Options[CorrectionProgressKey] = progress;
+        }
+        if (followupPaths is not null)
+        {
+            // The initial regeneration has established intent and a candidate for
+            // the first time. Capture that candidate before one value-only edit;
+            // never reset attempts or grant a second structural regeneration.
+            baseline = ClonePlan(state.Plan!); state.Request.Baseline = baseline;
+            progress["initialValueFollowup"] = true;
+            progress["locations"] = new JsonArray(followupPaths.Select(p => (JsonNode?)JsonValue.Create(p)).ToArray());
+            progress["preservedTasks"] = new JsonArray(TaskPlanRevisions.Tasks(baseline).Select(t => (JsonNode?)JsonValue.Create(t.Id)).ToArray());
         }
         var findings = state.Diagnostics.ToList();
         if (DirectGuardCorrections(progress) && baseline is not null)
@@ -147,7 +164,12 @@ public sealed partial class HybridWorkflowPlanner
         var escalate = attempted.Count > 0;
         var action = "patch";
         List<string>? paths = null;
-        if (continuation is not null)
+        if (followupPaths is not null)
+        {
+            action = "targeted_revision";
+            paths = followupPaths;
+        }
+        else if (continuation is not null)
         {
             action = continuation;
             paths = state.EditablePaths;
@@ -200,10 +222,11 @@ public sealed partial class HybridWorkflowPlanner
         progress["action"] = action;
         attempted.Add((JsonNode)new JsonObject { ["action"] = action, ["candidate"] = fingerprint,
             ["diagnostics"] = PlanningGraphCompiler.Fingerprint(diagnosticKey), ["callsUsed"] = state.ModelCalls,
-            ["outcome"] = continuation is not null ? "answered_clarification" : escalate ? "targeted_correction_did_not_resolve_findings" : "diagnosed" });
+            ["outcome"] = continuation is not null ? "answered_clarification" : followupPaths is not null ? "initial_contracts_accepted_with_binding_findings" :
+                escalate ? "targeted_correction_did_not_resolve_findings" : "diagnosed" });
         PlanningClarifications.ConsumedContinuation(state);
         Activity.Current?.AddEvent(new("planning.correction.selected", tags: new ActivityTagsCollection
-        { ["action"] = action, ["reason"] = escalate ? "unresolved_after_targeted_correction" : "diagnostic_authority",
+        { ["action"] = action, ["reason"] = followupPaths is not null ? "initial_regeneration_established_value_scope" : escalate ? "unresolved_after_targeted_correction" : "diagnostic_authority",
             ["diagnostics"] = string.Join(',', findings.Select(d => d.Code).Distinct()), ["attempt"] = attempted.Count }));
         state.Status = PlanningStatus.Generating;
         return true;
@@ -241,6 +264,23 @@ public sealed partial class HybridWorkflowPlanner
         if (names is not { Length: 1 } || state.Plan.Root.Outputs.Count(o => o.Name == names[0]) != 1) return finding.Location;
         var path = "/root/outputs/" + names[0];
         return new TaskPlanSymbols(state.Plan).Values.ContainsKey(path) ? path : finding.Location;
+    }
+
+    private static List<string>? InitialValueFollowupPaths(PlanningSession state)
+    {
+        var progress = state.Request.Options[CorrectionProgressKey];
+        if (progress?["version"]?.ToString() != "5" || progress["initialRegeneration"]?.GetValue<bool>() != true ||
+            progress["initialValueFollowup"] is not null || state.Plan is null || state.Requirements is null || state.Request.Baseline is not null ||
+            progress["attempts"] is not JsonArray { Count: 1 } attempts || attempts[0]?["action"]?.ToString() != "regenerate" ||
+            attempts[0]?["outcome"]?.ToString() != "rejected" || attempts[0]?["completedAtCall"] is null ||
+            state.Diagnostics.Any(d => d.Code is "REVISION_SCOPE_CHANGED" or "REPLAN_NO_PROGRESS")) return null;
+        var paths = CorrectionPaths(state, state.Diagnostics);
+        var symbols = new TaskPlanSymbols(state.Plan);
+        // Scope declarations, guards and missing tasks need an explicit structural
+        // decision. Existing value slots alone may consume the remaining attempt.
+        return paths is { Count: > 0 } && paths.All(p => symbols.Values.ContainsKey(p) &&
+            !p.EndsWith("/requires", StringComparison.Ordinal) &&
+            (p.Contains("/inputs/", StringComparison.Ordinal) || p.Contains("/outputs/", StringComparison.Ordinal))) ? paths : null;
     }
 
     private static TaskPlan ClonePlan(TaskPlan plan) => JsonSerializer.SerializeToNode(plan, PlanningJsonContext.Default.TaskPlan)!.Deserialize(PlanningJsonContext.Default.TaskPlan)!;

@@ -36,6 +36,10 @@ public sealed partial class LocalProductOutcomeExecutionTests
     [InlineData("choice", "denied")]
     [InlineData("requirements", "complete")]
     [InlineData("requirements", "repeated")]
+    [InlineData("initial_followup", "complete")]
+    [InlineData("initial_followup", "missing")]
+    [InlineData("initial_followup", "repeated")]
+    [InlineData("initial_followup", "incomplete")]
     public Task AutomaticCorrectionProducesIndependentlyVerifiedLocalWorkbook(string defect, string variant)
         => ExecuteTypedComposition(variant, "compact-bindings-v15", automaticCorrection: defect);
 
@@ -45,7 +49,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
         if (defect == "commitment") return await CommitmentCompositionSession(catalog, runtime, corrected, ct);
         var broken = JsonSerializer.SerializeToNode(retained ?? corrected, PlanningJsonContext.Default.PlanningProposal)!.Deserialize(PlanningJsonContext.Default.PlanningProposal)!;
         if (defect == "requirements") broken.Requirements = null;
-        else if (retained is null && defect == "choice") broken.Plan!.Root.Outputs[0].Value.Kind = "choice";
+        else if (retained is null && defect is "choice" or "initial_followup") broken.Plan!.Root.Outputs[0].Value.Kind = "choice";
         else if (retained is null)
         {
             var guard = RetainedTasks(broken.Plan!.Root).Select(t => t.Requires).OfType<TaskValue>()
@@ -54,12 +58,17 @@ public sealed partial class LocalProductOutcomeExecutionTests
         }
         var findings = new TaskPlanCompiler().Compile(broken.Plan!, catalog).Diagnostics;
         if (defect == "requirements") Assert.Empty(findings); // Valid bindings cannot replace missing business intent.
-        else Assert.Contains(findings, d => d.Code == (retained is not null ? "TASK_FIELD_UNKNOWN" : defect == "choice" ? "CHOICE_UNKNOWN" : "TASK_OUTPUT_UNKNOWN"));
+        else Assert.Contains(findings, d => d.Code == (retained is not null ? "TASK_FIELD_UNKNOWN" : defect is "choice" or "initial_followup" ? "CHOICE_UNKNOWN" : "TASK_OUTPUT_UNKNOWN"));
         var original = JsonSerializer.Serialize(broken, PlanningJsonContext.Default.PlanningProposal);
         var adapter = new ProposalRuntime(runtime, corrected);
         adapter.Patch = request =>
         {
-            if (adapter.Requests.Count == 1) return JsonSerializer.SerializeToNode(broken, PlanningJsonContext.Default.PlanningProposal)!.AsObject();
+            if (adapter.Requests.Count == 1 || defect == "initial_followup" && adapter.Requests.Count == 2)
+            {
+                var response = JsonSerializer.SerializeToNode(broken, PlanningJsonContext.Default.PlanningProposal)!.AsObject();
+                if (defect == "initial_followup" && adapter.Requests.Count == 1) response["requirements"] = null;
+                return response;
+            }
             if (defect == "requirements")
             {
                 Assert.False(PlanningRepairPatch.Issued(request.StructuredOutputSchema!.AsObject()));
@@ -78,7 +87,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
             }
             return new() { ["discoveryRequests"] = null, ["clarifications"] = null, ["patch"] = new JsonObject { ["edits"] = edits } };
         };
-        var session = new PlanningSession { Catalog = catalog, Request = new()
+        var session = new PlanningSession { IntentVersion = defect == "initial_followup" ? 3 : 2, Catalog = catalog, Request = new()
         {
             TenantId = "local", Prompt = "Preserve the requested exact observed data, visits, workbook and cleanup.",
             Options = new() { ["automatic_correction"] = true }, Policy = new() { RequireExternalConfirmation = false },
@@ -88,7 +97,8 @@ public sealed partial class LocalProductOutcomeExecutionTests
         for (var i = 0; i < 4 && !PlanningStatus.IsWaiting(session.Status) && !PlanningStatus.IsTerminal(session.Status); i++)
             session = await planner.AdvanceAsync(session, new() { ExpectedRevision = session.Revision }, adapter, ct);
         Assert.True(session.Status == PlanningStatus.FinalReview, string.Join(';', session.Diagnostics));
-        Assert.Equal(2, adapter.Requests.Count); Assert.Equal(1, session.ReplanAttempts); Assert.Null(session.ApprovedHash);
+        Assert.Equal(defect == "initial_followup" ? 3 : 2, adapter.Requests.Count);
+        Assert.Equal(defect == "initial_followup" ? 2 : 1, session.ReplanAttempts); Assert.Null(session.ApprovedHash);
         Assert.Equal(original, JsonSerializer.Serialize(broken, PlanningJsonContext.Default.PlanningProposal));
         Assert.True(JsonNode.DeepEquals(JsonSerializer.SerializeToNode(corrected.Plan, PlanningJsonContext.Default.TaskPlan), JsonSerializer.SerializeToNode(session.Plan, PlanningJsonContext.Default.TaskPlan)));
         if (Environment.GetEnvironmentVariable("GNOU_GO_AUTOCORRECTION_EVIDENCE") is { Length: > 0 } folder)
