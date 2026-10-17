@@ -17,7 +17,7 @@ public sealed class GuardCompositionGuidanceTests
         var runtime = new TestRuntime(); var state = PlannerFixture.Session();
         state.Catalog = await TaskPlanCompilerTests.Catalog(runtime.Actual); state.Catalog.Policy.RequireExternalConfirmation = false;
         var request = new PlanningPrompt(state).Request();
-        const string marker = "Declared flags: ";
+        const string marker = "Assert: ";
         var start = request.Prompt.IndexOf(marker, StringComparison.Ordinal) + marker.Length;
         Assert.True(start >= marker.Length);
         var example = request.Prompt[start..request.Prompt.IndexOf('\n', start)];

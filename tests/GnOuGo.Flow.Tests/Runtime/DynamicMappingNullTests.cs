@@ -108,7 +108,7 @@ public sealed partial class DynamicMappingCollectionTests
         var engine = Engine(); engine.RunStore = journal; engine.Limits.RunId = "nullable-pages";
         var run = await AdaptiveRun(engine, pages, doc);
         Assert.True(run.Success, run.Error?.Message); Assert.True(JsonNode.DeepEquals(expected, Result(run)));
-        Assert.Single(model.Requests); Assert.Contains("Literal null is allowed only", model.Requests[0].Prompt);
+        Assert.Single(model.Requests); Assert.Contains("Literal null only at explicitly nullable target paths", model.Requests[0].Prompt);
         var saved = (await journal.ReadAsync("tenant", "nullable-pages", Ct))!;
         var controls = saved.Invocations["/workflow/main/step/map"].Control;
         Assert.Equal("generation", controls["mapping_adaptive_0"]!["phase"]!.ToString());

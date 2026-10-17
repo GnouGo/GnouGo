@@ -42,6 +42,16 @@ public sealed class RecordedTargetedDiscoveryTests(ITestOutputHelper output)
         var accepted = failure["responses"]!.AsArray()[0]!["response"]!["json"]!["requirements"]!.Deserialize(PlanningJsonContext.Default.PlanningRequirements)!;
         catalog.SanitizedBaseQuery = CapabilityRelevance.Query(state.Request.Prompt + " " + accepted.Summary + " " + string.Join(' ', accepted.Outcomes.Select(o => o.Description)));
         state = await PlannerFixture.RunAsync(runtime, state);
+        if (Environment.GetEnvironmentVariable("GNOU_GO_REQUEST_COMPARISON") is { Length: > 0 } evidence)
+        {
+            Directory.CreateDirectory(evidence);
+            File.WriteAllText(Path.Combine(evidence, "requests.json"), new JsonArray(runtime.Calls.Select(r => JsonSerializer.SerializeToNode(r, PlanningJsonContext.Default.LLMRequest)).ToArray()).ToJsonString());
+            if (state.Status != PlanningStatus.FinalReview)
+            {
+                var copy = PlannerFixture.Clone(state); copy.Diagnostics.Clear();
+                File.WriteAllText(Path.Combine(evidence, "blocked-request.json"), JsonSerializer.Serialize(new PlanningPrompt(copy).Request(), PlanningJsonContext.Default.LLMRequest));
+            }
+        }
         Assert.True(state.Status == PlanningStatus.FinalReview, string.Join("; ", state.Diagnostics.Select(d => d.Code + ": " + d.Message)));
         Assert.Equal(7, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts); Assert.Null(state.ApprovedHash);
         Assert.Equal(74, state.Discovery.Pages.SelectMany(p => p.Capabilities).Select(c => c.Id).Distinct().Count());

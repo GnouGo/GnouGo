@@ -22,7 +22,7 @@ public sealed class RetainedOutputRevisionTests
         var requirements = JsonSerializer.Serialize(state.Requirements, PlanningJsonContext.Default.PlanningRequirements);
         var request = new PlanningPrompt(state).Request();
         var instructions = request.Prompt[..request.Prompt.IndexOf("\n{", StringComparison.Ordinal)];
-        Assert.Contains("Extract supplied facts only; use supported bindings or producer outputs", instructions);
+        Assert.Contains("Extract facts; bind copies/rows/status", instructions);
         Assert.Contains("Complete bounded each", instructions);
         Assert.Contains("compact IDs", instructions);
         Assert.Contains("offered/original lookup", instructions);

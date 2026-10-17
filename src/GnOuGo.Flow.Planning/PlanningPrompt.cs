@@ -37,7 +37,7 @@ internal sealed partial class PlanningPrompt(PlanningSession state)
 
     private const string Instructions = """
         Return executable business tasks for the requested outcomes. Generate artifacts only when explicitly requested. Do not add unrequested actions, filtering or deduplication.
-        Extract supplied facts only; use supported bindings or producer outputs for derived arguments, copies, rows and status. Declared flags: {"kind":"predicate","predicate":"and","items":[{"kind":"output","source":"p","port":"success"},{"kind":"predicate","predicate":"and","items":[{"kind":"output","source":"p","port":"available"},{"kind":"output","source":"p","port":"complete"}]}]}
+        Extract facts; bind copies/rows/status. Assert: {"kind":"predicate","predicate":"and","items":[{"kind":"output","source":"p","port":"success"},{"kind":"predicate","predicate":"and","items":[{"kind":"output","source":"p","port":"available"},{"kind":"output","source":"p","port":"complete"}]}]}
         Complete bounded each {"input":"pages","output":"candidates"} -> Candidate[][]; flatten -> compact IDs -> offered/original lookup -> visits/rows.
         Original IDs/actions/text; null branches; headers first; save before cleanup; writer path.
         """ + "\n" + DescriptionInstructions;
@@ -55,7 +55,7 @@ internal sealed partial class PlanningPrompt(PlanningSession state)
         """ + "\n" + DescriptionInstructions;
 
     private const string ClarificationInstructions = """
-        Ambiguous:1-3 questions,2-3 compatible alternatives+recommendation;else plan. Apply answers once.
+        Ambiguity:1-3 questions,2-3 compatible alternatives+recommendation. Reuse answers.
         """;
 
     private const string InteractiveInstructions = """

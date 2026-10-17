@@ -166,9 +166,9 @@ internal static class PlanningSchemas
         if (compositionHints)
         {
             definitions["task"]!["description"] = (interactionHints ? "operation: external work. transform: supplied data, no tool calls. " : "") +
-                "requires: false fails. and/or: binary; nest. field.port: exact property. condition: routing. mode: extract/interpret. each.input: bound input. resultType: assembled. Literal strings exclude ${}.";
+                "requires: false fails. and/or: binary; nest. field.port: exact property. condition: routing. each.input: bound input. resultType: assembled. Literal strings exclude ${}.";
             if (root["properties"]?["requirements"] is not null)
-                definitions["task"]!["description"] += " First plan requires requirements/interfaces; null only for discovery or clarification.";
+                definitions["task"]!["description"] += " First plan needs requirements/interfaces; null for discovery/clarification only.";
         }
         ShareRepeatedSchemas(root, definitions);
         for (var pass = 0; pass < 3; pass++) { ShareRepeatedSchemas(root, definitions, 30); CollapseAliases(root, definitions); PruneDefinitions(root, definitions); }

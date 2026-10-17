@@ -149,7 +149,11 @@ public sealed class InitialCompositionTests(ITestOutputHelper output)
         Assert.Empty(PlanningContractValidation.ValidateSchema(schema, strict: true));
         var hints = PlanningSchemaReferences.Walk(schema, "", 0).Where(e => e.Schema.ContainsKey("description")).ToArray();
         var hint = Assert.Single(hints).Schema["description"]!.ToString();
-        foreach (var term in new[] { "requires:", "condition:", "mode:", "each.input:", "resultType:" }) Assert.Contains(term, hint);
+        foreach (var term in new[] { "requires:", "condition:", "each.input:", "resultType:" }) Assert.Contains(term, hint);
+        // Accepted modes are already explicit in the schema; the annotation
+        // need not repeat that enumeration in every fresh request.
+        Assert.Contains(PlanningSchemaReferences.Walk(schema, "", 0), entry =>
+            entry.Schema["enum"] is JsonArray modes && modes.Any(m => m?.ToString() == "extract") && modes.Any(m => m?.ToString() == "interpret"));
         state = original;
         Assert.Equal(before, PlanningRepairPatch.Schema(state, PlanningRepairPatch.Template(state)).ToJsonString());
         Assert.Equal(authority, PlanningRepairPatch.Authority(state));

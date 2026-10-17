@@ -221,7 +221,7 @@ public sealed class InitialRequirementsCorrectionTests
         Assert.Contains("first plan must include requirements and caller/output interfaces", request.Prompt);
         Assert.Contains("Discovery may leave requirements null", request.Prompt);
         Assert.Contains("plan:null and requirements:null", request.Prompt);
-        Assert.Contains("First plan requires requirements/interfaces", request.StructuredOutputSchema!.ToJsonString());
+        Assert.Contains("First plan needs requirements/interfaces", request.StructuredOutputSchema!.ToJsonString());
         var initial = PlannerFixture.Session(); initial.Catalog = state.Catalog;
         var full = PlanningSchemas.FullProposal(initial, compact: false);
         var historical = PlanningSchemas.Compact(full.DeepClone().AsObject());
