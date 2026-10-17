@@ -412,7 +412,9 @@ Explicit `EditablePaths` revisions may select an existing transform’s `/mode`,
 
 ## Executable tasks versus workflow documents
 
-The planner returns business tasks; GnOuGo compiles and saves their YAML. A request
+Model instructions describe business tasks and typed bindings, without exposing
+compiler serialization details. Plan approval belongs to the host, not a generated
+business task; explicitly requested human business decisions remain supported. A request
 to build an agent that performs work must describe that work as actual operations,
 not return another workflow's source as a successful business result. Generate an
 artifact only when the artifact itself is requested. Missing executable capabilities

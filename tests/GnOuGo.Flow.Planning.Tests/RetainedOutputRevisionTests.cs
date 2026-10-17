@@ -27,8 +27,9 @@ public sealed class RetainedOutputRevisionTests
         Assert.Contains("compact IDs", instructions);
         Assert.Contains("offered/original lookup", instructions);
         Assert.Contains("whole relevant offered feature/text block", instructions);
-        Assert.Contains("Return executable business tasks; GnOuGo compiles/saves YAML. Artifacts only if requested", instructions);
-        Assert.Contains("no filtering/deduplication", instructions);
+        Assert.Contains("Return executable business tasks for the requested outcomes. Generate artifacts only when explicitly requested", instructions);
+        Assert.Contains("Do not add unrequested actions, filtering or deduplication", instructions);
+        Assert.DoesNotContain("YAML", instructions, StringComparison.OrdinalIgnoreCase);
         var hints = PlanningSchemaReferences.Walk(request.StructuredOutputSchema!.AsObject(), "", 0)
             .Select(e => e.Schema["description"]?.ToString()).OfType<string>().ToArray();
         var hint = Assert.Single(hints);

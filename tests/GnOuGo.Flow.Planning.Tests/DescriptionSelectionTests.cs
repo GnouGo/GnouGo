@@ -21,7 +21,9 @@ public sealed class DescriptionSelectionTests
         Assert.Equal(2, runtime.Calls.Count);
         foreach (var request in runtime.Calls)
         {
-            Assert.Contains("Return executable business tasks; GnOuGo compiles/saves YAML. Artifacts only if requested", request.Prompt);
+            var instructions = request.Prompt[..request.Prompt.IndexOf("{\"request\"", StringComparison.Ordinal)];
+            Assert.DoesNotContain("YAML", instructions, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("Return executable business tasks for the requested outcomes. Generate artifacts only when explicitly requested", request.Prompt);
             Assert.Contains("Requested descriptions:", request.Prompt);
             Assert.Contains("heading optional", request.Prompt);
             Assert.Contains("offered/original lookup", request.Prompt);

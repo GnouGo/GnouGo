@@ -36,7 +36,7 @@ internal sealed partial class PlanningPrompt(PlanningSession state)
         """;
 
     private const string Instructions = """
-        Return executable business tasks; GnOuGo compiles/saves YAML. Artifacts only if requested; no filtering/deduplication.
+        Return executable business tasks for the requested outcomes. Generate artifacts only when explicitly requested. Do not add unrequested actions, filtering or deduplication.
         Extract facts; bind copies/rows/status. Declared flags: {"kind":"predicate","predicate":"and","items":[{"kind":"output","source":"p","port":"success"},{"kind":"predicate","predicate":"and","items":[{"kind":"output","source":"p","port":"available"},{"kind":"output","source":"p","port":"complete"}]}]}
         Complete bounded each {"input":"pages","output":"candidates"} -> Candidate[][]; flatten -> compact IDs -> offered/original lookup -> visits/rows.
         Original IDs/actions/text; null branches; headers first; save before cleanup; writer path.
