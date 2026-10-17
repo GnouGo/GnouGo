@@ -1,0 +1,42 @@
+{
+  "before": {
+    "sha256": "008c1b2cd1727f17c3462a13c243b143cbe6215fbba93ac1b60c6ccaf09b9868",
+    "calls": 7,
+    "requests_utf8_bytes": 520436,
+    "repairs": 0,
+    "discovered_identities": 74,
+    "required_contracts": 10,
+    "input_estimates": [
+      9886,
+      20241,
+      21553,
+      21250,
+      21238,
+      21460,
+      23889
+    ],
+    "exact_contract_resolutions": 20,
+    "unavailable_resolutions": 0
+  },
+  "after": {
+    "sha256": "0f33cf75e9702be76e79240d626f2360397847fb2108b8af0f29428c7048a37a",
+    "calls": 7,
+    "requests_utf8_bytes": 524534,
+    "repairs": 0,
+    "discovered_identities": 74,
+    "required_contracts": 10,
+    "input_estimates": [
+      9760,
+      21599,
+      21428,
+      21465,
+      21280,
+      21600,
+      23822
+    ],
+    "exact_contract_resolutions": 28,
+    "unavailable_resolutions": 9
+  },
+  "actual_paid_calls": 0,
+  "baseline_commit": "12608c90599a82417c37d05e8c61d28744ef50ad"
+}

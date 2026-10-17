@@ -1,0 +1,12 @@
+{
+  "corrected-proposal.json": {
+    "identical": true,
+    "sha256": "c4d6b811bf4c6377c843644b241be1773084b2defe5345278e16c29e40119991",
+    "bytes": 8077
+  },
+  "corrected-workflow.yaml": {
+    "identical": true,
+    "sha256": "0944971d9acb3b038f0e70eed01fe9a1b88e902e1ccb61698e00961466916c14",
+    "bytes": 17881
+  }
+}
