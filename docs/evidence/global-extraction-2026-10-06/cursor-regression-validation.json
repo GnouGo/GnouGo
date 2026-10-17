@@ -1,0 +1,16 @@
+{
+  "source": "4d0337b589aada4406531923c7596895c8246253",
+  "command": "dotnet test tests/GnOuGo.Browser.Mcp.Tests -m:1 -warnaserror --no-restore --filter 'FullyQualifiedName~BrowserObservationTests'",
+  "exit_code": 0,
+  "passed": 3,
+  "failed": 0,
+  "skipped": 0,
+  "new_source_changes": false,
+  "paid_calls": 0,
+  "coverage": [
+    "page-initiated navigation invalidates legacy observation cursors",
+    "page-initiated navigation invalidates manifest cursors",
+    "bounded snapshots preserve observations, limits, idempotence and invalidation"
+  ],
+  "limitation": "Reproduces the invalidation mechanism, not the unrecorded specific live navigation event."
+}

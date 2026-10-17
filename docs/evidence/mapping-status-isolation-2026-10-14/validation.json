@@ -1,0 +1,29 @@
+{
+  "production_candidate": "e5bec73c",
+  "focused_mapping": {
+    "passed": 54,
+    "failed": 0,
+    "warnaserror": true
+  },
+  "planning_all": {
+    "passed": 1338,
+    "failed": 0,
+    "warnaserror": true
+  },
+  "focused_host_and_local": {
+    "passed": 21,
+    "failed": 0,
+    "warnaserror": true
+  },
+  "frontend_production_build": "passed",
+  "planning_skill_validation": "passed",
+  "local_workbook_oracle": "workbook-oracle.json",
+  "unchanged_live_oracle": "unchanged-live-oracle-results.json",
+  "retained_replay": "replay.json",
+  "interactive_Rider_shutdown": "unresolved; not reproduced by deterministic host HTTP/streamed-chat test",
+  "complete_solution_publish_and_CI_report": "https://github.com/GnouGo/GnouGo/pull/117#issuecomment-6167735665",
+  "provider_calls": 0,
+  "historical_execution_resumes": 0,
+  "financial_changes": false,
+  "packages_AOT_published_recovery": "publish-results.json"
+}

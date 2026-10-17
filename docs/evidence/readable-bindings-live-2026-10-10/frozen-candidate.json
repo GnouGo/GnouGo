@@ -1,0 +1,20 @@
+{
+  "candidate": "e18452151b12fc9e978afc6450a8ca495e57d5ef",
+  "campaign": "schema-portability-20261002",
+  "cohort": "readablebindings20261010a",
+  "planned_run": "readablebindings20261010a-amazon-1",
+  "max_products": 10,
+  "cost_ceiling_eur": 150,
+  "files": {
+    "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Planning.Benchmark.dll": "08d44133ec20049c90d7ceb06201c6f44ce6b83f0ff4f27f384cefa22aa2a584",
+    "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Flow.Core.dll": "25af1711797fc35da20f45ee95819d26577e86c6ce61cfd6843fed15db1276e3",
+    "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Flow.Planning.dll": "6bd2efa23371be9cf781af34da4de3839bb132b6f7879952f61c1dee28a2e3f5",
+    "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Flow.Persistence.dll": "0150a3b747b154ee9e4ae543e547d889b627dc8fff90dc2eea5609f6163c6329",
+    "src/GnOuGo.Browser.Mcp/bin/Debug/net10.0/GnOuGo.Browser.Mcp.dll": "992d5c1c2f4fb6319dc93fde814a57403ffa74eb01c99a0d168da92245a646c4",
+    "src/GnOuGo.Document.Mcp/bin/Debug/net10.0/GnOuGo.Document.Mcp.dll": "b5063948962e294949f581816e6416d1d7980acf84f959b60de05344ce2f42b1",
+    "tests/GnOuGo.Agent.Planning.Benchmark/LiveWorkflowEvaluation.cs": "c184cbd99aa2d4fed60f2f01a7e26d34baede6138934c225dffaa91114272d23",
+    "tests/GnOuGo.Agent.Planning.Benchmark/LiveWorkflowOracles.cs": "e2d6ddf002b75cfd5ddc5be10852c118e7b9d2a3c3d3875c03a0770de054f62a"
+  },
+  "readiness_configuration_hash": "0d9b3f888b2a23348f7efbdc00cc764d2e388e63c076dd350b945bc161539d31",
+  "execution_checkout": "/private/tmp/gnougo-live-readable-e1845215"
+}

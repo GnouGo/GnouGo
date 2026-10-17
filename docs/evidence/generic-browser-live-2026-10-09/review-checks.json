@@ -1,0 +1,163 @@
+{
+  "task_count": 23,
+  "task_kinds": {
+    "transform": 6,
+    "operation": 4,
+    "value": 10,
+    "foreach": 3
+  },
+  "steps": 61,
+  "step_types": {
+    "set": 39,
+    "template.render": 4,
+    "llm.call": 4,
+    "mcp.call": 4,
+    "switch": 5,
+    "mapping.dynamic": 2,
+    "workflow.call": 2,
+    "loop.sequential": 1
+  },
+  "count_method": "Emitted YAML step id/type declarations, including nested/finalizer steps",
+  "yaml_bytes": 95169,
+  "yaml_lines": 2055,
+  "requirements_unchanged": true,
+  "external_operation_identities_and_order_unchanged": true,
+  "frozen_hashes_match": true,
+  "artifact_hash": "25115dd75531e0be89e5e95062436ca275ab145c2a11f97cc10a039d96228070",
+  "revision": 6,
+  "consent_terms_in_generated_plan": false,
+  "interpret_inputs": [
+    {
+      "task": "derive_search_url",
+      "inputs": [
+        {
+          "name": "query",
+          "value": {
+            "kind": "input",
+            "text": null,
+            "number": null,
+            "boolean": null,
+            "source": "query",
+            "port": null,
+            "members": [],
+            "items": [],
+            "predicate": null
+          }
+        }
+      ]
+    },
+    {
+      "task": "select_candidate_ids",
+      "inputs": [
+        {
+          "name": "query",
+          "value": {
+            "kind": "input",
+            "text": null,
+            "number": null,
+            "boolean": null,
+            "source": "query",
+            "port": null,
+            "members": [],
+            "items": [],
+            "predicate": null
+          }
+        },
+        {
+          "name": "offeredCandidates",
+          "value": {
+            "kind": "output",
+            "text": null,
+            "number": null,
+            "boolean": null,
+            "source": "flatten_offered_candidates",
+            "port": "records",
+            "members": [],
+            "items": [],
+            "predicate": null
+          }
+        }
+      ]
+    },
+    {
+      "task": "reconcile_product_row",
+      "inputs": [
+        {
+          "name": "compactFacts",
+          "value": {
+            "kind": "output",
+            "text": null,
+            "number": null,
+            "boolean": null,
+            "source": "extract_product_compact_facts",
+            "port": "pageFacts",
+            "members": [],
+            "items": [],
+            "predicate": null
+          }
+        },
+        {
+          "name": "pageUrl",
+          "value": {
+            "kind": "output",
+            "text": null,
+            "number": null,
+            "boolean": null,
+            "source": "read_product_page",
+            "port": "url",
+            "members": [],
+            "items": [],
+            "predicate": null
+          }
+        },
+        {
+          "name": "browserErrorCode",
+          "value": {
+            "kind": "output",
+            "text": null,
+            "number": null,
+            "boolean": null,
+            "source": "read_product_page",
+            "port": "error_code",
+            "members": [],
+            "items": [],
+            "predicate": null
+          }
+        },
+        {
+          "name": "browserErrorMessage",
+          "value": {
+            "kind": "output",
+            "text": null,
+            "number": null,
+            "boolean": null,
+            "source": "read_product_page",
+            "port": "error_message",
+            "members": [],
+            "items": [],
+            "predicate": null
+          }
+        }
+      ]
+    },
+    {
+      "task": "build_tsv",
+      "inputs": [
+        {
+          "name": "rows",
+          "value": {
+            "kind": "output",
+            "text": null,
+            "number": null,
+            "boolean": null,
+            "source": "flatten_rows",
+            "port": "rows",
+            "members": [],
+            "items": [],
+            "predicate": null
+          }
+        }
+      ]
+    }
+  ]
+}

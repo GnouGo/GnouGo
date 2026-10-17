@@ -1,0 +1,7 @@
+{
+  "initial_ui_harness": "Incorrect test assumptions about same-revision store writes, stale DOM handlers and save routing were corrected; production approval remained enforced.",
+  "focused_build": "xUnit1031 rejected blocking task operations in a new test; the test now awaits normal discovery.",
+  "fragment_link": "Fragment-only href resolved against the application base URL. An absolute current-session target plus explicit focus prevents navigation and supports keyboard access. The intermediate anchor-only attempt scrolled without moving keyboard focus; retained separately.",
+  "denied_fixture": "An exploratory nonexistent Document configuration key did not deny writing. Removed it; the negative fixture now independently proposes a parent-traversal path and verifies existing producer path enforcement. It is not accepted as an authorized retained-plan revision.",
+  "final_status": "All these focused failures have corrected passing regressions; no timeout, assertion, producer contract or runtime permission was relaxed."
+}

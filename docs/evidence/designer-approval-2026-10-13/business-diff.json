@@ -1,0 +1,129 @@
+{
+  "preserved_requirements": [
+    {
+      "id": "xlsx_saved",
+      "description": "Un fichier Excel est sauvegardé sur le disque avec les colonnes Nom, Description et Prix."
+    },
+    {
+      "id": "first_10_processed",
+      "description": "Les 10 premiers articles demandés sont traités dans l’ordre observé, sans déduplication ni filtrage supplémentaire."
+    }
+  ],
+  "added_requirement": {
+    "id": "cleanup_browser",
+    "description": "Close the browser through existing finalization; unknown completion continues to prohibit unsafe cleanup or replay."
+  },
+  "removed_output_fields": [
+    "status.rowCountIncludingHeader",
+    "status.dataRowCount"
+  ],
+  "unchanged_inputs": [
+    {
+      "name": "article",
+      "type": {
+        "kind": "string",
+        "nullable": false,
+        "items": null,
+        "fields": []
+      },
+      "required": true,
+      "default": null
+    }
+  ],
+  "unchanged_outputs": [
+    "filePath",
+    "status.saved",
+    "status.success"
+  ],
+  "preserved_operation_order": [
+    "observe_search",
+    "observe_product",
+    "write_excel"
+  ],
+  "added_finalizer": "release/browser_close",
+  "changed_arguments": [
+    {
+      "operation": "observe_search",
+      "argument": "url",
+      "before": {
+        "kind": "output",
+        "text": null,
+        "number": null,
+        "boolean": null,
+        "source": "prepare_request",
+        "port": "searchUrl",
+        "members": [],
+        "items": [],
+        "predicate": null
+      },
+      "after": {
+        "kind": "output",
+        "text": null,
+        "number": null,
+        "boolean": null,
+        "source": "prepare_request",
+        "port": "url",
+        "members": [],
+        "items": [],
+        "predicate": null
+      }
+    },
+    {
+      "operation": "write_excel",
+      "argument": "filePath",
+      "before": {
+        "kind": "output",
+        "text": null,
+        "number": null,
+        "boolean": null,
+        "source": "prepare_request",
+        "port": "outputPath",
+        "members": [],
+        "items": [],
+        "predicate": null
+      },
+      "after": {
+        "kind": "string",
+        "text": "workflows/amazon-product-extraction/products.xlsx",
+        "number": null,
+        "boolean": null,
+        "source": null,
+        "port": null,
+        "members": [],
+        "items": [],
+        "predicate": null
+      }
+    },
+    {
+      "operation": "write_excel",
+      "argument": "rows",
+      "before": {
+        "kind": "output",
+        "text": null,
+        "number": null,
+        "boolean": null,
+        "source": "assemble_typed_rows",
+        "port": "rows",
+        "members": [],
+        "items": [],
+        "predicate": null
+      },
+      "after": {
+        "kind": "output",
+        "text": null,
+        "number": null,
+        "boolean": null,
+        "source": "checked_rows",
+        "port": "rows",
+        "members": [],
+        "items": [],
+        "predicate": null
+      }
+    }
+  ],
+  "notes": [
+    "The original destination was model-generated within the required directory; the corrected artifact fixes products.xlsx in that same directory.",
+    "Only existing data/guard bindings are revised. The original available-URL conditional is retained.",
+    "Cleanup is the sole added requirement; count-field removals are separately authorized."
+  ]
+}

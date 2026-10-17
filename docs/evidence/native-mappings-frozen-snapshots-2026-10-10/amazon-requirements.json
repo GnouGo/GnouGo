@@ -1,0 +1,151 @@
+{
+  "summary": "Automatiser une recherche Amazon.fr pour un article fourni, extraire jusqu’aux 10 premiers produits et sauvegarder les résultats dans un fichier Excel local, en fermant toujours le navigateur et en conservant explicitement les erreurs/données absentes.",
+  "outcomes": [
+    {
+      "id": "searched_amazon_fr",
+      "description": "Ouvrir Amazon.fr et rechercher l’article fourni via l’unique entrée publique query."
+    },
+    {
+      "id": "listed_products",
+      "description": "Identifier au maximum les 10 premiers produits retournés par la recherche."
+    },
+    {
+      "id": "visited_each_product",
+      "description": "Naviguer sur la page de chaque produit identifié afin d’extraire les données demandées."
+    },
+    {
+      "id": "extracted_fields",
+      "description": "Pour chaque produit, extraire le nom, la description et le prix; si une donnée est absente ou si une erreur est observée, l’inscrire explicitement sans invention."
+    },
+    {
+      "id": "saved_excel",
+      "description": "Créer et sauvegarder un classeur Excel à workflows/schema-portability-20261002/nativesnapshots20261010a-amazon-1/products.xlsx."
+    },
+    {
+      "id": "browser_closed",
+      "description": "Fermer le navigateur même en cas d’échec."
+    },
+    {
+      "id": "truthful_status",
+      "description": "Ne pas déclarer la réussite si la recherche, l’extraction ou la sauvegarde n’a pas abouti."
+    }
+  ],
+  "inputs": [
+    {
+      "name": "query",
+      "type": {
+        "kind": "string",
+        "nullable": false,
+        "items": null,
+        "fields": []
+      },
+      "required": true,
+      "default": null
+    }
+  ],
+  "outputs": [
+    {
+      "name": "workbookPath",
+      "type": {
+        "kind": "string",
+        "nullable": false,
+        "items": null,
+        "fields": []
+      },
+      "required": true,
+      "default": null
+    },
+    {
+      "name": "products",
+      "type": {
+        "kind": "array",
+        "nullable": false,
+        "minItems": 0,
+        "maxItems": 10,
+        "items": {
+          "kind": "object",
+          "nullable": false,
+          "items": null,
+          "fields": [
+            {
+              "name": "name",
+              "type": {
+                "kind": "string",
+                "nullable": true,
+                "items": null,
+                "fields": []
+              },
+              "required": true,
+              "default": null
+            },
+            {
+              "name": "description",
+              "type": {
+                "kind": "string",
+                "nullable": true,
+                "items": null,
+                "fields": []
+              },
+              "required": true,
+              "default": null
+            },
+            {
+              "name": "price",
+              "type": {
+                "kind": "string",
+                "nullable": true,
+                "items": null,
+                "fields": []
+              },
+              "required": true,
+              "default": null
+            },
+            {
+              "name": "observedError",
+              "type": {
+                "kind": "string",
+                "nullable": true,
+                "items": null,
+                "fields": []
+              },
+              "required": true,
+              "default": null
+            }
+          ]
+        },
+        "fields": []
+      },
+      "required": true,
+      "default": null
+    },
+    {
+      "name": "success",
+      "type": {
+        "kind": "boolean",
+        "nullable": false,
+        "items": null,
+        "fields": []
+      },
+      "required": true,
+      "default": null
+    },
+    {
+      "name": "errors",
+      "type": {
+        "kind": "array",
+        "nullable": false,
+        "minItems": 0,
+        "maxItems": 100,
+        "items": {
+          "kind": "string",
+          "nullable": false,
+          "items": null,
+          "fields": []
+        },
+        "fields": []
+      },
+      "required": true,
+      "default": null
+    }
+  ]
+}

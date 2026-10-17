@@ -1,0 +1,135 @@
+{
+  "status": "failed",
+  "revision": 75,
+  "steps_started": 17,
+  "finalization_steps_started": 1,
+  "finalization_completed": true,
+  "invocations": [
+    {
+      "id": "/workflow/main/step/n_e0f14bca877bee21",
+      "type": "mcp.call",
+      "status": "completed",
+      "finalizer": false,
+      "completion_observed": true
+    },
+    {
+      "id": "/workflow/main/step/n_18ee0a0e0ef8ecba",
+      "type": "template.render",
+      "status": "completed",
+      "finalizer": false,
+      "completion_observed": true
+    },
+    {
+      "id": "/workflow/main/step/n_3981b1c1638bb00a",
+      "type": "llm.call",
+      "status": "completed",
+      "finalizer": false,
+      "completion_observed": true
+    },
+    {
+      "id": "/workflow/main/step/n_ee40e5cae35eab47",
+      "type": "mcp.call",
+      "status": "completed",
+      "finalizer": false,
+      "completion_observed": true
+    },
+    {
+      "id": "/workflow/main/step/n_f9a0e5448f213c0a",
+      "type": "set",
+      "status": "completed",
+      "finalizer": false,
+      "completion_observed": true
+    },
+    {
+      "id": "/workflow/main/step/n_b2e74a3e235fa902",
+      "type": "mapping.dynamic",
+      "status": "completed",
+      "finalizer": false,
+      "completion_observed": true
+    },
+    {
+      "id": "/workflow/main/step/n_b2e74a3e235fa902/mapping/0",
+      "type": "llm.call",
+      "status": "completed",
+      "finalizer": false,
+      "completion_observed": true
+    },
+    {
+      "id": "/workflow/main/step/n_2df5087285c9a9f2",
+      "type": "set",
+      "status": "completed",
+      "finalizer": false,
+      "completion_observed": true
+    },
+    {
+      "id": "/workflow/main/step/n_5b5c2bee8f016cd5",
+      "type": "template.render",
+      "status": "completed",
+      "finalizer": false,
+      "completion_observed": true
+    },
+    {
+      "id": "/workflow/main/step/n_859f7c31c5adb8f9",
+      "type": "llm.call",
+      "status": "completed",
+      "finalizer": false,
+      "completion_observed": true
+    },
+    {
+      "id": "/workflow/main/step/n_4a25c624398f0446",
+      "type": "set",
+      "status": "completed",
+      "finalizer": false,
+      "completion_observed": true
+    },
+    {
+      "id": "/workflow/main/step/n_6868818fc6587982",
+      "type": "switch",
+      "status": "failed",
+      "finalizer": false,
+      "completion_observed": false
+    },
+    {
+      "id": "/workflow/main/step/n_6868818fc6587982/case/0/step/n_e97f85e183e568d7",
+      "type": "workflow.call",
+      "status": "failed",
+      "finalizer": false,
+      "completion_observed": false
+    },
+    {
+      "id": "/workflow/main/step/n_6868818fc6587982/case/0/step/n_e97f85e183e568d7/workflow/w_47a189d7407c79bf/step/n_f564ecdf62578eb3",
+      "type": "workflow.call",
+      "status": "failed",
+      "finalizer": false,
+      "completion_observed": false
+    },
+    {
+      "id": "/workflow/main/step/n_6868818fc6587982/case/0/step/n_e97f85e183e568d7/workflow/w_47a189d7407c79bf/step/n_f564ecdf62578eb3/workflow/w_9e38e9c14479c882/step/n_b44c9fca9b980664",
+      "type": "loop.sequential",
+      "status": "failed",
+      "finalizer": false,
+      "completion_observed": false
+    },
+    {
+      "id": "/workflow/main/step/n_6868818fc6587982/case/0/step/n_e97f85e183e568d7/workflow/w_47a189d7407c79bf/step/n_f564ecdf62578eb3/workflow/w_9e38e9c14479c882/step/n_b44c9fca9b980664/iteration/0/step/n_3c54f3673f7667e7",
+      "type": "workflow.call",
+      "status": "failed",
+      "finalizer": false,
+      "completion_observed": false
+    },
+    {
+      "id": "/workflow/main/step/n_6868818fc6587982/case/0/step/n_e97f85e183e568d7/workflow/w_47a189d7407c79bf/step/n_f564ecdf62578eb3/workflow/w_9e38e9c14479c882/step/n_b44c9fca9b980664/iteration/0/step/n_3c54f3673f7667e7/workflow/w_1a1fbbd2aa8a9d21/step/n_05ccc0104014c8e2",
+      "type": "mcp.call",
+      "status": "failed",
+      "finalizer": false,
+      "completion_observed": true
+    },
+    {
+      "id": "/workflow/main/finally/step/n_38125c2e8d49993f",
+      "type": "mcp.call",
+      "status": "completed",
+      "finalizer": true,
+      "completion_observed": true
+    }
+  ]
+}

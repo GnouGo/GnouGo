@@ -1,0 +1,150 @@
+{
+  "discoveryRequests": null,
+  "patch": {
+    "edits": [
+      {
+        "slot": "s0",
+        "action": "replace",
+        "value": {
+          "kind": "output",
+          "source": "build_search_url",
+          "port": "searchUrl"
+        }
+      },
+      {
+        "slot": "s1",
+        "action": "replace",
+        "value": {
+          "kind": "predicate",
+          "predicate": "and",
+          "items": [
+            {
+              "kind": "predicate",
+              "predicate": "not_equal",
+              "items": [
+                {
+                  "kind": "output",
+                  "source": "build_search_url",
+                  "port": "searchUrl"
+                },
+                {
+                  "kind": "null"
+                }
+              ]
+            },
+            {
+              "kind": "predicate",
+              "predicate": "not_equal",
+              "items": [
+                {
+                  "kind": "output",
+                  "source": "build_search_url",
+                  "port": "searchUrl"
+                },
+                {
+                  "kind": "string",
+                  "text": ""
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "slot": "s2",
+        "action": "replace",
+        "value": {
+          "kind": "predicate",
+          "predicate": "and",
+          "items": [
+            {
+              "kind": "predicate",
+              "predicate": "not_equal",
+              "items": [
+                {
+                  "kind": "output",
+                  "source": "compact_candidate_decision",
+                  "port": "selectedIds"
+                },
+                {
+                  "kind": "array",
+                  "items": []
+                }
+              ]
+            },
+            {
+              "kind": "predicate",
+              "predicate": "not_equal",
+              "items": [
+                {
+                  "kind": "lookup",
+                  "port": "reference",
+                  "items": [
+                    {
+                      "kind": "flatten",
+                      "items": [
+                        {
+                          "kind": "output",
+                          "source": "extract_candidate_pages",
+                          "port": "candidates"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "output",
+                      "source": "compact_candidate_decision",
+                      "port": "selectedIds"
+                    }
+                  ]
+                },
+                {
+                  "kind": "null"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "slot": "s3",
+        "action": "replace",
+        "value": {
+          "kind": "predicate",
+          "predicate": "and",
+          "items": [
+            {
+              "kind": "predicate",
+              "predicate": "not_equal",
+              "items": [
+                {
+                  "kind": "output",
+                  "source": "prepare_xlsx_rows",
+                  "port": "rows"
+                },
+                {
+                  "kind": "null"
+                }
+              ]
+            },
+            {
+              "kind": "predicate",
+              "predicate": "not_equal",
+              "items": [
+                {
+                  "kind": "output",
+                  "source": "project_product_rows",
+                  "port": "products"
+                },
+                {
+                  "kind": "array",
+                  "items": []
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "clarifications": null
+}

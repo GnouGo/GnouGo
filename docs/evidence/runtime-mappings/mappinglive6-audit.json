@@ -1,0 +1,37 @@
+{
+  "cohort": "mappinglive6",
+  "source": "e7229199d192a9004dccd276033cfa87b5dd373f",
+  "approval_refusals": [
+    {
+      "run": "mappinglive6-amazon-1",
+      "reason": "Extract-mode tasks request derived CAPTCHA flags and synthetic absence messages; another task uses a literal selector instead of the purportedly observed selector. Those semantics cannot be established by source-grounded extraction. No artifact approval or execution occurred.",
+      "classification": "model_proposal_failure",
+      "session_modified": false
+    },
+    {
+      "run": "mappinglive6-code-1",
+      "reason": "The only report writer is the Copilot session confined to the cloned project root. The required surviving review.json is outside that root, and the plan has no separate export/write before deleting the clone. Approval withheld rather than expanding filesystem authority or losing the report.",
+      "classification": "model_proposal_failure",
+      "session_modified": false
+    }
+  ],
+  "execution_failures": [
+    {
+      "run": "mappinglive6-amazon-2",
+      "classification": "pre_dispatch_input_admission_and_receipt_defect",
+      "estimated_prompt_tokens": 144444,
+      "input_ceiling": 96000,
+      "blocked_request_provider_dispatches": 0,
+      "original_error": "RUN_NEEDS_RECONCILIATION",
+      "correction": "Keep the input ceiling. Mark host-owned pre-dispatch rejection explicitly, and record known llm.call completion/rejection before output validation. Unknown failures still stop for reconciliation.",
+      "workflow_cleanup": false,
+      "oracle_cleanup": true,
+      "saved_run_reconciled_or_replayed": false
+    }
+  ],
+  "not_started_after_generic_defect": [
+    "mappinglive6-amazon-3",
+    "mappinglive6-code-2",
+    "mappinglive6-code-3"
+  ]
+}

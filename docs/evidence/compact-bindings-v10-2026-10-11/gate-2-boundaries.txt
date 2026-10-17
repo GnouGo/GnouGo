@@ -1,0 +1,88 @@
+Série de tests pour /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Flow.Planning.Tests/bin/Debug/net10.0/GnOuGo.Flow.Planning.Tests.dll (.NETCoreApp,Version=v10.0)
+Au total, 1 fichiers de test ont correspondu au modèle spécifié.
+/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Flow.Planning.Tests/bin/Debug/net10.0/GnOuGo.Flow.Planning.Tests.dll
+[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v4.0.0+05679a7ab5 (64-bit .NET 10.0.8)
+[xUnit.net 00:00:00.43]   Discovering: GnOuGo.Flow.Planning.Tests
+[xUnit.net 00:00:00.78]   Discovered:  GnOuGo.Flow.Planning.Tests
+[xUnit.net 00:00:00.90]   Starting:    GnOuGo.Flow.Planning.Tests
+  Réussi GnOuGo.Flow.Planning.Tests.PhysicalProjectionCompilationTests.ReadableWholeContainerRetainsLogicalKeysAndValues(route: False) [617 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.PhysicalProjectionCompilationTests.ReadableWholeContainerRetainsLogicalKeysAndValues(route: True) [9 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.PhysicalProjectionCompilationTests.RealFlowRetainsBranchesAssertionsCleanupAndDurableInputs(route: False, allowed: False, readable: False) [36 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.PhysicalProjectionCompilationTests.RealFlowRetainsBranchesAssertionsCleanupAndDurableInputs(route: True, allowed: False, readable: False) [9 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.PhysicalProjectionCompilationTests.RealFlowRetainsBranchesAssertionsCleanupAndDurableInputs(route: True, allowed: True, readable: True) [32 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.PhysicalProjectionCompilationTests.RealFlowRetainsBranchesAssertionsCleanupAndDurableInputs(route: False, allowed: True, readable: True) [9 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.PhysicalProjectionCompilationTests.RealFlowRetainsBranchesAssertionsCleanupAndDurableInputs(route: False, allowed: True, readable: False) [10 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.PhysicalProjectionCompilationTests.RealFlowRetainsBranchesAssertionsCleanupAndDurableInputs(route: False, allowed: False, readable: True) [13 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.PhysicalProjectionCompilationTests.RealFlowRetainsBranchesAssertionsCleanupAndDurableInputs(route: True, allowed: False, readable: True) [10 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.PhysicalProjectionCompilationTests.RealFlowRetainsBranchesAssertionsCleanupAndDurableInputs(route: True, allowed: True, readable: False) [10 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.PhysicalProjectionCompilationTests.FirstPresentPathsNeverSkipNullOrInvalidValues(first: "false", present: False, second: "true", expected: "true") [17 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.PhysicalProjectionCompilationTests.FirstPresentPathsNeverSkipNullOrInvalidValues(first: "\"invalid\"", present: True, second: "true", expected: "\"invalid\"") [12 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.PhysicalProjectionCompilationTests.FirstPresentPathsNeverSkipNullOrInvalidValues(first: "null", present: True, second: "true", expected: "null") [11 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.PhysicalProjectionCompilationTests.FirstPresentPathsNeverSkipNullOrInvalidValues(first: "true", present: True, second: "false", expected: "true") [8 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.PhysicalProjectionCompilationTests.LeanScalarSelectionKeepsFirstPresentSemanticsWithoutImportingSnapshots [80 ms]
+  Messages de sortie standard :
+ profile=8; YAML bytes=1572; unused observation bytes=10000000
+ profile=9; YAML bytes=1569; unused observation bytes=10000000
+ profile=10; YAML bytes=1509; unused observation bytes=10000000
+
+
+  Réussi GnOuGo.Flow.Planning.Tests.PhysicalProjectionCompilationTests.PrefixPathsResolveNestedIdentitiesAndWholeContainersKeepLogicalKeys [5 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.PhysicalProjectionCompilationTests.HistoricalOptionsRetainPreviousLowering(profile: "compact-bindings-v3", descriptions: True, fusion: False, consumers: False) [7 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.PhysicalProjectionCompilationTests.HistoricalOptionsRetainPreviousLowering(profile: null, descriptions: False, fusion: False, consumers: False) [4 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.PhysicalProjectionCompilationTests.HistoricalOptionsRetainPreviousLowering(profile: "compact-bindings-v1", descriptions: False, fusion: False, consumers: False) [4 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.PhysicalProjectionCompilationTests.HistoricalOptionsRetainPreviousLowering(profile: "compact-bindings-v2", descriptions: True, fusion: False, consumers: False) [9 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.PhysicalProjectionCompilationTests.HistoricalOptionsRetainPreviousLowering(profile: "compact-bindings-v5", descriptions: True, fusion: True, consumers: True) [5 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.PhysicalProjectionCompilationTests.HistoricalOptionsRetainPreviousLowering(profile: "compact-bindings-v4", descriptions: True, fusion: True, consumers: False) [7 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.PhysicalProjectionCompilationTests.ScalarSelectionDoesNotImportEightUnrelatedLargeObservations [47 ms]
+  Messages de sortie standard :
+ unrelated_chars=0; scalar_allocation_bytes=10384; result_bytes=14
+ unrelated_chars=1600000; scalar_allocation_bytes=10384; result_bytes=14
+ unrelated_chars=10000000; scalar_allocation_bytes=10384; result_bytes=14
+ yaml_bytes=2106→1505; expression_bytes=792→213
+
+
+  Réussi GnOuGo.Flow.Planning.Tests.PhysicalProjectionCompilationTests.NativeProfileUsesReadableCheckedPropertyAccessAndHistoricalV6IsExact [10 ms]
+  Messages de sortie standard :
+ v6_yaml_bytes=1451; v7_yaml_bytes=1427; selection_helpers=1→0
+
+
+  Réussi GnOuGo.Flow.Planning.Tests.CompactProjectionCompilationTests.DeclaredProjectionPortsAvoidUnobservedCallEnvelopes(parallel: False, count: 1602, single: True) [1 s]
+  Messages de sortie standard :
+ projection items=1602; single=True; YAML=9122→8108; allocations=225067424→435709384; invocations=1→1; logicalJournal=5076235→5075139
+
+
+  Réussi GnOuGo.Flow.Planning.Tests.CompactProjectionCompilationTests.DeclaredProjectionPortsAvoidUnobservedCallEnvelopes(parallel: False, count: 3, single: False) [44 ms]
+  Messages de sortie standard :
+ projection items=3; single=False; YAML=10621→9885; allocations=980328→867408; invocations=1→1; logicalJournal=21880→21089
+
+
+  Réussi GnOuGo.Flow.Planning.Tests.CompactProjectionCompilationTests.DeclaredProjectionPortsAvoidUnobservedCallEnvelopes(parallel: False, count: 0, single: False) [37 ms]
+  Messages de sortie standard :
+ projection items=0; single=False; YAML=10621→9885; allocations=645624→597080; invocations=1→1; logicalJournal=14943→14152
+
+
+[xUnit.net 00:00:03.22]   Finished:    GnOuGo.Flow.Planning.Tests (ID = 'c66a0949152f91115fe382ea0022846c528179218259b3832b2877c7b8d17925')
+  Réussi GnOuGo.Flow.Planning.Tests.CompactProjectionCompilationTests.DeclaredProjectionPortsAvoidUnobservedCallEnvelopes(parallel: False, count: 0, single: True) [27 ms]
+  Messages de sortie standard :
+ projection items=0; single=True; YAML=9122→8108; allocations=559752→502536; invocations=1→1; logicalJournal=13119→12024
+
+
+  Réussi GnOuGo.Flow.Planning.Tests.CompactProjectionCompilationTests.DeclaredProjectionPortsAvoidUnobservedCallEnvelopes(parallel: True, count: 3, single: False) [39 ms]
+  Messages de sortie standard :
+ projection items=3; single=False; YAML=10621→9885; allocations=943016→867408; invocations=1→1; logicalJournal=21879→21089
+
+
+  Réussi GnOuGo.Flow.Planning.Tests.CompactProjectionCompilationTests.DeclaredProjectionPortsAvoidUnobservedCallEnvelopes(parallel: False, count: 1602, single: False) [868 ms]
+  Messages de sortie standard :
+ projection items=1602; single=False; YAML=10621→9885; allocations=188848744→172294904; invocations=1→1; logicalJournal=5105653→5104864
+
+
+  Réussi GnOuGo.Flow.Planning.Tests.CompactProjectionCompilationTests.EntryChecksAndResourceLimitsStillFailAtomically(authorized: False) [27 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.CompactProjectionCompilationTests.EntryChecksAndResourceLimitsStillFailAtomically(authorized: True) [25 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.CompactProjectionCompilationTests.ObservableLoopEnvelopesRemainIntact(observation: "whole") [23 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.CompactProjectionCompilationTests.ObservableLoopEnvelopesRemainIntact(observation: "presence") [39 ms]
+
+Série de tests réussie.
+Nombre total de tests : 34
+     Réussi(s) : 34
+ Durée totale : 3,4969 Secondes

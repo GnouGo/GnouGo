@@ -1,0 +1,18 @@
+{
+  "evidence": "Sanitized input-interface excerpt from the saved GithubLoveru1 Designer session; this is not a full workflow replay.",
+  "prompt": "Review a pull request using the caller's review instructions. Clone once, install dependencies, run available linters and tests, review the code, publish review feedback and always remove the cloned directory.",
+  "mode": "interactive",
+  "choices": [],
+  "planningCalls": 5,
+  "repairs": 1,
+  "inputs": [
+    { "name": "owner", "type": { "kind": "string" }, "required": true },
+    { "name": "repo", "type": { "kind": "string" }, "required": true },
+    { "name": "pullNumber", "type": { "kind": "integer" }, "required": true },
+    { "name": "remoteUrl", "type": { "kind": "string" }, "required": true },
+    { "name": "baseRef", "type": { "kind": "string" }, "required": true },
+    { "name": "headRef", "type": { "kind": "string" }, "required": true },
+    { "name": "reviewInstructions", "type": { "kind": "string" }, "required": true }
+  ],
+  "limitation": "The saved prompt did not identify the intended two input fields. The following tests exercise explicit synthetic answers, not an assumed user decision or a real repository review."
+}

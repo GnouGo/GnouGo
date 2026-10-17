@@ -1,0 +1,69 @@
+{
+  "id": "schema-portability-20261002:repairvocabulary20261009a-amazon-1:7:9a235c31cdbaf63d8da959711dbe82075ce3201f0d7d9c75a26dde37d63bc013",
+  "response": {
+    "discoveryRequests": null,
+    "patch": {
+      "edits": [
+        {
+          "slot": "s0",
+          "action": "replace",
+          "value": {
+            "kind": "object",
+            "fields": [
+              {
+                "name": "searchPageViews",
+                "type": {
+                  "kind": "array",
+                  "items": {
+                    "kind": "object",
+                    "fields": [
+                      {
+                        "name": "candidates",
+                        "type": {
+                          "kind": "array",
+                          "items": {
+                            "kind": "object",
+                            "fields": [
+                              {
+                                "name": "candidateId",
+                                "type": {
+                                  "kind": "string"
+                                }
+                              },
+                              {
+                                "name": "nameText",
+                                "type": {
+                                  "kind": "string"
+                                }
+                              }
+                            ]
+                          },
+                          "minItems": 0,
+                          "maxItems": 200
+                        }
+                      },
+                      {
+                        "name": "blockingEvidence",
+                        "type": {
+                          "kind": "array",
+                          "items": {
+                            "kind": "string"
+                          },
+                          "minItems": 0,
+                          "maxItems": 20
+                        }
+                      }
+                    ]
+                  },
+                  "minItems": 0,
+                  "maxItems": 100
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "clarifications": null
+  }
+}

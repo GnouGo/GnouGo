@@ -52,6 +52,10 @@ public sealed class PackagedFilesystemTests : IDisposable
         Assert.Equal(ExpectedCommands, schema.GetProperty("properties").GetProperty("commandName").GetProperty("enum").EnumerateArray().Select(n => n.GetString()));
         Assert.Equal(18, schema.GetProperty("oneOf").GetArrayLength());
         Assert.Equal(18, _policy.DescribePolicy().AllowedCommandCount);
+        var metadata = new JsonObject { ["gnougo"] = new JsonObject { ["artifacts"] = _policy.BuildArtifactMetadata() } };
+        var artifacts = GnOuGo.Mcp.Core.McpArtifactContractParser.ParseAndValidate(metadata, JsonNode.Parse(schema.GetRawText()), null);
+        Assert.True(artifacts.IsValid, string.Join("; ", artifacts.Errors));
+        Assert.Contains(artifacts.Contract!.Locations!, l => l.Action == "release" && l.Kind == "directory" && l.SelectorValue == "delete_directory");
     }
 
     [Theory]
@@ -108,6 +112,7 @@ public sealed class PackagedFilesystemTests : IDisposable
         Assert.Equal(new[] { "path" }, parameters.GetProperty("required").EnumerateArray().Select(p => p.GetString()));
         Assert.Equal("string", parameters.GetProperty("properties").GetProperty("path").GetProperty("type").GetString());
         Assert.Contains("parameters", branch.GetProperty("required").EnumerateArray().Select(p => p.GetString()));
+        Assert.Contains(_policy.BuildArtifactMetadata()!["locations"]!.AsArray(), l => l!["selectorValue"]!.ToString() == "remove_tree" && l["action"]!.ToString() == "release");
     }
 
     [Fact]

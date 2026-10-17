@@ -78,6 +78,23 @@ public sealed class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records,
                 snapshot.Usage = budget.Snapshot;
                 await records.UpsertAsync(Sessions, tenant, key, JsonSerializer.Serialize(snapshot, PlanningJsonContext.Default.PlanningSession), Author, token);
             }
+            if (state.Diagnostics.Any(d => d.Code == "TASK_CONDITIONAL_REQUIREMENT") && state.PendingCall is { } retired &&
+                await records.GetAsync(WorkflowPlanningModelJournal.Receipts, tenant, retired.Id, Author, ct) is not null)
+            {
+                var original = await records.GetAsync(WorkflowPlanningModelJournal.Requests, tenant, retired.Id, Author, ct);
+                if (original is null || original.Value != JsonSerializer.Serialize(retired.Request, PlanningJsonContext.Default.LLMRequest))
+                    throw new PlanningConflictException("The retired request no longer matches its durable reservation.");
+                // The receipt already exists and the exclusive lease is held: this
+                // call can only replay it, never make a new provider dispatch.
+                var completed = await client.CallAsync(retired.Request, ct);
+                var json = completed.Json ?? System.Text.Json.Nodes.JsonNode.Parse(completed.Text);
+                if (retired.Request.StructuredOutputSchema is null ||
+                    PlanningContractValidation.ValidateInstanceFindings(json, retired.Request.StructuredOutputSchema).Count != 0)
+                    throw new PlanningConflictException("The retired response does not satisfy its original issued schema.");
+                state.PendingCall = null; state.Status = PlanningStatus.Stopped;
+                if (!state.Diagnostics.Any(d => d.Code == "PLANNING_REVISION_REQUIRED"))
+                    state.Diagnostics.Add(new("PLANNING_REVISION_REQUIRED", "/", "The retained guard repair was accounted for without applying it. Explicitly revise the plan."));
+            }
             await Checkpoint(state, ct);
             context.SetTelemetryAttribute("gnougo-flow.plan.session_id", key);
             context.SetTelemetryAttribute("gnougo-flow.plan.run_id", context.Limits.RunId);

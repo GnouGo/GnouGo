@@ -1,0 +1,49 @@
+{
+  "baseline_commit": "391b00d9fdecf50721922a7815d14730be9d2019",
+  "session": "2644c09cd24446e2b18cb9f355922dd8",
+  "trace": "2e50b73d8a8163dae50fbea943aa26a3",
+  "recorded_planning_calls": 4,
+  "recorded_repairs": 1,
+  "new_provider_calls": 0,
+  "replay_outcome": "final_review",
+  "focused_tests": 26,
+  "runtime_execution_variants": 17,
+  "integration_dependencies": "deterministic agent runner and in-memory MCP handlers; real Flow engine",
+  "solution": {
+    "projects": 33,
+    "failed": 0,
+    "passed": 3792,
+    "skipped": 12,
+    "warnings": 0
+  },
+  "release_pack": "passed",
+  "native_aot": {
+    "rid": "osx-arm64",
+    "publish": "passed",
+    "smoke": "passed"
+  },
+  "historical_benchmark": "unchanged; 33/33 applies to 7d5d42b2 only",
+  "changed_source_and_test_sha256": {
+    "src/GnOuGo.Flow.Planning/PlanningContractShapes.cs": "61c9c4edb5b7be482b0366b4b9fcd88409e35d0fe9c6176b9f3132d7af3acf8e",
+    "src/GnOuGo.Flow.Planning/PlanningGraphTopology.cs": "9aaf95e7f064be5ca8a0af5921ce53ef14b3982cc3fdfb9887e87c5190540991",
+    "src/GnOuGo.Flow.Planning/PlanningGraphValidation.cs": "57651f005847290a302d1937654ee05fa278e1964541b1866e23107de38a69f5",
+    "src/GnOuGo.Flow.Planning/PlanningOperationResults.cs": "b7ff7072f183486150592f2a3d5bfd38e248aa2959d28519da603dac5b96a788",
+    "src/GnOuGo.Flow.Planning/README.md": "e3bc6b690b7c91391f71140c9dbfafbfbf69ee32070b0ca7c0cc36562ac3cfa5",
+    "src/GnOuGo.Flow.Planning/TaskPlanCompiler.Validation.cs": "7da0b8e20fb2fba794c666b96ab407ede053c5b04c195f6ab60a777a0605d7a4",
+    "src/GnOuGo.Flow.Planning/TaskPlanCompiler.cs": "15f89882afb5bdcbbc8cace0f4cb308028ac9418a086a8fe63208fcd4207c190",
+    "tests/GnOuGo.Agent.Server.Tests/Fixtures/OperationOutputs/retained-output-contracts.json": "e9069209d8f071d1bc62d93cab20395c69e5f415b9cdf6de4ae8c1e672063038",
+    "tests/GnOuGo.Agent.Server.Tests/RecordedOperationOutputTests.cs": "78dd5ae0cc234631f9aa3d93bf2e13473c8eaf301c0ee38b2795503ae0000d95",
+    "tests/GnOuGo.Flow.Planning.Smoke/Program.cs": "2567eb718826eb99afb1e20783c393743690e21aee9e78391e07ed8fb806d048",
+    "tests/GnOuGo.Flow.Planning.Tests/OperationResultContractTests.cs": "d5ffbca25aded9dc3b26e3f79defd6c5066cb05613da19377a3061755caadbd6"
+  },
+  "retained_local_log_sha256": {
+    "replay-before.log": "7b91516fa3268342e8a1ea0ab7e9fff87327f1554700f41929d93d43f9e4c2f3",
+    "regressions-before.log": "2be985447bec0d56ae4b669b215fc6db5ee43550a4d38e03e263323c509cb927",
+    "replay-first.log": "6c361f6271ca4a474f4187a64da8825fa9f947b04e2ee032bb931d4a3cf2bc10",
+    "regressions-final.log": "0f12f99484f1bddc080eec9c05126174e2a37d20815bfdc75e8b968f90ec3eea",
+    "solution-final.log": "f0c68315e0cf136e860dcc35d54d298f443d5a03fa0286dedbe879c6fe7ebde4",
+    "pack-final.log": "9064a694356f5b571ae71ced52c8c35908e535c3b3791d3aa908de15a720c43f",
+    "aot-publish-final.log": "b47e1bd228db459fc828ccd0e3c5a80726723ff552a2f7dc84d1fd2e8b0a2a00",
+    "aot-smoke-final.log": "32dce9ebac00cb66804ac6a85df95c351992bbc6c7dd4d7ce79d101202db4912"
+  }
+}

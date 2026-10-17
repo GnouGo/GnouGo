@@ -1,0 +1,180 @@
+{
+  "candidate": "7a76fc951d31dec26978f6c01a07b76ae71ea154",
+  "implementation": "eb79c99beaae8cde367b241eb65119b0aebaa55a",
+  "scope": "Only production PlanningPrompt instructions; final correction retains capability alternatives and the existing discovery allowance. No production contracts/compiler/runtime changes.",
+  "full_solution": {
+    "command": "dotnet test GnOuGo.Agent.sln -m:1 -warnaserror",
+    "initial_evidence": "full-solution-initial.json",
+    "initial_exit_code": 1,
+    "initial_counts": {
+      "Passed": 4984,
+      "Failed": 1,
+      "NotExecuted": 13
+    },
+    "failure": "RecordedTargetedDiscoveryTests.FullRetainedCatalogKeepsRequestedReviewContractsVisibleWithinSevenCalls: 24035 estimated input tokens > 24000.",
+    "correction": "Shorten repeated instructions without removing compatible alternatives, per-item projection, lookup array semantics or accepted nullability. Final maximum is 23941, unchanged limit 24000.",
+    "final_affected_suite": {
+      "counts": {
+        "Passed": 1198
+      },
+      "trx": [
+        {
+          "name": "_a115vcCX1PXQ575D_2026-10-09_12_35_58_net10.0.trx",
+          "sha256": "37d472194be7e2358e2ca19caa8da06efa3df9e8e1247f7cb4dcd19870618f91"
+        }
+      ]
+    },
+    "coverage_after_rerun": {
+      "Passed": 4985,
+      "Failed": 0,
+      "NotExecuted": 13
+    },
+    "note": "Aggregate coverage after the complete affected planning suite rerun; not a claim that the initial full-solution command exited successfully. Host/runtime tests and actual local executions passed in that full run."
+  },
+  "ci_initial": {
+    "head": "eb79c99b",
+    "failures": "Both failing jobs asserted the accidentally removed phrase compatible alternatives. Restored in final prompt; tests unchanged.",
+    "retained": "https://github.com/GnouGo/GnouGo/actions/runs/37917269116"
+  },
+  "generation_guidance": {
+    "old_instruction_bytes": 865,
+    "final_instruction_bytes": 868,
+    "discovery_calls": 7,
+    "repairs": 0,
+    "metadata_reads": 19,
+    "resolved_requests": 23,
+    "input_estimates": [
+      9521,
+      21208,
+      21579,
+      21397,
+      21316,
+      21530,
+      23941
+    ]
+  },
+  "paid_model_calls": 0,
+  "focused_regressions": {
+    "counts": {
+      "Passed": 1332,
+      "Failed": 1
+    },
+    "trx": [
+      {
+        "name": "planning.trx",
+        "sha256": "f98da782c79d6cd85480144cb6055ca619e47759579ece8232a47c52643fb64e"
+      },
+      {
+        "name": "retained-local.trx",
+        "sha256": "80714a3ed7ad13be7526d54b6554c1fa38c3459bb0da079b934d022f553f4051"
+      },
+      {
+        "name": "focused-planning.trx",
+        "sha256": "98af60df1811f1edcd13326c62fc0022e14b983dbd8cf14eaeeed000dc9ba087"
+      }
+    ],
+    "note": "127 planning tests plus 8 complete retained-composition tests; separate TRX files."
+  },
+  "checks": {
+    "release_package": {
+      "passed": true,
+      "command": "dotnet pack src/GnOuGo.Flow.Planning -c Release -warnaserror --no-restore",
+      "log_sha256": "84f000364031f82a830e08c5378dd6177cc1d0136693e88bd04a7e6bb01a71f2"
+    },
+    "planning_native_aot": {
+      "passed": true,
+      "runtime": "osx-arm64",
+      "command": "dotnet publish tests/GnOuGo.Flow.Planning.Smoke -c Release -r osx-arm64 --self-contained true -warnaserror; execute published binary",
+      "receipt_recovery": "Encrypted adaptive mappings resume committed inference without redispatch",
+      "log_sha256": "4002c0078eb9ddab3780a4453699e56389b14be826f698dd403803cd7bd57f7a"
+    },
+    "skill": {
+      "passed": true,
+      "command": "uv run --no-project --with PyYAML python <skill-creator>/scripts/quick_validate.py .agents/skills/gnougo-planning"
+    },
+    "frozen_build": {
+      "passed": true,
+      "warnings": 0,
+      "errors": 0,
+      "command": "dotnet build tests/GnOuGo.Agent.Planning.Benchmark -m:1 -warnaserror -p:SkipClientBuild=true -p:SkipModelMetadataGeneration=true"
+    },
+    "configured_readiness": {
+      "passed": true,
+      "model_calls": 0,
+      "browser_local_page": true,
+      "browser_cleanup": true,
+      "xlsx_independent_read": true
+    }
+  },
+  "ci_final_candidate": {
+    "head": "7a76fc951d31dec26978f6c01a07b76ae71ea154",
+    "complete": false,
+    "checks": [
+      {
+        "link": "https://github.com/GnouGo/GnouGo/actions/runs/37918756487/job/113781293952",
+        "name": "ProxyCopilot AOT (osx-arm64)",
+        "state": "SUCCESS"
+      },
+      {
+        "link": "https://github.com/GnouGo/GnouGo/actions/runs/37918756487/job/113781293846",
+        "name": "ProxyCopilot AOT (linux-arm64)",
+        "state": "SUCCESS"
+      },
+      {
+        "link": "https://github.com/GnouGo/GnouGo/actions/runs/37918756487/job/113781293662",
+        "name": "ProxyCopilot AOT (osx-x64)",
+        "state": "IN_PROGRESS"
+      },
+      {
+        "link": "https://github.com/GnouGo/GnouGo/actions/runs/37918756487/job/113781293881",
+        "name": "ProxyCopilot AOT (win-arm64)",
+        "state": "IN_PROGRESS"
+      },
+      {
+        "link": "https://github.com/GnouGo/GnouGo/actions/runs/37918756466/job/113781295639",
+        "name": "standalone",
+        "state": "SUCCESS"
+      },
+      {
+        "link": "https://github.com/GnouGo/GnouGo/actions/runs/37918756724/job/113781295512",
+        "name": "Stable Unit Tests / Stable .NET Unit Tests",
+        "state": "IN_PROGRESS"
+      },
+      {
+        "link": "https://github.com/GnouGo/GnouGo/actions/runs/37918756724/job/113781295377",
+        "name": "Stable Unit Tests / Python Unit Tests",
+        "state": "SUCCESS"
+      },
+      {
+        "link": "https://github.com/GnouGo/GnouGo/actions/runs/37918756724/job/113781295336",
+        "name": "Agent Server Tests (non-blocking) / Agent Server Tests",
+        "state": "IN_PROGRESS"
+      },
+      {
+        "link": "https://github.com/GnouGo/GnouGo/actions/runs/37918756724/job/113781295243",
+        "name": "Server (linux-x64) / Server (linux-x64)",
+        "state": "IN_PROGRESS"
+      },
+      {
+        "link": "https://github.com/GnouGo/GnouGo/actions/runs/37918756487/job/113781293870",
+        "name": "ProxyCopilot AOT (win-x64)",
+        "state": "SUCCESS"
+      },
+      {
+        "link": "https://github.com/GnouGo/GnouGo/actions/runs/37918756487/job/113781293871",
+        "name": "ProxyCopilot AOT (linux-x64)",
+        "state": "SUCCESS"
+      },
+      {
+        "link": "https://github.com/GnouGo/GnouGo/actions/runs/37918756458/job/113781293505",
+        "name": "validate",
+        "state": "IN_PROGRESS"
+      },
+      {
+        "link": "https://github.com/GnouGo/GnouGo/actions/runs/37918756724/job/113781294990",
+        "name": "KeyVault MCP / KeyVault MCP (win-x64)",
+        "state": "SUCCESS"
+      }
+    ]
+  }
+}

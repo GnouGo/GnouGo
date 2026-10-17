@@ -1,0 +1,33 @@
+{
+  "campaign": "schema-portability-20261002",
+  "reserved_requests": 787,
+  "completed_receipts": 785,
+  "uncertain_requests": [
+    "observations1-mapping:1:observations1-mapping-plan:1:dbfe9974cd61088546ba1b389abf828515fb805417762f5e49be28f4154ed0d3",
+    "schema-diagnostic:1:7dff37f9c9780e6b7a24ff13d47e7c80adb3572fa0fadc7b479cf7ade021e0bd"
+  ],
+  "retained_inconclusive_requests": [
+    "observations1-mapping:1:observations1-mapping-plan:1:dbfe9974cd61088546ba1b389abf828515fb805417762f5e49be28f4154ed0d3",
+    "schema-diagnostic:1:7dff37f9c9780e6b7a24ff13d47e7c80adb3572fa0fadc7b479cf7ade021e0bd"
+  ],
+  "transport_accounting": {
+    "calls": 807,
+    "session_calls": 0,
+    "known_input_tokens": 12144180,
+    "known_output_tokens": 1476130,
+    "known_cost_eur": 93.4764311918239,
+    "reserved_input_tokens": 192000,
+    "reserved_output_tokens": 65536,
+    "reserved_cost_eur": 2.606752783964365,
+    "cost_upper_bound_eur": 96.08318397578827,
+    "unknown_attempts": 2
+  },
+  "cost_ceiling_eur": 150,
+  "recorded_failures": 3,
+  "known_budget_cost": null,
+  "budget_currency": null,
+  "known_input_tokens": null,
+  "known_output_tokens": null,
+  "completion_receipts_complete": false,
+  "evidence_hash": "3341e2bca6b7df3cccc0b26a309907b494edc5463ecfc88ad46b9ada421c0ba2"
+}

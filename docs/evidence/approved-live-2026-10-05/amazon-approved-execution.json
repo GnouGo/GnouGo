@@ -1,0 +1,198 @@
+{
+  "status": "approved",
+  "revision": 7,
+  "artifact_hash": "0588d6083951556a1c7fe4cf397b46221944374148c89a0b1d7e07cc6edbb05e",
+  "result": {
+    "status": "final_review",
+    "planning_ms": 206104,
+    "calls": 5,
+    "repairs": 1,
+    "discovery_reads": 2,
+    "review_revisions": 1,
+    "diagnostics": [],
+    "execution_success": false,
+    "execution_oracle": false,
+    "execution_status": "completed",
+    "accounting": {
+      "planning": {
+        "logical_calls": 5,
+        "physical_attempts": 5,
+        "known_input_tokens": 54810,
+        "known_output_tokens": 15554,
+        "known_cost_eur": 0.6610764012852552,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "execution": {
+        "logical_calls": 1,
+        "physical_attempts": 1,
+        "known_input_tokens": 116,
+        "known_output_tokens": 110,
+        "known_cost_eur": 0.0034630489111031775,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "campaign": {
+        "calls": 706,
+        "session_calls": 0,
+        "known_input_tokens": 10884778,
+        "known_output_tokens": 1095301,
+        "known_cost_eur": 77.70079256196132,
+        "reserved_input_tokens": 192000,
+        "reserved_output_tokens": 65536,
+        "reserved_cost_eur": 2.606752783964365,
+        "cost_upper_bound_eur": 80.30754534592569,
+        "unknown_attempts": 2
+      }
+    },
+    "execution_ms": 40385,
+    "total_ms": 246489
+  },
+  "execution": {
+    "success": false,
+    "outputs": null,
+    "error": {
+      "Code": "MCP_CALL_ERROR",
+      "Type": "MCP_CALL_ERROR",
+      "Message": "mcp.call (tool) to 'GnOuGo.Browser.Mcp/browser_get_content' returned an MCP error: InvalidOperationException: The observation page cursor is invalid or expired. Page limits are frozen; omit maxCharacters and maxRecords when reading it. [workflow 'w_579f9a021e47b01f', step 'n_862c79918066e385']",
+      "Retryable": false,
+      "Details": {
+        "message": "InvalidOperationException: The observation page cursor is invalid or expired. Page limits are frozen; omit maxCharacters and maxRecords when reading it.",
+        "mcp_error_code": "INVALID_INPUT",
+        "mcp_error_message": "InvalidOperationException: The observation page cursor is invalid or expired. Page limits are frozen; omit maxCharacters and maxRecords when reading it.",
+        "content": {
+          "url": "",
+          "title": null,
+          "statusCode": null,
+          "selector": null,
+          "resolvedSelector": "",
+          "fallbackApplied": false,
+          "fallbackReason": null,
+          "format": "observation_pages",
+          "content": "",
+          "truncated": false,
+          "maxCharacters": 0,
+          "success": false,
+          "error_code": "INVALID_INPUT",
+          "error_message": "InvalidOperationException: The observation page cursor is invalid or expired. Page limits are frozen; omit maxCharacters and maxRecords when reading it.",
+          "ok": false
+        },
+        "correlation_id": "focusedlive20261005a-amazon-1",
+        "run_id": "focusedlive20261005a-amazon-1",
+        "trace_id": null,
+        "span_id": null,
+        "traceparent": null,
+        "server": "GnOuGo.Browser.Mcp",
+        "method": "browser_get_content",
+        "kind": "tool",
+        "status": "error",
+        "response": {
+          "url": "",
+          "title": null,
+          "statusCode": null,
+          "selector": null,
+          "resolvedSelector": "",
+          "fallbackApplied": false,
+          "fallbackReason": null,
+          "format": "observation_pages",
+          "content": "",
+          "truncated": false,
+          "maxCharacters": 0,
+          "success": false,
+          "error_code": "INVALID_INPUT",
+          "error_message": "InvalidOperationException: The observation page cursor is invalid or expired. Page limits are frozen; omit maxCharacters and maxRecords when reading it.",
+          "ok": false
+        },
+        "failed_workflow": "w_579f9a021e47b01f",
+        "failed_step_id": "n_862c79918066e385",
+        "failed_step_type": "mcp.call",
+        "execution_phase": "step",
+        "workflow": "w_579f9a021e47b01f",
+        "step_id": "n_862c79918066e385",
+        "step_type": "mcp.call",
+        "step_status": "Failed"
+      }
+    }
+  },
+  "oracle": {
+    "passed": false,
+    "findings": [
+      "workflow_execution_failed",
+      "workbook_missing"
+    ]
+  },
+  "run": "focusedlive20261005a-amazon-1",
+  "candidate": "34bfd6040181cf789a5472506821c5a7f5e2e552",
+  "events": [
+    {
+      "server": "GnOuGo.Browser.Mcp",
+      "tool": "browser_get_content",
+      "arguments": {
+        "url": "https://www.amazon.fr/s?k=chaussure+geox+homme+45",
+        "format": "observation_pages",
+        "waitUntil": "domcontentloaded",
+        "maxRecords": 200,
+        "timeoutMs": 30000
+      },
+      "started": "2026-10-05T15:31:15.2250130+00:00",
+      "error": false,
+      "latency_ms": 6741
+    },
+    {
+      "server": "GnOuGo.Browser.Mcp",
+      "tool": "browser_get_content",
+      "arguments": {
+        "cursor": "e1b812f81bed496cb748122291afc1ad:page:0",
+        "format": "observation_pages"
+      },
+      "started": "2026-10-05T15:31:22.4757930+00:00",
+      "error": true,
+      "latency_ms": 3
+    },
+    {
+      "server": "GnOuGo.Browser.Mcp",
+      "tool": "browser_close",
+      "arguments": {},
+      "started": "2026-10-05T15:31:22.5828420+00:00",
+      "error": false,
+      "latency_ms": 1099
+    },
+    {
+      "server": "GnOuGo.Browser.Mcp",
+      "tool": "browser_get_content",
+      "arguments": {},
+      "started": "2026-10-05T15:31:23.7760570+00:00",
+      "error": true,
+      "latency_ms": 1
+    },
+    {
+      "server": "GnOuGo.Browser.Mcp",
+      "tool": "browser_close",
+      "arguments": {},
+      "started": "2026-10-05T15:31:23.7830870+00:00",
+      "error": false,
+      "latency_ms": 1002
+    }
+  ],
+  "initial_observation": {
+    "statusCode": 202,
+    "format": "observation_pages",
+    "truncated": false,
+    "observationManifest": {
+      "id": "e1b812f81bed496cb748122291afc1ad",
+      "pages": [
+        {
+          "cursor": "e1b812f81bed496cb748122291afc1ad:page:0",
+          "recordCount": 59
+        }
+      ],
+      "recordCount": 59,
+      "captureTruncated": false,
+      "manifestTruncated": false
+    }
+  }
+}

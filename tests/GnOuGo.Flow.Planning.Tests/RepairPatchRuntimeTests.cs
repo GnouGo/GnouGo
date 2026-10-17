@@ -47,13 +47,13 @@ public sealed class RepairPatchRuntimeTests
     {
         var state = RepairPatchTests.State(); var runtime = new TestRuntime();
         state.Catalog = await runtime.DiscoverAsync(state.Request, PlannerFixture.Ct);
-        state.Plan = PlanningCorpus.Greeting(); state.Plan.Root.Outputs.Add(new("broken", new() { Kind = "output", Source = "absent", Port = "value" }));
+        state.Plan = PlanningCorpus.Greeting(); state.Plan.Root.Outputs.Add(new("broken", new() { Kind = "output", Source = state.Plan.Root.Tasks[0].Id, Port = "missing_port" }));
         state.Diagnostics = new TaskPlanCompiler().Compile(state.Plan, state.Catalog).Diagnostics.ToList();
         state.RevisionScope = TaskPlanRevisions.Scope(state.Plan, state.Diagnostics).ToList();
         var request = new LLMRequest { Prompt = HybridWorkflowPlanner.Prompt(state), StructuredOutputSchema = PlanningSchemas.Proposal(state), ClientRequestId = "retained-patch" };
         state.PendingCall = new() { Id = request.ClientRequestId, Purpose = "replan", Request = request }; state.ModelCalls = 7; state.ReplanAttempts = 1;
-        var payload = new JsonObject { ["discoveryRequests"] = null, ["patch"] = new JsonObject { ["edits"] = new JsonArray((JsonNode)RepairPatchTests.Edit(state, "/root/outputs/broken", "replace", JsonNode.Parse("""{"kind":"string","text":"explicit"}"""))) } };
-        runtime.Respond = (issued, _) => { Assert.Equal(request.Prompt, issued.Prompt); Assert.True(JsonNode.DeepEquals(request.StructuredOutputSchema, issued.StructuredOutputSchema)); return new() { Json = payload }; };
+        var payload = new JsonObject { ["clarifications"] = null, ["discoveryRequests"] = null, ["patch"] = new JsonObject { ["edits"] = new JsonArray((JsonNode)RepairPatchTests.Edit(state, "/root/outputs/broken", "replace", JsonSerializer.SerializeToNode(state.Plan.Root.Outputs[0].Value, PlanningJsonContext.Default.TaskValue))) } };
+        runtime.Respond = (issued, _) => { Assert.Equal(request.Prompt, issued.Prompt); Assert.True(JsonNode.DeepEquals(request.StructuredOutputSchema, issued.StructuredOutputSchema)); return new() { Json = PlanningCorpus.Transport(payload, issued.StructuredOutputSchema!.AsObject(), issued.StructuredOutputSchema.AsObject()) }; };
         var restored = PlannerFixture.Clone(state);
         var result = await new HybridWorkflowPlanner().AdvanceAsync(restored, new() { ExpectedRevision = restored.Revision }, runtime, PlannerFixture.Ct);
         Assert.Equal(PlanningStatus.FinalReview, result.Status); Assert.Equal(7, result.ModelCalls); Assert.Equal(1, result.ReplanAttempts);

@@ -227,7 +227,7 @@ internal static class SmartFlowTestFactory
             modelCatalog ?? new FakeModelCatalog(),
             keyVaultStore ?? new FakeKeyVaultRuntimeConfigStore(),
             runtimeOptionsStore ?? CreateRuntimeOptionsStore(options),
-            telemetry ?? CreateTelemetry(),
+            telemetry ?? throw new ArgumentNullException(nameof(telemetry), "Tests must supply owned telemetry."),
             NullLogger<ConfigureProvidersService>.Instance,
             bundledMcpSettings: Options.Create(bundledMcpSettings ?? new BundledMcpSettings()),
             localModels: localModels);
@@ -235,6 +235,7 @@ internal static class SmartFlowTestFactory
     public static ConfigureAgentsService CreateAgentsService(
         RecordingLlmClient llmClient,
         IMcpClientFactory mcpFactory,
+        AgentOTelTelemetry telemetry,
         LLMOptions? options = null,
         IKeyVaultRuntimeConfigStore? keyVaultStore = null)
     {
@@ -250,7 +251,7 @@ internal static class SmartFlowTestFactory
             effectiveKeyVaultStore,
             runtimeFactory,
             runtimeStore,
-            CreateTelemetry(),
+            telemetry,
             NullLogger<ConfigureAgentsService>.Instance,
             exchangeRateProvider: new TestExchangeRateProvider());
     }
@@ -260,6 +261,7 @@ internal static class SmartFlowTestFactory
         IMcpClientFactory mcpFactory,
         ConfigureProvidersService configureProviders,
         ConfigureAgentsService configureAgents,
+        AgentOTelTelemetry telemetry,
         LLMOptions? options = null,
         IKeyVaultRuntimeConfigStore? keyVaultStore = null,
         IWorkflowTraceFileExporter? traceFileExporter = null)
@@ -275,13 +277,10 @@ internal static class SmartFlowTestFactory
             configureProviders,
             configureAgents,
             new AgentHumanInputProvider(),
-            CreateTelemetry(),
+            telemetry,
             NullLogger<SmartFlowService>.Instance, null!,
             traceFileExporter: traceFileExporter);
     }
-
-    private static AgentOTelTelemetry CreateTelemetry()
-        => CreateTelemetryHarness().Telemetry;
 
     public static TelemetryHarness CreateTelemetryHarness()
     {
@@ -396,4 +395,11 @@ internal sealed class TestOptionsMonitor<T>(T currentValue) : IOptionsMonitor<T>
     public IDisposable? OnChange(Action<T, string?> listener) => null;
 }
 
-internal sealed record TelemetryHarness(AgentOTelTelemetry Telemetry, TelemetryIngestQueue Queue);
+internal sealed record TelemetryHarness(AgentOTelTelemetry Telemetry, TelemetryIngestQueue Queue) : IDisposable
+{
+    public void Dispose()
+    {
+        Telemetry.Dispose();
+        Queue.Channel.Writer.TryComplete();
+    }
+}

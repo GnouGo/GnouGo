@@ -1,0 +1,12 @@
+{
+  "configured_host_health": true,
+  "ui": true,
+  "blazor_negotiation": true,
+  "invalid_policy_rejected": true,
+  "published_planning_persistence": true,
+  "model_calls": 0,
+  "workflow_executions": 0,
+  "source_base": "f6b3dbc4",
+  "factory_source_sha256": "7fbcf05fd827f9b5b915aab4e8f586fb66fe14f94feba3ee17735ae3fc483d3a",
+  "source_overlay": "Explicit typed budget configuration reads; identical to the correction committed after this smoke."
+}

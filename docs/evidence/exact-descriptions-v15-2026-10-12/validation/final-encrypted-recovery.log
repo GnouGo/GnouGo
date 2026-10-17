@@ -1,0 +1,3 @@
+PASS published CLI: encrypted receipts, native EF query/index rebuild, tenant isolation, retained results and revision checks
+PASS published server: encrypted restart recovery, streamed durable human answers, tenant isolation and revision checks
+PASS no workflow content in database plaintext; evidence directory: /tmp/gnougo-v15-final-publish/recovery-data

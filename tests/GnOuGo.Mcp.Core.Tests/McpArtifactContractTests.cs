@@ -6,6 +6,28 @@ namespace GnOuGo.Mcp.Core.Tests;
 public sealed class McpArtifactContractTests
 {
     [Theory]
+    [InlineData("file", "materialize", "/value", true)]
+    [InlineData("directory", "release", "/value", true)]
+    [InlineData("handle", "use", "/value", true)]
+    [InlineData("file", "guess", "/value", false)]
+    [InlineData("unknown", "release", "/value", false)]
+    [InlineData("file", "release", "/missing", false)]
+    public void OptionalLocationsAreValidatedAgainstTheExactDiscriminatorBranch(string kind, string action, string pointer, bool valid)
+    {
+        var metadata = new JsonObject { ["gnougo"] = new JsonObject { ["artifacts"] = new JsonObject
+        {
+            ["version"] = 1, ["locations"] = new JsonArray(new JsonObject { ["pointer"] = pointer, ["kind"] = kind, ["action"] = action,
+                ["space"] = "file:///workspace/", ["selectorPointer"] = "/choice", ["selectorValue"] = "a" })
+        } } };
+        var schema = JsonNode.Parse("""{"type":"object","oneOf":[{"properties":{"choice":{"const":"a"},"value":{"type":"string"}},"required":["choice","value"]},{"properties":{"choice":{"const":"b"}},"required":["choice"]}]}""");
+        var result = McpArtifactContractParser.ParseAndValidate(metadata, schema, null);
+        Assert.Equal(valid, result.IsValid);
+        if (valid) Assert.Single(result.Contract!.Locations!);
+        metadata["gnougo"]!["artifacts"]!["locations"]![0]!["selectorValue"] = "b";
+        Assert.False(McpArtifactContractParser.ParseAndValidate(metadata, schema, null).IsValid);
+    }
+
+    [Theory]
     [InlineData("{\"gnougo\":true}")]
     [InlineData("{\"gnougo\":{\"artifacts\":[]}}")]
     public void ParseAndValidate_RejectsMalformedMetadataContainers(string json)

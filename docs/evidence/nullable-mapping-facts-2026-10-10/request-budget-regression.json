@@ -1,0 +1,16 @@
+{
+  "candidate": "5e948d6c",
+  "ci": "https://github.com/GnouGo/GnouGo/actions/runs/38072854265/job/114273684092",
+  "test": "CompactObservationTests.ConsumerViewsOmitBulkyActionReferencesWithoutLosingTheirSource(typed: false, input: records, port: observations)",
+  "expected": "LLM_BUDGET_EXCEEDED",
+  "actual": "CONTRACT_UNSATISFIED",
+  "cause": "A required complete mapping example exceeds the safe request allowance.",
+  "source_index": 0,
+  "local_reproduction": true,
+  "correction_candidate": "ce58f8da",
+  "correction": "Shorten generation instructions, retaining explicit null and provenance guidance.",
+  "changed_test_limits": false,
+  "changed_fixture": false,
+  "changed_assertions": false,
+  "fixed_compaction_cases_passed": 17
+}

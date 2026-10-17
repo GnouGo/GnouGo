@@ -1,0 +1,14 @@
+{
+  "source": "45473fdafe19da1e770c48c05759df1b516faabf",
+  "run": "snapshotlive20261007a-amazon-1",
+  "observation": "Read-only sample of CPU-bound planning process while validating a returned proposal; no Browser execution was active.",
+  "sampled_methods": [
+    "ValidateObject",
+    "ValidateInstanceNode",
+    "ValidateChild",
+    "CountMatchingVariants",
+    "ValidateArray"
+  ],
+  "inference": "Repeated nested JSON Schema validation is a performance follow-up; a stack sample alone is not a quantified algorithmic diagnosis.",
+  "production_changed": false
+}

@@ -1,0 +1,46 @@
+{
+  "run": "compactv1020261011a-amazon-1",
+  "revision": 5,
+  "artifact_hash": "c5e0562dc246190a18014cfb4d7b41a252ff04c3e8aef4d7f22cf208f51485bf",
+  "saved_record_sha256": "9d86269b98edc4abd22655c2aa2f6d79454fc7e0bc67f785ed5bbe953aefae08",
+  "saved_record_unchanged": true,
+  "yaml_sha256": "9bf69c7fe08e379eff6c228e90b4a613ef25fe37b2ba9f334de2e405e2bf8a06",
+  "workflow_parses": true,
+  "receipts": [
+    {
+      "request_id": "schema-portability-20261002:compactv1020261011a-amazon-1:1:810bc7c334945e4039ea4738215a91a5f222146a0b560d3c5fe1a4d802490da4",
+      "request_sha256": "572f77648c3fd4d10b9243481ecbc117e45d8c6e1a5061504df186875cf52ec5",
+      "receipt_sha256": "6395442097d056828da754837063255501c3ad8549f322e96e2063d587f94d06",
+      "schema_sha256": "02dd951a3ce792b1cbf1ead6597453b8bb939d68cdb6d15a4d8e52790b367d95",
+      "validation_ms": 11.5754,
+      "failures": []
+    },
+    {
+      "request_id": "schema-portability-20261002:compactv1020261011a-amazon-1:2:225b5dec9f741b8ff134466fdb0b8ca0d250735751acc746b9d701f968db9b16",
+      "request_sha256": "64e564aff9fc68cf7f1e0b906f1daa56b41dc7d32db2917fbe9a8dad362965ab",
+      "receipt_sha256": "e380d142b92cdebd64e8534e96615a74c83204380734ea1369169eb4390d58cd",
+      "schema_sha256": "b53dd45603c987fb356e4c541bdf6cff2feaf8cc09ba5fab23b3fe647e2882c2",
+      "validation_ms": 7.1379,
+      "failures": []
+    },
+    {
+      "request_id": "schema-portability-20261002:compactv1020261011a-amazon-1:3:59f82f18c43a7ca02a5959f6e5052eeb2c1ae69af480383acf1a7f459c1b368e",
+      "request_sha256": "46ebf897c255c62bfad885a11d2ef1ebac50ae1e39476538c7c4e41aa56187d3",
+      "receipt_sha256": "f1233e3340d7c4f38c7b8b5569cde70a65e8e1c41ab542a1132fae2033965fce",
+      "schema_sha256": "b53dd45603c987fb356e4c541bdf6cff2feaf8cc09ba5fab23b3fe647e2882c2",
+      "validation_ms": 25.2427,
+      "failures": []
+    },
+    {
+      "request_id": "schema-portability-20261002:compactv1020261011a-amazon-1:4:de9d5caff675e2fa9a55b304aaf7d19a5cbf5d5b04b3c9ee7d1a538c7115f4f4",
+      "request_sha256": "4caba036b295bac05eb0a332bac75035f6d61125fb34416a3556d070214c3780",
+      "receipt_sha256": "05e7974bf09b9033943ec4d2e3235d5d89ada2ec6e12addea9296f156ad81d34",
+      "schema_sha256": "2fc49b363c695e63620fe487f8a12273d9b75d00266cfb1bc37c8bf52470e725",
+      "validation_ms": 0.0839,
+      "failures": []
+    }
+  ],
+  "provider_calls": 0,
+  "mcp_calls": 0,
+  "record_writes": 0
+}

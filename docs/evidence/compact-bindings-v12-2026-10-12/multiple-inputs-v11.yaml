@@ -1,0 +1,105 @@
+version: 1
+name: "direct"
+entrypoint: "main"
+workflows:
+  main:
+    inputs:
+      label:
+        type: "string"
+        required: true
+      authorized:
+        type: "boolean"
+        required: true
+      pattern:
+        type: "string"
+        required: true
+    steps:
+    - id: "n_887270d0cbc560af"
+      type: "template.render"
+      input: |-
+        ${
+        (() => {
+          const label = {
+            value: data.inputs.label
+          };
+          const requiredCondition = {
+            value: data.inputs.authorized
+          };
+          const chosen = {
+            chosen: label.value
+          };
+          const chosen_2 = chosen;
+          return {
+            template: data.inputs.pattern,
+            data: {
+              chosen: chosen_2.chosen
+            }
+          };
+        })()
+        }
+      expression_contracts:
+        '':
+          label:
+            origin: "first"
+            schema:
+              type: "object"
+              properties:
+                value:
+                  type: "string"
+                  minLength: 1
+              required:
+              - "value"
+              additionalProperties: false
+          requiredCondition:
+            origin: "guard"
+            schema:
+              type: "object"
+              properties:
+                value:
+                  type: "boolean"
+                  enum:
+                  - true
+              required:
+              - "value"
+              additionalProperties: false
+          chosen:
+            origin: "assembly"
+            schema:
+              type: "object"
+              properties:
+                chosen:
+                  type: "string"
+              required:
+              - "chosen"
+              additionalProperties: false
+          chosen_2:
+            origin: "export"
+            schema:
+              type: "object"
+              properties:
+                chosen:
+                  type: "string"
+              required:
+              - "chosen"
+              additionalProperties: false
+    outputs:
+      text:
+        type: "string"
+        expr: "${data.steps.n_887270d0cbc560af.text}"
+skill:
+  description: ""
+  inputs:
+    label:
+      type: "string"
+      required: true
+    authorized:
+      type: "boolean"
+      required: true
+    pattern:
+      type: "string"
+      required: true
+  outputs:
+    text:
+      type: "string"
+      expr: "${data.steps.n_887270d0cbc560af.text}"
+...

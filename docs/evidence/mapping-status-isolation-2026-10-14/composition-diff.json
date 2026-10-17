@@ -1,0 +1,20 @@
+{
+  "added_tasks": [
+    "assemble_product_status"
+  ],
+  "removed_tasks": [],
+  "modified_tasks": [
+    {
+      "task": "extract_product_row",
+      "changed_fields": [
+        "objective",
+        "resultType",
+        "requires"
+      ]
+    }
+  ],
+  "public_inputs_unchanged": true,
+  "root_outputs_unchanged": true,
+  "compilation_profile": "compact-bindings-v15",
+  "operation_tasks_unchanged": true
+}

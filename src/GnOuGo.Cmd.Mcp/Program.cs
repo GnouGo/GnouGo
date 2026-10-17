@@ -48,6 +48,8 @@ try
 
                 foreach (var tool in result.Tools)
                 {
+                    McpEffectMetadata.Publish(tool, tool.Name switch
+                    { "cmd_get_policy" or "cmd_list_allowed_commands" => "read", "cmd_run" => "execute", _ => null });
                     tool.Description = tool.Name switch
                     {
                         "cmd_run" => policy.BuildCmdRunToolDescription(),
@@ -56,7 +58,14 @@ try
                         _ => tool.Description
                     };
                     if (string.Equals(tool.Name, "cmd_run", StringComparison.Ordinal))
+                    {
                         tool.InputSchema = policy.BuildCmdRunInputSchema(tool.InputSchema);
+                        if (policy.BuildArtifactMetadata() is { } artifacts)
+                        {
+                            tool.Meta ??= new();
+                            ((System.Text.Json.Nodes.JsonObject)tool.Meta["gnougo"]!)["artifacts"] = artifacts;
+                        }
+                    }
                 }
 
                 return result;

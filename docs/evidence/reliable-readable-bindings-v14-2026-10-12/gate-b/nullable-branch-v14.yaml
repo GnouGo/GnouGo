@@ -1,0 +1,131 @@
+version: 1
+name: "branches"
+entrypoint: "main"
+workflows:
+  main:
+    inputs:
+      label:
+        type: "string"
+        required: true
+      authorized:
+        type: "boolean"
+        required: true
+    steps: []
+    outputs:
+      text:
+        type: "string"
+        nullable: true
+        expr: |-
+          ${
+          (() => {
+            const selection = (condition => condition === true || condition === "true")(data.inputs.authorized)
+            ? (() => {
+              const authorized1Label = data.inputs.label;
+              return {
+                selectedValue: authorized1Label
+              };
+            })()
+            : (() => {
+              const authorized1SelectedValue = null;
+              return {
+                selectedValue: authorized1SelectedValue
+              };
+            })();
+            const selectedValue = (selection).selectedValue;
+            return selectedValue;
+          })()
+          }
+        expression_contracts:
+          '':
+            selection:
+              origin: "choose"
+              schema: {type: "object"}
+              order: 0
+              source: "selection"
+              object_only: true
+              scope: "block0"
+            selectedValue:
+              origin: "merge"
+              schema: {type: ["string", "null"]}
+              order: 1
+              source: "selectedValue"
+              instance_path: "/value"
+              scope: "block0"
+            authorized1Label:
+              origin: "copy"
+              source: "authorized1Label"
+              order: 0
+              schema: {type: "string", minLength: 1}
+              instance_path: "/value"
+              scope: "block1"
+            authorized1SelectedValue:
+              origin: "absent"
+              source: "authorized1SelectedValue"
+              order: 0
+              schema: {type: ["string", "null"]}
+              instance_path: "/value"
+              scope: "block2"
+skill:
+  description: ""
+  inputs:
+    label:
+      type: "string"
+      required: true
+    authorized:
+      type: "boolean"
+      required: true
+  outputs:
+    text:
+      type: "string"
+      nullable: true
+      expr: |-
+        ${
+        (() => {
+          const selection = (condition => condition === true || condition === "true")(data.inputs.authorized)
+          ? (() => {
+            const authorized1Label = data.inputs.label;
+            return {
+              selectedValue: authorized1Label
+            };
+          })()
+          : (() => {
+            const authorized1SelectedValue = null;
+            return {
+              selectedValue: authorized1SelectedValue
+            };
+          })();
+          const selectedValue = (selection).selectedValue;
+          return selectedValue;
+        })()
+        }
+      expression_contracts:
+        '':
+          selection:
+            origin: "choose"
+            schema: {type: "object"}
+            order: 0
+            source: "selection"
+            object_only: true
+            scope: "block0"
+          selectedValue:
+            origin: "merge"
+            schema: {type: ["string", "null"]}
+            order: 1
+            source: "selectedValue"
+            instance_path: "/value"
+            scope: "block0"
+          authorized1Label:
+            origin: "copy"
+            source: "authorized1Label"
+            order: 0
+            schema: {type: "string", minLength: 1}
+            instance_path: "/value"
+            scope: "block1"
+          authorized1SelectedValue:
+            origin: "absent"
+            source: "authorized1SelectedValue"
+            order: 0
+            schema: {type: ["string", "null"]}
+            instance_path: "/value"
+            scope: "block2"
+...

@@ -96,8 +96,8 @@ public sealed class CopilotSessionManager : IAsyncDisposable
         ThrowIfDisposed();
         await SweepExpiredAsync(cancellationToken);
         var entry = GetOwnedEntry(request.Handle, request.Context.TenantId);
-        if (entry.Request.Configuration.ExecutionBounds is not null)
-            throw new InvalidOperationException("Bounded task sessions cannot be resumed through the managed-session API. Inspect the original task receipt.");
+        if (entry.Request.Configuration.ExecutionBounds is not null || entry.Request.Configuration.LogicalInferenceBudget is not null)
+            throw new InvalidOperationException("Owned task sessions cannot be resumed through the managed-session API. Inspect the original task receipt.");
         await entry.Gate.WaitAsync(cancellationToken);
         try
         {
@@ -138,7 +138,7 @@ public sealed class CopilotSessionManager : IAsyncDisposable
         var now = _timeProvider.GetUtcNow();
         return _entries.Values
             .Where(entry => string.Equals(entry.TenantId, tenantId, StringComparison.Ordinal))
-            .Where(entry => entry.ExpiresAt > now || entry.Request.Configuration.ExecutionBounds is not null)
+            .Where(entry => entry.ExpiresAt > now || entry.Request.Configuration.ExecutionBounds is not null || entry.Request.Configuration.LogicalInferenceBudget is not null)
             .OrderByDescending(static entry => entry.LastAccessedAt)
             .Select(entry => entry.Describe(now))
             .ToArray();
@@ -175,6 +175,8 @@ public sealed class CopilotSessionManager : IAsyncDisposable
 
         await SweepExpiredAsync(cancellationToken);
         var entry = GetOwnedEntry(request.Handle, request.Context.TenantId);
+        if (entry.Request.Configuration.LogicalInferenceBudget is { } logical && !ReferenceEquals(logical, request.LogicalAuthority))
+            throw new InvalidOperationException("Logical task sessions accept turns only from their owning operation.");
         entry.Request.Configuration.ExecutionBounds?.BeginTurn(request.Prompt);
         await entry.Gate.WaitAsync(cancellationToken);
         try
@@ -437,9 +439,11 @@ public sealed class CopilotSessionManager : IAsyncDisposable
         }
     }
 
-    public async Task<CopilotOperationResult> DeleteAsync(CopilotRequestContext context, string handle, CancellationToken cancellationToken)
+    public async Task<CopilotOperationResult> DeleteAsync(CopilotRequestContext context, string handle, CancellationToken cancellationToken, CopilotInferenceBudget? logicalAuthority = null)
     {
         var entry = GetOwnedEntry(handle, context.TenantId);
+        if (entry.Request.Configuration.LogicalInferenceBudget is { } logical && !ReferenceEquals(logical, logicalAuthority))
+            throw new InvalidOperationException("Logical task session cleanup requires its owning operation's verified checkpoint.");
         cancellationToken.ThrowIfCancellationRequested();
         if (!_entries.TryRemove(handle, out _))
             throw new InvalidOperationException("The Copilot session handle no longer exists.");
@@ -462,7 +466,7 @@ public sealed class CopilotSessionManager : IAsyncDisposable
     public async Task<int> SweepExpiredAsync(CancellationToken cancellationToken = default)
     {
         var now = _timeProvider.GetUtcNow();
-        var expired = _entries.Values.Where(entry => entry.ExpiresAt <= now && entry.Request.Configuration.ExecutionBounds is null).ToArray();
+        var expired = _entries.Values.Where(entry => entry.ExpiresAt <= now && entry.Request.Configuration.ExecutionBounds is null && entry.Request.Configuration.LogicalInferenceBudget is null).ToArray();
         var deleted = 0;
         foreach (var entry in expired)
         {

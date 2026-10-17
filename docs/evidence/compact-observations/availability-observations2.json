@@ -1,0 +1,76 @@
+{
+  "kind": "provider-availability-and-explicit-retention",
+  "candidate": "4ae6b4d573625f0d6c6f0a75e04d9a29034ef78b",
+  "retained_request": {
+    "request_id": "observations1-mapping:1:observations1-mapping-plan:1:dbfe9974cd61088546ba1b389abf828515fb805417762f5e49be28f4154ed0d3",
+    "reason": "http_attempts_exhausted",
+    "outcome": "inconclusive",
+    "retained_at": "2026-10-03T21:34:34.4334720+00:00",
+    "request_hash": "e9896e66b381f5cf5d53bb33e5a66b3b8611c3e11cae2a16fdcbe725dffda43d",
+    "http_journal_hash": "237290481e3dd3ab53961903c7c949eae5bcca39b4a8012a0bbd54e351098e8a",
+    "retry_policy_hash": "9e0d21f4a5660a5580b9b075d52f72a6531061651577ba6a520b2c02ff21949b",
+    "accounting_at_closure": {
+      "calls": 364,
+      "session_calls": 4,
+      "known_input_tokens": 5057721,
+      "known_output_tokens": 485931,
+      "known_cost_eur": 35.453888380031394,
+      "reserved_input_tokens": 96000,
+      "reserved_output_tokens": 32768,
+      "reserved_cost_eur": 1.3033763919821826,
+      "cost_upper_bound_eur": 36.75726477201357,
+      "unknown_attempts": 1
+    }
+  },
+  "previous_probes": [
+    {
+      "request_id": "availability-observations2:1",
+      "provider_dispatches": 0,
+      "reason": "campaign admission stopped by previous exhausted request"
+    },
+    {
+      "request_id": "availability-observations3:1",
+      "provider_dispatches": 0,
+      "reason": "budget preflight cancellation after 60 seconds"
+    }
+  ],
+  "probe": {
+    "request_id": "availability-observations4:1",
+    "model": "gpt-5.5-2026-04-24",
+    "maximum_attempts": 1,
+    "timeout_seconds": 60,
+    "available": true,
+    "usage": {
+      "input_tokens": 51,
+      "output_tokens": 11,
+      "total_tokens": 62,
+      "benchmark_cost_eur": 0.0005211581291759465,
+      "transport_attempts": 1,
+      "uncertain_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "benchmark_usage_bounded": true
+    },
+    "latency_ms": 6529
+  },
+  "accounting_after": {
+    "calls": 365,
+    "session_calls": 0,
+    "known_input_tokens": 5057772,
+    "known_output_tokens": 485942,
+    "known_cost_eur": 35.45440953816057,
+    "reserved_input_tokens": 96000,
+    "reserved_output_tokens": 32768,
+    "reserved_cost_eur": 1.3033763919821826,
+    "cost_upper_bound_eur": 36.75778593014275,
+    "unknown_attempts": 1
+  },
+  "tests": {
+    "campaign": 45,
+    "failed": 0,
+    "warnings": 0
+  },
+  "uncertain_invocations_resumed": false,
+  "old_reservations_released": false
+}

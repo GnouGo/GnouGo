@@ -1,0 +1,73 @@
+{
+  "result": {
+    "status": "stopped",
+    "planning_ms": 3045,
+    "calls": 1,
+    "repairs": 0,
+    "discovery_reads": 0,
+    "review_revisions": 0,
+    "diagnostics": [
+      {
+        "code": "MODEL_DISPATCH_UNVERIFIABLE",
+        "location": "/",
+        "message": "Planning could not safely complete this operation.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      }
+    ],
+    "execution_success": false,
+    "execution_oracle": false,
+    "execution_status": "not_started",
+    "accounting": {
+      "planning": {
+        "logical_calls": 0,
+        "physical_attempts": 0,
+        "known_input_tokens": 0,
+        "known_output_tokens": 0,
+        "known_cost_eur": 0,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "execution": {
+        "logical_calls": 0,
+        "physical_attempts": 0,
+        "known_input_tokens": 0,
+        "known_output_tokens": 0,
+        "known_cost_eur": 0,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "campaign": {
+        "calls": 913,
+        "session_calls": 0,
+        "known_input_tokens": 13529828,
+        "known_output_tokens": 1844187,
+        "known_cost_eur": 109.42278845511258,
+        "reserved_input_tokens": 384000,
+        "reserved_output_tokens": 131072,
+        "reserved_cost_eur": 5.203327457848472,
+        "cost_upper_bound_eur": 114.62611591296105,
+        "unknown_attempts": 4
+      }
+    }
+  },
+  "status": "stopped",
+  "revision": 1,
+  "diagnostics": [
+    {
+      "code": "MODEL_DISPATCH_UNVERIFIABLE",
+      "location": "/",
+      "message": "Planning could not safely complete this operation.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    }
+  ],
+  "execution": null,
+  "oracle": null
+}

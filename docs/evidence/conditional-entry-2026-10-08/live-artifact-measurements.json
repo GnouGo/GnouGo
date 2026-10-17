@@ -1,0 +1,24 @@
+{
+  "artifact_revision": 13,
+  "artifact_hash": "8f2d6c67cb2318e8c8bafe6124e1f5ac4eacfbbf1712ed5fdb76f0b3fb0bbc6e",
+  "yaml_bytes": 214677,
+  "yaml_lines": 6390,
+  "static_steps": 138,
+  "step_types": {
+    "mcp.call": 8,
+    "set": 103,
+    "switch": 7,
+    "template.render": 5,
+    "llm.call": 5,
+    "workflow.call": 8,
+    "loop.sequential": 1,
+    "mapping.dynamic": 1
+  },
+  "workflows": 9,
+  "normalization": "no runtime or compiler lowering change in this correction",
+  "executed_mapping_invocations": 0,
+  "execution_interpretation_calls": 3,
+  "business_product_visits": 0,
+  "workflow_mcp_calls": 3,
+  "oracle_mcp_calls": 2
+}

@@ -1,0 +1,17 @@
+{
+  "production": "8055674f5cf012f22620c4430fa3032365ee3f9f",
+  "solution": {
+    "projects": 33,
+    "failed": 2,
+    "passed": 3760,
+    "skipped": 12,
+    "test_worktree_note": "The two failing tests are new, uncommitted InputConstraintRepairTests counterexamples added while this local solution run was active. The live runner remained the frozen 8055674f Release binary. A fresh full solution run is required after the fix."
+  },
+  "logs": {
+    "final-solution-8055674f.log": "ee8f85b07965b567c3495898f53b5a9126553bd6b890f41a695928218b691454",
+    "defaults-guidance-tests.log": "592f435fdeadd9420c4e8428a0aa6f23b5e5cee061a5fee33e4b4634a1972591",
+    "pack-8055674f.log": "51d92f588002f45336ee914a5b76ad42a308d193ba5617499453f28b67c14813",
+    "aot-publish-8055674f.log": "29fa0c78bb40dcbefa134f9dec876aa89cc6f8a492f147e4cd6866ebf6118327",
+    "aot-smoke-8055674f.log": "fa4d33e6be712395cad32abd9cb768fb3da858367cedbeab9e59eb5ddf776c7d"
+  }
+}

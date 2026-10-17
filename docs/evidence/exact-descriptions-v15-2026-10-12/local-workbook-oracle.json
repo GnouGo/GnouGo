@@ -1,0 +1,10 @@
+{
+  "rows_including_header": 11,
+  "individual_visits": 10,
+  "exact_cells": true,
+  "complete_sources": true,
+  "formula_nodes": 0,
+  "cleanup": true,
+  "writer_path_from_result": "/var/folders/5j/c3fzgxh96_bgmjhkf57_g5xw0000gp/T/gnougo-v10-execution-I3a1ZK/workspace/workflows/schema-portability-20261002/compactv1020261011a-amazon-1/products.xlsx",
+  "scope": "Local deterministic fixture; historical workbook unchanged."
+}

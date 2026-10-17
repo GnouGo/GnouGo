@@ -1,0 +1,148 @@
+{
+  "source_candidate": "1022ed33437179386eb8a43c5d9f3cbf11453bfd",
+  "source_planning_ci": {
+    "conclusion": "success",
+    "url": "https://github.com/GnouGo/GnouGo/actions/runs/37992501870"
+  },
+  "source_build_ci": {
+    "conclusion": "failure",
+    "url": "https://github.com/GnouGo/GnouGo/actions/runs/37992502243",
+    "jobs": [
+      {
+        "name": "Agent Server Tests (non-blocking) / Agent Server Tests",
+        "conclusion": "success",
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/37992502243/job/114030018778"
+      },
+      {
+        "name": "Server (linux-x64) / Server (linux-x64)",
+        "conclusion": "success",
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/37992502243/job/114030019028"
+      },
+      {
+        "name": "KeyVault MCP / KeyVault MCP (win-x64)",
+        "conclusion": "success",
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/37992502243/job/114030019033"
+      },
+      {
+        "name": "Stable Unit Tests / Python Unit Tests",
+        "conclusion": "success",
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/37992502243/job/114030019120"
+      },
+      {
+        "name": "Stable Unit Tests / Stable .NET Unit Tests",
+        "conclusion": "success",
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/37992502243/job/114030019245"
+      },
+      {
+        "name": "OTLP Collector / OTLP Collector (win-x64)",
+        "conclusion": "success",
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/37992502243/job/114034058678"
+      },
+      {
+        "name": "OTLP Collector / OTLP Collector (linux-x64)",
+        "conclusion": "success",
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/37992502243/job/114034058751"
+      },
+      {
+        "name": "OTLP Collector / OTLP Collector (osx-arm64)",
+        "conclusion": "success",
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/37992502243/job/114034058791"
+      },
+      {
+        "name": "Compute Version Tag / Compute Version Tag",
+        "conclusion": "success",
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/37992502243/job/114034058793"
+      },
+      {
+        "name": "Docker Builds / Docker Build (GnOuGo.DocIngestor.Server)",
+        "conclusion": "failure",
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/37992502243/job/114034058815"
+      },
+      {
+        "name": "Docker Builds / Docker Build (GnOuGo.KeyVault.Server)",
+        "conclusion": "failure",
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/37992502243/job/114034058833"
+      },
+      {
+        "name": "Docker Builds / Docker Build (GnOuGo.Diff.Server)",
+        "conclusion": "failure",
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/37992502243/job/114034058928"
+      },
+      {
+        "name": "Docker Builds / Docker Build (GnOuGo.Flow.Server)",
+        "conclusion": "failure",
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/37992502243/job/114034058985"
+      },
+      {
+        "name": "Docker Builds / Docker Build (GnOuGo.OtlpCollector.Server)",
+        "conclusion": "failure",
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/37992502243/job/114034059028"
+      },
+      {
+        "name": "Docker Builds / Docker Build (GnOuGo.Agent.Server)",
+        "conclusion": "failure",
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/37992502243/job/114034059062"
+      },
+      {
+        "name": "Desktop (Trimmed + Native AOT tools) / Desktop Build (linux-arm64)",
+        "conclusion": "success",
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/37992502243/job/114034138115"
+      },
+      {
+        "name": "Desktop (Trimmed + Native AOT tools) / Desktop Build (osx-arm64)",
+        "conclusion": "success",
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/37992502243/job/114034138155"
+      },
+      {
+        "name": "Desktop (Trimmed + Native AOT tools) / Desktop Build (osx-x64)",
+        "conclusion": "success",
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/37992502243/job/114034138167"
+      },
+      {
+        "name": "Desktop (Trimmed + Native AOT tools) / Desktop Build (win-arm64)",
+        "conclusion": "success",
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/37992502243/job/114034138264"
+      },
+      {
+        "name": "Desktop (Trimmed + Native AOT tools) / Desktop Build (win-x64)",
+        "conclusion": "success",
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/37992502243/job/114034138275"
+      },
+      {
+        "name": "Desktop (Trimmed + Native AOT tools) / Desktop Build (linux-x64)",
+        "conclusion": "failure",
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/37992502243/job/114034138285"
+      },
+      {
+        "name": "ProxyCopilot (Native AOT)",
+        "conclusion": "skipped",
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/37992502243/job/114034139656"
+      },
+      {
+        "name": "Publish .NET packages to NuGet",
+        "conclusion": "skipped",
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/37992502243/job/114034139738"
+      },
+      {
+        "name": "Publish gnougo-flow-core to PyPI",
+        "conclusion": "skipped",
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/37992502243/job/114034140076"
+      },
+      {
+        "name": "Publish Release (v0.21.0-pr.117.997)",
+        "conclusion": "skipped",
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/37992502243/job/114044652931"
+      }
+    ]
+  },
+  "documentation_head_build_ci": {
+    "head": "1403ceaf",
+    "url": "https://github.com/GnouGo/GnouGo/actions/runs/37996388753",
+    "conclusion": "failure",
+    "findings": [
+      "CopilotTasksTests.CancellationReachesTaskOwnerAndRetainsPartialCheckpoint: fixture disposal IOException, directory not empty",
+      "Six RetainedComposition cases: LLM_BUDGET_EXCEEDED after elapsed planning consumed runtime allowance"
+    ]
+  },
+  "no_production_changes": true
+}

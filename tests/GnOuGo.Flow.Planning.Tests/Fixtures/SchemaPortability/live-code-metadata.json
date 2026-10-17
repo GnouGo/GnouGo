@@ -1,0 +1,1111 @@
+{
+  "origin": "diagnostic-code-1",
+  "diagnostics": [
+    {
+      "code": "OUTCOME_OUTPUT_INVALID",
+      "location": "/outcomeBindings/clone_fixed_repository_once",
+      "message": "A reported output does not exist.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "OUTCOME_EFFECT_UNDECLARED",
+      "location": "/outcomeBindings/clone_fixed_repository_once",
+      "message": "Producer effect metadata is missing for: clone_repository. Refresh authoritative discovery; no effect may be inferred from names or prose.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "OUTCOME_OUTPUT_INVALID",
+      "location": "/outcomeBindings/run_declared_dependency_and_check_commands",
+      "message": "A reported output does not exist.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "OUTCOME_PLACEMENT_INVALID",
+      "location": "/outcomeBindings/run_declared_dependency_and_check_commands",
+      "message": "No supporting operation executes in the accepted normal/always placement.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "OUTCOME_PATH_INCOMPLETE",
+      "location": "/outcomeBindings/run_declared_dependency_and_check_commands",
+      "message": "At least one matching operation must execute on every accepted path, including empty-collection paths.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "OUTCOME_OUTPUT_INVALID",
+      "location": "/outcomeBindings/produce_local_code_review_feedback",
+      "message": "A reported output does not exist.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "OUTCOME_EFFECT_UNDECLARED",
+      "location": "/outcomeBindings/produce_local_code_review_feedback",
+      "message": "Producer effect metadata is missing for: run_copilot_checks_and_local_review, compare_pr_diff, copilot_diff_review. Refresh authoritative discovery; no effect may be inferred from names or prose.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "OUTCOME_OUTPUT_INVALID",
+      "location": "/outcomeBindings/write_review_json_evidence",
+      "message": "A reported output does not exist.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "OUTCOME_OPERATION_REQUIRED",
+      "location": "/outcomeBindings/write_review_json_evidence",
+      "message": "The supporting computation has no resolved write operation. Outputs, values and transforms cannot establish external work.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "OUTCOME_OUTPUT_INVALID",
+      "location": "/outcomeBindings/cleanup_cloned_repository",
+      "message": "A reported output does not exist.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "OUTCOME_EFFECT_UNDECLARED",
+      "location": "/outcomeBindings/cleanup_cloned_repository",
+      "message": "Producer effect metadata is missing for: cleanup_cloned_repository_task. Refresh authoritative discovery; no effect may be inferred from names or prose.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "OUTCOME_EFFECT_UNDECLARED",
+      "location": "/outcomeBindings/clone_fixed_repository_once",
+      "message": "Producer effect metadata is missing for: prepare_review_directory, clone_repository. Refresh authoritative discovery; no effect may be inferred from names or prose.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "OUTCOME_EFFECT_UNDECLARED",
+      "location": "/outcomeBindings/produce_local_code_review_feedback",
+      "message": "Producer effect metadata is missing for: compare_pr_diff, run_copilot_checks_and_local_review, copilot_diff_review. Refresh authoritative discovery; no effect may be inferred from names or prose.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    }
+  ],
+  "responses": [
+    {
+      "discoveryRequests": [
+        {
+          "sourceId": "runner_9623c1ece5cf9eac8c087030",
+          "cursor": null,
+          "query": "Capabilities/contracts for an adaptive GitHub PR code review task using managed Copilot in a fixed workspace: single clone of https://github.com/AxaFrance/SmartGuide/pull/610, head f2f6bda0e02a6c5c363e88cd6cb5d4eb7c313488, base 8f1779dc25c1843e9ce4d4ec76d02e066ae892c4; install declared dependencies, run declared linters/unit/integration tests if present, perform local-only code review from pullRequestUrl and reviewText, write exact command evidence and exit codes plus acceptance/refusal and diff comments to",
+          "operationIds": null
+        },
+        {
+          "sourceId": "source_694108d6539e9f2f1953f6ac",
+          "cursor": null,
+          "query": "Allowlisted command execution capabilities for git clone/fetch/checkout, dependency installation, repository-declared lint/unit/integration commands, capturing exact commands and exit codes, and cleanup rm -rf for fixed path workflows/evaluation/repository without requesting extra sandbox or permissions.",
+          "operationIds": null
+        },
+        {
+          "sourceId": "source_d15a1ef6ddddd137066d25b7",
+          "cursor": null,
+          "query": "Code project and GitHub Copilot capabilities for local-only PR review in a fixed cloned repository: inspect diff between base 8f1779dc25c1843e9ce4d4ec76d02e066ae892c4 and head f2f6bda0e02a6c5c363e88cd6cb5d4eb7c313488, identify declared toolchains/checks, use Copilot for dependency/check/review guidance, and produce structured review feedback without publishing to GitHub.",
+          "operationIds": null
+        },
+        {
+          "sourceId": "source_d3b3c4f5a92aefa3c249f95e",
+          "cursor": null,
+          "query": "Git workflow capabilities for a single clone of https://github.com/AxaFrance/SmartGuide into workflows/evaluation/repository, fetching PR #610, verifying head/base SHAs, computing local diff comments, and no remote publication.",
+          "operationIds": null
+        }
+      ],
+      "plan": null,
+      "clarifications": null,
+      "requirements": {
+        "summary": "Réaliser une revue automatique locale de la PR GitHub SmartGuide #610 à partir de pullRequestUrl et reviewText, avec un seul clone dans le répertoire imposé, exécution des toolchains/checks déclarés via Copilot, enregistrement des preuves exactes dans review.json, puis nettoyage du clone dans tous les cas.",
+        "outcomes": [
+          {
+            "id": "clone_fixed_repository_once",
+            "description": "Cloner une seule fois le dépôt cible dans workflows/evaluation/repository, réutiliser uniquement ce répertoire, et viser la PR #610 avec head/base fournis.",
+            "execution": "write",
+            "always": false,
+            "conditional": false,
+            "coverage": "once"
+          },
+          {
+            "id": "run_declared_dependency_and_check_commands",
+            "description": "Via GitHub Copilot et les déclarations du dépôt, installer les dépendances et exécuter les linters, tests unitaires et tests d’intégration présents, avec mention explicite des capacités absentes ou tests échoués.",
+            "execution": "execute",
+            "always": false,
+            "conditional": false,
+            "coverage": "once"
+          },
+          {
+            "id": "produce_local_code_review_feedback",
+            "description": "Réaliser la revue demandée par reviewText sur le diff head/base, avec décision d’acceptation ou refus et commentaires de diff, en restant strictement local sans publication GitHub.",
+            "execution": "write",
+            "always": false,
+            "conditional": false,
+            "coverage": "once"
+          },
+          {
+            "id": "write_review_json_evidence",
+            "description": "Sauvegarder dans workflows/evaluation/review.json les commandes exactes, leurs codes de sortie, les résultats des checks, les limitations/capacités absentes, la décision et les commentaires de diff.",
+            "execution": "write",
+            "always": false,
+            "conditional": false,
+            "coverage": "once"
+          },
+          {
+            "id": "cleanup_cloned_repository",
+            "description": "Supprimer le répertoire cloné workflows/evaluation/repository quoi qu’il arrive, y compris après échec.",
+            "execution": "lifecycle",
+            "always": true,
+            "conditional": false,
+            "coverage": "once"
+          }
+        ],
+        "inputs": [
+          {
+            "name": "pullRequestUrl",
+            "type": {
+              "kind": "string"
+            }
+          },
+          {
+            "name": "reviewText",
+            "type": {
+              "kind": "string"
+            }
+          }
+        ]
+      },
+      "outcomeBindings": null
+    },
+    {
+      "discoveryRequests": null,
+      "plan": {
+        "inputs": [
+          {
+            "name": "pullRequestUrl",
+            "type": {
+              "kind": "string"
+            }
+          },
+          {
+            "name": "reviewText",
+            "type": {
+              "kind": "string"
+            }
+          }
+        ],
+        "root": {
+          "tasks": [
+            {
+              "id": "prepare_review_directory",
+              "kind": "operation",
+              "objective": "Ensure the fixed workflow directory exists before cloning and before writing the final local review evidence file.",
+              "dependsOn": [],
+              "operation": "cap_5c01f9aa688163d23a30ff8b",
+              "inputs": [
+                {
+                  "name": "commandName",
+                  "value": {
+                    "kind": "string",
+                    "text": "create_directory"
+                  }
+                },
+                {
+                  "name": "parameters",
+                  "value": {
+                    "kind": "object",
+                    "members": [
+                      {
+                        "name": "path",
+                        "value": {
+                          "kind": "string",
+                          "text": "workflows/evaluation"
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "name": "timeoutMs",
+                  "value": {
+                    "kind": "number",
+                    "number": 60000
+                  }
+                }
+              ]
+            },
+            {
+              "id": "clone_repository",
+              "kind": "operation",
+              "objective": "Clone the SmartGuide repository exactly once into the fixed clone directory, checking out the provided PR head commit and retaining the projectRootRelative artifact for all repository operations.",
+              "dependsOn": [
+                "prepare_review_directory"
+              ],
+              "operation": "cap_fa8aa0024ff2ec0a4f9e61ad",
+              "inputs": [
+                {
+                  "name": "remoteUrl",
+                  "value": {
+                    "kind": "string",
+                    "text": "https://github.com/AxaFrance/SmartGuide.git"
+                  }
+                },
+                {
+                  "name": "branch",
+                  "value": {
+                    "kind": "string",
+                    "text": "f2f6bda0e02a6c5c363e88cd6cb5d4eb7c313488"
+                  }
+                },
+                {
+                  "name": "fetchAllBranches",
+                  "value": {
+                    "kind": "boolean",
+                    "boolean": false
+                  }
+                },
+                {
+                  "name": "historyDepth",
+                  "value": {
+                    "kind": "number",
+                    "number": 0
+                  }
+                },
+                {
+                  "name": "tagFetchMode",
+                  "value": {
+                    "kind": "string",
+                    "text": "none"
+                  }
+                },
+                {
+                  "name": "targetDirectory",
+                  "value": {
+                    "kind": "string",
+                    "text": "workflows/evaluation/repository"
+                  }
+                }
+              ]
+            },
+            {
+              "id": "compose_copilot_task",
+              "kind": "transform",
+              "objective": "Compose a single Copilot task brief from the public pullRequestUrl and reviewText plus the fixed local-only execution constraints, without adding permissions or publishing behavior.",
+              "dependsOn": [],
+              "inputs": [
+                {
+                  "name": "pullRequestUrl",
+                  "value": {
+                    "kind": "input",
+                    "source": "pullRequestUrl"
+                  }
+                },
+                {
+                  "name": "reviewText",
+                  "value": {
+                    "kind": "input",
+                    "source": "reviewText"
+                  }
+                },
+                {
+                  "name": "fixedBaseSha",
+                  "value": {
+                    "kind": "string",
+                    "text": "8f1779dc25c1843e9ce4d4ec76d02e066ae892c4"
+                  }
+                },
+                {
+                  "name": "fixedHeadSha",
+                  "value": {
+                    "kind": "string",
+                    "text": "f2f6bda0e02a6c5c363e88cd6cb5d4eb7c313488"
+                  }
+                },
+                {
+                  "name": "localEvidencePath",
+                  "value": {
+                    "kind": "string",
+                    "text": "workflows/evaluation/review.json"
+                  }
+                }
+              ],
+              "resultType": {
+                "kind": "object",
+                "fields": [
+                  {
+                    "name": "task",
+                    "type": {
+                      "kind": "string"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "id": "run_copilot_checks_and_local_review",
+              "kind": "operation",
+              "objective": "Via GitHub Copilot inside only the cloned repository, inspect declared toolchains, install dependencies, run present linters, unit tests and integration tests, compute the PR diff from base to head, and produce local review feedback with explicit failures or absent capabilities; do not publish anything to GitHub.",
+              "dependsOn": [
+                "clone_repository",
+                "compose_copilot_task"
+              ],
+              "operation": "cap_e87238bc6035a17954299a78",
+              "inputs": [
+                {
+                  "name": "projectRoot",
+                  "value": {
+                    "kind": "output",
+                    "source": "clone_repository",
+                    "port": "projectRootRelative"
+                  }
+                },
+                {
+                  "name": "task",
+                  "value": {
+                    "kind": "output",
+                    "source": "compose_copilot_task",
+                    "port": "task"
+                  }
+                },
+                {
+                  "name": "contextFiles",
+                  "value": {
+                    "kind": "null"
+                  }
+                },
+                {
+                  "name": "provider",
+                  "value": {
+                    "kind": "null"
+                  }
+                }
+              ]
+            },
+            {
+              "id": "compare_pr_diff",
+              "kind": "operation",
+              "objective": "Resolve and capture the exact per-file comparison between the supplied PR base and head commits for local review context.",
+              "dependsOn": [
+                "clone_repository"
+              ],
+              "operation": "cap_6c40004fe4610a44cf97c2c7",
+              "inputs": [
+                {
+                  "name": "projectRoot",
+                  "value": {
+                    "kind": "output",
+                    "source": "clone_repository",
+                    "port": "projectRootRelative"
+                  }
+                },
+                {
+                  "name": "baseRef",
+                  "value": {
+                    "kind": "string",
+                    "text": "8f1779dc25c1843e9ce4d4ec76d02e066ae892c4"
+                  }
+                },
+                {
+                  "name": "headRef",
+                  "value": {
+                    "kind": "string",
+                    "text": "f2f6bda0e02a6c5c363e88cd6cb5d4eb7c313488"
+                  }
+                },
+                {
+                  "name": "compareFromMergeBase",
+                  "value": {
+                    "kind": "boolean",
+                    "boolean": true
+                  }
+                },
+                {
+                  "name": "cursor",
+                  "value": {
+                    "kind": "null"
+                  }
+                },
+                {
+                  "name": "pageSize",
+                  "value": {
+                    "kind": "number",
+                    "number": 1000
+                  }
+                }
+              ]
+            },
+            {
+              "id": "copilot_diff_review",
+              "kind": "operation",
+              "objective": "Run a read-only local Copilot diff review on the exact comparison files and caller review instructions, with no GitHub publication.",
+              "dependsOn": [
+                "compare_pr_diff",
+                "run_copilot_checks_and_local_review"
+              ],
+              "operation": "cap_bed15f26b6b53fb1f2f33e52",
+              "inputs": [
+                {
+                  "name": "projectRoot",
+                  "value": {
+                    "kind": "output",
+                    "source": "clone_repository",
+                    "port": "projectRootRelative"
+                  }
+                },
+                {
+                  "name": "baseSha",
+                  "value": {
+                    "kind": "output",
+                    "source": "compare_pr_diff",
+                    "port": "baseSha"
+                  }
+                },
+                {
+                  "name": "headSha",
+                  "value": {
+                    "kind": "output",
+                    "source": "compare_pr_diff",
+                    "port": "headSha"
+                  }
+                },
+                {
+                  "name": "filesJson",
+                  "value": {
+                    "kind": "output",
+                    "source": "compare_pr_diff",
+                    "port": "filesJson"
+                  }
+                },
+                {
+                  "name": "reviewInstructions",
+                  "value": {
+                    "kind": "input",
+                    "source": "reviewText"
+                  }
+                },
+                {
+                  "name": "runtimeContextJson",
+                  "value": {
+                    "kind": "json",
+                    "items": [
+                      {
+                        "kind": "object",
+                        "members": [
+                          {
+                            "name": "dependencyAndCheckRun",
+                            "value": {
+                              "kind": "output",
+                              "source": "run_copilot_checks_and_local_review",
+                              "port": null
+                            }
+                          },
+                          {
+                            "name": "pullRequestUrl",
+                            "value": {
+                              "kind": "input",
+                              "source": "pullRequestUrl"
+                            }
+                          },
+                          {
+                            "name": "localOnly",
+                            "value": {
+                              "kind": "boolean",
+                              "boolean": true
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                },
+                {
+                  "name": "existingCommentsJson",
+                  "value": {
+                    "kind": "null"
+                  }
+                },
+                {
+                  "name": "maxBatchCharacters",
+                  "value": {
+                    "kind": "number",
+                    "number": 60000
+                  }
+                },
+                {
+                  "name": "provider",
+                  "value": {
+                    "kind": "null"
+                  }
+                },
+                {
+                  "name": "model",
+                  "value": {
+                    "kind": "null"
+                  }
+                }
+              ]
+            }
+          ],
+          "outputs": [
+            {
+              "name": "cloneDirectory",
+              "value": {
+                "kind": "string",
+                "text": "workflows/evaluation/repository"
+              }
+            },
+            {
+              "name": "reviewJsonPath",
+              "value": {
+                "kind": "string",
+                "text": "workflows/evaluation/review.json"
+              }
+            },
+            {
+              "name": "localReview",
+              "value": {
+                "kind": "output",
+                "source": "copilot_diff_review",
+                "port": null
+              }
+            }
+          ],
+          "always": [
+            {
+              "id": "write_review_json",
+              "kind": "operation",
+              "objective": "Write workflows/evaluation/review.json locally with exact available command/tool evidence, exit codes observed by Copilot terminals, check results, absent capabilities or failures, diff review decision, findings/comments, and any clone/compare/review limitations. Never publish to GitHub.",
+              "dependsOn": [
+                "prepare_review_directory",
+                "clone_repository",
+                "run_copilot_checks_and_local_review",
+                "compare_pr_diff",
+                "copilot_diff_review"
+              ],
+              "operation": "cap_7f56ce9a5bff2962504a89e2",
+              "inputs": [
+                {
+                  "name": "workspace",
+                  "value": {
+                    "kind": "string",
+                    "text": "workflows/evaluation"
+                  }
+                },
+                {
+                  "name": "capabilities",
+                  "value": {
+                    "kind": "array",
+                    "items": [
+                      {
+                        "kind": "string",
+                        "text": "project.read"
+                      },
+                      {
+                        "kind": "string",
+                        "text": "project.write"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "name": "objective",
+                  "value": {
+                    "kind": "string",
+                    "text": "Create or overwrite review.json in this workspace. The JSON must include: pullRequestUrl, baseSha, headSha, clone target, localOnly=true, noGitHubPublication=true, clone result, dependency/check command evidence from Copilot toolExecutions including exact commands where observed and each terminal exitCode, explicit missing capability notes, failed checks/tests, comparison coverage and pagination/truncation limitations, Copilot diff-review findings as diff comments, rejected findings, summary, and an acceptance/refusal decision derived from blocking findings and failed required checks. If an upstream step failed or is unavailable, record that fact explicitly instead of inventing success."
+                  }
+                },
+                {
+                  "name": "inputs",
+                  "value": {
+                    "kind": "object",
+                    "members": [
+                      {
+                        "name": "pullRequestUrl",
+                        "value": {
+                          "kind": "input",
+                          "source": "pullRequestUrl"
+                        }
+                      },
+                      {
+                        "name": "reviewText",
+                        "value": {
+                          "kind": "input",
+                          "source": "reviewText"
+                        }
+                      },
+                      {
+                        "name": "fixedBaseSha",
+                        "value": {
+                          "kind": "string",
+                          "text": "8f1779dc25c1843e9ce4d4ec76d02e066ae892c4"
+                        }
+                      },
+                      {
+                        "name": "fixedHeadSha",
+                        "value": {
+                          "kind": "string",
+                          "text": "f2f6bda0e02a6c5c363e88cd6cb5d4eb7c313488"
+                        }
+                      },
+                      {
+                        "name": "cloneTarget",
+                        "value": {
+                          "kind": "string",
+                          "text": "workflows/evaluation/repository"
+                        }
+                      },
+                      {
+                        "name": "cloneResult",
+                        "value": {
+                          "kind": "output",
+                          "source": "clone_repository",
+                          "port": null
+                        }
+                      },
+                      {
+                        "name": "copilotChecksAndReviewResult",
+                        "value": {
+                          "kind": "output",
+                          "source": "run_copilot_checks_and_local_review",
+                          "port": null
+                        }
+                      },
+                      {
+                        "name": "comparisonResult",
+                        "value": {
+                          "kind": "output",
+                          "source": "compare_pr_diff",
+                          "port": null
+                        }
+                      },
+                      {
+                        "name": "copilotDiffReviewResult",
+                        "value": {
+                          "kind": "output",
+                          "source": "copilot_diff_review",
+                          "port": null
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "name": "budget",
+                  "value": {
+                    "kind": "object",
+                    "members": [
+                      {
+                        "name": "max_elapsed_milliseconds",
+                        "value": {
+                          "kind": "number",
+                          "number": 300000
+                        }
+                      },
+                      {
+                        "name": "max_model_calls",
+                        "value": {
+                          "kind": "number",
+                          "number": 1
+                        }
+                      },
+                      {
+                        "name": "max_total_tokens",
+                        "value": {
+                          "kind": "number",
+                          "number": 12000
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "name": "output_schema",
+                  "value": {
+                    "kind": "object",
+                    "members": [
+                      {
+                        "name": "reviewJsonPath",
+                        "value": {
+                          "kind": "string",
+                          "text": "string"
+                        }
+                      },
+                      {
+                        "name": "decision",
+                        "value": {
+                          "kind": "string",
+                          "text": "string"
+                        }
+                      },
+                      {
+                        "name": "commandEvidenceCount",
+                        "value": {
+                          "kind": "string",
+                          "text": "integer"
+                        }
+                      },
+                      {
+                        "name": "limitationCount",
+                        "value": {
+                          "kind": "string",
+                          "text": "integer"
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "name": "verification",
+                  "value": {
+                    "kind": "array",
+                    "items": [
+                      {
+                        "kind": "object",
+                        "members": [
+                          {
+                            "name": "id",
+                            "value": {
+                              "kind": "string",
+                              "text": "review_json_written"
+                            }
+                          },
+                          {
+                            "name": "kind",
+                            "value": {
+                              "kind": "string",
+                              "text": "file.content"
+                            }
+                          },
+                          {
+                            "name": "subject",
+                            "value": {
+                              "kind": "string",
+                              "text": "review.json"
+                            }
+                          },
+                          {
+                            "name": "facts_schema",
+                            "value": {
+                              "kind": "object",
+                              "members": [
+                                {
+                                  "name": "exists",
+                                  "value": {
+                                    "kind": "string",
+                                    "text": "boolean"
+                                  }
+                                },
+                                {
+                                  "name": "sha256",
+                                  "value": {
+                                    "kind": "string",
+                                    "text": "string"
+                                  }
+                                },
+                                {
+                                  "name": "changed",
+                                  "value": {
+                                    "kind": "string",
+                                    "text": "boolean"
+                                  }
+                                }
+                              ]
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "id": "cleanup_cloned_repository_task",
+              "kind": "operation",
+              "objective": "Delete the fixed cloned repository directory, whether the prior clone or review steps succeeded or failed.",
+              "dependsOn": [
+                "write_review_json"
+              ],
+              "operation": "cap_5c01f9aa688163d23a30ff8b",
+              "inputs": [
+                {
+                  "name": "commandName",
+                  "value": {
+                    "kind": "string",
+                    "text": "delete_directory"
+                  }
+                },
+                {
+                  "name": "parameters",
+                  "value": {
+                    "kind": "object",
+                    "members": [
+                      {
+                        "name": "path",
+                        "value": {
+                          "kind": "string",
+                          "text": "workflows/evaluation/repository"
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "name": "timeoutMs",
+                  "value": {
+                    "kind": "number",
+                    "number": 300000
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "groups": [],
+        "choices": []
+      },
+      "clarifications": null,
+      "outcomeBindings": [
+        {
+          "outcomeId": "clone_fixed_repository_once",
+          "taskIds": [
+            "clone_repository"
+          ],
+          "outputs": [
+            "workflows/evaluation/repository",
+            "projectRootRelative"
+          ],
+          "forEachTaskId": null
+        },
+        {
+          "outcomeId": "run_declared_dependency_and_check_commands",
+          "taskIds": [
+            "compose_copilot_task",
+            "run_copilot_checks_and_local_review",
+            "write_review_json"
+          ],
+          "outputs": [
+            "Copilot toolExecutions with terminal commands and exit codes",
+            "explicit failed checks and absent capabilities in review.json"
+          ],
+          "forEachTaskId": null
+        },
+        {
+          "outcomeId": "produce_local_code_review_feedback",
+          "taskIds": [
+            "run_copilot_checks_and_local_review",
+            "compare_pr_diff",
+            "copilot_diff_review",
+            "write_review_json"
+          ],
+          "outputs": [
+            "local acceptance/refusal decision",
+            "local diff comments/findings",
+            "no GitHub publication"
+          ],
+          "forEachTaskId": null
+        },
+        {
+          "outcomeId": "write_review_json_evidence",
+          "taskIds": [
+            "write_review_json"
+          ],
+          "outputs": [
+            "workflows/evaluation/review.json"
+          ],
+          "forEachTaskId": null
+        },
+        {
+          "outcomeId": "cleanup_cloned_repository",
+          "taskIds": [
+            "cleanup_cloned_repository_task"
+          ],
+          "outputs": [
+            "workflows/evaluation/repository deleted or already absent"
+          ],
+          "forEachTaskId": null
+        }
+      ]
+    },
+    {
+      "discoveryRequests": null,
+      "patch": {
+        "edits": [
+          {
+            "slot": "s0",
+            "action": "replace",
+            "value": {
+              "taskIds": [
+                "cleanup_cloned_repository_task"
+              ],
+              "outputs": [
+                "cloneDirectory"
+              ],
+              "forEachTaskId": null
+            }
+          },
+          {
+            "slot": "s1",
+            "action": "replace",
+            "value": {
+              "taskIds": [
+                "prepare_review_directory",
+                "clone_repository"
+              ],
+              "outputs": [
+                "cloneDirectory"
+              ],
+              "forEachTaskId": null
+            }
+          },
+          {
+            "slot": "s2",
+            "action": "replace",
+            "value": {
+              "taskIds": [
+                "compare_pr_diff",
+                "run_copilot_checks_and_local_review",
+                "copilot_diff_review",
+                "write_review_json"
+              ],
+              "outputs": [
+                "localReview",
+                "reviewJsonPath"
+              ],
+              "forEachTaskId": null
+            }
+          },
+          {
+            "slot": "s3",
+            "action": "replace",
+            "value": {
+              "taskIds": [
+                "run_copilot_checks_and_local_review",
+                "write_review_json"
+              ],
+              "outputs": [
+                "reviewJsonPath"
+              ],
+              "forEachTaskId": null
+            }
+          },
+          {
+            "slot": "s4",
+            "action": "replace",
+            "value": {
+              "taskIds": [
+                "write_review_json"
+              ],
+              "outputs": [
+                "reviewJsonPath"
+              ],
+              "forEachTaskId": null
+            }
+          }
+        ]
+      },
+      "clarifications": null
+    },
+    {
+      "discoveryRequests": null,
+      "patch": {
+        "edits": [
+          {
+            "slot": "s0",
+            "action": "replace",
+            "value": {
+              "taskIds": [
+                "cleanup_cloned_repository_task"
+              ],
+              "outputs": [
+                "cloneDirectory"
+              ],
+              "forEachTaskId": null
+            }
+          },
+          {
+            "slot": "s1",
+            "action": "replace",
+            "value": {
+              "taskIds": [
+                "prepare_review_directory",
+                "clone_repository"
+              ],
+              "outputs": [
+                "cloneDirectory"
+              ],
+              "forEachTaskId": null
+            }
+          },
+          {
+            "slot": "s2",
+            "action": "replace",
+            "value": {
+              "taskIds": [
+                "compare_pr_diff",
+                "run_copilot_checks_and_local_review",
+                "copilot_diff_review",
+                "write_review_json"
+              ],
+              "outputs": [
+                "localReview",
+                "reviewJsonPath"
+              ],
+              "forEachTaskId": null
+            }
+          },
+          {
+            "slot": "s3",
+            "action": "replace",
+            "value": {
+              "taskIds": [
+                "compose_copilot_task",
+                "run_copilot_checks_and_local_review",
+                "write_review_json"
+              ],
+              "outputs": [
+                "localReview",
+                "reviewJsonPath"
+              ],
+              "forEachTaskId": null
+            }
+          },
+          {
+            "slot": "s4",
+            "action": "replace",
+            "value": {
+              "taskIds": [
+                "write_review_json"
+              ],
+              "outputs": [
+                "reviewJsonPath"
+              ],
+              "forEachTaskId": null
+            }
+          }
+        ]
+      },
+      "clarifications": null
+    }
+  ]
+}

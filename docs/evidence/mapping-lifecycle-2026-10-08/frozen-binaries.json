@@ -1,0 +1,10 @@
+{
+  "source": "c12fee3c34504c9865da7727bb7132fb033781f0",
+  "sha256": {
+    "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Planning.Benchmark.dll": "ebf493762e0458bfd066f3ff116853267911715bb33272f467cd7353732e0b9e",
+    "src/GnOuGo.Browser.Mcp/bin/Debug/net10.0/GnOuGo.Browser.Mcp.dll": "76c09e4dc3f78f5e72bc52379650a1bfdd25298f10f8124b4ca36492c90555e8",
+    "src/GnOuGo.Document.Mcp/bin/Debug/net10.0/GnOuGo.Document.Mcp.dll": "203b025e5935e21a5d894b55ebe428cc06a6f898a641b6b593d6137b15cda437",
+    "src/GnOuGo.Flow.Core/bin/Debug/net10.0/GnOuGo.Flow.Core.dll": "c3be28cad09f10f1abc9e1b37858fb810d20d0a55c33bb0628813f4884a76db5"
+  },
+  "oracle_sha256": "e2d6ddf002b75cfd5ddc5be10852c118e7b9d2a3c3d3875c03a0770de054f62a"
+}

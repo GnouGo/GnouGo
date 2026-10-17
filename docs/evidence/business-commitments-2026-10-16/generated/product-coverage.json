@@ -1,0 +1,230 @@
+{
+  "before": [
+    {
+      "id": "coverage:search_amazon_fr:0:operation",
+      "outcome": "unverified",
+      "description": "search_amazon_fr: cap_11c6eb14efdf077ab59eea82 \u2014 Declared invocation at /tasks/open_search_results, /tasks/open_product_page; occurrences are ambiguous.",
+      "diagnostics": []
+    },
+    {
+      "id": "coverage:search_amazon_fr:limits",
+      "outcome": "unverified",
+      "description": "search_amazon_fr: Verified clauses do not prove the complete prose requirement, correct arguments, per-item execution, relevant extraction or successful effects. Human acknowledgment is not verification or execution evidence.",
+      "diagnostics": []
+    },
+    {
+      "id": "coverage:collect_products:limits",
+      "outcome": "unverified",
+      "description": "collect_products: No contractual commitments declared. Business coverage is unverified; no obligations were inferred from the plan.",
+      "diagnostics": []
+    },
+    {
+      "id": "coverage:extract_details:0:operation",
+      "outcome": "unverified",
+      "description": "extract_details: cap_11c6eb14efdf077ab59eea82 \u2014 Declared invocation at /tasks/open_search_results, /tasks/open_product_page; occurrences are ambiguous.",
+      "diagnostics": []
+    },
+    {
+      "id": "coverage:extract_details:limits",
+      "outcome": "unverified",
+      "description": "extract_details: Verified clauses do not prove the complete prose requirement, correct arguments, per-item execution, relevant extraction or successful effects. Human acknowledgment is not verification or execution evidence.",
+      "diagnostics": []
+    },
+    {
+      "id": "coverage:save_excel:0:operation",
+      "outcome": "violation",
+      "description": "save_excel: cap_9e3b22c88e81b232338b7ab5 \u2014 No reachable task invokes the committed operation. Transforms and uncalled groups do not perform it.",
+      "diagnostics": [
+        {
+          "code": "REQUIREMENT_OPERATION_MISSING",
+          "location": "/requirements/outcomes/3/commitments/0",
+          "message": "Committed operation \u0027cap_9e3b22c88e81b232338b7ab5\u0027 has no reachable invocation. Add only this inspected operation; preserve existing work.",
+          "required": true,
+          "validationStage": null,
+          "rule": "cap_9e3b22c88e81b232338b7ab5"
+        }
+      ]
+    },
+    {
+      "id": "coverage:save_excel:0:result",
+      "outcome": "violation",
+      "description": "save_excel: cap_9e3b22c88e81b232338b7ab5 \u2014 Public output \u0027productsFile\u0027 must retain producer \u0027cap_9e3b22c88e81b232338b7ab5.filePath\u0027 at /root/outputs/productsFile. The binding is disconnected or manufactures a producer-owned result.",
+      "diagnostics": [
+        {
+          "code": "REQUIREMENT_RESULT_DISCONNECTED",
+          "location": "/root/outputs/productsFile",
+          "message": "Public output \u0027productsFile\u0027 must derive from committed operation \u0027cap_9e3b22c88e81b232338b7ab5\u0027, port \u0027filePath\u0027. Literal or inferred replacements do not establish producer ownership.",
+          "required": true,
+          "validationStage": null,
+          "rule": "cap_9e3b22c88e81b232338b7ab5"
+        }
+      ]
+    },
+    {
+      "id": "coverage:save_excel:limits",
+      "outcome": "unverified",
+      "description": "save_excel: Verified clauses do not prove the complete prose requirement, correct arguments, per-item execution, relevant extraction or successful effects. Human acknowledgment is not verification or execution evidence.",
+      "diagnostics": []
+    },
+    {
+      "id": "coverage:cleanup_browser:0:operation",
+      "outcome": "verified",
+      "description": "cleanup_browser: cap_c2cac389cb9fc4a1e3158a1e \u2014 Declared invocation at /tasks/close_browser; presence only, execution unobserved.",
+      "diagnostics": []
+    },
+    {
+      "id": "coverage:cleanup_browser:limits",
+      "outcome": "unverified",
+      "description": "cleanup_browser: Verified clauses do not prove the complete prose requirement, correct arguments, per-item execution, relevant extraction or successful effects. Human acknowledgment is not verification or execution evidence.",
+      "diagnostics": []
+    },
+    {
+      "id": "coverage:truthful_status:limits",
+      "outcome": "unverified",
+      "description": "truthful_status: No contractual commitments declared. Business coverage is unverified; no obligations were inferred from the plan.",
+      "diagnostics": []
+    }
+  ],
+  "after": [
+    {
+      "id": "coverage:search_amazon_fr:0:operation",
+      "outcome": "unverified",
+      "description": "search_amazon_fr: cap_11c6eb14efdf077ab59eea82 \u2014 Declared invocation at /tasks/open_search_results, /tasks/open_product_page; occurrences are ambiguous.",
+      "diagnostics": []
+    },
+    {
+      "id": "coverage:search_amazon_fr:limits",
+      "outcome": "unverified",
+      "description": "search_amazon_fr: Verified clauses do not prove the complete prose requirement, correct arguments, per-item execution, relevant extraction or successful effects. Human acknowledgment is not verification or execution evidence.",
+      "diagnostics": []
+    },
+    {
+      "id": "coverage:collect_products:limits",
+      "outcome": "unverified",
+      "description": "collect_products: No contractual commitments declared. Business coverage is unverified; no obligations were inferred from the plan.",
+      "diagnostics": []
+    },
+    {
+      "id": "coverage:extract_details:0:operation",
+      "outcome": "unverified",
+      "description": "extract_details: cap_11c6eb14efdf077ab59eea82 \u2014 Declared invocation at /tasks/open_search_results, /tasks/open_product_page; occurrences are ambiguous.",
+      "diagnostics": []
+    },
+    {
+      "id": "coverage:extract_details:limits",
+      "outcome": "unverified",
+      "description": "extract_details: Verified clauses do not prove the complete prose requirement, correct arguments, per-item execution, relevant extraction or successful effects. Human acknowledgment is not verification or execution evidence.",
+      "diagnostics": []
+    },
+    {
+      "id": "coverage:save_excel:0:operation",
+      "outcome": "verified",
+      "description": "save_excel: cap_9e3b22c88e81b232338b7ab5 \u2014 Declared invocation at /tasks/save_products_xlsx; presence only, execution unobserved.",
+      "diagnostics": []
+    },
+    {
+      "id": "coverage:save_excel:0:result",
+      "outcome": "verified",
+      "description": "save_excel: cap_9e3b22c88e81b232338b7ab5 \u2014 Public output \u0027productsFile\u0027 must retain producer \u0027cap_9e3b22c88e81b232338b7ab5.filePath\u0027 at /root/outputs/productsFile. Supported direct data lineage established; result content and execution remain unobserved.",
+      "diagnostics": []
+    },
+    {
+      "id": "coverage:save_excel:limits",
+      "outcome": "unverified",
+      "description": "save_excel: Verified clauses do not prove the complete prose requirement, correct arguments, per-item execution, relevant extraction or successful effects. Human acknowledgment is not verification or execution evidence.",
+      "diagnostics": []
+    },
+    {
+      "id": "coverage:cleanup_browser:0:operation",
+      "outcome": "verified",
+      "description": "cleanup_browser: cap_c2cac389cb9fc4a1e3158a1e \u2014 Declared invocation at /tasks/close_browser; presence only, execution unobserved.",
+      "diagnostics": []
+    },
+    {
+      "id": "coverage:cleanup_browser:limits",
+      "outcome": "unverified",
+      "description": "cleanup_browser: Verified clauses do not prove the complete prose requirement, correct arguments, per-item execution, relevant extraction or successful effects. Human acknowledgment is not verification or execution evidence.",
+      "diagnostics": []
+    },
+    {
+      "id": "coverage:truthful_status:limits",
+      "outcome": "unverified",
+      "description": "truthful_status: No contractual commitments declared. Business coverage is unverified; no obligations were inferred from the plan.",
+      "diagnostics": []
+    }
+  ],
+  "progress": {
+    "version": 4,
+    "attempts": [
+      {
+        "action": "regenerate",
+        "candidate": "00c52d171b0518eb978ec356a27b6504a5c3a4c7a15cfcc2708b0eb66ca54f2a",
+        "diagnostics": "a531b83bb9cc8e7623a2a16c65ab7023b794f16b908a377df3a49ad9d9b249cd",
+        "callsUsed": 1,
+        "outcome": "validated",
+        "completedAtCall": 2,
+        "responseCandidate": "01d84a731fe2b5bbf7b114027250ca78fcd73dbe1e9b6e08982a53753a11f280"
+      }
+    ],
+    "outputRemovals": [],
+    "conditionLocations": [],
+    "locations": [
+      "/requirements/outcomes/3/commitments/0",
+      "/root/outputs/productsFile"
+    ],
+    "operationAdditions": [
+      {
+        "operation": "cap_9e3b22c88e81b232338b7ab5",
+        "capability": "cap_9e3b22c88e81b232338b7ab5",
+        "version": "c3e6ba5efa05f78d9df4f585361abbf32f8303bd5eb455c1b60efba28a333497",
+        "contract": "616e8ce54ccc58a2a4fb7b69b3951dc49b25de96c505e60801a3adb0649e0841"
+      }
+    ],
+    "adaptationTasks": [
+      "save_products_xlsx"
+    ],
+    "preservedTasks": [
+      "make_search_url",
+      "open_search_results",
+      "project_search_page_records",
+      "extract_product_links",
+      "select_product_ids",
+      "scrape_products",
+      "open_product_page",
+      "project_product_page_records",
+      "extract_product_detail",
+      "choose_product_detail_ids",
+      "detail_name",
+      "detail_name_original",
+      "detail_description",
+      "detail_description_original",
+      "detail_price",
+      "detail_price_original",
+      "detail_name_row",
+      "detail_keep_name",
+      "detail_description_row",
+      "detail_keep_description",
+      "detail_price_row",
+      "checked_products_projection",
+      "close_browser"
+    ],
+    "revision": 1,
+    "artifact": null,
+    "action": "regenerate"
+  },
+  "deterministicCalls": 2,
+  "corrections": 1,
+  "paidCost": 0,
+  "estimatedCost": null,
+  "costBasis": "No provider pricing used; deterministic adapters only.",
+  "requests": [
+    {
+      "serializedBytes": 81284,
+      "estimatedInputTokens": 21496
+    },
+    {
+      "serializedBytes": 85358,
+      "estimatedInputTokens": 20930
+    }
+  ]
+}

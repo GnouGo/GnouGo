@@ -1,0 +1,48 @@
+{
+  "revision": 3,
+  "artifact_hash": null,
+  "status": "not_reviewable",
+  "executed": false,
+  "diagnostics": [
+    {
+      "code": "CONTRACT_UNSATISFIED",
+      "location": "/tasks/extract_candidate_pages/inputs/pages",
+      "message": "TASK_FIELD_UNKNOWN: output:open_search_observe does not declare field 'observationSnapshot.pages'. Available fields: url, title, statusCode, selector, resolvedSelector, fallbackApplied, fallbackReason, format, content, truncated, maxCharacters, success, error_code, error_message, ok, observation, observationManifest, observationSnapshot, acquisition. Field names are literal, not paths.",
+      "required": true,
+      "validationStage": "contract:TASK_FIELD_UNKNOWN",
+      "rule": null
+    },
+    {
+      "code": "CONTRACT_UNSATISFIED",
+      "location": "/tasks/extract_candidate_pages/requires",
+      "message": "TASK_FIELD_UNKNOWN: output:assert_search_observation_status does not declare field 'availableReadonlyCopyStatusOkConsideringPotentialNamingMismatchButUseAvailableFieldDirectly'. Available fields: ok, success, available, complete, error. Field names are literal, not paths.",
+      "required": true,
+      "validationStage": "contract:TASK_FIELD_UNKNOWN",
+      "rule": null
+    },
+    {
+      "code": "CONTRACT_UNSATISFIED",
+      "location": "/tasks/write_products_xlsx/requires",
+      "message": "TASK_FIELD_UNKNOWN: output:prepare_xlsx_rows does not declare field 'rows.length'. Available fields: rows, status, error. Field names are literal, not paths.",
+      "required": true,
+      "validationStage": "contract:TASK_FIELD_UNKNOWN",
+      "rule": null
+    },
+    {
+      "code": "REVISION_REQUIRED",
+      "location": "/tasks/extract_candidate_pages/requires",
+      "message": "output:assert_search_observation_status does not declare field 'availableReadonlyCopyStatusOkConsideringPotentialNamingMismatchButUseAvailableFieldDirectly'. Available fields: ok, success, available, complete, error. Field names are literal, not paths. The required binding and its producers are outside repair authority. Explicitly revise this binding; unrelated edits cannot correct its type.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    }
+  ],
+  "composition_findings": [
+    "Whole search observation passed to interpreted success/availability/completeness claims.",
+    "First-ten product selection requested inside page extraction.",
+    "ID decision returns reconstructed records; no strict offered/original lookup.",
+    "Whole product observation passed to non-each product extraction.",
+    "Row construction and writer status use interpretation for typed copying."
+  ],
+  "revision_proposed_not_issued": true
+}

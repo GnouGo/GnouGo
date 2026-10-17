@@ -1,0 +1,97 @@
+  Identification des projets à restaurer...
+  Restauration effectuée de /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.Agent.Shared/GnOuGo.Agent.Shared.csproj (en 43 ms).
+  Restauration effectuée de /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.Auth.Core/GnOuGo.Auth.Core.csproj (en 43 ms).
+  Restauration effectuée de /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.Assets.Bears/GnOuGo.Assets.Bears.csproj (en 4,13 sec).
+  Restauration effectuée de /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.Workspace/GnOuGo.Workspace.csproj (en 4,11 sec).
+  Restauration effectuée de /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.Mcp.Core/GnOuGo.Mcp.Core.csproj (en 4,03 sec).
+  Restauration effectuée de /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.Flow.Core/GnOuGo.Flow.Core.csproj (en 4,13 sec).
+  Restauration effectuée de /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.AI.Core/GnOuGo.AI.Core.csproj (en 4,13 sec).
+  Restauration effectuée de /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.Flow.Planning/GnOuGo.Flow.Planning.csproj (en 4,13 sec).
+  Restauration effectuée de /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.Flow.Integrations/GnOuGo.Flow.Integrations.csproj (en 4,14 sec).
+  Restauration effectuée de /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.Observability.Core/GnOuGo.Observability.Core.csproj (en 4,09 sec).
+  Restauration effectuée de /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.KeyVault.Core/GnOuGo.KeyVault.Core.csproj (en 4,19 sec).
+  Restauration effectuée de /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.Flow.Persistence/GnOuGo.Flow.Persistence.csproj (en 44 ms).
+  Restauration effectuée de /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.Assets.Animation/GnOuGo.Assets.Animation.csproj (en 8 ms).
+  Restauration effectuée de /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.GithubCopilot.Core/GnOuGo.GithubCopilot.Core.csproj (en 60 ms).
+  Restauration effectuée de /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.Flow.Mermaid/GnOuGo.Flow.Mermaid.csproj (en 79 ms).
+  Restauration effectuée de /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.KeyVault.Mcp/GnOuGo.KeyVault.Mcp.csproj (en 84 ms).
+  Restauration effectuée de /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj (en 4,26 sec).
+  Restauration effectuée de /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.Agent.Mcp/GnOuGo.Agent.Mcp.csproj (en 32 ms).
+  Restauration effectuée de /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.Flow.Copilot/GnOuGo.Flow.Copilot.csproj (en 9 ms).
+  Restauration effectuée de /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.AI.Local/GnOuGo.AI.Local.csproj (en 96 ms).
+  Restauration effectuée de /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.DocIngestor.Core/GnOuGo.DocIngestor.Core.csproj (en 170 ms).
+  Restauration effectuée de /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.Cmd.Mcp/GnOuGo.Cmd.Mcp.csproj (en 4,35 sec).
+  Restauration effectuée de /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.Git.Mcp/GnOuGo.Git.Mcp.csproj (en 111 ms).
+  Restauration effectuée de /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.Document.Mcp/GnOuGo.Document.Mcp.csproj (en 4,36 sec).
+  Restauration effectuée de /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.DocIngestor.Mcp/GnOuGo.DocIngestor.Mcp.csproj (en 4,35 sec).
+  Restauration effectuée de /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.GithubCopilot.Mcp/GnOuGo.GithubCopilot.Mcp.csproj (en 185 ms).
+  Restauration effectuée de /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.Browser.Mcp/GnOuGo.Browser.Mcp.csproj (en 4,38 sec).
+  Restauration effectuée de /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.Diff.Core/GnOuGo.Diff.Core.csproj (en 205 ms).
+  Restauration effectuée de /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.Files.Server/GnOuGo.Files.Server.csproj (en 106 ms).
+  Restauration effectuée de /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.Agent.Server/GnOuGo.Agent.Server.csproj (en 187 ms).
+  Restauration effectuée de /private/tmp/gnougo-initial-composition-publish/tests/GnOuGo.Agent.Server.Tests/GnOuGo.Agent.Server.Tests.csproj (en 191 ms).
+  GnOuGo.Flow.Core -> /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.Flow.Core/bin/Debug/net10.0/GnOuGo.Flow.Core.dll
+  GnOuGo.Flow.Copilot -> /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.Flow.Copilot/bin/Debug/net10.0/GnOuGo.Flow.Copilot.dll
+  GnOuGo.Workspace -> /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.Workspace/bin/Debug/net10.0/GnOuGo.Workspace.dll
+  GnOuGo.KeyVault.Core -> /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.KeyVault.Core/bin/Debug/net10.0/GnOuGo.KeyVault.Core.dll
+  GnOuGo.Flow.Persistence -> /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.Flow.Persistence/bin/Debug/net10.0/GnOuGo.Flow.Persistence.dll
+  GnOuGo.Agent.Shared -> /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.Agent.Shared/bin/Debug/net10.0/GnOuGo.Agent.Shared.dll
+  GnOuGo.Auth.Core -> /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.Auth.Core/bin/Debug/net10.0/GnOuGo.Auth.Core.dll
+  GnOuGo.AI.Core -> /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.AI.Core/bin/Debug/net10.0/GnOuGo.AI.Core.dll
+  GnOuGo.Diff.Core -> /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.Diff.Core/bin/Debug/net10.0/GnOuGo.Diff.Core.dll
+  GnOuGo.Mcp.Core -> /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.Mcp.Core/bin/Debug/net10.0/GnOuGo.Mcp.Core.dll
+  GnOuGo.Observability.Core -> /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.Observability.Core/bin/Debug/net10.0/GnOuGo.Observability.Core.dll
+  GnOuGo.Agent.Mcp -> /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.Agent.Mcp/bin/Debug/net10.0/GnOuGo.Agent.Mcp.dll
+  GnOuGo.AI.Local -> /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.AI.Local/bin/Debug/net10.0/GnOuGo.AI.Local.dll
+  GnOuGo.Assets.Bears -> /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.Assets.Bears/bin/Debug/net10.0/GnOuGo.Assets.Bears.dll
+  GnOuGo.Assets.Animation -> /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.Assets.Animation/bin/Debug/net10.0/GnOuGo.Assets.Animation.dll
+  GnOuGo.DocIngestor.Core -> /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.DocIngestor.Core/bin/Debug/net10.0/GnOuGo.DocIngestor.Core.dll
+  GnOuGo.DocIngestor.Mcp -> /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.DocIngestor.Mcp/bin/Debug/net10.0/GnOuGo.DocIngestor.Mcp.dll
+  GnOuGo.Flow.Planning -> /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.Flow.Planning/bin/Debug/net10.0/GnOuGo.Flow.Planning.dll
+  GnOuGo.Flow.Integrations -> /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.Flow.Integrations/bin/Debug/net10.0/GnOuGo.Flow.Integrations.dll
+  GnOuGo.Flow.Mermaid -> /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.Flow.Mermaid/bin/Debug/net10.0/GnOuGo.Flow.Mermaid.dll
+  GnOuGo.Files.Server -> /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.Files.Server/bin/Debug/net10.0/GnOuGo.Files.Server.dll
+  GnOuGo.KeyVault.Mcp -> /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.KeyVault.Mcp/bin/Debug/net10.0/GnOuGo.KeyVault.Mcp.dll
+  GnOuGo.OtlpCollector.Server -> /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.OtlpCollector.Server/bin/Debug/net10.0/GnOuGo.OtlpCollector.Server.dll
+  GnOuGo.Mcp.Core -> /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.Mcp.Core/bin/Debug/net10.0/GnOuGo.Mcp.Core.dll
+  GnOuGo.Observability.Core -> /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.Observability.Core/bin/Debug/net10.0/GnOuGo.Observability.Core.dll
+  GnOuGo.Browser.Mcp -> /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.Browser.Mcp/bin/Debug/net10.0/GnOuGo.Browser.Mcp.dll
+  GnOuGo.Workspace -> /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.Workspace/bin/Debug/net10.0/GnOuGo.Workspace.dll
+  GnOuGo.Cmd.Mcp -> /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.Cmd.Mcp/bin/Debug/net10.0/GnOuGo.Cmd.Mcp.dll
+  GnOuGo.Diff.Core -> /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.Diff.Core/bin/Debug/net10.0/GnOuGo.Diff.Core.dll
+  GnOuGo.Document.Mcp -> /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.Document.Mcp/bin/Debug/net10.0/GnOuGo.Document.Mcp.dll
+  GnOuGo.Auth.Core -> /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.Auth.Core/bin/Debug/net10.0/GnOuGo.Auth.Core.dll
+  GnOuGo.Flow.Core -> /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.Flow.Core/bin/Debug/net10.0/GnOuGo.Flow.Core.dll
+  Downloading Copilot CLI 1.0.88 for darwin-arm64...
+  Téléchargement de "https://github.com/github/copilot-cli/releases/download/v1.0.88/SHA256SUMS.txt" vers "/private/tmp/gnougo-initial-composition-publish/src/GnOuGo.GithubCopilot.Core/obj/Debug/net10.0/copilot-cli/1.0.88/darwin-arm64/SHA256SUMS.txt" (1 740 octets).
+  Téléchargement de "https://github.com/github/copilot-cli/releases/download/v1.0.88/github-copilot-1.0.88-darwin-arm64.tgz" vers "/private/tmp/gnougo-initial-composition-publish/src/GnOuGo.GithubCopilot.Core/obj/Debug/net10.0/copilot-cli/1.0.88/darwin-arm64/copilot.tgz" (55 323 492 octets).
+  GnOuGo.GithubCopilot.Core -> /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.GithubCopilot.Core/bin/Debug/net10.0/GnOuGo.GithubCopilot.Core.dll
+  GnOuGo.KeyVault.Core -> /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.KeyVault.Core/bin/Debug/net10.0/GnOuGo.KeyVault.Core.dll
+  GnOuGo.GithubCopilot.Mcp -> /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.GithubCopilot.Mcp/bin/Debug/net10.0/GnOuGo.GithubCopilot.Mcp.dll
+  GnOuGo.Git.Mcp -> /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.Git.Mcp/bin/Debug/net10.0/GnOuGo.Git.Mcp.dll
+  GnOuGo.Agent.Server -> /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.Agent.Server/bin/Debug/net10.0/GnOuGo.Agent.Server.dll
+  Staging GnOuGo MCP development tools into bin/Debug/net10.0/tools...
+  GnOuGo.Document.Mcp -> /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.Document.Mcp/bin/Debug/net10.0/GnOuGo.Document.Mcp.dll
+  GnOuGo.Browser.Mcp -> /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.Browser.Mcp/bin/Debug/net10.0/GnOuGo.Browser.Mcp.dll
+  Installing Playwright Chromium browsers...
+  GnOuGo.Git.Mcp -> /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.Git.Mcp/bin/Debug/net10.0/GnOuGo.Git.Mcp.dll
+  GnOuGo.Cmd.Mcp -> /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.Cmd.Mcp/bin/Debug/net10.0/GnOuGo.Cmd.Mcp.dll
+  GnOuGo.GithubCopilot.Core -> /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.GithubCopilot.Core/bin/Debug/net10.0/GnOuGo.GithubCopilot.Core.dll
+  GnOuGo.GithubCopilot.Mcp -> /private/tmp/gnougo-initial-composition-publish/src/GnOuGo.GithubCopilot.Mcp/bin/Debug/net10.0/GnOuGo.GithubCopilot.Mcp.dll
+  GnOuGo.Agent.Server.Tests -> /private/tmp/gnougo-initial-composition-publish/tests/GnOuGo.Agent.Server.Tests/bin/Debug/net10.0/GnOuGo.Agent.Server.Tests.dll
+  Staging GnOuGo MCP development tools into bin/Debug/net10.0/tools...
+Série de tests pour /private/tmp/gnougo-initial-composition-publish/tests/GnOuGo.Agent.Server.Tests/bin/Debug/net10.0/GnOuGo.Agent.Server.Tests.dll (.NETCoreApp,Version=v10.0)
+Au total, 1 fichiers de test ont correspondu au modèle spécifié.
+[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v4.0.0+05679a7ab5 (64-bit .NET 10.0.8)
+[xUnit.net 00:00:00.72]   Discovering: GnOuGo.Agent.Server.Tests
+[xUnit.net 00:00:01.00]   Discovered:  GnOuGo.Agent.Server.Tests
+[xUnit.net 00:00:01.16]   Starting:    GnOuGo.Agent.Server.Tests
+  Réussi GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V10CorrectedCompositionReachesReviewWithoutPaidCallsOrAutomaticRepair(revision: False) [10 s]
+  Réussi GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V10CorrectedCompositionReachesReviewWithoutPaidCallsOrAutomaticRepair(revision: True) [9 s]
+[xUnit.net 00:00:52.11]   Finished:    GnOuGo.Agent.Server.Tests (ID = 'ff728f951da8b247e797feb57d4d37ad233b8b61819050d5f9bc49b2d4122d8c')
+  Réussi GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: "union_initial") [31 s]
+
+Série de tests réussie.
+Nombre total de tests : 3
+     Réussi(s) : 3
+ Durée totale : 52,4634 Secondes

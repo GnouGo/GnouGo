@@ -1,0 +1,39 @@
+{
+  "source": "b50474fdb414ef22e265a45718d012257f0a9e9b",
+  "campaign": "schema-portability-20261002",
+  "cohort": "commitments20261017a",
+  "runs": [
+    "commitments20261017a-amazon-1",
+    "commitments20261017a-code-1"
+  ],
+  "intent_version": 3,
+  "profile": "compact-bindings-v15",
+  "max_products": 10,
+  "automatic_correction": true,
+  "max_model_calls": 8,
+  "max_replan_attempts": 2,
+  "ceiling_eur": 200,
+  "initial_upper_bound_eur": "151.34726402347829433064332741",
+  "configuration_hash": "0d9b3f888b2a23348f7efbdc00cc764d2e388e63c076dd350b945bc161539d31",
+  "source_hashes": {
+    "tests/GnOuGo.Agent.Planning.Benchmark/LiveWorkflowEvaluation.cs": "a2d69f2a4bff10356a4ea1db654f8a4f63cd608ca92f4b885468253ba0f322f8",
+    "tests/GnOuGo.Agent.Planning.Benchmark/LiveWorkflowOracles.cs": "4671fe4cd74cd34167d282a3449686b900492257058fc6add39588bd08d7d514",
+    "tests/GnOuGo.Agent.Planning.Benchmark/LiveCodeEvidence.cs": "53ce1ad86c93147ca17eefbe089aa6e47724453b539697e29c69b0980c83943c",
+    "tests/GnOuGo.Agent.Planning.Benchmark/LiveCampaignEvidence.cs": "81a2ab2301e1a252cc3e397c1ce73784d41c34f7b27d6c60d9de0cbe4479f3c4",
+    "tests/GnOuGo.Agent.Planning.Benchmark/KeyVaultBenchmarkModel.cs": "8537217f6d31f13c771c682b7b515c59501ec1f2ce2c4a57e405975e6b50fa24",
+    "tests/GnOuGo.Agent.Planning.Benchmark/BenchmarkCampaign.cs": "1dac4e3545c8e5203f3cb0fef03dff261a65bdca51e6ffadcf04d13673757f9a",
+    "tests/GnOuGo.Agent.Planning.Benchmark/BenchmarkHttpJournal.cs": "5547fbcc1baa6f7b20cb4bfc2193ca7a7d7b370076f6ddb44d8ca7908990c8a3",
+    "src/GnOuGo.Flow.Planning/PlanningPrompt.cs": "3651ece71a07ecb93dab291cc48b7fa2061677919c22f1a5f373d3a54cf87b12",
+    "src/GnOuGo.Flow.Planning/PlanningSchemas.cs": "b8eed029bc84b45856e52ba1c3e7e190fb18fdd0f87d38ed512df7c07b171bf2",
+    "src/GnOuGo.Flow.Planning/PlanningCommitments.cs": "9f73f8e65525497bc92938bdc9200ed3a1d8919bd1b9d5f3701979896ec59c12",
+    "src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.CommitmentCorrections.cs": "65f19baf75fc084744d6868792f7757b2c878f9e18ea607b4b13d8f3806129dc"
+  },
+  "binary_manifest_sha256": "5be72f4ad2ff420a0f90ef75242393a8b76284fbf08807caccb3779933730e36",
+  "binary_files": 631,
+  "path_sha256": "f8509e6204e40334587a90326a11d27c70c34da08ace467ff6ffa997fb18fbc9",
+  "product_oracle": "observed-products-v2",
+  "code_oracle": "real-workflows-v1",
+  "code_feedback": "local only; no GitHub publication",
+  "authorization": "can you run amazon and code live test? go for it.",
+  "execution_approval": "separate exact revision/hash and requirement acknowledgments required"
+}

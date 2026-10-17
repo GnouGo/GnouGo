@@ -1,0 +1,71 @@
+[
+  {
+    "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: \"repeated\")",
+    "outcome": "Passed",
+    "duration": "00:00:23.3280000",
+    "measurements": [
+      "BUSINESS repeated: success=True; calls=1; repairs=0; elapsedMs=8812; tasks=13; yamlBytes=75102; inference=24; mappings=11; invocations=226; steps=225; cleanup=1; journalBytes=22608925; error= ",
+      "ORACLE repeated: cellsMatch=True; visited=10; pages=38; offered=12; decisionBytes=2597; cleanup=true; typedInference=0"
+    ]
+  },
+  {
+    "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: \"unoffered\")",
+    "outcome": "Passed",
+    "duration": "00:00:14.7440000",
+    "measurements": [
+      "BUSINESS unoffered: success=False; calls=1; repairs=0; elapsedMs=1482; tasks=13; yamlBytes=75102; inference=3; mappings=1; invocations=23; steps=22; cleanup=1; journalBytes=6047265; error=CONTRACT_UNSATISFIED A selected identity is absent from the lookup source. [workflow 'main', step 'n_7df635b72fc4e5c2']"
+    ]
+  },
+  {
+    "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: \"incomplete\")",
+    "outcome": "Passed",
+    "duration": "00:00:14.5380000",
+    "measurements": [
+      "BUSINESS incomplete: success=False; calls=1; repairs=0; elapsedMs=858; tasks=13; yamlBytes=75102; inference=1; mappings=0; invocations=5; steps=4; cleanup=1; journalBytes=130572; error=MCP_CALL_ERROR mcp.call (tool) to 'browser/browser_get_content' returned an MCP error: A complete snapshot exceeds capture or page bounds. Narrow the requested observation explicitly. [workflow 'main', step 'n_e311f61af279e0f1']"
+    ]
+  },
+  {
+    "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: \"fabricated\")",
+    "outcome": "Passed",
+    "duration": "00:00:25.6350000",
+    "measurements": [
+      "BUSINESS fabricated: success=True; calls=1; repairs=0; elapsedMs=10587; tasks=13; yamlBytes=75102; inference=24; mappings=11; invocations=226; steps=225; cleanup=1; journalBytes=22597591; error= ",
+      "ORACLE fabricated: cellsMatch=False; visited=10; pages=38; offered=12; decisionBytes=2597; cleanup=true; typedInference=0"
+    ]
+  },
+  {
+    "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: \"compact\")",
+    "outcome": "Passed",
+    "duration": "00:00:26.9410000",
+    "measurements": [
+      "BUSINESS compact: success=True; calls=1; repairs=0; elapsedMs=11627; tasks=13; yamlBytes=75102; inference=24; mappings=11; invocations=226; steps=225; cleanup=1; journalBytes=22606921; error= ",
+      "ORACLE compact: cellsMatch=True; visited=10; pages=38; offered=12; decisionBytes=2597; cleanup=true; typedInference=0"
+    ]
+  },
+  {
+    "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: \"producer_revision\")",
+    "outcome": "Passed",
+    "duration": "00:00:24.8070000",
+    "measurements": [
+      "BUSINESS producer_revision: success=True; calls=2; repairs=0; elapsedMs=9962; tasks=13; yamlBytes=75102; inference=24; mappings=11; invocations=226; steps=225; cleanup=1; journalBytes=22622687; error= ",
+      "ORACLE producer_revision: cellsMatch=True; visited=10; pages=38; offered=12; decisionBytes=2597; cleanup=true; typedInference=0"
+    ]
+  },
+  {
+    "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: \"denied\")",
+    "outcome": "Passed",
+    "duration": "00:00:23.7659999",
+    "measurements": [
+      "BUSINESS denied: success=False; calls=1; repairs=0; elapsedMs=10061; tasks=13; yamlBytes=75076; inference=24; mappings=11; invocations=222; steps=221; cleanup=1; journalBytes=17801590; error=MCP_CALL_ERROR mcp.call (tool) to 'document/document_write' returned an MCP error: {\"success\":false,\"filePath\":null,\"bytesWritten\":null,\"errorCode\":\"POLICY_VIOLATION\",\"errorMessage\":\"filePath must not contain parent traversal segments or wildcard characters.\",\"relativePath\":null,\"filePathAbsolute\":null} [workflow 'main', step 'n_8f1f60ab0c9fe437']"
+    ]
+  },
+  {
+    "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: \"empty\")",
+    "outcome": "Passed",
+    "duration": "00:00:16.2320000",
+    "measurements": [
+      "BUSINESS empty: success=True; calls=1; repairs=0; elapsedMs=2276; tasks=13; yamlBytes=75102; inference=4; mappings=1; invocations=36; steps=35; cleanup=1; journalBytes=8782848; error= ",
+      "ORACLE empty: cellsMatch=True; visited=0; pages=13; offered=0; decisionBytes=942; cleanup=true; typedInference=0"
+    ]
+  }
+]

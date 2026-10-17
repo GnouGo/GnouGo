@@ -485,6 +485,14 @@ function Invoke-AgentServerSmoke {
         "--OtlpCollector:HttpPort=$httpPort",
         '--OpenTelemetry:Enabled=false',
         '--TypedWorkflowPlanning:BackgroundProcessingEnabled=false',
+        # Startup-only fixture: prove all immutable runtime limit fields bind
+        # after trimming. This smoke never dispatches a model or a workflow.
+        '--Flow:Execution:LlmBudget:MaxCalls=2',
+        '--Flow:Execution:MaxMappingInputTokens=96000',
+        '--Flow:Execution:LlmBudget:MaxTotalTokens=100',
+        '--Flow:Execution:LlmBudget:MaxElapsed=00:02:00',
+        '--Flow:Execution:LlmBudget:MaxEstimatedCost:Amount=1',
+        '--Flow:Execution:LlmBudget:MaxEstimatedCost:Currency=EUR',
         "--TypedWorkflowPlanning:DatabasePath=$(Join-Path $DataDirectory 'planning.db')",
         "--Flow:Execution:IndexPath=$(Join-Path $DataDirectory 'flow-runs.db')",
         "--Flow:Execution:OwnerPath=$(Join-Path $DataDirectory 'flow-owners')",

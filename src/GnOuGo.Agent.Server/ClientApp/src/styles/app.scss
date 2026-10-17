@@ -2811,3 +2811,8 @@ html, body {
     grid-template-columns: 1fr;
   }
 }
+
+#approval-artifact-help code {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}

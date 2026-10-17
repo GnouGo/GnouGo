@@ -1,0 +1,68 @@
+{
+  "validator_source": "847a15b9ed6dff0b1c603798b8cef63bc0f85931",
+  "focused_schema": {
+    "passed": 33,
+    "failed": 0
+  },
+  "final_recovery_and_accounting": {
+    "passed": 83,
+    "failed": 0
+  },
+  "planning_suite": {
+    "passed": 1225,
+    "failed": 0
+  },
+  "diagnostic_parity": {
+    "comparisons": 12000,
+    "mismatches": 0
+  },
+  "release_packages": {
+    "components": [
+      "Flow.Core",
+      "Flow.Planning"
+    ],
+    "exit_code": 0,
+    "warnaserror": true
+  },
+  "planning_native_aot": {
+    "rid": "osx-arm64",
+    "publish_exit_code": 0,
+    "smoke_exit_code": 0
+  },
+  "published_encrypted_recovery": {
+    "rid": "osx-arm64",
+    "publish_exit_code": 0,
+    "smoke_exit_code": 0,
+    "result": "Format-10 planning persistence smoke passed; execution journal schema 9 is unchanged."
+  },
+  "benchmark_build": {
+    "exit_code": 0,
+    "warnings": 0,
+    "errors": 0
+  },
+  "full_solution": {
+    "exit_code": 1,
+    "failed": 1,
+    "passed": 5061,
+    "skipped": 13,
+    "total": 5075
+  },
+  "live_provider_calls": 0,
+  "workflow_execution": "not_started",
+  "log_sha256": {
+    "gnougo-schema-focused.log": "c773ed92f9b48f4a7c8039018ed15bb240e1c8d53995760a1002c044c0eed434",
+    "gnougo-schema-recovery-final.log": "dd95c75cf0b405f0bf3c5571f39e2935f96f23c297b4d6603290e383bd61ad74",
+    "gnougo-schema-planning-tests.log": "d9a49a9ae9ebedcc5b8495b174fc379c432aa0ced6e013e5743e0bae927cc52d",
+    "gnougo-schema-benchmark-build.log": "872e83645b875d41f78e97e5350eab73707aecacefc63530ca0b83b783c8f9d8",
+    "gnougo-schema-persistence-publish.log": "5277410e5f5a0a500afc4ae4965ddfecf87525d00eb5443e9b9e7492d7e77b8a",
+    "gnougo-schema-persistence-smoke.log": "d7cc8ec7a3dff2ab353e25932595d885ee30f565a6de92f436e3354a2c1d3b88",
+    "gnougo-schema-copilot-isolated-1.log": "fb4dcbc13353f86f7cafdf1e4be7551a49e67f31ff4536a933eb5f1fd67b0720",
+    "gnougo-schema-copilot-isolated-2.log": "fc5ea6778f10fa5e790adfa9e3c6e119e7a1c33b7d12a16439c614cba7e0f4ef",
+    "gnougo-schema-copilot-isolated-3.log": "4dcf46270fb230c61ab1bf9e20a020617ef8f70f75d7ea67d99335ef36eaec36"
+  },
+  "package_sha256": {
+    "GnOuGo.Flow.Core.1.0.0.nupkg": "f363ffff468c6b35e3d57dc5e94d1a1d3b584bbc0e0121eeb23739f1cabf4077",
+    "GnOuGo.Flow.Planning.1.0.0.nupkg": "65c40fe3ffa3e3f99ab1d92a28b594249b90b408aa59af128cc1177038508e21"
+  },
+  "native_aot_binary_sha256": "8c414357f57d8023cef2d0f0594889a45620c9e927093bb754d91e36b1be1f41"
+}

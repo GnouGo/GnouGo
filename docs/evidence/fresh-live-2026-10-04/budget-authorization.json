@@ -1,0 +1,23 @@
+{
+  "history": [
+    {
+      "previous_ceiling_eur": 50,
+      "ceiling_eur": 100,
+      "authorization": "User explicitly authorized an additional EUR 50 on 2026-10-04.",
+      "authorized_at": "2026-10-04T09:34:50.3550850+00:00",
+      "accounting_before": {
+        "calls": 469,
+        "session_calls": 0,
+        "known_input_tokens": 7095795,
+        "known_output_tokens": 602243,
+        "known_cost_eur": 47.64073025085544,
+        "reserved_input_tokens": 96000,
+        "reserved_output_tokens": 32768,
+        "reserved_cost_eur": 1.3033763919821826,
+        "cost_upper_bound_eur": 48.944106642837625,
+        "unknown_attempts": 1
+      }
+    }
+  ],
+  "ceiling_eur": 100
+}

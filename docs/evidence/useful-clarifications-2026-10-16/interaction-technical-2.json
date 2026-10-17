@@ -1,0 +1,42 @@
+{
+  "scenario": "technical",
+  "repairAllowance": 2,
+  "calls": 2,
+  "corrections": 1,
+  "status": "final_review",
+  "totalTokens": 30,
+  "approved": false,
+  "providerCalls": 0,
+  "questionIds": [],
+  "progress": {
+    "version": 3,
+    "attempts": [
+      {
+        "action": "patch",
+        "candidate": "4f672e7912fc52387d0e628995ab59e36bba94cd4fc0e4d5628dfa215447e464",
+        "diagnostics": "3eaff908f896a308ad0694be3b76abadc19e360c3ee4f70edf59e44f25627088",
+        "callsUsed": 1,
+        "outcome": "validated",
+        "completedAtCall": 2,
+        "responseCandidate": "62c687fd3f269fabfc43b1f8f415da6a32a04e877c476b4b8919acccfded0db9"
+      }
+    ],
+    "outputRemovals": [],
+    "conditionLocations": [],
+    "locations": [
+      "/root/outputs/result"
+    ],
+    "action": "patch"
+  },
+  "diagnostics": [],
+  "requests": [
+    {
+      "bytes": 22244,
+      "estimate": 7245
+    },
+    {
+      "bytes": 11852,
+      "estimate": 3770
+    }
+  ]
+}

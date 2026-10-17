@@ -1,0 +1,58 @@
+Superseded run on 8371eed1; interrupted after reproduced stale profile assertions. Not a completed validation gate.
+[xUnit.net 00:21:39.65]     GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: "compact") [FAIL]
+  Échoué GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: "compact") [12 s]
+  Message d'erreur :
+   Assert.Equal() Failure: Strings differ
+                             ↓ (pos 18)
+Expected: "compact-bindings-v9"
+Actual:   "compact-bindings-v10"
+                             ↑ (pos 18)
+  Arborescence des appels de procédure :
+     at GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(String variant) in /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.BusinessTasks.cs:line 224
+   at GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(String variant) in /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.BusinessTasks.cs:line 304
+   at GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(String variant) in /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.BusinessTasks.cs:line 306
+   at GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(String variant) in /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.BusinessTasks.cs:line 306
+--- End of stack trace from previous location ---
+[xUnit.net 00:21:51.98]     GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: "verbatim_unknown") [FAIL]
+  Échoué GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: "verbatim_unknown") [12 s]
+  Message d'erreur :
+   Assert.Equal() Failure: Strings differ
+                             ↓ (pos 18)
+Expected: "compact-bindings-v9"
+Actual:   "compact-bindings-v10"
+                             ↑ (pos 18)
+  Arborescence des appels de procédure :
+     at GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(String variant) in /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.BusinessTasks.cs:line 224
+   at GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(String variant) in /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.BusinessTasks.cs:line 304
+   at GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(String variant) in /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.BusinessTasks.cs:line 306
+   at GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(String variant) in /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.BusinessTasks.cs:line 306
+--- End of stack trace from previous location ---
+[xUnit.net 00:22:51.16]     GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: "fabricated") [FAIL]
+  Échoué GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: "fabricated") [12 s]
+  Message d'erreur :
+   Assert.Equal() Failure: Strings differ
+                             ↓ (pos 18)
+Expected: "compact-bindings-v9"
+Actual:   "compact-bindings-v10"
+                             ↑ (pos 18)
+  Arborescence des appels de procédure :
+     at GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(String variant) in /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.BusinessTasks.cs:line 224
+   at GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(String variant) in /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.BusinessTasks.cs:line 304
+   at GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(String variant) in /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.BusinessTasks.cs:line 306
+   at GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(String variant) in /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.BusinessTasks.cs:line 306
+--- End of stack trace from previous location ---
+[xUnit.net 00:24:49.81]     GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: "incomplete") [FAIL]
+  Échoué GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: "incomplete") [12 s]
+  Message d'erreur :
+   Assert.Equal() Failure: Strings differ
+                             ↓ (pos 18)
+Expected: "compact-bindings-v9"
+Actual:   "compact-bindings-v10"
+                             ↑ (pos 18)
+  Arborescence des appels de procédure :
+     at GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(String variant) in /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.BusinessTasks.cs:line 224
+   at GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(String variant) in /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.BusinessTasks.cs:line 304
+   at GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(String variant) in /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.BusinessTasks.cs:line 306
+   at GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(String variant) in /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.BusinessTasks.cs:line 306
+--- End of stack trace from previous location ---
+Tentative d'annulation de la génération en cours...

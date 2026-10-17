@@ -1,0 +1,251 @@
+{
+  "baseline": "507e042022c8580d070605ff2c3d88ed8fb6103d",
+  "date": "2026-09-30",
+  "scope": "Agent-specific persistent approval and nested workflow animation; deterministic tests only",
+  "solution": {
+    "command": "dotnet test GnOuGo.Agent.sln --no-restore -m:1 -warnaserror",
+    "projects": [
+      {
+        "project": "GnOuGo.AI.Core.Tests",
+        "total": 225,
+        "passed": 225,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.AI.Local.Tests",
+        "total": 14,
+        "passed": 14,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.Agent.Mcp.Tests",
+        "total": 103,
+        "passed": 103,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.Agent.Server.Tests",
+        "total": 530,
+        "passed": 530,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.Assets.Animation.Server.Tests",
+        "total": 13,
+        "passed": 13,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.Assets.Animation.Tests",
+        "total": 42,
+        "passed": 42,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.Assets.Bears.Server.Tests",
+        "total": 28,
+        "passed": 28,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.Assets.Bears.Tests",
+        "total": 91,
+        "passed": 91,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.Auth.Core.Tests",
+        "total": 8,
+        "passed": 8,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.Browser.Mcp.Tests",
+        "total": 43,
+        "passed": 43,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.Cmd.Mcp.Tests",
+        "total": 100,
+        "passed": 93,
+        "failed": 0,
+        "skipped": 7
+      },
+      {
+        "project": "GnOuGo.Diff.Tests",
+        "total": 52,
+        "passed": 52,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.DocIngestor.Mcp.Tests",
+        "total": 7,
+        "passed": 7,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.DocIngestor.Tests",
+        "total": 89,
+        "passed": 89,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.Document.Mcp.Tests",
+        "total": 63,
+        "passed": 63,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.Files.Server.Tests",
+        "total": 10,
+        "passed": 10,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.Flow.Copilot.Tests",
+        "total": 5,
+        "passed": 5,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.Flow.Integrations.Tests",
+        "total": 80,
+        "passed": 80,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.Flow.Mermaid.Tests",
+        "total": 12,
+        "passed": 12,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.Flow.Persistence.Tests",
+        "total": 3,
+        "passed": 3,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.Flow.Planning.Tests",
+        "total": 688,
+        "passed": 688,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.Flow.Tests",
+        "total": 945,
+        "passed": 945,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.Git.Mcp.Tests",
+        "total": 83,
+        "passed": 83,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.GithubCopilot.Core.Tests",
+        "total": 139,
+        "passed": 139,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.GithubCopilot.E2E.Tests",
+        "total": 12,
+        "passed": 7,
+        "failed": 0,
+        "skipped": 5
+      },
+      {
+        "project": "GnOuGo.GithubCopilot.Mcp.Tests",
+        "total": 171,
+        "passed": 171,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.KeyVault.Core.Tests",
+        "total": 12,
+        "passed": 12,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.KeyVault.Mcp.Tests",
+        "total": 9,
+        "passed": 9,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.Mcp.Core.Tests",
+        "total": 31,
+        "passed": 31,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.Observability.Core.Tests",
+        "total": 3,
+        "passed": 3,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.OtlpCollector.Server.Tests",
+        "total": 7,
+        "passed": 7,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.ProxyCopilot.Server.Tests",
+        "total": 177,
+        "passed": 177,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.Workspace.Tests",
+        "total": 30,
+        "passed": 30,
+        "failed": 0,
+        "skipped": 0
+      }
+    ]
+  },
+  "frontend": "pnpm --dir src/GnOuGo.Agent.Server/ClientApp run build: passed",
+  "native_aot": {
+    "rid": "osx-arm64",
+    "component": "GnOuGo.GithubCopilot.Mcp",
+    "grant_management_tests": 4,
+    "passed": 4
+  },
+  "animation_package": "Release pack: passed",
+  "paid_provider_calls": 0,
+  "historical_benchmark": "33/33 at 7d5d42b2, unchanged; not evidence for these changes"
+}

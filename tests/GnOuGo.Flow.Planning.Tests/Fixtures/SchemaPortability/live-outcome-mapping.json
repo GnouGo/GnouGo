@@ -1,0 +1,1158 @@
+{
+  "description": "Retained live outcome mapping and conditional placement failure; no execution occurred.",
+  "responses": [
+    {
+      "discoveryRequests": [
+        {
+          "sourceId": "source_258c29d9064381a5dd37bf0c",
+          "cursor": null,
+          "query": "Amazon.fr browser navigation search products extract page text price description close browser Playwright",
+          "operationIds": null
+        },
+        {
+          "sourceId": "source_0002e1b8daaf46eef1b331cc",
+          "cursor": null,
+          "query": "create write Excel XLSX workbook file rows columns save path",
+          "operationIds": null
+        }
+      ],
+      "plan": null,
+      "clarifications": null,
+      "requirements": null,
+      "outcomeBindings": null
+    },
+    {
+      "discoveryRequests": null,
+      "plan": {
+        "inputs": [
+          {
+            "name": "query",
+            "type": {
+              "kind": "string"
+            }
+          }
+        ],
+        "root": {
+          "tasks": [
+            {
+              "id": "t_open_amazon_fr",
+              "kind": "operation",
+              "objective": "Ouvrir Amazon.fr et lire le contenu initial pour détecter CAPTCHA ou bannière de consentement.",
+              "dependsOn": [],
+              "operation": "cap_490d9e16075cbdca5954ec27",
+              "inputs": [
+                {
+                  "name": "url",
+                  "value": {
+                    "kind": "string",
+                    "text": "https://www.amazon.fr/"
+                  }
+                },
+                {
+                  "name": "format",
+                  "value": {
+                    "kind": "string",
+                    "text": "html"
+                  }
+                },
+                {
+                  "name": "waitUntil",
+                  "value": {
+                    "kind": "string",
+                    "text": "domcontentloaded"
+                  }
+                },
+                {
+                  "name": "timeoutMs",
+                  "value": {
+                    "kind": "number",
+                    "number": 30000
+                  }
+                },
+                {
+                  "name": "maxCharacters",
+                  "value": {
+                    "kind": "number",
+                    "number": 60000
+                  }
+                }
+              ]
+            },
+            {
+              "id": "t_analyze_home",
+              "kind": "transform",
+              "objective": "Interpréter la page initiale Amazon.fr: signaler explicitement CAPTCHA/blocage, présence éventuelle d'une bannière de consentement, sans inventer.",
+              "dependsOn": [
+                "t_open_amazon_fr"
+              ],
+              "inputs": [
+                {
+                  "name": "homePage",
+                  "value": {
+                    "kind": "output",
+                    "source": "t_open_amazon_fr",
+                    "port": null
+                  }
+                },
+                {
+                  "name": "query",
+                  "value": {
+                    "kind": "input",
+                    "source": "query"
+                  }
+                }
+              ],
+              "resultType": {
+                "kind": "object",
+                "fields": [
+                  {
+                    "name": "captchaDetected",
+                    "type": {
+                      "kind": "boolean"
+                    }
+                  },
+                  {
+                    "name": "consentPromptDetected",
+                    "type": {
+                      "kind": "boolean"
+                    }
+                  },
+                  {
+                    "name": "status",
+                    "type": {
+                      "kind": "string"
+                    }
+                  },
+                  {
+                    "name": "notes",
+                    "type": {
+                      "kind": "string"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "id": "t_flow",
+              "kind": "conditional",
+              "objective": "Si Amazon.fr n'est pas bloqué par CAPTCHA dès l'accueil, rechercher la requête et traiter au maximum les trois premiers produits; sinon sauvegarder un classeur indiquant le CAPTCHA.",
+              "dependsOn": [
+                "t_analyze_home"
+              ],
+              "condition": {
+                "kind": "predicate",
+                "predicate": "not",
+                "items": [
+                  {
+                    "kind": "field",
+                    "items": [
+                      {
+                        "kind": "output",
+                        "source": "t_analyze_home",
+                        "port": null
+                      }
+                    ],
+                    "port": "captchaDetected"
+                  }
+                ]
+              },
+              "body": {
+                "tasks": [
+                  {
+                    "id": "t_accept_consent_if_needed",
+                    "kind": "conditional",
+                    "objective": "Accepter la bannière de consentement Amazon seulement si elle est détectée.",
+                    "dependsOn": [
+                      "t_analyze_home"
+                    ],
+                    "condition": {
+                      "kind": "field",
+                      "items": [
+                        {
+                          "kind": "output",
+                          "source": "t_analyze_home",
+                          "port": null
+                        }
+                      ],
+                      "port": "consentPromptDetected"
+                    },
+                    "body": {
+                      "tasks": [
+                        {
+                          "id": "t_click_accept",
+                          "kind": "operation",
+                          "objective": "Cliquer sur le bouton visible d'acceptation du consentement Amazon.fr.",
+                          "dependsOn": [],
+                          "operation": "cap_2109990d4c7ec4318544a637",
+                          "inputs": [
+                            {
+                              "name": "text",
+                              "value": {
+                                "kind": "string",
+                                "text": "Accepter"
+                              }
+                            },
+                            {
+                              "name": "exact",
+                              "value": {
+                                "kind": "boolean",
+                                "boolean": false
+                              }
+                            },
+                            {
+                              "name": "waitUntil",
+                              "value": {
+                                "kind": "string",
+                                "text": "domcontentloaded"
+                              }
+                            },
+                            {
+                              "name": "timeoutMs",
+                              "value": {
+                                "kind": "number",
+                                "number": 10000
+                              }
+                            }
+                          ]
+                        }
+                      ],
+                      "outputs": [],
+                      "always": []
+                    },
+                    "otherwise": {
+                      "tasks": [],
+                      "outputs": [],
+                      "always": []
+                    }
+                  },
+                  {
+                    "id": "t_search_query",
+                    "kind": "operation",
+                    "objective": "Saisir l'entrée publique query dans la barre de recherche Amazon.fr et soumettre la recherche.",
+                    "dependsOn": [
+                      "t_accept_consent_if_needed"
+                    ],
+                    "operation": "cap_416310ac4ff2808dc91e3a14",
+                    "inputs": [
+                      {
+                        "name": "selector",
+                        "value": {
+                          "kind": "string",
+                          "text": "input[name='field-keywords']"
+                        }
+                      },
+                      {
+                        "name": "value",
+                        "value": {
+                          "kind": "input",
+                          "source": "query"
+                        }
+                      },
+                      {
+                        "name": "submit",
+                        "value": {
+                          "kind": "boolean",
+                          "boolean": true
+                        }
+                      },
+                      {
+                        "name": "timeoutMs",
+                        "value": {
+                          "kind": "number",
+                          "number": 30000
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "t_read_results",
+                    "kind": "operation",
+                    "objective": "Lire la page de résultats Amazon.fr en HTML pour identifier les liens des produits.",
+                    "dependsOn": [
+                      "t_search_query"
+                    ],
+                    "operation": "cap_490d9e16075cbdca5954ec27",
+                    "inputs": [
+                      {
+                        "name": "format",
+                        "value": {
+                          "kind": "string",
+                          "text": "html"
+                        }
+                      },
+                      {
+                        "name": "waitUntil",
+                        "value": {
+                          "kind": "string",
+                          "text": "domcontentloaded"
+                        }
+                      },
+                      {
+                        "name": "timeoutMs",
+                        "value": {
+                          "kind": "number",
+                          "number": 30000
+                        }
+                      },
+                      {
+                        "name": "maxCharacters",
+                        "value": {
+                          "kind": "number",
+                          "number": 100000
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "t_extract_first_three_links",
+                    "kind": "transform",
+                    "objective": "Depuis la page de résultats Amazon.fr, extraire uniquement les liens navigables des trois premiers produits organiques au maximum; signaler CAPTCHA, absence de résultats ou données manquantes explicitement.",
+                    "dependsOn": [
+                      "t_read_results"
+                    ],
+                    "inputs": [
+                      {
+                        "name": "resultsPage",
+                        "value": {
+                          "kind": "output",
+                          "source": "t_read_results",
+                          "port": null
+                        }
+                      },
+                      {
+                        "name": "query",
+                        "value": {
+                          "kind": "input",
+                          "source": "query"
+                        }
+                      }
+                    ],
+                    "resultType": {
+                      "kind": "object",
+                      "fields": [
+                        {
+                          "name": "captchaDetected",
+                          "type": {
+                            "kind": "boolean"
+                          }
+                        },
+                        {
+                          "name": "status",
+                          "type": {
+                            "kind": "string"
+                          }
+                        },
+                        {
+                          "name": "notes",
+                          "type": {
+                            "kind": "string"
+                          }
+                        },
+                        {
+                          "name": "products",
+                          "type": {
+                            "kind": "array",
+                            "items": {
+                              "kind": "object",
+                              "fields": [
+                                {
+                                  "name": "rank",
+                                  "type": {
+                                    "kind": "integer"
+                                  }
+                                },
+                                {
+                                  "name": "resultTitle",
+                                  "type": {
+                                    "kind": "string",
+                                    "nullable": true
+                                  }
+                                },
+                                {
+                                  "name": "url",
+                                  "type": {
+                                    "kind": "string"
+                                  }
+                                }
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "id": "t_visit_products",
+                    "kind": "foreach",
+                    "objective": "Naviguer sur la page de chaque produit extrait, pour au maximum trois produits.",
+                    "dependsOn": [
+                      "t_extract_first_three_links"
+                    ],
+                    "items": {
+                      "kind": "field",
+                      "items": [
+                        {
+                          "kind": "output",
+                          "source": "t_extract_first_three_links",
+                          "port": null
+                        }
+                      ],
+                      "port": "products"
+                    },
+                    "body": {
+                      "tasks": [
+                        {
+                          "id": "t_read_product_page",
+                          "kind": "operation",
+                          "objective": "Ouvrir et lire la page HTML du produit courant sur Amazon.fr.",
+                          "dependsOn": [],
+                          "operation": "cap_490d9e16075cbdca5954ec27",
+                          "inputs": [
+                            {
+                              "name": "url",
+                              "value": {
+                                "kind": "field",
+                                "items": [
+                                  {
+                                    "kind": "item"
+                                  }
+                                ],
+                                "port": "url"
+                              }
+                            },
+                            {
+                              "name": "format",
+                              "value": {
+                                "kind": "string",
+                                "text": "html"
+                              }
+                            },
+                            {
+                              "name": "waitUntil",
+                              "value": {
+                                "kind": "string",
+                                "text": "domcontentloaded"
+                              }
+                            },
+                            {
+                              "name": "timeoutMs",
+                              "value": {
+                                "kind": "number",
+                                "number": 30000
+                              }
+                            },
+                            {
+                              "name": "maxCharacters",
+                              "value": {
+                                "kind": "number",
+                                "number": 100000
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "id": "t_extract_product_data",
+                          "kind": "transform",
+                          "objective": "Extraire/interpréter depuis la page produit le nom, la description et le prix; si CAPTCHA, prix ou donnée absente, le déclarer explicitement sans inventer.",
+                          "dependsOn": [
+                            "t_read_product_page"
+                          ],
+                          "inputs": [
+                            {
+                              "name": "productMeta",
+                              "value": {
+                                "kind": "item"
+                              }
+                            },
+                            {
+                              "name": "productPage",
+                              "value": {
+                                "kind": "output",
+                                "source": "t_read_product_page",
+                                "port": null
+                              }
+                            },
+                            {
+                              "name": "query",
+                              "value": {
+                                "kind": "input",
+                                "source": "query"
+                              }
+                            }
+                          ],
+                          "resultType": {
+                            "kind": "object",
+                            "fields": [
+                              {
+                                "name": "rank",
+                                "type": {
+                                  "kind": "integer"
+                                }
+                              },
+                              {
+                                "name": "productUrl",
+                                "type": {
+                                  "kind": "string"
+                                }
+                              },
+                              {
+                                "name": "name",
+                                "type": {
+                                  "kind": "string"
+                                }
+                              },
+                              {
+                                "name": "description",
+                                "type": {
+                                  "kind": "string"
+                                }
+                              },
+                              {
+                                "name": "price",
+                                "type": {
+                                  "kind": "string"
+                                }
+                              },
+                              {
+                                "name": "status",
+                                "type": {
+                                  "kind": "string"
+                                }
+                              },
+                              {
+                                "name": "missingOrCaptchaNotes",
+                                "type": {
+                                  "kind": "string"
+                                }
+                              }
+                            ]
+                          }
+                        }
+                      ],
+                      "outputs": [
+                        {
+                          "name": "row",
+                          "value": {
+                            "kind": "output",
+                            "source": "t_extract_product_data",
+                            "port": null
+                          }
+                        }
+                      ],
+                      "always": []
+                    },
+                    "parallel": false,
+                    "maxItems": 3,
+                    "maxConcurrency": 1
+                  },
+                  {
+                    "id": "t_make_xlsx_tsv",
+                    "kind": "transform",
+                    "objective": "Construire un contenu TSV compatible .xlsx avec en-têtes: rang, requête, URL, nom, description, prix, statut, notes. Normaliser tabulations et retours ligne dans les cellules. Inclure explicitement CAPTCHA, absence de prix ou données absentes; ne rien inventer.",
+                    "dependsOn": [
+                      "t_visit_products"
+                    ],
+                    "inputs": [
+                      {
+                        "name": "query",
+                        "value": {
+                          "kind": "input",
+                          "source": "query"
+                        }
+                      },
+                      {
+                        "name": "resultsSummary",
+                        "value": {
+                          "kind": "output",
+                          "source": "t_extract_first_three_links",
+                          "port": null
+                        }
+                      },
+                      {
+                        "name": "productRows",
+                        "value": {
+                          "kind": "output",
+                          "source": "t_visit_products",
+                          "port": null
+                        }
+                      }
+                    ],
+                    "resultType": {
+                      "kind": "object",
+                      "fields": [
+                        {
+                          "name": "tsv",
+                          "type": {
+                            "kind": "string"
+                          }
+                        },
+                        {
+                          "name": "productCount",
+                          "type": {
+                            "kind": "integer"
+                          }
+                        },
+                        {
+                          "name": "status",
+                          "type": {
+                            "kind": "string"
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "id": "t_write_xlsx",
+                    "kind": "operation",
+                    "objective": "Sauvegarder le classeur Excel demandé au chemin imposé dans l'espace de travail.",
+                    "dependsOn": [
+                      "t_make_xlsx_tsv"
+                    ],
+                    "operation": "cap_37c513d225bb1b870053c5d3",
+                    "inputs": [
+                      {
+                        "name": "filePath",
+                        "value": {
+                          "kind": "string",
+                          "text": "workflows/schema-portability-20261002/diagnostic-amazon-3/products.xlsx"
+                        }
+                      },
+                      {
+                        "name": "content",
+                        "value": {
+                          "kind": "field",
+                          "items": [
+                            {
+                              "kind": "output",
+                              "source": "t_make_xlsx_tsv",
+                              "port": null
+                            }
+                          ],
+                          "port": "tsv"
+                        }
+                      },
+                      {
+                        "name": "append",
+                        "value": {
+                          "kind": "boolean",
+                          "boolean": false
+                        }
+                      },
+                      {
+                        "name": "encoding",
+                        "value": {
+                          "kind": "string",
+                          "text": "utf-8"
+                        }
+                      }
+                    ]
+                  }
+                ],
+                "outputs": [
+                  {
+                    "name": "filePath",
+                    "value": {
+                      "kind": "string",
+                      "text": "workflows/schema-portability-20261002/diagnostic-amazon-3/products.xlsx"
+                    }
+                  },
+                  {
+                    "name": "writeResult",
+                    "value": {
+                      "kind": "output",
+                      "source": "t_write_xlsx",
+                      "port": null
+                    }
+                  },
+                  {
+                    "name": "productCount",
+                    "value": {
+                      "kind": "field",
+                      "items": [
+                        {
+                          "kind": "output",
+                          "source": "t_make_xlsx_tsv",
+                          "port": null
+                        }
+                      ],
+                      "port": "productCount"
+                    }
+                  },
+                  {
+                    "name": "status",
+                    "value": {
+                      "kind": "field",
+                      "items": [
+                        {
+                          "kind": "output",
+                          "source": "t_make_xlsx_tsv",
+                          "port": null
+                        }
+                      ],
+                      "port": "status"
+                    }
+                  }
+                ],
+                "always": []
+              },
+              "otherwise": {
+                "tasks": [
+                  {
+                    "id": "t_make_blocked_xlsx_tsv",
+                    "kind": "transform",
+                    "objective": "Construire un TSV compatible .xlsx indiquant explicitement que la recherche Amazon.fr n'a pas été effectuée car CAPTCHA/blocage détecté dès l'accueil; ne rien inventer.",
+                    "dependsOn": [
+                      "t_analyze_home"
+                    ],
+                    "inputs": [
+                      {
+                        "name": "query",
+                        "value": {
+                          "kind": "input",
+                          "source": "query"
+                        }
+                      },
+                      {
+                        "name": "homeAnalysis",
+                        "value": {
+                          "kind": "output",
+                          "source": "t_analyze_home",
+                          "port": null
+                        }
+                      },
+                      {
+                        "name": "homePage",
+                        "value": {
+                          "kind": "output",
+                          "source": "t_open_amazon_fr",
+                          "port": null
+                        }
+                      }
+                    ],
+                    "resultType": {
+                      "kind": "object",
+                      "fields": [
+                        {
+                          "name": "tsv",
+                          "type": {
+                            "kind": "string"
+                          }
+                        },
+                        {
+                          "name": "productCount",
+                          "type": {
+                            "kind": "integer"
+                          }
+                        },
+                        {
+                          "name": "status",
+                          "type": {
+                            "kind": "string"
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "id": "t_write_blocked_xlsx",
+                    "kind": "operation",
+                    "objective": "Sauvegarder le classeur Excel demandé avec mention explicite du CAPTCHA/blocage.",
+                    "dependsOn": [
+                      "t_make_blocked_xlsx_tsv"
+                    ],
+                    "operation": "cap_37c513d225bb1b870053c5d3",
+                    "inputs": [
+                      {
+                        "name": "filePath",
+                        "value": {
+                          "kind": "string",
+                          "text": "workflows/schema-portability-20261002/diagnostic-amazon-3/products.xlsx"
+                        }
+                      },
+                      {
+                        "name": "content",
+                        "value": {
+                          "kind": "field",
+                          "items": [
+                            {
+                              "kind": "output",
+                              "source": "t_make_blocked_xlsx_tsv",
+                              "port": null
+                            }
+                          ],
+                          "port": "tsv"
+                        }
+                      },
+                      {
+                        "name": "append",
+                        "value": {
+                          "kind": "boolean",
+                          "boolean": false
+                        }
+                      },
+                      {
+                        "name": "encoding",
+                        "value": {
+                          "kind": "string",
+                          "text": "utf-8"
+                        }
+                      }
+                    ]
+                  }
+                ],
+                "outputs": [
+                  {
+                    "name": "filePath",
+                    "value": {
+                      "kind": "string",
+                      "text": "workflows/schema-portability-20261002/diagnostic-amazon-3/products.xlsx"
+                    }
+                  },
+                  {
+                    "name": "writeResult",
+                    "value": {
+                      "kind": "output",
+                      "source": "t_write_blocked_xlsx",
+                      "port": null
+                    }
+                  },
+                  {
+                    "name": "productCount",
+                    "value": {
+                      "kind": "field",
+                      "items": [
+                        {
+                          "kind": "output",
+                          "source": "t_make_blocked_xlsx_tsv",
+                          "port": null
+                        }
+                      ],
+                      "port": "productCount"
+                    }
+                  },
+                  {
+                    "name": "status",
+                    "value": {
+                      "kind": "field",
+                      "items": [
+                        {
+                          "kind": "output",
+                          "source": "t_make_blocked_xlsx_tsv",
+                          "port": null
+                        }
+                      ],
+                      "port": "status"
+                    }
+                  }
+                ],
+                "always": []
+              }
+            }
+          ],
+          "outputs": [
+            {
+              "name": "filePath",
+              "value": {
+                "kind": "string",
+                "text": "workflows/schema-portability-20261002/diagnostic-amazon-3/products.xlsx"
+              }
+            },
+            {
+              "name": "result",
+              "value": {
+                "kind": "output",
+                "source": "t_flow",
+                "port": null
+              }
+            }
+          ],
+          "always": [
+            {
+              "id": "t_close_browser",
+              "kind": "operation",
+              "objective": "Fermer le navigateur même en cas d'échec du scénario.",
+              "dependsOn": [],
+              "operation": "cap_bdb7ba9ab04b18783883fa86",
+              "inputs": []
+            }
+          ]
+        },
+        "groups": [],
+        "choices": []
+      },
+      "clarifications": null,
+      "requirements": {
+        "summary": "Accepter une seule entrée publique nommée query, rechercher cette requête sur Amazon.fr, traiter au maximum les trois premiers produits, visiter chaque page produit, extraire nom, description et prix sans inventer les données absentes, sauvegarder un fichier Excel à workflows/schema-portability-20261002/diagnostic-amazon-3/products.xlsx, et fermer le navigateur même en cas d'échec.",
+        "outcomes": [
+          {
+            "id": "o_search_amazon_fr",
+            "description": "Amazon.fr est utilisé pour rechercher la valeur de l'entrée query et lister les produits candidats, avec détection explicite de CAPTCHA/blocage.",
+            "execution": "execute",
+            "always": false,
+            "conditional": false,
+            "coverage": "once"
+          },
+          {
+            "id": "o_extract_up_to_three_products",
+            "description": "Pour chaque produit retenu parmi les trois premiers résultats au maximum, la page produit est visitée et le nom, la description et le prix sont extraits ou marqués explicitement absents/CAPTCHA.",
+            "execution": "read",
+            "always": false,
+            "conditional": true,
+            "coverage": "each_item"
+          },
+          {
+            "id": "o_no_invention_explicit_missing",
+            "description": "CAPTCHA, prix absent ou données absentes restent explicites dans les données produites; aucune valeur n'est inventée.",
+            "execution": "data",
+            "always": false,
+            "conditional": false,
+            "coverage": "once"
+          },
+          {
+            "id": "o_save_excel",
+            "description": "Le classeur Excel est sauvegardé sur le disque au chemin workflows/schema-portability-20261002/diagnostic-amazon-3/products.xlsx.",
+            "execution": "write",
+            "always": false,
+            "conditional": false,
+            "coverage": "once"
+          },
+          {
+            "id": "o_close_browser",
+            "description": "Le navigateur est fermé même en cas d'échec.",
+            "execution": "lifecycle",
+            "always": true,
+            "conditional": false,
+            "coverage": "once"
+          }
+        ],
+        "inputs": [
+          {
+            "name": "query",
+            "type": {
+              "kind": "string"
+            }
+          }
+        ]
+      },
+      "outcomeBindings": [
+        {
+          "outcomeId": "o_search_amazon_fr",
+          "taskIds": [
+            "t_open_amazon_fr",
+            "t_analyze_home",
+            "t_accept_consent_if_needed",
+            "t_click_accept",
+            "t_search_query",
+            "t_read_results",
+            "t_extract_first_three_links",
+            "t_flow"
+          ],
+          "outputs": [
+            "result"
+          ],
+          "forEachTaskId": null
+        },
+        {
+          "outcomeId": "o_extract_up_to_three_products",
+          "taskIds": [
+            "t_extract_first_three_links",
+            "t_visit_products",
+            "t_read_product_page",
+            "t_extract_product_data"
+          ],
+          "outputs": [
+            "row"
+          ],
+          "forEachTaskId": "t_visit_products"
+        },
+        {
+          "outcomeId": "o_no_invention_explicit_missing",
+          "taskIds": [
+            "t_analyze_home",
+            "t_extract_first_three_links",
+            "t_extract_product_data",
+            "t_make_xlsx_tsv",
+            "t_make_blocked_xlsx_tsv",
+            "t_flow"
+          ],
+          "outputs": [
+            "status",
+            "productCount"
+          ],
+          "forEachTaskId": null
+        },
+        {
+          "outcomeId": "o_save_excel",
+          "taskIds": [
+            "t_make_xlsx_tsv",
+            "t_write_xlsx",
+            "t_make_blocked_xlsx_tsv",
+            "t_write_blocked_xlsx",
+            "t_flow"
+          ],
+          "outputs": [
+            "filePath",
+            "writeResult"
+          ],
+          "forEachTaskId": null
+        },
+        {
+          "outcomeId": "o_close_browser",
+          "taskIds": [
+            "t_close_browser"
+          ],
+          "outputs": [
+            "closed"
+          ],
+          "forEachTaskId": null
+        }
+      ]
+    },
+    {
+      "discoveryRequests": null,
+      "patch": {
+        "edits": [
+          {
+            "slot": "s0",
+            "action": "replace",
+            "value": []
+          },
+          {
+            "slot": "s1",
+            "action": "replace",
+            "value": []
+          }
+        ]
+      },
+      "clarifications": null
+    },
+    {
+      "discoveryRequests": null,
+      "patch": {
+        "edits": [
+          {
+            "slot": "s0",
+            "action": "replace",
+            "value": {
+              "taskIds": [
+                "t_close_browser"
+              ],
+              "outputs": [],
+              "forEachTaskId": null
+            }
+          },
+          {
+            "slot": "s1",
+            "action": "replace",
+            "value": {
+              "taskIds": [
+                "t_extract_first_three_links",
+                "t_visit_products",
+                "t_read_product_page",
+                "t_extract_product_data"
+              ],
+              "outputs": [
+                "result"
+              ],
+              "forEachTaskId": "t_visit_products"
+            }
+          },
+          {
+            "slot": "s2",
+            "action": "replace",
+            "value": {
+              "taskIds": [
+                "t_analyze_home",
+                "t_extract_first_three_links",
+                "t_extract_product_data",
+                "t_make_xlsx_tsv",
+                "t_make_blocked_xlsx_tsv",
+                "t_flow"
+              ],
+              "outputs": [
+                "result"
+              ],
+              "forEachTaskId": null
+            }
+          },
+          {
+            "slot": "s3",
+            "action": "replace",
+            "value": {
+              "taskIds": [
+                "t_make_xlsx_tsv",
+                "t_write_xlsx",
+                "t_make_blocked_xlsx_tsv",
+                "t_write_blocked_xlsx",
+                "t_flow"
+              ],
+              "outputs": [
+                "filePath",
+                "result"
+              ],
+              "forEachTaskId": null
+            }
+          },
+          {
+            "slot": "s4",
+            "action": "replace",
+            "value": {
+              "taskIds": [
+                "t_open_amazon_fr",
+                "t_analyze_home",
+                "t_flow"
+              ],
+              "outputs": [
+                "result"
+              ],
+              "forEachTaskId": null
+            }
+          }
+        ]
+      },
+      "clarifications": null
+    }
+  ],
+  "diagnostics": [
+    {
+      "code": "OUTCOME_PATH_INCOMPLETE",
+      "location": "/outcomeBindings/o_search_amazon_fr",
+      "message": "At least one matching operation must execute on every accepted path, including empty-collection paths.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "OUTCOME_OUTPUT_INVALID",
+      "location": "/outcomeBindings/o_extract_up_to_three_products",
+      "message": "A reported output does not exist.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "OUTCOME_OUTPUT_INVALID",
+      "location": "/outcomeBindings/o_no_invention_explicit_missing",
+      "message": "A reported output does not exist.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "OUTCOME_OUTPUT_INVALID",
+      "location": "/outcomeBindings/o_save_excel",
+      "message": "A reported output does not exist.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "OUTCOME_OUTPUT_INVALID",
+      "location": "/outcomeBindings/o_close_browser",
+      "message": "A reported output does not exist.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    }
+  ]
+}

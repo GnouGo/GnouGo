@@ -1,0 +1,66 @@
+[
+  {
+    "session": "9d073e284c5142a0923d3f8dd99b6966",
+    "retainedRevision": 3,
+    "retainedCalls": 1,
+    "retainedRepairs": 0,
+    "originalRequestSha256": "7adf107f2c7ef53eec5c53b278240ecfe384c0f4759663098bdd5d8f09b50c97",
+    "originalReceiptSha256": "98859cd051f558c70ff5aac67ebb65ec168c4844262f24b075a01df222fbe815",
+    "originalSchemaSha256": "b30666f9ac8259b75f7b785b187b819ef02b9cb3f23a5419453204fdc15d2e2f",
+    "strictStructuredOutput": true,
+    "originalSchemaFindings": 0,
+    "replayedDiagnostic": [
+      {
+        "code": "REQUIREMENTS_INVALID",
+        "location": "/requirements",
+        "message": "The first TaskPlan must include requirements. None are accepted; null is valid only during discovery or clarification.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      }
+    ],
+    "receiptReads": 1,
+    "deterministicCorrectionCalls": 1,
+    "correctiveInputEstimate": 8596,
+    "effectiveRequestLimit": 24000,
+    "finalDisposableStatus": "clarification",
+    "finalDisposableCalls": 2,
+    "finalDisposableRepairs": 1,
+    "providerCalls": 0,
+    "mcpCalls": 0,
+    "historicalRecordsUnchanged": true,
+    "limit": "Routing/receipt proof only. A deterministic clarification was returned; this is not approval or proof of the retained plan's business composition."
+  },
+  {
+    "session": "b992404c2ada42f2916ae2aa2232f642",
+    "retainedRevision": 7,
+    "retainedCalls": 3,
+    "retainedRepairs": 0,
+    "originalRequestSha256": "a40773eae45602d73af595232dfeddbadf279e5432933afff321f74152d99190",
+    "originalReceiptSha256": "50af5779b3e24875c2368a9726f0d7a1f542149f0c01657138aae39e12f85716",
+    "originalSchemaSha256": "0f94dd63f53e6e5297f72013bc21177f0442413a013ad0da98435bd7b4bd0fce",
+    "strictStructuredOutput": true,
+    "originalSchemaFindings": 0,
+    "replayedDiagnostic": [
+      {
+        "code": "REQUIREMENTS_INVALID",
+        "location": "/requirements",
+        "message": "The first TaskPlan must include requirements. None are accepted; null is valid only during discovery or clarification.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      }
+    ],
+    "receiptReads": 1,
+    "deterministicCorrectionCalls": 1,
+    "correctiveInputEstimate": 21472,
+    "effectiveRequestLimit": 24000,
+    "finalDisposableStatus": "clarification",
+    "finalDisposableCalls": 4,
+    "finalDisposableRepairs": 1,
+    "providerCalls": 0,
+    "mcpCalls": 0,
+    "historicalRecordsUnchanged": true,
+    "limit": "Routing/receipt proof only. A deterministic clarification was returned; this is not approval or proof of the retained plan's business composition."
+  }
+]

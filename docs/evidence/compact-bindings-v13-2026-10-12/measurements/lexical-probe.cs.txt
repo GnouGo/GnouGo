@@ -1,0 +1,43 @@
+using System.Text.Json.Nodes;
+using GnOuGo.Flow.Core.Expressions;
+using GnOuGo.Flow.Core.Scripting;
+var output = new JsonArray();
+const string program = """
+(() => {
+  const key = data.inputs.key;
+  const description = key === null ? (() => {
+    const missing = [null];
+    return missing;
+  })() : (() => {
+    const offered = m.lookup(data.inputs.offered, [key], "key");
+    const original = m.lookup(data.inputs.original, [key], "key");
+    const text = original.map(block => block.text);
+    return text;
+  })();
+  return description;
+})()
+""";
+var contracts = JsonNode.Parse("""
+{
+"key":{"scope":"block0","order":0,"source":"key","origin":"choose","schema":{"type":["string","null"]}},
+"description":{"scope":"block0","order":1,"source":"description","origin":"assemble","schema":{"type":"array","items":{"type":["string","null"]}}},
+"missing":{"scope":"block1","order":0,"source":"missing","origin":"absent","schema":{"type":"array","items":{"type":"null"}}},
+"offered":{"scope":"block2","order":0,"source":"offered","origin":"offered","schema":{"type":"array"}},
+"original":{"scope":"block2","order":1,"source":"original","origin":"original","schema":{"type":"array"}},
+"text":{"scope":"block2","order":2,"source":"text","origin":"text","schema":{"type":"array","items":{"type":"string"}}}
+}
+""")!.AsObject();
+foreach (var size in new[] { 1, 1200000 })
+foreach (var warm in new[] { false, true })
+{
+ var context = JsonNode.Parse("""{"inputs":{"key":"opaque:key","offered":[{"key":"opaque:key"}],"original":[{"key":"opaque:key","text":"  exact\ntext é  "}]}}""")!.AsObject();
+ context["unrelatedObservation"] = new string('x', size);
+ var allowance = new JintSandbox.MappingAllowance(10000, TimeSpan.FromSeconds(5), 50000000);
+ var events = new List<string>();
+ var value = new ExpressionEvaluator().EvaluateCheckedExpression(program, context, contracts, allowance,
+  (name, origin, error) => events.Add(origin + ":" + (error ?? "passed")));
+ if (value![0]!.GetValue<string>() != "  exact\ntext é  ") throw new Exception("Value changed");
+ var counters = allowance.Snapshot(); counters["unrelated_payload_bytes"] = size; counters["warm"] = warm;
+ counters["checks"] = new JsonArray(events.Select(e => (JsonNode?)JsonValue.Create(e)).ToArray()); output.Add(counters);
+}
+Console.WriteLine(output.ToJsonString(new() { WriteIndented=true }));

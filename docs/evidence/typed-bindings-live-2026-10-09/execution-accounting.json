@@ -1,0 +1,36 @@
+{
+  "planning": {
+    "logical_calls": 6,
+    "physical_attempts": 7,
+    "known_input_tokens": 67285,
+    "known_output_tokens": 23042,
+    "known_cost_eur": 0.9119575827491347,
+    "unknown_attempts": 0,
+    "reserved_input_tokens": 0,
+    "reserved_output_tokens": 0,
+    "reserved_cost_eur": 0
+  },
+  "execution": {
+    "logical_calls": 3,
+    "physical_attempts": 3,
+    "known_input_tokens": 35377,
+    "known_output_tokens": 2720,
+    "known_cost_eur": 0.22937705208980388,
+    "unknown_attempts": 0,
+    "reserved_input_tokens": 0,
+    "reserved_output_tokens": 0,
+    "reserved_cost_eur": 0
+  },
+  "campaign": {
+    "calls": 931,
+    "session_calls": 0,
+    "known_input_tokens": 13685767,
+    "known_output_tokens": 1893195,
+    "known_cost_eur": 111.41935869204576,
+    "reserved_input_tokens": 480000,
+    "reserved_output_tokens": 163840,
+    "reserved_cost_eur": 6.501614794790526,
+    "cost_upper_bound_eur": 117.92097348683629,
+    "unknown_attempts": 5
+  }
+}

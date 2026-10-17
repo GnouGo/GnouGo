@@ -1,0 +1,63 @@
+{
+  "run": "consumerjournal20261006a-amazon-1",
+  "approved_revision": 9,
+  "persisted_revision_after_approval": 10,
+  "artifact_hash": "af84a2ca9690714e7c133a29cfa13843e69d62a7d9f25e782aa52dbda48839da",
+  "execution": {
+    "success": false,
+    "outputs": null,
+    "error": {
+      "Code": "CANCELLED",
+      "Type": "",
+      "Message": "Workflow execution cancelled",
+      "Retryable": true,
+      "Details": null
+    }
+  },
+  "runtime_llm_inputs": [],
+  "mapping_telemetry": [],
+  "events": [
+    {
+      "server": "GnOuGo.Browser.Mcp",
+      "tool": "browser_get_content",
+      "arguments": {},
+      "started": "2026-10-06T09:33:04.7659700+00:00",
+      "error": true,
+      "result": {
+        "url": "",
+        "title": null,
+        "statusCode": null,
+        "selector": null,
+        "resolvedSelector": "",
+        "fallbackApplied": false,
+        "fallbackReason": null,
+        "format": "html",
+        "content": "",
+        "truncated": false,
+        "maxCharacters": 0,
+        "success": false,
+        "error_code": "INVALID_INPUT",
+        "error_message": "InvalidOperationException: No active page. Call browser_get_content with url first.",
+        "ok": false
+      },
+      "latency_ms": 36
+    },
+    {
+      "server": "GnOuGo.Browser.Mcp",
+      "tool": "browser_close",
+      "arguments": {},
+      "started": "2026-10-06T09:33:04.8176200+00:00",
+      "error": false,
+      "result": {
+        "closed": true,
+        "success": true,
+        "error_code": null,
+        "error_message": null,
+        "ok": true
+      },
+      "latency_ms": 1005
+    }
+  ],
+  "events_scope": "Only post-execution oracle probes: no active page, then defensive browser_close. No workflow Browser/Document operation ran.",
+  "workbook_exists": false
+}

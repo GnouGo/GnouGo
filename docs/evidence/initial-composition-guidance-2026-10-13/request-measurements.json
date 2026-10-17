@@ -1,0 +1,32 @@
+[
+  {
+    "version": "v14",
+    "same_context": true,
+    "tokens_before": 17244,
+    "tokens_after": 17215,
+    "prompt_bytes_before": 28570,
+    "prompt_bytes_after": 28238,
+    "schema_bytes_before": 22394,
+    "schema_bytes_after": 22637
+  },
+  {
+    "version": "v15",
+    "same_context": true,
+    "tokens_before": 21151,
+    "tokens_after": 21151,
+    "prompt_bytes_before": 37843,
+    "prompt_bytes_after": 37600,
+    "schema_bytes_before": 24842,
+    "schema_bytes_after": 25085
+  },
+  {
+    "version": "v13",
+    "same_context": true,
+    "tokens_before": 19587,
+    "tokens_after": 19559,
+    "prompt_bytes_before": 33629,
+    "prompt_bytes_after": 33302,
+    "schema_bytes_before": 24364,
+    "schema_bytes_after": 24607
+  }
+]

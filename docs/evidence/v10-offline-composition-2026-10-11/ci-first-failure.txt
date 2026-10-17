@@ -1,0 +1,96 @@
+validate	Test planner, runtime and host integration	﻿2026-10-11T16:05:01.4681740Z ##[group]Run dotnet test tests/GnOuGo.Mcp.Core.Tests -m:1 -warnaserror
+validate	Test planner, runtime and host integration	2026-10-11T16:05:01.4682297Z ^[[36;1mdotnet test tests/GnOuGo.Mcp.Core.Tests -m:1 -warnaserror^[[0m
+validate	Test planner, runtime and host integration	2026-10-11T16:05:01.4682770Z ^[[36;1mdotnet test tests/GnOuGo.Browser.Mcp.Tests -m:1 -warnaserror^[[0m
+validate	Test planner, runtime and host integration	2026-10-11T16:05:01.4683244Z ^[[36;1mdotnet test tests/GnOuGo.Document.Mcp.Tests -m:1 -warnaserror^[[0m
+validate	Test planner, runtime and host integration	2026-10-11T16:05:01.4683695Z ^[[36;1mdotnet test tests/GnOuGo.Git.Mcp.Tests -m:1 -warnaserror^[[0m
+validate	Test planner, runtime and host integration	2026-10-11T16:05:01.4684569Z ^[[36;1mdotnet test tests/GnOuGo.Flow.Planning.Tests/GnOuGo.Flow.Planning.Tests.csproj -m:1 -warnaserror^[[0m
+validate	Test planner, runtime and host integration	2026-10-11T16:05:01.4685202Z ^[[36;1mdotnet test tests/GnOuGo.Flow.Integrations.Tests -m:1 -warnaserror^[[0m
+validate	Test planner, runtime and host integration	2026-10-11T16:05:01.4685702Z ^[[36;1mdotnet test tests/GnOuGo.Flow.Copilot.Tests -m:1 -warnaserror^[[0m
+validate	Test planner, runtime and host integration	2026-10-11T16:05:01.4686202Z ^[[36;1mdotnet test tests/GnOuGo.Flow.Persistence.Tests -m:1 -warnaserror^[[0m
+validate	Test planner, runtime and host integration	2026-10-11T16:05:01.4686720Z ^[[36;1mdotnet test tests/GnOuGo.GithubCopilot.Core.Tests -m:1 -warnaserror^[[0m
+validate	Test planner, runtime and host integration	2026-10-11T16:05:01.4687266Z ^[[36;1mdotnet test tests/GnOuGo.GithubCopilot.Mcp.Tests -m:1 -warnaserror^[[0m
+validate	Test planner, runtime and host integration	2026-10-11T16:05:01.4687809Z ^[[36;1mdotnet test tests/GnOuGo.Flow.Tests/GnOuGo.Flow.Tests.csproj -m:1 -warnaserror^[[0m
+validate	Test planner, runtime and host integration	2026-10-11T16:05:01.4688542Z ^[[36;1mdotnet test tests/GnOuGo.Agent.Server.Tests/GnOuGo.Agent.Server.Tests.csproj -m:1 -warnaserror /p:SkipClientBuild=true^[[0m
+validate	Test planner, runtime and host integration	2026-10-11T16:05:01.4750830Z shell: /usr/bin/bash -e {0}
+validate	Test planner, runtime and host integration	2026-10-11T16:05:01.4751084Z env:
+validate	Test planner, runtime and host integration	2026-10-11T16:05:01.4751292Z   DOTNET_ROOT: /usr/share/dotnet
+validate	Test planner, runtime and host integration	2026-10-11T16:05:01.4751544Z ##[endgroup]
+validate	Test planner, runtime and host integration	2026-10-11T16:05:02.1047969Z   Determining projects to restore...
+validate	Test planner, runtime and host integration	2026-10-11T16:05:03.4671233Z   Restored /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Mcp.Core.Tests/GnOuGo.Mcp.Core.Tests.csproj (in 944 ms).
+validate	Test planner, runtime and host integration	2026-10-11T16:05:03.4707965Z   1 of 2 projects are up-to-date for restore.
+validate	Test planner, runtime and host integration	2026-10-11T16:05:03.8843917Z   GnOuGo.Mcp.Core -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Mcp.Core/bin/Debug/net10.0/GnOuGo.Mcp.Core.dll
+validate	Test planner, runtime and host integration	2026-10-11T16:05:04.4999102Z   GnOuGo.Mcp.Core.Tests -> /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Mcp.Core.Tests/bin/Debug/net10.0/GnOuGo.Mcp.Core.Tests.dll
+validate	Test planner, runtime and host integration	2026-10-11T16:05:04.5125723Z Test run for /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Mcp.Core.Tests/bin/Debug/net10.0/GnOuGo.Mcp.Core.Tests.dll (.NETCoreApp,Version=v10.0)
+validate	Test planner, runtime and host integration	2026-10-11T16:05:05.0545663Z A total of 1 test files matched the specified pattern.
+validate	Test planner, runtime and host integration	2026-10-11T16:05:06.6638078Z 
+validate	Test planner, runtime and host integration	2026-10-11T16:05:06.6696415Z Passed!  - Failed:     0, Passed:    49, Skipped:     0, Total:    49, Duration: 116 ms - GnOuGo.Mcp.Core.Tests.dll (net10.0)
+validate	Test planner, runtime and host integration	2026-10-11T16:05:07.3920774Z   Determining projects to restore...
+validate	Test planner, runtime and host integration	2026-10-11T16:05:08.2725745Z   Restored /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Browser.Mcp.Tests/GnOuGo.Browser.Mcp.Tests.csproj (in 356 ms).
+validate	Test planner, runtime and host integration	2026-10-11T16:05:08.2751487Z   3 of 4 projects are up-to-date for restore.
+validate	Test planner, runtime and host integration	2026-10-11T16:05:08.7478206Z   GnOuGo.Mcp.Core -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Mcp.Core/bin/Debug/net10.0/GnOuGo.Mcp.Core.dll
+validate	Test planner, runtime and host integration	2026-10-11T16:05:08.8433531Z   GnOuGo.Observability.Core -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Observability.Core/bin/Debug/net10.0/GnOuGo.Observability.Core.dll
+validate	Test planner, runtime and host integration	2026-10-11T16:05:08.9614704Z   GnOuGo.Browser.Mcp -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Browser.Mcp/bin/Debug/net10.0/GnOuGo.Browser.Mcp.dll
+validate	Test planner, runtime and host integration	2026-10-11T16:05:08.9786159Z   Installing Playwright Chromium browsers...
+validate	Test planner, runtime and host integration	2026-10-11T16:05:10.2042993Z   GnOuGo.Browser.Mcp.Tests -> /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Browser.Mcp.Tests/bin/Debug/net10.0/GnOuGo.Browser.Mcp.Tests.dll
+validate	Test planner, runtime and host integration	2026-10-11T16:05:10.2315247Z Test run for /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Browser.Mcp.Tests/bin/Debug/net10.0/GnOuGo.Browser.Mcp.Tests.dll (.NETCoreApp,Version=v10.0)
+validate	Test planner, runtime and host integration	2026-10-11T16:05:10.3974566Z A total of 1 test files matched the specified pattern.
+validate	Test planner, runtime and host integration	2026-10-11T16:05:53.4780800Z 
+validate	Test planner, runtime and host integration	2026-10-11T16:05:53.4820744Z Passed!  - Failed:     0, Passed:   141, Skipped:     0, Total:   141, Duration: 41 s - GnOuGo.Browser.Mcp.Tests.dll (net10.0)
+validate	Test planner, runtime and host integration	2026-10-11T16:05:54.1257886Z   Determining projects to restore...
+validate	Test planner, runtime and host integration	2026-10-11T16:05:56.6041115Z   Restored /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Diff.Core/GnOuGo.Diff.Core.csproj (in 1.89 sec).
+validate	Test planner, runtime and host integration	2026-10-11T16:05:56.6043100Z   Restored /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Document.Mcp.Tests/GnOuGo.Document.Mcp.Tests.csproj (in 1.89 sec).
+validate	Test planner, runtime and host integration	2026-10-11T16:05:56.6130732Z   Restored /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Document.Mcp/GnOuGo.Document.Mcp.csproj (in 1.91 sec).
+validate	Test planner, runtime and host integration	2026-10-11T16:05:56.6166032Z   3 of 6 projects are up-to-date for restore.
+validate	Test planner, runtime and host integration	2026-10-11T16:05:57.6278724Z   GnOuGo.Diff.Core -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Diff.Core/bin/Debug/net10.0/GnOuGo.Diff.Core.dll
+validate	Test planner, runtime and host integration	2026-10-11T16:05:57.7358536Z   GnOuGo.Mcp.Core -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Mcp.Core/bin/Debug/net10.0/GnOuGo.Mcp.Core.dll
+validate	Test planner, runtime and host integration	2026-10-11T16:05:57.8341599Z   GnOuGo.Observability.Core -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Observability.Core/bin/Debug/net10.0/GnOuGo.Observability.Core.dll
+validate	Test planner, runtime and host integration	2026-10-11T16:05:57.9419698Z   GnOuGo.Workspace -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Workspace/bin/Debug/net10.0/GnOuGo.Workspace.dll
+validate	Test planner, runtime and host integration	2026-10-11T16:05:59.5903713Z   GnOuGo.Document.Mcp -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Document.Mcp/bin/Debug/net10.0/GnOuGo.Document.Mcp.dll
+validate	Test planner, runtime and host integration	2026-10-11T16:05:59.9016469Z   GnOuGo.Document.Mcp.Tests -> /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Document.Mcp.Tests/bin/Debug/net10.0/GnOuGo.Document.Mcp.Tests.dll
+validate	Test planner, runtime and host integration	2026-10-11T16:05:59.9188800Z Test run for /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Document.Mcp.Tests/bin/Debug/net10.0/GnOuGo.Document.Mcp.Tests.dll (.NETCoreApp,Version=v10.0)
+validate	Test planner, runtime and host integration	2026-10-11T16:06:00.0834761Z A total of 1 test files matched the specified pattern.
+validate	Test planner, runtime and host integration	2026-10-11T16:06:08.8376023Z 
+validate	Test planner, runtime and host integration	2026-10-11T16:06:08.8415612Z Passed!  - Failed:     0, Passed:    73, Skipped:     0, Total:    73, Duration: 7 s - GnOuGo.Document.Mcp.Tests.dll (net10.0)
+validate	Test planner, runtime and host integration	2026-10-11T16:06:09.4966618Z   Determining projects to restore...
+validate	Test planner, runtime and host integration	2026-10-11T16:06:10.9658179Z   Restored /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Git.Mcp/GnOuGo.Git.Mcp.csproj (in 922 ms).
+validate	Test planner, runtime and host integration	2026-10-11T16:06:10.9682708Z   Restored /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Git.Mcp.Tests/GnOuGo.Git.Mcp.Tests.csproj (in 920 ms).
+validate	Test planner, runtime and host integration	2026-10-11T16:06:10.9720410Z   3 of 5 projects are up-to-date for restore.
+validate	Test planner, runtime and host integration	2026-10-11T16:06:11.4587885Z   GnOuGo.Mcp.Core -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Mcp.Core/bin/Debug/net10.0/GnOuGo.Mcp.Core.dll
+validate	Test planner, runtime and host integration	2026-10-11T16:06:11.5679226Z   GnOuGo.Observability.Core -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Observability.Core/bin/Debug/net10.0/GnOuGo.Observability.Core.dll
+validate	Test planner, runtime and host integration	2026-10-11T16:06:11.6248093Z   GnOuGo.Workspace -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Workspace/bin/Debug/net10.0/GnOuGo.Workspace.dll
+validate	Test planner, runtime and host integration	2026-10-11T16:06:13.2631839Z   GnOuGo.Git.Mcp -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Git.Mcp/bin/Debug/net10.0/GnOuGo.Git.Mcp.dll
+validate	Test planner, runtime and host integration	2026-10-11T16:06:13.5583269Z   GnOuGo.Git.Mcp.Tests -> /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Git.Mcp.Tests/bin/Debug/net10.0/GnOuGo.Git.Mcp.Tests.dll
+validate	Test planner, runtime and host integration	2026-10-11T16:06:13.5768413Z Test run for /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Git.Mcp.Tests/bin/Debug/net10.0/GnOuGo.Git.Mcp.Tests.dll (.NETCoreApp,Version=v10.0)
+validate	Test planner, runtime and host integration	2026-10-11T16:06:13.7467482Z A total of 1 test files matched the specified pattern.
+validate	Test planner, runtime and host integration	2026-10-11T16:06:21.9607561Z 
+validate	Test planner, runtime and host integration	2026-10-11T16:06:21.9647890Z Passed!  - Failed:     0, Passed:    83, Skipped:     0, Total:    83, Duration: 6 s - GnOuGo.Git.Mcp.Tests.dll (net10.0)
+validate	Test planner, runtime and host integration	2026-10-11T16:06:22.6367713Z   Determining projects to restore...
+validate	Test planner, runtime and host integration	2026-10-11T16:06:23.9188106Z   Restored /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Flow.Core/GnOuGo.Flow.Core.csproj (in 822 ms).
+validate	Test planner, runtime and host integration	2026-10-11T16:06:23.9190621Z   Restored /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Flow.Planning.Tests/GnOuGo.Flow.Planning.Tests.csproj (in 823 ms).
+validate	Test planner, runtime and host integration	2026-10-11T16:06:23.9218636Z   Restored /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Flow.Planning/GnOuGo.Flow.Planning.csproj (in 823 ms).
+validate	Test planner, runtime and host integration	2026-10-11T16:06:32.3313382Z   GnOuGo.Flow.Core -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Flow.Core/bin/Debug/net10.0/GnOuGo.Flow.Core.dll
+validate	Test planner, runtime and host integration	2026-10-11T16:06:41.2900592Z   GnOuGo.Flow.Planning -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Flow.Planning/bin/Debug/net10.0/GnOuGo.Flow.Planning.dll
+validate	Test planner, runtime and host integration	2026-10-11T16:06:43.3809679Z   GnOuGo.Flow.Planning.Tests -> /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Flow.Planning.Tests/bin/Debug/net10.0/GnOuGo.Flow.Planning.Tests.dll
+validate	Test planner, runtime and host integration	2026-10-11T16:06:43.3885489Z Test run for /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Flow.Planning.Tests/bin/Debug/net10.0/GnOuGo.Flow.Planning.Tests.dll (.NETCoreApp,Version=v10.0)
+validate	Test planner, runtime and host integration	2026-10-11T16:06:43.5623687Z A total of 1 test files matched the specified pattern.
+validate	Test planner, runtime and host integration	2026-10-11T16:07:56.8473268Z [xUnit.net 00:01:12.85]     GnOuGo.Flow.Planning.Tests.CapabilityAlternativeTests.UnsupportedRunnerUsesExistingClarificationWithoutLosingIntentOrGrantingPermissions(custom: False) [FAIL]
+validate	Test planner, runtime and host integration	2026-10-11T16:07:56.9437297Z [xUnit.net 00:01:12.95]     GnOuGo.Flow.Planning.Tests.CapabilityAlternativeTests.UnsupportedRunnerUsesExistingClarificationWithoutLosingIntentOrGrantingPermissions(custom: True) [FAIL]
+validate	Test planner, runtime and host integration	2026-10-11T16:07:56.9660461Z   Failed GnOuGo.Flow.Planning.Tests.CapabilityAlternativeTests.UnsupportedRunnerUsesExistingClarificationWithoutLosingIntentOrGrantingPermissions(custom: False) [130 ms]
+validate	Test planner, runtime and host integration	2026-10-11T16:07:56.9663000Z   Error Message:
+validate	Test planner, runtime and host integration	2026-10-11T16:07:56.9663794Z    Assert.Contains() Failure: Sub-string not found
+validate	Test planner, runtime and host integration	2026-10-11T16:07:56.9665137Z String:    "Unsearched!=absent; closed:plan:null.\nBusiness tas"···
+validate	Test planner, runtime and host integration	2026-10-11T16:07:56.9665803Z Not found: "compatible alternatives"
+validate	Test planner, runtime and host integration	2026-10-11T16:07:56.9666242Z   Stack Trace:
+validate	Test planner, runtime and host integration	2026-10-11T16:07:56.9668782Z      at GnOuGo.Flow.Planning.Tests.CapabilityAlternativeTests.UnsupportedRunnerUsesExistingClarificationWithoutLosingIntentOrGrantingPermissions(Boolean custom) in /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Flow.Planning.Tests/CapabilityAlternativeTests.cs:line 31
+validate	Test planner, runtime and host integration	2026-10-11T16:07:56.9671347Z --- End of stack trace from previous location ---
+validate	Test planner, runtime and host integration	2026-10-11T16:07:56.9673352Z   Failed GnOuGo.Flow.Planning.Tests.CapabilityAlternativeTests.UnsupportedRunnerUsesExistingClarificationWithoutLosingIntentOrGrantingPermissions(custom: True) [99 ms]
+validate	Test planner, runtime and host integration	2026-10-11T16:07:56.9675274Z   Error Message:
+validate	Test planner, runtime and host integration	2026-10-11T16:07:56.9675742Z    Assert.Contains() Failure: Sub-string not found
+validate	Test planner, runtime and host integration	2026-10-11T16:07:56.9676583Z String:    "Unsearched!=absent; closed:plan:null.\nBusiness tas"···
+validate	Test planner, runtime and host integration	2026-10-11T16:07:56.9677255Z Not found: "compatible alternatives"
+validate	Test planner, runtime and host integration	2026-10-11T16:07:56.9677684Z   Stack Trace:
+validate	Test planner, runtime and host integration	2026-10-11T16:07:56.9680288Z      at GnOuGo.Flow.Planning.Tests.CapabilityAlternativeTests.UnsupportedRunnerUsesExistingClarificationWithoutLosingIntentOrGrantingPermissions(Boolean custom) in /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Flow.Planning.Tests/CapabilityAlternativeTests.cs:line 31
+validate	Test planner, runtime and host integration	2026-10-11T16:07:56.9682937Z --- End of stack trace from previous location ---
+validate	Test planner, runtime and host integration	2026-10-11T16:08:48.4809289Z 
+validate	Test planner, runtime and host integration	2026-10-11T16:08:48.4857107Z Failed!  - Failed:     2, Passed:  1266, Skipped:     0, Total:  1268, Duration: 2 m 2 s - GnOuGo.Flow.Planning.Tests.dll (net10.0)
+validate	Test planner, runtime and host integration	2026-10-11T16:08:48.5262527Z ##[error]Process completed with exit code 1.

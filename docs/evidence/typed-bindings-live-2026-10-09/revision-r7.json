@@ -1,0 +1,11 @@
+{
+  "kind": "revise",
+  "expectedRevision": 7,
+  "artifactHash": "90f79396453c8703242e25131cc5cb842fe259b2fba109db04795c220d0a073a",
+  "preserveRequirements": true,
+  "editablePaths": [
+    "/tasks/select_scope_selector/mode",
+    "/tasks/select_scope_selector/inputs"
+  ],
+  "text": "Change only the two selected fields. Preserve every requirement, objective, operation, ordering, result contract, requires, scope, cleanup and other binding. This is one narrowly authorized data-adaptation correction, not a redesign.\nselect_scope_selector currently interprets an at-most-one array of original observed selectors to return its sole nullable selector or null for absence. This is copying, not a business decision; the current interpretation could regenerate an action argument. Change its mode to extract, leave each omitted (the target is a scalar), and preserve its existing selectors input verbatim. Add one explicit business input named absentSelector with value {kind:\"null\"}; this is the already-declared nullable no-selection behavior in this task objective and Browser's selector contract, not an invented selector or product. Do not add a string fallback or an undeclared schema default.\nThe existing source-grounded runtime can then return the original selector token when index 0 exists, otherwise the explicitly bound null token. This bounded at-most-one adaptation was checked offline for present selector, empty selection, and explicit null. Do not put JavaScript in the TaskPlan. No scripts, helpers, operators, schema changes, new tasks, semantic filtering or provider changes. Return only the authorized typed patch."
+}

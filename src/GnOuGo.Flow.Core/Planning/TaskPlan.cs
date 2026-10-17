@@ -24,6 +24,12 @@ public sealed class PlanTask
     public string Id { get; set; } = "";
     public string Objective { get; set; } = "";
     public string Kind { get; set; } = "operation";
+    /// <summary>Extract observed data or interpret it. Omission preserves historical interpretation.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Mode { get; set; }
+    /// <summary>Independent extraction: one result item per source item, in source order.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public TaskExtractionEach? Each { get; set; }
     public List<string> DependsOn { get; set; } = [];
     public string? Operation { get; set; }
     public List<TaskOutput> Inputs { get; set; } = [];
@@ -31,6 +37,9 @@ public sealed class PlanTask
     /// <summary>Transform results: a closed object of required, fully typed business fields.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public TaskType? ResultType { get; set; }
+    /// <summary>Required boolean business condition. False fails before task execution; omission adds no guard.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public TaskValue? Requires { get; set; }
     public TaskValue? Condition { get; set; }
     public TaskScope? Body { get; set; }
     public TaskScope? Otherwise { get; set; }
@@ -41,6 +50,8 @@ public sealed class PlanTask
     public int MaxConcurrency { get; set; } = 4;
     public string? Group { get; set; }
 }
+
+public sealed record TaskExtractionEach(string Input, string Output);
 
 public sealed class TaskGroup
 {
@@ -65,6 +76,11 @@ public sealed class TaskType
     /// <summary>Explicit finite string domain; null means unrestricted. Nullability is declared separately.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<string>? Enum { get; set; }
+    /// <summary>Optional array cardinality constraints; these do not authorize runtime iterations.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? MinItems { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? MaxItems { get; set; }
     public TaskType? Items { get; set; }
     public List<TaskInput> Fields { get; set; } = [];
 }
@@ -72,12 +88,19 @@ public sealed class TaskType
 public sealed record TaskOutput(string Name, TaskValue Value);
 
 /// <summary>Closed semantic values. An output reference names a task and business port;
-/// a field value selects its literal Port from the single typed object in Items.</summary>
+/// a field value selects its literal Port from the single typed object in Items.
+/// Flatten concatenates one typed array-of-arrays operand in Items by one level.
+/// Lookup reconnects Items=[records, selected IDs] through the literal identity field Port.</summary>
 public sealed class TaskValue
 {
     public string Kind { get; set; } = "null";
     public string? Text { get; set; }
-    public decimal? Number { get; set; }
+    // Keep original JSON tokens when reading saved plans so historical hashes do
+    // not change through floating-point reserialization. New values use Number.
+    [JsonIgnore]
+    public double? Number { get => NumberToken?.GetValue<double>(); set => NumberToken = value is { } number ? JsonValue.Create(number) : null; }
+    [JsonInclude, JsonPropertyName("number")]
+    internal JsonNode? NumberToken { get; set; }
     public bool? Boolean { get; set; }
     public string? Source { get; set; }
     public string? Port { get; set; }

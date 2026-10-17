@@ -1,0 +1,1734 @@
+{
+  "status": "final_review",
+  "revision": 4,
+  "artifact_hash": "3383b2735ec6c789ffc64e9f7b898937d3f0daaa1257e96fed62e7b2a6866275",
+  "diagnostics": [],
+  "questions": null,
+  "plan": {
+    "inputs": [
+      {
+        "name": "query",
+        "type": {
+          "kind": "string",
+          "nullable": false,
+          "items": null,
+          "fields": []
+        },
+        "required": true,
+        "default": null
+      }
+    ],
+    "root": {
+      "tasks": [
+        {
+          "id": "open_amazon",
+          "objective": "Ouvrir Amazon.fr et observer la page initiale pour identifier recherche, consentement ou CAPTCHA/blocage.",
+          "kind": "operation",
+          "dependsOn": [],
+          "operation": "cap_490d9e16075cbdca5954ec27",
+          "inputs": [
+            {
+              "name": "url",
+              "value": {
+                "kind": "string",
+                "text": "https://www.amazon.fr/",
+                "number": null,
+                "boolean": null,
+                "source": null,
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            },
+            {
+              "name": "format",
+              "value": {
+                "kind": "string",
+                "text": "observation_complete",
+                "number": null,
+                "boolean": null,
+                "source": null,
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            },
+            {
+              "name": "waitUntil",
+              "value": {
+                "kind": "string",
+                "text": "domcontentloaded",
+                "number": null,
+                "boolean": null,
+                "source": null,
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            },
+            {
+              "name": "timeoutMs",
+              "value": {
+                "kind": "number",
+                "text": null,
+                "number": 30000,
+                "boolean": null,
+                "source": null,
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            },
+            {
+              "name": "maxRecords",
+              "value": {
+                "kind": "number",
+                "text": null,
+                "number": 200,
+                "boolean": null,
+                "source": null,
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            }
+          ],
+          "outputs": [],
+          "condition": null,
+          "body": null,
+          "otherwise": null,
+          "branches": [],
+          "items": null,
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4,
+          "group": null
+        },
+        {
+          "id": "interpret_initial_page",
+          "objective": "Interpréter l’observation initiale: détecter un éventuel CAPTCHA/blocage, trouver le champ de recherche et, si présent, un contrôle de consentement cookies autorisé.",
+          "kind": "transform",
+          "mode": "interpret",
+          "dependsOn": [
+            "open_amazon"
+          ],
+          "operation": null,
+          "inputs": [
+            {
+              "name": "initialObservation",
+              "value": {
+                "kind": "output",
+                "text": null,
+                "number": null,
+                "boolean": null,
+                "source": "open_amazon",
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            }
+          ],
+          "outputs": [],
+          "resultType": {
+            "kind": "object",
+            "nullable": false,
+            "items": null,
+            "fields": [
+              {
+                "name": "blocked",
+                "type": {
+                  "kind": "boolean",
+                  "nullable": false,
+                  "items": null,
+                  "fields": []
+                },
+                "required": true,
+                "default": null
+              },
+              {
+                "name": "blockReason",
+                "type": {
+                  "kind": "string",
+                  "nullable": true,
+                  "items": null,
+                  "fields": []
+                },
+                "required": true,
+                "default": null
+              },
+              {
+                "name": "searchBoxReference",
+                "type": {
+                  "kind": "string",
+                  "nullable": true,
+                  "items": null,
+                  "fields": []
+                },
+                "required": true,
+                "default": null
+              },
+              {
+                "name": "consentReference",
+                "type": {
+                  "kind": "string",
+                  "nullable": true,
+                  "items": null,
+                  "fields": []
+                },
+                "required": true,
+                "default": null
+              },
+              {
+                "name": "consentAction",
+                "type": {
+                  "kind": "string",
+                  "nullable": true,
+                  "enum": [
+                    "activate"
+                  ],
+                  "items": null,
+                  "fields": []
+                },
+                "required": true,
+                "default": null
+              }
+            ]
+          },
+          "requires": {
+            "kind": "output",
+            "text": null,
+            "number": null,
+            "boolean": null,
+            "source": "open_amazon",
+            "port": "success",
+            "members": [],
+            "items": [],
+            "predicate": null
+          },
+          "condition": null,
+          "body": null,
+          "otherwise": null,
+          "branches": [],
+          "items": null,
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4,
+          "group": null
+        },
+        {
+          "id": "accept_cookie_if_present",
+          "objective": "Cliquer uniquement un contrôle de consentement explicitement observé, puis laisser la page se stabiliser.",
+          "kind": "conditional",
+          "dependsOn": [
+            "interpret_initial_page"
+          ],
+          "operation": null,
+          "inputs": [],
+          "outputs": [],
+          "condition": {
+            "kind": "predicate",
+            "text": null,
+            "number": null,
+            "boolean": null,
+            "source": null,
+            "port": null,
+            "members": [],
+            "items": [
+              {
+                "kind": "predicate",
+                "text": null,
+                "number": null,
+                "boolean": null,
+                "source": null,
+                "port": null,
+                "members": [],
+                "items": [
+                  {
+                    "kind": "output",
+                    "text": null,
+                    "number": null,
+                    "boolean": null,
+                    "source": "interpret_initial_page",
+                    "port": "consentReference",
+                    "members": [],
+                    "items": [],
+                    "predicate": null
+                  },
+                  {
+                    "kind": "null",
+                    "text": null,
+                    "number": null,
+                    "boolean": null,
+                    "source": null,
+                    "port": null,
+                    "members": [],
+                    "items": [],
+                    "predicate": null
+                  }
+                ],
+                "predicate": "not_equal"
+              },
+              {
+                "kind": "predicate",
+                "text": null,
+                "number": null,
+                "boolean": null,
+                "source": null,
+                "port": null,
+                "members": [],
+                "items": [
+                  {
+                    "kind": "output",
+                    "text": null,
+                    "number": null,
+                    "boolean": null,
+                    "source": "interpret_initial_page",
+                    "port": "blocked",
+                    "members": [],
+                    "items": [],
+                    "predicate": null
+                  },
+                  {
+                    "kind": "boolean",
+                    "text": null,
+                    "number": null,
+                    "boolean": true,
+                    "source": null,
+                    "port": null,
+                    "members": [],
+                    "items": [],
+                    "predicate": null
+                  }
+                ],
+                "predicate": "not_equal"
+              }
+            ],
+            "predicate": "and"
+          },
+          "body": {
+            "tasks": [
+              {
+                "id": "click_cookie_consent",
+                "objective": "Activer le bouton de consentement cookies observé.",
+                "kind": "operation",
+                "dependsOn": [],
+                "operation": "cap_dd05fbf36e155a64318f3588",
+                "inputs": [
+                  {
+                    "name": "reference",
+                    "value": {
+                      "kind": "output",
+                      "text": null,
+                      "number": null,
+                      "boolean": null,
+                      "source": "interpret_initial_page",
+                      "port": "consentReference",
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  },
+                  {
+                    "name": "requestedAction",
+                    "value": {
+                      "kind": "string",
+                      "text": "activate",
+                      "number": null,
+                      "boolean": null,
+                      "source": null,
+                      "port": null,
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  },
+                  {
+                    "name": "waitUntil",
+                    "value": {
+                      "kind": "string",
+                      "text": "domcontentloaded",
+                      "number": null,
+                      "boolean": null,
+                      "source": null,
+                      "port": null,
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  },
+                  {
+                    "name": "timeoutMs",
+                    "value": {
+                      "kind": "number",
+                      "text": null,
+                      "number": 15000,
+                      "boolean": null,
+                      "source": null,
+                      "port": null,
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  }
+                ],
+                "outputs": [],
+                "condition": null,
+                "body": null,
+                "otherwise": null,
+                "branches": [],
+                "items": null,
+                "parallel": false,
+                "maxItems": 100,
+                "maxConcurrency": 4,
+                "group": null
+              },
+              {
+                "id": "observe_after_consent",
+                "objective": "Réobserver la page après consentement, car les références précédentes sont expirées après interaction.",
+                "kind": "operation",
+                "dependsOn": [
+                  "click_cookie_consent"
+                ],
+                "operation": "cap_490d9e16075cbdca5954ec27",
+                "inputs": [
+                  {
+                    "name": "format",
+                    "value": {
+                      "kind": "string",
+                      "text": "observation_complete",
+                      "number": null,
+                      "boolean": null,
+                      "source": null,
+                      "port": null,
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  },
+                  {
+                    "name": "timeoutMs",
+                    "value": {
+                      "kind": "number",
+                      "text": null,
+                      "number": 30000,
+                      "boolean": null,
+                      "source": null,
+                      "port": null,
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  },
+                  {
+                    "name": "maxRecords",
+                    "value": {
+                      "kind": "number",
+                      "text": null,
+                      "number": 200,
+                      "boolean": null,
+                      "source": null,
+                      "port": null,
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  }
+                ],
+                "outputs": [],
+                "condition": null,
+                "body": null,
+                "otherwise": null,
+                "branches": [],
+                "items": null,
+                "parallel": false,
+                "maxItems": 100,
+                "maxConcurrency": 4,
+                "group": null
+              }
+            ],
+            "outputs": [
+              {
+                "name": "postConsentObservation",
+                "value": {
+                  "kind": "output",
+                  "text": null,
+                  "number": null,
+                  "boolean": null,
+                  "source": "observe_after_consent",
+                  "port": null,
+                  "members": [],
+                  "items": [],
+                  "predicate": null
+                }
+              }
+            ],
+            "always": []
+          },
+          "otherwise": {
+            "tasks": [],
+            "outputs": [
+              {
+                "name": "postConsentObservation",
+                "value": {
+                  "kind": "output",
+                  "text": null,
+                  "number": null,
+                  "boolean": null,
+                  "source": "open_amazon",
+                  "port": null,
+                  "members": [],
+                  "items": [],
+                  "predicate": null
+                }
+              }
+            ],
+            "always": []
+          },
+          "branches": [],
+          "items": null,
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4,
+          "group": null
+        },
+        {
+          "id": "interpret_search_ready",
+          "objective": "À partir de l’observation courante, vérifier l’absence de blocage et sélectionner le champ de recherche actuel.",
+          "kind": "transform",
+          "mode": "interpret",
+          "dependsOn": [
+            "accept_cookie_if_present"
+          ],
+          "operation": null,
+          "inputs": [
+            {
+              "name": "currentObservation",
+              "value": {
+                "kind": "output",
+                "text": null,
+                "number": null,
+                "boolean": null,
+                "source": "accept_cookie_if_present",
+                "port": "postConsentObservation",
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            }
+          ],
+          "outputs": [],
+          "resultType": {
+            "kind": "object",
+            "nullable": false,
+            "items": null,
+            "fields": [
+              {
+                "name": "blocked",
+                "type": {
+                  "kind": "boolean",
+                  "nullable": false,
+                  "items": null,
+                  "fields": []
+                },
+                "required": true,
+                "default": null
+              },
+              {
+                "name": "blockReason",
+                "type": {
+                  "kind": "string",
+                  "nullable": true,
+                  "items": null,
+                  "fields": []
+                },
+                "required": true,
+                "default": null
+              },
+              {
+                "name": "searchBoxReference",
+                "type": {
+                  "kind": "string",
+                  "nullable": true,
+                  "items": null,
+                  "fields": []
+                },
+                "required": true,
+                "default": null
+              }
+            ]
+          },
+          "condition": null,
+          "body": null,
+          "otherwise": null,
+          "branches": [],
+          "items": null,
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4,
+          "group": null
+        },
+        {
+          "id": "submit_search_if_possible",
+          "objective": "Si la page n’est pas bloquée et qu’un champ de recherche est disponible, saisir l’entrée publique query et soumettre la recherche.",
+          "kind": "conditional",
+          "dependsOn": [
+            "interpret_search_ready"
+          ],
+          "operation": null,
+          "inputs": [],
+          "outputs": [],
+          "condition": {
+            "kind": "predicate",
+            "text": null,
+            "number": null,
+            "boolean": null,
+            "source": null,
+            "port": null,
+            "members": [],
+            "items": [
+              {
+                "kind": "predicate",
+                "text": null,
+                "number": null,
+                "boolean": null,
+                "source": null,
+                "port": null,
+                "members": [],
+                "items": [
+                  {
+                    "kind": "output",
+                    "text": null,
+                    "number": null,
+                    "boolean": null,
+                    "source": "interpret_search_ready",
+                    "port": "blocked",
+                    "members": [],
+                    "items": [],
+                    "predicate": null
+                  },
+                  {
+                    "kind": "boolean",
+                    "text": null,
+                    "number": null,
+                    "boolean": true,
+                    "source": null,
+                    "port": null,
+                    "members": [],
+                    "items": [],
+                    "predicate": null
+                  }
+                ],
+                "predicate": "not_equal"
+              },
+              {
+                "kind": "predicate",
+                "text": null,
+                "number": null,
+                "boolean": null,
+                "source": null,
+                "port": null,
+                "members": [],
+                "items": [
+                  {
+                    "kind": "output",
+                    "text": null,
+                    "number": null,
+                    "boolean": null,
+                    "source": "interpret_search_ready",
+                    "port": "searchBoxReference",
+                    "members": [],
+                    "items": [],
+                    "predicate": null
+                  },
+                  {
+                    "kind": "null",
+                    "text": null,
+                    "number": null,
+                    "boolean": null,
+                    "source": null,
+                    "port": null,
+                    "members": [],
+                    "items": [],
+                    "predicate": null
+                  }
+                ],
+                "predicate": "not_equal"
+              }
+            ],
+            "predicate": "and"
+          },
+          "body": {
+            "tasks": [
+              {
+                "id": "fill_query_and_submit",
+                "objective": "Remplir le champ de recherche Amazon.fr avec query et soumettre par Entrée.",
+                "kind": "operation",
+                "dependsOn": [],
+                "operation": "cap_416310ac4ff2808dc91e3a14",
+                "inputs": [
+                  {
+                    "name": "reference",
+                    "value": {
+                      "kind": "output",
+                      "text": null,
+                      "number": null,
+                      "boolean": null,
+                      "source": "interpret_search_ready",
+                      "port": "searchBoxReference",
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  },
+                  {
+                    "name": "value",
+                    "value": {
+                      "kind": "input",
+                      "text": null,
+                      "number": null,
+                      "boolean": null,
+                      "source": "query",
+                      "port": null,
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  },
+                  {
+                    "name": "submit",
+                    "value": {
+                      "kind": "boolean",
+                      "text": null,
+                      "number": null,
+                      "boolean": true,
+                      "source": null,
+                      "port": null,
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  },
+                  {
+                    "name": "timeoutMs",
+                    "value": {
+                      "kind": "number",
+                      "text": null,
+                      "number": 30000,
+                      "boolean": null,
+                      "source": null,
+                      "port": null,
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  }
+                ],
+                "outputs": [],
+                "condition": null,
+                "body": null,
+                "otherwise": null,
+                "branches": [],
+                "items": null,
+                "parallel": false,
+                "maxItems": 100,
+                "maxConcurrency": 4,
+                "group": null
+              },
+              {
+                "id": "observe_search_results",
+                "objective": "Observer complètement la page de résultats, en consommant la capture complète avant toute navigation.",
+                "kind": "operation",
+                "dependsOn": [
+                  "fill_query_and_submit"
+                ],
+                "operation": "cap_490d9e16075cbdca5954ec27",
+                "inputs": [
+                  {
+                    "name": "format",
+                    "value": {
+                      "kind": "string",
+                      "text": "observation_complete",
+                      "number": null,
+                      "boolean": null,
+                      "source": null,
+                      "port": null,
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  },
+                  {
+                    "name": "waitUntil",
+                    "value": {
+                      "kind": "string",
+                      "text": "domcontentloaded",
+                      "number": null,
+                      "boolean": null,
+                      "source": null,
+                      "port": null,
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  },
+                  {
+                    "name": "timeoutMs",
+                    "value": {
+                      "kind": "number",
+                      "text": null,
+                      "number": 30000,
+                      "boolean": null,
+                      "source": null,
+                      "port": null,
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  },
+                  {
+                    "name": "maxRecords",
+                    "value": {
+                      "kind": "number",
+                      "text": null,
+                      "number": 200,
+                      "boolean": null,
+                      "source": null,
+                      "port": null,
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  }
+                ],
+                "outputs": [],
+                "condition": null,
+                "body": null,
+                "otherwise": null,
+                "branches": [],
+                "items": null,
+                "parallel": false,
+                "maxItems": 100,
+                "maxConcurrency": 4,
+                "group": null
+              }
+            ],
+            "outputs": [
+              {
+                "name": "searchObservation",
+                "value": {
+                  "kind": "output",
+                  "text": null,
+                  "number": null,
+                  "boolean": null,
+                  "source": "observe_search_results",
+                  "port": null,
+                  "members": [],
+                  "items": [],
+                  "predicate": null
+                }
+              }
+            ],
+            "always": []
+          },
+          "otherwise": {
+            "tasks": [],
+            "outputs": [
+              {
+                "name": "searchObservation",
+                "value": {
+                  "kind": "output",
+                  "text": null,
+                  "number": null,
+                  "boolean": null,
+                  "source": "open_amazon",
+                  "port": null,
+                  "members": [],
+                  "items": [],
+                  "predicate": null
+                }
+              }
+            ],
+            "always": []
+          },
+          "branches": [],
+          "items": null,
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4,
+          "group": null
+        },
+        {
+          "id": "extract_first_products",
+          "objective": "Extraire de la page de résultats les produits observés, conserver l’ordre d’origine et au maximum les 10 premiers; inclure les faits de liste et les URL produit disponibles sans inventer de données.",
+          "kind": "transform",
+          "mode": "extract",
+          "dependsOn": [
+            "submit_search_if_possible"
+          ],
+          "operation": null,
+          "inputs": [
+            {
+              "name": "searchObservation",
+              "value": {
+                "kind": "output",
+                "text": null,
+                "number": null,
+                "boolean": null,
+                "source": "submit_search_if_possible",
+                "port": "searchObservation",
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            },
+            {
+              "name": "query",
+              "value": {
+                "kind": "input",
+                "text": null,
+                "number": null,
+                "boolean": null,
+                "source": "query",
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            }
+          ],
+          "outputs": [],
+          "resultType": {
+            "kind": "object",
+            "nullable": false,
+            "items": null,
+            "fields": [
+              {
+                "name": "blocked",
+                "type": {
+                  "kind": "boolean",
+                  "nullable": false,
+                  "items": null,
+                  "fields": []
+                },
+                "required": true,
+                "default": null
+              },
+              {
+                "name": "blockReason",
+                "type": {
+                  "kind": "string",
+                  "nullable": true,
+                  "items": null,
+                  "fields": []
+                },
+                "required": true,
+                "default": null
+              },
+              {
+                "name": "products",
+                "type": {
+                  "kind": "array",
+                  "nullable": false,
+                  "items": {
+                    "kind": "object",
+                    "nullable": false,
+                    "items": null,
+                    "fields": [
+                      {
+                        "name": "id",
+                        "type": {
+                          "kind": "string",
+                          "nullable": false,
+                          "items": null,
+                          "fields": []
+                        },
+                        "required": true,
+                        "default": null
+                      },
+                      {
+                        "name": "originalIndex",
+                        "type": {
+                          "kind": "integer",
+                          "nullable": false,
+                          "items": null,
+                          "fields": []
+                        },
+                        "required": true,
+                        "default": null
+                      },
+                      {
+                        "name": "listingName",
+                        "type": {
+                          "kind": "string",
+                          "nullable": true,
+                          "items": null,
+                          "fields": []
+                        },
+                        "required": true,
+                        "default": null
+                      },
+                      {
+                        "name": "listingFacts",
+                        "type": {
+                          "kind": "string",
+                          "nullable": true,
+                          "items": null,
+                          "fields": []
+                        },
+                        "required": true,
+                        "default": null
+                      },
+                      {
+                        "name": "productUrl",
+                        "type": {
+                          "kind": "string",
+                          "nullable": true,
+                          "items": null,
+                          "fields": []
+                        },
+                        "required": true,
+                        "default": null
+                      }
+                    ]
+                  },
+                  "fields": []
+                },
+                "required": true,
+                "default": null
+              }
+            ]
+          },
+          "condition": null,
+          "body": null,
+          "otherwise": null,
+          "branches": [],
+          "items": null,
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4,
+          "group": null
+        },
+        {
+          "id": "visit_each_product",
+          "objective": "Visiter chaque produit retenu individuellement et extraire nom, description et prix de sa page produit, avec absences explicites.",
+          "kind": "foreach",
+          "dependsOn": [
+            "extract_first_products"
+          ],
+          "operation": null,
+          "inputs": [],
+          "outputs": [],
+          "condition": null,
+          "body": {
+            "tasks": [
+              {
+                "id": "open_product_page",
+                "objective": "Ouvrir la page produit si une URL de produit a été observée; sinon conserver une absence explicite.",
+                "kind": "conditional",
+                "dependsOn": [],
+                "operation": null,
+                "inputs": [],
+                "outputs": [],
+                "condition": {
+                  "kind": "predicate",
+                  "text": null,
+                  "number": null,
+                  "boolean": null,
+                  "source": null,
+                  "port": null,
+                  "members": [],
+                  "items": [
+                    {
+                      "kind": "field",
+                      "text": null,
+                      "number": null,
+                      "boolean": null,
+                      "source": null,
+                      "port": "productUrl",
+                      "members": [],
+                      "items": [
+                        {
+                          "kind": "item",
+                          "text": null,
+                          "number": null,
+                          "boolean": null,
+                          "source": null,
+                          "port": null,
+                          "members": [],
+                          "items": [],
+                          "predicate": null
+                        }
+                      ],
+                      "predicate": null
+                    },
+                    {
+                      "kind": "null",
+                      "text": null,
+                      "number": null,
+                      "boolean": null,
+                      "source": null,
+                      "port": null,
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  ],
+                  "predicate": "not_equal"
+                },
+                "body": {
+                  "tasks": [
+                    {
+                      "id": "navigate_product",
+                      "objective": "Naviguer vers l’URL produit observée pour l’article courant.",
+                      "kind": "operation",
+                      "dependsOn": [],
+                      "operation": "cap_490d9e16075cbdca5954ec27",
+                      "inputs": [
+                        {
+                          "name": "url",
+                          "value": {
+                            "kind": "field",
+                            "text": null,
+                            "number": null,
+                            "boolean": null,
+                            "source": null,
+                            "port": "productUrl",
+                            "members": [],
+                            "items": [
+                              {
+                                "kind": "item",
+                                "text": null,
+                                "number": null,
+                                "boolean": null,
+                                "source": null,
+                                "port": null,
+                                "members": [],
+                                "items": [],
+                                "predicate": null
+                              }
+                            ],
+                            "predicate": null
+                          }
+                        },
+                        {
+                          "name": "format",
+                          "value": {
+                            "kind": "string",
+                            "text": "observation_complete",
+                            "number": null,
+                            "boolean": null,
+                            "source": null,
+                            "port": null,
+                            "members": [],
+                            "items": [],
+                            "predicate": null
+                          }
+                        },
+                        {
+                          "name": "waitUntil",
+                          "value": {
+                            "kind": "string",
+                            "text": "domcontentloaded",
+                            "number": null,
+                            "boolean": null,
+                            "source": null,
+                            "port": null,
+                            "members": [],
+                            "items": [],
+                            "predicate": null
+                          }
+                        },
+                        {
+                          "name": "timeoutMs",
+                          "value": {
+                            "kind": "number",
+                            "text": null,
+                            "number": 30000,
+                            "boolean": null,
+                            "source": null,
+                            "port": null,
+                            "members": [],
+                            "items": [],
+                            "predicate": null
+                          }
+                        },
+                        {
+                          "name": "maxRecords",
+                          "value": {
+                            "kind": "number",
+                            "text": null,
+                            "number": 200,
+                            "boolean": null,
+                            "source": null,
+                            "port": null,
+                            "members": [],
+                            "items": [],
+                            "predicate": null
+                          }
+                        }
+                      ],
+                      "outputs": [],
+                      "condition": null,
+                      "body": null,
+                      "otherwise": null,
+                      "branches": [],
+                      "items": null,
+                      "parallel": false,
+                      "maxItems": 100,
+                      "maxConcurrency": 4,
+                      "group": null
+                    }
+                  ],
+                  "outputs": [
+                    {
+                      "name": "productObservation",
+                      "value": {
+                        "kind": "output",
+                        "text": null,
+                        "number": null,
+                        "boolean": null,
+                        "source": "navigate_product",
+                        "port": null,
+                        "members": [],
+                        "items": [],
+                        "predicate": null
+                      }
+                    }
+                  ],
+                  "always": []
+                },
+                "otherwise": {
+                  "tasks": [
+                    {
+                      "id": "missing_url_observation",
+                      "objective": "Produire un marqueur structuré indiquant qu’aucune URL produit n’a été observée.",
+                      "kind": "value",
+                      "dependsOn": [],
+                      "operation": null,
+                      "inputs": [],
+                      "outputs": [
+                        {
+                          "name": "productObservation",
+                          "value": {
+                            "kind": "object",
+                            "text": null,
+                            "number": null,
+                            "boolean": null,
+                            "source": null,
+                            "port": null,
+                            "members": [
+                              {
+                                "name": "missingUrl",
+                                "value": {
+                                  "kind": "boolean",
+                                  "text": null,
+                                  "number": null,
+                                  "boolean": true,
+                                  "source": null,
+                                  "port": null,
+                                  "members": [],
+                                  "items": [],
+                                  "predicate": null
+                                }
+                              },
+                              {
+                                "name": "reason",
+                                "value": {
+                                  "kind": "string",
+                                  "text": "URL produit absente dans les résultats de recherche",
+                                  "number": null,
+                                  "boolean": null,
+                                  "source": null,
+                                  "port": null,
+                                  "members": [],
+                                  "items": [],
+                                  "predicate": null
+                                }
+                              }
+                            ],
+                            "items": [],
+                            "predicate": null
+                          }
+                        }
+                      ],
+                      "condition": null,
+                      "body": null,
+                      "otherwise": null,
+                      "branches": [],
+                      "items": null,
+                      "parallel": false,
+                      "maxItems": 100,
+                      "maxConcurrency": 4,
+                      "group": null
+                    }
+                  ],
+                  "outputs": [
+                    {
+                      "name": "productObservation",
+                      "value": {
+                        "kind": "output",
+                        "text": null,
+                        "number": null,
+                        "boolean": null,
+                        "source": "missing_url_observation",
+                        "port": "productObservation",
+                        "members": [],
+                        "items": [],
+                        "predicate": null
+                      }
+                    }
+                  ],
+                  "always": []
+                },
+                "branches": [],
+                "items": null,
+                "parallel": false,
+                "maxItems": 100,
+                "maxConcurrency": 4,
+                "group": null
+              },
+              {
+                "id": "extract_product_details",
+                "objective": "Extraire les détails du produit courant depuis son observation: nom, description et prix; marquer explicitement CAPTCHA/blocage ou données absentes.",
+                "kind": "transform",
+                "mode": "extract",
+                "dependsOn": [
+                  "open_product_page"
+                ],
+                "operation": null,
+                "inputs": [
+                  {
+                    "name": "originalProduct",
+                    "value": {
+                      "kind": "item",
+                      "text": null,
+                      "number": null,
+                      "boolean": null,
+                      "source": null,
+                      "port": null,
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  },
+                  {
+                    "name": "productObservation",
+                    "value": {
+                      "kind": "output",
+                      "text": null,
+                      "number": null,
+                      "boolean": null,
+                      "source": "open_product_page",
+                      "port": "productObservation",
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  }
+                ],
+                "outputs": [],
+                "resultType": {
+                  "kind": "object",
+                  "nullable": false,
+                  "items": null,
+                  "fields": [
+                    {
+                      "name": "id",
+                      "type": {
+                        "kind": "string",
+                        "nullable": false,
+                        "items": null,
+                        "fields": []
+                      },
+                      "required": true,
+                      "default": null
+                    },
+                    {
+                      "name": "originalIndex",
+                      "type": {
+                        "kind": "integer",
+                        "nullable": false,
+                        "items": null,
+                        "fields": []
+                      },
+                      "required": true,
+                      "default": null
+                    },
+                    {
+                      "name": "productUrl",
+                      "type": {
+                        "kind": "string",
+                        "nullable": true,
+                        "items": null,
+                        "fields": []
+                      },
+                      "required": true,
+                      "default": null
+                    },
+                    {
+                      "name": "name",
+                      "type": {
+                        "kind": "string",
+                        "nullable": true,
+                        "items": null,
+                        "fields": []
+                      },
+                      "required": true,
+                      "default": null
+                    },
+                    {
+                      "name": "description",
+                      "type": {
+                        "kind": "string",
+                        "nullable": true,
+                        "items": null,
+                        "fields": []
+                      },
+                      "required": true,
+                      "default": null
+                    },
+                    {
+                      "name": "price",
+                      "type": {
+                        "kind": "string",
+                        "nullable": true,
+                        "items": null,
+                        "fields": []
+                      },
+                      "required": true,
+                      "default": null
+                    },
+                    {
+                      "name": "nameStatus",
+                      "type": {
+                        "kind": "string",
+                        "nullable": false,
+                        "items": null,
+                        "fields": []
+                      },
+                      "required": true,
+                      "default": null
+                    },
+                    {
+                      "name": "descriptionStatus",
+                      "type": {
+                        "kind": "string",
+                        "nullable": false,
+                        "items": null,
+                        "fields": []
+                      },
+                      "required": true,
+                      "default": null
+                    },
+                    {
+                      "name": "priceStatus",
+                      "type": {
+                        "kind": "string",
+                        "nullable": false,
+                        "items": null,
+                        "fields": []
+                      },
+                      "required": true,
+                      "default": null
+                    },
+                    {
+                      "name": "pageStatus",
+                      "type": {
+                        "kind": "string",
+                        "nullable": false,
+                        "items": null,
+                        "fields": []
+                      },
+                      "required": true,
+                      "default": null
+                    },
+                    {
+                      "name": "notes",
+                      "type": {
+                        "kind": "string",
+                        "nullable": true,
+                        "items": null,
+                        "fields": []
+                      },
+                      "required": true,
+                      "default": null
+                    }
+                  ]
+                },
+                "condition": null,
+                "body": null,
+                "otherwise": null,
+                "branches": [],
+                "items": null,
+                "parallel": false,
+                "maxItems": 100,
+                "maxConcurrency": 4,
+                "group": null
+              }
+            ],
+            "outputs": [
+              {
+                "name": "productRow",
+                "value": {
+                  "kind": "output",
+                  "text": null,
+                  "number": null,
+                  "boolean": null,
+                  "source": "extract_product_details",
+                  "port": null,
+                  "members": [],
+                  "items": [],
+                  "predicate": null
+                }
+              }
+            ],
+            "always": []
+          },
+          "otherwise": null,
+          "branches": [],
+          "items": {
+            "kind": "output",
+            "text": null,
+            "number": null,
+            "boolean": null,
+            "source": "extract_first_products",
+            "port": "products",
+            "members": [],
+            "items": [],
+            "predicate": null
+          },
+          "parallel": false,
+          "maxItems": 10,
+          "maxConcurrency": 1,
+          "group": null
+        },
+        {
+          "id": "prepare_excel_tsv",
+          "objective": "Préparer le contenu TSV du classeur Excel en conservant tous les produits extraits, leurs IDs et indices originaux, et en normalisant tabulations/retours ligne dans les cellules.",
+          "kind": "transform",
+          "mode": "interpret",
+          "dependsOn": [
+            "extract_first_products",
+            "visit_each_product"
+          ],
+          "operation": null,
+          "inputs": [
+            {
+              "name": "searchExtraction",
+              "value": {
+                "kind": "output",
+                "text": null,
+                "number": null,
+                "boolean": null,
+                "source": "extract_first_products",
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            },
+            {
+              "name": "visitedProducts",
+              "value": {
+                "kind": "output",
+                "text": null,
+                "number": null,
+                "boolean": null,
+                "source": "visit_each_product",
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            },
+            {
+              "name": "query",
+              "value": {
+                "kind": "input",
+                "text": null,
+                "number": null,
+                "boolean": null,
+                "source": "query",
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            }
+          ],
+          "outputs": [],
+          "resultType": {
+            "kind": "object",
+            "nullable": false,
+            "items": null,
+            "fields": [
+              {
+                "name": "tsv",
+                "type": {
+                  "kind": "string",
+                  "nullable": false,
+                  "items": null,
+                  "fields": []
+                },
+                "required": true,
+                "default": null
+              },
+              {
+                "name": "rowCount",
+                "type": {
+                  "kind": "integer",
+                  "nullable": false,
+                  "items": null,
+                  "fields": []
+                },
+                "required": true,
+                "default": null
+              },
+              {
+                "name": "completenessNote",
+                "type": {
+                  "kind": "string",
+                  "nullable": true,
+                  "items": null,
+                  "fields": []
+                },
+                "required": true,
+                "default": null
+              }
+            ]
+          },
+          "condition": null,
+          "body": null,
+          "otherwise": null,
+          "branches": [],
+          "items": null,
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4,
+          "group": null
+        },
+        {
+          "id": "write_products_xlsx",
+          "objective": "Créer le classeur Excel demandé avec les colonnes structurées et les valeurs absentes ou bloquées explicites.",
+          "kind": "operation",
+          "dependsOn": [
+            "prepare_excel_tsv"
+          ],
+          "operation": "cap_37c513d225bb1b870053c5d3",
+          "inputs": [
+            {
+              "name": "filePath",
+              "value": {
+                "kind": "string",
+                "text": "workflows/schema-portability-20261002/indexprojection20261008a-amazon-1/products.xlsx",
+                "number": null,
+                "boolean": null,
+                "source": null,
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            },
+            {
+              "name": "content",
+              "value": {
+                "kind": "output",
+                "text": null,
+                "number": null,
+                "boolean": null,
+                "source": "prepare_excel_tsv",
+                "port": "tsv",
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            },
+            {
+              "name": "append",
+              "value": {
+                "kind": "boolean",
+                "text": null,
+                "number": null,
+                "boolean": false,
+                "source": null,
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            },
+            {
+              "name": "encoding",
+              "value": {
+                "kind": "string",
+                "text": "utf-8",
+                "number": null,
+                "boolean": null,
+                "source": null,
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            }
+          ],
+          "outputs": [],
+          "condition": null,
+          "body": null,
+          "otherwise": null,
+          "branches": [],
+          "items": null,
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4,
+          "group": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "workbookPath",
+          "value": {
+            "kind": "output",
+            "text": null,
+            "number": null,
+            "boolean": null,
+            "source": "write_products_xlsx",
+            "port": "filePath",
+            "members": [],
+            "items": [],
+            "predicate": null
+          }
+        }
+      ],
+      "always": [
+        {
+          "id": "close_browser_always",
+          "objective": "Fermer le navigateur même en cas d’échec d’une étape précédente.",
+          "kind": "operation",
+          "dependsOn": [],
+          "operation": "cap_bdb7ba9ab04b18783883fa86",
+          "inputs": [],
+          "outputs": [],
+          "condition": null,
+          "body": null,
+          "otherwise": null,
+          "branches": [],
+          "items": null,
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4,
+          "group": null
+        }
+      ]
+    },
+    "groups": [],
+    "choices": []
+  }
+}

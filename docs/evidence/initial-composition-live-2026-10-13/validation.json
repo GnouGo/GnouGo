@@ -1,0 +1,27 @@
+{
+  "candidate": "bd83e46e61667ce846683cf01f34f3ea292c30ca",
+  "fresh_benchmark_build": {
+    "exit_code": 0,
+    "warnings": 0,
+    "errors": 0,
+    "log_sha256": "be9741431d1193a4b488ea2165f7ff741b939ac5f9cea70afd10d2a81e45f3de"
+  },
+  "candidate_previous_full_solution": {
+    "passed": 5502,
+    "failed": 0,
+    "skipped": 13
+  },
+  "candidate_ci": {
+    "successful": 29,
+    "conditional_skips": 4
+  },
+  "fresh_local_readiness": {
+    "browser_page": true,
+    "xlsx_independent_read": true,
+    "browser_cleanup": true,
+    "model_calls": 0
+  },
+  "production_changes_this_turn": false,
+  "live_execution_started": false,
+  "oracles_run": false
+}

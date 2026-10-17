@@ -1,0 +1,547 @@
+{
+  "campaign": "schema-portability-20261002",
+  "passed": 0,
+  "required": 6,
+  "complete": false,
+  "manifest": {
+    "production_sha": "3e8869676b6099dff6f445143f8368c16eaf709e",
+    "harness_sha": "3e8869676b6099dff6f445143f8368c16eaf709e",
+    "cohort": "final4",
+    "provider": "OpenAi",
+    "model": "gpt-5.5-2026-04-24",
+    "reasoning": "medium",
+    "host_configuration_hash": "7a7fec4a3c4569be8862a2a27f071dcc6a4d080f76f86d11d40a47e9cdf85486",
+    "max_input_tokens": 96000,
+    "max_output_tokens": 32768,
+    "planning_attempts": 8,
+    "repairs": 2,
+    "cost_ceiling_eur": 50,
+    "browser_keep_open": false,
+    "os": "macOS 26.5.2",
+    "architecture": "Arm64",
+    "framework": ".NET 10.0.8",
+    "amazon_prompt": "417bb3fcd521d097b40775505acc75ede0896e8d83e06da2f5d04077c7812a50",
+    "code_prompt": "bdb354f8cd88a2a6cf06d0bce25d077a0c1eefc195a57d3c0ff60fcf46d5286c",
+    "harness_tree": "e63d34c72209061a895c48aceae310521a6fb566",
+    "scenario_count": 2,
+    "repetitions": 3,
+    "oracle_version": "real-workflows-v1"
+  },
+  "runs": [
+    {
+      "status": "stopped",
+      "planning_ms": 78284,
+      "calls": 4,
+      "repairs": 2,
+      "discovery_reads": 2,
+      "diagnostics": [
+        {
+          "code": "OUTCOME_BINDINGS_INVALID",
+          "location": "/outcomeBindings/query_input",
+          "message": "Supply distinct supporting task identities and reported outputs.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "OUTCOME_PLACEMENT_INVALID",
+          "location": "/outcomeBindings/search_amazon_fr",
+          "message": "No supporting operation executes in the accepted normal/always placement.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "OUTCOME_PATH_INCOMPLETE",
+          "location": "/outcomeBindings/search_amazon_fr",
+          "message": "At least one matching operation must execute on every accepted path, including empty-collection paths.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "OUTCOME_OPERATION_REQUIRED",
+          "location": "/outcomeBindings/list_first_products",
+          "message": "The supporting computation has no resolved read operation. Outputs, values and transforms cannot establish external work.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "OUTCOME_PLACEMENT_INVALID",
+          "location": "/outcomeBindings/visit_product_pages",
+          "message": "No supporting operation executes in the accepted normal/always placement.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "OUTCOME_PATH_INCOMPLETE",
+          "location": "/outcomeBindings/visit_product_pages",
+          "message": "Every item requires an operation on every body path; the collection scope cannot be silently skipped.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "OUTCOME_PLACEMENT_INVALID",
+          "location": "/outcomeBindings/extract_product_fields",
+          "message": "No supporting operation executes in the accepted normal/always placement.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "OUTCOME_PATH_INCOMPLETE",
+          "location": "/outcomeBindings/extract_product_fields",
+          "message": "Every item requires an operation on every body path; the collection scope cannot be silently skipped.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "OUTCOME_PLACEMENT_INVALID",
+          "location": "/outcomeBindings/save_excel",
+          "message": "No supporting operation executes in the accepted normal/always placement.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "OUTCOME_PATH_INCOMPLETE",
+          "location": "/outcomeBindings/save_excel",
+          "message": "At least one matching operation must execute on every accepted path, including empty-collection paths.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "OUTCOME_PLACEMENT_INVALID",
+          "location": "/outcomeBindings/list_first_products",
+          "message": "No supporting operation executes in the accepted normal/always placement.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "OUTCOME_PATH_INCOMPLETE",
+          "location": "/outcomeBindings/list_first_products",
+          "message": "At least one matching operation must execute on every accepted path, including empty-collection paths.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        }
+      ],
+      "execution_success": false,
+      "execution_oracle": false,
+      "execution_status": "not_started",
+      "accounting": {
+        "planning": {
+          "logical_calls": 4,
+          "physical_attempts": 4,
+          "known_input_tokens": 26208,
+          "known_output_tokens": 5621,
+          "known_cost_eur": 0.26524163568773235,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "execution": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "campaign": {
+          "calls": 102,
+          "session_calls": 0,
+          "known_input_tokens": 1111677,
+          "known_output_tokens": 173498,
+          "known_cost_eur": 9.526752522570366,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0,
+          "cost_upper_bound_eur": 9.526752522570366,
+          "unknown_attempts": 0
+        }
+      },
+      "run": "final4-amazon-1"
+    },
+    {
+      "status": "stopped",
+      "planning_ms": 185188,
+      "calls": 4,
+      "repairs": 2,
+      "discovery_reads": 2,
+      "diagnostics": [
+        {
+          "code": "OUTCOME_PLACEMENT_INVALID",
+          "location": "/outcomeBindings/search_amazon_fr",
+          "message": "No supporting operation executes in the accepted normal/always placement.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "OUTCOME_PATH_INCOMPLETE",
+          "location": "/outcomeBindings/search_amazon_fr",
+          "message": "At least one matching operation must execute on every accepted path, including empty-collection paths.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "OUTCOME_PLACEMENT_INVALID",
+          "location": "/outcomeBindings/extract_each_product",
+          "message": "No supporting operation executes in the accepted normal/always placement.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "OUTCOME_PATH_INCOMPLETE",
+          "location": "/outcomeBindings/extract_each_product",
+          "message": "Every item requires an operation on every body path; the collection scope cannot be silently skipped.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "OUTCOME_PLACEMENT_INVALID",
+          "location": "/outcomeBindings/save_excel_workbook",
+          "message": "No supporting operation executes in the accepted normal/always placement.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "OUTCOME_PATH_INCOMPLETE",
+          "location": "/outcomeBindings/save_excel_workbook",
+          "message": "At least one matching operation must execute on every accepted path, including empty-collection paths.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        }
+      ],
+      "execution_success": false,
+      "execution_oracle": false,
+      "execution_status": "not_started",
+      "accounting": {
+        "planning": {
+          "logical_calls": 4,
+          "physical_attempts": 4,
+          "known_input_tokens": 26497,
+          "known_output_tokens": 8731,
+          "known_cost_eur": 0.34910161090458486,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "execution": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "campaign": {
+          "calls": 102,
+          "session_calls": 0,
+          "known_input_tokens": 1111677,
+          "known_output_tokens": 173498,
+          "known_cost_eur": 9.526752522570366,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0,
+          "cost_upper_bound_eur": 9.526752522570366,
+          "unknown_attempts": 0
+        }
+      },
+      "run": "final4-amazon-2"
+    },
+    {
+      "status": "stopped",
+      "planning_ms": 115245,
+      "calls": 5,
+      "repairs": 2,
+      "discovery_reads": 2,
+      "diagnostics": [
+        {
+          "code": "TASK_REFERENCE_UNKNOWN",
+          "location": "/tasks/extract_each_product/items",
+          "message": "Business reference 'parse_search_results' is unavailable in this scope.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "TASK_EXPORT_REQUIRED",
+          "location": "/tasks/search_flow/body/outputs",
+          "message": "Declare the business outputs needed by consumers outside this scope; exports are never implicit.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "TASK_EXPORT_REQUIRED",
+          "location": "/tasks/search_flow/otherwise/outputs",
+          "message": "Declare the business outputs needed by consumers outside this scope; exports are never implicit.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "REVISION_SCOPE_CHANGED",
+          "location": "/tasks/extract_each_product/items/source",
+          "message": "This slot is outside the permitted repair. Preserve unaffected tasks, business interfaces, choices and ordering.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "REVISION_SCOPE_CHANGED",
+          "location": "/tasks/search_flow/body/outputs",
+          "message": "This slot is outside the permitted repair. Preserve unaffected tasks, business interfaces, choices and ordering.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "REVISION_SCOPE_CHANGED",
+          "location": "/tasks/search_flow/otherwise/outputs",
+          "message": "This slot is outside the permitted repair. Preserve unaffected tasks, business interfaces, choices and ordering.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        }
+      ],
+      "execution_success": false,
+      "execution_oracle": false,
+      "execution_status": "not_started",
+      "accounting": {
+        "planning": {
+          "logical_calls": 5,
+          "physical_attempts": 5,
+          "known_input_tokens": 37450,
+          "known_output_tokens": 9836,
+          "known_cost_eur": 0.4269162683660825,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "execution": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "campaign": {
+          "calls": 102,
+          "session_calls": 0,
+          "known_input_tokens": 1111677,
+          "known_output_tokens": 173498,
+          "known_cost_eur": 9.526752522570366,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0,
+          "cost_upper_bound_eur": 9.526752522570366,
+          "unknown_attempts": 0
+        }
+      },
+      "run": "final4-amazon-3"
+    },
+    {
+      "status": "final_review",
+      "planning_ms": 115050,
+      "calls": 3,
+      "repairs": 0,
+      "discovery_reads": 3,
+      "diagnostics": [],
+      "execution_success": false,
+      "execution_oracle": false,
+      "execution_status": "completed",
+      "accounting": {
+        "planning": {
+          "logical_calls": 3,
+          "physical_attempts": 3,
+          "known_input_tokens": 40345,
+          "known_output_tokens": 8957,
+          "known_cost_eur": 0.4163878562577447,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "execution": {
+          "logical_calls": 3,
+          "physical_attempts": 3,
+          "known_input_tokens": 27139,
+          "known_output_tokens": 1207,
+          "known_cost_eur": 0.152155248716587,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "campaign": {
+          "calls": 102,
+          "session_calls": 0,
+          "known_input_tokens": 1111677,
+          "known_output_tokens": 173498,
+          "known_cost_eur": 9.526752522570366,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0,
+          "cost_upper_bound_eur": 9.526752522570366,
+          "unknown_attempts": 0
+        }
+      },
+      "execution_ms": 405424,
+      "total_ms": 520474,
+      "run": "final4-code-1"
+    },
+    {
+      "status": "stopped",
+      "planning_ms": 115399,
+      "calls": 5,
+      "repairs": 2,
+      "discovery_reads": 3,
+      "diagnostics": [
+        {
+          "code": "OUTCOME_OPERATION_REQUIRED",
+          "location": "/outcomeBindings/cleanup_clone_always",
+          "message": "The supporting computation has no resolved write operation. Outputs, values and transforms cannot establish external work.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        }
+      ],
+      "execution_success": false,
+      "execution_oracle": false,
+      "execution_status": "not_started",
+      "accounting": {
+        "planning": {
+          "logical_calls": 5,
+          "physical_attempts": 5,
+          "known_input_tokens": 52633,
+          "known_output_tokens": 8386,
+          "known_cost_eur": 0.4556071871127633,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "execution": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "campaign": {
+          "calls": 102,
+          "session_calls": 0,
+          "known_input_tokens": 1111677,
+          "known_output_tokens": 173498,
+          "known_cost_eur": 9.526752522570366,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0,
+          "cost_upper_bound_eur": 9.526752522570366,
+          "unknown_attempts": 0
+        }
+      },
+      "run": "final4-code-2"
+    },
+    {
+      "status": "stopped",
+      "planning_ms": 155604,
+      "calls": 5,
+      "repairs": 2,
+      "discovery_reads": 3,
+      "diagnostics": [
+        {
+          "code": "OUTCOME_OPERATION_REQUIRED",
+          "location": "/outcomeBindings/clone_directory_cleaned",
+          "message": "The supporting computation has no resolved lifecycle operation. Outputs, values and transforms cannot establish external work.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        }
+      ],
+      "execution_success": false,
+      "execution_oracle": false,
+      "execution_status": "not_started",
+      "accounting": {
+        "planning": {
+          "logical_calls": 5,
+          "physical_attempts": 5,
+          "known_input_tokens": 48272,
+          "known_output_tokens": 10346,
+          "known_cost_eur": 0.48835192069392813,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "execution": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "campaign": {
+          "calls": 102,
+          "session_calls": 0,
+          "known_input_tokens": 1111677,
+          "known_output_tokens": 173498,
+          "known_cost_eur": 9.526752522570366,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0,
+          "cost_upper_bound_eur": 9.526752522570366,
+          "unknown_attempts": 0
+        }
+      },
+      "run": "final4-code-3"
+    }
+  ],
+  "accounting": {
+    "calls": 102,
+    "session_calls": 0,
+    "known_input_tokens": 1111677,
+    "known_output_tokens": 173498,
+    "known_cost_eur": 9.526752522570366,
+    "reserved_input_tokens": 0,
+    "reserved_output_tokens": 0,
+    "reserved_cost_eur": 0,
+    "cost_upper_bound_eur": 9.526752522570366,
+    "unknown_attempts": 0
+  }
+}

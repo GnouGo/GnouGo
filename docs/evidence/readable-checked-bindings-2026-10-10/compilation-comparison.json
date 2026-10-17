@@ -1,0 +1,26 @@
+[
+  {
+    "profile": "compact-bindings-v7",
+    "yaml_sha256": "82838029c5de182c9526d534f48e1cd31d32461b496cee31958b52995e17e332",
+    "yaml_bytes": 111448,
+    "max_line_characters": 9343,
+    "steps": 62,
+    "sets": 32,
+    "workflows": 5,
+    "checked_mapping_occurrences": 63,
+    "selection_helpers": 13,
+    "max_checked_program_nesting": 2
+  },
+  {
+    "profile": "compact-bindings-v8",
+    "yaml_sha256": "2a7460e73e8dfdd72c98053c8c1bbbadaf0145d1665451d8fc974bd159961568",
+    "yaml_bytes": 157581,
+    "max_line_characters": 268,
+    "steps": 62,
+    "sets": 32,
+    "workflows": 5,
+    "checked_mapping_occurrences": 0,
+    "selection_helpers": 6,
+    "max_checked_program_nesting": 0
+  }
+]

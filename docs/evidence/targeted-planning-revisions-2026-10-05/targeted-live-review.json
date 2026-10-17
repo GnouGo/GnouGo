@@ -1,0 +1,24 @@
+{
+  "run": "targetedlive20261005a-amazon-1",
+  "before_revision": 8,
+  "after_revision": 10,
+  "artifact_hash": "6a473e95d4e9e26f2e4b017499ac83b86cfcb91b3af0701309c93b41047bd59b",
+  "editable_paths": [
+    "/tasks/validate_initial_manifest/outputs/initialManifestComplete",
+    "/tasks/validate_search_manifest/outputs/searchManifestComplete",
+    "/tasks/validate_product_manifest/outputs/productManifestComplete",
+    "/tasks/validate_initial_page/outputs/pageStatus",
+    "/tasks/validate_search_page/outputs/pageStatus",
+    "/tasks/validate_product_page/outputs/pageStatus",
+    "/tasks/build_workbook_tsv/requires",
+    "/tasks/write_products_xlsx/requires"
+  ],
+  "unchanged_outside_scope": true,
+  "requirements_unchanged": true,
+  "writer_preserved": "cap_37c513d225bb1b870053c5d3",
+  "cleanup_preserved": "cap_bdb7ba9ab04b18783883fa86",
+  "manifest_guard_truth_table_cases": 48,
+  "review_status": "awaiting_explicit_user_approval",
+  "execution_started": false,
+  "yaml_sha256": "3d247c4d5ec6fc9742a423a72ad5ca3c1ffc1700f8e8edfeec817eedd018268c"
+}

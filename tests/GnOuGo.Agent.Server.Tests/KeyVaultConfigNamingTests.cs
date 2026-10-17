@@ -2,8 +2,11 @@ using GnOuGo.Agent.Server.SmartFlow;
 
 namespace GnOuGo.Agent.Server.Tests;
 
-public sealed class KeyVaultConfigNamingTests
+public sealed class KeyVaultConfigNamingTests : IDisposable
 {
+    private readonly TelemetryHarness _telemetry = SmartFlowTestFactory.CreateTelemetryHarness();
+    public void Dispose() => _telemetry.Dispose();
+
     [Fact]
     public void ResolveExistingSecretKey_PrefersOneCanonicalKeyAndIgnoresLegacyAliasForEveryKind()
     {
@@ -104,7 +107,7 @@ public sealed class KeyVaultConfigNamingTests
                 .AddSecret(legacyAlias, "stale-legacy");
             var service = SmartFlowTestFactory.CreateProvidersService(
                 new RecordingLlmClient(),
-                keyVaultStore: store);
+                keyVaultStore: store, telemetry: _telemetry.Telemetry);
 
             var savedKey = await service.SaveConfigSecretAsync(
                 kind,
@@ -129,7 +132,7 @@ public sealed class KeyVaultConfigNamingTests
             var store = new FakeKeyVaultRuntimeConfigStore().AddSecret(existing, "previous");
             var service = SmartFlowTestFactory.CreateProvidersService(
                 new RecordingLlmClient(),
-                keyVaultStore: store);
+                keyVaultStore: store, telemetry: _telemetry.Telemetry);
 
             var savedKey = await service.SaveConfigSecretAsync(
                 kind,
@@ -159,7 +162,7 @@ public sealed class KeyVaultConfigNamingTests
                 .AddSecret(legacyAlias, "legacy-alias");
             var service = SmartFlowTestFactory.CreateProvidersService(
                 new RecordingLlmClient(),
-                keyVaultStore: store);
+                keyVaultStore: store, telemetry: _telemetry.Telemetry);
 
             var deleted = await service.DeleteConfigSecretsAsync(
                 kind,

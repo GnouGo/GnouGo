@@ -1,0 +1,90 @@
+{
+  "before-v11": {
+    "steps": 61,
+    "sets": 27,
+    "checks": 113,
+    "javascript_bytes": 15652,
+    "declarations": 113,
+    "yaml_bytes": 261126,
+    "max_line_length": 290,
+    "select_calls": 7,
+    "lookup_calls": 8
+  },
+  "after-v12": {
+    "steps": 61,
+    "sets": 27,
+    "checks": 113,
+    "javascript_bytes": 12965,
+    "declarations": 96,
+    "yaml_bytes": 240061,
+    "max_line_length": 290,
+    "select_calls": 7,
+    "lookup_calls": 8
+  },
+  "multiple-inputs-v11": {
+    "steps": 1,
+    "sets": 0,
+    "checks": 4,
+    "javascript_bytes": 387,
+    "declarations": 4,
+    "yaml_bytes": 2434,
+    "max_line_length": 53,
+    "select_calls": 0,
+    "lookup_calls": 0
+  },
+  "multiple-inputs-v12": {
+    "steps": 1,
+    "sets": 0,
+    "checks": 4,
+    "javascript_bytes": 268,
+    "declarations": 2,
+    "yaml_bytes": 1901,
+    "max_line_length": 59,
+    "select_calls": 0,
+    "lookup_calls": 0
+  },
+  "checked-outputs-v11": {
+    "steps": 0,
+    "sets": 0,
+    "checks": 0,
+    "javascript_bytes": 434,
+    "declarations": 0,
+    "yaml_bytes": 2270,
+    "max_line_length": 79,
+    "select_calls": 2,
+    "lookup_calls": 2
+  },
+  "checked-outputs-v12": {
+    "steps": 0,
+    "sets": 0,
+    "checks": 0,
+    "javascript_bytes": 200,
+    "declarations": 0,
+    "yaml_bytes": 2018,
+    "max_line_length": 105,
+    "select_calls": 0,
+    "lookup_calls": 2
+  },
+  "retained-export-v11": {
+    "steps": 2,
+    "sets": 2,
+    "checks": 4,
+    "javascript_bytes": 339,
+    "declarations": 4,
+    "yaml_bytes": 2756,
+    "max_line_length": 73,
+    "select_calls": 0,
+    "lookup_calls": 0
+  },
+  "retained-export-v12": {
+    "steps": 2,
+    "sets": 2,
+    "checks": 4,
+    "javascript_bytes": 259,
+    "declarations": 2,
+    "yaml_bytes": 2278,
+    "max_line_length": 73,
+    "select_calls": 0,
+    "lookup_calls": 0
+  }
+}

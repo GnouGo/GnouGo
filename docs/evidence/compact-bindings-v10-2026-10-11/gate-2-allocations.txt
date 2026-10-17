@@ -1,0 +1,23 @@
+Série de tests pour /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Flow.Planning.Tests/bin/Debug/net10.0/GnOuGo.Flow.Planning.Tests.dll (.NETCoreApp,Version=v10.0)
+Au total, 1 fichiers de test ont correspondu au modèle spécifié.
+/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Flow.Planning.Tests/bin/Debug/net10.0/GnOuGo.Flow.Planning.Tests.dll
+[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v4.0.0+05679a7ab5 (64-bit .NET 10.0.8)
+[xUnit.net 00:00:00.21]   Discovering: GnOuGo.Flow.Planning.Tests
+[xUnit.net 00:00:00.52]   Discovered:  GnOuGo.Flow.Planning.Tests
+[xUnit.net 00:00:00.63]   Starting:    GnOuGo.Flow.Planning.Tests
+[xUnit.net 00:00:02.69]   Finished:    GnOuGo.Flow.Planning.Tests (ID = 'c66a0949152f91115fe382ea0022846c528179218259b3832b2877c7b8d17925')
+  Réussi GnOuGo.Flow.Planning.Tests.CompactProjectionCompilationTests.DeclaredProjectionPortsAvoidUnobservedCallEnvelopes(parallel: False, count: 1602, single: True) [1 s]
+  Messages de sortie standard :
+ projection items=1602; single=True; YAML=9122→8108; allocations=218509184→156667432; invocations=1→1; logicalJournal=5076235→5075139
+
+
+  Réussi GnOuGo.Flow.Planning.Tests.CompactProjectionCompilationTests.DeclaredProjectionPortsAvoidUnobservedCallEnvelopes(parallel: False, count: 1602, single: False) [948 ms]
+  Messages de sortie standard :
+ projection items=1602; single=False; YAML=10621→9885; allocations=188604720→173237600; invocations=1→1; logicalJournal=5105655→5104864
+
+
+
+Série de tests réussie.
+Nombre total de tests : 2
+     Réussi(s) : 2
+ Durée totale : 4,0744 Secondes

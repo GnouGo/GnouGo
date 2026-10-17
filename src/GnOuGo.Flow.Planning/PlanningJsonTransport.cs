@@ -45,7 +45,7 @@ internal static class PlanningJsonTransport
                 {
                     "null" or "item" or "index" => [], "string" => ["text"], "number" => ["number"], "boolean" => ["boolean"],
                     "object" => ["members"], "array" or "json" => ["items"], "input" or "choice" or "present" => ["source"],
-                    "output" => ["source", "port"], "field" => ["items", "port"], "predicate" => ["predicate", "items"], _ => null
+                    "output" => ["source", "port"], "field" => ["items", "port"], "predicate" => ["predicate", "items"], "arithmetic" => ["text", "items"], _ => null
                 };
                 if (fields is not null) fields = ["kind", ..fields];
                 defaults = JsonSerializer.SerializeToNode(new TaskValue(), PlanningJsonContext.Default.TaskValue)!.AsObject();
@@ -56,6 +56,14 @@ internal static class PlanningJsonTransport
                     "string" => ["kind", "nullable", "enum"], "number" or "integer" or "boolean" or "any" => ["kind", "nullable"], _ => null };
                 defaults = JsonSerializer.SerializeToNode(new TaskType(), PlanningJsonContext.Default.TaskType)!.AsObject();
                 if (JsonNode.DeepEquals(obj["nullable"], defaults["nullable"])) obj.Remove("nullable");
+                // The fresh strict array wire shape uses null for an absent
+                // bound. Stored DTOs continue omitting absent properties.
+                if (kind == "array" && (obj.ContainsKey("minItems") || obj.ContainsKey("maxItems")))
+                { obj.TryAdd("minItems", null); obj.TryAdd("maxItems", null); }
+            }
+            else if (obj.ContainsKey("id") && obj.ContainsKey("description") && obj["execution"] is not null)
+            {
+                foreach (var key in new[] { "execution", "always", "conditional", "coverage", "operation" }) obj.Remove(key);
             }
             else if (obj.ContainsKey("name") && obj["type"] is JsonObject)
             {
@@ -90,7 +98,7 @@ internal static class PlanningJsonTransport
         JsonArray array => new() { Kind = "array", Items = array.Select(Literal).ToList() },
         JsonValue value when value.TryGetValue<string>(out var text) => new() { Kind = "string", Text = text },
         JsonValue value when value.TryGetValue<bool>(out var boolean) => new() { Kind = "boolean", Boolean = boolean },
-        JsonValue value => new() { Kind = "number", Number = decimal.Parse(value.ToJsonString(), NumberStyles.Float, CultureInfo.InvariantCulture) },
+        JsonValue value => new() { Kind = "number", Number = double.Parse(value.ToJsonString(), NumberStyles.Float, CultureInfo.InvariantCulture) },
         _ => throw new InvalidOperationException("Unsupported literal.")
     };
 

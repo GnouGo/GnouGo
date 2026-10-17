@@ -4,6 +4,16 @@ GnOuGo-owned MCP servers use stable `ModelContextProtocol` `2.2.0` and leave pro
 
 Shared helpers for GnOuGo MCP servers.
 
+## Effect metadata contract
+
+Tools may declare `_meta.gnougo.effect` as `{ "version": 1, "kind": "read" }`.
+Supported kinds are `none`, `read`, `write`, `execute` and `lifecycle`.
+`McpEffectMetadata.Resolve` rejects malformed declarations and mutating effects
+contradicting a true read-only hint. Absent metadata retains the read-only hint
+fallback, otherwise `unknown`. Effects grant no permissions.
+Registrations use `McpMeta("gnougo", JsonValue = McpEffectMetadata.Read)`;
+combine fields in that object when also declaring artifacts/composition.
+
 ## Artifact metadata contract
 
 MCP tools can describe reusable, externally materialized artifacts through

@@ -15,7 +15,7 @@ namespace GnOuGo.Agent.Server.SmartFlow;
 /// Interactively configures LLM providers and MCP servers using direct,
 /// trusted KeyVault access from the server process.
 /// </summary>
-public sealed class ConfigureProvidersService
+public sealed partial class ConfigureProvidersService
 {
     private readonly ILLMClient _llm;
     private readonly AgentHumanInputProvider _humanInput;
@@ -1720,6 +1720,14 @@ public sealed class ConfigureProvidersService
             });
         }
 
+        if (serverName == CopilotServerName)
+            fields.Add(new HumanInputFieldDef
+            {
+                Name = "agent_permissions", Type = "select", Required = true,
+                Description = "Persistent Copilot permission approval for a selected agent.",
+                Default = "Keep current", Options = ["Keep current", "Configure agent permissions"]
+            });
+
         JsonNode? response = null;
         var requestContext = configuredLlmProviders.Count > 0
             || serverSettings.EditableFields.Values.Any(field =>
@@ -1737,6 +1745,8 @@ public sealed class ConfigureProvidersService
 
         var inheritedFields = ReadMultiSelectResponse(response, "inherit_fields");
         var values = ReadFieldResponse(response, request.Fields!);
+        var manageAgentPermissions = serverName == CopilotServerName
+            && values.GetValueOrDefault("agent_permissions") == "Configure agent permissions";
         var normalizedValues = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var validationErrors = new List<string>();
         foreach (var fieldEntry in serverSettings.EditableFields)
@@ -1822,19 +1832,22 @@ public sealed class ConfigureProvidersService
         if (savedFields.Count == 0 && inheritedFieldNames.Count == 0)
         {
             yield return new SmartFlowEvent("answer", $"ℹ️ MCP server '{serverName}' unchanged.");
-            yield break;
         }
-
-        var effective = await _keyVaultStore.BuildEffectiveOptionsAsync(_optionsStore.Current, ct);
-        _optionsStore.ReplaceRuntimeOptions(effective);
-        var changes = new List<string>();
-        if (savedFields.Count > 0)
-            changes.Add($"overridden: {string.Join(", ", savedFields)}");
-        if (inheritedFieldNames.Count > 0)
-            changes.Add($"inherited: {string.Join(", ", inheritedFieldNames)}");
-        yield return new SmartFlowEvent(
-            "answer",
-            $"✅ MCP server '{serverName}' updated ({string.Join("; ", changes)}). Changes apply to the next workflow/MCP process; already-running sessions are unchanged.");
+        else
+        {
+            var effective = await _keyVaultStore.BuildEffectiveOptionsAsync(_optionsStore.Current, ct);
+            _optionsStore.ReplaceRuntimeOptions(effective);
+            var changes = new List<string>();
+            if (savedFields.Count > 0)
+                changes.Add($"overridden: {string.Join(", ", savedFields)}");
+            if (inheritedFieldNames.Count > 0)
+                changes.Add($"inherited: {string.Join(", ", inheritedFieldNames)}");
+            yield return new SmartFlowEvent("answer",
+                $"✅ MCP server '{serverName}' updated ({string.Join("; ", changes)}). Changes apply to the next workflow/MCP process; already-running sessions are unchanged.");
+        }
+        if (manageAgentPermissions)
+            await foreach (var evt in EditCopilotAgentPermissionsAsync(runId, ct))
+                yield return evt;
     }
 
     private async IAsyncEnumerable<SmartFlowEvent> ExecuteInteractiveMcpRemoveAsync(
@@ -3348,16 +3361,8 @@ public sealed class ConfigureProvidersService
 
     private async Task<string> RenderCopilotPermissionGrantsAsync(CancellationToken ct)
     {
-        if (_mcpFactory is null)
-            return "❌ Copilot permission management is unavailable in this host.";
-
-        await using var session = await _mcpFactory.GetClientAsync("GnOuGo.GithubCopilot.Mcp", ct);
-        var call = await session.CallToolAsync(
-            "copilot_permission_grants_list",
-            new JsonObject { ["tenantId"] = _tenantId },
-            ct);
-        if (call.IsError || call.Content is not JsonObject response)
-            return "❌ Could not list persistent Copilot permission grants.";
+        var response = await CallConfigurationToolAsync(CopilotServerName, "copilot_permission_grants_list",
+            null, Guid.NewGuid().ToString("N"), ct);
         if (response["success"]?.GetValue<bool>() != true)
             return $"❌ {response["errorMessage"]?.GetValue<string>() ?? response["error_message"]?.GetValue<string>() ?? "Could not list persistent Copilot permission grants."}";
 
@@ -3387,16 +3392,10 @@ public sealed class ConfigureProvidersService
     {
         if (string.IsNullOrWhiteSpace(grantId))
             return "❌ Specify a grant ID: `/mcp copilot permissions revoke <grant-id>`.";
-        if (_mcpFactory is null)
-            return "❌ Copilot permission management is unavailable in this host.";
-
-        await using var session = await _mcpFactory.GetClientAsync("GnOuGo.GithubCopilot.Mcp", ct);
-        var call = await session.CallToolAsync(
-            "copilot_permission_grant_revoke",
-            new JsonObject { ["grantId"] = grantId, ["tenantId"] = _tenantId },
-            ct);
-        if (call.IsError || call.Content is not JsonObject response || response["success"]?.GetValue<bool>() != true)
-            return $"❌ {((call.Content as JsonObject)?["errorMessage"]?.GetValue<string>() ?? "The Copilot permission grant could not be revoked.")}";
+        var response = await CallConfigurationToolAsync(CopilotServerName, "copilot_permission_grant_revoke",
+            new() { ["grantId"] = grantId }, Guid.NewGuid().ToString("N"), ct);
+        if (response["success"]?.GetValue<bool>() != true)
+            return "❌ The Copilot permission grant could not be revoked.";
         return $"✅ Persistent Copilot permission grant `{EscapeBackticks(grantId)}` revoked.";
     }
 

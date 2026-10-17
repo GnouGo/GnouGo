@@ -1,0 +1,9 @@
+{
+  "protected_records_unchanged": 13,
+  "accounting_unchanged": true,
+  "request_and_receipt_counts_unchanged": true,
+  "unclosed_requests": [],
+  "cost_upper_bound_eur": "137.52423908271879166629417691",
+  "ceiling_eur": 200,
+  "no_historical_dispatch": true
+}

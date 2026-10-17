@@ -1,0 +1,50 @@
+[
+  {
+    "scenario": "amazon",
+    "run": "contractsreview20261004e-amazon-1",
+    "final_status": "stopped",
+    "revision": 10,
+    "requirements_sha256": "f3ff17089be83805f986d7e7587c52b5d0c39f4cd01116b8331a8dcc50c88460",
+    "requirements_unchanged_through_every_revision": true,
+    "reviewed_artifacts": [
+      {
+        "revision": 4,
+        "artifact_hash": "d1078704a966a1218ad787e8c51d02e6f27af4ce8946b0f662a469c7d705c1b2",
+        "feedback": "Preserve all accepted requirements, public interfaces, paths and budgets. The current artifact cannot be approved: openAmazonSearch/readSearchResults/readProductPage request at most 200 observation records but never consume nextCursor or handle truncated/captureTruncated before navigation and extraction. Partial observations cannot establish missing data, an empty search or completed coverage. Add bounded continuation of the same snapshot, or contract-supported narrower reads when capture itself is truncated, then enforce completeness before downstream navigation/extraction/workbook publication. If the bound is exhausted, fail explicitly as incomplete without publishing a successful workbook or inventing observations. Preserve observed conditional cookie acceptance and fresh observation afterward, real per-item visits for at most three products, source-backed extraction and unconditional browser cleanup. Use the inspected contracts and existing TaskPlan structures. Do not add caller inputs, technical proof annotations, scripts, new operations or permissions. This is implementation feedback, not revised business intent.",
+        "preserve_requirements": true
+      },
+      {
+        "revision": 7,
+        "artifact_hash": "e2146244ea918b9997f2a8d61e864ee5704c2f7eecfb259cdfc0304308195fb0",
+        "feedback": "The revised plan adds useful continuation calls, but still cannot be approved. analyzeCompleteSearchResults says to forbid navigation when incomplete, yet visitProducts has no executable completeness condition. buildWorkbookContent says to fail, yet writeWorkbook remains unconditional after a strict structured transform that must return workbookTsv. Prose in objectives is not an executable stop. Use the actual authoritative completion flags/cursors for control flow and enforce failure on exhausted or unresolved observations before product navigation and publication, preserving all accepted interfaces and cleanup. Do not reinterpret missing/partial observations as an empty result, successful extraction or a fabricated workbook. Keep the existing bounds and use only discovered operations and existing TaskPlan constructs. If current contracts cannot express this safely, report that exact capability limitation instead of claiming the behavior is implemented. Preserve accepted requirements; this is implementation feedback only.",
+        "preserve_requirements": true
+      }
+    ],
+    "approvals_submitted": 0,
+    "execution_started": false
+  },
+  {
+    "scenario": "code",
+    "run": "contractsreview20261004e-code-1",
+    "final_status": "stopped",
+    "revision": 11,
+    "requirements_sha256": "667413c41386d5816083829ee151da5c89c6e9dd8ddebec5f034d10537ddc22b",
+    "requirements_unchanged_through_every_revision": true,
+    "reviewed_artifacts": [
+      {
+        "revision": 4,
+        "artifact_hash": null,
+        "feedback": "Correct implementation without changing accepted requirements, inputs, outputs, paths, authority or cumulative budgets. The declared reviewJsonWrite output contains exactly success and filePath, but the plan returns the entire write-operation envelope; explicitly select those two authoritative fields from the completed write result instead. Do not manufacture success or a written path. More importantly, write_review_json only runs after every normal step succeeds, so a verified terminal command/review failure skips it and cleanup deletes the available evidence. Preserve truthful available report/evidence on verified failure through existing always/sequence scopes, with cleanup in the preservation sequence's nested always so cleanup is attempted even if preservation itself fails. Do not depend unconditionally on failed normal results; guard availability and use approved independently persisted observations where necessary. Unknown completion must continue to block cleanup. Keep the actual pullRequestUrl/reviewText bindings, single pinned clone, declared toolchain/version/install/check work through command-capable discovered operations, local-only review, command exit evidence and host restrictions. Do not pre-delete an unrelated path or invent missing checks/evidence. Return a corrected TaskPlan, not technical proof annotations or scripts.",
+        "preserve_requirements": true
+      },
+      {
+        "revision": 8,
+        "artifact_hash": "25e6a3ea293935cd254f7d7d472ee219cc93814183c296d9405e392a0d05e132",
+        "feedback": "The revised artifact is still not approvable. Preserve accepted intent, public interfaces, fixed paths and all budgets. build_review_json reads clone/checks/compare/runtime_context outputs unconditionally in always; labels such as checksPresent bound to a completed field do not guard an absent result. Use the existing TaskPlan present value (kind: present, source: task ID) and real conditional branches before reading optional normal results. Export the actual local_copilot_review result across its conditional scope and pass it to the final report when available; reviewPresent=false and reviewResult=null must not discard a review that really ran. The cleanup_only_when_safe predicate also reads possibly absent failed task outputs and may skip mandatory cleanup after verified failure. Keep cleanup in the preservation sequence's nested always, using the approved fixed creation path; the existing runtime already blocks finalization on genuinely unknown external completion. Do not recreate completion/reconciliation policy in model-authored flags. Preserve report generation on verified failure from truthful available evidence, actual input bindings, checks and local-only review. No fabricated evidence, new operations, scripts, permission changes or requirement changes.",
+        "preserve_requirements": true
+      }
+    ],
+    "approvals_submitted": 0,
+    "execution_started": false
+  }
+]

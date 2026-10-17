@@ -1,0 +1,23 @@
+{
+  "recorded_utc": "2026-10-15T10:17:06.134642+00:00",
+  "run": "initialrequirements20261015a-amazon-1",
+  "revision": 5,
+  "status": "stopped",
+  "planning_succeeded": false,
+  "reviewable_artifact": false,
+  "compiled_yaml": false,
+  "execution_started": false,
+  "amazon_visits": 0,
+  "workbook_written": false,
+  "live_visit_workbook_cleanup_oracles": "not_run",
+  "mcp_execution_events": 0,
+  "discovery_reads": 2,
+  "initial_task_count": 17,
+  "initial_transform_modes": {
+    "interpret": 6,
+    "extract": 2
+  },
+  "all_four_committed_responses_validate_their_original_schemas": true,
+  "historical_runs_replayed": false,
+  "new_uncertain_attempt_reservation_retained": true
+}

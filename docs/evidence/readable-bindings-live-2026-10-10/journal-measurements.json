@@ -1,0 +1,14 @@
+{
+  "journal_revision": 637,
+  "journal_event_count": 637,
+  "invocation_count": 155,
+  "checkpoint_bytes": 37777,
+  "inspection_only": true,
+  "provider_calls": 0,
+  "mcp_calls": 0,
+  "immutable_blocks_reachable_from_invocations": 1277,
+  "reachable_block_record_plaintext_bytes": 8480899,
+  "logical_invocation_bytes": 617466872,
+  "logical_snapshot_bytes": 561497225,
+  "scope": "Invocation-reachable immutable blocks, excluding event blocks, the checkpoint, index and encryption overhead. Logical sizes computed by memoized traversal without materializing snapshots."
+}

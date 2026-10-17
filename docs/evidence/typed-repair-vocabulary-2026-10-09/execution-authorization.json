@@ -1,0 +1,16 @@
+{
+  "run": "repairvocabulary20261009a-amazon-1",
+  "user_reply": "go pour l’éxécution",
+  "scope": "One execution of the concretely reviewed revision 11; no cookie actions; at most ten products; existing permissions, oracles and EUR 150 ceiling.",
+  "recorded_at_utc": "2026-10-09T17:51:17.379048+00:00",
+  "command": {
+    "kind": "approve",
+    "expectedRevision": 11,
+    "artifactHash": "a9fc1508a7c623cfb3140ed846c7755e2538c537921e931c18df0a0d32b5d058",
+    "reviewedRequirementIds": [
+      "success",
+      "blocked",
+      "cleanup"
+    ]
+  }
+}

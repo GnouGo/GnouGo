@@ -1,0 +1,15 @@
+{
+  "source_run": "boundeddecision20261006a-amazon-1",
+  "issued_pages": 3,
+  "issued_records": 79,
+  "first_cursor_matches_manifest": true,
+  "successful_page_reads": 0,
+  "intervening_workflow_interaction": false,
+  "producer_error_code": "INVALID_INPUT",
+  "producer_error": "The observation cursor is invalid or expired. Capture the current page again.",
+  "navigation_trigger_retained": false,
+  "external_completion_verified": true,
+  "cleanup_verified": true,
+  "workbook_produced": false,
+  "source_evidence": "../global-extraction-2026-10-06/amazon-execution.json"
+}

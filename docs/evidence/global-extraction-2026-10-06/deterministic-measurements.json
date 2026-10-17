@@ -1,0 +1,39 @@
+{
+  "estimator": "PlanningJsonTransport test estimate; not provider billing",
+  "limit": 96000,
+  "rows": [
+    {
+      "global_extract_bytes": 617548,
+      "global_extract_estimate": 166059,
+      "bounded_mapping_bytes": 28696,
+      "bounded_mapping_estimate": 7936,
+      "global_decision_bytes": 1256,
+      "global_decision_estimate": 528,
+      "pages": 52,
+      "records": 1488,
+      "absent": false
+    },
+    {
+      "global_extract_bytes": 617543,
+      "global_extract_estimate": 166058,
+      "bounded_mapping_bytes": 28681,
+      "bounded_mapping_estimate": 7931,
+      "global_decision_bytes": 1251,
+      "global_decision_estimate": 526,
+      "pages": 52,
+      "records": 1488,
+      "absent": false
+    },
+    {
+      "global_extract_bytes": 617533,
+      "global_extract_estimate": 166054,
+      "bounded_mapping_bytes": 28681,
+      "bounded_mapping_estimate": 7931,
+      "global_decision_bytes": 996,
+      "global_decision_estimate": 481,
+      "pages": 52,
+      "records": 1488,
+      "absent": true
+    }
+  ]
+}

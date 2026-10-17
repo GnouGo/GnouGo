@@ -1,0 +1,175 @@
+{
+  "production_sha": "ae3eab1ce0787f2df1d5b9e53c7a18ba6996d13d",
+  "solution": {
+    "passed": 4114,
+    "failed": 0,
+    "skipped": 12,
+    "command": "dotnet test GnOuGo.Agent.sln -m:1 -warnaserror"
+  },
+  "focused": [
+    {
+      "suite": "GnOuGo.Flow.Planning.Tests",
+      "passed": 813,
+      "failed": 0
+    },
+    {
+      "suite": "BusinessTaskPlanExecutionTests + LocalProductOutcomeExecutionTests",
+      "passed": 13,
+      "failed": 0,
+      "evidence_kind": "Real local Flow/Browser/Document execution with deterministic inference and independently inspected XLSX cells; not live-provider evidence"
+    }
+  ],
+  "release_packages": [
+    "GnOuGo.Flow.Core",
+    "GnOuGo.Flow.Planning",
+    "GnOuGo.Flow.Integrations"
+  ],
+  "package_command": "dotnet pack src/<project>/<project>.csproj -c Release -m:1 -warnaserror",
+  "native_aot": {
+    "rid": "osx-arm64",
+    "project": "tests/GnOuGo.Flow.Planning.Smoke",
+    "published_binary_passed": true
+  },
+  "frontend": {
+    "production_build_passed": true,
+    "browser_smoke_passed": true
+  },
+  "planning_skill_valid": true,
+  "ci": [
+    {
+      "link": "https://github.com/GnouGo/GnouGo/actions/runs/37103227683/job/111152482881",
+      "name": "Publish Release (v0.20.1-pr.117.868)",
+      "state": "SKIPPED"
+    },
+    {
+      "link": "https://github.com/GnouGo/GnouGo/actions/runs/37103227683/job/111148320848",
+      "name": "Desktop (Trimmed + Native AOT tools) / Desktop Build (osx-x64)",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/GnouGo/GnouGo/actions/runs/37103227683/job/111148320908",
+      "name": "Desktop (Trimmed + Native AOT tools) / Desktop Build (osx-arm64)",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/GnouGo/GnouGo/actions/runs/37103227683/job/111148320914",
+      "name": "Desktop (Trimmed + Native AOT tools) / Desktop Build (win-arm64)",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/GnouGo/GnouGo/actions/runs/37103227683/job/111148320836",
+      "name": "Desktop (Trimmed + Native AOT tools) / Desktop Build (linux-arm64)",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/GnouGo/GnouGo/actions/runs/37103227683/job/111148320896",
+      "name": "Desktop (Trimmed + Native AOT tools) / Desktop Build (win-x64)",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/GnouGo/GnouGo/actions/runs/37103227683/job/111148320884",
+      "name": "Desktop (Trimmed + Native AOT tools) / Desktop Build (linux-x64)",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/GnouGo/GnouGo/actions/runs/37103227683/job/111148321632",
+      "name": "ProxyCopilot (Native AOT)",
+      "state": "SKIPPED"
+    },
+    {
+      "link": "https://github.com/GnouGo/GnouGo/actions/runs/37103227683/job/111148321506",
+      "name": "Publish gnougo-flow-core to PyPI",
+      "state": "SKIPPED"
+    },
+    {
+      "link": "https://github.com/GnouGo/GnouGo/actions/runs/37103227683/job/111148321396",
+      "name": "Publish .NET packages to NuGet",
+      "state": "SKIPPED"
+    },
+    {
+      "link": "https://github.com/GnouGo/GnouGo/actions/runs/37103227683/job/111148288407",
+      "name": "OTLP Collector / OTLP Collector (osx-arm64)",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/GnouGo/GnouGo/actions/runs/37103227683/job/111148288499",
+      "name": "OTLP Collector / OTLP Collector (win-x64)",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/GnouGo/GnouGo/actions/runs/37103227683/job/111148288326",
+      "name": "Compute Version Tag / Compute Version Tag",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/GnouGo/GnouGo/actions/runs/37103227683/job/111148288406",
+      "name": "Docker Builds / Docker Build (GnOuGo.Agent.Server)",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/GnouGo/GnouGo/actions/runs/37103227683/job/111148288442",
+      "name": "Docker Builds / Docker Build (GnOuGo.OtlpCollector.Server)",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/GnouGo/GnouGo/actions/runs/37103227683/job/111148288408",
+      "name": "Docker Builds / Docker Build (GnOuGo.KeyVault.Server)",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/GnouGo/GnouGo/actions/runs/37103227683/job/111148288435",
+      "name": "Docker Builds / Docker Build (GnOuGo.Flow.Server)",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/GnouGo/GnouGo/actions/runs/37103227683/job/111148288437",
+      "name": "Docker Builds / Docker Build (GnOuGo.DocIngestor.Server)",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/GnouGo/GnouGo/actions/runs/37103227683/job/111148288451",
+      "name": "Docker Builds / Docker Build (GnOuGo.Diff.Server)",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/GnouGo/GnouGo/actions/runs/37103227683/job/111148288369",
+      "name": "OTLP Collector / OTLP Collector (linux-x64)",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/GnouGo/GnouGo/actions/runs/37103227683/job/111146693943",
+      "name": "Stable Unit Tests / Stable .NET Unit Tests",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/GnouGo/GnouGo/actions/runs/37103227683/job/111146693811",
+      "name": "KeyVault MCP / KeyVault MCP (win-x64)",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/GnouGo/GnouGo/actions/runs/37103227683/job/111146693914",
+      "name": "Server (linux-x64) / Server (linux-x64)",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/GnouGo/GnouGo/actions/runs/37103227683/job/111146693885",
+      "name": "Agent Server Tests (non-blocking) / Agent Server Tests",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/GnouGo/GnouGo/actions/runs/37103227683/job/111146693932",
+      "name": "Stable Unit Tests / Python Unit Tests",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/GnouGo/GnouGo/actions/runs/37103227472/job/111146692745",
+      "name": "validate",
+      "state": "SUCCESS"
+    }
+  ],
+  "notes": [
+    "PLAYWRIGHT_MODULE_PATH pointed to the installed local Playwright module for real browser tests.",
+    "All local build/test commands used warnings as errors. The 12 test skips are platform/opt-in tests.",
+    "Documentation-only delivery commits after this SHA do not change the frozen executable candidate."
+  ]
+}

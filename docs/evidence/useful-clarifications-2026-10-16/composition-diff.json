@@ -1,0 +1,383 @@
+{
+  "acceptedRequirementsUnchanged": true,
+  "publicInputsUnchanged": true,
+  "publicOutputsUnchanged": true,
+  "beforeTasks": [
+    {
+      "id": "p",
+      "kind": "transform",
+      "mode": "extract",
+      "operation": null,
+      "phase": "tasks",
+      "objective": "Valider les entrées, parser l’URL GitHub de pull request, récupérer les métadonnées nécessaires via l’API GitHub, et produire des indicateurs exploitables sans échouer brutalement. Ne pas demander de revue du YAML du workflow. Les identifiants et la configuration GitHub sont fournis par l’hôte."
+    },
+    {
+      "id": "prepare_workspace",
+      "kind": "transform",
+      "mode": "extract",
+      "operation": null,
+      "phase": "tasks",
+      "objective": "Créer un chemin de travail unique sous workflows/github-pr-auto-review pour cette exécution, avec un sous-répertoire repo pour l’unique clone, un chemin de rapport et un chemin de logs. Ne créer aucun fichier hors de workflows/github-pr-auto-review, et ne jamais utiliser .GnOuGo pour les fichiers créés par le workflow."
+    },
+    {
+      "id": "clone_pull_request",
+      "kind": "transform",
+      "mode": "extract",
+      "operation": null,
+      "phase": "tasks",
+      "objective": "Réaliser un unique clone du dépôt dans repoPath, récupérer la pull request et checkout exactement le commit head de la PR. Après ce clone, toutes les opérations projet doivent utiliser uniquement ce répertoire cloné. Capturer le SHA réellement checkouté et les erreurs éventuelles."
+    },
+    {
+      "id": "install_and_run_checks",
+      "kind": "transform",
+      "mode": "extract",
+      "operation": null,
+      "phase": "tasks",
+      "objective": "Dans le répertoire cloné uniquement, utiliser GitHub Copilot et l’inspection du projet pour déterminer les commandes pertinentes, installer toutes les dépendances, lancer les linters, les tests unitaires et les tests d’intégration s’ils sont présents. Capturer les commandes, statuts, extraits de logs et preuves de fichiers/commandes. Les commandes absentes doivent être marquées skipped, pas inventées."
+    },
+    {
+      "id": "review_code_with_copilot",
+      "kind": "transform",
+      "mode": "extract",
+      "operation": null,
+      "phase": "tasks",
+      "objective": "Réaliser la revue de code de la pull request dans le répertoire cloné uniquement, avec GitHub Copilot, en appliquant fidèlement le texte de revue fourni par l’utilisateur. Examiner le diff, les changements pertinents, les risques de régression, qualité, sécurité, maintenabilité, cohérence et résultats de tests. Produire des commentaires de diff verbatim, sans caractères de contrôle, uniquement sur des lignes modifiées ou positions diff valides lorsque possible. Décider ACCEPT si les contrôles demandés et les vérifications sont satisfaits, sinon REFUSE."
+    },
+    {
+      "id": "post_github_review",
+      "kind": "transform",
+      "mode": "extract",
+      "operation": null,
+      "phase": "tasks",
+      "objective": "Publier le résultat sur GitHub comme review de la pull request. Si decision=ACCEPT et checksPassed=true, approuver la PR. Sinon demander des changements. Mettre les commentaires dans le diff lorsque des emplacements valides existent, et inclure dans le corps de review les raisons de validation ou refus, les résultats des installations, linters, tests unitaires et tests d’intégration. Ne pas modifier le code de la PR."
+    },
+    {
+      "id": "save_execution_record",
+      "kind": "transform",
+      "mode": "extract",
+      "operation": null,
+      "phase": "tasks",
+      "objective": "Avant tout nettoyage, enregistrer un compte rendu structuré sous le reportPath situé dans workflows/github-pr-auto-review. Inclure l’URL PR, le commit vérifié, les commandes exécutées, les statuts, la décision, les commentaires préparés/publiés et les erreurs éventuelles. Ce fichier est un état d’exécution interne du workflow, pas une demande de revue du YAML."
+    },
+    {
+      "id": "handle_unavailable_pr",
+      "kind": "transform",
+      "mode": "extract",
+      "operation": null,
+      "phase": "tasks",
+      "objective": "Si la pull request est invalide, inaccessible ou incomplète, produire un état de refus technique exploitable pour le résumé final. Ne pas cloner. Ne pas inventer de résultat de tests. Si un identifiant PR exploitable existe, tenter de publier un commentaire GitHub indiquant l’impossibilité de réaliser la review automatique."
+    },
+    {
+      "id": "final_summary",
+      "kind": "transform",
+      "mode": "interpret",
+      "operation": null,
+      "phase": "tasks",
+      "objective": "Assembler un petit résumé final en français de l’état de la pull request, en conservant les sorties demandées même si une étape a échoué. Le résumé doit indiquer clairement si la PR est acceptée ou refusée, si la review GitHub a été publiée, les résultats principaux des dépendances/lint/tests/revue, et le chemin du rapport si disponible."
+    },
+    {
+      "id": "cleanup_repository",
+      "kind": "transform",
+      "mode": "extract",
+      "operation": null,
+      "phase": "always",
+      "objective": "Quoi qu’il arrive, supprimer le répertoire du projet cloné et les fichiers temporaires de travail associés au clone après la sauvegarde du compte rendu lorsque celle-ci a pu être faite. Ne pas supprimer le rapport enregistré sous workflows/github-pr-auto-review, sauf s’il s’agit d’un fichier temporaire explicitement marqué comme tel. Capturer le statut du nettoyage."
+    }
+  ],
+  "afterTasks": [
+    {
+      "id": "parse",
+      "kind": "operation",
+      "mode": null,
+      "operation": "cap_a57baadd427cfd211e851b67",
+      "phase": "tasks",
+      "objective": "parse the requested change"
+    },
+    {
+      "id": "inspect",
+      "kind": "operation",
+      "mode": null,
+      "operation": "cap_ca71767ce0a68981ca67d885",
+      "phase": "tasks",
+      "objective": "inspect the requested change"
+    },
+    {
+      "id": "clone",
+      "kind": "operation",
+      "mode": null,
+      "operation": "cap_624c99724b659aa2977742ea",
+      "phase": "tasks",
+      "objective": "clone the requested change"
+    },
+    {
+      "id": "checks",
+      "kind": "operation",
+      "mode": null,
+      "operation": "cap_61963d4c7acb78f3178054c5",
+      "phase": "tasks",
+      "objective": "checks the requested change"
+    },
+    {
+      "id": "review",
+      "kind": "operation",
+      "mode": null,
+      "operation": "cap_1c719cd9f24d19d09a0b91e8",
+      "phase": "tasks",
+      "objective": "review the requested change"
+    },
+    {
+      "id": "begin",
+      "kind": "operation",
+      "mode": null,
+      "operation": "cap_7a8089f49774e1d79d5725a9",
+      "phase": "tasks",
+      "objective": "begin the requested change"
+    },
+    {
+      "id": "comments",
+      "kind": "foreach",
+      "mode": null,
+      "operation": null,
+      "phase": "tasks",
+      "objective": "Post each exact finding once per occurrence"
+    },
+    {
+      "id": "route",
+      "kind": "conditional",
+      "mode": null,
+      "operation": null,
+      "phase": "tasks",
+      "objective": "Post inline when a location is available, otherwise globally"
+    },
+    {
+      "id": "inline",
+      "kind": "operation",
+      "mode": null,
+      "operation": "cap_ee1c6ab4fcc6b6398c64b42d",
+      "phase": "tasks",
+      "objective": "inline the requested change"
+    },
+    {
+      "id": "global",
+      "kind": "operation",
+      "mode": null,
+      "operation": "cap_4cd6cdf6f81bb9f293f76071",
+      "phase": "tasks",
+      "objective": "global the requested change"
+    },
+    {
+      "id": "decision",
+      "kind": "conditional",
+      "mode": null,
+      "operation": null,
+      "phase": "tasks",
+      "objective": "Approve only complete passing checks and an unblocked review"
+    },
+    {
+      "id": "submit",
+      "kind": "operation",
+      "mode": null,
+      "operation": "cap_112d9f587753b36a3f7b88cf",
+      "phase": "tasks",
+      "objective": "submit the requested change"
+    },
+    {
+      "id": "report",
+      "kind": "operation",
+      "mode": null,
+      "operation": "cap_efb858edde6bfdc14b5ec476",
+      "phase": "tasks",
+      "objective": "report the requested change"
+    },
+    {
+      "id": "release",
+      "kind": "conditional",
+      "mode": null,
+      "operation": null,
+      "phase": "always",
+      "objective": "Release the successfully acquired clone after known completion"
+    },
+    {
+      "id": "cleanup",
+      "kind": "operation",
+      "mode": null,
+      "operation": "cap_05d5310d9bc4441ee2acf5e3",
+      "phase": "tasks",
+      "objective": "cleanup the requested change"
+    }
+  ],
+  "beforeOutputs": [
+    {
+      "name": "summary",
+      "value": {
+        "kind": "output",
+        "text": null,
+        "number": null,
+        "boolean": null,
+        "source": "final_summary",
+        "port": "summary",
+        "members": [],
+        "items": [],
+        "predicate": null
+      }
+    },
+    {
+      "name": "decision",
+      "value": {
+        "kind": "output",
+        "text": null,
+        "number": null,
+        "boolean": null,
+        "source": "final_summary",
+        "port": "decision",
+        "members": [],
+        "items": [],
+        "predicate": null
+      }
+    },
+    {
+      "name": "pullRequestState",
+      "value": {
+        "kind": "output",
+        "text": null,
+        "number": null,
+        "boolean": null,
+        "source": "final_summary",
+        "port": "pullRequestState",
+        "members": [],
+        "items": [],
+        "predicate": null
+      }
+    },
+    {
+      "name": "githubReviewUrl",
+      "value": {
+        "kind": "output",
+        "text": null,
+        "number": null,
+        "boolean": null,
+        "source": "final_summary",
+        "port": "githubReviewUrl",
+        "members": [],
+        "items": [],
+        "predicate": null
+      }
+    },
+    {
+      "name": "reportPath",
+      "value": {
+        "kind": "output",
+        "text": null,
+        "number": null,
+        "boolean": null,
+        "source": "final_summary",
+        "port": "reportPath",
+        "members": [],
+        "items": [],
+        "predicate": null
+      }
+    },
+    {
+      "name": "cleanupStatus",
+      "value": {
+        "kind": "output",
+        "text": null,
+        "number": null,
+        "boolean": null,
+        "source": "cleanup_repository",
+        "port": "status",
+        "members": [],
+        "items": [],
+        "predicate": null
+      }
+    }
+  ],
+  "afterOutputs": [
+    {
+      "name": "summary",
+      "value": {
+        "kind": "output",
+        "text": null,
+        "number": null,
+        "boolean": null,
+        "source": "submit",
+        "port": "summary",
+        "members": [],
+        "items": [],
+        "predicate": null
+      }
+    },
+    {
+      "name": "decision",
+      "value": {
+        "kind": "output",
+        "text": null,
+        "number": null,
+        "boolean": null,
+        "source": "submit",
+        "port": "decision",
+        "members": [],
+        "items": [],
+        "predicate": null
+      }
+    },
+    {
+      "name": "pullRequestState",
+      "value": {
+        "kind": "output",
+        "text": null,
+        "number": null,
+        "boolean": null,
+        "source": "inspect",
+        "port": "state",
+        "members": [],
+        "items": [],
+        "predicate": null
+      }
+    },
+    {
+      "name": "githubReviewUrl",
+      "value": {
+        "kind": "output",
+        "text": null,
+        "number": null,
+        "boolean": null,
+        "source": "submit",
+        "port": "url",
+        "members": [],
+        "items": [],
+        "predicate": null
+      }
+    },
+    {
+      "name": "reportPath",
+      "value": {
+        "kind": "output",
+        "text": null,
+        "number": null,
+        "boolean": null,
+        "source": "report",
+        "port": "path",
+        "members": [],
+        "items": [],
+        "predicate": null
+      }
+    },
+    {
+      "name": "cleanupStatus",
+      "value": {
+        "kind": "output",
+        "text": null,
+        "number": null,
+        "boolean": null,
+        "source": "release",
+        "port": "status",
+        "members": [],
+        "items": [],
+        "predicate": null
+      }
+    }
+  ],
+  "compilerProfile": "compact-bindings-v15",
+  "savedAgentChanged": false
+}

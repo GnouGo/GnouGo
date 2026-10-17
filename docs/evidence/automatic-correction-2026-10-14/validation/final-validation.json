@@ -1,0 +1,42 @@
+[
+  {
+    "check": "final-planning",
+    "command": [
+      "dotnet",
+      "test",
+      "tests/GnOuGo.Flow.Planning.Tests",
+      "-m:1",
+      "-warnaserror",
+      "--no-restore",
+      "--logger",
+      "console;verbosity=normal"
+    ],
+    "exit_code": 0
+  },
+  {
+    "check": "final-local",
+    "command": [
+      "dotnet",
+      "test",
+      "tests/GnOuGo.Agent.Server.Tests",
+      "-m:1",
+      "-warnaserror",
+      "--no-restore",
+      "--filter",
+      "FullyQualifiedName~AutomaticFailureRevisionTests|FullyQualifiedName~MappingFailureIsolationTests|FullyQualifiedName~AutomaticCorrectionProducesIndependentlyVerifiedLocalWorkbook|FullyQualifiedName~AutomaticCorrectionReplaysBothRetainedMalformedGuards|FullyQualifiedName~WhenPersistedAgentRequiresNewContracts|FullyQualifiedName~WhenRoutedAgentRequiresNewContracts",
+      "--logger",
+      "console;verbosity=detailed",
+      "--logger",
+      "trx;LogFileName=automatic-correction-final.trx"
+    ],
+    "exit_code": 0
+  },
+  {
+    "check": "publish",
+    "command": [
+      "python3",
+      "/private/tmp/gnougo-autocorrection-publish.py"
+    ],
+    "exit_code": 0
+  }
+]

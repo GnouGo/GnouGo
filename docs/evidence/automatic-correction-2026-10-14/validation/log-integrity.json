@@ -1,0 +1,77 @@
+{
+  "stage1.log.gz": {
+    "source_sha256": "194fd49aabedf253f0825a826c4ef5429eaa5d8eedf6644260aa0d13bb9b3cdc",
+    "source_bytes": 841,
+    "stored_bytes": 317
+  },
+  "stage2.log.gz": {
+    "source_sha256": "a8893e5a5654b8634a99dd9290cf8bf69a1b5e650c98ee9a27654df37cbb1211",
+    "source_bytes": 838,
+    "stored_bytes": 313
+  },
+  "host.log.gz": {
+    "source_sha256": "f49f674233e7dde49944b4dd3c3d4075314798a6ea37555d5fd41f10ea8dd5b7",
+    "source_bytes": 8111,
+    "stored_bytes": 1196
+  },
+  "runtime-planning.log.gz": {
+    "source_sha256": "fc5600277c01b92b8efd01bc29fcba54f41aff1c050f20ff0bfb3fad60679aa7",
+    "source_bytes": 838,
+    "stored_bytes": 314
+  },
+  "local.log.gz": {
+    "source_sha256": "e87cbffdf9de4c98fc998c825bcef7b8e7e17a4571875e34815c4785316b9594",
+    "source_bytes": 26664,
+    "stored_bytes": 2705
+  },
+  "local-rerun.log.gz": {
+    "source_sha256": "7b39ba516b4fe50bf55c90abccbef3ede34ea28af6b2a4176e351dc41363c133",
+    "source_bytes": 12154,
+    "stored_bytes": 2056
+  },
+  "planning-all.log.gz": {
+    "source_sha256": "26620ddbc836a8d0df20d6e5e044c36f27e09eb3745d0f0f6ee09c100a20ab3f",
+    "source_bytes": 214371,
+    "stored_bytes": 31267
+  },
+  "final-focused.log.gz": {
+    "source_sha256": "2876505a54da6622a8821a1ade2c58f83931609ed2221e446578d0078adc8118",
+    "source_bytes": 5782,
+    "stored_bytes": 1294
+  },
+  "preservation.log.gz": {
+    "source_sha256": "6089a28d6efd9a51e3c4a76c7168222e56f39817f7f12bb0cabfff63773d5330",
+    "source_bytes": 5691,
+    "stored_bytes": 1544
+  },
+  "full.log.gz": {
+    "source_sha256": "bc78112d198755569182c0b460fcb0f87baabe23d403d620508c94e6700dd84f",
+    "source_bytes": 915744,
+    "stored_bytes": 127638
+  },
+  "final-planning.log.gz": {
+    "source_sha256": "d9e121175d8ec22473ca4868a51ce050e4c33224f011227a35b011c6f6168964",
+    "source_bytes": 212334,
+    "stored_bytes": 30850
+  },
+  "final-local.log.gz": {
+    "source_sha256": "bb1acce2e2d0b5677ced58d8cd289bb6a556ae243cc0a14e1ab312b164c60928",
+    "source_bytes": 21413,
+    "stored_bytes": 3391
+  },
+  "publish.log.gz": {
+    "source_sha256": "42b9ca158e1f222bb5f462e354cbcf687d920354fbe7de44cd491f243a3ac23e",
+    "source_bytes": 154,
+    "stored_bytes": 118
+  },
+  "ci-host-failure.log.gz": {
+    "source_sha256": "eca70f9b59a5a3f90b49c0d9de79704bc1b5c6e739befb6ed5ae613e799095a0",
+    "source_bytes": 61479,
+    "stored_bytes": 12282
+  },
+  "ci-planning-failure.log.gz": {
+    "source_sha256": "a08fb702befc6e4738e93881fa820d2ef04cd0cc64659f9d0b9855a2c0c60d6d",
+    "source_bytes": 41825,
+    "stored_bytes": 4361
+  }
+}

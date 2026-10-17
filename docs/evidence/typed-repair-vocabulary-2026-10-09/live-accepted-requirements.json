@@ -1,0 +1,117 @@
+{
+  "summary": "Automatiser une recherche Amazon.fr à partir d’une seule entrée publique query, collecter au maximum les 10 premiers produits, visiter chaque page produit, extraire nom, description et prix sans inventer les données absentes, puis sauvegarder un classeur Excel au chemin imposé. Le navigateur doit être fermé même en cas d’échec; aucune action d’acceptation, refus ou personnalisation des cookies ne doit être effectuée.",
+  "outcomes": [
+    {
+      "id": "success",
+      "description": "Le fichier workflows/schema-portability-20261002/repairvocabulary20261009a-amazon-1/products.xlsx est créé avec les colonnes nom, description et prix pour les produits extraits, jusqu’à 10 maximum."
+    },
+    {
+      "id": "blocked",
+      "description": "Si un obstacle effectivement observé empêche la poursuite, par exemple CAPTCHA ou page de blocage, le blocage est signalé et le travail ne déclare pas de réussite."
+    },
+    {
+      "id": "cleanup",
+      "description": "Le navigateur est fermé dans tous les cas, après sauvegarde lorsque la sauvegarde est possible."
+    }
+  ],
+  "inputs": [
+    {
+      "name": "query",
+      "type": {
+        "kind": "string",
+        "nullable": false,
+        "items": null,
+        "fields": []
+      },
+      "required": true,
+      "default": null
+    }
+  ],
+  "outputs": [
+    {
+      "name": "filePath",
+      "type": {
+        "kind": "string",
+        "nullable": true,
+        "items": null,
+        "fields": []
+      },
+      "required": false,
+      "default": null
+    },
+    {
+      "name": "products",
+      "type": {
+        "kind": "array",
+        "nullable": true,
+        "minItems": 0,
+        "maxItems": 10,
+        "items": {
+          "kind": "object",
+          "nullable": false,
+          "items": null,
+          "fields": [
+            {
+              "name": "nom",
+              "type": {
+                "kind": "string",
+                "nullable": false,
+                "items": null,
+                "fields": []
+              },
+              "required": true,
+              "default": null
+            },
+            {
+              "name": "description",
+              "type": {
+                "kind": "string",
+                "nullable": false,
+                "items": null,
+                "fields": []
+              },
+              "required": true,
+              "default": null
+            },
+            {
+              "name": "prix",
+              "type": {
+                "kind": "string",
+                "nullable": false,
+                "items": null,
+                "fields": []
+              },
+              "required": true,
+              "default": null
+            }
+          ]
+        },
+        "fields": []
+      },
+      "required": false,
+      "default": null
+    },
+    {
+      "name": "blocked",
+      "type": {
+        "kind": "boolean",
+        "nullable": false,
+        "items": null,
+        "fields": []
+      },
+      "required": false,
+      "default": null
+    },
+    {
+      "name": "blockage",
+      "type": {
+        "kind": "string",
+        "nullable": true,
+        "items": null,
+        "fields": []
+      },
+      "required": false,
+      "default": null
+    }
+  ]
+}

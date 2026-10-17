@@ -1,0 +1,54 @@
+{
+  "run": "final4-code-1",
+  "source": "3e8869676b6099dff6f445143f8368c16eaf709e",
+  "execution_error_code": "MCP_CALL_ERROR",
+  "execution_error_message": "Server returned InputRequiredResult more than 10 times.",
+  "concurrent_callback_error": false,
+  "oracle": {
+    "passed": false,
+    "findings": [
+      "workflow_execution_failed",
+      "local_review_missing",
+      "no_independent_command_completion_evidence",
+      "repository_required_checks_not_independently_verified"
+    ]
+  },
+  "operations": [
+    {
+      "tool": "copilot_task_contract",
+      "error": false,
+      "latency_ms": 375,
+      "success": null
+    },
+    {
+      "tool": "copilot_task_contract",
+      "error": false,
+      "latency_ms": 353,
+      "success": null
+    },
+    {
+      "tool": "cmd_run",
+      "error": false,
+      "latency_ms": 207,
+      "success": true
+    },
+    {
+      "tool": "git_clone",
+      "error": false,
+      "latency_ms": 27402,
+      "success": true
+    },
+    {
+      "tool": "copilot_interactive_one_shot",
+      "error": null,
+      "latency_ms": 307208,
+      "success": null
+    },
+    {
+      "tool": "cmd_run",
+      "error": false,
+      "latency_ms": 864,
+      "success": true
+    }
+  ]
+}

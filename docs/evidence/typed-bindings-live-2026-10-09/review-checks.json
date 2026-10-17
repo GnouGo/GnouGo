@@ -1,0 +1,48 @@
+{
+  "revision": 9,
+  "artifact_hash": "cbcd077db834ebe6da54b25bb838e5b6cca897d845a52a29484fcbb21b6cdb89",
+  "requirements_unchanged": true,
+  "compiled_steps": 50,
+  "sets": 16,
+  "taskplan_tasks": 47,
+  "yaml_bytes": 153302,
+  "yaml_lines": 2199,
+  "live_execution_started": false,
+  "live_oracle_status": "not_run",
+  "final_targeted_changes": [
+    "/tasks/select_scope_selector/mode",
+    "/tasks/select_scope_selector/inputs"
+  ],
+  "selector_sandbox_probe": {
+    "model_calls": 0,
+    "source_cases": [
+      {
+        "selectors": [],
+        "absentSelector": null
+      },
+      {
+        "selectors": [
+          "#exact"
+        ],
+        "absentSelector": null
+      },
+      {
+        "selectors": [
+          null
+        ],
+        "absentSelector": null
+      }
+    ],
+    "validated_outputs": [
+      {
+        "selector": null
+      },
+      {
+        "selector": "#exact"
+      },
+      {
+        "selector": null
+      }
+    ]
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "authorized_utc": "2026-10-12T15:50:56.019113+00:00",
+  "user_authorization": "live test now go",
+  "source": "04213951a6020ecb484b1d0b190f06f112a03f82",
+  "cohort": "compactv1420261012a",
+  "run": "compactv1420261012a-amazon-1",
+  "max_products": 10,
+  "cost_ceiling_eur": 200,
+  "paid_planning_authorized": true,
+  "execution_requires_separate_artifact_approval": true,
+  "historical_replay_authorized": false
+}

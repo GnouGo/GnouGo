@@ -1,0 +1,18 @@
+{
+  "kind": "revise",
+  "expectedRevision": 2,
+  "artifactHash": null,
+  "preserveRequirements": true,
+  "editablePaths": [
+    "/tasks/acceptCookiesIfOffered/requires",
+    "/tasks/clickCookieConsent/requires",
+    "/tasks/compileRows/requires",
+    "/tasks/extractProductFacts/requires",
+    "/tasks/extractUpTo10ProductLinks/requires",
+    "/tasks/interpretHomeControls/requires",
+    "/tasks/openAmazonHome/requires",
+    "/tasks/selectFreshSearchControls/requires",
+    "/tasks/writeProductsWorkbook/requires"
+  ],
+  "text": "Correct only the nine diagnosed nonboolean requires slots. requires is a boolean mandatory assertion, not a data dependency: use explicit typed predicates on the existing referenced value or the authoritative producer success/completeness metadata. For references intended to require availability, express the actual non-null/available condition rather than using strings or objects as conditions. Preserve every meaningful prerequisite; do not replace failures with true, false, fabricated values or omitted checks. In particular the consent action must require its observed non-null reference and the existing branch condition must continue to imply its entry requirements. Keep all existing valid requires, branch conditions, tasks, objectives, operations, bindings, order, scopes, result contracts, public interface and cleanup unchanged. Return only the authorized typed edits."
+}

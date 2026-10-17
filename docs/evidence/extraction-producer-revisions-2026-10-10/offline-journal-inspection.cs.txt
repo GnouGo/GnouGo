@@ -1,0 +1,8 @@
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using GnOuGo.Flow.Persistence;
+var store=EncryptedWorkflowRunStore.CreateWorkspace(baseDirectory:args[0]);
+var run=await store.ReadAsync("benchmark","extractproducer20261010a-amazon-1")??throw new Exception("Missing run");
+var map=run.Invocations.Values.Single(i=>i.StepType=="mapping.dynamic"&&i.Id.Contains("/iteration/7/"));
+Console.WriteLine(JsonSerializer.Serialize(new { status=run.Status, invocation=map.Id, inputKeys=map.ResolvedInput?.AsObject().Select(p=>p.Key).ToArray(), controls=map.Control.Where(p=>p.Key.StartsWith("mapping_adaptive_")&&p.Key!="mapping_adaptive_cache").ToDictionary(p=>p.Key,p=>p.Value), error=map.Error }, new JsonSerializerOptions{WriteIndented=true}));
+await File.WriteAllTextAsync("/tmp/gnougo-extraction-offline/input.json",map.ResolvedInput!.ToJsonString());

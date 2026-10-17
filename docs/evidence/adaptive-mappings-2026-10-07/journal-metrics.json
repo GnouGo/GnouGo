@@ -1,0 +1,64 @@
+{
+  "journal": {
+    "status": "failed",
+    "steps_started": 11,
+    "finalization_completed": true,
+    "runtime_budget_max_calls": null,
+    "runtime_budget_max_elapsed_seconds": 1800,
+    "runtime_calls": 3,
+    "mapping_calls": [
+      {
+        "invocation": "/workflow/main/step/n_db0ee77336c5bd99/mapping/0",
+        "status": "completed",
+        "completion_observed": true,
+        "request_bytes_with_framing": 89722,
+        "source_count": 52,
+        "assigned_count": 52,
+        "sample_count": 3,
+        "sample_indices": [
+          0,
+          1,
+          51
+        ],
+        "omitted_count": 49,
+        "failing_index": null,
+        "usage": {
+          "input_tokens": 26417,
+          "output_tokens": 628,
+          "total_tokens": 27045,
+          "benchmark_cost_eur": 0.133929363741237,
+          "transport_attempts": 1,
+          "uncertain_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0,
+          "benchmark_usage_bounded": true
+        },
+        "error": null
+      }
+    ]
+  },
+  "serialized_invocations": [
+    {
+      "invocation": "/workflow/main/step/n_d2b9262f9f7b58e6",
+      "status": "failed",
+      "input_bytes": 701114,
+      "output_bytes": 0,
+      "prompt_characters": 595042
+    },
+    {
+      "invocation": "/workflow/main/step/n_db0ee77336c5bd99",
+      "status": "completed",
+      "input_bytes": 1188248,
+      "output_bytes": 594458,
+      "prompt_characters": null
+    },
+    {
+      "invocation": "/workflow/main/step/n_db0ee77336c5bd99/mapping/0",
+      "status": "completed",
+      "input_bytes": 85626,
+      "output_bytes": 1187,
+      "prompt_characters": 63412
+    }
+  ]
+}

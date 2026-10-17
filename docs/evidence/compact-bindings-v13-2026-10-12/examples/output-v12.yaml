@@ -1,0 +1,93 @@
+version: 1
+name: "outputs"
+entrypoint: "main"
+workflows:
+  main:
+    inputs:
+      label:
+        type: "string"
+        required: true
+      authorized:
+        type: "boolean"
+        required: true
+    steps:
+    - id: "n_a7937b64b8caa58f"
+      type: "set"
+      input: |-
+        ${
+        (() => {
+          const label = data.inputs.label;
+          const requiredCondition = data.inputs.authorized;
+          return {
+            chosen_2: {
+              chosen: label
+            }
+          };
+        })()
+        }
+      output_schema:
+        type: "object"
+        properties:
+          chosen_2:
+            type: "object"
+            properties:
+              chosen:
+                type: "string"
+            required:
+            - "chosen"
+            additionalProperties: false
+        required:
+        - "chosen_2"
+        additionalProperties: false
+      description: "Check and assemble consecutive deterministic values."
+      expression_contracts:
+        '':
+          label:
+            origin: "first"
+            schema:
+              type: "string"
+              minLength: 1
+            order: 0
+            source: "label"
+            instance_path: "/value"
+          requiredCondition:
+            origin: "guard"
+            schema:
+              type: "boolean"
+              enum:
+              - true
+            order: 1
+            source: "requiredCondition"
+            instance_path: "/value"
+          chosen:
+            origin: "assembly"
+            schema:
+              type: "string"
+            order: 2
+            source: "label"
+            instance_path: "/chosen"
+          chosen_2:
+            origin: "export"
+            schema:
+              type: "string"
+            order: 3
+            source: "label"
+            instance_path: "/chosen"
+    outputs:
+      chosen:
+        type: "string"
+        expr: "${data.steps.n_a7937b64b8caa58f.chosen_2.chosen}"
+skill:
+  description: ""
+  inputs:
+    label:
+      type: "string"
+      required: true
+    authorized:
+      type: "boolean"
+      required: true
+  outputs:
+    chosen:
+      type: "string"
+      expr: "${data.steps.n_a7937b64b8caa58f.chosen_2.chosen}"
+...

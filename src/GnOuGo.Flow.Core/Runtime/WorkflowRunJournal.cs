@@ -9,6 +9,7 @@ internal sealed class WorkflowRunJournal(IWorkflowRunLease lease) : ILLMUsageBud
 {
     private readonly SemaphoreSlim _gate = new(1, 1);
     private bool _storageFailed;
+    private System.Runtime.ExceptionServices.ExceptionDispatchInfo? _storageFailure;
     public WorkflowEffectGate Effects { get; } = new();
     public WorkflowRun Run => lease.Run;
     public bool HasPendingHumanInput => !Run.CancelRequested && Run.Invocations.Values.Any(i => i.Status == "waiting_for_human");
@@ -50,11 +51,12 @@ internal sealed class WorkflowRunJournal(IWorkflowRunLease lease) : ILLMUsageBud
             var resolved = resolve();
             var invocation = new WorkflowInvocation
             {
-                Id = id, StepType = step.Type, Recovery = recovery, IsFinalization = finalization,
-                DataBefore = (JsonObject)data.DeepClone(), ResolvedInput = resolved.Input?.DeepClone(),
+                Id = id, StepType = step.Type, Description = step.Description, Recovery = recovery, IsFinalization = finalization,
+                ResolvedInput = resolved.Input?.DeepClone(),
                 Status = resolved.Run ? "prepared" : "skipped",
                 CompletedAt = resolved.Run ? null : DateTimeOffset.UtcNow
             };
+            await CaptureAsync(invocation, data, after: false, ct);
             if (!Run.Invocations.TryAdd(id, invocation)) throw new WorkflowRunConflictException("Duplicate invocation identity.");
             if (finalization) Run.FinalizationStepsStarted++; else Run.StepsStarted++;
             await SaveAsync(resolved.Run ? "intent" : "skipped", id, ct);
@@ -68,13 +70,13 @@ internal sealed class WorkflowRunJournal(IWorkflowRunLease lease) : ILLMUsageBud
     {
         if (invocation.Status == "completed")
         {
-            Restore(data, invocation.DataAfter ?? invocation.DataBefore);
+            await RestoreAsync(invocation, data, after: true, ct);
             return invocation.Output?.DeepClone();
         }
         if (invocation.Status == "failed") throw FromError(invocation.Error!);
         if (invocation.Recovery == StepRecovery.External && invocation.DispatchedAt is not null)
             throw InvocationUncertain(invocation.Id);
-        Restore(data, invocation.DataBefore);
+        await RestoreAsync(invocation, data, after: false, ct);
         ct.ThrowIfCancellationRequested();
         using var effect = holdsLeafEffect && !invocation.IsFinalization ? await Effects.EnterEffectAsync(ct) : null;
         await ChangeAsync(() =>
@@ -86,11 +88,11 @@ internal sealed class WorkflowRunJournal(IWorkflowRunLease lease) : ILLMUsageBud
         try
         {
             var output = await execute();
-            await ChangeAsync(() =>
+            await ChangeAsync(async () =>
             {
+                await CaptureAsync(invocation, data, after: true, CancellationToken.None);
                 invocation.Status = "completed";
                 invocation.Output = output?.DeepClone();
-                invocation.DataAfter = (JsonObject)data.DeepClone();
                 invocation.CompletedAt = DateTimeOffset.UtcNow;
                 invocation.ExternalCompletionObserved = true;
                 Run.Status = WorkflowRunStatus.Running;
@@ -184,26 +186,38 @@ internal sealed class WorkflowRunJournal(IWorkflowRunLease lease) : ILLMUsageBud
     public async ValueTask PersistAsync(LLMUsageBudgetSnapshot snapshot, CancellationToken ct) =>
         await ChangeAsync(() => Run.ModelUsage = snapshot, "model_usage", null, ct);
 
-    private async Task ChangeAsync(Action mutate, string kind, string? id, CancellationToken ct)
+    private Task ChangeAsync(Action mutate, string kind, string? id, CancellationToken ct) =>
+        ChangeAsync(() => { mutate(); return Task.CompletedTask; }, kind, id, ct);
+
+    private async Task ChangeAsync(Func<Task> mutate, string kind, string? id, CancellationToken ct)
     {
         await _gate.WaitAsync(ct);
-        try { mutate(); await SaveAsync(kind, id, ct); }
+        try { await mutate(); await SaveAsync(kind, id, ct); }
         finally { _gate.Release(); }
+    }
+
+    private async Task CaptureAsync(WorkflowInvocation invocation, JsonObject data, bool after, CancellationToken ct)
+    {
+        _storageFailure?.Throw();
+        try { await lease.CaptureSnapshotAsync(invocation, data, after, ct); }
+        catch (Exception error) { _storageFailed = true; _storageFailure = System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(error); throw; }
+    }
+
+    private async Task RestoreAsync(WorkflowInvocation invocation, JsonObject data, bool after, CancellationToken ct)
+    {
+        _storageFailure?.Throw();
+        try { await lease.RestoreSnapshotAsync(invocation, data, after, ct); }
+        catch (Exception error) { _storageFailed = true; _storageFailure = System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(error); throw; }
     }
 
     private async Task SaveAsync(string kind, string? id, CancellationToken ct)
     {
-        if (_storageFailed) throw new WorkflowRunConflictException("Journal persistence failed. Stop execution and inspect the durable run.");
+        _storageFailure?.Throw();
         Run.Events.Add(new(DateTimeOffset.UtcNow, kind, id));
-        try { await lease.SaveAsync(ct); }
-        catch { _storageFailed = true; throw; }
+        try { await lease.SaveAsync(id is null ? [] : new[] { id }, ct); }
+        catch (Exception error) { _storageFailed = true; _storageFailure = System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(error); throw; }
     }
 
-    internal static void Restore(JsonObject target, JsonObject source)
-    {
-        target.Clear();
-        foreach (var pair in source) target[pair.Key] = pair.Value?.DeepClone();
-    }
     private static WorkflowRuntimeException FromError(WorkflowError error) => new(error.Code, error.Message, error.Retryable, details: error.Details);
     internal static WorkflowRuntimeException Uncertain(string id, Exception? inner = null) =>
         new("RUN_NEEDS_RECONCILIATION", "An external invocation has no verified completion receipt. Reconcile it before resuming or running cleanup.",

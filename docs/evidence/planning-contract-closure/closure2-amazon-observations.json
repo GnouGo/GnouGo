@@ -1,0 +1,70 @@
+{
+  "run": "closure2-amazon-1",
+  "runtimeSuccess": true,
+  "oracle": {
+    "passed": false,
+    "findings": [
+      "product_visits_do_not_match_rows",
+      "workbook_value_not_supported_by_captured_product_page"
+    ]
+  },
+  "pages": [
+    {
+      "status": 202,
+      "characters": 51961,
+      "truncated": false,
+      "productEntryMarkerPresent": false,
+      "captchaMarkerPresent": false
+    }
+  ],
+  "browserClosed": true,
+  "result": {
+    "status": "final_review",
+    "planning_ms": 68031,
+    "calls": 2,
+    "repairs": 0,
+    "discovery_reads": 2,
+    "diagnostics": [],
+    "execution_success": true,
+    "execution_oracle": false,
+    "execution_status": "completed",
+    "accounting": {
+      "planning": {
+        "logical_calls": 2,
+        "physical_attempts": 2,
+        "known_input_tokens": 17141,
+        "known_output_tokens": 5421,
+        "known_cost_eur": 0.22123385300668152,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "execution": {
+        "logical_calls": 3,
+        "physical_attempts": 3,
+        "known_input_tokens": 28421,
+        "known_output_tokens": 844,
+        "known_cost_eur": 0.14915367483296213,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "campaign": {
+        "calls": 189,
+        "session_calls": 0,
+        "known_input_tokens": 2571372,
+        "known_output_tokens": 296299,
+        "known_cost_eur": 19.310721342169476,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0,
+        "cost_upper_bound_eur": 19.310721342169476,
+        "unknown_attempts": 0
+      }
+    },
+    "execution_ms": 58077,
+    "total_ms": 126108
+  }
+}

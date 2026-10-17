@@ -25,6 +25,9 @@ public interface ILLMClient
 /// </summary>
 public interface ILLMCapabilityResolver
 {
+    /// <summary>Known input allowance after reserving the requested output; null means unverifiable.</summary>
+    Task<int?> InputTokenAllowanceAsync(string? provider, string model, int outputTokens, CancellationToken ct)
+        => Task.FromResult<int?>(null);
     Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct);
     Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string model, CancellationToken ct);
 }
@@ -422,7 +425,16 @@ public sealed record McpConsumedArtifact(string Kind, string Pointer, bool Requi
 public sealed record McpArtifactContract(
     int Version,
     IReadOnlyList<McpProducedArtifact> Produces,
-    IReadOnlyList<McpConsumedArtifact> Consumes);
+    IReadOnlyList<McpConsumedArtifact> Consumes)
+{
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<McpArtifactLocation>? Locations { get; init; }
+}
+
+/// <summary>Producer-declared resource address. File/directory spaces are absolute base URIs;
+/// handle spaces are opaque namespaces. Selectors match one existing literal schema discriminator.</summary>
+public sealed record McpArtifactLocation(string Pointer, string Kind, string Action, string Space,
+    string? OutputPointer = null, string? SelectorPointer = null, string? SelectorValue = null);
 
 public sealed record McpArtifactContractResolution(
     McpArtifactContract? Contract,

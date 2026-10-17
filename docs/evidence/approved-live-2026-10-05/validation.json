@@ -1,0 +1,46 @@
+{
+  "production_sha": "34bfd6040181cf789a5472506821c5a7f5e2e552",
+  "production_changed": false,
+  "new_regressions": [
+    "PageInitiatedNavigationInvalidatesUnconsumedSnapshot(observation)",
+    "PageInitiatedNavigationInvalidatesUnconsumedSnapshot(observation_pages)"
+  ],
+  "checks": {
+    "solution": {
+      "projects": 33,
+      "failed": 0,
+      "passed": 4515,
+      "skipped": 13,
+      "log_sha256": "50d1c8b66f767876ea296617621c171615e8f889541a8192032d35f8d67040c8"
+    },
+    "browser": {
+      "projects": 1,
+      "failed": 0,
+      "passed": 50,
+      "skipped": 0,
+      "log_sha256": "c49c4c2ddba70c655c4ab3cc5ad3ce586fe5807c9eca7ee2864a1f48c92ef0e9"
+    },
+    "scope_finalizer": {
+      "projects": 1,
+      "failed": 0,
+      "passed": 66,
+      "skipped": 0,
+      "log_sha256": "381cdbf56b0c02be897277bd8e36614a57ac20b4901958b226ff0a968d8c1f57"
+    },
+    "local_execution": {
+      "projects": 1,
+      "failed": 0,
+      "passed": 20,
+      "skipped": 0,
+      "log_sha256": "a17dc5fde7ff3296429033f52f054ea9868d3b325a64ea13ea3b061034d28c87"
+    },
+    "browser_ui": {
+      "projects": 1,
+      "failed": 0,
+      "passed": 1,
+      "skipped": 0,
+      "log_sha256": "d4fbc93d0633fe8a172ebeb1e926e631ff6d5e223c11c6dae4775c8c788e4e92"
+    }
+  },
+  "package_aot_recovery": "No production/persistence/serialization change; earlier frozen-candidate validation retained, not rerun as new package evidence."
+}

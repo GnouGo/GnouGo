@@ -1,0 +1,9 @@
+{
+  "run": "mapping7",
+  "source": "d41fd194",
+  "passed": 8,
+  "required": 9,
+  "phase": "fault-injection failure retained separately from natural provider behavior",
+  "cause": "After the deliberately fabricated first expression, the provider repair generated an overescaped parser for hypothetical JSON/text/HTML variants. It could not extract the available text. Runtime rejected it with CONTRACT_UNSATISFIED after exactly two attempts and cached no failed expression.",
+  "next_correction": "Clarify the runtime prompt to map only the current observed format; existing signatures invalidate other formats. Do not rewrite patterns or relax validation. Add a deterministic overescaped-pattern/validated-repair regression."
+}

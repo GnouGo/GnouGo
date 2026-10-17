@@ -2,6 +2,7 @@ namespace GnOuGo.Browser.Mcp;
 
 public static class BrowserNavigationPolicy
 {
+    public const string HttpUrlPattern = @"^[Hh][Tt][Tt][Pp][Ss]?://[^/?#\s]+[^\s]*$";
     private static readonly string[] AllowedSchemes = ["http", "https"];
 
     public static Uri ValidateNavigationTarget(string url, BrowserServerSettings settings)
@@ -17,6 +18,10 @@ public static class BrowserNavigationPolicy
 
         if (string.IsNullOrWhiteSpace(uri.Host))
             throw new InvalidOperationException("The URL must contain a valid host.");
+
+        if (System.Text.RegularExpressions.Regex.Match(url, HttpUrlPattern,
+            System.Text.RegularExpressions.RegexOptions.CultureInvariant | System.Text.RegularExpressions.RegexOptions.NonBacktracking, TimeSpan.FromSeconds(1)).Length != url.Length)
+            throw new ArgumentException("The absolute HTTP URL must escape whitespace.", nameof(url));
 
         if (settings.AllowedHosts.Count > 0 && !IsHostAllowed(uri.Host, settings.AllowedHosts))
         {
@@ -54,4 +59,3 @@ public static class BrowserNavigationPolicy
         return false;
     }
 }
-

@@ -1,0 +1,95 @@
+[
+  {
+    "request_id": "schema-portability-20261002:typedcomposition20261011a-amazon-1:1:6cd9a2eabf39b8a45a201f3407440c73a6ac2e097115af62e0b644bae83dca5e",
+    "issued_bytes": 20633,
+    "request_sha256": "db1d2a9c419a5c38659108cc54f662f79b9013bfc7697c5d971c4bac0393bbf9",
+    "schema_sha256": "02dd951a3ce792b1cbf1ead6597453b8bb939d68cdb6d15a4d8e52790b367d95",
+    "receipt_committed": true,
+    "input_ceiling": 96000,
+    "output_ceiling": 32768,
+    "attempts": [
+      {
+        "status": 200,
+        "failure": null,
+        "error_message": null
+      }
+    ],
+    "usage": {
+      "input_tokens": 4160,
+      "output_tokens": 790,
+      "total_tokens": 4950,
+      "benchmark_cost_eur": 0.03948886325317242,
+      "transport_attempts": 1,
+      "uncertain_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "benchmark_usage_bounded": true
+    }
+  },
+  {
+    "request_id": "schema-portability-20261002:typedcomposition20261011a-amazon-1:2:b1b58c0b0592e92fb95577e61cdd75b8462707061dd5e8fe50a1c68e21d4e26c",
+    "issued_bytes": 89332,
+    "request_sha256": "692922351024612ca5917ddf24f70ba1637652f96275e4a7c8d9b441a1a3ff3a",
+    "schema_sha256": "c585eec50d0ddceb75c9aed7851e6e07f8e32e563a968614c5dbe93fb876baef",
+    "receipt_committed": true,
+    "input_ceiling": 96000,
+    "output_ceiling": 32768,
+    "attempts": [
+      {
+        "status": null,
+        "failure": "transport",
+        "error_message": null
+      },
+      {
+        "status": 200,
+        "failure": null,
+        "error_message": null
+      }
+    ],
+    "usage": {
+      "input_tokens": 15718,
+      "output_tokens": 2643,
+      "total_tokens": 18361,
+      "benchmark_cost_eur": 0.14010116248114296,
+      "transport_attempts": 2,
+      "uncertain_attempts": 1,
+      "reserved_input_tokens": 96000,
+      "reserved_output_tokens": 32768,
+      "reserved_cost_eur": 1.2982873369420533,
+      "benchmark_usage_bounded": true
+    }
+  },
+  {
+    "request_id": "schema-portability-20261002:typedcomposition20261011a-amazon-1:3:4f57c0c25e0fa45a013fd0651aac7b29c981da42a2291458942dcaa89da32370",
+    "issued_bytes": 111809,
+    "request_sha256": "c6d21b704097f4a4ff373bdf16ccf837c7466ee395ac0c6dff1c81416b2b4321",
+    "schema_sha256": "c585eec50d0ddceb75c9aed7851e6e07f8e32e563a968614c5dbe93fb876baef",
+    "receipt_committed": false,
+    "input_ceiling": 111811,
+    "output_ceiling": 32768,
+    "attempts": [
+      {
+        "status": null,
+        "failure": "transport",
+        "error_message": null
+      },
+      {
+        "status": 500,
+        "failure": null,
+        "error_message": null
+      },
+      {
+        "status": 500,
+        "failure": null,
+        "error_message": null
+      },
+      {
+        "status": 500,
+        "failure": null,
+        "error_message": null
+      }
+    ],
+    "usage": null
+  }
+]

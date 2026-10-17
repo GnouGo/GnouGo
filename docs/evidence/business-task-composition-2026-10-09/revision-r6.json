@@ -1,0 +1,12 @@
+{
+  "kind": "revise",
+  "expectedRevision": 6,
+  "artifactHash": "bf06edd09a377b0a0582f6c7d76d7bb320a8b39b7541cc26043e13937324be97",
+  "preserveRequirements": true,
+  "editablePaths": [
+    "/tasks/extract_product_facts/resultType",
+    "/tasks/reconcile_product/inputs",
+    "/tasks/visit_products/requires"
+  ],
+  "text": "Targeted correction only; keep all other tasks, objectives, requirements, operations, scopes, outputs and cleanup identical. Product-page extraction must not manufacture null scalars for missing facts. Replace only extract_product_facts.resultType with nonnullable object { pageFacts: nonnullable array (minItems 0,maxItems 100) of nonnullable objects containing required nameFacts, descriptionFacts, priceFacts, each a nonnullable array (minItems 0,maxItems 200) of nonnullable strings }. Each original complete page still yields exactly one object; empty fact arrays represent examined pages without such observations. Copy only observed strings, with no synthesized labels/errors/defaults. Producer error_code/error_message are already direct reconciliation inputs and need not be duplicated in every page's extraction result.\nIn reconcile_product.inputs replace only compactFacts binding with output(extract_product_facts, pageFacts) directly (the new target is array<object>, so do not flatten). Preserve product_url, browserErrorCode and browserErrorMessage bindings exactly. The final accepted non-null product with nullable missing fields remains unchanged; genuine interpretation reconciles missing facts there.\nIn visit_products.requires preserve the existing present(verified_ids) and conjunct an explicit equal(output(choose,searchError), null). An observed search error must fail before visits/writing rather than generate a completed empty workbook. No changes to selection, cardinality, budget or inference authority."
+}

@@ -1,0 +1,85 @@
+[
+  {
+    "call": 3,
+    "diagnostics_transmitted": [
+      {
+        "code": "TASK_CONDITION_TYPE",
+        "message": "Conditions require a boolean business value.",
+        "locations": [
+          "/tasks/accept_cookies/requires"
+        ],
+        "required": true
+      },
+      {
+        "code": "TASK_CONDITION_TYPE",
+        "message": "Conditions require a boolean business value. Conditional export contracts: /tasks/accept_cookies_if_present/body/outputs/search_snapshot = [\"object\",\"null\"] {id:\"string\" required, pages:\"array\" required, recordCount:\"integer\" required, captureTruncated:\"boolean\" required, manifestTruncated:\"boolean\" required}; /tasks/accept_cookies_if_present/otherwise/outputs/search_snapshot = [\"object\",\"null\"] {id:\"string\" required, pages:\"array\" required, recordCount:\"integer\" required, captureTruncated:\"boolean\" required, manifestTruncated:\"boolean\" required}. Project an explicit common consumer-facing interface in both alternatives; preserve nullable values and guard them explicitly. Interface restructuring requires an explicit revision when outside issued repair slots.",
+        "locations": [
+          "/tasks/extract_candidates_by_page/requires"
+        ],
+        "required": true
+      },
+      {
+        "code": "REVISION_REQUIRED",
+        "message": "Conditions require a boolean business value. The required binding and its producers are outside repair authority. Explicitly revise this binding; unrelated edits cannot correct its type.",
+        "locations": [
+          "/tasks/accept_cookies/requires"
+        ],
+        "required": true
+      },
+      {
+        "code": "REVISION_REQUIRED",
+        "message": "Conditions require a boolean business value. Conditional export contracts: /tasks/accept_cookies_if_present/body/outputs/search_snapshot = [\"object\",\"null\"] {id:\"string\" required, pages:\"array\" required, recordCount:\"integer\" required, captureTruncated:\"boolean\" required, manifestTruncated:\"boolean\" required}; /tasks/accept_cookies_if_present/otherwise/outputs/search_snapshot = [\"object\",\"null\"] {id:\"string\" required, pages:\"array\" required, recordCount:\"integer\" required, captureTruncated:\"boolean\" required, manifestTruncated:\"boolean\" required}. Project an explicit common consumer-facing interface in both alternatives; preserve nullable values and guard them explicitly. Interface restructuring requires an explicit revision when outside issued repair slots. The required binding and its producers are outside repair authority. Explicitly revise this binding; unrelated edits cannot correct its type.",
+        "locations": [
+          "/tasks/extract_candidates_by_page/requires"
+        ],
+        "required": true
+      }
+    ]
+  },
+  {
+    "call": 4,
+    "diagnostics_transmitted": [
+      {
+        "code": "TASK_CONDITION_TYPE",
+        "message": "Conditions require a boolean business value.",
+        "locations": [
+          "/tasks/accept_cookies/requires"
+        ],
+        "required": true
+      },
+      {
+        "code": "TASK_CONDITION_TYPE",
+        "message": "Conditions require a boolean business value. Conditional export contracts: /tasks/accept_cookies_if_present/body/outputs/search_snapshot = [\"object\",\"null\"] {id:\"string\" required, pages:\"array\" required, recordCount:\"integer\" required, captureTruncated:\"boolean\" required, manifestTruncated:\"boolean\" required}; /tasks/accept_cookies_if_present/otherwise/outputs/search_snapshot = [\"object\",\"null\"] {id:\"string\" required, pages:\"array\" required, recordCount:\"integer\" required, captureTruncated:\"boolean\" required, manifestTruncated:\"boolean\" required}. Project an explicit common consumer-facing interface in both alternatives; preserve nullable values and guard them explicitly. Interface restructuring requires an explicit revision when outside issued repair slots.",
+        "locations": [
+          "/tasks/extract_candidates_by_page/requires"
+        ],
+        "required": true
+      },
+      {
+        "code": "REVISION_REQUIRED",
+        "message": "Conditions require a boolean business value. The required binding and its producers are outside repair authority. Explicitly revise this binding; unrelated edits cannot correct its type.",
+        "locations": [
+          "/tasks/accept_cookies/requires"
+        ],
+        "required": true
+      },
+      {
+        "code": "REVISION_REQUIRED",
+        "message": "Conditions require a boolean business value. Conditional export contracts: /tasks/accept_cookies_if_present/body/outputs/search_snapshot = [\"object\",\"null\"] {id:\"string\" required, pages:\"array\" required, recordCount:\"integer\" required, captureTruncated:\"boolean\" required, manifestTruncated:\"boolean\" required}; /tasks/accept_cookies_if_present/otherwise/outputs/search_snapshot = [\"object\",\"null\"] {id:\"string\" required, pages:\"array\" required, recordCount:\"integer\" required, captureTruncated:\"boolean\" required, manifestTruncated:\"boolean\" required}. Project an explicit common consumer-facing interface in both alternatives; preserve nullable values and guard them explicitly. Interface restructuring requires an explicit revision when outside issued repair slots. The required binding and its producers are outside repair authority. Explicitly revise this binding; unrelated edits cannot correct its type.",
+        "locations": [
+          "/tasks/extract_candidates_by_page/requires"
+        ],
+        "required": true
+      },
+      {
+        "code": "REVISION_SCOPE_CHANGED",
+        "message": "Automatic correction cannot establish preservation of the ordered assertion. Review this difference explicitly; no candidate was applied.",
+        "locations": [
+          "/tasks/accept_cookies/requires",
+          "/tasks/extract_candidates_by_page/requires"
+        ],
+        "required": true
+      }
+    ]
+  }
+]

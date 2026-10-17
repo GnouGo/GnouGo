@@ -9,15 +9,20 @@ public static class PlanningArtifactApproval
     {
         if (state.SchemaVersion != 10 || state.Requirements is null || state.Plan is null || state.Graph is null || state.Catalog is null ||
             state.Yaml is null || state.PendingCall is not null || state.Diagnostics.Any(d => d.Required) ||
-            state.Requirements.Outcomes.Count == 0 || state.Plan.Choices.Any(c => c.Selected is null))
+            state.Requirements.Outcomes.Count == 0 || state.Plan.Choices.Any(c => c.Selected is null) || state.PendingQuestions is not null ||
+            PlanningClarifications.InputFindings(state).Count > 0 ||
+            state.IntentVersion is not (2 or 3) && (state.ApprovedHash is null || state.ApprovedHash != state.ComputeArtifactHash()))
             throw new PlanningConflictException("Approval requires a complete format-10 TaskPlan. Regenerate incompatible planning sessions; execution journals remain schema 9.");
-        var compilation = new TaskPlanCompiler().Compile(state.Plan, state.Catalog);
-        if (compilation.Graph is not { } graph || compilation.Diagnostics.Count > 0 || PlanningGeneratedGraph.Validate(graph, state.Catalog).Any(d => d.Required))
+        var compilation = new TaskPlanCompiler().Compile(state.Plan, state.Catalog, state.Request);
+        if (compilation.Graph is not { } graph || compilation.Diagnostics.Count > 0 || PlanningClarifications.OutputFindings(state, graph).Count > 0 || PlanningGeneratedGraph.Validate(graph, state.Catalog, TaskPlanCompiler.UsesCompactBindings(state.Request)).Any(d => d.Required))
             throw new PlanningConflictException("The saved TaskPlan no longer compiles to an approvable artifact.");
+        if (PlanningCommitments.Validate(state, state.Requirements, final: true).Count > 0 ||
+            PlanningCommitments.Assess(state).Any(r => r.Diagnostics.Any(d => d.Required)))
+            throw new PlanningConflictException("Approval cannot accept a violated business commitment. Recomputed coverage disagrees with the required operations or producer results.");
         PlanningConfirmationGuards.Apply(graph, state.Catalog);
         if (!JsonNode.DeepEquals(JsonSerializer.SerializeToNode(graph, PlanningJsonContext.Default.PlanningGraph), JsonSerializer.SerializeToNode(state.Graph, PlanningJsonContext.Default.PlanningGraph)) ||
             PlanningExecutableValidation.Validate(graph, state.Catalog).Any(d => d.Required) ||
-            new PlanningGraphCompiler().Compile(graph, state.Catalog, state.Request.Name) != state.Yaml)
+            new PlanningGraphCompiler().Compile(graph, state.Catalog, state.Request.Name, TaskPlanCompiler.UsesNormalExports(state.Request), TaskPlanCompiler.UsesFusedBindings(state.Request), TaskPlanCompiler.UsesConsumerBindings(state.Request), TaskPlanCompiler.UsesDirectProjections(state.Request), TaskPlanCompiler.UsesNativeMappings(state.Request), TaskPlanCompiler.UsesReadableMappings(state.Request), TaskPlanCompiler.UsesLeanMappings(state.Request), TaskPlanCompiler.UsesCompactProjections(state.Request), TaskPlanCompiler.UsesInlineConsumers(state.Request), TaskPlanCompiler.UsesDirectValues(state.Request), TaskPlanCompiler.UsesCheckedControls(state.Request), TaskPlanCompiler.UsesReadableBranches(state.Request), TaskPlanCompiler.UsesSimplifiedLocals(state.Request)) != state.Yaml)
             throw new PlanningConflictException("Recompilation does not reproduce the reviewed executable artifact.");
     }
 }

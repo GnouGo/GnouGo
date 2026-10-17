@@ -1,0 +1,89 @@
+{
+  "status": "stopped",
+  "planning_ms": 86386,
+  "calls": 2,
+  "repairs": 0,
+  "discovery_reads": 3,
+  "review_revisions": 0,
+  "diagnostics": [
+    {
+      "code": "REQUIREMENTS_COMMITMENT_INVALID",
+      "location": "/requirements/outcomes/0/commitments/0",
+      "message": "A result commitment must name one declared operation port and one accepted public output.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "REQUIREMENTS_COMMITMENT_INVALID",
+      "location": "/requirements/outcomes/1/commitments/0",
+      "message": "A result commitment must name one declared operation port and one accepted public output.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "REQUIREMENTS_COMMITMENT_INVALID",
+      "location": "/requirements/outcomes/2/commitments/0",
+      "message": "A result commitment must name one declared operation port and one accepted public output.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "REQUIREMENTS_COMMITMENT_INVALID",
+      "location": "/requirements/outcomes/2/commitments/1",
+      "message": "A result commitment must name one declared operation port and one accepted public output.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "REQUIREMENTS_COMMITMENT_INVALID",
+      "location": "/requirements/outcomes/3/commitments/0",
+      "message": "A result commitment must name one declared operation port and one accepted public output.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    }
+  ],
+  "execution_success": false,
+  "execution_oracle": false,
+  "execution_status": "not_started",
+  "accounting": {
+    "planning": {
+      "logical_calls": 2,
+      "physical_attempts": 2,
+      "known_input_tokens": 28748,
+      "known_output_tokens": 7122,
+      "known_cost_eur": 0.3196494052410339,
+      "unknown_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0
+    },
+    "execution": {
+      "logical_calls": 0,
+      "physical_attempts": 0,
+      "known_input_tokens": 0,
+      "known_output_tokens": 0,
+      "known_cost_eur": 0,
+      "unknown_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0
+    },
+    "campaign": {
+      "calls": 1165,
+      "session_calls": 0,
+      "known_input_tokens": 16166240,
+      "known_output_tokens": 2400627,
+      "known_cost_eur": 135.96717800348318,
+      "reserved_input_tokens": 1322641,
+      "reserved_output_tokens": 425984,
+      "reserved_cost_eur": 17.260932992537807,
+      "cost_upper_bound_eur": 153.228110996021,
+      "unknown_attempts": 13
+    }
+  }
+}

@@ -1,0 +1,84 @@
+{
+  "session": "fd471af6e0594916a202d6e3216b21e0",
+  "revision": 5,
+  "status": "saved",
+  "planningCalls": 1,
+  "repairs": 0,
+  "providerCalls": 0,
+  "mcpCalls": 0,
+  "receipts": [
+    {
+      "requestSha256": "c08b93703f31bba87f0cf6d9ed4cec4d093ea6df2cd8e1a0ef1313cef2f377a5",
+      "receiptSha256": "025a3a1d593470dd6e73db4687dd3ff2cc827115d29077ae6e11bbfe497bc19a",
+      "schemaValid": true,
+      "structuredOutputStrict": true,
+      "issuedRequestBytes": 27793,
+      "presentedOperations": 0,
+      "discoveryAllowed": true
+    }
+  ],
+  "runs": [
+    {
+      "run": "00f7d72b10dce5a6e0dbb368a003fec7",
+      "headSha256": "200b487acd95a4e924f3a69ff90cd6519374d960bde89a162167dc258d0bfcff",
+      "status": "failed",
+      "savedFailure": "The required mapping could not be established after two bounded attempts: Mapping result $/success contains a missing or invented scalar. Return observed data; defaults belong to the target contract. [workflow \u0027main\u0027, step \u0027n_119c6c53aa5bf31b\u0027]",
+      "mappingReplay": [
+        {
+          "scriptSha256": "9264e278d49f75232a2af6f2cc229f1dbf61ce7c09edc06fa598dfc793e0c5fb",
+          "code": "CONTRACT_UNSATISFIED",
+          "message": "Mapping JavaScript contains an unsupported operation.",
+          "details": {
+            "mapping_failure_kind": "program",
+            "helper": null
+          }
+        },
+        {
+          "scriptSha256": "bc6fe9c3327952e7cfd2db613b410969ed78058374769c9de6ac05ff097c4a27",
+          "code": "CONTRACT_UNSATISFIED",
+          "message": "Mapping result $/success contains a missing or invented scalar. Return observed data; defaults belong to the target contract.",
+          "details": {
+            "mapping_failure_kind": "program",
+            "mapping_failure_reason": "ungrounded_scalar",
+            "mapping_result_path": "$/success"
+          }
+        }
+      ],
+      "externalToolInvocations": 0,
+      "committedModelReceipts": 2,
+      "cleanupStatus": "skipped"
+    },
+    {
+      "run": "d182b7abc8384d37be0b6058879272c9",
+      "headSha256": "406fb8d45d474485d35d0952858eb5259a7b5b90300a030dd230607b55c79bf2",
+      "status": "failed",
+      "savedFailure": "The required mapping could not be established after two bounded attempts: Mapping result $/success contains a missing or invented scalar. Return observed data; defaults belong to the target contract. [workflow \u0027main\u0027, step \u0027n_119c6c53aa5bf31b\u0027]",
+      "mappingReplay": [
+        {
+          "scriptSha256": "4f9a680ec16a94972de3fbb48f8df45f7db497400fe797a86ca361a7c8e9346d",
+          "code": "CONTRACT_UNSATISFIED",
+          "message": "Mapping JavaScript contains an unsupported operation.",
+          "details": {
+            "mapping_failure_kind": "program",
+            "helper": null
+          }
+        },
+        {
+          "scriptSha256": "784100ae809edcf124de6b534c6f3eafbe087f42bea7b6467d6af68f3956ce46",
+          "code": "CONTRACT_UNSATISFIED",
+          "message": "Mapping result $/success contains a missing or invented scalar. Return observed data; defaults belong to the target contract.",
+          "details": {
+            "mapping_failure_kind": "program",
+            "mapping_failure_reason": "ungrounded_scalar",
+            "mapping_result_path": "$/success"
+          }
+        }
+      ],
+      "externalToolInvocations": 0,
+      "committedModelReceipts": 2,
+      "cleanupStatus": "skipped"
+    }
+  ],
+  "historicalRecordsUnchanged": true,
+  "hostCapabilities": "The issued request offered discovery but no inspected operations; retained evidence does not establish availability or permissions for the required external work."
+}

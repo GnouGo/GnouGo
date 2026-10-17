@@ -1,0 +1,34 @@
+using System.Text.Json.Nodes;
+using GnOuGo.KeyVault.Core.Services;
+var records=KeyVaultRecordStoreFactory.CreateWorkspaceStore(null,"/Users/a115vc/Desktop/GnOuGo");
+var record=await records.GetAsync("planning-schema-portability","benchmark","schema-portability-20261002:run:nullfacts20261010a-amazon-1","GnOuGo.Planning.Benchmark",CancellationToken.None);
+var run=JsonNode.Parse(record!.Value)!.AsObject();
+if(args.Length>0) await File.WriteAllTextAsync(args[0],run.ToJsonString());
+var events=run["events"]?.AsArray()??[];
+var summary=new JsonObject {
+ ["revision"]=run["session"]?["revision"]?.DeepClone(),["status"]=run["session"]?["status"]?.DeepClone(),
+ ["artifact_hash"]=run["artifact_hash"]?.DeepClone(),["execution_started"]=run["execution_started"]?.DeepClone(),
+ ["execution"]=run["execution"]?.DeepClone(),["oracle"]=run["oracle"]?.DeepClone(),
+ ["event_count"]=events.Count,
+ ["events"]=new JsonArray(events.Select(e=>(JsonNode)new JsonObject{
+  ["tool"]=e?["tool"]?.DeepClone(),["error"]=e?["error"]?.DeepClone(),
+  ["error_code"]=e?["result"]?["error_code"]?.DeepClone(),["latency_ms"]=e?["latency_ms"]?.DeepClone(),
+  ["pages"]=e?["result"]?["observationSnapshot"]?["pages"]?.AsArray().Count,
+  ["records"]=e?["result"]?["observationSnapshot"]?["recordCount"]?.DeepClone(),
+  ["acquisition"]=e?["result"]?["acquisition"]?.DeepClone()
+ }).ToArray())};
+Console.WriteLine(summary.ToJsonString());
+var requests=(await records.ListAsync("planning-evaluation-requests","benchmark","GnOuGo.Planning.Benchmark")).Where(r=>r.Key.StartsWith("schema-portability-20261002:nullfacts20261010a-amazon-1-execution:",StringComparison.Ordinal)).OrderBy(r=>r.UpdatedAt).ToArray();
+var progress=new JsonArray();
+foreach(var request in requests){var receipt=await records.GetAsync("planning-evaluation-receipts","benchmark",request.Key,"GnOuGo.Planning.Benchmark",CancellationToken.None);progress.Add(new JsonObject{["id"]=request.Key,["completed"]=receipt is not null,["updated"]=request.UpdatedAt.ToString("O")});}
+Console.WriteLine(new JsonObject{["runtime_inference_requests"]=progress}.ToJsonString());
+var journal=await GnOuGo.Flow.Persistence.EncryptedWorkflowRunStore.CreateWorkspace(baseDirectory:"/Users/a115vc/Desktop/GnOuGo").ReadAsync("benchmark","nullfacts20261010a-amazon-1");
+var selected=new JsonArray();
+foreach(var invocation in journal!.Invocations.Values.Where(i=>i.StepType is "mapping.dynamic" or "llm.call"||i.Error is not null)){
+var input=invocation.ResolvedInput;
+selected.Add(new JsonObject{["id"]=invocation.Id,["type"]=invocation.StepType,["status"]=invocation.Status,["completion_observed"]=invocation.ExternalCompletionObserved,["output"]=invocation.Output?.DeepClone(),["error"]=System.Text.Json.JsonSerializer.SerializeToNode(invocation.Error),["prompt"]=input?["prompt"]?.DeepClone(),["control"]=System.Text.Json.JsonSerializer.SerializeToNode(invocation.Control)});
+}
+await File.WriteAllTextAsync("/tmp/nullable-invocation-evidence.json",selected.ToJsonString());
+Console.WriteLine("Read-only invocation evidence saved; no workflow execution or storage writes.");
+var durability=new JsonObject{["schema_version"]=journal.SchemaVersion,["run_status"]=journal.Status,["revision"]=journal.Revision,["finalization_started"]=journal.FinalizationStarted,["finalization_completed"]=journal.FinalizationCompleted,["normal_steps_started"]=journal.StepsStarted,["finalization_steps_started"]=journal.FinalizationStepsStarted,["model_receipts"]=new JsonArray(journal.Invocations.Values.Where(i=>i.StepType=="llm.call").Select(i=>(JsonNode)new JsonObject{["invocation"]=i.Id,["status"]=i.Status,["external_completion_observed"]=i.ExternalCompletionObserved,["has_output"]=i.Output is not null}).ToArray())};
+await File.WriteAllTextAsync("/tmp/nullable-durability.json",durability.ToJsonString());

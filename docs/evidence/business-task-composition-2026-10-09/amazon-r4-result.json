@@ -1,0 +1,89 @@
+{
+  "status": "stopped",
+  "planning_ms": 125186,
+  "calls": 3,
+  "repairs": 0,
+  "discovery_reads": 2,
+  "review_revisions": 1,
+  "diagnostics": [
+    {
+      "code": "CONTRACT_UNSATISFIED",
+      "location": "/tasks/project_products_for_visit/body/outputs/product_url",
+      "message": "TASK_FIELD_TYPE: Field 'href' requires a declared object; received \"array\" from output:lookup_selected_original_products.selected_original_products, item:. Arrays have no field/index/length ports; use typed iteration, flatten or lookup, or declare a scalar result. Opaque values cannot supply fields.",
+      "required": true,
+      "validationStage": "contract:TASK_FIELD_TYPE",
+      "rule": null
+    },
+    {
+      "code": "CONTRACT_UNSATISFIED",
+      "location": "/tasks/project_products_for_visit/body/outputs/reference",
+      "message": "TASK_FIELD_TYPE: Field 'reference' requires a declared object; received \"array\" from output:lookup_selected_original_products.selected_original_products, item:. Arrays have no field/index/length ports; use typed iteration, flatten or lookup, or declare a scalar result. Opaque values cannot supply fields.",
+      "required": true,
+      "validationStage": "contract:TASK_FIELD_TYPE",
+      "rule": null
+    },
+    {
+      "code": "CONTRACT_UNSATISFIED",
+      "location": "/tasks/submit_search/inputs/reference",
+      "message": "TASK_INPUT_TYPE: Produced \"array\"; expected [\"string\",\"null\"]. The business value does not satisfy its authoritative contract. This argument may be omitted; if supplied it must satisfy the contract. Null is not omission.",
+      "required": true,
+      "validationStage": "contract:TASK_INPUT_TYPE",
+      "rule": null
+    },
+    {
+      "code": "CONTRACT_UNSATISFIED",
+      "location": "/tasks/submit_search/requires",
+      "message": "TASK_FIELD_UNKNOWN: output:project_selected_search_records does not declare field 'length'. Available fields: search_reference, supported_actions. Field names are literal, not paths.",
+      "required": true,
+      "validationStage": "contract:TASK_FIELD_UNKNOWN",
+      "rule": null
+    },
+    {
+      "code": "REVISION_REQUIRED",
+      "location": "/tasks/submit_search/requires",
+      "message": "output:project_selected_search_records does not declare field 'length'. Available fields: search_reference, supported_actions. Field names are literal, not paths. The required binding and its producers are outside repair authority. Explicitly revise this binding; unrelated edits cannot correct its type.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    }
+  ],
+  "execution_success": false,
+  "execution_oracle": false,
+  "execution_status": "not_started",
+  "accounting": {
+    "planning": {
+      "logical_calls": 3,
+      "physical_attempts": 3,
+      "known_input_tokens": 38992,
+      "known_output_tokens": 10134,
+      "known_cost_eur": 0.44278995474310057,
+      "unknown_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0
+    },
+    "execution": {
+      "logical_calls": 0,
+      "physical_attempts": 0,
+      "known_input_tokens": 0,
+      "known_output_tokens": 0,
+      "known_cost_eur": 0,
+      "unknown_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0
+    },
+    "campaign": {
+      "calls": 961,
+      "session_calls": 0,
+      "known_input_tokens": 13965055,
+      "known_output_tokens": 1971300,
+      "known_cost_eur": 114.73783415570713,
+      "reserved_input_tokens": 480000,
+      "reserved_output_tokens": 163840,
+      "reserved_cost_eur": 6.501614794790526,
+      "cost_upper_bound_eur": 121.23944895049766,
+      "unknown_attempts": 5
+    }
+  }
+}

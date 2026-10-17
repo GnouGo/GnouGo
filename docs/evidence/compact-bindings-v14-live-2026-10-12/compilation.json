@@ -1,0 +1,20 @@
+{
+  "workflows": 7,
+  "steps": 26,
+  "sets": 5,
+  "yaml_bytes": 217493,
+  "javascript_bytes": 19843,
+  "javascript_max_line": 175,
+  "unique_programs": 35,
+  "declarations": 184,
+  "functions": 109,
+  "maximum_function_depth": 4,
+  "technical_declarations": 0,
+  "wrappers": 1,
+  "select_helpers": 0,
+  "taskplan_tasks": 28,
+  "historical_writes": 0,
+  "provider_calls": 0,
+  "mcp_calls": 0,
+  "exact_retained_yaml_recompiled": true
+}

@@ -1,0 +1,13 @@
+{
+  "historical_inspection_sha256_before": "788cfed55605c13a0f7fde6b2aef926e1cd09cbd2fc1192f553731b320af5f85",
+  "historical_inspection_sha256_after": "788cfed55605c13a0f7fde6b2aef926e1cd09cbd2fc1192f553731b320af5f85",
+  "historical_inspection_bytes_unchanged": true,
+  "original_run_modified": false,
+  "original_request_replayed": false,
+  "completion_receipt_manufactured": false,
+  "reserved_cost_released": false,
+  "unclosed_uncertain_requests_after_archival": [],
+  "remaining_reserved_unknown_physical_attempts": 4,
+  "closure_reread_identical": true,
+  "closure_reread_created_new_receipt": false
+}

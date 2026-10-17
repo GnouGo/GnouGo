@@ -1,0 +1,61 @@
+{
+  "candidate": "e2179af7",
+  "rid": "osx-arm64",
+  "checks": [
+    {
+      "name": "pack-Core",
+      "exit_code": 0,
+      "elapsed_seconds": 2.88
+    },
+    {
+      "name": "pack-Planning",
+      "exit_code": 0,
+      "elapsed_seconds": 3.6
+    },
+    {
+      "name": "pack-Persistence",
+      "exit_code": 0,
+      "elapsed_seconds": 1.53
+    },
+    {
+      "name": "publish-planning",
+      "exit_code": 0,
+      "elapsed_seconds": 30.39
+    },
+    {
+      "name": "planning-smoke",
+      "exit_code": 0,
+      "elapsed_seconds": 6.38
+    },
+    {
+      "name": "publish-cli",
+      "exit_code": 0,
+      "elapsed_seconds": 40.53
+    },
+    {
+      "name": "publish-server",
+      "exit_code": 1,
+      "elapsed_seconds": 58.35
+    },
+    {
+      "name": "publish-server-supported-profile",
+      "exit_code": 0,
+      "notices": "Only two exact existing EF Core Tasks experimental notices; C# TreatWarningsAsErrors=true. Global -warnaserror attempt retained above."
+    },
+    {
+      "name": "publish-cli-frozen-global-aot",
+      "exit_code": 0,
+      "note": "Global PublishAot=true required for dependency query precompilation; first local-property-only CLI index check failed."
+    },
+    {
+      "name": "published-encrypted-recovery",
+      "exit_code": 0,
+      "checks": [
+        "CLI durable receipts and index rebuild",
+        "server restart and human answers",
+        "tenant and revision isolation",
+        "no plaintext workflow data"
+      ]
+    }
+  ]
+}

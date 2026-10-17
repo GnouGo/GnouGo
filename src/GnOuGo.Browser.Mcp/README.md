@@ -41,7 +41,7 @@ Practical rule for `browser_get_content`:
 - 
 - `format: html` strips `<script>` elements by default before returning content, which keeps pages such as Amazon compact and avoids sending large inline JavaScript/state blobs to MCP clients
 - set `includeScriptContent: true` only when debugging raw page scripts or when script tags are explicitly needed
-- for a menu, header, or cookie banner, it is generally better to target a specific selector (`nav`, `header`, `form`, etc.) with `format: html` rather than `text`, otherwise useful URLs and attributes will be lost
+- for a menu, header, or form, it is generally better to target a specific selector (`nav`, `header`, `form`, etc.) with `format: html` rather than `text`, otherwise useful URLs and attributes will be lost
 - robustness note: when a requested content selector is temporarily unavailable, `browser_get_content` falls back to `body` then `html` and returns `resolvedSelector` / `fallbackApplied` metadata in the result
 
 ### Goal â†’ Recommended Format
@@ -50,7 +50,7 @@ Practical rule for `browser_get_content`:
 |---|---|---|
 | Summarize a page or read its visible content | `text` | simpler, more compact, closer to readable rendering |
 | Extract menu, header, footer, or navigation links | `html` | plain text loses `<a>` tags and `href` values |
-| Decide which button to click in a cookie banner, form, or modal | `html` | DOM structure, attributes, and context are often necessary |
+| Decide which button to click in a form or modal | `html` | DOM structure, attributes, and context are often necessary |
 | Identify a unique button by its visible label (`Submit`, `Continue`, `OK`) | `text` or `html` | `text` may suffice if the label is unique; otherwise `html` helps resolve ambiguities |
 | Build a reliable CSS selector before `browser_click` | `html` | allows inspecting classes, attributes, hierarchy, and DOM position |
 | Identify the right form field before `browser_fill` | `html` | useful when multiple inputs look similar or when relying on labels, placeholders, or form structure |
@@ -72,7 +72,6 @@ Very short MCP client examples:
 - open a page and directly read its HTML â†’ `browser_get_content(url: "https://example.com", selector: body, format: html)`
 - read a confirmation message after a submit â†’ `browser_get_content(format: text)`
 - extract links from a menu â†’ `browser_get_content(selector: nav, format: html)`
-- choose a cookie banner button â†’ `browser_get_content(selector: body, format: html)` then decide between `browser_click_text` and `browser_click`
 - identify the right field before filling a form â†’ `browser_get_content(selector: form, format: html)` then `browser_fill`
 - wait for a results block to appear or an overlay to disappear â†’ inspect `html`, choose a stable selector, then `browser_wait`
 - send `Enter` in a known field â†’ `browser_press(selector: "input[name='q']", key: "Enter")`
@@ -178,8 +177,136 @@ Example MCP configuration in `LLMOptions`:
 
 ## Notes
 
-- Navigations are restricted to `http` and `https`.
+- Navigations are restricted to absolute `http` and `https` URLs with escaped whitespace. `browser_get_content` publishes this syntax in its input schema. Decode an encoded whole URL or resolve a relative reference against its observed page URL before calling; the host still enforces scheme and allowed-host policy. Null/omission reads the current page; an explicit empty URL is invalid. Refresh discovery after this contract change.
 - `file://`, `data:`, and other non-web schemes are rejected.
 - If `AllowedHosts` is empty, any HTTP/HTTPS destination is allowed.
 - The direct apphost command above assumes launch from the repository root. A portable alternative after building is `dotnet src/GnOuGo.Browser.Mcp/bin/Debug/net10.0/GnOuGo.Browser.Mcp.dll`.
 - `KeepBrowserOpen=true` is a local debug mode; do not leave it enabled in normal automated runs.
+
+### Compact observations
+
+Use `browser_get_content(format: "observation_complete")` when every page is
+needed before interpreting or acting. `observationSnapshot` contains `id`, ordered
+`pages` (each with typed `records` and the same `id`), `recordCount`,
+`captureTruncated: false` and `manifestTruncated: false`. The pages have no
+continuation cursors. Flat `content` stays empty. Process these pages with ordinary
+collection bindings; keep extraction and interpretation outside Browser.
+
+The producer buffers the full acquisition and checks its document generation
+before publishing. Navigation, including same-URL reloads, discards the entire
+attempt. It makes at most three acquisition attempts (two restarts), all sharing
+the original timeout and cancellation. Every attempt resolves the original
+selector against the current permitted document without selector fallback.
+
+An explicit URL acquisition can reload **once** when its captured document has
+zero records, an empty title and no meaningful body content. This requires the
+current document's verified successful GET response (excluding 204/205), with no
+intervening unsafe navigation. The discarded snapshot is invalidated completely;
+reload consumes an acquisition attempt and resets no allowance. Reads of the
+current page, submitted documents, HTTP errors and unknown navigation methods
+never trigger this recovery. Clicks, fills, submissions and business actions are
+never replayed. Empty selected regions in populated documents and non-text content
+remain valid observations; emptiness is not inferred from missing business fields.
+
+If the document remains unusable, or reload is ineligible, `OBSERVATION_EMPTY`
+returns a structured MCP error without a usable snapshot. This does not establish
+CAPTCHA, missing products or successful zero-result search. Normal failure handling
+and cleanup apply after the error receipt is durable; downstream interpretation
+and normal output writing must not run. Historical receipts are not reclassified.
+
+Optional `acquisition.navigation` identifies the current observed document and its
+verified HTTP status; status stays unknown when no matching response was observed.
+`lastResponse` retains the latest main-navigation HTTP response, including responses
+that never committed a document (for example 204). They are not interchangeable.
+`recoveries` records the discarded snapshot/generation, `empty_document` reason,
+`reloadRequested` flag and the navigation evidence at that time. A requested reload
+is not a claim that it completed. The top-level URL/title/status describe the final
+observed document, including on failure when available. Old acquisition records
+without these optional fields remain readable; refresh discovery for the additions.
+
+Complete acquisitions also retain optional `phase`, `elapsedMilliseconds` and
+`timingsMilliseconds` diagnostics. The finite phases distinguish startup,
+navigation, readiness, selector resolution, capture (including transfer and
+document metadata), pagination, publication and the one eligible reload. Times
+accumulate across attempts under the same deadline. A timeout identifies its
+phase; a navigation invalidation is retained even when timeout/cancellation wins
+before expiration handling. These fields also survive MCP error receipts and
+encrypted recovery. Trace events contain phase names, attempts and elapsed times,
+never observed content or URLs. They do not establish business completeness or
+authorize retry. Historical receipts without this evidence cannot identify the
+phase that timed out; a visibly rendered page alone does not establish that a
+complete, coherent observation was acquired.
+
+Existing capture bounds remain 10,000 records / 2,000,000 record characters and
+bounded DOM traversal. Page limits remain at most 24,000 serialized characters,
+200 records and 100 pages, or stricter request/host settings. In complete mode,
+`maxCharacters` is the per-page limit; the whole result is also bounded by that
+limit times the host page cap. `OBSERVATION_INCOMPLETE` means capture, page or
+aggregate coverage could not be completed within those bounds: explicitly narrow
+the observation. Oversized records also fail. No partial result is published.
+A complete snapshot is one coherent observation, not a guarantee that the live
+page will remain unchanged after the call returns.
+
+Legacy cursors remain strict. Known expired snapshot identities return
+`SNAPSHOT_EXPIRED`; malformed and unknown identities return `INVALID_INPUT`.
+`acquisition` metadata retains attempt counts and bounded invalidation records
+(snapshot ID, generation, reason and UTC timestamp). Reasons distinguish
+`navigation`, `interaction`, `closure`, `replacement` and `empty_document`. The host retains only
+64 recent invalidation identities, without old payloads; older unknown cursors
+still fail. Expiration events appear in existing traces/logs, and structured MCP
+results/errors retain the causes in workflow receipts and encrypted journals.
+Telemetry contains identities/reasons, not observed text or credential-bearing
+URLs. Existing paged/legacy formats retain their data shape and pagination.
+
+
+`browser_get_content(format: "observation_pages")` captures one immutable snapshot
+and returns `observationManifest`: its `id`, captured `recordCount`, `pages`
+(`cursor`, `recordCount`), `captureTruncated` and `manifestTruncated`. Read every
+descriptor with its cursor and either `observation` or `observation_pages`,
+omitting URL, selector and limits. The issued snapshot determines the cursor
+layout and returned format; changing between the two observation formats cannot
+reinterpret a frozen page as an offset or alter its bounds. HTML/text remain
+invalid for continuation.
+Page boundaries are frozen at capture time. The existing per-response character
+and record caps apply; `Browser:MaxObservationPages` defaults to 100 and can only
+lower the hard 100-page ceiling. The manifest itself obeys the response allowance.
+
+This fits an ordinary bounded `foreach`: capture, read every listed page, collect
+the observations, then navigate. The manifest describes available pages; it does
+not acknowledge their delivery. Only consuming all listed pages with both
+truncation flags false establishes coverage of the captured scope. A truncated
+manifest or capture requires a narrower read. An empty complete manifest is an
+empty observation. Navigation, interaction, closure or a new capture expires the
+snapshot. Reads are idempotent; page results retain continuation/truncation facts.
+
+Paged results contain `observation.records` and an empty flat `content` field,
+avoiding duplicated text. Selectors are shortened only after checking uniqueness
+and identity in the DOM. Visible text, links, controls and grouping remain intact.
+The HTML `includeScriptContent` option remains false by default: it removes script
+elements from returned HTML before truncation, without disabling page execution.
+Refresh discovery and generate/review a new workflow to use the additive format;
+saved workflows and existing observation cursors are not rewritten.
+
+`browser_get_content(format: "observation")` returns visible DOM records (`kind`, `tag`, `selector`, `group`, `text`, `href`, `role`) in `observation.records`, plus the existing `content` text. Links retain observed resolved URLs; selectors and group locations retain context. Scripts, styles, hidden content, arbitrary attributes and input values are excluded. Existing HTML/text modes are unchanged.
+
+The complete serialized response is limited to 24,000 characters and 200 records, or stricter `Browser:MaxObservationCharacters` / `Browser:MaxObservationRecords` and request limits. Continue with `format: "observation", cursor: observation.nextCursor`, omitting URL and selector. Cursors refer to the original snapshot and expire on navigation, interaction or closure. `truncated` and `observation.captureTruncated` remain explicit: a capture limit requires a narrower selector; continuation cannot recover records beyond the capture limit. Oversized individual records fail rather than silently cutting values. Observations are data, never permission or factual verification.
+
+Compact observations group native and ARIA button controls within their closest visible dialog, including nested sections. Reading content never clicks controls. Interactions require an explicit authorized action followed by a fresh observation. `truncated`, `nextCursor` and `captureTruncated` indicate incomplete data; a capture limit with no cursor still requires a narrower read. See the [historical review and execution checks](../../docs/browsing-review-and-copilot-receipts.md); their scenario-specific examples are not current tool instructions.
+
+### Observed action references
+
+New observation records also expose an opaque `reference` and `actions` (`activate`, `follow`, `fill`, `select`, `press`). Actions follow native element semantics and explicit ARIA roles. An ordinary link cannot satisfy activation of a control, regardless of its label. Disabled or read-only state restricts the available actions. These declarations establish compatibility, not business intent: a button's role alone does not establish that it performs the requested action.
+
+Prefer an observed reference for `browser_click`, `browser_fill`, `browser_press` and `browser_select`. Supply exactly one target: `reference` or legacy `selector`. Reference-based clicks additionally require `requestedAction: "activate" | "follow"`; the other operations imply their action. For example:
+
+```json
+{"reference":"<exact reference from the observation>","requestedAction":"activate"}
+```
+
+The producer resolves the retained DOM element, checks its captured identity and current semantics/actionability, and uses that exact element. It never executes a model-generated selector on this path or retargets a replacement with the same CSS selector. `INVALID_REFERENCE`, `REFERENCE_CHANGED` and `ACTION_MISMATCH` fail before interaction. Known invalidations return `SNAPSHOT_EXPIRED` with the existing cause. Result `target` metadata and existing trace attributes preserve the reference, snapshot, requested action and rejection cause without logging observed text.
+
+References are usable only after their record has been delivered. Navigation, interaction, replacement capture, closure or a different Browser instance invalidates them. Reacquire before another observed DOM action; failed preflight validation does not discard a still-valid snapshot. Complete observations retain action identities but issue no continuation cursors. Handles are released before Browser shutdown. Existing capture/page limits include reference metadata and are unchanged.
+
+Legacy selector/text calls and existing C# selector entrypoints retain their behavior. No saved workflow is rewritten; refreshed discovery exposes the additive contracts for new review and approval. Observed URLs may still be retained as business data for ordinary navigation; they are not durable DOM action references. References grant no permission and do not establish factual correctness or completeness.
+
+Post-action `domcontentloaded` and `load` waits subscribe before the interaction and recheck the current document's lifecycle state. A fast navigation cannot lose its completion notification between a state check and event registration. Reloads invalidate previously observed readiness; same-document navigation retains the document's established lifecycle. Delayed readiness, cancellation, page closure and genuine timeouts still fail explicitly. The existing timeout is shared by readiness rechecks, and the interaction is never repeated. Explicit `networkidle` continues to require Playwright's network-quiescence condition. This does not alter target identity, `follow`/`activate` compatibility, permissions or snapshot expiration.

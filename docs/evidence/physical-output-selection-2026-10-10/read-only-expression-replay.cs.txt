@@ -1,0 +1,54 @@
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using GnOuGo.Flow.Core.Expressions;
+using GnOuGo.Flow.Core.Parsing;
+using GnOuGo.Flow.Core.Planning;
+using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Flow.Persistence;
+using GnOuGo.Flow.Planning;
+using GnOuGo.KeyVault.Core.Services;
+if (args.Length != 1) throw new ArgumentException("Supply the existing encrypted workspace location.");
+var workspace = args[0];
+const string id="businesstasks20261009a-amazon-1";
+var runStore=EncryptedWorkflowRunStore.CreateWorkspace(baseDirectory:workspace);
+var run=await runStore.ReadAsync("benchmark",id)??throw new Exception("No journal");
+var records=KeyVaultRecordStoreFactory.CreateWorkspaceStore(null,workspace);
+var saved=await records.GetAsync("planning-schema-portability","benchmark","schema-portability-20261002:run:"+id,"GnOuGo.Planning.Benchmark")??throw new Exception("No session");
+var state=JsonNode.Parse(saved.Value)!["session"]!.Deserialize(PlanningJsonContext.Default.PlanningSession)!;
+PlanningArtifactApproval.Verify(state);
+var context=run.Invocations.Values.Where(i=>i.IsFinalization).OrderBy(i=>i.PreparedAt).First().DataBefore;
+var before=PlanningGraphCompiler.Fingerprint(context.ToJsonString());
+var journalBefore=JsonSerializer.Serialize(run, WorkflowRunJsonContext.Default.WorkflowRun);
+var compiler=new PlanningGraphCompiler();
+var yaml=compiler.Compile(state.Graph!,state.Catalog!,state.Request.Name,true,true,true);
+if(yaml!=state.Yaml)throw new Exception("Historical recompilation changed");
+var step=WorkflowParser.Parse(yaml).Workflows["main"].Steps.Single(s=>s.Id=="n_d8d43d374acc492d");
+var evaluator=new ExpressionEvaluator(null,run.Limits.MaxExpressionStatements,TimeSpan.FromSeconds(run.Limits.ExpressionTimeoutSeconds),run.Limits.ExpressionMemoryLimitBytes);
+var report=new JsonObject{["run"]=id,["run_revision"]=run.Revision,["run_status"]=run.Status,["model_calls"]=0,["external_actions"]=0,["saved_state_modified"]=false,["historical_yaml_identical"]=true,["yaml_bytes"]=Encoding.UTF8.GetByteCount(yaml)};
+try{report["value"]=evaluator.Evaluate(step.Input!.GetValue<string>()[2..^1],context);}
+catch(WorkflowRuntimeException ex){report["error"]=new JsonObject{["code"]=ex.Code,["message"]=ex.Message,["details"]=ex.Details?.DeepClone()};}
+report["observations_unchanged"]=before==PlanningGraphCompiler.Fingerprint(context.ToJsonString());
+var corrected=compiler.Compile(state.Graph!,state.Catalog!,state.Request.Name,true,true,true,true);
+var replacement=WorkflowParser.Parse(corrected).Workflows["main"].Steps.Single(s=>s.Id==step.Id);
+report["corrected_yaml_bytes"]=Encoding.UTF8.GetByteCount(corrected);
+try {
+ var result=evaluator.Evaluate(replacement.Input!.GetValue<string>()[2..^1],context);
+ report["corrected_pages"]=result?["v2"]?["value"]?.AsArray().Count;
+ var pages=context["steps"]!["n_ccb2a3a6b7824bb5"]!["response"]!["observationSnapshot"]!["pages"];
+ report["exact_original_pages"]=JsonNode.DeepEquals(pages,result?["v2"]?["value"]);
+ var original=context["steps"]!["n_67ef600dd0044b91"]!.AsObject();
+ var scalar=original.ContainsKey("n_eb1f2cd066f41818") ? original["n_eb1f2cd066f41818"]!["value"] : original["n_75ea7a9c6cfa7025"]!["value"];
+ report["expected_scalar"]=scalar?.DeepClone();
+ report["boolean_and_enum_checks_passed"]=true;
+ report["corrected_expression_bytes"]=Encoding.UTF8.GetByteCount(replacement.Input.GetValue<string>());
+ report["old_expression_bytes"]=Encoding.UTF8.GetByteCount(step.Input!.GetValue<string>());
+ report["corrected_result_hash"]=PlanningGraphCompiler.Fingerprint(result!.ToJsonString());
+ report["corrected_success"]=true;
+} catch(WorkflowRuntimeException ex) {report["corrected_error"]=new JsonObject{["code"]=ex.Code,["message"]=ex.Message,["details"]=ex.Details?.DeepClone()};}
+report["observations_unchanged"]=before==PlanningGraphCompiler.Fingerprint(context.ToJsonString());
+var after=await runStore.ReadAsync("benchmark",id);
+report["saved_journal_unchanged"]=journalBefore==JsonSerializer.Serialize(after, WorkflowRunJsonContext.Default.WorkflowRun);
+var savedAfter=await records.GetAsync("planning-schema-portability","benchmark","schema-portability-20261002:run:"+id,"GnOuGo.Planning.Benchmark");
+report["saved_session_unchanged"]=saved.Value==savedAfter!.Value;
+Console.WriteLine(report.ToJsonString(new JsonSerializerOptions{WriteIndented=true}));

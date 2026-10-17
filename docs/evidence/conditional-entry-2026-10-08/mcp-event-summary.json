@@ -1,0 +1,107 @@
+[
+  {
+    "tool": "browser_get_content",
+    "arguments": {
+      "url": "https://www.amazon.fr/",
+      "format": "observation_complete",
+      "waitUntil": "domcontentloaded",
+      "maxRecords": 200,
+      "timeoutMs": 30000
+    },
+    "error": false,
+    "latency_ms": 3597,
+    "result_type": "dict",
+    "result_keys": [
+      "url",
+      "title",
+      "statusCode",
+      "selector",
+      "resolvedSelector",
+      "fallbackApplied",
+      "fallbackReason",
+      "format",
+      "content",
+      "truncated",
+      "maxCharacters",
+      "success",
+      "error_code",
+      "error_message",
+      "ok",
+      "observationSnapshot",
+      "acquisition"
+    ]
+  },
+  {
+    "tool": "document_write",
+    "arguments": {
+      "filePath": "workflows/schema-portability-20261002/conditionalentry20261008a-amazon-1/products.xlsx",
+      "content": "original_index\tname\tdescription\tprice\tstatus\n0\t\t\t\tsearch_not_performed_search_box_missing_or_captcha_detected",
+      "append": false,
+      "encoding": "utf-8"
+    },
+    "error": false,
+    "latency_ms": 193,
+    "result_type": "dict",
+    "result_keys": [
+      "success",
+      "filePath",
+      "bytesWritten",
+      "errorCode",
+      "errorMessage",
+      "relativePath",
+      "filePathAbsolute"
+    ]
+  },
+  {
+    "tool": "browser_close",
+    "arguments": {},
+    "error": false,
+    "latency_ms": 1860,
+    "result_type": "dict",
+    "result_keys": [
+      "closed",
+      "success",
+      "error_code",
+      "error_message",
+      "ok"
+    ]
+  },
+  {
+    "tool": "browser_get_content",
+    "arguments": {},
+    "error": true,
+    "latency_ms": 1,
+    "result_type": "dict",
+    "result_keys": [
+      "url",
+      "title",
+      "statusCode",
+      "selector",
+      "resolvedSelector",
+      "fallbackApplied",
+      "fallbackReason",
+      "format",
+      "content",
+      "truncated",
+      "maxCharacters",
+      "success",
+      "error_code",
+      "error_message",
+      "ok"
+    ]
+  },
+  {
+    "tool": "browser_close",
+    "arguments": {},
+    "error": false,
+    "latency_ms": 1001,
+    "result_type": "dict",
+    "result_keys": [
+      "closed",
+      "success",
+      "error_code",
+      "error_message",
+      "ok"
+    ]
+  }
+]

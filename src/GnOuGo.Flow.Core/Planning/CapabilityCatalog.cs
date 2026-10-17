@@ -38,9 +38,55 @@ public sealed class PlanningRequirements
 {
     public string Summary { get; set; } = "";
     public List<PlanningRequirement> Outcomes { get; set; } = [];
+    /// <summary>Accepted caller interface. Null is unresolved or a historical declaration; empty means no caller inputs.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public List<TaskInput>? Inputs { get; set; }
+    /// <summary>Accepted business result interface. Null preserves historical declarations; defaults are not output evidence.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public List<TaskInput>? Outputs { get; set; }
 }
 
-public sealed record PlanningRequirement(string Id, string Description);
+public sealed record PlanningRequirement(string Id, string Description)
+{
+    /// <summary>Intent-version 3 contractual obligations; omission is unverified, never inferred from tasks.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public List<PlanningCommitment>? Commitments { get; init; }
+    /// <summary>Historical outcome evidence; not emitted by fresh proposal schemas.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? Operation { get; init; }
+    /// <summary>Data production or an authoritative operation effect. Null retains historical intent.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? Execution { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Always { get; init; }
+    /// <summary>Whether execution may depend on a branch or a possibly empty collection.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Conditional { get; init; }
+    /// <summary>Null/once requires an invocation; each_item requires coverage of every iteration of the bound foreach.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? Coverage { get; init; }
+}
+
+/// <summary>A required inspected operation, optionally owning a public result. No scheduling or task proof.</summary>
+public sealed record PlanningCommitment(string Operation)
+{
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public PlanningCommittedResult? Result { get; init; }
+}
+
+/// <summary>Exact declared operation port and accepted public output name, not inferred by type similarity.</summary>
+public sealed record PlanningCommittedResult(string Port, string Output);
+
+/// <summary>Review annotations referencing the TaskPlan, never another executable representation.</summary>
+public sealed record PlanningOutcomeBinding(string OutcomeId, List<string> TaskIds, List<string> Outputs)
+{
+    /// <summary>Accepted public inputs supporting a data-only outcome; never external execution evidence.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? Inputs { get; init; }
+    /// <summary>Existing TaskPlan foreach identity for an accepted each_item outcome; never executable structure.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? ForEachTaskId { get; init; }
+}
 
 /// <summary>A bounded discovery request or complete semantic task proposal; the host validates exclusivity.</summary>
 public sealed class PlanningProposal
@@ -49,8 +95,18 @@ public sealed class PlanningProposal
     public PlanningRequirements? Requirements { get; set; }
     public List<PlanningDiscoveryRequest>? DiscoveryRequests { get; set; }
     public TaskPlan? Plan { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public List<PlanningOutcomeBinding>? OutcomeBindings { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public List<PlanningQuestion>? Clarifications { get; set; }
     public string Explanation { get; set; } = "";
 }
+
+/// <summary>Intent clarification, never executable values or permission grants.</summary>
+public sealed record PlanningQuestion(string Id, string Question, List<PlanningQuestionAlternative> Alternatives, string? Recommended);
+public sealed record PlanningQuestionAlternative(string Id, string Description);
+public sealed record PlanningAnswer(string QuestionId, string? AlternativeId = null, string? Text = null);
+public sealed record PlanningAnswerBatch(long Revision, List<PlanningQuestion> Questions, List<PlanningAnswer> Answers);
 
 public sealed record PlanningDiscoveryRequest(string SourceId, string? Cursor = null, string? Query = null,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] List<string>? OperationIds = null,

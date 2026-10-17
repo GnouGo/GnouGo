@@ -1,0 +1,842 @@
+{
+  "description": "Live proposal and repair failures after producer effects became available; no execution occurred.",
+  "responses": [
+    {
+      "discoveryRequests": [
+        {
+          "sourceId": "runner_9623c1ece5cf9eac8c087030",
+          "cursor": null,
+          "query": "Capabilities/contracts for adaptive project editing and testing: clone a GitHub PR repository to a fixed workspace, use Copilot to inspect/install dependencies/run declared checks, execute shell commands with evidence including exit codes, write a local JSON report, and always delete the cloned repository afterward. Need exact operation IDs, inputs, outputs, effects, cleanup semantics, and whether network/GitHub read access is available without publishing comments.",
+          "operationIds": null
+        }
+      ],
+      "plan": null,
+      "clarifications": null,
+      "requirements": null,
+      "outcomeBindings": null
+    },
+    {
+      "discoveryRequests": [
+        {
+          "sourceId": "source_694108d6539e9f2f1953f6ac",
+          "cursor": null,
+          "query": "execute shell commands clone git install dependencies run linters tests node pnpm python capture exit codes working directory delete directory cleanup write json file evidence sandbox no network credentials",
+          "operationIds": null
+        },
+        {
+          "sourceId": "source_d3b3c4f5a92aefa3c249f95e",
+          "cursor": null,
+          "query": "clone repository checkout pull request head base diff commit compare worktree delete cleanup local git operations",
+          "operationIds": null
+        },
+        {
+          "sourceId": "source_d15a1ef6ddddd137066d25b7",
+          "cursor": null,
+          "query": "file operations write json delete directory project read write GitHub Copilot code review suggestions local only diff comments repository workspace",
+          "operationIds": null
+        }
+      ],
+      "plan": null,
+      "clarifications": null,
+      "requirements": null,
+      "outcomeBindings": null
+    },
+    {
+      "discoveryRequests": [
+        {
+          "sourceId": "source_d15a1ef6ddddd137066d25b7",
+          "cursor": "rank:72627cdffc77c380d0e71d9f577c7e0fdb0c70d49ec2bea84f00cc5263a02ef1:8",
+          "query": null,
+          "operationIds": null
+        },
+        {
+          "sourceId": "source_d3b3c4f5a92aefa3c249f95e",
+          "cursor": "rank:952c17247100f0fa3a5dd43a8a9b2d39c8304475f5e14a340b33e7ac4fe36928:8",
+          "query": null,
+          "operationIds": null
+        }
+      ],
+      "plan": null,
+      "clarifications": null,
+      "requirements": null,
+      "outcomeBindings": null
+    },
+    {
+      "discoveryRequests": [
+        {
+          "sourceId": "source_d3b3c4f5a92aefa3c249f95e",
+          "cursor": "rank:952c17247100f0fa3a5dd43a8a9b2d39c8304475f5e14a340b33e7ac4fe36928:16",
+          "query": null,
+          "operationIds": null
+        },
+        {
+          "sourceId": "source_d15a1ef6ddddd137066d25b7",
+          "cursor": "rank:72627cdffc77c380d0e71d9f577c7e0fdb0c70d49ec2bea84f00cc5263a02ef1:16",
+          "query": null,
+          "operationIds": null
+        }
+      ],
+      "plan": null,
+      "clarifications": null,
+      "requirements": null,
+      "outcomeBindings": null
+    },
+    {
+      "discoveryRequests": null,
+      "plan": {
+        "inputs": [
+          {
+            "name": "pullRequestUrl",
+            "type": {
+              "kind": "string"
+            }
+          },
+          {
+            "name": "reviewText",
+            "type": {
+              "kind": "string"
+            }
+          }
+        ],
+        "root": {
+          "tasks": [
+            {
+              "id": "clone_repository",
+              "kind": "operation",
+              "objective": "Clone exactly once into the fixed workflow-owned repository directory at the requested head commit.",
+              "dependsOn": [],
+              "operation": "cap_fa8aa0024ff2ec0a4f9e61ad",
+              "inputs": [
+                {
+                  "name": "remoteUrl",
+                  "value": {
+                    "kind": "string",
+                    "text": "https://github.com/AxaFrance/SmartGuide.git"
+                  }
+                },
+                {
+                  "name": "branch",
+                  "value": {
+                    "kind": "string",
+                    "text": "f2f6bda0e02a6c5c363e88cd6cb5d4eb7c313488"
+                  }
+                },
+                {
+                  "name": "fetchAllBranches",
+                  "value": {
+                    "kind": "boolean",
+                    "boolean": false
+                  }
+                },
+                {
+                  "name": "historyDepth",
+                  "value": {
+                    "kind": "number",
+                    "number": 0
+                  }
+                },
+                {
+                  "name": "tagFetchMode",
+                  "value": {
+                    "kind": "string",
+                    "text": "none"
+                  }
+                },
+                {
+                  "name": "targetDirectory",
+                  "value": {
+                    "kind": "string",
+                    "text": "workflows/schema-portability-20261002/diagnostic-code-2/repository"
+                  }
+                }
+              ]
+            },
+            {
+              "id": "copilot_local_review",
+              "kind": "operation",
+              "objective": "Use GitHub Copilot locally in the single cloned repository to install dependencies, run declared checks, review the PR diff, and capture command observations without publishing anything to GitHub.",
+              "dependsOn": [
+                "clone_repository"
+              ],
+              "operation": "cap_1ff6cc617981dc592bd62a5a",
+              "inputs": [
+                {
+                  "name": "projectRoot",
+                  "value": {
+                    "kind": "output",
+                    "source": "clone_repository",
+                    "port": "projectRootRelative"
+                  }
+                },
+                {
+                  "name": "prompt",
+                  "value": {
+                    "kind": "string",
+                    "text": "Réalise une review locale de la PR GitHub SmartGuide #610, URL https://github.com/AxaFrance/SmartGuide/pull/610, head f2f6bda0e02a6c5c363e88cd6cb5d4eb7c313488, base 8f1779dc25c1843e9ce4d4ec76d02e066ae892c4. Utilise uniquement le dépôt déjà cloné dans ce projectRoot; ne clone pas ailleurs et ne publie rien sur GitHub. Tous les feedbacks, décisions et commentaires de diff restent locaux. Respecte le texte de review demandé par l'utilisateur: réalise une review automatique expliquant acceptation ou refus avec commentaires de diff.\n\nTravail demandé:\n1. Vérifie explicitement, par commandes terminal, `node --version`, `pnpm --version` et `python --version` avant les checks. Conserve pour chaque commande l'intitulé exact, le répertoire de travail et le code de sortie observé; si le code de sortie est absent, marque-le comme indisponible au lieu d'inférer un succès.\n2. Inspecte les toolchains et scripts déclarés par ce dépôt. Installe les dépendances uniquement comme déclaré par le dépôt. Joue les linters, tests unitaires et tests d'intégration s'ils sont présents. Si une capacité, un prérequis, un script ou un test n'est pas présent ou échoue, indique-le explicitement et ne le présente jamais comme réussi.\n3. Analyse le diff local entre base 8f1779dc25c1843e9ce4d4ec76d02e066ae892c4 et head f2f6bda0e02a6c5c363e88cd6cb5d4eb7c313488. Produis des findings sur des lignes de diff avec path, côté/ligne, sévérité, preuve et explication. Décide `approve` seulement si la review et les checks observés ne montrent pas de problème bloquant; sinon décide `request_changes`.\n4. Prépare un contenu JSON local conforme à: {\"decision\":\"approve|request_changes\",\"findings\":[],\"commands\":[],\"summary\":string,\"missingCapabilities\":[],\"target\":{\"pullRequestUrl\":string,\"baseSha\":string,\"headSha\":string}}. Les `commands` doivent contenir les preuves exactes disponibles des commandes et codes de sortie observés. Ne demande aucune extension de permission/sandbox."
+                  }
+                }
+              ]
+            },
+            {
+              "id": "write_review_json",
+              "kind": "operation",
+              "objective": "Create the required local review.json in the workflow directory from observed Copilot output and tool executions; preserve failures or unavailable observations explicitly.",
+              "dependsOn": [
+                "copilot_local_review"
+              ],
+              "operation": "cap_7f56ce9a5bff2962504a89e2",
+              "inputs": [
+                {
+                  "name": "workspace",
+                  "value": {
+                    "kind": "string",
+                    "text": "workflows/schema-portability-20261002/diagnostic-code-2"
+                  }
+                },
+                {
+                  "name": "capabilities",
+                  "value": {
+                    "kind": "array",
+                    "items": [
+                      {
+                        "kind": "string",
+                        "text": "project.read"
+                      },
+                      {
+                        "kind": "string",
+                        "text": "project.write"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "name": "budget",
+                  "value": {
+                    "kind": "object",
+                    "members": [
+                      {
+                        "name": "max_elapsed_milliseconds",
+                        "value": {
+                          "kind": "number",
+                          "number": 120000
+                        }
+                      },
+                      {
+                        "name": "max_model_calls",
+                        "value": {
+                          "kind": "number",
+                          "number": 1
+                        }
+                      },
+                      {
+                        "name": "max_total_tokens",
+                        "value": {
+                          "kind": "number",
+                          "number": 12000
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "name": "inputs",
+                  "value": {
+                    "kind": "object",
+                    "members": [
+                      {
+                        "name": "pullRequestUrl",
+                        "value": {
+                          "kind": "input",
+                          "source": "pullRequestUrl"
+                        }
+                      },
+                      {
+                        "name": "reviewText",
+                        "value": {
+                          "kind": "input",
+                          "source": "reviewText"
+                        }
+                      },
+                      {
+                        "name": "baseSha",
+                        "value": {
+                          "kind": "string",
+                          "text": "8f1779dc25c1843e9ce4d4ec76d02e066ae892c4"
+                        }
+                      },
+                      {
+                        "name": "headSha",
+                        "value": {
+                          "kind": "string",
+                          "text": "f2f6bda0e02a6c5c363e88cd6cb5d4eb7c313488"
+                        }
+                      },
+                      {
+                        "name": "copilotResult",
+                        "value": {
+                          "kind": "output",
+                          "source": "copilot_local_review",
+                          "port": null
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "name": "objective",
+                  "value": {
+                    "kind": "string",
+                    "text": "Create or overwrite `review.json` in this workspace. The file must be valid JSON and contain `decision` with enum value `approve` or `request_changes`, `findings` as an array, and `commands` as an array of exact observed command evidence from the provided Copilot result/toolExecutions. Include `summary`, `missingCapabilities`, and `target` with pullRequestUrl, baseSha, and headSha. Do not invent successful checks: absent exit codes, missing tools, unavailable capabilities, failed commands, or unavailable prerequisites must be represented explicitly as unavailable or failed. Keep all feedback local; do not publish anywhere."
+                  }
+                },
+                {
+                  "name": "output_schema",
+                  "value": {
+                    "kind": "object",
+                    "members": [
+                      {
+                        "name": "type",
+                        "value": {
+                          "kind": "string",
+                          "text": "object"
+                        }
+                      },
+                      {
+                        "name": "required",
+                        "value": {
+                          "kind": "array",
+                          "items": [
+                            {
+                              "kind": "string",
+                              "text": "reviewJsonPath"
+                            },
+                            {
+                              "kind": "string",
+                              "text": "decision"
+                            },
+                            {
+                              "kind": "string",
+                              "text": "findingsCount"
+                            },
+                            {
+                              "kind": "string",
+                              "text": "commandCount"
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "name": "properties",
+                        "value": {
+                          "kind": "object",
+                          "members": [
+                            {
+                              "name": "reviewJsonPath",
+                              "value": {
+                                "kind": "object",
+                                "members": [
+                                  {
+                                    "name": "type",
+                                    "value": {
+                                      "kind": "string",
+                                      "text": "string"
+                                    }
+                                  }
+                                ]
+                              }
+                            },
+                            {
+                              "name": "decision",
+                              "value": {
+                                "kind": "object",
+                                "members": [
+                                  {
+                                    "name": "type",
+                                    "value": {
+                                      "kind": "string",
+                                      "text": "string"
+                                    }
+                                  },
+                                  {
+                                    "name": "enum",
+                                    "value": {
+                                      "kind": "array",
+                                      "items": [
+                                        {
+                                          "kind": "string",
+                                          "text": "approve"
+                                        },
+                                        {
+                                          "kind": "string",
+                                          "text": "request_changes"
+                                        }
+                                      ]
+                                    }
+                                  }
+                                ]
+                              }
+                            },
+                            {
+                              "name": "findingsCount",
+                              "value": {
+                                "kind": "object",
+                                "members": [
+                                  {
+                                    "name": "type",
+                                    "value": {
+                                      "kind": "string",
+                                      "text": "integer"
+                                    }
+                                  }
+                                ]
+                              }
+                            },
+                            {
+                              "name": "commandCount",
+                              "value": {
+                                "kind": "object",
+                                "members": [
+                                  {
+                                    "name": "type",
+                                    "value": {
+                                      "kind": "string",
+                                      "text": "integer"
+                                    }
+                                  }
+                                ]
+                              }
+                            },
+                            {
+                              "name": "notes",
+                              "value": {
+                                "kind": "object",
+                                "members": [
+                                  {
+                                    "name": "type",
+                                    "value": {
+                                      "kind": "string",
+                                      "text": "string"
+                                    }
+                                  }
+                                ]
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "name": "verification",
+                  "value": {
+                    "kind": "array",
+                    "items": [
+                      {
+                        "kind": "object",
+                        "members": [
+                          {
+                            "name": "id",
+                            "value": {
+                              "kind": "string",
+                              "text": "review_json_written"
+                            }
+                          },
+                          {
+                            "name": "kind",
+                            "value": {
+                              "kind": "string",
+                              "text": "file.content"
+                            }
+                          },
+                          {
+                            "name": "subject",
+                            "value": {
+                              "kind": "string",
+                              "text": "review.json"
+                            }
+                          },
+                          {
+                            "name": "facts_schema",
+                            "value": {
+                              "kind": "object",
+                              "members": [
+                                {
+                                  "name": "type",
+                                  "value": {
+                                    "kind": "string",
+                                    "text": "object"
+                                  }
+                                },
+                                {
+                                  "name": "required",
+                                  "value": {
+                                    "kind": "array",
+                                    "items": [
+                                      {
+                                        "kind": "string",
+                                        "text": "exists"
+                                      },
+                                      {
+                                        "kind": "string",
+                                        "text": "changed"
+                                      },
+                                      {
+                                        "kind": "string",
+                                        "text": "sha256"
+                                      }
+                                    ]
+                                  }
+                                },
+                                {
+                                  "name": "properties",
+                                  "value": {
+                                    "kind": "object",
+                                    "members": [
+                                      {
+                                        "name": "exists",
+                                        "value": {
+                                          "kind": "object",
+                                          "members": [
+                                            {
+                                              "name": "type",
+                                              "value": {
+                                                "kind": "string",
+                                                "text": "boolean"
+                                              }
+                                            }
+                                          ]
+                                        }
+                                      },
+                                      {
+                                        "name": "changed",
+                                        "value": {
+                                          "kind": "object",
+                                          "members": [
+                                            {
+                                              "name": "type",
+                                              "value": {
+                                                "kind": "string",
+                                                "text": "boolean"
+                                              }
+                                            }
+                                          ]
+                                        }
+                                      },
+                                      {
+                                        "name": "sha256",
+                                        "value": {
+                                          "kind": "object",
+                                          "members": [
+                                            {
+                                              "name": "type",
+                                              "value": {
+                                                "kind": "string",
+                                                "text": "string"
+                                              }
+                                            }
+                                          ]
+                                        }
+                                      }
+                                    ]
+                                  }
+                                }
+                              ]
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "id": "read_review_json",
+              "kind": "operation",
+              "objective": "Read back the saved local review.json as the workflow output evidence before cleanup.",
+              "dependsOn": [
+                "write_review_json"
+              ],
+              "operation": "cap_5c01f9aa688163d23a30ff8b",
+              "inputs": [
+                {
+                  "name": "commandName",
+                  "value": {
+                    "kind": "string",
+                    "text": "cat_file"
+                  }
+                },
+                {
+                  "name": "parameters",
+                  "value": {
+                    "kind": "object",
+                    "members": [
+                      {
+                        "name": "path",
+                        "value": {
+                          "kind": "string",
+                          "text": "workflows/schema-portability-20261002/diagnostic-code-2/review.json"
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "name": "timeoutMs",
+                  "value": {
+                    "kind": "number",
+                    "number": 60000
+                  }
+                }
+              ]
+            }
+          ],
+          "outputs": [
+            {
+              "name": "reviewJson",
+              "value": {
+                "kind": "output",
+                "source": "read_review_json",
+                "port": null
+              }
+            },
+            {
+              "name": "cleanupResult",
+              "value": {
+                "kind": "output",
+                "source": "cleanup_repository",
+                "port": null
+              }
+            }
+          ],
+          "always": [
+            {
+              "id": "cleanup_repository",
+              "kind": "operation",
+              "objective": "Always delete the fixed cloned repository directory, including after partial clone or review failure.",
+              "dependsOn": [],
+              "operation": "cap_5c01f9aa688163d23a30ff8b",
+              "inputs": [
+                {
+                  "name": "commandName",
+                  "value": {
+                    "kind": "string",
+                    "text": "delete_directory"
+                  }
+                },
+                {
+                  "name": "parameters",
+                  "value": {
+                    "kind": "object",
+                    "members": [
+                      {
+                        "name": "path",
+                        "value": {
+                          "kind": "string",
+                          "text": "workflows/schema-portability-20261002/diagnostic-code-2/repository"
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "name": "timeoutMs",
+                  "value": {
+                    "kind": "number",
+                    "number": 300000
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "groups": [],
+        "choices": []
+      },
+      "clarifications": null,
+      "requirements": {
+        "summary": "Review locally GitHub PR #610 for AxaFrance/SmartGuide from public inputs pullRequestUrl and reviewText, using one clone at the fixed path, Copilot-driven dependency/check/review work, a local review.json report, and unconditional clone cleanup with no GitHub publication.",
+        "outcomes": [
+          {
+            "id": "clone_once",
+            "description": "Clone the repository exactly once into workflows/schema-portability-20261002/diagnostic-code-2/repository at the requested head commit for all subsequent work.",
+            "execution": "write",
+            "always": false,
+            "conditional": false,
+            "coverage": "once"
+          },
+          {
+            "id": "local_copilot_review_and_checks",
+            "description": "Using only the cloned repository, run Copilot-assisted local dependency installation, explicit node/pnpm/python version checks, declared linters and unit/integration tests when present, and local code review of the requested diff; missing capabilities or failed checks remain explicit and no GitHub feedback is published.",
+            "execution": "execute",
+            "always": false,
+            "conditional": false,
+            "coverage": "once"
+          },
+          {
+            "id": "save_review_report",
+            "description": "Save local evidence and review feedback to workflows/schema-portability-20261002/diagnostic-code-2/review.json with decision approve/request_changes, findings list, and observed command/code-exit evidence.",
+            "execution": "write",
+            "always": false,
+            "conditional": false,
+            "coverage": "once"
+          },
+          {
+            "id": "cleanup_clone",
+            "description": "Delete the cloned repository directory even if clone, checks, review, or report writing fails.",
+            "execution": "lifecycle",
+            "always": true,
+            "conditional": false,
+            "coverage": "once"
+          }
+        ],
+        "inputs": [
+          {
+            "name": "pullRequestUrl",
+            "type": {
+              "kind": "string"
+            }
+          },
+          {
+            "name": "reviewText",
+            "type": {
+              "kind": "string"
+            }
+          }
+        ]
+      },
+      "outcomeBindings": [
+        {
+          "outcomeId": "clone_once",
+          "taskIds": [
+            "clone_repository"
+          ],
+          "outputs": [],
+          "forEachTaskId": null
+        },
+        {
+          "outcomeId": "local_copilot_review_and_checks",
+          "taskIds": [
+            "clone_repository",
+            "copilot_local_review"
+          ],
+          "outputs": [],
+          "forEachTaskId": null
+        },
+        {
+          "outcomeId": "save_review_report",
+          "taskIds": [
+            "copilot_local_review",
+            "write_review_json",
+            "read_review_json"
+          ],
+          "outputs": [
+            "reviewJson"
+          ],
+          "forEachTaskId": null
+        },
+        {
+          "outcomeId": "cleanup_clone",
+          "taskIds": [
+            "cleanup_repository"
+          ],
+          "outputs": [
+            "cleanupResult"
+          ],
+          "forEachTaskId": null
+        }
+      ]
+    },
+    {
+      "discoveryRequests": null,
+      "patch": {
+        "edits": [
+          {
+            "slot": "s0",
+            "action": "replace",
+            "value": {
+              "taskIds": [
+                "cleanup_repository"
+              ],
+              "outputs": [
+                "cleanupResult"
+              ],
+              "forEachTaskId": null
+            }
+          },
+          {
+            "slot": "s1",
+            "action": "replace",
+            "value": {
+              "taskIds": [
+                "copilot_local_review",
+                "write_review_json",
+                "read_review_json"
+              ],
+              "outputs": [
+                "reviewJson"
+              ],
+              "forEachTaskId": null
+            }
+          }
+        ]
+      },
+      "clarifications": null
+    },
+    {
+      "discoveryRequests": null,
+      "patch": {
+        "edits": [
+          {
+            "slot": "s0",
+            "action": "replace",
+            "value": {
+              "taskIds": [
+                "cleanup_repository"
+              ],
+              "outputs": [
+                "cleanupResult"
+              ],
+              "forEachTaskId": null
+            }
+          },
+          {
+            "slot": "s1",
+            "action": "replace",
+            "value": {
+              "taskIds": [
+                "copilot_local_review",
+                "write_review_json",
+                "read_review_json"
+              ],
+              "outputs": [
+                "reviewJson"
+              ],
+              "forEachTaskId": null
+            }
+          }
+        ]
+      },
+      "clarifications": null
+    }
+  ],
+  "diagnostics": [
+    {
+      "code": "OUTCOME_OPERATION_REQUIRED",
+      "location": "/outcomeBindings/save_review_report",
+      "message": "The supporting computation has no resolved write operation. Outputs, values and transforms cannot establish external work.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "OUTCOME_OPERATION_REQUIRED",
+      "location": "/outcomeBindings/cleanup_clone",
+      "message": "The supporting computation has no resolved lifecycle operation. Outputs, values and transforms cannot establish external work.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    }
+  ]
+}

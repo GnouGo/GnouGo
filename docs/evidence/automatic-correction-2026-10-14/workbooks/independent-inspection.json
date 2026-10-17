@@ -1,0 +1,41 @@
+[
+  {
+    "variant": "complete",
+    "fixture_inspection_passed": true,
+    "rows_with_header": 11,
+    "visits": 10,
+    "complete_pages": 39,
+    "exact_cells_compared_to_original_observations": true,
+    "formula_count": 0,
+    "cleanup": true,
+    "writer_path_matches_requested_suffix": true,
+    "workbook_sha256": "c8da0c5a11e5cb06c95d79208015046c9cf3c33e61b43edc16c53377929266c1",
+    "observation_sha256": "9785082b868cec78ccb7c734ad0b425071d5f1cf7dd742c92769c2cf1679a309"
+  },
+  {
+    "variant": "missing",
+    "fixture_inspection_passed": true,
+    "rows_with_header": 11,
+    "visits": 10,
+    "complete_pages": 39,
+    "exact_cells_compared_to_original_observations": true,
+    "formula_count": 0,
+    "cleanup": true,
+    "writer_path_matches_requested_suffix": true,
+    "workbook_sha256": "be5f4273e15927df5f4fa92aec17ebd982049918635c25d3c20435b62ecd3204",
+    "observation_sha256": "13f9170ebb5fb5aebc4b30f920464ba148cd583267e92641c0adb1702c2bcd7d"
+  },
+  {
+    "variant": "repeated",
+    "fixture_inspection_passed": true,
+    "rows_with_header": 11,
+    "visits": 10,
+    "complete_pages": 39,
+    "exact_cells_compared_to_original_observations": true,
+    "formula_count": 0,
+    "cleanup": true,
+    "writer_path_matches_requested_suffix": true,
+    "workbook_sha256": "8c3e6c6997b58259efbe1b2714bd6aa91a9cbafc962545b5e8a40dfbd6d8ac0a",
+    "observation_sha256": "e201565ed3c5f3684bc8ddb00c09111a6a6e1321c1cd5582cc2084ec27bc584a"
+  }
+]

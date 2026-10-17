@@ -16,6 +16,21 @@ public sealed class EncryptedWorkflowRunStoreTests : IDisposable
         Path.Combine(_root, "index.db"), Path.Combine(_root, "owners"));
 
     [Fact]
+    public async Task MappingArtifactsAreEncryptedTenantScopedAndSurviveRestart()
+    {
+        IMappingArtifactStore first = Store();
+        const string script = "({private_mapping_field:source.observed})";
+        await first.WriteAsync("tenant", new("mapping-key", script, null, 1), Ct);
+        IMappingArtifactStore restarted = Store();
+        Assert.Equal(script, (await restarted.ReadAsync("tenant", "mapping-key", Ct))!.Script);
+        Assert.Null(await restarted.ReadAsync("other", "mapping-key", Ct));
+        foreach (var file in Directory.GetFiles(_root, "*.db*"))
+            Assert.DoesNotContain(script, Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file, Ct)));
+        await restarted.RemoveAsync("tenant", "mapping-key", Ct);
+        Assert.Null(await first.ReadAsync("tenant", "mapping-key", Ct));
+    }
+
+    [Fact]
     public async Task EncryptedJournalSurvivesNewStore_AndIndexLoss()
     {
         var store = Store();
@@ -25,11 +40,12 @@ public sealed class EncryptedWorkflowRunStoreTests : IDisposable
         {
             owner.Run.Invocations.AddOrUpdate("/workflow/main/step/write", new WorkflowInvocation
             {
-                Id = "/workflow/main/step/write", StepType = "mcp.call", Status = "completed", Output = new JsonObject { ["secret"] = secret }
+                Id = "/workflow/main/step/write", StepType = "mcp.call", Description = "Literal ${metadata} " + secret, Status = "completed", Output = new JsonObject { ["secret"] = secret }
             }, (_, existing) => existing);
             await owner.SaveAsync(Ct);
         }
         var restarted = Store();
+        Assert.Equal("Literal ${metadata} " + secret, (await restarted.ReadAsync("tenant", "run", Ct))!.Invocations["/workflow/main/step/write"].Description);
         Assert.Equal(secret, (await restarted.ReadAsync("tenant", "run", Ct))!.Inputs!["secret"]!.GetValue<string>());
         await using (var index = Index())
         {

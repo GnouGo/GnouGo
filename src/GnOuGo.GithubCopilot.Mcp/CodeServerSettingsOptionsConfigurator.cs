@@ -46,7 +46,25 @@ internal sealed class CodeServerSettingsOptionsConfigurator(IConfiguration confi
             section.GetSection(nameof(CodeCopilotSettings.Providers)),
             settings.Providers);
 
+        ConfigureLogicalLimits(section.GetSection(nameof(CodeCopilotSettings.LogicalLimits)), settings.LogicalLimits);
         ConfigureTelemetry(section.GetSection(nameof(CodeCopilotSettings.Telemetry)), settings.Telemetry);
+    }
+
+    private static void ConfigureLogicalLimits(IConfiguration section, CopilotLogicalLimits limits)
+    {
+        long Limit(string key, long fallback)
+        {
+            if (section[key] is not { } value) return fallback;
+            if (!long.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var number) || number < 1 || number > int.MaxValue)
+                throw new InvalidDataException($"Code:Copilot:LogicalLimits:{key} must be a positive integer within its host ceiling.");
+            return number;
+        }
+        limits.Sessions = (int)Limit(nameof(limits.Sessions), limits.Sessions);
+        limits.Interactions = (int)Limit(nameof(limits.Interactions), limits.Interactions);
+        limits.Seconds = (int)Limit(nameof(limits.Seconds), limits.Seconds);
+        limits.InferenceAttempts = (int)Limit(nameof(limits.InferenceAttempts), limits.InferenceAttempts);
+        limits.ReservedTokens = Limit(nameof(limits.ReservedTokens), limits.ReservedTokens);
+        limits.Validate();
     }
 
     private static void ConfigureTelemetry(IConfigurationSection section, CodeCopilotTelemetrySettings settings)

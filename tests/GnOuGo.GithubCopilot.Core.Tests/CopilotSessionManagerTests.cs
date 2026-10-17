@@ -5,6 +5,24 @@ namespace GnOuGo.GithubCopilot.Core.Tests;
 
 public sealed class CopilotSessionManagerTests
 {
+    [Fact]
+    public async Task LogicalOperationExpiryDoesNotDeleteUnknownExternalWork()
+    {
+        var sdk = new FakeClientFactory();
+        var clock = new ManualTimeProvider(DateTimeOffset.UtcNow);
+        await using var manager = new CopilotSessionManager(sdk, timeProvider: clock);
+        var request = CreateRequest("tenant-a") with { Configuration = Configuration() with { ManagedSessionTtlSeconds = 1,
+            LogicalInferenceBudget = new(2, 10000, clock.GetUtcNow().AddSeconds(1), (_, _, _) => Task.CompletedTask) } };
+        var session = await manager.CreateAsync(request, TestContext.Current.CancellationToken);
+        clock.Advance(TimeSpan.FromSeconds(10));
+        Assert.Equal(0, await manager.SweepExpiredAsync(TestContext.Current.CancellationToken));
+        Assert.Equal(session.Handle, Assert.Single(manager.List("tenant-a")).Handle);
+        Assert.Equal(0, sdk.DeleteCount);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => manager.ResumeAsync(new(new("tenant-a"), session.Handle), TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => manager.SendAsync(new(new("tenant-a"), session.Handle, "Different objective"), TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => manager.DeleteAsync(new("tenant-a"), session.Handle, TestContext.Current.CancellationToken));
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

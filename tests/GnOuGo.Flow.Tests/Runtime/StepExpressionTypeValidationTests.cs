@@ -1093,7 +1093,7 @@ steps:
     }
 
     [Fact]
-    public void SemanticValidation_AcceptsAssertNonNullRefinedOutputAssignedToRequiredString()
+    public void SemanticValidation_AcceptsCheckedProjectionRefinedOutputAssignedToRequiredString()
     {
         var doc = Parse("""
 inputs:
@@ -1113,13 +1113,13 @@ steps:
     input:
       owner: "${data.inputs.owner}"
   - id: require_identity
-    type: assert.non_null
-    input:
-      owner: "${data.steps.derive.owner}"
+    type: set
+    output_schema: {type: object, properties: {value: {type: string}}, required: [value]}
+    input: '${checkedMapping("({value:source})",data.steps.derive.owner)}'
   - id: consume
     type: llm.call
     input:
-      prompt: "${data.steps.require_identity.owner}"
+      prompt: "${data.steps.require_identity.value}"
 """);
 
         InvokeSemanticValidation(doc);
@@ -1418,18 +1418,14 @@ steps:
     }
 
     [Fact]
-    public void SemanticValidation_UsesDecisionEvaluateFiniteOutputContract()
+    public void SemanticValidation_UsesCheckedSetFiniteOutputContract()
     {
         var doc = Parse("""
 steps:
   - id: decide
-    type: decision.evaluate
-    input:
-      decisions:
-        outcome:
-          allowed_values: [ACCEPT, REJECT]
-          cases:
-            - { when: true, value: ACCEPT }
+    type: set
+    output_schema: {type: object, additionalProperties: false, required: [outcome], properties: {outcome: {type: string, enum: [ACCEPT, REJECT]}}}
+    input: {outcome: ACCEPT}
   - id: consume
     type: template.render
     input:
@@ -1706,7 +1702,7 @@ workflows:
     }
 
     [Fact]
-    public void SemanticValidation_AcceptsAssertNonNullRefinedWorkflowCallArg()
+    public void SemanticValidation_AcceptsCheckedProjectionRefinedWorkflowCallArg()
     {
         var doc = WorkflowParser.Parse("""
 version: 1
@@ -1734,15 +1730,15 @@ workflows:
         input:
           owner: "${data.inputs.owner}"
       - id: require_identity
-        type: assert.non_null
-        input:
-          owner: "${data.steps.derive.owner}"
+        type: set
+        output_schema: {type: object, properties: {value: {type: string}}, required: [value]}
+        input: '${checkedMapping("({value:source})",data.steps.derive.owner)}'
       - id: call_helper
         type: workflow.call
         input:
           ref: { kind: local, name: helper }
           args:
-            owner: "${data.steps.require_identity.owner}"
+            owner: "${data.steps.require_identity.value}"
   helper:
     inputs:
       owner: string

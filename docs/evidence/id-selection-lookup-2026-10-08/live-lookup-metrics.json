@@ -1,0 +1,52 @@
+{
+  "yaml_bytes": 189179,
+  "yaml_lines": 5709,
+  "lookup_bindings": 7,
+  "lookup_invocations": 4,
+  "lookup_inference_calls": 0,
+  "bindings": [
+    {
+      "step": "n_59d0de2dfddc31b1",
+      "invocations": 1,
+      "statuses": [
+        "completed"
+      ]
+    },
+    {
+      "step": "n_c7619d84ebcbd62a",
+      "invocations": 1,
+      "statuses": [
+        "completed"
+      ]
+    },
+    {
+      "step": "n_235d2990ccd70b69",
+      "invocations": 1,
+      "statuses": [
+        "completed"
+      ]
+    },
+    {
+      "step": "n_41d82ede0881f8d3",
+      "invocations": 1,
+      "statuses": [
+        "completed"
+      ]
+    },
+    {
+      "step": "n_dd596d592b2dc486",
+      "invocations": 0,
+      "statuses": []
+    },
+    {
+      "step": "n_6839c4239664e3f3",
+      "invocations": 0,
+      "statuses": []
+    },
+    {
+      "step": "n_65ff69c11a15f53f",
+      "invocations": 0,
+      "statuses": []
+    }
+  ]
+}

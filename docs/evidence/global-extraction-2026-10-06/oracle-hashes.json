@@ -1,0 +1,5 @@
+{
+  "tests/GnOuGo.Agent.Planning.Benchmark/LiveWorkflowEvaluation.cs": "c81a41677cab4ab70a553bdc5f0476702c28c66ed6844c81f75097ae30cc745e",
+  "tests/GnOuGo.Agent.Planning.Benchmark/LiveCampaignEvidence.cs": "81a2ab2301e1a252cc3e397c1ce73784d41c34f7b27d6c60d9de0cbe4479f3c4",
+  "tests/GnOuGo.Agent.Planning.Benchmark/LiveWorkflowOracles.cs": "537a3ffc29420486ee9e1421f0eb7e8f876d98fd6cd42146ac45f910e9aa184c"
+}

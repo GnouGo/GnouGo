@@ -1,0 +1,86 @@
+[
+  {
+    "id": "static",
+    "outcome": "passed",
+    "description": "Business bindings, contracts and control flow validated. External execution has not been observed.",
+    "diagnostics": []
+  },
+  {
+    "id": "operation:task_87c80e0651612a3d587eb4e9",
+    "outcome": "declared",
+    "description": "Vérifier la politique d’écriture du serveur documentaire avant de sauvegarder le classeur dans le workspace autorisé. — operation: cap_33a30becd13a00f5e7a99b68 (GnOuGo.Document.Mcp/document_get_policy); contract effect: read. Resource lifecycle is not established by this contract; review cleanup and retained artifacts. Execution has not been observed; review the business requirements separately.",
+    "diagnostics": []
+  },
+  {
+    "id": "operation:task_ffec85551cf0fc22bd30499d",
+    "outcome": "declared",
+    "description": "Ouvrir Amazon.fr directement sur la recherche correspondant à query et capturer les éléments visibles sans cliquer ni consentir automatiquement. — operation: cap_490d9e16075cbdca5954ec27 (GnOuGo.Browser.Mcp/browser_get_content); contract effect: read. Resource lifecycle is not established by this contract; review cleanup and retained artifacts. Execution has not been observed; review the business requirements separately.",
+    "diagnostics": []
+  },
+  {
+    "id": "operation:task_a9d23391de9b40452f7ea3ef",
+    "outcome": "declared",
+    "description": "Relire la page de résultats courante après traitement éventuel de la bannière, avec références fraîches et sans continuation invalide. — operation: cap_490d9e16075cbdca5954ec27 (GnOuGo.Browser.Mcp/browser_get_content); contract effect: read. Resource lifecycle is not established by this contract; review cleanup and retained artifacts. Execution has not been observed; review the business requirements separately.",
+    "diagnostics": []
+  },
+  {
+    "id": "operation:task_e1ce6bde7aa4ff0feb59aef7",
+    "outcome": "declared",
+    "description": "Relire la zone de résultats choisie à partir d’un sélecteur observé validé, ou la page courante si aucun sélecteur fiable n’est disponible, afin d’éviter d’extraire depuis une capture tronquée. — operation: cap_490d9e16075cbdca5954ec27 (GnOuGo.Browser.Mcp/browser_get_content); contract effect: read. Resource lifecycle is not established by this contract; review cleanup and retained artifacts. Execution has not been observed; review the business requirements separately.",
+    "diagnostics": []
+  },
+  {
+    "id": "operation:task_4202ba4c0b016582d3117620",
+    "outcome": "declared",
+    "description": "Sauvegarder le classeur Excel demandé dans le chemin relatif autorisé avant toute fermeture/nettoyage du navigateur. — operation: cap_37c513d225bb1b870053c5d3 (GnOuGo.Document.Mcp/document_write); contract effect: write. Declared resource locations checked; dynamic relationships still require execution evidence. Execution has not been observed; review the business requirements separately.",
+    "diagnostics": []
+  },
+  {
+    "id": "operation:task_adac80523aec0e3ba65a6f52",
+    "outcome": "declared",
+    "description": "Fermer la page et le contexte navigateur même en cas d’échec du flux principal. — operation: cap_bdb7ba9ab04b18783883fa86 (GnOuGo.Browser.Mcp/browser_close); contract effect: lifecycle. Resource lifecycle is not established by this contract; review cleanup and retained artifacts. Execution has not been observed; review the business requirements separately.",
+    "diagnostics": []
+  },
+  {
+    "id": "operation:task_760f69ab21db8b2d19a0d631",
+    "outcome": "declared",
+    "description": "Cliquer sur le contrôle d’acceptation cookies observé, en utilisant sa référence fraîche et l’action activate. — operation: cap_dd05fbf36e155a64318f3588 (GnOuGo.Browser.Mcp/browser_click); contract effect: execute. Resource lifecycle is not established by this contract; review cleanup and retained artifacts. Execution has not been observed; review the business requirements separately.",
+    "diagnostics": []
+  },
+  {
+    "id": "operation:task_4cf386269ac27ebc7ad3e6ed",
+    "outcome": "declared",
+    "description": "Ouvrir la page produit depuis le lien résolu observé dans les résultats de recherche. — operation: cap_490d9e16075cbdca5954ec27 (GnOuGo.Browser.Mcp/browser_get_content); contract effect: read. Resource lifecycle is not established by this contract; review cleanup and retained artifacts. Execution has not been observed; review the business requirements separately.",
+    "diagnostics": []
+  },
+  {
+    "id": "mapping:task_7d4acd1ec9ae5a72ccafe919",
+    "outcome": "declared",
+    "description": "Produire une vue compacte typée par page complète de l’observation initiale, limitée aux signaux nécessaires pour décider du CAPTCHA et d’une éventuelle action de consentement sans exposer le contenu brut à l’interprétation globale. — adaptive independent extraction; unresolved items may require specialized or per-item inference within the configured shared runtime and campaign budgets. Execution requires a finite runtime budget; every item and the complete result are validated. Unambiguous source/target collections use one result per item; ambiguous collections require explicit selection. Independent items preserve order and nesting; bounded examples generate one mapping, all items are validated, and inference allowances are shared. No execution evidence yet.",
+    "diagnostics": []
+  },
+  {
+    "id": "mapping:task_e18cbc0dd7fcaa82188ed67a",
+    "outcome": "declared",
+    "description": "Produire une vue compacte typée par page complète après consentement, limitée aux candidats de zones de résultats observés et aux signaux nécessaires au choix de portée. — adaptive independent extraction; unresolved items may require specialized or per-item inference within the configured shared runtime and campaign budgets. Execution requires a finite runtime budget; every item and the complete result are validated. Unambiguous source/target collections use one result per item; ambiguous collections require explicit selection. Independent items preserve order and nesting; bounded examples generate one mapping, all items are validated, and inference allowances are shared. No execution evidence yet.",
+    "diagnostics": []
+  },
+  {
+    "id": "mapping:task_3540876a225fef20f552d4d4",
+    "outcome": "declared",
+    "description": "Assembler un sélecteur scalaire nullable depuis les sélecteurs originaux validés; retourner null si aucun enregistrement validé n’existe. — adaptive independent extraction; unresolved items may require specialized or per-item inference within the configured shared runtime and campaign budgets. Execution requires a finite runtime budget; every item and the complete result are validated. Unambiguous source/target collections use one result per item; ambiguous collections require explicit selection. No execution evidence yet.",
+    "diagnostics": []
+  },
+  {
+    "id": "mapping:task_8c6d2ab07ac4da6754f01976",
+    "outcome": "declared",
+    "description": "Produire une vue compacte typée par page complète de résultats, contenant uniquement les candidats de produits observés, leurs IDs et les indices nécessaires pour sélectionner les 10 premiers produits sans contenu brut. — adaptive independent extraction; unresolved items may require specialized or per-item inference within the configured shared runtime and campaign budgets. Execution requires a finite runtime budget; every item and the complete result are validated. Unambiguous source/target collections use one result per item; ambiguous collections require explicit selection. Independent items preserve order and nesting; bounded examples generate one mapping, all items are validated, and inference allowances are shared. No execution evidence yet.",
+    "diagnostics": []
+  },
+  {
+    "id": "mapping:task_354944d5ec68a1851f050360",
+    "outcome": "declared",
+    "description": "Produire une vue compacte typée par page complète de fiche produit, limitée aux candidats de nom, description, prix et signaux CAPTCHA nécessaires à une ligne produit. — adaptive independent extraction; unresolved items may require specialized or per-item inference within the configured shared runtime and campaign budgets. Execution requires a finite runtime budget; every item and the complete result are validated. Unambiguous source/target collections use one result per item; ambiguous collections require explicit selection. Independent items preserve order and nesting; bounded examples generate one mapping, all items are validated, and inference allowances are shared. No execution evidence yet.",
+    "diagnostics": []
+  }
+]

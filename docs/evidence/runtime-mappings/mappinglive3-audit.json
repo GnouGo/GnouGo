@@ -1,0 +1,94 @@
+{
+  "cohort": "mappinglive3",
+  "source": "9860dec9bf94b6036fc29d8f6dc37ab47030c4e5",
+  "passed": 0,
+  "required": 6,
+  "classification": "failed-diagnostic-cohort",
+  "runs": [
+    {
+      "run": "mappinglive3-code-1",
+      "approved": false,
+      "reason": "The generated writer supplied a constant error report instead of observed review results."
+    },
+    {
+      "run": "mappinglive3-code-2",
+      "approved": false,
+      "reason": "The generated report was placed inside the checkout subsequently removed by cleanup."
+    },
+    {
+      "run": "mappinglive3-code-3",
+      "approved": true,
+      "error": "AGENT_BUDGET_EXHAUSTED",
+      "reason": "Final bounded writer required a 30450-token reservation exceeding its approved 20000-token allowance. Required repository checks were not all verified. No review report was published.",
+      "checks": {
+        "pinned_head": true,
+        "pinned_base": true,
+        "manifest_observed": true,
+        "node_toolchain": true,
+        "pnpm_toolchain": true,
+        "python_toolchain": true,
+        "node_dependencies": false,
+        "python_dependencies": false,
+        "python_lint": false,
+        "python_tests": false,
+        "node_tests": false
+      }
+    },
+    {
+      "run": "mappinglive3-amazon-1",
+      "approved": true,
+      "error": "MCP_CALL_ERROR/INVALID_INPUT",
+      "reason": "Observed percent-encoded absolute product links passed the business string result contract; the published Browser input had no URI constraint. Navigation rejected the encoded link.",
+      "oracle": {
+        "passed": false,
+        "findings": [
+          "workflow_execution_failed",
+          "workbook_missing"
+        ]
+      },
+      "observations": [
+        {
+          "tool": "browser_get_content",
+          "status": 202,
+          "success": true,
+          "content_length": 100000,
+          "closed": null
+        },
+        {
+          "tool": "browser_get_content",
+          "status": null,
+          "success": false,
+          "content_length": 0,
+          "closed": null
+        },
+        {
+          "tool": "browser_close",
+          "status": null,
+          "success": true,
+          "content_length": 0,
+          "closed": true
+        },
+        {
+          "tool": "browser_get_content",
+          "status": null,
+          "success": false,
+          "content_length": 0,
+          "closed": null
+        },
+        {
+          "tool": "browser_close",
+          "status": null,
+          "success": true,
+          "content_length": 0,
+          "closed": true
+        }
+      ]
+    }
+  ],
+  "not_started": [
+    "mappinglive3-amazon-2",
+    "mappinglive3-amazon-3"
+  ],
+  "historical_blocked_invocation": "Not reconciled, resumed or cleaned up.",
+  "next_generic_correction": "Source-backed percent decoding and URI resolution; producer-owned Browser URI schema; deterministic typed consumer-constraint guards without finite-domain fabrication."
+}

@@ -1,0 +1,62 @@
+{
+  "run": "physicaloutputs20261010a-amazon-1",
+  "measurements": [
+    {
+      "profile": "compact-bindings-v3",
+      "steps": 146,
+      "sets": 111,
+      "workflows": 3,
+      "yaml_bytes": 143486,
+      "yaml_lines": 3502,
+      "yaml_hash": "0161a16be226980d4bcabc6f8aa36a02ba62471d5d07a7db8735abf16faaa32f",
+      "matches_saved_yaml": false
+    },
+    {
+      "profile": "compact-bindings-v4",
+      "steps": 111,
+      "sets": 76,
+      "workflows": 3,
+      "yaml_bytes": 137150,
+      "yaml_lines": 2700,
+      "yaml_hash": "34be47340542f84b1227e05064bcf7d553a69aa84d060b1187b96de9d3fb0210",
+      "matches_saved_yaml": false
+    },
+    {
+      "profile": "compact-bindings-v5",
+      "steps": 106,
+      "sets": 71,
+      "workflows": 3,
+      "yaml_bytes": 130851,
+      "yaml_lines": 2497,
+      "yaml_hash": "ebee454b3710d47826844f20d012c762b4a06dd85ebdb649d4d87d855f9b89bd",
+      "matches_saved_yaml": false
+    },
+    {
+      "profile": "compact-bindings-v6",
+      "steps": 106,
+      "sets": 71,
+      "workflows": 3,
+      "yaml_bytes": 111417,
+      "yaml_lines": 2497,
+      "yaml_hash": "b02e470b42a9a5e418a75dd98ba614878e17ea3da9084df6f42e7537fbedadbd",
+      "matches_saved_yaml": true,
+      "select_helper_calls": 56,
+      "switches": 16
+    },
+    {
+      "profile": "compact-bindings-v7",
+      "steps": 106,
+      "sets": 71,
+      "workflows": 3,
+      "yaml_bytes": 115474,
+      "yaml_lines": 2961,
+      "yaml_hash": "8e24ef0d05d0321386b717c2cd74bb83a83c27dfc84520a30b84dd4f95df09af",
+      "matches_saved_yaml": false,
+      "select_helper_calls": 19,
+      "switches": 16
+    }
+  ],
+  "model_calls": 0,
+  "saved_session_modified": false,
+  "candidate": "529cd7fcb744923f0cd5a491ec7bb19fa004624a"
+}

@@ -1,0 +1,47 @@
+[
+  {
+    "log": "stage1.log.gz",
+    "original_sha256": "194fd49aabedf253f0825a826c4ef5429eaa5d8eedf6644260aa0d13bb9b3cdc",
+    "bytes": 841
+  },
+  {
+    "log": "stage2.log.gz",
+    "original_sha256": "a8893e5a5654b8634a99dd9290cf8bf69a1b5e650c98ee9a27654df37cbb1211",
+    "bytes": 838
+  },
+  {
+    "log": "host.log.gz",
+    "original_sha256": "f49f674233e7dde49944b4dd3c3d4075314798a6ea37555d5fd41f10ea8dd5b7",
+    "bytes": 8111
+  },
+  {
+    "log": "runtime-planning.log.gz",
+    "original_sha256": "fc5600277c01b92b8efd01bc29fcba54f41aff1c050f20ff0bfb3fad60679aa7",
+    "bytes": 838
+  },
+  {
+    "log": "local.log.gz",
+    "original_sha256": "e87cbffdf9de4c98fc998c825bcef7b8e7e17a4571875e34815c4785316b9594",
+    "bytes": 26664
+  },
+  {
+    "log": "local-rerun.log.gz",
+    "original_sha256": "7b39ba516b4fe50bf55c90abccbef3ede34ea28af6b2a4176e351dc41363c133",
+    "bytes": 12154
+  },
+  {
+    "log": "planning-all.log.gz",
+    "original_sha256": "26620ddbc836a8d0df20d6e5e044c36f27e09eb3745d0f0f6ee09c100a20ab3f",
+    "bytes": 214371
+  },
+  {
+    "log": "final-focused.log.gz",
+    "original_sha256": "2876505a54da6622a8821a1ade2c58f83931609ed2221e446578d0078adc8118",
+    "bytes": 5782
+  },
+  {
+    "log": "preservation.log.gz",
+    "original_sha256": "6089a28d6efd9a51e3c4a76c7168222e56f39817f7f12bb0cabfff63773d5330",
+    "bytes": 5691
+  }
+]

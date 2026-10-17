@@ -406,6 +406,21 @@ public sealed class GitRepositoryServiceTests : IDisposable
     }
 
     [Fact]
+    public void Clone_UnavailableExactCommitDoesNotReportTheDefaultBranchAsSuccess()
+    {
+        var source = Path.Combine(_root, "source-unavailable-commit");
+        Directory.CreateDirectory(source);
+        Repository.Init(source);
+        var sourceService = CreateService(source, allowNetwork: true);
+        WriteCommit(sourceService, "README.md", "observed\n", "existing", root: source);
+
+        var service = CreateService(allowNetwork: true);
+        Assert.ThrowsAny<LibGit2SharpException>(() => service.Clone(source,
+            "workflows/unavailable-commit", branch: new string('f', 40), historyDepth: 0));
+        Assert.False(File.Exists(Path.Combine(_root, "workflows", "unavailable-commit", "README.md")));
+    }
+
+    [Fact]
     public void Clone_RejectsInvalidHistoryDepthAndTagFetchMode()
     {
         var service = CreateService(allowNetwork: true);

@@ -1,0 +1,108 @@
+version: 1
+name: "readable"
+entrypoint: "main"
+workflows:
+  main:
+    inputs:
+      searchPages:
+        type: "array"
+        items:
+          type: "array"
+          items:
+            type: "number"
+            nullable: true
+        required: true
+    steps:
+    - id: "n_bfa062de040f55a1"
+      type: "set"
+      input: |-
+        ${
+        (() => {
+          const searchPages = {
+            value: data.inputs.searchPages
+          };
+          const products = {
+            products: searchPages.value.flatMap(item => item)
+          };
+          return {
+            products
+          };
+        })()
+        }
+      output_schema:
+        type: "object"
+        properties:
+          products:
+            type: "object"
+            properties:
+              products:
+                type: "array"
+                items:
+                  type:
+                  - "number"
+                  - "null"
+            required:
+            - "products"
+            additionalProperties: false
+        required:
+        - "products"
+        additionalProperties: false
+      description: "Check and assemble consecutive deterministic values."
+      expression_contracts:
+        '':
+          searchPages:
+            origin: "pages"
+            schema:
+              type: "object"
+              properties:
+                value:
+                  type: "array"
+                  items:
+                    type: "array"
+                    items:
+                      type:
+                      - "number"
+                      - "null"
+              required:
+              - "value"
+              additionalProperties: false
+          products:
+            origin: "products"
+            schema:
+              type: "object"
+              properties:
+                products:
+                  type: "array"
+                  items:
+                    type:
+                    - "number"
+                    - "null"
+              required:
+              - "products"
+              additionalProperties: false
+    outputs:
+      products:
+        type: "array"
+        items:
+          type: "number"
+          nullable: true
+        expr: "${data.steps.n_bfa062de040f55a1.products.products}"
+skill:
+  description: ""
+  inputs:
+    searchPages:
+      type: "array"
+      items:
+        type: "array"
+        items:
+          type: "number"
+          nullable: true
+      required: true
+  outputs:
+    products:
+      type: "array"
+      items:
+        type: "number"
+        nullable: true
+      expr: "${data.steps.n_bfa062de040f55a1.products.products}"
+...

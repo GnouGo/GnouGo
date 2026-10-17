@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using System.Diagnostics.CodeAnalysis;
 using System.Net;
 using GnOuGo.Agent.Mcp;
@@ -181,6 +182,9 @@ public static class GnOuGoAgentWebHost
             .GetSection(WorkflowPlanningBudgetSettings.SectionName)
             .Get<WorkflowPlanningBudgetSettings>() ?? new WorkflowPlanningBudgetSettings();
         workflowPlanningBudget.Validate();
+        var executionBudget = ConfiguredExecutionBudgetFactory.Read(builder.Configuration);
+        var executionSettings = WorkflowExecutionSettings.Read(builder.Configuration);
+        builder.Services.AddSingleton(Options.Create(executionSettings));
 
         // Resolve the dotnet executable used by this process so stdio MCP servers are spawned
         // with the SAME dotnet installation that's running the agent server.
@@ -361,6 +365,8 @@ public static class GnOuGoAgentWebHost
                 MaxQuoteAge = TimeSpan.FromDays(workflowPlanningBudget.MaxQuoteAgeDays),
                 StaticQuotes = workflowPlanningBudget.CreateStaticQuotes()
             }));
+        builder.Services.TryAddSingleton<ILLMUsageBudgetScopeFactory>(sp =>
+            new ConfiguredExecutionBudgetFactory(executionBudget, sp.GetRequiredService<IExchangeRateProvider>()));
         var localModelsDirectory = GnOuGoWorkspace.ResolveLocalModelsDirectory(applicationBasePath);
         builder.Services.AddSingleton<ILocalLLMRuntime>(sp => new LlamaSharpLocalLLMRuntime(
             localModelsDirectory,
@@ -474,7 +480,14 @@ public static class GnOuGoAgentWebHost
         builder.Services.AddSingleton<AgentHumanInputProvider>();
         builder.Services.AddSingleton<AgentOTelTelemetry>();
         builder.Services.AddSingleton<IWorkflowCandidateProvider, DatabaseAgentWorkflowCandidateProvider>();
-        builder.Services.AddSingleton<ConfigureProvidersService>();
+        builder.Services.AddSingleton<ConfigureProvidersService>(sp => new ConfigureProvidersService(
+            sp.GetRequiredService<ILLMClient>(), sp.GetRequiredService<AgentHumanInputProvider>(),
+            sp.GetRequiredService<ILLMModelCatalog>(), sp.GetRequiredService<IKeyVaultRuntimeConfigStore>(),
+            sp.GetRequiredService<LLMRuntimeOptionsStore>(), sp.GetRequiredService<AgentOTelTelemetry>(),
+            sp.GetRequiredService<ILogger<ConfigureProvidersService>>(), sp.GetService<AgentUserConfigMcpClient>(),
+            sp.GetRequiredService<IOptions<BundledMcpSettings>>(), mcpFactory: null,
+            openTelemetrySettings: sp.GetRequiredService<IOptions<OpenTelemetrySettings>>(),
+            localModels: sp.GetService<ILocalModelManager>()));
         builder.Services.AddSingleton<LocalModelsService>();
         builder.Services.AddSingleton<ConfigureAgentsService>();
         builder.Services.Configure<GnOuGo.Agent.Server.Configuration.TypedWorkflowPlanningSettings>(

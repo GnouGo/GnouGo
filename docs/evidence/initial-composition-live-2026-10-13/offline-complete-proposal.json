@@ -1,0 +1,2190 @@
+{
+  "inputs": [
+    {
+      "name": "query",
+      "type": {
+        "kind": "string",
+        "nullable": false
+      },
+      "required": true
+    }
+  ],
+  "root": {
+    "tasks": [
+      {
+        "id": "build_search_url",
+        "objective": "Construire l’URL Amazon.fr de recherche à partir de la seule entrée publique query, en encodant uniquement la valeur de query et sans ajouter de critère, filtre ou action non demandée.",
+        "kind": "transform",
+        "mode": "interpret",
+        "inputs": [
+          {
+            "name": "query",
+            "value": {
+              "kind": "input",
+              "source": "query"
+            }
+          }
+        ],
+        "resultType": {
+          "kind": "object",
+          "nullable": false,
+          "fields": [
+            {
+              "name": "searchUrl",
+              "type": {
+                "kind": "string",
+                "nullable": false
+              },
+              "required": true
+            }
+          ]
+        },
+        "requires": {
+          "kind": "predicate",
+          "items": [
+            {
+              "kind": "input",
+              "source": "query"
+            },
+            {
+              "kind": "string",
+              "text": ""
+            }
+          ],
+          "predicate": "not_equal"
+        },
+        "parallel": false,
+        "maxItems": 100,
+        "maxConcurrency": 4
+      },
+      {
+        "id": "open_search_observe",
+        "objective": "Ouvrir Amazon.fr sur la page de résultats correspondant à query et acquérir un instantané d’observation complet borné.",
+        "kind": "operation",
+        "dependsOn": [
+          "build_search_url"
+        ],
+        "operation": "cap_490d9e16075cbdca5954ec27",
+        "inputs": [
+          {
+            "name": "url",
+            "value": {
+              "kind": "field",
+              "port": "searchUrl",
+              "items": [
+                {
+                  "kind": "output",
+                  "source": "build_search_url"
+                }
+              ]
+            }
+          },
+          {
+            "name": "format",
+            "value": {
+              "kind": "string",
+              "text": "observation_complete"
+            }
+          },
+          {
+            "name": "waitUntil",
+            "value": {
+              "kind": "string",
+              "text": "domcontentloaded"
+            }
+          },
+          {
+            "name": "maxRecords",
+            "value": {
+              "kind": "number",
+              "number": 200
+            }
+          },
+          {
+            "name": "timeoutMs",
+            "value": {
+              "kind": "number",
+              "number": 45000
+            }
+          }
+        ],
+        "requires": {
+          "kind": "predicate",
+          "items": [
+            {
+              "kind": "predicate",
+              "items": [
+                {
+                  "kind": "field",
+                  "port": "searchUrl",
+                  "items": [
+                    {
+                      "kind": "output",
+                      "source": "build_search_url"
+                    }
+                  ]
+                },
+                {
+                  "kind": "null"
+                }
+              ],
+              "predicate": "not_equal"
+            },
+            {
+              "kind": "predicate",
+              "items": [
+                {
+                  "kind": "field",
+                  "port": "searchUrl",
+                  "items": [
+                    {
+                      "kind": "output",
+                      "source": "build_search_url"
+                    }
+                  ]
+                },
+                {
+                  "kind": "string",
+                  "text": ""
+                }
+              ],
+              "predicate": "not_equal"
+            }
+          ],
+          "predicate": "and"
+        },
+        "parallel": false,
+        "maxItems": 100,
+        "maxConcurrency": 4
+      },
+      {
+        "id": "search_original_page_records",
+        "objective": "Conserver les enregistrements originaux de chaque page complète de résultats sans copie apprise, en projetant uniquement records depuis chaque page de l’instantané.",
+        "kind": "foreach",
+        "dependsOn": [
+          "open_search_observe"
+        ],
+        "requires": {
+          "kind": "predicate",
+          "items": [
+            {
+              "kind": "predicate",
+              "items": [
+                {
+                  "kind": "predicate",
+                  "items": [
+                    {
+                      "kind": "predicate",
+                      "items": [
+                        {
+                          "kind": "output",
+                          "source": "open_search_observe",
+                          "port": "success"
+                        },
+                        {
+                          "kind": "boolean",
+                          "boolean": true
+                        }
+                      ],
+                      "predicate": "equal"
+                    },
+                    {
+                      "kind": "predicate",
+                      "items": [
+                        {
+                          "kind": "output",
+                          "source": "open_search_observe",
+                          "port": "observationSnapshot"
+                        },
+                        {
+                          "kind": "null"
+                        }
+                      ],
+                      "predicate": "not_equal"
+                    }
+                  ],
+                  "predicate": "and"
+                },
+                {
+                  "kind": "predicate",
+                  "items": [
+                    {
+                      "kind": "field",
+                      "port": "captureTruncated",
+                      "items": [
+                        {
+                          "kind": "output",
+                          "source": "open_search_observe",
+                          "port": "observationSnapshot"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "boolean",
+                      "boolean": false
+                    }
+                  ],
+                  "predicate": "equal"
+                }
+              ],
+              "predicate": "and"
+            },
+            {
+              "kind": "predicate",
+              "items": [
+                {
+                  "kind": "field",
+                  "port": "manifestTruncated",
+                  "items": [
+                    {
+                      "kind": "output",
+                      "source": "open_search_observe",
+                      "port": "observationSnapshot"
+                    }
+                  ]
+                },
+                {
+                  "kind": "boolean",
+                  "boolean": false
+                }
+              ],
+              "predicate": "equal"
+            }
+          ],
+          "predicate": "and"
+        },
+        "body": {
+          "outputs": [
+            {
+              "name": "pageRecords",
+              "value": {
+                "kind": "field",
+                "port": "records",
+                "items": [
+                  {
+                    "kind": "item"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "items": {
+          "kind": "field",
+          "port": "pages",
+          "items": [
+            {
+              "kind": "output",
+              "source": "open_search_observe",
+              "port": "observationSnapshot"
+            }
+          ]
+        },
+        "parallel": false,
+        "maxItems": 100,
+        "maxConcurrency": 1
+      },
+      {
+        "id": "extract_candidate_pages",
+        "objective": "Pour chaque page originale complète de résultats, extraire uniquement des candidats compacts correspondant à des titres/liens de produits observés, dans l’ordre observé: reference opaque inchangée et observedText copié verbatim. Ne pas classer, filtrer, dédupliquer, tronquer à dix, réécrire d’URL, deviner de sélecteur ni inventer de placeholder; une page sans candidat émet un tableau vide.",
+        "kind": "transform",
+        "mode": "extract",
+        "each": {
+          "input": "pages",
+          "output": "candidates"
+        },
+        "dependsOn": [
+          "open_search_observe"
+        ],
+        "inputs": [
+          {
+            "name": "pages",
+            "value": {
+              "kind": "field",
+              "port": "pages",
+              "items": [
+                {
+                  "kind": "output",
+                  "source": "open_search_observe",
+                  "port": "observationSnapshot"
+                }
+              ]
+            }
+          }
+        ],
+        "resultType": {
+          "kind": "object",
+          "nullable": false,
+          "fields": [
+            {
+              "name": "candidates",
+              "type": {
+                "kind": "array",
+                "nullable": false,
+                "minItems": 0,
+                "maxItems": 100,
+                "items": {
+                  "kind": "array",
+                  "nullable": false,
+                  "minItems": 0,
+                  "maxItems": 200,
+                  "items": {
+                    "kind": "object",
+                    "nullable": false,
+                    "fields": [
+                      {
+                        "name": "reference",
+                        "type": {
+                          "kind": "string",
+                          "nullable": false
+                        },
+                        "required": true
+                      },
+                      {
+                        "name": "observedText",
+                        "type": {
+                          "kind": "string",
+                          "nullable": false
+                        },
+                        "required": true
+                      }
+                    ]
+                  }
+                }
+              },
+              "required": true
+            }
+          ]
+        },
+        "requires": {
+          "kind": "predicate",
+          "items": [
+            {
+              "kind": "predicate",
+              "items": [
+                {
+                  "kind": "predicate",
+                  "items": [
+                    {
+                      "kind": "predicate",
+                      "items": [
+                        {
+                          "kind": "output",
+                          "source": "open_search_observe",
+                          "port": "success"
+                        },
+                        {
+                          "kind": "boolean",
+                          "boolean": true
+                        }
+                      ],
+                      "predicate": "equal"
+                    },
+                    {
+                      "kind": "predicate",
+                      "items": [
+                        {
+                          "kind": "output",
+                          "source": "open_search_observe",
+                          "port": "observationSnapshot"
+                        },
+                        {
+                          "kind": "null"
+                        }
+                      ],
+                      "predicate": "not_equal"
+                    }
+                  ],
+                  "predicate": "and"
+                },
+                {
+                  "kind": "predicate",
+                  "items": [
+                    {
+                      "kind": "field",
+                      "port": "captureTruncated",
+                      "items": [
+                        {
+                          "kind": "output",
+                          "source": "open_search_observe",
+                          "port": "observationSnapshot"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "boolean",
+                      "boolean": false
+                    }
+                  ],
+                  "predicate": "equal"
+                }
+              ],
+              "predicate": "and"
+            },
+            {
+              "kind": "predicate",
+              "items": [
+                {
+                  "kind": "field",
+                  "port": "manifestTruncated",
+                  "items": [
+                    {
+                      "kind": "output",
+                      "source": "open_search_observe",
+                      "port": "observationSnapshot"
+                    }
+                  ]
+                },
+                {
+                  "kind": "boolean",
+                  "boolean": false
+                }
+              ],
+              "predicate": "equal"
+            }
+          ],
+          "predicate": "and"
+        },
+        "parallel": false,
+        "maxItems": 100,
+        "maxConcurrency": 4
+      },
+      {
+        "id": "compact_candidate_decision",
+        "objective": "Choisir, depuis les seuls candidats compacts et query, les références non vides inchangées des premiers titres de produits dans l’ordre observé, au maximum dix. Préserver les sélections répétées si elles sont observées; ne pas choisir d’URL, ne pas réécrire les faits, ne pas filtrer les sponsorisés et ne pas dédupliquer.",
+        "kind": "transform",
+        "mode": "interpret",
+        "dependsOn": [
+          "extract_candidate_pages"
+        ],
+        "inputs": [
+          {
+            "name": "offeredCandidates",
+            "value": {
+              "kind": "flatten",
+              "items": [
+                {
+                  "kind": "output",
+                  "source": "extract_candidate_pages",
+                  "port": "candidates"
+                }
+              ]
+            }
+          },
+          {
+            "name": "query",
+            "value": {
+              "kind": "input",
+              "source": "query"
+            }
+          }
+        ],
+        "resultType": {
+          "kind": "object",
+          "nullable": false,
+          "fields": [
+            {
+              "name": "selectedIds",
+              "type": {
+                "kind": "array",
+                "nullable": false,
+                "minItems": 1,
+                "maxItems": 10,
+                "items": {
+                  "kind": "string",
+                  "nullable": false
+                }
+              },
+              "required": true
+            }
+          ]
+        },
+        "requires": {
+          "kind": "predicate",
+          "items": [
+            {
+              "kind": "flatten",
+              "items": [
+                {
+                  "kind": "output",
+                  "source": "extract_candidate_pages",
+                  "port": "candidates"
+                }
+              ]
+            },
+            {
+              "kind": "null"
+            }
+          ],
+          "predicate": "not_equal"
+        },
+        "parallel": false,
+        "maxItems": 100,
+        "maxConcurrency": 4
+      },
+      {
+        "id": "visit_products",
+        "objective": "Pour chaque référence sélectionnée, résoudre l’enregistrement original correspondant, naviguer vers son href exact, acquérir la page produit complète, sélectionner des faits par références offertes, puis exporter directement un enregistrement produit non nul avec nom, description, prix, url et erreur.",
+        "kind": "foreach",
+        "dependsOn": [
+          "compact_candidate_decision",
+          "search_original_page_records",
+          "extract_candidate_pages"
+        ],
+        "requires": {
+          "kind": "predicate",
+          "items": [
+            {
+              "kind": "predicate",
+              "items": [
+                {
+                  "kind": "output",
+                  "source": "compact_candidate_decision",
+                  "port": "selectedIds"
+                },
+                {
+                  "kind": "array"
+                }
+              ],
+              "predicate": "not_equal"
+            },
+            {
+              "kind": "predicate",
+              "items": [
+                {
+                  "kind": "lookup",
+                  "port": "reference",
+                  "items": [
+                    {
+                      "kind": "flatten",
+                      "items": [
+                        {
+                          "kind": "output",
+                          "source": "extract_candidate_pages",
+                          "port": "candidates"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "output",
+                      "source": "compact_candidate_decision",
+                      "port": "selectedIds"
+                    }
+                  ]
+                },
+                {
+                  "kind": "null"
+                }
+              ],
+              "predicate": "not_equal"
+            }
+          ],
+          "predicate": "and"
+        },
+        "body": {
+          "tasks": [
+            {
+              "id": "read_product_page",
+              "objective": "Naviguer vers le href exact de l’enregistrement original sélectionné.",
+              "kind": "operation",
+              "operation": "cap_490d9e16075cbdca5954ec27",
+              "inputs": [
+                {
+                  "name": "url",
+                  "value": {
+                    "kind": "field",
+                    "port": "href",
+                    "items": [
+                      {
+                        "kind": "item"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "name": "format",
+                  "value": {
+                    "kind": "string",
+                    "text": "observation_complete"
+                  }
+                },
+                {
+                  "name": "waitUntil",
+                  "value": {
+                    "kind": "string",
+                    "text": "domcontentloaded"
+                  }
+                },
+                {
+                  "name": "maxRecords",
+                  "value": {
+                    "kind": "number",
+                    "number": 200
+                  }
+                },
+                {
+                  "name": "timeoutMs",
+                  "value": {
+                    "kind": "number",
+                    "number": 45000
+                  }
+                }
+              ],
+              "requires": {
+                "kind": "predicate",
+                "items": [
+                  {
+                    "kind": "field",
+                    "port": "href",
+                    "items": [
+                      {
+                        "kind": "item"
+                      }
+                    ]
+                  },
+                  {
+                    "kind": "null"
+                  }
+                ],
+                "predicate": "not_equal"
+              },
+              "parallel": false,
+              "maxItems": 100,
+              "maxConcurrency": 4
+            },
+            {
+              "id": "product_original_page_records",
+              "objective": "Conserver les enregistrements originaux de chaque page produit complète sans copie apprise, en projetant uniquement records depuis chaque page de l’instantané.",
+              "kind": "foreach",
+              "dependsOn": [
+                "read_product_page"
+              ],
+              "requires": {
+                "kind": "predicate",
+                "items": [
+                  {
+                    "kind": "predicate",
+                    "items": [
+                      {
+                        "kind": "predicate",
+                        "items": [
+                          {
+                            "kind": "predicate",
+                            "items": [
+                              {
+                                "kind": "output",
+                                "source": "read_product_page",
+                                "port": "success"
+                              },
+                              {
+                                "kind": "boolean",
+                                "boolean": true
+                              }
+                            ],
+                            "predicate": "equal"
+                          },
+                          {
+                            "kind": "predicate",
+                            "items": [
+                              {
+                                "kind": "output",
+                                "source": "read_product_page",
+                                "port": "observationSnapshot"
+                              },
+                              {
+                                "kind": "null"
+                              }
+                            ],
+                            "predicate": "not_equal"
+                          }
+                        ],
+                        "predicate": "and"
+                      },
+                      {
+                        "kind": "predicate",
+                        "items": [
+                          {
+                            "kind": "field",
+                            "port": "captureTruncated",
+                            "items": [
+                              {
+                                "kind": "output",
+                                "source": "read_product_page",
+                                "port": "observationSnapshot"
+                              }
+                            ]
+                          },
+                          {
+                            "kind": "boolean",
+                            "boolean": false
+                          }
+                        ],
+                        "predicate": "equal"
+                      }
+                    ],
+                    "predicate": "and"
+                  },
+                  {
+                    "kind": "predicate",
+                    "items": [
+                      {
+                        "kind": "field",
+                        "port": "manifestTruncated",
+                        "items": [
+                          {
+                            "kind": "output",
+                            "source": "read_product_page",
+                            "port": "observationSnapshot"
+                          }
+                        ]
+                      },
+                      {
+                        "kind": "boolean",
+                        "boolean": false
+                      }
+                    ],
+                    "predicate": "equal"
+                  }
+                ],
+                "predicate": "and"
+              },
+              "body": {
+                "outputs": [
+                  {
+                    "name": "pageRecords",
+                    "value": {
+                      "kind": "field",
+                      "port": "records",
+                      "items": [
+                        {
+                          "kind": "item"
+                        }
+                      ]
+                    }
+                  }
+                ]
+              },
+              "items": {
+                "kind": "field",
+                "port": "pages",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "read_product_page",
+                    "port": "observationSnapshot"
+                  }
+                ]
+              },
+              "parallel": false,
+              "maxItems": 100,
+              "maxConcurrency": 1
+            },
+            {
+              "id": "extract_product_row",
+              "objective": "Pour chaque page produit originale complète, extraire uniquement des candidats compacts de faits observés pour nom, description et prix: reference opaque inchangée, observedText copié verbatim et tag observé si nécessaire. Ne pas synthétiser, ne pas rogner, ne pas réécrire, ne pas classer et ne pas inventer de champ absent.",
+              "kind": "transform",
+              "mode": "extract",
+              "each": {
+                "input": "pages",
+                "output": "candidates"
+              },
+              "dependsOn": [
+                "read_product_page"
+              ],
+              "inputs": [
+                {
+                  "name": "pages",
+                  "value": {
+                    "kind": "field",
+                    "port": "pages",
+                    "items": [
+                      {
+                        "kind": "output",
+                        "source": "read_product_page",
+                        "port": "observationSnapshot"
+                      }
+                    ]
+                  }
+                }
+              ],
+              "resultType": {
+                "kind": "object",
+                "nullable": false,
+                "fields": [
+                  {
+                    "name": "candidates",
+                    "type": {
+                      "kind": "array",
+                      "nullable": false,
+                      "minItems": 0,
+                      "maxItems": 100,
+                      "items": {
+                        "kind": "array",
+                        "nullable": false,
+                        "minItems": 0,
+                        "maxItems": 200,
+                        "items": {
+                          "kind": "object",
+                          "nullable": false,
+                          "fields": [
+                            {
+                              "name": "reference",
+                              "type": {
+                                "kind": "string",
+                                "nullable": false
+                              },
+                              "required": true
+                            },
+                            {
+                              "name": "observedText",
+                              "type": {
+                                "kind": "string",
+                                "nullable": false
+                              },
+                              "required": true
+                            },
+                            {
+                              "name": "tag",
+                              "type": {
+                                "kind": "string",
+                                "nullable": true
+                              },
+                              "required": true
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "required": true
+                  }
+                ]
+              },
+              "requires": {
+                "kind": "predicate",
+                "items": [
+                  {
+                    "kind": "predicate",
+                    "items": [
+                      {
+                        "kind": "predicate",
+                        "items": [
+                          {
+                            "kind": "predicate",
+                            "items": [
+                              {
+                                "kind": "output",
+                                "source": "read_product_page",
+                                "port": "success"
+                              },
+                              {
+                                "kind": "boolean",
+                                "boolean": true
+                              }
+                            ],
+                            "predicate": "equal"
+                          },
+                          {
+                            "kind": "predicate",
+                            "items": [
+                              {
+                                "kind": "output",
+                                "source": "read_product_page",
+                                "port": "observationSnapshot"
+                              },
+                              {
+                                "kind": "null"
+                              }
+                            ],
+                            "predicate": "not_equal"
+                          }
+                        ],
+                        "predicate": "and"
+                      },
+                      {
+                        "kind": "predicate",
+                        "items": [
+                          {
+                            "kind": "field",
+                            "port": "captureTruncated",
+                            "items": [
+                              {
+                                "kind": "output",
+                                "source": "read_product_page",
+                                "port": "observationSnapshot"
+                              }
+                            ]
+                          },
+                          {
+                            "kind": "boolean",
+                            "boolean": false
+                          }
+                        ],
+                        "predicate": "equal"
+                      }
+                    ],
+                    "predicate": "and"
+                  },
+                  {
+                    "kind": "predicate",
+                    "items": [
+                      {
+                        "kind": "field",
+                        "port": "manifestTruncated",
+                        "items": [
+                          {
+                            "kind": "output",
+                            "source": "read_product_page",
+                            "port": "observationSnapshot"
+                          }
+                        ]
+                      },
+                      {
+                        "kind": "boolean",
+                        "boolean": false
+                      }
+                    ],
+                    "predicate": "equal"
+                  }
+                ],
+                "predicate": "and"
+              },
+              "parallel": false,
+              "maxItems": 100,
+              "maxConcurrency": 4
+            },
+            {
+              "id": "select_product_fact_ids",
+              "objective": "From only the compact offered fact candidates, select the unchanged original nullable IDs for the product name, description and price. A complete features, characteristics or descriptive-text block may be a relevant description without a Description heading. Several suitable blocks do not establish absence: choose one complete relevant block. Use null only for genuine absence or unreliable subject association. Never join, paraphrase, trim or rewrite text; controls are not descriptive evidence or business errors. Each present ID must be an unchanged nonempty offered reference. Strict lookups reconnect the exact original text.",
+              "kind": "transform",
+              "mode": "interpret",
+              "dependsOn": [
+                "extract_product_row"
+              ],
+              "inputs": [
+                {
+                  "name": "offeredFactCandidates",
+                  "value": {
+                    "kind": "flatten",
+                    "items": [
+                      {
+                        "kind": "output",
+                        "source": "extract_product_row",
+                        "port": "candidates"
+                      }
+                    ]
+                  }
+                }
+              ],
+              "resultType": {
+                "kind": "object",
+                "nullable": false,
+                "fields": [
+                  {
+                    "name": "nomId",
+                    "type": {
+                      "kind": "string",
+                      "nullable": true
+                    },
+                    "required": true
+                  },
+                  {
+                    "name": "descriptionId",
+                    "type": {
+                      "kind": "string",
+                      "nullable": true
+                    },
+                    "required": true
+                  },
+                  {
+                    "name": "prixId",
+                    "type": {
+                      "kind": "string",
+                      "nullable": true
+                    },
+                    "required": true
+                  }
+                ]
+              },
+              "requires": {
+                "kind": "predicate",
+                "items": [
+                  {
+                    "kind": "flatten",
+                    "items": [
+                      {
+                        "kind": "output",
+                        "source": "extract_product_row",
+                        "port": "candidates"
+                      }
+                    ]
+                  },
+                  {
+                    "kind": "null"
+                  }
+                ],
+                "predicate": "not_equal"
+              },
+              "parallel": false,
+              "maxItems": 100,
+              "maxConcurrency": 4
+            },
+            {
+              "id": "resolve_nom_values",
+              "objective": "Résoudre déterministiquement le texte original du nom seulement si nomId est non nul; sinon produire la valeur null autorisée. Le lookup est d’abord strict sur les candidats offerts puis sur les enregistrements originaux, sans indexer le tableau retourné.",
+              "kind": "conditional",
+              "dependsOn": [
+                "select_product_fact_ids",
+                "extract_product_row",
+                "product_original_page_records"
+              ],
+              "condition": {
+                "kind": "predicate",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "select_product_fact_ids",
+                    "port": "nomId"
+                  },
+                  {
+                    "kind": "null"
+                  }
+                ],
+                "predicate": "not_equal"
+              },
+              "body": {
+                "tasks": [
+                  {
+                    "id": "fetch_nom_text",
+                    "objective": "Projeter le texte original du premier enregistrement dont la reference correspond à nomId.",
+                    "kind": "foreach",
+                    "requires": {
+                      "kind": "predicate",
+                      "items": [
+                        {
+                          "kind": "lookup",
+                          "port": "reference",
+                          "items": [
+                            {
+                              "kind": "flatten",
+                              "items": [
+                                {
+                                  "kind": "output",
+                                  "source": "extract_product_row",
+                                  "port": "candidates"
+                                }
+                              ]
+                            },
+                            {
+                              "kind": "array",
+                              "items": [
+                                {
+                                  "kind": "output",
+                                  "source": "select_product_fact_ids",
+                                  "port": "nomId"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "null"
+                        }
+                      ],
+                      "predicate": "not_equal"
+                    },
+                    "body": {
+                      "outputs": [
+                        {
+                          "name": "text",
+                          "value": {
+                            "kind": "field",
+                            "port": "text",
+                            "items": [
+                              {
+                                "kind": "item"
+                              }
+                            ]
+                          }
+                        }
+                      ]
+                    },
+                    "items": {
+                      "kind": "lookup",
+                      "port": "reference",
+                      "items": [
+                        {
+                          "kind": "flatten",
+                          "items": [
+                            {
+                              "kind": "output",
+                              "source": "product_original_page_records",
+                              "port": "pageRecords"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "array",
+                          "items": [
+                            {
+                              "kind": "output",
+                              "source": "select_product_fact_ids",
+                              "port": "nomId"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    "parallel": false,
+                    "maxItems": 1,
+                    "maxConcurrency": 1
+                  }
+                ],
+                "outputs": [
+                  {
+                    "name": "values",
+                    "value": {
+                      "kind": "output",
+                      "source": "fetch_nom_text",
+                      "port": "text"
+                    }
+                  }
+                ]
+              },
+              "otherwise": {
+                "outputs": [
+                  {
+                    "name": "values",
+                    "value": {
+                      "kind": "array",
+                      "items": [
+                        {
+                          "kind": "null"
+                        }
+                      ]
+                    }
+                  }
+                ]
+              },
+              "parallel": false,
+              "maxItems": 100,
+              "maxConcurrency": 4
+            },
+            {
+              "id": "resolve_description_values",
+              "objective": "Résoudre déterministiquement le texte original du bloc description seulement si descriptionId est non nul; sinon produire la valeur null autorisée. Le lookup est d’abord strict sur les candidats offerts puis sur les enregistrements originaux, sans indexer le tableau retourné.",
+              "kind": "conditional",
+              "dependsOn": [
+                "select_product_fact_ids",
+                "extract_product_row",
+                "product_original_page_records"
+              ],
+              "condition": {
+                "kind": "predicate",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "select_product_fact_ids",
+                    "port": "descriptionId"
+                  },
+                  {
+                    "kind": "null"
+                  }
+                ],
+                "predicate": "not_equal"
+              },
+              "body": {
+                "tasks": [
+                  {
+                    "id": "fetch_description_text",
+                    "objective": "Projeter le texte original complet du premier enregistrement dont la reference correspond à descriptionId.",
+                    "kind": "foreach",
+                    "requires": {
+                      "kind": "predicate",
+                      "items": [
+                        {
+                          "kind": "lookup",
+                          "port": "reference",
+                          "items": [
+                            {
+                              "kind": "flatten",
+                              "items": [
+                                {
+                                  "kind": "output",
+                                  "source": "extract_product_row",
+                                  "port": "candidates"
+                                }
+                              ]
+                            },
+                            {
+                              "kind": "array",
+                              "items": [
+                                {
+                                  "kind": "output",
+                                  "source": "select_product_fact_ids",
+                                  "port": "descriptionId"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "null"
+                        }
+                      ],
+                      "predicate": "not_equal"
+                    },
+                    "body": {
+                      "outputs": [
+                        {
+                          "name": "text",
+                          "value": {
+                            "kind": "field",
+                            "port": "text",
+                            "items": [
+                              {
+                                "kind": "item"
+                              }
+                            ]
+                          }
+                        }
+                      ]
+                    },
+                    "items": {
+                      "kind": "lookup",
+                      "port": "reference",
+                      "items": [
+                        {
+                          "kind": "flatten",
+                          "items": [
+                            {
+                              "kind": "output",
+                              "source": "product_original_page_records",
+                              "port": "pageRecords"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "array",
+                          "items": [
+                            {
+                              "kind": "output",
+                              "source": "select_product_fact_ids",
+                              "port": "descriptionId"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    "parallel": false,
+                    "maxItems": 1,
+                    "maxConcurrency": 1
+                  }
+                ],
+                "outputs": [
+                  {
+                    "name": "values",
+                    "value": {
+                      "kind": "output",
+                      "source": "fetch_description_text",
+                      "port": "text"
+                    }
+                  }
+                ]
+              },
+              "otherwise": {
+                "outputs": [
+                  {
+                    "name": "values",
+                    "value": {
+                      "kind": "array",
+                      "items": [
+                        {
+                          "kind": "null"
+                        }
+                      ]
+                    }
+                  }
+                ]
+              },
+              "parallel": false,
+              "maxItems": 100,
+              "maxConcurrency": 4
+            },
+            {
+              "id": "resolve_prix_values",
+              "objective": "Résoudre déterministiquement le texte original du prix seulement si prixId est non nul; sinon produire la valeur null autorisée. Le lookup est d’abord strict sur les candidats offerts puis sur les enregistrements originaux, sans indexer le tableau retourné.",
+              "kind": "conditional",
+              "dependsOn": [
+                "select_product_fact_ids",
+                "extract_product_row",
+                "product_original_page_records"
+              ],
+              "condition": {
+                "kind": "predicate",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "select_product_fact_ids",
+                    "port": "prixId"
+                  },
+                  {
+                    "kind": "null"
+                  }
+                ],
+                "predicate": "not_equal"
+              },
+              "body": {
+                "tasks": [
+                  {
+                    "id": "fetch_prix_text",
+                    "objective": "Projeter le texte original du premier enregistrement dont la reference correspond à prixId.",
+                    "kind": "foreach",
+                    "requires": {
+                      "kind": "predicate",
+                      "items": [
+                        {
+                          "kind": "lookup",
+                          "port": "reference",
+                          "items": [
+                            {
+                              "kind": "flatten",
+                              "items": [
+                                {
+                                  "kind": "output",
+                                  "source": "extract_product_row",
+                                  "port": "candidates"
+                                }
+                              ]
+                            },
+                            {
+                              "kind": "array",
+                              "items": [
+                                {
+                                  "kind": "output",
+                                  "source": "select_product_fact_ids",
+                                  "port": "prixId"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "null"
+                        }
+                      ],
+                      "predicate": "not_equal"
+                    },
+                    "body": {
+                      "outputs": [
+                        {
+                          "name": "text",
+                          "value": {
+                            "kind": "field",
+                            "port": "text",
+                            "items": [
+                              {
+                                "kind": "item"
+                              }
+                            ]
+                          }
+                        }
+                      ]
+                    },
+                    "items": {
+                      "kind": "lookup",
+                      "port": "reference",
+                      "items": [
+                        {
+                          "kind": "flatten",
+                          "items": [
+                            {
+                              "kind": "output",
+                              "source": "product_original_page_records",
+                              "port": "pageRecords"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "array",
+                          "items": [
+                            {
+                              "kind": "output",
+                              "source": "select_product_fact_ids",
+                              "port": "prixId"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    "parallel": false,
+                    "maxItems": 1,
+                    "maxConcurrency": 1
+                  }
+                ],
+                "outputs": [
+                  {
+                    "name": "values",
+                    "value": {
+                      "kind": "output",
+                      "source": "fetch_prix_text",
+                      "port": "text"
+                    }
+                  }
+                ]
+              },
+              "otherwise": {
+                "outputs": [
+                  {
+                    "name": "values",
+                    "value": {
+                      "kind": "array",
+                      "items": [
+                        {
+                          "kind": "null"
+                        }
+                      ]
+                    }
+                  }
+                ]
+              },
+              "parallel": false,
+              "maxItems": 100,
+              "maxConcurrency": 4
+            },
+            {
+              "id": "capture_product_url",
+              "objective": "Capture the exact observed navigation URL before nested item scopes.",
+              "kind": "value",
+              "outputs": [
+                {
+                  "name": "url",
+                  "value": {
+                    "kind": "field",
+                    "port": "href",
+                    "items": [
+                      {
+                        "kind": "item"
+                      }
+                    ]
+                  }
+                }
+              ],
+              "parallel": false,
+              "maxItems": 100,
+              "maxConcurrency": 4
+            },
+            {
+              "id": "assemble_product_record",
+              "objective": "Assemble exact nullable fields deterministically without inference.",
+              "kind": "foreach",
+              "dependsOn": [
+                "resolve_nom_values",
+                "resolve_description_values",
+                "resolve_prix_values",
+                "read_product_page"
+              ],
+              "requires": {
+                "kind": "predicate",
+                "items": [
+                  {
+                    "kind": "predicate",
+                    "items": [
+                      {
+                        "kind": "output",
+                        "source": "resolve_nom_values",
+                        "port": "values"
+                      },
+                      {
+                        "kind": "null"
+                      }
+                    ],
+                    "predicate": "not_equal"
+                  },
+                  {
+                    "kind": "predicate",
+                    "items": [
+                      {
+                        "kind": "output",
+                        "source": "resolve_description_values",
+                        "port": "values"
+                      },
+                      {
+                        "kind": "null"
+                      }
+                    ],
+                    "predicate": "not_equal"
+                  }
+                ],
+                "predicate": "and"
+              },
+              "body": {
+                "tasks": [
+                  {
+                    "id": "keep_product_nom",
+                    "objective": "Preserve the exact typed nom across the nested item scope.",
+                    "kind": "value",
+                    "outputs": [
+                      {
+                        "name": "nom",
+                        "value": {
+                          "kind": "item"
+                        }
+                      }
+                    ],
+                    "parallel": false,
+                    "maxItems": 100,
+                    "maxConcurrency": 4
+                  },
+                  {
+                    "id": "assemble_product_description",
+                    "objective": "Assemble exact nullable fields deterministically without inference.",
+                    "kind": "foreach",
+                    "body": {
+                      "tasks": [
+                        {
+                          "id": "keep_product_description",
+                          "objective": "Preserve the exact typed description across the nested item scope.",
+                          "kind": "value",
+                          "outputs": [
+                            {
+                              "name": "description",
+                              "value": {
+                                "kind": "item"
+                              }
+                            }
+                          ],
+                          "parallel": false,
+                          "maxItems": 100,
+                          "maxConcurrency": 4
+                        },
+                        {
+                          "id": "assemble_product_price",
+                          "objective": "Assemble exact nullable fields deterministically without inference.",
+                          "kind": "foreach",
+                          "body": {
+                            "outputs": [
+                              {
+                                "name": "product",
+                                "value": {
+                                  "kind": "object",
+                                  "members": [
+                                    {
+                                      "name": "nom",
+                                      "value": {
+                                        "kind": "output",
+                                        "source": "keep_product_nom",
+                                        "port": "nom"
+                                      }
+                                    },
+                                    {
+                                      "name": "description",
+                                      "value": {
+                                        "kind": "output",
+                                        "source": "keep_product_description",
+                                        "port": "description"
+                                      }
+                                    },
+                                    {
+                                      "name": "prix",
+                                      "value": {
+                                        "kind": "item"
+                                      }
+                                    },
+                                    {
+                                      "name": "url",
+                                      "value": {
+                                        "kind": "output",
+                                        "source": "capture_product_url",
+                                        "port": "url"
+                                      }
+                                    },
+                                    {
+                                      "name": "status",
+                                      "value": {
+                                        "kind": "json",
+                                        "items": [
+                                          {
+                                            "kind": "output",
+                                            "source": "read_product_page",
+                                            "port": "success"
+                                          }
+                                        ]
+                                      }
+                                    },
+                                    {
+                                      "name": "erreur",
+                                      "value": {
+                                        "kind": "output",
+                                        "source": "read_product_page",
+                                        "port": "error_message"
+                                      }
+                                    }
+                                  ]
+                                }
+                              }
+                            ]
+                          },
+                          "items": {
+                            "kind": "output",
+                            "source": "resolve_prix_values",
+                            "port": "values"
+                          },
+                          "parallel": false,
+                          "maxItems": 1,
+                          "maxConcurrency": 1
+                        }
+                      ],
+                      "outputs": [
+                        {
+                          "name": "products",
+                          "value": {
+                            "kind": "output",
+                            "source": "assemble_product_price",
+                            "port": "product"
+                          }
+                        }
+                      ]
+                    },
+                    "items": {
+                      "kind": "output",
+                      "source": "resolve_description_values",
+                      "port": "values"
+                    },
+                    "parallel": false,
+                    "maxItems": 1,
+                    "maxConcurrency": 1
+                  }
+                ],
+                "outputs": [
+                  {
+                    "name": "products",
+                    "value": {
+                      "kind": "flatten",
+                      "items": [
+                        {
+                          "kind": "output",
+                          "source": "assemble_product_description",
+                          "port": "products"
+                        }
+                      ]
+                    }
+                  }
+                ]
+              },
+              "items": {
+                "kind": "output",
+                "source": "resolve_nom_values",
+                "port": "values"
+              },
+              "parallel": false,
+              "maxItems": 1,
+              "maxConcurrency": 1
+            }
+          ],
+          "outputs": [
+            {
+              "name": "rows",
+              "value": {
+                "kind": "flatten",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "assemble_product_record",
+                    "port": "products"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "items": {
+          "kind": "lookup",
+          "port": "reference",
+          "items": [
+            {
+              "kind": "flatten",
+              "items": [
+                {
+                  "kind": "output",
+                  "source": "search_original_page_records",
+                  "port": "pageRecords"
+                }
+              ]
+            },
+            {
+              "kind": "output",
+              "source": "compact_candidate_decision",
+              "port": "selectedIds"
+            }
+          ]
+        },
+        "parallel": false,
+        "maxItems": 10,
+        "maxConcurrency": 1
+      },
+      {
+        "id": "project_product_rows",
+        "objective": "Projeter les enregistrements produit publics déjà typés et bornés, sans filtrage, déduplication, échantillonnage, invention ni interprétation.",
+        "kind": "foreach",
+        "dependsOn": [
+          "visit_products"
+        ],
+        "requires": {
+          "kind": "predicate",
+          "items": [
+            {
+              "kind": "output",
+              "source": "visit_products",
+              "port": "rows"
+            },
+            {
+              "kind": "null"
+            }
+          ],
+          "predicate": "not_equal"
+        },
+        "body": {
+          "outputs": [
+            {
+              "name": "products",
+              "value": {
+                "kind": "object",
+                "members": [
+                  {
+                    "name": "nom",
+                    "value": {
+                      "kind": "field",
+                      "port": "nom",
+                      "items": [
+                        {
+                          "kind": "item"
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "name": "description",
+                    "value": {
+                      "kind": "field",
+                      "port": "description",
+                      "items": [
+                        {
+                          "kind": "item"
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "name": "prix",
+                    "value": {
+                      "kind": "field",
+                      "port": "prix",
+                      "items": [
+                        {
+                          "kind": "item"
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "name": "url",
+                    "value": {
+                      "kind": "field",
+                      "port": "url",
+                      "items": [
+                        {
+                          "kind": "item"
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "name": "status",
+                    "value": {
+                      "kind": "field",
+                      "items": [
+                        {
+                          "kind": "item"
+                        }
+                      ],
+                      "port": "status"
+                    }
+                  },
+                  {
+                    "name": "erreur",
+                    "value": {
+                      "kind": "field",
+                      "port": "erreur",
+                      "items": [
+                        {
+                          "kind": "item"
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "items": {
+          "kind": "flatten",
+          "items": [
+            {
+              "kind": "output",
+              "source": "visit_products",
+              "port": "rows"
+            }
+          ]
+        },
+        "parallel": false,
+        "maxItems": 10,
+        "maxConcurrency": 1
+      },
+      {
+        "id": "prepare_xlsx_rows",
+        "objective": "Copy the six typed cells in order: name, description, price, original URL, JSON text of producer success, producer error. Preserve exact strings, nulls and row order without inference.",
+        "kind": "foreach",
+        "dependsOn": [
+          "project_product_rows"
+        ],
+        "requires": {
+          "kind": "predicate",
+          "items": [
+            {
+              "kind": "output",
+              "source": "project_product_rows",
+              "port": "products"
+            },
+            {
+              "kind": "null"
+            }
+          ],
+          "predicate": "not_equal"
+        },
+        "body": {
+          "outputs": [
+            {
+              "name": "rows",
+              "value": {
+                "kind": "array",
+                "items": [
+                  {
+                    "kind": "field",
+                    "port": "nom",
+                    "items": [
+                      {
+                        "kind": "item"
+                      }
+                    ]
+                  },
+                  {
+                    "kind": "field",
+                    "port": "description",
+                    "items": [
+                      {
+                        "kind": "item"
+                      }
+                    ]
+                  },
+                  {
+                    "kind": "field",
+                    "port": "prix",
+                    "items": [
+                      {
+                        "kind": "item"
+                      }
+                    ]
+                  },
+                  {
+                    "kind": "field",
+                    "port": "url",
+                    "items": [
+                      {
+                        "kind": "item"
+                      }
+                    ]
+                  },
+                  {
+                    "kind": "field",
+                    "items": [
+                      {
+                        "kind": "item"
+                      }
+                    ],
+                    "port": "status"
+                  },
+                  {
+                    "kind": "field",
+                    "port": "erreur",
+                    "items": [
+                      {
+                        "kind": "item"
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "items": {
+          "kind": "output",
+          "source": "project_product_rows",
+          "port": "products"
+        },
+        "parallel": false,
+        "maxItems": 10,
+        "maxConcurrency": 1
+      },
+      {
+        "id": "header_row",
+        "objective": "Supply the six accepted literal workbook headers.",
+        "kind": "value",
+        "outputs": [
+          {
+            "name": "headerRow",
+            "value": {
+              "kind": "array",
+              "items": [
+                {
+                  "kind": "string",
+                  "text": "name"
+                },
+                {
+                  "kind": "string",
+                  "text": "description"
+                },
+                {
+                  "kind": "string",
+                  "text": "price"
+                },
+                {
+                  "kind": "string",
+                  "text": "url"
+                },
+                {
+                  "kind": "string",
+                  "text": "status"
+                },
+                {
+                  "kind": "string",
+                  "text": "error"
+                }
+              ]
+            }
+          }
+        ],
+        "parallel": false,
+        "maxItems": 100,
+        "maxConcurrency": 4
+      },
+      {
+        "id": "write_products_xlsx",
+        "objective": "Sauvegarder le classeur Excel demandé sur le disque avec exactement une ligne d’en-tête suivie des lignes produit réelles, sans transformation CSV ni trimming.",
+        "kind": "operation",
+        "dependsOn": [
+          "header_row",
+          "prepare_xlsx_rows"
+        ],
+        "operation": "cap_37c513d225bb1b870053c5d3",
+        "inputs": [
+          {
+            "name": "filePath",
+            "value": {
+              "kind": "string",
+              "text": "workflows/schema-portability-20261002/initialcomposition20261013a-amazon-1/products.xlsx"
+            }
+          },
+          {
+            "name": "append",
+            "value": {
+              "kind": "boolean",
+              "boolean": false
+            }
+          },
+          {
+            "name": "rows",
+            "value": {
+              "kind": "flatten",
+              "items": [
+                {
+                  "kind": "array",
+                  "items": [
+                    {
+                      "kind": "array",
+                      "items": [
+                        {
+                          "kind": "output",
+                          "source": "header_row",
+                          "port": "headerRow"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "output",
+                      "source": "prepare_xlsx_rows",
+                      "port": "rows"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "requires": {
+          "kind": "predicate",
+          "items": [
+            {
+              "kind": "predicate",
+              "items": [
+                {
+                  "kind": "output",
+                  "source": "prepare_xlsx_rows",
+                  "port": "rows"
+                },
+                {
+                  "kind": "null"
+                }
+              ],
+              "predicate": "not_equal"
+            },
+            {
+              "kind": "predicate",
+              "items": [
+                {
+                  "kind": "output",
+                  "source": "project_product_rows",
+                  "port": "products"
+                },
+                {
+                  "kind": "array"
+                }
+              ],
+              "predicate": "not_equal"
+            }
+          ],
+          "predicate": "and"
+        },
+        "parallel": false,
+        "maxItems": 100,
+        "maxConcurrency": 4
+      },
+      {
+        "id": "assert_write_status",
+        "objective": "Require actual writer success and its observed nonnull path; export the real path and producer success with its deterministic JSON string status. No LLM inference.",
+        "kind": "value",
+        "dependsOn": [
+          "write_products_xlsx",
+          "project_product_rows"
+        ],
+        "outputs": [
+          {
+            "name": "filePath",
+            "value": {
+              "kind": "output",
+              "source": "write_products_xlsx",
+              "port": "filePath"
+            }
+          },
+          {
+            "name": "status",
+            "value": {
+              "kind": "json",
+              "items": [
+                {
+                  "kind": "output",
+                  "source": "write_products_xlsx",
+                  "port": "success"
+                }
+              ]
+            }
+          },
+          {
+            "name": "success",
+            "value": {
+              "kind": "output",
+              "source": "write_products_xlsx",
+              "port": "success"
+            }
+          }
+        ],
+        "requires": {
+          "kind": "predicate",
+          "items": [
+            {
+              "kind": "predicate",
+              "items": [
+                {
+                  "kind": "output",
+                  "source": "write_products_xlsx",
+                  "port": "success"
+                },
+                {
+                  "kind": "boolean",
+                  "boolean": true
+                }
+              ],
+              "predicate": "equal"
+            },
+            {
+              "kind": "predicate",
+              "items": [
+                {
+                  "kind": "output",
+                  "source": "write_products_xlsx",
+                  "port": "filePath"
+                },
+                {
+                  "kind": "null"
+                }
+              ],
+              "predicate": "not_equal"
+            }
+          ],
+          "predicate": "and"
+        },
+        "parallel": false,
+        "maxItems": 100,
+        "maxConcurrency": 4
+      }
+    ],
+    "outputs": [
+      {
+        "name": "filePath",
+        "value": {
+          "kind": "output",
+          "source": "assert_write_status",
+          "port": "filePath"
+        }
+      },
+      {
+        "name": "status",
+        "value": {
+          "kind": "output",
+          "source": "assert_write_status",
+          "port": "status"
+        }
+      },
+      {
+        "name": "success",
+        "value": {
+          "kind": "output",
+          "source": "assert_write_status",
+          "port": "success"
+        }
+      }
+    ],
+    "always": [
+      {
+        "id": "close_browser",
+        "objective": "Close the browser even if any prior step failed.",
+        "kind": "operation",
+        "operation": "cap_bdb7ba9ab04b18783883fa86",
+        "parallel": false,
+        "maxItems": 100,
+        "maxConcurrency": 4
+      }
+    ]
+  }
+}

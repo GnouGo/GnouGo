@@ -1,0 +1,293 @@
+{
+  "baseline_sha": "42bd24283a3dbe6c905f40fc9b3e3818f6ffbda2",
+  "evidence_kind": "deterministic local execution; no live provider evidence",
+  "full_solution": {
+    "passed": 4223,
+    "failed": 0,
+    "skipped": 12,
+    "suites": 33,
+    "flags": "-m:1 -warnaserror",
+    "skips": "7 Windows-only command cases; 5 opt-in paid Copilot cases"
+  },
+  "published_product_execution": [
+    {
+      "case": "navigation",
+      "execution_success": false,
+      "oracle_passed": true,
+      "planning_calls": 1,
+      "discovery_reads": 2,
+      "repairs": 0,
+      "estimated_input_tokens": 19321,
+      "execution_adapter_calls": 1,
+      "planning_ms": 490.5,
+      "execution_ms": 4962.4
+    },
+    {
+      "case": "empty",
+      "execution_success": true,
+      "oracle_passed": true,
+      "planning_calls": 1,
+      "discovery_reads": 2,
+      "repairs": 0,
+      "estimated_input_tokens": 19321,
+      "execution_adapter_calls": 2,
+      "planning_ms": 120.4,
+      "execution_ms": 486.2
+    },
+    {
+      "case": "extract",
+      "execution_success": true,
+      "oracle_passed": true,
+      "planning_calls": 1,
+      "discovery_reads": 2,
+      "repairs": 0,
+      "estimated_input_tokens": 19321,
+      "execution_adapter_calls": 1,
+      "planning_ms": 106.8,
+      "execution_ms": 551.7
+    },
+    {
+      "case": "limit",
+      "execution_success": false,
+      "oracle_passed": true,
+      "planning_calls": 1,
+      "discovery_reads": 2,
+      "repairs": 0,
+      "estimated_input_tokens": 19321,
+      "execution_adapter_calls": 1,
+      "planning_ms": 84.7,
+      "execution_ms": 443.4
+    },
+    {
+      "case": "nominal",
+      "execution_success": true,
+      "oracle_passed": true,
+      "planning_calls": 1,
+      "discovery_reads": 2,
+      "repairs": 0,
+      "estimated_input_tokens": 19321,
+      "execution_adapter_calls": 4,
+      "planning_ms": 83.9,
+      "execution_ms": 537.3
+    },
+    {
+      "case": "changed",
+      "execution_success": true,
+      "oracle_passed": true,
+      "planning_calls": 1,
+      "discovery_reads": 2,
+      "repairs": 0,
+      "estimated_input_tokens": 19321,
+      "execution_adapter_calls": 4,
+      "planning_ms": 82.6,
+      "execution_ms": 548.2
+    },
+    {
+      "case": "observation",
+      "execution_success": true,
+      "oracle_passed": true,
+      "planning_calls": 1,
+      "discovery_reads": 2,
+      "repairs": 0,
+      "estimated_input_tokens": 19321,
+      "execution_adapter_calls": 1,
+      "planning_ms": 95.8,
+      "execution_ms": 559.9
+    },
+    {
+      "case": "denied",
+      "execution_success": false,
+      "oracle_passed": true,
+      "planning_calls": 1,
+      "discovery_reads": 2,
+      "repairs": 0,
+      "estimated_input_tokens": 19321,
+      "execution_adapter_calls": 4,
+      "planning_ms": 84.3,
+      "execution_ms": 469.0
+    },
+    {
+      "case": "missing",
+      "execution_success": true,
+      "oracle_passed": true,
+      "planning_calls": 1,
+      "discovery_reads": 2,
+      "repairs": 0,
+      "estimated_input_tokens": 19321,
+      "execution_adapter_calls": 3,
+      "planning_ms": 86.8,
+      "execution_ms": 494.4
+    }
+  ],
+  "observation_size": {
+    "source_html_characters": 99060,
+    "all_pages_serialized_characters": 15109,
+    "records": 74,
+    "reduction_percent": 84.75,
+    "note": "same local page; character counts are not verified provider tokens"
+  },
+  "generation_rules_source_characters": {
+    "before": 2166,
+    "after": 2220
+  },
+  "executor_lines": {
+    "added": 24,
+    "removed": 150,
+    "net": -126,
+    "new_executors": 0
+  },
+  "checks": [
+    {
+      "check": "solution4",
+      "exit_code": 0,
+      "seconds": 512.74
+    },
+    {
+      "check": "observation-metrics",
+      "exit_code": 0,
+      "seconds": 1.91
+    },
+    {
+      "check": "pack-Mcp.Core",
+      "exit_code": 0,
+      "seconds": 0.87
+    },
+    {
+      "check": "pack-Flow.Core",
+      "exit_code": 0,
+      "seconds": 2.67
+    },
+    {
+      "check": "pack-Flow.Planning",
+      "exit_code": 0,
+      "seconds": 3.19
+    },
+    {
+      "check": "pack-Flow.Integrations",
+      "exit_code": 0,
+      "seconds": 2.06
+    },
+    {
+      "check": "pack-Flow.Copilot",
+      "exit_code": 0,
+      "seconds": 0.95
+    },
+    {
+      "check": "pack-Flow.Persistence",
+      "exit_code": 0,
+      "seconds": 1.28
+    },
+    {
+      "check": "publish-planning-smoke",
+      "exit_code": 0,
+      "seconds": 18.46
+    },
+    {
+      "check": "publish-cmd",
+      "exit_code": 0,
+      "seconds": 15.03
+    },
+    {
+      "check": "publish-document",
+      "exit_code": 0,
+      "seconds": 36.67
+    },
+    {
+      "check": "publish-browser",
+      "exit_code": 0,
+      "seconds": 155.08
+    },
+    {
+      "check": "publish-server",
+      "exit_code": 0,
+      "seconds": 36.11
+    },
+    {
+      "check": "planning-smoke",
+      "exit_code": -6,
+      "seconds": 1.67
+    },
+    {
+      "check": "planning-smoke",
+      "exit_code": 0,
+      "seconds": 0.63
+    },
+    {
+      "check": "encrypted-recovery",
+      "exit_code": 0,
+      "seconds": 2.06
+    },
+    {
+      "check": "cmd-published",
+      "exit_code": 0,
+      "seconds": 18.24
+    },
+    {
+      "check": "product-published",
+      "exit_code": 0,
+      "seconds": 108.26
+    },
+    {
+      "check": "benchmark-build",
+      "exit_code": 0,
+      "seconds": 10.31
+    }
+  ],
+  "frontend_build": "passed",
+  "planning_skill": "valid",
+  "browser_ui": {
+    "recommendation": true,
+    "custom": true,
+    "textOnly": true,
+    "reload": true,
+    "keyboard": true,
+    "mobile": true,
+    "cancellation": true,
+    "businessRequirementsReview": true,
+    "legacyRevisionRequired": true,
+    "separateApproval": true,
+    "savedResponseRecovery": true,
+    "errors": []
+  },
+  "retained_failures": [
+    "Empty extraction from opaque-token comparison was caught by unchanged workbook oracle; learned predicate validation now rejects it.",
+    "The first broader learned-predicate check also rejected compiler structural-key comparisons; separate learned validation restores typed mapping behavior.",
+    "Current synthetic discovery and AOT no-plan fixtures omitted the accepted output declaration; fixtures were updated without changing historical recordings or oracles.",
+    "One intermediate solution run mixed a newly edited test with an earlier compiled assembly. A fresh full run passed."
+  ],
+  "log_sha256": {
+    "gnougo-observations-benchmark-build.log": "f4ab014226d0e4d612283bfcf1809019cb84e8cfe9aa4afd539ea83263a6a233",
+    "gnougo-observations-browser1.log": "7093d5be1f686356b41982101cb18be68f4e761dbab3cbdcb2172472f624b6ac",
+    "gnougo-observations-browser2.log": "00e7f6292c4813a1436c0b368e11d4442c1376d6c18ba279b98b2ea7f977f471",
+    "gnougo-observations-cmd-published.log": "1f6fb1010c2ebee27e248d81685ed1963810cbda771326c11abade0a3b5bc39b",
+    "gnougo-observations-encrypted-recovery.log": "d7cc8ec7a3dff2ab353e25932595d885ee30f565a6de92f436e3354a2c1d3b88",
+    "gnougo-observations-frontend.log": "5a62116f787068b6f89e27c2daf77b8082e03e967f14bdc202a508106f2d70f6",
+    "gnougo-observations-local-execution.log": "0161e752eddb9a2f30576971f35b5e226e27f8d1b8a6a7bb4cb190ebbd8014da",
+    "gnougo-observations-local-execution2.log": "d93eb0a5ed04170b7ee5541c95041f71e2611895f6926259cf5cd751f5022358",
+    "gnougo-observations-local-fixed.log": "08b1e0ff0cf732d13549dbfaef344b6805646db50d2efcbe2a3482cbc826d426",
+    "gnougo-observations-local-only.log": "dfced3fe6a161f4f24347ea331687fffb05acd01f2422e78cbd35b861054638a",
+    "gnougo-observations-observation-metrics.log": "4570e646674cd1c068b7452927fdba3f0318b670a2c76d3b3d0654105363bfd7",
+    "gnougo-observations-pack-Flow.Copilot.log": "73faeedcf47f61506fedd07a3d64fe8bc17a4d3737dd6e69896d23067bffad75",
+    "gnougo-observations-pack-Flow.Core.log": "0b5f48406550777efc4cabaa384ce59ad0013aafa990d7d887f8c9bb621f97f6",
+    "gnougo-observations-pack-Flow.Integrations.log": "ff80a3cfd8253ff5be3cf8263c62b9c696af4cdf463fa950663e3465adab37d4",
+    "gnougo-observations-pack-Flow.Persistence.log": "a9d3f3389a07cc373cc634eff3c3c8aa378d808faf700285600414cec45c512c",
+    "gnougo-observations-pack-Flow.Planning.log": "2aa16b46c7d85a0fd5e5faa2a0cbc3ffcfb8d3fa427c7992f89a4d8be4a49778",
+    "gnougo-observations-pack-Mcp.Core.log": "aa63f855811f14afe2b9f53b9d7ff4355f909388a8a6192574e57ad49b273dfd",
+    "gnougo-observations-planning-smoke.log": "ccb834dd8f850b4e1994cc2bb88eee5248c88642cbed4b723da93cdea3ea5b59",
+    "gnougo-observations-planning-smoke2.log": "ccb834dd8f850b4e1994cc2bb88eee5248c88642cbed4b723da93cdea3ea5b59",
+    "gnougo-observations-planning1.log": "084c140ce545a6e30a1a87c267b551f0e80dbd7f3f851607237a711f8c98406a",
+    "gnougo-observations-planning2.log": "9093d35a03a3203bf1a3c3a60bbae07fd10730ea21a2757e807a878714479aeb",
+    "gnougo-observations-planning3.log": "0be8c44a4f23284752caa460c0a673aa6f0f97e421f542a3d7d63fb812dd1420",
+    "gnougo-observations-product-published.log": "4036cc80337f634cb197e0653c353c7dfe8d5792b557f571b4334b73804ef92f",
+    "gnougo-observations-publish-browser.log": "4a54c947d726e5719a952be1e37d46ad7abdeb43b46c7cbb4c8e461bab78cce3",
+    "gnougo-observations-publish-cmd.log": "87574b122752ab400aaafee0dac87cc3c02da12c983f2b40236b9c76708c7677",
+    "gnougo-observations-publish-document.log": "4b0a3bb4364d7b92630c5455ebe5c03a3a447d362069fa1787f39dc94c163b23",
+    "gnougo-observations-publish-planning-smoke.log": "fc89415578cfce3338022dad10c34177c9bbd39de1722c3fb61c4546a47038e5",
+    "gnougo-observations-publish-planning-smoke2.log": "eb6f7194a9eaa1aba7ce7715cc5e2663366e169a1d3b7757219c44543cc91458",
+    "gnougo-observations-publish-server.log": "7edd14c2c077a306bec02062497d4ffc0e171c3124c27ef33e64e6fab23ddffe",
+    "gnougo-observations-solution.log": "39370ef72f44865eff9d132028e2ec21d75021459b343258ae13ee73fc94482d",
+    "gnougo-observations-solution2.log": "1a671e7622661747071db5148cbfa9654a2b2eae929b8ecb294a8d91c93a527b",
+    "gnougo-observations-solution3.log": "9173209d6d4c5f641cefd3519aca4cf003d66521080c92e31c45066167fe791c",
+    "gnougo-observations-solution4.log": "401f652e6e670080012cd03ce7ed43145c21cada0a1ee6d7b3468281335d54c3"
+  }
+}

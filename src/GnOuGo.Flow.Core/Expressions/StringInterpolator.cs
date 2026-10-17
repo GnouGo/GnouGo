@@ -100,6 +100,37 @@ public sealed class StringInterpolator
     /// Recursively resolve expressions in a JsonNode tree.
     /// </summary>
     public JsonNode? ResolveDeep(JsonNode? node, JsonNode? context)
+        => ResolveDeep(node, context, null);
+
+    internal JsonNode? ResolveDeep(JsonNode? node, JsonNode? context, JsonObject? contracts,
+        Action<string, string, string, string?>? observeCheck = null)
+    {
+        ExpressionEvaluator.ValidateExpressionContracts(node, contracts);
+        return Resolve(node, "");
+
+        JsonNode? Resolve(JsonNode? value, string pointer)
+        {
+            if (contracts?[pointer] is JsonObject checks)
+                return _evaluator.EvaluateCheckedExpression(ExpressionEvaluator.ContractExpression(value), context, checks, observeCheck: observeCheck is null ? null :
+                    (name, origin, error) => observeCheck(pointer, name, origin, error));
+            if (value is JsonObject obj)
+                return new JsonObject(obj.Select(p => new KeyValuePair<string, JsonNode?>(p.Key,
+                    Resolve(p.Value, pointer + "/" + p.Key.Replace("~", "~0", StringComparison.Ordinal).Replace("/", "~1", StringComparison.Ordinal)))));
+            if (value is JsonArray array)
+                return new JsonArray(array.Select((item, index) => Resolve(item, pointer + "/" + index.ToString(System.Globalization.CultureInfo.InvariantCulture))).ToArray());
+            return ResolveUncontracted(value, context);
+        }
+    }
+
+    internal JsonNode? ResolveControl(string expression, string pointer, JsonNode? context, JsonObject? metadata,
+        Action<string, string, string, string?>? observeCheck = null)
+    {
+        if (metadata?[pointer] is not JsonObject checks) return Interpolate(expression, context);
+        return _evaluator.EvaluateCheckedExpression(ExpressionEvaluator.ContractExpression(JsonValue.Create(expression)), context, checks,
+            observeCheck: observeCheck is null ? null : (name, origin, error) => observeCheck(pointer, name, origin, error));
+    }
+
+    private JsonNode? ResolveUncontracted(JsonNode? node, JsonNode? context)
     {
         if (node == null) return null;
         if (node is JsonValue val && val.TryGetValue(out string? s) && HasExpressions(s))

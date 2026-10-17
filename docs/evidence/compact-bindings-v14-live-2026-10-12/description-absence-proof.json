@@ -1,0 +1,56 @@
+{
+  "row": 3,
+  "worksheet_row": 4,
+  "field": "description",
+  "decision_output": {
+    "nomId": "0fec30be96f2449d958a13eefa9dde5d:record:106",
+    "descriptionId": null,
+    "prixId": "0fec30be96f2449d958a13eefa9dde5d:record:109"
+  },
+  "committed_completion": true,
+  "offered_candidate_count": 44,
+  "original_records": 585,
+  "original_pages": 15,
+  "description_blocks": [
+    {
+      "reference": "0fec30be96f2449d958a13eefa9dde5d:record:136",
+      "text_sha256": "9f7fb63e88e64c9cfda8973134621c439dd016ee12abef56482a0770bffb9294",
+      "text_characters": 204,
+      "in_offered_decision_input": true,
+      "verbatim_match_to_original": true
+    },
+    {
+      "reference": "0fec30be96f2449d958a13eefa9dde5d:record:137",
+      "text_sha256": "a4370f81ec335dd1ffd2013fcac54ea1f236a1d9d7843587fb731c59ee7c3d26",
+      "text_characters": 118,
+      "in_offered_decision_input": true,
+      "verbatim_match_to_original": true
+    },
+    {
+      "reference": "0fec30be96f2449d958a13eefa9dde5d:record:138",
+      "text_sha256": "b6300d8cc6204a42609e534a54fc56d256ac7580af68d9a713886ce9ad1b55b9",
+      "text_characters": 234,
+      "in_offered_decision_input": true,
+      "verbatim_match_to_original": true
+    },
+    {
+      "reference": "0fec30be96f2449d958a13eefa9dde5d:record:139",
+      "text_sha256": "23c81ffd60c3d24e3fd35bc6e07d09ac374f5fd06de4ec7e30689f245c5a92da",
+      "text_characters": 174,
+      "in_offered_decision_input": true,
+      "verbatim_match_to_original": true
+    },
+    {
+      "reference": "0fec30be96f2449d958a13eefa9dde5d:record:140",
+      "text_sha256": "4f4cbf36fd20f3f4525fd91cb719710a9ba0ff112640cf744d533b39ff35246f",
+      "text_characters": 101,
+      "in_offered_decision_input": true,
+      "verbatim_match_to_original": true
+    }
+  ],
+  "decision_prompt_sha256": "17a5ae4e1e53c185e96e3a08b1133c155bea86ac885556ce28c70a331c43478f",
+  "provider_calls": 0,
+  "mcp_calls": 0,
+  "historical_writes": 0,
+  "conclusion": "The committed interpreter chose null despite descriptive blocks already being offered verbatim. Lookup, typed assembly and Document preserved the result exactly."
+}

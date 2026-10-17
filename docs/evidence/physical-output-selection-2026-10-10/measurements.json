@@ -1,0 +1,38 @@
+{
+  "retained": {
+    "same_taskplan": true,
+    "v5_yaml_bytes": 79833,
+    "v6_yaml_bytes": 75119,
+    "v5_expression_bytes": 3007,
+    "v6_expression_bytes": 1748,
+    "pages": 54,
+    "model_calls": 0,
+    "external_actions": 0,
+    "journal_revision": 61,
+    "journal_unchanged": true,
+    "approval_unchanged": true
+  },
+  "generic": {
+    "yaml_bytes_before": 2106,
+    "yaml_bytes_after": 1505,
+    "expression_bytes_before": 792,
+    "expression_bytes_after": 213,
+    "scalar_evaluations": [
+      {
+        "unrelated_observation_characters": 0,
+        "allocated_bytes": 10304,
+        "result_bytes": 14
+      },
+      {
+        "unrelated_observation_characters": 1600000,
+        "allocated_bytes": 10304,
+        "result_bytes": 14
+      },
+      {
+        "unrelated_observation_characters": 10000000,
+        "allocated_bytes": 10304,
+        "result_bytes": 14
+      }
+    ]
+  }
+}

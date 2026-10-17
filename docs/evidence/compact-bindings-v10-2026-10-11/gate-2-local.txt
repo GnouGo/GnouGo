@@ -1,0 +1,50 @@
+Série de tests pour /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Agent.Server.Tests/bin/Debug/net10.0/GnOuGo.Agent.Server.Tests.dll (.NETCoreApp,Version=v10.0)
+Au total, 1 fichiers de test ont correspondu au modèle spécifié.
+/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Agent.Server.Tests/bin/Debug/net10.0/GnOuGo.Agent.Server.Tests.dll
+[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v4.0.0+05679a7ab5 (64-bit .NET 10.0.8)
+[xUnit.net 00:00:03.39]   Discovering: GnOuGo.Agent.Server.Tests
+[xUnit.net 00:00:03.63]   Discovered:  GnOuGo.Agent.Server.Tests
+[xUnit.net 00:00:03.77]   Starting:    GnOuGo.Agent.Server.Tests
+  Réussi GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.CompactUnionUsesExistingBindingsAndPreservesRequirements [6 s]
+  Messages de sortie standard :
+ COMPACT UNION v9 tasks=19→18; steps=67→65; sets=40→38; YAML=200254→195627
+ SAME COMPOSITION v9→v10 YAML=195627→188977; maxLine=268→268; steps=65→65; sets=38→38
+
+
+  Réussi GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: "union_compact_repeated") [56 s]
+  Messages de sortie standard :
+ COMPACT UNION v9 tasks=19→18; steps=67→65; sets=40→38; YAML=200332→195705
+ UNION REVISION tasks=14→18; steps=30→65; sets=9→38; YAML=74949→195705; deterministicPlanningCalls=2; repairs=0
+ BUSINESS union_compact_repeated: success=True; calls=2; repairs=0; elapsedMs=30190; tasks=18; yamlBytes=189133; inference=23; mappings=11; invocations=329; steps=328; cleanup=1; journalBytes=31144897; error= 
+ ORACLE union_compact_repeated: cellsMatch=True; visited=10; pages=29; offered=12; decisionBytes=2597; cleanup=true; typedInference=0
+
+
+  Réussi GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: "union_compact_unoffered") [26 s]
+  Messages de sortie standard :
+ COMPACT UNION v9 tasks=19→18; steps=67→65; sets=40→38; YAML=200332→195705
+ UNION REVISION tasks=14→18; steps=30→65; sets=9→38; YAML=74949→195705; deterministicPlanningCalls=2; repairs=0
+ BUSINESS union_compact_unoffered: success=False; calls=2; repairs=0; elapsedMs=5085; tasks=18; yamlBytes=189133; inference=3; mappings=1; invocations=23; steps=22; cleanup=1; journalBytes=6189796; error=CONTRACT_UNSATISFIED A selected identity is absent from the lookup source. [workflow 'main', step 'n_677083009916f732']
+
+
+  Réussi GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: "union_compact_missing_description") [40 s]
+  Messages de sortie standard :
+ COMPACT UNION v9 tasks=19→18; steps=67→65; sets=40→38; YAML=200332→195705
+ UNION REVISION tasks=14→18; steps=30→65; sets=9→38; YAML=74949→195705; deterministicPlanningCalls=2; repairs=0
+ BUSINESS union_compact_missing_description: success=True; calls=2; repairs=0; elapsedMs=17863; tasks=18; yamlBytes=189133; inference=23; mappings=11; invocations=329; steps=328; cleanup=1; journalBytes=31075759; error= 
+ ORACLE union_compact_missing_description: cellsMatch=True; visited=10; pages=29; offered=12; decisionBytes=2597; cleanup=true; typedInference=0
+
+
+[xUnit.net 00:02:53.48]   Finished:    GnOuGo.Agent.Server.Tests (ID = '2baf028ce2ab75b8f0ed2d783ac1df4e1a042624d79640bf5403195bb8cfea65')
+  Réussi GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: "union_compact") [40 s]
+  Messages de sortie standard :
+ COMPACT UNION v9 tasks=19→18; steps=67→65; sets=40→38; YAML=200332→195705
+ UNION REVISION tasks=14→18; steps=30→65; sets=9→38; YAML=74949→195705; deterministicPlanningCalls=2; repairs=0
+ BUSINESS union_compact: success=True; calls=2; repairs=0; elapsedMs=18466; tasks=18; yamlBytes=189133; inference=23; mappings=11; invocations=329; steps=328; cleanup=1; journalBytes=31125579; error= 
+ ORACLE union_compact: cellsMatch=True; visited=10; pages=29; offered=12; decisionBytes=2597; cleanup=true; typedInference=0
+
+
+
+Série de tests réussie.
+Nombre total de tests : 5
+     Réussi(s) : 5
+ Durée totale : 2,8959 Minutes

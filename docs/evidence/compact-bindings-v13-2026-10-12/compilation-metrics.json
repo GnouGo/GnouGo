@@ -1,0 +1,26 @@
+{
+  "v12": {
+    "tasks": 24,
+    "workflows": 13,
+    "steps": 61,
+    "sets": 27,
+    "yaml_bytes": 240061,
+    "maximum_line_length": 290,
+    "javascript_bytes": 12965,
+    "checkedMapping_calls": 0,
+    "select_calls": 7,
+    "lookup_calls": 8
+  },
+  "v13": {
+    "tasks": 24,
+    "workflows": 7,
+    "steps": 24,
+    "sets": 3,
+    "yaml_bytes": 203908,
+    "maximum_line_length": 290,
+    "javascript_bytes": 21232,
+    "checkedMapping_calls": 0,
+    "select_calls": 7,
+    "lookup_calls": 8
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "status": "failed",
+  "steps_started": 1,
+  "finalization_steps_started": 1,
+  "finalization_completed": true,
+  "invocations": [
+    {
+      "invocation": "/workflow/main/step/n_846de17ed34af09d",
+      "type": "mcp.call",
+      "description": "Ouvrir Amazon.fr et capturer une observation compl\u00E8te born\u00E9e de la page initiale, sans accepter automatiquement de dialogue ni inventer d\u2019\u00E9tat.",
+      "status": "failed",
+      "completion_observed": true,
+      "finalization": false,
+      "input_bytes": 248,
+      "output_bytes": 0,
+      "error_code": "MCP_CALL_ERROR"
+    },
+    {
+      "invocation": "/workflow/main/finally/step/n_74bb86b6b29fd7c5",
+      "type": "mcp.call",
+      "description": "Fermer la page et le contexte navigateur dans tous les cas, succ\u00E8s ou \u00E9chec v\u00E9rifi\u00E9, conform\u00E9ment \u00E0 cleanup_browser.",
+      "status": "completed",
+      "completion_observed": true,
+      "finalization": true,
+      "input_bytes": 114,
+      "output_bytes": 185,
+      "error_code": null
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+[
+  {
+    "stage": "dispatch",
+    "exception_type": "LLMClientException",
+    "kind": "Transport",
+    "status_code": null,
+    "safe_provider_code": null,
+    "retryable": true,
+    "attempt_count": 4,
+    "retry_exhausted": true,
+    "retry_after_ms": null
+  }
+]

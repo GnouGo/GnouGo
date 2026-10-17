@@ -61,6 +61,8 @@ public sealed record CopilotRuntimeConfiguration(
     public bool EnableSandboxBypassGrants { get; init; }
     public bool UseSessionFileSystem { get; init; }
     [JsonIgnore] public CopilotExecutionBounds? ExecutionBounds { get; init; }
+    [JsonIgnore] public CopilotInferenceBudget? LogicalInferenceBudget { get; init; }
+    [JsonIgnore] public CopilotLogicalPermissions? LogicalPermissions { get; init; }
     public string? LogLevel { get; init; }
     public CopilotTelemetryConfiguration? Telemetry { get; init; }
 }
@@ -173,6 +175,7 @@ public sealed record CopilotSendRequest(
 {
     public IReadOnlyDictionary<string, string>? RequestHeaders { get; init; }
     [JsonIgnore] public Action<CopilotStreamEvent>? Progress { get; init; }
+    [JsonIgnore] public CopilotInferenceBudget? LogicalAuthority { get; init; }
 }
 
 public sealed record CopilotSendResult(
@@ -188,6 +191,9 @@ public sealed record CopilotSendResult(
 {
     public CopilotUsage? Usage { get; init; }
     public IReadOnlyList<string> ModifiedFiles { get; init; } = [];
+    /// <summary>Host-only complete output artifacts for encrypted persistence. Never included in model-facing tool results.</summary>
+    [JsonIgnore]
+    public IReadOnlyDictionary<string, string> OutputLogs { get; init; } = new Dictionary<string, string>();
     private readonly IReadOnlyList<CopilotToolExecutionObservation> _toolExecutions = [];
     [Description("Execution observations captured directly from SDK tool events during this invocation, separate from assistant claims. Consume these existing results to verify commanded work; no separate observation tool is needed. Empty observations, missing completion, missing exit codes, or conflicting completions cannot establish successful work.")]
     public IReadOnlyList<CopilotToolExecutionObservation> ToolExecutions { get => _toolExecutions; init => _toolExecutions = value ?? []; }
@@ -208,6 +214,39 @@ public sealed record CopilotToolExecutionObservation(
 {
     public long? StartedSequence { get; init; }
     public long? CompletedSequence { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? CopilotSessionId { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ShellId { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? IsShellCommand { get; init; }
+
+    /// <summary>Resolve SDK terminal facts within one unambiguous command instance. Never infer exits from output text.</summary>
+    public IReadOnlyList<CopilotTerminalObservation>? GetVerifiedTerminals(IReadOnlyList<CopilotToolExecutionObservation> observations)
+    {
+        if (!CompletionObserved || ConflictingCompletion) return null;
+        if (Terminals.Count > 0 && Terminals.All(t => t.ExitCode is not null))
+        {
+            foreach (var terminal in Terminals.Where(t => t.SourceToolCallId is not null))
+            {
+                var source = observations.SingleOrDefault(o => o.ToolCallId == terminal.SourceToolCallId && o.CopilotSessionId == CopilotSessionId);
+                if (source is null || !source.CompletionObserved || source.ConflictingCompletion || source.ToolSucceeded != true ||
+                    source.StartedSequence <= StartedSequence || source.CompletedSequence <= CompletedSequence ||
+                    !source.Terminals.Contains(terminal with { SourceToolCallId = null })) return null;
+            }
+            return Terminals;
+        }
+        if (IsShellCommand != true || string.IsNullOrEmpty(ShellId) || string.IsNullOrEmpty(CopilotSessionId) || StartedSequence is null) return null;
+        if (Terminals.Count > 1 || Terminals.Any(t => t.ShellId != ShellId)) return null;
+        var owners = observations.Where(o => o.CopilotSessionId == CopilotSessionId && o.IsShellCommand == true && o.ShellId == ShellId).ToArray();
+        if (owners.Length != 1 || owners[0].ToolCallId != ToolCallId) return null;
+        var candidates = observations.Where(o => o.CopilotSessionId == CopilotSessionId && o.StartedSequence > StartedSequence &&
+                o.CompletedSequence > CompletedSequence && o.CompletionObserved && !o.ConflictingCompletion && o.ToolSucceeded == true)
+            .SelectMany(o => o.Terminals.Select(t => t with { SourceToolCallId = o.ToolCallId }))
+            .Where(t => t.ShellId == ShellId && t.ExitCode is not null).ToArray();
+        if (candidates.Length == 0 || candidates.Select(t => (t.ExitCode, t.WorkingDirectory)).Distinct().Count() != 1) return null;
+        return [candidates[^1]];
+    }
 }
 
 public sealed record CopilotTerminalObservation(
@@ -220,6 +259,8 @@ public sealed record CopilotTerminalObservation(
     public bool? OutputTruncated { get; init; }
     public string? OutputFilePath { get; init; }
     public string? ShellId { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? SourceToolCallId { get; init; }
 }
 
 public sealed record CopilotStreamEvent(string Kind, string Level, string Message, DateTimeOffset Timestamp);

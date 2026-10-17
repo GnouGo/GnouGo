@@ -1,0 +1,92 @@
+[
+  {
+    "file": "designer-composition-focused-10.log.gz",
+    "uncompressed_bytes": 7974,
+    "sha256": "f3c90feff88675341348d755cf014c69e7655528ca018e29254b11ed9cf859ba"
+  },
+  {
+    "file": "designer-composition-focused-11.log.gz",
+    "uncompressed_bytes": 11432,
+    "sha256": "0d41aae8543107e6ca29fdb0eb64f624edddad7cff8cad3b9284b7d966308b0f"
+  },
+  {
+    "file": "designer-composition-focused-12.log.gz",
+    "uncompressed_bytes": 3723,
+    "sha256": "b91f91516f30aadaa99aeb7120ea2b8e247aaeafb923328fcb0b9f06b471dcf0"
+  },
+  {
+    "file": "designer-composition-focused-13.log.gz",
+    "uncompressed_bytes": 4711,
+    "sha256": "ca8e855f921939cf5ebe829f63d8df2201702466833d87253c63010ef3c4034d"
+  },
+  {
+    "file": "designer-composition-focused-14.log.gz",
+    "uncompressed_bytes": 152573,
+    "sha256": "99b4dec0944ff051176b54880c9cf37f002285e3c12d64bbd148e8656a098705"
+  },
+  {
+    "file": "designer-composition-focused-15.log.gz",
+    "uncompressed_bytes": 26921553,
+    "sha256": "0bfe29959184175aa229bfea439f88766436aca1bbbaf0e496f11055d2a936a0"
+  },
+  {
+    "file": "designer-composition-focused-16.log.gz",
+    "uncompressed_bytes": 4945,
+    "sha256": "c2edddd9900be1ab15d001e055921c333eac85d94e8267ea279e259b2afc2a40"
+  },
+  {
+    "file": "designer-composition-focused-2.log.gz",
+    "uncompressed_bytes": 7969,
+    "sha256": "201389a7133c370a9b5be3d29223724bd9b8687612605053f26f8665366e9d04"
+  },
+  {
+    "file": "designer-composition-focused-3.log.gz",
+    "uncompressed_bytes": 16969,
+    "sha256": "f1ba81d61c8fec74e1ab6f8015fa5fc9e63c0be644275e05f43baf749770c127"
+  },
+  {
+    "file": "designer-composition-focused-4.log.gz",
+    "uncompressed_bytes": 26030,
+    "sha256": "bba7832dcdd2d7cda4a2e3e9534e6f92bfd19c7baa867a03a93d540c12b91464"
+  },
+  {
+    "file": "designer-composition-focused-5.log.gz",
+    "uncompressed_bytes": 11201,
+    "sha256": "165845540542857cddced257b0b5d453f2ea98b35a941ea5f3404ef2c077189e"
+  },
+  {
+    "file": "designer-composition-focused-6.log.gz",
+    "uncompressed_bytes": 29046,
+    "sha256": "6819c8cb504086411445bb86a6b78819332098ca624b0fd47f68f6bb876d6867"
+  },
+  {
+    "file": "designer-composition-focused-7.log.gz",
+    "uncompressed_bytes": 86233,
+    "sha256": "dafe7d16e443bec2fac30d593c9fd01666acfd6226941ad7197b49aa4360cc7b"
+  },
+  {
+    "file": "designer-composition-focused-8.log.gz",
+    "uncompressed_bytes": 11293,
+    "sha256": "3c1fcdb68a618d0236236d46e932ecb902711d4c2b5d5079ccb79f4331475df6"
+  },
+  {
+    "file": "designer-composition-focused-9.log.gz",
+    "uncompressed_bytes": 11292,
+    "sha256": "a726e7c3bdc86e80ae6515b70b6b90e84d7c3bc2ab06f71e9a1ba4d332f5ed02"
+  },
+  {
+    "file": "designer-composition-focused.log.gz",
+    "uncompressed_bytes": 9513,
+    "sha256": "3d97169ff5e62d556ef48e5740a5b327ac94ddbe2bfbbefe388c293402a58252"
+  },
+  {
+    "file": "designer-composition-local-1.log.gz",
+    "uncompressed_bytes": 5975,
+    "sha256": "407e5a1379b517caf808dd7639c5574422bc26f7559a73f4941d264953a9c171"
+  },
+  {
+    "file": "designer-exact-replay-1.log.gz",
+    "uncompressed_bytes": 1066,
+    "sha256": "0dda33a912a79221a92ee4f95498c1029bd4db3f820b40b68996fbba28e02c8f"
+  }
+]

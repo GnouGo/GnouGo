@@ -1,0 +1,29 @@
+{
+  "baseline_sha": "7d4e0df2186bd0ae337dca354250954b92348ebc",
+  "correction": "Lower whole-value checks of typed computations through the existing set envelope and output schema; structural sandbox and learned mappings unchanged.",
+  "regressions": {
+    "before_failed": 3,
+    "after_passed": 3,
+    "planner_suite_passed": 854
+  },
+  "full_solution": {
+    "passed": 4240,
+    "failed": 0,
+    "skipped": 13,
+    "suites": 33,
+    "flags": "-m:1 -warnaserror",
+    "skips": "7 Windows-only, 5 opt-in paid Copilot, 1 opt-in Designer browser"
+  },
+  "release_planning_package": "passed",
+  "planning_native_aot": "passed",
+  "frontend_production_build": "passed within solution build",
+  "planning_skill": "valid",
+  "paid_calls_during_validation": 0,
+  "log_sha256": {
+    "gnougo-computed-guard-before.log": "a9d9d82ec94b5ee3191853612c0613119f7e70b32c5111cc7d1fea18d4f3991f",
+    "gnougo-computed-guard-solution.log": "28f37d769f57bb890956046bd86968923d7bfcb54486bef6c2aebd233c726562",
+    "gnougo-computed-guard-pack.log": "a13a1784b30c6da3de4215b9862a698393fb9e34e6479c0a1b03139ad41f5060",
+    "gnougo-computed-guard-aot-publish.log": "2a727e3e3c5b600e4f7156dab6a6b1f6014fc71c39022189a4d1a2cddf525dd2",
+    "gnougo-computed-guard-aot.log": "ccb834dd8f850b4e1994cc2bb88eee5248c88642cbed4b723da93cdea3ea5b59"
+  }
+}

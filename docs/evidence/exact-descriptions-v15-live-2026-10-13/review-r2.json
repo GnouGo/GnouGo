@@ -1,0 +1,34 @@
+{
+  "revision": 2,
+  "artifact_hash": "7cd13391782f82a6c02eafbdb758605138cbd7ed886457d7b0aa82885f130c81",
+  "compiled": true,
+  "approved": false,
+  "executed": false,
+  "findings": [
+    {
+      "task": "accept_cookies_if_offered",
+      "finding": "Unrequested business interaction added by the generated proposal."
+    },
+    {
+      "task": "extract_product_rows",
+      "finding": "Whole-snapshot extraction combines discovery with top-ten business selection; no per-page independent mapping or original-record lookup."
+    },
+    {
+      "task": "extract_product_fields",
+      "finding": "Whole product snapshot input and direct fact choice instead of offered-ID selection and original text reconnection."
+    },
+    {
+      "task": "record_missing_url_product",
+      "finding": "Unconditional mandatory missing-URL assertion follows mandatory nonnull-URL navigation; both cannot succeed on the same item."
+    },
+    {
+      "task": "assemble_products/make_xlsx_rows/final_status",
+      "finding": "Inference used for typed copying, row construction and boolean assembly."
+    },
+    {
+      "task": "observation consumers",
+      "finding": "Missing ordered producer-success/snapshot/truncation assertions."
+    }
+  ],
+  "next_action": "Existing explicit structural revision, requirements and public contracts preserved."
+}

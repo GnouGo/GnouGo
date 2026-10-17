@@ -153,11 +153,8 @@ public sealed class ContractAwareRepairTests
         Assert.Null(preflight.Graph); Assert.Contains(preflight.Diagnostics, d => d.Code == "TASK_INPUT_TYPE");
         Assert.Empty(PlanningGeneratedGraph.Validate(compiled.Graph!, catalog));
         PlanningConfirmationGuards.Apply(compiled.Graph!, catalog);
-        Assert.Empty(PlanningExecutableValidation.Validate(compiled.Graph!, catalog));
-        var yaml = new PlanningGraphCompiler().Compile(compiled.Graph!, catalog);
-        var errors = await new WorkflowPlanningRuntime(new(), (_, _) => Task.CompletedTask).ValidateAsync(
-            new(yaml, new(), catalog, PlanningGraphCompiler.CapabilityBindings(compiled.Graph!)), PlannerFixture.Ct);
-        Assert.Contains(errors, d => d.Code == "MCP_REQUEST_SCHEMA_INVALID" && d.Message.Contains("missing required property", StringComparison.Ordinal));
+        Assert.Contains(PlanningExecutableValidation.Validate(compiled.Graph!, catalog), d => d.Code == "CONTRACT_UNSATISFIED");
+        Assert.Throws<InvalidOperationException>(() => new PlanningGraphCompiler().Compile(compiled.Graph!, catalog));
     }
 
     [Fact]
@@ -201,7 +198,7 @@ public sealed class ContractAwareRepairTests
         state.RevisionScope = TaskPlanRevisions.Scope(plan, state.Diagnostics).ToList();
         var runtime = new TestRuntime { Proposal = new() { Plan = repaired } };
         state = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
-        Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Empty(state.Diagnostics);
+        Assert.True(state.Status == PlanningStatus.FinalReview, string.Join("; ", state.Diagnostics.Select(d => d.Code + ": " + d.Message))); Assert.Empty(state.Diagnostics);
         Assert.Equal(8, state.ModelCalls); Assert.Equal(1, state.ReplanAttempts); Assert.Single(runtime.Calls);
         Assert.Null(state.ApprovedHash); PlanningArtifactApproval.Verify(state);
         Assert.Equal("deny", state.Plan!.Root.Tasks[1].Inputs.Single(i => i.Name == "permission").Value.Text);

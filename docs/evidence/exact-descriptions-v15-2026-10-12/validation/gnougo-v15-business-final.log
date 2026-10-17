@@ -1,0 +1,87 @@
+  Identification des projets à restaurer...
+  Tous les projets sont à jour pour la restauration.
+  GnOuGo.Flow.Core -> /private/tmp/gnougo-v15-publish-source/src/GnOuGo.Flow.Core/bin/Debug/net10.0/GnOuGo.Flow.Core.dll
+  GnOuGo.Flow.Copilot -> /private/tmp/gnougo-v15-publish-source/src/GnOuGo.Flow.Copilot/bin/Debug/net10.0/GnOuGo.Flow.Copilot.dll
+  GnOuGo.Workspace -> /private/tmp/gnougo-v15-publish-source/src/GnOuGo.Workspace/bin/Debug/net10.0/GnOuGo.Workspace.dll
+  GnOuGo.KeyVault.Core -> /private/tmp/gnougo-v15-publish-source/src/GnOuGo.KeyVault.Core/bin/Debug/net10.0/GnOuGo.KeyVault.Core.dll
+  GnOuGo.Flow.Persistence -> /private/tmp/gnougo-v15-publish-source/src/GnOuGo.Flow.Persistence/bin/Debug/net10.0/GnOuGo.Flow.Persistence.dll
+  GnOuGo.Agent.Shared -> /private/tmp/gnougo-v15-publish-source/src/GnOuGo.Agent.Shared/bin/Debug/net10.0/GnOuGo.Agent.Shared.dll
+  GnOuGo.Auth.Core -> /private/tmp/gnougo-v15-publish-source/src/GnOuGo.Auth.Core/bin/Debug/net10.0/GnOuGo.Auth.Core.dll
+  GnOuGo.AI.Core -> /private/tmp/gnougo-v15-publish-source/src/GnOuGo.AI.Core/bin/Debug/net10.0/GnOuGo.AI.Core.dll
+  GnOuGo.Diff.Core -> /private/tmp/gnougo-v15-publish-source/src/GnOuGo.Diff.Core/bin/Debug/net10.0/GnOuGo.Diff.Core.dll
+  GnOuGo.Mcp.Core -> /private/tmp/gnougo-v15-publish-source/src/GnOuGo.Mcp.Core/bin/Debug/net10.0/GnOuGo.Mcp.Core.dll
+  GnOuGo.Observability.Core -> /private/tmp/gnougo-v15-publish-source/src/GnOuGo.Observability.Core/bin/Debug/net10.0/GnOuGo.Observability.Core.dll
+  GnOuGo.Agent.Mcp -> /private/tmp/gnougo-v15-publish-source/src/GnOuGo.Agent.Mcp/bin/Debug/net10.0/GnOuGo.Agent.Mcp.dll
+  GnOuGo.AI.Local -> /private/tmp/gnougo-v15-publish-source/src/GnOuGo.AI.Local/bin/Debug/net10.0/GnOuGo.AI.Local.dll
+  GnOuGo.Assets.Bears -> /private/tmp/gnougo-v15-publish-source/src/GnOuGo.Assets.Bears/bin/Debug/net10.0/GnOuGo.Assets.Bears.dll
+  GnOuGo.Assets.Animation -> /private/tmp/gnougo-v15-publish-source/src/GnOuGo.Assets.Animation/bin/Debug/net10.0/GnOuGo.Assets.Animation.dll
+  GnOuGo.DocIngestor.Core -> /private/tmp/gnougo-v15-publish-source/src/GnOuGo.DocIngestor.Core/bin/Debug/net10.0/GnOuGo.DocIngestor.Core.dll
+  GnOuGo.DocIngestor.Mcp -> /private/tmp/gnougo-v15-publish-source/src/GnOuGo.DocIngestor.Mcp/bin/Debug/net10.0/GnOuGo.DocIngestor.Mcp.dll
+  GnOuGo.Flow.Planning -> /private/tmp/gnougo-v15-publish-source/src/GnOuGo.Flow.Planning/bin/Debug/net10.0/GnOuGo.Flow.Planning.dll
+  GnOuGo.Flow.Integrations -> /private/tmp/gnougo-v15-publish-source/src/GnOuGo.Flow.Integrations/bin/Debug/net10.0/GnOuGo.Flow.Integrations.dll
+  GnOuGo.Flow.Mermaid -> /private/tmp/gnougo-v15-publish-source/src/GnOuGo.Flow.Mermaid/bin/Debug/net10.0/GnOuGo.Flow.Mermaid.dll
+  GnOuGo.Files.Server -> /private/tmp/gnougo-v15-publish-source/src/GnOuGo.Files.Server/bin/Debug/net10.0/GnOuGo.Files.Server.dll
+  GnOuGo.KeyVault.Mcp -> /private/tmp/gnougo-v15-publish-source/src/GnOuGo.KeyVault.Mcp/bin/Debug/net10.0/GnOuGo.KeyVault.Mcp.dll
+  GnOuGo.OtlpCollector.Server -> /private/tmp/gnougo-v15-publish-source/src/GnOuGo.OtlpCollector.Server/bin/Debug/net10.0/GnOuGo.OtlpCollector.Server.dll
+  GnOuGo.Mcp.Core -> /private/tmp/gnougo-v15-publish-source/src/GnOuGo.Mcp.Core/bin/Debug/net10.0/GnOuGo.Mcp.Core.dll
+  GnOuGo.Observability.Core -> /private/tmp/gnougo-v15-publish-source/src/GnOuGo.Observability.Core/bin/Debug/net10.0/GnOuGo.Observability.Core.dll
+  GnOuGo.Browser.Mcp -> /private/tmp/gnougo-v15-publish-source/src/GnOuGo.Browser.Mcp/bin/Debug/net10.0/GnOuGo.Browser.Mcp.dll
+  GnOuGo.Workspace -> /private/tmp/gnougo-v15-publish-source/src/GnOuGo.Workspace/bin/Debug/net10.0/GnOuGo.Workspace.dll
+  GnOuGo.Cmd.Mcp -> /private/tmp/gnougo-v15-publish-source/src/GnOuGo.Cmd.Mcp/bin/Debug/net10.0/GnOuGo.Cmd.Mcp.dll
+  GnOuGo.Diff.Core -> /private/tmp/gnougo-v15-publish-source/src/GnOuGo.Diff.Core/bin/Debug/net10.0/GnOuGo.Diff.Core.dll
+  GnOuGo.Document.Mcp -> /private/tmp/gnougo-v15-publish-source/src/GnOuGo.Document.Mcp/bin/Debug/net10.0/GnOuGo.Document.Mcp.dll
+  GnOuGo.Auth.Core -> /private/tmp/gnougo-v15-publish-source/src/GnOuGo.Auth.Core/bin/Debug/net10.0/GnOuGo.Auth.Core.dll
+  GnOuGo.Flow.Core -> /private/tmp/gnougo-v15-publish-source/src/GnOuGo.Flow.Core/bin/Debug/net10.0/GnOuGo.Flow.Core.dll
+  GnOuGo.GithubCopilot.Core -> /private/tmp/gnougo-v15-publish-source/src/GnOuGo.GithubCopilot.Core/bin/Debug/net10.0/GnOuGo.GithubCopilot.Core.dll
+  GnOuGo.KeyVault.Core -> /private/tmp/gnougo-v15-publish-source/src/GnOuGo.KeyVault.Core/bin/Debug/net10.0/GnOuGo.KeyVault.Core.dll
+  GnOuGo.GithubCopilot.Mcp -> /private/tmp/gnougo-v15-publish-source/src/GnOuGo.GithubCopilot.Mcp/bin/Debug/net10.0/GnOuGo.GithubCopilot.Mcp.dll
+  GnOuGo.Git.Mcp -> /private/tmp/gnougo-v15-publish-source/src/GnOuGo.Git.Mcp/bin/Debug/net10.0/GnOuGo.Git.Mcp.dll
+  GnOuGo.Agent.Server -> /private/tmp/gnougo-v15-publish-source/src/GnOuGo.Agent.Server/bin/Debug/net10.0/GnOuGo.Agent.Server.dll
+  Staging GnOuGo MCP development tools into bin/Debug/net10.0/tools...
+  GnOuGo.Document.Mcp -> /private/tmp/gnougo-v15-publish-source/src/GnOuGo.Document.Mcp/bin/Debug/net10.0/GnOuGo.Document.Mcp.dll
+  GnOuGo.Browser.Mcp -> /private/tmp/gnougo-v15-publish-source/src/GnOuGo.Browser.Mcp/bin/Debug/net10.0/GnOuGo.Browser.Mcp.dll
+  Installing Playwright Chromium browsers...
+  GnOuGo.Git.Mcp -> /private/tmp/gnougo-v15-publish-source/src/GnOuGo.Git.Mcp/bin/Debug/net10.0/GnOuGo.Git.Mcp.dll
+  GnOuGo.Cmd.Mcp -> /private/tmp/gnougo-v15-publish-source/src/GnOuGo.Cmd.Mcp/bin/Debug/net10.0/GnOuGo.Cmd.Mcp.dll
+  GnOuGo.GithubCopilot.Core -> /private/tmp/gnougo-v15-publish-source/src/GnOuGo.GithubCopilot.Core/bin/Debug/net10.0/GnOuGo.GithubCopilot.Core.dll
+  GnOuGo.GithubCopilot.Mcp -> /private/tmp/gnougo-v15-publish-source/src/GnOuGo.GithubCopilot.Mcp/bin/Debug/net10.0/GnOuGo.GithubCopilot.Mcp.dll
+  GnOuGo.Agent.Server.Tests -> /private/tmp/gnougo-v15-publish-source/tests/GnOuGo.Agent.Server.Tests/bin/Debug/net10.0/GnOuGo.Agent.Server.Tests.dll
+  Staging GnOuGo MCP development tools into bin/Debug/net10.0/tools...
+Série de tests pour /private/tmp/gnougo-v15-publish-source/tests/GnOuGo.Agent.Server.Tests/bin/Debug/net10.0/GnOuGo.Agent.Server.Tests.dll (.NETCoreApp,Version=v10.0)
+Au total, 1 fichiers de test ont correspondu au modèle spécifié.
+[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v4.0.0+05679a7ab5 (64-bit .NET 10.0.8)
+[xUnit.net 00:00:00.73]   Discovering: GnOuGo.Agent.Server.Tests
+[xUnit.net 00:00:01.01]   Discovered:  GnOuGo.Agent.Server.Tests
+[xUnit.net 00:00:01.16]   Starting:    GnOuGo.Agent.Server.Tests
+  Réussi GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: "incomplete") [17 s]
+  Réussi GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: "union_features") [28 s]
+  Réussi GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: "union_compact_unoffered") [21 s]
+  Réussi GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: "compact") [19 s]
+  Réussi GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: "union_compact_missing_description") [30 s]
+  Réussi GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: "union_missing_description") [27 s]
+  Réussi GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: "verbatim_unknown") [15 s]
+  Réussi GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: "fabricated") [19 s]
+  Réussi GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: "unoffered") [14 s]
+  Réussi GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: "producer_revision") [20 s]
+  Réussi GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: "union_compact_repeated") [30 s]
+  Réussi GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: "exact_rows") [20 s]
+  Réussi GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: "union_initial") [27 s]
+  Réussi GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: "verbatim_rows") [20 s]
+  Réussi GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: "union_compact") [30 s]
+  Réussi GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: "repeated") [20 s]
+  Réussi GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: "denied") [19 s]
+  Réussi GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: "union_revision") [38 s]
+  Réussi GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: "empty") [15 s]
+  Réussi GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V10NullableFieldsReconnectOnlyExactOfferedOriginalBlocks(variant: "shortened", prefix: "source") [222 ms]
+  Réussi GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V10NullableFieldsReconnectOnlyExactOfferedOriginalBlocks(variant: "complete", prefix: "source") [239 ms]
+  Réussi GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V10NullableFieldsReconnectOnlyExactOfferedOriginalBlocks(variant: "unoffered", prefix: "source") [225 ms]
+  Réussi GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V10NullableFieldsReconnectOnlyExactOfferedOriginalBlocks(variant: "all_missing", prefix: "source") [221 ms]
+  Réussi GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V10NullableFieldsReconnectOnlyExactOfferedOriginalBlocks(variant: "missing", prefix: "different") [230 ms]
+  Réussi GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V10NullableFieldsReconnectOnlyExactOfferedOriginalBlocks(variant: "unknown", prefix: "different") [219 ms]
+[xUnit.net 00:07:22.21]   Finished:    GnOuGo.Agent.Server.Tests (ID = '0160eceb8c750ca4a3c40679837bb4767ed6d8258a1b919977c8b4f0e4808d4c')
+  Réussi GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V10NullableFieldsReconnectOnlyExactOfferedOriginalBlocks(variant: "ambiguous", prefix: "different") [218 ms]
+
+Série de tests réussie.
+Nombre total de tests : 26
+     Réussi(s) : 26
+ Durée totale : 7,3750 Minutes

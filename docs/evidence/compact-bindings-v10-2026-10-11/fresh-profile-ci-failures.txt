@@ -1,0 +1,372 @@
+validate	Test planner, runtime and host integration	﻿2026-10-11T12:45:30.6044977Z ##[group]Run dotnet test tests/GnOuGo.Mcp.Core.Tests -m:1 -warnaserror
+validate	Test planner, runtime and host integration	2026-10-11T12:45:30.6045509Z ^[[36;1mdotnet test tests/GnOuGo.Mcp.Core.Tests -m:1 -warnaserror^[[0m
+validate	Test planner, runtime and host integration	2026-10-11T12:45:30.6046392Z ^[[36;1mdotnet test tests/GnOuGo.Browser.Mcp.Tests -m:1 -warnaserror^[[0m
+validate	Test planner, runtime and host integration	2026-10-11T12:45:30.6047024Z ^[[36;1mdotnet test tests/GnOuGo.Document.Mcp.Tests -m:1 -warnaserror^[[0m
+validate	Test planner, runtime and host integration	2026-10-11T12:45:30.6047447Z ^[[36;1mdotnet test tests/GnOuGo.Git.Mcp.Tests -m:1 -warnaserror^[[0m
+validate	Test planner, runtime and host integration	2026-10-11T12:45:30.6047980Z ^[[36;1mdotnet test tests/GnOuGo.Flow.Planning.Tests/GnOuGo.Flow.Planning.Tests.csproj -m:1 -warnaserror^[[0m
+validate	Test planner, runtime and host integration	2026-10-11T12:45:30.6048548Z ^[[36;1mdotnet test tests/GnOuGo.Flow.Integrations.Tests -m:1 -warnaserror^[[0m
+validate	Test planner, runtime and host integration	2026-10-11T12:45:30.6049013Z ^[[36;1mdotnet test tests/GnOuGo.Flow.Copilot.Tests -m:1 -warnaserror^[[0m
+validate	Test planner, runtime and host integration	2026-10-11T12:45:30.6049446Z ^[[36;1mdotnet test tests/GnOuGo.Flow.Persistence.Tests -m:1 -warnaserror^[[0m
+validate	Test planner, runtime and host integration	2026-10-11T12:45:30.6049912Z ^[[36;1mdotnet test tests/GnOuGo.GithubCopilot.Core.Tests -m:1 -warnaserror^[[0m
+validate	Test planner, runtime and host integration	2026-10-11T12:45:30.6050430Z ^[[36;1mdotnet test tests/GnOuGo.GithubCopilot.Mcp.Tests -m:1 -warnaserror^[[0m
+validate	Test planner, runtime and host integration	2026-10-11T12:45:30.6050918Z ^[[36;1mdotnet test tests/GnOuGo.Flow.Tests/GnOuGo.Flow.Tests.csproj -m:1 -warnaserror^[[0m
+validate	Test planner, runtime and host integration	2026-10-11T12:45:30.6051559Z ^[[36;1mdotnet test tests/GnOuGo.Agent.Server.Tests/GnOuGo.Agent.Server.Tests.csproj -m:1 -warnaserror /p:SkipClientBuild=true^[[0m
+validate	Test planner, runtime and host integration	2026-10-11T12:45:30.6092120Z shell: /usr/bin/bash -e {0}
+validate	Test planner, runtime and host integration	2026-10-11T12:45:30.6092406Z env:
+validate	Test planner, runtime and host integration	2026-10-11T12:45:30.6092634Z   DOTNET_ROOT: /usr/share/dotnet
+validate	Test planner, runtime and host integration	2026-10-11T12:45:30.6092874Z ##[endgroup]
+validate	Test planner, runtime and host integration	2026-10-11T12:45:31.1383369Z   Determining projects to restore...
+validate	Test planner, runtime and host integration	2026-10-11T12:45:32.5028071Z   Restored /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Mcp.Core.Tests/GnOuGo.Mcp.Core.Tests.csproj (in 1.01 sec).
+validate	Test planner, runtime and host integration	2026-10-11T12:45:32.5063940Z   1 of 2 projects are up-to-date for restore.
+validate	Test planner, runtime and host integration	2026-10-11T12:45:32.8544187Z   GnOuGo.Mcp.Core -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Mcp.Core/bin/Debug/net10.0/GnOuGo.Mcp.Core.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:45:33.2706669Z   GnOuGo.Mcp.Core.Tests -> /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Mcp.Core.Tests/bin/Debug/net10.0/GnOuGo.Mcp.Core.Tests.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:45:33.2969731Z Test run for /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Mcp.Core.Tests/bin/Debug/net10.0/GnOuGo.Mcp.Core.Tests.dll (.NETCoreApp,Version=v10.0)
+validate	Test planner, runtime and host integration	2026-10-11T12:45:34.0245673Z A total of 1 test files matched the specified pattern.
+validate	Test planner, runtime and host integration	2026-10-11T12:45:35.4362855Z
+validate	Test planner, runtime and host integration	2026-10-11T12:45:35.4402813Z Passed!  - Failed:     0, Passed:    49, Skipped:     0, Total:    49, Duration: 105 ms - GnOuGo.Mcp.Core.Tests.dll (net10.0)
+validate	Test planner, runtime and host integration	2026-10-11T12:45:36.0946001Z   Determining projects to restore...
+validate	Test planner, runtime and host integration	2026-10-11T12:45:37.0676302Z   Restored /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Browser.Mcp.Tests/GnOuGo.Browser.Mcp.Tests.csproj (in 332 ms).
+validate	Test planner, runtime and host integration	2026-10-11T12:45:37.0703109Z   3 of 4 projects are up-to-date for restore.
+validate	Test planner, runtime and host integration	2026-10-11T12:45:37.5152586Z   GnOuGo.Mcp.Core -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Mcp.Core/bin/Debug/net10.0/GnOuGo.Mcp.Core.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:45:37.5933965Z   GnOuGo.Observability.Core -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Observability.Core/bin/Debug/net10.0/GnOuGo.Observability.Core.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:45:37.6835108Z   GnOuGo.Browser.Mcp -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Browser.Mcp/bin/Debug/net10.0/GnOuGo.Browser.Mcp.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:45:37.7009067Z   Installing Playwright Chromium browsers...
+validate	Test planner, runtime and host integration	2026-10-11T12:45:39.5074023Z   GnOuGo.Browser.Mcp.Tests -> /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Browser.Mcp.Tests/bin/Debug/net10.0/GnOuGo.Browser.Mcp.Tests.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:45:39.5325453Z Test run for /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Browser.Mcp.Tests/bin/Debug/net10.0/GnOuGo.Browser.Mcp.Tests.dll (.NETCoreApp,Version=v10.0)
+validate	Test planner, runtime and host integration	2026-10-11T12:45:39.6745733Z A total of 1 test files matched the specified pattern.
+validate	Test planner, runtime and host integration	2026-10-11T12:46:20.5226719Z
+validate	Test planner, runtime and host integration	2026-10-11T12:46:20.5266083Z Passed!  - Failed:     0, Passed:   141, Skipped:     0, Total:   141, Duration: 39 s - GnOuGo.Browser.Mcp.Tests.dll (net10.0)
+validate	Test planner, runtime and host integration	2026-10-11T12:46:21.0785343Z   Determining projects to restore...
+validate	Test planner, runtime and host integration	2026-10-11T12:46:23.5597303Z   Restored /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Diff.Core/GnOuGo.Diff.Core.csproj (in 1.95 sec).
+validate	Test planner, runtime and host integration	2026-10-11T12:46:23.5614440Z   Restored /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Document.Mcp.Tests/GnOuGo.Document.Mcp.Tests.csproj (in 1.99 sec).
+validate	Test planner, runtime and host integration	2026-10-11T12:46:23.7306277Z   Restored /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Document.Mcp/GnOuGo.Document.Mcp.csproj (in 2.16 sec).
+validate	Test planner, runtime and host integration	2026-10-11T12:46:23.7341095Z   3 of 6 projects are up-to-date for restore.
+validate	Test planner, runtime and host integration	2026-10-11T12:46:24.6365571Z   GnOuGo.Diff.Core -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Diff.Core/bin/Debug/net10.0/GnOuGo.Diff.Core.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:46:24.7115170Z   GnOuGo.Mcp.Core -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Mcp.Core/bin/Debug/net10.0/GnOuGo.Mcp.Core.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:46:24.7886998Z   GnOuGo.Observability.Core -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Observability.Core/bin/Debug/net10.0/GnOuGo.Observability.Core.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:46:24.9735467Z   GnOuGo.Workspace -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Workspace/bin/Debug/net10.0/GnOuGo.Workspace.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:46:26.7856522Z   GnOuGo.Document.Mcp -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Document.Mcp/bin/Debug/net10.0/GnOuGo.Document.Mcp.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:46:27.4770344Z   GnOuGo.Document.Mcp.Tests -> /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Document.Mcp.Tests/bin/Debug/net10.0/GnOuGo.Document.Mcp.Tests.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:46:27.5187268Z Test run for /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Document.Mcp.Tests/bin/Debug/net10.0/GnOuGo.Document.Mcp.Tests.dll (.NETCoreApp,Version=v10.0)
+validate	Test planner, runtime and host integration	2026-10-11T12:46:27.6604296Z A total of 1 test files matched the specified pattern.
+validate	Test planner, runtime and host integration	2026-10-11T12:46:35.9046663Z
+validate	Test planner, runtime and host integration	2026-10-11T12:46:35.9082819Z Passed!  - Failed:     0, Passed:    73, Skipped:     0, Total:    73, Duration: 6 s - GnOuGo.Document.Mcp.Tests.dll (net10.0)
+validate	Test planner, runtime and host integration	2026-10-11T12:46:36.4480733Z   Determining projects to restore...
+validate	Test planner, runtime and host integration	2026-10-11T12:46:37.6613599Z   Restored /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Git.Mcp/GnOuGo.Git.Mcp.csproj (in 750 ms).
+validate	Test planner, runtime and host integration	2026-10-11T12:46:37.6632818Z   Restored /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Git.Mcp.Tests/GnOuGo.Git.Mcp.Tests.csproj (in 748 ms).
+validate	Test planner, runtime and host integration	2026-10-11T12:46:37.6666117Z   3 of 5 projects are up-to-date for restore.
+validate	Test planner, runtime and host integration	2026-10-11T12:46:38.0926594Z   GnOuGo.Mcp.Core -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Mcp.Core/bin/Debug/net10.0/GnOuGo.Mcp.Core.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:46:38.1632148Z   GnOuGo.Observability.Core -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Observability.Core/bin/Debug/net10.0/GnOuGo.Observability.Core.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:46:38.2112448Z   GnOuGo.Workspace -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Workspace/bin/Debug/net10.0/GnOuGo.Workspace.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:46:39.6490762Z   GnOuGo.Git.Mcp -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Git.Mcp/bin/Debug/net10.0/GnOuGo.Git.Mcp.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:46:40.1174050Z   GnOuGo.Git.Mcp.Tests -> /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Git.Mcp.Tests/bin/Debug/net10.0/GnOuGo.Git.Mcp.Tests.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:46:40.1763283Z Test run for /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Git.Mcp.Tests/bin/Debug/net10.0/GnOuGo.Git.Mcp.Tests.dll (.NETCoreApp,Version=v10.0)
+validate	Test planner, runtime and host integration	2026-10-11T12:46:40.3341575Z A total of 1 test files matched the specified pattern.
+validate	Test planner, runtime and host integration	2026-10-11T12:46:47.7980527Z
+validate	Test planner, runtime and host integration	2026-10-11T12:46:47.8018422Z Passed!  - Failed:     0, Passed:    83, Skipped:     0, Total:    83, Duration: 6 s - GnOuGo.Git.Mcp.Tests.dll (net10.0)
+validate	Test planner, runtime and host integration	2026-10-11T12:46:48.3640190Z   Determining projects to restore...
+validate	Test planner, runtime and host integration	2026-10-11T12:46:49.3615028Z   Restored /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Flow.Core/GnOuGo.Flow.Core.csproj (in 612 ms).
+validate	Test planner, runtime and host integration	2026-10-11T12:46:49.3639655Z   Restored /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Flow.Planning/GnOuGo.Flow.Planning.csproj (in 612 ms).
+validate	Test planner, runtime and host integration	2026-10-11T12:46:49.3641410Z   Restored /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Flow.Planning.Tests/GnOuGo.Flow.Planning.Tests.csproj (in 612 ms).
+validate	Test planner, runtime and host integration	2026-10-11T12:46:57.5037013Z   GnOuGo.Flow.Core -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Flow.Core/bin/Debug/net10.0/GnOuGo.Flow.Core.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:47:07.4038846Z   GnOuGo.Flow.Planning -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Flow.Planning/bin/Debug/net10.0/GnOuGo.Flow.Planning.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:47:09.4386982Z   GnOuGo.Flow.Planning.Tests -> /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Flow.Planning.Tests/bin/Debug/net10.0/GnOuGo.Flow.Planning.Tests.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:47:09.4463767Z Test run for /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Flow.Planning.Tests/bin/Debug/net10.0/GnOuGo.Flow.Planning.Tests.dll (.NETCoreApp,Version=v10.0)
+validate	Test planner, runtime and host integration	2026-10-11T12:47:09.5894952Z A total of 1 test files matched the specified pattern.
+validate	Test planner, runtime and host integration	2026-10-11T12:48:54.8611249Z
+validate	Test planner, runtime and host integration	2026-10-11T12:48:54.8662794Z Passed!  - Failed:     0, Passed:  1268, Skipped:     0, Total:  1268, Duration: 1 m 43 s - GnOuGo.Flow.Planning.Tests.dll (net10.0)
+validate	Test planner, runtime and host integration	2026-10-11T12:48:55.4173170Z   Determining projects to restore...
+validate	Test planner, runtime and host integration	2026-10-11T12:48:56.5127648Z   Restored /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Flow.Integrations/GnOuGo.Flow.Integrations.csproj (in 524 ms).
+validate	Test planner, runtime and host integration	2026-10-11T12:48:56.5131368Z   Restored /home/runner/work/GnouGo/GnouGo/src/GnOuGo.KeyVault.Core/GnOuGo.KeyVault.Core.csproj (in 534 ms).
+validate	Test planner, runtime and host integration	2026-10-11T12:48:56.5133162Z   Restored /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Flow.Integrations.Tests/GnOuGo.Flow.Integrations.Tests.csproj (in 482 ms).
+validate	Test planner, runtime and host integration	2026-10-11T12:48:56.5164768Z   6 of 9 projects are up-to-date for restore.
+validate	Test planner, runtime and host integration	2026-10-11T12:48:57.0798824Z   GnOuGo.Auth.Core -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Auth.Core/bin/Debug/net10.0/GnOuGo.Auth.Core.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:48:57.2282061Z   Metadata JSON path : /home/runner/work/GnouGo/GnouGo/src/GnOuGo.AI.Core/Telemetry/model-metadata.json
+validate	Test planner, runtime and host integration	2026-10-11T12:48:57.2308225Z   Generated output   : /home/runner/work/GnouGo/GnouGo/src/GnOuGo.AI.Core/ModelMetadataCatalog.Generated.cs
+validate	Test planner, runtime and host integration	2026-10-11T12:48:57.2689324Z   Generated /home/runner/work/GnouGo/GnouGo/src/GnOuGo.AI.Core/ModelMetadataCatalog.Generated.cs (504 models, 27 aliases)
+validate	Test planner, runtime and host integration	2026-10-11T12:48:57.8633143Z   GnOuGo.AI.Core -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.AI.Core/bin/Debug/net10.0/GnOuGo.AI.Core.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:48:57.9441202Z   GnOuGo.Flow.Core -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Flow.Core/bin/Debug/net10.0/GnOuGo.Flow.Core.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:48:58.0096405Z   GnOuGo.Flow.Planning -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Flow.Planning/bin/Debug/net10.0/GnOuGo.Flow.Planning.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:48:58.0815351Z   GnOuGo.Workspace -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Workspace/bin/Debug/net10.0/GnOuGo.Workspace.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:48:58.4191110Z   GnOuGo.KeyVault.Core -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.KeyVault.Core/bin/Debug/net10.0/GnOuGo.KeyVault.Core.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:48:58.4748205Z   GnOuGo.Mcp.Core -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Mcp.Core/bin/Debug/net10.0/GnOuGo.Mcp.Core.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:48:58.9912100Z   GnOuGo.Flow.Integrations -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Flow.Integrations/bin/Debug/net10.0/GnOuGo.Flow.Integrations.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:48:59.7062207Z   GnOuGo.Flow.Integrations.Tests -> /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Flow.Integrations.Tests/bin/Debug/net10.0/GnOuGo.Flow.Integrations.Tests.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:48:59.7564699Z Test run for /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Flow.Integrations.Tests/bin/Debug/net10.0/GnOuGo.Flow.Integrations.Tests.dll (.NETCoreApp,Version=v10.0)
+validate	Test planner, runtime and host integration	2026-10-11T12:48:59.9268032Z A total of 1 test files matched the specified pattern.
+validate	Test planner, runtime and host integration	2026-10-11T12:49:06.0260893Z
+validate	Test planner, runtime and host integration	2026-10-11T12:49:06.0300264Z Passed!  - Failed:     0, Passed:    99, Skipped:     0, Total:    99, Duration: 4 s - GnOuGo.Flow.Integrations.Tests.dll (net10.0)
+validate	Test planner, runtime and host integration	2026-10-11T12:49:06.6288811Z   Determining projects to restore...
+validate	Test planner, runtime and host integration	2026-10-11T12:49:07.2478195Z   Restored /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Flow.Copilot/GnOuGo.Flow.Copilot.csproj (in 232 ms).
+validate	Test planner, runtime and host integration	2026-10-11T12:49:07.2483158Z   Restored /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Flow.Copilot.Tests/GnOuGo.Flow.Copilot.Tests.csproj (in 232 ms).
+validate	Test planner, runtime and host integration	2026-10-11T12:49:07.2504796Z   1 of 3 projects are up-to-date for restore.
+validate	Test planner, runtime and host integration	2026-10-11T12:49:07.7073029Z   GnOuGo.Flow.Core -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Flow.Core/bin/Debug/net10.0/GnOuGo.Flow.Core.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:49:07.8646309Z   GnOuGo.Flow.Copilot -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Flow.Copilot/bin/Debug/net10.0/GnOuGo.Flow.Copilot.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:49:08.1114716Z   GnOuGo.Flow.Copilot.Tests -> /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Flow.Copilot.Tests/bin/Debug/net10.0/GnOuGo.Flow.Copilot.Tests.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:49:08.1208085Z Test run for /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Flow.Copilot.Tests/bin/Debug/net10.0/GnOuGo.Flow.Copilot.Tests.dll (.NETCoreApp,Version=v10.0)
+validate	Test planner, runtime and host integration	2026-10-11T12:49:08.2753812Z A total of 1 test files matched the specified pattern.
+validate	Test planner, runtime and host integration	2026-10-11T12:49:09.4457917Z
+validate	Test planner, runtime and host integration	2026-10-11T12:49:09.4494350Z Passed!  - Failed:     0, Passed:     5, Skipped:     0, Total:     5, Duration: 119 ms - GnOuGo.Flow.Copilot.Tests.dll (net10.0)
+validate	Test planner, runtime and host integration	2026-10-11T12:49:10.0455564Z   Determining projects to restore...
+validate	Test planner, runtime and host integration	2026-10-11T12:49:11.3403495Z   Restored /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Flow.Persistence.Tests/GnOuGo.Flow.Persistence.Tests.csproj (in 830 ms).
+validate	Test planner, runtime and host integration	2026-10-11T12:49:11.3420574Z   Restored /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Flow.Persistence/GnOuGo.Flow.Persistence.csproj (in 833 ms).
+validate	Test planner, runtime and host integration	2026-10-11T12:49:11.3454391Z   3 of 5 projects are up-to-date for restore.
+validate	Test planner, runtime and host integration	2026-10-11T12:49:11.8953379Z   GnOuGo.Flow.Core -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Flow.Core/bin/Debug/net10.0/GnOuGo.Flow.Core.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:49:11.9816921Z   GnOuGo.Workspace -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Workspace/bin/Debug/net10.0/GnOuGo.Workspace.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:49:12.0506742Z   GnOuGo.KeyVault.Core -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.KeyVault.Core/bin/Debug/net10.0/GnOuGo.KeyVault.Core.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:49:12.5256303Z   GnOuGo.Flow.Persistence -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Flow.Persistence/bin/Debug/net10.0/GnOuGo.Flow.Persistence.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:49:13.2141258Z   GnOuGo.Flow.Persistence.Tests -> /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Flow.Persistence.Tests/bin/Debug/net10.0/GnOuGo.Flow.Persistence.Tests.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:49:13.2244837Z Test run for /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Flow.Persistence.Tests/bin/Debug/net10.0/GnOuGo.Flow.Persistence.Tests.dll (.NETCoreApp,Version=v10.0)
+validate	Test planner, runtime and host integration	2026-10-11T12:49:13.3717302Z A total of 1 test files matched the specified pattern.
+validate	Test planner, runtime and host integration	2026-10-11T12:49:28.8536266Z
+validate	Test planner, runtime and host integration	2026-10-11T12:49:28.8573206Z Passed!  - Failed:     0, Passed:    24, Skipped:     0, Total:    24, Duration: 14 s - GnOuGo.Flow.Persistence.Tests.dll (net10.0)
+validate	Test planner, runtime and host integration	2026-10-11T12:49:29.4238053Z   Determining projects to restore...
+validate	Test planner, runtime and host integration	2026-10-11T12:49:30.4325708Z   Restored /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.GithubCopilot.Core.Tests/GnOuGo.GithubCopilot.Core.Tests.csproj (in 661 ms).
+validate	Test planner, runtime and host integration	2026-10-11T12:49:30.4342613Z   Restored /home/runner/work/GnouGo/GnouGo/src/GnOuGo.GithubCopilot.Core/GnOuGo.GithubCopilot.Core.csproj (in 661 ms).
+validate	Test planner, runtime and host integration	2026-10-11T12:49:30.6379980Z   Downloading Copilot CLI 1.0.88 for linux-x64...
+validate	Test planner, runtime and host integration	2026-10-11T12:49:30.9027287Z   Downloading from "https://github.com/github/copilot-cli/releases/download/v1.0.88/SHA256SUMS.txt" to "/home/runner/work/GnouGo/GnouGo/src/GnOuGo.GithubCopilot.Core/obj/Debug/net10.0/copilot-cli/1.0.88/linux-x64/SHA256SUMS.txt" (1,740 bytes).
+validate	Test planner, runtime and host integration	2026-10-11T12:49:31.1421324Z   Downloading from "https://github.com/github/copilot-cli/releases/download/v1.0.88/github-copilot-1.0.88-linux-x64.tgz" to "/home/runner/work/GnouGo/GnouGo/src/GnOuGo.GithubCopilot.Core/obj/Debug/net10.0/copilot-cli/1.0.88/linux-x64/copilot.tgz" (60,742,828 bytes).
+validate	Test planner, runtime and host integration	2026-10-11T12:49:36.0203097Z   GnOuGo.GithubCopilot.Core -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.GithubCopilot.Core/bin/Debug/net10.0/GnOuGo.GithubCopilot.Core.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:49:37.5976701Z   GnOuGo.GithubCopilot.Core.Tests -> /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.GithubCopilot.Core.Tests/bin/Debug/net10.0/GnOuGo.GithubCopilot.Core.Tests.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:49:37.6050718Z Test run for /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.GithubCopilot.Core.Tests/bin/Debug/net10.0/GnOuGo.GithubCopilot.Core.Tests.dll (.NETCoreApp,Version=v10.0)
+validate	Test planner, runtime and host integration	2026-10-11T12:49:37.7478432Z A total of 1 test files matched the specified pattern.
+validate	Test planner, runtime and host integration	2026-10-11T12:49:39.6644429Z
+validate	Test planner, runtime and host integration	2026-10-11T12:49:39.6683453Z Passed!  - Failed:     0, Passed:   173, Skipped:     0, Total:   173, Duration: 741 ms - GnOuGo.GithubCopilot.Core.Tests.dll (net10.0)
+validate	Test planner, runtime and host integration	2026-10-11T12:49:40.2318587Z   Determining projects to restore...
+validate	Test planner, runtime and host integration	2026-10-11T12:49:41.3161781Z   Restored /home/runner/work/GnouGo/GnouGo/src/GnOuGo.GithubCopilot.Mcp/GnOuGo.GithubCopilot.Mcp.csproj (in 320 ms).
+validate	Test planner, runtime and host integration	2026-10-11T12:49:41.3188296Z   Restored /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.GithubCopilot.Mcp.Tests/GnOuGo.GithubCopilot.Mcp.Tests.csproj (in 267 ms).
+validate	Test planner, runtime and host integration	2026-10-11T12:49:41.3210188Z   10 of 12 projects are up-to-date for restore.
+validate	Test planner, runtime and host integration	2026-10-11T12:49:42.0335235Z   GnOuGo.Auth.Core -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Auth.Core/bin/Debug/net10.0/GnOuGo.Auth.Core.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:49:42.1156443Z   GnOuGo.Flow.Core -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Flow.Core/bin/Debug/net10.0/GnOuGo.Flow.Core.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:49:42.1871242Z   GnOuGo.GithubCopilot.Core -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.GithubCopilot.Core/bin/Debug/net10.0/GnOuGo.GithubCopilot.Core.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:49:42.8247829Z   GnOuGo.Workspace -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Workspace/bin/Debug/net10.0/GnOuGo.Workspace.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:49:42.8906150Z   GnOuGo.KeyVault.Core -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.KeyVault.Core/bin/Debug/net10.0/GnOuGo.KeyVault.Core.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:49:42.9556575Z   GnOuGo.Mcp.Core -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Mcp.Core/bin/Debug/net10.0/GnOuGo.Mcp.Core.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:49:43.0552397Z   GnOuGo.Observability.Core -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Observability.Core/bin/Debug/net10.0/GnOuGo.Observability.Core.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:49:46.8925763Z   GnOuGo.GithubCopilot.Mcp -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.GithubCopilot.Mcp/bin/Debug/net10.0/GnOuGo.GithubCopilot.Mcp.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:49:46.9767425Z   GnOuGo.AI.Core -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.AI.Core/bin/Debug/net10.0/GnOuGo.AI.Core.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:49:47.0415470Z   GnOuGo.Flow.Planning -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Flow.Planning/bin/Debug/net10.0/GnOuGo.Flow.Planning.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:49:47.0936508Z   GnOuGo.Flow.Integrations -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Flow.Integrations/bin/Debug/net10.0/GnOuGo.Flow.Integrations.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:49:49.2686253Z   GnOuGo.GithubCopilot.Mcp.Tests -> /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.GithubCopilot.Mcp.Tests/bin/Debug/net10.0/GnOuGo.GithubCopilot.Mcp.Tests.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:49:49.3420001Z Test run for /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.GithubCopilot.Mcp.Tests/bin/Debug/net10.0/GnOuGo.GithubCopilot.Mcp.Tests.dll (.NETCoreApp,Version=v10.0)
+validate	Test planner, runtime and host integration	2026-10-11T12:49:49.4907245Z A total of 1 test files matched the specified pattern.
+validate	Test planner, runtime and host integration	2026-10-11T12:50:38.5539754Z
+validate	Test planner, runtime and host integration	2026-10-11T12:50:38.5579286Z Passed!  - Failed:     0, Passed:   243, Skipped:     0, Total:   243, Duration: 47 s - GnOuGo.GithubCopilot.Mcp.Tests.dll (net10.0)
+validate	Test planner, runtime and host integration	2026-10-11T12:50:39.1148194Z   Determining projects to restore...
+validate	Test planner, runtime and host integration	2026-10-11T12:50:39.9259186Z   Restored /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Flow.Tests/GnOuGo.Flow.Tests.csproj (in 464 ms).
+validate	Test planner, runtime and host integration	2026-10-11T12:50:39.9295138Z   1 of 2 projects are up-to-date for restore.
+validate	Test planner, runtime and host integration	2026-10-11T12:50:40.3532570Z   GnOuGo.Flow.Core -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Flow.Core/bin/Debug/net10.0/GnOuGo.Flow.Core.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:50:42.0476960Z   GnOuGo.Flow.Tests -> /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Flow.Tests/bin/Debug/net10.0/GnOuGo.Flow.Tests.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:50:42.0605172Z Test run for /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Flow.Tests/bin/Debug/net10.0/GnOuGo.Flow.Tests.dll (.NETCoreApp,Version=v10.0)
+validate	Test planner, runtime and host integration	2026-10-11T12:50:42.2062934Z A total of 1 test files matched the specified pattern.
+validate	Test planner, runtime and host integration	2026-10-11T12:50:48.0255504Z
+validate	Test planner, runtime and host integration	2026-10-11T12:50:48.0305790Z Passed!  - Failed:     0, Passed:  1270, Skipped:     0, Total:  1270, Duration: 4 s - GnOuGo.Flow.Tests.dll (net10.0)
+validate	Test planner, runtime and host integration	2026-10-11T12:50:48.6067050Z   Determining projects to restore...
+validate	Test planner, runtime and host integration	2026-10-11T12:50:50.7564940Z   Restored /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Cmd.Mcp/GnOuGo.Cmd.Mcp.csproj (in 343 ms).
+validate	Test planner, runtime and host integration	2026-10-11T12:50:50.7769223Z   Restored /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Assets.Bears/GnOuGo.Assets.Bears.csproj (in 3 ms).
+validate	Test planner, runtime and host integration	2026-10-11T12:50:50.7850230Z   Restored /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Assets.Animation/GnOuGo.Assets.Animation.csproj (in 3 ms).
+validate	Test planner, runtime and host integration	2026-10-11T12:50:50.7911609Z   Restored /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Agent.Shared/GnOuGo.Agent.Shared.csproj (in 2 ms).
+validate	Test planner, runtime and host integration	2026-10-11T12:50:54.4387393Z   Restored /home/runner/work/GnouGo/GnouGo/src/GnOuGo.DocIngestor.Core/GnOuGo.DocIngestor.Core.csproj (in 4.11 sec).
+validate	Test planner, runtime and host integration	2026-10-11T12:50:54.4606095Z   Restored /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Agent.Mcp/GnOuGo.Agent.Mcp.csproj (in 11 ms).
+validate	Test planner, runtime and host integration	2026-10-11T12:50:54.4697296Z   Restored /home/runner/work/GnouGo/GnouGo/src/GnOuGo.DocIngestor.Mcp/GnOuGo.DocIngestor.Mcp.csproj (in 4.13 sec).
+validate	Test planner, runtime and host integration	2026-10-11T12:50:54.4791227Z   Restored /home/runner/work/GnouGo/GnouGo/src/GnOuGo.AI.Local/GnOuGo.AI.Local.csproj (in 10 ms).
+validate	Test planner, runtime and host integration	2026-10-11T12:50:54.4839231Z   Restored /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Flow.Mermaid/GnOuGo.Flow.Mermaid.csproj (in 3 ms).
+validate	Test planner, runtime and host integration	2026-10-11T12:50:54.5050613Z   Restored /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Agent.Server.Tests/GnOuGo.Agent.Server.Tests.csproj (in 4.18 sec).
+validate	Test planner, runtime and host integration	2026-10-11T12:50:54.5061936Z   Restored /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Agent.Server/GnOuGo.Agent.Server.csproj (in 3.68 sec).
+validate	Test planner, runtime and host integration	2026-10-11T12:50:54.5167693Z   Restored /home/runner/work/GnouGo/GnouGo/src/GnOuGo.KeyVault.Mcp/GnOuGo.KeyVault.Mcp.csproj (in 9 ms).
+validate	Test planner, runtime and host integration	2026-10-11T12:50:54.5246235Z   Restored /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Files.Server/GnOuGo.Files.Server.csproj (in 31 ms).
+validate	Test planner, runtime and host integration	2026-10-11T12:50:54.5281834Z   18 of 31 projects are up-to-date for restore.
+validate	Test planner, runtime and host integration	2026-10-11T12:50:56.1452362Z   GnOuGo.Flow.Core -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Flow.Core/bin/Debug/net10.0/GnOuGo.Flow.Core.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:50:56.2080725Z   GnOuGo.Flow.Copilot -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Flow.Copilot/bin/Debug/net10.0/GnOuGo.Flow.Copilot.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:50:56.3640275Z   GnOuGo.Workspace -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Workspace/bin/Debug/net10.0/GnOuGo.Workspace.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:50:56.4156012Z   GnOuGo.KeyVault.Core -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.KeyVault.Core/bin/Debug/net10.0/GnOuGo.KeyVault.Core.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:50:56.4742607Z   GnOuGo.Flow.Persistence -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Flow.Persistence/bin/Debug/net10.0/GnOuGo.Flow.Persistence.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:50:56.7988803Z   GnOuGo.Agent.Shared -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Agent.Shared/bin/Debug/net10.0/GnOuGo.Agent.Shared.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:50:56.8797851Z   GnOuGo.Auth.Core -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Auth.Core/bin/Debug/net10.0/GnOuGo.Auth.Core.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:50:56.9275952Z   GnOuGo.AI.Core -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.AI.Core/bin/Debug/net10.0/GnOuGo.AI.Core.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:50:56.9821133Z   GnOuGo.Diff.Core -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Diff.Core/bin/Debug/net10.0/GnOuGo.Diff.Core.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:50:57.0311416Z   GnOuGo.Mcp.Core -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Mcp.Core/bin/Debug/net10.0/GnOuGo.Mcp.Core.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:50:57.1025028Z   GnOuGo.Observability.Core -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Observability.Core/bin/Debug/net10.0/GnOuGo.Observability.Core.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:50:58.5067013Z   GnOuGo.Agent.Mcp -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Agent.Mcp/bin/Debug/net10.0/GnOuGo.Agent.Mcp.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:50:59.1677804Z   GnOuGo.AI.Local -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.AI.Local/bin/Debug/net10.0/GnOuGo.AI.Local.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:50:59.3760853Z   GnOuGo.Assets.Bears -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Assets.Bears/bin/Debug/net10.0/GnOuGo.Assets.Bears.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:51:00.2708746Z   GnOuGo.Assets.Animation -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Assets.Animation/bin/Debug/net10.0/GnOuGo.Assets.Animation.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:51:00.6630880Z   GnOuGo.DocIngestor.Core -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.DocIngestor.Core/bin/Debug/net10.0/GnOuGo.DocIngestor.Core.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:51:04.0977407Z   GnOuGo.DocIngestor.Mcp -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.DocIngestor.Mcp/bin/Debug/net10.0/GnOuGo.DocIngestor.Mcp.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:51:04.1454098Z   GnOuGo.Flow.Planning -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Flow.Planning/bin/Debug/net10.0/GnOuGo.Flow.Planning.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:51:04.1846362Z   GnOuGo.Flow.Integrations -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Flow.Integrations/bin/Debug/net10.0/GnOuGo.Flow.Integrations.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:51:04.3015075Z   GnOuGo.Flow.Mermaid -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Flow.Mermaid/bin/Debug/net10.0/GnOuGo.Flow.Mermaid.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:51:05.1091759Z   GnOuGo.Files.Server -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Files.Server/bin/Debug/net10.0/GnOuGo.Files.Server.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:51:05.6972751Z   GnOuGo.KeyVault.Mcp -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.KeyVault.Mcp/bin/Debug/net10.0/GnOuGo.KeyVault.Mcp.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:51:08.4229251Z   GnOuGo.OtlpCollector.Server -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.OtlpCollector.Server/bin/Debug/net10.0/GnOuGo.OtlpCollector.Server.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:51:08.4934202Z   GnOuGo.Mcp.Core -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Mcp.Core/bin/Debug/net10.0/GnOuGo.Mcp.Core.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:51:08.5267915Z   GnOuGo.Observability.Core -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Observability.Core/bin/Debug/net10.0/GnOuGo.Observability.Core.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:51:08.5712621Z   GnOuGo.Browser.Mcp -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Browser.Mcp/bin/Debug/net10.0/GnOuGo.Browser.Mcp.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:51:08.7065994Z   GnOuGo.Workspace -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Workspace/bin/Debug/net10.0/GnOuGo.Workspace.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:51:09.1033851Z   GnOuGo.Cmd.Mcp -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Cmd.Mcp/bin/Debug/net10.0/GnOuGo.Cmd.Mcp.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:51:09.1491797Z   GnOuGo.Diff.Core -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Diff.Core/bin/Debug/net10.0/GnOuGo.Diff.Core.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:51:09.1888813Z   GnOuGo.Document.Mcp -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Document.Mcp/bin/Debug/net10.0/GnOuGo.Document.Mcp.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:51:09.2789445Z   GnOuGo.Auth.Core -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Auth.Core/bin/Debug/net10.0/GnOuGo.Auth.Core.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:51:09.3213433Z   GnOuGo.Flow.Core -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Flow.Core/bin/Debug/net10.0/GnOuGo.Flow.Core.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:51:09.3974523Z   GnOuGo.GithubCopilot.Core -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.GithubCopilot.Core/bin/Debug/net10.0/GnOuGo.GithubCopilot.Core.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:51:09.9976573Z   GnOuGo.KeyVault.Core -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.KeyVault.Core/bin/Debug/net10.0/GnOuGo.KeyVault.Core.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:51:10.0451566Z   GnOuGo.GithubCopilot.Mcp -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.GithubCopilot.Mcp/bin/Debug/net10.0/GnOuGo.GithubCopilot.Mcp.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:51:10.0823714Z   GnOuGo.Git.Mcp -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Git.Mcp/bin/Debug/net10.0/GnOuGo.Git.Mcp.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:51:17.5167989Z   GnOuGo.Agent.Server -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Agent.Server/bin/Debug/net10.0/GnOuGo.Agent.Server.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:51:17.5252992Z   Staging GnOuGo MCP development tools into bin/Debug/net10.0/tools...
+validate	Test planner, runtime and host integration	2026-10-11T12:51:20.5617402Z   GnOuGo.Document.Mcp -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Document.Mcp/bin/Debug/net10.0/GnOuGo.Document.Mcp.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:51:20.5965635Z   GnOuGo.Browser.Mcp -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Browser.Mcp/bin/Debug/net10.0/GnOuGo.Browser.Mcp.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:51:20.6129217Z   Installing Playwright Chromium browsers...
+validate	Test planner, runtime and host integration	2026-10-11T12:51:20.9828095Z   GnOuGo.Git.Mcp -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Git.Mcp/bin/Debug/net10.0/GnOuGo.Git.Mcp.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:51:21.0127759Z   GnOuGo.Cmd.Mcp -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.Cmd.Mcp/bin/Debug/net10.0/GnOuGo.Cmd.Mcp.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:51:21.0461188Z   GnOuGo.GithubCopilot.Core -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.GithubCopilot.Core/bin/Debug/net10.0/GnOuGo.GithubCopilot.Core.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:51:21.7054428Z   GnOuGo.GithubCopilot.Mcp -> /home/runner/work/GnouGo/GnouGo/src/GnOuGo.GithubCopilot.Mcp/bin/Debug/net10.0/GnOuGo.GithubCopilot.Mcp.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:51:32.9482514Z   GnOuGo.Agent.Server.Tests -> /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Agent.Server.Tests/bin/Debug/net10.0/GnOuGo.Agent.Server.Tests.dll
+validate	Test planner, runtime and host integration	2026-10-11T12:51:33.0396311Z   Staging GnOuGo MCP development tools into bin/Debug/net10.0/tools...
+validate	Test planner, runtime and host integration	2026-10-11T12:51:37.5496623Z Test run for /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Agent.Server.Tests/bin/Debug/net10.0/GnOuGo.Agent.Server.Tests.dll (.NETCoreApp,Version=v10.0)
+validate	Test planner, runtime and host integration	2026-10-11T12:51:37.6924958Z A total of 1 test files matched the specified pattern.
+validate	Test planner, runtime and host integration	2026-10-11T12:53:30.4411518Z [xUnit.net 00:01:52.45]     GnOuGo.Agent.Server.Tests.PlanningClarificationBrowserTests.DesignerBrowserUsesRealPersistedQuestionsAndExplicitSubmission [SKIP]
+validate	Test planner, runtime and host integration	2026-10-11T12:53:30.4607493Z   Skipped GnOuGo.Agent.Server.Tests.PlanningClarificationBrowserTests.DesignerBrowserUsesRealPersistedQuestionsAndExplicitSubmission [1 ms]
+validate	Test planner, runtime and host integration	2026-10-11T13:10:25.5928145Z [xUnit.net 00:18:47.60]     GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: "compact") [FAIL]
+validate	Test planner, runtime and host integration	2026-10-11T13:10:25.5958005Z   Failed GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: "compact") [13 s]
+validate	Test planner, runtime and host integration	2026-10-11T13:10:25.5959540Z   Error Message:
+validate	Test planner, runtime and host integration	2026-10-11T13:10:25.5960211Z    Assert.Equal() Failure: Strings differ
+validate	Test planner, runtime and host integration	2026-10-11T13:10:25.5961038Z                              ↓ (pos 18)
+validate	Test planner, runtime and host integration	2026-10-11T13:10:25.5961438Z Expected: "compact-bindings-v9"
+validate	Test planner, runtime and host integration	2026-10-11T13:10:25.5961838Z Actual:   "compact-bindings-v10"
+validate	Test planner, runtime and host integration	2026-10-11T13:10:25.5962266Z                              ↑ (pos 18)
+validate	Test planner, runtime and host integration	2026-10-11T13:10:25.5962620Z   Stack Trace:
+validate	Test planner, runtime and host integration	2026-10-11T13:10:25.5963991Z      at GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(String variant) in /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.BusinessTasks.cs:line 224
+validate	Test planner, runtime and host integration	2026-10-11T13:10:25.5967633Z    at GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(String variant) in /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.BusinessTasks.cs:line 304
+validate	Test planner, runtime and host integration	2026-10-11T13:10:25.5970242Z    at GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(String variant) in /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.BusinessTasks.cs:line 306
+validate	Test planner, runtime and host integration	2026-10-11T13:12:49.5982116Z [xUnit.net 00:21:11.61]     GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: "fabricated") [FAIL]
+validate	Test planner, runtime and host integration	2026-10-11T13:12:49.5985326Z    at GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(String variant) in /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.BusinessTasks.cs:line 306
+validate	Test planner, runtime and host integration	2026-10-11T13:12:49.5987728Z --- End of stack trace from previous location ---
+validate	Test planner, runtime and host integration	2026-10-11T13:12:49.5999902Z   Failed GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: "fabricated") [13 s]
+validate	Test planner, runtime and host integration	2026-10-11T13:12:49.6001368Z   Error Message:
+validate	Test planner, runtime and host integration	2026-10-11T13:12:49.6001741Z    Assert.Equal() Failure: Strings differ
+validate	Test planner, runtime and host integration	2026-10-11T13:12:49.6002386Z                              ↓ (pos 18)
+validate	Test planner, runtime and host integration	2026-10-11T13:12:49.6002991Z Expected: "compact-bindings-v9"
+validate	Test planner, runtime and host integration	2026-10-11T13:12:49.6003536Z Actual:   "compact-bindings-v10"
+validate	Test planner, runtime and host integration	2026-10-11T13:12:49.6003951Z                              ↑ (pos 18)
+validate	Test planner, runtime and host integration	2026-10-11T13:12:49.6004318Z   Stack Trace:
+validate	Test planner, runtime and host integration	2026-10-11T13:12:49.6005609Z      at GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(String variant) in /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.BusinessTasks.cs:line 224
+validate	Test planner, runtime and host integration	2026-10-11T13:12:49.6009072Z    at GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(String variant) in /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.BusinessTasks.cs:line 304
+validate	Test planner, runtime and host integration	2026-10-11T13:12:49.6012619Z    at GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(String variant) in /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.BusinessTasks.cs:line 306
+validate	Test planner, runtime and host integration	2026-10-11T13:12:49.6016481Z    at GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(String variant) in /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.BusinessTasks.cs:line 306
+validate	Test planner, runtime and host integration	2026-10-11T13:12:49.6018765Z --- End of stack trace from previous location ---
+validate	Test planner, runtime and host integration	2026-10-11T13:13:02.7568941Z [xUnit.net 00:21:24.77]     GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: "unoffered") [FAIL]
+validate	Test planner, runtime and host integration	2026-10-11T13:13:02.7598075Z   Failed GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: "unoffered") [13 s]
+validate	Test planner, runtime and host integration	2026-10-11T13:13:02.7599700Z   Error Message:
+validate	Test planner, runtime and host integration	2026-10-11T13:13:02.7600275Z    Assert.Equal() Failure: Strings differ
+validate	Test planner, runtime and host integration	2026-10-11T13:13:02.7600936Z                              ↓ (pos 18)
+validate	Test planner, runtime and host integration	2026-10-11T13:13:02.7601375Z Expected: "compact-bindings-v9"
+validate	Test planner, runtime and host integration	2026-10-11T13:13:02.7601757Z Actual:   "compact-bindings-v10"
+validate	Test planner, runtime and host integration	2026-10-11T13:13:02.7602169Z                              ↑ (pos 18)
+validate	Test planner, runtime and host integration	2026-10-11T13:13:02.7602542Z   Stack Trace:
+validate	Test planner, runtime and host integration	2026-10-11T13:13:02.7603922Z      at GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(String variant) in /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.BusinessTasks.cs:line 224
+validate	Test planner, runtime and host integration	2026-10-11T13:13:02.7606879Z    at GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(String variant) in /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.BusinessTasks.cs:line 304
+validate	Test planner, runtime and host integration	2026-10-11T13:13:02.7610551Z    at GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(String variant) in /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.BusinessTasks.cs:line 306
+validate	Test planner, runtime and host integration	2026-10-11T13:13:02.7614140Z    at GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(String variant) in /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.BusinessTasks.cs:line 306
+validate	Test planner, runtime and host integration	2026-10-11T13:13:02.7616363Z --- End of stack trace from previous location ---
+validate	Test planner, runtime and host integration	2026-10-11T13:15:13.7230246Z [xUnit.net 00:23:35.73]     GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: "exact_rows") [FAIL]
+validate	Test planner, runtime and host integration	2026-10-11T13:15:13.7232405Z   Failed GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: "exact_rows") [13 s]
+validate	Test planner, runtime and host integration	2026-10-11T13:15:13.7256845Z   Error Message:
+validate	Test planner, runtime and host integration	2026-10-11T13:15:13.7276820Z    Assert.Equal() Failure: Strings differ
+validate	Test planner, runtime and host integration	2026-10-11T13:15:13.7278130Z                              ↓ (pos 18)
+validate	Test planner, runtime and host integration	2026-10-11T13:15:13.7278817Z Expected: "compact-bindings-v9"
+validate	Test planner, runtime and host integration	2026-10-11T13:15:13.7279768Z Actual:   "compact-bindings-v10"
+validate	Test planner, runtime and host integration	2026-10-11T13:15:13.7280591Z                              ↑ (pos 18)
+validate	Test planner, runtime and host integration	2026-10-11T13:15:13.7281399Z   Stack Trace:
+validate	Test planner, runtime and host integration	2026-10-11T13:15:13.7283746Z      at GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(String variant) in /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.BusinessTasks.cs:line 224
+validate	Test planner, runtime and host integration	2026-10-11T13:15:13.7287543Z    at GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(String variant) in /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.BusinessTasks.cs:line 304
+validate	Test planner, runtime and host integration	2026-10-11T13:15:13.7290624Z    at GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(String variant) in /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.BusinessTasks.cs:line 306
+validate	Test planner, runtime and host integration	2026-10-11T13:15:13.7293029Z    at GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(String variant) in /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.BusinessTasks.cs:line 306
+validate	Test planner, runtime and host integration	2026-10-11T13:15:13.7295147Z --- End of stack trace from previous location ---
+validate	Test planner, runtime and host integration	2026-10-11T13:16:22.6928473Z [xUnit.net 00:24:44.70]     GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: "verbatim_unknown") [FAIL]
+validate	Test planner, runtime and host integration	2026-10-11T13:16:22.6931505Z   Failed GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: "verbatim_unknown") [13 s]
+validate	Test planner, runtime and host integration	2026-10-11T13:16:22.6947018Z   Error Message:
+validate	Test planner, runtime and host integration	2026-10-11T13:16:22.6976969Z    Assert.Equal() Failure: Strings differ
+validate	Test planner, runtime and host integration	2026-10-11T13:16:22.6977977Z                              ↓ (pos 18)
+validate	Test planner, runtime and host integration	2026-10-11T13:16:22.6978587Z Expected: "compact-bindings-v9"
+validate	Test planner, runtime and host integration	2026-10-11T13:16:22.6979223Z Actual:   "compact-bindings-v10"
+validate	Test planner, runtime and host integration	2026-10-11T13:16:22.6979856Z                              ↑ (pos 18)
+validate	Test planner, runtime and host integration	2026-10-11T13:16:22.6980357Z   Stack Trace:
+validate	Test planner, runtime and host integration	2026-10-11T13:16:22.6982549Z      at GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(String variant) in /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.BusinessTasks.cs:line 224
+validate	Test planner, runtime and host integration	2026-10-11T13:16:22.6986904Z    at GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(String variant) in /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.BusinessTasks.cs:line 304
+validate	Test planner, runtime and host integration	2026-10-11T13:16:22.6992351Z    at GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(String variant) in /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.BusinessTasks.cs:line 306
+validate	Test planner, runtime and host integration	2026-10-11T13:16:22.6996740Z    at GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(String variant) in /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.BusinessTasks.cs:line 306
+validate	Test planner, runtime and host integration	2026-10-11T13:16:22.6999672Z --- End of stack trace from previous location ---
+validate	Test planner, runtime and host integration	2026-10-11T13:16:36.2499560Z [xUnit.net 00:24:58.26]     GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: "verbatim_rows") [FAIL]
+validate	Test planner, runtime and host integration	2026-10-11T13:16:36.2529953Z   Failed GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: "verbatim_rows") [13 s]
+validate	Test planner, runtime and host integration	2026-10-11T13:16:36.2556499Z   Error Message:
+validate	Test planner, runtime and host integration	2026-10-11T13:16:36.2581986Z    Assert.Equal() Failure: Strings differ
+validate	Test planner, runtime and host integration	2026-10-11T13:16:36.2583585Z                              ↓ (pos 18)
+validate	Test planner, runtime and host integration	2026-10-11T13:16:36.2597088Z Expected: "compact-bindings-v9"
+validate	Test planner, runtime and host integration	2026-10-11T13:16:36.2600786Z Actual:   "compact-bindings-v10"
+validate	Test planner, runtime and host integration	2026-10-11T13:16:36.2601866Z                              ↑ (pos 18)
+validate	Test planner, runtime and host integration	2026-10-11T13:16:36.2602592Z   Stack Trace:
+validate	Test planner, runtime and host integration	2026-10-11T13:16:36.2604831Z      at GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(String variant) in /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.BusinessTasks.cs:line 224
+validate	Test planner, runtime and host integration	2026-10-11T13:16:36.2608848Z    at GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(String variant) in /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.BusinessTasks.cs:line 304
+validate	Test planner, runtime and host integration	2026-10-11T13:16:36.2612263Z    at GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(String variant) in /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.BusinessTasks.cs:line 306
+validate	Test planner, runtime and host integration	2026-10-11T13:16:36.2616114Z    at GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(String variant) in /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.BusinessTasks.cs:line 306
+validate	Test planner, runtime and host integration	2026-10-11T13:16:36.2618312Z --- End of stack trace from previous location ---
+validate	Test planner, runtime and host integration	2026-10-11T13:17:46.8575058Z [xUnit.net 00:26:08.87]     GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: "repeated") [FAIL]
+validate	Test planner, runtime and host integration	2026-10-11T13:17:46.8579294Z   Failed GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: "repeated") [13 s]
+validate	Test planner, runtime and host integration	2026-10-11T13:17:46.8587587Z   Error Message:
+validate	Test planner, runtime and host integration	2026-10-11T13:17:46.8588681Z    Assert.Equal() Failure: Strings differ
+validate	Test planner, runtime and host integration	2026-10-11T13:17:46.8589944Z                              ↓ (pos 18)
+validate	Test planner, runtime and host integration	2026-10-11T13:17:46.8590758Z Expected: "compact-bindings-v9"
+validate	Test planner, runtime and host integration	2026-10-11T13:17:46.8591542Z Actual:   "compact-bindings-v10"
+validate	Test planner, runtime and host integration	2026-10-11T13:17:46.8592471Z                              ↑ (pos 18)
+validate	Test planner, runtime and host integration	2026-10-11T13:17:46.8593226Z   Stack Trace:
+validate	Test planner, runtime and host integration	2026-10-11T13:17:46.8595796Z      at GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(String variant) in /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.BusinessTasks.cs:line 224
+validate	Test planner, runtime and host integration	2026-10-11T13:17:46.8600070Z    at GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(String variant) in /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.BusinessTasks.cs:line 304
+validate	Test planner, runtime and host integration	2026-10-11T13:17:46.8603993Z    at GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(String variant) in /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.BusinessTasks.cs:line 306
+validate	Test planner, runtime and host integration	2026-10-11T13:17:46.8608067Z    at GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(String variant) in /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.BusinessTasks.cs:line 306
+validate	Test planner, runtime and host integration	2026-10-11T13:17:46.8610761Z --- End of stack trace from previous location ---
+validate	Test planner, runtime and host integration	2026-10-11T13:18:00.0130047Z [xUnit.net 00:26:22.02]     GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: "empty") [FAIL]
+validate	Test planner, runtime and host integration	2026-10-11T13:18:00.0157255Z   Failed GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: "empty") [13 s]
+validate	Test planner, runtime and host integration	2026-10-11T13:18:00.0166955Z   Error Message:
+validate	Test planner, runtime and host integration	2026-10-11T13:18:00.0167655Z    Assert.Equal() Failure: Strings differ
+validate	Test planner, runtime and host integration	2026-10-11T13:18:00.0168757Z                              ↓ (pos 18)
+validate	Test planner, runtime and host integration	2026-10-11T13:18:00.0169417Z Expected: "compact-bindings-v9"
+validate	Test planner, runtime and host integration	2026-10-11T13:18:00.0170105Z Actual:   "compact-bindings-v10"
+validate	Test planner, runtime and host integration	2026-10-11T13:18:00.0170917Z                              ↑ (pos 18)
+validate	Test planner, runtime and host integration	2026-10-11T13:18:00.0171515Z   Stack Trace:
+validate	Test planner, runtime and host integration	2026-10-11T13:18:00.0173762Z      at GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(String variant) in /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.BusinessTasks.cs:line 224
+validate	Test planner, runtime and host integration	2026-10-11T13:18:00.0177723Z    at GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(String variant) in /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.BusinessTasks.cs:line 304
+validate	Test planner, runtime and host integration	2026-10-11T13:18:00.0181824Z    at GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(String variant) in /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.BusinessTasks.cs:line 306
+validate	Test planner, runtime and host integration	2026-10-11T13:18:00.0185778Z    at GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(String variant) in /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.BusinessTasks.cs:line 306
+validate	Test planner, runtime and host integration	2026-10-11T13:18:00.0188105Z --- End of stack trace from previous location ---
+validate	Test planner, runtime and host integration	2026-10-11T13:18:13.1898422Z [xUnit.net 00:26:35.20]     GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: "denied") [FAIL]
+validate	Test planner, runtime and host integration	2026-10-11T13:18:13.1900932Z   Failed GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: "denied") [13 s]
+validate	Test planner, runtime and host integration	2026-10-11T13:18:13.1907001Z   Error Message:
+validate	Test planner, runtime and host integration	2026-10-11T13:18:13.1908105Z    Assert.Equal() Failure: Strings differ
+validate	Test planner, runtime and host integration	2026-10-11T13:18:13.1909307Z                              ↓ (pos 18)
+validate	Test planner, runtime and host integration	2026-10-11T13:18:13.1910057Z Expected: "compact-bindings-v9"
+validate	Test planner, runtime and host integration	2026-10-11T13:18:13.1910919Z Actual:   "compact-bindings-v10"
+validate	Test planner, runtime and host integration	2026-10-11T13:18:13.1911762Z                              ↑ (pos 18)
+validate	Test planner, runtime and host integration	2026-10-11T13:18:13.1912401Z   Stack Trace:
+validate	Test planner, runtime and host integration	2026-10-11T13:18:13.1915161Z      at GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(String variant) in /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.BusinessTasks.cs:line 224
+validate	Test planner, runtime and host integration	2026-10-11T13:18:13.1920024Z    at GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(String variant) in /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.BusinessTasks.cs:line 304
+validate	Test planner, runtime and host integration	2026-10-11T13:18:13.1924445Z    at GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(String variant) in /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.BusinessTasks.cs:line 306
+validate	Test planner, runtime and host integration	2026-10-11T13:18:13.1929565Z    at GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(String variant) in /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.BusinessTasks.cs:line 306
+validate	Test planner, runtime and host integration	2026-10-11T13:18:13.1932422Z --- End of stack trace from previous location ---
+validate	Test planner, runtime and host integration	2026-10-11T13:18:26.3823391Z [xUnit.net 00:26:48.39]     GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: "incomplete") [FAIL]
+validate	Test planner, runtime and host integration	2026-10-11T13:18:26.3858020Z   Failed GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: "incomplete") [13 s]
+validate	Test planner, runtime and host integration	2026-10-11T13:18:26.3877798Z   Error Message:
+validate	Test planner, runtime and host integration	2026-10-11T13:18:26.3878550Z    Assert.Equal() Failure: Strings differ
+validate	Test planner, runtime and host integration	2026-10-11T13:18:26.3879576Z                              ↓ (pos 18)
+validate	Test planner, runtime and host integration	2026-10-11T13:18:26.3880367Z Expected: "compact-bindings-v9"
+validate	Test planner, runtime and host integration	2026-10-11T13:18:26.3881091Z Actual:   "compact-bindings-v10"
+validate	Test planner, runtime and host integration	2026-10-11T13:18:26.3881866Z                              ↑ (pos 18)
+validate	Test planner, runtime and host integration	2026-10-11T13:18:26.3882500Z   Stack Trace:
+validate	Test planner, runtime and host integration	2026-10-11T13:18:26.3884555Z      at GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(String variant) in /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.BusinessTasks.cs:line 224
+validate	Test planner, runtime and host integration	2026-10-11T13:18:26.3888972Z    at GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(String variant) in /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.BusinessTasks.cs:line 304
+validate	Test planner, runtime and host integration	2026-10-11T13:18:26.3893018Z    at GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(String variant) in /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.BusinessTasks.cs:line 306
+validate	Test planner, runtime and host integration	2026-10-11T13:18:26.3897005Z    at GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(String variant) in /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.BusinessTasks.cs:line 306
+validate	Test planner, runtime and host integration	2026-10-11T13:18:26.3899273Z --- End of stack trace from previous location ---
+validate	Test planner, runtime and host integration	2026-10-11T13:30:15.6242290Z
+validate	Test planner, runtime and host integration	2026-10-11T13:30:15.6287317Z Failed!  - Failed:    10, Passed:   769, Skipped:     1, Total:   780, Duration: 38 m 36 s - GnOuGo.Agent.Server.Tests.dll (net10.0)
+validate	Test planner, runtime and host integration	2026-10-11T13:30:15.6646471Z ##[error]Process completed with exit code 1.

@@ -1,0 +1,72 @@
+[
+  {
+    "runtime_request_ordinal": 19,
+    "diagnostic": "Mapping JavaScript contains an unsupported operation.",
+    "failing_index": null,
+    "assigned_count": 15,
+    "previous_script": "[...item.records.filter(r=>m.test(r.selector,\"^#title$\")).slice(0,1).map(r=>({name:m.trim(r.text),description:null,price:null,error:null})),...item.records.filter(r=>m.test(r.selector,\"^#apex-pricetopay-accessibility-label$\")&&m.test(r.text,\"^[0-9]+,[0-9]{2}\\\\s?€\")).slice(0,1).map(r=>({name:null,description:null,price:m.text(r.text,\"^([0-9]+,[0-9]{2}\\\\s?€)\"),error:null})),...item.records.filter(r=>m.test(r.selector,\"#(productDescription|feature-bullets|productFacts)\")).slice(0,18).map(r=>({name:null,description:m.trim(r.text),price:null,error:null})),...item.records.filter(r=>m.test(r.text,\"(Désolé|Une erreur|Saisissez les caractères|robot|captcha|Page introuvable|Sorry|not found)\")).slice(0,1).map(r=>({name:null,description:null,price:null,error:m.trim(r.text)}))]"
+  },
+  {
+    "runtime_request_ordinal": 22,
+    "diagnostic": "Mapping JavaScript contains an unsupported operation.",
+    "failing_index": null,
+    "assigned_count": 18,
+    "previous_script": "item.records.filter(r=>m.test(r.selector,\"^#title$\")||m.test(r.kind,\"^text$\")&&m.test(r.selector,\"^#productDescription|feature-bullets\")&&m.test(r.text,\"\\\\S\")||m.test(r.selector,\"^#apex_desktop|^#corePriceDisplay\")&&m.test(r.text,\"^[0-9][0-9 .,]* ?€\")||m.test(r.text,\"[Ee]rreur|[Dd]ésolé|[Ss]orry|[Cc][Aa][Pp][Tt][Cc][Hh][Aa]\")).slice(0,1).map(_=>({name:m.select(item.records.filter(r=>m.test(r.selector,\"^#title$\")),[[0,\"text\"]])??null,description:m.select(item.records.filter(r=>m.test(r.kind,\"^text$\")&&m.test(r.selector,\"^#productDescription|feature-bullets\")&&m.test(r.text,\"\\\\S\")),[[0,\"text\"]])??null,price:m.select(item.records.filter(r=>m.test(r.selector,\"^#apex_desktop|^#corePriceDisplay\")&&m.test(r.text,\"^[0-9][0-9 .,]* ?€\")).map(r=>({text:m.text(r.text,\"^([0-9][0-9 .,]* ?€)\")})),[[0,\"text\"]])??null,error:m.select(item.records.filter(r=>m.test(r.text,\"[Ee]rreur|[Dd]ésolé|[Ss]orry|[Cc][Aa][Pp][Tt][Cc][Hh][Aa]\")),[[0,\"text\"]])??null}))"
+  },
+  {
+    "runtime_request_ordinal": 23,
+    "diagnostic": "Invalid mapping helper optional: path must be a literal property array.",
+    "failing_index": null,
+    "assigned_count": 18,
+    "previous_script": "item.records.filter(r=>m.test(r.selector,\"^#title$\")||m.test(r.kind,\"^text$\")&&m.test(r.selector,\"^#productDescription|feature-bullets\")&&m.test(r.text,\"\\\\S\")||m.test(r.selector,\"^#apex_desktop|^#corePriceDisplay\")&&m.test(r.text,\"^[0-9][0-9 .,]* ?€\")||m.test(r.text,\"[Ee]rreur|[Dd]ésolé|[Ss]orry|[Cc][Aa][Pp][Tt][Cc][Hh][Aa]\")).slice(0,1).map(_=>({name:m.optional(item.records.filter(r=>m.test(r.selector,\"^#title$\")),[0,\"text\"]),description:m.optional(item.records.filter(r=>m.test(r.kind,\"^text$\")&&m.test(r.selector,\"^#productDescription|feature-bullets\")&&m.test(r.text,\"\\\\S\")),[0,\"text\"]),price:m.optional(item.records.filter(r=>m.test(r.selector,\"^#apex_desktop|^#corePriceDisplay\")&&m.test(r.text,\"^[0-9][0-9 .,]* ?€\")).map(r=>({text:m.text(r.text,\"^([0-9][0-9 .,]* ?€)\")})),[0,\"text\"]),error:m.optional(item.records.filter(r=>m.test(r.text,\"[Ee]rreur|[Dd]ésolé|[Ss]orry|[Cc][Aa][Pp][Tt][Cc][Hh][Aa]\")),[0,\"text\"])}))"
+  },
+  {
+    "runtime_request_ordinal": 24,
+    "diagnostic": "optional requires an observed container, not a constructed or null observation.",
+    "failing_index": 1,
+    "assigned_count": 1,
+    "previous_script": "item.records.filter(r=>m.test(r.selector,\"^#title$\")||m.test(r.kind,\"^text$\")&&m.test(r.selector,\"^#productDescription|feature-bullets\")&&m.test(r.text,\"\\\\S\")||m.test(r.selector,\"^#apex_desktop|^#corePriceDisplay\")&&m.test(r.text,\"^[0-9][0-9 .,]* ?€\")||m.test(r.text,\"[Ee]rreur|[Dd]ésolé|[Ss]orry|[Cc][Aa][Pp][Tt][Cc][Hh][Aa]\")).slice(0,1).map(_=>({name:m.optional(item.records.filter(r=>m.test(r.selector,\"^#title$\")),[\"0\",\"text\"]),description:m.optional(item.records.filter(r=>m.test(r.kind,\"^text$\")&&m.test(r.selector,\"^#productDescription|feature-bullets\")&&m.test(r.text,\"\\\\S\")),[\"0\",\"text\"]),price:m.optional(item.records.filter(r=>m.test(r.selector,\"^#apex_desktop|^#corePriceDisplay\")&&m.test(r.text,\"^[0-9][0-9 .,]* ?€\")).map(r=>({text:m.text(r.text,\"^([0-9][0-9 .,]* ?€)\")})),[\"0\",\"text\"]),error:m.optional(item.records.filter(r=>m.test(r.text,\"[Ee]rreur|[Dd]ésolé|[Ss]orry|[Cc][Aa][Pp][Tt][Cc][Hh][Aa]\")),[\"0\",\"text\"])}))"
+  },
+  {
+    "runtime_request_ordinal": 25,
+    "diagnostic": "Mapping JavaScript contains an unsupported operation.",
+    "failing_index": null,
+    "assigned_count": 1,
+    "previous_script": "item.records.filter(r=>m.test(r.selector,\"^#title$\")||m.test(r.kind,\"^text$\")&&m.test(r.selector,\"^#productDescription|feature-bullets\")&&m.test(r.text,\"\\\\S\")||m.test(r.selector,\"^#apex_desktop|^#corePriceDisplay\")&&m.test(r.text,\"^[0-9][0-9 .,]* ?€\")||m.test(r.text,\"[Ee]rreur|[Dd]ésolé|[Ss]orry|[Cc][Aa][Pp][Tt][Cc][Hh][Aa]\")).slice(0,1).map(_=>({name:m.select(item.records.filter(r=>m.test(r.selector,\"^#title$\")),[[\"0\",\"text\"]])??null,description:m.select(item.records.filter(r=>m.test(r.kind,\"^text$\")&&m.test(r.selector,\"^#productDescription|feature-bullets\")&&m.test(r.text,\"\\\\S\")),[[\"0\",\"text\"]])??null,price:m.select(item.records.filter(r=>m.test(r.selector,\"^#apex_desktop|^#corePriceDisplay\")&&m.test(r.text,\"^[0-9][0-9 .,]* ?€\")).map(r=>({text:m.text(r.text,\"^([0-9][0-9 .,]* ?€)\")})),[[\"0\",\"text\"]])??null,error:m.select(item.records.filter(r=>m.test(r.text,\"[Ee]rreur|[Dd]ésolé|[Ss]orry|[Cc][Aa][Pp][Tt][Cc][Hh][Aa]\")),[[\"0\",\"text\"]])??null}))"
+  },
+  {
+    "runtime_request_ordinal": 26,
+    "diagnostic": "Invalid mapping helper select: incorrect argument count.",
+    "failing_index": null,
+    "assigned_count": 1,
+    "previous_script": "item.records.filter(r=>m.test(r.selector,\"^#title$\")||m.test(r.kind,\"^text$\")&&m.test(r.selector,\"(#productDescription|feature-bullets)\")&&m.test(r.text,\"\\\\S\")||m.test(r.selector,\"^(#apex_desktop|#corePriceDisplay)\")&&m.test(r.text,\"^[0-9][0-9 .,]* ?€\")||m.test(r.text,\"[Ee]rreur|[Dd]ésolé|[Ss]orry|[Cc][Aa][Pp][Tt][Cc][Hh][Aa]\")).slice(0,1).map(_=>({name:m.has(item.records.filter(r=>m.test(r.selector,\"^#title$\")),\"0\")?m.select(item.records.filter(r=>m.test(r.selector,\"^#title$\")),[[\"0\",\"text\"]]):null,description:m.has(item.records.filter(r=>m.test(r.kind,\"^text$\")&&m.test(r.selector,\"(#productDescription|feature-bullets)\")&&m.test(r.text,\"\\\\S\")),\"0\")?m.select(item.records.filter(r=>m.test(r.kind,\"^text$\")&&m.test(r.selector,\"(#productDescription|feature-bullets)\")&&m.test(r.text,\"\\\\S\")),[[\"0\",\"text\"]]):null,price:m.has(item.records.filter(r=>m.test(r.selector,\"^(#apex_desktop|#corePriceDisplay)\")&&m.test(r.text,\"^[0-9][0-9 .,]* ?€\")),\"0\")?m.select(item.records.filter(r=>m.test(r.selector,\"^(#apex_desktop|#corePriceDisplay)\")&&m.test(r.text,\"^[0-9][0-9 .,]* ?€\")).map(r=>({text:m.text(r.text,\"^([0-9][0-9 .,]* ?€)\")})),[[\"0\",\"text\"]]):null,error:m.has(item.records.filter(r=>m.test(r.text,\"[Ee]rreur|[Dd]ésolé|[Ss]orry|[Cc][Aa][Pp][Tt][Cc][Hh][Aa]\")),\"0\")?m.select(item.records.filter(r=>m.test(r.text,\"[Ee]rreur|[Dd]ésolé|[Ss]orry|[Cc][Aa][Pp][Tt][Cc][Hh][Aa]\")),[[\"0\",\"text\"]]):null}))"
+  },
+  {
+    "runtime_request_ordinal": 27,
+    "diagnostic": "optional requires an observed container, not a constructed or null observation.",
+    "failing_index": 5,
+    "assigned_count": 1,
+    "previous_script": "item.records.filter(r=>m.test(r.selector,\"^#title$\")||m.test(r.kind,\"^text$\")&&m.test(r.selector,\"^#productDescription|feature-bullets\")&&m.test(r.text,\"\\\\S\")||m.test(r.selector,\"^#apex_desktop|^#corePriceDisplay\")&&m.test(r.text,\"^[0-9][0-9 .,]* ?€\")||m.test(r.text,\"[Ee]rreur|[Dd]ésolé|[Ss]orry|[Cc][Aa][Pp][Tt][Cc][Hh][Aa]\")).slice(0,1).map(_=>({name:m.optional(item.records.filter(r=>m.test(r.selector,\"^#title$\")),[\"0\",\"text\"]),description:m.optional(item.records.filter(r=>m.test(r.kind,\"^text$\")&&m.test(r.selector,\"^#productDescription|feature-bullets\")&&m.test(r.text,\"\\\\S\")),[\"0\",\"text\"]),price:m.optional(item.records.filter(r=>m.test(r.selector,\"^#apex_desktop|^#corePriceDisplay\")&&m.test(r.text,\"^[0-9][0-9 .,]* ?€\")).map(r=>({text:m.text(r.text,\"^([0-9][0-9 .,]* ?€)\")})),[\"0\",\"text\"]),error:m.optional(item.records.filter(r=>m.test(r.text,\"[Ee]rreur|[Dd]ésolé|[Ss]orry|[Cc][Aa][Pp][Tt][Cc][Hh][Aa]\")),[\"0\",\"text\"])}))"
+  },
+  {
+    "runtime_request_ordinal": 28,
+    "diagnostic": "optional requires an observed container, not a constructed or null observation.",
+    "failing_index": 5,
+    "assigned_count": 1,
+    "previous_script": "[{name:m.optional(item.records.filter(r=>m.test(r.selector,\"^#productTitle$|^#title$|^#btfSubNavDesktopCopy > div:nth-of-type.1. > a:nth-of-type.2.$\")),[\"0\",\"text\"]),description:m.optional(item.records.filter(r=>m.test(r.kind,\"^text$\")&&m.test(r.selector,\"^#productDescription|feature-bullets\")&&m.test(r.text,\"\\\\S\")),[\"0\",\"text\"]),price:m.optional(item.records.filter(r=>m.test(r.selector,\"^#apex_desktop|^#corePriceDisplay\")&&m.test(r.text,\"^[0-9][0-9 .,]* ?€\")),[\"0\",\"text\"]),error:m.optional(item.records.filter(r=>m.test(r.text,\"[Ee]rreur|[Dd]ésolé|[Ss]orry|[Cc][Aa][Pp][Tt][Cc][Hh][Aa]\")),[\"0\",\"text\"])}]"
+  },
+  {
+    "runtime_request_ordinal": 31,
+    "diagnostic": "Invalid mapping helper has: property must be a literal string.",
+    "failing_index": null,
+    "assigned_count": 16,
+    "previous_script": "item.records.filter(r=>m.test(r.selector,\"^#title$|^#apex-pricetopay-accessibility-label$|^#feature-bullets|^#productDescription|^#productFactsDesktopExpander\")||m.test(r.text,\"[Cc]aptcha|[Rr]obot|[Ee]rreur|[Dd]ésolé|[Ii]ndisponible\")).slice(0,1).map(_=>({name:m.has(item.records.filter(r=>m.test(r.selector,\"^#title$\")),0)?m.select(item.records.filter(r=>m.test(r.selector,\"^#title$\")),[[0,\"text\"]],false):null,description:m.has(item.records.filter(r=>m.test(r.selector,\"^#feature-bullets|^#productDescription|^#productFactsDesktopExpander\")),0)?m.select(item.records.filter(r=>m.test(r.selector,\"^#feature-bullets|^#productDescription|^#productFactsDesktopExpander\")),[[0,\"text\"]],false):null,price:m.has(item.records.filter(r=>m.test(r.selector,\"^#apex-pricetopay-accessibility-label$\")),0)?m.select(item.records.filter(r=>m.test(r.selector,\"^#apex-pricetopay-accessibility-label$\")),[[0,\"text\"]],false):null,error:m.has(item.records.filter(r=>m.test(r.text,\"[Cc]aptcha|[Rr]obot|[Ee]rreur|[Dd]ésolé|[Ii]ndisponible\")),0)?m.select(item.records.filter(r=>m.test(r.text,\"[Cc]aptcha|[Rr]obot|[Ee]rreur|[Dd]ésolé|[Ii]ndisponible\")),[[0,\"text\"]],false):null}))"
+  },
+  {
+    "runtime_request_ordinal": 32,
+    "diagnostic": "Invalid mapping helper optional: path must be a literal property array.",
+    "failing_index": null,
+    "assigned_count": 16,
+    "previous_script": "item.records.filter(r=>m.test(r.selector,\"^#title$|^#apex-pricetopay-accessibility-label$|^#feature-bullets|^#productDescription|^#productFactsDesktopExpander\")||m.test(r.text,\"[Cc]aptcha|[Rr]obot|[Ee]rreur|[Dd]ésolé|[Ii]ndisponible\")).slice(0,1).map(_=>({name:m.optional(item.records.filter(r=>m.test(r.selector,\"^#title$\")),[0,\"text\"]),description:m.optional(item.records.filter(r=>m.test(r.selector,\"^#feature-bullets|^#productDescription|^#productFactsDesktopExpander\")),[0,\"text\"]),price:m.optional(item.records.filter(r=>m.test(r.selector,\"^#apex-pricetopay-accessibility-label$\")),[0,\"text\"]),error:m.optional(item.records.filter(r=>m.test(r.text,\"[Cc]aptcha|[Rr]obot|[Ee]rreur|[Dd]ésolé|[Ii]ndisponible\")),[0,\"text\"])}))"
+  }
+]

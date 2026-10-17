@@ -41,6 +41,7 @@ public sealed class ConfigureAgentsService
     private readonly string _tenantId;
     private readonly ILLMUsageBudgetScopeFactory? _llmUsageBudgetScopeFactory;
     private readonly IExchangeRateProvider? _exchangeRateProvider;
+    private readonly WorkflowExecutionSettings _executionSettings;
     private readonly WorkflowPlanningBudgetSettings _workflowPlanningBudget;
 
     internal string WorkflowSource => _workflowYaml;
@@ -62,7 +63,8 @@ public sealed class ConfigureAgentsService
         ILLMUsageBudgetScopeFactory? llmUsageBudgetScopeFactory = null,
         IExchangeRateProvider? exchangeRateProvider = null,
         IOptions<WorkflowPlanningBudgetSettings>? workflowPlanningBudget = null,
-        IWorkflowRunStore? runStore = null)
+        IWorkflowRunStore? runStore = null,
+        IOptions<WorkflowExecutionSettings>? executionSettings = null)
     {
         _runStore = runStore;
         _llm = llm;
@@ -80,6 +82,7 @@ public sealed class ConfigureAgentsService
         _tenantId = WorkflowExecutionTenant.Resolve(openTelemetrySettings);
         _llmUsageBudgetScopeFactory = llmUsageBudgetScopeFactory;
         _exchangeRateProvider = exchangeRateProvider;
+        _executionSettings = executionSettings?.Value ?? new();
         _workflowPlanningBudget = workflowPlanningBudget?.Value ?? new WorkflowPlanningBudgetSettings();
         _workflowPlanningBudget.Validate();
 
@@ -235,6 +238,7 @@ public sealed class ConfigureAgentsService
             Logger = _logger,
             Limits = new ExecutionLimits
             {
+                MaxMappingInputTokens = _executionSettings.MaxMappingInputTokens,
                 LogStepContent = true,
                 RunId = Guid.NewGuid().ToString("N"),
                 TenantId = _tenantId

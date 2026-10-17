@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "attempts": [
+    {
+      "action": "targeted_revision",
+      "candidate": "708418cb77de34979a011b6f9bbe5cd0543314392a78862ba306bfc0bc0787ab",
+      "diagnostics": "d176515637d3c677bd24213aab0b64e68f99776fbe941d71f3fbb2f1add06599",
+      "callsUsed": 2,
+      "outcome": "rejected",
+      "completedAtCall": 3,
+      "responseCandidate": "83f166d3e03ef672b4c9ff40ee01085e90c9b22484979f8ca7b54b797e4dd330"
+    },
+    {
+      "action": "regenerate",
+      "candidate": "708418cb77de34979a011b6f9bbe5cd0543314392a78862ba306bfc0bc0787ab",
+      "diagnostics": "5ac92b568549df7bdb65f003aa1b7ae134af4d1e821bc11240d9d853ffe7f922",
+      "callsUsed": 3,
+      "outcome": "rejected",
+      "completedAtCall": 4,
+      "responseCandidate": "5a8ba1e9f0cf03e3533ccaf6ace1c3bfc4ae7b6fda1f7825d8a22e11db36796b"
+    }
+  ],
+  "locations": [
+    "/tasks/accept_cookies/requires",
+    "/tasks/extract_candidates_by_page/requires"
+  ],
+  "revision": 3,
+  "artifact": null,
+  "action": "regenerate"
+}

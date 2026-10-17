@@ -12,7 +12,7 @@ namespace GnOuGo.Flow.Core.Scripting;
 /// Sandboxed Jint JavaScript execution engine.
 /// Restricted: memory/time limits.
 /// </summary>
-public sealed class JintSandbox
+public sealed partial class JintSandbox
 {
     private readonly int _maxStatements;
     private readonly TimeSpan _timeout;
@@ -246,6 +246,7 @@ public sealed class JintSandbox
         if (value.IsNumber())
         {
             var d = value.AsNumber();
+            if (!double.IsFinite(d)) throw new WorkflowRuntimeException(ErrorCodes.EvalError, "An expression produced a nonfinite number.");
             // Preserve integer types when possible
             if (d == Math.Floor(d) && d >= int.MinValue && d <= int.MaxValue && !double.IsInfinity(d))
                 return JsonValue.Create((int)d);
@@ -280,4 +281,3 @@ public sealed class JintSandbox
         return null;
     }
 }
-

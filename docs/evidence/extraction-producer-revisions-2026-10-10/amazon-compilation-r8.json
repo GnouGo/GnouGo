@@ -1,0 +1,19 @@
+{
+  "revision": 8,
+  "artifact_hash": "e6b81b19d8b3c4ccacad4a112ab5e5f4838fd58bdc84e78b4464b28b3e9d41ad",
+  "task_count": 28,
+  "yaml_bytes": 142616,
+  "yaml_lines": 3388,
+  "workflows": 5,
+  "steps": 91,
+  "step_types": {
+    "mcp.call": 6,
+    "set": 56,
+    "switch": 12,
+    "mapping.dynamic": 3,
+    "template.render": 4,
+    "llm.call": 4,
+    "workflow.call": 4,
+    "loop.sequential": 2
+  }
+}

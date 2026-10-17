@@ -1,0 +1,64 @@
+{
+  "provider_calls": 0,
+  "mcp_calls": 0,
+  "workflow_resumed": false,
+  "storage_writes": 0,
+  "input_sha256": "b829c11448894b8f80ae2b5da0b22e8d5cd37a2f049aa4862b9172d558ba1448",
+  "source_pages": 54,
+  "source_records": 1540,
+  "original_script": "item.records.filter(r=\u003Em.has(r,\u0027kind\u0027)\u0026\u0026m.test(r.kind,\u0027^link$\u0027)\u0026\u0026m.has(r,\u0027selector\u0027)\u0026\u0026m.test(r.selector,\u0027h2\u0027)\u0026\u0026m.has(r,\u0027href\u0027)\u0026\u0026m.test(r.href,\u0027/(?:dp|gp/product)/\u0027)\u0026\u0026m.has(r,\u0027text\u0027)\u0026\u0026m.test(r.text,\u0027\\S\u0027)).map(r=\u003E({reference:m.has(r,\u0027reference\u0027)?r.reference:null,text:r.text,role:m.has(r,\u0027role\u0027)?r.role:null}))",
+  "measurements": [
+    {
+      "phase": "original_unchanged",
+      "script_sha256": "9cffc2b995b7d18f57748da3cd1ff42abc304bad1ea17d26da3c6b81747c1f75",
+      "pages": 54,
+      "candidates": 0,
+      "elapsed_ms": 434.1259,
+      "allocated_bytes": 22456352
+    },
+    {
+      "phase": "diagnostic_predicate_removal_only_not_a_proposed_business_mapping",
+      "script_sha256": "f4319abad777a75669ddad11bc03ce93ba314a49ba43d455ae9613fa1ac9ddcf",
+      "pages": 54,
+      "candidates": 29,
+      "elapsed_ms": 22.9514,
+      "allocated_bytes": 12825720
+    },
+    {
+      "phase": "diagnostic_predicate_removal_and_regex_escaping_only_not_a_proposed_business_mapping",
+      "script_sha256": "455fd69657c4f418d344266d34baec4e42bca4d65497b42fbe9c031283cd262e",
+      "pages": 54,
+      "candidates": 194,
+      "elapsed_ms": 16.7904,
+      "allocated_bytes": 13670904
+    }
+  ],
+  "recorded_decision": {
+    "selectedIds": [
+      ""
+    ],
+    "has_products": false,
+    "search_errors": []
+  },
+  "journal_status": "failed",
+  "journal_revision": 64,
+  "normal_steps": 13,
+  "finalization_steps": 1,
+  "finalization_completed": true,
+  "invocations": 14,
+  "invocation_statuses": {
+    "completed": 14
+  },
+  "unresolved_invocations": [],
+  "model_usage": {
+    "StartedAtUtc": "2026-10-12T10:31:23.994804\u002B00:00",
+    "Calls": 4,
+    "InputTokens": 44097,
+    "OutputTokens": 1931,
+    "TotalTokens": 46028,
+    "EstimatedCost": 0,
+    "EstimatedCostCurrency": "USD",
+    "ExchangeRates": [],
+    "EstimatedCostUsd": 0
+  }
+}

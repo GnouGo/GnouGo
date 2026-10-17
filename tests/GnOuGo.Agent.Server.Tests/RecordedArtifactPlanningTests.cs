@@ -11,65 +11,37 @@ public sealed class RecordedArtifactPlanningTests
     private static readonly string[] Locations = ["/tasks/checkout_pull_request/inputs/projectRoot", "/tasks/fetch_pull_request_ref/inputs/projectRoot"];
 
     [Fact]
-    public async Task RecordedResponsesKeepTheirIdentitiesAndDiagnoseTheWrongBusinessFields()
+    public async Task RetiredResponsesRequireRevisionAndRetainOriginalRequestsAndAccounting()
     {
-        var runtime = new Replay(); var planner = new HybridWorkflowPlanner(); PlanningSession? state = null;
-        foreach (var entry in runtime.Recording["responses"]!.AsArray())
+        var replay = new Replay();
+        foreach (var entry in replay.Recording["responses"]!.AsArray())
         {
-            runtime.Expected = entry!.AsObject(); var pending = runtime.State(entry["pendingSession"]!);
-            var before = JsonSerializer.Serialize(pending, PlanningJsonContext.Default.PlanningSession);
-            state = await planner.AdvanceAsync(pending, new() { ExpectedRevision = pending.Revision }, runtime, Ct);
-            Assert.Equal(pending.ModelCalls, state.ModelCalls); Assert.Equal(pending.ReplanAttempts, state.ReplanAttempts);
-            Assert.Equal(before, JsonSerializer.Serialize(pending, PlanningJsonContext.Default.PlanningSession));
-            Assert.Equal(JsonSerializer.Serialize(pending.Usage, PlanningJsonContext.Default.LLMUsageBudgetSnapshot), JsonSerializer.Serialize(state.Usage, PlanningJsonContext.Default.LLMUsageBudgetSnapshot));
-            Assert.Null(state.PendingCall); Assert.Null(state.Graph); Assert.Null(state.Yaml);
+            replay.Expected = entry!.AsObject();
+            var pending = replay.State(entry["pendingSession"]!);
+            await RecordedPlanCompilation.RetiredAsync(pending, replay);
         }
-        Assert.Equal(5, runtime.Identities.Count); Assert.Equal(5, state!.ModelCalls); Assert.Equal(1, state.ReplanAttempts);
-        Assert.Equal(Locations, state.Diagnostics.Select(d => d.Location));
-        Assert.All(state.Diagnostics, d => Assert.Equal("TASK_ARTIFACT_BINDING", d.Code));
-        Assert.Equal(Locations, state.RevisionScope.Order(StringComparer.Ordinal));
-        Assert.Contains(runtime.Recording["finalSession"]!["diagnostics"]!.AsArray(), d => d!["message"]!.ToString().Contains("SCHEMA_INVALID", StringComparison.Ordinal));
+        Assert.Empty(replay.Identities);
     }
 
     [Fact]
-    public async Task ExplicitMinimalRepairReachesReviewAndKeepsApprovalAndRepairBoundaries()
+    public async Task CorrectedArtifactBindingsCompileOfflineAndChangesInvalidateApproval()
     {
-        var runtime = new Replay(); var planner = new HybridWorkflowPlanner();
-        var last = runtime.Recording["responses"]!.AsArray().Last()!;
-        runtime.Expected = last.AsObject(); var pending = runtime.State(last["pendingSession"]!);
-        var state = await planner.AdvanceAsync(pending, new() { ExpectedRevision = pending.Revision }, runtime, Ct);
-        var baseline = JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan);
-        var receipts = JsonSerializer.Serialize(state.Discovery.Pages, PlanningJsonContext.Default.ListCapabilityPage);
-        runtime.Expected = null;
-        state = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
-        var repaired = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
-        Assert.True(repaired.Status == PlanningStatus.FinalReview, string.Join("; ", repaired.Diagnostics.Select(d => d.Code + ": " + d.Message)));
-        Assert.Equal(6, repaired.ModelCalls); Assert.Equal(2, repaired.ReplanAttempts); Assert.Null(repaired.ApprovedHash);
-        Assert.Equal(baseline, JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan));
-        Assert.Equal(receipts, JsonSerializer.Serialize(repaired.Discovery.Pages, PlanningJsonContext.Default.ListCapabilityPage));
-        Assert.Equal(2, runtime.Identities.Count); Assert.Equal(0, runtime.MetadataReads);
+        var runtime = new Replay();
+        var plan = JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "ArtifactPlanning", "synthetic-corrected.json")))!["proposal"]!["plan"]!.Deserialize(PlanningJsonContext.Default.TaskPlan)!;
+        var state = await RecordedPlanCompilation.CompileAsync(runtime.Recording, plan);
+        Assert.True(state.Status == PlanningStatus.FinalReview, string.Join(';', state.Diagnostics.Select(d => d.Message)));
+        Assert.Empty(runtime.Identities); Assert.Null(state.ApprovedHash); PlanningArtifactApproval.Verify(state);
         foreach (var id in new[] { "fetch_pull_request_ref", "checkout_pull_request" })
-            Assert.Equal("projectRootRelative", repaired.Plan!.Root.Tasks.Single(t => t.Id == id).Inputs.Single(i => i.Name == "projectRoot").Value.Port);
-        Assert.NotNull(repaired.Yaml); PlanningArtifactApproval.Verify(repaired);
-        var recovered = JsonSerializer.Deserialize(JsonSerializer.Serialize(repaired, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
-        PlanningArtifactApproval.Verify(recovered);
-        recovered.Plan!.Root.Tasks.Single(t => t.Id == "fetch_pull_request_ref").Inputs.Single(i => i.Name == "projectRoot").Value.Port = "repositoryRoot";
-        Assert.Throws<PlanningConflictException>(() => PlanningArtifactApproval.Verify(recovered));
-        // The same repair cannot change a sibling objective, even after recovery.
-        runtime.NextProposal = JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "ArtifactPlanning", "synthetic-corrected.json")))!["proposal"]!.AsObject();
-        runtime.NextProposal["plan"]!["root"]!["tasks"]![0]!["objective"] = "Changed intent";
-        var rejected = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
-        Assert.Contains(rejected.Diagnostics, d => d.Code == "PLANNING_RESPONSE_INVALID" && d.Location == "/plan");
-        Assert.Equal(baseline, JsonSerializer.Serialize(rejected.Plan, PlanningJsonContext.Default.TaskPlan));
-        Assert.Equal(receipts, JsonSerializer.Serialize(rejected.Discovery.Pages, PlanningJsonContext.Default.ListCapabilityPage));
-        Assert.Equal(6, rejected.ModelCalls); Assert.Equal(2, rejected.ReplanAttempts);
+            Assert.Equal("projectRootRelative", state.Plan!.Root.Tasks.Single(t => t.Id == id).Inputs.Single(i => i.Name == "projectRoot").Value.Port);
+        state.Plan!.Root.Tasks.Single(t => t.Id == "fetch_pull_request_ref").Inputs.Single(i => i.Name == "projectRoot").Value.Port = "repositoryRoot";
+        Assert.Throws<PlanningConflictException>(() => PlanningArtifactApproval.Verify(state));
     }
     private sealed class Replay : IPlanningRuntime, ICapabilityCatalog
     {
         private static JsonObject FileData(string name) => JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "ArtifactPlanning", name + ".json")))!.AsObject();
         internal readonly JsonObject Recording = FileData("retained-artifacts");
         internal JsonObject? Expected;
-        internal JsonObject? NextProposal;
+        internal JsonObject? NextProposal = null;
         internal List<LLMRequest> Requests = [];
         internal int MetadataReads;
         internal readonly List<string> Identities = [];

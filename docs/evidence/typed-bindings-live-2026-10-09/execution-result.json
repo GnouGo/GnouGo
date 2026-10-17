@@ -1,0 +1,70 @@
+{
+  "success": false,
+  "outputs": null,
+  "error": {
+    "Code": "MCP_CALL_ERROR",
+    "Type": "MCP_CALL_ERROR",
+    "Message": "mcp.call (tool) to 'GnOuGo.Browser.Mcp/browser_click' returned an MCP error: The observed element does not support the requested activate action. [workflow 'w_1a1fbbd2aa8a9d21', step 'n_05ccc0104014c8e2']",
+    "Retryable": false,
+    "Details": {
+      "message": "The observed element does not support the requested activate action.",
+      "mcp_error_code": "ACTION_MISMATCH",
+      "mcp_error_message": "The observed element does not support the requested activate action.",
+      "content": {
+        "action": "click",
+        "url": "",
+        "title": null,
+        "selector": "",
+        "submitted": false,
+        "triggeredNavigation": false,
+        "navigationType": "none",
+        "success": false,
+        "error_code": "ACTION_MISMATCH",
+        "error_message": "The observed element does not support the requested activate action.",
+        "ok": false,
+        "target": {
+          "reference": "85b8daff51c74b14be676b713c7bb854:record:1497",
+          "snapshotId": "85b8daff51c74b14be676b713c7bb854",
+          "requestedAction": "activate",
+          "rejectionCause": "ACTION_MISMATCH"
+        }
+      },
+      "correlation_id": "typedbindings20261009b-amazon-1",
+      "run_id": "typedbindings20261009b-amazon-1",
+      "trace_id": null,
+      "span_id": null,
+      "traceparent": null,
+      "server": "GnOuGo.Browser.Mcp",
+      "method": "browser_click",
+      "kind": "tool",
+      "status": "error",
+      "response": {
+        "action": "click",
+        "url": "",
+        "title": null,
+        "selector": "",
+        "submitted": false,
+        "triggeredNavigation": false,
+        "navigationType": "none",
+        "success": false,
+        "error_code": "ACTION_MISMATCH",
+        "error_message": "The observed element does not support the requested activate action.",
+        "ok": false,
+        "target": {
+          "reference": "85b8daff51c74b14be676b713c7bb854:record:1497",
+          "snapshotId": "85b8daff51c74b14be676b713c7bb854",
+          "requestedAction": "activate",
+          "rejectionCause": "ACTION_MISMATCH"
+        }
+      },
+      "failed_workflow": "w_1a1fbbd2aa8a9d21",
+      "failed_step_id": "n_05ccc0104014c8e2",
+      "failed_step_type": "mcp.call",
+      "execution_phase": "step",
+      "workflow": "w_1a1fbbd2aa8a9d21",
+      "step_id": "n_05ccc0104014c8e2",
+      "step_type": "mcp.call",
+      "step_status": "Failed"
+    }
+  }
+}

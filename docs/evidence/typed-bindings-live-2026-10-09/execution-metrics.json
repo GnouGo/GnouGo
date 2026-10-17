@@ -1,0 +1,107 @@
+{
+  "result": {
+    "status": "final_review",
+    "planning_ms": 652335,
+    "calls": 6,
+    "repairs": 0,
+    "discovery_reads": 2,
+    "review_revisions": 3,
+    "diagnostics": [],
+    "execution_success": false,
+    "execution_oracle": false,
+    "execution_status": "completed",
+    "accounting": {
+      "planning": {
+        "logical_calls": 6,
+        "physical_attempts": 7,
+        "known_input_tokens": 67285,
+        "known_output_tokens": 23042,
+        "known_cost_eur": 0.9119575827491347,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "execution": {
+        "logical_calls": 3,
+        "physical_attempts": 3,
+        "known_input_tokens": 35377,
+        "known_output_tokens": 2720,
+        "known_cost_eur": 0.22937705208980388,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "campaign": {
+        "calls": 931,
+        "session_calls": 0,
+        "known_input_tokens": 13685767,
+        "known_output_tokens": 1893195,
+        "known_cost_eur": 111.41935869204576,
+        "reserved_input_tokens": 480000,
+        "reserved_output_tokens": 163840,
+        "reserved_cost_eur": 6.501614794790526,
+        "cost_upper_bound_eur": 117.92097348683629,
+        "unknown_attempts": 5
+      }
+    },
+    "execution_ms": 71581,
+    "total_ms": 723916
+  },
+  "mapping": [
+    {
+      "gnougo.mapping.source_items": 51,
+      "gnougo.mapping.model_attempts": 1,
+      "gnougo.mapping.specializations": 0,
+      "gnougo.mapping.cache_hits": 0,
+      "gnougo.mapping.cache_hit": false,
+      "gnougo.mapping.failure_groups": 12,
+      "gnougo.mapping.sample_items": 3,
+      "gnougo.mapping.omitted_items": 48,
+      "gnougo.mapping.request_bytes": 70887,
+      "gnougo.mapping.program_repairs": 0,
+      "gnougo.mapping.processed_items": 51,
+      "gnougo.mapping.validated_items": 51,
+      "gnougo.mapping.sandbox.statements": 4654,
+      "gnougo.mapping.sandbox.statement_limit": 10000,
+      "gnougo.mapping.sandbox.elapsed_ms": 66.4428,
+      "gnougo.mapping.sandbox.time_limit_ms": 5000,
+      "gnougo.mapping.sandbox.allocated_bytes": 17190696,
+      "gnougo.mapping.sandbox.materialized_bytes": 5807938,
+      "gnougo.mapping.sandbox.output_bytes": 5562,
+      "gnougo.mapping.sandbox.memory_limit_bytes": 50000000,
+      "gnougo.mapping.sandbox.nesting_depth": 4,
+      "gnougo.mapping.sandbox.nesting_limit": 64,
+      "step": "n_b2e74a3e235fa902",
+      "status": "Succeeded",
+      "duration_ms": 38318.9338
+    }
+  ],
+  "request_estimates": [
+    {
+      "invocation": "/workflow/main/step/n_b2e74a3e235fa902/mapping/0",
+      "status": "completed",
+      "observed_completion": true,
+      "estimated_prompt_tokens": 47781,
+      "model_calls": 0,
+      "inspection_only": true
+    },
+    {
+      "invocation": "/workflow/main/step/n_3981b1c1638bb00a",
+      "status": "completed",
+      "observed_completion": true,
+      "estimated_prompt_tokens": 4215,
+      "model_calls": 0,
+      "inspection_only": true
+    },
+    {
+      "invocation": "/workflow/main/step/n_859f7c31c5adb8f9",
+      "status": "completed",
+      "observed_completion": true,
+      "estimated_prompt_tokens": 4356,
+      "model_calls": 0,
+      "inspection_only": true
+    }
+  ]
+}

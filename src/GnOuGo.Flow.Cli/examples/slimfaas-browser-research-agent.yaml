@@ -8,9 +8,6 @@ meta:
     Le workflow ne dépend d'aucune logique navigateur spécifique côté serveur MCP :
     il utilise uniquement les outils génériques de GnOuGo.Browser.Mcp et laisse la stratégie
     de recherche, de sélection des sources et d'interprétation au LLM côté client.
-    Aucun clic automatique sur une bannière cookies n'est effectué dans ce workflow.
-    Si une bannière masque le contenu utile, c'est au client MCP / LLM d'inspecter
-    le HTML rendu et de décider quel bouton il faudrait cliquer.
 
     Le workflow :
       1. découvre les outils MCP navigateur disponibles
@@ -552,8 +549,7 @@ workflows:
 
             Extract the maximum amount of useful, grounded information specifically about ${data.inputs.subject}.
             Capture only facts supported by the page text.
-            If the page appears partially blocked by a consent or cookie banner, infer that only from the rendered HTML/text,
-            list it as a blocker, and suggest what a client MCP could click next. Do not assume any click happened.
+            Report observed access errors and unavailable information without inventing causes or claiming actions that were not performed.
             If a field is unsupported, return an empty array or empty string.
           structured_output:
             schema_inline:

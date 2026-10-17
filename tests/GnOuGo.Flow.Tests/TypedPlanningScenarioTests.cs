@@ -55,7 +55,7 @@ public sealed class TypedPlanningScenarioTests
         Assert.Equal(valid ? "passed" : "inconclusive", nominal.Outcome);
         Assert.Equal(valid ? 1 : 0, calls);
         if (!valid)
-            Assert.Contains(nominal.Diagnostics, d => d.Location == "workflow:main/step:observe/input/request/offset" && d.Message.Contains("INPUT_VALIDATION", StringComparison.Ordinal));
+            Assert.Contains(nominal.Diagnostics, d => d.Location == "workflow:main/step:observe" && d.Code == "SCENARIO_EXECUTION_FAILED" && d.Message.Contains("EVAL_ERROR: An expression produced a nonfinite number.", StringComparison.Ordinal));
         Assert.DoesNotContain(results.SelectMany(r => r.Diagnostics), d => d.Code == "FINALIZATION_NOT_EXECUTED");
     }
 
@@ -209,8 +209,9 @@ public sealed class TypedPlanningScenarioTests
                           additionalProperties: false
                         strict: true
                   - id: use
-                    type: assert.non_null
-                    input: {value: "${data.steps.read.json.value}"}
+                    type: set
+                    output_schema: {type: object, required: [value], properties: {value: {type: string}}}
+                    input: '${checkedMapping("({value:source})",data.steps.read.json.value)}'
                 finally:
                   - id: cleanup
                     type: set
@@ -261,13 +262,14 @@ public sealed class TypedPlanningScenarioTests
               main:
                 steps:
                   - id: required_value
-                    type: assert.non_null
-                    input: {value: null}
+                    type: set
+                    output_schema: {type: object, required: [value], properties: {value: {type: string}}}
+                    input: '${checkedMapping("({value:source})",null)}'
             """);
         var result = Assert.Single(await SimulatedWorkflowValidator.ValidateAsync(document, null, TestContext.Current.CancellationToken));
         var finding = Assert.Single(result.Diagnostics);
         Assert.Equal("workflow:main/step:required_value", finding.Location);
-        Assert.Contains("null", finding.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("output_schema", finding.Message, StringComparison.OrdinalIgnoreCase);
         Assert.NotEqual("passed", result.Outcome);
     }
 
@@ -343,8 +345,9 @@ public sealed class TypedPlanningScenarioTests
                     input: {items: []}
                     steps:
                       - id: check
-                        type: assert.non_null
-                        input: {value: '${data.entry.name}'}
+                        type: set
+                        output_schema: {type: object, required: [value], properties: {value: {type: string}}}
+                        input: '${checkedMapping("({value:source})",data.entry.name)}'
                       - id: model
                         type: llm.call
                         input: {model: fake, prompt: '${data.entry.name}'}
@@ -376,8 +379,9 @@ public sealed class TypedPlanningScenarioTests
                     input: {ok: true}
                 finally:
                   - id: cleanup
-                    type: assert.non_null
-                    input: {value: null}
+                    type: set
+                    output_schema: {type: object, required: [value], properties: {value: {type: string}}}
+                    input: '${checkedMapping("({value:source})",null)}'
             """);
         var result = Assert.Single(await SimulatedWorkflowValidator.ValidateAsync(document, null, TestContext.Current.CancellationToken));
         Assert.Equal("failed", result.Outcome);

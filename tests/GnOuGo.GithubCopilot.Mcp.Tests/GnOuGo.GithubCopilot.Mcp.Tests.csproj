@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\GnOuGo.GithubCopilot.Mcp\GnOuGo.GithubCopilot.Mcp.csproj" />
+    <ProjectReference Include="../../src/GnOuGo.Flow.Integrations/GnOuGo.Flow.Integrations.csproj" />
     <ProjectReference Include="..\..\src\GnOuGo.KeyVault.Core\GnOuGo.KeyVault.Core.csproj" />
   </ItemGroup>
 

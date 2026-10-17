@@ -1,0 +1,44 @@
+[
+  {
+    "id": "static",
+    "outcome": "passed",
+    "description": "Business bindings, contracts and control flow validated. External execution has not been observed.",
+    "diagnostics": []
+  },
+  {
+    "id": "operation:task_3dcf49c3eaea058ec424ef01",
+    "outcome": "declared",
+    "description": "Ouvrir Amazon.fr sur la recherche demandée et acquérir la collection complète bornée `observationSnapshot.pages` en une observation complète. — operation: cap_490d9e16075cbdca5954ec27 (GnOuGo.Browser.Mcp/browser_get_content); contract effect: read. Resource lifecycle is not established by this contract; review cleanup and retained artifacts. Execution has not been observed; review the business requirements separately.",
+    "diagnostics": []
+  },
+  {
+    "id": "operation:task_a01d508efa9295d3f6ceeaa7",
+    "outcome": "declared",
+    "description": "Écrire réellement le classeur XLSX demandé au chemin relatif imposé, avant le nettoyage du navigateur. — operation: cap_37c513d225bb1b870053c5d3 (GnOuGo.Document.Mcp/document_write); contract effect: write. Declared resource locations checked; dynamic relationships still require execution evidence. Execution has not been observed; review the business requirements separately.",
+    "diagnostics": []
+  },
+  {
+    "id": "operation:task_f0b97765699272cf2a73f87a",
+    "outcome": "declared",
+    "description": "Fermer le navigateur même en cas d’échec d’une étape précédente, sans masquer l’échec du producteur ni déclarer une réussite non aboutie. — operation: cap_bdb7ba9ab04b18783883fa86 (GnOuGo.Browser.Mcp/browser_close); contract effect: lifecycle. Resource lifecycle is not established by this contract; review cleanup and retained artifacts. Execution has not been observed; review the business requirements separately.",
+    "diagnostics": []
+  },
+  {
+    "id": "operation:task_6adfe983409d37944f375c73",
+    "outcome": "declared",
+    "description": "Naviguer réellement sur la page produit courante à partir du href original observé dans Amazon.fr et acquérir `observationSnapshot.pages` complet. — operation: cap_490d9e16075cbdca5954ec27 (GnOuGo.Browser.Mcp/browser_get_content); contract effect: read. Resource lifecycle is not established by this contract; review cleanup and retained artifacts. Execution has not been observed; review the business requirements separately.",
+    "diagnostics": []
+  },
+  {
+    "id": "mapping:task_09984aef4d6b27d502802e39",
+    "outcome": "declared",
+    "description": "Depuis chaque page complète de l’observation de recherche, extraire uniquement les faits compacts nécessaires au choix des produits: identifiant opaque original copié tel quel et libellé observé, en conservant l’ordre source et sans déduplication, filtrage commercial ni URL générée. Chaque page peut émettre jusqu’à 200 candidats, correspondant au plafond producteur inchangé par page; la borne globale de dix produits reste uniquement appliquée à la sélection. — adaptive independent extraction; unresolved items may require specialized or per-item inference within the configured shared runtime and campaign budgets. Execution requires a finite runtime budget; every item and the complete result are validated. Unambiguous source/target collections use one result per item; ambiguous collections require explicit selection. Independent items preserve order and nesting; bounded examples generate one mapping, all items are validated, and inference allowances are shared. No execution evidence yet.",
+    "diagnostics": []
+  },
+  {
+    "id": "mapping:task_8172e6399a9982aabf5c26e9",
+    "outcome": "declared",
+    "description": "Extraire indépendamment depuis chaque page complète du produit uniquement les faits compacts nécessaires au produit final: nom, description, prix et erreur observée, tous chaînes nullables; les faits manquants restent null. Ne pas passer le snapshot original à une étape d’interprétation globale. — adaptive independent extraction; unresolved items may require specialized or per-item inference within the configured shared runtime and campaign budgets. Execution requires a finite runtime budget; every item and the complete result are validated. Unambiguous source/target collections use one result per item; ambiguous collections require explicit selection. Independent items preserve order and nesting; bounded examples generate one mapping, all items are validated, and inference allowances are shared. No execution evidence yet.",
+    "diagnostics": []
+  }
+]

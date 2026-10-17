@@ -18,6 +18,60 @@ internal static class WorkflowFailureFormatter
             builder.Append('[').Append(error.Code.Trim()).Append("] ");
         builder.AppendLine(string.IsNullOrWhiteSpace(error.Message) ? "Workflow execution failed." : error.Message.Trim());
 
+        var resultPath = ReadBoundedStringDeep(error.Details, "mapping_result_path", 512);
+        if (error.Code == "CONTRACT_UNSATISFIED" && (resultPath is not null || ReadLongDeep(error.Details, "script_start") is not null))
+        {
+            builder.AppendLine().AppendLine(resultPath is null ? "Mapping program rejected:" : "Mapping result rejected:");
+            if (resultPath is not null) builder.Append("- Result path: ").AppendLine(Sanitize(resultPath, 512));
+            foreach (var (key, label) in new[] { ("mapping_failure_kind", "Failure kind"),
+                ("mapping_failure_reason", "Reason"), ("consumer_binding", "Binding"),
+                ("mapping_operator", "Operator"), ("mapping_node_kind", "Syntax"), ("helper", "Helper") })
+                if (ReadBoundedStringDeep(error.Details, key, 240) is { } value)
+                    builder.Append("- ").Append(label).Append(": ").AppendLine(Sanitize(value, 240));
+            foreach (var (key, label) in new[] { ("script_start", "Script offset (UTF-16, zero-based)"),
+                ("script_length", "Rejected expression length"), ("mapping_attempts", "Mapping attempts") })
+                if (ReadLongDeep(error.Details, key) is { } count)
+                    builder.Append("- ").Append(label).Append(": ").AppendLine(count.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            builder.AppendLine("Extraction must preserve observed values. Assemble typed status and other computed values with deterministic bindings from the producer's declared results. Review the composition; increasing limits or inventing defaults cannot supply missing evidence.");
+        }
+
+        if (error.Code == "CONTRACT_UNSATISFIED" &&
+            ReadBoundedStringDeep(error.Details, "classification", 80) == "mapping_request_admission")
+        {
+            builder.AppendLine().AppendLine("Mapping request allowance (serialized UTF-8 bytes plus framing; conservative token bound):");
+            foreach (var (key, label) in new[]
+            {
+                ("host_limit", "Host limit"), ("model_limit", "Model input allowance"), ("effective_limit", "Effective limit"),
+                ("framing_allowance", "Framing reserve"), ("empty_request_bound", "Request without examples"),
+                ("smallest_complete_example_request_bound", "Smallest complete example request tried"),
+                ("attempted_request_bound", "Last attempted request"), ("examined_items", "Examined source items")
+            })
+                if (ReadLongDeep(error.Details, key) is { } value)
+                    builder.Append("- ").Append(label).Append(": ").AppendLine(value.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            foreach (var key in new[] { "reason", "limiting_factor", "dispatch_status" })
+                if (ReadBoundedStringDeep(error.Details, key, 80) is { } value)
+                    builder.Append("- ").Append(key).Append(": ").AppendLine(Sanitize(value, 80));
+            builder.AppendLine("Review Flow:Execution:MaxMappingInputTokens and the declared model allowance, or explicitly revise the input view. A changed host policy applies only to new runs. No automatic retry, truncation or limit increase was requested.");
+        }
+
+        if (error.Code is ErrorCodes.LlmBudgetUnverifiable or ErrorCodes.LlmBudgetExceeded)
+        {
+            var classification = ReadBoundedStringDeep(error.Details, "classification", 80);
+            var dispatch = ReadBoundedStringDeep(error.Details, "dispatch_status", 80);
+            builder.AppendLine().AppendLine("Runtime execution budget:");
+            foreach (var (key, label) in new[]
+            {
+                ("classification", "Classification"), ("dispatch_status", "Dispatch"),
+                ("stage", "Stage"), ("limit_kind", "Limit"), ("recommended_action", "Recommended action")
+            })
+                if (ReadBoundedStringDeep(error.Details, key, 240) is { } text)
+                    builder.Append("- ").Append(label).Append(": ").AppendLine(Sanitize(text, 240));
+
+            if (error.Code == ErrorCodes.LlmBudgetUnverifiable && classification is null && dispatch == "not_started")
+                builder.AppendLine("Configure explicit finite limits in Flow:Execution:LlmBudget on Agent.Server before starting a new execution. Designer planning budgets do not supply a runtime allowance.");
+            builder.AppendLine("A workflow revision cannot configure or replenish this execution budget. No automatic retry or budget increase was requested.");
+        }
+
         if (error.Code is ErrorCodes.LlmNetwork or ErrorCodes.LlmTimeout or ErrorCodes.LlmProvider)
         {
             var classification = ReadBoundedStringDeep(error.Details, "classification", 80);
@@ -415,6 +469,17 @@ internal static class WorkflowFailureFormatter
                 return result;
             }
         }
+        return null;
+    }
+
+    private static long? ReadLongDeep(JsonNode? details, string property)
+    {
+        foreach (var scope in EnumerateDiagnosticScopes(details))
+            if (scope is JsonObject obj && obj[property] is JsonValue value)
+            {
+                if (value.TryGetValue<long>(out var result)) return result;
+                if (value.TryGetValue<int>(out var integer)) return integer;
+            }
         return null;
     }
 

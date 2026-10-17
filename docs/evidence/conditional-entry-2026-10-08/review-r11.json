@@ -1,0 +1,67 @@
+{
+  "revision": 11,
+  "status": "final_review",
+  "diagnostics": [],
+  "result": {
+    "status": "final_review",
+    "planning_ms": 614927,
+    "calls": 7,
+    "repairs": 0,
+    "discovery_reads": 2,
+    "review_revisions": 4,
+    "diagnostics": [],
+    "execution_success": false,
+    "execution_oracle": false,
+    "execution_status": "not_started",
+    "accounting": {
+      "planning": {
+        "logical_calls": 7,
+        "physical_attempts": 7,
+        "known_input_tokens": 122341,
+        "known_output_tokens": 41867,
+        "known_cost_eur": 1.6573919602449196,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "execution": {
+        "logical_calls": 0,
+        "physical_attempts": 0,
+        "known_input_tokens": 0,
+        "known_output_tokens": 0,
+        "known_cost_eur": 0,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "campaign": {
+        "calls": 896,
+        "session_calls": 0,
+        "known_input_tokens": 13347863,
+        "known_output_tokens": 1789679,
+        "known_cost_eur": 107.16432275274325,
+        "reserved_input_tokens": 384000,
+        "reserved_output_tokens": 131072,
+        "reserved_cost_eur": 5.203327457848472,
+        "cost_upper_bound_eur": 112.36765021059172,
+        "unknown_attempts": 4
+      }
+    }
+  },
+  "revision_command": {
+    "mode": null,
+    "kind": "revise",
+    "expectedRevision": 11,
+    "artifactHash": "b0319fea34f3824b49294643a0fc73c7c16c07af1a165e3ac0af757085f89be6",
+    "text": "Revision 11 now establishes the missing conditional requirement and uses real typed indexing. Preserve the entire plan, every existing condition/requires, all mappings, business operations, outputs, public interfaces and cleanup exactly. One remaining review correction: project_entry_record_views, project_current_entry_record_views, project_result_action_records and project_result_decision_views impose maxItems:1000 on pure typed copy/index projections, but the original producer contract permits complete snapshots up to 10000 records; retained representative snapshots contained 1602. Change only those four tasks' maxItems to 10000, matching the already existing producer capture ceiling and permitted TaskPlan bound. These copy-only bodies already lower deterministically under compact-bindings-v3 and do not create per-record workflow invocations; this does not raise any runtime iteration, mapping each, inference, memory, statement or token limit. Keep page collections at 100, business visits at 10 and independent runtime mapping limits unchanged. Do not change task kinds, scopes, body outputs, literal operations, selected fields, action arguments or the corrected nested search condition. Do not truncate or split data. Return the full plan with only these four explicit finite projection bounds changed; no other revision is authorized.",
+    "preserveRequirements": true,
+    "selections": null,
+    "generation": null
+  },
+  "manual_review": {
+    "approved": false,
+    "reason": "Four pure typed projections were limited to 1000 despite retained 1602-record observations; final explicit revision changed only their finite plan bounds."
+  }
+}

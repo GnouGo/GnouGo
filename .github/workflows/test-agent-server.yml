@@ -26,6 +26,11 @@ jobs:
       - name: Ensure OTLP proto files
         uses: ./.github/actions/ensure-otlp-protos
 
+      - name: Prepare local browser execution
+        run: |
+          dotnet build src/GnOuGo.Browser.Mcp -m:1 -warnaserror
+          node src/GnOuGo.Browser.Mcp/bin/Debug/net10.0/.playwright/package/cli.js install --with-deps chromium
+
       - name: Run stable Agent Server tests
         run: |
           dotnet restore /p:SkipClientBuild=true
@@ -34,4 +39,3 @@ jobs:
       - name: Mounted MCP HTTP tests are opt-in
         run: |
           echo "Set RUN_MOUNTED_AGENT_MCP_TESTS=1 and/or RUN_MOUNTED_MCP_HTTP_TESTS=1 in a dedicated workflow to exercise mounted MCP HTTP transport tests."
-

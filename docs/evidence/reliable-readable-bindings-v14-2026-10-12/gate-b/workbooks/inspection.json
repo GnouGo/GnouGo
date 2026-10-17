@@ -1,0 +1,74 @@
+[
+  {
+    "variant": "complete",
+    "xlsx_sha256": "33e70d4589b6e6f21234adfb3cb64f39bc412bc2c58fc0771fbd9f3490165507",
+    "rows_including_header": 11,
+    "visited_product_occurrences": 10,
+    "source_records_complete": true,
+    "exact_expected_cells": true,
+    "formulas": 0,
+    "writer_relative_and_absolute_paths_match": true,
+    "closed": true,
+    "independent_live_oracle_expected": true
+  },
+  {
+    "variant": "redirected",
+    "xlsx_sha256": "3aff86746c7f63d70bb5c3289693d4288b65cd0e2dee0a2526b1646e153446ea",
+    "rows_including_header": 11,
+    "visited_product_occurrences": 10,
+    "source_records_complete": true,
+    "exact_expected_cells": true,
+    "formulas": 0,
+    "writer_relative_and_absolute_paths_match": true,
+    "closed": true,
+    "independent_live_oracle_expected": true
+  },
+  {
+    "variant": "repeated",
+    "xlsx_sha256": "c2b38727d391c5c9ef4e243afb39e2c6c86a8523345778403e285534eb10cec3",
+    "rows_including_header": 11,
+    "visited_product_occurrences": 10,
+    "source_records_complete": true,
+    "exact_expected_cells": true,
+    "formulas": 0,
+    "writer_relative_and_absolute_paths_match": true,
+    "closed": true,
+    "independent_live_oracle_expected": true
+  },
+  {
+    "variant": "one",
+    "xlsx_sha256": "bc8b2fb20ff33a590f8e24026fac21a515562d5eda8f7d866037e372ecae5ad9",
+    "rows_including_header": 2,
+    "visited_product_occurrences": 1,
+    "source_records_complete": true,
+    "exact_expected_cells": true,
+    "formulas": 0,
+    "writer_relative_and_absolute_paths_match": true,
+    "closed": true,
+    "independent_live_oracle_expected": true
+  },
+  {
+    "variant": "missing",
+    "xlsx_sha256": "46da0f66e92c3180877e1d1f35912d2d36d6fd9254027840b6a486c66215bb74",
+    "rows_including_header": 11,
+    "visited_product_occurrences": 10,
+    "source_records_complete": true,
+    "exact_expected_cells": true,
+    "formulas": 0,
+    "writer_relative_and_absolute_paths_match": true,
+    "closed": true,
+    "independent_live_oracle_expected": false
+  },
+  {
+    "variant": "empty",
+    "xlsx_sha256": "95547312b9eec6389aa16f8ec4a966f5a4a31ece48c3bfcfce2bbc2978111588",
+    "rows_including_header": 1,
+    "visited_product_occurrences": 0,
+    "source_records_complete": true,
+    "exact_expected_cells": true,
+    "formulas": 0,
+    "writer_relative_and_absolute_paths_match": true,
+    "closed": true,
+    "independent_live_oracle_expected": false
+  }
+]

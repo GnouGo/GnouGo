@@ -16,6 +16,22 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class TraceDebugServiceTests
 {
     [Fact]
+    public void LiteralStepDescriptionReachesPersistedTraceAttributes()
+    {
+        var settings = new StaticOptionsMonitor<OpenTelemetrySettings>(new() { Enabled = false, TenantId = "description-owner" });
+        var local = new LocalTraceDebugStore(settings);
+        var queue = new TelemetryIngestQueue(new(":memory:", 100, 1, 100, 60, false));
+        using var telemetry = new AgentOTelTelemetry(new CollectorTracePersistence(queue, settings, NullLogger<CollectorTracePersistence>.Instance), local);
+        using var workflow = telemetry.WorkflowStart(new() { WorkflowName = "main" });
+        using var step = telemetry.StepStart(workflow, new() { StepId = "work", StepType = "custom", Description = "Literal ${metadata}" });
+        telemetry.StepEnd(step, new() { Status = GnOuGo.Flow.Core.Models.StepStatus.Succeeded });
+        var persisted = new List<SpanRow>();
+        while (queue.Channel.Reader.TryRead(out var row)) if (row is SpanRow span) persisted.Add(span);
+        Assert.Contains(persisted, row => row.AttributesJson is not null &&
+            System.Text.Json.Nodes.JsonNode.Parse(row.AttributesJson)?["gnougo-flow.step.description"]?.GetValue<string>() == "Literal ${metadata}");
+    }
+
+    [Fact]
     public async Task GetSnapshotAsync_RemainsAvailable_WhenOpenTelemetryIsDisabled()
     {
         await using var host = await CollectorTestHost.CreateAsync();

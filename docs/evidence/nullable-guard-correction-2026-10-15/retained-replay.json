@@ -1,0 +1,294 @@
+{
+  "historicalRunUnchanged": true,
+  "retainedRevision": 5,
+  "providerCalls": 0,
+  "mcpCalls": 0,
+  "originalRequests": [
+    {
+      "request": "8f4fdc2af99174f349f37200a0dc90ef70be5970a1d683ba52827acf8fdd154b",
+      "receipt": "5f694cb647b3091a701d100ffe94a5611d5dacaa8e91a7d234d7b97cbdfb3e09",
+      "schema": "8a4cdea8ade91c5ca0631911652fe4d1da1b4ce993e8c475e3c3089d6da071b0",
+      "schemaFindings": 0
+    },
+    {
+      "request": "32f64cec7404b61e6e8c7cfeb3d547a5d651c22b012b3b655b7ef7d8e31ca60b",
+      "receipt": "4a4153a3b858723fc9ca912c8dba35d65fb53a6052274502a73bb969dec0b711",
+      "schema": "3448d9178af1faddc95d92f7ef93ee78daa5a1014acef3a3de202609e66a918a",
+      "schemaFindings": 0
+    },
+    {
+      "request": "1427536b2ea3fc738b249c10404a904f02ac4654760765690abdd29f04b19207",
+      "receipt": "1ba0dc75e4e667e81a3ae94423f9791f70614f77cc6d72f190d558d06c923aee",
+      "schema": "112b26f124e3cde28623bdcbbf1a29530e6a9eac64112c90919424c33470597a",
+      "schemaFindings": 0
+    },
+    {
+      "request": "8e2abea26a482872df5150dd2120b2a0ce96edb5c7cd12ba646e54a7e8c8b2f0",
+      "receipt": "040e0a5976038343f101bbdd01e5444ef1268517dbd9d40834723c085142d376",
+      "schema": "57aee7143a9e36efe83e5b93dd06635d578761c3f2371ceac2b17e5889930605",
+      "schemaFindings": 0
+    }
+  ],
+  "replays": [
+    {
+      "version": 1,
+      "regenerationProbe": false,
+      "status": "generating",
+      "deterministicCalls": 2,
+      "corrections": 1,
+      "approved": false,
+      "diagnostics": [
+        {
+          "code": "TASK_CONDITION_TYPE",
+          "location": "/tasks/accept_cookies/requires",
+          "message": "Conditions require a boolean business value.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "TASK_CONDITION_TYPE",
+          "location": "/tasks/extract_candidates_by_page/requires",
+          "message": "Conditions require a boolean business value. Conditional export contracts: /tasks/accept_cookies_if_present/body/outputs/search_snapshot = [\u0022object\u0022,\u0022null\u0022] {id:\u0022string\u0022 required, pages:\u0022array\u0022 required, recordCount:\u0022integer\u0022 required, captureTruncated:\u0022boolean\u0022 required, manifestTruncated:\u0022boolean\u0022 required}; /tasks/accept_cookies_if_present/otherwise/outputs/search_snapshot = [\u0022object\u0022,\u0022null\u0022] {id:\u0022string\u0022 required, pages:\u0022array\u0022 required, recordCount:\u0022integer\u0022 required, captureTruncated:\u0022boolean\u0022 required, manifestTruncated:\u0022boolean\u0022 required}. Project an explicit common consumer-facing interface in both alternatives; preserve nullable values and guard them explicitly. Interface restructuring requires an explicit revision when outside issued repair slots.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "REVISION_REQUIRED",
+          "location": "/tasks/accept_cookies/requires",
+          "message": "Conditions require a boolean business value. The required binding and its producers are outside repair authority. Explicitly revise this binding; unrelated edits cannot correct its type.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "REVISION_REQUIRED",
+          "location": "/tasks/extract_candidates_by_page/requires",
+          "message": "Conditions require a boolean business value. Conditional export contracts: /tasks/accept_cookies_if_present/body/outputs/search_snapshot = [\u0022object\u0022,\u0022null\u0022] {id:\u0022string\u0022 required, pages:\u0022array\u0022 required, recordCount:\u0022integer\u0022 required, captureTruncated:\u0022boolean\u0022 required, manifestTruncated:\u0022boolean\u0022 required}; /tasks/accept_cookies_if_present/otherwise/outputs/search_snapshot = [\u0022object\u0022,\u0022null\u0022] {id:\u0022string\u0022 required, pages:\u0022array\u0022 required, recordCount:\u0022integer\u0022 required, captureTruncated:\u0022boolean\u0022 required, manifestTruncated:\u0022boolean\u0022 required}. Project an explicit common consumer-facing interface in both alternatives; preserve nullable values and guard them explicitly. Interface restructuring requires an explicit revision when outside issued repair slots. The required binding and its producers are outside repair authority. Explicitly revise this binding; unrelated edits cannot correct its type.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "REVISION_SCOPE_CHANGED",
+          "location": "/tasks/accept_cookies/requires",
+          "message": "Automatic correction cannot establish preservation of the ordered assertion. Review this difference explicitly; no candidate was applied.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "REVISION_SCOPE_CHANGED",
+          "location": "/tasks/extract_candidates_by_page/requires",
+          "message": "Automatic correction cannot establish preservation of the ordered assertion. Review this difference explicitly; no candidate was applied.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        }
+      ],
+      "progress": {
+        "version": 1,
+        "attempts": [
+          {
+            "action": "targeted_revision",
+            "candidate": "708418cb77de34979a011b6f9bbe5cd0543314392a78862ba306bfc0bc0787ab",
+            "diagnostics": "d176515637d3c677bd24213aab0b64e68f99776fbe941d71f3fbb2f1add06599",
+            "callsUsed": 1,
+            "outcome": "rejected",
+            "completedAtCall": 2,
+            "responseCandidate": "83f166d3e03ef672b4c9ff40ee01085e90c9b22484979f8ca7b54b797e4dd330"
+          }
+        ],
+        "locations": [
+          "/tasks/accept_cookies/requires",
+          "/tasks/extract_candidates_by_page/requires"
+        ],
+        "revision": 1,
+        "artifact": null,
+        "action": "targeted_revision"
+      }
+    },
+    {
+      "version": 2,
+      "regenerationProbe": false,
+      "status": "final_review",
+      "deterministicCalls": 2,
+      "corrections": 1,
+      "approved": false,
+      "diagnostics": [],
+      "progress": {
+        "version": 2,
+        "attempts": [
+          {
+            "action": "targeted_revision",
+            "candidate": "708418cb77de34979a011b6f9bbe5cd0543314392a78862ba306bfc0bc0787ab",
+            "diagnostics": "d176515637d3c677bd24213aab0b64e68f99776fbe941d71f3fbb2f1add06599",
+            "callsUsed": 1,
+            "outcome": "validated",
+            "completedAtCall": 2,
+            "responseCandidate": "83f166d3e03ef672b4c9ff40ee01085e90c9b22484979f8ca7b54b797e4dd330"
+          }
+        ],
+        "conditionLocations": [
+          "/tasks/accept_cookies/requires",
+          "/tasks/extract_candidates_by_page/requires"
+        ],
+        "locations": [
+          "/tasks/accept_cookies/requires",
+          "/tasks/extract_candidates_by_page/requires"
+        ],
+        "revision": 1,
+        "artifact": null,
+        "action": "targeted_revision"
+      }
+    },
+    {
+      "version": 2,
+      "regenerationProbe": true,
+      "status": "stopped",
+      "deterministicCalls": 3,
+      "corrections": 2,
+      "approved": false,
+      "diagnostics": [
+        {
+          "code": "REVISION_SCOPE_CHANGED",
+          "location": "/tasks/build_search_url/objective",
+          "message": "Automatic correction cannot establish preservation of the independent task declaration. Review this difference explicitly; no candidate was applied.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "REVISION_SCOPE_CHANGED",
+          "location": "/tasks/open_search/objective",
+          "message": "Automatic correction cannot establish preservation of the independent task declaration. Review this difference explicitly; no candidate was applied.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "REVISION_SCOPE_CHANGED",
+          "location": "/tasks/cookie_decision/objective",
+          "message": "Automatic correction cannot establish preservation of the independent task declaration. Review this difference explicitly; no candidate was applied.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "REVISION_SCOPE_CHANGED",
+          "location": "/tasks/accept_cookies_if_present/objective",
+          "message": "Automatic correction cannot establish preservation of the independent task declaration. Review this difference explicitly; no candidate was applied.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "AUTOMATIC_GUARD_CORRECTION_UNSAFE",
+          "location": "/tasks/extract_candidates_by_page/requires",
+          "message": "The diagnosed assertion cannot be preserved by a known nullable reference != null and declared nonnullable Boolean fields from the same producer. Keep valid operands and their order; review this guard explicitly. No structural regeneration was dispatched for this unsupported change.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "REVISION_SCOPE_CHANGED",
+          "location": "/tasks/prepare_visits/objective",
+          "message": "Automatic correction cannot establish preservation of the independent task declaration. Review this difference explicitly; no candidate was applied.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "REVISION_SCOPE_CHANGED",
+          "location": "/tasks/prepare_visits/resultType",
+          "message": "Automatic correction cannot establish preservation of the existing intermediate contract. Review this difference explicitly; no candidate was applied.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "REVISION_SCOPE_CHANGED",
+          "location": "/tasks/visit_products/objective",
+          "message": "Automatic correction cannot establish preservation of the independent task declaration. Review this difference explicitly; no candidate was applied.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "REVISION_SCOPE_CHANGED",
+          "location": "/tasks/has_product_url/objective",
+          "message": "Automatic correction cannot establish preservation of the independent task declaration. Review this difference explicitly; no candidate was applied.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "REVISION_SCOPE_CHANGED",
+          "location": "/tasks/extract_product_facts/objective",
+          "message": "Automatic correction cannot establish preservation of the independent task declaration. Review this difference explicitly; no candidate was applied.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "REVISION_SCOPE_CHANGED",
+          "location": "/tasks/make_null_visit_row/objective",
+          "message": "Automatic correction cannot establish preservation of the independent task declaration. Review this difference explicitly; no candidate was applied.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "REVISION_SCOPE_CHANGED",
+          "location": "/tasks/assemble_rows/objective",
+          "message": "Automatic correction cannot establish preservation of the independent task declaration. Review this difference explicitly; no candidate was applied.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "REVISION_SCOPE_CHANGED",
+          "location": "/tasks/assemble_rows/resultType",
+          "message": "Automatic correction cannot establish preservation of the existing intermediate contract. Review this difference explicitly; no candidate was applied.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        }
+      ],
+      "progress": {
+        "version": 2,
+        "attempts": [
+          {
+            "action": "targeted_revision",
+            "candidate": "708418cb77de34979a011b6f9bbe5cd0543314392a78862ba306bfc0bc0787ab",
+            "diagnostics": "d176515637d3c677bd24213aab0b64e68f99776fbe941d71f3fbb2f1add06599",
+            "callsUsed": 1,
+            "outcome": "rejected",
+            "completedAtCall": 2
+          },
+          {
+            "action": "regenerate",
+            "candidate": "708418cb77de34979a011b6f9bbe5cd0543314392a78862ba306bfc0bc0787ab",
+            "diagnostics": "439509760bba5a0a0ba161ebf15903e0cad7a600bbfdf83b0c90cbacf5616860",
+            "callsUsed": 2,
+            "outcome": "rejected",
+            "completedAtCall": 3,
+            "responseCandidate": "5a8ba1e9f0cf03e3533ccaf6ace1c3bfc4ae7b6fda1f7825d8a22e11db36796b"
+          }
+        ],
+        "conditionLocations": [
+          "/tasks/accept_cookies/requires",
+          "/tasks/extract_candidates_by_page/requires"
+        ],
+        "locations": [
+          "/tasks/accept_cookies/requires",
+          "/tasks/extract_candidates_by_page/requires"
+        ],
+        "revision": 2,
+        "artifact": null,
+        "action": "regenerate"
+      }
+    }
+  ]
+}

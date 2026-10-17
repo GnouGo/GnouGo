@@ -10,6 +10,76 @@ namespace GnOuGo.Flow.Tests.Runtime;
 public sealed class WorkflowRouteExecutorTests
 {
     [Fact]
+    public async Task UnknownSelectionDoesNotExecuteTheFirstCandidate()
+    {
+        var workflow = Compile("""
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: route
+                    type: workflow.route
+                    input:
+                      candidates: [{ ref: { kind: local, name: a } }, { ref: { kind: local, name: b } }]
+                      selection: { min: 1, max: 1 }
+                      combine: { strategy: raw }
+              a:
+                steps: [{id: one, type: set, input: {v: 1}}]
+              b:
+                steps: [{id: two, type: set, input: {v: 2}}]
+            """);
+        var engine = new WorkflowEngine { LLMClient = new SelectingLlmClient("unknown") };
+        var result = await engine.ExecuteAsync(workflow, new JsonObject(), TestContext.Current.CancellationToken);
+        Assert.False(result.Success); Assert.Equal("TEMPLATE_PLAN", result.Error!.Code); Assert.Single(result.StepResults);
+    }
+
+    [Fact]
+    public async Task SequentialRoutesReuseMappingStateAndKeepTheParentDocument()
+    {
+        var workflow = Compile("""
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: first
+                    type: workflow.route
+                    input: {candidates: [{ref: {kind: local, name: child}}], combine: {strategy: raw}}
+                  - id: second
+                    type: workflow.route
+                    input: {candidates: [{ref: {kind: local, name: child}}], combine: {strategy: raw}}
+              child:
+                steps:
+                  - id: map
+                    type: mapping.dynamic
+                    input:
+                      sources: {observed: {title: actual}}
+                      objective: Extract the observed title
+                      binding: title
+                      producer_contract: untyped
+                    output_schema:
+                      type: object
+                      properties:
+                        value:
+                          type: object
+                          properties: {name: {type: string}}
+                          required: [name]
+                          additionalProperties: false
+                      required: [value]
+            """);
+        var model = new MappingModel(); var engine = new WorkflowEngine { LLMClient = model, LlmDefaults = new() { Model = "fixture" } };
+        var result = await engine.ExecuteAsync(workflow, new JsonObject(), TestContext.Current.CancellationToken);
+        Assert.True(result.Success, result.Error?.Message);
+        foreach (var routed in result.StepResults) Assert.True(routed.Output!["results"]![0]!["success"]!.GetValue<bool>(), routed.Output.ToJsonString());
+        Assert.Equal(1, model.Calls); Assert.Same(workflow.Document, engine.CompiledDocument);
+    }
+    private sealed class MappingModel : ILLMClient
+    {
+        internal int Calls;
+        public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
+        { Calls++; return Task.FromResult(new LLMResponse { Json = new JsonObject { ["script"] = "({name:source.observed.title})" } }); }
+    }
+
+    [Fact]
     public async Task WorkflowRoute_ExpandsDatabaseCandidatesAndCallsSelectedWorkflow()
     {
         var yaml = """

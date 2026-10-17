@@ -143,6 +143,7 @@ public sealed class OTelWorkflowTelemetry : IWorkflowTelemetry, IDisposable
         // Standard step attributes (identity)
         activity.SetTag("gnougo-flow.step.id", info.StepId);
         activity.SetTag("gnougo-flow.step.type", info.StepType);
+        if (info.Description is not null) activity.SetTag("gnougo-flow.step.description", info.Description);
         activity.SetTag("gnougo-flow.step.call_depth", info.CallDepth);
 
         // GenAI/MCP attrs from StepTelemetryInfo (if pre-populated)

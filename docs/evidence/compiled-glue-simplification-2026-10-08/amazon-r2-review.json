@@ -1,0 +1,13 @@
+{
+  "revision": 2,
+  "artifact_hash": "e42d9da51a6340d46963427dd91f035ca3241d281fc90fe7aefccf5df07b68ef",
+  "execution_started": false,
+  "review": "Rejected raw snapshot interpretation inputs before execution; explicit implementation revision requested.",
+  "command": {
+    "kind": "revise",
+    "preserveRequirements": true,
+    "expectedRevision": 2,
+    "artifactHash": "e42d9da51a6340d46963427dd91f035ca3241d281fc90fe7aefccf5df07b68ef",
+    "text": "Explicit implementation revision, keeping every accepted requirement, public input and result, real per-product navigation, actual workbook writing and final cleanup. Do not weaken any runtime assertion or permission. The reviewed plan still passes whole raw observations to interpret_home_state and interpret_search_target; this repeats the retained oversized-request failure. Insert explicit extract each views over the complete producer page collections before those global interpretations. Each complete page emits an array containing only its observed facts and candidate identities needed by the immediate decision, with an explicit closed resultType. Use deterministic flatten and explicitly assembled typed inputs; never include the original snapshot alongside the view. Keep full observations and authoritative action arguments separately. Global interpretation chooses candidate IDs; deterministic lookup validates offered IDs and reconnects original action data. Preserve complete source processing, ordering and grouping; do not sample or truncate a global decision or invent completeness. Check completeness through actual producer metadata. Extraction structures observed data, it cannot classify business status or synthesize missing facts. Apply the same bounded-page extraction composition to extract_top_product_links and the per-product observation: avoid whole-snapshot extraction requests and copying broad facts into later decision views. Do not turn the product limit into sampling of observations. Keep all source records needed by later actions and use exact observed URLs/references after deterministic reconnection. Keep true business loops and local requires; use typed bindings for already typed copies instead of learned mapping. Replace the learned flatten_products copy with explicit typed selection/assembly where its input is already an array. Preserve the existing writer and cleanup. This is an explicit global implementation revision allowing the necessary intermediate extraction tasks and bindings, not a change to the accepted business request."
+  }
+}

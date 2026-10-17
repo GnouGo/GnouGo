@@ -1,0 +1,223 @@
+{
+  "run": "businesstasks20261009a-amazon-1",
+  "candidate": "1022ed33437179386eb8a43c5d9f3cbf11453bfd",
+  "reviewed_revision": 8,
+  "persisted_approved_revision": 9,
+  "artifact_hash": "47248097b19347e131a9c1e98483ebe281f86df726a7d48f538784237d60f0e4",
+  "approval_source": "User: go for live execution",
+  "executions": 1,
+  "maximum_products": 10,
+  "artifact_and_requirements_unchanged": true,
+  "planning_result_status_is_historical": true,
+  "result": {
+    "status": "final_review",
+    "planning_ms": 281807,
+    "calls": 5,
+    "repairs": 0,
+    "discovery_reads": 2,
+    "review_revisions": 3,
+    "diagnostics": [],
+    "execution_success": false,
+    "execution_oracle": false,
+    "execution_status": "completed",
+    "accounting": {
+      "planning": {
+        "logical_calls": 5,
+        "physical_attempts": 5,
+        "known_input_tokens": 74373,
+        "known_output_tokens": 16987,
+        "known_cost_eur": 0.7822122637323631,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "execution": {
+        "logical_calls": 1,
+        "physical_attempts": 1,
+        "known_input_tokens": 111,
+        "known_output_tokens": 113,
+        "known_cost_eur": 0.0035007542816576447,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "campaign": {
+        "calls": 964,
+        "session_calls": 0,
+        "known_input_tokens": 14000547,
+        "known_output_tokens": 1978266,
+        "known_cost_eur": 115.08075721897805,
+        "reserved_input_tokens": 480000,
+        "reserved_output_tokens": 163840,
+        "reserved_cost_eur": 6.501614794790526,
+        "cost_upper_bound_eur": 121.58237201376858,
+        "unknown_attempts": 5
+      }
+    },
+    "execution_ms": 29927,
+    "total_ms": 311734
+  },
+  "execution": {
+    "success": false,
+    "outputs": null,
+    "error": {
+      "Code": "CONTRACT_UNSATISFIED",
+      "Type": "CONTRACT_UNSATISFIED",
+      "Message": "The mapping exhausted its cumulative sandbox allowance (materialized_memory). [workflow 'main', step 'n_d8d43d374acc492d']",
+      "Retryable": false,
+      "Details": {
+        "mapping_resource_limit": true,
+        "exhausted_resource": "materialized_memory",
+        "sandbox": {
+          "statements": 35,
+          "statement_limit": 1000000,
+          "elapsed_ms": 61.3046,
+          "time_limit_ms": 15000,
+          "allocated_bytes": 76960056,
+          "materialized_bytes": 58751376,
+          "output_bytes": 9934784,
+          "memory_limit_bytes": 1000000000,
+          "nesting_depth": 11,
+          "nesting_limit": 64
+        },
+        "compiled_node": "v0",
+        "location": "task_5f0d604c9f4c965ee1dc7849",
+        "failed_workflow": "main",
+        "failed_step_id": "n_d8d43d374acc492d",
+        "failed_step_type": "set",
+        "execution_phase": "step"
+      }
+    }
+  },
+  "oracle": {
+    "passed": false,
+    "findings": [
+      "workflow_execution_failed",
+      "workbook_missing"
+    ]
+  },
+  "runtime_llm_receipts": [
+    {
+      "invocation": "/workflow/main/step/n_7241a3c973016fe7",
+      "status": "completed",
+      "observed_completion": true,
+      "estimated_prompt_tokens": 4196,
+      "model_calls": 0,
+      "inspection_only": true
+    }
+  ],
+  "learned_mapping_calls": 0,
+  "product_visits": 0,
+  "document_writes": 0,
+  "events": [
+    {
+      "server": "GnOuGo.Browser.Mcp",
+      "tool": "browser_get_content",
+      "started": "2026-10-10T00:52:22.9216790+00:00",
+      "error": false,
+      "latency_ms": 8259,
+      "result": {
+        "success": true,
+        "ok": true,
+        "error_code": null,
+        "error_message": null,
+        "statusCode": null,
+        "truncated": false,
+        "snapshot": {
+          "id": "565edf851fd74c46ab3b26a2e0adbb55",
+          "recordCount": 1553,
+          "captureTruncated": false,
+          "manifestTruncated": false,
+          "page_count": 54
+        },
+        "acquisition": {
+          "attempts": 2,
+          "invalidations": [
+            {
+              "snapshotId": "ee2e59274fe54f52a476f5e846759576",
+              "generation": 4,
+              "reason": "navigation",
+              "atUtc": "2026-10-10T00:52:27.906656+00:00"
+            }
+          ],
+          "navigation": {
+            "generation": 5,
+            "url": "https://www.amazon.fr/s?k=chaussure+geox+homme+45",
+            "title": "Amazon.fr : chaussure geox homme 45",
+            "method": null,
+            "statusCode": null
+          },
+          "lastResponse": {
+            "url": "https://www.amazon.fr/s?k=chaussure+geox+homme+45",
+            "method": "GET",
+            "statusCode": 200
+          },
+          "phase": "publication",
+          "elapsedMilliseconds": 8173,
+          "timingsMilliseconds": {
+            "startup": 3372,
+            "navigation": 1218,
+            "readiness": 1557,
+            "selector": 22,
+            "capture": 1958,
+            "pagination": 45,
+            "publication": 1
+          }
+        }
+      },
+      "compact_unescaped_utf8_json_bytes": 1128860
+    },
+    {
+      "server": "GnOuGo.Browser.Mcp",
+      "tool": "browser_close",
+      "started": "2026-10-10T00:52:39.0161070+00:00",
+      "error": false,
+      "latency_ms": 1055,
+      "result": {
+        "success": true,
+        "ok": true,
+        "error_code": null,
+        "error_message": null,
+        "closed": true
+      }
+    },
+    {
+      "server": "GnOuGo.Browser.Mcp",
+      "tool": "browser_get_content",
+      "started": "2026-10-10T00:52:41.9365620+00:00",
+      "error": true,
+      "latency_ms": 1,
+      "result": {
+        "success": false,
+        "ok": false,
+        "error_code": "INVALID_INPUT",
+        "error_message": "InvalidOperationException: No active page. Call browser_get_content with url first.",
+        "statusCode": null,
+        "truncated": false
+      }
+    },
+    {
+      "server": "GnOuGo.Browser.Mcp",
+      "tool": "browser_close",
+      "started": "2026-10-10T00:52:41.9530620+00:00",
+      "error": false,
+      "latency_ms": 1003,
+      "result": {
+        "success": true,
+        "ok": true,
+        "error_code": null,
+        "error_message": null,
+        "closed": true
+      }
+    }
+  ],
+  "outer_allowance_bytes": 1000000000,
+  "enforced_nested_memory_limit_bytes": 50000000,
+  "accounting_precision": "The separate execution ledger retains original exact decimal JSON; rounded summary costs are informational.",
+  "evidence_sha256": {
+    "gnougo-business-live-execution-20261010.log": "9eabfbcb4c67601c24656a57a50ccf5d7f6e59affefbc5ca9f7148ac938bc1c1",
+    "gnougo-business-running-20261010.json": "94df3365a389ddce137584d61d93526d05720ddb46bafa92f279bc99d1e2f572"
+  }
+}

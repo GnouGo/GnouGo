@@ -1,0 +1,356 @@
+{
+  "command": "dotnet test GnOuGo.Agent.sln -m:1 -warnaserror",
+  "exit_code": 0,
+  "total": 5011,
+  "passed": 4998,
+  "failed": 0,
+  "skipped": 13,
+  "assemblies": [
+    {
+      "total": 89,
+      "passed": 89,
+      "failed": 0,
+      "skipped": 0,
+      "assemblies": [
+        "GnOuGo.DocIngestor.Tests.dll"
+      ],
+      "skip_cases": []
+    },
+    {
+      "total": 52,
+      "passed": 52,
+      "failed": 0,
+      "skipped": 0,
+      "assemblies": [
+        "GnOuGo.Diff.Tests.dll"
+      ],
+      "skip_cases": []
+    },
+    {
+      "total": 12,
+      "passed": 12,
+      "failed": 0,
+      "skipped": 0,
+      "assemblies": [
+        "GnOuGo.KeyVault.Core.Tests.dll"
+      ],
+      "skip_cases": []
+    },
+    {
+      "total": 1164,
+      "passed": 1164,
+      "failed": 0,
+      "skipped": 0,
+      "assemblies": [
+        "GnOuGo.Flow.Tests.dll"
+      ],
+      "skip_cases": []
+    },
+    {
+      "total": 99,
+      "passed": 99,
+      "failed": 0,
+      "skipped": 0,
+      "assemblies": [
+        "GnOuGo.Flow.Integrations.Tests.dll"
+      ],
+      "skip_cases": []
+    },
+    {
+      "total": 225,
+      "passed": 225,
+      "failed": 0,
+      "skipped": 0,
+      "assemblies": [
+        "GnOuGo.AI.Core.Tests.dll"
+      ],
+      "skip_cases": []
+    },
+    {
+      "total": 14,
+      "passed": 14,
+      "failed": 0,
+      "skipped": 0,
+      "assemblies": [
+        "GnOuGo.AI.Local.Tests.dll"
+      ],
+      "skip_cases": []
+    },
+    {
+      "total": 103,
+      "passed": 103,
+      "failed": 0,
+      "skipped": 0,
+      "assemblies": [
+        "GnOuGo.Agent.Mcp.Tests.dll"
+      ],
+      "skip_cases": []
+    },
+    {
+      "total": 100,
+      "passed": 93,
+      "failed": 0,
+      "skipped": 7,
+      "assemblies": [
+        "GnOuGo.Cmd.Mcp.Tests.dll"
+      ],
+      "skip_cases": [
+        "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.TimeoutAndCancellationTerminateTheChildTree(cancel: False)",
+        "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.TimeoutAndCancellationTerminateTheChildTree(cancel: True)",
+        "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.LaunchInitializationPreservesLeadingScriptDeclarations(script: \"param([string]$text = 'parameter default'); [Conso\"\u00b7\u00b7\u00b7, expected: \"parameter default\", exitCode: 3)",
+        "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.PrivateEofPreservesRepeatedCommandsUnicodeQuotesAndExitCodes(exitCode: 0)",
+        "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.PrivateEofPreservesRepeatedCommandsUnicodeQuotesAndExitCodes(exitCode: 3)",
+        "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.DefaultLaunchUsesOnlyTheSelectedShellsBuiltInModulePath",
+        "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.LaunchInitializationPreservesLeadingScriptDeclarations(script: \"using namespace System\\n[Console]::WriteLine('names\"\u00b7\u00b7\u00b7, expected: \"namespace declaration\", exitCode: 0)"
+      ]
+    },
+    {
+      "total": 136,
+      "passed": 136,
+      "failed": 0,
+      "skipped": 0,
+      "assemblies": [
+        "GnOuGo.Browser.Mcp.Tests.dll"
+      ],
+      "skip_cases": []
+    },
+    {
+      "total": 728,
+      "passed": 727,
+      "failed": 0,
+      "skipped": 1,
+      "assemblies": [
+        "GnOuGo.Agent.Server.Tests.dll"
+      ],
+      "skip_cases": [
+        "GnOuGo.Agent.Server.Tests.PlanningClarificationBrowserTests.DesignerBrowserUsesRealPersistedQuestionsAndExplicitSubmission"
+      ]
+    },
+    {
+      "total": 64,
+      "passed": 64,
+      "failed": 0,
+      "skipped": 0,
+      "assemblies": [
+        "GnOuGo.Document.Mcp.Tests.dll"
+      ],
+      "skip_cases": []
+    },
+    {
+      "total": 9,
+      "passed": 9,
+      "failed": 0,
+      "skipped": 0,
+      "assemblies": [
+        "GnOuGo.KeyVault.Mcp.Tests.dll"
+      ],
+      "skip_cases": []
+    },
+    {
+      "total": 10,
+      "passed": 10,
+      "failed": 0,
+      "skipped": 0,
+      "assemblies": [
+        "GnOuGo.Files.Server.Tests.dll"
+      ],
+      "skip_cases": []
+    },
+    {
+      "total": 7,
+      "passed": 7,
+      "failed": 0,
+      "skipped": 0,
+      "assemblies": [
+        "GnOuGo.DocIngestor.Mcp.Tests.dll"
+      ],
+      "skip_cases": []
+    },
+    {
+      "total": 7,
+      "passed": 7,
+      "failed": 0,
+      "skipped": 0,
+      "assemblies": [
+        "GnOuGo.OtlpCollector.Server.Tests.dll"
+      ],
+      "skip_cases": []
+    },
+    {
+      "total": 240,
+      "passed": 240,
+      "failed": 0,
+      "skipped": 0,
+      "assemblies": [
+        "GnOuGo.GithubCopilot.Mcp.Tests.dll"
+      ],
+      "skip_cases": []
+    },
+    {
+      "total": 173,
+      "passed": 173,
+      "failed": 0,
+      "skipped": 0,
+      "assemblies": [
+        "GnOuGo.GithubCopilot.Core.Tests.dll"
+      ],
+      "skip_cases": []
+    },
+    {
+      "total": 12,
+      "passed": 7,
+      "failed": 0,
+      "skipped": 5,
+      "assemblies": [
+        "GnOuGo.GithubCopilot.E2E.Tests.dll"
+      ],
+      "skip_cases": [
+        "GnOuGo.GithubCopilot.E2E.Tests.LiveControlledEditingTests.RealModel_InspectsEditsAndVerifiesResults(managed: True, bounded: True, executeTests: False)",
+        "GnOuGo.GithubCopilot.E2E.Tests.LiveControlledEditingTests.RealModel_InspectsEditsAndVerifiesResults(managed: True, bounded: True, executeTests: True)",
+        "GnOuGo.GithubCopilot.E2E.Tests.LiveControlledEditingTests.RealModel_InspectsEditsAndVerifiesResults(managed: True, bounded: False, executeTests: True)",
+        "GnOuGo.GithubCopilot.E2E.Tests.LivePullRequestReviewTests.ConfiguredOpenAiProvider_CanReviewExactDiffWithoutPublishing",
+        "GnOuGo.GithubCopilot.E2E.Tests.LiveControlledEditingTests.RealModel_InspectsEditsAndVerifiesResults(managed: False, bounded: False, executeTests: True)"
+      ]
+    },
+    {
+      "total": 3,
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "assemblies": [
+        "GnOuGo.Observability.Core.Tests.dll"
+      ],
+      "skip_cases": []
+    },
+    {
+      "total": 83,
+      "passed": 83,
+      "failed": 0,
+      "skipped": 0,
+      "assemblies": [
+        "GnOuGo.Git.Mcp.Tests.dll"
+      ],
+      "skip_cases": []
+    },
+    {
+      "total": 30,
+      "passed": 30,
+      "failed": 0,
+      "skipped": 0,
+      "assemblies": [
+        "GnOuGo.Workspace.Tests.dll"
+      ],
+      "skip_cases": []
+    },
+    {
+      "total": 49,
+      "passed": 49,
+      "failed": 0,
+      "skipped": 0,
+      "assemblies": [
+        "GnOuGo.Mcp.Core.Tests.dll"
+      ],
+      "skip_cases": []
+    },
+    {
+      "total": 12,
+      "passed": 12,
+      "failed": 0,
+      "skipped": 0,
+      "assemblies": [
+        "GnOuGo.Flow.Mermaid.Tests.dll"
+      ],
+      "skip_cases": []
+    },
+    {
+      "total": 91,
+      "passed": 91,
+      "failed": 0,
+      "skipped": 0,
+      "assemblies": [
+        "GnOuGo.Assets.Bears.Tests.dll"
+      ],
+      "skip_cases": []
+    },
+    {
+      "total": 42,
+      "passed": 42,
+      "failed": 0,
+      "skipped": 0,
+      "assemblies": [
+        "GnOuGo.Assets.Animation.Tests.dll"
+      ],
+      "skip_cases": []
+    },
+    {
+      "total": 13,
+      "passed": 13,
+      "failed": 0,
+      "skipped": 0,
+      "assemblies": [
+        "GnOuGo.Assets.Animation.Server.Tests.dll"
+      ],
+      "skip_cases": []
+    },
+    {
+      "total": 28,
+      "passed": 28,
+      "failed": 0,
+      "skipped": 0,
+      "assemblies": [
+        "GnOuGo.Assets.Bears.Server.Tests.dll"
+      ],
+      "skip_cases": []
+    },
+    {
+      "total": 1209,
+      "passed": 1209,
+      "failed": 0,
+      "skipped": 0,
+      "assemblies": [
+        "GnOuGo.Flow.Planning.Tests.dll"
+      ],
+      "skip_cases": []
+    },
+    {
+      "total": 177,
+      "passed": 177,
+      "failed": 0,
+      "skipped": 0,
+      "assemblies": [
+        "GnOuGo.ProxyCopilot.Server.Tests.dll"
+      ],
+      "skip_cases": []
+    },
+    {
+      "total": 8,
+      "passed": 8,
+      "failed": 0,
+      "skipped": 0,
+      "assemblies": [
+        "GnOuGo.Auth.Core.Tests.dll"
+      ],
+      "skip_cases": []
+    },
+    {
+      "total": 17,
+      "passed": 17,
+      "failed": 0,
+      "skipped": 0,
+      "assemblies": [
+        "GnOuGo.Flow.Persistence.Tests.dll"
+      ],
+      "skip_cases": []
+    },
+    {
+      "total": 5,
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0,
+      "assemblies": [
+        "GnOuGo.Flow.Copilot.Tests.dll"
+      ],
+      "skip_cases": []
+    }
+  ]
+}

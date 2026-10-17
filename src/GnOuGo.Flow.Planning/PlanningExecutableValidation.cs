@@ -17,6 +17,7 @@ public static class PlanningExecutableValidation
         // contract errors together so one scope error does not consume an entire replan.
         if (errors.Any(d => d.Code is "WORKFLOW_IDENTITIES_INVALID" or "NODE_IDENTITIES_INVALID" or "PORT_IDENTITIES_INVALID" or "ENTRYPOINT_INVALID" or "DEPENDENCY_CYCLE")) return errors;
         errors.AddRange(PlanningArtifactBindings.PrerequisiteFindings(graph, catalog));
+        errors.AddRange(PlanningArtifactBindings.LifecycleFindings(graph, catalog));
         errors.AddRange(PlanningDataflow.Validate(graph, catalog));
         errors.AddRange(PlanningConfirmationGuards.Validate(graph, catalog));
         Script(graph.Functions, "/functions");
@@ -58,7 +59,7 @@ public static class PlanningExecutableValidation
                                 "Select a typed array producer with an established item schema. A computation or an array test cannot establish item types; synthesize and validate a typed producer before iteration when transformation is required.", ValidationStage: "dataflow"));
                         }
                     }
-                Values(node.Input, location + "/input");
+                Values(node.Input, location + "/input", adaptation: node.Type == "set");
                 if (node.Expr is not null) Values(node.Expr, location + "/expr");
                 if (node.If is not null) Condition(node.If, location + "/if");
                 for (var i = 0; i < node.Cases.Count; i++) if (node.Cases[i].When is { } when) Condition(when, location + "/cases/" + i + "/when");
@@ -69,9 +70,9 @@ public static class PlanningExecutableValidation
                 }
                 try
                 {
-                    var preview = Preview(node.Input);
                     // set resolves its entire input value at runtime and can assert the result schema.
-                    if (node.Type == "set" && node.Input.Kind is "expression" or "input" or "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection") continue;
+                    if (node.Type == "set" && node.Input.Kind is "expression" or "input" or "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection" or "projection" or "dynamic_mapping") continue;
+                    var preview = Preview(node.Input);
                     var input = preview as JsonObject ?? throw new InvalidOperationException("This step requires an object input. For set, put computations in input values or supply an object-producing expression.");
                     var capability = catalog.Capabilities.FirstOrDefault(c => c.Id == node.CapabilityId);
                     if (capability is not null)
@@ -102,7 +103,7 @@ public static class PlanningExecutableValidation
             for (var i = 0; i < workflow.Outputs.Count; i++) Values(workflow.Outputs[i].Value, path + "/outputs/" + i + "/value");
         }
         errors.AddRange(PlanningGraphValidation.Validate(graph, catalog));
-        errors.AddRange(PlanningGraphCompiler.ValidateValues(graph, catalog));
+
         return errors.DistinctBy(d => (d.Code, d.Location, d.Message)).ToArray();
 
         void Script(string? script, string location)
@@ -111,8 +112,20 @@ public static class PlanningExecutableValidation
             try { new Acornima.Parser().ParseScript(script); }
             catch (Exception ex) when (ex is not OutOfMemoryException) { errors.Add(new("FUNCTION_SYNTAX_INVALID", location, ex.Message)); }
         }
-        void Values(PlanningValue value, string location)
+        void Values(PlanningValue value, string location, bool adaptation = false)
         {
+            var malformed = value.Kind switch
+            {
+                "string" => value.Text is null || value.Text.Contains("${", StringComparison.Ordinal),
+                "number" => value.Number is null || !double.IsFinite(value.Number.Value),
+                "boolean" => value.Boolean is null,
+                "object" or "projection" or "dynamic_mapping" => value.Members.Select(m => m.Name).Distinct(StringComparer.Ordinal).Count() != value.Members.Count,
+                "null" or "array" or "input" or "output" or "workflow" or "present" or "expression" or "template" or
+                    "predicate" or "arithmetic" or "json" or "flatten" or "lookup" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection" or PlanningValues.Omitted => false,
+                _ => true
+            };
+            if (value.Kind is "projection" or "dynamic_mapping" && !adaptation) malformed = true;
+            if (malformed) errors.Add(new("VALUE_LOWERING_INVALID", location, "The value has an invalid kind, literal, numeric range or duplicate member.", ValidationStage: "conversion"));
             if (value.Kind == "expression")
             {
                 try
@@ -221,7 +234,7 @@ public static class PlanningExecutableValidation
         "object" => new JsonObject(value.Members.Where(m => m.Value.Kind != PlanningValues.Omitted).Select(m => new KeyValuePair<string, JsonNode?>(m.Name, Preview(m.Value)))),
         "array" => new JsonArray(value.Items.Select(Preview).ToArray()),
         "workflow" => new JsonObject { ["kind"] = "local", ["name"] = value.Source },
-        "input" or "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection" or "present" or "expression" or "template" => JsonValue.Create("${data.value}"),
+        "input" or "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection" or "present" or "expression" or "template" or "predicate" or "arithmetic" or "json" or "flatten" or "lookup" => JsonValue.Create("${data.value}"),
         _ => PlanningGraphValidation.Literal(value)
     };
 }

@@ -1,0 +1,19 @@
+{
+  "source": "04213951a6020ecb484b1d0b190f06f112a03f82",
+  "run": "compactv1420261012a-amazon-1",
+  "max_products": 10,
+  "compilation_profile": "compact-bindings-v14",
+  "production_tree": "098ef6d2648575fda6eb3a3d41c468d3f927e8bd",
+  "harness_tree": "649988e9ab459de812ca2fc4aa9b46723e9de1c2",
+  "configuration_hash": "0d9b3f888b2a23348f7efbdc00cc764d2e388e63c076dd350b945bc161539d31",
+  "binary_manifest_sha256": "63629f23258f777ee2e670556ccb47d72eef8a0b0c84b0774265025f64eb8f47",
+  "prompt_sha256": "5876d841c425da45ebf927e577c323458cdfb20d1bddf80b9f98e2cf9a329d18",
+  "oracle_version": "observed-products-v2",
+  "files": {
+    "tests/GnOuGo.Agent.Planning.Benchmark/LiveWorkflowEvaluation.cs": "155a0b6a9217eed83096d68a08a9b2e073859d1855d8d12c4f482f5b393efa99",
+    "tests/GnOuGo.Agent.Planning.Benchmark/LiveWorkflowOracles.cs": "4671fe4cd74cd34167d282a3449686b900492257058fc6add39588bd08d7d514",
+    "tests/GnOuGo.Agent.Planning.Benchmark/KeyVaultBenchmarkModel.cs": "8537217f6d31f13c771c682b7b515c59501ec1f2ce2c4a57e405975e6b50fa24",
+    "tests/GnOuGo.Agent.Planning.Benchmark/BenchmarkCampaign.cs": "1dac4e3545c8e5203f3cb0fef03dff261a65bdca51e6ffadcf04d13673757f9a"
+  },
+  "artifact_approved": false
+}

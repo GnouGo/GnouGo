@@ -1,0 +1,97 @@
+{
+  "revision": 10082,
+  "invocations": 2884,
+  "checkpoint_bytes": 839935,
+  "recent": [
+    {
+      "id": "/workflow/main/step/n_4bc427cca9c1ddea/case/0/step/n_692f9b0bf95cf534/workflow/w_e7accfa8d301fb4e/step/n_d254bfb8b79419f6/workflow/w_e64bef49eb1ad807/step/n_9418992133cc93b3/iteration/996/step/n_11359fb695816bd3/workflow/w_98933a8c5fd3f1ab/step/n_5f5085fdbd576a40",
+      "stepType": "set",
+      "description": "Créer {id:index, record:item}.",
+      "status": "completed",
+      "completedAt": "2026-10-08T10:36:32.776022+00:00",
+      "externalCompletionObserved": true,
+      "error": null
+    },
+    {
+      "id": "/workflow/main/step/n_4bc427cca9c1ddea/case/0/step/n_692f9b0bf95cf534/workflow/w_e7accfa8d301fb4e/step/n_d254bfb8b79419f6/workflow/w_e64bef49eb1ad807/step/n_9418992133cc93b3/iteration/997/step/n_11359fb695816bd3",
+      "stepType": "workflow.call",
+      "description": "Execute scoped workflow",
+      "status": "completed",
+      "completedAt": "2026-10-08T10:36:33.033522+00:00",
+      "externalCompletionObserved": true,
+      "error": null
+    },
+    {
+      "id": "/workflow/main/step/n_4bc427cca9c1ddea/case/0/step/n_692f9b0bf95cf534/workflow/w_e7accfa8d301fb4e/step/n_d254bfb8b79419f6/workflow/w_e64bef49eb1ad807/step/n_9418992133cc93b3/iteration/997/step/n_11359fb695816bd3/workflow/w_98933a8c5fd3f1ab/step/n_5f5085fdbd576a40",
+      "stepType": "set",
+      "description": "Créer {id:index, record:item}.",
+      "status": "completed",
+      "completedAt": "2026-10-08T10:36:33.019803+00:00",
+      "externalCompletionObserved": true,
+      "error": null
+    },
+    {
+      "id": "/workflow/main/step/n_4bc427cca9c1ddea/case/0/step/n_692f9b0bf95cf534/workflow/w_e7accfa8d301fb4e/step/n_d254bfb8b79419f6/workflow/w_e64bef49eb1ad807/step/n_9418992133cc93b3/iteration/998/step/n_11359fb695816bd3",
+      "stepType": "workflow.call",
+      "description": "Execute scoped workflow",
+      "status": "completed",
+      "completedAt": "2026-10-08T10:36:33.308486+00:00",
+      "externalCompletionObserved": true,
+      "error": null
+    },
+    {
+      "id": "/workflow/main/step/n_4bc427cca9c1ddea/case/0/step/n_692f9b0bf95cf534/workflow/w_e7accfa8d301fb4e/step/n_d254bfb8b79419f6/workflow/w_e64bef49eb1ad807/step/n_9418992133cc93b3/iteration/998/step/n_11359fb695816bd3/workflow/w_98933a8c5fd3f1ab/step/n_5f5085fdbd576a40",
+      "stepType": "set",
+      "description": "Créer {id:index, record:item}.",
+      "status": "completed",
+      "completedAt": "2026-10-08T10:36:33.277779+00:00",
+      "externalCompletionObserved": true,
+      "error": null
+    },
+    {
+      "id": "/workflow/main/step/n_4bc427cca9c1ddea/case/0/step/n_692f9b0bf95cf534/workflow/w_e7accfa8d301fb4e/step/n_d254bfb8b79419f6/workflow/w_e64bef49eb1ad807/step/n_9418992133cc93b3/iteration/999/step/n_11359fb695816bd3",
+      "stepType": "workflow.call",
+      "description": "Execute scoped workflow",
+      "status": "completed",
+      "completedAt": "2026-10-08T10:36:33.566472+00:00",
+      "externalCompletionObserved": true,
+      "error": null
+    },
+    {
+      "id": "/workflow/main/step/n_4bc427cca9c1ddea/case/0/step/n_692f9b0bf95cf534/workflow/w_e7accfa8d301fb4e/step/n_d254bfb8b79419f6/workflow/w_e64bef49eb1ad807/step/n_9418992133cc93b3/iteration/999/step/n_11359fb695816bd3/workflow/w_98933a8c5fd3f1ab/step/n_5f5085fdbd576a40",
+      "stepType": "set",
+      "description": "Créer {id:index, record:item}.",
+      "status": "completed",
+      "completedAt": "2026-10-08T10:36:33.552255+00:00",
+      "externalCompletionObserved": true,
+      "error": null
+    },
+    {
+      "id": "/workflow/main/finally/step/n_74bb86b6b29fd7c5",
+      "stepType": "mcp.call",
+      "description": "Fermer le navigateur même en cas d’échec d’une étape précédente.",
+      "status": "completed",
+      "completedAt": "2026-10-08T10:36:35.957357+00:00",
+      "externalCompletionObserved": true,
+      "error": null
+    }
+  ],
+  "status": "failed",
+  "stepsStarted": 2883,
+  "finalizationStepsStarted": 1,
+  "finalizationCompleted": true,
+  "updatedAt": "2026-10-08T10:36:36.16347+00:00",
+  "modelUsage": {
+    "startedAtUtc": "2026-10-08T10:30:48.121406+00:00",
+    "calls": 4,
+    "inputTokens": 15320,
+    "outputTokens": 693,
+    "totalTokens": 16013,
+    "estimatedCost": 0,
+    "estimatedCostCurrency": "USD",
+    "exchangeRates": [],
+    "estimatedCostUsd": 0
+  },
+  "inspection": "Owner- and hash-validated checkpoint/header/last-eight invocation metadata only; payload blocks were not expanded.",
+  "full_journal_inspection": "Separate read-only full reconstruction exhausted inspector memory after execution. It did not change the run, receipts or accounting."
+}

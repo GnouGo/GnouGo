@@ -1,0 +1,155 @@
+version: 1
+name: "branches"
+entrypoint: "main"
+workflows:
+  main:
+    inputs:
+      label:
+        type: "string"
+        required: true
+      authorized:
+        type: "boolean"
+        required: true
+    steps: []
+    outputs:
+      text:
+        type: "string"
+        nullable: true
+        expr: |-
+          ${
+          (() => {
+            const checkedRecord = (condition => condition === true || condition === "true")(data.inputs.authorized) ? (() => {
+              const predicate1Result1 = {
+                value: data.inputs.label
+              };
+              return {
+                n_6f5a6034e770acbf: predicate1Result1
+              };
+            })() : (() => {
+              const predicate1Result2 = {
+                value: null
+              };
+              return {
+                n_5ad38304b535c298: predicate1Result2
+              };
+            })();
+            const checkedRecord_2 = m.select(checkedRecord, [["n_6f5a6034e770acbf", "value"], ["n_5ad38304b535c298", "value"]], false);
+            return checkedRecord_2;
+          })()
+          }
+        expression_contracts:
+          '':
+            checkedRecord:
+              origin: "choose"
+              schema: {type: "object"}
+              order: 0
+              source: "checkedRecord"
+              object_only: true
+              scope: "block0"
+            checkedRecord_2:
+              origin: "merge"
+              schema: {type: ["string", "null"]}
+              order: 1
+              source: "checkedRecord_2"
+              instance_path: "/value"
+              scope: "block0"
+            predicate1Result1:
+              origin: "copy"
+              source: "predicate1Result1"
+              order: 0
+              schema:
+                type: "object"
+                properties:
+                  value: {type: "string", minLength: 1}
+                required: ["value"]
+                additionalProperties: false
+              object_only: true
+              scope: "block1"
+            predicate1Result2:
+              origin: "absent"
+              source: "predicate1Result2"
+              order: 0
+              schema:
+                type: "object"
+                properties:
+                  value: {type: ["string", "null"]}
+                required: ["value"]
+                additionalProperties: false
+              object_only: true
+              scope: "block2"
+skill:
+  description: ""
+  inputs:
+    label:
+      type: "string"
+      required: true
+    authorized:
+      type: "boolean"
+      required: true
+  outputs:
+    text:
+      type: "string"
+      nullable: true
+      expr: |-
+        ${
+        (() => {
+          const checkedRecord = (condition => condition === true || condition === "true")(data.inputs.authorized) ? (() => {
+            const predicate1Result1 = {
+              value: data.inputs.label
+            };
+            return {
+              n_6f5a6034e770acbf: predicate1Result1
+            };
+          })() : (() => {
+            const predicate1Result2 = {
+              value: null
+            };
+            return {
+              n_5ad38304b535c298: predicate1Result2
+            };
+          })();
+          const checkedRecord_2 = m.select(checkedRecord, [["n_6f5a6034e770acbf", "value"], ["n_5ad38304b535c298", "value"]], false);
+          return checkedRecord_2;
+        })()
+        }
+      expression_contracts:
+        '':
+          checkedRecord:
+            origin: "choose"
+            schema: {type: "object"}
+            order: 0
+            source: "checkedRecord"
+            object_only: true
+            scope: "block0"
+          checkedRecord_2:
+            origin: "merge"
+            schema: {type: ["string", "null"]}
+            order: 1
+            source: "checkedRecord_2"
+            instance_path: "/value"
+            scope: "block0"
+          predicate1Result1:
+            origin: "copy"
+            source: "predicate1Result1"
+            order: 0
+            schema:
+              type: "object"
+              properties:
+                value: {type: "string", minLength: 1}
+              required: ["value"]
+              additionalProperties: false
+            object_only: true
+            scope: "block1"
+          predicate1Result2:
+            origin: "absent"
+            source: "predicate1Result2"
+            order: 0
+            schema:
+              type: "object"
+              properties:
+                value: {type: ["string", "null"]}
+              required: ["value"]
+              additionalProperties: false
+            object_only: true
+            scope: "block2"
+...

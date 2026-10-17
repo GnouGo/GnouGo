@@ -23,15 +23,15 @@ public sealed class CopilotSandboxRequiredException(CopilotSandboxReadiness read
 public sealed class CopilotExecutionBounds(int maxModelCalls, long maxTotalTokens, DateTimeOffset deadline,
     IReadOnlySet<string> tools, Func<int, long, CancellationToken, Task> persistReservation)
 {
-    private readonly SemaphoreSlim _gate = new(1, 1);
+    private readonly CopilotInferenceBudget _inference = new(maxModelCalls, maxTotalTokens, deadline, persistReservation);
     public IReadOnlySet<string> Tools { get; } = tools;
     internal bool RequiresSandbox => Tools.Contains("bash") || Tools.Contains("powershell");
     public DateTimeOffset Deadline { get; } = deadline;
-    public int ModelCalls { get; private set; }
+    public int ModelCalls => _inference.ModelCalls;
     /// <summary>Conservative charged token ceiling, not measured model usage.</summary>
-    public long ChargedTokens { get; private set; }
+    public long ChargedTokens => _inference.ChargedTokens;
     public bool Exhausted => AdmissionStop is not null;
-    public CopilotAdmissionStop? AdmissionStop { get; private set; }
+    public CopilotAdmissionStop? AdmissionStop => _inference.AdmissionStop;
     private volatile bool _transportFailed;
     internal bool TransportFailed => _transportFailed;
     internal void RecordTransportFailure() => _transportFailed = true;
@@ -51,8 +51,7 @@ public sealed class CopilotExecutionBounds(int maxModelCalls, long maxTotalToken
     {
         Task drained;
         lock (_operationsGate) { _stopped = true; drained = _drained.Task; }
-        await _gate.WaitAsync(ct);
-        _gate.Release();
+        await _inference.StopAsync(ct);
         await drained.WaitAsync(ct);
     }
 
@@ -110,59 +109,11 @@ public sealed class CopilotExecutionBounds(int maxModelCalls, long maxTotalToken
 
     internal async Task ReserveAsync(HttpRequestMessage request, CancellationToken ct)
     {
-        await _gate.WaitAsync(ct);
-        try
-        {
-            if (_stopped) throw new InvalidOperationException("The bounded task no longer admits inference.");
-            if (DateTimeOffset.UtcNow >= Deadline) throw ExhaustedBudget(CopilotAdmissionStopKind.Deadline);
-            if (ModelCalls >= maxModelCalls) throw ExhaustedBudget(CopilotAdmissionStopKind.Calls);
-            var path = request.RequestUri?.AbsolutePath ?? "";
-            if (request.Method != HttpMethod.Post || request.Content is null ||
-                !(path.EndsWith("/chat/completions", StringComparison.Ordinal) || path.EndsWith("/responses", StringComparison.Ordinal)))
-                throw new InvalidOperationException("Bounded Copilot inference requires a supported text request with an explicit output token ceiling.");
-            var body = JsonNode.Parse(await request.Content.ReadAsStringAsync(ct)) as JsonObject
-                ?? throw new InvalidOperationException("Invalid bounded inference request.");
-            if (body["previous_response_id"] is not null || body["conversation"] is not null || !TextOnly(body))
-                throw new InvalidOperationException("Opaque conversation state and non-text inference cannot be charged safely.");
-            // The supported byte-BPE text protocols consume at most one token per UTF-8 byte.
-            // Charge all serialized metadata as well, plus an explicit framing allowance.
-            var inputCeiling = checked(Encoding.UTF8.GetByteCount(body.ToJsonString()) + 4096L);
-            var remaining = maxTotalTokens - ChargedTokens - inputCeiling;
-            if (remaining < 1) throw ExhaustedBudget(CopilotAdmissionStopKind.Tokens, inputCeiling);
-            var field = path.EndsWith("/responses", StringComparison.Ordinal) ? "max_output_tokens" : "max_completion_tokens";
-            var requested = body[field]?.GetValue<long>() ?? body["max_tokens"]?.GetValue<long>() ?? 8192;
-            if (requested < 1) throw new InvalidOperationException("Invalid inference output ceiling.");
-            var outputCeiling = Math.Min(requested, Math.Min(remaining, 32768));
-            body.Remove("max_tokens"); body[field] = outputCeiling;
-            // Multiple completions would multiply the reserved output allowance.
-            if (body["n"] is { } count && count.GetValue<int>() != 1)
-                throw new InvalidOperationException("Bounded inference permits one completion per request.");
-            ModelCalls++; ChargedTokens = checked(ChargedTokens + inputCeiling + outputCeiling);
-            await persistReservation(ModelCalls, ChargedTokens, ct);
-            var original = request.Content;
-            request.Content = new StringContent(body.ToJsonString(), Encoding.UTF8, "application/json");
-            original.Dispose();
-        }
-        finally { _gate.Release(); }
+        if (_stopped) throw new InvalidOperationException("The bounded task no longer admits inference.");
+        try { await _inference.ReserveAsync(request, ct); }
+        finally { if (_inference.AdmissionStop is not null) lock (_operationsGate) _stopped = true; }
     }
 
-    private InvalidOperationException ExhaustedBudget(CopilotAdmissionStopKind kind, long? inputCeiling = null)
-    {
-        AdmissionStop ??= new(kind, maxModelCalls, maxTotalTokens, Deadline, ModelCalls, ChargedTokens, inputCeiling);
-        lock (_operationsGate) _stopped = true;
-        return new InvalidOperationException("The approved Copilot inference allowance cannot admit this request.");
-    }
-
-    private static bool TextOnly(JsonNode? node)
-    {
-        if (node is JsonObject obj)
-        {
-            if (obj["type"] is JsonValue kind && kind.TryGetValue<string>(out var type) &&
-                type is "image_url" or "input_image" or "input_audio" or "input_file" or "file" or "computer_screenshot") return false;
-            return obj.All(p => TextOnly(p.Value));
-        }
-        return node is not JsonArray array || array.All(TextOnly);
-    }
 }
 
 internal sealed class CopilotBoundedInferenceHandler(CopilotExecutionBounds bounds, CopilotInferenceProxyHandler? proxy) : CopilotRequestHandler

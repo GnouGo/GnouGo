@@ -34,7 +34,7 @@ public sealed class BundledCopilotMcpConfigurationTests
         Assert.Equal(["low", "medium", "high", "xhigh"], server.EditableFields["reasoning_effort"].Options);
         Assert.Equal(1, server.EditableFields["request_timeout_seconds"].MinValue);
         Assert.Equal(1, server.EditableFields["managed_session_ttl_seconds"].MinValue);
-        Assert.Equal("true", server.EditableFields["enable_approve_all"].DefaultValue);
+        Assert.Equal("false", server.EditableFields["enable_approve_all"].DefaultValue);
         Assert.Equal("false", server.EditableFields["enable_sandbox_bypass_grants"].DefaultValue);
         Assert.Equal(
             "true",

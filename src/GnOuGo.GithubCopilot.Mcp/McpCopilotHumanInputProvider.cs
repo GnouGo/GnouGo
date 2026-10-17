@@ -45,9 +45,19 @@ internal sealed class McpCopilotHumanInputProvider : ICopilotHumanInputProvider
     {
         if (current is null)
             throw new InvalidOperationException("Interactive Copilot callbacks require an active MCP request context.");
+        // SDK callbacks may arrive on a transport thread without the tool call's
+        // ambient metadata. Restore only the identity captured by this host request.
+        using var identity = _traceContext.Push(current.TraceContext);
         using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(
             cancellationToken,
             current.CancellationToken);
+        await current.ElicitationGate.WaitAsync(linkedCancellation.Token);
+        try { return await ElicitAsync(request, current, linkedCancellation.Token); }
+        finally { current.ElicitationGate.Release(); }
+    }
+
+    private static async Task<CopilotHumanInputResponse> ElicitAsync(CopilotHumanInputRequest request, RequestContext current, CancellationToken cancellationToken)
+    {
         var schema = request.RequestedSchema is { } requestedSchema
             ? ConvertSchema(requestedSchema)
             : BuildAnswerSchema(request);
@@ -69,7 +79,7 @@ internal sealed class McpCopilotHumanInputProvider : ICopilotHumanInputProvider
                 Message = request.Prompt,
                 RequestedSchema = schema,
                 Meta = current.TraceContext?.ToMcpMeta()
-            }, linkedCancellation.Token);
+            }, cancellationToken);
         }
         catch (OperationCanceledException)
         {
@@ -182,7 +192,12 @@ internal sealed class McpCopilotHumanInputProvider : ICopilotHumanInputProvider
         McpServer Server,
         CancellationToken CancellationToken,
         CodeMcpTraceContext? TraceContext,
-        CodeProgressReporter Progress);
+        CodeProgressReporter Progress)
+    {
+        // Captured callbacks share this invocation's gate, never another tenant
+        // or call's answers. MRTR permits one outstanding client request.
+        internal SemaphoreSlim ElicitationGate { get; } = new(1, 1);
+    }
 
     private sealed class Scope(McpCopilotHumanInputProvider owner, RequestContext? previous) : IDisposable
     {

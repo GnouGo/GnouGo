@@ -1,0 +1,12 @@
+{
+  "run": "initialrequirements20261015a-amazon-1",
+  "revision": 5,
+  "status": "stopped",
+  "artifact_hash": null,
+  "automatic_correction": true,
+  "compilation_profile": "compact-bindings-v15",
+  "planning_calls": 4,
+  "repairs": 2,
+  "execution_started": null,
+  "saved_run_unchanged": true
+}

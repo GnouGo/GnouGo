@@ -1,0 +1,11 @@
+{
+  "run": "typedbindings20261009b-amazon-1",
+  "candidate": "7a76fc951d31dec26978f6c01a07b76ae71ea154",
+  "user_reply": "YES GO",
+  "scope": "Fresh paid Amazon planning under the existing campaign; generated artifact requires separate concrete revision/hash-bound approval and explicit requirement acknowledgments before execution.",
+  "campaign": "schema-portability-20261002",
+  "ceiling_eur": 150,
+  "max_products": 10,
+  "historical_replay_authorized": false,
+  "budget_extension": false
+}

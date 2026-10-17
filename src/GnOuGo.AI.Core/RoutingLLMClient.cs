@@ -106,10 +106,14 @@ public sealed class RoutingLLMClient
 
     /// <summary>Resolves declared capabilities for the dispatch route without discovery or heuristic defaults.</summary>
     public ModelCapabilityMetadata? ResolveDeclaredCapabilities(string? provider, string? model)
+        => ResolveDeclaredMetadata(provider, model)?.Capabilities;
+
+    /// <summary>Reads exact model limits and capabilities without inference or heuristic defaults.</summary>
+    public LLMModelMetadata? ResolveDeclaredMetadata(string? provider, string? model)
     {
         var providerKey = ResolveProviderKey(provider, model);
         var options = _options.ResolveProvider(providerKey) ?? throw new InvalidOperationException("The model provider is not configured.");
-        return _metadataResolver.ResolveDeclaredCapabilities(options.ResolvedType, NormalizeModel(string.IsNullOrWhiteSpace(model) ? _options.DefaultModel : model));
+        return _metadataResolver.ResolveDeclaredMetadata(options.ResolvedType, NormalizeModel(string.IsNullOrWhiteSpace(model) ? _options.DefaultModel : model));
     }
 
     private static string NormalizeModel(string model)

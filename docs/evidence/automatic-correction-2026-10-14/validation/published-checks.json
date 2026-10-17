@@ -1,0 +1,138 @@
+[
+  {
+    "check": "protos",
+    "command": [
+      "python3",
+      "scripts/ensure-otlp-protos.py"
+    ],
+    "exit_code": 0
+  },
+  {
+    "check": "pack-Core",
+    "command": [
+      "dotnet",
+      "pack",
+      "src/GnOuGo.Flow.Core/GnOuGo.Flow.Core.csproj",
+      "-c",
+      "Release",
+      "-m:1",
+      "-warnaserror",
+      "-o",
+      "/private/tmp/gnougo-autocorrection-published/packages"
+    ],
+    "exit_code": 0
+  },
+  {
+    "check": "pack-Planning",
+    "command": [
+      "dotnet",
+      "pack",
+      "src/GnOuGo.Flow.Planning/GnOuGo.Flow.Planning.csproj",
+      "-c",
+      "Release",
+      "-m:1",
+      "-warnaserror",
+      "-o",
+      "/private/tmp/gnougo-autocorrection-published/packages"
+    ],
+    "exit_code": 0
+  },
+  {
+    "check": "pack-Integrations",
+    "command": [
+      "dotnet",
+      "pack",
+      "src/GnOuGo.Flow.Integrations/GnOuGo.Flow.Integrations.csproj",
+      "-c",
+      "Release",
+      "-m:1",
+      "-warnaserror",
+      "-o",
+      "/private/tmp/gnougo-autocorrection-published/packages"
+    ],
+    "exit_code": 0
+  },
+  {
+    "check": "pack-Persistence",
+    "command": [
+      "dotnet",
+      "pack",
+      "src/GnOuGo.Flow.Persistence/GnOuGo.Flow.Persistence.csproj",
+      "-c",
+      "Release",
+      "-m:1",
+      "-warnaserror",
+      "-o",
+      "/private/tmp/gnougo-autocorrection-published/packages"
+    ],
+    "exit_code": 0
+  },
+  {
+    "check": "planning-aot",
+    "command": [
+      "dotnet",
+      "publish",
+      "tests/GnOuGo.Flow.Planning.Smoke",
+      "-c",
+      "Release",
+      "-r",
+      "osx-arm64",
+      "--self-contained",
+      "true",
+      "-m:1",
+      "-warnaserror",
+      "-o",
+      "/private/tmp/gnougo-autocorrection-published/planning"
+    ],
+    "exit_code": 0
+  },
+  {
+    "check": "planning-smoke",
+    "command": [
+      "/private/tmp/gnougo-autocorrection-published/planning/GnOuGo.Flow.Planning.Smoke"
+    ],
+    "exit_code": 0
+  },
+  {
+    "check": "server-publish",
+    "command": [
+      "dotnet",
+      "publish",
+      "src/GnOuGo.Agent.Server",
+      "-c",
+      "Release",
+      "-r",
+      "osx-arm64",
+      "--self-contained",
+      "true",
+      "-m:1",
+      "-warnaserror",
+      "-p:SkipClientBuild=true",
+      "-p:PublishAot=false",
+      "-p:PublishTrimmed=true",
+      "-p:SkipModelMetadataGeneration=true",
+      "-p:SkipBundledServerTools=true",
+      "-o",
+      "/private/tmp/gnougo-autocorrection-published/server"
+    ],
+    "exit_code": 0
+  },
+  {
+    "check": "published-recovery",
+    "command": [
+      "/private/tmp/gnougo-autocorrection-published/server/GnOuGo.Agent.Server",
+      "--planning-persistence-smoke",
+      "/private/tmp/gnougo-autocorrection-published/disposable-recovery"
+    ],
+    "exit_code": 0
+  },
+  {
+    "check": "skill",
+    "command": [
+      "/usr/bin/python3",
+      "/Users/a115vc/.codex/skills/.system/skill-creator/scripts/quick_validate.py",
+      ".agents/skills/gnougo-planning"
+    ],
+    "exit_code": 0
+  }
+]

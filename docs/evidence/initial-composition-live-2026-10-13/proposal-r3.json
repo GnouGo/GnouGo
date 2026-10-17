@@ -1,0 +1,1014 @@
+{
+  "discoveryRequests": null,
+  "plan": {
+    "inputs": [
+      {
+        "name": "query",
+        "type": {
+          "kind": "string"
+        }
+      }
+    ],
+    "root": {
+      "tasks": [
+        {
+          "id": "build_search_url",
+          "kind": "transform",
+          "objective": "Build the Amazon.fr search URL from the single public input query, preserving the original query separately.",
+          "dependsOn": [],
+          "requires": null,
+          "mode": "interpret",
+          "inputs": [
+            {
+              "name": "query",
+              "value": {
+                "kind": "input",
+                "source": "query"
+              }
+            }
+          ],
+          "resultType": {
+            "kind": "object",
+            "fields": [
+              {
+                "name": "queryCopy",
+                "type": {
+                  "kind": "string"
+                }
+              },
+              {
+                "name": "searchUrl",
+                "type": {
+                  "kind": "string"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "open_search_observe",
+          "kind": "operation",
+          "objective": "Open Amazon.fr search results for the requested article and acquire a complete bounded observation snapshot of the page.",
+          "dependsOn": [
+            "build_search_url"
+          ],
+          "requires": {
+            "kind": "predicate",
+            "predicate": "and",
+            "items": [
+              {
+                "kind": "predicate",
+                "predicate": "not_equal",
+                "items": [
+                  {
+                    "kind": "field",
+                    "items": [
+                      {
+                        "kind": "output",
+                        "source": "build_search_url",
+                        "port": null
+                      }
+                    ],
+                    "port": "searchUrl"
+                  },
+                  {
+                    "kind": "null"
+                  }
+                ]
+              },
+              {
+                "kind": "predicate",
+                "predicate": "not_equal",
+                "items": [
+                  {
+                    "kind": "field",
+                    "items": [
+                      {
+                        "kind": "output",
+                        "source": "build_search_url",
+                        "port": null
+                      }
+                    ],
+                    "port": "searchUrl"
+                  },
+                  {
+                    "kind": "string",
+                    "text": ""
+                  }
+                ]
+              }
+            ]
+          },
+          "operation": "cap_490d9e16075cbdca5954ec27",
+          "inputs": [
+            {
+              "name": "url",
+              "value": {
+                "kind": "field",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "build_search_url",
+                    "port": null
+                  }
+                ],
+                "port": "searchUrl"
+              }
+            },
+            {
+              "name": "format",
+              "value": {
+                "kind": "string",
+                "text": "observation_complete"
+              }
+            },
+            {
+              "name": "waitUntil",
+              "value": {
+                "kind": "string",
+                "text": "domcontentloaded"
+              }
+            },
+            {
+              "name": "maxRecords",
+              "value": {
+                "kind": "number",
+                "number": 200
+              }
+            },
+            {
+              "name": "timeoutMs",
+              "value": {
+                "kind": "number",
+                "number": 45000
+              }
+            }
+          ]
+        },
+        {
+          "id": "assert_search_observation_status",
+          "kind": "transform",
+          "objective": "Bind typed search observation status and assert producer-declared success, availability, and completeness before extracting candidates.",
+          "dependsOn": [
+            "open_search_observe"
+          ],
+          "requires": null,
+          "mode": "interpret",
+          "inputs": [
+            {
+              "name": "searchObservation",
+              "value": {
+                "kind": "output",
+                "source": "open_search_observe",
+                "port": null
+              }
+            }
+          ],
+          "resultType": {
+            "kind": "object",
+            "fields": [
+              {
+                "name": "ok",
+                "type": {
+                  "kind": "boolean"
+                }
+              },
+              {
+                "name": "success",
+                "type": {
+                  "kind": "boolean"
+                }
+              },
+              {
+                "name": "available",
+                "type": {
+                  "kind": "boolean"
+                }
+              },
+              {
+                "name": "complete",
+                "type": {
+                  "kind": "boolean"
+                }
+              },
+              {
+                "name": "error",
+                "type": {
+                  "kind": "string",
+                  "nullable": true
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "extract_candidate_pages",
+          "kind": "transform",
+          "objective": "From each complete observed search-results page, extract compact Candidate[] per page for at most the first 10 offered product links, preserving original observed action data, IDs, hrefs, references, and text verbatim; do not filter or deduplicate beyond the requested first 10 maximum.",
+          "dependsOn": [
+            "assert_search_observation_status"
+          ],
+          "requires": {
+            "kind": "predicate",
+            "predicate": "and",
+            "items": [
+              {
+                "kind": "field",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "assert_search_observation_status",
+                    "port": null
+                  }
+                ],
+                "port": "success"
+              },
+              {
+                "kind": "field",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "assert_search_observation_status",
+                    "port": null
+                  }
+                ],
+                "port": "availableReadonlyCopyStatusOkConsideringPotentialNamingMismatchButUseAvailableFieldDirectly"
+              }
+            ]
+          },
+          "mode": "extract",
+          "each": {
+            "input": "pages",
+            "output": "candidates"
+          },
+          "inputs": [
+            {
+              "name": "pages",
+              "value": {
+                "kind": "field",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "open_search_observe",
+                    "port": null
+                  }
+                ],
+                "port": "observationSnapshot.pages"
+              }
+            },
+            {
+              "name": "limit",
+              "value": {
+                "kind": "number",
+                "number": 10
+              }
+            }
+          ],
+          "resultType": {
+            "kind": "object",
+            "fields": [
+              {
+                "name": "candidates",
+                "type": {
+                  "kind": "array",
+                  "items": {
+                    "kind": "object",
+                    "fields": [
+                      {
+                        "name": "candidateId",
+                        "type": {
+                          "kind": "string",
+                          "nullable": true
+                        }
+                      },
+                      {
+                        "name": "offeredText",
+                        "type": {
+                          "kind": "string",
+                          "nullable": true
+                        }
+                      },
+                      {
+                        "name": "href",
+                        "type": {
+                          "kind": "string",
+                          "nullable": true
+                        }
+                      },
+                      {
+                        "name": "reference",
+                        "type": {
+                          "kind": "string",
+                          "nullable": true
+                        }
+                      },
+                      {
+                        "name": "actions",
+                        "type": {
+                          "kind": "array",
+                          "items": {
+                            "kind": "string"
+                          },
+                          "minItems": 0,
+                          "maxItems": 10
+                        }
+                      }
+                    ]
+                  },
+                  "minItems": 0,
+                  "maxItems": 10
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "compact_candidate_decision",
+          "kind": "transform",
+          "objective": "Flatten per-page Candidate[] into a compact ordered list of up to 10 product candidates; keep originals for lookup and branch explicitly on null href/reference/action availability.",
+          "dependsOn": [
+            "extract_candidate_pages"
+          ],
+          "requires": {
+            "kind": "field",
+            "items": [
+              {
+                "kind": "output",
+                "source": "assert_search_observation_status",
+                "port": null
+              }
+            ],
+            "port": "complete"
+          },
+          "mode": "interpret",
+          "inputs": [
+            {
+              "name": "candidatePages",
+              "value": {
+                "kind": "output",
+                "source": "extract_candidate_pages",
+                "port": null
+              }
+            }
+          ],
+          "resultType": {
+            "kind": "object",
+            "fields": [
+              {
+                "name": "offeredCandidates",
+                "type": {
+                  "kind": "array",
+                  "items": {
+                    "kind": "object",
+                    "fields": [
+                      {
+                        "name": "candidateId",
+                        "type": {
+                          "kind": "string",
+                          "nullable": true
+                        }
+                      },
+                      {
+                        "name": "offeredText",
+                        "type": {
+                          "kind": "string",
+                          "nullable": true
+                        }
+                      },
+                      {
+                        "name": "href",
+                        "type": {
+                          "kind": "string",
+                          "nullable": true
+                        }
+                      },
+                      {
+                        "name": "reference",
+                        "type": {
+                          "kind": "string",
+                          "nullable": true
+                        }
+                      },
+                      {
+                        "name": "visitUrl",
+                        "type": {
+                          "kind": "string",
+                          "nullable": true
+                        }
+                      },
+                      {
+                        "name": "visitStatus",
+                        "type": {
+                          "kind": "string"
+                        }
+                      }
+                    ]
+                  },
+                  "minItems": 0,
+                  "maxItems": 10
+                }
+              },
+              {
+                "name": "count",
+                "type": {
+                  "kind": "integer"
+                }
+              },
+              {
+                "name": "decisionStatus",
+                "type": {
+                  "kind": "string"
+                }
+              },
+              {
+                "name": "error",
+                "type": {
+                  "kind": "string",
+                  "nullable": true
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "visit_products",
+          "kind": "foreach",
+          "objective": "Visit each requested product candidate in original offered order, using the preserved offered URL when present; keep null/error states explicit and do not invent missing data.",
+          "dependsOn": [
+            "compact_candidate_decision"
+          ],
+          "requires": {
+            "kind": "predicate",
+            "predicate": "greater",
+            "items": [
+              {
+                "kind": "field",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "compact_candidate_decision",
+                    "port": null
+                  }
+                ],
+                "port": "count"
+              },
+              {
+                "kind": "number",
+                "number": 0
+              }
+            ]
+          },
+          "items": {
+            "kind": "field",
+            "items": [
+              {
+                "kind": "output",
+                "source": "compact_candidate_decision",
+                "port": null
+              }
+            ],
+            "port": "offeredCandidates"
+          },
+          "body": {
+            "tasks": [
+              {
+                "id": "read_product_page",
+                "kind": "operation",
+                "objective": "Open the product detail page for the current candidate URL and acquire a complete bounded observation snapshot, or leave explicit error status when the URL is null.",
+                "dependsOn": [],
+                "requires": {
+                  "kind": "predicate",
+                  "predicate": "and",
+                  "items": [
+                    {
+                      "kind": "predicate",
+                      "predicate": "not_equal",
+                      "items": [
+                        {
+                          "kind": "field",
+                          "items": [
+                            {
+                              "kind": "item"
+                            }
+                          ],
+                          "port": "visitUrl"
+                        },
+                        {
+                          "kind": "null"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "predicate",
+                      "predicate": "not_equal",
+                      "items": [
+                        {
+                          "kind": "field",
+                          "items": [
+                            {
+                              "kind": "item"
+                            }
+                          ],
+                          "port": "visitUrl"
+                        },
+                        {
+                          "kind": "string",
+                          "text": ""
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "operation": "cap_490d9e16075cbdca5954ec27",
+                "inputs": [
+                  {
+                    "name": "url",
+                    "value": {
+                      "kind": "field",
+                      "items": [
+                        {
+                          "kind": "item"
+                        }
+                      ],
+                      "port": "visitUrl"
+                    }
+                  },
+                  {
+                    "name": "format",
+                    "value": {
+                      "kind": "string",
+                      "text": "observation_complete"
+                    }
+                  },
+                  {
+                    "name": "waitUntil",
+                    "value": {
+                      "kind": "string",
+                      "text": "domcontentloaded"
+                    }
+                  },
+                  {
+                    "name": "maxRecords",
+                    "value": {
+                      "kind": "number",
+                      "number": 200
+                    }
+                  },
+                  {
+                    "name": "timeoutMs",
+                    "value": {
+                      "kind": "number",
+                      "number": 45000
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "extract_product_row",
+                "kind": "transform",
+                "objective": "Extract one typed product row from the product detail observation: name, description, and price exactly as observed; description is the whole relevant offered feature/text block, heading optional, several suitable blocks do not mean absent; null means absent or uncertain subject; no controls; preserve original candidate action data and explicit errors.",
+                "dependsOn": [
+                  "read_product_page"
+                ],
+                "requires": null,
+                "mode": "extract",
+                "inputs": [
+                  {
+                    "name": "candidate",
+                    "value": {
+                      "kind": "item"
+                    }
+                  },
+                  {
+                    "name": "productObservation",
+                    "value": {
+                      "kind": "output",
+                      "source": "read_product_page",
+                      "port": null
+                    }
+                  }
+                ],
+                "resultType": {
+                  "kind": "object",
+                  "fields": [
+                    {
+                      "name": "Nom",
+                      "type": {
+                        "kind": "string",
+                        "nullable": true
+                      }
+                    },
+                    {
+                      "name": "Description",
+                      "type": {
+                        "kind": "string",
+                        "nullable": true
+                      }
+                    },
+                    {
+                      "name": "Prix",
+                      "type": {
+                        "kind": "string",
+                        "nullable": true
+                      }
+                    },
+                    {
+                      "name": "URL",
+                      "type": {
+                        "kind": "string",
+                        "nullable": true
+                      }
+                    },
+                    {
+                      "name": "Statut",
+                      "type": {
+                        "kind": "string"
+                      }
+                    },
+                    {
+                      "name": "Erreur",
+                      "type": {
+                        "kind": "string",
+                        "nullable": true
+                      }
+                    },
+                    {
+                      "name": "candidateId",
+                      "type": {
+                        "kind": "string",
+                        "nullable": true
+                      }
+                    },
+                    {
+                      "name": "offeredText",
+                      "type": {
+                        "kind": "string",
+                        "nullable": true
+                      }
+                    },
+                    {
+                      "name": "reference",
+                      "type": {
+                        "kind": "string",
+                        "nullable": true
+                      }
+                    }
+                  ]
+                }
+              }
+            ],
+            "outputs": [
+              {
+                "name": "productRows",
+                "value": {
+                  "kind": "output",
+                  "source": "extract_product_row",
+                  "port": null
+                }
+              }
+            ],
+            "always": []
+          },
+          "parallel": false,
+          "maxItems": 10,
+          "maxConcurrency": 1
+        },
+        {
+          "id": "prepare_xlsx_rows",
+          "kind": "transform",
+          "objective": "Bind typed copies of extracted product rows and prepend supplied headers for exact XLSX row export; keep absent prices/descriptions/errors explicit and do not deduplicate or filter.",
+          "dependsOn": [
+            "visit_products"
+          ],
+          "requires": null,
+          "mode": "interpret",
+          "inputs": [
+            {
+              "name": "query",
+              "value": {
+                "kind": "field",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "build_search_url",
+                    "port": null
+                  }
+                ],
+                "port": "queryCopy"
+              }
+            },
+            {
+              "name": "offeredCandidates",
+              "value": {
+                "kind": "field",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "compact_candidate_decision",
+                    "port": null
+                  }
+                ],
+                "port": "offeredCandidates"
+              }
+            },
+            {
+              "name": "productRows",
+              "value": {
+                "kind": "output",
+                "source": "visit_products",
+                "port": null
+              }
+            }
+          ],
+          "resultType": {
+            "kind": "object",
+            "fields": [
+              {
+                "name": "rows",
+                "type": {
+                  "kind": "array",
+                  "items": {
+                    "kind": "array",
+                    "items": {
+                      "kind": "string",
+                      "nullable": true
+                    },
+                    "minItems": 6,
+                    "maxItems": 6
+                  },
+                  "minItems": 1,
+                  "maxItems": 11
+                }
+              },
+              {
+                "name": "status",
+                "type": {
+                  "kind": "string"
+                }
+              },
+              {
+                "name": "error",
+                "type": {
+                  "kind": "string",
+                  "nullable": true
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "write_products_xlsx",
+          "kind": "operation",
+          "objective": "Save the extracted product rows to the requested Excel workbook path before cleanup.",
+          "dependsOn": [
+            "prepare_xlsx_rows"
+          ],
+          "requires": {
+            "kind": "predicate",
+            "predicate": "and",
+            "items": [
+              {
+                "kind": "predicate",
+                "predicate": "not_equal",
+                "items": [
+                  {
+                    "kind": "field",
+                    "items": [
+                      {
+                        "kind": "output",
+                        "source": "prepare_xlsx_rows",
+                        "port": null
+                      }
+                    ],
+                    "port": "rows"
+                  },
+                  {
+                    "kind": "null"
+                  }
+                ]
+              },
+              {
+                "kind": "predicate",
+                "predicate": "greater_equal",
+                "items": [
+                  {
+                    "kind": "field",
+                    "items": [
+                      {
+                        "kind": "output",
+                        "source": "prepare_xlsx_rows",
+                        "port": null
+                      }
+                    ],
+                    "port": "rows.length"
+                  },
+                  {
+                    "kind": "number",
+                    "number": 1
+                  }
+                ]
+              }
+            ]
+          },
+          "operation": "cap_37c513d225bb1b870053c5d3",
+          "inputs": [
+            {
+              "name": "filePath",
+              "value": {
+                "kind": "string",
+                "text": "workflows/schema-portability-20261002/initialcomposition20261013a-amazon-1/products.xlsx"
+              }
+            },
+            {
+              "name": "append",
+              "value": {
+                "kind": "boolean",
+                "boolean": false
+              }
+            },
+            {
+              "name": "rows",
+              "value": {
+                "kind": "field",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "prepare_xlsx_rows",
+                    "port": null
+                  }
+                ],
+                "port": "rows"
+              }
+            }
+          ]
+        },
+        {
+          "id": "assert_write_status",
+          "kind": "transform",
+          "objective": "Assert producer-declared writer success and bind final status without declaring success if the workbook was not written.",
+          "dependsOn": [
+            "write_products_xlsx"
+          ],
+          "requires": null,
+          "mode": "interpret",
+          "inputs": [
+            {
+              "name": "writer",
+              "value": {
+                "kind": "output",
+                "source": "write_products_xlsx",
+                "port": null
+              }
+            },
+            {
+              "name": "extractionStatus",
+              "value": {
+                "kind": "output",
+                "source": "prepare_xlsx_rows",
+                "port": null
+              }
+            }
+          ],
+          "resultType": {
+            "kind": "object",
+            "fields": [
+              {
+                "name": "success",
+                "type": {
+                  "kind": "boolean"
+                }
+              },
+              {
+                "name": "filePath",
+                "type": {
+                  "kind": "string",
+                  "nullable": true
+                }
+              },
+              {
+                "name": "status",
+                "type": {
+                  "kind": "string"
+                }
+              },
+              {
+                "name": "error",
+                "type": {
+                  "kind": "string",
+                  "nullable": true
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "filePath",
+          "value": {
+            "kind": "field",
+            "items": [
+              {
+                "kind": "output",
+                "source": "assert_write_status",
+                "port": null
+              }
+            ],
+            "port": "filePath"
+          }
+        },
+        {
+          "name": "status",
+          "value": {
+            "kind": "field",
+            "items": [
+              {
+                "kind": "output",
+                "source": "assert_write_status",
+                "port": null
+              }
+            ],
+            "port": "status"
+          }
+        },
+        {
+          "name": "success",
+          "value": {
+            "kind": "field",
+            "items": [
+              {
+                "kind": "output",
+                "source": "assert_write_status",
+                "port": null
+              }
+            ],
+            "port": "success"
+          }
+        }
+      ],
+      "always": [
+        {
+          "id": "close_browser",
+          "kind": "operation",
+          "objective": "Close the browser even if any prior step failed.",
+          "dependsOn": [],
+          "requires": null,
+          "operation": "cap_bdb7ba9ab04b18783883fa86",
+          "inputs": []
+        }
+      ]
+    },
+    "groups": [],
+    "choices": []
+  },
+  "clarifications": null,
+  "requirements": {
+    "summary": "Accept one public input named query, search Amazon.fr for that article, process at most the first 10 offered product results, visit each product page, extract observed name, description and price into an Excel workbook, save it at the requested workspace path, and close the browser even on failure.",
+    "outcomes": [
+      {
+        "id": "amazon_search_and_product_extraction",
+        "description": "Amazon.fr is opened with the supplied query, up to the first 10 product candidates are visited in offered order, and observed missing data or errors are kept explicit rather than invented."
+      },
+      {
+        "id": "xlsx_saved_to_requested_path",
+        "description": "An XLSX workbook is written to workflows/schema-portability-20261002/initialcomposition20261013a-amazon-1/products.xlsx with headers prepended and typed rows for product name, description, price, URL, status, and error."
+      },
+      {
+        "id": "browser_cleanup_and_truthful_status",
+        "description": "The browser is closed in all cases, and final status reports success only when the required workbook write succeeds."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "query",
+        "type": {
+          "kind": "string"
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "name": "filePath",
+        "type": {
+          "kind": "string",
+          "nullable": true
+        },
+        "required": false
+      },
+      {
+        "name": "status",
+        "type": {
+          "kind": "string"
+        },
+        "required": false
+      },
+      {
+        "name": "success",
+        "type": {
+          "kind": "boolean"
+        },
+        "required": false
+      }
+    ]
+  }
+}

@@ -1,0 +1,162 @@
+{
+  "workbook-complete": {
+    "rows": [
+      {
+        "null": "error"
+      },
+      {
+        "null": ""
+      },
+      {
+        "null": ""
+      },
+      {
+        "null": ""
+      },
+      {
+        "null": ""
+      },
+      {
+        "null": ""
+      },
+      {
+        "null": ""
+      },
+      {
+        "null": ""
+      },
+      {
+        "null": ""
+      },
+      {
+        "null": ""
+      },
+      {
+        "null": ""
+      }
+    ],
+    "formulas": 0
+  },
+  "workbook-empty": {
+    "rows": [
+      {
+        "null": "error"
+      }
+    ],
+    "formulas": 0
+  },
+  "workbook-missing": {
+    "rows": [
+      {
+        "null": "error"
+      },
+      {
+        "null": ""
+      },
+      {
+        "null": ""
+      },
+      {
+        "null": ""
+      },
+      {
+        "null": ""
+      },
+      {
+        "null": ""
+      },
+      {
+        "null": ""
+      },
+      {
+        "null": ""
+      },
+      {
+        "null": ""
+      },
+      {
+        "null": ""
+      },
+      {
+        "null": ""
+      }
+    ],
+    "formulas": 0
+  },
+  "workbook-redirected": {
+    "rows": [
+      {
+        "null": "error"
+      },
+      {
+        "null": ""
+      },
+      {
+        "null": ""
+      },
+      {
+        "null": ""
+      },
+      {
+        "null": ""
+      },
+      {
+        "null": ""
+      },
+      {
+        "null": ""
+      },
+      {
+        "null": ""
+      },
+      {
+        "null": ""
+      },
+      {
+        "null": ""
+      },
+      {
+        "null": ""
+      }
+    ],
+    "formulas": 0
+  },
+  "workbook-repeated": {
+    "rows": [
+      {
+        "null": "error"
+      },
+      {
+        "null": ""
+      },
+      {
+        "null": ""
+      },
+      {
+        "null": ""
+      },
+      {
+        "null": ""
+      },
+      {
+        "null": ""
+      },
+      {
+        "null": ""
+      },
+      {
+        "null": ""
+      },
+      {
+        "null": ""
+      },
+      {
+        "null": ""
+      },
+      {
+        "null": ""
+      }
+    ],
+    "formulas": 0
+  }
+}

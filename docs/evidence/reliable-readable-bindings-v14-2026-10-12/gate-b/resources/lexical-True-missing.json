@@ -1,0 +1,146 @@
+[
+  {
+    "statements": 17,
+    "statement_limit": 10000,
+    "elapsed_ms": 0.2868,
+    "time_limit_ms": 5000,
+    "allocated_bytes": 41024,
+    "materialized_bytes": 0,
+    "output_bytes": 0,
+    "memory_limit_bytes": 50000000,
+    "nesting_depth": 0,
+    "nesting_limit": 64,
+    "profile": "v13",
+    "unused_observation_bytes": 1,
+    "warm": false,
+    "checks": [
+      "copy:CONTRACT_UNSATISFIED"
+    ]
+  },
+  {
+    "statements": 16,
+    "statement_limit": 10000,
+    "elapsed_ms": 0.2229,
+    "time_limit_ms": 5000,
+    "allocated_bytes": 33656,
+    "materialized_bytes": 0,
+    "output_bytes": 0,
+    "memory_limit_bytes": 50000000,
+    "nesting_depth": 0,
+    "nesting_limit": 64,
+    "profile": "v14",
+    "unused_observation_bytes": 1,
+    "warm": false,
+    "checks": [
+      "copy:CONTRACT_UNSATISFIED"
+    ]
+  },
+  {
+    "statements": 17,
+    "statement_limit": 10000,
+    "elapsed_ms": 0.1517,
+    "time_limit_ms": 5000,
+    "allocated_bytes": 41024,
+    "materialized_bytes": 0,
+    "output_bytes": 0,
+    "memory_limit_bytes": 50000000,
+    "nesting_depth": 0,
+    "nesting_limit": 64,
+    "profile": "v13",
+    "unused_observation_bytes": 1,
+    "warm": true,
+    "checks": [
+      "copy:CONTRACT_UNSATISFIED"
+    ]
+  },
+  {
+    "statements": 16,
+    "statement_limit": 10000,
+    "elapsed_ms": 0.0985,
+    "time_limit_ms": 5000,
+    "allocated_bytes": 33656,
+    "materialized_bytes": 0,
+    "output_bytes": 0,
+    "memory_limit_bytes": 50000000,
+    "nesting_depth": 0,
+    "nesting_limit": 64,
+    "profile": "v14",
+    "unused_observation_bytes": 1,
+    "warm": true,
+    "checks": [
+      "copy:CONTRACT_UNSATISFIED"
+    ]
+  },
+  {
+    "statements": 17,
+    "statement_limit": 10000,
+    "elapsed_ms": 0.0975,
+    "time_limit_ms": 5000,
+    "allocated_bytes": 41024,
+    "materialized_bytes": 0,
+    "output_bytes": 0,
+    "memory_limit_bytes": 50000000,
+    "nesting_depth": 0,
+    "nesting_limit": 64,
+    "profile": "v13",
+    "unused_observation_bytes": 1200000,
+    "warm": false,
+    "checks": [
+      "copy:CONTRACT_UNSATISFIED"
+    ]
+  },
+  {
+    "statements": 16,
+    "statement_limit": 10000,
+    "elapsed_ms": 0.1198,
+    "time_limit_ms": 5000,
+    "allocated_bytes": 33656,
+    "materialized_bytes": 0,
+    "output_bytes": 0,
+    "memory_limit_bytes": 50000000,
+    "nesting_depth": 0,
+    "nesting_limit": 64,
+    "profile": "v14",
+    "unused_observation_bytes": 1200000,
+    "warm": false,
+    "checks": [
+      "copy:CONTRACT_UNSATISFIED"
+    ]
+  },
+  {
+    "statements": 17,
+    "statement_limit": 10000,
+    "elapsed_ms": 0.8137,
+    "time_limit_ms": 5000,
+    "allocated_bytes": 49184,
+    "materialized_bytes": 0,
+    "output_bytes": 0,
+    "memory_limit_bytes": 50000000,
+    "nesting_depth": 0,
+    "nesting_limit": 64,
+    "profile": "v13",
+    "unused_observation_bytes": 1200000,
+    "warm": true,
+    "checks": [
+      "copy:CONTRACT_UNSATISFIED"
+    ]
+  },
+  {
+    "statements": 16,
+    "statement_limit": 10000,
+    "elapsed_ms": 0.1866,
+    "time_limit_ms": 5000,
+    "allocated_bytes": 33656,
+    "materialized_bytes": 0,
+    "output_bytes": 0,
+    "memory_limit_bytes": 50000000,
+    "nesting_depth": 0,
+    "nesting_limit": 64,
+    "profile": "v14",
+    "unused_observation_bytes": 1200000,
+    "warm": true,
+    "checks": [
+      "copy:CONTRACT_UNSATISFIED"
+    ]
+  }
+]

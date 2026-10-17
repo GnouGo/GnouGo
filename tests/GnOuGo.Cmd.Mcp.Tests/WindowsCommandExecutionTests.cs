@@ -79,7 +79,8 @@ public sealed class WindowsCommandExecutionTests
         try
         {
             var host = Host(root, new() { Shell = "powershell", Script =
-                "$start = [Diagnostics.ProcessStartInfo]::new((Get-Process -Id $PID).Path, '-NoLogo -NoProfile -NonInteractive -Command Start-Sleep -Seconds 60'); $start.UseShellExecute = $false; $start.CreateNoWindow = $true; $child = [Diagnostics.Process]::Start($start); [IO.File]::WriteAllText('child.pid', [string]$child.Id); Start-Sleep -Seconds 60" });
+                "$start = [Diagnostics.ProcessStartInfo]::new((Get-Process -Id $PID).Path, '-NoLogo -NoProfile -NonInteractive -Command Start-Sleep -Seconds 60'); $start.UseShellExecute = $false; $start.CreateNoWindow = $true; $child = [Diagnostics.Process]::Start($start); [IO.File]::WriteAllText('child.pid.tmp', [string]$child.Id); [IO.File]::Move('child.pid.tmp', 'child.pid'); Start-Sleep -Seconds 60" });
+            // Publish only after closing the writer; file existence must mean the PID is complete and readable.
             var running = host.RunAsync("probe", null, 5000, cancellation.Token);
             var marker = Path.Combine(root, "child.pid"); var timer = Stopwatch.StartNew();
             while (!File.Exists(marker) && !running.IsCompleted && timer.Elapsed < TimeSpan.FromSeconds(4))

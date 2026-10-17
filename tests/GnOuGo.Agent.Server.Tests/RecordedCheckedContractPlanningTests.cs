@@ -11,31 +11,18 @@ public sealed class RecordedCheckedContractPlanningTests
     private static JsonObject RecordingFile() => JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "CheckedContractPlanning", "retained-enum-projection.json")))!.AsObject();
 
     [Fact]
-    public async Task OriginalFinalResponseReachesReviewWithoutAnotherModelCallOrWiderRepair()
+    public async Task RecordedBusinessPlanCompilesOfflineWithoutResumingHistoricalRequests()
     {
-        var runtime = new Replay();
-        var state = await runtime.Run();
-        Assert.True(state.Status == PlanningStatus.FinalReview, string.Join("; ", state.Diagnostics.Select(d => d.Code + ": " + d.Message)));
-        Assert.Empty(state.Diagnostics); Assert.Null(state.ApprovedHash);
-        Assert.Equal(5, runtime.Calls); Assert.Equal(5, state.ModelCalls); Assert.Equal(2, state.ReplanAttempts);
-        Assert.Equal(runtime.Recording["responses"]!.AsArray().Select(r => r!["id"]!.ToString()), runtime.RequestIds);
-        var baseline = runtime.States[2]; var rejected = runtime.States[3];
-        Assert.Equal(2, baseline.Diagnostics.Count(d => d.Code == "TASK_INPUT_TYPE"));
-        Assert.Contains(rejected.Diagnostics, d => d.Code == "REVISION_SCOPE_CHANGED" && d.Location == "/inputs/pullRequestUrl/type/enum");
-        Assert.Equal(JsonSerializer.Serialize(baseline.Plan, PlanningJsonContext.Default.TaskPlan), JsonSerializer.Serialize(rejected.Plan, PlanningJsonContext.Default.TaskPlan));
-        Assert.Equal(JsonSerializer.Serialize(baseline.Discovery, PlanningJsonContext.Default.CapabilityDiscoveryState), JsonSerializer.Serialize(rejected.Discovery, PlanningJsonContext.Default.CapabilityDiscoveryState));
-        Assert.Equal(baseline.RevisionScope, rejected.RevisionScope);
-        Assert.True(JsonNode.DeepEquals(baseline.Request.Options, rejected.Request.Options));
-        Assert.Equal(baseline.Request.MaxModelCalls, rejected.Request.MaxModelCalls);
-        Assert.Equal(baseline.Request.MaxReplanAttempts, rejected.Request.MaxReplanAttempts);
+        var runtime = new Replay(); var state = await runtime.Run();
+        Assert.True(state.Status == PlanningStatus.FinalReview, string.Join(';', state.Diagnostics.Select(d => d.Message)));
+        Assert.Null(state.ApprovedHash); Assert.Equal(0, runtime.Calls); Assert.Empty(runtime.RequestIds);
         Assert.True(JsonNode.DeepEquals(runtime.Recording["plan"], JsonSerializer.SerializeToNode(state.Plan, PlanningJsonContext.Default.TaskPlan)));
         PlanningArtifactApproval.Verify(state);
-        var recovered = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
-        PlanningArtifactApproval.Verify(recovered);
-        var before = recovered.ComputeArtifactHash();
-        recovered.Plan!.Root.Tasks.Single(t => t.Id == "t_prepare_review").ResultType!.Fields.Single(f => f.Name == "event").Type.Enum = ["outside"];
-        Assert.NotEqual(before, recovered.ComputeArtifactHash());
-        Assert.Throws<PlanningConflictException>(() => PlanningArtifactApproval.Verify(recovered));
+        var restored = JsonSerializer.SerializeToNode(state, PlanningJsonContext.Default.PlanningSession)!.Deserialize(PlanningJsonContext.Default.PlanningSession)!;
+        PlanningArtifactApproval.Verify(restored);
+        restored.Plan!.Root.Tasks[0].Objective += " changed";
+        Assert.NotEqual(state.ComputeArtifactHash(), restored.ComputeArtifactHash());
+        Assert.Throws<PlanningConflictException>(() => PlanningArtifactApproval.Verify(restored));
     }
 
     internal sealed class Replay : IPlanningRuntime, ICapabilityCatalog
@@ -68,26 +55,7 @@ public sealed class RecordedCheckedContractPlanningTests
         public Task CheckpointAsync(PlanningSession session, CancellationToken ct) => Task.CompletedTask;
         internal async Task<PlanningSession> Run()
         {
-            var state = Recording["session"]!.Deserialize(PlanningJsonContext.Default.PlanningSession)!;
-            var responses = Recording["responses"]!.AsArray();
-            // The saved user-selected allowance admitted the original TaskPlan.
-            state.Request.Generation = responses[2]!["generation"]!.Deserialize(PlanningJsonContext.Default.PlanningGenerationOptions)!;
-            var planner = new HybridWorkflowPlanner();
-            for (var i = 0; i < 8 && !PlanningStatus.IsTerminal(state.Status) && !PlanningStatus.IsWaiting(state.Status); i++)
-            {
-                if (Calls < responses.Count)
-                {
-                    var entry = responses[Calls]!; var purpose = entry["purpose"]!.ToString();
-                    state.ModelCalls++; if (purpose == "replan") state.ReplanAttempts++;
-                    state.PendingCall = new() { Id = entry["id"]!.ToString(), Purpose = purpose,
-                        Request = new() { ClientRequestId = entry["id"]!.ToString(), StructuredOutputSchema = entry["schema"]!.DeepClone() } };
-                    state.Request.Generation = entry["generation"]!.Deserialize(PlanningJsonContext.Default.PlanningGenerationOptions)!;
-                }
-                state = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
-                state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, this, TestContext.Current.CancellationToken);
-                States.Add(state);
-            }
-            return state;
-        }
+            return await RecordedPlanCompilation.CompileAsync(Recording);
+    }
     }
 }

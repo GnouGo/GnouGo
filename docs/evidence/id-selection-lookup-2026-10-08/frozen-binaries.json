@@ -1,0 +1,12 @@
+{
+  "source": "3fc9c51dec5176066772802798e560ef61d5a046",
+  "files": {
+    "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Planning.Benchmark.dll": "64152d299fc01e776bcd3c2f507ba7d1bab2e5fef2f39ae5b1069cd2ec3a6f07",
+    "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Flow.Core.dll": "1e2d0470792f0acd401992e95e504c0db316af76d72cae6c30d83c83514a59e3",
+    "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Flow.Planning.dll": "5ec3bd6582826949ec094e973c633c3944564cb0109c979c2406b8fe27e601f0",
+    "src/GnOuGo.Browser.Mcp/bin/Debug/net10.0/GnOuGo.Browser.Mcp.dll": "68437c396c906ab637c1051ea816d907d2dd293b17e8efe6d08a97bed4899101",
+    "src/GnOuGo.Document.Mcp/bin/Debug/net10.0/GnOuGo.Document.Mcp.dll": "31f6edbfa0d7553e56b324a9c9bebcf0d05fe138b21cfcbce04080b7f7445460",
+    "tests/GnOuGo.Agent.Planning.Benchmark/LiveWorkflowOracles.cs": "e2d6ddf002b75cfd5ddc5be10852c118e7b9d2a3c3d3875c03a0770de054f62a",
+    "tests/GnOuGo.Agent.Planning.Benchmark/LiveWorkflowEvaluation.cs": "be0407b5ccb33768f13c093d51c6a142a7094c69012085fd108d1c4670f5af5e"
+  }
+}

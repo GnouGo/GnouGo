@@ -32,9 +32,17 @@ public static class RealProductContracts
             var tools = provider.GetServices<McpServerTool>().Select(t => t.ProtocolTool).OrderBy(t => t.Name, StringComparer.Ordinal).Select(t => new McpToolInfo
             {
                 Name = t.Name,
+                EffectKind = GnOuGo.Mcp.Core.McpEffectMetadata.Resolve(t.Meta, t.Annotations?.ReadOnlyHint),
                 Description = typeof(T) == typeof(DocumentTools) && t.Name == "document_write" ? policy.BuildDocumentWriteToolDescription() : t.Description,
-                InputSchema = JsonNode.Parse(t.InputSchema.GetRawText()),
-                OutputSchema = t.OutputSchema is { } output ? JsonNode.Parse(output.GetRawText()) : null,
+                InputSchema = JsonNode.Parse((typeof(T) == typeof(DocumentTools) && t.Name == "document_write"
+                    ? (JsonElement)typeof(T).Assembly.GetType(serializerType, throwOnError: true)!
+                        .GetMethod("WriteInputSchema", BindingFlags.NonPublic | BindingFlags.Static)!.Invoke(null, [t.InputSchema])!
+                    : t.InputSchema).GetRawText()),
+                OutputSchema = t.OutputSchema is { } output ? JsonNode.Parse((typeof(T) == typeof(BrowserTools)
+                    && t.Name == "browser_get_content" ? (JsonElement)typeof(T).Assembly.GetType(serializerType, throwOnError: true)!
+                        .GetMethod("ContentSchema")!.Invoke(null, [output])! : typeof(T) == typeof(DocumentTools) && t.Name == "document_write"
+                        ? (JsonElement)typeof(T).Assembly.GetType(serializerType, throwOnError: true)!
+                            .GetMethod("SuccessfulWriteSchema", BindingFlags.NonPublic | BindingFlags.Static)!.Invoke(null, [output])! : output).GetRawText()) : null,
                 Meta = t.Meta?.DeepClone()
             }).ToArray();
             result[source] = JsonSerializer.SerializeToNode(tools, Json);

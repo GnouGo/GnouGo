@@ -59,7 +59,7 @@ public sealed class BatchedDiscoveryTests(ITestOutputHelper output)
         var recovered = PlannerFixture.Clone(state);
         Assert.Equal(state.ComputeArtifactHash(), recovered.ComputeArtifactHash());
         var receipts = JsonSerializer.Serialize(recovered.Discovery, PlanningJsonContext.Default.CapabilityDiscoveryState);
-        recovered = await new HybridWorkflowPlanner().AdvanceAsync(recovered, new() { Kind = "approve", ExpectedRevision = recovered.Revision, ArtifactHash = recovered.ComputeArtifactHash() }, runtime, PlannerFixture.Ct);
+        recovered = await new HybridWorkflowPlanner().AdvanceAsync(recovered, new() { Kind = "approve", ReviewedRequirementIds = recovered.Requirements!.Outcomes.Select(r => r.Id).ToList(), ExpectedRevision = recovered.Revision, ArtifactHash = recovered.ComputeArtifactHash() }, runtime, PlannerFixture.Ct);
         Assert.Equal(PlanningStatus.Approved, recovered.Status); Assert.Equal(2, runtime.Calls.Count);
         Assert.Equal(receipts, JsonSerializer.Serialize(recovered.Discovery, PlanningJsonContext.Default.CapabilityDiscoveryState));
         var hash = recovered.ComputeArtifactHash(); recovered.Plan!.Root.Tasks[1].ResultType!.Fields[0].Type.Items!.Nullable = true;

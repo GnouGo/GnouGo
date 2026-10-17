@@ -1,0 +1,80 @@
+{
+  "scenario": "failed_then_question",
+  "repairAllowance": 2,
+  "calls": 3,
+  "corrections": 2,
+  "status": "stopped",
+  "totalTokens": 45,
+  "approved": false,
+  "providerCalls": 0,
+  "questionIds": [],
+  "progress": {
+    "version": 3,
+    "attempts": [
+      {
+        "action": "patch",
+        "candidate": "4f672e7912fc52387d0e628995ab59e36bba94cd4fc0e4d5628dfa215447e464",
+        "diagnostics": "3eaff908f896a308ad0694be3b76abadc19e360c3ee4f70edf59e44f25627088",
+        "callsUsed": 1,
+        "outcome": "rejected",
+        "completedAtCall": 2
+      },
+      {
+        "action": "regenerate",
+        "candidate": "4f672e7912fc52387d0e628995ab59e36bba94cd4fc0e4d5628dfa215447e464",
+        "diagnostics": "312e100fecd0c0b6b306b0b874649fb414c2997e25573dae8a1297cdb6464566",
+        "callsUsed": 2,
+        "outcome": "rejected",
+        "completedAtCall": 3
+      }
+    ],
+    "outputRemovals": [],
+    "conditionLocations": [],
+    "locations": [
+      "/root/outputs/result"
+    ],
+    "action": "regenerate",
+    "revision": 4,
+    "artifact": null
+  },
+  "diagnostics": [
+    {
+      "code": "TASK_LITERAL_INVALID",
+      "location": "/root/outputs/result",
+      "message": "Literal text cannot contain runtime interpolation.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "REPLAN_NO_PROGRESS",
+      "location": "/",
+      "message": "The repair did not change an authorized semantic slot. The baseline and accounting are retained.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "CLARIFICATION_CONTINUATION_UNAVAILABLE",
+      "location": "/",
+      "message": "The remaining planning allowance cannot use another answer. Review the retained diagnostics; answering cannot reset calls or correction attempts.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    }
+  ],
+  "requests": [
+    {
+      "bytes": 22244,
+      "estimate": 7245
+    },
+    {
+      "bytes": 11852,
+      "estimate": 3770
+    },
+    {
+      "bytes": 22330,
+      "estimate": 7134
+    }
+  ]
+}

@@ -213,10 +213,12 @@ public sealed class LLMUsageBudgetScope
         {
             await ReserveChainAsync(request, costEstimator, safeStage, reservations, ct).ConfigureAwait(false);
         }
-        catch
+        catch (Exception ex)
         {
             await RollbackReservationsAsync(reservations, safeStage, CancellationToken.None).ConfigureAwait(false);
             ReleaseReservations(reservations);
+            if (ex is WorkflowRuntimeException { Code: ErrorCodes.LlmBudgetExceeded or ErrorCodes.LlmBudgetUnverifiable, Details: JsonObject details })
+                details["dispatch_status"] = "not_started";
             throw;
         }
 
@@ -231,6 +233,9 @@ public sealed class LLMUsageBudgetScope
             throw;
         }
 
+        // Dispatch remains cancellable. Once a response exists, its accounting is a
+        // bounded durable flush: caller cancellation cannot erase incurred usage.
+        using var completion = new CancellationTokenSource(TimeSpan.FromSeconds(30));
         Exception? completionFailure = null;
         try
         {
@@ -244,7 +249,7 @@ public sealed class LLMUsageBudgetScope
                         costEstimator,
                         request,
                         safeStage,
-                        ct).ConfigureAwait(false);
+                        completion.Token).ConfigureAwait(false);
                 }
                 catch (Exception ex)
                 {
@@ -661,7 +666,7 @@ public sealed class LLMUsageBudgetScope
         return new ParsedUsage(input, output, total.Value);
     }
 
-    private static long? ReadLong(JsonObject obj, string key)
+    internal static long? ReadLong(JsonObject obj, string key)
     {
         if (!obj.TryGetPropertyValue(key, out var node) || node is not JsonValue value)
             return null;

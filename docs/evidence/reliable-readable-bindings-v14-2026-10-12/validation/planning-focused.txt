@@ -1,0 +1,1 @@
+Réussi!  - échec :     0, réussite :   100, ignorée(s) :     0, total :   100, durée : 46 s - GnOuGo.Flow.Planning.Tests.dll (net10.0)

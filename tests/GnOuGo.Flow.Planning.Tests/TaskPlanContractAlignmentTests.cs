@@ -14,7 +14,7 @@ public sealed class TaskPlanContractAlignmentTests
     {
         // Retained HTTP 400: the replacement identity pattern ending in \z
         // was rejected as "not a 'regex'" even though .NET and RE2 accept it.
-        var schema = PlanningSchemas.Proposal(PlannerFixture.Session());
+        var schema = PlanningSchemas.FullProposal(PlannerFixture.Session(), compact: false);
         var engine = new Jint.Engine().SetValue("schemaJson", schema.ToJsonString());
         Assert.True(engine.Evaluate("""
             function check(node) {
@@ -34,7 +34,7 @@ public sealed class TaskPlanContractAlignmentTests
     {
         // Retained HTTP 400: invalid_json_schema at $defs.identities.items.pattern:
         // "Invalid JSON schema: regex lookaround is not supported."
-        var schema = PlanningSchemas.Proposal(PlannerFixture.Session());
+        var schema = PlanningSchemas.FullProposal(PlannerFixture.Session(), compact: false);
         var patterns = Patterns(schema).ToArray();
         Assert.NotEmpty(patterns);
         foreach (var pattern in patterns)
@@ -55,7 +55,7 @@ public sealed class TaskPlanContractAlignmentTests
     [Fact]
     public void PortableIdentityPatternAndCompilerPreserveExactLexicalRules()
     {
-        var pattern = PlanningSchemas.Proposal(PlannerFixture.Session())["$defs"]!["identities"]!["items"]!["pattern"]!.GetValue<string>();
+        var pattern = PlanningSchemas.FullProposal(PlannerFixture.Session(), compact: false)["$defs"]!["identities"]!["items"]!["pattern"]!.GetValue<string>();
         var regex = new Regex(pattern, RegexOptions.CultureInvariant | RegexOptions.NonBacktracking, TimeSpan.FromSeconds(1));
         foreach (var id in new[] { "_", "-", "0", "A", "z", "_a", "_-", "_0", "a__", "A-Z_09" })
         {
@@ -128,9 +128,9 @@ public sealed class TaskPlanContractAlignmentTests
         }
         else
         {
-            value = JsonNode.Parse("""{"id":"iterate","kind":"foreach","objective":"Collect values","dependsOn":[],"items":{"kind":"array","items":[]},"body":{"tasks":[],"always":[],"outputs":[]},"parallel":false,"maxItems":100,"maxConcurrency":4}""")!;
+            value = JsonNode.Parse("""{"id":"iterate","kind":"foreach","objective":"Collect values","dependsOn":[],"requires":null,"items":{"kind":"array","items":[]},"body":{"tasks":[],"always":[],"outputs":[]},"parallel":false,"maxItems":100,"maxConcurrency":4}""")!;
             if (fault == "objective") value["objective"] = " \n";
-            else if (fault == "parallel_count") value = JsonNode.Parse("""{"id":"parallel","kind":"parallel","objective":"Work","dependsOn":[],"branches":[{"tasks":[],"always":[],"outputs":[]}],"maxConcurrency":1}""")!;
+            else if (fault == "parallel_count") value = JsonNode.Parse("""{"id":"parallel","kind":"parallel","objective":"Work","dependsOn":[],"requires":null,"branches":[{"tasks":[],"always":[],"outputs":[]}],"maxConcurrency":1}""")!;
             else value[fault.StartsWith("items", StringComparison.Ordinal) ? "maxItems" : "maxConcurrency"] = fault.EndsWith("low", StringComparison.Ordinal) ? 0 : fault == "items_high" ? 10001 : 101;
         }
         Assert.NotEmpty(Errors(value, definition));
@@ -141,7 +141,7 @@ public sealed class TaskPlanContractAlignmentTests
     [InlineData(10000, 100)]
     public void SchemaAcceptsBoundsAndBothPredicateArities(int items, int concurrency)
     {
-        var task = JsonNode.Parse($$"""{"id":"iterate","kind":"foreach","objective":"Collect","dependsOn":[],"items":{"kind":"array","items":[]},"body":{"tasks":[],"always":[],"outputs":[]},"parallel":true,"maxItems":{{items}},"maxConcurrency":{{concurrency}}}""")!;
+        var task = JsonNode.Parse($$"""{"id":"iterate","kind":"foreach","objective":"Collect","dependsOn":[],"requires":null,"items":{"kind":"array","items":[]},"body":{"tasks":[],"always":[],"outputs":[]},"parallel":true,"maxItems":{{items}},"maxConcurrency":{{concurrency}}}""")!;
         Assert.Empty(Errors(task, "task"));
         Assert.Empty(Errors(JsonNode.Parse("""{"kind":"predicate","predicate":"not","items":[{"kind":"boolean","boolean":true}]}""")!, "value"));
         Assert.Empty(Errors(JsonNode.Parse("""{"kind":"predicate","predicate":"equal","items":[{"kind":"number","number":1},{"kind":"number","number":1}]}""")!, "value"));
@@ -239,7 +239,7 @@ public sealed class TaskPlanContractAlignmentTests
     public async Task RecoveredMalformedRepairPreservesBaselineSelectionsReceiptsAndBudgets(string invalidGroupId)
     {
         var runtime = new TestRuntime { Proposal = new() { Requirements = PlannerFixture.Requirements(), Plan = PlanningCorpus.Decision() } };
-        runtime.Proposal.Plan.Root.Outputs.Add(new("bad", PlanningCorpus.Business("output", "absent", "value")));
+        runtime.Proposal.Plan.Root.Outputs.Add(new("bad", PlanningCorpus.Business("output", runtime.Proposal.Plan.Root.Tasks[0].Id, "missing_port")));
         var planner = new HybridWorkflowPlanner();
         var state = await planner.AdvanceAsync(PlannerFixture.Session(), new(), runtime, PlannerFixture.Ct);
         state.Plan!.Choices[0].Selected = "formal";
@@ -299,13 +299,13 @@ public sealed class TaskPlanContractAlignmentTests
     private static JsonNode Choice() => JsonNode.Parse("""{"id":"decision","question":"Choose a value","type":{"kind":"any"},"alternatives":[{"id":"one","description":"First","value":{"kind":"string","text":"one"}},{"id":"two","description":"Second","value":{"kind":"null"}}],"recommended":"one"}""")!;
     private static bool WireIdentityMatches(string id)
     {
-        var pattern = PlanningSchemas.Proposal(PlannerFixture.Session())["$defs"]!["identities"]!["items"]!["pattern"]!.GetValue<string>();
+        var pattern = PlanningSchemas.FullProposal(PlannerFixture.Session(), compact: false)["$defs"]!["identities"]!["items"]!["pattern"]!.GetValue<string>();
         return new Engine().SetValue("pattern", pattern).SetValue("id", id)
             .Evaluate("new RegExp(pattern, 'u').test(id)").AsBoolean();
     }
     private static IReadOnlyList<string> Errors(JsonNode value, string definition)
     {
-        var schema = PlanningSchemas.Proposal(PlannerFixture.Session());
+        var schema = PlanningSchemas.FullProposal(PlannerFixture.Session(), compact: false);
         Assert.Empty(PlanningContractValidation.ValidateSchema(schema, strict: true));
         var inner = PlanningSchemas.Ref(definition); inner["$defs"] = schema["$defs"]!.DeepClone();
         return PlanningContractValidation.ValidateInstance(value, inner);

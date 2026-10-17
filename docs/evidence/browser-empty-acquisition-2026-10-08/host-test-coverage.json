@@ -1,0 +1,12 @@
+{
+  "candidate": "e0417361",
+  "expected_cases": 709,
+  "unique_executed_or_skipped": 709,
+  "results": {
+    "Passed": 708,
+    "NotExecuted": 1
+  },
+  "missing": [],
+  "method": "Union by stable test ID of completed cases from the interrupted solution host process and unmodified remaining classes in one fresh process; six duplicate successes counted once. Distinct tests with identical truncated display names retain their own IDs.",
+  "limitation": "All cases covered; not an uninterrupted host-suite pass."
+}

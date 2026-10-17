@@ -1,0 +1,1696 @@
+{
+  "discoveryRequests": null,
+  "plan": {
+    "inputs": [
+      {
+        "name": "query",
+        "type": {
+          "kind": "string"
+        }
+      }
+    ],
+    "root": {
+      "tasks": [
+        {
+          "id": "build_search_url",
+          "kind": "transform",
+          "objective": "Construire l\u2019URL Amazon.fr de recherche \u00E0 partir de l\u2019entr\u00E9e publique query, en encodant uniquement la valeur de query et sans modifier le texte original conserv\u00E9 s\u00E9par\u00E9ment.",
+          "dependsOn": [],
+          "requires": null,
+          "mode": "interpret",
+          "inputs": [
+            {
+              "name": "query",
+              "value": {
+                "kind": "input",
+                "source": "query"
+              }
+            }
+          ],
+          "resultType": {
+            "kind": "object",
+            "fields": [
+              {
+                "name": "originalQuery",
+                "type": {
+                  "kind": "string"
+                }
+              },
+              {
+                "name": "searchUrl",
+                "type": {
+                  "kind": "string"
+                }
+              },
+              {
+                "name": "status",
+                "type": {
+                  "kind": "object",
+                  "fields": [
+                    {
+                      "name": "success",
+                      "type": {
+                        "kind": "boolean"
+                      }
+                    },
+                    {
+                      "name": "error",
+                      "type": {
+                        "kind": "string",
+                        "nullable": true
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "open_search",
+          "kind": "operation",
+          "objective": "Ouvrir Amazon.fr sur la page de r\u00E9sultats correspondant \u00E0 query et observer en une capture compl\u00E8te born\u00E9e.",
+          "dependsOn": [
+            "build_search_url"
+          ],
+          "requires": {
+            "kind": "predicate",
+            "predicate": "and",
+            "items": [
+              {
+                "kind": "field",
+                "items": [
+                  {
+                    "kind": "string",
+                    "text": "status.success"
+                  }
+                ],
+                "port": "build_search_url"
+              },
+              {
+                "kind": "predicate",
+                "predicate": "not_equal",
+                "items": [
+                  {
+                    "kind": "field",
+                    "items": [
+                      {
+                        "kind": "string",
+                        "text": "searchUrl"
+                      }
+                    ],
+                    "port": "build_search_url"
+                  },
+                  {
+                    "kind": "null"
+                  }
+                ]
+              }
+            ]
+          },
+          "operation": "cap_490d9e16075cbdca5954ec27",
+          "inputs": [
+            {
+              "name": "url",
+              "value": {
+                "kind": "field",
+                "items": [
+                  {
+                    "kind": "string",
+                    "text": "searchUrl"
+                  }
+                ],
+                "port": "build_search_url"
+              }
+            },
+            {
+              "name": "format",
+              "value": {
+                "kind": "string",
+                "text": "observation_complete"
+              }
+            },
+            {
+              "name": "waitUntil",
+              "value": {
+                "kind": "string",
+                "text": "domcontentloaded"
+              }
+            },
+            {
+              "name": "timeoutMs",
+              "value": {
+                "kind": "number",
+                "number": 45000
+              }
+            },
+            {
+              "name": "maxRecords",
+              "value": {
+                "kind": "number",
+                "number": 200
+              }
+            }
+          ]
+        },
+        {
+          "id": "search_assertions",
+          "kind": "transform",
+          "objective": "V\u00E9rifier les d\u00E9clarations producteur de succ\u00E8s, disponibilit\u00E9 HTTP et compl\u00E9tude de capture avant toute extraction d\u00E9pendante.",
+          "dependsOn": [
+            "open_search"
+          ],
+          "requires": null,
+          "mode": "interpret",
+          "inputs": [
+            {
+              "name": "openSearch",
+              "value": {
+                "kind": "output",
+                "source": "open_search",
+                "port": null
+              }
+            }
+          ],
+          "resultType": {
+            "kind": "object",
+            "fields": [
+              {
+                "name": "success",
+                "type": {
+                  "kind": "boolean"
+                }
+              },
+              {
+                "name": "available",
+                "type": {
+                  "kind": "boolean"
+                }
+              },
+              {
+                "name": "complete",
+                "type": {
+                  "kind": "boolean"
+                }
+              },
+              {
+                "name": "statusCode",
+                "type": {
+                  "kind": "integer",
+                  "nullable": true
+                }
+              },
+              {
+                "name": "error",
+                "type": {
+                  "kind": "string",
+                  "nullable": true
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "extract_candidates_by_page",
+          "kind": "transform",
+          "objective": "Depuis les pages d\u2019observation compl\u00E8tes, extraire pour chaque page un Candidate[] compact contenant les 10 premiers candidats visibles maximum globalement, sans d\u00E9doublonnage ni filtrage suppl\u00E9mentaire; copier les IDs, textes, r\u00E9f\u00E9rences, hrefs et donn\u00E9es d\u2019action exactement comme observ\u00E9s.",
+          "dependsOn": [
+            "open_search",
+            "search_assertions"
+          ],
+          "requires": {
+            "kind": "predicate",
+            "predicate": "and",
+            "items": [
+              {
+                "kind": "field",
+                "items": [
+                  {
+                    "kind": "string",
+                    "text": "success"
+                  }
+                ],
+                "port": "search_assertions"
+              },
+              {
+                "kind": "field",
+                "items": [
+                  {
+                    "kind": "string",
+                    "text": "available"
+                  }
+                ],
+                "port": "search_assertions ha\u0257\u0561\u056F\u0581\u0574\u0561\u0576},{"
+              }
+            ]
+          },
+          "mode": "extract",
+          "each": {
+            "input": "pages",
+            "output": "candidates"
+          },
+          "inputs": [
+            {
+              "name": "pages",
+              "value": {
+                "kind": "field",
+                "items": [
+                  {
+                    "kind": "string",
+                    "text": "observationSnapshot.pages"
+                  }
+                ],
+                "port": "open_search"
+              }
+            },
+            {
+              "name": "originalQuery",
+              "value": {
+                "kind": "field",
+                "items": [
+                  {
+                    "kind": "string",
+                    "text": "originalQuery"
+                  }
+                ],
+                "port": "build_search_url"
+              }
+            }
+          ],
+          "resultType": {
+            "kind": "object",
+            "fields": [
+              {
+                "name": "candidates",
+                "type": {
+                  "kind": "array",
+                  "items": {
+                    "kind": "object",
+                    "fields": [
+                      {
+                        "name": "candidateId",
+                        "type": {
+                          "kind": "string"
+                        }
+                      },
+                      {
+                        "name": "rank",
+                        "type": {
+                          "kind": "integer"
+                        }
+                      },
+                      {
+                        "name": "text",
+                        "type": {
+                          "kind": "string"
+                        }
+                      },
+                      {
+                        "name": "href",
+                        "type": {
+                          "kind": "string",
+                          "nullable": true
+                        }
+                      },
+                      {
+                        "name": "reference",
+                        "type": {
+                          "kind": "string",
+                          "nullable": true
+                        }
+                      },
+                      {
+                        "name": "actions",
+                        "type": {
+                          "kind": "array",
+                          "items": {
+                            "kind": "string"
+                          },
+                          "minItems": 0,
+                          "maxItems": 10
+                        }
+                      },
+                      {
+                        "name": "sourcePageId",
+                        "type": {
+                          "kind": "string"
+                        }
+                      },
+                      {
+                        "name": "sourceRecordIndex",
+                        "type": {
+                          "kind": "integer"
+                        }
+                      },
+                      {
+                        "name": "rawRecord",
+                        "type": {
+                          "kind": "object",
+                          "fields": [
+                            {
+                              "name": "kind",
+                              "type": {
+                                "kind": "string"
+                              }
+                            },
+                            {
+                              "name": "tag",
+                              "type": {
+                                "kind": "string"
+                              }
+                            },
+                            {
+                              "name": "selector",
+                              "type": {
+                                "kind": "string"
+                              }
+                            },
+                            {
+                              "name": "group",
+                              "type": {
+                                "kind": "string"
+                              }
+                            },
+                            {
+                              "name": "text",
+                              "type": {
+                                "kind": "string"
+                              }
+                            },
+                            {
+                              "name": "href",
+                              "type": {
+                                "kind": "string",
+                                "nullable": true
+                              }
+                            },
+                            {
+                              "name": "role",
+                              "type": {
+                                "kind": "string",
+                                "nullable": true
+                              }
+                            },
+                            {
+                              "name": "reference",
+                              "type": {
+                                "kind": "string",
+                                "nullable": true
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  },
+                  "minItems": 0,
+                  "maxItems": 10
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "compact_candidates",
+          "kind": "transform",
+          "objective": "Aplatir les Candidate[] par page en une liste compacte ordonn\u00E9e pour d\u00E9cision d\u2019ID, limit\u00E9e aux 10 premiers produits propos\u00E9s, sans d\u00E9doublonnage ni autres suppressions.",
+          "dependsOn": [
+            "extract_candidates_by_page"
+          ],
+          "requires": {
+            "kind": "predicate",
+            "predicate": "and",
+            "items": [
+              {
+                "kind": "field",
+                "items": [
+                  {
+                    "kind": "string",
+                    "text": "complete"
+                  }
+                ],
+                "port": "search_assertions"
+              },
+              {
+                "kind": "field",
+                "items": [
+                  {
+                    "kind": "string",
+                    "text": "success"
+                  }
+                ],
+                "port": "search_assertions"
+              }
+            ]
+          },
+          "mode": "interpret",
+          "inputs": [
+            {
+              "name": "candidatesByPage",
+              "value": {
+                "kind": "output",
+                "source": "extract_candidates_by_page",
+                "port": null
+              }
+            }
+          ],
+          "resultType": {
+            "kind": "object",
+            "fields": [
+              {
+                "name": "offered",
+                "type": {
+                  "kind": "array",
+                  "items": {
+                    "kind": "object",
+                    "fields": [
+                      {
+                        "name": "candidateId",
+                        "type": {
+                          "kind": "string"
+                        }
+                      },
+                      {
+                        "name": "rank",
+                        "type": {
+                          "kind": "integer"
+                        }
+                      },
+                      {
+                        "name": "text",
+                        "type": {
+                          "kind": "string"
+                        }
+                      },
+                      {
+                        "name": "href",
+                        "type": {
+                          "kind": "string",
+                          "nullable": true
+                        }
+                      },
+                      {
+                        "name": "reference",
+                        "type": {
+                          "kind": "string",
+                          "nullable": true
+                        }
+                      },
+                      {
+                        "name": "actions",
+                        "type": {
+                          "kind": "array",
+                          "items": {
+                            "kind": "string"
+                          },
+                          "minItems": 0,
+                          "maxItems": 10
+                        }
+                      },
+                      {
+                        "name": "sourcePageId",
+                        "type": {
+                          "kind": "string"
+                        }
+                      },
+                      {
+                        "name": "sourceRecordIndex",
+                        "type": {
+                          "kind": "integer"
+                        }
+                      },
+                      {
+                        "name": "rawRecord",
+                        "type": {
+                          "kind": "object",
+                          "fields": [
+                            {
+                              "name": "kind",
+                              "type": {
+                                "kind": "string"
+                              }
+                            },
+                            {
+                              "name": "tag",
+                              "type": {
+                                "kind": "string"
+                              }
+                            },
+                            {
+                              "name": "selector",
+                              "type": {
+                                "kind": "string"
+                              }
+                            },
+                            {
+                              "name": "group",
+                              "type": {
+                                "kind": "string"
+                              }
+                            },
+                            {
+                              "name": "text",
+                              "type": {
+                                "kind": "string"
+                              }
+                            },
+                            {
+                              "name": "href",
+                              "type": {
+                                "kind": "string",
+                                "nullable": true
+                              }
+                            },
+                            {
+                              "name": "role",
+                              "type": {
+                                "kind": "string",
+                                "nullable": true
+                              }
+                            },
+                            {
+                              "name": "reference",
+                              "type": {
+                                "kind": "string",
+                                "nullable": true
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  },
+                  "minItems": 0,
+                  "maxItems": 10
+                }
+              },
+              {
+                "name": "status",
+                "type": {
+                  "kind": "object",
+                  "fields": [
+                    {
+                      "name": "success",
+                      "type": {
+                        "kind": "boolean"
+                      }
+                    },
+                    {
+                      "name": "count",
+                      "type": {
+                        "kind": "integer"
+                      }
+                    },
+                    {
+                      "name": "error",
+                      "type": {
+                        "kind": "string",
+                        "nullable": true
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "lookup_originals",
+          "kind": "transform",
+          "objective": "Construire une table lookup des produits offerts vers leurs originaux complets afin de pr\u00E9server les donn\u00E9es d\u2019action originales avant les visites.",
+          "dependsOn": [
+            "compact_candidates"
+          ],
+          "requires": {
+            "kind": "field",
+            "items": [
+              {
+                "kind": "string",
+                "text": "status.success"
+              }
+            ],
+            "port": "compact_candidates"
+          },
+          "mode": "interpret",
+          "inputs": [
+            {
+              "name": "offered",
+              "value": {
+                "kind": "field",
+                "items": [
+                  {
+                    "kind": "string",
+                    "text": "offered"
+                  }
+                ],
+                "port": "compact_candidates"
+              }
+            }
+          ],
+          "resultType": {
+            "kind": "object",
+            "fields": [
+              {
+                "name": "items",
+                "type": {
+                  "kind": "array",
+                  "items": {
+                    "kind": "object",
+                    "fields": [
+                      {
+                        "name": "candidateId",
+                        "type": {
+                          "kind": "string"
+                        }
+                      },
+                      {
+                        "name": "original",
+                        "type": {
+                          "kind": "object",
+                          "fields": [
+                            {
+                              "name": "candidateId",
+                              "type": {
+                                "kind": "string"
+                              }
+                            },
+                            {
+                              "name": "rank",
+                              "type": {
+                                "kind": "integer"
+                              }
+                            },
+                            {
+                              "name": "text",
+                              "type": {
+                                "kind": "string"
+                              }
+                            },
+                            {
+                              "name": "href",
+                              "type": {
+                                "kind": "string",
+                                "nullable": true
+                              }
+                            },
+                            {
+                              "name": "reference",
+                              "type": {
+                                "kind": "string",
+                                "nullable": true
+                              }
+                            },
+                            {
+                              "name": "actions",
+                              "type": {
+                                "kind": "array",
+                                "items": {
+                                  "kind": "string"
+                                },
+                                "minItems": 0,
+                                "maxItems": 10
+                              }
+                            },
+                            {
+                              "name": "sourcePageId",
+                              "type": {
+                                "kind": "string"
+                              }
+                            },
+                            {
+                              "name": "sourceRecordIndex",
+                              "type": {
+                                "kind": "integer"
+                              }
+                            },
+                            {
+                              "name": "rawRecord",
+                              "type": {
+                                "kind": "object",
+                                "fields": [
+                                  {
+                                    "name": "kind",
+                                    "type": {
+                                      "kind": "string"
+                                    }
+                                  },
+                                  {
+                                    "name": "tag",
+                                    "type": {
+                                      "kind": "string"
+                                    }
+                                  },
+                                  {
+                                    "name": "selector",
+                                    "type": {
+                                      "kind": "string"
+                                    }
+                                  },
+                                  {
+                                    "name": "group",
+                                    "type": {
+                                      "kind": "string"
+                                    }
+                                  },
+                                  {
+                                    "name": "text",
+                                    "type": {
+                                      "kind": "string"
+                                    }
+                                  },
+                                  {
+                                    "name": "href",
+                                    "type": {
+                                      "kind": "string",
+                                      "nullable": true
+                                    }
+                                  },
+                                  {
+                                    "name": "role",
+                                    "type": {
+                                      "kind": "string",
+                                      "nullable": true
+                                    }
+                                  },
+                                  {
+                                    "name": "reference",
+                                    "type": {
+                                      "kind": "string",
+                                      "nullable": true
+                                    }
+                                  }
+                                ]
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  },
+                  "minItems": 0,
+                  "maxItems": 10
+                }
+              },
+              {
+                "name": "success",
+                "type": {
+                  "kind": "boolean"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "visit_products",
+          "kind": "foreach",
+          "objective": "Visiter chaque fiche produit demand\u00E9e, dans l\u2019ordre offert, au maximum 10, en conservant l\u2019original; si l\u2019URL est nulle, produire une ligne explicite sans visite au lieu d\u2019inventer des donn\u00E9es.",
+          "dependsOn": [
+            "lookup_originals"
+          ],
+          "requires": {
+            "kind": "field",
+            "items": [
+              {
+                "kind": "string",
+                "text": "success"
+              }
+            ],
+            "port": "lookup_originals"
+          },
+          "items": {
+            "kind": "field",
+            "items": [
+              {
+                "kind": "string",
+                "text": "items"
+              }
+            ],
+            "port": "lookup_originals"
+          },
+          "body": {
+            "tasks": [
+              {
+                "id": "visit_or_null",
+                "kind": "conditional",
+                "objective": "Brancher sur href nul/non nul pour chaque produit offert.",
+                "dependsOn": [],
+                "requires": null,
+                "condition": {
+                  "kind": "predicate",
+                  "predicate": "not_equal",
+                  "items": [
+                    {
+                      "kind": "field",
+                      "items": [
+                        {
+                          "kind": "string",
+                          "text": "original.href"
+                        }
+                      ],
+                      "port": "item"
+                    },
+                    {
+                      "kind": "null"
+                    }
+                  ]
+                },
+                "body": {
+                  "tasks": [
+                    {
+                      "id": "open_product",
+                      "kind": "operation",
+                      "objective": "Naviguer vers l\u2019URL originale observ\u00E9e de la fiche produit et capturer une observation compl\u00E8te born\u00E9e.",
+                      "dependsOn": [],
+                      "requires": null,
+                      "operation": "cap_490d9e16075cbdca5954ec27",
+                      "inputs": [
+                        {
+                          "name": "url",
+                          "value": {
+                            "kind": "field",
+                            "items": [
+                              {
+                                "kind": "string",
+                                "text": "original.href"
+                              }
+                            ],
+                            "port": "item"
+                          }
+                        },
+                        {
+                          "name": "format",
+                          "value": {
+                            "kind": "string",
+                            "text": "observation_complete"
+                          }
+                        },
+                        {
+                          "name": "waitUntil",
+                          "value": {
+                            "kind": "string",
+                            "text": "domcontentloaded"
+                          }
+                        },
+                        {
+                          "name": "timeoutMs",
+                          "value": {
+                            "kind": "number",
+                            "number": 45000
+                          }
+                        },
+                        {
+                          "name": "maxRecords",
+                          "value": {
+                            "kind": "number",
+                            "number": 200
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "id": "product_assertions",
+                      "kind": "transform",
+                      "objective": "V\u00E9rifier succ\u00E8s producteur, disponibilit\u00E9 HTTP et compl\u00E9tude de la capture de fiche avant extraction des champs.",
+                      "dependsOn": [
+                        "open_product"
+                      ],
+                      "requires": null,
+                      "mode": "interpret",
+                      "inputs": [
+                        {
+                          "name": "openProduct",
+                          "value": {
+                            "kind": "output",
+                            "source": "open_product",
+                            "port": null
+                          }
+                        },
+                        {
+                          "name": "original",
+                          "value": {
+                            "kind": "field",
+                            "items": [
+                              {
+                                "kind": "string",
+                                "text": "original"
+                              }
+                            ],
+                            "port": "item"
+                          }
+                        }
+                      ],
+                      "resultType": {
+                        "kind": "object",
+                        "fields": [
+                          {
+                            "name": "success",
+                            "type": {
+                              "kind": "boolean"
+                            }
+                          },
+                          {
+                            "name": "available",
+                            "type": {
+                              "kind": "boolean"
+                            }
+                          },
+                          {
+                            "name": "complete",
+                            "type": {
+                              "kind": "boolean"
+                            }
+                          },
+                          {
+                            "name": "statusCode",
+                            "type": {
+                              "kind": "integer",
+                              "nullable": true
+                            }
+                          },
+                          {
+                            "name": "error",
+                            "type": {
+                              "kind": "string",
+                              "nullable": true
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "id": "extract_product_row",
+                      "kind": "transform",
+                      "objective": "Extraire une ligne typ\u00E9e exacte pour la fiche visit\u00E9e: nom, description/bloc texte pertinent entier, prix, erreurs explicites; ne jamais inventer les donn\u00E9es absentes.",
+                      "dependsOn": [
+                        "open_product",
+                        "product_assertions"
+                      ],
+                      "requires": {
+                        "kind": "predicate",
+                        "predicate": "and",
+                        "items": [
+                          {
+                            "kind": "field",
+                            "items": [
+                              {
+                                "kind": "string",
+                                "text": "success"
+                              }
+                            ],
+                            "port": "product_assertions"
+                          },
+                          {
+                            "kind": "field",
+                            "items": [
+                              {
+                                "kind": "string",
+                                "text": "available"
+                              }
+                            ],
+                            "port": "product_assertions"
+                          }
+                        ]
+                      },
+                      "mode": "extract",
+                      "inputs": [
+                        {
+                          "name": "productObservation",
+                          "value": {
+                            "kind": "field",
+                            "items": [
+                              {
+                                "kind": "string",
+                                "text": "observationSnapshot.pages"
+                              }
+                            ],
+                            "port": "open_product"
+                          }
+                        },
+                        {
+                          "name": "original",
+                          "value": {
+                            "kind": "field",
+                            "items": [
+                              {
+                                "kind": "string",
+                                "text": "original"
+                              }
+                            ],
+                            "port": "item"
+                          }
+                        },
+                        {
+                          "name": "productAssertions",
+                          "value": {
+                            "kind": "output",
+                            "source": "product_assertions",
+                            "port": null
+                          }
+                        }
+                      ],
+                      "resultType": {
+                        "kind": "object",
+                        "fields": [
+                          {
+                            "name": "rank",
+                            "type": {
+                              "kind": "integer"
+                            }
+                          },
+                          {
+                            "name": "candidateId",
+                            "type": {
+                              "kind": "string"
+                            }
+                          },
+                          {
+                            "name": "sourceText",
+                            "type": {
+                              "kind": "string"
+                            }
+                          },
+                          {
+                            "name": "productUrl",
+                            "type": {
+                              "kind": "string",
+                              "nullable": true
+                            }
+                          },
+                          {
+                            "name": "name",
+                            "type": {
+                              "kind": "string",
+                              "nullable": true
+                            }
+                          },
+                          {
+                            "name": "description",
+                            "type": {
+                              "kind": "string",
+                              "nullable": true
+                            }
+                          },
+                          {
+                            "name": "price",
+                            "type": {
+                              "kind": "string",
+                              "nullable": true
+                            }
+                          },
+                          {
+                            "name": "error",
+                            "type": {
+                              "kind": "string",
+                              "nullable": true
+                            }
+                          },
+                          {
+                            "name": "status",
+                            "type": {
+                              "kind": "object",
+                              "fields": [
+                                {
+                                  "name": "success",
+                                  "type": {
+                                    "kind": "boolean"
+                                  }
+                                },
+                                {
+                                  "name": "available",
+                                  "type": {
+                                    "kind": "boolean"
+                                  }
+                                },
+                                {
+                                  "name": "complete",
+                                  "type": {
+                                    "kind": "boolean"
+                                  }
+                                },
+                                {
+                                  "name": "statusCode",
+                                  "type": {
+                                    "kind": "integer",
+                                    "nullable": true
+                                  }
+                                }
+                              ]
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ],
+                  "outputs": [
+                    {
+                      "name": "row",
+                      "value": {
+                        "kind": "output",
+                        "source": "extract_product_row",
+                        "port": null
+                      }
+                    }
+                  ],
+                  "always": []
+                },
+                "otherwise": {
+                  "tasks": [
+                    {
+                      "id": "null_href_row",
+                      "kind": "value",
+                      "objective": "Produire une ligne typ\u00E9e explicite pour un candidat sans URL de fiche produit observ\u00E9e.",
+                      "dependsOn": [],
+                      "requires": null,
+                      "outputs": [
+                        {
+                          "name": "row",
+                          "value": {
+                            "kind": "object",
+                            "members": [
+                              {
+                                "name": "rank",
+                                "value": {
+                                  "kind": "field",
+                                  "items": [
+                                    {
+                                      "kind": "string",
+                                      "text": "original.rank"
+                                    }
+                                  ],
+                                  "port": "item"
+                                }
+                              },
+                              {
+                                "name": "candidateId",
+                                "value": {
+                                  "kind": "field",
+                                  "items": [
+                                    {
+                                      "kind": "string",
+                                      "text": "original.candidateId"
+                                    }
+                                  ],
+                                  "port": "item"
+                                }
+                              },
+                              {
+                                "name": "sourceText",
+                                "value": {
+                                  "kind": "field",
+                                  "items": [
+                                    {
+                                      "kind": "string",
+                                      "text": "original.text"
+                                    }
+                                  ],
+                                  "port": "item"
+                                }
+                              },
+                              {
+                                "name": "productUrl",
+                                "value": {
+                                  "kind": "null"
+                                }
+                              },
+                              {
+                                "name": "name",
+                                "value": {
+                                  "kind": "null"
+                                }
+                              },
+                              {
+                                "name": "description",
+                                "value": {
+                                  "kind": "null"
+                                }
+                              },
+                              {
+                                "name": "price",
+                                "value": {
+                                  "kind": "null"
+                                }
+                              },
+                              {
+                                "name": "error",
+                                "value": {
+                                  "kind": "string",
+                                  "text": "URL produit absente dans le r\u00E9sultat Amazon observ\u00E9; fiche non visit\u00E9e."
+                                }
+                              },
+                              {
+                                "name": "status",
+                                "value": {
+                                  "kind": "object",
+                                  "members": [
+                                    {
+                                      "name": "success",
+                                      "value": {
+                                        "kind": "boolean",
+                                        "boolean": false
+                                      }
+                                    },
+                                    {
+                                      "name": "available",
+                                      "value": {
+                                        "kind": "boolean",
+                                        "boolean": false
+                                      }
+                                    },
+                                    {
+                                      "name": "complete",
+                                      "value": {
+                                        "kind": "boolean",
+                                        "boolean": true
+                                      }
+                                    },
+                                    {
+                                      "name": "statusCode",
+                                      "value": {
+                                        "kind": "null"
+                                      }
+                                    }
+                                  ]
+                                }
+                              }
+                            ]
+                          }
+                        }
+                      ]
+                    }
+                  ],
+                  "outputs": [
+                    {
+                      "name": "row",
+                      "value": {
+                        "kind": "output",
+                        "source": "null_href_row",
+                        "port": "row"
+                      }
+                    }
+                  ],
+                  "always": []
+                }
+              }
+            ],
+            "outputs": [
+              {
+                "name": "row",
+                "value": {
+                  "kind": "output",
+                  "source": "visit_or_null",
+                  "port": "row"
+                }
+              }
+            ],
+            "always": []
+          },
+          "parallel": false,
+          "maxItems": 10,
+          "maxConcurrency": 1
+        },
+        {
+          "id": "assemble_rows_status",
+          "kind": "transform",
+          "objective": "Assembler les copies typ\u00E9es, les lignes XLSX avec les en-t\u00EAtes fournis en t\u00EAte, et le statut global sans supprimer de lignes.",
+          "dependsOn": [
+            "visit_products",
+            "search_assertions",
+            "compact_candidates"
+          ],
+          "requires": {
+            "kind": "predicate",
+            "predicate": "and",
+            "items": [
+              {
+                "kind": "field",
+                "items": [
+                  {
+                    "kind": "string",
+                    "text": "success"
+                  }
+                ],
+                "port": "search_assertions"
+              },
+              {
+                "kind": "field",
+                "items": [
+                  {
+                    "kind": "string",
+                    "text": "available"
+                  }
+                ],
+                "port": "search_assertions"
+              }
+            ]
+          },
+          "mode": "interpret",
+          "inputs": [
+            {
+              "name": "query",
+              "value": {
+                "kind": "field",
+                "items": [
+                  {
+                    "kind": "string",
+                    "text": "originalQuery"
+                  }
+                ],
+                "port": "build_search_url"
+              }
+            },
+            {
+              "name": "searchStatus",
+              "value": {
+                "kind": "output",
+                "source": "search_assertions",
+                "port": null
+              }
+            },
+            {
+              "name": "offeredStatus",
+              "value": {
+                "kind": "field",
+                "items": [
+                  {
+                    "kind": "string",
+                    "text": "status"
+                  }
+                ],
+                "port": "compact_candidates"
+              }
+            },
+            {
+              "name": "productRows",
+              "value": {
+                "kind": "output",
+                "source": "visit_products",
+                "port": null
+              }
+            }
+          ],
+          "resultType": {
+            "kind": "object",
+            "fields": [
+              {
+                "name": "typedCopies",
+                "type": {
+                  "kind": "array",
+                  "items": {
+                    "kind": "object",
+                    "fields": [
+                      {
+                        "name": "rank",
+                        "type": {
+                          "kind": "integer"
+                        }
+                      },
+                      {
+                        "name": "candidateId",
+                        "type": {
+                          "kind": "string"
+                        }
+                      },
+                      {
+                        "name": "sourceText",
+                        "type": {
+                          "kind": "string"
+                        }
+                      },
+                      {
+                        "name": "productUrl",
+                        "type": {
+                          "kind": "string",
+                          "nullable": true
+                        }
+                      },
+                      {
+                        "name": "name",
+                        "type": {
+                          "kind": "string",
+                          "nullable": true
+                        }
+                      },
+                      {
+                        "name": "description",
+                        "type": {
+                          "kind": "string",
+                          "nullable": true
+                        }
+                      },
+                      {
+                        "name": "price",
+                        "type": {
+                          "kind": "string",
+                          "nullable": true
+                        }
+                      },
+                      {
+                        "name": "error",
+                        "type": {
+                          "kind": "string",
+                          "nullable": true
+                        }
+                      }
+                    ]
+                  },
+                  "minItems": 0,
+                  "maxItems": 10
+                }
+              },
+              {
+                "name": "rows",
+                "type": {
+                  "kind": "array",
+                  "items": {
+                    "kind": "array",
+                    "items": {
+                      "kind": "string",
+                      "nullable": true
+                    },
+                    "minItems": 7,
+                    "maxItems": 7
+                  },
+                  "minItems": 1,
+                  "maxItems": 11
+                }
+              },
+              {
+                "name": "status",
+                "type": {
+                  "kind": "object",
+                  "fields": [
+                    {
+                      "name": "success",
+                      "type": {
+                        "kind": "boolean"
+                      }
+                    },
+                    {
+                      "name": "saved",
+                      "type": {
+                        "kind": "boolean"
+                      }
+                    },
+                    {
+                      "name": "searched",
+                      "type": {
+                        "kind": "boolean"
+                      }
+                    },
+                    {
+                      "name": "visitedCount",
+                      "type": {
+                        "kind": "integer"
+                      }
+                    },
+                    {
+                      "name": "rowCount",
+                      "type": {
+                        "kind": "integer"
+                      }
+                    },
+                    {
+                      "name": "errors",
+                      "type": {
+                        "kind": "array",
+                        "items": {
+                          "kind": "string"
+                        },
+                        "minItems": 0,
+                        "maxItems": 20
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "write_xlsx",
+          "kind": "operation",
+          "objective": "Sauvegarder le classeur Excel demand\u00E9 avant nettoyage, avec valeurs exactes et en-t\u00EAtes ordinaires pr\u00E9fix\u00E9s.",
+          "dependsOn": [
+            "assemble_rows_status"
+          ],
+          "requires": {
+            "kind": "field",
+            "items": [
+              {
+                "kind": "string",
+                "text": "status.searched"
+              }
+            ],
+            "port": "assemble_rows_status"
+          },
+          "operation": "cap_37c513d225bb1b870053c5d3",
+          "inputs": [
+            {
+              "name": "filePath",
+              "value": {
+                "kind": "string",
+                "text": "workflows/schema-portability-20261002/initialcomposition20261013a-amazon-1/products.xlsx"
+              }
+            },
+            {
+              "name": "rows",
+              "value": {
+                "kind": "field",
+                "items": [
+                  {
+                    "kind": "string",
+                    "text": "rows"
+                  }
+                ],
+                "port": "assemble_rows_status"
+              }
+            },
+            {
+              "name": "append",
+              "value": {
+                "kind": "boolean",
+                "boolean": false
+              }
+            }
+          ]
+        },
+        {
+          "id": "writer_status",
+          "kind": "transform",
+          "objective": "V\u00E9rifier le succ\u00E8s d\u00E9clar\u00E9 par le writer et produire le statut final, sans d\u00E9clarer de r\u00E9ussite si l\u2019\u00E9criture a \u00E9chou\u00E9.",
+          "dependsOn": [
+            "write_xlsx",
+            "assemble_rows_status"
+          ],
+          "requires": null,
+          "mode": "interpret",
+          "inputs": [
+            {
+              "name": "writer",
+              "value": {
+                "kind": "output",
+                "source": "write_xlsx",
+                "port": null
+              }
+            },
+            {
+              "name": "previousStatus",
+              "value": {
+                "kind": "field",
+                "items": [
+                  {
+                    "kind": "string",
+                    "text": "status"
+                  }
+                ],
+                "port": "assemble_rows_status"
+              }
+            }
+          ],
+          "resultType": {
+            "kind": "object",
+            "fields": [
+              {
+                "name": "success",
+                "type": {
+                  "kind": "boolean"
+                }
+              },
+              {
+                "name": "filePath",
+                "type": {
+                  "kind": "string",
+                  "nullable": true
+                }
+              },
+              {
+                "name": "relativePath",
+                "type": {
+                  "kind": "string",
+                  "nullable": true
+                }
+              },
+              {
+                "name": "error",
+                "type": {
+                  "kind": "string",
+                  "nullable": true
+                }
+              },
+              {
+                "name": "visitedCount",
+                "type": {
+                  "kind": "integer"
+                }
+              },
+              {
+                "name": "rowCount",
+                "type": {
+                  "kind": "integer"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "filePath",
+          "value": {
+            "kind": "field",
+            "items": [
+              {
+                "kind": "string",
+                "text": "filePath"
+              }
+            ],
+            "port": "writer_status"
+          }
+        },
+        {
+          "name": "status",
+          "value": {
+            "kind": "output",
+            "source": "writer_status",
+            "port": null
+          }
+        }
+      ],
+      "always": [
+        {
+          "id": "close_browser",
+          "kind": "operation",
+          "objective": "Fermer le navigateur m\u00EAme en cas d\u2019\u00E9chec, apr\u00E8s toute tentative de sauvegarde possible.",
+          "dependsOn": [],
+          "requires": null,
+          "operation": "cap_bdb7ba9ab04b18783883fa86",
+          "inputs": []
+        }
+      ]
+    },
+    "groups": [],
+    "choices": []
+  },
+  "clarifications": null,
+  "requirements": null
+}

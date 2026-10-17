@@ -1,0 +1,75 @@
+{
+  "run": "338d861b810ad788539ca715b0e6cbcd",
+  "planningSession": "cd0b22058ab249f1893adb942684aefa",
+  "historicalRunStatus": "failed",
+  "historicalHeadHash": "c1afeea64155bf4d7d452fa723781932878d58f1506aef07634b0bff3550e11b",
+  "historicalHeadUnchanged": true,
+  "scriptFailures": [
+    {
+      "scriptSha256": "4bfc17b4325577aad7031cc08d2e8f0010b1c1695d764d32175ce5329f1ff330",
+      "strict": true,
+      "schemaFindings": 0,
+      "message": "A regex argument contains a JavaScript escape that discards its backslash; use an explicitly escaped pattern string.",
+      "details": {
+        "mapping_failure_kind": "program",
+        "helper": "text",
+        "mapping_failure_reason": "lost_regex_escape",
+        "script_start": 53,
+        "script_length": 2
+      }
+    },
+    {
+      "scriptSha256": "51553e6aed7e1a30c3dd1330269d8ee59b272fcb7f581300f3d93224bc70bcca",
+      "strict": true,
+      "schemaFindings": 0,
+      "message": "Mapping JavaScript contains an unsupported operation.",
+      "details": {
+        "mapping_failure_kind": "program",
+        "helper": null,
+        "mapping_failure_reason": "unsupported_operator",
+        "mapping_node_kind": "BinaryExpression",
+        "mapping_operator": "+",
+        "script_start": 305,
+        "script_length": 89
+      }
+    }
+  ],
+  "factsOnlyExact": true,
+  "providerCalls": 0,
+  "mcpCalls": 0,
+  "offlineProposalCalls": 1,
+  "offlineRequestBytes": 163764,
+  "offlineStatus": "final_review",
+  "approved": false,
+  "changedPaths": [
+    "/root/tasks/0/resultType/fields",
+    "/root/tasks/4/dependsOn",
+    "/root/tasks/4/inputs",
+    "/root/tasks/5/inputs",
+    "/root/tasks/5/objective"
+  ],
+  "publicInterfaceUnchanged": true,
+  "operationIdentityAndOrderUnchanged": true,
+  "artifacts": {
+    "original-taskplan.json": {
+      "bytes": 52620,
+      "sha256": "5b707e51d72fe22eba6c3be3142f6cb813625012701bec4c63a95513101a8e82"
+    },
+    "corrected-taskplan.json": {
+      "bytes": 52395,
+      "sha256": "92bd6369d21a6ee753f9d0e56c3a6d7082e3663ef4d2fdcbda42fa8344cbf9a1"
+    },
+    "workflow-private.yaml": {
+      "bytes": 109803,
+      "sha256": "cbf181bbed485e6d8f80f55a4f67560773c7c7ced9de3ff8e1736bcb5d3660fd"
+    },
+    "corrected.yaml": {
+      "bytes": 109589,
+      "sha256": "99429d050c0835d1465dc827ac0ddc0c2012284fcc8e813beaa990858e4462dd"
+    },
+    "requirements.json": {
+      "bytes": 2235,
+      "sha256": "470b0d3788867fa06a44c7f06966b1d492afc74f1cccb707365720106cebaa6a"
+    }
+  }
+}

@@ -1,0 +1,299 @@
+{
+  "campaign": "schema-portability-20261002",
+  "passed": 0,
+  "required": 6,
+  "complete": false,
+  "manifest": {
+    "production_sha": "e2179af7d761f1f5d083671d0b9b1073a2e2b8fe",
+    "harness_sha": "e2179af7d761f1f5d083671d0b9b1073a2e2b8fe",
+    "cohort": "consumerjournal20261006a",
+    "provider": "OpenAi",
+    "model": "gpt-5.5-2026-04-24",
+    "reasoning": "medium",
+    "host_configuration_hash": "0d9b3f888b2a23348f7efbdc00cc764d2e388e63c076dd350b945bc161539d31",
+    "max_input_tokens": 96000,
+    "max_output_tokens": 32768,
+    "planning_attempts": 8,
+    "repairs": 2,
+    "cost_ceiling_eur": 150,
+    "browser_keep_open": false,
+    "os": "macOS 26.5.2",
+    "architecture": "Arm64",
+    "framework": ".NET 10.0.8",
+    "execution_path_hash": "8d82abe693b3568fa78ea1b6d4639ef467dfc9beea50ed9542bd67d5c4d74267",
+    "amazon_prompt": "417bb3fcd521d097b40775505acc75ede0896e8d83e06da2f5d04077c7812a50",
+    "code_prompt": "bdb354f8cd88a2a6cf06d0bce25d077a0c1eefc195a57d3c0ff60fcf46d5286c",
+    "harness_tree": "ac218b072e42bfeb7d82793037c4894965c31caf",
+    "scenario_count": 2,
+    "repetitions": 3,
+    "oracle_version": "real-workflows-v1"
+  },
+  "runs": [
+    {
+      "status": "final_review",
+      "planning_ms": 919271,
+      "calls": 6,
+      "repairs": 1,
+      "discovery_reads": 2,
+      "review_revisions": 3,
+      "diagnostics": [],
+      "execution_success": false,
+      "execution_oracle": false,
+      "execution_status": "not_started",
+      "accounting": {
+        "planning": {
+          "logical_calls": 6,
+          "physical_attempts": 8,
+          "known_input_tokens": 78900,
+          "known_output_tokens": 27657,
+          "known_cost_eur": 1.092654409139593,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "execution": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "campaign": {
+          "calls": 748,
+          "session_calls": 0,
+          "known_input_tokens": 11395539,
+          "known_output_tokens": 1248774,
+          "known_cost_eur": 84.08957781722731,
+          "reserved_input_tokens": 192000,
+          "reserved_output_tokens": 65536,
+          "reserved_cost_eur": 2.606752783964365,
+          "cost_upper_bound_eur": 86.69633060119166,
+          "unknown_attempts": 2
+        }
+      },
+      "run": "consumerjournal20261006a-amazon-1"
+    },
+    {
+      "status": "not_started",
+      "execution_oracle": false,
+      "run": "consumerjournal20261006a-amazon-2",
+      "accounting": {
+        "planning": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "execution": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "campaign": {
+          "calls": 748,
+          "session_calls": 0,
+          "known_input_tokens": 11395539,
+          "known_output_tokens": 1248774,
+          "known_cost_eur": 84.08957781722731,
+          "reserved_input_tokens": 192000,
+          "reserved_output_tokens": 65536,
+          "reserved_cost_eur": 2.606752783964365,
+          "cost_upper_bound_eur": 86.69633060119166,
+          "unknown_attempts": 2
+        }
+      }
+    },
+    {
+      "status": "not_started",
+      "execution_oracle": false,
+      "run": "consumerjournal20261006a-amazon-3",
+      "accounting": {
+        "planning": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "execution": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "campaign": {
+          "calls": 748,
+          "session_calls": 0,
+          "known_input_tokens": 11395539,
+          "known_output_tokens": 1248774,
+          "known_cost_eur": 84.08957781722731,
+          "reserved_input_tokens": 192000,
+          "reserved_output_tokens": 65536,
+          "reserved_cost_eur": 2.606752783964365,
+          "cost_upper_bound_eur": 86.69633060119166,
+          "unknown_attempts": 2
+        }
+      }
+    },
+    {
+      "status": "not_started",
+      "execution_oracle": false,
+      "run": "consumerjournal20261006a-code-1",
+      "accounting": {
+        "planning": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "execution": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "campaign": {
+          "calls": 748,
+          "session_calls": 0,
+          "known_input_tokens": 11395539,
+          "known_output_tokens": 1248774,
+          "known_cost_eur": 84.08957781722731,
+          "reserved_input_tokens": 192000,
+          "reserved_output_tokens": 65536,
+          "reserved_cost_eur": 2.606752783964365,
+          "cost_upper_bound_eur": 86.69633060119166,
+          "unknown_attempts": 2
+        }
+      }
+    },
+    {
+      "status": "not_started",
+      "execution_oracle": false,
+      "run": "consumerjournal20261006a-code-2",
+      "accounting": {
+        "planning": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "execution": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "campaign": {
+          "calls": 748,
+          "session_calls": 0,
+          "known_input_tokens": 11395539,
+          "known_output_tokens": 1248774,
+          "known_cost_eur": 84.08957781722731,
+          "reserved_input_tokens": 192000,
+          "reserved_output_tokens": 65536,
+          "reserved_cost_eur": 2.606752783964365,
+          "cost_upper_bound_eur": 86.69633060119166,
+          "unknown_attempts": 2
+        }
+      }
+    },
+    {
+      "status": "not_started",
+      "execution_oracle": false,
+      "run": "consumerjournal20261006a-code-3",
+      "accounting": {
+        "planning": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "execution": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "campaign": {
+          "calls": 748,
+          "session_calls": 0,
+          "known_input_tokens": 11395539,
+          "known_output_tokens": 1248774,
+          "known_cost_eur": 84.08957781722731,
+          "reserved_input_tokens": 192000,
+          "reserved_output_tokens": 65536,
+          "reserved_cost_eur": 2.606752783964365,
+          "cost_upper_bound_eur": 86.69633060119166,
+          "unknown_attempts": 2
+        }
+      }
+    }
+  ],
+  "accounting": {
+    "calls": 748,
+    "session_calls": 0,
+    "known_input_tokens": 11395539,
+    "known_output_tokens": 1248774,
+    "known_cost_eur": 84.08957781722731,
+    "reserved_input_tokens": 192000,
+    "reserved_output_tokens": 65536,
+    "reserved_cost_eur": 2.606752783964365,
+    "cost_upper_bound_eur": 86.69633060119166,
+    "unknown_attempts": 2
+  }
+}

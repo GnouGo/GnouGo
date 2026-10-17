@@ -1,0 +1,42 @@
+[
+  {
+    "code": "TASK_FLATTEN_INVALID",
+    "location": "/tasks/flatten_rows/outputs/rows",
+    "message": "Flatten requires one established nonnullable array of nonnullable typed arrays.",
+    "required": true,
+    "validationStage": null,
+    "rule": null
+  },
+  {
+    "code": "TASK_CONDITION_TYPE",
+    "location": "/tasks/open_amazon_search/requires",
+    "message": "Conditions require a boolean business value.",
+    "required": true,
+    "validationStage": null,
+    "rule": null
+  },
+  {
+    "code": "TASK_CONDITION_TYPE",
+    "location": "/tasks/read_product_page/requires",
+    "message": "Conditions require a boolean business value.",
+    "required": true,
+    "validationStage": null,
+    "rule": null
+  },
+  {
+    "code": "REVISION_REQUIRED",
+    "location": "/tasks/open_amazon_search/requires",
+    "message": "Conditions require a boolean business value. The required binding and its producers are outside repair authority. Explicitly revise this binding; unrelated edits cannot correct its type.",
+    "required": true,
+    "validationStage": null,
+    "rule": null
+  },
+  {
+    "code": "REVISION_REQUIRED",
+    "location": "/tasks/read_product_page/requires",
+    "message": "Conditions require a boolean business value. The required binding and its producers are outside repair authority. Explicitly revise this binding; unrelated edits cannot correct its type.",
+    "required": true,
+    "validationStage": null,
+    "rule": null
+  }
+]

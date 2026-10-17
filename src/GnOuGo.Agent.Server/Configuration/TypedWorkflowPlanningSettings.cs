@@ -3,6 +3,7 @@ public sealed class TypedWorkflowPlanningSettings
 {
     public const string SectionName = "TypedWorkflowPlanning";
     public bool BackgroundProcessingEnabled { get; set; } = true;
+    public bool AutomaticCorrectionEnabled { get; set; } = true;
     public int MaxReplanAttempts { get; set; } = 2;
     public int MaxModelCalls { get; set; } = 8;
     public long MaxTotalTokens { get; set; } = 15_000_000;

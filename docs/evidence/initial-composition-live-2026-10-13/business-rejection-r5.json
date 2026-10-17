@@ -1,0 +1,43 @@
+{
+  "revision_before": 3,
+  "revision_after": 5,
+  "accepted_requirements_unchanged": true,
+  "operations_before": [
+    {
+      "path": "root/tasks/open_search_observe",
+      "operation": "cap_490d9e16075cbdca5954ec27"
+    },
+    {
+      "path": "root/visit_products/body/tasks/read_product_page",
+      "operation": "cap_490d9e16075cbdca5954ec27"
+    },
+    {
+      "path": "root/tasks/write_products_xlsx",
+      "operation": "cap_37c513d225bb1b870053c5d3"
+    },
+    {
+      "path": "root/always/close_browser",
+      "operation": "cap_bdb7ba9ab04b18783883fa86"
+    }
+  ],
+  "operations_after": [
+    {
+      "path": "root/tasks/open_search_observe",
+      "operation": "cap_490d9e16075cbdca5954ec27"
+    }
+  ],
+  "task_count_before": 12,
+  "task_count_after": 3,
+  "public_outputs_before": [
+    "filePath",
+    "status",
+    "success"
+  ],
+  "public_outputs_after": [],
+  "cleanup_before": [
+    "close_browser"
+  ],
+  "cleanup_after": [],
+  "review_verdict": "rejected; required business work removed",
+  "execution_approved": false
+}

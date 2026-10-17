@@ -1,0 +1,185 @@
+  Identification des projets à restaurer...
+  Tous les projets sont à jour pour la restauration.
+  GnOuGo.Flow.Core -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Flow.Core/bin/Debug/net10.0/GnOuGo.Flow.Core.dll
+  GnOuGo.Flow.Planning -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Flow.Planning/bin/Debug/net10.0/GnOuGo.Flow.Planning.dll
+  GnOuGo.Flow.Planning.Tests -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Flow.Planning.Tests/bin/Debug/net10.0/GnOuGo.Flow.Planning.Tests.dll
+Série de tests pour /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Flow.Planning.Tests/bin/Debug/net10.0/GnOuGo.Flow.Planning.Tests.dll (.NETCoreApp,Version=v10.0)
+Au total, 1 fichiers de test ont correspondu au modèle spécifié.
+/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Flow.Planning.Tests/bin/Debug/net10.0/GnOuGo.Flow.Planning.Tests.dll
+[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v4.0.0+05679a7ab5 (64-bit .NET 10.0.8)
+[xUnit.net 00:00:00.42]   Discovering: GnOuGo.Flow.Planning.Tests
+[xUnit.net 00:00:00.76]   Discovered:  GnOuGo.Flow.Planning.Tests
+[xUnit.net 00:00:00.90]   Starting:    GnOuGo.Flow.Planning.Tests
+  Réussi GnOuGo.Flow.Planning.Tests.FusedBindingCompilationTests.FusionPreservesIntermediateChecksOrderAndAtomicPublication(label: "", authorized: False, failure: "first") [187 ms]
+  Messages de sortie standard :
+ sets=4→1; yaml_chars=1881→1864; mergeable_pairs=0
+
+
+  Réussi GnOuGo.Flow.Planning.Tests.FusedBindingCompilationTests.FusionPreservesIntermediateChecksOrderAndAtomicPublication(label: "observed", authorized: True, failure: null) [9 ms]
+  Messages de sortie standard :
+ sets=4→1; yaml_chars=1881→1864; mergeable_pairs=0
+
+
+  Réussi GnOuGo.Flow.Planning.Tests.FusedBindingCompilationTests.FusionPreservesIntermediateChecksOrderAndAtomicPublication(label: "observed", authorized: False, failure: "guard") [9 ms]
+  Messages de sortie standard :
+ sets=4→1; yaml_chars=1881→1864; mergeable_pairs=0
+
+
+  Réussi GnOuGo.Flow.Planning.Tests.FusedBindingCompilationTests.NativeTemplateBindingsPreserveOrderedChecksAndLiteralValues(label: "é ` ${literal} \\ source", authorized: True, failure: null, readable: True) [9 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.FusedBindingCompilationTests.NativeTemplateBindingsPreserveOrderedChecksAndLiteralValues(label: "", authorized: False, failure: "first", readable: True) [3 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.FusedBindingCompilationTests.NativeTemplateBindingsPreserveOrderedChecksAndLiteralValues(label: "é ` ${literal} \\ source", authorized: True, failure: null, readable: False) [5 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.FusedBindingCompilationTests.NativeTemplateBindingsPreserveOrderedChecksAndLiteralValues(label: "observed", authorized: False, failure: "guard", readable: True) [3 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.FusedBindingCompilationTests.NativeTemplateBindingsPreserveOrderedChecksAndLiteralValues(label: "observed", authorized: False, failure: "guard", readable: False) [2 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.FusedBindingCompilationTests.NativeTemplateBindingsPreserveOrderedChecksAndLiteralValues(label: "", authorized: False, failure: "first", readable: False) [2 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.FusedBindingCompilationTests.CompactSyntaxPreservesEveryIntermediateAndFailureOrder(label: "observed", authorized: False, failure: "guard") [9 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.FusedBindingCompilationTests.CompactSyntaxPreservesEveryIntermediateAndFailureOrder(label: "exact ` ${literal} \\ é", authorized: True, failure: null) [8 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.FusedBindingCompilationTests.CompactSyntaxPreservesEveryIntermediateAndFailureOrder(label: "", authorized: False, failure: "first") [7 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.FusedBindingCompilationTests.ConsumerInliningRetainsIndependentBoundaries(boundary: "shared") [3 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.FusedBindingCompilationTests.ConsumerInliningRetainsIndependentBoundaries(boundary: "conditional") [4 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.FusedBindingCompilationTests.ConsumerInliningRetainsIndependentBoundaries(boundary: "failure") [2 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.FusedBindingCompilationTests.ConsumerInliningRetainsIndependentBoundaries(boundary: "retry") [4 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.FusedBindingCompilationTests.ConsumerInliningRetainsIndependentBoundaries(boundary: "presence") [2 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.FusedBindingCompilationTests.LeanBindingsReuseCopiesWithoutRemovingOrderedContracts(label: "observed", authorized: False, failure: "guard") [11 ms]
+  Messages de sortie standard :
+ v8→v9 same graph: YAML 2648→2638 bytes; ordered contracts retained
+
+
+  Réussi GnOuGo.Flow.Planning.Tests.FusedBindingCompilationTests.LeanBindingsReuseCopiesWithoutRemovingOrderedContracts(label: "exact ` ${literal} \\ é", authorized: True, failure: null) [12 ms]
+  Messages de sortie standard :
+ v8→v9 same graph: YAML 2648→2638 bytes; ordered contracts retained
+
+
+  Réussi GnOuGo.Flow.Planning.Tests.FusedBindingCompilationTests.LeanBindingsReuseCopiesWithoutRemovingOrderedContracts(label: "", authorized: False, failure: "first") [9 ms]
+  Messages de sortie standard :
+ v8→v9 same graph: YAML 2648→2638 bytes; ordered contracts retained
+
+
+  Réussi GnOuGo.Flow.Planning.Tests.FusedBindingCompilationTests.ConsumerBindingsCheckBeforeDispatchAndReplayDurableInputs(label: "", authorized: False, failure: "first", readable: True) [73 ms]
+  Messages de sortie standard :
+ v4_steps=2; v5_steps=1; normal_sets=1→0; yaml=2047→2331; invocations=1
+
+
+  Réussi GnOuGo.Flow.Planning.Tests.FusedBindingCompilationTests.ConsumerBindingsCheckBeforeDispatchAndReplayDurableInputs(label: "observed", authorized: False, failure: "guard", readable: False) [10 ms]
+  Messages de sortie standard :
+ v4_steps=2; v5_steps=1; normal_sets=1→0; yaml=2047→1542; invocations=1
+
+
+  Réussi GnOuGo.Flow.Planning.Tests.FusedBindingCompilationTests.ConsumerBindingsCheckBeforeDispatchAndReplayDurableInputs(label: "observed", authorized: True, failure: null, readable: False) [19 ms]
+  Messages de sortie standard :
+ consumer v4→v5: invocations=3→2; logical journal bytes=8950→6850; yaml bytes=2047→1542
+ v4_steps=2; v5_steps=1; normal_sets=1→0; yaml=2047→1542; invocations=2
+
+
+  Réussi GnOuGo.Flow.Planning.Tests.FusedBindingCompilationTests.ConsumerBindingsCheckBeforeDispatchAndReplayDurableInputs(label: "observed", authorized: True, failure: null, readable: True) [12 ms]
+  Messages de sortie standard :
+ consumer v4→v5: invocations=3→2; logical journal bytes=8950→7300; yaml bytes=2047→2331
+ v4_steps=2; v5_steps=1; normal_sets=1→0; yaml=2047→2331; invocations=2
+
+
+  Réussi GnOuGo.Flow.Planning.Tests.FusedBindingCompilationTests.ConsumerBindingsCheckBeforeDispatchAndReplayDurableInputs(label: "observed", authorized: False, failure: "guard", readable: True) [10 ms]
+  Messages de sortie standard :
+ v4_steps=2; v5_steps=1; normal_sets=1→0; yaml=2047→2331; invocations=1
+
+
+  Réussi GnOuGo.Flow.Planning.Tests.FusedBindingCompilationTests.ConsumerBindingsCheckBeforeDispatchAndReplayDurableInputs(label: "", authorized: False, failure: "first", readable: False) [8 ms]
+  Messages de sortie standard :
+ v4_steps=2; v5_steps=1; normal_sets=1→0; yaml=2047→1542; invocations=1
+
+
+  Réussi GnOuGo.Flow.Planning.Tests.FusedBindingCompilationTests.CheckedSequenceSharesLimitsAndPreservesExactJson [1 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.FusedBindingCompilationTests.SharedConsumersRetainOnlyTheirCheckedIntermediateFields [8 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.FusedBindingCompilationTests.ObservableIdentitiesAndBoundariesRemainSeparate(reason: "branch") [4 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.FusedBindingCompilationTests.ObservableIdentitiesAndBoundariesRemainSeparate(reason: "failure_preservation") [237 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.FusedBindingCompilationTests.ObservableIdentitiesAndBoundariesRemainSeparate(reason: "presence") [7 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.FusedBindingCompilationTests.ObservableIdentitiesAndBoundariesRemainSeparate(reason: "retry") [3 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.PhysicalProjectionCompilationTests.ReadableWholeContainerRetainsLogicalKeysAndValues(route: False) [735 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.PhysicalProjectionCompilationTests.ReadableWholeContainerRetainsLogicalKeysAndValues(route: True) [10 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.CompactProjectionCompilationTests.GuardedNullableCaptureKeepsItsCheckedExportBoundary(variant: "nominal") [750 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.PhysicalProjectionCompilationTests.RealFlowRetainsBranchesAssertionsCleanupAndDurableInputs(route: False, allowed: False, readable: False) [9 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.BenchmarkExecutionTests.FrozenIntentExecutesAgainstIndependentObservations(name: "review_distractors") [762 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.PhysicalProjectionCompilationTests.RealFlowRetainsBranchesAssertionsCleanupAndDurableInputs(route: True, allowed: False, readable: False) [8 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.PhysicalProjectionCompilationTests.RealFlowRetainsBranchesAssertionsCleanupAndDurableInputs(route: True, allowed: True, readable: True) [13 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.CompactProjectionCompilationTests.GuardedNullableCaptureKeepsItsCheckedExportBoundary(variant: "alternate") [40 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.PhysicalProjectionCompilationTests.RealFlowRetainsBranchesAssertionsCleanupAndDurableInputs(route: False, allowed: True, readable: True) [10 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.PhysicalProjectionCompilationTests.RealFlowRetainsBranchesAssertionsCleanupAndDurableInputs(route: False, allowed: True, readable: False) [13 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.PhysicalProjectionCompilationTests.RealFlowRetainsBranchesAssertionsCleanupAndDurableInputs(route: False, allowed: False, readable: True) [8 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.PhysicalProjectionCompilationTests.RealFlowRetainsBranchesAssertionsCleanupAndDurableInputs(route: True, allowed: False, readable: True) [9 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.PhysicalProjectionCompilationTests.RealFlowRetainsBranchesAssertionsCleanupAndDurableInputs(route: True, allowed: True, readable: False) [11 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.PhysicalProjectionCompilationTests.FirstPresentPathsNeverSkipNullOrInvalidValues(first: "false", present: False, second: "true", expected: "true") [24 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.PhysicalProjectionCompilationTests.FirstPresentPathsNeverSkipNullOrInvalidValues(first: "\"invalid\"", present: True, second: "true", expected: "\"invalid\"") [15 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.PhysicalProjectionCompilationTests.FirstPresentPathsNeverSkipNullOrInvalidValues(first: "null", present: True, second: "true", expected: "null") [15 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.PhysicalProjectionCompilationTests.FirstPresentPathsNeverSkipNullOrInvalidValues(first: "true", present: True, second: "false", expected: "true") [13 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.BenchmarkExecutionTests.FrozenIntentExecutesAgainstIndependentObservations(name: "collections") [165 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.PhysicalProjectionCompilationTests.LeanScalarSelectionKeepsFirstPresentSemanticsWithoutImportingSnapshots [123 ms]
+  Messages de sortie standard :
+ profile=8; YAML bytes=1572; unused observation bytes=10000000
+ profile=9; YAML bytes=1569; unused observation bytes=10000000
+ profile=10; YAML bytes=1509; unused observation bytes=10000000
+
+
+  Réussi GnOuGo.Flow.Planning.Tests.PhysicalProjectionCompilationTests.PrefixPathsResolveNestedIdentitiesAndWholeContainersKeepLogicalKeys [5 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.PhysicalProjectionCompilationTests.HistoricalOptionsRetainPreviousLowering(profile: "compact-bindings-v3", descriptions: True, fusion: False, consumers: False) [9 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.PhysicalProjectionCompilationTests.HistoricalOptionsRetainPreviousLowering(profile: null, descriptions: False, fusion: False, consumers: False) [8 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.PhysicalProjectionCompilationTests.HistoricalOptionsRetainPreviousLowering(profile: "compact-bindings-v1", descriptions: False, fusion: False, consumers: False) [7 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.BenchmarkExecutionTests.FrozenIntentExecutesAgainstIndependentObservations(name: "protected_cleanup") [151 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.PhysicalProjectionCompilationTests.HistoricalOptionsRetainPreviousLowering(profile: "compact-bindings-v2", descriptions: True, fusion: False, consumers: False) [7 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.PhysicalProjectionCompilationTests.HistoricalOptionsRetainPreviousLowering(profile: "compact-bindings-v5", descriptions: True, fusion: True, consumers: True) [6 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.PhysicalProjectionCompilationTests.HistoricalOptionsRetainPreviousLowering(profile: "compact-bindings-v4", descriptions: True, fusion: True, consumers: False) [6 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.PhysicalProjectionCompilationTests.ScalarSelectionDoesNotImportEightUnrelatedLargeObservations [50 ms]
+  Messages de sortie standard :
+ unrelated_chars=0; scalar_allocation_bytes=10384; result_bytes=14
+ unrelated_chars=1600000; scalar_allocation_bytes=10384; result_bytes=14
+ unrelated_chars=10000000; scalar_allocation_bytes=10384; result_bytes=14
+ yaml_bytes=2106→1505; expression_bytes=792→213
+
+
+  Réussi GnOuGo.Flow.Planning.Tests.PhysicalProjectionCompilationTests.NativeProfileUsesReadableCheckedPropertyAccessAndHistoricalV6IsExact [16 ms]
+  Messages de sortie standard :
+ v6_yaml_bytes=1451; v7_yaml_bytes=1427; selection_helpers=1→0
+
+
+  Réussi GnOuGo.Flow.Planning.Tests.BenchmarkExecutionTests.FrozenIntentExecutesAgainstIndependentObservations(name: "nullable_defaults") [129 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.BenchmarkExecutionTests.FrozenIntentExecutesAgainstIndependentObservations(name: "read_transform") [92 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.BenchmarkExecutionTests.FrozenIntentExecutesAgainstIndependentObservations(name: "conditional") [108 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.BenchmarkExecutionTests.FrozenIntentExecutesAgainstIndependentObservations(name: "review_french") [295 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.BenchmarkExecutionTests.FrozenIntentExecutesAgainstIndependentObservations(name: "local") [88 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.CompactProjectionCompilationTests.DeclaredProjectionPortsAvoidUnobservedCallEnvelopes(parallel: False, count: 1602, single: True) [1 s]
+  Messages de sortie standard :
+ projection items=1602; single=True; YAML=9122→8108; allocations=752888584→329224296; invocations=1→1; logicalJournal=5076233→5075138
+
+
+[xUnit.net 00:00:04.26]   Finished:    GnOuGo.Flow.Planning.Tests (ID = 'c66a0949152f91115fe382ea0022846c528179218259b3832b2877c7b8d17925')
+  Réussi GnOuGo.Flow.Planning.Tests.CompactProjectionCompilationTests.DeclaredProjectionPortsAvoidUnobservedCallEnvelopes(parallel: False, count: 3, single: False) [48 ms]
+  Messages de sortie standard :
+ projection items=3; single=False; YAML=10621→9885; allocations=978224→865480; invocations=1→1; logicalJournal=21878→21088
+
+
+  Réussi GnOuGo.Flow.Planning.Tests.CompactProjectionCompilationTests.DeclaredProjectionPortsAvoidUnobservedCallEnvelopes(parallel: False, count: 0, single: False) [44 ms]
+  Messages de sortie standard :
+ projection items=0; single=False; YAML=10621→9885; allocations=645488→605712; invocations=1→1; logicalJournal=14944→14154
+
+
+  Réussi GnOuGo.Flow.Planning.Tests.CompactProjectionCompilationTests.DeclaredProjectionPortsAvoidUnobservedCallEnvelopes(parallel: False, count: 0, single: True) [32 ms]
+  Messages de sortie standard :
+ projection items=0; single=True; YAML=9122→8108; allocations=559640→502416; invocations=1→1; logicalJournal=13118→12025
+
+
+  Réussi GnOuGo.Flow.Planning.Tests.CompactProjectionCompilationTests.DeclaredProjectionPortsAvoidUnobservedCallEnvelopes(parallel: True, count: 3, single: False) [42 ms]
+  Messages de sortie standard :
+ projection items=3; single=False; YAML=10621→9885; allocations=940928→865488; invocations=1→1; logicalJournal=21880→21090
+
+
+  Réussi GnOuGo.Flow.Planning.Tests.CompactProjectionCompilationTests.DeclaredProjectionPortsAvoidUnobservedCallEnvelopes(parallel: False, count: 1602, single: False) [1 s]
+  Messages de sortie standard :
+ projection items=1602; single=False; YAML=10621→9885; allocations=187559048→173369208; invocations=1→1; logicalJournal=5105653→5104863
+
+
+  Réussi GnOuGo.Flow.Planning.Tests.CompactProjectionCompilationTests.EntryChecksAndResourceLimitsStillFailAtomically(authorized: False) [41 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.CompactProjectionCompilationTests.EntryChecksAndResourceLimitsStillFailAtomically(authorized: True) [29 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.CompactProjectionCompilationTests.ObservableLoopEnvelopesRemainIntact(observation: "whole") [28 ms]
+  Réussi GnOuGo.Flow.Planning.Tests.CompactProjectionCompilationTests.ObservableLoopEnvelopesRemainIntact(observation: "presence") [23 ms]
+
+Série de tests réussie.
+Nombre total de tests : 76
+     Réussi(s) : 76
+ Durée totale : 5,8589 Secondes

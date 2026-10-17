@@ -212,7 +212,7 @@ public sealed class WorkflowCallExecutor : IStepExecutor
                             subWorkflow.Outputs,
                             subData,
                             executionScope,
-                            resolution.WorkflowName)
+                            resolution.WorkflowName, workflowSpan)
                         : subData["steps"]?.DeepClone();
                 }
                 catch (Exception ex)

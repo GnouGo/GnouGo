@@ -1,0 +1,901 @@
+{
+  "run": "emptyacquire20261008a-amazon-1",
+  "measurements": [
+    {
+      "profile": "compact-bindings-v3",
+      "steps": 81,
+      "sets": 55,
+      "workflows": 5,
+      "yaml_bytes": 81800,
+      "yaml_lines": 2351,
+      "yaml_hash": "609d66f8a14a3dab2024b33304437819e1a0b8eabe3b97408b63ad75f46fcaba",
+      "matches_saved_yaml": true,
+      "adjacent_set_pairs": [
+        {
+          "scope": "main",
+          "before": "n_5ba8560ca1d7644e",
+          "after": "n_3eee368ebc07926d"
+        },
+        {
+          "scope": "main",
+          "before": "n_3eee368ebc07926d",
+          "after": "n_8e29eb6a8a366f87"
+        },
+        {
+          "scope": "main",
+          "before": "n_d5b031ceed0b14af",
+          "after": "n_20687a41e38360ec"
+        },
+        {
+          "scope": "main/n_2086bd988590e04f/case",
+          "before": "n_3deeb71fafa51c8e",
+          "after": "n_120f55d6db142b9f"
+        },
+        {
+          "scope": "main",
+          "before": "n_272a25ce420398e2",
+          "after": "n_bbd4b87b741c4fc7"
+        },
+        {
+          "scope": "main",
+          "before": "n_bbd4b87b741c4fc7",
+          "after": "n_0eb903ae3db3e72a"
+        },
+        {
+          "scope": "main",
+          "before": "n_4e0d0b0261a34551",
+          "after": "n_6909edf2fcd00e9f"
+        },
+        {
+          "scope": "main",
+          "before": "n_6909edf2fcd00e9f",
+          "after": "n_6095940ffabb7caa"
+        },
+        {
+          "scope": "main/n_5912db34619883c9/case",
+          "before": "n_36953fab05f170ac",
+          "after": "n_ae9bc8988408ed3d"
+        },
+        {
+          "scope": "main",
+          "before": "n_8fd6f766f8a8c6b1",
+          "after": "n_b9ad45763ef4f54d"
+        },
+        {
+          "scope": "main",
+          "before": "n_b9ad45763ef4f54d",
+          "after": "n_4718377e53096bbc"
+        },
+        {
+          "scope": "main",
+          "before": "n_d1618c6225a83b31",
+          "after": "n_d5e11cb7b30f1e37"
+        },
+        {
+          "scope": "main",
+          "before": "n_e6c7d1f6f32ae7a8",
+          "after": "n_e6a0f56f85665974"
+        },
+        {
+          "scope": "main",
+          "before": "n_e6a0f56f85665974",
+          "after": "n_1e673f131b6b811b"
+        },
+        {
+          "scope": "main",
+          "before": "n_463d9c6702b34c30",
+          "after": "n_9b3b6108d051e68f"
+        },
+        {
+          "scope": "main",
+          "before": "n_9b3b6108d051e68f",
+          "after": "n_dad147947d60ce6f"
+        },
+        {
+          "scope": "main",
+          "before": "n_dad147947d60ce6f",
+          "after": "n_a9ce33213e2b751a"
+        },
+        {
+          "scope": "main",
+          "before": "n_d0a27a847ad7c3bd",
+          "after": "n_5984d02ccbb60d83"
+        },
+        {
+          "scope": "main",
+          "before": "n_5984d02ccbb60d83",
+          "after": "n_b20d148dbbfb3f94"
+        },
+        {
+          "scope": "w_162e2849ed29494c",
+          "before": "n_637c9a904c0ee4b5",
+          "after": "n_d67d798970cf6cad"
+        },
+        {
+          "scope": "w_162e2849ed29494c",
+          "before": "n_d67d798970cf6cad",
+          "after": "n_370cd4a6b0cec05c"
+        },
+        {
+          "scope": "w_162e2849ed29494c",
+          "before": "n_370cd4a6b0cec05c",
+          "after": "n_23c54c8356cd8999"
+        },
+        {
+          "scope": "w_162e2849ed29494c",
+          "before": "n_23c54c8356cd8999",
+          "after": "n_354cef718cdb40a2"
+        },
+        {
+          "scope": "w_798edf631965666a",
+          "before": "n_df6b8c1f258579a1",
+          "after": "n_3b6a205da6b24b2c"
+        },
+        {
+          "scope": "w_4842d704fc2c7067",
+          "before": "n_3be44534d3cff6fc",
+          "after": "n_fa4d037b0b1a8a03"
+        },
+        {
+          "scope": "w_4842d704fc2c7067",
+          "before": "n_fa4d037b0b1a8a03",
+          "after": "n_b79507f8b2d155a7"
+        },
+        {
+          "scope": "w_4842d704fc2c7067",
+          "before": "n_b79507f8b2d155a7",
+          "after": "n_9b79c061f7b184fb"
+        },
+        {
+          "scope": "w_4842d704fc2c7067",
+          "before": "n_8bf3e2093bd16eff",
+          "after": "n_5481eac0ea4e0687"
+        },
+        {
+          "scope": "w_4842d704fc2c7067",
+          "before": "n_5481eac0ea4e0687",
+          "after": "n_949239bec45e210e"
+        },
+        {
+          "scope": "w_4842d704fc2c7067",
+          "before": "n_949239bec45e210e",
+          "after": "n_8c5f91a07012237d"
+        },
+        {
+          "scope": "w_4842d704fc2c7067",
+          "before": "n_8c5f91a07012237d",
+          "after": "n_f9ba123483f2b92d"
+        },
+        {
+          "scope": "w_4842d704fc2c7067",
+          "before": "n_f9ba123483f2b92d",
+          "after": "n_7d994c719c0584cb"
+        }
+      ],
+      "materialized_sets": [
+        {
+          "scope": "main",
+          "id": "n_fecddd26015de1d5",
+          "description": "Required condition: Ouvrir Amazon.fr et observer la page d\u2019accueil sans interaction implicite.",
+          "guarded": false,
+          "next_type": "mcp.call"
+        },
+        {
+          "scope": "main",
+          "id": "n_5ba8560ca1d7644e",
+          "description": "Select and validate declared values",
+          "guarded": false,
+          "next_type": "set"
+        },
+        {
+          "scope": "main",
+          "id": "n_3eee368ebc07926d",
+          "description": "Required condition: Identifier uniquement parmi les \u00e9l\u00e9ments observ\u00e9s les contr\u00f4les n\u00e9cessaires: consentement cookies \u00e9ventuel et champ de recherche Amazon. Ne pas inventer de r\u00e9f\u00e9rence; conserver les r\u00e9f\u00e9rences observ\u00e9es.",
+          "guarded": false,
+          "next_type": "set"
+        },
+        {
+          "scope": "main",
+          "id": "n_8e29eb6a8a366f87",
+          "description": "Select and validate declared values",
+          "guarded": false,
+          "next_type": "template.render"
+        },
+        {
+          "scope": "main",
+          "id": "n_d5b031ceed0b14af",
+          "description": "Required condition: Si un bouton de consentement aux cookies a \u00e9t\u00e9 observ\u00e9, cliquer explicitement dessus puis r\u00e9observer la page; sinon ne rien faire.",
+          "guarded": false,
+          "next_type": "set"
+        },
+        {
+          "scope": "main",
+          "id": "n_20687a41e38360ec",
+          "description": "Select and validate declared values",
+          "guarded": false,
+          "next_type": "switch"
+        },
+        {
+          "scope": "main/n_2086bd988590e04f/default",
+          "id": "n_d8aa1a5e60b376ea",
+          "description": "Assemble declared values",
+          "guarded": false,
+          "next_type": null
+        },
+        {
+          "scope": "main/n_2086bd988590e04f/case",
+          "id": "n_3deeb71fafa51c8e",
+          "description": "Select and validate declared values",
+          "guarded": false,
+          "next_type": "set"
+        },
+        {
+          "scope": "main/n_2086bd988590e04f/case",
+          "id": "n_120f55d6db142b9f",
+          "description": "Assemble declared values",
+          "guarded": false,
+          "next_type": null
+        },
+        {
+          "scope": "main",
+          "id": "n_791d21d0dd2df63c",
+          "description": "Select and validate declared values",
+          "guarded": false,
+          "next_type": "switch"
+        },
+        {
+          "scope": "main",
+          "id": "n_272a25ce420398e2",
+          "description": "Assemble declared values",
+          "guarded": false,
+          "next_type": "set"
+        },
+        {
+          "scope": "main",
+          "id": "n_bbd4b87b741c4fc7",
+          "description": "Select and validate declared values",
+          "guarded": false,
+          "next_type": "set"
+        },
+        {
+          "scope": "main",
+          "id": "n_0eb903ae3db3e72a",
+          "description": "Required condition: R\u00e9observer la page Amazon.fr apr\u00e8s l\u2019\u00e9ventuel consentement afin d\u2019obtenir des r\u00e9f\u00e9rences fra\u00eeches avant de rechercher.",
+          "guarded": false,
+          "next_type": "mcp.call"
+        },
+        {
+          "scope": "main",
+          "id": "n_4e0d0b0261a34551",
+          "description": "Select and validate declared values",
+          "guarded": false,
+          "next_type": "set"
+        },
+        {
+          "scope": "main",
+          "id": "n_6909edf2fcd00e9f",
+          "description": "Required condition: S\u00e9lectionner dans l\u2019observation fra\u00eeche le champ de recherche Amazon et, si pr\u00e9sent, le bouton de soumission. Les IDs/r\u00e9f\u00e9rences doivent provenir uniquement des \u00e9l\u00e9ments observ\u00e9s.",
+          "guarded": false,
+          "next_type": "set"
+        },
+        {
+          "scope": "main",
+          "id": "n_6095940ffabb7caa",
+          "description": "Select and validate declared values",
+          "guarded": false,
+          "next_type": "template.render"
+        },
+        {
+          "scope": "main",
+          "id": "n_418b3abc3940e8fd",
+          "description": "Select and validate declared values",
+          "guarded": false,
+          "next_type": "switch"
+        },
+        {
+          "scope": "main/n_5912db34619883c9/default",
+          "id": "n_0fa6b154d56450db",
+          "description": "Assemble declared values",
+          "guarded": false,
+          "next_type": null
+        },
+        {
+          "scope": "main/n_5912db34619883c9/case",
+          "id": "n_36953fab05f170ac",
+          "description": "Select and validate declared values",
+          "guarded": false,
+          "next_type": "set"
+        },
+        {
+          "scope": "main/n_5912db34619883c9/case",
+          "id": "n_ae9bc8988408ed3d",
+          "description": "Assemble declared values",
+          "guarded": false,
+          "next_type": null
+        },
+        {
+          "scope": "main",
+          "id": "n_8fd6f766f8a8c6b1",
+          "description": "Select and validate declared values",
+          "guarded": false,
+          "next_type": "set"
+        },
+        {
+          "scope": "main",
+          "id": "n_b9ad45763ef4f54d",
+          "description": "Required condition: Saisir l\u2019entr\u00e9e publique query dans le champ de recherche observ\u00e9 et soumettre la recherche.",
+          "guarded": false,
+          "next_type": "set"
+        },
+        {
+          "scope": "main",
+          "id": "n_4718377e53096bbc",
+          "description": "Select and validate declared values",
+          "guarded": false,
+          "next_type": "mcp.call"
+        },
+        {
+          "scope": "main",
+          "id": "n_d1618c6225a83b31",
+          "description": "Select and validate declared values",
+          "guarded": false,
+          "next_type": "set"
+        },
+        {
+          "scope": "main",
+          "id": "n_d5e11cb7b30f1e37",
+          "description": "Required condition: Observer compl\u00e8tement la page de r\u00e9sultats Amazon.fr apr\u00e8s la recherche; ne consid\u00e9rer la page compl\u00e8te que si la capture n\u2019est pas tronqu\u00e9e.",
+          "guarded": false,
+          "next_type": "mcp.call"
+        },
+        {
+          "scope": "main",
+          "id": "n_e6c7d1f6f32ae7a8",
+          "description": "Select and validate declared values",
+          "guarded": false,
+          "next_type": "set"
+        },
+        {
+          "scope": "main",
+          "id": "n_e6a0f56f85665974",
+          "description": "Required condition: Depuis l\u2019observation des r\u00e9sultats, extraire au maximum les 10 premiers vrais produits list\u00e9s, dans l\u2019ordre d\u2019origine. Exclure publicit\u00e9s non produit, navigation, filtres et \u00e9l\u00e9ments sponsoris\u00e9s sans lien produit identifiable. Conserver originalIndex sans renum\u00e9rotation, l\u2019URL et la r\u00e9f\u00e9rence/l\u2019action follow observ\u00e9es quand disponibles. Si CAPTCHA ou absence de r\u00e9sultats, retourner une liste vide et un statut explicite.",
+          "guarded": false,
+          "next_type": "set"
+        },
+        {
+          "scope": "main",
+          "id": "n_1e673f131b6b811b",
+          "description": "Select and validate declared values",
+          "guarded": false,
+          "next_type": "template.render"
+        },
+        {
+          "scope": "main",
+          "id": "n_463d9c6702b34c30",
+          "description": "Select and validate declared values",
+          "guarded": false,
+          "next_type": "set"
+        },
+        {
+          "scope": "main",
+          "id": "n_9b3b6108d051e68f",
+          "description": "Required condition: Visiter chaque produit s\u00e9lectionn\u00e9, un par un, r\u00e9observer sa page et extraire nom, description et prix disponibles sans invention.",
+          "guarded": false,
+          "next_type": "set"
+        },
+        {
+          "scope": "main",
+          "id": "n_dad147947d60ce6f",
+          "description": "Select and validate declared values",
+          "guarded": false,
+          "next_type": "set"
+        },
+        {
+          "scope": "main",
+          "id": "n_a9ce33213e2b751a",
+          "description": "Select and validate declared values",
+          "guarded": false,
+          "next_type": "workflow.call"
+        },
+        {
+          "scope": "main",
+          "id": "n_a451412dbea29eae",
+          "description": "Required condition: Compiler les donn\u00e9es extraites en lignes TSV pour un classeur Excel: en-t\u00eates originalIndex, name, description, price, status, url. Pr\u00e9server l\u2019ordre et les originalIndex. Normaliser les tabulations et retours ligne dans les cellules; utiliser des valeurs explicites comme CAPTCHA_DETECTED, PRICE_MISSING, DESCRIPTION_MISSING ou DATA_UNAVAILABLE dans status selon les observations, sans inventer de donn\u00e9es.",
+          "guarded": false,
+          "next_type": "template.render"
+        },
+        {
+          "scope": "main",
+          "id": "n_d0a27a847ad7c3bd",
+          "description": "Select and validate declared values",
+          "guarded": false,
+          "next_type": "set"
+        },
+        {
+          "scope": "main",
+          "id": "n_5984d02ccbb60d83",
+          "description": "Required condition: Sauvegarder le classeur Excel demand\u00e9 au chemin relatif fix\u00e9, avec les donn\u00e9es collect\u00e9es ou les statuts explicites d\u2019absence/blocage.",
+          "guarded": false,
+          "next_type": "set"
+        },
+        {
+          "scope": "main",
+          "id": "n_b20d148dbbfb3f94",
+          "description": "Select and validate declared values",
+          "guarded": false,
+          "next_type": "mcp.call"
+        },
+        {
+          "scope": "main",
+          "id": "n_af930dddce617aff",
+          "description": "Export declared business results",
+          "guarded": false,
+          "next_type": null
+        },
+        {
+          "scope": "w_162e2849ed29494c",
+          "id": "n_637c9a904c0ee4b5",
+          "description": "Select and validate declared values",
+          "guarded": false,
+          "next_type": "set"
+        },
+        {
+          "scope": "w_162e2849ed29494c",
+          "id": "n_d67d798970cf6cad",
+          "description": "Select and validate declared values",
+          "guarded": false,
+          "next_type": "set"
+        },
+        {
+          "scope": "w_162e2849ed29494c",
+          "id": "n_370cd4a6b0cec05c",
+          "description": "Required condition: Cliquer sur le contr\u00f4le de consentement cookies observ\u00e9, avec action activate.",
+          "guarded": false,
+          "next_type": "set"
+        },
+        {
+          "scope": "w_162e2849ed29494c",
+          "id": "n_23c54c8356cd8999",
+          "description": "Select and validate declared values",
+          "guarded": false,
+          "next_type": "set"
+        },
+        {
+          "scope": "w_162e2849ed29494c",
+          "id": "n_354cef718cdb40a2",
+          "description": "Select and validate declared values",
+          "guarded": false,
+          "next_type": "mcp.call"
+        },
+        {
+          "scope": "w_76af343cc3b7abc3",
+          "id": "n_aeddc61644fb0807",
+          "description": "Assemble declared values",
+          "guarded": false,
+          "next_type": null
+        },
+        {
+          "scope": "w_798edf631965666a",
+          "id": "n_df6b8c1f258579a1",
+          "description": "Collect declared iteration outputs",
+          "guarded": false,
+          "next_type": "set"
+        },
+        {
+          "scope": "w_798edf631965666a",
+          "id": "n_3b6a205da6b24b2c",
+          "description": "Assemble declared values",
+          "guarded": false,
+          "next_type": null
+        },
+        {
+          "scope": "w_4842d704fc2c7067",
+          "id": "n_3be44534d3cff6fc",
+          "description": "Select and validate declared values",
+          "guarded": false,
+          "next_type": "set"
+        },
+        {
+          "scope": "w_4842d704fc2c7067",
+          "id": "n_fa4d037b0b1a8a03",
+          "description": "Required condition: Ouvrir la page du produit courant \u00e0 partir de son URL observ\u00e9e. Si l\u2019URL est absente, cette \u00e9tape est bloqu\u00e9e pour cet item et l\u2019absence sera consign\u00e9e.",
+          "guarded": false,
+          "next_type": "set"
+        },
+        {
+          "scope": "w_4842d704fc2c7067",
+          "id": "n_b79507f8b2d155a7",
+          "description": "Select and validate declared values",
+          "guarded": false,
+          "next_type": "set"
+        },
+        {
+          "scope": "w_4842d704fc2c7067",
+          "id": "n_9b79c061f7b184fb",
+          "description": "Select and validate declared values",
+          "guarded": false,
+          "next_type": "mcp.call"
+        },
+        {
+          "scope": "w_4842d704fc2c7067",
+          "id": "n_8bf3e2093bd16eff",
+          "description": "Select and validate declared values",
+          "guarded": false,
+          "next_type": "set"
+        },
+        {
+          "scope": "w_4842d704fc2c7067",
+          "id": "n_5481eac0ea4e0687",
+          "description": "Required condition: Extraire pour le produit courant le nom, la description et le prix depuis la page produit observ\u00e9e. Si CAPTCHA, prix ou description sont absents/inaccessibles, renseigner null et un statut explicite. Ne pas compl\u00e9ter depuis des suppositions.",
+          "guarded": false,
+          "next_type": "set"
+        },
+        {
+          "scope": "w_4842d704fc2c7067",
+          "id": "n_949239bec45e210e",
+          "description": "Select and validate declared values",
+          "guarded": false,
+          "next_type": "set"
+        },
+        {
+          "scope": "w_4842d704fc2c7067",
+          "id": "n_8c5f91a07012237d",
+          "description": "Select and validate declared values",
+          "guarded": false,
+          "next_type": "set"
+        },
+        {
+          "scope": "w_4842d704fc2c7067",
+          "id": "n_f9ba123483f2b92d",
+          "description": "Select and validate declared values",
+          "guarded": false,
+          "next_type": "set"
+        },
+        {
+          "scope": "w_4842d704fc2c7067",
+          "id": "n_7d994c719c0584cb",
+          "description": "Select and validate declared values",
+          "guarded": false,
+          "next_type": "template.render"
+        }
+      ]
+    },
+    {
+      "profile": "compact-bindings-v4",
+      "steps": 51,
+      "sets": 25,
+      "workflows": 5,
+      "yaml_bytes": 79506,
+      "yaml_lines": 1666,
+      "yaml_hash": "8a68985a531bd4b2a76a4f36a543db1216fc56d380b86e6d0b7212f8fd76f4c3",
+      "matches_saved_yaml": false,
+      "adjacent_set_pairs": [
+        {
+          "scope": "main/n_2086bd988590e04f/case",
+          "before": "n_3deeb71fafa51c8e",
+          "after": "n_120f55d6db142b9f"
+        },
+        {
+          "scope": "main/n_5912db34619883c9/case",
+          "before": "n_36953fab05f170ac",
+          "after": "n_ae9bc8988408ed3d"
+        }
+      ],
+      "materialized_sets": [
+        {
+          "scope": "main",
+          "id": "n_fecddd26015de1d5",
+          "description": "Required condition: Ouvrir Amazon.fr et observer la page d\u2019accueil sans interaction implicite.",
+          "guarded": false,
+          "next_type": "mcp.call"
+        },
+        {
+          "scope": "main",
+          "id": "n_5ba8560ca1d7644e",
+          "description": "Check and assemble consecutive deterministic values.",
+          "guarded": false,
+          "next_type": "template.render"
+        },
+        {
+          "scope": "main",
+          "id": "n_d5b031ceed0b14af",
+          "description": "Check and assemble consecutive deterministic values.",
+          "guarded": false,
+          "next_type": "switch"
+        },
+        {
+          "scope": "main/n_2086bd988590e04f/default",
+          "id": "n_d8aa1a5e60b376ea",
+          "description": "Assemble declared values",
+          "guarded": false,
+          "next_type": null
+        },
+        {
+          "scope": "main/n_2086bd988590e04f/case",
+          "id": "n_3deeb71fafa51c8e",
+          "description": "Select and validate declared values",
+          "guarded": false,
+          "next_type": "set"
+        },
+        {
+          "scope": "main/n_2086bd988590e04f/case",
+          "id": "n_120f55d6db142b9f",
+          "description": "Assemble declared values",
+          "guarded": false,
+          "next_type": null
+        },
+        {
+          "scope": "main",
+          "id": "n_791d21d0dd2df63c",
+          "description": "Select and validate declared values",
+          "guarded": false,
+          "next_type": "switch"
+        },
+        {
+          "scope": "main",
+          "id": "n_272a25ce420398e2",
+          "description": "Check and assemble consecutive deterministic values.",
+          "guarded": false,
+          "next_type": "mcp.call"
+        },
+        {
+          "scope": "main",
+          "id": "n_4e0d0b0261a34551",
+          "description": "Check and assemble consecutive deterministic values.",
+          "guarded": false,
+          "next_type": "template.render"
+        },
+        {
+          "scope": "main",
+          "id": "n_418b3abc3940e8fd",
+          "description": "Select and validate declared values",
+          "guarded": false,
+          "next_type": "switch"
+        },
+        {
+          "scope": "main/n_5912db34619883c9/default",
+          "id": "n_0fa6b154d56450db",
+          "description": "Assemble declared values",
+          "guarded": false,
+          "next_type": null
+        },
+        {
+          "scope": "main/n_5912db34619883c9/case",
+          "id": "n_36953fab05f170ac",
+          "description": "Select and validate declared values",
+          "guarded": false,
+          "next_type": "set"
+        },
+        {
+          "scope": "main/n_5912db34619883c9/case",
+          "id": "n_ae9bc8988408ed3d",
+          "description": "Assemble declared values",
+          "guarded": false,
+          "next_type": null
+        },
+        {
+          "scope": "main",
+          "id": "n_8fd6f766f8a8c6b1",
+          "description": "Check and assemble consecutive deterministic values.",
+          "guarded": false,
+          "next_type": "mcp.call"
+        },
+        {
+          "scope": "main",
+          "id": "n_d1618c6225a83b31",
+          "description": "Check and assemble consecutive deterministic values.",
+          "guarded": false,
+          "next_type": "mcp.call"
+        },
+        {
+          "scope": "main",
+          "id": "n_e6c7d1f6f32ae7a8",
+          "description": "Check and assemble consecutive deterministic values.",
+          "guarded": false,
+          "next_type": "template.render"
+        },
+        {
+          "scope": "main",
+          "id": "n_463d9c6702b34c30",
+          "description": "Check and assemble consecutive deterministic values.",
+          "guarded": false,
+          "next_type": "workflow.call"
+        },
+        {
+          "scope": "main",
+          "id": "n_a451412dbea29eae",
+          "description": "Required condition: Compiler les donn\u00e9es extraites en lignes TSV pour un classeur Excel: en-t\u00eates originalIndex, name, description, price, status, url. Pr\u00e9server l\u2019ordre et les originalIndex. Normaliser les tabulations et retours ligne dans les cellules; utiliser des valeurs explicites comme CAPTCHA_DETECTED, PRICE_MISSING, DESCRIPTION_MISSING ou DATA_UNAVAILABLE dans status selon les observations, sans inventer de donn\u00e9es.",
+          "guarded": false,
+          "next_type": "template.render"
+        },
+        {
+          "scope": "main",
+          "id": "n_d0a27a847ad7c3bd",
+          "description": "Check and assemble consecutive deterministic values.",
+          "guarded": false,
+          "next_type": "mcp.call"
+        },
+        {
+          "scope": "main",
+          "id": "n_af930dddce617aff",
+          "description": "Export declared business results",
+          "guarded": false,
+          "next_type": null
+        },
+        {
+          "scope": "w_162e2849ed29494c",
+          "id": "n_637c9a904c0ee4b5",
+          "description": "Check and assemble consecutive deterministic values.",
+          "guarded": false,
+          "next_type": "mcp.call"
+        },
+        {
+          "scope": "w_76af343cc3b7abc3",
+          "id": "n_aeddc61644fb0807",
+          "description": "Assemble declared values",
+          "guarded": false,
+          "next_type": null
+        },
+        {
+          "scope": "w_798edf631965666a",
+          "id": "n_df6b8c1f258579a1",
+          "description": "Check and assemble consecutive deterministic values.",
+          "guarded": false,
+          "next_type": null
+        },
+        {
+          "scope": "w_4842d704fc2c7067",
+          "id": "n_3be44534d3cff6fc",
+          "description": "Check and assemble consecutive deterministic values.",
+          "guarded": false,
+          "next_type": "mcp.call"
+        },
+        {
+          "scope": "w_4842d704fc2c7067",
+          "id": "n_8bf3e2093bd16eff",
+          "description": "Check and assemble consecutive deterministic values.",
+          "guarded": false,
+          "next_type": "template.render"
+        }
+      ]
+    },
+    {
+      "profile": "compact-bindings-v5",
+      "steps": 42,
+      "sets": 16,
+      "workflows": 5,
+      "yaml_bytes": 59469,
+      "yaml_lines": 1077,
+      "yaml_hash": "3e1ff8bfc1b07ee4030b67cb043a14743ff37ebbf0bd0b09672fd5068e36cec5",
+      "matches_saved_yaml": false,
+      "adjacent_set_pairs": [
+        {
+          "scope": "main/n_2086bd988590e04f/case",
+          "before": "n_3deeb71fafa51c8e",
+          "after": "n_120f55d6db142b9f"
+        },
+        {
+          "scope": "main/n_5912db34619883c9/case",
+          "before": "n_36953fab05f170ac",
+          "after": "n_ae9bc8988408ed3d"
+        }
+      ],
+      "materialized_sets": [
+        {
+          "scope": "main",
+          "id": "n_fecddd26015de1d5",
+          "description": "Required condition: Ouvrir Amazon.fr et observer la page d\u2019accueil sans interaction implicite.",
+          "guarded": false,
+          "next_type": "mcp.call"
+        },
+        {
+          "scope": "main",
+          "id": "n_d5b031ceed0b14af",
+          "description": "Check and assemble consecutive deterministic values.",
+          "guarded": false,
+          "next_type": "switch"
+        },
+        {
+          "scope": "main/n_2086bd988590e04f/default",
+          "id": "n_d8aa1a5e60b376ea",
+          "description": "Assemble declared values",
+          "guarded": false,
+          "next_type": null
+        },
+        {
+          "scope": "main/n_2086bd988590e04f/case",
+          "id": "n_3deeb71fafa51c8e",
+          "description": "Select and validate declared values",
+          "guarded": false,
+          "next_type": "set"
+        },
+        {
+          "scope": "main/n_2086bd988590e04f/case",
+          "id": "n_120f55d6db142b9f",
+          "description": "Assemble declared values",
+          "guarded": false,
+          "next_type": null
+        },
+        {
+          "scope": "main",
+          "id": "n_791d21d0dd2df63c",
+          "description": "Select and validate declared values",
+          "guarded": false,
+          "next_type": "switch"
+        },
+        {
+          "scope": "main",
+          "id": "n_272a25ce420398e2",
+          "description": "Check and assemble consecutive deterministic values.",
+          "guarded": false,
+          "next_type": "mcp.call"
+        },
+        {
+          "scope": "main",
+          "id": "n_418b3abc3940e8fd",
+          "description": "Select and validate declared values",
+          "guarded": false,
+          "next_type": "switch"
+        },
+        {
+          "scope": "main/n_5912db34619883c9/default",
+          "id": "n_0fa6b154d56450db",
+          "description": "Assemble declared values",
+          "guarded": false,
+          "next_type": null
+        },
+        {
+          "scope": "main/n_5912db34619883c9/case",
+          "id": "n_36953fab05f170ac",
+          "description": "Select and validate declared values",
+          "guarded": false,
+          "next_type": "set"
+        },
+        {
+          "scope": "main/n_5912db34619883c9/case",
+          "id": "n_ae9bc8988408ed3d",
+          "description": "Assemble declared values",
+          "guarded": false,
+          "next_type": null
+        },
+        {
+          "scope": "main",
+          "id": "n_d1618c6225a83b31",
+          "description": "Check and assemble consecutive deterministic values.",
+          "guarded": false,
+          "next_type": "mcp.call"
+        },
+        {
+          "scope": "main",
+          "id": "n_a451412dbea29eae",
+          "description": "Required condition: Compiler les donn\u00e9es extraites en lignes TSV pour un classeur Excel: en-t\u00eates originalIndex, name, description, price, status, url. Pr\u00e9server l\u2019ordre et les originalIndex. Normaliser les tabulations et retours ligne dans les cellules; utiliser des valeurs explicites comme CAPTCHA_DETECTED, PRICE_MISSING, DESCRIPTION_MISSING ou DATA_UNAVAILABLE dans status selon les observations, sans inventer de donn\u00e9es.",
+          "guarded": false,
+          "next_type": "template.render"
+        },
+        {
+          "scope": "main",
+          "id": "n_af930dddce617aff",
+          "description": "Export declared business results",
+          "guarded": false,
+          "next_type": null
+        },
+        {
+          "scope": "w_76af343cc3b7abc3",
+          "id": "n_aeddc61644fb0807",
+          "description": "Assemble declared values",
+          "guarded": false,
+          "next_type": null
+        },
+        {
+          "scope": "w_798edf631965666a",
+          "id": "n_df6b8c1f258579a1",
+          "description": "Check and assemble consecutive deterministic values.",
+          "guarded": false,
+          "next_type": null
+        }
+      ]
+    }
+  ],
+  "model_calls": 0,
+  "saved_session_modified": false
+}

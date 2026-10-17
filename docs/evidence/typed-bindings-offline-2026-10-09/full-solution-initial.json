@@ -1,0 +1,265 @@
+{
+  "command": "dotnet test GnOuGo.Agent.sln -m:1 -warnaserror --logger trx",
+  "exit_code": 1,
+  "counts": {
+    "Passed": 4984,
+    "NotExecuted": 13,
+    "Failed": 1
+  },
+  "failed": [
+    "GnOuGo.Flow.Planning.Tests.RecordedTargetedDiscoveryTests.FullRetainedCatalogKeepsRequestedReviewContractsVisibleWithinSevenCalls"
+  ],
+  "skipped": [
+    "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.LaunchInitializationPreservesLeadingScriptDeclarations(script: \"using namespace System\\n[Console]::WriteLine('names\"\u00b7\u00b7\u00b7, expected: \"namespace declaration\", exitCode: 0)",
+    "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.TimeoutAndCancellationTerminateTheChildTree(cancel: True)",
+    "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.DefaultLaunchUsesOnlyTheSelectedShellsBuiltInModulePath",
+    "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.PrivateEofPreservesRepeatedCommandsUnicodeQuotesAndExitCodes(exitCode: 0)",
+    "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.TimeoutAndCancellationTerminateTheChildTree(cancel: False)",
+    "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.LaunchInitializationPreservesLeadingScriptDeclarations(script: \"param([string]$text = 'parameter default'); [Conso\"\u00b7\u00b7\u00b7, expected: \"parameter default\", exitCode: 3)",
+    "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.PrivateEofPreservesRepeatedCommandsUnicodeQuotesAndExitCodes(exitCode: 3)",
+    "GnOuGo.Agent.Server.Tests.PlanningClarificationBrowserTests.DesignerBrowserUsesRealPersistedQuestionsAndExplicitSubmission",
+    "GnOuGo.GithubCopilot.E2E.Tests.LiveControlledEditingTests.RealModel_InspectsEditsAndVerifiesResults(managed: True, bounded: False, executeTests: True)",
+    "GnOuGo.GithubCopilot.E2E.Tests.LiveControlledEditingTests.RealModel_InspectsEditsAndVerifiesResults(managed: True, bounded: True, executeTests: True)",
+    "GnOuGo.GithubCopilot.E2E.Tests.LiveControlledEditingTests.RealModel_InspectsEditsAndVerifiesResults(managed: True, bounded: True, executeTests: False)",
+    "GnOuGo.GithubCopilot.E2E.Tests.LiveControlledEditingTests.RealModel_InspectsEditsAndVerifiesResults(managed: False, bounded: False, executeTests: True)",
+    "GnOuGo.GithubCopilot.E2E.Tests.LivePullRequestReviewTests.ConfiguredOpenAiProvider_CanReviewExactDiffWithoutPublishing"
+  ],
+  "assemblies": [
+    {
+      "trx": "_a115vcCX1PXQ575D_2026-10-09_12_04_10_net10.0.trx",
+      "sha256": "5530bf46d2948d1d0bc799c1be36eabfe9a6ecc1dff866f9b4d2631bc41471d6",
+      "counts": {
+        "Passed": 89
+      }
+    },
+    {
+      "trx": "_a115vcCX1PXQ575D_2026-10-09_12_04_13_net10.0.trx",
+      "sha256": "6e326990dd7d8ec865a27a8eef26820b665bbabd120a6ef3e1ce6c8d29fe720d",
+      "counts": {
+        "Passed": 52
+      }
+    },
+    {
+      "trx": "_a115vcCX1PXQ575D_2026-10-09_12_04_15_net10.0.trx",
+      "sha256": "d197b3dc17633024f80613c08d7ff1cc5d012f5ea369da95584ca102264ef4d4",
+      "counts": {
+        "Passed": 12
+      }
+    },
+    {
+      "trx": "_a115vcCX1PXQ575D_2026-10-09_12_04_18_net10.0.trx",
+      "sha256": "58ab18bd3ce639a4f96ff564fbe22de6bf2b66e3d9e855f084475ee08624368c",
+      "counts": {
+        "Passed": 1164
+      }
+    },
+    {
+      "trx": "_a115vcCX1PXQ575D_2026-10-09_12_04_21_net10.0.trx",
+      "sha256": "7f5ff8e0d626218adc0bd881d059005f166d888ab00832d783a4a01583c1ca84",
+      "counts": {
+        "Passed": 99
+      }
+    },
+    {
+      "trx": "_a115vcCX1PXQ575D_2026-10-09_12_04_23_net10.0.trx",
+      "sha256": "65b752fd2e0ae094d5c5f83768d55f799d784bbaf86eb2d2a51e8112b308ad84",
+      "counts": {
+        "Passed": 225
+      }
+    },
+    {
+      "trx": "_a115vcCX1PXQ575D_2026-10-09_12_04_26_net10.0.trx",
+      "sha256": "e2d2ed2407c8ca72e17a86f2827d74c7b1ab4a09b5d5f890205be232d0f13b5c",
+      "counts": {
+        "Passed": 14
+      }
+    },
+    {
+      "trx": "_a115vcCX1PXQ575D_2026-10-09_12_04_27_net10.0.trx",
+      "sha256": "0b8b5598d60a10ec83a139791d287a6994a41be86586402ebf520253f96ff48d",
+      "counts": {
+        "Passed": 103
+      }
+    },
+    {
+      "trx": "_a115vcCX1PXQ575D_2026-10-09_12_04_30_net10.0.trx",
+      "sha256": "3e9fb07b46dd8f799d04ef9b54f21f471eadb1e9a4f9270d1eaa8f48b74a6b28",
+      "counts": {
+        "Passed": 93,
+        "NotExecuted": 7
+      }
+    },
+    {
+      "trx": "_a115vcCX1PXQ575D_2026-10-09_12_04_50_net10.0.trx",
+      "sha256": "474cbca2f783f9870c2e1426549946bb6a9750b516bcf011391b9e71b0f3dc4d",
+      "counts": {
+        "Passed": 136
+      }
+    },
+    {
+      "trx": "_a115vcCX1PXQ575D_2026-10-09_12_05_10_net10.0.trx",
+      "sha256": "65cf84174593eb07dff7f1fd939b527ce33e7ad7da413050f0ab2f386d232eaf",
+      "counts": {
+        "Passed": 725,
+        "NotExecuted": 1
+      }
+    },
+    {
+      "trx": "_a115vcCX1PXQ575D_2026-10-09_12_30_44_net10.0.trx",
+      "sha256": "5bf76429aa23028855ed6a91a7c4330082ab63305239524999ca4996868984f1",
+      "counts": {
+        "Passed": 64
+      }
+    },
+    {
+      "trx": "_a115vcCX1PXQ575D_2026-10-09_12_30_52_net10.0.trx",
+      "sha256": "cf22ffa62a2f9ad3f65d868f9b7e7ab84eb3b06aeee7a60dbf50a5b9aad45a9d",
+      "counts": {
+        "Passed": 9
+      }
+    },
+    {
+      "trx": "_a115vcCX1PXQ575D_2026-10-09_12_30_53_net10.0.trx",
+      "sha256": "3ba3da22b5cbc66882d5f037ceca8c6683c8c8e291351a124898a4d32e2ec768",
+      "counts": {
+        "Passed": 10
+      }
+    },
+    {
+      "trx": "_a115vcCX1PXQ575D_2026-10-09_12_30_56_net10.0.trx",
+      "sha256": "ee4dd7fa4362d4c86fc1d16382b89915a39b7239ba2cf6860dfd713ce9fb2d7d",
+      "counts": {
+        "Passed": 7
+      }
+    },
+    {
+      "trx": "_a115vcCX1PXQ575D_2026-10-09_12_30_58_net10.0.trx",
+      "sha256": "5fdca13c21475021c235c53a47804475636276df447aa1bb90c560784e37b76f",
+      "counts": {
+        "Passed": 7
+      }
+    },
+    {
+      "trx": "_a115vcCX1PXQ575D_2026-10-09_12_31_00_net10.0.trx",
+      "sha256": "ca4c979d95be88c98d95fcd4b7771c99b4f628a5a1bad1f9a27d3ef164743a9c",
+      "counts": {
+        "Passed": 240
+      }
+    },
+    {
+      "trx": "_a115vcCX1PXQ575D_2026-10-09_12_31_46_net10.0.trx",
+      "sha256": "7247f93e57461a8b6a8b7397d3e18cd5ab946336d7e2f743ab8d11f97d1c3f38",
+      "counts": {
+        "Passed": 173
+      }
+    },
+    {
+      "trx": "_a115vcCX1PXQ575D_2026-10-09_12_31_48_net10.0.trx",
+      "sha256": "2f2b962f415d249a91b982c2e47ecaf9d27d7888ee712220f6d603dbc879cfa0",
+      "counts": {
+        "NotExecuted": 5,
+        "Passed": 7
+      }
+    },
+    {
+      "trx": "_a115vcCX1PXQ575D_2026-10-09_12_31_50_net10.0.trx",
+      "sha256": "642c26afc8a0a1a9e384edf37e5cd4466fdc0cc989d1794313b970737f4584ae",
+      "counts": {
+        "Passed": 3
+      }
+    },
+    {
+      "trx": "_a115vcCX1PXQ575D_2026-10-09_12_31_52_net10.0.trx",
+      "sha256": "05171d20bf6048717481ea44d26bd7ad8cfe5ea1e9f57cd551ea0d8ea3c4beca",
+      "counts": {
+        "Passed": 83
+      }
+    },
+    {
+      "trx": "_a115vcCX1PXQ575D_2026-10-09_12_31_59_net10.0.trx",
+      "sha256": "742d39e178757d2dd0469d48f9ce3a2c2f90d44ac35b364ed1d8e5703d0a56e9",
+      "counts": {
+        "Passed": 30
+      }
+    },
+    {
+      "trx": "_a115vcCX1PXQ575D_2026-10-09_12_32_01_net10.0.trx",
+      "sha256": "029609576b0abde3541f8991624ef9a2934a810482e5c818e986e3b57e54935b",
+      "counts": {
+        "Passed": 49
+      }
+    },
+    {
+      "trx": "_a115vcCX1PXQ575D_2026-10-09_12_32_03_net10.0.trx",
+      "sha256": "a6e3a898f920a72df9171c33dd4ee99185accc70f5ead9952647b7d32899a071",
+      "counts": {
+        "Passed": 12
+      }
+    },
+    {
+      "trx": "_a115vcCX1PXQ575D_2026-10-09_12_32_04_net10.0.trx",
+      "sha256": "e17e3ea9f5b0397f19984f202dbad0753e5a9ecf71dd9030b331d09a9ad4ffe8",
+      "counts": {
+        "Passed": 91
+      }
+    },
+    {
+      "trx": "_a115vcCX1PXQ575D_2026-10-09_12_32_16_net10.0.trx",
+      "sha256": "b06cd88f786a9d9e9a28000cf9893d5330a3587cf66a8bcafa3e668699b57c03",
+      "counts": {
+        "Passed": 42
+      }
+    },
+    {
+      "trx": "_a115vcCX1PXQ575D_2026-10-09_12_32_19_net10.0.trx",
+      "sha256": "911e3fdd0aa312fcba1f01df330f3f7231046d3fa817ef07e1f241445f6550bf",
+      "counts": {
+        "Passed": 13
+      }
+    },
+    {
+      "trx": "_a115vcCX1PXQ575D_2026-10-09_12_32_25_net10.0.trx",
+      "sha256": "e69d7927d4699d0f710286fc845f3629661fbfce2927993abd67646c2553625f",
+      "counts": {
+        "Passed": 28
+      }
+    },
+    {
+      "trx": "_a115vcCX1PXQ575D_2026-10-09_12_32_27_net10.0.trx",
+      "sha256": "d31b1e977c557e8c9a0dfd0bf448dde77f4f7da24df396900c1080bc61c087fe",
+      "counts": {
+        "Passed": 1197,
+        "Failed": 1
+      }
+    },
+    {
+      "trx": "_a115vcCX1PXQ575D_2026-10-09_12_33_46_net10.0.trx",
+      "sha256": "74a6be934e3a9019f5db06ca8de20645eeacb656d5bc8d224235837e96480326",
+      "counts": {
+        "Passed": 177
+      }
+    },
+    {
+      "trx": "_a115vcCX1PXQ575D_2026-10-09_12_33_58_net10.0.trx",
+      "sha256": "a3ba1d678d7fab68ebc1e18229ad79c298d6e0e57e103b7d3bce481301ab5b8b",
+      "counts": {
+        "Passed": 8
+      }
+    },
+    {
+      "trx": "_a115vcCX1PXQ575D_2026-10-09_12_34_01_net10.0.trx",
+      "sha256": "323f4881f5dd0014a296543bcdc2d58c7fc976b78486a18ecee5b765c8f1745d",
+      "counts": {
+        "Passed": 17
+      }
+    },
+    {
+      "trx": "_a115vcCX1PXQ575D_2026-10-09_12_34_07_net10.0.trx",
+      "sha256": "c072f233149d3e52d2bc6ef1b47b6640a4a10d1206f3a80b45773acd21b3a73a",
+      "counts": {
+        "Passed": 5
+      }
+    }
+  ],
+  "note": "One prompt-size regression; final prompt and affected-suite rerun recorded separately. Host retained-composition tests passed."
+}

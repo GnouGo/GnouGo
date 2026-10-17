@@ -1,0 +1,78 @@
+{
+  "discoveryRequests": null,
+  "patch": {
+    "edits": [
+      {
+        "slot": "s0",
+        "action": "replace",
+        "value": {
+          "kind": "predicate",
+          "predicate": "and",
+          "items": [
+            {
+              "kind": "field",
+              "items": [
+                {
+                  "kind": "output",
+                  "source": "cookie_decision",
+                  "port": null
+                }
+              ],
+              "port": "hasConsentButton"
+            },
+            {
+              "kind": "predicate",
+              "predicate": "not_equal",
+              "items": [
+                {
+                  "kind": "field",
+                  "items": [
+                    {
+                      "kind": "output",
+                      "source": "cookie_decision",
+                      "port": null
+                    }
+                  ],
+                  "port": "reference"
+                },
+                {
+                  "kind": "null"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "slot": "s1",
+        "action": "replace",
+        "value": {
+          "kind": "predicate",
+          "predicate": "and",
+          "items": [
+            {
+              "kind": "output",
+              "source": "accept_cookies_if_present",
+              "port": "search_read_success"
+            },
+            {
+              "kind": "predicate",
+              "predicate": "not_equal",
+              "items": [
+                {
+                  "kind": "output",
+                  "source": "accept_cookies_if_present",
+                  "port": "search_snapshot"
+                },
+                {
+                  "kind": "null"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "clarifications": null
+}

@@ -1,0 +1,62 @@
+[
+  {
+    "id": "static",
+    "outcome": "passed",
+    "description": "Business bindings, contracts and control flow validated. External execution has not been observed.",
+    "diagnostics": []
+  },
+  {
+    "id": "operation:task_a6c6bb062d4b898156a9a47a",
+    "outcome": "declared",
+    "description": "Ouvrir Amazon.fr directement sur la page de recherche correspondant à query et capturer une observation complète non tronquée si possible. — operation: cap_490d9e16075cbdca5954ec27 (GnOuGo.Browser.Mcp/browser_get_content); contract effect: read. Resource lifecycle is not established by this contract; review cleanup and retained artifacts. Execution has not been observed; review the business requirements separately.",
+    "diagnostics": []
+  },
+  {
+    "id": "operation:task_cfdfedaba13745dfea94358c",
+    "outcome": "declared",
+    "description": "Relire la page courante après l’étape de consentement éventuelle pour obtenir les liens produits observables. — operation: cap_490d9e16075cbdca5954ec27 (GnOuGo.Browser.Mcp/browser_get_content); contract effect: read. Resource lifecycle is not established by this contract; review cleanup and retained artifacts. Execution has not been observed; review the business requirements separately.",
+    "diagnostics": []
+  },
+  {
+    "id": "operation:task_365a0c0510954ee546d4010c",
+    "outcome": "declared",
+    "description": "Sauvegarder le classeur Excel dans le chemin demandé, avant toute fermeture/nettoyage du navigateur. — operation: cap_37c513d225bb1b870053c5d3 (GnOuGo.Document.Mcp/document_write); contract effect: write. Declared resource locations checked; dynamic relationships still require execution evidence. Execution has not been observed; review the business requirements separately.",
+    "diagnostics": []
+  },
+  {
+    "id": "operation:task_84f93e85c947c8318bf9dc7f",
+    "outcome": "declared",
+    "description": "Fermer le navigateur même si une étape précédente échoue. — operation: cap_bdb7ba9ab04b18783883fa86 (GnOuGo.Browser.Mcp/browser_close); contract effect: lifecycle. Resource lifecycle is not established by this contract; review cleanup and retained artifacts. Execution has not been observed; review the business requirements separately.",
+    "diagnostics": []
+  },
+  {
+    "id": "operation:task_bf47913a18d7b16f8f491940",
+    "outcome": "declared",
+    "description": "Activer le bouton de consentement cookies observé sur Amazon.fr. — operation: cap_dd05fbf36e155a64318f3588 (GnOuGo.Browser.Mcp/browser_click); contract effect: execute. Resource lifecycle is not established by this contract; review cleanup and retained artifacts. Execution has not been observed; review the business requirements separately.",
+    "diagnostics": []
+  },
+  {
+    "id": "operation:task_dcbe3c17582006c40b2c245f",
+    "outcome": "declared",
+    "description": "Ouvrir la page détail du produit courant depuis son URL Amazon.fr observée. — operation: cap_490d9e16075cbdca5954ec27 (GnOuGo.Browser.Mcp/browser_get_content); contract effect: read. Resource lifecycle is not established by this contract; review cleanup and retained artifacts. Execution has not been observed; review the business requirements separately.",
+    "diagnostics": []
+  },
+  {
+    "id": "mapping:task_0d9720ebb4d1ec17ca720b7e",
+    "outcome": "declared",
+    "description": "Repérer sur la page de recherche un éventuel bouton de consentement cookies Amazon et conserver les erreurs/états observés sans les interpréter comme données produit. — adaptive independent extraction; unresolved items may require specialized or per-item inference within the configured shared runtime and campaign budgets. Execution requires a finite runtime budget; every item and the complete result are validated. Unambiguous source/target collections use one result per item; ambiguous collections require explicit selection. No execution evidence yet.",
+    "diagnostics": []
+  },
+  {
+    "id": "mapping:task_d07fc5d6188647baf029151b",
+    "outcome": "declared",
+    "description": "Extraire uniquement les 10 premiers vrais produits visibles de la page de résultats Amazon.fr, avec leurs liens détail, titres/prix de liste observés et erreurs explicites. — adaptive independent extraction; unresolved items may require specialized or per-item inference within the configured shared runtime and campaign budgets. Execution requires a finite runtime budget; every item and the complete result are validated. Unambiguous source/target collections use one result per item; ambiguous collections require explicit selection. No execution evidence yet.",
+    "diagnostics": []
+  },
+  {
+    "id": "mapping:task_3696d231612d7a6f9748c370",
+    "outcome": "declared",
+    "description": "Depuis l’observation originale de la page produit, extraire nom, description et prix; garder toute donnée absente ou erreur comme champ explicite. — adaptive independent extraction; unresolved items may require specialized or per-item inference within the configured shared runtime and campaign budgets. Execution requires a finite runtime budget; every item and the complete result are validated. Unambiguous source/target collections use one result per item; ambiguous collections require explicit selection. No execution evidence yet.",
+    "diagnostics": []
+  }
+]

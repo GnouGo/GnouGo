@@ -171,6 +171,7 @@ public sealed class AgentOTelTelemetry : IWorkflowTelemetry, IDisposable
         ApplyCorrelationTags(a);
         a.SetTag("gnougo-flow.step.id",   info.StepId);
         a.SetTag("gnougo-flow.step.type", info.StepType);
+        if (info.Description is not null) a.SetTag("gnougo-flow.step.description", info.Description);
         a.SetTag("gnougo-flow.step.call_depth", info.CallDepth);
         if (info.GenAiOperationName  is not null) a.SetTag("gen_ai.operation.name",    info.GenAiOperationName);
         if (info.GenAiSystem         is not null) a.SetTag("gen_ai.system",             info.GenAiSystem);

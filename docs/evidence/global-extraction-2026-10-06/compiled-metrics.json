@@ -1,0 +1,17 @@
+{
+  "steps": 106,
+  "workflows": 11,
+  "types": {
+    "template.render": 5,
+    "llm.call": 5,
+    "set": 72,
+    "mcp.call": 9,
+    "switch": 4,
+    "workflow.call": 4,
+    "loop.sequential": 4,
+    "mapping.dynamic": 3
+  },
+  "finalizers": 1,
+  "bytes": 114245,
+  "lines": 3127
+}

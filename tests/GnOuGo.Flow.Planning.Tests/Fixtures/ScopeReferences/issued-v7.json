@@ -1,0 +1,282 @@
+{
+  "sourceCommit": "34bfd6040181cf789a5472506821c5a7f5e2e552",
+  "state": {
+    "schemaVersion": 10,
+    "request": {
+      "mode": "interactive",
+      "tenantId": "scope-fixture",
+      "sessionId": "retained-v7",
+      "name": "generated",
+      "prompt": "Return the observed value",
+      "baseline": null,
+      "revisionContext": null,
+      "failureEvidence": null,
+      "options": {},
+      "policy": {
+        "allowedStepTypes": [],
+        "deniedCapabilityIds": [],
+        "requireExternalConfirmation": true,
+        "maxStepsTotal": 300,
+        "instructions": ""
+      },
+      "maxReplanAttempts": 2,
+      "maxModelCalls": 8,
+      "generation": {
+        "reasoning": "medium",
+        "maxInputTokensPerRequest": 12000,
+        "maxOutputTokens": 8192
+      }
+    },
+    "revision": 0,
+    "status": "created",
+    "updatedAtUtc": "2026-10-05T16:21:37.455907+00:00",
+    "waitingSinceUtc": null,
+    "activeMilliseconds": 0,
+    "humanWaitMilliseconds": 0,
+    "catalog": {
+      "capabilities": [],
+      "allowedStepTypes": [
+        "set"
+      ],
+      "stepContracts": {},
+      "policy": {
+        "allowedStepTypes": [],
+        "deniedCapabilityIds": [],
+        "requireExternalConfirmation": true,
+        "maxStepsTotal": 300,
+        "instructions": ""
+      }
+    },
+    "requirements": {
+      "summary": "Return the observed value",
+      "outcomes": [
+        {
+          "id": "result",
+          "description": "Return the observed value"
+        }
+      ],
+      "inputs": []
+    },
+    "intentVersion": 2,
+    "discovery": {
+      "sources": [],
+      "pages": [],
+      "resolved": [],
+      "limitations": []
+    },
+    "revisionScope": [
+      "/tasks/consumer/dependsOn"
+    ],
+    "phase": "requirements",
+    "plan": {
+      "inputs": [],
+      "root": {
+        "tasks": [
+          {
+            "id": "source",
+            "objective": "Observe",
+            "kind": "value",
+            "dependsOn": [],
+            "operation": null,
+            "inputs": [],
+            "outputs": [
+              {
+                "name": "value",
+                "value": {
+                  "kind": "string",
+                  "text": "observed",
+                  "number": null,
+                  "boolean": null,
+                  "source": null,
+                  "port": null,
+                  "members": [],
+                  "items": [],
+                  "predicate": null
+                }
+              }
+            ],
+            "condition": null,
+            "body": null,
+            "otherwise": null,
+            "branches": [],
+            "items": null,
+            "parallel": false,
+            "maxItems": 100,
+            "maxConcurrency": 4,
+            "group": null
+          },
+          {
+            "id": "consumer",
+            "objective": "Return observation",
+            "kind": "value",
+            "dependsOn": [
+              "missing"
+            ],
+            "operation": null,
+            "inputs": [],
+            "outputs": [
+              {
+                "name": "value",
+                "value": {
+                  "kind": "output",
+                  "text": null,
+                  "number": null,
+                  "boolean": null,
+                  "source": "source",
+                  "port": "value",
+                  "members": [],
+                  "items": [],
+                  "predicate": null
+                }
+              }
+            ],
+            "condition": null,
+            "body": null,
+            "otherwise": null,
+            "branches": [],
+            "items": null,
+            "parallel": false,
+            "maxItems": 100,
+            "maxConcurrency": 4,
+            "group": null
+          }
+        ],
+        "outputs": [
+          {
+            "name": "value",
+            "value": {
+              "kind": "output",
+              "text": null,
+              "number": null,
+              "boolean": null,
+              "source": "consumer",
+              "port": "value",
+              "members": [],
+              "items": [],
+              "predicate": null
+            }
+          }
+        ],
+        "always": []
+      },
+      "groups": [],
+      "choices": []
+    },
+    "graph": null,
+    "diagnostics": [
+      {
+        "code": "TASK_DEPENDENCY_UNKNOWN",
+        "location": "/tasks/consumer/dependsOn",
+        "message": "Dependencies missing must name preceding tasks in scope /root. Ancestor values may be captured without cross-scope dependsOn entries.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      }
+    ],
+    "validationResults": [],
+    "replanAttempts": 0,
+    "modelCalls": 0,
+    "pendingCall": null,
+    "rejectedProposalHash": null,
+    "usage": null,
+    "yaml": null,
+    "approvedHash": null,
+    "savedAgentId": null
+  },
+  "prompt": "Repair\n{\"repair\":{\"version\":7,\"authority\":\"d7b3676f289749082bf5b3f084a12f6baac984c236389025e930de446d46f060\"}}",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "discoveryRequests": {
+        "type": "null"
+      },
+      "patch": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "edits": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "slot": {
+                          "type": "string",
+                          "enum": [
+                            "s0"
+                          ]
+                        },
+                        "action": {
+                          "type": "string",
+                          "enum": [
+                            "replace"
+                          ]
+                        },
+                        "value": {
+                          "$ref": "#/$defs/0"
+                        }
+                      },
+                      "required": [
+                        "slot",
+                        "action",
+                        "value"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "slot": {
+                          "type": "string",
+                          "enum": [
+                            "s1"
+                          ]
+                        },
+                        "action": {
+                          "type": "string",
+                          "enum": [
+                            "remove_forwarder"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "slot",
+                        "action"
+                      ],
+                      "additionalProperties": false
+                    }
+                  ]
+                },
+                "minItems": 0,
+                "maxItems": 2
+              }
+            },
+            "required": [
+              "edits"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    },
+    "required": [
+      "discoveryRequests",
+      "patch"
+    ],
+    "additionalProperties": false,
+    "$defs": {
+      "0": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "pattern": "^([A-Za-z0-9-][A-Za-z0-9_-]*|_[A-Za-z0-9-][A-Za-z0-9_-]*|_)$"
+        }
+      }
+    }
+  }
+}

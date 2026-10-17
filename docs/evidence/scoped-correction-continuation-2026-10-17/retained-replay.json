@@ -1,0 +1,193 @@
+[
+  {
+    "fixture": "amazon",
+    "historicalRecordHash": "df7a3dd0927724d687089be07f1115a3cd8462cfe775b5fe5989f101f9badd24",
+    "originalPlanHash": "bd346a11af3009268801015f581a69235d44ae11b283e03a1ca4c454337d5d68",
+    "compilerBefore": [
+      {
+        "Code": "TASK_LOOKUP_INVALID",
+        "Location": "/tasks/visit_offered_products/body/outputs/visitedRow",
+        "Message": "Lookup requires typed records, a literal declared identity field and compatible string or integer selections. items[0] expected records: array of objects declaring identity field \u0027row\u0027; received \u0022object\u0022 from output:extract_product_facts. items[1] expected IDs: array of strings or safe integers compatible with the record identity; received \u0022object\u0022 from output:row_for_missing_product_url. json produces text, not a record collection.",
+        "Required": true,
+        "ValidationStage": null,
+        "Rule": null
+      }
+    ],
+    "compilerAfter": [],
+    "reviewBefore": [
+      {
+        "Code": "TASK_LOOKUP_INVALID",
+        "Location": "/tasks/visit_offered_products/body/outputs/visitedRow",
+        "Message": "Lookup requires typed records, a literal declared identity field and compatible string or integer selections. items[0] expected records: array of objects declaring identity field \u0027row\u0027; received \u0022object\u0022 from output:extract_product_facts. items[1] expected IDs: array of strings or safe integers compatible with the record identity; received \u0022object\u0022 from output:row_for_missing_product_url. json produces text, not a record collection.",
+        "Required": true,
+        "ValidationStage": null,
+        "Rule": null
+      }
+    ],
+    "reviewAfter": [],
+    "coverageAfter": [
+      {
+        "Id": "static",
+        "Outcome": "passed",
+        "Description": "Business bindings, contracts and control flow validated. External execution has not been observed.",
+        "Diagnostics": []
+      },
+      {
+        "Id": "operation:task_ba4e4da502e7ad1fffee0ea5",
+        "Outcome": "declared",
+        "Description": "Ouvrir Amazon.fr et capturer l\u2019\u00E9tat initial de la page sans interpr\u00E9ter les donn\u00E9es m\u00E9tier. \u2014 operation: cap_490d9e16075cbdca5954ec27 (GnOuGo.Browser.Mcp/browser_get_content); contract effect: read. Resource lifecycle is not established by this contract; review cleanup and retained artifacts. Execution has not been observed; review the business requirements separately.",
+        "Diagnostics": []
+      },
+      {
+        "Id": "operation:task_d024e69391959a1f0ebd7895",
+        "Outcome": "declared",
+        "Description": "Capturer une observation fra\u00EEche de la page d\u2019accueil apr\u00E8s traitement \u00E9ventuel du consentement. \u2014 operation: cap_490d9e16075cbdca5954ec27 (GnOuGo.Browser.Mcp/browser_get_content); contract effect: read. Resource lifecycle is not established by this contract; review cleanup and retained artifacts. Execution has not been observed; review the business requirements separately.",
+        "Diagnostics": []
+      },
+      {
+        "Id": "operation:task_e05eba2eb038b31fe5f92370",
+        "Outcome": "declared",
+        "Description": "Renseigner l\u2019unique entr\u00E9e publique query dans la barre de recherche Amazon.fr et soumettre la recherche. \u2014 operation: cap_416310ac4ff2808dc91e3a14 (GnOuGo.Browser.Mcp/browser_fill); contract effect: execute. Resource lifecycle is not established by this contract; review cleanup and retained artifacts. Execution has not been observed; review the business requirements separately.",
+        "Diagnostics": []
+      },
+      {
+        "Id": "operation:task_c3c667f53c399258a6d3ce12",
+        "Outcome": "declared",
+        "Description": "Capturer les r\u00E9sultats de recherche Amazon.fr apr\u00E8s soumission, avec les liens et textes originaux observ\u00E9s. \u2014 operation: cap_490d9e16075cbdca5954ec27 (GnOuGo.Browser.Mcp/browser_get_content); contract effect: read. Resource lifecycle is not established by this contract; review cleanup and retained artifacts. Execution has not been observed; review the business requirements separately.",
+        "Diagnostics": []
+      },
+      {
+        "Id": "operation:task_635438557a068e8dcad99e48",
+        "Outcome": "declared",
+        "Description": "Sauvegarder le classeur Excel demand\u00E9 au chemin relatif impos\u00E9, en utilisant des lignes exactes et des en-t\u00EAtes ordinaires. \u2014 operation: cap_37c513d225bb1b870053c5d3 (GnOuGo.Document.Mcp/document_write); contract effect: write. Declared resource locations checked; dynamic relationships still require execution evidence. Execution has not been observed; review the business requirements separately.",
+        "Diagnostics": []
+      },
+      {
+        "Id": "operation:task_f0b97765699272cf2a73f87a",
+        "Outcome": "declared",
+        "Description": "Fermer le navigateur m\u00EAme en cas d\u2019\u00E9chec, apr\u00E8s la tentative de sauvegarde du classeur lorsque le flux principal l\u2019atteint. \u2014 operation: cap_bdb7ba9ab04b18783883fa86 (GnOuGo.Browser.Mcp/browser_close); contract effect: lifecycle. Resource lifecycle is not established by this contract; review cleanup and retained artifacts. Execution has not been observed; review the business requirements separately.",
+        "Diagnostics": []
+      },
+      {
+        "Id": "operation:task_dd2d94c09d2746e66765397d",
+        "Outcome": "declared",
+        "Description": "Activer le contr\u00F4le de consentement cookies observ\u00E9 afin de permettre la recherche Amazon.fr. \u2014 operation: cap_dd05fbf36e155a64318f3588 (GnOuGo.Browser.Mcp/browser_click); contract effect: execute. Resource lifecycle is not established by this contract; review cleanup and retained artifacts. Execution has not been observed; review the business requirements separately.",
+        "Diagnostics": []
+      },
+      {
+        "Id": "operation:task_c3ad73d2979e2a4ef07d8de6",
+        "Outcome": "declared",
+        "Description": "Ouvrir la page du produit courant lorsque son URL est disponible et capturer le texte visible pertinent. \u2014 operation: cap_490d9e16075cbdca5954ec27 (GnOuGo.Browser.Mcp/browser_get_content); contract effect: read. Resource lifecycle is not established by this contract; review cleanup and retained artifacts. Execution has not been observed; review the business requirements separately.",
+        "Diagnostics": []
+      },
+      {
+        "Id": "mapping:task_7221e61b7595fb498c3769e8",
+        "Outcome": "declared",
+        "Description": "Rep\u00E9rer uniquement un contr\u00F4le de consentement cookies visible, s\u2019il existe; retourner null si absent ou incertain. \u2014 adaptive independent extraction; unresolved items may require specialized or per-item inference within the configured shared runtime and campaign budgets. Execution requires a finite runtime budget; every item and the complete result are validated. Unambiguous source/target collections use one result per item; ambiguous collections require explicit selection. No execution evidence yet.",
+        "Diagnostics": []
+      },
+      {
+        "Id": "mapping:task_98bc71c26f2912ba52bc35fb",
+        "Outcome": "declared",
+        "Description": "Depuis toutes les pages d\u2019observation des r\u00E9sultats, extraire les copies candidates telles qu\u2019observ\u00E9es en Candidate[][] sans d\u00E9doublonner ni filtrer arbitrairement; conserver les identifiants, actions, textes et URL originaux, et utiliser null si absent ou incertain. \u2014 adaptive independent extraction; unresolved items may require specialized or per-item inference within the configured shared runtime and campaign budgets. Execution requires a finite runtime budget; every item and the complete result are validated. Unambiguous source/target collections use one result per item; ambiguous collections require explicit selection. No execution evidence yet.",
+        "Diagnostics": []
+      },
+      {
+        "Id": "mapping:task_9a6e0a562dfc3a3e9ff51135",
+        "Outcome": "declared",
+        "Description": "Aplatir Candidate[][], attribuer des identifiants compacts stables, conserver la correspondance offered/original, garder l\u2019ordre observ\u00E9 et limiter aux 10 premiers produits au maximum sans d\u00E9duplication. \u2014 adaptive independent extraction; unresolved items may require specialized or per-item inference within the configured shared runtime and campaign budgets. Execution requires a finite runtime budget; every item and the complete result are validated. Unambiguous source/target collections use one result per item; ambiguous collections require explicit selection. No execution evidence yet.",
+        "Diagnostics": []
+      },
+      {
+        "Id": "mapping:task_cd69d659d654cf1f1e90dc0c",
+        "Outcome": "declared",
+        "Description": "Construire les lignes exactes du classeur avec en-t\u00EAtes en premier, donn\u00E9es absentes ou erreurs explicites, et statut sans d\u00E9clarer de r\u00E9ussite si la recherche, les visites ou les extractions n\u2019ont pas abouti. \u2014 adaptive independent extraction; unresolved items may require specialized or per-item inference within the configured shared runtime and campaign budgets. Execution requires a finite runtime budget; every item and the complete result are validated. Unambiguous source/target collections use one result per item; ambiguous collections require explicit selection. No execution evidence yet.",
+        "Diagnostics": []
+      },
+      {
+        "Id": "mapping:task_dae717d33eac44a5d61ad4d8",
+        "Outcome": "declared",
+        "Description": "Extraire depuis la page article le nom, la description pertinente compl\u00E8te et le prix; conserver les copies originales si utiles, mettre null si absent/incertain, et rendre les erreurs observ\u00E9es explicites sans inventer. \u2014 adaptive independent extraction; unresolved items may require specialized or per-item inference within the configured shared runtime and campaign budgets. Execution requires a finite runtime budget; every item and the complete result are validated. Unambiguous source/target collections use one result per item; ambiguous collections require explicit selection. No execution evidence yet.",
+        "Diagnostics": []
+      },
+      {
+        "Id": "mapping:task_d174adc51f0c98f4c42bbf2c",
+        "Outcome": "declared",
+        "Description": "Produire une ligne explicite pour un candidat sans URL exploitable; ne pas inventer de page produit. \u2014 adaptive independent extraction; unresolved items may require specialized or per-item inference within the configured shared runtime and campaign budgets. Execution requires a finite runtime budget; every item and the complete result are validated. Unambiguous source/target collections use one result per item; ambiguous collections require explicit selection. No execution evidence yet.",
+        "Diagnostics": []
+      },
+      {
+        "Id": "coverage:search-and-extract:limits",
+        "Outcome": "unverified",
+        "Description": "search-and-extract: No contractual commitments declared. Business coverage is unverified; no obligations were inferred from the plan.",
+        "Diagnostics": []
+      },
+      {
+        "Id": "coverage:save-workbook:0:operation",
+        "Outcome": "verified",
+        "Description": "save-workbook: cap_37c513d225bb1b870053c5d3 \u2014 Declared invocation at /tasks/write_products_workbook; presence only, execution unobserved.",
+        "Diagnostics": []
+      },
+      {
+        "Id": "coverage:save-workbook:0:result",
+        "Outcome": "unverified",
+        "Description": "save-workbook: cap_37c513d225bb1b870053c5d3 \u2014 Public output \u0027workbookPath\u0027 must retain producer \u0027cap_37c513d225bb1b870053c5d3.filePath\u0027 at /root/outputs/workbookPath. Ambiguous or unsupported lineage cannot establish this obligation.",
+        "Diagnostics": []
+      },
+      {
+        "Id": "coverage:save-workbook:limits",
+        "Outcome": "unverified",
+        "Description": "save-workbook: Verified clauses do not prove the complete prose requirement, correct arguments, per-item execution, relevant extraction or successful effects. Human acknowledgment is not verification or execution evidence.",
+        "Diagnostics": []
+      },
+      {
+        "Id": "coverage:cleanup-browser:0:operation",
+        "Outcome": "verified",
+        "Description": "cleanup-browser: cap_bdb7ba9ab04b18783883fa86 \u2014 Declared invocation at /tasks/close_browser; presence only, execution unobserved.",
+        "Diagnostics": []
+      },
+      {
+        "Id": "coverage:cleanup-browser:limits",
+        "Outcome": "unverified",
+        "Description": "cleanup-browser: Verified clauses do not prove the complete prose requirement, correct arguments, per-item execution, relevant extraction or successful effects. Human acknowledgment is not verification or execution evidence.",
+        "Diagnostics": []
+      }
+    ],
+    "historicalRecordUnchanged": true,
+    "providerCalls": 0,
+    "mcpCalls": 0,
+    "scope": "Disposable explicit technical revision only; not full business acceptance or automatic structural authority"
+  },
+  {
+    "fixture": "code",
+    "historicalRecordHash": "6fc6738ed36da8536d1f7a439fee2639c2ae1e6d867e6e77c4b5f78643c6d33e",
+    "originalPlanHash": "17ab9d3dec4644b3be568d3fa697a699b27ee0de3749469fafa1ac575e3d84b9",
+    "compilerBefore": [],
+    "compilerAfter": [],
+    "reviewBefore": [
+      {
+        "Code": "REQUIREMENTS_OUTPUTS_CHANGED",
+        "Location": "/outputs/reviewJson",
+        "Message": "Preserve the accepted output type, requiredness and nullability. A missing or incompatible result requires a corrected plan or explicit intent revision.",
+        "Required": true,
+        "ValidationStage": null,
+        "Rule": null
+      }
+    ],
+    "reviewAfter": [
+      {
+        "Code": "REQUIREMENTS_OUTPUTS_CHANGED",
+        "Location": "/outputs/reviewJson",
+        "Message": "Preserve the accepted output type, requiredness and nullability. A missing or incompatible result requires a corrected plan or explicit intent revision.",
+        "Required": true,
+        "ValidationStage": null,
+        "Rule": null
+      }
+    ],
+    "coverageAfter": [],
+    "historicalRecordUnchanged": true,
+    "providerCalls": 0,
+    "mcpCalls": 0,
+    "scope": "Disposable explicit technical revision only; not full business acceptance or automatic structural authority"
+  }
+]

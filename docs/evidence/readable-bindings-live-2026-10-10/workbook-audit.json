@@ -1,0 +1,155 @@
+{
+  "workbook": "workflows/schema-portability-20261002/readablebindings20261010a-amazon-1/products.xlsx",
+  "workbook_sha256": "ba32b993aaad352a27ffa26a87fc6227a0fbf80b24da59e893fa333e31d30a1c",
+  "workbook_bytes": 4902,
+  "rows_including_header": 11,
+  "headers": [
+    "name",
+    "description",
+    "price",
+    "error"
+  ],
+  "parsed_rows_equal_harness_rows": true,
+  "all_acquisitions_complete": true,
+  "acquisitions": 11,
+  "product_visits": 10,
+  "oracle_recognized_distinct_product_urls": 7,
+  "total_pages": 199,
+  "total_records": 7287,
+  "row_diagnostics": [
+    {
+      "product": 1,
+      "observed_path": "/gp/aw/d/B09HC76T8W",
+      "oracle_url_recognized": false,
+      "exact_name_in_own_page": true,
+      "exact_description_in_own_page": true,
+      "price_in_own_page": true,
+      "official_matching_products": [],
+      "diagnostic_matching_products_all_url_shapes": [
+        1
+      ],
+      "description_characters": 1574
+    },
+    {
+      "product": 2,
+      "observed_path": "/gp/aw/d/B09V82KFKV",
+      "oracle_url_recognized": false,
+      "exact_name_in_own_page": true,
+      "exact_description_in_own_page": true,
+      "price_in_own_page": true,
+      "official_matching_products": [],
+      "diagnostic_matching_products_all_url_shapes": [
+        2
+      ],
+      "description_characters": 995
+    },
+    {
+      "product": 3,
+      "observed_path": "/gp/aw/d/B0D9PXV346",
+      "oracle_url_recognized": false,
+      "exact_name_in_own_page": true,
+      "exact_description_in_own_page": true,
+      "price_in_own_page": true,
+      "official_matching_products": [],
+      "diagnostic_matching_products_all_url_shapes": [
+        3
+      ],
+      "description_characters": 1185
+    },
+    {
+      "product": 4,
+      "observed_path": "/Geox-SERIFOS-Sneakers-Navy-45_EU/dp/B0G956CGXG/ref=sr_1_1_sspa",
+      "oracle_url_recognized": true,
+      "exact_name_in_own_page": true,
+      "exact_description_in_own_page": false,
+      "price_in_own_page": true,
+      "official_matching_products": [],
+      "diagnostic_matching_products_all_url_shapes": [],
+      "description_characters": 401
+    },
+    {
+      "product": 5,
+      "observed_path": "/Geox-SERIFOS-Sneakers-Black-45_EU/dp/B0G94PKT5D/ref=sr_1_2_sspa",
+      "oracle_url_recognized": true,
+      "exact_name_in_own_page": true,
+      "exact_description_in_own_page": false,
+      "price_in_own_page": true,
+      "official_matching_products": [],
+      "diagnostic_matching_products_all_url_shapes": [],
+      "description_characters": 287
+    },
+    {
+      "product": 6,
+      "observed_path": "/Geox-Symbol-Baskets-Basses-Homme/dp/B01N6U3XDA/ref=sr_1_3_mod_primary_new",
+      "oracle_url_recognized": true,
+      "exact_name_in_own_page": true,
+      "exact_description_in_own_page": true,
+      "price_in_own_page": true,
+      "official_matching_products": [
+        6
+      ],
+      "diagnostic_matching_products_all_url_shapes": [
+        6
+      ],
+      "description_characters": 423
+    },
+    {
+      "product": 7,
+      "observed_path": "/Geox-Damon-Mocassins-Homme-BLACKC9999/dp/B01GWX27UE/ref=sr_1_4",
+      "oracle_url_recognized": true,
+      "exact_name_in_own_page": true,
+      "exact_description_in_own_page": false,
+      "price_in_own_page": true,
+      "official_matching_products": [],
+      "diagnostic_matching_products_all_url_shapes": [],
+      "description_characters": 337
+    },
+    {
+      "product": 8,
+      "observed_path": "/Geox-Symbol-Oxford-Homme-Black/dp/B01N372K6L/ref=sr_1_5",
+      "oracle_url_recognized": true,
+      "exact_name_in_own_page": true,
+      "exact_description_in_own_page": false,
+      "price_in_own_page": true,
+      "official_matching_products": [],
+      "diagnostic_matching_products_all_url_shapes": [],
+      "description_characters": 519
+    },
+    {
+      "product": 9,
+      "observed_path": "/Geox-Snake-Sneakers-Basses-Homme/dp/B07DJBSSHD/ref=sr_1_6_mod_primary_new",
+      "oracle_url_recognized": true,
+      "exact_name_in_own_page": true,
+      "exact_description_in_own_page": true,
+      "price_in_own_page": true,
+      "official_matching_products": [
+        9
+      ],
+      "diagnostic_matching_products_all_url_shapes": [
+        9
+      ],
+      "description_characters": 826
+    },
+    {
+      "product": 10,
+      "observed_path": "/Geox-Symbol-Sneaker-Homme-Brown/dp/B09C61Z1NT/ref=sr_1_7",
+      "oracle_url_recognized": true,
+      "exact_name_in_own_page": true,
+      "exact_description_in_own_page": false,
+      "price_in_own_page": true,
+      "official_matching_products": [],
+      "diagnostic_matching_products_all_url_shapes": [],
+      "description_characters": 650
+    }
+  ],
+  "official_oracle": {
+    "passed": false,
+    "findings": [
+      "product_visits_do_not_match_rows",
+      "workbook_value_not_supported_by_captured_product_page"
+    ]
+  },
+  "provider_calls": 0,
+  "mcp_calls": 0,
+  "formatting_preserved_product_records_except_whitespace": true
+}

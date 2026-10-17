@@ -1,0 +1,76 @@
+{
+  "evidenceKind": "deterministic integration and published MCP transport; no live provider execution",
+  "parentSha": "185d2354e26424340c342de298d7b5fe3b5845b0",
+  "sourceFilesSha256": {
+    "src/GnOuGo.GithubCopilot.Mcp/CodeTools.cs": "cbd8da2618ea972ce4d6095963f2d0cc7ca8d546dc94cb9a072a4b693adc1f37",
+    "src/GnOuGo.GithubCopilot.Mcp/CopilotTools.cs": "461040d5b784e57aa67608e3527104c9a6ed4d4b65feb093fbe60d67eecb5e6e",
+    "src/GnOuGo.GithubCopilot.Mcp/CopilotListContract.cs": "9240bf589095399f9a4a8af464950848c4e2cc5807c2280905116d4829147aef",
+    "src/GnOuGo.GithubCopilot.Mcp/Program.cs": "c6a52deb68867b49935e44d8cba30dddb62d7b4ed1c7e23380d59123f3153934"
+  },
+  "environment": {
+    "dotnetSdk": "10.0.300",
+    "os": "macOS 26.5.2",
+    "runtimeIdentifier": "osx-arm64"
+  },
+  "beforeProductionChanges": {
+    "existingTestsPassed": 3813,
+    "existingTestsSkipped": 12,
+    "newRegressionTestsFailed": 27,
+    "projects": 33
+  },
+  "finalSolution": {
+    "command": "dotnet test GnOuGo.Agent.sln -m:1 -warnaserror --no-restore --verbosity quiet",
+    "passed": 3846,
+    "failed": 0,
+    "skipped": 12,
+    "projects": 33
+  },
+  "affectedSuites": {
+    "copilotMcp": 199,
+    "copilotCore": 139,
+    "agentServer": 535,
+    "flowPlanning": 688
+  },
+  "flowExecution": {
+    "adapter": "deterministic MCP adapters, real Flow engine",
+    "passed": 4,
+    "failed": 0,
+    "variants": [
+      "noninteractive",
+      "noninteractive with renamed contracts",
+      "interactive",
+      "interactive with renamed contracts"
+    ],
+    "oracle": "exact native array and exported result; unchanged noninteractive/interactive permission selection",
+    "planningCalls": 0,
+    "repairs": 0
+  },
+  "publishedMcp": {
+    "nativeAot": true,
+    "publishWarnings": 0,
+    "smokeTestsPassed": 5,
+    "smokeTestsFailed": 0,
+    "listToolParameterPairs": 9,
+    "malformedOrLegacyRefusals": 45,
+    "validBindingsRefusedForMissingTenant": 9,
+    "grantManagementTests": 4
+  },
+  "workflowRevision": {
+    "state": "separate encrypted final_review; unapproved",
+    "semanticCompilation": "passed",
+    "artifactValidation": "passed",
+    "approvalRecompilation": "passed",
+    "originalSavedSessionAndApproval": "unchanged",
+    "originalAgentWorkflowAndRun": "unchanged",
+    "newPlanningCalls": 0,
+    "newRepairs": 0,
+    "externalExecutionCalls": 0
+  },
+  "liveProviderCalls": 0,
+  "historicalBenchmark": "33/33 at 7d5d42b2 unchanged; not evidence for this correction",
+  "limitations": [
+    "Actual user workflow has not been executed after revision.",
+    "Updated MCP discovery and renewed user approval are required before saving/running the prepared revision.",
+    "Published-binary checks ran locally on macOS arm64; other platforms depend on CI."
+  ]
+}

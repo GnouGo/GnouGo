@@ -1,0 +1,17 @@
+{
+  "original_operation_ids_order_and_literals_preserved": [
+    "open_search_observe",
+    "read_product_page",
+    "write_products_xlsx",
+    "close_browser"
+  ],
+  "public_outputs_preserved": [
+    "filePath",
+    "status",
+    "success"
+  ],
+  "cleanup_preserved": true,
+  "corrected_plan_sha256": "8e20d73760a79ecb44f6d7290dbc09a4bfc7b40a7254d9997d81d7e84f43b372",
+  "offline_compile_diagnostics": [],
+  "saved_session_mutated_by_check": false
+}

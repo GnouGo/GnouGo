@@ -1,0 +1,23 @@
+{
+  "yaml_bytes": 221909,
+  "yaml_lines": 6536,
+  "workflows": 11,
+  "declared_step_types": {
+    "mcp.call": 8,
+    "set": 61,
+    "mapping.dynamic": 4,
+    "template.render": 5,
+    "llm.call": 5,
+    "switch": 5,
+    "workflow.call": 10,
+    "loop.sequential": 1
+  },
+  "declared_step_phases": {
+    "normal": 98,
+    "finalization": 1
+  },
+  "actual_execution_invocations": 0,
+  "runtime_model_calls": 0,
+  "runtime_journal_created": false,
+  "note": "Static compiled declarations only; repeated business-loop invocations are not counted. Artifact failed review before execution."
+}

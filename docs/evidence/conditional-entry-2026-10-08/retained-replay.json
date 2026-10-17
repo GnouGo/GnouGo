@@ -1,0 +1,28 @@
+{
+  "run": "indexprojection20261008a-amazon-1",
+  "source": "c1c3de014d1909e46638c38d1cda849c030e48f6",
+  "working_tree_dirty": true,
+  "compiled": false,
+  "valid": false,
+  "diagnostics": [
+    {
+      "code": "TASK_CONDITIONAL_REQUIREMENT",
+      "message": "Operation 'click_cookie_consent' requires not_equal(interpret_initial_page.consentReference, null) at /tasks/click_cookie_consent/requires, but the body path of 'accept_cookie_if_present' does not establish it. Guard the conditional entry without weakening requires. Consumer scope: /tasks/accept_cookie_if_present/body; phase: tasks. Producer 'interpret_initial_page': scope /root; phase: tasks.",
+      "location": "/tasks/accept_cookie_if_present/condition"
+    },
+    {
+      "code": "TASK_CONDITIONAL_REQUIREMENT",
+      "message": "Operation 'click_cookie_consent' requires equal(interpret_initial_page.consentAction, \"activate\") at /tasks/click_cookie_consent/requires, but the body path of 'accept_cookie_if_present' does not establish it. Guard the conditional entry without weakening requires. Consumer scope: /tasks/accept_cookie_if_present/body; phase: tasks. Producer 'interpret_initial_page': scope /root; phase: tasks.",
+      "location": "/tasks/accept_cookie_if_present/condition"
+    },
+    {
+      "code": "TASK_CONDITIONAL_REQUIREMENT",
+      "message": "Operation 'fill_query_and_submit' requires not_equal(interpret_search_ready.searchBoxReference, null) at /tasks/fill_query_and_submit/requires, but the body path of 'submit_search_if_possible' does not establish it. Guard the conditional entry without weakening requires. Consumer scope: /tasks/submit_search_if_possible/body; phase: tasks. Producer 'interpret_search_ready': scope /root; phase: tasks.",
+      "location": "/tasks/submit_search_if_possible/condition"
+    }
+  ],
+  "model_calls": 0,
+  "repairs": 0,
+  "saved_session_modified": false,
+  "working_tree_note": "The only worktree difference during replay was an automatically regenerated comment timestamp in model metadata; metadata values and compiler were unchanged. Timestamp restored before live freeze."
+}

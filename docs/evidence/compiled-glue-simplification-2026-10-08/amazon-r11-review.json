@@ -1,0 +1,61 @@
+{
+  "revision": 11,
+  "artifact_hash": "4c141d6f6af77e240a79adac22ce40bf9242d0944b1cb8af6a9a40f57e7d061f",
+  "status": "review_revision_requested",
+  "reason": "The objective claimed minItems=1 but the actual resultType used an unconstrained array and a model-written satisfaction boolean. Request one required string ID and a singleton selected-ID binding; preserve local runtime guards and business work.",
+  "result": {
+    "status": "final_review",
+    "planning_ms": 611808,
+    "calls": 7,
+    "repairs": 2,
+    "discovery_reads": 2,
+    "review_revisions": 3,
+    "diagnostics": [],
+    "execution_success": false,
+    "execution_oracle": false,
+    "execution_status": "not_started",
+    "accounting": {
+      "planning": {
+        "logical_calls": 7,
+        "physical_attempts": 7,
+        "known_input_tokens": 105573,
+        "known_output_tokens": 39920,
+        "known_cost_eur": 1.5311607063625876,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "execution": {
+        "logical_calls": 0,
+        "physical_attempts": 0,
+        "known_input_tokens": 0,
+        "known_output_tokens": 0,
+        "known_cost_eur": 0,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "campaign": {
+        "calls": 912,
+        "session_calls": 0,
+        "known_input_tokens": 13529828,
+        "known_output_tokens": 1844187,
+        "known_cost_eur": 109.42278845511258,
+        "reserved_input_tokens": 384000,
+        "reserved_output_tokens": 131072,
+        "reserved_cost_eur": 5.203327457848472,
+        "cost_upper_bound_eur": 114.62611591296105,
+        "unknown_attempts": 4
+      }
+    }
+  },
+  "command": {
+    "kind": "revise",
+    "preserveRequirements": true,
+    "expectedRevision": 11,
+    "artifactHash": "4c141d6f6af77e240a79adac22ce40bf9242d0944b1cb8af6a9a40f57e7d061f",
+    "text": "One final explicit implementation correction, retaining all accepted requirements and all existing work. The current interpret_search_target objective mentions minItems:1,maxItems:1, but its actual resultType searchReferences is unconstrained, and the model-written searchTargetContractSatisfied boolean is not an array cardinality check. Use an actual existing typed contract: replace searchReferences with a required, nonnullable string searchReference. Bind lookup_search_records's selected IDs as the existing TaskValue array containing exactly that string field. This gives exactly one selected original record without array indexing, minItems prose or a new value kind. Keep the real submit_search foreach maxItems:1 over the looked-up original record, the existing observed-reference action checks and non-null requires. No missing search target may become a fabricated string or silent zero-action success; extraction/interpretation must report the limitation and fail its declared contract if it cannot supply an observed target. Preserve all narrow each views, original observations, compact global decisions, complete snapshot guards, optional cookie loop, max-ten product selection, actual product visits, workbook writing, exact destination and cleanup. Remove only the misleading redundant searchTargetContractSatisfied output and replace its local requires with the actual existing captcha/observed-reference guards where appropriate. Preserve every unrelated guard and task. Also ensure selected cookie/product IDs are checked against the offered compact candidate view before original-record reconnection using the existing lookup binding, without deduplicating or synthesizing IDs. Do not add fields, phases, scripts or limits. This is the last remaining generation call; automatic repair allowance remains exhausted and must not be reset."
+  }
+}

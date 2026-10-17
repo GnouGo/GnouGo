@@ -1,0 +1,33 @@
+{
+  "run": "businesstasks20261009a-amazon-1",
+  "run_revision": 61,
+  "run_status": "failed",
+  "model_calls": 0,
+  "external_actions": 0,
+  "saved_state_modified": false,
+  "historical_yaml_identical": true,
+  "yaml_bytes": 79833,
+  "error": {
+    "code": "CONTRACT_UNSATISFIED",
+    "message": "The mapping exhausted its cumulative sandbox allowance (materialized_memory).",
+    "details": {
+      "mapping_resource_limit": true,
+      "exhausted_resource": "materialized_memory",
+      "sandbox": {
+        "statements": 35,
+        "statement_limit": 1000000,
+        "elapsed_ms": 114.1108,
+        "time_limit_ms": 15000,
+        "allocated_bytes": 76989736,
+        "materialized_bytes": 58751376,
+        "output_bytes": 9934784,
+        "memory_limit_bytes": 1000000000,
+        "nesting_depth": 11,
+        "nesting_limit": 64
+      },
+      "compiled_node": "v0",
+      "location": "task_5f0d604c9f4c965ee1dc7849"
+    }
+  },
+  "observations_unchanged": true
+}

@@ -1,0 +1,77 @@
+{
+  "candidate": "7376b4bd713d72d43dbe62270e41823273e0e618",
+  "focused": {
+    "compiler_passed": 16,
+    "sandbox_passed": 4,
+    "failed": 0
+  },
+  "release_packages": {
+    "components": [
+      "Flow.Core",
+      "Flow.Planning",
+      "Flow.Integrations",
+      "Flow.Copilot",
+      "Flow.Persistence"
+    ],
+    "warnaserror": true,
+    "exit_code": 0
+  },
+  "planning_native_aot": {
+    "rid": "osx-arm64",
+    "publish_exit_code": 0,
+    "smoke_exit_code": 0
+  },
+  "published_encrypted_recovery": {
+    "rid": "osx-arm64",
+    "publish_exit_code": 0,
+    "smoke_exit_code": 0,
+    "publish_options": [
+      "PublishAot=false",
+      "PublishTrimmed=true",
+      "PublishSingleFile=true",
+      "SkipClientBuild=true",
+      "SkipBundledServerTools=true"
+    ],
+    "result": "Format-10 planning persistence smoke passed; execution journal schema 9 is unchanged."
+  },
+  "skill_validation": "passed",
+  "frozen_benchmark_build": {
+    "exit_code": 0,
+    "warnings": 0,
+    "errors": 0
+  },
+  "full_solution": {
+    "exit_code": 0,
+    "failed": 0,
+    "passed": 5035,
+    "skipped": 13,
+    "total": 5048
+  },
+  "paid_calls": 0,
+  "logs_sha256": {
+    "gnougo-direct-output-regressions.log": "65b21d169c7627a308df952a48797976c3b4429e46d616829f4d67f3d304f770",
+    "gnougo-nested-memory-tests.log": "04234e6c794d3cf2d61fe478ef06d983d174977e4306bcb4b3a364d183d06520",
+    "gnougo-direct-output-pack.log": "35b49567db8e90143babf402683ea8654dc04a573e4e06d152338bd284ae3d10",
+    "gnougo-direct-output-aot-publish.log": "995d24b8c614f935d270277b62129ff9f36a146072619ee7317ccc64edf8f1f9",
+    "gnougo-direct-output-aot-smoke.log": "4002c0078eb9ddab3780a4453699e56389b14be826f698dd403803cd7bd57f7a",
+    "gnougo-direct-output-server-publish.log": "aeef98b4dffec67ba2874bff58a3e6afb6a7f8279208a890966dc7bad4ebcd0d",
+    "gnougo-direct-output-persistence-smoke.log": "d7cc8ec7a3dff2ab353e25932595d885ee30f565a6de92f436e3354a2c1d3b88",
+    "gnougo-physicaloutputs-candidate-build.log": "54014a15e7a8f2d6f819fd4258c99807f4cdbf07f1a701be79eb9857c323d912"
+  },
+  "local_browser_document_workbook_oracles": "All 51 scenario tests passed within the full host suite, including expected rejection/failure oracles; deterministic inference only.",
+  "skipped_tests": [
+    "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.DefaultLaunchUsesOnlyTheSelectedShellsBuiltInModulePath",
+    "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.LaunchInitializationPreservesLeadingScriptDeclarations(script: \"using namespace System\\n[Console]::WriteLine('names\"\u00b7\u00b7\u00b7, expected: \"namespace declaration\", exitCode: 0)",
+    "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.LaunchInitializationPreservesLeadingScriptDeclarations(script: \"param([string]$text = 'parameter default'); [Conso\"\u00b7\u00b7\u00b7, expected: \"parameter default\", exitCode: 3)",
+    "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.PrivateEofPreservesRepeatedCommandsUnicodeQuotesAndExitCodes(exitCode: 0)",
+    "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.PrivateEofPreservesRepeatedCommandsUnicodeQuotesAndExitCodes(exitCode: 3)",
+    "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.TimeoutAndCancellationTerminateTheChildTree(cancel: False)",
+    "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.TimeoutAndCancellationTerminateTheChildTree(cancel: True)",
+    "GnOuGo.Agent.Server.Tests.PlanningClarificationBrowserTests.DesignerBrowserUsesRealPersistedQuestionsAndExplicitSubmission",
+    "GnOuGo.GithubCopilot.E2E.Tests.LivePullRequestReviewTests.ConfiguredOpenAiProvider_CanReviewExactDiffWithoutPublishing",
+    "GnOuGo.GithubCopilot.E2E.Tests.LiveControlledEditingTests.RealModel_InspectsEditsAndVerifiesResults(managed: True, bounded: True, executeTests: True)",
+    "GnOuGo.GithubCopilot.E2E.Tests.LiveControlledEditingTests.RealModel_InspectsEditsAndVerifiesResults(managed: True, bounded: True, executeTests: False)",
+    "GnOuGo.GithubCopilot.E2E.Tests.LiveControlledEditingTests.RealModel_InspectsEditsAndVerifiesResults(managed: True, bounded: False, executeTests: True)",
+    "GnOuGo.GithubCopilot.E2E.Tests.LiveControlledEditingTests.RealModel_InspectsEditsAndVerifiesResults(managed: False, bounded: False, executeTests: True)"
+  ]
+}

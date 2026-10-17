@@ -1,0 +1,327 @@
+{
+  "headRefOid": "aea8c73c78b5b48be51066e2a2eef6d2ff868f03",
+  "isDraft": true,
+  "statusCheckRollup": [
+    {
+      "__typename": "CheckRun",
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/38388519092/job/115266167885",
+      "name": "validate",
+      "startedAt": "2026-10-13T11:11:38Z",
+      "status": "IN_PROGRESS",
+      "workflowName": "Deterministic planner validation"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-13T11:19:48Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/38388519303/job/115266168955",
+      "name": "Stable Unit Tests / Stable .NET Unit Tests",
+      "startedAt": "2026-10-13T11:11:38Z",
+      "status": "COMPLETED",
+      "workflowName": "Build (GnOuGo.Agent)"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-13T11:13:01Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/38388518975/job/115266167407",
+      "name": "ProxyCopilot AOT (linux-x64)",
+      "startedAt": "2026-10-13T11:11:38Z",
+      "status": "COMPLETED",
+      "workflowName": "Build ProxyCopilot Native AOT"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-13T11:14:03Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/38388518962/job/115266167045",
+      "name": "standalone",
+      "startedAt": "2026-10-13T11:11:37Z",
+      "status": "COMPLETED",
+      "workflowName": "ProxyCopilot standalone validation"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-13T11:14:05Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/38388518975/job/115266167562",
+      "name": "ProxyCopilot AOT (linux-arm64)",
+      "startedAt": "2026-10-13T11:11:47Z",
+      "status": "COMPLETED",
+      "workflowName": "Build ProxyCopilot Native AOT"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-13T11:14:27Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/38388518975/job/115266167768",
+      "name": "ProxyCopilot AOT (win-x64)",
+      "startedAt": "2026-10-13T11:11:41Z",
+      "status": "COMPLETED",
+      "workflowName": "Build ProxyCopilot Native AOT"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-13T11:14:59Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/38388518975/job/115266167474",
+      "name": "ProxyCopilot AOT (win-arm64)",
+      "startedAt": "2026-10-13T11:11:38Z",
+      "status": "COMPLETED",
+      "workflowName": "Build ProxyCopilot Native AOT"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-13T11:15:32Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/38388518975/job/115266168106",
+      "name": "ProxyCopilot AOT (osx-x64)",
+      "startedAt": "2026-10-13T11:11:41Z",
+      "status": "COMPLETED",
+      "workflowName": "Build ProxyCopilot Native AOT"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-13T11:14:33Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/38388518975/job/115266167690",
+      "name": "ProxyCopilot AOT (osx-arm64)",
+      "startedAt": "2026-10-13T11:11:45Z",
+      "status": "COMPLETED",
+      "workflowName": "Build ProxyCopilot Native AOT"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-13T11:12:10Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/38388519303/job/115266168826",
+      "name": "Stable Unit Tests / Python Unit Tests",
+      "startedAt": "2026-10-13T11:11:38Z",
+      "status": "COMPLETED",
+      "workflowName": "Build (GnOuGo.Agent)"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/38388519303/job/115266169036",
+      "name": "Agent Server Tests (non-blocking) / Agent Server Tests",
+      "startedAt": "2026-10-13T11:11:38Z",
+      "status": "IN_PROGRESS",
+      "workflowName": "Build (GnOuGo.Agent)"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-13T11:15:47Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/38388519303/job/115266169959",
+      "name": "Server (linux-x64) / Server (linux-x64)",
+      "startedAt": "2026-10-13T11:11:38Z",
+      "status": "COMPLETED",
+      "workflowName": "Build (GnOuGo.Agent)"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-13T11:14:27Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/38388519303/job/115266168973",
+      "name": "KeyVault MCP / KeyVault MCP (win-x64)",
+      "startedAt": "2026-10-13T11:11:38Z",
+      "status": "COMPLETED",
+      "workflowName": "Build (GnOuGo.Agent)"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-13T11:20:01Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/38388519303/job/115269345348",
+      "name": "Compute Version Tag / Compute Version Tag",
+      "startedAt": "2026-10-13T11:19:51Z",
+      "status": "COMPLETED",
+      "workflowName": "Build (GnOuGo.Agent)"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-13T11:24:51Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/38388519303/job/115269345399",
+      "name": "Docker Builds / Docker Build (GnOuGo.Agent.Server)",
+      "startedAt": "2026-10-13T11:19:51Z",
+      "status": "COMPLETED",
+      "workflowName": "Build (GnOuGo.Agent)"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-13T11:20:43Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/38388519303/job/115269345466",
+      "name": "Docker Builds / Docker Build (GnOuGo.Diff.Server)",
+      "startedAt": "2026-10-13T11:19:51Z",
+      "status": "COMPLETED",
+      "workflowName": "Build (GnOuGo.Agent)"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-13T11:21:37Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/38388519303/job/115269345629",
+      "name": "Docker Builds / Docker Build (GnOuGo.DocIngestor.Server)",
+      "startedAt": "2026-10-13T11:19:52Z",
+      "status": "COMPLETED",
+      "workflowName": "Build (GnOuGo.Agent)"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-13T11:21:38Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/38388519303/job/115269345595",
+      "name": "Docker Builds / Docker Build (GnOuGo.Flow.Server)",
+      "startedAt": "2026-10-13T11:19:52Z",
+      "status": "COMPLETED",
+      "workflowName": "Build (GnOuGo.Agent)"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-13T11:20:42Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/38388519303/job/115269345424",
+      "name": "Docker Builds / Docker Build (GnOuGo.KeyVault.Server)",
+      "startedAt": "2026-10-13T11:19:51Z",
+      "status": "COMPLETED",
+      "workflowName": "Build (GnOuGo.Agent)"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-13T11:22:16Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/38388519303/job/115269345552",
+      "name": "Docker Builds / Docker Build (GnOuGo.OtlpCollector.Server)",
+      "startedAt": "2026-10-13T11:19:52Z",
+      "status": "COMPLETED",
+      "workflowName": "Build (GnOuGo.Agent)"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-13T11:21:29Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/38388519303/job/115269345427",
+      "name": "OTLP Collector / OTLP Collector (linux-x64)",
+      "startedAt": "2026-10-13T11:19:52Z",
+      "status": "COMPLETED",
+      "workflowName": "Build (GnOuGo.Agent)"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-13T11:22:44Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/38388519303/job/115269345265",
+      "name": "OTLP Collector / OTLP Collector (win-x64)",
+      "startedAt": "2026-10-13T11:19:51Z",
+      "status": "COMPLETED",
+      "workflowName": "Build (GnOuGo.Agent)"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-13T11:21:44Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/38388519303/job/115269345349",
+      "name": "OTLP Collector / OTLP Collector (osx-arm64)",
+      "startedAt": "2026-10-13T11:19:55Z",
+      "status": "COMPLETED",
+      "workflowName": "Build (GnOuGo.Agent)"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-13T11:20:02Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/38388519303/job/115269437772",
+      "name": "Publish .NET packages to NuGet",
+      "startedAt": "2026-10-13T11:20:02Z",
+      "status": "COMPLETED",
+      "workflowName": "Build (GnOuGo.Agent)"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-13T11:20:02Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/38388519303/job/115269437644",
+      "name": "Publish gnougo-flow-core to PyPI",
+      "startedAt": "2026-10-13T11:20:02Z",
+      "status": "COMPLETED",
+      "workflowName": "Build (GnOuGo.Agent)"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/38388519303/job/115269436701",
+      "name": "Desktop (Trimmed + Native AOT tools) / Desktop Build (linux-x64)",
+      "startedAt": "2026-10-13T11:20:05Z",
+      "status": "IN_PROGRESS",
+      "workflowName": "Build (GnOuGo.Agent)"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/38388519303/job/115269436690",
+      "name": "Desktop (Trimmed + Native AOT tools) / Desktop Build (linux-arm64)",
+      "startedAt": "2026-10-13T11:20:05Z",
+      "status": "IN_PROGRESS",
+      "workflowName": "Build (GnOuGo.Agent)"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/38388519303/job/115269436713",
+      "name": "Desktop (Trimmed + Native AOT tools) / Desktop Build (win-x64)",
+      "startedAt": "2026-10-13T11:20:05Z",
+      "status": "IN_PROGRESS",
+      "workflowName": "Build (GnOuGo.Agent)"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/38388519303/job/115269436761",
+      "name": "Desktop (Trimmed + Native AOT tools) / Desktop Build (win-arm64)",
+      "startedAt": "2026-10-13T11:20:05Z",
+      "status": "IN_PROGRESS",
+      "workflowName": "Build (GnOuGo.Agent)"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/38388519303/job/115269436763",
+      "name": "Desktop (Trimmed + Native AOT tools) / Desktop Build (osx-arm64)",
+      "startedAt": "2026-10-13T11:20:14Z",
+      "status": "IN_PROGRESS",
+      "workflowName": "Build (GnOuGo.Agent)"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/38388519303/job/115269436841",
+      "name": "Desktop (Trimmed + Native AOT tools) / Desktop Build (osx-x64)",
+      "startedAt": "2026-10-13T11:20:10Z",
+      "status": "IN_PROGRESS",
+      "workflowName": "Build (GnOuGo.Agent)"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-13T11:20:02Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/38388519303/job/115269438714",
+      "name": "ProxyCopilot (Native AOT)",
+      "startedAt": "2026-10-13T11:20:02Z",
+      "status": "COMPLETED",
+      "workflowName": "Build (GnOuGo.Agent)"
+    }
+  ],
+  "checked_utc": "2026-10-13T11:32:57.020789+00:00"
+}

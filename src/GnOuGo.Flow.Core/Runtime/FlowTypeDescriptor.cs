@@ -43,7 +43,7 @@ internal sealed record FlowTypeDescriptor
     public bool AllowsAdditionalProperties { get; init; } = true;
     public IReadOnlyList<FlowTypeDescriptor> Variants { get; init; } = EmptyVariants;
     public IReadOnlyList<string> EnumValues { get; init; } = EmptyEnumValues;
-    public decimal? Minimum { get; init; }
+    public double? Minimum { get; init; }
     public string? Description { get; init; }
     public JsonNode? Default { get; init; }
 
@@ -120,39 +120,6 @@ internal sealed record FlowTypeDescriptor
             .ToArray();
 
         return variants.Length == 0 ? Any : Union(variants);
-    }
-
-    public FlowTypeDescriptor RemoveNullDeep()
-    {
-        if (Kind == FlowTypeKind.Null)
-            return Any;
-
-        if (Kind == FlowTypeKind.Union)
-        {
-            var variants = Variants
-                .Where(static variant => variant.Kind != FlowTypeKind.Null)
-                .Select(static variant => variant.RemoveNullDeep())
-                .ToArray();
-
-            return variants.Length == 0 ? Any : Union(variants);
-        }
-
-        if (Kind == FlowTypeKind.Array)
-            return this with { Items = Items?.RemoveNullDeep() };
-
-        if (Kind is FlowTypeKind.Object or FlowTypeKind.Dictionary)
-        {
-            return this with
-            {
-                Properties = Properties.ToDictionary(
-                    static pair => pair.Key,
-                    static pair => new FlowPropertyDescriptor(pair.Value.Type.RemoveNullDeep(), pair.Value.Required),
-                    StringComparer.Ordinal),
-                AdditionalProperties = AdditionalProperties?.RemoveNullDeep()
-            };
-        }
-
-        return this;
     }
 
     public FlowTypeDescriptor? ResolvePath(IReadOnlyList<string> path)
@@ -588,7 +555,7 @@ internal static class FlowTypeDescriptorConverter
         }
 
         if (descriptor.Kind is FlowTypeKind.Number or FlowTypeKind.Integer
-            && TryReadDecimal(obj["minimum"], out var minimum))
+            && JsonSchemaInstanceValidator.TryReadNumber(obj["minimum"], out var minimum))
         {
             descriptor = descriptor with { Minimum = minimum };
         }
@@ -896,32 +863,4 @@ internal static class FlowTypeDescriptorConverter
     private static string? ReadString(JsonNode? node) =>
         node is JsonValue value && value.TryGetValue<string>(out var parsed) ? parsed : null;
 
-    private static bool TryReadDecimal(JsonNode? node, out decimal value)
-    {
-        value = 0;
-        if (node is not JsonValue jsonValue)
-            return false;
-
-        if (jsonValue.TryGetValue<decimal>(out value))
-            return true;
-        if (jsonValue.TryGetValue<long>(out var longValue))
-        {
-            value = longValue;
-            return true;
-        }
-        if (jsonValue.TryGetValue<int>(out var intValue))
-        {
-            value = intValue;
-            return true;
-        }
-        if (jsonValue.TryGetValue<double>(out var doubleValue)
-            && !double.IsNaN(doubleValue)
-            && !double.IsInfinity(doubleValue))
-        {
-            value = Convert.ToDecimal(doubleValue, CultureInfo.InvariantCulture);
-            return true;
-        }
-
-        return false;
-    }
 }

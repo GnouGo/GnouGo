@@ -10,8 +10,6 @@ meta:
 
     Cet exemple montre comment laisser l'IA côté client MCP décider des liens utiles
     à partir du HTML brut, sans aucun outil navigateur spécialisé côté serveur.
-    Aucun clic automatique sur une bannière cookies n'est effectué dans ce workflow :
-    c'est au client MCP de décider, à partir du HTML rendu, quel bouton il faut cliquer.
 
     Usage depuis la racine du dépôt :
       dotnet run --project src/GnOuGo.Flow.Cli/GnOuGo.Flow.Cli.csproj -- run src/GnOuGo.Flow.Cli/examples/browser-homepage-menu-scrape.yaml
@@ -100,7 +98,7 @@ workflows:
             Return only same-host absolute http/https URLs.
             Resolve relative URLs against the homepage URL.
             Prioritize links that look like main navigation or important top-level discovery pages.
-            Exclude anchors, javascript links, mailto links, social share links, cookie/privacy/legal-only links, and obvious duplicates.
+            Exclude anchors, javascript links, mailto links, social share links, and obvious duplicates.
 
             Return JSON only:
             {

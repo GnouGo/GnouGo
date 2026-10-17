@@ -1,0 +1,47 @@
+[
+  {
+    "variant": "complete",
+    "rows": 11,
+    "visits": 10,
+    "cells_exact": true,
+    "formula_cells": 0,
+    "cleanup": true,
+    "xlsx_sha256": "8b6bec8992475113167739984a6d5eb5c81a4a56e20c341792ed2d69e0aa922f"
+  },
+  {
+    "variant": "empty",
+    "rows": 1,
+    "visits": 0,
+    "cells_exact": true,
+    "formula_cells": 0,
+    "cleanup": true,
+    "xlsx_sha256": "eef39f464e19716bed42c2abebb18f221205b9f428b319771fd14faa9b23b7b9"
+  },
+  {
+    "variant": "missing",
+    "rows": 11,
+    "visits": 10,
+    "cells_exact": true,
+    "formula_cells": 0,
+    "cleanup": true,
+    "xlsx_sha256": "414d97602a0938afb791eedc55a8a6d522d5f7479db0e4896df606bc6aa78996"
+  },
+  {
+    "variant": "one",
+    "rows": 2,
+    "visits": 1,
+    "cells_exact": true,
+    "formula_cells": 0,
+    "cleanup": true,
+    "xlsx_sha256": "c7c8ea07204126d206aaff6c00651644ce74fa1057af6485aff7b7a16e1b5dc8"
+  },
+  {
+    "variant": "repeated",
+    "rows": 11,
+    "visits": 10,
+    "cells_exact": true,
+    "formula_cells": 0,
+    "cleanup": true,
+    "xlsx_sha256": "01ee6b9a19045bbc685e6b7082d35a962f3c7c7bc1448c64c6feae0554daf87e"
+  }
+]

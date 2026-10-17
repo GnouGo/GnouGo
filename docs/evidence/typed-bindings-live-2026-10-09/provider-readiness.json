@@ -1,0 +1,71 @@
+{
+  "events": [
+    {
+      "provider": "OpenAi",
+      "model": "gpt-5.5-2026-04-24",
+      "configuration_hash": "0d9b3f888b2a23348f7efbdc00cc764d2e388e63c076dd350b945bc161539d31",
+      "metadata_sources": {
+        "host_metadata_files": 0,
+        "host_overrides_hash": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+        "persisted_user_config_available": true,
+        "persisted_override_count": 3,
+        "persisted_overrides_hash": "06c4f42ec6cb1ea0a999c84bf0a7910ac2bbcae0c9bb3cbc515131cec5d68c6d"
+      },
+      "declared_metadata_hash": "0027a030d8aa6ebcc7ec8d0e2e23dc04b1a28a208443c579251e1374a75fa094",
+      "max_input_tokens": 1050000,
+      "context_window_tokens": 1050000,
+      "max_output_tokens": 128000,
+      "planning_input_allowance": 96000,
+      "mapping_input_allowance": 96000,
+      "model_calls": 0,
+      "accounting": {
+        "ready": true,
+        "quote": {
+          "source_currency": "USD",
+          "target_currency": "EUR",
+          "rate": 0.8873901854645487,
+          "as_of_utc": "2026-10-06T00:00:00+00:00",
+          "source": "ecb_reference_rates"
+        },
+        "reservation_estimate_eur": 1.2982873369420533
+      },
+      "ready": true,
+      "limitation": null
+    },
+    {
+      "campaign": "schema-portability-20261002",
+      "reserved_requests": 895,
+      "completed_receipts": 892,
+      "uncertain_requests": [
+        "gluev420261008b-amazon-1:8:26c2e690e30bf67f6766c07acf36960302e08ceb65c2a1a0a11ad5a5dc0652e7",
+        "observations1-mapping:1:observations1-mapping-plan:1:dbfe9974cd61088546ba1b389abf828515fb805417762f5e49be28f4154ed0d3",
+        "schema-diagnostic:1:7dff37f9c9780e6b7a24ff13d47e7c80adb3572fa0fadc7b479cf7ade021e0bd"
+      ],
+      "retained_inconclusive_requests": [
+        "gluev420261008b-amazon-1:8:26c2e690e30bf67f6766c07acf36960302e08ceb65c2a1a0a11ad5a5dc0652e7",
+        "observations1-mapping:1:observations1-mapping-plan:1:dbfe9974cd61088546ba1b389abf828515fb805417762f5e49be28f4154ed0d3",
+        "schema-diagnostic:1:7dff37f9c9780e6b7a24ff13d47e7c80adb3572fa0fadc7b479cf7ade021e0bd"
+      ],
+      "transport_accounting": {
+        "calls": 921,
+        "session_calls": 0,
+        "known_input_tokens": 13583105,
+        "known_output_tokens": 1867433,
+        "known_cost_eur": 110.27802405720682,
+        "reserved_input_tokens": 480000,
+        "reserved_output_tokens": 163840,
+        "reserved_cost_eur": 6.501614794790526,
+        "cost_upper_bound_eur": 116.77963885199735,
+        "unknown_attempts": 5
+      },
+      "cost_ceiling_eur": 150,
+      "recorded_failures": 5,
+      "known_budget_cost": null,
+      "budget_currency": null,
+      "known_input_tokens": null,
+      "known_output_tokens": null,
+      "completion_receipts_complete": false,
+      "evidence_hash": "131f50f6c8b1be1e68ead9bce80453dbebc381c68fc5f98895cc76bb68c360c7"
+    }
+  ]
+}

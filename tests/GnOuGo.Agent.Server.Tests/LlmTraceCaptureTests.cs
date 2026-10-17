@@ -28,7 +28,7 @@ public sealed class LlmTraceCaptureTests : BunitContext
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
         var store = Store(fixture);
-        var harness = SmartFlowTestFactory.CreateTelemetryHarness();
+        using var harness = SmartFlowTestFactory.CreateTelemetryHarness();
         using var telemetry = harness.Telemetry;
         var local = new LocalTraceDebugStore(new TestOptionsMonitor<OpenTelemetrySettings>(new() { TenantId = "tenant" }));
         var capture = new LlmTraceCapture(telemetry, store, local, NullLogger<LlmTraceCapture>.Instance);
@@ -74,7 +74,7 @@ public sealed class LlmTraceCaptureTests : BunitContext
     public async Task FailedCallsRemainInspectableWithoutInventedUsage(bool cancel, string status)
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
-        var harness = SmartFlowTestFactory.CreateTelemetryHarness(); using var telemetry = harness.Telemetry;
+        using var harness = SmartFlowTestFactory.CreateTelemetryHarness(); using var telemetry = harness.Telemetry;
         var local = new LocalTraceDebugStore(new TestOptionsMonitor<OpenTelemetrySettings>(new() { TenantId = "tenant" }));
         var capture = new LlmTraceCapture(telemetry, Store(fixture), local, NullLogger<LlmTraceCapture>.Instance);
         using var cts = new CancellationTokenSource(); if (cancel) cts.Cancel();
@@ -97,7 +97,7 @@ public sealed class LlmTraceCaptureTests : BunitContext
         var request = new LLMRequest { ClientRequestId = "session:1:hash", Prompt = "PRIVATE_REQUEST" };
         await fixture.Records.UpsertAsync("agent-planning-model-requests-v10", "tenant", "session:" + request.ClientRequestId,
             JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest), "test", Ct);
-        var harness = SmartFlowTestFactory.CreateTelemetryHarness(); using var telemetry = harness.Telemetry;
+        using var harness = SmartFlowTestFactory.CreateTelemetryHarness(); using var telemetry = harness.Telemetry;
         var local = new LocalTraceDebugStore(new TestOptionsMonitor<OpenTelemetrySettings>(new() { TenantId = "tenant" }));
         var store = Store(fixture);
         var capture = new LlmTraceCapture(telemetry, store, local, NullLogger<LlmTraceCapture>.Instance);
@@ -221,7 +221,7 @@ public sealed class LlmTraceCaptureTests : BunitContext
         await fixture.Records.UpsertAsync("flow-planning-sessions-v10", "tenant", "session", JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), "test", Ct);
         var request = new LLMRequest { ClientRequestId = "session:1:hash", Prompt = "JOURNALED_PRIVATE_INPUT" };
         var reservation = await fixture.Records.UpsertAsync("flow-planning-model-requests-v10", "tenant", request.ClientRequestId, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest), "test", Ct);
-        var harness = SmartFlowTestFactory.CreateTelemetryHarness(); using var telemetry = harness.Telemetry;
+        using var harness = SmartFlowTestFactory.CreateTelemetryHarness(); using var telemetry = harness.Telemetry;
         var local = new LocalTraceDebugStore(new TestOptionsMonitor<OpenTelemetrySettings>(new() { TenantId = "tenant" }));
         var store = Store(fixture);
         var capture = new LlmTraceCapture(telemetry, store, local, NullLogger<LlmTraceCapture>.Instance);
@@ -240,7 +240,7 @@ public sealed class LlmTraceCaptureTests : BunitContext
     public async Task ParallelCallsKeepTheirSuppliedRuntimeStagesAndIndependentContent()
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
-        var harness = SmartFlowTestFactory.CreateTelemetryHarness(); using var telemetry = harness.Telemetry;
+        using var harness = SmartFlowTestFactory.CreateTelemetryHarness(); using var telemetry = harness.Telemetry;
         var local = new LocalTraceDebugStore(new TestOptionsMonitor<OpenTelemetrySettings>(new() { TenantId = "tenant" }));
         var capture = new LlmTraceCapture(telemetry, Store(fixture), local, NullLogger<LlmTraceCapture>.Instance);
         var stages = new System.Collections.Concurrent.ConcurrentBag<string>();
@@ -266,7 +266,7 @@ public sealed class LlmTraceCaptureTests : BunitContext
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
         var records = new DiagnosticRecords { Fail = true };
         var store = new LlmTraceContentStore(records, new TestOptionsMonitor<TraceDebugSettings>(new()), Options.Create(new OpenTelemetrySettings { TenantId = "tenant" }), fixture.Store);
-        var harness = SmartFlowTestFactory.CreateTelemetryHarness(); using var telemetry = harness.Telemetry;
+        using var harness = SmartFlowTestFactory.CreateTelemetryHarness(); using var telemetry = harness.Telemetry;
         var local = new LocalTraceDebugStore(new TestOptionsMonitor<OpenTelemetrySettings>(new()));
         var capture = new LlmTraceCapture(telemetry, store, local, NullLogger<LlmTraceCapture>.Instance);
         var count = 0; var response = new LLMResponse { Text = "original" };

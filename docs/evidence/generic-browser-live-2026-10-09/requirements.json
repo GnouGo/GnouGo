@@ -1,0 +1,125 @@
+{
+  "summary": "Automatiser une recherche Amazon.fr à partir d’une seule entrée publique nommée query, collecter au maximum les 10 premiers produits trouvés, visiter chaque page produit, extraire nom, description, prix et erreurs/données absentes explicites, puis sauvegarder un classeur Excel sur disque à l’emplacement demandé. Le navigateur doit être fermé même en cas d’échec, et la réussite ne doit pas être déclarée si le travail n’a pas abouti.",
+  "outcomes": [
+    {
+      "id": "searched_amazon_fr",
+      "description": "Amazon.fr est ouvert et la recherche est effectuée avec la valeur fournie dans l’entrée query."
+    },
+    {
+      "id": "listed_first_products",
+      "description": "Les produits issus des résultats sont listés, avec une limite maximale de 10 premiers produits."
+    },
+    {
+      "id": "extracted_product_details",
+      "description": "Pour chaque produit sélectionné, la page produit est visitée et le nom, la description, le prix, ainsi que toute erreur observée ou donnée absente sont enregistrés explicitement sans invention."
+    },
+    {
+      "id": "saved_excel_file",
+      "description": "Un fichier Excel est sauvegardé sur le disque à workflows/schema-portability-20261002/genericbrowser20261009a-amazon-1/products.xlsx."
+    },
+    {
+      "id": "browser_closed",
+      "description": "Le navigateur est fermé dans tous les cas, y compris en cas d’échec."
+    }
+  ],
+  "inputs": [
+    {
+      "name": "query",
+      "type": {
+        "kind": "string",
+        "nullable": false,
+        "items": null,
+        "fields": []
+      },
+      "required": true,
+      "default": null
+    }
+  ],
+  "outputs": [
+    {
+      "name": "filePath",
+      "type": {
+        "kind": "string",
+        "nullable": false,
+        "items": null,
+        "fields": []
+      },
+      "required": true,
+      "default": null
+    },
+    {
+      "name": "rows",
+      "type": {
+        "kind": "array",
+        "nullable": false,
+        "minItems": 0,
+        "maxItems": 10,
+        "items": {
+          "kind": "object",
+          "nullable": false,
+          "items": null,
+          "fields": [
+            {
+              "name": "name",
+              "type": {
+                "kind": "string",
+                "nullable": true,
+                "items": null,
+                "fields": []
+              },
+              "required": true,
+              "default": null
+            },
+            {
+              "name": "description",
+              "type": {
+                "kind": "string",
+                "nullable": true,
+                "items": null,
+                "fields": []
+              },
+              "required": true,
+              "default": null
+            },
+            {
+              "name": "price",
+              "type": {
+                "kind": "string",
+                "nullable": true,
+                "items": null,
+                "fields": []
+              },
+              "required": true,
+              "default": null
+            },
+            {
+              "name": "error",
+              "type": {
+                "kind": "string",
+                "nullable": true,
+                "items": null,
+                "fields": []
+              },
+              "required": true,
+              "default": null
+            }
+          ]
+        },
+        "fields": []
+      },
+      "required": true,
+      "default": null
+    },
+    {
+      "name": "success",
+      "type": {
+        "kind": "boolean",
+        "nullable": false,
+        "items": null,
+        "fields": []
+      },
+      "required": true,
+      "default": null
+    }
+  ]
+}

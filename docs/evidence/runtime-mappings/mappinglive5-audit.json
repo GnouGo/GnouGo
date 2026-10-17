@@ -1,0 +1,9 @@
+{
+  "cohort": "mappinglive5",
+  "acceptance": "incomplete; 0/6 execution oracles; stopped proposal was never approved or executed",
+  "cause": "A literal discriminator selects a nested consumer contract. The compiler previously checked bindings against generic ports before selecting that contract, incorrectly asking typed runtime strings to declare finite enums for pattern constraints. The retained proposal also contains an invalid ancestor dependsOn; that rejection remains correct.",
+  "generic_correction": "Select the authoritative branch from literal discriminators before binding ports, then lower declared constraint checks deterministically. Unknown and ambiguous discriminators grant no refinement; no operation-name rule.",
+  "original_session_modified": false,
+  "model_calls_for_replay": 0,
+  "other_runs": "Not started after this generic compiler defect."
+}

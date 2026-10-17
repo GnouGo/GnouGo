@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable>
+    <AssemblyName>GnOuGo.Agent.Planning.Benchmark</AssemblyName>
+    <PlannerSourceRoot Condition="'$(PlannerSourceRoot)' == ''">$(MSBuildThisFileDirectory)../../../..</PlannerSourceRoot>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="$(PlannerSourceRoot)/src/GnOuGo.Flow.Planning/GnOuGo.Flow.Planning.csproj" />
+    <Compile Include="$(PlannerSourceRoot)/tests/Shared/PlanningCorpus.cs" />
+    <Compile Include="$(PlannerSourceRoot)/tests/Shared/PlanningBenchmarkCases.cs" />
+  </ItemGroup>
+</Project>

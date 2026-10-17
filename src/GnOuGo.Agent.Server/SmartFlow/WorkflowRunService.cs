@@ -11,7 +11,8 @@ namespace GnOuGo.Agent.Server.SmartFlow;
 /// <summary>Host dependencies for the same engine used by initial chat execution and recovery.</summary>
 public sealed class WorkflowRunService(IWorkflowRunStore store, SecureWorkflowRuntimeFactory runtimeFactory,
     AgentHumanInputProvider human, AgentOTelTelemetry telemetry, IMemoryCache cache, IServiceScopeFactory scopes,
-    IWorkflowCandidateProvider candidates, IOptions<OpenTelemetrySettings> settings, ILogger<WorkflowRunService> logger)
+    IWorkflowCandidateProvider candidates, IOptions<OpenTelemetrySettings> settings, ILogger<WorkflowRunService> logger,
+    IExchangeRateProvider? exchangeRateProvider = null)
 {
     public string TenantId { get; } = WorkflowExecutionTenant.Resolve(settings);
     public Task<WorkflowRun?> ReadAsync(string id, CancellationToken ct) => store.ReadAsync(TenantId, id, ct);
@@ -32,6 +33,7 @@ public sealed class WorkflowRunService(IWorkflowRunStore store, SecureWorkflowRu
         {
             RunStore = store, LLMClient = runtime.LlmClient, LLMCapabilities = runtime.LlmCapabilityResolver,
             ModelUsageCostEstimator = new ModelMetadataUsageCostEstimator(runtime.Options),
+            ExchangeRateProvider = exchangeRateProvider,
             McpClientFactory = runtime.McpClientFactory, McpCache = cache, HumanInputProvider = human,
             WorkflowCallResolver = new AgentDatabaseWorkflowCallResolver(scopes), WorkflowCandidateProvider = candidates,
             WorkflowPlanner = new GnOuGo.Flow.Planning.HybridWorkflowPlanner(),

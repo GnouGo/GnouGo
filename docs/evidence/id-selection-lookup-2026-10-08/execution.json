@@ -1,0 +1,78 @@
+{
+  "execution": {
+    "success": false,
+    "outputs": null,
+    "error": {
+      "Code": "CONTRACT_UNSATISFIED",
+      "Type": "CONTRACT_UNSATISFIED",
+      "Message": "The mapping exhausted its cumulative sandbox allowance. [workflow 'main', step 'n_575964d6f73194a2']",
+      "Retryable": false,
+      "Details": {
+        "mapping_resource_limit": true,
+        "source_index": 47,
+        "failed_workflow": "main",
+        "failed_step_id": "n_575964d6f73194a2",
+        "failed_step_type": "mapping.dynamic",
+        "execution_phase": "step"
+      }
+    }
+  },
+  "oracle": {
+    "passed": false,
+    "findings": [
+      "workflow_execution_failed",
+      "workbook_missing"
+    ]
+  },
+  "execution_ms": 762916,
+  "mapping_telemetry": [
+    {
+      "gnougo.mapping.source_items": 3,
+      "gnougo.mapping.model_attempts": 1,
+      "gnougo.mapping.specializations": 0,
+      "gnougo.mapping.cache_hits": 0,
+      "gnougo.mapping.cache_hit": false,
+      "gnougo.mapping.failure_groups": 3,
+      "gnougo.mapping.sample_items": 2,
+      "gnougo.mapping.omitted_items": 1,
+      "gnougo.mapping.request_bytes": 50625,
+      "gnougo.mapping.processed_items": 3,
+      "gnougo.mapping.validated_items": 3,
+      "step": "n_7117a9ac28dd5252",
+      "status": "Succeeded",
+      "duration_ms": 45674.055
+    },
+    {
+      "gnougo.mapping.source_items": 7,
+      "gnougo.mapping.model_attempts": 9,
+      "gnougo.mapping.specializations": 8,
+      "gnougo.mapping.cache_hits": 0,
+      "gnougo.mapping.cache_hit": false,
+      "gnougo.mapping.failure_groups": 1,
+      "gnougo.mapping.sample_items": 1,
+      "gnougo.mapping.omitted_items": 6,
+      "gnougo.mapping.request_bytes": 27760,
+      "gnougo.mapping.processed_items": 7,
+      "gnougo.mapping.validated_items": 7,
+      "step": "n_ed6de7e31b5c0f85",
+      "status": "Succeeded",
+      "duration_ms": 155420.8373
+    },
+    {
+      "gnougo.mapping.source_items": 55,
+      "gnougo.mapping.model_attempts": 10,
+      "gnougo.mapping.specializations": 9,
+      "gnougo.mapping.cache_hits": 0,
+      "gnougo.mapping.cache_hit": false,
+      "gnougo.mapping.failure_groups": 5,
+      "gnougo.mapping.sample_items": 2,
+      "gnougo.mapping.omitted_items": 53,
+      "gnougo.mapping.request_bytes": 46017,
+      "gnougo.mapping.processed_items": 48,
+      "gnougo.mapping.validated_items": 48,
+      "step": "n_575964d6f73194a2",
+      "status": "Failed",
+      "duration_ms": 509763.0645
+    }
+  ]
+}

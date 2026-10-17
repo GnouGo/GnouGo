@@ -55,8 +55,6 @@ Main autonomous research example focused on `SlimFaas`:
 - structured extraction of found signals
 - structured final summary + narrative
 
-> No automatic cookie click: the client/LLM decides, from the rendered HTML, whether to click a button.
-
 > Requires a valid LLM configuration for `llm.call`.
 
 ```powershell
@@ -78,8 +76,6 @@ A more cautious variant of the research agent:
 - reads rendered HTML to identify potential access blockers
 - better robustness, sometimes less coverage
 
-> No automatic cookie click: the client/LLM decides, from the rendered HTML, whether to click a button.
-
 > Requires a valid LLM configuration for `llm.call`.
 
 ```powershell
@@ -99,4 +95,4 @@ dotnet run --project src/GnOuGo.Flow.Cli/GnOuGo.Flow.Cli.csproj -- validate src/
 - `GnOuGo.Browser.Mcp` must be configured in `appsettings.json` on the CLI/Server side.
 - Playwright binaries must be installed for `src/GnOuGo.Browser.Mcp`.
 - Workflows using `llm.call` require a valid LLM configuration.
-- Cookie click logic or link extraction is no longer implemented on the MCP server side: it is now handled by the client/LLM when needed.
+- Browser tools expose observations and explicit actions. Workflows select operations from the user request and available contracts.

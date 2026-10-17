@@ -1,0 +1,158 @@
+{
+  "session": "4e9f48d922a54e15a09ed4ed6da0577b",
+  "retainedRevision": 18,
+  "status": "stopped",
+  "calls": 8,
+  "repairs": 0,
+  "providerCalls": 0,
+  "mcpCalls": 0,
+  "receipts": [
+    {
+      "call": 1,
+      "strictSchemaValid": true,
+      "kind": "discovery",
+      "requestSha256": "3cbb2bd6feb7d2c4b8306f16d14528450efcb0a7fdb9c8bd349af09f431971b3",
+      "receiptSha256": "821f59b7d7d9ac542d0a65bf6a537dc813dc7d53950065b1f85e27c7edf51d0e"
+    },
+    {
+      "call": 2,
+      "strictSchemaValid": true,
+      "kind": "discovery",
+      "requestSha256": "aa6eb3197f57a27eb76a93523431b4fbec7455c3e67bcea06f824a3f0d100d72",
+      "receiptSha256": "015792e0781dbc129c21884dc49f09974af84470438b1623f18a8159f86a169b"
+    },
+    {
+      "call": 3,
+      "strictSchemaValid": true,
+      "kind": "discovery",
+      "requestSha256": "1e1b7c7c3bfbd50929e61799aaef2628c4af601506629374b0467def38c4374c",
+      "receiptSha256": "66ec23f9ea931fac08c07694e5ab2154a21cfd42f2229d371d7cd2a5d9c7bb5d"
+    },
+    {
+      "call": 4,
+      "strictSchemaValid": true,
+      "kind": "discovery",
+      "requestSha256": "502f3a57d3c21f8522e9ed9b453ddd588b8b1659dd09ee15e4928bc81c0ccecb",
+      "receiptSha256": "a0265b7352b20c431b2a3218156c20be2f6245ac617e2a2954ac52b140a5ce25"
+    },
+    {
+      "call": 5,
+      "strictSchemaValid": true,
+      "kind": "discovery",
+      "requestSha256": "7aa38ea48e091302a80070adebdaa026cdcb8e4c488c4491b2b07291d733845e",
+      "receiptSha256": "d57d37e027b6944a1a76105d5392242c0f83e603ea9a0de599eaac0278db3fa1"
+    },
+    {
+      "call": 6,
+      "strictSchemaValid": true,
+      "kind": "discovery",
+      "requestSha256": "3d57ac06c280c67e2b3978e371a95982c32a8eeb0dbaebac43dac43a5e985d73",
+      "receiptSha256": "f898f326a8d274067089627da4a7aca3631a1bb74c808735a099e18e3b56d9a2"
+    },
+    {
+      "call": 7,
+      "strictSchemaValid": true,
+      "kind": "clarification",
+      "requestSha256": "e50a8d8d918e515324d512e958148776f9eb1fb3a62277a38ad0969d84cbd5f2",
+      "receiptSha256": "43e202bc8bf58ba1328de84b3c76eebf33aece50ca7d76ba6481ded167c04512"
+    },
+    {
+      "call": 8,
+      "strictSchemaValid": true,
+      "kind": "proposal",
+      "requestSha256": "f03c2c2a0ad7340706b549e4f377a58cd57cfbaf271f191282574c309cfdba41",
+      "receiptSha256": "86690d3fe9e63593ccd9e7c2bf8b10d92aa22d0b971b3eb33ec15f29ef981838"
+    }
+  ],
+  "offlineReplay": {
+    "receiptReads": 1,
+    "diagnostics": [
+      {
+        "code": "TASK_LITERAL_INVALID",
+        "location": "/tasks/define_workflow/outputs/workflowDefinition",
+        "message": "Literal text cannot contain runtime interpolation.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      }
+    ],
+    "callsUnchanged": 8,
+    "repairsUnchanged": 0
+  },
+  "sanitizedProposalSha256": "f72768b3592c98e63416949a4d12b906fb0bd51a9db9ebe1283ad928c6cb8b73",
+  "sanitization": "HTTPS URLs and source repository labels replaced by inert fixture equivalents; no binding, task, requirement or interpolation was corrected.",
+  "resolvedCapabilities": [
+    {
+      "id": "cap_290179cfd4becc6f2cf8debf",
+      "stepType": "mcp.call",
+      "method": "create_pull_request_with_copilot"
+    },
+    {
+      "id": "cap_fa8aa0024ff2ec0a4f9e61ad",
+      "stepType": "mcp.call",
+      "method": "git_clone"
+    },
+    {
+      "id": "cap_12c417fa0e6759da6af4630a",
+      "stepType": "mcp.call",
+      "method": "request_copilot_review"
+    },
+    {
+      "id": "cap_e45700e336e554dd337ddaeb",
+      "stepType": "mcp.call",
+      "method": "add_reply_to_pull_request_comment"
+    },
+    {
+      "id": "cap_4e481da532370145a641543b",
+      "stepType": "mcp.call",
+      "method": "search_pull_requests"
+    },
+    {
+      "id": "cap_9b6a3f4c1fab83fa518d4b62",
+      "stepType": "mcp.call",
+      "method": "pull_request_review_write"
+    },
+    {
+      "id": "cap_0c45707eabb02da3b0885cf0",
+      "stepType": "mcp.call",
+      "method": "add_comment_to_pending_review"
+    },
+    {
+      "id": "cap_d9be724452300a484d60770e",
+      "stepType": "mcp.call",
+      "method": "add_issue_comment"
+    },
+    {
+      "id": "cap_bed15f26b6b53fb1f2f33e52",
+      "stepType": "mcp.call",
+      "method": "copilot_review"
+    },
+    {
+      "id": "cap_5c32cc076458c7dfeee37a58",
+      "stepType": "mcp.call",
+      "method": "copilot_review_start"
+    },
+    {
+      "id": "cap_da8ef23cfd0a39e685d89eb4",
+      "stepType": "mcp.call",
+      "method": "code_get_policy"
+    },
+    {
+      "id": "cap_e521e4ae474d627359935e32",
+      "stepType": "mcp.call",
+      "method": "code_project_summary"
+    },
+    {
+      "id": "cap_c474f96218a7900510044733",
+      "stepType": "mcp.call",
+      "method": "update_issue_comment"
+    }
+  ],
+  "limitation": "The recorded exact contracts do not establish command/check execution or cleanup capability. No code review, command, GitHub submission or live permission was exercised.",
+  "historicalRecordsUnchanged": true,
+  "retainedGeneration": {
+    "reasoning": "medium",
+    "maxInputTokensPerRequest": 24000,
+    "maxOutputTokens": 32768
+  }
+}

@@ -59,6 +59,33 @@ public sealed class BrowserToolsStructuredOutputTests
 
         Assert.NotEmpty(tools);
         Assert.All(tools, tool => Assert.NotNull(tool.ProtocolTool.OutputSchema));
+        var contentTool = tools.Single(t => t.ProtocolTool.Name == "browser_get_content");
+        var published = BrowserMcpJson.ContentSchema(contentTool.ProtocolTool.OutputSchema!.Value);
+        var properties = published.GetProperty("properties");
+        var acquisition = properties.GetProperty("acquisition").GetProperty("properties");
+        Assert.True(acquisition.TryGetProperty("navigation", out _));
+        Assert.True(acquisition.TryGetProperty("lastResponse", out _));
+        Assert.True(acquisition.TryGetProperty("recoveries", out var recoveries));
+        Assert.Equal("array", recoveries.GetProperty("type").EnumerateArray().First().GetString());
+        var records = properties.GetProperty("observationSnapshot").GetProperty("properties").GetProperty("pages")
+            .GetProperty("items").GetProperty("properties").GetProperty("records");
+        Assert.Equal("array", records.GetProperty("type").GetString());
+        Assert.Equal(properties.GetProperty("observation").GetProperty("properties").GetProperty("records").GetRawText(), records.GetRawText());
+        Assert.Equal("string", records.GetProperty("items").GetProperty("properties").GetProperty("text").GetProperty("type").GetString());
+        var record = records.GetProperty("items").GetProperty("properties");
+        Assert.True(record.TryGetProperty("reference", out _));
+        Assert.Contains(record.GetProperty("actions").GetProperty("items").GetProperty("enum").EnumerateArray(), e => e.GetString() == "activate");
+        foreach (var name in new[] { "browser_click", "browser_fill", "browser_press", "browser_select" })
+        {
+            var input = tools.Single(t => t.ProtocolTool.Name == name).ProtocolTool.InputSchema;
+            Assert.True(input.GetProperty("properties").TryGetProperty("reference", out _));
+            if (input.TryGetProperty("required", out var required))
+                Assert.DoesNotContain(required.EnumerateArray(), field => field.GetString() == "selector");
+        }
+        var url = tools.Single(t => t.ProtocolTool.Name == "browser_get_content").ProtocolTool.InputSchema.GetProperty("properties").GetProperty("url");
+        Assert.True(url.TryGetProperty("pattern", out var pattern), "The producer must publish its absolute HTTP URL requirement.");
+        Assert.Matches(pattern.GetString()!, "https://example.invalid/items/7");
+        Assert.DoesNotMatch(pattern.GetString()!, "https%3A%2F%2Fexample.invalid%2Fitems%2F7");
     }
 
     [Fact]

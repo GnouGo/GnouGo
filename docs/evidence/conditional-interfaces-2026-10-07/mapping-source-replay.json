@@ -1,0 +1,31 @@
+{
+  "kind": "synthetic_deterministic_diagnostic",
+  "candidate": "ee24b8796c96a9da38b3adcdefea5e20cacfd5ca",
+  "results": [
+    {
+      "retained_script_rejected": true,
+      "code": "CONTRACT_UNSATISFIED",
+      "message": "The mapping could not be executed within its restricted profile."
+    },
+    {
+      "diagnostic_correct_path_only": true,
+      "output": [
+        {
+          "observedSearchControls": [
+            {
+              "selector": "#search-observed",
+              "text": "Search",
+              "role": "searchbox",
+              "group": "#panel"
+            }
+          ],
+          "observedConsentControls": [],
+          "captchaOrBlockerIndicators": []
+        }
+      ],
+      "model_calls": 0,
+      "saved_workflow_modified": false,
+      "historical_invocation_replayed": false
+    }
+  ]
+}

@@ -1,0 +1,107 @@
+{
+  "status": "stopped",
+  "revision": 5,
+  "artifact_hash": null,
+  "result": {
+    "status": "stopped",
+    "planning_ms": 444692,
+    "calls": 4,
+    "repairs": 2,
+    "discovery_reads": 2,
+    "review_revisions": 0,
+    "diagnostics": [
+      {
+        "code": "TASK_TRANSFORM_EACH",
+        "location": "/tasks/extract_search_result_pages/each",
+        "message": "Identify one bound collection input and the sole nonnullable array result field.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      },
+      {
+        "code": "CHOICE_UNKNOWN",
+        "location": "/tasks/read_search_results/requires",
+        "message": "Choose a declared business decision.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      },
+      {
+        "code": "TASK_FLATTEN_INVALID",
+        "location": "/tasks/select_first_10_products/inputs/flatCandidates",
+        "message": "Flatten requires one established nonnullable array of nonnullable typed arrays.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      }
+    ],
+    "execution_success": false,
+    "execution_oracle": false,
+    "execution_status": "not_started",
+    "accounting": {
+      "planning": {
+        "logical_calls": 4,
+        "physical_attempts": 5,
+        "known_input_tokens": 29043,
+        "known_output_tokens": 10987,
+        "known_cost_eur": 0.42135504481320435,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "execution": {
+        "logical_calls": 0,
+        "physical_attempts": 0,
+        "known_input_tokens": 0,
+        "known_output_tokens": 0,
+        "known_cost_eur": 0,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "campaign": {
+        "calls": 976,
+        "session_calls": 0,
+        "known_input_tokens": 14124186,
+        "known_output_tokens": 2011331,
+        "known_cost_eur": 116.50958408915287,
+        "reserved_input_tokens": 480000,
+        "reserved_output_tokens": 163840,
+        "reserved_cost_eur": 6.501614794790526,
+        "cost_upper_bound_eur": 123.0111988839434,
+        "unknown_attempts": 5
+      }
+    }
+  },
+  "diagnostics": [
+    {
+      "code": "TASK_TRANSFORM_EACH",
+      "location": "/tasks/extract_search_result_pages/each",
+      "message": "Identify one bound collection input and the sole nonnullable array result field.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "CHOICE_UNKNOWN",
+      "location": "/tasks/read_search_results/requires",
+      "message": "Choose a declared business decision.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "TASK_FLATTEN_INVALID",
+      "location": "/tasks/select_first_10_products/inputs/flatCandidates",
+      "message": "Flatten requires one established nonnullable array of nonnullable typed arrays.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    }
+  ],
+  "failure": null,
+  "execution": null,
+  "oracle": null
+}

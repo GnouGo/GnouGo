@@ -571,6 +571,39 @@ public sealed class GitHubCopilotSdkPermissionTests
         Assert.Contains("token=<redacted>", automatic.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task PreconfiguredAgentGrantApprovesFirstRequestButCannotOverrideHostDenials(bool sandboxBypass)
+    {
+        var store = new MemoryPermissionGrantStore { Reusable = Grant(CopilotPermissionGrantScope.FutureAgentRuns, allowSandboxBypass: true) };
+        var human = new QueueHumanInputProvider("Keep the public API");
+        var events = new RecordingPermissionEventSink();
+        var source = CreateSource(human, store, events, enableSandboxBypassGrants: true);
+        var request = Shell("local verification");
+        request.RequestSandboxBypass = sandboxBypass;
+        var handler = GitHubCopilotSdkClient.BuildPermissionHandler(source);
+        Assert.IsType<PermissionDecisionApproveOnce>(await handler(request, new()));
+        Assert.Empty(human.Requests);
+        var approved = Assert.Single(events.Events, e => e.Kind == "permission.auto_approved");
+        Assert.Equal(CopilotPermissionGrantScope.FutureAgentRuns, approved.Scope);
+        Assert.Equal(sandboxBypass, approved.SandboxBypass);
+
+        var deniedSource = source with { Request = source.Request with { PermissionMode = CopilotPermissionMode.Deny } };
+        Assert.IsType<PermissionDecisionReject>(await GitHubCopilotSdkClient.BuildPermissionHandler(deniedSource)(request, new()));
+        var confined = source with { FileSystem = new TestSessionFileSystem { DenyWrites = true } };
+        Assert.IsType<PermissionDecisionReject>(await GitHubCopilotSdkClient.BuildPermissionHandler(confined)(
+            new PermissionRequestWrite { FileName = "protected.txt", CanOfferSessionApproval = false, Diff = "", Intention = "test" }, new()));
+        Assert.Empty(human.Requests);
+
+        await using var client = new GitHubCopilotSdkClient(new CopilotClient(new CopilotClientOptions()),
+            source.Request.Configuration, Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance);
+        var businessQuestion = client.BuildCreateConfig(source).OnUserInputRequest!;
+        var answer = await businessQuestion(new UserInputRequest { Question = "Which compatibility constraint applies?", AllowFreeform = true }, new());
+        Assert.Equal("Keep the public API", answer.Answer);
+        Assert.Equal("user_input", Assert.Single(human.Requests).Kind);
+    }
+
     private static CopilotSdkSessionConfiguration CreateSource(
         ICopilotHumanInputProvider human,
         ICopilotPermissionGrantStore store,

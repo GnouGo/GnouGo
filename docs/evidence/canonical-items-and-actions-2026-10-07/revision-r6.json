@@ -1,0 +1,10 @@
+{
+  "kind": "revise",
+  "preserveRequirements": true,
+  "expectedRevision": 6,
+  "artifactHash": null,
+  "editablePaths": [
+    "/tasks/visited_products_value/outputs/visited_products"
+  ],
+  "text": "Correct only this output binding: visit_products explicitly exports the collected product port, so bind {\"kind\":\"output\",\"source\":\"visit_products\",\"port\":\"product\"}. The current whole-result reference captures a result envelope, not the declared product array, and cannot satisfy the alternative array interface. Keep every operation, guard, other export, input, objective and cleanup unchanged."
+}

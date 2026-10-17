@@ -1,0 +1,15 @@
+{
+  "cohort": "mappinglive2",
+  "classification": "diagnostic-accounting-regression",
+  "source": "27275d6111ac69807c43e22761fbb53c7e9aa276",
+  "execution_started": false,
+  "planning": {
+    "calls": 5,
+    "repairs": 2,
+    "discovery_reads": 3,
+    "input_tokens": 78709,
+    "output_tokens": 9448,
+    "cost_eur": 0.6031046770601336
+  },
+  "cause": "The runtime inference wrapper was also installed during planning, placing planning receipts in the execution namespace. Campaign spending stayed correct; retained raw subtotals are not rewritten. Select the planning client during planning and use the execution wrapper only during execution."
+}

@@ -13,10 +13,10 @@ public sealed class CompactWireDefaultsTests
         var state = PlannerFixture.Session(); state.Requirements = PlannerFixture.Requirements();
         var schema = PlanningSchemas.Proposal(state);
         var json = JsonNode.Parse("""
-            {"discoveryRequests":null,"plan":{"inputs":[{"name":"text","type":{"kind":"string"}}],"groups":[],"choices":[],
-            "root":{"tasks":[{"id":"interpret","kind":"transform","objective":"Interpret the supplied text","dependsOn":[],
+            {"discoveryRequests":null,"clarifications":null,"plan":{"inputs":[{"name":"text","type":{"kind":"string"}}],"groups":[],"choices":[],
+            "root":{"tasks":[{"id":"interpret","kind":"transform","objective":"Interpret the supplied text","dependsOn":[],"requires":null,
             "inputs":[{"name":"text","value":{"kind":"input","source":"text"}}],
-            "resultType":{"kind":"object","fields":[{"name":"items","type":{"kind":"array","items":{"kind":"string","nullable":true}}}]}}],
+            "resultType":{"kind":"object","fields":[{"name":"items","type":{"kind":"array","minItems":null,"maxItems":null,"items":{"kind":"string","nullable":true}}}]}}],
             "always":[],"outputs":[{"name":"items","value":{"kind":"output","source":"interpret","port":"items"}}]}}}
             """)!;
         Assert.Empty(PlanningContractValidation.ValidateSchema(schema, strict: true));
@@ -42,7 +42,7 @@ public sealed class CompactWireDefaultsTests
     [Fact]
     public void OptionalObjectFieldsAndWorkflowInputsKeepDifferentDefaultRules()
     {
-        var schema = PlanningSchemas.Proposal(PlannerFixture.Session());
+        var schema = PlanningSchemas.FullProposal(PlannerFixture.Session(), compact: false);
         var input = JsonNode.Parse("""{"name":"value","type":{"kind":"string","nullable":true},"required":false}""")!;
         IReadOnlyList<string> Errors(string type) { var contract = PlanningSchemas.Ref(type); contract["$defs"] = schema["$defs"]!.DeepClone(); return PlanningContractValidation.ValidateInstance(input, contract); }
         Assert.Empty(Errors("field")); Assert.NotEmpty(Errors("input"));
@@ -53,6 +53,42 @@ public sealed class CompactWireDefaultsTests
         input["default"] = new JsonObject { ["kind"] = "input", ["source"] = "elsewhere" };
         Assert.NotEmpty(Errors("input")); Assert.NotEmpty(Errors("field"));
         input["default"] = null; Assert.NotEmpty(Errors("input"));
+    }
+
+    [Fact]
+    public async Task InvalidDefaultsAndNullableIterationRemainDiagnosedWithoutRewritingInputs()
+    {
+        var state = PlannerFixture.Session(); state.Requirements = PlannerFixture.Requirements();
+        state.Catalog = await new TestRuntime().DiscoverAsync(state.Request, PlannerFixture.Ct);
+        state.Plan = new() { Inputs = [
+            new() { Name = "active", Type = new() { Kind = "boolean" }, Default = new() { Kind = "null" } },
+            new() { Name = "entries", Type = new() { Kind = "array", Nullable = true, Items = new() { Kind = "string" } } }
+        ], Root = new() { Tasks = [new() { Id = "iterate", Kind = "foreach", Objective = "Retain each supplied entry",
+            Items = new() { Kind = "input", Source = "entries" }, MaxItems = 4, MaxConcurrency = 1,
+            Body = new() { Outputs = [new("entry", new() { Kind = "item" })] } }],
+            Outputs = [new("result", new() { Kind = "output", Source = "iterate", Port = "entry" })] } };
+        var compiler = new TaskPlanCompiler();
+        state.Diagnostics = compiler.Compile(state.Plan, state.Catalog).Diagnostics.ToList();
+        Assert.Contains(state.Diagnostics, d => d.Code == "TASK_DEFAULT_INVALID" && d.Location == "/inputs/active");
+        Assert.Contains(state.Diagnostics, d => d.Code == "TASK_ITEMS_INVALID" && d.Location == "/tasks/iterate/items");
+        state.RevisionScope = TaskPlanRevisions.Scope(state.Plan, state.Diagnostics).ToList();
+        Assert.Equal(new[] { "/inputs/active", "/inputs/entries/type/nullable", "/tasks/iterate/items" }, state.RevisionScope);
+        Assert.Single(RepairPatchTests.Slots(state), s => s.Location == "/inputs/entries/type/nullable");
+        // Requiredness/default omission and nullability are separate business decisions.
+        // A diagnosed nullable leaf requires an explicit edit; other input fields remain fixed.
+        state.Plan.Inputs[0].Default = null; state.Plan.Inputs[1].Type.Nullable = false;
+        var result = compiler.Compile(state.Plan, state.Catalog); Assert.Empty(result.Diagnostics);
+        var document = new GnOuGo.Flow.Core.Compilation.WorkflowCompiler().Compile(
+            GnOuGo.Flow.Core.Parsing.WorkflowParser.Parse(new PlanningGraphCompiler().Compile(result.Graph!, state.Catalog)));
+        var workflow = document.Workflows[document.Entrypoint!]; var engine = new GnOuGo.Flow.Core.Runtime.WorkflowEngine();
+        var values = new JsonArray("b", "a", "b");
+        var successful = await engine.ExecuteAsync(workflow, new JsonObject { ["active"] = true, ["entries"] = values.DeepClone() }, PlannerFixture.Ct);
+        Assert.True(successful.Success); Assert.True(JsonNode.DeepEquals(values, successful.Outputs!["result"]));
+        foreach (var invalid in new[] { new JsonObject { ["active"] = true }, new JsonObject { ["active"] = true, ["entries"] = null }, new JsonObject { ["entries"] = values.DeepClone() } })
+        {
+            var failed = await Assert.ThrowsAsync<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(() => engine.ExecuteAsync(workflow, invalid, PlannerFixture.Ct));
+            Assert.Equal("INPUT_VALIDATION", failed.Code);
+        }
     }
 
     [Theory]
@@ -74,7 +110,8 @@ public sealed class CompactWireDefaultsTests
         var compact = PlanningJsonTransport.TaskPlanPrompt(plan)!;
         var after = compact.Deserialize(PlanningJsonContext.Default.TaskPlan)!;
         Assert.Equal(before, JsonSerializer.Serialize(after, PlanningJsonContext.Default.TaskPlan));
-        var schema = PlanningSchemas.Proposal(PlannerFixture.Session());
+        var state = PlannerFixture.Session(); state.Catalog = catalog;
+        var schema = PlanningSchemas.FullProposal(state, compact: false);
         var wire = TestRuntime.Response(new() { StructuredOutputSchema = schema }, new() { Plan = plan, Requirements = PlannerFixture.Requirements() }).Json!;
         Assert.Empty(PlanningContractValidation.ValidateInstance(wire, schema));
         Assert.Equal(before, JsonSerializer.Serialize(wire["plan"]!.Deserialize(PlanningJsonContext.Default.TaskPlan), PlanningJsonContext.Default.TaskPlan));

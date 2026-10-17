@@ -1,0 +1,72 @@
+[
+  {
+    "variant": "complete",
+    "xlsx_sha256": "9f243b915f2705926a5451d7c7e953bcffe6b26ff9bc98f659b4d9a52f9c0dc5",
+    "rows_including_header": 11,
+    "product_visits": 10,
+    "complete_acquisitions": 11,
+    "exact_original_cells": true,
+    "original_navigation_order_and_arguments": true,
+    "no_formulas": true,
+    "blank_positions_preserved": true,
+    "writer_path_verified": true,
+    "cleanup_recorded": true,
+    "absence_basis": null
+  },
+  {
+    "variant": "one",
+    "xlsx_sha256": "361838eec11bf807d1b0a1708442af1f4ba1f14c79cda59b52c7dce5ff95b0b1",
+    "rows_including_header": 2,
+    "product_visits": 1,
+    "complete_acquisitions": 2,
+    "exact_original_cells": true,
+    "original_navigation_order_and_arguments": true,
+    "no_formulas": true,
+    "blank_positions_preserved": true,
+    "writer_path_verified": true,
+    "cleanup_recorded": true,
+    "absence_basis": null
+  },
+  {
+    "variant": "empty",
+    "xlsx_sha256": "0698a3a59393a711403b43370654a71e69c277516d5033ecd2edcf2e3e9a36af",
+    "rows_including_header": 1,
+    "product_visits": 0,
+    "complete_acquisitions": 1,
+    "exact_original_cells": true,
+    "original_navigation_order_and_arguments": true,
+    "no_formulas": true,
+    "blank_positions_preserved": true,
+    "writer_path_verified": true,
+    "cleanup_recorded": true,
+    "absence_basis": "controlled local site and complete snapshots"
+  },
+  {
+    "variant": "missing",
+    "xlsx_sha256": "0a67ee56ed90f54d64a9d72358a5df1aaee3f2091e1e2bf5534cd5fc235e8d5e",
+    "rows_including_header": 11,
+    "product_visits": 10,
+    "complete_acquisitions": 11,
+    "exact_original_cells": true,
+    "original_navigation_order_and_arguments": true,
+    "no_formulas": true,
+    "blank_positions_preserved": true,
+    "writer_path_verified": true,
+    "cleanup_recorded": true,
+    "absence_basis": "controlled local site and complete snapshots"
+  },
+  {
+    "variant": "repeated",
+    "xlsx_sha256": "5251c80eb8f2cceed4eb06fdd44968321786d9e17cdfe1de1420c22704d50cce",
+    "rows_including_header": 11,
+    "product_visits": 10,
+    "complete_acquisitions": 11,
+    "exact_original_cells": true,
+    "original_navigation_order_and_arguments": true,
+    "no_formulas": true,
+    "blank_positions_preserved": true,
+    "writer_path_verified": true,
+    "cleanup_recorded": true,
+    "absence_basis": null
+  }
+]

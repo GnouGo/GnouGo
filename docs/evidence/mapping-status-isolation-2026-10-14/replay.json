@@ -1,0 +1,66 @@
+{
+  "run": "509b103d5b5158a01feab0427d367171",
+  "revision": 98,
+  "status": "failed",
+  "run_head_sha256": "7879fcecb470e0dd2bbac287a402eb72996163bc445f823cda6e3161c075bfe5",
+  "planning_record_sha256": "f9d895796e946a6244bb1fb550225a075eeea0ae8e19b7be66914488007510d8",
+  "historical_yaml_sha256": "3b25b6d9bc45eeccf5690b0c424b2e90e40bb87efd266a8118a336c53032b99b",
+  "review_yaml_sha256": "5f06ffc068eb9f89feb5f677225297231daaabef4f79f49c50aa58dc8bc1d103",
+  "yaml_diff": "terminal_newline_only",
+  "source_sha256": "286ce8fbdb7ea8828365eaa069a0fe672878f436df18d36ad5f35943c1687c17",
+  "source_pages": 17,
+  "source_records": 673,
+  "operations": [
+    {
+      "method": "browser_get_content",
+      "status": "completed",
+      "success": true
+    },
+    {
+      "method": "browser_get_content",
+      "status": "completed",
+      "success": true
+    }
+  ],
+  "replays": [
+    {
+      "script_sha256": "55fe19624376927d5460cfc32c546b7c5368997e90a9498e97186f93b9aa993c",
+      "receipt_sha256": "c7448fc00360eea8e452ec7b279acd5d01d499d04b41c6cae48c156e1b6597de",
+      "code": "CONTRACT_UNSATISFIED",
+      "message": "Mapping result $/status/success contains a missing or invented scalar. Return observed data; defaults belong to the target contract.",
+      "details": {
+        "mapping_failure_kind": "program",
+        "mapping_failure_reason": "ungrounded_scalar",
+        "mapping_result_path": "$/status/success"
+      }
+    },
+    {
+      "script_sha256": "f7d50757c61b961a930dbf903d8d4788154dc88ee699538d3ffd0ffdff25606f",
+      "receipt_sha256": "b4e564b7776affc75ff21d3cfb43d674521b805f6eafb329241384ae13d8cb90",
+      "code": "CONTRACT_UNSATISFIED",
+      "message": "Mapping result $/status/success contains a missing or invented scalar. Return observed data; defaults belong to the target contract.",
+      "details": {
+        "mapping_failure_kind": "program",
+        "mapping_failure_reason": "ungrounded_scalar",
+        "mapping_result_path": "$/status/success"
+      }
+    }
+  ],
+  "facts_only_ablation_exact": true,
+  "provider_calls": 0,
+  "mcp_calls": 0,
+  "offline_revision_calls": 1,
+  "offline_status": "final_review",
+  "offline_revision": 9,
+  "approved": false,
+  "source_review_revision": 7,
+  "operations_unchanged": true,
+  "requirements_unchanged": true,
+  "tasks_before": 14,
+  "tasks_after": 15,
+  "yaml_bytes_before": 89472,
+  "yaml_bytes_after": 113176,
+  "revision_request_utf8_bytes": 89635,
+  "historical_head_unchanged": true,
+  "historical_planning_record_unchanged": true
+}

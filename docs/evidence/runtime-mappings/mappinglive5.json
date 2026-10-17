@@ -1,0 +1,379 @@
+{
+  "campaign": "schema-portability-20261002",
+  "passed": 0,
+  "required": 6,
+  "complete": false,
+  "manifest": {
+    "production_sha": "c09d75e1ccc328a9e05e9229980f15fcb3497a76",
+    "harness_sha": "c09d75e1ccc328a9e05e9229980f15fcb3497a76",
+    "cohort": "mappinglive5",
+    "provider": "OpenAi",
+    "model": "gpt-5.5-2026-04-24",
+    "reasoning": "medium",
+    "host_configuration_hash": "7a7fec4a3c4569be8862a2a27f071dcc6a4d080f76f86d11d40a47e9cdf85486",
+    "max_input_tokens": 96000,
+    "max_output_tokens": 32768,
+    "planning_attempts": 8,
+    "repairs": 2,
+    "cost_ceiling_eur": 50,
+    "browser_keep_open": false,
+    "os": "macOS 26.5.2",
+    "architecture": "Arm64",
+    "framework": ".NET 10.0.8",
+    "execution_path_hash": "d1bb0eda12e1e1926a28e0cb1705d7f8a871a22948338a704226076a4db8235e",
+    "amazon_prompt": "417bb3fcd521d097b40775505acc75ede0896e8d83e06da2f5d04077c7812a50",
+    "code_prompt": "bdb354f8cd88a2a6cf06d0bce25d077a0c1eefc195a57d3c0ff60fcf46d5286c",
+    "harness_tree": "89a21c22c02b4a4fcf14c095ec2bc11493cad41d",
+    "scenario_count": 2,
+    "repetitions": 3,
+    "oracle_version": "real-workflows-v1"
+  },
+  "runs": [
+    {
+      "status": "not_started",
+      "execution_oracle": false,
+      "run": "mappinglive5-amazon-1",
+      "accounting": {
+        "planning": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "execution": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "campaign": {
+          "calls": 333,
+          "session_calls": 0,
+          "known_input_tokens": 4933968,
+          "known_output_tokens": 461195,
+          "known_cost_eur": 34.24155430430756,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0,
+          "cost_upper_bound_eur": 34.24155430430756,
+          "unknown_attempts": 0
+        }
+      }
+    },
+    {
+      "status": "not_started",
+      "execution_oracle": false,
+      "run": "mappinglive5-amazon-2",
+      "accounting": {
+        "planning": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "execution": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "campaign": {
+          "calls": 333,
+          "session_calls": 0,
+          "known_input_tokens": 4933968,
+          "known_output_tokens": 461195,
+          "known_cost_eur": 34.24155430430756,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0,
+          "cost_upper_bound_eur": 34.24155430430756,
+          "unknown_attempts": 0
+        }
+      }
+    },
+    {
+      "status": "not_started",
+      "execution_oracle": false,
+      "run": "mappinglive5-amazon-3",
+      "accounting": {
+        "planning": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "execution": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "campaign": {
+          "calls": 333,
+          "session_calls": 0,
+          "known_input_tokens": 4933968,
+          "known_output_tokens": 461195,
+          "known_cost_eur": 34.24155430430756,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0,
+          "cost_upper_bound_eur": 34.24155430430756,
+          "unknown_attempts": 0
+        }
+      }
+    },
+    {
+      "status": "stopped",
+      "planning_ms": 221437,
+      "calls": 4,
+      "repairs": 2,
+      "discovery_reads": 3,
+      "diagnostics": [
+        {
+          "code": "TASK_TRANSFORM_CONSTRAINT",
+          "location": "/tasks/assemble_clone_failure_review_json/resultType/fields/contentBase64/type/enum",
+          "message": "Declare a compatible finite string domain for /tasks/write_clone_failure_review_json/inputs/parameters; expected \"string\" pattern \"^(?:[A-Za-z0-9\\u002B/]{4})*(?:[A-Za-z0-9\\u002B/]{2}==|[A-Za-z0-9\\u002B/]{3}=)?$\" minLength 1 maxLength 65536.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "TASK_TRANSFORM_CONSTRAINT",
+          "location": "/tasks/assemble_incomplete_compare_review_json/resultType/fields/contentBase64/type/enum",
+          "message": "Declare a compatible finite string domain for /tasks/write_incomplete_compare_review_json/inputs/parameters; expected \"string\" pattern \"^(?:[A-Za-z0-9\\u002B/]{4})*(?:[A-Za-z0-9\\u002B/]{2}==|[A-Za-z0-9\\u002B/]{3}=)?$\" minLength 1 maxLength 65536.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "TASK_TRANSFORM_CONSTRAINT",
+          "location": "/tasks/assemble_success_review_json/resultType/fields/contentBase64/type/enum",
+          "message": "Declare a compatible finite string domain for /tasks/write_success_review_json/inputs/parameters; expected \"string\" pattern \"^(?:[A-Za-z0-9\\u002B/]{4})*(?:[A-Za-z0-9\\u002B/]{2}==|[A-Za-z0-9\\u002B/]{3}=)?$\" minLength 1 maxLength 65536.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "TASK_DEPENDENCY_UNKNOWN",
+          "location": "/tasks/extract_observed_commands/dependsOn",
+          "message": "Dependencies run_declared_toolchain_checks must name preceding tasks in scope /tasks/review_diff_when_complete/body. Ancestor values may be captured without cross-scope dependsOn entries.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "CONTRACT_UNSATISFIED",
+          "location": "/tasks/write_clone_failure_review_json/inputs/parameters",
+          "message": "TASK_INPUT_TYPE: Produced \"object\"; expected \"object\". The business value does not satisfy its authoritative contract.",
+          "required": true,
+          "validationStage": "contract:TASK_INPUT_TYPE",
+          "rule": null
+        },
+        {
+          "code": "CONTRACT_UNSATISFIED",
+          "location": "/tasks/write_incomplete_compare_review_json/inputs/parameters",
+          "message": "TASK_INPUT_TYPE: Produced \"object\"; expected \"object\". The business value does not satisfy its authoritative contract.",
+          "required": true,
+          "validationStage": "contract:TASK_INPUT_TYPE",
+          "rule": null
+        },
+        {
+          "code": "CONTRACT_UNSATISFIED",
+          "location": "/tasks/write_success_review_json/inputs/parameters",
+          "message": "TASK_INPUT_TYPE: Produced \"object\"; expected \"object\". The business value does not satisfy its authoritative contract.",
+          "required": true,
+          "validationStage": "contract:TASK_INPUT_TYPE",
+          "rule": null
+        },
+        {
+          "code": "CONTRACT_UNSATISFIED",
+          "location": "/tasks/write_clone_failure_review_json/inputs/parameters",
+          "message": "TASK_INPUT_TYPE: Produced \"object\" from /tasks/assemble_clone_failure_review_json/resultType; expected \"object\". The business value does not satisfy its authoritative contract.",
+          "required": true,
+          "validationStage": "contract:TASK_INPUT_TYPE",
+          "rule": null
+        },
+        {
+          "code": "CONTRACT_UNSATISFIED",
+          "location": "/tasks/write_incomplete_compare_review_json/inputs/parameters",
+          "message": "TASK_INPUT_TYPE: Produced \"object\" from /tasks/assemble_incomplete_compare_review_json/resultType; expected \"object\". The business value does not satisfy its authoritative contract.",
+          "required": true,
+          "validationStage": "contract:TASK_INPUT_TYPE",
+          "rule": null
+        },
+        {
+          "code": "CONTRACT_UNSATISFIED",
+          "location": "/tasks/write_success_review_json/inputs/parameters",
+          "message": "TASK_INPUT_TYPE: Produced \"object\" from /tasks/assemble_success_review_json/resultType; expected \"object\". The business value does not satisfy its authoritative contract.",
+          "required": true,
+          "validationStage": "contract:TASK_INPUT_TYPE",
+          "rule": null
+        }
+      ],
+      "execution_success": false,
+      "execution_oracle": false,
+      "execution_status": "not_started",
+      "accounting": {
+        "planning": {
+          "logical_calls": 4,
+          "physical_attempts": 4,
+          "known_input_tokens": 53014,
+          "known_output_tokens": 17725,
+          "known_cost_eur": 0.7098619153674833,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "execution": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "campaign": {
+          "calls": 333,
+          "session_calls": 0,
+          "known_input_tokens": 4933968,
+          "known_output_tokens": 461195,
+          "known_cost_eur": 34.24155430430756,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0,
+          "cost_upper_bound_eur": 34.24155430430756,
+          "unknown_attempts": 0
+        }
+      },
+      "run": "mappinglive5-code-1"
+    },
+    {
+      "status": "not_started",
+      "execution_oracle": false,
+      "run": "mappinglive5-code-2",
+      "accounting": {
+        "planning": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "execution": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "campaign": {
+          "calls": 333,
+          "session_calls": 0,
+          "known_input_tokens": 4933968,
+          "known_output_tokens": 461195,
+          "known_cost_eur": 34.24155430430756,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0,
+          "cost_upper_bound_eur": 34.24155430430756,
+          "unknown_attempts": 0
+        }
+      }
+    },
+    {
+      "status": "not_started",
+      "execution_oracle": false,
+      "run": "mappinglive5-code-3",
+      "accounting": {
+        "planning": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "execution": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "campaign": {
+          "calls": 333,
+          "session_calls": 0,
+          "known_input_tokens": 4933968,
+          "known_output_tokens": 461195,
+          "known_cost_eur": 34.24155430430756,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0,
+          "cost_upper_bound_eur": 34.24155430430756,
+          "unknown_attempts": 0
+        }
+      }
+    }
+  ],
+  "accounting": {
+    "calls": 333,
+    "session_calls": 0,
+    "known_input_tokens": 4933968,
+    "known_output_tokens": 461195,
+    "known_cost_eur": 34.24155430430756,
+    "reserved_input_tokens": 0,
+    "reserved_output_tokens": 0,
+    "reserved_cost_eur": 0,
+    "cost_upper_bound_eur": 34.24155430430756,
+    "unknown_attempts": 0
+  }
+}

@@ -1,0 +1,296 @@
+{
+  "sourceCommit": "c20750e3a7ab4d2d2a6a2d4c97dafec3a82d0e31",
+  "command": "dotnet test GnOuGo.Agent.sln -m:1 -warnaserror --logger trx",
+  "projects": [
+    {
+      "project": "GnOuGo.DocIngestor.Tests",
+      "passed": 89,
+      "failed": 0,
+      "total": 89,
+      "skipped": 0
+    },
+    {
+      "project": "GnOuGo.Diff.Tests",
+      "passed": 52,
+      "failed": 0,
+      "total": 52,
+      "skipped": 0
+    },
+    {
+      "project": "GnOuGo.KeyVault.Core.Tests",
+      "passed": 12,
+      "failed": 0,
+      "total": 12,
+      "skipped": 0
+    },
+    {
+      "project": "GnOuGo.Flow.Tests",
+      "passed": 945,
+      "failed": 0,
+      "total": 945,
+      "skipped": 0
+    },
+    {
+      "project": "GnOuGo.Flow.Integrations.Tests",
+      "passed": 85,
+      "failed": 0,
+      "total": 85,
+      "skipped": 0
+    },
+    {
+      "project": "GnOuGo.AI.Core.Tests",
+      "passed": 225,
+      "failed": 0,
+      "total": 225,
+      "skipped": 0
+    },
+    {
+      "project": "GnOuGo.AI.Local.Tests",
+      "passed": 14,
+      "failed": 0,
+      "total": 14,
+      "skipped": 0
+    },
+    {
+      "project": "GnOuGo.Agent.Mcp.Tests",
+      "passed": 103,
+      "failed": 0,
+      "total": 103,
+      "skipped": 0
+    },
+    {
+      "project": "GnOuGo.Cmd.Mcp.Tests",
+      "passed": 93,
+      "failed": 0,
+      "total": 100,
+      "skipped": 7
+    },
+    {
+      "project": "GnOuGo.Browser.Mcp.Tests",
+      "passed": 43,
+      "failed": 0,
+      "total": 43,
+      "skipped": 0
+    },
+    {
+      "project": "GnOuGo.Agent.Server.Tests",
+      "passed": 553,
+      "failed": 0,
+      "total": 554,
+      "skipped": 1
+    },
+    {
+      "project": "GnOuGo.Document.Mcp.Tests",
+      "passed": 63,
+      "failed": 0,
+      "total": 63,
+      "skipped": 0
+    },
+    {
+      "project": "GnOuGo.KeyVault.Mcp.Tests",
+      "passed": 9,
+      "failed": 0,
+      "total": 9,
+      "skipped": 0
+    },
+    {
+      "project": "GnOuGo.Files.Server.Tests",
+      "passed": 10,
+      "failed": 0,
+      "total": 10,
+      "skipped": 0
+    },
+    {
+      "project": "GnOuGo.DocIngestor.Mcp.Tests",
+      "passed": 7,
+      "failed": 0,
+      "total": 7,
+      "skipped": 0
+    },
+    {
+      "project": "GnOuGo.OtlpCollector.Server.Tests",
+      "passed": 7,
+      "failed": 0,
+      "total": 7,
+      "skipped": 0
+    },
+    {
+      "project": "GnOuGo.GithubCopilot.Mcp.Tests",
+      "passed": 199,
+      "failed": 0,
+      "total": 199,
+      "skipped": 0
+    },
+    {
+      "project": "GnOuGo.GithubCopilot.Core.Tests",
+      "passed": 139,
+      "failed": 0,
+      "total": 139,
+      "skipped": 0
+    },
+    {
+      "project": "GnOuGo.GithubCopilot.E2E.Tests",
+      "passed": 7,
+      "failed": 0,
+      "total": 12,
+      "skipped": 5
+    },
+    {
+      "project": "GnOuGo.Observability.Core.Tests",
+      "passed": 3,
+      "failed": 0,
+      "total": 3,
+      "skipped": 0
+    },
+    {
+      "project": "GnOuGo.Git.Mcp.Tests",
+      "passed": 83,
+      "failed": 0,
+      "total": 83,
+      "skipped": 0
+    },
+    {
+      "project": "GnOuGo.Workspace.Tests",
+      "passed": 30,
+      "failed": 0,
+      "total": 30,
+      "skipped": 0
+    },
+    {
+      "project": "GnOuGo.Mcp.Core.Tests",
+      "passed": 42,
+      "failed": 0,
+      "total": 42,
+      "skipped": 0
+    },
+    {
+      "project": "GnOuGo.Flow.Mermaid.Tests",
+      "passed": 12,
+      "failed": 0,
+      "total": 12,
+      "skipped": 0
+    },
+    {
+      "project": "GnOuGo.Assets.Bears.Tests",
+      "passed": 91,
+      "failed": 0,
+      "total": 91,
+      "skipped": 0
+    },
+    {
+      "project": "GnOuGo.Assets.Animation.Tests",
+      "passed": 42,
+      "failed": 0,
+      "total": 42,
+      "skipped": 0
+    },
+    {
+      "project": "GnOuGo.Assets.Animation.Server.Tests",
+      "passed": 13,
+      "failed": 0,
+      "total": 13,
+      "skipped": 0
+    },
+    {
+      "project": "GnOuGo.Assets.Bears.Server.Tests",
+      "passed": 28,
+      "failed": 0,
+      "total": 28,
+      "skipped": 0
+    },
+    {
+      "project": "GnOuGo.Flow.Planning.Tests",
+      "passed": 794,
+      "failed": 0,
+      "total": 794,
+      "skipped": 0
+    },
+    {
+      "project": "GnOuGo.ProxyCopilot.Server.Tests",
+      "passed": 177,
+      "failed": 0,
+      "total": 177,
+      "skipped": 0
+    },
+    {
+      "project": "GnOuGo.Auth.Core.Tests",
+      "passed": 8,
+      "failed": 0,
+      "total": 8,
+      "skipped": 0
+    },
+    {
+      "project": "GnOuGo.Flow.Persistence.Tests",
+      "passed": 3,
+      "failed": 0,
+      "total": 3,
+      "skipped": 0
+    },
+    {
+      "project": "GnOuGo.Flow.Copilot.Tests",
+      "passed": 5,
+      "failed": 0,
+      "total": 5,
+      "skipped": 0
+    }
+  ],
+  "existingSkippedTests": [
+    "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.LaunchInitializationPreservesLeadingScriptDeclarations(script: \"using namespace System\\n[Console]::WriteLine('names\"\u00b7\u00b7\u00b7, expected: \"namespace declaration\", exitCode: 0)",
+    "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.DefaultLaunchUsesOnlyTheSelectedShellsBuiltInModulePath",
+    "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.TimeoutAndCancellationTerminateTheChildTree(cancel: False)",
+    "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.PrivateEofPreservesRepeatedCommandsUnicodeQuotesAndExitCodes(exitCode: 3)",
+    "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.PrivateEofPreservesRepeatedCommandsUnicodeQuotesAndExitCodes(exitCode: 0)",
+    "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.LaunchInitializationPreservesLeadingScriptDeclarations(script: \"param([string]$text = 'parameter default'); [Conso\"\u00b7\u00b7\u00b7, expected: \"parameter default\", exitCode: 3)",
+    "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.TimeoutAndCancellationTerminateTheChildTree(cancel: True)",
+    "GnOuGo.Agent.Server.Tests.PlanningClarificationBrowserTests.DesignerBrowserUsesRealPersistedQuestionsAndExplicitSubmission",
+    "GnOuGo.GithubCopilot.E2E.Tests.LiveControlledEditingTests.RealModel_InspectsEditsAndVerifiesResults(managed: False, bounded: False, executeTests: True)",
+    "GnOuGo.GithubCopilot.E2E.Tests.LiveControlledEditingTests.RealModel_InspectsEditsAndVerifiesResults(managed: True, bounded: True, executeTests: False)",
+    "GnOuGo.GithubCopilot.E2E.Tests.LiveControlledEditingTests.RealModel_InspectsEditsAndVerifiesResults(managed: True, bounded: True, executeTests: True)",
+    "GnOuGo.GithubCopilot.E2E.Tests.LiveControlledEditingTests.RealModel_InspectsEditsAndVerifiesResults(managed: True, bounded: False, executeTests: True)",
+    "GnOuGo.GithubCopilot.E2E.Tests.LivePullRequestReviewTests.ConfiguredOpenAiProvider_CanReviewExactDiffWithoutPublishing"
+  ],
+  "additionalChecks": {
+    "planningNativeAot": "passed",
+    "documentNativeAotPublish": "passed",
+    "browserManagedPublish": "passed",
+    "publishedServerEncryptedRecoveryV1V2": "passed",
+    "releasePackages": [
+      "Flow.Core",
+      "Flow.Planning",
+      "Flow.Integrations",
+      "Mcp.Core"
+    ],
+    "frontendProductionBuild": "passed during solution build",
+    "localExecutionOracles": {
+      "development": {
+        "passed": 7,
+        "total": 7
+      },
+      "published": {
+        "passed": 7,
+        "total": 7
+      },
+      "harnessRevision": "c20750e3a7ab4d2d2a6a2d4c97dafec3a82d0e31",
+      "note": "The complete final suite includes exact error-code/method, disposable-parent, XLSX and cleanup oracles. The local-site host ignores ambient endpoints; all seven cases also pass with two conflicting injected Kestrel endpoints."
+    }
+  },
+  "totals": {
+    "projects": 33,
+    "total": 3999,
+    "passed": 3986,
+    "failed": 0,
+    "skipped": 13
+  },
+  "ci": {
+    "sourceCommit": "c20750e3a7ab4d2d2a6a2d4c97dafec3a82d0e31",
+    "deterministicPlanner": {
+      "status": "success",
+      "url": "https://github.com/GnouGo/GnouGo/actions/runs/36977798575"
+    },
+    "stableDotnetAgentServerAndLinuxPublication": {
+      "status": "success",
+      "url": "https://github.com/GnouGo/GnouGo/actions/runs/36977798927"
+    },
+    "scope": "Named jobs passed on the implementation commit. Unrelated desktop/container matrix jobs may still be running; this report does not claim their completion."
+  }
+}

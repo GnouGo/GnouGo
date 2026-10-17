@@ -1,0 +1,37 @@
+{
+  "run": "contractsreview20261004e-code-1",
+  "source": "36fc937d8a846dce820cb7792ac7c6e19f4b0c7b",
+  "working_tree_dirty": false,
+  "compiled": false,
+  "valid": false,
+  "diagnostics": [
+    {
+      "code": "TASK_PRESENCE_SCOPE",
+      "message": "Presence requires a preceding task in the same scope.",
+      "location": "/tasks/collect_checks_observation/condition"
+    },
+    {
+      "code": "TASK_PRESENCE_SCOPE",
+      "message": "Presence requires a preceding task in the same scope.",
+      "location": "/tasks/collect_clone_observation/condition"
+    },
+    {
+      "code": "TASK_PRESENCE_SCOPE",
+      "message": "Presence requires a preceding task in the same scope.",
+      "location": "/tasks/collect_compare_observation/condition"
+    },
+    {
+      "code": "TASK_PRESENCE_SCOPE",
+      "message": "Presence requires a preceding task in the same scope.",
+      "location": "/tasks/collect_review_observation/condition"
+    },
+    {
+      "code": "TASK_PRESENCE_SCOPE",
+      "message": "Presence requires a preceding task in the same scope.",
+      "location": "/tasks/collect_runtime_context_observation/condition"
+    }
+  ],
+  "model_calls": 0,
+  "repairs": 0,
+  "saved_session_modified": false
+}

@@ -1,0 +1,88 @@
+[
+  {
+    "server": "GnOuGo.Document.Mcp",
+    "tool": "document_get_policy",
+    "error": false,
+    "latency_ms": 15,
+    "result_success": null,
+    "closed": null
+  },
+  {
+    "server": "GnOuGo.Browser.Mcp",
+    "tool": "browser_get_content",
+    "error": false,
+    "latency_ms": 5217,
+    "result_success": true,
+    "closed": null,
+    "snapshot": {
+      "id": "5b90e4342b184e9b9c5b671d52e9072a",
+      "recordCount": 138,
+      "captureTruncated": false,
+      "manifestTruncated": false,
+      "pages": 3
+    }
+  },
+  {
+    "server": "GnOuGo.Browser.Mcp",
+    "tool": "browser_get_content",
+    "error": false,
+    "latency_ms": 74,
+    "result_success": true,
+    "closed": null,
+    "snapshot": {
+      "id": "aa0a0756bcf848daa491a008931b14a0",
+      "recordCount": 268,
+      "captureTruncated": false,
+      "manifestTruncated": false,
+      "pages": 7
+    }
+  },
+  {
+    "server": "GnOuGo.Browser.Mcp",
+    "tool": "browser_fill",
+    "error": false,
+    "latency_ms": 2572,
+    "result_success": true,
+    "closed": null
+  },
+  {
+    "server": "GnOuGo.Browser.Mcp",
+    "tool": "browser_get_content",
+    "error": false,
+    "latency_ms": 5793,
+    "result_success": true,
+    "closed": null,
+    "snapshot": {
+      "id": "9d4e1607141c426d87462f58a5ab61f7",
+      "recordCount": 1563,
+      "captureTruncated": false,
+      "manifestTruncated": false,
+      "pages": 55
+    }
+  },
+  {
+    "server": "GnOuGo.Browser.Mcp",
+    "tool": "browser_close",
+    "error": false,
+    "latency_ms": 1064,
+    "result_success": true,
+    "closed": true
+  },
+  {
+    "server": "GnOuGo.Browser.Mcp",
+    "tool": "browser_get_content",
+    "error": true,
+    "latency_ms": 1,
+    "result_success": false,
+    "closed": null,
+    "error_code": "INVALID_INPUT"
+  },
+  {
+    "server": "GnOuGo.Browser.Mcp",
+    "tool": "browser_close",
+    "error": false,
+    "latency_ms": 1002,
+    "result_success": true,
+    "closed": true
+  }
+]

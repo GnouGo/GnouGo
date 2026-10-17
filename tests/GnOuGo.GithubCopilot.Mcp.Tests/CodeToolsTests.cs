@@ -17,9 +17,9 @@ public sealed class CodeToolsTests : IDisposable
 	}
 
 	[Fact]
-	public void ParseContextFiles_RemovesEmptyAndDuplicateValues()
+	public void ContextFiles_PreserveFirstCaseInsensitiveOccurrence()
 	{
-		var files = CodeTools.ParseContextFiles("[\"src/Program.cs\", \"\", \"src/Program.cs\", \"README.md\"]");
+		var files = CopilotListContract.Normalize(["src/Program.cs", "SRC/Program.cs", "README.md"], "contextFiles", StringComparer.OrdinalIgnoreCase);
 
 		Assert.Equal(["src/Program.cs", "README.md"], files);
 	}
@@ -50,7 +50,7 @@ public sealed class CodeToolsTests : IDisposable
 
 		using var tenant = assistant.Trace.Push(CodeMcpTraceContext.FromMcpMeta(new System.Text.Json.Nodes.JsonObject { ["gnougo"] = new System.Text.Json.Nodes.JsonObject { ["tenantId"] = "test" } }));
 
-		var result = await tools.SuggestChangeAsync(".", "Add a greeting method.", "[\"src/Program.cs\"]", cancellationToken: TestContext.Current.CancellationToken);
+		var result = await tools.SuggestChangeAsync(".", "Add a greeting method.", ["src/Program.cs"], cancellationToken: TestContext.Current.CancellationToken);
 
 		var suggestion = Assert.IsType<CodeSuggestionResult>(result);
 		Assert.Equal("Add a greeting method.", suggestion.Task);
@@ -80,7 +80,7 @@ public sealed class CodeToolsTests : IDisposable
 	}
 
 	[Fact]
-	public async Task SuggestChangeAsync_WhenInputJsonFails_ReturnsStructuredFailure()
+	public async Task SuggestChangeAsync_WhenTypedListIsInvalid_ReturnsStructuredFailure()
 	{
 		var settings = CreateSettings();
 		var assistant = new CopilotTestHost(settings, _root);
@@ -88,7 +88,7 @@ public sealed class CodeToolsTests : IDisposable
 
 		using var tenant = assistant.Trace.Push(CodeMcpTraceContext.FromMcpMeta(new System.Text.Json.Nodes.JsonObject { ["gnougo"] = new System.Text.Json.Nodes.JsonObject { ["tenantId"] = "test" } }));
 
-		var result = await tools.SuggestChangeAsync(".", "Plan this change.", "{", cancellationToken: TestContext.Current.CancellationToken);
+		var result = await tools.SuggestChangeAsync(".", "Plan this change.", [" "], cancellationToken: TestContext.Current.CancellationToken);
 
 		Assert.False(result.Success);
 		Assert.False(result.Ok);
@@ -107,7 +107,7 @@ public sealed class CodeToolsTests : IDisposable
 
 		using var tenant = assistant.Trace.Push(CodeMcpTraceContext.FromMcpMeta(new System.Text.Json.Nodes.JsonObject { ["gnougo"] = new System.Text.Json.Nodes.JsonObject { ["tenantId"] = "test" } }));
 
-		var result = await tools.AgentEditAsync(".", "Implement the change.", "[\"src/Program.cs\"]", provider: "CustomCopilot", cancellationToken: TestContext.Current.CancellationToken);
+		var result = await tools.AgentEditAsync(".", "Implement the change.", ["src/Program.cs"], provider: "CustomCopilot", cancellationToken: TestContext.Current.CancellationToken);
 
 		var edit = Assert.IsType<CodeAgentEditResult>(result);
 		Assert.Equal("Implement the change.", edit.Task);
@@ -152,7 +152,7 @@ public sealed class CodeToolsTests : IDisposable
 
 		using var tenant = assistant.Trace.Push(CodeMcpTraceContext.FromMcpMeta(new System.Text.Json.Nodes.JsonObject { ["gnougo"] = new System.Text.Json.Nodes.JsonObject { ["tenantId"] = "test" } }));
 
-		var result = await tools.SuggestChangeAsync("workspace/oidc-client", "Plan this change.", "[\"src/Program.cs\"]", cancellationToken: TestContext.Current.CancellationToken);
+		var result = await tools.SuggestChangeAsync("workspace/oidc-client", "Plan this change.", ["src/Program.cs"], cancellationToken: TestContext.Current.CancellationToken);
 
 		var suggestion = Assert.IsType<CodeSuggestionResult>(result);
 		Assert.Equal("fake suggestion", suggestion.Suggestion);

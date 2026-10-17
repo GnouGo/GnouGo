@@ -1,0 +1,79 @@
+{
+  "summary": "Accepter une seule entrée publique `query`, rechercher l’article sur Amazon.fr, traiter au maximum les 10 premiers produits, visiter chaque page produit, extraire le nom, la description et le prix avec les erreurs ou absences explicites, puis sauvegarder un classeur Excel sur disque à `workflows/schema-portability-20261002/compactv1320261012a-amazon-1/products.xlsx`. Fermer le navigateur même en cas d’échec et ne pas déclarer de réussite si le travail n’a pas abouti.",
+  "outcomes": [
+    {
+      "id": "search_amazon_fr",
+      "description": "Amazon.fr est utilisé pour rechercher l’article correspondant à `query`."
+    },
+    {
+      "id": "extract_up_to_10_products",
+      "description": "Au maximum les 10 premiers produits listés sont ouverts et leurs champs nom, description et prix sont extraits sans invention."
+    },
+    {
+      "id": "write_excel",
+      "description": "Un fichier Excel est créé au chemin demandé avec les données extraites et les erreurs ou données absentes explicites."
+    },
+    {
+      "id": "cleanup_browser",
+      "description": "Le navigateur est fermé même en cas d’échec."
+    }
+  ],
+  "inputs": [
+    {
+      "name": "query",
+      "type": {
+        "kind": "string",
+        "nullable": false,
+        "items": null,
+        "fields": []
+      },
+      "required": true,
+      "default": null
+    }
+  ],
+  "outputs": [
+    {
+      "name": "products_xlsx_path",
+      "type": {
+        "kind": "string",
+        "nullable": false,
+        "items": null,
+        "fields": []
+      },
+      "required": true,
+      "default": null
+    },
+    {
+      "name": "completion_status",
+      "type": {
+        "kind": "string",
+        "nullable": false,
+        "enum": [
+          "success",
+          "failed"
+        ],
+        "items": null,
+        "fields": []
+      },
+      "required": true,
+      "default": null
+    },
+    {
+      "name": "observed_errors",
+      "type": {
+        "kind": "array",
+        "nullable": false,
+        "minItems": 0,
+        "items": {
+          "kind": "string",
+          "nullable": true,
+          "items": null,
+          "fields": []
+        },
+        "fields": []
+      },
+      "required": true,
+      "default": null
+    }
+  ]
+}

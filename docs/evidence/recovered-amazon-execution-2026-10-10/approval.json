@@ -1,0 +1,22 @@
+{
+  "run": "physicaloutputs20261010a-amazon-1",
+  "user_authorization": "I approve workflow execution",
+  "review": "../schema-pruning-2026-10-10/amazon-review.md",
+  "command": {
+    "kind": "approve",
+    "expectedRevision": 6,
+    "artifactHash": "ec011e1deed9ee48dd413d17911351ae2a08c8222a08efb271f6d84771ff86e0",
+    "reviewedRequirementIds": [
+      "search_amazon_fr",
+      "limit_10_products",
+      "extract_fields",
+      "save_xlsx",
+      "cleanup"
+    ]
+  },
+  "resulting_revision": 7,
+  "resulting_status": "approved",
+  "frozen_candidate": "7376b4bd713d72d43dbe62270e41823273e0e618",
+  "receipt_recovery_candidate": "847a15b9ed6dff0b1c603798b8cef63bc0f85931",
+  "execution_started_utc": "2026-10-10T12:06:28.1961470Z"
+}

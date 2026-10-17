@@ -1,0 +1,488 @@
+{
+  "source": "Sanitized replay of session cb5a5d2d946246948aaa66597209b6f0. The original plan compiles but contains no external operations.",
+  "request": "From a pull request URL and review instructions: clone once, use that directory for installation, lint and tests, review using the requested coding agent, publish inline feedback and an accept/refuse decision, and always remove the clone.",
+  "plan": {
+    "inputs": [
+      {
+        "name": "pullRequestUrl",
+        "type": {
+          "kind": "string",
+          "nullable": false,
+          "items": null,
+          "fields": []
+        },
+        "required": true,
+        "default": null
+      },
+      {
+        "name": "reviewInstructions",
+        "type": {
+          "kind": "string",
+          "nullable": false,
+          "items": null,
+          "fields": []
+        },
+        "required": true,
+        "default": null
+      }
+    ],
+    "root": {
+      "tasks": [
+        {
+          "id": "define_workspace_contract",
+          "objective": "Define the fixed workflow execution contract: use exactly one clone of the pull request repository under workflows/github-pr-auto-review/repository, reserve .GnOuGo for internal state, create no workflow files outside workflows/github-pr-auto-review, and perform all repository work only inside the cloned directory.",
+          "kind": "value",
+          "dependsOn": [],
+          "operation": null,
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "workspaceContract",
+              "value": {
+                "kind": "object",
+                "text": null,
+                "number": null,
+                "boolean": null,
+                "source": null,
+                "port": null,
+                "members": [
+                  {
+                    "name": "purposeDirectory",
+                    "value": {
+                      "kind": "string",
+                      "text": "workflows/github-pr-auto-review",
+                      "number": null,
+                      "boolean": null,
+                      "source": null,
+                      "port": null,
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  },
+                  {
+                    "name": "cloneDirectory",
+                    "value": {
+                      "kind": "string",
+                      "text": "workflows/github-pr-auto-review/repository",
+                      "number": null,
+                      "boolean": null,
+                      "source": null,
+                      "port": null,
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  },
+                  {
+                    "name": "internalStateDirectoryReserved",
+                    "value": {
+                      "kind": "string",
+                      "text": ".GnOuGo",
+                      "number": null,
+                      "boolean": null,
+                      "source": null,
+                      "port": null,
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  },
+                  {
+                    "name": "singleCloneRequired",
+                    "value": {
+                      "kind": "boolean",
+                      "text": null,
+                      "number": null,
+                      "boolean": true,
+                      "source": null,
+                      "port": null,
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  },
+                  {
+                    "name": "repositoryWorkMustStayInsideClone",
+                    "value": {
+                      "kind": "boolean",
+                      "text": null,
+                      "number": null,
+                      "boolean": true,
+                      "source": null,
+                      "port": null,
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  },
+                  {
+                    "name": "cleanupRequiredWhateverHappens",
+                    "value": {
+                      "kind": "boolean",
+                      "text": null,
+                      "number": null,
+                      "boolean": true,
+                      "source": null,
+                      "port": null,
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  }
+                ],
+                "items": [],
+                "predicate": null
+              }
+            }
+          ],
+          "condition": null,
+          "body": null,
+          "otherwise": null,
+          "branches": [],
+          "items": null,
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4,
+          "group": null
+        },
+        {
+          "id": "execute_pr_review_workflow",
+          "objective": "Using the host-provided GitHub credentials and Copilot/chat-agent runtime, execute the automated pull request review for the supplied pullRequestUrl and reviewInstructions: clone the PR repository exactly once into the declared clone directory; install dependencies; run linters, unit tests, and integration tests when present; perform the requested code review checks; publish review comments on the GitHub diff; submit a final GitHub review that either accepts the pull request or refuses it, explaining the decision in the review body.",
+          "kind": "transform",
+          "dependsOn": [
+            "define_workspace_contract"
+          ],
+          "operation": null,
+          "inputs": [
+            {
+              "name": "pullRequestUrl",
+              "value": {
+                "kind": "input",
+                "text": null,
+                "number": null,
+                "boolean": null,
+                "source": "pullRequestUrl",
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            },
+            {
+              "name": "reviewInstructions",
+              "value": {
+                "kind": "input",
+                "text": null,
+                "number": null,
+                "boolean": null,
+                "source": "reviewInstructions",
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            },
+            {
+              "name": "workspaceContract",
+              "value": {
+                "kind": "output",
+                "text": null,
+                "number": null,
+                "boolean": null,
+                "source": "define_workspace_contract",
+                "port": "workspaceContract",
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            }
+          ],
+          "outputs": [],
+          "resultType": {
+            "kind": "object",
+            "nullable": false,
+            "items": null,
+            "fields": [
+              {
+                "name": "pullRequestUrl",
+                "type": {
+                  "kind": "string",
+                  "nullable": false,
+                  "items": null,
+                  "fields": []
+                },
+                "required": true,
+                "default": null
+              },
+              {
+                "name": "decision",
+                "type": {
+                  "kind": "string",
+                  "nullable": false,
+                  "enum": [
+                    "accept",
+                    "refuse"
+                  ],
+                  "items": null,
+                  "fields": []
+                },
+                "required": true,
+                "default": null
+              },
+              {
+                "name": "githubReviewSubmitted",
+                "type": {
+                  "kind": "boolean",
+                  "nullable": false,
+                  "items": null,
+                  "fields": []
+                },
+                "required": true,
+                "default": null
+              },
+              {
+                "name": "summary",
+                "type": {
+                  "kind": "string",
+                  "nullable": false,
+                  "items": null,
+                  "fields": []
+                },
+                "required": true,
+                "default": null
+              },
+              {
+                "name": "diffComments",
+                "type": {
+                  "kind": "array",
+                  "nullable": false,
+                  "items": {
+                    "kind": "object",
+                    "nullable": false,
+                    "items": null,
+                    "fields": [
+                      {
+                        "name": "path",
+                        "type": {
+                          "kind": "string",
+                          "nullable": false,
+                          "items": null,
+                          "fields": []
+                        },
+                        "required": true,
+                        "default": null
+                      },
+                      {
+                        "name": "line",
+                        "type": {
+                          "kind": "integer",
+                          "nullable": false,
+                          "items": null,
+                          "fields": []
+                        },
+                        "required": true,
+                        "default": null
+                      },
+                      {
+                        "name": "body",
+                        "type": {
+                          "kind": "string",
+                          "nullable": false,
+                          "items": null,
+                          "fields": []
+                        },
+                        "required": true,
+                        "default": null
+                      }
+                    ]
+                  },
+                  "fields": []
+                },
+                "required": true,
+                "default": null
+              },
+              {
+                "name": "checks",
+                "type": {
+                  "kind": "object",
+                  "nullable": false,
+                  "items": null,
+                  "fields": [
+                    {
+                      "name": "dependenciesInstalled",
+                      "type": {
+                        "kind": "boolean",
+                        "nullable": false,
+                        "items": null,
+                        "fields": []
+                      },
+                      "required": true,
+                      "default": null
+                    },
+                    {
+                      "name": "lintersRun",
+                      "type": {
+                        "kind": "boolean",
+                        "nullable": false,
+                        "items": null,
+                        "fields": []
+                      },
+                      "required": true,
+                      "default": null
+                    },
+                    {
+                      "name": "unitTestsRun",
+                      "type": {
+                        "kind": "boolean",
+                        "nullable": false,
+                        "items": null,
+                        "fields": []
+                      },
+                      "required": true,
+                      "default": null
+                    },
+                    {
+                      "name": "integrationTestsRun",
+                      "type": {
+                        "kind": "boolean",
+                        "nullable": false,
+                        "items": null,
+                        "fields": []
+                      },
+                      "required": true,
+                      "default": null
+                    },
+                    {
+                      "name": "blockingFindings",
+                      "type": {
+                        "kind": "array",
+                        "nullable": false,
+                        "items": {
+                          "kind": "string",
+                          "nullable": false,
+                          "items": null,
+                          "fields": []
+                        },
+                        "fields": []
+                      },
+                      "required": true,
+                      "default": null
+                    }
+                  ]
+                },
+                "required": true,
+                "default": null
+              }
+            ]
+          },
+          "condition": null,
+          "body": null,
+          "otherwise": null,
+          "branches": [],
+          "items": null,
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4,
+          "group": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "reviewResult",
+          "value": {
+            "kind": "output",
+            "text": null,
+            "number": null,
+            "boolean": null,
+            "source": "execute_pr_review_workflow",
+            "port": null,
+            "members": [],
+            "items": [],
+            "predicate": null
+          }
+        }
+      ],
+      "always": [
+        {
+          "id": "cleanup_clone_directory",
+          "objective": "Whatever the previous outcome, delete the cloned repository directory and workflow-created project files under workflows/github-pr-auto-review, without deleting host configuration, credentials, saved agents, or .GnOuGo internal state.",
+          "kind": "value",
+          "dependsOn": [],
+          "operation": null,
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "cleanupScope",
+              "value": {
+                "kind": "object",
+                "text": null,
+                "number": null,
+                "boolean": null,
+                "source": null,
+                "port": null,
+                "members": [
+                  {
+                    "name": "deletePath",
+                    "value": {
+                      "kind": "string",
+                      "text": "workflows/github-pr-auto-review",
+                      "number": null,
+                      "boolean": null,
+                      "source": null,
+                      "port": null,
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  },
+                  {
+                    "name": "preservePath",
+                    "value": {
+                      "kind": "string",
+                      "text": ".GnOuGo",
+                      "number": null,
+                      "boolean": null,
+                      "source": null,
+                      "port": null,
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  },
+                  {
+                    "name": "mustRunOnFailure",
+                    "value": {
+                      "kind": "boolean",
+                      "text": null,
+                      "number": null,
+                      "boolean": true,
+                      "source": null,
+                      "port": null,
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  }
+                ],
+                "items": [],
+                "predicate": null
+              }
+            }
+          ],
+          "condition": null,
+          "body": null,
+          "otherwise": null,
+          "branches": [],
+          "items": null,
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4,
+          "group": null
+        }
+      ]
+    },
+    "groups": [],
+    "choices": []
+  }
+}

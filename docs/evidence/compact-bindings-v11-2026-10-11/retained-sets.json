@@ -1,0 +1,306 @@
+[
+  {
+    "step": "n_d628b41d17a62006",
+    "scope": "main",
+    "producers": [
+      "n_62737a68773ca42a"
+    ],
+    "consumers": [
+      "n_5045d393e201ee32 (switch)"
+    ],
+    "reason": "Validates the acquisition success boolean before the enclosing switch reads it. Moving the check into one branch would skip validation on the other path; switch expressions do not carry input expression_contracts."
+  },
+  {
+    "step": "n_341937c017c6f5e7",
+    "scope": "main/n_5045d393e201ee32/default",
+    "producers": [
+      "branch literal"
+    ],
+    "consumers": [
+      "n_e2bfee3ab9860925 (set)"
+    ],
+    "reason": "Publishes false only in the false branch of the short-circuit acquisition predicate. The enclosing switch\u2019s first-present selection observes this exact child identity. Hoisting/removing it changes branch execution and selected output availability."
+  },
+  {
+    "step": "n_496ac96c9b178654",
+    "scope": "main/n_5045d393e201ee32/branch0",
+    "producers": [
+      "n_62737a68773ca42a"
+    ],
+    "consumers": [
+      "n_e2bfee3ab9860925 (set)"
+    ],
+    "reason": "Validates the available snapshot then evaluates non-null only in the successful acquisition branch. Its redundant preparation set is already inlined. The selected child identity must remain for first-present switch-result selection; hoisting loses short-circuit/refinement behavior."
+  },
+  {
+    "step": "n_e2bfee3ab9860925",
+    "scope": "main",
+    "producers": [
+      "n_5045d393e201ee32",
+      "n_62737a68773ca42a"
+    ],
+    "consumers": [
+      "n_d20754dac5b0946a (switch)",
+      "n_ed27e42a862310f9 (workflow.call)"
+    ],
+    "reason": "Checks the required acquisition predicate, preserves original page records, and publishes the success predicate before a second switch. pageRecords is also captured later by product iteration; this is both shared state and a branch/check-order boundary."
+  },
+  {
+    "step": "n_52a0a272ae809689",
+    "scope": "main/n_d20754dac5b0946a/default",
+    "producers": [
+      "branch literal"
+    ],
+    "consumers": [
+      "n_fa2c51243ab17014 (mapping.dynamic)"
+    ],
+    "reason": "Publishes false only in the false branch of the short-circuit acquisition predicate. The enclosing switch\u2019s first-present selection observes this exact child identity. Hoisting/removing it changes branch execution and selected output availability."
+  },
+  {
+    "step": "n_41cd6b71debae8b1",
+    "scope": "main/n_d20754dac5b0946a/branch0",
+    "producers": [
+      "n_62737a68773ca42a"
+    ],
+    "consumers": [
+      "n_fa2c51243ab17014 (mapping.dynamic)"
+    ],
+    "reason": "Validates the available snapshot then evaluates non-null only in the successful acquisition branch. Its redundant preparation set is already inlined. The selected child identity must remain for first-present switch-result selection; hoisting loses short-circuit/refinement behavior."
+  },
+  {
+    "step": "n_aad9144690867384",
+    "scope": "main",
+    "producers": [
+      "n_ed27e42a862310f9"
+    ],
+    "consumers": [
+      "n_db5a1e8bb35c43c6 (mcp.call)",
+      "main outputs"
+    ],
+    "reason": "Checks bounded products and builds structured rows once. Rows feed the writer while products feed public workflow outputs. Inlining into only the writer loses the public result; duplicating the group changes shared evaluation and failure ordering."
+  },
+  {
+    "step": "n_5c7e3f2bc929e084",
+    "scope": "w_e6f9cb8eb6196cf4",
+    "producers": [
+      "n_bc862989117eab66"
+    ],
+    "consumers": [
+      "w_e6f9cb8eb6196cf4 outputs"
+    ],
+    "reason": "Collects declared products from completed effectful product iterations and checks the exported nested collection. Workflow outputs have no ordered expression_contracts slot; moving this into the caller crosses the effectful iteration\u2019s scope and recovery boundary."
+  },
+  {
+    "step": "n_e63feabf14636d08",
+    "scope": "w_535e8699584d5596",
+    "producers": [
+      "n_0525c15c1750c572"
+    ],
+    "consumers": [
+      "n_0e0c569c3f5e69cc (switch)"
+    ],
+    "reason": "Validates the individual acquisition success boolean before branch selection; it cannot move into either branch without changing which paths validate it."
+  },
+  {
+    "step": "n_407cc01ca22d66a4",
+    "scope": "w_535e8699584d5596/n_0e0c569c3f5e69cc/default",
+    "producers": [
+      "branch literal"
+    ],
+    "consumers": [
+      "n_efe1e46880c884de (set)"
+    ],
+    "reason": "Publishes false only in the false branch of the short-circuit acquisition predicate. The enclosing switch\u2019s first-present selection observes this exact child identity. Hoisting/removing it changes branch execution and selected output availability."
+  },
+  {
+    "step": "n_e0de4a4c5cac4169",
+    "scope": "w_535e8699584d5596/n_0e0c569c3f5e69cc/branch0",
+    "producers": [
+      "n_0525c15c1750c572"
+    ],
+    "consumers": [
+      "n_efe1e46880c884de (set)"
+    ],
+    "reason": "Validates the available snapshot then evaluates non-null only in the successful acquisition branch. Its redundant preparation set is already inlined. The selected child identity must remain for first-present switch-result selection; hoisting loses short-circuit/refinement behavior."
+  },
+  {
+    "step": "n_efe1e46880c884de",
+    "scope": "w_535e8699584d5596",
+    "producers": [
+      "n_0525c15c1750c572",
+      "n_0e0c569c3f5e69cc"
+    ],
+    "consumers": [
+      "n_ea9f28d62344c6c0 (switch)",
+      "n_e9bae2855264e8d5 (workflow.call)",
+      "n_76e9cbb699cd5a10 (workflow.call)",
+      "n_ed243535e02bcfbb (workflow.call)"
+    ],
+    "reason": "Checks acquisition and keeps original page records for three separately guarded fact lookups. Moving it would cross switches, duplicate its shared evaluation, or move completeness checks after dependent work."
+  },
+  {
+    "step": "n_45347d413d16bf26",
+    "scope": "w_535e8699584d5596/n_ea9f28d62344c6c0/default",
+    "producers": [
+      "branch literal"
+    ],
+    "consumers": [
+      "n_29c123c49a224206 (mapping.dynamic)"
+    ],
+    "reason": "Publishes false only in the false branch of the short-circuit acquisition predicate. The enclosing switch\u2019s first-present selection observes this exact child identity. Hoisting/removing it changes branch execution and selected output availability."
+  },
+  {
+    "step": "n_9a5bf33bcf7f9a03",
+    "scope": "w_535e8699584d5596/n_ea9f28d62344c6c0/branch0",
+    "producers": [
+      "n_0525c15c1750c572"
+    ],
+    "consumers": [
+      "n_29c123c49a224206 (mapping.dynamic)"
+    ],
+    "reason": "Validates the available snapshot then evaluates non-null only in the successful acquisition branch. Its redundant preparation set is already inlined. The selected child identity must remain for first-present switch-result selection; hoisting loses short-circuit/refinement behavior."
+  },
+  {
+    "step": "n_b4e5179a1d9fb063",
+    "scope": "w_535e8699584d5596",
+    "producers": [
+      "n_e1fb48c21f972455"
+    ],
+    "consumers": [
+      "n_f5620876e3598083 (workflow.call)"
+    ],
+    "reason": "Checks and publishes the selected nullable name branch result before the next fact-selection branch. The eventual assembly call is later; moving this check there crosses intervening branches and changes error order."
+  },
+  {
+    "step": "n_3344089734c016f4",
+    "scope": "w_535e8699584d5596",
+    "producers": [
+      "n_bd1263a48c87afb2"
+    ],
+    "consumers": [
+      "n_f5620876e3598083 (workflow.call)"
+    ],
+    "reason": "Checks and publishes the selected nullable description branch result before the following price-selection branch. The eventual assembly call is later; input inlining would cross that branch."
+  },
+  {
+    "step": "n_0084788c2e4864a7",
+    "scope": "w_535e8699584d5596",
+    "producers": [
+      "n_f5620876e3598083"
+    ],
+    "consumers": [
+      "w_535e8699584d5596 outputs"
+    ],
+    "reason": "Checks/concatenates the final per-product assembly result and exports the declared products collection from the visit scope. No same-scope input consumer exists; its intermediate and final checks must complete before the child invocation publishes."
+  },
+  {
+    "step": "n_1ceffb2218b49fad",
+    "scope": "w_ba275d0858fdafac",
+    "producers": [
+      "scope captures"
+    ],
+    "consumers": [
+      "w_ba275d0858fdafac outputs"
+    ],
+    "reason": "In the non-null name-ID scope, ordered offered-candidate validation precedes strict original-record lookup and exact text projection. The checked array is this workflow\u2019s export; no same-scope input consumer exists. Moving checks to its caller crosses nullable refinement/capture and invocation boundaries."
+  },
+  {
+    "step": "n_90a41bfe231cf1c9",
+    "scope": "w_8e9824fb87f43c2f",
+    "producers": [
+      "branch literal"
+    ],
+    "consumers": [
+      "w_8e9824fb87f43c2f outputs"
+    ],
+    "reason": "Publishes the typed [null] name alternative in its own branch workflow. Its receipt/export is the selected alternative; there is no same-scope consumer. Removing it changes the branch\u2019s declared checked result and recovery boundary."
+  },
+  {
+    "step": "n_1c418633b05d84d1",
+    "scope": "w_39568dcf6819fb15",
+    "producers": [
+      "scope captures"
+    ],
+    "consumers": [
+      "w_39568dcf6819fb15 outputs"
+    ],
+    "reason": "In the non-null description-ID scope, checks offered membership before strict original lookup and exports exact full blocks. Exporting an unchecked expression cannot retain these intermediate contracts; caller inlining crosses the nullable branch and workflow boundary."
+  },
+  {
+    "step": "n_1a6f2b75e1a45754",
+    "scope": "w_5e4adb72cf8d0c78",
+    "producers": [
+      "branch literal"
+    ],
+    "consumers": [
+      "w_5e4adb72cf8d0c78 outputs"
+    ],
+    "reason": "Publishes the typed [null] description alternative in its branch workflow, retaining its selected-result contract and scope/recovery boundary."
+  },
+  {
+    "step": "n_c3eb4f284524e898",
+    "scope": "w_454e440f277c013b",
+    "producers": [
+      "scope captures"
+    ],
+    "consumers": [
+      "w_454e440f277c013b outputs"
+    ],
+    "reason": "In the non-null price-ID scope, checks offered membership before strict original lookup and exports observed text. It terminates this checked scope; caller inlining would cross its invocation/nullable-refinement boundary."
+  },
+  {
+    "step": "n_f42c5f001418dee4",
+    "scope": "w_0663c3dcea945d8a",
+    "producers": [
+      "branch literal"
+    ],
+    "consumers": [
+      "w_0663c3dcea945d8a outputs"
+    ],
+    "reason": "Publishes the typed [null] price alternative in its branch workflow, retaining its selected-result contract and scope/recovery boundary."
+  },
+  {
+    "step": "n_312f11b2aba25a3a",
+    "scope": "w_c476f53859c4d316",
+    "producers": [
+      "n_b51b3d17a8bbff6a"
+    ],
+    "consumers": [
+      "w_c476f53859c4d316 outputs"
+    ],
+    "reason": "Collects checked product outputs across the name-capture iteration and validates its exported collection. The caller is outside this workflow scope; direct output expressions cannot carry all intermediate contracts."
+  },
+  {
+    "step": "n_2c0eada0c9c8aead",
+    "scope": "w_66933591928238cf",
+    "producers": [
+      "n_1dc1714d4ce8e53c"
+    ],
+    "consumers": [
+      "w_66933591928238cf outputs"
+    ],
+    "reason": "Checks and flattens the nested description-capture products before this child scope publishes its declared result. Moving it crosses the child invocation boundary."
+  },
+  {
+    "step": "n_e7a587b7baac7afb",
+    "scope": "w_f77350ccb86829cf",
+    "producers": [
+      "n_6c38b3bd9d58bbaf"
+    ],
+    "consumers": [
+      "w_f77350ccb86829cf outputs"
+    ],
+    "reason": "Collects and checks product outputs across the description-capture iteration at workflow export. There is no same-scope input consumer; its checks precede completion of the child invocation."
+  },
+  {
+    "step": "n_bfe2032a4f34743e",
+    "scope": "w_38efaf896cb79a80",
+    "producers": [
+      "scope captures"
+    ],
+    "consumers": [
+      "w_38efaf896cb79a80 outputs"
+    ],
+    "reason": "Captures the refined nullable description and assembles exact products with name/price/producer error values. Both description and product results are exported; intermediate contracts remain necessary at this innermost scope boundary."
+  }
+]

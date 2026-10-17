@@ -1,0 +1,23 @@
+{
+  "run": "repairvocabulary20261009a-amazon-1",
+  "receipt": {
+    "invocation": "/workflow/main/step/n_99222e8a56bea265/mapping/0",
+    "request_id": "594c8b758ef88b0949291c962f64b8887e76b96e98d53a5fc958ec20574558a4",
+    "status": "completed",
+    "usage": {
+      "input_tokens": 19558,
+      "output_tokens": 4361,
+      "total_tokens": 23919,
+      "benchmark_cost_eur": 0.20287514420090513,
+      "transport_attempts": 1,
+      "uncertain_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "benchmark_usage_bounded": true
+    },
+    "response": {
+      "script": "({candidates:item.records.filter(r=>m.test(r.kind,\"^link$\")&&m.test(r.text,\"\\\\S\")&&m.test(r.href,\"(/dp/|%2[Ff]dp%2[Ff]|lp_asins=)\")&&!m.test(r.text,\"^(En savoir plus|Laisser un commentaire)\")).slice(0,200).map(r=>({candidateId:r.reference,nameText:r.text})),blockingEvidence:item.records.filter(r=>m.test(r.group,\"^#cos-banner$\")&&m.test(r.text,\"\\\\S\")).slice(0,20).map(r=>r.text)})"
+    }
+  }
+}

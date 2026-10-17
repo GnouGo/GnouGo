@@ -141,7 +141,7 @@ public static class WorkflowParser
 
     private static readonly HashSet<string> StepFields = new(StringComparer.Ordinal)
     {
-        "id", "type", "if", "input", "output", "output_schema", "retry", "on_error",
+        "id", "type", "description", "if", "input", "expression_contracts", "control_contracts", "output", "output_schema", "retry", "on_error",
         "steps", "branches", "cases", "expr", "default", "item_var", "index_var"
     };
 
@@ -479,6 +479,13 @@ public static class WorkflowParser
         {
             var hasExpr = map.HasKey("expr");
             var hasType = map.HasKey("type");
+            JsonObject? expressionContracts = null;
+            if (map.HasKey("expression_contracts"))
+            {
+                if (!hasExpr) throw new WorkflowParseException("Output expression_contracts requires expr.");
+                expressionContracts = YamlToJson(map.Children[new YamlScalarNode("expression_contracts")]) as JsonObject
+                    ?? throw new WorkflowParseException("expression_contracts must be a literal object.");
+            }
 
             // Long form with "expr" key — typed output definition
             if (hasExpr)
@@ -487,6 +494,7 @@ public static class WorkflowParser
                 var def = new OutputDef
                 {
                     Expr = map.GetScalar("expr") ?? "",
+                    ExpressionContracts = expressionContracts,
                     Type = type,
                     Nullable = nullable,
                     Schema = map.GetMapping("schema") is { } outputSchema ? YamlMapToJson(outputSchema) : null,
@@ -631,6 +639,7 @@ public static class WorkflowParser
         {
             Id = node.GetScalar("id") ?? throw new WorkflowParseException("Step missing 'id'"),
             Type = node.GetScalar("type") ?? throw new WorkflowParseException("Step missing 'type'"),
+            Description = node.GetScalar("description"),
             If = node.GetScalar("if"),
             Output = node.GetScalar("output"),
             ItemVar = node.GetScalar("item_var"),
@@ -650,6 +659,14 @@ public static class WorkflowParser
             var outputSchemaNode = node.Children[new YamlScalarNode("output_schema")];
             step.OutputSchema = YamlToJson(outputSchemaNode);
         }
+
+        if (node.HasKey("expression_contracts"))
+            step.ExpressionContracts = YamlToJson(node.Children[new YamlScalarNode("expression_contracts")]) as JsonObject
+                ?? throw new WorkflowParseException("expression_contracts must be a literal object.");
+
+        if (node.HasKey("control_contracts"))
+            step.ControlContracts = YamlToJson(node.Children[new YamlScalarNode("control_contracts")]) as JsonObject
+                ?? throw new WorkflowParseException("control_contracts must be a literal object.");
 
         // retry
         var retryNode = node.GetMapping("retry");

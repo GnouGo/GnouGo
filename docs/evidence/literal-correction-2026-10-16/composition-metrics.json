@@ -1,0 +1,167 @@
+{
+  "planningCalls": 2,
+  "repairs": 0,
+  "providerCalls": 0,
+  "runtimeLlmCalls": 0,
+  "reviewAdapterCalls": 1,
+  "requestEstimates": [
+    9708,
+    14248
+  ],
+  "yamlBytes": 20397,
+  "effects": [
+    "inspect",
+    "clone",
+    "checks",
+    "review",
+    "begin",
+    "submit",
+    "cleanup"
+  ],
+  "originalRequirements": {
+    "summary": "G\u00E9n\u00E9rer un workflow de chat-agent autonome pour effectuer une review automatique de la Pull Request GitHub https://fixture.invalid/change Le workflow doit recevoir les consignes de review \u00E0 l\u0027ex\u00E9cution, cloner une seule fois le d\u00E9p\u00F4t, travailler uniquement dans ce clone, installer les d\u00E9pendances, ex\u00E9cuter linters et tests disponibles, demander une analyse GitHub Copilot, publier les commentaires dans le diff, puis approuver ou demander des changements selon une quality gate stricte. Le clone doit \u00EAtre supprim\u00E9 quoi qu\u0027il arrive.",
+    "outcomes": [
+      {
+        "id": "workflow_generated",
+        "description": "Un workflow autonome est produit sous le chemin logique workflows/github-pr-auto-review/workflow.yaml."
+      },
+      {
+        "id": "runtime_review_instructions",
+        "description": "Le texte expliquant ce qu\u0027il faut reviewer est expos\u00E9 comme entr\u00E9e obligatoire reviewInstructions \u00E0 l\u0027ex\u00E9cution."
+      },
+      {
+        "id": "strict_quality_gate",
+        "description": "La Pull Request est approuv\u00E9e uniquement si installation, linters, tests d\u00E9tect\u00E9s et review Copilot ne r\u00E9v\u00E8lent aucun probl\u00E8me bloquant ; sinon des changements sont demand\u00E9s."
+      },
+      {
+        "id": "github_feedback",
+        "description": "Les commentaires inline sont publi\u00E9s dans le diff et une synth\u00E8se courte est ajout\u00E9e \u00E0 la Pull Request."
+      },
+      {
+        "id": "cleanup_preserved",
+        "description": "Le r\u00E9pertoire clon\u00E9 est supprim\u00E9 dans un bloc finally, m\u00EAme en cas d\u0027erreur."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "pullRequestUrl",
+        "type": {
+          "kind": "string",
+          "nullable": false,
+          "items": null,
+          "fields": []
+        },
+        "required": true,
+        "default": null
+      },
+      {
+        "name": "reviewInstructions",
+        "type": {
+          "kind": "string",
+          "nullable": false,
+          "items": null,
+          "fields": []
+        },
+        "required": true,
+        "default": null
+      }
+    ],
+    "outputs": [
+      {
+        "name": "workflowPath",
+        "type": {
+          "kind": "string",
+          "nullable": false,
+          "items": null,
+          "fields": []
+        },
+        "required": false,
+        "default": null
+      },
+      {
+        "name": "workflowDefinition",
+        "type": {
+          "kind": "string",
+          "nullable": false,
+          "items": null,
+          "fields": []
+        },
+        "required": false,
+        "default": null
+      },
+      {
+        "name": "pullRequestSummary",
+        "type": {
+          "kind": "string",
+          "nullable": false,
+          "items": null,
+          "fields": []
+        },
+        "required": false,
+        "default": null
+      }
+    ]
+  },
+  "correctedRequirements": {
+    "summary": "Perform the requested review in one clone, publish exact findings under the strict quality gate, return the submitted summary and clean up after known completion",
+    "outcomes": [
+      {
+        "id": "review_performed",
+        "description": "Inspect the supplied change and run installation, lint, unit and integration checks in one clone before review"
+      },
+      {
+        "id": "runtime_review_instructions",
+        "description": "Le texte expliquant ce qu\u0027il faut reviewer est expos\u00E9 comme entr\u00E9e obligatoire reviewInstructions \u00E0 l\u0027ex\u00E9cution."
+      },
+      {
+        "id": "strict_quality_gate",
+        "description": "La Pull Request est approuv\u00E9e uniquement si installation, linters, tests d\u00E9tect\u00E9s et review Copilot ne r\u00E9v\u00E8lent aucun probl\u00E8me bloquant ; sinon des changements sont demand\u00E9s."
+      },
+      {
+        "id": "github_feedback",
+        "description": "Les commentaires inline sont publi\u00E9s dans le diff et une synth\u00E8se courte est ajout\u00E9e \u00E0 la Pull Request."
+      },
+      {
+        "id": "cleanup_preserved",
+        "description": "Le r\u00E9pertoire clon\u00E9 est supprim\u00E9 dans un bloc finally, m\u00EAme en cas d\u0027erreur."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "pullRequestUrl",
+        "type": {
+          "kind": "string",
+          "nullable": false,
+          "items": null,
+          "fields": []
+        },
+        "required": true,
+        "default": null
+      },
+      {
+        "name": "reviewInstructions",
+        "type": {
+          "kind": "string",
+          "nullable": false,
+          "items": null,
+          "fields": []
+        },
+        "required": true,
+        "default": null
+      }
+    ],
+    "outputs": [
+      {
+        "name": "pullRequestSummary",
+        "type": {
+          "kind": "string",
+          "nullable": false,
+          "items": null,
+          "fields": []
+        },
+        "required": false,
+        "default": null
+      }
+    ]
+  }
+}

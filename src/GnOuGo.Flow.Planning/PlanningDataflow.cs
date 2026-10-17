@@ -142,7 +142,9 @@ internal static class PlanningDataflow
             var workflow = graph.Workflows[wi];
             foreach (var (node, path) in PlanningGraphValidation.Located(workflow.Steps, $"/workflows/{wi}/steps").Concat(PlanningGraphValidation.Located(workflow.Finally, $"/workflows/{wi}/finally")))
             {
-                foreach (var finding in Check(PlanningGraphTopology.References(node), node.Key, path)) yield return finding;
+                foreach (var value in PlanningGraphTopology.Values(node))
+                    foreach (var finding in Check(References(value), node.Key, path,
+                        PlanningValues.ReadGuard(value) is { } required && PlanningValues.ContainsGuard(node.If, required))) yield return finding;
                 var capability = catalog.Capabilities.FirstOrDefault(c => c.Id == node.CapabilityId);
                 var request = PlanningGraphValidation.Member(node.Input, "request");
                 foreach (var artifact in capability?.ArtifactContract?.Consumes ?? [])
@@ -157,15 +159,20 @@ internal static class PlanningDataflow
             }
             foreach (var output in workflow.Outputs)
                 foreach (var finding in Check(References(output.Value), WorkflowOutputs, $"/workflows/{wi}/outputs/{workflow.Outputs.IndexOf(output)}/value")) yield return finding;
-            IEnumerable<PlanningDiagnostic> Check(IEnumerable<PlanningValue> references, string consumer, string path)
+            IEnumerable<PlanningDiagnostic> Check(IEnumerable<PlanningValue> references, string consumer, string path, bool guarded = false)
             {
                 Dictionary<string, PlanningBinding>? available;
                 try { available = Index(workflow, catalog, graph, consumer); }
                 catch (InvalidOperationException) { yield break; }
                 Dictionary<string, PlanningBinding>? unresolved = null;
                 foreach (var reference in references)
-                    if (!available.TryGetValue(PlanningBindingIdentity.Id(new PlanningValue { Kind = reference.Kind, Source = reference.Source, ResultChannel = reference.ResultChannel }), out var binding) || binding.Availability is "absent" or "conditional")
+                    if (!(reference.Kind == "input" && reference.Source is null && reference.Path.Count == 0) &&
+                        (!available.TryGetValue(PlanningBindingIdentity.Id(new PlanningValue { Kind = reference.Kind, Source = reference.Source, ResultChannel = reference.ResultChannel }), out var binding) || binding.Availability is "absent" or "conditional"))
                     {
+                        // A typed short-circuit guard protects these exact reads. Presence
+                        // must still be visible here; a guard cannot cross a scope or read ahead.
+                        if (guarded && reference.Kind == "output" && available.ContainsKey(PlanningBindingIdentity.Id(
+                            new() { Kind = "present", Source = reference.Source }))) continue;
                         string? rule = null;
                         if (reference.Kind == "output")
                         {

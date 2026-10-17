@@ -1,0 +1,28 @@
+[
+  {
+    "variant": "complete",
+    "xlsx_sha256": "81dc127035e87ae2fde8925d075801c76ee38288f132c7aa0ebaf16970b3732c",
+    "rows_including_header": 11,
+    "product_visits": 10,
+    "complete_acquisitions": 11,
+    "exact_original_cells": true,
+    "original_navigation_arguments": true,
+    "no_formulas": true,
+    "blank_cells_preserved": true,
+    "cleanup_recorded": true,
+    "absence_basis": null
+  },
+  {
+    "variant": "missing",
+    "xlsx_sha256": "54b97df2917211bac53503fe705524836b01aaf5ea08b9563a4cda0682718954",
+    "rows_including_header": 11,
+    "product_visits": 10,
+    "complete_acquisitions": 11,
+    "exact_original_cells": true,
+    "original_navigation_arguments": true,
+    "no_formulas": true,
+    "blank_cells_preserved": true,
+    "cleanup_recorded": true,
+    "absence_basis": "controlled local site and complete snapshots"
+  }
+]

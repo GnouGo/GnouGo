@@ -1,0 +1,10 @@
+{
+  "versions": {
+    "node": "v24.20.0",
+    "pnpm": "10.34.5",
+    "python": "Python 3.11.13",
+    "dotnet": "10.0.300",
+    "uv": "uv 0.9.0 (Homebrew 2025-10-07)"
+  },
+  "path_sha256": "f8509e6204e40334587a90326a11d27c70c34da08ace467ff6ffa997fb18fbc9"
+}

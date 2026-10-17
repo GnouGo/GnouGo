@@ -1,0 +1,173 @@
+[
+  {
+    "run": "final3-amazon-3",
+    "source": "cccf67a980ee7222c8a7bb7e7990b53655e3d356",
+    "result": {
+      "status": "final_review",
+      "planning_ms": 110760,
+      "calls": 5,
+      "repairs": 0,
+      "discovery_reads": 2,
+      "diagnostics": [],
+      "execution_success": false,
+      "execution_oracle": false,
+      "execution_status": "completed",
+      "accounting": {
+        "planning": {
+          "logical_calls": 5,
+          "physical_attempts": 5,
+          "known_input_tokens": 57196,
+          "known_output_tokens": 7927,
+          "known_cost_eur": 0.46361302885466454,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "execution": {
+          "logical_calls": 1,
+          "physical_attempts": 1,
+          "known_input_tokens": 47546,
+          "known_output_tokens": 147,
+          "known_cost_eur": 0.21432111878208532,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "campaign": {
+          "calls": 53,
+          "session_calls": 0,
+          "known_input_tokens": 614896,
+          "known_output_tokens": 96701,
+          "known_cost_eur": 5.288998052752699,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0,
+          "cost_upper_bound_eur": 5.288998052752699,
+          "unknown_attempts": 0
+        }
+      },
+      "execution_ms": 41241,
+      "total_ms": 152001
+    },
+    "oracle": {
+      "passed": false,
+      "findings": [
+        "workflow_execution_failed",
+        "browser_not_closed_by_workflow",
+        "workbook_missing"
+      ]
+    },
+    "execution_error_code": "LLM_NETWORK",
+    "cause": "Valid Int64 token usage rejected by telemetry; independent real-Flow regression reproduced the same error. Browser KeepBrowserOpen also prevented cleanup.",
+    "operations": [
+      {
+        "tool": "browser_get_content",
+        "error": false,
+        "latency_ms": 7256
+      },
+      {
+        "tool": "browser_close",
+        "error": false,
+        "latency_ms": 1005
+      },
+      {
+        "tool": "browser_get_content",
+        "error": false,
+        "latency_ms": 102
+      },
+      {
+        "tool": "browser_close",
+        "error": false,
+        "latency_ms": 1002
+      }
+    ]
+  },
+  {
+    "run": "final3-code-3",
+    "source": "cccf67a980ee7222c8a7bb7e7990b53655e3d356",
+    "result": {
+      "status": "final_review",
+      "planning_ms": 102397,
+      "calls": 3,
+      "repairs": 0,
+      "discovery_reads": 4,
+      "diagnostics": [],
+      "execution_success": false,
+      "execution_oracle": false,
+      "execution_status": "completed",
+      "accounting": {
+        "planning": {
+          "logical_calls": 3,
+          "physical_attempts": 3,
+          "known_input_tokens": 42159,
+          "known_output_tokens": 9036,
+          "known_cost_eur": 0.42651354221986193,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "execution": {
+          "logical_calls": 11,
+          "physical_attempts": 11,
+          "known_input_tokens": 125588,
+          "known_output_tokens": 2328,
+          "known_cost_eur": 0.617613736944592,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "campaign": {
+          "calls": 73,
+          "session_calls": 0,
+          "known_input_tokens": 853133,
+          "known_output_tokens": 120414,
+          "known_cost_eur": 6.9729907948309435,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0,
+          "cost_upper_bound_eur": 6.9729907948309435,
+          "unknown_attempts": 0
+        }
+      },
+      "execution_ms": 567813,
+      "total_ms": 670210
+    },
+    "oracle": {
+      "passed": false,
+      "findings": [
+        "workflow_execution_failed",
+        "local_review_missing",
+        "no_independent_command_completion_evidence",
+        "repository_required_checks_not_independently_verified"
+      ]
+    },
+    "execution_error_code": "MCP_CALL_ERROR",
+    "cause": "MCP transport stopped after more than ten input-required rounds; concurrent permission callbacks also failed. Both errors retained. No completed command receipts or local review.",
+    "operations": [
+      {
+        "tool": "copilot_task_contract",
+        "error": false,
+        "latency_ms": 234
+      },
+      {
+        "tool": "git_clone",
+        "error": false,
+        "latency_ms": 27794
+      },
+      {
+        "tool": "copilot_interactive_one_shot",
+        "error": null,
+        "latency_ms": 490810
+      },
+      {
+        "tool": "cmd_run",
+        "error": false,
+        "latency_ms": 740
+      }
+    ]
+  }
+]

@@ -1,0 +1,86 @@
+[
+  {
+    "run": "preconditions20261004a-amazon-1",
+    "command": {
+      "kind": "revise",
+      "expectedRevision": 3,
+      "artifactHash": "d6c43c039d4881140c61970767eccd3f5f1a1479d172a6d523aac7e1a2bf9e95",
+      "preserveRequirements": true,
+      "text": "Implementation review: not approved. Preserve all accepted requirements, public inputs and outputs. The plan must explicitly observe the initial page, identify an observed cookie-consent control if present, conditionally click it using its observed selector, and obtain a fresh observation before proceeding. Do not invent selectors or hidden actions. Search and each visited product need complete observations: consume necessary nextCursor continuation before navigation or use targeted/narrowed reads when captureTruncated is true. Keep this bounded; unresolved truncated/captureTruncated/nextCursor must fail via a structured requires condition before extraction/publication, never prose-only gating or empty fallback. Use sequence with requires for mandatory publication conditions, retaining ordinary conditional branches' matching outputs. Preserve real sequential per-product navigation and extraction from each actual page. Extract mode cannot invent rank counters, labels, classifications or null placeholders; nullable is not a default. Use explicit interpretation for assessment only where needed, and extract observed business values without substitutions. Keep the actual XLSX write and closeBrowser in always. No permission changes, additional caller inputs or requirement weakening."
+    },
+    "requirements_unchanged": true,
+    "final_diagnostics": [
+      {
+        "code": "TASK_COMPILER_VALIDATION",
+        "location": "/tasks/clickObservedCookieConsent/requires",
+        "message": "EXPR_TYPE_MISMATCH: Expression assigned to 'input' has an incompatible nested contract: 'input.value' resolves to missing property, but the set output_schema requires boolean.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      }
+    ],
+    "executed": false
+  },
+  {
+    "run": "preconditions20261004a-code-1",
+    "command": {
+      "kind": "revise",
+      "expectedRevision": 2,
+      "artifactHash": null,
+      "preserveRequirements": true,
+      "text": "Implementation review: not approved. Preserve every accepted requirement and interface. Fix the required conditions using the declared boolean output directly: selecting port success already produces that scalar; do not field-select success again from the scalar. Keep the intended condition rather than replacing it with unconditional true. Artifact creation must survive verified failure: put evidence collection and local report publication in an always sequence, using present checks for preceding lexical ancestors and consuming their real payloads only in the present branch; put clone cleanup in that sequence's nested always. Preserve actual Copilot command and review evidence, never just summary status. The single bounded reviewJson output must match its accepted closed type exactly. The report must be an actually written file outside the clone, not a literal path pretending publication. Prefer an available deterministic write operation for serialization/publication; inspect its exact contract if necessary. If retaining agent.run, output_schema and verification facts_schema must be valid JSON Schemas, not example result objects, and all literal authority/verification restrictions remain. Keep pinned base/head, all requested repository checks, real command receipts and local-only feedback. Missing capabilities, failed commands or unavailable evidence must remain truthful; no host/sandbox/permission expansion, invented fields or dropped objectives."
+    },
+    "requirements_unchanged": true,
+    "final_diagnostics": [
+      {
+        "code": "CONTRACT_UNSATISFIED",
+        "location": "/root/outputs/cleanup",
+        "message": "TASK_REFERENCE_UNKNOWN: Business reference 'cleanup_extract' is unavailable in this scope.",
+        "required": true,
+        "validationStage": "contract:TASK_REFERENCE_UNKNOWN",
+        "rule": null
+      },
+      {
+        "code": "CONTRACT_UNSATISFIED",
+        "location": "/root/outputs/reviewJson",
+        "message": "TASK_REFERENCE_UNKNOWN: Business reference 'assemble_review_data_minimal' is unavailable in this scope.",
+        "required": true,
+        "validationStage": "contract:TASK_REFERENCE_UNKNOWN",
+        "rule": null
+      },
+      {
+        "code": "TASK_DEPENDENCY_UNKNOWN",
+        "location": "/tasks/cleanup_clone/dependsOn",
+        "message": "Dependencies prepare_workflow_dir must name preceding tasks in scope /tasks/evidence_and_publication_always/body. Ancestor values may be captured without cross-scope dependsOn entries.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      },
+      {
+        "code": "CONTRACT_UNSATISFIED",
+        "location": "/tasks/cleanup_extract/inputs/cleanupResult",
+        "message": "TASK_REFERENCE_UNKNOWN: Business reference 'cleanup_clone' is unavailable in this scope.",
+        "required": true,
+        "validationStage": "contract:TASK_REFERENCE_UNKNOWN",
+        "rule": null
+      },
+      {
+        "code": "TASK_PRESENCE_SCOPE",
+        "location": "/tasks/cleanup_extract/requires",
+        "message": "Presence requires a preceding task in this scope or a lexical ancestor.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      },
+      {
+        "code": "TASK_EXPORT_REQUIRED",
+        "location": "/tasks/evidence_and_publication_always/body/outputs",
+        "message": "Declare the business outputs needed by consumers outside this scope; exports are never implicit.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      }
+    ],
+    "executed": false
+  }
+]

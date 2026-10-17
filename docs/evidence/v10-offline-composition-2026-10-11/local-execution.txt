@@ -1,0 +1,128 @@
+  Identification des projets à restaurer...
+  Tous les projets sont à jour pour la restauration.
+  GnOuGo.Flow.Core -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Flow.Core/bin/Debug/net10.0/GnOuGo.Flow.Core.dll
+  GnOuGo.Flow.Copilot -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Flow.Copilot/bin/Debug/net10.0/GnOuGo.Flow.Copilot.dll
+  GnOuGo.Workspace -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Workspace/bin/Debug/net10.0/GnOuGo.Workspace.dll
+  GnOuGo.KeyVault.Core -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.KeyVault.Core/bin/Debug/net10.0/GnOuGo.KeyVault.Core.dll
+  GnOuGo.Flow.Persistence -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Flow.Persistence/bin/Debug/net10.0/GnOuGo.Flow.Persistence.dll
+  GnOuGo.Agent.Shared -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Agent.Shared/bin/Debug/net10.0/GnOuGo.Agent.Shared.dll
+  GnOuGo.Auth.Core -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Auth.Core/bin/Debug/net10.0/GnOuGo.Auth.Core.dll
+  GnOuGo.AI.Core -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.AI.Core/bin/Debug/net10.0/GnOuGo.AI.Core.dll
+  GnOuGo.Diff.Core -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Diff.Core/bin/Debug/net10.0/GnOuGo.Diff.Core.dll
+  GnOuGo.Mcp.Core -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Mcp.Core/bin/Debug/net10.0/GnOuGo.Mcp.Core.dll
+  GnOuGo.Observability.Core -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Observability.Core/bin/Debug/net10.0/GnOuGo.Observability.Core.dll
+  GnOuGo.Agent.Mcp -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Agent.Mcp/bin/Debug/net10.0/GnOuGo.Agent.Mcp.dll
+  GnOuGo.AI.Local -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.AI.Local/bin/Debug/net10.0/GnOuGo.AI.Local.dll
+  GnOuGo.Assets.Bears -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Assets.Bears/bin/Debug/net10.0/GnOuGo.Assets.Bears.dll
+  GnOuGo.Assets.Animation -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Assets.Animation/bin/Debug/net10.0/GnOuGo.Assets.Animation.dll
+  GnOuGo.DocIngestor.Core -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.DocIngestor.Core/bin/Debug/net10.0/GnOuGo.DocIngestor.Core.dll
+  GnOuGo.DocIngestor.Mcp -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.DocIngestor.Mcp/bin/Debug/net10.0/GnOuGo.DocIngestor.Mcp.dll
+  GnOuGo.Flow.Planning -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Flow.Planning/bin/Debug/net10.0/GnOuGo.Flow.Planning.dll
+  GnOuGo.Flow.Integrations -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Flow.Integrations/bin/Debug/net10.0/GnOuGo.Flow.Integrations.dll
+  GnOuGo.Flow.Mermaid -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Flow.Mermaid/bin/Debug/net10.0/GnOuGo.Flow.Mermaid.dll
+  GnOuGo.Files.Server -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Files.Server/bin/Debug/net10.0/GnOuGo.Files.Server.dll
+  GnOuGo.KeyVault.Mcp -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.KeyVault.Mcp/bin/Debug/net10.0/GnOuGo.KeyVault.Mcp.dll
+  GnOuGo.Auth.Core -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Auth.Core/bin/Debug/net10.0/GnOuGo.Auth.Core.dll
+  GnOuGo.AI.Core -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.AI.Core/bin/Debug/net10.0/GnOuGo.AI.Core.dll
+  GnOuGo.Workspace -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Workspace/bin/Debug/net10.0/GnOuGo.Workspace.dll
+  GnOuGo.OtlpCollector.Server -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.OtlpCollector.Server/bin/Debug/net10.0/GnOuGo.OtlpCollector.Server.dll
+  GnOuGo.Mcp.Core -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Mcp.Core/bin/Debug/net10.0/GnOuGo.Mcp.Core.dll
+  GnOuGo.Observability.Core -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Observability.Core/bin/Debug/net10.0/GnOuGo.Observability.Core.dll
+  GnOuGo.Browser.Mcp -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Browser.Mcp/bin/Debug/net10.0/GnOuGo.Browser.Mcp.dll
+  GnOuGo.Workspace -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Workspace/bin/Debug/net10.0/GnOuGo.Workspace.dll
+  GnOuGo.Cmd.Mcp -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Cmd.Mcp/bin/Debug/net10.0/GnOuGo.Cmd.Mcp.dll
+  GnOuGo.Diff.Core -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Diff.Core/bin/Debug/net10.0/GnOuGo.Diff.Core.dll
+  GnOuGo.Document.Mcp -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Document.Mcp/bin/Debug/net10.0/GnOuGo.Document.Mcp.dll
+  GnOuGo.Auth.Core -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Auth.Core/bin/Debug/net10.0/GnOuGo.Auth.Core.dll
+  GnOuGo.Flow.Core -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Flow.Core/bin/Debug/net10.0/GnOuGo.Flow.Core.dll
+  GnOuGo.GithubCopilot.Core -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.GithubCopilot.Core/bin/Debug/net10.0/GnOuGo.GithubCopilot.Core.dll
+  GnOuGo.KeyVault.Core -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.KeyVault.Core/bin/Debug/net10.0/GnOuGo.KeyVault.Core.dll
+  GnOuGo.GithubCopilot.Mcp -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.GithubCopilot.Mcp/bin/Debug/net10.0/GnOuGo.GithubCopilot.Mcp.dll
+  GnOuGo.Git.Mcp -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Git.Mcp/bin/Debug/net10.0/GnOuGo.Git.Mcp.dll
+  GnOuGo.Agent.Server -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Agent.Server/bin/Debug/net10.0/GnOuGo.Agent.Server.dll
+  Staging GnOuGo MCP development tools into bin/Debug/net10.0/tools...
+  GnOuGo.Document.Mcp -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Document.Mcp/bin/Debug/net10.0/GnOuGo.Document.Mcp.dll
+  GnOuGo.Browser.Mcp -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Browser.Mcp/bin/Debug/net10.0/GnOuGo.Browser.Mcp.dll
+  Installing Playwright Chromium browsers...
+  GnOuGo.Git.Mcp -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Git.Mcp/bin/Debug/net10.0/GnOuGo.Git.Mcp.dll
+  GnOuGo.Cmd.Mcp -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Cmd.Mcp/bin/Debug/net10.0/GnOuGo.Cmd.Mcp.dll
+  GnOuGo.GithubCopilot.Core -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.GithubCopilot.Core/bin/Debug/net10.0/GnOuGo.GithubCopilot.Core.dll
+  GnOuGo.GithubCopilot.Mcp -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.GithubCopilot.Mcp/bin/Debug/net10.0/GnOuGo.GithubCopilot.Mcp.dll
+  GnOuGo.OtlpCollector.Server -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.OtlpCollector.Server/bin/Debug/net10.0/GnOuGo.OtlpCollector.Server.dll
+  🔍 Vérification des dépendances pnpm...
+  🔨 Construction du frontend React...
+  
+  > otlp-tenant-collector-ui@0.1.0 build /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.OtlpCollector.Server/ClientApp
+  > tsc && vite build
+  
+  vite v8.3.0 building client environment for production...
+  transforming...
+  ✓ 56 modules transformed.
+  rendering chunks...
+  computing gzip size...
+  ../wwwroot/index.html                   0.40 kB │ gzip:   0.27 kB
+  ../wwwroot/assets/index-DrXxYbax.css   59.47 kB │ gzip:   9.70 kB
+  ../wwwroot/assets/index-Cs5bBauP.js   410.50 kB │ gzip: 121.60 kB │ map: 1,808.56 kB
+  
+  ✓ built in 393ms
+  ✅ Frontend construit et copié vers wwwroot/
+  GnOuGo.Agent.Server.Tests -> /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Agent.Server.Tests/bin/Debug/net10.0/GnOuGo.Agent.Server.Tests.dll
+  Staging GnOuGo MCP development tools into bin/Debug/net10.0/tools...
+Série de tests pour /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Agent.Server.Tests/bin/Debug/net10.0/GnOuGo.Agent.Server.Tests.dll (.NETCoreApp,Version=v10.0)
+Au total, 1 fichiers de test ont correspondu au modèle spécifié.
+/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Agent.Server.Tests/bin/Debug/net10.0/GnOuGo.Agent.Server.Tests.dll
+[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v4.0.0+05679a7ab5 (64-bit .NET 10.0.8)
+[xUnit.net 00:00:01.51]   Discovering: GnOuGo.Agent.Server.Tests
+[xUnit.net 00:00:01.86]   Discovered:  GnOuGo.Agent.Server.Tests
+[xUnit.net 00:00:02.01]   Starting:    GnOuGo.Agent.Server.Tests
+  Réussi GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V10CompositionExecutesOriginalObservationsAndExactWorkbook(variant: "missing") [1 m 4 s]
+  Messages de sortie standard :
+ V10 RUNTIME missing: success=True; elapsedMs=40602; tasks=24; YAML=266921; inference=23; mappings=11; invocations=392; steps=391; cleanup=1; allocatedBytes=8435852296; logicalJournalBytes=67652249; physicalBytes=32819052; error= 
+ V10 ORACLE missing: exactCells=true; visits=10; pages=39; offered=12; decisionBytes=2690; inferenceForTypedCopies=0; cleanup=true; committedRecovery=true; oracle={"version":"observed-products-v2","passed":false,"visit_count":10,"visits":[{"event_index":1,"redirected":false},{"event_index":2,"redirected":false},{"event_index":3,"redirected":false},{"event_index":4,"redirected":false},{"event_index":5,"redirected":false},{"event_index":6,"redirected":false},{"event_index":7,"redirected":false},{"event_index":8,"redirected":false},{"event_index":9,"redirected":false},{"event_index":10,"redirected":false}],"rows":[{"row":1,"name_exact":true,"description_block_exact":true,"price_exact":true,"description_in_combined_observation":true},{"row":2,"name_exact":true,"description_block_exact":true,"price_exact":true,"description_in_combined_observation":true},{"row":3,"name_exact":true,"description_block_exact":true,"price_exact":false,"description_in_combined_observation":true},{"row":4,"name_exact":true,"description_block_exact":false,"price_exact":true,"description_in_combined_observation":false},{"row":5,"name_exact":true,"description_block_exact":true,"price_exact":true,"description_in_combined_observation":true},{"row":6,"name_exact":true,"description_block_exact":true,"price_exact":true,"description_in_combined_observation":true},{"row":7,"name_exact":true,"description_block_exact":true,"price_exact":true,"description_in_combined_observation":true},{"row":8,"name_exact":true,"description_block_exact":true,"price_exact":true,"description_in_combined_observation":true},{"row":9,"name_exact":true,"description_block_exact":true,"price_exact":true,"description_in_combined_observation":true},{"row":10,"name_exact":true,"description_block_exact":true,"price_exact":true,"description_in_combined_observation":true}],"findings":["workbook_price_not_exact_observed_value","workbook_absence_not_independently_established","workbook_description_not_one_observed_block"]}
+
+
+  Réussi GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V10CompositionExecutesOriginalObservationsAndExactWorkbook(variant: "denied") [41 s]
+  Messages de sortie standard :
+ V10 RUNTIME denied: success=False; elapsedMs=23766; tasks=24; YAML=266856; inference=23; mappings=11; invocations=392; steps=391; cleanup=1; allocatedBytes=8405096096; logicalJournalBytes=68089472; physicalBytes=32706560; error=MCP_CALL_ERROR mcp.call (tool) to 'document/document_write' returned an MCP error: {"success":false,"filePath":null,"bytesWritten":null,"errorCode":"POLICY_VIOLATION","errorMessage":"filePath must not contain parent traversal segments or wildcard characters.","relativePath":null,"filePathAbsolute":null} [workflow 'main', step 'n_db5a1e8bb35c43c6']
+
+
+  Réussi GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V10CompositionExecutesOriginalObservationsAndExactWorkbook(variant: "complete") [46 s]
+  Messages de sortie standard :
+ V10 RUNTIME complete: success=True; elapsedMs=26538; tasks=24; YAML=266921; inference=23; mappings=11; invocations=392; steps=391; cleanup=1; allocatedBytes=8405504904; logicalJournalBytes=68313986; physicalBytes=32786279; error= 
+ V10 ORACLE complete: exactCells=true; visits=10; pages=39; offered=12; decisionBytes=2690; inferenceForTypedCopies=0; cleanup=true; committedRecovery=true; oracle={"version":"observed-products-v2","passed":true,"visit_count":10,"visits":[{"event_index":1,"redirected":false},{"event_index":2,"redirected":false},{"event_index":3,"redirected":false},{"event_index":4,"redirected":false},{"event_index":5,"redirected":false},{"event_index":6,"redirected":false},{"event_index":7,"redirected":false},{"event_index":8,"redirected":false},{"event_index":9,"redirected":false},{"event_index":10,"redirected":false}],"rows":[{"row":1,"name_exact":true,"description_block_exact":true,"price_exact":true,"description_in_combined_observation":true},{"row":2,"name_exact":true,"description_block_exact":true,"price_exact":true,"description_in_combined_observation":true},{"row":3,"name_exact":true,"description_block_exact":true,"price_exact":true,"description_in_combined_observation":true},{"row":4,"name_exact":true,"description_block_exact":true,"price_exact":true,"description_in_combined_observation":true},{"row":5,"name_exact":true,"description_block_exact":true,"price_exact":true,"description_in_combined_observation":true},{"row":6,"name_exact":true,"description_block_exact":true,"price_exact":true,"description_in_combined_observation":true},{"row":7,"name_exact":true,"description_block_exact":true,"price_exact":true,"description_in_combined_observation":true},{"row":8,"name_exact":true,"description_block_exact":true,"price_exact":true,"description_in_combined_observation":true},{"row":9,"name_exact":true,"description_block_exact":true,"price_exact":true,"description_in_combined_observation":true},{"row":10,"name_exact":true,"description_block_exact":true,"price_exact":true,"description_in_combined_observation":true}],"findings":[]}
+
+
+  Réussi GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V10CompositionExecutesOriginalObservationsAndExactWorkbook(variant: "unoffered") [18 s]
+  Messages de sortie standard :
+ V10 RUNTIME unoffered: success=False; elapsedMs=1469; tasks=24; YAML=266921; inference=3; mappings=1; invocations=17; steps=16; cleanup=1; allocatedBytes=282662144; logicalJournalBytes=3717543; physicalBytes=1748992; error=CONTRACT_UNSATISFIED A selected identity is absent from the lookup source. [workflow 'main', step 'n_ed27e42a862310f9']
+
+
+  Réussi GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V10CompositionExecutesOriginalObservationsAndExactWorkbook(variant: "incomplete") [18 s]
+  Messages de sortie standard :
+ V10 RUNTIME incomplete: success=False; elapsedMs=801; tasks=24; YAML=266921; inference=1; mappings=0; invocations=4; steps=3; cleanup=1; allocatedBytes=80313704; logicalJournalBytes=344558; physicalBytes=827392; error=MCP_CALL_ERROR mcp.call (tool) to 'browser/browser_get_content' returned an MCP error: A complete snapshot exceeds capture or page bounds. Narrow the requested observation explicitly. [workflow 'main', step 'n_62737a68773ca42a']
+
+
+  Réussi GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V10CompositionExecutesOriginalObservationsAndExactWorkbook(variant: "one") [22 s]
+  Messages de sortie standard :
+ V10 RUNTIME one: success=True; elapsedMs=3947; tasks=24; YAML=266921; inference=5; mappings=2; invocations=59; steps=58; cleanup=1; allocatedBytes=1021539320; logicalJournalBytes=11721585; physicalBytes=5379838; error= 
+ V10 ORACLE one: exactCells=true; visits=1; pages=21; offered=12; decisionBytes=2690; inferenceForTypedCopies=0; cleanup=true; committedRecovery=true; oracle={"version":"observed-products-v2","passed":true,"visit_count":1,"visits":[{"event_index":1,"redirected":false}],"rows":[{"row":1,"name_exact":true,"description_block_exact":true,"price_exact":true,"description_in_combined_observation":true}],"findings":[]}
+
+
+  Réussi GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V10CompositionExecutesOriginalObservationsAndExactWorkbook(variant: "empty") [19 s]
+  Messages de sortie standard :
+ V10 RUNTIME empty: success=True; elapsedMs=1868; tasks=24; YAML=266921; inference=3; mappings=1; invocations=22; steps=21; cleanup=1; allocatedBytes=348352496; logicalJournalBytes=3331984; physicalBytes=2250407; error= 
+ V10 ORACLE empty: exactCells=true; visits=0; pages=13; offered=0; decisionBytes=1081; inferenceForTypedCopies=0; cleanup=true; committedRecovery=true; oracle={"version":"observed-products-v2","passed":false,"visit_count":0,"visits":[],"rows":[],"findings":["product_visits_do_not_match_rows"]}
+
+
+[xUnit.net 00:04:35.88]   Finished:    GnOuGo.Agent.Server.Tests (ID = '2baf028ce2ab75b8f0ed2d783ac1df4e1a042624d79640bf5403195bb8cfea65')
+  Réussi GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V10CompositionExecutesOriginalObservationsAndExactWorkbook(variant: "repeated") [42 s]
+  Messages de sortie standard :
+ V10 RUNTIME repeated: success=True; elapsedMs=22550; tasks=24; YAML=266921; inference=23; mappings=11; invocations=392; steps=391; cleanup=1; allocatedBytes=8421851176; logicalJournalBytes=68314333; physicalBytes=32761702; error= 
+ V10 ORACLE repeated: exactCells=true; visits=10; pages=39; offered=12; decisionBytes=2690; inferenceForTypedCopies=0; cleanup=true; committedRecovery=true; oracle={"version":"observed-products-v2","passed":true,"visit_count":10,"visits":[{"event_index":1,"redirected":false},{"event_index":2,"redirected":false},{"event_index":3,"redirected":false},{"event_index":4,"redirected":false},{"event_index":5,"redirected":false},{"event_index":6,"redirected":false},{"event_index":7,"redirected":false},{"event_index":8,"redirected":false},{"event_index":9,"redirected":false},{"event_index":10,"redirected":false}],"rows":[{"row":1,"name_exact":true,"description_block_exact":true,"price_exact":true,"description_in_combined_observation":true},{"row":2,"name_exact":true,"description_block_exact":true,"price_exact":true,"description_in_combined_observation":true},{"row":3,"name_exact":true,"description_block_exact":true,"price_exact":true,"description_in_combined_observation":true},{"row":4,"name_exact":true,"description_block_exact":true,"price_exact":true,"description_in_combined_observation":true},{"row":5,"name_exact":true,"description_block_exact":true,"price_exact":true,"description_in_combined_observation":true},{"row":6,"name_exact":true,"description_block_exact":true,"price_exact":true,"description_in_combined_observation":true},{"row":7,"name_exact":true,"description_block_exact":true,"price_exact":true,"description_in_combined_observation":true},{"row":8,"name_exact":true,"description_block_exact":true,"price_exact":true,"description_in_combined_observation":true},{"row":9,"name_exact":true,"description_block_exact":true,"price_exact":true,"description_in_combined_observation":true},{"row":10,"name_exact":true,"description_block_exact":true,"price_exact":true,"description_in_combined_observation":true}],"findings":[]}
+
+
+
+Série de tests réussie.
+Nombre total de tests : 8
+     Réussi(s) : 8
+ Durée totale : 4,6038 Minutes

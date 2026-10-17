@@ -1,0 +1,85 @@
+{
+  "source": "17def202b6a51140356d90904039469f3af2f121",
+  "checks": {
+    "server-tests": {
+      "log_sha256": "4d78056a25ae0d16a42cb6eba29b1e5933ae7a28e5971160a5a9285eab8f2924",
+      "failed": 0,
+      "passed": 67,
+      "skipped": 0
+    },
+    "browser-tests": {
+      "log_sha256": "7336cb9355e3b4b6ae09a76ac9e370bf1f4226e02d2ed907db5b5afd73522153",
+      "failed": 0,
+      "passed": 1,
+      "skipped": 0
+    },
+    "review-tests": {
+      "log_sha256": "5ede0779c647d2fa6cbd62a5c6a5be80be40e73bcefb4b8ea7353ddd619d494b",
+      "failed": 0,
+      "passed": 8,
+      "skipped": 0
+    },
+    "copilot-tests": {
+      "log_sha256": "edb22414633cbdd261e8f181dcb08114f5d466e56a19ba05a172608d0552bce6",
+      "failed": 0,
+      "passed": 10,
+      "skipped": 0
+    },
+    "review-harness-tests": {
+      "log_sha256": "2f925414c87630d1c5ca098d927626c10722c53dbfe0adfaa77c4de8efe1a713",
+      "failed": 0,
+      "passed": 8,
+      "skipped": 0
+    },
+    "presence-before": {
+      "log_sha256": "0dfc17162b15192129c8e65b1c19cff6f132b817b86c1c2480f6e5f89824410e",
+      "failed": 5,
+      "passed": 0,
+      "skipped": 0
+    },
+    "presence-after": {
+      "log_sha256": "4c13e9330e580dd28c0a36c3238fe59fa6ce8bf21a6a73087726370f905cbefe",
+      "failed": 0,
+      "passed": 17,
+      "skipped": 0
+    },
+    "budget-tests": {
+      "log_sha256": "86aff880c7318e025cd7f2838a4ee6400a7df05c8e3f9b2d5d5117f05a48584b",
+      "failed": 0,
+      "passed": 54,
+      "skipped": 0
+    },
+    "solution": {
+      "log_sha256": "24a4bb4fda1c2fbeebe73115c4917263b988f6856ac6a9bb36b5bc1cbf0d565c",
+      "failed": 0,
+      "passed": 4291,
+      "skipped": 12
+    },
+    "pack": {
+      "log_sha256": "c8ac299048c95b3b50d9002678440978119b724dbbc4e3f1a7198a7e09da2ec0"
+    },
+    "aot-publish": {
+      "log_sha256": "e54ac37eae625f29bed6b1ad2e50459c39e226addacb7ff9c851bf1b45c1b04d"
+    },
+    "aot-run": {
+      "log_sha256": "7929467301b746c043d17a8a2049f0907af4d3b03c5ccd68478da600f8353325"
+    }
+  },
+  "paid_fixture_calls": 0,
+  "historical_cohorts_unchanged": true,
+  "coverage_note": "The full solution completed before the additional campaign-extension test was added. That test passed in the separate 54-case budget/approval/accounting run. Counts overlap and are not additive.",
+  "commands": [
+    "dotnet test GnOuGo.Agent.sln -m:1 -warnaserror",
+    "dotnet test tests/GnOuGo.Flow.Planning.Tests -m:1 -warnaserror --filter FullyQualifiedName~TaskPlanSemanticValidationTests",
+    "dotnet pack src/GnOuGo.Flow.Planning -c Release -warnaserror",
+    "dotnet publish tests/GnOuGo.Flow.Planning.Smoke -c Release -r osx-arm64 --self-contained true -warnaserror"
+  ],
+  "readiness_log_sha256": {
+    "amazon": "1b1e9648eacb643ae82eb4dddaa215b54bffc5588d9f92ea793e81adc48e6181",
+    "code": "fb3615f163dfc42eb471697f9279c9124aa9bccb4ea070a013027e4010a5ec62"
+  },
+  "oracle_sha256": {
+    "LiveWorkflowOracles.cs": "806a3e404b58175dc6abb562ee649b4ad44621d0d25ba3160f2c18a4054bb4ab",
+    "LiveCodeEvidence.cs": "720dddbc96645899ff8f7cae3ab330aa4a700bf5535c86c5c3f301a9ed1c05f6"
+  }
+}

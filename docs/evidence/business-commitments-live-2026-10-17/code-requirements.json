@@ -1,0 +1,189 @@
+{
+  "summary": "À partir des deux entrées publiques pullRequestUrl et reviewText, réaliser localement une revue automatique de la PR GitHub SmartGuide #610, en clonant une seule fois le dépôt dans le chemin imposé, en exécutant via Copilot les vérifications et checks déclarés par le dépôt, en produisant un rapport JSON local, puis en supprimant le clone quoi qu’il arrive.",
+  "outcomes": [
+    {
+      "id": "single-fixed-clone",
+      "description": "Le dépôt AxaFrance/SmartGuide est cloné une seule fois dans workflows/schema-portability-20261002/commitments20261017a-code-1/repository au head f2f6bda0e02a6c5c363e88cd6cb5d4eb7c313488 pour comparaison avec la base 8f1779dc25c1843e9ce4d4ec76d02e066ae892c4.",
+      "commitments": [
+        {
+          "operation": "cap_fa8aa0024ff2ec0a4f9e61ad",
+          "result": {
+            "port": "projectRootRelative",
+            "output": "workspace.directory"
+          }
+        }
+      ]
+    },
+    {
+      "id": "local-check-evidence",
+      "description": "Copilot vérifie explicitement node --version, pnpm --version et python --version, installe les dépendances déclarées et exécute les linters, tests unitaires et tests d’intégration déclarés si présents, avec commandes et codes de sortie observés. Une capacité absente, un prérequis indisponible ou un test échoué reste explicite.",
+      "commitments": [
+        {
+          "operation": "cap_e87238bc6035a17954299a78",
+          "result": {
+            "port": "toolExecutions",
+            "output": "commands/codes evidence"
+          }
+        }
+      ]
+    },
+    {
+      "id": "local-diff-review",
+      "description": "La revue de code est réalisée localement sur le diff exact base/head, avec commentaires de diff et sans publication GitHub.",
+      "commitments": [
+        {
+          "operation": "cap_6c40004fe4610a44cf97c2c7",
+          "result": {
+            "port": "filesJson",
+            "output": "revision.comparison.files"
+          }
+        },
+        {
+          "operation": "cap_bed15f26b6b53fb1f2f33e52",
+          "result": {
+            "port": "findings",
+            "output": "local diff findings"
+          }
+        }
+      ]
+    },
+    {
+      "id": "report-and-cleanup",
+      "description": "Le fichier workflows/schema-portability-20261002/commitments20261017a-code-1/review.json est sauvegardé avant nettoyage et contient decision, findings et les commandes/codes de sortie observés; le répertoire cloné est supprimé même en cas d’échec.",
+      "commitments": [
+        {
+          "operation": "cap_5c01f9aa688163d23a30ff8b",
+          "result": {
+            "port": "success",
+            "output": "write_file review.json then delete_directory repository"
+          }
+        }
+      ]
+    }
+  ],
+  "inputs": [
+    {
+      "name": "pullRequestUrl",
+      "type": {
+        "kind": "string"
+      }
+    },
+    {
+      "name": "reviewText",
+      "type": {
+        "kind": "string"
+      }
+    }
+  ],
+  "outputs": [
+    {
+      "name": "reviewJsonPath",
+      "type": {
+        "kind": "string"
+      },
+      "required": false
+    },
+    {
+      "name": "decision",
+      "type": {
+        "kind": "string",
+        "enum": [
+          "approve",
+          "request_changes"
+        ]
+      },
+      "required": false
+    },
+    {
+      "name": "findings",
+      "type": {
+        "kind": "array",
+        "items": {
+          "kind": "object",
+          "fields": [
+            {
+              "name": "path",
+              "type": {
+                "kind": "string",
+                "nullable": true
+              }
+            },
+            {
+              "name": "side",
+              "type": {
+                "kind": "string",
+                "nullable": true
+              }
+            },
+            {
+              "name": "startLine",
+              "type": {
+                "kind": "integer",
+                "nullable": true
+              }
+            },
+            {
+              "name": "endLine",
+              "type": {
+                "kind": "integer",
+                "nullable": true
+              }
+            },
+            {
+              "name": "severity",
+              "type": {
+                "kind": "string",
+                "nullable": true
+              }
+            },
+            {
+              "name": "explanation",
+              "type": {
+                "kind": "string",
+                "nullable": true
+              }
+            }
+          ]
+        },
+        "minItems": 0,
+        "maxItems": 0
+      },
+      "required": false
+    },
+    {
+      "name": "commands",
+      "type": {
+        "kind": "array",
+        "items": {
+          "kind": "object",
+          "fields": [
+            {
+              "name": "command",
+              "type": {
+                "kind": "string",
+                "nullable": true
+              }
+            },
+            {
+              "name": "exitCode",
+              "type": {
+                "kind": "integer",
+                "nullable": true
+              }
+            },
+            {
+              "name": "workingDirectory",
+              "type": {
+                "kind": "string",
+                "nullable": true
+              }
+            }
+          ]
+        },
+        "minItems": 0,
+        "maxItems": 0
+      },
+      "required": false
+    }
+  ]
+}

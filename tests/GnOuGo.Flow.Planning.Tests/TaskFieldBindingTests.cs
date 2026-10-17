@@ -42,13 +42,24 @@ public sealed class TaskFieldBindingTests
     {
         var catalog = await Catalog(); var plan = Plan();
         var graph = Compile(plan, catalog);
-        var projection = Assert.Single(graph.Workflows.SelectMany(w => w.Finally), n => n.Type == "value.project");
+        var projection = Assert.Single(graph.Workflows.SelectMany(w => w.Finally), n => n.Type == "set" && n.Input.Kind == "projection");
         Assert.Equal("message", Assert.Single(Assert.Single(projection.Input.Members.Single(m => m.Name == "paths").Value.Items).Items).Text);
         Assert.DoesNotContain(graph.Workflows.SelectMany(w => w.Steps.Concat(w.Finally)), n => n.Type == "llm.call");
         Assert.Equal(JsonSerializer.Serialize(graph, PlanningJsonContext.Default.PlanningGraph), JsonSerializer.Serialize(Compile(plan, catalog), PlanningJsonContext.Default.PlanningGraph));
         const string message = "東京 é \"literal\" ${data.other} {{code}}";
         var result = await Run(plan, catalog, new() { ["record"] = new JsonObject { ["message"] = message, ["number"] = 19 } });
         Assert.True(result.Success, result.Error?.Message); Assert.Equal(message, result.Outputs!["selected"]!.GetValue<string>());
+    }
+
+    [Theory]
+    [InlineData("0")]
+    [InlineData("length")]
+    public async Task NumericAndLengthPropertyNamesRemainValidOnDeclaredObjects(string property)
+    {
+        var plan = Plan(new() { Kind = "object", Fields = [new() { Name = property, Type = new() { Kind = "string" } }] }, Field(Input(), property));
+        var result = await Run(plan, await Catalog(), new() { ["record"] = new JsonObject { [property] = "observed" } });
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal("observed", result.Outputs!["selected"]!.ToString());
     }
 
     [Theory]

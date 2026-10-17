@@ -36,6 +36,10 @@ public sealed class LLMModelMetadataResolver
     /// Configured metadata files that cannot be read prevent capability proof.
     /// </summary>
     public ModelCapabilityMetadata? ResolveDeclaredCapabilities(string? providerType, string model)
+        => ResolveDeclaredMetadata(providerType, model)?.Capabilities;
+
+    /// <summary>Exact producer/configuration metadata, without fuzzy or heuristic limits.</summary>
+    public LLMModelMetadata? ResolveDeclaredMetadata(string? providerType, string model)
     {
         if (_fileLoadFailed)
             throw new InvalidOperationException("Configured model metadata could not be read completely.");
@@ -48,7 +52,7 @@ public sealed class LLMModelMetadataResolver
             providerType ??= declaredProvider;
         }
         var exact = ResolveExact(providerType, model, declaredOnly: true);
-        return exact.IsRecognized ? exact.Metadata.Capabilities : null;
+        return exact.IsRecognized ? exact.Metadata : null;
     }
 
     /// <summary>

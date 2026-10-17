@@ -1,0 +1,57 @@
+{
+  "path": "<workspace>/workflows/schema-portability-20261002/conditionalentry20261008a-amazon-1/products.xlsx",
+  "bytes": 1744,
+  "sha256": "be5da87e4a7dc7e6e987b5ec32af852f8d804ae48ca23db519abb7e810089efb",
+  "sheets": [
+    {
+      "sheet": "xl/worksheets/sheet1.xml",
+      "rows": [
+        [
+          {
+            "cell": null,
+            "value": "original_index"
+          },
+          {
+            "cell": null,
+            "value": "name"
+          },
+          {
+            "cell": null,
+            "value": "description"
+          },
+          {
+            "cell": null,
+            "value": "price"
+          },
+          {
+            "cell": null,
+            "value": "status"
+          }
+        ],
+        [
+          {
+            "cell": null,
+            "value": "0"
+          },
+          {
+            "cell": null,
+            "value": ""
+          },
+          {
+            "cell": null,
+            "value": ""
+          },
+          {
+            "cell": null,
+            "value": ""
+          },
+          {
+            "cell": null,
+            "value": "search_not_performed_search_box_missing_or_captcha_detected"
+          }
+        ]
+      ]
+    }
+  ],
+  "inspection": "Independent ZIP/XML read; file not modified. Contains a status row, not a supported product row."
+}

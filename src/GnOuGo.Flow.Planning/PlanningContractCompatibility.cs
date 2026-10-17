@@ -109,8 +109,9 @@ internal static class PlanningContractCompatibility
             if (Number(expected[maximum]) is { } max && (Maximum(actual, maximum) is not { } known || known > max)) return false;
         }
         if (sourceTypes.Any(t => t is "integer" or "number") && (!Bound(actual, expected, true) || !Bound(actual, expected, false))) return false;
-        if (sourceTypes.Any(t => t is "integer" or "number") && Number(expected["multipleOf"]) is { } multiple && (multiple <= 0 ||
-            (Number(actual["multipleOf"]) ?? (sourceTypes.SequenceEqual(["integer"]) ? 1 : (decimal?)null)) is not { } sourceMultiple || sourceMultiple <= 0 || sourceMultiple % multiple != 0)) return false;
+        if (sourceTypes.Any(t => t is "integer" or "number") && expected["multipleOf"] is { } multiple &&
+            ((actual["multipleOf"] ?? (sourceTypes.SequenceEqual(["integer"]) ? JsonValue.Create(1) : null)) is not { } sourceMultiple ||
+             PlanningContractValidation.ValidateInstance(sourceMultiple, new JsonObject { ["type"] = "number", ["exclusiveMinimum"] = 0, ["multipleOf"] = multiple.DeepClone() }).Count != 0)) return false;
         if (sourceTypes.Contains("array", StringComparer.Ordinal) && expected["uniqueItems"]?.ToString() == "true" && actual["uniqueItems"]?.ToString() != "true" && Maximum(actual, "maxItems") is not (0 or 1)) return false;
         if (sourceTypes.Contains("object", StringComparer.Ordinal))
         {
@@ -287,11 +288,11 @@ internal static class PlanningContractCompatibility
         "multipleOf", "minLength", "maxLength", "minItems", "maxItems", "minProperties", "maxProperties", "uniqueItems"
     };
     internal static string[] Types(JsonObject schema) => schema["type"] is JsonArray a ? a.Select(n => n!.ToString()).ToArray() : schema["type"] is JsonValue v ? [v.ToString()] : [];
-    private static decimal? Number(JsonNode? value) => value is JsonValue v && decimal.TryParse(v.ToJsonString(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var n) ? n : null;
-    private static decimal? Maximum(JsonObject schema, string keyword)
+    private static double? Number(JsonNode? value) => value is JsonValue v && double.TryParse(v.ToJsonString(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var n) && double.IsFinite(n) ? n : null;
+    private static double? Maximum(JsonObject schema, string keyword)
     {
         var explicitBound = Number(schema[keyword]);
-        decimal? structural = keyword switch
+        double? structural = keyword switch
         {
             "maxItems" when schema["items"]?.ToString() == "false" => (schema["prefixItems"] as JsonArray)?.Count ?? 0,
             "maxProperties" when schema["additionalProperties"]?.ToString() == "false" && schema["patternProperties"] is null => (schema["properties"] as JsonObject)?.Count ?? 0,
@@ -305,10 +306,11 @@ internal static class PlanningContractCompatibility
         var inclusive = lower ? "minimum" : "maximum"; var exclusive = lower ? "exclusiveMinimum" : "exclusiveMaximum";
         foreach (var keyword in new[] { inclusive, exclusive })
         {
-            if (Number(expected[keyword]) is not { } target) continue;
+            if (expected[keyword] is not { } target) continue;
             var satisfied = false;
             foreach (var sourceKeyword in new[] { inclusive, exclusive })
-                if (Number(actual[sourceKeyword]) is { } source && ((lower ? source > target : source < target) || source == target && (keyword == inclusive || sourceKeyword == exclusive))) satisfied = true;
+                if (actual[sourceKeyword] is { } source && PlanningContractValidation.ValidateInstance(source,
+                    new JsonObject { ["type"] = "number", [keyword == inclusive || sourceKeyword == exclusive ? inclusive : exclusive] = target.DeepClone() }).Count == 0) satisfied = true;
             if (!satisfied) return false;
         }
         return true;

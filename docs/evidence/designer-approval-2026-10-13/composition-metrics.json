@@ -1,0 +1,74 @@
+{
+  "retained": {
+    "tasks": 13,
+    "groups": 0,
+    "steps": 28,
+    "sets": 7,
+    "yaml_bytes": 61010,
+    "workflows": 5,
+    "inference_declarations": [
+      {
+        "task": "prepare_request",
+        "mode": "interpret"
+      },
+      {
+        "task": "bind_search_status",
+        "mode": "extract"
+      },
+      {
+        "task": "extract_candidates_by_page",
+        "mode": "extract"
+      },
+      {
+        "task": "compact_first_ten",
+        "mode": "interpret"
+      },
+      {
+        "task": "extract_product_detail",
+        "mode": "extract"
+      },
+      {
+        "task": "null_url_detail",
+        "mode": "interpret"
+      },
+      {
+        "task": "assemble_typed_rows",
+        "mode": "interpret"
+      },
+      {
+        "task": "bind_writer_status",
+        "mode": "extract"
+      }
+    ]
+  },
+  "corrected": {
+    "tasks": 32,
+    "groups": 2,
+    "steps": 49,
+    "sets": 13,
+    "yaml_bytes": 216800,
+    "workflows": 17,
+    "inference_declarations": [
+      {
+        "task": "prepare_request",
+        "mode": "interpret"
+      },
+      {
+        "task": "extract_candidates_by_page",
+        "mode": "extract"
+      },
+      {
+        "task": "compact_first_ten",
+        "mode": "interpret"
+      },
+      {
+        "task": "extract_product_detail",
+        "mode": "extract"
+      },
+      {
+        "task": "choose_details",
+        "mode": "interpret"
+      }
+    ]
+  }
+}

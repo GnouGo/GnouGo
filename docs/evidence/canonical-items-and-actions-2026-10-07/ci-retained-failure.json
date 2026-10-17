@@ -1,0 +1,21 @@
+{
+  "head": "789fda4e",
+  "job_url": "https://github.com/GnouGo/GnouGo/actions/runs/37605294610/job/112739167954",
+  "sanitized_failure_lines": [
+    "2026-10-07T10:12:20.5320474Z [xUnit.net 00:02:21.33]     GnOuGo.Agent.Server.Tests.BrowserSnapshotReceiptTests.ObservedActionChecksSurviveTransportAndEncryptedRecovery(compatible: True) [FAIL]",
+    "2026-10-07T10:12:20.5361499Z   Failed GnOuGo.Agent.Server.Tests.BrowserSnapshotReceiptTests.ObservedActionChecksSurviveTransportAndEncryptedRecovery(compatible: True) [36 s]",
+    "2026-10-07T10:12:20.5363018Z   Error Message:",
+    "2026-10-07T10:12:20.5365610Z    Assert.Equal() Failure: Values differ",
+    "2026-10-07T10:12:20.5366114Z Expected: True",
+    "2026-10-07T10:12:20.5366460Z Actual:   False",
+    "2026-10-07T10:12:20.5366794Z   Stack Trace:",
+    "2026-10-07T10:12:20.5369312Z      at GnOuGo.Agent.Server.Tests.BrowserSnapshotReceiptTests.ObservedActionChecksSurviveTransportAndEncryptedRecovery(Boolean compatible) in /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Agent.Server.Tests/BrowserSnapshotReceiptTests.cs:line 83",
+    "2026-10-07T10:12:20.5373414Z    at GnOuGo.Agent.Server.Tests.BrowserSnapshotReceiptTests.ObservedActionChecksSurviveTransportAndEncryptedRecovery(Boolean compatible) in /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Agent.Server.Tests/BrowserSnapshotReceiptTests.cs:line 97",
+    "2026-10-07T10:12:20.5378251Z    at GnOuGo.Agent.Server.Tests.BrowserSnapshotReceiptTests.ObservedActionChecksSurviveTransportAndEncryptedRecovery(Boolean compatible) in /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Agent.Server.Tests/BrowserSnapshotReceiptTests.cs:line 99",
+    "2026-10-07T10:12:20.5382554Z    at GnOuGo.Agent.Server.Tests.BrowserSnapshotReceiptTests.ObservedActionChecksSurviveTransportAndEncryptedRecovery(Boolean compatible) in /home/runner/work/GnouGo/GnouGo/tests/GnOuGo.Agent.Server.Tests/BrowserSnapshotReceiptTests.cs:line 99",
+    "2026-10-07T10:12:20.5384849Z --- End of stack trace from previous location ---"
+  ],
+  "log_sha256": "db2843c2d6e1e70588637aa218114a9a1247b638078b4690f6f83e5b5b783ead",
+  "locally_reproduced": false,
+  "assertion_diagnostic_followup": "4d31fe69"
+}

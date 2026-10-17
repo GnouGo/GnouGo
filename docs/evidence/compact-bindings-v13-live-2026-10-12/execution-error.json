@@ -1,0 +1,14 @@
+{
+  "Code": "INPUT_VALIDATION",
+  "Type": "INPUT_VALIDATION",
+  "Message": "set output does not satisfy output_schema: $.value: value is not included in enum; received false; allowed values: true [workflow 'main', step 'n_057d824b69e5f524']",
+  "Retryable": false,
+  "Details": {
+    "compiled_node": "requiredCondition",
+    "location": "task_259aaa6aa8d26466e249e4f2",
+    "failed_workflow": "main",
+    "failed_step_id": "n_057d824b69e5f524",
+    "failed_step_type": "workflow.call",
+    "execution_phase": "step"
+  }
+}

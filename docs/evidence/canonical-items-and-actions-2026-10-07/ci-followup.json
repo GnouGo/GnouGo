@@ -1,0 +1,167 @@
+{
+  "head": "4d31fe69",
+  "recorded_at_utc": "2026-10-07T10:50:53.477136+00:00",
+  "checks": [
+    {
+      "link": "https://github.com/GnouGo/GnouGo/actions/runs/37608385215/job/112753036804",
+      "name": "Desktop (Trimmed + Native AOT tools) / Desktop Build (osx-x64)",
+      "state": "IN_PROGRESS"
+    },
+    {
+      "link": "https://github.com/GnouGo/GnouGo/actions/runs/37608385215/job/112753036674",
+      "name": "Desktop (Trimmed + Native AOT tools) / Desktop Build (osx-arm64)",
+      "state": "IN_PROGRESS"
+    },
+    {
+      "link": "https://github.com/GnouGo/GnouGo/actions/runs/37608385215/job/112753036672",
+      "name": "Desktop (Trimmed + Native AOT tools) / Desktop Build (linux-arm64)",
+      "state": "IN_PROGRESS"
+    },
+    {
+      "link": "https://github.com/GnouGo/GnouGo/actions/runs/37608385215/job/112753036729",
+      "name": "Desktop (Trimmed + Native AOT tools) / Desktop Build (win-x64)",
+      "state": "IN_PROGRESS"
+    },
+    {
+      "link": "https://github.com/GnouGo/GnouGo/actions/runs/37608385215/job/112753036692",
+      "name": "Desktop (Trimmed + Native AOT tools) / Desktop Build (win-arm64)",
+      "state": "IN_PROGRESS"
+    },
+    {
+      "link": "https://github.com/GnouGo/GnouGo/actions/runs/37608385215/job/112753036702",
+      "name": "Desktop (Trimmed + Native AOT tools) / Desktop Build (linux-x64)",
+      "state": "IN_PROGRESS"
+    },
+    {
+      "link": "https://github.com/GnouGo/GnouGo/actions/runs/37608385215/job/112753038774",
+      "name": "ProxyCopilot (Native AOT)",
+      "state": "SKIPPED"
+    },
+    {
+      "link": "https://github.com/GnouGo/GnouGo/actions/runs/37608385215/job/112753038379",
+      "name": "Publish gnougo-flow-core to PyPI",
+      "state": "SKIPPED"
+    },
+    {
+      "link": "https://github.com/GnouGo/GnouGo/actions/runs/37608385215/job/112753038184",
+      "name": "Publish .NET packages to NuGet",
+      "state": "SKIPPED"
+    },
+    {
+      "link": "https://github.com/GnouGo/GnouGo/actions/runs/37608385215/job/112752942710",
+      "name": "OTLP Collector / OTLP Collector (osx-arm64)",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/GnouGo/GnouGo/actions/runs/37608385215/job/112752942987",
+      "name": "Docker Builds / Docker Build (GnOuGo.Agent.Server)",
+      "state": "IN_PROGRESS"
+    },
+    {
+      "link": "https://github.com/GnouGo/GnouGo/actions/runs/37608385215/job/112752942944",
+      "name": "Docker Builds / Docker Build (GnOuGo.OtlpCollector.Server)",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/GnouGo/GnouGo/actions/runs/37608385215/job/112752943012",
+      "name": "Docker Builds / Docker Build (GnOuGo.Flow.Server)",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/GnouGo/GnouGo/actions/runs/37608385215/job/112752943043",
+      "name": "Docker Builds / Docker Build (GnOuGo.Diff.Server)",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/GnouGo/GnouGo/actions/runs/37608385215/job/112752942826",
+      "name": "Docker Builds / Docker Build (GnOuGo.DocIngestor.Server)",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/GnouGo/GnouGo/actions/runs/37608385215/job/112752942823",
+      "name": "Docker Builds / Docker Build (GnOuGo.KeyVault.Server)",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/GnouGo/GnouGo/actions/runs/37608385215/job/112752942781",
+      "name": "Compute Version Tag / Compute Version Tag",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/GnouGo/GnouGo/actions/runs/37608385215/job/112752942778",
+      "name": "OTLP Collector / OTLP Collector (linux-x64)",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/GnouGo/GnouGo/actions/runs/37608385215/job/112752942791",
+      "name": "OTLP Collector / OTLP Collector (win-x64)",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/GnouGo/GnouGo/actions/runs/37608384592/job/112749369500",
+      "name": "ProxyCopilot AOT (osx-arm64)",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/GnouGo/GnouGo/actions/runs/37608384592/job/112749369351",
+      "name": "ProxyCopilot AOT (win-x64)",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/GnouGo/GnouGo/actions/runs/37608384592/job/112749369323",
+      "name": "ProxyCopilot AOT (linux-arm64)",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/GnouGo/GnouGo/actions/runs/37608385215/job/112749371241",
+      "name": "Server (linux-x64) / Server (linux-x64)",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/GnouGo/GnouGo/actions/runs/37608385215/job/112749371251",
+      "name": "Stable Unit Tests / Python Unit Tests",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/GnouGo/GnouGo/actions/runs/37608385215/job/112749370808",
+      "name": "Agent Server Tests (non-blocking) / Agent Server Tests",
+      "state": "IN_PROGRESS"
+    },
+    {
+      "link": "https://github.com/GnouGo/GnouGo/actions/runs/37608384592/job/112749369350",
+      "name": "ProxyCopilot AOT (osx-x64)",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/GnouGo/GnouGo/actions/runs/37608385215/job/112749371353",
+      "name": "KeyVault MCP / KeyVault MCP (win-x64)",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/GnouGo/GnouGo/actions/runs/37608385215/job/112749371266",
+      "name": "Stable Unit Tests / Stable .NET Unit Tests",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/GnouGo/GnouGo/actions/runs/37608384592/job/112749369115",
+      "name": "ProxyCopilot AOT (win-arm64)",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/GnouGo/GnouGo/actions/runs/37608384585/job/112749369052",
+      "name": "validate",
+      "state": "IN_PROGRESS"
+    },
+    {
+      "link": "https://github.com/GnouGo/GnouGo/actions/runs/37608384638/job/112749369118",
+      "name": "standalone",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/GnouGo/GnouGo/actions/runs/37608384592/job/112749369403",
+      "name": "ProxyCopilot AOT (linux-x64)",
+      "state": "SUCCESS"
+    }
+  ],
+  "note": "Point-in-time follow-up status; pending checks do not establish CI acceptance."
+}

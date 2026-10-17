@@ -1,0 +1,177 @@
+{
+  "status": "stopped",
+  "planning_ms": 48772,
+  "calls": 2,
+  "repairs": 0,
+  "discovery_reads": 2,
+  "review_revisions": 0,
+  "diagnostics": [
+    {
+      "code": "CONTRACT_UNSATISFIED",
+      "location": "/root/outputs/completion_status",
+      "message": "TASK_FIELD_TYPE: Field 'determine_completion_status' requires a declared object; received \"string\" from the explicit binding. Arrays have no field/index/length ports; use typed iteration, flatten or lookup, or declare a scalar result. Opaque values cannot supply fields.",
+      "required": true,
+      "validationStage": "contract:TASK_FIELD_TYPE",
+      "rule": null
+    },
+    {
+      "code": "CONTRACT_UNSATISFIED",
+      "location": "/root/outputs/observed_errors",
+      "message": "TASK_FIELD_TYPE: Field 'determine_completion_status' requires a declared object; received \"string\" from the explicit binding. Arrays have no field/index/length ports; use typed iteration, flatten or lookup, or declare a scalar result. Opaque values cannot supply fields.",
+      "required": true,
+      "validationStage": "contract:TASK_FIELD_TYPE",
+      "rule": null
+    },
+    {
+      "code": "CONTRACT_UNSATISFIED",
+      "location": "/root/outputs/products_xlsx_path",
+      "message": "TASK_FIELD_TYPE: Field 'determine_completion_status' requires a declared object; received \"string\" from the explicit binding. Arrays have no field/index/length ports; use typed iteration, flatten or lookup, or declare a scalar result. Opaque values cannot supply fields.",
+      "required": true,
+      "validationStage": "contract:TASK_FIELD_TYPE",
+      "rule": null
+    },
+    {
+      "code": "CONTRACT_UNSATISFIED",
+      "location": "/tasks/accept_cookies_if_present/condition",
+      "message": "TASK_FIELD_TYPE: Field 'inspect_home_actions' requires a declared object; received \"string\" from the explicit binding. Arrays have no field/index/length ports; use typed iteration, flatten or lookup, or declare a scalar result. Opaque values cannot supply fields.",
+      "required": true,
+      "validationStage": "contract:TASK_FIELD_TYPE",
+      "rule": null
+    },
+    {
+      "code": "CONTRACT_UNSATISFIED",
+      "location": "/tasks/assemble_excel_rows/inputs/home_errors",
+      "message": "TASK_FIELD_TYPE: Field 'inspect_home_actions' requires a declared object; received \"string\" from the explicit binding. Arrays have no field/index/length ports; use typed iteration, flatten or lookup, or declare a scalar result. Opaque values cannot supply fields.",
+      "required": true,
+      "validationStage": "contract:TASK_FIELD_TYPE",
+      "rule": null
+    },
+    {
+      "code": "CONTRACT_UNSATISFIED",
+      "location": "/tasks/assemble_excel_rows/inputs/search_errors",
+      "message": "TASK_FIELD_TYPE: Field 'extract_product_links' requires a declared object; received \"string\" from the explicit binding. Arrays have no field/index/length ports; use typed iteration, flatten or lookup, or declare a scalar result. Opaque values cannot supply fields.",
+      "required": true,
+      "validationStage": "contract:TASK_FIELD_TYPE",
+      "rule": null
+    },
+    {
+      "code": "CONTRACT_UNSATISFIED",
+      "location": "/tasks/click_cookie_accept/inputs/text",
+      "message": "TASK_FIELD_TYPE: Field 'inspect_home_actions' requires a declared object; received \"string\" from the explicit binding. Arrays have no field/index/length ports; use typed iteration, flatten or lookup, or declare a scalar result. Opaque values cannot supply fields.",
+      "required": true,
+      "validationStage": "contract:TASK_FIELD_TYPE",
+      "rule": null
+    },
+    {
+      "code": "CONTRACT_UNSATISFIED",
+      "location": "/tasks/extract_product_fields/inputs/product_context",
+      "message": "TASK_FIELD_TYPE: Field 'item' requires a declared object; received \"string\" from the explicit binding. Arrays have no field/index/length ports; use typed iteration, flatten or lookup, or declare a scalar result. Opaque values cannot supply fields.",
+      "required": true,
+      "validationStage": "contract:TASK_FIELD_TYPE",
+      "rule": null
+    },
+    {
+      "code": "CONTRACT_UNSATISFIED",
+      "location": "/tasks/fill_search_query/inputs/reference",
+      "message": "TASK_FIELD_TYPE: Field 'inspect_home_actions' requires a declared object; received \"string\" from the explicit binding. Arrays have no field/index/length ports; use typed iteration, flatten or lookup, or declare a scalar result. Opaque values cannot supply fields.",
+      "required": true,
+      "validationStage": "contract:TASK_FIELD_TYPE",
+      "rule": null
+    },
+    {
+      "code": "CONTRACT_UNSATISFIED",
+      "location": "/tasks/fill_search_query/requires",
+      "message": "TASK_FIELD_TYPE: Field 'inspect_home_actions' requires a declared object; received \"string\" from the explicit binding. Arrays have no field/index/length ports; use typed iteration, flatten or lookup, or declare a scalar result. Opaque values cannot supply fields.",
+      "required": true,
+      "validationStage": "contract:TASK_FIELD_TYPE",
+      "rule": null
+    },
+    {
+      "code": "CONTRACT_UNSATISFIED",
+      "location": "/tasks/open_product_page/inputs/url",
+      "message": "TASK_FIELD_TYPE: Field 'item' requires a declared object; received \"string\" from the explicit binding. Arrays have no field/index/length ports; use typed iteration, flatten or lookup, or declare a scalar result. Opaque values cannot supply fields.",
+      "required": true,
+      "validationStage": "contract:TASK_FIELD_TYPE",
+      "rule": null
+    },
+    {
+      "code": "CONTRACT_UNSATISFIED",
+      "location": "/tasks/open_product_page/requires",
+      "message": "TASK_FIELD_TYPE: Field 'item' requires a declared object; received \"string\" from the explicit binding. Arrays have no field/index/length ports; use typed iteration, flatten or lookup, or declare a scalar result. Opaque values cannot supply fields.",
+      "required": true,
+      "validationStage": "contract:TASK_FIELD_TYPE",
+      "rule": null
+    },
+    {
+      "code": "CONTRACT_UNSATISFIED",
+      "location": "/tasks/save_products_xlsx/inputs/rows",
+      "message": "TASK_FIELD_TYPE: Field 'assemble_excel_rows' requires a declared object; received \"string\" from the explicit binding. Arrays have no field/index/length ports; use typed iteration, flatten or lookup, or declare a scalar result. Opaque values cannot supply fields.",
+      "required": true,
+      "validationStage": "contract:TASK_FIELD_TYPE",
+      "rule": null
+    },
+    {
+      "code": "CONTRACT_UNSATISFIED",
+      "location": "/tasks/visit_products/items",
+      "message": "TASK_FIELD_TYPE: Field 'extract_product_links' requires a declared object; received \"string\" from the explicit binding. Arrays have no field/index/length ports; use typed iteration, flatten or lookup, or declare a scalar result. Opaque values cannot supply fields.",
+      "required": true,
+      "validationStage": "contract:TASK_FIELD_TYPE",
+      "rule": null
+    },
+    {
+      "code": "REVISION_REQUIRED",
+      "location": "/tasks/fill_search_query/requires",
+      "message": "Field 'inspect_home_actions' requires a declared object; received \"string\" from the explicit binding. Arrays have no field/index/length ports; use typed iteration, flatten or lookup, or declare a scalar result. Opaque values cannot supply fields. The required binding and its producers are outside repair authority. Explicitly revise this binding; unrelated edits cannot correct its type.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "REVISION_REQUIRED",
+      "location": "/tasks/open_product_page/requires",
+      "message": "Field 'item' requires a declared object; received \"string\" from the explicit binding. Arrays have no field/index/length ports; use typed iteration, flatten or lookup, or declare a scalar result. Opaque values cannot supply fields. The required binding and its producers are outside repair authority. Explicitly revise this binding; unrelated edits cannot correct its type.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    }
+  ],
+  "execution_success": false,
+  "execution_oracle": false,
+  "execution_status": "not_started",
+  "accounting": {
+    "planning": {
+      "logical_calls": 2,
+      "physical_attempts": 2,
+      "known_input_tokens": 19730,
+      "known_output_tokens": 3708,
+      "known_cost_eur": 0.18625432602715414,
+      "unknown_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0
+    },
+    "execution": {
+      "logical_calls": 0,
+      "physical_attempts": 0,
+      "known_input_tokens": 0,
+      "known_output_tokens": 0,
+      "known_cost_eur": 0,
+      "unknown_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0
+    },
+    "campaign": {
+      "calls": 1078,
+      "session_calls": 0,
+      "known_input_tokens": 15217278,
+      "known_output_tokens": 2230185,
+      "known_cost_eur": 127.18584640169169,
+      "reserved_input_tokens": 796887,
+      "reserved_output_tokens": 262144,
+      "reserved_cost_eur": 10.524647007054257,
+      "cost_upper_bound_eur": 137.71049340874595,
+      "unknown_attempts": 8
+    }
+  }
+}

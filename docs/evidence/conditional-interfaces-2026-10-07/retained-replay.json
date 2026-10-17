@@ -1,0 +1,22 @@
+{
+  "run": "snapshotlive20261007a-amazon-1",
+  "source": "ee24b8796c96a9da38b3adcdefea5e20cacfd5ca",
+  "working_tree_dirty": false,
+  "compiled": false,
+  "valid": false,
+  "diagnostics": [
+    {
+      "code": "TASK_INPUT_TYPE",
+      "message": "Produced opaque; expected \"string\". The business value does not satisfy its authoritative contract. Conditional export contracts: /tasks/accept_cookies_if_present/body/outputs/updatedPageState = \"object\" {hasCaptcha:\"boolean\" required, captchaStatus:\"string\" required, searchInputSelector:[\"string\",\"null\"] required, searchButtonSelector:[\"string\",\"null\"] required, status:\"string\" required}; /tasks/accept_cookies_if_present/otherwise/outputs/updatedPageState = \"object\" {hasCaptcha:\"boolean\" required, captchaStatus:\"string\" required, hasCookieConsent:\"boolean\" required, cookieAcceptSelector:[\"string\",\"null\"] required, searchInputSelector:[\"string\",\"null\"] required, searchButtonSelector:[\"string\",\"null\"] required, status:\"string\" required}. Project an explicit common consumer-facing interface in both alternatives; preserve nullable values and guard them explicitly. Interface restructuring requires an explicit revision when outside issued repair slots.",
+      "location": "/tasks/fill_search_query/inputs/selector"
+    },
+    {
+      "code": "TASK_CONDITION_TYPE",
+      "message": "Conditions require a boolean business value. Conditional export contracts: /tasks/accept_cookies_if_present/body/outputs/updatedPageState = \"object\" {hasCaptcha:\"boolean\" required, captchaStatus:\"string\" required, searchInputSelector:[\"string\",\"null\"] required, searchButtonSelector:[\"string\",\"null\"] required, status:\"string\" required}; /tasks/accept_cookies_if_present/otherwise/outputs/updatedPageState = \"object\" {hasCaptcha:\"boolean\" required, captchaStatus:\"string\" required, hasCookieConsent:\"boolean\" required, cookieAcceptSelector:[\"string\",\"null\"] required, searchInputSelector:[\"string\",\"null\"] required, searchButtonSelector:[\"string\",\"null\"] required, status:\"string\" required}. Project an explicit common consumer-facing interface in both alternatives; preserve nullable values and guard them explicitly. Interface restructuring requires an explicit revision when outside issued repair slots.",
+      "location": "/tasks/search_amazon_if_possible/requires"
+    }
+  ],
+  "model_calls": 0,
+  "repairs": 0,
+  "saved_session_modified": false
+}

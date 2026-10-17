@@ -1,0 +1,1252 @@
+{
+  "schema_version": 9,
+  "status": "completed",
+  "revision": 637,
+  "finalization_started": true,
+  "finalization_completed": true,
+  "normal_steps_started": 154,
+  "finalization_steps_started": 1,
+  "invocation_count": 155,
+  "invocations": [
+    {
+      "id": "/workflow/main/finally/step/n_74bb86b6b29fd7c5",
+      "type": "mcp.call",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524",
+      "type": "workflow.call",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_91c8bdb0613c56af",
+      "type": "set",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624",
+      "type": "loop.sequential",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/0/step/n_0751e20f30b05ee0",
+      "type": "workflow.call",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/0/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_2eef70e7fc676c80",
+      "type": "llm.call",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/0/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_3e3ecee129a7b0b1",
+      "type": "template.render",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/0/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_5989b578adf4e097",
+      "type": "mcp.call",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/0/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_609cf423d93887f4",
+      "type": "switch",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/0/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_609cf423d93887f4/case/0/step/n_0725d0146a0839ed",
+      "type": "set",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/0/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_609cf423d93887f4/case/0/step/n_e707f08c264fbf6a",
+      "type": "set",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/0/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_84623b219b0f32ee",
+      "type": "set",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/0/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_b465d40158cd7158",
+      "type": "mapping.dynamic",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/0/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_b465d40158cd7158/mapping/0",
+      "type": "llm.call",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/0/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_e413f29de10b8e5a",
+      "type": "set",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/0/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_f3777a60d5da6a41",
+      "type": "set",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/1/step/n_0751e20f30b05ee0",
+      "type": "workflow.call",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/1/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_2eef70e7fc676c80",
+      "type": "llm.call",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/1/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_3e3ecee129a7b0b1",
+      "type": "template.render",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/1/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_5989b578adf4e097",
+      "type": "mcp.call",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/1/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_609cf423d93887f4",
+      "type": "switch",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/1/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_609cf423d93887f4/case/0/step/n_0725d0146a0839ed",
+      "type": "set",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/1/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_609cf423d93887f4/case/0/step/n_e707f08c264fbf6a",
+      "type": "set",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/1/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_84623b219b0f32ee",
+      "type": "set",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/1/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_b465d40158cd7158",
+      "type": "mapping.dynamic",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/1/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_b465d40158cd7158/mapping/0",
+      "type": "llm.call",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/1/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_e413f29de10b8e5a",
+      "type": "set",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/1/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_f3777a60d5da6a41",
+      "type": "set",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/2/step/n_0751e20f30b05ee0",
+      "type": "workflow.call",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/2/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_2eef70e7fc676c80",
+      "type": "llm.call",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/2/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_3e3ecee129a7b0b1",
+      "type": "template.render",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/2/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_5989b578adf4e097",
+      "type": "mcp.call",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/2/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_609cf423d93887f4",
+      "type": "switch",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/2/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_609cf423d93887f4/case/0/step/n_0725d0146a0839ed",
+      "type": "set",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/2/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_609cf423d93887f4/case/0/step/n_e707f08c264fbf6a",
+      "type": "set",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/2/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_84623b219b0f32ee",
+      "type": "set",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/2/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_b465d40158cd7158",
+      "type": "mapping.dynamic",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/2/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_b465d40158cd7158/mapping/0",
+      "type": "llm.call",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/2/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_e413f29de10b8e5a",
+      "type": "set",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/2/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_f3777a60d5da6a41",
+      "type": "set",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/3/step/n_0751e20f30b05ee0",
+      "type": "workflow.call",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/3/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_2eef70e7fc676c80",
+      "type": "llm.call",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/3/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_3e3ecee129a7b0b1",
+      "type": "template.render",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/3/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_5989b578adf4e097",
+      "type": "mcp.call",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/3/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_609cf423d93887f4",
+      "type": "switch",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/3/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_609cf423d93887f4/case/0/step/n_0725d0146a0839ed",
+      "type": "set",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/3/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_609cf423d93887f4/case/0/step/n_e707f08c264fbf6a",
+      "type": "set",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/3/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_84623b219b0f32ee",
+      "type": "set",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/3/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_b465d40158cd7158",
+      "type": "mapping.dynamic",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/3/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_b465d40158cd7158/mapping/0",
+      "type": "llm.call",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/3/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_e413f29de10b8e5a",
+      "type": "set",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/3/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_f3777a60d5da6a41",
+      "type": "set",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/4/step/n_0751e20f30b05ee0",
+      "type": "workflow.call",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/4/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_2eef70e7fc676c80",
+      "type": "llm.call",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/4/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_3e3ecee129a7b0b1",
+      "type": "template.render",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/4/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_5989b578adf4e097",
+      "type": "mcp.call",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/4/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_609cf423d93887f4",
+      "type": "switch",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/4/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_609cf423d93887f4/case/0/step/n_0725d0146a0839ed",
+      "type": "set",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/4/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_609cf423d93887f4/case/0/step/n_e707f08c264fbf6a",
+      "type": "set",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/4/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_84623b219b0f32ee",
+      "type": "set",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/4/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_b465d40158cd7158",
+      "type": "mapping.dynamic",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/4/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_b465d40158cd7158/mapping/0",
+      "type": "llm.call",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/4/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_e413f29de10b8e5a",
+      "type": "set",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/4/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_f3777a60d5da6a41",
+      "type": "set",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/5/step/n_0751e20f30b05ee0",
+      "type": "workflow.call",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/5/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_2eef70e7fc676c80",
+      "type": "llm.call",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/5/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_3e3ecee129a7b0b1",
+      "type": "template.render",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/5/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_5989b578adf4e097",
+      "type": "mcp.call",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/5/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_609cf423d93887f4",
+      "type": "switch",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/5/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_609cf423d93887f4/case/0/step/n_0725d0146a0839ed",
+      "type": "set",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/5/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_609cf423d93887f4/case/0/step/n_e707f08c264fbf6a",
+      "type": "set",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/5/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_84623b219b0f32ee",
+      "type": "set",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/5/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_b465d40158cd7158",
+      "type": "mapping.dynamic",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/5/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_b465d40158cd7158/mapping/0",
+      "type": "llm.call",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/5/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_e413f29de10b8e5a",
+      "type": "set",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/5/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_f3777a60d5da6a41",
+      "type": "set",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/6/step/n_0751e20f30b05ee0",
+      "type": "workflow.call",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/6/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_2eef70e7fc676c80",
+      "type": "llm.call",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/6/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_3e3ecee129a7b0b1",
+      "type": "template.render",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/6/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_5989b578adf4e097",
+      "type": "mcp.call",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/6/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_609cf423d93887f4",
+      "type": "switch",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/6/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_609cf423d93887f4/case/0/step/n_0725d0146a0839ed",
+      "type": "set",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/6/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_609cf423d93887f4/case/0/step/n_e707f08c264fbf6a",
+      "type": "set",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/6/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_84623b219b0f32ee",
+      "type": "set",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/6/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_b465d40158cd7158",
+      "type": "mapping.dynamic",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/6/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_b465d40158cd7158/mapping/0",
+      "type": "llm.call",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/6/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_e413f29de10b8e5a",
+      "type": "set",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/6/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_f3777a60d5da6a41",
+      "type": "set",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/7/step/n_0751e20f30b05ee0",
+      "type": "workflow.call",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/7/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_2eef70e7fc676c80",
+      "type": "llm.call",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/7/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_3e3ecee129a7b0b1",
+      "type": "template.render",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/7/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_5989b578adf4e097",
+      "type": "mcp.call",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/7/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_609cf423d93887f4",
+      "type": "switch",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/7/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_609cf423d93887f4/case/0/step/n_0725d0146a0839ed",
+      "type": "set",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/7/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_609cf423d93887f4/case/0/step/n_e707f08c264fbf6a",
+      "type": "set",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/7/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_84623b219b0f32ee",
+      "type": "set",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/7/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_b465d40158cd7158",
+      "type": "mapping.dynamic",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/7/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_b465d40158cd7158/mapping/0",
+      "type": "llm.call",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/7/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_b465d40158cd7158/mapping/1",
+      "type": "llm.call",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/7/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_e413f29de10b8e5a",
+      "type": "set",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/7/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_f3777a60d5da6a41",
+      "type": "set",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/8/step/n_0751e20f30b05ee0",
+      "type": "workflow.call",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/8/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_2eef70e7fc676c80",
+      "type": "llm.call",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/8/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_3e3ecee129a7b0b1",
+      "type": "template.render",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/8/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_5989b578adf4e097",
+      "type": "mcp.call",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/8/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_609cf423d93887f4",
+      "type": "switch",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/8/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_609cf423d93887f4/case/0/step/n_0725d0146a0839ed",
+      "type": "set",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/8/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_609cf423d93887f4/case/0/step/n_e707f08c264fbf6a",
+      "type": "set",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/8/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_84623b219b0f32ee",
+      "type": "set",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/8/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_b465d40158cd7158",
+      "type": "mapping.dynamic",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/8/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_b465d40158cd7158/mapping/0",
+      "type": "llm.call",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/8/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_b465d40158cd7158/mapping/1",
+      "type": "llm.call",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/8/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_b465d40158cd7158/mapping/2",
+      "type": "llm.call",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/8/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_b465d40158cd7158/mapping/3",
+      "type": "llm.call",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/8/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_b465d40158cd7158/mapping/4",
+      "type": "llm.call",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/8/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_b465d40158cd7158/mapping/5",
+      "type": "llm.call",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/8/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_b465d40158cd7158/mapping/6",
+      "type": "llm.call",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/8/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_b465d40158cd7158/mapping/7",
+      "type": "llm.call",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/8/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_e413f29de10b8e5a",
+      "type": "set",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/8/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_f3777a60d5da6a41",
+      "type": "set",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/9/step/n_0751e20f30b05ee0",
+      "type": "workflow.call",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/9/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_2eef70e7fc676c80",
+      "type": "llm.call",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/9/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_3e3ecee129a7b0b1",
+      "type": "template.render",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/9/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_5989b578adf4e097",
+      "type": "mcp.call",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/9/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_609cf423d93887f4",
+      "type": "switch",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/9/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_609cf423d93887f4/case/0/step/n_0725d0146a0839ed",
+      "type": "set",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/9/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_609cf423d93887f4/case/0/step/n_e707f08c264fbf6a",
+      "type": "set",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/9/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_84623b219b0f32ee",
+      "type": "set",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/9/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_b465d40158cd7158",
+      "type": "mapping.dynamic",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/9/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_b465d40158cd7158/mapping/0",
+      "type": "llm.call",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/9/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_b465d40158cd7158/mapping/1",
+      "type": "llm.call",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/9/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_b465d40158cd7158/mapping/2",
+      "type": "llm.call",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/9/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_e413f29de10b8e5a",
+      "type": "set",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/9/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_f3777a60d5da6a41",
+      "type": "set",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_18ee0a0e0ef8ecba",
+      "type": "template.render",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_20cbba5bfbde1be8",
+      "type": "switch",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_20cbba5bfbde1be8/case/0/step/n_1dea0b692745698e",
+      "type": "set",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_20cbba5bfbde1be8/case/0/step/n_4f4e07253623a455",
+      "type": "set",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_280d78958208711e",
+      "type": "set",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_2f67f4456a9d3ba8",
+      "type": "mapping.dynamic",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_2f67f4456a9d3ba8/mapping/0",
+      "type": "llm.call",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_3226743c3d352b55",
+      "type": "llm.call",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_3981b1c1638bb00a",
+      "type": "llm.call",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_81ff70cecd796b08",
+      "type": "mcp.call",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_933824386d7af159",
+      "type": "set",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_95b3b92cf69d005c",
+      "type": "template.render",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_979033370138b07e",
+      "type": "mcp.call",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_9beb5642742cba4c",
+      "type": "switch",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_9beb5642742cba4c/case/0/step/n_9537f8467f0b5260",
+      "type": "set",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_9beb5642742cba4c/case/0/step/n_eb211cf3168953bb",
+      "type": "set",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_a495c39b0548ac67",
+      "type": "llm.call",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_a7733778be0652ae",
+      "type": "set",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_b08cfc5ebde3eba3",
+      "type": "template.render",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_ccf0576c308149f7",
+      "type": "set",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    },
+    {
+      "id": "/workflow/main/step/n_e43894ec01fc1dd2",
+      "type": "set",
+      "status": "completed",
+      "external_completion_observed": true,
+      "has_output": true,
+      "error_code": null
+    }
+  ]
+}

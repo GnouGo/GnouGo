@@ -1,0 +1,82 @@
+{
+  "source": "df47ec31640e7fb0ba6a275780639c5ab6ff2642",
+  "full_solution": {
+    "passed": 4420,
+    "failed": 0,
+    "skipped": 13,
+    "projects": 33
+  },
+  "planner": {
+    "passed": 928
+  },
+  "targeted_regression_and_arithmetic": {
+    "passed": 55
+  },
+  "release_planning_package": "passed",
+  "native_aot_planning": "passed",
+  "published_encrypted_recovery": "passed",
+  "logs": {
+    "/tmp/preconditions-b-solution.log": {
+      "sha256": "572bbd3153f7cbc1e9782d90a0699acf9a98f3d640f026f93edd1d364fec4bf6",
+      "bytes": 31656
+    },
+    "/tmp/preconditions-live-regression-before.log": {
+      "sha256": "8c55b75f15e649d8ea044afa63ecbfee820bc8d8b8c8eaad89ec1f2b17094ac0",
+      "bytes": 3037
+    },
+    "/tmp/preconditions-live-regression-after2.log": {
+      "sha256": "98a64bd731f40d53b2e32b7bd7c9cfc06ea61bd85ad686df74984e5d8eb1c5fb",
+      "bytes": 838
+    },
+    "/tmp/preconditions-b-aot-build.log": {
+      "sha256": "1ae08c190ca5c24e6508ec3f15d333c545c7388790c1c1cec6a42b4b423526c4",
+      "bytes": 1485
+    },
+    "/tmp/preconditions-b-aot-run.log": {
+      "sha256": "15f7c56b07b4d10f1cb8648fabaa9351beeccf414c4dba1deae4465fe8d2651b",
+      "bytes": 2267
+    },
+    "/tmp/preconditions-b-planning-pack.log": {
+      "sha256": "51d92f588002f45336ee914a5b76ad42a308d193ba5617499453f28b67c14813",
+      "bytes": 537
+    },
+    "/tmp/preconditions-b-server-publish.log": {
+      "sha256": "e0cec2cf405b2f925fa22cb417b27eedec7c76e4d297cf935f050815d02792c2",
+      "bytes": 16205
+    },
+    "/tmp/preconditions-b-recovery.log": {
+      "sha256": "d7cc8ec7a3dff2ab353e25932595d885ee30f565a6de92f436e3354a2c1d3b88",
+      "bytes": 86
+    },
+    "/tmp/preconditions-b-harness-build.log": {
+      "sha256": "4781311a7e1638c54386a2dff197eb252d172350165c21ff2082190729b7bc1a",
+      "bytes": 8214
+    },
+    "/tmp/preconditions-b-copilot-boundary-check.log": {
+      "sha256": "214eb6cd53d5e2b6041a9d6750f6819b54f2f690d5107474ba52d1dbf876bb3b",
+      "bytes": 752
+    },
+    "/tmp/preconditions-b-copilot-receipt-check.log": {
+      "sha256": "38ec222beaae0bc3ecee487b83125e0dd29c6322eb64098ba44d8e44a29556bb",
+      "bytes": 2164
+    }
+  },
+  "notes": [
+    "Focused counts overlap solution counts; do not sum them.",
+    "Two final-YAML-validation cases failed before the lowering correction and pass afterward.",
+    "Prior candidate separately passed actual Browser/Document local execution and enabled Designer browser smoke; no Browser or UI source changed in the lowering correction.",
+    "12 existing platform/provider skips plus optional browser skip in solution; separately enabled browser check passed on candidate a."
+  ],
+  "ci": {
+    "planning": "https://github.com/GnouGo/GnouGo/actions/runs/37214926807",
+    "build": "https://github.com/GnouGo/GnouGo/actions/runs/37214926974",
+    "conclusion": "success",
+    "note": "Retried one failed version-tag API lookup job without source changes; all non-skipped jobs passed."
+  },
+  "copilot_logical_boundary": {
+    "passed": 22
+  },
+  "copilot_real_transport_receipts": {
+    "passed": 10
+  }
+}

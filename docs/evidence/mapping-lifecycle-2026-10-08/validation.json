@@ -1,0 +1,49 @@
+{
+  "production": "c12fee3c34504c9865da7727bb7132fb033781f0",
+  "test_fixture_correction": "875f2bbe",
+  "tests": {
+    "full_initial": {
+      "failed": 1,
+      "passed": 4852,
+      "skipped": 13,
+      "suites": 33
+    },
+    "full_isolated_port": {
+      "failed": 0,
+      "passed": 4853,
+      "skipped": 13,
+      "suites": 33
+    },
+    "flow": {
+      "failed": 0,
+      "passed": 1160,
+      "skipped": 0,
+      "suites": 1
+    },
+    "planning": {
+      "failed": 0,
+      "passed": 1118,
+      "skipped": 0,
+      "suites": 1
+    },
+    "local_execution": {
+      "failed": 0,
+      "passed": 2,
+      "skipped": 0,
+      "suites": 1
+    },
+    "telemetry_fixture": {
+      "failed": 0,
+      "passed": 13,
+      "skipped": 0,
+      "suites": 1
+    }
+  },
+  "full_command": "dotnet test GnOuGo.Agent.sln -m:1 -warnaserror",
+  "repeat_command": "env Kestrel__Endpoints__Grpc__Url=http://127.0.0.1:0 dotnet test GnOuGo.Agent.sln --no-build -m:1 -warnaserror",
+  "initial_failure": "One host test could not bind 4317: an existing gvproxy service owns it. No service was stopped; the same frozen suite passed with a test-process ephemeral Kestrel endpoint.",
+  "ci_failure_before_fixture_correction": "Two released ephemeral port probes returned the same port. Existing production validation correctly rejected equal HTTP/gRPC ports. The test helper now holds both socket reservations until distinct ports are selected.",
+  "skill": "passed",
+  "packages_aot_recovery": "see release-validation.json",
+  "cli_publish_notices": "Two existing EF Tasks experimental-feature notices; no new suppressions."
+}

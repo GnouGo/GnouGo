@@ -1,0 +1,97 @@
+{
+  "status": "stopped",
+  "planning_ms": 159694,
+  "calls": 3,
+  "repairs": 0,
+  "discovery_reads": 2,
+  "review_revisions": 1,
+  "diagnostics": [
+    {
+      "code": "TASK_TRANSFORM_EACH",
+      "location": "/tasks/extract_product_links/each",
+      "message": "Identify one bound collection input and the sole nonnullable array result field. Task 'extract_product_links' declares each.input='pages', each.output='rows'; bound inputs: [\"pages\"]; declared fields: productCandidateRows:array<array>. Inspect /tasks/extract_product_links/inputs and /tasks/extract_product_links/resultType. resultType describes the assembled collection; an array per source item requires an array-of-arrays result before flatten.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "TASK_TRANSFORM_EACH",
+      "location": "/tasks/project_home_rows/each",
+      "message": "Identify one bound collection input and the sole nonnullable array result field. Task 'project_home_rows' declares each.input='pages', each.output='rows'; bound inputs: [\"pages\"]; declared fields: controlRows:array<array>. Inspect /tasks/project_home_rows/inputs and /tasks/project_home_rows/resultType. resultType describes the assembled collection; an array per source item requires an array-of-arrays result before flatten.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "TASK_TRANSFORM_EACH",
+      "location": "/tasks/project_product_fact_blocks/each",
+      "message": "Identify one bound collection input and the sole nonnullable array result field. Task 'project_product_fact_blocks' declares each.input='pages', each.output='rows'; bound inputs: [\"pages\"]; declared fields: factBlockRows:array<array>. Inspect /tasks/project_product_fact_blocks/inputs and /tasks/project_product_fact_blocks/resultType. resultType describes the assembled collection; an array per source item requires an array-of-arrays result before flatten.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "REVISION_REQUIRED",
+      "location": "/tasks/extract_product_links/each",
+      "message": "Identify one bound collection input and the sole nonnullable array result field. Task 'extract_product_links' declares each.input='pages', each.output='rows'; bound inputs: [\"pages\"]; declared fields: productCandidateRows:array<array>. Inspect /tasks/extract_product_links/inputs and /tasks/extract_product_links/resultType. resultType describes the assembled collection; an array per source item requires an array-of-arrays result before flatten. Independent extraction declarations are outside automatic repair authority. Explicitly revise /tasks/extract_product_links/each and the diagnosed inputs/resultType; changing a consumer cannot correct this declaration.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "REVISION_REQUIRED",
+      "location": "/tasks/project_home_rows/each",
+      "message": "Identify one bound collection input and the sole nonnullable array result field. Task 'project_home_rows' declares each.input='pages', each.output='rows'; bound inputs: [\"pages\"]; declared fields: controlRows:array<array>. Inspect /tasks/project_home_rows/inputs and /tasks/project_home_rows/resultType. resultType describes the assembled collection; an array per source item requires an array-of-arrays result before flatten. Independent extraction declarations are outside automatic repair authority. Explicitly revise /tasks/project_home_rows/each and the diagnosed inputs/resultType; changing a consumer cannot correct this declaration.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "REVISION_REQUIRED",
+      "location": "/tasks/project_product_fact_blocks/each",
+      "message": "Identify one bound collection input and the sole nonnullable array result field. Task 'project_product_fact_blocks' declares each.input='pages', each.output='rows'; bound inputs: [\"pages\"]; declared fields: factBlockRows:array<array>. Inspect /tasks/project_product_fact_blocks/inputs and /tasks/project_product_fact_blocks/resultType. resultType describes the assembled collection; an array per source item requires an array-of-arrays result before flatten. Independent extraction declarations are outside automatic repair authority. Explicitly revise /tasks/project_product_fact_blocks/each and the diagnosed inputs/resultType; changing a consumer cannot correct this declaration.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    }
+  ],
+  "execution_success": false,
+  "execution_oracle": false,
+  "execution_status": "not_started",
+  "accounting": {
+    "planning": {
+      "logical_calls": 3,
+      "physical_attempts": 3,
+      "known_input_tokens": 39051,
+      "known_output_tokens": 13092,
+      "known_cost_eur": 0.5217987399059366,
+      "unknown_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0
+    },
+    "execution": {
+      "logical_calls": 0,
+      "physical_attempts": 0,
+      "known_input_tokens": 0,
+      "known_output_tokens": 0,
+      "known_cost_eur": 0,
+      "unknown_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0
+    },
+    "campaign": {
+      "calls": 1079,
+      "session_calls": 0,
+      "known_input_tokens": 15236599,
+      "known_output_tokens": 2239569,
+      "known_cost_eur": 127.52139081557047,
+      "reserved_input_tokens": 796887,
+      "reserved_output_tokens": 262144,
+      "reserved_cost_eur": 10.524647007054257,
+      "cost_upper_bound_eur": 138.04603782262473,
+      "unknown_attempts": 8
+    }
+  }
+}

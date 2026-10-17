@@ -40,7 +40,7 @@ public sealed class PlanningLifecycleTests
     {
         var runtime = new TestRuntime(); var state = await PlannerFixture.RunAsync(runtime);
         Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Equal(1, state.ModelCalls);
-        Assert.Contains("not been observed", Assert.Single(state.ValidationResults).Description);
+        Assert.Contains("not been observed", Assert.Single(state.ValidationResults, r => r.Id == "static").Description);
         state = PlannerFixture.Clone(state);
         var result = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
         Assert.Equal(state.ComputeArtifactHash(), result.ComputeArtifactHash()); Assert.Single(runtime.Calls);
@@ -110,11 +110,11 @@ public sealed class PlanningLifecycleTests
     public async Task ApprovalBindsGraphContractsAndExactRevision()
     {
         var runtime = new TestRuntime(); var state = await PlannerFixture.RunAsync(runtime); var planner = new HybridWorkflowPlanner();
-        await Assert.ThrowsAsync<PlanningConflictException>(() => planner.AdvanceAsync(state, new() { Kind = "approve", ExpectedRevision = state.Revision - 1, ArtifactHash = state.ComputeArtifactHash() }, runtime, Ct));
+        await Assert.ThrowsAsync<PlanningConflictException>(() => planner.AdvanceAsync(state, new() { Kind = "approve", ReviewedRequirementIds = state.Requirements!.Outcomes.Select(r => r.Id).ToList(), ExpectedRevision = state.Revision - 1, ArtifactHash = state.ComputeArtifactHash() }, runtime, Ct));
         var tampered = PlannerFixture.Clone(state); tampered.Yaml += "\n# changed";
-        await Assert.ThrowsAsync<PlanningConflictException>(() => planner.AdvanceAsync(tampered, new() { Kind = "approve", ExpectedRevision = tampered.Revision, ArtifactHash = tampered.ComputeArtifactHash() }, runtime, Ct));
+        await Assert.ThrowsAsync<PlanningConflictException>(() => planner.AdvanceAsync(tampered, new() { Kind = "approve", ReviewedRequirementIds = state.Requirements!.Outcomes.Select(r => r.Id).ToList(), ExpectedRevision = tampered.Revision, ArtifactHash = tampered.ComputeArtifactHash() }, runtime, Ct));
         runtime.CatalogChanges = [new("CONTRACT_CHANGED", "/", "Changed")];
-        var rejected = await planner.AdvanceAsync(state, new() { Kind = "approve", ExpectedRevision = state.Revision, ArtifactHash = state.ComputeArtifactHash() }, runtime, Ct);
+        var rejected = await planner.AdvanceAsync(state, new() { Kind = "approve", ReviewedRequirementIds = state.Requirements!.Outcomes.Select(r => r.Id).ToList(), ExpectedRevision = state.Revision, ArtifactHash = state.ComputeArtifactHash() }, runtime, Ct);
         Assert.Equal(PlanningStatus.Stopped, rejected.Status); Assert.Null(rejected.ApprovedHash);
     }
     [Fact]
@@ -160,7 +160,7 @@ public sealed class PlanningLifecycleTests
     {
         var runtime = new TestRuntime(); var state = await PlannerFixture.RunAsync(runtime); var planner = new HybridWorkflowPlanner();
         var hash = state.ComputeArtifactHash();
-        state = await planner.AdvanceAsync(state, new() { Kind = "approve", ExpectedRevision = state.Revision, ArtifactHash = hash }, runtime, Ct);
+        state = await planner.AdvanceAsync(state, new() { Kind = "approve", ReviewedRequirementIds = state.Requirements!.Outcomes.Select(r => r.Id).ToList(), ExpectedRevision = state.Revision, ArtifactHash = hash }, runtime, Ct);
         Assert.Equal(hash, state.ApprovedHash);
         state = await planner.AdvanceAsync(state, new() { Kind = "revise", ExpectedRevision = state.Revision, Text = "Use a warmer greeting" }, runtime, Ct);
         Assert.Null(state.ApprovedHash); Assert.Null(state.Yaml); Assert.Equal(1, state.ModelCalls);

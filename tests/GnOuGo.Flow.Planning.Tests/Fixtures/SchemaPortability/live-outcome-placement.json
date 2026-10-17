@@ -1,0 +1,181 @@
+{
+  "origin": "diagnostic-amazon-1",
+  "failure": "REQUIREMENTS_EXECUTION_INVALID",
+  "requirements": [
+    {
+      "summary": "Accepter une seule entrée publique `query`, rechercher cette requête sur Amazon.fr, traiter au maximum les trois premiers produits, visiter chaque fiche produit disponible, produire un fichier Excel contenant nom, description et prix avec les absences/CAPTCHA explicitement indiqués, puis fermer le navigateur dans tous les cas.",
+      "outcomes": [
+        {
+          "id": "input_query",
+          "description": "L’interface appelant expose une seule entrée publique obligatoire nommée `query`.",
+          "execution": "data",
+          "always": true,
+          "conditional": false,
+          "coverage": "once"
+        },
+        {
+          "id": "search_amazon_fr",
+          "description": "La recherche est effectuée sur Amazon.fr avec la valeur de `query`.",
+          "execution": "execute",
+          "always": true,
+          "conditional": false,
+          "coverage": "once"
+        },
+        {
+          "id": "collect_first_three",
+          "description": "Au maximum les trois premiers produits de la page de résultats sont identifiés; les blocages/CAPTCHA ou absences sont explicites.",
+          "execution": "read",
+          "always": true,
+          "conditional": false,
+          "coverage": "once"
+        },
+        {
+          "id": "visit_product_pages",
+          "description": "Chaque fiche produit identifiée, jusqu’à trois, est visitée pour obtenir nom, description et prix visibles; les champs absents ne sont jamais inventés.",
+          "execution": "read",
+          "always": false,
+          "conditional": true,
+          "coverage": "each_item"
+        },
+        {
+          "id": "save_excel",
+          "description": "Un classeur XLSX est sauvegardé à `workflows/evaluation/products.xlsx`.",
+          "execution": "write",
+          "always": true,
+          "conditional": false,
+          "coverage": "once"
+        },
+        {
+          "id": "close_browser_always",
+          "description": "Le navigateur est fermé même en cas d’échec du flux principal.",
+          "execution": "lifecycle",
+          "always": true,
+          "conditional": false,
+          "coverage": "once"
+        }
+      ],
+      "inputs": [
+        {
+          "name": "query",
+          "type": {
+            "kind": "string"
+          }
+        }
+      ]
+    },
+    {
+      "summary": "Accepter une seule entrée publique `query`, rechercher cette requête sur Amazon.fr, visiter au maximum les trois premiers produits, extraire nom/description/prix sans inventer les données absentes, écrire un classeur XLSX au chemin fixe demandé, puis fermer le navigateur même en cas d’échec.",
+      "outcomes": [
+        {
+          "id": "o_search_amazon_fr",
+          "description": "Amazon.fr est ouvert et la recherche correspondant à `query` est soumise.",
+          "execution": "execute",
+          "always": true,
+          "conditional": false,
+          "coverage": "once"
+        },
+        {
+          "id": "o_read_search_results",
+          "description": "La page de résultats Amazon.fr est lue pour identifier au maximum les trois premiers produits disponibles ou un CAPTCHA/blocage.",
+          "execution": "read",
+          "always": true,
+          "conditional": false,
+          "coverage": "once"
+        },
+        {
+          "id": "o_visit_products",
+          "description": "Chaque produit disponible parmi les trois premiers résultats est ouvert sur sa page produit, sans dépasser trois produits.",
+          "execution": "read",
+          "always": false,
+          "conditional": true,
+          "coverage": "once"
+        },
+        {
+          "id": "o_extract_product_fields",
+          "description": "Pour chaque produit visité, nom, description et prix sont lus; toute donnée absente, CAPTCHA ou erreur reste explicite et aucune valeur n’est inventée.",
+          "execution": "data",
+          "always": false,
+          "conditional": true,
+          "coverage": "once"
+        },
+        {
+          "id": "o_write_xlsx",
+          "description": "Le classeur Excel est sauvegardé sur le disque à workflows/evaluation/products.xlsx.",
+          "execution": "write",
+          "always": true,
+          "conditional": false,
+          "coverage": "once"
+        },
+        {
+          "id": "o_close_browser",
+          "description": "Le navigateur est fermé même en cas d’échec.",
+          "execution": "lifecycle",
+          "always": true,
+          "conditional": false,
+          "coverage": "once"
+        }
+      ],
+      "inputs": [
+        {
+          "name": "query",
+          "type": {
+            "kind": "string"
+          }
+        }
+      ]
+    },
+    {
+      "summary": "Accepter une entrée publique query, rechercher cette requête sur Amazon.fr, traiter au maximum les trois premiers produits, visiter chaque page produit, extraire nom/description/prix avec absence ou CAPTCHA explicites, sauvegarder le résultat en classeur Excel au chemin demandé, puis fermer le navigateur même en cas d’échec.",
+      "outcomes": [
+        {
+          "id": "searched_amazon_fr",
+          "description": "Amazon.fr est ouvert et la recherche correspondant à query est soumise.",
+          "execution": "execute",
+          "always": true,
+          "conditional": false,
+          "coverage": "once"
+        },
+        {
+          "id": "listed_first_three_products",
+          "description": "Les résultats Amazon.fr sont inspectés et jusqu’aux trois premiers produits sont sélectionnés; CAPTCHA/blocage ou absence de produits restent explicites.",
+          "execution": "data",
+          "always": true,
+          "conditional": false,
+          "coverage": "once"
+        },
+        {
+          "id": "extracted_each_product",
+          "description": "Pour chaque produit sélectionné, la page produit est visitée et le nom, la description et le prix sont produits sans invention; les données absentes ou CAPTCHA sont explicitement indiqués.",
+          "execution": "read",
+          "always": true,
+          "conditional": false,
+          "coverage": "each_item"
+        },
+        {
+          "id": "saved_excel_file",
+          "description": "Un classeur Excel est écrit sur le disque à workflows/evaluation/products.xlsx.",
+          "execution": "write",
+          "always": true,
+          "conditional": false,
+          "coverage": "once"
+        },
+        {
+          "id": "browser_closed",
+          "description": "Le navigateur est fermé même si une étape précédente échoue.",
+          "execution": "lifecycle",
+          "always": true,
+          "conditional": false,
+          "coverage": "once"
+        }
+      ],
+      "inputs": [
+        {
+          "name": "query",
+          "type": {
+            "kind": "string"
+          }
+        }
+      ]
+    }
+  ]
+}

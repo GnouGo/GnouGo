@@ -1,0 +1,209 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Actual compiler expressions: v10 / v11</title><style>body{font:16px system-ui;max-width:1800px;margin:2rem auto;padding:0 1rem;color:#16202c}table{width:100%;table-layout:fixed;border-collapse:collapse}td,th{width:50%;vertical-align:top;border:1px solid #cbd2d9;padding:1rem}pre{font:13px/1.45 monospace;white-space:pre-wrap;overflow-wrap:anywhere;background:#f5f7fa;padding:1rem}h2{margin-top:2rem}</style><h1>Actual compiler expressions: v10 → v11</h1><p>Expressions below are copied from compiler-generated YAML block values. The small annotation between the old mapping expressions identifies the separate consumer reference; it is not generated code. Complete unmodified outputs: <a href="before-v10.yaml">v10</a> / <a href="after-v11.yaml">v11</a>. Additional complete examples: <a href="multiple-inputs-v10.yaml">multiple inputs v10</a> / <a href="multiple-inputs-v11.yaml">v11</a>, <a href="flatten-v10.yaml">flatten v10</a> / <a href="flatten-v11.yaml">v11</a>.</p><p>Schemas remain separate in expression_contracts. Checked object declarations, first-present null semantics and strict lookup remain necessary. Physical producer IDs occur at deterministic addressing sites; aliases do not copy whole producers. <a href="retained-sets.md">Every retained set and its boundary</a>.</p><h2>Mapping input preparation</h2><table><tr><th>v10</th><th>v11</th></tr><tr><td><pre>${
+(() =&gt; {
+  const checkedValue = {
+    value: m.select(data.steps.n_d20754dac5b0946a, [[&quot;n_41cd6b71debae8b1&quot;, &quot;value&quot;], [&quot;n_52a0a272ae809689&quot;, &quot;value&quot;]], false)
+  };
+  const checkedValue_2 = checkedValue;
+  const pages = {
+    value: (data.steps.n_62737a68773ca42a.response).observationSnapshot.pages
+  };
+  return {
+    pages
+  };
+})()
+}
+
+// mapping sources/pages:
+${data.steps.n_8f1f12e0e3112cf6.pages.value}</pre></td><td><pre>${
+(() =&gt; {
+  const condition = {
+    value: m.select(data.steps.n_d20754dac5b0946a, [[&quot;n_41cd6b71debae8b1&quot;, &quot;value&quot;], [&quot;n_52a0a272ae809689&quot;, &quot;value&quot;]], false)
+  };
+  const requiredCondition = condition;
+  const pages = {
+    value: (data.steps.n_62737a68773ca42a.response).observationSnapshot.pages
+  };
+  return pages.value;
+})()
+}</pre></td></tr></table><h2>Projection and preserved first-present guard</h2><table><tr><th>v10</th><th>v11</th></tr><tr><td><pre>${
+(() =&gt; {
+  const checkedValue = {
+    value: m.select(data.steps.n_5045d393e201ee32, [[&quot;n_496ac96c9b178654&quot;, &quot;value&quot;], [&quot;n_341937c017c6f5e7&quot;, &quot;value&quot;]], false)
+  };
+  const checkedValue_2 = checkedValue;
+  const pages = {
+    value: (data.steps.n_62737a68773ca42a.response).observationSnapshot.pages
+  };
+  const checkedValue_3 = pages;
+  const items = ((binding___collection) =&gt; ({
+    results: binding___collection.map((item, index) =&gt; (({
+      value: (item).records
+    })).value),
+    count: binding___collection.length
+  }))(checkedValue_3.value);
+  const pageRecords = {
+    value: (items.results).map((item) =&gt; item)
+  };
+  const pageRecords_2 = {
+    pageRecords: pageRecords.value
+  };
+  const success = {
+    value: (data.steps.n_62737a68773ca42a.response).success
+  };
+  return {
+    pageRecords_2,
+    success
+  };
+})()
+}</pre></td><td><pre>${
+(() =&gt; {
+  const condition = {
+    value: m.select(data.steps.n_5045d393e201ee32, [[&quot;n_496ac96c9b178654&quot;, &quot;value&quot;], [&quot;n_341937c017c6f5e7&quot;, &quot;value&quot;]], false)
+  };
+  const requiredCondition = condition;
+  const pages = {
+    value: (data.steps.n_62737a68773ca42a.response).observationSnapshot.pages
+  };
+  const checkedRecord = pages;
+  const items = (collection =&gt; ({
+    results: collection.map((item, index) =&gt; (item).records),
+    count: collection.length
+  }))(checkedRecord.value);
+  const pageRecords = {
+    value: (items.results).map(item =&gt; item)
+  };
+  const pageRecords_2 = {
+    pageRecords: pageRecords.value
+  };
+  const success = {
+    value: (data.steps.n_62737a68773ca42a.response).success
+  };
+  return {
+    pageRecords_2,
+    success
+  };
+})()
+}</pre></td></tr></table><h2>Flattening in checked native code</h2><table><tr><th>v10</th><th>v11</th></tr><tr><td><pre>${
+(() =&gt; {
+  const checkedValue = {
+    value: data.inputs.searchPages
+  };
+  const products = ((binding_input_value) =&gt; ({
+    products: (binding_input_value).flatMap((item) =&gt; item)
+  }))(checkedValue.value);
+  return {
+    products
+  };
+})()
+}</pre></td><td><pre>${
+(() =&gt; {
+  const searchPages = {
+    value: data.inputs.searchPages
+  };
+  const products = {
+    products: searchPages.value.flatMap(item =&gt; item)
+  };
+  return {
+    products
+  };
+})()
+}</pre></td></tr></table><h2>Strict offered/original lookup in the consuming iteration</h2><table><tr><th>v10</th><th>v11</th></tr><tr><td><pre>${
+(() =&gt; {
+  const pageCandidates = {
+    value: data.steps.n_fa2c51243ab17014.value.pageCandidates
+  };
+  const checkedValue = {
+    value: (pageCandidates.value).flatMap((item) =&gt; item)
+  };
+  const selectedProductReferenceIds = {
+    value: data.steps.n_b03285831dc942c7.json.selectedProductReferenceIds
+  };
+  const checkedValue_2 = {
+    value: ((binding_records, binding_selected) =&gt; m.lookup(binding_records, binding_selected, &quot;reference&quot;))(checkedValue.value, selectedProductReferenceIds.value) !== null
+  };
+  const pageRecords = {
+    value: data.steps.n_e2bfee3ab9860925.pageRecords_2.pageRecords
+  };
+  const checkedValue_3 = {
+    value: (pageRecords.value).flatMap((item) =&gt; item)
+  };
+  const selectedProductReferenceIds_2 = {
+    value: data.steps.n_b03285831dc942c7.json.selectedProductReferenceIds
+  };
+  const checkedValue_4 = {
+    value: ((binding_records, binding_selected) =&gt; m.lookup(binding_records, binding_selected, &quot;reference&quot;))(checkedValue_3.value, selectedProductReferenceIds_2.value)
+  };
+  return checkedValue_4.value;
+})()
+}</pre></td><td><pre>${
+(() =&gt; {
+  const pageCandidates = {
+    value: data.steps.n_fa2c51243ab17014.value.pageCandidates
+  };
+  const checkedRecord = {
+    value: pageCandidates.value.flatMap(item =&gt; item)
+  };
+  const selectedProductReferenceIds = {
+    value: data.steps.n_b03285831dc942c7.json.selectedProductReferenceIds
+  };
+  const requiredCondition = {
+    value: ((records_2, selectedProductReferenceIds) =&gt; m.lookup(records_2, selectedProductReferenceIds, &quot;reference&quot;))(checkedRecord.value, selectedProductReferenceIds.value) !== null
+  };
+  const pageRecords = {
+    value: data.steps.n_e2bfee3ab9860925.pageRecords_2.pageRecords
+  };
+  const checkedRecord_2 = {
+    value: pageRecords.value.flatMap(item =&gt; item)
+  };
+  const selectedProductReferenceIds_2 = {
+    value: data.steps.n_b03285831dc942c7.json.selectedProductReferenceIds
+  };
+  const checkedRecord_3 = {
+    value: ((records_2, selectedProductReferenceIds2) =&gt; m.lookup(records_2, selectedProductReferenceIds2, &quot;reference&quot;))(checkedRecord_2.value, selectedProductReferenceIds_2.value)
+  };
+  return checkedRecord_3.value;
+})()
+}</pre></td></tr></table><h2>Multiple dynamic inputs</h2><table><tr><th>v10</th><th>v11</th></tr><tr><td><pre>${
+(() =&gt; {
+  const checkedValue = {
+    value: data.inputs.label
+  };
+  const checkedValue_2 = {
+    value: data.inputs.authorized
+  };
+  const chosen = {
+    chosen: checkedValue.value
+  };
+  const chosen_2 = chosen;
+  return {
+    chosen_2
+  };
+})()
+}
+
+// following executor input (JSON form):
+{
+  &quot;template&quot;: &quot;${data.inputs.pattern}&quot;,
+  &quot;data&quot;: {
+    &quot;chosen&quot;: &quot;${data.steps.n_a7937b64b8caa58f.chosen_2.chosen}&quot;
+  }
+}</pre></td><td><pre>${
+(() =&gt; {
+  const label = {
+    value: data.inputs.label
+  };
+  const requiredCondition = {
+    value: data.inputs.authorized
+  };
+  const chosen = {
+    chosen: label.value
+  };
+  const chosen_2 = chosen;
+  return {
+    template: data.inputs.pattern,
+    data: {
+      chosen: chosen_2.chosen
+    }
+  };
+})()
+}</pre></td></tr></table></html>

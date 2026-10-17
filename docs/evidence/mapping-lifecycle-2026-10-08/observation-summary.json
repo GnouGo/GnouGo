@@ -1,0 +1,179 @@
+[
+  {
+    "event_index": 0,
+    "tool": "browser_get_content",
+    "started": "2026-10-08T10:30:54.5678810+00:00",
+    "error": false,
+    "latency_ms": 4641,
+    "success": true,
+    "error_code": null,
+    "snapshot": {
+      "id": "2d9c415c66b0476ca60ab531360ce3af",
+      "recordCount": 137,
+      "captureTruncated": false,
+      "manifestTruncated": false,
+      "pages": 3,
+      "page_record_counts": [
+        53,
+        42,
+        42
+      ],
+      "serialized_bytes": 58889
+    },
+    "acquisition": {
+      "attempts": 1,
+      "invalidations": []
+    }
+  },
+  {
+    "event_index": 1,
+    "tool": "browser_get_content",
+    "started": "2026-10-08T10:31:31.7289840+00:00",
+    "error": false,
+    "latency_ms": 63,
+    "success": true,
+    "error_code": null,
+    "snapshot": {
+      "id": "ac8f105e40be49b6bf1f320fb2b30cb0",
+      "recordCount": 259,
+      "captureTruncated": false,
+      "manifestTruncated": false,
+      "pages": 6,
+      "page_record_counts": [
+        63,
+        35,
+        38,
+        36,
+        42,
+        45
+      ],
+      "serialized_bytes": 123507
+    },
+    "acquisition": {
+      "attempts": 1,
+      "invalidations": []
+    }
+  },
+  {
+    "event_index": 2,
+    "tool": "browser_fill",
+    "started": "2026-10-08T10:32:22.4177430+00:00",
+    "error": false,
+    "latency_ms": 2588,
+    "success": true,
+    "error_code": null,
+    "submitted": true,
+    "triggered_navigation": true,
+    "navigation_type": "navigate"
+  },
+  {
+    "event_index": 3,
+    "tool": "browser_get_content",
+    "started": "2026-10-08T10:32:25.3092030+00:00",
+    "error": false,
+    "latency_ms": 4636,
+    "success": true,
+    "error_code": null,
+    "snapshot": {
+      "id": "d22f711a735149ada758cef5e740a70d",
+      "recordCount": 1602,
+      "captureTruncated": false,
+      "manifestTruncated": false,
+      "pages": 58,
+      "page_record_counts": [
+        61,
+        34,
+        11,
+        25,
+        29,
+        26,
+        28,
+        24,
+        30,
+        33,
+        25,
+        24,
+        25,
+        20,
+        19,
+        23,
+        19,
+        15,
+        16,
+        18,
+        23,
+        28,
+        28,
+        27,
+        26,
+        27,
+        24,
+        26,
+        29,
+        29,
+        30,
+        28,
+        27,
+        33,
+        29,
+        29,
+        28,
+        25,
+        30,
+        25,
+        31,
+        28,
+        26,
+        29,
+        32,
+        30,
+        23,
+        20,
+        19,
+        27,
+        21,
+        47,
+        36,
+        39,
+        36,
+        37,
+        52,
+        13
+      ],
+      "serialized_bytes": 1191050
+    },
+    "acquisition": {
+      "attempts": 1,
+      "invalidations": []
+    }
+  },
+  {
+    "event_index": 4,
+    "tool": "browser_close",
+    "started": "2026-10-08T10:36:34.6185890+00:00",
+    "error": false,
+    "latency_ms": 1076,
+    "success": true,
+    "error_code": null,
+    "closed": true
+  },
+  {
+    "event_index": 5,
+    "tool": "browser_get_content",
+    "started": "2026-10-08T10:36:36.3435310+00:00",
+    "error": true,
+    "latency_ms": 1,
+    "success": false,
+    "error_code": "INVALID_INPUT"
+  },
+  {
+    "event_index": 6,
+    "tool": "browser_close",
+    "started": "2026-10-08T10:36:36.3694110+00:00",
+    "error": false,
+    "latency_ms": 1002,
+    "success": true,
+    "error_code": null,
+    "closed": true
+  }
+]

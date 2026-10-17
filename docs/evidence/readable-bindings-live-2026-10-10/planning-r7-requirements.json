@@ -1,0 +1,114 @@
+{
+  "summary": "Automatiser une recherche Amazon.fr pour une entrée publique unique `query`, collecter au maximum les 10 premiers produits, visiter chaque page produit, extraire nom, description, prix et erreurs/données absentes explicites, puis sauvegarder un fichier Excel à `workflows/schema-portability-20261002/readablebindings20261010a-amazon-1/products.xlsx`, en fermant le navigateur même en cas d’échec et sans déclarer de réussite si le travail n’a pas abouti.",
+  "outcomes": [
+    {
+      "id": "search_amazon_fr",
+      "description": "Utiliser Amazon.fr pour rechercher l’article fourni dans `query`."
+    },
+    {
+      "id": "list_first_products",
+      "description": "Lister au maximum les 10 premiers produits retournés, sans échantillonnage, filtrage, déduplication ni invention de données."
+    },
+    {
+      "id": "visit_each_product",
+      "description": "Naviguer sur la page de chaque produit listé afin d’extraire les informations demandées."
+    },
+    {
+      "id": "export_xlsx",
+      "description": "Créer et sauvegarder un classeur Excel contenant au minimum le nom, la description, le prix, et les erreurs ou absences de données explicites."
+    },
+    {
+      "id": "cleanup_browser",
+      "description": "Fermer le navigateur même en cas d’échec."
+    }
+  ],
+  "inputs": [
+    {
+      "name": "query",
+      "type": {
+        "kind": "string",
+        "nullable": false,
+        "items": null,
+        "fields": []
+      },
+      "required": true,
+      "default": null
+    }
+  ],
+  "outputs": [
+    {
+      "name": "filePath",
+      "type": {
+        "kind": "string",
+        "nullable": false,
+        "items": null,
+        "fields": []
+      },
+      "required": false,
+      "default": null
+    },
+    {
+      "name": "products",
+      "type": {
+        "kind": "array",
+        "nullable": false,
+        "minItems": 0,
+        "maxItems": 10,
+        "items": {
+          "kind": "object",
+          "nullable": false,
+          "items": null,
+          "fields": [
+            {
+              "name": "name",
+              "type": {
+                "kind": "string",
+                "nullable": true,
+                "items": null,
+                "fields": []
+              },
+              "required": true,
+              "default": null
+            },
+            {
+              "name": "description",
+              "type": {
+                "kind": "string",
+                "nullable": true,
+                "items": null,
+                "fields": []
+              },
+              "required": true,
+              "default": null
+            },
+            {
+              "name": "price",
+              "type": {
+                "kind": "string",
+                "nullable": true,
+                "items": null,
+                "fields": []
+              },
+              "required": true,
+              "default": null
+            },
+            {
+              "name": "error",
+              "type": {
+                "kind": "string",
+                "nullable": true,
+                "items": null,
+                "fields": []
+              },
+              "required": true,
+              "default": null
+            }
+          ]
+        },
+        "fields": []
+      },
+      "required": false,
+      "default": null
+    }
+  ]
+}

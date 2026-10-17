@@ -1,0 +1,12 @@
+{
+  "kind": "revise",
+  "expectedRevision": 2,
+  "artifactHash": null,
+  "preserveRequirements": true,
+  "editablePaths": [
+    "/tasks/extract_product_row/resultType",
+    "/tasks/scrape_products/body/outputs/rows",
+    "/tasks/flatten_rows/outputs/rows"
+  ],
+  "text": "Correct only the accepted products output contract failure. Preserve every accepted requirement and public interface, external operation, objective, order, requires and cleanup. extract_product_row produces exactly one product: make its resultType the existing non-null row object (required non-null strings nom, description, prix), without the singleton rows array wrapper. Export that exact object as rows from the foreach body using a direct output binding. The existing foreach has maxItems=10 and now collects an array of those row objects; make flatten_rows.rows a direct reference to scrape_products.rows, without flatten or json. Preserve all observed values and order. Do not alter any other slot or widen nullable/required/cardinality contracts. This revision addresses only the output type; it is not approval for execution."
+}

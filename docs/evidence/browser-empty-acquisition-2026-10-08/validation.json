@@ -1,0 +1,378 @@
+{
+  "candidate": "e04173619b3a3444586cc185fb3e7f64cb4dd820",
+  "browser_tests": {
+    "passed": 136,
+    "failed": 0,
+    "skipped": 0,
+    "command": "dotnet test tests/GnOuGo.Browser.Mcp.Tests -m:1 -warnaserror --no-restore"
+  },
+  "local_execution_and_receipts": {
+    "passed": 38,
+    "failed": 0,
+    "skipped": 0,
+    "seconds": 853
+  },
+  "full_solution": {
+    "command": "dotnet test GnOuGo.Agent.sln -m:1 -warnaserror --logger trx",
+    "exit_code": 1,
+    "status": "Unsuccessful: host process interrupted after telemetry queue hang; all other projects completed.",
+    "projects": 33,
+    "suites": [
+      {
+        "assembly": "GnOuGo.KeyVault.Core.Tests.dll",
+        "outcome": "Completed",
+        "counters": {
+          "total": 12,
+          "executed": 12,
+          "passed": 12,
+          "failed": 0
+        }
+      },
+      {
+        "assembly": "GnOuGo.Assets.Animation.Tests.dll",
+        "outcome": "Completed",
+        "counters": {
+          "total": 42,
+          "executed": 42,
+          "passed": 42,
+          "failed": 0
+        }
+      },
+      {
+        "assembly": "GnOuGo.DocIngestor.Mcp.Tests.dll",
+        "outcome": "Completed",
+        "counters": {
+          "total": 7,
+          "executed": 7,
+          "passed": 7,
+          "failed": 0
+        }
+      },
+      {
+        "assembly": "GnOuGo.Flow.Planning.Tests.dll",
+        "outcome": "Completed",
+        "counters": {
+          "total": 1171,
+          "executed": 1171,
+          "passed": 1171,
+          "failed": 0
+        }
+      },
+      {
+        "assembly": "GnOuGo.Flow.Integrations.Tests.dll",
+        "outcome": "Completed",
+        "counters": {
+          "total": 97,
+          "executed": 97,
+          "passed": 97,
+          "failed": 0
+        }
+      },
+      {
+        "assembly": "GnOuGo.GithubCopilot.E2E.Tests.dll",
+        "outcome": "Completed",
+        "counters": {
+          "total": 12,
+          "executed": 7,
+          "passed": 7,
+          "failed": 0
+        }
+      },
+      {
+        "assembly": "GnOuGo.Diff.Tests.dll",
+        "outcome": "Completed",
+        "counters": {
+          "total": 52,
+          "executed": 52,
+          "passed": 52,
+          "failed": 0
+        }
+      },
+      {
+        "assembly": "GnOuGo.Auth.Core.Tests.dll",
+        "outcome": "Completed",
+        "counters": {
+          "total": 8,
+          "executed": 8,
+          "passed": 8,
+          "failed": 0
+        }
+      },
+      {
+        "assembly": "GnOuGo.Agent.Mcp.Tests.dll",
+        "outcome": "Completed",
+        "counters": {
+          "total": 103,
+          "executed": 103,
+          "passed": 103,
+          "failed": 0
+        }
+      },
+      {
+        "assembly": "GnOuGo.Document.Mcp.Tests.dll",
+        "outcome": "Completed",
+        "counters": {
+          "total": 64,
+          "executed": 64,
+          "passed": 64,
+          "failed": 0
+        }
+      },
+      {
+        "assembly": "GnOuGo.AI.Core.Tests.dll",
+        "outcome": "Completed",
+        "counters": {
+          "total": 225,
+          "executed": 225,
+          "passed": 225,
+          "failed": 0
+        }
+      },
+      {
+        "assembly": "GnOuGo.Cmd.Mcp.Tests.dll",
+        "outcome": "Completed",
+        "counters": {
+          "total": 100,
+          "executed": 93,
+          "passed": 93,
+          "failed": 0
+        }
+      },
+      {
+        "assembly": "GnOuGo.Workspace.Tests.dll",
+        "outcome": "Completed",
+        "counters": {
+          "total": 30,
+          "executed": 30,
+          "passed": 30,
+          "failed": 0
+        }
+      },
+      {
+        "assembly": "GnOuGo.OtlpCollector.Server.Tests.dll",
+        "outcome": "Completed",
+        "counters": {
+          "total": 7,
+          "executed": 7,
+          "passed": 7,
+          "failed": 0
+        }
+      },
+      {
+        "assembly": "GnOuGo.Observability.Core.Tests.dll",
+        "outcome": "Completed",
+        "counters": {
+          "total": 3,
+          "executed": 3,
+          "passed": 3,
+          "failed": 0
+        }
+      },
+      {
+        "assembly": "GnOuGo.AI.Local.Tests.dll",
+        "outcome": "Completed",
+        "counters": {
+          "total": 14,
+          "executed": 14,
+          "passed": 14,
+          "failed": 0
+        }
+      },
+      {
+        "assembly": "GnOuGo.Flow.Mermaid.Tests.dll",
+        "outcome": "Completed",
+        "counters": {
+          "total": 12,
+          "executed": 12,
+          "passed": 12,
+          "failed": 0
+        }
+      },
+      {
+        "assembly": "GnOuGo.Files.Server.Tests.dll",
+        "outcome": "Completed",
+        "counters": {
+          "total": 10,
+          "executed": 10,
+          "passed": 10,
+          "failed": 0
+        }
+      },
+      {
+        "assembly": "GnOuGo.Flow.Copilot.Tests.dll",
+        "outcome": "Completed",
+        "counters": {
+          "total": 5,
+          "executed": 5,
+          "passed": 5,
+          "failed": 0
+        }
+      },
+      {
+        "assembly": "GnOuGo.Flow.Tests.dll",
+        "outcome": "Completed",
+        "counters": {
+          "total": 1164,
+          "executed": 1164,
+          "passed": 1164,
+          "failed": 0
+        }
+      },
+      {
+        "assembly": "GnOuGo.Flow.Persistence.Tests.dll",
+        "outcome": "Completed",
+        "counters": {
+          "total": 17,
+          "executed": 17,
+          "passed": 17,
+          "failed": 0
+        }
+      },
+      {
+        "assembly": "GnOuGo.GithubCopilot.Mcp.Tests.dll",
+        "outcome": "Completed",
+        "counters": {
+          "total": 240,
+          "executed": 240,
+          "passed": 240,
+          "failed": 0
+        }
+      },
+      {
+        "assembly": "GnOuGo.KeyVault.Mcp.Tests.dll",
+        "outcome": "Completed",
+        "counters": {
+          "total": 9,
+          "executed": 9,
+          "passed": 9,
+          "failed": 0
+        }
+      },
+      {
+        "assembly": "GnOuGo.Assets.Bears.Server.Tests.dll",
+        "outcome": "Completed",
+        "counters": {
+          "total": 28,
+          "executed": 28,
+          "passed": 28,
+          "failed": 0
+        }
+      },
+      {
+        "assembly": "GnOuGo.Browser.Mcp.Tests.dll",
+        "outcome": "Completed",
+        "counters": {
+          "total": 136,
+          "executed": 136,
+          "passed": 136,
+          "failed": 0
+        }
+      },
+      {
+        "assembly": "GnOuGo.Mcp.Core.Tests.dll",
+        "outcome": "Completed",
+        "counters": {
+          "total": 49,
+          "executed": 49,
+          "passed": 49,
+          "failed": 0
+        }
+      },
+      {
+        "assembly": "GnOuGo.DocIngestor.Tests.dll",
+        "outcome": "Completed",
+        "counters": {
+          "total": 89,
+          "executed": 89,
+          "passed": 89,
+          "failed": 0
+        }
+      },
+      {
+        "assembly": "GnOuGo.Assets.Animation.Server.Tests.dll",
+        "outcome": "Completed",
+        "counters": {
+          "total": 13,
+          "executed": 13,
+          "passed": 13,
+          "failed": 0
+        }
+      },
+      {
+        "assembly": "GnOuGo.Agent.Server.Tests.dll",
+        "outcome": "Failed",
+        "counters": {
+          "total": 488,
+          "executed": 487,
+          "passed": 487,
+          "failed": 0
+        }
+      },
+      {
+        "assembly": "GnOuGo.Assets.Bears.Tests.dll",
+        "outcome": "Completed",
+        "counters": {
+          "total": 91,
+          "executed": 91,
+          "passed": 91,
+          "failed": 0
+        }
+      },
+      {
+        "assembly": "GnOuGo.Git.Mcp.Tests.dll",
+        "outcome": "Completed",
+        "counters": {
+          "total": 83,
+          "executed": 83,
+          "passed": 83,
+          "failed": 0
+        }
+      },
+      {
+        "assembly": "GnOuGo.GithubCopilot.Core.Tests.dll",
+        "outcome": "Completed",
+        "counters": {
+          "total": 173,
+          "executed": 173,
+          "passed": 173,
+          "failed": 0
+        }
+      },
+      {
+        "assembly": "GnOuGo.ProxyCopilot.Server.Tests.dll",
+        "outcome": "Completed",
+        "counters": {
+          "total": 177,
+          "executed": 177,
+          "passed": 177,
+          "failed": 0
+        }
+      }
+    ],
+    "combined_coverage_including_isolated_remaining_host_classes": {
+      "passed": 4939,
+      "skipped": 13,
+      "failed_assertions": 0,
+      "method": "Sum original project counters, replacing partial host counter with reconciled 708-pass host coverage; do not collapse distinct data rows with colliding IDs in unrelated projects."
+    },
+    "limitations": [
+      "All assertions executed or retain existing skips, but an uninterrupted whole-suite pass is not established.",
+      "Unrelated telemetry queue hang remains open; no telemetry or test-behavior workaround applied."
+    ]
+  },
+  "release_publish": {
+    "status": "passed",
+    "rid": "osx-arm64",
+    "self_contained": true,
+    "warnings_as_errors": true,
+    "native_aot": "unsupported by Browser"
+  },
+  "published_receipt_smoke": {
+    "status": "passed",
+    "passed": 5,
+    "failed": 0,
+    "skipped": 0,
+    "seconds": 46,
+    "executable": "self-contained osx-arm64 Browser"
+  }
+}

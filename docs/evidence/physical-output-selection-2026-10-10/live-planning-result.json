@@ -1,0 +1,39 @@
+{
+  "run": "physicaloutputs20261010a-amazon-1",
+  "source": "7376b4bd713d72d43dbe62270e41823273e0e618",
+  "saved_revision": 5,
+  "saved_status": "generating",
+  "process_running": false,
+  "outcome": "blocked_during_original_response_schema_validation",
+  "current_artifact_hash": null,
+  "execution_status": "not_started",
+  "execution_oracles": "not_run",
+  "new_approval": null,
+  "automatic_repairs": 0,
+  "explicit_review_revisions": 2,
+  "discovery_reads": 2,
+  "accounting": {
+    "logical_calls": 4,
+    "completed_receipts": 4,
+    "physical_attempts": 5,
+    "known_input_tokens": 58273,
+    "known_output_tokens": 20341,
+    "known_cost_eur": "0.80006655426390984115715680",
+    "new_unknown_attempts": 0,
+    "campaign_cost_upper_bound_eur": "122.38243856803248409685589484",
+    "historical_reserved_cost_eur": "6.5016147947905255187922165013",
+    "campaign_remaining_eur": "27.61756143196751590314410516"
+  },
+  "requirements_unchanged": true,
+  "receipt_ids": [
+    "schema-portability-20261002:physicaloutputs20261010a-amazon-1:1:8544baa42cd97c36f734fe9e84482b47057e52c3e80c2d02a5122640d496103c",
+    "schema-portability-20261002:physicaloutputs20261010a-amazon-1:2:359a7d8f2b167cd9c1d5975fa5ea4a6df5ba7e760997594eaa08e2a9f0085667",
+    "schema-portability-20261002:physicaloutputs20261010a-amazon-1:3:5cf24b81b1dab21ca876325dafaa8b360b80c29f64c6c7d7a08e26e0e175042f",
+    "schema-portability-20261002:physicaloutputs20261010a-amazon-1:4:d19af3262db78a5ee9af7388c502de4188e9e4aa88be9e8002daa10bf62efab6"
+  ],
+  "last_finished_phase_result_is_stale": true,
+  "last_completed_planning_ms": 491965,
+  "interrupted_revision_wall_ms_lower_bound": 681000,
+  "total_planning_wall_ms_lower_bound": 1172965,
+  "elapsed_accounting_note": "The retained last-finished result omits the interrupted revision duration. Any future continuation must preserve this elapsed work and reuse the committed receipt; do not reset allowances or redispatch."
+}

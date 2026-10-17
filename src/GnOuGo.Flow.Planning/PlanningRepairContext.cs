@@ -57,6 +57,8 @@ internal static class PlanningRepairContext
             foreach (var value in site.Task.Inputs.Concat(site.Task.Outputs).Select(v => v.Value)) References(value);
             if (site.Task.Items is { } items) References(items);
             if (site.Task.Condition is { } condition) References(condition);
+            if (site.Task.Requires is { } requires) References(requires);
+            foreach (var dependency in site.Task.DependsOn) Producer(dependency, null);
         }
         // Producer constraints can affect other consumers. Include their contracts
         // without authorizing them or recursively retaining unrelated work.
@@ -86,7 +88,7 @@ internal static class PlanningRepairContext
     internal static JsonObject Build(PlanningSession state)
     {
         var selection = Select(state); var symbols = selection.Symbols;
-        var slots = PlanningRepairPatch.Slots(state, PlanningSchemas.FullProposal(state, compact: false)["$defs"]!.AsObject());
+        var slots = PlanningRepairPatch.Slots(state, PlanningRepairPatch.Template(state)["$defs"]!.AsObject());
         var taskNodes = new JsonArray(); var scopeNodes = new JsonArray();
         var inputs = new HashSet<string>(StringComparer.Ordinal); var choices = new HashSet<string>(StringComparer.Ordinal);
         void Referenced(TaskValue value)
@@ -100,11 +102,24 @@ internal static class PlanningRepairContext
             var task = symbols.Tasks[id].Task;
             var node = JsonSerializer.SerializeToNode(task, PlanningJsonContext.Default.PlanTask)!.AsObject();
             node.Remove("body"); node.Remove("otherwise"); node.Remove("branches");
-            if (!selection.EditableTasks.Contains(id) && task.Kind is "operation" or "transform") node.Remove("inputs");
+            node["scope"] = symbols.Tasks[id].Scope.Path;
+            node["phase"] = symbols.Phase(id);
+            if (state.RevisionScope.Contains("/tasks/" + id + "/dependsOn"))
+                node["eligibleDependencies"] = new JsonArray(symbols.DependencyTargets(id).Select(d => (JsonNode?)JsonValue.Create(d)).ToArray());
+            if (!selection.EditableTasks.Contains(id) && task.Kind is "operation" or "transform")
+            {
+                node.Remove("inputs");
+                node["fixedInputs"] = PlanningJsonTransport.TaskPlanPart(JsonSerializer.SerializeToNode(task.Inputs.Where(i => IsLiteral(i.Value)).ToList(), PlanningJsonContext.Default.ListTaskOutput));
+                // Each binds a named collection. Read-only references explain its
+                // declaration without importing observed payloads or granting edits.
+                if (task.Each is not null)
+                    node["boundInputs"] = PlanningJsonTransport.TaskPlanPart(JsonSerializer.SerializeToNode(task.Inputs.Where(i => !IsLiteral(i.Value)).ToList(), PlanningJsonContext.Default.ListTaskOutput));
+            }
             // A context task is not a replacement payload; omitted bodies stay host-owned.
             taskNodes.Add(PlanningJsonTransport.TaskPlanPart(node));
             foreach (var value in task.Inputs.Concat(task.Outputs).Select(o => o.Value)) Referenced(value);
             if (task.Items is { } items) Referenced(items);
+            if (task.Requires is { } requires) Referenced(requires);
             if (task.Condition is { } condition) Referenced(condition);
         }
         foreach (var scope in symbols.Scopes.Where(s => selection.Scopes.Contains(s.Path)).OrderBy(s => s.Path, StringComparer.Ordinal))
@@ -125,7 +140,7 @@ internal static class PlanningRepairContext
         }
         foreach (var path in state.RevisionScope)
         {
-            if (path.Split('/') is ["", "inputs", var name]) inputs.Add(name);
+            if (path.Split('/') is ["", "inputs", var name, ..]) inputs.Add(name);
             if (path.Split('/') is ["", "choices", var id]) choices.Add(id);
         }
         var groups = state.Plan!.Groups.Where(g => selection.Scopes.Any(p => p.StartsWith("/groups/" + g.Id + "/", StringComparison.Ordinal)) ||
@@ -133,7 +148,8 @@ internal static class PlanningRepairContext
             selection.Tasks.Any(id => symbols.Tasks[id].Task.Group == g.Id));
         return new JsonObject
         {
-            ["version"] = 1, ["authority"] = PlanningRepairPatch.Authority(state),
+            ["version"] = PlanningRepairPatch.CurrentVersion, ["authority"] = PlanningRepairPatch.Authority(state),
+            ["editablePaths"] = state.EditablePaths is null ? null : new JsonArray(state.EditablePaths.Select(p => (JsonNode?)JsonValue.Create(p)).ToArray()),
             ["slots"] = new JsonArray(slots.Select(s => (JsonNode)new JsonObject { ["id"] = s.Id, ["location"] = s.Location, ["kind"] = s.Kind,
                 ["actions"] = new JsonArray(s.Actions.Select(a => (JsonNode?)JsonValue.Create(a)).ToArray()) }).ToArray()),
             ["tasks"] = taskNodes, ["scopes"] = scopeNodes,
@@ -144,7 +160,10 @@ internal static class PlanningRepairContext
         };
     }
 
-    private static IEnumerable<string> Ports(PlanTask task, PlanningSession state)
+    private static bool IsLiteral(TaskValue value) => value.Kind is "null" or "string" or "number" or "boolean" ||
+        value.Kind == "object" && value.Members.All(m => IsLiteral(m.Value)) || value.Kind == "array" && value.Items.All(IsLiteral);
+
+    internal static IEnumerable<string> Ports(PlanTask task, PlanningSession state)
     {
         if (task.Kind == "transform") return task.ResultType?.Fields.Select(f => f.Name) ?? [];
         if (task.Kind == "operation") return state.Catalog!.Capabilities.Concat(state.Discovery.Resolved).FirstOrDefault(c => TaskOperations.Describe(c).Id == task.Operation) is { } cap

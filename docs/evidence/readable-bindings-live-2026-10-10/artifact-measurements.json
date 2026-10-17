@@ -1,0 +1,24 @@
+{
+  "run": "readablebindings20261010a-amazon-1",
+  "revision": 7,
+  "artifact_hash": "c8677c56bdd5b5a6924efb70670f500569d933e9dda17fc6f32485796b2e0998",
+  "yaml_sha256": "837f018c470b9090d2f424b8131e6b183288a49a4ebbe47327c1ed0f7e901e3d",
+  "yaml_bytes": 100225,
+  "yaml_lines": 3010,
+  "max_line_characters": 483,
+  "workflows": 3,
+  "steps": 38,
+  "types": {
+    "template.render": 4,
+    "llm.call": 4,
+    "mcp.call": 4,
+    "set": 18,
+    "switch": 3,
+    "mapping.dynamic": 2,
+    "workflow.call": 2,
+    "loop.sequential": 1
+  },
+  "checked_mapping_occurrences": 0,
+  "selection_helpers": 3,
+  "metadata_steps": 17
+}

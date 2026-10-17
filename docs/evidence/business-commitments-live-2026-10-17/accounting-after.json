@@ -1,0 +1,39 @@
+{
+  "campaign": "schema-portability-20261002",
+  "reserved_requests": 1109,
+  "completed_receipts": 1104,
+  "uncertain_requests": [
+    "exactdescriptions20261013a-amazon-1:3:c7bdf5d19bfb4cf07ea29533b8849be83d36e596de5f6c8c4e16f0080358d333",
+    "gluev420261008b-amazon-1:8:26c2e690e30bf67f6766c07acf36960302e08ceb65c2a1a0a11ad5a5dc0652e7",
+    "observations1-mapping:1:observations1-mapping-plan:1:dbfe9974cd61088546ba1b389abf828515fb805417762f5e49be28f4154ed0d3",
+    "schema-diagnostic:1:7dff37f9c9780e6b7a24ff13d47e7c80adb3572fa0fadc7b479cf7ade021e0bd",
+    "typedcomposition20261011a-amazon-1:3:4f57c0c25e0fa45a013fd0651aac7b29c981da42a2291458942dcaa89da32370"
+  ],
+  "retained_inconclusive_requests": [
+    "exactdescriptions20261013a-amazon-1:3:c7bdf5d19bfb4cf07ea29533b8849be83d36e596de5f6c8c4e16f0080358d333",
+    "gluev420261008b-amazon-1:8:26c2e690e30bf67f6766c07acf36960302e08ceb65c2a1a0a11ad5a5dc0652e7",
+    "observations1-mapping:1:observations1-mapping-plan:1:dbfe9974cd61088546ba1b389abf828515fb805417762f5e49be28f4154ed0d3",
+    "schema-diagnostic:1:7dff37f9c9780e6b7a24ff13d47e7c80adb3572fa0fadc7b479cf7ade021e0bd",
+    "typedcomposition20261011a-amazon-1:3:4f57c0c25e0fa45a013fd0651aac7b29c981da42a2291458942dcaa89da32370"
+  ],
+  "transport_accounting": {
+    "calls": 1165,
+    "session_calls": 0,
+    "known_input_tokens": 16166240,
+    "known_output_tokens": 2400627,
+    "known_cost_eur": 135.96717800348318,
+    "reserved_input_tokens": 1322641,
+    "reserved_output_tokens": 425984,
+    "reserved_cost_eur": 17.260932992537807,
+    "cost_upper_bound_eur": 153.228110996021,
+    "unknown_attempts": 13
+  },
+  "cost_ceiling_eur": 200,
+  "recorded_failures": 7,
+  "known_budget_cost": null,
+  "budget_currency": null,
+  "known_input_tokens": null,
+  "known_output_tokens": null,
+  "completion_receipts_complete": false,
+  "evidence_hash": "236442371e603c50ce4791463b10aa08ed2825dbfefd079860c23988e95d8498"
+}

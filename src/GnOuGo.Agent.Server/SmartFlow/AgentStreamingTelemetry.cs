@@ -96,6 +96,7 @@ public sealed class AgentStreamingTelemetry : IWorkflowTelemetry
             new("step.occurrence.id", occurrenceId),
             new("step.id", info.StepId),
             new("step.type", info.StepType),
+            new("step.description", info.Description),
             new("call.depth", info.CallDepth),
             new("gen_ai.operation.name", info.GenAiOperationName),
             new("gen_ai.system", info.GenAiSystem),

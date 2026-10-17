@@ -1,0 +1,22 @@
+{
+  "production": "7d5d42b2f4713464bd76589ec1d3302640830f8e",
+  "solution": {
+    "command": "dotnet test GnOuGo.Agent.sln -m:1 -warnaserror",
+    "projects": 33,
+    "failed": 0,
+    "passed": 3765,
+    "skipped": 12
+  },
+  "planner_tests": 662,
+  "benchmark_regressions": 17,
+  "native_aot": "osx-arm64",
+  "logs": {
+    "final-solution-7d5d42b2.log": "a812c2a174a62bb3f82dcd19adfe783add5b16dc30b86aa6f615568b8988daca",
+    "confirmation-guidance-tests.log": "b467bb2b9bbb733e07034ceccf47bbf89da53e9abf7f450bf15bfa8554bcd5a0",
+    "runtime-confirmation-counterexample.log": "ec6e8f91992030f4f4a7fee447c972e9e1153ee2fae63588e208ab5b92f684d0",
+    "pack-7d5d42b2.log": "51d92f588002f45336ee914a5b76ad42a308d193ba5617499453f28b67c14813",
+    "aot-publish-7d5d42b2.log": "e37518ad9fe098bbee7990c12b004c3df4906b67f84fe9bc929109785af21b5c",
+    "aot-smoke-7d5d42b2.log": "fa4d33e6be712395cad32abd9cb768fb3da858367cedbeab9e59eb5ddf776c7d"
+  },
+  "production_ci": "https://github.com/GnouGo/GnouGo/actions/runs/36700573382"
+}

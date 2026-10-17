@@ -1,0 +1,125 @@
+{
+  "success": true,
+  "localVisits": [
+    "/search",
+    "/relay",
+    "/entry/0",
+    "/relay",
+    "/entry/1",
+    "/relay",
+    "/entry/2",
+    "/relay",
+    "/entry/3",
+    "/relay",
+    "/entry/4",
+    "/relay",
+    "/entry/5",
+    "/relay",
+    "/entry/6",
+    "/relay",
+    "/entry/7",
+    "/relay",
+    "/entry/8",
+    "/relay",
+    "/entry/9"
+  ],
+  "cells": [
+    [
+      "name",
+      "description",
+      "price",
+      "error"
+    ],
+    [
+      "=Observed lamp 0",
+      "Complete observed block 0 \u2014 caf\u00E9; all supplied words retained.",
+      "10,00 \u20AC",
+      ""
+    ],
+    [
+      "=Observed lamp 1",
+      "Complete observed block 1 \u2014 caf\u00E9; all supplied words retained.",
+      "11,00 \u20AC",
+      ""
+    ],
+    [
+      "=Observed lamp 2",
+      "Complete observed block 2 \u2014 caf\u00E9; all supplied words retained.",
+      "12,00 \u20AC",
+      ""
+    ],
+    [
+      "=Observed lamp 0",
+      "Complete observed block 3 \u2014 caf\u00E9; all supplied words retained.",
+      "13,00 \u20AC",
+      ""
+    ],
+    [
+      "=Observed lamp 1",
+      "Complete observed block 4 \u2014 caf\u00E9; all supplied words retained.",
+      "14,00 \u20AC",
+      ""
+    ],
+    [
+      "=Observed lamp 2",
+      "Complete observed block 5 \u2014 caf\u00E9; all supplied words retained.",
+      "15,00 \u20AC",
+      ""
+    ],
+    [
+      "=Observed lamp 0",
+      "Complete observed block 6 \u2014 caf\u00E9; all supplied words retained.",
+      "16,00 \u20AC",
+      ""
+    ],
+    [
+      "=Observed lamp 1",
+      "Complete observed block 7 \u2014 caf\u00E9; all supplied words retained.",
+      "17,00 \u20AC",
+      ""
+    ],
+    [
+      "=Observed lamp 2",
+      "Complete observed block 8 \u2014 caf\u00E9; all supplied words retained.",
+      "18,00 \u20AC",
+      ""
+    ],
+    [
+      "=Observed lamp 0",
+      "Complete observed block 9 \u2014 caf\u00E9; all supplied words retained.",
+      "19,00 \u20AC",
+      ""
+    ]
+  ],
+  "cleanupVerified": true,
+  "exactFixtureOracle": true,
+  "unchangedLiveOracle": true,
+  "deterministicRuntimeCalls": 23,
+  "providerCalls": 0,
+  "paidCost": 0,
+  "requestBytes": [
+    888,
+    7421,
+    2690,
+    7160,
+    1683,
+    7160,
+    1683,
+    7160,
+    1683,
+    7160,
+    1683,
+    7160,
+    1683,
+    7160,
+    1683,
+    7160,
+    1683,
+    7160,
+    1683,
+    7160,
+    1683,
+    7160,
+    1683
+  ]
+}

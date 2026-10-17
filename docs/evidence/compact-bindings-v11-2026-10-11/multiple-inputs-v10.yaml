@@ -1,0 +1,123 @@
+version: 1
+name: "test"
+entrypoint: "main"
+workflows:
+  main:
+    inputs:
+      label:
+        type: "string"
+        required: true
+      authorized:
+        type: "boolean"
+        required: true
+      pattern:
+        type: "string"
+        required: true
+    steps:
+    - id: "n_a7937b64b8caa58f"
+      type: "set"
+      input: |-
+        ${
+        (() => {
+          const checkedValue = {
+            value: data.inputs.label
+          };
+          const checkedValue_2 = {
+            value: data.inputs.authorized
+          };
+          const chosen = {
+            chosen: checkedValue.value
+          };
+          const chosen_2 = chosen;
+          return {
+            chosen_2
+          };
+        })()
+        }
+      output_schema:
+        type: "object"
+        properties:
+          chosen_2:
+            type: "object"
+            properties:
+              chosen:
+                type: "string"
+            required:
+            - "chosen"
+            additionalProperties: false
+        required:
+        - "chosen_2"
+        additionalProperties: false
+      description: "Check and assemble consecutive deterministic values."
+      expression_contracts:
+        '':
+          checkedValue:
+            origin: "first"
+            schema:
+              type: "object"
+              properties:
+                value:
+                  type: "string"
+                  minLength: 1
+              required:
+              - "value"
+              additionalProperties: false
+          checkedValue_2:
+            origin: "guard"
+            schema:
+              type: "object"
+              properties:
+                value:
+                  type: "boolean"
+                  enum:
+                  - true
+              required:
+              - "value"
+              additionalProperties: false
+          chosen:
+            origin: "assembly"
+            schema:
+              type: "object"
+              properties:
+                chosen:
+                  type: "string"
+              required:
+              - "chosen"
+              additionalProperties: false
+          chosen_2:
+            origin: "export"
+            schema:
+              type: "object"
+              properties:
+                chosen:
+                  type: "string"
+              required:
+              - "chosen"
+              additionalProperties: false
+    - id: "n_887270d0cbc560af"
+      type: "template.render"
+      input:
+        template: "${data.inputs.pattern}"
+        data:
+          chosen: "${data.steps.n_a7937b64b8caa58f.chosen_2.chosen}"
+    outputs:
+      text:
+        type: "string"
+        expr: "${data.steps.n_887270d0cbc560af.text}"
+skill:
+  description: ""
+  inputs:
+    label:
+      type: "string"
+      required: true
+    authorized:
+      type: "boolean"
+      required: true
+    pattern:
+      type: "string"
+      required: true
+  outputs:
+    text:
+      type: "string"
+      expr: "${data.steps.n_887270d0cbc560af.text}"
+...

@@ -1,0 +1,9 @@
+{
+  "live_authorized": true,
+  "max_products": 10,
+  "source": "1ffe75d5401ed2cdbe52fd0c2f7ff5ca9d8024c2",
+  "run": "compactv1320261012a-amazon-1",
+  "explicit_archival_authorization": "Authorize the correction and archival, then continue the fresh live",
+  "execution_requires_separate_artifact_approval": true,
+  "cost_ceiling_eur": 200
+}

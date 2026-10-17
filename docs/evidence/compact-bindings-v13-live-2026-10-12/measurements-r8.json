@@ -1,0 +1,23 @@
+{
+  "taskplan_tasks": 26,
+  "workflows": 9,
+  "steps": 35,
+  "step_types": {
+    "mcp.call": 6,
+    "mapping.dynamic": 3,
+    "template.render": 3,
+    "llm.call": 3,
+    "set": 8,
+    "workflow.call": 8,
+    "loop.sequential": 1,
+    "switch": 3
+  },
+  "yaml_bytes": 202763,
+  "yaml_sha256": "ab9d64e46f8544afd25dfdf8cc7f87ae800f193322b0cb48564988d3e202cad6",
+  "max_line_length": 272,
+  "extract_stages": 3,
+  "interpret_stages": 3,
+  "typed_original_copy_inference": 0,
+  "row_formatting_inference": 0,
+  "execution_started": false
+}

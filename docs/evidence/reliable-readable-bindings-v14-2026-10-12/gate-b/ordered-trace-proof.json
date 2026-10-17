@@ -1,0 +1,9 @@
+{
+  "events_before": 1089,
+  "events_after": 1089,
+  "ordered_origins_and_outcomes_identical": true,
+  "ordered_origin_outcome_sha256": "85f04734d1b3994cc478dae1de7aef221e11129f0f18578029c7f61c2ddb1848",
+  "before_bytes": 444684,
+  "after_bytes": 393843,
+  "observations_in_events": false
+}

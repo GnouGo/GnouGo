@@ -1,0 +1,146 @@
+{
+  "candidate": "8fc8fd0c",
+  "run": "gluev420261008b-amazon-1",
+  "revision": 9,
+  "status": "stopped",
+  "artifact_hash": null,
+  "diagnostics": [
+    {
+      "code": "CONTRACT_UNSATISFIED",
+      "location": "/tasks/click_cookie_consent/inputs/reference",
+      "message": "TASK_FIELD_TYPE: Field selection requires an authoritative object contract; opaque values cannot supply fields.",
+      "required": true,
+      "validationStage": "contract:TASK_FIELD_TYPE",
+      "rule": null
+    },
+    {
+      "code": "CONTRACT_UNSATISFIED",
+      "location": "/tasks/click_cookie_consent/requires",
+      "message": "TASK_FIELD_TYPE: Field selection requires an authoritative object contract; opaque values cannot supply fields.",
+      "required": true,
+      "validationStage": "contract:TASK_FIELD_TYPE",
+      "rule": null
+    },
+    {
+      "code": "CONTRACT_UNSATISFIED",
+      "location": "/tasks/click_cookie_if_offered/condition",
+      "message": "TASK_FIELD_TYPE: Field selection requires an authoritative object contract; opaque values cannot supply fields.",
+      "required": true,
+      "validationStage": "contract:TASK_FIELD_TYPE",
+      "rule": null
+    },
+    {
+      "code": "CONTRACT_UNSATISFIED",
+      "location": "/tasks/submit_search/inputs/reference",
+      "message": "TASK_FIELD_TYPE: Field selection requires an authoritative object contract; opaque values cannot supply fields.",
+      "required": true,
+      "validationStage": "contract:TASK_FIELD_TYPE",
+      "rule": null
+    },
+    {
+      "code": "CONTRACT_UNSATISFIED",
+      "location": "/tasks/submit_search/requires",
+      "message": "TASK_FIELD_TYPE: Field selection requires an authoritative object contract; opaque values cannot supply fields.",
+      "required": true,
+      "validationStage": "contract:TASK_FIELD_TYPE",
+      "rule": null
+    }
+  ],
+  "result": {
+    "status": "stopped",
+    "planning_ms": 451622,
+    "calls": 6,
+    "repairs": 2,
+    "discovery_reads": 2,
+    "review_revisions": 2,
+    "diagnostics": [
+      {
+        "code": "CONTRACT_UNSATISFIED",
+        "location": "/tasks/click_cookie_consent/inputs/reference",
+        "message": "TASK_FIELD_TYPE: Field selection requires an authoritative object contract; opaque values cannot supply fields.",
+        "required": true,
+        "validationStage": "contract:TASK_FIELD_TYPE",
+        "rule": null
+      },
+      {
+        "code": "CONTRACT_UNSATISFIED",
+        "location": "/tasks/click_cookie_consent/requires",
+        "message": "TASK_FIELD_TYPE: Field selection requires an authoritative object contract; opaque values cannot supply fields.",
+        "required": true,
+        "validationStage": "contract:TASK_FIELD_TYPE",
+        "rule": null
+      },
+      {
+        "code": "CONTRACT_UNSATISFIED",
+        "location": "/tasks/click_cookie_if_offered/condition",
+        "message": "TASK_FIELD_TYPE: Field selection requires an authoritative object contract; opaque values cannot supply fields.",
+        "required": true,
+        "validationStage": "contract:TASK_FIELD_TYPE",
+        "rule": null
+      },
+      {
+        "code": "CONTRACT_UNSATISFIED",
+        "location": "/tasks/submit_search/inputs/reference",
+        "message": "TASK_FIELD_TYPE: Field selection requires an authoritative object contract; opaque values cannot supply fields.",
+        "required": true,
+        "validationStage": "contract:TASK_FIELD_TYPE",
+        "rule": null
+      },
+      {
+        "code": "CONTRACT_UNSATISFIED",
+        "location": "/tasks/submit_search/requires",
+        "message": "TASK_FIELD_TYPE: Field selection requires an authoritative object contract; opaque values cannot supply fields.",
+        "required": true,
+        "validationStage": "contract:TASK_FIELD_TYPE",
+        "rule": null
+      }
+    ],
+    "execution_success": false,
+    "execution_oracle": false,
+    "execution_status": "not_started",
+    "accounting": {
+      "planning": {
+        "logical_calls": 6,
+        "physical_attempts": 6,
+        "known_input_tokens": 81131,
+        "known_output_tokens": 29165,
+        "known_cost_eur": 1.1363963084568285,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "execution": {
+        "logical_calls": 0,
+        "physical_attempts": 0,
+        "known_input_tokens": 0,
+        "known_output_tokens": 0,
+        "known_cost_eur": 0,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "campaign": {
+        "calls": 911,
+        "session_calls": 0,
+        "known_input_tokens": 13505386,
+        "known_output_tokens": 1833432,
+        "known_cost_eur": 109.02802405720682,
+        "reserved_input_tokens": 384000,
+        "reserved_output_tokens": 131072,
+        "reserved_cost_eur": 5.203327457848472,
+        "cost_upper_bound_eur": 114.2313515150553,
+        "unknown_attempts": 4
+      }
+    }
+  },
+  "review": "Array operands were accessed as objects using field ports 0/length. Compilation rejected the proposal; no artifact was approved or executed. An explicit implementation revision uses existing bounded foreach over lookup results, without resetting counters.",
+  "revision_command": {
+    "kind": "revise",
+    "preserveRequirements": true,
+    "expectedRevision": 9,
+    "artifactHash": null,
+    "text": "Explicit implementation revision of the rejected array access, preserving all accepted requirements and the existing narrow each extraction, full observations, typed lookup, visits, workbook writing and cleanup. The compiler correctly rejects object field bindings with port \"0\" or \"length\" on arrays. TaskValue field selects declared object fields only; do not guess array indexing or array length syntax. Replace the optional cookie conditional and single-record array indexing with an ordinary bounded foreach over lookup_home_cookie_records.records (at most one selected record), performing the observed-reference activate operation using item.reference. An empty selected cookie array naturally executes zero interactions. Keep every existing local requires on the affected operation, adapted to the current item and actual declared types. Acquire a fresh complete observation after that loop, outside its body, so both the zero-action and action cases have the same explicit typed observation. Replace submit_search array indexing with a bounded foreach over lookup_search_records.records, using item.reference and the existing query input for the real fill/submit operation. The required search selection must have an explicit nonempty target contract (minItems:1,maxItems:1); never silently treat no search target as successful search. Do not use field length/0 anywhere on arrays, do not invent a new value kind, and do not replace observed references with literals. Preserve all other business work, complete observation guards, original action references, global decisions over compact facts, ten-product bound, actual item visits, workbook writer and cleanup. No approval or runtime permission is granted by this revision. This is an explicit revision within the remaining cumulative planning allowance; do not reset model-call or automatic-repair counters."
+  }
+}

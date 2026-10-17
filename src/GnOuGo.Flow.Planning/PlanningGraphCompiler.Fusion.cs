@@ -1,0 +1,275 @@
+using System.Text;
+using System.Text.Json.Nodes;
+using GnOuGo.Flow.Core.Expressions;
+using GnOuGo.Flow.Core.Planning;
+
+namespace GnOuGo.Flow.Planning;
+
+public sealed partial class PlanningGraphCompiler
+{
+    private static HashSet<string> BindingNames() => new(StringComparer.Ordinal) { "data", "m", "source", "item", "index", "checkedMapping", "arguments", "eval",
+        "const", "let", "var", "return", "if", "else", "switch", "case", "default", "class", "function", "new", "this", "null", "true", "false", "delete", "typeof", "void", "in", "of", "for", "while", "do", "break", "continue", "try", "catch", "finally", "throw", "yield", "await", "import", "export", "super", "extends", "with", "debugger", "instanceof",
+        "enum", "implements", "interface", "package", "private", "protected", "public", "static", "undefined", "NaN", "Infinity", "Number", "Object", "Array", "JSON", "json" };
+
+    private static string FunctionalName(string name)
+    {
+        var words = System.Text.RegularExpressions.Regex.Split(name, "[^A-Za-z0-9]+").Where(w => w.Length > 0).ToArray();
+        var result = string.Concat(words.Select((w, i) => (i == 0 ? char.ToLowerInvariant(w[0]) : char.ToUpperInvariant(w[0])) + w[1..]));
+        if (result.Length == 0) result = "binding";
+        if (!char.IsAsciiLetter(result[0])) result = "binding" + result;
+        return result.Length > 64 ? result[..64] : result;
+    }
+
+    private static string LocalName(string key, LoweringScope scope)
+    {
+        var group = scope.FusedOutputs[key];
+        if (!scope.ReadableMappings) return "v" + Array.IndexOf(group, key).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        var used = BindingNames();
+        foreach (var candidate in group)
+        {
+            var node = scope.Nodes[candidate];
+            var declaredFields = (node.OutputSchema?.Contract?["properties"] as JsonObject)?.Select(p => p.Key).ToArray() ?? [];
+            var projectedField = node.Input.Kind == "projection"
+                ? node.Input.Members.FirstOrDefault(m => m.Name == "paths")?.Value.Items.FirstOrDefault()?.Items.LastOrDefault()?.Text
+                    ?? node.Input.Members.FirstOrDefault(m => m.Name == "value")?.Value.Path.LastOrDefault()
+                : null;
+            var field = node.OutputSchema?.Properties.FirstOrDefault(p => p.Name != "value")?.Name ??
+                declaredFields.FirstOrDefault(p => p != "value") ??
+                (node.Input.Kind == "object" ? node.Input.Members.FirstOrDefault(m => m.Name != "value")?.Name : null) ??
+                projectedField ?? node.OutputSchema?.Properties.FirstOrDefault()?.Name ?? declaredFields.FirstOrDefault() ?? "binding";
+            if (scope.CompactProjections && field is "value" or "binding")
+                field = BindingValues(node.Input).SelectMany(v => v.Path).LastOrDefault(p =>
+                    p is not ("value" or "outputs" or "results") && !scope.Nodes.ContainsKey(p)) ?? "checkedValue";
+            if (scope.InlineConsumers && field == "checkedValue")
+            {
+                var shape = node.OutputSchema?.Contract?["properties"]?["value"];
+                field = shape?["type"]?.ToString() == "boolean" ? shape["enum"] is not null ? "requiredCondition" : "condition" :
+                    BindingValues(node.Input).FirstOrDefault(v => v.Kind == "input" && v.Source is { } input && !input.StartsWith("task_", StringComparison.Ordinal))?.Source ?? "checkedRecord";
+            }
+            if (scope.ReadableBranches && field is "checkedRecord" or "checkedValue")
+            {
+                if (scope.BranchOutputs.TryGetValue(candidate, out var ports))
+                    field = ports.Values.First() == "selectedValue" ? "selection" : ports.Values.First() + "Selection";
+                else if (node.Input.Kind == "projection" && PlanningGraphValidation.Member(node.Input, "value")?.Source is { } producer &&
+                    scope.BranchOutputs.TryGetValue(producer, out var selected)) field = selected.Values.First();
+                else
+                {
+                    string Hint(PlanningNode binding, HashSet<string> visited)
+                    {
+                        if (!visited.Add(binding.Key)) return "observedValue";
+                        var semantic = binding.Input.Kind == "projection" ? PlanningGraphValidation.Member(binding.Input, "value")! : binding.Input;
+                        var values = BindingValues(semantic).ToArray();
+                        if (values.Any(v => v.Kind == "lookup")) return "matchedRecords";
+                        var source = values.FirstOrDefault(v => v.Kind == "input" && scope.InputAliases.ContainsKey(v.Source!));
+                        var name = source is not null ? scope.InputAliases[source.Source!] :
+                            values.FirstOrDefault(v => v.Kind == "output" && v.Source != binding.Key && scope.Nodes.ContainsKey(v.Source!)) is { } reference
+                                ? Hint(scope.Nodes[reference.Source!], visited) : "observedValue";
+                        return values.Any(v => v.Kind == "flatten") ? "flattened " + name : semantic.Kind == "array" ? name + " list" : name;
+                    }
+                    field = Hint(node, new(StringComparer.Ordinal));
+                }
+            }
+            var stem = new string(field.Select(c => char.IsAsciiLetterOrDigit(c) || c == '_' ? c : '_').Take(48).ToArray());
+            if (scope.InlineConsumers) stem = FunctionalName(field);
+            if (stem.Length == 0 || !char.IsAsciiLetter(stem[0]) && stem[0] != '_') stem = "binding_" + stem;
+            var name = stem; var suffix = 2;
+            while (!used.Add(name)) name = stem + "_" + (suffix++).ToString(System.Globalization.CultureInfo.InvariantCulture);
+            if (candidate == key) return name;
+        }
+        throw new InvalidOperationException("A fused binding has no local identity.");
+    }
+    private static string OutputAddress(string key, LoweringScope scope) => scope.LexicalOutputs.TryGetValue(key, out var lexical) ? lexical : scope.LocalOutputs.Contains(key)
+        ? LocalName(key, scope) : scope.FusedOutputs.TryGetValue(key, out var group)
+        ? "data.steps." + scope.NodeIds[group[0]] + "." + LocalName(key, scope) : "data.steps." + scope.NodeIds[key];
+
+    private static IEnumerable<PlanningValue> BindingValues(PlanningValue? value) => value is null ? [] :
+        new[] { value }.Concat(value.Items.SelectMany(BindingValues)).Concat(value.Members.SelectMany(m => BindingValues(m.Value)));
+
+    private static void PrepareFusion(PlanningWorkflow workflow, LoweringScope scope, bool consumerBindings = false)
+    {
+        var blocked = new HashSet<string>(StringComparer.Ordinal);
+        IEnumerable<PlanningValue> Values(PlanningNode n) => BindingValues(n.Input).Concat(BindingValues(n.If)).Concat(BindingValues(n.Expr))
+            .Concat(n.Cases.SelectMany(c => BindingValues(c.When)))
+            .Concat(n.OnError.SelectMany(e => BindingValues(e.If).Concat(BindingValues(e.SetOutput))));
+        var values = scope.Nodes.Values.SelectMany(Values).Concat(workflow.Outputs.SelectMany(o => BindingValues(o.Value))).ToArray();
+        var selectedContainers = new HashSet<PlanningValue>(ReferenceEqualityComparer.Instance);
+        var selectedOccurrences = new Dictionary<PlanningValue, int>(ReferenceEqualityComparer.Instance);
+        if (scope.InlineConsumers)
+            foreach (var projection in values.Where(v => v.Kind == "projection"))
+                if (PlanningGraphValidation.Member(projection, "each")?.Boolean != true &&
+                    PlanningGraphValidation.Member(projection, "value") is { Kind: "output", Source: not null, Path.Count: 0, ResultChannel: null or "default" } source &&
+                    scope.Nodes.TryGetValue(source.Source, out var owner) && owner.Type is "sequence" or "switch" &&
+                    PlanningGraphValidation.Literal(PlanningGraphValidation.Member(projection, "paths")!) is JsonArray { Count: > 0 } paths)
+                {
+                    var children = Enumerate([owner]).Skip(1).ToDictionary(n => n.Key, StringComparer.Ordinal);
+                    if (!paths.All(p => p is JsonArray { Count: > 0 } path && path[0] is JsonValue id &&
+                        id.TryGetValue<string>(out var key) && children.ContainsKey(key))) continue;
+                    // A checked selection observes these child addresses, not
+                    // every sibling in the historical container envelope.
+                    selectedContainers.Add(source);
+                    selectedOccurrences[source] = selectedOccurrences.GetValueOrDefault(source) + 1;
+                    foreach (var path in paths)
+                        blocked.UnionWith(Enumerate([children[path![0]!.GetValue<string>()]]).Select(n => n.Key));
+                }
+        // The graph may reuse a value instance in a second, whole-result use.
+        selectedContainers.RemoveWhere(source => values.Count(v => ReferenceEquals(v, source)) != selectedOccurrences[source]);
+        foreach (var value in values)
+        {
+            if (value.Kind == "present" && value.Source is not null) blocked.Add(value.Source);
+            // Container results and raw expressions observe physical child identities.
+            if (value.Kind is "expression" or "template") blocked.UnionWith(scope.Nodes.Keys);
+            if (value.Kind == "output" && value.Source is not null && scope.Nodes.TryGetValue(value.Source, out var owner) &&
+                owner.Type is "sequence" or "switch" or "parallel" or "loop.sequential" or "loop.parallel" && !selectedContainers.Contains(value))
+                blocked.UnionWith(Enumerate([owner]).Skip(1).Select(n => n.Key));
+        }
+        // A failure handler may need a successfully completed earlier value even
+        // when a later checked value fails. Such receipts must remain independent.
+        foreach (var value in Enumerate(workflow.Finally).SelectMany(Values).Concat(scope.Nodes.Values
+            .SelectMany(n => n.OnError).SelectMany(e => BindingValues(e.If).Concat(BindingValues(e.SetOutput)))))
+            if (value.Source is not null) blocked.Add(value.Source);
+        bool Eligible(PlanningNode n) => !blocked.Contains(n.Key) &&
+            (n.Type == "set" && n.Input.Kind != "dynamic_mapping" || n.InternalRole is "typed_projection" or "typed_index_projection" || scope.PureBranches.Contains(n.Key)) &&
+            n.CapabilityId is null && n.If is null && (n.Expr is null || scope.PureBranches.Contains(n.Key)) && n.Output is null && n.Retry is null && n.OnError.Count == 0;
+        void Scan(List<PlanningNode> nodes)
+        {
+            var run = new List<string>();
+            void Flush(PlanningNode? consumer = null)
+            {
+                var group = run.ToArray();
+                if (scope.InlineConsumers && consumerBindings && consumer is not null)
+                {
+                    // A shared prefix remains a checkpoint; it must not prevent
+                    // a single-use suffix from being checked at its consumer.
+                    for (var start = 0; start < group.Length; start++)
+                    {
+                        var suffix = group[start..];
+                        if (!TryConsumer(consumer, suffix)) continue;
+                        var prefix = group[..start];
+                        // Keep the prefix's checked origin even when splitting
+                        // leaves a single independently published value.
+                        foreach (var key in prefix) scope.FusedOutputs.Add(key, prefix);
+                        foreach (var key in suffix) scope.FusedOutputs.Add(key, suffix);
+                        run.Clear();
+                        return;
+                    }
+                }
+                var inline = consumerBindings && group.Length > 0 && consumer is not null && TryConsumer(consumer, group);
+                if (run.Count > 1 || inline) foreach (var key in group) scope.FusedOutputs.Add(key, group);
+                run.Clear();
+            }
+            foreach (var node in nodes)
+            {
+                if (node.InternalRole?.StartsWith("inline:", StringComparison.Ordinal) == true) continue;
+                if (Eligible(node)) run.Add(node.Key); else Flush(node);
+                if (scope.PureBranches.Contains(node.Key)) continue;
+                // Each branch and nested execution scope has its own sequence.
+                Scan(node.Steps); Scan(node.Default);
+                foreach (var branch in node.Branches) Scan(branch.Steps);
+                foreach (var branch in node.Cases) Scan(branch.Steps);
+            }
+            Flush();
+        }
+        Scan(workflow.Steps); Scan(workflow.Finally);
+        foreach (var node in scope.Nodes.Values)
+            foreach (var value in Values(node).Where(v => v.Kind == "output" && v.Source is not null))
+                if (scope.FusedOutputs.TryGetValue(value.Source!, out var group) && !group.Contains(node.Key, StringComparer.Ordinal))
+                    scope.FusedExports.Add(value.Source!);
+        foreach (var value in workflow.Outputs.SelectMany(o => BindingValues(o.Value)))
+            if (value.Kind == "output" && value.Source is not null) scope.FusedExports.Add(value.Source);
+
+        bool TryConsumer(PlanningNode consumer, string[] group)
+        {
+            if (scope.CheckedControls && consumer.Type == "switch" && consumer.Expr is not null && consumer.If is null &&
+                consumer.Retry is null && consumer.OnError.Count == 0 && consumer.Output is null && group.Length > 0)
+            {
+                bool ReadsControl(PlanningValue value) => value.Kind is "output" or "present" && value.Source is { } source && group.Contains(source, StringComparer.Ordinal);
+                if (BindingValues(consumer.Expr).Any(ReadsControl) && !BindingValues(consumer.Input).Any(ReadsControl) &&
+                    !workflow.Outputs.SelectMany(o => BindingValues(o.Value)).Any(ReadsControl) &&
+                    !scope.Nodes.Values.Where(n => n.Key != consumer.Key && !group.Contains(n.Key, StringComparer.Ordinal)).SelectMany(Values).Any(ReadsControl) &&
+                    !consumer.Cases.SelectMany(c => BindingValues(c.When)).Any(ReadsControl))
+                {
+                    scope.ControlBindings.Add(consumer.Key, (group, "/expr", consumer.Expr));
+                    return true;
+                }
+            }
+            var mapping = scope.InlineConsumers && consumer.Type == "set" && consumer.Input.Kind == "dynamic_mapping";
+            if (consumer.If is not null || consumer.Expr is not null || consumer.Output is not null || consumer.Retry is not null || consumer.OnError.Count > 0 ||
+                !mapping && ((!scope.InlineConsumers && consumer.Type == "set") || consumer.Input.Kind != "object") ||
+                consumer.Steps.Count + consumer.Default.Count + consumer.Cases.Count + consumer.Branches.Count != 0) return false;
+            bool Reads(PlanningValue value) => value.Kind is "output" or "present" && value.Source is { } source && group.Contains(source, StringComparer.Ordinal);
+            if (!BindingValues(consumer.Input).Any(Reads) || workflow.Outputs.SelectMany(o => BindingValues(o.Value)).Any(Reads) ||
+                scope.Nodes.Values.Where(n => n.Key != consumer.Key && !group.Contains(n.Key, StringComparer.Ordinal)).SelectMany(Values).Any(Reads)) return false;
+            // Exactly one dynamic input subtree: check once, before the consumer,
+            // without changing the evaluation order of independent expressions.
+            var value = mapping ? new PlanningValue { Kind = "object", Members = consumer.Input.Members } : consumer.Input;
+            var path = new List<string>();
+            while (value.Kind == "object")
+            {
+                var dynamic = value.Members.Where(m => !Static(m.Value)).ToArray();
+                if (dynamic.Length != 1) break;
+                path.Add(dynamic[0].Name); value = dynamic[0].Value;
+            }
+            if (path.Count == 0 && (!scope.InlineConsumers || consumer.Type == "human.input" || consumer.StructuredOutput is not null)) return false;
+            if (consumer.CapabilityId is { } id)
+            {
+                var contract = scope.Catalog.Capabilities.Single(c => c.Id == id);
+                // Literal capability/host bindings remain inspectable. Never
+                // hide them in a generated whole-input expression.
+                if (path.Count == 0 && (contract.FixedInput.Count > 0 || consumer.Type == "mcp.call" || contract.RequestBindings.Count > 0)) return false;
+                if (path.Count > 0 && (contract.FixedInput.ContainsKey(path[0]) || consumer.Type == "mcp.call" && path[0] != "request")) return false;
+                var pointer = "/" + string.Join('/', path.Select(p => p.Replace("~", "~0", StringComparison.Ordinal).Replace("/", "~1", StringComparison.Ordinal)));
+                if (contract.RequestBindings.Any(b => pointer == "/request" + b.Path || pointer.StartsWith("/request" + b.Path + "/", StringComparison.Ordinal) ||
+                    ("/request" + b.Path).StartsWith(pointer + "/", StringComparison.Ordinal))) return false;
+            }
+            scope.ConsumerBindings.Add(consumer.Key, (group, path.ToArray(), value));
+            return true;
+        }
+
+        static bool Static(PlanningValue value) => value.Kind is "null" or "string" or "number" or "boolean" or "workflow" ||
+            value.Kind == "array" && value.Items.All(Static) || value.Kind == "object" && value.Members.All(m => Static(m.Value));
+    }
+
+    private static JsonObject LowerFused(string[] group, LoweringScope scope, PlanningValue? consumerInput = null)
+    {
+        var local = scope with { LocalOutputs = new(StringComparer.Ordinal) };
+        var program = new StringBuilder("(()=>{"); var contracts = new JsonObject(); var fields = new JsonObject(); var lexical = new JsonObject();
+        foreach (var key in group)
+        {
+            var node = scope.Nodes[key]; var lowered = LowerNode(node, local); var id = LocalName(key, scope);
+            var whole = node.Input.Kind == "projection" && PlanningGraphValidation.Literal(PlanningGraphValidation.Member(node.Input, "paths")!) is JsonArray { Count: 1 } paths &&
+                paths[0] is JsonArray { Count: 0 } && PlanningGraphValidation.Member(node.Input, "each")?.Boolean != true;
+            if (lowered["__lexical_contracts"] is JsonObject branchChecks)
+                foreach (var (check, entry) in branchChecks) lexical.Add(check, entry?.DeepClone());
+            var expression = scope.PureBranches.Contains(key) ? lowered["input"]!.GetValue<string>() : whole ? ToExpression(new() { Kind = "object", Members = [new("value", PlanningGraphValidation.Member(node.Input, "value")!)] }, local) :
+                node.InternalRole is "typed_assembly" or "typed_projection" or "typed_index_projection"
+                ? lowered["input"]!.GetValue<string>() : ToExpression(node.Input, local);
+            // A closed, already checked record need not be assembled again under
+            // identical property names. Its own check still runs at this position.
+            if (node.Input is { Kind: "object", Members.Count: > 0 } assembly && assembly.Members[0].Value.Source is { } source &&
+                scope.Nodes.TryGetValue(source, out var producer) && producer.OutputSchema is { } output &&
+                (!scope.CheckedControls || producer.InternalRole?.StartsWith("inline:", StringComparison.Ordinal) != true) &&
+                assembly.Members.All(m => m.Value.Kind == "output" && m.Value.Source == source && m.Value.Path.SequenceEqual([m.Name]) && m.Value.ResultChannel is null))
+            {
+                var shape = ToJsonSchema(output, scope.Catalog);
+                if (shape["additionalProperties"]?.ToJsonString() == "false" && shape["properties"] is JsonObject properties &&
+                    properties.Select(p => p.Key).SequenceEqual(assembly.Members.Select(m => m.Name)) &&
+                    shape["required"] is JsonArray required && required.Count == properties.Count)
+                    expression = ToExpression(new() { Kind = "output", Source = source }, local);
+            }
+            program.Append("const ").Append(id).Append('=').Append(expression[2..^1]).Append(';');
+            contracts[id] = new JsonObject { ["origin"] = key, ["schema"] = lowered["output_schema"]?.DeepClone() };
+            if (scope.FusedExports.Contains(key)) fields[id] = lowered["output_schema"]?.DeepClone() ?? new JsonObject { ["type"] = "object" };
+            local.LocalOutputs.Add(key);
+        }
+        if (consumerInput is not null) program.Append("return ").Append(ToExpression(consumerInput, local)[2..^1]).Append(";})()");
+        else program.Append("return ({").Append(string.Join(',', group.Where(scope.FusedExports.Contains).Select(k => LocalName(k, scope) + ":" + LocalName(k, scope)))).Append("});})()");
+        ExpressionEvaluator.Validate(program.ToString());
+        var result = new JsonObject { ["id"] = scope.NodeIds[group[0]], ["type"] = "set",
+            ["input"] = "${checkedMapping(\n" + (scope.NativeMappings ? ProgramLiteral(program.ToString(), scope) : JsonValue.Create(program.ToString())!.ToJsonString(new System.Text.Json.JsonSerializerOptions(PlanningJsonContext.Default.Options) { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping })) + ",data," + contracts.ToJsonString() + "\n)}",
+            ["output_schema"] = new JsonObject { ["type"] = "object", ["properties"] = fields,
+                ["required"] = new JsonArray(group.Where(scope.FusedExports.Contains).Select(k => (JsonNode?)JsonValue.Create(LocalName(k, scope))).ToArray()), ["additionalProperties"] = false } };
+        if (lexical.Count > 0) result["__lexical_contracts"] = lexical;
+        if (scope.Descriptions) result["description"] = "Check and assemble consecutive deterministic values.";
+        return result;
+    }
+}

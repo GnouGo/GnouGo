@@ -133,6 +133,10 @@ public sealed record StepTelemetryInfo
     /// <summary>Step type (e.g., "llm.call", "mcp.call", "sequence").</summary>
     public string StepType { get; init; } = "";
 
+    /// <summary>Literal workflow step description, for observability only.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? Description { get; init; }
+
     /// <summary>Resolved input for the step (may be null).</summary>
     public JsonNode? Input { get; init; }
 

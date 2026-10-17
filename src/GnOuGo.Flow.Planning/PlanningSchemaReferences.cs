@@ -58,7 +58,7 @@ internal static class PlanningSchemaReferences
     internal static IEnumerable<(string Path, JsonObject Schema)> Entries(PlanningCapability capability)
         => Walk(capability.InputSchema, "/input", 0).Concat(Walk(capability.OutputSchema, "/output", 0));
 
-    private static IEnumerable<(string Path, JsonObject Schema)> Walk(JsonObject schema, string path, int depth)
+    internal static IEnumerable<(string Path, JsonObject Schema)> Walk(JsonObject schema, string path, int depth)
     {
         if (depth > 32) yield break;
         yield return (path, schema);

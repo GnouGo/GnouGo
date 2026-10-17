@@ -1,0 +1,234 @@
+[
+  {
+    "variant": "complete",
+    "rows_including_header": 11,
+    "visits": 10,
+    "complete_original_sources": true,
+    "exact_nonblank_cells": true,
+    "formula_nodes": 0,
+    "blank_positions": [
+      [
+        2,
+        4
+      ],
+      [
+        3,
+        4
+      ],
+      [
+        4,
+        4
+      ],
+      [
+        5,
+        4
+      ],
+      [
+        6,
+        4
+      ],
+      [
+        7,
+        4
+      ],
+      [
+        8,
+        4
+      ],
+      [
+        9,
+        4
+      ],
+      [
+        10,
+        4
+      ],
+      [
+        11,
+        4
+      ]
+    ],
+    "cleanup": true,
+    "writer_path_matches": true,
+    "sha256": "57dfc27289388c0f448298ef52305a1881fb74b1e11d7cce81941e7a276de889"
+  },
+  {
+    "variant": "empty",
+    "rows_including_header": 1,
+    "visits": 0,
+    "complete_original_sources": true,
+    "exact_nonblank_cells": true,
+    "formula_nodes": 0,
+    "blank_positions": [],
+    "cleanup": true,
+    "writer_path_matches": true,
+    "sha256": "e241cf3126e631ea6acfb9edf227eb2a1e4fec210b2186ebbe3015e5fe010691"
+  },
+  {
+    "variant": "missing",
+    "rows_including_header": 11,
+    "visits": 10,
+    "complete_original_sources": true,
+    "exact_nonblank_cells": true,
+    "formula_nodes": 0,
+    "blank_positions": [
+      [
+        2,
+        4
+      ],
+      [
+        3,
+        4
+      ],
+      [
+        4,
+        3
+      ],
+      [
+        4,
+        4
+      ],
+      [
+        5,
+        2
+      ],
+      [
+        5,
+        4
+      ],
+      [
+        6,
+        4
+      ],
+      [
+        7,
+        4
+      ],
+      [
+        8,
+        4
+      ],
+      [
+        9,
+        4
+      ],
+      [
+        10,
+        4
+      ],
+      [
+        11,
+        4
+      ]
+    ],
+    "cleanup": true,
+    "writer_path_matches": true,
+    "sha256": "0f0e0223842e2592e59fe4103101e268c2acf88efbe1a328675dcd1fe2a29a96"
+  },
+  {
+    "variant": "redirected",
+    "rows_including_header": 11,
+    "visits": 10,
+    "complete_original_sources": true,
+    "exact_nonblank_cells": true,
+    "formula_nodes": 0,
+    "blank_positions": [
+      [
+        2,
+        4
+      ],
+      [
+        3,
+        4
+      ],
+      [
+        4,
+        4
+      ],
+      [
+        5,
+        4
+      ],
+      [
+        6,
+        4
+      ],
+      [
+        7,
+        4
+      ],
+      [
+        8,
+        4
+      ],
+      [
+        9,
+        4
+      ],
+      [
+        10,
+        4
+      ],
+      [
+        11,
+        4
+      ]
+    ],
+    "cleanup": true,
+    "writer_path_matches": true,
+    "sha256": "508e84089be75e3052c03282ed6b6b3ff07cfeb9ea0676ab0e9ef970cecbf5a4"
+  },
+  {
+    "variant": "repeated",
+    "rows_including_header": 11,
+    "visits": 10,
+    "complete_original_sources": true,
+    "exact_nonblank_cells": true,
+    "formula_nodes": 0,
+    "blank_positions": [
+      [
+        2,
+        4
+      ],
+      [
+        3,
+        4
+      ],
+      [
+        4,
+        4
+      ],
+      [
+        5,
+        4
+      ],
+      [
+        6,
+        4
+      ],
+      [
+        7,
+        4
+      ],
+      [
+        8,
+        4
+      ],
+      [
+        9,
+        4
+      ],
+      [
+        10,
+        4
+      ],
+      [
+        11,
+        4
+      ]
+    ],
+    "cleanup": true,
+    "writer_path_matches": true,
+    "sha256": "320d77eff0065da9e4a00694bc2e2dc0d4c550519f47fd02757a0f6449d708ca"
+  }
+]

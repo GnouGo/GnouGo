@@ -1,0 +1,38 @@
+{
+  "provider_calls": 0,
+  "mcp_calls": 0,
+  "storage_writes": 0,
+  "workflow_resumed": false,
+  "oracle_sha256": "745fb5730d8fccd1e88c3c5b2e15a99556f322790a4b08d501a0ca504834bcd0",
+  "source_sha256": "b829c11448894b8f80ae2b5da0b22e8d5cd37a2f049aa4862b9172d558ba1448",
+  "pages_processed": 54,
+  "original_records": 1540,
+  "historical_candidates": 0,
+  "preflight": {
+    "mapping_failure_kind": "program",
+    "helper": "test",
+    "script_start": 198,
+    "script_length": 2
+  },
+  "corrected_script": "item.records.filter(record=\u003Em.test(record.kind,\u0027^link$\u0027)).map(record=\u003E({reference:record.reference,text:record.text,role:record.role}))",
+  "compact_offered_records": 790,
+  "independently_selected_titles": 10,
+  "exact_reconnection": true,
+  "negative_selections_rejected": true,
+  "request_bytes": 126267,
+  "request_estimated_input_tokens": 79450,
+  "unchanged_input_allowance": 96000,
+  "measurements": [
+    {
+      "phase": "first_corrected_evaluation",
+      "elapsed_ms": 18.6951,
+      "allocated_bytes": 11950088
+    },
+    {
+      "phase": "warm_corrected_evaluation",
+      "elapsed_ms": 20.1952,
+      "allocated_bytes": 11952464
+    }
+  ],
+  "limitation": "Deterministic reviewed selection; no model compliance or missing product-page/workbook evidence is claimed."
+}

@@ -26,7 +26,7 @@ public sealed class TaskArtifactBindingTests
         var (plan, catalog) = await Fixture();
         var result = new TaskPlanCompiler().Compile(plan, catalog);
         Assert.Empty(result.Diagnostics); Assert.NotNull(result.Graph);
-        Assert.Contains(result.Graph.Workflows.SelectMany(w => w.Steps), n => n.Type == "value.project");
+        Assert.Contains(result.Graph.Workflows.SelectMany(w => w.Steps), n => n.Type == "set" && n.Input.Kind == "projection");
         Assert.Empty(PlanningGeneratedGraph.Validate(result.Graph, catalog));
         Assert.Empty(PlanningExecutableValidation.Validate(result.Graph, catalog));
         Assert.True(result.Graph.Workflows[0].Outputs.Single().Schema.Contract!["x-gnougo-opaque"]!.GetValue<bool>());

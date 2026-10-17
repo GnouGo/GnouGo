@@ -1,0 +1,203 @@
+{
+  "run": "emptyacquire20261008a-amazon-1",
+  "measurements": [
+    {
+      "profile": "compact-bindings-v3",
+      "steps": 81,
+      "sets": 55,
+      "workflows": 5,
+      "yaml_bytes": 81800,
+      "yaml_lines": 2351,
+      "yaml_hash": "609d66f8a14a3dab2024b33304437819e1a0b8eabe3b97408b63ad75f46fcaba",
+      "matches_saved_yaml": true,
+      "adjacent_set_pairs": [
+        {
+          "scope": "main",
+          "before": "n_5ba8560ca1d7644e",
+          "after": "n_3eee368ebc07926d"
+        },
+        {
+          "scope": "main",
+          "before": "n_3eee368ebc07926d",
+          "after": "n_8e29eb6a8a366f87"
+        },
+        {
+          "scope": "main",
+          "before": "n_d5b031ceed0b14af",
+          "after": "n_20687a41e38360ec"
+        },
+        {
+          "scope": "main/n_2086bd988590e04f/case",
+          "before": "n_3deeb71fafa51c8e",
+          "after": "n_120f55d6db142b9f"
+        },
+        {
+          "scope": "main",
+          "before": "n_272a25ce420398e2",
+          "after": "n_bbd4b87b741c4fc7"
+        },
+        {
+          "scope": "main",
+          "before": "n_bbd4b87b741c4fc7",
+          "after": "n_0eb903ae3db3e72a"
+        },
+        {
+          "scope": "main",
+          "before": "n_4e0d0b0261a34551",
+          "after": "n_6909edf2fcd00e9f"
+        },
+        {
+          "scope": "main",
+          "before": "n_6909edf2fcd00e9f",
+          "after": "n_6095940ffabb7caa"
+        },
+        {
+          "scope": "main/n_5912db34619883c9/case",
+          "before": "n_36953fab05f170ac",
+          "after": "n_ae9bc8988408ed3d"
+        },
+        {
+          "scope": "main",
+          "before": "n_8fd6f766f8a8c6b1",
+          "after": "n_b9ad45763ef4f54d"
+        },
+        {
+          "scope": "main",
+          "before": "n_b9ad45763ef4f54d",
+          "after": "n_4718377e53096bbc"
+        },
+        {
+          "scope": "main",
+          "before": "n_d1618c6225a83b31",
+          "after": "n_d5e11cb7b30f1e37"
+        },
+        {
+          "scope": "main",
+          "before": "n_e6c7d1f6f32ae7a8",
+          "after": "n_e6a0f56f85665974"
+        },
+        {
+          "scope": "main",
+          "before": "n_e6a0f56f85665974",
+          "after": "n_1e673f131b6b811b"
+        },
+        {
+          "scope": "main",
+          "before": "n_463d9c6702b34c30",
+          "after": "n_9b3b6108d051e68f"
+        },
+        {
+          "scope": "main",
+          "before": "n_9b3b6108d051e68f",
+          "after": "n_dad147947d60ce6f"
+        },
+        {
+          "scope": "main",
+          "before": "n_dad147947d60ce6f",
+          "after": "n_a9ce33213e2b751a"
+        },
+        {
+          "scope": "main",
+          "before": "n_d0a27a847ad7c3bd",
+          "after": "n_5984d02ccbb60d83"
+        },
+        {
+          "scope": "main",
+          "before": "n_5984d02ccbb60d83",
+          "after": "n_b20d148dbbfb3f94"
+        },
+        {
+          "scope": "w_162e2849ed29494c",
+          "before": "n_637c9a904c0ee4b5",
+          "after": "n_d67d798970cf6cad"
+        },
+        {
+          "scope": "w_162e2849ed29494c",
+          "before": "n_d67d798970cf6cad",
+          "after": "n_370cd4a6b0cec05c"
+        },
+        {
+          "scope": "w_162e2849ed29494c",
+          "before": "n_370cd4a6b0cec05c",
+          "after": "n_23c54c8356cd8999"
+        },
+        {
+          "scope": "w_162e2849ed29494c",
+          "before": "n_23c54c8356cd8999",
+          "after": "n_354cef718cdb40a2"
+        },
+        {
+          "scope": "w_798edf631965666a",
+          "before": "n_df6b8c1f258579a1",
+          "after": "n_3b6a205da6b24b2c"
+        },
+        {
+          "scope": "w_4842d704fc2c7067",
+          "before": "n_3be44534d3cff6fc",
+          "after": "n_fa4d037b0b1a8a03"
+        },
+        {
+          "scope": "w_4842d704fc2c7067",
+          "before": "n_fa4d037b0b1a8a03",
+          "after": "n_b79507f8b2d155a7"
+        },
+        {
+          "scope": "w_4842d704fc2c7067",
+          "before": "n_b79507f8b2d155a7",
+          "after": "n_9b79c061f7b184fb"
+        },
+        {
+          "scope": "w_4842d704fc2c7067",
+          "before": "n_8bf3e2093bd16eff",
+          "after": "n_5481eac0ea4e0687"
+        },
+        {
+          "scope": "w_4842d704fc2c7067",
+          "before": "n_5481eac0ea4e0687",
+          "after": "n_949239bec45e210e"
+        },
+        {
+          "scope": "w_4842d704fc2c7067",
+          "before": "n_949239bec45e210e",
+          "after": "n_8c5f91a07012237d"
+        },
+        {
+          "scope": "w_4842d704fc2c7067",
+          "before": "n_8c5f91a07012237d",
+          "after": "n_f9ba123483f2b92d"
+        },
+        {
+          "scope": "w_4842d704fc2c7067",
+          "before": "n_f9ba123483f2b92d",
+          "after": "n_7d994c719c0584cb"
+        }
+      ]
+    },
+    {
+      "profile": "compact-bindings-v4",
+      "steps": 51,
+      "sets": 25,
+      "workflows": 5,
+      "yaml_bytes": 79506,
+      "yaml_lines": 1666,
+      "yaml_hash": "8a68985a531bd4b2a76a4f36a543db1216fc56d380b86e6d0b7212f8fd76f4c3",
+      "matches_saved_yaml": false,
+      "adjacent_set_pairs": [
+        {
+          "scope": "main/n_2086bd988590e04f/case",
+          "before": "n_3deeb71fafa51c8e",
+          "after": "n_120f55d6db142b9f"
+        },
+        {
+          "scope": "main/n_5912db34619883c9/case",
+          "before": "n_36953fab05f170ac",
+          "after": "n_ae9bc8988408ed3d"
+        }
+      ],
+      "eligible_unfused_pairs": 0,
+      "remaining_pairs_reason": "Both pairs are inside conditional results subsequently consumed by physical child identity. Preserve separate identities and checked branch output reconstruction."
+    }
+  ],
+  "model_calls": 0,
+  "saved_session_modified": false
+}

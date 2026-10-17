@@ -1,0 +1,7 @@
+{
+  "passed": false,
+  "findings": [
+    "workbook_description_not_one_observed_block",
+    "workbook_absence_not_independently_established"
+  ]
+}

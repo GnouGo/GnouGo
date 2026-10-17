@@ -619,6 +619,8 @@ public class ConfiguredMcpClientFactoryTests
     [Theory]
     [InlineData("{\"count\":2}", "{\"count\":2}")]
     [InlineData("plain text", "\"plain text\"")]
+    [InlineData("{broken", "\"{broken\"")]
+    [InlineData("[1,null,1]", "[1,null,1]")]
     public void BuildContent_RetainsSingleTextNormalization(string text, string expected)
     {
         var content = InvokeBuildContent(new CallToolResult { Content = [new TextContentBlock { Text = text }] });
@@ -742,6 +744,18 @@ public class ConfiguredMcpClientFactoryTests
         Assert.IsType<bool>(result["flag"]);
         Assert.True(result["count"] is int or long);
         Assert.IsType<double>(result["ratio"]);
+    }
+
+    [Fact]
+    public void ConvertArguments_PreservesDeclaredDecimalWithoutConvertingOrdinaryJsonNumbers()
+    {
+        var arguments = JsonNode.Parse("""{"small":1e-100,"large":1e100,"ratio":0.12345678901234567}""")!.AsObject();
+        arguments["declared"] = JsonValue.Create(0.1234567890123456789012345678m);
+        var result = InvokeConvertArguments(arguments)!;
+        Assert.Equal(1e-100, Assert.IsType<double>(result["small"]));
+        Assert.Equal(1e100, Assert.IsType<double>(result["large"]));
+        Assert.Equal(0.12345678901234567, Assert.IsType<double>(result["ratio"]));
+        Assert.Equal(0.1234567890123456789012345678m, Assert.IsType<decimal>(result["declared"]));
     }
 
     [Fact]

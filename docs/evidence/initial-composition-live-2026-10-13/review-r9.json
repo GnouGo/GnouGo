@@ -1,0 +1,69 @@
+{
+  "run": "initialcomposition20261013a-amazon-1",
+  "revision": 9,
+  "artifact_hash": "fc751e55508433f9e32a3851f64ef45b49a6502ea338a970dcf173b43821e4dd",
+  "requirements_unchanged_from_r3": true,
+  "equals_offline_compiled_target": true,
+  "operation_ids_order_and_literal_arguments_preserved": [
+    "open_search_observe",
+    "read_product_page",
+    "write_products_xlsx",
+    "close_browser"
+  ],
+  "public_outputs": [
+    "filePath",
+    "status",
+    "success"
+  ],
+  "cleanup": [
+    "close_browser"
+  ],
+  "max_products": 10,
+  "task_count": 28,
+  "inference_declarations": [
+    {
+      "id": "build_search_url",
+      "mode": "interpret",
+      "each": null
+    },
+    {
+      "id": "extract_candidate_pages",
+      "mode": "extract",
+      "each": {
+        "input": "pages",
+        "output": "candidates"
+      }
+    },
+    {
+      "id": "compact_candidate_decision",
+      "mode": "interpret",
+      "each": null
+    },
+    {
+      "id": "extract_product_row",
+      "mode": "extract",
+      "each": {
+        "input": "pages",
+        "output": "candidates"
+      }
+    },
+    {
+      "id": "select_product_fact_ids",
+      "mode": "interpret",
+      "each": null
+    }
+  ],
+  "typing_copying_row_status_inference": 0,
+  "headers": [
+    "name",
+    "description",
+    "price",
+    "url",
+    "status",
+    "error"
+  ],
+  "approval_granted": false,
+  "execution_started": false,
+  "oracle_status": "not_run",
+  "compile_diagnostics": []
+}

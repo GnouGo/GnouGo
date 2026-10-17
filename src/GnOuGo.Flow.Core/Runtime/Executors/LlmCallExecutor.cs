@@ -165,6 +165,8 @@ public sealed class LlmCallExecutor : IStepExecutor
         try
         {
             var response = await ctx.CallLLMAsync(llmClient, request, "llm.call", ct);
+            await ctx.RecordExternalCompletionAsync(new JsonObject { ["text"] = response.Text,
+                ["json"] = response.Json?.DeepClone(), ["usage"] = response.Usage?.DeepClone() }, CancellationToken.None);
 
 
             // ── Thinking: preview first 120 chars of the LLM response ──
@@ -188,23 +190,19 @@ public sealed class LlmCallExecutor : IStepExecutor
             long? outputTokens = null;
             if (response.Usage is JsonObject usage)
             {
-                if (usage.TryGetPropertyValue("prompt_tokens", out var pt) && pt != null)
-                    inputTokens = pt.GetValue<int>();
-                else if (usage.TryGetPropertyValue("input_tokens", out var it) && it != null)
-                    inputTokens = it.GetValue<int>();
-
-                if (usage.TryGetPropertyValue("completion_tokens", out var ct2) && ct2 != null)
-                    outputTokens = ct2.GetValue<int>();
-                else if (usage.TryGetPropertyValue("output_tokens", out var ot) && ot != null)
-                    outputTokens = ot.GetValue<int>();
+                // Use the same numeric reader as accounting. JSON integers can
+                // be backed by Int32, Int64 or JsonElement; telemetry must not
+                // turn a completed model response into a network failure.
+                inputTokens = LLMUsageBudgetScope.ReadLong(usage, "prompt_tokens") ?? LLMUsageBudgetScope.ReadLong(usage, "input_tokens");
+                outputTokens = LLMUsageBudgetScope.ReadLong(usage, "completion_tokens") ?? LLMUsageBudgetScope.ReadLong(usage, "output_tokens");
 
                 if (inputTokens.HasValue)
                     ctx.SetTelemetryAttribute("gen_ai.usage.input_tokens", inputTokens.Value);
                 if (outputTokens.HasValue)
                     ctx.SetTelemetryAttribute("gen_ai.usage.output_tokens", outputTokens.Value);
 
-                if (usage.TryGetPropertyValue("total_tokens", out var tt) && tt != null)
-                    ctx.SetTelemetryAttribute("gen_ai.usage.total_tokens", tt.GetValue<int>());
+                if (LLMUsageBudgetScope.ReadLong(usage, "total_tokens") is { } totalTokens)
+                    ctx.SetTelemetryAttribute("gen_ai.usage.total_tokens", totalTokens);
 
                 var estimatedCost = ctx.Engine.ModelUsageCostEstimator?.EstimateCost(
                     model,
@@ -270,6 +268,11 @@ public sealed class LlmCallExecutor : IStepExecutor
         }
         catch (WorkflowRuntimeException ex)
         {
+            // Budget accounting can also fail after dispatch. Only an explicit
+            // host-owned pre-dispatch disposition establishes a known rejection.
+            if ((ex.Code is ErrorCodes.LlmBudgetExceeded or ErrorCodes.LlmBudgetUnverifiable) &&
+                ex.Details is JsonObject details && details["dispatch_status"]?.ToString() == "not_started")
+                await ctx.RecordExternalCompletionAsync(new JsonObject { ["status"] = "rejected_before_dispatch", ["code"] = ex.Code }, CancellationToken.None);
             var classified = LlmFailureClassifier.Classify(ex);
             if (classified != null && !ReferenceEquals(classified, ex))
                 throw classified;
@@ -282,6 +285,8 @@ public sealed class LlmCallExecutor : IStepExecutor
         }
         catch (Exception ex)
         {
+            if (ex is LLMClientException { IsRequestRejected: true } rejected)
+                await ctx.RecordExternalCompletionAsync(new JsonObject { ["status"] = "request_rejected", ["kind"] = rejected.Kind.ToString() }, CancellationToken.None);
             var classified = LlmFailureClassifier.Classify(ex);
             if (classified != null)
             {

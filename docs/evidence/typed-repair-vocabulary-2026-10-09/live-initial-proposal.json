@@ -1,0 +1,687 @@
+{
+  "discoveryRequests": null,
+  "plan": {
+    "inputs": [
+      {
+        "name": "query",
+        "type": {
+          "kind": "string"
+        }
+      }
+    ],
+    "root": {
+      "tasks": [
+        {
+          "id": "build_search_url",
+          "kind": "transform",
+          "objective": "Construire l’URL de recherche Amazon.fr à partir de l’unique entrée publique query, en encodant correctement la valeur sans inventer de valeur par défaut.",
+          "dependsOn": [],
+          "requires": null,
+          "mode": "interpret",
+          "inputs": [
+            {
+              "name": "query",
+              "value": {
+                "kind": "input",
+                "source": "query"
+              }
+            }
+          ],
+          "resultType": {
+            "kind": "object",
+            "fields": [
+              {
+                "name": "searchUrl",
+                "type": {
+                  "kind": "string"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "read_search_results",
+          "kind": "operation",
+          "objective": "Ouvrir Amazon.fr directement sur la page de résultats correspondant à query et observer la page sans effectuer aucune action sur les cookies.",
+          "dependsOn": [
+            "build_search_url"
+          ],
+          "requires": null,
+          "operation": "cap_490d9e16075cbdca5954ec27",
+          "inputs": [
+            {
+              "name": "url",
+              "value": {
+                "kind": "field",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "build_search_url",
+                    "port": null
+                  }
+                ],
+                "port": "searchUrl"
+              }
+            },
+            {
+              "name": "format",
+              "value": {
+                "kind": "string",
+                "text": "observation_complete"
+              }
+            },
+            {
+              "name": "maxRecords",
+              "value": {
+                "kind": "number",
+                "number": 200
+              }
+            },
+            {
+              "name": "timeoutMs",
+              "value": {
+                "kind": "number",
+                "number": 30000
+              }
+            },
+            {
+              "name": "waitUntil",
+              "value": {
+                "kind": "string",
+                "text": "domcontentloaded"
+              }
+            }
+          ]
+        },
+        {
+          "id": "extract_search_products",
+          "kind": "transform",
+          "objective": "Depuis l’observation de la page de résultats, détecter tout obstacle bloquant effectivement observé, puis extraire au maximum les 10 premiers liens de produits Amazon.fr avec leur nom observé; un simple lien informatif cookies n’est pas un blocage.",
+          "dependsOn": [
+            "read_search_results"
+          ],
+          "requires": null,
+          "mode": "extract",
+          "inputs": [
+            {
+              "name": "searchObservation",
+              "value": {
+                "kind": "output",
+                "source": "read_search_results",
+                "port": "observationSnapshot"
+              }
+            },
+            {
+              "name": "searchText",
+              "value": {
+                "kind": "output",
+                "source": "read_search_results",
+                "port": "content"
+              }
+            }
+          ],
+          "resultType": {
+            "kind": "object",
+            "fields": [
+              {
+                "name": "blocked",
+                "type": {
+                  "kind": "boolean"
+                }
+              },
+              {
+                "name": "blockage",
+                "type": {
+                  "kind": "string",
+                  "nullable": true
+                }
+              },
+              {
+                "name": "products",
+                "type": {
+                  "kind": "array",
+                  "items": {
+                    "kind": "object",
+                    "fields": [
+                      {
+                        "name": "nameFromSearch",
+                        "type": {
+                          "kind": "string"
+                        }
+                      },
+                      {
+                        "name": "url",
+                        "type": {
+                          "kind": "string"
+                        }
+                      }
+                    ]
+                  },
+                  "minItems": 0,
+                  "maxItems": 10
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "scrape_products",
+          "kind": "foreach",
+          "objective": "Parcourir séquentiellement au maximum les 10 produits extraits; pour chaque produit, naviguer sur sa page, détecter un obstacle bloquant, puis extraire nom, description et prix en rendant les données absentes explicites.",
+          "dependsOn": [
+            "extract_search_products"
+          ],
+          "requires": {
+            "kind": "predicate",
+            "predicate": "not",
+            "items": [
+              {
+                "kind": "field",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "extract_search_products",
+                    "port": null
+                  }
+                ],
+                "port": "blocked"
+              }
+            ]
+          },
+          "items": {
+            "kind": "field",
+            "items": [
+              {
+                "kind": "output",
+                "source": "extract_search_products",
+                "port": null
+              }
+            ],
+            "port": "products"
+          },
+          "body": {
+            "tasks": [
+              {
+                "id": "read_product_page",
+                "kind": "operation",
+                "objective": "Ouvrir la page produit observée sans cliquer sur les contrôles de cookies et capturer son contenu visible/structuré.",
+                "dependsOn": [],
+                "requires": null,
+                "operation": "cap_490d9e16075cbdca5954ec27",
+                "inputs": [
+                  {
+                    "name": "url",
+                    "value": {
+                      "kind": "field",
+                      "items": [
+                        {
+                          "kind": "item"
+                        }
+                      ],
+                      "port": "url"
+                    }
+                  },
+                  {
+                    "name": "format",
+                    "value": {
+                      "kind": "string",
+                      "text": "observation_complete"
+                    }
+                  },
+                  {
+                    "name": "maxRecords",
+                    "value": {
+                      "kind": "number",
+                      "number": 200
+                    }
+                  },
+                  {
+                    "name": "timeoutMs",
+                    "value": {
+                      "kind": "number",
+                      "number": 30000
+                    }
+                  },
+                  {
+                    "name": "waitUntil",
+                    "value": {
+                      "kind": "string",
+                      "text": "domcontentloaded"
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "detect_product_blockage",
+                "kind": "transform",
+                "objective": "Déterminer si la page produit montre effectivement un obstacle empêchant la poursuite, notamment CAPTCHA ou page de blocage; ne pas considérer un lien informatif cookies comme blocage.",
+                "dependsOn": [
+                  "read_product_page"
+                ],
+                "requires": null,
+                "mode": "interpret",
+                "inputs": [
+                  {
+                    "name": "productObservation",
+                    "value": {
+                      "kind": "output",
+                      "source": "read_product_page",
+                      "port": "observationSnapshot"
+                    }
+                  },
+                  {
+                    "name": "productText",
+                    "value": {
+                      "kind": "output",
+                      "source": "read_product_page",
+                      "port": "content"
+                    }
+                  },
+                  {
+                    "name": "productUrl",
+                    "value": {
+                      "kind": "field",
+                      "items": [
+                        {
+                          "kind": "item"
+                        }
+                      ],
+                      "port": "url"
+                    }
+                  }
+                ],
+                "resultType": {
+                  "kind": "object",
+                  "fields": [
+                    {
+                      "name": "blocked",
+                      "type": {
+                        "kind": "boolean"
+                      }
+                    },
+                    {
+                      "name": "blockage",
+                      "type": {
+                        "kind": "string",
+                        "nullable": true
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "extract_product_row",
+                "kind": "transform",
+                "objective": "Extraire une seule ligne de données produit: nom, description et prix. Si le prix, la description ou le nom sont absents dans la page observée, écrire explicitement ABSENT au lieu d’inventer une valeur.",
+                "dependsOn": [
+                  "detect_product_blockage"
+                ],
+                "requires": {
+                  "kind": "predicate",
+                  "predicate": "not",
+                  "items": [
+                    {
+                      "kind": "field",
+                      "items": [
+                        {
+                          "kind": "output",
+                          "source": "detect_product_blockage",
+                          "port": null
+                        }
+                      ],
+                      "port": "blocked"
+                    }
+                  ]
+                },
+                "mode": "extract",
+                "inputs": [
+                  {
+                    "name": "productObservation",
+                    "value": {
+                      "kind": "output",
+                      "source": "read_product_page",
+                      "port": "observationSnapshot"
+                    }
+                  },
+                  {
+                    "name": "productText",
+                    "value": {
+                      "kind": "output",
+                      "source": "read_product_page",
+                      "port": "content"
+                    }
+                  },
+                  {
+                    "name": "fallbackName",
+                    "value": {
+                      "kind": "field",
+                      "items": [
+                        {
+                          "kind": "item"
+                        }
+                      ],
+                      "port": "nameFromSearch"
+                    }
+                  },
+                  {
+                    "name": "productUrl",
+                    "value": {
+                      "kind": "field",
+                      "items": [
+                        {
+                          "kind": "item"
+                        }
+                      ],
+                      "port": "url"
+                    }
+                  }
+                ],
+                "resultType": {
+                  "kind": "object",
+                  "fields": [
+                    {
+                      "name": "rows",
+                      "type": {
+                        "kind": "array",
+                        "items": {
+                          "kind": "object",
+                          "fields": [
+                            {
+                              "name": "nom",
+                              "type": {
+                                "kind": "string"
+                              }
+                            },
+                            {
+                              "name": "description",
+                              "type": {
+                                "kind": "string"
+                              }
+                            },
+                            {
+                              "name": "prix",
+                              "type": {
+                                "kind": "string"
+                              }
+                            }
+                          ]
+                        },
+                        "minItems": 1,
+                        "maxItems": 1
+                      }
+                    }
+                  ]
+                }
+              }
+            ],
+            "outputs": [
+              {
+                "name": "rows",
+                "value": {
+                  "kind": "field",
+                  "items": [
+                    {
+                      "kind": "output",
+                      "source": "extract_product_row",
+                      "port": null
+                    }
+                  ],
+                  "port": "rows"
+                }
+              }
+            ],
+            "always": []
+          },
+          "parallel": false,
+          "maxItems": 10,
+          "maxConcurrency": 1
+        },
+        {
+          "id": "flatten_rows",
+          "kind": "value",
+          "objective": "Aplatir d’un seul niveau les lignes retournées par la boucle produit, en conservant l’ordre des produits observés.",
+          "dependsOn": [
+            "scrape_products"
+          ],
+          "requires": null,
+          "outputs": [
+            {
+              "name": "rows",
+              "value": {
+                "kind": "flatten",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "scrape_products",
+                    "port": "rows"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "make_xlsx_tsv",
+          "kind": "transform",
+          "objective": "Préparer le contenu TSV du classeur Excel avec uniquement les colonnes demandées: nom, description, prix; normaliser tabulations et retours ligne dans les cellules.",
+          "dependsOn": [
+            "flatten_rows"
+          ],
+          "requires": null,
+          "mode": "interpret",
+          "inputs": [
+            {
+              "name": "rows",
+              "value": {
+                "kind": "output",
+                "source": "flatten_rows",
+                "port": "rows"
+              }
+            }
+          ],
+          "resultType": {
+            "kind": "object",
+            "fields": [
+              {
+                "name": "content",
+                "type": {
+                  "kind": "string"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "write_workbook",
+          "kind": "operation",
+          "objective": "Sauvegarder le classeur Excel sur le disque au chemin demandé avant toute fermeture/nettoyage du navigateur.",
+          "dependsOn": [
+            "make_xlsx_tsv"
+          ],
+          "requires": null,
+          "operation": "cap_37c513d225bb1b870053c5d3",
+          "inputs": [
+            {
+              "name": "filePath",
+              "value": {
+                "kind": "string",
+                "text": "workflows/schema-portability-20261002/repairvocabulary20261009a-amazon-1/products.xlsx"
+              }
+            },
+            {
+              "name": "content",
+              "value": {
+                "kind": "field",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "make_xlsx_tsv",
+                    "port": null
+                  }
+                ],
+                "port": "content"
+              }
+            },
+            {
+              "name": "append",
+              "value": {
+                "kind": "boolean",
+                "boolean": false
+              }
+            },
+            {
+              "name": "encoding",
+              "value": {
+                "kind": "string",
+                "text": "utf-8"
+              }
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "name": "filePath",
+          "value": {
+            "kind": "output",
+            "source": "write_workbook",
+            "port": "filePath"
+          }
+        },
+        {
+          "name": "products",
+          "value": {
+            "kind": "output",
+            "source": "flatten_rows",
+            "port": "rows"
+          }
+        },
+        {
+          "name": "blocked",
+          "value": {
+            "kind": "field",
+            "items": [
+              {
+                "kind": "output",
+                "source": "extract_search_products",
+                "port": null
+              }
+            ],
+            "port": "blocked"
+          }
+        },
+        {
+          "name": "blockage",
+          "value": {
+            "kind": "field",
+            "items": [
+              {
+                "kind": "output",
+                "source": "extract_search_products",
+                "port": null
+              }
+            ],
+            "port": "blockage"
+          }
+        }
+      ],
+      "always": [
+        {
+          "id": "close_browser",
+          "kind": "operation",
+          "objective": "Fermer le navigateur même en cas d’échec, de blocage ou d’arrêt prématuré.",
+          "dependsOn": [],
+          "requires": null,
+          "operation": "cap_bdb7ba9ab04b18783883fa86",
+          "inputs": []
+        }
+      ]
+    },
+    "groups": [],
+    "choices": []
+  },
+  "clarifications": null,
+  "requirements": {
+    "summary": "Automatiser une recherche Amazon.fr à partir d’une seule entrée publique query, collecter au maximum les 10 premiers produits, visiter chaque page produit, extraire nom, description et prix sans inventer les données absentes, puis sauvegarder un classeur Excel au chemin imposé. Le navigateur doit être fermé même en cas d’échec; aucune action d’acceptation, refus ou personnalisation des cookies ne doit être effectuée.",
+    "outcomes": [
+      {
+        "id": "success",
+        "description": "Le fichier workflows/schema-portability-20261002/repairvocabulary20261009a-amazon-1/products.xlsx est créé avec les colonnes nom, description et prix pour les produits extraits, jusqu’à 10 maximum."
+      },
+      {
+        "id": "blocked",
+        "description": "Si un obstacle effectivement observé empêche la poursuite, par exemple CAPTCHA ou page de blocage, le blocage est signalé et le travail ne déclare pas de réussite."
+      },
+      {
+        "id": "cleanup",
+        "description": "Le navigateur est fermé dans tous les cas, après sauvegarde lorsque la sauvegarde est possible."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "query",
+        "type": {
+          "kind": "string"
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "name": "filePath",
+        "type": {
+          "kind": "string",
+          "nullable": true
+        },
+        "required": false
+      },
+      {
+        "name": "products",
+        "type": {
+          "kind": "array",
+          "items": {
+            "kind": "object",
+            "fields": [
+              {
+                "name": "nom",
+                "type": {
+                  "kind": "string"
+                }
+              },
+              {
+                "name": "description",
+                "type": {
+                  "kind": "string"
+                }
+              },
+              {
+                "name": "prix",
+                "type": {
+                  "kind": "string"
+                }
+              }
+            ]
+          },
+          "minItems": 0,
+          "maxItems": 10,
+          "nullable": true
+        },
+        "required": false
+      },
+      {
+        "name": "blocked",
+        "type": {
+          "kind": "boolean"
+        },
+        "required": false
+      },
+      {
+        "name": "blockage",
+        "type": {
+          "kind": "string",
+          "nullable": true
+        },
+        "required": false
+      }
+    ]
+  }
+}

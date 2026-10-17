@@ -1,0 +1,24 @@
+{
+  "candidate": "6d2c65c4ecb329cc6da00e2b6b7b05ef930eb0d6",
+  "model_calls": 0,
+  "historical_run_modified": false,
+  "before_string_comparison": {
+    "restart_ms": 253.04,
+    "restart_allocated_bytes": 18049712,
+    "cold_restore_ms": 6.212,
+    "cold_restore_allocated_bytes": 1898344,
+    "warm_restore_ms": 50.974,
+    "warm_restore_allocated_bytes": 36253920
+  },
+  "after_string_comparison": {
+    "restart_ms": 228.267,
+    "restart_allocated_bytes": 18057712,
+    "cold_restore_ms": 5.697,
+    "cold_restore_allocated_bytes": 1890216,
+    "warm_restore_ms": 25.371,
+    "warm_restore_allocated_bytes": 16846320
+  },
+  "physical_file_bytes": 2088960,
+  "physical_file_count": 4,
+  "physical_measurement_scope": "Separate disposable restore probe: encrypted vault, index and ownership files; historical live data excluded."
+}

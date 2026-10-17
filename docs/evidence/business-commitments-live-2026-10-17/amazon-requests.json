@@ -1,0 +1,53 @@
+[
+  {
+    "request_id": "commitments20261017a-amazon-1:1:9d8e7f9c1c13353346e0472b3dce1ad5d3413e8c9c907102af09e1579fbdc11b",
+    "request_hash": "5431a0e3aa9a4169f6c740164cc90e69020bcf99e349a97cab8c0cc500aaab78",
+    "receipt_hash": "ca3d92cb9e5a024ef85b45f5e50c70afb08cf3a1336d8c658b69748e76e7e5b2",
+    "strict": true,
+    "request_bytes": 21808,
+    "prompt_bytes": 2658,
+    "schema_bytes": 17887,
+    "schema_findings": [],
+    "http_statuses": [
+      200
+    ],
+    "usage": {
+      "input_tokens": 4304,
+      "output_tokens": 170,
+      "total_tokens": 4474,
+      "benchmark_cost_eur": 0.023808246131830784,
+      "transport_attempts": 1,
+      "uncertain_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "benchmark_usage_bounded": true
+    }
+  },
+  {
+    "request_id": "commitments20261017a-amazon-1:2:96e55921231afc2716ae407a1cf42e163e553d95c45f9f3fddaec1192f7b27b3",
+    "request_hash": "b365d12de1c805be7f24c95a283f82c5e43d2acda832f6966e479699da0a5df7",
+    "receipt_hash": "7382d3f4624766798fc89abebe172c6b265f8a79b09745205926a4f1b0319cf1",
+    "strict": true,
+    "request_bytes": 88394,
+    "prompt_bytes": 36462,
+    "schema_bytes": 32327,
+    "schema_findings": [],
+    "http_statuses": [
+      null,
+      200
+    ],
+    "usage": {
+      "input_tokens": 15519,
+      "output_tokens": 5944,
+      "total_tokens": 21463,
+      "benchmark_cost_eur": 0.22888382076737324,
+      "transport_attempts": 2,
+      "uncertain_attempts": 1,
+      "reserved_input_tokens": 96000,
+      "reserved_output_tokens": 32768,
+      "reserved_cost_eur": 1.3085055004024684,
+      "benchmark_usage_bounded": true
+    }
+  }
+]

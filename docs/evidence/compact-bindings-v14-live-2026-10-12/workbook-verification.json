@@ -1,0 +1,37 @@
+{
+  "relative_path": "workflows/schema-portability-20261002/compactv1420261012a-amazon-1/products.xlsx",
+  "bytes": 6062,
+  "sha256": "aa18ee34be437de6a71169f62682e3415e4d4e242d442b4845929d2143fa6fb0",
+  "rows": 11,
+  "product_rows": 10,
+  "column_counts": [
+    5,
+    5,
+    5,
+    5,
+    5,
+    5,
+    5,
+    5,
+    5,
+    5,
+    5
+  ],
+  "header": [
+    "nom",
+    "description",
+    "prix",
+    "url",
+    "erreur"
+  ],
+  "formula_cells": 0,
+  "missing_fact_cells": [
+    "B4"
+  ],
+  "all_cells_match_typed_products": true,
+  "names_observed": 10,
+  "descriptions_observed": 9,
+  "prices_observed": 10,
+  "navigation_urls_exact": 10,
+  "passed": false
+}

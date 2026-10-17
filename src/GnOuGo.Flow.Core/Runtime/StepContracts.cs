@@ -27,11 +27,7 @@ public static class BuiltInStepContracts
         new Dictionary<string, StepContract>(StringComparer.Ordinal)
         {
             ["agent.run"] = new Executors.AgentRunExecutor().Contract,
-            ["value.project"] = new Executors.ValueProjectExecutor().Contract,
-            ["array.project"] = new Executors.ArrayProjectExecutor().Contract,
-            ["number.add"] = new Executors.NumericTransformExecutor("number.add").Contract,
-            ["number.multiply"] = new Executors.NumericTransformExecutor("number.multiply").Contract,
-            ["number.default"] = new Executors.NumericTransformExecutor("number.default").Contract,
+            ["mapping.dynamic"] = new Executors.DynamicMappingExecutor().Contract,
             ["sequence"] = Contract(ClosedObject(), OpenObject()),
             ["parallel"] = Contract(
                 Object(("max_concurrency", PositiveInteger())),
@@ -50,13 +46,7 @@ public static class BuiltInStepContracts
                 Object(("results", Array(Any())), ("count", Integer())),
                 inputRequired: true),
             ["switch"] = Contract(ClosedObject(), OpenObject()),
-            ["decision.evaluate"] = Contract(
-                Object(new[] { "decisions" }, ("decisions", OpenObject())),
-                OpenObject(),
-                inputRequired: true),
-            ["value.validate"] = Contract(Object(new[] { "value" }, ("value", Any()), ("format", Enum("json_value", "json_text"))), Object(("value", Any())), inputRequired: true),
             ["set"] = Contract(OpenObject(), OpenObject(), inputRequired: true),
-            ["assert.non_null"] = Contract(OpenObject(), OpenObject(), inputRequired: true),
             ["template.render"] = Contract(
                 Object(new[] { "template" },
                     ("engine", Enum("mustache")),
@@ -443,15 +433,9 @@ internal static class StepContractValidator
         };
     }
 
-    private static bool IsNumber(JsonNode value) =>
-        value is JsonValue scalar
-        && (scalar.TryGetValue<decimal>(out _) || scalar.TryGetValue<double>(out _)
-            || scalar.TryGetValue<long>(out _) || scalar.TryGetValue<int>(out _));
+    private static bool IsNumber(JsonNode value) => JsonSchemaInstanceValidator.TryReadNumber(value, out _);
 
-    private static bool IsInteger(JsonNode value) =>
-        value is JsonValue scalar
-        && (scalar.TryGetValue<long>(out _) || scalar.TryGetValue<int>(out _)
-            || (scalar.TryGetValue<decimal>(out var number) && decimal.Truncate(number) == number));
+    private static bool IsInteger(JsonNode value) => IsNumber(value) && JsonSchemaInstanceValidator.IsMultiple(value, JsonValue.Create(1)!);
 
     private static string DescribeType(JsonNode? value) => value switch
     {

@@ -1,0 +1,10 @@
+[
+  {
+    "code": "MODEL_DISPATCH_UNVERIFIABLE",
+    "location": "/",
+    "message": "The model request has no retained completion (Transport; retryable: true). Usage remains unconfirmed.",
+    "required": true,
+    "validationStage": null,
+    "rule": null
+  }
+]

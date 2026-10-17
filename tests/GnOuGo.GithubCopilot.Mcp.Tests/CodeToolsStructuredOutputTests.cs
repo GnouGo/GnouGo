@@ -12,6 +12,7 @@ using Xunit;
 
 namespace GnOuGo.GithubCopilot.Mcp.Tests;
 
+[Collection("Copilot tool discovery")]
 public sealed class CodeToolsStructuredOutputTests : IDisposable
 {
     [Fact]
@@ -308,15 +309,16 @@ public sealed class CodeToolsStructuredOutputTests : IDisposable
             oneShot,
             ["auto_approve_allowlist", "deny", "approve_all"],
             "deny");
-        Assert.NotNull(oneShot["properties"]?["permissionAllowlistJson"]);
+        Assert.NotNull(oneShot["properties"]?["permissionAllowlist"]);
         Assert.Contains("copilot_interactive_one_shot", oneShotTool.ProtocolTool.Description, StringComparison.Ordinal);
 
         var interactive = tools["copilot_interactive_one_shot"];
         var interactiveSchema = GetInputSchema(interactive);
         Assert.Null(interactiveSchema["properties"]?["permissionMode"]);
-        Assert.NotNull(interactiveSchema["properties"]?["permissionAllowlistJson"]);
+        Assert.NotNull(interactiveSchema["properties"]?["permissionAllowlist"]);
         Assert.Contains("interactive", interactive.ProtocolTool.Description, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("deletes", interactive.ProtocolTool.Description, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("saved before", interactive.ProtocolTool.Description, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("reconciliation", interactive.ProtocolTool.Description, StringComparison.OrdinalIgnoreCase);
         var interactiveArtifacts = McpArtifactContractParser.ParseAndValidate(
             interactive.ProtocolTool.Meta,
             interactiveSchema,
@@ -329,6 +331,7 @@ public sealed class CodeToolsStructuredOutputTests : IDisposable
 
         foreach (var name in new[]
                  {
+                     "copilot_permission_grant_create",
                      "copilot_permission_grants_list",
                      "copilot_permission_grant_revoke",
                      "copilot_permission_grants_revoke_agent"
@@ -532,8 +535,11 @@ public sealed class CodeToolsStructuredOutputTests : IDisposable
         var tools = provider.GetServices<McpServerTool>()
             .ToDictionary(static tool => tool.ProtocolTool.Name, StringComparer.Ordinal);
         foreach (var tool in tools.Values)
+        {
+            CopilotListContract.Publish(tool.ProtocolTool);
             if (CopilotAttachmentContract.IsAttachmentTool(tool.ProtocolTool.Name))
                 tool.ProtocolTool.InputSchema = CopilotAttachmentContract.InputSchema(tool.ProtocolTool.InputSchema);
+        }
         return tools;
     }
 

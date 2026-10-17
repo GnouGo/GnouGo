@@ -1,0 +1,26 @@
+[
+  {
+    "code": "CONTRACT_UNSATISFIED",
+    "location": "/tasks/open_search_observe/inputs/url",
+    "message": "TASK_FIELD_TYPE: Field \u0027searchUrl\u0027 requires a declared object; received \u0022string\u0022 from output:build_search_url.searchUrl. Arrays have no field/index/length ports; use typed iteration, flatten or lookup, or declare a scalar result. Opaque values cannot supply fields.",
+    "required": true,
+    "validationStage": "contract:TASK_FIELD_TYPE",
+    "rule": null
+  },
+  {
+    "code": "CONTRACT_UNSATISFIED",
+    "location": "/tasks/open_search_observe/requires",
+    "message": "TASK_FIELD_TYPE: Field \u0027searchUrl\u0027 requires a declared object; received \u0022string\u0022 from output:build_search_url.searchUrl. Arrays have no field/index/length ports; use typed iteration, flatten or lookup, or declare a scalar result. Opaque values cannot supply fields.",
+    "required": true,
+    "validationStage": "contract:TASK_FIELD_TYPE",
+    "rule": null
+  },
+  {
+    "code": "REVISION_REQUIRED",
+    "location": "/tasks/open_search_observe/requires",
+    "message": "Field \u0027searchUrl\u0027 requires a declared object; received \u0022string\u0022 from output:build_search_url.searchUrl. Arrays have no field/index/length ports; use typed iteration, flatten or lookup, or declare a scalar result. Opaque values cannot supply fields. The required binding and its producers are outside repair authority. Explicitly revise this binding; unrelated edits cannot correct its type.",
+    "required": true,
+    "validationStage": null,
+    "rule": null
+  }
+]

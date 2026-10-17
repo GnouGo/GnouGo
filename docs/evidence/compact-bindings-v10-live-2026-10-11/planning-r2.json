@@ -1,0 +1,99 @@
+{
+  "status": "final_review",
+  "revision": 2,
+  "artifact_hash": "d49cfbc42c8e6d96a87e96b3f4be3d82d051961708da0c3ec7b56cb063e9b057",
+  "result": {
+    "status": "final_review",
+    "planning_ms": 996299,
+    "calls": 2,
+    "repairs": 0,
+    "discovery_reads": 2,
+    "review_revisions": 0,
+    "diagnostics": [],
+    "execution_success": false,
+    "execution_oracle": false,
+    "execution_status": "not_started",
+    "accounting": {
+      "planning": {
+        "logical_calls": 2,
+        "physical_attempts": 5,
+        "known_input_tokens": 19760,
+        "known_output_tokens": 5350,
+        "known_cost_eur": 0.23010027509095748,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "execution": {
+        "logical_calls": 0,
+        "physical_attempts": 0,
+        "known_input_tokens": 0,
+        "known_output_tokens": 0,
+        "known_cost_eur": 0,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "campaign": {
+        "calls": 1066,
+        "session_calls": 0,
+        "known_input_tokens": 15154789,
+        "known_output_tokens": 2212641,
+        "known_cost_eur": 126.44153457278051,
+        "reserved_input_tokens": 480000,
+        "reserved_output_tokens": 163840,
+        "reserved_cost_eur": 6.501614794790526,
+        "cost_upper_bound_eur": 132.94314936757104,
+        "unknown_attempts": 5
+      }
+    }
+  },
+  "review": [
+    {
+      "id": "static",
+      "outcome": "passed",
+      "description": "Business bindings, contracts and control flow validated. External execution has not been observed.",
+      "diagnostics": []
+    },
+    {
+      "id": "operation:task_32d72e00a1c51f7e587a28a7",
+      "outcome": "declared",
+      "description": "Ouvrir Amazon.fr sur la page de résultats correspondant à query et capturer les éléments observables nécessaires pour sélectionner les produits listés. — operation: cap_490d9e16075cbdca5954ec27 (GnOuGo.Browser.Mcp/browser_get_content); contract effect: read. Resource lifecycle is not established by this contract; review cleanup and retained artifacts. Execution has not been observed; review the business requirements separately.",
+      "diagnostics": []
+    },
+    {
+      "id": "operation:task_a52e813e17967840b93347de",
+      "outcome": "declared",
+      "description": "Sauvegarder le classeur Excel demandé sur le disque au chemin relatif autorisé, avant la fermeture du navigateur. — operation: cap_37c513d225bb1b870053c5d3 (GnOuGo.Document.Mcp/document_write); contract effect: write. Declared resource locations checked; dynamic relationships still require execution evidence. Execution has not been observed; review the business requirements separately.",
+      "diagnostics": []
+    },
+    {
+      "id": "operation:task_f0b97765699272cf2a73f87a",
+      "outcome": "declared",
+      "description": "Fermer le navigateur même si la recherche, l’extraction ou la sauvegarde échoue. — operation: cap_bdb7ba9ab04b18783883fa86 (GnOuGo.Browser.Mcp/browser_close); contract effect: lifecycle. Resource lifecycle is not established by this contract; review cleanup and retained artifacts. Execution has not been observed; review the business requirements separately.",
+      "diagnostics": []
+    },
+    {
+      "id": "operation:task_4cf386269ac27ebc7ad3e6ed",
+      "outcome": "declared",
+      "description": "Ouvrir la page produit Amazon.fr correspondant au lien observé dans les résultats de recherche. — operation: cap_490d9e16075cbdca5954ec27 (GnOuGo.Browser.Mcp/browser_get_content); contract effect: read. Resource lifecycle is not established by this contract; review cleanup and retained artifacts. Execution has not been observed; review the business requirements separately.",
+      "diagnostics": []
+    },
+    {
+      "id": "mapping:task_e664cd43372cf354703014e8",
+      "outcome": "declared",
+      "description": "Depuis l’observation de la page de résultats Amazon.fr, extraire dans l’ordre affiché au maximum les 10 premiers liens de pages produit, sans dédoublonner, filtrer, échantillonner ni inventer; conserver explicitement toute erreur observée empêchant la collecte. — adaptive independent extraction; unresolved items may require specialized or per-item inference within the configured shared runtime and campaign budgets. Execution requires a finite runtime budget; every item and the complete result are validated. Unambiguous source/target collections use one result per item; ambiguous collections require explicit selection. No execution evidence yet.",
+      "diagnostics": []
+    },
+    {
+      "id": "mapping:task_dddf31cd76f7db9b290ccf8e",
+      "outcome": "declared",
+      "description": "Extraire depuis la page produit le nom, la description et le prix; laisser les données absentes à null et remplir error avec les erreurs observées, les échecs de navigation ou les champs absents, sans inventer de valeur. — adaptive independent extraction; unresolved items may require specialized or per-item inference within the configured shared runtime and campaign budgets. Execution requires a finite runtime budget; every item and the complete result are validated. Unambiguous source/target collections use one result per item; ambiguous collections require explicit selection. No execution evidence yet.",
+      "diagnostics": []
+    }
+  ],
+  "diagnostics": [],
+  "failure": null
+}

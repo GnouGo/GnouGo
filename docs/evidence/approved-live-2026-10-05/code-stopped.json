@@ -1,0 +1,318 @@
+{
+  "status": "stopped",
+  "revision": 12,
+  "artifact_hash": null,
+  "result": {
+    "status": "stopped",
+    "planning_ms": 355192,
+    "calls": 8,
+    "repairs": 2,
+    "discovery_reads": 4,
+    "review_revisions": 3,
+    "diagnostics": [
+      {
+        "code": "TASK_DEPENDENCY_UNKNOWN",
+        "location": "/tasks/extract_selected_review_json/dependsOn",
+        "message": "Dependencies select_preservation_report must name preceding tasks in scope /root. Ancestor values may be captured without cross-scope dependsOn entries.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      },
+      {
+        "code": "TASK_DEPENDENCY_UNKNOWN",
+        "location": "/tasks/write_preserved_review_json/dependsOn",
+        "message": "Dependencies select_preservation_report must name preceding tasks in scope /root. Ancestor values may be captured without cross-scope dependsOn entries.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      },
+      {
+        "code": "TASK_PRESENCE_SCOPE",
+        "location": "/tasks/write_preserved_review_json/requires",
+        "message": "Presence requires a preceding task in this scope or a lexical ancestor.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      },
+      {
+        "code": "LLM_BUDGET_EXCEEDED",
+        "location": "/",
+        "message": "The session model-call budget was exhausted (8/8 calls). Input/output token settings do not extend this cumulative allowance. Start a new planning session; retained requests and accounting remain unchanged.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      }
+    ],
+    "execution_success": false,
+    "execution_oracle": false,
+    "execution_status": "not_started",
+    "accounting": {
+      "planning": {
+        "logical_calls": 8,
+        "physical_attempts": 8,
+        "known_input_tokens": 173959,
+        "known_output_tokens": 30171,
+        "known_cost_eur": 1.5841886826133524,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "execution": {
+        "logical_calls": 0,
+        "physical_attempts": 0,
+        "known_input_tokens": 0,
+        "known_output_tokens": 0,
+        "known_cost_eur": 0,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "campaign": {
+        "calls": 717,
+        "session_calls": 0,
+        "known_input_tokens": 11090647,
+        "known_output_tokens": 1133469,
+        "known_cost_eur": 79.64151462551006,
+        "reserved_input_tokens": 192000,
+        "reserved_output_tokens": 65536,
+        "reserved_cost_eur": 2.606752783964365,
+        "cost_upper_bound_eur": 82.24826740947442,
+        "unknown_attempts": 2
+      }
+    }
+  },
+  "diagnostics": [
+    {
+      "code": "TASK_DEPENDENCY_UNKNOWN",
+      "location": "/tasks/extract_selected_review_json/dependsOn",
+      "message": "Dependencies select_preservation_report must name preceding tasks in scope /root. Ancestor values may be captured without cross-scope dependsOn entries.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "TASK_DEPENDENCY_UNKNOWN",
+      "location": "/tasks/write_preserved_review_json/dependsOn",
+      "message": "Dependencies select_preservation_report must name preceding tasks in scope /root. Ancestor values may be captured without cross-scope dependsOn entries.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "TASK_PRESENCE_SCOPE",
+      "location": "/tasks/write_preserved_review_json/requires",
+      "message": "Presence requires a preceding task in this scope or a lexical ancestor.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "LLM_BUDGET_EXCEEDED",
+      "location": "/",
+      "message": "The session model-call budget was exhausted (8/8 calls). Input/output token settings do not extend this cumulative allowance. Start a new planning session; retained requests and accounting remain unchanged.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    }
+  ],
+  "execution": null,
+  "oracle": null,
+  "run": "approvedlive20261005a-code-1",
+  "candidate": "34bfd6040181cf789a5472506821c5a7f5e2e552",
+  "revisions": [
+    {
+      "command": {
+        "mode": null,
+        "kind": "revise",
+        "expectedRevision": 2,
+        "artifactHash": "db7847a35622c72b7e5a456052eda4ea505a50afa12455932b808078821cbbac",
+        "text": "Review correction, preserving all accepted requirements: evidence_report and cleanup_always are not implemented on verified failure paths. The report assembler/writer exist only on the normal path; requires(success/complete) can prevent them before unconditional clone deletion. Preserve available observed evidence and a truthful failure report in always, followed by cleanup in that sequence's nested always. Use explicit present branches before reading possibly absent results, matching branch exports when consumed, and only preceding tasks in the same scope in dependsOn (available ancestors use ordinary bindings). Unknown external completion must still block cleanup. Do not ask a model to invent base64 for writing a JSON report: inspect the available Document text/JSON writing contract and bind content with the existing json serialization value. Bind the exact required report path as an explicit input when returning reportPath. The diff read is paginated: do not treat a non-null continuation cursor as complete review coverage; use admitted bounded contracts or fail explicitly when incomplete. Retain actual command execution and local-only review; do not change accepted inputs, results, permissions, ceilings or objectives.",
+        "preserveRequirements": true,
+        "selections": null,
+        "generation": null
+      },
+      "result": {
+        "status": "final_review",
+        "planning_ms": 83798,
+        "calls": 2,
+        "repairs": 0,
+        "discovery_reads": 3,
+        "review_revisions": 0,
+        "diagnostics": [],
+        "execution_success": false,
+        "execution_oracle": false,
+        "execution_status": "not_started",
+        "accounting": {
+          "planning": {
+            "logical_calls": 2,
+            "physical_attempts": 2,
+            "known_input_tokens": 30925,
+            "known_output_tokens": 6189,
+            "known_cost_eur": 0.30372634773295254,
+            "unknown_attempts": 0,
+            "reserved_input_tokens": 0,
+            "reserved_output_tokens": 0,
+            "reserved_cost_eur": 0
+          },
+          "execution": {
+            "logical_calls": 0,
+            "physical_attempts": 0,
+            "known_input_tokens": 0,
+            "known_output_tokens": 0,
+            "known_cost_eur": 0,
+            "unknown_attempts": 0,
+            "reserved_input_tokens": 0,
+            "reserved_output_tokens": 0,
+            "reserved_cost_eur": 0
+          },
+          "campaign": {
+            "calls": 708,
+            "session_calls": 0,
+            "known_input_tokens": 10915703,
+            "known_output_tokens": 1101490,
+            "known_cost_eur": 78.00451890969428,
+            "reserved_input_tokens": 192000,
+            "reserved_output_tokens": 65536,
+            "reserved_cost_eur": 2.606752783964365,
+            "cost_upper_bound_eur": 80.61127169365864,
+            "unknown_attempts": 2
+          }
+        }
+      },
+      "artifact_hash": "db7847a35622c72b7e5a456052eda4ea505a50afa12455932b808078821cbbac"
+    },
+    {
+      "command": {
+        "mode": null,
+        "kind": "revise",
+        "expectedRevision": 5,
+        "artifactHash": null,
+        "text": "Correct the TASK_IDENTITY_INVALID diagnostic without changing accepted requirements or work: final_report_json is declared more than once. Every task identity must be globally unique even across conditional alternatives. Give branch-local producers distinct identities and update their local references explicitly, while retaining matching business export names across alternatives. Preserve the reviewed correction: real checks and local review, complete diff coverage or explicit failure, report preservation from available observations in finalization, deterministic JSON serialization, and nested unconditional clone cleanup after preservation. Do not simplify by dropping objectives, failure-path reporting, outputs, or permission safeguards.",
+        "preserveRequirements": true,
+        "selections": null,
+        "generation": null
+      },
+      "result": {
+        "status": "stopped",
+        "planning_ms": 146921,
+        "calls": 4,
+        "repairs": 0,
+        "discovery_reads": 4,
+        "review_revisions": 1,
+        "diagnostics": [
+          {
+            "code": "TASK_IDENTITY_INVALID",
+            "location": "/tasks/final_report_json/id",
+            "message": "Task, group and choice IDs must be globally unique, use only ASCII letters, digits, '_' or '-', and not start with '__'. Regenerate invalid identities; they are not repair permissions.",
+            "required": true,
+            "validationStage": null,
+            "rule": null
+          }
+        ],
+        "execution_success": false,
+        "execution_oracle": false,
+        "execution_status": "not_started",
+        "accounting": {
+          "planning": {
+            "logical_calls": 4,
+            "physical_attempts": 4,
+            "known_input_tokens": 92755,
+            "known_output_tokens": 12120,
+            "known_cost_eur": 0.7384639414494824,
+            "unknown_attempts": 0,
+            "reserved_input_tokens": 0,
+            "reserved_output_tokens": 0,
+            "reserved_cost_eur": 0
+          },
+          "execution": {
+            "logical_calls": 0,
+            "physical_attempts": 0,
+            "known_input_tokens": 0,
+            "known_output_tokens": 0,
+            "known_cost_eur": 0,
+            "unknown_attempts": 0,
+            "reserved_input_tokens": 0,
+            "reserved_output_tokens": 0,
+            "reserved_cost_eur": 0
+          },
+          "campaign": {
+            "calls": 710,
+            "session_calls": 0,
+            "known_input_tokens": 10977533,
+            "known_output_tokens": 1107421,
+            "known_cost_eur": 78.4392565034108,
+            "reserved_input_tokens": 192000,
+            "reserved_output_tokens": 65536,
+            "reserved_cost_eur": 2.606752783964365,
+            "cost_upper_bound_eur": 81.04600928737517,
+            "unknown_attempts": 2
+          }
+        }
+      },
+      "artifact_hash": null
+    },
+    {
+      "command": {
+        "mode": null,
+        "kind": "revise",
+        "expectedRevision": 8,
+        "artifactHash": "7b8374605b73261f6c1067b4ebca73ceaf845cad90d3669cdc1759c88869eb38",
+        "text": "Review still rejects evidence_report. select_report_for_write receives only presence booleans and a path, not any actual report or command evidence, so it cannot preserve the observed findings or exit codes. branch_use_normal_report.otherwise reads assemble_normal_review_json exactly when it is absent. Several other branches emit failure claims even when their condition is false. Simplify the finalization to one explicit nested conditional selection: if the normal report is present, export that actual report; otherwise select truthful failure evidence using presence-guarded reads of actual available check/review payloads, with explicit empty evidence only for work with no observed result. Export the selected report consistently from both alternatives, then directly json-serialize that selected value to document_write before nested always cleanup. No model is needed merely to select among branches or encode JSON. Remove empty conditionals that perform no work. Preserve every accepted requirement, globally unique IDs, exact commands/exit codes, the output interface, cumulative limits, confinement and separate approval. Do not invent success, fabricated failure explanations or observed command records.",
+        "preserveRequirements": true,
+        "selections": null,
+        "generation": null
+      },
+      "result": {
+        "status": "final_review",
+        "planning_ms": 260635,
+        "calls": 6,
+        "repairs": 1,
+        "discovery_reads": 4,
+        "review_revisions": 2,
+        "diagnostics": [],
+        "execution_success": false,
+        "execution_oracle": false,
+        "execution_status": "not_started",
+        "accounting": {
+          "planning": {
+            "logical_calls": 6,
+            "physical_attempts": 6,
+            "known_input_tokens": 131677,
+            "known_output_tokens": 22176,
+            "known_cost_eur": 1.1814218136379864,
+            "unknown_attempts": 0,
+            "reserved_input_tokens": 0,
+            "reserved_output_tokens": 0,
+            "reserved_cost_eur": 0
+          },
+          "execution": {
+            "logical_calls": 0,
+            "physical_attempts": 0,
+            "known_input_tokens": 0,
+            "known_output_tokens": 0,
+            "known_cost_eur": 0,
+            "unknown_attempts": 0,
+            "reserved_input_tokens": 0,
+            "reserved_output_tokens": 0,
+            "reserved_cost_eur": 0
+          },
+          "campaign": {
+            "calls": 712,
+            "session_calls": 0,
+            "known_input_tokens": 11016455,
+            "known_output_tokens": 1117477,
+            "known_cost_eur": 78.88221437559932,
+            "reserved_input_tokens": 192000,
+            "reserved_output_tokens": 65536,
+            "reserved_cost_eur": 2.606752783964365,
+            "cost_upper_bound_eur": 81.48896715956367,
+            "unknown_attempts": 2
+          }
+        }
+      },
+      "artifact_hash": "7b8374605b73261f6c1067b4ebca73ceaf845cad90d3669cdc1759c88869eb38"
+    }
+  ]
+}

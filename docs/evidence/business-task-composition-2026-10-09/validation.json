@@ -1,0 +1,123 @@
+{
+  "baseline_commit": "2663f4ace52794cabb91271ceb0c65b79d00621f",
+  "compilation_profile": "compact-bindings-v5",
+  "architecture_or_runtime_changes": false,
+  "comparison": {
+    "tasks": [
+      23,
+      13
+    ],
+    "steps": [
+      61,
+      60
+    ],
+    "sets": [
+      39,
+      36
+    ],
+    "yaml_bytes": [
+      92585,
+      77588
+    ]
+  },
+  "deterministic_planning": {
+    "calls": 1,
+    "repairs": 0
+  },
+  "local_execution": {
+    "visited_products": 10,
+    "pages": 38,
+    "offered_candidates": 12,
+    "decision_request_bytes": 2597,
+    "runtime_inference_calls": 24,
+    "mapping_invocations": 11,
+    "typed_copy_inference_calls": 0,
+    "invocations": 226,
+    "normal_steps": 225,
+    "cleanup_steps": 1,
+    "logical_journal_bytes": 22702244,
+    "execution_ms": 12680,
+    "xlsx_cells_match": true,
+    "browser_closed": true,
+    "committed_recovery_without_dispatch": true
+  },
+  "validation": {
+    "planning_tests": {
+      "passed": 1209,
+      "failed": 0
+    },
+    "new_fixture_matrix": {
+      "passed": 8,
+      "failed": 0
+    },
+    "final_fixture_recheck": {
+      "passed": 2,
+      "failed": 0
+    },
+    "planning_release_package": "passed",
+    "planning_osx_arm64_native_aot": "passed",
+    "skill": "passed",
+    "full_solution": {
+      "command": "dotnet test GnOuGo.Agent.sln -m:1 -warnaserror",
+      "exit_code": 0,
+      "passed": 5015,
+      "failed": 0,
+      "skipped": 13,
+      "total": 5028
+    },
+    "published_encrypted_recovery": {
+      "status": "passed",
+      "candidate": "1022ed33437179386eb8a43c5d9f3cbf11453bfd",
+      "job": "https://github.com/GnouGo/GnouGo/actions/runs/37992502243/job/114030019028"
+    },
+    "ci_infrastructure_failures": [
+      {
+        "component": "Docker image builds",
+        "reason": "Docker Hub authentication token retrieval: timeout/504 Gateway Timeout",
+        "job": "https://github.com/GnouGo/GnouGo/actions/runs/37992502243/job/114034059062"
+      },
+      {
+        "component": "Linux x64 desktop",
+        "reason": "Copilot CLI SHA256SUMS acquisition: connection reset by peer (MSB3923)",
+        "job": "https://github.com/GnouGo/GnouGo/actions/runs/37992502243/job/114034138285"
+      }
+    ]
+  },
+  "matrix_expected_failures": [
+    "unoffered original identity rejected before visits",
+    "incomplete acquisition rejected before mapping",
+    "denied write produced no workbook",
+    "fabricated but typed workbook rejected by independent oracle"
+  ],
+  "paid_dispatches_during_implementation": 0,
+  "campaign_upper_bound_eur": "120.79665899575455349076839816",
+  "campaign_ceiling_eur": 150,
+  "sha256": {
+    "src/GnOuGo.Flow.Planning/PlanningPrompt.cs": "e9e19ff5613d4cf7e2cca9957608ab3967c76a6b40b348cf6db336c8a81507e2",
+    ".agents/skills/gnougo-planning/SKILL.md": "a6a89e6c12bca4b360749d57ca3715adf9460e0fa586ac28e612b092ddde5850",
+    "tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.BusinessTasks.cs": "51e308eaabf6f4230b23dbb3625aa94ba321b870aa98582cbfc702e577b3b4a9",
+    "tests/GnOuGo.Agent.Server.Tests/Fixtures/BusinessTaskComposition/compact.json": "57f87466491b136b5537fcc424f90105db4198555f9b5ce2e21634d9261b1491"
+  },
+  "live": {
+    "run": "businesstasks20261009a-amazon-1",
+    "revision": 8,
+    "artifact_hash": "47248097b19347e131a9c1e98483ebe281f86df726a7d48f538784237d60f0e4",
+    "status": "final_review",
+    "tasks": 13,
+    "steps": 56,
+    "sets": 33,
+    "yaml_bytes": 79833,
+    "planning_calls": 5,
+    "physical_attempts": 5,
+    "repairs": 0,
+    "explicit_revisions": 3,
+    "discovery_reads": 2,
+    "input_tokens": 74373,
+    "output_tokens": 16987,
+    "planning_ms": 281807,
+    "planning_cost_eur": "0.7822122637323631200638920934",
+    "campaign_upper_bound_eur": "121.57887125948691661083229026",
+    "execution_status": "awaiting_concrete_approval",
+    "execution_oracle": "not_run"
+  }
+}

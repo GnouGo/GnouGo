@@ -4,7 +4,16 @@ MCP (Model Context Protocol) stdio server for reading and writing document files
 
 ## MCP protocol compatibility
 
-This stdio server uses the stable C# MCP SDK `2.0.0` with automatic protocol negotiation: clients prefer `2026-07-28` discovery and can initialize with stable `2025-11-25`. Launch the built apphost, or use `dotnet GnOuGo.Document.Mcp.dll`; do not put `dotnet run` on an MCP stdio transport because CLI output can corrupt the JSONL stream. Tool names, request schemas, and structured results are unchanged.
+This stdio server uses the C# MCP SDK `2.2.0` with automatic protocol negotiation. Launch the built apphost, or use `dotnet GnOuGo.Document.Mcp.dll`; do not put `dotnet run` on an MCP stdio transport because CLI output can corrupt the JSONL stream.
+
+`document_write` publishes a successful structured-output schema: `success` is true,
+`filePath` and `filePathAbsolute` are nonempty strings, and `bytesWritten` is a
+nonnegative integer. The producer checks these receipt guarantees before returning.
+`relativePath` retains its original nullability. The C# host result API is unchanged.
+Failures use `isError: true` with the complete original JSON error in text content;
+they do not supply an invalid success-shaped `structuredContent`. Clients must refresh
+discovery and handle the MCP error channel before consuming successful outputs. Existing
+workflows and approvals are not rewritten; changed contract fingerprints require review.
 
 ## Supported Formats
 
@@ -120,3 +129,19 @@ This allows packaged agent/server builds to start the document MCP server withou
 - **DocumentFormat.OpenXml** — DOCX, XLSX, PPTX reading and writing
 - **PdfPig** — PDF text extraction
 - **ModelContextProtocol** — MCP stdio transport
+
+### Exact XLSX rows
+
+`document_write` accepts exactly one of legacy `content` or optional `rows`.
+`rows` is an ordered array of string/null cell arrays and requires an `.xlsx`
+target. Supply headers as the first row when required. Strings remain literal:
+no trimming, delimiter splitting, numeric conversion or formula evaluation.
+Empty strings, blank null cells, blank rows and repeated rows keep their positions.
+CR/LF, tabs, Unicode and leading/trailing spaces survive workbook round-trips.
+
+Structured rows are validated before writing. Unsupported XML characters, denied
+paths, mismatched arguments and oversized data fail without replacing the target.
+Writes and appends prepare a temporary workbook in the authorized directory and
+publish it only after the existing file-size check. Legacy text splitting/trim
+behavior and the original C# overload remain available. Typed workflow projections
+can bind rows directly, without a formatting inference call.

@@ -1,0 +1,323 @@
+{
+  "campaign": "schema-portability-20261002",
+  "passed": 0,
+  "required": 6,
+  "complete": false,
+  "manifest": {
+    "production_sha": "9860dec9bf94b6036fc29d8f6dc37ab47030c4e5",
+    "harness_sha": "9860dec9bf94b6036fc29d8f6dc37ab47030c4e5",
+    "cohort": "mappinglive3",
+    "provider": "OpenAi",
+    "model": "gpt-5.5-2026-04-24",
+    "reasoning": "medium",
+    "host_configuration_hash": "7a7fec4a3c4569be8862a2a27f071dcc6a4d080f76f86d11d40a47e9cdf85486",
+    "max_input_tokens": 96000,
+    "max_output_tokens": 32768,
+    "planning_attempts": 8,
+    "repairs": 2,
+    "cost_ceiling_eur": 50,
+    "browser_keep_open": false,
+    "os": "macOS 26.5.2",
+    "architecture": "Arm64",
+    "framework": ".NET 10.0.8",
+    "execution_path_hash": "d1bb0eda12e1e1926a28e0cb1705d7f8a871a22948338a704226076a4db8235e",
+    "amazon_prompt": "417bb3fcd521d097b40775505acc75ede0896e8d83e06da2f5d04077c7812a50",
+    "code_prompt": "bdb354f8cd88a2a6cf06d0bce25d077a0c1eefc195a57d3c0ff60fcf46d5286c",
+    "harness_tree": "d4d1c7f855291b16d654e77a695a0226f7d8bf24",
+    "scenario_count": 2,
+    "repetitions": 3,
+    "oracle_version": "real-workflows-v1"
+  },
+  "runs": [
+    {
+      "status": "final_review",
+      "planning_ms": 70674,
+      "calls": 2,
+      "repairs": 0,
+      "discovery_reads": 2,
+      "diagnostics": [],
+      "execution_success": false,
+      "execution_oracle": false,
+      "execution_status": "completed",
+      "accounting": {
+        "planning": {
+          "logical_calls": 2,
+          "physical_attempts": 2,
+          "known_input_tokens": 17515,
+          "known_output_tokens": 5111,
+          "known_cost_eur": 0.21461469933184854,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "execution": {
+          "logical_calls": 3,
+          "physical_attempts": 3,
+          "known_input_tokens": 100174,
+          "known_output_tokens": 9810,
+          "known_cost_eur": 0.7083919821826281,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "campaign": {
+          "calls": 275,
+          "session_calls": 0,
+          "known_input_tokens": 3647817,
+          "known_output_tokens": 383848,
+          "known_cost_eur": 26.445416219675042,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0,
+          "cost_upper_bound_eur": 26.445416219675042,
+          "unknown_attempts": 0
+        }
+      },
+      "execution_ms": 188675,
+      "total_ms": 259349,
+      "run": "mappinglive3-amazon-1"
+    },
+    {
+      "status": "not_started",
+      "execution_oracle": false,
+      "run": "mappinglive3-amazon-2",
+      "accounting": {
+        "planning": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "execution": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "campaign": {
+          "calls": 275,
+          "session_calls": 0,
+          "known_input_tokens": 3647817,
+          "known_output_tokens": 383848,
+          "known_cost_eur": 26.445416219675042,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0,
+          "cost_upper_bound_eur": 26.445416219675042,
+          "unknown_attempts": 0
+        }
+      }
+    },
+    {
+      "status": "not_started",
+      "execution_oracle": false,
+      "run": "mappinglive3-amazon-3",
+      "accounting": {
+        "planning": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "execution": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "campaign": {
+          "calls": 275,
+          "session_calls": 0,
+          "known_input_tokens": 3647817,
+          "known_output_tokens": 383848,
+          "known_cost_eur": 26.445416219675042,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0,
+          "cost_upper_bound_eur": 26.445416219675042,
+          "unknown_attempts": 0
+        }
+      }
+    },
+    {
+      "status": "final_review",
+      "planning_ms": 63353,
+      "calls": 3,
+      "repairs": 1,
+      "discovery_reads": 3,
+      "diagnostics": [],
+      "execution_success": false,
+      "execution_oracle": false,
+      "execution_status": "not_started",
+      "accounting": {
+        "planning": {
+          "logical_calls": 3,
+          "physical_attempts": 3,
+          "known_input_tokens": 38472,
+          "known_output_tokens": 5099,
+          "known_cost_eur": 0.3076436525612472,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "execution": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "campaign": {
+          "calls": 275,
+          "session_calls": 0,
+          "known_input_tokens": 3647817,
+          "known_output_tokens": 383848,
+          "known_cost_eur": 26.445416219675042,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0,
+          "cost_upper_bound_eur": 26.445416219675042,
+          "unknown_attempts": 0
+        }
+      },
+      "run": "mappinglive3-code-1"
+    },
+    {
+      "status": "final_review",
+      "planning_ms": 126397,
+      "calls": 4,
+      "repairs": 1,
+      "discovery_reads": 3,
+      "diagnostics": [],
+      "execution_success": false,
+      "execution_oracle": false,
+      "execution_status": "not_started",
+      "accounting": {
+        "planning": {
+          "logical_calls": 4,
+          "physical_attempts": 4,
+          "known_input_tokens": 71430,
+          "known_output_tokens": 8866,
+          "known_cost_eur": 0.5551269487750556,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "execution": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "campaign": {
+          "calls": 275,
+          "session_calls": 0,
+          "known_input_tokens": 3647817,
+          "known_output_tokens": 383848,
+          "known_cost_eur": 26.445416219675042,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0,
+          "cost_upper_bound_eur": 26.445416219675042,
+          "unknown_attempts": 0
+        }
+      },
+      "run": "mappinglive3-code-2"
+    },
+    {
+      "status": "final_review",
+      "planning_ms": 94891,
+      "calls": 2,
+      "repairs": 0,
+      "discovery_reads": 3,
+      "diagnostics": [],
+      "execution_success": false,
+      "execution_oracle": false,
+      "execution_status": "completed",
+      "accounting": {
+        "planning": {
+          "logical_calls": 2,
+          "physical_attempts": 2,
+          "known_input_tokens": 32539,
+          "known_output_tokens": 7684,
+          "known_cost_eur": 0.35030289532293984,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "execution": {
+          "logical_calls": 10,
+          "physical_attempts": 10,
+          "known_input_tokens": 164901,
+          "known_output_tokens": 6367,
+          "known_cost_eur": 0.9046904231625835,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "campaign": {
+          "calls": 275,
+          "session_calls": 0,
+          "known_input_tokens": 3647817,
+          "known_output_tokens": 383848,
+          "known_cost_eur": 26.445416219675042,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0,
+          "cost_upper_bound_eur": 26.445416219675042,
+          "unknown_attempts": 0
+        }
+      },
+      "execution_ms": 553888,
+      "total_ms": 648779,
+      "run": "mappinglive3-code-3"
+    }
+  ],
+  "accounting": {
+    "calls": 275,
+    "session_calls": 0,
+    "known_input_tokens": 3647817,
+    "known_output_tokens": 383848,
+    "known_cost_eur": 26.445416219675042,
+    "reserved_input_tokens": 0,
+    "reserved_output_tokens": 0,
+    "reserved_cost_eur": 0,
+    "cost_upper_bound_eur": 26.445416219675042,
+    "unknown_attempts": 0
+  }
+}

@@ -11,11 +11,12 @@ public sealed class ArtifactPrerequisiteTests
     private static CancellationToken Ct => PlannerFixture.Ct;
 
     [Fact]
-    public async Task MissingProducerStopsBeforeAnyBindingRepair()
+    public async Task MissingProducerWithoutAnAvailableContractStopsBeforeAnyBindingRepair()
     {
         var (plan, catalog) = await TaskArtifactBindingTests.Fixture();
         plan.Root.Tasks.RemoveAt(0);
         plan.Root.Tasks[0].Inputs[0] = new("location", new() { Kind = "string", Text = "looks-like-a-resource" });
+        catalog.Capabilities.RemoveAll(c => c.Id == "allocate");
         var state = PlannerFixture.Session(); state.Catalog = catalog;
         var runtime = new TestRuntime(); runtime.Proposal.Plan = plan;
         state = await new HybridWorkflowPlanner().AdvanceAsync(state, new(), runtime, Ct);
@@ -89,6 +90,8 @@ public sealed class ArtifactPrerequisiteTests
         stopped.Plan!.Root.Tasks.RemoveAt(0); stopped.Plan.Root.Tasks[0].Inputs = [new("location", new() { Kind = "string", Text = "fake" })];
         stopped.Diagnostics = [new("TASK_ARTIFACT_BINDING", "/tasks/use/inputs/location", "Historical wrong origin")];
         stopped.RevisionScope = ["/tasks/use/inputs/location"];
+        stopped.Catalog!.Capabilities.RemoveAll(c => c.Id == "allocate");
+        stopped.Discovery.Resolved.RemoveAll(c => c.Id == "allocate");
         var before = JsonSerializer.Serialize(stopped, PlanningJsonContext.Default.PlanningSession);
         var result = await planner.AdvanceAsync(stopped, new() { ExpectedRevision = stopped.Revision }, runtime, Ct);
         Assert.Equal(PlanningStatus.Stopped, result.Status); Assert.Equal(2, runtime.Calls.Count);
@@ -271,6 +274,23 @@ public sealed class ArtifactPrerequisiteTests
         Assert.Equal(2, pages.Length); Assert.Equal(pages[0].NextCursor, pages[1].Cursor);
         Assert.Equal(10, pages.SelectMany(p => p.Capabilities).Select(c => c.Id).Distinct().Count());
         Assert.Equal(2, tracked.Reads.Count); Assert.All(tracked.Reads, r => Assert.Equal("resource", r.Kind));
+    }
+
+    [Fact]
+    public async Task UnadmittedUnselectedConsumerDoesNotTriggerAutomaticPrerequisiteDiscovery()
+    {
+        var factory = new InMemoryMcpClientFactory();
+        var tool = Tool("unrelated_consumer", consumes: "resource");
+        tool.Description = new string('x', 150_000);
+        factory.RegisterServer("renamed", new() { Tools = [tool] });
+        var discovery = new CapabilityDiscovery(new() { McpClientFactory = factory }); var tracked = new Tracked(discovery);
+        var runtime = new TestRuntime { Capabilities = tracked }; var state = PlannerFixture.Session();
+        state.Catalog = await runtime.DiscoverAsync(state.Request, Ct);
+        state.Discovery.Sources = (await discovery.ListSourcesAsync(Ct)).ToList();
+        state.Discovery.Pages.Add(await discovery.ListAsync(state.Discovery.Sources[0].Id, null, Ct));
+        Assert.Empty(new PlanningPrompt(state).Shortlist());
+        await PlanningDiscoveryContext.DiscoverPrerequisitesAsync(state, runtime, Ct);
+        Assert.Empty(tracked.Reads);
     }
 
     private sealed class Exact(PlanningCapability capability) : ICapabilityCatalog

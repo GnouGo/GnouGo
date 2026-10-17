@@ -1,0 +1,86 @@
+[
+  {
+    "statements": 61,
+    "statement_limit": 10000,
+    "elapsed_ms": 64.592,
+    "time_limit_ms": 5000,
+    "allocated_bytes": 156448,
+    "materialized_bytes": 5144,
+    "output_bytes": 396,
+    "memory_limit_bytes": 50000000,
+    "nesting_depth": 3,
+    "nesting_limit": 64,
+    "unrelated_payload_bytes": 1,
+    "warm": false,
+    "checks": [
+      "choose:passed",
+      "offered:passed",
+      "original:passed",
+      "text:passed",
+      "assemble:passed"
+    ]
+  },
+  {
+    "statements": 61,
+    "statement_limit": 10000,
+    "elapsed_ms": 0.1958,
+    "time_limit_ms": 5000,
+    "allocated_bytes": 80264,
+    "materialized_bytes": 5144,
+    "output_bytes": 396,
+    "memory_limit_bytes": 50000000,
+    "nesting_depth": 3,
+    "nesting_limit": 64,
+    "unrelated_payload_bytes": 1,
+    "warm": true,
+    "checks": [
+      "choose:passed",
+      "offered:passed",
+      "original:passed",
+      "text:passed",
+      "assemble:passed"
+    ]
+  },
+  {
+    "statements": 61,
+    "statement_limit": 10000,
+    "elapsed_ms": 0.1275,
+    "time_limit_ms": 5000,
+    "allocated_bytes": 67928,
+    "materialized_bytes": 5144,
+    "output_bytes": 396,
+    "memory_limit_bytes": 50000000,
+    "nesting_depth": 3,
+    "nesting_limit": 64,
+    "unrelated_payload_bytes": 1200000,
+    "warm": false,
+    "checks": [
+      "choose:passed",
+      "offered:passed",
+      "original:passed",
+      "text:passed",
+      "assemble:passed"
+    ]
+  },
+  {
+    "statements": 61,
+    "statement_limit": 10000,
+    "elapsed_ms": 0.1184,
+    "time_limit_ms": 5000,
+    "allocated_bytes": 67928,
+    "materialized_bytes": 5144,
+    "output_bytes": 396,
+    "memory_limit_bytes": 50000000,
+    "nesting_depth": 3,
+    "nesting_limit": 64,
+    "unrelated_payload_bytes": 1200000,
+    "warm": true,
+    "checks": [
+      "choose:passed",
+      "offered:passed",
+      "original:passed",
+      "text:passed",
+      "assemble:passed"
+    ]
+  }
+]

@@ -1,0 +1,12 @@
+{
+  "recorded_at_utc": "2026-10-10T07:15:29.102859+00:00",
+  "source": "7376b4bd713d72d43dbe62270e41823273e0e618",
+  "campaign": "schema-portability-20261002",
+  "run": "physicaloutputs20261010a-amazon-1",
+  "max_products": 10,
+  "user_answer": "Authorize fresh planning",
+  "authorized_scope": "One fresh paid planning session. Execution requires separate concrete artifact approval.",
+  "cost_ceiling_eur": 150,
+  "frozen_hashes_match": true,
+  "run_absent_before_dispatch": true
+}

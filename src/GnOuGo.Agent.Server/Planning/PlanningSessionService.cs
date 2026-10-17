@@ -19,7 +19,7 @@ using Microsoft.Extensions.Options;
 namespace GnOuGo.Agent.Server.Planning;
 
 /// <summary>Owns planning lifetime independently of a browser connection.</summary>
-public sealed class PlanningSessionService(
+public sealed partial class PlanningSessionService(
     IPlanningSessionStore store,
     IDbContextFactory<PlanningDbContext> contexts,
     IKeyVaultRecordStore records,
@@ -88,13 +88,25 @@ public sealed class PlanningSessionService(
     private PlanningSessionInspection ReadWorkflowSession(KeyVaultRecordValue record)
         => PlanningSessionHistory.Read(record.Value, Tenant, record.Key, true, record.UpdatedAt);
 
-    public async Task<PlanningSession> StartAsync(string name, string prompt, bool reviseExisting, CancellationToken ct, JsonObject? failureEvidence = null, string mode = PlanningMode.Interactive)
+    internal bool AutomaticCorrectionEnabled => settings.Value.AutomaticCorrectionEnabled;
+
+    public Task<PlanningSession> StartAsync(string name, string prompt, bool reviseExisting, CancellationToken ct, JsonObject? failureEvidence = null, string mode = PlanningMode.Interactive)
+        => StartCoreAsync(name, prompt, reviseExisting, ct, failureEvidence, mode, null, null);
+
+    internal Task<PlanningSession> StartFailureRevisionAsync(string name, string prompt, string runId, string artifactHash,
+        JsonObject evidence, string mode, CancellationToken ct)
+        => StartCoreAsync(name, prompt, true, ct, evidence, mode, runId, artifactHash);
+
+    private async Task<PlanningSession> StartCoreAsync(string name, string prompt, bool reviseExisting, CancellationToken ct,
+        JsonObject? failureEvidence, string mode, string? runId, string? artifactHash)
     {
         PlanningMode.Validate(mode);
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentException.ThrowIfNullOrWhiteSpace(prompt);
         name = name.Trim();
         if (name is "." or ".." || name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0 || name.Contains('/') || name.Contains('\\')) throw new ArgumentException("The agent name is invalid.");
+        var automaticId = runId is null ? null : PlanningGraphCompiler.Fingerprint(new JsonArray(Tenant, runId, artifactHash).ToJsonString())[..32];
+        if (automaticId is not null && await store.LoadAsync(Tenant, automaticId, ct) is { } retained) return retained;
         await using var runtime = await runtimeFactory.CreateAsync(ct);
         var provider = runtime.Options.DefaultProvider;
         var model = runtime.Options.DefaultModel;
@@ -107,6 +119,8 @@ public sealed class PlanningSessionService(
         if (!reviseExisting && found) throw new InvalidOperationException("An agent with that name already exists.");
         if (!found && response?["error_code"]?.GetValue<string>() != "NOT_FOUND") throw new InvalidOperationException("Agent name availability could not be established.");
         var original = response?["agent"]?["workflow"]?.GetValue<string>();
+        if (automaticId is not null && (original is null || PlanningGraphCompiler.Fingerprint(original) != artifactHash))
+            throw new InvalidOperationException("The saved workflow changed after the failed execution. Review its current revision explicitly.");
         var options = CreateOptions(provider, model);
         if (reviseExisting)
             options["host_save"] = new JsonObject { ["agent_id"] = response!["agent"]!["id"]!.DeepClone(), ["original_hash"] = PlanningGraphCompiler.Fingerprint(original!) };
@@ -127,33 +141,66 @@ public sealed class PlanningSessionService(
             },
             UpdatedAtUtc = DateTimeOffset.UtcNow
         };
+        if (automaticId is not null)
+        {
+            state.Request.SessionId = automaticId;
+            state.Request.Options["failed_execution"] = new JsonObject { ["run"] = runId, ["artifact"] = artifactHash };
+        }
         if (original is not null)
         {
-            var saved = (await store.ListAsync(Tenant, ct)).Where(s => s.Plan is not null && s.SavedAgentId == response!["agent"]!["id"]!.ToString())
+            var saved = (await store.ListAsync(Tenant, ct)).Where(s => s.Plan is not null && s.Yaml == original && s.SavedAgentId == response!["agent"]!["id"]!.ToString())
                 .OrderByDescending(s => s.UpdatedAtUtc).FirstOrDefault();
             state.Request.Baseline = saved?.Plan;
-            if (saved is null) state.Request.RevisionContext = "No saved TaskPlan exists. Regenerate from the newly stated requirements and require renewed approval; authored YAML is not imported.";
+            if (failureEvidence is not null && saved?.Requirements is not null)
+            {
+                state.Requirements = saved.Requirements;
+                state.Request.Policy = saved.Request.Policy;
+                state.Catalog = saved.Catalog;
+                state.Discovery = saved.Discovery;
+                state.IntentVersion = saved.IntentVersion;
+            }
+            if (saved is null) state.Request.RevisionContext = "No saved TaskPlan exists. Regenerate from the newly stated requirements and require renewed approval; the original authored workflow remains unchanged.";
+            if (automaticId is not null && (saved?.Plan is null || saved.Requirements is null))
+            {
+                state.Status = PlanningStatus.Clarification;
+                state.PendingQuestions = [new("preserve_authored_intent", "Describe the intended behavior and outputs to preserve when revising this authored workflow. The original will remain unchanged.", [], null)];
+            }
         }
         PlanningGenerationPolicy.Validate(state.Request.Generation);
-        if (!await store.TrySaveAsync(state, expectedRevision: null, ct)) throw new PlanningConflictException("The planning session already exists.");
-        _queue.Writer.TryWrite(state.Request.SessionId);
+        if (!await store.TrySaveAsync(state, expectedRevision: null, ct))
+        {
+            if (automaticId is not null && await store.LoadAsync(Tenant, automaticId, ct) is { } winner) return winner;
+            throw new PlanningConflictException("The planning session already exists.");
+        }
+        if (!PlanningStatus.IsWaiting(state.Status)) _queue.Writer.TryWrite(state.Request.SessionId);
         return state;
     }
 
     public async Task<PlanningSession> SubmitAsync(string id, PlanningCommand command, CancellationToken ct)
     {
-        if (command.Kind == "cancel" && _interrupts.TryGetValue(id, out var interrupt)) await interrupt.CancelAsync();
+        if (command.Kind == "cancel") return await RequestCancellationAsync(id, command, ct);
         var gate = _locks.GetOrAdd(id, _ => new SemaphoreSlim(1, 1));
         await gate.WaitAsync(ct);
+        PlanningSession result;
         try
         {
+            await using var lease = await PlanningSessionLease.TryAcquireAsync(contexts, Tenant, id, ct)
+                ?? throw new PlanningConflictException("This planning session is active in another worker. Reload it after processing completes.");
             var current = await store.LoadAsync(Tenant, id, ct) ?? throw new KeyNotFoundException("Planning session not found.");
             if (current.Revision != command.ExpectedRevision) throw new PlanningConflictException("The session changed; reload its current revision.");
-            var result = command.Kind == "save" ? await SaveAsync(current, command, ct) : await AdvanceAsync(current, command, ct);
-            if (!PlanningStatus.IsWaiting(result.Status) && !PlanningStatus.IsTerminal(result.Status)) _queue.Writer.TryWrite(id);
-            return result;
+            if (await IsCancellationRequestedAsync(current, ct)) throw new PlanningConflictException("Cancellation is pending for this revision.");
+            result = command.Kind == "save" ? await SaveAsync(current, command, ct) : await AdvanceAsync(current, command, ct);
         }
         finally { gate.Release(); }
+        if (!PlanningStatus.IsWaiting(result.Status) && !PlanningStatus.IsTerminal(result.Status))
+        {
+            // Publish the wake-up after releasing command ownership. A previous
+            // owner may still be finishing its monitoring scope after publishing
+            // the question; don't let its final task hide this continuation.
+            if (_running.TryGetValue(id, out var previous)) await previous.WaitAsync(ct);
+            _queue.Writer.TryWrite(id);
+        }
+        return result;
     }
 
     public override async Task StartAsync(CancellationToken ct)
@@ -167,7 +214,7 @@ public sealed class PlanningSessionService(
     {
         if (!settings.Value.BackgroundProcessingEnabled) return;
         foreach (var state in await store.ListAsync(Tenant, stoppingToken))
-            if (!PlanningStatus.IsWaiting(state.Status) && !PlanningStatus.IsTerminal(state.Status)) _queue.Writer.TryWrite(state.Request.SessionId);
+            if ((!PlanningStatus.IsWaiting(state.Status) && !PlanningStatus.IsTerminal(state.Status)) || await IsCancellationRequestedAsync(state, stoppingToken)) _queue.Writer.TryWrite(state.Request.SessionId);
         var recovery = RecoverAsync(stoppingToken);
         try
         {
@@ -187,14 +234,25 @@ public sealed class PlanningSessionService(
         {
             while (await timer.WaitForNextTickAsync(ct))
                 foreach (var state in await store.ListAsync(Tenant, ct))
-                    if (!PlanningStatus.IsWaiting(state.Status) && !PlanningStatus.IsTerminal(state.Status)) _queue.Writer.TryWrite(state.Request.SessionId);
+                    if ((!PlanningStatus.IsWaiting(state.Status) && !PlanningStatus.IsTerminal(state.Status)) || await IsCancellationRequestedAsync(state, ct)) _queue.Writer.TryWrite(state.Request.SessionId);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
     }
     private async Task RunAsync(string id, CancellationToken stoppingToken)
     {
+        var ownerGate = _locks.GetOrAdd(id, _ => new SemaphoreSlim(1, 1));
+        await ownerGate.WaitAsync(stoppingToken);
+        FileStream? acquired;
+        try { acquired = await PlanningSessionLease.TryAcquireAsync(contexts, Tenant, id, stoppingToken); }
+        finally { ownerGate.Release(); }
+        await using var lease = acquired;
+        // Another host owns this work. Periodic recovery will try again after it releases
+        // ownership; contention must never write a diagnostic or a competing checkpoint.
+        if (lease is null) return;
         using var interrupt = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
         _interrupts[id] = interrupt;
+        using var monitoring = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
+        var cancellationMonitor = ObserveCancellationAsync(id, interrupt, monitoring.Token);
         var ct = interrupt.Token;
         try
         {
@@ -210,7 +268,13 @@ public sealed class PlanningSessionService(
                     try
                     {
                         var state = await store.LoadAsync(Tenant, id, ct);
-                        if (state is null || PlanningStatus.IsWaiting(state.Status) || PlanningStatus.IsTerminal(state.Status)) return;
+                        if (state is null) return;
+                        if (await IsCancellationRequestedAsync(state, ct))
+                        {
+                            await AdvanceAsync(state, new() { Kind = "cancel", ExpectedRevision = state.Revision }, ct);
+                            return;
+                        }
+                        if (PlanningStatus.IsWaiting(state.Status) || PlanningStatus.IsTerminal(state.Status) && state.Status != PlanningStatus.Saving) return;
                         if (state.Status == PlanningStatus.Saving)
                             await SaveAsync(state, new() { Kind = "save", ExpectedRevision = state.Revision, ArtifactHash = state.ApprovedHash }, ct);
                         else await AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, ct);
@@ -220,7 +284,18 @@ public sealed class PlanningSessionService(
             }
             finally { _sessionSlots.Release(); }
         }
-        catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            // The dispatch has quiesced. Preserve its receipt and then checkpoint the
+            // cancellation under the same lease, even if a different host requested it.
+            if (!stoppingToken.IsCancellationRequested)
+            {
+                using var flush = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+                var state = await store.LoadAsync(Tenant, id, flush.Token);
+                if (state is not null && state.Status != PlanningStatus.Cancelled && await IsCancellationRequestedAsync(state, flush.Token))
+                    await AdvanceAsync(state, new() { Kind = "cancel", ExpectedRevision = state.Revision }, flush.Token);
+            }
+        }
         catch (PlanningConflictException) { logger.LogInformation("Planning session {SessionId} changed in another worker.", id); }
         catch (Exception ex)
         {
@@ -234,7 +309,12 @@ public sealed class PlanningSessionService(
                 await store.TrySaveAsync(state, revision, CancellationToken.None);
             }
         }
-        finally { _interrupts.TryRemove(id, out _); }
+        finally
+        {
+            await monitoring.CancelAsync();
+            await cancellationMonitor;
+            _interrupts.TryRemove(id, out _);
+        }
     }
 
     private async Task<PlanningSession> AdvanceAsync(PlanningSession current, PlanningCommand command, CancellationToken ct)
@@ -250,6 +330,16 @@ public sealed class PlanningSessionService(
 
         if (command.Kind is "cancel" or "revise" or "configure_generation" or "answer" or "configure_mode")
         {
+            if (command.Kind == "revise" && current.RequiresPlanningRevision && current.PendingCall is { } legacy)
+            {
+                await using var db = await contexts.CreateDbContextAsync(ct);
+                if (!await db.Calls.AnyAsync(c => c.TenantId == Tenant && c.SessionId == current.Request.SessionId &&
+                    c.RequestHash == legacy.Id && c.PayloadKey == current.Request.SessionId + ":" + legacy.Id, ct))
+                    throw new PlanningConflictException("The original reservation is unavailable. Reconcile it before revising.");
+                // Work on a clone: a rejected revision must not partially settle the session.
+                current = JsonSerializer.SerializeToNode(current, PlanningJsonContext.Default.PlanningSession)!.Deserialize(PlanningJsonContext.Default.PlanningSession)!;
+                await PlanningModelRecovery.ResumeAsync(current, records, legacy.Id, ct);
+            }
             var recordedUsage = await records.GetAsync(PlanningBudgetSink.Collection, Tenant, current.Request.SessionId, EfPlanningSessionStore.Author, ct);
             if (recordedUsage is not null) current.Usage = JsonSerializer.Deserialize(recordedUsage.Value, PlanningJsonContext.Default.LLMUsageBudgetSnapshot);
             var result = await planner.AdvanceAsync(current, command, new WorkflowPlanningRuntime(new WorkflowEngine(), (_, _) => Task.CompletedTask), ct);
@@ -267,10 +357,20 @@ public sealed class PlanningSessionService(
             MaxEstimatedCost = configured?.MaxEstimatedCost ?? new MonetaryAmount(budgetSettings.Value.Amount, budgetSettings.Value.Currency)
         };
         var estimator = new ModelMetadataUsageCostEstimator(runtime.Options);
-        if (command.Kind == "retry_model")
+        if (command.Kind is "retry_model" or "resume_response")
         {
+            if (current.RequiresPlanningRevision && command.Kind == "retry_model")
+                throw new PlanningConflictException("PLANNING_REVISION_REQUIRED: The old request cannot be dispatched. Settle its receipt or reconcile unknown completion, then explicitly revise.");
             var previousRevision = current.Revision;
-            await PlanningModelRecovery.PrepareAsync(current, records, limits, estimator, exchangeRates, ct);
+            if (command.Kind == "resume_response")
+            {
+                await using var db = await contexts.CreateDbContextAsync(ct);
+                if (!await db.Calls.AnyAsync(c => c.TenantId == Tenant && c.SessionId == current.Request.SessionId &&
+                    c.RequestHash == command.RequestId && c.PayloadKey == current.Request.SessionId + ":" + command.RequestId, ct))
+                    throw new PlanningConflictException("The original dispatch reservation is unavailable. Reconcile it before resuming.");
+                await PlanningModelRecovery.ResumeAsync(current, records, command.RequestId, ct, limits);
+            }
+            else await PlanningModelRecovery.PrepareAsync(current, records, limits, estimator, exchangeRates, ct);
             current.Revision++; current.UpdatedAtUtc = DateTimeOffset.UtcNow;
             current.ActiveMilliseconds += clock.Elapsed.TotalMilliseconds;
             if (!await store.TrySaveAsync(current, previousRevision, ct)) throw new PlanningConflictException("A newer recovery revision was saved.");
@@ -301,6 +401,9 @@ public sealed class PlanningSessionService(
         activity?.SetTag("gnougo.planning.status", updated.Status);
         activity?.SetTag("gnougo.planning.calls", updated.ModelCalls);
         activity?.SetTag("gnougo.planning.replans", updated.ReplanAttempts);
+        activity?.SetTag("gnougo.planning.clarifications.pending", updated.PendingQuestions?.Count ?? 0);
+        activity?.SetTag("gnougo.planning.clarifications.answered", updated.AnswerHistory?.Sum(b => b.Answers.Count) ?? 0);
+        activity?.SetTag("gnougo.planning.human_wait_ms", updated.HumanWaitMilliseconds);
         activity?.SetTag("gnougo.planning.diagnostics", string.Join(",", updated.Diagnostics.Select(d => d.Code).Distinct()));
         PhaseDuration.Record(clock.Elapsed.TotalSeconds, new KeyValuePair<string, object?>("tenant.id", Tenant));
         return updated;
@@ -368,6 +471,8 @@ public sealed class PlanningSessionService(
     private JsonObject CreateOptions(string provider, string model) => new()
     {
         ["generator"] = new JsonObject { ["provider"] = provider, ["model"] = model },
+        ["automatic_correction"] = settings.Value.AutomaticCorrectionEnabled,
+        ["clarification_policy"] = 1,
         ["llm_budget"] = new JsonObject { ["max_calls"] = settings.Value.MaxModelCalls, ["max_total_tokens"] = settings.Value.MaxTotalTokens,
             ["max_elapsed_ms"] = settings.Value.MaxActiveMilliseconds,
             ["max_estimated_cost"] = new JsonObject { ["amount"] = budgetSettings.Value.Amount, ["currency"] = budgetSettings.Value.Currency } }

@@ -1,0 +1,7 @@
+{
+  "phase": "revision command preparation",
+  "error": "Revision command file was initially written relative to the detached checkout instead of the evidence directory; file was absent.",
+  "model_dispatches": 0,
+  "execution_started": false,
+  "resolution": "Created the command in the evidence directory, then submitted the same expected revision. Session had not advanced."
+}

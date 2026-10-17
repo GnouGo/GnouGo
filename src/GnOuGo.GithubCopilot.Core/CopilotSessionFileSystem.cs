@@ -41,6 +41,28 @@ internal sealed class CopilotTransientSessionState
     private readonly object _gate = new();
     private readonly Dictionary<string, string> _files = new(StringComparer.Ordinal);
     private readonly HashSet<string> _directories = new(StringComparer.Ordinal) { Root };
+    private readonly HashSet<string> _outputFiles = new(StringComparer.Ordinal);
+
+    internal void RegisterOutput(string path)
+    {
+        if (!Contains(path)) return;
+        lock (_gate)
+        {
+            try { path = Normalize(path); } catch (UnauthorizedAccessException) { return; }
+            if (_files.ContainsKey(path)) _outputFiles.Add(path);
+        }
+    }
+
+    internal void ValidateOutputRead(string path)
+    {
+        lock (_gate)
+            if (!_outputFiles.Contains(Normalize(path))) throw new UnauthorizedAccessException("Only SDK-published output logs from this session may be read.");
+    }
+
+    internal IReadOnlyDictionary<string, string> OutputSnapshot()
+    {
+        lock (_gate) return _outputFiles.Where(_files.ContainsKey).ToDictionary(p => p, p => _files[p], StringComparer.Ordinal);
+    }
 
     internal static bool Contains(string path) => path.Replace('\\', '/').TrimEnd('/') is var normalized
         && (normalized == Root || normalized.StartsWith(Root + "/", StringComparison.Ordinal));
@@ -122,5 +144,5 @@ internal sealed class CopilotTransientSessionState
             Remove(source, true, false);
         }
     }
-    internal void Clear() { lock (_gate) { _files.Clear(); _directories.Clear(); } }
+    internal void Clear() { lock (_gate) { _files.Clear(); _directories.Clear(); _outputFiles.Clear(); } }
 }

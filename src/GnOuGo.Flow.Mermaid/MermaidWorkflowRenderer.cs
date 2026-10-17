@@ -527,11 +527,10 @@ public static class MermaidWorkflowRenderer
                 "loop.sequential" or "loop.parallel" => NodeShape.Hexagon,
                 "sequence" or "parallel" => NodeShape.Stadium,
                 "workflow.call" or "workflow.route" or "workflow.execute" or "workflow.plan" => NodeShape.Subroutine,
-                "llm.call" => NodeShape.Asymmetric,
+                "llm.call" or "mapping.dynamic" => NodeShape.Asymmetric,
                 "agent.run" => NodeShape.Hexagon,
                 "mcp.call" or "mcp.list" or "chat_history.get" or "chat_history.append" => NodeShape.Database,
                 "human.input" => NodeShape.Trapezoid,
-                "assert.non_null" => NodeShape.Decision,
                 "template.render" or "emit" => NodeShape.Document,
                 "set" => NodeShape.Rounded,
                 _ => NodeShape.Rectangle

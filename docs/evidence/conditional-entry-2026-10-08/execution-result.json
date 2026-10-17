@@ -1,0 +1,106 @@
+{
+  "status": "approved",
+  "revision": 14,
+  "artifact_hash": "8f2d6c67cb2318e8c8bafe6124e1f5ac4eacfbbf1712ed5fdb76f0b3fb0bbc6e",
+  "result": {
+    "status": "final_review",
+    "planning_ms": 734881,
+    "calls": 8,
+    "repairs": 0,
+    "discovery_reads": 2,
+    "review_revisions": 5,
+    "diagnostics": [],
+    "execution_success": true,
+    "execution_oracle": false,
+    "execution_status": "completed",
+    "accounting": {
+      "planning": {
+        "logical_calls": 8,
+        "physical_attempts": 8,
+        "known_input_tokens": 146083,
+        "known_output_tokens": 48816,
+        "known_cost_eur": 1.9477282811252108,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "execution": {
+        "logical_calls": 3,
+        "physical_attempts": 3,
+        "known_input_tokens": 550,
+        "known_output_tokens": 795,
+        "known_cost_eur": 0.023604578933356997,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "campaign": {
+        "calls": 900,
+        "session_calls": 0,
+        "known_input_tokens": 13372155,
+        "known_output_tokens": 1797423,
+        "known_cost_eur": 107.47826365255689,
+        "reserved_input_tokens": 384000,
+        "reserved_output_tokens": 131072,
+        "reserved_cost_eur": 5.203327457848472,
+        "cost_upper_bound_eur": 112.68159111040536,
+        "unknown_attempts": 4
+      }
+    },
+    "execution_ms": 44631,
+    "total_ms": 779512
+  },
+  "execution": {
+    "success": true,
+    "outputs": {
+      "products_file": "<workspace>/workflows/schema-portability-20261002/conditionalentry20261008a-amazon-1/products.xlsx",
+      "products": [
+        {
+          "original_index": 0,
+          "name": null,
+          "description": null,
+          "price": null,
+          "status": "search_not_performed_search_box_missing_or_captcha_detected"
+        }
+      ]
+    },
+    "error": null
+  },
+  "oracle": {
+    "passed": false,
+    "findings": [
+      "product_visits_do_not_match_rows",
+      "workbook_value_not_supported_by_captured_product_page"
+    ]
+  },
+  "mapping_telemetry": [],
+  "runtime_llm_inputs": [
+    {
+      "invocation": "/workflow/main/step/n_255ef39572b70dc3",
+      "status": "completed",
+      "observed_completion": true,
+      "estimated_prompt_tokens": 4203,
+      "model_calls": 0,
+      "inspection_only": true
+    },
+    {
+      "invocation": "/workflow/main/step/n_d7d3993a02ced8be",
+      "status": "completed",
+      "observed_completion": true,
+      "estimated_prompt_tokens": 4248,
+      "model_calls": 0,
+      "inspection_only": true
+    },
+    {
+      "invocation": "/workflow/main/step/n_6edb22f1358de1c7",
+      "status": "completed",
+      "observed_completion": true,
+      "estimated_prompt_tokens": 4209,
+      "model_calls": 0,
+      "inspection_only": true
+    }
+  ],
+  "runtime_mapping_receipts": []
+}

@@ -29,6 +29,10 @@ public sealed class RecordedTargetedDiscoveryTests(ITestOutputHelper output)
             var proposal = call <= 5
                 ? failure["responses"]!.AsArray()[call - 1]!["response"]!["json"]!.Deserialize(PlanningJsonContext.Default.PlanningProposal)!
                 : new PlanningProposal { DiscoveryRequests = call == 6 ? inspections : null, Plan = call == 7 ? successful.Plan : null };
+            // This scripted continuation already knows the retained plan's caller interface.
+            // Declare it in the new requirements contract; historical recording stays untouched.
+            if (proposal.Requirements is { } requirements)
+            { requirements.Inputs = successful.Plan!.Inputs; requirements.Outputs = successful.Plan.Root.Outputs.Select(o => new TaskInput { Name = o.Name, Type = new() { Kind = "any" } }).ToList(); }
             try { return TestRuntime.Response(request, proposal); }
             catch (Exception ex) { output.WriteLine($"Scripted response {call}: {ex}"); throw; }
         };
@@ -38,6 +42,16 @@ public sealed class RecordedTargetedDiscoveryTests(ITestOutputHelper output)
         var accepted = failure["responses"]!.AsArray()[0]!["response"]!["json"]!["requirements"]!.Deserialize(PlanningJsonContext.Default.PlanningRequirements)!;
         catalog.SanitizedBaseQuery = CapabilityRelevance.Query(state.Request.Prompt + " " + accepted.Summary + " " + string.Join(' ', accepted.Outcomes.Select(o => o.Description)));
         state = await PlannerFixture.RunAsync(runtime, state);
+        if (Environment.GetEnvironmentVariable("GNOU_GO_REQUEST_COMPARISON") is { Length: > 0 } evidence)
+        {
+            Directory.CreateDirectory(evidence);
+            File.WriteAllText(Path.Combine(evidence, "requests.json"), new JsonArray(runtime.Calls.Select(r => JsonSerializer.SerializeToNode(r, PlanningJsonContext.Default.LLMRequest)).ToArray()).ToJsonString());
+            if (state.Status != PlanningStatus.FinalReview)
+            {
+                var copy = PlannerFixture.Clone(state); copy.Diagnostics.Clear();
+                File.WriteAllText(Path.Combine(evidence, "blocked-request.json"), JsonSerializer.Serialize(new PlanningPrompt(copy).Request(), PlanningJsonContext.Default.LLMRequest));
+            }
+        }
         Assert.True(state.Status == PlanningStatus.FinalReview, string.Join("; ", state.Diagnostics.Select(d => d.Code + ": " + d.Message)));
         Assert.Equal(7, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts); Assert.Null(state.ApprovedHash);
         Assert.Equal(74, state.Discovery.Pages.SelectMany(p => p.Capabilities).Select(c => c.Id).Distinct().Count());
@@ -45,6 +59,16 @@ public sealed class RecordedTargetedDiscoveryTests(ITestOutputHelper output)
         var final = TargetedDiscoveryTests.Context(runtime.Calls[^1].Prompt);
         var shown = final["operations"]!.AsArray().Select(o => o!["id"]!.ToString()).ToHashSet(StringComparer.Ordinal);
         Assert.All(inspections.SelectMany(i => i.OperationIds!), id => Assert.Contains(id, shown));
+        foreach (var operation in final["operations"]!.AsArray())
+        {
+            var capability = state.Catalog!.Capabilities.Single(c => TaskOperations.Describe(c).Id == operation!["id"]!.ToString());
+            var contract = PlanningCapabilityArguments.Editable(capability);
+            foreach (var (key, ports) in new[] { ("inputs", contract.Inputs), ("outputs", contract.Outputs) })
+                foreach (var port in ports)
+                    Assert.True(JsonNode.DeepEquals(port.Schema, CommitmentPromptContractTests.Expand(
+                        operation![key]!.AsArray().Single(p => p!["name"]!.ToString() == port.Name)!["type"]!, final)),
+                        "Presentation must retain every inspected port contract exactly.");
+        }
         Assert.Null(final["sources"]); Assert.Equal(19, catalog.Reads - catalog.FilterReads);
         Assert.InRange(catalog.FilterReads, 0, metadata.Sources.Count);
         foreach (var capability in successful.Catalog.Capabilities.Where(c => c.Kind != "registered"))
@@ -52,6 +76,32 @@ public sealed class RecordedTargetedDiscoveryTests(ITestOutputHelper output)
                 JsonSerializer.Serialize(state.Catalog!.Capabilities.Single(c => c.Id == capability.Id), PlanningJsonContext.Default.PlanningCapability));
         PlanningArtifactApproval.Verify(state); PlanningArtifactApproval.Verify(PlannerFixture.Clone(state));
         var estimates = runtime.Calls.Select(c => PlanningJsonTransport.EstimateInputTokens(c.Prompt, c.StructuredOutputSchema!.AsObject())).ToArray();
+        var baseline = Read("generic-presentation-baseline.json");
+        foreach (var call in runtime.Calls)
+        {
+            // Shorter instructions can admit more optional contracts. Compare
+            // presentation on the SAME context/admission, not different packing.
+            var pending = PlannerFixture.Clone(runtime.Checkpoints.First(s => s.PendingCall?.Request.ClientRequestId == call.ClientRequestId));
+            // Issuance has already charged this call. Reconstruct presentation at
+            // its original discovery boundary, immediately before that charge.
+            pending.PendingCall = null; pending.ModelCalls--;
+            if (pending.Usage is not null) pending.Usage = pending.Usage with { Calls = pending.ModelCalls };
+            var start = call.Prompt.IndexOf("\n{", StringComparison.Ordinal);
+            var context = TargetedDiscoveryTests.Context(call.Prompt);
+            var admitted = context["operations"]!.AsArray().Select(o => o!["id"]!.ToString()).ToHashSet(StringComparer.Ordinal);
+            var oldSchema = PlanningSchemas.Compact(PlanningSchemas.FullProposal(pending, compact: false, admitted: admitted),
+                compositionHints: true, interactionHints: PlanningClarifications.PreservesIntent(pending));
+            foreach (var entry in PlanningSchemaReferences.Walk(oldSchema, "", 0))
+                if (entry.Schema["description"]?.ToString().StartsWith("Non-executable obligations:", StringComparison.Ordinal) == true)
+                    entry.Schema["description"] = baseline["commitmentAnnotation"]!.ToString();
+            oldSchema = PlanningContractValidation.ProjectStructuredOutputSchema(oldSchema);
+            var oldPrefix = baseline[pending.Requirements is null ? "initial" : "accepted"]!.ToString();
+            var oldPrompt = oldPrefix + call.Prompt[start..];
+            var before = PlanningJsonTransport.EstimateInputTokens(oldPrompt, oldSchema);
+            var after = PlanningJsonTransport.EstimateInputTokens(call.Prompt, call.StructuredOutputSchema!.AsObject());
+            Assert.True(after <= before, $"Fixed-context request grew: {before} -> {after}");
+            output.WriteLine($"Fixed context {runtime.Calls.IndexOf(call) + 1}: estimate {before} -> {after}; shared bytes {Encoding.UTF8.GetByteCount(oldPrefix)} -> {Encoding.UTF8.GetByteCount(call.Prompt[..start])}; dynamic bytes={Encoding.UTF8.GetByteCount(call.Prompt[start..])}; schema bytes {Encoding.UTF8.GetByteCount(oldSchema.ToJsonString())} -> {Encoding.UTF8.GetByteCount(call.StructuredOutputSchema.ToJsonString())}.");
+        }
         Assert.All(estimates, n => Assert.InRange(n, 1, 24000));
         Assert.All(runtime.Calls.Take(6), c => Assert.InRange(PlanningJsonTransport.EstimateInputTokens(c.Prompt, c.StructuredOutputSchema!.AsObject()), 1, 21600));
         output.WriteLine($"Synthetic targeted continuation: calls={runtime.Calls.Count}, repairs={state.ReplanAttempts}, discovered=74, requested=10, metadata reads={catalog.Reads}, resolutions={catalog.Resolutions.Count} (unrecorded exact contracts unavailable={catalog.Unavailable}), input estimates=[{string.Join(',', estimates)}], cumulative={estimates.Sum()}, prompt bytes=[{string.Join(',', runtime.Calls.Select(c => Encoding.UTF8.GetByteCount(c.Prompt)))}], detailed counts=[{string.Join(',', runtime.Calls.Select(c => TargetedDiscoveryTests.Context(c.Prompt)["operations"]!.AsArray().Count))}]. Preserved all distractor metadata; exact resolution is limited to retained receipts. No live model or execution claim.");
@@ -78,7 +128,8 @@ public sealed class RecordedTargetedDiscoveryTests(ITestOutputHelper output)
             var before = PlanningJsonTransport.EstimateInputTokens(issued.Prompt, issued.StructuredOutputSchema!.AsObject());
             state.PendingCall = null; state.ModelCalls--; if (state.Usage is not null) state.Usage = state.Usage with { Calls = state.ModelCalls };
             var shortlist = HybridWorkflowPlanner.Shortlist(state); var prompt = HybridWorkflowPlanner.BuildPrompt(state, shortlist);
-            var after = PlanningJsonTransport.EstimateInputTokens(prompt, PlanningSchemas.Proposal(state));
+            var measured = new PlanningPrompt(state); prompt = measured.Build(shortlist);
+            var after = PlanningJsonTransport.EstimateInputTokens(prompt, measured.Schema);
             Assert.InRange(after, 1, 21600); beforeTotal += before; afterTotal += after;
             output.WriteLine($"Displacement request {++i}: input {before} -> {after}, bytes {Encoding.UTF8.GetByteCount(issued.Prompt)} -> {Encoding.UTF8.GetByteCount(prompt)}, detailed {TargetedDiscoveryTests.Context(issued.Prompt)["operations"]!.AsArray().Count} -> {TargetedDiscoveryTests.Context(prompt)["operations"]!.AsArray().Count}; pages={pages}.");
         }

@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Runtime;
@@ -17,8 +17,8 @@ public sealed class WorkflowValidator
     {
         "sequence", "parallel",
         "loop.sequential", "loop.parallel",
-        "agent.run", "array.project", "value.project", "number.add", "number.multiply", "number.default",
-        "switch", "decision.evaluate", "set", "value.validate", "assert.non_null",
+        "agent.run", "mapping.dynamic",
+        "switch", "set",
         "template.render",
         "llm.call",
         "workflow.call", "workflow.route", "workflow.plan", "workflow.execute",
@@ -89,7 +89,7 @@ public sealed class WorkflowValidator
 
     private void ValidateWorkflow(string name, WorkflowDef wf, WorkflowDocument doc, List<ValidationError> errors)
     {
-        if (wf.Steps.Count == 0)
+        if (wf.Steps.Count == 0 && wf.Outputs?.Values.Any(o => o.ExpressionContracts is { Count: > 0 }) != true)
             errors.Add(new ValidationError { Code = "EMPTY_STEPS", WorkflowName = name, Message = "Workflow has no steps" });
 
         // Check unique step IDs
@@ -112,6 +112,7 @@ public sealed class WorkflowValidator
                     ValidateExpression(outputDef.Expr, name, null, "outputs." + key, errors);
 
                 ValidateOutputDef(outputDef, name, key, errors);
+                ValidateOutputExpressionContracts(outputDef, name, key, errors, evaluatesExpression: true);
             }
         }
 
@@ -330,8 +331,28 @@ public sealed class WorkflowValidator
         return null;
     }
 
+    internal static bool IsRetiredStep(string type) => type is "number.add" or "number.multiply" or "number.default" or "value.project" or "assert.non_null" or "decision.evaluate" or "array.project" or "value.validate";
+
     private void ValidateStep(StepDef step, string wfName, WorkflowDocument doc, List<ValidationError> errors)
     {
+        try { ExpressionEvaluator.ValidateExpressionContracts(step.Input, step.ExpressionContracts); }
+        catch (Exception ex) when (ex is WorkflowRuntimeException or Acornima.ParseErrorException or ArgumentException)
+        {
+            errors.Add(new ValidationError { Code = ErrorCodes.InputValidation, WorkflowName = wfName, StepId = step.Id,
+                Field = "expression_contracts", Message = ex.Message });
+        }
+        try { ExpressionEvaluator.ValidateControlContracts(step); }
+        catch (Exception ex) when (ex is WorkflowRuntimeException or Acornima.ParseErrorException or ArgumentException)
+        {
+            errors.Add(new ValidationError { Code = ErrorCodes.InputValidation, WorkflowName = wfName, StepId = step.Id,
+                Field = "control_contracts", Message = ex.Message });
+        }
+        if (IsRetiredStep(step.Type))
+            errors.Add(new ValidationError
+            {
+                Code = ErrorCodes.StepTypeRetired, WorkflowName = wfName, StepId = step.Id,
+                Message = $"Retired step type '{step.Type}'. Revise the workflow using checked set expressions and switch, then approve a new artifact. Stored workflows and runs are not migrated automatically."
+            });
         // Known step type
         var isKnownStepType = _registry?.Has(step.Type) ?? KnownStepTypes.Contains(step.Type);
         if (!isKnownStepType)
@@ -460,11 +481,11 @@ public sealed class WorkflowValidator
     {
         if (step.OutputSchema == null)
         {
-            if (step.Type is "value.validate" or "array.project" or "value.project") errors.Add(new ValidationError { Code = ErrorCodes.InputValidation, WorkflowName = wfName, StepId = step.Id, Field = "output_schema", Message = "value.validate requires a literal output schema." });
+            if (step.Type is "mapping.dynamic") errors.Add(new ValidationError { Code = ErrorCodes.InputValidation, WorkflowName = wfName, StepId = step.Id, Field = "output_schema", Message = "mapping.dynamic requires a literal output schema." });
             return;
         }
 
-        if (step.Type is not ("set" or "value.validate" or "array.project" or "value.project"))
+        if (step.Type is not ("set" or "mapping.dynamic"))
         {
             errors.Add(new ValidationError
             {
@@ -472,7 +493,7 @@ public sealed class WorkflowValidator
                 WorkflowName = wfName,
                 StepId = step.Id,
                 Field = "output_schema",
-                Message = "output_schema is supported on set, value.validate and array.project steps."
+                Message = "output_schema is supported on set and mapping.dynamic steps."
             });
             return;
         }
@@ -870,6 +891,40 @@ public sealed class WorkflowValidator
 
         if (def.AdditionalProperties != null)
             ValidateOutputDef(def.AdditionalProperties, wfName, $"{path}.additional_properties", errors);
+    }
+
+    // Metadata must describe an expression that output evaluation actually reaches.
+    // A schema descriptor's items/properties are not separately evaluated when its
+    // enclosing output has an expr. Check metadata even beside an authoritative schema.
+    private static void ValidateOutputExpressionContracts(OutputDef def, string wfName, string path,
+        List<ValidationError> errors, bool evaluatesExpression)
+    {
+        if (def.ExpressionContracts is { } contracts)
+        {
+            try
+            {
+                if (!evaluatesExpression || string.IsNullOrWhiteSpace(def.Expr) || contracts.Count != 1 || !contracts.ContainsKey(""))
+                    throw new WorkflowRuntimeException(ErrorCodes.InputValidation, "Output expression_contracts must identify the complete expr using the root pointer.");
+                if (def.Schema is null && def.Type.Equals("any", StringComparison.OrdinalIgnoreCase))
+                    throw new WorkflowRuntimeException(ErrorCodes.InputValidation, "Checked outputs require a declared final schema or type.");
+                var finalSchema = JsonSchemaConverter.OutputDefToSchema(def, runtime: true);
+                if (JsonSchemaContractValidator.ValidateSchema(finalSchema, strictProfile: false) is { Count: > 0 } schemaErrors)
+                    throw new WorkflowRuntimeException(ErrorCodes.InputValidation, "Invalid checked output schema: " + string.Join("; ", schemaErrors));
+                ExpressionEvaluator.ValidateExpressionContracts(JsonValue.Create(def.Expr), contracts);
+            }
+            catch (Exception ex) when (ex is WorkflowRuntimeException or Acornima.ParseErrorException or ArgumentException)
+            {
+                errors.Add(new() { Code = ErrorCodes.InputValidation, WorkflowName = wfName, Field = "outputs." + path + ".expression_contracts", Message = ex.Message });
+            }
+        }
+        if (def.Properties is not null)
+            foreach (var (name, child) in def.Properties)
+                ValidateOutputExpressionContracts(child, wfName, path + ".properties." + name, errors,
+                    evaluatesExpression && string.IsNullOrEmpty(def.Expr));
+        if (def.Items is not null)
+            ValidateOutputExpressionContracts(def.Items, wfName, path + ".items", errors, evaluatesExpression: false);
+        if (def.AdditionalProperties is not null)
+            ValidateOutputExpressionContracts(def.AdditionalProperties, wfName, path + ".additional_properties", errors, evaluatesExpression: false);
     }
 
     private static void ValidateStringEnum(

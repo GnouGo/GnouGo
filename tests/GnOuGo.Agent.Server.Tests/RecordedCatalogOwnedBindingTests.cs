@@ -11,26 +11,16 @@ public sealed class RecordedCatalogOwnedBindingTests
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     [Fact]
-    public async Task OriginalResponsesRecoverWithOwnedAssignmentRejectedBeforeGraphEmission()
+    public async Task RetiredResponsesRequireRevisionAndRetainOriginalRequestsAndAccounting()
     {
-        var runtime = new Replay(); var planner = new HybridWorkflowPlanner(); PlanningSession? state = null;
-        foreach (var entry in runtime.Recording["responses"]!.AsArray())
+        var replay = new Replay();
+        foreach (var entry in replay.Recording["responses"]!.AsArray())
         {
-            runtime.Expected = entry!.AsObject(); var pending = runtime.State(entry["pendingSession"]!);
-            var before = JsonSerializer.Serialize(pending, PlanningJsonContext.Default.PlanningSession);
-            var usage = JsonSerializer.Serialize(pending.Usage, PlanningJsonContext.Default.LLMUsageBudgetSnapshot);
-            state = await planner.AdvanceAsync(pending, new() { ExpectedRevision = pending.Revision }, runtime, Ct);
-            Assert.Equal(pending.ModelCalls, state.ModelCalls); Assert.Equal(pending.ReplanAttempts, state.ReplanAttempts);
-            Assert.Equal(before, JsonSerializer.Serialize(pending, PlanningJsonContext.Default.PlanningSession));
-            Assert.Equal(usage, JsonSerializer.Serialize(state.Usage, PlanningJsonContext.Default.LLMUsageBudgetSnapshot));
-            Assert.Null(state.PendingCall); Assert.Null(state.Graph); Assert.Null(state.Yaml); Assert.Null(state.ApprovedHash);
-            if (state.ModelCalls < 7) Assert.Empty(state.Diagnostics);
-            else Assert.Contains(state.Diagnostics, d => d.Code == "TASK_INPUT_HOST_OWNED" && d.Location == "/tasks/run_project_checks/inputs/runner");
+            replay.Expected = entry!.AsObject();
+            var pending = replay.State(entry["pendingSession"]!);
+            await RecordedPlanCompilation.RetiredAsync(pending, replay);
         }
-        Assert.Equal(8, state!.ModelCalls); Assert.Equal(1, state.ReplanAttempts); Assert.Equal(8, runtime.Identities.Count);
-        state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
-        Assert.Equal(PlanningStatus.Stopped, state.Status); Assert.Contains(state.Diagnostics, d => d.Code == "LLM_BUDGET_EXCEEDED");
-        Assert.Contains(runtime.Recording["finalSession"]!["diagnostics"]!.AsArray(), d => d!["message"]!.ToString().StartsWith("CAPABILITY_BINDING_OVERRIDE:", StringComparison.Ordinal));
+        Assert.Empty(replay.Identities);
     }
 
     [Fact]
@@ -38,11 +28,14 @@ public sealed class RecordedCatalogOwnedBindingTests
     {
         var runtime = new Replay(); var retained = runtime.State(runtime.Recording["finalSession"]!);
         // A new synthetic session, not a restart or budget reset of the real run.
-        var state = new PlanningSession { Request = retained.Request, Requirements = retained.Requirements,
+        var state = new PlanningSession { IntentVersion = 2, Request = retained.Request, Requirements = retained.Requirements,
             Catalog = retained.Catalog, Discovery = retained.Discovery };
+        state.Requirements!.Inputs = retained.Plan!.Inputs;
         state.Request.SessionId = "synthetic-owned-omission";
         // Reuse metadata receipts, not the stopped session's model inspection selections.
         state.Discovery.Inspections = null;
+        // This fresh fixture explicitly budgets the full typed contracts; the historical limit remains in the recording.
+        state.Request.Generation.MaxInputTokensPerRequest = 32768;
         var original = runtime.Recording["responses"]!.AsArray()[7]!["response"]!["json"]!["plan"]!.DeepClone();
         var expected = original.DeepClone();
         var task = expected["root"]!["tasks"]!.AsArray().Single(t => t!["id"]!.ToString() == "run_project_checks")!;
@@ -104,7 +97,13 @@ public sealed class RecordedCatalogOwnedBindingTests
         public Task<PlanningCapability> ResolveAsync(CapabilitySummary summary, CancellationToken ct) => Task.FromResult(Discovery.Resolved.Single(c => c.Id == summary.Id && c.Version == summary.Version));
         public Task<LLMResponse> CallAsync(LLMRequest request, string purpose, CancellationToken ct)
         {
-            if (Expected is null) { Identities.Add(request.ClientRequestId!); return Task.FromResult(new LLMResponse { Json = FileData("synthetic-owned-omission")["proposal"]!.DeepClone() }); }
+            if (Expected is null)
+            {
+                Identities.Add(request.ClientRequestId!);
+                var proposal = FileData("synthetic-owned-omission")["proposal"]!.DeepClone().AsObject();
+                proposal["clarifications"] = null; // New synthetic response; retained issued responses remain unchanged.
+                return Task.FromResult(new LLMResponse { Json = GnOuGo.Planning.Examples.PlanningCorpus.Transport(proposal, request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject()) });
+            }
             var issued = Expected["pendingSession"]!["pendingCall"]!;
             Assert.Equal(issued["id"]!.ToString(), request.ClientRequestId);
             Assert.Equal(issued["request"]!["prompt"]!.ToString(), request.Prompt);

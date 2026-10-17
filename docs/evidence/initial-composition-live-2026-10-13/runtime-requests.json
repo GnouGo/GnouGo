@@ -1,0 +1,303 @@
+[
+  {
+    "invocation": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/1/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_2f35e363cec94d09/mapping/0",
+    "kind": "mapping",
+    "status": "completed",
+    "completion_observed": true,
+    "prompt_bytes": 49892,
+    "provider_input_tokens": 17404,
+    "provider_output_tokens": 3364,
+    "input_fields": null,
+    "candidate_count": null,
+    "output_sha256": "5479d1843378d3f0500bd754b4f59d20527116fdfeafae3515458fe496cc4349"
+  },
+  {
+    "invocation": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/0/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_2f35e363cec94d09/mapping/0",
+    "kind": "mapping",
+    "status": "completed",
+    "completion_observed": true,
+    "prompt_bytes": 57360,
+    "provider_input_tokens": 20444,
+    "provider_output_tokens": 3323,
+    "input_fields": null,
+    "candidate_count": null,
+    "output_sha256": "af7bd01f3169c7fb5d75fe2930d8e316cdb8909bb05e1a4e1ab42ac51756494d"
+  },
+  {
+    "invocation": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/6/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_2f35e363cec94d09/mapping/0",
+    "kind": "mapping",
+    "status": "completed",
+    "completion_observed": true,
+    "prompt_bytes": 55390,
+    "provider_input_tokens": 21096,
+    "provider_output_tokens": 3383,
+    "input_fields": null,
+    "candidate_count": null,
+    "output_sha256": "e4e041a5a4cf4129ad4eb40f1bc1e7c544cbe4f10510f64a31732b986e39e175"
+  },
+  {
+    "invocation": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/8/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_2f35e363cec94d09/mapping/0",
+    "kind": "mapping",
+    "status": "completed",
+    "completion_observed": true,
+    "prompt_bytes": 60221,
+    "provider_input_tokens": 22122,
+    "provider_output_tokens": 2818,
+    "input_fields": null,
+    "candidate_count": null,
+    "output_sha256": "060f487977a66a66dc1e01ff3f99aec078cd23ffc0d577c5c81b670ddfa76ae8"
+  },
+  {
+    "invocation": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/1/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_792f841d2de3fb2a",
+    "kind": "interpretation",
+    "status": "completed",
+    "completion_observed": true,
+    "prompt_bytes": 5066,
+    "provider_input_tokens": 1640,
+    "provider_output_tokens": 294,
+    "input_fields": [
+      "offeredFactCandidates"
+    ],
+    "candidate_count": 29,
+    "output_sha256": "ac367a381c59158df68ae299b0498d0b931c8a25d346eedc93ef6ebddfd9af36"
+  },
+  {
+    "invocation": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/7/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_2f35e363cec94d09/mapping/0",
+    "kind": "mapping",
+    "status": "completed",
+    "completion_observed": true,
+    "prompt_bytes": 56585,
+    "provider_input_tokens": 20831,
+    "provider_output_tokens": 2741,
+    "input_fields": null,
+    "candidate_count": null,
+    "output_sha256": "cd16c4d404b25100bf73411ab50b742ba335e23441402aed59182cb69f74c72c"
+  },
+  {
+    "invocation": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/2/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_2f35e363cec94d09/mapping/0",
+    "kind": "mapping",
+    "status": "completed",
+    "completion_observed": true,
+    "prompt_bytes": 52833,
+    "provider_input_tokens": 18669,
+    "provider_output_tokens": 2350,
+    "input_fields": null,
+    "candidate_count": null,
+    "output_sha256": "b24c81a0cdfeb0a84f830be5211d79bf7b8be84f41f435e9c11746f1a6e35a6c"
+  },
+  {
+    "invocation": "/workflow/main/step/n_3981b1c1638bb00a",
+    "kind": "interpretation",
+    "status": "completed",
+    "completion_observed": true,
+    "prompt_bytes": 473,
+    "provider_input_tokens": 125,
+    "provider_output_tokens": 132,
+    "input_fields": [
+      "query"
+    ],
+    "candidate_count": 0,
+    "output_sha256": "3fd54ff966efbe9a970a04c18cab405c42b6f0878728e11a5f938e4e43e865a3"
+  },
+  {
+    "invocation": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/6/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_792f841d2de3fb2a",
+    "kind": "interpretation",
+    "status": "completed",
+    "completion_observed": true,
+    "prompt_bytes": 6086,
+    "provider_input_tokens": 2422,
+    "provider_output_tokens": 323,
+    "input_fields": [
+      "offeredFactCandidates"
+    ],
+    "candidate_count": 41,
+    "output_sha256": "b7bf369fc85b15bf7cc22ef112d7411469059afb11e2c663e5434b59fa6515fe"
+  },
+  {
+    "invocation": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/5/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_792f841d2de3fb2a",
+    "kind": "interpretation",
+    "status": "completed",
+    "completion_observed": true,
+    "prompt_bytes": 5445,
+    "provider_input_tokens": 1881,
+    "provider_output_tokens": 233,
+    "input_fields": [
+      "offeredFactCandidates"
+    ],
+    "candidate_count": 36,
+    "output_sha256": "77a67db0437be1012f439a2961fed9862d5fef0c492129f244d5e838add5fa04"
+  },
+  {
+    "invocation": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/3/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_2f35e363cec94d09/mapping/0",
+    "kind": "mapping",
+    "status": "completed",
+    "completion_observed": true,
+    "prompt_bytes": 52137,
+    "provider_input_tokens": 18506,
+    "provider_output_tokens": 4342,
+    "input_fields": null,
+    "candidate_count": null,
+    "output_sha256": "b3f61e2effe4915fd4fc996dc3367dd6d488ab900f99468fd283bcaf0e52e064"
+  },
+  {
+    "invocation": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/4/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_792f841d2de3fb2a",
+    "kind": "interpretation",
+    "status": "completed",
+    "completion_observed": true,
+    "prompt_bytes": 11089,
+    "provider_input_tokens": 4035,
+    "provider_output_tokens": 310,
+    "input_fields": [
+      "offeredFactCandidates"
+    ],
+    "candidate_count": 69,
+    "output_sha256": "1c34285a40d2b4a1584dd2111c8aa12674980f6ba30dd8903910d25d4715ddf7"
+  },
+  {
+    "invocation": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/3/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_792f841d2de3fb2a",
+    "kind": "interpretation",
+    "status": "completed",
+    "completion_observed": true,
+    "prompt_bytes": 9015,
+    "provider_input_tokens": 3345,
+    "provider_output_tokens": 488,
+    "input_fields": [
+      "offeredFactCandidates"
+    ],
+    "candidate_count": 65,
+    "output_sha256": "8b6ab05223a1e113862e37724634ed6482bd4075e2e6a5c43db9a4a2a02f5031"
+  },
+  {
+    "invocation": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/2/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_792f841d2de3fb2a",
+    "kind": "interpretation",
+    "status": "completed",
+    "completion_observed": true,
+    "prompt_bytes": 4755,
+    "provider_input_tokens": 1560,
+    "provider_output_tokens": 342,
+    "input_fields": [
+      "offeredFactCandidates"
+    ],
+    "candidate_count": 26,
+    "output_sha256": "4069b5224ab1919ff1a82a008d027bccdce6e830c76493d82c8694e7e6ea447a"
+  },
+  {
+    "invocation": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/7/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_792f841d2de3fb2a",
+    "kind": "interpretation",
+    "status": "completed",
+    "completion_observed": true,
+    "prompt_bytes": 6334,
+    "provider_input_tokens": 2265,
+    "provider_output_tokens": 591,
+    "input_fields": [
+      "offeredFactCandidates"
+    ],
+    "candidate_count": 40,
+    "output_sha256": "d99d75c755ccb95377dd9d21567855dd294e53317ff367e8f848b51483714075"
+  },
+  {
+    "invocation": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/9/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_2f35e363cec94d09/mapping/0",
+    "kind": "mapping",
+    "status": "completed",
+    "completion_observed": true,
+    "prompt_bytes": 49997,
+    "provider_input_tokens": 18218,
+    "provider_output_tokens": 2767,
+    "input_fields": null,
+    "candidate_count": null,
+    "output_sha256": "cd8c6b96663b637c312400795b63dbb670f270aa9c7801ae4a9418f627dba03f"
+  },
+  {
+    "invocation": "/workflow/main/step/n_5e49c52363204f12",
+    "kind": "interpretation",
+    "status": "completed",
+    "completion_observed": true,
+    "prompt_bytes": 10232,
+    "provider_input_tokens": 3788,
+    "provider_output_tokens": 738,
+    "input_fields": [
+      "offeredCandidates",
+      "query"
+    ],
+    "candidate_count": 93,
+    "output_sha256": "c17af6d041d5392198992cf1171fab8100fb6846875b99019697b7bbe107e05b"
+  },
+  {
+    "invocation": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/0/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_792f841d2de3fb2a",
+    "kind": "interpretation",
+    "status": "completed",
+    "completion_observed": true,
+    "prompt_bytes": 5585,
+    "provider_input_tokens": 1892,
+    "provider_output_tokens": 405,
+    "input_fields": [
+      "offeredFactCandidates"
+    ],
+    "candidate_count": 29,
+    "output_sha256": "bca1885e6bb1e74e9d2a26c0ec2482ab097c7ba628d6a06f117453c444aceb8e"
+  },
+  {
+    "invocation": "/workflow/main/step/n_aef52e4edfaae17a/mapping/0",
+    "kind": "mapping",
+    "status": "completed",
+    "completion_observed": true,
+    "prompt_bytes": 73237,
+    "provider_input_tokens": 36551,
+    "provider_output_tokens": 1676,
+    "input_fields": null,
+    "candidate_count": null,
+    "output_sha256": "da7646ed2b892dd847b023bebd31633a5199f66fcace2b39cefc837a65c73a7c"
+  },
+  {
+    "invocation": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/8/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_792f841d2de3fb2a",
+    "kind": "interpretation",
+    "status": "completed",
+    "completion_observed": true,
+    "prompt_bytes": 10801,
+    "provider_input_tokens": 4106,
+    "provider_output_tokens": 228,
+    "input_fields": [
+      "offeredFactCandidates"
+    ],
+    "candidate_count": 66,
+    "output_sha256": "568e8b39ef121ad835cd20a26d09fbca38d4c79ad4c746b2134445f0b6edfbba"
+  },
+  {
+    "invocation": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/5/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_2f35e363cec94d09/mapping/0",
+    "kind": "mapping",
+    "status": "completed",
+    "completion_observed": true,
+    "prompt_bytes": 58713,
+    "provider_input_tokens": 21382,
+    "provider_output_tokens": 2895,
+    "input_fields": null,
+    "candidate_count": null,
+    "output_sha256": "db94d3e683f37e60a26ab3d1f3101c4fd3d5d45ffdbccb6c5ee22824bfedd50c"
+  },
+  {
+    "invocation": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/9/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_792f841d2de3fb2a",
+    "kind": "interpretation",
+    "status": "completed",
+    "completion_observed": true,
+    "prompt_bytes": 11666,
+    "provider_input_tokens": 4328,
+    "provider_output_tokens": 284,
+    "input_fields": [
+      "offeredFactCandidates"
+    ],
+    "candidate_count": 73,
+    "output_sha256": "67d818c59c7d2ea67057afc95432eec1d8c402199a73ffebcae2f45f59e76a3f"
+  },
+  {
+    "invocation": "/workflow/main/step/n_057d824b69e5f524/workflow/w_140c8168f463251f/step/n_c34bbb42dced8624/iteration/4/step/n_0751e20f30b05ee0/workflow/w_2c49185f0a169198/step/n_2f35e363cec94d09/mapping/0",
+    "kind": "mapping",
+    "status": "completed",
+    "completion_observed": true,
+    "prompt_bytes": 51794,
+    "provider_input_tokens": 18824,
+    "provider_output_tokens": 671,
+    "input_fields": null,
+    "candidate_count": null,
+    "output_sha256": "776805e9c554350abd43f24f8e2e362dab7bb35820054ee0f81808b8b81af6c6"
+  }
+]

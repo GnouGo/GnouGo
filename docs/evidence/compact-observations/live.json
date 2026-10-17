@@ -1,0 +1,148 @@
+{
+  "source_sha": "a16f12a3f8e838c72c9d235fd98f33e2b886caa0",
+  "harness_sha": "a16f12a3f8e838c72c9d235fd98f33e2b886caa0",
+  "model": "gpt-5.5-2026-04-24",
+  "provider_policy_hash": "7a7fec4a3c4569be8862a2a27f071dcc6a4d080f76f86d11d40a47e9cdf85486",
+  "profile": 4,
+  "model_attempts_per_mapping": 2,
+  "reasoning": "medium",
+  "planning_input_limit": 96000,
+  "planning_output_limit": 32768,
+  "planning_attempt_limit": 8,
+  "planning_repair_limit": 2,
+  "mapping_output_limit": 8192,
+  "environment": "macOS 26.5.2; .NET 10.0.8",
+  "corpus_hash": "eb05efbd5854bfffabe2f9e5ac7998ae1ef26d2fed9acdaac91c866842d1a302",
+  "catalog_hash": "e74412e3896922823aaa119170bfcd7616cad0af719cb52a48ce8962f4635fda",
+  "planning_ms": 1215369,
+  "planning_calls": 1,
+  "repairs": 0,
+  "discovery_reads": 1,
+  "passed": false,
+  "failure_type": "InvalidOperationException",
+  "failure": "Planning did not reach final review: stopped",
+  "campaign": "schema-portability-20261002",
+  "run": "observations1-mapping",
+  "classification": "external provider routing failure followed by unverified transport completion",
+  "http_attempts": [
+    {
+      "Id": "observations1-mapping:1:observations1-mapping-plan:1:dbfe9974cd61088546ba1b389abf828515fb805417762f5e49be28f4154ed0d3:bae16f323aaf4b87931365f95b9403dc",
+      "Status": 500,
+      "response_keys": [
+        "errorCode",
+        "errorMessage",
+        "errorDetail"
+      ],
+      "errorCode": "ESG120",
+      "errorMessage": "Routing failed"
+    },
+    {
+      "Id": "observations1-mapping:1:observations1-mapping-plan:1:dbfe9974cd61088546ba1b389abf828515fb805417762f5e49be28f4154ed0d3:96c48ad34c2e44aaad5aa0a7aafedfbc",
+      "Status": 500,
+      "response_keys": [
+        "errorCode",
+        "errorMessage",
+        "errorDetail"
+      ],
+      "errorCode": "ESG120",
+      "errorMessage": "Routing failed"
+    },
+    {
+      "Id": "observations1-mapping:1:observations1-mapping-plan:1:dbfe9974cd61088546ba1b389abf828515fb805417762f5e49be28f4154ed0d3:a15ef22a20504e25bc5948d9cb32e51d",
+      "Status": 500,
+      "response_keys": [
+        "errorCode",
+        "errorMessage",
+        "errorDetail"
+      ],
+      "errorCode": "ESG120",
+      "errorMessage": "Routing failed"
+    },
+    {
+      "Id": "observations1-mapping:1:observations1-mapping-plan:1:dbfe9974cd61088546ba1b389abf828515fb805417762f5e49be28f4154ed0d3:8a47fe2f55374613a6252d1206dbe6c8"
+    }
+  ],
+  "session": {
+    "session_status": "stopped",
+    "diagnostics": [
+      {
+        "code": "MODEL_DISPATCH_UNVERIFIABLE",
+        "location": "/",
+        "message": "The model request has no retained completion (Transport; retryable: true). Usage remains unconfirmed.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      }
+    ]
+  },
+  "usage": {
+    "verified_receipts": 0,
+    "input_tokens": null,
+    "output_tokens": null,
+    "new_verified_cost_eur": null,
+    "accounting_before": {
+      "calls": 360,
+      "session_calls": 0,
+      "known_input_tokens": 5057721,
+      "known_output_tokens": 485931,
+      "known_cost_eur": 35.453888380031394,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "cost_upper_bound_eur": 35.453888380031394,
+      "unknown_attempts": 0
+    },
+    "accounting_after": {
+      "calls": 364,
+      "session_calls": 0,
+      "known_input_tokens": 5057721,
+      "known_output_tokens": 485931,
+      "known_cost_eur": 35.453888380031394,
+      "reserved_input_tokens": 96000,
+      "reserved_output_tokens": 32768,
+      "reserved_cost_eur": 1.3033763919821826,
+      "cost_upper_bound_eur": 36.75726477201357,
+      "unknown_attempts": 1
+    }
+  },
+  "untyped_matrix": {
+    "planned_cases": 9,
+    "executed_cases": 0,
+    "passing_oracles": 0,
+    "status": "incomplete; planning stopped before execution"
+  },
+  "existing_live_cohort": {
+    "amazon": {
+      "planned": 3,
+      "started": 0,
+      "passing_oracles": 0
+    },
+    "code": {
+      "planned": 3,
+      "started": 0,
+      "passing_oracles": 0
+    },
+    "reason": "Further dispatch stopped after repeated provider gateway failures. No live workflow was executed."
+  },
+  "readiness": {
+    "browser_local_page": true,
+    "browser_cleanup": true,
+    "xlsx_independent_read": true,
+    "code_mcp_discovery": true,
+    "node": "24.20.0",
+    "pnpm": "10.14.0",
+    "python": "3.11.13",
+    "model_calls": 0
+  },
+  "saved_workflows_modified": false,
+  "uncertain_invocations_reconciled": false,
+  "github_reviews_published": false,
+  "next_collection": "Restore the pinned provider gateway route, retain unknown usage, then collect a fresh cohort. Do not replay the unresolved request automatically.",
+  "log_sha256": {
+    "mapping1.log": "5b0cb435fdfda0ca51b045ee5c47c26d657e3f0c0e37ef5389b0d700e45d2931",
+    "mapping-report.json": "862739ec90bec6223fc93757db4a1f9c8b34d7792f2b7cac124949bfb27ac0d8",
+    "http-status-final.json": "72ebb91a96d4cebdc94b6e3d5852ed38cd397f2880ff9e8b27e628916a0a4b98",
+    "ledger-final.json": "42798dd3f1c6e3886ed9b9698559e5cdc290dfa90efe7ea59ca8bce729fc0e79",
+    "terminal-diagnostics.json": "32293f15ea7704d4dfe01056f6f52bba2a4925ded7b0d8bcbd1bc201447db4c1"
+  }
+}

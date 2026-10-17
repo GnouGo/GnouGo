@@ -1,0 +1,369 @@
+{
+  "run": "repairvocabulary20261009a-amazon-1",
+  "candidate": "99cc3dcaa56755be2de7de7cafb6ffd32b7a5e11",
+  "approved_revision": 11,
+  "artifact_hash": "a9fc1508a7c623cfb3140ed846c7755e2538c537921e931c18df0a0d32b5d058",
+  "saved_yaml_sha256": "3e65ca79d5d1cfd70d951057087c3967e4665ca5799191fbccdfe827bf3ff27a",
+  "saved_yaml_unchanged": true,
+  "execution_count": 1,
+  "result": {
+    "status": "final_review",
+    "planning_ms": 567675,
+    "calls": 7,
+    "repairs": 1,
+    "discovery_reads": 2,
+    "review_revisions": 4,
+    "diagnostics": [],
+    "execution_success": false,
+    "execution_oracle": false,
+    "execution_status": "completed",
+    "accounting": {
+      "planning": {
+        "logical_calls": 7,
+        "physical_attempts": 8,
+        "known_input_tokens": 73940,
+        "known_output_tokens": 17838,
+        "known_cost_eur": 0.8029461354157423,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "execution": {
+        "logical_calls": 3,
+        "physical_attempts": 3,
+        "known_input_tokens": 33702,
+        "known_output_tokens": 5266,
+        "known_cost_eur": 0.28972402165232053,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "campaign": {
+        "calls": 950,
+        "session_calls": 0,
+        "known_input_tokens": 13867821,
+        "known_output_tokens": 1945047,
+        "known_cost_eur": 113.60751203306981,
+        "reserved_input_tokens": 480000,
+        "reserved_output_tokens": 163840,
+        "reserved_cost_eur": 6.501614794790526,
+        "cost_upper_bound_eur": 120.10912682786034,
+        "unknown_attempts": 5
+      }
+    },
+    "execution_ms": 105201,
+    "total_ms": 672876
+  },
+  "execution": {
+    "success": false,
+    "outputs": null,
+    "error": {
+      "Code": "INPUT_VALIDATION",
+      "Type": "INPUT_VALIDATION",
+      "Message": "set output does not satisfy output_schema: $.value: value is not included in enum; received false; allowed values: true [workflow 'main', step 'n_ed27e42a862310f9']",
+      "Retryable": false,
+      "Details": {
+        "compiled_node": "v1",
+        "location": "task_687b7a3fd27057feb09c689e",
+        "failed_workflow": "main",
+        "failed_step_id": "n_ed27e42a862310f9",
+        "failed_step_type": "workflow.call",
+        "execution_phase": "step"
+      }
+    }
+  },
+  "oracle": {
+    "passed": false,
+    "findings": [
+      "workflow_execution_failed",
+      "workbook_missing"
+    ]
+  },
+  "snapshot": {
+    "pages": 50,
+    "records": 1530,
+    "matching_snapshot_ids": true,
+    "capture_truncated": false,
+    "manifest_truncated": false,
+    "all_pages_complete": true,
+    "acquisition": {
+      "attempts": 1,
+      "invalidations": [],
+      "navigation": {
+        "generation": 4,
+        "url": "https://www.amazon.fr/s?k=chaussure+geox+homme+45",
+        "title": "Amazon.fr : chaussure geox homme 45",
+        "method": null,
+        "statusCode": null
+      },
+      "lastResponse": {
+        "url": "https://www.amazon.fr/s?k=chaussure+geox+homme+45",
+        "method": "GET",
+        "statusCode": 200
+      }
+    }
+  },
+  "mapping_telemetry": [
+    {
+      "gnougo.mapping.source_items": 50,
+      "gnougo.mapping.model_attempts": 1,
+      "gnougo.mapping.specializations": 0,
+      "gnougo.mapping.cache_hits": 0,
+      "gnougo.mapping.cache_hit": false,
+      "gnougo.mapping.failure_groups": 8,
+      "gnougo.mapping.sample_items": 2,
+      "gnougo.mapping.omitted_items": 48,
+      "gnougo.mapping.request_bytes": 49604,
+      "gnougo.mapping.program_repairs": 0,
+      "gnougo.mapping.processed_items": 50,
+      "gnougo.mapping.validated_items": 50,
+      "gnougo.mapping.sandbox.statements": 3500,
+      "gnougo.mapping.sandbox.statement_limit": 10000,
+      "gnougo.mapping.sandbox.elapsed_ms": 32.4143,
+      "gnougo.mapping.sandbox.time_limit_ms": 5000,
+      "gnougo.mapping.sandbox.allocated_bytes": 14365736,
+      "gnougo.mapping.sandbox.materialized_bytes": 5791503,
+      "gnougo.mapping.sandbox.output_bytes": 35247,
+      "gnougo.mapping.sandbox.memory_limit_bytes": 50000000,
+      "gnougo.mapping.sandbox.nesting_depth": 4,
+      "gnougo.mapping.sandbox.nesting_limit": 64,
+      "step": "n_99222e8a56bea265",
+      "status": "Succeeded",
+      "duration_ms": 64357.6551
+    }
+  ],
+  "mapping_usage": {
+    "input_tokens": 19558,
+    "output_tokens": 4361,
+    "total_tokens": 23919,
+    "benchmark_cost_eur": 0.20287514420090513,
+    "transport_attempts": 1,
+    "uncertain_attempts": 0,
+    "reserved_input_tokens": 0,
+    "reserved_output_tokens": 0,
+    "reserved_cost_eur": 0,
+    "benchmark_usage_bounded": true
+  },
+  "compact_decision": {
+    "page_views": 50,
+    "candidates": 273,
+    "evidence_records": 17,
+    "input_fields": [
+      "candidates",
+      "blockingEvidence"
+    ],
+    "candidate_fields": [
+      "candidateId",
+      "nameText"
+    ],
+    "all_candidates_supplied": true,
+    "raw_observation_supplied": false,
+    "prompt_utf8_bytes": 33971,
+    "json_response": {
+      "blocked": true,
+      "blockage": "Cookies et choix publicitaires",
+      "selectedIds": [
+        "449d8a57269c418c9b3549db03b0bd2f:record:88",
+        "449d8a57269c418c9b3549db03b0bd2f:record:109",
+        "449d8a57269c418c9b3549db03b0bd2f:record:125",
+        "449d8a57269c418c9b3549db03b0bd2f:record:140",
+        "449d8a57269c418c9b3549db03b0bd2f:record:156",
+        "449d8a57269c418c9b3549db03b0bd2f:record:172",
+        "449d8a57269c418c9b3549db03b0bd2f:record:185",
+        "449d8a57269c418c9b3549db03b0bd2f:record:204",
+        "449d8a57269c418c9b3549db03b0bd2f:record:232",
+        "449d8a57269c418c9b3549db03b0bd2f:record:251"
+      ]
+    },
+    "usage": {
+      "input_tokens": 14026,
+      "output_tokens": 792,
+      "total_tokens": 14818,
+      "benchmark_cost_eur": 0.08331706451326648,
+      "transport_attempts": 1,
+      "uncertain_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "benchmark_usage_bounded": true
+    },
+    "selected_ids_offered_and_observed": true
+  },
+  "journal": {
+    "status": "failed",
+    "revision": 58,
+    "steps_started": 13,
+    "finalization_steps_started": 1,
+    "finalization_completed": true
+  },
+  "invocations": [
+    {
+      "id": "/workflow/main/step/n_18ee0a0e0ef8ecba",
+      "type": "template.render",
+      "status": "completed",
+      "finalizer": false,
+      "completion_observed": true
+    },
+    {
+      "id": "/workflow/main/step/n_3981b1c1638bb00a",
+      "type": "llm.call",
+      "status": "completed",
+      "finalizer": false,
+      "completion_observed": true
+    },
+    {
+      "id": "/workflow/main/step/n_7e7712e3f3c26f10",
+      "type": "mcp.call",
+      "status": "completed",
+      "finalizer": false,
+      "completion_observed": true
+    },
+    {
+      "id": "/workflow/main/step/n_2438934a729741a1",
+      "type": "set",
+      "status": "completed",
+      "finalizer": false,
+      "completion_observed": true
+    },
+    {
+      "id": "/workflow/main/step/n_41c2f1ce06f090f8",
+      "type": "switch",
+      "status": "completed",
+      "finalizer": false,
+      "completion_observed": true
+    },
+    {
+      "id": "/workflow/main/step/n_41c2f1ce06f090f8/case/0/step/n_437793013dc1b17c",
+      "type": "set",
+      "status": "completed",
+      "finalizer": false,
+      "completion_observed": true
+    },
+    {
+      "id": "/workflow/main/step/n_41c2f1ce06f090f8/case/0/step/n_ab08f19f0a6c3b61",
+      "type": "set",
+      "status": "completed",
+      "finalizer": false,
+      "completion_observed": true
+    },
+    {
+      "id": "/workflow/main/step/n_c6df670b9d5a4837",
+      "type": "set",
+      "status": "completed",
+      "finalizer": false,
+      "completion_observed": true
+    },
+    {
+      "id": "/workflow/main/step/n_99222e8a56bea265",
+      "type": "mapping.dynamic",
+      "status": "completed",
+      "finalizer": false,
+      "completion_observed": true
+    },
+    {
+      "id": "/workflow/main/step/n_99222e8a56bea265/mapping/0",
+      "type": "llm.call",
+      "status": "completed",
+      "finalizer": false,
+      "completion_observed": true
+    },
+    {
+      "id": "/workflow/main/step/n_46e8b2c77dd204f8",
+      "type": "set",
+      "status": "completed",
+      "finalizer": false,
+      "completion_observed": true
+    },
+    {
+      "id": "/workflow/main/step/n_da0cc17ad7653ff8",
+      "type": "template.render",
+      "status": "completed",
+      "finalizer": false,
+      "completion_observed": true
+    },
+    {
+      "id": "/workflow/main/step/n_ff7ed9a0e3dd66d7",
+      "type": "llm.call",
+      "status": "completed",
+      "finalizer": false,
+      "completion_observed": true
+    },
+    {
+      "id": "/workflow/main/finally/step/n_74bb86b6b29fd7c5",
+      "type": "mcp.call",
+      "status": "completed",
+      "finalizer": true,
+      "completion_observed": true
+    }
+  ],
+  "runtime_requests": [
+    {
+      "invocation": "/workflow/main/step/n_ff7ed9a0e3dd66d7",
+      "status": "completed",
+      "observed_completion": true,
+      "estimated_prompt_tokens": 21560,
+      "model_calls": 0,
+      "inspection_only": true
+    },
+    {
+      "invocation": "/workflow/main/step/n_3981b1c1638bb00a",
+      "status": "completed",
+      "observed_completion": true,
+      "estimated_prompt_tokens": 4204,
+      "model_calls": 0,
+      "inspection_only": true
+    },
+    {
+      "invocation": "/workflow/main/step/n_99222e8a56bea265/mapping/0",
+      "status": "completed",
+      "observed_completion": true,
+      "estimated_prompt_tokens": 28505,
+      "model_calls": 0,
+      "inspection_only": true
+    }
+  ],
+  "external_events": [
+    {
+      "tool": "browser_get_content",
+      "is_error": false,
+      "success": true,
+      "error_code": null,
+      "error_message": null,
+      "latency_ms": 8995
+    },
+    {
+      "tool": "browser_close",
+      "is_error": false,
+      "success": true,
+      "error_code": null,
+      "error_message": null,
+      "latency_ms": 1050
+    },
+    {
+      "tool": "browser_get_content",
+      "is_error": true,
+      "success": false,
+      "error_code": "INVALID_INPUT",
+      "error_message": "InvalidOperationException: No active page. Call browser_get_content with url first.",
+      "latency_ms": 1
+    },
+    {
+      "tool": "browser_close",
+      "is_error": false,
+      "success": true,
+      "error_code": null,
+      "error_message": null,
+      "latency_ms": 1002
+    }
+  ],
+  "product_visits": 0,
+  "writer_calls": 0,
+  "workbook_exists": false,
+  "browser_cleanup_verified": true,
+  "new_unknown_completion": false,
+  "diagnosis": "The decision response classifies observed consent text as a blocking condition. The retained observation proves presence, not that authorized navigation was prevented. No product action was attempted. The unchanged requires assertion correctly rejects blocked=true before product visits.",
+  "next_correction_proposal": "Separate descriptive observations from verified inability to perform an authorized action. Preserve source-grounded extraction and producer errors; do not equate a banner heading or generic LLM classification with operational failure. Add a generic non-blocking-notice versus actual denied/blocked-action regression before revising and reapproving a future artifact.",
+  "no_retry_or_source_change": true
+}

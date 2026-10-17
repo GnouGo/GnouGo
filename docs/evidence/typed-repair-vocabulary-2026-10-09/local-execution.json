@@ -1,0 +1,16 @@
+{
+  "results": [
+    {
+      "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RetainedCompositionVisitsProductsAndWritesIndependentlyCheckedExcel(variant: \"typed-lookup-repair\")",
+      "outcome": "Passed",
+      "duration": "00:01:31.4960000",
+      "observations": "RETAINED typed-lookup-repair: success=True; planningCalls=2; repairs=1; planningMs=58901,0; executionMs=17826,6; yamlBytes=195479; mappingCalls=13; unsampledPages=21; interpretationCalls=15; requestEstimates=[6885,4548,6905,4549,6800,5270,6769,4666,6769,4670,6465,4576,6756,4664,6763,4668,6751,4660,6755,4660,6770,4671,6796,4683,6793,4686,4571,7491]; invocations=233; steps=232; cleanupSteps=1; journalBytes=44869403; error= \nCOVERAGE typed-lookup-repair: pages=43; records=77; offered=12; selected=10; typedProjectionCalls=0; normalizationCalls=0\nORACLE typed-lookup-repair: cellsMatch=True; firstTenVisits=True; workbookRows=11; browserClosed=true; noUnresolvedReceipts=true"
+    },
+    {
+      "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RetainedCompositionVisitsProductsAndWritesIndependentlyCheckedExcel(variant: \"typed-repair\")",
+      "outcome": "Passed",
+      "duration": "00:01:28.2450000",
+      "observations": "RETAINED typed-repair: success=True; planningCalls=2; repairs=1; planningMs=57398,3; executionMs=16348,8; yamlBytes=195479; mappingCalls=13; unsampledPages=21; interpretationCalls=15; requestEstimates=[6893,4550,6904,4544,6811,5285,6755,4663,6754,4663,6449,4566,6776,4675,6746,4656,6754,4664,6749,4660,6748,4656,6786,4679,6756,4664,4571,7491]; invocations=233; steps=232; cleanupSteps=1; journalBytes=44837288; error= \nCOVERAGE typed-repair: pages=43; records=77; offered=12; selected=10; typedProjectionCalls=0; normalizationCalls=0\nORACLE typed-repair: cellsMatch=True; firstTenVisits=True; workbookRows=11; browserClosed=true; noUnresolvedReceipts=true"
+    }
+  ]
+}

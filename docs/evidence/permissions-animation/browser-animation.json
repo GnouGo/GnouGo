@@ -1,0 +1,50 @@
+{
+  "results": [
+    {
+      "file": "loop.parallel-False.json",
+      "expected": 73,
+      "count": 73,
+      "queued": "0",
+      "last": "simulation.completed",
+      "error": "",
+      "state": "playing"
+    },
+    {
+      "file": "loop.sequential-False.json",
+      "expected": 69,
+      "count": 69,
+      "queued": "0",
+      "last": "simulation.completed",
+      "error": "",
+      "state": "playing"
+    },
+    {
+      "file": "parallel-False.json",
+      "expected": 73,
+      "count": 73,
+      "queued": "0",
+      "last": "simulation.completed",
+      "error": "",
+      "state": "playing"
+    },
+    {
+      "file": "sequence-False.json",
+      "expected": 46,
+      "count": 46,
+      "queued": "0",
+      "last": "simulation.completed",
+      "error": "",
+      "state": "playing"
+    },
+    {
+      "file": "sequence-True.json",
+      "expected": 38,
+      "count": 38,
+      "queued": "0",
+      "last": "simulation.completed",
+      "error": "",
+      "state": "playing"
+    }
+  ],
+  "errors": []
+}

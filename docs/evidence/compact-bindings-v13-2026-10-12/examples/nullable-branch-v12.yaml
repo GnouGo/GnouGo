@@ -1,0 +1,93 @@
+version: 1
+name: "branches"
+entrypoint: "main"
+workflows:
+  main:
+    inputs:
+      label:
+        type: "string"
+        required: true
+      authorized:
+        type: "boolean"
+        required: true
+    steps:
+    - id: "n_725fed9d1ae90998"
+      type: "switch"
+      expr: "${data.inputs.authorized}"
+      cases:
+      - steps:
+        - id: "n_6f5a6034e770acbf"
+          type: "set"
+          input: |-
+            ${
+            {
+              value: data.inputs.label
+            }
+            }
+          output_schema:
+            type: "object"
+            properties:
+              value:
+                type: "string"
+                minLength: 1
+            required:
+            - "value"
+            additionalProperties: false
+          expression_contracts:
+            '': {}
+        value: "true"
+      default:
+      - id: "n_5ad38304b535c298"
+        type: "set"
+        input:
+          value: null
+        output_schema:
+          type: "object"
+          properties:
+            value:
+              type:
+              - "string"
+              - "null"
+          required:
+          - "value"
+          additionalProperties: false
+    - id: "n_283128acef14943c"
+      type: "set"
+      input: |-
+        ${
+        {
+          value: m.select(data.steps.n_725fed9d1ae90998, [["n_6f5a6034e770acbf", "value"], ["n_5ad38304b535c298", "value"]], false)
+        }
+        }
+      output_schema:
+        type: "object"
+        properties:
+          value:
+            type:
+            - "string"
+            - "null"
+        required:
+        - "value"
+        additionalProperties: false
+      expression_contracts:
+        '': {}
+    outputs:
+      text:
+        type: "string"
+        nullable: true
+        expr: "${data.steps.n_283128acef14943c.value}"
+skill:
+  description: ""
+  inputs:
+    label:
+      type: "string"
+      required: true
+    authorized:
+      type: "boolean"
+      required: true
+  outputs:
+    text:
+      type: "string"
+      nullable: true
+      expr: "${data.steps.n_283128acef14943c.value}"
+...

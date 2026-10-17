@@ -32,13 +32,38 @@
     <Using Include="Xunit" />
   </ItemGroup>
   <ItemGroup><None Update="Fixtures/**/*.json" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
+  <ItemGroup>
+    <None Include="../../docs/evidence/compact-bindings-v10-live-2026-10-11/amazon-r5-taskplan.json" Link="Fixtures/V10Composition/retained.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../docs/evidence/compact-bindings-v10-live-2026-10-11/amazon-r2-requirements.json" Link="Fixtures/V10Composition/requirements.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../docs/evidence/compact-bindings-v10-live-2026-10-11/planning-responses.json" Link="Fixtures/V10Composition/responses.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../docs/evidence/v10-offline-composition-2026-10-11/issued-schemas.json" Link="Fixtures/V10Composition/issued-schemas.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
   <ItemGroup><None Include="../../src/GnOuGo.Cmd.Mcp/appsettings.json" Link="Fixtures/ClonePlanning/cmdsettings.json" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
 
   <Import Project="..\..\build\GnOuGo.BundledMcpTools.targets" />
 
   <ItemGroup><Compile Include="../GnOuGo.Agent.Planning.Benchmark/BenchmarkCampaign.cs" Link="BenchmarkCampaign.cs" /></ItemGroup>
+  <ItemGroup><None Include="../GnOuGo.Flow.Planning.Tests/Fixtures/SchemaPortability/retained-schema-rejection.json" Link="Fixtures/SchemaPortability/retained-schema-rejection.json" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
   <ItemGroup><Compile Include="../GnOuGo.Agent.Planning.Benchmark/BenchmarkHttpJournal.cs" Link="BenchmarkHttpJournal.cs" /></ItemGroup>
-  <ItemGroup><Compile Include="../GnOuGo.Agent.Planning.Benchmark/KeyVaultBenchmarkModel.cs" Link="KeyVaultBenchmarkModel.cs" /></ItemGroup>
+  <ItemGroup>
+    <Compile Include="../GnOuGo.Agent.Planning.Benchmark/KeyVaultBenchmarkModel.cs" Link="KeyVaultBenchmarkModel.cs" />
+    <PackageReference Include="Microsoft.ML.Tokenizers" Version="2.0.0" />
+    <PackageReference Include="Microsoft.ML.Tokenizers.Data.O200kBase" Version="2.0.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="../GnOuGo.Agent.Planning.Benchmark/LiveCampaignEvidence.cs" Link="LiveCampaignEvidence.cs" />
+    <Compile Include="../GnOuGo.Agent.Planning.Benchmark/LiveWorkflowEvaluation.cs" Link="LiveWorkflowEvaluation.cs" />
+    <Compile Include="../GnOuGo.Agent.Planning.Benchmark/LiveExecutionReadiness.cs" Link="LiveExecutionReadiness.cs" />
+    <Compile Include="../GnOuGo.Agent.Planning.Benchmark/LiveWorkflowOracles.cs" Link="LiveWorkflowOracles.cs" />
+    <Compile Include="../GnOuGo.Agent.Planning.Benchmark/LiveCodeEvidence.cs" Link="LiveCodeEvidence.cs" />
+    <Compile Include="../GnOuGo.Agent.Planning.Benchmark/SchemaPortabilityCampaign.cs" Link="SchemaPortabilityCampaign.cs" />
+    <Compile Include="../GnOuGo.Agent.Planning.Benchmark/MappingLiveEvaluation.cs" Link="MappingLiveEvaluation.cs" />
+    <Compile Include="../GnOuGo.Agent.Planning.Benchmark/CampaignInferenceProxy.cs" Link="CampaignInferenceProxy.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="../GnOuGo.Agent.Planning.Benchmark/StabilizationBenchmark.cs" Link="StabilizationBenchmark.cs" />
+    <Compile Include="../GnOuGo.Agent.Planning.Benchmark/LocalExecutionCases.cs" Link="LocalExecutionCases.cs" />
+  </ItemGroup>
   <ItemGroup>
     <Compile Include="../Shared/PlanningCorpus.cs" Link="PlanningCorpus.cs" />
     <Compile Include="../Shared/PlanningBenchmarkCases.cs" Link="PlanningBenchmarkCases.cs" />
@@ -46,5 +71,9 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="../Shared/RealProductContracts.cs" Link="RealProductContracts.cs" />
+    <Compile Include="../Shared/ProductTransformationFixture.cs" Link="ProductTransformationFixture.cs" />
+    <Compile Include="../Shared/MappingStatusComposition.cs" Link="MappingStatusComposition.cs" />
+    <Compile Include="../Shared/ProductTransformationPlan.cs" Link="ProductTransformationPlan.cs" />
   </ItemGroup>
+  <ItemGroup><None Include="../../docs/evidence/initial-requirements-live-2026-10-15/initial-proposal.json.gz" Link="Fixtures/NullableGuards/initial-proposal.json.gz" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
 </Project>

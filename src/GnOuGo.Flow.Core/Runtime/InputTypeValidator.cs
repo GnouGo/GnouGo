@@ -192,25 +192,9 @@ public static class InputTypeValidator
 
     // ── Helpers ──
 
-    private static bool IsNumber(JsonNode node)
-    {
-        if (node is not JsonValue jv) return false;
-        return jv.TryGetValue(out int _)
-            || jv.TryGetValue(out long _)
-            || jv.TryGetValue(out double _)
-            || jv.TryGetValue(out float _)
-            || jv.TryGetValue(out decimal _);
-    }
+    private static bool IsNumber(JsonNode node) => JsonSchemaInstanceValidator.TryReadNumber(node, out _);
 
-    private static bool IsInteger(JsonNode node)
-    {
-        if (node is not JsonValue jv) return false;
-        return jv.TryGetValue(out int _)
-            || jv.TryGetValue(out long _)
-            || jv.TryGetValue(out short _)
-            || (jv.TryGetValue(out decimal dec) && decimal.Truncate(dec) == dec)
-            || (jv.TryGetValue(out double dbl) && double.IsFinite(dbl) && Math.Truncate(dbl) == dbl);
-    }
+    private static bool IsInteger(JsonNode node) => IsNumber(node) && JsonSchemaInstanceValidator.IsMultiple(node, JsonValue.Create(1)!);
 
     private static string DescribeKind(JsonNode? node) => node switch
     {

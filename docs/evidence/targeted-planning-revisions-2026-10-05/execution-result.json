@@ -1,0 +1,183 @@
+{
+  "run": "targetedlive20261005a-amazon-1",
+  "candidate": "5afe0fa6bfcd923268edfac259754237f7b2d609",
+  "reviewed_revision": 10,
+  "approved_revision": 11,
+  "artifact_hash": "6a473e95d4e9e26f2e4b017499ac83b86cfcb91b3af0701309c93b41047bd59b",
+  "result": {
+    "status": "final_review",
+    "planning_ms": 339625,
+    "calls": 7,
+    "repairs": 2,
+    "discovery_reads": 2,
+    "review_revisions": 3,
+    "diagnostics": [],
+    "execution_success": false,
+    "execution_oracle": false,
+    "execution_status": "completed",
+    "accounting": {
+      "planning": {
+        "logical_calls": 7,
+        "physical_attempts": 7,
+        "known_input_tokens": 81357,
+        "known_output_tokens": 28517,
+        "known_cost_eur": 1.1266467333095322,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "execution": {
+        "logical_calls": 6,
+        "physical_attempts": 6,
+        "known_input_tokens": 9558,
+        "known_output_tokens": 4297,
+        "known_cost_eur": 0.15771153159585863,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "campaign": {
+        "calls": 740,
+        "session_calls": 0,
+        "known_input_tokens": 11316639,
+        "known_output_tokens": 1221117,
+        "known_cost_eur": 82.99692340808771,
+        "reserved_input_tokens": 192000,
+        "reserved_output_tokens": 65536,
+        "reserved_cost_eur": 2.606752783964365,
+        "cost_upper_bound_eur": 85.60367619205208,
+        "unknown_attempts": 2
+      }
+    },
+    "execution_ms": 1731136,
+    "total_ms": 2070761
+  },
+  "execution": {
+    "success": false,
+    "outputs": null,
+    "error": {
+      "Code": "LLM_BUDGET_EXCEEDED",
+      "Type": "LLM_BUDGET_EXCEEDED",
+      "Message": "Execution request exceeds the campaign input or output allowance. [workflow 'w_81be22d7f1c8baf9', step 'n_2f6b6f5d077b0ec5']",
+      "Retryable": false,
+      "Details": {
+        "dispatch_status": "not_started",
+        "failed_workflow": "w_81be22d7f1c8baf9",
+        "failed_step_id": "n_2f6b6f5d077b0ec5",
+        "failed_step_type": "llm.call",
+        "execution_phase": "step",
+        "workflow": "w_81be22d7f1c8baf9",
+        "step_id": "n_2f6b6f5d077b0ec5",
+        "step_type": "llm.call",
+        "step_status": "Failed"
+      }
+    }
+  },
+  "oracle": {
+    "passed": false,
+    "findings": [
+      "workflow_execution_failed",
+      "workbook_missing"
+    ]
+  },
+  "snapshot_audit": [
+    {
+      "snapshot_id": "4fe05a9f9dc74d6cbc006ddd5e4e645e",
+      "pages": 44,
+      "pages_consumed": 44,
+      "records": 1438,
+      "capture_truncated": false,
+      "manifest_truncated": false,
+      "same_snapshot_and_exact_cursor_chain": true
+    }
+  ],
+  "mapping": {
+    "invocations": 44,
+    "succeeded": 44,
+    "source_items": 1438,
+    "processed_items": 1438,
+    "cache_hits": 40,
+    "cache_misses": 4,
+    "model_attempts": 5,
+    "repairs": 1,
+    "sample_items": 15,
+    "request_bytes": [
+      5177,
+      8083,
+      6440,
+      5084
+    ],
+    "duration_ms_sum": 185073.0913
+  },
+  "runtime_llm_inputs": [
+    {
+      "invocation": "/workflow/main/step/n_7d6ef7fcc9a24787/workflow/w_81be22d7f1c8baf9/step/n_3ed63e71726865a3/iteration/2/step/n_c95ba7a02aae8b82/workflow/w_28715f15a497f66b/step/n_e4128fb92ef46cb0/mapping/0",
+      "status": "completed",
+      "observed_completion": true,
+      "estimated_prompt_tokens": 6338,
+      "model_calls": 0,
+      "inspection_only": true
+    },
+    {
+      "invocation": "/workflow/main/step/n_7d6ef7fcc9a24787/workflow/w_81be22d7f1c8baf9/step/n_3ed63e71726865a3/iteration/39/step/n_c95ba7a02aae8b82/workflow/w_28715f15a497f66b/step/n_e4128fb92ef46cb0/mapping/0",
+      "status": "completed",
+      "observed_completion": true,
+      "estimated_prompt_tokens": 5715,
+      "model_calls": 0,
+      "inspection_only": true
+    },
+    {
+      "invocation": "/workflow/main/step/n_7d6ef7fcc9a24787/workflow/w_81be22d7f1c8baf9/step/n_2f6b6f5d077b0ec5",
+      "status": "failed",
+      "observed_completion": true,
+      "estimated_prompt_tokens": 537530,
+      "model_calls": 0,
+      "inspection_only": true
+    },
+    {
+      "invocation": "/workflow/main/step/n_7d6ef7fcc9a24787/workflow/w_81be22d7f1c8baf9/step/n_3ed63e71726865a3/iteration/2/step/n_c95ba7a02aae8b82/workflow/w_28715f15a497f66b/step/n_e4128fb92ef46cb0/mapping/1",
+      "status": "completed",
+      "observed_completion": true,
+      "estimated_prompt_tokens": 6439,
+      "model_calls": 0,
+      "inspection_only": true
+    },
+    {
+      "invocation": "/workflow/main/step/n_7d6ef7fcc9a24787/workflow/w_81be22d7f1c8baf9/step/n_3ed63e71726865a3/iteration/0/step/n_c95ba7a02aae8b82/workflow/w_28715f15a497f66b/step/n_e4128fb92ef46cb0/mapping/0",
+      "status": "completed",
+      "observed_completion": true,
+      "estimated_prompt_tokens": 5659,
+      "model_calls": 0,
+      "inspection_only": true
+    },
+    {
+      "invocation": "/workflow/main/step/n_7d6ef7fcc9a24787/workflow/w_81be22d7f1c8baf9/step/n_3ed63e71726865a3/iteration/1/step/n_c95ba7a02aae8b82/workflow/w_28715f15a497f66b/step/n_e4128fb92ef46cb0/mapping/0",
+      "status": "completed",
+      "observed_completion": true,
+      "estimated_prompt_tokens": 7938,
+      "model_calls": 0,
+      "inspection_only": true
+    },
+    {
+      "invocation": "/workflow/main/step/n_7d6ef7fcc9a24787/workflow/w_81be22d7f1c8baf9/step/n_3981b1c1638bb00a",
+      "status": "completed",
+      "observed_completion": true,
+      "estimated_prompt_tokens": 4204,
+      "model_calls": 0,
+      "inspection_only": true
+    }
+  ],
+  "mcp_event_counts": {
+    "browser_get_content": 46,
+    "browser_close": 2
+  },
+  "workflow_browser_cleanup_verified": true,
+  "cookie_interaction_executed": false,
+  "product_visits": 0,
+  "workbook_exists": false,
+  "replayed": false,
+  "production_changes": false,
+  "raw_evidence": "Retained in the existing encrypted campaign and execution journals."
+}

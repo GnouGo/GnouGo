@@ -1,0 +1,8 @@
+Fixed context 1: estimate 9886 -> 9760; shared bytes 1145 -> 774; dynamic bytes=5457; schema bytes 22286 -> 22281.
+Fixed context 2: estimate 21743 -> 21599; shared bytes 946 -> 517; dynamic bytes=31565; schema bytes 31950 -> 31945.
+Fixed context 3: estimate 21573 -> 21428; shared bytes 946 -> 517; dynamic bytes=33445; schema bytes 29559 -> 29554.
+Fixed context 4: estimate 21610 -> 21465; shared bytes 946 -> 517; dynamic bytes=33681; schema bytes 29434 -> 29429.
+Fixed context 5: estimate 21284 -> 21280; shared bytes 946 -> 517; dynamic bytes=34264; schema bytes 27874 -> 28291.
+Fixed context 6: estimate 21745 -> 21600; shared bytes 946 -> 517; dynamic bytes=33252; schema bytes 30267 -> 30262.
+Fixed context 7: estimate 23967 -> 23822; shared bytes 946 -> 517; dynamic bytes=35492; schema bytes 34694 -> 34689.
+Synthetic targeted continuation: calls=7, repairs=0, discovered=74, requested=10, metadata reads=19, resolutions=28 (unrecorded exact contracts unavailable=9), input estimates=[9760,21599,21428,21465,21280,21600,23822], cumulative=140954, prompt bytes=[6231,32082,33962,34198,34781,33769,36009], detailed counts=[3,8,7,7,5,6,13]. Preserved all distractor metadata; exact resolution is limited to retained receipts. No live model or execution claim.

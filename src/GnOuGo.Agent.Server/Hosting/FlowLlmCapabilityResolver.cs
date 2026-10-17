@@ -7,6 +7,14 @@ namespace GnOuGo.Agent.Server.Hosting;
 /// <summary>Reads declared model capabilities from the same live metadata used by the configuration editor.</summary>
 internal sealed class FlowLlmCapabilityResolver(LLMRuntimeOptionsStore store) : ILLMCapabilityResolver
 {
+    public Task<int?> InputTokenAllowanceAsync(string? provider, string model, int outputTokens, CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        var metadata = new RoutingLLMClient(store.Current, []).ResolveDeclaredMetadata(provider, model);
+        return Task.FromResult(metadata?.MaxInputTokens is > 0 && metadata.ContextWindowTokens is > 0 &&
+            metadata.MaxOutputTokens >= outputTokens && outputTokens > 0
+            ? (int?)Math.Max(0, Math.Min(metadata.MaxInputTokens.Value, metadata.ContextWindowTokens.Value - outputTokens)) : null);
+    }
     public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string model, CancellationToken ct)
     {
         var capabilities = Resolve(provider, model, ct);

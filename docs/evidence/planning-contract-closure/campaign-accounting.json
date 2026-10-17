@@ -1,0 +1,72 @@
+{
+  "campaign": "schema-portability-20261002",
+  "ceiling_eur": 50,
+  "before": {
+    "campaign": "schema-portability-20261002",
+    "reserved_requests": 176,
+    "completed_receipts": 175,
+    "uncertain_requests": [
+      "schema-diagnostic:1:7dff37f9c9780e6b7a24ff13d47e7c80adb3572fa0fadc7b479cf7ade021e0bd"
+    ],
+    "retained_inconclusive_requests": [
+      "schema-diagnostic:1:7dff37f9c9780e6b7a24ff13d47e7c80adb3572fa0fadc7b479cf7ade021e0bd"
+    ],
+    "transport_accounting": {
+      "calls": 176,
+      "session_calls": 0,
+      "known_input_tokens": 2392266,
+      "known_output_tokens": 267180,
+      "known_cost_eur": 17.7346857074256,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "cost_upper_bound_eur": 17.7346857074256,
+      "unknown_attempts": 0
+    },
+    "recorded_failures": 1,
+    "known_budget_cost": null,
+    "budget_currency": null,
+    "known_input_tokens": null,
+    "known_output_tokens": null,
+    "completion_receipts_complete": false,
+    "evidence_hash": "64e6179329d1119d896fbde7ee22c73b230c8c1530631db7eef8e7f1a1beaf52"
+  },
+  "after": {
+    "campaign": "schema-portability-20261002",
+    "reserved_requests": 206,
+    "completed_receipts": 205,
+    "uncertain_requests": [
+      "schema-diagnostic:1:7dff37f9c9780e6b7a24ff13d47e7c80adb3572fa0fadc7b479cf7ade021e0bd"
+    ],
+    "retained_inconclusive_requests": [
+      "schema-diagnostic:1:7dff37f9c9780e6b7a24ff13d47e7c80adb3572fa0fadc7b479cf7ade021e0bd"
+    ],
+    "transport_accounting": {
+      "calls": 206,
+      "session_calls": 0,
+      "known_input_tokens": 3032354,
+      "known_output_tokens": 309186,
+      "known_cost_eur": 21.708511988049207,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "cost_upper_bound_eur": 21.708511988049207,
+      "unknown_attempts": 0
+    },
+    "recorded_failures": 1,
+    "known_budget_cost": null,
+    "budget_currency": null,
+    "known_input_tokens": null,
+    "known_output_tokens": null,
+    "completion_receipts_complete": false,
+    "evidence_hash": "812b0d4c8fe0d373486a0b37e4fe47c36593f2c673e017bc4c110c29d31dab5c"
+  },
+  "incremental_known_cost_eur": 3.973826280623605,
+  "remaining_eur": 28.291488011950793,
+  "new_dispatches_stopped": true,
+  "notes": [
+    "The original schema-diagnostic identity remains inconclusive and was not redispatched.",
+    "No new unknown model-usage attempts were recorded. This does not resolve the separate unknown external completion of the Copilot invocation.",
+    "Missing repetitions remain in the six-run denominator. No GitHub review was published and the unresolved code run was not reconciled or cleaned up automatically."
+  ]
+}

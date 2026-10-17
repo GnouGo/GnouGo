@@ -1,0 +1,232 @@
+{
+  "result": {
+    "status": "stopped",
+    "planning_ms": 351858,
+    "calls": 2,
+    "repairs": 0,
+    "discovery_reads": 2,
+    "review_revisions": 0,
+    "diagnostics": [
+      {
+        "code": "TASK_CONDITION_TYPE",
+        "location": "/tasks/fill_search_query/requires",
+        "message": "Conditions require a boolean business value.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      },
+      {
+        "code": "TASK_CONDITION_TYPE",
+        "location": "/tasks/open_amazon_home/requires",
+        "message": "Conditions require a boolean business value.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      },
+      {
+        "code": "TASK_CONDITION_TYPE",
+        "location": "/tasks/open_product_page/requires",
+        "message": "Conditions require a boolean business value.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      }
+    ],
+    "execution_success": false,
+    "execution_oracle": false,
+    "execution_status": "not_started",
+    "accounting": {
+      "planning": {
+        "logical_calls": 2,
+        "physical_attempts": 3,
+        "known_input_tokens": 18032,
+        "known_output_tokens": 4223,
+        "known_cost_eur": 0.1924305617179874,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "execution": {
+        "logical_calls": 0,
+        "physical_attempts": 0,
+        "known_input_tokens": 0,
+        "known_output_tokens": 0,
+        "known_cost_eur": 0,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "campaign": {
+        "calls": 792,
+        "session_calls": 0,
+        "known_input_tokens": 11923565,
+        "known_output_tokens": 1397327,
+        "known_cost_eur": 90.39970299943772,
+        "reserved_input_tokens": 192000,
+        "reserved_output_tokens": 65536,
+        "reserved_cost_eur": 2.606752783964365,
+        "cost_upper_bound_eur": 93.00645578340209,
+        "unknown_attempts": 2
+      }
+    }
+  },
+  "status": "stopped",
+  "revision": 2,
+  "artifact_hash": null,
+  "requirements": {
+    "summary": "Automatiser une recherche Amazon.fr pour une requête publique, collecter au maximum les 10 premiers produits, visiter chaque page produit, extraire nom, description et prix sans invention, puis sauvegarder les résultats dans un fichier Excel et fermer le navigateur même en cas d’échec.",
+    "outcomes": [
+      {
+        "id": "search_amazon_fr",
+        "description": "Ouvrir Amazon.fr et rechercher l’article fourni par l’entrée publique query."
+      },
+      {
+        "id": "collect_first_products",
+        "description": "Lister les produits trouvés et retenir au maximum les 10 premiers produits observés."
+      },
+      {
+        "id": "visit_each_product",
+        "description": "Naviguer sur la page de chaque produit retenu."
+      },
+      {
+        "id": "extract_product_data",
+        "description": "Extraire pour chaque produit le nom, la description et le prix ; si CAPTCHA, prix ou données absents sont observés, les consigner explicitement sans inventer de valeur."
+      },
+      {
+        "id": "save_excel",
+        "description": "Créer et sauvegarder le classeur Excel à workflows/schema-portability-20261002/snapshotlive20261007a-amazon-1/products.xlsx."
+      },
+      {
+        "id": "close_browser",
+        "description": "Fermer le navigateur même en cas d’échec."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "query",
+        "type": {
+          "kind": "string",
+          "nullable": false,
+          "items": null,
+          "fields": []
+        },
+        "required": true,
+        "default": null
+      }
+    ],
+    "outputs": [
+      {
+        "name": "productsFilePath",
+        "type": {
+          "kind": "string",
+          "nullable": false,
+          "items": null,
+          "fields": []
+        },
+        "required": true,
+        "default": null
+      },
+      {
+        "name": "products",
+        "type": {
+          "kind": "array",
+          "nullable": false,
+          "items": {
+            "kind": "object",
+            "nullable": false,
+            "items": null,
+            "fields": [
+              {
+                "name": "name",
+                "type": {
+                  "kind": "string",
+                  "nullable": false,
+                  "items": null,
+                  "fields": []
+                },
+                "required": true,
+                "default": null
+              },
+              {
+                "name": "description",
+                "type": {
+                  "kind": "string",
+                  "nullable": false,
+                  "items": null,
+                  "fields": []
+                },
+                "required": true,
+                "default": null
+              },
+              {
+                "name": "price",
+                "type": {
+                  "kind": "string",
+                  "nullable": false,
+                  "items": null,
+                  "fields": []
+                },
+                "required": true,
+                "default": null
+              },
+              {
+                "name": "status",
+                "type": {
+                  "kind": "string",
+                  "nullable": false,
+                  "items": null,
+                  "fields": []
+                },
+                "required": true,
+                "default": null
+              },
+              {
+                "name": "url",
+                "type": {
+                  "kind": "string",
+                  "nullable": false,
+                  "items": null,
+                  "fields": []
+                },
+                "required": true,
+                "default": null
+              }
+            ]
+          },
+          "fields": []
+        },
+        "required": true,
+        "default": null
+      }
+    ]
+  },
+  "diagnostics": [
+    {
+      "code": "TASK_CONDITION_TYPE",
+      "location": "/tasks/fill_search_query/requires",
+      "message": "Conditions require a boolean business value.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "TASK_CONDITION_TYPE",
+      "location": "/tasks/open_amazon_home/requires",
+      "message": "Conditions require a boolean business value.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "TASK_CONDITION_TYPE",
+      "location": "/tasks/open_product_page/requires",
+      "message": "Conditions require a boolean business value.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    }
+  ],
+  "proposal_evidence": "planning-responses.json; exact checkpoints and patch history remain in the encrypted campaign journal"
+}

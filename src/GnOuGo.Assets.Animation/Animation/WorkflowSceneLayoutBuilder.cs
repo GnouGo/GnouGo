@@ -134,7 +134,13 @@ internal static class WorkflowSceneLayoutBuilder
                          && item.StepId is not null))
             {
                 var target = _actors.FirstOrDefault(actor => actor.Id == handoff.TargetActorId);
-                if (target?.Kind != AnimationActorKind.Worker)
+                // A return handoff carries the caller's instance too. Only the
+                // outgoing handoff originates in that instance; indexing returns
+                // would make a nested caller its own child before it has a finish.
+                if (target?.Kind != AnimationActorKind.Worker
+                    || !_actorInstances.TryGetValue(handoff.ActorId!, out var sourceInstance)
+                    || sourceInstance != handoff.WorkflowInstanceId
+                    || _actorInstances[handoff.TargetActorId!] == sourceInstance)
                     continue;
                 // Matrix clones share their caller workflow instance. Index calls by the
                 // logical invocation/step rather than by the transient visual actor so a
