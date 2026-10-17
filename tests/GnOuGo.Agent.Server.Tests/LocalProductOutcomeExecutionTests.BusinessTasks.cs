@@ -232,11 +232,11 @@ public sealed partial class LocalProductOutcomeExecutionTests
             if (initialComposition)
             {
                 var request = Assert.Single(adapter.Requests);
-                Assert.Contains("Complete bounded each {\"input\":\"pages\",\"output\":\"candidates\"}", request.Prompt);
-                Assert.Contains("Candidate[][]; flatten -> compact IDs", request.Prompt);
-                Assert.Contains("offered/original lookup", request.Prompt);
-                Assert.Contains("Extract facts; bind copies/rows/status", request.Prompt);
-                Assert.Contains("Return executable business tasks for the requested outcomes. Generate artifacts only when explicitly requested", request.Prompt);
+                Assert.Contains("Per-item arrays assemble as array<array<T>>", request.Prompt);
+                Assert.Contains("flatten removes one level", request.Prompt);
+                Assert.Contains("Validate selected IDs against offered values before lookup of originals", request.Prompt);
+                Assert.Contains("Bind typed copies, projections and assembly directly", request.Prompt);
+                Assert.Contains("Return the issued structured response with executable requested tasks. Generate artifacts only when explicitly requested", request.Prompt);
                 Assert.InRange(adapter.InputEstimate, 1, initial.Request.Generation.MaxInputTokensPerRequest);
                 output.WriteLine($"INITIAL REQUEST: estimatedTokens={adapter.InputEstimate}; calls=1; repairs=0; tasks=18");
             }

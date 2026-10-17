@@ -7,11 +7,13 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class DescriptionSelectionTests
 {
     [Fact]
-    public async Task FreshGenerationAndExplicitRevisionReceiveDescriptionGuidance()
+    public async Task DescriptionCriteriaComeFromTheRequestAndSurviveRevisionAndRepair()
     {
         var runtime = new TestRuntime();
         var planner = new HybridWorkflowPlanner();
-        var state = await PlannerFixture.RunAsync(runtime);
+        const string criteria = "Select one complete description or characteristics block even without a heading; retain null for genuine absence or uncertain subject association.";
+        var initial = PlannerFixture.Session(); initial.Request.Prompt += " " + criteria;
+        var state = await PlannerFixture.RunAsync(runtime, initial);
         Assert.Equal(PlanningStatus.FinalReview, state.Status);
         state = await planner.AdvanceAsync(state, new() { Kind = "revise", PreserveRequirements = true,
             ExpectedRevision = state.Revision, ArtifactHash = state.ComputeArtifactHash(),
@@ -23,17 +25,13 @@ public sealed class DescriptionSelectionTests
         {
             var instructions = request.Prompt[..request.Prompt.IndexOf("{\"request\"", StringComparison.Ordinal)];
             Assert.DoesNotContain("YAML", instructions, StringComparison.OrdinalIgnoreCase);
-            Assert.Contains("Return executable business tasks for the requested outcomes. Generate artifacts only when explicitly requested", request.Prompt);
-            Assert.Contains("Requested descriptions:", request.Prompt);
-            Assert.Contains("heading optional", request.Prompt);
-            Assert.Contains("offered/original lookup", request.Prompt);
-            Assert.Contains("Assert:", request.Prompt);
-            Assert.Contains("\"port\":\"success\"", request.Prompt);
+            Assert.Contains(criteria, request.Prompt);
+            Assert.DoesNotContain(criteria, instructions);
+            Assert.DoesNotContain("Requested descriptions:", instructions);
+            Assert.Contains("Preserve original IDs and requested exact values", instructions);
+            Assert.Contains("Validate selected IDs against offered values before lookup of originals", instructions);
             Assert.Contains(PlanningSchemaReferences.Walk(request.StructuredOutputSchema!.AsObject(), "", 0),
                 entry => entry.Schema["description"]?.ToString().Contains("requires: false fails", StringComparison.Ordinal) == true);
-            Assert.Contains("several suitable!=absent", request.Prompt);
-            Assert.Contains("absent/uncertain subject", request.Prompt);
-            Assert.Contains("Verbatim;no controls", request.Prompt);
             Assert.InRange(PlanningJsonTransport.EstimateInputTokens(request.Prompt, request.StructuredOutputSchema!.AsObject()),
                 1, state.Request.Generation.MaxInputTokensPerRequest);
         }
@@ -42,7 +40,8 @@ public sealed class DescriptionSelectionTests
         state.Diagnostics = [new("TASK_VALUE_TYPE", "/tasks/greet/outputs/message", "Incompatible value")];
         state.RevisionScope = ["/tasks/greet/outputs/message"];
         var repair = new PlanningPrompt(state).Request();
-        Assert.Contains("heading optional", repair.Prompt);
+        Assert.Contains(criteria, repair.Prompt);
+        Assert.DoesNotContain("Requested descriptions:", repair.Prompt);
         Assert.DoesNotContain("editablePaths\":[\"/tasks/greet/objective", repair.Prompt);
     }
 

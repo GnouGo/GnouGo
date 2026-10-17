@@ -12,20 +12,19 @@ public sealed class GuardCompositionGuidanceTests
     [InlineData(false, true, true)]
     [InlineData(true, false, true)]
     [InlineData(true, true, false)]
-    public async Task ActualFreshExamplePreservesAllThreeAssertionsWithoutInference(bool success, bool available, bool complete)
+    public async Task DeclaredGuardsPreserveAllThreeAssertionsWithoutInference(bool success, bool available, bool complete)
     {
         var runtime = new TestRuntime(); var state = PlannerFixture.Session();
         state.Catalog = await TaskPlanCompilerTests.Catalog(runtime.Actual); state.Catalog.Policy.RequireExternalConfirmation = false;
         var request = new PlanningPrompt(state).Request();
-        const string marker = "Assert: ";
-        var start = request.Prompt.IndexOf(marker, StringComparison.Ordinal) + marker.Length;
-        Assert.True(start >= marker.Length);
-        var example = request.Prompt[start..request.Prompt.IndexOf('\n', start)];
-        var guard = JsonSerializer.Deserialize(example, PlanningJsonContext.Default.TaskValue)!;
-        Assert.Equal("and", guard.Predicate); Assert.Equal(2, guard.Items.Count);
-        Assert.Equal("success", guard.Items[0].Port);
-        Assert.Equal("and", guard.Items[1].Predicate);
-        Assert.Equal(new[] { "available", "complete" }, guard.Items[1].Items.Select(v => v.Port));
+        Assert.Contains("Use exact inspected contracts", request.Prompt);
+        // This fixture declares its own flags. The shared prompt supplies no
+        // conventional field names or prescribed acquisition sequence.
+        var guard = new TaskValue { Kind = "predicate", Predicate = "and", Items = [
+            new() { Kind = "output", Source = "p", Port = "success" },
+            new() { Kind = "predicate", Predicate = "and", Items = [
+                new() { Kind = "output", Source = "p", Port = "available" },
+                new() { Kind = "output", Source = "p", Port = "complete" }] }] };
         var fields = new[] { "success", "available", "complete" };
         var plan = new TaskPlan { Inputs = fields.Select(f => new TaskInput { Name = f, Type = new() { Kind = "boolean" } }).ToList(), Root = new()
         {

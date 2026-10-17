@@ -17,7 +17,7 @@ public sealed class CommitmentPromptContractTests
         var issued = Assert.Single(runtime.Calls);
         var description = PlanningSchemaReferences.Walk(issued.StructuredOutputSchema!.AsObject(), "", 0)
             .Select(e => e.Schema["description"]?.ToString()).Single(s => s?.Contains("Non-executable obligations", StringComparison.Ordinal) == true)!;
-        Assert.Contains("\"port\":\"location\",\"output\":\"filePath\"", description);
+        Assert.Contains("\"port\":\"value\",\"output\":\"result\"", description);
         Assert.Contains("public-output NAME", description); Assert.Contains("result:null", description);
         Assert.Contains("operation-only, not repair", description);
         Assert.DoesNotContain("Non-executable obligations", historical.ToJsonString());

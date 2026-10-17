@@ -22,13 +22,13 @@ public sealed class RetainedOutputRevisionTests
         var requirements = JsonSerializer.Serialize(state.Requirements, PlanningJsonContext.Default.PlanningRequirements);
         var request = new PlanningPrompt(state).Request();
         var instructions = request.Prompt[..request.Prompt.IndexOf("\n{", StringComparison.Ordinal)];
-        Assert.Contains("Extract facts; bind copies/rows/status", instructions);
-        Assert.Contains("Complete bounded each", instructions);
-        Assert.Contains("compact IDs", instructions);
-        Assert.Contains("offered/original lookup", instructions);
-        Assert.Contains("whole relevant offered feature/text block", instructions);
-        Assert.Contains("Return executable business tasks for the requested outcomes. Generate artifacts only when explicitly requested", instructions);
-        Assert.Contains("Do not add unrequested actions, filtering or deduplication", instructions);
+        Assert.Contains("Bind typed copies, projections and assembly directly", instructions);
+        Assert.Contains("Per-item arrays assemble as array<array<T>>", instructions);
+        Assert.Contains("compact decision inputs", instructions);
+        Assert.Contains("Validate selected IDs against offered values before lookup of originals", instructions);
+        Assert.Contains("Preserve original IDs and requested exact values", instructions);
+        Assert.Contains("Return the issued structured response with executable requested tasks. Generate artifacts only when explicitly requested", instructions);
+        Assert.Contains("No unrequested actions, filtering or deduplication", instructions);
         Assert.DoesNotContain("YAML", instructions, StringComparison.OrdinalIgnoreCase);
         var hints = PlanningSchemaReferences.Walk(request.StructuredOutputSchema!.AsObject(), "", 0)
             .Select(e => e.Schema["description"]?.ToString()).OfType<string>().ToArray();

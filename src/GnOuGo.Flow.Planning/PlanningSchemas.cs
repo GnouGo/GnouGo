@@ -160,7 +160,7 @@ internal static class PlanningSchemas
         foreach (var (_, schema) in PlanningSchemaReferences.Walk(root, "", 0)) schema.Remove("description");
         var definitions = root["$defs"]!.AsObject();
         if (compositionHints && definitions["requirements"]?["properties"]?["outcomes"]?["items"]?["properties"]?["commitments"] is JsonObject obligations)
-            obligations["description"] = "Non-executable obligations: {\"operation\":\"<inspected ID>\",\"result\":{\"port\":\"location\",\"output\":\"filePath\"}}. Exact port and public-output NAME, not path/value/description. result:null: operation-only, not repair. Finalize before plan; absent unverified; no task IDs/proofs.";
+            obligations["description"] = "Non-executable obligations: {\"operation\":\"<inspected ID>\",\"result\":{\"port\":\"value\",\"output\":\"result\"}}. Exact port and public-output NAME, not path/value/description. result:null: operation-only, not repair. Finalize before plan; absent unverified; no task IDs/proofs.";
         // Presentation only, on fresh full proposals. Repair templates/authorities
         // use the historical path, including its exact annotation-free bytes.
         if (compositionHints)

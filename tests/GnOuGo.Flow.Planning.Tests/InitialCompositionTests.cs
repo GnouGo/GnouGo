@@ -51,11 +51,11 @@ public sealed class InitialCompositionTests(ITestOutputHelper output)
         state.Catalog = await TaskPlanCompilerTests.Catalog(runtime.Actual); state.Catalog.Policy.RequireExternalConfirmation = false;
         string Operation(string method) => TaskOperations.Describe(state.Catalog.Capabilities.Single(c => c.Method == method)).Id;
         var request = new PlanningPrompt(state).Request();
-        const string eachExample = "{\"input\":\"pages\",\"output\":\"candidates\"}";
-        Assert.Contains(eachExample, request.Prompt);
+        const string eachGuidance = "Per-item arrays assemble as array<array<T>>";
+        Assert.Contains(eachGuidance, request.Prompt);
         var extraction = new PlanTask { Id = "adapt", Kind = "transform", Mode = "extract", Objective = "Extract the compact observed label before the tab, keeping unchanged IDs per page; retain original full text separately",
             Requires = Ref("observe", "ready"), Inputs = [new("pages", Ref("observe", "pages"))],
-            Each = JsonSerializer.Deserialize(request.Prompt.Substring(request.Prompt.IndexOf(eachExample, StringComparison.Ordinal), eachExample.Length), PlanningJsonContext.Default.TaskExtractionEach),
+            Each = new("pages", "candidates"),
             ResultType = Obj(("candidates", ArrayOf(ArrayOf(Obj(("id", new()), ("label", new())))))) };
         var offered = Flatten(Ref("adapt", "candidates")); var ids = Ref("choose", "ids");
         var plan = new TaskPlan { Root = new()
@@ -86,7 +86,7 @@ public sealed class InitialCompositionTests(ITestOutputHelper output)
         runtime.Respond = (issued, _) =>
         {
             emitted.Add(issued);
-            Assert.Contains(eachExample, issued.Prompt);
+            Assert.Contains(eachGuidance, issued.Prompt);
             var response = TestRuntime.Response(issued, runtime.Proposal);
             Assert.Empty(PlanningContractValidation.ValidateInstance(response.Json, issued.StructuredOutputSchema!));
             return response;
