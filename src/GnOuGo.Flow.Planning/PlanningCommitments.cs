@@ -44,20 +44,42 @@ internal static class PlanningCommitments
             for (var j = 0; j < commitments.Count; j++)
             {
                 var obligation = commitments[j]; var location = $"/requirements/outcomes/{i}/commitments/{j}";
-                void Reject(string message) => findings.Add(new("REQUIREMENTS_COMMITMENT_INVALID", location, message));
-                if (string.IsNullOrWhiteSpace(obligation.Operation) || !seen.Add((obligation.Operation, obligation.Result?.Port, obligation.Result?.Output)))
-                { Reject("Declare distinct commitments using exact inspected operation identities."); continue; }
-                if (obligation.Result is { } result && (string.IsNullOrWhiteSpace(result.Port) || string.IsNullOrWhiteSpace(result.Output) ||
-                    requirements.Outputs?.Count(o => o.Name == result.Output) != 1))
-                    Reject("A result commitment must name one declared operation port and one accepted public output.");
+                void Reject(string path, string message) => findings.Add(new("REQUIREMENTS_COMMITMENT_INVALID", location + path, message));
+                if (string.IsNullOrWhiteSpace(obligation.Operation))
+                { Reject("/operation", "The commitment operation is missing. Name one exact inspected operation ID."); continue; }
+                if (!seen.Add((obligation.Operation, obligation.Result?.Port, obligation.Result?.Output)))
+                { Reject("", "Duplicate commitment: this operation and result obligation is already declared in this requirement."); continue; }
+                if (obligation.Result is { } result)
+                {
+                    if (string.IsNullOrWhiteSpace(result.Port))
+                        Reject("/result/port", "The producer result port is missing. Name one exact declared operation port.");
+                    if (string.IsNullOrWhiteSpace(result.Output))
+                        Reject("/result/output", "The public-output name is missing. " + OutputNames());
+                    else if (requirements.Outputs?.Count(o => o.Name == result.Output) != 1)
+                        Reject("/result/output", "The result output must name exactly one declared public output, not a path, value or description. " + OutputNames());
+                }
                 var contract = Contract(state, obligation.Operation);
                 if (final && contract is null)
-                    Reject("Inspect the exact committed operation contract before accepting the first TaskPlan; names and types do not establish an operation.");
-                if (contract is not null && obligation.Result is { } committed && TaskOperations.Describe(contract).Outputs.Count(p => p.Name == committed.Port) != 1)
-                    Reject("The committed result port is not declared by the inspected operation.");
+                    Reject("/operation", "The exact committed operation is not unambiguously inspected. Inspect it before accepting the first TaskPlan. Inspected operation IDs: " +
+                        Names(Contracts(state).Where(c => TaskOperations.Validate(c).Count == 0).Select(c => TaskOperations.Describe(c).Id)));
+                if (contract is not null && obligation.Result is { } committed && !string.IsNullOrWhiteSpace(committed.Port) &&
+                    TaskOperations.Describe(contract).Outputs.Count(p => p.Name == committed.Port) != 1)
+                    Reject("/result/port", "The result port is not declared by the inspected operation. Declared result ports: " +
+                        Names(TaskOperations.Describe(contract).Outputs.Select(p => p.Name)));
             }
         }
         return findings;
+
+        string OutputNames() => "Declared public-output names: " + Names((requirements.Outputs ?? []).Select(o => o.Name));
+    }
+
+    // Bounded contract names only, never result values. Matching above stays literal;
+    // truncation is solely diagnostic presentation, including for very large catalogs.
+    private static string Names(IEnumerable<string> names)
+    {
+        var sample = names.Distinct(StringComparer.Ordinal).Take(9).ToArray();
+        return new JsonArray(sample.Take(8).Select(n => (JsonNode?)JsonValue.Create(n.Length <= 96 ? n : n[..96] + "…")).ToArray()).ToJsonString() +
+            (sample.Length > 8 ? " (first 8 shown)." : ".");
     }
 
     internal static List<PlanningValidationResult> Assess(PlanningSession state)

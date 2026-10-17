@@ -28,8 +28,9 @@ public sealed partial class HybridWorkflowPlanner
         PlanningCommitments.MissingOperation or PlanningCommitments.DisconnectedResult or
         "REQUIREMENTS_CHANGED" or "REQUIREMENTS_INPUTS_CHANGED" or "REQUIREMENTS_OUTPUTS_CHANGED" or "RUNTIME_COMPOSITION_FAILURE";
 
-    private static bool InitialProposalDefect(PlanningDiagnostic diagnostic) => diagnostic.Code == "PLANNING_RESPONSE_INVALID" ||
-        diagnostic.Code is "REQUIREMENTS_INVALID" or "REQUIREMENTS_INPUTS_REQUIRED" or "REQUIREMENTS_OUTPUTS_REQUIRED" &&
+    private static bool InitialProposalDefect(PlanningSession state, PlanningDiagnostic diagnostic) => diagnostic.Code == "PLANNING_RESPONSE_INVALID" ||
+        (diagnostic.Code is "REQUIREMENTS_INVALID" or "REQUIREMENTS_INPUTS_REQUIRED" or "REQUIREMENTS_OUTPUTS_REQUIRED" ||
+         state.IntentVersion == 3 && diagnostic.Code == "REQUIREMENTS_COMMITMENT_INVALID") &&
         (diagnostic.Location == "/requirements" || diagnostic.Location.StartsWith("/requirements/", StringComparison.Ordinal));
 
     private static bool CanCorrect(PlanningSession state) => AutomaticCorrection(state) && state.PendingCall is null &&
@@ -38,7 +39,7 @@ public sealed partial class HybridWorkflowPlanner
         PlanningModelCalls.RemainingCalls(state) > 0 && PlanningModelCalls.RemainingRepairs(state) > 0 &&
         state.Diagnostics.Any(d => d.Required) && (state.Requirements is not null
             ? state.Diagnostics.Where(d => d.Required).All(d => Correctable(d) || CorrectableLiteral(state, d))
-            : state.Plan is null && state.Request.Baseline is null && state.Diagnostics.Where(d => d.Required).All(InitialProposalDefect));
+            : state.Plan is null && state.Request.Baseline is null && state.Diagnostics.Where(d => d.Required).All(d => InitialProposalDefect(state, d)));
 
     private static bool CorrectableLiteral(PlanningSession state, PlanningDiagnostic diagnostic)
     {

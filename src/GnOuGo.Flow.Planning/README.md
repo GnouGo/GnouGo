@@ -347,6 +347,8 @@ Fresh sessions use `IntentVersion=3`, independently of compiler profile v15. Req
                  "result":{"port":"location","output":"filePath"}}]}
 ```
 
+`result.port` names the exact producer port (`location`); `result.output` names the declared public output (`filePath`), never the actual path, a value or a description. `result: null` is an operation-only obligation when no public-result obligation is intended, not a fallback for invalid metadata. Matching is literal and case-sensitive, including punctuation and Unicode. Invalid declarations retain `REQUIREMENTS_COMMITMENT_INVALID` with the exact `/operation`, `/result/port` or `/result/output` location and bounded declared-name hints.
+
 During discovery a null commitment list can be completed without changing the accepted prose or interfaces. Before the first accepted TaskPlan, every supplied commitment must resolve to an inspected contract and declared result/output ports. Thereafter commitments are immutable during automatic correction. Null or empty commitments leave coverage explicitly unverified; the planner never infers obligations from its generated plan.
 
 Fresh intent-version 3 proposal prompts reuse lossless schema factoring for repeated read-only operation contracts. Their JSON Schema references resolve through the prompt's `schemas` dictionary. Existing scoped references and literal examples/defaults retain their original meaning. Catalogs, executable contracts, repair authorities and issued requests stay unchanged; the complete serialized request still passes the existing admission check. Commitment instructions live beside their response-schema declaration instead of being repeated in prose.
@@ -451,7 +453,7 @@ limits. An ordinary patch cannot add operations or replace accepted requirements
 
 Before any requirements or TaskPlan have been accepted, an incomplete initial
 proposal can use that same single regeneration: missing/invalid requirements or
-their required caller/output interfaces are diagnosed explicitly. Discovery may
+their required caller/output interfaces are diagnosed explicitly. Intent version 3 also routes invalid initial commitment declarations through that single regeneration. This requires no accepted requirements, plan, revision baseline or approval; pending receipts are consumed first and all existing admission limits apply. Discovery may
 leave requirements null; a clarification returns questions without a plan. A
 first plan must declare business requirements and interfaces. A second invalid
 proposal stops, even when the remaining allowance is larger. No requirements are

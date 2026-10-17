@@ -187,21 +187,22 @@ public sealed class CommitmentCoverageTests
         Assert.NotEqual(state.ComputeArtifactHash(), clone.ComputeArtifactHash());
     }
 
-    internal static async Task<(TestRuntime Runtime, PlanningSession State)> Fixture()
+    internal static async Task<(TestRuntime Runtime, PlanningSession State)> Fixture(string port = "location", string output = "filePath")
     {
         var factory = new InMemoryMcpClientFactory();
         factory.RegisterServer("generic", new() { Tools = [new() { Name = "perform", EffectKind = "write",
             InputSchema = JsonNode.Parse("""{"type":"object","properties":{},"additionalProperties":false}"""),
-            OutputSchema = JsonNode.Parse("""{"type":"object","properties":{"location":{"type":"string"}},"required":["location"],"additionalProperties":false}""") }] });
+            OutputSchema = new JsonObject { ["type"] = "object", ["properties"] = new JsonObject { [port] = new JsonObject { ["type"] = "string" } },
+                ["required"] = new JsonArray(port), ["additionalProperties"] = false } }] });
         var runtime = new TestRuntime(new() { McpClientFactory = factory });
         var catalog = await TaskPlanCompilerTests.Catalog(runtime.Actual);
         var operation = TaskOperations.Describe(catalog.Capabilities.Single(c => c.Method == "perform")).Id;
         runtime.Proposal = new()
         {
-            Requirements = new() { Summary = "Deliver the producer result", Inputs = [], Outputs = [new() { Name = "filePath", Type = new() { Kind = "string" } }],
-                Outcomes = [new("deliver", "Deliver the producer result") { Commitments = [new(operation) { Result = new("location", "filePath") }] }] },
+            Requirements = new() { Summary = "Deliver the producer result", Inputs = [], Outputs = [new() { Name = output, Type = new() { Kind = "string" } }],
+                Outcomes = [new("deliver", "Deliver the producer result") { Commitments = [new(operation) { Result = new(port, output) }] }] },
             Plan = new() { Root = new() { Tasks = [new() { Id = "perform", Objective = "Perform requested work", Operation = operation }],
-                Outputs = [new("filePath", Output("perform", "location"))] } }
+                Outputs = [new(output, Output("perform", port))] } }
         };
         var state = PlannerFixture.Session(); state.IntentVersion = 3; state.Catalog = catalog;
         state.Request.Options["compilation_profile"] = TaskPlanCompiler.CompactProfile;
