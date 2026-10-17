@@ -1,0 +1,23 @@
+{
+  "planningCalls": 1,
+  "repairs": 0,
+  "providerCalls": 0,
+  "runtimeLlmCalls": 0,
+  "reviewAdapterCalls": 1,
+  "requestEstimate": 16715,
+  "yamlBytes": 24025,
+  "effects": [
+    "parse_change",
+    "inspect",
+    "clone",
+    "checks",
+    "review",
+    "begin",
+    "submit",
+    "write_report",
+    "cleanup"
+  ],
+  "acceptedRequirementsUnchanged": true,
+  "publicInterfacesUnchanged": true,
+  "recoveredAdditionalEffects": 0
+}
