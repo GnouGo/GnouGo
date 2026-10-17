@@ -8,6 +8,22 @@ namespace GnOuGo.Flow.Tests.Runtime;
 
 public sealed partial class DynamicMappingCollectionTests
 {
+    [Fact]
+    public async Task AdaptiveProgramRepairReceivesOperatorLocationWithoutSpecializing()
+    {
+        var model = new Model("item.label + '.suffix'", "item.label");
+        var result = await AdaptiveRun(AdaptiveEngine(model, calls: 2), new JsonArray(new JsonObject { ["label"] = "original" }));
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal("original", Assert.Single(Result(result))!.GetValue<string>());
+        Assert.Equal(2, model.Requests.Count);
+        var prompt = model.Requests[1].Prompt;
+        var payload = JsonNode.Parse(prompt[(prompt.IndexOf("\n{\"objective\"", StringComparison.Ordinal) + 1)..])!;
+        Assert.Equal("+", payload["failure_details"]!["mapping_operator"]!.ToString());
+        Assert.Equal(0, payload["failure_details"]!["script_start"]!.GetValue<int>());
+        Assert.Null(payload["failing_index"]);
+        Assert.Equal(1, payload["assigned_count"]!.GetValue<int>());
+    }
+
     [Theory]
     [InlineData("""m.test(item.text,'\S')""")]
     [InlineData("""m.text(item.text,'(\d+)')""")]

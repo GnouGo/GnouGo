@@ -204,3 +204,21 @@ control's label as evidence that its described business failure occurred. Missin
 facts remain contract-authorized nulls, never unrelated observed placeholders.
 
 Observed-container helpers require original imported containers. Passing a constructed object, array, or filtered collection to `m.optional` is a program defect: repair the program globally, not by specializing data shapes. Missing or scalar observations remain data failures. Cache reads and invalid-entry eviction are deduplicated within an invocation; text/HTML content matching and pinned recovery assignments remain conservative.
+
+## Unsupported program diagnostics
+
+Learned extraction assembles objects and arrays from observed tokens or supported
+extractions; it cannot concatenate strings to manufacture action arguments. A
+consumer that needs derived references must use an available producer contract or
+a supported typed binding. Neither an extra retry nor a larger sandbox allowance
+can make absent evidence authoritative.
+
+Preflight reports `mapping_failure_kind`, `mapping_failure_reason`, and, for an
+unsupported binary expression, `mapping_operator` and `mapping_node_kind`.
+`script_start` and `script_length` identify the rejected expression in UTF-16 code
+units, with a zero-based offset. Lost regex escapes retain their helper and exact
+escape range. Fresh repair requests include these bounded `failure_details`;
+final errors, existing spans and Agent.Server diagnostics preserve them without
+copying scripts or observations. The historical failure messages used in adaptive
+assignments remain stable. Issued requests and committed receipts are reused
+unchanged. Validation, caching eligibility, provenance and allowances do not change.

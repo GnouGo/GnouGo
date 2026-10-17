@@ -25,12 +25,17 @@ internal sealed partial class PlanningPrompt
                 node["error_code"]?.ToString() is "RUN_NEEDS_RECONCILIATION" or "AGENT_OUTCOME_UNCERTAIN" or "LLM_BUDGET_EXCEEDED" or "LLM_BUDGET_UNVERIFIABLE")
                 result["correction_blocked"] = true;
             foreach (var name in new[] { "error_code", "workflow", "failed_workflow", "step_id", "failed_step_id", "step_type", "execution_phase",
-                "mapping_result_path", "mapping_failure_kind", "mapping_failure_reason", "consumer_binding", "classification", "dispatch_status" })
+                "mapping_result_path", "mapping_failure_kind", "mapping_failure_reason", "mapping_node_kind", "helper", "consumer_binding", "classification", "dispatch_status" })
                 if (!result.ContainsKey(name) && node[name] is JsonValue value && value.TryGetValue<string>(out var text) &&
                     text.Length is > 0 and <= 512 && text.All(c => char.IsLetterOrDigit(c) || "_-/.$:[]".Contains(c)) &&
                     !text.Contains("://", StringComparison.Ordinal)) result[name] = text;
-            if (!result.ContainsKey("mapping_attempts") && node["mapping_attempts"] is JsonValue count && count.TryGetValue<int>(out var attempts) && attempts >= 0)
-                result["mapping_attempts"] = attempts;
+            if (!result.ContainsKey("mapping_operator") && node["mapping_operator"] is JsonValue operation && operation.TryGetValue<string>(out var token) &&
+                token.Length is > 0 and <= 32 && token.All(c => char.IsLetter(c) || "+-*/%<>=!&|^~?".Contains(c))) result["mapping_operator"] = token;
+            if (!result.ContainsKey("mapping_attempts") && node["mapping_attempts"] is JsonValue attempts && attempts.TryGetValue<int>(out var used) && used >= 0)
+                result["mapping_attempts"] = used;
+            foreach (var name in new[] { "script_start", "script_length" })
+                if (!result.ContainsKey(name) && node[name] is JsonValue count && count.TryGetValue<int>(out var number) && number is >= 0 and <= 65536)
+                    result[name] = number;
             foreach (var key in new[] { "details", "last_error", "error", "inner_error", "inner" })
                 if (node[key] is JsonObject child) Visit(child, depth + 1);
         }

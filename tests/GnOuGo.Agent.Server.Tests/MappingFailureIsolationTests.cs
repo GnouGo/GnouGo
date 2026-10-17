@@ -95,6 +95,22 @@ public sealed class MappingFailureIsolationTests
     }
 
     [Fact]
+    public void FormatterExplainsUnsupportedProgramWithoutExposingItsText()
+    {
+        var result = WorkflowFailureFormatter.Format(new() { Code = "CONTRACT_UNSATISFIED", Message = "Mapping JavaScript contains an unsupported operation.", Details = new JsonObject
+        {
+            ["last_error"] = new JsonObject { ["mapping_failure_kind"] = "program", ["mapping_failure_reason"] = "unsupported_operator",
+                ["mapping_operator"] = "+", ["mapping_node_kind"] = "BinaryExpression", ["script_start"] = 17, ["script_length"] = 20,
+                ["mapping_attempts"] = 2, ["consumer_binding"] = "extract_reference", ["script"] = "PRIVATE_SCRIPT", ["sources"] = "PRIVATE_OBSERVATION" }
+        } });
+        Assert.Contains("Mapping program rejected", result.UserMessage);
+        Assert.Contains("Operator: +", result.UserMessage);
+        Assert.Contains("Script offset (UTF-16, zero-based): 17", result.TraceDetails);
+        Assert.Contains("Mapping attempts: 2", result.TraceDetails);
+        Assert.DoesNotContain("PRIVATE_", result.TraceDetails);
+    }
+
+    [Fact]
     public void FormatterKeepsNestedRootDiagnosticsAndOmitsPayloads()
     {
         var result = WorkflowFailureFormatter.Format(new() { Code = "CONTRACT_UNSATISFIED", Message = "Mapping failed", Details = new JsonObject

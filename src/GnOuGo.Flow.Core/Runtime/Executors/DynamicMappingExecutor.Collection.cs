@@ -12,7 +12,7 @@ public sealed partial class DynamicMappingExecutor
 {
     private static async Task PackCollectionRequestAsync(StepExecutionContext ctx, ILLMClient client, LLMRequest request,
         JsonObject sources, JsonArray items, string input, JsonObject target, JsonObject itemTarget, JsonNode objective,
-        string? previous, string? failure, int? failedIndex, CancellationToken ct, IReadOnlyList<int>? adaptiveIndices = null)
+        string? previous, string? failure, int? failedIndex, CancellationToken ct, IReadOnlyList<int>? adaptiveIndices = null, JsonNode? failureDetails = null)
     {
         var allowance = (ctx.Engine.LLMCapabilities ?? client as ILLMCapabilityResolver) is { } resolver
             ? await resolver.InputTokenAllowanceAsync(request.Provider, request.Model, request.MaxTokens!.Value, ct) : null;
@@ -33,6 +33,7 @@ public sealed partial class DynamicMappingExecutor
             ["source_count"] = items.Count, ["omitted_count"] = items.Count, ["examples"] = examples,
             ["previous_script"] = adaptiveIndices is null ? previous : null, ["failure"] = failure, ["failing_index"] = failedIndex
         };
+        if (FailureDiagnostics(failureDetails) is { Count: > 0 } diagnostics) payload["failure_details"] = diagnostics;
         if (adaptiveIndices is not null) payload["assigned_count"] = adaptiveIndices.Count;
         var collectionInstruction = "\nIndependent-item extraction. Return the result for ONE item, against item_target. " +
             "Use item for the current original element (for example item.records), and context for the other approved read-only inputs. " +

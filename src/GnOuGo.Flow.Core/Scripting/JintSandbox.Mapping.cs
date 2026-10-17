@@ -588,7 +588,22 @@ public sealed partial class JintSandbox
                     if (learned && !Control(conditional.Test)) throw Unsatisfied("Use an explicit observation predicate for a conditional mapping.");
                     Check(conditional.Test, bound, depth + 1); Check(conditional.Consequent, bound, depth + 1); Check(conditional.Alternate, bound, depth + 1); return;
                 case UnaryExpression { Operator: Acornima.Operator.LogicalNot } unary: Check(unary.Argument, bound, depth + 1); return;
-                default: throw Unsatisfied("Mapping JavaScript contains an unsupported operation.");
+                default:
+                    // Keep the historical failure message (used by recorded adaptive
+                    // assignments). Structural diagnostics never include source text.
+                    var error = InvalidProgram("Mapping JavaScript contains an unsupported operation.");
+                    error.Details!["mapping_failure_reason"] = node is BinaryExpression ? "unsupported_operator" : "unsupported_operation";
+                    error.Details["mapping_node_kind"] = node.Type.ToString();
+                    if (node is BinaryExpression rejected)
+                        error.Details["mapping_operator"] = rejected.Operator switch
+                        {
+                            Acornima.Operator.Addition => "+", Acornima.Operator.Subtraction => "-",
+                            Acornima.Operator.Multiplication => "*", Acornima.Operator.Division => "/",
+                            Acornima.Operator.Remainder => "%", _ => rejected.Operator.ToString()
+                        };
+                    error.Details["script_start"] = node.Start;
+                    error.Details["script_length"] = node.End - node.Start;
+                    throw error;
             }
         }
 
@@ -637,6 +652,7 @@ public sealed partial class JintSandbox
                         var escape = expression[++offset];
                         if (escape is '\\' or '\'' or '"' or '/' or 'b' or 'f' or 'n' or 'r' or 't' or 'v' or '0' or 'x' or 'u' or '\r' or '\n') continue;
                         var error = InvalidProgram("A regex argument contains a JavaScript escape that discards its backslash; use an explicitly escaped pattern string.", helper: name);
+                        error.Details!["mapping_failure_reason"] = "lost_regex_escape";
                         error.Details!["script_start"] = offset - 1;
                         error.Details["script_length"] = 2;
                         throw error;

@@ -311,11 +311,14 @@ public sealed class AutomaticCorrectionTests
         state.Request.FailureEvidence = new JsonObject { ["error_code"] = "CONTRACT_UNSATISFIED", ["error_message"] = "PRIVATE_MESSAGE",
             ["details"] = new JsonObject { ["failed_step_id"] = "extract", ["last_error"] = new JsonObject
                 { ["mapping_result_path"] = "$/status/success", ["mapping_failure_kind"] = "program", ["mapping_failure_reason"] = "ungrounded_scalar",
-                    ["mapping_attempts"] = 2, ["sources"] = "PRIVATE_SNAPSHOT", ["script"] = "PRIVATE_SCRIPT" } } };
+                    ["mapping_attempts"] = 2, ["mapping_operator"] = "+", ["mapping_node_kind"] = "BinaryExpression", ["script_start"] = 17,
+                    ["script_length"] = 20, ["sources"] = "PRIVATE_SNAPSHOT", ["script"] = "PRIVATE_SCRIPT" } } };
         state = await PlannerFixture.RunAsync(runtime, state);
         Assert.Equal(PlanningStatus.FinalReview, state.Status);
         var prompt = Assert.Single(runtime.Calls).Prompt;
         Assert.Contains("executionFailure", prompt); Assert.Contains("$/status/success", prompt); Assert.Contains("ungrounded_scalar", prompt);
+        var context = PlanningPrompt.FailureContext(state.Request.FailureEvidence)!;
+        Assert.Equal("+", context["mapping_operator"]!.ToString()); Assert.Equal(17, context["script_start"]!.GetValue<int>());
         Assert.DoesNotContain("PRIVATE_", prompt);
     }
 }

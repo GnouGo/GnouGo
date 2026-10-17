@@ -18,16 +18,20 @@ internal static class WorkflowFailureFormatter
             builder.Append('[').Append(error.Code.Trim()).Append("] ");
         builder.AppendLine(string.IsNullOrWhiteSpace(error.Message) ? "Workflow execution failed." : error.Message.Trim());
 
-        if (error.Code == "CONTRACT_UNSATISFIED" && ReadBoundedStringDeep(error.Details, "mapping_result_path", 512) is { } resultPath)
+        var resultPath = ReadBoundedStringDeep(error.Details, "mapping_result_path", 512);
+        if (error.Code == "CONTRACT_UNSATISFIED" && (resultPath is not null || ReadLongDeep(error.Details, "script_start") is not null))
         {
-            builder.AppendLine().AppendLine("Mapping result rejected:");
-            builder.Append("- Result path: ").AppendLine(Sanitize(resultPath, 512));
+            builder.AppendLine().AppendLine(resultPath is null ? "Mapping program rejected:" : "Mapping result rejected:");
+            if (resultPath is not null) builder.Append("- Result path: ").AppendLine(Sanitize(resultPath, 512));
             foreach (var (key, label) in new[] { ("mapping_failure_kind", "Failure kind"),
-                ("mapping_failure_reason", "Reason"), ("consumer_binding", "Binding") })
+                ("mapping_failure_reason", "Reason"), ("consumer_binding", "Binding"),
+                ("mapping_operator", "Operator"), ("mapping_node_kind", "Syntax"), ("helper", "Helper") })
                 if (ReadBoundedStringDeep(error.Details, key, 240) is { } value)
                     builder.Append("- ").Append(label).Append(": ").AppendLine(Sanitize(value, 240));
-            if (ReadLongDeep(error.Details, "mapping_attempts") is { } attempts)
-                builder.Append("- Mapping attempts: ").AppendLine(attempts.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            foreach (var (key, label) in new[] { ("script_start", "Script offset (UTF-16, zero-based)"),
+                ("script_length", "Rejected expression length"), ("mapping_attempts", "Mapping attempts") })
+                if (ReadLongDeep(error.Details, key) is { } count)
+                    builder.Append("- ").Append(label).Append(": ").AppendLine(count.ToString(System.Globalization.CultureInfo.InvariantCulture));
             builder.AppendLine("Extraction must preserve observed values. Assemble typed status and other computed values with deterministic bindings from the producer's declared results. Review the composition; increasing limits or inventing defaults cannot supply missing evidence.");
         }
 

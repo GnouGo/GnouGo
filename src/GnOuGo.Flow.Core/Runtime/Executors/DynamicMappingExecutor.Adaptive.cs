@@ -12,7 +12,7 @@ public sealed partial class DynamicMappingExecutor
 
     private async Task<JsonNode?> ExecuteAdaptiveAsync(StepExecutionContext ctx, JsonObject sources, JsonArray items,
         string input, string output, JsonObject target, JsonObject itemTarget, JsonObject identity, JintSandbox sandbox,
-        Func<int, IReadOnlyList<int>?, string?, string?, int?, Task<JsonObject>> generate, CancellationToken ct)
+        Func<int, IReadOnlyList<int>?, string?, string?, int?, JsonNode?, Task<JsonObject>> generate, CancellationToken ct)
     {
         var tenant = ctx.Limits.TenantId;
         var store = string.IsNullOrWhiteSpace(tenant) ? null : ctx.Engine.MappingArtifacts;
@@ -109,7 +109,7 @@ public sealed partial class DynamicMappingExecutor
                     ["failure"] = error, ["source"] = sourceHash, ["phase"] = phase };
                 var recorded = await ctx.RecordControlAsync("mapping_adaptive_" + attempts, () => assigned, ct);
                 if (!JsonNode.DeepEquals(assigned, recorded)) throw JintSandbox.Unsatisfied("Adaptive specialization assignments changed during recovery.");
-                var receipt = await generate(attempts, indices, priorError is null ? null : previous[indices[0]], error, failed);
+                var receipt = await generate(attempts, indices, priorError is null ? null : previous[indices[0]], error, failed, priorError?.Details);
                 attempts++;
                 ctx.SetTelemetryAttribute("gnougo.mapping.model_attempts", attempts);
                 if (phase == "program_repair") repairs++;
