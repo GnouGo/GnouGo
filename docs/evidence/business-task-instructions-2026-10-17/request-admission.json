@@ -1,0 +1,46 @@
+{
+  "baseline": "bbf5e45",
+  "candidate": "e9162a1",
+  "method": "PlanningJsonTransport complete prompt plus response schema conservative estimate",
+  "limit": 24000,
+  "discoveryAdmissionMargin": 21600,
+  "before": [
+    9881,
+    20241,
+    21553,
+    21250,
+    21239,
+    21460,
+    23890
+  ],
+  "after": [
+    9886,
+    20241,
+    21553,
+    21250,
+    21238,
+    21460,
+    23889
+  ],
+  "beforeTotal": 139514,
+  "afterTotal": 139517,
+  "logicalCalls": 7,
+  "repairs": 0,
+  "discoveredIdentities": 74,
+  "requestedContracts": 10,
+  "metadataReads": 19,
+  "exactResolutions": 20,
+  "unavailableContracts": 0,
+  "compilerProfile": "compact-bindings-v15",
+  "paidCalls": 0,
+  "initialCiFailure": "https://github.com/GnouGo/GnouGo/actions/runs/39034024043",
+  "initialFailureFinalRequestEstimate": 24142,
+  "mappingRegression": {
+    "unchangedLimit": 12000,
+    "initialFailureCompleteExampleBound": 12165,
+    "finalCompleteExampleAdmitted": true,
+    "broadDecisionStillRejectedBeforeDispatch": true
+  },
+  "noDiscoveryAlgorithmChange": true,
+  "annotationAcceptanceUnchanged": true
+}

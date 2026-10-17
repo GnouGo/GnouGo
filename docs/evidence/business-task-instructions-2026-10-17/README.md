@@ -1,6 +1,6 @@
 # Business-task instructions and observed extraction
 
-Candidate implementation: `b2b5944` on draft PR #117. This work is offline. No provider call, live review, historical advancement, approval or financial change was made.
+Candidate implementation: `e9162a1` on draft PR #117. This work is offline. No provider call, live review, historical advancement, approval or financial change was made.
 
 ## Request responsibilities
 
@@ -13,6 +13,14 @@ The Agent.Server policy now says:
 > Express the requested business actions. The host manages approval of the generated plan before execution; do not add that approval as a business task.
 
 The injected instructions contain no explanation of the compilation format. User requests, document content and tool contracts are not filtered. The actual-request regression deliberately requests a YAML document and retains that request and its original content. Business human-input tasks remain supported. Configuration, confinement, permission, output and cleanup rules are unchanged. Previously issued requests are reused; these edits only affect fresh requests.
+
+## Complete request admission
+
+The first CI pass caught a stale prompt assertion and two real request-size regressions. The correction shortened redundant instructions and removed a schema annotation that repeated the accepted transform-mode enumeration; the enumeration and validation rules remain intact. No discovery algorithm, context format, limit or admission margin changed.
+
+[Measured request estimates](request-admission.json) compare the same retained seven-call discovery fixture: the final request is **23,889 / 24,000**, versus **23,890 / 24,000** before. All six discovery requests remain below the **21,600** admission margin. All 74 discovered identities, ten requested contracts, 19 metadata reads and 20 exact resolutions remain; no unresolved contract is hidden. Total conservative estimates are 139,517 versus 139,514 across those seven requests, so no overall token saving is claimed. Actual provider usage is zero.
+
+The mapping fixture again admits a complete example under **12,000**, while the oversized global decision still fails before dispatch. The first failing candidate attempted 12,165; that failure remains recorded in CI. Current owning suites pass: **1,562 Planning checks and 199 mapping checks** under `-warnaserror`. No assertion was loosened to accept an over-budget request.
 
 ## Independent retained failure
 
@@ -31,7 +39,7 @@ The unchanged sandbox still rejects both programs. No unsupported operator or in
 
 ## Disposable composition
 
-One existing explicit structural revision on a new disposable session reaches final review using one deterministic proposal and zero repairs. Its complete serialized request is 163,892 bytes. There are zero provider/MCP calls during this retained-data replay, and no approval is issued.
+One existing explicit structural revision on a new disposable session reaches final review using one deterministic proposal and zero repairs. Its complete serialized request is 163,764 bytes. There are zero provider/MCP calls during this retained-data replay, and no approval is issued.
 
 Only these differences were accepted:
 

@@ -38,7 +38,7 @@
   "providerCalls": 0,
   "mcpCalls": 0,
   "offlineProposalCalls": 1,
-  "offlineRequestBytes": 163892,
+  "offlineRequestBytes": 163764,
   "offlineStatus": "final_review",
   "approved": false,
   "changedPaths": [
