@@ -1,0 +1,13 @@
+{
+  "user_instruction": "can you run amazon and code live test? go for it.",
+  "scope": "one fresh planning session for each requested scenario; bounded automatic correction only",
+  "runs": [
+    "commitments20261017a-amazon-1",
+    "commitments20261017a-code-1"
+  ],
+  "max_products": 10,
+  "budget_ceiling_eur": 200,
+  "historical_requests": "unchanged; no replay or archival",
+  "workflow_execution": "pending separate concrete artifact approval and requirement acknowledgments",
+  "code_feedback": "local only"
+}

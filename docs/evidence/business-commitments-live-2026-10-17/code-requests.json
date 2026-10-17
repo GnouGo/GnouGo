@@ -1,0 +1,52 @@
+[
+  {
+    "request_id": "commitments20261017a-code-1:1:c671b326763919eebc4dedfee3f861802872b591e1a1d62dcec95a8acd6ea266",
+    "request_hash": "a85c78e116dfb832d0fb3f459b53ec33b17a3967f5644fbd7f7acf2dc5faffb0",
+    "receipt_hash": "5b24819f30f78925cbdcd84a8fa6f0cd05fc992db0fda64cdae293723d3c2625",
+    "strict": true,
+    "request_bytes": 24978,
+    "prompt_bytes": 4532,
+    "schema_bytes": 18715,
+    "schema_findings": [],
+    "http_statuses": [
+      200
+    ],
+    "usage": {
+      "input_tokens": 5010,
+      "output_tokens": 376,
+      "total_tokens": 5386,
+      "benchmark_cost_eur": 0.03249262141132278,
+      "transport_attempts": 1,
+      "uncertain_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "benchmark_usage_bounded": true
+    }
+  },
+  {
+    "request_id": "commitments20261017a-code-1:2:7f53a1627bd9f84c0ab9bb6412f023d588886518d2ba5d4e2acc68f5884c4a2e",
+    "request_hash": "1ca7ef5d1e3d4e09d5a578f7b05d35dfa17603b8e7526de3d722dd48ec20cffd",
+    "receipt_hash": "b29cd5edbcb6121923750c6f0ea95f503f25ad024584df0c7e6cdd7659e52ba2",
+    "strict": true,
+    "request_bytes": 135846,
+    "prompt_bytes": 64225,
+    "schema_bytes": 40286,
+    "schema_findings": [],
+    "http_statuses": [
+      200
+    ],
+    "usage": {
+      "input_tokens": 23738,
+      "output_tokens": 6746,
+      "total_tokens": 30484,
+      "benchmark_cost_eur": 0.2871567838297111,
+      "transport_attempts": 1,
+      "uncertain_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "benchmark_usage_bounded": true
+    }
+  }
+]

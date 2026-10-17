@@ -1,0 +1,42 @@
+[
+  {
+    "code": "REQUIREMENTS_COMMITMENT_INVALID",
+    "location": "/requirements/outcomes/0/commitments/0",
+    "message": "A result commitment must name one declared operation port and one accepted public output.",
+    "required": true,
+    "validationStage": null,
+    "rule": null
+  },
+  {
+    "code": "REQUIREMENTS_COMMITMENT_INVALID",
+    "location": "/requirements/outcomes/1/commitments/0",
+    "message": "A result commitment must name one declared operation port and one accepted public output.",
+    "required": true,
+    "validationStage": null,
+    "rule": null
+  },
+  {
+    "code": "REQUIREMENTS_COMMITMENT_INVALID",
+    "location": "/requirements/outcomes/2/commitments/0",
+    "message": "A result commitment must name one declared operation port and one accepted public output.",
+    "required": true,
+    "validationStage": null,
+    "rule": null
+  },
+  {
+    "code": "REQUIREMENTS_COMMITMENT_INVALID",
+    "location": "/requirements/outcomes/2/commitments/1",
+    "message": "A result commitment must name one declared operation port and one accepted public output.",
+    "required": true,
+    "validationStage": null,
+    "rule": null
+  },
+  {
+    "code": "REQUIREMENTS_COMMITMENT_INVALID",
+    "location": "/requirements/outcomes/3/commitments/0",
+    "message": "A result commitment must name one declared operation port and one accepted public output.",
+    "required": true,
+    "validationStage": null,
+    "rule": null
+  }
+]

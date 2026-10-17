@@ -1,0 +1,101 @@
+{
+  "summary": "Automatiser Amazon.fr avec une seule entrée publique query, rechercher l’article demandé, traiter au maximum les 10 premiers produits affichés, visiter chaque page produit, extraire nom, description et prix sans invention, puis sauvegarder un classeur Excel au chemin imposé. Le navigateur doit être fermé même en cas d’échec et le succès ne doit être déclaré que si la sauvegarde aboutit.",
+  "outcomes": [
+    {
+      "id": "public-input-query",
+      "description": "Le workflow expose une seule entrée publique nommée query contenant l’article à rechercher.",
+      "commitments": null
+    },
+    {
+      "id": "amazon-fr-search",
+      "description": "La recherche est effectuée sur Amazon.fr et les produits sont pris dans l’ordre observé, au maximum les 10 premiers, sans déduplication ni filtrage métier supplémentaire.",
+      "commitments": [
+        {
+          "operation": "cap_490d9e16075cbdca5954ec27",
+          "result": null
+        },
+        {
+          "operation": "cap_416310ac4ff2808dc91e3a14",
+          "result": null
+        }
+      ]
+    },
+    {
+      "id": "product-extraction",
+      "description": "Pour chaque produit candidat, le workflow visite la page produit et extrait les champs Nom, Description et Prix; les absences, incertitudes et erreurs restent explicites et aucune valeur n’est inventée.",
+      "commitments": [
+        {
+          "operation": "cap_490d9e16075cbdca5954ec27",
+          "result": null
+        }
+      ]
+    },
+    {
+      "id": "xlsx-save",
+      "description": "Le classeur est sauvegardé avec les en-têtes en première ligne à workflows/schema-portability-20261002/commitments20261017a-amazon-1/products.xlsx.",
+      "commitments": [
+        {
+          "operation": "cap_37c513d225bb1b870053c5d3",
+          "result": {
+            "port": "filePath",
+            "output": "workflows/schema-portability-20261002/commitments20261017a-amazon-1/products.xlsx"
+          }
+        }
+      ]
+    },
+    {
+      "id": "cleanup",
+      "description": "Le navigateur est fermé même en cas d’échec.",
+      "commitments": [
+        {
+          "operation": "cap_bdb7ba9ab04b18783883fa86",
+          "result": null
+        }
+      ]
+    },
+    {
+      "id": "truthful-status",
+      "description": "Le résultat public ne déclare pas de réussite si l’écriture du classeur n’a pas abouti.",
+      "commitments": null
+    }
+  ],
+  "inputs": [
+    {
+      "name": "query",
+      "type": {
+        "kind": "string"
+      }
+    }
+  ],
+  "outputs": [
+    {
+      "name": "success",
+      "type": {
+        "kind": "boolean"
+      },
+      "required": true
+    },
+    {
+      "name": "workbookPath",
+      "type": {
+        "kind": "string",
+        "nullable": true
+      },
+      "required": true
+    },
+    {
+      "name": "status",
+      "type": {
+        "kind": "string"
+      },
+      "required": true
+    },
+    {
+      "name": "rowCountIncludingHeader",
+      "type": {
+        "kind": "integer"
+      },
+      "required": true
+    }
+  ]
+}

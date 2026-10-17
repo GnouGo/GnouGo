@@ -1,0 +1,17 @@
+{
+  "build_warnings": 0,
+  "build_errors": 0,
+  "amazon_local_browser_page": true,
+  "amazon_local_xlsx_independent_read": true,
+  "amazon_local_browser_cleanup": true,
+  "code_mcp_discovery": [
+    "Git",
+    "Cmd",
+    "GithubCopilot",
+    "Document"
+  ],
+  "code_pinned_head_available": true,
+  "code_pinned_base_available": true,
+  "readiness_model_calls": 0,
+  "limitations": "Discovery and pinned toolchains do not prove that actual code checks or runtime permissions succeed. No workflow execution occurred."
+}

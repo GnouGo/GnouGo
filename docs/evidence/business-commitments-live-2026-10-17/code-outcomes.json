@@ -1,0 +1,22 @@
+{
+  "run": "commitments20261017a-code-1",
+  "revision": 3,
+  "intent_version": 3,
+  "status": "stopped",
+  "artifact_hash": null,
+  "has_yaml": false,
+  "accepted_requirements": null,
+  "planning_calls": 2,
+  "corrections": 0,
+  "pending_request": false,
+  "execution_started": null,
+  "raw_record_sha256": "0e921006d133961767708bb5a61902a7dc91341add396f36877ec49feece72f4",
+  "all_original_schemas_pass": true,
+  "readback_provider_calls": 0,
+  "readback_external_calls": 0,
+  "mcp_events_total": 1,
+  "workflow_mcp_events": 0,
+  "discovery_tools": [
+    "copilot_task_contract"
+  ]
+}
