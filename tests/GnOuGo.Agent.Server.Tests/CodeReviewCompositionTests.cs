@@ -238,7 +238,8 @@ public sealed partial class CodeReviewCompositionTests(ITestOutputHelper output)
         internal readonly List<JsonObject> Posted = [];
         internal int CloneCount, CleanupCount;
         internal string? SubmittedEvent;
-        internal Execution(string variant, bool report = false)
+        internal string? ExactRevision;
+        internal Execution(string variant, bool report = false, bool exactRevision = false)
         {
             Directory.CreateDirectory(Source); Repository.Init(Source);
             File.WriteAllText(Path.Combine(Source, "readme.txt"), "original source\n");
@@ -249,7 +250,16 @@ public sealed partial class CodeReviewCompositionTests(ITestOutputHelper output)
                 File.WriteAllText(Path.Combine(Source, name + ".cmd"), "@echo off\r\nif not exist readme.txt exit /b 9\r\necho " + name + "\r\nexit /b " + exit + "\r\n");
             }
             using (var repository = new Repository(Source))
-            { Commands.Stage(repository, "*"); var who = new Signature("Fixture", "fixture@example.invalid", DateTimeOffset.UnixEpoch.AddDays(1)); repository.Commit("Local checks", who, who); }
+            {
+                Commands.Stage(repository, "*"); var who = new Signature("Fixture", "fixture@example.invalid", DateTimeOffset.UnixEpoch.AddDays(1));
+                var baseline = repository.Commit("Local checks", who, who);
+                if (exactRevision)
+                {
+                    File.WriteAllText(Path.Combine(Source, "reviewed.txt"), "exact observed revision\n"); Commands.Stage(repository, "*");
+                    ExactRevision = repository.Commit("Requested revision", who, who).Sha;
+                    Commands.Checkout(repository, baseline.Sha);
+                }
+            }
             File.WriteAllText(Path.Combine(Root, "keep.txt"), "untouched");
             var settings = new GitServerSettings { DefaultWorkingDirectory = Root, AllowMutations = true, AllowNetworkOperations = true, TokenEnvironmentVariables = [] };
             var policy = new GitPolicy(settings, Root); var git = new GitTools(policy, new(policy, Options.Create(settings)), NullLogger<GitTools>.Instance);
@@ -271,13 +281,32 @@ public sealed partial class CodeReviewCompositionTests(ITestOutputHelper output)
                 };
             }
             Tool("write_blueprint", Obj(("instructions", new())), Obj(("path", new())), _ => throw new InvalidOperationException("Artifact generation is not review execution."));
-            Tool("inspect", Obj(("url", new())), report ? Obj(("source", new()), ("open", Bool()), ("state", new())) : Obj(("source", new()), ("open", Bool())), a =>
-            { Assert.Equal(ChangeUrl, a["url"]!.ToString()); var result = new JsonObject { ["source"] = Source, ["open"] = true }; if (report) result["state"] = "open"; return result; });
-            Tool("clone", Obj(("source", new())), Obj(("path", new())), a =>
+            var inspected = report ? Obj(("source", new()), ("open", Bool()), ("state", new())) : Obj(("source", new()), ("open", Bool()));
+            if (exactRevision) inspected.Fields.Add(new() { Name = "revision" });
+            var inspectInput = Obj(("url", new()));
+            if (exactRevision) inspectInput.Fields.Add(new() { Name = "number", Type = new() { Kind = "integer" } });
+            Tool("inspect", inspectInput, inspected, a =>
+            {
+                Assert.Equal(ChangeUrl, a["url"]!.ToString()); var result = new JsonObject { ["source"] = Source, ["open"] = true };
+                if (report) result["state"] = "open";
+                if (exactRevision) { Assert.Equal(17, a["number"]!.GetValue<int>()); result["revision"] = ExactRevision; }
+                return result;
+            });
+            var cloneInput = Obj(("source", new()));
+            if (exactRevision) cloneInput.Fields.Add(new() { Name = "revision" });
+            Tool("clone", cloneInput, Obj(("path", new())), a =>
             {
                 Assert.Equal(Source, a["source"]!.ToString());
                 if (variant == "denied") throw new WorkflowRuntimeException("PERMISSION_DENIED", "Disposable fixture denies cloning.");
-                CloneCount++; var result = git.GitClone(Source, Location); Assert.True(result.Success, result.ErrorMessage);
+                if (exactRevision) Assert.Equal(ExactRevision, a["revision"]!.ToString());
+                CloneCount++; var result = git.GitClone(Source, Location, branch: exactRevision ? a["revision"]!.ToString() : null, historyDepth: exactRevision ? 0 : 1);
+                Assert.True(result.Success, result.ErrorMessage);
+                if (exactRevision)
+                {
+                    using var clone = new Repository(Target);
+                    Assert.Equal(ExactRevision, clone.Head.Tip.Sha); Assert.True(clone.Info.IsHeadDetached);
+                    Assert.Equal("exact observed revision\n", File.ReadAllText(Path.Combine(Target, "reviewed.txt")));
+                }
                 Assert.Equal(Location, result.ProjectRootRelative); return new() { ["path"] = result.ProjectRootRelative };
             });
             void AssertClone(JsonObject a) { Assert.Equal(Location, a["path"]!.ToString()); Assert.True(Repository.IsValid(Target)); }

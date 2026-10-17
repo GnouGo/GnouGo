@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable></PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../../../src/GnOuGo.Flow.Persistence/GnOuGo.Flow.Persistence.csproj" />
+    <ProjectReference Include="../../../../src/GnOuGo.Flow.Planning/GnOuGo.Flow.Planning.csproj" />
+    <Compile Include="../../../../tests/Shared/PlanningCorpus.cs" Link="PlanningCorpus.cs" />
+    <Compile Include="../../../../tests/Shared/PlanningBenchmarkCases.cs" Link="PlanningBenchmarkCases.cs" />
+  </ItemGroup>
+</Project>
