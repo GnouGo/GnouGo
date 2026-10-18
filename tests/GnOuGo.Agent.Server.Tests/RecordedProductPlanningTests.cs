@@ -105,11 +105,10 @@ public sealed class RecordedProductPlanningTests(ITestOutputHelper output)
             Assert.Throws<PlanningConflictException>(() => PlanningArtifactApproval.Verify(changed));
             foreach (var request in replay.Requests)
             {
-                var promptBytes = System.Text.Encoding.UTF8.GetByteCount(request.Prompt);
-                var schemaBytes = System.Text.Encoding.UTF8.GetByteCount(request.StructuredOutputSchema!.ToJsonString());
-                var estimate = (promptBytes + schemaBytes + 2) / 3 + 256;
-                Assert.InRange(estimate, 1, 24000);
-                if (compact) output.WriteLine($"Complete request: prompt bytes={promptBytes}, schema bytes={schemaBytes}, conservative input tokens={estimate}");
+                var serializedBytes = System.Text.Encoding.UTF8.GetByteCount(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+                var estimate = (serializedBytes + 2) / 3 + 256;
+                Assert.InRange(estimate, 1, session.Request.Generation.MaxInputTokensPerRequest);
+                if (compact) output.WriteLine($"Complete serialized request: UTF-8 bytes={serializedBytes}, estimated input tokens={estimate}");
             }
 
             using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
@@ -172,7 +171,8 @@ public sealed class RecordedProductPlanningTests(ITestOutputHelper output)
     private static async Task<PlanningSession> Plan(RealProductContracts.Factory factory, Replay replay)
     {
         var runtime = new WorkflowPlanningRuntime(new WorkflowEngine { McpClientFactory = factory, LLMClient = replay }, (_, _) => Task.CompletedTask);
-        var session = new PlanningSession { Request = new() { TenantId = "test", Prompt = RealProductContracts.Prompt, Mode = PlanningMode.Auto, Generation = new() { MaxInputTokensPerRequest = 24000, MaxOutputTokens = 32768 } } };
+        var session = new PlanningSession { Request = new() { TenantId = "test", Prompt = RealProductContracts.Prompt, Mode = PlanningMode.Auto,
+            Generation = replay.Schemas is null ? new() : new() { MaxInputTokensPerRequest = 24000, MaxOutputTokens = 32768 } } };
         if (replay.Schemas is not null)
         {
             var catalog = await runtime.DiscoverAsync(session.Request, TestContext.Current.CancellationToken);
@@ -196,19 +196,29 @@ public sealed class RecordedProductPlanningTests(ITestOutputHelper output)
         {
             session = JsonSerializer.Deserialize(JsonSerializer.Serialize(session, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
             session = await new HybridWorkflowPlanner().AdvanceAsync(session, new() { ExpectedRevision = session.Revision }, runtime, TestContext.Current.CancellationToken);
+            Assert.True(replay.Failure is null, replay.Failure?.ToString());
             var requirements = JsonSerializer.Serialize(session.Requirements, PlanningJsonContext.Default.PlanningRequirements);
             if (accepted is not null) Assert.Equal(accepted, requirements);
             accepted = requirements;
         }
         return session;
     }
-    private sealed class Replay(JsonObject recording, JsonObject? schemas = null) : ILLMClient
+    private sealed class Replay(JsonObject recording, JsonObject? schemas = null) : ILLMClient, ILLMCapabilityResolver
     {
         internal JsonObject Recording => recording;
         public JsonArray? Schemas { get; } = schemas?["schemas"]!.AsArray();
         public int Calls { get; private set; }
+        internal Exception? Failure;
         public List<LLMRequest> Requests { get; } = [];
+        public Task<int?> InputTokenAllowanceAsync(string? provider, string model, int outputTokens, CancellationToken ct) => Task.FromResult<int?>(128000);
+        public Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<bool?>(true);
+        public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<IReadOnlyList<string>?>(["medium"]);
         public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
+        {
+            try { return Response(request); }
+            catch (Exception error) { Failure = error; throw; }
+        }
+        private Task<LLMResponse> Response(LLMRequest request)
         {
             Requests.Add(request);
             var responses = recording["responses"]!.AsArray();

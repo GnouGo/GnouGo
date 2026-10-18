@@ -86,7 +86,9 @@ public sealed class MappingFailureIsolationTests
 
     private static async Task AnswerRevisionAsync(AgentHumanInputProvider input, HttpClient http)
     {
-        var request = await input.PendingRequests.ReadAsync(Ct);
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(Ct);
+        timeout.CancelAfter(TimeSpan.FromSeconds(30));
+        var request = await input.PendingRequests.ReadAsync(timeout.Token);
         Assert.Equal("agent_workflow_revision", request.StepId);
         Assert.Contains("failed while running", request.Prompt);
         Assert.Contains("$/outcome/ready", request.Context!.ToJsonString());
@@ -123,9 +125,12 @@ public sealed class MappingFailureIsolationTests
         Assert.DoesNotContain("PRIVATE_", result.TraceDetails);
     }
 
-    private sealed class Model : ILLMClient
+    private sealed class Model : ILLMClient, ILLMCapabilityResolver
     {
         public int Calls { get; private set; }
+        public Task<int?> InputTokenAllowanceAsync(string? provider, string model, int outputTokens, CancellationToken ct) => Task.FromResult<int?>(96000);
+        public Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<bool?>(true);
+        public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<IReadOnlyList<string>?>(["medium"]);
         public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
         {
             Calls++; Assert.True(Calls <= 2, "No additional inference after bounded failure.");

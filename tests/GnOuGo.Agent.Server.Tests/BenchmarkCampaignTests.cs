@@ -143,7 +143,7 @@ public sealed class BenchmarkCampaignTests
         var document = new GnOuGo.Flow.Core.Compilation.WorkflowCompiler().Compile(definition);
         var store = new InMemoryWorkflowRunStore(); var client = new AdmissionClient();
         var engine = new WorkflowEngine { LLMClient = client, LlmDefaults = new() { Model = "pinned" }, RunStore = store,
-            Limits = new() { TenantId = "tenant", RunId = "run" } };
+            Limits = new() { TenantId = "tenant", RunId = "run", MaxMappingInputTokens = 96000 } };
         var result = await engine.ExecuteAsync(document.Workflows[document.Entrypoint!],
             new JsonObject { ["observation"] = observation }, Ct);
         Assert.Equal("LLM_BUDGET_EXCEEDED", result.Error!.Code);
@@ -152,9 +152,17 @@ public sealed class BenchmarkCampaignTests
         Assert.Equal(0, client.Dispatches);
         var run = (await store.ReadAsync("tenant", "run", Ct))!;
         Assert.Equal("failed", run.Invocations["/workflow/main/step/model"].Status);
-        var receipt = run.Invocations[mapping ? "/workflow/main/step/model/mapping/0" : "/workflow/main/step/model"];
-        Assert.True(receipt.ExternalCompletionObserved);
-        if (mapping) Assert.Equal("request_input_allowance", receipt.Output!["details"]!["classification"]!.ToString());
+        var receipt = run.Invocations["/workflow/main/step/model"];
+        if (mapping)
+        {
+            Assert.False(receipt.ExternalCompletionObserved); // Admission failed before any model child existed.
+            Assert.NotNull(receipt.CompletedAt);
+            Assert.Equal("request_input_allowance", receipt.Error!.Details!["classification"]!.ToString());
+            Assert.DoesNotContain("/workflow/main/step/model/mapping/0", run.Invocations.Keys);
+            Assert.Equal(96000, result.Error.Details["limit"]!.GetValue<int>());
+            Assert.Equal("not_started", result.Error.Details["dispatch_status"]!.ToString());
+        }
+        else Assert.True(receipt.ExternalCompletionObserved);
         Assert.Equal("completed", Assert.Single(run.Invocations.Values, i => i.IsFinalization && i.StepType == "set").Status);
         var originalError = result.Error.Details.ToJsonString();
         var recovered = await new WorkflowEngine { RunStore = store, LLMClient = client }
@@ -163,9 +171,12 @@ public sealed class BenchmarkCampaignTests
         Assert.Equal(originalError, recovered.Error!.Details!.ToJsonString());
         Assert.Equal(0, client.Dispatches);
     }
-    private sealed class AdmissionClient : ILLMClient
+    private sealed class AdmissionClient : ILLMClient, ILLMCapabilityResolver
     {
         public int Dispatches;
+        public Task<int?> InputTokenAllowanceAsync(string? provider, string model, int outputTokens, CancellationToken ct) => Task.FromResult<int?>(96000);
+        public Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<bool?>(true);
+        public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<IReadOnlyList<string>?>(["medium"]);
         public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
         {
             _ = KeyVaultBenchmarkModel.CreateDispatchRequest(request, "pinned", "pinned", execution: true);
@@ -463,13 +474,15 @@ public sealed class BenchmarkCampaignTests
     {
         var records = new Records(); var campaign = new BenchmarkCampaign(records, "recorded");
         var request = new LLMRequest { ClientRequestId = "session:1:hash", Prompt = "original prompt", StructuredOutputSchema = new JsonObject { ["type"] = "string" } };
-        var state = new PlanningSession { Request = new() { TenantId = "benchmark", SessionId = "session", Name = "local", Prompt = "original prompt" }, ModelCalls = 3, ReplanAttempts = 2 };
+        var state = new PlanningSession { Request = new() { TenantId = "benchmark", SessionId = "session", Name = "local", Prompt = "original prompt",
+            MaxModelCalls = 8, MaxReplanAttempts = 2, Generation = new("medium", 12000, 8192) }, ModelCalls = 3, ReplanAttempts = 2 };
         await campaign.SaveAsync("planning-evaluation-runs", "source:pilot:local:1", new() { ["session"] = JsonSerializer.SerializeToNode(state, PlanningJsonContext.Default.PlanningSession) }, Ct);
         await campaign.SaveAsync("planning-evaluation-requests", request.ClientRequestId, JsonSerializer.SerializeToNode(request, PlanningJsonContext.Default.LLMRequest)!.AsObject(), Ct);
         await campaign.SaveAsync("planning-evaluation-receipts", request.ClientRequestId, JsonSerializer.SerializeToNode(new LLMResponse { Text = "\"recorded\"" }, PlanningJsonContext.Default.LLMResponse)!.AsObject(), Ct);
         var before = records.Writes;
         var snapshot = await campaign.InspectAsync(Ct);
         var replay = await campaign.ReadReplayAsync("source:pilot:local:1", Ct);
+        Assert.False(replay.Client is ILLMCapabilityResolver);
         var reserved = replay.State.PendingCall!.Request;
         Assert.Equal("string", reserved.StructuredOutputSchema!["type"]!.ToString());
         reserved.StructuredOutputSchema["type"] = "object";

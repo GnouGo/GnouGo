@@ -189,6 +189,7 @@ public sealed class ChatPlanningChoiceTests
         var service = Service(fixture, designer, model); var bridge = service.Attach("live-early", _ => { });
         await using var owned = await bridge.OpenAsync(Context(model), Initial(), Ct);
         var planner = new HybridWorkflowPlanner(); var state = await planner.AdvanceAsync(owned.Session, new(), owned.Runtime, Ct);
+        Assert.Equal(PlanningStatus.Clarification, state.Status);
         var waiting = bridge.RequestAsync(state, Ct);
         var submitted = service.SubmitAsync("live-early", state.Request.SessionId, new() { Kind = "answer", ExpectedRevision = state.Revision,
             Answers = [new("interface", "reference")] }, Ct);
@@ -213,6 +214,7 @@ public sealed class ChatPlanningChoiceTests
         public int Calls;
         internal bool ScopeRevision;
         internal bool EarlyQuestion;
+        public Task<int?> InputTokenAllowanceAsync(string? provider, string model, int outputTokens, CancellationToken ct) => Task.FromResult<int?>(128000);
         public Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<bool?>(true);
         public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<IReadOnlyList<string>?>(["medium"]);
         public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)

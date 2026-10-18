@@ -283,6 +283,22 @@ internal sealed class BenchmarkCampaign(IKeyVaultRecordStore records, string id)
         }
     }
 
+    // Consuming an immutable completed receipt is not a provider dispatch. Keep
+    // deterministic validation in the ordinary runtime without asking today's
+    // provider metadata to read yesterday's response or fabricating capabilities.
+    private sealed class ReceiptOnlyRuntime(IPlanningRuntime validation, ReplayReceipt receipt, string expectedPurpose) : IPlanningRuntime
+    {
+        public ICapabilityCatalog Capabilities => validation.Capabilities;
+        public Task<PlanningCatalog> DiscoverAsync(PlanningRequest request, CancellationToken ct) =>
+            throw new InvalidOperationException("Receipt recovery cannot perform discovery.");
+        public Task<LLMResponse> CallAsync(LLMRequest request, string purpose, CancellationToken ct) => purpose == expectedPurpose
+            ? receipt.CallAsync(request, ct)
+            : throw new InvalidOperationException("Receipt recovery cannot change the reserved call purpose.");
+        public Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(PlanningArtifactValidationRequest request, CancellationToken ct) => validation.ValidateAsync(request, ct);
+        public Task<IReadOnlyList<PlanningDiagnostic>> ValidateCatalogAsync(PlanningCatalog catalog, CancellationToken ct) => validation.ValidateCatalogAsync(catalog, ct);
+        public Task CheckpointAsync(PlanningSession state, CancellationToken ct) => validation.CheckpointAsync(state, ct);
+    }
+
     // Operator-only receipt recovery under the existing campaign lease. No provider,
     // MCP transport or fresh discovery is configured; frozen live manifests stay intact.
     internal async Task<JsonObject> RecoverPendingReceiptAsync(string label, long expectedRevision, string requestId,
@@ -324,7 +340,7 @@ internal sealed class BenchmarkCampaign(IKeyVaultRecordStore records, string id)
         var client = new ReplayReceipt(original, response);
         state.ActiveMilliseconds += interruptedMilliseconds;
         PlanningSession? checkpoint = null;
-        var runtime = new WorkflowPlanningRuntime(new WorkflowEngine { LLMClient = client }, (s, _) =>
+        var validation = new WorkflowPlanningRuntime(new WorkflowEngine(), (s, _) =>
         {
             if (!client.Used || checkpoint is not null || s.Revision != expectedRevision + 1 || s.PendingCall is not null ||
                 s.ModelCalls != state.ModelCalls || s.ReplanAttempts != state.ReplanAttempts ||
@@ -334,6 +350,7 @@ internal sealed class BenchmarkCampaign(IKeyVaultRecordStore records, string id)
             checkpoint = s;
             return Task.CompletedTask;
         });
+        var runtime = new ReceiptOnlyRuntime(validation, client, state.PendingCall.Purpose);
         var recovered = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = expectedRevision }, runtime, deadline.Token);
         if (checkpoint != recovered) throw new InvalidOperationException("No verified receipt checkpoint was produced.");
         if (recovered.Status == PlanningStatus.FinalReview) PlanningArtifactApproval.Verify(recovered);
