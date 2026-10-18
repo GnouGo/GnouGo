@@ -28,5 +28,15 @@
     "path": "logs/followup-targeted.log.gz",
     "uncompressed_sha256": "0a146911b5cf73732dc527040ecd2135eabc9568f203b5eb3edefc83c1efa75b",
     "note": "25/25 passed after updating the stale wording assertion."
+  },
+  {
+    "path": "logs/followup-solution.log.gz",
+    "uncompressed_sha256": "4f65704e4b73b8d8f2184a34c64abef595ce5fa082fea3b1136b0286437a1081",
+    "note": "Uninterrupted serial solution pass: 33 projects, 6056 passed, 13 skipped, zero failures; -warnaserror."
+  },
+  {
+    "path": "logs/followup-pack.log.gz",
+    "uncompressed_sha256": "51d92f588002f45336ee914a5b76ad42a308d193ba5617499453f28b67c14813",
+    "note": "Planning Release package passed with -warnaserror; no warnings."
   }
 ]

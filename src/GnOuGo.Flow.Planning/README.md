@@ -87,6 +87,14 @@ are separate constraints. Small requested outputs do not bound their input. Thes
 annotations also survive domain fallback; issued schemas and repair templates keep
 their original presentation and authority.
 
+Fresh guidance also exposes the learning boundary: without `each`, extraction
+submits all bound inputs in one learning request, including for a scalar or bounded
+result. Declared fields can be projected through bindings and `foreach` exports
+without inference; such projection-only tasks can be necessary. Other `each`
+inputs remain shared learning context, so binding the original collection there
+defeats bounded examples. Exact copying and row assembly use typed bindings.
+These instructions do not prove that a model will generate the right composition.
+
 Explicit revision context retains allowlisted request-admission measurements, units
 and the failed step, without scripts or observations. An input allowance refusal
 remains blocked for automatic correction even when `dispatch_status` is `not_started`.
