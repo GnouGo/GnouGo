@@ -373,14 +373,24 @@ internal static class PlanningRepairPatch
             else site!.Set(edit.Value?.DeepClone());
         }
         var candidate = tree.Deserialize(PlanningJsonContext.Default.TaskPlan)!;
+        var reassess = state.Request.Options["automatic_correction_progress"]?["version"]?.ToString() == "6";
+        if (reassess) state.Request.Options["automatic_correction_progress"]!["candidate"] =
+            PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(candidate, PlanningJsonContext.Default.TaskPlan));
         var findings = TaskPlanRevisions.Validate(baseline, candidate, state.RevisionScope, state.Catalog, version >= 8 ? state.EditablePaths : null).ToList();
         var candidateSymbols = new TaskPlanSymbols(candidate);
         foreach (var slot in slots.Values.Where(s => s.Kind == "reference"))
+        {
+            // An unchanged invalid slot is still a semantic defect, not an
+            // unauthorized edit. Keep the baseline until the entire patch validates.
+            if (reassess && symbols.Values.TryGetValue(slot.Location, out var originalValue) && candidateSymbols.Values.TryGetValue(slot.Location, out var unchanged) &&
+                JsonNode.DeepEquals(JsonSerializer.SerializeToNode(originalValue.Value, PlanningJsonContext.Default.TaskValue),
+                    JsonSerializer.SerializeToNode(unchanged.Value, PlanningJsonContext.Default.TaskValue))) continue;
             if (!candidateSymbols.Values.TryGetValue(slot.Location, out var revisedValue) ||
                 !TaskPlanRevisions.ReferenceRepairs(state, slot.Location)!.Any(v => JsonNode.DeepEquals(
                     JsonSerializer.SerializeToNode(v, PlanningJsonContext.Default.TaskValue),
                     JsonSerializer.SerializeToNode(revisedValue.Value, PlanningJsonContext.Default.TaskValue))))
                 findings.Add(new("REVISION_SCOPE_CHANGED", slot.Location, "Repair only the diagnosed producer reference; preserve its surrounding binding and business literals."));
+        }
         if (scopedDependencies)
         {
             var revised = new TaskPlanSymbols(candidate);

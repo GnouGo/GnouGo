@@ -1,0 +1,28 @@
+{
+  "mode": "scripted fixtures plus mocked execution; not live inference",
+  "baseline": {
+    "runs": 24,
+    "first_proposal_structurally_valid": 24,
+    "first_proposal_business_correct": 24,
+    "execution_oracle_passes": 24,
+    "calls": 24,
+    "repairs": 0,
+    "safety_violations": 0,
+    "tokens": null,
+    "live_model_calls": 0
+  },
+  "candidate": {
+    "runs": 24,
+    "first_proposal_structurally_valid": 24,
+    "first_proposal_business_correct": 24,
+    "execution_oracle_passes": 24,
+    "calls": 24,
+    "repairs": 0,
+    "safety_violations": 0,
+    "tokens": null,
+    "live_model_calls": 0
+  },
+  "same_measurement_manifest": true,
+  "candidate_identity": "candidate.json working-tree source hash; raw source_commit fields identify checkout base only",
+  "live_gate": "inconclusive; no authorized live calls; a zero-failure fixture baseline cannot establish relative improvement"
+}

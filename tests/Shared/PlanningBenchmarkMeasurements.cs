@@ -1,10 +1,78 @@
 using System.Text.Json.Nodes;
+using System.Text.Json;
 using GnOuGo.Flow.Core.Planning;
+using GnOuGo.Flow.Core.Runtime;
 
 namespace GnOuGo.Planning.Examples;
 
 public static class PlanningBenchmarkMeasurements
 {
+    // This gate is separate from historical execution/review comparisons. Unknown
+    // business judgments or usage never count as successes or zero-cost failures.
+    public static JsonObject CompareFirstProposals(IReadOnlyList<JsonObject> before, IReadOnlyList<JsonObject> after, IReadOnlyList<string> cases)
+    {
+        var rows = before.Concat(after).ToArray();
+        bool Complete(IReadOnlyList<JsonObject> cohort) => cohort.Count == cases.Count * 3 &&
+            cases.All(name => Enumerable.Range(1, 3).All(i => cohort.Count(r => r["case"]?.ToString() == name && r["repetition"]?.GetValue<int>() == i) == 1)) &&
+            cohort.Select(r => r["source_commit"]?.ToString() ?? r["source"]?.ToString()).Distinct().Count() == 1 &&
+            cohort.All(r => !string.IsNullOrWhiteSpace(r["source_commit"]?.ToString() ?? r["source"]?.ToString()) &&
+                r["mode"]?.ToString() == "live" && r["first_proposal_business_correct"] is JsonValue value && value.TryGetValue<bool>(out _));
+        var complete = cases.Count > 0 && Complete(before) && Complete(after);
+        var frozen = rows.Length > 0 && new[] { "manifest", "provider", "model", "campaign" }.All(key =>
+            rows.All(r => !string.IsNullOrWhiteSpace(r[key]?.ToString())) && rows.Select(r => r[key]!.ToString()).Distinct().Count() == 1);
+        double? Median(IReadOnlyList<JsonObject> cohort, bool tokens)
+        {
+            double? Value(JsonObject r) => tokens
+                ? Number(r["input_tokens"]) is { } input && Number(r["output_tokens"]) is { } output ? input + output : null
+                : Number(r["calls"]);
+            var values = cohort.Select(Value).ToArray();
+            if (values.Length == 0 || values.Any(v => v is null)) return null;
+            var sorted = values.Select(v => v!.Value).Order().ToArray(); return (sorted[(sorted.Length - 1) / 2] + sorted[sorted.Length / 2]) / 2;
+        }
+        var oldCalls = Median(before, false); var newCalls = Median(after, false); var oldTokens = Median(before, true); var newTokens = Median(after, true);
+        var known = oldCalls is not null && newCalls is not null && oldTokens is not null && newTokens is not null;
+        var failuresBefore = before.Count(r => r["first_proposal_business_correct"]?.GetValue<bool>() == false);
+        var failuresAfter = after.Count(r => r["first_proposal_business_correct"]?.GetValue<bool>() == false);
+        double? reduction = !complete || failuresBefore == 0 ? null : (double)(failuresBefore - failuresAfter) / failuresBefore;
+        var safe = after.All(r => r["safety_violations"] is JsonArray { Count: 0 });
+        var comparable = complete && frozen && known && rows.All(r => r["safety_violations"] is JsonArray);
+        var passed = comparable && reduction >= .25 && safe && newCalls <= oldCalls && newTokens <= oldTokens;
+        return new() { ["status"] = !comparable || failuresBefore == 0 && failuresAfter == 0 ? "inconclusive" : passed ? "passed" : "failed", ["passed"] = passed,
+            ["complete_three_repetitions"] = complete, ["frozen_context"] = frozen, ["known_usage"] = known,
+            ["baseline_failures"] = failuresBefore, ["candidate_failures"] = failuresAfter, ["relative_failure_reduction"] = reduction,
+            ["zero_baseline_preserved"] = failuresBefore == 0 ? failuresAfter == 0 : null,
+            ["baseline_median_calls"] = oldCalls, ["candidate_median_calls"] = newCalls, ["baseline_median_tokens"] = oldTokens, ["candidate_median_tokens"] = newTokens,
+            ["no_safety_regression"] = safe, ["baseline_failure_interval_95"] = Interval(failuresBefore, before.Count), ["candidate_failure_interval_95"] = Interval(failuresAfter, after.Count),
+            ["uncertainty"] = "Descriptive Wilson intervals; three repetitions per case are a small, case-dependent sample, not a general reliability estimate." };
+
+        static double? Number(JsonNode? n) => double.TryParse(n?.ToJsonString(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var value) && value >= 0 ? value : null;
+        static JsonNode? Interval(int failures, int count)
+        {
+            if (count == 0) return null;
+            const double z = 1.959963984540054; var p = (double)failures / count; var denominator = 1 + z * z / count;
+            var center = (p + z * z / (2 * count)) / denominator; var radius = z * Math.Sqrt(p * (1 - p) / count + z * z / (4 * count * count)) / denominator;
+            return new JsonArray(center - radius, center + radius);
+        }
+    }
+    public static void RecordResponse(JsonObject run, LLMRequest request, LLMResponse response, int call)
+    {
+        if (run["first_proposal"] is not null || response.Json is not JsonObject json || json["plan"] is null) return;
+        run["first_proposal"] = new JsonObject { ["request_id"] = request.ClientRequestId, ["call"] = call,
+            ["response"] = json.DeepClone(), ["structurally_valid"] = null, ["business_correct"] = null,
+            ["omitted_requirements"] = null, ["extra_operations"] = null, ["redundant_tasks"] = null };
+    }
+
+    public static void ProposalMetrics(JsonObject run, JsonObject result)
+    {
+        var first = run["first_proposal"];
+        result["first_proposal_call"] = first?["call"]?.DeepClone();
+        result["first_proposal_structurally_valid"] = first?["structurally_valid"]?.DeepClone();
+        result["first_proposal_business_correct"] = first?["business_correct"]?.DeepClone();
+        result["omitted_requirements"] = first?["omitted_requirements"]?.DeepClone();
+        result["extra_operations"] = first?["extra_operations"]?.DeepClone();
+        result["redundant_tasks"] = first?["redundant_tasks"]?.DeepClone();
+        result["first_proposal_diagnostics"] = first?["diagnostics"]?.DeepClone();
+    }
     public static readonly string[] CandidateCases = ["local", "read_transform", "nullable_defaults", "conditional", "collections", "protected_cleanup", "review_french", "review_distractors"];
     public static string[] Select(string? selection)
     {
@@ -29,6 +97,14 @@ public static class PlanningBenchmarkMeasurements
         // A reservation still carries the preceding candidate's diagnostics. Do not
         // attribute those to the new call before its response has been validated.
         if (state.PendingCall is not null && state.Status == PlanningStatus.Generating) return;
+        if (run["first_proposal"] is JsonObject first && first["diagnostics"] is null &&
+            first["call"]?.GetValue<int>() == state.ModelCalls && state.PendingCall is null)
+        {
+            first["diagnostics"] = JsonSerializer.SerializeToNode(state.Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic);
+            first["structurally_valid"] = state.Graph is not null && !state.Diagnostics.Any(d => d.Required);
+            first["final_review"] = state.Status == PlanningStatus.FinalReview;
+            first["artifact_hash"] = state.ComputeArtifactHash();
+        }
         var history = run["diagnostic_history"]!.AsArray();
         foreach (var finding in state.Diagnostics.Where(d => d.Required))
         {

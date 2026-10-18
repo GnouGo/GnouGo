@@ -7,7 +7,7 @@ namespace GnOuGo.Flow.Planning;
 // References, member completeness/uniqueness and cross-field constraints remain semantic checks.
 internal static class PlanningBindingSchemas
 {
-    internal static JsonObject For(JsonObject schema, JsonObject definitions, bool literalOnly = false, bool workspace = false, int depth = 0)
+    internal static JsonObject For(JsonObject schema, JsonObject definitions, bool literalOnly = false, bool workspace = false, int depth = 0, bool constrainResult = false)
     {
         var fallback = PlanningSchemas.Ref(literalOnly ? "literal" : "value");
         if (depth > 16 || schema.ContainsKey("$ref")) return fallback;
@@ -68,6 +68,16 @@ internal static class PlanningBindingSchemas
             {
                 var kinds = binding["properties"]?["kind"]?["enum"]?.AsArray().Select(k => k!.ToString()).ToArray() ?? [];
                 if (kinds.Length == 0 || kinds.Any(k => k is "null" or "string" or "number" or "boolean" or "array" or "object")) continue;
+                if (constrainResult && kinds.Contains("index") && !types.Any(t => t is "number" or "integer"))
+                {
+                    var remaining = kinds.Where(k => k != "index").ToArray();
+                    if (remaining.Length > 0)
+                    {
+                        var narrowed = binding.DeepClone(); narrowed["properties"]!["kind"] = PlanningSchemas.Enum(remaining);
+                        alternatives.Add(narrowed);
+                    }
+                    continue;
+                }
                 if (workspace && kinds.Any(k => k is not ("output" or "field"))) continue;
                 if (kinds.Contains("arithmetic") && !types.Any(t => t is "number" or "integer")) continue;
                 if (kinds.Contains("lookup") && !types.Contains("array")) continue;

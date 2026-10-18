@@ -1,0 +1,182 @@
+[
+  {
+    "file": "logs/planning-all-fixed.log.gz",
+    "sha256_uncompressed": "83d427c1d9c2c8442cee6fd04f0b72c2ca664a94a283a0b7e9346542965a65a3"
+  },
+  {
+    "file": "logs/assertions-final.log.gz",
+    "sha256_uncompressed": "1b6914f931825be94cccfd42ca720aa3f1d78634531d4b0a9a6ce39d08ea0696"
+  },
+  {
+    "file": "logs/local-gates.log.gz",
+    "sha256_uncompressed": "462da08170c59b905a0fd2f5d965031fd50b003d0e2b7bcf3ce3604beea398ef"
+  },
+  {
+    "file": "logs/host-focused.log.gz",
+    "sha256_uncompressed": "831f8ae5752e2382001bb1b96e042649cb96ac206edd54bb03e9575e6de5af4a"
+  },
+  {
+    "file": "logs/host-compatibility.log.gz",
+    "sha256_uncompressed": "4917ec77303cbfcbfb9d7760a30fd48410b4a3870cf47f82a19b1378c0569a9f"
+  },
+  {
+    "file": "logs/local-files-fixed.log.gz",
+    "sha256_uncompressed": "afe1f73327b2f559037ad72711e170711009eb0fb4161d106ca7c139cf253b3e"
+  },
+  {
+    "file": "logs/baseline-local-files.log.gz",
+    "sha256_uncompressed": "dd35f2b935b1abb78fac0db46f740d7bdaf723b9ac5a836aee7347fb53da170c"
+  },
+  {
+    "file": "logs/browser.log.gz",
+    "sha256_uncompressed": "4020cf5ff2d3807e80f9442db6b871256a14898da3e7cfaffc09a223e330efc6"
+  },
+  {
+    "file": "logs/frontend.log.gz",
+    "sha256_uncompressed": "3513d7ea4eadcaf100a21cb42688bd61da6bce5dba50bf49c2ae937be6b0e2a6"
+  },
+  {
+    "file": "logs/pack-core.log.gz",
+    "sha256_uncompressed": "1bcf200d1babc13f78594548dcd020bb684f14ac829cf2c5d723d55a0d0d6dcc"
+  },
+  {
+    "file": "logs/pack-shared.log.gz",
+    "sha256_uncompressed": "26a6024d6ffed8af2784c96660515642b766b7f07b370fe487f7f04b9f3aa402"
+  },
+  {
+    "file": "logs/pack-planning-frozen.log.gz",
+    "sha256_uncompressed": "0704f16fc841379877457b7fcd60f9deab072d19e44eeadadd5b2f40959e6254"
+  },
+  {
+    "file": "logs/aot-frozen.log.gz",
+    "sha256_uncompressed": "5e41f680a2e3a884d4101c0e20884beb80c4f3f8c1202b7b42c3e1d6baab2356"
+  },
+  {
+    "file": "logs/aot-run-frozen.log.gz",
+    "sha256_uncompressed": "981b3c02be74d2bd5ef7064e736b3d2cc47e812f39f57e1c71a4f8e7dd4006f7"
+  },
+  {
+    "file": "logs/server-publish-supported.log.gz",
+    "sha256_uncompressed": "08935ce9f9c2fafc6c2be00572713c689683bd64af0d03fcc6f26b6875a9c086"
+  },
+  {
+    "file": "logs/encrypted-recovery-frozen.log.gz",
+    "sha256_uncompressed": "d7cc8ec7a3dff2ab353e25932595d885ee30f565a6de92f436e3354a2c1d3b88"
+  },
+  {
+    "file": "logs/baseline-presentation.log.gz",
+    "sha256_uncompressed": "ba80c677ca39393c2af2e9383ddc8be3516781755588334a3089edda0e8d3f52"
+  },
+  {
+    "file": "logs/candidate-presentation.log.gz",
+    "sha256_uncompressed": "fe00397aaf0881d88c97507f19a44709615e0c3d706bf7410c3f1cb85dd32949"
+  },
+  {
+    "file": "logs/business-review-red.log.gz",
+    "sha256_uncompressed": "d5fe2f401727b4e95567c19f6ac3c8632d48a438f148f3ba9dc378f4add3d3ba"
+  },
+  {
+    "file": "logs/assertions-red.log.gz",
+    "sha256_uncompressed": "267373125bc6b4fb6be0e0fcafb2e76fe48b5cea0f58b038cddb77f8248df85d"
+  },
+  {
+    "file": "logs/successive-red.log.gz",
+    "sha256_uncompressed": "69949e2467ef531e29bf6a96c12dedd8d218c37711341430ac6f3ee4cedace17"
+  },
+  {
+    "file": "logs/unreachable-red.log.gz",
+    "sha256_uncompressed": "138f17192981eb1c3436ffc9412f066c036a19093f06537a097e85478926bee6"
+  },
+  {
+    "file": "logs/review-ports-red.log.gz",
+    "sha256_uncompressed": "2fccc07c01cf2cf0ba3598666e42be170d533dadd3303a4d6744e0350abca640"
+  },
+  {
+    "file": "logs/solution.log.gz",
+    "sha256_uncompressed": "e3e37bcbbc7a425a2636808f688b980a167bcc0774c1d9c811d9460da7df7b36"
+  },
+  {
+    "file": "logs/server-publish-frozen.log.gz",
+    "sha256_uncompressed": "559156c8d25d09abb6a26bf5252e48e86facdd20361677d30f98a0eb180f6d76"
+  },
+  {
+    "file": "logs/numeric-assertions-red.log.gz",
+    "sha256_uncompressed": "847d338277afb0bc7116b09879c467731a3e6e0870923d93ddbb1775506799a8"
+  },
+  {
+    "file": "logs/assertions-exact.log.gz",
+    "sha256_uncompressed": "a4f35c048782c96c58d6bc06a0274f4fa672ce2b7790f7a35356d20beb4e7d52"
+  },
+  {
+    "file": "logs/pack-planning-exact.log.gz",
+    "sha256_uncompressed": "0704f16fc841379877457b7fcd60f9deab072d19e44eeadadd5b2f40959e6254"
+  },
+  {
+    "file": "logs/aot-exact.log.gz",
+    "sha256_uncompressed": "cd32e75aa71c8010c78494b6a7d3988f6fa0640ac896e81ca7fd8e3077dde89b"
+  },
+  {
+    "file": "logs/aot-run-exact.log.gz",
+    "sha256_uncompressed": "981b3c02be74d2bd5ef7064e736b3d2cc47e812f39f57e1c71a4f8e7dd4006f7"
+  },
+  {
+    "file": "logs/server-publish-exact.log.gz",
+    "sha256_uncompressed": "48ecec599dd5491bd311ab73c0a394694fad37659ddce87330bec689a2001bf1"
+  },
+  {
+    "file": "logs/encrypted-recovery-exact.log.gz",
+    "sha256_uncompressed": "d7cc8ec7a3dff2ab353e25932595d885ee30f565a6de92f436e3354a2c1d3b88"
+  },
+  {
+    "file": "logs/gate-red.log.gz",
+    "sha256_uncompressed": "e2bf7e821440de59d3e4890adc6ba5d9238b1d42fca7dfaeb20ed3fd07234f17"
+  },
+  {
+    "file": "logs/initial-business-red.log.gz",
+    "sha256_uncompressed": "9e56a3bfa61299bd94bb2659df95b872fc4a5b45b359c1d4a1438d8079757100"
+  },
+  {
+    "file": "logs/measurements-red.log.gz",
+    "sha256_uncompressed": "fd5d31befa0e4285beedaf5f8e178f427cb719487393fe06aba4a73a26154d37"
+  },
+  {
+    "file": "logs/empty-assertion-red.log.gz",
+    "sha256_uncompressed": "7216d5d023919311eabe056668bfcba11dbdefea4d93bcd5f4c684f257e7f98f"
+  },
+  {
+    "file": "logs/assertions-empty-fixed.log.gz",
+    "sha256_uncompressed": "170a4acb499e2d17ede559a531950a1529ea8121a949ac8e22ca6fd5defbea97"
+  },
+  {
+    "file": "logs/pack-planning-empty.log.gz",
+    "sha256_uncompressed": "0704f16fc841379877457b7fcd60f9deab072d19e44eeadadd5b2f40959e6254"
+  },
+  {
+    "file": "logs/aot-empty.log.gz",
+    "sha256_uncompressed": "642fa0c60f480bd521d1c876af6324980caf37a9fd2bf241f19d053623ad88f2"
+  },
+  {
+    "file": "logs/aot-run-empty.log.gz",
+    "sha256_uncompressed": "981b3c02be74d2bd5ef7064e736b3d2cc47e812f39f57e1c71a4f8e7dd4006f7"
+  },
+  {
+    "file": "logs/server-publish-empty.log.gz",
+    "sha256_uncompressed": "4306234d698112a99882615cd7a0e076814b1283a62e7942075f38785af1a1fa"
+  },
+  {
+    "file": "logs/encrypted-recovery-empty.log.gz",
+    "sha256_uncompressed": "d7cc8ec7a3dff2ab353e25932595d885ee30f565a6de92f436e3354a2c1d3b88"
+  },
+  {
+    "file": "logs/host-final-expectations.log.gz",
+    "sha256_uncompressed": "bacebffb10250bd281af97a0ba5852bcb851cf431398a436ab81940fc3139f75"
+  },
+  {
+    "file": "logs/solution-stale-expectations.log.gz",
+    "sha256_uncompressed": "4f08e87d005ddf1a8781b9c17ec221a8748bb646f31728341177c5a7ef28ad30"
+  },
+  {
+    "file": "logs/solution-clean.log.gz",
+    "sha256_uncompressed": "8a61adbdd2eedc14b52cd043fef54e267fdb07ff77ee4238020c8f133d023c7a"
+  }
+]

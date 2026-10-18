@@ -1,0 +1,33 @@
+{
+  "run": "firstattempt20261018a-amazon-1",
+  "error_code": "LLM_BUDGET_EXCEEDED",
+  "failed_task": "extract_first_ten_product_targets",
+  "dispatch_status": "not_started",
+  "classification": "runtime_mapping_input_allowance_exceeded",
+  "search_url": "https://www.amazon.fr/s?k=chaussure+geox+homme+45",
+  "search_acquisition_success": true,
+  "search_observation": {
+    "format": "observation_complete",
+    "record_count": 1581,
+    "page_count": 53,
+    "actual_records": 1581,
+    "capture_truncated": false,
+    "manifest_truncated": false,
+    "serialized_json_utf8_bytes": 1112015,
+    "serialization": "Python UTF-8 compact JSON; not runtime request bytes",
+    "sha256": "c5293b357b24cbd7867832b70d2d46b4e469ae5a1b6c30417d7d839a2bd8a607"
+  },
+  "mapping_prompt_conservative_token_estimate": 707090,
+  "campaign_input_allowance": 96000,
+  "workflow_browser_close": true,
+  "oracle_observed_no_active_page": true,
+  "oracle_probe_error_expected": true,
+  "product_page_visits": 0,
+  "document_write_calls": 0,
+  "workbook_exists": false,
+  "known_execution_model_calls": 1,
+  "failed_extraction_provider_calls": 0,
+  "cleanup_verified": true,
+  "artifact_hash": "a2de9a6bb7a09752bf40a7faed948911a961f0d3207d0b5444a4cd598123f82e",
+  "approved_revision": 3
+}

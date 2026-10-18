@@ -1,0 +1,13 @@
+{
+  "started_utc": "2026-10-18T06:16:21.353506+00:00",
+  "completed_commands": [
+    {
+      "name": "baseline-local",
+      "exit_code": 2,
+      "log": "baseline-local.jsonl"
+    }
+  ],
+  "state": "stopped",
+  "active": "baseline-local",
+  "stop_reason": "harness_exit_2"
+}

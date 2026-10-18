@@ -22,17 +22,18 @@ public sealed class RetainedOutputRevisionTests
         var requirements = JsonSerializer.Serialize(state.Requirements, PlanningJsonContext.Default.PlanningRequirements);
         var request = new PlanningPrompt(state).Request();
         var instructions = request.Prompt[..request.Prompt.IndexOf("\n{", StringComparison.Ordinal)];
-        Assert.Contains("Bind typed copies/assembly", instructions);
+        Assert.Contains("Bind typed copies/projections/assembly", instructions);
         Assert.Contains("each.input: bound input", request.StructuredOutputSchema!.ToJsonString());
-        Assert.Contains("compact decision inputs", instructions);
-        Assert.Contains("Lookup offered IDs before originals", instructions);
+        Assert.Contains("interpret: decisions/synthesis", request.StructuredOutputSchema.ToJsonString());
+        Assert.DoesNotContain("Lookup offered IDs before originals", instructions);
         Assert.Contains("Keep original IDs/exact values", instructions);
-        Assert.Contains("Return executable requested tasks in the issued structured response", instructions);
-        Assert.Contains("No unrequested actions, artifacts, filtering or deduplication", instructions);
+        Assert.Contains("Return the smallest sufficient executable business plan", instructions);
+        Assert.Contains("no unrequested effects, artifacts, filtering or deduplication", instructions);
         Assert.DoesNotContain("YAML", instructions, StringComparison.OrdinalIgnoreCase);
         var hints = PlanningSchemaReferences.Walk(request.StructuredOutputSchema!.AsObject(), "", 0)
             .Select(e => e.Schema["description"]?.ToString()).OfType<string>().ToArray();
-        var hint = Assert.Single(hints);
+        var hint = Assert.Single(hints, h => h.Contains("requires: false fails", StringComparison.Ordinal));
+        Assert.Contains(hints, h => h.Contains("bounded examples", StringComparison.Ordinal));
         Assert.Contains("requires: false fails", hint);
         Assert.Contains("each.input: bound input", hint);
         var context = JsonNode.Parse(request.Prompt[(request.Prompt.IndexOf("\n{", StringComparison.Ordinal) + 1)..])!;

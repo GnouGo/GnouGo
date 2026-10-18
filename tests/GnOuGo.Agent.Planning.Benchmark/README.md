@@ -1,5 +1,52 @@
 # Planning evaluation corpus
 
+## First-proposal measurements
+
+The first non-null submitted `plan` response and its diagnostics are captured separately
+from discovery, clarification, correction and physical transport attempts. Rows report
+`first_proposal_structurally_valid`, `first_proposal_business_correct`, FinalReview and
+execution-oracle success separately. The historical `first_pass_valid` column is now an
+alias for first-proposal structural validity; it is no longer a one-call metric.
+
+Business correctness is assigned from an independent execution oracle only when the
+executed artifact is the unchanged first proposal. Original proposals that were changed
+before execution remain unknown unless independently assessed. Omitted requirements,
+extra operations and redundant tasks remain null when the oracle has not established
+those individual judgments. Unknown usage remains null; fixture tokens are estimates,
+never provider usage. Failures and prior results are retained.
+
+Runtime request admission keeps the existing 96,000-token input and 32,768-token
+output ceilings. An oversized full serialized request returns
+`LLM_BUDGET_EXCEEDED`, `classification: request_input_allowance`,
+`measurement: conservative_token_estimate`, the applied `limit` and measured
+`current`, and `dispatch_status: not_started`. Output-limit refusals use
+`request_output_allowance` and `declared_output_tokens`. These single-request
+refusals are distinct from cumulative budget exhaustion. Neither the private
+payload nor generated code enters diagnostics; failed-step context is supplied by
+the existing engine. A local mapping attempt rejected before dispatch is not a
+physical provider attempt or billed usage. Existing encrypted receipts and limits
+remain unchanged during recovery.
+
+Live corpus and stabilization runs stop at FinalReview. Inspect the retained request,
+requirements, tasks and uncertainty, then supply `--review-run <source:phase:case:repetition>`
+and `--review-command <file>` with the existing explicit `approve` command (reviewer-set
+`expectedRevision`, `artifactHash`, and `reviewedRequirementIds`). Stabilization uses
+`source:cohort:case:repetition`. No live acknowledgments are synthesized. Scripted corpus
+execution uses the independently authored fixture requirement IDs. An execution already
+started is never repeated after uncertain completion.
+
+Add `--first-proposal-gate` to the existing corpus or stabilization comparison command
+for the separately authorized live gate: at least 25% fewer business-incorrect first
+proposals, no safety regression and no higher median planning calls or total planning
+tokens. Three repetitions, identical model/settings and frozen fixture/contract/oracle
+material are required. Missing judgments, unknown totals and incomparable cohorts are
+inconclusive. A zero-failure baseline must remain zero but cannot establish a relative
+reduction. Descriptive Wilson intervals report sampling uncertainty. Historical gates
+remain available for their original recorded cohorts.
+
+The [implementation comparison](../../docs/evidence/first-attempt-taskplan-2026-10-17/README.md)
+is offline. No paid inference or externally effectful live execution was authorized.
+
 ## Planner stabilization comparison
 
 The [completed campaign report](../../docs/evidence/planner-stabilization/results-7d5d42b2.md)
@@ -212,6 +259,14 @@ uncertain transport attempt retains its conservative allowance; restart added no
 `--retain-inconclusive-run <commit:phase:case:repetition> --campaign <id>` closes an already failed evaluation only after its eight HTTP attempts are exhausted. It writes a separate encrypted audit record under the campaign lock. The original run, failure, request and HTTP evidence remain unchanged; no completion receipt is invented. Unknown attempts retain their full cost reservation in the same EUR 50 campaign ceiling. That request identity can never dispatch again, while different evaluation identities may use the remaining campaign allowance. `--inspect-campaign` reports both uncertainty and closures. This does not turn an inconclusive run into a successful measurement.
 
 An individual request can exhaust its pinned HTTP retry policy before the session exhausts eight attempts. To retain that request permanently without replay or reconciliation, use `--schema-portability retain-exhausted-request --request-id <exact-id> --campaign <id> --workspace <path>`. This explicit action requires a clean checkout and the campaign lease, a saved dispatch failure, exhausted transport attempts containing unknown completion, and no successful HTTP response, completion receipt or verified usage. When later HTTP failures follow the uncertain attempt, the adapter's recorded retry exhaustion, attempt count and terminal status must match the journal. It appends a closure with evidence hashes; original records and full unknown-usage reservations remain unchanged. New request identities may then use the remaining budget. Never use this to claim successful completion or free reserved cost. Campaign regressions cover mixed attempt orderings, rejection, restart, no redispatch, unchanged accounting and the shared spending ceiling.
+
+The captured `MaxUncertainRetries` can exhaust before `MaxAttempts`. Retention also
+recognizes that boundary when the last attempt is an unresolved transport/timeout,
+the unknown-attempt count exceeds the explicitly saved allowance, and the adapter's
+retryable exhaustion and attempt count match. Missing legacy limits, cancellations,
+successful responses and unresolved terminal HTTP responses grant no additional
+authority. The closure records `http_uncertainty_limit_exhausted`; all original
+attempts and their full reservations remain unchanged.
 
 For a stopped live planning run which exhausted all eight session attempts before
 execution, `--schema-portability retain-inconclusive --run <exact-run-id>` exposes

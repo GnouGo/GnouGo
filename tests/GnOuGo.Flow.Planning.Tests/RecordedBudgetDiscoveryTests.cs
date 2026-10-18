@@ -59,6 +59,7 @@ public sealed class RecordedBudgetDiscoveryTests(ITestOutputHelper output)
         // the successful compiler replay; no simplification of their types or bindings.
         var recording = Read("retained-review.json");
         var original = recording["finalSession"]!.Deserialize(PlanningJsonContext.Default.PlanningSession)!;
+        foreach (var task in TaskPlanRevisions.Tasks(original.Plan!).Where(t => t.Kind == "transform" && t.Mode is null)) task.Mode = "interpret";
         original.Requirements!.Inputs = original.Plan!.Inputs;
         original.Requirements.Outputs = original.Plan.Root.Outputs.Select(o => new TaskInput { Name = o.Name, Type = new() { Kind = "any" } }).ToList();
         var catalog = new RecordedContracts(original.Discovery);

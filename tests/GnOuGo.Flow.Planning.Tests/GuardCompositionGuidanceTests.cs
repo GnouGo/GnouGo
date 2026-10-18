@@ -17,7 +17,7 @@ public sealed class GuardCompositionGuidanceTests
         var runtime = new TestRuntime(); var state = PlannerFixture.Session();
         state.Catalog = await TaskPlanCompilerTests.Catalog(runtime.Actual); state.Catalog.Policy.RequireExternalConfirmation = false;
         var request = new PlanningPrompt(state).Request();
-        Assert.Contains("Use exact contracts and declared guarantees", request.Prompt);
+        Assert.Contains("Use inspected contracts, not names/types", request.Prompt);
         // This fixture declares its own flags. The shared prompt supplies no
         // conventional field names or prescribed acquisition sequence.
         var guard = new TaskValue { Kind = "predicate", Predicate = "and", Items = [
@@ -44,7 +44,8 @@ public sealed class GuardCompositionGuidanceTests
         Assert.Equal(success && available && complete, result.Success);
         if (!result.Success) Assert.Equal("INPUT_VALIDATION", result.Error!.Code);
         Assert.Single(runtime.Calls);
-        var hint = Assert.Single(PlanningSchemaReferences.Walk(runtime.Calls[0].StructuredOutputSchema!.AsObject(), "", 0), s => s.Schema.ContainsKey("description")).Schema["description"]!.ToString();
+        var hint = Assert.Single(PlanningSchemaReferences.Walk(runtime.Calls[0].StructuredOutputSchema!.AsObject(), "", 0),
+            s => s.Schema["description"]?.ToString().Contains("requires: false fails", StringComparison.Ordinal) == true).Schema["description"]!.ToString();
         Assert.Contains("and/or: binary; nest", hint);
         Assert.Contains("field.port: exact property", hint);
     }

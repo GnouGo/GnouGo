@@ -5,6 +5,48 @@ using GnOuGo.Planning.Examples;
 namespace GnOuGo.Flow.Planning.Tests;
 public sealed class BenchmarkMeasurementTests
 {
+    [Theory]
+    [InlineData("improved", "passed")]
+    [InlineData("zero", "inconclusive")]
+    [InlineData("unknown", "inconclusive")]
+    [InlineData("different", "inconclusive")]
+    [InlineData("tokens", "failed")]
+    [InlineData("safety", "failed")]
+    public void FirstProposalGateRequiresComparableBusinessOraclesAndKnownUsage(string variant, string status)
+    {
+        JsonObject[] Cohort(string source) => PlanningBenchmarkMeasurements.CandidateCases.SelectMany(name => Enumerable.Range(1, 3).Select(i => new JsonObject
+        {
+            ["case"] = name, ["repetition"] = i, ["source_commit"] = source, ["mode"] = "live", ["manifest"] = "frozen", ["provider"] = "provider", ["model"] = "fixed", ["campaign"] = "same",
+            ["first_proposal_business_correct"] = true, ["calls"] = 2, ["input_tokens"] = 100L, ["output_tokens"] = 20L, ["safety_violations"] = new JsonArray()
+        })).ToArray();
+        var before = Cohort("before"); var after = Cohort("after");
+        if (variant != "zero") { foreach (var row in before.Take(4)) row["first_proposal_business_correct"] = false; foreach (var row in after.Take(3)) row["first_proposal_business_correct"] = false; }
+        if (variant == "unknown") after[0]["first_proposal_business_correct"] = null;
+        if (variant == "different") after[0]["manifest"] = "changed";
+        if (variant == "tokens") foreach (var row in after) row["input_tokens"] = 200L;
+        if (variant == "safety") after[0]["safety_violations"]!.AsArray().Add("extra effect");
+        var comparison = PlanningBenchmarkMeasurements.CompareFirstProposals(before, after, PlanningBenchmarkMeasurements.CandidateCases);
+        Assert.Equal(status, comparison["status"]!.ToString());
+        Assert.Equal(variant is "zero" or "unknown" ? null : .25, comparison["relative_failure_reduction"]?.GetValue<double>());
+    }
+    [Fact]
+    public void FirstProposalIsIndependentOfDiscoveryCallsAndRetainsItsOwnFailures()
+    {
+        var run = new JsonObject { ["diagnostic_history"] = new JsonArray() };
+        PlanningBenchmarkMeasurements.RecordResponse(run, new() { ClientRequestId = "discover" }, new() { Json = new JsonObject { ["discoveryRequests"] = new JsonArray() } }, 1);
+        Assert.Null(run["first_proposal"]);
+        PlanningBenchmarkMeasurements.RecordResponse(run, new() { ClientRequestId = "proposal" }, new() { Json = new JsonObject { ["plan"] = new JsonObject() } }, 2);
+        var state = new PlanningSession { ModelCalls = 2, Status = PlanningStatus.Stopped, Diagnostics = [new("TASK_INPUT_REQUIRED", "/tasks/a/inputs/x", "Missing input")] };
+        PlanningBenchmarkMeasurements.Capture(run, state);
+        state.ModelCalls = 3; state.Status = PlanningStatus.FinalReview; state.Diagnostics.Clear();
+        PlanningBenchmarkMeasurements.RecordResponse(run, new() { ClientRequestId = "correction" }, new() { Json = new JsonObject { ["plan"] = new JsonObject { ["corrected"] = true } } }, 3);
+        PlanningBenchmarkMeasurements.Capture(run, state);
+        Assert.Equal(2, run["first_proposal"]!["call"]!.GetValue<int>());
+        Assert.False(run["first_proposal"]!["structurally_valid"]!.GetValue<bool>());
+        Assert.Single(run["first_proposal"]!["diagnostics"]!.AsArray());
+        Assert.Null(run["first_proposal"]!["business_correct"]);
+        Assert.Null(run["first_proposal"]!["response"]!["plan"]!["corrected"]);
+    }
     [Fact]
     public void DeniedReservationHasZeroUsageAndDoesNotCountAsAnHttpAttempt()
     {

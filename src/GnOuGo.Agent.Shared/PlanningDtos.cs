@@ -34,6 +34,8 @@ public sealed record PlanningSessionDto(string Id, string Name, long Revision, s
     public IReadOnlyList<string> RevisionScope { get; init; } = [];
     public IReadOnlyList<string> DiscoveryLimitations { get; init; } = [];
     public JsonObject? TaskPlan { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? RequestText { get; init; }
     public IReadOnlyList<PlanningQuestionDto> Questions { get; init; } = [];
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public PlanningRequestInspectionDto? RequestInspection { get; init; }

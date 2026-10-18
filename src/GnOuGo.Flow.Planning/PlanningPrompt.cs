@@ -32,13 +32,14 @@ internal sealed partial class PlanningPrompt(PlanningSession state)
     }
 
     private const string EvidenceInstructions = """
-        Keep original IDs/exact values. Lookup offered IDs before originals. Preserve order/repeats and missing/null; never invent results/provenance.
+        Keep original IDs/exact values, order/repeats, missing/null; invent no results/provenance.
         """;
 
     private const string Instructions = """
-        Return executable requested tasks in the issued structured response. No unrequested actions, artifacts, filtering or deduplication.
-        Operations act; extract reads evidence; interpret decides/synthesizes. Bind typed copies/assembly; compact decision inputs.
-        Use exact contracts and declared guarantees; preserve dependencies/cleanup.
+        Return the smallest sufficient executable business plan in the issued structured response. Cover request/accepted requirements; no unrequested effects, artifacts, filtering or deduplication.
+        Bind typed copies/projections/assembly; keep checks/cleanup. Use inspected contracts, not names/types. Distinct task/operation IDs, properties, public outputs.
+        Keep immediate consumer fields; retain original sources/IDs and cross-item relationships. Pagination does not establish independence; each needs independence.
+        Input allowances, output bounds and iteration ceilings differ. Small output cannot bound input; still too large must fail, not truncate/sample.
         """ + "\n" + EvidenceInstructions;
 
     private const string RepairInstructions = """
@@ -58,8 +59,8 @@ internal sealed partial class PlanningPrompt(PlanningSession state)
         """;
 
     private const string InteractiveInstructions = """
-        External work needs discovered operations; transforms cannot call tools or simulate effects. Discover missing contracts.
-        Correct technical defects with typed edits, then bounded regeneration. Clarify only a missing business decision/fact that can unblock work, never permission to weaken checks or invent data. Use 1-3 questions, stable IDs, 2-3 meaningful alternatives+recommendation and custom answers; text-only for unknown facts. Reuse answers; do not repeat settled questions. Auto uses accepted decisions/defaults, not recommendations as authorization. Answers preserve accepted requirements/interfaces; changes need explicit revision. If clarificationAllowed=false, explain the blocker without asking an unusable question. No extra judge call.
+        Discover external contracts; transforms cannot call tools/simulate effects.
+        Typed edits before bounded regeneration. Clarify missing business facts/decisions only: 1-3 stable-ID questions, 2-3 options+recommendation+custom answers; unknown facts: text-only. Reuse answers. Auto uses accepted decisions/defaults; recommendations never authorize. Answers preserve requirements/interfaces; revise changes explicitly. If clarificationAllowed=false, explain blocker. No invented facts, weakened checks or extra judge.
         """;
 
     internal const string GuardCorrectionInstructions = "For a diagnosed nullable nonboolean reference v used as requires, use v != null; optionally conjoin declared nonnullable Boolean fields of that same producer. " +
@@ -141,7 +142,7 @@ internal sealed partial class PlanningPrompt(PlanningSession state)
         // Fresh intent only. Reuse lossless schema factoring for duplicated read-only
         // operation contracts; declarations/permissions/receipts are never changed.
         if (state.IntentVersion == 3 && !repair) ShareOperationSchemas(context);
-        var guardGuidance = repair && state.Request.Options["automatic_correction_progress"]?["version"]?.ToString() is "2" or "3" or "4" or "5" &&
+        var guardGuidance = repair && state.Request.Options["automatic_correction_progress"]?["version"]?.ToString() is "2" or "3" or "4" or "5" or "6" &&
             state.Request.Options["automatic_correction_progress"]?["conditionLocations"] is JsonArray { Count: > 0 } ? GuardCorrectionInstructions + "\n" : "";
         var literalGuidance = state.Diagnostics.Any(d => d.Code == "TASK_LITERAL_INVALID")
             ? "Use typed input/output bindings for runtime values; never strip or escape interpolation, invent success, change requirements or replace requested work with text.\n" : "";

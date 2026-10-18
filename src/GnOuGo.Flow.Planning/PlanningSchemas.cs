@@ -38,18 +38,29 @@ internal static class PlanningSchemas
         // unusable (for example, accepted names exceeding the enum ceiling).
         // Semantic compilation/coverage enforce the same contracts in either case.
         return PlanningContractValidation.ValidateSchema(narrowed, strict: true).Count == 0 ? narrowed :
-            Compact(FullProposal(state, compact: false, admitted: admitted), compositionHints: true, interactionHints: PlanningClarifications.PreservesIntent(state));
+            Compact(FreshProposal(state, admitted, commitmentDomains: false, outputDomains: false), compositionHints: true, interactionHints: PlanningClarifications.PreservesIntent(state));
     }
 
     // Fresh model-facing constraints only. FullProposal also supplies historical
     // repair templates, whose bytes and authority must not acquire these domains.
-    private static JsonObject FreshProposal(PlanningSession state, IReadOnlySet<string>? admitted, bool commitmentDomains)
+    private static JsonObject FreshProposal(PlanningSession state, IReadOnlySet<string>? admitted, bool commitmentDomains, bool outputDomains = true)
     {
         var root = FullProposal(state, compact: false, admitted: admitted);
         var definitions = root["$defs"]!.AsObject();
+        // Fresh generation chooses semantics explicitly. FullProposal remains the
+        // historical repair template, including omitted-mode interpretation.
+        var tasks = definitions["task"]!["anyOf"]!.AsArray();
+        foreach (var task in tasks.Where(t => t!["properties"]!["kind"]!["enum"]![0]!.ToString() == "transform" &&
+            t["properties"]!["mode"] is null).ToArray()) tasks.Remove(task);
+        definitions["condition"] = PlanningBindingSchemas.For(Type("boolean"), definitions, constrainResult: true);
+        foreach (var task in tasks)
+        {
+            task!["properties"]!["requires"] = Nullable(Ref("condition"));
+            if (task["properties"]!["condition"] is not null) task["properties"]!["condition"] = Ref("condition");
+        }
         var outputs = state.IntentVersion is 2 or 3 ? state.Requirements?.Outputs : null;
-        var names = outputs?.Select(o => o.Name).ToArray();
-        if (names is not null)
+        var names = outputDomains ? outputs?.Select(o => o.Name).ToArray() : null;
+        if (outputDomains && names is not null)
         {
             // Public names do not constrain reusable groups or nested exports.
             var scope = definitions["scope"]!.DeepClone();
@@ -214,15 +225,21 @@ internal static class PlanningSchemas
         foreach (var (_, schema) in PlanningSchemaReferences.Walk(root, "", 0)) schema.Remove("description");
         var definitions = root["$defs"]!.AsObject();
         if (compositionHints && definitions["requirements"]?["properties"]?["outcomes"]?["items"]?["properties"]?["commitments"] is JsonObject obligations)
-            obligations["description"] = "Non-executable obligations: {\"operation\":\"<inspected ID>\",\"result\":{\"port\":\"value\",\"output\":\"result\"}}. Exact port and public-output NAME, not path/value/description. result:null: operation-only, not repair. Finalize before plan; absent unverified; no task IDs/proofs.";
+            obligations["description"] = "Non-executable obligations. operation: inspected ID; result.port: its exact output port; result.output: NAME in requirements.outputs, never a path/value/description. result:null: operation-only. Finalize before plan; absent unverified; no task IDs/proofs.";
         // Presentation only, on fresh full proposals. Repair templates/authorities
         // use the historical path, including its exact annotation-free bytes.
         if (compositionHints)
         {
-            definitions["task"]!["description"] = (interactionHints ? "operation: external work. transform: supplied data, no tool calls. " : "") +
-                "requires: false fails. and/or: binary; nest. field.port: exact property. condition: routing. each.input: bound input. resultType: assembled. Literal strings exclude ${}.";
+            definitions["task"]!["description"] = "operation: external work. requires: false fails; condition: route alternative paths. and/or: binary; nest. " +
+                "extract: observed facts; interpret: decisions/synthesis; neither calls tools. value: typed assembly. foreach: repeated work. " +
+                "field.port: exact property; lookup: identity reconnection, not merging; flatten: one collection level. " +
+                "each.input: bound input; resultType: complete assembled output. Literal strings exclude ${}.";
             if (root["properties"]?["requirements"] is not null)
                 definitions["task"]!["description"] += " First plan needs requirements/interfaces; null for discovery/clarification only.";
+            foreach (var task in definitions["task"]!["anyOf"]!.AsArray().OfType<JsonObject>()
+                .Where(t => t["properties"]?["each"] is not null))
+                task["description"] = "each: one result per item for ALL items; bounded examples learn extraction only. " +
+                    "Keep order/repeats and nested arrays. No global comparisons/implicit flattening; shared context is read-only.";
         }
         ShareRepeatedSchemas(root, definitions);
         for (var pass = 0; pass < 3; pass++) { ShareRepeatedSchemas(root, definitions, 30); CollapseAliases(root, definitions); PruneDefinitions(root, definitions); }

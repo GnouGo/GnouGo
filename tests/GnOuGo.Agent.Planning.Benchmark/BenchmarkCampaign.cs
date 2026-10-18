@@ -115,13 +115,14 @@ internal sealed class BenchmarkCampaign(IKeyVaultRecordStore records, string id)
         var policy = await LoadAsync("planning-evaluation-configuration", "http-retry-policy", ct);
         if (request?["clientRequestId"]?.ToString() != requestId || failure?["stage"]?.ToString() != "dispatch" ||
             policy?["MaxAttempts"] is not JsonValue maximum || !maximum.TryGetValue<int>(out var limit) || limit is < 1 or > 20 ||
-            journal?["transport"]?["Attempts"] is not JsonArray attempts || attempts.Count < limit ||
+            journal?["transport"]?["Attempts"] is not JsonArray attempts ||
+            attempts.Count < limit && !HasExhaustedUncertaintyAllowance(policy, attempts, failure) ||
             !HasExhaustedUncertainAttempts(attempts, failure) || journal["usage"] is not null ||
             await LoadAsync("planning-evaluation-receipts", requestId, ct) is not null)
             throw new InvalidOperationException("Only an uncertain request that exhausted its pinned HTTP attempt policy can be retained here.");
         var closure = new JsonObject
         {
-            ["request_id"] = requestId, ["reason"] = "http_attempts_exhausted", ["outcome"] = "inconclusive",
+            ["request_id"] = requestId, ["reason"] = attempts.Count >= limit ? "http_attempts_exhausted" : "http_uncertainty_limit_exhausted", ["outcome"] = "inconclusive",
             ["retained_at"] = DateTimeOffset.UtcNow.ToString("O"),
             ["request_hash"] = PlanningGraphCompiler.Fingerprint(request.ToJsonString()),
             ["http_journal_hash"] = PlanningGraphCompiler.Fingerprint(journal.ToJsonString()),
@@ -130,6 +131,18 @@ internal sealed class BenchmarkCampaign(IKeyVaultRecordStore records, string id)
         };
         await SaveAsync("planning-evaluation-closures", requestId, closure, ct);
         return closure;
+    }
+    private static bool HasExhaustedUncertaintyAllowance(JsonObject policy, JsonArray attempts, JsonObject failure)
+    {
+        // Match AI.Core's captured uncertain-retry boundary. A terminal HTTP
+        // response, cancellation or unsupported legacy policy grants no authority.
+        if (policy["MaxUncertainRetries"] is not JsonValue value || !value.TryGetValue<int>(out var limit) || limit is < 0 or > 19 ||
+            attempts.LastOrDefault() is not JsonObject last || last["Status"] is not null ||
+            last["Failure"]?.ToString() is not (null or "transport" or "timeout")) return false;
+        return attempts.Count(a => a is JsonObject && a["Status"] is null) > limit &&
+            failure["retry_exhausted"]?.GetValue<bool>() == true && failure["retryable"]?.GetValue<bool>() == true &&
+            failure["attempt_count"]?.GetValue<int>() == attempts.Count && failure["status_code"] is null &&
+            failure["kind"]?.ToString() is "Transport" or "Timeout";
     }
     private static bool HasExhaustedUncertainAttempts(JsonArray attempts, JsonObject failure)
     {

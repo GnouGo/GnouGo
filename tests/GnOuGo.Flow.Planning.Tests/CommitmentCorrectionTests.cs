@@ -7,10 +7,13 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class CommitmentCorrectionTests
 {
-    [Fact]
-    public async Task DisconnectedExportUsesOneOrdinaryPatchWithoutStructuralAuthority()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task DisconnectedExportUsesOneOrdinaryPatchWithoutStructuralAuthority(bool historical)
     {
         var (runtime, state) = await CommitmentCoverageTests.Fixture(); state.Request.Options["automatic_correction"] = true;
+        if (historical) state.Revision = 1;
         var correct = Clone(runtime.Proposal.Plan!);
         runtime.Proposal.Plan!.Root.Outputs[0] = new("filePath", CommitmentCoverageTests.Text("invented"));
         runtime.Respond = (request, _) => TestRuntime.Response(request, runtime.Calls.Count == 1 ? runtime.Proposal : new() { Plan = correct });
@@ -19,7 +22,7 @@ public sealed class CommitmentCorrectionTests
         Assert.Equal(2, state.ModelCalls); Assert.Equal(1, state.ReplanAttempts); Assert.Null(state.ApprovedHash);
         Assert.True(PlanningRepairPatch.Issued(runtime.Calls[1].StructuredOutputSchema!.AsObject()));
         var progress = state.Request.Options["automatic_correction_progress"]!;
-        Assert.Equal("5", progress["version"]!.ToString()); Assert.Equal("patch", progress["action"]!.ToString());
+        Assert.Equal(historical ? "5" : "6", progress["version"]!.ToString()); Assert.Equal("patch", progress["action"]!.ToString());
         Assert.Empty(progress["operationAdditions"]!.AsArray());
         Assert.Equal("verified", Assert.Single(state.ValidationResults, r => r.Id == "coverage:deliver:0:result").Outcome);
     }
@@ -45,7 +48,7 @@ public sealed class CommitmentCorrectionTests
         Assert.Equal(2, state.ModelCalls); Assert.Equal(1, state.ReplanAttempts); Assert.Null(state.ApprovedHash);
         Assert.False(PlanningRepairPatch.Issued(runtime.Calls[1].StructuredOutputSchema!.AsObject()));
         var progress = state.Request.Options["automatic_correction_progress"]!;
-        Assert.Equal("5", progress["version"]!.ToString()); Assert.Equal("regenerate", progress["action"]!.ToString());
+        Assert.Equal("6", progress["version"]!.ToString()); Assert.Equal("regenerate", progress["action"]!.ToString());
         Assert.Equal(operation, Assert.Single(progress["operationAdditions"]!.AsArray())!["operation"]!.ToString());
         Assert.Contains("authorize adding only", runtime.Calls[1].Prompt, StringComparison.Ordinal);
         Assert.DoesNotContain(state.Plan!.Root.Tasks, t => t.Kind == "transform");

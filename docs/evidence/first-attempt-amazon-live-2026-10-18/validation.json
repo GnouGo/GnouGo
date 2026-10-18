@@ -1,0 +1,33 @@
+{
+  "uncertainty_regression_before_fix": {
+    "passed": 10,
+    "failed": 1
+  },
+  "benchmark_campaign_tests_after_fix": {
+    "passed": 88,
+    "failed": 0
+  },
+  "http_recovery_and_request_helper_tests": {
+    "passed": 42,
+    "failed": 0
+  },
+  "build": {
+    "configuration": "Debug",
+    "warnaserror": true,
+    "warnings": 0,
+    "errors": 0
+  },
+  "git_diff_check": "passed",
+  "production_changed_for_this_followup": false,
+  "full_solution_rerun_for_this_harness_only_followup": false,
+  "frozen_binary_verification": {
+    "checked": 708,
+    "mismatches": []
+  },
+  "evidence_links": "passed",
+  "post_execution_source_clean": true,
+  "post_execution_binary_verification": {
+    "checked": 708,
+    "mismatches": []
+  }
+}

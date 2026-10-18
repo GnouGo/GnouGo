@@ -226,11 +226,26 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
         // The planner may prefer background generation. This adapter owns synchronous HTTP
         // recovery; change only its dispatch copy, never the durable planner reservation.
         dispatched.UseBackgroundMode = false;
-        if (execution && (dispatched.MaxTokens is <= 0 or > 32768 ||
-            ExecutionInputEstimate(JsonSerializer.Serialize(dispatched, PlanningJsonContext.Default.LLMRequest)) > 96000))
-            throw new GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException(GnOuGo.Flow.Core.Models.ErrorCodes.LlmBudgetExceeded,
-                "Execution request exceeds the campaign input or output allowance.",
-                details: new JsonObject { ["dispatch_status"] = "not_started" });
+        if (execution)
+        {
+            if (dispatched.MaxTokens is <= 0 or > 32768)
+                throw new GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException(GnOuGo.Flow.Core.Models.ErrorCodes.LlmBudgetExceeded,
+                    "Execution request exceeds the campaign output allowance.", details: new JsonObject
+                    {
+                        ["classification"] = "request_output_allowance", ["dispatch_status"] = "not_started",
+                        ["limit_kind"] = "output_tokens", ["limit"] = 32768, ["current"] = dispatched.MaxTokens,
+                        ["measurement"] = "declared_output_tokens"
+                    });
+            var estimate = ExecutionInputEstimate(JsonSerializer.Serialize(dispatched, PlanningJsonContext.Default.LLMRequest));
+            if (estimate > 96000)
+                throw new GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException(GnOuGo.Flow.Core.Models.ErrorCodes.LlmBudgetExceeded,
+                    "Execution request exceeds the campaign input allowance.", details: new JsonObject
+                    {
+                        ["classification"] = "request_input_allowance", ["dispatch_status"] = "not_started",
+                        ["limit_kind"] = "input_tokens", ["limit"] = 96000, ["current"] = estimate,
+                        ["measurement"] = "conservative_token_estimate"
+                    });
+        }
         return dispatched;
     }
     public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct) => CallBoundedAsync(request, false, ct);

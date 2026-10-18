@@ -54,7 +54,21 @@ internal static class WorkflowFailureFormatter
             builder.AppendLine("Review Flow:Execution:MaxMappingInputTokens and the declared model allowance, or explicitly revise the input view. A changed host policy applies only to new runs. No automatic retry, truncation or limit increase was requested.");
         }
 
-        if (error.Code is ErrorCodes.LlmBudgetUnverifiable or ErrorCodes.LlmBudgetExceeded)
+        var requestAllowance = ReadBoundedStringDeep(error.Details, "classification", 80) is "request_input_allowance" or "request_output_allowance";
+        if (error.Code == ErrorCodes.LlmBudgetExceeded && requestAllowance)
+        {
+            builder.AppendLine().AppendLine(ReadBoundedStringDeep(error.Details, "limit_kind", 80) == "output_tokens"
+                ? "Request output allowance:" : "Request input allowance:");
+            foreach (var (key, label) in new[] { ("measurement", "Measurement"), ("limit_kind", "Unit"),
+                ("failed_step_id", "Step"), ("dispatch_status", "Dispatch") })
+                if (ReadBoundedStringDeep(error.Details, key, 240) is { } value)
+                    builder.Append("- ").Append(label).Append(": ").AppendLine(Sanitize(value, 240));
+            foreach (var (key, label) in new[] { ("limit", "Limit"), ("current", "Measured request") })
+                if (ReadLongDeep(error.Details, key) is >= 0 and var value)
+                    builder.Append("- ").Append(label).Append(": ").AppendLine(value.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            builder.AppendLine("The single request was rejected before dispatch. Explicitly revise the consumer's input view or declared output allowance; preserve necessary observations and global relationships. No automatic retry, truncation or limit increase was requested.");
+        }
+        if (error.Code is ErrorCodes.LlmBudgetUnverifiable or ErrorCodes.LlmBudgetExceeded && !requestAllowance)
         {
             var classification = ReadBoundedStringDeep(error.Details, "classification", 80);
             var dispatch = ReadBoundedStringDeep(error.Details, "dispatch_status", 80);

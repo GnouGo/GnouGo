@@ -148,7 +148,8 @@ public sealed class InitialCompositionTests(ITestOutputHelper output)
         var schema = new PlanningPrompt(state).Request().StructuredOutputSchema!.AsObject();
         Assert.Empty(PlanningContractValidation.ValidateSchema(schema, strict: true));
         var hints = PlanningSchemaReferences.Walk(schema, "", 0).Where(e => e.Schema.ContainsKey("description")).ToArray();
-        var hint = Assert.Single(hints).Schema["description"]!.ToString();
+        var hint = Assert.Single(hints, h => h.Schema["description"]!.ToString().Contains("requires:", StringComparison.Ordinal)).Schema["description"]!.ToString();
+        Assert.Contains(hints, h => h.Schema["description"]!.ToString().Contains("ALL items", StringComparison.Ordinal));
         foreach (var term in new[] { "requires:", "condition:", "each.input:", "resultType:" }) Assert.Contains(term, hint);
         // Accepted modes are already explicit in the schema; the annotation
         // need not repeat that enumeration in every fresh request.

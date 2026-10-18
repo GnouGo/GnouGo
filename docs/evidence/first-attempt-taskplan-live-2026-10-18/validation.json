@@ -1,0 +1,22 @@
+{
+  "baseline_build": "passed, zero warnings/errors",
+  "candidate_build": "passed, zero warnings/errors",
+  "warnings_as_errors": true,
+  "frozen_sources_match": true,
+  "frozen_cmd_files_match": true,
+  "baseline_production_unchanged": true,
+  "provider_readiness": "passed, zero model calls",
+  "collection_exit_code": 2,
+  "comparison_exit_code": 1,
+  "comparison": "inconclusive",
+  "expected_sessions": 66,
+  "attempted_sessions": 1,
+  "baseline_attempted": 1,
+  "candidate_attempted": 0,
+  "submitted_proposals": 0,
+  "executed_workflows": 0,
+  "paid_transport_attempts": 2,
+  "known_new_input_tokens": 0,
+  "known_new_output_tokens": 0,
+  "total_new_usage": "unknown; full reservations retained"
+}

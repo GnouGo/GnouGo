@@ -1,0 +1,370 @@
+{
+  "platform": "macOS arm64",
+  "sdk": "10.0.300",
+  "warnings_as_errors": true,
+  "candidate": "candidate.json",
+  "checks": [
+    {
+      "name": "skill validator and relative links",
+      "status": "passed"
+    },
+    {
+      "name": "serial solution suite",
+      "status": "passed",
+      "command": "dotnet test GnOuGo.Agent.sln --no-restore -m:1 -warnaserror -p:SkipClientBuild=true -p:SkipModelMetadataGeneration=true --logger \"console;verbosity=normal\"",
+      "exit_code": 0,
+      "projects": 33,
+      "total": 6045,
+      "passed": 6032,
+      "failed": 0,
+      "skipped": 13,
+      "log": "logs/solution-clean.log.gz",
+      "project_results": [
+        {
+          "project": "GnOuGo.DocIngestor.Tests",
+          "total": 89,
+          "passed": 89,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "project": "GnOuGo.Diff.Tests",
+          "total": 52,
+          "passed": 52,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "project": "GnOuGo.KeyVault.Core.Tests",
+          "total": 12,
+          "passed": 12,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "project": "GnOuGo.Flow.Tests",
+          "total": 1401,
+          "passed": 1401,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "project": "GnOuGo.Flow.Integrations.Tests",
+          "total": 99,
+          "passed": 99,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "project": "GnOuGo.AI.Core.Tests",
+          "total": 225,
+          "passed": 225,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "project": "GnOuGo.AI.Local.Tests",
+          "total": 14,
+          "passed": 14,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "project": "GnOuGo.Agent.Mcp.Tests",
+          "total": 103,
+          "passed": 103,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "project": "GnOuGo.Cmd.Mcp.Tests",
+          "total": 100,
+          "passed": 93,
+          "skipped": 7,
+          "failed": 0
+        },
+        {
+          "project": "GnOuGo.Browser.Mcp.Tests",
+          "total": 142,
+          "passed": 142,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "project": "GnOuGo.Agent.Server.Tests",
+          "total": 1099,
+          "passed": 1098,
+          "skipped": 1,
+          "failed": 0
+        },
+        {
+          "project": "GnOuGo.Document.Mcp.Tests",
+          "total": 73,
+          "passed": 73,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "project": "GnOuGo.KeyVault.Mcp.Tests",
+          "total": 9,
+          "passed": 9,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "project": "GnOuGo.Files.Server.Tests",
+          "total": 10,
+          "passed": 10,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "project": "GnOuGo.DocIngestor.Mcp.Tests",
+          "total": 7,
+          "passed": 7,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "project": "GnOuGo.OtlpCollector.Server.Tests",
+          "total": 7,
+          "passed": 7,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "project": "GnOuGo.GithubCopilot.Mcp.Tests",
+          "total": 243,
+          "passed": 243,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "project": "GnOuGo.GithubCopilot.Core.Tests",
+          "total": 173,
+          "passed": 173,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "project": "GnOuGo.GithubCopilot.E2E.Tests",
+          "total": 12,
+          "passed": 7,
+          "skipped": 5,
+          "failed": 0
+        },
+        {
+          "project": "GnOuGo.Observability.Core.Tests",
+          "total": 3,
+          "passed": 3,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "project": "GnOuGo.Git.Mcp.Tests",
+          "total": 84,
+          "passed": 84,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "project": "GnOuGo.Workspace.Tests",
+          "total": 30,
+          "passed": 30,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "project": "GnOuGo.Mcp.Core.Tests",
+          "total": 49,
+          "passed": 49,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "project": "GnOuGo.Flow.Mermaid.Tests",
+          "total": 12,
+          "passed": 12,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "project": "GnOuGo.Assets.Bears.Tests",
+          "total": 91,
+          "passed": 91,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "project": "GnOuGo.Assets.Animation.Tests",
+          "total": 42,
+          "passed": 42,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "project": "GnOuGo.Assets.Animation.Server.Tests",
+          "total": 13,
+          "passed": 13,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "project": "GnOuGo.Assets.Bears.Server.Tests",
+          "total": 28,
+          "passed": 28,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "project": "GnOuGo.Flow.Planning.Tests",
+          "total": 1609,
+          "passed": 1609,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "project": "GnOuGo.ProxyCopilot.Server.Tests",
+          "total": 177,
+          "passed": 177,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "project": "GnOuGo.Auth.Core.Tests",
+          "total": 8,
+          "passed": 8,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "project": "GnOuGo.Flow.Persistence.Tests",
+          "total": 24,
+          "passed": 24,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "project": "GnOuGo.Flow.Copilot.Tests",
+          "total": 5,
+          "passed": 5,
+          "skipped": 0,
+          "failed": 0
+        }
+      ],
+      "skip_reasons": {
+        "Windows-only command execution": 7,
+        "opt-in live-model tests, not authorized": 5,
+        "optional browser interaction, passed separately": 1
+      }
+    },
+    {
+      "name": "planning component before final bounded assertion regressions",
+      "status": "passed",
+      "passed": 1602,
+      "log": "logs/planning-all-fixed.log.gz"
+    },
+    {
+      "name": "final assertion and historical composition regressions",
+      "status": "passed",
+      "passed": 15,
+      "log": "logs/assertions-empty-fixed.log.gz"
+    },
+    {
+      "name": "focused correction, schema and measurement regressions",
+      "status": "passed",
+      "passed": 60,
+      "log": "logs/local-gates.log.gz"
+    },
+    {
+      "name": "focused host review, composition, clarification and benchmark regressions",
+      "status": "passed",
+      "passed": 97,
+      "log": "logs/host-focused.log.gz"
+    },
+    {
+      "name": "focused host historical replay compatibility",
+      "status": "passed",
+      "passed": 4,
+      "log": "logs/host-compatibility.log.gz"
+    },
+    {
+      "name": "local-file fixture cases, candidate",
+      "status": "passed",
+      "passed": 3,
+      "execution_variants": 13,
+      "log": "logs/local-files-fixed.log.gz"
+    },
+    {
+      "name": "local-file fixture cases, baseline",
+      "status": "passed",
+      "passed": 3,
+      "execution_variants": 13,
+      "log": "logs/baseline-local-files.log.gz"
+    },
+    {
+      "name": "explicit Playwright keyboard/mobile/review/recovery",
+      "status": "passed",
+      "passed": 1,
+      "log": "logs/browser.log.gz"
+    },
+    {
+      "name": "Vite production build",
+      "status": "passed",
+      "log": "logs/frontend.log.gz"
+    },
+    {
+      "name": "Release packages",
+      "status": "passed",
+      "components": [
+        "GnOuGo.Flow.Core",
+        "GnOuGo.Flow.Planning",
+        "GnOuGo.Agent.Shared"
+      ]
+    },
+    {
+      "name": "Planning Native AOT publish and execution",
+      "status": "passed",
+      "runtime": "osx-arm64",
+      "log": "logs/aot-empty.log.gz"
+    },
+    {
+      "name": "trimmed Server publish and encrypted recovery",
+      "status": "passed",
+      "runtime": "osx-arm64",
+      "log": "logs/encrypted-recovery-empty.log.gz"
+    },
+    {
+      "name": "frozen fixture comparison",
+      "status": "passed",
+      "baseline_runs": 24,
+      "candidate_runs": 24,
+      "live_model_calls": 0
+    },
+    {
+      "name": "live business-improvement gate",
+      "status": "inconclusive",
+      "reason": "Not authorized or run; fixture baseline has zero failures."
+    },
+    {
+      "name": "fresh-session host expectation corrections and historical replay",
+      "status": "passed",
+      "passed": 11,
+      "log": "logs/host-final-expectations.log.gz"
+    },
+    {
+      "name": "serial solution with stale fresh-session expectations",
+      "status": "failed; corrected by owning 11-test rerun",
+      "failed": 9,
+      "passed": 6020,
+      "skipped": 13,
+      "log": "logs/solution-stale-expectations.log.gz"
+    }
+  ],
+  "limitations": [
+    "Only the available macOS arm64 platform was validated; platform-specific skips are reported by the solution log.",
+    "The frontend package has no separate lint/typecheck/test script; Vite, bUnit and explicit Playwright interaction were exercised.",
+    "Earlier test failures and superseded candidates are retained separately.",
+    "Supported publish profiles retain existing narrow framework/dependency warning boundaries; no new suppressions were introduced."
+  ]
+}

@@ -104,4 +104,30 @@ public sealed class RuntimeMappingAllowanceTests
         Assert.Contains("Flow:Execution:MaxMappingInputTokens", presentation.UserMessage);
         Assert.Contains("not_started", presentation.UserMessage); Assert.DoesNotContain("PRIVATE_OBSERVATION", presentation.TraceDetails);
     }
+
+    [Fact]
+    public void RequestAllowanceIsDistinctFromCumulativeBudgetAndUsesTheRecordedMeasurement()
+    {
+        var presentation = WorkflowFailureFormatter.Format(new()
+        {
+            Code = "LLM_BUDGET_EXCEEDED", Message = "Mapping inference stopped.",
+            Details = new JsonObject { ["classification"] = "request_input_allowance", ["limit_kind"] = "input_tokens",
+                ["measurement"] = "conservative_token_estimate", ["limit"] = 96000, ["current"] = 707090,
+                ["dispatch_status"] = "not_started", ["failed_step_id"] = "extract", ["script"] = "PRIVATE_SCRIPT",
+                ["observation"] = "PRIVATE_OBSERVATION" }
+        });
+        Assert.Contains("Request input allowance", presentation.UserMessage);
+        Assert.Contains("conservative_token_estimate", presentation.UserMessage);
+        Assert.Contains("Limit: 96000", presentation.UserMessage);
+        Assert.Contains("Measured request: 707090", presentation.UserMessage);
+        Assert.Contains("Step: extract", presentation.UserMessage);
+        Assert.Contains("not_started", presentation.UserMessage);
+        Assert.DoesNotContain("Runtime execution budget:", presentation.UserMessage);
+        Assert.DoesNotContain("UTF-8 bytes", presentation.UserMessage);
+        Assert.DoesNotContain("PRIVATE_", presentation.TraceDetails);
+        var cumulative = WorkflowFailureFormatter.Format(new() { Code = "LLM_BUDGET_EXCEEDED", Message = "Budget exhausted.",
+            Details = new JsonObject { ["classification"] = "budget_exceeded", ["limit_kind"] = "calls", ["limit"] = 2, ["current"] = 3 } });
+        Assert.Contains("Runtime execution budget:", cumulative.UserMessage);
+        Assert.DoesNotContain("Request input allowance", cumulative.UserMessage);
+    }
 }

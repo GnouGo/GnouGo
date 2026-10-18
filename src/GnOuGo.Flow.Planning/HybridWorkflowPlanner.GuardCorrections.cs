@@ -5,7 +5,7 @@ namespace GnOuGo.Flow.Planning;
 
 public sealed partial class HybridWorkflowPlanner
 {
-    private static bool DirectGuardCorrections(JsonNode progress) => progress["version"]?.ToString() is "2" or "3" or "4" or "5";
+    private static bool DirectGuardCorrections(JsonNode progress) => progress["version"]?.ToString() is "2" or "3" or "4" or "5" or "6";
 
     private static Dictionary<string, List<TaskPlanCompiler.RepairSource>> GuardSources(TaskPlan baseline, PlanningCatalog catalog, TaskPlan? candidate = null)
     {

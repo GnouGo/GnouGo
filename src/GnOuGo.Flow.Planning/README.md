@@ -78,6 +78,21 @@ that every model request contains these scenarios.
 
 For large observations, declare a compact view for each consumer, using typed field selections or existing independent extraction. Avoid a shared superset containing all fields needed by later tasks. Keep full observations and exact action references in existing bindings; include a reference in interpretation only when that decision needs it. Explicit existing bindings and control flow reconnect decisions to the original action data; no runtime field removal is inferred from prose. Then bind global interpretation only to those results and necessary shared context. A complete bounded item can be a declared record; a whole page may be too large even for mapping examples. Preserve necessary source references, grouping, order and original completeness guards. Global comparisons and synthesis stay global; no runtime partitioning or automatic TaskPlan rewrite is performed. The review diagram shows transform mode, named input sources (including assembled bindings) and nested declared result fields. This makes broad collection bindings visible for review, without claiming that static validation proves semantic completeness. See [compaction correction and validation](../../docs/compact-interpretation-2026-10-05.md).
 
+Fresh compact proposal schemas retain the independent `each` semantics beside that
+alternative: one result per original item, every item checked, bounded examples for
+learning only, and preserved order, repetitions and nested arrays. Pagination alone
+does not establish independence; cross-page relationships still belong to the
+appropriate global consumer. Input allowances, result bounds and iteration ceilings
+are separate constraints. Small requested outputs do not bound their input. These
+annotations also survive domain fallback; issued schemas and repair templates keep
+their original presentation and authority.
+
+Explicit revision context retains allowlisted request-admission measurements, units
+and the failed step, without scripts or observations. An input allowance refusal
+remains blocked for automatic correction even when `dispatch_status` is `not_started`.
+Unknown measurements are omitted, not converted to zero. A structural redesign needs
+an explicit separate draft and fresh approval; it cannot replay the failed execution.
+
 ### Independent extraction declarations and producer repairs
 
 `each.input` is the exact name in `inputs`, not the sandbox's `item` alias.
@@ -542,3 +557,48 @@ Candidates preserve existing operations, arguments, relative order, branches, as
 Committed responses are applied under their original request/authority before fresh-request decisions. Historical progress versions are not upgraded. No execution is resumed to test a correction, no approval is automatic, and no allowance is reset. Coverage emits reference-only events on existing planning traces; it records no observations or schema copies.
 
 See [offline coverage/correction evidence](../../docs/evidence/business-commitments-2026-10-16/README.md). Progressive generation remains deferred: these checks do not establish that another construction pipeline is necessary.
+
+
+## Fresh proposal correctness and review
+
+Fresh full proposals require an explicit `extract` or `interpret` transform mode.
+Boolean conditions use the existing typed binding domain: Boolean literals and
+predicates are available, while unresolved producer references remain subject to
+semantic validation. Schema-size fallback removes optional output/commitment name
+domains without restoring omitted transform modes or displacing required operation
+contracts. Compact schemas retain short primitive semantics. Historical schemas,
+repair templates and issued request identities remain unchanged.
+
+Optional discovery failures are recorded by exact capability ID and version. Later
+automatic shortlist packing reuses that failure; explicit inspection can retry it.
+Required contracts retain their existing visibility and failure behavior. A failed
+inspection remains visible as a discovery limitation.
+
+FinalReview displays the retained request and revision text beside requirements.
+Acknowledgment includes omissions, extra effects, outputs and cleanup. Operation
+associations derive only from exact commitments: ambiguous, repeated and conditional
+associations stay unverified. Declared association is not verification of arguments,
+intent, completeness or execution. Prose clauses omitted from both requirements and
+tasks need independently authored oracles or human review. Optional API `requestText`
+is presentation data, rendered as escaped text; it does not alter approval material.
+
+New sessions capture `planning_validation_profile=explicit-assertions-v1`. After
+existing type, availability and provenance checks, preflight detects opposite Boolean
+assertions and incompatible literal/null equality assertions on the same explicit
+immutable reference, including enclosing branch facts. It reports both locations;
+it never rewrites a guard. Alternatives, cleanup and loop scopes are kept separate.
+There is no general implication solver or inferred producer guarantee. Absent options
+retain historical behavior; approval recompiles with the captured option. Compiler
+v15 lowering, planning format 10 and valid-plan YAML are unchanged.
+
+Fresh intent-v3 corrections use private bookkeeping version 6. Remaining diagnosed
+slots can use another local attempt rather than automatically regenerating a full
+proposal. Unsuccessful candidate fingerprints, rejected authority and the single
+structural-regeneration maximum stop repetition. Incomplete patches retain the
+baseline atomically. Clarification and recovery retain cumulative limits. Versions
+1–5 and already-issued request schemas retain their authority. Contradictory business
+guards require an explicit revision; automatic correction cannot weaken assertions.
+
+The [first-attempt evidence](../../docs/evidence/first-attempt-taskplan-2026-10-17/README.md)
+separates deterministic implementation checks, scripted comparisons, retained replays
+and the unrun live improvement gate.

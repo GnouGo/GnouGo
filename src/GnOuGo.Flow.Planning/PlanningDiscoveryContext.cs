@@ -174,6 +174,7 @@ internal static class PlanningDiscoveryContext
                 JsonSerializer.SerializeToNode(summary.Operation, PlanningJsonContext.Default.PlanningOperation)))
             throw new PlanningConflictException("The operation contract changed after discovery.");
         if (cached is null) state.Discovery.Resolved.Add(resolved);
+        state.Discovery.ResolutionFailures?.RemoveAll(f => f.Id == summary.Id && f.Version == summary.Version);
     }
     internal static async Task DiscoverPrerequisitesAsync(PlanningSession state, IPlanningRuntime runtime, CancellationToken ct)
     {
@@ -211,12 +212,14 @@ internal static class PlanningDiscoveryContext
         var presentation = new PlanningPrompt(state);
         foreach (var summary in presentation.OptionalCandidates)
         {
+            if (state.Discovery.ResolutionFailures?.Any(f => f.Id == summary.Id && f.Version == summary.Version) == true) continue;
             if (!presentation.TryAdmit(admitted, summary)) continue;
             try { await PlanningDiscoveryContext.ResolveAsync(state, runtime, summary, ct); }
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
             catch
             {
                 admitted.Remove(summary);
+                (state.Discovery.ResolutionFailures ??= []).Add(new(summary.Id, summary.Version));
                 var limitation = summary.Id + ": the candidate contract could not be resolved.";
                 if (!state.Discovery.Limitations.Contains(limitation, StringComparer.Ordinal)) state.Discovery.Limitations.Add(limitation);
             }

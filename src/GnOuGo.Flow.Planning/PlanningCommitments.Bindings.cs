@@ -21,6 +21,8 @@ internal sealed class CommitmentBindings
     internal List<Occurrence> Operations(string operation) => _reached.Values
         .Where(o => o.Task.Kind == "operation" && o.Task.Operation == operation).ToList();
 
+    internal IEnumerable<Occurrence> ReachableOperations => _reached.Values.Where(o => o.Task.Kind == "operation");
+
     internal Evidence Result(TaskValue value, string operation, string port) =>
         Trace(value, _symbols.Scopes.Single(s => ReferenceEquals(s.Source, _plan.Root)), [], operation, port);
 

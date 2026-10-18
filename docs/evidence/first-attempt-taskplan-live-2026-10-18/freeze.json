@@ -1,0 +1,33 @@
+{
+  "base_commit": "676b5acef3442b1436149eaf9581c7d5e99fe1a3",
+  "candidate_commit": "8168c140ed58361aae7ec1446e9daed580f16251",
+  "baseline_harness_commit": "16d02a11936d7f8fe020b3b4e9200c25546b49bb",
+  "root": "/tmp/gnougo-live-20261018",
+  "campaign": "schema-portability-20261002",
+  "provider": "OpenAi",
+  "model": "gpt-5.5-2026-04-24",
+  "repetitions": 3,
+  "production_sha256": "acc3cf3d4bb09541977384cacd1b3a9c1949f00bd59d33d37ccfa5e3cd2760c3",
+  "harness_sha256": "be728cbe278d52ae7aa3c9d53e5d6707158110f8d04d1149bc64ed8ec5bce76c",
+  "authorization": "Can you do live test; Baseline/candidate comparison: 11 cases, three repetitions each (Recommended)",
+  "ceiling_eur": 200,
+  "initial_upper_bound_eur": 154.3021741388526,
+  "configuration_hash": "0d9b3f888b2a23348f7efbdc00cc764d2e388e63c076dd350b945bc161539d31",
+  "execution_approval": "separate exact revision/hash and requirement acknowledgments required",
+  "cmd_binary_manifest_sha256": "4b8492de929635e00028ac114038e17771a88b2c99b5c8ece790447d73e6b2d5",
+  "cmd_files": 53,
+  "cases": [
+    "local",
+    "read_transform",
+    "nullable_defaults",
+    "conditional",
+    "collections",
+    "protected_cleanup",
+    "review_french",
+    "review_distractors",
+    "files_read",
+    "files_copy",
+    "files_loop_cleanup"
+  ],
+  "collection_driver_sha256": "5e311e99e75138bfce8a6d80992c1b8ca982b56c5347953a271ff361a27a1ef5"
+}

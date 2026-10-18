@@ -51,6 +51,8 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
         {
             state.Request.Options["compilation_profile"] = TaskPlanCompiler.CompactProfile;
             state.Request.Options["mapping_profile"] = TaskPlanCompiler.AdaptiveMappingProfile;
+            if (state.ModelCalls == 0 && state.Request.Baseline is null)
+                state.Request.Options["planning_validation_profile"] = TaskPlanCompiler.AssertionValidationProfile;
         }
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
         if (PlanningBudgetOptions.Parse(state.Request.Options)?.MaxElapsed is { } maximum)
@@ -78,7 +80,7 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
                     var reviewed = command.ReviewedRequirementIds ?? [];
                     if (reviewed.Count != requirements.Count || reviewed.Distinct(StringComparer.Ordinal).Count() != reviewed.Count ||
                         !reviewed.ToHashSet(StringComparer.Ordinal).SetEquals(requirements.Select(r => r.Id)))
-                        throw new PlanningConflictException("REQUIREMENTS_REVIEW_REQUIRED: Review every accepted requirement against the actual tasks, iterations and data sources. Confirmed violations require revision; explicitly acknowledged uncertainty remains unverified.");
+                        throw new PlanningConflictException("REQUIREMENTS_REVIEW_REQUIRED: Compare the original request and revisions with every accepted requirement and actual task, including omitted actions, outputs, extra effects, iterations and cleanup. Confirmed violations require revision; explicitly acknowledged uncertainty remains unverified.");
                     state.Diagnostics = (await runtime.ValidateCatalogAsync(state.Catalog!, deadline.Token)).ToList();
                     if (state.Diagnostics.Any(d => d.Required)) Stop(state);
                     else

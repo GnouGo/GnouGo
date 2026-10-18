@@ -1,0 +1,18 @@
+[
+  {
+    "file": "logs/candidate-build.log.gz",
+    "sha256_uncompressed": "7d73ae3627e94d4347bd8608b7d8db1e362f23e026fea6e124a4cceb65efba44"
+  },
+  {
+    "file": "logs/baseline-build.log.gz",
+    "sha256_uncompressed": "ce5f547dd18e92b9a04a0a4ab193f6742670990e79eb3b939f76242850f4551d"
+  },
+  {
+    "file": "logs/collection.log.gz",
+    "sha256_uncompressed": "679bf4a7b9c24d8c02d6a4eaa80eb65a0f3f088ce9e8ac7175999536e566e90d"
+  },
+  {
+    "file": "logs/baseline-local.jsonl.gz",
+    "sha256_uncompressed": "cd1ca208a7cde13f19a308c278f89633463ac9001efcf27af2a40bd30ddddcef"
+  }
+]

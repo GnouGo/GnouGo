@@ -39,7 +39,8 @@ internal static class StabilizationBenchmark
                 if (await campaign.LoadAsync(Collection, baseline + ":baseline:" + name + ":" + i) is { } b) before.Add(b["result"]!.AsObject());
                 if (await campaign.LoadAsync(Collection, candidate + ":final:" + name + ":" + i) is { } a) after.Add(a["result"]!.AsObject());
             }
-            var comparison = Compare(before, after); comparison["campaign_accounting"] = await BenchmarkHttpJournal.AccountingAsync(campaign);
+            var comparison = args.Contains("--first-proposal-gate") ? PlanningBenchmarkMeasurements.CompareFirstProposals(before, after, Cases) : Compare(before, after);
+            comparison["campaign_accounting"] = await BenchmarkHttpJournal.AccountingAsync(campaign);
             Console.WriteLine(comparison.ToJsonString()); Environment.ExitCode = comparison["passed"]!.GetValue<bool>() ? 0 : 1; return;
         }
         if (Git("status", "--porcelain").Length != 0) throw new InvalidOperationException("Commit the complete harness and production source before collecting evidence.");
@@ -67,8 +68,14 @@ internal static class StabilizationBenchmark
         {
             var key = source + ":" + cohort + ":" + name + ":" + i;
             var run = await campaign.LoadAsync(Collection, key);
-            if (run?["result"] is JsonObject retained) { Console.WriteLine(retained.ToJsonString()); continue; }
-            var row = await ExecuteAsync(campaign, model, source, cohort, name, i, manifestHash, executable, run);
+            PlanningCommand? review = Option("--review-run") == key && Option("--review-command") is { } reviewFile
+                ? JsonSerializer.Deserialize(await File.ReadAllTextAsync(reviewFile), PlanningJsonContext.Default.PlanningCommand) : null;
+            if (run?["result"] is JsonObject retained)
+            {
+                if (review is null || retained["review_pending"]?.GetValue<bool>() != true) { Console.WriteLine(retained.ToJsonString()); continue; }
+                (run["previous_results"] ??= new JsonArray()).AsArray().Add(retained.DeepClone()); run.Remove("result");
+            }
+            var row = await ExecuteAsync(campaign, model, source, cohort, name, i, manifestHash, executable, run, review);
             Console.WriteLine(row.ToJsonString());
             if (campaign.StopReason is not null || row["usage_bounded"]?.GetValue<bool>() != true)
             { Console.WriteLine((await BenchmarkHttpJournal.AccountingAsync(campaign)).ToJsonString()); Environment.ExitCode = 2; return; }
@@ -76,7 +83,7 @@ internal static class StabilizationBenchmark
         Console.WriteLine((await BenchmarkHttpJournal.AccountingAsync(campaign)).ToJsonString());
     }
     private static async Task<JsonObject> ExecuteAsync(BenchmarkCampaign campaign, KeyVaultBenchmarkModel model, string source, string cohort,
-        string name, int repetition, string manifest, string executable, JsonObject? retained)
+        string name, int repetition, string manifest, string executable, JsonObject? retained, PlanningCommand? review)
     {
         var key = source + ":" + cohort + ":" + name + ":" + repetition;
         var id = PlanningGraphCompiler.Fingerprint(campaign.Id + ":stabilization:" + key);
@@ -108,9 +115,9 @@ internal static class StabilizationBenchmark
                 state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, deadline.Token);
             planningMs = clock.ElapsedMilliseconds;
             if (environment.Effects.Count > 0 || local is not null && (local.Calls.Count > 0 || !JsonNode.DeepEquals(initialFiles, local.Snapshot()))) throw new InvalidOperationException("Planning produced effects.");
-            if (state.Status == PlanningStatus.FinalReview)
+            if (state.Status == PlanningStatus.FinalReview && review is not null)
             {
-                state = await planner.AdvanceAsync(state, new() { Kind = "approve", ExpectedRevision = state.Revision, ArtifactHash = PlanningArtifactApproval.Hash(state) }, runtime, deadline.Token);
+                state = await LiveWorkflowEvaluation.ApproveAsync(run, review, runtime, deadline.Token);
                 if (state.Status == PlanningStatus.Approved)
                 {
                     run["execution_started"] = true; await campaign.SaveAsync(Collection, key, run);
@@ -136,9 +143,13 @@ internal static class StabilizationBenchmark
         catch (Exception ex) { failure = ex.GetType().Name; run["private_failure"] = ex.ToString(); }
         var expected = local is not null ? LocalExecutionCases.Variants(name).Length : Variants(name).Length;
         var usage = PlanningBenchmarkMeasurements.Usage(run, true); var executionUsage = PlanningBenchmarkMeasurements.Usage(run["execution_usage"]!.AsObject(), true);
+        if (variants.Count == expected && run["first_proposal"] is JsonObject first && first["artifact_hash"]?.ToString() == state.ComputeArtifactHash())
+            first["business_correct"] = variants.All(v => v!["correct"]!.GetValue<bool>());
         var row = new JsonObject { ["case"] = name, ["complexity"] = Complexity(name), ["integration"] = local is null ? "mocked" : "real_local",
             ["source"] = source, ["harness_commit"] = Git("rev-parse", "HEAD"), ["manifest"] = manifest, ["cohort"] = cohort, ["repetition"] = repetition,
             ["campaign"] = campaign.Id, ["provider"] = model.Provider, ["model"] = model.Model, ["status"] = state.Status,
+            ["review_pending"] = state.Status == PlanningStatus.FinalReview, ["final_review"] = state.Status is PlanningStatus.FinalReview or PlanningStatus.Approved,
+            ["mode"] = "live", ["safety_violations"] = variants.Count == 0 ? null : new JsonArray(variants.SelectMany(v => v!["safety_violations"]!.AsArray()).Select(v => v!.DeepClone()).ToArray()),
             ["execution_correct"] = variants.Count == expected && variants.All(v => v!["correct"]!.GetValue<bool>()),
             ["execution_variants"] = variants, ["nominal_success"] = variants.FirstOrDefault()?["runtime_success"]?.DeepClone(),
             ["logical_planning_calls"] = state.ModelCalls, ["planning_attempts"] = state.ModelCalls + PlanningBenchmarkMeasurements.ExtraTransportCalls(run),
@@ -152,6 +163,9 @@ internal static class StabilizationBenchmark
         row["total_attempts"] = row["planning_attempts"]!.GetValue<int>() + row["execution_attempts"]!.GetValue<int>();
         row["total_input_tokens"] = usage["input_tokens"] is null || executionUsage["input_tokens"] is null ? null : usage["input_tokens"]!.GetValue<long>() + executionUsage["input_tokens"]!.GetValue<long>();
         row["total_output_tokens"] = usage["output_tokens"] is null || executionUsage["output_tokens"] is null ? null : usage["output_tokens"]!.GetValue<long>() + executionUsage["output_tokens"]!.GetValue<long>();
+        row["calls"] = row["planning_attempts"]!.DeepClone();
+        row["input_tokens"] = usage["input_tokens"]?.DeepClone(); row["output_tokens"] = usage["output_tokens"]?.DeepClone();
+        PlanningBenchmarkMeasurements.ProposalMetrics(run, row);
         run["result"] = row.DeepClone(); run["session"] = JsonSerializer.SerializeToNode(state, PlanningJsonContext.Default.PlanningSession);
         await campaign.SaveAsync(Collection, key, run); if (local is null) Directory.Delete(localRoot, true); return row;
     }
@@ -220,7 +234,9 @@ internal static class StabilizationBenchmark
         public Task<PlanningCatalog> DiscoverAsync(PlanningRequest request, CancellationToken ct) => inner.DiscoverAsync(request, ct);
         public async Task<LLMResponse> CallAsync(LLMRequest request, string purpose, CancellationToken ct)
         {
-            try { var response = await model.CallAsync(request, ct); PlanningBenchmarkMeasurements.RecordUsage(run, request.ClientRequestId!, response.Usage as JsonObject); return response; }
+            try { var response = await model.CallAsync(request, ct);
+                PlanningBenchmarkMeasurements.RecordResponse(run, request, response, run["session"]?["modelCalls"]?.GetValue<int>() ?? 0);
+                PlanningBenchmarkMeasurements.RecordUsage(run, request.ClientRequestId!, response.Usage as JsonObject); return response; }
             catch { PlanningBenchmarkMeasurements.RecordUsage(run, request.ClientRequestId!, await model.PartialUsageAsync(request.ClientRequestId!, CancellationToken.None)); throw; }
         }
         public Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(PlanningArtifactValidationRequest request, CancellationToken ct) => inner.ValidateAsync(request, ct);

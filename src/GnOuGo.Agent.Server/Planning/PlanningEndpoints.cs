@@ -72,6 +72,7 @@ internal static class PlanningEndpoints
         state.Usage?.EstimatedCost ?? 0, state.Usage?.EstimatedCostCurrency ?? "", state.ActiveMilliseconds, state.HumanWaitMilliseconds, state.Phase, state.Request.Mode)
     {
         SchemaVersion = state.SchemaVersion,
+        RequestText = state.Request.Prompt,
         RevisionScope = state.RevisionScope.ToArray(),
         DiscoveryLimitations = state.Discovery.Limitations.ToArray(),
         Questions = state.PendingQuestions?.Select(q => new PlanningQuestionDto(q.Id, q.Question,

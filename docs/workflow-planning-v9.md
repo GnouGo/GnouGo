@@ -333,3 +333,28 @@ the removed argument; business context belongs in the prompt. See
 Accepted requirements and public inputs remain host-owned until explicit revision. Fresh requests no longer ask the model for outcome proofs or mappings. Technical review derives from compiled operations and authoritative contracts; it does not prove business completeness or execution success. See [simplification and compatibility](planner-simplification.md). Historical outcome reports remain evidence of earlier implementations, not current planning rules.
 
 See [compact observations, accepted outputs and resource lifecycle](compact-observations-and-execution.md) for the current producer/compiler boundaries and executor simplification.
+
+
+## First-attempt correctness boundary
+
+The planner chooses the smallest sufficient business plan and semantic data sources;
+the compiler owns typed projection, assembly, technical dependencies and deterministic
+lowering. Primitive semantics are retained in fresh compact schemas. Explicit transform
+modes and Boolean condition domains narrow fresh generation without changing historical
+TaskPlans, issued schemas, format 10 or compiler-v15 YAML. Exact contracts and necessary
+validation, cleanup and recovery boundaries remain authoritative.
+
+FinalReview exposes the retained original request and revisions. The existing requirement
+acknowledgment explicitly includes omitted work, extra effects and cleanup. Exact
+commitments establish declared operation associations and supported result lineage;
+ambiguous associations remain unverified. Neither compilation nor operation presence
+proves business completeness. There is no new intent representation or mandatory model
+phase before review.
+
+Fresh sessions capture the private assertion-validation profile. Bounded explicit
+contradictions are diagnosed before lowering; historical plans without that option keep
+their executable assertion behavior. Private correction version 6 reassesses existing
+local authority, records unsuccessful candidates and retains one structural fallback
+and cumulative allowances. No correction may infer a missing business fact or weaken
+an assertion. See the [component contract](../src/GnOuGo.Flow.Planning/README.md#fresh-proposal-correctness-and-review)
+and [evaluation evidence](evidence/first-attempt-taskplan-2026-10-17/README.md).

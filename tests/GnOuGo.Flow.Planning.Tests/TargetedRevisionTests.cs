@@ -107,7 +107,7 @@ public sealed class TargetedRevisionTests
         var runtime = new TestRuntime();
         runtime.Proposal.Plan = new() { Root = new() { Tasks = [
             new() { Id = id, Kind = "value", Objective = "Retain observed payload", Outputs = [new(port, Text("exact payload"))] },
-            new() { Id = "consume", Kind = "transform", Objective = "Interpret only compact observations", Inputs = [new("raw", Output(id, port))],
+            new() { Id = "consume", Kind = "transform", Mode = "interpret", Objective = "Interpret only compact observations", Inputs = [new("raw", Output(id, port))],
                 ResultType = new() { Kind = "object", Fields = [new() { Name = "text", Type = new() { Kind = "string" } }] } },
             new() { Id = "persist", Kind = "value", Objective = "Preserve this independent task", Outputs = [new("record", Output(id, port))] }
         ], Outputs = [new("message", Output("consume", "text"))], Always = [new() { Id = "cleanup", Kind = "value", Objective = "Release after preservation" }] } };

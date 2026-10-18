@@ -136,7 +136,7 @@ public sealed class CorrectionClarificationHostTests
             Requests.Add(request);
             var context = JsonNode.Parse(request.Prompt[(request.Prompt.IndexOf("\n{", StringComparison.Ordinal) + 1)..])!;
             Assert.Contains("transforms cannot call tools", request.Prompt);
-            Assert.Contains("Answers preserve accepted requirements", request.Prompt);
+            Assert.Contains("Answers preserve requirements/interfaces", request.Prompt);
             JsonNode response;
             var asking = scenario == "initial" && call == 1 || scenario == "question" && call == 2 || scenario == "failed_then_question" && call == 3;
             if (asking)
@@ -146,8 +146,10 @@ public sealed class CorrectionClarificationHostTests
             {
                 var slot = Assert.Single(context["repair"]!["slots"]!.AsArray())!;
                 response = new JsonObject { ["discoveryRequests"] = null, ["clarifications"] = null,
-                    ["patch"] = new JsonObject { ["edits"] = scenario == "failed_then_question" ? new JsonArray() : new JsonArray(new JsonObject
-                    { ["slot"] = slot["id"]!.DeepClone(), ["action"] = "replace", ["value"] = new JsonObject { ["kind"] = "input", ["source"] = "subject" } }) } };
+                    ["patch"] = new JsonObject { ["edits"] = new JsonArray(new JsonObject
+                    { ["slot"] = slot["id"]!.DeepClone(), ["action"] = "replace", ["value"] = scenario == "failed_then_question" && call == 2
+                        ? new JsonObject { ["kind"] = "string", ["text"] = "Unresolved ${subject}" }
+                        : new JsonObject { ["kind"] = "input", ["source"] = "subject" } }) } };
             }
             else
             {

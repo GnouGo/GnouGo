@@ -38,6 +38,9 @@ public sealed class RecordedCatalogOwnedBindingTests
         state.Request.Generation.MaxInputTokensPerRequest = 32768;
         var original = runtime.Recording["responses"]!.AsArray()[7]!["response"]!["json"]!["plan"]!.DeepClone();
         var expected = original.DeepClone();
+        var expectedPlan = expected.Deserialize(PlanningJsonContext.Default.TaskPlan)!;
+        foreach (var transform in TaskPlanRevisions.Tasks(expectedPlan).Where(t => t.Kind == "transform" && t.Mode is null)) transform.Mode = "interpret";
+        expected = JsonSerializer.SerializeToNode(expectedPlan, PlanningJsonContext.Default.TaskPlan)!;
         var task = expected["root"]!["tasks"]!.AsArray().Single(t => t!["id"]!.ToString() == "run_project_checks")!;
         task["inputs"]!.AsArray().Remove(task["inputs"]!.AsArray().Single(i => i!["name"]!.ToString() == "runner"));
         var planner = new HybridWorkflowPlanner();

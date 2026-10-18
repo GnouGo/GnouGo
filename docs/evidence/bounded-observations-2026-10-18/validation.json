@@ -1,0 +1,281 @@
+{
+  "platform": "macOS arm64",
+  "sdk": "10.0.300",
+  "warnings_as_errors": true,
+  "source": "00b1aa751bbdd8787cda25f425a56db2e6850f51",
+  "solution": {
+    "projects": 33,
+    "total": 6068,
+    "initial_passed": 6041,
+    "initial_failed": 14,
+    "skipped": 13,
+    "project_results": [
+      {
+        "project": "GnOuGo.DocIngestor.Tests.dll",
+        "total": 89,
+        "passed": 89,
+        "failed": 0,
+        "executed": 89
+      },
+      {
+        "project": "GnOuGo.Diff.Tests.dll",
+        "total": 52,
+        "passed": 52,
+        "failed": 0,
+        "executed": 52
+      },
+      {
+        "project": "GnOuGo.KeyVault.Core.Tests.dll",
+        "total": 12,
+        "passed": 12,
+        "failed": 0,
+        "executed": 12
+      },
+      {
+        "project": "GnOuGo.Flow.Tests.dll",
+        "total": 1401,
+        "passed": 1401,
+        "failed": 0,
+        "executed": 1401
+      },
+      {
+        "project": "GnOuGo.Flow.Integrations.Tests.dll",
+        "total": 99,
+        "passed": 99,
+        "failed": 0,
+        "executed": 99
+      },
+      {
+        "project": "GnOuGo.AI.Core.Tests.dll",
+        "total": 225,
+        "passed": 225,
+        "failed": 0,
+        "executed": 225
+      },
+      {
+        "project": "GnOuGo.AI.Local.Tests.dll",
+        "total": 14,
+        "passed": 14,
+        "failed": 0,
+        "executed": 14
+      },
+      {
+        "project": "GnOuGo.Agent.Mcp.Tests.dll",
+        "total": 103,
+        "passed": 103,
+        "failed": 0,
+        "executed": 103
+      },
+      {
+        "project": "GnOuGo.Cmd.Mcp.Tests.dll",
+        "total": 100,
+        "passed": 93,
+        "failed": 0,
+        "executed": 93
+      },
+      {
+        "project": "GnOuGo.Browser.Mcp.Tests.dll",
+        "total": 142,
+        "passed": 142,
+        "failed": 0,
+        "executed": 142
+      },
+      {
+        "project": "GnOuGo.Agent.Server.Tests.dll",
+        "total": 1112,
+        "passed": 1111,
+        "failed": 0,
+        "executed": 1111
+      },
+      {
+        "project": "GnOuGo.Document.Mcp.Tests.dll",
+        "total": 73,
+        "passed": 73,
+        "failed": 0,
+        "executed": 73
+      },
+      {
+        "project": "GnOuGo.KeyVault.Mcp.Tests.dll",
+        "total": 9,
+        "passed": 9,
+        "failed": 0,
+        "executed": 9
+      },
+      {
+        "project": "GnOuGo.Files.Server.Tests.dll",
+        "total": 10,
+        "passed": 10,
+        "failed": 0,
+        "executed": 10
+      },
+      {
+        "project": "GnOuGo.DocIngestor.Mcp.Tests.dll",
+        "total": 7,
+        "passed": 7,
+        "failed": 0,
+        "executed": 7
+      },
+      {
+        "project": "GnOuGo.OtlpCollector.Server.Tests.dll",
+        "total": 7,
+        "passed": 7,
+        "failed": 0,
+        "executed": 7
+      },
+      {
+        "project": "GnOuGo.GithubCopilot.Mcp.Tests.dll",
+        "total": 243,
+        "passed": 243,
+        "failed": 0,
+        "executed": 243
+      },
+      {
+        "project": "GnOuGo.GithubCopilot.Core.Tests.dll",
+        "total": 173,
+        "passed": 173,
+        "failed": 0,
+        "executed": 173
+      },
+      {
+        "project": "GnOuGo.GithubCopilot.E2E.Tests.dll",
+        "total": 12,
+        "passed": 7,
+        "failed": 0,
+        "executed": 7
+      },
+      {
+        "project": "GnOuGo.Observability.Core.Tests.dll",
+        "total": 3,
+        "passed": 3,
+        "failed": 0,
+        "executed": 3
+      },
+      {
+        "project": "GnOuGo.Git.Mcp.Tests.dll",
+        "total": 84,
+        "passed": 84,
+        "failed": 0,
+        "executed": 84
+      },
+      {
+        "project": "GnOuGo.Workspace.Tests.dll",
+        "total": 30,
+        "passed": 30,
+        "failed": 0,
+        "executed": 30
+      },
+      {
+        "project": "GnOuGo.Mcp.Core.Tests.dll",
+        "total": 49,
+        "passed": 49,
+        "failed": 0,
+        "executed": 49
+      },
+      {
+        "project": "GnOuGo.Flow.Mermaid.Tests.dll",
+        "total": 12,
+        "passed": 12,
+        "failed": 0,
+        "executed": 12
+      },
+      {
+        "project": "GnOuGo.Assets.Bears.Tests.dll",
+        "total": 91,
+        "passed": 91,
+        "failed": 0,
+        "executed": 91
+      },
+      {
+        "project": "GnOuGo.Assets.Animation.Tests.dll",
+        "total": 42,
+        "passed": 42,
+        "failed": 0,
+        "executed": 42
+      },
+      {
+        "project": "GnOuGo.Assets.Animation.Server.Tests.dll",
+        "total": 13,
+        "passed": 13,
+        "failed": 0,
+        "executed": 13
+      },
+      {
+        "project": "GnOuGo.Assets.Bears.Server.Tests.dll",
+        "total": 28,
+        "passed": 28,
+        "failed": 0,
+        "executed": 28
+      },
+      {
+        "project": "GnOuGo.Flow.Planning.Tests.dll",
+        "total": 1619,
+        "passed": 1619,
+        "failed": 0,
+        "executed": 1619
+      },
+      {
+        "project": "GnOuGo.ProxyCopilot.Server.Tests.dll",
+        "total": 177,
+        "passed": 163,
+        "failed": 14,
+        "executed": 177
+      },
+      {
+        "project": "GnOuGo.Auth.Core.Tests.dll",
+        "total": 8,
+        "passed": 8,
+        "failed": 0,
+        "executed": 8
+      },
+      {
+        "project": "GnOuGo.Flow.Persistence.Tests.dll",
+        "total": 24,
+        "passed": 24,
+        "failed": 0,
+        "executed": 24
+      },
+      {
+        "project": "GnOuGo.Flow.Copilot.Tests.dll",
+        "total": 5,
+        "passed": 5,
+        "failed": 0,
+        "executed": 5
+      }
+    ],
+    "initial_exit_code": 1,
+    "command": "dotnet test GnOuGo.Agent.sln -m:1 -warnaserror -p:SkipClientBuild=true -p:SkipModelMetadataGeneration=true --logger console;verbosity=normal --logger trx",
+    "limitation": "The complete serial pass had 14 local HTTP timeouts in the unchanged ProxyCopilot tests. The complete affected proxy component subsequently passed without source, timeout, assertion or budget changes; no uninterrupted clean full-solution pass is claimed."
+  },
+  "proxy_rerun": {
+    "total": 177,
+    "passed": 177,
+    "failed": 0,
+    "exit_code": 0,
+    "duration_seconds": 9.5406,
+    "source_changed": false
+  },
+  "all_solution_cases_after_rerun": {
+    "passed": 6055,
+    "failed": 0,
+    "skipped": 13
+  },
+  "focused": {
+    "recovery": 2,
+    "clarification": 6,
+    "required_contract_headroom": 1
+  },
+  "frontend_build": "passed",
+  "planning_release_pack": "passed",
+  "candidate_debug_build": "passed, zero warnings and errors",
+  "local_readiness": {
+    "browser_read": true,
+    "browser_cleanup": true,
+    "independent_xlsx_read": true,
+    "model_calls": 0
+  },
+  "native_aot_and_published_encrypted_recovery": "Not rerun: no public serialization registration, persistence format, packaging or AOT boundary changed in this follow-up. Prior implementation evidence is retained.",
+  "cross_page_fixture": {
+    "outcome": "Passed",
+    "output": "Complete pages=53, records=1581, global decisions=1, mapping inference=0, request estimate=24133, original identities unchanged."
+  }
+}

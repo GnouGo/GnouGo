@@ -62,7 +62,7 @@ internal static class LiveWorkflowEvaluation
         });
         var measured = new ExecutionModel(model, label);
         var mappingTelemetry = new MappingLiveEvaluation.MappingTelemetry();
-        var engine = new WorkflowEngine { McpClientFactory = observed, LLMClient = phase == "execute" ? measured : model,
+        var engine = new WorkflowEngine { McpClientFactory = observed, LLMClient = phase == "execute" ? measured : new PlanningModel(model, run),
             Telemetry = mappingTelemetry,
             // The existing execution deadline also bounds cumulative runtime inference.
             // Monetary admission remains in the shared encrypted campaign client.
@@ -81,6 +81,8 @@ internal static class LiveWorkflowEvaluation
                 run["artifact_hash"] = null; run["failure"] = null;
             }
             run["session"] = JsonSerializer.SerializeToNode(s, PlanningJsonContext.Default.PlanningSession);
+            run["diagnostic_history"] ??= new JsonArray();
+            GnOuGo.Planning.Examples.PlanningBenchmarkMeasurements.Capture(run, s);
             await Save(); Console.WriteLine($"{label}: revision={s.Revision}, status={s.Status}, calls={s.ModelCalls}, repairs={s.ReplanAttempts}");
         });
         if (phase == "execute")
@@ -106,6 +108,9 @@ internal static class LiveWorkflowEvaluation
                 run["mapping_telemetry"] = mappingTelemetry.Mappings; await Save(); }
             var oracle = await LiveWorkflowOracles.VerifyAsync(scenario, root, run, observed);
             run["oracle"] = oracle;
+            if (run["first_proposal"] is JsonObject first && first["artifact_hash"]?.ToString() == session.ComputeArtifactHash())
+                first["business_correct"] = oracle["passed"]?.DeepClone();
+            GnOuGo.Planning.Examples.PlanningBenchmarkMeasurements.ProposalMetrics(run, run["result"]!.AsObject());
             run["result"]!["execution_success"] = run["execution"]!["success"]!.DeepClone();
             run["result"]!["execution_oracle"] = oracle["passed"]!.DeepClone();
             run["result"]!["execution_status"] = "completed";
@@ -179,6 +184,8 @@ internal static class LiveWorkflowEvaluation
             ["execution_success"] = false, ["execution_oracle"] = false, ["execution_status"] = "not_started",
             ["accounting"] = await LiveCampaignEvidence.AccountingAsync(campaign, label) };
         run["artifact_hash"] = state.Yaml is null ? null : state.ComputeArtifactHash();
+        run["result"]!["manifest"] = SchemaPortabilityCampaign.MeasurementManifest(state.Request);
+        GnOuGo.Planning.Examples.PlanningBenchmarkMeasurements.ProposalMetrics(run, run["result"]!.AsObject());
         await Save(); Console.WriteLine(run["result"]!.ToJsonString());
         if (run["artifact_hash"] is not null) Console.WriteLine("artifact_hash=" + run["artifact_hash"]);
 
@@ -282,6 +289,19 @@ internal static class LiveWorkflowEvaluation
         copy.ClientRequestId = run + "-execution:" + (request.ClientRequestId ?? call + ":" + PlanningGraphCompiler.Fingerprint(request.Prompt));
         copy.Reasoning = "medium"; copy.MaxTokens = Math.Min(copy.MaxTokens ?? 32768, 32768);
         return copy;
+    }
+
+    private sealed class PlanningModel(KeyVaultBenchmarkModel model, JsonObject run) : ILLMClient, ILLMCapabilityResolver
+    {
+        public Task<int?> InputTokenAllowanceAsync(string? provider, string name, int outputTokens, CancellationToken ct) => model.InputTokenAllowanceAsync(provider, name, outputTokens, ct);
+        public Task<bool?> SupportsStructuredOutputAsync(string? provider, string name, CancellationToken ct) => model.SupportsStructuredOutputAsync(provider, name, ct);
+        public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string name, CancellationToken ct) => model.SupportedReasoningLevelsAsync(provider, name, ct);
+        public async Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
+        {
+            var response = await model.CallAsync(request, ct);
+            GnOuGo.Planning.Examples.PlanningBenchmarkMeasurements.RecordResponse(run, request, response, run["session"]?["modelCalls"]?.GetValue<int>() ?? 0);
+            return response;
+        }
     }
 
     private sealed class ExecutionModel(KeyVaultBenchmarkModel model, string run) : ILLMClient, ILLMCapabilityResolver

@@ -1,0 +1,18 @@
+[
+  {
+    "invocation": "/workflow/main/step/n_8dce3e9e9190662f/mapping/0",
+    "status": "completed",
+    "observed_completion": true,
+    "estimated_prompt_tokens": 707090,
+    "model_calls": 0,
+    "inspection_only": true
+  },
+  {
+    "invocation": "/workflow/main/step/n_c6b96a4e952210f3",
+    "status": "completed",
+    "observed_completion": true,
+    "estimated_prompt_tokens": 4206,
+    "model_calls": 0,
+    "inspection_only": true
+  }
+]

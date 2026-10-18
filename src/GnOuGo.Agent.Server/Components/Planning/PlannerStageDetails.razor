@@ -13,9 +13,13 @@ else if (Session.Status == PlanningStatus.Stopped && Session.Diagnostics.Any(d =
 }
 @if (Session.Requirements is { } requirements)
 {
+    @if (Session.RequestText is { } requestText)
+    {
+        <details open aria-label="Original request and revisions"><summary>Original request and revisions</summary><pre>@requestText</pre></details>
+    }
     var accepted = System.Text.Json.JsonSerializer.Deserialize(requirements, PlanningJsonContext.Default.PlanningRequirements)!;
     <details open><summary id="business-requirements" tabindex="-1" @ref="_requirementsSummary">Business requirements</summary>
-        <p>Review these requirements against the business tasks. Compilation does not prove business completeness or execution success.</p>
+        <p>Each acknowledgment includes comparing the original request and revisions with these requirements and business tasks: check omitted actions, missing outputs, extra effects and cleanup. Compilation does not prove business completeness or execution success.</p>
         <p>Check each requested action inside its iteration and condition. Partial observations with continuation are incomplete.</p>
         @if (Session.ValidationResults.Any(r => r.Id.StartsWith("coverage:", StringComparison.Ordinal)))
         { <p>Confirmed violations block approval. Checking a requirement explicitly acknowledges its unverified aspects; they remain unverified after approval. Human review is not execution evidence.</p> }
@@ -101,8 +105,8 @@ else if (Session.Status == PlanningStatus.Stopped && Session.Diagnostics.Any(d =
 @if (Session.TaskPlan is { } plan)
 {
     var semantic = System.Text.Json.JsonSerializer.Deserialize(plan, PlanningJsonContext.Default.TaskPlan)!;
-    <details open><summary>Business tasks</summary><PlannerTasks Scope="semantic.Root" />
-        @foreach (var group in semantic.Groups) { <p>Reusable group: @group.Id</p><PlannerTasks Scope="group.Body" /> }
+    <details open><summary>Business tasks</summary><PlannerTasks Scope="semantic.Root" Associations="Session.ValidationResults" />
+        @foreach (var group in semantic.Groups) { <p>Reusable group: @group.Id</p><PlannerTasks Scope="group.Body" Associations="Session.ValidationResults" /> }
     </details>
 }
 @foreach (var choice in Session.Choices.Where(c => c.Selected is not null))

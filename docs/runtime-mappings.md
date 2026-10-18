@@ -48,11 +48,27 @@ Adaptive generation considers complete deterministic examples: shape representat
 
 A collection mapped to one object, boolean or scalar remains a **global extraction**, even with `infer_each`. Define each immediate consumer's observed business view with the existing closed extraction `resultType`. Separate consumers can use different views; full observations and exact action references remain available through their original bindings. A candidate array per source item allows an examined item to contribute no matches without an empty wrapper object.
 
+Pagination is a transport boundary, not evidence of independent business items.
+Preserve grouping and relationships that cross pages when projecting or extracting
+the consumer's view. Bounded examples teach a mapping that is checked against every
+original item; they never replace the collection being processed. A result cardinality
+or iteration ceiling does not constrain the input size of a global request. Required
+data that still exceeds the applicable allowance fails explicitly before dispatch.
+
 An explicit business binding `{ "kind": "flatten", "items": [value] }` concatenates exactly one typed `array<array<T>>` level before global interpretation. It preserves order, duplicates, null elements and deeper nesting. Outer and inner arrays must be nonnullable; untyped contents, scalars and null inner arrays fail. Source constraints are checked before concatenation, and consumer constraints afterward. Empty arrays contribute nothing. The binding compiles deterministically at final lowering, with no mapping inference or new executor.
 
 For example: complete source pages → independent extraction of `array<array<{label, group, reference}>>` → explicit flatten → global decision receiving selected candidate fields. Do not forward broad `pageFacts`, raw pages or unrelated fields into that view. Keep grouping or references when the decision requires them, and preserve full sources for other consumers. Checked assembly validates declared fields; complete-request admission includes instructions, data, schema and framing. Neither step proves semantic relevance, so independent execution oracles still check missed or invented facts. Still-oversized necessary inputs fail before dispatch, without truncating or sampling the decision.
 
 The existing capability resolver exposes an optional verified input allowance after output reservation. Only exact configured/catalog metadata or aliases supply limits, never fuzzy guesses. `ExecutionLimits.MaxMappingInputTokens` can impose a host ceiling; omission uses 12,000. Agent.Server exposes it as `Flow:Execution:MaxMappingInputTokens`, with 96,000 in shipped appsettings, matching the live harness. The complete serialized request is conservatively bounded by UTF-8 bytes plus 4,096 framing units and the stricter provider allowance. Unknown limits, excessive shared context or a mandatory example that cannot fit stop before inference. Admission diagnostics report the limiting host/model allowance, initial request bound without examples, smallest single-example request tried, last attempted request bound and distinct examined-item count. Null measurements mean no such example was examined. Existing traces carry bounded counters only, never payloads. Changing host configuration affects new runs; recovery restores the saved limit. This does not change cumulative budgets or campaign/provider ceilings.
+
+The live campaign's existing adapter also checks whole-value runtime requests using
+its conservative tokenizer estimate of the complete serialized request. Its
+`LLM_BUDGET_EXCEEDED` receipt distinguishes `request_input_allowance` from cumulative
+`budget_exceeded`, and records `limit_kind`, `limit`, `current`, `measurement` and
+`dispatch_status: not_started`. The formatter identifies the failed step and labels
+token estimates separately from independent-extraction UTF-8 bounds. These are
+diagnostic additions, not new admission rules, retry permissions or billed usage.
+Durable recovery retains the original receipt and cleanup outcome without dispatch.
 
 Before live extraction, verify that the exact deployment declares `MaxInputTokens`, `ContextWindowTokens` and `MaxOutputTokens`. A host or campaign ceiling does not establish provider capacity. `LLM_BUDGET_UNVERIFIABLE` with “No verified input allowance” is a capability-metadata preflight failure, distinct from an unknown completion receipt. Supply authoritative deployment metadata; do not substitute a nearby snapshot, infer limits from successful earlier calls or increase ceilings.
 
