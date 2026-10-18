@@ -1,0 +1,2186 @@
+{
+  "candidate_commit": "25dc994d45925054859cdb0874428dceb432b62f",
+  "binary_directory": "/private/tmp/gnougo-pr119-diagnostics-release-6gl9esrk/candidate/tests/GnOuGo.Agent.Planning.Benchmark/bin/Release/net10.0",
+  "files": [
+    {
+      "path": ".playwright/node/LICENSE",
+      "bytes": 157606,
+      "sha256": "148eacf7863ef4329224a29398623077200a27194aa075569faf4a0a85566ca5"
+    },
+    {
+      "path": ".playwright/node/darwin-arm64/node",
+      "bytes": 120957760,
+      "sha256": "f480e325ee0ca9cb9eef00b5ca6057a2a104807a1b073f1bc373a55c67facff5"
+    },
+    {
+      "path": ".playwright/package/LICENSE",
+      "bytes": 11601,
+      "sha256": "45873d00a0dd243596deb4aa23b2493b3d1f0671921bf2538ea431d7380220eb"
+    },
+    {
+      "path": ".playwright/package/NOTICE",
+      "bytes": 254,
+      "sha256": "6d602191187b35b9b01d2cffa01c8469c2c8d9de8a96f1bf868e0f264f51c81d"
+    },
+    {
+      "path": ".playwright/package/README.md",
+      "bytes": 120,
+      "sha256": "d16ff7f8e38fa1fc954f695ad551cdc118d9c9bdd5f3d83203901f4c317d7d7e"
+    },
+    {
+      "path": ".playwright/package/ThirdPartyNotices.txt",
+      "bytes": 676,
+      "sha256": "a549d329bad8806fe279f0ecae0fc0270dec7e7c2dc8ec10f90e394f7c32b144"
+    },
+    {
+      "path": ".playwright/package/bin/install_media_pack.ps1",
+      "bytes": 174,
+      "sha256": "bc20f049badf021e3a53bdb4156603caa5ef482c9a9a251f927605e676a44171"
+    },
+    {
+      "path": ".playwright/package/bin/install_webkit_wsl.ps1",
+      "bytes": 1464,
+      "sha256": "bc61beda37a808eef27d39ce684baa792f6d17737a25a432b1a84d3b591ab815"
+    },
+    {
+      "path": ".playwright/package/bin/reinstall_chrome_beta_linux.sh",
+      "bytes": 1217,
+      "sha256": "dc8c22b9dde76583cece2857575b88094299615f3136a3c598149710c45dee3a"
+    },
+    {
+      "path": ".playwright/package/bin/reinstall_chrome_beta_mac.sh",
+      "bytes": 563,
+      "sha256": "a92eaeb4ebcf5633a4e9c981481e14c80764fc81b6fcbc0565398e50ff319433"
+    },
+    {
+      "path": ".playwright/package/bin/reinstall_chrome_beta_win.ps1",
+      "bytes": 957,
+      "sha256": "b6d9e44742feafb98d5edc56fa20042949973cf30d141a1c5b4fb384096967c5"
+    },
+    {
+      "path": ".playwright/package/bin/reinstall_chrome_stable_linux.sh",
+      "bytes": 1212,
+      "sha256": "dc72ab3567a4ce43bd8353d4ecf41f1d9c03e870169367cd3ed9043aabf67dd1"
+    },
+    {
+      "path": ".playwright/package/bin/reinstall_chrome_stable_mac.sh",
+      "bytes": 519,
+      "sha256": "bb43a96c192a6cc81524ade0264686fff7809c019a89f7db0a9849635879c3be"
+    },
+    {
+      "path": ".playwright/package/bin/reinstall_chrome_stable_win.ps1",
+      "bytes": 923,
+      "sha256": "3d96c4e2f4ebbb3fad44cf3ba58d9cf90af1c9fb3073e3b27d45a74cf005515b"
+    },
+    {
+      "path": ".playwright/package/bin/reinstall_msedge_beta_linux.sh",
+      "bytes": 1494,
+      "sha256": "10b26f35dbc2000b94edf1172d803a29c5873a4eb8d523afbc687997b642767e"
+    },
+    {
+      "path": ".playwright/package/bin/reinstall_msedge_beta_mac.sh",
+      "bytes": 377,
+      "sha256": "0036d738bc90d686100d81f328ba0003bf07863f5500b792c8da391d149750fa"
+    },
+    {
+      "path": ".playwright/package/bin/reinstall_msedge_beta_win.ps1",
+      "bytes": 874,
+      "sha256": "b173c378a59f0cc38033cee702de1f44f09276c9b2270d1a650ebe66ee312433"
+    },
+    {
+      "path": ".playwright/package/bin/reinstall_msedge_dev_linux.sh",
+      "bytes": 1489,
+      "sha256": "00e4947e7a4f8339c6db09c87976d808583c07f9179e4aa7694d88614b82fe95"
+    },
+    {
+      "path": ".playwright/package/bin/reinstall_msedge_dev_mac.sh",
+      "bytes": 372,
+      "sha256": "6f899e3b311f742c24ca37ff9e32298e8290514ffc14bf588cc51556a29da4c0"
+    },
+    {
+      "path": ".playwright/package/bin/reinstall_msedge_dev_win.ps1",
+      "bytes": 869,
+      "sha256": "46f7f98c81cb0abe687d7f4a5afea9b897a38d2a6dd6f6662fbd847f7a22bd51"
+    },
+    {
+      "path": ".playwright/package/bin/reinstall_msedge_stable_linux.sh",
+      "bytes": 1507,
+      "sha256": "ec0a31a5f09c565e108473a1850895a4458ab00c713ac1de3aa2001912e4668f"
+    },
+    {
+      "path": ".playwright/package/bin/reinstall_msedge_stable_mac.sh",
+      "bytes": 371,
+      "sha256": "3af1e893527ff2257aa2dbc3b259a053b92f45c3eadb13e38eba46e87902655d"
+    },
+    {
+      "path": ".playwright/package/bin/reinstall_msedge_stable_win.ps1",
+      "bytes": 856,
+      "sha256": "40bb5fcbfcebbbe2ce43c6e736e7c5deefc5be03b6e9c6914423c06ec1f591be"
+    },
+    {
+      "path": ".playwright/package/browsers.json",
+      "bytes": 1780,
+      "sha256": "f306eed529599b1eaf2f8a85db9de2b23e1a3fe36c2b66434b7c9434fb627a99"
+    },
+    {
+      "path": ".playwright/package/cli.js",
+      "bytes": 839,
+      "sha256": "f1c4075aef116c766092250d7f37b3249a7cee6465d953207fc38c8f6145becd"
+    },
+    {
+      "path": ".playwright/package/index.d.ts",
+      "bytes": 634,
+      "sha256": "7a8ec10b0834eb7183e4bfcd929838ac77583828e343211bb73676d1e47f6f01"
+    },
+    {
+      "path": ".playwright/package/index.js",
+      "bytes": 697,
+      "sha256": "a58fb2cec4293e7dcf73c58a179898a4f3986666451a19da4e731fa3af63265b"
+    },
+    {
+      "path": ".playwright/package/index.mjs",
+      "bytes": 1063,
+      "sha256": "3d36e2132d3c8b62397d23f0bb4177336aaee503203ae2a2c90fbeb5bf3317dd"
+    },
+    {
+      "path": ".playwright/package/lib/bootstrap.js",
+      "bytes": 3481,
+      "sha256": "4637f4dbfef9cfc01baeb5f5d2cb63fa0901522c96915ea2227290558d27123e"
+    },
+    {
+      "path": ".playwright/package/lib/coreBundle.js",
+      "bytes": 3425217,
+      "sha256": "3258d1cf334c6afc95f22aa9c292436cb976b391e0437f1359c83b84f0cb9d66"
+    },
+    {
+      "path": ".playwright/package/lib/entry/cliDaemon.js",
+      "bytes": 197,
+      "sha256": "062f256fb29a7bf91793a014b9c3f1f9cf2dc6b12e40a8a2ebba88a630ae16a0"
+    },
+    {
+      "path": ".playwright/package/lib/entry/dashboardApp.js",
+      "bytes": 108,
+      "sha256": "209962c6eaeef11629f226d6a2ab33ec7a2480754242b6e19590a9e6eb71d126"
+    },
+    {
+      "path": ".playwright/package/lib/entry/mcp.js",
+      "bytes": 442,
+      "sha256": "cc87dc0020cb41caebbf04f50e42bc7835b033a6d80e9c3f0a3d0b3dbdf341c7"
+    },
+    {
+      "path": ".playwright/package/lib/entry/oopBrowserDownload.js",
+      "bytes": 120,
+      "sha256": "87567cdbd67dd2f50bb232d47d3784701ece7c81e39c0287bb7d1b466b68cf06"
+    },
+    {
+      "path": ".playwright/package/lib/package.js",
+      "bytes": 2112,
+      "sha256": "9f938e1d44a0dd231b1660ca62f7dae964859b79cbdc370b8542c5d375ca3c05"
+    },
+    {
+      "path": ".playwright/package/lib/server/chromium/appIcon.png",
+      "bytes": 16565,
+      "sha256": "6ba994f05c5cf18e22d9b6bef9898fbdec6ad4d4d77f5187d0609cb42d72d01e"
+    },
+    {
+      "path": ".playwright/package/lib/server/electron/loader.js",
+      "bytes": 5100,
+      "sha256": "8f4f2c20933e7bef2bbed9a1b455278ad1461aa919b0386f360aee5b2580149d"
+    },
+    {
+      "path": ".playwright/package/lib/serverRegistry.js",
+      "bytes": 247102,
+      "sha256": "e9db9d4eaa8c3690f700ea3047af7b0b6e0b16937a969589678c51db92272ae9"
+    },
+    {
+      "path": ".playwright/package/lib/serverRegistry.js.LICENSE",
+      "bytes": 18617,
+      "sha256": "5cf540fe55a2ba9bcf0eb76e739b454faa8581e2f1a0f777602ef0855534302e"
+    },
+    {
+      "path": ".playwright/package/lib/tools/cli-client/channelSessions.js",
+      "bytes": 7087,
+      "sha256": "6b9c613e87340f48ad7182addd7495a8ff3fbe55feb1bbd0ce04f59f1552e126"
+    },
+    {
+      "path": ".playwright/package/lib/tools/cli-client/cli.js",
+      "bytes": 153,
+      "sha256": "dfde8e9dfde30c4b3914eb25ba1c5a8524ec64651d866171d75cd7b41a827180"
+    },
+    {
+      "path": ".playwright/package/lib/tools/cli-client/help.json",
+      "bytes": 38111,
+      "sha256": "d63f1c7e006b1bdfbe656e6bea2b4dca9e1b6c17f8c806fdaca656fef71d234d"
+    },
+    {
+      "path": ".playwright/package/lib/tools/cli-client/minimist.js",
+      "bytes": 4106,
+      "sha256": "1d200627373a367e0097f1abeaaa4d67cde2c33f2e5efca5cb55222c7667adc3"
+    },
+    {
+      "path": ".playwright/package/lib/tools/cli-client/output.js",
+      "bytes": 11703,
+      "sha256": "2eace914547a487b2aa1dc34af787fe92168f0b7b3dde24f2b127e817cc9b2b4"
+    },
+    {
+      "path": ".playwright/package/lib/tools/cli-client/program.js",
+      "bytes": 16059,
+      "sha256": "4a3ece6f75a707e6af71c1dde8650080e7819421594f251b9397e2e45e89cbb8"
+    },
+    {
+      "path": ".playwright/package/lib/tools/cli-client/registry.js",
+      "bytes": 6662,
+      "sha256": "c11d278e05542808ba37bdb032018eccf9dc78377f8025bd74fa906ae009ca30"
+    },
+    {
+      "path": ".playwright/package/lib/tools/cli-client/session.js",
+      "bytes": 9519,
+      "sha256": "716e87fc77251129adf8c66374cccc6788f76a02b4b33692c7e63a01a659cb5c"
+    },
+    {
+      "path": ".playwright/package/lib/tools/dashboard/appIcon.png",
+      "bytes": 18945,
+      "sha256": "38037bcf18c7f9b950da2e1a2d8800d38fb27637ccda293d38368a3704b67f18"
+    },
+    {
+      "path": ".playwright/package/lib/tools/skills/playwright-cli/SKILL.md",
+      "bytes": 12587,
+      "sha256": "29c0b669a524d42b51934d7db9144c1c07a566d0549ae6fb6ccd810e5a3cf61b"
+    },
+    {
+      "path": ".playwright/package/lib/tools/skills/playwright-cli/references/element-attributes.md",
+      "bytes": 665,
+      "sha256": "bf19aa4671e0a50a0fefa9c790f39124e803060eefe395042b723c29fcb7faa2"
+    },
+    {
+      "path": ".playwright/package/lib/tools/skills/playwright-cli/references/playwright-tests.md",
+      "bytes": 1690,
+      "sha256": "c5b0719fef2cfdff50bd744051b2f9afc119775db4b48e9b2882c1cf3886797c"
+    },
+    {
+      "path": ".playwright/package/lib/tools/skills/playwright-cli/references/request-mocking.md",
+      "bytes": 2182,
+      "sha256": "54e801c9663fc2b6d68ceb058cb1c360724c2499f42acc7852a68e83e5b5f37c"
+    },
+    {
+      "path": ".playwright/package/lib/tools/skills/playwright-cli/references/running-code.md",
+      "bytes": 5642,
+      "sha256": "d95c539a5990b71d02d8bdf1d9414df16191eb6cff95b0063820518b7a13dcb2"
+    },
+    {
+      "path": ".playwright/package/lib/tools/skills/playwright-cli/references/session-management.md",
+      "bytes": 5671,
+      "sha256": "cd3e261b8763bf952f1e371b876cb78d054379afec85482f9250633e1b7e6c44"
+    },
+    {
+      "path": ".playwright/package/lib/tools/skills/playwright-cli/references/storage-state.md",
+      "bytes": 5198,
+      "sha256": "9ac47f9ae4a1aedcd2077f8ac9ab1ba6bee1962cb83ff51adcd36fb6d83b5ec6"
+    },
+    {
+      "path": ".playwright/package/lib/tools/skills/playwright-cli/references/test-generation.md",
+      "bytes": 16114,
+      "sha256": "12f54cfa718d9e559bad918120a4ca4f11c933167713d1b9c5f99872eddaf749"
+    },
+    {
+      "path": ".playwright/package/lib/tools/skills/playwright-cli/references/tracing.md",
+      "bytes": 3440,
+      "sha256": "792e0ac7705e56ac48df84c0f5400221ce86107897c671590a64a4ea6a82508e"
+    },
+    {
+      "path": ".playwright/package/lib/tools/skills/playwright-cli/references/video-recording.md",
+      "bytes": 5387,
+      "sha256": "8555ab5400df0d90e66318aacc0a8a4418fbf872e7463824d55d5c41615abd83"
+    },
+    {
+      "path": ".playwright/package/lib/tools/skills/playwright-component-testing/SKILL.md",
+      "bytes": 10027,
+      "sha256": "77bc6f8d1de57ac8f8996ae860c1cfc446f18f48e78cc643b43389e5a97d5c66"
+    },
+    {
+      "path": ".playwright/package/lib/tools/skills/playwright-component-testing/references/gallery-spec.md",
+      "bytes": 6199,
+      "sha256": "0ca25dde6112eb379f56eb618585b64dc2dfd13c2f7f956ac7eabbd76a68912b"
+    },
+    {
+      "path": ".playwright/package/lib/tools/skills/playwright-component-testing/references/migration.md",
+      "bytes": 4758,
+      "sha256": "0afda2e933235ad5c538c914e75c2469c160cd3be7650bd4ec86bef9efae8d63"
+    },
+    {
+      "path": ".playwright/package/lib/tools/skills/playwright-component-testing/references/react.md",
+      "bytes": 2921,
+      "sha256": "2a9661c3bff8d12064d50aa71c4e0fe120bcf6e9f243f2506a1ad90b0edf2f90"
+    },
+    {
+      "path": ".playwright/package/lib/tools/skills/playwright-component-testing/references/vue.md",
+      "bytes": 3180,
+      "sha256": "5a01334a5521d6728f7d0e87751efb0723d6a7e3f715f994fdf96b88853966c1"
+    },
+    {
+      "path": ".playwright/package/lib/tools/skills/playwright-trace/SKILL.md",
+      "bytes": 4712,
+      "sha256": "df85506bfa8a445c961efa1ac244cca733667b717711bcc99c1f93994c29d5dc"
+    },
+    {
+      "path": ".playwright/package/lib/tools/utils/extension.js",
+      "bytes": 4260,
+      "sha256": "ed1a56cb9a6b4643a6a1dea604c541a4e3a4be8d8971edcfe53c7dc9cceefe98"
+    },
+    {
+      "path": ".playwright/package/lib/tools/utils/socketConnection.js",
+      "bytes": 3317,
+      "sha256": "973c2bea70a1f1445f4673f99e9fa351e50a2ec9fd93d7381b2c41bb4de764dd"
+    },
+    {
+      "path": ".playwright/package/lib/utilsBundle.js",
+      "bytes": 3239355,
+      "sha256": "580f571bf063e2256b51b3946a035bc452fc0e22808d5547b198baea39923a32"
+    },
+    {
+      "path": ".playwright/package/lib/utilsBundle.js.LICENSE",
+      "bytes": 122225,
+      "sha256": "57945338cba4878e373646733528017fbe3db1503ec2b431fd30d2a390c70c33"
+    },
+    {
+      "path": ".playwright/package/lib/vite/dashboard/assets/codicon-DCmgc-ay.ttf",
+      "bytes": 80340,
+      "sha256": "0f1d5219934e96e83b8db162d60b4d8c09b5de1e7d38031cbafe4a3c0f2889c9"
+    },
+    {
+      "path": ".playwright/package/lib/vite/dashboard/assets/firefox-1bWoP6pv.svg",
+      "bytes": 7488,
+      "sha256": "3f3742d1e78c0db6c2d3531250f70c30675ee5310de32fa89befaf738c54efd0"
+    },
+    {
+      "path": ".playwright/package/lib/vite/dashboard/assets/firefox-beta-k3eOH_eK.svg",
+      "bytes": 9280,
+      "sha256": "7eab5ffdc25903ba33a7202f7fffa1999f119c7be45a39e9e703c118904f917a"
+    },
+    {
+      "path": ".playwright/package/lib/vite/dashboard/assets/firefox-nightly-Cp5nfeDT.svg",
+      "bytes": 9143,
+      "sha256": "f311c074b0fa999fcd6b73441301fb54ee87a48ff3bf05f318647928110476da"
+    },
+    {
+      "path": ".playwright/package/lib/vite/dashboard/assets/index-CyWAfh-p.js",
+      "bytes": 324278,
+      "sha256": "33abc7596e49d241e5b397141073e73bb2fb7eec9880bb1e0e2e6d0f673a150e"
+    },
+    {
+      "path": ".playwright/package/lib/vite/dashboard/assets/index-DhC616m4.css",
+      "bytes": 131922,
+      "sha256": "b4adaf3c09a3a3a4d17d0268255113d0bbacd2045cfab47ed69a78e0b9bdbd78"
+    },
+    {
+      "path": ".playwright/package/lib/vite/dashboard/assets/safari-na3_-uQk.svg",
+      "bytes": 5254,
+      "sha256": "80fd72ca5eb8545f1981277b31f4f92951d469d4efebd078e4086b676fe517dc"
+    },
+    {
+      "path": ".playwright/package/lib/vite/dashboard/index.html",
+      "bytes": 1078,
+      "sha256": "3c127919b93d9a2a621ec5aa5be8565680edc6e961e62d028914549d22bcb218"
+    },
+    {
+      "path": ".playwright/package/lib/vite/dashboard/playwright-logo.svg",
+      "bytes": 5645,
+      "sha256": "511524a1c145819303a18fb71870a4307c3e740f9e9722f7686a2b42b0995b6c"
+    },
+    {
+      "path": ".playwright/package/lib/vite/htmlReport/index.html",
+      "bytes": 464,
+      "sha256": "ce7c098020a0eb9ce10edd416245ea6da50dfeaab18dfd0a2176979d22643be6"
+    },
+    {
+      "path": ".playwright/package/lib/vite/htmlReport/report.css",
+      "bytes": 99364,
+      "sha256": "afa5c8f204098c79eb093e9354d82488a2ccaa771b45453cd4d1e9a075779cb8"
+    },
+    {
+      "path": ".playwright/package/lib/vite/htmlReport/report.js",
+      "bytes": 415216,
+      "sha256": "f0941744b2ef35b91eafb3d6099f5d4acb342ddbb3000ff293b6e3abf80d29ac"
+    },
+    {
+      "path": ".playwright/package/lib/vite/recorder/assets/codeMirrorModule--QdMvsKi.css",
+      "bytes": 6251,
+      "sha256": "20be824a82832b62cc04642d31da3c609fd280b23f1cdcb1e622c4f40aac5ab8"
+    },
+    {
+      "path": ".playwright/package/lib/vite/recorder/assets/codeMirrorModule-CwYYHbcZ.js",
+      "bytes": 307374,
+      "sha256": "b673acf747a1667bbd90b96d9de583d69905b0bd78a196b2a7979a573f5171fd"
+    },
+    {
+      "path": ".playwright/package/lib/vite/recorder/assets/codicon-DCmgc-ay.ttf",
+      "bytes": 80340,
+      "sha256": "0f1d5219934e96e83b8db162d60b4d8c09b5de1e7d38031cbafe4a3c0f2889c9"
+    },
+    {
+      "path": ".playwright/package/lib/vite/recorder/assets/index-DYjdXIbE.js",
+      "bytes": 358249,
+      "sha256": "f3c0288840bedb5739649f7fe938a30f57469d46d6ca1e56ee885a0860b98df9"
+    },
+    {
+      "path": ".playwright/package/lib/vite/recorder/assets/index-l_lX622x.css",
+      "bytes": 85451,
+      "sha256": "01eecbef954379cb99bf36502849ff6e503887bd8a131a5d02dd5d8c23b6106f"
+    },
+    {
+      "path": ".playwright/package/lib/vite/recorder/index.html",
+      "bytes": 1078,
+      "sha256": "d8a974540383c01c031dd7f317d4276675ecc562747986e6d70234751127e891"
+    },
+    {
+      "path": ".playwright/package/lib/vite/recorder/playwright-logo.svg",
+      "bytes": 5033,
+      "sha256": "6b0a4367bdeab10995bc239278f04c68c10e48adbec15e799e01909a0d66dcb9"
+    },
+    {
+      "path": ".playwright/package/lib/vite/traceViewer/assets/codeMirrorModule-By56iMx7.js",
+      "bytes": 307393,
+      "sha256": "0a71dcf91457731b1889ad193ec3ee43e47e9ab8363af7b3b8c392daae7dcb46"
+    },
+    {
+      "path": ".playwright/package/lib/vite/traceViewer/assets/defaultSettingsView-B34OrIms.js",
+      "bytes": 643042,
+      "sha256": "4162c47e14eac722476034eb97408351221663f1cc4fc6b35f3195b98dcd653a"
+    },
+    {
+      "path": ".playwright/package/lib/vite/traceViewer/assets/urlMatch-L3liM589.js",
+      "bytes": 2510,
+      "sha256": "1bc6321e32d11c31a452bc75896f0b344e6153321854d9f1658818be7f845c16"
+    },
+    {
+      "path": ".playwright/package/lib/vite/traceViewer/assets/xtermModule-COQkjINf.js",
+      "bytes": 288730,
+      "sha256": "acce55e009dc230adb3ae55b21943eaba136a8eb60e923f66eb53125537aeb27"
+    },
+    {
+      "path": ".playwright/package/lib/vite/traceViewer/codeMirrorModule.-QdMvsKi.css",
+      "bytes": 6251,
+      "sha256": "20be824a82832b62cc04642d31da3c609fd280b23f1cdcb1e622c4f40aac5ab8"
+    },
+    {
+      "path": ".playwright/package/lib/vite/traceViewer/codicon.DCmgc-ay.ttf",
+      "bytes": 80340,
+      "sha256": "0f1d5219934e96e83b8db162d60b4d8c09b5de1e7d38031cbafe4a3c0f2889c9"
+    },
+    {
+      "path": ".playwright/package/lib/vite/traceViewer/defaultSettingsView.BLFoOugd.css",
+      "bytes": 105310,
+      "sha256": "72241b3112ab609ca0e06195e85e02cb373799217cd5f24a07d61d9273c4ad3e"
+    },
+    {
+      "path": ".playwright/package/lib/vite/traceViewer/index.B_TqY17P.css",
+      "bytes": 2055,
+      "sha256": "08a212fcacae1866f44f065654afcc4c7d03409c68c74b3315c5bda17a0ca003"
+    },
+    {
+      "path": ".playwright/package/lib/vite/traceViewer/index.Dl36UVQT.js",
+      "bytes": 6566,
+      "sha256": "b667e10faf567261e3543c46397ac7da6ae8b461eee1477dda7373b18a5c69ad"
+    },
+    {
+      "path": ".playwright/package/lib/vite/traceViewer/index.html",
+      "bytes": 2363,
+      "sha256": "ec05aaf7b3d5a2438102625b39acd41348aa592f302ac0e830f79c2483580f75"
+    },
+    {
+      "path": ".playwright/package/lib/vite/traceViewer/manifest.webmanifest",
+      "bytes": 429,
+      "sha256": "d8540500603a32a39fe7e5a0375dc0f9ebafd11118e06a846db7efc608223ab9"
+    },
+    {
+      "path": ".playwright/package/lib/vite/traceViewer/playwright-logo.svg",
+      "bytes": 5033,
+      "sha256": "6b0a4367bdeab10995bc239278f04c68c10e48adbec15e799e01909a0d66dcb9"
+    },
+    {
+      "path": ".playwright/package/lib/vite/traceViewer/snapshot.B_Jk1wbt.js",
+      "bytes": 650,
+      "sha256": "d4d09e05451d107d8e1a6bbd041405fe518b9fd2833890e4ebaaad83b7f554f5"
+    },
+    {
+      "path": ".playwright/package/lib/vite/traceViewer/snapshot.html",
+      "bytes": 389,
+      "sha256": "c608c8899c95c5a74d3f556e20146c3d852b9df85ae2854c659a7cc773c9b727"
+    },
+    {
+      "path": ".playwright/package/lib/vite/traceViewer/sw.bundle.js",
+      "bytes": 93459,
+      "sha256": "cfd6662a71914516efe90a5a6f3da2bbe5db6e442939b868ca465f765d33723f"
+    },
+    {
+      "path": ".playwright/package/lib/vite/traceViewer/uiMode.C7UW1sC9.css",
+      "bytes": 54341,
+      "sha256": "c194e703ad4697e31c5e9b8d1e4f75f201a1fbe9940620fa6319dfa5543707b4"
+    },
+    {
+      "path": ".playwright/package/lib/vite/traceViewer/uiMode.D962mr9b.js",
+      "bytes": 37932,
+      "sha256": "2de297d5e137fb4d684b5328900d5f387e896f97df21880d3dff01f967596bbb"
+    },
+    {
+      "path": ".playwright/package/lib/vite/traceViewer/uiMode.html",
+      "bytes": 727,
+      "sha256": "85fed987244372c24a31acf41140c0b19e00f21c5b28495b8cc4c170fa3c068a"
+    },
+    {
+      "path": ".playwright/package/lib/vite/traceViewer/xtermModule.kHJ-D0s7.css",
+      "bytes": 2853,
+      "sha256": "0dd60056134e6a2994a86b59a1e9789b9f04e92924da109aef8c923acaf08ce5"
+    },
+    {
+      "path": ".playwright/package/lib/webp_codec.LICENSE",
+      "bytes": 8841,
+      "sha256": "995c7ee35aceb7666829b7a501ca89c0864e12b493c1174b155774ab1e03d831"
+    },
+    {
+      "path": ".playwright/package/lib/webp_codec.wasm",
+      "bytes": 565369,
+      "sha256": "164cd9583a3e4d081f767d3b41ff0a730443dc7535fcc5caff83561463384b79"
+    },
+    {
+      "path": ".playwright/package/lib/xdg-open",
+      "bytes": 32416,
+      "sha256": "7d759d54f0d4ce1beeb34ee62c587985b5042374e8de237b0dcb8cd47aa698cf"
+    },
+    {
+      "path": ".playwright/package/package.json",
+      "bytes": 876,
+      "sha256": "4556ebbf21a31c5e8dabb49c991ec291c5f00ffcad8b18cda45e4070b8a473bd"
+    },
+    {
+      "path": ".playwright/package/types/protocol.d.ts",
+      "bytes": 823302,
+      "sha256": "b836eed98b79fabb54f1df73252a0ce178b8df4a89794251ade2fa0c5e52b678"
+    },
+    {
+      "path": ".playwright/package/types/structs.d.ts",
+      "bytes": 2319,
+      "sha256": "9c411c65ce8af558d20a6068b751315505c26e5e048012cea30a999b21b54fd5"
+    },
+    {
+      "path": ".playwright/package/types/types.d.ts",
+      "bytes": 1110840,
+      "sha256": "6c688250f2b7061cec3a17ab8797671137b653f8c4e81a6df3190cb112a7579a"
+    },
+    {
+      "path": "Acornima.dll",
+      "bytes": 365056,
+      "sha256": "a11417b8542b4e55330e751fca44da5cbde1d95e79b1519c2aba59be7a7b941c"
+    },
+    {
+      "path": "ClientApp/package.json",
+      "bytes": 756,
+      "sha256": "e8cdf8ae917b69626d28af777836615fd266c23ad596aeec566829c11d7f61cf"
+    },
+    {
+      "path": "ClientApp/tsconfig.json",
+      "bytes": 680,
+      "sha256": "0a9b132373dd2b943447044c78012cf0630f26af348ee73a0e89dbc64ca5fa3f"
+    },
+    {
+      "path": "ClientApp/tsconfig.node.json",
+      "bytes": 217,
+      "sha256": "f64f311865bffa5010314c3007221f1e14ebd9cdb59e114d4efedaf75333511e"
+    },
+    {
+      "path": "CommunityToolkit.HighPerformance.dll",
+      "bytes": 153928,
+      "sha256": "196607c6d4d704b5ee95c80f8e3cd799595b7d8a08108701894c211b138d2839"
+    },
+    {
+      "path": "DiffPlex.dll",
+      "bytes": 33792,
+      "sha256": "2b69f90834c498988a9e0ccd51d7fad4c0fcd416f467e14abfe9fed50e484194"
+    },
+    {
+      "path": "DocumentFormat.OpenXml.Framework.dll",
+      "bytes": 478688,
+      "sha256": "ff3ed8318388d84fa5bbc5736df6144ecfa3165c0b95f6b45b5330f463edf7ae"
+    },
+    {
+      "path": "DocumentFormat.OpenXml.dll",
+      "bytes": 7985120,
+      "sha256": "ee2a31ff79db570e2eb98ec7513b222f2b8c6bfcb638d66c2cec8255b0bbe499"
+    },
+    {
+      "path": "GnOuGo.AI.Core.dll",
+      "bytes": 412672,
+      "sha256": "4e3a2f098f22178aee91383b9edfb4c7c94fbefe752ee931c786dcb12b8283f7"
+    },
+    {
+      "path": "GnOuGo.AI.Core.pdb",
+      "bytes": 80368,
+      "sha256": "8dabf253ff19efecb987072a0eaf7074e1fa6c4095602ed03809dcb6296ed904"
+    },
+    {
+      "path": "GnOuGo.AI.Local.dll",
+      "bytes": 64512,
+      "sha256": "96e24db4e3cdc7f138cbf2472abb83df359d9e4043bb84c7a0bf672c7eb5b58f"
+    },
+    {
+      "path": "GnOuGo.AI.Local.pdb",
+      "bytes": 26408,
+      "sha256": "ca29f8776ed350851726fb4b1b6a04c9ed7c35bc17d8bbd90b3f5b5719162db9"
+    },
+    {
+      "path": "GnOuGo.Agent.Mcp",
+      "bytes": 124712,
+      "sha256": "4c28c13a368d96b5635c724cac95d4c699ca99314c5b214da750906a5fe0ae81"
+    },
+    {
+      "path": "GnOuGo.Agent.Mcp.deps.json",
+      "bytes": 24315,
+      "sha256": "f0e4ad23d73fc7faba3310cbca075028833fdebbeddeab4f4ebaeda2a4580ef7"
+    },
+    {
+      "path": "GnOuGo.Agent.Mcp.dll",
+      "bytes": 203776,
+      "sha256": "0e38f44e2c44a07d822ac9b1a8360dc555cd528040bc87d935b0fae90cb1f1b4"
+    },
+    {
+      "path": "GnOuGo.Agent.Mcp.pdb",
+      "bytes": 114276,
+      "sha256": "c206f7cd6aa6d9e544a9a0f161cb51c5c005374f3ed5fe43c5690ab858748a43"
+    },
+    {
+      "path": "GnOuGo.Agent.Mcp.runtimeconfig.json",
+      "bytes": 2234,
+      "sha256": "18fac0ff3c3218ad0694062784d29842cf97e0086e45a29046324e1538db73e5"
+    },
+    {
+      "path": "GnOuGo.Agent.Mcp.staticwebassets.endpoints.json",
+      "bytes": 51,
+      "sha256": "eb6525c892afda953a2560f151f9c5e5bc6e79ef6741d886488ac450262c91e3"
+    },
+    {
+      "path": "GnOuGo.Agent.Planning.Benchmark",
+      "bytes": 124712,
+      "sha256": "fa289de9794652cd10e5be73f4450cb9565140e433d9e17cc0272858c64ba2c1"
+    },
+    {
+      "path": "GnOuGo.Agent.Planning.Benchmark.deps.json",
+      "bytes": 93406,
+      "sha256": "cfc2472920a35101fea22e97ce0030e5c941329045c30529bbbef67a31979c2e"
+    },
+    {
+      "path": "GnOuGo.Agent.Planning.Benchmark.dll",
+      "bytes": 465920,
+      "sha256": "dff9e21ecdcf37590b40fa6f56eacecc2b6b07462ce35a5177e12c070dd48026"
+    },
+    {
+      "path": "GnOuGo.Agent.Planning.Benchmark.pdb",
+      "bytes": 96240,
+      "sha256": "410be34ef08e5c343eacac681e8635f9683a9e17d6ad8b790ea4deea8f10e8bc"
+    },
+    {
+      "path": "GnOuGo.Agent.Planning.Benchmark.runtimeconfig.json",
+      "bytes": 508,
+      "sha256": "bdbb6b43e509fbbab6c78b7004c4debf1e9791a648a08f730ff5997f71ef7099"
+    },
+    {
+      "path": "GnOuGo.Agent.Server",
+      "bytes": 124712,
+      "sha256": "b8ac5ce4682a78a32f7bc3155c01c0a6cfe750e0b3e6b6d1761a78db64b94e8f"
+    },
+    {
+      "path": "GnOuGo.Agent.Server.deps.json",
+      "bytes": 80790,
+      "sha256": "4fafb26b3a7861fb8d90790d1ade6a31b0f3db28f36aea9a4aa1df227207be11"
+    },
+    {
+      "path": "GnOuGo.Agent.Server.dll",
+      "bytes": 2004480,
+      "sha256": "40629ccae054a5868317f4eba9df03f3e1ea310711944653c964f9fa0fd1c45b"
+    },
+    {
+      "path": "GnOuGo.Agent.Server.pdb",
+      "bytes": 692152,
+      "sha256": "bb759449cc6913f681420647ea4ac4807071d56bdb64f9ca6a9e4b4c6ef02075"
+    },
+    {
+      "path": "GnOuGo.Agent.Server.runtimeconfig.json",
+      "bytes": 2291,
+      "sha256": "4eb8823b4f67a9c5f4bf4e3a54837a3c62a493199206de38a0c96131f0e23c0c"
+    },
+    {
+      "path": "GnOuGo.Agent.Server.staticwebassets.endpoints.json",
+      "bytes": 457645,
+      "sha256": "e051a5ae8e2ff16647d8e28f18d76d367061f7770c8266c273f97af80fc96122"
+    },
+    {
+      "path": "GnOuGo.Agent.Server.staticwebassets.runtime.json",
+      "bytes": 31065,
+      "sha256": "8373efa5d9e5af03467475942440aa983d6362462e9edc18ab1c1e7ab78736e6"
+    },
+    {
+      "path": "GnOuGo.Agent.Shared.dll",
+      "bytes": 207872,
+      "sha256": "e7350933d197efbb852622b698f76dece63867ef1f2fb4346ca975fb67f45c5f"
+    },
+    {
+      "path": "GnOuGo.Agent.Shared.pdb",
+      "bytes": 124468,
+      "sha256": "65026351df9ce370d6bd4e6c1713989f50bc1e4bcedc18ce9c4cc833b3ca84b4"
+    },
+    {
+      "path": "GnOuGo.Assets.Animation.dll",
+      "bytes": 233472,
+      "sha256": "7be5917ccc59829a05ed17b907274f2f69c30bc3316233677f4d5a7353e3ec80"
+    },
+    {
+      "path": "GnOuGo.Assets.Animation.pdb",
+      "bytes": 51532,
+      "sha256": "a9961156c5ccc80b437dfdb6aabb3b5545777cf3936e87897db1d893865beb03"
+    },
+    {
+      "path": "GnOuGo.Assets.Bears.dll",
+      "bytes": 278016,
+      "sha256": "408584f869299557d8c0e598f81cce67d710a016396bd1dcf338a0055b543de6"
+    },
+    {
+      "path": "GnOuGo.Assets.Bears.pdb",
+      "bytes": 27788,
+      "sha256": "849f2d9ea873d2af28cb5793bf1d7ecb1500ff24b65641acd013621440967dab"
+    },
+    {
+      "path": "GnOuGo.Auth.Core.dll",
+      "bytes": 19456,
+      "sha256": "ffe48da2773999d70c0d69a868988e9004d2a7d26d200391a94144b93ee0d257"
+    },
+    {
+      "path": "GnOuGo.Auth.Core.pdb",
+      "bytes": 14628,
+      "sha256": "68ced226238367ab0d6ce15b91f291b6f3672e07013c7e04451cffe64069fc69"
+    },
+    {
+      "path": "GnOuGo.Browser.Mcp",
+      "bytes": 124712,
+      "sha256": "7a22eb6770a6dd61bc2b59ef614cc9ac936cd3035e1261d0fbc0a353b3088d59"
+    },
+    {
+      "path": "GnOuGo.Browser.Mcp.deps.json",
+      "bytes": 37044,
+      "sha256": "5e30e0c75a6439fb2a245d6333e4b8e8bca880e6672d6cdb49b6ac7e1e5918ac"
+    },
+    {
+      "path": "GnOuGo.Browser.Mcp.dll",
+      "bytes": 390144,
+      "sha256": "2e49f0158617c3524b7190c8d552c347c92cc2a87a665a1e9c5e8ace09558513"
+    },
+    {
+      "path": "GnOuGo.Browser.Mcp.pdb",
+      "bytes": 152516,
+      "sha256": "9c94ee6c5ec54935620c13ed11ed2cc39a6fcfbc54488c561ed22bc1e2692245"
+    },
+    {
+      "path": "GnOuGo.Browser.Mcp.runtimeconfig.json",
+      "bytes": 487,
+      "sha256": "6dad108e60975504fb1a9f70da0dc8ba884c7008a6ef3584e7ce552f9856ea54"
+    },
+    {
+      "path": "GnOuGo.Diff.Core.dll",
+      "bytes": 61440,
+      "sha256": "7902539ba22629145b5f85eff72197ca8a964dec753ef703dbe08154cebcbc6f"
+    },
+    {
+      "path": "GnOuGo.Diff.Core.pdb",
+      "bytes": 23908,
+      "sha256": "f36ee1113b2f30a5a8a957f633d5b8f53bd8f683c751a57dcc52cf5c2fd46131"
+    },
+    {
+      "path": "GnOuGo.DocIngestor.Core.dll",
+      "bytes": 207360,
+      "sha256": "b05682aeb5bb8e24ff1db960af56c3c4a235448ec569615b765b6449c543333a"
+    },
+    {
+      "path": "GnOuGo.DocIngestor.Core.pdb",
+      "bytes": 67724,
+      "sha256": "071ea8838da71ed00f4d9067b752a175d6e895e8defebe38395ac7392bfe9cbb"
+    },
+    {
+      "path": "GnOuGo.DocIngestor.Core.xml",
+      "bytes": 89464,
+      "sha256": "76f41d3a36c5d0620a1def484b5206c9af7954859c57fec8a1b1d27bdb917f35"
+    },
+    {
+      "path": "GnOuGo.DocIngestor.Mcp",
+      "bytes": 124712,
+      "sha256": "f48a481a3cb7e9ee45c74afae47dc6198b66e579ce4b1d5432b009962d99bcb5"
+    },
+    {
+      "path": "GnOuGo.DocIngestor.Mcp.deps.json",
+      "bytes": 36472,
+      "sha256": "57021caaec1d80323fcacabf845ab722ecbcf861fceddd9aa926b08adfff4ca8"
+    },
+    {
+      "path": "GnOuGo.DocIngestor.Mcp.dll",
+      "bytes": 280064,
+      "sha256": "de9f968c65fe1f258cac365145ff51696c23d954eba9f8658df151fd71efd4f2"
+    },
+    {
+      "path": "GnOuGo.DocIngestor.Mcp.pdb",
+      "bytes": 125440,
+      "sha256": "6ed46445e6ef60757c67593fe075f3553fbf514015c4c6b7d983798c41f51233"
+    },
+    {
+      "path": "GnOuGo.DocIngestor.Mcp.runtimeconfig.json",
+      "bytes": 2398,
+      "sha256": "5c53ca387574213bf4c58aa6b3e9b7ab211336e9e69566037283fa322d8360e7"
+    },
+    {
+      "path": "GnOuGo.DocIngestor.Mcp.staticwebassets.endpoints.json",
+      "bytes": 51,
+      "sha256": "eb6525c892afda953a2560f151f9c5e5bc6e79ef6741d886488ac450262c91e3"
+    },
+    {
+      "path": "GnOuGo.Document.Mcp",
+      "bytes": 124712,
+      "sha256": "b1e993bc8fbda5de833f7dd61a61e3b6504f02d96e846cecbfb9393bfa4e6057"
+    },
+    {
+      "path": "GnOuGo.Document.Mcp.deps.json",
+      "bytes": 55125,
+      "sha256": "1b1b61f862a601dcc3ec25b33e551d872a852314c67083f47407b3ef07bc8fde"
+    },
+    {
+      "path": "GnOuGo.Document.Mcp.dll",
+      "bytes": 162304,
+      "sha256": "da5b664b200d711599e15f4111ac2f9e3663a0c7a5c1ee9ed9f6167f2b8c6e26"
+    },
+    {
+      "path": "GnOuGo.Document.Mcp.pdb",
+      "bytes": 82736,
+      "sha256": "21f0a9b0775d35f4a2e99c15071af99d07ef45fa40854e9468810ecfbaabd5f7"
+    },
+    {
+      "path": "GnOuGo.Document.Mcp.runtimeconfig.json",
+      "bytes": 2121,
+      "sha256": "7a751ca5e4417adc09487f9b90d8633df0534695728b938c6ae39e2583ca7425"
+    },
+    {
+      "path": "GnOuGo.Files.Server",
+      "bytes": 124712,
+      "sha256": "90344c86d91c96558ba686c248528682bcf9531ea4b04fb9e8daa4d2003c491e"
+    },
+    {
+      "path": "GnOuGo.Files.Server.deps.json",
+      "bytes": 34550,
+      "sha256": "53ab3c8f8486ef5d839439516482540b0a8c6a6fcb501845015409dc02ab509d"
+    },
+    {
+      "path": "GnOuGo.Files.Server.dll",
+      "bytes": 133120,
+      "sha256": "92f3b966be7e3e651591346da594971691966858d3cea029012b350ca221ae1d"
+    },
+    {
+      "path": "GnOuGo.Files.Server.pdb",
+      "bytes": 65608,
+      "sha256": "5dab6806534aaf5bf2a892aeb52c6f9b2abaaacb97ebf16d11b98f4e168189e3"
+    },
+    {
+      "path": "GnOuGo.Files.Server.runtimeconfig.json",
+      "bytes": 2524,
+      "sha256": "ce914471c894c0ea6c8266daff038612b6a71a6522baeb45751f213a9afe1a80"
+    },
+    {
+      "path": "GnOuGo.Files.Server.staticwebassets.endpoints.json",
+      "bytes": 12046,
+      "sha256": "b96c13eed6ea59293a129fd66507234ada030eae2d6e9eb4e4732f87196ba77a"
+    },
+    {
+      "path": "GnOuGo.Files.Server.staticwebassets.runtime.json",
+      "bytes": 1151,
+      "sha256": "86531995d0f20f9be2619bd527706c45812a4f484ee562da175859effc7dcf8e"
+    },
+    {
+      "path": "GnOuGo.Flow.Copilot.dll",
+      "bytes": 16384,
+      "sha256": "9ae8234aa9ccf49e794523db93b74782bc894a87df6bfed9f67b7f599d2a3ce8"
+    },
+    {
+      "path": "GnOuGo.Flow.Copilot.pdb",
+      "bytes": 13708,
+      "sha256": "4c7e525fa09c2419a1642e8b17b24876ec04c98f701a853e74267017df62b570"
+    },
+    {
+      "path": "GnOuGo.Flow.Core.dll",
+      "bytes": 2013184,
+      "sha256": "fe361686ca6466b5a4ef0650874c280c61512de4076b814830d5d0db2d8c56e9"
+    },
+    {
+      "path": "GnOuGo.Flow.Core.pdb",
+      "bytes": 733840,
+      "sha256": "e14f8d7d8bd49bb644e6377d66b97709eae9ed434e622b18da8fcc330c172df4"
+    },
+    {
+      "path": "GnOuGo.Flow.Integrations.dll",
+      "bytes": 109056,
+      "sha256": "6c1b0ef9e754514f21a3c1e0b73b22fa9cc7c6063f8ccb50ea5ab2b2c8f95aa6"
+    },
+    {
+      "path": "GnOuGo.Flow.Integrations.pdb",
+      "bytes": 30700,
+      "sha256": "83b94a20b8c5799999e2a9edf41fb898eab25a62427598b6d902952d1e75ca49"
+    },
+    {
+      "path": "GnOuGo.Flow.Mermaid.dll",
+      "bytes": 31744,
+      "sha256": "c8e52f7352764d34096743c0cadc0b41a063c8733fc87ff8ff109b820237a504"
+    },
+    {
+      "path": "GnOuGo.Flow.Mermaid.pdb",
+      "bytes": 18992,
+      "sha256": "d6908c76c463b95e5f6d0e70c2588c626bfdf279bb1d643f25d36e49530db2ec"
+    },
+    {
+      "path": "GnOuGo.Flow.Persistence.dll",
+      "bytes": 110080,
+      "sha256": "97f4d5c7823499d540bac66b4bd1e3c8ec6efeef63fcc1ceb961e467ff28967a"
+    },
+    {
+      "path": "GnOuGo.Flow.Persistence.pdb",
+      "bytes": 32568,
+      "sha256": "17695b61b75747144d705398d0cb782c81fcf8cdf450261d986f149f3f1800b0"
+    },
+    {
+      "path": "GnOuGo.Flow.Planning.dll",
+      "bytes": 1095168,
+      "sha256": "0d9f8c26ab176018572b0561fce7295771e07f98faa09130f76f08889d5443f9"
+    },
+    {
+      "path": "GnOuGo.Flow.Planning.pdb",
+      "bytes": 242848,
+      "sha256": "ce7322ca5422d2ea3414896b7912d9606aac2a95899a7d707b17edc2184734e0"
+    },
+    {
+      "path": "GnOuGo.KeyVault.Core.dll",
+      "bytes": 140288,
+      "sha256": "66161d77479d62e15483d6001dea6795a076bcb9bd2ea4c09f95f292f5f75a1a"
+    },
+    {
+      "path": "GnOuGo.KeyVault.Core.pdb",
+      "bytes": 33120,
+      "sha256": "c94c132f6d8c7e68b353486f94f08cb441a0681e81a00ae3804f9a6a887c1144"
+    },
+    {
+      "path": "GnOuGo.KeyVault.Mcp",
+      "bytes": 124712,
+      "sha256": "6149f33f7a5c8fcb66fb15c45cbc33a0deabdbee6ba4424a57e0bec1df7edeab"
+    },
+    {
+      "path": "GnOuGo.KeyVault.Mcp.deps.json",
+      "bytes": 23105,
+      "sha256": "051d0cbf7a3f64b1f016a3ff09b16aed6e150897d19739ef47bba9bb2e555e07"
+    },
+    {
+      "path": "GnOuGo.KeyVault.Mcp.dll",
+      "bytes": 115200,
+      "sha256": "a298141812d4f9ae79001a758bbf61527f7282cd137d6bde7dd8eb9f9a2fcd83"
+    },
+    {
+      "path": "GnOuGo.KeyVault.Mcp.pdb",
+      "bytes": 73716,
+      "sha256": "d8d0b524c718eb963b003c78bba61a892e2a71a524edc70f3c872d40ddb03ae1"
+    },
+    {
+      "path": "GnOuGo.KeyVault.Mcp.runtimeconfig.json",
+      "bytes": 587,
+      "sha256": "8ee0f6ccac670a5a525290de2b28f6d7e85d7ce5b57da0e8b1d63a4431e03b79"
+    },
+    {
+      "path": "GnOuGo.KeyVault.Mcp.staticwebassets.endpoints.json",
+      "bytes": 51,
+      "sha256": "eb6525c892afda953a2560f151f9c5e5bc6e79ef6741d886488ac450262c91e3"
+    },
+    {
+      "path": "GnOuGo.Mcp.Core.dll",
+      "bytes": 45056,
+      "sha256": "998ea6c1affeb52980bb6f2179a77e8545479d22d564a811a0fb78df1bd90377"
+    },
+    {
+      "path": "GnOuGo.Mcp.Core.pdb",
+      "bytes": 20624,
+      "sha256": "fcaf9f1c81169ae9ff8b6f3e933e1111bfb598e0a6f987da70da7b6776899cdb"
+    },
+    {
+      "path": "GnOuGo.Observability.Core.dll",
+      "bytes": 16896,
+      "sha256": "ab76454fd4f35c4da1cf0a6f894d5150548f10ceeca4432c5328b5bdc726e07b"
+    },
+    {
+      "path": "GnOuGo.Observability.Core.pdb",
+      "bytes": 24656,
+      "sha256": "6c2284015550c2971d758127915eddff5f2b0319b479adb4cf44231e9dbca89c"
+    },
+    {
+      "path": "GnOuGo.OtlpCollector.Server",
+      "bytes": 124712,
+      "sha256": "d1bfbe15bc768b79219b06d2a024dd79d9a9f5f71e11f728cd75ffe761ad3651"
+    },
+    {
+      "path": "GnOuGo.OtlpCollector.Server.deps.json",
+      "bytes": 19545,
+      "sha256": "a7d6ea398bfed64c5878aae360cf238c3a403e5f6acd2a828a7519ad80dc2630"
+    },
+    {
+      "path": "GnOuGo.OtlpCollector.Server.dll",
+      "bytes": 485376,
+      "sha256": "1735a04a8648963c5ddc9c8e9767ff5add8eca9db5d4e9d251f5166a11821e2b"
+    },
+    {
+      "path": "GnOuGo.OtlpCollector.Server.runtimeconfig.json",
+      "bytes": 2233,
+      "sha256": "d34a50226cecf2606b0f4e79d3f763a94d726a9290d53f6e11fbf89002944d59"
+    },
+    {
+      "path": "GnOuGo.OtlpCollector.Server.staticwebassets.endpoints.json",
+      "bytes": 16185,
+      "sha256": "5a7e446272d8b3ac8117d18f25aa7eb4f63e1ba259558f98fa4112c3058a6780"
+    },
+    {
+      "path": "GnOuGo.OtlpCollector.Server.staticwebassets.runtime.json",
+      "bytes": 1441,
+      "sha256": "353da0004df489beb85e13678261dd4d94b63b7386859c1ab46b56374e288beb"
+    },
+    {
+      "path": "GnOuGo.Workspace.dll",
+      "bytes": 8704,
+      "sha256": "8ed62807cc7a922ebd12f8e65a5a9517d1acc628e861157468b7bf6c08c75bb9"
+    },
+    {
+      "path": "GnOuGo.Workspace.pdb",
+      "bytes": 12980,
+      "sha256": "d068526effc64333101bca2e65627f7998f72b7b448df9d8fffce384a2ef07d6"
+    },
+    {
+      "path": "Google.Protobuf.dll",
+      "bytes": 512152,
+      "sha256": "0f93ce18692e0b789c41299d0d2af2b477644fc4b13482bd0680b29289603996"
+    },
+    {
+      "path": "Grpc.AspNetCore.Server.ClientFactory.dll",
+      "bytes": 31896,
+      "sha256": "579a1994227bbb4690d5966d6eb9fb8e4dcf09f4967bf148307c37ded0b6f902"
+    },
+    {
+      "path": "Grpc.AspNetCore.Server.dll",
+      "bytes": 167576,
+      "sha256": "6b33ed917a92bffe968de41b2e1e9c65eb71cfebffe17060a9b81e1eb725dce5"
+    },
+    {
+      "path": "Grpc.Core.Api.dll",
+      "bytes": 70296,
+      "sha256": "16b1ff898b9a2c1ffac0e22035c8280728967e7041bfe8a382bcb1f99a9a530b"
+    },
+    {
+      "path": "Grpc.Net.Client.dll",
+      "bytes": 360088,
+      "sha256": "71454959f95469ea1a4abfbbb2ccb71487f6bfe50714277e73d2f7665c89244e"
+    },
+    {
+      "path": "Grpc.Net.ClientFactory.dll",
+      "bytes": 54936,
+      "sha256": "52a981845704edf969120f10e6a0a65fce858adf45412b5c10571a1b07222380"
+    },
+    {
+      "path": "Grpc.Net.Common.dll",
+      "bytes": 22168,
+      "sha256": "2fe0acf1042d43af95cc33f610a5c7d4d70ae65e3d5f4ce8707a3e2bf95df823"
+    },
+    {
+      "path": "HarfBuzzSharp.dll",
+      "bytes": 122720,
+      "sha256": "072715d79f7f4a9160fc14f1085eb24a0beccfe02871f04184eaf7c94e9a1061"
+    },
+    {
+      "path": "Jint.dll",
+      "bytes": 2627584,
+      "sha256": "bbfbb6e378d50b91ccb4735d0da63e86081e021ae19ce456d11160cfdb28bbb6"
+    },
+    {
+      "path": "LLamaSharp.dll",
+      "bytes": 289280,
+      "sha256": "559fd41e6a9757ccd7aaec61255ecde33bc0294894510e10b94d095e02ad7c10"
+    },
+    {
+      "path": "Markdig.dll",
+      "bytes": 501760,
+      "sha256": "125b3cc757287e2b43a7fbf72bdf5eaa2dfa4af2fa6e6110a1ce745e1212a24d"
+    },
+    {
+      "path": "Microsoft.Bcl.AsyncInterfaces.dll",
+      "bytes": 20744,
+      "sha256": "e925fe423d376b8c795c17ef57ef61a749f3bd34f044e72b2243103feadac1ec"
+    },
+    {
+      "path": "Microsoft.Bcl.HashCode.dll",
+      "bytes": 19752,
+      "sha256": "cba1991e35612990ab7c130b77d1ad8d5c8280f3aaad094cf81c3adabc38da43"
+    },
+    {
+      "path": "Microsoft.Bcl.Memory.dll",
+      "bytes": 16168,
+      "sha256": "1e4f7aa4fe69421d5f4ae5f304899ddee118e6d4c7dc608a406b4ce58085d834"
+    },
+    {
+      "path": "Microsoft.Data.Sqlite.dll",
+      "bytes": 177464,
+      "sha256": "b98d957462be432895b00dccca012d3c127e118d3d4262418014b92c7bbd66cf"
+    },
+    {
+      "path": "Microsoft.EntityFrameworkCore.Abstractions.dll",
+      "bytes": 34616,
+      "sha256": "74bc17c936d66ea090b6a5b4cc4307d2154c9692e57edd4c55d68dd4a99c11b6"
+    },
+    {
+      "path": "Microsoft.EntityFrameworkCore.Relational.dll",
+      "bytes": 2194744,
+      "sha256": "a1e4f36208650b15b75a4b01a5821d61d5be417ac2e86ec3c65e2560a87e0d7d"
+    },
+    {
+      "path": "Microsoft.EntityFrameworkCore.Sqlite.dll",
+      "bytes": 311648,
+      "sha256": "69683d0960188b56da3d5b69db14e2255f073d355aa6da333d6916303aa1fa33"
+    },
+    {
+      "path": "Microsoft.EntityFrameworkCore.dll",
+      "bytes": 2829152,
+      "sha256": "f5b1703d608e241314952b2ede8dcdd1b8d8adda8c91a13cb7e6b1007414cef4"
+    },
+    {
+      "path": "Microsoft.Extensions.AI.Abstractions.dll",
+      "bytes": 672056,
+      "sha256": "bcc8f693103eb00505179f154b1b3a996b85d067e112facd724fd9d695f17a5e"
+    },
+    {
+      "path": "Microsoft.Extensions.Caching.Abstractions.dll",
+      "bytes": 37672,
+      "sha256": "eb027242c11808fe0d8faf851bd30d0c6e39944b773713ffb04e17e196bece0f"
+    },
+    {
+      "path": "Microsoft.Extensions.Caching.Memory.dll",
+      "bytes": 47912,
+      "sha256": "dca415c48a9d6af45c7f28f6481a88baa9cb9f09d3090ca5878d1acbd446048d"
+    },
+    {
+      "path": "Microsoft.Extensions.Configuration.Abstractions.dll",
+      "bytes": 28456,
+      "sha256": "fb45286fa39f58b9e74b6346e31034e00031170169ee11fd0a15f99b6dca0b56"
+    },
+    {
+      "path": "Microsoft.Extensions.Configuration.Binder.dll",
+      "bytes": 43304,
+      "sha256": "cdb9894a560842062c820e6335c445351bba26fa92e27b3e703ad07e977c8227"
+    },
+    {
+      "path": "Microsoft.Extensions.Configuration.CommandLine.dll",
+      "bytes": 25424,
+      "sha256": "f1b5099d9105ae82076e53f8bc90f537a99004d27479bc9cf47712e6fc645711"
+    },
+    {
+      "path": "Microsoft.Extensions.Configuration.EnvironmentVariables.dll",
+      "bytes": 21800,
+      "sha256": "f9d770c991b8ccd6402aa072949843132c00566b026efaa95b63b117fa08517a"
+    },
+    {
+      "path": "Microsoft.Extensions.Configuration.FileExtensions.dll",
+      "bytes": 28496,
+      "sha256": "bcbdc341e7134c620e6427ab136cd80d8686f63152e17276aa80c63afa6357ce"
+    },
+    {
+      "path": "Microsoft.Extensions.Configuration.Json.dll",
+      "bytes": 27944,
+      "sha256": "91238276267ea5ad2986a9ba6aefbb6dc4643ccfd48167745ef963509407cf84"
+    },
+    {
+      "path": "Microsoft.Extensions.Configuration.UserSecrets.dll",
+      "bytes": 26448,
+      "sha256": "c235c7a18dcd91cb045bdb98ff26d78afb06f7ed935b0f2cf1a1ada07ec20a55"
+    },
+    {
+      "path": "Microsoft.Extensions.Configuration.dll",
+      "bytes": 44840,
+      "sha256": "c11796ac536b45b6028527bb9543607f6a5fca98b1784339226d68cb98705333"
+    },
+    {
+      "path": "Microsoft.Extensions.DependencyInjection.Abstractions.dll",
+      "bytes": 65872,
+      "sha256": "da04edc338d5aa0f38a1f5fa5ff3ee7e36affe9c961daf3ea724a428bd746bc6"
+    },
+    {
+      "path": "Microsoft.Extensions.DependencyInjection.dll",
+      "bytes": 95528,
+      "sha256": "2d0e268bf76b4ce36a55ebb2767354db956c6660de65d6cccfc35c957fb12cfc"
+    },
+    {
+      "path": "Microsoft.Extensions.DependencyModel.dll",
+      "bytes": 84816,
+      "sha256": "afa9a88cc25e3e2a9b8394c6930adf2a7ed229d20f91f0d03b98164b02bd16de"
+    },
+    {
+      "path": "Microsoft.Extensions.Diagnostics.Abstractions.dll",
+      "bytes": 31016,
+      "sha256": "623879199a4d98248dbce917e8b2c11b1f5eff24a01cb3b50d772461566dbad4"
+    },
+    {
+      "path": "Microsoft.Extensions.Diagnostics.dll",
+      "bytes": 36136,
+      "sha256": "c2b5e806a61d40ce428764647e8c2bcad20283a3c87f081ff483923ed113aaa5"
+    },
+    {
+      "path": "Microsoft.Extensions.FileProviders.Abstractions.dll",
+      "bytes": 23336,
+      "sha256": "0ad9800893013d1e11c6b5afc6ef8a3fc0f14d38fa80bf5d63485fc70f848216"
+    },
+    {
+      "path": "Microsoft.Extensions.FileProviders.Physical.dll",
+      "bytes": 45392,
+      "sha256": "d57f6e1bcf47468a053696ea34b08e7d04edcc2681a5df586145835bd3f0db66"
+    },
+    {
+      "path": "Microsoft.Extensions.FileSystemGlobbing.dll",
+      "bytes": 47912,
+      "sha256": "56756b08cdffe4f47f4cba71c839375023930df5a16227cf7523085d9137d08e"
+    },
+    {
+      "path": "Microsoft.Extensions.Hosting.Abstractions.dll",
+      "bytes": 54056,
+      "sha256": "37c244f5685ca031be74a49bd23b2634588235f672f3a0b0b352ca8f6f6c3887"
+    },
+    {
+      "path": "Microsoft.Extensions.Hosting.dll",
+      "bytes": 71976,
+      "sha256": "a78489eb8dbc8a906865a9fe54dbdc51a270ffd1d1f7c70569b20f3d6e51d029"
+    },
+    {
+      "path": "Microsoft.Extensions.Logging.Abstractions.dll",
+      "bytes": 66856,
+      "sha256": "7c242f8ca612fa1acc61f78efd5f8c89e01bd0bd47dc4ecc65e0e6e24f1a1668"
+    },
+    {
+      "path": "Microsoft.Extensions.Logging.Configuration.dll",
+      "bytes": 28456,
+      "sha256": "10465e68c4431d3fd790911b56fcd3cfca89dfb4b0ba75d1affd970892824b2f"
+    },
+    {
+      "path": "Microsoft.Extensions.Logging.Console.dll",
+      "bytes": 76072,
+      "sha256": "8564374e3dd121fedd5443a7755c8fe642d1408b45f73fc980b9d3fa99a47e79"
+    },
+    {
+      "path": "Microsoft.Extensions.Logging.Debug.dll",
+      "bytes": 19792,
+      "sha256": "6f8570299320cb4b7d732180e73fd4782e73d076b9031eded7c15c94f6609c33"
+    },
+    {
+      "path": "Microsoft.Extensions.Logging.EventLog.dll",
+      "bytes": 24872,
+      "sha256": "bb731e3abd585d6903609629b763b8837e652c2dd95492a59f85bbe76c7bc6a1"
+    },
+    {
+      "path": "Microsoft.Extensions.Logging.EventSource.dll",
+      "bytes": 34640,
+      "sha256": "0672b48143f7c93dc38a5734800b651c246304d65b49cbd3b766e406b04407cd"
+    },
+    {
+      "path": "Microsoft.Extensions.Logging.dll",
+      "bytes": 51536,
+      "sha256": "05b76234f2a5eb945b268ced706cb4d81446778ea6bd6910298b5e9111170b4a"
+    },
+    {
+      "path": "Microsoft.Extensions.Options.ConfigurationExtensions.dll",
+      "bytes": 21840,
+      "sha256": "460a4ac4770f3e134454076aaf02a4774a25a40e03e3cefbd5bc4c5f5a70af9f"
+    },
+    {
+      "path": "Microsoft.Extensions.Options.dll",
+      "bytes": 65360,
+      "sha256": "b4ff561da6a7b11b68341f9fd32cab3f8b23cdd8b40332b9fd8bed73a9ee7de3"
+    },
+    {
+      "path": "Microsoft.Extensions.Primitives.dll",
+      "bytes": 44880,
+      "sha256": "67642533eb87e8dadeb9026de59ff4b66cc9bf35c0cfbedfef7b79bc6d8b30bc"
+    },
+    {
+      "path": "Microsoft.ML.Tokenizers.Data.Cl100kBase.dll",
+      "bytes": 538896,
+      "sha256": "a1aad30fa79231557b9a32d2bd01eacf4d6e83e0f3af56c161809bc5aa859232"
+    },
+    {
+      "path": "Microsoft.ML.Tokenizers.Data.O200kBase.dll",
+      "bytes": 1199376,
+      "sha256": "67dd727d73d87d46e6f12259b0daa733f596d609212d47e54aea1e3517d18c46"
+    },
+    {
+      "path": "Microsoft.ML.Tokenizers.dll",
+      "bytes": 325896,
+      "sha256": "04b9cb9a6bce333071e071c6735a8914bb55e1ea1f197707ed71bf4cabf6ca77"
+    },
+    {
+      "path": "Microsoft.Playwright.dll",
+      "bytes": 1060152,
+      "sha256": "4c5fef6dd0ff288e906673cd4def7fc06079ffd3362d310aec71c08302432685"
+    },
+    {
+      "path": "ModelContextProtocol.AspNetCore.dll",
+      "bytes": 148480,
+      "sha256": "4a62028eadb2ed50a99189716d81e85c2b370bad16bb2e2f220e91be4fdb28ea"
+    },
+    {
+      "path": "ModelContextProtocol.Core.dll",
+      "bytes": 1296896,
+      "sha256": "b1752096ea9d2f38ba88e467f04aea43fb300d9a54d881c165f62b69028ee3ab"
+    },
+    {
+      "path": "ModelContextProtocol.Extensions.Tasks.dll",
+      "bytes": 185856,
+      "sha256": "4cb438ed5cc216038c600330d827d66c629b6d95dfbae75307c7dfd4397d8974"
+    },
+    {
+      "path": "ModelContextProtocol.dll",
+      "bytes": 91136,
+      "sha256": "8cd6f626c8d6a0a5ff3e154789d3fcde2b1d66a595c0ef0198e092c2c30fe93a"
+    },
+    {
+      "path": "OpenTelemetry.Api.ProviderBuilderExtensions.dll",
+      "bytes": 24576,
+      "sha256": "dec906a34dbafcfd2c23b73fd05e58defc7f8c1627890fad4e4461c23b8de989"
+    },
+    {
+      "path": "OpenTelemetry.Api.dll",
+      "bytes": 82432,
+      "sha256": "b92d1b32ba9f7ddf4f06a7efab22c6424beba8760976f0eb5811ed3713d81f4c"
+    },
+    {
+      "path": "OpenTelemetry.Exporter.OpenTelemetryProtocol.dll",
+      "bytes": 191488,
+      "sha256": "be37059eb65a9f4af95081c2d4795afd198a657dbf2e35363cca6444fd75b2ab"
+    },
+    {
+      "path": "OpenTelemetry.Extensions.Hosting.dll",
+      "bytes": 15872,
+      "sha256": "5f5157a8042853b21077855d5888ef0178bfda07a1fac815b8e6145b283f72a7"
+    },
+    {
+      "path": "OpenTelemetry.Instrumentation.AspNetCore.dll",
+      "bytes": 64512,
+      "sha256": "61447a9a879187724a73129c61277ef9ff01f360ab5ca6ec3d022413ebc4726d"
+    },
+    {
+      "path": "OpenTelemetry.Instrumentation.Http.dll",
+      "bytes": 66560,
+      "sha256": "b75143059235ae9cd079bb6c83f4641b39679d599de23dcdc6914fcd447f7d7c"
+    },
+    {
+      "path": "OpenTelemetry.dll",
+      "bytes": 274944,
+      "sha256": "6623430269ed62f1a8e097e3909b9c8d778ae72b9b69f096140c71d06e0eb043"
+    },
+    {
+      "path": "SQLitePCLRaw.batteries_v2.dll",
+      "bytes": 5632,
+      "sha256": "1ee3c6ff4d39171690d6ff6f84b4d876ed038ca28e39bb6e74995f52d2aacf8b"
+    },
+    {
+      "path": "SQLitePCLRaw.core.dll",
+      "bytes": 51712,
+      "sha256": "b72c9dfe1479a568d6b84e249eaf949e76c757888f8056fb6ddb9c0480e0dd25"
+    },
+    {
+      "path": "SQLitePCLRaw.provider.e_sqlite3.dll",
+      "bytes": 36864,
+      "sha256": "1d4cb69b3aaf6a9cf40dfe179cc16dd678f12bc024b212d4297654e0a29e220d"
+    },
+    {
+      "path": "SkiaSharp.HarfBuzz.dll",
+      "bytes": 23904,
+      "sha256": "a3395e68c225d9fbe950312117e50ba475240a4b6b1deb8feb3c27dfcf6a767a"
+    },
+    {
+      "path": "SkiaSharp.dll",
+      "bytes": 560440,
+      "sha256": "130751db00493f61e7bacafd88c1192f6b6ad616b673cb476b80bcc88e644a8c"
+    },
+    {
+      "path": "System.Diagnostics.EventLog.dll",
+      "bytes": 53544,
+      "sha256": "77aae5ac102caa9c8bdd8473bc55ed7de246b3e06171c6393bad7f959c1a7bf5"
+    },
+    {
+      "path": "System.IO.Packaging.dll",
+      "bytes": 159504,
+      "sha256": "1f27c2b1f02a185b370ef9d801597074b0ee09e338c6cf89193e403f7808821c"
+    },
+    {
+      "path": "System.Interactive.Async.dll",
+      "bytes": 368080,
+      "sha256": "ffac755159ef51c4b119a6d68650d0e8e5d392d54bcfd27513cb30aa45393f0d"
+    },
+    {
+      "path": "System.Linq.Async.dll",
+      "bytes": 1185744,
+      "sha256": "9023bdc38c02823fd86a2100350455ec0521fbef0267ad7e62ce38b3c44df608"
+    },
+    {
+      "path": "System.Numerics.Tensors.dll",
+      "bytes": 518416,
+      "sha256": "cd6878734a1fee6ecb50e3e151576cb7c7547bf2ddf5d480e95c01549e156c8c"
+    },
+    {
+      "path": "UglyToad.PdfPig.Core.dll",
+      "bytes": 50176,
+      "sha256": "cbdd1809ee0f4ba617900845d182e5e67183377fe5848a8d9d1222b3c395116b"
+    },
+    {
+      "path": "UglyToad.PdfPig.DocumentLayoutAnalysis.dll",
+      "bytes": 248320,
+      "sha256": "c0d1e237eabcb2c741fc7ab7b26c255af6f5751d1cd7e86d7ae613611f79bc88"
+    },
+    {
+      "path": "UglyToad.PdfPig.Filters.Dct.JpegLibrary.dll",
+      "bytes": 116224,
+      "sha256": "b4f5a2aa385be67818630a16f1156bfc6841f543d5ba86f6fe7b20a9381c45c0"
+    },
+    {
+      "path": "UglyToad.PdfPig.Filters.Jbig2.PdfboxJbig2.dll",
+      "bytes": 126464,
+      "sha256": "8459b1b46ba6197f6dd6591eed9f78694a0194a7b5258c753ccb3962b6027b78"
+    },
+    {
+      "path": "UglyToad.PdfPig.Filters.Jpx.OpenJpeg.dll",
+      "bytes": 331264,
+      "sha256": "9f691d419d846dff60d5f2bd33d36c80b8470ec57246a6c98dd4cd5d8b001a32"
+    },
+    {
+      "path": "UglyToad.PdfPig.Fonts.dll",
+      "bytes": 1095680,
+      "sha256": "30521d2aa02252c0097cd3a9b12832368d5c925e1ccb4bc3a5735671bd3d2e1e"
+    },
+    {
+      "path": "UglyToad.PdfPig.Package.dll",
+      "bytes": 4608,
+      "sha256": "3227f79347329b57e50745d2ade1deb7ccdfe57da1d382796283832aae6ea41a"
+    },
+    {
+      "path": "UglyToad.PdfPig.Rendering.Skia.dll",
+      "bytes": 118784,
+      "sha256": "bd13d875a2a13372d3d769fc18091a493232e2ed797bc357781922570b3423b7"
+    },
+    {
+      "path": "UglyToad.PdfPig.Tokenization.dll",
+      "bytes": 23040,
+      "sha256": "539d0ca2c7981b9eaf8541e17434911042f7cc73d3abc24962994bb99472ed3c"
+    },
+    {
+      "path": "UglyToad.PdfPig.Tokens.dll",
+      "bytes": 48128,
+      "sha256": "d6fbd73a520bb961ffcc98030ab686f43c88b03f5b059ba11e3781e0f091433d"
+    },
+    {
+      "path": "UglyToad.PdfPig.dll",
+      "bytes": 4251648,
+      "sha256": "c47abebdffebb6e48a1d40f4c22ce5f673c57558ecdb3187841b728112dea279"
+    },
+    {
+      "path": "YamlDotNet.dll",
+      "bytes": 300032,
+      "sha256": "d618138109a40e4a7250e49e2abad8c450e3636bee18d7499ab231e37fa9150a"
+    },
+    {
+      "path": "appsettings.Desktop.json",
+      "bytes": 6273,
+      "sha256": "c3dbb4e841944c7386bb62b88e72bae62e2abf7356d0c84c7b50dcdee62b96e9"
+    },
+    {
+      "path": "appsettings.json",
+      "bytes": 2725,
+      "sha256": "4131c7b4aa5a6341df2d07734a367a1829ffcef59c8cfab7c1f4d272bee9b957"
+    },
+    {
+      "path": "playwright.ps1",
+      "bytes": 412,
+      "sha256": "98d6d87fbb7b285a552ba4469fefb4e89a631e5fa896f126e4dc4bcde4b66a63"
+    },
+    {
+      "path": "runtimes/android-arm/native/libe_sqlite3.so",
+      "bytes": 1246788,
+      "sha256": "6846178c7337b5b9a3c9d7090808a6621dd09db6879efdf16075ce2afc260212"
+    },
+    {
+      "path": "runtimes/android-arm64/native/libe_sqlite3.so",
+      "bytes": 1772160,
+      "sha256": "52d49cc84918c112d5713a6de83269d33f03c4c7c3ed721fbd2c8c00adf4ca80"
+    },
+    {
+      "path": "runtimes/android-x64/native/libe_sqlite3.so",
+      "bytes": 1801864,
+      "sha256": "8088b315ee0b7db13c053051dae063c8bdf9318c25d3f8b9024b9786bd27cab1"
+    },
+    {
+      "path": "runtimes/android-x86/native/libe_sqlite3.so",
+      "bytes": 1820380,
+      "sha256": "43731d621cc2b1fbde62bae8ff465cfe0fd1ea9c2f25d566d3e61e495d226d9f"
+    },
+    {
+      "path": "runtimes/browser-wasm/nativeassets/net9.0/e_sqlite3.a",
+      "bytes": 1309264,
+      "sha256": "73675fcf71a65531ea10763f2029300bb4dc1528c24fc9bebc6bb2cbccf7656f"
+    },
+    {
+      "path": "runtimes/ios-arm/native/e_sqlite3.a",
+      "bytes": 2219032,
+      "sha256": "0c2cf95c369c37330ecfbc0870c1d214ed727b17bf7b86bce0bac94db4a9acd9"
+    },
+    {
+      "path": "runtimes/ios-arm64/native/e_sqlite3.a",
+      "bytes": 2219032,
+      "sha256": "0c2cf95c369c37330ecfbc0870c1d214ed727b17bf7b86bce0bac94db4a9acd9"
+    },
+    {
+      "path": "runtimes/iossimulator-arm64/native/e_sqlite3.a",
+      "bytes": 4275720,
+      "sha256": "87076969e5e0ffc22877e6a5603131f34f2e33bdfc61d11b77dba7c0fcc8f8e1"
+    },
+    {
+      "path": "runtimes/iossimulator-x64/native/e_sqlite3.a",
+      "bytes": 4275720,
+      "sha256": "87076969e5e0ffc22877e6a5603131f34f2e33bdfc61d11b77dba7c0fcc8f8e1"
+    },
+    {
+      "path": "runtimes/linux-arm/native/libe_sqlite3.so",
+      "bytes": 982192,
+      "sha256": "9a697f00c70420314a3604cea281c8859cb925680f935c23f6261e9a6f769368"
+    },
+    {
+      "path": "runtimes/linux-arm64/native/libe_sqlite3.so",
+      "bytes": 1534416,
+      "sha256": "66436d4bd02b1b1c25b964a744b5230122bca6a5d006aa80add129ef892c273a"
+    },
+    {
+      "path": "runtimes/linux-arm64/native/libggml-base.so",
+      "bytes": 804384,
+      "sha256": "ec8c51daa1b9ac9d6ee6cb80cccca328a9e96f51f5941efef1fc595fbcd3235c"
+    },
+    {
+      "path": "runtimes/linux-arm64/native/libggml-cpu.so",
+      "bytes": 928224,
+      "sha256": "f8aaff5a83e7adc9335e7917529fcbb11b1f5d3b509e6aa597eb3ab387a45595"
+    },
+    {
+      "path": "runtimes/linux-arm64/native/libggml.so",
+      "bytes": 78336,
+      "sha256": "1ccb8361e8896f06af5b32ca184562a152644f8c214c5888944da601a1541d67"
+    },
+    {
+      "path": "runtimes/linux-arm64/native/libllama.so",
+      "bytes": 3170456,
+      "sha256": "c3fd19228cb6f722f0b1f760e5cd5808aeffd542cad7dc73db46cfb901b1faa5"
+    },
+    {
+      "path": "runtimes/linux-arm64/native/libmtmd.so",
+      "bytes": 1169544,
+      "sha256": "ca7e56ceb94462dcc52e4efcf3d63cc33c51c3713479e49217c156f18df1480a"
+    },
+    {
+      "path": "runtimes/linux-armel/native/libe_sqlite3.so",
+      "bytes": 1375344,
+      "sha256": "f6cd622eee5d5df12419c7a11eaf4a17ed1948c28f41db8395959682978c870a"
+    },
+    {
+      "path": "runtimes/linux-mips64/native/libe_sqlite3.so",
+      "bytes": 1756616,
+      "sha256": "f66410709bd4b5ec6b9fb9b4f89f1e49c842e9f9fa21c95766f1ea20c66074ba"
+    },
+    {
+      "path": "runtimes/linux-musl-arm/native/libe_sqlite3.so",
+      "bytes": 1322584,
+      "sha256": "98e03c2b80ae3924d1ed6da32d036f933db48b28ee2ef55c417f48ef0a382c62"
+    },
+    {
+      "path": "runtimes/linux-musl-arm64/native/libe_sqlite3.so",
+      "bytes": 1450744,
+      "sha256": "91e5ff240be8cdc24068c149754d3506dd3f7098cb0fd3d6606c4f0ce3b5fd42"
+    },
+    {
+      "path": "runtimes/linux-musl-riscv64/native/libe_sqlite3.so",
+      "bytes": 1015928,
+      "sha256": "033f84cbe93cb46eb0b5a96d5acbf1089f1716e9e0e9ee117d9d039c3c58060f"
+    },
+    {
+      "path": "runtimes/linux-musl-s390x/native/libe_sqlite3.so",
+      "bytes": 1685800,
+      "sha256": "31d53eafaefec15651dac766665171e7d8f2dd4f1c021c7a21e754aba2091b17"
+    },
+    {
+      "path": "runtimes/linux-musl-x64/native/avx/libggml-base.so",
+      "bytes": 883432,
+      "sha256": "77f02ab79a4cc002465b710a8fe47f1bb15e55a0a0d2dbe23c2a3abafb028347"
+    },
+    {
+      "path": "runtimes/linux-musl-x64/native/avx/libggml-cpu.so",
+      "bytes": 1105544,
+      "sha256": "5dfb49b8848f4922f3231bd0fc528207efe07482b2bd9c46ed3c667128d6f49d"
+    },
+    {
+      "path": "runtimes/linux-musl-x64/native/avx/libggml.so",
+      "bytes": 59672,
+      "sha256": "d5008d30c7a07bf3db8f5eca67e533fa8db345c05c729f8f910650cf1ab4b5ab"
+    },
+    {
+      "path": "runtimes/linux-musl-x64/native/avx/libllama.so",
+      "bytes": 3424808,
+      "sha256": "ca4659d4f1e688030297b86437d30b35548061dfa79509714bec6d34727d7d4f"
+    },
+    {
+      "path": "runtimes/linux-musl-x64/native/avx/libmtmd.so",
+      "bytes": 1161392,
+      "sha256": "808f1080da1aef4349e5595f9f9a8bd801c3f3bb95770a735b9d3dc2ef67a1c4"
+    },
+    {
+      "path": "runtimes/linux-musl-x64/native/avx2/libggml-base.so",
+      "bytes": 883432,
+      "sha256": "77f02ab79a4cc002465b710a8fe47f1bb15e55a0a0d2dbe23c2a3abafb028347"
+    },
+    {
+      "path": "runtimes/linux-musl-x64/native/avx2/libggml-cpu.so",
+      "bytes": 1173032,
+      "sha256": "5360f8dad6411290400e86fd20fa82522b0afcb7cfc69e8daff56fb686c4c4b2"
+    },
+    {
+      "path": "runtimes/linux-musl-x64/native/avx2/libggml.so",
+      "bytes": 59672,
+      "sha256": "d5008d30c7a07bf3db8f5eca67e533fa8db345c05c729f8f910650cf1ab4b5ab"
+    },
+    {
+      "path": "runtimes/linux-musl-x64/native/avx2/libllama.so",
+      "bytes": 3424808,
+      "sha256": "ca4659d4f1e688030297b86437d30b35548061dfa79509714bec6d34727d7d4f"
+    },
+    {
+      "path": "runtimes/linux-musl-x64/native/avx2/libmtmd.so",
+      "bytes": 1161392,
+      "sha256": "808f1080da1aef4349e5595f9f9a8bd801c3f3bb95770a735b9d3dc2ef67a1c4"
+    },
+    {
+      "path": "runtimes/linux-musl-x64/native/avx512/libggml-base.so",
+      "bytes": 883432,
+      "sha256": "77f02ab79a4cc002465b710a8fe47f1bb15e55a0a0d2dbe23c2a3abafb028347"
+    },
+    {
+      "path": "runtimes/linux-musl-x64/native/avx512/libggml-cpu.so",
+      "bytes": 1352568,
+      "sha256": "b2d539aba522a7aa1f5d540e16c0b3f3564a4993ab9e130dcf8c970d97c60930"
+    },
+    {
+      "path": "runtimes/linux-musl-x64/native/avx512/libggml.so",
+      "bytes": 59672,
+      "sha256": "d5008d30c7a07bf3db8f5eca67e533fa8db345c05c729f8f910650cf1ab4b5ab"
+    },
+    {
+      "path": "runtimes/linux-musl-x64/native/avx512/libllama.so",
+      "bytes": 3424808,
+      "sha256": "ca4659d4f1e688030297b86437d30b35548061dfa79509714bec6d34727d7d4f"
+    },
+    {
+      "path": "runtimes/linux-musl-x64/native/avx512/libmtmd.so",
+      "bytes": 1161392,
+      "sha256": "808f1080da1aef4349e5595f9f9a8bd801c3f3bb95770a735b9d3dc2ef67a1c4"
+    },
+    {
+      "path": "runtimes/linux-musl-x64/native/libe_sqlite3.so",
+      "bytes": 1445376,
+      "sha256": "7d275542af8aac5a19f5a873da7cdadcc20c453fb52b7df57bd747e2f02ab92b"
+    },
+    {
+      "path": "runtimes/linux-musl-x64/native/noavx/libggml-base.so",
+      "bytes": 883432,
+      "sha256": "77f02ab79a4cc002465b710a8fe47f1bb15e55a0a0d2dbe23c2a3abafb028347"
+    },
+    {
+      "path": "runtimes/linux-musl-x64/native/noavx/libggml-cpu.so",
+      "bytes": 1105544,
+      "sha256": "d5c510aa5d4fe0bcb640e72deeba822f7c469ebf1c2d6882df32dc14a8c6fe8f"
+    },
+    {
+      "path": "runtimes/linux-musl-x64/native/noavx/libggml.so",
+      "bytes": 59672,
+      "sha256": "d5008d30c7a07bf3db8f5eca67e533fa8db345c05c729f8f910650cf1ab4b5ab"
+    },
+    {
+      "path": "runtimes/linux-musl-x64/native/noavx/libllama.so",
+      "bytes": 3424808,
+      "sha256": "ca4659d4f1e688030297b86437d30b35548061dfa79509714bec6d34727d7d4f"
+    },
+    {
+      "path": "runtimes/linux-musl-x64/native/noavx/libmtmd.so",
+      "bytes": 1161392,
+      "sha256": "808f1080da1aef4349e5595f9f9a8bd801c3f3bb95770a735b9d3dc2ef67a1c4"
+    },
+    {
+      "path": "runtimes/linux-ppc64le/native/libe_sqlite3.so",
+      "bytes": 1937448,
+      "sha256": "9d5e453ad17fb857b123da69adfa067e55bb716816979e4131fe76e513866f53"
+    },
+    {
+      "path": "runtimes/linux-riscv64/native/libe_sqlite3.so",
+      "bytes": 1291936,
+      "sha256": "a7ac179be5d4a25cea62781fab3a0266903745f5929e0c880dd20fd0e84f2593"
+    },
+    {
+      "path": "runtimes/linux-s390x/native/libe_sqlite3.so",
+      "bytes": 1655816,
+      "sha256": "55296ed2a74253a8e998d2ca8d4d5471e03c573bdd109ee83f089499ef9aedf7"
+    },
+    {
+      "path": "runtimes/linux-x64/native/avx/libggml-base.so",
+      "bytes": 845104,
+      "sha256": "dcb256a2759243345044dadca911095db0289ebb7947ff94c969b00784f862f1"
+    },
+    {
+      "path": "runtimes/linux-x64/native/avx/libggml-cpu.so",
+      "bytes": 1060696,
+      "sha256": "a7e950b9bf452615bbc99c3083f8b3266a618ee6fc8a7eaaa64fb1824b24e54b"
+    },
+    {
+      "path": "runtimes/linux-x64/native/avx/libggml.so",
+      "bytes": 55544,
+      "sha256": "1ea01d18e42e416d2a520ad6b54c0cb76899d318e67c35daba26c2de37ee5813"
+    },
+    {
+      "path": "runtimes/linux-x64/native/avx/libllama.so",
+      "bytes": 3274096,
+      "sha256": "b9b5413956880c3f157a66b58081d929e8b19d076d515f9784f2794f0748fcf1"
+    },
+    {
+      "path": "runtimes/linux-x64/native/avx/libmtmd.so",
+      "bytes": 1117296,
+      "sha256": "c77a6d62088a413227c0fdef6d4ae0aab16a4e2dfe4c321c5138aac3e69fbb62"
+    },
+    {
+      "path": "runtimes/linux-x64/native/avx2/libggml-base.so",
+      "bytes": 845104,
+      "sha256": "dcb256a2759243345044dadca911095db0289ebb7947ff94c969b00784f862f1"
+    },
+    {
+      "path": "runtimes/linux-x64/native/avx2/libggml-cpu.so",
+      "bytes": 1115416,
+      "sha256": "f3a021c92d26d4f06a5618e64e5c68f91faad7c81655c4e523bc8fee2124d506"
+    },
+    {
+      "path": "runtimes/linux-x64/native/avx2/libggml.so",
+      "bytes": 55544,
+      "sha256": "1ea01d18e42e416d2a520ad6b54c0cb76899d318e67c35daba26c2de37ee5813"
+    },
+    {
+      "path": "runtimes/linux-x64/native/avx2/libllama.so",
+      "bytes": 3274096,
+      "sha256": "b9b5413956880c3f157a66b58081d929e8b19d076d515f9784f2794f0748fcf1"
+    },
+    {
+      "path": "runtimes/linux-x64/native/avx2/libmtmd.so",
+      "bytes": 1117296,
+      "sha256": "c77a6d62088a413227c0fdef6d4ae0aab16a4e2dfe4c321c5138aac3e69fbb62"
+    },
+    {
+      "path": "runtimes/linux-x64/native/avx512/libggml-base.so",
+      "bytes": 845104,
+      "sha256": "dcb256a2759243345044dadca911095db0289ebb7947ff94c969b00784f862f1"
+    },
+    {
+      "path": "runtimes/linux-x64/native/avx512/libggml-cpu.so",
+      "bytes": 1256304,
+      "sha256": "ba6f2bf8c4fc0091c3c76f9cea50fd5d2d539add311eb837c2e4eb9c17889884"
+    },
+    {
+      "path": "runtimes/linux-x64/native/avx512/libggml.so",
+      "bytes": 55544,
+      "sha256": "1ea01d18e42e416d2a520ad6b54c0cb76899d318e67c35daba26c2de37ee5813"
+    },
+    {
+      "path": "runtimes/linux-x64/native/avx512/libllama.so",
+      "bytes": 3274096,
+      "sha256": "b9b5413956880c3f157a66b58081d929e8b19d076d515f9784f2794f0748fcf1"
+    },
+    {
+      "path": "runtimes/linux-x64/native/avx512/libmtmd.so",
+      "bytes": 1117296,
+      "sha256": "c77a6d62088a413227c0fdef6d4ae0aab16a4e2dfe4c321c5138aac3e69fbb62"
+    },
+    {
+      "path": "runtimes/linux-x64/native/libe_sqlite3.so",
+      "bytes": 1470824,
+      "sha256": "eddcd4aa561d5b8f252db77e8272e7d1aed96bcab9fda3f177ca542f916290bf"
+    },
+    {
+      "path": "runtimes/linux-x64/native/noavx/libggml-base.so",
+      "bytes": 845104,
+      "sha256": "dcb256a2759243345044dadca911095db0289ebb7947ff94c969b00784f862f1"
+    },
+    {
+      "path": "runtimes/linux-x64/native/noavx/libggml-cpu.so",
+      "bytes": 1064792,
+      "sha256": "79cd63a3a09c53661746074a78c2268f281c529d14c8cbe45e54457544a64fa8"
+    },
+    {
+      "path": "runtimes/linux-x64/native/noavx/libggml.so",
+      "bytes": 55544,
+      "sha256": "1ea01d18e42e416d2a520ad6b54c0cb76899d318e67c35daba26c2de37ee5813"
+    },
+    {
+      "path": "runtimes/linux-x64/native/noavx/libllama.so",
+      "bytes": 3274096,
+      "sha256": "b9b5413956880c3f157a66b58081d929e8b19d076d515f9784f2794f0748fcf1"
+    },
+    {
+      "path": "runtimes/linux-x64/native/noavx/libmtmd.so",
+      "bytes": 1117296,
+      "sha256": "c77a6d62088a413227c0fdef6d4ae0aab16a4e2dfe4c321c5138aac3e69fbb62"
+    },
+    {
+      "path": "runtimes/linux-x86/native/libe_sqlite3.so",
+      "bytes": 1548016,
+      "sha256": "0269d385a7a8cbbc385c4688bf57c030351036aaae8c6e06f02ecf2d5ada96de"
+    },
+    {
+      "path": "runtimes/maccatalyst-arm64/native/libe_sqlite3.dylib",
+      "bytes": 1695264,
+      "sha256": "144793f8f993837a66249c0bb8898dd3171904cc796048acd1bede20ce1dab69"
+    },
+    {
+      "path": "runtimes/maccatalyst-x64/native/libe_sqlite3.dylib",
+      "bytes": 1724352,
+      "sha256": "ac224e3e18f8227dc964b3cf29a0f6244e475af37eed5744708e222fe9691c19"
+    },
+    {
+      "path": "runtimes/osx/native/libHarfBuzzSharp.dylib",
+      "bytes": 2641664,
+      "sha256": "f8e9ab02b74e68d151abc3781098c9201e57c392b827b40451515d42386d6b0d"
+    },
+    {
+      "path": "runtimes/osx/native/libSkiaSharp.dylib",
+      "bytes": 17284048,
+      "sha256": "ab80565d9c83a432a615f5f848182405a2c2536e421e426a3f8245f6330639ee"
+    },
+    {
+      "path": "runtimes/osx-arm64/native/libe_sqlite3.dylib",
+      "bytes": 1696624,
+      "sha256": "2b27f45233818ae11d97016ca2a16dffcf63a53c46f60bcd52b342fc187b0c83"
+    },
+    {
+      "path": "runtimes/osx-arm64/native/libggml-base.dylib",
+      "bytes": 748616,
+      "sha256": "536c7aedddee930402b5cb5763b159eef5b63ccd4e66ca92ae41e0af61e78ee9"
+    },
+    {
+      "path": "runtimes/osx-arm64/native/libggml-blas.dylib",
+      "bytes": 58536,
+      "sha256": "a21cf5762bd19c71f2537f70f01f8c440cd4e2b53f5767586451fd050ae0f98c"
+    },
+    {
+      "path": "runtimes/osx-arm64/native/libggml-cpu.dylib",
+      "bytes": 882184,
+      "sha256": "5a12b89ae23fa39593253146b6c298cc092269e6ae01f4ecd45a6f62af102c4d"
+    },
+    {
+      "path": "runtimes/osx-arm64/native/libggml-metal.dylib",
+      "bytes": 814616,
+      "sha256": "afc082e19d6a979bf3403bf0a27ae8926595a1780502b82800716306106fcb21"
+    },
+    {
+      "path": "runtimes/osx-arm64/native/libggml.dylib",
+      "bytes": 59944,
+      "sha256": "dc6561a554982fb3bc3e37b1562dd495f72b777c20e0efda4abb89807418a3d3"
+    },
+    {
+      "path": "runtimes/osx-arm64/native/libllama.dylib",
+      "bytes": 2497528,
+      "sha256": "1dde7ef4d9cba578b2e026453c6348d9b47bb176820c4bb88cc33bda651cd061"
+    },
+    {
+      "path": "runtimes/osx-arm64/native/libmtmd.dylib",
+      "bytes": 943416,
+      "sha256": "c1ca0002d790bf842c0fb224b7bd9630e240ca48bd778a463e491ae0050bb4fe"
+    },
+    {
+      "path": "runtimes/osx-x64/native/libe_sqlite3.dylib",
+      "bytes": 1724472,
+      "sha256": "20143ee08a1af0a510368e14109f512d7c7870481ba16937ae5733a415d0a201"
+    },
+    {
+      "path": "runtimes/osx-x64/native/libggml-base.dylib",
+      "bytes": 706120,
+      "sha256": "e753c66e5ca14752b97766da2433b07bc733fc1dea11d70a79cb6a815a23ead9"
+    },
+    {
+      "path": "runtimes/osx-x64/native/libggml-blas.dylib",
+      "bytes": 33600,
+      "sha256": "8cea77d8beea0f5f0f9466a9972354fc1fcbca8d9f6968319298d73a7e406799"
+    },
+    {
+      "path": "runtimes/osx-x64/native/libggml-cpu.dylib",
+      "bytes": 1302352,
+      "sha256": "1cd76fa08f2abade2860761c769999a9c3f633304e21d8b4a06f81fb56e280ec"
+    },
+    {
+      "path": "runtimes/osx-x64/native/libggml.dylib",
+      "bytes": 42896,
+      "sha256": "4421b31795107d5ad8d271fa53f7913014a4202f6f49be13e5cfe062cca11890"
+    },
+    {
+      "path": "runtimes/osx-x64/native/libllama.dylib",
+      "bytes": 2837320,
+      "sha256": "7b92aa4b26e3d6934781e8a4c93098bb4c96db9dd58b9d456decf3a44863c7ed"
+    },
+    {
+      "path": "runtimes/osx-x64/native/libmtmd.dylib",
+      "bytes": 988432,
+      "sha256": "d84105f419ed9a1701ae1d5d2329e3cc9ac0dfcf10d01e90b486f3d8193e794b"
+    },
+    {
+      "path": "runtimes/osx-x64/native/rosetta2/libggml-base.dylib",
+      "bytes": 706120,
+      "sha256": "e753c66e5ca14752b97766da2433b07bc733fc1dea11d70a79cb6a815a23ead9"
+    },
+    {
+      "path": "runtimes/osx-x64/native/rosetta2/libggml-blas.dylib",
+      "bytes": 33600,
+      "sha256": "8cea77d8beea0f5f0f9466a9972354fc1fcbca8d9f6968319298d73a7e406799"
+    },
+    {
+      "path": "runtimes/osx-x64/native/rosetta2/libggml-cpu.dylib",
+      "bytes": 1141704,
+      "sha256": "5607966a192d9fbc1b9ac60d93fc7927cc4485410b073f462f44d0afa8774525"
+    },
+    {
+      "path": "runtimes/osx-x64/native/rosetta2/libggml.dylib",
+      "bytes": 42896,
+      "sha256": "4421b31795107d5ad8d271fa53f7913014a4202f6f49be13e5cfe062cca11890"
+    },
+    {
+      "path": "runtimes/osx-x64/native/rosetta2/libllama.dylib",
+      "bytes": 2837320,
+      "sha256": "7b92aa4b26e3d6934781e8a4c93098bb4c96db9dd58b9d456decf3a44863c7ed"
+    },
+    {
+      "path": "runtimes/osx-x64/native/rosetta2/libmtmd.dylib",
+      "bytes": 988432,
+      "sha256": "d84105f419ed9a1701ae1d5d2329e3cc9ac0dfcf10d01e90b486f3d8193e794b"
+    },
+    {
+      "path": "runtimes/win/lib/net10.0/System.Diagnostics.EventLog.Messages.dll",
+      "bytes": 800552,
+      "sha256": "8f3def30d41d85e2bd87b2d2e7542d49d625f0b4d96a6dc9b03e0f49bd59b8ef"
+    },
+    {
+      "path": "runtimes/win/lib/net10.0/System.Diagnostics.EventLog.dll",
+      "bytes": 176424,
+      "sha256": "075a7ac3b8732b34090fdf78be57956eeee276e113609d773797aa473191882a"
+    },
+    {
+      "path": "runtimes/win-arm64/native/e_sqlite3.dll",
+      "bytes": 1816064,
+      "sha256": "a59c169757d12a8bfc30c1760b8dd1f04cf9519f3774bdee6a9b595469f22be6"
+    },
+    {
+      "path": "runtimes/win-arm64/native/ggml-base.dll",
+      "bytes": 768512,
+      "sha256": "315d9ed5994ad6c819f2ffc98a3089414cdd015b5cc254d0b504c7369b5757d5"
+    },
+    {
+      "path": "runtimes/win-arm64/native/ggml-cpu.dll",
+      "bytes": 664576,
+      "sha256": "e49f386cc30bc696e47dcedc8876c7efb6cf836d78dafd0c330b0d96019af6cf"
+    },
+    {
+      "path": "runtimes/win-arm64/native/ggml.dll",
+      "bytes": 67072,
+      "sha256": "25e608567f8cbf832b21702d0edb55df021902b697dbe8292fab2cf144586e0d"
+    },
+    {
+      "path": "runtimes/win-arm64/native/libHarfBuzzSharp.dll",
+      "bytes": 1924448,
+      "sha256": "e8c9923c68c08e83f632e18fec2c9dd812f64e1e553e4b6702b5396b3834f821"
+    },
+    {
+      "path": "runtimes/win-arm64/native/libHarfBuzzSharp.pdb",
+      "bytes": 20967424,
+      "sha256": "59c29b0f650572c127f39f2f37569e995d9a1692706e6b0be1af3730cb7246c2"
+    },
+    {
+      "path": "runtimes/win-arm64/native/libSkiaSharp.dll",
+      "bytes": 11522400,
+      "sha256": "55cab48c7fce04e108bc38d1d1048ce1de41e12c58f51214090cf6a5c9360cd2"
+    },
+    {
+      "path": "runtimes/win-arm64/native/libSkiaSharp.pdb",
+      "bytes": 95617024,
+      "sha256": "ca09631bad710abfbf449502f16fd26ba232762c9e680daffcfb9166cfb5d9bd"
+    },
+    {
+      "path": "runtimes/win-arm64/native/llama.dll",
+      "bytes": 2071040,
+      "sha256": "f622846fdcad858efab1a797b0202b39db51b1359e397dc3ae542cda65288e9f"
+    },
+    {
+      "path": "runtimes/win-arm64/native/mtmd.dll",
+      "bytes": 785920,
+      "sha256": "a5ab64de7d132ca6f8feb58db0ff71c30434045846a9ee290053930e41ecb6c1"
+    },
+    {
+      "path": "runtimes/win-x64/native/avx/ggml-base.dll",
+      "bytes": 615936,
+      "sha256": "7b110a7049afb7b7c653af4f8f3c023e59995b673df8468db7620a9ff5d9a4d5"
+    },
+    {
+      "path": "runtimes/win-x64/native/avx/ggml-cpu.dll",
+      "bytes": 820736,
+      "sha256": "447502e055c0df2ffd7ceba6e800e1608029bd1d6c760e5a1b29b2f6d9671a72"
+    },
+    {
+      "path": "runtimes/win-x64/native/avx/ggml.dll",
+      "bytes": 67072,
+      "sha256": "90653a391d5cc6af47b52b23ef539a057122faabcf4da362cba32115220ecf40"
+    },
+    {
+      "path": "runtimes/win-x64/native/avx/llama.dll",
+      "bytes": 2055680,
+      "sha256": "43465972ebdc01fddb0b09feb613230a2844e6658e0b2da88025ddfdd51deddb"
+    },
+    {
+      "path": "runtimes/win-x64/native/avx/mtmd.dll",
+      "bytes": 802816,
+      "sha256": "978c6423d378e93a5436c9162cf8f8cc1694ce1d8821b17e039201f91285c9f9"
+    },
+    {
+      "path": "runtimes/win-x64/native/avx2/ggml-base.dll",
+      "bytes": 615936,
+      "sha256": "09835b5faec3acc7e88f0ddee1ddf8a303108c9664fc581c6b5bff03f1032353"
+    },
+    {
+      "path": "runtimes/win-x64/native/avx2/ggml-cpu.dll",
+      "bytes": 878592,
+      "sha256": "5c579f09d7b4f782c534b03f5962ff82cdddf9374aa443175f9db3cbc86b7b3c"
+    },
+    {
+      "path": "runtimes/win-x64/native/avx2/ggml.dll",
+      "bytes": 67072,
+      "sha256": "44ec41894eb611c9bb86055cedb6759603fcb6a9dc994abccb15f08a031b486a"
+    },
+    {
+      "path": "runtimes/win-x64/native/avx2/llama.dll",
+      "bytes": 2055680,
+      "sha256": "1aa8f6f65386b7b977f9a0bb631d6d7e2a30d3beb3f5747e80e1b114f4885fb8"
+    },
+    {
+      "path": "runtimes/win-x64/native/avx2/mtmd.dll",
+      "bytes": 802816,
+      "sha256": "5da6779429096118c15ccc134f0309bb0df6f0a8c010b16e74475285288e3fb6"
+    },
+    {
+      "path": "runtimes/win-x64/native/avx512/ggml-base.dll",
+      "bytes": 615936,
+      "sha256": "6a45172a836430e372adb31039dd48a94fd5f2a2c023c0f2f7629e0e0faa8fe5"
+    },
+    {
+      "path": "runtimes/win-x64/native/avx512/ggml-cpu.dll",
+      "bytes": 979456,
+      "sha256": "9bbd41bbda9904f72194edccffe91068f56e5b6d49d874a556db08b320e222c7"
+    },
+    {
+      "path": "runtimes/win-x64/native/avx512/ggml.dll",
+      "bytes": 67072,
+      "sha256": "23b4bcf921c6e77d6e0a7864f740f7eb4aec2cb946453f46b8fa5d337460ad8f"
+    },
+    {
+      "path": "runtimes/win-x64/native/avx512/llama.dll",
+      "bytes": 2055680,
+      "sha256": "1aa8f6f65386b7b977f9a0bb631d6d7e2a30d3beb3f5747e80e1b114f4885fb8"
+    },
+    {
+      "path": "runtimes/win-x64/native/avx512/mtmd.dll",
+      "bytes": 802816,
+      "sha256": "ca9ddab5416c5558d98585fbdb60e0fcb52e1ee2e5395b1ac8848c77e392b3fe"
+    },
+    {
+      "path": "runtimes/win-x64/native/e_sqlite3.dll",
+      "bytes": 1972224,
+      "sha256": "6ad8e149f8ce3ed3716402b4b3a2268ebbdc7b64391b5fafed747e03bb1b9418"
+    },
+    {
+      "path": "runtimes/win-x64/native/libHarfBuzzSharp.dll",
+      "bytes": 1815904,
+      "sha256": "cf97ae00945e6f5290967ba4ff3051f1cd47a0758b7d9a7159fb352b33655d43"
+    },
+    {
+      "path": "runtimes/win-x64/native/libHarfBuzzSharp.pdb",
+      "bytes": 20918272,
+      "sha256": "b7fd174d69cec7384459f6e0ec0d7892463908dcace32e50eae90d9dc793282a"
+    },
+    {
+      "path": "runtimes/win-x64/native/libSkiaSharp.dll",
+      "bytes": 13411640,
+      "sha256": "3deeaa66897fb0c4ebda7d85044702b05b7fbfb380df9ba86dacb82df2171d3d"
+    },
+    {
+      "path": "runtimes/win-x64/native/libSkiaSharp.pdb",
+      "bytes": 98922496,
+      "sha256": "31e50e4d39558d89a26bcfc52a44fe1f27772676bf726f060d3043dc48abb851"
+    },
+    {
+      "path": "runtimes/win-x64/native/noavx/ggml-base.dll",
+      "bytes": 615936,
+      "sha256": "57803fba605d6e3eae4bfc48bf6b120c03ddd3926ad5a0e3bb2b11598b20f598"
+    },
+    {
+      "path": "runtimes/win-x64/native/noavx/ggml-cpu.dll",
+      "bytes": 708096,
+      "sha256": "bb3d65715350df4b9f2d605367e7063e27c40146330e6ed9807598c41aec08a5"
+    },
+    {
+      "path": "runtimes/win-x64/native/noavx/ggml.dll",
+      "bytes": 67072,
+      "sha256": "905ec5ea9db9bd1e795cf2cb4f7f9399c50e82a74379efe75815de7715da45cf"
+    },
+    {
+      "path": "runtimes/win-x64/native/noavx/llama.dll",
+      "bytes": 2055680,
+      "sha256": "6e18361b4fdce03588c19cc21a818ffcb4d3326d3debaa898af4cc27fd10c877"
+    },
+    {
+      "path": "runtimes/win-x64/native/noavx/mtmd.dll",
+      "bytes": 802816,
+      "sha256": "c50e84ef123adc015e80d4e3909f83a85b1b35be335a537eaec7b6e13d0a525e"
+    },
+    {
+      "path": "runtimes/win-x86/native/e_sqlite3.dll",
+      "bytes": 1529344,
+      "sha256": "8d76b5d0faa6f3a3c6204605d1a3d31dad57a0104b92fce3df19b12bdd983ae7"
+    },
+    {
+      "path": "runtimes/win-x86/native/libHarfBuzzSharp.dll",
+      "bytes": 1518432,
+      "sha256": "18fcfa3677b92e3a4ffce48119e98100625faf84db550f770e1883447f0bde8d"
+    },
+    {
+      "path": "runtimes/win-x86/native/libHarfBuzzSharp.pdb",
+      "bytes": 20705280,
+      "sha256": "22a92d9443e1661d209dbd42015085628a48782f7cde5c6fe7af9afd29725478"
+    },
+    {
+      "path": "runtimes/win-x86/native/libSkiaSharp.dll",
+      "bytes": 11654968,
+      "sha256": "c221f3b93c75df1689913a34e20a1907b514e3507d06c2de115abe5c17900c2c"
+    },
+    {
+      "path": "runtimes/win-x86/native/libSkiaSharp.pdb",
+      "bytes": 101781504,
+      "sha256": "ff7280d005bc562512a530ddd76593296719bf435d91eeabee66785acf3f6a8d"
+    }
+  ]
+}

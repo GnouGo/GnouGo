@@ -1,0 +1,562 @@
+{
+  "candidate_commit": "25dc994d45925054859cdb0874428dceb432b62f",
+  "test_adjustment_commit": "2b20c8bd004d5a949041a33d16c2db82841ff7ef",
+  "additional_test_adjustment_commit": "bbd1061a3f7914ddece5720359d75e66107ad99e",
+  "kind": "Offline deterministic validation with a preserved failed full-suite attempt and separate targeted reruns; no paid provider dispatch",
+  "solution": {
+    "command": "GNOU_GO_LIVE_COPILOT_EDIT=0 GNOU_GO_LIVE_PR_REVIEW_E2E=0 GNOUOGO_LOCAL_MODEL_SMOKE=0 dotnet test GnOuGo.Agent.sln -m:1 -warnaserror -p:SkipModelMetadataGeneration=true -p:SkipPlaywrightBrowserInstall=true --logger 'console;verbosity=normal'",
+    "exit_code": 1,
+    "status": "failed",
+    "exit_code_source": "Observed process result supplied explicitly by the operator",
+    "log": "/tmp/gnougo-pr119-solution-final.log",
+    "log_sha256": "06e127ec7cb77874b3da445890a33bd988d825d01fdb1d8713fc873d5bc4454e",
+    "log_bytes": 1050959,
+    "projects": [
+      {
+        "assembly": "GnOuGo.DocIngestor.Tests.dll",
+        "total": 89,
+        "passed": 89,
+        "skipped": 0,
+        "failed": 0
+      },
+      {
+        "assembly": "GnOuGo.Diff.Tests.dll",
+        "total": 52,
+        "passed": 52,
+        "skipped": 0,
+        "failed": 0
+      },
+      {
+        "assembly": "GnOuGo.KeyVault.Core.Tests.dll",
+        "total": 12,
+        "passed": 12,
+        "skipped": 0,
+        "failed": 0
+      },
+      {
+        "assembly": "GnOuGo.Flow.Tests.dll",
+        "total": 1410,
+        "passed": 1410,
+        "skipped": 0,
+        "failed": 0
+      },
+      {
+        "assembly": "GnOuGo.Flow.Integrations.Tests.dll",
+        "total": 104,
+        "passed": 104,
+        "skipped": 0,
+        "failed": 0
+      },
+      {
+        "assembly": "GnOuGo.AI.Core.Tests.dll",
+        "total": 226,
+        "passed": 226,
+        "skipped": 0,
+        "failed": 0
+      },
+      {
+        "assembly": "GnOuGo.AI.Local.Tests.dll",
+        "total": 14,
+        "passed": 14,
+        "skipped": 0,
+        "failed": 0
+      },
+      {
+        "assembly": "GnOuGo.Agent.Mcp.Tests.dll",
+        "total": 103,
+        "passed": 103,
+        "skipped": 0,
+        "failed": 0
+      },
+      {
+        "assembly": "GnOuGo.Cmd.Mcp.Tests.dll",
+        "total": 100,
+        "passed": 93,
+        "skipped": 7,
+        "failed": 0
+      },
+      {
+        "assembly": "GnOuGo.Browser.Mcp.Tests.dll",
+        "total": 142,
+        "passed": 142,
+        "skipped": 0,
+        "failed": 0
+      },
+      {
+        "assembly": "GnOuGo.Agent.Server.Tests.dll",
+        "total": 1141,
+        "passed": 1121,
+        "skipped": 1,
+        "failed": 19
+      },
+      {
+        "assembly": "GnOuGo.Document.Mcp.Tests.dll",
+        "total": 73,
+        "passed": 73,
+        "skipped": 0,
+        "failed": 0
+      },
+      {
+        "assembly": "GnOuGo.KeyVault.Mcp.Tests.dll",
+        "total": 9,
+        "passed": 9,
+        "skipped": 0,
+        "failed": 0
+      },
+      {
+        "assembly": "GnOuGo.Files.Server.Tests.dll",
+        "total": 10,
+        "passed": 10,
+        "skipped": 0,
+        "failed": 0
+      },
+      {
+        "assembly": "GnOuGo.DocIngestor.Mcp.Tests.dll",
+        "total": 7,
+        "passed": 7,
+        "skipped": 0,
+        "failed": 0
+      },
+      {
+        "assembly": "GnOuGo.OtlpCollector.Server.Tests.dll",
+        "total": 7,
+        "passed": 7,
+        "skipped": 0,
+        "failed": 0
+      },
+      {
+        "assembly": "GnOuGo.GithubCopilot.Mcp.Tests.dll",
+        "total": 243,
+        "passed": 243,
+        "skipped": 0,
+        "failed": 0
+      },
+      {
+        "assembly": "GnOuGo.GithubCopilot.Core.Tests.dll",
+        "total": 173,
+        "passed": 173,
+        "skipped": 0,
+        "failed": 0
+      },
+      {
+        "assembly": "GnOuGo.GithubCopilot.E2E.Tests.dll",
+        "total": 12,
+        "passed": 7,
+        "skipped": 5,
+        "failed": 0
+      },
+      {
+        "assembly": "GnOuGo.Observability.Core.Tests.dll",
+        "total": 3,
+        "passed": 3,
+        "skipped": 0,
+        "failed": 0
+      },
+      {
+        "assembly": "GnOuGo.Git.Mcp.Tests.dll",
+        "total": 84,
+        "passed": 84,
+        "skipped": 0,
+        "failed": 0
+      },
+      {
+        "assembly": "GnOuGo.Workspace.Tests.dll",
+        "total": 30,
+        "passed": 30,
+        "skipped": 0,
+        "failed": 0
+      },
+      {
+        "assembly": "GnOuGo.Mcp.Core.Tests.dll",
+        "total": 49,
+        "passed": 49,
+        "skipped": 0,
+        "failed": 0
+      },
+      {
+        "assembly": "GnOuGo.Flow.Mermaid.Tests.dll",
+        "total": 12,
+        "passed": 12,
+        "skipped": 0,
+        "failed": 0
+      },
+      {
+        "assembly": "GnOuGo.Assets.Bears.Tests.dll",
+        "total": 91,
+        "passed": 91,
+        "skipped": 0,
+        "failed": 0
+      },
+      {
+        "assembly": "GnOuGo.Assets.Animation.Tests.dll",
+        "total": 42,
+        "passed": 42,
+        "skipped": 0,
+        "failed": 0
+      },
+      {
+        "assembly": "GnOuGo.Assets.Animation.Server.Tests.dll",
+        "total": 13,
+        "passed": 13,
+        "skipped": 0,
+        "failed": 0
+      },
+      {
+        "assembly": "GnOuGo.Assets.Bears.Server.Tests.dll",
+        "total": 28,
+        "passed": 28,
+        "skipped": 0,
+        "failed": 0
+      },
+      {
+        "assembly": "GnOuGo.Flow.Planning.Tests.dll",
+        "total": 1741,
+        "passed": 1741,
+        "skipped": 0,
+        "failed": 0
+      },
+      {
+        "assembly": "GnOuGo.ProxyCopilot.Server.Tests.dll",
+        "total": 177,
+        "passed": 177,
+        "skipped": 0,
+        "failed": 0
+      },
+      {
+        "assembly": "GnOuGo.Auth.Core.Tests.dll",
+        "total": 8,
+        "passed": 8,
+        "skipped": 0,
+        "failed": 0
+      },
+      {
+        "assembly": "GnOuGo.Flow.Persistence.Tests.dll",
+        "total": 24,
+        "passed": 24,
+        "skipped": 0,
+        "failed": 0
+      },
+      {
+        "assembly": "GnOuGo.Flow.Copilot.Tests.dll",
+        "total": 5,
+        "passed": 5,
+        "skipped": 0,
+        "failed": 0
+      }
+    ],
+    "totals": {
+      "total": 6234,
+      "passed": 6202,
+      "skipped": 13,
+      "failed": 19
+    },
+    "failures": [
+      {
+        "test": "GnOuGo.Agent.Server.Tests.CommitmentCorrectionHostTests.BackgroundCoverageCorrectionIsDurableTenantOwnedAndNeverExecutes(variant: \"coverage\")",
+        "xunit_line": 3664,
+        "terminal_line": 3711
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.CommitmentCorrectionHostTests.BackgroundCoverageCorrectionIsDurableTenantOwnedAndNeverExecutes(variant: \"initial\")",
+        "xunit_line": 3653,
+        "terminal_line": 3699
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.CommitmentCorrectionHostTests.BackgroundCoverageCorrectionIsDurableTenantOwnedAndNeverExecutes(variant: \"initial_followup\")",
+        "xunit_line": 3584,
+        "terminal_line": 3607
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.CommitmentCorrectionHostTests.BackgroundCoverageCorrectionIsDurableTenantOwnedAndNeverExecutes(variant: \"initial_followup_uncertain\")",
+        "xunit_line": 3595,
+        "terminal_line": 3619
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.CommitmentCorrectionHostTests.BackgroundCoverageCorrectionIsDurableTenantOwnedAndNeverExecutes(variant: \"initial_repeat\")",
+        "xunit_line": 3631,
+        "terminal_line": 3675
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.CommitmentCorrectionHostTests.BackgroundCoverageCorrectionIsDurableTenantOwnedAndNeverExecutes(variant: \"initial_uncertain\")",
+        "xunit_line": 3723,
+        "terminal_line": 3745
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.CommitmentCorrectionHostTests.BackgroundCoverageCorrectionIsDurableTenantOwnedAndNeverExecutes(variant: \"nullable\")",
+        "xunit_line": 3734,
+        "terminal_line": 3757
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.CommitmentCorrectionHostTests.BackgroundCoverageCorrectionIsDurableTenantOwnedAndNeverExecutes(variant: \"uncertain\")",
+        "xunit_line": 3642,
+        "terminal_line": 3687
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: \"compact\")",
+        "xunit_line": 3073,
+        "terminal_line": 3085
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: \"denied\")",
+        "xunit_line": 3337,
+        "terminal_line": 3349
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: \"empty\")",
+        "xunit_line": 3312,
+        "terminal_line": 3324
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: \"exact_rows\")",
+        "xunit_line": 3210,
+        "terminal_line": 3222
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: \"fabricated\")",
+        "xunit_line": 3124,
+        "terminal_line": 3136
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: \"incomplete\")",
+        "xunit_line": 3182,
+        "terminal_line": 3194
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: \"repeated\")",
+        "xunit_line": 3235,
+        "terminal_line": 3247
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: \"union_initial\")",
+        "xunit_line": 3150,
+        "terminal_line": 3164
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: \"unoffered\")",
+        "xunit_line": 3286,
+        "terminal_line": 3298
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: \"verbatim_rows\")",
+        "xunit_line": 3261,
+        "terminal_line": 3273
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions(variant: \"verbatim_unknown\")",
+        "xunit_line": 3098,
+        "terminal_line": 3110
+      }
+    ],
+    "source_timing": "Started at the production candidate. The host test assembly retained a stale v10 seed while asserting v15 and a stale correction-progress expectation of 6 while fresh sessions capture 8. Test-only adjustments landed while the full invocation continued; this is not a clean invocation rebuilt entirely from the final test commit.",
+    "skips": "Platform-specific or opt-in tests remain skipped as recorded by each assembly; no skipped test is counted as passing."
+  },
+  "test_only_adjustment": {
+    "commit": "2b20c8bd004d5a949041a33d16c2db82841ff7ef",
+    "production_source_unchanged": true,
+    "source_files": [
+      {
+        "path": "tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.BusinessTasks.cs",
+        "sha256": "5a52c52376bb01d70f8568506edac8b0efdca9ea3921154ffb5c100f49c336f7"
+      },
+      {
+        "path": "tests/GnOuGo.Flow.Planning.Tests/QueuedPlanningSessionCompatibilityTests.cs",
+        "sha256": "b3400f7c9f7635fee0d2539aa919d677a4d555324517bf2c22d1e4ad39244778"
+      }
+    ],
+    "patch_sha256": "2046c153323ac90d504134e9e1342e91cf5af604700b7e0718b371917fc03c08",
+    "business_composition_variants": [
+      "compact",
+      "producer_revision",
+      "repeated",
+      "empty",
+      "unoffered",
+      "incomplete",
+      "denied",
+      "fabricated",
+      "exact_rows",
+      "verbatim_rows",
+      "verbatim_unknown",
+      "union_revision",
+      "union_missing_description",
+      "union_compact",
+      "union_compact_missing_description",
+      "union_compact_repeated",
+      "union_compact_unoffered",
+      "union_initial",
+      "union_features"
+    ]
+  },
+  "additional_test_only_adjustment": {
+    "production_commit": "25dc994d45925054859cdb0874428dceb432b62f",
+    "test_adjustment_commit": "bbd1061a3f7914ddece5720359d75e66107ad99e",
+    "source_file": "tests/GnOuGo.Agent.Server.Tests/CommitmentCorrectionHostTests.cs",
+    "sha256": "30fe100aadb53d691c4e8b8c18c70ac8fff11c885aa909428fe6c2051f0b8d53",
+    "prior_sha256": "217f17208e336c794010719683c323db2cb1f7c6f45c223868cd2d73eb5ddf7c",
+    "approved_change": "Fresh correction progress expectation 6 to 8; execution and recovery assertions unchanged.",
+    "variants": [
+      "coverage",
+      "uncertain",
+      "initial",
+      "initial_repeat",
+      "initial_uncertain",
+      "nullable",
+      "initial_followup",
+      "initial_followup_uncertain"
+    ],
+    "manifest_sha256": "612d6d383b39748494a4deac0bd8d4f08860e370d424850eff0c6fa7a924be73",
+    "production_source_unchanged": true
+  },
+  "targeted_reruns": {
+    "kind": "Three separate passing targeted invocations after their respective test-only adjustments",
+    "steps": [
+      {
+        "step": "queued_compatibility_adjusted",
+        "arguments": [
+          "dotnet",
+          "test",
+          "tests/GnOuGo.Flow.Planning.Tests",
+          "-m:1",
+          "-warnaserror",
+          "-p:SkipModelMetadataGeneration=true",
+          "-p:SkipPlaywrightBrowserInstall=true",
+          "--filter",
+          "FullyQualifiedName~QueuedPlanningSessionCompatibilityTests"
+        ],
+        "cwd": "/private/tmp/gnougo-pr119-diagnostics-release-6gl9esrk/candidate",
+        "exit_code": 0,
+        "elapsed_ms": 13350,
+        "log": "/private/tmp/gnougo-pr119-diagnostics-release-6gl9esrk/queued_compatibility_adjusted.log",
+        "log_sha256": "3254bc8532d4b7e968308bd1c801a64bfab9460795228c1d59eb38ca6e91e036",
+        "log_bytes": 1189,
+        "counts": {
+          "failed": 0,
+          "passed": 4,
+          "skipped": 0,
+          "total": 4
+        },
+        "case_identity_evidence": "Exact method/class filter plus committed fixture source; minimal logger reports aggregate counts."
+      },
+      {
+        "step": "business_composition_adjusted",
+        "arguments": [
+          "dotnet",
+          "test",
+          "tests/GnOuGo.Agent.Server.Tests",
+          "-m:1",
+          "-warnaserror",
+          "-p:SkipClientBuild=true",
+          "-p:SkipModelMetadataGeneration=true",
+          "-p:SkipPlaywrightBrowserInstall=true",
+          "--filter",
+          "FullyQualifiedName~BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions"
+        ],
+        "cwd": "/private/tmp/gnougo-pr119-diagnostics-release-6gl9esrk/candidate",
+        "exit_code": 0,
+        "elapsed_ms": 439772,
+        "log": "/private/tmp/gnougo-pr119-diagnostics-release-6gl9esrk/business_composition_adjusted.log",
+        "log_sha256": "65c13d7d49a11a4c3ff4ea3454ed399ea9759baa3b6ff22a3f9a703d2c5477f4",
+        "log_bytes": 6850,
+        "counts": {
+          "failed": 0,
+          "passed": 19,
+          "skipped": 0,
+          "total": 19
+        },
+        "case_identity_evidence": "Exact method/class filter plus committed fixture source; minimal logger reports aggregate counts."
+      },
+      {
+        "step": "commitment_host_adjusted",
+        "arguments": [
+          "dotnet",
+          "test",
+          "tests/GnOuGo.Agent.Server.Tests",
+          "-m:1",
+          "-warnaserror",
+          "-p:SkipClientBuild=true",
+          "-p:SkipModelMetadataGeneration=true",
+          "-p:SkipPlaywrightBrowserInstall=true",
+          "--filter",
+          "FullyQualifiedName~CommitmentCorrectionHostTests"
+        ],
+        "cwd": "/private/tmp/gnougo-pr119-diagnostics-release-6gl9esrk/candidate",
+        "exit_code": 0,
+        "elapsed_ms": 12552,
+        "log": "/private/tmp/gnougo-pr119-diagnostics-release-6gl9esrk/commitment_host_adjusted.log",
+        "log_sha256": "6fa87a571ed838d1bf5a7d1c4e110bf754e8f1261658c94528c5d0032ca55c5c",
+        "source_manifest": "/private/tmp/gnougo-pr119-diagnostics-release-6gl9esrk/commitment-host-adjustment.json",
+        "source_manifest_sha256": "612d6d383b39748494a4deac0bd8d4f08860e370d424850eff0c6fa7a924be73",
+        "log_bytes": 5527,
+        "counts": {
+          "failed": 0,
+          "passed": 8,
+          "skipped": 0,
+          "total": 8
+        },
+        "result_manifest_sha256": "4f39f98f41e5ff69add0af747e3d2e8c7e10f04985a0b6682b935e7f943a5b8e",
+        "case_identity_evidence": "Exact class filter plus committed eight-case theory source; minimal logger reports aggregate counts."
+      }
+    ],
+    "total_test_executions": 31,
+    "results_manifest_sha256": "c74f89b388036f9d2ba6586e187a670539ab7794937a827a9f4cc0702ad6bf7f",
+    "summary_manifest_sha256": "9d8df9c1c92dcb79e13da32f5a87171000345cb9745a1cf07be98baf0bb21adb",
+    "frozen_benchmark_files_previously_verified_unchanged": 436
+  },
+  "coverage_after_targeted_reruns": {
+    "kind": "Evidence synthesis, not a test invocation",
+    "full_solution_invocation_passed": false,
+    "clean_full_solution_rerun_after_test_only_adjustment": false,
+    "assemblies_with_completed_original_summaries": 33,
+    "original_failed_cases": 19,
+    "original_failed_cases_covered_by_passing_targeted_rerun": 19,
+    "unresolved_original_failed_cases": 0,
+    "separate_targeted_test_executions": 31,
+    "note": "The 19-case BusinessComposition family covers eleven recorded failures; the eight-case CommitmentCorrectionHost family covers the other eight. Four compatibility cases independently preserve captured historical profiles. Targeted executions overlap the full suite and are not added to its total; a clean full invocation remains unestablished."
+  },
+  "frontend": {
+    "command": "pnpm run build",
+    "cwd": "src/GnOuGo.Agent.Server/ClientApp",
+    "exit_code": 0,
+    "exit_code_source": "Observed process result supplied explicitly by the operator",
+    "log": "/tmp/gnougo-pr119-frontend.log",
+    "log_sha256": "87de71f04390839d1f18a076c46b20fa3891783a0a377ed1c879a466915da46d",
+    "log_bytes": 8897,
+    "interaction_checks": "PlanningInputReadinessUiTests and existing review/acknowledgment bUnit tests are included in the original full-suite assembly. Assertions cover escaped content, unchecked acknowledgments and review invalidation; native details retain keyboard interaction."
+  },
+  "release_validation": "release-validation.json",
+  "fixture_comparison": "summary.json",
+  "prior_attempts": "validation-attempts.json",
+  "reference_hashes": {
+    "release-validation.json": {
+      "path": "release-validation.json",
+      "sha256": "b4c64bcd1e4e503d08dca8cad7130616a688886fc2037dc683218ea6f8796801"
+    },
+    "summary.json": {
+      "path": "summary.json",
+      "sha256": "49b3f4c021bf756edb8b9aed1aa9977ccd76abb26f76e0ec2ea2acd50f007433"
+    },
+    "validation-attempts.json": {
+      "path": "validation-attempts.json",
+      "sha256": "6b3d54bfbe5373da9f3e17adcbcdf1de8214d05869c6e5f46279dfee5ab7ebc8"
+    },
+    "test-side-effect.json": {
+      "path": "test-side-effect.json",
+      "sha256": "3efed79c614ebd72209e8a00a05f645686b7419248d9627ec31192d29276e4c2"
+    },
+    "frontend-assets.json": {
+      "path": "frontend-assets.json",
+      "sha256": "99f36e2ad613f73e1e0586c00788baa3680adf363b12334edb222c602ceca1d8"
+    },
+    "benchmark-binary-hashes.json": {
+      "path": "benchmark-binary-hashes.json",
+      "sha256": "eddd261b46c56a9f05f17ff6c803cb4ca52ee6857a5541bc678bfbc44e93c7f2"
+    }
+  },
+  "limitations": [
+    "The full solution invocation returned a nonzero exit with nineteen failures; passing targeted reruns do not turn it into a clean full invocation. No clean full rerun after the test-only adjustments is established by this evidence.",
+    "The full invocation continued while a test-only adjustment landed. Production sources remain frozen; not every assembly is claimed to have been rebuilt from one final test commit.",
+    "Targeted reruns used the minimal logger, so case coverage is supported by the exact filter, committed theory cases and aggregate passing counts, rather than individual passing-case log lines.",
+    "No paid live evaluation; model quality, actual usage, cost improvement and the general 25% first-proposal improvement gate remain unproven. The same-candidate fixture comparison uses a scripted Judge with no findings; unknown usage/cost remain null.",
+    "A provisional workbook fixture wrote to the default workspace before explicit temporary-root confinement. Prior contents are unknown; the existing workbook was preserved. See test-side-effect.json.",
+    "Two failed provisional host logs were overwritten. Their counts and causes are retained from tool output; raw logs are unavailable and were not reconstructed."
+  ]
+}

@@ -1,0 +1,568 @@
+{
+  "kind": "Offline checks; separate attempts, not cumulative passing totals",
+  "attempts": [
+    {
+      "log": "gnougo-pr119-diagnostics-red.log",
+      "raw_log_available_locally": true,
+      "sha256": "a1f663b60bfa2a203b6b13f831f536ccbc47b5c228456c7470e5687e451e1618",
+      "note": "Pre-fix: five expected behavior failures and one initial historical fixture revision expectation, subsequently corrected.",
+      "failed": 6,
+      "passed": 3,
+      "skipped": 0,
+      "total": 9
+    },
+    {
+      "log": "gnougo-pr119-diagnostics-green.log",
+      "raw_log_available_locally": true,
+      "sha256": "39fb21b96e63a8bad225b97c72feea4924e9fd57c3ead52dadc3ddba7c2bfe96",
+      "note": "Intermediate: one fixture outcome label mismatch and one genuine combined-scope omission; both corrected.",
+      "failed": 2,
+      "passed": 7,
+      "skipped": 0,
+      "total": 9
+    },
+    {
+      "log": "gnougo-typed-repair-red.log",
+      "raw_log_available_locally": true,
+      "sha256": "ae88cbc0f6970080976fe746b1ce3aabc21e12b18e16a6cdc7ffef10d499ef8f",
+      "note": "Pre-fix typed schema regressions.",
+      "failed": 9,
+      "passed": 10,
+      "skipped": 0,
+      "total": 19
+    },
+    {
+      "log": "gnougo-typed-repair-hash-red.log",
+      "raw_log_available_locally": true,
+      "sha256": "2eeecb763645490afb7546a5d0e8ea859c14a75bc9b9442cbcf8695614ff9789",
+      "note": "Historical schema hash calibration; not a product defect.",
+      "failed": 1,
+      "passed": 0,
+      "skipped": 0,
+      "total": 1
+    },
+    {
+      "log": "gnougo-typed-repair-green.log",
+      "raw_log_available_locally": true,
+      "sha256": "1c56e7293b927e97eceb90a712f1148fe34e625e2098c3d325bfb46b2949f5c7",
+      "note": "New typed regressions passed; two old fresh-version expectations needed updating.",
+      "failed": 2,
+      "passed": 76,
+      "skipped": 0,
+      "total": 78
+    },
+    {
+      "log": "gnougo-judge-references-red.log",
+      "raw_log_available_locally": true,
+      "sha256": "075fc876d37fcb550aa28f233b59d748c321af7e69f7db4b6b717b162785ada9",
+      "note": "Pre-fix invalid-reference and recovery regressions.",
+      "failed": 10,
+      "passed": 0,
+      "skipped": 0,
+      "total": 10
+    },
+    {
+      "log": "gnougo-judge-references-green.log",
+      "raw_log_available_locally": true,
+      "sha256": "6363095f3f25af684b05178f3db765533b5ac89ec77f392573b946cd84e01a65",
+      "note": "Reference regressions passed; two fresh-version expectations subsequently updated.",
+      "failed": 2,
+      "passed": 35,
+      "skipped": 0,
+      "total": 37
+    },
+    {
+      "log": "gnougo-input-readiness-red.log",
+      "raw_log_available_locally": true,
+      "sha256": "df3d456c621566f031ca9890f21417576f21621a5e88523c7ca3aa55f31eb5c5",
+      "note": "Pre-fix input-readiness regressions.",
+      "failed": 5,
+      "passed": 9,
+      "skipped": 0,
+      "total": 14
+    },
+    {
+      "log": "gnougo-input-readiness-ui-red.log",
+      "raw_log_available_locally": true,
+      "sha256": "36c335da2bc1d0bfb19e38bba661899e935e1e55bcfe547336caaabcaaa0042b",
+      "note": "Pre-fix missing accessible review section.",
+      "failed": 1,
+      "passed": 0,
+      "skipped": 0,
+      "total": 1
+    },
+    {
+      "log": "gnougo-input-readiness-green.log",
+      "raw_log_available_locally": true,
+      "sha256": "d7e28800f1b1cb963ae83bf5098d580e3434f9b084434110d5d445fea517ce25",
+      "note": "Passing input-readiness and related regressions.",
+      "failed": 0,
+      "passed": 34,
+      "skipped": 0,
+      "total": 34
+    },
+    {
+      "log": "gnougo-input-readiness-host-green.log",
+      "raw_log_available_locally": true,
+      "sha256": "0d46c256915f1a9b653e33ee0375f336dceb00e7c184e6ea23a70f669d26b0eb",
+      "note": "Final host fixture check only; two preceding failed host logs were overwritten.",
+      "failed": 0,
+      "passed": 23,
+      "skipped": 0,
+      "total": 23
+    },
+    {
+      "log": "gnougo-pr119-planning-tests.log",
+      "raw_log_available_locally": true,
+      "sha256": "f1687aa3bb3e402182f3b6f185a6919c5e9912e99aa6008ab522603eeedbcd7f",
+      "note": "Initial whole component run: incomplete YAML catalog, issued request helper hardcoded version 10, and historical fixture incorrectly modeled as fresh; all subsequently fixed.",
+      "failed": 3,
+      "passed": 1734,
+      "skipped": 0,
+      "total": 1737
+    },
+    {
+      "log": "gnougo-pr119-focused-final.log",
+      "raw_log_available_locally": true,
+      "sha256": "a66cc7c422db9bba4b85ea8e2d4b15663074369736f05bf93ab49a4e2a5dc2c0",
+      "note": "Passing focused integration check after the three component failures were fixed; predates final creation-boundary follow-up.",
+      "failed": 0,
+      "passed": 194,
+      "skipped": 0,
+      "total": 194
+    },
+    {
+      "id": "host-fixture-provisional-1",
+      "raw_log_available_locally": false,
+      "failed": 4,
+      "passed": 19,
+      "skipped": 0,
+      "total": 23,
+      "note": "Fixture errors: missing conditional objective (three variants) and nullable declaration mismatch (assertion variant). Counts retained from tool output."
+    },
+    {
+      "id": "host-fixture-provisional-2",
+      "raw_log_available_locally": false,
+      "failed": 2,
+      "passed": 21,
+      "skipped": 0,
+      "total": 23,
+      "note": "Continue/empty fixtures wrote to the default document workspace instead of their intended temporary path. See test-side-effect.json. Counts retained from tool output."
+    },
+    {
+      "id": "solution-superseded",
+      "log": "gnougo-pr119-solution-superseded.log",
+      "raw_log_available_locally": true,
+      "sha256": "6ee1cc217da72196042fdb0433671555f4ac9b5c14753a2e57637bf0328c9da9",
+      "exit_code": 1,
+      "outcome": "incomplete_cancelled_by_agent",
+      "completed_assemblies": [
+        {
+          "assembly": "GnOuGo.DocIngestor.Tests.dll",
+          "failed": 0,
+          "passed": 89,
+          "skipped": 0,
+          "total": 89
+        },
+        {
+          "assembly": "GnOuGo.Diff.Tests.dll",
+          "failed": 0,
+          "passed": 52,
+          "skipped": 0,
+          "total": 52
+        },
+        {
+          "assembly": "GnOuGo.KeyVault.Core.Tests.dll",
+          "failed": 0,
+          "passed": 12,
+          "skipped": 0,
+          "total": 12
+        },
+        {
+          "assembly": "GnOuGo.Flow.Tests.dll",
+          "failed": 0,
+          "passed": 1410,
+          "skipped": 0,
+          "total": 1410
+        },
+        {
+          "assembly": "GnOuGo.Flow.Integrations.Tests.dll",
+          "failed": 0,
+          "passed": 101,
+          "skipped": 0,
+          "total": 101
+        },
+        {
+          "assembly": "GnOuGo.AI.Core.Tests.dll",
+          "failed": 0,
+          "passed": 226,
+          "skipped": 0,
+          "total": 226
+        },
+        {
+          "assembly": "GnOuGo.AI.Local.Tests.dll",
+          "failed": 0,
+          "passed": 14,
+          "skipped": 0,
+          "total": 14
+        },
+        {
+          "assembly": "GnOuGo.Agent.Mcp.Tests.dll",
+          "failed": 0,
+          "passed": 103,
+          "skipped": 0,
+          "total": 103
+        },
+        {
+          "assembly": "GnOuGo.Cmd.Mcp.Tests.dll",
+          "failed": 0,
+          "passed": 93,
+          "skipped": 7,
+          "total": 100
+        },
+        {
+          "assembly": "GnOuGo.Browser.Mcp.Tests.dll",
+          "failed": 0,
+          "passed": 142,
+          "skipped": 0,
+          "total": 142
+        }
+      ],
+      "note": "Stopped with SIGINT during Agent.Server product tests after final review found queued revision-zero compatibility defect. Binaries also predated final input-readiness wording. Not a passing full-suite result."
+    },
+    {
+      "log": "gnougo-queued-session-red.log",
+      "raw_log_available_locally": true,
+      "sha256": "ec0cd169c7a593cf8831f0ad3573e0597e9c02628751d916c99ef01d02d055eb",
+      "failed": 3,
+      "passed": 1,
+      "skipped": 0,
+      "total": 4,
+      "note": "Pre-fix queued revision-zero and existing-profile regressions."
+    },
+    {
+      "log": "gnougo-queued-definition-red.log",
+      "raw_log_available_locally": true,
+      "sha256": "cdeab2165cd4a39e42ac7153f9d4d6eff37ce242fbedfb6028b857c573251602",
+      "failed": 1,
+      "passed": 1,
+      "skipped": 0,
+      "total": 2,
+      "note": "Pre-fix definition-only partial Flow creation resumes with historical semantics."
+    },
+    {
+      "log": "gnougo-queued-session-planning-green.log",
+      "raw_log_available_locally": true,
+      "sha256": "5352c4f8d9c2857469a8f889258d364d293dfb2c93c7a9b937770ea8fc8b0db1",
+      "failed": 0,
+      "passed": 48,
+      "skipped": 0,
+      "total": 48,
+      "note": "Passing targeted queued/Judge/combined regression set before final definition-only gate."
+    },
+    {
+      "log": "gnougo-queued-session-integrations-green.log",
+      "raw_log_available_locally": true,
+      "sha256": "fdcb4f9fa171880b8534bcf9a26b8f1cac6ba7b8546274eafb018e3843ac1ec6",
+      "failed": 0,
+      "passed": 14,
+      "skipped": 0,
+      "total": 14,
+      "note": "Affected persistence/lifecycle component validation after queued-session creation fix."
+    },
+    {
+      "log": "gnougo-queued-session-server-green.log",
+      "raw_log_available_locally": true,
+      "sha256": "2d716e8a6755c708a231bd710ddce186437481c6ed9d299365c2304e01b8ece9",
+      "failed": 0,
+      "passed": 16,
+      "skipped": 0,
+      "total": 16,
+      "note": "Affected persistence/lifecycle component validation after queued-session creation fix."
+    },
+    {
+      "log": "gnougo-pr119-planning-creation-final.log",
+      "raw_log_available_locally": true,
+      "sha256": "cf75d02addc5495406e9c9f1315727343f577ae1db25fdf0e250ae496aa20802",
+      "failed": 0,
+      "passed": 1741,
+      "skipped": 0,
+      "total": 1741,
+      "note": "Complete affected Planning component on final queued-session implementation; no live calls."
+    },
+    {
+      "log": "queued_compatibility_adjusted.log",
+      "raw_log_available_locally": true,
+      "sha256": "3254bc8532d4b7e968308bd1c801a64bfab9460795228c1d59eb38ca6e91e036",
+      "failed": 0,
+      "passed": 4,
+      "skipped": 0,
+      "total": 4,
+      "note": "Passing isolated rerun after test-only adjustment 2b20c8b; production source remains 25dc994. Exact commands and source hashes retained separately."
+    },
+    {
+      "log": "business_composition_adjusted.log",
+      "raw_log_available_locally": true,
+      "sha256": "65c13d7d49a11a4c3ff4ea3454ed399ea9759baa3b6ff22a3f9a703d2c5477f4",
+      "failed": 0,
+      "passed": 19,
+      "skipped": 0,
+      "total": 19,
+      "note": "Passing isolated rerun after test-only adjustment 2b20c8b; production source remains 25dc994. Exact commands and source hashes retained separately."
+    },
+    {
+      "log": "commitment_host_adjusted.log",
+      "raw_log_available_locally": true,
+      "sha256": "6fa87a571ed838d1bf5a7d1c4e110bf754e8f1261658c94528c5d0032ca55c5c",
+      "failed": 0,
+      "passed": 8,
+      "skipped": 0,
+      "total": 8,
+      "note": "Full host correction family passed after fresh version expectation changed from 6 to 8 in bbd1061; all durability, tenant, effects and recovery assertions retained."
+    },
+    {
+      "log": "gnougo-pr119-solution-final.log",
+      "raw_log_available_locally": true,
+      "sha256": "06e127ec7cb77874b3da445890a33bd988d825d01fdb1d8713fc873d5bc4454e",
+      "exit_code": 1,
+      "total": 6234,
+      "passed": 6202,
+      "skipped": 13,
+      "failed": 19,
+      "assemblies": [
+        {
+          "assembly": "GnOuGo.DocIngestor.Tests.dll",
+          "total": 89,
+          "passed": 89,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "assembly": "GnOuGo.Diff.Tests.dll",
+          "total": 52,
+          "passed": 52,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "assembly": "GnOuGo.KeyVault.Core.Tests.dll",
+          "total": 12,
+          "passed": 12,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "assembly": "GnOuGo.Flow.Tests.dll",
+          "total": 1410,
+          "passed": 1410,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "assembly": "GnOuGo.Flow.Integrations.Tests.dll",
+          "total": 104,
+          "passed": 104,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "assembly": "GnOuGo.AI.Core.Tests.dll",
+          "total": 226,
+          "passed": 226,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "assembly": "GnOuGo.AI.Local.Tests.dll",
+          "total": 14,
+          "passed": 14,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "assembly": "GnOuGo.Agent.Mcp.Tests.dll",
+          "total": 103,
+          "passed": 103,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "assembly": "GnOuGo.Cmd.Mcp.Tests.dll",
+          "total": 100,
+          "passed": 93,
+          "skipped": 7,
+          "failed": 0
+        },
+        {
+          "assembly": "GnOuGo.Browser.Mcp.Tests.dll",
+          "total": 142,
+          "passed": 142,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "assembly": "GnOuGo.Agent.Server.Tests.dll",
+          "total": 1141,
+          "passed": 1121,
+          "skipped": 1,
+          "failed": 19
+        },
+        {
+          "assembly": "GnOuGo.Document.Mcp.Tests.dll",
+          "total": 73,
+          "passed": 73,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "assembly": "GnOuGo.KeyVault.Mcp.Tests.dll",
+          "total": 9,
+          "passed": 9,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "assembly": "GnOuGo.Files.Server.Tests.dll",
+          "total": 10,
+          "passed": 10,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "assembly": "GnOuGo.DocIngestor.Mcp.Tests.dll",
+          "total": 7,
+          "passed": 7,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "assembly": "GnOuGo.OtlpCollector.Server.Tests.dll",
+          "total": 7,
+          "passed": 7,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "assembly": "GnOuGo.GithubCopilot.Mcp.Tests.dll",
+          "total": 243,
+          "passed": 243,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "assembly": "GnOuGo.GithubCopilot.Core.Tests.dll",
+          "total": 173,
+          "passed": 173,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "assembly": "GnOuGo.GithubCopilot.E2E.Tests.dll",
+          "total": 12,
+          "passed": 7,
+          "skipped": 5,
+          "failed": 0
+        },
+        {
+          "assembly": "GnOuGo.Observability.Core.Tests.dll",
+          "total": 3,
+          "passed": 3,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "assembly": "GnOuGo.Git.Mcp.Tests.dll",
+          "total": 84,
+          "passed": 84,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "assembly": "GnOuGo.Workspace.Tests.dll",
+          "total": 30,
+          "passed": 30,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "assembly": "GnOuGo.Mcp.Core.Tests.dll",
+          "total": 49,
+          "passed": 49,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "assembly": "GnOuGo.Flow.Mermaid.Tests.dll",
+          "total": 12,
+          "passed": 12,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "assembly": "GnOuGo.Assets.Bears.Tests.dll",
+          "total": 91,
+          "passed": 91,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "assembly": "GnOuGo.Assets.Animation.Tests.dll",
+          "total": 42,
+          "passed": 42,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "assembly": "GnOuGo.Assets.Animation.Server.Tests.dll",
+          "total": 13,
+          "passed": 13,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "assembly": "GnOuGo.Assets.Bears.Server.Tests.dll",
+          "total": 28,
+          "passed": 28,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "assembly": "GnOuGo.Flow.Planning.Tests.dll",
+          "total": 1741,
+          "passed": 1741,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "assembly": "GnOuGo.ProxyCopilot.Server.Tests.dll",
+          "total": 177,
+          "passed": 177,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "assembly": "GnOuGo.Auth.Core.Tests.dll",
+          "total": 8,
+          "passed": 8,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "assembly": "GnOuGo.Flow.Persistence.Tests.dll",
+          "total": 24,
+          "passed": 24,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "assembly": "GnOuGo.Flow.Copilot.Tests.dll",
+          "total": 5,
+          "passed": 5,
+          "skipped": 0,
+          "failed": 0
+        }
+      ],
+      "note": "Complete serial solution invocation. Nineteen failures were stale fresh-fixture compiler/profile-version assertions in two host families. Corrected families passed separately (19+8 cases), plus four captured-profile compatibility checks. This invocation remains failed; reruns are not relabeled as a clean full invocation."
+    }
+  ]
+}

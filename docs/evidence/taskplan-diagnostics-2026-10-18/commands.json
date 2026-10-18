@@ -1,0 +1,31 @@
+{
+  "candidate_commit": "25dc994d45925054859cdb0874428dceb432b62f",
+  "invocation": "dotnet <frozen_binary_directory>/GnOuGo.Agent.Planning.Benchmark.dll <arguments>",
+  "runs": [
+    {
+      "arm": "control",
+      "arguments": [
+        "--repetitions",
+        "3"
+      ],
+      "exit_code": 0,
+      "output": "control.jsonl",
+      "output_sha256": "9dd0a3f47ee3228ce1ba3da2f64a3e0c8f1720aa4e17178eda44e603ff853ffe",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "arm": "judge",
+      "arguments": [
+        "--repetitions",
+        "3",
+        "--business-judge",
+        "--arm",
+        "judge"
+      ],
+      "exit_code": 0,
+      "output": "judge.jsonl",
+      "output_sha256": "ba0ec509722b30149c6133aa638e71a2538d18e1ebd493819ed8a950df93b694",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ]
+}

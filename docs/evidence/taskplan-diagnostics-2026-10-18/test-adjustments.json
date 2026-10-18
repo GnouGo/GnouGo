@@ -1,0 +1,16 @@
+{
+  "candidate_commit": "25dc994d45925054859cdb0874428dceb432b62f",
+  "production_source_unchanged": true,
+  "source_files": [
+    {
+      "path": "tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.BusinessTasks.cs",
+      "sha256": "5a52c52376bb01d70f8568506edac8b0efdca9ea3921154ffb5c100f49c336f7"
+    },
+    {
+      "path": "tests/GnOuGo.Flow.Planning.Tests/QueuedPlanningSessionCompatibilityTests.cs",
+      "sha256": "b3400f7c9f7635fee0d2539aa919d677a4d555324517bf2c22d1e4ad39244778"
+    }
+  ],
+  "patch_sha256": "2046c153323ac90d504134e9e1342e91cf5af604700b7e0718b371917fc03c08",
+  "test_only_commit": "2b20c8bd004d5a949041a33d16c2db82841ff7ef"
+}

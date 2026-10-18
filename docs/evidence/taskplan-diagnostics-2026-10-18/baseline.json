@@ -1,0 +1,42 @@
+{
+  "commit": "d367dfd00cb763cb3fb24af93d78a28a9ebbc411",
+  "source": "immutable Git objects read during implementation; not a pre-change live cohort",
+  "files": [
+    {
+      "path": "src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.cs",
+      "sha256": "a7309820578c58e0895b406757ec459a6b5a5a3e3ad2037cd05677df85a5c8c4"
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningBusinessJudge.cs",
+      "sha256": "58bf91fed51d45daa223303ec704c140277fefc38c8fd000beb39e6ed0edb711"
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningInputReadiness.cs",
+      "sha256": "fce1c10a250e2fada09de65bb71b33db55692437284ef48526e77367abae3c42"
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningRepairPatch.cs",
+      "sha256": "def322caf756b228f12b23ad298681a220329d7724f23558bc76236f1420ad62"
+    },
+    {
+      "path": "tests/Shared/PlanningBenchmarkMeasurements.cs",
+      "sha256": "da9128f25ae80b3a1b039b3caaae732e32a396e09e97f245360e9b97e6e63b16"
+    },
+    {
+      "path": "tests/Shared/PlanningBenchmarkCases.cs",
+      "sha256": "a25de6fc75d94a06c5dc8fce96d04eb09ba4132caec76f35e7f644912433f998"
+    },
+    {
+      "path": "src/GnOuGo.Flow.Core/Planning/PlanningContracts.cs",
+      "sha256": "d0ce69422790eb9ad9b8a74a814bce23393cb045c517c37ad0a1fb4548682fdf"
+    },
+    {
+      "path": "src/GnOuGo.Flow.Integrations/Planning/WorkflowPlanningRuntimeFactory.cs",
+      "sha256": "d3ba1d4f8d2c4377dfa7348a683fb53444cfa48b642e45587f1ede966398a91c"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/Planning/PlanningSessionService.cs",
+      "sha256": "5fa17fa916d83c0e8e1cad9e4b5d126f86fa93f76d44412975e4e076536da617"
+    }
+  ]
+}

@@ -1,0 +1,78 @@
+{
+  "kind": "scripted fixture comparison; no provider dispatch",
+  "candidate_commit": "25dc994d45925054859cdb0874428dceb432b62f",
+  "arms": {
+    "control": {
+      "runs": 24,
+      "first_proposal_structurally_valid": 24,
+      "first_proposal_business_correct": 24,
+      "final_review": 24,
+      "execution_oracle_success": 24,
+      "safety_violations": 0,
+      "median_logical_calls": 1.0,
+      "repairs": 0,
+      "median_input_tokens": null,
+      "median_output_tokens": null,
+      "median_cost_eur": null,
+      "median_fixture_elapsed_ms": 149.0,
+      "business_review": {
+        "candidates": 24,
+        "true_positives": 0,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "true_negatives": 0,
+        "unknown_candidates": 0,
+        "unjudged_candidates": 24
+      },
+      "converged": 24,
+      "introduced_regressions": 0,
+      "settings": [
+        {
+          "business_judge": false,
+          "calls": 12,
+          "input_tokens": 32000,
+          "output_tokens": 32768,
+          "reasoning": "medium",
+          "repairs": 4
+        }
+      ]
+    },
+    "judge": {
+      "runs": 24,
+      "first_proposal_structurally_valid": 24,
+      "first_proposal_business_correct": 24,
+      "final_review": 24,
+      "execution_oracle_success": 24,
+      "safety_violations": 0,
+      "median_logical_calls": 2.0,
+      "repairs": 0,
+      "median_input_tokens": null,
+      "median_output_tokens": null,
+      "median_cost_eur": null,
+      "median_fixture_elapsed_ms": 164.0,
+      "business_review": {
+        "candidates": 24,
+        "true_positives": 0,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "true_negatives": 24,
+        "unknown_candidates": 0,
+        "unjudged_candidates": 0
+      },
+      "converged": 24,
+      "introduced_regressions": 0,
+      "settings": [
+        {
+          "business_judge": true,
+          "calls": 12,
+          "input_tokens": 32000,
+          "output_tokens": 32768,
+          "reasoning": "medium",
+          "repairs": 4
+        }
+      ]
+    }
+  },
+  "live_gate": "inconclusive; no live provider, real usage, real Judge behavior or new live outcome",
+  "limits": "Scripted Judge has no findings. Fixture precision/recall and latency do not establish real-model quality, convergence or cost improvement. Unknown totals remain null. Defaults unchanged in this follow-up."
+}
