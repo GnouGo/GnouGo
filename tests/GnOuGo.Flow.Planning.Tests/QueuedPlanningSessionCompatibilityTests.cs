@@ -45,9 +45,11 @@ public sealed class QueuedPlanningSessionCompatibilityTests
     public async Task AlreadyCapturedProfilesRemainStableOnAnUnserializedSession()
     {
         var state = PlannerFixture.Session();
+        state.Request.Options["compilation_profile"] = "compact-bindings-v10";
         state.Request.Options["planning_input_review_version"] = 1;
         state.Request.Options["business_judge_review_version"] = 1;
         state = await PlannerFixture.RunAsync(new TestRuntime(), state);
+        Assert.Equal("compact-bindings-v10", state.Request.Options["compilation_profile"]!.ToString());
         Assert.Equal("1", state.Request.Options["planning_input_review_version"]!.ToString());
         Assert.Equal("1", state.Request.Options["business_judge_review_version"]!.ToString());
     }
