@@ -1,0 +1,28 @@
+{
+  "run": "judge20261018a-code-1",
+  "revision": 5,
+  "status": "stopped",
+  "artifact_hash": null,
+  "execution_started": false,
+  "judge_outcome": "not_evaluated",
+  "review_kind": "independent source-grounded binding/contract review; not execution oracle",
+  "findings": [
+    {
+      "code": "REQUIREMENTS_OUTPUTS_CHANGED",
+      "location": "/outputs/reviewJson",
+      "assessment": "The public result declares a nonnullable string while the original binding exports nullable command stdout. Optional requiredness does not allow null."
+    },
+    {
+      "code": "REQUIREMENT_RESULT_DISCONNECTED",
+      "location": "/root/outputs/reviewJsonPath",
+      "assessment": "Accepted commitment assigns the clone projectRootRelative directory result to the reviewJsonPath report-file result. The authored literal report path does not retain that committed producer lineage. A local binding patch cannot authorize changing accepted business obligations."
+    },
+    {
+      "code": "TASK_ARITHMETIC_INVALID",
+      "location": "/root/outputs/reviewJsonPath",
+      "assessment": "The second patch attempts numeric add on a directory string and /../review.json. Validation rejected it atomically; the retained plan still contains its prior literal binding."
+    }
+  ],
+  "candidate_limits": "No independent execution oracle ran. Business correctness and convergence are unknown; no Judge gain or safety-execution result is claimed.",
+  "follow_up": "Consider aggregating independent output-interface and coverage findings after successful graph compilation. Any change must preserve historical issued correction scope and must not weaken provenance or rewrite accepted commitments automatically."
+}

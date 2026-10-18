@@ -1,0 +1,40 @@
+{
+  "recorded_utc": "2026-10-18T16:54:30.006687+00:00",
+  "source_before_harness_opt_in": "833518a7d17c4b90da0affa171482f3e27c235a9",
+  "campaign": "schema-portability-20261002",
+  "authorization": "va y go pour un live test amazon puis code.",
+  "judge_authorization": "Enable the Judge for this new run (Recommended)",
+  "cost_ceiling_eur": 200,
+  "retained_cost_upper_bound_eur": 157.46307656260717,
+  "historical_unknown_attempts": 15,
+  "unknown_reservations_preserved": true,
+  "scenarios": [
+    "amazon",
+    "code"
+  ],
+  "amazon_query": "chaussure geox homme 45",
+  "max_products": 10,
+  "provider": "OpenAi",
+  "model": "gpt-5.5-2026-04-24",
+  "reasoning": "medium",
+  "max_model_calls": 8,
+  "max_replan_attempts": 2,
+  "planning_input_tokens": 96000,
+  "mapping_input_tokens": 96000,
+  "max_output_tokens": 32768,
+  "limits_policy": "Retained explicit historical live campaign limits; new product defaults are tested separately.",
+  "execution_approval": "Review each new exact artifact, requirement acknowledgments and hash before execution.",
+  "source": "13dbef4dc5c478748f7145d73ac20fb52c746ccf",
+  "cohort": "judge20261018a",
+  "runs": [
+    "judge20261018a-amazon-1",
+    "judge20261018a-code-1"
+  ],
+  "business_judge": true,
+  "production_tree": "9fa652e52fea37b1227f3aa62152139a83495efd",
+  "harness_tree": "4b37958d5c0ac41ff8fcf550a4d7b346b5132621",
+  "oracle_sha256": "4671fe4cd74cd34167d282a3449686b900492257058fc6add39588bd08d7d514",
+  "path_sha256": "3aed7fa651a3f04d85ebbfe4c061c697f001d72d4cb8bfaf7afa16bcb2f718e7",
+  "binary_manifest_sha256": "222921b89e6cd3e22c11ce215f283323df278f52206a21a1c3f8010ccd1fed46",
+  "binary_files": 1005
+}

@@ -1,0 +1,29 @@
+{
+  "status": "stopped",
+  "revision": 5,
+  "pending_purpose": null,
+  "attempts": [
+    {
+      "status": 500,
+      "failure_recorded": false,
+      "not_before": "2026-10-18T17:07:33.374552+00:00"
+    },
+    {
+      "status": 500,
+      "failure_recorded": false,
+      "not_before": "2026-10-18T17:12:39.014034+00:00"
+    },
+    {
+      "status": null,
+      "failure_recorded": true,
+      "not_before": "2026-10-18T17:17:47.30687+00:00"
+    },
+    {
+      "status": 200,
+      "failure_recorded": false,
+      "not_before": null
+    }
+  ],
+  "settled_usage_present": true,
+  "completion_receipt_present": true
+}

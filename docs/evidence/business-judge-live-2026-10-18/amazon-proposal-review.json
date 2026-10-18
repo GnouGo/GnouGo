@@ -1,0 +1,54 @@
+{
+  "run": "judge20261018a-amazon-1",
+  "revision": 3,
+  "artifact_hash": "c4052ca0a2bb020e1fc4af7556d9a7578eeb9e1c2bcee27de331c2f25f224820",
+  "review_kind": "independent source-grounded artifact review; not execution oracle",
+  "execution_started": false,
+  "recommendation": "Do not execute this original proposal. An explicit human revision was subsequently authorized.",
+  "judge_outcome": "inconclusive",
+  "findings": [
+    {
+      "tasks": [
+        "t_extract_search_state",
+        "t_extract_search_after_cookies",
+        "t_extract_product"
+      ],
+      "assessment": "Each binds a complete browser result object; no explicit each or narrowing. Per-page maxRecords and product output bounds do not bound complete request input. Actual future observation/request size remains unknown."
+    },
+    {
+      "tasks": [
+        "t_click_accept_cookies"
+      ],
+      "assessment": "Extra cookie-acceptance effect uses literal Accepter with non-exact matching, ignoring observed control text/identity. Earlier artifact approval does not apply."
+    },
+    {
+      "tasks": [
+        "t_assemble_rows"
+      ],
+      "assessment": "Uses interpretation for exact row assembly; unnecessary inference and fidelity risk, not observed data corruption."
+    },
+    {
+      "tasks": [
+        "t_open_product"
+      ],
+      "assessment": "Null href fails its mandatory assertion and aborts before recording the product error. Root browser cleanup remains declared."
+    }
+  ],
+  "judge_reference_failures": [
+    {
+      "response_location": "/findings/0/evidence/1",
+      "pointer": "/taskPlan/root/tasks/2/resultType/fields/3/items/fields/2",
+      "reason": "The field type wrapper is missing."
+    },
+    {
+      "response_location": "/findings/1/evidence/4",
+      "pointer": "/taskPlan/root/tasks/6/outputs/1/value",
+      "reason": "This task has no authored output at that index."
+    }
+  ],
+  "judge_interpretation_limits": [
+    "A mandatory requires assertion fails work; it does not conditionally skip the task.",
+    "A failed write is a failed workflow; a separate successful writeSuccess=false output was not explicitly required.",
+    "These observations do not constitute independent false-positive rate measurements."
+  ]
+}

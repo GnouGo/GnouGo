@@ -1,0 +1,336 @@
+{
+  "privacy": "Raw requests, responses and plans remain in encrypted storage or access-restricted local inspection files; not committed.",
+  "logs": [
+    {
+      "name": "accounting-before",
+      "sha256": "3c8ed3aac90f42a5b20523dac87afc08c92b77b3f88557c48c7786eb3609b83d",
+      "command": {
+        "command": [
+          "dotnet",
+          "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Planning.Benchmark.dll",
+          "--schema-portability",
+          "provider-readiness",
+          "--workspace",
+          "/Users/a115vc/Desktop/GnOuGo",
+          "--campaign",
+          "schema-portability-20261002"
+        ],
+        "started_utc": "2026-10-18T16:54:51.128713+00:00",
+        "path_sha256": "3aed7fa651a3f04d85ebbfe4c061c697f001d72d4cb8bfaf7afa16bcb2f718e7",
+        "finished_utc": "2026-10-18T16:55:02.728627+00:00",
+        "exit_code": 0
+      }
+    },
+    {
+      "name": "code-readiness",
+      "sha256": "db63def3aaf57604949242c724082cd7e88c3e7c7e874888605ab80b2aecef8a",
+      "command": {
+        "command": [
+          "dotnet",
+          "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Planning.Benchmark.dll",
+          "--schema-portability",
+          "readiness",
+          "--workspace",
+          "/Users/a115vc/Desktop/GnOuGo",
+          "--campaign",
+          "schema-portability-20261002",
+          "--case",
+          "code",
+          "--run",
+          "pr119live20261018a-readiness-code",
+          "--max-products",
+          "10"
+        ],
+        "started_utc": "2026-10-18T16:55:05.420309+00:00",
+        "path_sha256": "3aed7fa651a3f04d85ebbfe4c061c697f001d72d4cb8bfaf7afa16bcb2f718e7",
+        "finished_utc": "2026-10-18T16:55:29.593359+00:00",
+        "exit_code": 0
+      }
+    },
+    {
+      "name": "amazon-plan",
+      "sha256": "e8a49bc54c5d1f6bc7fa7792393267547ed7f3ac513bb094a3ab2568e714933a",
+      "command": {
+        "command": [
+          "dotnet",
+          "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Planning.Benchmark.dll",
+          "--schema-portability",
+          "plan",
+          "--workspace",
+          "/Users/a115vc/Desktop/GnOuGo",
+          "--campaign",
+          "schema-portability-20261002",
+          "--cohort",
+          "judge20261018a",
+          "--case",
+          "amazon",
+          "--run",
+          "judge20261018a-amazon-1",
+          "--max-products",
+          "10",
+          "--automatic-correction",
+          "--business-judge"
+        ],
+        "started_utc": "2026-10-18T16:55:38.562722+00:00",
+        "path_sha256": "3aed7fa651a3f04d85ebbfe4c061c697f001d72d4cb8bfaf7afa16bcb2f718e7",
+        "finished_utc": "2026-10-18T16:57:14.705105+00:00",
+        "exit_code": 0
+      }
+    },
+    {
+      "name": "amazon-inflight-review",
+      "sha256": "2652bcf86f7fdec02cf911bffb3848a40f08b1e29fc93de5cdbbb481f34e44cd",
+      "command": {
+        "command": [
+          "dotnet",
+          "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Planning.Benchmark.dll",
+          "--schema-portability",
+          "inspect-run",
+          "--workspace",
+          "/Users/a115vc/Desktop/GnOuGo",
+          "--campaign",
+          "schema-portability-20261002",
+          "--run",
+          "judge20261018a-amazon-1"
+        ],
+        "started_utc": "2026-10-18T16:56:40.597368+00:00",
+        "path_sha256": "3aed7fa651a3f04d85ebbfe4c061c697f001d72d4cb8bfaf7afa16bcb2f718e7",
+        "finished_utc": "2026-10-18T16:56:42.640074+00:00",
+        "exit_code": 0
+      }
+    },
+    {
+      "name": "amazon-review",
+      "sha256": "93e69964fc724042fc54d7eee45d0b5a05a2d5ed4b7df3596a7e087746ff1eb6",
+      "command": {
+        "command": [
+          "dotnet",
+          "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Planning.Benchmark.dll",
+          "--schema-portability",
+          "inspect-run",
+          "--workspace",
+          "/Users/a115vc/Desktop/GnOuGo",
+          "--campaign",
+          "schema-portability-20261002",
+          "--run",
+          "judge20261018a-amazon-1"
+        ],
+        "started_utc": "2026-10-18T16:57:23.130960+00:00",
+        "path_sha256": "3aed7fa651a3f04d85ebbfe4c061c697f001d72d4cb8bfaf7afa16bcb2f718e7",
+        "finished_utc": "2026-10-18T16:57:25.289846+00:00",
+        "exit_code": 0
+      }
+    },
+    {
+      "name": "code-plan",
+      "sha256": "c605807d8d8c77efbc67b06a4142fa423d3c504e592e0bb0e4ccbe8e71abe7ce",
+      "command": {
+        "command": [
+          "dotnet",
+          "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Planning.Benchmark.dll",
+          "--schema-portability",
+          "plan",
+          "--workspace",
+          "/Users/a115vc/Desktop/GnOuGo",
+          "--campaign",
+          "schema-portability-20261002",
+          "--cohort",
+          "judge20261018a",
+          "--case",
+          "code",
+          "--run",
+          "judge20261018a-code-1",
+          "--max-products",
+          "10",
+          "--automatic-correction",
+          "--business-judge"
+        ],
+        "started_utc": "2026-10-18T16:58:28.615125+00:00",
+        "path_sha256": "3aed7fa651a3f04d85ebbfe4c061c697f001d72d4cb8bfaf7afa16bcb2f718e7",
+        "finished_utc": "2026-10-18T17:01:06.122779+00:00",
+        "exit_code": 0
+      }
+    },
+    {
+      "name": "code-inflight-review",
+      "sha256": "afb6f5f31582f46a0469d403e8c031d382540c363cc5acd986043b9e103b42f6",
+      "command": {
+        "command": [
+          "dotnet",
+          "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Planning.Benchmark.dll",
+          "--schema-portability",
+          "inspect-run",
+          "--workspace",
+          "/Users/a115vc/Desktop/GnOuGo",
+          "--campaign",
+          "schema-portability-20261002",
+          "--run",
+          "judge20261018a-code-1"
+        ],
+        "started_utc": "2026-10-18T17:00:38.720112+00:00",
+        "path_sha256": "3aed7fa651a3f04d85ebbfe4c061c697f001d72d4cb8bfaf7afa16bcb2f718e7",
+        "finished_utc": "2026-10-18T17:00:40.803275+00:00",
+        "exit_code": 0
+      }
+    },
+    {
+      "name": "code-review",
+      "sha256": "eb5f8af52019756cc0de2e78d7a2aa23e911776d946f9cb21bd50846f5938cfb",
+      "command": {
+        "command": [
+          "dotnet",
+          "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Planning.Benchmark.dll",
+          "--schema-portability",
+          "inspect-run",
+          "--workspace",
+          "/Users/a115vc/Desktop/GnOuGo",
+          "--campaign",
+          "schema-portability-20261002",
+          "--run",
+          "judge20261018a-code-1"
+        ],
+        "started_utc": "2026-10-18T17:02:29.473409+00:00",
+        "path_sha256": "3aed7fa651a3f04d85ebbfe4c061c697f001d72d4cb8bfaf7afa16bcb2f718e7",
+        "finished_utc": "2026-10-18T17:02:31.600743+00:00",
+        "exit_code": 0
+      }
+    },
+    {
+      "name": "amazon-revision",
+      "sha256": "8cf61db3e3527af978730b3c23c60fff4122b5e1a60ca1342d1fddc376d438f7",
+      "command": {
+        "command": [
+          "dotnet",
+          "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Planning.Benchmark.dll",
+          "--schema-portability",
+          "revise",
+          "--workspace",
+          "/Users/a115vc/Desktop/GnOuGo",
+          "--campaign",
+          "schema-portability-20261002",
+          "--cohort",
+          "judge20261018a",
+          "--case",
+          "amazon",
+          "--run",
+          "judge20261018a-amazon-1",
+          "--max-products",
+          "10",
+          "--business-judge",
+          "--revision-command",
+          "/tmp/gnougo-judge-amazon-live-20261018/amazon-revision-command.json"
+        ],
+        "started_utc": "2026-10-18T17:02:18.474469+00:00",
+        "path_sha256": "3aed7fa651a3f04d85ebbfe4c061c697f001d72d4cb8bfaf7afa16bcb2f718e7",
+        "finished_utc": "2026-10-18T17:19:21.279091+00:00",
+        "exit_code": 0
+      }
+    },
+    {
+      "name": "amazon-revision-progress",
+      "sha256": "994adeb44dd017fa1bf9b6751933d8c276fff10c848ab88fb0fb935a202bced6",
+      "command": {
+        "command": [
+          "dotnet",
+          "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Planning.Benchmark.dll",
+          "--schema-portability",
+          "inspect-run",
+          "--workspace",
+          "/Users/a115vc/Desktop/GnOuGo",
+          "--campaign",
+          "schema-portability-20261002",
+          "--run",
+          "judge20261018a-amazon-1"
+        ],
+        "started_utc": "2026-10-18T17:09:30.793929+00:00",
+        "path_sha256": "3aed7fa651a3f04d85ebbfe4c061c697f001d72d4cb8bfaf7afa16bcb2f718e7",
+        "finished_utc": "2026-10-18T17:09:32.741419+00:00",
+        "exit_code": 0
+      }
+    },
+    {
+      "name": "amazon-revised-review",
+      "sha256": "caf9db0bcc88488c6dcca6681cd75dafef8158166ab90d2ad168ce3914817a0a",
+      "command": {
+        "command": [
+          "dotnet",
+          "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Planning.Benchmark.dll",
+          "--schema-portability",
+          "inspect-run",
+          "--workspace",
+          "/Users/a115vc/Desktop/GnOuGo",
+          "--campaign",
+          "schema-portability-20261002",
+          "--run",
+          "judge20261018a-amazon-1"
+        ],
+        "started_utc": "2026-10-18T17:20:00.973475+00:00",
+        "path_sha256": "3aed7fa651a3f04d85ebbfe4c061c697f001d72d4cb8bfaf7afa16bcb2f718e7",
+        "finished_utc": "2026-10-18T17:20:02.842008+00:00",
+        "exit_code": 0
+      }
+    },
+    {
+      "name": "accounting-inflight",
+      "sha256": "b3ddb43753cdac01a5eb170f0017862366907603ff4f0d841d41113c91a19ba8",
+      "command": {
+        "command": [
+          "dotnet",
+          "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Planning.Benchmark.dll",
+          "--schema-portability",
+          "inspect",
+          "--workspace",
+          "/Users/a115vc/Desktop/GnOuGo",
+          "--campaign",
+          "schema-portability-20261002"
+        ],
+        "started_utc": "2026-10-18T17:12:52.635917+00:00",
+        "path_sha256": "3aed7fa651a3f04d85ebbfe4c061c697f001d72d4cb8bfaf7afa16bcb2f718e7",
+        "finished_utc": "2026-10-18T17:13:01.639994+00:00",
+        "exit_code": 0
+      }
+    },
+    {
+      "name": "accounting-after",
+      "sha256": "6edc27a484cd57656dc4f2f45684128a32c0fdd774494a93f9e61b9dd2203bed",
+      "command": {
+        "command": [
+          "dotnet",
+          "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Planning.Benchmark.dll",
+          "--schema-portability",
+          "inspect",
+          "--workspace",
+          "/Users/a115vc/Desktop/GnOuGo",
+          "--campaign",
+          "schema-portability-20261002"
+        ],
+        "started_utc": "2026-10-18T17:20:06.262868+00:00",
+        "path_sha256": "3aed7fa651a3f04d85ebbfe4c061c697f001d72d4cb8bfaf7afa16bcb2f718e7",
+        "finished_utc": "2026-10-18T17:20:14.068527+00:00",
+        "exit_code": 0
+      }
+    },
+    {
+      "name": "cohort-report",
+      "sha256": "7c595396ba10a7bda7b0faa3825b6ff3254b789506942a8186dc9e5563e7349c",
+      "command": {
+        "command": [
+          "dotnet",
+          "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Planning.Benchmark.dll",
+          "--schema-portability",
+          "report",
+          "--workspace",
+          "/Users/a115vc/Desktop/GnOuGo",
+          "--campaign",
+          "schema-portability-20261002",
+          "--cohort",
+          "judge20261018a"
+        ],
+        "started_utc": "2026-10-18T17:21:38.191308+00:00",
+        "path_sha256": "3aed7fa651a3f04d85ebbfe4c061c697f001d72d4cb8bfaf7afa16bcb2f718e7",
+        "finished_utc": "2026-10-18T17:21:59.131568+00:00",
+        "exit_code": 0
+      }
+    }
+  ]
+}

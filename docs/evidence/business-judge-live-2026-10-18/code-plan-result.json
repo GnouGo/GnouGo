@@ -1,0 +1,130 @@
+{
+  "mode": "live",
+  "status": "stopped",
+  "planning_ms": 137642,
+  "calls": 4,
+  "repairs": 2,
+  "discovery_reads": 3,
+  "review_revisions": 0,
+  "diagnostics": [
+    {
+      "code": "REQUIREMENT_RESULT_DISCONNECTED",
+      "location": "/root/outputs/reviewJsonPath",
+      "message": "Public output 'reviewJsonPath' must derive from committed operation 'cap_fa8aa0024ff2ec0a4f9e61ad', port 'projectRootRelative'. Literal or inferred replacements do not establish producer ownership.",
+      "required": true,
+      "validationStage": null,
+      "rule": "cap_fa8aa0024ff2ec0a4f9e61ad"
+    },
+    {
+      "code": "TASK_ARITHMETIC_INVALID",
+      "location": "/root/outputs/reviewJsonPath",
+      "message": "Arithmetic requires established, nonnullable numeric operands.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    }
+  ],
+  "execution_success": false,
+  "execution_oracle": false,
+  "execution_status": "not_started",
+  "accounting": {
+    "planning": {
+      "logical_calls": 4,
+      "physical_attempts": 4,
+      "known_input_tokens": 42495,
+      "known_output_tokens": 9052,
+      "known_cost_eur": 0.4329085055004025,
+      "unknown_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0
+    },
+    "execution": {
+      "logical_calls": 0,
+      "physical_attempts": 0,
+      "known_input_tokens": 0,
+      "known_output_tokens": 0,
+      "known_cost_eur": 0,
+      "unknown_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0
+    },
+    "campaign": {
+      "calls": 1186,
+      "session_calls": 0,
+      "known_input_tokens": 16397196,
+      "known_output_tokens": 2453224,
+      "known_cost_eur": 138.41122594195025,
+      "reserved_input_tokens": 1514641,
+      "reserved_output_tokens": 491520,
+      "reserved_cost_eur": 19.877943993342743,
+      "cost_upper_bound_eur": 158.289169935293,
+      "unknown_attempts": 15
+    }
+  },
+  "manifest": "f77b4a07a61c2a668e951e0766e0ddd6e7e9bc5a12a730791ce64e2c008babc8",
+  "first_proposal_call": 2,
+  "first_proposal_structurally_valid": false,
+  "first_proposal_business_correct": null,
+  "omitted_requirements": null,
+  "extra_operations": null,
+  "redundant_tasks": null,
+  "first_proposal_diagnostics": [
+    {
+      "code": "REQUIREMENTS_OUTPUTS_CHANGED",
+      "location": "/outputs/reviewJson",
+      "message": "Preserve the accepted output type, requiredness and nullability. A missing or incompatible result requires a corrected plan or explicit intent revision.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    }
+  ],
+  "business_review": {
+    "unit": "independently labeled candidate, not individual diagnosis",
+    "candidates": 0,
+    "true_positives": 0,
+    "false_positives": 0,
+    "false_negatives": 0,
+    "true_negatives": 0,
+    "unknown_candidates": 0,
+    "unjudged_candidates": 0,
+    "converged": null,
+    "introduced_regression": null,
+    "stop_status": "stopped"
+  },
+  "planning_stages": {
+    "tasks": {
+      "input_tokens": 31496,
+      "output_tokens": 7361,
+      "known_input_tokens": 31496,
+      "known_output_tokens": 7361,
+      "estimated_cost_eur": 0.33835077363384314,
+      "known_cost_eur": 0.33835077363384314,
+      "usage_complete": true,
+      "usage_bounded": true,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "logical_calls": 2,
+      "elapsed_ms": 93223.5245,
+      "physical_attempts": 2
+    },
+    "replan": {
+      "input_tokens": 10999,
+      "output_tokens": 1691,
+      "known_input_tokens": 10999,
+      "known_output_tokens": 1691,
+      "estimated_cost_eur": 0.09455773186655934,
+      "known_cost_eur": 0.09455773186655934,
+      "usage_complete": true,
+      "usage_bounded": true,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "logical_calls": 2,
+      "elapsed_ms": 38851.6092,
+      "physical_attempts": 2
+    }
+  }
+}

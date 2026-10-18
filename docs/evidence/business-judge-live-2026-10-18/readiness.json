@@ -1,0 +1,17 @@
+{
+  "amazon": {
+    "local_page": true,
+    "browser_cleanup": true,
+    "xlsx_independent_read": true,
+    "model_calls": 0,
+    "log_sha256": "b7ba638a0a0b9fd7d382f680a92589e373526a81722492e2e362d6467a392d4f"
+  },
+  "code": {
+    "mcp_discovery": true,
+    "pinned_head_available": true,
+    "pinned_base_available": true,
+    "model_calls": 0,
+    "log_sha256": "db63def3aaf57604949242c724082cd7e88c3e7c7e874888605ab80b2aecef8a",
+    "limitation": "Discovery and toolchain checks do not prove runtime permissions, dependency installation, Copilot inference or successful repository checks."
+  }
+}

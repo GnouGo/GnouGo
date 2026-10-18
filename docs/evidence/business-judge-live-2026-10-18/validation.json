@@ -1,0 +1,57 @@
+{
+  "source": "13dbef4dc5c478748f7145d73ac20fb52c746ccf",
+  "affected_tests": {
+    "passed": 147,
+    "failed": 0,
+    "skipped": 0,
+    "flags": [
+      "-m:1",
+      "-warnaserror"
+    ]
+  },
+  "test_logs": [
+    {
+      "path": "/tmp/gnougo-live-judge-option-red.log",
+      "sha256": "fa6bfca2980f2693500905f6abf53bf20e1ba4d07c2c0962aacbbf5b734baaee"
+    },
+    {
+      "path": "/tmp/gnougo-live-judge-measurement-red.log",
+      "sha256": "e570fc297fb155a784e93f4ecaad4cbd263b309a3e7dff4676a9b0825fa07aad"
+    },
+    {
+      "path": "/tmp/gnougo-live-judge-oracle-compat-red.log",
+      "sha256": "8e2af06ea495d8880264d55c3d96ca32cdc7f23fb1594ab989743f223641f516"
+    },
+    {
+      "path": "/tmp/gnougo-live-judge-harness-final.log",
+      "sha256": "ac0993cc25d7976e8b8c98c5921e5f1fc26188232e766ba0e74e5274621a4c4a"
+    }
+  ],
+  "builds": [
+    {
+      "name": "benchmark-final",
+      "exit_code": 0,
+      "log_sha256": "0a4a4964a17f3eda1ecd5cee37084b865c6f9c99c03f5dc5c5892d9e3f31cc9c",
+      "warnaserror": true
+    },
+    {
+      "name": "git",
+      "exit_code": 0,
+      "log_sha256": "896a8b13f4b260a54892535b3fe6f85d46229ef057f531be8f94c892b89f034d",
+      "warnaserror": true
+    },
+    {
+      "name": "cmd",
+      "exit_code": 0,
+      "log_sha256": "8ef9a9bed72c07b2500f94d046008d8c9ea6bcde8cac41a04084f9ed7e647749",
+      "warnaserror": true
+    },
+    {
+      "name": "copilot",
+      "exit_code": 0,
+      "log_sha256": "edb2de855c69cbeb00d4791f954f267b272d5bb36d3c97597398ca3959914700",
+      "warnaserror": true
+    }
+  ],
+  "scope": "Generic live harness option and measurement fixes; no production runtime/serialization change. Full solution, frontend, Release, AOT and encrypted-recovery results belong to the preceding delivery evidence."
+}
