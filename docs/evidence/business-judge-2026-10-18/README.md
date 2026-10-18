@@ -81,9 +81,11 @@ reliability gain or 25% first-proposal improvement is claimed.
 
 ## Validation and retained failures
 
-Final serial-suite acceptance is pending. The delivery run described below is a
-failed and incomplete attempt, not a passing solution-suite result. Final counts
-will be recorded after the corrected candidate completes validation.
+[Final serial validation](validation.json) records **6,124 passed, 13 skipped and
+zero failed tests across 33 assemblies**, using `-m:1 -warnaserror` on candidate
+`cf47affd4543652a4fd091d3cd623868158f2934`. Seven skips require native Windows
+PowerShell, one is the opt-in deterministic browser smoke, and five require
+explicit live-model evaluation. No paid inference was run.
 [Release validation](release-validation.json) records successful Native AOT publish
 and smoke, the trimmed self-contained server and encrypted-recovery smoke, and five
 Release packages, all on production commit
@@ -91,8 +93,7 @@ Release packages, all on production commit
 publish-local dependency exceptions are unchanged; no suppression was added.
 The follow-up commit `cf47affd4543652a4fd091d3cd623868158f2934` changes tests and the
 benchmark receipt adapter only; its production implementation is unchanged from
-the tested Release commit. Successful Release checks do not establish that the
-pending complete serial solution validation has passed.
+the tested Release commit.
 [Frontend validation](frontend-validation.json) records both successful production
 builds. Flow includes TypeScript checking; neither package defines separate test or
 lint scripts. Razor interactions are covered by host tests; the existing opt-in
@@ -128,12 +129,12 @@ response schema. Historical replay retains its 24,000 allowance and original iss
 schemas. The mapping-failure fake declares its supported capabilities, and its
 interaction wait has a bounded timeout; the chat bridge asserts the expected
 clarification state before waiting for an answer. Focused recorded-product and
-mapping-failure isolation checks now pass. The host subset excluding the long
-`LocalProductCompositionTests` passed 886 tests, with one opt-in test skipped. The
-228 long historical-product cases passed in the preceding attempt; that result is
-retained separately and is not combined with the subset into a new complete-suite
-pass. The complete serial solution rerun remains pending, so these successes are
-not a final delivery acceptance claim.
+mapping-failure isolation checks pass. The focused host run excluding
+`LocalProductOutcomeExecutionTests` passed 886 tests, with one opt-in test skipped.
+The final complete solution run independently reran all 228 product-execution
+cases and completed the host assembly with 1,114 passed and one skipped test.
+Earlier failed and incomplete attempts remain separate evidence; their results
+are not combined to manufacture a complete-suite pass.
 
 Focused regressions also reproduced and fixed invalid JSON Pointer escapes,
 presentation-dependent Judge receipt replay, authorized descendant-slot routing,
