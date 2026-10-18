@@ -64,13 +64,13 @@ public sealed partial class CodeReviewCompositionTests(ITestOutputHelper output)
         if (literalDocument) corrected = ExecutableRevision(corrected, blueprint);
         var runtime = new LocalProductOutcomeExecutionTests.ProposalRuntime(actual, blueprint);
         var planner = new HybridWorkflowPlanner();
-        var state = await planner.AdvanceAsync(new() { Catalog = catalog, Discovery = discovery, Request = new()
+        var state = await planner.AdvanceAsync(PlanningCorpus.RetainedSession(new() { Catalog = catalog, Discovery = discovery, Request = new()
         {
             TenantId = "fixture", Prompt = "Review the supplied change in one temporary clone, run available checks, publish exact findings and a review decision, then clean up.",
             Generation = literalDocument ? JsonSerializer.Deserialize(File.ReadAllText(Path.Combine(AppContext.BaseDirectory,
                 "Fixtures", "LiteralCorrection", "retained-generation.json")), PlanningJsonContext.Default.PlanningGenerationOptions)! : new(),
             Options = new() { ["compilation_profile"] = "compact-bindings-v15" }
-        } }, new(), runtime, Ct);
+        } }), new(), runtime, Ct);
         if (literalDocument)
         {
             Assert.Null(state.Yaml);

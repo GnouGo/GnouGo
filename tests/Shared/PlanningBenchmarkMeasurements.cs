@@ -31,33 +31,89 @@ public static class PlanningBenchmarkMeasurements
         }
         var calls = Number("--max-model-calls"); var repairs = Number("--max-repairs", true);
         var input = Number("--max-input-tokens"); var output = Number("--max-output-tokens");
+        var presetPositions = args.Select((value, index) => (value, index)).Where(p => p.value == "--construction-preset").ToArray();
+        if (presetPositions.Length > 1) throw new ArgumentException("Supply one construction preset.");
+        var preset = presetPositions.Length == 0 ? null : PlanningConstructionPresets.Validate(
+            args.ElementAtOrDefault(presetPositions[0].index + 1) ?? throw new ArgumentException("Missing construction preset."));
+        var totalTokens = Number("--max-total-tokens"); var elapsed = Number("--max-elapsed-ms");
+        if (totalTokens > 15_000_000 || elapsed > 18_000_000)
+            throw new ArgumentException("Cumulative benchmark allowances cannot exceed the authorized creation ceilings.");
+        var automatic = args.Contains("--automatic-correction", StringComparer.Ordinal);
+        var firstConstructionConfiguration = request.Options["construction_version"]?.GetValue<int>() != 1;
+        var capturedPreset = request.Options["construction_preset"]?.ToString();
         var enabled = args.Contains("--business-judge", StringComparer.Ordinal);
         var disabled = args.Contains("--no-business-judge", StringComparer.Ordinal);
         if (enabled && disabled) throw new ArgumentException("Choose one judge setting.");
         if (retained && (calls is not null && calls != request.MaxModelCalls || repairs is not null && repairs != request.MaxReplanAttempts ||
             input is not null && input != request.Generation.MaxInputTokensPerRequest || output is not null && output != request.Generation.MaxOutputTokens ||
-            (enabled || disabled) && enabled != (request.Options["business_judge"]?.ToString() == "true")))
+            (enabled || disabled) && enabled != (request.Options["business_judge"]?.ToString() == "true") ||
+            preset is not null && preset != request.Options["construction_preset"]?.ToString() ||
+            totalTokens is not null && totalTokens != request.Options["llm_budget"]?["max_total_tokens"]?.GetValue<int>() ||
+            elapsed is not null && elapsed != request.Options["llm_budget"]?["max_elapsed_ms"]?.GetValue<int>() ||
+            automatic && request.Options["automatic_correction"]?.GetValue<bool>() != true))
             throw new InvalidOperationException("Explicit settings differ from the frozen run. Start a separate cohort.");
         if (retained) return;
+        request.Options["construction_version"] = 1;
+        request.Options["construction_preset"] = preset ?? request.Options["construction_preset"]?.ToString() ?? PlanningConstructionPresets.Ordinary;
+        request.Options["construction_limits"] ??= JsonSerializer.SerializeToNode(new PlanningConstructionOptions(), PlanningJsonContext.Default.PlanningConstructionOptions);
+        request.Options["llm_budget"] ??= new JsonObject { ["max_total_tokens"] = 15_000_000, ["max_elapsed_ms"] = 18_000_000 };
+        if (totalTokens is not null) request.Options["llm_budget"]!["max_total_tokens"] = totalTokens.Value;
+        if (elapsed is not null) request.Options["llm_budget"]!["max_elapsed_ms"] = elapsed.Value;
+        if (preset == PlanningConstructionPresets.Large && (firstConstructionConfiguration || capturedPreset != preset))
+        {
+            request.MaxModelCalls = PlanningConstructionPresets.LargeModelCalls; request.MaxReplanAttempts = PlanningConstructionPresets.LargeCorrections;
+            request.Policy.MaxStepsTotal = PlanningConstructionPresets.LargeGraphNodes;
+            request.Policy.MaxStepsPerWorkflow = PlanningConstructionPresets.LargeGraphNodes;
+            request.Policy.MaxWorkflows = PlanningConstructionPresets.LargeWorkflows;
+        }
         request.MaxModelCalls = calls ?? request.MaxModelCalls; request.MaxReplanAttempts = repairs ?? request.MaxReplanAttempts;
         request.Generation.MaxInputTokensPerRequest = input ?? request.Generation.MaxInputTokensPerRequest;
-        request.Generation.MaxOutputTokens = output ?? request.Generation.MaxOutputTokens;
+        request.Generation.MaxOutputTokens = output ?? Math.Min(request.Generation.MaxOutputTokens, 8192);
+        if (automatic) request.Options["automatic_correction"] = true;
         if (enabled || disabled) request.Options["business_judge"] = enabled;
     }
 
-    public static JsonObject Configuration(PlanningRequest request) => new()
+    public static JsonObject Configuration(PlanningRequest request)
     {
-        ["calls"] = request.MaxModelCalls, ["repairs"] = request.MaxReplanAttempts,
-        ["input_tokens"] = request.Generation.MaxInputTokensPerRequest, ["output_tokens"] = request.Generation.MaxOutputTokens,
-        ["reasoning"] = request.Generation.Reasoning, ["business_judge"] = request.Options["business_judge"]?.ToString() == "true"
-    };
+        var result = new JsonObject
+        {
+            ["calls"] = request.MaxModelCalls, ["repairs"] = request.MaxReplanAttempts,
+            ["input_tokens"] = request.Generation.MaxInputTokensPerRequest, ["output_tokens"] = request.Generation.MaxOutputTokens,
+            ["reasoning"] = request.Generation.Reasoning, ["business_judge"] = request.Options["business_judge"]?.ToString() == "true"
+        };
+        if (request.Options["construction_version"]?.GetValue<int>() == 1)
+        {
+            foreach (var key in new[] { "construction_version", "construction_preset", "construction_limits", "llm_budget", "automatic_correction" })
+                result[key] = request.Options[key]?.DeepClone();
+            result["policy"] = JsonSerializer.SerializeToNode(request.Policy, PlanningJsonContext.Default.PlanningPolicy);
+        }
+        return result;
+    }
 
-    public static PlanningRequest RestoreConfiguration(JsonObject settings) => new()
+    public static PlanningRequest RestoreConfiguration(JsonObject settings)
     {
-        MaxModelCalls = settings["calls"]!.GetValue<int>(), MaxReplanAttempts = settings["repairs"]!.GetValue<int>(),
-        Generation = new() { Reasoning = settings["reasoning"]!.ToString(), MaxInputTokensPerRequest = settings["input_tokens"]!.GetValue<int>(), MaxOutputTokens = settings["output_tokens"]!.GetValue<int>() },
-        Options = new() { ["business_judge"] = settings["business_judge"]!.GetValue<bool>() }
-    };
+        var result = new PlanningRequest
+        {
+            MaxModelCalls = settings["calls"]!.GetValue<int>(), MaxReplanAttempts = settings["repairs"]!.GetValue<int>(),
+            Generation = new() { Reasoning = settings["reasoning"]!.ToString(), MaxInputTokensPerRequest = settings["input_tokens"]!.GetValue<int>(), MaxOutputTokens = settings["output_tokens"]!.GetValue<int>() },
+            Options = new() { ["business_judge"] = settings["business_judge"]!.GetValue<bool>() }
+        };
+        if (settings["construction_version"]?.GetValue<int>() == 1)
+        {
+            foreach (var key in new[] { "construction_version", "construction_preset", "construction_limits", "llm_budget", "automatic_correction" })
+                if (settings[key] is { } value) result.Options[key] = value.DeepClone();
+            result.Policy = settings["policy"]!.Deserialize(PlanningJsonContext.Default.PlanningPolicy)!;
+        }
+        return result;
+    }
+
+    public static void CaptureConstructionSettings(PlanningSession state)
+    {
+        if (state.Construction is null && state.Request.Options["construction_version"]?.GetValue<int>() == 1 &&
+            state.Revision == 0 && state.ModelCalls == 0 && state.PendingCall is null && state.Plan is null &&
+            state.Request.Options["construction_limits"] is { } limits)
+            state.Construction = new() { Limits = limits.Deserialize(PlanningJsonContext.Default.PlanningConstructionOptions)! };
+    }
 
     // This report isolates the experimental variable; it intentionally does not
     // apply the unrelated first-proposal improvement gate to post-proposal review.
@@ -78,8 +134,11 @@ public static class PlanningBenchmarkMeasurements
         var oldSettings = FrozenConfiguration(before); var newSettings = FrozenConfiguration(after);
         var budgets = new[] { "calls", "repairs", "input_tokens", "output_tokens" };
         var sameBudgets = oldSettings is not null && newSettings is not null && budgets.All(k => JsonNode.DeepEquals(oldSettings[k], newSettings[k]));
+        var sameConstruction = oldSettings is not null && newSettings is not null &&
+            new[] { "construction_version", "construction_preset", "construction_limits", "llm_budget", "policy", "automatic_correction" }
+                .All(k => JsonNode.DeepEquals(oldSettings[k], newSettings[k]));
         var isolated = oldSettings is not null && newSettings is not null && JsonNode.DeepEquals(oldSettings["reasoning"], newSettings["reasoning"]) &&
-            (variable == "judge" ? sameBudgets && oldSettings["business_judge"]!.GetValue<bool>() == false && newSettings["business_judge"]!.GetValue<bool>()
+            (variable == "judge" ? sameBudgets && sameConstruction && oldSettings["business_judge"]!.GetValue<bool>() == false && newSettings["business_judge"]!.GetValue<bool>()
                 : !sameBudgets && oldSettings["business_judge"]!.GetValue<bool>() == false && newSettings["business_judge"]!.GetValue<bool>() == false);
         var complete = Complete(before) && Complete(after);
         var frozen = new[] { "comparison_manifest", "provider", "model", "campaign", "source_commit", "mode" }.All(Same);

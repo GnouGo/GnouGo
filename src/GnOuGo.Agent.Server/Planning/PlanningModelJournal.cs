@@ -16,13 +16,16 @@ namespace GnOuGo.Agent.Server.Planning;
 internal sealed class PlanningModelJournal(
     ILLMClient inner, IDbContextFactory<PlanningDbContext> contexts, IKeyVaultRecordStore records,
     string tenantId, string sessionId, LLMUsageBudgetScope budget, IModelUsageCostEstimator estimator, PlanningGenerationOptions? generation = null,
-    ILLMCapabilityResolver? capabilities = null) : ILLMClient, IModelAdmissionOwner
+    ILLMCapabilityResolver? capabilities = null) : ILLMClient, IModelAdmissionOwner, IPlanningConstructionAdmission
 {
     internal const string Collection = "agent-planning-model-receipts-v10";
     internal const string RequestCollection = "agent-planning-model-requests-v10";
     private static readonly Meter Metrics = new("GnOuGo.Agent.Planning");
     private static readonly Histogram<double> ProviderDuration = Metrics.CreateHistogram<double>("gen_ai.client.operation.duration", "s");
     private static readonly Histogram<long> TokenUsage = Metrics.CreateHistogram<long>("gen_ai.client.token.usage", "{token}");
+
+    public Task AdmitConstructionAsync(LLMRequest request, int inputTokenCeiling, IReadOnlyList<int> outputTokenCeilings, CancellationToken ct)
+        => budget.EnsureAllowanceAsync(request, estimator, inputTokenCeiling, outputTokenCeilings, "workflow.plan.construction", ct);
 
     public async Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
     {

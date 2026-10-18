@@ -177,8 +177,8 @@ public sealed partial class LocalProductOutcomeExecutionTests
     {
         var retained = GuardRetained(catalog); AssertGuardBusinessPreserved(retained, corrected);
         var planner = new HybridWorkflowPlanner(); var initial = new ProposalRuntime(runtime, retained);
-        var seed = new PlanningSession { Catalog = catalog, Request = new() { TenantId = "local", Name = "guard-offline",
-            Prompt = retained.Requirements!.Summary, Policy = new() { RequireExternalConfirmation = false }, Generation = new() { MaxInputTokensPerRequest = 96000, MaxOutputTokens = 32768 } } };
+        var seed = GnOuGo.Planning.Examples.PlanningCorpus.RetainedSession(new PlanningSession { Catalog = catalog, Request = new() { TenantId = "local", Name = "guard-offline",
+            Prompt = retained.Requirements!.Summary, Policy = new() { RequireExternalConfirmation = false }, Generation = new() { MaxInputTokensPerRequest = 96000, MaxOutputTokens = 32768 } } });
         seed.Discovery.Sources = (await runtime.Capabilities.ListSourcesAsync(ct)).ToList();
         foreach (var source in seed.Discovery.Sources) seed.Discovery.Pages.Add(await runtime.Capabilities.ListAsync(source.Id, null, ct));
         var state = await planner.AdvanceAsync(seed, new(), initial, ct);

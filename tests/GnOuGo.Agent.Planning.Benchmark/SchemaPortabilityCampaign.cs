@@ -21,6 +21,8 @@ internal static class SchemaPortabilityCampaign
             material["generation"] = JsonSerializer.SerializeToNode(request, PlanningJsonContext.Default.PlanningRequest)!["generation"]!.DeepClone();
             material["calls"] = request.MaxModelCalls; material["repairs"] = request.MaxReplanAttempts;
             material["business_judge"] = request.Options["business_judge"]?.ToString() == "true";
+            if (request.Options["construction_version"]?.GetValue<int>() == 1)
+                material["construction_configuration"] = GnOuGo.Planning.Examples.PlanningBenchmarkMeasurements.Configuration(request);
         }
         return PlanningGraphCompiler.Fingerprint(material.ToJsonString());
     }
@@ -30,8 +32,8 @@ internal static class SchemaPortabilityCampaign
     public static async Task RunAsync(string[] args)
     {
         var phase = args.ElementAtOrDefault(1) ?? "inspect";
-        var root = Option(args, "--workspace") ?? GnOuGoWorkspace.ResolveDefaultWorkingDirectory();
-        var records = KeyVaultRecordStoreFactory.CreateWorkspaceStore(null, root);
+        var root = Path.GetFullPath(Option(args, "--workspace") ?? GnOuGoWorkspace.ResolveDefaultWorkingDirectory());
+        var records = KeyVaultBenchmarkModel.WorkspaceRecords(root);
         if (phase == "capture")
         {
             var folder = Option(args, "--output") ?? throw new ArgumentException("Supply --output.");
@@ -140,7 +142,7 @@ internal static class SchemaPortabilityCampaign
         {
             var label = Option(args, "--run") ?? throw new ArgumentException("Supply --run.");
             var saved = await campaign.LoadAsync(Collection, "run:" + label) ?? throw new ArgumentException("No run.");
-            var executionRun = await GnOuGo.Flow.Persistence.EncryptedWorkflowRunStore.CreateWorkspace(baseDirectory: root).ReadAsync("benchmark", label);
+            var executionRun = await LiveWorkflowEvaluation.ExecutionStore(root).ReadAsync("benchmark", label);
             var mappings = new JsonArray((executionRun?.Invocations.Values.Where(i => i.Id.Contains("/mapping/", StringComparison.Ordinal)) ?? [])
                 .OrderBy(i => i.Id, StringComparer.Ordinal).Select(i => (JsonNode)new JsonObject
                 {
@@ -192,7 +194,7 @@ internal static class SchemaPortabilityCampaign
             }
             Console.WriteLine((await campaign.InspectAsync()).ToJsonString()); return;
         }
-        var leasePath = GnOuGoWorkspace.ResolveDatabasePath(null, root, ".GnOuGo/data/planning-evaluation/" + campaignId + ".lock");
+        var leasePath = Path.Combine(root, ".GnOuGo", "data", "planning-evaluation", campaignId + ".lock");
         Directory.CreateDirectory(Path.GetDirectoryName(leasePath)!);
         await using var lease = new FileStream(leasePath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
         if (Git("status", "--porcelain").Length != 0) throw new InvalidOperationException("Commit the tested source and harness before paid dispatch.");

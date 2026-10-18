@@ -87,12 +87,12 @@ public sealed partial class LocalProductOutcomeExecutionTests
             }
             return new() { ["discoveryRequests"] = null, ["clarifications"] = null, ["patch"] = new JsonObject { ["edits"] = edits } };
         };
-        var session = new PlanningSession { IntentVersion = defect == "initial_followup" ? 3 : 2, Catalog = catalog, Request = new()
+        var session = GnOuGo.Planning.Examples.PlanningCorpus.RetainedSession(new PlanningSession { IntentVersion = defect == "initial_followup" ? 3 : 2, Catalog = catalog, Request = new()
         {
             TenantId = "local", Prompt = "Preserve the requested exact observed data, visits, workbook and cleanup.",
             Options = new() { ["automatic_correction"] = true }, Policy = new() { RequireExternalConfirmation = false },
             Generation = new() { MaxInputTokensPerRequest = 96000, MaxOutputTokens = 32768 }
-        } };
+        } });
         var planner = new HybridWorkflowPlanner();
         for (var i = 0; i < 4 && !PlanningStatus.IsWaiting(session.Status) && !PlanningStatus.IsTerminal(session.Status); i++)
             session = await planner.AdvanceAsync(session, new() { ExpectedRevision = session.Revision }, adapter, ct);

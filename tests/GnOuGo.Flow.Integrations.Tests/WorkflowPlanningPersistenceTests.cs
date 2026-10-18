@@ -37,6 +37,7 @@ public sealed class WorkflowPlanningPersistenceTests : IDisposable
         var records = new KeyVaultRecordStore(Path.Combine(_directory, "keyvault.db"));
         var definition = (await records.GetAsync("flow-planning-definitions-v10", "tenant", id, "test", Ct))!;
         Assert.Equal(authored, JsonNode.Parse(definition.Value)!["options"]!.ToJsonString());
+        Assert.Equal(1, JsonNode.Parse(definition.Value)!["creationCheckpoint"]!["version"]!.GetValue<int>());
         await using var restored = await Factory().OpenAsync(Context(client), Initial(), Ct);
         Assert.Equal("2", restored.Session.Request.Options["business_judge_review_version"]!.ToString());
         Assert.Equal(0, client.Calls);
@@ -52,23 +53,98 @@ public sealed class WorkflowPlanningPersistenceTests : IDisposable
         await using (var session = await Factory().OpenAsync(Context(client), Initial(), Ct))
             id = session.Session.Request.SessionId;
         var records = new KeyVaultRecordStore(Path.Combine(_directory, "keyvault.db"));
+        var definition = (await records.GetAsync("flow-planning-definitions-v10", "tenant", id, "test", Ct))!;
+        var historicalDefinition = JsonNode.Parse(definition.Value)!.AsObject();
+        historicalDefinition.Remove("creationCheckpoint");
+        await records.UpsertAsync("flow-planning-definitions-v10", "tenant", id, historicalDefinition.ToJsonString(), "test", Ct);
         var saved = (await records.GetAsync("flow-planning-sessions-v10", "tenant", id, "test", Ct))!;
         if (sessionCheckpointExists)
         {
             var historical = JsonNode.Parse(saved.Value)!;
+            historical.AsObject().Remove("construction");
             var options = historical["request"]!["options"]!.AsObject();
             foreach (var key in new[] { "compilation_profile", "mapping_profile", "planning_validation_profile",
-                "planning_diagnostics_version", "planning_input_review_version", "business_judge_review_version" }) options.Remove(key);
+                "planning_diagnostics_version", "planning_input_review_version", "business_judge_review_version",
+                "construction_version", "clarification_policy" }) options.Remove(key);
             await records.UpsertAsync("flow-planning-sessions-v10", "tenant", id, historical.ToJsonString(), "test", Ct);
         }
         else Assert.True(await records.DeleteAsync("flow-planning-sessions-v10", "tenant", id, "test", Ct));
-        await using var restored = await Factory().OpenAsync(Context(client), Initial(), Ct);
+        var reconstructed = Initial(); reconstructed.Construction = new();
+        await using var restored = await Factory().OpenAsync(Context(client), reconstructed, Ct);
         Assert.Equal(0, restored.Session.Revision);
         Assert.Equal(0, restored.Session.ModelCalls);
         Assert.Null(restored.Session.Request.Options["planning_diagnostics_version"]);
         Assert.Null(restored.Session.Request.Options["planning_input_review_version"]);
         Assert.Null(restored.Session.Request.Options["business_judge_review_version"]);
+        Assert.Null(restored.Session.Construction);
         Assert.Equal(0, client.Calls);
+    }
+
+    [Fact]
+    public async Task InterruptedCreationRestoresExactCapturedLimitsBeforeItsFirstSessionCheckpoint()
+    {
+        var records = new KeyVaultRecordStore(Path.Combine(_directory, "keyvault.db"));
+        var factory = new WorkflowPlanningRuntimeFactory(new InterruptFirstSession(records), Path.Combine(_directory, "leases"));
+        var client = new Client(); var original = Initial();
+        original.Construction = new() { Limits = new() { MaxTasksPerDraft = 4, DraftOutputTokens = 4096, ReviewOutputTokens = 1024 } };
+        var authoredOptions = original.Request.Options.ToJsonString();
+        await Assert.ThrowsAsync<IOException>(() => factory.OpenAsync(Context(client), original, Ct));
+        var id = original.Request.SessionId;
+        Assert.Null(await records.GetAsync("flow-planning-sessions-v10", "tenant", id, "test", Ct));
+        var definition = (await records.GetAsync("flow-planning-definitions-v10", "tenant", id, "test", Ct))!;
+        var changedDefaults = Initial(); changedDefaults.Construction = new();
+        await using var restored = await Factory().OpenAsync(Context(client), changedDefaults, Ct);
+        Assert.Equal(4, restored.Session.Construction!.Limits.MaxTasksPerDraft);
+        Assert.Equal(4096, restored.Session.Construction.Limits.DraftOutputTokens);
+        Assert.Equal(1024, restored.Session.Construction.Limits.ReviewOutputTokens);
+        Assert.Equal("2", restored.Session.Request.Options["business_judge_review_version"]!.ToString());
+        Assert.Equal("1", restored.Session.Request.Options["construction_version"]!.ToString());
+        Assert.Equal(authoredOptions, original.Request.Options.ToJsonString());
+        Assert.Equal(authoredOptions, changedDefaults.Request.Options.ToJsonString());
+        Assert.Equal(definition, await records.GetAsync("flow-planning-definitions-v10", "tenant", id, "test", Ct));
+        Assert.Equal(0, restored.Session.ModelCalls); Assert.Equal(0, restored.Session.ReplanAttempts);
+        Assert.Equal(0, client.Calls);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task InterruptedCreationRejectsChangedAuthoredOrCapturedLimits(bool capturedCheckpoint)
+    {
+        var records = new KeyVaultRecordStore(Path.Combine(_directory, "keyvault.db"));
+        var factory = new WorkflowPlanningRuntimeFactory(new InterruptFirstSession(records), Path.Combine(_directory, "leases"));
+        var client = new Client(); var original = Initial();
+        await Assert.ThrowsAsync<IOException>(() => factory.OpenAsync(Context(client), original, Ct));
+        var id = original.Request.SessionId;
+        var definition = (await records.GetAsync("flow-planning-definitions-v10", "tenant", id, "test", Ct))!;
+        var resumed = Initial();
+        if (capturedCheckpoint)
+        {
+            var changed = JsonNode.Parse(definition.Value)!;
+            changed["creationCheckpoint"]!["session"]!["request"]!["generation"]!["maxOutputTokens"] = 16000;
+            await records.UpsertAsync("flow-planning-definitions-v10", "tenant", id, changed.ToJsonString(), "test", Ct);
+        }
+        else resumed.Request.Generation.MaxOutputTokens = 16000;
+        await Assert.ThrowsAsync<PlanningConflictException>(() => Factory().OpenAsync(Context(client), resumed, Ct));
+        Assert.Null(await records.GetAsync("flow-planning-sessions-v10", "tenant", id, "test", Ct));
+        Assert.Equal(0, client.Calls);
+    }
+
+    [Fact]
+    public async Task MissingActiveCheckpointCannotResetToTheCreationSnapshot()
+    {
+        var client = new Client(); string id;
+        await using (var session = await Factory().OpenAsync(Context(client), Initial(), Ct))
+        {
+            id = session.Session.Request.SessionId;
+            await session.Runtime.CallAsync(Request(session.Session, "one"), "intent", Ct);
+        }
+        var records = new KeyVaultRecordStore(Path.Combine(_directory, "keyvault.db"));
+        Assert.True(await records.DeleteAsync("flow-planning-sessions-v10", "tenant", id, "test", Ct));
+        var error = await Assert.ThrowsAsync<PlanningConflictException>(() => Factory().OpenAsync(Context(client), Initial(), Ct));
+        Assert.Contains("cannot reset retained usage", error.Message);
+        Assert.Equal(1, client.Calls);
+        Assert.Null(await records.GetAsync("flow-planning-sessions-v10", "tenant", id, "test", Ct));
     }
 
     [Theory]
@@ -282,6 +358,25 @@ public sealed class WorkflowPlanningPersistenceTests : IDisposable
         }, snapshot.Request.Generation);
         request.ClientRequestId = snapshot.Request.SessionId + ":" + attempt + ":intent:workflow:" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
         return request;
+    }
+    private sealed class InterruptFirstSession(IKeyVaultRecordStore inner) : IKeyVaultRecordStore
+    {
+        private bool _interrupted;
+        public Task<KeyVaultRecordValue?> GetAsync(string collection, string tenantId, string key, string author, CancellationToken ct = default) =>
+            inner.GetAsync(collection, tenantId, key, author, ct);
+        public Task<KeyVaultRecordValue> UpsertAsync(string collection, string tenantId, string key, string value, string author, CancellationToken ct = default)
+        {
+            if (collection == "flow-planning-sessions-v10" && !_interrupted)
+            {
+                _interrupted = true;
+                throw new IOException("Interrupted after the authored definition, before the first session checkpoint.");
+            }
+            return inner.UpsertAsync(collection, tenantId, key, value, author, ct);
+        }
+        public Task<IReadOnlyList<KeyVaultRecordValue>> ListAsync(string collection, string tenantId, string author, CancellationToken ct = default) =>
+            inner.ListAsync(collection, tenantId, author, ct);
+        public Task<bool> DeleteAsync(string collection, string tenantId, string key, string author, CancellationToken ct = default) =>
+            inner.DeleteAsync(collection, tenantId, key, author, ct);
     }
     private sealed class Client : ILLMClient, ILLMCapabilityResolver
     {

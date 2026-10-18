@@ -9,7 +9,8 @@ using GnOuGo.Flow.Core.Runtime;
 internal static class LiveWorkflowOracles
 {
     internal const string ObservedProductsVersion = "observed-products-v2";
-    internal static async Task<JsonObject> VerifyAsync(string scenario, string root, JsonObject run, IMcpClientFactory transport)
+    internal static async Task<JsonObject> VerifyAsync(string scenario, string root, JsonObject run, IMcpClientFactory transport,
+        Func<Task<McpCallResult>>? hostClosureProbe = null)
     {
         var findings = new List<string>();
         var folder = Path.GetFullPath(Path.Combine(root, run["workspace_relative"]!.ToString()));
@@ -22,7 +23,9 @@ internal static class LiveWorkflowOracles
             var productLimit = run["max_products"]?.GetValue<int>() ?? 3;
             if (productLimit is < 1 or > 10) throw new InvalidOperationException("Invalid retained product bound.");
             var browser = await transport.GetClientAsync("GnOuGo.Browser.Mcp", CancellationToken.None);
-            var cleanup = await browser.CallToolAsync("browser_get_content", new JsonObject(), CancellationToken.None);
+            var cleanup = hostClosureProbe is null
+                ? await browser.CallToolAsync("browser_get_content", new JsonObject(), CancellationToken.None)
+                : await hostClosureProbe();
             if (!cleanup.IsError || cleanup.Content?.ToJsonString().Contains("No active page", StringComparison.Ordinal) != true)
                 findings.Add("browser_not_closed_by_workflow");
             await browser.CallToolAsync("browser_close", new JsonObject(), CancellationToken.None);

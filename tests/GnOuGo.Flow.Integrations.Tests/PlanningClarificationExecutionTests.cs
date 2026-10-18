@@ -50,7 +50,7 @@ public sealed class PlanningClarificationExecutionTests
                 var result = await engine.ExecuteAsync(document.Workflows[document.Entrypoint!], new JsonObject(), TestContext.Current.CancellationToken);
                 Assert.True(result.Success, result.Error?.Message); Assert.Equal(42, result.Outputs!["result"]!.GetValue<int>());
             }
-            Assert.Equal(2, model.Calls); Assert.Equal(1, human.Reviews);
+            Assert.Equal(3, model.Calls); Assert.Equal(1, human.Reviews);
             Assert.Equal(interaction ? 1 : 0, decisions.Questions); Assert.Equal(interaction ? 0 : 1, human.Questions);
             Assert.Contains(custom ? "CUSTOM_INTENT" : "compact", model.Requests[1].Prompt);
             if (interaction) Assert.True(decisions.AnswerCheckpointed);
@@ -104,8 +104,12 @@ public sealed class PlanningClarificationExecutionTests
             var proposal = Calls == 1 ? new PlanningProposal { Clarifications = [new("presentation", "Which presentation?",
                 [new("compact", "Compact numeric result"), new("detailed", "Detailed numeric result")], "compact")] }
                 : new PlanningProposal { Requirements = PlanningCorpus.Requirements("local"), Plan = PlanningCorpus.LiteralResult() };
-            return Task.FromResult(new LLMResponse { Json = PlanningCorpus.Transport(JsonSerializer.SerializeToNode(proposal, PlanningJsonContext.Default.PlanningProposal),
-                request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject()), Usage = new JsonObject { ["total_tokens"] = 15 } });
+            if (proposal.Requirements is { } requirements)
+            {
+                requirements.Inputs = [];
+                requirements.Outputs = [new() { Name = "result", Type = new() { Kind = "number" } }];
+            }
+            return Task.FromResult(new LLMResponse { Json = PlanningCorpus.OneDraftResponse(request, proposal), Usage = new JsonObject { ["total_tokens"] = 15 } });
         }
     }
     private sealed class Human(bool custom) : IHumanInputProvider

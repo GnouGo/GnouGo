@@ -39,8 +39,8 @@ public sealed partial class CodeReviewCompositionTests
         { Kind = "field", Port = "number", Items = [new() { Kind = "output", Source = "extract_identifier" }] }));
         proposal.Plan.Root.Tasks.Single(t => t.Id == "clone").Inputs.Add(new("revision", Ref("inspect", "revision")));
         var runtime = new LocalProductOutcomeExecutionTests.ProposalRuntime(actual, proposal);
-        var state = new PlanningSession { Catalog = catalog, Request = new() { TenantId = "fixture", Prompt = "Perform the requested review using the observed change identifier and exact producer revision.",
-            Options = new() { ["compilation_profile"] = "compact-bindings-v15" } } };
+        var state = GnOuGo.Planning.Examples.PlanningCorpus.RetainedSession(new() { Catalog = catalog, Request = new() { TenantId = "fixture", Prompt = "Perform the requested review using the observed change identifier and exact producer revision.",
+            Options = new() { ["compilation_profile"] = "compact-bindings-v15" } } });
         for (var i = 0; i < 4 && !PlanningStatus.IsWaiting(state.Status) && !PlanningStatus.IsTerminal(state.Status); i++)
             state = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
         Assert.True(state.Status == PlanningStatus.FinalReview, string.Join(';', state.Diagnostics));

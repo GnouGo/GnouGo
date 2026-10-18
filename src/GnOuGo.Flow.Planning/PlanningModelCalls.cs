@@ -23,7 +23,7 @@ internal static class PlanningModelCalls
                 $"The session model-call budget was exhausted ({CallsUsed(state)}/{CallLimit(state)} calls). Input/output token settings do not extend this cumulative allowance. Start a new planning session; retained requests and accounting remain unchanged.");
     }
 
-    internal static async Task<JsonNode> CallAsync(PlanningSession state, IPlanningRuntime runtime, string purpose, string prompt, JsonObject schema, CancellationToken ct)
+    internal static async Task<JsonNode> CallAsync(PlanningSession state, IPlanningRuntime runtime, string purpose, string prompt, JsonObject schema, CancellationToken ct, int? outputLimit = null)
     {
         ct.ThrowIfCancellationRequested();
         if (state.PendingCall?.Request.StructuredOutputSchema?["properties"] is JsonObject previous &&
@@ -36,7 +36,8 @@ internal static class PlanningModelCalls
             {
                 Provider = state.Request.Options["generator"]?["provider"]?.GetValue<string>(),
                 Model = state.Request.Options["generator"]?["model"]?.GetValue<string>() ?? "",
-                Prompt = prompt, StructuredOutputSchema = schema, StructuredOutputStrict = true, UseBackgroundMode = true
+                Prompt = prompt, StructuredOutputSchema = schema, StructuredOutputStrict = true, UseBackgroundMode = true,
+                MaxTokens = outputLimit
             }, state.Request.Generation);
             var violations = PlanningContractValidation.ValidateSchema(schema, strict: true);
             if (violations.Count != 0) throw new WorkflowRuntimeException("MODEL_SCHEMA_INVALID",
@@ -63,6 +64,24 @@ internal static class PlanningModelCalls
         state.PendingCall = null;
         if (response.CompletionStatus == "output_limit") throw new WorkflowRuntimeException("MODEL_OUTPUT_LIMIT", "The model response was truncated; no output limit escalation is performed.", details: new JsonObject { ["location"] = "/phases/" + purpose });
         var json = response.Json?.DeepClone() ?? JsonNode.Parse(response.Text) ?? throw new JsonException("The model returned an empty response.");
+        if (state.Construction is { } construction)
+        {
+            if (call.Request.MaxTokens is { } maximum)
+            {
+                long? reported = null;
+                if (response.Usage is JsonObject usage)
+                    foreach (var name in new[] { "output_tokens", "completion_tokens" })
+                        if (usage[name] is JsonValue value && long.TryParse(value.ToString(), System.Globalization.NumberStyles.None,
+                            System.Globalization.CultureInfo.InvariantCulture, out var count)) reported = Math.Max(reported ?? 0, count);
+                var measured = reported ?? (System.Text.Encoding.UTF8.GetByteCount(json.ToJsonString()) + 2L) / 3L;
+                if (measured > maximum)
+                    throw new WorkflowRuntimeException("MODEL_OUTPUT_LIMIT", "The completed construction response exceeded its issued output allowance; no fragment was accepted.", details: new JsonObject
+                    { ["location"] = "/phases/" + purpose, ["limit"] = maximum, ["current"] = measured,
+                        ["measurement"] = reported.HasValue ? "reported_output_tokens" : "conservative_serialized_response_tokens", ["unit"] = "tokens", ["stage"] = purpose });
+            }
+            if (purpose == "replan" && construction.LastProposalHash == "proposal:" + PlanningGraphCompiler.Fingerprint(json.ToJsonString()))
+                throw new WorkflowRuntimeException("REPLAN_NO_PROGRESS", "The correction repeated the same rejected construction action.");
+        }
         // The issued schema, not today's counters/policy, governs recovered responses.
         var canDecline = PlanningSchemas.AllowsNoPlan(call.Request.StructuredOutputSchema);
         if (canDecline && json is JsonObject proposal && proposal["discoveryRequests"] is not null)

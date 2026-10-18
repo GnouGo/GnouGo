@@ -21,10 +21,11 @@ public sealed class LiveWorkflowReviewTests
         Assert.Equal(option is not null, request.Options.ContainsKey("business_judge"));
         Assert.Equal("provider", request.Options["generator"]!["provider"]!.GetValue<string>());
         Assert.Equal("model", request.Options["generator"]!["model"]!.GetValue<string>());
-        Assert.Equal(8, request.MaxModelCalls);
-        Assert.Equal(2, request.MaxReplanAttempts);
-        Assert.Equal(96000, request.Generation.MaxInputTokensPerRequest);
-        Assert.Equal(32768, request.Generation.MaxOutputTokens);
+        Assert.Equal(12, request.MaxModelCalls);
+        Assert.Equal(4, request.MaxReplanAttempts);
+        Assert.Equal(32000, request.Generation.MaxInputTokensPerRequest);
+        Assert.Equal(8192, request.Generation.MaxOutputTokens);
+        Assert.True(request.Policy.RequireExternalConfirmation);
         var recovered = JsonSerializer.Deserialize(JsonSerializer.Serialize(request, PlanningJsonContext.Default.PlanningRequest),
             PlanningJsonContext.Default.PlanningRequest)!;
         Assert.Equal(request.Options.ToJsonString(), recovered.Options.ToJsonString());
@@ -65,10 +66,10 @@ public sealed class LiveWorkflowReviewTests
             "fresh-run", "amazon", "requested work", "provider", "model");
         Assert.Equal(enabled, request.Options.ContainsKey("automatic_correction"));
         if (enabled) Assert.True(request.Options["automatic_correction"]!.GetValue<bool>());
-        Assert.Equal(8, request.MaxModelCalls);
-        Assert.Equal(2, request.MaxReplanAttempts);
-        Assert.Equal(96000, request.Generation.MaxInputTokensPerRequest);
-        Assert.Equal(32768, request.Generation.MaxOutputTokens);
+        Assert.Equal(12, request.MaxModelCalls);
+        Assert.Equal(4, request.MaxReplanAttempts);
+        Assert.Equal(32000, request.Generation.MaxInputTokensPerRequest);
+        Assert.Equal(8192, request.Generation.MaxOutputTokens);
         Assert.Equal("requested work", request.Prompt);
         var recovered = JsonSerializer.Deserialize(JsonSerializer.Serialize(request, PlanningJsonContext.Default.PlanningRequest),
             PlanningJsonContext.Default.PlanningRequest)!;

@@ -106,7 +106,7 @@ public interface ILLMUsageBudgetScopeFactory
 /// Thread-safe, provider-neutral LLM usage budget. Child scopes enforce their own limits
 /// while atomically contributing the same call to their parent scope.
 /// </summary>
-public sealed class LLMUsageBudgetScope
+public sealed partial class LLMUsageBudgetScope
 {
     private readonly object _gate = new();
     private readonly SemaphoreSlim _persistenceGate = new(1, 1);
@@ -491,7 +491,8 @@ public sealed class LLMUsageBudgetScope
     private async ValueTask<MonetaryAmount> ConvertToBudgetCurrencyAsync(
         ModelUsageCostEstimate estimate,
         string stage,
-        CancellationToken ct)
+        CancellationToken ct,
+        bool pinQuote = true)
     {
         if (_costLimit is null)
             throw new InvalidOperationException("A cost estimate was requested without a monetary budget.");
@@ -551,7 +552,7 @@ public sealed class LLMUsageBudgetScope
                 {
                     quote = existing;
                 }
-                else
+                else if (pinQuote)
                 {
                     quote = validatedQuote;
                     _snapshot = _snapshot with

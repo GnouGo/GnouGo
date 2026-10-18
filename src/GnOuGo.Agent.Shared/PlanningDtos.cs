@@ -1,6 +1,7 @@
 using System.Text.Json.Nodes;
 namespace GnOuGo.Agent.Shared;
-public sealed record PlanningStartDto(string Name, string Prompt, bool ReviseExisting = false, string Mode = "interactive", bool BusinessJudge = false);
+public sealed record PlanningStartDto(string Name, string Prompt, bool ReviseExisting = false, string Mode = "interactive", bool BusinessJudge = false,
+    string? ConstructionPreset = null);
 public sealed record PlanningGenerationDto(string Reasoning = "medium", int MaxInputTokensPerRequest = 32_000, int MaxOutputTokens = 32_768);
 public sealed record PlanningCommandDto(string Kind, long ExpectedRevision, string? ArtifactHash = null, string? Text = null, JsonObject? Selections = null, PlanningGenerationDto? Generation = null, string? Mode = null,
     IReadOnlyList<PlanningAnswerDto>? Answers = null, string? RequestId = null)

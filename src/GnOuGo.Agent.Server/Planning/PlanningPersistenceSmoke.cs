@@ -18,6 +18,7 @@ internal static class PlanningPersistenceSmoke
         await using (var db = factory.CreateDbContext()) await db.Database.EnsureCreatedAsync();
         var records = KeyVaultRecordStoreFactory.CreateWorkspaceStore(vault, directory);
         var store = new EfPlanningSessionStore(factory, records);
+        await VerifyConstructionStorageAsync(store, factory, vault, directory);
         var state = new PlanningSession { Request = new() { TenantId = "smoke", SessionId = Guid.NewGuid().ToString("N"), Prompt = "Private published smoke content" } };
         state.Requirements = new() { Summary = "Private requirements", Outcomes = [new("result", "Private acceptance criterion")] };
         state.IntentVersion = 1; state.OutcomeVersion = 1;
@@ -103,6 +104,35 @@ internal static class PlanningPersistenceSmoke
             System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(vault)).Contains(description, StringComparison.Ordinal))
             throw new InvalidOperationException("Published encrypted description/receipt recovery failed.");
         Console.WriteLine("Format-10 planning persistence smoke passed; execution journal schema 9 is unchanged.");
+    }
+
+    private static async Task VerifyConstructionStorageAsync(EfPlanningSessionStore store, IDbContextFactory<PlanningDbContext> factory,
+        string vault, string directory)
+    {
+        const string privateValue = "Private construction candidate and review evidence";
+        var accepted = new TaskPlan { Root = new() { Outputs = [new("accepted", new() { Kind = "string", Text = "Original accepted value" })] } };
+        var state = new PlanningSession
+        {
+            IntentVersion = 3, Request = new() { TenantId = "smoke", SessionId = "construction-" + Guid.NewGuid().ToString("N"), Prompt = "Construct requested work" },
+            Plan = accepted, ModelCalls = 2,
+            Construction = new()
+            {
+                Checkpoints = [new() { Sequence = 1, PlanHash = PlanningConstruction.Hash(accepted), Fragment = new() { ["evidence"] = privateValue } }],
+                Candidate = new() { BaseHash = PlanningConstruction.Hash(accepted), Plan = new() { Root = new() { Outputs = [new("candidate", new() { Kind = "string", Text = privateValue })] } } },
+                PendingReviewContext = new() { ["original"] = privateValue }
+            },
+            PendingCall = new() { Id = "retained-construction-review", Purpose = "construction_local_judge", Request = new() { Prompt = privateValue } }
+        };
+        var original = System.Text.Json.JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        if (!await store.TrySaveAsync(state, null, CancellationToken.None)) throw new InvalidOperationException("Construction checkpoint insert failed.");
+        var reopened = new EfPlanningSessionStore(factory, KeyVaultRecordStoreFactory.CreateWorkspaceStore(vault, directory));
+        var restored = await reopened.LoadAsync("smoke", state.Request.SessionId, CancellationToken.None);
+        if (restored is null || System.Text.Json.JsonSerializer.Serialize(restored, PlanningJsonContext.Default.PlanningSession) != original ||
+            restored.Plan?.Root.Outputs.Single().Name != "accepted" || restored.Construction?.Candidate?.Plan.Root.Outputs.Single().Name != "candidate" ||
+            await reopened.LoadAsync("other-tenant", state.Request.SessionId, CancellationToken.None) is not null ||
+            System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(vault)).Contains(privateValue, StringComparison.Ordinal))
+            throw new InvalidOperationException("Published construction candidate, review, request or tenant/encryption recovery failed.");
+        Console.WriteLine("construction persistence: accepted baseline, tentative draft and pending review recover independently under encryption");
     }
 
     private static async Task VerifyJudgeRecoveryAsync(string directory, string vault, IDbContextFactory<PlanningDbContext> factory,

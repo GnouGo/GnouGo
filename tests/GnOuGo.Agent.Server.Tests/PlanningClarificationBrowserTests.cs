@@ -91,9 +91,16 @@ public sealed class PlanningClarificationBrowserTests
         {
             var state = (await service.GetAsync(id!.ToString(), ct))!;
             Assert.Equal(name == "cancel" ? PlanningStatus.Cancelled : name == "legacy" ? PlanningStatus.Stopped : PlanningStatus.FinalReview, state.Status);
-            Assert.Null(state.ApprovedHash); Assert.Equal(name is "cancel" or "legacy" ? 1 : 2, state.ModelCalls);
+            Assert.Null(state.ApprovedHash); Assert.Equal(name is "cancel" or "legacy" ? 1 : 3, state.ModelCalls);
+            if (name is not ("cancel" or "legacy"))
+            {
+                Assert.True(state.Construction!.Complete);
+                Assert.Single(state.Construction.Checkpoints);
+                Assert.Single(state.Construction.Checkpoints[0].Reviews);
+                PlanningArtifactApproval.Verify(state);
+            }
         }
-        Assert.Equal(10, model.Calls); // Six initial questions, four continuations; receipt replay dispatches nothing.
+        Assert.Equal(14, model.Calls); // Six questions, four continuations and four local Judges; receipt replay dispatches nothing.
     }
 
     private sealed class Model : ILLMClient, ILLMCapabilityResolver
@@ -107,13 +114,18 @@ public sealed class PlanningClarificationBrowserTests
         {
             Interlocked.Increment(ref Calls);
             var start = request.Prompt.IndexOf("\n{", StringComparison.Ordinal); var context = JsonNode.Parse(request.Prompt[(start + 1)..])!;
-            var proposal = context["userAnswers"] is null
+            var proposal = context["answers"] is not JsonArray { Count: > 0 }
                 ? new PlanningProposal { Clarifications = context["request"]!.ToString() == "A missing fact"
                     ? [new("resource", "Which existing resource should be used?", [], null)]
                     : [new("interface", "Which caller interface should this workflow expose?", [new("compact", "Reference and checklist: derive technical details"), new("explicit", "Separate coordinates: caller supplies technical details")], "compact")] }
                 : new PlanningProposal { Requirements = PlanningCorpus.Requirements("local"), Plan = PlanningCorpus.LiteralResult() };
-            return Task.FromResult(LastResponse = new LLMResponse { Json = PlanningCorpus.Transport(JsonSerializer.SerializeToNode(proposal, PlanningJsonContext.Default.PlanningProposal),
-                request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject()), Usage = new JsonObject { ["prompt_tokens"] = 20, ["completion_tokens"] = 30, ["total_tokens"] = 50 } });
+            if (proposal.Plan is { } plan)
+            {
+                proposal.Requirements!.Inputs = plan.Inputs;
+                proposal.Requirements.Outputs = [new() { Name = "result", Type = new() { Kind = "number" } }];
+            }
+            return Task.FromResult(LastResponse = new LLMResponse { Json = PlanningCorpus.OneDraftResponse(request, proposal),
+                Usage = new JsonObject { ["prompt_tokens"] = 20, ["completion_tokens"] = 30, ["total_tokens"] = 50 } });
         }
     }
 }

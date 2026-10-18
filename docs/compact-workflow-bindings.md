@@ -34,6 +34,12 @@ A terminal pure sequence may move to a sole checked output when no finalizer, ha
 
 The comparison and every removed/retained materialization are documented in [v13 evidence](evidence/compact-bindings-v13-2026-10-12/README.md). Capture loops remain where native projections would otherwise lose iteration/cancellation constraints. There is no artificial set-count target.
 
+## Checked program admission
+
+Compiler-generated checked expressions retain the runtime's 65,536-character program limit. Expression-contract validation uses the same runtime constant and rejects oversized input, output and control programs before execution, reporting the exact size and contract location. The final planning compiler reports generated-code admission failures as `TASK_COMPILER_VALIDATION`; they do not authorize model repair of JavaScript. Historical emitted bytes, compiler profiles and runtime ceilings are unchanged. Previously oversized stored programs now fail at admission rather than later during evaluation; valid stored artifacts retain their behavior.
+
+Large construction capacity concerns semantic drafts and generated graph nodes, not the size of a single fused program. The retained 500-pure-task regression, including earlier data and control dependencies, lowers through unchanged v15 to 98,268 characters and is rejected. The separate 500-operation DAG exercises real operation boundaries and checks every received producer value and final result. It does not establish that every 500-task composition fits expression, execution or inference limits. No automatic task splitting, synthetic barriers or runtime allowance increase occurs.
+
 ## v12: direct values, ordered aliases and checked outputs
 
 The historical `compact-bindings-v12` profile uses direct values. Generated JavaScript should be readable by a developer: direct scalar/array/object locals, functional names, native projections and multiline code. The model still supplies typed business bindings, never scripts. Omitted and v1–v11 profiles retain their exact lowering and approvals; v12 artifacts require the corresponding runtime.

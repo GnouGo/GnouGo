@@ -2,19 +2,21 @@
 
 Flow uses one semantic planner, one executable graph and one execution journal.
 
-Fresh sessions use the [simplified business-intent profile](planner-simplification.md), with contract-aware generation and TaskPlan-only repairs. TaskPlan, PlanningGraph and storage format 10 remain unchanged.
+Fresh sessions use [incremental TaskPlan construction](incremental-taskplan-construction.md): bounded semantic drafts, compiler preflight, local advisory review and encrypted checkpoints. TaskPlan, PlanningGraph, compiler v15 and storage format 10 remain unchanged. Historical sessions retain their captured [business-intent profile](planner-simplification.md) and issued-request recovery.
 
 ```mermaid
 flowchart LR
   Requirements --> Discovery[Progressive discovery]
-  Discovery --> Tasks[LLM TaskPlan]
-  Tasks --> Compiler[Deterministic compiler: semantic preflight and lowering]
+  Discovery --> Tasks[Bounded TaskPlan extension]
+  Tasks --> Preflight[Deterministic semantic preflight]
+  Preflight --> Judge[Bounded local and junction Judges]
+  Judge --> Checkpoint[Accepted checkpoint]
+  Checkpoint --> Tasks
+  Checkpoint --> Compiler[Complete deterministic validation and lowering]
   Compiler --> Graph[PlanningGraph]
   Graph --> YAML
   YAML --> Validation
   Validation --> Review[FinalReview]
-  Validation -. explicit opt-in .-> Judge[Independent advisory Judge]
-  Judge --> Review
   Review --> Approval
   Validation --> Repair[Scoped TaskPlan repair]
   Repair --> Tasks
@@ -22,7 +24,9 @@ flowchart LR
 
 The model selects declared operation intents and connects business ports. The compiler
 owns binding and executor plumbing. There is no model-generated graph, separate
-binding session or grounded-plan representation. Optional business review uses the existing planning loop and journal; it adds no mandatory model phase.
+binding session or grounded-plan representation. Local reviews share the existing
+journal and allowances; there is no final whole-plan LLM Judge. Historical proposal
+and optional-review contracts below remain relevant to retained sessions.
 
 Task, group and choice declarations share one case-sensitive global namespace. IDs and references allow only nonempty ASCII letters, digits, underscores and hyphens, with `__` reserved. Alternative IDs remain local to their choice; business ports, operation IDs and requirements are outside this namespace. Invalid declarations are never automatically renamed or granted repair permission. Previously saved format-10 plans with invalid declarations must be regenerated; approval verification and recovery fail closed without changing stored records. Malformed consumer references may be corrected only within an existing diagnosed binding scope.
 
@@ -142,7 +146,7 @@ Catalog-owned fixed inputs and request bindings are injected deterministically; 
 
 Artifact consumers must bind the producer-declared business port of the required kind. Preflight reports incorrect origins at the consumer binding; checked projections and captures preserve valid origins without manufacturing them from strings, types or transforms. Unconstrained MCP responses remain opaque across exports. See [artifact provenance evidence](artifact-provenance.md).
 
-Initial generation returns a complete TaskPlan; semantic repair returns a private typed `RepairPatch`, not another plan representation. Host-issued slots reuse the existing revision permissions. Explicit replace/add/remove edits are applied to a clone and pass both scope checks and full compilation/validation before replacing the baseline. Version-2 structural slots additionally authorize contract-proven prerequisite insertion (at most eight tasks before the diagnosed consumer), identity-preserving replacement of an invalid leaf operation, and equivalent removal of a diagnosed pure forwarder. Other structure and ordering remain fixed. Every inserted task must be used on the declared required-artifact chain. Version-1 pending requests keep their original narrower permissions; TaskPlan, PlanningGraph and storage format 10 are unchanged. Recovery verifies the retained baseline/scope/contract/policy fingerprint and original request schema; historical pending full-plan responses are not converted or redispatched. See [bounded patch measurements and limitations](bounded-semantic-repairs.md).
+Historical initial generation returns a complete TaskPlan; semantic repair returns a private typed `RepairPatch`, not another plan representation. Host-issued slots reuse the existing revision permissions. Explicit replace/add/remove edits are applied to a clone and pass both scope checks and full compilation/validation before replacing the baseline. Version-2 structural slots additionally authorize contract-proven prerequisite insertion (at most eight tasks before the diagnosed consumer), identity-preserving replacement of an invalid leaf operation, and equivalent removal of a diagnosed pure forwarder. Other structure and ordering remain fixed. Every inserted task must be used on the declared required-artifact chain. Version-1 pending requests keep their original narrower permissions; TaskPlan, PlanningGraph and storage format 10 are unchanged. Recovery verifies the retained baseline/scope/contract/policy fingerprint and original request schema; historical pending full-plan responses are not converted or redispatched. See [bounded patch measurements and limitations](bounded-semantic-repairs.md).
 
 A semantic failure opens a bounded revision scope over diagnosed business slots and the explicit export declarations required by their consumers. Conditional alternatives must explicitly provide matching outputs; the compiler invents neither exports nor fallback values. Added exports must belong to the diagnosed connection, with unrelated declarations and ordering preserved. Revalidation of a dependent task grants no edit permission. Unknown or ambiguous locations never authorize whole-plan repair. Rejected revisions identify unauthorized changed slots and retain the last accepted baseline. Diagnosed optional operation bindings may be explicitly omitted under the authoritative contract; remaining bindings retain their order and values, and full request validation still enforces conditional requirements. Null is not omission. Producer constraint diagnostics expose only incompatible enum/nullability leaves. See [contract-aware repair evidence](contract-aware-repairs.md). Optional workflow/group inputs require literal defaults, while optional object fields may remain absent. Composite outputs use the existing typed `set` primitive after cleanup; opaque payloads remain opaque. Generated executor validation failures stop with compiler diagnostics. Dependent findings are
 invalidated; unaffected validated stages and interfaces remain unchanged. Repairs,

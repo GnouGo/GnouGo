@@ -12,7 +12,7 @@ internal static partial class PlanningBusinessJudge
     // Retain only a bounded rejection description, not the unusable model report
     // or values next to its proposed context locations. A null JSON value is an
     // existing location; it is distinct from a missing property or array index.
-    private static JsonArray ReferenceDiagnostics(JsonNode report, JsonObject context, out int omitted)
+    internal static JsonArray ReferenceDiagnostics(JsonNode report, JsonObject context, out int omitted)
     {
         var errors = new JsonArray();
         var count = 0;

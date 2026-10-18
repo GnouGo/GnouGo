@@ -14,6 +14,7 @@ internal sealed class PlanningRepairResponse
     public List<PlanningDiscoveryRequest>? DiscoveryRequests { get; set; }
     public RepairPatch? Patch { get; set; }
     public List<PlanningQuestion>? Clarifications { get; set; }
+    public List<string>? EvidenceRequests { get; set; }
 }
 internal sealed class RepairPatch { public List<RepairEdit> Edits { get; set; } = []; }
 internal sealed class RepairEdit
@@ -358,7 +359,7 @@ internal static class PlanningRepairPatch
         throw new PlanningConflictException("The repair baseline, scope or contracts changed. The retained request cannot be rebased or redispatched.");
     }
 
-    internal static TaskPlan Apply(PlanningSession state, RepairPatch patch, LLMRequest request)
+    internal static TaskPlan Apply(PlanningSession state, RepairPatch patch, LLMRequest request, IReadOnlySet<string>? constructionScopes = null)
     {
         var scopedDependencies = Verify(state, request);
         var version = RequestContext(request)["repair"]!["version"]!.GetValue<int>();
@@ -369,6 +370,7 @@ internal static class PlanningRepairPatch
         // Recovery and direct callers both enforce the exact issued response schema.
         var response = new JsonObject { ["discoveryRequests"] = null, ["patch"] = JsonSerializer.SerializeToNode(patch, RepairJsonContext.Default.RepairPatch) };
         if (request.StructuredOutputSchema?["properties"]?["clarifications"] is not null) response["clarifications"] = null;
+        if (request.StructuredOutputSchema?["properties"]?["evidenceRequests"] is not null) response["evidenceRequests"] = null;
         // Removal actions omit the payload in the wire contract.
         foreach (var edit in response["patch"]!["edits"]!.AsArray())
             if (edit!["action"]?.ToString() is "remove" or "remove_owned" or "remove_forwarder") edit.AsObject().Remove("value");
@@ -447,6 +449,12 @@ internal static class PlanningRepairPatch
             throw new WorkflowRuntimeException("REPLAN_NO_PROGRESS", "The repair did not change an authorized semantic slot. The baseline and accounting are retained.");
         var checkedPlan = JsonSerializer.SerializeToNode(candidate, PlanningJsonContext.Default.TaskPlan)!.Deserialize(PlanningJsonContext.Default.TaskPlan)!;
         foreach (var choice in checkedPlan.Choices.Where(c => c.Selected is null)) choice.Selected = choice.Recommended;
+        if (constructionScopes is not null)
+        {
+            var construction = TaskPlanCompiler.ValidateConstruction(checkedPlan, state.Catalog!, state.Request, constructionScopes);
+            if (construction.Diagnostics.Count > 0) throw new PlanningResponseException(construction.Diagnostics.ToList());
+            return candidate;
+        }
         var complete = new TaskPlanCompiler().Compile(checkedPlan, state.Catalog!);
         if (complete.Diagnostics.Count > 0) throw new PlanningResponseException(complete.Diagnostics.ToList());
         return candidate;

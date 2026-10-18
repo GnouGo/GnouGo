@@ -12,6 +12,56 @@ public sealed class BenchmarkCampaignTests
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     [Fact]
+    public async Task DraftHeadroomPreservesMandatoryReviewsWithoutInventingChargesOrResettingUnknowns()
+    {
+        var campaign = new BenchmarkCampaign(new Records(), "review-headroom");
+        await new BenchmarkHttpJournal(campaign, "old:1:unknown", 100, 20, 45m)
+            .SaveAsync(new() { Attempts = [new() { Id = "old" }] }, Ct);
+        var before = await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct);
+        var draft = new BenchmarkHttpJournal(campaign, "fresh:1:draft", 100, 20, 3m,
+            reviewCostHeadroom: 3m, reviewAttemptHeadroom: 2);
+        await draft.PrepareAsync(Ct);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => draft.SaveAsync(new() { Attempts = [new() { Id = "draft" }] }, Ct));
+        Assert.True(JsonNode.DeepEquals(before, await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct)));
+        Assert.Empty((await draft.LoadAsync(Ct))!.Attempts);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => new BenchmarkHttpJournal(campaign, "fresh:1:draft", 100, 20, 3m)
+            .SaveAsync(new(), Ct));
+        var allowed = new BenchmarkHttpJournal(campaign, "fresh:2:smaller", 100, 20, 1m,
+            reviewCostHeadroom: 3m, reviewAttemptHeadroom: 2);
+        await allowed.SaveAsync(new() { Attempts = [new() { Id = "allowed" }] }, Ct);
+        var after = await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct);
+        Assert.Equal(46m, after["cost_upper_bound_eur"]!.GetValue<decimal>());
+        Assert.Equal(2L, after["unknown_attempts"]!.GetValue<long>());
+        var exhausted = new BenchmarkHttpJournal(campaign, "bounded:1:draft", 100, 20, .1m,
+            sessionAttemptLimit: 2, reviewCostHeadroom: .1m, reviewAttemptHeadroom: 2);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => exhausted.SaveAsync(new() { Attempts = [new() { Id = "no-review-room" }] }, Ct));
+    }
+
+    [Fact]
+    public async Task LargeSessionTransportPolicyIsCapturedOnceAndCannotRaiseHistoricalLimits()
+    {
+        var records = new Records(); var campaign = new BenchmarkCampaign(records, "capacity");
+        using var model = new KeyVaultBenchmarkModel(campaign, new LLMOptions());
+        var request = LiveWorkflowEvaluation.FreshPlanningRequest(["--construction-preset", "large"], "new-large", "amazon", "Requested work", "provider", "model");
+        Assert.Equal(384, request.MaxModelCalls); Assert.Equal(64, request.MaxReplanAttempts);
+        Assert.Equal(32_000, request.Generation.MaxInputTokensPerRequest);
+        await model.CapturePlanningPolicyAsync(request, Ct);
+        var captured = (await campaign.LoadAsync("planning-evaluation-session-policy", "new-large", Ct))!;
+        Assert.Equal(384, captured["max_physical_attempts"]!.GetValue<int>());
+        var writes = records.Writes;
+        await model.CapturePlanningPolicyAsync(request, Ct); Assert.Equal(writes, records.Writes);
+        request.MaxModelCalls++;
+        await Assert.ThrowsAsync<PlanningConflictException>(() => model.CapturePlanningPolicyAsync(request, Ct));
+        Assert.True(JsonNode.DeepEquals(captured, await campaign.LoadAsync("planning-evaluation-session-policy", "new-large", Ct)));
+        request.SessionId = "historical";
+        await campaign.SaveAsync("planning-evaluation-requests", "historical:1:issued", new JsonObject(), Ct);
+        writes = records.Writes;
+        await model.CapturePlanningPolicyAsync(request, Ct);
+        Assert.Null(await campaign.LoadAsync("planning-evaluation-session-policy", "historical", Ct));
+        Assert.Equal(writes, records.Writes);
+    }
+
+    [Fact]
     public async Task LiveCohortJudgeSettingIsFrozenWithoutMigratingDisabledManifests()
     {
         var records = new Records();

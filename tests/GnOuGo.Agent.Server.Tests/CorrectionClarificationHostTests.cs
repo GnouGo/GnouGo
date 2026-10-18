@@ -13,10 +13,10 @@ public sealed class CorrectionClarificationHostTests
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     [Theory]
-    [InlineData("initial", 2, 2, 0)]
-    [InlineData("technical", 2, 2, 1)]
-    [InlineData("question", 2, 3, 2)]
-    [InlineData("failed_then_question", 3, 4, 3)]
+    [InlineData("initial", 2, 3, 0)]
+    [InlineData("technical", 2, 3, 1)]
+    [InlineData("question", 2, 4, 2)]
+    [InlineData("failed_then_question", 3, 5, 3)]
     [InlineData("failed_then_question", 2, 3, 2)]
     public async Task BackgroundOwnerResumesAnswersWithinTheOriginalAllowance(string scenario, int repairs, int calls, int attempts)
     {
@@ -119,7 +119,7 @@ public sealed class CorrectionClarificationHostTests
         try
         {
             state = await Wait(next, state.Request.SessionId); Assert.Equal(PlanningStatus.FinalReview, state.Status);
-            Assert.Equal(3, model.Calls); Assert.Equal(2, state.ReplanAttempts); Assert.Equal(3, state.Usage!.Calls);
+            Assert.Equal(4, model.Calls); Assert.Equal(2, state.ReplanAttempts); Assert.Equal(4, state.Usage!.Calls);
             foreach (var receipt in receipts)
                 Assert.Equal(receipt.Value, (await fixture.Records.GetAsync(PlanningModelJournal.Collection, "planning-tests", receipt.Key, EfPlanningSessionStore.Author, Ct))!.Value);
         }
@@ -135,8 +135,11 @@ public sealed class CorrectionClarificationHostTests
             var call = ++Calls;
             Requests.Add(request);
             var context = JsonNode.Parse(request.Prompt[(request.Prompt.IndexOf("\n{", StringComparison.Ordinal) + 1)..])!;
-            Assert.Contains("transforms cannot call tools", request.Prompt);
-            Assert.Contains("Answers preserve requirements/interfaces", request.Prompt);
+            if (request.StructuredOutputSchema!["properties"]?["extension"] is not null)
+            {
+                Assert.Contains("cannot call tools", request.Prompt);
+                Assert.Contains("Preserve accepted requirements and interfaces", request.Prompt);
+            }
             JsonNode response;
             var asking = scenario == "initial" && call == 1 || scenario == "question" && call == 2 || scenario == "failed_then_question" && call == 3;
             if (asking)
@@ -158,7 +161,9 @@ public sealed class CorrectionClarificationHostTests
                 response = JsonSerializer.SerializeToNode(new PlanningProposal { Plan = plan, Requirements = new()
                 { Summary = "Describe the supplied subject", Inputs = plan.Inputs, Outcomes = [new("result", "Describe the requested subject")], Outputs = [new() { Name = "result" }] } }, PlanningJsonContext.Default.PlanningProposal)!;
             }
-            response = PlanningCorpus.Transport(response, request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject())!;
+            if (request.StructuredOutputSchema!["properties"]?["extension"] is not null || request.StructuredOutputSchema["properties"]?["findings"] is not null)
+                response = PlanningCorpus.OneDraftResponse(request, response.Deserialize(PlanningJsonContext.Default.PlanningProposal)!)!;
+            else response = PlanningCorpus.Transport(response, request.StructuredOutputSchema.AsObject(), request.StructuredOutputSchema.AsObject())!;
             Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(response, request.StructuredOutputSchema));
             return Task.FromResult(new LLMResponse { Json = response, Usage = new JsonObject { ["input_tokens"] = 10, ["output_tokens"] = 5 } });
         }

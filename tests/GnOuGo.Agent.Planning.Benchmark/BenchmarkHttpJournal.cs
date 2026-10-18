@@ -4,7 +4,8 @@ using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Planning;
 
 /// <summary>Admission and encrypted evidence only. All retry decisions belong to AI.Core.</summary>
-internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string requestId, long inputCeiling, long outputCeiling, decimal costCeiling, int? sessionAttemptLimit = 8) : ILLMHttpRetryJournal
+internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string requestId, long inputCeiling, long outputCeiling, decimal costCeiling,
+    int? sessionAttemptLimit = 8, decimal reviewCostHeadroom = 0, int reviewAttemptHeadroom = 0) : ILLMHttpRetryJournal
 {
     internal const string Collection = "planning-evaluation-http-attempts";
     internal static JsonObject UndispatchedUsage() => new()
@@ -29,10 +30,19 @@ internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string re
         if (sessionAttemptLimit is <= 0 || existing is not null &&
             (existing.ContainsKey("session_attempt_limit") ? existing["session_attempt_limit"]?.GetValue<int>() : 8) != sessionAttemptLimit)
             throw new InvalidOperationException("An issued HTTP attempt limit cannot change during recovery.");
+        if (reviewCostHeadroom < 0 || reviewAttemptHeadroom is < 0 or > 2 || existing is not null &&
+            ((existing["construction_review_cost_headroom_eur"]?.GetValue<decimal>() ?? 0) != reviewCostHeadroom ||
+             (existing["construction_review_attempt_headroom"]?.GetValue<int>() ?? 0) != reviewAttemptHeadroom))
+            throw new InvalidOperationException("Issued construction review headroom cannot change during recovery.");
         var record = existing?.DeepClone().AsObject() ?? new JsonObject
         {
             ["input_ceiling"] = inputCeiling, ["output_ceiling"] = outputCeiling, ["cost_ceiling_eur"] = costCeiling, ["session_attempt_limit"] = sessionAttemptLimit
         };
+        if (existing is null && reviewAttemptHeadroom > 0)
+        {
+            record["construction_review_cost_headroom_eur"] = reviewCostHeadroom;
+            record["construction_review_attempt_headroom"] = reviewAttemptHeadroom;
+        }
         if (inputCeiling <= 0 || outputCeiling <= 0 || costCeiling < 0) throw new InvalidOperationException("Conservative attempt limits are required.");
         if (existing is null && exchangeQuote is not null) record["exchange_quote"] = exchangeQuote.DeepClone();
         record["transport"] = JsonSerializer.SerializeToNode(state, LLMHttpRetryJsonContext.Default.LLMHttpRetryState);
@@ -42,8 +52,8 @@ internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string re
             if (state.Attempts.Count != oldCount + 1 || state.Attempts[^1].Status is not null)
                 throw new InvalidOperationException("Each new dispatch must have one reserved identity.");
             var totals = await AccountingAsync(campaign, requestId, record, ct);
-            var sessionExhausted = sessionAttemptLimit is { } limit && totals["session_calls"]!.GetValue<long>() > limit;
-            if (totals["cost_upper_bound_eur"]!.GetValue<decimal>() > await campaign.CostCeilingAsync(ct) || sessionExhausted)
+            var sessionExhausted = sessionAttemptLimit is { } limit && totals["session_calls"]!.GetValue<long>() + reviewAttemptHeadroom > limit;
+            if (totals["cost_upper_bound_eur"]!.GetValue<decimal>() + reviewCostHeadroom > await campaign.CostCeilingAsync(ct) || sessionExhausted)
             { campaign.BudgetExceeded(sessionExhausted); throw new InvalidOperationException("The campaign or session cannot cover another HTTP attempt."); }
         }
         await campaign.SaveAsync(Collection, requestId, record, ct);

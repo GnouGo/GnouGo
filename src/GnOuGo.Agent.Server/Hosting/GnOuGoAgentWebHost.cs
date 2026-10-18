@@ -494,8 +494,7 @@ public static class GnOuGoAgentWebHost
             builder.Configuration.GetSection(GnOuGo.Agent.Server.Configuration.TypedWorkflowPlanningSettings.SectionName));
         var planningSettings = builder.Configuration.GetSection(GnOuGo.Agent.Server.Configuration.TypedWorkflowPlanningSettings.SectionName)
             .Get<GnOuGo.Agent.Server.Configuration.TypedWorkflowPlanningSettings>() ?? new();
-        if (planningSettings.MaxReplanAttempts is < 0 or > 10 || planningSettings.MaxModelCalls < 1)
-            throw new InvalidOperationException("Invalid typed workflow planning configuration.");
+        planningSettings.Validate();
         var planningDbPath = GnOuGoWorkspace.ResolveDatabasePath(planningSettings.DatabasePath, applicationBasePath, ".GnOuGo/data/gnougo-planning-v9.db");
         builder.Services.AddDbContextFactory<GnOuGo.Agent.Server.Planning.PlanningDbContext>(options => options.UseSqlite($"Data Source={planningDbPath}")
             .UseModel(GnOuGo.Agent.Server.Planning.CompiledModels.PlanningDbContextModel.Instance));

@@ -35,6 +35,13 @@ var firstRepetition = int.Parse(Option("--first-repetition") ?? "1", System.Glob
 if (firstRepetition < 1 || firstRepetition > repetitions || firstRepetition != 1 && phase != "fixture")
     throw new ArgumentException("A starting repetition is supported only for an existing fixture cohort and cannot exceed --repetitions.");
 var names = PlanningBenchmarkMeasurements.Select(Option("--cases") ?? Option("--case") ?? (live ? null : string.Join(',', PlanningCorpus.Names)));
+if (Option("--delegated-authorization") is not null || Option("--delegated-review") is not null)
+{
+    if (!live || Option("--delegated-authorization") is null || Option("--delegated-review") is null ||
+        Option("--review-run") is null || Option("--review-command") is not null ||
+        names.Length != 1 || names[0] is not ("local" or "collections"))
+        throw new ArgumentException("Delegated synthetic review requires one local/collections case, an exact --review-run, and both authorization and review files.");
+}
 string Git(string arguments) { using var process = Process.Start(new ProcessStartInfo("git", arguments) { RedirectStandardOutput = true, UseShellExecute = false })!; var value = process.StandardOutput.ReadToEnd().Trim(); process.WaitForExit(); if (process.ExitCode != 0) throw new InvalidOperationException("Cannot identify source revision."); return value; }
 var harnessSource = Git("rev-parse HEAD");
 var source = Option("--evaluation-source") ?? harnessSource;
@@ -48,9 +55,10 @@ if (source != harnessSource)
         throw new ArgumentException("--evaluation-source permits only runner entry-point/documentation changes; the evaluated source and measurement contracts must be identical.");
 }
 if (live && Git("status --porcelain").Length != 0) throw new InvalidOperationException("Commit the tested source before live evaluation.");
-BenchmarkCampaign? evidenceStore = live || readOnly ? new(KeyVaultRecordStoreFactory.CreateWorkspaceStore(null, Directory.GetCurrentDirectory()), campaignId) : null;
+var workspace = Path.GetFullPath(Option("--workspace") ?? GnOuGoWorkspace.ResolveDefaultWorkingDirectory());
+BenchmarkCampaign? evidenceStore = live || readOnly ? new(KeyVaultBenchmarkModel.WorkspaceRecords(workspace), campaignId) : null;
 BenchmarkCampaign? campaign = live ? evidenceStore : null;
-var leasePath = live || retainKey is not null ? GnOuGoWorkspace.ResolveDatabasePath(null, Directory.GetCurrentDirectory(), ".GnOuGo/data/planning-evaluation/" + campaignId + ".lock") : null;
+var leasePath = live || retainKey is not null ? Path.Combine(workspace, ".GnOuGo", "data", "planning-evaluation", campaignId + ".lock") : null;
 if (leasePath is not null) Directory.CreateDirectory(Path.GetDirectoryName(leasePath)!);
 await using var lease = leasePath is null ? null : new FileStream(leasePath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
 if (retainKey is not null) { Console.WriteLine((await evidenceStore!.RetainInconclusiveAsync(retainKey, CancellationToken.None)).ToJsonString()); return; }
@@ -144,7 +152,7 @@ if (replayKey is not null)
     }
 }
 if (replay is { } recorded) { names = PlanningBenchmarkMeasurements.Select(recorded.State.Request.Name); repetitions = 1; }
-using var configured = !live || providerName is null ? null : await KeyVaultBenchmarkModel.CreateAsync(providerName, Option("--model"), campaign!, Directory.GetCurrentDirectory(), CancellationToken.None);
+using var configured = !live || providerName is null ? null : await KeyVaultBenchmarkModel.CreateAsync(providerName, Option("--model"), campaign!, workspace, CancellationToken.None);
 ILLMClient? model = replay?.Client ?? (ILLMClient?)configured ?? (!live || command is null ? null : new CommandModel(command));
 string RunKey(string runPhase, string name, int repetition) => source + ":" + runPhase + ":" + (arm is null ? "" : arm + ":") + name + ":" + repetition;
 if (live && phase == "measured")
@@ -196,7 +204,7 @@ foreach (var name in names)
         (run["previous_results"] ??= new JsonArray()).AsArray().Add(failedResult.DeepClone());
         run.Remove("result"); run["session"]!["status"] = PlanningStatus.Generating;
     }
-    if (run?["result"] is JsonObject pendingReview && pendingReview["review_pending"]?.GetValue<bool>() == true && Option("--review-command") is not null && Option("--review-run") == key)
+    if (run?["result"] is JsonObject pendingReview && pendingReview["review_pending"]?.GetValue<bool>() == true && (Option("--review-command") is not null || Option("--delegated-review") is not null) && Option("--review-run") == key)
     {
         (run["previous_results"] ??= new JsonArray()).AsArray().Add(pendingReview.DeepClone()); run.Remove("result");
     }
@@ -208,8 +216,14 @@ foreach (var name in names)
     { Request = new() { TenantId = "benchmark", SessionId = PlanningGraphCompiler.Fingerprint(campaignId + ":" + key), Name = name, Prompt = PlanningBenchmarkCases.Prompt(name),
         MaxModelCalls = creation.MaxModelCalls, MaxReplanAttempts = creation.MaxReplanAttempts,
         Generation = new() { Reasoning = creation.Generation.Reasoning, MaxInputTokensPerRequest = creation.Generation.MaxInputTokensPerRequest, MaxOutputTokens = creation.Generation.MaxOutputTokens },
+        Policy = JsonSerializer.Deserialize(JsonSerializer.Serialize(creation.Policy, PlanningJsonContext.Default.PlanningPolicy), PlanningJsonContext.Default.PlanningPolicy)!,
         Options = (JsonObject)creation.Options.DeepClone() } });
     PlanningBenchmarkMeasurements.ConfigureRequest(state.Request, args, run["session"] is not null || replay is not null);
+    if (!live && replay is null && run["session"] is null)
+        state = PlanningCorpus.RetainedSession(state); // Offline frozen whole-plan corpus only; live requests remain fresh incremental sessions.
+    else if (live && run["session"] is null) PlanningBenchmarkMeasurements.CaptureConstructionSettings(state);
+    if (model is KeyVaultBenchmarkModel capturedModel) await capturedModel.CapturePlanningPolicyAsync(state.Request, CancellationToken.None,
+        state.Construction is not null || run["session"] is null && replay is null);
     var environment = new PlanningBenchmarkCases.Environment(name); var engine = new WorkflowEngine { McpClientFactory = environment.Factory(), HumanInputProvider = new PlanningCorpus.Human() };
     async Task Checkpoint(PlanningSession current, CancellationToken ct)
     {
@@ -225,7 +239,7 @@ foreach (var name in names)
     var variants = new JsonArray(); var safety = new JsonArray();
     try
     {
-        for (var advance = 0; advance < 40 && !PlanningStatus.IsWaiting(state.Status) && !PlanningStatus.IsTerminal(state.Status); advance++)
+        for (var advance = 0; advance < Math.Max(40, state.Request.MaxModelCalls * 4) && !PlanningStatus.IsWaiting(state.Status) && !PlanningStatus.IsTerminal(state.Status); advance++)
         {
             state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, CancellationToken.None);
             state = JsonSerializer.Deserialize(run["session"], PlanningJsonContext.Default.PlanningSession)!;
@@ -234,21 +248,37 @@ foreach (var name in names)
         if (state.Status == PlanningStatus.Clarification) state.Diagnostics.Add(new("CLARIFICATION_REQUIRED", "/questions", "The frozen case declares runtime inputs; no evaluation-time answers are supplied."));
         if (run["final_review"]!.GetValue<bool>() && environment.Effects.Count == 0)
         {
+            DelegatedTestReviewAuthority? delegated = null;
+            if (Option("--review-run") == key && Option("--delegated-review") is { } delegatedFile)
+            {
+                if (!live || campaign is null || name is not ("local" or "collections") || Option("--review-command") is not null)
+                    throw new ArgumentException("Synthetic delegation supports only isolated local/collections cases without a human review command.");
+                var authorizationFile = Option("--delegated-authorization") ?? throw new ArgumentException("Supply the frozen delegated authorization.");
+                var authorization = JsonSerializer.Deserialize(await File.ReadAllTextAsync(authorizationFile), DelegatedTestJsonContext.Default.DelegatedTestAuthorization)
+                    ?? throw new ArgumentException("Missing delegated authorization.");
+                var document = JsonSerializer.Deserialize(await File.ReadAllTextAsync(delegatedFile), DelegatedTestJsonContext.Default.DelegatedTestReviewDocument)
+                    ?? throw new ArgumentException("Missing delegated artifact review.");
+                delegated = new(authorization, document, campaignId, state.Request.SessionId, "synthetic",
+                    workspace, harnessSource);
+                delegated.Validate(state);
+                await delegated.PinAsync(campaign, CancellationToken.None);
+            }
             if (state.Status == PlanningStatus.FinalReview)
             {
-                PlanningCommand? review = Option("--review-run") == key && Option("--review-command") is { } reviewFile
+                PlanningCommand? review = delegated?.Command() ?? (Option("--review-run") == key && Option("--review-command") is { } reviewFile
                     ? JsonSerializer.Deserialize(await File.ReadAllTextAsync(reviewFile), PlanningJsonContext.Default.PlanningCommand)
                     : !live && replayKey is null ? new() { Kind = "approve", ExpectedRevision = state.Revision, ArtifactHash = PlanningArtifactApproval.Hash(state),
-                        ReviewedRequirementIds = PlanningCorpus.Requirements(name).Outcomes.Select(r => r.Id).ToList() } : null;
+                        ReviewedRequirementIds = PlanningCorpus.Requirements(name).Outcomes.Select(r => r.Id).ToList() } : null);
                 if (review is not null)
                 {
                     if (review.Kind != "approve") throw new ArgumentException("The review command must be an explicit approval.");
-                    state = await planner.AdvanceAsync(state, review, runtime, CancellationToken.None);
+                    state = await planner.AdvanceAsync(state, review, delegated is null ? runtime : new DelegatedTestReviewAuthority.Runtime(runtime, delegated), CancellationToken.None);
                 }
             }
             execution = state.Status == PlanningStatus.Approved;
             if (execution)
             {
+                PlanningArtifactApproval.Verify(state, delegated?.Receipt);
                 if (run["execution_started"] is not null) throw new InvalidOperationException("Execution already started; never repeat an uncertain execution.");
                 run["execution_started"] = true;
                 if (campaign is not null) await campaign.SaveAsync("planning-evaluation-runs", key, run);
@@ -261,7 +291,7 @@ foreach (var name in names)
                     var sample = new PlanningBenchmarkCases.Environment(name, variant);
                     if (variant == "cancelled") sample.CancelDuringWork(cancellation);
                     var denied = variant is "workflow_denied" or "permission_unavailable";
-                    var runner = new WorkflowEngine { McpClientFactory = sample.Factory(), HumanInputProvider = variant == "permission_unavailable" ? null : new PlanningCorpus.Human(!denied) };
+                    var runner = new WorkflowEngine { McpClientFactory = sample.Factory(), HumanInputProvider = delegated is not null || variant == "permission_unavailable" ? null : new PlanningCorpus.Human(!denied) };
                     RunResult? result = null; string? error = null;
                     try { result = await runner.ExecuteAsync(document.Workflows[document.Entrypoint!], PlanningBenchmarkCases.Inputs(name, variant), cancellation.Token); }
                     catch (Exception ex) { error = ex.GetType().Name; }
@@ -315,8 +345,11 @@ Console.WriteLine(summary.ToJsonString());
 if (campaign is not null) await campaign.SaveAsync("planning-evaluation-summaries", source + ":" + phase + (firstRepetition == 1 ? "" : ":repetitions:" + firstRepetition + "-" + repetitions), summary);
 if (!summary["gates_passed"]!.GetValue<bool>()) Environment.ExitCode = 1;
 
-sealed class MeasuredRuntime(IPlanningRuntime inner, ILLMClient? live, JsonObject run, Func<PlanningSession, CancellationToken, Task> checkpoint) : IPlanningRuntime
+sealed class MeasuredRuntime(IPlanningRuntime inner, ILLMClient? live, JsonObject run, Func<PlanningSession, CancellationToken, Task> checkpoint) : IPlanningRuntime, IPlanningConstructionAdmission
 {
+    public Task AdmitConstructionAsync(LLMRequest request, int inputTokenCeiling, IReadOnlyList<int> outputTokenCeilings, CancellationToken ct)
+        => live is IPlanningConstructionAdmission admission ? admission.AdmitConstructionAsync(request, inputTokenCeiling, outputTokenCeilings, ct)
+            : inner is IPlanningConstructionAdmission fallback ? fallback.AdmitConstructionAsync(request, inputTokenCeiling, outputTokenCeilings, ct) : Task.CompletedTask;
     public ICapabilityCatalog Capabilities => inner.Capabilities;
     public Task<PlanningCatalog> DiscoverAsync(PlanningRequest request, CancellationToken ct) => inner.DiscoverAsync(request, ct);
     public async Task<LLMResponse> CallAsync(LLMRequest request, string purpose, CancellationToken ct)

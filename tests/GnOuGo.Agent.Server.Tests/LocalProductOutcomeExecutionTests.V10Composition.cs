@@ -254,12 +254,12 @@ public sealed partial class LocalProductOutcomeExecutionTests
         var planner = new HybridWorkflowPlanner();
         // The comparison's historical session is already versioned. A brand
         // new session deliberately selects the current compiler profile.
-        var session = new PlanningSession { Catalog = catalog, Revision = profile == TaskPlanCompiler.CompactProfile ? 0 : 1, Request = new()
+        var session = GnOuGo.Planning.Examples.PlanningCorpus.RetainedSession(new PlanningSession { Catalog = catalog, Revision = profile == TaskPlanCompiler.CompactProfile ? 0 : 1, Request = new()
         {
             TenantId = "local", Options = new() { ["compilation_profile"] = profile, ["mapping_profile"] = "adaptive-each-v1" },
             Prompt = "Preserve the accepted observed-data task and its exact output contracts.",
             Policy = new() { RequireExternalConfirmation = false }, Generation = new() { MaxInputTokensPerRequest = 96000, MaxOutputTokens = 32768 }
-        } };
+        } });
         if (!revision)
         {
             session = await planner.AdvanceAsync(session, new() { ExpectedRevision = session.Revision }, adapter, ct);

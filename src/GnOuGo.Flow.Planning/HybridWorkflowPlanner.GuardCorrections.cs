@@ -72,6 +72,18 @@ public sealed partial class HybridWorkflowPlanner
         return sources.Any(s => SameValue(s.Value, value) && s.Schema["type"]?.ToString() == "boolean") || value.Kind == "boolean";
     }
 
+    private static bool PreservesNullableGuard(TaskValue original, TaskValue replacement, List<TaskPlanCompiler.RepairSource> sources)
+    {
+        if (SameValue(original, replacement)) return true;
+        if (NullableGuardReference(original, sources)) return NullableGuardReplacement(original, replacement, sources);
+        if (original.Kind != "predicate" || original.Predicate is not ("and" or "or" or "not") ||
+            original.Kind != replacement.Kind || original.Predicate != replacement.Predicate || original.Items.Count != replacement.Items.Count) return false;
+        var old = System.Text.Json.JsonSerializer.SerializeToNode(original, PlanningJsonContext.Default.TaskValue)!.AsObject();
+        var next = System.Text.Json.JsonSerializer.SerializeToNode(replacement, PlanningJsonContext.Default.TaskValue)!.AsObject();
+        old.Remove("items"); next.Remove("items");
+        return JsonNode.DeepEquals(old, next) && original.Items.Select((value, index) => PreservesNullableGuard(value, replacement.Items[index], sources)).All(valid => valid);
+    }
+
     private static PlanningDiagnostic UnsafeGuard(string path) => new("AUTOMATIC_GUARD_CORRECTION_UNSAFE", path,
         "The diagnosed assertion cannot be preserved by a known nullable reference != null and declared nonnullable Boolean fields from the same producer. " +
         "Keep valid operands and their order; review this guard explicitly. No structural regeneration was dispatched for this unsupported change.");

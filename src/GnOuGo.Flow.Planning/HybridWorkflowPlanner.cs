@@ -20,7 +20,8 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
         if (session.Revision != command.ExpectedRevision) throw new PlanningConflictException("The session changed. Reload its revision.");
         if (string.IsNullOrWhiteSpace(session.Request.TenantId) || string.IsNullOrWhiteSpace(session.Request.SessionId) || string.IsNullOrWhiteSpace(session.Request.Prompt))
             throw new ArgumentException("Tenant, session identity and request are required.");
-        if (session.Request.MaxModelCalls is < 1 or > 1000 || session.Request.MaxReplanAttempts is < 0 or > 10)
+        if (session.Request.MaxModelCalls is < 1 or > 1000 || session.Request.MaxReplanAttempts < 0 ||
+            session.Request.MaxReplanAttempts > (session.Request.Options["construction_preset"]?.ToString() == PlanningConstructionPresets.Large ? 64 : 10))
             throw new ArgumentException("Invalid planning limits.");
         PlanningMode.Validate(session.Request.Mode);
         PlanningGenerationPolicy.Validate(session.Request.Generation);
@@ -69,7 +70,8 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
                 case "approve":
                     if (state.Status != PlanningStatus.FinalReview || command.ArtifactHash is null || command.ArtifactHash != state.ComputeArtifactHash())
                         throw new PlanningConflictException("Approval must identify the exact current artifact.");
-                    PlanningArtifactApproval.Verify(state);
+                    var approvalReview = await PlanningApprovalReviews.ResolveAsync(state, command, runtime, deadline.Token);
+                    PlanningArtifactApproval.Verify(state, approvalReview);
                     var requirements = state.Requirements?.Outcomes ?? [];
                     var reviewed = command.ReviewedRequirementIds ?? [];
                     if (reviewed.Count != requirements.Count || reviewed.Distinct(StringComparer.Ordinal).Count() != reviewed.Count ||
@@ -80,14 +82,18 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
                     else
                     {
                         state.ValidationResults.AddRange(requirements.Select(r => new PlanningValidationResult("requirement:" + r.Id,
-                            "human_reviewed", r.Description + " — explicitly reviewed against this artifact; unverified coverage remains unverified and execution has not been observed.", [])));
+                            approvalReview is null ? "human_reviewed" : "delegated_test_reviewed", r.Description +
+                            (approvalReview is null ? " — explicitly reviewed against this artifact" : " — reviewed by the explicitly delegated isolated-test reviewer") +
+                            "; unverified coverage remains unverified and execution has not been observed.", [])));
+                        state.ApprovalReview = approvalReview;
                         state.ApprovedHash = command.ArtifactHash; state.Status = PlanningStatus.Approved;
                     }
                     break;
                 case "choose":
-                    if (state.Status != PlanningStatus.Clarification || command.Selections is null || state.Plan is null || state.PendingQuestions is not null)
+                    var choicePlan = state.Construction?.Candidate?.Plan ?? state.Plan;
+                    if (state.Status != PlanningStatus.Clarification || command.Selections is null || choicePlan is null || state.PendingQuestions is not null)
                         throw new PlanningConflictException("No business choice is awaiting selection.");
-                    var pending = state.Plan.Choices.Where(c => c.Selected is null).ToArray();
+                    var pending = choicePlan.Choices.Where(c => c.Selected is null).ToArray();
                     if (!command.Selections.Select(p => p.Key).Order().SequenceEqual(pending.Select(c => c.Id).Order()))
                         throw new ArgumentException("Select exactly the pending choices.");
                     foreach (var choice in pending)
@@ -96,17 +102,44 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
                         if (!choice.Alternatives.Any(a => a.Id == selected)) throw new ArgumentException("Select a declared business alternative.");
                         choice.Selected = selected;
                     }
-                    Invalidate(state); await CompileAsync(state, runtime, deadline.Token); break;
+                    Invalidate(state);
+                    if (state.Construction is { Complete: false } constructionChoice)
+                    {
+                        if (constructionChoice.Candidate is { } candidateChoice)
+                        {
+                            candidateChoice.Hash = PlanningConstruction.Hash(candidateChoice.Plan);
+                            candidateChoice.LocalReviewed = false; candidateChoice.IntermediateReviewed = false;
+                            await ValidateConstructionCandidateAsync(state, runtime, deadline.Token);
+                        }
+                        state.Status = PlanningStatus.Generating;
+                    }
+                    else await CompileAsync(state, runtime, deadline.Token);
+                    break;
                 case "answer":
                     if (!PlanningClarifications.PreservesIntent(state)) state.Request.Options.Remove(CorrectionProgressKey);
                     PlanningClarifications.Answer(state, command); break;
                 case "configure_mode":
                     PlanningMode.Validate(command.Mode ?? ""); state.Request.Mode = command.Mode!;
                     if (state.Status == PlanningStatus.Clarification && state.PendingQuestions is null && state.Request.Mode == PlanningMode.Auto)
-                        await CompileAsync(state, runtime, deadline.Token);
+                    {
+                        if (state.Construction is { Complete: false })
+                        {
+                            foreach (var choice in state.GetChoices().Where(c => c.Selected is null)) choice.Selected = choice.Recommended;
+                            if (state.Construction.Candidate is { } automaticChoice)
+                            {
+                                automaticChoice.Hash = PlanningConstruction.Hash(automaticChoice.Plan);
+                                await ValidateConstructionCandidateAsync(state, runtime, deadline.Token);
+                            }
+                            state.Status = PlanningStatus.Generating;
+                        }
+                        else await CompileAsync(state, runtime, deadline.Token);
+                    }
                     break;
                 case "configure_generation":
                     if (state.PendingCall is not null || state.PendingQuestions is not null || command.Generation is null) throw new PlanningConflictException("Generation settings cannot replace a pending call or clarification.");
+                    if (state.Construction is not null && (command.Generation.MaxInputTokensPerRequest > state.Request.Generation.MaxInputTokensPerRequest ||
+                        command.Generation.MaxOutputTokens > state.Request.Generation.MaxOutputTokens))
+                        throw new PlanningConflictException("Construction request ceilings were captured at creation. A larger allowance requires an explicitly configured new session; existing accounting is retained.");
                     PlanningGenerationPolicy.Validate(command.Generation); state.Request.Generation = command.Generation;
                     state.Diagnostics.RemoveAll(d => d.Code is "MODEL_INPUT_LIMIT" or "MODEL_OUTPUT_LIMIT");
                     state.Status = PlanningStatus.Generating; break;
@@ -125,6 +158,11 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
                     }
                     state.Request.Options.Remove(CorrectionProgressKey);
                     state.Request.Prompt += "\nRequested revision: " + command.Text;
+                    if (state.Construction is not null)
+                    {
+                        ReviseConstruction(state, command);
+                        break;
+                    }
                     PlanningClarifications.Revise(state, command.PreserveRequirements == true, command.EditablePaths); break;
                 case "cancel": state.Status = PlanningStatus.Cancelled; state.ApprovedHash = null; break;
                 default: throw new ArgumentException("Unsupported planning command.");
@@ -140,6 +178,8 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
             state.Diagnostics = state.Plan is not null && state.RevisionScope.Count > 0
                 ? state.Diagnostics.Concat(ex.Diagnostics).Distinct().ToList() : ex.Diagnostics;
             Invalidate(state); state.Status = state.EditablePaths is null ? PlanningStatus.Generating : PlanningStatus.Stopped;
+            if (state.Construction is { Candidate: null, LastProposalHash: { } proposalHash } construction &&
+                !construction.FailedCandidates.Contains(proposalHash, StringComparer.Ordinal)) construction.FailedCandidates.Add(proposalHash);
         }
         catch (WorkflowRuntimeException ex)
         {
@@ -166,8 +206,11 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
         { state.Diagnostics = [new("PLANNING_RESPONSE_INVALID", "/", "The response does not satisfy the semantic TaskPlan proposal contract.")]; Invalidate(state); state.Status = PlanningStatus.Generating; }
         catch (Exception)
         { state.Diagnostics.Add(new(state.PendingCall is null ? "PLANNING_HOST_FAILURE" : "MODEL_DISPATCH_UNVERIFIABLE", "/", "Planning could not safely complete this operation.")); Stop(state); }
-        RecordCorrectionOutcome(state);
-        ContinueAutomaticCorrection(state);
+        if (state.Construction is null)
+        {
+            RecordCorrectionOutcome(state);
+            ContinueAutomaticCorrection(state);
+        }
         state.ActiveMilliseconds += elapsed.Elapsed.TotalMilliseconds;
         state.Revision++; state.UpdatedAtUtc = _time.GetUtcNow();
         if (PlanningStatus.IsWaiting(state.Status)) state.WaitingSinceUtc = state.UpdatedAtUtc;
@@ -177,6 +220,11 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
 
     private static async Task AdvancePlanAsync(PlanningSession state, IPlanningRuntime runtime, CancellationToken ct)
     {
+        if (state.Construction is not null)
+        {
+            await AdvanceConstructionAsync(state, runtime, ct);
+            return;
+        }
         state.Status = PlanningStatus.Generating;
         if (state.PendingCall?.Purpose == "judge")
         {
@@ -436,7 +484,19 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
         findings = PlanningExecutableValidation.Validate(graph, state.Catalog!).Select(compilation.Locate).ToList();
         if (findings.Count == 0)
         {
-            var yaml = new PlanningGraphCompiler().Compile(graph, state.Catalog!, state.Request.Name, TaskPlanCompiler.UsesNormalExports(state.Request), TaskPlanCompiler.UsesFusedBindings(state.Request), TaskPlanCompiler.UsesConsumerBindings(state.Request), TaskPlanCompiler.UsesDirectProjections(state.Request), TaskPlanCompiler.UsesNativeMappings(state.Request), TaskPlanCompiler.UsesReadableMappings(state.Request), TaskPlanCompiler.UsesLeanMappings(state.Request), TaskPlanCompiler.UsesCompactProjections(state.Request), TaskPlanCompiler.UsesInlineConsumers(state.Request), TaskPlanCompiler.UsesDirectValues(state.Request), TaskPlanCompiler.UsesCheckedControls(state.Request), TaskPlanCompiler.UsesReadableBranches(state.Request), TaskPlanCompiler.UsesSimplifiedLocals(state.Request));
+            string yaml;
+            try
+            {
+                yaml = new PlanningGraphCompiler().Compile(graph, state.Catalog!, state.Request.Name, TaskPlanCompiler.UsesNormalExports(state.Request), TaskPlanCompiler.UsesFusedBindings(state.Request), TaskPlanCompiler.UsesConsumerBindings(state.Request), TaskPlanCompiler.UsesDirectProjections(state.Request), TaskPlanCompiler.UsesNativeMappings(state.Request), TaskPlanCompiler.UsesReadableMappings(state.Request), TaskPlanCompiler.UsesLeanMappings(state.Request), TaskPlanCompiler.UsesCompactProjections(state.Request), TaskPlanCompiler.UsesInlineConsumers(state.Request), TaskPlanCompiler.UsesDirectValues(state.Request), TaskPlanCompiler.UsesCheckedControls(state.Request), TaskPlanCompiler.UsesReadableBranches(state.Request), TaskPlanCompiler.UsesSimplifiedLocals(state.Request));
+            }
+            catch (GnOuGo.Flow.Core.Compilation.WorkflowCompilationException ex)
+            {
+                state.Diagnostics = ex.Errors.Select(e => new PlanningDiagnostic(e.Code,
+                    "workflow:" + e.WorkflowName + "/step:" + e.StepId + "/field:" + e.Field, e.Message))
+                    .Select(d => compilation.Locate(PlanningExecutableValidation.MapRuntimeDiagnostic(d, graph)))
+                    .Select(d => d with { Code = "TASK_COMPILER_VALIDATION", Message = d.Code + ": " + d.Message }).ToList();
+                Stop(state); return;
+            }
             findings.AddRange((await runtime.ValidateAsync(new(yaml, state.Request, state.Catalog!, PlanningGraphCompiler.CapabilityBindings(graph)), ct))
                 .Select(d => compilation.Locate(PlanningExecutableValidation.MapRuntimeDiagnostic(d, graph))));
             if (findings.Count == 0)
@@ -454,7 +514,7 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
                 else if (state.Request.Options["planning_input_review_version"]?.ToString() == "2")
                     state.ValidationResults.AddRange(PlanningInputReadiness.Assess(compilation, 2, state.Plan));
                 state.ValidationResults.AddRange(coverage);
-                state.Status = PlanningBusinessJudge.Enabled(state) ? PlanningStatus.Generating : PlanningStatus.FinalReview;
+                state.Status = state.Construction is null && PlanningBusinessJudge.Enabled(state) ? PlanningStatus.Generating : PlanningStatus.FinalReview;
                 state.Phase = PlanningPhase.Review; return;
             }
         }
@@ -525,7 +585,7 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
     internal static string BuildPrompt(PlanningSession state, IReadOnlyList<CapabilitySummary> optional) => new PlanningPrompt(state).Build(optional);
 
     private static void Reject(string code, string location, string message) => throw new PlanningResponseException([new(code, location, message)]);
-    private static void Invalidate(PlanningSession state) { state.Yaml = null; state.ApprovedHash = null; state.ValidationResults.Clear(); }
+    private static void Invalidate(PlanningSession state) { state.Yaml = null; state.ApprovedHash = null; state.ApprovalReview = null; state.ValidationResults.Clear(); }
     private static void Stop(PlanningSession state)
     {
         state.Status = PlanningStatus.Stopped;

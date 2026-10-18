@@ -126,9 +126,9 @@ public sealed partial class LocalProductOutcomeExecutionTests
         void AssertPreserved(PlanningProposal revised) { if (approval) AssertApprovalBusinessPreserved(retained, revised); else AssertDesignerBusinessPreserved(retained, revised); }
         AssertPreserved(corrected);
         var initialAdapter = new ProposalRuntime(runtime, retained);
-        var seed = new PlanningSession { Catalog = catalog, Request = new() { TenantId = "local", Name = "designer-offline",
+        var seed = GnOuGo.Planning.Examples.PlanningCorpus.RetainedSession(new PlanningSession { Catalog = catalog, Request = new() { TenantId = "local", Name = "designer-offline",
             Prompt = retained.Requirements!.Summary, Policy = new() { RequireExternalConfirmation = false },
-            Generation = new() { MaxInputTokensPerRequest = 96000, MaxOutputTokens = 32768 } } };
+            Generation = new() { MaxInputTokensPerRequest = 96000, MaxOutputTokens = 32768 } } });
         seed.Discovery.Sources = (await runtime.Capabilities.ListSourcesAsync(ct)).ToList();
         foreach (var capabilitySource in seed.Discovery.Sources)
             seed.Discovery.Pages.Add(await runtime.Capabilities.ListAsync(capabilitySource.Id, null, ct));

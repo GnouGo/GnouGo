@@ -5,7 +5,7 @@ using GnOuGo.Flow.Planning;
 
 internal static class LiveCampaignEvidence
 {
-    internal static async Task<JsonObject> PinAsync(BenchmarkCampaign campaign, string source, string provider, string model, string configurationFingerprint, string cohort, int productLimit = 3, bool businessJudge = false)
+    internal static async Task<JsonObject> PinAsync(BenchmarkCampaign campaign, string source, string provider, string model, string configurationFingerprint, string cohort, int productLimit = 3, bool businessJudge = false, JsonObject? planningConfiguration = null)
     {
         var manifest = new JsonObject
         {
@@ -26,6 +26,14 @@ internal static class LiveCampaignEvidence
         if (productLimit != 3) manifest["max_products"] = productLimit;
         // Absence is the historical disabled setting; never rewrite an issued manifest.
         if (businessJudge) manifest["business_judge"] = true;
+        if (planningConfiguration is not null)
+        {
+            manifest["planning_configuration"] = planningConfiguration.DeepClone();
+            manifest["planning_attempts"] = planningConfiguration["calls"]!.DeepClone();
+            manifest["repairs"] = planningConfiguration["repairs"]!.DeepClone();
+            manifest["max_input_tokens"] = planningConfiguration["input_tokens"]!.DeepClone();
+            manifest["max_output_tokens"] = planningConfiguration["output_tokens"]!.DeepClone();
+        }
         var saved = await campaign.LoadAsync(SchemaPortabilityCampaign.Collection, cohort + "-manifest");
         if (saved is not null) RequireMatch(saved, manifest);
         else await campaign.SaveAsync(SchemaPortabilityCampaign.Collection, cohort + "-manifest", manifest);

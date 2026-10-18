@@ -40,17 +40,26 @@ Trace lookup requires an exact planning-session attribute and the current tenant
 
 `TypedWorkflowPlanning` configures `MaxReplanAttempts` (4), `MaxModelCalls` (12), `Reasoning` (`medium`), request token ceilings (32,000 input / 32,768 output), cumulative token/active-time limits and `DatabasePath`. These defaults apply to new Designer sessions, including the Desktop host, and match new standalone Flow and authored `workflow.plan` sessions. Explicit configuration overrides take precedence. Existing sessions retain saved definitions and generation settings; absent historical fields retain eight calls, two repairs and 12,000 input / 8,192 output tokens. Designer shows saved effective settings, without a separate UI default. Two host sessions may progress concurrently; workflow runtime parallelism remains independent.
 
-**Independent business review** is an unchecked creation option, disabled by default.
-The optional start-API `businessJudge` property captures `business_judge` in the new
-session; historical sessions without it remain disabled. The Judge uses the same model
-in a separate call after deterministic validation and choices, before FinalReview.
-Its grounded observations appear separately from deterministic coverage and do not
-preselect requirement acknowledgments. No-findings reports remain unverified; skipped
-or unusable evaluation is shown as not evaluated or inconclusive. Findings cannot
-expand correction authority: existing explicitly authorized slots can use targeted
-correction; other findings require explicit revision. Calls, corrections and recovery
-share the existing cumulative allowances, encrypted journal and receipts. The UI shows
-the captured effective option; enabling review does not authorize execution.
+Fresh construction captures `DraftOutputTokens` (8,192) and `ReviewOutputTokens`
+(2,048), both bounded by the general output ceiling. Draft admission includes
+the required reviews in the remaining call, token and monetary allowances.
+
+New sessions use [incremental construction](../../docs/incremental-taskplan-construction.md).
+Each draft receives bounded independent advisory review before checkpoint acceptance;
+there is no final whole-plan Judge or creation checkbox to disable local reviews.
+The legacy `businessJudge` API property remains readable for historical callers but
+does not select an alternative pipeline. Review never acknowledges requirements or
+authorizes execution.
+
+Choose `constructionPreset: "large"` in the start API or the Designer capacity
+selector for 384 calls, 64 cumulative corrections and a larger captured graph policy.
+`TypedWorkflowPlanning.ConstructionPreset` selects the host creation default;
+`LargeMaxModelCalls`, `LargeMaxReplanAttempts`, `LargeMaxStepsTotal`,
+`LargeMaxStepsPerWorkflow` and `LargeMaxWorkflows` configure that explicit preset.
+Ordinary remains the default. Both presets retain the host financial, token and
+active-time ceilings. Recovery intersects saved call/token allowances with current
+host ceilings and rejects changed graph policy; monetary and active-time limits
+remain captured in the session.
 
 Every new planning request is admitted against declared Structured Output support,
 reasoning settings and model input capacity after reserving the unchanged output limit.
@@ -66,7 +75,7 @@ Agent.Server sessions. Its value is captured in session options; omission in a
 historical session retains historical behavior. Set it to `false` to keep manual
 revision offers. It never restarts an old stopped session.
 
-Before approval, diagnosed defects use existing repair slots first. Protected
+For historical generation, diagnosed defects use existing repair slots first. Protected
 declarations use a separately scoped implementation revision; unresolved or
 structural defects use at most one complete proposal regeneration. All actions
 consume the same `MaxReplanAttempts`, model calls, tokens and active time. The

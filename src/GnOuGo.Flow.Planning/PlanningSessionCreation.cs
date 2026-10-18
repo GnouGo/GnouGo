@@ -13,10 +13,13 @@ internal static class PlanningSessionCreation
         var options = state.Request.Options;
         options.TryAdd("compilation_profile", TaskPlanCompiler.CompactProfile);
         options.TryAdd("mapping_profile", TaskPlanCompiler.AdaptiveMappingProfile);
-        if (state.Request.Baseline is not null) return;
         options.TryAdd("planning_validation_profile", TaskPlanCompiler.AssertionValidationProfile);
         options.TryAdd("planning_diagnostics_version", 1);
         options.TryAdd("planning_input_review_version", 2);
         options.TryAdd("business_judge_review_version", 2);
+        state.Construction ??= new();
+        options.TryAdd("construction_version", 1);
+        options.TryAdd("clarification_policy", 1);
+        if (state.Request.Baseline is { } baseline) state.Plan = PlanningConstruction.Clone(baseline);
     }
 }

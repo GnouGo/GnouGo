@@ -4,6 +4,8 @@ Exercises typed HTML → product records → tabular text transformations with m
 
 Also checks early clarification in automatic mode, a custom answer checkpoint, restart with cumulative budgets and separate artifact approval; caller input contracts and version-three repair authority use the same source-generated serializers. All model responses are deterministic adapters, not live provider evaluation.
 
+Fresh incremental construction also runs in the native binary. The fixture echoes the issued accepted-plan hash, serializes a pending draft request and its completed receipt separately, and resumes without another draft dispatch. One mandatory local advisory review precedes checkpoint acceptance and deterministic final validation; the resulting artifact remains unapproved. The frozen historical corpus retains its captured generation behavior.
+
 Mapping checks execute the restricted HTML extraction profile, preserve exact decimal observations and round-trip mapping artifacts through source-generated serialization. Encrypted mapping persistence is covered separately by the published Agent.Server persistence smoke.
 
 Numeric checks preserve historical numeric JSON tokens and execute the corpus arithmetic as compiled JavaScript Number formulas. The native binary also launches itself as a bounded local stdio MCP to verify annotated decimal arguments and results through actual transport; exact arithmetic occurs only in that MCP. This check makes no provider calls.

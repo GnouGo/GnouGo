@@ -20,15 +20,22 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
         var target = ctx.Engine.ResolveLlmTarget(generator["provider"]?.GetValue<string>(), generator["model"]?.GetValue<string>());
         var options = input.DeepClone().AsObject();
         options["generator"]!["provider"] = target.Provider; options["generator"]!["model"] = target.Model;
+        var preset = PlanningConstructionPresets.Validate(input["construction_preset"]?.GetValue<string>() ?? PlanningConstructionPresets.Ordinary);
+        var large = preset == PlanningConstructionPresets.Large;
         var initial = new PlanningSession
         {
+            Construction = new() { Limits = new()
+            {
+                DraftOutputTokens = generator["draft_output_tokens"]?.GetValue<int>() ?? 8_192,
+                ReviewOutputTokens = generator["review_output_tokens"]?.GetValue<int>() ?? 2_048
+            } },
             Request = new()
             {
                 Mode = input["planning_mode"]?.GetValue<string>() ?? ctx.Engine.DefaultPlanningMode,
                 TenantId = ctx.Limits.TenantId ?? "default", Name = input["name"]?.GetValue<string>() ?? "generated",
                 Prompt = input["raw_prompt"]?.GetValue<string>() ?? "", Options = options,
-                MaxReplanAttempts = input["max_replan_attempts"]?.GetValue<int>() ?? 4,
-                MaxModelCalls = input["llm_budget"]?["max_calls"]?.GetValue<int>() ?? 12,
+                MaxReplanAttempts = input["max_replan_attempts"]?.GetValue<int>() ?? (large ? PlanningConstructionPresets.LargeCorrections : 4),
+                MaxModelCalls = input["llm_budget"]?["max_calls"]?.GetValue<int>() ?? (large ? PlanningConstructionPresets.LargeModelCalls : 12),
                 Generation = new()
                 {
                     Reasoning = generator["reasoning"]?.GetValue<string>() ?? "medium",
@@ -41,7 +48,9 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                     AllowedStepTypes = (input["policy"]?["allowed_step_types"] as JsonArray ?? []).Select(v => v!.GetValue<string>()).ToList(),
                     DeniedCapabilityIds = (input["policy"]?["denied_capability_ids"] as JsonArray ?? []).Select(v => v!.GetValue<string>()).ToList(),
                     RequireExternalConfirmation = input["policy"]?["require_external_confirmation"]?.GetValue<bool>() ?? false,
-                    MaxStepsTotal = input["limits"]?["max_steps_total"]?.GetValue<int>() ?? 300
+                    MaxStepsTotal = input["limits"]?["max_steps_total"]?.GetValue<int>() ?? (large ? PlanningConstructionPresets.LargeGraphNodes : 300),
+                    MaxStepsPerWorkflow = input["limits"]?["max_steps_per_workflow"]?.GetValue<int>() ?? (large ? PlanningConstructionPresets.LargeGraphNodes : null),
+                    MaxWorkflows = input["limits"]?["max_workflows"]?.GetValue<int>() ?? (large ? PlanningConstructionPresets.LargeWorkflows : null)
                 }
             }
         };

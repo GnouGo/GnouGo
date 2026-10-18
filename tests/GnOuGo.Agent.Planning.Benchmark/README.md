@@ -502,10 +502,11 @@ The [schema-portability report](../../docs/planning-schema-portability-2026-10-0
 retains the original provider rejection, diagnostic iterations and separate frozen
 cohorts. This campaign performs paid inference and real external execution only
 under the explicit authorization recorded for `schema-portability-20261002`.
-It shares one encrypted EUR 50 ledger across planning, Flow inference and intercepted
-Copilot SDK inference. Missing receipts retain conservative reservations.
+It shares one encrypted ledger across planning, Flow inference and intercepted
+Copilot SDK inference. The initial ceiling was EUR 50; append-only authorized
+extensions determine the current ceiling. Missing receipts retain conservative reservations.
 
-The original ceiling remains EUR 50 unless the user explicitly authorizes an extension.
+An extension requires explicit user authorization.
 Record that authorization under the existing campaign lease before collecting a new
 cohort; keep the original configuration, cohorts and every usage reservation intact:
 
@@ -535,11 +536,11 @@ unchanged.
 For a fresh session testing Agent.Server's automatic-correction policy, add
 `--automatic-correction` to `plan`. The option is captured in that new session;
 revisions and execution reuse the saved policy. Omitting it preserves the
-historical harness behavior. Both policies retain eight planning calls and two
-correction attempts within the existing cumulative allowance; artifact approval
-remains separate.
+historical harness correction behavior. Fresh construction captures the ordinary
+or explicitly selected large limits described below. Retained sessions preserve
+their original call and correction allowances; artifact approval remains separate.
 
-For an explicitly authorized fresh live evaluation, add `--business-judge` to
+For captured historical live evaluations, `--business-judge` was added to
 `plan` to enable the independent advisory review. It uses the generator's model
 and the same eight-call, two-correction allowance, 96,000 input-token limit and
 32,768 output-token reservation retained by this live campaign. It does not use
@@ -635,8 +636,9 @@ Code feedback remains local; GitHub publication is excluded and untested.
 `inspect-run --run <identity>` returns private retained requests, responses,
 execution events and oracles; redirect only to an access-restricted local file.
 Its `runtime_llm_inputs` entries report estimated prompt tokens and durable completion
-status for ordinary `llm.call` invocations. Inspection performs no dispatch or mutation;
-estimated input size is not billed usage.
+status for ordinary `llm.call` invocations. Inspection performs no dispatch or campaign-accounting mutation;
+the public KeyVault reader may initialize storage and append access-audit records.
+Estimated input size is not billed usage.
 `report` returns sanitized counters and rejects mismatched or missing manifests.
 `discovery_reads` counts actual MCP `tools/list` calls. Planning/execution latency
 includes human waiting; provider attempts, verified tokens, unknown reservations
@@ -716,3 +718,101 @@ Historical `real-workflows-v1` manifests and verdicts remain frozen. Offline v2
 replay is separate evidence and performs no Browser/LLM calls. Unknown oracle
 versions fail closed. Workbook existence still requires a successful writer receipt
 for the expected output path, and live cleanup is independently probed.
+
+## Incremental construction and isolated delegated review
+
+Fresh live sessions use incremental construction and mandatory bounded local and
+intermediate reviews. The historical `--business-judge` setting cannot disable these
+reviews or introduce a final whole-plan Judge. Every draft, review, evidence request
+and correction uses the same captured session and cumulative campaign allowances.
+Use `--construction-preset large --automatic-correction` only for an explicitly
+authorized fresh cohort: it captures 384 physical planning attempts, 64 corrections,
+32,000 input tokens per request, 8,192 output tokens, 15,000,000 aggregate tokens and
+five hours. The request, cohort manifest and immutable transport-policy record must
+agree. Continuations cannot raise a captured allowance. Sessions with existing HTTP
+journals retain their original eight-attempt policy when no newer policy was captured.
+The preset never raises the campaign's monetary ceiling or clears reservations.
+
+The optional delegated reviewer exists only in this benchmark executable. Production
+approval retains the existing explicit human requirement acknowledgments. After an
+actual review of bounded construction evidence and independent scenario obligations,
+an authorized reviewer supplies two private JSON files to `execute`:
+
+```sh
+--delegated-authorization /private/path/authorization.json \
+--delegated-review /private/path/artifact-review.json
+```
+
+The authorization pins `id`, the user's explicit `userAuthorization`, `reviewer`,
+`campaign`, `run`, `scenario`, absolute `workspaceRoot` and frozen `sourceRevision`.
+The review has a `receipt` using `PlanningApprovalReview` and `evidence` with explicit
+`requirements` and `tasks`. Each requirement review records its original content
+hash, independently assessed scenario obligations, the assessment
+`accepted_with_recorded_uncertainty` and unresolved aspects. Each task review records
+its exact content hash, concrete review evidence and assessment `reviewed`. Receipt
+hashes use SHA-256 over the source-generated canonical JSON; its origin is
+`delegated_test`, and it binds tenant, run, reviewed revision, artifact and explicitly
+acknowledged requirement IDs. Neither file is generated from Judge opinions or by
+blindly copying generated requirement IDs. Failed or incomplete evidence stops approval.
+The immutable authorization and review are retained through the encrypted campaign API.
+
+Amazon authority permits Amazon.fr search/product reads, Browser cleanup and the exact
+cohort workbook destination. It rejects clicks, cookie/account interactions and purchases.
+Code authority permits the pinned SmartGuide checkout, local inspection/checks/report and
+confined clone cleanup; it rejects publication and permission expansion. Concrete tool
+arguments are checked again before transport. Existing producer policies still apply.
+Synthetic delegation has no external-producer authority.
+
+The existing host-owned artifact confirmation is still shown for the exact reviewed
+artifact and single execution. Correlated Copilot permission dialogs require the
+reviewer to inspect the actual operation and reply `Allow once` or `Refuse`; sandbox
+bypass, broad grants, unrelated dialogs and responses after interruption are rejected.
+Each response is recorded with delegated provenance and the artifact/authorization
+hashes. There is no automatic approval, new executor or whole-workflow model Judge.
+Uncertain effects and started executions remain ineligible for replay.
+
+The in-memory `local` and `collections` corpus cases also accept these two files
+with `--review-run <exact-run-key>`. Their authorization uses scenario `synthetic`
+and the actual saved session ID. This route rejects operation tasks and supplies
+no runtime confirmation provider; unexpected effects or confirmation requests
+cannot acquire authority. Independent nominal and alternate input oracles still
+check the exact results. Other corpus cases retain their existing approval path.
+
+The active local product fixtures contain no cookie-consent work. Historical saved
+artifacts retain their issued vocabulary for compatibility tests; those fixtures offer
+no consent control and never exercise a consent action.
+
+Ordinary fresh sessions capture 12 calls, four corrections, 32,000 input/8,192
+output tokens, the same 15,000,000-token/five-hour cumulative budget and the unchanged
+runtime artifact-confirmation gate. The cohort manifest also freezes the construction
+limits, graph capacity and budget. Historical explicit request settings stay unchanged.
+Draft/correction transport admissions retain conservative headroom for two bounded
+reviews (including the same validated price/FX quote), both financially and in remaining
+physical attempts. This is an admission condition, not an invented charge or uncertain
+request. Actual known usage and unknown reservations remain the accounting source.
+Fresh incremental transport disables automatic HTTP retries; only a committed receipt
+may be reused after interruption. Historical transport policy is retained.
+
+Delegated runtime permission also requires one exact currently active host-owned MCP
+invocation, matched by tenant/run/step/server/method and its child dialog identity.
+Copied artifact suffixes, ended calls and ambiguous parallel dialogs cannot authorize
+anything. URL-less Browser reads require the exact cursor issued by a successful
+allowed Amazon observation, bound to its original URL and snapshot identity; navigation,
+closure or error clears that authority. Arbitrary current-page reads are rejected.
+The independent post-execution closure oracle has a dedicated host-owned empty-argument
+probe which never navigates and cannot be selected by a plan or model.
+
+The corpus, stabilization and real-workflow entry points share the same construction
+preset, phase limits, cumulative budgets and policy capture. Their configuration
+round-trip preserves lower explicit allowances and historical configurations without
+construction fields. `--workspace` binds campaign records, model configuration,
+the process lease, execution storage and delegated authorization to the same absolute
+workspace. Omission retains the existing default GnOuGo workspace.
+Before a draft or correction is recorded, the benchmark also checks the existing
+campaign upper bound against the mandatory review allowance without creating a request,
+reservation or completion receipt. The physical journal repeats admission immediately
+before dispatch using the exact retained price and currency quote.
+The physical transport gate conservatively retains room for two reviews even when
+the coordinator requires only one for the first draft. A very small remaining call
+or monetary allowance can therefore stop a benchmark earlier than the coordinator's
+minimum requirement; this headroom never becomes a reservation or charge.

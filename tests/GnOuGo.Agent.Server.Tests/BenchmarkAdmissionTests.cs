@@ -4,8 +4,10 @@ using GnOuGo.Flow.Core.Compilation;
 using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Parsing;
+using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Persistence;
+using GnOuGo.Flow.Planning;
 using GnOuGo.KeyVault.Core.Services;
 
 namespace GnOuGo.Agent.Server.Tests;
@@ -15,6 +17,45 @@ public sealed class BenchmarkAdmissionTests
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
     private static LLMOptions Options() => new() { DefaultProvider = "fixture", DefaultModel = "pinned",
         Models = { ["fixture"] = new() { Type = "openai" } } };
+
+    [Fact]
+    public async Task ConstructionFinancialPreflightIncludesReviewsAndPreservesUnknownAccounting()
+    {
+        using var fixture = new Fixture();
+        var journal = new BenchmarkHttpJournal(fixture.Campaign, "retained:1", 100, 20, 49.8m);
+        await journal.SaveAsync(new() { Attempts = [new() { Id = "uncertain" }] }, Ct);
+        var before = await BenchmarkHttpJournal.AccountingAsync(fixture.Campaign, ct: Ct);
+        var rates = new Rates(fixture.Time); var provider = new Provider(fixture.Campaign);
+        using var model = fixture.Model(rates, provider);
+        var measured = new LiveWorkflowEvaluation.PlanningModel(model, new());
+        var runtime = new WorkflowPlanningRuntime(new WorkflowEngine { LLMClient = measured }, (_, _) => Task.CompletedTask);
+        var error = await Assert.ThrowsAsync<WorkflowRuntimeException>(() => runtime.AdmitConstructionAsync(
+            new(), 32000, [8192, 2048, 2048], Ct));
+        Assert.Equal(ErrorCodes.LlmBudgetExceeded, error.Code);
+        Assert.Equal("not_started", error.Details!["dispatch_status"]!.ToString());
+        // A single draft would fit, but required review headroom cannot be omitted by the planner.
+        await runtime.AdmitConstructionAsync(new(), 32000, [8192], Ct);
+        Assert.Equal(0, provider.Calls);
+        Assert.True(JsonNode.DeepEquals(before, await BenchmarkHttpJournal.AccountingAsync(fixture.Campaign, ct: Ct)));
+        Assert.Null(await fixture.Campaign.LoadAsync("planning-evaluation-exchange-rates", "USD-EUR", Ct));
+        Assert.Empty(await fixture.Records.ListAsync("planning-evaluation-requests", "benchmark", BenchmarkCampaign.Author, Ct));
+        Assert.Empty(await fixture.Records.ListAsync("planning-evaluation-receipts", "benchmark", BenchmarkCampaign.Author, Ct));
+    }
+
+    [Fact]
+    public async Task ExplicitBenchmarkWorkspaceOwnsBothRecordsAndConfigurationPaths()
+    {
+        using var fixture = new Fixture();
+        var expected = Path.Combine(fixture.Root, ".GnOuGo", "data", "gnougo-keyvault.db");
+        var records = KeyVaultBenchmarkModel.WorkspaceRecords(fixture.Root);
+        await records.UpsertAsync("public-fixture", "benchmark", "entry", "{}", BenchmarkCampaign.Author, Ct);
+        Assert.True(File.Exists(expected));
+        Assert.NotNull(await KeyVaultBenchmarkModel.WorkspaceRecords(fixture.Root).GetAsync("public-fixture", "benchmark", "entry", BenchmarkCampaign.Author, Ct));
+        Assert.Equal(Path.Combine(fixture.Root, ".GnOuGo", "data", "gnougo-agent.db"),
+            KeyVaultBenchmarkModel.WorkspaceDatabasePath(fixture.Root, "", ".GnOuGo/data/gnougo-agent.db"));
+        var explicitConfig = Path.Combine(fixture.Root, "declared-agent.db");
+        Assert.Equal(explicitConfig, KeyVaultBenchmarkModel.WorkspaceDatabasePath(fixture.Root, explicitConfig, "ignored"));
+    }
 
     [Theory]
     [InlineData("execute", false)]
@@ -98,6 +139,34 @@ public sealed class BenchmarkAdmissionTests
         using var other = new KeyVaultBenchmarkModel(new(fixture.Records, "other"), Options(), new Provider(fixture.Campaign), rates, new Price(), fixture.Time);
         Assert.False((await other.ReadinessAsync(Ct))["ready"]!.GetValue<bool>());
         Assert.Equal(3, rates.Calls);
+    }
+
+    [Fact]
+    public async Task FreshConstructionCannotRetryUncertainTransportButMayConsumeAnExistingReceipt()
+    {
+        using var fixture = new Fixture(); var rates = new Rates(fixture.Time);
+        var provider = new Provider(fixture.Campaign);
+        using var model = fixture.Model(rates, provider);
+        var settings = LiveWorkflowEvaluation.FreshPlanningRequest([], "fresh", "amazon", "Original request", "fixture", "pinned");
+        await model.CapturePlanningPolicyAsync(settings, Ct);
+        var completed = new LLMRequest { ClientRequestId = "fresh:1", Prompt = "bounded original draft", MaxTokens = 8192 };
+        var receipt = await model.CallAsync(completed, Ct);
+        Assert.True(provider.LastDisableTransportRetries);
+        Assert.Equal(1, provider.Calls);
+        rates.Defect = "network";
+        Assert.True(JsonNode.DeepEquals(receipt.Json, (await model.CallAsync(completed, Ct)).Json));
+        Assert.Equal(1, provider.Calls);
+        provider.Failure = new IOException("Unknown completion");
+        var pending = new LLMRequest { ClientRequestId = "fresh:2", Prompt = "bounded later draft", MaxTokens = 8192 };
+        await Assert.ThrowsAsync<IOException>(() => model.CallAsync(pending, Ct));
+        var before = await fixture.Campaign.LoadAsync(BenchmarkHttpJournal.Collection, pending.ClientRequestId, Ct);
+        var costs = await BenchmarkHttpJournal.AccountingAsync(fixture.Campaign, ct: Ct);
+        using var restarted = fixture.Model(rates, provider);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => restarted.CallAsync(pending, Ct));
+        Assert.Equal(2, provider.Calls);
+        Assert.True(JsonNode.DeepEquals(before, await fixture.Campaign.LoadAsync(BenchmarkHttpJournal.Collection, pending.ClientRequestId, Ct)));
+        Assert.True(JsonNode.DeepEquals(costs, await BenchmarkHttpJournal.AccountingAsync(fixture.Campaign, ct: Ct)));
+        Assert.Equal(1L, costs["unknown_attempts"]!.GetValue<long>());
     }
 
     [Fact]
@@ -315,14 +384,18 @@ public sealed class BenchmarkAdmissionTests
     private sealed class Provider(BenchmarkCampaign campaign) : ILLMClient, ILLMCapabilityResolver
     {
         internal int Calls; internal Action? AfterDispatch; internal Exception? Failure;
+        internal bool LastDisableTransportRetries;
         public Task<int?> InputTokenAllowanceAsync(string? provider, string model, int outputTokens, CancellationToken ct) => Task.FromResult<int?>(96000);
         public Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<bool?>(true);
         public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<IReadOnlyList<string>?>(["medium"]);
         public async Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
         {
+            LastDisableTransportRetries = request.DisableTransportRetries;
             var record = (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, request.ClientRequestId!, ct))!;
             var journal = new BenchmarkHttpJournal(campaign, request.ClientRequestId!, record["input_ceiling"]!.GetValue<long>(),
-                record["output_ceiling"]!.GetValue<long>(), record["cost_ceiling_eur"]!.GetValue<decimal>(), record["session_attempt_limit"]?.GetValue<int>());
+                record["output_ceiling"]!.GetValue<long>(), record["cost_ceiling_eur"]!.GetValue<decimal>(), record["session_attempt_limit"]?.GetValue<int>(),
+                record["construction_review_cost_headroom_eur"]?.GetValue<decimal>() ?? 0,
+                record["construction_review_attempt_headroom"]?.GetValue<int>() ?? 0);
             var state = (await journal.LoadAsync(ct))!;
             state.Attempts.Add(new() { Id = "attempt" }); await journal.SaveAsync(state, ct);
             Calls++; AfterDispatch?.Invoke(); if (Failure is not null) throw Failure;

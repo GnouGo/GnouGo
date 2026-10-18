@@ -12,11 +12,15 @@ namespace GnOuGo.Flow.Integrations.Planning;
 
 /// <summary>Reservations and completed receipts share the session's exclusive host lease.</summary>
 internal sealed class WorkflowPlanningModelJournal(StepExecutionContext context, IKeyVaultRecordStore records,
-    PlanningRequest planning, LLMUsageBudgetScope budget) : ILLMClient, IModelAdmissionOwner
+    PlanningRequest planning, LLMUsageBudgetScope budget) : ILLMClient, IModelAdmissionOwner, IPlanningConstructionAdmission
 {
     internal const string Requests = "flow-planning-model-requests-v10";
     internal const string Receipts = "flow-planning-model-receipts-v10";
     private readonly ConcurrentDictionary<string, byte> _active = new(StringComparer.Ordinal);
+
+    public Task AdmitConstructionAsync(LLMRequest request, int inputTokenCeiling, IReadOnlyList<int> outputTokenCeilings, CancellationToken ct)
+        => budget.EnsureAllowanceAsync(request, context.Engine.ModelUsageCostEstimator, inputTokenCeiling,
+            outputTokenCeilings, "workflow.plan.construction", ct);
 
     public async Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
     {

@@ -28,8 +28,12 @@ public sealed class AutomaticFailureRevisionTests
         Assert.True((await disabled.GetAsync(first.Request.SessionId, Ct))!.Request.Options["automatic_correction"]!.GetValue<bool>());
     }
 
-    [Fact]
-    public async Task FailedExecutionGetsOneUnapprovedDraftWithExactAcceptedRequirementsAndNoSave()
+    [Theory]
+    [InlineData("ordinary", false)]
+    [InlineData("large", false)]
+    [InlineData("large", true)]
+    [InlineData("historical", false)]
+    public async Task FailedExecutionGetsOneUnapprovedDraftWithExactAcceptedRequirementsAndNoSave(string sourcePreset, bool stricterHost)
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
         var runtime = new WorkflowPlanningRuntime(new(), (_, _) => Task.CompletedTask);
@@ -37,6 +41,13 @@ public sealed class AutomaticFailureRevisionTests
                 MaxModelCalls = 8, MaxReplanAttempts = 2, Generation = new("medium", 12000, 8192) },
             Requirements = PlanningCorpus.Requirements("local"), Plan = PlanningCorpus.LiteralResult(), Revision = 7, ModelCalls = 4, ReplanAttempts = 2,
             SavedAgentId = "saved", Status = PlanningStatus.Saved };
+        if (sourcePreset != "ordinary") original.Request.Options["construction_preset"] = "large";
+        if (sourcePreset == "large")
+        {
+            original.Construction = new();
+            original.Request.Policy = AgentPlanningPolicy.Create();
+            original.Request.Policy.MaxStepsTotal = 5_000; original.Request.Policy.MaxStepsPerWorkflow = 5_000; original.Request.Policy.MaxWorkflows = 1_024;
+        }
         original.Catalog = await runtime.DiscoverAsync(original.Request, Ct);
         original.Graph = new TaskPlanCompiler().Compile(original.Plan, original.Catalog).Graph!;
         original.Yaml = new PlanningGraphCompiler().Compile(original.Graph, original.Catalog, original.Request.Name);
@@ -47,13 +58,17 @@ public sealed class AutomaticFailureRevisionTests
         var agents = new FakeMcpSession("GnOuGo.Agent.Mcp")
             .OnTool("agent_get_by_name", new JsonObject { ["success"] = true, ["agent"] = new JsonObject { ["id"] = "saved", ["workflow"] = original.Yaml } })
             .OnTool("agent_update", (_, _) => { writes++; throw new InvalidOperationException("No save is authorized"); });
-        using var service = PlanningSessionLifecycleTests.Create(fixture, new HybridWorkflowPlanner(), agents, settings: new() { BackgroundProcessingEnabled = false });
+        using var service = PlanningSessionLifecycleTests.Create(fixture, new HybridWorkflowPlanner(), agents, settings: new()
+            { BackgroundProcessingEnabled = false, LargeMaxModelCalls = stricterHost ? 100 : 384, LargeMaxReplanAttempts = stricterHost ? 8 : 64 });
         var evidence = Evidence(); var hash = PlanningGraphCompiler.Fingerprint(original.Yaml);
         var drafts = await Task.WhenAll(Enumerable.Range(0, 4).Select(_ => service.StartFailureRevisionAsync("existing", "Return exact data", "failed-run", hash, evidence, "interactive", Ct)));
         Assert.Single(drafts.Select(d => d.Request.SessionId).Distinct());
         var draft = drafts[0];
         Assert.Null(draft.ApprovedHash); Assert.Equal(0, draft.ModelCalls); Assert.Equal(0, draft.ReplanAttempts);
-        Assert.Equal(12, draft.Request.MaxModelCalls); Assert.Equal(4, draft.Request.MaxReplanAttempts);
+        Assert.Equal(sourcePreset == "large" ? "large" : "ordinary", draft.Request.Options["construction_preset"]!.ToString());
+        Assert.Equal(sourcePreset == "large" ? stricterHost ? 100 : 384 : 12, draft.Request.MaxModelCalls);
+        Assert.Equal(sourcePreset == "large" ? stricterHost ? 8 : 64 : 4, draft.Request.MaxReplanAttempts);
+        Assert.Equal(draft.Request.MaxModelCalls, draft.Request.Options["llm_budget"]!["max_calls"]!.GetValue<int>());
         Assert.Equal(32000, draft.Request.Generation.MaxInputTokensPerRequest); Assert.Equal(32768, draft.Request.Generation.MaxOutputTokens);
         Assert.False(draft.Request.Options.ContainsKey("business_judge"));
         Assert.Equal(JsonSerializer.Serialize(original.Requirements, PlanningJsonContext.Default.PlanningRequirements), JsonSerializer.Serialize(draft.Requirements, PlanningJsonContext.Default.PlanningRequirements));

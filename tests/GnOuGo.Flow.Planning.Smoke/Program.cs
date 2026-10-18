@@ -42,6 +42,7 @@ if (historicalRequest.MaxModelCalls != 8 || historicalRequest.MaxReplanAttempts 
     historicalRequest.Options.ContainsKey("business_judge"))
     throw new InvalidOperationException("Fresh creation defaults and historical missing fields were not kept distinct under Native AOT.");
 Console.WriteLine("planning defaults: fresh limits and sparse historical fallbacks survive source-generated serialization");
+await IncrementalConstructionSmoke.RunAsync();
 
 var committedIntent = new PlanningRequirements { Summary = "Retain contractual obligations", Outcomes =
     [new("report", "Return the producer location") { Commitments = [new("inspected-operation") { Result = new("location", "filePath") }] }] };
@@ -310,6 +311,7 @@ Console.WriteLine("agent failure: structured host diagnostic survives source-gen
 // Clarification is a response in the existing planning loop, not a separate model phase.
 var clarificationRuntime = new ClarificationRuntime(); var clarificationPlanner = new HybridWorkflowPlanner();
 var clarificationState = new PlanningSession { Request = new() { TenantId = "smoke", Mode = "auto", Prompt = "Return a value with the intended interface" } };
+clarificationState = PlanningCorpus.RetainedSession(clarificationState);
 clarificationState = await clarificationPlanner.AdvanceAsync(clarificationState, new(), clarificationRuntime, CancellationToken.None);
 clarificationState = JsonSerializer.Deserialize(JsonSerializer.Serialize(clarificationState, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
 if (clarificationState.Status != PlanningStatus.Clarification || clarificationState.Plan is not null || clarificationState.PendingQuestions?.Count != 1)
@@ -378,6 +380,7 @@ foreach (var name in PlanningCorpus.Names)
     // The frozen stress corpus uses the same existing request limits as its live campaign.
     var state = new PlanningSession { Request = new() { TenantId = "smoke", Prompt = PlanningCorpus.Prompt(name), MaxModelCalls = 8, MaxReplanAttempts = 2,
         Generation = new() { MaxInputTokensPerRequest = 96000, MaxOutputTokens = 32768 } } };
+    state = PlanningCorpus.RetainedSession(state);
     for (var i = 0; i < 20 && !PlanningStatus.IsWaiting(state.Status) && !PlanningStatus.IsTerminal(state.Status); i++)
     {
         state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, CancellationToken.None);
@@ -387,7 +390,7 @@ foreach (var name in PlanningCorpus.Names)
     if (state.Request.Options["planning_diagnostics_version"]?.ToString() != "1" ||
         state.Request.Options["planning_input_review_version"]?.ToString() != "2" ||
         state.Request.Options["business_judge_review_version"]?.ToString() != "2")
-        throw new InvalidOperationException("Fresh private validation profiles did not survive Native AOT checkpoint serialization.");
+        throw new InvalidOperationException("Captured private validation profiles did not survive Native AOT checkpoint serialization.");
     state = await planner.AdvanceAsync(state, new() { Kind = "approve", ReviewedRequirementIds = state.Requirements!.Outcomes.Select(r => r.Id).ToList(), ExpectedRevision = state.Revision, ArtifactHash = PlanningArtifactApproval.Hash(state) }, runtime, CancellationToken.None);
     if (state.Status != PlanningStatus.Approved) throw new InvalidOperationException("Approval failed.");
     var compiled = new WorkflowCompiler().Compile(WorkflowParser.Parse(state.Yaml!));

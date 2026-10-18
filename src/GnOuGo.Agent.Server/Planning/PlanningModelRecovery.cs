@@ -83,6 +83,8 @@ internal static class PlanningModelRecovery
             await RestoreUsageAsync(state, records, ct, limits);
             state.Status = PlanningStatus.Generating; ClearTransportDiagnostics(state); return;
         }
+        if (state.Construction is not null)
+            throw new PlanningConflictException("The construction request has uncertain completion. Reconcile its original receipt before continuing; it cannot be replayed under a new identity.");
         var saved = await records.GetAsync(PlanningBudgetSink.Collection, tenant, session, author, ct)
             ?? throw new PlanningConflictException("The dispatch budget is unavailable; recovery cannot reset it.");
         var current = JsonSerializer.Deserialize(saved.Value, PlanningJsonContext.Default.LLMUsageBudgetSnapshot)!;

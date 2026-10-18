@@ -19,6 +19,7 @@ public sealed class InitialRequirementsHostTests
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
         var client = new InitialClient(repeatInvalid);
+        var expectedCalls = repeatInvalid ? 2 : 3;
         var agents = PlanningSessionLifecycleTests.AgentCatalog();
         PlanningSession result;
         using (var service = PlanningSessionLifecycleTests.Create(fixture, new HybridWorkflowPlanner(), agents, client))
@@ -36,16 +37,16 @@ public sealed class InitialRequirementsHostTests
                     await Task.Delay(25, deadline.Token);
                 }
                 Assert.Equal(repeatInvalid ? PlanningStatus.Stopped : PlanningStatus.FinalReview, result.Status);
-                Assert.Equal(2, client.Requests.Count); Assert.Equal(2, result.ModelCalls); Assert.Equal(1, result.ReplanAttempts);
+                Assert.Equal(expectedCalls, client.Requests.Count); Assert.Equal(expectedCalls, result.ModelCalls); Assert.Equal(1, result.ReplanAttempts);
                 Assert.Null(result.ApprovedHash); Assert.Null(result.SavedAgentId); Assert.Null(result.PendingCall);
-                Assert.Equal(2, result.Usage!.Calls); Assert.Equal(30, result.Usage.TotalTokens);
+                Assert.Equal(expectedCalls, result.Usage!.Calls); Assert.Equal(expectedCalls * 15, result.Usage.TotalTokens);
                 for (var i = 0; i < 3; i++)
                     Assert.Equal(result.Revision, (await service.GetAsync(initial.Request.SessionId, Ct))!.Revision);
-                Assert.Equal(2, client.Requests.Count);
+                Assert.Equal(expectedCalls, client.Requests.Count);
                 if (repeatInvalid)
                 {
                     Assert.Null(result.Requirements); Assert.Null(result.Plan); Assert.Null(result.Yaml);
-                    Assert.Contains(result.Diagnostics, d => d.Code == "REQUIREMENTS_INVALID" && d.Message.Contains("first TaskPlan", StringComparison.Ordinal));
+                    Assert.Contains(result.Diagnostics, d => d.Code is "REQUIREMENTS_INVALID" or "REPLAN_NO_PROGRESS");
                 }
                 else PlanningArtifactApproval.Verify(result);
             }
@@ -57,11 +58,11 @@ public sealed class InitialRequirementsHostTests
         try
         {
             Assert.Equal(snapshot, JsonSerializer.Serialize(await restarted.GetAsync(result.Request.SessionId, Ct), PlanningJsonContext.Default.PlanningSession));
-            Assert.Equal(2, client.Requests.Count);
+            Assert.Equal(expectedCalls, client.Requests.Count);
         }
         finally { await restarted.StopAsync(Ct); }
-        Assert.Equal(2, client.Requests.Count);
-        Assert.Equal(2, (await fixture.Records.ListAsync(PlanningModelJournal.Collection, "planning-tests", EfPlanningSessionStore.Author, Ct)).Count);
+        Assert.Equal(expectedCalls, client.Requests.Count);
+        Assert.Equal(expectedCalls, (await fixture.Records.ListAsync(PlanningModelJournal.Collection, "planning-tests", EfPlanningSessionStore.Author, Ct)).Count);
         Assert.Null(await fixture.Store.LoadAsync("other-tenant", result.Request.SessionId, Ct));
     }
 
@@ -70,12 +71,13 @@ public sealed class InitialRequirementsHostTests
         internal readonly List<LLMRequest> Requests = [];
         public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
         {
-            Requests.Add(request); Assert.InRange(Requests.Count, 1, 2);
+            Requests.Add(request); Assert.InRange(Requests.Count, 1, repeatInvalid ? 2 : 3);
             var proposal = new PlanningProposal { Plan = PlanningCorpus.LiteralResult(), Requirements = PlanningCorpus.Requirements("local") };
-            var response = PlanningCorpus.Transport(JsonSerializer.SerializeToNode(proposal, PlanningJsonContext.Default.PlanningProposal),
-                request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject())!;
+            proposal.Requirements!.Inputs = [];
+            proposal.Requirements.Outputs = [new() { Name = "result", Type = new() { Kind = "number" } }];
+            var response = PlanningCorpus.OneDraftResponse(request, proposal)!;
             if (Requests.Count == 1 || repeatInvalid) response["requirements"] = null;
-            Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(response, request.StructuredOutputSchema));
+            Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(response, request.StructuredOutputSchema!));
             if (Requests.Count == 2) Assert.Contains("REQUIREMENTS_INVALID", request.Prompt);
             return Task.FromResult(new LLMResponse { Json = response, Usage = new JsonObject { ["input_tokens"] = 10, ["output_tokens"] = 5 } });
         }

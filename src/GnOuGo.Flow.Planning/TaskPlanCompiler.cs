@@ -99,6 +99,7 @@ public sealed partial class TaskPlanCompiler
     private bool _indexedProjections;
     private bool _fusedBindings;
     private bool _preciseDeclarations;
+    private HashSet<string>? _constructionUnavailable;
     private string _location = "/tasks";
 
     public TaskCompilation Compile(TaskPlan plan, PlanningCatalog catalog, bool compactBindings = false)
@@ -113,6 +114,7 @@ public sealed partial class TaskPlanCompiler
     internal TaskCompilation Compile(TaskPlan plan, PlanningCatalog catalog, bool compactBindings, bool normalExports, bool adaptiveMappings = false, bool indexedProjections = false, bool fusedBindings = false, bool validateAssertions = false, bool preciseDeclarations = false)
     {
         _preciseDeclarations = preciseDeclarations;
+        _constructionUnavailable = null;
         _fusedBindings = fusedBindings;
         _indexedProjections = indexedProjections;
         _adaptiveMappings = adaptiveMappings;
@@ -642,6 +644,8 @@ public sealed partial class TaskPlanCompiler
         if (value.Kind == "output" && value.Source is not null && !scope.Tasks.ContainsKey(value.Source) &&
             _symbols.Values.TryGetValue(_location, out var site) && _symbols.ExportedReference(site.Scope, value) is { } exported)
             value = exported;
+        if (value.Kind is "output" or "present" && value.Source is { } unfinished && _constructionUnavailable?.Contains(unfinished) == true)
+            Fail("TASK_SCOPE_OPEN", "Task '" + unfinished + "' has unfinished scopes. Close its construction boundary before consuming its outputs or completion.");
         // Presence reads the whole task result, which preflight withholds after an invalid export.
         var referenceKind = value.Kind == "present" ? "output" : value.Kind;
         var referencePort = value.Kind == "present" ? "" : value.Port ?? "";

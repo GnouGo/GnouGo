@@ -90,7 +90,7 @@ public sealed class BenchmarkMeasurementTests
         var fresh = new PlanningRequest();
         PlanningBenchmarkMeasurements.ConfigureRequest(fresh, [], false);
         Assert.Equal(12, fresh.MaxModelCalls); Assert.Equal(4, fresh.MaxReplanAttempts);
-        Assert.Equal(32000, fresh.Generation.MaxInputTokensPerRequest); Assert.Equal(32768, fresh.Generation.MaxOutputTokens);
+        Assert.Equal(32000, fresh.Generation.MaxInputTokensPerRequest); Assert.Equal(8192, fresh.Generation.MaxOutputTokens);
         PlanningBenchmarkMeasurements.ConfigureRequest(fresh, ["--max-model-calls", "9", "--max-repairs", "0", "--max-input-tokens", "24000", "--max-output-tokens", "8192", "--business-judge"], false);
         Assert.Equal(9, fresh.MaxModelCalls); Assert.Equal(0, fresh.MaxReplanAttempts);
         Assert.Equal(24000, fresh.Generation.MaxInputTokensPerRequest); Assert.Equal(8192, fresh.Generation.MaxOutputTokens);
@@ -105,6 +105,37 @@ public sealed class BenchmarkMeasurementTests
         Assert.Throws<InvalidOperationException>(() => PlanningBenchmarkMeasurements.ConfigureRequest(fresh, ["--no-business-judge"], true));
         Assert.Throws<ArgumentException>(() => PlanningBenchmarkMeasurements.ConfigureRequest(fresh, ["--max-input-tokens", "0"], false));
         Assert.Throws<ArgumentException>(() => PlanningBenchmarkMeasurements.ConfigureRequest(fresh, ["--business-judge", "--no-business-judge"], false));
+    }
+
+    [Fact]
+    public void ConstructionCapacityAndBudgetsRoundTripWithoutMigratingHistoricalConfigurations()
+    {
+        var historical = System.Text.Json.JsonSerializer.Deserialize("{}", PlanningJsonContext.Default.PlanningRequest)!;
+        var oldConfiguration = PlanningBenchmarkMeasurements.Configuration(historical);
+        Assert.Null(oldConfiguration["construction_version"]);
+        Assert.True(JsonNode.DeepEquals(oldConfiguration,
+            PlanningBenchmarkMeasurements.Configuration(PlanningBenchmarkMeasurements.RestoreConfiguration(oldConfiguration))));
+        var fresh = new PlanningRequest();
+        PlanningBenchmarkMeasurements.ConfigureRequest(fresh, ["--construction-preset", "large", "--max-total-tokens", "1000000", "--max-elapsed-ms", "600000", "--automatic-correction"], false);
+        var configuration = PlanningBenchmarkMeasurements.Configuration(fresh);
+        var restored = PlanningBenchmarkMeasurements.RestoreConfiguration(configuration);
+        PlanningBenchmarkMeasurements.ConfigureRequest(restored, [], true);
+        Assert.True(JsonNode.DeepEquals(configuration, PlanningBenchmarkMeasurements.Configuration(restored)));
+        Assert.Equal(384, restored.MaxModelCalls); Assert.Equal(64, restored.MaxReplanAttempts);
+        Assert.Equal(5000, restored.Policy.MaxStepsPerWorkflow); Assert.Equal(1024, restored.Policy.MaxWorkflows);
+        Assert.True(restored.Policy.RequireExternalConfirmation);
+        Assert.Equal(1000000, restored.Options["llm_budget"]!["max_total_tokens"]!.GetValue<int>());
+        Assert.Equal(600000, restored.Options["llm_budget"]!["max_elapsed_ms"]!.GetValue<int>());
+        restored.MaxModelCalls = 96; restored.MaxReplanAttempts = 24;
+        PlanningBenchmarkMeasurements.ConfigureRequest(restored, ["--construction-preset", "large"], false);
+        Assert.Equal(96, restored.MaxModelCalls); Assert.Equal(24, restored.MaxReplanAttempts);
+        var session = new PlanningSession { Request = restored };
+        PlanningBenchmarkMeasurements.CaptureConstructionSettings(session);
+        Assert.Equal(8192, session.Construction!.Limits.DraftOutputTokens); Assert.Equal(2048, session.Construction.Limits.ReviewOutputTokens);
+        Assert.Throws<InvalidOperationException>(() => PlanningBenchmarkMeasurements.ConfigureRequest(restored, ["--construction-preset", "ordinary"], true));
+        Assert.Throws<InvalidOperationException>(() => PlanningBenchmarkMeasurements.ConfigureRequest(restored, ["--max-total-tokens", "15000000"], true));
+        Assert.Throws<InvalidOperationException>(() => PlanningBenchmarkMeasurements.ConfigureRequest(historical, ["--construction-preset", "ordinary"], true));
+        Assert.Throws<ArgumentException>(() => PlanningBenchmarkMeasurements.ConfigureRequest(new(), ["--max-elapsed-ms", "18000001"], false));
     }
 
     [Theory]

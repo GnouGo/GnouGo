@@ -49,11 +49,39 @@ internal static class LiveWorkflowEvaluation
         var sourceRevision = SchemaPortabilityCampaign.Git("rev-parse", "HEAD");
         if (continuing && retained?["source"]?.ToString() != sourceRevision)
             throw new InvalidOperationException("Continuation must use the retained planning build.");
+        var frozenSettings = continuing ? retained!["session"]!.Deserialize(PlanningJsonContext.Default.PlanningSession)!.Request
+            : FreshPlanningRequest(args, label, scenario, "manifest", model.Provider, model.Model);
+        if (continuing)
+        {
+            GnOuGo.Planning.Examples.PlanningBenchmarkMeasurements.ConfigureRequest(frozenSettings, args, retained: true);
+            if (SchemaPortabilityCampaign.Option(args, "--construction-preset") is { } preset &&
+                preset != frozenSettings.Options["construction_preset"]?.ToString())
+                throw new PlanningConflictException("The captured construction preset cannot change during continuation.");
+        }
         var manifest = label.StartsWith(cohort + "-", StringComparison.Ordinal)
-            ? await LiveCampaignEvidence.PinAsync(campaign, sourceRevision, model.Provider, model.Model, model.ConfigurationFingerprint, cohort, productLimit, businessJudge) : null;
+            ? await LiveCampaignEvidence.PinAsync(campaign, sourceRevision, model.Provider, model.Model, model.ConfigurationFingerprint, cohort, productLimit, businessJudge,
+                !continuing || frozenSettings.Options.ContainsKey("construction_preset") || retained?["manifest"]?["planning_configuration"] is not null || args.Any(a => a.StartsWith("--max-", StringComparison.Ordinal))
+                    ? FrozenPlanningConfiguration(frozenSettings, retained?["session"]?["construction"]?["limits"] as JsonObject) : null) : null;
         await using var proxy = await CampaignInferenceProxy.StartAsync(model, label);
         var configurations = Configuration(model.McpServers, scenario, proxy.Endpoint);
-        var human = new ConsoleHuman(campaign, label);
+        DelegatedTestReviewAuthority? delegated = null;
+        if (SchemaPortabilityCampaign.Option(args, "--delegated-review") is { } delegatedFile)
+        {
+            if (phase != "execute" || SchemaPortabilityCampaign.Option(args, "--review-command") is not null)
+                throw new ArgumentException("Delegated review applies only to an isolated execution, without a separate human approval command.");
+            var authorizationFile = SchemaPortabilityCampaign.Option(args, "--delegated-authorization")
+                ?? throw new ArgumentException("Supply the explicit frozen --delegated-authorization.");
+            var authorization = JsonSerializer.Deserialize(await File.ReadAllTextAsync(authorizationFile), DelegatedTestJsonContext.Default.DelegatedTestAuthorization)
+                ?? throw new ArgumentException("Missing delegated authorization.");
+            var document = JsonSerializer.Deserialize(await File.ReadAllTextAsync(delegatedFile), DelegatedTestJsonContext.Default.DelegatedTestReviewDocument)
+                ?? throw new ArgumentException("Missing artifact-bound delegated review.");
+            delegated = new(authorization, document, campaign.Id, label, scenario, root, sourceRevision);
+            delegated.Validate(retained!["session"]!.Deserialize(PlanningJsonContext.Default.PlanningSession)!);
+            await delegated.PinAsync(campaign, CancellationToken.None);
+        }
+        else if (SchemaPortabilityCampaign.Option(args, "--delegated-authorization") is not null)
+            throw new ArgumentException("Authorization alone is not a concrete artifact review.");
+        IHumanInputProvider human = delegated is null ? new ConsoleHuman(campaign, label) : new DelegatedTestReviewAuthority.Input(campaign, label, delegated);
         await using var transport = new ConfiguredMcpClientFactory(configurations, human, model.Provider, model.Model);
         var run = continuing ? retained!.DeepClone().AsObject() : new JsonObject { ["scenario"] = scenario, ["label"] = label, ["source"] = SchemaPortabilityCampaign.Git("rev-parse", "HEAD"),
             ["phase"] = manifest is not null ? "final" : "diagnostic", ["events"] = new JsonArray(), ["manifest"] = manifest, ["provider_readiness"] = readiness };
@@ -62,7 +90,7 @@ internal static class LiveWorkflowEvaluation
             run["events"]!.AsArray().Add(e);
             if (scenario == "code" && run["workspace_relative"] is not null) await LiveCodeEvidence.ObserveCheckoutAsync(root, run);
             await Save();
-        });
+        }, delegated);
         var measured = new ExecutionModel(model, label);
         var mappingTelemetry = new MappingLiveEvaluation.MappingTelemetry();
         var engine = new WorkflowEngine { McpClientFactory = observed, LLMClient = phase == "execute" ? measured : new PlanningModel(model, run),
@@ -70,12 +98,12 @@ internal static class LiveWorkflowEvaluation
             // The existing execution deadline also bounds cumulative runtime inference.
             // Monetary admission remains in the shared encrypted campaign client.
             LLMUsageBudget = new(new() { MaxElapsed = TimeSpan.FromMinutes(30) }),
-            RunStore = EncryptedWorkflowRunStore.CreateWorkspace(baseDirectory: root),
+            RunStore = ExecutionStore(root),
             Limits = new() { TenantId = "benchmark", RunId = label, AgentId = campaign.Id + "-" + scenario, AgentName = "Live evaluation " + scenario, MaxMappingInputTokens = 96000 },
             HumanInputProvider = human, LlmDefaults = new() { Model = model.Model, Provider = model.Provider } };
         if (scenario == "code") engine.WithCopilotRunners(configurations.Keys.Where(k => k.Contains("GithubCopilot", StringComparison.Ordinal)).Select(k => new KeyValuePair<string, string>("coding", k)));
         JsonObject? revisionSnapshot = null;
-        var runtime = new WorkflowPlanningRuntime(engine, async (s, _) =>
+        IPlanningRuntime runtime = new WorkflowPlanningRuntime(engine, async (s, _) =>
         {
             if (revisionSnapshot is not null)
             {
@@ -88,13 +116,20 @@ internal static class LiveWorkflowEvaluation
             GnOuGo.Planning.Examples.PlanningBenchmarkMeasurements.Capture(run, s);
             await Save(); Console.WriteLine($"{label}: revision={s.Revision}, status={s.Status}, calls={s.ModelCalls}, repairs={s.ReplanAttempts}");
         });
+        if (delegated is not null) runtime = new DelegatedTestReviewAuthority.Runtime(runtime, delegated);
         if (phase == "execute")
         {
-            var reviewPath = SchemaPortabilityCampaign.Option(args, "--review-command")
-                ?? throw new ArgumentException("Review the accepted requirements and actual TaskPlan, then supply an explicit approval with --review-command <file>.");
-            var command = JsonSerializer.Deserialize(await File.ReadAllTextAsync(reviewPath), PlanningJsonContext.Default.PlanningCommand)
-                ?? throw new ArgumentException("The review command must be an explicit approval.");
+            PlanningCommand command;
+            if (delegated is not null) command = delegated.Command();
+            else
+            {
+                var reviewPath = SchemaPortabilityCampaign.Option(args, "--review-command")
+                    ?? throw new ArgumentException("Review the accepted requirements and actual TaskPlan, then supply an explicit approval with --review-command <file>.");
+                command = JsonSerializer.Deserialize(await File.ReadAllTextAsync(reviewPath), PlanningJsonContext.Default.PlanningCommand)
+                    ?? throw new ArgumentException("The review command must be an explicit approval.");
+            }
             var session = await ApproveAsync(run, command, runtime, CancellationToken.None);
+            PlanningArtifactApproval.Verify(session, delegated?.Receipt);
             if (scenario == "code" && !proxy.Ready) throw new InvalidOperationException("SDK inference interception is not attested.");
             proxy.ExecutionEnabled = true;
             var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(session.Yaml!));
@@ -109,7 +144,8 @@ internal static class LiveWorkflowEvaluation
             catch (Exception ex) { run["execution"] = new JsonObject { ["success"] = false, ["exception"] = ex.ToString() }; }
             finally { proxy.ExecutionEnabled = false; run["execution_ms"] = timer.ElapsedMilliseconds;
                 run["mapping_telemetry"] = mappingTelemetry.Mappings; await Save(); }
-            var oracle = await LiveWorkflowOracles.VerifyAsync(scenario, root, run, observed);
+            var oracle = await LiveWorkflowOracles.VerifyAsync(scenario, root, run, observed,
+                delegated is null ? null : observed.ProbeBrowserClosureAsync);
             run["oracle"] = oracle;
             RecordExecutionOracle(run, session, oracle);
             GnOuGo.Planning.Examples.PlanningBenchmarkMeasurements.ProposalMetrics(run, run["result"]!.AsObject());
@@ -154,11 +190,13 @@ internal static class LiveWorkflowEvaluation
         }
         var priorMilliseconds = phase == "revise" ? run["result"]!["planning_ms"]!.GetValue<long>() : 0;
         var priorReads = phase == "revise" ? run["result"]!["discovery_reads"]!.GetValue<int>() : 0;
-        var remainingTime = TimeSpan.FromMinutes(30) - TimeSpan.FromMilliseconds(priorMilliseconds);
-        if (remainingTime <= TimeSpan.Zero) throw new InvalidOperationException("Planning time is exhausted; revision cannot reset it.");
-        var clock = Stopwatch.StartNew(); using var timeout = new CancellationTokenSource(remainingTime);
         var state = phase == "revise" ? run["session"]!.Deserialize(PlanningJsonContext.Default.PlanningSession)! : new PlanningSession
         { Request = FreshPlanningRequest(args, label, scenario, prompt, model.Provider, model.Model) };
+        if (phase != "revise") PlanningBenchmarkMeasurements.CaptureConstructionSettings(state);
+        var remainingTime = (PlanningBudgetOptions.Parse(state.Request.Options)?.MaxElapsed ?? TimeSpan.FromMinutes(30)) - TimeSpan.FromMilliseconds(priorMilliseconds);
+        if (remainingTime <= TimeSpan.Zero) throw new InvalidOperationException("Planning time is exhausted; revision cannot reset it.");
+        var clock = Stopwatch.StartNew(); using var timeout = new CancellationTokenSource(remainingTime);
+        await model.CapturePlanningPolicyAsync(state.Request, CancellationToken.None, state.Construction is not null || phase != "revise");
         if (phase == "revise")
         {
             var commandPath = SchemaPortabilityCampaign.Option(args, "--revision-command") ?? throw new ArgumentException("Supply --revision-command <file> with concrete review feedback.");
@@ -170,7 +208,7 @@ internal static class LiveWorkflowEvaluation
         }
         try
         {
-            for (var i = 0; i < 40 && !PlanningStatus.IsWaiting(state.Status) && !PlanningStatus.IsTerminal(state.Status); i++)
+            for (var i = 0; i < Math.Max(40, state.Request.MaxModelCalls * 4) && !PlanningStatus.IsWaiting(state.Status) && !PlanningStatus.IsTerminal(state.Status); i++)
             {
                 state = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, timeout.Token);
                 await runtime.CheckpointAsync(state, CancellationToken.None);
@@ -198,14 +236,36 @@ internal static class LiveWorkflowEvaluation
     {
         var businessJudge = ResolveBusinessJudge(args);
         var request = new PlanningRequest { SessionId = label, TenantId = "benchmark", Name = "Live " + scenario,
-            Prompt = prompt, Mode = PlanningMode.Auto, MaxModelCalls = 8, MaxReplanAttempts = 2,
-            Generation = new() { MaxInputTokensPerRequest = 96000, MaxOutputTokens = 32768, Reasoning = "medium" },
-            Policy = new() { RequireExternalConfirmation = false },
-            Options = new() { ["generator"] = new JsonObject { ["provider"] = provider, ["model"] = model } } };
+            Prompt = prompt, Mode = PlanningMode.Auto, MaxModelCalls = 12, MaxReplanAttempts = 4,
+            Generation = new() { MaxInputTokensPerRequest = 32000, MaxOutputTokens = 8192, Reasoning = "medium" },
+            Policy = new() { RequireExternalConfirmation = true },
+            Options = new() { ["generator"] = new JsonObject { ["provider"] = provider, ["model"] = model },
+                ["llm_budget"] = new JsonObject { ["max_elapsed_ms"] = 18_000_000, ["max_total_tokens"] = 15_000_000 } } };
+        GnOuGo.Planning.Examples.PlanningBenchmarkMeasurements.ConfigureRequest(request, args, retained: false);
         if (args.Contains("--automatic-correction", StringComparer.Ordinal)) request.Options["automatic_correction"] = true;
         if (args.Contains("--business-judge", StringComparer.Ordinal) || args.Contains("--no-business-judge", StringComparer.Ordinal))
             request.Options["business_judge"] = businessJudge;
         return request;
+    }
+
+    internal static EncryptedWorkflowRunStore ExecutionStore(string root)
+        => EncryptedWorkflowRunStore.CreateWorkspace(
+            KeyVaultBenchmarkModel.WorkspaceDatabasePath(root, null, GnOuGo.KeyVault.Core.KeyVaultDatabasePathResolver.DefaultRelativePath),
+            KeyVaultBenchmarkModel.WorkspaceDatabasePath(root, null, ".GnOuGo/data/flow-execution-v9.db"), root,
+            ownerPath: KeyVaultBenchmarkModel.WorkspaceDatabasePath(root, null, ".GnOuGo/data/flow-execution-v9/owners"));
+
+    internal static JsonObject FrozenPlanningConfiguration(PlanningRequest request, JsonObject? constructionLimits = null)
+    {
+        var result = PlanningBenchmarkMeasurements.Configuration(request);
+        result["construction_version"] = 1;
+        result["construction_preset"] = request.Options["construction_preset"]?.ToString() ?? PlanningConstructionPresets.Ordinary;
+        result["llm_budget"] = request.Options["llm_budget"]?.DeepClone();
+        result["require_external_confirmation"] = request.Policy.RequireExternalConfirmation;
+        result["max_graph_nodes"] = request.Policy.MaxStepsTotal;
+        result["max_workflows"] = request.Policy.MaxWorkflows;
+        result["construction_limits"] = constructionLimits?.DeepClone() ??
+            JsonSerializer.SerializeToNode(new PlanningConstructionOptions(), PlanningJsonContext.Default.PlanningConstructionOptions);
+        return result;
     }
 
     internal static bool ResolveBusinessJudge(string[] args, JsonObject? retained = null)
@@ -318,8 +378,10 @@ internal static class LiveWorkflowEvaluation
             first["business_correct"] = oracle["passed"]?.DeepClone();
     }
 
-    internal sealed class PlanningModel(KeyVaultBenchmarkModel model, JsonObject run) : ILLMClient, ILLMCapabilityResolver
+    internal sealed class PlanningModel(KeyVaultBenchmarkModel model, JsonObject run) : ILLMClient, ILLMCapabilityResolver, IPlanningConstructionAdmission
     {
+        public Task AdmitConstructionAsync(LLMRequest request, int inputTokenCeiling, IReadOnlyList<int> outputTokenCeilings, CancellationToken ct)
+            => model.AdmitConstructionAsync(request, inputTokenCeiling, outputTokenCeilings, ct);
         public Task<int?> InputTokenAllowanceAsync(string? provider, string name, int outputTokens, CancellationToken ct) => model.InputTokenAllowanceAsync(provider, name, outputTokens, ct);
         public Task<bool?> SupportsStructuredOutputAsync(string? provider, string name, CancellationToken ct) => model.SupportsStructuredOutputAsync(provider, name, ct);
         public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string name, CancellationToken ct) => model.SupportedReasoningLevelsAsync(provider, name, ct);
@@ -359,11 +421,30 @@ internal static class LiveWorkflowEvaluation
         }
     }
 
-    internal sealed class ObservedMcp(IMcpClientFactory inner, Func<JsonObject, Task> save) : IMcpClientFactory, IMcpExecutionHooks
+    internal sealed class ObservedMcp(IMcpClientFactory inner, Func<JsonObject, Task> save, DelegatedTestReviewAuthority? authority = null) : IMcpClientFactory, IMcpExecutionHooks
     {
         private readonly Func<JsonObject, Task> _save = save;
+        private readonly DelegatedTestReviewAuthority? _authority = authority;
         internal int DiscoveryReads;
-        public IDisposable BeginCall(McpCallExecutionContext context) => ((IMcpExecutionHooks)inner).BeginCall(context);
+        public IDisposable BeginCall(McpCallExecutionContext context)
+        {
+            var delegated = _authority?.BeginCall(context);
+            try { return new CallScope(((IMcpExecutionHooks)inner).BeginCall(context), delegated); }
+            catch { delegated?.Dispose(); throw; }
+        }
+        private sealed class CallScope(IDisposable innerScope, IDisposable? delegated) : IDisposable
+        {
+            public void Dispose() { try { innerScope.Dispose(); } finally { delegated?.Dispose(); } }
+        }
+        // Only the host's post-execution oracle calls this zero-navigation probe.
+        internal async Task<McpCallResult> ProbeBrowserClosureAsync()
+        {
+            var browser = await inner.GetClientAsync("GnOuGo.Browser.Mcp", CancellationToken.None);
+            var result = await browser.CallToolAsync("browser_get_content", new JsonObject(), CancellationToken.None);
+            await _save(new JsonObject { ["origin"] = "host_closure_oracle", ["server"] = "GnOuGo.Browser.Mcp",
+                ["tool"] = "browser_get_content", ["arguments"] = new JsonObject(), ["error"] = result.IsError, ["result"] = result.Content?.DeepClone() });
+            return result;
+        }
         public string FormatFailureDiagnostics(string serverName, Exception exception) => ((IMcpExecutionHooks)inner).FormatFailureDiagnostics(serverName, exception);
         public IReadOnlyList<McpServerMetadata> ServerMetadata => inner.ServerMetadata;
         public async Task<IMcpSession> GetClientAsync(string serverName, CancellationToken ct) => new Session(this, await inner.GetClientAsync(serverName, ct));
@@ -376,12 +457,14 @@ internal static class LiveWorkflowEvaluation
             public Task<McpGetPromptResult> GetPromptAsync(string name, JsonNode? arguments, CancellationToken ct) => inner.GetPromptAsync(name, arguments, ct);
             public async Task<McpCallResult> CallToolAsync(string toolName, JsonNode? arguments, CancellationToken ct)
             {
+                owner._authority?.RequireTool(ServerName, toolName, arguments);
                 if (toolName is "git_push" or "git_delete_remote_branch")
                     throw new InvalidOperationException("Remote publication is outside this live campaign.");
                 var evt = new JsonObject { ["server"] = ServerName, ["tool"] = toolName, ["arguments"] = arguments?.DeepClone(), ["started"] = DateTimeOffset.UtcNow.ToString("O") };
                 var clock = Stopwatch.StartNew();
-                try { var result = await inner.CallToolAsync(toolName, arguments, ct); evt["error"] = result.IsError; evt["result"] = result.Content?.DeepClone(); return result; }
-                catch (Exception ex) { evt["exception"] = ex.GetType().Name; throw; }
+                try { var result = await inner.CallToolAsync(toolName, arguments, ct); evt["error"] = result.IsError; evt["result"] = result.Content?.DeepClone();
+                    owner._authority?.ObserveTool(ServerName, toolName, arguments, result); return result; }
+                catch (Exception ex) { owner._authority?.ObserveTool(ServerName, toolName, arguments, null); evt["exception"] = ex.GetType().Name; throw; }
                 finally { evt["latency_ms"] = clock.ElapsedMilliseconds; await owner._save(evt); }
             }
             public ValueTask DisposeAsync() => ValueTask.CompletedTask;

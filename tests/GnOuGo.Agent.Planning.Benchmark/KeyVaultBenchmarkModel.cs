@@ -22,7 +22,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.ML.Tokenizers;
 
 /// <summary>One configured live model and one authorized spending ledger shared by planning and explicit live execution hosts.</summary>
-internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolver, IDisposable
+internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolver, IPlanningConstructionAdmission, IDisposable
 {
     public Task<int?> InputTokenAllowanceAsync(string? provider, string model, int outputTokens, CancellationToken ct)
         => ((ILLMCapabilityResolver)_client).InputTokenAllowanceAsync(Provider, Model, outputTokens, ct);
@@ -56,6 +56,60 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
     internal string ConfigurationFingerprint => PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(_options) +
         JsonSerializer.Serialize(new RoutingLLMClient(_options, []).ResolveDeclaredMetadata(Provider, Model)));
     internal JsonObject MetadataSources { get; private init; } = new();
+    public async Task AdmitConstructionAsync(LLMRequest request, int inputTokenCeiling,
+        IReadOnlyList<int> outputTokenCeilings, CancellationToken ct)
+    {
+        if (inputTokenCeiling <= 0 || outputTokenCeilings.Count is < 1 or > 3 || outputTokenCeilings.Any(v => v <= 0))
+            throw new ArgumentException("Construction admission requires bounded draft and review ceilings.");
+        await _dispatchGate.WaitAsync(ct);
+        try
+        {
+            // Mirror the physical journal's conservative input bound. No request,
+            // charge, reservation or receipt is created by this read-only preflight.
+            decimal headroom = 0;
+            JsonObject? quote = null;
+            foreach (var output in outputTokenCeilings)
+            {
+                var price = AdmissionPrice(checked(3L * inputTokenCeiling), output);
+                quote ??= await FreshQuoteAsync(price.Currency, ct, persist: false);
+                if (quote["source_currency"]?.ToString() != price.Currency)
+                    throw BenchmarkCampaign.AdmissionFailure("review_price_currency_changed");
+                headroom = checked(headroom + ConvertCost(price, quote, beforeDispatch: true));
+            }
+            var accounting = await BenchmarkHttpJournal.AccountingAsync(_campaign, ct: ct);
+            var ceiling = await _campaign.CostCeilingAsync(ct);
+            if (accounting["cost_upper_bound_eur"]!.GetValue<decimal>() + headroom > ceiling)
+                throw new WorkflowRuntimeException(ErrorCodes.LlmBudgetExceeded,
+                    "The existing campaign allowance cannot cover the draft and mandatory construction reviews.",
+                    details: new JsonObject { ["dispatch_status"] = "not_started", ["classification"] = "construction_review_allowance",
+                        ["limit_kind"] = "estimated_cost", ["currency"] = "EUR", ["limit"] = ceiling });
+        }
+        finally { _dispatchGate.Release(); }
+    }
+    internal async Task CapturePlanningPolicyAsync(PlanningRequest request, CancellationToken ct, bool incremental = true)
+    {
+        var value = new JsonObject { ["max_physical_attempts"] = request.MaxModelCalls,
+            ["max_input_tokens"] = request.Generation.MaxInputTokensPerRequest, ["max_output_tokens"] = request.Generation.MaxOutputTokens,
+            ["max_corrections"] = request.MaxReplanAttempts, ["construction_preset"] = request.Options["construction_preset"]?.DeepClone(),
+            ["llm_budget"] = request.Options["llm_budget"]?.DeepClone() };
+        if (incremental)
+        {
+            value["construction_review_headroom"] = 2;
+            value["construction_review_output_tokens"] = Math.Min(request.Options["construction_limits"]?["reviewOutputTokens"]?.GetValue<int>() ?? 2048,
+                request.Generation.MaxOutputTokens);
+            value["construction_limits"] = request.Options["construction_limits"]?.DeepClone();
+        }
+        var saved = await _campaign.LoadAsync("planning-evaluation-session-policy", request.SessionId, ct);
+        if (saved is not null)
+        {
+            if (!JsonNode.DeepEquals(saved, value)) throw new PlanningConflictException("The captured session transport policy cannot change during recovery.");
+            return;
+        }
+        // A historical session already issued under the original HTTP allowance retains it.
+        if ((await _campaign.Records.ListAsync("planning-evaluation-requests", "benchmark", BenchmarkCampaign.Author, ct))
+            .Any(r => r.Key.StartsWith(_campaign.Id + ":" + request.SessionId + ":", StringComparison.Ordinal))) return;
+        await _campaign.SaveAsync("planning-evaluation-session-policy", request.SessionId, value, ct);
+    }
     internal async Task<JsonObject> ReadinessAsync(CancellationToken ct)
     {
         var metadata = new RoutingLLMClient(_options, []).ResolveDeclaredMetadata(Provider, Model);
@@ -108,7 +162,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
         catch (Exception ex) when (ex is InvalidOperationException or FormatException or NullReferenceException) { return false; }
     }
 
-    private async Task<JsonObject> FreshQuoteAsync(string currency, CancellationToken ct)
+    private async Task<JsonObject> FreshQuoteAsync(string currency, CancellationToken ct, bool persist = true)
     {
         const string collection = "planning-evaluation-exchange-rates";
         var key = currency + "-EUR";
@@ -123,7 +177,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
         var result = new JsonObject { ["source_currency"] = quote.SourceCurrency, ["target_currency"] = quote.TargetCurrency,
             ["rate"] = quote.Rate, ["as_of_utc"] = quote.AsOfUtc, ["source"] = quote.Source };
         if (!ValidQuote(result, currency, fresh: true)) throw BenchmarkCampaign.AdmissionFailure("currency_quote_invalid_or_stale");
-        await _campaign.SaveAsync(collection, key, result, ct);
+        if (persist) await _campaign.SaveAsync(collection, key, result, ct);
         return result;
     }
 
@@ -133,7 +187,8 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
         catch (OverflowException) when (beforeDispatch) { throw BenchmarkCampaign.AdmissionFailure("currency_conversion_overflow"); }
     }
 
-    private async Task<BenchmarkHttpJournal> PrepareAdmissionAsync(string requestId, long input, long output, int? sessionLimit, CancellationToken ct)
+    private async Task<BenchmarkHttpJournal> PrepareAdmissionAsync(string requestId, long input, long output, int? sessionLimit, CancellationToken ct,
+        int reviewCount = 0, long reviewInput = 0, int reviewOutput = 0)
     {
         var existing = await _campaign.LoadAsync(BenchmarkHttpJournal.Collection, requestId, ct);
         if (existing is not null)
@@ -143,11 +198,20 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
                 !ValidQuote(saved, saved["source_currency"]?.ToString() ?? "", fresh: false))
                 throw new InvalidOperationException("The issued request has no verified exchange quote; retain it for explicit recovery.");
             return new(_campaign, requestId, existing["input_ceiling"]!.GetValue<long>(), existing["output_ceiling"]!.GetValue<long>(),
-                existing["cost_ceiling_eur"]!.GetValue<decimal>(), sessionLimit);
+                existing["cost_ceiling_eur"]!.GetValue<decimal>(), sessionLimit,
+                existing["construction_review_cost_headroom_eur"]?.GetValue<decimal>() ?? 0,
+                existing["construction_review_attempt_headroom"]?.GetValue<int>() ?? 0);
         }
         var price = AdmissionPrice(input, output);
         var quote = await FreshQuoteAsync(price.Currency, ct);
-        var journal = new BenchmarkHttpJournal(_campaign, requestId, input, output, ConvertCost(price, quote, true), sessionLimit);
+        var reviewHeadroom = 0m;
+        if (reviewCount > 0)
+        {
+            var reviewPrice = AdmissionPrice(reviewInput, reviewOutput);
+            if (reviewPrice.Currency != price.Currency) throw BenchmarkCampaign.AdmissionFailure("review_price_currency_changed");
+            reviewHeadroom = checked(reviewCount * ConvertCost(reviewPrice, quote, true));
+        }
+        var journal = new BenchmarkHttpJournal(_campaign, requestId, input, output, ConvertCost(price, quote, true), sessionLimit, reviewHeadroom, reviewCount);
         await journal.PrepareAsync(ct, quote);
         return journal;
     }
@@ -174,7 +238,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
     internal static async Task<KeyVaultBenchmarkModel> CreateAsync(string providerName, string? expectedModel, BenchmarkCampaign campaign, string root, CancellationToken ct, bool pinConfiguration = true)
     {
         var services = new ServiceCollection(); services.AddLogging();
-        var vault = KeyVaultDatabasePathResolver.Resolve(null, root);
+        var vault = WorkspaceDatabasePath(root, null, KeyVaultDatabasePathResolver.DefaultRelativePath);
         services.AddDbContext<KeyVaultDbContext>(o => o.UseSqlite("Data Source=" + vault)); services.AddScoped<KeyVaultService>();
         await using var provider = services.BuildServiceProvider();
         // Bundled definitions are host defaults; KeyVault applies the same current
@@ -187,7 +251,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
         var config = new KeyVaultRuntimeConfigStore(provider.GetRequiredService<IServiceScopeFactory>(), NullLogger<KeyVaultRuntimeConfigStore>.Instance,
             Options.Create(bundled), Options.Create(new KeyVaultSettings { DatabasePath = vault }));
         var options = await config.BuildEffectiveOptionsAsync(baseline, ct);
-        var database = AgentMcpHostingExtensions.ResolveDatabasePath(host?["Agent"]?["DatabasePath"]?.GetValue<string>(), root);
+        var database = WorkspaceDatabasePath(root, host?["Agent"]?["DatabasePath"]?.GetValue<string>(), AgentMcpHostingExtensions.DefaultDatabasePath);
         IReadOnlyDictionary<string, LLMModelMetadata>? userOverrides = null;
         if (File.Exists(database))
         {
@@ -214,6 +278,10 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
         if (pinnedRetry is null) await campaign.SaveAsync("planning-evaluation-configuration", "http-retry-policy", retryConfiguration, ct);
         return new(campaign, options) { MetadataSources = sources };
     }
+    internal static string WorkspaceDatabasePath(string root, string? configuredPath, string defaultPath)
+        => Path.GetFullPath(Path.Combine(Path.GetFullPath(root), string.IsNullOrWhiteSpace(configuredPath) ? defaultPath : configuredPath));
+    internal static IKeyVaultRecordStore WorkspaceRecords(string root)
+        => KeyVaultRecordStoreFactory.CreateWorkspaceStore(WorkspaceDatabasePath(root, null, KeyVaultDatabasePathResolver.DefaultRelativePath), root);
     internal static LLMRequest CreateDispatchRequest(LLMRequest request, string provider, string model, bool execution = false)
     {
         if (request.Tools is { Count: > 0 })
@@ -262,15 +330,27 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
 
     private async Task<LLMResponse> DispatchAsync(LLMRequest request, bool singleAttempt, CancellationToken ct, bool execution = false)
     {
+        var policy = execution ? null : await _campaign.LoadAsync("planning-evaluation-session-policy", request.ClientRequestId!.Split(':')[0], ct);
+        var incremental = policy?["construction_review_headroom"]?.GetValue<int>() > 0;
         var dispatched = CreateDispatchRequest(request, Provider, Model, execution);
-        if (singleAttempt) dispatched.DisableTransportRetries = true;
+        if (singleAttempt || incremental) dispatched.DisableTransportRetries = true;
         BenchmarkHttpJournal? journal = null;
         return await _campaign.CallAsync(request, async token =>
         {
             var json = JsonSerializer.Serialize(dispatched, PlanningJsonContext.Default.LLMRequest);
-            var input = Math.Max(96_000, Encoding.UTF8.GetByteCount(json));
+            var input = Math.Max(policy?["max_input_tokens"]?.GetValue<int>() ?? 96_000, Encoding.UTF8.GetByteCount(json));
             var output = dispatched.MaxTokens ?? 32_768;
-            journal = await PrepareAdmissionAsync(request.ClientRequestId!, input, output, execution ? null : 8, token);
+            // Match the retained planning estimator, including the issued envelope rather than only its prompt.
+            var estimatedPlanningInput = ((long)Encoding.UTF8.GetByteCount(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest)) + 2) / 3 + 256;
+            if (policy is not null && (output > policy["max_output_tokens"]!.GetValue<int>() ||
+                estimatedPlanningInput > policy["max_input_tokens"]!.GetValue<int>()))
+                throw BenchmarkCampaign.AdmissionFailure("captured_session_request_allowance");
+            var reviewCount = request.StructuredOutputSchema?["properties"]?["findings"] is null
+                ? policy?["construction_review_headroom"]?.GetValue<int>() ?? 0 : 0;
+            journal = await PrepareAdmissionAsync(request.ClientRequestId!, input, output,
+                execution ? null : policy?["max_physical_attempts"]?.GetValue<int>() ?? 8, token, reviewCount,
+                3L * (policy?["max_input_tokens"]?.GetValue<int>() ?? 0),
+                policy?["construction_review_output_tokens"]?.GetValue<int>() ?? 0);
         }, async token =>
         {
             using var context = new LLMHttpRetryContext(request.ClientRequestId!, journal!).Activate();
@@ -285,7 +365,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
             response.Usage = await journal!.CompleteAsync(new() { ["input_tokens"] = input, ["output_tokens"] = output,
                 ["total_tokens"] = checked(input + output), ["benchmark_cost_eur"] = await CompletedCostAsync(request.ClientRequestId!, input, output) }, CancellationToken.None);
             return response;
-        }, ct, allowHttpRecovery: true);
+        }, ct, allowHttpRecovery: !incremental);
     }
 
     internal async Task<JsonObject?> PartialUsageAsync(string id, CancellationToken ct)

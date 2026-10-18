@@ -17,6 +17,7 @@ public sealed class BenchmarkExecutionTests
         // Production defaults and lifecycle budget enforcement remain unchanged.
         var state = new PlanningSession { Request = new() { TenantId = "benchmark", Prompt = PlanningBenchmarkCases.Prompt(name),
             Generation = new() { MaxInputTokensPerRequest = 96000, MaxOutputTokens = 32768 } } };
+        state = PlanningCorpus.RetainedSession(state);
         for (var i = 0; i < 30 && !PlanningStatus.IsWaiting(state.Status) && !PlanningStatus.IsTerminal(state.Status); i++)
             state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
         Assert.True(state.Status == PlanningStatus.FinalReview, state.ModelCalls + " calls; " + state.Phase + "; " + JsonSerializer.Serialize(runtime.DiagnosticHistory, PlanningJsonContext.Default.ListPlanningDiagnostic));
