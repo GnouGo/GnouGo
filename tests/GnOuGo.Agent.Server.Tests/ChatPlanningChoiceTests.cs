@@ -26,6 +26,14 @@ public sealed class ChatPlanningChoiceTests
     private static PlanningSession Initial() => new() { Request = new() { TenantId = "planning-tests", Prompt = "Return a greeting", Options = new() { ["generator"] = new JsonObject { ["model"] = "fixture" } } } };
     private static StepExecutionContext Context(Model model) => new() { Engine = new() { LLMClient = model, LLMCapabilities = model }, Data = new(),
         Limits = new() { TenantId = "planning-tests", RunId = Guid.NewGuid().ToString("N") }, Step = new() { Source = new StepDef { Id = "plan", Type = "workflow.plan" } } };
+    private static async Task<PlanningSession> ContinueAsync(HybridWorkflowPlanner planner, PlanningSession state, IPlanningRuntime runtime)
+    {
+        for (var phase = 0; phase < 4 && !PlanningStatus.IsWaiting(state.Status) && !PlanningStatus.IsTerminal(state.Status); phase++)
+            state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
+        Assert.Equal(PlanningStatus.FinalReview, state.Status);
+        Assert.True(state.Construction!.Complete); Assert.Single(state.Construction.Checkpoints);
+        return state;
+    }
     private static ChatPlanningService Service(PlanningPersistenceTests.StoreFixture fixture, PlanningSessionService designer, Model model)
     {
         var options = new LLMOptions { DefaultProvider = "fixture", DefaultModel = "fixture" };
@@ -54,10 +62,13 @@ public sealed class ChatPlanningChoiceTests
         state = await planner.AdvanceAsync(state, delivered, owned.Runtime, Ct);
         await bridge.CheckpointedAsync(state, Ct);
         Assert.Single((await submitted).Choices); Assert.Equal(1, model.Calls);
+        Assert.Equal(PlanningStatus.Generating, state.Status); Assert.Equal(0, model.Reviews);
         var stored = await fixture.Records.GetAsync("flow-planning-sessions-v10", "planning-tests", state.Request.SessionId, "test", Ct);
         Assert.Contains("PRIVATE_DECISION_CONTEXT", stored!.Value);
         foreach (var file in Directory.GetFiles(fixture.Root, "*", SearchOption.AllDirectories))
             Assert.DoesNotContain("PRIVATE_DECISION_CONTEXT", System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file, Ct)));
+        state = await ContinueAsync(planner, state, owned.Runtime);
+        Assert.Equal(2, model.Calls); Assert.Equal(1, model.Reviews); Assert.Null(state.ApprovedHash);
     }
     [Theory]
     [InlineData(false)]
@@ -78,7 +89,8 @@ public sealed class ChatPlanningChoiceTests
         var pending = Assert.Single(await reopened.ListAsync("chat", Ct)); Assert.Single(pending.Choices);
         var cancelled = await reopened.SubmitAsync("chat", id, new() { Kind = answer ? "choose" : "cancel", ExpectedRevision = revision,
             Selections = answer ? new() { ["tone"] = "brief" } : null }, Ct);
-        Assert.Equal(answer ? PlanningStatus.FinalReview : PlanningStatus.Cancelled, cancelled.Status); Assert.Equal(1, model.Calls);
+        Assert.Equal(answer ? PlanningStatus.FinalReview : PlanningStatus.Cancelled, cancelled.Status); Assert.Equal(answer ? 2 : 1, model.Calls);
+        Assert.Equal(answer ? 1 : 0, model.Reviews);
         Assert.Null(cancelled.ApprovedHash);
         await Assert.ThrowsAsync<ArgumentException>(() => reopened.SubmitAsync("chat", id, new() { Kind = "approve", ExpectedRevision = cancelled.Revision }, Ct));
     }
@@ -97,8 +109,8 @@ public sealed class ChatPlanningChoiceTests
         Assert.True(await fixture.Store.TrySaveAsync(answered, restored.Revision, Ct));
         Assert.False(await fixture.Store.TrySaveAsync(answered, restored.Revision, Ct));
         var resumed = (await fixture.Store.LoadAsync("planning-tests", pending.Request.SessionId, Ct))!;
-        resumed = await planner.AdvanceAsync(resumed, new() { ExpectedRevision = resumed.Revision }, runtime, Ct);
-        Assert.Equal(PlanningStatus.FinalReview, resumed.Status); Assert.Equal(1, model.Calls); Assert.Single(resumed.GetChoices());
+        resumed = await ContinueAsync(planner, resumed, runtime);
+        Assert.Equal(PlanningStatus.FinalReview, resumed.Status); Assert.Equal(2, model.Calls); Assert.Equal(1, model.Reviews); Assert.Single(resumed.GetChoices());
     }
 
     [Theory]
@@ -135,7 +147,7 @@ public sealed class ChatPlanningChoiceTests
         response.EnsureSuccessStatusCode();
         var result = (await response.Content.ReadFromJsonAsync(ChatJsonContext.Default.PlanningSessionDto, Ct))!;
         Assert.Equal(PlanningStatus.FinalReview, result.Status);
-        Assert.Single(result.Choices); Assert.Null(result.ApprovedHash); Assert.Equal(1, model.Calls);
+        Assert.Single(result.Choices); Assert.Null(result.ApprovedHash); Assert.Equal(2, model.Calls); Assert.Equal(1, model.Reviews);
         await Assert.ThrowsAsync<PlanningConflictException>(() => reopened.SubmitAsync("scope-chat", id, command, Ct));
     }
     [Theory]
@@ -174,7 +186,7 @@ public sealed class ChatPlanningChoiceTests
         var response = await http.PostAsJsonAsync(endpoint, command, ChatJsonContext.Default.PlanningCommandDto, Ct); response.EnsureSuccessStatusCode();
         var result = (await response.Content.ReadFromJsonAsync(ChatJsonContext.Default.PlanningSessionDto, Ct))!;
         Assert.Equal(action == "cancel" ? PlanningStatus.Cancelled : PlanningStatus.FinalReview, result.Status);
-        Assert.Equal(action == "cancel" ? 1 : 2, model.Calls); Assert.Null(result.ApprovedHash);
+        Assert.Equal(action == "cancel" ? 1 : 3, model.Calls); Assert.Equal(action == "cancel" ? 0 : 1, model.Reviews); Assert.Null(result.ApprovedHash);
         var replay = await http.PostAsJsonAsync(endpoint, command, ChatJsonContext.Default.PlanningCommandDto, Ct);
         Assert.Equal(System.Net.HttpStatusCode.Conflict, replay.StatusCode);
         foreach (var file in Directory.GetFiles(fixture.Root, "*", SearchOption.AllDirectories))
@@ -198,8 +210,8 @@ public sealed class ChatPlanningChoiceTests
         Assert.Equal(1, model.Calls); Assert.Single(state.AnswerHistory!);
         await bridge.CheckpointedAsync(state, Ct);
         Assert.Equal(PlanningStatus.Generating, (await submitted).Status);
-        state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, owned.Runtime, Ct);
-        Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Equal(2, model.Calls); Assert.Null(state.ApprovedHash);
+        state = await ContinueAsync(planner, state, owned.Runtime);
+        Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Equal(3, model.Calls); Assert.Equal(1, model.Reviews); Assert.Null(state.ApprovedHash);
     }
 
     private sealed class Lifetime : IHostApplicationLifetime
@@ -211,7 +223,7 @@ public sealed class ChatPlanningChoiceTests
     }
     private sealed class Model : ILLMClient, ILLMCapabilityResolver
     {
-        public int Calls;
+        public int Calls, Reviews;
         internal bool ScopeRevision;
         internal bool EarlyQuestion;
         public Task<int?> InputTokenAllowanceAsync(string? provider, string model, int outputTokens, CancellationToken ct) => Task.FromResult<int?>(128000);
@@ -219,13 +231,13 @@ public sealed class ChatPlanningChoiceTests
         public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<IReadOnlyList<string>?>(["medium"]);
         public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
         {
-            Calls++;
+            Calls++; Assert.InRange(Calls, 1, EarlyQuestion ? 3 : 2);
+            if (request.StructuredOutputSchema!["properties"]?["findings"] is not null) Reviews++;
             if (EarlyQuestion && Calls == 1)
             {
                 var question = new PlanningProposal { Clarifications = [new("interface", "PRIVATE_INPUT_CONTEXT: Which caller interface?",
                     [new("reference", "Reference plus checklist"), new("coordinates", "Separate coordinates plus checklist")], "reference")] };
-                return Task.FromResult(new LLMResponse { Json = GnOuGo.Planning.Examples.PlanningCorpus.Transport(JsonSerializer.SerializeToNode(question, PlanningJsonContext.Default.PlanningProposal),
-                    request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject()), Usage = new JsonObject { ["total_tokens"] = 15 } });
+                return Task.FromResult(new LLMResponse { Json = GnOuGo.Planning.Examples.PlanningCorpus.OneDraftResponse(request, question), Usage = new JsonObject { ["total_tokens"] = 15 } });
             }
             var plan = GnOuGo.Planning.Examples.PlanningCorpus.LiteralResult();
             var choice = new PlanningChoice { Id = ScopeRevision ? "accept_scope_revision" : "tone", Question = "PRIVATE_DECISION_CONTEXT: Include the detailed presentation?",
@@ -234,9 +246,14 @@ public sealed class ChatPlanningChoiceTests
                     : [new("brief", "Brief", new() { Kind = "string", Text = "brief" }), new("full", "Full", new() { Kind = "string", Text = "full" })] };
             if (!EarlyQuestion) { plan.Choices.Add(choice); plan.Root.Outputs.Add(new("presentation", new() { Kind = "choice", Source = choice.Id })); }
             var proposal = new PlanningProposal { Requirements = GnOuGo.Planning.Examples.PlanningCorpus.Requirements("local"), Plan = plan };
+            proposal.Requirements.Inputs = [];
+            proposal.Requirements.Outputs = [new() { Name = "result", Type = new() { Kind = "number" } }];
+            if (!EarlyQuestion) proposal.Requirements.Outputs.Add(new() { Name = "presentation", Type = new() { Kind = "string" } });
+            var response = GnOuGo.Planning.Examples.PlanningCorpus.OneDraftResponse(request, proposal);
+            Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(response, request.StructuredOutputSchema));
             return Task.FromResult(new LLMResponse
             {
-                Json = GnOuGo.Planning.Examples.PlanningCorpus.Transport(JsonSerializer.SerializeToNode(proposal, PlanningJsonContext.Default.PlanningProposal), request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject()),
+                Json = response,
                 Usage = new JsonObject { ["prompt_tokens"] = 20, ["completion_tokens"] = 30, ["total_tokens"] = 50 }
             });
         }

@@ -59,7 +59,10 @@ Invalid reports leave candidates unaccepted. Valid uncertainty stays unverified;
 Judge findings are neither authorization nor deterministic proof.
 
 Corrections share the existing call, token, cost and time journal and require a
-replacement review. Repeated candidates, exhausted allowances or an unprovable
+replacement review. A missing committed producer requires bounded replacement
+of the tentative extension; an output-only typed patch cannot add that producer.
+This routing never replaces an issued request or expands explicit edit authority.
+Repeated candidates, exhausted allowances or an unprovable
 preservation boundary stop construction. Earlier changes invalidate dependents
 through data/order edges, captures, exports, control ownership, group calls,
 contracts and cleanup. Independent fragments and accepted intent remain unchanged;

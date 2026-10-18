@@ -36,7 +36,7 @@ public sealed class IncrementalConstructionTests(ITestOutputHelper output)
         Tasks = [Value(id, "Hello")], Outputs = [new("message", new() { Kind = "output", Source = id, Port = "message" })],
         CloseScopes = ["/root"], Complete = true, RequirementIds = ["greeting"]
     };
-    private static LLMResponse Extension(LLMRequest request, PlanningConstructionExtension extension, bool requirements = true)
+    private static LLMResponse Extension(LLMRequest request, PlanningConstructionExtension extension, bool requirements = true, PlanningRequirements? declaredRequirements = null)
     {
         var response = new JsonObject
         {
@@ -44,7 +44,7 @@ public sealed class IncrementalConstructionTests(ITestOutputHelper output)
             ["extension"] = JsonSerializer.SerializeToNode(extension, PlanningJsonContext.Default.PlanningConstructionExtension),
             ["discoveryRequests"] = null, ["clarifications"] = null, ["evidenceRequests"] = null, ["rollbackTask"] = null, ["rollbackReason"] = null
         };
-        if (requirements) response["requirements"] = JsonSerializer.SerializeToNode(Requirements(), PlanningJsonContext.Default.PlanningRequirements);
+        if (requirements) response["requirements"] = JsonSerializer.SerializeToNode(declaredRequirements ?? Requirements(), PlanningJsonContext.Default.PlanningRequirements);
         return new() { Json = PlanningCorpus.Transport(response, request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject()) };
     }
     private static string BaseHash(LLMRequest request)
@@ -332,6 +332,129 @@ public sealed class IncrementalConstructionTests(ITestOutputHelper output)
         Assert.Contains("Hello", review.Prompt, StringComparison.Ordinal);
         ReportPeak("typed repair", runtime.Calls.Where(r => PlanningRepairPatch.Issued(r.StructuredOutputSchema?.AsObject())));
         PlanningArtifactApproval.Verify(state);
+    }
+
+    [Fact]
+    public async Task MissingCommittedProducerRegeneratesOnlyTheCandidateAndRequiresReview()
+    {
+        var (runtime, state, operation) = await MissingCommittedProducerCandidateAsync();
+        var acceptedHash = PlanningConstruction.Hash(state.Plan);
+        var acceptedTask = JsonSerializer.Serialize(Assert.Single(state.Plan!.Root.Tasks), PlanningJsonContext.Default.PlanTask);
+        var acceptedCheckpoint = JsonSerializer.Serialize(state.Construction!.Checkpoints[0], PlanningJsonContext.Default.PlanningConstructionCheckpoint);
+        var purposes = new List<string>();
+        runtime.Respond = (request, purpose) =>
+        {
+            purposes.Add(purpose);
+            if (purpose.EndsWith("judge", StringComparison.Ordinal))
+            {
+                Assert.Contains("produce", request.Prompt, StringComparison.Ordinal);
+                Assert.DoesNotContain("unperformed", request.Prompt, StringComparison.Ordinal);
+                return Reviewed();
+            }
+            Assert.Equal("replan", purpose);
+            Assert.False(PlanningRepairPatch.Issued(request.StructuredOutputSchema!.AsObject()));
+            Assert.NotNull(request.StructuredOutputSchema["properties"]!["extension"]);
+            Assert.Equal(acceptedHash, BaseHash(request));
+            return Extension(request, new()
+            {
+                Tasks = [new() { Id = "produce", Objective = "Produce the committed greeting", Operation = operation }],
+                Outputs = [new("message", new() { Kind = "output", Source = "produce", Port = "message" }),
+                    new("independent", new() { Kind = "output", Source = "independent", Port = "message" })],
+                CloseScopes = ["/root"], Complete = true, RequirementIds = ["greeting"]
+            }, requirements: false);
+        };
+        var planner = new HybridWorkflowPlanner();
+        state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
+        Assert.Equal(4, state.ModelCalls); Assert.Equal(1, state.ReplanAttempts);
+        Assert.Equal(acceptedHash, PlanningConstruction.Hash(state.Plan));
+        Assert.Single(state.Construction!.Checkpoints);
+        Assert.False(state.Construction.Candidate!.LocalReviewed);
+        Assert.Empty(state.Construction.Candidate.Diagnostics);
+        Assert.Equal("produce", Assert.Single(state.Construction.Candidate.Extension.Tasks).Id);
+        Assert.Null(state.Yaml); Assert.Null(state.ApprovedHash);
+
+        state = await PlannerFixture.RunAsync(runtime, PlannerFixture.Clone(state));
+        Assert.True(state.Status == PlanningStatus.FinalReview, string.Join(';', state.Diagnostics));
+        Assert.Equal(new[] { "replan", PlanningConstruction.LocalPurpose, PlanningConstruction.IntermediatePurpose }, purposes);
+        Assert.Equal(6, state.ModelCalls); Assert.Equal(1, state.ReplanAttempts);
+        Assert.Equal(new[] { "independent", "produce" }, state.Plan!.Root.Tasks.Select(t => t.Id));
+        Assert.Equal(acceptedTask, JsonSerializer.Serialize(state.Plan.Root.Tasks[0], PlanningJsonContext.Default.PlanTask));
+        Assert.Equal(acceptedCheckpoint, JsonSerializer.Serialize(state.Construction!.Checkpoints[0], PlanningJsonContext.Default.PlanningConstructionCheckpoint));
+        Assert.Equal(2, state.Construction.Checkpoints.Count);
+        Assert.All(state.Construction.Checkpoints[1].Reviews, review => Assert.Equal("unverified", review["outcome"]!.ToString()));
+        Assert.Contains(state.ValidationResults, r => r.Id == "coverage:greeting:0:result" && r.Outcome == "verified");
+        PlanningArtifactApproval.Verify(state);
+    }
+
+    [Fact]
+    public async Task MissingCommittedProducerDoesNotBroadenAnExplicitOutputRepair()
+    {
+        var (runtime, state, _) = await MissingCommittedProducerCandidateAsync();
+        var acceptedHash = PlanningConstruction.Hash(state.Plan);
+        var candidateHash = state.Construction!.Candidate!.Hash;
+        state.Construction!.Candidate!.AuthorizedPaths = ["/root/outputs/message"];
+        runtime.Respond = (request, purpose) =>
+        {
+            Assert.Equal("replan", purpose);
+            Assert.True(PlanningRepairPatch.Issued(request.StructuredOutputSchema!.AsObject()));
+            Assert.Null(request.StructuredOutputSchema["properties"]!["extension"]);
+            var slot = Assert.Single(PlanningRepairPatch.RequestContext(request)["repair"]!["slots"]!.AsArray())!;
+            Assert.Equal("/root/outputs/message", slot["location"]!.ToString());
+            var response = new JsonObject { ["discoveryRequests"] = null, ["clarifications"] = null, ["evidenceRequests"] = null,
+                ["patch"] = new JsonObject { ["edits"] = new JsonArray(new JsonObject { ["slot"] = slot["id"]!.DeepClone(),
+                    ["action"] = "replace", ["value"] = new JsonObject { ["kind"] = "string", ["text"] = "Still unperformed" } }) } };
+            return new() { Json = PlanningCorpus.Transport(response, request.StructuredOutputSchema.AsObject(), request.StructuredOutputSchema.AsObject()) };
+        };
+        state = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
+        Assert.Equal(4, state.ModelCalls); Assert.Equal(1, state.ReplanAttempts);
+        Assert.Null(state.PendingCall);
+        var issued = runtime.Calls[^1];
+        Assert.True(PlanningRepairPatch.Issued(issued.StructuredOutputSchema!.AsObject()));
+        Assert.Null(issued.StructuredOutputSchema["properties"]!["extension"]);
+        Assert.Equal("/root/outputs/message", Assert.Single(PlanningRepairPatch.RequestContext(issued)["repair"]!["slots"]!.AsArray())!["location"]!.ToString());
+        Assert.Equal(acceptedHash, PlanningConstruction.Hash(state.Plan)); Assert.Single(state.Construction!.Checkpoints);
+        Assert.DoesNotContain(state.Construction.Candidate!.Plan.Root.Tasks, t => t.Id == "produce");
+        // Explicit output authority cannot introduce the tentative exports into the
+        // accepted baseline, whose root has no exports yet. Reject atomically.
+        Assert.Equal(candidateHash, state.Construction.Candidate.Hash);
+        Assert.Equal("unperformed", state.Construction.Candidate.Plan.Root.Outputs.Single(o => o.Name == "message").Value.Text);
+        var rejected = Assert.Single(state.Diagnostics);
+        Assert.Equal("REVISION_SCOPE_CHANGED", rejected.Code); Assert.Equal("/root/outputs", rejected.Location);
+        Assert.Contains(state.Construction.Candidate.Diagnostics, d => d.Code == PlanningCommitments.MissingOperation);
+        Assert.False(state.Construction.Complete); Assert.Null(state.Yaml); Assert.Null(state.ApprovedHash);
+    }
+
+    private static async Task<(TestRuntime Runtime, PlanningSession State, string Operation)> MissingCommittedProducerCandidateAsync()
+    {
+        var factory = new InMemoryMcpClientFactory();
+        factory.RegisterServer("greetings", new() { Tools = [new() { Name = "produce", EffectKind = "read",
+            InputSchema = JsonNode.Parse("""{"type":"object","properties":{},"additionalProperties":false}"""),
+            OutputSchema = JsonNode.Parse("""{"type":"object","properties":{"message":{"type":"string"}},"required":["message"],"additionalProperties":false}""") }] });
+        var runtime = new TestRuntime(new WorkflowEngine { McpClientFactory = factory });
+        var catalog = await TaskPlanCompilerTests.Catalog(runtime.Actual);
+        var capability = catalog.Capabilities.Single(c => c.Method == "produce");
+        var operation = TaskOperations.Describe(capability).Id;
+        var state = Fresh(); state.Catalog = catalog; state.Request.Policy = catalog.Policy;
+        state.Request.Prompt = "Preserve the exact independent text Untouched and produce the greeting through the inspected operation.";
+        var requirements = Requirements();
+        requirements.Outputs!.Add(new() { Name = "independent", Type = new() { Kind = "string" } });
+        requirements.Outcomes = [new("independent", "Preserve the exact text Untouched"),
+            new("greeting", "Produce and return the observed greeting") { Commitments = [new(operation) { Result = new("message", "message") }] }];
+        state.Discovery.Resolved = [capability];
+        var drafts = 0;
+        runtime.Respond = (request, purpose) => purpose.EndsWith("judge", StringComparison.Ordinal) ? Reviewed() :
+            ++drafts == 1 ? Extension(request, new() { Tasks = [Value("independent", "Untouched")], RequirementIds = ["independent"] }, declaredRequirements: requirements) :
+            Extension(request, new() { Outputs = [new("message", new() { Kind = "string", Text = "unperformed" }),
+                new("independent", new() { Kind = "output", Source = "independent", Port = "message" })],
+                CloseScopes = ["/root"], Complete = true, RequirementIds = ["greeting"] }, false);
+        var planner = new HybridWorkflowPlanner();
+        for (var phase = 0; phase < 3; phase++)
+            state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
+        Assert.True(state.ModelCalls == 3, state.Status + ": " + string.Join(';', state.Diagnostics)); Assert.Single(state.Construction!.Checkpoints);
+        Assert.Equal("independent", Assert.Single(state.Plan!.Root.Tasks).Id);
+        Assert.Contains(state.Construction.Candidate!.Diagnostics, d => d.Code == PlanningCommitments.MissingOperation);
+        Assert.Contains(state.Construction.Candidate.Diagnostics, d => d.Code == PlanningCommitments.DisconnectedResult);
+        return (runtime, state, operation);
     }
 
     [Fact]

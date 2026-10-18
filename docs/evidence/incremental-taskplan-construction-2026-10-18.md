@@ -40,7 +40,7 @@ The comparer also fixes ambiguous delimiter-based keys, such as one enum value
 `a|b` being treated as the two values `a` and `b`. Focused tests cover ordering,
 optional fields, shared subgraphs, mutable inputs, cycles and exact equality.
 
-Focused validation is green: 25 incremental construction tests, 94 compiler/v15
+Focused validation is green: 27 incremental construction tests, 94 compiler/v15
 and scale tests, 164 Core semantic/expression/budget tests, 185 benchmark/host
 safety tests, and 45 frozen-settings tests. The enabled Playwright smoke covers
 desktop/mobile clarification, mandatory local review and saved-receipt recovery.
@@ -54,12 +54,25 @@ and trimmed Agent.Server encrypted-storage smoke pass, including tenant isolatio
 and pending candidate/review persistence. The complete Integrations suite passes
 108 tests, including the definition-only interruption boundary.
 
-The complete Planning suite passes 1,786 tests with warnings as errors. The
+The complete Planning suite passes 1,788 tests with warnings as errors. The
 first PR CI run retained 29 failures caused by historical fixtures inheriting
 newer captured profiles. Those fixtures now explicitly restore their original
 profiles; frozen approval and repair-authority hashes and assertions remain
 unchanged. Fresh-session compatibility fixtures exercise an incremental draft
-and its mandatory local review. These corrections change tests only.
+and its mandatory local review. Those compatibility corrections change tests only.
+
+The full Server run also exposed a retained workbook fixture that still created
+a fresh session. Its eight variants pass after restoring the retained protocol.
+Auditing the remaining fixtures added fresh chat recovery and four-task workbook
+coverage through incremental drafts and local review. A fresh host commitment
+case then exposed a correction-routing defect: an output-only typed patch could
+not add a missing required producer. Eligible tentative candidates now use bounded
+replacement while preserving issued requests, explicit edit authority and accepted
+fragments. The eight host correction/recovery variants pass with exact receipt and
+cumulative-accounting assertions; no operation executes during planning.
+Together these focused reruns cover all 34 failures retained by the first
+complete Server run; its other 1,147 cases passed and one browser smoke was
+disabled by default (the separately enabled smoke passed).
 
 The Draft PR records the complete `dotnet test GnOuGo.Agent.sln -m:1 -warnaserror`
 run and CI conclusion for its final pushed revision. Existing publish-local
@@ -98,8 +111,10 @@ Only the authorization record changed; the post-extension evidence hash is
 ## Live evaluation readiness
 
 No new paid requests or external workflow executions have been dispatched.
-The frozen source is `865a4e7`; new live business outcomes, Judge findings and
-convergence remain unverified. New campaign calls, tokens and cost are zero.
+The readiness snapshot used source `865a4e7`; no live cohort was dispatched.
+New live business outcomes, Judge findings and convergence remain unverified.
+New campaign calls, tokens and cost are zero. A future live cohort must freeze
+its own final source revision and settings before dispatch.
 
 The exact campaign deployment `gpt-5.5-2026-04-24` has no verifiable current local
 deployment limits. The original Agent configuration database is absent and the

@@ -258,6 +258,15 @@ public sealed partial class HybridWorkflowPlanner
         { state.Diagnostics = draft.Diagnostics; Stop(state); return; }
         await ReserveConstructionReviewAsync(state, runtime, ct);
         if (state.PendingCall is null) draft.Corrections++;
+        // An output-only patch cannot introduce a missing committed producer.
+        // Ordinary construction owns this tentative fragment, so replace it within
+        // the same bounded envelope. Preserve issued requests and explicit edits.
+        if (state.PendingCall is null && draft.AuthorizedPaths is null &&
+            draft.Diagnostics.Any(d => d.Required && d.Code == PlanningCommitments.MissingOperation))
+        {
+            await GenerateConstructionAsync(state, runtime, repair: true, ct);
+            return;
+        }
         // Reuse typed repair whenever diagnosed slots stay inside the tentative fragment.
         var repairState = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
         repairState.Plan = draft.Plan;
