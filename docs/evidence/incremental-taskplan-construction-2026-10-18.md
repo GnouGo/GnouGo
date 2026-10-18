@@ -48,8 +48,15 @@ The frontend production build and planning-skill validator pass.
 
 Offline local and collection scenarios both satisfy their independent execution
 oracles with no safety violations. These use deterministic fixtures and do not
-establish live-model business reliability. The final solution, packaging and CI
-results remain in progress.
+establish live-model business reliability. All five Flow Release packages build
+with warnings as errors. The final-source `osx-arm64` Native AOT planning smoke
+and trimmed Agent.Server encrypted-storage smoke pass, including tenant isolation
+and pending candidate/review persistence. The complete Integrations suite passes
+108 tests, including the definition-only interruption boundary.
+
+The Draft PR records the complete `dotnet test GnOuGo.Agent.sln -m:1 -warnaserror`
+run and CI conclusion for its final pushed revision. Existing publish-local
+warning exclusions remain unchanged; no new blanket suppression was introduced.
 
 ## Campaign accounting before new dispatch
 
@@ -59,17 +66,38 @@ its public benchmark API. No new paid dispatch had occurred at this inspection.
 | Retained measure | EUR / count |
 | --- | ---: |
 | Existing ceiling | €200 |
-| Known cost | €138.73008382586045 |
-| Reserved uncertain cost | €21.239812341433254 |
-| Conservative upper bound | €159.96989616729368 |
+| Known cost | €138.730084 |
+| Reserved uncertain cost | €21.239812 |
+| Conservative upper bound | €159.969896 |
 | Unknown physical attempts | 16 |
 | Reservations / completion receipts | 1,130 / 1,124 |
 | Retained inconclusive request identities | 6 |
-| Remaining after the authorized €400 extension | €240.03010383270632 |
+| Remaining after the authorized €400 extension | €240.030104 |
+
+Displayed monetary values are rounded to six decimal places. Admission retains
+the exact encrypted decimal amounts.
 
 The six missing completion identities match the six retained inconclusive
 closures; their possible usage remains reserved. The inspection evidence hash is
 `e2aa0e4c078eb52eb18aa05b8f5097e262280723adebea049ae6c6a8386d044a`.
 This supersedes the earlier €157.463077 snapshot for admission calculations.
-The append-only ceiling extension and new cohort outcomes remain pending the
-frozen implementation and validation gates.
+At `2026-10-18T21:35:12.3800510Z`, the existing append-only operation raised the
+ceiling from €200 to €400 with the user's authorization. Its fourth history entry
+retains the complete pre-extension accounting. A second inspection confirmed
+unchanged reservations, receipts, uncertain identities, failures and accounting.
+Only the authorization record changed; the post-extension evidence hash is
+`e51baaa3ddb030864ba7f6945f9c5e5582fb7b1a88717a848da5d44b9df8e9af`.
+
+## Live evaluation readiness
+
+No new paid requests or external workflow executions have been dispatched.
+The frozen source is `865a4e7`; new live business outcomes, Judge findings and
+convergence remain unverified. New campaign calls, tokens and cost are zero.
+
+The exact campaign deployment `gpt-5.5-2026-04-24` has no verifiable current local
+deployment limits. The original Agent configuration database is absent and the
+readiness check cannot recover its three prior metadata overrides from retained
+public manifests. No deployment alias was inferred, configuration fabricated,
+historical request replayed or model substituted. The original configuration or
+a verified declaration for that exact deployment is required before paid
+dispatch. The retained failures and all uncertain usage remain intact.
