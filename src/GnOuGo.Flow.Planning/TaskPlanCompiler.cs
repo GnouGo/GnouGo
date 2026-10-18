@@ -98,6 +98,7 @@ public sealed partial class TaskPlanCompiler
     private bool _normalExports;
     private bool _indexedProjections;
     private bool _fusedBindings;
+    private bool _preciseDeclarations;
     private string _location = "/tasks";
 
     public TaskCompilation Compile(TaskPlan plan, PlanningCatalog catalog, bool compactBindings = false)
@@ -106,10 +107,12 @@ public sealed partial class TaskPlanCompiler
     internal TaskCompilation Compile(TaskPlan plan, PlanningCatalog catalog, PlanningRequest request)
         => Compile(plan, catalog, UsesCompactBindings(request), UsesNormalExports(request), request.Options["mapping_profile"]?.ToString() == AdaptiveMappingProfile,
             request.Options["compilation_profile"]?.ToString() is "compact-bindings-v3" or "compact-bindings-v4" or "compact-bindings-v5" or "compact-bindings-v6" or "compact-bindings-v7" or "compact-bindings-v8" or "compact-bindings-v9" or "compact-bindings-v10" or "compact-bindings-v11" or "compact-bindings-v12" or "compact-bindings-v13" or "compact-bindings-v14" or CompactProfile, UsesFusedBindings(request),
-            request.Options["planning_validation_profile"]?.ToString() == AssertionValidationProfile);
+            request.Options["planning_validation_profile"]?.ToString() == AssertionValidationProfile,
+            request.Options["planning_diagnostics_version"]?.ToString() == "1");
 
-    internal TaskCompilation Compile(TaskPlan plan, PlanningCatalog catalog, bool compactBindings, bool normalExports, bool adaptiveMappings = false, bool indexedProjections = false, bool fusedBindings = false, bool validateAssertions = false)
+    internal TaskCompilation Compile(TaskPlan plan, PlanningCatalog catalog, bool compactBindings, bool normalExports, bool adaptiveMappings = false, bool indexedProjections = false, bool fusedBindings = false, bool validateAssertions = false, bool preciseDeclarations = false)
     {
+        _preciseDeclarations = preciseDeclarations;
         _fusedBindings = fusedBindings;
         _indexedProjections = indexedProjections;
         _adaptiveMappings = adaptiveMappings;

@@ -82,7 +82,7 @@ public sealed class PlanningBusinessJudgeTests
         Assert.True(state.Status == PlanningStatus.FinalReview, string.Join(';', state.Diagnostics) + state.Request.Options.ToJsonString());
         Assert.Equal("Corrected", state.Plan!.Root.Tasks[0].Outputs[0].Value.Text);
         Assert.Equal("Return a greeting", state.Plan.Root.Tasks[0].Objective);
-        Assert.Equal("7", state.Request.Options["automatic_correction_progress"]!["version"]!.ToString());
+        Assert.Equal("8", state.Request.Options["automatic_correction_progress"]!["version"]!.ToString());
         Assert.InRange(state.ReplanAttempts, 1, 4);
         Assert.Equal(generations + state.Request.Options["business_judge_reviews"]!.AsArray().Count, state.ModelCalls);
         Assert.Contains(state.ValidationResults, r => r.Id == "static" && r.Outcome == "passed");

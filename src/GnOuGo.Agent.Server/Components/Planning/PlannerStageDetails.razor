@@ -23,6 +23,14 @@ else if (Session.Status == PlanningStatus.Stopped && Session.Diagnostics.Any(d =
 {
     <p role="status">Planning stopped because its allowance cannot support another continuation. Answers and retries do not reset that allowance.</p>
 }
+@if (Session.ValidationResults.Any(r => r.Id.StartsWith("input_readiness:", StringComparison.Ordinal)))
+{
+    <details open aria-label="LLM input readiness"><summary>LLM input readiness</summary>
+        <p>Input fit remains unverified until the complete request is checked against the runtime model allowance. Output and iteration limits do not establish input fit.</p>
+        <ul>@foreach (var observation in Session.ValidationResults.Where(r => r.Id.StartsWith("input_readiness:", StringComparison.Ordinal)))
+        { <li><strong>Unverified</strong>: @observation.Description</li> }</ul>
+    </details>
+}
 @if (Session.Requirements is { } requirements)
 {
     @if (Session.RequestText is { } requestText)

@@ -634,9 +634,27 @@ explicit revision can enter the existing targeted correction route; findings wit
 that authority require explicit revision. Mixed authorized and unauthorized findings
 cannot expand the patch. Patches apply atomically to a copy and undergo full validation;
 accepted requirements, interfaces, effects, guards and unrelated work remain protected.
-Fresh Judge-enabled corrections use private progress version 7. Other fresh intent-v3
-corrections remain version 6; all recorded versions and issued requests retain their
-original behavior. The single structural-regeneration ceiling is unchanged.
+Fresh intent-v3 sessions capture `planning_diagnostics_version=1` and use private
+correction progress version 8. After successful compilation and choice resolution,
+accepted-output interface findings and commitment coverage are collected together
+before correction authority is captured. This exposes independent defects in one
+diagnosis; it neither changes accepted obligations nor authorizes unrelated edits.
+Historical versions 1–7 retain their original behavior. The single structural-regeneration
+ceiling is unchanged.
+
+Creation profiles are captured before the host's first persisted checkpoint. A
+rehydrated revision-zero session is historical even if no model call has started;
+missing or previously captured profiles stay unchanged. The construction marker is
+internal and never serialized. Flow keeps the authored resume definition separate
+from these captured session options.
+
+New repair envelopes use private version 11 only under the captured diagnostics
+profile. Accepted public-output bindings and explicitly revised inspected operation
+inputs use their authoritative types to constrain response shapes. References remain
+subject to complete semantic validation; matching types do not prove business meaning.
+Opaque contracts keep the semantic fallback. Exact reference alternatives, host-owned
+inputs and workspace restrictions are preserved. Previously issued envelopes and
+authority fingerprints are reconstructed using their saved versions.
 
 Calls use purpose `judge` in the existing encrypted journal and consume the same
 cumulative call, token, cost and time allowances. Corrections additionally consume the
@@ -645,6 +663,16 @@ review for the same request, requirements, answers, discovered contracts and pla
 relevant changes require a new review. Exhausted allowance yields `not_evaluated`;
 unusable reports yield `inconclusive`. Neither is success, and a no-findings report
 remains `unverified`. Unknown completion uses the existing receipt-recovery block.
+
+Fresh sessions capture `business_judge_review_version=2`. The independent context also
+includes deterministic input-readiness observations, excluding earlier Judge reports.
+Generic execution semantics distinguish mandatory assertions from routing and failed
+execution from successful output obligations. Invalid references retain bounded,
+located rejection diagnostics separately from validated responses. A single invalid
+reference makes the whole report inconclusive: no partial finding is routed, no edit
+authority is granted and no extra Judge call is made. The routing gate requires a
+validated response and an eligible outcome. Historical version-1 contexts, cached
+reviews, pending requests and receipts keep their original identities and behavior.
 
 Before a new generation, correction, Judge or extraction dispatch, the host verifies
 declared Structured Output support, configured reasoning and output reservation.
@@ -659,15 +687,18 @@ budget increase, model switch, output clamp or evidence truncation is permitted.
 Unknown runtime observations remain unverified until runtime admission. Completed
 receipts are read before admitting another dispatch; historical requests are not rebuilt.
 
-Fresh sessions capture private `planning_input_review_version=1`. Review identifies
+Fresh sessions capture private `planning_input_review_version=2`. Review identifies
 compiled inference consumers, including nested and cleanup consumers, and records the
 serialized UTF-8 byte size when their bound input or extraction sources are fully
 literal. These counts describe source JSON, not the complete request or token usage;
-input fit remains unverified. Runtime-dependent sources are explicitly unknown. For
-independent extraction, the collection size is not a single request size: shared context
-and complete examples still need admission. This review never borrows the planning
+input fit remains unverified. Runtime-dependent sources are explicitly unknown. The
+review distinguishes explicit independent extraction, possible runtime inference and
+whole-input extraction. `infer_each` alone cannot establish itemwise processing;
+arrays nested inside a source object are not top-level collection inputs. For explicit
+independent extraction, shared context and complete examples still need admission.
+Source locations are mapped back to authored tasks and inputs. This review never borrows the planning
 allowance as a runtime limit, guesses a provider capacity or changes graph/YAML. Sessions
-without the captured version retain historical review behavior.
+without the captured version, or with version 1, retain historical review behavior.
 
 Judge quality requires independent candidate labels: true/false positives and negatives,
 convergence and regressions are measured separately from structural validity. Scripted

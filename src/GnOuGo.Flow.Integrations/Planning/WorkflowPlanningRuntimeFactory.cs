@@ -67,7 +67,14 @@ public sealed class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records,
             var saved = await records.GetAsync(Sessions, tenant, key, Author, ct);
             if (saved is null && (await records.GetAsync("flow-planning-sessions-v9", tenant, key, Author, ct) is not null || await records.GetAsync("flow-planning-sessions-v8", tenant, key, Author, ct) is not null))
                 throw new PlanningConflictException(PlanningSessionStorage.IncompatibleMessage);
-            var state = saved is null ? initial : PlanningSessionStorage.Read(saved.Value, tenant, key);
+            // Capturing profiles must not alter the authored definition or the
+            // caller's options. Apply them only to the first durable session copy.
+            var state = saved is null
+                ? JsonSerializer.Deserialize(JsonSerializer.Serialize(initial, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!
+                : PlanningSessionStorage.Read(saved.Value, tenant, key);
+            // An existing definition can outlive an interrupted first checkpoint;
+            // its absent private profiles must retain their historical meaning.
+            if (saved is null && savedDefinition is null) PlanningSessionCreation.Capture(state, initial);
             if (state.SchemaVersion != 10 || state.Request.TenantId != tenant || state.Request.SessionId != key || saved is not null && savedDefinition is null)
                 throw new PlanningConflictException("The planning session ownership or schema is invalid.");
             if (savedDefinition is null) await records.UpsertAsync(Definitions, tenant, key, definition, Author, ct);

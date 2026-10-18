@@ -107,10 +107,15 @@ public sealed class PlanningBusinessJudgeAuditTests
         Assert.Equal(0, state.ReplanAttempts);
     }
 
-    [Fact]
-    public async Task RetainedJudgeReceiptUsesItsIssuedPromptAfterAnInstructionVersionChange()
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    public async Task RetainedJudgeReceiptUsesItsIssuedPromptAfterAnInstructionVersionChange(int version)
     {
         var state = PlannerFixture.Session();
+        // A persisted session predating fresh version capture must keep its v1
+        // context and issued request; a new session captures the current v2.
+        if (version == 1) state.Revision = 1;
         state.Request.Options["business_judge"] = true;
         var runtime = new TestRuntime();
         runtime.Respond = (request, purpose) => purpose == "judge"
@@ -119,7 +124,7 @@ public sealed class PlanningBusinessJudgeAuditTests
         state = await PlannerFixture.RunAsync(runtime, state);
         Assert.Equal(PlanningStatus.Stopped, state.Status);
         Assert.Equal("judge", state.PendingCall!.Purpose);
-        Assert.Equal("1", state.Request.Options["business_judge_pending_context"]!["version"]!.ToString());
+        Assert.Equal(version.ToString(System.Globalization.CultureInfo.InvariantCulture), state.Request.Options["business_judge_pending_context"]!["version"]!.ToString());
         // Model a receipt issued by an earlier private instruction version while
         // retaining the captured immutable context, output schema and accounting.
         state = PlannerFixture.Clone(state);

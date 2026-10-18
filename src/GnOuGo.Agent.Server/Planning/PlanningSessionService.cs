@@ -168,6 +168,7 @@ public sealed partial class PlanningSessionService(
             }
         }
         PlanningGenerationPolicy.Validate(state.Request.Generation);
+        PlanningSessionCreation.Capture(state);
         if (!await store.TrySaveAsync(state, expectedRevision: null, ct))
         {
             if (automaticId is not null && await store.LoadAsync(Tenant, automaticId, ct) is { } winner) return winner;

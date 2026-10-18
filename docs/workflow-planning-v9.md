@@ -188,8 +188,25 @@ and results are reused after restart. Skipped and invalid reviews remain respect
 not evaluated or inconclusive, never successful. Unknown completion retains the normal
 recovery block. Review presents advisory observations separately, and approval still
 requires explicit requirement acknowledgments for the current revision and hash.
-Fresh Judge-enabled correction bookkeeping uses version 7 without reinterpreting
-historical versions, TaskPlan format 10, compiler v15 or unchanged YAML.
+Fresh sessions capture combined diagnostic review and use correction bookkeeping
+version 8. Accepted-output and commitment findings are collected together after
+successful compilation, before repair authority is captured. Version-11 repair schemas
+constrain known public-output and explicitly revised operation-input value types while
+preserving semantic validation and exact permissions. Historical sessions and issued
+requests retain their saved behavior; TaskPlan format 10, compiler v15 and unchanged
+YAML are preserved.
+Hosts capture creation profiles before the first session checkpoint. Rehydrated
+revision-zero sessions and interrupted Flow definitions without a session are
+historical; missing profiles are not filled during recovery. The internal construction
+marker is not serialized and does not change approval identities.
+
+Judge review version 2 includes deterministic input-readiness facts and precise,
+bounded reference-validation diagnostics. Invalid reports remain wholly inconclusive,
+cached once, and separate from validated findings; they grant no correction authority.
+The review distinguishes mandatory assertions, alternative branches and operation
+failure. Input review version 2 never treats the `infer_each` flag as evidence that
+runtime sources will be processed independently. These additions use private session
+options and existing review results; there is no new public plan representation.
 
 All new planning and extraction dispatches check declared Structured Output support,
 reasoning settings, output reservation and the complete serialized input. The effective

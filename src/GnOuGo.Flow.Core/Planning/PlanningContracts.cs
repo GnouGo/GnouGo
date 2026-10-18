@@ -88,6 +88,17 @@ public sealed class PlanningCommand
 /// <summary>The sole durable state. Hosts encrypt its content and use optimistic revisions.</summary>
 public sealed class PlanningSession
 {
+    public PlanningSession() { IsNewlyConstructed = true; }
+
+    // A queued historical session can still have revision zero and no model
+    // calls. Deserialization must not make it a new creation again. Bind an
+    // existing wire field; the construction identity itself is never persisted.
+    [JsonConstructor]
+    internal PlanningSession(long revision = 0) { Revision = revision; }
+
+    [JsonIgnore]
+    internal bool IsNewlyConstructed { get; }
+
     public IReadOnlyList<PlanningChoice> GetChoices() => Plan?.Choices ?? [];
     public IReadOnlyList<PlanningQuestion> GetQuestions() => PendingQuestions ?? GetChoices().Where(c => c.Selected is null)
         .Select(c => new PlanningQuestion(c.Id, c.Question, c.Alternatives.Select(a => new PlanningQuestionAlternative(a.Id, a.Description)).ToList(), c.Recommended)).ToList();

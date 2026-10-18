@@ -35,7 +35,7 @@ public sealed class RepairVocabularyTests
             {
                 if (!PlanningRepairPatch.Issued(request.StructuredOutputSchema?.AsObject())) return TestRuntime.Response(request, runtime.Proposal);
                 var context = PlanningRepairPatch.RequestContext(request)["repair"]!;
-                Assert.Equal(10, context["version"]!.GetValue<int>());
+                Assert.Equal(11, context["version"]!.GetValue<int>());
                 var slot = Assert.Single(context["slots"]!.AsArray());
                 Assert.Equal("/tasks/resolve/outputs/rows", slot!["location"]!.ToString());
                 var response = new JsonObject { ["discoveryRequests"] = null, ["clarifications"] = null,

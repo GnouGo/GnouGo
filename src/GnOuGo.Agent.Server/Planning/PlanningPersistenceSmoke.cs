@@ -72,7 +72,8 @@ internal static class PlanningPersistenceSmoke
             throw new InvalidOperationException("Incompatible history isolation failed.");
         try { await reopened.LoadAsync("smoke", legacy.Request.SessionId, CancellationToken.None); throw new InvalidOperationException("Incompatible history was admitted."); }
         catch (PlanningConflictException) { }
-        await VerifyJudgeRecoveryAsync(directory, vault, factory, records, store);
+        await VerifyJudgeRecoveryAsync(directory, vault, factory, records, store, 1);
+        await VerifyJudgeRecoveryAsync(directory, vault, factory, records, store, 2);
         foreach (var file in Directory.EnumerateFiles(directory, "*.db"))
             if (System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file)) is { } bytes &&
                 (bytes.Contains("Private published smoke content", StringComparison.Ordinal) || bytes.Contains("Private requirements", StringComparison.Ordinal) ||
@@ -105,7 +106,7 @@ internal static class PlanningPersistenceSmoke
     }
 
     private static async Task VerifyJudgeRecoveryAsync(string directory, string vault, IDbContextFactory<PlanningDbContext> factory,
-        IKeyVaultRecordStore records, EfPlanningSessionStore store)
+        IKeyVaultRecordStore records, EfPlanningSessionStore store, int reviewVersion)
     {
         var historical = System.Text.Json.JsonSerializer.Deserialize("{}", PlanningJsonContext.Default.PlanningRequest)!;
         var current = new PlanningRequest();
@@ -118,6 +119,7 @@ internal static class PlanningPersistenceSmoke
         const string evidence = "Private published judge request evidence";
         const string authority = "/root/outputs/private_published_judge_authority";
         const string uncertainty = "Private published judge uncertainty";
+        const string rejectedReference = "/private_published_rejected_reference";
         var sessionId = "judge-" + Guid.NewGuid().ToString("N");
         // Cost accounting is enabled only when a financial ceiling is configured.
         // Use declared USD fixture pricing so recovery verifies an actual charge.
@@ -148,14 +150,28 @@ internal static class PlanningPersistenceSmoke
                 {
                     ["business_judge"] = true,
                     ["business_judge_authority"] = new System.Text.Json.Nodes.JsonArray(authority),
-                    ["business_judge_pending_context"] = new System.Text.Json.Nodes.JsonObject { ["version"] = 1, ["fingerprint"] = "published-judge-context" },
+                    ["business_judge_pending_context"] = new System.Text.Json.Nodes.JsonObject { ["version"] = reviewVersion, ["fingerprint"] = "published-judge-context" },
                     ["business_judge_reviews"] = new System.Text.Json.Nodes.JsonArray(new System.Text.Json.Nodes.JsonObject
-                    { ["version"] = 1, ["fingerprint"] = "previous-published-judge-context", ["outcome"] = "inconclusive", ["description"] = uncertainty })
+                    { ["version"] = reviewVersion, ["fingerprint"] = "previous-published-judge-context", ["outcome"] = "inconclusive", ["description"] = uncertainty })
                 }
             },
             PendingCall = new() { Id = request.ClientRequestId, Purpose = "judge", Request = request },
             Diagnostics = [new("MODEL_DISPATCH_UNVERIFIABLE", "/", "Interrupted coordinator checkpoint after the durable judge response.")]
         };
+        if (reviewVersion == 2)
+        {
+            state.Request.Options["business_judge_review_version"] = 2;
+            state.Request.Options["planning_input_review_version"] = 2;
+            state.Request.Options["planning_diagnostics_version"] = 1;
+            var retainedReview = state.Request.Options["business_judge_reviews"]![0]!;
+            retainedReview["validation_status"] = "invalid";
+            retainedReview["validation_diagnostics"] = new System.Text.Json.Nodes.JsonArray(new System.Text.Json.Nodes.JsonObject
+            {
+                ["location"] = "/findings/0/evidence/0", ["reference"] = rejectedReference,
+                ["reference_truncated"] = false, ["reason"] = "reference_not_found"
+            });
+            retainedReview["validation_diagnostics_omitted"] = 0;
+        }
         if (!await store.TrySaveAsync(state, null, CancellationToken.None)) throw new InvalidOperationException("Published judge fixture insert failed.");
         var model = new JudgeSmokeModel(uncertainty);
         var journal = new PlanningModelJournal(model, factory, records, "smoke", sessionId, budget, new JudgeSmokeEstimator(), current.Generation);
@@ -184,7 +200,12 @@ internal static class PlanningPersistenceSmoke
         Check(restored.Request.Options["business_judge"]?.GetValue<bool>() == true, "captured judge setting");
         Check(restored.Request.Options["business_judge_authority"]?[0]?.ToString() == authority, "captured edit authority");
         Check(restored.Request.Options["business_judge_reviews"]?[0]?["description"]?.ToString() == uncertainty, "retained review history");
-        Check(restored.Request.Options["business_judge_pending_context"]?["version"]?.GetValue<int>() == 1, "private context version");
+        Check(restored.Request.Options["business_judge_pending_context"]?["version"]?.GetValue<int>() == reviewVersion, "private context version");
+        Check(System.Text.Json.Nodes.JsonNode.DeepEquals(state.Request.Options, restored.Request.Options), "private review diagnostics and captured profiles");
+        if (reviewVersion == 2)
+            Check(restored.Request.Options["business_judge_reviews"]?[0]?["response"] is null &&
+                restored.Request.Options["business_judge_reviews"]?[0]?["validation_diagnostics"]?[0]?["reference"]?.ToString() == rejectedReference,
+                "rejected findings remain separate from validated responses");
         Check(restored.Status == PlanningStatus.Generating && restored.Diagnostics.Count == 0 && restored.ApprovedHash is null, "unapproved recovery state");
         Check(await reopened.LoadAsync("another-tenant", sessionId, CancellationToken.None) is null, "session tenant isolation");
         Check(await reopenedRecords.GetAsync(PlanningModelJournal.Collection, "another-tenant", sessionId + ":" + request.ClientRequestId,
@@ -193,7 +214,7 @@ internal static class PlanningPersistenceSmoke
         {
             var bytes = System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(path));
             if (bytes.Contains(evidence, StringComparison.Ordinal) || bytes.Contains(authority, StringComparison.Ordinal) ||
-                bytes.Contains(uncertainty, StringComparison.Ordinal))
+                bytes.Contains(uncertainty, StringComparison.Ordinal) || bytes.Contains(rejectedReference, StringComparison.Ordinal))
                 throw new InvalidOperationException("Private judge content was persisted unencrypted.");
         }
 

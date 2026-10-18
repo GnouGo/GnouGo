@@ -48,6 +48,15 @@ Adaptive generation considers complete deterministic examples: shape representat
 
 A collection mapped to one object, boolean or scalar remains a **global extraction**, even with `infer_each`. Define each immediate consumer's observed business view with the existing closed extraction `resultType`. Separate consumers can use different views; full observations and exact action references remain available through their original bindings. A candidate array per source item allows an examined item to contribute no matches without an empty wrapper object.
 
+Planning input-review version 2 distinguishes explicitly selected `each`, possible
+runtime collection inference and whole-input extraction. `infer_each` is permission
+to inspect actual top-level source arrays, not proof that a nested collection inside
+an observation object will be processed independently. Review maps these facts to
+authored task/input locations. Known source JSON bytes are descriptive and separate
+from complete-request token estimates; input fit stays unverified until dispatch.
+This changes review evidence only, not mapping execution, approved YAML or historical
+version-1 review behavior.
+
 Pagination is a transport boundary, not evidence of independent business items.
 Preserve grouping and relationships that cross pages when projecting or extracting
 the consumer's view. Bounded examples teach a mapping that is checked against every

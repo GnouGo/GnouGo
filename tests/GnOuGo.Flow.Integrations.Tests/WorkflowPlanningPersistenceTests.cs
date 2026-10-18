@@ -17,6 +17,60 @@ public sealed class WorkflowPlanningPersistenceTests : IDisposable
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
     private WorkflowPlanningRuntimeFactory Factory() => new(new KeyVaultRecordStore(Path.Combine(_directory, "keyvault.db")), Path.Combine(_directory, "leases"));
 
+    [Fact]
+    public async Task NewQueuedSessionCapturesProfilesWithoutChangingItsAuthoredDefinition()
+    {
+        var client = new Client();
+        var initial = Initial();
+        var authored = initial.Request.Options.ToJsonString();
+        string id;
+        await using (var session = await Factory().OpenAsync(Context(client), initial, Ct))
+        {
+            id = session.Session.Request.SessionId;
+            Assert.Equal("1", session.Session.Request.Options["planning_diagnostics_version"]?.ToString());
+            Assert.Equal("2", session.Session.Request.Options["planning_input_review_version"]?.ToString());
+            Assert.Equal("2", session.Session.Request.Options["business_judge_review_version"]?.ToString());
+            Assert.Equal(0, session.Session.Revision);
+            Assert.Equal(0, session.Session.ModelCalls);
+        }
+        Assert.Equal(authored, initial.Request.Options.ToJsonString());
+        var records = new KeyVaultRecordStore(Path.Combine(_directory, "keyvault.db"));
+        var definition = (await records.GetAsync("flow-planning-definitions-v10", "tenant", id, "test", Ct))!;
+        Assert.Equal(authored, JsonNode.Parse(definition.Value)!["options"]!.ToJsonString());
+        await using var restored = await Factory().OpenAsync(Context(client), Initial(), Ct);
+        Assert.Equal("2", restored.Session.Request.Options["business_judge_review_version"]!.ToString());
+        Assert.Equal(0, client.Calls);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task HistoricalZeroProgressDefinitionDoesNotAcquireCreationProfiles(bool sessionCheckpointExists)
+    {
+        var client = new Client();
+        string id;
+        await using (var session = await Factory().OpenAsync(Context(client), Initial(), Ct))
+            id = session.Session.Request.SessionId;
+        var records = new KeyVaultRecordStore(Path.Combine(_directory, "keyvault.db"));
+        var saved = (await records.GetAsync("flow-planning-sessions-v10", "tenant", id, "test", Ct))!;
+        if (sessionCheckpointExists)
+        {
+            var historical = JsonNode.Parse(saved.Value)!;
+            var options = historical["request"]!["options"]!.AsObject();
+            foreach (var key in new[] { "compilation_profile", "mapping_profile", "planning_validation_profile",
+                "planning_diagnostics_version", "planning_input_review_version", "business_judge_review_version" }) options.Remove(key);
+            await records.UpsertAsync("flow-planning-sessions-v10", "tenant", id, historical.ToJsonString(), "test", Ct);
+        }
+        else Assert.True(await records.DeleteAsync("flow-planning-sessions-v10", "tenant", id, "test", Ct));
+        await using var restored = await Factory().OpenAsync(Context(client), Initial(), Ct);
+        Assert.Equal(0, restored.Session.Revision);
+        Assert.Equal(0, restored.Session.ModelCalls);
+        Assert.Null(restored.Session.Request.Options["planning_diagnostics_version"]);
+        Assert.Null(restored.Session.Request.Options["planning_input_review_version"]);
+        Assert.Null(restored.Session.Request.Options["business_judge_review_version"]);
+        Assert.Equal(0, client.Calls);
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

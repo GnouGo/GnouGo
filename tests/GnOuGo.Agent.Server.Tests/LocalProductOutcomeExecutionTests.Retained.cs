@@ -137,7 +137,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
                 if (request.StructuredOutputSchema?["properties"]?["patch"] is null)
                     return JsonSerializer.SerializeToNode(proposal, PlanningJsonContext.Default.PlanningProposal)!.AsObject();
                 var context = JsonNode.Parse(request.Prompt[request.Prompt.IndexOf("\n{", StringComparison.Ordinal)..])!["repair"]!;
-                Assert.Equal(10, context["version"]!.GetValue<int>());
+                Assert.Equal(11, context["version"]!.GetValue<int>());
                 var edits = context["slots"]!.AsArray().Select(slot => new JsonObject {
                     ["slot"] = slot!["id"]!.ToString(), ["action"] = "replace", ["value"] = corrections[slot["location"]!.ToString()]!.DeepClone() }).ToArray();
                 Assert.Equal(corrections.Count, edits.Length);

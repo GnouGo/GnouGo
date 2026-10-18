@@ -49,7 +49,8 @@ public sealed class OutputBindingRoutingTests
     public async Task HistoricalCorrectionKeepsItsOriginalLocationsAndRegeneration()
     {
         var (runtime, state) = await Fixture();
-        state = await new HybridWorkflowPlanner().AdvanceAsync(state, new(), runtime, PlannerFixture.Ct);
+        state.Revision = 1;
+        state = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
         state.Request.Baseline = PlannerFixture.Clone(state).Plan;
         state.Request.Options["automatic_correction_progress"] = new JsonObject
         {

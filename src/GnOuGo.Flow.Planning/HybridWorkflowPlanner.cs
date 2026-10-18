@@ -47,16 +47,7 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
             throw new PlanningConflictException("The session model-call budget is exhausted. Token settings and revisions cannot extend it. Start a new planning session; retained requests and accounting remain unchanged.");
         var state = JsonSerializer.Deserialize(JsonSerializer.Serialize(session, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
         if (!state.RequiresPlanningRevision && state.IntentVersion is null) state.IntentVersion = 3;
-        if (state.Revision == 0 && state.PendingCall is null && state.Plan is null)
-        {
-            state.Request.Options["compilation_profile"] = TaskPlanCompiler.CompactProfile;
-            state.Request.Options["mapping_profile"] = TaskPlanCompiler.AdaptiveMappingProfile;
-            if (state.ModelCalls == 0 && state.Request.Baseline is null)
-            {
-                state.Request.Options["planning_validation_profile"] = TaskPlanCompiler.AssertionValidationProfile;
-                state.Request.Options["planning_input_review_version"] = 1;
-            }
-        }
+        PlanningSessionCreation.Capture(state, session);
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
         if (PlanningBudgetOptions.Parse(state.Request.Options)?.MaxElapsed is { } maximum)
         {
@@ -416,13 +407,18 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
             foreach (var choice in plan.Choices.Where(c => c.Selected is null)) choice.Selected = choice.Recommended;
         }
         var graph = compilation.Graph!;
-        if (PlanningClarifications.OutputFindings(state, graph) is { Count: > 0 } outputFindings)
+        var outputFindings = PlanningClarifications.OutputFindings(state, graph);
+        var combined = state.Request.Options["planning_diagnostics_version"]?.ToString() == "1";
+        if (!combined && outputFindings.Count > 0)
         { state.Diagnostics = outputFindings; state.Graph = null; Stop(state); return; }
         var coverage = PlanningCommitments.Assess(state);
         foreach (var result in coverage)
             Activity.Current?.AddEvent(new("planning.coverage.checked", tags: new ActivityTagsCollection
             { ["clause"] = result.Id, ["outcome"] = result.Outcome, ["diagnostics"] = string.Join(',', result.Diagnostics.Select(d => d.Code)) }));
         var violations = coverage.SelectMany(r => r.Diagnostics).Where(d => d.Required).ToList();
+        if (combined)
+            violations = outputFindings.Concat(violations).Distinct()
+                .OrderBy(d => d.Location, StringComparer.Ordinal).ThenBy(d => d.Code, StringComparer.Ordinal).ToList();
         if (violations.Count > 0)
         {
             SemanticFailure(state, violations);
@@ -455,6 +451,8 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
                 state.ValidationResults.AddRange(PlanningReviewFormatter.Operations(state));
                 if (state.Request.Options["planning_input_review_version"]?.ToString() == "1")
                     state.ValidationResults.AddRange(PlanningInputReadiness.Assess(graph));
+                else if (state.Request.Options["planning_input_review_version"]?.ToString() == "2")
+                    state.ValidationResults.AddRange(PlanningInputReadiness.Assess(compilation, 2, state.Plan));
                 state.ValidationResults.AddRange(coverage);
                 state.Status = PlanningBusinessJudge.Enabled(state) ? PlanningStatus.Generating : PlanningStatus.FinalReview;
                 state.Phase = PlanningPhase.Review; return;

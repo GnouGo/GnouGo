@@ -195,7 +195,7 @@ public sealed partial class TaskPlanCompiler
         Dictionary<string, Bound> Exports(Scope scope) => scope.Workflow.Outputs.ToDictionary(o => o.Name, o => Output("semantic", "workflow.call", [o.Name], o.Schema.Contract!), StringComparer.Ordinal);
         void InspectScope(TaskScope source, Scope scope, string path)
         {
-            Check(path + "/outputs", () => Unique(source.Outputs.Select(o => o.Name)));
+            OutputNames(source.Outputs, path + "/outputs");
             InspectTasks(source.Tasks, scope); scope.Cleanup = true; InspectTasks(source.Always, scope);
             foreach (var output in source.Outputs)
             {
@@ -204,6 +204,28 @@ public sealed partial class TaskPlanCompiler
                     scope.Workflow.Outputs.Add(new() { Name = output.Name, Value = value.Value, Schema = Contract(value.Schema) });
             }
             inspect?.Invoke(path + "/outputs", scope);
+        }
+        void OutputNames(List<TaskOutput> outputs, string path)
+        {
+            if (!_preciseDeclarations) { Check(path, () => Unique(outputs.Select(o => o.Name))); return; }
+            var duplicates = outputs.GroupBy(o => o.Name, StringComparer.Ordinal).Where(g => g.Count() > 1)
+                .Select(g => g.Key).ToHashSet(StringComparer.Ordinal);
+            var reported = 0;
+            for (var i = 0; i < outputs.Count; i++)
+            {
+                var name = outputs[i].Name;
+                var reason = string.IsNullOrWhiteSpace(name) ? "blank" : name.StartsWith("__", StringComparison.Ordinal) ? "reserved" :
+                    duplicates.Contains(name) ? "duplicate" : null;
+                if (reason is null) continue;
+                if (reported++ == 16)
+                {
+                    findings.Add(new("TASK_IDENTITY_INVALID", path, "Additional invalid output declarations are omitted; first 16 occurrences shown.", Rule: "truncated"));
+                    break;
+                }
+                var label = JsonValue.Create(name is null || name.Length <= 48 ? name : name[..48] + "…")?.ToJsonString() ?? "null";
+                findings.Add(new("TASK_IDENTITY_INVALID", path + "/" + i.ToString(System.Globalization.CultureInfo.InvariantCulture) + "/name",
+                    "Output declaration " + label + " is " + reason + ". Names must be distinct, nonblank and outside the reserved '__' namespace; literal punctuation and Unicode are preserved.", Rule: reason));
+            }
         }
         void InspectTasks(List<PlanTask> tasks, Scope scope)
         {
@@ -403,7 +425,7 @@ public sealed partial class TaskPlanCompiler
                     if (ports.Count == 0) scope.Blocked.Add(("output", task.Id, "*"));
                     break;
                 case "value":
-                    Check(path + "/outputs", () => Unique(task.Outputs.Select(o => o.Name)));
+                    OutputNames(task.Outputs, path + "/outputs");
                     foreach (var output in task.Outputs)
                     { declared.Add(output.Name); var value = Read(output.Value, scope, path + "/outputs/" + output.Name); if (value is not null) ports.TryAdd(output.Name, value); }
                     break;

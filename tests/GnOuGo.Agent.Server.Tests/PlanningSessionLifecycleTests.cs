@@ -12,6 +12,24 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class PlanningSessionLifecycleTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
+    [Fact]
+    public async Task NewQueuedSessionPersistsCreationProfilesBeforeAnyModelCall()
+    {
+        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
+        using var service = Create(fixture, new HybridWorkflowPlanner(), AgentCatalog(), settings: new() { BackgroundProcessingEnabled = false });
+        var state = await service.StartAsync("queued-profiles", "Return a greeting", false, Ct);
+        Assert.Equal(0, state.Revision);
+        Assert.Equal(0, state.ModelCalls);
+        Assert.Equal("1", state.Request.Options["planning_diagnostics_version"]?.ToString());
+        Assert.Equal("2", state.Request.Options["planning_input_review_version"]?.ToString());
+        Assert.Equal("2", state.Request.Options["business_judge_review_version"]?.ToString());
+        var stored = await fixture.Store.LoadAsync("planning-tests", state.Request.SessionId, Ct);
+        Assert.NotNull(stored);
+        Assert.Equal(state.Request.Options.ToJsonString(), stored.Request.Options.ToJsonString());
+        Assert.Equal(0, stored.ModelCalls);
+        Assert.Null(stored.PendingCall);
+    }
+
     [Theory]
     [InlineData("configure_generation")]
     [InlineData("revise")]

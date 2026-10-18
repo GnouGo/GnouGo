@@ -384,6 +384,10 @@ foreach (var name in PlanningCorpus.Names)
         state = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
     }
     if (state.Status != PlanningStatus.FinalReview || state.ModelCalls > state.Request.MaxModelCalls || environment.Effects.Count != 0) throw new InvalidOperationException(JsonSerializer.Serialize(state.Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic));
+    if (state.Request.Options["planning_diagnostics_version"]?.ToString() != "1" ||
+        state.Request.Options["planning_input_review_version"]?.ToString() != "2" ||
+        state.Request.Options["business_judge_review_version"]?.ToString() != "2")
+        throw new InvalidOperationException("Fresh private validation profiles did not survive Native AOT checkpoint serialization.");
     state = await planner.AdvanceAsync(state, new() { Kind = "approve", ReviewedRequirementIds = state.Requirements!.Outcomes.Select(r => r.Id).ToList(), ExpectedRevision = state.Revision, ArtifactHash = PlanningArtifactApproval.Hash(state) }, runtime, CancellationToken.None);
     if (state.Status != PlanningStatus.Approved) throw new InvalidOperationException("Approval failed.");
     var compiled = new WorkflowCompiler().Compile(WorkflowParser.Parse(state.Yaml!));

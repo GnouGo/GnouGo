@@ -118,6 +118,21 @@ a real model's false-positive rate or prove business improvement. Preserve failu
 inconclusive candidates. Keep live-model, real-execution and scripted results separately
 labelled, and never synthesize live requirement acknowledgments.
 
+The diagnostic follow-up captures fresh private review/correction profiles. Its
+offline regressions compare all independently available output/coverage findings
+before the first repair, convergence within the existing allowance, unrelated-edit
+rejection and inconclusive Judge recovery without another call. Typed response
+constraints and clearer input-readiness descriptions are mechanism changes, not
+independent business labels. Keep the original proposal, rejected candidates,
+per-purpose call counts and unknown usage in reports. An invalid Judge reference
+cannot be counted as a correct review or repaired through a hidden extra call.
+Retained live campaigns keep their original settings and failed records; new defaults
+must not be retroactively attributed to those campaigns.
+
+The [diagnostic follow-up evidence](../../docs/evidence/taskplan-diagnostics-2026-10-18/README.md)
+records the focused regressions, preserved failed attempts and final offline comparison.
+It does not dispatch a new live campaign.
+
 ## Planner stabilization comparison
 
 The [completed campaign report](../../docs/evidence/planner-stabilization/results-7d5d42b2.md)
