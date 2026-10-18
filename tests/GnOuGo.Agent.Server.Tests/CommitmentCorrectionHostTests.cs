@@ -50,7 +50,7 @@ public sealed class CommitmentCorrectionHostTests
                 Assert.Equal(3, state.IntentVersion); Assert.Equal(calls, state.ModelCalls); Assert.Equal(calls - 1, state.ReplanAttempts);
                 Assert.Equal(calls, model.Calls); Assert.Equal(0, effects); Assert.Null(state.ApprovedHash); Assert.Null(state.SavedAgentId);
                 Assert.Equal("explicit-assertions-v1", state.Request.Options["planning_validation_profile"]!.ToString());
-                Assert.Equal("6", state.Request.Options["automatic_correction_progress"]!["version"]!.ToString());
+                Assert.Equal("8", state.Request.Options["automatic_correction_progress"]!["version"]!.ToString());
                 if (uncertain) { Assert.NotNull(state.PendingCall); Assert.Contains(state.Diagnostics, d => d.Code == "MODEL_DISPATCH_UNVERIFIABLE"); }
                 else if (repeated)
                 {
