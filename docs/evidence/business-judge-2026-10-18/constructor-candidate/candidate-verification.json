@@ -1,0 +1,13 @@
+{
+  "kind": "Post-comparison verification of unchanged frozen compiled candidate",
+  "candidate_commit": "6fe38c2cc05f7541d5b3db21dddf080452b8b092",
+  "assemblies_match_frozen_manifest": {
+    "GnOuGo.Flow.Planning.dll": "a29ff8d535133beedcbf65992eff5c6c2ca32d5944840e2e9d695ba6a99ebf4e",
+    "GnOuGo.Flow.Core.dll": "e0fe4ea05a83ba4034176edfb4c6b27bb669753851ff1312f01bb4aebdd9cd64",
+    "GnOuGo.Flow.Integrations.dll": "b19516870035c9835ae6424e7e99521a8e90ae1fa3b79d3cfb02039887d4f598",
+    "GnOuGo.Agent.Planning.Benchmark.dll": "ffb5cac878bbefec2a0607ece493c65d5e67d2bbb7b02677941a5a7827ecc04d"
+  },
+  "source_hashes_match": true,
+  "commands_record": "commands.json",
+  "preserved_initial_candidate": "initial-candidate/manifest.json"
+}

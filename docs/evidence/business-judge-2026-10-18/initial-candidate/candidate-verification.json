@@ -1,0 +1,11 @@
+{
+  "kind": "Post-comparison verification of unchanged compiled candidate",
+  "assemblies_match_frozen_manifest": {
+    "GnOuGo.Flow.Planning.dll": "78c6dac0b05e6a4f2734cec167a9162468787c6dd20a86182fa2376df1272010",
+    "GnOuGo.Flow.Core.dll": "dd91931930a204622e41cd87e63c424e599df0ac5a5c89502a50fc406d9d9899",
+    "GnOuGo.Flow.Integrations.dll": "71d9ea4a7ee470807a53a6a21afb44829815946464c76fcb4545210c42c4657e",
+    "GnOuGo.Agent.Planning.Benchmark.dll": "7299a5b4777ae2fefad0a8fe9850d0f7ca17767d3425f2b463bc390046f6cbe0"
+  },
+  "source_hashes_match": true,
+  "commands_record": "commands.json"
+}
