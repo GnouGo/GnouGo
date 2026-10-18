@@ -74,7 +74,7 @@ public sealed class AssertionContradictionTests
         var plan = new TaskPlan { Inputs = [new() { Name = "value", Type = new() { Kind = variant is "boolean" or "branch" ? "boolean" : "string", Nullable = variant == "null" } }],
             Root = new() { Tasks = [AssertAt("first", first), AssertAt("second", second)] } };
         if (variant == "branch") plan.Root.Tasks = [new() { Id = "route", Kind = "conditional", Objective = "Select work", Condition = first, Body = new() { Tasks = [plan.Root.Tasks[1]] }, Otherwise = new() }];
-        var request = PlannerFixture.Session().Request;
+        var request = PlannerFixture.HistoricalSession().Request;
         Assert.Empty(new TaskPlanCompiler().Compile(plan, catalog, request).Diagnostics);
         request.Options["planning_validation_profile"] = "explicit-assertions-v1";
         var diagnostic = Assert.Single(new TaskPlanCompiler().Compile(plan, catalog, request).Diagnostics);

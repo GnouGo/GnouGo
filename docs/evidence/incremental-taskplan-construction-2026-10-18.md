@@ -54,6 +54,13 @@ and trimmed Agent.Server encrypted-storage smoke pass, including tenant isolatio
 and pending candidate/review persistence. The complete Integrations suite passes
 108 tests, including the definition-only interruption boundary.
 
+The complete Planning suite passes 1,786 tests with warnings as errors. The
+first PR CI run retained 29 failures caused by historical fixtures inheriting
+newer captured profiles. Those fixtures now explicitly restore their original
+profiles; frozen approval and repair-authority hashes and assertions remain
+unchanged. Fresh-session compatibility fixtures exercise an incremental draft
+and its mandatory local review. These corrections change tests only.
+
 The Draft PR records the complete `dotnet test GnOuGo.Agent.sln -m:1 -warnaserror`
 run and CI conclusion for its final pushed revision. Existing publish-local
 warning exclusions remain unchanged; no new blanket suppression was introduced.

@@ -20,6 +20,16 @@ internal static class PlannerFixture
             ["planning_input_review_version"] = 2,
             ["business_judge_review_version"] = 2
         } } });
+    // Older compatibility cases predate these captured profiles. Use this
+    // explicitly; changing the retained modern corpus must not migrate them.
+    internal static PlanningSession HistoricalSession() => WithoutCapturedProfiles(Session());
+    internal static PlanningSession WithoutCapturedProfiles(PlanningSession state)
+    {
+        foreach (var key in new[] { "compilation_profile", "mapping_profile", "planning_validation_profile",
+            "planning_diagnostics_version", "planning_input_review_version", "business_judge_review_version" })
+            state.Request.Options.Remove(key);
+        return state;
+    }
     internal static PlanningGraph Greeting(string message = "Hello") => new()
     {
         Summary = "Return a greeting", Workflows = [new()

@@ -12,7 +12,7 @@ public sealed class TypedRepairSchemaTests
 
     private static PlanningSession Output(TaskType? type, string name = "result")
     {
-        var state = PlannerFixture.Session(); state.Request.SessionId = "typed-repair";
+        var state = PlannerFixture.HistoricalSession(); state.Request.SessionId = "typed-repair";
         state.Requirements = PlannerFixture.Requirements();
         state.Requirements.Outputs = type is null ? null : [new() { Name = name, Type = type }];
         state.Catalog = new() { AllowedStepTypes = ["set"] };

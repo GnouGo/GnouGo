@@ -219,7 +219,7 @@ public sealed class ConstrainedBindingTests
     {
         var (baseline, catalog) = Retained(); var plan = Repair(baseline);
         var graph = new TaskPlanCompiler().Compile(plan, catalog).Graph!;
-        var state = PlannerFixture.Session(); state.Plan = plan; state.Catalog = catalog; state.Graph = graph;
+        var state = PlannerFixture.HistoricalSession(); state.Plan = plan; state.Catalog = catalog; state.Graph = graph;
         state.Requirements = PlannerFixture.Requirements(); state.Requirements.Inputs = plan.Inputs; state.Yaml = new PlanningGraphCompiler().Compile(graph, catalog, state.Request.Name);
         PlanningArtifactApproval.Verify(state);
         var hash = PlanningArtifactApproval.Hash(state);

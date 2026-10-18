@@ -1,5 +1,6 @@
 using System.Text.Json;
 using GnOuGo.Flow.Core.Planning;
+using GnOuGo.Planning.Examples;
 
 namespace GnOuGo.Flow.Planning.Tests;
 
@@ -10,7 +11,7 @@ public sealed class QueuedPlanningSessionCompatibilityTests
     [InlineData(true)]
     public async Task HistoricalSerializedZeroProgressSessionKeepsItsCapturedOrAbsentProfiles(bool captured)
     {
-        var state = PlannerFixture.Session();
+        var state = PlannerFixture.HistoricalSession();
         if (captured)
         {
             state.Request.Options["planning_input_review_version"] = 1;
@@ -24,6 +25,7 @@ public sealed class QueuedPlanningSessionCompatibilityTests
         var runtime = new TestRuntime();
         state = await PlannerFixture.RunAsync(runtime, state);
         Assert.Equal(PlanningStatus.FinalReview, state.Status);
+        Assert.Null(state.Construction);
         Assert.Null(state.Request.Options["planning_diagnostics_version"]);
         Assert.Equal(captured ? "1" : null, state.Request.Options["planning_input_review_version"]?.ToString());
         Assert.Equal(captured ? "1" : null, state.Request.Options["business_judge_review_version"]?.ToString());
@@ -34,7 +36,10 @@ public sealed class QueuedPlanningSessionCompatibilityTests
     [Fact]
     public async Task FreshDirectSessionCapturesNewProfilesBeforeItsCoordinatorClone()
     {
-        var state = await PlannerFixture.RunAsync(new TestRuntime(), PlannerFixture.Session());
+        var state = await PlannerFixture.RunAsync(IncrementalRuntime(), new PlanningSession { Request = PlannerFixture.HistoricalSession().Request });
+        Assert.Equal(PlanningStatus.FinalReview, state.Status);
+        Assert.True(state.Construction!.Complete);
+        Assert.Single(state.Construction.Checkpoints);
         Assert.Equal("1", state.Request.Options["planning_diagnostics_version"]!.ToString());
         Assert.Equal("2", state.Request.Options["planning_input_review_version"]!.ToString());
         Assert.Equal("2", state.Request.Options["business_judge_review_version"]!.ToString());
@@ -44,13 +49,23 @@ public sealed class QueuedPlanningSessionCompatibilityTests
     [Fact]
     public async Task AlreadyCapturedProfilesRemainStableOnAnUnserializedSession()
     {
-        var state = PlannerFixture.Session();
+        var state = new PlanningSession { Request = PlannerFixture.HistoricalSession().Request };
         state.Request.Options["compilation_profile"] = "compact-bindings-v10";
         state.Request.Options["planning_input_review_version"] = 1;
         state.Request.Options["business_judge_review_version"] = 1;
-        state = await PlannerFixture.RunAsync(new TestRuntime(), state);
+        state = await PlannerFixture.RunAsync(IncrementalRuntime(), state);
+        Assert.Equal(PlanningStatus.FinalReview, state.Status);
+        Assert.True(state.Construction!.Complete);
         Assert.Equal("compact-bindings-v10", state.Request.Options["compilation_profile"]!.ToString());
         Assert.Equal("1", state.Request.Options["planning_input_review_version"]!.ToString());
         Assert.Equal("1", state.Request.Options["business_judge_review_version"]!.ToString());
+    }
+
+    private static TestRuntime IncrementalRuntime()
+    {
+        var runtime = new TestRuntime();
+        runtime.Proposal.Requirements!.Outputs = [new() { Name = "message", Type = new() { Kind = "string" } }];
+        runtime.Respond = (request, _) => new() { Json = PlanningCorpus.OneDraftResponse(request, runtime.Proposal) };
+        return runtime;
     }
 }

@@ -45,6 +45,8 @@ public sealed class CombinedPlanningDiagnosticsTests
     public async Task HistoricalSessionKeepsSequentialDiagnosisAndDoesNotAcquireProfiles()
     {
         var (runtime, state) = await Fixture();
+        PlannerFixture.WithoutCapturedProfiles(state);
+        state.Request.Options["compilation_profile"] = TaskPlanCompiler.CompactProfile;
         state.Revision = 1;
         state = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
         Assert.Contains(state.Diagnostics, d => d.Code == "REQUIREMENTS_OUTPUTS_CHANGED");
