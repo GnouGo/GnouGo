@@ -12,13 +12,31 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class PlanningSessionLifecycleTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
+    [Fact]
+    public async Task NewQueuedSessionPersistsCreationProfilesBeforeAnyModelCall()
+    {
+        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
+        using var service = Create(fixture, new HybridWorkflowPlanner(), AgentCatalog(), settings: new() { BackgroundProcessingEnabled = false });
+        var state = await service.StartAsync("queued-profiles", "Return a greeting", false, Ct);
+        Assert.Equal(0, state.Revision);
+        Assert.Equal(0, state.ModelCalls);
+        Assert.Equal("1", state.Request.Options["planning_diagnostics_version"]?.ToString());
+        Assert.Equal("2", state.Request.Options["planning_input_review_version"]?.ToString());
+        Assert.Equal("2", state.Request.Options["business_judge_review_version"]?.ToString());
+        var stored = await fixture.Store.LoadAsync("planning-tests", state.Request.SessionId, Ct);
+        Assert.NotNull(stored);
+        Assert.Equal(state.Request.Options.ToJsonString(), stored.Request.Options.ToJsonString());
+        Assert.Equal(0, stored.ModelCalls);
+        Assert.Null(stored.PendingCall);
+    }
+
     [Theory]
     [InlineData("configure_generation")]
     [InlineData("revise")]
     public async Task ExhaustedRecoveryCommandsDoNotWriteAnotherRevision(string command)
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
-        var state = new PlanningSession { IntentVersion = 2, Request = new() { TenantId = "planning-tests", Prompt = "Retained intent" },
+        var state = new PlanningSession { IntentVersion = 2, Request = new() { TenantId = "planning-tests", Prompt = "Retained intent", MaxModelCalls = 8 },
             Status = PlanningStatus.Stopped, ModelCalls = 8, Revision = 19, ReplanAttempts = 0,
             Diagnostics = [new("LLM_BUDGET_EXCEEDED", "/", "The session model-call budget was exhausted.")],
             Usage = new() { Calls = 8, TotalTokens = 108394, EstimatedCost = 0.579m, EstimatedCostCurrency = "EUR" } };
@@ -35,7 +53,7 @@ public sealed class PlanningSessionLifecycleTests
     }
 
     [Theory]
-    [InlineData(null, null, 24_000, 32_768)]
+    [InlineData(null, null, 32_000, 32_768)]
     [InlineData(12_000, 8192, 12_000, 8192)]
     public async Task DesignerDefaultAndOverrideApplyOnlyToNewSessions(int? configured, int? configuredOutput, int expected, int expectedOutput)
     {
@@ -44,7 +62,7 @@ public sealed class PlanningSessionLifecycleTests
         if (configured is { } limit) settings.MaxInputTokensPerRequest = limit;
         if (configuredOutput is { } output) settings.MaxOutputTokens = output;
         using var service = Create(fixture, new HybridWorkflowPlanner(), AgentCatalog(), settings: settings);
-        var saved = new PlanningSession { IntentVersion = 2, Request = new() { TenantId = "planning-tests", Prompt = "Saved intent" },
+        var saved = new PlanningSession { IntentVersion = 2, Request = new() { TenantId = "planning-tests", Prompt = "Saved intent", Generation = new() { MaxInputTokensPerRequest = 12000, MaxOutputTokens = 8192 } },
             Status = PlanningStatus.Stopped, Revision = 5, ModelCalls = 2,
             Discovery = new() { Sources = [new("source", "Declared metadata")], Pages = [new("source", null, [], null)] },
             Usage = new() { Calls = 2, TotalTokens = 10000, EstimatedCost = 0.07m, EstimatedCostCurrency = "EUR" },
@@ -54,8 +72,8 @@ public sealed class PlanningSessionLifecycleTests
         Assert.Equal(expected, created.Request.Generation.MaxInputTokensPerRequest);
         Assert.Equal(expectedOutput, created.Request.Generation.MaxOutputTokens);
         Assert.Equal("medium", created.Request.Generation.Reasoning);
-        Assert.Equal(8, created.Request.MaxModelCalls); Assert.Equal(2, created.Request.MaxReplanAttempts);
-        Assert.Equal(12_000, new PlanningGenerationOptions().MaxInputTokensPerRequest);
+        Assert.Equal(12, created.Request.MaxModelCalls); Assert.Equal(4, created.Request.MaxReplanAttempts);
+        Assert.Equal(32_000, new PlanningGenerationOptions().MaxInputTokensPerRequest);
 
         using var reopened = Create(fixture, new HybridWorkflowPlanner(), AgentCatalog(), settings: settings);
         var restored = (await reopened.GetAsync(saved.Request.SessionId, Ct))!;
@@ -202,6 +220,7 @@ public sealed class PlanningSessionLifecycleTests
     }
     private sealed class DeclaredTestModel : ILLMCapabilityResolver
     {
+        public Task<int?> InputTokenAllowanceAsync(string? provider, string model, int outputTokens, CancellationToken ct) => Task.FromResult<int?>(128000);
         public Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<bool?>(true);
         public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<IReadOnlyList<string>?>(["low", "medium"]);
     }

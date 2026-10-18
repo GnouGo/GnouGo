@@ -1,0 +1,26 @@
+{
+  "kind": "Affected frontend production builds",
+  "results": [
+    {
+      "project": "GnOuGo.Agent.Server",
+      "command": "pnpm --dir src/GnOuGo.Agent.Server/ClientApp run build",
+      "exit_code": 0,
+      "log_sha256": "bf081314e40f9d627f0db8c119e2e71f170e60c600d1b6e1f0fafd162b0443a0",
+      "script": "vite build",
+      "separate_test_lint_typecheck_scripts": false
+    },
+    {
+      "project": "GnOuGo.Flow.Server",
+      "command": "pnpm --dir src/GnOuGo.Flow.Server/ClientApp run build",
+      "exit_code": 0,
+      "log_sha256": "f288b85eaf537badbf765ab5d435391ab6766ecd7dbf3c714b103f569d0f899a",
+      "script": "tsc && vite build",
+      "separate_test_lint_typecheck_scripts": false
+    }
+  ],
+  "limitations": [
+    "Neither ClientApp defines separate test/lint/type-check scripts; Flow build includes tsc.",
+    "Razor interaction coverage is part of Agent.Server tests. The existing opt-in browser clarification test is not enabled in the serial suite."
+  ],
+  "source_changes_after_builds": "None in affected frontend sources; later constructor resolver correction affects the planning runtime only."
+}

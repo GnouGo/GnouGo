@@ -47,11 +47,7 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
             throw new PlanningConflictException("The session model-call budget is exhausted. Token settings and revisions cannot extend it. Start a new planning session; retained requests and accounting remain unchanged.");
         var state = JsonSerializer.Deserialize(JsonSerializer.Serialize(session, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
         if (!state.RequiresPlanningRevision && state.IntentVersion is null) state.IntentVersion = 3;
-        if (state.Revision == 0 && state.PendingCall is null && state.Plan is null)
-        {
-            state.Request.Options["compilation_profile"] = TaskPlanCompiler.CompactProfile;
-            state.Request.Options["mapping_profile"] = TaskPlanCompiler.AdaptiveMappingProfile;
-        }
+        PlanningSessionCreation.Capture(state, session);
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
         if (PlanningBudgetOptions.Parse(state.Request.Options)?.MaxElapsed is { } maximum)
         {
@@ -78,7 +74,7 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
                     var reviewed = command.ReviewedRequirementIds ?? [];
                     if (reviewed.Count != requirements.Count || reviewed.Distinct(StringComparer.Ordinal).Count() != reviewed.Count ||
                         !reviewed.ToHashSet(StringComparer.Ordinal).SetEquals(requirements.Select(r => r.Id)))
-                        throw new PlanningConflictException("REQUIREMENTS_REVIEW_REQUIRED: Review every accepted requirement against the actual tasks, iterations and data sources. Confirmed violations require revision; explicitly acknowledged uncertainty remains unverified.");
+                        throw new PlanningConflictException("REQUIREMENTS_REVIEW_REQUIRED: Compare the original request and revisions with every accepted requirement and actual task, including omitted actions, outputs, extra effects, iterations and cleanup. Confirmed violations require revision; explicitly acknowledged uncertainty remains unverified.");
                     state.Diagnostics = (await runtime.ValidateCatalogAsync(state.Catalog!, deadline.Token)).ToList();
                     if (state.Diagnostics.Any(d => d.Required)) Stop(state);
                     else
@@ -121,6 +117,12 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
                         command.ArtifactHash != state.ComputeArtifactHash()))
                         throw new PlanningConflictException("A correction must retain current accepted requirements and identify the exact artifact, when present.");
                     if (command.EditablePaths is not null) TaskPlanRevisions.ValidateEditablePaths(state, command.EditablePaths);
+                    if (PlanningBusinessJudge.Enabled(state))
+                    {
+                        state.Request.Options.Remove(PlanningBusinessJudge.AuthorityKey);
+                        if (command.EditablePaths is not null) state.Request.Options[PlanningBusinessJudge.AuthorityKey] =
+                            new JsonArray(command.EditablePaths.Select(p => (JsonNode?)JsonValue.Create(p)).ToArray());
+                    }
                     state.Request.Options.Remove(CorrectionProgressKey);
                     state.Request.Prompt += "\nRequested revision: " + command.Text;
                     PlanningClarifications.Revise(state, command.PreserveRequirements == true, command.EditablePaths); break;
@@ -176,6 +178,14 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
     private static async Task AdvancePlanAsync(PlanningSession state, IPlanningRuntime runtime, CancellationToken ct)
     {
         state.Status = PlanningStatus.Generating;
+        if (state.PendingCall?.Purpose == "judge")
+        {
+            await CompileAsync(state, runtime, ct);
+            if (state.Status == PlanningStatus.Generating) await PlanningBusinessJudge.ReviewAsync(state, runtime, ct);
+            return;
+        }
+        if (PlanningBusinessJudge.Enabled(state) && state.Phase == PlanningPhase.Review && state.Graph is not null && !state.Diagnostics.Any(d => d.Required))
+        { await PlanningBusinessJudge.ReviewAsync(state, runtime, ct); return; }
         if (state.PendingCall is null) PlanningModelCalls.EnsureCallAvailable(state);
         if (state.Catalog is null)
         {
@@ -397,13 +407,18 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
             foreach (var choice in plan.Choices.Where(c => c.Selected is null)) choice.Selected = choice.Recommended;
         }
         var graph = compilation.Graph!;
-        if (PlanningClarifications.OutputFindings(state, graph) is { Count: > 0 } outputFindings)
+        var outputFindings = PlanningClarifications.OutputFindings(state, graph);
+        var combined = state.Request.Options["planning_diagnostics_version"]?.ToString() == "1";
+        if (!combined && outputFindings.Count > 0)
         { state.Diagnostics = outputFindings; state.Graph = null; Stop(state); return; }
         var coverage = PlanningCommitments.Assess(state);
         foreach (var result in coverage)
             Activity.Current?.AddEvent(new("planning.coverage.checked", tags: new ActivityTagsCollection
             { ["clause"] = result.Id, ["outcome"] = result.Outcome, ["diagnostics"] = string.Join(',', result.Diagnostics.Select(d => d.Code)) }));
         var violations = coverage.SelectMany(r => r.Diagnostics).Where(d => d.Required).ToList();
+        if (combined)
+            violations = outputFindings.Concat(violations).Distinct()
+                .OrderBy(d => d.Location, StringComparer.Ordinal).ThenBy(d => d.Code, StringComparer.Ordinal).ToList();
         if (violations.Count > 0)
         {
             SemanticFailure(state, violations);
@@ -434,8 +449,13 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
                 state.Discovery.Limitations = state.Discovery.Limitations.Distinct(StringComparer.Ordinal).ToList();
                 state.Diagnostics.Clear(); state.ValidationResults = [new("static", "passed", "Business bindings, contracts and control flow validated. External execution has not been observed.", [])];
                 state.ValidationResults.AddRange(PlanningReviewFormatter.Operations(state));
+                if (state.Request.Options["planning_input_review_version"]?.ToString() == "1")
+                    state.ValidationResults.AddRange(PlanningInputReadiness.Assess(graph));
+                else if (state.Request.Options["planning_input_review_version"]?.ToString() == "2")
+                    state.ValidationResults.AddRange(PlanningInputReadiness.Assess(compilation, 2, state.Plan));
                 state.ValidationResults.AddRange(coverage);
-                state.Status = PlanningStatus.FinalReview; state.Phase = PlanningPhase.Review; return;
+                state.Status = PlanningBusinessJudge.Enabled(state) ? PlanningStatus.Generating : PlanningStatus.FinalReview;
+                state.Phase = PlanningPhase.Review; return;
             }
         }
         // A valid semantic contract must compile to valid plumbing. Never ask the model to repair compiler output.

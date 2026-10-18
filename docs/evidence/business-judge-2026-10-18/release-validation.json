@@ -1,0 +1,101 @@
+{
+  "commit": "6fe38c2cc05f7541d5b3db21dddf080452b8b092",
+  "paid_inference": false,
+  "source_edits": false,
+  "restores": false,
+  "steps": [
+    {
+      "step": "aot_publish",
+      "command": "dotnet publish tests/GnOuGo.Flow.Planning.Smoke -c Release -r osx-arm64 --no-restore -m:1 -warnaserror -p:SkipModelMetadataGeneration=true -p:SkipPlaywrightBrowserInstall=true -o /tmp/gnougo-judge-aot-delivery",
+      "exit_code": 0,
+      "log": "/tmp/gnougo-judge-aot-publish-delivery.log",
+      "log_sha256": "b199d2608c034a17495c9ed5a386f20be3e6a6a24565083e2343cc60e9baa20e"
+    },
+    {
+      "step": "aot_smoke",
+      "command": "/tmp/gnougo-judge-aot-delivery/GnOuGo.Flow.Planning.Smoke",
+      "exit_code": 0,
+      "log": "/tmp/gnougo-judge-aot-smoke-delivery.log",
+      "log_sha256": "33ca48119b7eb59b4e36a9eb13bc4f5aeafdbe90be0502de60af8ff9ab031a99"
+    },
+    {
+      "step": "server_publish",
+      "command": "dotnet publish src/GnOuGo.Agent.Server -c Release -r osx-arm64 --self-contained true --no-restore -m:1 -warnaserror -p:PublishAot=false -p:SkipClientBuild=true -p:SkipBundledServerTools=true -p:SkipModelMetadataGeneration=true -p:SkipPlaywrightBrowserInstall=true -o /tmp/gnougo-judge-published-server-delivery",
+      "exit_code": 0,
+      "log": "/tmp/gnougo-judge-server-publish-delivery.log",
+      "log_sha256": "325eacf8a54c35f7c06c3a07165f1ab02a452c52b13b40754aed06e6141e1493"
+    },
+    {
+      "step": "encrypted_recovery",
+      "command": "/tmp/gnougo-judge-published-server-delivery/GnOuGo.Agent.Server --planning-persistence-smoke /tmp/gnougo-judge-encrypted-recovery-delivery",
+      "exit_code": 0,
+      "log": "/tmp/gnougo-judge-published-recovery-delivery.log",
+      "log_sha256": "d7cc8ec7a3dff2ab353e25932595d885ee30f565a6de92f436e3354a2c1d3b88"
+    },
+    {
+      "step": "pack_GnOuGo.Flow.Core",
+      "command": "dotnet pack src/GnOuGo.Flow.Core -c Release --no-build --no-restore -m:1 -warnaserror -p:SkipModelMetadataGeneration=true -o /tmp/gnougo-judge-packages-delivery",
+      "exit_code": 0,
+      "log": "/tmp/gnougo-judge-pack-GnOuGo.Flow.Core-delivery.log",
+      "log_sha256": "bb23f04f558b09fc63a644311579472ef8b7620a357eb289e32813a4e0d3597c"
+    },
+    {
+      "step": "pack_GnOuGo.Flow.Planning",
+      "command": "dotnet pack src/GnOuGo.Flow.Planning -c Release --no-build --no-restore -m:1 -warnaserror -p:SkipModelMetadataGeneration=true -o /tmp/gnougo-judge-packages-delivery",
+      "exit_code": 0,
+      "log": "/tmp/gnougo-judge-pack-GnOuGo.Flow.Planning-delivery.log",
+      "log_sha256": "6055265bf288fc22b45e625777ae09bf3e5632dc9ee5df90f0606466f1004125"
+    },
+    {
+      "step": "pack_GnOuGo.Flow.Integrations",
+      "command": "dotnet pack src/GnOuGo.Flow.Integrations -c Release --no-build --no-restore -m:1 -warnaserror -p:SkipModelMetadataGeneration=true -o /tmp/gnougo-judge-packages-delivery",
+      "exit_code": 0,
+      "log": "/tmp/gnougo-judge-pack-GnOuGo.Flow.Integrations-delivery.log",
+      "log_sha256": "c33c8714b7ee5b0c21fc674916c63e0922e6c1a459ef01726461ced54e983539"
+    },
+    {
+      "step": "pack_GnOuGo.AI.Core",
+      "command": "dotnet pack src/GnOuGo.AI.Core -c Release --no-build --no-restore -m:1 -warnaserror -p:SkipModelMetadataGeneration=true -o /tmp/gnougo-judge-packages-delivery",
+      "exit_code": 0,
+      "log": "/tmp/gnougo-judge-pack-GnOuGo.AI.Core-delivery.log",
+      "log_sha256": "866c8a187f9361142cc70a6f44b7704f5479942b3b8ca2a6aeb303f82da9ffc9"
+    },
+    {
+      "step": "pack_GnOuGo.Agent.Shared",
+      "command": "dotnet pack src/GnOuGo.Agent.Shared -c Release --no-build --no-restore -m:1 -warnaserror -p:SkipModelMetadataGeneration=true -o /tmp/gnougo-judge-packages-delivery",
+      "exit_code": 0,
+      "log": "/tmp/gnougo-judge-pack-GnOuGo.Agent.Shared-delivery.log",
+      "log_sha256": "99386ff07dfb5a7cf6ba0a85b3fcff4de0c4f9479b865230e4df3cd54acf6be0"
+    }
+  ],
+  "packages": [
+    {
+      "path": "/tmp/gnougo-judge-packages-delivery/GnOuGo.AI.Core.1.0.0.nupkg",
+      "sha256": "f15f6b29636eaef6dd5619b79c8fefcece9f5e5dd623a822c4877760ae08696d",
+      "bytes": 124000
+    },
+    {
+      "path": "/tmp/gnougo-judge-packages-delivery/GnOuGo.Agent.Shared.1.0.0.nupkg",
+      "sha256": "1dd29f4bbb7f6e27c9da3263f24cc38c48e391b5a17180d692e14cd97354ae0b",
+      "bytes": 66060
+    },
+    {
+      "path": "/tmp/gnougo-judge-packages-delivery/GnOuGo.Flow.Core.1.0.0.nupkg",
+      "sha256": "105421300101d56a9817bb7598a722be19898320402c9cbe6a1ec5328941651b",
+      "bytes": 650776
+    },
+    {
+      "path": "/tmp/gnougo-judge-packages-delivery/GnOuGo.Flow.Integrations.1.0.0.nupkg",
+      "sha256": "b83c228a697f94f4aaea63f05e7ffda75ec02992d432bdad77db0d5e557e3c02",
+      "bytes": 53386
+    },
+    {
+      "path": "/tmp/gnougo-judge-packages-delivery/GnOuGo.Flow.Planning.1.0.0.nupkg",
+      "sha256": "9a166787ea2fd59622cc86400b6d14350d929b43b2c3bb790249136d450b0533",
+      "bytes": 415878
+    }
+  ],
+  "shared_asset_hashes_checked": 44,
+  "shared_asset_changes": [],
+  "publication_boundaries": "Existing documented Jint and ASP.NET/EF trimming boundaries only; no new suppressions."
+}

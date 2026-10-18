@@ -1,0 +1,713 @@
+{
+  "schema_version": 1,
+  "scope": "Earlier failed or incomplete local validation attempts for the business Judge implementation; this is not the final validation verdict.",
+  "evidence_type": "Retained local build, test and published-smoke logs; no paid inference or externally effectful live evaluation.",
+  "limitations": [
+    "SHA256 values identify the retained bytes of each named local log. Raw logs are not embedded or published.",
+    "Test names are exact fully qualified methods; theory argument payloads and stack traces are omitted to avoid retaining private data or scripts. Invocation counts include separately reported theory cases.",
+    "Exit codes remain null unless the coordinator explicitly reported one, in which case its source is recorded. Failed test summaries, compiler errors and unhandled exceptions support failure classifications; an aborted suite remains incomplete.",
+    "Some log filenames were reused during development. Earlier overwritten contents cannot be reconstructed or assigned the hash of a later attempt. This inventory is not a complete execution journal.",
+    "The separately monitored final serial suite and later successful validation evidence are intentionally excluded."
+  ],
+  "attempts": [
+    {
+      "source_log": "gnougo-judge-admission-red.log",
+      "sha256": "5a37e15f7e41f1cfc90d884d0e95d12abab2226ea70105e486718870b83d2d8d",
+      "bytes": 5372,
+      "result": "failed",
+      "classification": "regression_setup",
+      "reason": "Compilation failed because the new request-admission test file lacked xUnit imports; no test result was produced.",
+      "exit_code": null,
+      "failed_tests": [],
+      "observed_failed_test_invocations": 0,
+      "compiler_error_codes": [
+        "CS0246"
+      ]
+    },
+    {
+      "source_log": "gnougo-judge-defaults-red.log",
+      "sha256": "57975e30bd9d26e05ae11c1aec3f196419d7f219c69fbcac53b55bdd283a2500",
+      "bytes": 1629,
+      "result": "failed",
+      "classification": "regression_red",
+      "reason": "The fresh-request regression expected the newly authorized allowances but still observed the previous defaults.",
+      "exit_code": null,
+      "failed_tests": [
+        "GnOuGo.Flow.Planning.Tests.PlanningFreshDefaultsTests.FreshRequestsUseSharedLargerAllowances"
+      ],
+      "observed_failed_test_invocations": 1,
+      "reported_project_test_summaries": [
+        {
+          "assembly": "GnOuGo.Flow.Planning.Tests.dll",
+          "failed": 1,
+          "passed": 3,
+          "skipped": 0,
+          "total": 4
+        }
+      ]
+    },
+    {
+      "source_log": "gnougo-judge-resume-red.log",
+      "sha256": "60e294992634092d2b0e640bfcd2e2bc40256aeb326fcd5adfde9a407ee42990",
+      "bytes": 5972,
+      "result": "failed",
+      "classification": "regression_red",
+      "reason": "The ninth model call still hit the internal eight-call ceiling, and resuming omitted historical settings was treated as a changed request.",
+      "exit_code": null,
+      "failed_tests": [
+        "GnOuGo.Flow.Integrations.Tests.WorkflowPlanningPersistenceTests.NewDefaultDoesNotReintroduceAnEightCallBudget",
+        "GnOuGo.Flow.Integrations.Tests.WorkflowPlanningPersistenceTests.RuntimeResumeRetainsOmittedDefaultsButRejectsExplicitChanges"
+      ],
+      "observed_failed_test_invocations": 2,
+      "reported_project_test_summaries": [
+        {
+          "assembly": "GnOuGo.Flow.Integrations.Tests.dll",
+          "failed": 2,
+          "passed": 0,
+          "skipped": 0,
+          "total": 2
+        }
+      ]
+    },
+    {
+      "source_log": "gnougo-judge-resume-green.log",
+      "sha256": "759e641f0812986f539fe6ead456905925900a5f10eec0377119e359068ccc73",
+      "bytes": 2656,
+      "result": "failed",
+      "classification": "fixture_checkpoint",
+      "reason": "The budget ceiling regression still read a zero persisted usage snapshot before the fixture checkpoint; the other resume regression passed.",
+      "exit_code": null,
+      "failed_tests": [
+        "GnOuGo.Flow.Integrations.Tests.WorkflowPlanningPersistenceTests.NewDefaultDoesNotReintroduceAnEightCallBudget"
+      ],
+      "observed_failed_test_invocations": 1,
+      "reported_project_test_summaries": [
+        {
+          "assembly": "GnOuGo.Flow.Integrations.Tests.dll",
+          "failed": 1,
+          "passed": 1,
+          "skipped": 0,
+          "total": 2
+        }
+      ]
+    },
+    {
+      "source_log": "gnougo-judge-review-red.log",
+      "sha256": "0d8c8a0d9401c69a599f09b64737ac936060a0143a9d3f8a56101acfd19acca4",
+      "bytes": 4878,
+      "result": "failed",
+      "classification": "regression_red",
+      "reason": "Optional Judge behavior had not been implemented: review outcomes, bounded accounting and invalid-reference handling did not match the new regressions.",
+      "exit_code": null,
+      "failed_tests": [
+        "GnOuGo.Flow.Planning.Tests.PlanningBusinessJudgeTests.ExhaustedAllowanceRecordsSkippedJudgeWithoutAnotherCall",
+        "GnOuGo.Flow.Planning.Tests.PlanningBusinessJudgeTests.InvalidJudgeResponseDoesNotBecomeAPlanRepair",
+        "GnOuGo.Flow.Planning.Tests.PlanningBusinessJudgeTests.ObservationsNeverGrantEditAuthority",
+        "GnOuGo.Flow.Planning.Tests.PlanningBusinessJudgeTests.OptionalJudgeSharesCallsAndNeverCertifiesBusinessCorrectness"
+      ],
+      "observed_failed_test_invocations": 5,
+      "reported_project_test_summaries": [
+        {
+          "assembly": "GnOuGo.Flow.Planning.Tests.dll",
+          "failed": 5,
+          "passed": 1,
+          "skipped": 0,
+          "total": 6
+        }
+      ]
+    },
+    {
+      "source_log": "gnougo-judge-review-green.log",
+      "sha256": "e1b41ac6844e3e6ace976f67c4f2321e224918fe4c235b5a434f6b3e2b3b1128",
+      "bytes": 1873,
+      "result": "failed",
+      "classification": "build_validation",
+      "reason": "Six tests passed, but warning-as-error validation reported IL2026 and IL3050 for the generic JsonArray.Add overload. This is not a successful validation attempt.",
+      "exit_code": null,
+      "failed_tests": [],
+      "observed_failed_test_invocations": 0,
+      "compiler_error_codes": [
+        "IL2026",
+        "IL3050"
+      ],
+      "reported_project_test_summaries": [
+        {
+          "assembly": "GnOuGo.Flow.Planning.Tests.dll",
+          "failed": 0,
+          "passed": 6,
+          "skipped": 0,
+          "total": 6
+        }
+      ]
+    },
+    {
+      "source_log": "gnougo-judge-output-red.log",
+      "sha256": "d3c0d58a502ded42263de704f6ed23e43dabc0902534b43df7eae9effedf77be",
+      "bytes": 1655,
+      "result": "failed",
+      "classification": "regression_red",
+      "reason": "The strict output-reservation regression expected rejection but the sanitizer silently clamped the requested output limit.",
+      "exit_code": null,
+      "failed_tests": [
+        "GnOuGo.AI.Core.Tests.ModelMetadataCatalogTests.RequiredBudgetRequestDoesNotSilentlyChangeItsOutputReservation"
+      ],
+      "observed_failed_test_invocations": 1,
+      "reported_project_test_summaries": [
+        {
+          "assembly": "GnOuGo.AI.Core.Tests.dll",
+          "failed": 1,
+          "passed": 0,
+          "skipped": 0,
+          "total": 1
+        }
+      ]
+    },
+    {
+      "source_log": "gnougo-judge-ui-red.log",
+      "sha256": "6399713c5edf1d0fc44652fd2598ce453ea398e920ac3573a914d9bb6ae3e36c",
+      "bytes": 8132,
+      "result": "failed",
+      "classification": "regression_red",
+      "reason": "The separate escaped Judge-observation display was not yet present.",
+      "exit_code": null,
+      "failed_tests": [
+        "GnOuGo.Agent.Server.Tests.PlannerChoiceUiTests.JudgeObservationsAreSeparateEscapedAndDoNotAcknowledgeRequirements"
+      ],
+      "observed_failed_test_invocations": 1,
+      "reported_project_test_summaries": [
+        {
+          "assembly": "GnOuGo.Agent.Server.Tests.dll",
+          "failed": 1,
+          "passed": 0,
+          "skipped": 0,
+          "total": 1
+        }
+      ]
+    },
+    {
+      "source_log": "gnougo-judge-whole-red.log",
+      "sha256": "1450a7f5d60655461c24b968dec8d335aec97069a48c343e4e362d8538920cf2",
+      "bytes": 1323,
+      "result": "failed",
+      "classification": "regression_red",
+      "reason": "Whole-extraction requests did not yet set the required output-reservation and transport-retry controls.",
+      "exit_code": null,
+      "failed_tests": [
+        "GnOuGo.Flow.Tests.Runtime.DynamicMappingTests.WholeExtractionReservesOutputAndDisablesHiddenTransportRetries"
+      ],
+      "observed_failed_test_invocations": 1,
+      "reported_project_test_summaries": [
+        {
+          "assembly": "GnOuGo.Flow.Tests.dll",
+          "failed": 1,
+          "passed": 2,
+          "skipped": 0,
+          "total": 3
+        }
+      ]
+    },
+    {
+      "source_log": "gnougo-judge-benchmark-red.log",
+      "sha256": "cb07d8f5ba9fc5706a87404e08afae35c7c73cc83e3a598f40de6a14e3f32fe2",
+      "bytes": 2621,
+      "result": "failed",
+      "classification": "regression_red",
+      "reason": "Convergence used the last unique candidate instead of the current candidate, and an inconclusive Judge result retained an earlier zero-finding count.",
+      "exit_code": null,
+      "failed_tests": [
+        "GnOuGo.Flow.Planning.Tests.BenchmarkMeasurementTests.InconclusiveJudgeCannotKeepAnEarlierZeroFindingCount",
+        "GnOuGo.Flow.Planning.Tests.BenchmarkMeasurementTests.ReturningToAnEarlierCandidateUsesItsOracleAndRetainsTheRegression"
+      ],
+      "observed_failed_test_invocations": 2,
+      "reported_project_test_summaries": [
+        {
+          "assembly": "GnOuGo.Flow.Planning.Tests.dll",
+          "failed": 2,
+          "passed": 33,
+          "skipped": 0,
+          "total": 35
+        }
+      ]
+    },
+    {
+      "source_log": "gnougo-judge-benchmark-green.log",
+      "sha256": "5f97567a3412c954efade224d9847a2effdf53dd9981cd41a56906a7de3a06a5",
+      "bytes": 4717,
+      "result": "failed",
+      "classification": "concurrent_implementation_build",
+      "reason": "Compilation encountered the new readiness-test source before its validator and array argument syntax were complete; the benchmark tests did not run in this attempt.",
+      "exit_code": null,
+      "failed_tests": [],
+      "observed_failed_test_invocations": 0,
+      "compiler_error_codes": [
+        "CS0103",
+        "CS8752"
+      ]
+    },
+    {
+      "source_log": "gnougo-judge-audit-tests.log",
+      "sha256": "4c546065dece24c6429fd2a472a60ede312462806ee7b97e3b27cb299fd1573d",
+      "bytes": 2060,
+      "result": "incomplete",
+      "classification": "test_host_environment",
+      "reason": "The test host could not bind its local communication socket in the sandbox; the run was aborted before test execution.",
+      "exit_code": null,
+      "failed_tests": [],
+      "observed_failed_test_invocations": 0
+    },
+    {
+      "source_log": "gnougo-judge-focused2.log",
+      "sha256": "37681e2e68dc9efe5c5a4e4ffd344d49b799ab9b535fcb945b576d781be077de",
+      "bytes": 1551,
+      "result": "failed",
+      "classification": "fixture_expectation",
+      "reason": "The scoped Judge correction fixture expected six calls but measured five; the exact count assertion did not account for reuse of an unchanged review.",
+      "exit_code": null,
+      "failed_tests": [
+        "GnOuGo.Flow.Planning.Tests.PlanningBusinessJudgeTests.ExplicitScopeAllowsJudgeGuidedCorrectionAndFullRevalidation"
+      ],
+      "observed_failed_test_invocations": 1,
+      "reported_project_test_summaries": [
+        {
+          "assembly": "GnOuGo.Flow.Planning.Tests.dll",
+          "failed": 1,
+          "passed": 71,
+          "skipped": 0,
+          "total": 72
+        }
+      ]
+    },
+    {
+      "source_log": "gnougo-judge-flow-pass1.log",
+      "sha256": "96f604ba312bb8f1cd7ebdcd29286b2a62a1f9c35c3abe658fd476bee00c3022",
+      "bytes": 2562,
+      "result": "failed",
+      "classification": "fixture_capabilities",
+      "reason": "The workflow-route mapping fixture lacked declared model capabilities and was refused before dispatch.",
+      "exit_code": null,
+      "failed_tests": [
+        "GnOuGo.Flow.Tests.Runtime.WorkflowRouteExecutorTests.SequentialRoutesReuseMappingStateAndKeepTheParentDocument"
+      ],
+      "observed_failed_test_invocations": 1,
+      "reported_project_test_summaries": [
+        {
+          "assembly": "GnOuGo.Flow.Tests.dll",
+          "failed": 1,
+          "passed": 1406,
+          "skipped": 0,
+          "total": 1407
+        }
+      ]
+    },
+    {
+      "source_log": "gnougo-judge-integrations-pass1.log",
+      "sha256": "7e174104ae40cb93d10407c6c0b89238dc03aebe6156b021ee8287e48212e378",
+      "bytes": 9759,
+      "result": "failed",
+      "classification": "fixture_capabilities",
+      "reason": "Approval and clarification integration fixtures stopped under the new fail-closed admission policy because their model doubles lacked the required declared capabilities.",
+      "exit_code": null,
+      "failed_tests": [
+        "GnOuGo.Flow.Integrations.Tests.ApprovedExecutionTests.PlanExecuteAndRestartUseStoredApprovalWithoutAnotherModelCall",
+        "GnOuGo.Flow.Integrations.Tests.PlanningClarificationExecutionTests.HostWithoutHumanProviderReturnsWaitingSessionWithoutExecution",
+        "GnOuGo.Flow.Integrations.Tests.PlanningClarificationExecutionTests.RealWorkflowPausesAnswersReviewsExecutesAndRestarts"
+      ],
+      "observed_failed_test_invocations": 9,
+      "reported_project_test_summaries": [
+        {
+          "assembly": "GnOuGo.Flow.Integrations.Tests.dll",
+          "failed": 9,
+          "passed": 92,
+          "skipped": 0,
+          "total": 101
+        }
+      ]
+    },
+    {
+      "source_log": "gnougo-judge-host-focused.log",
+      "sha256": "acfa838e4ae2c1afed2ce39b9000764acd266d54dfbf075739857568d0fb1721",
+      "bytes": 12553,
+      "result": "failed",
+      "classification": "fixture_defaults",
+      "reason": "Historical exhaustion and saved-generation fixtures still relied on creation defaults; the increased fresh defaults invalidated those fixture assumptions.",
+      "exit_code": null,
+      "failed_tests": [
+        "GnOuGo.Agent.Server.Tests.PlanningModelRecoveryTests.RecoveryCannotReplenishAnExhaustedBudget",
+        "GnOuGo.Agent.Server.Tests.PlanningSessionLifecycleTests.DesignerDefaultAndOverrideApplyOnlyToNewSessions",
+        "GnOuGo.Agent.Server.Tests.PlanningSessionLifecycleTests.ExhaustedRecoveryCommandsDoNotWriteAnotherRevision"
+      ],
+      "observed_failed_test_invocations": 5,
+      "reported_project_test_summaries": [
+        {
+          "assembly": "GnOuGo.Agent.Server.Tests.dll",
+          "failed": 5,
+          "passed": 55,
+          "skipped": 0,
+          "total": 60
+        }
+      ]
+    },
+    {
+      "source_log": "gnougo-judge-planning-pass1.log",
+      "sha256": "bc445edfa1ff3e44b91537cc18fe80268bb0ca9a573d8850ee1008e47705f303",
+      "bytes": 10716,
+      "result": "failed",
+      "classification": "component_validation",
+      "reason": "Input-budget fixture assumptions and extraction model doubles were not yet aligned with full-request measurement and declared-capability admission.",
+      "exit_code": null,
+      "failed_tests": [
+        "GnOuGo.Flow.Planning.Tests.ContractClosureTests.OpaqueResultsUseDeferredChecksAndCannotInventMissingData",
+        "GnOuGo.Flow.Planning.Tests.DynamicMappingCompilationTests.ExtractionIsBusinessIntentAndOnlyOpaqueAdaptationInvokesModel",
+        "GnOuGo.Flow.Planning.Tests.MappingStatusCompositionTests.ExplicitRevisionSeparatesFactsAndProducerOutcomeWithNoStatusInference",
+        "GnOuGo.Flow.Planning.Tests.PlanningInputBudgetTests.MandatoryContextStopsBeforeThirdDispatchAndExplicitResumeRetainsAccounting"
+      ],
+      "observed_failed_test_invocations": 11,
+      "reported_project_test_summaries": [
+        {
+          "assembly": "GnOuGo.Flow.Planning.Tests.dll",
+          "failed": 11,
+          "passed": 1619,
+          "skipped": 0,
+          "total": 1630
+        }
+      ]
+    },
+    {
+      "source_log": "gnougo-judge-planning-pass2.log",
+      "sha256": "dd07940bbf6b223d08e7a281cedc1ec6ffc8bfe30d608e1dd2e84210b644a0a7",
+      "bytes": 5160,
+      "result": "failed",
+      "classification": "component_validation",
+      "reason": "Discovery packing fixtures still used previous estimates or saved input allowances; some complete requests exceeded those allowances and stopped before dispatch.",
+      "exit_code": null,
+      "failed_tests": [
+        "GnOuGo.Flow.Planning.Tests.CompactDiscoveryContextTests.FreshShortlistResolvesOnlyAdmittedContractsAndRecoveryKeepsTheIssuedRequest",
+        "GnOuGo.Flow.Planning.Tests.CompactDiscoveryContextTests.RefinedQueriesAreRetainedAndNormalizedDuplicatesNeverReadPages",
+        "GnOuGo.Flow.Planning.Tests.DynamicDiscoveryTests.MandatoryContextAboveTheSoftTargetStillUsesTheSavedHardAllowance",
+        "GnOuGo.Flow.Planning.Tests.RecordedBudgetDiscoveryTests.TenRecordedMcpContractsReachReviewAfterSixScriptedDiscoveryCalls",
+        "GnOuGo.Flow.Planning.Tests.RecordedTargetedDiscoveryTests.FullRetainedCatalogKeepsRequestedReviewContractsVisibleWithinSevenCalls"
+      ],
+      "observed_failed_test_invocations": 5,
+      "reported_project_test_summaries": [
+        {
+          "assembly": "GnOuGo.Flow.Planning.Tests.dll",
+          "failed": 5,
+          "passed": 1629,
+          "skipped": 0,
+          "total": 1634
+        }
+      ]
+    },
+    {
+      "source_log": "gnougo-judge-planning-pass3.log",
+      "sha256": "78f9d45bf23c566f12eeb025cf45d7cab09bf5099d443ca3b1952a0ac2fce009",
+      "bytes": 3444,
+      "result": "failed",
+      "classification": "fixture_measurement",
+      "reason": "Two discovery assertions still used earlier prompt or soft-target assumptions after complete serialized-request measurement changed admission.",
+      "exit_code": null,
+      "failed_tests": [
+        "GnOuGo.Flow.Planning.Tests.CompactDiscoveryContextTests.CachedUnselectedSchemasStayOutOfThePromptWithoutChangingReceipts",
+        "GnOuGo.Flow.Planning.Tests.RecordedBudgetDiscoveryTests.TenRecordedMcpContractsReachReviewAfterSixScriptedDiscoveryCalls"
+      ],
+      "observed_failed_test_invocations": 2,
+      "reported_project_test_summaries": [
+        {
+          "assembly": "GnOuGo.Flow.Planning.Tests.dll",
+          "failed": 2,
+          "passed": 1632,
+          "skipped": 0,
+          "total": 1634
+        }
+      ]
+    },
+    {
+      "source_log": "gnougo-judge-planning-final.log",
+      "sha256": "f1853024f0db4388822c1584ec6fa3b6de1bb969b6e689597827c906dc3f0dda",
+      "bytes": 2591,
+      "result": "failed",
+      "classification": "stale_fixture",
+      "reason": "The retained enum fixture assumed an optional capability always occupied a fixed presentation location; its Single lookup found no match after admission changed presentation.",
+      "exit_code": null,
+      "failed_tests": [
+        "GnOuGo.Flow.Planning.Tests.RecordedEnumContextTests.AllRetainedRequestsExposeDomainsWithinSavedLimitsWithoutMetadataReads"
+      ],
+      "observed_failed_test_invocations": 1,
+      "reported_project_test_summaries": [
+        {
+          "assembly": "GnOuGo.Flow.Planning.Tests.dll",
+          "failed": 1,
+          "passed": 1667,
+          "skipped": 0,
+          "total": 1668
+        }
+      ]
+    },
+    {
+      "source_log": "gnougo-judge-enum-final.log",
+      "sha256": "1231e043d79f1fdef3584eadbefd6e3e5ba1094f80f10191f225d62504e90595",
+      "bytes": 2897,
+      "result": "failed",
+      "classification": "stale_fixture",
+      "reason": "The first enum-fixture adjustment still assumed an optional domain would be present rather than explicitly omitted by admission; its lookup again found no match.",
+      "exit_code": null,
+      "failed_tests": [
+        "GnOuGo.Flow.Planning.Tests.RecordedEnumContextTests.AllRetainedRequestsExposeDomainsWithinSavedLimitsWithoutMetadataReads"
+      ],
+      "observed_failed_test_invocations": 1,
+      "reported_project_test_summaries": [
+        {
+          "assembly": "GnOuGo.Flow.Planning.Tests.dll",
+          "failed": 1,
+          "passed": 0,
+          "skipped": 0,
+          "total": 1
+        }
+      ]
+    },
+    {
+      "source_log": "gnougo-judge-solution.log",
+      "sha256": "7ce352d6cdd37c5cfd82d46883449de5216cc0110e99fa721c0701df6bfc0f1b",
+      "bytes": 33667,
+      "result": "incomplete",
+      "classification": "serial_suite_aborted",
+      "reason": "The initial serial solution run was cancelled after observed host failures involving stale defaults, missing fixture capabilities and complete-request input limits. Completed project summaries do not establish a solution pass.",
+      "exit_code": null,
+      "failed_tests": [
+        "GnOuGo.Agent.Server.Tests.BenchmarkAdmissionTests.VerifiedFailurePersistsAndCleansUpWithoutRetry",
+        "GnOuGo.Agent.Server.Tests.CodeReviewCompositionTests.ObservedUrlFactsAndProducerRevisionDriveOneExactLocalClone",
+        "GnOuGo.Agent.Server.Tests.PlanningDiscoveryInspectionTests.DesignerDisplaysIssuedHistoryAndCopiesOnlySanitizedMetadataWithoutDispatch",
+        "GnOuGo.Agent.Server.Tests.PlanningTraceUiTests.CallBudgetStopShowsTheCeilingAndDisablesIneffectiveRecovery",
+        "GnOuGo.Agent.Server.Tests.PlanningTraceUiTests.InputBudgetStopOffersExplicitSettingsContinuation",
+        "GnOuGo.Agent.Server.Tests.SharedWorkspaceExecutionTests.LocalLifecycleSliceUsesExactApprovedPathAndRealCleanup"
+      ],
+      "observed_failed_test_invocations": 18,
+      "reported_project_test_summaries": [
+        {
+          "assembly": "GnOuGo.DocIngestor.Tests.dll",
+          "failed": 0,
+          "passed": 89,
+          "skipped": 0,
+          "total": 89
+        },
+        {
+          "assembly": "GnOuGo.Diff.Tests.dll",
+          "failed": 0,
+          "passed": 52,
+          "skipped": 0,
+          "total": 52
+        },
+        {
+          "assembly": "GnOuGo.KeyVault.Core.Tests.dll",
+          "failed": 0,
+          "passed": 12,
+          "skipped": 0,
+          "total": 12
+        },
+        {
+          "assembly": "GnOuGo.Flow.Tests.dll",
+          "failed": 0,
+          "passed": 1410,
+          "skipped": 0,
+          "total": 1410
+        },
+        {
+          "assembly": "GnOuGo.Flow.Integrations.Tests.dll",
+          "failed": 0,
+          "passed": 101,
+          "skipped": 0,
+          "total": 101
+        },
+        {
+          "assembly": "GnOuGo.AI.Core.Tests.dll",
+          "failed": 0,
+          "passed": 226,
+          "skipped": 0,
+          "total": 226
+        },
+        {
+          "assembly": "GnOuGo.AI.Local.Tests.dll",
+          "failed": 0,
+          "passed": 14,
+          "skipped": 0,
+          "total": 14
+        },
+        {
+          "assembly": "GnOuGo.Agent.Mcp.Tests.dll",
+          "failed": 0,
+          "passed": 103,
+          "skipped": 0,
+          "total": 103
+        },
+        {
+          "assembly": "GnOuGo.Cmd.Mcp.Tests.dll",
+          "failed": 0,
+          "passed": 93,
+          "skipped": 7,
+          "total": 100
+        },
+        {
+          "assembly": "GnOuGo.Browser.Mcp.Tests.dll",
+          "failed": 0,
+          "passed": 142,
+          "skipped": 0,
+          "total": 142
+        }
+      ]
+    },
+    {
+      "source_log": "gnougo-judge-server-publish.log",
+      "sha256": "b20b88ac8d0a7f9d9bad447069f3aefd8533c866480eb49cfeda56062f1c0c98",
+      "bytes": 4365,
+      "result": "failed",
+      "classification": "publish_configuration",
+      "reason": "The initial self-contained server publish referenced non-self-contained executable projects and failed with NETSDK1150.",
+      "exit_code": null,
+      "failed_tests": [],
+      "observed_failed_test_invocations": 0,
+      "compiler_error_codes": [
+        "NETSDK1150"
+      ]
+    },
+    {
+      "source_log": "gnougo-judge-smoke-red.log",
+      "sha256": "7b35f6b49c375089ae94a217fb3c1d25ab630cdfd0fbb7728e203b09296525df",
+      "bytes": 1533,
+      "result": "failed",
+      "classification": "smoke_invocation",
+      "reason": "The managed smoke launch attempted to use the dotnet host itself as the numeric MCP child executable without an assembly argument; the child exited before the decimal-boundary check.",
+      "exit_code": null,
+      "failed_tests": [],
+      "observed_failed_test_invocations": 0
+    },
+    {
+      "source_log": "gnougo-judge-aot-red.log",
+      "sha256": "e7d4a1a959135494c5a26aaef77f3bc7c6f98e83823fdebd3e31d6a068ef93ee",
+      "bytes": 2641,
+      "result": "failed",
+      "classification": "smoke_fixture",
+      "reason": "The Native AOT smoke reached the closed-discovery assertion, whose fixture still implicitly used fresh call defaults instead of its historical eight-call boundary.",
+      "exit_code": null,
+      "failed_tests": [],
+      "observed_failed_test_invocations": 0
+    },
+    {
+      "source_log": "gnougo-judge-published-recovery.log",
+      "sha256": "1e10e0576387e64125de361b06c284795af9bb431fbb65ca3dfbb3ed34433b5f",
+      "bytes": 497,
+      "result": "failed",
+      "classification": "published_smoke",
+      "reason": "The new encrypted Judge receipt-recovery smoke failed its aggregate accounting/recovery invariant. This log does not identify the individual failed subcheck.",
+      "exit_code": null,
+      "failed_tests": [],
+      "observed_failed_test_invocations": 0
+    },
+    {
+      "source_log": "gnougo-judge-solution-final.log",
+      "sha256": "3c9897a1fba3c7fd5251aed7139d423b42b8fd18e26caad345022516bfca4a21",
+      "bytes": 402168,
+      "result": "incomplete",
+      "classification": "superseded_serial_suite",
+      "reason": "The coordinator stopped this superseded serial suite with SIGINT after identifying a separate SDK admission defect: an explicitly supplied model capability resolver was ignored when engine.LLMClient was null. No test failure was observed before cancellation, but the solution suite did not complete.",
+      "exit_code": 1,
+      "exit_code_source": "Coordinator-reported SIGINT termination; the log itself records cancellation, not the process exit code.",
+      "failed_tests": [],
+      "observed_failed_test_invocations": 0,
+      "reported_project_test_summaries": []
+    },
+    {
+      "source_log": "gnougo-runtime-admission-red.log",
+      "sha256": "d3162482e5916738e882c846d814f85400f9d25a8e0625cad11bbefcff452411",
+      "bytes": 3848,
+      "result": "failed",
+      "classification": "regression_red",
+      "reason": "The SDK admission path ignored the explicitly supplied model resolver: it reported missing capabilities when the engine client was absent, and used another engine client's incompatible Structured Output declaration when present.",
+      "exit_code": null,
+      "failed_tests": [
+        "GnOuGo.Flow.Planning.Tests.WorkflowPlanningRuntimeAdmissionTests.SuppliedModelProvidesCapabilitiesBeforeTheEngineClient"
+      ],
+      "observed_failed_test_invocations": 2,
+      "reported_project_test_summaries": [
+        {
+          "assembly": "GnOuGo.Flow.Planning.Tests.dll",
+          "failed": 2,
+          "passed": 2,
+          "skipped": 0,
+          "total": 4
+        }
+      ]
+    },
+    {
+      "source_log": "gnougo-judge-benchmark-sandbox-build.log",
+      "sha256": "82369bc041dc25c01e806d7a52534d00e3b2aa1c5e36e59f15b2eb03b278fa8d",
+      "bytes": 840,
+      "result": "incomplete",
+      "classification": "sandbox_build_interrupted",
+      "reason": "The sandboxed final benchmark build made slow dependency-compilation progress and was interrupted before completion, then restarted with approved escalation and shared compilation disabled. The retained log contains no completed build verdict.",
+      "exit_code": 1,
+      "exit_code_source": "Observed write_stdin result after interrupting this build.",
+      "failed_tests": [],
+      "observed_failed_test_invocations": 0
+    },
+    {
+      "source_log": "gnougo-judge-solution-delivery.log",
+      "sha256": "561fca623e52754a30e1829f51e7a8f1f8bd16967a2161f3aab03fcebff088b3",
+      "bytes": 969794,
+      "result": "failed",
+      "classification": "serial_suite_failed_and_host_aborted",
+      "reason": "The serial suite reported 12 failing host-test invocations: completed benchmark receipt recovery incorrectly requested current provider metadata, and other fixtures relied on historical defaults or lacked explicit model metadata. The host then stalled in a live-bridge fixture after an invalid planning status, so the coordinator terminated that test host and allowed the remaining projects to complete. The 228 LocalProduct fixture cases passed before the failures; this does not make the interrupted host suite complete.",
+      "exit_code": 1,
+      "exit_code_source": "Coordinator-reported completed solution process exit code; the host test process was explicitly terminated.",
+      "failed_tests": [
+        "GnOuGo.Agent.Server.Tests.AutomaticFailureRevisionTests.FailedExecutionGetsOneUnapprovedDraftWithExactAcceptedRequirementsAndNoSave",
+        "GnOuGo.Agent.Server.Tests.BenchmarkCampaignTests.CampaignAdmissionFailureAllowsDurableCleanupWithoutInference",
+        "GnOuGo.Agent.Server.Tests.BenchmarkCampaignTests.InterruptedRecoveryPublicationLeavesOriginalReceiptAvailableWithoutDuplicateCharging",
+        "GnOuGo.Agent.Server.Tests.BenchmarkCampaignTests.OfflineReplayKeepsOriginalSchemaAndNeverWritesCampaignRecords",
+        "GnOuGo.Agent.Server.Tests.BenchmarkCampaignTests.PendingReceiptRecoveryCommitsOnceWithoutChangingFrozenEvidenceOrAccounting",
+        "GnOuGo.Agent.Server.Tests.BenchmarkCampaignTests.ValidPendingReceiptReachesReviewWithoutApprovingOrExecuting",
+        "GnOuGo.Agent.Server.Tests.ChatPlanningChoiceTests.DesignerDecisionAndAnswerRoundTripThroughEncryptedEfIndex",
+        "GnOuGo.Agent.Server.Tests.ChatPlanningChoiceTests.EarlyClarificationSurvivesEncryptedRestartAndHttpAnswer",
+        "GnOuGo.Agent.Server.Tests.CopilotAttachmentPlanningTests.RealContractsRejectContextObjectsAndAcceptExplicitPromptBindings"
+      ],
+      "observed_failed_test_invocations": 12
+    },
+    {
+      "source_log": "gnougo-judge-host-after-fixtures.log",
+      "sha256": "bef52bf1ecc35b9bf226ba6ddd5893b8e1f492b654771849e5902f15e832e44f",
+      "bytes": 231899,
+      "result": "failed",
+      "classification": "focused_host_suite_failed_and_aborted",
+      "reason": "The host suite excluding the previously passing LocalProduct class reported eight compact RecordedProduct fixture failures and one automatic MappingFailureIsolation fixture failure. The mapping fixture lacked declared model capabilities, so admission stopped before the intended two script calls; its manual variant then waited for a revision question that was never created. The coordinator terminated the stalled test host. This run did not complete the host suite.",
+      "exit_code": 1,
+      "exit_code_source": "Coordinator-reported completed host-test command exit code after explicit test-host termination.",
+      "failed_tests": [
+        "GnOuGo.Agent.Server.Tests.MappingFailureIsolationTests.MappingFailureLeavesHttpAndRevisionInteractionAliveAndDoesNotRepeatCommittedWork",
+        "GnOuGo.Agent.Server.Tests.RecordedProductPlanningTests.CapturedOrSyntheticPlanBindsProductQueriesAndWritesActualXlsx"
+      ],
+      "observed_failed_test_invocations": 9
+    },
+    {
+      "source_log": "gnougo-judge-recorded-mapping-diagnostic.log",
+      "sha256": "96f3c20fa6f34cb8c74c7189fc50cdb4f41daad74b0b446d243d9c84b1423c4e",
+      "bytes": 117577,
+      "result": "failed",
+      "classification": "focused_fixture_schema",
+      "reason": "All four MappingFailureIsolation tests passed after the fixture declared model capabilities. Eight compact RecordedProduct invocations still failed when the scripted plan could not be represented by the issued Structured Output schema; no provider call was involved.",
+      "exit_code": 1,
+      "exit_code_source": "Coordinator-reported completed focused test command.",
+      "failed_tests": [
+        "GnOuGo.Agent.Server.Tests.RecordedProductPlanningTests.CapturedOrSyntheticPlanBindsProductQueriesAndWritesActualXlsx"
+      ],
+      "observed_failed_test_invocations": 8,
+      "reported_project_test_summaries": [
+        {
+          "assembly": "GnOuGo.Agent.Server.Tests.dll",
+          "failed": 8,
+          "passed": 14,
+          "skipped": 0,
+          "total": 22
+        }
+      ]
+    }
+  ]
+}

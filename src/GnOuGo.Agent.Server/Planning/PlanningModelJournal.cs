@@ -15,7 +15,8 @@ namespace GnOuGo.Agent.Server.Planning;
 /// <summary>Durable request receipts prevent replaying completed model work after a crash.</summary>
 internal sealed class PlanningModelJournal(
     ILLMClient inner, IDbContextFactory<PlanningDbContext> contexts, IKeyVaultRecordStore records,
-    string tenantId, string sessionId, LLMUsageBudgetScope budget, IModelUsageCostEstimator estimator, PlanningGenerationOptions? generation = null) : ILLMClient
+    string tenantId, string sessionId, LLMUsageBudgetScope budget, IModelUsageCostEstimator estimator, PlanningGenerationOptions? generation = null,
+    ILLMCapabilityResolver? capabilities = null) : ILLMClient, IModelAdmissionOwner
 {
     internal const string Collection = "agent-planning-model-receipts-v10";
     internal const string RequestCollection = "agent-planning-model-requests-v10";
@@ -52,6 +53,8 @@ internal sealed class PlanningModelJournal(
             Activity.Current?.SetTag("gnougo.llm.status", "replayed");
             return completed;
         }
+        await ModelRequestAdmission.ValidateAsync(request, capabilities ?? inner as ILLMCapabilityResolver,
+            generation?.MaxInputTokensPerRequest ?? 32_000, "planning", ct);
         var row = new PlanningCallIndex { TenantId = tenantId, SessionId = sessionId, RequestHash = key, PayloadKey = sessionId + ":" + key };
         db.Calls.Add(row);
         try { await db.SaveChangesAsync(ct); }

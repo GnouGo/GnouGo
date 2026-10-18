@@ -1,0 +1,41 @@
+{
+  "campaign": "schema-portability-20261002",
+  "reserved_requests": 1130,
+  "completed_receipts": 1124,
+  "uncertain_requests": [
+    "6b422b3309452034064139085764b180a678c895b55e9cfaac23969ee1aae825:1:d4655febf14d355a028fd90fb940061d694c4b485c78b57cdc5e148180837a91",
+    "exactdescriptions20261013a-amazon-1:3:c7bdf5d19bfb4cf07ea29533b8849be83d36e596de5f6c8c4e16f0080358d333",
+    "gluev420261008b-amazon-1:8:26c2e690e30bf67f6766c07acf36960302e08ceb65c2a1a0a11ad5a5dc0652e7",
+    "observations1-mapping:1:observations1-mapping-plan:1:dbfe9974cd61088546ba1b389abf828515fb805417762f5e49be28f4154ed0d3",
+    "schema-diagnostic:1:7dff37f9c9780e6b7a24ff13d47e7c80adb3572fa0fadc7b479cf7ade021e0bd",
+    "typedcomposition20261011a-amazon-1:3:4f57c0c25e0fa45a013fd0651aac7b29c981da42a2291458942dcaa89da32370"
+  ],
+  "retained_inconclusive_requests": [
+    "6b422b3309452034064139085764b180a678c895b55e9cfaac23969ee1aae825:1:d4655febf14d355a028fd90fb940061d694c4b485c78b57cdc5e148180837a91",
+    "exactdescriptions20261013a-amazon-1:3:c7bdf5d19bfb4cf07ea29533b8849be83d36e596de5f6c8c4e16f0080358d333",
+    "gluev420261008b-amazon-1:8:26c2e690e30bf67f6766c07acf36960302e08ceb65c2a1a0a11ad5a5dc0652e7",
+    "observations1-mapping:1:observations1-mapping-plan:1:dbfe9974cd61088546ba1b389abf828515fb805417762f5e49be28f4154ed0d3",
+    "schema-diagnostic:1:7dff37f9c9780e6b7a24ff13d47e7c80adb3572fa0fadc7b479cf7ade021e0bd",
+    "typedcomposition20261011a-amazon-1:3:4f57c0c25e0fa45a013fd0651aac7b29c981da42a2291458942dcaa89da32370"
+  ],
+  "transport_accounting": {
+    "calls": 1190,
+    "session_calls": 0,
+    "known_input_tokens": 16415801,
+    "known_output_tokens": 2462007,
+    "known_cost_eur": 138.73008382586045,
+    "reserved_input_tokens": 1622574,
+    "reserved_output_tokens": 524288,
+    "reserved_cost_eur": 21.239812341433254,
+    "cost_upper_bound_eur": 159.96989616729368,
+    "unknown_attempts": 16
+  },
+  "cost_ceiling_eur": 200,
+  "recorded_failures": 8,
+  "known_budget_cost": null,
+  "budget_currency": null,
+  "known_input_tokens": null,
+  "known_output_tokens": null,
+  "completion_receipts_complete": false,
+  "evidence_hash": "e2aa0e4c078eb52eb18aa05b8f5097e262280723adebea049ae6c6a8386d044a"
+}

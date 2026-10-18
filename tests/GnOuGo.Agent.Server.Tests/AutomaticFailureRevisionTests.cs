@@ -33,7 +33,8 @@ public sealed class AutomaticFailureRevisionTests
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
         var runtime = new WorkflowPlanningRuntime(new(), (_, _) => Task.CompletedTask);
-        var original = new PlanningSession { IntentVersion = 2, Request = new() { TenantId = "planning-tests", Name = "existing", Prompt = "Return exact data" },
+        var original = new PlanningSession { IntentVersion = 2, Request = new() { TenantId = "planning-tests", Name = "existing", Prompt = "Return exact data",
+                MaxModelCalls = 8, MaxReplanAttempts = 2, Generation = new("medium", 12000, 8192) },
             Requirements = PlanningCorpus.Requirements("local"), Plan = PlanningCorpus.LiteralResult(), Revision = 7, ModelCalls = 4, ReplanAttempts = 2,
             SavedAgentId = "saved", Status = PlanningStatus.Saved };
         original.Catalog = await runtime.DiscoverAsync(original.Request, Ct);
@@ -52,7 +53,9 @@ public sealed class AutomaticFailureRevisionTests
         Assert.Single(drafts.Select(d => d.Request.SessionId).Distinct());
         var draft = drafts[0];
         Assert.Null(draft.ApprovedHash); Assert.Equal(0, draft.ModelCalls); Assert.Equal(0, draft.ReplanAttempts);
-        Assert.Equal(8, draft.Request.MaxModelCalls); Assert.Equal(2, draft.Request.MaxReplanAttempts);
+        Assert.Equal(12, draft.Request.MaxModelCalls); Assert.Equal(4, draft.Request.MaxReplanAttempts);
+        Assert.Equal(32000, draft.Request.Generation.MaxInputTokensPerRequest); Assert.Equal(32768, draft.Request.Generation.MaxOutputTokens);
+        Assert.False(draft.Request.Options.ContainsKey("business_judge"));
         Assert.Equal(JsonSerializer.Serialize(original.Requirements, PlanningJsonContext.Default.PlanningRequirements), JsonSerializer.Serialize(draft.Requirements, PlanningJsonContext.Default.PlanningRequirements));
         Assert.Equal(JsonSerializer.Serialize(original.Plan, PlanningJsonContext.Default.TaskPlan), JsonSerializer.Serialize(draft.Request.Baseline, PlanningJsonContext.Default.TaskPlan));
         Assert.Equal(JsonSerializer.Serialize(original.Request.Policy, PlanningJsonContext.Default.PlanningPolicy), JsonSerializer.Serialize(draft.Request.Policy, PlanningJsonContext.Default.PlanningPolicy));

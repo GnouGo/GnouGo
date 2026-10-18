@@ -1,0 +1,12 @@
+{
+  "node_archive_sha256": "40e5607e5ecb3db9192723776da2d75d966260fc74a7a9e731c1bd67dda96bc8",
+  "official_checksum": "40e5607e5ecb3db9192723776da2d75d966260fc74a7a9e731c1bd67dda96bc8",
+  "versions": {
+    "node": "v24.20.0",
+    "pnpm": "10.34.5",
+    "python": "Python 3.11.13"
+  },
+  "path_sha256": "3aed7fa651a3f04d85ebbfe4c061c697f001d72d4cb8bfaf7afa16bcb2f718e7",
+  "archive_format": "node-v24.20.0-darwin-arm64.tar.gz",
+  "verification": "Downloaded exact official Node release and matched its official SHASUMS256; existing pnpm and Python versions verified locally."
+}

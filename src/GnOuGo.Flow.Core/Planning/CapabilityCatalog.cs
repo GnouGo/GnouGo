@@ -28,10 +28,15 @@ public sealed class CapabilityDiscoveryState
     public List<CapabilityPage> Pages { get; set; } = [];
     public List<PlanningCapability> Resolved { get; set; } = [];
     public List<string> Limitations { get; set; } = [];
+    /// <summary>Failed optional exact resolutions. Explicit inspection may retry; another version is independent.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public List<CapabilityResolutionFailure>? ResolutionFailures { get; set; }
     /// <summary>Per-source contract inspection selections, not execution authorization.</summary>
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public List<PlanningDiscoveryRequest>? Inspections { get; set; }
 }
+
+public sealed record CapabilityResolutionFailure(string Id, string Version);
 
 /// <summary>Reviewable goals, not a second executable program.</summary>
 public sealed class PlanningRequirements

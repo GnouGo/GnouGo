@@ -1,0 +1,64 @@
+{
+  "candidate_commit": "25dc994d45925054859cdb0874428dceb432b62f",
+  "production_source_unchanged": true,
+  "test_changes": "test-adjustments.json",
+  "steps": [
+    {
+      "step": "queued_compatibility_adjusted",
+      "arguments": [
+        "dotnet",
+        "test",
+        "tests/GnOuGo.Flow.Planning.Tests",
+        "-m:1",
+        "-warnaserror",
+        "-p:SkipModelMetadataGeneration=true",
+        "-p:SkipPlaywrightBrowserInstall=true",
+        "--filter",
+        "FullyQualifiedName~QueuedPlanningSessionCompatibilityTests"
+      ],
+      "cwd": "isolated candidate checkout",
+      "exit_code": 0,
+      "elapsed_ms": 13350,
+      "log": "queued_compatibility_adjusted.log",
+      "log_sha256": "3254bc8532d4b7e968308bd1c801a64bfab9460795228c1d59eb38ca6e91e036",
+      "counts": {
+        "failed": 0,
+        "passed": 4,
+        "skipped": 0,
+        "total": 4
+      }
+    },
+    {
+      "step": "business_composition_adjusted",
+      "arguments": [
+        "dotnet",
+        "test",
+        "tests/GnOuGo.Agent.Server.Tests",
+        "-m:1",
+        "-warnaserror",
+        "-p:SkipClientBuild=true",
+        "-p:SkipModelMetadataGeneration=true",
+        "-p:SkipPlaywrightBrowserInstall=true",
+        "--filter",
+        "FullyQualifiedName~BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions"
+      ],
+      "cwd": "isolated candidate checkout",
+      "exit_code": 0,
+      "elapsed_ms": 439772,
+      "log": "business_composition_adjusted.log",
+      "log_sha256": "65c13d7d49a11a4c3ff4ea3454ed399ea9759baa3b6ff22a3f9a703d2c5477f4",
+      "counts": {
+        "failed": 0,
+        "passed": 19,
+        "skipped": 0,
+        "total": 19
+      }
+    }
+  ],
+  "benchmark_release_files_verified_unchanged": 436,
+  "only_modified_paths": [
+    "tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.BusinessTasks.cs",
+    "tests/GnOuGo.Flow.Planning.Tests/QueuedPlanningSessionCompatibilityTests.cs"
+  ],
+  "test_only_commit": "2b20c8bd004d5a949041a33d16c2db82841ff7ef"
+}

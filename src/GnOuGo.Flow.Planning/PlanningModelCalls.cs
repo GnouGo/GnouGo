@@ -42,13 +42,17 @@ internal static class PlanningModelCalls
             if (violations.Count != 0) throw new WorkflowRuntimeException("MODEL_SCHEMA_INVALID",
                 "The response schema is outside the supported structured-output profile. Planning stopped before dispatch without consuming a model call or repair. " + string.Join("; ", violations),
                 details: new JsonObject { ["location"] = "/phases/" + purpose });
-            var inputTokens = PlanningJsonTransport.EstimateInputTokens(prompt, schema);
+            var hash = PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+            request.ClientRequestId = state.Request.SessionId + ":" + (state.ModelCalls + 1) + ":" + hash;
+            var inputTokens = ModelRequestAdmission.EstimateTokens(request);
             var inputLimit = state.Request.Generation.MaxInputTokensPerRequest;
             if (inputTokens > inputLimit)
                 throw new WorkflowRuntimeException("MODEL_INPUT_LIMIT", $"The conservative input estimate for the complete {purpose} request (prompt and response schema) is {inputTokens} tokens; the configured limit is {inputLimit}. Planning stopped before dispatch without consuming another model call or repair. Increase the input token limit in generation settings and explicitly resume planning; cumulative session budgets remain unchanged.",
-                    details: new JsonObject { ["location"] = "/phases/" + purpose });
-            var hash = PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
-            request.ClientRequestId = state.Request.SessionId + ":" + (++state.ModelCalls) + ":" + hash;
+                    details: new JsonObject { ["location"] = "/phases/" + purpose, ["limit_kind"] = "request_input_allowance",
+                        ["limit"] = inputLimit, ["current"] = inputTokens, ["measurement"] = "estimated_tokens", ["unit"] = "tokens",
+                        ["stage"] = purpose, ["dispatch_status"] = "not_started" });
+            if (runtime is WorkflowPlanningRuntime actual) await actual.AdmitAsync(request, inputLimit, purpose, ct);
+            state.ModelCalls++;
             if (purpose == "replan") state.ReplanAttempts++;
             state.PendingCall = new() { Id = request.ClientRequestId, Purpose = purpose, Request = request };
             await runtime.CheckpointAsync(state, ct);

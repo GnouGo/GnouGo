@@ -16,6 +16,8 @@ public static class LLMRequestSanitizer
     {
         requestPolicy ??= new LLMProviderRequestPolicyOptions();
         var maxOutputTokens = ResolveMaxOutputTokens(request.MaxOutputTokens, metadata, requestPolicy);
+        if (request.RequireOutputTokenLimit && request.MaxOutputTokens is > 0 && maxOutputTokens != request.MaxOutputTokens)
+            throw new InvalidOperationException("The configured model or provider cannot preserve the required output-token reservation. Select compatible settings before dispatch.");
         var sanitized = new LLMClientRequest
         {
             Provider = request.Provider,

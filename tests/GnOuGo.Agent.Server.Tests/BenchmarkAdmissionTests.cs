@@ -17,6 +17,43 @@ public sealed class BenchmarkAdmissionTests
         Models = { ["fixture"] = new() { Type = "openai" } } };
 
     [Theory]
+    [InlineData("execute", false)]
+    [InlineData("revise", true)]
+    public async Task ExplicitJudgeMismatchStopsBeforeReadinessOrTransport(string phase, bool enabled)
+    {
+        using var fixture = new Fixture();
+        var rates = new Rates(fixture.Time) { Defect = "network" };
+        var provider = new Provider(fixture.Campaign);
+        using var model = fixture.Model(rates, provider);
+        var retained = new JsonObject { ["session"] = new JsonObject { ["request"] = new JsonObject
+            { ["options"] = enabled ? new JsonObject { ["business_judge"] = true } : new JsonObject() } } };
+        await fixture.Campaign.SaveAsync(SchemaPortabilityCampaign.Collection, "run:frozen", retained, Ct);
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => LiveWorkflowEvaluation.RunAsync(
+            ["--case", "amazon", "--run", "frozen", enabled ? "--no-business-judge" : "--business-judge"],
+            phase, fixture.Campaign, model, fixture.Root));
+        Assert.Contains("judge", error.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(0, rates.Calls);
+        Assert.Equal(0, provider.Calls);
+        Assert.True(JsonNode.DeepEquals(retained, await fixture.Campaign.LoadAsync(SchemaPortabilityCampaign.Collection, "run:frozen", Ct)));
+        Assert.Equal(0L, (await BenchmarkHttpJournal.AccountingAsync(fixture.Campaign, ct: Ct))["calls"]!.GetValue<long>());
+    }
+
+    [Fact]
+    public async Task ConflictingJudgeSwitchesStopBeforeReadinessOrTransport()
+    {
+        using var fixture = new Fixture();
+        var rates = new Rates(fixture.Time) { Defect = "network" };
+        var provider = new Provider(fixture.Campaign);
+        using var model = fixture.Model(rates, provider);
+        await Assert.ThrowsAsync<ArgumentException>(() => LiveWorkflowEvaluation.RunAsync(
+            ["--case", "amazon", "--run", "fresh", "--business-judge", "--no-business-judge"],
+            "plan", fixture.Campaign, model, fixture.Root));
+        Assert.Equal(0, rates.Calls);
+        Assert.Equal(0, provider.Calls);
+        Assert.Null(await fixture.Campaign.LoadAsync(SchemaPortabilityCampaign.Collection, "run:fresh", Ct));
+    }
+
+    [Theory]
     [InlineData("missing-price")]
     [InlineData("missing-quote")]
     [InlineData("stale")]
@@ -263,8 +300,12 @@ public sealed class BenchmarkAdmissionTests
         internal bool Missing;
         public decimal? EstimateCost(string? model, long? inputTokens = null, long? outputTokens = null, string? providerType = null) => Missing ? null : .1m;
     }
-    private sealed class IdentifiedClient(KeyVaultBenchmarkModel model) : ILLMClient
+    private sealed class IdentifiedClient(KeyVaultBenchmarkModel model) : ILLMClient, ILLMCapabilityResolver
     {
+        public Task<int?> InputTokenAllowanceAsync(string? provider, string name, int outputTokens, CancellationToken ct) => model.InputTokenAllowanceAsync(provider, name, outputTokens, ct);
+        public Task<bool?> SupportsStructuredOutputAsync(string? provider, string name, CancellationToken ct) => model.SupportsStructuredOutputAsync(provider, name, ct);
+        public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string name, CancellationToken ct) => model.SupportedReasoningLevelsAsync(provider, name, ct);
+
         public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
         {
             request.ClientRequestId ??= "runtime:1";

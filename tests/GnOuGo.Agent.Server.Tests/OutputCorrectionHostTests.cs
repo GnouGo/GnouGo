@@ -21,7 +21,7 @@ public sealed class OutputCorrectionHostTests
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
         var client = new OutputClient(repeatInvalid, literal);
-        var expectedCalls = literal && repeatInvalid ? 3 : 2;
+        var expectedCalls = 2; // Fresh corrections stop a repeated unsuccessful candidate immediately.
         var agents = PlanningSessionLifecycleTests.AgentCatalog();
         PlanningSession result;
         using (var service = PlanningSessionLifecycleTests.Create(fixture, new HybridWorkflowPlanner(), agents, client))

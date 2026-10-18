@@ -27,13 +27,13 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                 Mode = input["planning_mode"]?.GetValue<string>() ?? ctx.Engine.DefaultPlanningMode,
                 TenantId = ctx.Limits.TenantId ?? "default", Name = input["name"]?.GetValue<string>() ?? "generated",
                 Prompt = input["raw_prompt"]?.GetValue<string>() ?? "", Options = options,
-                MaxReplanAttempts = input["max_replan_attempts"]?.GetValue<int>() ?? 2,
-                MaxModelCalls = input["llm_budget"]?["max_calls"]?.GetValue<int>() ?? 8,
+                MaxReplanAttempts = input["max_replan_attempts"]?.GetValue<int>() ?? 4,
+                MaxModelCalls = input["llm_budget"]?["max_calls"]?.GetValue<int>() ?? 12,
                 Generation = new()
                 {
                     Reasoning = generator["reasoning"]?.GetValue<string>() ?? "medium",
-                    MaxInputTokensPerRequest = generator["max_input_tokens"]?.GetValue<int>() ?? 12_000,
-                    MaxOutputTokens = generator["max_output_tokens"]?.GetValue<int>() ?? 8_192
+                    MaxInputTokensPerRequest = generator["max_input_tokens"]?.GetValue<int>() ?? 32_000,
+                    MaxOutputTokens = generator["max_output_tokens"]?.GetValue<int>() ?? 32_768
                 },
                 Policy = ctx.Engine.PlanningPolicy ?? new()
                 {
@@ -97,7 +97,9 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                     {
                         RunId = state.Request.SessionId, StepId = "review-" + state.Revision,
                         Prompt = "Review each requirement against the actual tasks and data dependencies, including per-item actions and incomplete observations. Mark only covered requirements. Missing or uncertain coverage requires revision. Execution has not been observed.",
-                        Context = JsonValue.Create(state.Requirements?.Summary + "\n\nBusiness tasks and selections:\n" + System.Text.Json.JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan) + "\n\n```yaml\n" + state.Yaml + "\n```"),
+                        Context = JsonValue.Create("Original request and revisions:\n" + state.Request.Prompt + "\n" + state.Request.RevisionContext + "\n\n" + state.Requirements?.Summary +
+                            "\n\nValidation and advisory business review:\n" + System.Text.Json.JsonSerializer.Serialize(state.ValidationResults, PlanningJsonContext.Default.ListPlanningValidationResult) +
+                            "\n\nBusiness tasks and selections:\n" + System.Text.Json.JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan) + "\n\n```yaml\n" + state.Yaml + "\n```"),
                         Mode = HumanInputContract.ModeForm, AllowAbandon = true,
                         Fields = requirements.Select(r => new HumanInputFieldDef
                         {

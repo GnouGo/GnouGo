@@ -78,8 +78,12 @@ public sealed partial class CodeReviewCompositionTests
         }
     }
 
-    private sealed class ReferenceModel : ILLMClient
+    private sealed class ReferenceModel : ILLMClient, ILLMCapabilityResolver
     {
+        public Task<int?> InputTokenAllowanceAsync(string? provider, string model, int outputTokens, CancellationToken ct) => Task.FromResult<int?>(128000);
+        public Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<bool?>(true);
+        public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<IReadOnlyList<string>?>(["medium"]);
+
         public int Calls;
         public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
         {

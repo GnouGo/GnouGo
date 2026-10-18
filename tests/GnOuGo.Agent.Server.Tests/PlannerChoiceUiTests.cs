@@ -7,6 +7,20 @@ using GnOuGo.Flow.Core.Planning;
 namespace GnOuGo.Agent.Server.Tests;
 public sealed class PlannerChoiceUiTests : BunitContext
 {
+    [Fact]
+    public void JudgeObservationsAreSeparateEscapedAndDoNotAcknowledgeRequirements()
+    {
+        var state = new PlanningSession { Status = PlanningStatus.FinalReview,
+            Requirements = new() { Summary = "Review", Outcomes = [new("result", "Requested result")] },
+            ValidationResults = [new("judge:summary", "unverified", "<script>untrusted</script> Not a proof.", [])] };
+        state.Request.Options["business_judge"] = true;
+        var cut = Render<PlannerStageDetails>(p => p.Add(c => c.Session, PlanningEndpoints.ToDto(state)).Add(c => c.ReviewEnabled, true));
+        Assert.NotNull(cut.Find("[aria-label='Business judge observations']"));
+        Assert.Empty(cut.FindAll("script"));
+        Assert.Contains("Not a proof.", cut.Markup);
+        Assert.All(cut.FindAll("input[type=checkbox]"), e => Assert.False(e.HasAttribute("checked")));
+    }
+
     [Theory]
     [InlineData(null, "")]
     [InlineData("covered", "covered")]

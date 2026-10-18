@@ -1,0 +1,28 @@
+{
+  "step": "commitment_host_adjusted",
+  "arguments": [
+    "dotnet",
+    "test",
+    "tests/GnOuGo.Agent.Server.Tests",
+    "-m:1",
+    "-warnaserror",
+    "-p:SkipClientBuild=true",
+    "-p:SkipModelMetadataGeneration=true",
+    "-p:SkipPlaywrightBrowserInstall=true",
+    "--filter",
+    "FullyQualifiedName~CommitmentCorrectionHostTests"
+  ],
+  "cwd": "isolated candidate checkout",
+  "exit_code": 0,
+  "elapsed_ms": 12552,
+  "log": "commitment_host_adjusted.log",
+  "log_sha256": "6fa87a571ed838d1bf5a7d1c4e110bf754e8f1261658c94528c5d0032ca55c5c",
+  "source_manifest": "commitment-host-adjustment.json",
+  "source_manifest_sha256": "612d6d383b39748494a4deac0bd8d4f08860e370d424850eff0c6fa7a924be73",
+  "counts": {
+    "failed": 0,
+    "passed": 8,
+    "skipped": 0,
+    "total": 8
+  }
+}

@@ -1,5 +1,138 @@
 # Planning evaluation corpus
 
+## First-proposal measurements
+
+The first non-null submitted `plan` response and its diagnostics are captured separately
+from discovery, clarification, correction and physical transport attempts. Rows report
+`first_proposal_structurally_valid`, `first_proposal_business_correct`, FinalReview and
+execution-oracle success separately. The historical `first_pass_valid` column is now an
+alias for first-proposal structural validity; it is no longer a one-call metric.
+
+Business correctness is assigned from an independent execution oracle only when the
+executed request, requirements and plan match the unchanged first proposal. Observer
+metadata and later approval-hash changes do not create a different candidate. Original proposals that were changed
+before execution remain unknown unless independently assessed. Omitted requirements,
+extra operations and redundant tasks remain null when the oracle has not established
+those individual judgments. Unknown usage remains null; fixture tokens are estimates,
+never provider usage. Failures and prior results are retained.
+
+The retained live runtime campaign keeps its explicit 96,000-token input and
+32,768-token output ceilings; these are separate from fresh planning defaults. An oversized full serialized request returns
+`LLM_BUDGET_EXCEEDED`, `classification: request_input_allowance`,
+`measurement: conservative_token_estimate`, the applied `limit` and measured
+`current`, and `dispatch_status: not_started`. Output-limit refusals use
+`request_output_allowance` and `declared_output_tokens`. These single-request
+refusals are distinct from cumulative budget exhaustion. Neither the private
+payload nor generated code enters diagnostics; failed-step context is supplied by
+the existing engine. A local mapping attempt rejected before dispatch is not a
+physical provider attempt or billed usage. Existing encrypted receipts and limits
+remain unchanged during recovery.
+
+The [18 October Amazon retest](../../docs/evidence/bounded-observations-2026-10-18/README.md)
+preserves a structurally valid first proposal that failed before extraction dispatch.
+Its scalar extraction still bound the complete observation; zero extraction provider
+calls does not mean zero runtime cost, because an earlier transform completed.
+The subsequent generic prompt correction is separate from that frozen failed run.
+It explains full learning inputs, deterministic projection and shared `each` context;
+its presence alone is not live business-correctness evidence.
+
+Live corpus and stabilization runs stop at FinalReview. Inspect the retained request,
+requirements, tasks and uncertainty, then supply `--review-run <source:phase:case:repetition>`
+and `--review-command <file>` with the existing explicit `approve` command (reviewer-set
+`expectedRevision`, `artifactHash`, and `reviewedRequirementIds`). Stabilization uses
+`source:cohort:case:repetition`. No live acknowledgments are synthesized. Scripted corpus
+execution uses the independently authored fixture requirement IDs. An execution already
+started is never repeated after uncertain completion.
+
+Add `--first-proposal-gate` to the existing corpus or stabilization comparison command
+for the separately authorized live gate: at least 25% fewer business-incorrect first
+proposals, no safety regression and no higher median planning calls or total planning
+tokens. Three repetitions, identical model/settings and frozen fixture/contract/oracle
+material are required. Missing judgments, unknown totals and incomparable cohorts are
+inconclusive. A zero-failure baseline must remain zero but cannot establish a relative
+reduction. Descriptive Wilson intervals report sampling uncertainty. Historical gates
+remain available for their original recorded cohorts.
+
+The [implementation comparison](../../docs/evidence/first-attempt-taskplan-2026-10-17/README.md)
+is offline. No paid inference or externally effectful live execution was authorized.
+
+## Optional Judge and convergence measurements
+
+Fresh corpus and stabilization sessions default to twelve planning calls, four
+corrections, 32,000 input tokens and 32,768 output tokens. `--business-judge` explicitly
+enables the independent advisory review; omission keeps it disabled on creation. Both runners
+accept `--max-model-calls`, `--max-repairs`, `--max-input-tokens` and
+`--max-output-tokens` for controlled comparisons. Retained runs use their persisted
+settings; a new configuration requires a new frozen run identity, not mutation of old
+evidence. Historical campaigns below keep their original explicit limits.
+Omitted switches preserve retained values; explicit mismatches, including
+`--no-business-judge` against an enabled run, fail before continuing it. A cohort's
+settings are frozen before collection. The stabilization context manifest is version 2;
+version 1 records remain immutable and inspectable, and a changed harness requires a
+new campaign.
+
+Compare Judge enabled/disabled under identical budgets, model/settings, contracts,
+cases and independent oracle versions. Measure changes to creation defaults separately;
+a larger allowance and an extra observer are different interventions. Freeze the
+complete candidate and fixture/contract/oracle hashes before collecting each comparable
+cohort. Model evaluation still requires separate paid-call authorization and the existing
+cumulative financial ceiling. This implementation does not itself establish live benefit
+or authorize a new campaign.
+
+The corpus runner reserves separate identities with `--arm judge` or `--arm defaults`;
+the unqualified identity remains the control. Use `--business-judge --arm judge` for
+the observer arm, or numeric overrides with `--arm defaults` for the budget arm.
+`--compare-parent <same-commit> --candidate <same-commit> --judge-comparison`
+loads control and Judge arms; `--defaults-comparison` loads control and defaults arms.
+The existing parent/candidate phase switches still select the stored cohorts.
+Stabilization uses its `baseline` and `final` cohort identities with the same commit,
+then accepts the same comparison switches alongside `--compare` and `--candidate`.
+Both reports require three repetitions, a common source/context/model and independent
+outcomes. A Judge comparison rejects changed budgets; a defaults comparison requires
+the Judge disabled in both arms. Missing settings, labels or incompatible arms remain
+inconclusive. These descriptive reports do not declare the first-proposal gate passed
+or establish a live benefit. Unknown costs and tokens have null medians.
+
+`candidate_reviews` retains each compiled candidate separately from `first_proposal`.
+Independent execution labels apply only to the matching request, revision, answers,
+requirements, discovery, contracts and plan hash
+once all expected oracle variants have run. A changed or unexecuted first proposal stays
+unknown. `business_review` reports independently labelled candidate-level true/false
+positives and negatives, unknown or unjudged candidates, convergence and introduced
+regressions. These are artifact-level measurements, not per-finding precision. A
+syntactically valid Judge report is never an oracle label; a no-findings report can be a
+false negative, and a finding can be a false positive. Invalid, skipped and inconclusive
+reviews remain unjudged.
+
+`planning_stages` separates logical calls and elapsed time by the saved call purpose,
+including `judge`, and aggregates usage/cost from the corresponding receipts. Physical
+attempts require transport evidence; absent counts, usage and costs remain null.
+Correction counts and final stop outcomes remain separate from first-proposal validity.
+Judge calls use the same reservations, receipts and cumulative allowances as generation
+and correction; there is no parallel allocation. Completed reviews are reused for an
+unchanged context, including recovery.
+
+Offline adapters return explicitly scripted reports. Fixtures, negative variants and
+replay test accounting, scope protection and oracle classification; they cannot measure
+a real model's false-positive rate or prove business improvement. Preserve failures and
+inconclusive candidates. Keep live-model, real-execution and scripted results separately
+labelled, and never synthesize live requirement acknowledgments.
+
+The diagnostic follow-up captures fresh private review/correction profiles. Its
+offline regressions compare all independently available output/coverage findings
+before the first repair, convergence within the existing allowance, unrelated-edit
+rejection and inconclusive Judge recovery without another call. Typed response
+constraints and clearer input-readiness descriptions are mechanism changes, not
+independent business labels. Keep the original proposal, rejected candidates,
+per-purpose call counts and unknown usage in reports. An invalid Judge reference
+cannot be counted as a correct review or repaired through a hidden extra call.
+Retained live campaigns keep their original settings and failed records; new defaults
+must not be retroactively attributed to those campaigns.
+
+The [diagnostic follow-up evidence](../../docs/evidence/taskplan-diagnostics-2026-10-18/README.md)
+records the focused regressions, preserved failed attempts and final offline comparison.
+It does not dispatch a new live campaign.
+
 ## Planner stabilization comparison
 
 The [completed campaign report](../../docs/evidence/planner-stabilization/results-7d5d42b2.md)
@@ -213,6 +346,14 @@ uncertain transport attempt retains its conservative allowance; restart added no
 
 An individual request can exhaust its pinned HTTP retry policy before the session exhausts eight attempts. To retain that request permanently without replay or reconciliation, use `--schema-portability retain-exhausted-request --request-id <exact-id> --campaign <id> --workspace <path>`. This explicit action requires a clean checkout and the campaign lease, a saved dispatch failure, exhausted transport attempts containing unknown completion, and no successful HTTP response, completion receipt or verified usage. When later HTTP failures follow the uncertain attempt, the adapter's recorded retry exhaustion, attempt count and terminal status must match the journal. It appends a closure with evidence hashes; original records and full unknown-usage reservations remain unchanged. New request identities may then use the remaining budget. Never use this to claim successful completion or free reserved cost. Campaign regressions cover mixed attempt orderings, rejection, restart, no redispatch, unchanged accounting and the shared spending ceiling.
 
+The captured `MaxUncertainRetries` can exhaust before `MaxAttempts`. Retention also
+recognizes that boundary when the last attempt is an unresolved transport/timeout,
+the unknown-attempt count exceeds the explicitly saved allowance, and the adapter's
+retryable exhaustion and attempt count match. Missing legacy limits, cancellations,
+successful responses and unresolved terminal HTTP responses grant no additional
+authority. The closure records `http_uncertainty_limit_exhausted`; all original
+attempts and their full reservations remain unchanged.
+
 For a stopped live planning run which exhausted all eight session attempts before
 execution, `--schema-portability retain-inconclusive --run <exact-run-id>` exposes
 the existing failed-session archival operation for the live journal layout. This is
@@ -397,6 +538,24 @@ revisions and execution reuse the saved policy. Omitting it preserves the
 historical harness behavior. Both policies retain eight planning calls and two
 correction attempts within the existing cumulative allowance; artifact approval
 remains separate.
+
+For an explicitly authorized fresh live evaluation, add `--business-judge` to
+`plan` to enable the independent advisory review. It uses the generator's model
+and the same eight-call, two-correction allowance, 96,000 input-token limit and
+32,768 output-token reservation retained by this live campaign. It does not use
+the newer creation defaults of other hosts or receive a separate budget. The
+Judge setting is captured in the request and an enabled cohort manifest.
+`--no-business-judge` explicitly selects the disabled setting; supplying both
+switches is rejected. On `revise` or `execute`, omission reuses the persisted
+setting and an explicit mismatch stops before readiness or transport. Start a
+new frozen cohort to change the setting. Historical disabled manifests remain
+unchanged, and artifact approval remains an explicit revision/hash-bound action.
+
+Live planning measurements separate generation, corrections and Judge calls by
+their recorded purpose, preserving unknown usage when receipts are incomplete.
+Only the independent execution oracle labels the executed candidate's business
+outcome; unexecuted candidates remain unknown. These measurements do not turn
+advisory Judge findings into proof of business correctness.
 
 ```sh
 dotnet build tests/GnOuGo.Agent.Planning.Benchmark -m:1 -warnaserror -p:SkipClientBuild=true

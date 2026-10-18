@@ -74,7 +74,7 @@ public sealed class MappingStatusCompositionTests
         Assert.True(state.Status == PlanningStatus.FinalReview, string.Join(';', state.Diagnostics));
         Assert.Null(state.ApprovedHash); Assert.Equal(automatic ? 1 : 0, state.ReplanAttempts); Assert.Equal(2, runtime.Calls.Count);
         if (automatic) Assert.Contains("$/status/success", runtime.Calls[^1].Prompt);
-        Assert.Contains("Bind typed copies/assembly", runtime.Calls[^1].Prompt);
+        Assert.Contains("Bind typed copies/projections/assembly", runtime.Calls[^1].Prompt);
         Assert.True(JsonNode.DeepEquals(JsonSerializer.SerializeToNode(baseline.Requirements, PlanningJsonContext.Default.PlanningRequirements), JsonSerializer.SerializeToNode(state.Requirements, PlanningJsonContext.Default.PlanningRequirements)));
         Assert.Equal(oldYaml, baseline.Yaml); Assert.Equal(0, reads); Assert.Equal(0, model.Calls);
         var result = await Execute(state.Yaml!, new(), engine);
@@ -89,8 +89,12 @@ public sealed class MappingStatusCompositionTests
         Assert.InRange(PlanningJsonTransport.EstimateInputTokens(runtime.Calls[^1].Prompt, runtime.Calls[^1].StructuredOutputSchema!.AsObject()), 1, state.Request.Generation.MaxInputTokensPerRequest);
     }
     private static TaskValue Field(TaskValue value, string field) => new() { Kind = "field", Port = field, Items = [value] };
-    private sealed class Facts : ILLMClient
+    private sealed class Facts : ILLMClient, ILLMCapabilityResolver
     {
+        public Task<int?> InputTokenAllowanceAsync(string? provider, string model, int outputTokens, CancellationToken ct) => Task.FromResult<int?>(128000);
+        public Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<bool?>(true);
+        public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<IReadOnlyList<string>?>(["medium", "low"]);
+
         public int Calls;
         public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
         {

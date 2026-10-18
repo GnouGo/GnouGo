@@ -7,7 +7,10 @@ namespace GnOuGo.Flow.Planning.Tests;
 internal static class PlannerFixture
 {
     internal static CancellationToken Ct => TestContext.Current.CancellationToken;
-    internal static PlanningSession Session() => new() { IntentVersion = 2, Request = new() { TenantId = "test", Prompt = "Return a greeting" } };
+    // Retained regression corpus uses its original allowances; fresh defaults have
+    // separate tests so changing defaults cannot weaken these budget regressions.
+    internal static PlanningSession Session() => new() { IntentVersion = 2, Request = new() { TenantId = "test", Prompt = "Return a greeting",
+        MaxModelCalls = 8, MaxReplanAttempts = 2, Generation = new("medium", 12_000, 8_192) } };
     internal static PlanningGraph Greeting(string message = "Hello") => new()
     {
         Summary = "Return a greeting", Workflows = [new()

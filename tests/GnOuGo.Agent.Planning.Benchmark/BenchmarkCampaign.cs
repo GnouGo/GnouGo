@@ -115,13 +115,14 @@ internal sealed class BenchmarkCampaign(IKeyVaultRecordStore records, string id)
         var policy = await LoadAsync("planning-evaluation-configuration", "http-retry-policy", ct);
         if (request?["clientRequestId"]?.ToString() != requestId || failure?["stage"]?.ToString() != "dispatch" ||
             policy?["MaxAttempts"] is not JsonValue maximum || !maximum.TryGetValue<int>(out var limit) || limit is < 1 or > 20 ||
-            journal?["transport"]?["Attempts"] is not JsonArray attempts || attempts.Count < limit ||
+            journal?["transport"]?["Attempts"] is not JsonArray attempts ||
+            attempts.Count < limit && !HasExhaustedUncertaintyAllowance(policy, attempts, failure) ||
             !HasExhaustedUncertainAttempts(attempts, failure) || journal["usage"] is not null ||
             await LoadAsync("planning-evaluation-receipts", requestId, ct) is not null)
             throw new InvalidOperationException("Only an uncertain request that exhausted its pinned HTTP attempt policy can be retained here.");
         var closure = new JsonObject
         {
-            ["request_id"] = requestId, ["reason"] = "http_attempts_exhausted", ["outcome"] = "inconclusive",
+            ["request_id"] = requestId, ["reason"] = attempts.Count >= limit ? "http_attempts_exhausted" : "http_uncertainty_limit_exhausted", ["outcome"] = "inconclusive",
             ["retained_at"] = DateTimeOffset.UtcNow.ToString("O"),
             ["request_hash"] = PlanningGraphCompiler.Fingerprint(request.ToJsonString()),
             ["http_journal_hash"] = PlanningGraphCompiler.Fingerprint(journal.ToJsonString()),
@@ -130,6 +131,18 @@ internal sealed class BenchmarkCampaign(IKeyVaultRecordStore records, string id)
         };
         await SaveAsync("planning-evaluation-closures", requestId, closure, ct);
         return closure;
+    }
+    private static bool HasExhaustedUncertaintyAllowance(JsonObject policy, JsonArray attempts, JsonObject failure)
+    {
+        // Match AI.Core's captured uncertain-retry boundary. A terminal HTTP
+        // response, cancellation or unsupported legacy policy grants no authority.
+        if (policy["MaxUncertainRetries"] is not JsonValue value || !value.TryGetValue<int>(out var limit) || limit is < 0 or > 19 ||
+            attempts.LastOrDefault() is not JsonObject last || last["Status"] is not null ||
+            last["Failure"]?.ToString() is not (null or "transport" or "timeout")) return false;
+        return attempts.Count(a => a is JsonObject && a["Status"] is null) > limit &&
+            failure["retry_exhausted"]?.GetValue<bool>() == true && failure["retryable"]?.GetValue<bool>() == true &&
+            failure["attempt_count"]?.GetValue<int>() == attempts.Count && failure["status_code"] is null &&
+            failure["kind"]?.ToString() is "Transport" or "Timeout";
     }
     private static bool HasExhaustedUncertainAttempts(JsonArray attempts, JsonObject failure)
     {
@@ -270,6 +283,22 @@ internal sealed class BenchmarkCampaign(IKeyVaultRecordStore records, string id)
         }
     }
 
+    // Consuming an immutable completed receipt is not a provider dispatch. Keep
+    // deterministic validation in the ordinary runtime without asking today's
+    // provider metadata to read yesterday's response or fabricating capabilities.
+    private sealed class ReceiptOnlyRuntime(IPlanningRuntime validation, ReplayReceipt receipt, string expectedPurpose) : IPlanningRuntime
+    {
+        public ICapabilityCatalog Capabilities => validation.Capabilities;
+        public Task<PlanningCatalog> DiscoverAsync(PlanningRequest request, CancellationToken ct) =>
+            throw new InvalidOperationException("Receipt recovery cannot perform discovery.");
+        public Task<LLMResponse> CallAsync(LLMRequest request, string purpose, CancellationToken ct) => purpose == expectedPurpose
+            ? receipt.CallAsync(request, ct)
+            : throw new InvalidOperationException("Receipt recovery cannot change the reserved call purpose.");
+        public Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(PlanningArtifactValidationRequest request, CancellationToken ct) => validation.ValidateAsync(request, ct);
+        public Task<IReadOnlyList<PlanningDiagnostic>> ValidateCatalogAsync(PlanningCatalog catalog, CancellationToken ct) => validation.ValidateCatalogAsync(catalog, ct);
+        public Task CheckpointAsync(PlanningSession state, CancellationToken ct) => validation.CheckpointAsync(state, ct);
+    }
+
     // Operator-only receipt recovery under the existing campaign lease. No provider,
     // MCP transport or fresh discovery is configured; frozen live manifests stay intact.
     internal async Task<JsonObject> RecoverPendingReceiptAsync(string label, long expectedRevision, string requestId,
@@ -311,7 +340,7 @@ internal sealed class BenchmarkCampaign(IKeyVaultRecordStore records, string id)
         var client = new ReplayReceipt(original, response);
         state.ActiveMilliseconds += interruptedMilliseconds;
         PlanningSession? checkpoint = null;
-        var runtime = new WorkflowPlanningRuntime(new WorkflowEngine { LLMClient = client }, (s, _) =>
+        var validation = new WorkflowPlanningRuntime(new WorkflowEngine(), (s, _) =>
         {
             if (!client.Used || checkpoint is not null || s.Revision != expectedRevision + 1 || s.PendingCall is not null ||
                 s.ModelCalls != state.ModelCalls || s.ReplanAttempts != state.ReplanAttempts ||
@@ -321,6 +350,7 @@ internal sealed class BenchmarkCampaign(IKeyVaultRecordStore records, string id)
             checkpoint = s;
             return Task.CompletedTask;
         });
+        var runtime = new ReceiptOnlyRuntime(validation, client, state.PendingCall.Purpose);
         var recovered = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = expectedRevision }, runtime, deadline.Token);
         if (checkpoint != recovered) throw new InvalidOperationException("No verified receipt checkpoint was produced.");
         if (recovered.Status == PlanningStatus.FinalReview) PlanningArtifactApproval.Verify(recovered);

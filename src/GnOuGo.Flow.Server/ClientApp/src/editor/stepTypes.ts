@@ -214,11 +214,12 @@ export const STEP_TYPES: StepTypeDef[] = [
     description: 'Build and validate a typed workflow for final approval',
     fields: [
       { name: 'raw_prompt', label: 'Intent', type: 'string', required: true, placeholder: '${data.inputs.prompt}' },
-      { name: 'generator', label: 'Model configuration (JSON)', type: 'json', required: true, placeholder: '{ "reasoning": "medium", "max_input_tokens": 12000, "max_output_tokens": 8192 }' },
+      { name: 'generator', label: 'Model configuration (JSON)', type: 'json', required: true, placeholder: '{ "reasoning": "medium", "max_input_tokens": 32000, "max_output_tokens": 32768 }' },
       { name: 'policy', label: 'Policy (JSON)', type: 'json', placeholder: '{ "allowed_step_types": ["llm.call", "template.render"] }' },
       { name: 'limits', label: 'Workflow limits (JSON)', type: 'json', placeholder: '{ "max_steps_total": 100 }' },
-      { name: 'llm_budget', label: 'Model budget (JSON)', type: 'json', placeholder: '{ "max_calls": 8, "max_total_tokens": 15000000 }' },
-      { name: 'max_repair_attempts', label: 'Repair attempts', type: 'number', defaultValue: 2 },
+      { name: 'llm_budget', label: 'Model budget (JSON)', type: 'json', placeholder: '{ "max_calls": 12, "max_total_tokens": 15000000 }' },
+      { name: 'max_replan_attempts', label: 'Correction attempts', type: 'number', defaultValue: 4 },
+      { name: 'business_judge', label: 'Advisory business review', type: 'boolean', defaultValue: false },
     ],
   },
   {

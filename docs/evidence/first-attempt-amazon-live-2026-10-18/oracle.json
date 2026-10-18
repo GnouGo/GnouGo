@@ -1,0 +1,7 @@
+{
+  "passed": false,
+  "findings": [
+    "workflow_execution_failed",
+    "workbook_missing"
+  ]
+}

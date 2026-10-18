@@ -44,14 +44,37 @@ public sealed class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records,
         }
         try
         {
-            var definition = JsonSerializer.Serialize(initial.Request, PlanningJsonContext.Default.PlanningRequest);
             var savedDefinition = await records.GetAsync(Definitions, tenant, key, Author, ct);
+            if (savedDefinition is not null && initial.Request.Options.ContainsKey("raw_prompt"))
+            {
+                // workflow.plan reconstructs omitted defaults on every invocation.
+                // Compare authored inputs exactly, using the retained defaults only
+                // for omitted fields. Explicit changes still fail the comparison.
+                var retained = JsonSerializer.Deserialize(savedDefinition.Value, PlanningJsonContext.Default.PlanningRequest)!;
+                var input = initial.Request.Options;
+                if (input["max_replan_attempts"] is null && initial.Request.MaxReplanAttempts == 4)
+                    initial.Request.MaxReplanAttempts = retained.MaxReplanAttempts;
+                if (input["llm_budget"]?["max_calls"] is null && initial.Request.MaxModelCalls == 12)
+                    initial.Request.MaxModelCalls = retained.MaxModelCalls;
+                if (input["generator"]?["max_input_tokens"] is null && initial.Request.Generation.MaxInputTokensPerRequest == 32_000)
+                    initial.Request.Generation.MaxInputTokensPerRequest = retained.Generation.MaxInputTokensPerRequest;
+                if (input["generator"]?["max_output_tokens"] is null && initial.Request.Generation.MaxOutputTokens == 32_768)
+                    initial.Request.Generation.MaxOutputTokens = retained.Generation.MaxOutputTokens;
+            }
+            var definition = JsonSerializer.Serialize(initial.Request, PlanningJsonContext.Default.PlanningRequest);
             if (savedDefinition is not null && JsonSerializer.Serialize(JsonSerializer.Deserialize(savedDefinition.Value, PlanningJsonContext.Default.PlanningRequest), PlanningJsonContext.Default.PlanningRequest) != definition)
                 throw new PlanningConflictException("The planning request changed for this run ID. Resume the original request or start a new run.");
             var saved = await records.GetAsync(Sessions, tenant, key, Author, ct);
             if (saved is null && (await records.GetAsync("flow-planning-sessions-v9", tenant, key, Author, ct) is not null || await records.GetAsync("flow-planning-sessions-v8", tenant, key, Author, ct) is not null))
                 throw new PlanningConflictException(PlanningSessionStorage.IncompatibleMessage);
-            var state = saved is null ? initial : PlanningSessionStorage.Read(saved.Value, tenant, key);
+            // Capturing profiles must not alter the authored definition or the
+            // caller's options. Apply them only to the first durable session copy.
+            var state = saved is null
+                ? JsonSerializer.Deserialize(JsonSerializer.Serialize(initial, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!
+                : PlanningSessionStorage.Read(saved.Value, tenant, key);
+            // An existing definition can outlive an interrupted first checkpoint;
+            // its absent private profiles must retain their historical meaning.
+            if (saved is null && savedDefinition is null) PlanningSessionCreation.Capture(state, initial);
             if (state.SchemaVersion != 10 || state.Request.TenantId != tenant || state.Request.SessionId != key || saved is not null && savedDefinition is null)
                 throw new PlanningConflictException("The planning session ownership or schema is invalid.");
             if (savedDefinition is null) await records.UpsertAsync(Definitions, tenant, key, definition, Author, ct);
@@ -65,8 +88,8 @@ public sealed class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records,
             var receipt = await records.GetAsync(WorkflowPlanningBudgetSink.Collection, tenant, key, Author, ct);
             var usage = receipt is null ? state.Usage : JsonSerializer.Deserialize(receipt.Value, PlanningJsonContext.Default.LLMUsageBudgetSnapshot)
                 ?? throw new PlanningConflictException("The encrypted planning budget is invalid.");
-            var limits = (PlanningBudgetOptions.Parse(state.Request.Options) ?? new LLMUsageBudgetLimits { MaxCalls = 8 }) with { MaxElapsed = null };
-            if (limits.MaxCalls is null && limits.MaxTotalTokens is null && limits.MaxEstimatedCost is null) limits = limits with { MaxCalls = 8 };
+            var limits = (PlanningBudgetOptions.Parse(state.Request.Options) ?? new LLMUsageBudgetLimits()) with
+                { MaxElapsed = null, MaxCalls = Math.Min(PlanningBudgetOptions.Parse(state.Request.Options)?.MaxCalls ?? state.Request.MaxModelCalls, state.Request.MaxModelCalls) };
             var inheritedBudget = context.LLMUsageBudget;
             var budget = new LLMUsageBudgetScope(limits, usage, inheritedBudget, new WorkflowPlanningBudgetSink(records, tenant, key),
                 exchangeRateProvider: context.Engine.ExchangeRateProvider);

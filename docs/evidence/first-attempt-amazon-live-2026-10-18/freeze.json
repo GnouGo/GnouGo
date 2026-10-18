@@ -1,0 +1,23 @@
+{
+  "source": "e880d32e80a268fde77df11fec661aab0793e48b",
+  "parent_candidate": "8168c140ed58361aae7ec1446e9daed580f16251",
+  "production_sha256": "acc3cf3d4bb09541977384cacd1b3a9c1949f00bd59d33d37ccfa5e3cd2760c3",
+  "harness_sha256": "28f1f4ee2ebd2d1c8a9fcb8deed79077c0d52b6d8ed48eddef55bbcaa9de1057",
+  "campaign": "schema-portability-20261002",
+  "cohort": "firstattempt20261018a",
+  "run": "firstattempt20261018a-amazon-1",
+  "max_products": 10,
+  "automatic_correction": true,
+  "provider": "OpenAi",
+  "model": "gpt-5.5-2026-04-24",
+  "authorization": "now do live amazon test",
+  "max_model_calls": 8,
+  "max_replan_attempts": 2,
+  "ceiling_eur": 200,
+  "query": "chaussure geox homme 45",
+  "execution_approval": "Separate explicit requirement acknowledgments, revision and artifact hash required",
+  "binary_manifest_sha256": "cc8ed4005342e8f0c1e0272c2275fc3965121feb6255eeb450ca0965d97f18b8",
+  "binary_files": 708,
+  "initial_upper_bound_eur": 156.91918513965751,
+  "configuration_hash": "0d9b3f888b2a23348f7efbdc00cc764d2e388e63c076dd350b945bc161539d31"
+}

@@ -1,4 +1,6 @@
 using GnOuGo.Flow.Core.Planning;
+using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Flow.Planning;
 using GnOuGo.KeyVault.Core.Services;
 using GnOuGo.Workspace;
 using Microsoft.EntityFrameworkCore;
@@ -70,6 +72,8 @@ internal static class PlanningPersistenceSmoke
             throw new InvalidOperationException("Incompatible history isolation failed.");
         try { await reopened.LoadAsync("smoke", legacy.Request.SessionId, CancellationToken.None); throw new InvalidOperationException("Incompatible history was admitted."); }
         catch (PlanningConflictException) { }
+        await VerifyJudgeRecoveryAsync(directory, vault, factory, records, store, 1);
+        await VerifyJudgeRecoveryAsync(directory, vault, factory, records, store, 2);
         foreach (var file in Directory.EnumerateFiles(directory, "*.db"))
             if (System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file)) is { } bytes &&
                 (bytes.Contains("Private published smoke content", StringComparison.Ordinal) || bytes.Contains("Private requirements", StringComparison.Ordinal) ||
@@ -99,5 +103,153 @@ internal static class PlanningPersistenceSmoke
             System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(vault)).Contains(description, StringComparison.Ordinal))
             throw new InvalidOperationException("Published encrypted description/receipt recovery failed.");
         Console.WriteLine("Format-10 planning persistence smoke passed; execution journal schema 9 is unchanged.");
+    }
+
+    private static async Task VerifyJudgeRecoveryAsync(string directory, string vault, IDbContextFactory<PlanningDbContext> factory,
+        IKeyVaultRecordStore records, EfPlanningSessionStore store, int reviewVersion)
+    {
+        var historical = System.Text.Json.JsonSerializer.Deserialize("{}", PlanningJsonContext.Default.PlanningRequest)!;
+        var current = new PlanningRequest();
+        if (historical.MaxModelCalls != 8 || historical.MaxReplanAttempts != 2 ||
+            historical.Generation.MaxInputTokensPerRequest != 12000 || historical.Generation.MaxOutputTokens != 8192 ||
+            historical.Options.ContainsKey("business_judge") || current.MaxModelCalls != 12 || current.MaxReplanAttempts != 4 ||
+            current.Generation.MaxInputTokensPerRequest != 32000 || current.Generation.MaxOutputTokens != 32768)
+            throw new InvalidOperationException("Published fresh defaults changed historical source-generated deserialization.");
+
+        const string evidence = "Private published judge request evidence";
+        const string authority = "/root/outputs/private_published_judge_authority";
+        const string uncertainty = "Private published judge uncertainty";
+        const string rejectedReference = "/private_published_rejected_reference";
+        var sessionId = "judge-" + Guid.NewGuid().ToString("N");
+        // Cost accounting is enabled only when a financial ceiling is configured.
+        // Use declared USD fixture pricing so recovery verifies an actual charge.
+        var limits = new LLMUsageBudgetLimits { MaxCalls = current.MaxModelCalls, MaxEstimatedCost = new(0.01m, "USD") };
+        var budget = new LLMUsageBudgetScope(limits, sink: new PlanningBudgetSink(records, "smoke", sessionId));
+        var request = PlanningGenerationPolicy.Apply(new LLMRequest
+        {
+            Model = "published-smoke-fixture", Prompt = evidence, StructuredOutputStrict = true,
+            StructuredOutputSchema = System.Text.Json.Nodes.JsonNode.Parse("""
+                {"type":"object","additionalProperties":false,"required":["findings","uncertainty"],"properties":{
+                  "findings":{"type":"array","items":{"type":"object","additionalProperties":false,
+                    "required":["kind","location","evidence","explanation","uncertainty"],"properties":{
+                      "kind":{"type":"string","enum":["omission","unnecessary_operation","inconsistency"]},
+                      "location":{"type":"string"},"evidence":{"type":"array","items":{"type":"string"}},
+                      "explanation":{"type":"string"},"uncertainty":{"type":"string"}}}},
+                  "uncertainty":{"type":"string"}}}
+                """)
+        }, current.Generation);
+        request.ClientRequestId = sessionId + ":1:" + PlanningGraphCompiler.Fingerprint(
+            System.Text.Json.JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+        var state = new PlanningSession
+        {
+            IntentVersion = 3, ModelCalls = 1, Status = PlanningStatus.Stopped,
+            Request = new()
+            {
+                TenantId = "smoke", SessionId = sessionId, Prompt = evidence,
+                Options = new()
+                {
+                    ["business_judge"] = true,
+                    ["business_judge_authority"] = new System.Text.Json.Nodes.JsonArray(authority),
+                    ["business_judge_pending_context"] = new System.Text.Json.Nodes.JsonObject { ["version"] = reviewVersion, ["fingerprint"] = "published-judge-context" },
+                    ["business_judge_reviews"] = new System.Text.Json.Nodes.JsonArray(new System.Text.Json.Nodes.JsonObject
+                    { ["version"] = reviewVersion, ["fingerprint"] = "previous-published-judge-context", ["outcome"] = "inconclusive", ["description"] = uncertainty })
+                }
+            },
+            PendingCall = new() { Id = request.ClientRequestId, Purpose = "judge", Request = request },
+            Diagnostics = [new("MODEL_DISPATCH_UNVERIFIABLE", "/", "Interrupted coordinator checkpoint after the durable judge response.")]
+        };
+        if (reviewVersion == 2)
+        {
+            state.Request.Options["business_judge_review_version"] = 2;
+            state.Request.Options["planning_input_review_version"] = 2;
+            state.Request.Options["planning_diagnostics_version"] = 1;
+            var retainedReview = state.Request.Options["business_judge_reviews"]![0]!;
+            retainedReview["validation_status"] = "invalid";
+            retainedReview["validation_diagnostics"] = new System.Text.Json.Nodes.JsonArray(new System.Text.Json.Nodes.JsonObject
+            {
+                ["location"] = "/findings/0/evidence/0", ["reference"] = rejectedReference,
+                ["reference_truncated"] = false, ["reason"] = "reference_not_found"
+            });
+            retainedReview["validation_diagnostics_omitted"] = 0;
+        }
+        if (!await store.TrySaveAsync(state, null, CancellationToken.None)) throw new InvalidOperationException("Published judge fixture insert failed.");
+        var model = new JudgeSmokeModel(uncertainty);
+        var journal = new PlanningModelJournal(model, factory, records, "smoke", sessionId, budget, new JudgeSmokeEstimator(), current.Generation);
+        var completed = await journal.CallAsync(request, CancellationToken.None);
+
+        // Reopen all persisted state after the receipt, without saving a newer
+        // coordinator snapshot. Recovery must use the exact issued request.
+        var reopenedRecords = KeyVaultRecordStoreFactory.CreateWorkspaceStore(vault, directory);
+        var reopened = new EfPlanningSessionStore(factory, reopenedRecords);
+        var restored = await reopened.LoadAsync("smoke", sessionId, CancellationToken.None)
+            ?? throw new InvalidOperationException("Published judge checkpoint is unavailable.");
+        await PlanningModelRecovery.ResumeAsync(restored, reopenedRecords, request.ClientRequestId, CancellationToken.None, limits);
+        var restoredBudget = new LLMUsageBudgetScope(limits, restored.Usage);
+        var replayed = await new PlanningModelJournal(model, factory, reopenedRecords, "smoke", sessionId, restoredBudget,
+            new JudgeSmokeEstimator(), restored.Request.Generation, new UnavailableJudgeSmokeCapabilities())
+            .CallAsync(restored.PendingCall!.Request, CancellationToken.None);
+        Check(model.Calls == 1 && restored.ModelCalls == 1 && restored.ReplanAttempts == 0 && restoredBudget.Snapshot.Calls == 1, "call and correction counters");
+        Check(restoredBudget.Snapshot.InputTokens == 10 && restoredBudget.Snapshot.OutputTokens == 5 && restoredBudget.Snapshot.TotalTokens == 15, "token accounting");
+        Check(restoredBudget.Snapshot.EstimatedCost == 0.001m && restoredBudget.Snapshot.EstimatedCostCurrency == "USD" &&
+            restoredBudget.Snapshot.EstimatedCostUsd == 0.001m, "cost accounting");
+        Check(restored.PendingCall.Purpose == "judge" && restored.PendingCall.Id == request.ClientRequestId, "issued request identity and purpose");
+        Check(System.Text.Json.JsonSerializer.Serialize(restored.PendingCall.Request, PlanningJsonContext.Default.LLMRequest) ==
+            System.Text.Json.JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest), "issued request content");
+        Check(System.Text.Json.JsonSerializer.Serialize(completed, PlanningJsonContext.Default.LLMResponse) ==
+            System.Text.Json.JsonSerializer.Serialize(replayed, PlanningJsonContext.Default.LLMResponse), "replayed response content");
+        Check(restored.Request.Options["business_judge"]?.GetValue<bool>() == true, "captured judge setting");
+        Check(restored.Request.Options["business_judge_authority"]?[0]?.ToString() == authority, "captured edit authority");
+        Check(restored.Request.Options["business_judge_reviews"]?[0]?["description"]?.ToString() == uncertainty, "retained review history");
+        Check(restored.Request.Options["business_judge_pending_context"]?["version"]?.GetValue<int>() == reviewVersion, "private context version");
+        Check(System.Text.Json.Nodes.JsonNode.DeepEquals(state.Request.Options, restored.Request.Options), "private review diagnostics and captured profiles");
+        if (reviewVersion == 2)
+            Check(restored.Request.Options["business_judge_reviews"]?[0]?["response"] is null &&
+                restored.Request.Options["business_judge_reviews"]?[0]?["validation_diagnostics"]?[0]?["reference"]?.ToString() == rejectedReference,
+                "rejected findings remain separate from validated responses");
+        Check(restored.Status == PlanningStatus.Generating && restored.Diagnostics.Count == 0 && restored.ApprovedHash is null, "unapproved recovery state");
+        Check(await reopened.LoadAsync("another-tenant", sessionId, CancellationToken.None) is null, "session tenant isolation");
+        Check(await reopenedRecords.GetAsync(PlanningModelJournal.Collection, "another-tenant", sessionId + ":" + request.ClientRequestId,
+            EfPlanningSessionStore.Author, CancellationToken.None) is null, "receipt tenant isolation");
+        foreach (var path in Directory.EnumerateFiles(directory, "*.db*"))
+        {
+            var bytes = System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(path));
+            if (bytes.Contains(evidence, StringComparison.Ordinal) || bytes.Contains(authority, StringComparison.Ordinal) ||
+                bytes.Contains(uncertainty, StringComparison.Ordinal) || bytes.Contains(rejectedReference, StringComparison.Ordinal))
+                throw new InvalidOperationException("Private judge content was persisted unencrypted.");
+        }
+
+        static void Check(bool valid, string field)
+        {
+            if (!valid) throw new InvalidOperationException("Published encrypted judge recovery failed: " + field + ".");
+        }
+    }
+
+    private sealed class JudgeSmokeModel(string uncertainty) : ILLMClient, ILLMCapabilityResolver
+    {
+        internal int Calls { get; private set; }
+        public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
+        {
+            Calls++;
+            return Task.FromResult(new LLMResponse
+            {
+                Json = new System.Text.Json.Nodes.JsonObject { ["findings"] = new System.Text.Json.Nodes.JsonArray(), ["uncertainty"] = uncertainty },
+                Usage = new System.Text.Json.Nodes.JsonObject { ["input_tokens"] = 10, ["output_tokens"] = 5 }
+            });
+        }
+        public Task<int?> InputTokenAllowanceAsync(string? provider, string model, int outputTokens, CancellationToken ct) => Task.FromResult<int?>(128000);
+        public Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<bool?>(true);
+        public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<IReadOnlyList<string>?>(["medium"]);
+    }
+
+    private sealed class UnavailableJudgeSmokeCapabilities : ILLMCapabilityResolver
+    {
+        public Task<int?> InputTokenAllowanceAsync(string? provider, string model, int outputTokens, CancellationToken ct) => throw new InvalidOperationException("A saved judge receipt must replay without rechecking model capabilities.");
+        public Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct) => throw new InvalidOperationException("A saved judge receipt must replay without rechecking model capabilities.");
+        public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string model, CancellationToken ct) => throw new InvalidOperationException("A saved judge receipt must replay without rechecking model capabilities.");
+    }
+
+    private sealed class JudgeSmokeEstimator : IModelUsageCostEstimator
+    {
+        public decimal? EstimateCost(string? model, long? inputTokens = null, long? outputTokens = null, string? providerType = null) => 0.001m;
     }
 }

@@ -1,0 +1,129 @@
+{
+  "mode": "live",
+  "status": "stopped",
+  "planning_ms": 1099469,
+  "calls": 4,
+  "repairs": 0,
+  "discovery_reads": 2,
+  "review_revisions": 1,
+  "diagnostics": [
+    {
+      "code": "TASK_IDENTITY_INVALID",
+      "location": "/tasks/t_assemble_rows/outputs",
+      "message": "Business identities must be distinct, nonempty and outside reserved namespaces.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "TASK_OUTPUT_UNKNOWN",
+      "location": "/tasks/t_assemble_rows/outputs/rows",
+      "message": "Task 't_header_rows' has no declared business output 'headerRows},{'. Available ports: [\"headerRows\"]. Opaque results cannot supply typed fields. Consumer scope: /root; phase: tasks. Producer 't_header_rows': scope /root; phase: tasks.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "REVISION_REQUIRED",
+      "location": "/tasks/t_assemble_rows/outputs/rows",
+      "message": "Task 't_header_rows' has no declared business output 'headerRows},{'. Available ports: [\"headerRows\"]. Opaque results cannot supply typed fields. Consumer scope: /root; phase: tasks. Producer 't_header_rows': scope /root; phase: tasks. No compatible port of the referenced producer is available. Explicitly revise the dependency; a constant or unrelated producer cannot replace missing work.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    }
+  ],
+  "execution_success": false,
+  "execution_oracle": false,
+  "execution_status": "not_started",
+  "accounting": {
+    "planning": {
+      "logical_calls": 4,
+      "physical_attempts": 7,
+      "known_input_tokens": 71693,
+      "known_output_tokens": 14589,
+      "known_cost_eur": 0.7120427510956087,
+      "unknown_attempts": 1,
+      "reserved_input_tokens": 107933,
+      "reserved_output_tokens": 32768,
+      "reserved_cost_eur": 1.3618683480905107
+    },
+    "execution": {
+      "logical_calls": 0,
+      "physical_attempts": 0,
+      "known_input_tokens": 0,
+      "known_output_tokens": 0,
+      "known_cost_eur": 0,
+      "unknown_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0
+    },
+    "campaign": {
+      "calls": 1190,
+      "session_calls": 0,
+      "known_input_tokens": 16415801,
+      "known_output_tokens": 2462007,
+      "known_cost_eur": 138.73008382586045,
+      "reserved_input_tokens": 1622574,
+      "reserved_output_tokens": 524288,
+      "reserved_cost_eur": 21.239812341433254,
+      "cost_upper_bound_eur": 159.96989616729368,
+      "unknown_attempts": 16
+    }
+  },
+  "manifest": "f77b4a07a61c2a668e951e0766e0ddd6e7e9bc5a12a730791ce64e2c008babc8",
+  "first_proposal_call": 2,
+  "first_proposal_structurally_valid": true,
+  "first_proposal_business_correct": null,
+  "omitted_requirements": null,
+  "extra_operations": null,
+  "redundant_tasks": null,
+  "first_proposal_diagnostics": [],
+  "business_review": {
+    "unit": "independently labeled candidate, not individual diagnosis",
+    "candidates": 1,
+    "true_positives": 0,
+    "false_positives": 0,
+    "false_negatives": 0,
+    "true_negatives": 0,
+    "unknown_candidates": 1,
+    "unjudged_candidates": 1,
+    "converged": null,
+    "introduced_regression": null,
+    "stop_status": "stopped"
+  },
+  "planning_stages": {
+    "tasks": {
+      "input_tokens": null,
+      "output_tokens": null,
+      "known_input_tokens": 38365,
+      "known_output_tokens": 12343,
+      "estimated_cost_eur": null,
+      "known_cost_eur": 0.5027412574903855,
+      "usage_complete": false,
+      "usage_bounded": true,
+      "reserved_input_tokens": 107933,
+      "reserved_output_tokens": 32768,
+      "reserved_cost_eur": 1.3618683480905107,
+      "logical_calls": 3,
+      "elapsed_ms": 1061276.6473,
+      "physical_attempts": 6
+    },
+    "judge": {
+      "input_tokens": 33328,
+      "output_tokens": 2246,
+      "known_input_tokens": 33328,
+      "known_output_tokens": 2246,
+      "estimated_cost_eur": 0.20930149360522315,
+      "known_cost_eur": 0.20930149360522315,
+      "usage_complete": true,
+      "usage_bounded": true,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "logical_calls": 1,
+      "elapsed_ms": 33374.8892,
+      "physical_attempts": 1
+    }
+  }
+}

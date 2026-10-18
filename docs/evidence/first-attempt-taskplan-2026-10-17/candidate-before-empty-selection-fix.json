@@ -1,0 +1,9 @@
+{
+  "base_commit": "676b5acef3442b1436149eaf9581c7d5e99fe1a3",
+  "identity": "working-tree content hashes; frozen after exact-number assertion regression; no commit created",
+  "production_sha256": "b3fa97f1e7592cfc84014b05c13c59bb87566b8d33c4ad96575be59aa89251a8",
+  "harness_sha256": "be728cbe278d52ae7aa3c9d53e5d6707158110f8d04d1149bc64ed8ec5bce76c",
+  "production_files": 1110,
+  "harness_files": 24,
+  "live_calls": 0
+}

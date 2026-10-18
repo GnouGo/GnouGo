@@ -10,6 +10,53 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class LiveWorkflowReviewTests
 {
     [Theory]
+    [InlineData("--business-judge", true)]
+    [InlineData("--no-business-judge", false)]
+    [InlineData(null, false)]
+    public void FreshLiveJudgeIsExplicitAndSharesTheFrozenModelAndBudgets(string? option, bool enabled)
+    {
+        var request = LiveWorkflowEvaluation.FreshPlanningRequest(option is null ? [] : [option],
+            "fresh-judge", "amazon", "requested work", "provider", "model");
+        Assert.Equal(enabled, request.Options["business_judge"]?.GetValue<bool>() == true);
+        Assert.Equal(option is not null, request.Options.ContainsKey("business_judge"));
+        Assert.Equal("provider", request.Options["generator"]!["provider"]!.GetValue<string>());
+        Assert.Equal("model", request.Options["generator"]!["model"]!.GetValue<string>());
+        Assert.Equal(8, request.MaxModelCalls);
+        Assert.Equal(2, request.MaxReplanAttempts);
+        Assert.Equal(96000, request.Generation.MaxInputTokensPerRequest);
+        Assert.Equal(32768, request.Generation.MaxOutputTokens);
+        var recovered = JsonSerializer.Deserialize(JsonSerializer.Serialize(request, PlanningJsonContext.Default.PlanningRequest),
+            PlanningJsonContext.Default.PlanningRequest)!;
+        Assert.Equal(request.Options.ToJsonString(), recovered.Options.ToJsonString());
+    }
+
+    [Fact]
+    public void ConflictingFreshLiveJudgeSwitchesAreRejected()
+        => Assert.Throws<ArgumentException>(() => LiveWorkflowEvaluation.FreshPlanningRequest(
+            ["--business-judge", "--no-business-judge"], "fresh-judge", "amazon", "requested work", "provider", "model"));
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void LiveJudgeContinuationRetainsTheExactSavedRequestAndPendingIdentity(bool? enabled)
+    {
+        var options = new JsonObject();
+        if (enabled is not null) options["business_judge"] = enabled.Value;
+        var run = new JsonObject { ["session"] = new JsonObject
+        {
+            ["request"] = new JsonObject { ["options"] = options },
+            ["pendingCall"] = new JsonObject { ["requestId"] = "issued-request", ["purpose"] = "tasks", ["prompt"] = "issued prompt" }
+        } };
+        var snapshot = run.ToJsonString();
+        Assert.Equal(enabled == true, LiveWorkflowEvaluation.ResolveBusinessJudge([], run));
+        Assert.Equal(enabled == true, LiveWorkflowEvaluation.ResolveBusinessJudge([enabled == true ? "--business-judge" : "--no-business-judge"], run));
+        Assert.Throws<InvalidOperationException>(() => LiveWorkflowEvaluation.ResolveBusinessJudge([enabled == true ? "--no-business-judge" : "--business-judge"], run));
+        Assert.Throws<ArgumentException>(() => LiveWorkflowEvaluation.ResolveBusinessJudge(["--business-judge", "--no-business-judge"], run));
+        Assert.Equal(snapshot, run.ToJsonString());
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public void FreshLiveCorrectionPolicyIsExplicitAndKeepsCumulativeLimits(bool enabled)

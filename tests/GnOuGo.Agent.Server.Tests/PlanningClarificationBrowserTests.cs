@@ -96,10 +96,13 @@ public sealed class PlanningClarificationBrowserTests
         Assert.Equal(10, model.Calls); // Six initial questions, four continuations; receipt replay dispatches nothing.
     }
 
-    private sealed class Model : ILLMClient
+    private sealed class Model : ILLMClient, ILLMCapabilityResolver
     {
         internal int Calls;
         internal LLMResponse? LastResponse;
+        public Task<int?> InputTokenAllowanceAsync(string? provider, string model, int outputTokens, CancellationToken ct) => Task.FromResult<int?>(128000);
+        public Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<bool?>(true);
+        public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<IReadOnlyList<string>?>(["medium"]);
         public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
         {
             Interlocked.Increment(ref Calls);

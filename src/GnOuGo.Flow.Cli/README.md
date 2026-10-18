@@ -12,6 +12,27 @@ dotnet run --project src/GnOuGo.Flow.Cli -- run src/GnOuGo.Flow.Cli/examples/wor
 dotnet publish src/GnOuGo.Flow.Cli -c Release -r osx-arm64
 ```
 
+New `workflow.plan` sessions default to twelve cumulative model calls, four corrections,
+32,000 input tokens and 32,768 output tokens per planning request. Override these through
+the authored `generator.max_input_tokens`, `generator.max_output_tokens`,
+`max_replan_attempts` and `llm_budget.max_calls` fields. The internal runtime does not
+impose an additional eight-call cap. Financial, cumulative-token and time limits remain
+unchanged. Saved definitions and missing historical fields retain their original limits;
+resume rejects explicit changes instead of applying new creation defaults.
+
+The optional `business_judge: true` field enables independent advisory business review
+before FinalReview. It is disabled by default and shares the same model, call allowance,
+usage journal and recovery. Findings cannot authorize new effects or edits; observations
+without existing explicit revision authority require revision. Console review includes
+the retained request, requirements, validation results, plan and YAML; acknowledgments
+and artifact approval remain explicit.
+
+Before new planning and extraction dispatches, declared model capabilities must support
+Structured Output, configured reasoning and the output reservation. The complete request
+must fit the smaller configured/model input allowance. Missing indispensable metadata
+fails before dispatch, without model substitution, silent clamping or evidence truncation.
+See [planner configuration and review](../GnOuGo.Flow.Planning/README.md#optional-independent-business-review).
+
 Runtime expression and WFScript support uses the existing Jint sandbox. Published
 binaries retain the repository's documented, dependency-specific AOT exceptions.
 

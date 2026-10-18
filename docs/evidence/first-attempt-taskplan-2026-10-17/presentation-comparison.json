@@ -1,0 +1,67 @@
+{
+  "mode": "scripted",
+  "baseline_prompt": "generic at 676b5ace; not scenario-specific",
+  "provider_calls": 0,
+  "baseline_estimated_total": 140954,
+  "presentation_only_estimated_total": 141065,
+  "complete_candidate_estimated_total": 140987,
+  "calls": [
+    {
+      "call": 1,
+      "baseline": 9760,
+      "presentation_only": 9776,
+      "complete_candidate": 9793,
+      "same_context_in_presentation_pair": true,
+      "same_schema_in_presentation_pair": true
+    },
+    {
+      "call": 2,
+      "baseline": 21599,
+      "presentation_only": 21614,
+      "complete_candidate": 21570,
+      "same_context_in_presentation_pair": true,
+      "same_schema_in_presentation_pair": true
+    },
+    {
+      "call": 3,
+      "baseline": 21428,
+      "presentation_only": 21444,
+      "complete_candidate": 21442,
+      "same_context_in_presentation_pair": true,
+      "same_schema_in_presentation_pair": true
+    },
+    {
+      "call": 4,
+      "baseline": 21465,
+      "presentation_only": 21481,
+      "complete_candidate": 21479,
+      "same_context_in_presentation_pair": true,
+      "same_schema_in_presentation_pair": true
+    },
+    {
+      "call": 5,
+      "baseline": 21280,
+      "presentation_only": 21296,
+      "complete_candidate": 21318,
+      "same_context_in_presentation_pair": true,
+      "same_schema_in_presentation_pair": true
+    },
+    {
+      "call": 6,
+      "baseline": 21600,
+      "presentation_only": 21616,
+      "complete_candidate": 21478,
+      "same_context_in_presentation_pair": true,
+      "same_schema_in_presentation_pair": true
+    },
+    {
+      "call": 7,
+      "baseline": 23822,
+      "presentation_only": 23838,
+      "complete_candidate": 23907,
+      "same_context_in_presentation_pair": true,
+      "same_schema_in_presentation_pair": true
+    }
+  ],
+  "reliability_conclusion": "inconclusive; fixed responses do not measure model planning correctness"
+}

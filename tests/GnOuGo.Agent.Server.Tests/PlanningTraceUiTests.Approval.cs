@@ -12,6 +12,24 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed partial class PlanningTraceUiTests
 {
     [Fact]
+    public async Task ReviewShowsOriginalRequestAndAssertionsWithoutAcknowledgingOrExecutingContent()
+    {
+        var state = await ApprovalSession();
+        state.Request.Prompt = "Return the requested result. <script>untrusted()</script>\nRequested revision: retain exact text.";
+        state.Plan!.Root.Tasks.Add(new() { Id = "check", Kind = "value", Objective = "Validate before publishing", Requires = new() { Kind = "boolean", Boolean = true } });
+        var hash = state.ComputeArtifactHash();
+        var cut = Render<GnOuGo.Agent.Server.Components.Planning.PlannerStageDetails>(p => p
+            .Add(c => c.Session, GnOuGo.Agent.Server.Planning.PlanningEndpoints.ToDto(state))
+            .Add(c => c.ReviewEnabled, true));
+        Assert.Equal(state.Request.Prompt, cut.Find("[aria-label='Original request and revisions'] pre").TextContent);
+        Assert.Empty(cut.FindAll("script"));
+        Assert.Contains("Required assertion", cut.Markup);
+        Assert.Contains("omitted actions", cut.Markup);
+        Assert.All(cut.FindAll("input[type=checkbox]"), check => Assert.False(check.HasAttribute("checked")));
+        Assert.Equal(hash, state.ComputeArtifactHash());
+    }
+
+    [Fact]
     public async Task ApprovalExplainsMissingAcknowledgmentsAndPreservesSameArtifactPolling()
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();

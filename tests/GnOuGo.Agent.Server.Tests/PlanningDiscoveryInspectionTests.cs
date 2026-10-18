@@ -124,7 +124,7 @@ public sealed class PlanningDiscoveryInspectionTests : BunitContext
         };
         return new()
         {
-            Request = new() { TenantId = "planning-tests", SessionId = "inspection", Prompt = "PRIVATE_PROMPT", Generation = new() { MaxInputTokensPerRequest = 24000 } },
+            Request = new() { TenantId = "planning-tests", SessionId = "inspection", MaxModelCalls = 8, Prompt = "PRIVATE_PROMPT", Generation = new() { MaxInputTokensPerRequest = 24000 } },
             Revision = revision, Status = PlanningStatus.Stopped, ModelCalls = revision,
             Catalog = new() { AllowedStepTypes = ["mcp.call"] },
             Discovery = new() { Sources = [new("source", "PRIVATE_SOURCE_DESCRIPTION")], Pages = [new("source", null, [Tool("alpha"), Tool("beta")], "next")] },

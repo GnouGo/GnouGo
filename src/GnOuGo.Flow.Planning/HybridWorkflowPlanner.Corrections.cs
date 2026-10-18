@@ -38,7 +38,8 @@ public sealed partial class HybridWorkflowPlanner
         state.Request.Options[CorrectionProgressKey]?["blocked"] is null &&
         PlanningModelCalls.RemainingCalls(state) > 0 && PlanningModelCalls.RemainingRepairs(state) > 0 &&
         state.Diagnostics.Any(d => d.Required) && (state.Requirements is not null
-            ? state.Diagnostics.Where(d => d.Required).All(d => Correctable(d) || CorrectableLiteral(state, d))
+            ? state.Diagnostics.Where(d => d.Required).All(d => Correctable(d) || CorrectableLiteral(state, d) ||
+                d.Code == "JUDGE_SCOPED_REVIEW" && state.EditablePaths?.Contains(d.Location, StringComparer.Ordinal) == true)
             : state.Plan is null && state.Request.Baseline is null && state.Diagnostics.Where(d => d.Required).All(d => InitialProposalDefect(state, d)));
 
     private static bool CorrectableLiteral(PlanningSession state, PlanningDiagnostic diagnostic)
@@ -58,8 +59,8 @@ public sealed partial class HybridWorkflowPlanner
     {
         if (state.Status != PlanningStatus.Stopped || !CanCorrect(state)) return;
         var progress = state.Request.Options[CorrectionProgressKey];
-        if (progress?["initialValueFollowup"]?.GetValue<bool>() == true ||
-            progress?["action"]?.ToString() == "regenerate" && InitialValueFollowupPaths(state) is null) return;
+        if (progress?["version"]?.ToString() is not ("6" or "7" or "8") && (progress?["initialValueFollowup"]?.GetValue<bool>() == true ||
+            progress?["action"]?.ToString() == "regenerate" && InitialValueFollowupPaths(state) is null)) return;
         state.Status = PlanningStatus.Generating;
     }
 
@@ -68,15 +69,30 @@ public sealed partial class HybridWorkflowPlanner
         if (state.PendingCall is not null || state.Request.Options[CorrectionProgressKey] is not JsonObject progress ||
             progress["attempts"] is not JsonArray { Count: > 0 } attempts || attempts[^1] is not JsonObject attempt ||
             state.ModelCalls <= attempt["callsUsed"]!.GetValue<int>() || attempt.ContainsKey("completedAtCall")) return;
+        if (progress["version"]?.ToString() is "7" or "8" && state.Status == PlanningStatus.Generating &&
+            state.Phase == PlanningPhase.Review && state.Graph is not null && !state.Diagnostics.Any(d => d.Required))
+        {
+            // Retain the response fingerprint until the independent review has
+            // completed, including cached reviews with no additional model call.
+            attempt["outcome"] = "validated_pending_review";
+            return;
+        }
         attempt["completedAtCall"] = state.ModelCalls;
         attempt["outcome"] = state.Status == PlanningStatus.FinalReview ? "validated" :
+            state.Phase == PlanningPhase.Review && state.Graph is not null && !state.Diagnostics.Any(d => d.Required) ? "validated_pending_review" :
             state.Status == PlanningStatus.Clarification ? "clarification_required" : "rejected";
         var candidate = progress["candidate"]?.ToString();
+        if (progress["version"]?.ToString() is "6" or "7" or "8" && attempt["outcome"]?.ToString() == "rejected")
+        {
+            candidate ??= PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan));
+            if (state.Diagnostics.Any(d => d.Code == "REVISION_SCOPE_CHANGED")) progress["blocked"] = "rejected_authority";
+        }
         if (candidate is not null) attempt["responseCandidate"] = candidate;
         if (candidate is not null && state.Diagnostics.Any(d => d.Required) && attempts.Any(a => a?["candidate"]?.ToString() == candidate ||
             a != attempt && a?["responseCandidate"]?.ToString() == candidate))
         {
             attempt["outcome"] = "repeated_candidate";
+            if (progress["version"]?.ToString() is "6" or "7" or "8") progress["blocked"] = "repeated_candidate";
             if (!state.Diagnostics.Any(d => d.Code == "REPLAN_NO_PROGRESS"))
                 state.Diagnostics.Add(new("REPLAN_NO_PROGRESS", "/", "The correction repeated a previously unsuccessful candidate. No budget was reset."));
         }
@@ -109,15 +125,17 @@ public sealed partial class HybridWorkflowPlanner
         var progress = state.Request.Options[CorrectionProgressKey] as JsonObject;
         var continuation = PlanningClarifications.CorrectionContinuation(state);
         List<string>? followupPaths = null;
-        if (continuation is null && (progress?["initialValueFollowup"]?.GetValue<bool>() == true ||
+        if (continuation is null && progress?["version"]?.ToString() is not ("6" or "7" or "8") && (progress?["initialValueFollowup"]?.GetValue<bool>() == true ||
             progress?["action"]?.ToString() == "regenerate" && (followupPaths = InitialValueFollowupPaths(state)) is null))
         { Stop(state); return false; }
+        if (continuation is null && progress?["version"]?.ToString() is "6" or "7" or "8") followupPaths = InitialValueFollowupPaths(state);
         var baseline = state.Request.Baseline;
         if (progress is null)
         {
             baseline = state.Plan ?? baseline;
             state.Request.Baseline = baseline is null ? null : ClonePlan(baseline);
-            progress = new JsonObject { ["version"] = state.IntentVersion == 3 ? 5 : 3, ["attempts"] = new JsonArray(),
+            progress = new JsonObject { ["version"] = state.IntentVersion == 3
+                ? state.Request.Options["planning_diagnostics_version"]?.ToString() == "1" ? 8 : PlanningBusinessJudge.Enabled(state) ? 7 : state.Request.Options["planning_validation_profile"]?.ToString() == TaskPlanCompiler.AssertionValidationProfile ? 6 : 5 : 3, ["attempts"] = new JsonArray(),
                 ["outputRemovals"] = new JsonArray((baseline?.Root.Outputs ?? []).Where(o =>
                     state.Requirements?.Outputs is { } accepted && accepted.All(a => a.Name != o.Name) &&
                     state.Diagnostics.Any(d => d.Required && d.Code == "REQUIREMENTS_OUTPUTS_CHANGED" && d.Location == "/outputs/" + o.Name))
@@ -126,7 +144,7 @@ public sealed partial class HybridWorkflowPlanner
                     .Select(d => d.Location).Distinct().Select(p => (JsonNode?)JsonValue.Create(p)).ToArray()) };
             progress["locations"] = new JsonArray(state.Diagnostics.Where(d => d.Required).Select(d => CorrectionLocation(state, progress, d))
                 .Distinct().Order(StringComparer.Ordinal).Select(p => (JsonNode?)JsonValue.Create(p)).ToArray());
-            if (progress["version"]!.ToString() == "5" && state.Requirements is null && baseline is null)
+            if (progress["version"]!.ToString() is "5" or "6" or "7" or "8" && state.Requirements is null && baseline is null)
                 progress["initialRegeneration"] = true;
             if (state.IntentVersion == 3)
             {
@@ -161,7 +179,8 @@ public sealed partial class HybridWorkflowPlanner
         var fingerprint = PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(state.Plan ?? baseline, PlanningJsonContext.Default.TaskPlan));
         var diagnosticKey = string.Join('\n', findings.Where(d => d.Required && d.Code != "REVISION_REQUIRED")
             .Select(d => d.Code + ":" + d.Location + ":" + d.Rule).Distinct().Order(StringComparer.Ordinal));
-        var escalate = attempted.Count > 0;
+        var reassess = progress["version"]?.ToString() is "6" or "7" or "8";
+        var escalate = attempted.Count > 0 && !reassess;
         var action = "patch";
         List<string>? paths = null;
         if (followupPaths is not null)
@@ -174,12 +193,18 @@ public sealed partial class HybridWorkflowPlanner
             action = continuation;
             paths = state.EditablePaths;
         }
-        else if (progress["version"]?.ToString() is "4" or "5" && findings.Any(d => d.Code == PlanningCommitments.MissingOperation))
+        else if (findings.Any(d => d.Code == "JUDGE_SCOPED_REVIEW") && state.EditablePaths is not null)
+        { action = "targeted_revision"; paths = state.EditablePaths; }
+        else if (progress["version"]?.ToString() is "4" or "5" or "6" or "7" or "8" && findings.Any(d => d.Code == PlanningCommitments.MissingOperation))
             action = "regenerate"; // A value patch cannot insert the committed external work.
         else if (!escalate && state.Plan is not null)
         {
             var immutable = TaskPlanRevisions.UnrepairableRequirements(state).Any();
-            if (immutable || state.RevisionScope.Count == 0)
+            // A combined diagnosis can already contain semantic binding slots
+            // while public-interface findings still use /outputs/name. Resolve
+            // the complete set before issuing a patch, not just the first subset.
+            if (immutable || state.RevisionScope.Count == 0 || progress["version"]?.ToString() == "8" &&
+                findings.Any(d => d.Code == "REQUIREMENTS_OUTPUTS_CHANGED"))
             {
                 paths = CorrectionPaths(state, findings);
                 action = paths is null ? "regenerate" : "targeted_revision";
@@ -187,7 +212,21 @@ public sealed partial class HybridWorkflowPlanner
         }
         else action = "regenerate";
 
-        if (action == "regenerate" && progress["version"]?.ToString() is "4" or "5" &&
+        if (reassess && continuation is null && action == "regenerate" && attempted.Any(a => a?["action"]?.ToString() == "regenerate"))
+        {
+            progress["blocked"] = "structural_allowance";
+            state.Diagnostics.Add(new("REVISION_REQUIRED", "/tasks", "No authorized local correction remains after structural regeneration. Clarify or explicitly revise the business decision; the cumulative allowance is unchanged."));
+            Stop(state); return false;
+        }
+        if (reassess && paths is not null && followupPaths is null && paths.Any(path =>
+            !progress["locations"]!.AsArray().Any(p => p!.ToString() == path || path.StartsWith(p.ToString() + "/", StringComparison.Ordinal))))
+        {
+            progress["blocked"] = "local_authority";
+            state.Diagnostics.Add(new("REVISION_SCOPE_CHANGED", "/tasks", "The remaining diagnosis exceeds the captured correction authority. Explicitly review the changed scope; no candidate was applied."));
+            Stop(state); return false;
+        }
+
+        if (action == "regenerate" && progress["version"]?.ToString() is "4" or "5" or "6" or "7" or "8" &&
             findings.Any(d => d.Code == PlanningCommitments.MissingOperation &&
                 !progress["operationAdditions"]!.AsArray().Any(a => a?["operation"]?.ToString() == d.Rule)))
         {
@@ -209,10 +248,10 @@ public sealed partial class HybridWorkflowPlanner
                     "Change only the issued editable paths. Preserve guard operands and ordering except the diagnosed invalid references.");
             if (DirectGuardCorrections(progress))
                 state.Request.RevisionContext += " " + PlanningPrompt.GuardCorrectionInstructions;
-            if (progress["version"]?.ToString() is "3" or "4" or "5" && progress["outputRemovals"] is JsonArray { Count: > 0 } removals)
+            if (progress["version"]?.ToString() is "3" or "4" or "5" or "6" or "7" or "8" && progress["outputRemovals"] is JsonArray { Count: > 0 } removals)
                 state.Request.RevisionContext += " Remove only the diagnosed unaccepted exports: " + removals.ToJsonString() +
                     ". Keep remaining exports, their bindings and order unchanged. Preserve all operation arguments verbatim; do not rewrite instructions or add replacement exports.";
-            if (progress["version"]?.ToString() is "4" or "5" && progress["operationAdditions"] is JsonArray { Count: > 0 } additions)
+            if (progress["version"]?.ToString() is "4" or "5" or "6" or "7" or "8" && progress["operationAdditions"] is JsonArray { Count: > 0 } additions)
                 state.Request.RevisionContext += " The accepted commitments authorize adding only these exact inspected operations: " +
                     new JsonArray(additions.Select(a => a!["operation"]!.DeepClone()).ToArray()).ToJsonString() +
                     ". Preserve existing external arguments, ordering, branches, assertions and finalizers. Infer neither arguments nor placement from matching types. Only the captured disconnected adaptation tasks may be replaced: " +
@@ -258,7 +297,7 @@ public sealed partial class HybridWorkflowPlanner
         // Public-interface findings use /outputs/name; editable values live at
         // /root/outputs/name. Resolve only an exact accepted, existing declaration.
         // Keep the original diagnostic and every historical issued scope intact.
-        if (progress?["version"]?.ToString() != "5" || finding.Code != "REQUIREMENTS_OUTPUTS_CHANGED" || state.Plan is null)
+        if (progress?["version"]?.ToString() is not ("5" or "6" or "7" or "8") || finding.Code != "REQUIREMENTS_OUTPUTS_CHANGED" || state.Plan is null)
             return finding.Location;
         var names = state.Requirements?.Outputs?.Where(o => "/outputs/" + o.Name == finding.Location).Select(o => o.Name).ToArray();
         if (names is not { Length: 1 } || state.Plan.Root.Outputs.Count(o => o.Name == names[0]) != 1) return finding.Location;
@@ -269,7 +308,7 @@ public sealed partial class HybridWorkflowPlanner
     private static List<string>? InitialValueFollowupPaths(PlanningSession state)
     {
         var progress = state.Request.Options[CorrectionProgressKey];
-        if (progress?["version"]?.ToString() != "5" || progress["initialRegeneration"]?.GetValue<bool>() != true ||
+        if (progress?["version"]?.ToString() is not ("5" or "6" or "7" or "8") || progress["initialRegeneration"]?.GetValue<bool>() != true ||
             progress["initialValueFollowup"] is not null || state.Plan is null || state.Requirements is null || state.Request.Baseline is not null ||
             progress["attempts"] is not JsonArray { Count: 1 } attempts || attempts[0]?["action"]?.ToString() != "regenerate" ||
             attempts[0]?["outcome"]?.ToString() != "rejected" || attempts[0]?["completedAtCall"] is null ||

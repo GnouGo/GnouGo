@@ -1,0 +1,30 @@
+{
+  "manifest": {
+    "version": 1,
+    "files": {
+      "tests/GnOuGo.Agent.Planning.Benchmark/StabilizationBenchmark.cs": "B5A675B4BFE9169A2C6B4492CDC3C9D5C71C7903C7DCAC6276CAB0C010D4EB33",
+      "tests/GnOuGo.Agent.Planning.Benchmark/LocalExecutionCases.cs": "C82C840DAA0D24A07FFF5E3D321D9FA98217AFE42E65E27BA06C10EA07C9FD20",
+      "tests/GnOuGo.Agent.Planning.Benchmark/BenchmarkCampaign.cs": "1DAC4E3545C8E5203F3CB0FEF03DFF261A65BDCA51E6FFADCF04D13673757F9A",
+      "tests/GnOuGo.Agent.Planning.Benchmark/BenchmarkHttpJournal.cs": "5547FBCC1BAA6F7B20CB4BFC2193CA7A7D7B370076F6DDB44D8CA7908990C8A3",
+      "tests/GnOuGo.Agent.Planning.Benchmark/KeyVaultBenchmarkModel.cs": "8537217F6D31F13C771C682B7B515C59501EC1F2CE2C4A57E405975E6B50FA24",
+      "tests/Shared/PlanningBenchmarkCases.cs": "A25DE6FC75D94A06C5DC8FCE96D04EB09BA4132CAEC76F35E7F644912433F998",
+      "tests/Shared/PlanningBenchmarkMeasurements.cs": "C66B4A426368EDC8E412529275CA0B22EFF255E20BFD14B1F6E92F6023C7BF32",
+      "tests/Shared/PlanningCorpus.cs": "12B1FFFE1FA02D857246546802963AED050A4B44C64665DC922DA6F47AF279A8",
+      "src/GnOuGo.Cmd.Mcp/appsettings.json": "077D603646CB49249C16F2A7DC88C39331D4D39D6F651710CDCE0A7AA921498E"
+    },
+    "cmd_assembly": "D59752A8819630A317A581A4571D44BEEBD1B0E76718B311805E643A2E68DA83",
+    "os": "macOS 26.7.1",
+    "architecture": "Arm64",
+    "runtime": "10.0.8",
+    "calls": 8,
+    "repairs": 2,
+    "input_tokens": 96000,
+    "output_tokens": 32768,
+    "reasoning": "medium",
+    "ceiling_eur": 50
+  },
+  "source": "676b5acef3442b1436149eaf9581c7d5e99fe1a3",
+  "harness_commit": "16d02a11936d7f8fe020b3b4e9200c25546b49bb",
+  "provider": "OpenAi",
+  "model": "gpt-5.5-2026-04-24"
+}

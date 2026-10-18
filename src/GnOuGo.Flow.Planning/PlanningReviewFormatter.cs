@@ -4,6 +4,8 @@ using GnOuGo.Flow.Core.Planning;
 namespace GnOuGo.Flow.Planning;
 public static class PlanningReviewFormatter
 {
+    internal static string OperationOutputs(PlanningCapability contract) => "Declared outputs: " +
+        string.Join(", ", TaskOperations.Describe(contract).Outputs.Select(p => p.Name + ": " + (p.Schema["type"]?.ToJsonString() ?? "contract-defined"))) + ". ";
     internal static IEnumerable<PlanningValidationResult> Operations(PlanningSession state) =>
         PlanningGraphCompiler.Enumerate(state.Graph!.Workflows.SelectMany(w => w.Steps.Concat(w.Finally)))
             .Where(n => n.CapabilityId is not null).Select(n =>
@@ -11,10 +13,13 @@ public static class PlanningReviewFormatter
                 var contract = state.Catalog!.Capabilities.Single(c => c.Id == n.CapabilityId);
                 return new PlanningValidationResult("operation:" + n.Key, "declared", (n.Purpose ?? n.Key) +
                     " — operation: " + contract.Id + (contract.Server is null ? "" : " (" + contract.Server + "/" + contract.Method + ")") +
-                    "; contract effect: " + contract.EffectKind + ". " + (contract.ArtifactContract?.Locations is { Count: > 0 } ? "Declared resource locations checked; dynamic relationships still require execution evidence. " : "Resource lifecycle is not established by this contract; review cleanup and retained artifacts. ") + "Execution has not been observed; review the business requirements separately.", []);
+                    "; contract effect: " + contract.EffectKind + ". " + OperationOutputs(contract) + (contract.ArtifactContract?.Locations is { Count: > 0 } ? "Declared resource locations checked; dynamic relationships still require execution evidence. " : "Resource lifecycle is not established by this contract; review cleanup and retained artifacts. ") + "Execution has not been observed; review the business requirements separately.", []);
             }).Concat(PlanningGraphCompiler.Enumerate(state.Graph!.Workflows.SelectMany(w => w.Steps.Concat(w.Finally)))
                 .Where(n => n.Input.Kind == "dynamic_mapping").Select(n => new PlanningValidationResult("mapping:" + n.Key, "declared",
-                    n.Purpose + (PlanningGraphValidation.Member(n.Input, "adaptive_each")?.Boolean == true
+                    state.Request.Options["planning_input_review_version"]?.ToString() == "2"
+                        ? n.Purpose + " — runtime extraction. " + PlanningInputReadiness.ExtractionBoundary(n) +
+                            " Any learning or adaptive fallback uses the configured shared runtime budget; every item and the complete result require validation. No execution evidence yet."
+                        : n.Purpose + (PlanningGraphValidation.Member(n.Input, "adaptive_each")?.Boolean == true
                         ? " — adaptive independent extraction; unresolved items may require specialized or per-item inference within the configured shared runtime and campaign budgets. Execution requires a finite runtime budget; every item and the complete result are validated. "
                         : " — runtime extraction, at most two model attempts per invocation; cache hits still validate the complete result. ") +
                     (PlanningGraphValidation.Member(n.Input, "infer_each")?.Boolean == true ? "Unambiguous source/target collections use one result per item; ambiguous collections require explicit selection. " : "") +

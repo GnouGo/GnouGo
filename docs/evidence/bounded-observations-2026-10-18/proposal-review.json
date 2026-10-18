@@ -1,0 +1,49 @@
+{
+  "source": "00b1aa751bbdd8787cda25f425a56db2e6850f51",
+  "run": "boundedobs20261018a-amazon-1",
+  "revision": 2,
+  "artifact_hash": "180bd0c81ef4dee79c253bb6911277d44b78c9d9e275eddfff84016c5f51bc9f",
+  "review_kind": "read-only original-request comparison; not an execution oracle",
+  "task_count": 13,
+  "independent_each_tasks": 0,
+  "whole_snapshot_extractions": [
+    {
+      "consumer": "detect_consent_gate",
+      "producer": "open_amazon_search",
+      "port": "observationSnapshot"
+    },
+    {
+      "consumer": "extract_first_products",
+      "producer": "read_search_results",
+      "port": "observationSnapshot"
+    },
+    {
+      "consumer": "extract_product_detail",
+      "producer": "read_product_page",
+      "port": "observationSnapshot"
+    }
+  ],
+  "learned_row_assembly": "assemble_xlsx_rows",
+  "additional_effect": {
+    "task": "click_consent_control",
+    "operation": "browser_click",
+    "condition": "observed consent gate",
+    "selection": "least permissive observed control according to the generated objective",
+    "requirement_association": "unverified",
+    "approval_received": false
+  },
+  "cleanup": {
+    "task": "close_browser",
+    "placement": "root/always",
+    "execution_observed": false
+  },
+  "recommendation": "Do not execute as a validated improvement. Explicit approval can authorize a diagnostic execution of this unchanged artifact.",
+  "limitations": [
+    "No current Amazon observation has been acquired by this run.",
+    "The same broad-input pattern remains at three consumers; a new request-size rejection is plausible but not yet observed.",
+    "Workbook values remain unverified because row assembly uses interpretation.",
+    "Structural validity does not prove original-request completeness or successful external effects."
+  ],
+  "handwritten_replacement": false,
+  "budget_increase": false
+}

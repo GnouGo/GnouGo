@@ -239,8 +239,12 @@ public sealed class ContractClosureTests
         ["required"] = new JsonArray(fields.Select(f => (JsonNode?)JsonValue.Create(f.Name)).ToArray()), ["additionalProperties"] = false
     };
     private static IEnumerable<PlanningValue> Descendants(PlanningValue value) => new[] { value }.Concat(value.Members.SelectMany(m => Descendants(m.Value))).Concat(value.Items.SelectMany(Descendants));
-    private sealed class IdentityModel : ILLMClient
+    private sealed class IdentityModel : ILLMClient, ILLMCapabilityResolver
     {
+        public Task<int?> InputTokenAllowanceAsync(string? provider, string model, int outputTokens, CancellationToken ct) => Task.FromResult<int?>(128000);
+        public Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<bool?>(true);
+        public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<IReadOnlyList<string>?>(["medium"]);
+
         public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct) => Task.FromResult(new LLMResponse
             { Json = new JsonObject { ["script"] = "source.value" } });
     }

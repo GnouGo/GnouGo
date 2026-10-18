@@ -17,7 +17,7 @@ public sealed class LiteralCorrectionTests
         state = await planner.AdvanceAsync(state, new(), runtime, PlannerFixture.Ct);
         Assert.Contains(state.Diagnostics, d => d.Code == "TASK_LITERAL_INVALID");
         Assert.Contains("For a declared input named name: {\"kind\":\"input\",\"source\":\"name\"}", runtime.Calls[0].Prompt);
-        Assert.Contains("Return executable requested tasks in the issued structured response", runtime.Calls[0].Prompt);
+        Assert.Contains("Return the smallest sufficient executable business plan", runtime.Calls[0].Prompt);
         Assert.Contains(PlanningSchemaReferences.Walk(runtime.Calls[0].StructuredOutputSchema!.AsObject(), "", 0),
             s => s.Schema["description"]?.ToString().Contains("Literal strings exclude ${}", StringComparison.Ordinal) == true);
         Assert.Equal(1, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);
@@ -51,8 +51,14 @@ public sealed class LiteralCorrectionTests
     {
         var runtime = new TestRuntime(); var state = PlannerFixture.Session(); state.Request.Options["automatic_correction"] = true;
         runtime.Proposal.Plan!.Root.Tasks[0].Requires = new() { Kind = "string", Text = "${ready}" };
+        // Retained malformed assertions still require explicit revision. Fresh
+        // generation rejects this shape in its Boolean response domain instead.
+        state.Catalog = await runtime.DiscoverAsync(state.Request, PlannerFixture.Ct);
+        state.Plan = runtime.Proposal.Plan; state.Requirements = runtime.Proposal.Requirements;
+        state.Revision = 1; state.ModelCalls = 1;
+        state.Diagnostics = new TaskPlanCompiler().Compile(state.Plan, state.Catalog).Diagnostics.ToList();
         state = await PlannerFixture.RunAsync(runtime, state);
-        Assert.Equal(PlanningStatus.Stopped, state.Status); Assert.Single(runtime.Calls); Assert.Equal(0, state.ReplanAttempts);
+        Assert.Equal(PlanningStatus.Stopped, state.Status); Assert.Empty(runtime.Calls); Assert.Equal(0, state.ReplanAttempts);
         Assert.Null(state.Yaml); Assert.Contains(state.Diagnostics, d => d.Code == "TASK_LITERAL_INVALID" && d.Location.EndsWith("/requires", StringComparison.Ordinal));
         Assert.Equal("${ready}", state.Plan!.Root.Tasks[0].Requires!.Text);
     }

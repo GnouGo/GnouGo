@@ -1,0 +1,91 @@
+{
+  "evidence_kind": "scripted fixtures, no live model or external execution",
+  "live_benefit_established": false,
+  "model_reports": "Judge adapter returns explicitly scripted no-findings responses; false-negative sensitivity is covered separately by deterministic measurement regressions.",
+  "arms": {
+    "control": {
+      "runs": 24,
+      "first_proposals_structurally_valid": 24,
+      "first_proposals_business_correct": 24,
+      "execution_oracles_pass": 24,
+      "converged": 24,
+      "introduced_regressions": 0,
+      "calls": 24,
+      "median_calls": 1.0,
+      "repairs": 0,
+      "judge_false_positives": 0,
+      "judge_false_negatives": 0,
+      "unjudged_candidates": 24,
+      "input_tokens": null,
+      "output_tokens": null,
+      "cost_eur": null,
+      "known_usage_samples": 0,
+      "safety_violations": 0,
+      "configuration": {
+        "calls": 12,
+        "repairs": 4,
+        "input_tokens": 32000,
+        "output_tokens": 32768,
+        "reasoning": "medium",
+        "business_judge": false
+      },
+      "rows_sha256": "d52946c0b258f0db7a263382f93aba33303fb38c60ab303d654ed92c8b438079"
+    },
+    "judge": {
+      "runs": 24,
+      "first_proposals_structurally_valid": 24,
+      "first_proposals_business_correct": 24,
+      "execution_oracles_pass": 24,
+      "converged": 24,
+      "introduced_regressions": 0,
+      "calls": 48,
+      "median_calls": 2.0,
+      "repairs": 0,
+      "judge_false_positives": 0,
+      "judge_false_negatives": 0,
+      "unjudged_candidates": 0,
+      "input_tokens": null,
+      "output_tokens": null,
+      "cost_eur": null,
+      "known_usage_samples": 0,
+      "safety_violations": 0,
+      "configuration": {
+        "calls": 12,
+        "repairs": 4,
+        "input_tokens": 32000,
+        "output_tokens": 32768,
+        "reasoning": "medium",
+        "business_judge": true
+      },
+      "rows_sha256": "ef59ee69f8a3ef2ba69deb7570f4e6cf47d244c27ddab65f98a728c5e74fe4c3"
+    },
+    "prior_host_defaults": {
+      "runs": 24,
+      "first_proposals_structurally_valid": 24,
+      "first_proposals_business_correct": 24,
+      "execution_oracles_pass": 24,
+      "converged": 24,
+      "introduced_regressions": 0,
+      "calls": 24,
+      "median_calls": 1.0,
+      "repairs": 0,
+      "judge_false_positives": 0,
+      "judge_false_negatives": 0,
+      "unjudged_candidates": 24,
+      "input_tokens": null,
+      "output_tokens": null,
+      "cost_eur": null,
+      "known_usage_samples": 0,
+      "safety_violations": 0,
+      "configuration": {
+        "calls": 8,
+        "repairs": 2,
+        "input_tokens": 24000,
+        "output_tokens": 32768,
+        "reasoning": "medium",
+        "business_judge": false
+      },
+      "rows_sha256": "9fe37cfe7e28c066f604269bbfec53af14a8e06eed5f96c9de05c3e6fd2ee646"
+    }
+  }
+}

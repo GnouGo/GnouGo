@@ -5,7 +5,7 @@ using GnOuGo.Flow.Planning;
 
 internal static class LiveCampaignEvidence
 {
-    internal static async Task<JsonObject> PinAsync(BenchmarkCampaign campaign, string source, string provider, string model, string configurationFingerprint, string cohort, int productLimit = 3)
+    internal static async Task<JsonObject> PinAsync(BenchmarkCampaign campaign, string source, string provider, string model, string configurationFingerprint, string cohort, int productLimit = 3, bool businessJudge = false)
     {
         var manifest = new JsonObject
         {
@@ -24,6 +24,8 @@ internal static class LiveCampaignEvidence
             ["scenario_count"] = 2, ["repetitions"] = 3, ["oracle_version"] = "real-workflows-v1"
         };
         if (productLimit != 3) manifest["max_products"] = productLimit;
+        // Absence is the historical disabled setting; never rewrite an issued manifest.
+        if (businessJudge) manifest["business_judge"] = true;
         var saved = await campaign.LoadAsync(SchemaPortabilityCampaign.Collection, cohort + "-manifest");
         if (saved is not null) RequireMatch(saved, manifest);
         else await campaign.SaveAsync(SchemaPortabilityCampaign.Collection, cohort + "-manifest", manifest);

@@ -10,6 +10,7 @@ using GnOuGo.Flow.Copilot;
 using GnOuGo.Flow.Integrations;
 using GnOuGo.Flow.Planning;
 using GnOuGo.Flow.Persistence;
+using GnOuGo.Planning.Examples;
 
 // Explicit live test host. It never changes a saved workflow or host permission
 // policy and never connects the GitHub publication server.
@@ -35,6 +36,9 @@ internal static class LiveWorkflowEvaluation
         var key = "run:" + label;
         var retained = await campaign.LoadAsync(SchemaPortabilityCampaign.Collection, key);
         if (phase == "inspect-run") { Console.WriteLine(retained?.ToJsonString() ?? "No run."); return; }
+        var continuing = phase is "execute" or "revise";
+        // Reject conflicting or changed settings before readiness, transport or inference.
+        var businessJudge = ResolveBusinessJudge(args, continuing ? retained : null);
         var readiness = await model.ReadinessAsync(CancellationToken.None);
         Console.WriteLine(readiness.ToJsonString());
         KeyVaultBenchmarkModel.RequireReady(readiness);
@@ -43,11 +47,10 @@ internal static class LiveWorkflowEvaluation
         if (phase is "execute" or "revise" && (retained?["max_products"]?.GetValue<int>() ?? 3) != productLimit)
             throw new InvalidOperationException("Use the retained product limit for this run.");
         var sourceRevision = SchemaPortabilityCampaign.Git("rev-parse", "HEAD");
-        var continuing = phase is "execute" or "revise";
         if (continuing && retained?["source"]?.ToString() != sourceRevision)
             throw new InvalidOperationException("Continuation must use the retained planning build.");
         var manifest = label.StartsWith(cohort + "-", StringComparison.Ordinal)
-            ? await LiveCampaignEvidence.PinAsync(campaign, sourceRevision, model.Provider, model.Model, model.ConfigurationFingerprint, cohort, productLimit) : null;
+            ? await LiveCampaignEvidence.PinAsync(campaign, sourceRevision, model.Provider, model.Model, model.ConfigurationFingerprint, cohort, productLimit, businessJudge) : null;
         await using var proxy = await CampaignInferenceProxy.StartAsync(model, label);
         var configurations = Configuration(model.McpServers, scenario, proxy.Endpoint);
         var human = new ConsoleHuman(campaign, label);
@@ -62,7 +65,7 @@ internal static class LiveWorkflowEvaluation
         });
         var measured = new ExecutionModel(model, label);
         var mappingTelemetry = new MappingLiveEvaluation.MappingTelemetry();
-        var engine = new WorkflowEngine { McpClientFactory = observed, LLMClient = phase == "execute" ? measured : model,
+        var engine = new WorkflowEngine { McpClientFactory = observed, LLMClient = phase == "execute" ? measured : new PlanningModel(model, run),
             Telemetry = mappingTelemetry,
             // The existing execution deadline also bounds cumulative runtime inference.
             // Monetary admission remains in the shared encrypted campaign client.
@@ -81,6 +84,8 @@ internal static class LiveWorkflowEvaluation
                 run["artifact_hash"] = null; run["failure"] = null;
             }
             run["session"] = JsonSerializer.SerializeToNode(s, PlanningJsonContext.Default.PlanningSession);
+            run["diagnostic_history"] ??= new JsonArray();
+            GnOuGo.Planning.Examples.PlanningBenchmarkMeasurements.Capture(run, s);
             await Save(); Console.WriteLine($"{label}: revision={s.Revision}, status={s.Status}, calls={s.ModelCalls}, repairs={s.ReplanAttempts}");
         });
         if (phase == "execute")
@@ -106,6 +111,8 @@ internal static class LiveWorkflowEvaluation
                 run["mapping_telemetry"] = mappingTelemetry.Mappings; await Save(); }
             var oracle = await LiveWorkflowOracles.VerifyAsync(scenario, root, run, observed);
             run["oracle"] = oracle;
+            RecordExecutionOracle(run, session, oracle);
+            GnOuGo.Planning.Examples.PlanningBenchmarkMeasurements.ProposalMetrics(run, run["result"]!.AsObject());
             run["result"]!["execution_success"] = run["execution"]!["success"]!.DeepClone();
             run["result"]!["execution_oracle"] = oracle["passed"]!.DeepClone();
             run["result"]!["execution_status"] = "completed";
@@ -172,13 +179,15 @@ internal static class LiveWorkflowEvaluation
             if (state.Status == PlanningStatus.FinalReview) PlanningArtifactApproval.Verify(state);
         }
         catch (Exception ex) { run["failure"] = ex.ToString(); }
-        run["result"] = new JsonObject { ["status"] = state.Status, ["planning_ms"] = priorMilliseconds + clock.ElapsedMilliseconds,
+        run["result"] = new JsonObject { ["mode"] = "live", ["status"] = state.Status, ["planning_ms"] = priorMilliseconds + clock.ElapsedMilliseconds,
             ["calls"] = state.ModelCalls, ["repairs"] = state.ReplanAttempts, ["discovery_reads"] = priorReads + observed.DiscoveryReads,
             ["review_revisions"] = run["planning_revisions"]?.AsArray().Count ?? 0,
             ["diagnostics"] = JsonSerializer.SerializeToNode(state.Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic),
             ["execution_success"] = false, ["execution_oracle"] = false, ["execution_status"] = "not_started",
             ["accounting"] = await LiveCampaignEvidence.AccountingAsync(campaign, label) };
         run["artifact_hash"] = state.Yaml is null ? null : state.ComputeArtifactHash();
+        run["result"]!["manifest"] = SchemaPortabilityCampaign.MeasurementManifest(state.Request);
+        GnOuGo.Planning.Examples.PlanningBenchmarkMeasurements.ProposalMetrics(run, run["result"]!.AsObject());
         await Save(); Console.WriteLine(run["result"]!.ToJsonString());
         if (run["artifact_hash"] is not null) Console.WriteLine("artifact_hash=" + run["artifact_hash"]);
 
@@ -187,13 +196,28 @@ internal static class LiveWorkflowEvaluation
 
     internal static PlanningRequest FreshPlanningRequest(string[] args, string label, string scenario, string prompt, string provider, string model)
     {
+        var businessJudge = ResolveBusinessJudge(args);
         var request = new PlanningRequest { SessionId = label, TenantId = "benchmark", Name = "Live " + scenario,
             Prompt = prompt, Mode = PlanningMode.Auto, MaxModelCalls = 8, MaxReplanAttempts = 2,
             Generation = new() { MaxInputTokensPerRequest = 96000, MaxOutputTokens = 32768, Reasoning = "medium" },
             Policy = new() { RequireExternalConfirmation = false },
             Options = new() { ["generator"] = new JsonObject { ["provider"] = provider, ["model"] = model } } };
         if (args.Contains("--automatic-correction", StringComparer.Ordinal)) request.Options["automatic_correction"] = true;
+        if (args.Contains("--business-judge", StringComparer.Ordinal) || args.Contains("--no-business-judge", StringComparer.Ordinal))
+            request.Options["business_judge"] = businessJudge;
         return request;
+    }
+
+    internal static bool ResolveBusinessJudge(string[] args, JsonObject? retained = null)
+    {
+        var enabled = args.Contains("--business-judge", StringComparer.Ordinal);
+        var disabled = args.Contains("--no-business-judge", StringComparer.Ordinal);
+        if (enabled && disabled) throw new ArgumentException("Choose one business judge setting.");
+        if (retained is null) return enabled;
+        var saved = retained["session"]?["request"]?["options"]?["business_judge"]?.GetValue<bool>() == true;
+        if ((enabled || disabled) && enabled != saved)
+            throw new InvalidOperationException("The explicit business judge setting differs from the retained run. Start a separate cohort.");
+        return saved;
     }
 
     internal static async Task<PlanningSession> ApproveAsync(JsonObject run, PlanningCommand command, IPlanningRuntime runtime, CancellationToken ct)
@@ -282,6 +306,42 @@ internal static class LiveWorkflowEvaluation
         copy.ClientRequestId = run + "-execution:" + (request.ClientRequestId ?? call + ":" + PlanningGraphCompiler.Fingerprint(request.Prompt));
         copy.Reasoning = "medium"; copy.MaxTokens = Math.Min(copy.MaxTokens ?? 32768, 32768);
         return copy;
+    }
+
+    internal static void RecordExecutionOracle(JsonObject run, PlanningSession session, JsonObject oracle)
+    {
+        if (oracle["passed"] is JsonValue value && value.TryGetValue<bool>(out var correct))
+            PlanningBenchmarkMeasurements.RecordBusinessOracle(run, session, correct, run["oracle_version"]?.ToString() ?? "real-workflows-v1");
+        // Older retained candidates have only the approval-artifact identity.
+        if (run["first_proposal"] is JsonObject first && first["candidate_hash"] is null &&
+            session.ComputeArtifactHash() is { } artifactHash && first["artifact_hash"]?.ToString() == artifactHash)
+            first["business_correct"] = oracle["passed"]?.DeepClone();
+    }
+
+    internal sealed class PlanningModel(KeyVaultBenchmarkModel model, JsonObject run) : ILLMClient, ILLMCapabilityResolver
+    {
+        public Task<int?> InputTokenAllowanceAsync(string? provider, string name, int outputTokens, CancellationToken ct) => model.InputTokenAllowanceAsync(provider, name, outputTokens, ct);
+        public Task<bool?> SupportsStructuredOutputAsync(string? provider, string name, CancellationToken ct) => model.SupportsStructuredOutputAsync(provider, name, ct);
+        public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string name, CancellationToken ct) => model.SupportedReasoningLevelsAsync(provider, name, ct);
+        public async Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
+        {
+            var purpose = run["session"]?["pendingCall"]?["purpose"]?.ToString() ?? "unknown";
+            var clock = Stopwatch.StartNew();
+            run["usage_receipts"] ??= new JsonObject();
+            try
+            {
+                var response = await model.CallAsync(request, ct);
+                PlanningBenchmarkMeasurements.RecordResponse(run, request, response, run["session"]?["modelCalls"]?.GetValue<int>() ?? 0, purpose);
+                PlanningBenchmarkMeasurements.RecordUsage(run, request.ClientRequestId!, response.Usage as JsonObject);
+                return response;
+            }
+            catch
+            {
+                PlanningBenchmarkMeasurements.RecordUsage(run, request.ClientRequestId!, await model.PartialUsageAsync(request.ClientRequestId!, CancellationToken.None));
+                throw;
+            }
+            finally { PlanningBenchmarkMeasurements.RecordCall(run, request.ClientRequestId!, purpose, clock.Elapsed.TotalMilliseconds); }
+        }
     }
 
     private sealed class ExecutionModel(KeyVaultBenchmarkModel model, string run) : ILLMClient, ILLMCapabilityResolver

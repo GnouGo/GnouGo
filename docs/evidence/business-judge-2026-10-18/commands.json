@@ -1,0 +1,51 @@
+{
+  "kind": "scripted fixture comparison; no provider dispatch",
+  "working_directory": "repository root",
+  "frozen_binary_directory": "/var/folders/5j/c3fzgxh96_bgmjhkf57_g5xw0000gp/T/gnougo-judge-delivery-fixture-bbmr34ph/bin",
+  "runs": [
+    {
+      "arm": "control",
+      "arguments": [
+        "--repetitions",
+        "3"
+      ],
+      "exit_code": 0,
+      "output": "control.jsonl"
+    },
+    {
+      "arm": "judge",
+      "arguments": [
+        "--repetitions",
+        "3",
+        "--business-judge",
+        "--arm",
+        "judge"
+      ],
+      "exit_code": 0,
+      "output": "judge.jsonl"
+    },
+    {
+      "arm": "prior_host_defaults",
+      "arguments": [
+        "--repetitions",
+        "3",
+        "--arm",
+        "defaults",
+        "--max-model-calls",
+        "8",
+        "--max-repairs",
+        "2",
+        "--max-input-tokens",
+        "24000",
+        "--max-output-tokens",
+        "32768"
+      ],
+      "exit_code": 0,
+      "output": "prior_host_defaults.jsonl"
+    }
+  ],
+  "invocation": "dotnet <frozen_binary_directory>/GnOuGo.Agent.Planning.Benchmark.dll <arguments>",
+  "scope": "All eight default business fixtures, three repetitions per arm. No --live flag or provider dispatch.",
+  "acceptance": "Descriptive fixture evidence only. Strict live comparison is inconclusive because provider/model and actual usage are unknown.",
+  "candidate_commit": "cf47affd4543652a4fd091d3cd623868158f2934"
+}

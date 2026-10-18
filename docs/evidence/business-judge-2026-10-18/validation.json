@@ -1,0 +1,269 @@
+{
+  "schema_version": 1,
+  "candidate_commit": "cf47affd4543652a4fd091d3cd623868158f2934",
+  "kind": "Local deterministic validation; no paid inference",
+  "solution": {
+    "command": "dotnet test GnOuGo.Agent.sln --no-restore -m:1 -warnaserror -p:SkipModelMetadataGeneration=true -p:SkipPlaywrightBrowserInstall=true --logger 'console;verbosity=normal'",
+    "exit_code": 0,
+    "log_sha256": "971bad2ee23712dc70ae04f6077d1871c7213f7c39e3c1032a6af2e44c85b0ea",
+    "projects": [
+      {
+        "assembly": "GnOuGo.DocIngestor.Tests.dll",
+        "total": 89,
+        "passed": 89,
+        "skipped": 0,
+        "failed": 0
+      },
+      {
+        "assembly": "GnOuGo.Diff.Tests.dll",
+        "total": 52,
+        "passed": 52,
+        "skipped": 0,
+        "failed": 0
+      },
+      {
+        "assembly": "GnOuGo.KeyVault.Core.Tests.dll",
+        "total": 12,
+        "passed": 12,
+        "skipped": 0,
+        "failed": 0
+      },
+      {
+        "assembly": "GnOuGo.Flow.Tests.dll",
+        "total": 1410,
+        "passed": 1410,
+        "skipped": 0,
+        "failed": 0
+      },
+      {
+        "assembly": "GnOuGo.Flow.Integrations.Tests.dll",
+        "total": 101,
+        "passed": 101,
+        "skipped": 0,
+        "failed": 0
+      },
+      {
+        "assembly": "GnOuGo.AI.Core.Tests.dll",
+        "total": 226,
+        "passed": 226,
+        "skipped": 0,
+        "failed": 0
+      },
+      {
+        "assembly": "GnOuGo.AI.Local.Tests.dll",
+        "total": 14,
+        "passed": 14,
+        "skipped": 0,
+        "failed": 0
+      },
+      {
+        "assembly": "GnOuGo.Agent.Mcp.Tests.dll",
+        "total": 103,
+        "passed": 103,
+        "skipped": 0,
+        "failed": 0
+      },
+      {
+        "assembly": "GnOuGo.Cmd.Mcp.Tests.dll",
+        "total": 100,
+        "passed": 93,
+        "skipped": 7,
+        "failed": 0
+      },
+      {
+        "assembly": "GnOuGo.Browser.Mcp.Tests.dll",
+        "total": 142,
+        "passed": 142,
+        "skipped": 0,
+        "failed": 0
+      },
+      {
+        "assembly": "GnOuGo.Agent.Server.Tests.dll",
+        "total": 1115,
+        "passed": 1114,
+        "skipped": 1,
+        "failed": 0
+      },
+      {
+        "assembly": "GnOuGo.Document.Mcp.Tests.dll",
+        "total": 73,
+        "passed": 73,
+        "skipped": 0,
+        "failed": 0
+      },
+      {
+        "assembly": "GnOuGo.KeyVault.Mcp.Tests.dll",
+        "total": 9,
+        "passed": 9,
+        "skipped": 0,
+        "failed": 0
+      },
+      {
+        "assembly": "GnOuGo.Files.Server.Tests.dll",
+        "total": 10,
+        "passed": 10,
+        "skipped": 0,
+        "failed": 0
+      },
+      {
+        "assembly": "GnOuGo.DocIngestor.Mcp.Tests.dll",
+        "total": 7,
+        "passed": 7,
+        "skipped": 0,
+        "failed": 0
+      },
+      {
+        "assembly": "GnOuGo.OtlpCollector.Server.Tests.dll",
+        "total": 7,
+        "passed": 7,
+        "skipped": 0,
+        "failed": 0
+      },
+      {
+        "assembly": "GnOuGo.GithubCopilot.Mcp.Tests.dll",
+        "total": 243,
+        "passed": 243,
+        "skipped": 0,
+        "failed": 0
+      },
+      {
+        "assembly": "GnOuGo.GithubCopilot.Core.Tests.dll",
+        "total": 173,
+        "passed": 173,
+        "skipped": 0,
+        "failed": 0
+      },
+      {
+        "assembly": "GnOuGo.GithubCopilot.E2E.Tests.dll",
+        "total": 12,
+        "passed": 7,
+        "skipped": 5,
+        "failed": 0
+      },
+      {
+        "assembly": "GnOuGo.Observability.Core.Tests.dll",
+        "total": 3,
+        "passed": 3,
+        "skipped": 0,
+        "failed": 0
+      },
+      {
+        "assembly": "GnOuGo.Git.Mcp.Tests.dll",
+        "total": 84,
+        "passed": 84,
+        "skipped": 0,
+        "failed": 0
+      },
+      {
+        "assembly": "GnOuGo.Workspace.Tests.dll",
+        "total": 30,
+        "passed": 30,
+        "skipped": 0,
+        "failed": 0
+      },
+      {
+        "assembly": "GnOuGo.Mcp.Core.Tests.dll",
+        "total": 49,
+        "passed": 49,
+        "skipped": 0,
+        "failed": 0
+      },
+      {
+        "assembly": "GnOuGo.Flow.Mermaid.Tests.dll",
+        "total": 12,
+        "passed": 12,
+        "skipped": 0,
+        "failed": 0
+      },
+      {
+        "assembly": "GnOuGo.Assets.Bears.Tests.dll",
+        "total": 91,
+        "passed": 91,
+        "skipped": 0,
+        "failed": 0
+      },
+      {
+        "assembly": "GnOuGo.Assets.Animation.Tests.dll",
+        "total": 42,
+        "passed": 42,
+        "skipped": 0,
+        "failed": 0
+      },
+      {
+        "assembly": "GnOuGo.Assets.Animation.Server.Tests.dll",
+        "total": 13,
+        "passed": 13,
+        "skipped": 0,
+        "failed": 0
+      },
+      {
+        "assembly": "GnOuGo.Assets.Bears.Server.Tests.dll",
+        "total": 28,
+        "passed": 28,
+        "skipped": 0,
+        "failed": 0
+      },
+      {
+        "assembly": "GnOuGo.Flow.Planning.Tests.dll",
+        "total": 1673,
+        "passed": 1673,
+        "skipped": 0,
+        "failed": 0
+      },
+      {
+        "assembly": "GnOuGo.ProxyCopilot.Server.Tests.dll",
+        "total": 177,
+        "passed": 177,
+        "skipped": 0,
+        "failed": 0
+      },
+      {
+        "assembly": "GnOuGo.Auth.Core.Tests.dll",
+        "total": 8,
+        "passed": 8,
+        "skipped": 0,
+        "failed": 0
+      },
+      {
+        "assembly": "GnOuGo.Flow.Persistence.Tests.dll",
+        "total": 24,
+        "passed": 24,
+        "skipped": 0,
+        "failed": 0
+      },
+      {
+        "assembly": "GnOuGo.Flow.Copilot.Tests.dll",
+        "total": 5,
+        "passed": 5,
+        "skipped": 0,
+        "failed": 0
+      }
+    ],
+    "totals": {
+      "total": 6137,
+      "passed": 6124,
+      "skipped": 13,
+      "failed": 0
+    },
+    "skip_categories": [
+      {
+        "reason": "Requires native Windows PowerShell",
+        "count": 7
+      },
+      {
+        "reason": "Opt-in deterministic browser smoke requires PLAYWRIGHT_MODULE_PATH",
+        "count": 1
+      },
+      {
+        "reason": "Opt-in live-model/GitHub fixtures were not authorized for this delivery",
+        "count": 5
+      }
+    ]
+  },
+  "related_validation": {
+    "release": "release-validation.json",
+    "frontend": "frontend-validation.json",
+    "frozen_scripted_comparison": "summary.json",
+    "earlier_failed_or_incomplete_attempts": "validation-attempts.json"
+  }
+}

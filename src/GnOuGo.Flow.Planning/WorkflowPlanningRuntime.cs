@@ -25,8 +25,16 @@ public sealed class WorkflowPlanningRuntime : IPlanningRuntime
     public WorkflowPlanningRuntime(StepExecutionContext context, ILLMClient model, Func<PlanningSession, CancellationToken, Task> checkpoint)
     { _context = context; _engine = context.Engine; Capabilities = new CapabilityDiscovery(context.Engine); _model = model; _checkpoint = checkpoint; }
     public Task<PlanningCatalog> DiscoverAsync(PlanningRequest request, CancellationToken ct) => CapabilityDiscovery.DiscoverAsync(_engine, request, ct);
-    public Task<LLMResponse> CallAsync(LLMRequest request, string purpose, CancellationToken ct)
-        => _context.CallLLMAsync(_model ?? _engine.LLMClient ?? throw new InvalidOperationException("No planning model configured."), request, "workflow.plan." + purpose, ct);
+    internal Task AdmitAsync(LLMRequest request, int inputLimit, string purpose, CancellationToken ct) =>
+        ModelRequestAdmission.ValidateAsync(request, _engine.LLMCapabilities ?? _model as ILLMCapabilityResolver ??
+            _engine.LLMClient as ILLMCapabilityResolver, inputLimit, purpose, ct);
+    public async Task<LLMResponse> CallAsync(LLMRequest request, string purpose, CancellationToken ct)
+    {
+        var client = _model ?? _engine.LLMClient ?? throw new InvalidOperationException("No planning model configured.");
+        if (client is not IModelAdmissionOwner)
+            await ModelRequestAdmission.ValidateAsync(request, _engine.LLMCapabilities ?? client as ILLMCapabilityResolver, int.MaxValue, purpose, ct);
+        return await _context.CallLLMAsync(client, request, "workflow.plan." + purpose, ct);
+    }
     public Task CheckpointAsync(PlanningSession session, CancellationToken ct) => _checkpoint(session, ct);
 
     public Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(PlanningArtifactValidationRequest request, CancellationToken ct)

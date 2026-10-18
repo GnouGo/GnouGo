@@ -59,6 +59,7 @@ public sealed class RecordedBudgetDiscoveryTests(ITestOutputHelper output)
         // the successful compiler replay; no simplification of their types or bindings.
         var recording = Read("retained-review.json");
         var original = recording["finalSession"]!.Deserialize(PlanningJsonContext.Default.PlanningSession)!;
+        foreach (var task in TaskPlanRevisions.Tasks(original.Plan!).Where(t => t.Kind == "transform" && t.Mode is null)) task.Mode = "interpret";
         original.Requirements!.Inputs = original.Plan!.Inputs;
         original.Requirements.Outputs = original.Plan.Root.Outputs.Select(o => new TaskInput { Name = o.Name, Type = new() { Kind = "any" } }).ToList();
         var catalog = new RecordedContracts(original.Discovery);
@@ -74,7 +75,8 @@ public sealed class RecordedBudgetDiscoveryTests(ITestOutputHelper output)
             Plan = runtime.Calls.Count == 7 ? original.Plan : null
         });
         var state = PlannerFixture.Session(); state.IntentVersion = 2; state.Request.Prompt = original.Request.Prompt;
-        state.Request.Generation.MaxInputTokensPerRequest = 24000;
+        // Fresh scripted continuation uses the new creation allowance; recordings remain immutable.
+        state.Request.Generation.MaxInputTokensPerRequest = 32000;
         state.Request.Generation.MaxOutputTokens = 32768;
         state = await PlannerFixture.RunAsync(runtime, state);
         Assert.True(state.Status == PlanningStatus.FinalReview, string.Join("; ", state.Diagnostics.Select(d => d.Code + ": " + d.Message)));
@@ -99,7 +101,7 @@ public sealed class RecordedBudgetDiscoveryTests(ITestOutputHelper output)
         Assert.All(original.Discovery.Resolved, c => Assert.Equal(JsonSerializer.Serialize(c, PlanningJsonContext.Default.PlanningCapability),
             JsonSerializer.Serialize(state.Catalog.Capabilities.Single(selected => selected.Id == c.Id), PlanningJsonContext.Default.PlanningCapability)));
         var tokens = runtime.Calls.Select(c => PlanningJsonTransport.EstimateInputTokens(c.Prompt, c.StructuredOutputSchema!.AsObject())).ToArray();
-        Assert.All(tokens.Take(6), n => Assert.InRange(n, 1, 21600));
+        Assert.All(tokens.Take(6), n => Assert.InRange(n, 1, state.Request.Generation.MaxInputTokensPerRequest * 9 / 10));
         Assert.InRange(tokens[^1], 1, state.Request.Generation.MaxInputTokensPerRequest);
         output.WriteLine($"Synthetic ten-contract review: calls={runtime.Calls.Count}; repairs={state.ReplanAttempts}; metadata reads={catalog.Reads}; contract resolutions={catalog.Resolutions.Count}; detailed operations=[{string.Join(',', counts)}]; input estimates=[{string.Join(',', tokens)}]; cumulative={tokens.Sum()}; prompt bytes=[{string.Join(',', runtime.Calls.Select(c => Encoding.UTF8.GetByteCount(c.Prompt)))}]. No approval, execution or live inference.");
     }

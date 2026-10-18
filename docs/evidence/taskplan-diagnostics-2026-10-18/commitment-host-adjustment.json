@@ -1,0 +1,8 @@
+{
+  "production_commit": "25dc994d45925054859cdb0874428dceb432b62f",
+  "test_adjustment_commit": "bbd1061a3f7914ddece5720359d75e66107ad99e",
+  "source_file": "tests/GnOuGo.Agent.Server.Tests/CommitmentCorrectionHostTests.cs",
+  "sha256": "30fe100aadb53d691c4e8b8c18c70ac8fff11c885aa909428fe6c2051f0b8d53",
+  "prior_sha256": "217f17208e336c794010719683c323db2cb1f7c6f45c223868cd2d73eb5ddf7c",
+  "approved_change": "Fresh correction progress expectation 6 to 8; execution and recovery assertions unchanged."
+}

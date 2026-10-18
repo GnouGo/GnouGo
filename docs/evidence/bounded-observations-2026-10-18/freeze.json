@@ -1,0 +1,29 @@
+{
+  "recorded_utc": "2026-10-18T07:49:24.981350+00:00",
+  "source": "00b1aa751bbdd8787cda25f425a56db2e6850f51",
+  "baseline": "e880d32e80a268fde77df11fec661aab0793e48b",
+  "campaign": "schema-portability-20261002",
+  "cohort": "boundedobs20261018a",
+  "run": "boundedobs20261018a-amazon-1",
+  "query": "chaussure geox homme 45",
+  "max_products": 10,
+  "automatic_correction": true,
+  "ceiling_eur": 200,
+  "max_model_calls": 8,
+  "max_replan_attempts": 2,
+  "provider": "OpenAi",
+  "model": "gpt-5.5-2026-04-24",
+  "configuration_hash": "0d9b3f888b2a23348f7efbdc00cc764d2e388e63c076dd350b945bc161539d31",
+  "planning_input_allowance": 96000,
+  "mapping_input_allowance": 96000,
+  "output_allowance": 32768,
+  "execution_approval": "Separate new explicit requirement acknowledgments, revision and artifact hash required",
+  "production_sha256": "4d26600360d94179256559e7c8a0e08cc146fd3cfed28f533b915d5e4d16a7aa",
+  "harness_sha256": "9eae74d8ca43d62e5dddca8dfc40b88e77a4ab940b8abcf37fcb3cb312319aa2",
+  "oracle_files": {
+    "tests/GnOuGo.Agent.Planning.Benchmark/LiveWorkflowOracles.cs": "4671fe4cd74cd34167d282a3449686b900492257058fc6add39588bd08d7d514"
+  },
+  "binary_manifest_sha256": "3b754f91f50312aa56c6e5ee88cd81ab1901f2391aebfa0fbf8d6f7a1876ebae",
+  "binary_files": 708,
+  "initial_build_source": "69e9030f2b6fd02c227432fbe642a96aebde1de5"
+}

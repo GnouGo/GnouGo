@@ -1,0 +1,17 @@
+{
+  "success": false,
+  "outputs": null,
+  "error": {
+    "Code": "LLM_BUDGET_EXCEEDED",
+    "Type": "LLM_BUDGET_EXCEEDED",
+    "Message": "Mapping inference stopped: LLM_BUDGET_EXCEEDED. [workflow 'main', step 'n_8dce3e9e9190662f']",
+    "Retryable": false,
+    "Details": {
+      "dispatch_status": "not_started",
+      "failed_workflow": "main",
+      "failed_step_id": "n_8dce3e9e9190662f",
+      "failed_step_type": "mapping.dynamic",
+      "execution_phase": "step"
+    }
+  }
+}

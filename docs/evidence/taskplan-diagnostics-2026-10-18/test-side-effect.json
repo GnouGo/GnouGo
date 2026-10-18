@@ -1,0 +1,16 @@
+{
+  "fixture": "MissingLinksUseExplicitErrorRowsAndDoNotStopLaterVisits",
+  "affected_path": "default_document_workspace/products.xlsx",
+  "prior_existence": "unknown",
+  "original_contents_recoverable": "unknown; no known backup",
+  "current_file_preserved": true,
+  "current_contents": "fixture column headers only",
+  "bytes": 1701,
+  "sha256": "088bf1d6a477d7bb2e6044adb1c5b8f2c5026651cb41c1921e4f7c8444ced658",
+  "last_write_utc": "2026-10-18T17:52:02.241462Z",
+  "fix": "Explicit temporary DocumentServerSettings.DefaultWorkingDirectory and pre-dispatch root assertion",
+  "subsequent_variants_passed": 4,
+  "raw_failed_host_logs_available": false,
+  "subsequent_hash_verified_unchanged": true,
+  "local_time_machine_snapshots": "tmutil listlocalsnapshots / listed none"
+}

@@ -72,8 +72,12 @@ public sealed class WorkflowRouteExecutorTests
         foreach (var routed in result.StepResults) Assert.True(routed.Output!["results"]![0]!["success"]!.GetValue<bool>(), routed.Output.ToJsonString());
         Assert.Equal(1, model.Calls); Assert.Same(workflow.Document, engine.CompiledDocument);
     }
-    private sealed class MappingModel : ILLMClient
+    private sealed class MappingModel : ILLMClient, ILLMCapabilityResolver
     {
+        public Task<int?> InputTokenAllowanceAsync(string? provider, string model, int outputTokens, CancellationToken ct) => Task.FromResult<int?>(128000);
+        public Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<bool?>(true);
+        public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<IReadOnlyList<string>?>(["medium"]);
+
         internal int Calls;
         public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
         { Calls++; return Task.FromResult(new LLMResponse { Json = new JsonObject { ["script"] = "({name:source.observed.title})" } }); }

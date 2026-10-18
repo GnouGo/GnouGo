@@ -78,6 +78,29 @@ that every model request contains these scenarios.
 
 For large observations, declare a compact view for each consumer, using typed field selections or existing independent extraction. Avoid a shared superset containing all fields needed by later tasks. Keep full observations and exact action references in existing bindings; include a reference in interpretation only when that decision needs it. Explicit existing bindings and control flow reconnect decisions to the original action data; no runtime field removal is inferred from prose. Then bind global interpretation only to those results and necessary shared context. A complete bounded item can be a declared record; a whole page may be too large even for mapping examples. Preserve necessary source references, grouping, order and original completeness guards. Global comparisons and synthesis stay global; no runtime partitioning or automatic TaskPlan rewrite is performed. The review diagram shows transform mode, named input sources (including assembled bindings) and nested declared result fields. This makes broad collection bindings visible for review, without claiming that static validation proves semantic completeness. See [compaction correction and validation](../../docs/compact-interpretation-2026-10-05.md).
 
+Fresh compact proposal schemas retain the independent `each` semantics beside that
+alternative: one result per original item, every item checked, bounded examples for
+learning only, and preserved order, repetitions and nested arrays. Pagination alone
+does not establish independence; cross-page relationships still belong to the
+appropriate global consumer. Input allowances, result bounds and iteration ceilings
+are separate constraints. Small requested outputs do not bound their input. These
+annotations also survive domain fallback; issued schemas and repair templates keep
+their original presentation and authority.
+
+Fresh guidance also exposes the learning boundary: without `each`, extraction
+submits all bound inputs in one learning request, including for a scalar or bounded
+result. Declared fields can be projected through bindings and `foreach` exports
+without inference; such projection-only tasks can be necessary. Other `each`
+inputs remain shared learning context, so binding the original collection there
+defeats bounded examples. Exact copying and row assembly use typed bindings.
+These instructions do not prove that a model will generate the right composition.
+
+Explicit revision context retains allowlisted request-admission measurements, units
+and the failed step, without scripts or observations. An input allowance refusal
+remains blocked for automatic correction even when `dispatch_status` is `not_started`.
+Unknown measurements are omitted, not converted to zero. A structural redesign needs
+an explicit separate draft and fresh approval; it cannot replay the failed execution.
+
 ### Independent extraction declarations and producer repairs
 
 `each.input` is the exact name in `inputs`, not the sandbox's `item` alias.
@@ -253,20 +276,20 @@ An optional `producedArtifactKind` on catalog paging and discovery requests filt
 
 Selected sources are indexed from their complete tool listing before paging. Case/accent/identifier-normalized token overlap uses inverse document frequency (names ×3, declared field names ×2, descriptions ×1), with capability-ID ties. This ranking establishes no contract or permission. Catalog pages contain eight candidates; new prompts present a bounded directory of retained identities/port names and a token-budgeted global shortlist, plus TaskPlan-required and explicitly inspected contracts. Global ranking uses shared inverse document frequency over all retained discovered candidates, with no source quotas. Earlier-page candidates remain visible in the retained directory when space permits. The directory is budgeted against mandatory context before optional contracts; omitted entries are counted. Detailed contracts do not duplicate their index summaries. Closed discovery omits unusable source descriptions, queries and continuations. Conflicting versions cannot be automatically shortlisted or reused as an unambiguous selection. Query text defaults to the user request plus accepted requirements; a non-null query refines the search. The user request and accepted requirements always remain the global base. Each source adds only its own latest effective receipt query; overlapping terms count once. The historical batch query is retained for recovery but cannot replace the ranking base. Use a null query with continuation cursors, which bind to the effective query and metadata snapshot. Continuation eventually visits every tool; low relevance never means unsupported.
 
-Full metadata and resolved contracts remain in session state. Prompts show coverage, the retained compact directory, exact active-shortlist contracts and contracts required by inspections or the current TaskPlan/revision baseline. Historical full pages are not repeated. Directory entries carry identities, names and business-port names; ranking still uses full metadata text. Optional candidates are admitted in relevance order only while the complete request, including its response schema, fits 90% of the saved input allowance (21,600 at 24,000). Oversized or unavailable optional contracts are skipped so smaller candidates can use the remaining space; omitted operations remain discoverable and require exact inspection before selection. Required contracts are never pruned; oversized mandatory context still stops admission. For fresh responses, shortlist resolution completes before the discovery checkpoint so new per-advance host adapters can reuse receipts. Recovering an issued response preserves its schema and discovery effects; optional presentation is recomputed before the next new request. Unselected resolved candidates never enter the executable catalog. Fixed-operation repairs omit unusable discovery indexes, alternatives and source descriptions, retaining coverage limitations and all required contracts. Pending requests retain their original prompts, schemas, numeric cursors where applicable, identities and budgets.
+Full metadata and resolved contracts remain in session state. Prompts show coverage, the retained compact directory, exact active-shortlist contracts and contracts required by inspections or the current TaskPlan/revision baseline. Historical full pages are not repeated. Directory entries carry identities, names and business-port names; ranking still uses full metadata text. Optional candidates are admitted in relevance order only while the complete request, including its response schema, fits 90% of the saved input allowance (28,800 at the fresh 32,000 default). Oversized or unavailable optional contracts are skipped so smaller candidates can use the remaining space; omitted operations remain discoverable and require exact inspection before selection. Required contracts are never pruned; oversized mandatory context still stops admission. For fresh responses, shortlist resolution completes before the discovery checkpoint so new per-advance host adapters can reuse receipts. Recovering an issued response preserves its schema and discovery effects; optional presentation is recomputed before the next new request. Unselected resolved candidates never enter the executable catalog. Fixed-operation repairs omit unusable discovery indexes, alternatives and source descriptions, retaining coverage limitations and all required contracts. Pending requests retain their original prompts, schemas, numeric cursors where applicable, identities and budgets.
 
 [Earlier deterministic discovery measurements](../../docs/budget-driven-discovery.md) compare the frozen coding/review requests; no live output-size or reliability claim is made.
 
-New requests reserve one proposal call and one repair when repair allowance remains: with eight calls and two repairs, at most six calls may request discovery before the first TaskPlan. The repair limit is a maximum; earlier proposals may use both repairs if calls remain. Explicit zero-repair settings and smaller call ceilings remain authoritative. Repairs cannot use their final attempt for discovery. The issued schema closes `discoveryRequests` to null; it then permits `plan: null` as a terminal `DISCOVERY_INCOMPLETE` outcome. Returning discovery against that restriction stops with `DISCOVERY_NOT_ALLOWED`, without another metadata fetch or automatic repair. Historical schemas are retained for receipt validation, never reinterpreted or redispatched by the current profile. No call ceiling or accounting is reset. See the [retained exhaustion regression](../../docs/bounded-planning-discovery.md).
+New requests reserve one proposal call and one repair when repair allowance remains: at the fresh twelve-call ceiling, at most ten calls may request discovery before the first TaskPlan unless the automatic-correction clarification reserve also applies. A historical eight-call session retains its six-call discovery ceiling under this policy. The correction limit is a maximum; earlier proposals may use their remaining corrections if calls remain. Explicit zero-repair settings and smaller call ceilings remain authoritative. Repairs cannot use their final attempt for discovery. The issued schema closes `discoveryRequests` to null; it then permits `plan: null` as a terminal `DISCOVERY_INCOMPLETE` outcome. Returning discovery against that restriction stops with `DISCOVERY_NOT_ALLOWED`, without another metadata fetch or automatic repair. Historical schemas are retained for receipt validation, never reinterpreted or redispatched by the current profile. No call ceiling or accounting is reset. See the [retained exhaustion regression](../../docs/bounded-planning-discovery.md).
 
 
 Explicit string literals retain their `const` contract through named values and scope captures. Runtime inputs (including inputs with defaults) and transform results keep their declared types. Producer-supplied patterns and string bounds are checked by the existing generic validators and appear in input diagnostics; Flow does not interpret tool names or filesystem rules. Declare a fixed resource location once and reuse its business binding for creation and cleanup, including partial failure. This guidance does not prove resource ownership or automatically reconcile independent paths.
 
 Generation requests business tasks with concise objectives and direct consumer bindings. Inline typed copies, selections, assembly, flatten and lookup rather than naming forwarding tasks. Independent extraction can return one candidate array per complete page, consumed directly as `flatten(output(extract, rows))`; use a minimal pure foreach only for a necessary collection projection that existing bindings cannot express. Keep `requires` local and ordered, accepted contracts intact, and original action data separate from decision views. `value` remains supported for necessary independent materialization; `transform` is extraction or interpretation/conversion, never an adapter for typed copying. See [business composition examples](../../docs/compact-workflow-bindings.md#business-taskplans-not-a-task-per-binding). Nominal generation performs no post-generation task rewriting. Empty array literals retain their exact constant contract through compilation and graph validation; no element type is invented. The strict wire schema omits unused type fields, fixed transform-field declarations, host-owned choice selections and unused `explanation`. New wire schemas also omit `nullable: false`, `required: true` and absent `default: null`. Existing DTO defaults restore these representation constants only; `nullable: true`, optionality, array item types and actual defaults remain explicit. Every optional workflow/group input still requires a literal default. Representation compaction preserves TaskPlan semantics and planning storage format 10.
 
-Fresh full-proposal requests use one worked composition guide. Its executable counterpart in the linked example and regression fixture connects complete pages to compact decisions, offered/original lookup, requested actions and deterministic header/row assembly. Available capabilities do not justify additional actions. Schema compaction retains five concise hints on task assertions, conditional routing, transform mode, independent extraction and assembled result types in one shared task-declaration annotation. These annotations change presentation only. Private repair schemas and authority fingerprints retain their historical construction, and pending requests retain their original prompts and schemas. Explicit structural revisions receive the fresh full-proposal presentation without expanding repair authority.
+Fresh full-proposal instructions describe requested outcomes, exact inspected contracts and consumer-specific evidence boundaries without a use-case recipe. Available capabilities do not justify additional actions. Schema compaction retains five concise hints on task assertions, conditional routing, transform mode, independent extraction and assembled result types in one shared task-declaration annotation. These annotations change presentation only. Private repair schemas and authority fingerprints retain their historical construction, and pending requests retain their original prompts and schemas. Explicit structural revisions receive the fresh full-proposal presentation without expanding repair authority.
 
-For requested descriptions, one complete observed features, characteristics or descriptive-text block can be relevant without a Description heading. Selection returns its unchanged offered ID, then strict lookup reconnects the original text. Multiple suitable blocks do not imply absence. Preserve permitted null when none is observable or its subject association is uncertain; never concatenate, paraphrase or shorten blocks or substitute interface controls. This guidance is sent on fresh generation and revision requests. It is not a semantic validator or an automatic repair trigger; deterministic fixtures and independent workbook checks cannot prove a future model's compliance.
+Consumer inputs must preserve necessary source relationships, exact identities, order, repetitions and missing-versus-null distinctions. Pagination does not establish independent work. Input allowances, output cardinality and iteration ceilings are separate constraints; a small result does not establish that its evidence fits. Required observations are never silently sampled or truncated. Scenario examples and expected business outcomes belong in tests and evidence, not shared prompts or planner rules.
 
 Values allow literals, named business references, declared field selection, deterministic JSON encoding and closed typed predicates. An output reference uses a task ID and business port; a null port selects its whole business result. Opaque results have no typed fields. Null-only contracts lower through Flow's existing schema-backed port representation: the complete JSON Schema remains authoritative, including recursively nested nulls. No unsupported shorthand `type: null` or unconstrained fallback is emitted. Presence tests only whether a task produced a non-null result; it proves neither payload shape nor external success. JavaScript, executor types, wire paths, projection recipes and schema pointers are absent from the model response contract. Authored YAML retains the existing runtime language.
 
@@ -280,14 +303,14 @@ Permanent typed model-provider rejections produce `MODEL_REQUEST_REJECTED` with 
 
 New request construction projects a clone of the completed generation or repair schema before token packing, hashing and persistence. Valid runtime patterns that are not portable to both JavaScript Unicode and nonbacktracking syntax are omitted only from this model-facing copy. Authoritative operation contracts, prompt context, semantic/MCP validation and repair authority fingerprints retain the original patterns. Strict preflight checks definitions, reference targets and nested schema positions; `MODEL_SCHEMA_INVALID` stops before reserving a call or repair. Invalid regex syntax and other unsupported shapes remain errors. Recovery uses the already-issued request unchanged. See [schema portability evidence and live commands](../../docs/planning-schema-portability-2026-10-02.md).
 
-`MODEL_INPUT_LIMIT` instead stops locally before dispatch when the conservative full-prompt plus response-schema estimate exceeds the saved input allowance. No additional call or repair is consumed. Standalone Flow defaults to 12,000 input / 8,192 output tokens per request; new Agent.Server Designer sessions default to 24,000 input / 32,768 output, subject to explicit host overrides. Existing sessions keep saved limits, shown directly by Designer. Output budgets can include reasoning; serialization headroom does not guarantee generation completion. A revision-checked `configure_generation` command can resume a stopped session with no pending request and remaining call allowance, retaining discovery and cumulative budgets. Token-only changes and revisions cannot restart a call-exhausted session; Designer displays calls used / ceiling and directs the user to a new session. No automatic limit escalation, authoritative-contract truncation or model retry is performed; later calls still require budget admission.
+`MODEL_INPUT_LIMIT` stops locally before dispatch when the estimate for the complete serialized request exceeds the saved input allowance. No additional call or repair is consumed. New Flow, `workflow.plan`, CLI and Agent.Server Designer sessions default to 32,000 input / 32,768 output tokens per request, subject to explicit overrides. Existing sessions keep saved limits, shown directly by Designer. Sparse historical JSON retains its historical 12,000-input / 8,192-output fallback; creation defaults do not migrate saved definitions or issued requests. Output budgets can include reasoning; serialization headroom does not guarantee generation completion. A revision-checked `configure_generation` command can resume a stopped session with no pending request and remaining call allowance, retaining discovery and cumulative budgets. Token-only changes and revisions cannot restart a call-exhausted session; Designer displays calls used / ceiling and directs the user to a new session. No automatic limit escalation, authoritative-contract truncation or model retry is performed; later calls still require budget admission.
 
 Compiler preflight validates TaskPlan identities, scopes, business ports and contracts before emitting graph nodes. It collects independent diagnostics, including every invalid cross-scope consumer and required export boundary; unavailable prerequisite contracts suppress cascading errors. Children can capture available ancestor values. Parents consume explicitly declared exports; the compiler can route an equivalent descendant reference through an already complete export chain. Parallel siblings cannot directly consume each other. The compiler never invents exports or fallback values.
 
 Conditional alternatives should expose the same consumer-facing ports with matching types, nullability and requiredness, bound to each branch's own values. For example, export a boolean `ready` and nullable string `reference` directly rather than forwarding two differently shaped whole objects. Object exports with compatible contracts and opaque pass-through remain valid; the compiler does not flatten or cast them. A consumer of `reference` must be on a path guarded by `reference != null`; testing `ready` alone proves no nullability relationship. Type diagnostics identify the relevant branch/export contracts when traceable through existing scopes. Changing both interfaces and downstream consumers requires an explicit revision when current repair slots do not authorize it. These diagnostics do not change compiler acceptance or repair permissions.
 
 
-Repairs edit diagnosed business slots and the explicit export chains needed by their consumers. Conditional counterparts require explicit values. Revalidating dependent tasks does not authorize changing them; unknown locations never expand the scope to the whole plan. Unrelated tasks, interfaces, choices, ordering and compiled stages remain fixed. Rejected repairs retain their immutable baseline. Discovery, retries and revisions share cumulative budgets. Defaults remain eight model calls and two repairs. Approval hashes intent, choices, exact contracts, graph/YAML and ceilings. Approval verification recompiles and requires the reviewed artifact to match exactly.
+Repairs edit diagnosed business slots and the explicit export chains needed by their consumers. Conditional counterparts require explicit values. Revalidating dependent tasks does not authorize changing them; unknown locations never expand the scope to the whole plan. Unrelated tasks, interfaces, choices, ordering and compiled stages remain fixed. Rejected repairs retain their immutable baseline. Discovery, retries and revisions share cumulative budgets. New-session defaults are twelve model calls and four corrections; historical absent fields retain eight calls and two repairs. Approval hashes intent, choices, exact contracts, graph/YAML and ceilings. Approval verification recompiles and requires the reviewed artifact to match exactly.
 
 For a conditional input contract, literal selectors may prove exactly one `oneOf`
 branch. A failed complete-request check then diagnoses only incompatible business
@@ -460,7 +483,7 @@ may replace the baseline but never reset usage.
 
 Initial discovery with automatic correction reserves one proposal call, one repair
 when available, and one clarification until answers have been recorded. At the
-default eight-call ceiling, this allows five discovery calls before clarification;
+default twelve-call ceiling, this allows nine discovery calls before clarification;
 answering releases that reserve but adds no allowance. The request budget exposes
 `reservedCalls`. Early proposals need not consume the reserve, repeated clarification
 may still exhaust the allowance, and missing contracts cause an explicit stop.
@@ -542,3 +565,143 @@ Candidates preserve existing operations, arguments, relative order, branches, as
 Committed responses are applied under their original request/authority before fresh-request decisions. Historical progress versions are not upgraded. No execution is resumed to test a correction, no approval is automatic, and no allowance is reset. Coverage emits reference-only events on existing planning traces; it records no observations or schema copies.
 
 See [offline coverage/correction evidence](../../docs/evidence/business-commitments-2026-10-16/README.md). Progressive generation remains deferred: these checks do not establish that another construction pipeline is necessary.
+
+
+## Fresh proposal correctness and review
+
+Fresh full proposals require an explicit `extract` or `interpret` transform mode.
+Boolean conditions use the existing typed binding domain: Boolean literals and
+predicates are available, while unresolved producer references remain subject to
+semantic validation. Schema-size fallback removes optional output/commitment name
+domains without restoring omitted transform modes or displacing required operation
+contracts. Compact schemas retain short primitive semantics. Historical schemas,
+repair templates and issued request identities remain unchanged.
+
+Optional discovery failures are recorded by exact capability ID and version. Later
+automatic shortlist packing reuses that failure; explicit inspection can retry it.
+Required contracts retain their existing visibility and failure behavior. A failed
+inspection remains visible as a discovery limitation.
+
+FinalReview displays the retained request and revision text beside requirements.
+Acknowledgment includes omissions, extra effects, outputs and cleanup. Operation
+associations derive only from exact commitments: ambiguous, repeated and conditional
+associations stay unverified. Declared association is not verification of arguments,
+intent, completeness or execution. Prose clauses omitted from both requirements and
+tasks need independently authored oracles or human review. Optional API `requestText`
+is presentation data, rendered as escaped text; it does not alter approval material.
+
+New sessions capture `planning_validation_profile=explicit-assertions-v1`. After
+existing type, availability and provenance checks, preflight detects opposite Boolean
+assertions and incompatible literal/null equality assertions on the same explicit
+immutable reference, including enclosing branch facts. It reports both locations;
+it never rewrites a guard. Alternatives, cleanup and loop scopes are kept separate.
+There is no general implication solver or inferred producer guarantee. Absent options
+retain historical behavior; approval recompiles with the captured option. Compiler
+v15 lowering, planning format 10 and valid-plan YAML are unchanged.
+
+Fresh intent-v3 corrections use private bookkeeping version 6. Remaining diagnosed
+slots can use another local attempt rather than automatically regenerating a full
+proposal. Unsuccessful candidate fingerprints, rejected authority and the single
+structural-regeneration maximum stop repetition. Incomplete patches retain the
+baseline atomically. Clarification and recovery retain cumulative limits. Versions
+1–5 and already-issued request schemas retain their authority. Contradictory business
+guards require an explicit revision; automatic correction cannot weaken assertions.
+
+The [first-attempt evidence](../../docs/evidence/first-attempt-taskplan-2026-10-17/README.md)
+separates deterministic implementation checks, scripted comparisons, retained replays
+and the unrun live improvement gate.
+
+## Optional independent business review
+
+Set `Request.Options.business_judge` to `true` at session creation to enable an
+independent Structured Output call after deterministic validation and resolved
+choices, before FinalReview. The default is `false`, including sessions without the
+option. Agent.Server exposes the optional `businessJudge` creation property and an
+unchecked Designer control; authored `workflow.plan` uses `business_judge`.
+
+The Judge uses the generator's saved model and settings. Its context contains the
+retained request and revisions, accepted answers, requirements, discovered capability
+limitations, inspected contracts and TaskPlan. It receives no generator reasoning,
+execution tools or test oracle. Typed omission, potentially unnecessary-operation and
+inconsistency findings must cite existing context locations and evidence. Schema and
+reference validation establish only that a report is usable, never that its business
+conclusion is true. Review displays these observations separately from deterministic
+coverage, with their origin, uncertainty and required treatment. No acknowledgment
+is preselected.
+
+A Judge finding grants no edit permission. An exact slot already authorized by an
+explicit revision can enter the existing targeted correction route; findings without
+that authority require explicit revision. Mixed authorized and unauthorized findings
+cannot expand the patch. Patches apply atomically to a copy and undergo full validation;
+accepted requirements, interfaces, effects, guards and unrelated work remain protected.
+Fresh intent-v3 sessions capture `planning_diagnostics_version=1` and use private
+correction progress version 8. After successful compilation and choice resolution,
+accepted-output interface findings and commitment coverage are collected together
+before correction authority is captured. This exposes independent defects in one
+diagnosis; it neither changes accepted obligations nor authorizes unrelated edits.
+Historical versions 1–7 retain their original behavior. The single structural-regeneration
+ceiling is unchanged.
+
+Creation profiles are captured before the host's first persisted checkpoint. A
+rehydrated revision-zero session is historical even if no model call has started;
+missing or previously captured profiles stay unchanged. The construction marker is
+internal and never serialized. Flow keeps the authored resume definition separate
+from these captured session options.
+
+New repair envelopes use private version 11 only under the captured diagnostics
+profile. Accepted public-output bindings and explicitly revised inspected operation
+inputs use their authoritative types to constrain response shapes. References remain
+subject to complete semantic validation; matching types do not prove business meaning.
+Opaque contracts keep the semantic fallback. Exact reference alternatives, host-owned
+inputs and workspace restrictions are preserved. Previously issued envelopes and
+authority fingerprints are reconstructed using their saved versions.
+
+Calls use purpose `judge` in the existing encrypted journal and consume the same
+cumulative call, token, cost and time allowances. Corrections additionally consume the
+existing correction allowance. A versioned context fingerprint reuses each completed
+review for the same request, requirements, answers, discovered contracts and plan;
+relevant changes require a new review. Exhausted allowance yields `not_evaluated`;
+unusable reports yield `inconclusive`. Neither is success, and a no-findings report
+remains `unverified`. Unknown completion uses the existing receipt-recovery block.
+
+Fresh sessions capture `business_judge_review_version=2`. The independent context also
+includes deterministic input-readiness observations, excluding earlier Judge reports.
+Generic execution semantics distinguish mandatory assertions from routing and failed
+execution from successful output obligations. Invalid references retain bounded,
+located rejection diagnostics separately from validated responses. A single invalid
+reference makes the whole report inconclusive: no partial finding is routed, no edit
+authority is granted and no extra Judge call is made. The routing gate requires a
+validated response and an eligible outcome. Historical version-1 contexts, cached
+reviews, pending requests and receipts keep their original identities and behavior.
+
+Before a new generation, correction, Judge or extraction dispatch, the host verifies
+declared Structured Output support, configured reasoning and output reservation.
+Unknown indispensable capabilities fail as `LLM_BUDGET_UNVERIFIABLE`; known
+incompatibility fails as `MODEL_REQUEST_INCOMPATIBLE`. The effective input allowance
+is the smaller of configuration and verified model capacity after output reservation.
+The complete serialized request estimate is labelled `estimated_tokens`; refusal
+reports `limit_kind`, `limit`, `current`, `unit`, `stage` and
+`dispatch_status: not_started`, without payloads. Provider-limit input refusal uses
+`LLM_BUDGET_EXCEEDED` and is distinct from cumulative exhaustion. No automatic
+budget increase, model switch, output clamp or evidence truncation is permitted.
+Unknown runtime observations remain unverified until runtime admission. Completed
+receipts are read before admitting another dispatch; historical requests are not rebuilt.
+
+Fresh sessions capture private `planning_input_review_version=2`. Review identifies
+compiled inference consumers, including nested and cleanup consumers, and records the
+serialized UTF-8 byte size when their bound input or extraction sources are fully
+literal. These counts describe source JSON, not the complete request or token usage;
+input fit remains unverified. Runtime-dependent sources are explicitly unknown. The
+review distinguishes explicit independent extraction, possible runtime inference and
+whole-input extraction. `infer_each` alone cannot establish itemwise processing;
+arrays nested inside a source object are not top-level collection inputs. For explicit
+independent extraction, shared context and complete examples still need admission.
+Source locations are mapped back to authored tasks and inputs. This review never borrows the planning
+allowance as a runtime limit, guesses a provider capacity or changes graph/YAML. Sessions
+without the captured version, or with version 1, retain historical review behavior.
+
+Judge quality requires independent candidate labels: true/false positives and negatives,
+convergence and regressions are measured separately from structural validity. Scripted
+fixtures and replay establish mechanism behavior, not real-model benefit. The Judge
+remains disabled by default; paid evaluation and any future default activation require
+separate decisions based on frozen, comparable evidence.

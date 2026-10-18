@@ -50,6 +50,8 @@ public sealed class RecordedArtifactPrerequisiteTests(ITestOutputHelper output)
         var consumer = state.Discovery.Pages.SelectMany(p => p.Capabilities).First(c => c.Id == replay.Contracts.Single(c => c.Method == "copilot_review").Id);
         state.Discovery.Inspections = [new(consumer.SourceId, null, OperationIds: [consumer.Operation!.Id])];
         replay.Proposal = replay.Corrected(); state.Requirements!.Inputs = replay.Proposal.Inputs;
+        // This is a new proposal, not a mutation of the retained recording.
+        foreach (var task in TaskPlanRevisions.Tasks(replay.Proposal).Where(t => t.Kind == "transform" && t.Mode is null)) task.Mode = "interpret";
         RecordedPlanCompilation.InspectSelected(state, replay.Proposal);
         state.Request.Generation.MaxInputTokensPerRequest = 96000;
         RecordedPlanCompilation.RefreshNativeContracts(state);

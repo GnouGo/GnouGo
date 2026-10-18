@@ -115,8 +115,9 @@ public sealed class FreshContractDomainTests
         state.Requirements!.Outputs = Enumerable.Range(0, 1001).Select(i => new TaskInput { Name = "result_" + i, Type = new() }).ToList();
         var schema = PlanningSchemas.Proposal(state);
         Assert.Empty(PlanningContractValidation.ValidateSchema(schema, strict: true));
-        var original = PlanningSchemas.Compact(PlanningSchemas.FullProposal(state, compact: false), compositionHints: true);
-        Assert.True(JsonNode.DeepEquals(original, schema));
+        Assert.DoesNotContain("result_1000", schema.ToJsonString());
+        Assert.DoesNotContain(PlanningSchemaReferences.Walk(schema, "", 0), t =>
+            t.Schema["properties"]?["kind"]?["enum"]?[0]?.ToString() == "transform" && t.Schema["properties"]!["mode"] is null);
         // Presentation fallback never accepts a missing required public result.
         Assert.NotEmpty(PlanningClarifications.OutputFindings(state, PlannerFixture.Greeting()));
     }

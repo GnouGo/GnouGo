@@ -190,7 +190,7 @@ public sealed partial class DynamicMappingExecutor : IStepExecutor
                 ClientRequestId = Hash(JsonValue.Create(ctx.Limits.TenantId + ":" + ctx.Engine.MappingExecutionId + ":" + invocationId + ":mapping:" + attempt + ":" + key)),
                 Prompt = payload is null ? "" : Instructions + "\nThe variable source has the supplied object/array structure. Example: m.text(source.note, 'Label: (.*)', 1).\n" + payload.ToJsonString(),
                 StructuredOutputSchema = JsonNode.Parse("""{"type":"object","properties":{"script":{"type":"string"}},"required":["script"],"additionalProperties":false}"""),
-                StructuredOutputStrict = true
+                StructuredOutputStrict = true, RequireOutputTokenLimit = true, DisableTransportRetries = true
             };
             if (ctx.Engine.Journal?.Run.Invocations.GetValueOrDefault(invocationId + "/mapping/" + attempt)?.ResolvedInput is { } issued)
                 request = JsonSerializer.Deserialize(issued, PlanningJsonContext.Default.LLMRequest)!;
@@ -201,6 +201,11 @@ public sealed partial class DynamicMappingExecutor : IStepExecutor
                     input["objective"]!, adaptive ? adaptivePrevious : previous, adaptive ? adaptiveFailure : failure,
                     adaptive ? adaptiveFailedIndex : failedIndex, ct, adaptiveIndices, adaptive ? adaptiveDetails : failureDetails);
             }
+            // Completed receipts returned above require no metadata or new call.
+            // Newly dispatched learning requests include every bound source, even
+            // when the declared output or iteration is small.
+            await ModelRequestAdmission.ValidateAsync(request, ctx.Engine.LLMCapabilities ?? inferenceClient as ILLMCapabilityResolver,
+                ctx.Limits.MaxMappingInputTokens ?? 12_000, "mapping.dynamic", ct);
             async Task<JsonNode?> Dispatch(string? id)
             {
                 JsonObject receipt;

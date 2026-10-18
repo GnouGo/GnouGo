@@ -9,6 +9,21 @@ using GnOuGo.Workspace;
 
 internal static class SchemaPortabilityCampaign
 {
+    internal static string MeasurementManifest(PlanningRequest request, bool comparison = false)
+    {
+        var paths = new[] { "tests/Shared/PlanningBenchmarkCases.cs", "tests/Shared/PlanningCorpus.cs", "tests/Shared/PlanningBenchmarkMeasurements.cs",
+            "tests/GnOuGo.Agent.Planning.Benchmark/Program.cs", "tests/GnOuGo.Agent.Planning.Benchmark/LocalExecutionCases.cs",
+            "tests/GnOuGo.Agent.Planning.Benchmark/LiveWorkflowOracles.cs", "tests/GnOuGo.Agent.Planning.Benchmark/KeyVaultBenchmarkModel.cs" };
+        var material = new JsonObject { ["files"] = new JsonObject(paths.Select(path => new KeyValuePair<string, JsonNode?>(path,
+                JsonValue.Create(Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(path))))))) };
+        if (!comparison)
+        {
+            material["generation"] = JsonSerializer.SerializeToNode(request, PlanningJsonContext.Default.PlanningRequest)!["generation"]!.DeepClone();
+            material["calls"] = request.MaxModelCalls; material["repairs"] = request.MaxReplanAttempts;
+            material["business_judge"] = request.Options["business_judge"]?.ToString() == "true";
+        }
+        return PlanningGraphCompiler.Fingerprint(material.ToJsonString());
+    }
     internal const string Model = "gpt-5.5-2026-04-24";
     private const string OriginalSession = "a425b85bb133470cbab4e5f201b9d729";
     internal const string Collection = "planning-schema-portability";

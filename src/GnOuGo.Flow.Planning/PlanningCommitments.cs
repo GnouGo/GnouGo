@@ -127,6 +127,17 @@ internal static class PlanningCommitments
                 ? ": No contractual commitments declared. Business coverage is unverified; no obligations were inferred from the plan."
                 : ": Verified clauses do not prove the complete prose requirement, correct arguments, per-item execution, relevant extraction or successful effects. Human acknowledgment is not verification or execution evidence."), []));
         }
+        foreach (var occurrence in bindings.ReachableOperations)
+        {
+            var task = occurrence.Task;
+            var requirements = state.Requirements.Outcomes.Where(r => r.Commitments?.Any(c => c.Operation == task.Operation) == true).ToArray();
+            var established = requirements.Length == 1 && !occurrence.Conditional && bindings.Operations(task.Operation!).Count == 1;
+            results.Add(new("association:" + task.Id, established ? "declared" : "unverified",
+                $"Operation '{task.Operation}', effect '{Contract(state, task.Operation!)?.EffectKind ?? "unknown"}'. " +
+                (Contract(state, task.Operation!) is { } contract ? PlanningReviewFormatter.OperationOutputs(contract) : "Output contract unavailable. ") +
+                (requirements.Length == 0 ? "No exact requirement association established." : "Declared by: " + string.Join(", ", requirements.Select(r => r.Id)) + ".") +
+                (established ? " Presence only; intent, arguments and execution remain unverified." : " Association is unverified; this does not establish an unauthorized effect."), []));
+        }
         return results;
     }
 }

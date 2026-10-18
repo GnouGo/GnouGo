@@ -188,8 +188,12 @@ public sealed class DynamicMappingCompilationTests
         Assert.False(PlanningContractShapes.CanDefer(opaqueItems, target));
     }
 
-    private sealed class Model(string name) : ILLMClient
+    private sealed class Model(string name) : ILLMClient, ILLMCapabilityResolver
     {
+        public Task<int?> InputTokenAllowanceAsync(string? provider, string model, int outputTokens, CancellationToken ct) => Task.FromResult<int?>(128000);
+        public Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<bool?>(true);
+        public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<IReadOnlyList<string>?>(["medium", "low"]);
+
         public int Calls { get; private set; }
         public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
         { Calls++; return Task.FromResult(new LLMResponse { Json = new JsonObject { ["script"] = "({" + name + ":m.text(source.text,'Name: (.*)')})" } }); }

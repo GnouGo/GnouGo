@@ -5,6 +5,9 @@
         <li><strong>@task.Id</strong>: @task.Objective <small>(@task.Kind@(Scope.Always.Contains(task) ? ", always" : ""))</small>
             @if (task.DependsOn.Count > 0) { <p>After: @string.Join(", ", task.DependsOn)</p> }
             @if (task.Operation is not null) { <p>Operation: <code>@task.Operation</code></p> }
+            @foreach (var association in Associations.Where(a => a.Id == "association:" + task.Id))
+            { <p>@(association.Outcome == "declared" ? "Declared association" : "Unverified association"): @association.Description</p> }
+            @if (task.Requires is not null) { <p>Required assertion: <code>@Binding(task.Requires)</code></p> }
             @if (task.Items is not null) { <p>For each: <code>@Binding(task.Items)</code></p> }
             @if (task.Condition is not null) { <p>When: <code>@Binding(task.Condition)</code></p> }
             @if (task.Inputs.Count > 0)
@@ -15,18 +18,21 @@
             }
             @if (task.Kind == "transform" && task.ResultType is { } result)
             {
+                <p>Transform mode: @(task.Mode ?? "interpret (historical)")</p>
                 <p>Transforms: @string.Join(", ", task.Inputs.Select(i => i.Name))</p>
                 <p>Typed results: @Describe(result)</p>
             }
-            @if (task.Body is { } body) { <PlannerTasks Scope="body" /> }
-            @if (task.Otherwise is { } otherwise) { <p>Otherwise</p><PlannerTasks Scope="otherwise" /> }
-            @foreach (var branch in task.Branches) { <PlannerTasks Scope="branch" /> }
+            @foreach (var output in task.Outputs) { <p>Output @output.Name: <code>@Binding(output.Value)</code></p> }
+            @if (task.Body is { } body) { <PlannerTasks Scope="body" Associations="Associations" /> }
+            @if (task.Otherwise is { } otherwise) { <p>Otherwise</p><PlannerTasks Scope="otherwise" Associations="Associations" /> }
+            @foreach (var branch in task.Branches) { <PlannerTasks Scope="branch" Associations="Associations" /> }
         </li>
     }
 </ul>
-@if (Scope.Outputs.Count > 0) { <p>Business outputs: @string.Join(", ", Scope.Outputs.Select(o => o.Name))</p> }
+@foreach (var output in Scope.Outputs) { <p>Business output @output.Name: <code>@Binding(output.Value)</code></p> }
 @code {
     [Parameter, EditorRequired] public TaskScope Scope { get; set; } = default!;
+    [Parameter] public IReadOnlyList<GnOuGo.Agent.Shared.PlanningValidationResultDto> Associations { get; set; } = [];
     private static string Binding(TaskValue value) => System.Text.Json.JsonSerializer.Serialize(value, PlanningJsonContext.Default.TaskValue);
     private static string Describe(TaskType type) => (type.Kind switch
     {

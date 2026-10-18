@@ -8,7 +8,7 @@ public sealed class CompactDiscoveryContextTests
 {
     internal static PlanningSession State()
     {
-        var state = PlannerFixture.Session(); state.Request.Prompt = "Find the needle";
+        var state = PlannerFixture.Session(); state.Request.Prompt = "Find the needle"; state.Request.Generation.MaxInputTokensPerRequest = 32000;
         state.Requirements = PlannerFixture.Requirements();
         state.Catalog = new() { AllowedStepTypes = ["mcp.call"] };
         var capabilities = Enumerable.Range(0, 100).Select(i => new PlanningCapability
@@ -31,7 +31,7 @@ public sealed class CompactDiscoveryContextTests
         var prompt = HybridWorkflowPlanner.Prompt(state);
         Assert.Contains("contract-only-099-", prompt);
         Assert.DoesNotContain("contract-only-098-", prompt);
-        Assert.True(PlanningJsonTransport.EstimateInputTokens(prompt, PlanningSchemas.Proposal(state)) < 24000);
+        Assert.True(PlanningJsonTransport.EstimateInputTokens(prompt, PlanningSchemas.Proposal(state)) < state.Request.Generation.MaxInputTokensPerRequest);
         Assert.Equal(before, JsonSerializer.Serialize(state.Discovery, PlanningJsonContext.Default.CapabilityDiscoveryState));
     }
 

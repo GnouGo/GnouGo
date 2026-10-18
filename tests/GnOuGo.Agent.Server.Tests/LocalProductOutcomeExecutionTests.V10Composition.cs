@@ -55,8 +55,8 @@ public sealed partial class LocalProductOutcomeExecutionTests
         Assert.InRange(adapter.InputEstimate, 1, session.Request.Generation.MaxInputTokensPerRequest);
         var issued = Assert.Single(adapter.Requests);
         Assert.Contains("missing/null", issued.Prompt);
-        Assert.Contains("Preserve order/repeats", issued.Prompt);
-        Assert.Contains("Bind typed copies/assembly", issued.Prompt);
+        Assert.Contains("order/repeats", issued.Prompt);
+        Assert.Contains("Bind typed copies/projections/assembly", issued.Prompt);
         Assert.Contains("expression_contracts:", session.Yaml!); Assert.DoesNotContain("checkedMapping(", session.Yaml!);
         output.WriteLine($"GATE D: tasks={RetainedTasks(before.Plan!.Root).Count()}→{RetainedTasks(corrected.Plan!.Root).Count()}; " +
             $"steps={original.Steps}→{compact.Steps}; sets={original.Sets}→{compact.Sets}; YAML={Encoding.UTF8.GetByteCount(original.Yaml)}→{Encoding.UTF8.GetByteCount(compact.Yaml)}; " +

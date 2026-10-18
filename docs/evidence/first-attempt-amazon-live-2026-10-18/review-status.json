@@ -1,0 +1,50 @@
+{
+  "run": "firstattempt20261018a-amazon-1",
+  "status": "approved",
+  "execution_status": "completed",
+  "approval_status": "explicit_user_acknowledgments_received",
+  "revision": 2,
+  "artifact_hash": "a2de9a6bb7a09752bf40a7faed948911a961f0d3207d0b5444a4cd598123f82e",
+  "requirement_ids": [
+    "amazon_fr_search",
+    "first_ten_products_only",
+    "xlsx_saved",
+    "browser_closed",
+    "truthful_completion"
+  ],
+  "task_nodes": 10,
+  "root_tasks": 7,
+  "loop_body_tasks": 2,
+  "cleanup_tasks": 1,
+  "operations": [
+    "browser_get_content",
+    "document_write",
+    "browser_close"
+  ],
+  "external_effects": [
+    "read public Amazon.fr search and product pages",
+    "write the fixed local workbook",
+    "close disposable browser context"
+  ],
+  "interpret_tasks": [
+    "build_amazon_fr_search_url",
+    "assemble_xlsx_rows",
+    "determine_public_completion"
+  ],
+  "extract_tasks": [
+    "extract_first_ten_product_targets",
+    "extract_product_workbook_row"
+  ],
+  "review_limitations": [
+    "Static validity does not establish successful execution, exact copied content or prose completeness.",
+    "Repeated browser operations have ambiguous exact requirement associations and remain unverified.",
+    "Interpretation is used for URL creation, row assembly and completion; runtime fidelity remains unverified."
+  ],
+  "user_question_sent": true,
+  "approved_session_revision": 3,
+  "user_answer": "pprove all five requirements and execute",
+  "approval_command_submitted": true,
+  "execution_success": false,
+  "oracle_passed": false,
+  "browser_cleanup_verified": true
+}

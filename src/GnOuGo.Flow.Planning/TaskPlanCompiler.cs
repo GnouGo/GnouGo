@@ -92,11 +92,13 @@ public sealed partial class TaskPlanCompiler
     internal static bool UsesReadableBranches(PlanningRequest request) => request.Options["compilation_profile"]?.ToString() is "compact-bindings-v14" or CompactProfile;
     internal static bool UsesSimplifiedLocals(PlanningRequest request) => request.Options["compilation_profile"]?.ToString() == CompactProfile;
     internal const string AdaptiveMappingProfile = "adaptive-each-v1";
+    internal const string AssertionValidationProfile = "explicit-assertions-v1";
     private bool _adaptiveMappings;
     private bool _compactBindings;
     private bool _normalExports;
     private bool _indexedProjections;
     private bool _fusedBindings;
+    private bool _preciseDeclarations;
     private string _location = "/tasks";
 
     public TaskCompilation Compile(TaskPlan plan, PlanningCatalog catalog, bool compactBindings = false)
@@ -104,10 +106,13 @@ public sealed partial class TaskPlanCompiler
 
     internal TaskCompilation Compile(TaskPlan plan, PlanningCatalog catalog, PlanningRequest request)
         => Compile(plan, catalog, UsesCompactBindings(request), UsesNormalExports(request), request.Options["mapping_profile"]?.ToString() == AdaptiveMappingProfile,
-            request.Options["compilation_profile"]?.ToString() is "compact-bindings-v3" or "compact-bindings-v4" or "compact-bindings-v5" or "compact-bindings-v6" or "compact-bindings-v7" or "compact-bindings-v8" or "compact-bindings-v9" or "compact-bindings-v10" or "compact-bindings-v11" or "compact-bindings-v12" or "compact-bindings-v13" or "compact-bindings-v14" or CompactProfile, UsesFusedBindings(request));
+            request.Options["compilation_profile"]?.ToString() is "compact-bindings-v3" or "compact-bindings-v4" or "compact-bindings-v5" or "compact-bindings-v6" or "compact-bindings-v7" or "compact-bindings-v8" or "compact-bindings-v9" or "compact-bindings-v10" or "compact-bindings-v11" or "compact-bindings-v12" or "compact-bindings-v13" or "compact-bindings-v14" or CompactProfile, UsesFusedBindings(request),
+            request.Options["planning_validation_profile"]?.ToString() == AssertionValidationProfile,
+            request.Options["planning_diagnostics_version"]?.ToString() == "1");
 
-    internal TaskCompilation Compile(TaskPlan plan, PlanningCatalog catalog, bool compactBindings, bool normalExports, bool adaptiveMappings = false, bool indexedProjections = false, bool fusedBindings = false)
+    internal TaskCompilation Compile(TaskPlan plan, PlanningCatalog catalog, bool compactBindings, bool normalExports, bool adaptiveMappings = false, bool indexedProjections = false, bool fusedBindings = false, bool validateAssertions = false, bool preciseDeclarations = false)
     {
+        _preciseDeclarations = preciseDeclarations;
         _fusedBindings = fusedBindings;
         _indexedProjections = indexedProjections;
         _adaptiveMappings = adaptiveMappings;
@@ -119,6 +124,8 @@ public sealed partial class TaskPlanCompiler
         {
             var findings = Preflight();
             if (findings.Count > 0) return new(null, findings, new Dictionary<string, string>());
+            if (validateAssertions && AssertionContradictions() is { Count: > 0 } contradictions)
+                return new(null, contradictions, new Dictionary<string, string>());
             var main = new PlanningWorkflow(); _graph.Workflows.Add(main); _sources["main"] = "/root";
             var scope = new Scope(main, null); AddInputs(scope, plan.Inputs, "/inputs");
             CompileScope(plan.Root, scope, "main");

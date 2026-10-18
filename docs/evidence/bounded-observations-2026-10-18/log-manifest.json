@@ -1,0 +1,127 @@
+[
+  {
+    "file": "logs/candidate-build.log.gz",
+    "sha256": "b2db0e41382dbc9008403c10b8faf04a4f5f676194a2a420c4a3ac4395b8125d",
+    "notes": "Retained intermediate run; use final validation results for acceptance."
+  },
+  {
+    "file": "logs/candidate-final-build.log.gz",
+    "sha256": "cee043720463569f443de370593190226ba9d3551104bcfee39a77a67e65cc2e",
+    "notes": "Retained intermediate run; use final validation results for acceptance."
+  },
+  {
+    "file": "logs/clarification-green.log.gz",
+    "sha256": "74e7cfefe94bc72b966b88e68303f9857e28a6905d17aa0d1edddf6e3ad8a54f",
+    "notes": "Retained intermediate run; use final validation results for acceptance."
+  },
+  {
+    "file": "logs/diagnostics-focused.log.gz",
+    "sha256": "7d0efc8fc54876f595e06ad9a354c7ea157eb742f689bd1cf656a33e5cb7d476",
+    "notes": "Retained intermediate run; use final validation results for acceptance."
+  },
+  {
+    "file": "logs/diagnostics-red.log.gz",
+    "sha256": "da07f77f3e77e80f6d06db72d125479d7a544f8885c248cff79a0959b3bcdfc7",
+    "notes": "Retained intermediate run; use final validation results for acceptance."
+  },
+  {
+    "file": "logs/frontend-build.log.gz",
+    "sha256": "688b6ca92d59ae3cc4a3dc8d3085ba44347a1158304230343c842d549f8ea98a",
+    "notes": "Retained intermediate run; use final validation results for acceptance."
+  },
+  {
+    "file": "logs/headroom-final.log.gz",
+    "sha256": "12db084d5bf82878bc307617174b25a3b131de1ea5ff533eccc97a1751bebd40",
+    "notes": "Retained intermediate run; use final validation results for acceptance."
+  },
+  {
+    "file": "logs/headroom-green.log.gz",
+    "sha256": "f41838473e83bc6de16e5a84f446fc1315d0853f83ea3367337b6b725b70b0c6",
+    "notes": "Stale --no-build assembly retained; rebuilt headroom test passed separately."
+  },
+  {
+    "file": "logs/headroom-rebuilt.log.gz",
+    "sha256": "979351cc0895f3a85609e90574422b695c04669331b72819fb4d35e9a9e752ab",
+    "notes": "Retained intermediate run; use final validation results for acceptance."
+  },
+  {
+    "file": "logs/headroom-tests.log.gz",
+    "sha256": "89506651a86f80a5503dd6472607cd8256b2767f88d8b6fb34c11e49a8e8be91",
+    "notes": "Retained intermediate run; use final validation results for acceptance."
+  },
+  {
+    "file": "logs/host-components.log.gz",
+    "sha256": "d9498ce1c93bbde91061bb79efb3848ef1e696c95f7608c5e8ef0d6c62bf047f",
+    "notes": "Retained intermediate run; use final validation results for acceptance."
+  },
+  {
+    "file": "logs/mapping-recovery-green.log.gz",
+    "sha256": "4cb3e32ecac4f0bd1f79cf8bbf20be02ae6d6b5c84ce9253c93d08ea621a5080",
+    "notes": "Retained intermediate run; use final validation results for acceptance."
+  },
+  {
+    "file": "logs/planning-focused.log.gz",
+    "sha256": "4c3a6e7b6c28536cd079c35a1921d934dbb05a8d08af3e545eaa9baee9867d87",
+    "notes": "Runtime tests passed; warnings-as-errors rejected a nullable test assertion, fixed in later builds."
+  },
+  {
+    "file": "logs/planning-green.log.gz",
+    "sha256": "a675a8ada7e632fd43e7a9f9b2a705cb421b029feaf2555436db3952b8ae61f9",
+    "notes": "Retained intermediate run; use final validation results for acceptance."
+  },
+  {
+    "file": "logs/planning-pack.log.gz",
+    "sha256": "60f409eceeb0807df1342feda3143f43ced552dc295719e3af8e8147f8f10543",
+    "notes": "Retained intermediate run; use final validation results for acceptance."
+  },
+  {
+    "file": "logs/planning-red.log.gz",
+    "sha256": "5f3912c61c5180980d74b5fcb0afd4e05a19ec9b6c7cd2a1cc103a4181987238",
+    "notes": "Retained intermediate run; use final validation results for acceptance."
+  },
+  {
+    "file": "logs/planning-tests-final.log.gz",
+    "sha256": "7465b635f7ceef2ed24240fe124013a6048a6334c0848cb575afe565657ac042",
+    "notes": "Retained intermediate run; use final validation results for acceptance."
+  },
+  {
+    "file": "logs/planning-tests.log.gz",
+    "sha256": "f7fa0e427a2d27869117e2c2bb3c9db2013363fdda639b9966fe0299a183b8ac",
+    "notes": "Retained intermediate run; use final validation results for acceptance."
+  },
+  {
+    "file": "logs/readiness-clean.log.gz",
+    "sha256": "bd5762966062cfed13aef85353e45d3f552861b777bc3929c6a2251a0ae5dd5e",
+    "notes": "Retained intermediate run; use final validation results for acceptance."
+  },
+  {
+    "file": "logs/readiness.log.gz",
+    "sha256": "286db9fb812c7d539ffbc4b0d6a8d089ff9703fc65cb89951ac4ea6790041635",
+    "notes": "No model call: clean-checkout guard rejected a generated timestamp comment; restored before clean readiness."
+  },
+  {
+    "file": "logs/recovery-green.log.gz",
+    "sha256": "9d64ad6bbbc741c6100c697601270a3ea1d69c2f0f73d38819f0291b7221deef",
+    "notes": "Retained intermediate run; use final validation results for acceptance."
+  },
+  {
+    "file": "logs/solution-partial-stale-expectations.log.gz",
+    "sha256": "71823709cc0a4f4c578d09bb49f681945560efbbfa09e3d3eecfdb7ae10d3f3f",
+    "notes": "Cancelled partial suite after stale literal assertions were fixed; not a passing suite."
+  },
+  {
+    "file": "logs/solution-final.log.gz",
+    "sha256": "56a658f47bef4fe7871b582b306e7eb81d75cb2dd94fe90755654ed39f86b073",
+    "notes": "Retained full-solution result and unchanged isolated proxy rerun; see validation.json."
+  },
+  {
+    "file": "logs/proxy-repeat.log.gz",
+    "sha256": "b24b79943460751db56325a59668c1cbf1eca49ba3820b46690d02bacde2b4a7",
+    "notes": "Retained full-solution result and unchanged isolated proxy rerun; see validation.json."
+  },
+  {
+    "file": "logs/amazon-plan.log.gz",
+    "sha256": "0f0402af2f5c954a5db1600573ae17708bceca31f94cf3197942906be32952c5",
+    "notes": "Authorized new live planning only. Generated artifact retained unchanged; execution awaiting explicit review."
+  }
+]

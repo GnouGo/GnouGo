@@ -56,7 +56,7 @@ public sealed class PlanningModelRecoveryTests
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
         var state = await SeedAsync(fixture); var pending = state.PendingCall!.Id;
         if (exhausted == "calls") state.Request.MaxModelCalls = 4;
-        if (exhausted == "repairs") { state.PendingCall.Purpose = "replan"; state.ReplanAttempts = 2; }
+        if (exhausted == "repairs") { state.PendingCall.Purpose = "replan"; state.Request.MaxReplanAttempts = 2; state.ReplanAttempts = 2; }
         var limits = exhausted == "tokens" ? Limits with { MaxTotalTokens = 20 }
             : exhausted == "cost" ? Limits with { MaxEstimatedCost = new(0.02m, "EUR") } : Limits;
         await PlanningModelRecovery.PrepareAsync(state, fixture.Records, limits, new Estimator(), new TestExchangeRateProvider(), Ct);
@@ -194,8 +194,12 @@ public sealed class PlanningModelRecoveryTests
         public decimal? EstimateCost(string? model, long? inputTokens = null, long? outputTokens = null, string? providerType = null)
             => ((inputTokens ?? 0) + (outputTokens ?? 0)) * 0.0001m;
     }
-    private sealed class Client : ILLMClient
+    private sealed class Client : ILLMClient, ILLMCapabilityResolver
     {
+        public Task<int?> InputTokenAllowanceAsync(string? provider, string model, int outputTokens, CancellationToken ct) => Task.FromResult<int?>(128000);
+        public Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<bool?>(true);
+        public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<IReadOnlyList<string>?>(["medium", "low"]);
+
         internal int Calls;
         public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
         { Calls++; return Task.FromResult(new LLMResponse { Json = new JsonObject(), Usage = new JsonObject { ["input_tokens"] = 10, ["output_tokens"] = 5 } }); }

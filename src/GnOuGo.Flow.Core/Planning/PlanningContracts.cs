@@ -7,6 +7,16 @@ namespace GnOuGo.Flow.Core.Planning;
 
 public sealed class PlanningRequest
 {
+    public PlanningRequest() { }
+
+    // Missing persisted fields retain their original meaning. New objects use the
+    // current defaults below; issued requests and approval identities do not migrate.
+    [JsonConstructor]
+    public PlanningRequest(int maxReplanAttempts = 2, int maxModelCalls = 8, PlanningGenerationOptions? generation = null)
+    {
+        MaxReplanAttempts = maxReplanAttempts; MaxModelCalls = maxModelCalls;
+        Generation = generation ?? new PlanningGenerationOptions("medium", 12_000, 8_192);
+    }
     public string Mode { get; set; } = PlanningMode.Interactive;
     public string TenantId { get; set; } = "";
     public string SessionId { get; set; } = Guid.NewGuid().ToString("N");
@@ -17,16 +27,22 @@ public sealed class PlanningRequest
     public JsonObject? FailureEvidence { get; set; }
     public JsonObject Options { get; set; } = new();
     public PlanningPolicy Policy { get; set; } = new();
-    public int MaxReplanAttempts { get; set; } = 2;
-    public int MaxModelCalls { get; set; } = 8;
+    public int MaxReplanAttempts { get; set; } = 4;
+    public int MaxModelCalls { get; set; } = 12;
     public PlanningGenerationOptions Generation { get; set; } = new();
 }
 
 public sealed class PlanningGenerationOptions
 {
+    public PlanningGenerationOptions() { }
+
+    [JsonConstructor]
+    public PlanningGenerationOptions(string reasoning = "medium", int maxInputTokensPerRequest = 12_000, int maxOutputTokens = 8_192)
+    { Reasoning = reasoning; MaxInputTokensPerRequest = maxInputTokensPerRequest; MaxOutputTokens = maxOutputTokens; }
+
     public string Reasoning { get; set; } = "medium";
-    public int MaxInputTokensPerRequest { get; set; } = 12_000;
-    public int MaxOutputTokens { get; set; } = 8_192;
+    public int MaxInputTokensPerRequest { get; set; } = 32_000;
+    public int MaxOutputTokens { get; set; } = 32_768;
 }
 
 /// <summary>Host-owned constraints. Model output cannot modify this policy.</summary>
@@ -72,6 +88,17 @@ public sealed class PlanningCommand
 /// <summary>The sole durable state. Hosts encrypt its content and use optimistic revisions.</summary>
 public sealed class PlanningSession
 {
+    public PlanningSession() { IsNewlyConstructed = true; }
+
+    // A queued historical session can still have revision zero and no model
+    // calls. Deserialization must not make it a new creation again. Bind an
+    // existing wire field; the construction identity itself is never persisted.
+    [JsonConstructor]
+    internal PlanningSession(long revision = 0) { Revision = revision; }
+
+    [JsonIgnore]
+    internal bool IsNewlyConstructed { get; }
+
     public IReadOnlyList<PlanningChoice> GetChoices() => Plan?.Choices ?? [];
     public IReadOnlyList<PlanningQuestion> GetQuestions() => PendingQuestions ?? GetChoices().Where(c => c.Selected is null)
         .Select(c => new PlanningQuestion(c.Id, c.Question, c.Alternatives.Select(a => new PlanningQuestionAlternative(a.Id, a.Description)).ToList(), c.Recommended)).ToList();

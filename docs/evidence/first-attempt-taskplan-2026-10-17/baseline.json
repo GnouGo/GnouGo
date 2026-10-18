@@ -1,0 +1,14 @@
+{
+  "baseline_commit": "676b5acef3442b1436149eaf9581c7d5e99fe1a3",
+  "initial_worktree": "clean; recorded before implementation",
+  "sha256": {
+    "tests/Shared/PlanningBenchmarkCases.cs": "a25de6fc75d94a06c5dc8fce96d04eb09ba4132caec76f35e7f644912433f998",
+    "tests/Shared/PlanningBenchmarkMeasurements.cs": "3416e9e95a7a062003b8a8cddbb305a99fc681c95b933cb10c0e176fe8156450",
+    "tests/GnOuGo.Agent.Planning.Benchmark/LocalExecutionCases.cs": "c82c840daa0d24a07fff5e3d321d9fa98217afe42e65e27ba06c10ea07c9fd20",
+    "tests/GnOuGo.Agent.Planning.Benchmark/LiveWorkflowOracles.cs": "4671fe4cd74cd34167d282a3449686b900492257058fc6add39588bd08d7d514",
+    "src/GnOuGo.Flow.Planning/PlanningPrompt.cs": "f16baf2110dc7dbc01ee971788dd29d56d0d0ee8c6874edbc18ebc09d7ea6c97",
+    "src/GnOuGo.Flow.Planning/PlanningSchemas.cs": "3de0798e494c9c0bfad1255758c4b094e67a864d08b5587a47083890d0e3da7a"
+  },
+  "fixture_tree": "270919b08d1da3c5c5ad9ca12a9ac48ce2dbc67d",
+  "live_calls_authorized": false
+}

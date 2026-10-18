@@ -10,6 +10,37 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class BenchmarkCampaignTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
+
+    [Fact]
+    public async Task LiveCohortJudgeSettingIsFrozenWithoutMigratingDisabledManifests()
+    {
+        var records = new Records();
+        var historical = new BenchmarkCampaign(records, "judge-control");
+        var original = await LiveCampaignEvidence.PinAsync(historical, "frozen", "provider", "model", "configuration", "cohort");
+        Assert.False(original.ContainsKey("business_judge"));
+        var serialized = original.ToJsonString(); var writes = records.Writes;
+        var continued = await LiveCampaignEvidence.PinAsync(historical, "frozen", "provider", "model", "configuration", "cohort", businessJudge: false);
+        Assert.Equal(serialized, continued.ToJsonString());
+        Assert.Equal(writes, records.Writes);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => LiveCampaignEvidence.PinAsync(historical,
+            "frozen", "provider", "model", "configuration", "cohort", businessJudge: true));
+        Assert.Equal(serialized, (await historical.LoadAsync(SchemaPortabilityCampaign.Collection, "cohort-manifest", Ct))!.ToJsonString());
+
+        var enabled = new BenchmarkCampaign(records, "judge-enabled");
+        var manifest = await LiveCampaignEvidence.PinAsync(enabled, "frozen", "provider", "model", "configuration", "cohort", businessJudge: true);
+        Assert.True(manifest["business_judge"]!.GetValue<bool>());
+        Assert.Equal(8, manifest["planning_attempts"]!.GetValue<int>());
+        Assert.Equal(2, manifest["repairs"]!.GetValue<int>());
+        Assert.Equal(96000, manifest["max_input_tokens"]!.GetValue<int>());
+        Assert.Equal(32768, manifest["max_output_tokens"]!.GetValue<int>());
+        Assert.True(JsonNode.DeepEquals(manifest, await LiveCampaignEvidence.PinAsync(enabled,
+            "frozen", "provider", "model", "configuration", "cohort", businessJudge: true)));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => LiveCampaignEvidence.PinAsync(enabled,
+            "frozen", "provider", "model", "configuration", "cohort"));
+        manifest.Remove("business_judge");
+        Assert.True(JsonNode.DeepEquals(original, manifest));
+    }
+
     [Fact]
     public async Task ExplicitBudgetExtensionPreservesReservationsConfigurationAndIsolationAcrossRestart()
     {
@@ -94,6 +125,15 @@ public sealed class BenchmarkCampaignTests
             KeyVaultBenchmarkModel.CreateDispatchRequest(request, "pinned", "pinned", execution: true));
         Assert.Equal(GnOuGo.Flow.Core.Models.ErrorCodes.LlmBudgetExceeded, error.Code);
         Assert.Equal("not_started", error.Details!["dispatch_status"]!.ToString());
+        Assert.Equal("request_input_allowance", error.Details["classification"]!.ToString());
+        Assert.Equal("input_tokens", error.Details["limit_kind"]!.ToString());
+        Assert.Equal("conservative_token_estimate", error.Details["measurement"]!.ToString());
+        Assert.Equal(96000, error.Details["limit"]!.GetValue<int>());
+        var dispatched = JsonSerializer.Deserialize(snapshot, PlanningJsonContext.Default.LLMRequest)!;
+        dispatched.Provider = "pinned"; dispatched.Model = "pinned"; dispatched.UseBackgroundMode = false;
+        Assert.Equal(KeyVaultBenchmarkModel.ExecutionInputEstimate(JsonSerializer.Serialize(dispatched, PlanningJsonContext.Default.LLMRequest)),
+            error.Details["current"]!.GetValue<int>());
+        Assert.DoesNotContain("observed product", error.Details.ToJsonString());
         Assert.Equal(snapshot, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
         request.Prompt = "Observed input";
         Assert.Equal(8192, KeyVaultBenchmarkModel.CreateDispatchRequest(request, "pinned", "pinned", execution: true).MaxTokens);
@@ -102,10 +142,12 @@ public sealed class BenchmarkCampaignTests
             KeyVaultBenchmarkModel.CreateDispatchRequest(request, "pinned", "pinned", execution: true));
     }
 
-    [Fact]
-    public async Task CampaignAdmissionFailureAllowsDurableCleanupWithoutInference()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CampaignAdmissionFailureAllowsDurableCleanupWithoutInference(bool mapping)
     {
-        var document = new GnOuGo.Flow.Core.Compilation.WorkflowCompiler().Compile(GnOuGo.Flow.Core.Parsing.WorkflowParser.Parse("""
+        var definition = GnOuGo.Flow.Core.Parsing.WorkflowParser.Parse("""
             version: 1
             workflows:
               main:
@@ -115,21 +157,57 @@ public sealed class BenchmarkCampaignTests
                     input: {model: pinned, prompt: "${data.inputs.observation}", max_tokens: 8192}
                 finally:
                   - {id: cleanup, type: set, input: {value: cleaned}}
-            """));
+            """);
+        JsonNode observation = JsonValue.Create(string.Concat(Enumerable.Repeat("<span>A</span>", 60000)))!;
+        if (mapping)
+        {
+            var step = definition.Workflows["main"].Steps[0]; step.Type = "mapping.dynamic";
+            step.Input = new JsonObject { ["sources"] = new JsonObject { ["snapshot"] = "${data.inputs.observation}" },
+                ["objective"] = "Extract the first ten observed entries", ["binding"] = "facts", ["producer_contract"] = "fixture" };
+            step.OutputSchema = JsonNode.Parse("""{"type":"object","properties":{"value":{"type":"object","properties":{"items":{"type":"array","items":{"type":"string"},"maxItems":10}},"required":["items"]}},"required":["value"]}""")!.AsObject();
+            observation = new JsonObject { ["pages"] = new JsonArray(Enumerable.Range(0, 53).Select(page => (JsonNode)new JsonObject
+            {
+                ["records"] = new JsonArray(Enumerable.Range(0, page == 52 ? 21 : 30).Select(index => (JsonNode)new JsonObject
+                { ["text"] = "observed/" + page + "/" + index, ["metadata"] = string.Concat(Enumerable.Repeat("<span>Original</span>", 100)) }).ToArray())
+            }).ToArray()) };
+        }
+        var document = new GnOuGo.Flow.Core.Compilation.WorkflowCompiler().Compile(definition);
         var store = new InMemoryWorkflowRunStore(); var client = new AdmissionClient();
-        var engine = new WorkflowEngine { LLMClient = client, RunStore = store, Limits = new() { TenantId = "tenant", RunId = "run" } };
+        var engine = new WorkflowEngine { LLMClient = client, LlmDefaults = new() { Model = "pinned" }, RunStore = store,
+            Limits = new() { TenantId = "tenant", RunId = "run", MaxMappingInputTokens = 96000 } };
         var result = await engine.ExecuteAsync(document.Workflows[document.Entrypoint!],
-            new JsonObject { ["observation"] = string.Concat(Enumerable.Repeat("<span>A</span>", 60000)) }, Ct);
+            new JsonObject { ["observation"] = observation }, Ct);
         Assert.Equal("LLM_BUDGET_EXCEEDED", result.Error!.Code);
+        Assert.Equal("request_input_allowance", result.Error.Details!["classification"]!.ToString());
+        Assert.Equal("model", result.Error.Details["failed_step_id"]!.ToString());
         Assert.Equal(0, client.Dispatches);
         var run = (await store.ReadAsync("tenant", "run", Ct))!;
         Assert.Equal("failed", run.Invocations["/workflow/main/step/model"].Status);
-        Assert.True(run.Invocations["/workflow/main/step/model"].ExternalCompletionObserved);
+        var receipt = run.Invocations["/workflow/main/step/model"];
+        if (mapping)
+        {
+            Assert.False(receipt.ExternalCompletionObserved); // Admission failed before any model child existed.
+            Assert.NotNull(receipt.CompletedAt);
+            Assert.Equal("request_input_allowance", receipt.Error!.Details!["classification"]!.ToString());
+            Assert.DoesNotContain("/workflow/main/step/model/mapping/0", run.Invocations.Keys);
+            Assert.Equal(96000, result.Error.Details["limit"]!.GetValue<int>());
+            Assert.Equal("not_started", result.Error.Details["dispatch_status"]!.ToString());
+        }
+        else Assert.True(receipt.ExternalCompletionObserved);
         Assert.Equal("completed", Assert.Single(run.Invocations.Values, i => i.IsFinalization && i.StepType == "set").Status);
+        var originalError = result.Error.Details.ToJsonString();
+        var recovered = await new WorkflowEngine { RunStore = store, LLMClient = client }
+            .ResumeAsync("tenant", "run", run.Revision, document.Workflows[document.Entrypoint!], Ct);
+        Assert.False(recovered.Success);
+        Assert.Equal(originalError, recovered.Error!.Details!.ToJsonString());
+        Assert.Equal(0, client.Dispatches);
     }
-    private sealed class AdmissionClient : ILLMClient
+    private sealed class AdmissionClient : ILLMClient, ILLMCapabilityResolver
     {
         public int Dispatches;
+        public Task<int?> InputTokenAllowanceAsync(string? provider, string model, int outputTokens, CancellationToken ct) => Task.FromResult<int?>(96000);
+        public Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<bool?>(true);
+        public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<IReadOnlyList<string>?>(["medium"]);
         public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
         {
             _ = KeyVaultBenchmarkModel.CreateDispatchRequest(request, "pinned", "pinned", execution: true);
@@ -427,13 +505,15 @@ public sealed class BenchmarkCampaignTests
     {
         var records = new Records(); var campaign = new BenchmarkCampaign(records, "recorded");
         var request = new LLMRequest { ClientRequestId = "session:1:hash", Prompt = "original prompt", StructuredOutputSchema = new JsonObject { ["type"] = "string" } };
-        var state = new PlanningSession { Request = new() { TenantId = "benchmark", SessionId = "session", Name = "local", Prompt = "original prompt" }, ModelCalls = 3, ReplanAttempts = 2 };
+        var state = new PlanningSession { Request = new() { TenantId = "benchmark", SessionId = "session", Name = "local", Prompt = "original prompt",
+            MaxModelCalls = 8, MaxReplanAttempts = 2, Generation = new("medium", 12000, 8192) }, ModelCalls = 3, ReplanAttempts = 2 };
         await campaign.SaveAsync("planning-evaluation-runs", "source:pilot:local:1", new() { ["session"] = JsonSerializer.SerializeToNode(state, PlanningJsonContext.Default.PlanningSession) }, Ct);
         await campaign.SaveAsync("planning-evaluation-requests", request.ClientRequestId, JsonSerializer.SerializeToNode(request, PlanningJsonContext.Default.LLMRequest)!.AsObject(), Ct);
         await campaign.SaveAsync("planning-evaluation-receipts", request.ClientRequestId, JsonSerializer.SerializeToNode(new LLMResponse { Text = "\"recorded\"" }, PlanningJsonContext.Default.LLMResponse)!.AsObject(), Ct);
         var before = records.Writes;
         var snapshot = await campaign.InspectAsync(Ct);
         var replay = await campaign.ReadReplayAsync("source:pilot:local:1", Ct);
+        Assert.False(replay.Client is ILLMCapabilityResolver);
         var reserved = replay.State.PendingCall!.Request;
         Assert.Equal("string", reserved.StructuredOutputSchema!["type"]!.ToString());
         reserved.StructuredOutputSchema["type"] = "object";
@@ -700,6 +780,66 @@ public sealed class BenchmarkCampaignTests
         var writes = records.Writes;
         await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.RetainInconclusiveAsync("run:session", Ct, liveWorkflow: true));
         Assert.Equal(writes, records.Writes);
+    }
+    [Theory]
+    [InlineData(null)]
+    [InlineData("remaining_allowance")]
+    [InlineData("missing_limit")]
+    [InlineData("invalid_limit")]
+    [InlineData("wrong_count")]
+    [InlineData("missing_exhaustion")]
+    [InlineData("not_retryable")]
+    [InlineData("cancelled")]
+    [InlineData("permanent")]
+    [InlineData("terminal_response")]
+    [InlineData("wrong_kind")]
+    public async Task ExhaustedUncertaintyAllowanceRetainsTheOriginalRequestAndFullReservations(string? defect)
+    {
+        var records = new Records(); var campaign = new BenchmarkCampaign(records, "uncertainty-limit");
+        const string id = "old-session:1:hash";
+        var request = new LLMRequest { ClientRequestId = id };
+        var journal = new BenchmarkHttpJournal(campaign, id, 100, 20, 1m);
+        var state = new LLMHttpRetryState { Fingerprint = "fixed" };
+        for (var i = 0; i < 2; i++)
+        {
+            state.Attempts.Add(new() { Id = "attempt-" + i }); await journal.SaveAsync(state, Ct);
+            state.Attempts[^1].Failure = i == 0 ? "timeout" : defect is "cancelled" or "permanent" ? defect : "transport";
+            if (defect == "terminal_response" && i == 1) state.Attempts[^1].Status = 503;
+            await journal.SaveAsync(state, Ct);
+        }
+        await Assert.ThrowsAsync<LLMClientException>(() => campaign.CallAsync(request, _ => Task.CompletedTask,
+            _ => throw new LLMClientException(defect == "wrong_kind" ? LLMClientFailureKind.Unknown : LLMClientFailureKind.Transport,
+                "Retained uncertainty.", retryable: defect != "not_retryable", statusCode: null, safeProviderCode: null,
+                attemptCount: defect == "wrong_count" ? 1 : 2, retryExhausted: defect != "missing_exhaustion", retryAfterMilliseconds: null), Ct));
+        var policy = new JsonObject { ["MaxAttempts"] = 4, ["MaxUncertainRetries"] = defect == "remaining_allowance" ? 2 : defect == "invalid_limit" ? -1 : 1 };
+        if (defect == "missing_limit") policy.Remove("MaxUncertainRetries");
+        await campaign.SaveAsync("planning-evaluation-configuration", "http-retry-policy", policy, Ct);
+        var before = await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct);
+        var original = await campaign.LoadAsync(BenchmarkHttpJournal.Collection, id, Ct);
+        var originalRequest = await campaign.LoadAsync("planning-evaluation-requests", id, Ct);
+        var originalFailure = await campaign.LoadAsync("planning-evaluation-failures", id, Ct);
+        if (defect is not null)
+        {
+            var writes = records.Writes;
+            await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.RetainExhaustedRequestAsync(id, Ct));
+            Assert.Equal(writes, records.Writes); return;
+        }
+        await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.CallAsync(new() { ClientRequestId = "fresh:1" },
+            _ => Task.CompletedTask, _ => throw new Exception("Must not dispatch"), Ct));
+        await campaign.RetainExhaustedRequestAsync(id, Ct);
+        Assert.True(JsonNode.DeepEquals(before, await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct)));
+        Assert.True(JsonNode.DeepEquals(original, await campaign.LoadAsync(BenchmarkHttpJournal.Collection, id, Ct)));
+        Assert.True(JsonNode.DeepEquals(originalRequest, await campaign.LoadAsync("planning-evaluation-requests", id, Ct)));
+        Assert.True(JsonNode.DeepEquals(originalFailure, await campaign.LoadAsync("planning-evaluation-failures", id, Ct)));
+        Assert.True(JsonNode.DeepEquals(policy, await campaign.LoadAsync("planning-evaluation-configuration", "http-retry-policy", Ct)));
+        Assert.Null(await campaign.LoadAsync("planning-evaluation-receipts", id, Ct));
+        var reopened = new BenchmarkCampaign(records, "uncertainty-limit");
+        await Assert.ThrowsAsync<InvalidOperationException>(() => reopened.CallAsync(request, _ => Task.CompletedTask,
+            _ => throw new Exception("Must not replay"), Ct, allowHttpRecovery: true));
+        await reopened.CallAsync(new() { ClientRequestId = "fresh:1" }, _ => Task.CompletedTask, _ => Task.FromResult(new LLMResponse()), Ct);
+        Assert.Equal(2m, (await BenchmarkHttpJournal.AccountingAsync(reopened, ct: Ct))["reserved_cost_eur"]!.GetValue<decimal>());
+        var denied = new BenchmarkHttpJournal(reopened, "over-budget:1", 100, 20, 49m);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => denied.SaveAsync(new() { Attempts = [new() { Id = "new" }] }, Ct));
     }
     [Theory]
     [InlineData(null, 3)]

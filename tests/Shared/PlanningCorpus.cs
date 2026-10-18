@@ -145,7 +145,17 @@ public static class PlanningCorpus
         if (schema["$ref"] is { } reference) return Transport(value, root["$defs"]![reference.ToString().Split('/')[^1]]!.AsObject(), root);
         if (schema["anyOf"] is JsonArray alternatives)
         {
-            var selected = alternatives.OfType<JsonObject>().First(s => Matches(value, s, root));
+            var selected = alternatives.OfType<JsonObject>().FirstOrDefault(s => Matches(value, s, root));
+            // Historical scripted transforms mean interpretation. Only adapt their
+            // representation when a fresh schema requires that existing meaning
+            // explicitly; raw response/legacy-schema tests bypass this adapter.
+            if (selected is null && value is JsonObject task && task["kind"]?.ToString() == "transform" && task["mode"] is null)
+            {
+                var explicitMode = task.DeepClone(); explicitMode["mode"] = "interpret";
+                selected = alternatives.OfType<JsonObject>().FirstOrDefault(s => Matches(explicitMode, s, root));
+                if (selected is not null) value = explicitMode;
+            }
+            if (selected is null) throw new InvalidOperationException("The scripted value cannot be represented by the issued schema.");
             return Transport(value, selected, root);
         }
         if (value is null) return null;

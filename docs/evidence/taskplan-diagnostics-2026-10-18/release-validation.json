@@ -1,0 +1,212 @@
+{
+  "candidate_commit": "25dc994d45925054859cdb0874428dceb432b62f",
+  "worktree": "/private/tmp/gnougo-pr119-diagnostics-release-6gl9esrk/candidate",
+  "tracked_worktree_clean": true,
+  "sdk": "10.0.300",
+  "paid_inference": false,
+  "steps": [
+    {
+      "step": "aot_publish",
+      "arguments": [
+        "dotnet",
+        "publish",
+        "tests/GnOuGo.Flow.Planning.Smoke",
+        "-c",
+        "Release",
+        "-r",
+        "osx-arm64",
+        "-m:1",
+        "-warnaserror",
+        "-p:SkipModelMetadataGeneration=true",
+        "-p:SkipPlaywrightBrowserInstall=true",
+        "-o",
+        "/private/tmp/gnougo-pr119-diagnostics-release-6gl9esrk/aot"
+      ],
+      "cwd": "/private/tmp/gnougo-pr119-diagnostics-release-6gl9esrk/candidate",
+      "exit_code": 0,
+      "elapsed_ms": 36117,
+      "log": "aot_publish.log",
+      "log_sha256": "0a557093c01b47aeb0efbe2239320dcdd0f6fe8d2404c528aa142a48e3e61ff1"
+    },
+    {
+      "step": "aot_smoke",
+      "arguments": [
+        "/private/tmp/gnougo-pr119-diagnostics-release-6gl9esrk/aot/GnOuGo.Flow.Planning.Smoke"
+      ],
+      "cwd": "/private/tmp/gnougo-pr119-diagnostics-release-6gl9esrk/candidate",
+      "exit_code": 0,
+      "elapsed_ms": 6527,
+      "log": "aot_smoke.log",
+      "log_sha256": "33ca48119b7eb59b4e36a9eb13bc4f5aeafdbe90be0502de60af8ff9ab031a99"
+    },
+    {
+      "step": "server_publish",
+      "arguments": [
+        "dotnet",
+        "publish",
+        "src/GnOuGo.Agent.Server",
+        "-c",
+        "Release",
+        "-r",
+        "osx-arm64",
+        "--self-contained",
+        "true",
+        "-m:1",
+        "-warnaserror",
+        "-p:PublishAot=false",
+        "-p:SkipClientBuild=true",
+        "-p:SkipBundledServerTools=true",
+        "-p:SkipModelMetadataGeneration=true",
+        "-p:SkipPlaywrightBrowserInstall=true",
+        "-o",
+        "/private/tmp/gnougo-pr119-diagnostics-release-6gl9esrk/published-server"
+      ],
+      "cwd": "/private/tmp/gnougo-pr119-diagnostics-release-6gl9esrk/candidate",
+      "exit_code": 0,
+      "elapsed_ms": 57170,
+      "log": "server_publish.log",
+      "log_sha256": "df1a498e495c2f3fd44d263650e0ba4b04e98c8f981c2d01bbb1153d9ec0a3e7"
+    },
+    {
+      "step": "encrypted_recovery",
+      "arguments": [
+        "/private/tmp/gnougo-pr119-diagnostics-release-6gl9esrk/published-server/GnOuGo.Agent.Server",
+        "--planning-persistence-smoke",
+        "/private/tmp/gnougo-pr119-diagnostics-release-6gl9esrk/encrypted-recovery"
+      ],
+      "cwd": "/private/tmp/gnougo-pr119-diagnostics-release-6gl9esrk/candidate",
+      "exit_code": 0,
+      "elapsed_ms": 2478,
+      "log": "encrypted_recovery.log",
+      "log_sha256": "d7cc8ec7a3dff2ab353e25932595d885ee30f565a6de92f436e3354a2c1d3b88"
+    },
+    {
+      "step": "pack_core",
+      "arguments": [
+        "dotnet",
+        "pack",
+        "src/GnOuGo.Flow.Core",
+        "-c",
+        "Release",
+        "--no-build",
+        "--no-restore",
+        "-m:1",
+        "-warnaserror",
+        "-p:SkipModelMetadataGeneration=true",
+        "-o",
+        "/private/tmp/gnougo-pr119-diagnostics-release-6gl9esrk/packages"
+      ],
+      "cwd": "/private/tmp/gnougo-pr119-diagnostics-release-6gl9esrk/candidate",
+      "exit_code": 0,
+      "elapsed_ms": 565,
+      "log": "pack_core.log",
+      "log_sha256": "0aba0a3b4e19661e0f9cda4d00a2f1f8003aea4bb97a22aa27ef2b8e4d4d4672"
+    },
+    {
+      "step": "pack_planning",
+      "arguments": [
+        "dotnet",
+        "pack",
+        "src/GnOuGo.Flow.Planning",
+        "-c",
+        "Release",
+        "--no-build",
+        "--no-restore",
+        "-m:1",
+        "-warnaserror",
+        "-p:SkipModelMetadataGeneration=true",
+        "-o",
+        "/private/tmp/gnougo-pr119-diagnostics-release-6gl9esrk/packages"
+      ],
+      "cwd": "/private/tmp/gnougo-pr119-diagnostics-release-6gl9esrk/candidate",
+      "exit_code": 0,
+      "elapsed_ms": 592,
+      "log": "pack_planning.log",
+      "log_sha256": "c564455c0b5303317ec12ddba14ab77b24869ddcccfed3fda238eca7245b6009"
+    },
+    {
+      "step": "pack_integrations",
+      "arguments": [
+        "dotnet",
+        "pack",
+        "src/GnOuGo.Flow.Integrations",
+        "-c",
+        "Release",
+        "--no-build",
+        "--no-restore",
+        "-m:1",
+        "-warnaserror",
+        "-p:SkipModelMetadataGeneration=true",
+        "-o",
+        "/private/tmp/gnougo-pr119-diagnostics-release-6gl9esrk/packages"
+      ],
+      "cwd": "/private/tmp/gnougo-pr119-diagnostics-release-6gl9esrk/candidate",
+      "exit_code": 0,
+      "elapsed_ms": 692,
+      "log": "pack_integrations.log",
+      "log_sha256": "2c6eb4b8f5dd47a461a95145de2e4c7b282fcdb9e478165bb80fda2dbcd16001"
+    },
+    {
+      "step": "benchmark_build",
+      "arguments": [
+        "dotnet",
+        "build",
+        "tests/GnOuGo.Agent.Planning.Benchmark",
+        "-c",
+        "Release",
+        "-m:1",
+        "-warnaserror",
+        "-p:SkipClientBuild=true",
+        "-p:SkipModelMetadataGeneration=true",
+        "-p:SkipPlaywrightBrowserInstall=true"
+      ],
+      "cwd": "/private/tmp/gnougo-pr119-diagnostics-release-6gl9esrk/candidate",
+      "exit_code": 0,
+      "elapsed_ms": 10088,
+      "log": "benchmark_build.log",
+      "log_sha256": "935dbe8d197abf3f64f10b3eb9d947296ff019019e00d11c6b8b46e076db1ce9"
+    }
+  ],
+  "benchmark_binary_directory": "/private/tmp/gnougo-pr119-diagnostics-release-6gl9esrk/candidate/tests/GnOuGo.Agent.Planning.Benchmark/bin/Release/net10.0",
+  "benchmark_files": 436,
+  "benchmark_manifest": {
+    "path": "benchmark-binary-hashes.json",
+    "bytes": 77598,
+    "sha256": "eddd261b46c56a9f05f17ff6c803cb4ca52ee6857a5541bc678bfbc44e93c7f2"
+  },
+  "frontend_assets_manifest": {
+    "path": "frontend-assets.json",
+    "bytes": 21202,
+    "sha256": "99f36e2ad613f73e1e0586c00788baa3680adf363b12334edb222c602ceca1d8",
+    "local_unredacted_sha256": "2ac5469e2698e25a15303500bf133a612aa006a815136293ad3a08de5344d224"
+  },
+  "artifacts": [
+    {
+      "path": "aot/GnOuGo.Flow.Planning.Smoke",
+      "bytes": 32007272,
+      "sha256": "0f984e8f361e5aeab88bf21ca512e15d86389ab564936f5ed3f8062e5a29dbd0"
+    },
+    {
+      "path": "published-server/GnOuGo.Agent.Server",
+      "bytes": 124712,
+      "sha256": "b8ac5ce4682a78a32f7bc3155c01c0a6cfe750e0b3e6b6d1761a78db64b94e8f"
+    },
+    {
+      "path": "packages/GnOuGo.Flow.Core.1.0.0.nupkg",
+      "bytes": 650960,
+      "sha256": "f0f8d4dcc12eec2f85f74ddd97f62142231776a6b114ef79a2c5ba616eb8a2bd"
+    },
+    {
+      "path": "packages/GnOuGo.Flow.Integrations.1.0.0.nupkg",
+      "bytes": 53428,
+      "sha256": "965bef14c426f5cc021733d8ee7efb7674224ee2ce4a3b4427b2a137b4276f61"
+    },
+    {
+      "path": "packages/GnOuGo.Flow.Planning.1.0.0.nupkg",
+      "bytes": 421106,
+      "sha256": "b128f3b3c757a3e0d6429ea4e0cd87f6b508878995792e744f3ec71520acd66f"
+    }
+  ],
+  "setup_failure": "Initial wrapper path substitution failed before invoking any validation command; initial wrapper retained.",
+  "publication_boundaries": "Existing documented Jint and ASP.NET/EF trimming boundaries only; no new suppressions."
+}

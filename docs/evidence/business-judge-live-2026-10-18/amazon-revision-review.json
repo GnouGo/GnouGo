@@ -1,0 +1,45 @@
+{
+  "run": "judge20261018a-amazon-1",
+  "status": "stopped",
+  "revision": 5,
+  "artifact_hash": null,
+  "execution_started": false,
+  "human_revision_authorized": true,
+  "changes_requested": [
+    "Remove cookie acceptance; report a consent blocker instead",
+    "Bound necessary extraction inputs without truncation",
+    "Record missing product links explicitly",
+    "Use deterministic row assembly",
+    "Preserve accepted requirements, public outputs and cleanup"
+  ],
+  "diagnostics": [
+    {
+      "code": "TASK_IDENTITY_INVALID",
+      "location": "/tasks/t_assemble_rows/outputs",
+      "message": "Business identities must be distinct, nonempty and outside reserved namespaces.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "TASK_OUTPUT_UNKNOWN",
+      "location": "/tasks/t_assemble_rows/outputs/rows",
+      "message": "Task 't_header_rows' has no declared business output 'headerRows},{'. Available ports: [\"headerRows\"]. Opaque results cannot supply typed fields. Consumer scope: /root; phase: tasks. Producer 't_header_rows': scope /root; phase: tasks.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "REVISION_REQUIRED",
+      "location": "/tasks/t_assemble_rows/outputs/rows",
+      "message": "Task 't_header_rows' has no declared business output 'headerRows},{'. Available ports: [\"headerRows\"]. Opaque results cannot supply typed fields. Consumer scope: /root; phase: tasks. Producer 't_header_rows': scope /root; phase: tasks. No compatible port of the referenced producer is available. Explicitly revise the dependency; a constant or unrelated producer cannot replace missing work.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    }
+  ],
+  "completion_receipt_present": true,
+  "unknown_usage_reservation_retained": true,
+  "judge_reached_after_revision": false,
+  "limitation": "The returned revision is structurally invalid and has no approvable artifact. No missing reference was guessed or replaced by hand."
+}

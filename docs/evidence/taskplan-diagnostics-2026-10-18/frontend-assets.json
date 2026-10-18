@@ -1,0 +1,544 @@
+{
+  "source": "primary repository checkout at candidate_commit (absolute user path omitted)",
+  "candidate_commit": "25dc994d45925054859cdb0874428dceb432b62f",
+  "files": [
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/app.css",
+      "bytes": 73506,
+      "sha256": "9a8628c131e4c7614810619ea3ddee25c599ebae9de727ca3806d72d7c42eafe"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/app.js",
+      "bytes": 70949,
+      "sha256": "7b246406c1428ea2e52f8aea6b0d4d8baad35438cf499130c4fd376e2cbd2244"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/_basePickBy.js",
+      "bytes": 7580,
+      "sha256": "0e4be353736c2af9f9c16da2e4526ba839e5ab0f2c968be845a1ac0830f3d633"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/_baseUniq.js",
+      "bytes": 18237,
+      "sha256": "c47d2b834160f92f1ca35d5b2e60b4a09231ea06fa87098cc101328b7a50ec54"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/abnfDiagram-O67JEVCF.js",
+      "bytes": 1793,
+      "sha256": "e24bde32c04bcf70c9f6b59ae7ef81013346eb0bfb57a60cbf4b4a5312cd0317"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/arc.js",
+      "bytes": 3456,
+      "sha256": "fd7da114edcf8b8e6b8a59c1b76a732fb83d70a8a8795f489dfadc056b07e924"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/architecture-7GRP2DOG.js",
+      "bytes": 113,
+      "sha256": "509d093d6593a79fcddc6a442edf4dc34ca02b261c61be7a4ae2f4f986453b50"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/architectureDiagram-NJMV4G6O.js",
+      "bytes": 148785,
+      "sha256": "1bfd48751eb375801f0d0b46f93895222a7f1371fa0dc1361a7be82e50a1a37c"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/array.js",
+      "bytes": 107,
+      "sha256": "63126646dbf611a0cf9e2293a9f636ac3c93c815a8f7d1e97d783151ab8529b9"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/blockDiagram-BEXU5L5S.js",
+      "bytes": 42324,
+      "sha256": "3f33447f837a3cc7708c091211b66e2512a8b67d6c255c4e21d25792e4301ecb"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/c4Diagram-YGBWAQC7.js",
+      "bytes": 64995,
+      "sha256": "fd346f53dfd17c583259587f2d8fa4e7c68e1874331c156591392938f8c6134b"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/channel.js",
+      "bytes": 105,
+      "sha256": "6089d4657d18a08792017c0ea6f08862a29814543acd1e2bd5e7858d982f874a"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/chunk-2Q5K7J3B.js",
+      "bytes": 182,
+      "sha256": "a2970e1985d86762985a60c53ca95a53fd192cee8074df7614ea1b55075c91c0"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/chunk-3FUC2YCW.js",
+      "bytes": 10594,
+      "sha256": "64a92385d697147569f20e3b68e4bba1d75c884465664b889a2f770c41997422"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/chunk-5DYCD2WN.js",
+      "bytes": 1380,
+      "sha256": "e716d3739d11eb00be3d5fa2f0d5526e8b8e462ab6e21e29b89bc8374132a659"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/chunk-5VM5RSS4.js",
+      "bytes": 353,
+      "sha256": "233a2a3d3d97707fe892c827ba6d4b6d574b84c21988b4f4896165873208fd46"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/chunk-742MDFTN.js",
+      "bytes": 5806,
+      "sha256": "e74fb1fed7b4b4cde78e2f3572e4d128656e55d24a8406dd4051681b055d6281"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/chunk-7INBJB4K.js",
+      "bytes": 115407,
+      "sha256": "936500a74cf65b6cda3cd7e115e5209aebd43df17f141d8f6c0cc0afc6373d4b"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/chunk-7M6MHVWA.js",
+      "bytes": 62610,
+      "sha256": "9ce68da9f0d9617543ae1f8d3e213bd5bfcc5bdc710eb6e4c351f7841c6be941"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/chunk-7PRAP22T.js",
+      "bytes": 1935,
+      "sha256": "8379fc89357104767de564e5cb90ae3952cd825393bd553cf2c6f2497523fbc1"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/chunk-DUW6YSOI.js",
+      "bytes": 882,
+      "sha256": "b86fce30314d8e3c61e6ec2a4289b4361b9c4ac36c34545363beed7ad9984296"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/chunk-FOHPRMQF.js",
+      "bytes": 662109,
+      "sha256": "8a5f3e922154c318d45230e9d0a1bbd5e021a5d567fdf4d238d3b6342c056261"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/chunk-GTNCS2PH.js",
+      "bytes": 15608,
+      "sha256": "f40fddb903df825c1808aacb8f8b38cc0eaf1e4325573f1aec0812f8c25b4f79"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/chunk-GWA4HPMP.js",
+      "bytes": 1936,
+      "sha256": "6a5995757643bb7476464a9870d92d43ff8307a41f98106e483468de4b0e0821"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/chunk-J5ZVWO5B.js",
+      "bytes": 626,
+      "sha256": "838ce9ef01420c1a61526dae279969878c1759d1bd2c074d823ee33453d210d5"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/chunk-JWPE2WC7.js",
+      "bytes": 214,
+      "sha256": "2173f1e31f5c5b49291a80272f67ee4aed45b31d3b281f131bdecba87c6870ac"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/chunk-MBY4JIJT.js",
+      "bytes": 51822,
+      "sha256": "59da23e660bfccc483997702eef385bf049895c4d8009f0cfd4a88eeeca28bc8"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/chunk-NETBCI7D.js",
+      "bytes": 5421,
+      "sha256": "b99cc8887ff1f285425695ca94e995ff29799b7037961f21b648ef2c62f8edb9"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/chunk-O7XYJQB3.js",
+      "bytes": 238262,
+      "sha256": "c9abbae802768ace7df2219fad3a5239d8fe2bd546bed68070b2f60c707444fb"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/chunk-UA2S7LBM.js",
+      "bytes": 14745,
+      "sha256": "54c21929160d548729970ed20d3cb47e55a3b1be880c4badd3aa1f1c8aee91a1"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/chunk-WEXAMYUT.js",
+      "bytes": 547,
+      "sha256": "e4292fdc2ae37b27e5669d7a772f9fe0ef17b2c22bf0738f1f536b3765347568"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/chunk-XXDRQBXY.js",
+      "bytes": 244,
+      "sha256": "5553cd0642d402f1cccdd95a35046a92fc8cc402d6764b04aae768ce368f8fa6"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/chunk-Y2CYZVJY.js",
+      "bytes": 155,
+      "sha256": "a74e3669f356ad0d67cc5232f1e0f62ff4544fdb8e7057cf9a5001a0ea6fc2cc"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/chunk-Z7XXMR3K.js",
+      "bytes": 37322,
+      "sha256": "d10935b2579cbc9692b1c0e298c15862e36caf68ff1ecc144df9b28567ee47e4"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/chunk-ZIGJFQKS.js",
+      "bytes": 30708,
+      "sha256": "d86faada8cca8d5cafe6913ee2fa90fffc3e60d343c183cf494c4f1722b5b410"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/classDiagram-v2-NBCMYWYE.js",
+      "bytes": 49546,
+      "sha256": "b3010fe45abf98e468449b2ac46ea09a938aecd4b5af5cacc7a60d65b8491c92"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/cose-bilkent-JH36ORCC.js",
+      "bytes": 81190,
+      "sha256": "ea37f16c58c16d2a01bc38140244fe9ae113fe5da195add3be6bd8f08cdba776"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/cynefin-OW5HDTMX.js",
+      "bytes": 108,
+      "sha256": "8d8f21a01e9584beb69b6ad819a4d77f5daab8434b5db66cea2a2e97ea565e87"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/cynefinDiagram-VND7K2PF.js",
+      "bytes": 9870,
+      "sha256": "2ea0b096f3638dfa4fd95ed4bd92b1c4e33413b84fa61c9c18cdba51edb57a1e"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/cytoscape.esm.js",
+      "bytes": 434855,
+      "sha256": "8f5eb19c60a07917254fd76da05c61f3bd58be3eb50bb185db4208ce62caceb3"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/dagre-6A5THRUB.js",
+      "bytes": 40625,
+      "sha256": "75c23228d36b2188f22be88d1e87f2365e4d52ad1fa2bac0178a02427af6cc21"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/defaultLocale.js",
+      "bytes": 4634,
+      "sha256": "098cc4b380fbfa5bf43b3dc6afaa137a43b0df3f079845fc096dca41e38fb341"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/diagram-22UHCM2B.js",
+      "bytes": 80326,
+      "sha256": "c0d2324ee206de54b45d8f337e522443403a5f95dc1d91a7eb825548b2e2feca"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/diagram-3UASUU5V.js",
+      "bytes": 15651,
+      "sha256": "987b7fa68329014c9f1e039c32afbd48b2d983e42820b7158e5142086dbeddf2"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/diagram-ATOU4E4O.js",
+      "bytes": 10594,
+      "sha256": "42174d2214cbc57b900709285e2367985c9f73ea5c18a0de367fbf3e74e8b45a"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/diagram-CDSNMT55.js",
+      "bytes": 8111,
+      "sha256": "55d5809a7832b5172f1b100a4480b016919de27ac7b83391bb8ac6b30395601b"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/diagram-MLGK6HIB.js",
+      "bytes": 4212,
+      "sha256": "cbaa56dbf55dcb047cf963ddbf13f51be0c797fd979f933518ca05202b1225cb"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/diagram-MPIPVDR6.js",
+      "bytes": 6001,
+      "sha256": "c82fb3835ebb687f22d047b3aeb9cdc4a24d6552534795194cdde4c6ef3490a6"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/dist.js",
+      "bytes": 2151,
+      "sha256": "4535e3e8fa6646a9d46d1d63f8275f7e18f2f98436e55622a114aa7ced2f1e06"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/ebnfDiagram-ZINNZB2B.js",
+      "bytes": 2006,
+      "sha256": "952993d538144cc14fa0152ef33423da7e25b70e33891f6958d59793f64db834"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/elk-276RUBZZ.js",
+      "bytes": 1456261,
+      "sha256": "2dcfe144fe448d307bbb4466533c3810f176de2da5c63dcf86a1b1c98ae567f3"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/erDiagram-OPXOYQCR.js",
+      "bytes": 30503,
+      "sha256": "a1000868731be8b5f808f47b4ea5d6f010f90f4eccea39363fe84d09860fc4ed"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/eventmodeling-NTZA5JFV.js",
+      "bytes": 114,
+      "sha256": "6d880858817b2ed850eaaa53bbec4899b142e6b04a8b8062067cc71cca69c5c2"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/flowDiagram-KWPJA3E3.js",
+      "bytes": 440,
+      "sha256": "520998d7615c69006136e957ef55a181b9a0669eef20e774799ca98f2feb3d41"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/ganttDiagram-FUAMR5RP.js",
+      "bytes": 69250,
+      "sha256": "1b93e97170b6fb3114ea9e353b5a11d9961b40a80279741387a060a78475d8b2"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/gitGraph-4MIJSDKK.js",
+      "bytes": 109,
+      "sha256": "7c0174a3e844ff0c5ff7418351bb3c4fe9b5e2326ad4102c50ee28f003a7fe02"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/gitGraphDiagram-X574FWY7.js",
+      "bytes": 28940,
+      "sha256": "5aa5a05c208470195a3905f49ddec53b980b229b3d2af33990591ffc6dfcb5fb"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/graphlib.js",
+      "bytes": 5846,
+      "sha256": "0fb4ec5c2d1ad87d0d771f497ec442de649aa0d5e3a5889d09b701dfd2cf59ca"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/info-A6RAGUB7.js",
+      "bytes": 105,
+      "sha256": "d2e43a0ee8c54faac802aae1936524c247bfce138dc38e68c1ba866ea180e3f1"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/infoDiagram-VRGFBTTK.js",
+      "bytes": 605,
+      "sha256": "b14448135f7812204515ef96b9ac746f56e8c9d2336421b7a06c567e21fee2fb"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/init.js",
+      "bytes": 140,
+      "sha256": "cb5c97a434bb5c3eeb4f6d38072ad7d8e4ac454d14e039a1fb6e8262c5ce82bc"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/ishikawaDiagram-OU5B5YK6.js",
+      "bytes": 17257,
+      "sha256": "b0fc5c4720c1ad9a3164edebf3d5bf5e5099154fd1137b5913c335991f3dc61b"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/journeyDiagram-ZHPQQLJL.js",
+      "bytes": 23109,
+      "sha256": "304351a111665c164fb99daf44b527a47c690de112ed879704dd30c9e2425861"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/kanban-definition-PNTS6WVX.js",
+      "bytes": 20155,
+      "sha256": "3ce6b40386fb682061c1032f6a9851ef79d93abc2bb9d07173f62ca6b6459971"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/katex.js",
+      "bytes": 258685,
+      "sha256": "57d7eb6dbbc32cd24c49ac5c48ca7577d6edaa4d6ff7d76aeec68cd84433732e"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/line.js",
+      "bytes": 916,
+      "sha256": "1938b559f19b15cb4385728873e14fe1f1ebbe6ab219ca2bb0dd1d676c8b6bab"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/linear.js",
+      "bytes": 5490,
+      "sha256": "5e4720217b74a79989a69e1f6c4cd512f197c53e0de02b577e47f746998650c0"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/mermaid-parser.core.js",
+      "bytes": 16289,
+      "sha256": "731958b70f21c942518f4532137a3197a896ef4545db29abe0596677b2034530"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/mermaid.core.js",
+      "bytes": 82685,
+      "sha256": "812d9375373f26bdb98ab3354d321d1b338b6d9e8938fef2b5c59ece7adb6713"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/mindmap-definition-NLK3R4M7.js",
+      "bytes": 23315,
+      "sha256": "e6440888290fab1dda3b24837fea3015f7f03dc77085d15578197a55edcd9c1d"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/ordinal.js",
+      "bytes": 1165,
+      "sha256": "eaef3ecf36dbf195a766772c86cf759b0cb17cdc29abcfb82e4b034bfb7f313d"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/packet-AYTQ26CC.js",
+      "bytes": 107,
+      "sha256": "604591bbfc7051300297a28fbc66290c3c8e570aa550e93aba4a5bcb74d592e3"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/path.js",
+      "bytes": 2278,
+      "sha256": "71b62c60fd6659668995a83955af7c0ffd1bc05496148191841e017441afe36b"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/pegDiagram-GJSIUBJH.js",
+      "bytes": 1948,
+      "sha256": "dc90ae7ce9f3461474a7df47abc85a67e2ac8bd43207c8426355ab562cab9fe4"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/pie-WAS4IAKB.js",
+      "bytes": 104,
+      "sha256": "1b84c4bfa67631eab71ce060e179776e327b8d6582105adf3888cec7d9878376"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/pieDiagram-5QR66LMP.js",
+      "bytes": 6108,
+      "sha256": "ff78a01cdc27546cb5e478d6428cc4f18d540b319eee477e2b9bb7179b200400"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/quadrantDiagram-O4NWA36T.js",
+      "bytes": 33479,
+      "sha256": "869c00aa3d995f891241b7d1c009d18d87bfe258e803c6f727e7b26187cd44ca"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/radar-RG4KPBEZ.js",
+      "bytes": 106,
+      "sha256": "ea2142fee9a11c89f85af71b94f6438a68350f8d0851ce10bfb2fd89ec3b2399"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/railroad-74A4TZTK.js",
+      "bytes": 109,
+      "sha256": "dac2982f2f78ab35619a60db649a4adb7eec8f2bdea35d31eb45a11ced0c4607"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/railroad-abnf-HS5TGJTU.js",
+      "bytes": 113,
+      "sha256": "fa76fc90ee5c9af249750e3e8e0006bf62122b10ce27368f62015ade5022619d"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/railroad-ebnf-LZEXJU2U.js",
+      "bytes": 113,
+      "sha256": "dfa9fc39f9cc0825eb99c760e3ca76e1583eaef6036b8ec3ec6ef87653188f30"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/railroad-peg-WCYAUIDC.js",
+      "bytes": 112,
+      "sha256": "aeb91d0f3856d6be3d79cd152bed182752ab55850aaa3a1a5316abdb4bec320f"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/railroadDiagram-XR7U4H2S.js",
+      "bytes": 1606,
+      "sha256": "37496687e9fb11089a5d63b97c73349e28a8377c7f57652f4bbab5b810b08278"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/requirementDiagram-PLB6GJNP.js",
+      "bytes": 30935,
+      "sha256": "ebddb288e4f8ad7d47d077fa7a780e8c00119de101cb2861b7f09b1dc8995955"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/rough.esm.js",
+      "bytes": 27109,
+      "sha256": "ef405c5eaa3316c75428f63ec698e39993bdcc2da358dbc7ebd355d18901f63f"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/sankeyDiagram-IPEJSGJF.js",
+      "bytes": 22751,
+      "sha256": "6d7253a74941bf158a3dee7d46f74125757be5116dc33a3cd73cfa9b44283fcd"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/sequenceDiagram-PO4LG4MO.js",
+      "bytes": 117241,
+      "sha256": "b1184f8472fb2e73c0821aa19180ea9d784e7faed069e7346b47ef57cd819fd5"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/sizeCapture-INFHLROL.js",
+      "bytes": 863,
+      "sha256": "e71ede11f2f167cde45bfbcdf0d0730b19d7073ee63b24d8fa64b29ca6a9a60c"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/src.js",
+      "bytes": 46600,
+      "sha256": "e64d6cb59e1f00b551e83b7f71360042e2aad2cd1295bdb967f24a433cb81497"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/stateDiagram-v2-GCMORJYK.js",
+      "bytes": 41397,
+      "sha256": "df4c979f87bc74f749c02d4d21a38acc807dc355d559dcfe407fb2d581a938d5"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/swimlanes-2SLR337P.js",
+      "bytes": 106126,
+      "sha256": "ccba16f5dd53ea9dff33d2970ea21eb559a358430c635aa8f1c9f212489e8839"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/swimlanesDiagram-TC7HE7FX.js",
+      "bytes": 686,
+      "sha256": "1ce7e83e045f03ef158e3a428706699d6d20a6d12c6f7c15ca9064514e71542a"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/timeline-definition-EJHVYXUP.js",
+      "bytes": 30391,
+      "sha256": "ef6667d69581bb912400d396b0ef880bba7fa4ad545d6d54b4158f5534420d77"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/treeView-Q6P3EWNA.js",
+      "bytes": 109,
+      "sha256": "8abb2a3780c18656ca3f9b929c849fb6dd712db0c60be2aab73f94b0a4cc98ba"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/treemap-WGGIJYW6.js",
+      "bytes": 108,
+      "sha256": "7bb0cc7cce0be576f72607cb489d5eaf82a022966a48f90aaa900c77c4a7fc34"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/usecaseDiagram-POWQR4AR.js",
+      "bytes": 186517,
+      "sha256": "3faad23041daca31d6ee2a46a5f81a0cf6a6259de867c5ce2f797afa9aa9b5da"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/vennDiagram-UO4OBE2U.js",
+      "bytes": 41131,
+      "sha256": "84c6b58f09f0d42e68d0ba803e775699de2d008ff84520959920d99a7e82ce93"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/wardley-WFR3VGLG.js",
+      "bytes": 108,
+      "sha256": "eabfd763cf64858bb8090b885c9167cb91249018f0618bbb327908a2b493a1f5"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/wardleyDiagram-VNRHLVJA.js",
+      "bytes": 25134,
+      "sha256": "6864b98a4fa2fe3f0438a80fc70478bb67abd841a93a5c9d0d58b156fd2917c1"
+    },
+    {
+      "path": "src/GnOuGo.Agent.Server/wwwroot/ui/chunks/xychartDiagram-PMCCYNJV.js",
+      "bytes": 44048,
+      "sha256": "97d054d1459b9d7371610dce6c2339cba79f9331ec85ff0411f72877b8107743"
+    },
+    {
+      "path": "src/GnOuGo.Files.Server/wwwroot/assets/index-AGYVVEaI.css",
+      "bytes": 2842,
+      "sha256": "59d1b56517047fadccf07e0adb949e3653c07c6aeac1ee90cda4f9f0a84be0c7"
+    },
+    {
+      "path": "src/GnOuGo.Files.Server/wwwroot/assets/index-TJ5q3izK.js",
+      "bytes": 224686,
+      "sha256": "aac36842c1c3bf58babbd562aca3cc641632828e375182063dc6fb8255162ec1"
+    },
+    {
+      "path": "src/GnOuGo.Files.Server/wwwroot/index.html",
+      "bytes": 381,
+      "sha256": "4f91c3dd6c92c2552de52d045e98cc6fc484a01342055b832bc1d4217014e4b8"
+    },
+    {
+      "path": "src/GnOuGo.OtlpCollector.Server/wwwroot/assets/index-Cs5bBauP.js",
+      "bytes": 410505,
+      "sha256": "95332d62ec5840e0fd5f0b4d365b0dee0c25908df30a9e888210ee7f03347ae7"
+    },
+    {
+      "path": "src/GnOuGo.OtlpCollector.Server/wwwroot/assets/index-Cs5bBauP.js.map",
+      "bytes": 1808567,
+      "sha256": "02c4ba8eca0d3e736c2e3bfb11d16900136e3e3af2d841a3674893150df34795"
+    },
+    {
+      "path": "src/GnOuGo.OtlpCollector.Server/wwwroot/assets/index-DrXxYbax.css",
+      "bytes": 59471,
+      "sha256": "e08ae2e565c7f25eb28fb275657c0a80f244a6aadccec455e95baec5e80fa735"
+    },
+    {
+      "path": "src/GnOuGo.OtlpCollector.Server/wwwroot/index.html",
+      "bytes": 406,
+      "sha256": "27a697496bc3cebf7e084632560e5c8aac68fbd5ffc1605dcceb485376b30974"
+    }
+  ],
+  "redactions": [
+    "absolute source checkout path"
+  ]
+}

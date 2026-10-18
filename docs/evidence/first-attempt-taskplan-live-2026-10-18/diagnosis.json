@@ -1,0 +1,18 @@
+{
+  "status": "stopped",
+  "revision": 1,
+  "model_calls": 1,
+  "pending_request_id": "6b422b3309452034064139085764b180a678c895b55e9cfaac23969ee1aae825:1:d4655febf14d355a028fd90fb940061d694c4b485c78b57cdc5e148180837a91",
+  "diagnostics": [
+    {
+      "code": "MODEL_DISPATCH_UNVERIFIABLE",
+      "location": "/",
+      "message": "The model request has no retained completion (Transport; retryable: true). Usage remains unconfirmed.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    }
+  ],
+  "has_first_proposal": false,
+  "execution_started": false
+}
