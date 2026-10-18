@@ -39,9 +39,12 @@ internal static class StabilizationBenchmark
                 if (await campaign.LoadAsync(Collection, baseline + ":baseline:" + name + ":" + i) is { } b) before.Add(b["result"]!.AsObject());
                 if (await campaign.LoadAsync(Collection, candidate + ":final:" + name + ":" + i) is { } a) after.Add(a["result"]!.AsObject());
             }
-            var comparison = args.Contains("--first-proposal-gate") ? PlanningBenchmarkMeasurements.CompareFirstProposals(before, after, Cases) : Compare(before, after);
+            var variable = args.Contains("--judge-comparison") ? "judge" : args.Contains("--defaults-comparison") ? "defaults" : null;
+            if (args.Contains("--judge-comparison") && args.Contains("--defaults-comparison")) throw new ArgumentException("Compare judge and creation defaults separately.");
+            var comparison = variable is not null ? PlanningBenchmarkMeasurements.CompareArms(before, after, Cases, variable)
+                : args.Contains("--first-proposal-gate") ? PlanningBenchmarkMeasurements.CompareFirstProposals(before, after, Cases) : Compare(before, after);
             comparison["campaign_accounting"] = await BenchmarkHttpJournal.AccountingAsync(campaign);
-            Console.WriteLine(comparison.ToJsonString()); Environment.ExitCode = comparison["passed"]!.GetValue<bool>() ? 0 : 1; return;
+            Console.WriteLine(comparison.ToJsonString()); Environment.ExitCode = comparison[variable is null ? "passed" : "comparable"]?.GetValue<bool>() == true ? 0 : 1; return;
         }
         if (Git("status", "--porcelain").Length != 0) throw new InvalidOperationException("Commit the complete harness and production source before collecting evidence.");
         var source = Option("--source") ?? Git("rev-parse", "HEAD");
@@ -61,6 +64,11 @@ internal static class StabilizationBenchmark
         var pinned = await campaign.LoadAsync("planning-evaluation-configuration", "stabilization-manifest");
         if (pinned is not null && !JsonNode.DeepEquals(pinned, manifest)) throw new InvalidOperationException("Harness, cases, oracle, metadata or environment differs from the frozen campaign manifest.");
         if (pinned is null) await campaign.SaveAsync("planning-evaluation-configuration", "stabilization-manifest", manifest);
+        var settingsKey = "stabilization-settings:" + source + ":" + cohort;
+        var settings = await campaign.LoadAsync("planning-evaluation-configuration", settingsKey);
+        var creation = settings is null ? new PlanningRequest() : PlanningBenchmarkMeasurements.RestoreConfiguration(settings);
+        PlanningBenchmarkMeasurements.ConfigureRequest(creation, args, settings is not null);
+        if (settings is null) await campaign.SaveAsync("planning-evaluation-configuration", settingsKey, PlanningBenchmarkMeasurements.Configuration(creation));
         using var model = await KeyVaultBenchmarkModel.CreateAsync("OpenAi", Option("--model"), campaign, root, CancellationToken.None);
         var manifestHash = PlanningGraphCompiler.Fingerprint(manifest.ToJsonString());
         Console.WriteLine(new JsonObject { ["manifest"] = manifest, ["source"] = source, ["harness_commit"] = Git("rev-parse", "HEAD"), ["provider"] = model.Provider, ["model"] = model.Model }.ToJsonString());
@@ -68,6 +76,13 @@ internal static class StabilizationBenchmark
         {
             var key = source + ":" + cohort + ":" + name + ":" + i;
             var run = await campaign.LoadAsync(Collection, key);
+            if (run?["session"] is { } saved)
+            {
+                var savedRequest = saved.Deserialize(PlanningJsonContext.Default.PlanningSession)!.Request;
+                PlanningBenchmarkMeasurements.ConfigureRequest(savedRequest, args, true);
+                if (!JsonNode.DeepEquals(PlanningBenchmarkMeasurements.Configuration(savedRequest), PlanningBenchmarkMeasurements.Configuration(creation)))
+                    throw new InvalidOperationException("The cohort contains incompatible frozen settings. Retained evidence is unchanged.");
+            }
             PlanningCommand? review = Option("--review-run") == key && Option("--review-command") is { } reviewFile
                 ? JsonSerializer.Deserialize(await File.ReadAllTextAsync(reviewFile), PlanningJsonContext.Default.PlanningCommand) : null;
             if (run?["result"] is JsonObject retained)
@@ -75,7 +90,7 @@ internal static class StabilizationBenchmark
                 if (review is null || retained["review_pending"]?.GetValue<bool>() != true) { Console.WriteLine(retained.ToJsonString()); continue; }
                 (run["previous_results"] ??= new JsonArray()).AsArray().Add(retained.DeepClone()); run.Remove("result");
             }
-            var row = await ExecuteAsync(campaign, model, source, cohort, name, i, manifestHash, executable, run, review);
+            var row = await ExecuteAsync(campaign, model, source, cohort, name, i, manifestHash, executable, run, review, creation);
             Console.WriteLine(row.ToJsonString());
             if (campaign.StopReason is not null || row["usage_bounded"]?.GetValue<bool>() != true)
             { Console.WriteLine((await BenchmarkHttpJournal.AccountingAsync(campaign)).ToJsonString()); Environment.ExitCode = 2; return; }
@@ -83,7 +98,7 @@ internal static class StabilizationBenchmark
         Console.WriteLine((await BenchmarkHttpJournal.AccountingAsync(campaign)).ToJsonString());
     }
     private static async Task<JsonObject> ExecuteAsync(BenchmarkCampaign campaign, KeyVaultBenchmarkModel model, string source, string cohort,
-        string name, int repetition, string manifest, string executable, JsonObject? retained, PlanningCommand? review)
+        string name, int repetition, string manifest, string executable, JsonObject? retained, PlanningCommand? review, PlanningRequest creation)
     {
         var key = source + ":" + cohort + ":" + name + ":" + repetition;
         var id = PlanningGraphCompiler.Fingerprint(campaign.Id + ":stabilization:" + key);
@@ -92,7 +107,9 @@ internal static class StabilizationBenchmark
         var state = run["session"]?.Deserialize(PlanningJsonContext.Default.PlanningSession) ?? new() { Request = new()
         { TenantId = "benchmark", SessionId = id, Name = name, Mode = PlanningMode.Auto,
             Prompt = LocalExecutionCases.Names.Contains(name) ? LocalExecutionCases.Prompt(name) : PlanningBenchmarkCases.Prompt(name),
-            MaxModelCalls = 8, MaxReplanAttempts = 2, Generation = new() { Reasoning = "medium", MaxInputTokensPerRequest = 96_000, MaxOutputTokens = 32_768 } } };
+            MaxModelCalls = creation.MaxModelCalls, MaxReplanAttempts = creation.MaxReplanAttempts,
+            Generation = new() { Reasoning = creation.Generation.Reasoning, MaxInputTokensPerRequest = creation.Generation.MaxInputTokensPerRequest, MaxOutputTokens = creation.Generation.MaxOutputTokens },
+            Options = (JsonObject)creation.Options.DeepClone() } };
         var localRoot = Path.Combine(GnOuGoWorkspace.ResolveWorkflowWorkspacesDirectory(GnOuGoWorkspace.ResolveDefaultWorkingDirectory()), "planner-benchmark-" + id);
         Directory.CreateDirectory(localRoot);
         await using var local = LocalExecutionCases.Names.Contains(name) ? new LocalExecutionCases(localRoot, executable) : null;
@@ -143,10 +160,9 @@ internal static class StabilizationBenchmark
         catch (Exception ex) { failure = ex.GetType().Name; run["private_failure"] = ex.ToString(); }
         var expected = local is not null ? LocalExecutionCases.Variants(name).Length : Variants(name).Length;
         var usage = PlanningBenchmarkMeasurements.Usage(run, true); var executionUsage = PlanningBenchmarkMeasurements.Usage(run["execution_usage"]!.AsObject(), true);
-        if (variants.Count == expected && run["first_proposal"] is JsonObject first && first["artifact_hash"]?.ToString() == state.ComputeArtifactHash())
-            first["business_correct"] = variants.All(v => v!["correct"]!.GetValue<bool>());
         var row = new JsonObject { ["case"] = name, ["complexity"] = Complexity(name), ["integration"] = local is null ? "mocked" : "real_local",
             ["source"] = source, ["harness_commit"] = Git("rev-parse", "HEAD"), ["manifest"] = manifest, ["cohort"] = cohort, ["repetition"] = repetition,
+            ["source_commit"] = source, ["comparison_manifest"] = manifest, ["configuration"] = PlanningBenchmarkMeasurements.Configuration(state.Request),
             ["campaign"] = campaign.Id, ["provider"] = model.Provider, ["model"] = model.Model, ["status"] = state.Status,
             ["review_pending"] = state.Status == PlanningStatus.FinalReview, ["final_review"] = state.Status is PlanningStatus.FinalReview or PlanningStatus.Approved,
             ["mode"] = "live", ["safety_violations"] = variants.Count == 0 ? null : new JsonArray(variants.SelectMany(v => v!["safety_violations"]!.AsArray()).Select(v => v!.DeepClone()).ToArray()),
@@ -165,6 +181,9 @@ internal static class StabilizationBenchmark
         row["total_output_tokens"] = usage["output_tokens"] is null || executionUsage["output_tokens"] is null ? null : usage["output_tokens"]!.GetValue<long>() + executionUsage["output_tokens"]!.GetValue<long>();
         row["calls"] = row["planning_attempts"]!.DeepClone();
         row["input_tokens"] = usage["input_tokens"]?.DeepClone(); row["output_tokens"] = usage["output_tokens"]?.DeepClone();
+        row["estimated_cost_eur"] = usage["estimated_cost_eur"]?.DeepClone();
+        if (variants.Count == expected) PlanningBenchmarkMeasurements.RecordBusinessOracle(run, state,
+            variants.All(v => v!["correct"]!.GetValue<bool>()), "existing-stabilization-variants-v1");
         PlanningBenchmarkMeasurements.ProposalMetrics(run, row);
         run["result"] = row.DeepClone(); run["session"] = JsonSerializer.SerializeToNode(state, PlanningJsonContext.Default.PlanningSession);
         await campaign.SaveAsync(Collection, key, run); if (local is null) Directory.Delete(localRoot, true); return row;
@@ -185,7 +204,8 @@ internal static class StabilizationBenchmark
     {
         bool Complete(IReadOnlyList<JsonObject> rows) => rows.Count == Cases.Length * 3 && Cases.All(n => Enumerable.Range(1, 3).All(i => rows.Count(r => r["case"]?.ToString() == n && r["repetition"]?.GetValue<int>() == i) == 1)) && rows.Select(r => r["source"]?.ToString()).Distinct().Count() == 1;
         var all = before.Concat(after).ToArray(); var complete = Complete(before) && Complete(after);
-        var comparable = complete && new[] { "manifest", "provider", "model", "campaign" }.All(k => all.All(r => !string.IsNullOrWhiteSpace(r[k]?.ToString())) && all.Select(r => r[k]!.ToString()).Distinct().Count() == 1) && all.All(r => r["usage_bounded"]?.GetValue<bool>() == true);
+        var configurationsComparable = all.All(r => r["configuration"] is null) || all.All(r => r["configuration"] is not null && JsonNode.DeepEquals(r["configuration"], all[0]["configuration"]));
+        var comparable = complete && configurationsComparable && new[] { "manifest", "provider", "model", "campaign" }.All(k => all.All(r => !string.IsNullOrWhiteSpace(r[k]?.ToString())) && all.Select(r => r[k]!.ToString()).Distinct().Count() == 1) && all.All(r => r["usage_bounded"]?.GetValue<bool>() == true);
         var correct = after.Count == 33 && after.All(r => r["execution_correct"]?.GetValue<bool>() == true && r["nominal_success"]?.GetValue<bool>() == true && r["execution_variants"]!.AsArray().All(v => v!["safety_violations"] is JsonArray { Count: 0 }));
         var simple = after.Where(r => r["complexity"]?.ToString() == "simple").All(r => r["logical_planning_calls"]?.GetValue<int>() == 1 && r["repairs"]?.GetValue<int>() == 0);
         return new() { ["passed"] = comparable && correct && simple, ["status"] = !comparable ? "inconclusive" : correct && simple ? "passed" : "failed",
@@ -215,10 +235,10 @@ internal static class StabilizationBenchmark
         var paths = new[] { "tests/GnOuGo.Agent.Planning.Benchmark/StabilizationBenchmark.cs", "tests/GnOuGo.Agent.Planning.Benchmark/LocalExecutionCases.cs",
             "tests/GnOuGo.Agent.Planning.Benchmark/BenchmarkCampaign.cs", "tests/GnOuGo.Agent.Planning.Benchmark/BenchmarkHttpJournal.cs", "tests/GnOuGo.Agent.Planning.Benchmark/KeyVaultBenchmarkModel.cs",
             "tests/Shared/PlanningBenchmarkCases.cs", "tests/Shared/PlanningBenchmarkMeasurements.cs", "tests/Shared/PlanningCorpus.cs", "src/GnOuGo.Cmd.Mcp/appsettings.json" };
-        return new() { ["version"] = 1, ["files"] = new JsonObject(paths.Select(p => new KeyValuePair<string, JsonNode?>(p, JsonValue.Create(Hash(p))))),
+        return new() { ["version"] = 2, ["files"] = new JsonObject(paths.Select(p => new KeyValuePair<string, JsonNode?>(p, JsonValue.Create(Hash(p))))),
             ["cmd_assembly"] = Hash(executable.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ? Path.ChangeExtension(executable, ".dll") : executable + ".dll"), ["os"] = System.Runtime.InteropServices.RuntimeInformation.OSDescription,
             ["architecture"] = System.Runtime.InteropServices.RuntimeInformation.OSArchitecture.ToString(), ["runtime"] = Environment.Version.ToString(),
-            ["calls"] = 8, ["repairs"] = 2, ["input_tokens"] = 96_000, ["output_tokens"] = 32_768, ["reasoning"] = "medium", ["ceiling_eur"] = 50 };
+            ["settings_protocol"] = "immutable per source/cohort; compare judge and defaults separately", ["ceiling_eur"] = 50 };
     }
     private static string Hash(string path) => Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(path)));
     private static string Git(params string[] args)
@@ -234,10 +254,12 @@ internal static class StabilizationBenchmark
         public Task<PlanningCatalog> DiscoverAsync(PlanningRequest request, CancellationToken ct) => inner.DiscoverAsync(request, ct);
         public async Task<LLMResponse> CallAsync(LLMRequest request, string purpose, CancellationToken ct)
         {
+            var callClock = Stopwatch.StartNew();
             try { var response = await model.CallAsync(request, ct);
-                PlanningBenchmarkMeasurements.RecordResponse(run, request, response, run["session"]?["modelCalls"]?.GetValue<int>() ?? 0);
+                PlanningBenchmarkMeasurements.RecordResponse(run, request, response, run["session"]?["modelCalls"]?.GetValue<int>() ?? 0, purpose);
                 PlanningBenchmarkMeasurements.RecordUsage(run, request.ClientRequestId!, response.Usage as JsonObject); return response; }
             catch { PlanningBenchmarkMeasurements.RecordUsage(run, request.ClientRequestId!, await model.PartialUsageAsync(request.ClientRequestId!, CancellationToken.None)); throw; }
+            finally { PlanningBenchmarkMeasurements.RecordCall(run, request.ClientRequestId!, purpose, callClock.Elapsed.TotalMilliseconds); }
         }
         public Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(PlanningArtifactValidationRequest request, CancellationToken ct) => inner.ValidateAsync(request, ct);
         public Task<IReadOnlyList<PlanningDiagnostic>> ValidateCatalogAsync(PlanningCatalog catalog, CancellationToken ct) => inner.ValidateCatalogAsync(catalog, ct);

@@ -37,12 +37,12 @@ public sealed class DynamicDiscoveryTests
         state.Plan = new() { Root = new() { Tasks = [new() { Id = "use", Operation = "a0", Objective = "Use the selected operation" }] } };
         state.Discovery.Pages = [state.Discovery.Pages[0] with { Capabilities = [state.Discovery.Pages[0].Capabilities[0]] }];
         state.Discovery.Resolved.RemoveAll(c => c.Id != "a0");
-        var mandatory = PlanningJsonTransport.EstimateInputTokens(HybridWorkflowPlanner.BuildPrompt(state, []), PlanningSchemas.Proposal(state));
-        state.Request.Generation.MaxInputTokensPerRequest = mandatory + 100;
+        var mandatory = new PlanningPrompt(state).EstimateRequest(HybridWorkflowPlanner.BuildPrompt(state, []), PlanningSchemas.Proposal(state));
+        state.Request.Generation.MaxInputTokensPerRequest = checked((int)mandatory + 100);
         var runtime = new TestRuntime { Respond = (_, _) => throw new IOException("Retain pending request") };
         state = await new HybridWorkflowPlanner().AdvanceAsync(state, new(), runtime, PlannerFixture.Ct);
         var request = Assert.Single(runtime.Calls);
-        Assert.Equal(mandatory, PlanningJsonTransport.EstimateInputTokens(request.Prompt, request.StructuredOutputSchema!.AsObject()));
+        Assert.Equal(mandatory, new PlanningPrompt(state).EstimateRequest(request.Prompt, request.StructuredOutputSchema!.AsObject()));
         Assert.True(mandatory > state.Request.Generation.MaxInputTokensPerRequest * 0.9);
         Assert.Contains("schema-only-a0", request.Prompt); Assert.DoesNotContain("schema-only-a1", request.Prompt);
         Assert.Equal(1, state.ModelCalls); Assert.DoesNotContain(state.Diagnostics, d => d.Code == "MODEL_INPUT_LIMIT");

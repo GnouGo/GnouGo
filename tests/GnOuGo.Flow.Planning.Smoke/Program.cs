@@ -31,6 +31,18 @@ var historicalNumber = JsonSerializer.Deserialize("""{"kind":"number","number":0
 if (JsonSerializer.SerializeToNode(historicalNumber, PlanningJsonContext.Default.TaskValue)!["number"]!.ToJsonString() != "0.1234567890123456789012345678")
     throw new InvalidOperationException("Historical numeric tokens changed during Native AOT serialization.");
 
+var historicalRequest = JsonSerializer.Deserialize("{}", PlanningJsonContext.Default.PlanningRequest)!;
+var freshRequest = new PlanningRequest();
+var sparseGeneration = JsonSerializer.Deserialize("""{"generation":{"maxOutputTokens":4096}}""", PlanningJsonContext.Default.PlanningRequest)!;
+if (historicalRequest.MaxModelCalls != 8 || historicalRequest.MaxReplanAttempts != 2 ||
+    historicalRequest.Generation.MaxInputTokensPerRequest != 12000 || historicalRequest.Generation.MaxOutputTokens != 8192 ||
+    sparseGeneration.Generation.MaxInputTokensPerRequest != 12000 || sparseGeneration.Generation.MaxOutputTokens != 4096 ||
+    freshRequest.MaxModelCalls != 12 || freshRequest.MaxReplanAttempts != 4 ||
+    freshRequest.Generation.MaxInputTokensPerRequest != 32000 || freshRequest.Generation.MaxOutputTokens != 32768 ||
+    historicalRequest.Options.ContainsKey("business_judge"))
+    throw new InvalidOperationException("Fresh creation defaults and historical missing fields were not kept distinct under Native AOT.");
+Console.WriteLine("planning defaults: fresh limits and sparse historical fallbacks survive source-generated serialization");
+
 var committedIntent = new PlanningRequirements { Summary = "Retain contractual obligations", Outcomes =
     [new("report", "Return the producer location") { Commitments = [new("inspected-operation") { Result = new("location", "filePath") }] }] };
 var committedJson = JsonSerializer.Serialize(committedIntent, PlanningJsonContext.Default.PlanningRequirements);
@@ -364,7 +376,7 @@ foreach (var name in PlanningCorpus.Names)
     var environment = new PlanningBenchmarkCases.Environment(name); var engine = new WorkflowEngine { McpClientFactory = environment.Factory(), HumanInputProvider = new PlanningCorpus.Human() };
     var runtime = new PlanningCorpus.Runtime(name, engine); var planner = new HybridWorkflowPlanner();
     // The frozen stress corpus uses the same existing request limits as its live campaign.
-    var state = new PlanningSession { Request = new() { TenantId = "smoke", Prompt = PlanningCorpus.Prompt(name),
+    var state = new PlanningSession { Request = new() { TenantId = "smoke", Prompt = PlanningCorpus.Prompt(name), MaxModelCalls = 8, MaxReplanAttempts = 2,
         Generation = new() { MaxInputTokensPerRequest = 96000, MaxOutputTokens = 32768 } } };
     for (var i = 0; i < 20 && !PlanningStatus.IsWaiting(state.Status) && !PlanningStatus.IsTerminal(state.Status); i++)
     {
@@ -420,7 +432,7 @@ if (JsonSerializer.Deserialize(JsonSerializer.Serialize(focusedDiscovery, Planni
 Console.WriteLine("typed transforms: passed; mocked inference; ordered products and cleanup verified");
 
 // New plan-only requests and saved request schemas retain their distinct meanings in AOT.
-var bounded = new PlanningSession { Request = new() { TenantId = "smoke", Prompt = "Return declared data" }, ModelCalls = 6 };
+var bounded = new PlanningSession { Request = new() { TenantId = "smoke", Prompt = "Return declared data", MaxModelCalls = 8, MaxReplanAttempts = 2 }, ModelCalls = 6 };
 bounded.Discovery.Sources.Add(new("declared", "Declared source"));
 var boundedSchema = PlanningSchemas.Proposal(bounded);
 var noPlan = new JsonObject { ["requirements"] = new JsonObject { ["summary"] = "Return data", ["outputs"] = new JsonArray(), ["outcomes"] =

@@ -7,6 +7,170 @@ namespace GnOuGo.Planning.Examples;
 
 public static class PlanningBenchmarkMeasurements
 {
+    public static string CandidateHash(PlanningSession state) => Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(
+        System.Text.Encoding.UTF8.GetBytes(new JsonObject { ["request"] = state.Request.Prompt,
+            ["revision"] = state.Request.RevisionContext,
+            ["answers"] = JsonSerializer.SerializeToNode(state.AnswerHistory, PlanningJsonContext.Default.ListPlanningAnswerBatch),
+            ["requirements"] = JsonSerializer.SerializeToNode(state.Requirements, PlanningJsonContext.Default.PlanningRequirements),
+            ["catalog"] = JsonSerializer.SerializeToNode(state.Catalog, PlanningJsonContext.Default.PlanningCatalog),
+            ["discovery"] = JsonSerializer.SerializeToNode(state.Discovery, PlanningJsonContext.Default.CapabilityDiscoveryState),
+            ["plan"] = JsonSerializer.SerializeToNode(state.Plan, PlanningJsonContext.Default.TaskPlan) }.ToJsonString())));
+
+    // Omitted switches retain the saved definition. Creation defaults must never
+    // become an implicit request to migrate a retained cohort.
+    public static void ConfigureRequest(PlanningRequest request, string[] args, bool retained)
+    {
+        int? Number(string name, bool zeroAllowed = false)
+        {
+            var positions = args.Select((value, index) => (value, index)).Where(p => p.value == name).Select(p => p.index).ToArray();
+            if (positions.Length == 0) return null;
+            if (positions.Length != 1 || !int.TryParse(args.ElementAtOrDefault(positions[0] + 1), System.Globalization.NumberStyles.None,
+                System.Globalization.CultureInfo.InvariantCulture, out var value) || value < (zeroAllowed ? 0 : 1))
+                throw new ArgumentException("Supply one valid value for " + name + ".");
+            return value;
+        }
+        var calls = Number("--max-model-calls"); var repairs = Number("--max-repairs", true);
+        var input = Number("--max-input-tokens"); var output = Number("--max-output-tokens");
+        var enabled = args.Contains("--business-judge", StringComparer.Ordinal);
+        var disabled = args.Contains("--no-business-judge", StringComparer.Ordinal);
+        if (enabled && disabled) throw new ArgumentException("Choose one judge setting.");
+        if (retained && (calls is not null && calls != request.MaxModelCalls || repairs is not null && repairs != request.MaxReplanAttempts ||
+            input is not null && input != request.Generation.MaxInputTokensPerRequest || output is not null && output != request.Generation.MaxOutputTokens ||
+            (enabled || disabled) && enabled != (request.Options["business_judge"]?.ToString() == "true")))
+            throw new InvalidOperationException("Explicit settings differ from the frozen run. Start a separate cohort.");
+        if (retained) return;
+        request.MaxModelCalls = calls ?? request.MaxModelCalls; request.MaxReplanAttempts = repairs ?? request.MaxReplanAttempts;
+        request.Generation.MaxInputTokensPerRequest = input ?? request.Generation.MaxInputTokensPerRequest;
+        request.Generation.MaxOutputTokens = output ?? request.Generation.MaxOutputTokens;
+        if (enabled || disabled) request.Options["business_judge"] = enabled;
+    }
+
+    public static JsonObject Configuration(PlanningRequest request) => new()
+    {
+        ["calls"] = request.MaxModelCalls, ["repairs"] = request.MaxReplanAttempts,
+        ["input_tokens"] = request.Generation.MaxInputTokensPerRequest, ["output_tokens"] = request.Generation.MaxOutputTokens,
+        ["reasoning"] = request.Generation.Reasoning, ["business_judge"] = request.Options["business_judge"]?.ToString() == "true"
+    };
+
+    public static PlanningRequest RestoreConfiguration(JsonObject settings) => new()
+    {
+        MaxModelCalls = settings["calls"]!.GetValue<int>(), MaxReplanAttempts = settings["repairs"]!.GetValue<int>(),
+        Generation = new() { Reasoning = settings["reasoning"]!.ToString(), MaxInputTokensPerRequest = settings["input_tokens"]!.GetValue<int>(), MaxOutputTokens = settings["output_tokens"]!.GetValue<int>() },
+        Options = new() { ["business_judge"] = settings["business_judge"]!.GetValue<bool>() }
+    };
+
+    // This report isolates the experimental variable; it intentionally does not
+    // apply the unrelated first-proposal improvement gate to post-proposal review.
+    public static JsonObject CompareArms(IReadOnlyList<JsonObject> before, IReadOnlyList<JsonObject> after, IReadOnlyList<string> cases, string variable)
+    {
+        if (variable is not ("judge" or "defaults")) throw new ArgumentException("Compare judge or defaults separately.");
+        var rows = before.Concat(after).ToArray();
+        bool Complete(IReadOnlyList<JsonObject> arm) => cases.Count > 0 && arm.Count == cases.Count * 3 &&
+            cases.All(name => Enumerable.Range(1, 3).All(i => arm.Count(r => r["case"]?.ToString() == name && r["repetition"]?.GetValue<int>() == i) == 1));
+        bool Same(string key) => rows.Length > 0 && rows.All(r => !string.IsNullOrWhiteSpace(r[key]?.ToString())) && rows.Select(r => r[key]!.ToJsonString()).Distinct(StringComparer.Ordinal).Count() == 1;
+        JsonObject? FrozenConfiguration(IReadOnlyList<JsonObject> arm)
+        {
+            var configurations = arm.Select(r => r["configuration"] as JsonObject).ToArray();
+            return configurations.Length > 0 && configurations.All(c => c is not null &&
+                new[] { "calls", "repairs", "input_tokens", "output_tokens", "reasoning", "business_judge" }.All(k => c[k] is not null) &&
+                JsonNode.DeepEquals(c, configurations[0])) ? configurations[0] : null;
+        }
+        var oldSettings = FrozenConfiguration(before); var newSettings = FrozenConfiguration(after);
+        var budgets = new[] { "calls", "repairs", "input_tokens", "output_tokens" };
+        var sameBudgets = oldSettings is not null && newSettings is not null && budgets.All(k => JsonNode.DeepEquals(oldSettings[k], newSettings[k]));
+        var isolated = oldSettings is not null && newSettings is not null && JsonNode.DeepEquals(oldSettings["reasoning"], newSettings["reasoning"]) &&
+            (variable == "judge" ? sameBudgets && oldSettings["business_judge"]!.GetValue<bool>() == false && newSettings["business_judge"]!.GetValue<bool>()
+                : !sameBudgets && oldSettings["business_judge"]!.GetValue<bool>() == false && newSettings["business_judge"]!.GetValue<bool>() == false);
+        var complete = Complete(before) && Complete(after);
+        var frozen = new[] { "comparison_manifest", "provider", "model", "campaign", "source_commit", "mode" }.All(Same);
+        var outcomesKnown = rows.Length > 0 && rows.All(r => r["business_review"]?["converged"] is JsonValue v && v.TryGetValue<bool>(out _));
+        var comparable = complete && frozen && isolated && outcomesKnown && rows.All(r => r["safety_violations"] is JsonArray && r["mode"]?.ToString() is "live" or "fixture" or "replay");
+        JsonObject SummaryArm(IReadOnlyList<JsonObject> arm)
+        {
+            var summary = new JsonObject { ["runs"] = arm.Count, ["business_correct"] = arm.Count(r => r["business_review"]?["converged"]?.GetValue<bool>() == true),
+                ["unknown_outcomes"] = arm.Count(r => r["business_review"]?["converged"] is null),
+                ["introduced_regressions"] = arm.Count(r => r["business_review"]?["introduced_regression"]?.GetValue<bool>() == true) };
+            foreach (var field in new[] { "calls", "input_tokens", "output_tokens", "estimated_cost_eur", "elapsed_ms" })
+            {
+                var values = arm.Select(r => double.TryParse(r[field]?.ToJsonString(), System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture, out var n) && n >= 0 ? (double?)n : null).ToArray();
+                var known = values.OfType<double>().Order().ToArray();
+                summary[field] = new JsonObject { ["known_runs"] = known.Length, ["median"] = known.Length == 0 || known.Length != values.Length
+                    ? null : (known[(known.Length - 1) / 2] + known[known.Length / 2]) / 2 };
+            }
+            foreach (var field in new[] { "true_positives", "false_positives", "false_negatives", "true_negatives", "unknown_candidates", "unjudged_candidates" })
+                summary[field] = arm.All(r => r["business_review"]?[field] is not null)
+                    ? JsonValue.Create(arm.Sum(r => r["business_review"]![field]!.GetValue<int>())) : null;
+            return summary;
+        }
+        return new() { ["status"] = !comparable ? "inconclusive" : rows[0]["mode"]?.ToString() == "live" ? "measured" : "fixture_only",
+            ["variable"] = variable, ["comparable"] = comparable, ["complete_three_repetitions"] = complete,
+            ["frozen_context"] = frozen, ["isolated_variable"] = isolated, ["identical_budgets"] = sameBudgets,
+            ["independent_outcomes_known"] = outcomesKnown, ["baseline"] = SummaryArm(before), ["candidate"] = SummaryArm(after),
+            ["live_benefit_established"] = false,
+            ["interpretation"] = "Descriptive comparison of independently evaluated candidates. Fixture and replay outcomes do not establish model improvement; live benefit and activation require a separate reviewed decision." };
+    }
+
+    public static void RecordBusinessOracle(JsonObject run, PlanningSession state, bool correct, string oracleVersion)
+    {
+        var hash = CandidateHash(state);
+        foreach (var candidate in (run["candidate_reviews"] as JsonArray ?? []).OfType<JsonObject>().Where(c => c["candidate_hash"]?.ToString() == hash))
+        { candidate["business_correct"] = correct; candidate["oracle_version"] = oracleVersion; }
+        if (run["first_proposal"] is JsonObject first && first["candidate_hash"]?.ToString() == hash)
+            first["business_correct"] = correct;
+    }
+
+    public static JsonObject JudgeMetrics(JsonObject run)
+    {
+        var candidates = (run["candidate_reviews"] as JsonArray ?? []).OfType<JsonObject>().ToArray();
+        var labeled = candidates.Where(c => c["business_correct"] is JsonValue && c["judge_findings"] is JsonValue).ToArray();
+        int Count(bool correct, bool flagged) => labeled.Count(c => c["business_correct"]!.GetValue<bool>() == correct && (c["judge_findings"]!.GetValue<int>() > 0) == flagged);
+        var final = run.ContainsKey("current_candidate_hash")
+            ? candidates.SingleOrDefault(c => c["candidate_hash"]?.ToString() == run["current_candidate_hash"]?.ToString())
+            : candidates.LastOrDefault();
+        return new() { ["unit"] = "independently labeled candidate, not individual diagnosis", ["candidates"] = candidates.Length,
+            ["true_positives"] = Count(false, true), ["false_positives"] = Count(true, true),
+            ["false_negatives"] = Count(false, false), ["true_negatives"] = Count(true, false),
+            ["unknown_candidates"] = candidates.Count(c => c["business_correct"] is null),
+            ["unjudged_candidates"] = candidates.Count(c => c["judge_findings"] is null),
+            ["converged"] = final?["business_correct"]?.DeepClone(),
+            ["introduced_regression"] = final?["business_correct"] is JsonValue correctness
+                ? JsonValue.Create(!correctness.GetValue<bool>() && candidates.Any(c => c["business_correct"]?.GetValue<bool>() == true)) : null,
+            ["stop_status"] = run["current_status"]?.DeepClone() };
+    }
+
+    public static void RecordCall(JsonObject run, string id, string purpose, double elapsedMilliseconds)
+    {
+        var calls = (run["call_stages"] ??= new JsonObject()).AsObject();
+        var previous = calls[id]?["elapsed_ms"]?.GetValue<double>() ?? 0;
+        calls[id] = new JsonObject { ["purpose"] = purpose, ["elapsed_ms"] = previous + elapsedMilliseconds };
+    }
+
+    private static void CaptureCandidate(JsonObject run, PlanningSession state)
+    {
+        run["current_status"] = state.Status;
+        if (state.Plan is null || state.Graph is null) { run["current_candidate_hash"] = null; return; }
+        if (state.PendingCall is not null) return;
+        var hash = CandidateHash(state);
+        run["current_candidate_hash"] = hash;
+        var candidates = (run["candidate_reviews"] ??= new JsonArray()).AsArray();
+        var candidate = candidates.OfType<JsonObject>().LastOrDefault(c => c["candidate_hash"]?.ToString() == hash);
+        if (candidate is null)
+        {
+            candidate = new JsonObject { ["candidate_hash"] = hash, ["call"] = state.ModelCalls, ["repairs"] = state.ReplanAttempts,
+                ["business_correct"] = null, ["judge_findings"] = null,
+                ["plan"] = JsonSerializer.SerializeToNode(state.Plan, PlanningJsonContext.Default.TaskPlan) };
+            candidates.Add((JsonNode)candidate);
+        }
+        var summary = state.ValidationResults.SingleOrDefault(r => r.Id == "judge:summary");
+        if (summary is not null)
+        {
+            candidate["judge_status"] = summary.Outcome;
+            if (summary.Outcome is "unverified" or "revision_required")
+                candidate["judge_findings"] = state.ValidationResults.Count(r => r.Id.StartsWith("judge:", StringComparison.Ordinal) && r.Id != "judge:summary");
+            else candidate["judge_findings"] = null;
+        }
+    }
     // This gate is separate from historical execution/review comparisons. Unknown
     // business judgments or usage never count as successes or zero-cost failures.
     public static JsonObject CompareFirstProposals(IReadOnlyList<JsonObject> before, IReadOnlyList<JsonObject> after, IReadOnlyList<string> cases)
@@ -20,6 +184,7 @@ public static class PlanningBenchmarkMeasurements
         var complete = cases.Count > 0 && Complete(before) && Complete(after);
         var frozen = rows.Length > 0 && new[] { "manifest", "provider", "model", "campaign" }.All(key =>
             rows.All(r => !string.IsNullOrWhiteSpace(r[key]?.ToString())) && rows.Select(r => r[key]!.ToString()).Distinct().Count() == 1);
+        frozen &= rows.All(r => r["configuration"] is null) || rows.All(r => r["configuration"] is not null && JsonNode.DeepEquals(r["configuration"], rows[0]["configuration"]));
         double? Median(IReadOnlyList<JsonObject> cohort, bool tokens)
         {
             double? Value(JsonObject r) => tokens
@@ -54,9 +219,9 @@ public static class PlanningBenchmarkMeasurements
             return new JsonArray(center - radius, center + radius);
         }
     }
-    public static void RecordResponse(JsonObject run, LLMRequest request, LLMResponse response, int call)
+    public static void RecordResponse(JsonObject run, LLMRequest request, LLMResponse response, int call, string? purpose = null)
     {
-        if (run["first_proposal"] is not null || response.Json is not JsonObject json || json["plan"] is null) return;
+        if (purpose is not (null or "tasks" or "replan") || run["first_proposal"] is not null || response.Json is not JsonObject json || json["plan"] is null) return;
         run["first_proposal"] = new JsonObject { ["request_id"] = request.ClientRequestId, ["call"] = call,
             ["response"] = json.DeepClone(), ["structurally_valid"] = null, ["business_correct"] = null,
             ["omitted_requirements"] = null, ["extra_operations"] = null, ["redundant_tasks"] = null };
@@ -72,6 +237,18 @@ public static class PlanningBenchmarkMeasurements
         result["extra_operations"] = first?["extra_operations"]?.DeepClone();
         result["redundant_tasks"] = first?["redundant_tasks"]?.DeepClone();
         result["first_proposal_diagnostics"] = first?["diagnostics"]?.DeepClone();
+        result["business_review"] = JudgeMetrics(run);
+        var stages = new JsonObject();
+        foreach (var group in (run["call_stages"] as JsonObject ?? []).GroupBy(p => p.Value!["purpose"]!.ToString()))
+        {
+            var receipts = new JsonObject(group.Select(p => new KeyValuePair<string, JsonNode?>(p.Key, run["usage_receipts"]?[p.Key]?.DeepClone())));
+            var stage = Usage(new JsonObject { ["usage_receipts"] = receipts, ["usage_complete"] = true }, result["mode"]?.ToString() == "live");
+            stage["logical_calls"] = group.Count(); stage["elapsed_ms"] = group.Sum(p => p.Value!["elapsed_ms"]!.GetValue<double>());
+            stage["physical_attempts"] = group.All(p => run["usage_receipts"]?[p.Key]?["transport_attempts"] is not null)
+                ? JsonValue.Create(group.Sum(p => run["usage_receipts"]![p.Key]!["transport_attempts"]!.GetValue<int>())) : null;
+            stages[group.Key] = stage;
+        }
+        result["planning_stages"] = stages;
     }
     public static readonly string[] CandidateCases = ["local", "read_transform", "nullable_defaults", "conditional", "collections", "protected_cleanup", "review_french", "review_distractors"];
     public static string[] Select(string? selection)
@@ -94,6 +271,7 @@ public static class PlanningBenchmarkMeasurements
     };
     public static void Capture(JsonObject run, PlanningSession state)
     {
+        CaptureCandidate(run, state);
         // A reservation still carries the preceding candidate's diagnostics. Do not
         // attribute those to the new call before its response has been validated.
         if (state.PendingCall is not null && state.Status == PlanningStatus.Generating) return;
@@ -104,6 +282,7 @@ public static class PlanningBenchmarkMeasurements
             first["structurally_valid"] = state.Graph is not null && !state.Diagnostics.Any(d => d.Required);
             first["final_review"] = state.Status == PlanningStatus.FinalReview;
             first["artifact_hash"] = state.ComputeArtifactHash();
+            if (state.Plan is not null) first["candidate_hash"] = CandidateHash(state);
         }
         var history = run["diagnostic_history"]!.AsArray();
         foreach (var finding in state.Diagnostics.Where(d => d.Required))
@@ -161,7 +340,8 @@ public static class PlanningBenchmarkMeasurements
         {
             var request = run["session"]?["request"]; var generation = request?["generation"];
             return new() { ["calls"] = request?["maxModelCalls"]?.DeepClone(), ["repairs"] = request?["maxReplanAttempts"]?.DeepClone(),
-                ["reasoning"] = generation?["reasoning"]?.DeepClone(), ["input"] = generation?["maxInputTokensPerRequest"]?.DeepClone(), ["output"] = generation?["maxOutputTokens"]?.DeepClone() };
+                ["reasoning"] = generation?["reasoning"]?.DeepClone(), ["input"] = generation?["maxInputTokensPerRequest"]?.DeepClone(), ["output"] = generation?["maxOutputTokens"]?.DeepClone(),
+                ["business_judge"] = request?["options"]?["business_judge"]?.ToString() == "true" };
         }
         var limits = all.Select(Limits).ToArray();
         var sameLimits = limits.Length > 0 && limits.All(l => l.All(p => p.Value is not null) && JsonNode.DeepEquals(l, limits[0]));
@@ -231,7 +411,8 @@ public static class PlanningBenchmarkMeasurements
             values.All(v => v["result"]!["mode"]?.ToString() == "live") && values.Select(v => v["result"]!["source_commit"]?.ToString()).Distinct().Count() == 1;
         var complete = cohorts.All(c => Complete(c.Value));
         var sameModel = rows.Length > 0 && new[] { "provider", "model", "campaign" }.All(k => rows.All(r => !string.IsNullOrWhiteSpace(r[k]?.ToString())) && rows.Select(r => r[k]!.ToString()).Distinct().Count() == 1);
-        JsonObject Limits(JsonObject run) => new() { ["calls"] = run["session"]?["request"]?["maxModelCalls"]?.DeepClone(), ["repairs"] = run["session"]?["request"]?["maxReplanAttempts"]?.DeepClone(), ["generation"] = run["session"]?["request"]?["generation"]?.DeepClone() };
+        JsonObject Limits(JsonObject run) => new() { ["calls"] = run["session"]?["request"]?["maxModelCalls"]?.DeepClone(), ["repairs"] = run["session"]?["request"]?["maxReplanAttempts"]?.DeepClone(),
+            ["generation"] = run["session"]?["request"]?["generation"]?.DeepClone(), ["business_judge"] = run["session"]?["request"]?["options"]?["business_judge"]?.ToString() == "true" };
         var limits = runs.Select(Limits).ToArray();
         var sameLimits = limits.Length > 0 && limits.All(l => l.All(p => p.Value is not null) && JsonNode.DeepEquals(l, limits[0]));
         var bounded = rows.Length > 0 && rows.All(r => r["usage_bounded"]?.GetValue<bool>() == true);

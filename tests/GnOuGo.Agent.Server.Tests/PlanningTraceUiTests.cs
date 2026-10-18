@@ -238,6 +238,7 @@ public sealed partial class PlanningTraceUiTests : BunitContext
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync(); Configure(fixture);
         var state = Session("rejected", "rejected request", PlanningStatus.Stopped);
         state.PendingCall = new() { Id = "rejected:1", Purpose = "tasks", Request = new() { Prompt = "private" } };
+        state.Request.Generation = new("medium", 12000, 8192);
         state.Diagnostics = [new(code, "/", "Provider status")];
         Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
         Services.GetRequiredService<NavigationManager>().NavigateTo("/planning/rejected");
@@ -257,6 +258,7 @@ public sealed partial class PlanningTraceUiTests : BunitContext
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync(); Configure(fixture);
         var state = Session("input-budget", "Budget stop", PlanningStatus.Stopped);
         state.ModelCalls = 2;
+        state.Request.Generation = new("medium", 12000, 8192);
         state.Diagnostics = [new(code, "/phases/tasks", "Request allowance exhausted")];
         Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
         Services.GetRequiredService<NavigationManager>().NavigateTo("/planning/input-budget");
@@ -288,7 +290,7 @@ public sealed partial class PlanningTraceUiTests : BunitContext
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync(); Configure(fixture);
         var state = Session("call-budget", "Retained exhaustion", PlanningStatus.Stopped);
-        state.ModelCalls = 8; state.Phase = PlanningPhase.Replanning;
+        state.ModelCalls = 8; state.Request.MaxModelCalls = 8; state.Phase = PlanningPhase.Replanning;
         state.Diagnostics = Enumerable.Repeat(new PlanningDiagnostic("LLM_BUDGET_EXCEEDED", "/", "The session model-call budget was exhausted."), 3).ToList();
         Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
         Services.GetRequiredService<NavigationManager>().NavigateTo("/planning/call-budget");

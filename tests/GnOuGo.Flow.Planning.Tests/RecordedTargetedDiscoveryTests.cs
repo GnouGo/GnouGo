@@ -38,6 +38,8 @@ public sealed class RecordedTargetedDiscoveryTests(ITestOutputHelper output)
             catch (Exception ex) { output.WriteLine($"Scripted response {call}: {ex}"); throw; }
         };
         var state = failure["initialSession"]!.Deserialize(PlanningJsonContext.Default.PlanningSession)!;
+        // New scripted continuation, not replay of an issued request.
+        state.Request.Generation.MaxInputTokensPerRequest = 32000;
         state.Catalog = failure["initialCatalog"]!.Deserialize(PlanningJsonContext.Default.PlanningCatalog)!;
         state.Discovery.Sources = metadata.Sources;
         var accepted = failure["responses"]!.AsArray()[0]!["response"]!["json"]!["requirements"]!.Deserialize(PlanningJsonContext.Default.PlanningRequirements)!;
@@ -104,8 +106,8 @@ public sealed class RecordedTargetedDiscoveryTests(ITestOutputHelper output)
             // than requiring every request to shrink; enforce admission below.
             output.WriteLine($"Fixed context {runtime.Calls.IndexOf(call) + 1}: estimate {before} -> {after}; shared bytes {Encoding.UTF8.GetByteCount(oldPrefix)} -> {Encoding.UTF8.GetByteCount(call.Prompt[..start])}; dynamic bytes={Encoding.UTF8.GetByteCount(call.Prompt[start..])}; schema bytes {Encoding.UTF8.GetByteCount(oldSchema.ToJsonString())} -> {Encoding.UTF8.GetByteCount(call.StructuredOutputSchema.ToJsonString())}.");
         }
-        Assert.All(estimates, n => Assert.InRange(n, 1, 24000));
-        Assert.All(runtime.Calls.Take(6), c => Assert.InRange(PlanningJsonTransport.EstimateInputTokens(c.Prompt, c.StructuredOutputSchema!.AsObject()), 1, 21600));
+        Assert.All(estimates, n => Assert.InRange(n, 1, state.Request.Generation.MaxInputTokensPerRequest));
+        Assert.All(runtime.Calls.Take(6), c => Assert.InRange(PlanningJsonTransport.EstimateInputTokens(c.Prompt, c.StructuredOutputSchema!.AsObject()), 1, state.Request.Generation.MaxInputTokensPerRequest * 9 / 10));
         output.WriteLine($"Synthetic targeted continuation: calls={runtime.Calls.Count}, repairs={state.ReplanAttempts}, discovered=74, requested=10, metadata reads={catalog.Reads}, resolutions={catalog.Resolutions.Count} (unrecorded exact contracts unavailable={catalog.Unavailable}), input estimates=[{string.Join(',', estimates)}], cumulative={estimates.Sum()}, prompt bytes=[{string.Join(',', runtime.Calls.Select(c => Encoding.UTF8.GetByteCount(c.Prompt)))}], detailed counts=[{string.Join(',', runtime.Calls.Select(c => TargetedDiscoveryTests.Context(c.Prompt)["operations"]!.AsArray().Count))}]. Preserved all distractor metadata; exact resolution is limited to retained receipts. No live model or execution claim.");
     }
 

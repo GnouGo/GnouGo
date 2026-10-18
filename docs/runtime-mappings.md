@@ -66,7 +66,27 @@ An explicit business binding `{ "kind": "flatten", "items": [value] }` concatena
 
 For example: complete source pages → independent extraction of `array<array<{label, group, reference}>>` → explicit flatten → global decision receiving selected candidate fields. Do not forward broad `pageFacts`, raw pages or unrelated fields into that view. Keep grouping or references when the decision requires them, and preserve full sources for other consumers. Checked assembly validates declared fields; complete-request admission includes instructions, data, schema and framing. Neither step proves semantic relevance, so independent execution oracles still check missed or invented facts. Still-oversized necessary inputs fail before dispatch, without truncating or sampling the decision.
 
-The existing capability resolver exposes an optional verified input allowance after output reservation. Only exact configured/catalog metadata or aliases supply limits, never fuzzy guesses. `ExecutionLimits.MaxMappingInputTokens` can impose a host ceiling; omission uses 12,000. Agent.Server exposes it as `Flow:Execution:MaxMappingInputTokens`, with 96,000 in shipped appsettings, matching the live harness. The complete serialized request is conservatively bounded by UTF-8 bytes plus 4,096 framing units and the stricter provider allowance. Unknown limits, excessive shared context or a mandatory example that cannot fit stop before inference. Admission diagnostics report the limiting host/model allowance, initial request bound without examples, smallest single-example request tried, last attempted request bound and distinct examined-item count. Null measurements mean no such example was examined. Existing traces carry bounded counters only, never payloads. Changing host configuration affects new runs; recovery restores the saved limit. This does not change cumulative budgets or campaign/provider ceilings.
+The existing capability resolver exposes an optional verified input allowance after output reservation. Only exact configured/catalog metadata or aliases supply limits, never fuzzy guesses. `ExecutionLimits.MaxMappingInputTokens` can impose a host ceiling; omission uses 12,000. Agent.Server exposes it as `Flow:Execution:MaxMappingInputTokens`, with 96,000 in shipped appsettings, matching the live harness. Independent-example packing bounds the complete serialized request by UTF-8 bytes plus 4,096 framing units against the stricter provider allowance. This remains a conservative byte bound, distinct from the token estimate used by common dispatch admission. Unknown limits, excessive shared context or a mandatory example that cannot fit stop before inference. Admission diagnostics report the limiting host/model allowance, initial request bound without examples, smallest single-example request tried, last attempted request bound and distinct examined-item count. Null measurements mean no such example was examined. Existing traces carry bounded counters only, never payloads. Changing host configuration affects new runs; recovery restores the saved limit. This does not change cumulative budgets or campaign/provider ceilings.
+
+Before a new whole-value or independent extraction dispatch, common admission verifies
+required Structured Output support, configured reasoning and positive output reservation
+against declared provider/model capabilities. Unknown indispensable metadata stops as
+`LLM_BUDGET_UNVERIFIABLE`; known incompatibility stops as
+`MODEL_REQUEST_INCOMPATIBLE`. The complete serialized request estimate must fit the
+smaller host ceiling and verified model input allowance after reserving output.
+Oversized input stops as `LLM_BUDGET_EXCEEDED` with
+`limit_kind: request_input_allowance`, `measurement: estimated_tokens`, `unit: tokens`,
+`limit`, `current`, the responsible `stage` and `dispatch_status: not_started`.
+This is a per-request refusal, not cumulative budget exhaustion or billed usage.
+No payload, source observations or generated script enters these diagnostics.
+
+The common estimate and independent-example byte bound are different measurements;
+neither is observed provider token usage. Necessary evidence is not truncated or
+sampled to gain admission, and model/settings are not silently changed. Runtime input
+size remains unverified during planning when observations do not yet exist. Completed
+mapping receipts and cache results are reused before new dispatch; saved requests,
+limits and uncertain-completion recovery retain their original identities and behavior.
+An optional planning Judge has no authority to waive runtime admission or permissions.
 
 The live campaign's existing adapter also checks whole-value runtime requests using
 its conservative tokenizer estimate of the complete serialized request. Its

@@ -12,14 +12,17 @@ flowchart LR
   Compiler --> Graph[PlanningGraph]
   Graph --> YAML
   YAML --> Validation
-  Validation --> Approval
+  Validation --> Review[FinalReview]
+  Validation -. explicit opt-in .-> Judge[Independent advisory Judge]
+  Judge --> Review
+  Review --> Approval
   Validation --> Repair[Scoped TaskPlan repair]
   Repair --> Tasks
 ```
 
 The model selects declared operation intents and connects business ports. The compiler
 owns binding and executor plumbing. There is no model-generated graph, separate
-binding session, grounded-plan representation or additional model phase.
+binding session or grounded-plan representation. Optional business review uses the existing planning loop and journal; it adds no mandatory model phase.
 
 Task, group and choice declarations share one case-sensitive global namespace. IDs and references allow only nonempty ASCII letters, digits, underscores and hyphens, with `__` reserved. Alternative IDs remain local to their choice; business ports, operation IDs and requirements are outside this namespace. Invalid declarations are never automatically renamed or granted repair permission. Previously saved format-10 plans with invalid declarations must be regenerated; approval verification and recovery fail closed without changing stored records. Malformed consumer references may be corrected only within an existing diagnosed binding scope.
 
@@ -143,14 +146,15 @@ Initial generation returns a complete TaskPlan; semantic repair returns a privat
 
 A semantic failure opens a bounded revision scope over diagnosed business slots and the explicit export declarations required by their consumers. Conditional alternatives must explicitly provide matching outputs; the compiler invents neither exports nor fallback values. Added exports must belong to the diagnosed connection, with unrelated declarations and ordering preserved. Revalidation of a dependent task grants no edit permission. Unknown or ambiguous locations never authorize whole-plan repair. Rejected revisions identify unauthorized changed slots and retain the last accepted baseline. Diagnosed optional operation bindings may be explicitly omitted under the authoritative contract; remaining bindings retain their order and values, and full request validation still enforces conditional requirements. Null is not omission. Producer constraint diagnostics expose only incompatible enum/nullability leaves. See [contract-aware repair evidence](contract-aware-repairs.md). Optional workflow/group inputs require literal defaults, while optional object fields may remain absent. Composite outputs use the existing typed `set` primitive after cleanup; opaque payloads remain opaque. Generated executor validation failures stop with compiler diagnostics. Dependent findings are
 invalidated; unaffected validated stages and interfaces remain unchanged. Repairs,
-retries and restarts share the original planning budget. Defaults remain eight
-model calls and two repairs. Standalone Flow defaults to 12,000 input / 8,192 output
-tokens per request; new Agent.Server Designer sessions default to 24,000 input /
-32,768 output through `TypedWorkflowPlanning`. Explicit host
-configuration takes precedence, and existing sessions retain their saved limits.
+retries and restarts share the original planning budget. New-session defaults are
+twelve model calls, four corrections and 32,000 input / 32,768 output tokens per
+request across Flow, `workflow.plan`, CLI and Agent.Server. Explicit configuration
+takes precedence. Existing sessions retain their saved definitions; absent historical
+fields retain eight calls, two repairs and 12,000 input / 8,192 output tokens. Creation
+defaults never rewrite pending requests or replenish cumulative allowances.
 
-`MODEL_INPUT_LIMIT` is a local admission stop: the conservative estimate of the full
-prompt plus response schema exceeds the saved per-request input allowance. Discovery
+`MODEL_INPUT_LIMIT` is a local admission stop: the estimate of the complete
+serialized request exceeds the saved per-request input allowance. Discovery
 receipts remain in host state. When repair permissions fix operation selections, the
 request contains affected subtrees, required consumer contracts and producer outputs,
 without the complete baseline or irrelevant discovery actions. Operation-selection repairs receive ranked alternatives.
@@ -160,13 +164,40 @@ adjust the **Input token limit** if needed, then select **Apply settings and res
 This continues the same session with its discovery receipts and cumulative usage;
 subsequent calls may incur model costs. It does not reset call, repair, spending or
 elapsed-time limits, approve an artifact, or guarantee that later requests will fit.
-Discovery reserves one first-proposal call and one repair when allowance remains: the default eight-call session allows at most six discovery calls before requesting its TaskPlan. Additional repairs are opportunistic, within the existing call and repair ceilings; explicit zero-repair settings remain authoritative. The last repair attempt cannot request discovery. A closed-discovery response may explicitly return no plan and stop as `DISCOVERY_INCOMPLETE`; it never authorizes invented capabilities. Returning a discovery action against the issued restriction stops as `DISCOVERY_NOT_ALLOWED`. Recovery still uses the original issued schema.
+Discovery reserves one first-proposal call and one repair when allowance remains: a twelve-call session without the clarification reserve allows at most ten discovery calls before requesting its TaskPlan. Additional repairs are opportunistic, within the existing call and repair ceilings; explicit zero-repair settings remain authoritative. The last repair attempt cannot request discovery. A closed-discovery response may explicitly return no plan and stop as `DISCOVERY_INCOMPLETE`; it never authorizes invented capabilities. Returning a discovery action against the issued restriction stops as `DISCOVERY_NOT_ALLOWED`. Recovery still uses the original issued schema.
 
 Successful discovery corrections remove only resolved discovery-response findings from active diagnostics. They do not refund reservations or change history; the following proposal no longer inherits a stale repair classification. Compact indexes retain declared finite domains, while resolved operation schemas constrain literal values and semantic validation checks references. See [the retained enum/discovery failure](planning-enum-discovery.md).
 
 `LLM_BUDGET_EXCEEDED` for model calls is a cumulative session stop, independent of input/output token ceilings. Designer shows used / permitted calls and disables token-setting or revision restarts when that allowance is exhausted; the server rejects those commands atomically. Start a new planning session without changing the old records or accounting. Identical displayed findings are deduplicated.
 
 Opening the page and restarting the host never raise saved limits automatically. Designer displays the saved effective settings. The output allowance can include reasoning as well as returned JSON; deterministic serialization headroom is not a guarantee that model generation finishes. `MODEL_OUTPUT_LIMIT` never triggers an automatic increase or retry.
+
+An optional `business_judge` creation option, disabled by default, runs an independent
+call using the generator's saved model after deterministic validation and choices.
+It compares the retained request/revisions, accepted answers, requirements, discovered
+capability limitations and TaskPlan. Structured findings cite context locations and
+remain advisory. It receives no generator reasoning, tools or independent test oracle.
+A finding cannot grant permissions, establish a missing business fact or alter accepted
+interfaces. Only previously authorized revision slots enter existing targeted correction;
+other findings stop for explicit revision. Whole-plan validation, one structural
+regeneration, progress fingerprints and cumulative ceilings remain authoritative.
+
+Judge requests use the existing journal with purpose `judge`. Versioned review
+fingerprints prevent repeated evaluation of an unchanged context; completed receipts
+and results are reused after restart. Skipped and invalid reviews remain respectively
+not evaluated or inconclusive, never successful. Unknown completion retains the normal
+recovery block. Review presents advisory observations separately, and approval still
+requires explicit requirement acknowledgments for the current revision and hash.
+Fresh Judge-enabled correction bookkeeping uses version 7 without reinterpreting
+historical versions, TaskPlan format 10, compiler v15 or unchanged YAML.
+
+All new planning and extraction dispatches check declared Structured Output support,
+reasoning settings, output reservation and the complete serialized input. The effective
+input allowance is the minimum of configuration and verified model capacity after
+reserving output. Missing indispensable metadata fails closed; settings are never
+silently changed. Safe diagnostics distinguish token estimates from conservative byte
+bounds and per-request refusals from cumulative exhaustion. Runtime-dependent input
+sizes remain unverified until observations exist. No evidence is silently truncated.
 
 Approval recompiles the TaskPlan and requires the reviewed artifact to match exactly. It identifies the exact requirements, TaskPlan, choices, operation mappings, graph, compiled artifact, selected
 contracts, task scopes, verification requirements and budget ceilings. A change to

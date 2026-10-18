@@ -11,6 +11,41 @@ namespace GnOuGo.Flow.Tests.Runtime;
 
 public sealed class DynamicMappingTests
 {
+    [Fact]
+    public async Task WholeExtractionReservesOutputAndDisablesHiddenTransportRetries()
+    {
+        var model = new Model("({name:source.observed.title})");
+        Assert.True((await Run(model, new Store())).Success);
+        Assert.True(model.LastRequest!.RequireOutputTokenLimit);
+        Assert.True(model.LastRequest.DisableTransportRetries);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task OversizedWholeObservationStopsBeforeDispatchAndConsumerButRunsCleanup(bool durable)
+    {
+        var model = new Model("({name:source.observed.title})");
+        var document = Document();
+        document.Workflows["main"].Finally.Add(new() { Id = "cleanup", Type = "set", Input = new JsonObject { ["closed"] = true } });
+        var engine = new WorkflowEngine { LLMClient = model, LlmDefaults = new() { Model = "test" },
+            RunStore = durable ? new InMemoryWorkflowRunStore() : null,
+            Limits = new() { TenantId = "tenant", RunId = "oversized-whole", MaxMappingInputTokens = 12000 } };
+        var result = await engine.ExecuteAsync(new WorkflowCompiler().Compile(document).Workflows["main"],
+            new JsonObject { ["observed"] = new JsonObject { ["title"] = "PRIVATE_MARKER" + new string('x', 300000) } },
+            TestContext.Current.CancellationToken);
+        Assert.False(result.Success); Assert.Equal(0, model.Calls);
+        Assert.Equal("LLM_BUDGET_EXCEEDED", result.Error!.Code);
+        var details = result.Error.Details!;
+        Assert.Equal("not_started", details["dispatch_status"]!.ToString());
+        Assert.Equal("estimated_tokens", details["measurement"]!.ToString());
+        Assert.Equal("mapping.dynamic", details["stage"]!.ToString());
+        Assert.True(details["current"]!.GetValue<long>() > details["limit"]!.GetValue<int>());
+        Assert.DoesNotContain("PRIVATE_MARKER", details.ToJsonString() + result.Error.Message);
+        Assert.DoesNotContain(result.StepResults, r => r.StepId == "consume");
+        Assert.Contains(result.StepResults, r => r.StepId == "cleanup" && r.Error is null);
+    }
+
     [Theory]
     [InlineData("source.rows.filter(r=>r.kind==='row')")]
     [InlineData("source.rows.filter(r=>r.kind)")]
@@ -194,8 +229,12 @@ public sealed class DynamicMappingTests
         Assert.Equal(!unknown, replay.Success); Assert.Equal(unknown ? 1 : 2, model.Calls);
     }
 
-    private sealed class ReceiptModel(bool unknown) : ILLMClient
+    private sealed class ReceiptModel(bool unknown) : ILLMClient, ILLMCapabilityResolver
     {
+        public Task<int?> InputTokenAllowanceAsync(string? provider, string model, int outputTokens, CancellationToken ct) => Task.FromResult<int?>(128000);
+        public Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<bool?>(true);
+        public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<IReadOnlyList<string>?>(["medium", "low"]);
+
         public int Calls { get; private set; }
         public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
         {
@@ -288,11 +327,19 @@ public sealed class DynamicMappingTests
             """);
         return document;
     }
-    private sealed class Model(params string[] scripts) : ILLMClient
+    private sealed class Model(params string[] scripts) : ILLMClient, ILLMCapabilityResolver
     {
+        public Task<int?> InputTokenAllowanceAsync(string? provider, string model, int outputTokens, CancellationToken ct) => Task.FromResult<int?>(128000);
+        public Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<bool?>(true);
+        public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<IReadOnlyList<string>?>(["medium", "low"]);
+
         public int Calls { get; private set; }
+        public LLMRequest? LastRequest { get; private set; }
         public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
-            => Task.FromResult(new LLMResponse { Json = new JsonObject { ["script"] = scripts[Math.Min(Calls++, scripts.Length - 1)] } });
+        {
+            LastRequest = request;
+            return Task.FromResult(new LLMResponse { Json = new JsonObject { ["script"] = scripts[Math.Min(Calls++, scripts.Length - 1)] } });
+        }
     }
     private sealed class Store : IMappingArtifactStore
     {

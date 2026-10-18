@@ -62,6 +62,8 @@ public sealed class SharedWorkspaceExecutionTests
         Assert.Empty(compilation.Diagnostics); Assert.Empty(PlanningGraphValidation.Validate(compilation.Graph!, catalog));
         var generation = replay.State(replay.Recording["responses"]![4]!["pendingSession"]!);
         generation.IntentVersion = 2; generation.Requirements!.Inputs = plan.Inputs; generation.PendingCall = null; generation.ModelCalls--; generation.Plan = null; generation.Graph = null; generation.Yaml = null;
+        // This is a new scripted proposal from retained contracts, not an issued-request replay.
+        generation.Request.Generation.MaxInputTokensPerRequest = 32000;
         generation.Catalog = catalog; replay.Proposal = plan;
         var used = plan.Root.Tasks.Concat(plan.Root.Always).Select(t => t.Operation).ToHashSet();
         generation.Catalog.Capabilities.RemoveAll(c => c.Kind != "registered" && !used.Contains(c.Id));

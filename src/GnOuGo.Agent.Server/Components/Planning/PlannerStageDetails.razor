@@ -1,4 +1,16 @@
 @using GnOuGo.Flow.Core.Planning
+@if (Session.BusinessJudge)
+{
+    <p>Independent business review is enabled and shares this session's model allowance.</p>
+}
+@if (Session.ValidationResults.Any(r => r.Id.StartsWith("judge:", StringComparison.Ordinal)))
+{
+    <details open aria-label="Business judge observations"><summary>Business judge observations</summary>
+        <p>Model observations are advisory. They do not prove correctness, authorize edits or replace your requirement review.</p>
+        <ul>@foreach (var observation in Session.ValidationResults.Where(r => r.Id.StartsWith("judge:", StringComparison.Ordinal)))
+        { <li><strong>@observation.Outcome</strong>: @observation.Description</li> }</ul>
+    </details>
+}
 @if (Session.Status == PlanningStatus.Clarification)
 {
     <p role="status">Waiting for a business decision. Submit your answers to continue planning within its remaining allowance.</p>

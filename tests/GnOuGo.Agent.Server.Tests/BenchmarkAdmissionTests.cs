@@ -263,8 +263,12 @@ public sealed class BenchmarkAdmissionTests
         internal bool Missing;
         public decimal? EstimateCost(string? model, long? inputTokens = null, long? outputTokens = null, string? providerType = null) => Missing ? null : .1m;
     }
-    private sealed class IdentifiedClient(KeyVaultBenchmarkModel model) : ILLMClient
+    private sealed class IdentifiedClient(KeyVaultBenchmarkModel model) : ILLMClient, ILLMCapabilityResolver
     {
+        public Task<int?> InputTokenAllowanceAsync(string? provider, string name, int outputTokens, CancellationToken ct) => model.InputTokenAllowanceAsync(provider, name, outputTokens, ct);
+        public Task<bool?> SupportsStructuredOutputAsync(string? provider, string name, CancellationToken ct) => model.SupportsStructuredOutputAsync(provider, name, ct);
+        public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string name, CancellationToken ct) => model.SupportedReasoningLevelsAsync(provider, name, ct);
+
         public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
         {
             request.ClientRequestId ??= "runtime:1";

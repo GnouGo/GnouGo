@@ -27,6 +27,8 @@ var command = Option("--live-command"); var providerName = Option("--keyvault-pr
 var campaignId = Option("--campaign") ?? (live || readOnly ? throw new ArgumentException("--campaign is required for live runs and recorded evidence.") : "offline");
 var phase = replayKey is not null ? "replay" : Option("--phase") ?? (live ? "pilot" : "fixture");
 if (phase is not ("pilot" or "measured" or "fixture" or "replay")) throw new ArgumentException("Invalid phase.");
+var arm = Option("--arm");
+if (arm is not (null or "judge" or "defaults")) throw new ArgumentException("Choose an optional judge or defaults comparison arm.");
 var repetitions = int.Parse(Option("--repetitions") ?? (phase == "measured" ? "3" : "1"), System.Globalization.CultureInfo.InvariantCulture);
 if (repetitions is < 1 or > 20 || phase == "measured" && repetitions != 3 || phase == "pilot" && repetitions != 1) throw new ArgumentException("Pilot requires one repetition; measured requires three.");
 var firstRepetition = int.Parse(Option("--first-repetition") ?? "1", System.Globalization.CultureInfo.InvariantCulture);
@@ -55,6 +57,8 @@ if (retainKey is not null) { Console.WriteLine((await evidenceStore!.RetainIncon
 if (inspectCampaign) { Console.WriteLine((await evidenceStore!.InspectAsync()).ToJsonString()); return; }
 if (compareParent is not null)
 {
+    var comparisonVariable = args.Contains("--judge-comparison") ? "judge" : args.Contains("--defaults-comparison") ? "defaults" : null;
+    if (args.Contains("--judge-comparison") && args.Contains("--defaults-comparison")) throw new ArgumentException("Compare judge and creation defaults separately.");
     var parentPhase = Option("--parent-phase") ?? "measured"; var candidateSource = Option("--candidate") ?? source;
     var candidatePhase = Option("--candidate-phase") ?? "measured";
     if (candidatePhase is not ("measured" or "fixture")) throw new ArgumentException("Compare measured or live fixture cohorts.");
@@ -65,12 +69,14 @@ if (compareParent is not null)
         for (var repetition = 1; repetition <= 3; repetition++)
         {
             if (await evidenceStore!.LoadAsync("planning-evaluation-runs", $"{compareParent}:{parentPhase}:{name}:{repetition}") is { } old) before.Add(old);
-            if (await evidenceStore!.LoadAsync("planning-evaluation-runs", $"{candidateSource}:{candidatePhase}:{name}:{repetition}") is { } next) after.Add(next);
+            if (await evidenceStore!.LoadAsync("planning-evaluation-runs", $"{candidateSource}:{candidatePhase}:{(comparisonVariable is null ? "" : comparisonVariable + ":")}{name}:{repetition}") is { } next) after.Add(next);
             if (referenceSource is not null && await evidenceStore.LoadAsync("planning-evaluation-runs", $"{referenceSource}:{referencePhase}:{name}:{repetition}") is { } prior) reference.Add(prior);
             if (stabilizationSource is not null && await evidenceStore.LoadAsync("planning-evaluation-runs", $"{stabilizationSource}:fixture:{name}:{repetition}") is { } stable) stabilization.Add(stable);
         }
     var retainedCase = Option("--retained-case") ?? "review_french";
-    JsonObject Compare() => args.Contains("--first-proposal-gate")
+    JsonObject Compare() => comparisonVariable is not null
+        ? PlanningBenchmarkMeasurements.CompareArms(before.Select(r => r["result"]!.AsObject()).ToArray(), after.Select(r => r["result"]!.AsObject()).ToArray(), PlanningBenchmarkMeasurements.CandidateCases, comparisonVariable)
+        : args.Contains("--first-proposal-gate")
         ? PlanningBenchmarkMeasurements.CompareFirstProposals(before.Select(r => r["result"]!.AsObject()).ToArray(), after.Select(r => r["result"]!.AsObject()).ToArray(), PlanningBenchmarkMeasurements.CandidateCases)
         : stabilizationSource is null ? PlanningBenchmarkMeasurements.Compare(before, after, retainedCase, referenceSource is null ? null : reference)
         : PlanningBenchmarkMeasurements.CompareBest(names, new Dictionary<string, IReadOnlyList<JsonObject>> { ["parent"] = before, ["previous_candidate"] = reference, ["stabilization"] = stabilization }, after);
@@ -80,7 +86,7 @@ if (compareParent is not null)
         foreach (var auditedRun in before.Concat(after).Concat(reference).Concat(stabilization))
         {
             var row = auditedRun["result"]!;
-            var key = $"{row["source_commit"]}:{row["phase"]}:{row["case"]}:{row["repetition"]}";
+            var key = $"{row["source_commit"]}:{row["phase"]}:{(row["arm"] is null ? "" : row["arm"] + ":")}{row["case"]}:{row["repetition"]}";
             if (await evidenceStore!.AuditAdmissionDenialAsync(key, auditedRun) is not { } audit) continue;
             // Only detached measurements change; failed outcomes, diagnostics,
             // original records, closures, receipts and the spending ledger do not.
@@ -94,7 +100,7 @@ if (compareParent is not null)
         foreach (var auditedRun in before.Concat(after).Concat(reference).Concat(stabilization))
         {
             var row = auditedRun["result"]!;
-            var key = $"{row["source_commit"]}:{row["phase"]}:{row["case"]}:{row["repetition"]}";
+            var key = $"{row["source_commit"]}:{row["phase"]}:{(row["arm"] is null ? "" : row["arm"] + ":")}{row["case"]}:{row["repetition"]}";
             if (await evidenceStore!.AuditClosedHttpSessionAsync(key, auditedRun) is not { } audit) continue;
             foreach (var (field, value) in audit["audited_usage"]!.AsObject()) row[field] = value?.DeepClone();
             audit["audited_result"] = row.DeepClone(); audits.Add((JsonNode)audit);
@@ -110,7 +116,7 @@ if (compareParent is not null)
     comparison["reference_commit"] = referenceSource; comparison["reference_phase"] = referenceSource is null ? null : referencePhase;
     comparison["parent_phase"] = parentPhase; comparison["candidate_phase"] = candidatePhase;
     comparison["parent_commit"] = compareParent; comparison["candidate_commit"] = candidateSource; comparison["campaign"] = campaignId;
-    Console.WriteLine(comparison.ToJsonString()); Environment.ExitCode = comparison["passed"]!.GetValue<bool>() ? 0 : 2; return;
+    Console.WriteLine(comparison.ToJsonString()); Environment.ExitCode = (comparison[comparisonVariable is null ? "passed" : "comparable"]?.GetValue<bool>() == true) ? 0 : 2; return;
 }
 if (inspectKey is { } inspect)
 {
@@ -140,7 +146,7 @@ if (replayKey is not null)
 if (replay is { } recorded) { names = PlanningBenchmarkMeasurements.Select(recorded.State.Request.Name); repetitions = 1; }
 using var configured = !live || providerName is null ? null : await KeyVaultBenchmarkModel.CreateAsync(providerName, Option("--model"), campaign!, Directory.GetCurrentDirectory(), CancellationToken.None);
 ILLMClient? model = replay?.Client ?? (ILLMClient?)configured ?? (!live || command is null ? null : new CommandModel(command));
-string RunKey(string runPhase, string name, int repetition) => source + ":" + runPhase + ":" + name + ":" + repetition;
+string RunKey(string runPhase, string name, int repetition) => source + ":" + runPhase + ":" + (arm is null ? "" : arm + ":") + name + ":" + repetition;
 if (live && phase == "measured")
 {
     var pilot = new List<JsonObject>();
@@ -148,12 +154,38 @@ if (live && phase == "measured")
         if ((await campaign!.LoadAsync("planning-evaluation-runs", RunKey("pilot", name, 1)))?["result"] is JsonObject row) pilot.Add(row);
     if (!PlanningBenchmarkMeasurements.Summary(pilot, "pilot")["gates_passed"]!.GetValue<bool>()) throw new InvalidOperationException("The same revision must pass all eight pilot cases before measured evaluation.");
 }
+var creation = new PlanningRequest();
+if (campaign is not null)
+{
+    var configurationKey = "corpus-settings:" + source + ":" + phase + ":" + (arm ?? "control");
+    var configuration = await campaign.LoadAsync("planning-evaluation-configuration", configurationKey);
+    if (configuration is null)
+        foreach (var name in names)
+        {
+            for (var i = firstRepetition; i <= repetitions && configuration is null; i++)
+                if ((await campaign.LoadAsync("planning-evaluation-runs", RunKey(phase, name, i)))?["session"] is { } saved)
+                    configuration = PlanningBenchmarkMeasurements.Configuration(JsonSerializer.Deserialize(saved, PlanningJsonContext.Default.PlanningSession)!.Request);
+            if (configuration is not null) break;
+        }
+    if (configuration is not null) creation = PlanningBenchmarkMeasurements.RestoreConfiguration(configuration);
+    PlanningBenchmarkMeasurements.ConfigureRequest(creation, args, configuration is not null);
+    if (await campaign.LoadAsync("planning-evaluation-configuration", configurationKey) is null)
+        await campaign.SaveAsync("planning-evaluation-configuration", configurationKey, PlanningBenchmarkMeasurements.Configuration(creation));
+}
+else PlanningBenchmarkMeasurements.ConfigureRequest(creation, args, false);
 var results = new List<JsonObject>();
 for (var repetition = firstRepetition; repetition <= repetitions; repetition++)
 foreach (var name in names)
 {
     var key = RunKey(phase, name, repetition);
     var run = campaign is null ? null : await campaign.LoadAsync("planning-evaluation-runs", key);
+    if (run?["session"] is { } retainedSession)
+    {
+        var retainedRequest = JsonSerializer.Deserialize(retainedSession, PlanningJsonContext.Default.PlanningSession)!.Request;
+        PlanningBenchmarkMeasurements.ConfigureRequest(retainedRequest, args, true);
+        if (!JsonNode.DeepEquals(PlanningBenchmarkMeasurements.Configuration(retainedRequest), PlanningBenchmarkMeasurements.Configuration(creation)))
+            throw new InvalidOperationException("The cohort contains incompatible frozen settings. Retained evidence is unchanged.");
+    }
     if (run?["result"] is JsonObject failedResult && failedResult["termination_reason"] is not null &&
         run["session"]?["pendingCall"]?["id"]?.ToString() is { } pendingId &&
         await campaign!.LoadAsync(BenchmarkHttpJournal.Collection, pendingId) is not null &&
@@ -174,7 +206,10 @@ foreach (var name in names)
         ["first_pass_valid"] = false, ["final_review"] = false, ["elapsed_ms"] = 0L };
     var state = replay?.State ?? (run["session"] is { } saved ? JsonSerializer.Deserialize(saved, PlanningJsonContext.Default.PlanningSession)! : new PlanningSession
     { Request = new() { TenantId = "benchmark", SessionId = PlanningGraphCompiler.Fingerprint(campaignId + ":" + key), Name = name, Prompt = PlanningBenchmarkCases.Prompt(name),
-        Generation = new() { Reasoning = "medium", MaxInputTokensPerRequest = 96_000, MaxOutputTokens = 32_768 } } });
+        MaxModelCalls = creation.MaxModelCalls, MaxReplanAttempts = creation.MaxReplanAttempts,
+        Generation = new() { Reasoning = creation.Generation.Reasoning, MaxInputTokensPerRequest = creation.Generation.MaxInputTokensPerRequest, MaxOutputTokens = creation.Generation.MaxOutputTokens },
+        Options = (JsonObject)creation.Options.DeepClone() } });
+    PlanningBenchmarkMeasurements.ConfigureRequest(state.Request, args, run["session"] is not null || replay is not null);
     var environment = new PlanningBenchmarkCases.Environment(name); var engine = new WorkflowEngine { McpClientFactory = environment.Factory(), HumanInputProvider = new PlanningCorpus.Human() };
     async Task Checkpoint(PlanningSession current, CancellationToken ct)
     {
@@ -248,10 +283,11 @@ foreach (var name in names)
     catch (Exception ex) { failure = ex.GetType().Name; }
     run["elapsed_ms"] = run["elapsed_ms"]!.GetValue<long>() + clock.ElapsedMilliseconds;
     await Checkpoint(state, CancellationToken.None);
-    if (variants.Count > 0 && run["first_proposal"] is JsonObject first && first["artifact_hash"]?.ToString() == state.ComputeArtifactHash())
-        first["business_correct"] = execution;
     var rowResult = new JsonObject { ["campaign"] = campaignId, ["source_commit"] = source, ["harness_commit"] = harnessSource, ["phase"] = phase,
         ["manifest"] = SchemaPortabilityCampaign.MeasurementManifest(state.Request),
+        ["comparison_manifest"] = SchemaPortabilityCampaign.MeasurementManifest(state.Request, comparison: true),
+        ["configuration"] = PlanningBenchmarkMeasurements.Configuration(state.Request),
+        ["arm"] = arm,
         ["case"] = name, ["repetition"] = repetition, ["session_id"] = state.Request.SessionId, ["mode"] = replayKey is not null ? "replay" : live ? "live" : "fixture",
         ["replay_source_run"] = replayKey, ["live_model_calls"] = replayKey is not null ? 0 : (int?)null,
         ["provider"] = configured?.Provider, ["model"] = configured?.Model, ["first_pass_valid"] = run["first_pass_valid"]!.DeepClone(), ["final_review"] = run["final_review"]!.DeepClone(),
@@ -262,6 +298,7 @@ foreach (var name in names)
         ["diagnostics"] = new JsonArray(state.Diagnostics.Select(d => d.Code).Distinct().Select(d => (JsonNode)JsonValue.Create(d)).ToArray()),
         ["failure_history"] = new JsonArray(run["diagnostic_history"]!.AsArray().Select(d => { var entry = d!.DeepClone().AsObject(); entry.Remove("message"); return (JsonNode)entry; }).ToArray()) };
     foreach (var (field, value) in PlanningBenchmarkMeasurements.Usage(run, live)) rowResult[field] = value?.DeepClone();
+    if (variants.Count == (name.StartsWith("review_", StringComparison.Ordinal) ? 8 : name == "protected_cleanup" ? 5 : 2)) PlanningBenchmarkMeasurements.RecordBusinessOracle(run, state, execution, "existing-business-variants-v1");
     PlanningBenchmarkMeasurements.ProposalMetrics(run, rowResult);
     if (live && rowResult["usage_bounded"]?.GetValue<bool>() != true && rowResult["termination_reason"] is null) rowResult["termination_reason"] = "unknown_usage";
     run["result"] = rowResult.DeepClone();
@@ -289,10 +326,12 @@ sealed class MeasuredRuntime(IPlanningRuntime inner, ILLMClient? live, JsonObjec
             run["initial_request_bytes"] = Encoding.UTF8.GetByteCount(request.Prompt ?? "") + Encoding.UTF8.GetByteCount(request.StructuredOutputSchema!.ToJsonString());
             run["initial_estimated_input_tokens"] = PlanningJsonTransport.EstimateInputTokens(request.Prompt ?? "", request.StructuredOutputSchema!.AsObject());
         }
+        var callClock = Stopwatch.StartNew();
         try
         {
-            var response = live is null ? await inner.CallAsync(request, purpose, ct) : await live.CallAsync(request, ct);
-            PlanningBenchmarkMeasurements.RecordResponse(run, request, response, run["session"]?["modelCalls"]?.GetValue<int>() ?? 0);
+            var response = live is null && purpose == "judge" ? new LLMResponse { Json = new JsonObject { ["findings"] = new JsonArray(), ["uncertainty"] = "Scripted no-findings fixture, not a live evaluation." } }
+                : live is null ? await inner.CallAsync(request, purpose, ct) : await live.CallAsync(request, ct);
+            PlanningBenchmarkMeasurements.RecordResponse(run, request, response, run["session"]?["modelCalls"]?.GetValue<int>() ?? 0, purpose);
             run["usage_complete"] = true;
             run["last_response"] = JsonSerializer.SerializeToNode(response, PlanningJsonContext.Default.LLMResponse);
             PlanningBenchmarkMeasurements.RecordUsage(run, request.ClientRequestId!, response.Usage as JsonObject);
@@ -309,6 +348,7 @@ sealed class MeasuredRuntime(IPlanningRuntime inner, ILLMClient? live, JsonObjec
             run["usage_complete"] = partial?["input_tokens"] is not null && partial["output_tokens"] is not null && partial["benchmark_cost_eur"] is not null;
             throw;
         }
+        finally { PlanningBenchmarkMeasurements.RecordCall(run, request.ClientRequestId!, purpose, callClock.Elapsed.TotalMilliseconds); }
     }
     public Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(PlanningArtifactValidationRequest request, CancellationToken ct) => inner.ValidateAsync(request, ct);
     public Task<IReadOnlyList<PlanningDiagnostic>> ValidateCatalogAsync(PlanningCatalog catalog, CancellationToken ct) => inner.ValidateCatalogAsync(catalog, ct);

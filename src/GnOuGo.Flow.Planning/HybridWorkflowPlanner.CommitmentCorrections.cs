@@ -30,7 +30,7 @@ public sealed partial class HybridWorkflowPlanner
 
     private static HashSet<string> AuthorizedCommitmentAdditions(PlanningSession state, JsonNode progress)
     {
-        if (state.IntentVersion != 3 || progress["version"]?.ToString() is not ("4" or "5" or "6") || progress["action"]?.ToString() != "regenerate" ||
+        if (state.IntentVersion != 3 || progress["version"]?.ToString() is not ("4" or "5" or "6" or "7") || progress["action"]?.ToString() != "regenerate" ||
             progress["operationAdditions"] is not JsonArray additions || state.Request.Baseline is not { } baseline) return [];
         var result = new HashSet<string>(StringComparer.Ordinal);
         foreach (var addition in additions.OfType<JsonObject>())

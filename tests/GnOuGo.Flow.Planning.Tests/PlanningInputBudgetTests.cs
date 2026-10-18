@@ -57,7 +57,7 @@ public sealed class PlanningInputBudgetTests
         state = await planner.AdvanceAsync(state, new()
         {
             Kind = "configure_generation", ExpectedRevision = state.Revision,
-            Generation = new() { MaxInputTokensPerRequest = 24_000 }
+            Generation = new() { MaxInputTokensPerRequest = 24_000, MaxOutputTokens = 8192 }
         }, runtime, Ct);
         Assert.Equal(PlanningStatus.Generating, state.Status); Assert.Empty(state.Diagnostics);
         Assert.Equal(2, runtime.Calls.Count); Assert.Equal(2, state.ModelCalls);
@@ -109,7 +109,7 @@ public sealed class PlanningInputBudgetTests
         await Assert.ThrowsAsync<PlanningConflictException>(() => new HybridWorkflowPlanner().AdvanceAsync(state, new()
         {
             Kind = "configure_generation", ExpectedRevision = pending ? 5 : 4,
-            Generation = new() { MaxInputTokensPerRequest = 24_000 }
+            Generation = new() { MaxInputTokensPerRequest = 24_000, MaxOutputTokens = 8192 }
         }, runtime, Ct));
         Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
         Assert.Empty(runtime.Calls); Assert.Empty(runtime.Checkpoints);

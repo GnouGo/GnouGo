@@ -90,15 +90,15 @@ public sealed partial class PlanningSessionService(
 
     internal bool AutomaticCorrectionEnabled => settings.Value.AutomaticCorrectionEnabled;
 
-    public Task<PlanningSession> StartAsync(string name, string prompt, bool reviseExisting, CancellationToken ct, JsonObject? failureEvidence = null, string mode = PlanningMode.Interactive)
-        => StartCoreAsync(name, prompt, reviseExisting, ct, failureEvidence, mode, null, null);
+    public Task<PlanningSession> StartAsync(string name, string prompt, bool reviseExisting, CancellationToken ct, JsonObject? failureEvidence = null, string mode = PlanningMode.Interactive, bool businessJudge = false)
+        => StartCoreAsync(name, prompt, reviseExisting, ct, failureEvidence, mode, null, null, businessJudge);
 
     internal Task<PlanningSession> StartFailureRevisionAsync(string name, string prompt, string runId, string artifactHash,
         JsonObject evidence, string mode, CancellationToken ct)
         => StartCoreAsync(name, prompt, true, ct, evidence, mode, runId, artifactHash);
 
     private async Task<PlanningSession> StartCoreAsync(string name, string prompt, bool reviseExisting, CancellationToken ct,
-        JsonObject? failureEvidence, string mode, string? runId, string? artifactHash)
+        JsonObject? failureEvidence, string mode, string? runId, string? artifactHash, bool businessJudge = false)
     {
         PlanningMode.Validate(mode);
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
@@ -122,6 +122,7 @@ public sealed partial class PlanningSessionService(
         if (automaticId is not null && (original is null || PlanningGraphCompiler.Fingerprint(original) != artifactHash))
             throw new InvalidOperationException("The saved workflow changed after the failed execution. Review its current revision explicitly.");
         var options = CreateOptions(provider, model);
+        if (businessJudge) options["business_judge"] = true;
         if (reviseExisting)
             options["host_save"] = new JsonObject { ["agent_id"] = response!["agent"]!["id"]!.DeepClone(), ["original_hash"] = PlanningGraphCompiler.Fingerprint(original!) };
         var state = new PlanningSession
@@ -377,7 +378,7 @@ public sealed partial class PlanningSessionService(
             return current;
         }
         var budget = new LLMUsageBudgetScope(limits, initial, sink: new PlanningBudgetSink(records, Tenant, current.Request.SessionId), exchangeRateProvider: exchangeRates);
-        var journal = new PlanningModelJournal(runtime.LlmClient, contexts, records, Tenant, current.Request.SessionId, budget, estimator, current.Request.Generation);
+        var journal = new PlanningModelJournal(runtime.LlmClient, contexts, records, Tenant, current.Request.SessionId, budget, estimator, current.Request.Generation, runtime.LlmCapabilityResolver);
         var engine = new WorkflowEngine
         {
             PlanningPolicy = AgentPlanningPolicy.Create(),

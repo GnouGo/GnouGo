@@ -151,6 +151,39 @@ public sealed class WorkflowPlanningPersistenceTests : IDisposable
     }
 
     [Fact]
+    public async Task NewDefaultDoesNotReintroduceAnEightCallBudget()
+    {
+        var client = new Client(); var initial = Initial();
+        initial.Request.Options.Clear(); initial.Request.MaxModelCalls = 12;
+        await using var session = await Factory().OpenAsync(Context(client), initial, Ct);
+        for (var i = 0; i < 9; i++) await session.Runtime.CallAsync(Request(session.Session, i.ToString()), "tasks", Ct);
+        Assert.Equal(9, client.Calls);
+        await session.Runtime.CheckpointAsync(session.Session, Ct);
+        Assert.Equal(9, session.Session.Usage!.Calls);
+    }
+
+    [Fact]
+    public async Task RuntimeResumeRetainsOmittedDefaultsButRejectsExplicitChanges()
+    {
+        var client = new Client(); var original = Initial();
+        original.Request.Options = new() { ["raw_prompt"] = "secret intent", ["generator"] = new JsonObject() };
+        original.Request.MaxModelCalls = 8; original.Request.MaxReplanAttempts = 2;
+        original.Request.Generation = new() { MaxInputTokensPerRequest = 12000, MaxOutputTokens = 8192 };
+        await using (var first = await Factory().OpenAsync(Context(client), original, Ct)) { }
+        var current = Initial(); current.Request.Options = original.Request.Options.DeepClone().AsObject();
+        current.Request.MaxModelCalls = 12; current.Request.MaxReplanAttempts = 4;
+        current.Request.Generation = new() { MaxInputTokensPerRequest = 32000, MaxOutputTokens = 32768 };
+        await using (var restored = await Factory().OpenAsync(Context(client), current, Ct))
+        {
+            Assert.Equal(8, restored.Session.Request.MaxModelCalls);
+            Assert.Equal(12000, restored.Session.Request.Generation.MaxInputTokensPerRequest);
+        }
+        current.Request.Options["generator"]!["max_input_tokens"] = 32000;
+        await Assert.ThrowsAsync<PlanningConflictException>(() => Factory().OpenAsync(Context(client), current, Ct));
+        Assert.Equal(0, client.Calls);
+    }
+
+    [Fact]
     public async Task ChangedRequestCannotResetAnExistingSession()
     {
         await using (var session = await Factory().OpenAsync(Context(new Client()), Initial(), Ct)) { }
@@ -174,7 +207,7 @@ public sealed class WorkflowPlanningPersistenceTests : IDisposable
 
     private static PlanningSession Initial() => new()
     {
-        Request = new() { TenantId = "tenant", Prompt = "secret intent", Options = new() { ["llm_budget"] = new JsonObject { ["max_calls"] = 1 } } }
+        Request = new() { TenantId = "tenant", Prompt = "secret intent", Generation = new() { MaxInputTokensPerRequest = 12000, MaxOutputTokens = 8192 }, Options = new() { ["llm_budget"] = new JsonObject { ["max_calls"] = 1 } } }
     };
     private static StepExecutionContext Context(ILLMClient client, string tenant = "tenant") => new()
     {
@@ -198,6 +231,7 @@ public sealed class WorkflowPlanningPersistenceTests : IDisposable
     }
     private sealed class Client : ILLMClient, ILLMCapabilityResolver
     {
+        public Task<int?> InputTokenAllowanceAsync(string? provider, string model, int outputTokens, CancellationToken ct) => Task.FromResult<int?>(128000);
         public Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<bool?>(true);
         public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<IReadOnlyList<string>?>(["low", "medium"]);
         private int _calls;

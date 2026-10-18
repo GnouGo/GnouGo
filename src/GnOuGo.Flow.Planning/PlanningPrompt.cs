@@ -27,9 +27,17 @@ internal sealed partial class PlanningPrompt(PlanningSession state)
     internal bool TryAdmit(List<CapabilitySummary> admitted, CapabilitySummary candidate)
     {
         admitted.Add(candidate);
-        if (PlanningJsonTransport.EstimateInputTokens(Build(admitted), Schema) <= (long)state.Request.Generation.MaxInputTokensPerRequest * 9 / 10) return true;
+        if (EstimateRequest(Build(admitted), Schema) <= (long)state.Request.Generation.MaxInputTokensPerRequest * 9 / 10) return true;
         admitted.RemoveAt(admitted.Count - 1); return false;
     }
+
+    internal long EstimateRequest(string prompt, JsonObject schema) => ModelRequestAdmission.EstimateTokens(PlanningGenerationPolicy.Apply(new()
+    {
+        Prompt = prompt, StructuredOutputSchema = schema, StructuredOutputStrict = true, UseBackgroundMode = true,
+        ClientRequestId = state.Request.SessionId + ":" + (state.ModelCalls + 1) + ":" + new string('0', 64),
+        Provider = state.Request.Options["generator"]?["provider"]?.GetValue<string>(),
+        Model = state.Request.Options["generator"]?["model"]?.GetValue<string>() ?? ""
+    }, state.Request.Generation));
 
     private const string EvidenceInstructions = """
         Keep original IDs/exact values, order/repeats, missing/null; invent no results/provenance.
@@ -60,7 +68,7 @@ internal sealed partial class PlanningPrompt(PlanningSession state)
 
     private const string InteractiveInstructions = """
         Discover external contracts; transforms cannot call tools/simulate effects.
-        Typed edits before bounded regeneration. Clarify missing business facts/decisions only: 1-3 stable-ID questions, 2-3 options+recommendation+custom answers; unknown facts: text-only. Reuse answers. Auto uses accepted decisions/defaults; recommendations never authorize. Answers preserve requirements/interfaces; revise changes explicitly. If clarificationAllowed=false, explain blocker. No invented facts, weakened checks or extra judge.
+        Typed edits before bounded regeneration. Clarify missing business facts/decisions only: 1-3 stable-ID questions, 2-3 options+recommendation+custom answers; unknown facts: text-only. Reuse answers. Auto uses accepted decisions/defaults; recommendations never authorize. Answers preserve requirements/interfaces; revise changes explicitly. If clarificationAllowed=false, explain blocker. No invented facts or weakened checks.
         """;
 
     internal const string GuardCorrectionInstructions = "For a diagnosed nullable nonboolean reference v used as requires, use v != null; optionally conjoin declared nonnullable Boolean fields of that same producer. " +
@@ -142,7 +150,7 @@ internal sealed partial class PlanningPrompt(PlanningSession state)
         // Fresh intent only. Reuse lossless schema factoring for duplicated read-only
         // operation contracts; declarations/permissions/receipts are never changed.
         if (state.IntentVersion == 3 && !repair) ShareOperationSchemas(context);
-        var guardGuidance = repair && state.Request.Options["automatic_correction_progress"]?["version"]?.ToString() is "2" or "3" or "4" or "5" or "6" &&
+        var guardGuidance = repair && state.Request.Options["automatic_correction_progress"]?["version"]?.ToString() is "2" or "3" or "4" or "5" or "6" or "7" &&
             state.Request.Options["automatic_correction_progress"]?["conditionLocations"] is JsonArray { Count: > 0 } ? GuardCorrectionInstructions + "\n" : "";
         var literalGuidance = state.Diagnostics.Any(d => d.Code == "TASK_LITERAL_INVALID")
             ? "Use typed input/output bindings for runtime values; never strip or escape interpolation, invent success, change requirements or replace requested work with text.\n" : "";
@@ -156,7 +164,7 @@ internal sealed partial class PlanningPrompt(PlanningSession state)
         var coverage = context["coverage"]!.AsArray();
         foreach (var candidate in candidates.AsEnumerable().Reverse())
         {
-            if (PlanningJsonTransport.EstimateInputTokens(Render(), schema) <= target) break;
+            if (EstimateRequest(Render(), schema) <= target) break;
             var source = coverage.Single(c => c!["sourceId"]!.ToString() == candidate.SourceId)!;
             if (source["index"] is JsonArray index && index.FirstOrDefault(c => c!["id"]!.ToString() == candidate.Operation!.Id) is { } item)
             {

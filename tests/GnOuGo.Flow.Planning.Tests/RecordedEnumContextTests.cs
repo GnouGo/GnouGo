@@ -7,8 +7,10 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class RecordedEnumContextTests(ITestOutputHelper output)
 {
-    [Fact]
-    public void AllRetainedRequestsExposeDomainsWithinSavedLimitsWithoutMetadataReads()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void RetainedRenderingPreservesDomainsAndReportsOptionalOmissionWithoutMetadataReads(bool freshAllowance)
     {
         var recording = JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "Discovery", "retained-enums.json")))!;
         var original = recording.ToJsonString(); var estimates = new List<int>();
@@ -28,6 +30,7 @@ public sealed class RecordedEnumContextTests(ITestOutputHelper output)
             state.Discovery.Inspections = compact["recordedInspections"]?.Deserialize(PlanningJsonContext.Default.ListPlanningDiscoveryRequest);
             state.Discovery.PresentationQuery = compact["presentationQuery"]?.ToString();
             var issued = state.PendingCall!.Request; state.PendingCall = null;
+            if (freshAllowance) state.Request.Generation.MaxInputTokensPerRequest = 32000; // Fresh presentation probe only; issued evidence remains unchanged.
             var retained = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
             var presentation = new PlanningPrompt(state);
             var prompt = presentation.Build(presentation.Shortlist(resolvedOnly: true));
@@ -41,15 +44,36 @@ public sealed class RecordedEnumContextTests(ITestOutputHelper output)
             if (state.ModelCalls == 7)
             {
                 var context = JsonNode.Parse(prompt[(prompt.IndexOf("\n{", StringComparison.Ordinal) + 1)..])!;
-                var command = context["coverage"]!.AsArray().SelectMany(s => s!["index"]?.AsArray() ?? [])
-                    .Single(c => c!["id"]!.ToString() == "cap_5c01f9aa688163d23a30ff8b")!;
-                var domain = command["constraints"]!["commandName"]!["enum"]!.AsArray().Select(v => v!.ToString()).ToArray();
-                Assert.Contains("delete_directory", domain); Assert.DoesNotContain("bash", domain);
-                Assert.False(command.AsObject().ContainsKey("description")); // No full command catalog repeated in the directory.
-                var comments = context["coverage"]!.AsArray().SelectMany(s => s!["index"]?.AsArray() ?? [])
-                    .Single(c => c!["id"]!.ToString() == "cap_0c45707eabb02da3b0885cf0")!;
-                Assert.Equal(new[] { "LEFT", "RIGHT" }, comments["constraints"]!["side"]!["enum"]!.AsArray().Select(v => v!.ToString()));
-                Assert.Equal(new[] { "FILE", "LINE" }, comments["constraints"]!["subjectType"]!["enum"]!.AsArray().Select(v => v!.ToString()));
+                JsonNode? Domain(string id, string input)
+                {
+                    // Admission may move an operation between the compact directory
+                    // and exact-contract view. Either view must retain its domain.
+                    var entry = context["coverage"]!.AsArray().SelectMany(s => s!["index"]?.AsArray() ?? [])
+                        .SingleOrDefault(c => c!["id"]!.ToString() == id);
+                    if (entry is not null)
+                    {
+                        Assert.False(entry.AsObject().ContainsKey("description"));
+                        return entry["constraints"]![input]!;
+                    }
+                    var operation = context["operations"]!.AsArray().SingleOrDefault(o => o!["id"]!.ToString() == id);
+                    if (operation is null)
+                    {
+                        Assert.False(freshAllowance); // The new creation allowance retains these fixture domains.
+                        Assert.DoesNotContain(PlanningDiscoveryContext.Required(state), o => o.Id == id);
+                        Assert.Contains(context["coverage"]!.AsArray(), s => s?["omittedFromIndex"]?.GetValue<int>() > 0);
+                        return null; // Full serialized admission can omit optional directory entries, with visible uncertainty.
+                    }
+                    return CommitmentPromptContractTests.Expand(operation["inputs"]!.AsArray().Single(i => i!["name"]!.ToString() == input)!["type"]!, context);
+                }
+                if (Domain("cap_5c01f9aa688163d23a30ff8b", "commandName") is { } command)
+                {
+                    var domain = command["enum"]!.AsArray().Select(v => v!.ToString()).ToArray();
+                    Assert.Contains("delete_directory", domain); Assert.DoesNotContain("bash", domain);
+                }
+                if (Domain("cap_0c45707eabb02da3b0885cf0", "side") is { } side)
+                    Assert.Equal(new[] { "LEFT", "RIGHT" }, side["enum"]!.AsArray().Select(v => v!.ToString()));
+                if (Domain("cap_0c45707eabb02da3b0885cf0", "subjectType") is { } subject)
+                    Assert.Equal(new[] { "FILE", "LINE" }, subject["enum"]!.AsArray().Select(v => v!.ToString()));
             }
         }
         Assert.Equal(original, recording.ToJsonString()); Assert.Equal(7, estimates.Count);

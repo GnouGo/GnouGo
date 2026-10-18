@@ -11,7 +11,7 @@ Never introduce use-case-specific instructions, examples, heuristics, capability
 
 ## Responsibilities
 
-Use the existing bounded planning loop: requirements and material clarification, capability discovery and exact-contract inspection, then a structured semantic TaskPlan. Clear requests with available contracts can complete in one model call. Add no IR, executor, mandatory planning phase or model judge.
+Prioritize deterministic validation, precise diagnosis and bounded correction over perfecting the initial prompt. Use the existing planning loop: requirements and material clarification, capability discovery and exact-contract inspection, then a structured semantic TaskPlan. Clear requests with available contracts can complete in one model call when optional evaluation is disabled. Add no IR, executor or mandatory model phase.
 
 - The LLM selects business operations, arguments, decisions, conditions, dependencies and requested results. It identifies semantic sources and fields using existing TaskPlan bindings. It does not author executor envelopes, wire paths, scripts or technical proof mappings.
 - The deterministic compiler resolves declared bindings, performs typed copying, field projection and object/row assembly, derives technical dependencies, validates contracts and lowers through PlanningGraph to YAML. YAML is never the model's target representation.
@@ -38,7 +38,11 @@ Keep verified clauses, violations and unverified aspects distinct. Operation pre
 
 Clarify only material missing business decisions or facts through the existing interaction loop. Preserve recommended alternatives, custom answers and Auto/Human behavior; recommendations are not authorization. Answers preserve accepted intent, correction authority and cumulative accounting. Requirement/interface changes require explicit revision.
 
-Use the smallest diagnostic-derived correction scope under captured policy. Apply edits atomically and revalidate the complete plan. Preserve unrelated work, effects, arguments, ordered assertions, cleanup, accepted interfaces and host-owned bindings. Read-only context grants no edit authority. Stop repeated failures, exhausted allowances and changes whose preservation cannot be established. Never increase budgets, retries or timeouts to compensate for poor generation.
+Use the smallest diagnostic-derived correction scope under captured policy. Apply edits atomically and revalidate the complete plan before bounded structural regeneration. Preserve unrelated work, effects, arguments, ordered assertions, cleanup, accepted interfaces and host-owned bindings. Read-only context grants no edit authority. Stop repeated failures, exhausted allowances and changes whose preservation cannot be established. Explicitly authorized defaults apply only to new sessions; never automatically increase budgets, retries or timeouts to compensate for poor generation.
+
+An optional business judge independently compares the retained request, accepted answers, requirements, discovered contracts and TaskPlan after deterministic validation. Its structured observations are advisory, never deterministic proof or correction authority. Use the existing scoped correction and clarification paths; do not infer permissions from judge-proposed edits. Keep evaluation disabled by default until independent oracles establish useful benefit. Judge calls share the session's existing model-call, token, financial and time allowances, journals and recovery; no parallel allocation or hidden retries.
+
+Before model dispatch, establish compatibility with declared provider/model capabilities and admit the complete serialized request against its effective allowance. Keep input estimates, byte bounds, output reservations and cumulative budgets distinct. Unknown runtime input size is unverified, not proof that a consumer fits. Never truncate indispensable evidence or silently change model settings to obtain admission.
 
 Approval requires explicit requirement acknowledgments, current revision and artifact hash. Recompute contractual coverage; confirmed violations block approval. Do not preselect or manufacture acknowledgments. Preserve tenant isolation, encryption, confinement, permissions and cross-process leases. Unknown completion blocks replay and dependent cleanup. Post-execution correction creates a separate unapproved draft.
 

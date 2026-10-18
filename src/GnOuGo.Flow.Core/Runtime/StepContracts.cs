@@ -179,12 +179,13 @@ public static class BuiltInStepContracts
     private static JsonObject WorkflowPlanInput() => Object(
         new[] { "raw_prompt", "generator" },
         ("raw_prompt", String()), ("name", String()), ("planning_mode", Enum("auto", "interactive")),
+        ("business_judge", Boolean()),
         ("llm_budget", Object(("max_calls", PositiveInteger()), ("max_total_tokens", PositiveInteger()),
             ("max_elapsed_ms", PositiveInteger()), ("max_estimated_cost", Object(new[] { "amount", "currency" },
                 ("amount", Number()), ("currency", String()))), ("unverifiable", Enum("fail")))),
         ("generator", Object(("provider", String()), ("model", String()), ("reasoning", String()),
             ("max_input_tokens", PositiveInteger()), ("max_output_tokens", PositiveInteger()))),
-        ("max_replan_attempts", new JsonObject { ["type"] = "integer", ["minimum"] = 0, ["maximum"] = 10, ["default"] = 2 }),
+        ("max_replan_attempts", new JsonObject { ["type"] = "integer", ["minimum"] = 0, ["maximum"] = 10, ["default"] = 4 }),
         ("policy", Object(("instructions", String()), ("allowed_step_types", Array(String())),
             ("denied_capability_ids", Array(String())), ("require_external_confirmation", Boolean()))),
         ("limits", Object(("max_steps_total", PositiveInteger()))));

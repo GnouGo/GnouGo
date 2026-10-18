@@ -71,7 +71,7 @@ client is used for validation, but never substitutes for live-session setup.
   - [workflow.call](#workflowcall--call-a-sub-workflow)
   - [workflow.route](#workflowroute--route-to-workflow-candidates)
   - [workflow.plan](#workflowplan--typed-workflow-planning)
-  - [workflow.execute](#workflowexecute--execute-a-planned-workflow)
+  - [workflow.execute](#workflowexecute--execute-an-approved-workflow)
 - [Typed Inputs](#typed-inputs)
 - [Typed Outputs](#typed-outputs)
 - [Expressions `${...}`](#expressions-)
@@ -1318,15 +1318,35 @@ Runs the injected hybrid planner through progressive capability discovery, seman
     generator:
       model: "${data.inputs.model}"
       reasoning: medium
-      max_input_tokens: 12000
-      max_output_tokens: 8192
-    max_replan_attempts: 2
+      max_input_tokens: 32000
+      max_output_tokens: 32768
+    business_judge: false
+    max_replan_attempts: 4
     llm_budget:
-      max_calls: 8
+      max_calls: 12
       max_total_tokens: 15000000
       max_elapsed_ms: 18000000
       unverifiable: fail
 ```
+
+These are the fresh planning defaults. Explicit `generator`, `max_replan_attempts`
+and `llm_budget.max_calls` values override them; financial, elapsed-time and cumulative
+token allowances are unchanged. Resume uses the saved definition, including historical
+omissions, and rejects explicitly changed settings rather than silently migrating the
+session. Sparse historical request JSON retains eight calls, two repairs and
+12,000 input / 8,192 output tokens.
+
+`business_judge: true` opts a new session into an independent advisory review using the
+same model before FinalReview. It shares the existing journal and allowances and grants
+no permissions or new repair scope. Findings without existing explicit revision authority
+require revision; skipped or inconclusive review is never success. Deterministic validation,
+explicit requirement acknowledgments and artifact approval remain authoritative.
+
+New planning and mapping requests require declared model support for Structured Output,
+configured settings and an input allowance after output reservation. The full serialized
+request must fit the smaller configured/model limit; unknown necessary metadata stops
+before dispatch. Token estimates and independent-extraction byte bounds are labelled
+separately. Recovery reuses completed receipts and preserves issued requests.
 
 Interactive planning presents typed `PlanningChoice` alternatives with a recommendation through `IPlanningInteraction`; Auto selects validated recommendations without another model call. Choices cannot expand execution permissions or budgets. Runtime `human.input` and final approval remain separate. Planning format 10 rejects earlier saved approvals with instructions to regenerate and approve; old encrypted records are untouched and execution journals remain schema 9.
 

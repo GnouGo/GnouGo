@@ -12,7 +12,7 @@ namespace GnOuGo.Flow.Integrations.Planning;
 
 /// <summary>Reservations and completed receipts share the session's exclusive host lease.</summary>
 internal sealed class WorkflowPlanningModelJournal(StepExecutionContext context, IKeyVaultRecordStore records,
-    PlanningRequest planning, LLMUsageBudgetScope budget) : ILLMClient
+    PlanningRequest planning, LLMUsageBudgetScope budget) : ILLMClient, IModelAdmissionOwner
 {
     internal const string Requests = "flow-planning-model-requests-v10";
     internal const string Receipts = "flow-planning-model-receipts-v10";
@@ -46,6 +46,8 @@ internal sealed class WorkflowPlanningModelJournal(StepExecutionContext context,
                 throw new WorkflowRuntimeException(ErrorCodes.LlmBudgetUnverifiable,
                     "The previous model dispatch has no completion receipt. It cannot be dispatched again or reset its budget.");
             }
+            await ModelRequestAdmission.ValidateAsync(request, context.Engine.LLMCapabilities ?? context.Engine.LLMClient as ILLMCapabilityResolver,
+                planning.Generation.MaxInputTokensPerRequest, "planning", ct);
             await records.UpsertAsync(Requests, planning.TenantId, key, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest), WorkflowPlanningRuntimeFactory.Author, ct);
             Event("reserved");
             var response = await budget.CallAsync(context.Engine.LLMClient ?? throw new InvalidOperationException("No planning model is configured."),

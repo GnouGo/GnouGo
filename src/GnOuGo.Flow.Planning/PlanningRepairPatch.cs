@@ -373,7 +373,7 @@ internal static class PlanningRepairPatch
             else site!.Set(edit.Value?.DeepClone());
         }
         var candidate = tree.Deserialize(PlanningJsonContext.Default.TaskPlan)!;
-        var reassess = state.Request.Options["automatic_correction_progress"]?["version"]?.ToString() == "6";
+        var reassess = state.Request.Options["automatic_correction_progress"]?["version"]?.ToString() is "6" or "7";
         if (reassess) state.Request.Options["automatic_correction_progress"]!["candidate"] =
             PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(candidate, PlanningJsonContext.Default.TaskPlan));
         var findings = TaskPlanRevisions.Validate(baseline, candidate, state.RevisionScope, state.Catalog, version >= 8 ? state.EditablePaths : null).ToList();

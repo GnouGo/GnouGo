@@ -5,6 +5,17 @@ namespace GnOuGo.AI.Core.Tests;
 public sealed class ModelMetadataCatalogTests
 {
     [Fact]
+    public void RequiredBudgetRequestDoesNotSilentlyChangeItsOutputReservation()
+    {
+        var request = new LLMClientRequest { Prompt = "bounded", MaxOutputTokens = 32768, RequireOutputTokenLimit = true };
+        Assert.Throws<InvalidOperationException>(() => LLMRequestSanitizer.Sanitize(request,
+            new LLMModelMetadata { Id = "small", MaxOutputTokens = 8192 }));
+        Assert.Throws<InvalidOperationException>(() => LLMRequestSanitizer.Sanitize(request,
+            new LLMModelMetadata { Id = "large", MaxOutputTokens = 65536 }, new() { MaxOutputTokensCap = 8192 }));
+        Assert.Equal(32768, request.MaxOutputTokens);
+    }
+
+    [Fact]
     public void Resolve_ReturnsBuiltinPricingLimitsAndCapabilities()
     {
         var resolver = new LLMModelMetadataResolver(new LLMOptions());

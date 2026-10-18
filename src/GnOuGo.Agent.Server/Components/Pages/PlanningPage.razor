@@ -36,6 +36,7 @@
             <label for="plan-name">Agent name</label><input id="plan-name" class="form-control" @bind="_name" required />
             <label for="plan-prompt">What should this agent do?</label><textarea id="plan-prompt" class="form-control" rows="7" @bind="_prompt" required></textarea>
             <label><input type="checkbox" @bind="_reviseExisting" /> Revise an existing agent with this name</label>
+            <label><input type="checkbox" @bind="_businessJudge" /> Include an independent business review using this session's model allowance</label>
             <button class="btn btn-primary" type="submit" disabled="@_busy">Create plan</button>
         </form>
         <ul>@foreach (var entry in _sessions)
@@ -238,7 +239,7 @@
     private int _inputLimit, _outputLimit;
     private string? _error;
     private string? _commandError;
-    private bool _busy, _reviseExisting, _loading, _tracesOpen, _traceWorkflow;
+    private bool _busy, _reviseExisting, _businessJudge, _loading, _tracesOpen, _traceWorkflow;
     private string? _traceSessionId;
     private long _viewVersion;
     private long _renderedRevision = -1;
@@ -304,7 +305,7 @@
     private async Task StartAsync()
     {
         _busy = true; _error = null;
-        try { var state = await Planning.StartAsync(_name, _prompt, _reviseExisting, _lifetime.Token, mode: _mode); Navigation.NavigateTo("/planning/" + state.Request.SessionId); }
+        try { var state = await Planning.StartAsync(_name, _prompt, _reviseExisting, _lifetime.Token, mode: _mode, businessJudge: _businessJudge); Navigation.NavigateTo("/planning/" + state.Request.SessionId); }
         catch (Exception ex) { _error = ex.Message; }
         finally { _busy = false; }
     }

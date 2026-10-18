@@ -299,7 +299,7 @@ internal static class LiveWorkflowEvaluation
         public async Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
         {
             var response = await model.CallAsync(request, ct);
-            GnOuGo.Planning.Examples.PlanningBenchmarkMeasurements.RecordResponse(run, request, response, run["session"]?["modelCalls"]?.GetValue<int>() ?? 0);
+            GnOuGo.Planning.Examples.PlanningBenchmarkMeasurements.RecordResponse(run, request, response, run["session"]?["modelCalls"]?.GetValue<int>() ?? 0, run["session"]?["pendingCall"]?["purpose"]?.ToString());
             return response;
         }
     }

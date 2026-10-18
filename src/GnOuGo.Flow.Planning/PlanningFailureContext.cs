@@ -26,13 +26,13 @@ internal sealed partial class PlanningPrompt
                 node["error_code"]?.ToString() is "RUN_NEEDS_RECONCILIATION" or "AGENT_OUTCOME_UNCERTAIN" or "LLM_BUDGET_EXCEEDED" or "LLM_BUDGET_UNVERIFIABLE")
                 result["correction_blocked"] = true;
             foreach (var name in new[] { "error_code", "workflow", "failed_workflow", "step_id", "failed_step_id", "step_type", "execution_phase",
-                "mapping_result_path", "mapping_failure_kind", "mapping_failure_reason", "mapping_node_kind", "helper", "consumer_binding", "classification", "dispatch_status" })
+                "mapping_result_path", "mapping_failure_kind", "mapping_failure_reason", "mapping_node_kind", "helper", "consumer_binding", "classification", "dispatch_status", "stage" })
                 if (!result.ContainsKey(name) && node[name] is JsonValue value && value.TryGetValue<string>(out var text) &&
                     text.Length is > 0 and <= 512 && text.All(c => char.IsLetterOrDigit(c) || "_-/.$:[]".Contains(c)) &&
                     !text.Contains("://", StringComparison.Ordinal)) result[name] = text;
             if (admission)
             {
-                foreach (var name in new[] { "limit_kind", "measurement", "reason", "limiting_factor" })
+                foreach (var name in new[] { "limit_kind", "measurement", "unit", "reason", "limiting_factor" })
                     if (!result.ContainsKey(name) && node[name] is JsonValue value && value.TryGetValue<string>(out var text) &&
                         text.Length is > 0 and <= 80 && text.All(c => char.IsAsciiLetterOrDigit(c) || c == '_')) result[name] = text;
                 foreach (var name in new[] { "limit", "current", "host_limit", "model_limit", "effective_limit", "framing_allowance",

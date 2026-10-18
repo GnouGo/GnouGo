@@ -143,8 +143,12 @@ public sealed class PlanningPersistenceTests
     }
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
-    private sealed class CountingClient : ILLMClient
+    private sealed class CountingClient : ILLMClient, ILLMCapabilityResolver
     {
+        public Task<int?> InputTokenAllowanceAsync(string? provider, string model, int outputTokens, CancellationToken ct) => Task.FromResult<int?>(128000);
+        public Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<bool?>(true);
+        public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<IReadOnlyList<string>?>(["medium", "low"]);
+
         public int Calls { get; private set; }
         public bool Fail { get; init; }
         public int? FailureStatusCode { get; init; }

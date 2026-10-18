@@ -9,14 +9,15 @@ execution-oracle success separately. The historical `first_pass_valid` column is
 alias for first-proposal structural validity; it is no longer a one-call metric.
 
 Business correctness is assigned from an independent execution oracle only when the
-executed artifact is the unchanged first proposal. Original proposals that were changed
+executed request, requirements and plan match the unchanged first proposal. Observer
+metadata and later approval-hash changes do not create a different candidate. Original proposals that were changed
 before execution remain unknown unless independently assessed. Omitted requirements,
 extra operations and redundant tasks remain null when the oracle has not established
 those individual judgments. Unknown usage remains null; fixture tokens are estimates,
 never provider usage. Failures and prior results are retained.
 
-Runtime request admission keeps the existing 96,000-token input and 32,768-token
-output ceilings. An oversized full serialized request returns
+The retained live runtime campaign keeps its explicit 96,000-token input and
+32,768-token output ceilings; these are separate from fresh planning defaults. An oversized full serialized request returns
 `LLM_BUDGET_EXCEEDED`, `classification: request_input_allowance`,
 `measurement: conservative_token_estimate`, the applied `limit` and measured
 `current`, and `dispatch_status: not_started`. Output-limit refusals use
@@ -54,6 +55,68 @@ remain available for their original recorded cohorts.
 
 The [implementation comparison](../../docs/evidence/first-attempt-taskplan-2026-10-17/README.md)
 is offline. No paid inference or externally effectful live execution was authorized.
+
+## Optional Judge and convergence measurements
+
+Fresh corpus and stabilization sessions default to twelve planning calls, four
+corrections, 32,000 input tokens and 32,768 output tokens. `--business-judge` explicitly
+enables the independent advisory review; omission keeps it disabled on creation. Both runners
+accept `--max-model-calls`, `--max-repairs`, `--max-input-tokens` and
+`--max-output-tokens` for controlled comparisons. Retained runs use their persisted
+settings; a new configuration requires a new frozen run identity, not mutation of old
+evidence. Historical campaigns below keep their original explicit limits.
+Omitted switches preserve retained values; explicit mismatches, including
+`--no-business-judge` against an enabled run, fail before continuing it. A cohort's
+settings are frozen before collection. The stabilization context manifest is version 2;
+version 1 records remain immutable and inspectable, and a changed harness requires a
+new campaign.
+
+Compare Judge enabled/disabled under identical budgets, model/settings, contracts,
+cases and independent oracle versions. Measure changes to creation defaults separately;
+a larger allowance and an extra observer are different interventions. Freeze the
+complete candidate and fixture/contract/oracle hashes before collecting each comparable
+cohort. Model evaluation still requires separate paid-call authorization and the existing
+cumulative financial ceiling. This implementation does not itself establish live benefit
+or authorize a new campaign.
+
+The corpus runner reserves separate identities with `--arm judge` or `--arm defaults`;
+the unqualified identity remains the control. Use `--business-judge --arm judge` for
+the observer arm, or numeric overrides with `--arm defaults` for the budget arm.
+`--compare-parent <same-commit> --candidate <same-commit> --judge-comparison`
+loads control and Judge arms; `--defaults-comparison` loads control and defaults arms.
+The existing parent/candidate phase switches still select the stored cohorts.
+Stabilization uses its `baseline` and `final` cohort identities with the same commit,
+then accepts the same comparison switches alongside `--compare` and `--candidate`.
+Both reports require three repetitions, a common source/context/model and independent
+outcomes. A Judge comparison rejects changed budgets; a defaults comparison requires
+the Judge disabled in both arms. Missing settings, labels or incompatible arms remain
+inconclusive. These descriptive reports do not declare the first-proposal gate passed
+or establish a live benefit. Unknown costs and tokens have null medians.
+
+`candidate_reviews` retains each compiled candidate separately from `first_proposal`.
+Independent execution labels apply only to the matching request, revision, answers,
+requirements, discovery, contracts and plan hash
+once all expected oracle variants have run. A changed or unexecuted first proposal stays
+unknown. `business_review` reports independently labelled candidate-level true/false
+positives and negatives, unknown or unjudged candidates, convergence and introduced
+regressions. These are artifact-level measurements, not per-finding precision. A
+syntactically valid Judge report is never an oracle label; a no-findings report can be a
+false negative, and a finding can be a false positive. Invalid, skipped and inconclusive
+reviews remain unjudged.
+
+`planning_stages` separates logical calls and elapsed time by the saved call purpose,
+including `judge`, and aggregates usage/cost from the corresponding receipts. Physical
+attempts require transport evidence; absent counts, usage and costs remain null.
+Correction counts and final stop outcomes remain separate from first-proposal validity.
+Judge calls use the same reservations, receipts and cumulative allowances as generation
+and correction; there is no parallel allocation. Completed reviews are reused for an
+unchanged context, including recovery.
+
+Offline adapters return explicitly scripted reports. Fixtures, negative variants and
+replay test accounting, scope protection and oracle classification; they cannot measure
+a real model's false-positive rate or prove business improvement. Preserve failures and
+inconclusive candidates. Keep live-model, real-execution and scripted results separately
+labelled, and never synthesize live requirement acknowledgments.
 
 ## Planner stabilization comparison
 

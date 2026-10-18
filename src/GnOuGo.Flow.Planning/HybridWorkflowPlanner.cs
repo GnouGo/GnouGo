@@ -52,7 +52,10 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
             state.Request.Options["compilation_profile"] = TaskPlanCompiler.CompactProfile;
             state.Request.Options["mapping_profile"] = TaskPlanCompiler.AdaptiveMappingProfile;
             if (state.ModelCalls == 0 && state.Request.Baseline is null)
+            {
                 state.Request.Options["planning_validation_profile"] = TaskPlanCompiler.AssertionValidationProfile;
+                state.Request.Options["planning_input_review_version"] = 1;
+            }
         }
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
         if (PlanningBudgetOptions.Parse(state.Request.Options)?.MaxElapsed is { } maximum)
@@ -123,6 +126,12 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
                         command.ArtifactHash != state.ComputeArtifactHash()))
                         throw new PlanningConflictException("A correction must retain current accepted requirements and identify the exact artifact, when present.");
                     if (command.EditablePaths is not null) TaskPlanRevisions.ValidateEditablePaths(state, command.EditablePaths);
+                    if (PlanningBusinessJudge.Enabled(state))
+                    {
+                        state.Request.Options.Remove(PlanningBusinessJudge.AuthorityKey);
+                        if (command.EditablePaths is not null) state.Request.Options[PlanningBusinessJudge.AuthorityKey] =
+                            new JsonArray(command.EditablePaths.Select(p => (JsonNode?)JsonValue.Create(p)).ToArray());
+                    }
                     state.Request.Options.Remove(CorrectionProgressKey);
                     state.Request.Prompt += "\nRequested revision: " + command.Text;
                     PlanningClarifications.Revise(state, command.PreserveRequirements == true, command.EditablePaths); break;
@@ -178,6 +187,14 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
     private static async Task AdvancePlanAsync(PlanningSession state, IPlanningRuntime runtime, CancellationToken ct)
     {
         state.Status = PlanningStatus.Generating;
+        if (state.PendingCall?.Purpose == "judge")
+        {
+            await CompileAsync(state, runtime, ct);
+            if (state.Status == PlanningStatus.Generating) await PlanningBusinessJudge.ReviewAsync(state, runtime, ct);
+            return;
+        }
+        if (PlanningBusinessJudge.Enabled(state) && state.Phase == PlanningPhase.Review && state.Graph is not null && !state.Diagnostics.Any(d => d.Required))
+        { await PlanningBusinessJudge.ReviewAsync(state, runtime, ct); return; }
         if (state.PendingCall is null) PlanningModelCalls.EnsureCallAvailable(state);
         if (state.Catalog is null)
         {
@@ -436,8 +453,11 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
                 state.Discovery.Limitations = state.Discovery.Limitations.Distinct(StringComparer.Ordinal).ToList();
                 state.Diagnostics.Clear(); state.ValidationResults = [new("static", "passed", "Business bindings, contracts and control flow validated. External execution has not been observed.", [])];
                 state.ValidationResults.AddRange(PlanningReviewFormatter.Operations(state));
+                if (state.Request.Options["planning_input_review_version"]?.ToString() == "1")
+                    state.ValidationResults.AddRange(PlanningInputReadiness.Assess(graph));
                 state.ValidationResults.AddRange(coverage);
-                state.Status = PlanningStatus.FinalReview; state.Phase = PlanningPhase.Review; return;
+                state.Status = PlanningBusinessJudge.Enabled(state) ? PlanningStatus.Generating : PlanningStatus.FinalReview;
+                state.Phase = PlanningPhase.Review; return;
             }
         }
         // A valid semantic contract must compile to valid plumbing. Never ask the model to repair compiler output.
