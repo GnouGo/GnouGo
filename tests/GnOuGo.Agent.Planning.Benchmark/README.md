@@ -524,6 +524,24 @@ historical harness behavior. Both policies retain eight planning calls and two
 correction attempts within the existing cumulative allowance; artifact approval
 remains separate.
 
+For an explicitly authorized fresh live evaluation, add `--business-judge` to
+`plan` to enable the independent advisory review. It uses the generator's model
+and the same eight-call, two-correction allowance, 96,000 input-token limit and
+32,768 output-token reservation retained by this live campaign. It does not use
+the newer creation defaults of other hosts or receive a separate budget. The
+Judge setting is captured in the request and an enabled cohort manifest.
+`--no-business-judge` explicitly selects the disabled setting; supplying both
+switches is rejected. On `revise` or `execute`, omission reuses the persisted
+setting and an explicit mismatch stops before readiness or transport. Start a
+new frozen cohort to change the setting. Historical disabled manifests remain
+unchanged, and artifact approval remains an explicit revision/hash-bound action.
+
+Live planning measurements separate generation, corrections and Judge calls by
+their recorded purpose, preserving unknown usage when receipts are incomplete.
+Only the independent execution oracle labels the executed candidate's business
+outcome; unexecuted candidates remain unknown. These measurements do not turn
+advisory Judge findings into proof of business correctness.
+
 ```sh
 dotnet build tests/GnOuGo.Agent.Planning.Benchmark -m:1 -warnaserror -p:SkipClientBuild=true
 dotnet run --no-build --project tests/GnOuGo.Agent.Planning.Benchmark -- \

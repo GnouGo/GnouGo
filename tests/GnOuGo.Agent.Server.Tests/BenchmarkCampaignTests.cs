@@ -10,6 +10,37 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class BenchmarkCampaignTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
+
+    [Fact]
+    public async Task LiveCohortJudgeSettingIsFrozenWithoutMigratingDisabledManifests()
+    {
+        var records = new Records();
+        var historical = new BenchmarkCampaign(records, "judge-control");
+        var original = await LiveCampaignEvidence.PinAsync(historical, "frozen", "provider", "model", "configuration", "cohort");
+        Assert.False(original.ContainsKey("business_judge"));
+        var serialized = original.ToJsonString(); var writes = records.Writes;
+        var continued = await LiveCampaignEvidence.PinAsync(historical, "frozen", "provider", "model", "configuration", "cohort", businessJudge: false);
+        Assert.Equal(serialized, continued.ToJsonString());
+        Assert.Equal(writes, records.Writes);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => LiveCampaignEvidence.PinAsync(historical,
+            "frozen", "provider", "model", "configuration", "cohort", businessJudge: true));
+        Assert.Equal(serialized, (await historical.LoadAsync(SchemaPortabilityCampaign.Collection, "cohort-manifest", Ct))!.ToJsonString());
+
+        var enabled = new BenchmarkCampaign(records, "judge-enabled");
+        var manifest = await LiveCampaignEvidence.PinAsync(enabled, "frozen", "provider", "model", "configuration", "cohort", businessJudge: true);
+        Assert.True(manifest["business_judge"]!.GetValue<bool>());
+        Assert.Equal(8, manifest["planning_attempts"]!.GetValue<int>());
+        Assert.Equal(2, manifest["repairs"]!.GetValue<int>());
+        Assert.Equal(96000, manifest["max_input_tokens"]!.GetValue<int>());
+        Assert.Equal(32768, manifest["max_output_tokens"]!.GetValue<int>());
+        Assert.True(JsonNode.DeepEquals(manifest, await LiveCampaignEvidence.PinAsync(enabled,
+            "frozen", "provider", "model", "configuration", "cohort", businessJudge: true)));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => LiveCampaignEvidence.PinAsync(enabled,
+            "frozen", "provider", "model", "configuration", "cohort"));
+        manifest.Remove("business_judge");
+        Assert.True(JsonNode.DeepEquals(original, manifest));
+    }
+
     [Fact]
     public async Task ExplicitBudgetExtensionPreservesReservationsConfigurationAndIsolationAcrossRestart()
     {
