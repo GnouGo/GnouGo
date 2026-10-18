@@ -28,7 +28,7 @@ public sealed class RetainedOutputRevisionTests
         Assert.DoesNotContain("Lookup offered IDs before originals", instructions);
         Assert.Contains("Keep original IDs/exact values", instructions);
         Assert.Contains("Return the smallest sufficient executable business plan", instructions);
-        Assert.Contains("no unrequested effects, artifacts, filtering or deduplication", instructions);
+        Assert.Contains("No extra effects/artifacts/filtering/deduplication", instructions);
         Assert.DoesNotContain("YAML", instructions, StringComparison.OrdinalIgnoreCase);
         var hints = PlanningSchemaReferences.Walk(request.StructuredOutputSchema!.AsObject(), "", 0)
             .Select(e => e.Schema["description"]?.ToString()).OfType<string>().ToArray();

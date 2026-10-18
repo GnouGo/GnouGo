@@ -55,6 +55,13 @@ original item; they never replace the collection being processed. A result cardi
 or iteration ceiling does not constrain the input size of a global request. Required
 data that still exceeds the applicable allowance fails explicitly before dispatch.
 
+Without an explicit independent `each`, all bound inputs enter one extraction
+learning request, even when the result is a boolean. Typed `field`/object/array
+bindings and `foreach` exports can project the necessary fields without learning.
+With `each`, other bound inputs remain shared context: repeating the complete
+source collection there can still exceed admission before any example is added.
+Neither a short objective nor a small output schema narrows that context.
+
 An explicit business binding `{ "kind": "flatten", "items": [value] }` concatenates exactly one typed `array<array<T>>` level before global interpretation. It preserves order, duplicates, null elements and deeper nesting. Outer and inner arrays must be nonnullable; untyped contents, scalars and null inner arrays fail. Source constraints are checked before concatenation, and consumer constraints afterward. Empty arrays contribute nothing. The binding compiles deterministically at final lowering, with no mapping inference or new executor.
 
 For example: complete source pages → independent extraction of `array<array<{label, group, reference}>>` → explicit flatten → global decision receiving selected candidate fields. Do not forward broad `pageFacts`, raw pages or unrelated fields into that view. Keep grouping or references when the decision requires them, and preserve full sources for other consumers. Checked assembly validates declared fields; complete-request admission includes instructions, data, schema and framing. Neither step proves semantic relevance, so independent execution oracles still check missed or invented facts. Still-oversized necessary inputs fail before dispatch, without truncating or sampling the decision.

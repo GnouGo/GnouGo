@@ -1,0 +1,32 @@
+[
+  {
+    "path": "logs/followup-red.log.gz",
+    "uncompressed_sha256": "4042dc271109062be97aca5889f56834a9e91d3212e68d2ef414bf55730fdd7a",
+    "note": "Regression failed before the prompt correction."
+  },
+  {
+    "path": "logs/followup-focused.log.gz",
+    "uncompressed_sha256": "21866027e1e8945c842cc72a3d8a05b3c06a0d8fb9edd75c3d814311935fb826",
+    "note": "34 passed; mandatory-context admission failed at 24177/24000; limit and contracts unchanged."
+  },
+  {
+    "path": "logs/followup-headroom.log.gz",
+    "uncompressed_sha256": "e01404929d549602a5332651a96a9e8dd665a6b9e9f211349d888485c48889a4",
+    "note": "Intermediate wording: 24029/24000; no threshold change."
+  },
+  {
+    "path": "logs/followup-headroom-compact.log.gz",
+    "uncompressed_sha256": "34d210f3e19c492bb88c49e86117ab7ff0058d569e64c8dddce1fc24f0b18c0d",
+    "note": "Intermediate wording: 24015/24000; no threshold change."
+  },
+  {
+    "path": "logs/followup-planning.log.gz",
+    "uncompressed_sha256": "84f3e4d3e2a26d12adf08e869aa5dcd5d2e0c4044114a019b53171c6589f8778",
+    "note": "1619/1620 passed; one stale prose assertion corrected afterward; required-context admission passed."
+  },
+  {
+    "path": "logs/followup-targeted.log.gz",
+    "uncompressed_sha256": "0a146911b5cf73732dc527040ecd2135eabc9568f203b5eb3edefc83c1efa75b",
+    "note": "25/25 passed after updating the stale wording assertion."
+  }
+]

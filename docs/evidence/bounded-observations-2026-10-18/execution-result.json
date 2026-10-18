@@ -1,0 +1,149 @@
+{
+  "run": "boundedobs20261018a-amazon-1",
+  "source": "00b1aa751bbdd8787cda25f425a56db2e6850f51",
+  "original_artifact_unchanged": true,
+  "snapshot": {
+    "pages": 56,
+    "records": 1580,
+    "compact_utf8_bytes": 1155527,
+    "capture_truncated": false,
+    "manifest_truncated": false
+  },
+  "error": {
+    "Code": "LLM_BUDGET_EXCEEDED",
+    "Type": "LLM_BUDGET_EXCEEDED",
+    "Message": "Mapping inference stopped: LLM_BUDGET_EXCEEDED. [workflow 'main', step 'n_74dab345f6d6d2b8']",
+    "Retryable": false,
+    "Details": {
+      "classification": "request_input_allowance",
+      "dispatch_status": "not_started",
+      "limit_kind": "input_tokens",
+      "limit": 96000,
+      "current": 951251,
+      "measurement": "conservative_token_estimate",
+      "failed_workflow": "main",
+      "failed_step_id": "n_74dab345f6d6d2b8",
+      "failed_step_type": "mapping.dynamic",
+      "execution_phase": "step"
+    }
+  },
+  "result": {
+    "status": "final_review",
+    "planning_ms": 86745,
+    "calls": 2,
+    "repairs": 0,
+    "discovery_reads": 2,
+    "review_revisions": 0,
+    "diagnostics": [],
+    "execution_success": false,
+    "execution_oracle": false,
+    "execution_status": "completed",
+    "accounting": {
+      "planning": {
+        "logical_calls": 2,
+        "physical_attempts": 2,
+        "known_input_tokens": 19828,
+        "known_output_tokens": 7030,
+        "known_cost_eur": 0.2772918343618639,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "execution": {
+        "logical_calls": 1,
+        "physical_attempts": 1,
+        "known_input_tokens": 114,
+        "known_output_tokens": 141,
+        "known_cost_eur": 0.004292997048564529,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "campaign": {
+        "calls": 1179,
+        "session_calls": 0,
+        "known_input_tokens": 16301613,
+        "known_output_tokens": 2438366,
+        "known_cost_eur": 137.58513256926443,
+        "reserved_input_tokens": 1514641,
+        "reserved_output_tokens": 491520,
+        "reserved_cost_eur": 19.877943993342743,
+        "cost_upper_bound_eur": 157.46307656260717,
+        "unknown_attempts": 15
+      }
+    },
+    "manifest": "adeb23a8e8aea00b38892bad6afacb392e4e1a7731fffd0cc342d3e00c50b436",
+    "first_proposal_call": 2,
+    "first_proposal_structurally_valid": true,
+    "first_proposal_business_correct": false,
+    "omitted_requirements": null,
+    "extra_operations": null,
+    "redundant_tasks": null,
+    "first_proposal_diagnostics": [],
+    "execution_ms": 23291,
+    "total_ms": 110036
+  },
+  "oracle": {
+    "passed": false,
+    "findings": [
+      "workflow_execution_failed",
+      "workbook_missing"
+    ]
+  },
+  "tool_results": [
+    {
+      "tool": "browser_get_content",
+      "error": false,
+      "closed": null,
+      "error_code": null,
+      "latency_ms": 6510
+    },
+    {
+      "tool": "browser_close",
+      "error": false,
+      "closed": true,
+      "error_code": null,
+      "latency_ms": 1046
+    },
+    {
+      "tool": "browser_get_content",
+      "error": true,
+      "closed": null,
+      "error_code": "INVALID_INPUT",
+      "latency_ms": 1
+    },
+    {
+      "tool": "browser_close",
+      "error": false,
+      "closed": true,
+      "error_code": null,
+      "latency_ms": 1003
+    }
+  ],
+  "runtime_llm_inputs": [
+    {
+      "invocation": "/workflow/main/step/n_74dab345f6d6d2b8/mapping/0",
+      "status": "completed",
+      "observed_completion": true,
+      "estimated_prompt_tokens": 738636,
+      "model_calls": 0,
+      "inspection_only": true
+    },
+    {
+      "invocation": "/workflow/main/step/n_3981b1c1638bb00a",
+      "status": "completed",
+      "observed_completion": true,
+      "estimated_prompt_tokens": 4199,
+      "model_calls": 0,
+      "inspection_only": true
+    }
+  ],
+  "product_visits": 0,
+  "workbook_created": false,
+  "extraction_provider_dispatches": 0,
+  "consent_clicks": 0,
+  "cleanup_independently_verified": true,
+  "cleanup_probe": "No active page"
+}

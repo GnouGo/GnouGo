@@ -42,6 +42,20 @@ public sealed class LargeObservationGuidanceTests
             Assert.Contains(meaning, instructions);
     }
 
+    [Fact]
+    public async Task FreshGuidanceExplainsLearningInputAndProjectionBeforeInference()
+    {
+        var runtime = new TestRuntime();
+        var state = await PlannerFixture.RunAsync(runtime);
+        Assert.Equal(PlanningStatus.FinalReview, state.Status);
+        Assert.Equal(0, state.ReplanAttempts);
+        var request = Assert.Single(runtime.Calls);
+        var instructions = GenericPlanningPromptTests.AssertGeneric(request);
+        foreach (var meaning in new[] { "Without each", "ALL bound inputs", "learning request",
+            "foreach exports", "without inference", "typed copies/projections/assembly", "shared inputs" })
+            Assert.Contains(meaning, instructions);
+    }
+
     [Theory]
     [InlineData("request_input_allowance", "conservative_token_estimate")]
     [InlineData("mapping_request_admission", "serialized_utf8_bytes_plus_framing")]

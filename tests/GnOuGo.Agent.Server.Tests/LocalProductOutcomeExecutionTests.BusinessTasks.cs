@@ -236,7 +236,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
                 Assert.Contains("resultType: complete assembled", request.StructuredOutputSchema!.ToJsonString());
                 Assert.DoesNotContain("Lookup offered IDs before originals", request.Prompt);
                 Assert.Contains("Bind typed copies/projections/assembly", request.Prompt);
-                Assert.Contains("Return the smallest sufficient executable business plan in the issued structured response", request.Prompt);
+                Assert.Contains("Return the smallest sufficient executable business plan", request.Prompt);
                 Assert.InRange(adapter.InputEstimate, 1, initial.Request.Generation.MaxInputTokensPerRequest);
                 output.WriteLine($"INITIAL REQUEST: estimatedTokens={adapter.InputEstimate}; calls=1; repairs=0; tasks=18");
             }

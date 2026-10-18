@@ -36,10 +36,10 @@ internal sealed partial class PlanningPrompt(PlanningSession state)
         """;
 
     private const string Instructions = """
-        Return the smallest sufficient executable business plan in the issued structured response. Cover request/accepted requirements; no unrequested effects, artifacts, filtering or deduplication.
-        Bind typed copies/projections/assembly; keep checks/cleanup. Use inspected contracts, not names/types. Distinct task/operation IDs, properties, public outputs.
-        Keep immediate consumer fields; retain original sources/IDs and cross-item relationships. Pagination does not establish independence; each needs independence.
-        Input allowances, output bounds and iteration ceilings differ. Small output cannot bound input; still too large must fail, not truncate/sample.
+        Return the smallest sufficient executable business plan for request/requirements. No extra effects/artifacts/filtering/deduplication.
+        Bind typed copies/projections/assembly; keep checks/cleanup. Use inspected contracts, not names/types. Separate task/operation IDs, properties, public outputs.
+        Without each, extract sends ALL bound inputs in one learning request. Use foreach exports for immediate consumer fields without inference; shared inputs count.
+        Keep original sources, cross-item relationships. Pagination does not establish independence. Input allowances differ from output bounds/iteration ceilings; still too large: fail, never truncate/sample.
         """ + "\n" + EvidenceInstructions;
 
     private const string RepairInstructions = """

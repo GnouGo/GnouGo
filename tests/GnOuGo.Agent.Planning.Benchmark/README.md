@@ -27,6 +27,14 @@ the existing engine. A local mapping attempt rejected before dispatch is not a
 physical provider attempt or billed usage. Existing encrypted receipts and limits
 remain unchanged during recovery.
 
+The [18 October Amazon retest](../../docs/evidence/bounded-observations-2026-10-18/README.md)
+preserves a structurally valid first proposal that failed before extraction dispatch.
+Its scalar extraction still bound the complete observation; zero extraction provider
+calls does not mean zero runtime cost, because an earlier transform completed.
+The subsequent generic prompt correction is separate from that frozen failed run.
+It explains full learning inputs, deterministic projection and shared `each` context;
+its presence alone is not live business-correctness evidence.
+
 Live corpus and stabilization runs stop at FinalReview. Inspect the retained request,
 requirements, tasks and uncertainty, then supply `--review-run <source:phase:case:repetition>`
 and `--review-command <file>` with the existing explicit `approve` command (reviewer-set

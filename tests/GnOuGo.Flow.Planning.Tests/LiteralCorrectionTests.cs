@@ -17,7 +17,7 @@ public sealed class LiteralCorrectionTests
         state = await planner.AdvanceAsync(state, new(), runtime, PlannerFixture.Ct);
         Assert.Contains(state.Diagnostics, d => d.Code == "TASK_LITERAL_INVALID");
         Assert.Contains("For a declared input named name: {\"kind\":\"input\",\"source\":\"name\"}", runtime.Calls[0].Prompt);
-        Assert.Contains("Return the smallest sufficient executable business plan in the issued structured response", runtime.Calls[0].Prompt);
+        Assert.Contains("Return the smallest sufficient executable business plan", runtime.Calls[0].Prompt);
         Assert.Contains(PlanningSchemaReferences.Walk(runtime.Calls[0].StructuredOutputSchema!.AsObject(), "", 0),
             s => s.Schema["description"]?.ToString().Contains("Literal strings exclude ${}", StringComparison.Ordinal) == true);
         Assert.Equal(1, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);

@@ -3,7 +3,7 @@
   "revision": 3,
   "artifact_hash": "180bd0c81ef4dee79c253bb6911277d44b78c9d9e275eddfff84016c5f51bc9f",
   "run": "boundedobs20261018a-amazon-1",
-  "execution_status": "started",
+  "execution_status": "completed",
   "approval_received": true,
   "reviewed_requirement_ids": [
     "search_amazon_fr",
@@ -20,5 +20,6 @@
     "cleanup_browser"
   ],
   "reviewed_revision": 2,
-  "additional_consent_click_approved": true
+  "additional_consent_click_approved": true,
+  "execution_success": false
 }
