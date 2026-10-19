@@ -100,6 +100,7 @@ public sealed partial class TaskPlanCompiler
     private bool _fusedBindings;
     private bool _preciseDeclarations;
     private HashSet<string>? _constructionUnavailable;
+    private bool _constructionAllowsUnboundChoices;
     private string _location = "/tasks";
 
     public TaskCompilation Compile(TaskPlan plan, PlanningCatalog catalog, bool compactBindings = false)
@@ -115,6 +116,7 @@ public sealed partial class TaskPlanCompiler
     {
         _preciseDeclarations = preciseDeclarations;
         _constructionUnavailable = null;
+        _constructionAllowsUnboundChoices = false;
         _fusedBindings = fusedBindings;
         _indexedProjections = indexedProjections;
         _adaptiveMappings = adaptiveMappings;

@@ -24,13 +24,13 @@ public sealed class CorrectionClarificationHostTests
         var model = new Model(scenario);
         var settings = new GnOuGo.Agent.Server.Configuration.TypedWorkflowPlanningSettings { MaxReplanAttempts = repairs };
         var agents = PlanningSessionLifecycleTests.AgentCatalog();
-        PlanningSession state;
+        var state = await RetainedVersionOneConstruction.SeedAsync(fixture, agents, model, "clarification-loop",
+            "Return the supplied subject. Ask which subject only if that business preference is missing.", Ct, repairs);
         using (var host = PlanningSessionLifecycleTests.Create(fixture, new HybridWorkflowPlanner(), agents, model, settings))
         {
             await host.StartAsync(Ct);
             try
             {
-                state = await host.StartAsync("clarification-loop", "Return the supplied subject. Ask which subject only if that business preference is missing.", false, Ct);
                 Assert.Equal("1", state.Request.Options["clarification_policy"]!.ToString());
                 state = await Wait(host, state.Request.SessionId);
                 if (state.Status == PlanningStatus.Clarification)
@@ -101,11 +101,11 @@ public sealed class CorrectionClarificationHostTests
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
         var model = new Model("question"); var agents = PlanningSessionLifecycleTests.AgentCatalog();
-        PlanningSession state;
+        var state = await RetainedVersionOneConstruction.SeedAsync(fixture, agents, model, "restart-answer",
+            "Return the supplied subject; ask which subject when unspecified.", Ct);
         using (var first = PlanningSessionLifecycleTests.Create(fixture, new HybridWorkflowPlanner(), agents, model))
         {
             await first.StartAsync(Ct);
-            state = await first.StartAsync("restart-answer", "Return the supplied subject; ask which subject when unspecified.", false, Ct);
             state = await Wait(first, state.Request.SessionId); Assert.Equal(PlanningStatus.Clarification, state.Status);
             await first.StopAsync(Ct);
             state = await first.SubmitAsync(state.Request.SessionId, new() { Kind = "answer", ExpectedRevision = state.Revision,

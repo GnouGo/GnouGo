@@ -236,7 +236,7 @@ internal static class LiveWorkflowEvaluation
     {
         var businessJudge = ResolveBusinessJudge(args);
         var request = new PlanningRequest { SessionId = label, TenantId = "benchmark", Name = "Live " + scenario,
-            Prompt = prompt, Mode = PlanningMode.Auto, MaxModelCalls = 12, MaxReplanAttempts = 4,
+            Prompt = prompt, Mode = PlanningMode.Auto, MaxModelCalls = 64, MaxReplanAttempts = 4,
             Generation = new() { MaxInputTokensPerRequest = 32000, MaxOutputTokens = 8192, Reasoning = "medium" },
             Policy = new() { RequireExternalConfirmation = true },
             Options = new() { ["generator"] = new JsonObject { ["provider"] = provider, ["model"] = model },
@@ -257,7 +257,7 @@ internal static class LiveWorkflowEvaluation
     internal static JsonObject FrozenPlanningConfiguration(PlanningRequest request, JsonObject? constructionLimits = null)
     {
         var result = PlanningBenchmarkMeasurements.Configuration(request);
-        result["construction_version"] = 1;
+        result["construction_version"] = request.Options["construction_version"]?.DeepClone() ?? JsonValue.Create(1);
         result["construction_preset"] = request.Options["construction_preset"]?.ToString() ?? PlanningConstructionPresets.Ordinary;
         result["llm_budget"] = request.Options["llm_budget"]?.DeepClone();
         result["require_external_confirmation"] = request.Policy.RequireExternalConfirmation;
@@ -388,6 +388,7 @@ internal static class LiveWorkflowEvaluation
         public async Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
         {
             var purpose = run["session"]?["pendingCall"]?["purpose"]?.ToString() ?? "unknown";
+            PlanningBenchmarkMeasurements.RecordRequest(run, request, purpose);
             var clock = Stopwatch.StartNew();
             run["usage_receipts"] ??= new JsonObject();
             try

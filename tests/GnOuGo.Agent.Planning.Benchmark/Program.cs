@@ -12,6 +12,22 @@ using GnOuGo.KeyVault.Core.Services;
 using GnOuGo.Planning.Examples;
 using GnOuGo.Workspace;
 
+if (args.FirstOrDefault() == "--compact-comparison")
+{
+    if (args.Length != 2 || new FileInfo(args[1]).Length > 16_777_216)
+        throw new ArgumentException("Supply one bounded JSON document containing sanitized baseline and candidate measurement rows.");
+    var comparison = JsonNode.Parse(await File.ReadAllTextAsync(args[1]))!.AsObject();
+    var cases = comparison["cases"]!.AsArray().Select(n => n!.GetValue<string>()).ToArray();
+    if (cases.Length == 0 || cases.Distinct(StringComparer.Ordinal).Count() != cases.Length)
+        throw new ArgumentException("Supply distinct comparison cases.");
+    var report = PlanningBenchmarkMeasurements.CompareCompactConstruction(
+        comparison["baseline"]!.AsArray().Select(n => n!.AsObject()).ToArray(),
+        comparison["candidate"]!.AsArray().Select(n => n!.AsObject()).ToArray(), cases);
+    Console.WriteLine(report.ToJsonString());
+    if (report["passed"]?.GetValue<bool>() != true) Environment.ExitCode = 1;
+    return;
+}
+
 if (args.FirstOrDefault() == "--mapping-fixture") { await MappingLiveEvaluation.ServeAsync(args[1]); return; }
 if (args.FirstOrDefault() == "--stabilization") { await StabilizationBenchmark.RunAsync(args); return; }
 if (args.FirstOrDefault() == "--real-contract-planning") { await RealContractPlanningProbe.RunAsync(args); return; }
@@ -354,6 +370,7 @@ sealed class MeasuredRuntime(IPlanningRuntime inner, ILLMClient? live, JsonObjec
     public Task<PlanningCatalog> DiscoverAsync(PlanningRequest request, CancellationToken ct) => inner.DiscoverAsync(request, ct);
     public async Task<LLMResponse> CallAsync(LLMRequest request, string purpose, CancellationToken ct)
     {
+        PlanningBenchmarkMeasurements.RecordRequest(run, request, purpose);
         if (run["initial_request_bytes"] is null)
         {
             run["initial_request_bytes"] = Encoding.UTF8.GetByteCount(request.Prompt ?? "") + Encoding.UTF8.GetByteCount(request.StructuredOutputSchema!.ToJsonString());

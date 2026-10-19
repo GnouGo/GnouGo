@@ -36,6 +36,7 @@ public sealed class PlanningClarificationBrowserTests
             var state = new PlanningSession { Request = new() { TenantId = "planning-tests", Name = "Browser " + name,
                 // Match the lifecycle fixture's pricing metadata; all dispatches use the injected Model below.
                 Prompt = name == "text" ? "A missing fact" : "An ambiguous caller interface", Options = new() { ["generator"] = new JsonObject { ["provider"] = "openai", ["model"] = "gpt-4o-mini" } } } };
+            state = RetainedVersionOneConstruction.Restore(state);
             if (name != "legacy") state.Request.Options["clarification_policy"] = 1;
             PlanningSession? issued = null;
             var runtime = new WorkflowPlanningRuntime(new WorkflowEngine { LLMClient = model }, (checkpoint, _) =>

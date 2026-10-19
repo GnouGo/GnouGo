@@ -35,7 +35,7 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                 TenantId = ctx.Limits.TenantId ?? "default", Name = input["name"]?.GetValue<string>() ?? "generated",
                 Prompt = input["raw_prompt"]?.GetValue<string>() ?? "", Options = options,
                 MaxReplanAttempts = input["max_replan_attempts"]?.GetValue<int>() ?? (large ? PlanningConstructionPresets.LargeCorrections : 4),
-                MaxModelCalls = input["llm_budget"]?["max_calls"]?.GetValue<int>() ?? (large ? PlanningConstructionPresets.LargeModelCalls : 12),
+                MaxModelCalls = input["llm_budget"]?["max_calls"]?.GetValue<int>() ?? (large ? PlanningConstructionPresets.LargeModelCalls : 64),
                 Generation = new()
                 {
                     Reasoning = generator["reasoning"]?.GetValue<string>() ?? "medium",

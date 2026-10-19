@@ -259,6 +259,7 @@ internal static class StabilizationBenchmark
         public Task<PlanningCatalog> DiscoverAsync(PlanningRequest request, CancellationToken ct) => inner.DiscoverAsync(request, ct);
         public async Task<LLMResponse> CallAsync(LLMRequest request, string purpose, CancellationToken ct)
         {
+            PlanningBenchmarkMeasurements.RecordRequest(run, request, purpose);
             var callClock = Stopwatch.StartNew();
             try { var response = await model.CallAsync(request, ct);
                 PlanningBenchmarkMeasurements.RecordResponse(run, request, response, run["session"]?["modelCalls"]?.GetValue<int>() ?? 0, purpose);

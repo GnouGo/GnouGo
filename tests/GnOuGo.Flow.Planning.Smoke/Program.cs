@@ -37,12 +37,13 @@ var sparseGeneration = JsonSerializer.Deserialize("""{"generation":{"maxOutputTo
 if (historicalRequest.MaxModelCalls != 8 || historicalRequest.MaxReplanAttempts != 2 ||
     historicalRequest.Generation.MaxInputTokensPerRequest != 12000 || historicalRequest.Generation.MaxOutputTokens != 8192 ||
     sparseGeneration.Generation.MaxInputTokensPerRequest != 12000 || sparseGeneration.Generation.MaxOutputTokens != 4096 ||
-    freshRequest.MaxModelCalls != 12 || freshRequest.MaxReplanAttempts != 4 ||
+    freshRequest.MaxModelCalls != 64 || freshRequest.MaxReplanAttempts != 4 ||
     freshRequest.Generation.MaxInputTokensPerRequest != 32000 || freshRequest.Generation.MaxOutputTokens != 32768 ||
     historicalRequest.Options.ContainsKey("business_judge"))
     throw new InvalidOperationException("Fresh creation defaults and historical missing fields were not kept distinct under Native AOT.");
 Console.WriteLine("planning defaults: fresh limits and sparse historical fallbacks survive source-generated serialization");
 await IncrementalConstructionSmoke.RunAsync();
+await CompactConstructionSmoke.RunAsync();
 
 var committedIntent = new PlanningRequirements { Summary = "Retain contractual obligations", Outcomes =
     [new("report", "Return the producer location") { Commitments = [new("inspected-operation") { Result = new("location", "filePath") }] }] };

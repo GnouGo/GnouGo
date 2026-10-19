@@ -85,6 +85,7 @@ public sealed class BusinessTaskPlanExecutionTests
                 }
             };
             var session = new PlanningSession { Catalog = catalog, Discovery = discovery, Request = new() { TenantId = "local", Prompt = proposal.Requirements.Summary } };
+            session = RetainedVersionOneConstruction.Restore(session);
             RecordedPlanCompilation.InspectSelected(session, plan);
             var planner = new HybridWorkflowPlanner();
             for (var attempt = 0; attempt < 4 && !PlanningStatus.IsWaiting(session.Status) && !PlanningStatus.IsTerminal(session.Status); attempt++)

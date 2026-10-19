@@ -26,7 +26,7 @@ public sealed class PlanningClarificationExecutionTests
         {
             var model = new Model(); var human = new Human(custom); var decisions = new Decisions(custom);
             var engine = new WorkflowEngine { WorkflowPlanner = new HybridWorkflowPlanner(), LLMClient = model,
-                PlanningRuntimeFactory = new WorkflowPlanningRuntimeFactory(new KeyVaultRecordStore(Path.Combine(root, "vault.db")), Path.Combine(root, "leases")),
+                PlanningRuntimeFactory = new RetainedVersionOnePlanningFactory(new KeyVaultRecordStore(Path.Combine(root, "vault.db")), Path.Combine(root, "leases")),
                 HumanInputProvider = human, PlanningInteraction = interaction ? decisions : null, DefaultPlanningMode = "auto",
                 Limits = new() { RunId = "stable", TenantId = "one" } };
             var document = new WorkflowCompiler().Compile(WorkflowParser.Parse("""
@@ -67,7 +67,7 @@ public sealed class PlanningClarificationExecutionTests
         try
         {
             var model = new Model(); var engine = new WorkflowEngine { WorkflowPlanner = new HybridWorkflowPlanner(), LLMClient = model,
-                PlanningRuntimeFactory = new WorkflowPlanningRuntimeFactory(new KeyVaultRecordStore(Path.Combine(root, "vault.db")), Path.Combine(root, "leases")),
+                PlanningRuntimeFactory = new RetainedVersionOnePlanningFactory(new KeyVaultRecordStore(Path.Combine(root, "vault.db")), Path.Combine(root, "leases")),
                 Limits = new() { RunId = "waiting", TenantId = "one" } };
             var document = new WorkflowCompiler().Compile(WorkflowParser.Parse("""
                 version: 1

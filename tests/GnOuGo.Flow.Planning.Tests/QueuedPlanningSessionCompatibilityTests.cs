@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Planning.Examples;
 
@@ -39,6 +40,7 @@ public sealed class QueuedPlanningSessionCompatibilityTests
         var state = await PlannerFixture.RunAsync(IncrementalRuntime(), new PlanningSession { Request = PlannerFixture.HistoricalSession().Request });
         Assert.Equal(PlanningStatus.FinalReview, state.Status);
         Assert.True(state.Construction!.Complete);
+        Assert.Equal(2, state.Construction.Version);
         Assert.Single(state.Construction.Checkpoints);
         Assert.Equal("1", state.Request.Options["planning_diagnostics_version"]!.ToString());
         Assert.Equal("2", state.Request.Options["planning_input_review_version"]!.ToString());
@@ -65,7 +67,29 @@ public sealed class QueuedPlanningSessionCompatibilityTests
     {
         var runtime = new TestRuntime();
         runtime.Proposal.Requirements!.Outputs = [new() { Name = "message", Type = new() { Kind = "string" } }];
-        runtime.Respond = (request, _) => new() { Json = PlanningCorpus.OneDraftResponse(request, runtime.Proposal) };
+        runtime.Respond = (request, purpose) =>
+        {
+            var context = purpose is PlanningCompactConstruction.IntentPurpose or PlanningCompactConstruction.SelectPurpose or PlanningConstruction.DraftPurpose
+                ? JsonNode.Parse(request.Prompt[(request.Prompt.IndexOf('\n') + 1)..])! : new JsonObject();
+            JsonObject response;
+            if (purpose == PlanningCompactConstruction.IntentPurpose)
+                response = new() { ["sourceId"] = context["sources"]![0]!["id"]!.DeepClone(),
+                    ["clauses"] = new JsonArray(new JsonObject { ["text"] = context["sources"]![0]!["text"]!.DeepClone(), ["kind"] = "requirement" }),
+                    ["inputs"] = new JsonArray(), ["outputs"] = JsonSerializer.SerializeToNode(runtime.Proposal.Requirements!.Outputs, PlanningJsonContext.Default.ListTaskInput) };
+            else if (purpose == PlanningCompactConstruction.SelectPurpose)
+                response = new() { ["baseHash"] = context["baseHash"]!.DeepClone(), ["step"] = new JsonObject
+                    { ["scope"] = "/root", ["kind"] = "value", ["objective"] = "Return the greeting.",
+                        ["requirementIds"] = new JsonArray("req_0"), ["inputs"] = new JsonArray(), ["dependencyTaskIds"] = new JsonArray(),
+                        ["expectedOutputs"] = new JsonArray("The greeting."), ["closeRequirementIds"] = new JsonArray("req_0"), ["outputNames"] = new JsonArray("message") } };
+            else if (purpose == PlanningConstruction.DraftPurpose)
+                response = new() { ["baseHash"] = context["baseHash"]!.DeepClone(), ["extension"] = JsonSerializer.SerializeToNode(new PlanningConstructionExtension
+                    { Tasks = runtime.Proposal.Plan!.Root.Tasks, Outputs = runtime.Proposal.Plan.Root.Outputs,
+                        RequirementIds = ["req_0"], CloseScopes = ["/root"], Complete = true }, PlanningJsonContext.Default.PlanningConstructionExtension) };
+            else
+                response = new() { ["findings"] = new JsonArray(), ["uncertainty"] = "Offline fixture; execution is unverified." };
+            var schema = request.StructuredOutputSchema!.AsObject();
+            return new() { Json = PlanningCorpus.Transport(response, schema, schema) };
+        };
         return runtime;
     }
 }

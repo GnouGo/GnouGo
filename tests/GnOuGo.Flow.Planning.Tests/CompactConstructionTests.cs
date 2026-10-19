@@ -1,0 +1,725 @@
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using GnOuGo.Flow.Core.Planning;
+using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Planning.Examples;
+
+namespace GnOuGo.Flow.Planning.Tests;
+
+public sealed class CompactConstructionTests
+{
+    [Theory]
+    [InlineData("漢")]
+    [InlineData("🧠")]
+    [InlineData("\"\\\n")]
+    public async Task OriginalUnicodeAndEscapedSourcesFitEveryCompleteIndexRequest(string character)
+    {
+        var original = string.Concat(Enumerable.Repeat(character, 1000));
+        var state = Fresh(original);
+        PlanningSessionCreation.Capture(state);
+        PlanningCompactConstruction.InitializeSources(state);
+        var pageCount = state.Construction!.Compact!.Sources.Count;
+        Assert.InRange(pageCount, 2, 40);
+        var runtime = new TestRuntime { Respond = Simple };
+        var planner = new HybridWorkflowPlanner();
+        for (var page = 0; page < pageCount; page++)
+        {
+            state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
+            Assert.DoesNotContain(state.Diagnostics, d => d.Required);
+            var measurement = state.RequestMeasurements![^1];
+            Assert.Equal(PlanningCompactConstruction.IntentPurpose, measurement.Phase);
+            Assert.InRange(measurement.EstimatedInputTokens, 1, 3000);
+        }
+        var pages = state.Construction!.Compact!.Sources.Where(s => s.Kind == "page").ToArray();
+        Assert.All(pages, page => Assert.True(page.Indexed));
+        Assert.Equal(original, string.Concat(pages.Select(page => page.Text)));
+        Assert.Equal(pageCount, state.ModelCalls);
+    }
+
+    private static PlanningSession Fresh(string prompt = "Return exactly Hello.") => new()
+    { Request = new() { TenantId = "compact", Prompt = prompt, Options = new JsonObject { ["automatic_correction"] = true } } };
+    private static JsonObject Context(LLMRequest request) => JsonNode.Parse(request.Prompt[(request.Prompt.IndexOf('\n') + 1)..])!.AsObject();
+    private static LLMResponse Wire(LLMRequest request, JsonObject response) => new()
+    { Json = PlanningCorpus.Transport(response, request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject()) };
+    private static JsonObject Reviewed() => new() { ["findings"] = new JsonArray(), ["uncertainty"] = "Execution remains unverified.", ["evidenceRequests"] = null };
+    private static JsonObject Index(LLMRequest request, string? text = null, bool two = false)
+    {
+        var source = Context(request)["sources"]![0]!;
+        var original = text ?? source["text"]!.ToString();
+        var clauses = two ? new JsonArray(new JsonObject { ["text"] = original[..(original.Length / 2)], ["kind"] = "requirement" },
+            new JsonObject { ["text"] = original[(original.Length / 2)..], ["kind"] = "requirement" })
+            : new JsonArray(new JsonObject { ["text"] = original, ["kind"] = "requirement" });
+        return new() { ["sourceId"] = source["id"]!.ToString(), ["clauses"] = clauses, ["inputs"] = new JsonArray(),
+            ["outputs"] = new JsonArray(new JsonObject { ["name"] = "message", ["type"] = new JsonObject { ["kind"] = "string", ["nullable"] = false }, ["required"] = true }) };
+    }
+    private static JsonObject Select(LLMRequest request, string kind = "value", string scope = "/root", bool close = true,
+        string[]? inputs = null) => new()
+    {
+        ["baseHash"] = Context(request)["baseHash"]!.ToString(),
+        ["step"] = new JsonObject { ["scope"] = scope, ["kind"] = kind, ["objective"] = "Produce the exact requested greeting.",
+            ["requirementIds"] = new JsonArray("req_0"), ["inputs"] = new JsonArray((inputs ?? []).Select(id => (JsonNode)new JsonObject
+                { ["kind"] = "output", ["source"] = id, ["port"] = "message" }).ToArray()),
+            ["dependencyTaskIds"] = new JsonArray(), ["expectedOutputs"] = new JsonArray("The exact greeting."),
+            ["closeRequirementIds"] = close ? new JsonArray("req_0") : new JsonArray(), ["outputNames"] = new JsonArray("message") },
+        ["clarifications"] = null, ["evidenceRequests"] = null
+    };
+    private static PlanTask Value(string id = "greet") => new()
+    { Id = id, Kind = "value", Objective = "Produce the exact requested greeting.", Outputs = [new("message", new() { Kind = "string", Text = "Hello" })] };
+    private static JsonObject Draft(LLMRequest request, PlanningConstructionExtension? extension = null) => new()
+    {
+        ["baseHash"] = Context(request)["baseHash"]!.ToString(), ["requirements"] = null, ["commitments"] = null,
+        ["extension"] = JsonSerializer.SerializeToNode(extension ?? new() { Tasks = [Value()],
+            Outputs = [new("message", new() { Kind = "output", Source = "greet", Port = "message" })],
+            RequirementIds = ["req_0"], CloseScopes = ["/root"], Complete = true }, PlanningJsonContext.Default.PlanningConstructionExtension),
+        ["discoveryRequests"] = null, ["clarifications"] = null, ["evidenceRequests"] = null, ["rollbackTask"] = null, ["rollbackReason"] = null
+    };
+    private static LLMResponse Simple(LLMRequest request, string purpose) => Wire(request, purpose switch
+    {
+        PlanningCompactConstruction.IntentPurpose => Index(request),
+        PlanningCompactConstruction.SelectPurpose => Select(request),
+        PlanningConstruction.DraftPurpose or "replan" => Draft(request),
+        _ => Reviewed()
+    });
+
+    [Fact]
+    public async Task FreshSessionIndexesSelectsAndReviewsOneDraftWithSmallPhaseRequests()
+    {
+        var runtime = new TestRuntime { Respond = Simple };
+        var state = await PlannerFixture.RunAsync(runtime, Fresh());
+        Assert.True(state.Status == PlanningStatus.FinalReview, string.Join(';', state.Diagnostics.Select(d => d.Code + ":" + d.Message)));
+        Assert.Equal(4, runtime.Calls.Count);
+        Assert.Equal(2, state.Construction!.Version);
+        Assert.Equal(64, state.Request.MaxModelCalls);
+        Assert.True(PlanningCompactConstruction.SourcesComplete(state));
+        Assert.Equal("closed", Assert.Single(state.Construction.Requirements).Status);
+        PlanningArtifactApproval.Verify(state);
+        foreach (var call in runtime.Calls)
+        {
+            var phase = call.StructuredOutputSchema!["title"]!.ToString();
+            Assert.InRange(PlanningRequestMeasurements.Measure(call, phase, 8000).EstimatedInputTokens, 1, PlanningConstructionInputPolicy.EffectiveLimit(state.Request, phase));
+        }
+        Assert.DoesNotContain("operationDirectory", runtime.Calls[^1].Prompt, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"request\":", runtime.Calls[^1].Prompt, StringComparison.Ordinal);
+        Assert.Contains("No executable task payload", runtime.Calls[1].Prompt, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task SourceOmissionCannotBecomeAcceptedRequirements()
+    {
+        var runtime = new TestRuntime { Respond = (request, _) => Wire(request, Index(request, "Omitted original text")) };
+        var state = await PlannerFixture.RunAsync(runtime, Fresh());
+        Assert.Null(state.Requirements);
+        Assert.Empty(state.Construction!.Checkpoints);
+        Assert.False(state.Construction.Compact!.Sources.Single().Indexed);
+        Assert.Contains(state.Diagnostics, d => d.Code == "REPLAN_NO_PROGRESS");
+    }
+
+    [Fact]
+    public async Task RequirementContributionDoesNotCloseAnotherOriginalRequirement()
+    {
+        var runtime = new TestRuntime { Respond = (request, purpose) => purpose == PlanningCompactConstruction.IntentPurpose
+            ? Wire(request, Index(request, two: true)) : Simple(request, purpose) };
+        var state = await PlannerFixture.RunAsync(runtime, Fresh());
+        Assert.NotEqual(PlanningStatus.FinalReview, state.Status);
+        Assert.Empty(state.Construction!.Checkpoints);
+        Assert.Equal(2, state.Construction.Requirements.Count);
+        Assert.Contains(state.Construction.Candidate!.Diagnostics, d => d.Code == "CONSTRUCTION_REQUIREMENT_REMAINING");
+    }
+
+    [Fact]
+    public async Task PendingStepSelectionResumesExactIssuedRequest()
+    {
+        var runtime = new TestRuntime { Respond = (request, purpose) => purpose == PlanningCompactConstruction.SelectPurpose
+            ? throw new OperationCanceledException() : Simple(request, purpose) };
+        var state = Fresh(); var planner = new HybridWorkflowPlanner();
+        state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
+        _ = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
+        var saved = PlannerFixture.Clone(runtime.Checkpoints.Last(s => s.PendingCall?.Purpose == PlanningCompactConstruction.SelectPurpose));
+        saved.Status = PlanningStatus.Generating; // Recover the issued checkpoint preceding the interrupted call.
+        var issued = JsonSerializer.Serialize(saved.PendingCall!.Request, PlanningJsonContext.Default.LLMRequest);
+        var count = saved.ModelCalls;
+        var recovery = new TestRuntime { Respond = Simple };
+        var resumed = await planner.AdvanceAsync(saved, new() { ExpectedRevision = saved.Revision }, recovery, PlannerFixture.Ct);
+        Assert.Equal(issued, JsonSerializer.Serialize(Assert.Single(recovery.Calls), PlanningJsonContext.Default.LLMRequest));
+        Assert.Equal(count, resumed.ModelCalls);
+        Assert.NotNull(resumed.Construction!.Compact!.CurrentStep);
+    }
+
+    [Fact]
+    public async Task ClosedSourceCoverageIsRequiredByApprovalAndMeasurementsDoNotChangeArtifact()
+    {
+        var state = await PlannerFixture.RunAsync(new TestRuntime { Respond = Simple }, Fresh());
+        var hash = state.ComputeArtifactHash();
+        state.RequestMeasurements ??= [];
+        state.RequestMeasurements.Add(new() { Phase = "unrelated-measurement", CompleteRequestBytes = 1 });
+        Assert.Equal(hash, state.ComputeArtifactHash());
+        state.Construction!.Compact!.Sources[0].Indexed = false;
+        Assert.Throws<PlanningConflictException>(() => PlanningArtifactApproval.Verify(state));
+    }
+
+    [Fact]
+    public async Task RollbackDropsOnlyCurrentStepPresentationAndRetainsOriginalSources()
+    {
+        var state = await PlannerFixture.RunAsync(new TestRuntime { Respond = Simple }, Fresh());
+        var sources = JsonSerializer.Serialize(state.Construction!.Compact!.Sources, PlanningJsonContext.Default.ListPlanningConstructionSource);
+        state.Construction.Compact.CurrentStep = new() { Id = "stale", BaseHash = PlanningConstruction.Hash(state.Plan), SchemaPointers = ["stale"] };
+        state.Construction.Compact.PendingCommitments["req_0"] = [new("old")];
+        PlanningConstruction.Rollback(state, "greet", "Rebuild the exact producer while preserving original intent.");
+        Assert.Null(state.Construction.Compact.CurrentStep);
+        Assert.Empty(state.Construction.Compact.PendingCommitments);
+        Assert.Equal(sources, JsonSerializer.Serialize(state.Construction.Compact.Sources, PlanningJsonContext.Default.ListPlanningConstructionSource));
+        Assert.Equal("remaining", Assert.Single(state.Construction.Requirements).Status);
+    }
+
+    [Fact]
+    public async Task RetainedUnrelatedContractDoesNotEnterNextStepOrJudge()
+    {
+        var state = await PlannerFixture.RunAsync(new TestRuntime { Respond = Simple }, Fresh());
+        state.Construction!.Compact!.CurrentStep = new() { Id = "next", BaseHash = PlanningConstruction.Hash(state.Plan), Scope = "/root", Kind = "close", RequirementIds = ["req_0"] };
+        state.Discovery.Resolved.Add(new() { Id = "unrelated", Description = new string('z', 60000), Version = "1", StepType = "set" });
+        var context = PlanningCompactConstruction.Context(state, review: true).ToJsonString();
+        Assert.DoesNotContain(new string('z', 100), context, StringComparison.Ordinal);
+        Assert.Empty(JsonNode.Parse(context)!["operations"]!.AsArray());
+    }
+
+    [Fact]
+    public async Task CallerCannotOptFreshSessionIntoHistoricalVersion()
+    {
+        var state = Fresh(); state.Construction = new() { Version = 1 }; state.Request.Options["construction_version"] = 1;
+        var runtime = new TestRuntime { Respond = Simple };
+        state = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = 0 }, runtime, PlannerFixture.Ct);
+        Assert.Equal(2, state.Construction!.Version);
+        Assert.Equal(PlanningCompactConstruction.IntentPurpose, Assert.Single(runtime.Calls).StructuredOutputSchema!["title"]!.ToString());
+    }
+    [Theory]
+    [InlineData("sequence")]
+    [InlineData("conditional")]
+    [InlineData("foreach")]
+    [InlineData("parallel")]
+    public async Task ControlScopesConstructInOrderWithTypedChildImportsAndExplicitJoins(string kind)
+    {
+        var container = new PlanTask { Id = "scope_work", Kind = kind, Objective = "Produce the requested scoped result." };
+        var children = kind is "conditional" or "parallel" ? 2 : 1;
+        if (kind == "parallel") container.Branches = [new(), new()];
+        else container.Body = new();
+        if (kind == "conditional") { container.Condition = new() { Kind = "boolean", Boolean = true }; container.Otherwise = new(); }
+        if (kind == "foreach") container.Items = new() { Kind = "array", Items = [new() { Kind = "string", Text = "Hello" }] };
+        var steps = new List<(string Kind, string Scope, PlanningConstructionExtension Extension)>
+        { (kind, "/root", new() { Tasks = [container], RequirementIds = ["req_0"] }) };
+        for (var i = 0; i < children; i++)
+        {
+            var scope = kind == "parallel" ? "/tasks/scope_work/branches/" + i : "/tasks/scope_work/" + (i == 0 ? "body" : "otherwise");
+            var task = Value("child_" + i);
+            if (kind == "foreach") task.Outputs[0] = new("message", new() { Kind = "item" });
+            var port = kind == "parallel" && i == 1 ? "other" : "message";
+            steps.Add(("value", scope, new() { Scope = scope, Tasks = [task], Outputs = [new(port, new() { Kind = "output", Source = task.Id, Port = "message" })],
+                CloseScopes = [scope], RequirementIds = ["req_0"] }));
+        }
+        steps.Add(("close", "/root", new() { Outputs = [new("message", new() { Kind = "output", Source = "scope_work", Port = "message" })],
+            CloseScopes = ["/root"], Complete = true, RequirementIds = ["req_0"] }));
+        var index = 0;
+        var runtime = new TestRuntime { Respond = (request, purpose) =>
+        {
+            JsonObject response;
+            if (purpose == PlanningCompactConstruction.IntentPurpose)
+            {
+                response = Index(request);
+                if (kind == "foreach") response["outputs"]![0]!["type"] = new JsonObject
+                    { ["kind"] = "array", ["nullable"] = false, ["items"] = new JsonObject { ["kind"] = "string", ["nullable"] = false } };
+            }
+            else if (purpose == PlanningCompactConstruction.SelectPurpose)
+            {
+                var next = steps[index];
+                response = Select(request, next.Kind, next.Scope, close: index == steps.Count - 1,
+                    inputs: index == steps.Count - 1 ? ["scope_work"] : []);
+                if (kind == "foreach" && index == 1) response["step"]!["inputs"] = new JsonArray(new JsonObject { ["kind"] = "item" });
+            }
+            else if (purpose == PlanningConstruction.DraftPurpose) response = Draft(request, steps[index++].Extension);
+            else response = Reviewed();
+            return Wire(request, response);
+        } };
+        var state = await PlannerFixture.RunAsync(runtime, Fresh());
+        Assert.True(state.Status == PlanningStatus.FinalReview, string.Join(';', state.Diagnostics.Select(d => d.Code + ":" + d.Message)));
+        Assert.Equal(steps.Count, state.Construction!.Checkpoints.Count);
+        Assert.Contains(state.Construction.Checkpoints.SelectMany(c => c.Reviews), r => r["purpose"]!.ToString() == PlanningConstruction.IntermediatePurpose);
+        PlanningArtifactApproval.Verify(state);
+    }
+
+    [Fact]
+    public async Task ScopedRevisionRetainsExactSourcesAndUsesExistingTypedPatchAuthority()
+    {
+        var runtime = new TestRuntime { Respond = Simple };
+        var state = await PlannerFixture.RunAsync(runtime, Fresh());
+        var originalSource = state.Construction!.Compact!.Sources[0].Version;
+        var planner = new HybridWorkflowPlanner();
+        state = await planner.AdvanceAsync(state, new() { Kind = "revise", ExpectedRevision = state.Revision,
+            PreserveRequirements = true, ArtifactHash = state.ComputeArtifactHash(), Text = "Keep exactly Hello and verify this output binding.",
+            EditablePaths = ["/root/outputs/message"] }, runtime, PlannerFixture.Ct);
+        Assert.Equal("revision", state.Construction!.Compact!.CurrentStep!.Kind);
+        Assert.NotNull(state.Construction.Candidate!.AuthorizedPaths);
+        runtime.Respond = (request, purpose) => purpose == PlanningCompactConstruction.IntentPurpose
+            ? Wire(request, new JsonObject { ["sourceId"] = Context(request)["sources"]![0]!["id"]!.ToString(),
+                ["clauses"] = new JsonArray(new JsonObject { ["text"] = Context(request)["sources"]![0]!["text"]!.ToString(), ["kind"] = "global" }),
+                ["inputs"] = new JsonArray(), ["outputs"] = new JsonArray() }) : Simple(request, purpose);
+        state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
+        Assert.Equal(originalSource, state.Construction!.Compact!.Sources[0].Version);
+        Assert.Contains(state.Construction.Compact.Sources, source => source.Kind == "revision_page" && source.Indexed);
+        Assert.DoesNotContain(state.Diagnostics, d => d.Code == "PLANNING_HOST_FAILURE");
+        Assert.NotNull(state.Construction.Compact.CurrentStep);
+    }
+
+    [Fact]
+    public async Task InvalidLaterInterfaceDoesNotPartiallyAcceptEarlierInput()
+    {
+        var runtime = new TestRuntime { Respond = (request, _) =>
+        {
+            var response = Index(request);
+            response["inputs"] = new JsonArray(new JsonObject { ["name"] = "new_input", ["type"] = new JsonObject { ["kind"] = "string", ["nullable"] = false }, ["required"] = true });
+            response["outputs"]![0]!["name"] = "";
+            return Wire(request, response);
+        } };
+        var state = await new HybridWorkflowPlanner().AdvanceAsync(Fresh(), new() { ExpectedRevision = 0 }, runtime, PlannerFixture.Ct);
+        Assert.Null(state.Requirements);
+        Assert.False(state.Construction!.Compact!.Sources.Single().Indexed);
+    }
+
+    [Fact]
+    public async Task FreshPhaseLimitsCaptureEffectiveValuesBeforeFirstRequest()
+    {
+        var state = Fresh();
+        state.Request.Generation = new("medium", 3500, 8192);
+        state.Construction = new() { Limits = new() { InputLimits = new() { Selection = 5000, Draft = 9000, Review = 7000 } } };
+        state = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = 0 }, new TestRuntime { Respond = Simple }, PlannerFixture.Ct);
+        var captured = state.Request.Options["construction_input_limits"]!.Deserialize(PlanningJsonContext.Default.PlanningConstructionInputLimits)!;
+        Assert.Equal(3000, captured.Selection);
+        Assert.Equal(3500, captured.Draft);
+        Assert.Equal(3500, captured.Review);
+        Assert.Equal(captured.Draft, state.Construction!.Limits.InputLimits!.Draft);
+    }
+
+    [Fact]
+    public async Task OriginalRequirementPagesKeepTheirIdentityAfterEarlierRequirementsClose()
+    {
+        var state = await PlannerFixture.RunAsync(new TestRuntime { Respond = Simple }, Fresh());
+        for (var i = 1; i < 6; i++)
+        {
+            state.Requirements!.Outcomes.Add(new("req_" + i, "Independent original requirement " + i));
+            state.Construction!.Requirements.Add(new() { Id = "req_" + i, Status = "remaining" });
+        }
+        Assert.True(PlanningCompactConstruction.LoadEvidence(state, "page:requirements:3", out var evidence));
+        var selected = PlanningCompactConstruction.SelectionContext(state)["requirements"]!.AsArray();
+        Assert.Equal("req_3", evidence!["items"]![0]!["id"]!.ToString());
+        Assert.Equal("req_3", selected[0]!["id"]!.ToString());
+        Assert.Equal(3, selected.Count);
+    }
+
+    [Fact]
+    public async Task SourcePagesRetainEveryOriginalCharacterAcrossBoundaries()
+    {
+        var prompt = new string('a', 999) + "🦊" + new string('b', 1000) + " Keep exactly Hello.";
+        var state = Fresh(prompt);
+        var runtime = new TestRuntime { Respond = (request, _) => Wire(request, Index(request)) };
+        var planner = new HybridWorkflowPlanner();
+        for (var i = 0; i < 3; i++)
+            state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
+        Assert.Equal(3, runtime.Calls.Count);
+        Assert.All(state.Construction!.Compact!.Sources, source => Assert.True(source.Indexed));
+        Assert.Equal(prompt, string.Concat(state.Requirements!.Outcomes.Select(r => r.Description)));
+        Assert.All(runtime.Calls, call => Assert.InRange(PlanningRequestMeasurements.Measure(call, PlanningCompactConstruction.IntentPurpose, 3000).EstimatedInputTokens, 1, 3000));
+    }
+
+    [Fact]
+    public async Task ContributionCheckpointCannotForgeReviewedRequirementClosure()
+    {
+        var state = await PlannerFixture.RunAsync(new TestRuntime { Respond = Simple }, Fresh());
+        var checkpoint = Assert.Single(state.Construction!.Checkpoints);
+        Assert.Equal(["req_0"], checkpoint.ClosedRequirementIds);
+        Assert.All(checkpoint.Reviews, review => Assert.Equal("req_0", review["closedRequirementIds"]![0]!.ToString()));
+        checkpoint.ClosedRequirementIds = [];
+        foreach (var review in checkpoint.Reviews) review["closedRequirementIds"] = new JsonArray();
+        Assert.Equal("closed", Assert.Single(state.Construction.Requirements).Status);
+        Assert.Throws<PlanningConflictException>(() => PlanningArtifactApproval.Verify(state));
+    }
+
+    [Fact]
+    public async Task ClosingRootAfterBusinessClosurePreservesClosedRequirementAndReviewedReceipt()
+    {
+        var step = 0;
+        var runtime = new TestRuntime { Respond = (request, purpose) =>
+        {
+            if (purpose == PlanningCompactConstruction.IntentPurpose) return Wire(request, Index(request));
+            if (purpose == PlanningCompactConstruction.SelectPurpose) return Wire(request, Select(request, step == 0 ? "value" : "close", close: step == 0,
+                inputs: step == 0 ? [] : ["greet"]));
+            if (purpose == PlanningConstruction.DraftPurpose) return Wire(request, Draft(request, step++ == 0
+                ? new() { Tasks = [Value()], RequirementIds = ["req_0"] }
+                : new() { Outputs = [new("message", new() { Kind = "output", Source = "greet", Port = "message" })],
+                    RequirementIds = ["req_0"], CloseScopes = ["/root"], Complete = true }));
+            return Wire(request, Reviewed());
+        } };
+        var state = await PlannerFixture.RunAsync(runtime, Fresh());
+        Assert.True(state.Status == PlanningStatus.FinalReview, string.Join(';', state.Diagnostics.Select(d => d.Message)));
+        Assert.Equal("closed", Assert.Single(state.Construction!.Requirements).Status);
+        Assert.Equal(["req_0"], state.Construction.Checkpoints[0].ClosedRequirementIds);
+        Assert.Empty(state.Construction.Checkpoints[1].ClosedRequirementIds!);
+        PlanningArtifactApproval.Verify(state);
+    }
+
+    [Fact]
+    public async Task ReselectionRetainsAcceptedWorkAndCorrectionAccountingWithoutExpandingAuthority()
+    {
+        var state = await PlannerFixture.RunAsync(new TestRuntime { Respond = Simple }, Fresh());
+        state.Construction!.OpenScopes = ["/root"];
+        state.Construction.Compact!.CurrentStep = new() { Id = "tentative", BaseHash = PlanningConstruction.Hash(state.Plan),
+            Kind = "value", Scope = "/root", RequirementIds = ["req_0"] };
+        var candidate = PlanningConstruction.Apply(state, new() { Tasks = [Value("rejected")], RequirementIds = ["req_0"] });
+        candidate.Corrections = 2; state.Construction.Candidate = candidate;
+        state.Diagnostics = [new("BUSINESS_OPERATION_REQUIRED", "/draft", "The selected tentative kind cannot perform the required operation.")];
+        state.ReplanAttempts = 2;
+        var hash = PlanningConstruction.Hash(state.Plan);
+        PlanningCompactConstruction.Reselect(state, "Select the required inspected business operation.");
+        Assert.Equal(hash, PlanningConstruction.Hash(state.Plan));
+        Assert.Equal(2, state.ReplanAttempts);
+        Assert.Equal(2, state.Construction.DraftCorrections);
+        Assert.Null(state.Construction.Candidate);
+        Assert.Null(state.Construction.Compact.CurrentStep);
+        Assert.Single(state.Construction.Compact.RejectedSteps);
+        Assert.Throws<PlanningResponseException>(() => PlanningCompactConstruction.ValidateSelection(state,
+            new() { Kind = "operation", Scope = "/root", RequirementIds = ["other"] }));
+        state.Construction.Compact.CurrentStep = new() { Scope = "/root", RequirementIds = ["req_0"] };
+        state.EditablePaths = ["/root/outputs/message"];
+        Assert.Throws<PlanningResponseException>(() => PlanningCompactConstruction.Reselect(state, "Cannot widen explicit typed correction."));
+    }
+
+    [Theory]
+    [InlineData("port")]
+    [InlineData("dependency")]
+    public async Task CandidateCannotReadUnselectedAcceptedPortOrDependency(string kind)
+    {
+        var state = await PlannerFixture.RunAsync(new TestRuntime { Respond = Simple }, Fresh());
+        state.Construction!.OpenScopes = ["/root"];
+        state.Construction.Compact!.CurrentStep = new() { Id = "next", BaseHash = PlanningConstruction.Hash(state.Plan),
+            Kind = "value", Scope = "/root", RequirementIds = ["req_0"] };
+        var task = Value("consumer");
+        if (kind == "port") task.Outputs = [new("message", new() { Kind = "output", Source = "greet", Port = "message" })];
+        else task.DependsOn = ["greet"];
+        var candidate = PlanningConstruction.Apply(state, new() { Tasks = [task], RequirementIds = ["req_0"] });
+        var error = Assert.Throws<PlanningResponseException>(() => PlanningCompactConstruction.ValidateExtension(state, candidate));
+        Assert.Contains(error.Diagnostics, d => d.Code == "CONSTRUCTION_STEP_INPUT_INVALID");
+        if (kind == "port") state.Construction.Compact.CurrentStep.Inputs = [new() { Kind = "output", Source = "greet", Port = "message" }];
+        else state.Construction.Compact.CurrentStep.DependencyTaskIds = ["greet"];
+        PlanningCompactConstruction.ValidateExtension(state, candidate);
+    }
+
+    [Fact]
+    public async Task FiveHundredIndependentTasksAndShallowScopesDoNotGrowSelectedDraftOrJudge()
+    {
+        var state = await PlannerFixture.RunAsync(new TestRuntime { Respond = Simple }, Fresh());
+        state.Construction!.OpenScopes = ["/root"];
+        state.Construction.Compact!.CurrentStep = new() { Id = "next", BaseHash = PlanningConstruction.Hash(state.Plan), Kind = "value",
+            Scope = "/root", Objective = "Produce another exact value.", RequirementIds = ["req_0"] };
+        state.Construction.Candidate = PlanningConstruction.Apply(state, new() { Tasks = [Value("next")], RequirementIds = ["req_0"] });
+        var beforeDraft = PlanningConstruction.DraftRequest(state, false);
+        var beforeJudge = PlanningCompactConstruction.Context(state, review: true).ToJsonString();
+        for (var i = 0; i < 500; i++) state.Plan!.Root.Tasks.Add(Value("independent_" + i));
+        for (var i = 0; i < 101; i++)
+        {
+            state.Plan!.Root.Tasks.Add(new() { Id = "unrelated_scope_" + i, Kind = "sequence", Objective = "Independent accepted scope", Body = new() });
+            state.Construction.Checkpoints.Add(new() { Sequence = i + 2, TaskIds = ["unrelated_scope_" + i], RequirementIds = [] });
+        }
+        state.Construction.Compact.CurrentStep.BaseHash = PlanningConstruction.Hash(state.Plan);
+        var afterDraft = PlanningConstruction.DraftRequest(state, false);
+        var afterJudge = PlanningCompactConstruction.Context(state, review: true).ToJsonString();
+        Assert.Equal(beforeDraft.Prompt.Length, afterDraft.Prompt.Length);
+        Assert.Equal(beforeJudge.Length, afterJudge.Length);
+        Assert.DoesNotContain("independent_", afterDraft.Prompt, StringComparison.Ordinal);
+        Assert.DoesNotContain("unrelated_scope_", afterJudge, StringComparison.Ordinal);
+        Assert.InRange(PlanningRequestMeasurements.Measure(afterDraft, PlanningConstruction.DraftPurpose, 8000).EstimatedInputTokens, 1, 8000);
+    }
+
+    [Fact]
+    public async Task ExactResultCommitmentsRemainTentativeAndVisibleToTheJudge()
+    {
+        var state = await PlannerFixture.RunAsync(new TestRuntime { Respond = Simple }, Fresh());
+        state.Discovery.Resolved.Add(new() { Id = "read", Version = "v1", Kind = "tool", StepType = "mcp.call", Server = "test", Method = "read", EffectKind = "read",
+            InputSchema = new() { ["type"] = "object", ["properties"] = new JsonObject(), ["additionalProperties"] = false },
+            OutputSchema = new() { ["type"] = "object", ["properties"] = new JsonObject { ["result"] = new JsonObject { ["type"] = "string" } },
+                ["required"] = new JsonArray("result"), ["additionalProperties"] = false } });
+        state.Construction!.Compact!.CurrentStep = new() { Kind = "operation", Scope = "/root", RequirementIds = ["req_0"], OperationIds = ["read"] };
+        PlanningCompactConstruction.StageCommitments(state, [new() { RequirementId = "req_0", Operation = "read", Result = new("result", "message") }]);
+        Assert.Empty(state.Requirements!.Outcomes[0].Commitments ?? []);
+        Assert.Equal("result", PlanningCompactConstruction.Context(state, review: true)["commitments"]!["req_0"]![0]!["result"]!["port"]!.ToString());
+        Assert.Throws<PlanningResponseException>(() => PlanningCompactConstruction.StageCommitments(state,
+            [new() { RequirementId = "req_0", Operation = "read", Result = new("undeclared", "message") }]));
+        Assert.Equal("result", Assert.Single(state.Construction.Compact.PendingCommitments["req_0"]).Result!.Port);
+        PlanningCompactConstruction.Accept(state);
+        Assert.Equal(new("result", "message"), Assert.Single(state.Requirements.Outcomes[0].Commitments!).Result);
+    }
+
+    [Fact]
+    public async Task FreshBaselineKeepsExistingTasksAndCallerDefaultsDuringInitialIndexing()
+    {
+        var original = Value("baseline");
+        var state = Fresh("Return exactly the existing greeting as message, preserving the baseline.");
+        state.Request.Baseline = new() { Inputs = [new() { Name = "unused", Type = new() { Kind = "string" }, Required = false,
+            Default = new() { Kind = "string", Text = "retained" } }], Root = new() { Tasks = [original] } };
+        var before = JsonSerializer.Serialize(original, PlanningJsonContext.Default.PlanTask);
+        var runtime = new TestRuntime { Respond = (request, purpose) => Wire(request, purpose switch
+        {
+            PlanningCompactConstruction.IntentPurpose => Index(request),
+            PlanningCompactConstruction.SelectPurpose => Select(request, "close", inputs: ["baseline"]),
+            PlanningConstruction.DraftPurpose => Draft(request, new() { RequirementIds = ["req_0"], CloseScopes = ["/root"], Complete = true,
+                Outputs = [new("message", new() { Kind = "output", Source = "baseline", Port = "message" })] }),
+            _ => Reviewed()
+        }) };
+        state = await PlannerFixture.RunAsync(runtime, state);
+        Assert.True(state.Status == PlanningStatus.FinalReview, string.Join(';', state.Diagnostics.Select(d => d.Message)));
+        Assert.Equal(before, JsonSerializer.Serialize(Assert.Single(state.Plan!.Root.Tasks), PlanningJsonContext.Default.PlanTask));
+        Assert.Equal("retained", Assert.Single(state.Requirements!.Inputs!).Default!.Text);
+        Assert.True(PlanningClarifications.SameInputs(state.Request.Baseline!.Inputs, state.Plan.Inputs));
+        PlanningArtifactApproval.Verify(state);
+    }
+
+    [Fact]
+    public async Task IntentInterfacesRetainLiteralDefaultsEnumsAndArrayCardinality()
+    {
+        var runtime = new TestRuntime { Respond = (request, _) =>
+        {
+            var response = Index(request);
+            response["inputs"] = JsonNode.Parse("""
+                [{"name":"selection","required":false,"type":{"kind":"string","nullable":false,"enum":["A","B"]},"default":{"kind":"string","text":"B"}},
+                 {"name":"labels","required":false,"type":{"kind":"array","nullable":false,"items":{"kind":"string","nullable":false},"minItems":1,"maxItems":2},
+                  "default":{"kind":"array","items":[{"kind":"string","text":"A"}]}},
+                 {"name":"missing","required":false,"type":{"kind":"string","nullable":true},"default":{"kind":"null"}},
+                 {"name":"record","required":false,"type":{"kind":"object","nullable":false,"fields":[{"name":"enabled","required":true,"type":{"kind":"boolean","nullable":false}}]},
+                  "default":{"kind":"object","members":[{"name":"enabled","value":{"kind":"boolean","boolean":false}}]}}]
+                """);
+            return Wire(request, response);
+        } };
+        var state = await new HybridWorkflowPlanner().AdvanceAsync(Fresh("Allow selection A or B with default B; one or two labels defaulting to A; nullable missing defaults to null; record.enabled defaults to false. Return Hello."),
+            new() { ExpectedRevision = 0 }, runtime, PlannerFixture.Ct);
+        Assert.Empty(state.Diagnostics);
+        var inputs = state.Requirements!.Inputs!;
+        Assert.Equal(["A", "B"], inputs[0].Type.Enum);
+        Assert.Equal("B", inputs[0].Default!.Text);
+        Assert.Equal(1, inputs[1].Type.MinItems); Assert.Equal(2, inputs[1].Type.MaxItems);
+        Assert.Equal("A", Assert.Single(inputs[1].Default!.Items).Text);
+        Assert.Equal("null", inputs[2].Default!.Kind);
+        Assert.False(Assert.Single(inputs[3].Default!.Members).Value.Boolean);
+        Assert.True(PlanningClarifications.SameInputs(inputs, PlannerFixture.Clone(state).Requirements!.Inputs));
+        Assert.InRange(state.RequestMeasurements!.Single().EstimatedInputTokens, 1, 3000);
+    }
+
+    [Theory]
+    [InlineData("default")]
+    [InlineData("bounds")]
+    [InlineData("missing_default")]
+    public async Task InvalidDeclaredInterfaceConstraintsCannotBecomeAcceptedIntent(string invalid)
+    {
+        var runtime = new TestRuntime { Respond = (request, _) =>
+        {
+            var response = Index(request);
+            response["inputs"] = invalid == "missing_default" ? JsonNode.Parse("""
+                [{"name":"selection","required":false,"type":{"kind":"string","nullable":false}}]
+                """) : invalid == "default" ? JsonNode.Parse("""
+                [{"name":"selection","required":false,"type":{"kind":"string","nullable":false,"enum":["A","B"]},"default":{"kind":"string","text":"C"}}]
+                """) : JsonNode.Parse("""
+                [{"name":"labels","required":true,"type":{"kind":"array","nullable":false,"items":{"kind":"string","nullable":false},"minItems":3,"maxItems":2}}]
+                """);
+            return Wire(request, response);
+        } };
+        var state = await new HybridWorkflowPlanner().AdvanceAsync(Fresh(), new() { ExpectedRevision = 0 }, runtime, PlannerFixture.Ct);
+        Assert.Null(state.Requirements);
+        Assert.Contains(state.Diagnostics, d => d.Code == (invalid switch { "default" => "TASK_DEFAULT_INVALID", "bounds" => "TASK_TYPE_INVALID", _ => "TASK_DEFAULT_REQUIRED" }));
+        Assert.False(state.Construction!.Compact!.Sources.Single().Indexed);
+    }
+
+    [Fact]
+    public async Task PublicOutputCannotReplaceProducedEvidenceWithAnIndexedDefault()
+    {
+        var runtime = new TestRuntime { Respond = (request, _) =>
+        {
+            var response = Index(request);
+            response["outputs"]![0]!["default"] = new JsonObject { ["kind"] = "string", ["text"] = "Invented result" };
+            return new() { Json = response }; // Exercise exact response-schema rejection without fixture projection.
+        } };
+        var state = await new HybridWorkflowPlanner().AdvanceAsync(Fresh(), new() { ExpectedRevision = 0 }, runtime, PlannerFixture.Ct);
+        Assert.Null(state.Requirements);
+        Assert.NotEmpty(state.Diagnostics);
+        Assert.False(state.Construction!.Compact!.Sources.Single().Indexed);
+    }
+
+    [Fact]
+    public async Task RequestedDiscoveryPageReplacesTheInitialMatchingDirectory()
+    {
+        var state = await PlannerFixture.RunAsync(new TestRuntime { Respond = Simple }, Fresh());
+        state.Construction!.Compact!.CurrentStep = new() { Kind = "operation", RequirementIds = ["req_0"] };
+        state.Construction.Evidence = new() { ["page:operations:4"] = new JsonObject { ["offset"] = 4, ["items"] = new JsonArray("later-operation") },
+            ["page:sources:2"] = new JsonObject { ["offset"] = 2, ["items"] = new JsonArray("later-source") } };
+        var context = PlanningCompactConstruction.DiscoveryContext(state);
+        Assert.Null(context["descriptors"]); Assert.Null(context["sources"]);
+        Assert.Equal("later-operation", context["evidence"]!["page:operations:4"]!["items"]![0]!.ToString());
+        Assert.Equal("later-source", context["evidence"]!["page:sources:2"]!["items"]![0]!.ToString());
+    }
+
+    [Fact]
+    public async Task ReusableGroupIsConstructedBeforeItsCallUsingOnlyTheClosedInterface()
+    {
+        var step = 0;
+        var runtime = new TestRuntime { Respond = (request, purpose) =>
+        {
+            if (purpose == PlanningCompactConstruction.IntentPurpose) return Wire(request, Index(request));
+            if (purpose == PlanningCompactConstruction.SelectPurpose)
+            {
+                var response = Select(request, step switch { 0 => "group", 1 => "value", _ => "call" },
+                    step == 1 ? "/groups/reusable/body" : "/root", close: step == 2);
+                if (step == 1)
+                {
+                    Assert.Contains("\"input\":\"word\"", Context(request)["scopes"]!.ToJsonString(), StringComparison.Ordinal);
+                    response["step"]!["inputs"] = new JsonArray(new JsonObject { ["kind"] = "input", ["source"] = "word" });
+                }
+                if (step == 2)
+                {
+                    Assert.Contains("\"group\":\"reusable\"", Context(request)["interfaces"]!.ToJsonString(), StringComparison.Ordinal);
+                    response["step"]!["groupId"] = "reusable";
+                }
+                return Wire(request, response);
+            }
+            if (purpose == PlanningConstruction.DraftPurpose)
+            {
+                var extension = step++ switch
+                {
+                    0 => new PlanningConstructionExtension { Groups = [new() { Id = "reusable", Inputs = [new() { Name = "word", Type = new() { Kind = "string" } }] }], RequirementIds = ["req_0"] },
+                    1 => new() { Scope = "/groups/reusable/body", Tasks = [new() { Id = "assemble", Kind = "value", Objective = "Return the supplied word.",
+                        Outputs = [new("message", new() { Kind = "input", Source = "word" })] }],
+                        Outputs = [new("message", new() { Kind = "output", Source = "assemble", Port = "message" })], CloseScopes = ["/groups/reusable/body"], RequirementIds = ["req_0"] },
+                    _ => new() { Tasks = [new() { Id = "invoke", Kind = "call", Group = "reusable", Objective = "Return the greeting using the requested reusable group.",
+                        Inputs = [new("word", new() { Kind = "string", Text = "Hello" })] }],
+                        Outputs = [new("message", new() { Kind = "output", Source = "invoke", Port = "message" })], RequirementIds = ["req_0"], CloseScopes = ["/root"], Complete = true }
+                };
+                if (step == 3)
+                {
+                    var group = Context(request)["group"]!;
+                    Assert.Equal("word", group["inputs"]![0]!["name"]!.ToString());
+                    Assert.Equal("string", group["outputs"]![0]!["schema"]!["type"]!.ToString());
+                    Assert.Null(group["body"]);
+                    Assert.DoesNotContain("assemble", group.ToJsonString(), StringComparison.Ordinal);
+                }
+                return Wire(request, Draft(request, extension));
+            }
+            return Wire(request, Reviewed());
+        } };
+        var state = await PlannerFixture.RunAsync(runtime, Fresh("Use a reusable group to return exactly Hello as message."));
+        Assert.True(state.Status == PlanningStatus.FinalReview, string.Join(';', state.Diagnostics.Select(d => d.Code + ":" + d.Message)));
+        Assert.Single(state.Plan!.Groups); Assert.Equal("call", Assert.Single(state.Plan.Root.Tasks).Kind);
+        PlanningArtifactApproval.Verify(state);
+    }
+
+    [Theory]
+    [InlineData(PlanningMode.Auto)]
+    [InlineData(PlanningMode.Interactive)]
+    public async Task LiteralChoiceCanBeDeclaredThenConsumedWithExistingSelectionBehavior(string mode)
+    {
+        var step = 0;
+        var runtime = new TestRuntime { Respond = (request, purpose) =>
+        {
+            if (purpose == PlanningCompactConstruction.IntentPurpose) return Wire(request, Index(request));
+            if (purpose == PlanningCompactConstruction.SelectPurpose)
+            {
+                var response = Select(request, step == 0 ? "choice" : "value", close: step == 1);
+                if (step == 1)
+                {
+                    Assert.Contains("\"choice\":\"greeting\"", Context(request)["interfaces"]!.ToJsonString(), StringComparison.Ordinal);
+                    response["step"]!["inputs"] = new JsonArray(new JsonObject { ["kind"] = "choice", ["source"] = "greeting" });
+                }
+                return Wire(request, response);
+            }
+            if (purpose == PlanningConstruction.DraftPurpose)
+            {
+                var extension = step++ == 0 ? new PlanningConstructionExtension { RequirementIds = ["req_0"], Choices = [new() { Id = "greeting", Question = "Choose the greeting.",
+                    Type = new() { Kind = "string" }, Recommended = "hello", Alternatives = [new("hello", "Hello", new() { Kind = "string", Text = "Hello" }), new("hi", "Hi", new() { Kind = "string", Text = "Hi" })] }] }
+                    : new() { RequirementIds = ["req_0"], Tasks = [new() { Id = "chosen", Kind = "value", Objective = "Return the selected greeting.",
+                        Outputs = [new("message", new() { Kind = "choice", Source = "greeting" })] }],
+                        Outputs = [new("message", new() { Kind = "output", Source = "chosen", Port = "message" })], CloseScopes = ["/root"], Complete = true };
+                if (step == 2) Assert.Equal("hello", Context(request)["choices"]![0]!["selected"]!.ToString());
+                return Wire(request, Draft(request, extension));
+            }
+            return Wire(request, Reviewed());
+        } };
+        var state = Fresh("Choose Hello or Hi, recommending Hello, and return the choice as message."); state.Request.Mode = mode;
+        var planner = new HybridWorkflowPlanner(); var selections = 0;
+        for (var i = 0; i < 25 && !PlanningStatus.IsTerminal(state.Status) && state.Status != PlanningStatus.FinalReview; i++)
+        {
+            var command = state.Status == PlanningStatus.Clarification
+                ? new PlanningCommand { Kind = "choose", ExpectedRevision = state.Revision, Selections = new() { ["greeting"] = "hello" } }
+                : new() { ExpectedRevision = state.Revision };
+            if (command.Kind == "choose") selections++;
+            state = await planner.AdvanceAsync(state, command, runtime, PlannerFixture.Ct);
+        }
+        Assert.True(state.Status == PlanningStatus.FinalReview, string.Join(';', state.Diagnostics.Select(d => d.Code + ":" + d.Message)));
+        Assert.Equal(mode == PlanningMode.Auto ? 0 : 1, selections);
+        Assert.Equal("hello", Assert.Single(state.Plan!.Choices).Selected);
+        PlanningArtifactApproval.Verify(state);
+        var duplicate = PlanningConstruction.Clone(state.Plan); duplicate.Root.Tasks.Add(new() { Id = "duplicate", Kind = "value", Objective = "Invalid duplicate choice use",
+            Outputs = [new("other", new() { Kind = "choice", Source = "greeting" })] });
+        Assert.Contains(TaskPlanCompiler.ValidateConstruction(duplicate, state.Catalog!, state.Request, new HashSet<string> { "/root" }).Diagnostics, d => d.Code == "CHOICE_SLOT_INVALID");
+        var unbound = PlanningConstruction.Clone(state.Plan); unbound.Root = new();
+        Assert.Contains(new TaskPlanCompiler().Compile(unbound, state.Catalog!, state.Request).Diagnostics, d => d.Code == "CHOICE_SLOT_INVALID");
+    }
+
+    [Fact]
+    public async Task NewBusinessRequirementFromExplicitRevisionCannotDisappearBehindClosedOriginals()
+    {
+        var runtime = new TestRuntime { Respond = Simple };
+        var state = await PlannerFixture.RunAsync(runtime, Fresh());
+        var original = state.Requirements!.Outcomes[0];
+        var planner = new HybridWorkflowPlanner();
+        state = await planner.AdvanceAsync(state, new() { Kind = "revise", ExpectedRevision = state.Revision, PreserveRequirements = true,
+            ArtifactHash = state.ComputeArtifactHash(), Text = "Also produce an independently verified second result.", EditablePaths = ["/root/outputs/message"] }, runtime, PlannerFixture.Ct);
+        runtime.Respond = (request, _) =>
+        {
+            var response = Index(request); response["outputs"] = new JsonArray();
+            return Wire(request, response);
+        };
+        state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
+        Assert.Equal(JsonSerializer.Serialize(original, PlanningJsonContext.Default.PlanningRequirement),
+            JsonSerializer.Serialize(state.Requirements!.Outcomes[0], PlanningJsonContext.Default.PlanningRequirement));
+        Assert.Equal(2, state.Requirements.Outcomes.Count);
+        Assert.Equal("remaining", state.Construction!.Requirements[1].Status);
+        Assert.Contains(state.Construction.Candidate!.Diagnostics, d => d.Code == "CONSTRUCTION_REQUIREMENT_REMAINING");
+        Assert.DoesNotContain(state.Construction.Compact!.GlobalSourceIds, id => id.StartsWith("revision:", StringComparison.Ordinal));
+        Assert.Throws<PlanningConflictException>(() => PlanningArtifactApproval.Verify(state));
+    }
+
+    [Fact]
+    public async Task DiscoveryAndContinuationRemainBoundToTheSelectedBusinessSubstep()
+    {
+        const string objective = "Read the exact independently supplied record.";
+        var catalog = new ScopedCatalog(); var pages = 0;
+        var runtime = new TestRuntime { Capabilities = catalog, Respond = (request, purpose) =>
+        {
+            if (purpose == PlanningCompactConstruction.IntentPurpose) return Wire(request, Index(request));
+            if (purpose == PlanningCompactConstruction.SelectPurpose)
+            { var selection = Select(request, "operation", close: false); selection["step"]!["objective"] = objective; return Wire(request, selection); }
+            if (pages > 0) Assert.Equal("next", Context(request)["pages"]![0]!["nextCursor"]!.ToString());
+            return Wire(request, new() { ["operationIds"] = null, ["clarifications"] = null, ["evidenceRequests"] = null,
+                ["discoveryRequests"] = new JsonArray(new JsonObject { ["sourceId"] = "source", ["cursor"] = pages++ == 0 ? null : "next", ["query"] = null, ["operationIds"] = null }) });
+        } };
+        var state = Fresh("First read the specified record, then do unrelated later business work."); var planner = new HybridWorkflowPlanner();
+        for (var i = 0; i < 4; i++) state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
+        Assert.Equal([objective, objective], catalog.Queries);
+        Assert.All(state.Discovery.Pages, page => Assert.Equal(objective, page.Query));
+        var invalid = new JsonObject { ["operationIds"] = null, ["clarifications"] = null, ["evidenceRequests"] = null,
+            ["discoveryRequests"] = new JsonArray(new JsonObject { ["sourceId"] = "source", ["cursor"] = null, ["query"] = state.Request.Prompt, ["operationIds"] = null }) };
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(invalid, PlanningCompactConstruction.DiscoverySchema(state)));
+    }
+
+    private sealed class ScopedCatalog : ICapabilityCatalog
+    {
+        internal List<string?> Queries { get; } = [];
+        public Task<IReadOnlyList<CapabilitySource>> ListSourcesAsync(CancellationToken ct) => Task.FromResult<IReadOnlyList<CapabilitySource>>([new("source", "Declared scoped reads")]);
+        public Task<CapabilityPage> ListAsync(string sourceId, string? cursor, CancellationToken ct, string? query = null, string? producedArtifactKind = null)
+        { Queries.Add(query); return Task.FromResult(new CapabilityPage(sourceId, cursor, [], cursor is null ? "next" : null, Query: query)); }
+        public Task<PlanningCapability> ResolveAsync(CapabilitySummary summary, CancellationToken ct) => throw new InvalidOperationException("This navigation test resolves no operation.");
+    }
+
+}

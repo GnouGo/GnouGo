@@ -59,8 +59,8 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
     public async Task AdmitConstructionAsync(LLMRequest request, int inputTokenCeiling,
         IReadOnlyList<int> outputTokenCeilings, CancellationToken ct)
     {
-        if (inputTokenCeiling <= 0 || outputTokenCeilings.Count is < 1 or > 3 || outputTokenCeilings.Any(v => v <= 0))
-            throw new ArgumentException("Construction admission requires bounded draft and review ceilings.");
+        if (inputTokenCeiling <= 0 || outputTokenCeilings.Count is < 1 or > 4 || outputTokenCeilings.Any(v => v <= 0))
+            throw new ArgumentException("Construction admission requires bounded navigation, draft and review ceilings.");
         await _dispatchGate.WaitAsync(ct);
         try
         {
@@ -98,6 +98,11 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
             value["construction_review_output_tokens"] = Math.Min(request.Options["construction_limits"]?["reviewOutputTokens"]?.GetValue<int>() ?? 2048,
                 request.Generation.MaxOutputTokens);
             value["construction_limits"] = request.Options["construction_limits"]?.DeepClone();
+        }
+        if (PlanningConstructionInputPolicy.IsCompact(request))
+        {
+            value["construction_version"] = 2;
+            value["construction_input_limits"] = request.Options["construction_input_limits"]?.DeepClone();
         }
         var saved = await _campaign.LoadAsync("planning-evaluation-session-policy", request.SessionId, ct);
         if (saved is not null)
@@ -338,18 +343,20 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
         return await _campaign.CallAsync(request, async token =>
         {
             var json = JsonSerializer.Serialize(dispatched, PlanningJsonContext.Default.LLMRequest);
-            var input = Math.Max(policy?["max_input_tokens"]?.GetValue<int>() ?? 96_000, Encoding.UTF8.GetByteCount(json));
+            var phaseInputLimit = PlanningInputLimit(policy, request);
+            var input = Math.Max(phaseInputLimit, Encoding.UTF8.GetByteCount(json));
             var output = dispatched.MaxTokens ?? 32_768;
             // Match the retained planning estimator, including the issued envelope rather than only its prompt.
             var estimatedPlanningInput = ((long)Encoding.UTF8.GetByteCount(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest)) + 2) / 3 + 256;
             if (policy is not null && (output > policy["max_output_tokens"]!.GetValue<int>() ||
-                estimatedPlanningInput > policy["max_input_tokens"]!.GetValue<int>()))
+                estimatedPlanningInput > phaseInputLimit))
                 throw BenchmarkCampaign.AdmissionFailure("captured_session_request_allowance");
             var reviewCount = request.StructuredOutputSchema?["properties"]?["findings"] is null
                 ? policy?["construction_review_headroom"]?.GetValue<int>() ?? 0 : 0;
             journal = await PrepareAdmissionAsync(request.ClientRequestId!, input, output,
                 execution ? null : policy?["max_physical_attempts"]?.GetValue<int>() ?? 8, token, reviewCount,
-                3L * (policy?["max_input_tokens"]?.GetValue<int>() ?? 0),
+                3L * (policy?["construction_version"]?.GetValue<int>() == 2 ? Math.Min(policy["max_input_tokens"]!.GetValue<int>(),
+                    Math.Min(policy["construction_input_limits"]?["review"]?.GetValue<int>() ?? 4000, 4000)) : policy?["max_input_tokens"]?.GetValue<int>() ?? 0),
                 policy?["construction_review_output_tokens"]?.GetValue<int>() ?? 0);
         }, async token =>
         {
@@ -362,10 +369,24 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
                 throw new InvalidOperationException("Provider usage is missing; the reservation remains conservative.");
             }
             var input = ReadTokens("input_tokens", "prompt_tokens"); var output = ReadTokens("output_tokens", "completion_tokens");
-            response.Usage = await journal!.CompleteAsync(new() { ["input_tokens"] = input, ["output_tokens"] = output,
-                ["total_tokens"] = checked(input + output), ["benchmark_cost_eur"] = await CompletedCostAsync(request.ClientRequestId!, input, output) }, CancellationToken.None);
+            var measuredUsage = new JsonObject { ["input_tokens"] = input, ["output_tokens"] = output,
+                ["total_tokens"] = checked(input + output), ["benchmark_cost_eur"] = await CompletedCostAsync(request.ClientRequestId!, input, output) };
+            var reasoning = response.Usage?["output_tokens_details"]?["reasoning_tokens"] ?? response.Usage?["completion_tokens_details"]?["reasoning_tokens"];
+            if (reasoning is not null) measuredUsage["reasoning_tokens"] = reasoning.DeepClone();
+            response.Usage = await journal!.CompleteAsync(measuredUsage, CancellationToken.None);
             return response;
         }, ct, allowHttpRecovery: !incremental);
+    }
+
+    internal static int PlanningInputLimit(JsonObject? policy, LLMRequest request)
+    {
+        if (policy?["construction_version"]?.GetValue<int>() != 2) return policy?["max_input_tokens"]?.GetValue<int>() ?? 96_000;
+        var planning = new PlanningRequest
+        {
+            Generation = new() { MaxInputTokensPerRequest = policy["max_input_tokens"]!.GetValue<int>() },
+            Options = new() { ["construction_version"] = 2, ["construction_input_limits"] = policy["construction_input_limits"]?.DeepClone() }
+        };
+        return PlanningConstructionInputPolicy.EffectiveLimit(planning, request);
     }
 
     internal async Task<JsonObject?> PartialUsageAsync(string id, CancellationToken ct)

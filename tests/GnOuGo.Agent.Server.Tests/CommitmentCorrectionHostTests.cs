@@ -21,7 +21,7 @@ public sealed class CommitmentCorrectionHostTests
     [InlineData("nullable")]
     [InlineData("initial_followup")]
     [InlineData("initial_followup_uncertain")]
-    public async Task BackgroundCoverageCorrectionIsDurableTenantOwnedAndNeverExecutes(string variant)
+    public async Task RetainedVersionOneCoverageCorrectionIsDurableTenantOwnedAndNeverExecutes(string variant)
     {
         var uncertain = variant.EndsWith("uncertain", StringComparison.Ordinal);
         var repeated = variant == "initial_repeat";
@@ -34,12 +34,24 @@ public sealed class CommitmentCorrectionHostTests
             JsonNode.Parse("""{"type":"object","properties":{},"additionalProperties":false}"""),
             JsonNode.Parse("""{"type":"object","properties":{"location":{"type":"string"},"optionalLocation":{"type":["string","null"]}},"required":["location","optionalLocation"],"additionalProperties":false}"""));
         var model = new Model(variant); PlanningSession state;
+        // These retained version-one responses exercise the historical commitment
+        // repair protocol. Fresh sessions use the separate compact intent/selection protocol.
+        using (var creation = PlanningSessionLifecycleTests.Create(fixture, new HybridWorkflowPlanner(), catalog, model,
+            settings: new() { BackgroundProcessingEnabled = false }))
+            state = await creation.StartAsync("committed-report", "Produce the fixture report through produce_observed and return its location.", false, Ct);
+        state.Construction!.Version = 1;
+        state.Construction.Compact = null;
+        state.Construction.Limits.InputLimits = null;
+        state.Request.Options["construction_version"] = 1;
+        state.Request.Options.Remove("construction_input_limits");
+        state.Request.MaxModelCalls = 12;
+        state.Revision++;
+        Assert.True(await fixture.Store.TrySaveAsync(state, state.Revision - 1, Ct));
         using (var service = PlanningSessionLifecycleTests.Create(fixture, new HybridWorkflowPlanner(), catalog, model))
         {
             await service.StartAsync(Ct);
             try
             {
-                state = await service.StartAsync("committed-report", "Produce the fixture report through produce_observed and return its location.", false, Ct);
                 using var deadline = CancellationTokenSource.CreateLinkedTokenSource(Ct); deadline.CancelAfter(TimeSpan.FromSeconds(15));
                 do
                 {

@@ -7,7 +7,7 @@ namespace GnOuGo.Flow.Planning;
 internal static partial class PlanningConstruction
 {
     internal static LLMRequest DraftRequest(PlanningSession state, bool repair) => Request(state,
-        Instructions + (repair ? "\nCorrect only the retained tentative extension. Preserve its target scope and accepted requirements; the accepted TaskPlan is immutable." : ""),
+        (state.Construction!.Version == 2 ? PlanningCompactConstruction.DraftInstructions : Instructions) + (repair ? "\nCorrect only the retained tentative extension. Preserve its target scope and accepted requirements; the accepted TaskPlan is immutable." : ""),
         operations => Schema(state, operations), state.Construction!.Limits.DraftOutputTokens).Request;
 
     // Only fresh presentations may select optional contracts. Issued requests and
@@ -18,6 +18,12 @@ internal static partial class PlanningConstruction
     {
         var context = Context(state, review, intermediate, out var required);
         enrich?.Invoke(context);
+        if (state.Construction!.Version == 2)
+        {
+            var purpose = review ? intermediate ? IntermediatePurpose : LocalPurpose : DraftPurpose;
+            if (enrich is not null || state.Phase == GnOuGo.Flow.Core.Planning.PlanningPhase.Replanning) purpose = "replan";
+            return (context, PlanningCompactConstruction.Request(instructions, context, schema(required), purpose));
+        }
         var operations = context["operations"]!.AsArray();
         var optional = operations.Where(o => !required.Contains(o!["id"]!.ToString())).ToArray();
         if (optional.Length > 0)

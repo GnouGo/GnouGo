@@ -23,7 +23,7 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class ChatPlanningChoiceTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
-    private static PlanningSession Initial() => new() { Request = new() { TenantId = "planning-tests", Prompt = "Return a greeting", Options = new() { ["generator"] = new JsonObject { ["model"] = "fixture" } } } };
+    private static PlanningSession Initial() => RetainedVersionOneConstruction.Restore(new() { Request = new() { TenantId = "planning-tests", Prompt = "Return a greeting", Options = new() { ["generator"] = new JsonObject { ["model"] = "fixture" } } } });
     private static StepExecutionContext Context(Model model) => new() { Engine = new() { LLMClient = model, LLMCapabilities = model }, Data = new(),
         Limits = new() { TenantId = "planning-tests", RunId = Guid.NewGuid().ToString("N") }, Step = new() { Source = new StepDef { Id = "plan", Type = "workflow.plan" } } };
     private static async Task<PlanningSession> ContinueAsync(HybridWorkflowPlanner planner, PlanningSession state, IPlanningRuntime runtime)

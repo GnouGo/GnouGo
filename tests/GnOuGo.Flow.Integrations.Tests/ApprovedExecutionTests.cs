@@ -23,7 +23,7 @@ public sealed class ApprovedExecutionTests
         try
         {
             var model = new Model { BusinessDecision = businessDecision }; var human = new Human(); var decisions = new Decisions();
-            var factory = new WorkflowPlanningRuntimeFactory(new KeyVaultRecordStore(Path.Combine(directory, "vault.db")), Path.Combine(directory, "leases"));
+            var factory = new RetainedVersionOnePlanningFactory(new KeyVaultRecordStore(Path.Combine(directory, "vault.db")), Path.Combine(directory, "leases"));
             var engine = new WorkflowEngine { WorkflowPlanner = new HybridWorkflowPlanner(), PlanningRuntimeFactory = factory, LLMClient = model, HumanInputProvider = human, PlanningInteraction = decisions, DefaultPlanningMode = mode,
                 Limits = new() { RunId = "stable-run", TenantId = "one" } };
             var compiled = new WorkflowCompiler().Compile(WorkflowParser.Parse("""

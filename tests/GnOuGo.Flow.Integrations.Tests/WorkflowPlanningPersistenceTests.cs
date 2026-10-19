@@ -65,7 +65,7 @@ public sealed class WorkflowPlanningPersistenceTests : IDisposable
             var options = historical["request"]!["options"]!.AsObject();
             foreach (var key in new[] { "compilation_profile", "mapping_profile", "planning_validation_profile",
                 "planning_diagnostics_version", "planning_input_review_version", "business_judge_review_version",
-                "construction_version", "clarification_policy" }) options.Remove(key);
+                "construction_version", "construction_input_limits", "clarification_policy" }) options.Remove(key);
             await records.UpsertAsync("flow-planning-sessions-v10", "tenant", id, historical.ToJsonString(), "test", Ct);
         }
         else Assert.True(await records.DeleteAsync("flow-planning-sessions-v10", "tenant", id, "test", Ct));
@@ -98,7 +98,7 @@ public sealed class WorkflowPlanningPersistenceTests : IDisposable
         Assert.Equal(4096, restored.Session.Construction.Limits.DraftOutputTokens);
         Assert.Equal(1024, restored.Session.Construction.Limits.ReviewOutputTokens);
         Assert.Equal("2", restored.Session.Request.Options["business_judge_review_version"]!.ToString());
-        Assert.Equal("1", restored.Session.Request.Options["construction_version"]!.ToString());
+        Assert.Equal("2", restored.Session.Request.Options["construction_version"]!.ToString());
         Assert.Equal(authoredOptions, original.Request.Options.ToJsonString());
         Assert.Equal(authoredOptions, changedDefaults.Request.Options.ToJsonString());
         Assert.Equal(definition, await records.GetAsync("flow-planning-definitions-v10", "tenant", id, "test", Ct));
@@ -301,7 +301,7 @@ public sealed class WorkflowPlanningPersistenceTests : IDisposable
         original.Request.Generation = new() { MaxInputTokensPerRequest = 12000, MaxOutputTokens = 8192 };
         await using (var first = await Factory().OpenAsync(Context(client), original, Ct)) { }
         var current = Initial(); current.Request.Options = original.Request.Options.DeepClone().AsObject();
-        current.Request.MaxModelCalls = 12; current.Request.MaxReplanAttempts = 4;
+        current.Request.MaxModelCalls = 64; current.Request.MaxReplanAttempts = 4;
         current.Request.Generation = new() { MaxInputTokensPerRequest = 32000, MaxOutputTokens = 32768 };
         await using (var restored = await Factory().OpenAsync(Context(client), current, Ct))
         {
@@ -356,6 +356,8 @@ public sealed class WorkflowPlanningPersistenceTests : IDisposable
             StructuredOutputStrict = true,
             StructuredOutputSchema = JsonNode.Parse("""{"type":"object","properties":{"value":{"type":"string"}},"required":["value"],"additionalProperties":false}""")
         }, snapshot.Request.Generation);
+        if (PlanningConstructionInputPolicy.IsCompact(snapshot.Request))
+            request.StructuredOutputSchema!["title"] = "construction_intent";
         request.ClientRequestId = snapshot.Request.SessionId + ":" + attempt + ":intent:workflow:" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
         return request;
     }

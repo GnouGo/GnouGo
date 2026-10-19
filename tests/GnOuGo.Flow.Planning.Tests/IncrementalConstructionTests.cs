@@ -17,11 +17,23 @@ public sealed class IncrementalConstructionTests(ITestOutputHelper output)
         output.WriteLine("Complete serialized request peak: {0}={1} conservative tokens (UTF-8 bytes / 3, rounded up, +256).", stage, peak);
         Assert.InRange(peak, 1, 32000);
     }
-    private static PlanningSession Fresh(int calls = 12) => new()
+    // Retain the version-1 issued protocol corpus. Fresh version-2 creation has
+    // separate substep tests and must not reinterpret these saved sessions.
+    private static PlanningSession Fresh(int calls = 12) => PlannerFixture.Clone(new()
     {
+        IntentVersion = 3,
+        Construction = new() { Version = 1 },
         Request = new() { TenantId = "construction-test", Prompt = "Return the exact greeting Hello.", MaxModelCalls = calls,
-            Options = new JsonObject { ["automatic_correction"] = true } }
-    };
+            Options = new JsonObject
+            {
+                ["automatic_correction"] = true, ["construction_version"] = 1,
+                ["compilation_profile"] = TaskPlanCompiler.CompactProfile,
+                ["mapping_profile"] = TaskPlanCompiler.AdaptiveMappingProfile,
+                ["planning_validation_profile"] = TaskPlanCompiler.AssertionValidationProfile,
+                ["planning_diagnostics_version"] = 1, ["planning_input_review_version"] = 2,
+                ["business_judge_review_version"] = 2, ["clarification_policy"] = 1
+            } }
+    });
     private static PlanningRequirements Requirements() => new()
     {
         Summary = "Return the exact greeting Hello.", Inputs = [], Outputs = [new() { Name = "message", Type = new() { Kind = "string" } }],
@@ -234,9 +246,10 @@ public sealed class IncrementalConstructionTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public async Task FreshBaselineUsesConstructionAndPreservesItsExistingTasks()
+    public async Task RetainedVersionOneBaselinePreservesItsExistingTasks()
     {
         var fresh = Fresh(); fresh.Request.Baseline = new() { Root = new() { Tasks = [Value("retained", "Hello")] } };
+        fresh.Plan = PlanningConstruction.Clone(fresh.Request.Baseline);
         var runtime = new TestRuntime { Respond = (request, purpose) => purpose == PlanningConstruction.DraftPurpose
             ? Extension(request, new() { Outputs = [new("message", new() { Kind = "output", Source = "retained", Port = "message" })],
                 CloseScopes = ["/root"], RequirementIds = ["greeting"], Complete = true }) : Reviewed() };

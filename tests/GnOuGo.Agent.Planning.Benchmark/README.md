@@ -724,13 +724,13 @@ for the expected output path, and live cleanup is independently probed.
 
 ## Incremental construction and isolated delegated review
 
-Fresh live sessions use incremental construction and mandatory bounded local and
+Fresh live sessions use version-two compact incremental construction and mandatory bounded local and
 intermediate reviews. The historical `--business-judge` setting cannot disable these
 reviews or introduce a final whole-plan Judge. Every draft, review, evidence request
 and correction uses the same captured session and cumulative campaign allowances.
 Use `--construction-preset large --automatic-correction` only for an explicitly
 authorized fresh cohort: it captures 384 physical planning attempts, 64 corrections,
-32,000 input tokens per request, 8,192 draft/correction output tokens, 2,048 Judge
+the same compact phase input limits as ordinary sessions, 8,192 draft/correction output tokens, 2,048 Judge
 output tokens, 15,000,000 aggregate tokens and
 five hours. The request, cohort manifest and immutable transport-policy record must
 agree. Continuations cannot raise a captured allowance. Sessions with existing HTTP
@@ -786,7 +786,10 @@ The active local product fixtures contain no cookie-consent work. Historical sav
 artifacts retain their issued vocabulary for compatibility tests; those fixtures offer
 no consent control and never exercise a consent action.
 
-Ordinary fresh sessions capture 12 calls, four corrections, 32,000 input tokens,
+Ordinary fresh sessions capture 64 calls and four corrections. Complete serialized
+requests have hard input ceilings of 3,000 tokens for intent indexing, substep
+selection and discovery, 8,000 for generation/correction and 4,000 for Judges.
+Explicit tighter limits prevail; there is no automatic fallback to 32,000. They retain
 8,192 draft/correction and 2,048 Judge output tokens, the same
 15,000,000-token/five-hour cumulative budget and the unchanged
 runtime artifact-confirmation gate. The cohort manifest also freezes the construction
@@ -821,3 +824,43 @@ The physical transport gate conservatively retains room for two reviews even whe
 the coordinator requires only one for the first draft. A very small remaining call
 or monetary allowance can therefore stop a benchmark earlier than the coordinator's
 minimum requirement; this headroom never becomes a reservation or charge.
+
+Every constructed compact request has safe metadata recording its phase, selected
+substep, exact request/schema hashes and selected contract versions. Component byte
+counts partition the complete serialized UTF-8 request: instructions, original intent
+and requirements, descriptors and exact contract evidence, response schema, interfaces,
+fragment/evidence/diagnostics, and envelope overhead. The versioned conservative token
+estimate is admission evidence; provider input/output/reasoning usage remains a separate
+whole-call measurement. Rejected requests are measured before dispatch and incur no
+invented usage. Judge is a phase dimension, not a second token total.
+
+The compact live comparison freezes baseline `56942f5` and each candidate separately,
+with identical model/reasoning, MCP binaries, scenario inputs and independent oracle
+versions. Both receive 64 calls, unchanged correction/output and ordinary graph limits;
+baseline retains its 32k input ceiling. After successful candidate diagnostics for
+Collections, Amazon and Review PR, run three alternating baseline/candidate pairs per
+scenario under fresh run identities. Source changes require a new candidate cohort.
+All nine measured candidates must pass independent business checks without unwanted
+effects or input-limit violations. Compare peak generation/Judge sizes where baseline
+evidence exists; report p50/p95/maximum sizes, calls, corrections, actual tokens, cost
+and planning/runtime latency. Include cumulative totals and known partial sums as
+well as distributions, both per scenario and across the cohort. Unknown usage keeps
+the complete total unknown. More calls are allowed. Higher cost or latency remains
+visible, and missing/failed/uncertain runs never establish success. All attempts share
+the existing encrypted campaign accounting, including diagnostics and retained failures.
+
+The read-only `--compact-comparison <sanitized-rows.json>` entrypoint accepts `cases`,
+`baseline` and `candidate` arrays. Each row retains its exact source/run identity,
+effective configuration, independent business outcome, safety findings, whole-call
+usage and `request_metrics.requests`. It requires three runs per case in each arm,
+matched cumulative/output/graph allowances and a shared frozen comparison identity.
+The original harness measurement hashes remain evidence: because harness files
+change in this refactor, they cannot establish unchanged oracles by themselves.
+Pin independent case/oracle sources, actual producer binaries and model configuration
+separately. Preserve exact per-run prompt hashes; any comparison template may replace
+only its explicitly declared isolated run destination, with all other text unchanged.
+Collections may use fresh `--phase fixture` identities with the real configured model
+for this selected comparison; its rows must still report `mode: live`. This does not
+claim the historical eight-case measured pilot gate passed. The report is inconclusive
+when required outcomes or usage are missing, and three repetitions remain descriptive
+evidence rather than a general reliability claim.

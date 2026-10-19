@@ -15,19 +15,19 @@ public sealed class NullableGuardHostTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task BackgroundOwnerCorrectsOrStopsOnceAndRestartDoesNotRedispatch(bool repeatInvalid)
+    public async Task RetainedVersionOneBackgroundOwnerCorrectsOrStopsOnceAndRestartDoesNotRedispatch(bool repeatInvalid)
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
         var client = new GuardClient(repeatInvalid);
         var agents = PlanningSessionLifecycleTests.AgentCatalog();
         var expectedCalls = repeatInvalid ? 2 : 3; // Successful corrections also require the bounded local Judge.
+        var initial = await RetainedVersionOneConstruction.SeedAsync(fixture, agents, client, "nullable-guards", "Return the checked original result", Ct);
         PlanningSession result;
         using (var service = PlanningSessionLifecycleTests.Create(fixture, new HybridWorkflowPlanner(), agents, client))
         {
             await service.StartAsync(Ct);
             try
             {
-                var initial = await service.StartAsync("nullable-guards", "Return the checked original result", false, Ct);
                 using var deadline = CancellationTokenSource.CreateLinkedTokenSource(Ct);
                 deadline.CancelAfter(TimeSpan.FromSeconds(15));
                 while (true)

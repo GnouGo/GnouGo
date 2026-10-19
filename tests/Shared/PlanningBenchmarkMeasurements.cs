@@ -39,7 +39,7 @@ public static class PlanningBenchmarkMeasurements
         if (totalTokens > 15_000_000 || elapsed > 18_000_000)
             throw new ArgumentException("Cumulative benchmark allowances cannot exceed the authorized creation ceilings.");
         var automatic = args.Contains("--automatic-correction", StringComparer.Ordinal);
-        var firstConstructionConfiguration = request.Options["construction_version"]?.GetValue<int>() != 1;
+        var firstConstructionConfiguration = request.Options["construction_version"]?.GetValue<int>() is not (1 or 2);
         var capturedPreset = request.Options["construction_preset"]?.ToString();
         var enabled = args.Contains("--business-judge", StringComparer.Ordinal);
         var disabled = args.Contains("--no-business-judge", StringComparer.Ordinal);
@@ -53,9 +53,11 @@ public static class PlanningBenchmarkMeasurements
             automatic && request.Options["automatic_correction"]?.GetValue<bool>() != true))
             throw new InvalidOperationException("Explicit settings differ from the frozen run. Start a separate cohort.");
         if (retained) return;
-        request.Options["construction_version"] = 1;
+        request.Options["construction_version"] = 2;
         request.Options["construction_preset"] = preset ?? request.Options["construction_preset"]?.ToString() ?? PlanningConstructionPresets.Ordinary;
         request.Options["construction_limits"] ??= JsonSerializer.SerializeToNode(new PlanningConstructionOptions(), PlanningJsonContext.Default.PlanningConstructionOptions);
+        request.Options["construction_input_limits"] ??= JsonSerializer.SerializeToNode(new PlanningConstructionInputLimits(), PlanningJsonContext.Default.PlanningConstructionInputLimits);
+        request.Options["construction_limits"]!["inputLimits"] = request.Options["construction_input_limits"]!.DeepClone();
         request.Options["llm_budget"] ??= new JsonObject { ["max_total_tokens"] = 15_000_000, ["max_elapsed_ms"] = 18_000_000 };
         if (totalTokens is not null) request.Options["llm_budget"]!["max_total_tokens"] = totalTokens.Value;
         if (elapsed is not null) request.Options["llm_budget"]!["max_elapsed_ms"] = elapsed.Value;
@@ -69,6 +71,14 @@ public static class PlanningBenchmarkMeasurements
         request.MaxModelCalls = calls ?? request.MaxModelCalls; request.MaxReplanAttempts = repairs ?? request.MaxReplanAttempts;
         request.Generation.MaxInputTokensPerRequest = input ?? request.Generation.MaxInputTokensPerRequest;
         request.Generation.MaxOutputTokens = output ?? Math.Min(request.Generation.MaxOutputTokens, 8192);
+        var effectiveInputLimits = new PlanningConstructionInputLimits
+        {
+            Selection = PlanningConstructionInputPolicy.EffectiveLimit(request, "construction_select"),
+            Draft = PlanningConstructionInputPolicy.EffectiveLimit(request, "construction_draft"),
+            Review = PlanningConstructionInputPolicy.EffectiveLimit(request, "construction_local_judge")
+        };
+        request.Options["construction_input_limits"] = JsonSerializer.SerializeToNode(effectiveInputLimits, PlanningJsonContext.Default.PlanningConstructionInputLimits);
+        request.Options["construction_limits"]!["inputLimits"] = request.Options["construction_input_limits"]!.DeepClone();
         if (automatic) request.Options["automatic_correction"] = true;
         if (enabled || disabled) request.Options["business_judge"] = enabled;
     }
@@ -81,10 +91,11 @@ public static class PlanningBenchmarkMeasurements
             ["input_tokens"] = request.Generation.MaxInputTokensPerRequest, ["output_tokens"] = request.Generation.MaxOutputTokens,
             ["reasoning"] = request.Generation.Reasoning, ["business_judge"] = request.Options["business_judge"]?.ToString() == "true"
         };
-        if (request.Options["construction_version"]?.GetValue<int>() == 1)
+        if (request.Options["construction_version"]?.GetValue<int>() is 1 or 2)
         {
             foreach (var key in new[] { "construction_version", "construction_preset", "construction_limits", "llm_budget", "automatic_correction" })
                 result[key] = request.Options[key]?.DeepClone();
+            if (request.Options["construction_input_limits"] is { } inputLimits) result["construction_input_limits"] = inputLimits.DeepClone();
             result["policy"] = JsonSerializer.SerializeToNode(request.Policy, PlanningJsonContext.Default.PlanningPolicy);
         }
         return result;
@@ -98,10 +109,11 @@ public static class PlanningBenchmarkMeasurements
             Generation = new() { Reasoning = settings["reasoning"]!.ToString(), MaxInputTokensPerRequest = settings["input_tokens"]!.GetValue<int>(), MaxOutputTokens = settings["output_tokens"]!.GetValue<int>() },
             Options = new() { ["business_judge"] = settings["business_judge"]!.GetValue<bool>() }
         };
-        if (settings["construction_version"]?.GetValue<int>() == 1)
+        if (settings["construction_version"]?.GetValue<int>() is 1 or 2)
         {
             foreach (var key in new[] { "construction_version", "construction_preset", "construction_limits", "llm_budget", "automatic_correction" })
                 if (settings[key] is { } value) result.Options[key] = value.DeepClone();
+            if (settings["construction_input_limits"] is { } inputLimits) result.Options["construction_input_limits"] = inputLimits.DeepClone();
             result.Policy = settings["policy"]!.Deserialize(PlanningJsonContext.Default.PlanningPolicy)!;
         }
         return result;
@@ -109,10 +121,12 @@ public static class PlanningBenchmarkMeasurements
 
     public static void CaptureConstructionSettings(PlanningSession state)
     {
-        if (state.Construction is null && state.Request.Options["construction_version"]?.GetValue<int>() == 1 &&
+        if (state.Construction is null && state.Request.Options["construction_version"]?.GetValue<int>() is 1 or 2 &&
             state.Revision == 0 && state.ModelCalls == 0 && state.PendingCall is null && state.Plan is null &&
             state.Request.Options["construction_limits"] is { } limits)
-            state.Construction = new() { Limits = limits.Deserialize(PlanningJsonContext.Default.PlanningConstructionOptions)! };
+            state.Construction = new() { Version = state.Request.Options["construction_version"]!.GetValue<int>(),
+                Limits = limits.Deserialize(PlanningJsonContext.Default.PlanningConstructionOptions)!,
+                Compact = state.Request.Options["construction_version"]!.GetValue<int>() == 2 ? new PlanningCompactConstructionState() : null };
     }
 
     // This report isolates the experimental variable; it intentionally does not
@@ -205,6 +219,127 @@ public static class PlanningBenchmarkMeasurements
         calls[id] = new JsonObject { ["purpose"] = purpose, ["elapsed_ms"] = previous + elapsedMilliseconds };
     }
 
+    public static void RecordRequest(JsonObject run, LLMRequest request, string purpose)
+    {
+        var planning = run["session"]?["request"]?.Deserialize(PlanningJsonContext.Default.PlanningRequest);
+        var limit = planning is null ? 32_000 : PlanningConstructionInputPolicy.EffectiveLimit(planning, purpose);
+        var measurement = PlanningRequestMeasurements.Measure(request, purpose, limit,
+            run["session"]?["construction"]?["compact"]?["currentStep"]?["id"]?.ToString());
+        measurement.Admission = "admitted";
+        var measured = (run["request_measurements"] ??= new JsonObject()).AsObject();
+        measured.TryAdd(measurement.RequestHash, JsonSerializer.SerializeToNode(measurement, PlanningJsonContext.Default.PlanningRequestMeasurement));
+    }
+
+    public static JsonObject RequestMetrics(JsonObject run)
+    {
+        var records = new Dictionary<string, JsonObject>(StringComparer.Ordinal);
+        foreach (var measurement in (run["request_measurements"] as JsonObject ?? []).Select(p => p.Value).OfType<JsonObject>())
+            records[measurement["requestHash"]!.ToString()] = measurement;
+        foreach (var measurement in (run["session"]?["requestMeasurements"] as JsonArray ?? []).OfType<JsonObject>())
+            records[measurement["requestHash"]!.ToString()] = measurement;
+        var phases = new JsonObject();
+        foreach (var group in records.Values.GroupBy(m => m["phase"]!.ToString()))
+        {
+            var admitted = group.Where(m => m["admission"]?.ToString() == "admitted").ToArray();
+            var sizes = admitted.Select(m => m["estimatedInputTokens"]!.GetValue<long>()).Order().ToArray();
+            var components = new JsonObject();
+            foreach (var component in admitted.SelectMany(m => m["components"]!.AsArray().OfType<JsonObject>()).GroupBy(c => c["component"]!.ToString()))
+                components[component.Key] = new JsonObject
+                {
+                    ["serialized_bytes"] = component.Sum(c => c["serializedBytes"]!.GetValue<long>()),
+                    ["estimated_tokens"] = component.Sum(c => c["estimatedTokens"]!.GetValue<long>())
+                };
+            phases[group.Key] = new JsonObject
+            {
+                ["requests"] = admitted.Length, ["rejected_before_dispatch"] = group.Count(m => m["admission"]?.ToString() == "rejected_before_dispatch"),
+                ["peak_complete_request_bytes"] = admitted.Length == 0 ? null : admitted.Max(m => m["completeRequestBytes"]!.GetValue<long>()),
+                ["peak_estimated_input_tokens"] = admitted.Length == 0 ? null : admitted.Max(m => m["estimatedInputTokens"]!.GetValue<long>()),
+                ["p50_estimated_input_tokens"] = sizes.Length == 0 ? null : (sizes[(sizes.Length - 1) / 2] + sizes[sizes.Length / 2]) / 2.0,
+                ["p95_estimated_input_tokens"] = sizes.Length == 0 ? null : sizes[(int)Math.Ceiling(sizes.Length * .95) - 1],
+                ["within_captured_limits"] = admitted.All(m => m["estimatedInputTokens"]!.GetValue<long>() <= m["inputLimit"]!.GetValue<int>()),
+                ["components"] = components
+            };
+        }
+        return new()
+        {
+            ["estimator"] = "serialized_utf8_div3_plus256_v1", ["phases"] = phases,
+            ["requests"] = new JsonArray(records.Values.Select(m => (JsonNode)m.DeepClone()).ToArray()),
+            ["interpretation"] = "Component estimates describe serialized request bytes, not billed usage. Judge is a phase; component token rounding is not additive. Provider input/output usage is measured for each whole call."
+        };
+    }
+
+    // Compact construction intentionally spends more small calls. Historical
+    // first-proposal and lower-call-count gates do not apply to this comparison.
+    public static JsonObject CompareCompactConstruction(IReadOnlyList<JsonObject> before, IReadOnlyList<JsonObject> after, IReadOnlyList<string> cases)
+    {
+        var rows = before.Concat(after).ToArray();
+        bool Complete(IReadOnlyList<JsonObject> arm) => cases.Count > 0 && arm.Count == cases.Count * 3 &&
+            cases.All(name => Enumerable.Range(1, 3).All(i => arm.Count(r => r["case"]?.ToString() == name && r["repetition"]?.GetValue<int>() == i) == 1)) &&
+            arm.Select(r => r["source_commit"]?.ToString()).Distinct(StringComparer.Ordinal).Count() == 1 && arm.All(r => !string.IsNullOrEmpty(r["source_commit"]?.ToString()));
+        var complete = Complete(before) && Complete(after);
+        var frozen = rows.Length > 0 && new[] { "comparison_manifest", "provider", "model", "campaign" }.All(key =>
+            rows.All(r => !string.IsNullOrEmpty(r[key]?.ToString())) && rows.Select(r => r[key]!.ToString()).Distinct(StringComparer.Ordinal).Count() == 1);
+        var settings = rows.Select(r => r["configuration"] as JsonObject).ToArray();
+        var matchedAllowances = settings.Length > 0 && settings.All(s => s is not null) &&
+            new[] { "calls", "repairs", "input_tokens", "output_tokens", "reasoning", "llm_budget", "policy" }.All(key =>
+                settings.All(s => s![key] is not null && JsonNode.DeepEquals(s[key], settings[0]![key])));
+        var observed = rows.All(r => r["mode"]?.ToString() == "live" && r["independent_business_success"] is JsonValue value && value.TryGetValue<bool>(out _) &&
+            r["safety_violations"] is JsonArray && r["request_metrics"]?["requests"] is JsonArray { Count: > 0 });
+        var knownUsage = rows.Length > 0 && rows.All(r => new[] { "calls", "input_tokens", "output_tokens", "estimated_cost_eur", "elapsed_ms" }.All(key =>
+            decimal.TryParse(r[key]?.ToJsonString(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var number) && number >= 0));
+        var comparable = complete && frozen && matchedAllowances && observed && knownUsage;
+        var business = after.Count > 0 && after.All(r => r["independent_business_success"]?.GetValue<bool>() == true);
+        var safe = after.All(r => r["safety_violations"] is JsonArray { Count: 0 });
+        var bounded = after.All(r => (r["request_metrics"]?["requests"] as JsonArray ?? []).OfType<JsonObject>()
+            .Where(m => m["admission"]?.ToString() == "admitted")
+            .All(m => m["estimatedInputTokens"]!.GetValue<long>() <= m["inputLimit"]!.GetValue<int>()));
+        JsonObject Summary(IReadOnlyList<JsonObject> arm)
+        {
+            var result = new JsonObject { ["runs"] = arm.Count, ["business_successes"] = arm.Count(r => r["independent_business_success"]?.GetValue<bool>() == true) };
+            foreach (var key in new[] { "calls", "input_tokens", "output_tokens", "estimated_cost_eur", "elapsed_ms" })
+            {
+                var numbers = arm.Select(r => decimal.TryParse(r[key]?.ToJsonString(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var value) ? (decimal?)value : null).ToArray();
+                var sorted = numbers.OfType<decimal>().Order().ToArray();
+                var allKnown = sorted.Length > 0 && sorted.Length == numbers.Length;
+                result[key] = new JsonObject
+                {
+                    ["known_runs"] = sorted.Length, ["known_sum"] = sorted.Sum(),
+                    ["total"] = allKnown ? sorted.Sum() : null,
+                    ["median"] = allKnown ? (sorted[(sorted.Length - 1) / 2] + sorted[sorted.Length / 2]) / 2 : null,
+                    ["minimum"] = allKnown ? sorted[0] : null, ["maximum"] = allKnown ? sorted[^1] : null,
+                    ["p95"] = allKnown ? sorted[(int)Math.Ceiling(sorted.Length * .95) - 1] : null
+                };
+            }
+            var requests = arm.SelectMany(r => (r["request_metrics"]?["requests"] as JsonArray ?? []).OfType<JsonObject>()).Where(m => m["admission"]?.ToString() == "admitted").ToArray();
+            var peaks = requests.Select(m => m["estimatedInputTokens"]!.GetValue<long>()).Order().ToArray();
+            result["request_count"] = requests.Length;
+            result["peak_estimated_input_tokens"] = peaks.Length == 0 ? null : peaks[^1];
+            result["p50_estimated_input_tokens"] = peaks.Length == 0 ? null : (peaks[(peaks.Length - 1) / 2] + peaks[peaks.Length / 2]) / 2.0;
+            result["p95_estimated_input_tokens"] = peaks.Length == 0 ? null : peaks[(int)Math.Ceiling(peaks.Length * .95) - 1];
+            var phaseRun = new JsonObject { ["request_measurements"] = new JsonObject() };
+            foreach (var measurement in requests)
+                phaseRun["request_measurements"]![measurement["requestHash"]!.ToString()] = measurement.DeepClone();
+            result["request_phases"] = RequestMetrics(phaseRun)["phases"]!.DeepClone();
+            return result;
+        }
+        var baseline = Summary(before); var candidate = Summary(after);
+        var perCase = new JsonObject();
+        foreach (var name in cases)
+            perCase[name] = new JsonObject
+            {
+                ["baseline"] = Summary(before.Where(r => r["case"]?.ToString() == name).ToArray()),
+                ["candidate"] = Summary(after.Where(r => r["case"]?.ToString() == name).ToArray())
+            };
+        var reduction = baseline["peak_estimated_input_tokens"]?.GetValue<long>() is > 0 and var peak && candidate["peak_estimated_input_tokens"] is { } current
+            ? 1 - current.GetValue<long>() / (double)peak : (double?)null;
+        var passed = comparable && business && safe && bounded && reduction > 0;
+        return new() { ["status"] = !comparable ? "inconclusive" : passed ? "passed" : "failed", ["passed"] = passed,
+            ["complete_three_repetitions"] = complete, ["frozen_comparison_context"] = frozen, ["matched_cumulative_and_output_allowances"] = matchedAllowances,
+            ["independent_outcomes_known"] = observed, ["known_usage"] = knownUsage, ["all_candidate_business_outcomes_pass"] = business, ["no_safety_regression"] = safe,
+            ["within_captured_phase_limits"] = bounded, ["peak_request_reduction"] = reduction, ["baseline"] = baseline, ["candidate"] = candidate, ["cases"] = perCase,
+            ["interpretation"] = "More small calls are permitted. Incomplete, mixed-context or unknown-outcome cohorts are inconclusive; three repetitions are descriptive evidence, not a general reliability claim." };
+    }
+
     private static void CaptureCandidate(JsonObject run, PlanningSession state)
     {
         run["current_status"] = state.Status;
@@ -280,6 +415,15 @@ public static class PlanningBenchmarkMeasurements
     }
     public static void RecordResponse(JsonObject run, LLMRequest request, LLMResponse response, int call, string? purpose = null)
     {
+        var responseMeasurements = (run["response_measurements"] ??= new JsonObject()).AsObject();
+        responseMeasurements[request.ClientRequestId ?? "call:" + call] = new JsonObject
+        {
+            ["purpose"] = purpose,
+            ["completion_status"] = response.CompletionStatus,
+            ["content_bytes"] = System.Text.Encoding.UTF8.GetByteCount(response.Json?.ToJsonString() ?? response.Text ?? ""),
+            ["reasoning_tokens"] = (response.Usage?["reasoning_tokens"] ?? response.Usage?["output_tokens_details"]?["reasoning_tokens"] ??
+                response.Usage?["completion_tokens_details"]?["reasoning_tokens"])?.DeepClone()
+        };
         if (purpose is not (null or "tasks" or "replan") || run["first_proposal"] is not null || response.Json is not JsonObject json || json["plan"] is null) return;
         run["first_proposal"] = new JsonObject { ["request_id"] = request.ClientRequestId, ["call"] = call,
             ["response"] = json.DeepClone(), ["structurally_valid"] = null, ["business_correct"] = null,
@@ -288,6 +432,8 @@ public static class PlanningBenchmarkMeasurements
 
     public static void ProposalMetrics(JsonObject run, JsonObject result)
     {
+        result["request_metrics"] = RequestMetrics(run);
+        result["response_metrics"] = run["response_measurements"]?.DeepClone();
         var first = run["first_proposal"];
         result["first_proposal_call"] = first?["call"]?.DeepClone();
         result["first_proposal_structurally_valid"] = first?["structurally_valid"]?.DeepClone();

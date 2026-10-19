@@ -12,9 +12,12 @@ dotnet run --project src/GnOuGo.Flow.Cli -- run src/GnOuGo.Flow.Cli/examples/wor
 dotnet publish src/GnOuGo.Flow.Cli -c Release -r osx-arm64
 ```
 
-New `workflow.plan` sessions default to twelve cumulative model calls, four corrections,
-32,000 input tokens per complete request, and captured phase reservations of 8,192
-draft/correction and 2,048 Judge output tokens. The general generation ceiling and
+New `workflow.plan` sessions use compact construction version 2 with 64 cumulative
+model calls and four corrections. Complete-request input limits are 3,000 for
+intent indexing/selection/discovery, 8,000 for generation/correction and 4,000 for
+Judges; tighter configured limits prevail, with no fallback to 32,000. Captured
+output reservations remain 8,192 for non-Judge construction and 2,048 for Judges.
+The general generation ceiling and
 cumulative allowances can be configured at creation through the authored `generator.max_input_tokens`, `generator.max_output_tokens`,
 `max_replan_attempts` and `llm_budget.max_calls` fields. The internal runtime does not
 impose an additional eight-call cap. Financial, cumulative-token and time limits remain

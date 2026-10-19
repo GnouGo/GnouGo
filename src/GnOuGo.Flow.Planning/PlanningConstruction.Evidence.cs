@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
 
@@ -10,14 +11,37 @@ internal static partial class PlanningConstruction
         var schema = PlanningSchemas.Proposal(authority);
         schema["properties"]!["evidenceRequests"] = PlanningSchemas.Nullable(PlanningSchemas.Array(PlanningSchemas.String(), 1, 8));
         schema["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("evidenceRequests"));
+        if (state.Construction!.Version == 2)
+        {
+            schema["properties"]!["reselectStep"] = state.Construction.Candidate?.AuthorizedPaths is null
+                ? PlanningSchemas.Nullable(new JsonObject { ["type"] = "string", ["maxLength"] = 512 }) : PlanningSchemas.Type("null");
+            schema["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("reselectStep"));
+        }
         var projected = PlanningContractValidation.ProjectStructuredOutputSchema(schema);
         return Request(state, (guidance is null ? "" : guidance + "\n") + PlanningPrompt.RepairInstructions +
-            "\nRequest original evidence using evidenceRequests with patch, discoveryRequests and clarifications null; evidence grants no additional edit authority.",
+            "\nRequest original evidence using evidenceRequests with patch, discoveryRequests and clarifications null; evidence grants no additional edit authority." +
+            (state.Construction.Version == 2 ? " If the diagnosed tentative task kind or operation cannot implement the original requirement, reselectStep may give a concrete reason as the only action. It preserves accepted work and the selected scope/requirements; explicit revision paths cannot be expanded." : ""),
             _ => projected, state.Construction!.Limits.DraftOutputTokens, review: true,
             enrich: context => context["repair"] = PlanningRepairContext.Build(authority)).Request;
     }
 
     internal static void LoadEvidence(PlanningSession state, List<string> requests)
+    {
+        if (state.Construction!.Version != 2) { LoadEvidenceCore(state, requests); return; }
+        var construction = state.Construction;
+        var compact = JsonSerializer.Deserialize(JsonSerializer.Serialize(construction.Compact, PlanningJsonContext.Default.PlanningCompactConstructionState),
+            PlanningJsonContext.Default.PlanningCompactConstructionState);
+        var taskCursor = construction.TaskCursor; var scopeCursor = construction.ScopeCursor; var requirementCursor = construction.RequirementCursor;
+        try { LoadEvidenceCore(state, requests); }
+        catch
+        {
+            construction.Compact = compact;
+            construction.TaskCursor = taskCursor; construction.ScopeCursor = scopeCursor; construction.RequirementCursor = requirementCursor;
+            throw;
+        }
+    }
+
+    private static void LoadEvidenceCore(PlanningSession state, List<string> requests)
     {
         var construction = state.Construction!;
         if (requests.Count is < 1 or > 8 || requests.Distinct(StringComparer.Ordinal).Count() != requests.Count)
@@ -32,6 +56,12 @@ internal static partial class PlanningConstruction
             if (split <= 0 || request.Length > 2048) Fail("CONSTRUCTION_EVIDENCE_INVALID", "/evidenceRequests", "Use a declared evidence identity.");
             var kind = request[..split]; var id = request[(split + 1)..];
             JsonNode? value = null;
+            if (construction.Version == 2 && PlanningCompactConstruction.LoadEvidence(state, request, out value))
+            {
+                if (value is null) Fail("CONSTRUCTION_EVIDENCE_UNKNOWN", "/evidenceRequests", "The exact requested evidence is unavailable: " + request);
+                result[request] = value;
+                continue;
+            }
             switch (kind)
             {
                 case "invalidation" when int.TryParse(id, out var sequence):

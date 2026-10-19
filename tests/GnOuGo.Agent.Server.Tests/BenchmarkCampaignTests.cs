@@ -12,6 +12,25 @@ public sealed class BenchmarkCampaignTests
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     [Fact]
+    public async Task CompactTransportFreezesPhaseCeilingsAndCannotFallBackToGeneralAllowance()
+    {
+        var records = new Records(); var campaign = new BenchmarkCampaign(records, "compact-policy");
+        using var model = new KeyVaultBenchmarkModel(campaign, new LLMOptions());
+        var request = LiveWorkflowEvaluation.FreshPlanningRequest([], "compact", "amazon", "Requested work", "provider", "model");
+        Assert.Equal(64, request.MaxModelCalls);
+        await model.CapturePlanningPolicyAsync(request, Ct);
+        var captured = (await campaign.LoadAsync("planning-evaluation-session-policy", "compact", Ct))!;
+        Assert.Equal(2, captured["construction_version"]!.GetValue<int>());
+        foreach (var (phase, limit) in new[] { ("construction_select", 3000), ("construction_draft", 8000), ("construction_local_judge", 4000) })
+            Assert.Equal(limit, KeyVaultBenchmarkModel.PlanningInputLimit(captured, new() { StructuredOutputSchema = new JsonObject { ["title"] = phase } }));
+        Assert.Throws<PlanningConflictException>(() => KeyVaultBenchmarkModel.PlanningInputLimit(captured, new()));
+        request.Options["construction_input_limits"]!["draft"] = 7000;
+        await Assert.ThrowsAsync<PlanningConflictException>(() => model.CapturePlanningPolicyAsync(request, Ct));
+        Assert.Equal(8000, (await campaign.LoadAsync("planning-evaluation-session-policy", "compact", Ct))!["construction_input_limits"]!["draft"]!.GetValue<int>());
+        Assert.Equal(32000, KeyVaultBenchmarkModel.PlanningInputLimit(new JsonObject { ["max_input_tokens"] = 32000 }, new()));
+    }
+
+    [Fact]
     public async Task DraftHeadroomPreservesMandatoryReviewsWithoutInventingChargesOrResettingUnknowns()
     {
         var campaign = new BenchmarkCampaign(new Records(), "review-headroom");

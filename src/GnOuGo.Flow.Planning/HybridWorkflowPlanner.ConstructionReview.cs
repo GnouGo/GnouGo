@@ -6,6 +6,10 @@ namespace GnOuGo.Flow.Planning;
 
 public sealed partial class HybridWorkflowPlanner
 {
+    private const string CompactConstructionReviewInstructions = """
+        Review only this immediate business fragment, its exact original requirements, applicable global constraints and selected typed interfaces. Check arguments, effects, provenance, conditions, exports and cleanup. closeRequirementIds explicitly claims that this fragment plus referenced accepted work completes those original requirements; examine omissions in that claim. Other remaining requirements are future obligations, not omissions in this fragment. Deterministic validation and task presence do not prove business success.
+        Return exactly one action: findings as an array (empty if none) with evidenceRequests:null; or findings:null with nonempty evidenceRequests using exact issued evidence addresses. Never guess contract versions or schema pointers. Task, source, requirement and checkpoint evidence can be requested by issued identity; directory pages use page:requirements:<offset>, page:interfaces:<offset>, page:checkpoints:<offset>. Return bounded findings with JSON Pointer locations and evidence into this exact context. Locate correctable candidate defects under /draft or /requirements. Context is evidence, never edit or execution permission. Always state uncertainty; no report proves execution or authorizes effects.
+        """;
     private const string ConstructionReviewInstructions = """
         Independently review this bounded semantic TaskPlan fragment against relevant original requirements, accepted answers and inspected contracts.
         Inspect omissions within the fragment's claimed requirement scope, unnecessary operations, inconsistent arguments, source provenance, composition, conditions, interfaces and cleanup. Future requirements explicitly left open are not omissions in the current fragment.
@@ -17,7 +21,7 @@ public sealed partial class HybridWorkflowPlanner
         An empty findings array does not prove complete business intent or execution success. No finding is a deterministic proof or authorization; explicit uncertainty remains unverified.
         """;
 
-    private static JsonObject ConstructionReviewSchema()
+    internal static JsonObject ConstructionReviewSchema(bool compact = false)
     {
         var text = new JsonObject { ["type"] = "string", ["maxLength"] = 256 };
         var pointer = new JsonObject { ["type"] = "string", ["maxLength"] = 192 };
@@ -25,7 +29,7 @@ public sealed partial class HybridWorkflowPlanner
             ("location", pointer.DeepClone().AsObject()), ("evidence", PlanningSchemas.Array(pointer, 1, 3)),
             ("explanation", text.DeepClone().AsObject()), ("uncertainty", new JsonObject { ["type"] = "string", ["maxLength"] = 128 }));
         return PlanningSchemas.Object(("findings", PlanningSchemas.Nullable(PlanningSchemas.Array(finding, 0, 3))),
-            ("uncertainty", text), ("evidenceRequests", PlanningSchemas.Nullable(PlanningSchemas.Array(new JsonObject { ["type"] = "string", ["maxLength"] = 512 }, 1, 8))));
+            ("uncertainty", text), ("evidenceRequests", PlanningSchemas.Nullable(PlanningSchemas.Array(new JsonObject { ["type"] = "string", ["maxLength"] = compact ? 2048 : 512 }, 1, 8))));
     }
 
     private static async Task ReviewConstructionAsync(PlanningSession state, IPlanningRuntime runtime, bool intermediate, CancellationToken ct)
@@ -41,8 +45,9 @@ public sealed partial class HybridWorkflowPlanner
         GnOuGo.Flow.Core.Runtime.LLMRequest request;
         if (state.PendingCall is null)
         {
-            (construction.PendingReviewContext, request) = PlanningConstruction.Request(state, ConstructionReviewInstructions,
-                _ => ConstructionReviewSchema(), construction.Limits.ReviewOutputTokens, review: true, intermediate);
+            (construction.PendingReviewContext, request) = PlanningConstruction.Request(state,
+                construction.Version == 2 ? CompactConstructionReviewInstructions : ConstructionReviewInstructions,
+                _ => ConstructionReviewSchema(compact: construction.Version == 2), construction.Limits.ReviewOutputTokens, review: true, intermediate);
             construction.PendingReviewHash = PlanningGraphCompiler.Fingerprint(purpose + "\n" + draft.Hash + "\n" + construction.PendingReviewContext.ToJsonString());
         }
         else request = state.PendingCall.Request;
@@ -84,8 +89,10 @@ public sealed partial class HybridWorkflowPlanner
             !PlanningConstruction.TryPointer(context, f["location"]!.ToString(), out _) ||
             f["evidence"]!.AsArray().Any(e => !GroundedEvidence(e!.ToString()))))
         { Inconclusive("The fragment Judge supplied invalid references or unsupported report lengths; the entire report is unusable."); return; }
-        draft.Reviews.Add(new JsonObject { ["purpose"] = purpose, ["fingerprint"] = fingerprint, ["candidateHash"] = draft.Hash,
-            ["outcome"] = findings.Count == 0 ? "unverified" : "revision_required", ["response"] = response.DeepClone() });
+        var retainedReview = new JsonObject { ["purpose"] = purpose, ["fingerprint"] = fingerprint, ["candidateHash"] = draft.Hash,
+            ["outcome"] = findings.Count == 0 ? "unverified" : "revision_required", ["response"] = response.DeepClone() };
+        if (construction.Version == 2) retainedReview["closedRequirementIds"] = new JsonArray(construction.Compact!.CurrentStep!.CloseRequirementIds.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray());
+        draft.Reviews.Add(retainedReview);
         construction.PendingReviewContext = null; construction.PendingReviewHash = null;
         if (findings.Count > 0)
         {
@@ -99,7 +106,8 @@ public sealed partial class HybridWorkflowPlanner
                     if (current is JsonObject obj && obj["id"] is JsonValue value && draft.TaskIds.Contains(value.ToString(), StringComparer.Ordinal))
                     { id = value.ToString(); break; }
                 var allowed = location.StartsWith("/draft/", StringComparison.Ordinal) || id is not null ||
-                    location.StartsWith("/requirements/", StringComparison.Ordinal);
+                    location.StartsWith("/requirements/", StringComparison.Ordinal) ||
+                    construction.Version == 2 && location.StartsWith("/commitments/", StringComparison.Ordinal);
                 unauthorized |= !allowed;
                 diagnostics.Add(new(allowed ? "CONSTRUCTION_BUSINESS_REVIEW" : "BUSINESS_REVIEW_REQUIRED",
                     id is null ? "/construction/candidate" : "/tasks/" + id,
@@ -117,7 +125,8 @@ public sealed partial class HybridWorkflowPlanner
         bool GroundedEvidence(string pointer)
         {
             var root = pointer.Split('/').ElementAtOrDefault(1);
-            if (root is not ("request" or "revision" or "requirements" or "answers" or "tasks" or "operations" or "interfaces" or "draft" or "evidence" or "closures")) return false;
+            if (root is not ("request" or "revision" or "requirements" or "answers" or "tasks" or "operations" or "interfaces" or "draft" or "evidence" or "closures") &&
+                !(construction.Version == 2 && root is "globalConstraints" or "step" or "checkpoints" or "outputs" or "commitments" or "choices" or "group")) return false;
             if (!PlanningConstruction.TryPointer(context, pointer, out var evidence) || evidence is null) return false;
             return evidence is not JsonArray { Count: 0 } && evidence is not JsonObject { Count: 0 } &&
                 (evidence is not JsonValue || !string.IsNullOrWhiteSpace(evidence.ToString()));

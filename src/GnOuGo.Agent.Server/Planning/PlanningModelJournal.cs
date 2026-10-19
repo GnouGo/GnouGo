@@ -16,7 +16,7 @@ namespace GnOuGo.Agent.Server.Planning;
 internal sealed class PlanningModelJournal(
     ILLMClient inner, IDbContextFactory<PlanningDbContext> contexts, IKeyVaultRecordStore records,
     string tenantId, string sessionId, LLMUsageBudgetScope budget, IModelUsageCostEstimator estimator, PlanningGenerationOptions? generation = null,
-    ILLMCapabilityResolver? capabilities = null) : ILLMClient, IModelAdmissionOwner, IPlanningConstructionAdmission
+    ILLMCapabilityResolver? capabilities = null, PlanningRequest? planning = null) : ILLMClient, IModelAdmissionOwner, IPlanningConstructionAdmission
 {
     internal const string Collection = "agent-planning-model-receipts-v10";
     internal const string RequestCollection = "agent-planning-model-requests-v10";
@@ -57,7 +57,7 @@ internal sealed class PlanningModelJournal(
             return completed;
         }
         await ModelRequestAdmission.ValidateAsync(request, capabilities ?? inner as ILLMCapabilityResolver,
-            generation?.MaxInputTokensPerRequest ?? 32_000, "planning", ct);
+            planning is null ? generation?.MaxInputTokensPerRequest ?? 32_000 : PlanningConstructionInputPolicy.EffectiveLimit(planning, request), "planning", ct);
         var row = new PlanningCallIndex { TenantId = tenantId, SessionId = sessionId, RequestHash = key, PayloadKey = sessionId + ":" + key };
         db.Calls.Add(row);
         try { await db.SaveChangesAsync(ct); }

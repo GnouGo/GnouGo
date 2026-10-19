@@ -6,6 +6,8 @@ namespace GnOuGo.Flow.Core.Planning;
 /// <summary>Captured construction limits. These govern model requests, never executable permissions.</summary>
 public sealed class PlanningConstructionOptions
 {
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PlanningConstructionInputLimits? InputLimits { get; set; }
     public int MaxTasksPerDraft { get; set; } = 8;
     public int MaxCheckpoints { get; set; } = 128;
     public int MaxCorrectionsPerDraft { get; set; } = 3;
@@ -18,6 +20,8 @@ public sealed class PlanningConstructionOptions
 public sealed class PlanningConstructionState
 {
     public int Version { get; set; } = 1;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PlanningCompactConstructionState? Compact { get; set; }
     public PlanningConstructionOptions Limits { get; set; } = new();
     public List<string> OpenScopes { get; set; } = ["/root"];
     public List<PlanningConstructionCheckpoint> Checkpoints { get; set; } = [];
@@ -98,6 +102,8 @@ public sealed class PlanningConstructionCheckpoint
     public List<string> TaskIds { get; set; } = [];
     public List<string> ImportedTaskIds { get; set; } = [];
     public List<string> RequirementIds { get; set; } = [];
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? ClosedRequirementIds { get; set; }
     public List<string> ClosedScopes { get; set; } = [];
     public JsonObject Fragment { get; set; } = new();
     public List<JsonObject> Reviews { get; set; } = [];

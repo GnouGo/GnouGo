@@ -11,7 +11,25 @@ internal static class IncrementalConstructionSmoke
     {
         var planner = new HybridWorkflowPlanner();
         var runtime = new Runtime();
-        var initial = new PlanningSession { Request = new() { TenantId = "smoke", Prompt = "Return exactly Hello as message." } };
+        // Keep this exact issued version-1 recovery fixture alongside the fresh
+        // compact smoke; new creation defaults must never migrate it.
+        var initial = new PlanningSession
+        {
+            IntentVersion = 3, Construction = new() { Version = 1 },
+            Request = new()
+            {
+                TenantId = "smoke", Prompt = "Return exactly Hello as message.", MaxModelCalls = 12,
+                Options = new()
+                {
+                    ["construction_version"] = 1, ["compilation_profile"] = TaskPlanCompiler.CompactProfile,
+                    ["mapping_profile"] = TaskPlanCompiler.AdaptiveMappingProfile,
+                    ["planning_validation_profile"] = TaskPlanCompiler.AssertionValidationProfile,
+                    ["planning_diagnostics_version"] = 1, ["planning_input_review_version"] = 2,
+                    ["business_judge_review_version"] = 2, ["clarification_policy"] = 1
+                }
+            }
+        };
+        initial = JsonSerializer.Deserialize(JsonSerializer.Serialize(initial, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
         var candidate = await planner.AdvanceAsync(initial, new(), runtime, CancellationToken.None);
         if (candidate.Plan is not null || candidate.Construction?.Candidate is null || candidate.Construction.Checkpoints.Count != 0 || runtime.PhysicalCalls != 1)
             throw new InvalidOperationException("Unexpected initial construction state: " + candidate.Status + "; calls=" + runtime.PhysicalCalls +

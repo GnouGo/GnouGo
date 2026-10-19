@@ -21,7 +21,7 @@ public sealed class LiveWorkflowReviewTests
         Assert.Equal(option is not null, request.Options.ContainsKey("business_judge"));
         Assert.Equal("provider", request.Options["generator"]!["provider"]!.GetValue<string>());
         Assert.Equal("model", request.Options["generator"]!["model"]!.GetValue<string>());
-        Assert.Equal(12, request.MaxModelCalls);
+        Assert.Equal(64, request.MaxModelCalls);
         Assert.Equal(4, request.MaxReplanAttempts);
         Assert.Equal(32000, request.Generation.MaxInputTokensPerRequest);
         Assert.Equal(8192, request.Generation.MaxOutputTokens);
@@ -66,7 +66,7 @@ public sealed class LiveWorkflowReviewTests
             "fresh-run", "amazon", "requested work", "provider", "model");
         Assert.Equal(enabled, request.Options.ContainsKey("automatic_correction"));
         if (enabled) Assert.True(request.Options["automatic_correction"]!.GetValue<bool>());
-        Assert.Equal(12, request.MaxModelCalls);
+        Assert.Equal(64, request.MaxModelCalls);
         Assert.Equal(4, request.MaxReplanAttempts);
         Assert.Equal(32000, request.Generation.MaxInputTokensPerRequest);
         Assert.Equal(8192, request.Generation.MaxOutputTokens);

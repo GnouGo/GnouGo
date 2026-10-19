@@ -15,19 +15,19 @@ public sealed class InitialRequirementsHostTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task BackgroundOwnerCorrectsOrStopsOnceAndRestartDoesNotRedispatch(bool repeatInvalid)
+    public async Task RetainedVersionOneBackgroundOwnerCorrectsOrStopsOnceAndRestartDoesNotRedispatch(bool repeatInvalid)
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
         var client = new InitialClient(repeatInvalid);
         var expectedCalls = repeatInvalid ? 2 : 3;
         var agents = PlanningSessionLifecycleTests.AgentCatalog();
+        var initial = await RetainedVersionOneConstruction.SeedAsync(fixture, agents, client, "initial-requirements", "Return a literal result", Ct);
         PlanningSession result;
         using (var service = PlanningSessionLifecycleTests.Create(fixture, new HybridWorkflowPlanner(), agents, client))
         {
             await service.StartAsync(Ct);
             try
             {
-                var initial = await service.StartAsync("initial-requirements", "Return a literal result", false, Ct);
                 using var deadline = CancellationTokenSource.CreateLinkedTokenSource(Ct);
                 deadline.CancelAfter(TimeSpan.FromSeconds(15));
                 while (true)

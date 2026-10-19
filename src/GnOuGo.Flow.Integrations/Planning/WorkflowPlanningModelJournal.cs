@@ -51,7 +51,7 @@ internal sealed class WorkflowPlanningModelJournal(StepExecutionContext context,
                     "The previous model dispatch has no completion receipt. It cannot be dispatched again or reset its budget.");
             }
             await ModelRequestAdmission.ValidateAsync(request, context.Engine.LLMCapabilities ?? context.Engine.LLMClient as ILLMCapabilityResolver,
-                planning.Generation.MaxInputTokensPerRequest, "planning", ct);
+                PlanningConstructionInputPolicy.EffectiveLimit(planning, request), "planning", ct);
             await records.UpsertAsync(Requests, planning.TenantId, key, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest), WorkflowPlanningRuntimeFactory.Author, ct);
             Event("reserved");
             var response = await budget.CallAsync(context.Engine.LLMClient ?? throw new InvalidOperationException("No planning model is configured."),

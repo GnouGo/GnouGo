@@ -34,10 +34,14 @@ public static class PlanningArtifactApproval
     {
         if (state.Construction is not { } construction) return; // Captured historical artifacts retain their approval contract.
         var requirements = state.Requirements?.Outcomes.Select(r => r.Id).Order(StringComparer.Ordinal).ToArray() ?? [];
-        if (construction.Version != 1 || !construction.Complete || construction.Candidate is not null || construction.OpenScopes.Count != 0 ||
+        if (construction.Version is not (1 or 2) || construction.Version == 2 && !PlanningCompactConstruction.SourcesComplete(state) ||
+            !construction.Complete || construction.Candidate is not null || construction.OpenScopes.Count != 0 ||
             construction.PendingReviewContext is not null || construction.PendingReviewHash is not null || construction.Checkpoints.Count == 0 ||
             construction.Checkpoints[^1].PlanHash != PlanningConstruction.Hash(state.Plan) ||
-            construction.Requirements.Any(r => r.Status != "declared" || r.Checkpoints.Count == 0 ||
+            construction.Requirements.Any(r => r.Status != (construction.Version == 2 ? "closed" : "declared") || r.Checkpoints.Count == 0 ||
+                construction.Version == 2 && !construction.Checkpoints.Any(c => c.ClosedRequirementIds?.Contains(r.Id, StringComparer.Ordinal) == true &&
+                    c.InvalidatedTaskIds.Count == 0 && Reviewed(c, PlanningConstruction.LocalPurpose) &&
+                    (!c.NeedsIntermediateReview || Reviewed(c, PlanningConstruction.IntermediatePurpose))) ||
                 r.Checkpoints.Any(sequence => sequence < 1 || sequence > construction.Checkpoints.Count ||
                     !construction.Checkpoints[sequence - 1].RequirementIds.Contains(r.Id, StringComparer.Ordinal))) ||
             !construction.Requirements.Select(r => r.Id).Order(StringComparer.Ordinal).SequenceEqual(requirements))
@@ -46,6 +50,7 @@ public static class PlanningArtifactApproval
         {
             var checkpoint = construction.Checkpoints[index];
             if (checkpoint.Sequence != index + 1 || !Hash(checkpoint.BaseHash) || !Hash(checkpoint.PlanHash) ||
+                checkpoint.ClosedRequirementIds is { } closed && (closed.Distinct(StringComparer.Ordinal).Count() != closed.Count || closed.Any(id => !checkpoint.RequirementIds.Contains(id, StringComparer.Ordinal))) ||
                 !Reviewed(checkpoint, PlanningConstruction.LocalPurpose) ||
                 checkpoint.NeedsIntermediateReview && !Reviewed(checkpoint, PlanningConstruction.IntermediatePurpose))
                 throw new PlanningConflictException("Every accepted construction checkpoint requires its artifact-bound local and intermediate review evidence.");
@@ -53,6 +58,8 @@ public static class PlanningArtifactApproval
 
         static bool Reviewed(PlanningConstructionCheckpoint checkpoint, string purpose) => checkpoint.Reviews.Any(review =>
             review["purpose"]?.ToString() == purpose && review["candidateHash"]?.ToString() == checkpoint.PlanHash &&
+            (checkpoint.ClosedRequirementIds is null || review["closedRequirementIds"] is JsonArray closed &&
+                closed.Select(id => id!.ToString()).SequenceEqual(checkpoint.ClosedRequirementIds, StringComparer.Ordinal)) &&
             Hash(review["fingerprint"]?.ToString()) && review["outcome"]?.ToString() == "unverified" &&
             review["response"] is JsonObject response && response["findings"] is JsonArray { Count: 0 } &&
             response["evidenceRequests"] is null && response["uncertainty"] is JsonValue uncertainty &&

@@ -15,6 +15,7 @@ internal sealed class PlanningRepairResponse
     public RepairPatch? Patch { get; set; }
     public List<PlanningQuestion>? Clarifications { get; set; }
     public List<string>? EvidenceRequests { get; set; }
+    public string? ReselectStep { get; set; }
 }
 internal sealed class RepairPatch { public List<RepairEdit> Edits { get; set; } = []; }
 internal sealed class RepairEdit

@@ -117,6 +117,15 @@ internal static class PlanningPersistenceSmoke
             Plan = accepted, ModelCalls = 2,
             Construction = new()
             {
+                Version = 2, Limits = new() { InputLimits = new() },
+                Compact = new()
+                {
+                    Sources = [new() { Id = "request:0", Version = "retained-source", Text = privateValue, Indexed = true }],
+                    RequirementSources = new(StringComparer.Ordinal) { ["requested"] = ["request:0"] },
+                    CurrentStep = new() { Id = "step-2", BaseHash = PlanningConstruction.Hash(accepted), Objective = privateValue,
+                        RequirementIds = ["requested"], CloseRequirementIds = ["requested"] },
+                    PendingCommitments = new(StringComparer.Ordinal) { ["requested"] = [new("retained-operation")] }
+                },
                 Checkpoints = [new() { Sequence = 1, PlanHash = PlanningConstruction.Hash(accepted), Fragment = new() { ["evidence"] = privateValue } }],
                 Candidate = new() { BaseHash = PlanningConstruction.Hash(accepted), Plan = new() { Root = new() { Outputs = [new("candidate", new() { Kind = "string", Text = privateValue })] } } },
                 PendingReviewContext = new() { ["original"] = privateValue }
@@ -129,10 +138,13 @@ internal static class PlanningPersistenceSmoke
         var restored = await reopened.LoadAsync("smoke", state.Request.SessionId, CancellationToken.None);
         if (restored is null || System.Text.Json.JsonSerializer.Serialize(restored, PlanningJsonContext.Default.PlanningSession) != original ||
             restored.Plan?.Root.Outputs.Single().Name != "accepted" || restored.Construction?.Candidate?.Plan.Root.Outputs.Single().Name != "candidate" ||
+            restored.Construction?.Compact?.CurrentStep?.Objective != privateValue ||
+            restored.Construction.Compact.Sources.Single().Text != privateValue ||
+            restored.Construction.Compact.PendingCommitments["requested"].Single().Operation != "retained-operation" ||
             await reopened.LoadAsync("other-tenant", state.Request.SessionId, CancellationToken.None) is not null ||
             System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(vault)).Contains(privateValue, StringComparison.Ordinal))
             throw new InvalidOperationException("Published construction candidate, review, request or tenant/encryption recovery failed.");
-        Console.WriteLine("construction persistence: accepted baseline, tentative draft and pending review recover independently under encryption");
+        Console.WriteLine("construction persistence: accepted baseline, compact source/substep/commitments, tentative draft and pending review recover independently under encryption");
     }
 
     private static async Task VerifyJudgeRecoveryAsync(string directory, string vault, IDbContextFactory<PlanningDbContext> factory,
@@ -142,7 +154,7 @@ internal static class PlanningPersistenceSmoke
         var current = new PlanningRequest();
         if (historical.MaxModelCalls != 8 || historical.MaxReplanAttempts != 2 ||
             historical.Generation.MaxInputTokensPerRequest != 12000 || historical.Generation.MaxOutputTokens != 8192 ||
-            historical.Options.ContainsKey("business_judge") || current.MaxModelCalls != 12 || current.MaxReplanAttempts != 4 ||
+            historical.Options.ContainsKey("business_judge") || current.MaxModelCalls != 64 || current.MaxReplanAttempts != 4 ||
             current.Generation.MaxInputTokensPerRequest != 32000 || current.Generation.MaxOutputTokens != 32768)
             throw new InvalidOperationException("Published fresh defaults changed historical source-generated deserialization.");
 

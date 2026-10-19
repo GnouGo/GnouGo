@@ -59,7 +59,7 @@ public sealed class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records,
                 var input = initial.Request.Options;
                 if (input["max_replan_attempts"] is null && initial.Request.MaxReplanAttempts == 4)
                     initial.Request.MaxReplanAttempts = retained.MaxReplanAttempts;
-                if (input["llm_budget"]?["max_calls"] is null && initial.Request.MaxModelCalls == 12)
+                if (input["llm_budget"]?["max_calls"] is null && initial.Request.MaxModelCalls == 64)
                     initial.Request.MaxModelCalls = retained.MaxModelCalls;
                 if (input["generator"]?["max_input_tokens"] is null && initial.Request.Generation.MaxInputTokensPerRequest == 32_000)
                     initial.Request.Generation.MaxInputTokensPerRequest = retained.Generation.MaxInputTokensPerRequest;

@@ -1,13 +1,17 @@
 # Incremental TaskPlan construction
 
-Fresh sessions extend one semantic TaskPlan from available producers toward
-consumers. Each bounded draft passes deterministic semantic validation and a local
-advisory review before acceptance. A simple workflow can finish in one draft.
-There is no new executable representation or alternate engine.
+Fresh version-2 sessions extend one semantic TaskPlan from available producers
+toward consumers. They index original intent once, select one immediate business
+substep, discover its capabilities and generate only its fragment. Each bounded
+draft passes deterministic semantic validation and a local advisory review before
+acceptance. A simple workflow can finish in one draft after intent and substep
+selection. There is no new executable representation or alternate engine.
 
 ```mermaid
 flowchart LR
-  Intent[Retained intent and exact contracts] --> Draft[Bounded semantic extension]
+  Intent[Indexed original intent] --> Select[Select immediate business substep]
+  Select --> Discover[Substep capability discovery and exact contract views]
+  Discover --> Draft[Bounded semantic extension]
   Draft --> Validate[Compiler semantic preflight]
   Validate --> Review[Local advisory Judge]
   Validate --> Repair[Scoped correction]
@@ -16,7 +20,7 @@ flowchart LR
   Review --> Checkpoint[Encrypted checkpoint]
   Review --> Junction[Required junction review]
   Junction --> Checkpoint
-  Checkpoint --> Draft
+  Checkpoint --> Select
   Checkpoint --> Final[Complete deterministic validation]
   Final --> Graph[PlanningGraph]
   Graph --> YAML[Compiler v15 JavaScript and YAML]
@@ -27,7 +31,9 @@ flowchart LR
 
 `PlanningSession.Plan` holds accepted semantic work. Optional versioned
 `Construction` metadata records its frontier, candidate, checkpoint manifests,
-requirement associations, review evidence and correction progress. These records
+requirement associations, review evidence and correction progress. Version 2 also
+retains source coverage, the current substep, tentative commitment bindings,
+selected contract views, requirement closure and issued-request measurements. These records
 are non-executable and use the existing encrypted session, tenant, optimistic
 revision and leases. Storage format 10 remains unchanged.
 
@@ -44,18 +50,43 @@ their boundary. Child tasks may consume available values in their lexical scope.
 Closing conditional branches requires compatible exports; parallel siblings
 connect through enclosing exports.
 
-Prompts contain the retained objective, applicable original requirements and
-answers, a bounded frontier, selected exact contracts and imported interfaces.
-Original evidence is retrieved by identity in bounded requests. The entire plan,
-history and catalog stay in storage. Admission measures the complete serialized
-request including its schema; indispensable evidence is never silently truncated.
-Fresh draft, review and repair presentations admit optional whole operation
-contracts only while the complete serialized phase request fits its captured
-input allowance. Selected fragment and commitment contracts, explicit inspections,
-requested evidence and original intent remain mandatory. Optional identities stay
-in retained discovery and can be requested explicitly; neither a contract nor its
-schema is cropped to make it fit. Mandatory-only excess still fails before dispatch.
-Already issued requests and saved review contexts retain their exact bytes and hashes.
+Intent indexing processes stable original request and answer pages without
+discarding source text. Page boundaries also bound the bytes after both JSON escaping layers, preserve Unicode characters, and retain exact continuation offsets. Requirements retain exact source references and applicable
+global constraints. All source pages must be processed; a summary is never a
+replacement for authoritative intent. Selecting a substep identifies its original
+requirements, target scope, available input ports, expected outputs, dependencies
+and permitted task kinds. Missing prerequisites remain frontier obligations, not
+executable placeholders. Cleanup and scope/export closure are selectable substeps.
+
+Each phase receives only the context needed for that substep. Discovery uses its
+needs rather than the global request. Previously inspected operations remain in
+encrypted storage but do not become mandatory context in later calls. Discovery
+descriptors identify exact contracts and retrieval addresses. Original contracts
+remain unchanged; selected schema views retain relevant ancestors, required
+siblings, cross-field constraints, alternatives and reference closure. Descriptors
+cannot authorize execution or replace a contract. Separable original evidence can
+be paged; indivisible required information that exceeds the phase allowance stops
+explicitly. No unused request capacity is filled with unrelated suggestions.
+Discovery directories present four operation descriptors or two sources at a time.
+Output-port directories preserve original producer business-port mappings, including
+aliases beyond the first page; their addresses are distinct from wire-schema paths.
+Schema evidence retrieves the selected original subtree and its coupled constraints.
+
+A call substep selects one closed reusable group with `groupId`. Its draft and
+Judge context includes the immutable group hash and exact input/output interface,
+including input defaults, without copying the body. `group:<id>` retrieves that
+interface. Open groups expose no consumable outputs and cannot be selected for calls.
+
+Intent, selection, discovery and evidence response schemas contain no TaskPlan
+grammar. Generation schemas expose only selected task kinds and operation IDs;
+container openings establish empty child scopes for later substeps. Compiler
+validation still uses complete original contracts. Draft and Judge context omit
+unrelated history, contracts, interfaces and requirement pages. Already issued
+requests and saved review contexts retain their exact bytes and hashes.
+
+Historical version-1 construction retains its captured whole-contract optional
+admission and inspection semantics. New presentation rules never reinterpret a
+saved version-1 request or receipt.
 
 ## Review, correction and finalization
 
@@ -91,6 +122,20 @@ Full TaskPlan validation, PlanningGraph checks, confirmation guards, compiler v1
 and runtime validation remain unchanged. There is no final whole-workflow LLM
 Judge. Compilation does not prove content accuracy or successful effects.
 
+Version 2 separates requirement contribution from closure. A fragment may make
+progress without satisfying a whole requirement. An explicit closure identifies
+the exact original clause and relevant checkpoint evidence for scoped review;
+coincident fragment/closure reviews are coalesced. New operation/result commitments
+remain tentative with the candidate and append atomically when it is accepted.
+Rejecting a candidate does not freeze its tentative operation choice. Previously
+accepted commitments remain immutable. Closing a requirement records reviewed
+declared coverage, never proof of prose completeness or successful execution.
+The checkpoint retains which requirements the scoped review explicitly closed;
+ordinary contribution checkpoints do not establish closure. A diagnosed tentative
+step may request reselection within its original scope and requirement identities,
+retaining rejected evidence and correction accounting. This cannot expand explicit
+typed revision paths or change accepted fragments.
+
 ## Captured capacity
 
 Select `construction_preset: large` on a new `workflow.plan`, or
@@ -99,7 +144,7 @@ Select `construction_preset: large` on a new `workflow.plan`, or
 
 | Limit | Ordinary | Large |
 | --- | ---: | ---: |
-| Model calls | 12 | 384 |
+| Model calls | 64 | 384 |
 | Cumulative corrections | 4 | 64 |
 | Recursive tasks per draft | 8 | 8 |
 | Corrections per draft | 3 | 3 |
@@ -117,16 +162,36 @@ session. Large sessions are not accidentally capped by ordinary call settings.
 No recovery operation silently increases captured limits.
 
 The host retains 15,000,000 cumulative tokens and five hours of active time.
-Construction uses the configured input ceiling (32,000 by default) and captured
-phase output reservations of 8,192 for drafts/corrections and 2,048 for Judges,
-bounded by generation settings. Eight tasks do not prove that variable-sized
-content fits; oversized requests/responses fail explicitly.
+Version 2 captures hard admission ceilings measured by conservative complete-request
+input-token estimates: 3,000 for intent
+indexing, selection and discovery, 8,000 for generation/correction, and 4,000 for
+local/intermediate Judges. Tighter host/request allowances still prevail. These
+include instructions, original source excerpts, interfaces, response schema and serialization envelope;
+there is no fallback to 32,000. Historical sessions retain their captured limits,
+including the previous ordinary 12-call default.
+Host settings `SelectionInputTokens`, `DraftInputTokens` and `ReviewInputTokens`
+may tighten these phase ceilings for new sessions. The explicit large preset uses
+the same compact input ceilings while retaining its larger call and graph capacity.
+
+Captured output reservations remain 8,192 for non-Judge construction calls and
+2,048 for Judges, bounded by generation settings. Eight tasks do not prove that
+variable-sized content fits; oversized requests/responses fail explicitly.
 `DraftOutputTokens` and `ReviewOutputTokens` configure those captured host
 reservations. Authored `workflow.plan` generators use `draft_output_tokens` and
 `review_output_tokens`; neither option raises the aggregate output ceiling.
 
-Before a new draft or correction dispatch, admission checks its ceiling together
-with every required review against the existing call, token and monetary ledgers,
+Each constructed request, including a locally rejected request, retains its phase,
+request and response-schema hashes and component measurements. Substep, accepted
+baseline hash and selected contract identities/versions are recorded when applicable. Component UTF-8 byte counts reconcile with
+the exact complete serialized Core `LLMRequest`. The versioned conservative input estimate
+includes envelope overhead; component estimates are not billed usage. Provider
+input, output and reasoning tokens remain whole-call measurements, with Judge as
+a phase dimension. Reports expose safe identities and sizes, not private intent,
+contracts or receipts. Transient presentation and measurement metadata never
+participate in artifact identity; captured construction version/settings do.
+
+Before selection or discovery as well as generation/correction dispatch, admission
+checks unavoidable downstream generation and reviews against the existing call, token and monetary ledgers,
 including parent budgets. Durable model journals expose their owned budget through
 the provider-neutral construction admission interface; ordinary runtimes use the
 execution context's budget. Currency estimates use the existing validated exchange

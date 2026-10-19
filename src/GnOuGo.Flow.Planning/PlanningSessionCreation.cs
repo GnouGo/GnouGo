@@ -18,7 +18,19 @@ internal static class PlanningSessionCreation
         options.TryAdd("planning_input_review_version", 2);
         options.TryAdd("business_judge_review_version", 2);
         state.Construction ??= new();
-        options.TryAdd("construction_version", 1);
+        state.Construction.Version = 2;
+        state.Construction.Compact ??= new();
+        state.Construction.Limits.InputLimits ??= new();
+        var limits = state.Construction.Limits.InputLimits;
+        var general = state.Request.Generation.MaxInputTokensPerRequest;
+        if (general <= 0 || limits.Selection <= 0 || limits.Draft <= 0 || limits.Review <= 0)
+            throw new PlanningConflictException("Fresh compact input allowances must be positive.");
+        limits.Selection = Math.Min(general, Math.Min(3_000, limits.Selection));
+        limits.Draft = Math.Min(general, Math.Min(8_000, limits.Draft));
+        limits.Review = Math.Min(general, Math.Min(4_000, limits.Review));
+        options["construction_version"] = 2;
+        options["construction_input_limits"] = System.Text.Json.JsonSerializer.SerializeToNode(
+            state.Construction.Limits.InputLimits, PlanningJsonContext.Default.PlanningConstructionInputLimits);
         options.TryAdd("clarification_policy", 1);
         if (state.Request.Baseline is { } baseline) state.Plan = PlanningConstruction.Clone(baseline);
     }

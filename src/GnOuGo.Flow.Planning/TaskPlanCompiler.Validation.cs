@@ -92,7 +92,8 @@ public sealed partial class TaskPlanCompiler
             if (invalidChoices.Contains(choice.Id)) continue;
             var before = findings.Count;
             Check("/choices/" + choice.Id, () => ValidateChoice(choice));
-            if (symbols.Values.Values.SelectMany(s => Values(s.Value)).Count(v => v.Kind == "choice" && v.Source == choice.Id) != 1)
+            var uses = symbols.Values.Values.SelectMany(s => Values(s.Value)).Count(v => v.Kind == "choice" && v.Source == choice.Id);
+            if (uses != 1 && !(uses == 0 && _constructionAllowsUnboundChoices))
                 findings.Add(new("CHOICE_SLOT_INVALID", "/choices/" + choice.Id, "A choice must target exactly one business value slot."));
             if (findings.Count != before) invalidChoices.Add(choice.Id);
         }

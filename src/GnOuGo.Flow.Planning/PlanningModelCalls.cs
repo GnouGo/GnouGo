@@ -27,11 +27,19 @@ internal static class PlanningModelCalls
     {
         ct.ThrowIfCancellationRequested();
         if (state.PendingCall?.Request.StructuredOutputSchema?["properties"] is JsonObject previous &&
-            (previous.ContainsKey("sourceId") || previous.ContainsKey("cursor")))
+            (previous.ContainsKey("sourceId") || previous.ContainsKey("cursor")) &&
+            !(state.Construction?.Version == 2 && PlanningConstructionInputPolicy.IsCompact(state.Request) &&
+              state.PendingCall.Purpose == "construction_intent" &&
+              state.PendingCall.Request.StructuredOutputSchema["title"]?.ToString() == "construction_intent" && !previous.ContainsKey("cursor")))
             throw new WorkflowRuntimeException("PLANNING_REQUEST_INCOMPATIBLE", "The pending request uses a superseded discovery response contract. Start a new planning session and regenerate the workflow. Its original request, reservation and accounting are retained.");
         if (state.PendingCall is null)
         {
             EnsureCallAvailable(state);
+            if (PlanningConstructionInputPolicy.IsCompact(state.Request))
+            {
+                schema = schema.DeepClone().AsObject();
+                schema["title"] = purpose;
+            }
             var request = PlanningGenerationPolicy.Apply(new LLMRequest
             {
                 Provider = state.Request.Options["generator"]?["provider"]?.GetValue<string>(),
@@ -39,24 +47,51 @@ internal static class PlanningModelCalls
                 Prompt = prompt, StructuredOutputSchema = schema, StructuredOutputStrict = true, UseBackgroundMode = true,
                 MaxTokens = outputLimit
             }, state.Request.Generation);
-            var violations = PlanningContractValidation.ValidateSchema(schema, strict: true);
-            if (violations.Count != 0) throw new WorkflowRuntimeException("MODEL_SCHEMA_INVALID",
-                "The response schema is outside the supported structured-output profile. Planning stopped before dispatch without consuming a model call or repair. " + string.Join("; ", violations),
-                details: new JsonObject { ["location"] = "/phases/" + purpose });
             var hash = PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
             request.ClientRequestId = state.Request.SessionId + ":" + (state.ModelCalls + 1) + ":" + hash;
             var inputTokens = ModelRequestAdmission.EstimateTokens(request);
-            var inputLimit = state.Request.Generation.MaxInputTokensPerRequest;
+            var inputLimit = PlanningConstructionInputPolicy.EffectiveLimit(state.Request, purpose);
+            PlanningRequestMeasurement? measurement = null;
+            if (PlanningConstructionInputPolicy.IsCompact(state.Request))
+            {
+                var measured = PlanningRequestMeasurements.Measure(request, purpose, inputLimit, state.Construction?.Compact?.CurrentStep?.Id);
+                var retainedMeasurements = state.RequestMeasurements ??= [];
+                measurement = retainedMeasurements.SingleOrDefault(m => m.RequestHash == measured.RequestHash);
+                if (measurement is null) { measurement = measured; retainedMeasurements.Add(measurement); }
+            }
+            var violations = PlanningContractValidation.ValidateSchema(schema, strict: true);
+            if (violations.Count != 0)
+            {
+                await RejectMeasurement();
+                throw new WorkflowRuntimeException("MODEL_SCHEMA_INVALID",
+                    "The response schema is outside the supported structured-output profile. Planning stopped before dispatch without consuming a model call or repair. " + string.Join("; ", violations),
+                    details: new JsonObject { ["location"] = "/phases/" + purpose });
+            }
             if (inputTokens > inputLimit)
-                throw new WorkflowRuntimeException("MODEL_INPUT_LIMIT", $"The conservative input estimate for the complete {purpose} request (prompt and response schema) is {inputTokens} tokens; the configured limit is {inputLimit}. Planning stopped before dispatch without consuming another model call or repair. Increase the input token limit in generation settings and explicitly resume planning; cumulative session budgets remain unchanged.",
+            {
+                await RejectMeasurement();
+                var message = PlanningConstructionInputPolicy.IsCompact(state.Request)
+                    ? $"The conservative input estimate for the complete {purpose} request (prompt and response schema) is {inputTokens} tokens; the captured limit is {inputLimit}. Planning stopped before dispatch without consuming another model call or repair. Required context must fit the captured phase allowance; retained requests and cumulative budgets remain unchanged."
+                    : $"The conservative input estimate for the complete {purpose} request (prompt and response schema) is {inputTokens} tokens; the configured limit is {inputLimit}. Planning stopped before dispatch without consuming another model call or repair. Increase the input token limit in generation settings and explicitly resume planning; cumulative session budgets remain unchanged.";
+                throw new WorkflowRuntimeException("MODEL_INPUT_LIMIT", message,
                     details: new JsonObject { ["location"] = "/phases/" + purpose, ["limit_kind"] = "request_input_allowance",
                         ["limit"] = inputLimit, ["current"] = inputTokens, ["measurement"] = "estimated_tokens", ["unit"] = "tokens",
                         ["stage"] = purpose, ["dispatch_status"] = "not_started" });
-            if (runtime is WorkflowPlanningRuntime actual) await actual.AdmitAsync(request, inputLimit, purpose, ct);
+            }
+            try { if (runtime is WorkflowPlanningRuntime actual) await actual.AdmitAsync(request, inputLimit, purpose, ct); }
+            catch { await RejectMeasurement(); throw; }
+            if (measurement is not null) measurement.Admission = "admitted";
             state.ModelCalls++;
             if (purpose == "replan") state.ReplanAttempts++;
             state.PendingCall = new() { Id = request.ClientRequestId, Purpose = purpose, Request = request };
             await runtime.CheckpointAsync(state, ct);
+
+            async Task RejectMeasurement()
+            {
+                if (measurement is null) return;
+                measurement.Admission = "rejected_before_dispatch";
+                await runtime.CheckpointAsync(state, ct);
+            }
         }
         var call = state.PendingCall;
         if (call.Purpose != purpose) throw new PlanningConflictException("Complete the pending request before changing planning phases.");

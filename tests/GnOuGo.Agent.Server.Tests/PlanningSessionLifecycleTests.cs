@@ -43,7 +43,8 @@ public sealed class PlanningSessionLifecycleTests
         state.Request.MaxModelCalls = 30;
         Assert.Equal(30, PlanningSessionService.EffectiveModelCalls(state, null, new()));
         state.Construction = null;
-        Assert.Equal(12, PlanningSessionService.EffectiveModelCalls(state, null, new()));
+        Assert.Equal(30, PlanningSessionService.EffectiveModelCalls(state, null, new()));
+        Assert.Equal(12, PlanningSessionService.EffectiveModelCalls(state, null, new() { MaxModelCalls = 12 }));
     }
 
     [Fact]
@@ -106,7 +107,7 @@ public sealed class PlanningSessionLifecycleTests
         Assert.Equal(expected, created.Request.Generation.MaxInputTokensPerRequest);
         Assert.Equal(expectedOutput, created.Request.Generation.MaxOutputTokens);
         Assert.Equal("medium", created.Request.Generation.Reasoning);
-        Assert.Equal(12, created.Request.MaxModelCalls); Assert.Equal(4, created.Request.MaxReplanAttempts);
+        Assert.Equal(64, created.Request.MaxModelCalls); Assert.Equal(4, created.Request.MaxReplanAttempts);
         Assert.Equal(32_000, new PlanningGenerationOptions().MaxInputTokensPerRequest);
 
         using var reopened = Create(fixture, new HybridWorkflowPlanner(), AgentCatalog(), settings: settings);

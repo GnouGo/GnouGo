@@ -133,7 +133,8 @@ public sealed partial class PlanningSessionService(
             options["host_save"] = new JsonObject { ["agent_id"] = response!["agent"]!["id"]!.DeepClone(), ["original_hash"] = PlanningGraphCompiler.Fingerprint(original!) };
         var state = new PlanningSession
         {
-            Construction = new() { Limits = new() { DraftOutputTokens = settings.Value.DraftOutputTokens, ReviewOutputTokens = settings.Value.ReviewOutputTokens } },
+            Construction = new() { Limits = new() { DraftOutputTokens = settings.Value.DraftOutputTokens, ReviewOutputTokens = settings.Value.ReviewOutputTokens,
+                InputLimits = new() { Selection = settings.Value.SelectionInputTokens, Draft = settings.Value.DraftInputTokens, Review = settings.Value.ReviewInputTokens } } },
             Request = new PlanningRequest
             {
                 Mode = mode,
@@ -385,7 +386,7 @@ public sealed partial class PlanningSessionService(
             return current;
         }
         var budget = new LLMUsageBudgetScope(limits, initial, sink: new PlanningBudgetSink(records, Tenant, current.Request.SessionId), exchangeRateProvider: exchangeRates);
-        var journal = new PlanningModelJournal(runtime.LlmClient, contexts, records, Tenant, current.Request.SessionId, budget, estimator, current.Request.Generation, runtime.LlmCapabilityResolver);
+        var journal = new PlanningModelJournal(runtime.LlmClient, contexts, records, Tenant, current.Request.SessionId, budget, estimator, current.Request.Generation, runtime.LlmCapabilityResolver, current.Request);
         var engine = new WorkflowEngine
         {
             PlanningPolicy = CreatePolicy(CapturedPreset(current)),

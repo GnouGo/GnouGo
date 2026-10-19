@@ -28,7 +28,7 @@ public sealed class PlanningRequest
     public JsonObject Options { get; set; } = new();
     public PlanningPolicy Policy { get; set; } = new();
     public int MaxReplanAttempts { get; set; } = 4;
-    public int MaxModelCalls { get; set; } = 12;
+    public int MaxModelCalls { get; set; } = 64;
     public PlanningGenerationOptions Generation { get; set; } = new();
 }
 
@@ -180,6 +180,8 @@ public sealed class PlanningSession
     public int ReplanAttempts { get; set; }
     public int ModelCalls { get; set; }
     public PlanningModelCall? PendingCall { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<PlanningRequestMeasurement>? RequestMeasurements { get; set; }
     public string? RejectedProposalHash { get; set; }
     public LLMUsageBudgetSnapshot? Usage { get; set; }
     public string? Yaml { get; set; }
@@ -304,5 +306,12 @@ public sealed class PlanningConflictException(string message) : InvalidOperation
 [JsonSerializable(typeof(PlanningConstructionOptions))]
 [JsonSerializable(typeof(PlanningConstructionCandidate))]
 [JsonSerializable(typeof(PlanningConstructionExtension))]
+[JsonSerializable(typeof(PlanningCompactConstructionState))]
+[JsonSerializable(typeof(PlanningConstructionStep))]
+[JsonSerializable(typeof(PlanningConstructionSource))]
+[JsonSerializable(typeof(PlanningConstructionCommitment))]
+[JsonSerializable(typeof(PlanningConstructionInputLimits))]
+[JsonSerializable(typeof(PlanningRequestMeasurement))]
+[JsonSerializable(typeof(List<PlanningRequestMeasurement>))]
 [JsonSerializable(typeof(List<PlanningConstructionCheckpoint>))]
 public partial class PlanningJsonContext : JsonSerializerContext;

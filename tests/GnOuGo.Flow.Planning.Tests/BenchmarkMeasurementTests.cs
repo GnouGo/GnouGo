@@ -89,7 +89,7 @@ public sealed class BenchmarkMeasurementTests
     {
         var fresh = new PlanningRequest();
         PlanningBenchmarkMeasurements.ConfigureRequest(fresh, [], false);
-        Assert.Equal(12, fresh.MaxModelCalls); Assert.Equal(4, fresh.MaxReplanAttempts);
+        Assert.Equal(64, fresh.MaxModelCalls); Assert.Equal(4, fresh.MaxReplanAttempts);
         Assert.Equal(32000, fresh.Generation.MaxInputTokensPerRequest); Assert.Equal(8192, fresh.Generation.MaxOutputTokens);
         PlanningBenchmarkMeasurements.ConfigureRequest(fresh, ["--max-model-calls", "9", "--max-repairs", "0", "--max-input-tokens", "24000", "--max-output-tokens", "8192", "--business-judge"], false);
         Assert.Equal(9, fresh.MaxModelCalls); Assert.Equal(0, fresh.MaxReplanAttempts);

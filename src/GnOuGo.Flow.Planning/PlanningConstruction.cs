@@ -29,6 +29,7 @@ internal static partial class PlanningConstruction
 
     internal static JsonObject Schema(PlanningSession state, IEnumerable<string> operations)
     {
+        if (state.Construction!.Version == 2) return PlanningCompactConstruction.DraftSchema(state);
         var schema = PlanningSchemas.FullProposal(state, compact: false, admitted: operations.ToHashSet(StringComparer.Ordinal));
         var definitions = schema["$defs"]!.AsObject();
         var properties = schema["properties"]!.AsObject();
@@ -70,6 +71,7 @@ internal static partial class PlanningConstruction
     private static string[] IssuedScopes(PlanningSession state)
     {
         var construction = state.Construction!;
+        if (construction.Version == 2 && construction.Compact?.CurrentStep is { } selected) return [selected.Scope];
         var scopes = construction.OpenScopes.Skip(construction.ScopeCursor).Take(8).ToArray();
         if (scopes.Length == 0) scopes = construction.OpenScopes.Take(8).ToArray();
         if (construction.Candidate is { } retained && !scopes.Contains(retained.Extension.Scope, StringComparer.Ordinal)) scopes = [retained.Extension.Scope];
@@ -98,6 +100,11 @@ internal static partial class PlanningConstruction
 
     private static JsonObject Context(PlanningSession state, bool review, bool intermediate, out HashSet<string> requiredContracts)
     {
+        if (state.Construction!.Version == 2)
+        {
+            requiredContracts = state.Construction.Compact!.CurrentStep!.OperationIds.ToHashSet(StringComparer.Ordinal);
+            return PlanningCompactConstruction.Context(state, review, intermediate);
+        }
         var construction = state.Construction!;
         var draft = construction.Candidate;
         var plan = draft?.Plan ?? state.Plan ?? new TaskPlan { Inputs = state.Requirements?.Inputs ?? [] };
@@ -229,7 +236,8 @@ internal static partial class PlanningConstruction
             .Concat(extension.Groups.SelectMany(g => TaskPlanRevisions.Tasks(g.Body))).ToArray();
         if (additions.Length > construction.Limits.MaxTasksPerDraft || extension.Groups.Count > construction.Limits.MaxTasksPerDraft || extension.Choices.Count > construction.Limits.MaxTasksPerDraft)
             Fail("CONSTRUCTION_DRAFT_LIMIT", extension.Scope, "The extension exceeds its captured recursive task limit.");
-        if (additions.Length == 0 && extension.Outputs.Count == 0 && extension.CloseScopes.Count == 0)
+        if (additions.Length == 0 && extension.Outputs.Count == 0 && extension.CloseScopes.Count == 0 &&
+            (construction.Version == 1 || extension.Groups.Count == 0 && extension.Choices.Count == 0))
             Fail("REPLAN_NO_PROGRESS", extension.Scope, "An extension must add work, declare an output or close an existing obligation.");
         if (extension.Choices.Any(c => c.Selected is not null)) Fail("CHOICE_SELECTION_FORBIDDEN", "/choices", "Choice selections remain host-owned.");
         var plan = state.Plan is null ? new TaskPlan { Inputs = state.Requirements?.Inputs ?? [] } : Clone(state.Plan);

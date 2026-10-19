@@ -18,7 +18,8 @@ public sealed partial class TaskPlanCompiler
         {
             _plan = plan, _symbols = new(plan), _catalog = catalog,
             _preciseDeclarations = request.Options["planning_diagnostics_version"]?.ToString() == "1",
-            _constructionUnavailable = new(StringComparer.Ordinal)
+            _constructionUnavailable = new(StringComparer.Ordinal),
+            _constructionAllowsUnboundChoices = request.Options["construction_version"]?.ToString() == "2" && openScopes.Count > 0
         };
         var findings = new List<PlanningDiagnostic>();
         var interfaces = new Dictionary<string, IReadOnlyList<RepairSource>>(StringComparer.Ordinal);

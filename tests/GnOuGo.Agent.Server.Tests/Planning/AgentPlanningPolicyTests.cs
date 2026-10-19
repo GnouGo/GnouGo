@@ -21,6 +21,7 @@ public sealed class AgentPlanningPolicyTests
         runtime.Patch = request => PlanningCorpus.OneDraftResponse(request, proposal)!.AsObject();
         const string intent = "Return the explicitly requested YAML document, preserving its original content.";
         var state = new PlanningSession { Request = new() { TenantId = "fixture", Prompt = intent, Policy = policy } };
+        state = RetainedVersionOneConstruction.Restore(state);
         for (var i = 0; i < 4 && !PlanningStatus.IsWaiting(state.Status) && !PlanningStatus.IsTerminal(state.Status); i++)
             state = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
         Assert.True(state.Status == PlanningStatus.FinalReview, string.Join(';', state.Diagnostics));

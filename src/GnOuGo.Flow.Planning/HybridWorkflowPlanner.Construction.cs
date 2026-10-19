@@ -16,6 +16,8 @@ internal sealed class PlanningConstructionResponse
     public List<string>? EvidenceRequests { get; set; }
     public string? RollbackTask { get; set; }
     public string? RollbackReason { get; set; }
+    public List<PlanningConstructionCommitment>? Commitments { get; set; }
+    public string? ReselectStep { get; set; }
 }
 
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
@@ -27,6 +29,9 @@ public sealed partial class HybridWorkflowPlanner
     private static void ReviseConstruction(PlanningSession state, PlanningCommand command)
     {
         var construction = state.Construction!;
+        if (construction.Version == 2 && command.PreserveRequirements != true) construction.Compact = new();
+        else if (construction.Version == 2 && construction.Compact is { } compactRevision)
+        { compactRevision.CurrentStep = null; compactRevision.PendingCommitments.Clear(); }
         construction.Candidate = null; construction.PendingReviewContext = null; construction.PendingReviewHash = null;
         construction.Evidence = null; construction.EvidenceRequests.Clear(); construction.Complete = false;
         state.PendingQuestions = null; state.ApprovedHash = null; state.Graph = null; Invalidate(state);
@@ -50,6 +55,7 @@ public sealed partial class HybridWorkflowPlanner
                 TaskIds = paths.Select(p => p.Split('/')).Where(p => p.Length > 2 && p[1] == "tasks").Select(p => p[2]).Distinct(StringComparer.Ordinal).ToList(),
                 Diagnostics = paths.Select(p => new PlanningDiagnostic("JUDGE_SCOPED_REVIEW", p, "Apply the explicitly requested implementation revision within this exact path.")).ToList()
             };
+            if (construction.Version == 2) PlanningCompactConstruction.RevisionStep(state, command.Text!);
             return;
         }
         if (!construction.OpenScopes.Contains("/root", StringComparer.Ordinal)) construction.OpenScopes.Add("/root");
@@ -59,10 +65,11 @@ public sealed partial class HybridWorkflowPlanner
     {
         var construction = state.Construction!;
         var limits = construction.Limits;
-        if (construction.Version != 1 || limits.MaxTasksPerDraft is < 1 or > 32 || limits.MaxCheckpoints is < 1 or > 1024 ||
+        if (construction.Version is not (1 or 2) || limits.MaxTasksPerDraft is < 1 or > 32 || limits.MaxCheckpoints is < 1 or > 1024 ||
             limits.MaxCorrectionsPerDraft is < 0 or > 64 || limits.IntermediateReviewInterval is < 1 or > 128 ||
             limits.DraftOutputTokens is < 1 or > 65536 || limits.ReviewOutputTokens is < 1 or > 65536)
             throw new PlanningConflictException("The captured construction contract or limits are unsupported.");
+        if (construction.Version == 2) { await AdvanceCompactConstructionAsync(state, runtime, ct); return; }
         state.Status = PlanningStatus.Generating;
         if (construction.Complete)
         {
@@ -108,10 +115,12 @@ public sealed partial class HybridWorkflowPlanner
     {
         var construction = state.Construction!;
         var calls = construction.Candidate?.NeedsIntermediateReview == true || construction.Candidate is null && construction.Checkpoints.Count > 0 ? 3 : 2;
+        var inputLimit = construction.Version == 2 ? PlanningConstructionInputPolicy.EffectiveLimit(state.Request, PlanningConstruction.DraftPurpose)
+            : state.Request.Generation.MaxInputTokensPerRequest;
         if (state.PendingCall is null && PlanningModelCalls.RemainingCalls(state) < calls)
             throw new WorkflowRuntimeException("CONSTRUCTION_REVIEW_ALLOWANCE", "Construction needs a draft or correction and its mandatory local review within the saved cumulative allowance. No call was dispatched.");
         if (state.PendingCall is null && PlanningBudgetOptions.Parse(state.Request.Options)?.MaxTotalTokens is { } limit &&
-            limit - (state.Usage?.TotalTokens ?? 0) < (long)state.Request.Generation.MaxInputTokensPerRequest * calls +
+            limit - (state.Usage?.TotalTokens ?? 0) < (long)inputLimit * calls +
                 Math.Min(construction.Limits.DraftOutputTokens, state.Request.Generation.MaxOutputTokens) +
                 (long)(calls - 1) * Math.Min(construction.Limits.ReviewOutputTokens, state.Request.Generation.MaxOutputTokens))
             throw new WorkflowRuntimeException("CONSTRUCTION_REVIEW_ALLOWANCE", "The remaining cumulative token allowance cannot admit the draft and mandatory reviews at their captured request ceilings. No call was dispatched.");
@@ -124,7 +133,7 @@ public sealed partial class HybridWorkflowPlanner
                 Provider = state.Request.Options["generator"]?["provider"]?.GetValue<string>(),
                 Model = state.Request.Options["generator"]?["model"]?.GetValue<string>() ?? "", MaxTokens = outputCeilings[0]
             }, state.Request.Generation);
-            await admission.AdmitConstructionAsync(probe, state.Request.Generation.MaxInputTokensPerRequest, outputCeilings, ct);
+            await admission.AdmitConstructionAsync(probe, inputLimit, outputCeilings, ct);
         }
     }
 
@@ -134,7 +143,7 @@ public sealed partial class HybridWorkflowPlanner
         await ReserveConstructionReviewAsync(state, runtime, ct);
         var previous = construction.Candidate;
         if (repair && previous is null && state.PendingCall is null) construction.DraftCorrections++;
-        if (state.PendingCall is null)
+        if (state.PendingCall is null && construction.Version == 1)
         {
             foreach (var capability in PlanningDiscoveryContext.Candidates(state).Take(4))
                 if (!state.Discovery.Resolved.Any(c => c.Id == capability.Id && c.Version == capability.Version) &&
@@ -155,8 +164,10 @@ public sealed partial class HybridWorkflowPlanner
         if (construction.IssuedBaseHash != PlanningConstruction.Hash(state.Plan) || proposal.BaseHash != construction.IssuedBaseHash)
             throw new PlanningConflictException("The completed extension no longer matches its retained accepted checkpoint.");
         var actions = (proposal.Extension is null ? 0 : 1) + (proposal.DiscoveryRequests is null ? 0 : 1) +
-            (proposal.Clarifications is null ? 0 : 1) + (proposal.EvidenceRequests is null ? 0 : 1) + (proposal.RollbackTask is null ? 0 : 1);
+            (proposal.Clarifications is null ? 0 : 1) + (proposal.EvidenceRequests is null ? 0 : 1) + (proposal.RollbackTask is null ? 0 : 1) +
+            (proposal.ReselectStep is null ? 0 : 1);
         if (actions != 1) PlanningConstruction.Fail("PROPOSAL_ACTION_INVALID", "/", "Return exactly one construction action.");
+        if (proposal.ReselectStep is { } reason) { PlanningCompactConstruction.Reselect(state, reason); return; }
         if (proposal.Clarifications is { } questions)
         {
             if (proposal.Requirements is not null) PlanningConstruction.Fail("CLARIFICATION_INVALID", "/requirements", "Clarify before accepting requirements.");
@@ -191,6 +202,8 @@ public sealed partial class HybridWorkflowPlanner
         if (repair && previous is not null && proposal.Extension!.Scope != previous.Extension.Scope)
             PlanningConstruction.Fail("REVISION_SCOPE_CHANGED", "/extension/scope", "Correction cannot move the tentative extension to another scope.");
         var next = PlanningConstruction.Apply(state, proposal.Extension!);
+        if (construction.Version == 2) PlanningCompactConstruction.StageCommitments(state, proposal.Commitments);
+        if (construction.Version == 2) PlanningCompactConstruction.ValidateExtension(state, next);
         if (state.Request.Mode == PlanningMode.Auto)
         {
             foreach (var choice in next.Plan.Choices.Where(c => c.Selected is null)) choice.Selected = choice.Recommended;
@@ -210,6 +223,7 @@ public sealed partial class HybridWorkflowPlanner
     {
         ct.ThrowIfCancellationRequested();
         var draft = state.Construction!.Candidate!;
+        if (state.Construction.Version == 2) PlanningCompactConstruction.ValidateExtension(state, draft);
         foreach (var operation in TaskPlanRevisions.Tasks(draft.Plan).Select(t => t.Operation).OfType<string>().Distinct(StringComparer.Ordinal))
         {
             if (state.Catalog!.Capabilities.Any(c => TaskOperations.Describe(c).Id == operation)) continue;
@@ -229,7 +243,7 @@ public sealed partial class HybridWorkflowPlanner
                 draft.Diagnostics.AddRange(compilation.Diagnostics);
                 if (compilation.Graph is { } graph)
                 {
-                    var review = new PlanningSession { Plan = candidate, Catalog = state.Catalog, Requirements = state.Requirements,
+                    var review = new PlanningSession { Plan = candidate, Catalog = state.Catalog, Requirements = state.Construction.Version == 2 ? PlanningCompactConstruction.CandidateRequirements(state) : state.Requirements,
                         IntentVersion = state.IntentVersion, Request = state.Request, Discovery = state.Discovery };
                     draft.Diagnostics.AddRange(PlanningClarifications.OutputFindings(review, graph));
                     draft.Diagnostics.AddRange(PlanningCommitments.Assess(review).SelectMany(r => r.Diagnostics).Where(d => d.Required));
@@ -240,6 +254,8 @@ public sealed partial class HybridWorkflowPlanner
             foreach (var missing in state.Requirements!.Outcomes.Where(r => !covered.Contains(r.Id)))
                 draft.Diagnostics.Add(new("CONSTRUCTION_REQUIREMENT_REMAINING", "/requirements/" + missing.Id, "Associate or explicitly resolve this accepted requirement before declaring completion."));
         }
+        if (state.Construction.Version == 2)
+            draft.Diagnostics.AddRange(PlanningCompactConstruction.CandidateFindings(state));
         state.Diagnostics = draft.Diagnostics.ToList();
         state.Phase = draft.Diagnostics.Count == 0 ? PlanningConstruction.LocalPurpose : PlanningPhase.Replanning;
         if (draft.Diagnostics.Count > 0 && !state.Construction.FailedCandidates.Contains(draft.Hash, StringComparer.Ordinal))
@@ -299,6 +315,12 @@ public sealed partial class HybridWorkflowPlanner
         PlanningRepairPatch.Verify(repairState, request);
         var response = await PlanningModelCalls.CallAsync(state, runtime, "replan", request.Prompt, request.StructuredOutputSchema!.AsObject(), ct, construction.Limits.DraftOutputTokens);
         var correction = response.Deserialize(RepairJsonContext.Default.PlanningRepairResponse)!;
+        if (correction.ReselectStep is { } reselection)
+        {
+            if (correction.Patch is not null || correction.DiscoveryRequests is not null || correction.Clarifications is not null || correction.EvidenceRequests is not null)
+                PlanningConstruction.Fail("PROPOSAL_ACTION_INVALID", "/reselectStep", "Reselection must be the only correction action.");
+            PlanningCompactConstruction.Reselect(state, reselection); return;
+        }
         if (correction.EvidenceRequests is { } evidence)
         {
             if (correction.Patch is not null || correction.DiscoveryRequests is not null || correction.Clarifications is not null)
@@ -340,6 +362,7 @@ public sealed partial class HybridWorkflowPlanner
         {
             Sequence = construction.Checkpoints.Count + 1, BaseHash = draft.BaseHash, PlanHash = draft.Hash,
             TaskIds = draft.TaskIds, ImportedTaskIds = draft.ImportedTaskIds, RequirementIds = draft.Extension.RequirementIds,
+            ClosedRequirementIds = construction.Version == 2 ? construction.Compact!.CurrentStep!.CloseRequirementIds.ToList() : null,
             ClosedScopes = draft.Extension.CloseScopes, Reviews = draft.Reviews, NeedsIntermediateReview = draft.NeedsIntermediateReview,
             Fragment = new JsonObject
             {
@@ -352,7 +375,8 @@ public sealed partial class HybridWorkflowPlanner
         };
         state.Plan = draft.Plan; construction.OpenScopes = draft.OpenScopes; construction.Checkpoints.Add(checkpoint);
         foreach (var requirement in construction.Requirements.Where(r => draft.Extension.RequirementIds.Contains(r.Id, StringComparer.Ordinal)))
-        { requirement.Status = "declared"; requirement.Checkpoints.Add(checkpoint.Sequence); }
+        { if (construction.Version == 1) requirement.Status = "declared"; requirement.Checkpoints.Add(checkpoint.Sequence); }
+        if (construction.Version == 2) PlanningCompactConstruction.Accept(state);
         construction.Complete = draft.Extension.Complete; construction.Candidate = null;
         construction.DraftCorrections = 0; construction.LastProposalHash = null;
         construction.PendingReviewContext = null; construction.PendingReviewHash = null; construction.Evidence = null; construction.EvidenceRequests.Clear();
@@ -380,7 +404,10 @@ public sealed partial class HybridWorkflowPlanner
             var parent = request.Cursor is null ? null : state.Discovery.Pages.SingleOrDefault(p => p.SourceId == request.SourceId && p.NextCursor == request.Cursor);
             if (request.Cursor is not null && (parent is null || request.Query is not null || request.ProducedArtifactKind is not null))
                 PlanningConstruction.Fail("CURSOR_UNKNOWN", "/discoveryRequests", "Select an issued continuation cursor without changing its query.");
-            var query = request.Cursor is null ? request.Query ?? PlanningDiscoveryContext.Query(state) : parent!.Query;
+            var query = request.Cursor is null ? request.Query ?? (state.Construction?.Version == 2
+                ? PlanningCompactConstruction.State(state).CurrentStep!.Objective : PlanningDiscoveryContext.Query(state)) : parent!.Query;
+            if (state.Construction?.Version == 2 && query != PlanningCompactConstruction.State(state).CurrentStep!.Objective)
+                PlanningConstruction.Fail("DISCOVERY_SCOPE_INVALID", "/discoveryRequests", "Discovery and its continuation must use the selected business substep's exact objective.");
             var kind = request.Cursor is null ? request.ProducedArtifactKind : parent!.ProducedArtifactKind;
             if (state.Discovery.Pages.Any(p => p.SourceId == request.SourceId && p.Cursor == request.Cursor && p.Query == query && p.ProducedArtifactKind == kind))
                 PlanningConstruction.Fail("DISCOVERY_NO_PROGRESS", "/discoveryRequests", "This metadata page is retained already.");

@@ -17,19 +17,19 @@ public sealed class OutputCorrectionHostTests
     [InlineData(true, false)]
     [InlineData(false, true)]
     [InlineData(true, true)]
-    public async Task BackgroundOwnerCorrectsOrStopsOnceAndRestartDoesNotRedispatch(bool repeatInvalid, bool literal)
+    public async Task RetainedVersionOneBackgroundOwnerCorrectsOrStopsOnceAndRestartDoesNotRedispatch(bool repeatInvalid, bool literal)
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
         var client = new OutputClient(repeatInvalid, literal);
         var expectedCalls = repeatInvalid ? 2 : 3; // Successful corrections require their local Judge.
         var agents = PlanningSessionLifecycleTests.AgentCatalog();
+        var initial = await RetainedVersionOneConstruction.SeedAsync(fixture, agents, client, "output-correction", "Return only the requested result", Ct);
         PlanningSession result;
         using (var service = PlanningSessionLifecycleTests.Create(fixture, new HybridWorkflowPlanner(), agents, client))
         {
             await service.StartAsync(Ct);
             try
             {
-                var initial = await service.StartAsync("output-correction", "Return only the requested result", false, Ct);
                 using var deadline = CancellationTokenSource.CreateLinkedTokenSource(Ct);
                 deadline.CancelAfter(TimeSpan.FromSeconds(15));
                 while (true)
