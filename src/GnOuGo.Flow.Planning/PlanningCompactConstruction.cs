@@ -9,7 +9,7 @@ internal static partial class PlanningCompactConstruction
 {
     internal const string IntentPurpose = "construction_intent", SelectPurpose = "construction_select", DiscoveryPurpose = "construction_discovery";
     internal const string IndexInstructions = """
-        Index this exact original intent page. Divide its text into consecutive verbatim clauses whose concatenation equals the entire page, including whitespace. Every clause is either a business requirement or an applicable global constraint. Do not summarize, omit, invent, or plan tasks. Keep original order and text. Declare only caller inputs and public result interfaces explicitly supported by this page; a requested external effect need not invent a public output. Other original pages and answers are retained independently. No capability selection or workflow outline.
+        Index this exact original intent page. Divide its text into consecutive verbatim clauses whose concatenation equals the entire page, including whitespace. Every clause is either a business requirement or an applicable global constraint. Required actions and results, including setup and cleanup, are business requirements with explicit completion obligations. Keep action-specific or resource-specific constraints with their requirement; reserve global for invariants applying across the workflow. Do not summarize, omit, invent, or plan tasks. Keep original order and text. Declare only caller inputs and returned public result interfaces explicitly supported by this page. Effect payloads and descriptions of files, artifacts or resources belong to requirements; they do not automatically declare public return interfaces. Do not reconstruct those resources' schemas during indexing. A requested effect need not invent a public output. Other original pages and answers are retained independently. No capability selection or workflow outline.
         """;
     internal const string SelectInstructions = """
         Choose one immediate business substep from available producers toward consumers, using the original requirements. Do not plan future tasks or a workflow outline. No executable task payload. Select an open scope, task kind, exact typed imports, dependencies and relevant requirement IDs. expectedOutputs describes this step's internal results or interfaces. outputNames selects only declared PUBLIC workflow results shown in publicOutputs; use [] for internal work, group definitions and child-scope exports. Never put an input, task, group or internal port name there. For a call select one closed groupId; otherwise null. Construct missing prerequisites before consumers. closeRequirementIds claims full satisfaction by this step plus accepted work; contributions alone do not close requirements. Scope closure, exports, cleanup, groups and choices are valid steps. Discover operations after selecting the step. Return exactly one step, evidenceRequests or clarifications. Use the issued next-page addresses for omitted requirements/interfaces/public outputs. Evidence grants no edit or execution authority.
@@ -249,6 +249,13 @@ internal static partial class PlanningCompactConstruction
             context["choices"] = PlanningConstruction.Node(((draft?.Plan ?? state.Plan)?.Choices ?? []).Where(c => choiceIds.Contains(c.Id)).ToList(), PlanningJsonContext.Default.ListPlanningChoice);
         if (review && draft is not null)
         {
+            context["constructionStage"] = new JsonObject
+            {
+                ["openedScopeCount"] = draft.OpenScopes.Except(construction.OpenScopes, StringComparer.Ordinal).Count(),
+                ["closedScopeCount"] = draft.Extension.CloseScopes.Count,
+                ["requirementCompletionClaimed"] = step.CloseRequirementIds.Count > 0,
+                ["planCompletionClaimed"] = draft.Extension.Complete
+            };
             var related = construction.Checkpoints.Where(c => c.TaskIds.Any(draft.ImportedTaskIds.Contains) ||
                 intermediate && c.RequirementIds.Any(step.CloseRequirementIds.Contains)).ToArray();
             context["checkpointCount"] = related.Length;

@@ -62,6 +62,10 @@ outputs. Public names are presented eight at a time and constrain the issued
 selection schema; omitted requirements, interfaces and outputs have explicit
 page addresses. Internal task, group and child-export names do not become public
 outputs merely by appearing in a substep description.
+Required actions, setup, cleanup and results remain explicit completion
+obligations. Action-specific constraints stay with their requirements; global
+clauses describe crosscutting invariants. Indexing does not reconstruct effect
+payloads or resource schemas as public workflow interfaces.
 
 Each phase receives only the context needed for that substep. Discovery uses its
 needs rather than the global request. Previously inspected operations remain in
@@ -107,6 +111,12 @@ inspect multi-fragment closures, joins and every four accepted drafts, coalescin
 overlapping triggers. Locations and evidence must resolve to supplied originals.
 Invalid reports leave candidates unaccepted. Valid uncertainty stays unverified;
 Judge findings are neither authorization nor deterministic proof.
+Compact reviews include bounded host facts identifying scope openings, closures
+and completion claims. An intentionally empty opening is assessed as an opening;
+closing a scope or requirement still requires its complete work and exports.
+Finding locations and evidence contain exact JSON Pointers without annotations;
+explanations belong in their separate fields. Exact context lookup remains the
+authority for accepting a reference.
 
 Each Judge response selects one action. A completed review returns a findings
 array (empty when no grounded finding exists) and null evidence requests. An

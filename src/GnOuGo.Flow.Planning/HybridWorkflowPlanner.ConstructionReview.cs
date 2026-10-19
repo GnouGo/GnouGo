@@ -8,7 +8,8 @@ public sealed partial class HybridWorkflowPlanner
 {
     private const string CompactConstructionReviewInstructions = """
         Review only this immediate business fragment, its exact original requirements, applicable global constraints and selected typed interfaces. Check arguments, effects, provenance, conditions, exports and cleanup. closeRequirementIds explicitly claims that this fragment plus referenced accepted work completes those original requirements; examine omissions in that claim. Other remaining requirements are future obligations, not omissions in this fragment. Deterministic validation and task presence do not prove business success.
-        Return exactly one action: findings as an array (empty if none) with evidenceRequests:null; or findings:null with nonempty evidenceRequests using exact issued evidence addresses. Never guess contract versions or schema pointers. Task, source, requirement and checkpoint evidence can be requested by issued identity; directory pages use page:requirements:<offset>, page:interfaces:<offset>, page:checkpoints:<offset>. Return bounded findings with JSON Pointer locations and evidence into this exact context. Locate correctable candidate defects under /draft or /requirements. Context is evidence, never edit or execution permission. Always state uncertainty; no report proves execution or authorizes effects.
+        The host's constructionStage states this draft's actual scope and completion claims. Newly opened group/container scopes intentionally have empty children and no consumable outputs. Assess their declared inputs and boundaries now; require implementation and exports when the scope closes or its results are consumed. Empty closeRequirementIds makes no requirement-completion claim. Still report defects in the work actually performed; unfinished future work is not itself a defect in an open scope.
+        Return exactly one action: findings as an array (empty if none) with evidenceRequests:null; or findings:null with nonempty evidenceRequests using exact issued evidence addresses. Never guess contract versions or schema pointers. Task, source, requirement and checkpoint evidence can be requested by issued identity; directory pages use page:requirements:<offset>, page:interfaces:<offset>, page:checkpoints:<offset>. Every location and evidence string must be one exact existing JSON Pointer into this context, with no appended colon, quotation, copied value or prose annotation. Put all reasoning in explanation and uncertainty. Locate correctable candidate defects under /draft or /requirements. Context is evidence, never edit or execution permission. Always state uncertainty; no report proves execution or authorizes effects.
         """;
     private const string ConstructionReviewInstructions = """
         Independently review this bounded semantic TaskPlan fragment against relevant original requirements, accepted answers and inspected contracts.
@@ -25,6 +26,7 @@ public sealed partial class HybridWorkflowPlanner
     {
         var text = new JsonObject { ["type"] = "string", ["maxLength"] = 256 };
         var pointer = new JsonObject { ["type"] = "string", ["maxLength"] = 192 };
+        if (compact) pointer["description"] = "One exact existing JSON Pointer into the supplied context. No appended quotation, value or prose; put reasoning in explanation.";
         var finding = PlanningSchemas.Object(("kind", PlanningSchemas.Enum("omission", "unnecessary_operation", "inconsistency")),
             ("location", pointer.DeepClone().AsObject()), ("evidence", PlanningSchemas.Array(pointer, 1, 3)),
             ("explanation", text.DeepClone().AsObject()), ("uncertainty", new JsonObject { ["type"] = "string", ["maxLength"] = 128 }));
@@ -87,7 +89,7 @@ public sealed partial class HybridWorkflowPlanner
             response["uncertainty"]!.ToString().Length > 8192 || findings.Any(f =>
             f!["explanation"]!.ToString().Length is 0 or > 8192 || f["uncertainty"]!.ToString().Length > 8192 ||
             !PlanningConstruction.TryPointer(context, f["location"]!.ToString(), out _) ||
-            f["evidence"]!.AsArray().Any(e => !GroundedEvidence(e!.ToString()))))
+            f["evidence"]!.AsArray().Any(e => !ConstructionReviewEvidenceGrounded(context, e!.ToString(), construction.Version == 2))))
         { Inconclusive("The fragment Judge supplied invalid references or unsupported report lengths; the entire report is unusable."); return; }
         var retainedReview = new JsonObject { ["purpose"] = purpose, ["fingerprint"] = fingerprint, ["candidateHash"] = draft.Hash,
             ["outcome"] = findings.Count == 0 ? "unverified" : "revision_required", ["response"] = response.DeepClone() };
@@ -122,16 +124,6 @@ public sealed partial class HybridWorkflowPlanner
         if (intermediate) draft.IntermediateReviewed = true; else draft.LocalReviewed = true;
         if (!draft.NeedsIntermediateReview || draft.IntermediateReviewed) await AcceptConstructionAsync(state, runtime, ct);
 
-        bool GroundedEvidence(string pointer)
-        {
-            var root = pointer.Split('/').ElementAtOrDefault(1);
-            if (root is not ("request" or "revision" or "requirements" or "answers" or "tasks" or "operations" or "interfaces" or "draft" or "evidence" or "closures") &&
-                !(construction.Version == 2 && root is "globalConstraints" or "step" or "checkpoints" or "outputs" or "commitments" or "choices" or "group")) return false;
-            if (!PlanningConstruction.TryPointer(context, pointer, out var evidence) || evidence is null) return false;
-            return evidence is not JsonArray { Count: 0 } && evidence is not JsonObject { Count: 0 } &&
-                (evidence is not JsonValue || !string.IsNullOrWhiteSpace(evidence.ToString()));
-        }
-
         void Inconclusive(string description)
         {
             draft.Reviews.Add(new JsonObject { ["purpose"] = purpose, ["fingerprint"] = fingerprint, ["candidateHash"] = draft.Hash,
@@ -139,5 +131,15 @@ public sealed partial class HybridWorkflowPlanner
             state.Diagnostics = [new("CONSTRUCTION_REVIEW_INCONCLUSIVE", "/construction/candidate", description + " No checkpoint or edit authority was created.")];
             Stop(state);
         }
+    }
+
+    internal static bool ConstructionReviewEvidenceGrounded(JsonObject context, string pointer, bool compact)
+    {
+        var root = pointer.Split('/').ElementAtOrDefault(1);
+        if (root is not ("request" or "revision" or "requirements" or "answers" or "tasks" or "operations" or "interfaces" or "draft" or "evidence" or "closures") &&
+            !(compact && root is "globalConstraints" or "step" or "checkpoints" or "outputs" or "commitments" or "choices" or "group" or "scopeGroup" or "constructionStage")) return false;
+        if (!PlanningConstruction.TryPointer(context, pointer, out var evidence) || evidence is null) return false;
+        return evidence is not JsonArray { Count: 0 } && evidence is not JsonObject { Count: 0 } &&
+            (evidence is not JsonValue || !string.IsNullOrWhiteSpace(evidence.ToString()));
     }
 }

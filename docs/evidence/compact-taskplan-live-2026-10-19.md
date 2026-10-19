@@ -107,7 +107,83 @@ Further spending must remain reconciled against this existing ledger. The
 sanitized pilot log has SHA-256
 `88989e2c34e7948b5b92a0c83e65b403b6565b0e52fa6710981f80b89f3049f5`.
 
-A generic selection-contract correction is in progress. Further diagnostics
-require a fresh committed source and fresh run identities; the failed pilot and
-its spending remain retained. Amazon, Review PR and the measured paired cohort
-have not established compact live acceptance at this checkpoint.
+The generic selection-contract correction was frozen in the next source below.
+The failed pilot, exact issued requests, receipts and spending remain retained.
+
+### Frozen diagnostic iteration `88a1afe`
+
+Source `88a1afe023486fe2813044c4875a41084242e97f` passed 155 focused
+deterministic tests and a warning-free benchmark build before these real-model
+diagnostics. All three diagnostics stopped without a FinalReview artifact or
+accepted checkpoint. None reached MCP discovery or workflow execution. The
+frozen producer bundle was available, but these attempts provide **no real MCP
+runtime coverage and no successful business outcome**.
+
+| Scenario | Calls / corrections | Provider input / output tokens | Planning time | Known cost |
+| --- | ---: | ---: | ---: | ---: |
+| Collections | 4 / 0 | 4,724 / 2,526 | 37.305 s | €0.0883320003554607660179507687 |
+| Amazon | 1 / 0 | 864 / 8,192 | 141.203 s | €0.2222340709144228205811783524 |
+| Review PR | 2 / 0 | 1,803 / 9,116 | 108.546 s | €0.2510397227406025059984004265 |
+
+Collections now passed intent indexing and substep selection, and generated a
+deterministically valid opening of a reusable group. Its local Judge treated
+the intentionally open group, whose body and exports were deferred, as a
+business omission. The report also appended explanatory text to evidence
+pointer strings instead of returning exact reference paths. Reference validation
+therefore rejected the report as `CONSTRUCTION_REVIEW_INCONCLUSIVE` at
+`/construction/candidate`; the draft was not accepted. This is a failure of the
+scoped review protocol, not evidence that the unfinished workflow satisfies the
+business request. Its conservative complete-request peaks were 2,695 tokens for
+selection, 3,611 for generation and 1,960 for the local Judge (7,316, 10,065 and
+5,110 serialized bytes respectively), all within captured limits.
+
+Amazon stopped on its first intent-indexing call with `MODEL_OUTPUT_LIMIT` at
+`/phases/construction_intent`. The provider reported all 8,192 output tokens as
+reasoning tokens and returned zero content bytes. The complete request was
+5,673 bytes, conservatively estimated at 2,147 input tokens. Review PR completed
+one indexing call, then stopped on the second with the same diagnostic: that
+second response also consumed 8,192 reasoning tokens and returned zero content
+bytes. Its peak complete request was 5,856 bytes, estimated at 2,208 input tokens.
+The two calls used 9,116 output tokens in total. Both stopped at the existing
+output allowance; no limit escalation, model change or uncertain replay was used.
+Small input requests alone did not establish useful output or convergence.
+
+The exact retained identities are:
+
+- Collections run:
+  `88a1afe023486fe2813044c4875a41084242e97f:pilot:collections:1`;
+  session `bc2b8126865c1200ce04d98d9eea9e9adac955bf5811bf1b0c87ed4951c6a90f`;
+  failed Judge request
+  `bc2b8126865c1200ce04d98d9eea9e9adac955bf5811bf1b0c87ed4951c6a90f:4:988f3e70f84ab4eea672f3440a0d00624bdb88e09eb74ffbaf817e86baacae52`.
+- Amazon run/session: `compactdiag88-amazon-1`; failed request
+  `compactdiag88-amazon-1:1:af306e988b3122d3ae7c80bef6f0795730c0e8a834b04609d51837c4fb4af824`.
+- Review PR run/session: `compactdiag88-code-1`; failed request
+  `compactdiag88-code-1:2:c9003b5d9f09d80707dc6517e7ef3ec3547145b5477d32a3797e8090206a7b48`.
+
+The three sanitized diagnostic log hashes are respectively
+`8e3cd2b6d7c23c1fc5655dca5beadf3e2d5fa795fb94a0a1fc0ea8e20d84236e`,
+`ed8befd92f93b6e254324e824f8911f2f68657d2d50cbf1a5d294b5e1e9823f5`,
+and `d414f116b83a9b61ad8ed956e9165d69bcbfc6430df8774ca0bd182188119185`.
+These runs retain the original measurement manifest
+`fd43756584a76b2fd9103d0735c6ce27a97525d636bf6462adcbcd3b03fd26c5`.
+
+This iteration used seven calls, 7,391 provider input tokens, 19,834 provider
+output tokens, 287.054 seconds of planning and
+€0.5616057940104860925975295476. Including the earlier `41faf8c` pilot, the
+compact diagnostics consumed 13 calls and €0.6988669688083177819248200479.
+Fresh post-iteration readiness reconciled 27 cumulative campaign requests with
+27 receipts, no uncertain requests, zero unknown attempts and zero outstanding
+reservations. The verified spending upper bound is
+€1.9360392784146449835599395713, leaving
+€238.0940645542916595588850077287 under the unchanged campaign ceiling. The
+readiness evidence hash is
+`dfc086458751baa04325f2dbb5925508e09ad65c4825296ca494f9ffcfc42bf1`.
+
+An independent comparison manifest,
+`9730c90fda7219627edc9e541a2a86ac8c18563648a174ece8fa84477598cc99`,
+froze 18 fresh baseline/candidate run identities, model settings, independent
+oracles, scenario inputs and producer hashes. All 18 remain unissued at this
+checkpoint. The measured paired campaign has not run, and no comparative
+business-success, cost or latency improvement is claimed. Further source
+corrections require another frozen source and fresh diagnostic identities while
+preserving these failures and cumulative accounting.

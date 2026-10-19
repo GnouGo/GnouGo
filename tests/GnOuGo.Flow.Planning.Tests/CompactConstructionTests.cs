@@ -38,7 +38,7 @@ public sealed class CompactConstructionTests
 
     private static PlanningSession Fresh(string prompt = "Return exactly Hello.") => new()
     { Request = new() { TenantId = "compact", Prompt = prompt, Options = new JsonObject { ["automatic_correction"] = true } } };
-    private static JsonObject Context(LLMRequest request) => JsonNode.Parse(request.Prompt[(request.Prompt.IndexOf('\n') + 1)..])!.AsObject();
+    private static JsonObject Context(LLMRequest request) => JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!.AsObject();
     private static LLMResponse Wire(LLMRequest request, JsonObject response) => new()
     { Json = PlanningCorpus.Transport(response, request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject()) };
     private static JsonObject Reviewed() => new() { ["findings"] = new JsonArray(), ["uncertainty"] = "Execution remains unverified.", ["evidenceRequests"] = null };
@@ -124,6 +124,85 @@ public sealed class CompactConstructionTests
         Assert.Empty(state.Construction!.Checkpoints);
         Assert.Equal(2, state.Construction.Requirements.Count);
         Assert.Contains(state.Construction.Candidate!.Diagnostics, d => d.Code == "CONSTRUCTION_REQUIREMENT_REMAINING");
+    }
+
+    [Fact]
+    public async Task SetupAndCleanupAreExplicitRequirementsWhoseOmissionBlocksCompletion()
+    {
+        string[] clauses = ["Prepare a local work area. ", "Return exactly Hello. ", "Always remove the work area."];
+        var runtime = new TestRuntime { Respond = (request, purpose) =>
+        {
+            if (purpose == PlanningCompactConstruction.IntentPurpose)
+            {
+                Assert.Contains("including setup and cleanup, are business requirements", request.Prompt, StringComparison.Ordinal);
+                Assert.Contains("reserve global for invariants applying across the workflow", request.Prompt, StringComparison.Ordinal);
+                Assert.Contains("do not automatically declare public return interfaces", request.Prompt, StringComparison.Ordinal);
+                var response = Index(request);
+                response["clauses"] = new JsonArray(clauses.Select(text => (JsonNode)new JsonObject { ["text"] = text, ["kind"] = "requirement" }).ToArray());
+                return Wire(request, response);
+            }
+            if (purpose == PlanningCompactConstruction.SelectPurpose)
+            {
+                var response = Select(request); response["step"]!["requirementIds"] = new JsonArray("req_1");
+                response["step"]!["closeRequirementIds"] = new JsonArray("req_1");
+                return Wire(request, response);
+            }
+            if (purpose is PlanningConstruction.DraftPurpose or "replan")
+            {
+                var response = Draft(request); response["extension"]!["requirementIds"] = new JsonArray("req_1");
+                return Wire(request, response);
+            }
+            return Wire(request, Reviewed());
+        } };
+        var state = await PlannerFixture.RunAsync(runtime, Fresh(string.Concat(clauses)));
+        Assert.Equal(clauses, state.Requirements!.Outcomes.Select(r => r.Description));
+        Assert.Empty(state.Construction!.Compact!.GlobalSourceIds);
+        Assert.All(state.Construction.Requirements.Where(r => r.Id is "req_0" or "req_2"), requirement => Assert.Equal("remaining", requirement.Status));
+        Assert.Contains(state.Construction.Candidate!.Diagnostics, diagnostic => diagnostic.Code == "CONSTRUCTION_REQUIREMENT_REMAINING");
+        Assert.Empty(state.Construction.Checkpoints);
+    }
+
+    [Theory]
+    [InlineData("location")]
+    [InlineData("evidence")]
+    public async Task AnnotatedJudgePointersStopWithoutCheckpointOrRetry(string annotated)
+    {
+        var runtime = new TestRuntime { Respond = (request, purpose) => purpose == PlanningConstruction.LocalPurpose
+            ? Wire(request, new() { ["findings"] = new JsonArray(new JsonObject
+            {
+                ["kind"] = "inconsistency", ["location"] = annotated == "location" ? "/draft/tasks/0: candidate task" : "/draft/tasks/0",
+                ["evidence"] = new JsonArray(annotated == "evidence" ? "/step/objective: \"Produce the exact requested greeting.\"" : "/requirements/0/original"),
+                ["explanation"] = "A reported discrepancy must use exact evidence pointers.", ["uncertainty"] = "Execution remains unverified."
+            }), ["uncertainty"] = "This intentionally malformed report cannot authorize acceptance.", ["evidenceRequests"] = null })
+            : Simple(request, purpose) };
+        var state = await PlannerFixture.RunAsync(runtime, Fresh());
+        Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Code == "CONSTRUCTION_REVIEW_INCONCLUSIVE");
+        Assert.Empty(state.Construction!.Checkpoints); Assert.Null(state.Plan);
+        Assert.Equal(4, runtime.Calls.Count); Assert.Equal(0, state.ReplanAttempts);
+        Assert.False(state.Construction.Candidate!.LocalReviewed);
+        var request = runtime.Calls[^1];
+        Assert.Contains("one exact existing JSON Pointer", request.Prompt, StringComparison.Ordinal);
+        Assert.Contains("Put all reasoning in explanation and uncertainty", request.Prompt, StringComparison.Ordinal);
+        Assert.Contains("No appended quotation, value or prose", request.StructuredOutputSchema!.ToJsonString(), StringComparison.Ordinal);
+        Assert.Equal(2048, request.MaxTokens);
+        Assert.InRange(PlanningRequestMeasurements.Measure(request, PlanningConstruction.LocalPurpose, 4000).EstimatedInputTokens, 1, 4000);
+    }
+
+    [Theory]
+    [InlineData("/constructionStage/requirementCompletionClaimed")]
+    [InlineData("/scopeGroup/intent/objective")]
+    public void JudgeStageAndGroupEvidenceStillRequiresExactNonemptyPointers(string pointer)
+    {
+        var context = new JsonObject
+        {
+            ["constructionStage"] = new JsonObject { ["requirementCompletionClaimed"] = false },
+            ["scopeGroup"] = new JsonObject { ["intent"] = new JsonObject { ["objective"] = "Declared local purpose.", ["empty"] = new JsonArray() } }
+        };
+        Assert.True(HybridWorkflowPlanner.ConstructionReviewEvidenceGrounded(context, pointer, compact: true));
+        Assert.False(HybridWorkflowPlanner.ConstructionReviewEvidenceGrounded(context, pointer, compact: false));
+        Assert.False(HybridWorkflowPlanner.ConstructionReviewEvidenceGrounded(context, pointer + ": explanatory prose", compact: true));
+        Assert.False(HybridWorkflowPlanner.ConstructionReviewEvidenceGrounded(context, "/constructionStage/missing", compact: true));
+        Assert.False(HybridWorkflowPlanner.ConstructionReviewEvidenceGrounded(context, "/scopeGroup/intent/empty", compact: true));
     }
 
     [Fact]
@@ -707,6 +786,25 @@ public sealed class CompactConstructionTests
                     Assert.DoesNotContain("assemble", group.ToJsonString(), StringComparison.Ordinal);
                 }
                 return Wire(request, Draft(request, extension));
+            }
+            if (purpose is PlanningConstruction.LocalPurpose or PlanningConstruction.IntermediatePurpose)
+            {
+                var stage = Context(request)["constructionStage"]!;
+                Assert.Equal(step == 3, stage["requirementCompletionClaimed"]!.GetValue<bool>());
+                Assert.Equal(step == 3, stage["planCompletionClaimed"]!.GetValue<bool>());
+                if (step == 1)
+                {
+                    Assert.Equal(1, stage["openedScopeCount"]!.GetValue<int>());
+                    Assert.Equal(0, stage["closedScopeCount"]!.GetValue<int>());
+                    Assert.Contains("Newly opened group/container scopes intentionally have empty children", request.Prompt, StringComparison.Ordinal);
+                    Assert.Contains("Empty closeRequirementIds makes no requirement-completion claim", request.Prompt, StringComparison.Ordinal);
+                    Assert.InRange(PlanningRequestMeasurements.Measure(request, purpose, 4000).EstimatedInputTokens, 1, 4000);
+                }
+                if (step == 2)
+                {
+                    Assert.Equal(0, stage["openedScopeCount"]!.GetValue<int>());
+                    Assert.Equal(1, stage["closedScopeCount"]!.GetValue<int>());
+                }
             }
             return Wire(request, Reviewed());
         } };
