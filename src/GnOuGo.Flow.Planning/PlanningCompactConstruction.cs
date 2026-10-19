@@ -19,7 +19,7 @@ internal static partial class PlanningCompactConstruction
         Select capabilities only for the retained immediate business step and its original requirements. Operation descriptions are navigation, not exact contracts or execution authority. Choose discovered operation IDs, request at most two source metadata pages using this step's objective, request exact schema/description evidence, or clarify a material business fact. Return exactly one action. Previously inspected contracts remain stored but do not belong to this step unless selected again. Do not discover future workflow operations or replan the workflow.
         """;
     internal const string DraftInstructions = """
-        Implement only the selected immediate business substep in the issued scope and task kind, using the selected exact contract views and typed imports. Extend the accepted TaskPlan; never rewrite accepted work. Preserve original requirements, constraints, identities, order, complete observations and cleanup. References must resolve now; missing prerequisites require evidence or clarification, never fabricated inputs or external work simulated by a transform. The schema permits only this step's task kind. New containers open empty child scopes for later steps. Close scopes only after their children and exports are complete. requirementIds associates this fragment with the selected original requirements; requirement closure is host-issued separately. Return one action. Evidence is read-only and grants no permissions. Do not output JavaScript, YAML or a workflow outline.
+        Implement only the selected immediate business substep in the issued scope and task kind, using the selected exact contract views and typed imports. Extend the accepted TaskPlan; never rewrite accepted work. Preserve original requirements, constraints, identities, order, complete observations and cleanup. References must resolve now; missing prerequisites require evidence or clarification, never fabricated inputs or external work simulated by a transform. The schema permits only this step's task kind. New containers open empty child scopes for later steps. scopeInterface shows existing export declarations; extension.outputs adds only new exports, and [] preserves existing exports. Close scopes only after their children and exports are complete. requirementIds associates this fragment with the selected original requirements; requirement closure is host-issued separately. Return one action. Evidence is read-only and grants no permissions. Do not output JavaScript, YAML or a workflow outline.
         """;
 
     internal static PlanningCompactConstructionState State(PlanningSession state) => state.Construction!.Compact
@@ -164,8 +164,10 @@ internal static partial class PlanningCompactConstruction
         var compact = State(state);
         var scopeOffset = ScopeOffset(state);
         var remaining = state.Construction!.Requirements.Where(r => r.Status != "closed").Select(r => r.Id).ToHashSet(StringComparer.Ordinal);
-        var selected = state.Requirements!.Outcomes.Where(r => remaining.Contains(r.Id)).Take(3).ToArray();
-        if (selected.Length == 0) selected = state.Requirements.Outcomes.Take(3).ToArray();
+        // One unresolved original clause anchors the immediate step. Additional
+        // prerequisite clauses are exact evidence pages, never a future outline.
+        var selected = state.Requirements!.Outcomes.Where(r => remaining.Contains(r.Id)).Take(1).ToArray();
+        if (selected.Length == 0) selected = state.Requirements.Outcomes.Take(1).ToArray();
         var suppliedRequirements = EvidenceRequirementIds(state);
         var lastRequirement = selected.Length == 0 ? -1 : state.Requirements.Outcomes.FindIndex(r => r.Id == selected[^1].Id);
         var context = new JsonObject
@@ -244,6 +246,8 @@ internal static partial class PlanningCompactConstruction
             context["outputs"] = PlanningConstruction.Node(state.Requirements!.Outputs!.Where(o => step.OutputNames.Contains(o.Name, StringComparer.Ordinal)).ToList(), PlanningJsonContext.Default.ListTaskInput);
         if (step.GroupId is { } groupId) context["group"] = GroupInterface(state, groupId);
         if (ScopeGroup(state, step.Scope) is { } scopeGroup) context["scopeGroup"] = GroupInterface(state, scopeGroup.Id);
+        var appliedInterface = review && draft is { Diagnostics.Count: 0 } && draft.Extension.CloseScopes.Contains(step.Scope, StringComparer.Ordinal);
+        if (ScopeInterface(state, appliedInterface) is { } scopeInterface) context["scopeInterface"] = scopeInterface;
         var choiceIds = step.Inputs.SelectMany(TaskPlanCompiler.Values).Where(v => v.Kind == "choice").Select(v => v.Source)
             .Concat(draft?.Extension.Choices.Select(c => c.Id) ?? []).ToHashSet(StringComparer.Ordinal);
         if (choiceIds.Count > 0)
@@ -273,13 +277,15 @@ internal static partial class PlanningCompactConstruction
         var step = State(state).CurrentStep!;
         var evidence = state.Construction!.Evidence;
         var supplied = evidence is { Count: > 0 };
+        var descriptors = supplied ? null : ContractDescriptorPage(state);
+        var hasDescriptors = descriptors?["items"] is JsonArray { Count: > 0 };
         return new JsonObject
         {
             ["step"] = JsonSerializer.SerializeToNode(step, PlanningJsonContext.Default.PlanningConstructionStep),
             ["requirements"] = RequirementNodes(state, step.RequirementIds),
-            ["sources"] = supplied ? null : SourceDescriptors(state),
-            ["descriptors"] = supplied ? null : ContractDescriptorPage(state),
-            ["directoryEvidence"] = supplied ? new JsonObject { ["sources"] = "page:sources:0", ["operations"] = "page:operations:0" } : null,
+            ["sources"] = supplied || hasDescriptors ? null : SourceDescriptors(state),
+            ["descriptors"] = descriptors,
+            ["directoryEvidence"] = supplied || hasDescriptors ? new JsonObject { ["sources"] = "page:sources:0", ["operations"] = "page:operations:0" } : null,
             ["evidence"] = evidence?.DeepClone(),
             ["diagnostics"] = PlanningJsonTransport.Diagnostics(state.Diagnostics),
             ["pages"] = new JsonArray(state.Discovery.Pages.Where(p => p.Query == step.Objective).Select(p => (JsonNode)new JsonObject

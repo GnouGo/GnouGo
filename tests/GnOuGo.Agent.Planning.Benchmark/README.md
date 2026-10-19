@@ -832,7 +832,10 @@ and requirements, descriptors and exact contract evidence, response schema, inte
 fragment/evidence/diagnostics, and envelope overhead. The versioned conservative token
 estimate is admission evidence; provider input/output/reasoning usage remains a separate
 whole-call measurement. Rejected requests are measured before dispatch and incur no
-invented usage. Judge is a phase dimension, not a second token total.
+invented usage. Judge is a phase dimension, not a second token total. Aggregate
+peaks, percentiles and component sums include rejected prepared requests. Reports
+separately identify admitted request counts, admitted peaks and their limit checks;
+an oversized rejected request cannot be hidden behind a smaller admitted peak.
 
 The compact live comparison freezes baseline `56942f5` and each candidate separately,
 with identical model/reasoning, MCP binaries, scenario inputs and independent oracle
@@ -841,11 +844,15 @@ baseline retains its 32k input ceiling. After successful candidate diagnostics f
 Collections, Amazon and Review PR, run three alternating baseline/candidate pairs per
 scenario under fresh run identities. Source changes require a new candidate cohort.
 All nine measured candidates must pass independent business checks without unwanted
-effects or input-limit violations. Compare peak generation/Judge sizes where baseline
-evidence exists; report p50/p95/maximum sizes, calls, corrections, actual tokens, cost
+effects or input-limit violations. Compare peak generation/Judge sizes per scenario
+where baseline evidence exists; improvement in one family cannot hide regression
+in another. Absent baseline Judge evidence is explicitly `not_comparable`. Report
+p50/p95/maximum sizes, calls, corrections, actual tokens, cost
 and planning/runtime latency. Include cumulative totals and known partial sums as
 well as distributions, both per scenario and across the cohort. Unknown usage keeps
-the complete total unknown. More calls are allowed. Higher cost or latency remains
+the complete total unknown. Measurements deduplicate within one run; identical
+request hashes across independent runs still contribute separately. More calls
+are allowed. Higher cost or latency remains
 visible, and missing/failed/uncertain runs never establish success. All attempts share
 the existing encrypted campaign accounting, including diagnostics and retained failures.
 

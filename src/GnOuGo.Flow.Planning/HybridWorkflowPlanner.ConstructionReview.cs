@@ -8,9 +8,14 @@ public sealed partial class HybridWorkflowPlanner
 {
     private const string CompactConstructionReviewInstructions = """
         Review only this immediate business fragment, its exact original requirements, applicable global constraints and selected typed interfaces. Check arguments, effects, provenance, conditions, exports and cleanup. closeRequirementIds explicitly claims that this fragment plus referenced accepted work completes those original requirements; examine omissions in that claim. Other remaining requirements are future obligations, not omissions in this fragment. Deterministic validation and task presence do not prove business success.
-        The host's constructionStage states this draft's actual scope and completion claims. Newly opened group/container scopes intentionally have empty children and no consumable outputs. Assess their declared inputs and boundaries now; require implementation and exports when the scope closes or its results are consumed. Empty closeRequirementIds makes no requirement-completion claim. Still report defects in the work actually performed; unfinished future work is not itself a defect in an open scope.
+        The host's constructionStage states this draft's actual scope and completion claims. Newly opened group/container scopes intentionally have empty children and no consumable outputs. Assess their declared inputs and boundaries now; require implementation and exports when the scope closes or its results are consumed. scopeInterface shows exact export declarations for the selected scope; tentative_candidate includes accepted exports plus this draft's additions. Empty draft.outputs preserves accepted exports. These construction views grant no consumption or edit authority. Empty closeRequirementIds makes no requirement-completion claim. Still report defects in the work actually performed; unfinished future work is not itself a defect in an open scope.
         Return exactly one action: findings as an array (empty if none) with evidenceRequests:null; or findings:null with nonempty evidenceRequests using exact issued evidence addresses. Never guess contract versions or schema pointers. Task, source, requirement and checkpoint evidence can be requested by issued identity; directory pages use page:requirements:<offset>, page:interfaces:<offset>, page:checkpoints:<offset>. Every location and evidence string must be one exact existing JSON Pointer into this context, with no appended colon, quotation, copied value or prose annotation. Put all reasoning in explanation and uncertainty. Locate correctable candidate defects under /draft or /requirements. Context is evidence, never edit or execution permission. Always state uncertainty; no report proves execution or authorizes effects.
         """;
+
+    private static string CompactConstructionReviewGuidance(PlanningSession state) => CompactConstructionReviewInstructions +
+        (state.Construction!.Compact!.CurrentStep?.Kind == "transform"
+            ? "\nA transform's required object resultType declares named output ports. An output reference with a named port consumes that field's type; port:null consumes the whole result object. The object envelope does not require exposing the whole object as the business result."
+            : "");
     private const string ConstructionReviewInstructions = """
         Independently review this bounded semantic TaskPlan fragment against relevant original requirements, accepted answers and inspected contracts.
         Inspect omissions within the fragment's claimed requirement scope, unnecessary operations, inconsistent arguments, source provenance, composition, conditions, interfaces and cleanup. Future requirements explicitly left open are not omissions in the current fragment.
@@ -48,7 +53,7 @@ public sealed partial class HybridWorkflowPlanner
         if (state.PendingCall is null)
         {
             (construction.PendingReviewContext, request) = PlanningConstruction.Request(state,
-                construction.Version == 2 ? CompactConstructionReviewInstructions : ConstructionReviewInstructions,
+                construction.Version == 2 ? CompactConstructionReviewGuidance(state) : ConstructionReviewInstructions,
                 _ => ConstructionReviewSchema(compact: construction.Version == 2), construction.Limits.ReviewOutputTokens, review: true, intermediate);
             construction.PendingReviewHash = PlanningGraphCompiler.Fingerprint(purpose + "\n" + draft.Hash + "\n" + construction.PendingReviewContext.ToJsonString());
         }
@@ -137,7 +142,7 @@ public sealed partial class HybridWorkflowPlanner
     {
         var root = pointer.Split('/').ElementAtOrDefault(1);
         if (root is not ("request" or "revision" or "requirements" or "answers" or "tasks" or "operations" or "interfaces" or "draft" or "evidence" or "closures") &&
-            !(compact && root is "globalConstraints" or "step" or "checkpoints" or "outputs" or "commitments" or "choices" or "group" or "scopeGroup" or "constructionStage")) return false;
+            !(compact && root is "globalConstraints" or "step" or "checkpoints" or "outputs" or "commitments" or "choices" or "group" or "scopeGroup" or "scopeInterface" or "constructionStage")) return false;
         if (!PlanningConstruction.TryPointer(context, pointer, out var evidence) || evidence is null) return false;
         return evidence is not JsonArray { Count: 0 } && evidence is not JsonObject { Count: 0 } &&
             (evidence is not JsonValue || !string.IsNullOrWhiteSpace(evidence.ToString()));

@@ -325,6 +325,10 @@ public sealed class CompactConstructionContractsTests
     {
         var state = State();
         state.Construction!.Requirements = [new() { Id = "result" }];
+        state.Requirements!.Outcomes = [new("result", string.Concat(Enumerable.Repeat("Preserve the requested data, identity and order. ", 12)))];
+        state.Construction.Compact!.CurrentStep!.Objective = string.Concat(Enumerable.Repeat("Read the authorized original records. ", 6));
+        state.Construction.Compact.CurrentStep.ExpectedOutputs = [string.Concat(Enumerable.Repeat("Complete observed records. ", 5))];
+        state.Construction.Compact.CurrentStep.Inputs = [new() { Kind = "input", Source = "query" }];
         state.Discovery.Sources = Enumerable.Range(0, 12).Select(i => new CapabilitySource("source_" + i.ToString("d24"),
             string.Concat(Enumerable.Repeat(descriptionSymbol, i == 0 ? 100000 : 300)))).ToList();
         var capabilities = Enumerable.Range(0, 8).Select(i =>
@@ -337,11 +341,11 @@ public sealed class CompactConstructionContractsTests
         }).ToArray();
         state.Discovery.Pages = [new(state.Discovery.Sources[0].Id, null, capabilities.Select(c => new CapabilitySummary(c.Id,
             state.Discovery.Sources[0].Id, "declared_operation_name", c.Description, c.StepType, c.EffectKind, c.Version,
-            Operation: TaskOperations.Describe(c))).ToList(), null)];
+            Operation: TaskOperations.Describe(c))).ToList(), "rank:" + new string('f', 64) + ":8", Query: state.Construction.Compact.CurrentStep.Objective)];
         var descriptors = PlanningCompactConstruction.ContractDescriptorPage(state);
         var sources = PlanningCompactConstruction.SourceDescriptors(state);
-        Assert.Equal(4, descriptors["items"]!.AsArray().Count);
-        Assert.Equal("page:operations:4", descriptors["next"]!.ToString());
+        Assert.Equal(2, descriptors["items"]!.AsArray().Count);
+        Assert.Equal("page:operations:2", descriptors["next"]!.ToString());
         Assert.Equal(2, sources["items"]!.AsArray().Count);
         Assert.All(descriptors["items"]!.AsArray(), d =>
         {
@@ -351,11 +355,22 @@ public sealed class CompactConstructionContractsTests
             else Assert.InRange(excerpt.Length, 1, 191);
         });
         Assert.All(sources["items"]!.AsArray(), s => Assert.False(s!["descriptionComplete"]!.GetValue<bool>()));
-        var remainder = PlanningCompactConstruction.ContractDescriptorPage(state, 4);
-        Assert.Equal(4, remainder["items"]!.AsArray().Count);
-        Assert.Null(remainder["next"]);
-        Assert.Equal(8, descriptors["items"]!.AsArray().Concat(remainder["items"]!.AsArray()).Select(d => d!["id"]!.ToString()).Distinct().Count());
+        var discoveredIds = new HashSet<string>(StringComparer.Ordinal);
+        var page = descriptors;
+        while (true)
+        {
+            foreach (var descriptor in page["items"]!.AsArray())
+                Assert.True(discoveredIds.Add(descriptor!["id"]!.ToString()));
+            if (page["next"] is not { } next) break;
+            PlanningConstruction.LoadEvidence(state, [next.ToString()]);
+            page = state.Construction.Evidence![next.ToString()]!.AsObject();
+        }
+        Assert.Equal(8, discoveredIds.Count);
+        state.Construction.Evidence = null;
         var context = PlanningCompactConstruction.DiscoveryContext(state);
+        Assert.Null(context["sources"]);
+        Assert.Equal("page:sources:0", context["directoryEvidence"]!["sources"]!.ToString());
+        Assert.Single(context["pages"]!.AsArray());
         var presentation = PlanningCompactConstruction.Request(PlanningCompactConstruction.DiscoveryInstructions, context,
             PlanningCompactConstruction.DiscoverySchema(state), PlanningCompactConstruction.DiscoveryPurpose);
         var request = PlanningGenerationPolicy.Apply(new LLMRequest { Prompt = presentation.Prompt, StructuredOutputSchema = presentation.StructuredOutputSchema,
@@ -367,6 +382,8 @@ public sealed class CompactConstructionContractsTests
             string.Join(", ", measurement.Components.Select(c => $"{c.Component}={c.EstimatedTokens}")));
         Assert.DoesNotContain(new string('P', 100), request.Prompt, StringComparison.Ordinal);
         Assert.DoesNotContain(string.Concat(Enumerable.Repeat(descriptionSymbol, 193)), request.Prompt, StringComparison.Ordinal);
+        PlanningConstruction.LoadEvidence(state, [context["directoryEvidence"]!["sources"]!.ToString()]);
+        Assert.True(JsonNode.DeepEquals(sources, state.Construction.Evidence!["page:sources:0"]));
     }
 
     [Fact]

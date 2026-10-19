@@ -2,12 +2,23 @@
 
 Fresh sessions use [compact incremental construction](../../docs/incremental-taskplan-construction.md): index original intent, select one immediate business substep, discover its capabilities, then generate and review a bounded fragment of one TaskPlan. Phase-specific context and response schemas omit unrelated inspections, task grammar and history. Exact contract views preserve required constraints; the shared compiler validates against unchanged original contracts before encrypted checkpoint acceptance. Completion uses the existing PlanningGraph and compiler v15 path without a final whole-plan LLM Judge. Historical proposal/repair contracts below retain their original meaning for issued sessions.
 
-Requirement-page reads supplement the unresolved business focus. Bounded task
+Selection keeps one unresolved original requirement as its anchor; additional
+requirement pages supply one exact clause and its next address. Applicable global
+constraints remain present. Bounded task
 directories identify omitted descriptions and ports through exact evidence
 addresses; a closed group call exposes its declared result ports. Fresh response
 schemas exclude completion choices that the known frontier or requirement state
 cannot satisfy. These presentation rules do not replace semantic validation or
 change saved requests, accepted TaskPlans, JavaScript or YAML lowering.
+
+Selected-scope export evidence distinguishes accepted declarations from the
+tentative merged interface at closure. It uses the compiler's post-finalizer
+type resolution, pages exact bindings by plan/frontier hash, and includes no scope
+body or unrelated history. Empty extension outputs preserve accepted exports.
+This evidence does not make an open container consumable or grant edit authority.
+Transform reviews receive the selected kind's named-port semantics: the required
+object result contract wraps its declared fields, and a named output reference
+consumes that field's type.
 
 `PlanningPolicy.MaxStepsPerWorkflow` and `MaxWorkflows` are nullable captured graph-admission limits. Omission retains 300 generated nodes per workflow and 100 workflows and omits both fields from historical serialization. The compiler and structural validator use the same effective limits, independently of `MaxStepsTotal`. Explicit large construction captures 5,000 total nodes, 5,000 nodes per workflow and 1,024 workflows; existing compiler overloads and valid emitted YAML remain unchanged. These bounds do not increase runtime step, loop, branch, finalizer, expression or inference allowances.
 

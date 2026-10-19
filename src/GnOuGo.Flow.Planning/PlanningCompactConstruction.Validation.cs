@@ -162,6 +162,7 @@ internal static partial class PlanningCompactConstruction
     internal static bool LoadEvidence(PlanningSession state, string address, out JsonNode? value)
     {
         var compact = State(state); value = null;
+        if (LoadScopeInterfaceEvidence(state, address, out value)) return true;
         if (LoadTaskNavigationEvidence(state, address, out value)) return true;
         if (address.StartsWith("source-description:", StringComparison.Ordinal))
         { value = LoadContractEvidence(state, address); return true; }
@@ -207,7 +208,8 @@ internal static partial class PlanningCompactConstruction
         if (parts is ["page", "requirements", var requirementOffset] && int.TryParse(requirementOffset, out var next) && next >= 0 && next < state.Requirements!.Outcomes.Count)
         {
             value = new JsonObject { ["offset"] = next, ["total"] = state.Requirements.Outcomes.Count,
-                ["items"] = RequirementNodes(state, state.Requirements.Outcomes.Skip(next).Take(3).Select(r => r.Id)) };
+                ["items"] = RequirementNodes(state, state.Requirements.Outcomes.Skip(next).Take(1).Select(r => r.Id)),
+                ["next"] = next + 1 < state.Requirements.Outcomes.Count ? "page:requirements:" + (next + 1) : null };
             return true;
         }
         if (parts is ["page", "interfaces", var interfaceOffset] && int.TryParse(interfaceOffset, out next) && next >= 0)

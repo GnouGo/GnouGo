@@ -102,7 +102,60 @@ public sealed class CompactRequestMeasurementTests
         Assert.Equal(3000, measurement.InputLimit);
         Assert.True(measurement.EstimatedInputTokens > 3000);
         var run = new JsonObject { ["session"] = JsonSerializer.SerializeToNode(state, PlanningJsonContext.Default.PlanningSession) };
-        Assert.Equal(1, PlanningBenchmarkMeasurements.RequestMetrics(run)["phases"]!["construction_select"]!["rejected_before_dispatch"]!.GetValue<int>());
+        var phase = PlanningBenchmarkMeasurements.RequestMetrics(run)["phases"]!["construction_select"]!;
+        Assert.Equal(1, phase["rejected_before_dispatch"]!.GetValue<int>());
+        Assert.Equal(1, phase["prepared_requests"]!.GetValue<int>());
+        Assert.Equal(0, phase["requests"]!.GetValue<int>());
+        Assert.Equal(measurement.CompleteRequestBytes, phase["peak_complete_request_bytes"]!.GetValue<long>());
+        Assert.Equal(measurement.EstimatedInputTokens, phase["peak_estimated_input_tokens"]!.GetValue<long>());
+        Assert.False(phase["within_captured_limits"]!.GetValue<bool>());
+        Assert.True(phase["admitted_within_captured_limits"]!.GetValue<bool>());
+        Assert.Null(phase["peak_admitted_input_tokens"]);
+        Assert.Equal(measurement.CompleteRequestBytes, phase["components"]!.AsObject().Sum(c => c.Value!["serialized_bytes"]!.GetValue<long>()));
+    }
+
+    [Theory]
+    [InlineData("scopeInterface")]
+    [InlineData("group")]
+    [InlineData("scopeGroup")]
+    public void SelectedScopeAndGroupViewsCountAsInterfaces(string key)
+    {
+        var context = new JsonObject { [key] = new JsonObject { ["id"] = "selected", ["hash"] = "immutable-interface",
+            ["inputs"] = new JsonArray(new JsonObject { ["name"] = "value", ["type"] = "number" }),
+            ["outputs"] = new JsonArray(new JsonObject { ["name"] = "result", ["schema"] = new JsonObject { ["type"] = "number" } }) } };
+        var request = new LLMRequest { Prompt = "Review the selected typed interface.\n" + PlanningJsonTransport.Prompt(context) };
+        var original = JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest);
+        var measurement = PlanningRequestMeasurements.Measure(request, "construction_local_judge", 4000);
+        Assert.True(Assert.Single(measurement.Components, c => c.Component == "interfaces").SerializedBytes > 100);
+        Assert.DoesNotContain(measurement.Components, c => c.Component == "construction_context");
+        Assert.Equal(measurement.CompleteRequestBytes, measurement.Components.Sum(c => c.SerializedBytes));
+        Assert.Equal(original, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+    }
+
+    [Fact]
+    public void MixedAdmissionMetricsRetainRejectedPeaksAndAllComponentBytes()
+    {
+        var admitted = PlanningRequestMeasurements.Measure(new() { Prompt = "Small discovery request." }, "construction_discovery", 3000);
+        admitted.Admission = "admitted";
+        var rejected = PlanningRequestMeasurements.Measure(new() { Prompt = new string('x', 9000) }, "construction_discovery", 3000);
+        rejected.Admission = "rejected_before_dispatch";
+        var first = JsonSerializer.SerializeToNode(admitted, PlanningJsonContext.Default.PlanningRequestMeasurement)!;
+        var second = JsonSerializer.SerializeToNode(rejected, PlanningJsonContext.Default.PlanningRequestMeasurement)!;
+        var run = new JsonObject { ["request_measurements"] = new JsonObject { [admitted.RequestHash] = first },
+            ["session"] = new JsonObject { ["requestMeasurements"] = new JsonArray(first.DeepClone(), second) } };
+        var report = PlanningBenchmarkMeasurements.RequestMetrics(run);
+        var phase = report["phases"]!["construction_discovery"]!;
+        Assert.Equal(2, report["requests"]!.AsArray().Count);
+        Assert.Equal(2, phase["prepared_requests"]!.GetValue<int>());
+        Assert.Equal(1, phase["requests"]!.GetValue<int>());
+        Assert.Equal(1, phase["rejected_before_dispatch"]!.GetValue<int>());
+        Assert.Equal(rejected.CompleteRequestBytes, phase["peak_complete_request_bytes"]!.GetValue<long>());
+        Assert.Equal(rejected.EstimatedInputTokens, phase["peak_estimated_input_tokens"]!.GetValue<long>());
+        Assert.Equal(admitted.EstimatedInputTokens, phase["peak_admitted_input_tokens"]!.GetValue<long>());
+        Assert.False(phase["within_captured_limits"]!.GetValue<bool>());
+        Assert.True(phase["admitted_within_captured_limits"]!.GetValue<bool>());
+        Assert.Equal(admitted.CompleteRequestBytes + rejected.CompleteRequestBytes,
+            phase["components"]!.AsObject().Sum(c => c.Value!["serialized_bytes"]!.GetValue<long>()));
     }
 
     [Theory]
@@ -151,14 +204,30 @@ public sealed class CompactRequestMeasurementTests
     [InlineData("unknown_cost", "inconclusive")]
     [InlineData("unsafe", "failed")]
     [InlineData("business_failed", "failed")]
+    [InlineData("rejected_request", "failed")]
+    [InlineData("duplicate_measurement", "passed")]
+    [InlineData("legacy_phases", "passed")]
+    [InlineData("judge_regression", "failed")]
+    [InlineData("generation_regression", "failed")]
     public void CompactComparisonPermitsMoreCallsButRequiresIndependentCompleteBusinessEvidence(string defect, string expected)
     {
         JsonObject[] Arm(bool compact) => new[] { "collections", "amazon", "code" }.SelectMany(name => Enumerable.Range(1, 3).Select(repetition =>
         {
             var request = new PlanningRequest();
             PlanningBenchmarkMeasurements.ConfigureRequest(request, [], false);
-            var measurement = PlanningRequestMeasurements.Measure(new LLMRequest { Prompt = new string('a', compact ? 1000 : 5000) }, "construction_draft", compact ? 8000 : 32000);
+            var draftLength = compact ? defect == "generation_regression" && name == "amazon" ? 6000 : 1000
+                : defect == "generation_regression" && name == "collections" ? 10000 : 5000;
+            var measurement = PlanningRequestMeasurements.Measure(new LLMRequest { Prompt = new string('a', draftLength) },
+                !compact && defect == "legacy_phases" ? "tasks" : "construction_draft", compact ? 8000 : 32000);
             measurement.Admission = "admitted";
+            var measurements = new JsonArray(JsonSerializer.SerializeToNode(measurement, PlanningJsonContext.Default.PlanningRequestMeasurement));
+            if (defect is "legacy_phases" or "judge_regression")
+            {
+                var judge = PlanningRequestMeasurements.Measure(new LLMRequest { Prompt = new string('j', compact ? defect == "judge_regression" && name == "amazon" ? 2000 : 500 : 1000) },
+                    compact ? "construction_local_judge" : "judge", compact ? 4000 : 32000);
+                judge.Admission = "admitted";
+                measurements.Add(JsonSerializer.SerializeToNode(judge, PlanningJsonContext.Default.PlanningRequestMeasurement));
+            }
             return new JsonObject
             {
                 ["case"] = name, ["repetition"] = repetition, ["source_commit"] = compact ? "new" : "old", ["mode"] = "live",
@@ -166,7 +235,7 @@ public sealed class CompactRequestMeasurementTests
                 ["configuration"] = PlanningBenchmarkMeasurements.Configuration(request), ["independent_business_success"] = compact,
                 ["safety_violations"] = new JsonArray(), ["calls"] = compact ? 20 : 2,
                 ["input_tokens"] = compact ? 20_000 : 10_000, ["output_tokens"] = 500, ["estimated_cost_eur"] = 1m, ["elapsed_ms"] = 500,
-                ["request_metrics"] = new JsonObject { ["requests"] = new JsonArray(JsonSerializer.SerializeToNode(measurement, PlanningJsonContext.Default.PlanningRequestMeasurement)) }
+                ["request_metrics"] = new JsonObject { ["requests"] = measurements }
             };
         })).ToArray();
         var before = Arm(false); var after = Arm(true);
@@ -177,6 +246,14 @@ public sealed class CompactRequestMeasurementTests
         if (defect == "unknown_cost") after[0]["estimated_cost_eur"] = null;
         if (defect == "unsafe") after[0]["safety_violations"]!.AsArray().Add("unexpected-effect");
         if (defect == "business_failed") after[0]["independent_business_success"] = false;
+        if (defect == "duplicate_measurement")
+            after[0]["request_metrics"]!["requests"]!.AsArray().Add(after[0]["request_metrics"]!["requests"]![0]!.DeepClone());
+        if (defect == "rejected_request")
+        {
+            var rejected = PlanningRequestMeasurements.Measure(new() { Prompt = new string('x', 9000) }, "construction_select", 3000);
+            rejected.Admission = "rejected_before_dispatch";
+            after[0]["request_metrics"]!["requests"]!.AsArray().Add(JsonSerializer.SerializeToNode(rejected, PlanningJsonContext.Default.PlanningRequestMeasurement));
+        }
         var report = PlanningBenchmarkMeasurements.CompareCompactConstruction(before, after, ["collections", "amazon", "code"]);
         Assert.Equal(expected, report["status"]!.ToString());
         Assert.Equal(20m, report["candidate"]!["calls"]!["median"]!.GetValue<decimal>());
@@ -185,6 +262,41 @@ public sealed class CompactRequestMeasurementTests
         Assert.Equal(after.Length * 500m, report["candidate"]!["elapsed_ms"]!["total"]!.GetValue<decimal>());
         Assert.Equal(60m, report["cases"]!["collections"]!["candidate"]!["calls"]!["total"]!.GetValue<decimal>());
         Assert.Equal(1500m, report["cases"]!["collections"]!["candidate"]!["elapsed_ms"]!["total"]!.GetValue<decimal>());
+        var draftPhase = report["candidate"]!["request_phases"]!["construction_draft"]!;
+        Assert.Equal(after.Length, draftPhase["prepared_requests"]!.GetValue<int>());
+        Assert.Equal(after.Length, draftPhase["requests"]!.GetValue<int>());
+        Assert.Equal(after.Length * (defect is "legacy_phases" or "judge_regression" ? 2 : 1), report["candidate"]!["request_count"]!.GetValue<int>());
+        var totalDraftBytes = after.Sum(row => row["request_metrics"]!["requests"]![0]!["completeRequestBytes"]!.GetValue<long>());
+        Assert.Equal(totalDraftBytes,
+            draftPhase["components"]!.AsObject().Sum(component => component.Value!["serialized_bytes"]!.GetValue<long>()));
+        Assert.Equal(3, report["cases"]!["collections"]!["candidate"]!["request_phases"]!["construction_draft"]!["prepared_requests"]!.GetValue<int>());
+        var judgeComparison = report["cases"]!["amazon"]!["phase_comparisons"]!["judge"]!;
+        Assert.Equal(defect == "judge_regression" ? "failed" : defect == "legacy_phases" ? "passed" : "not_comparable", judgeComparison["status"]!.ToString());
+        if (defect == "judge_regression")
+        {
+            Assert.True(report["peak_request_reduction"]!.GetValue<double>() > 0);
+            Assert.False(report["comparable_phase_families_improved"]!.GetValue<bool>());
+            Assert.Equal("passed", report["cases"]!["collections"]!["phase_comparisons"]!["judge"]!["status"]!.ToString());
+            Assert.Equal(4000, Assert.Single(judgeComparison["candidate_input_limits"]!.AsArray())!.GetValue<int>());
+        }
+        if (defect == "legacy_phases")
+            Assert.Equal("passed", report["cases"]!["amazon"]!["phase_comparisons"]!["generation"]!["status"]!.ToString());
+        if (defect == "generation_regression")
+        {
+            Assert.True(report["peak_request_reduction"]!.GetValue<double>() > 0);
+            Assert.False(report["comparable_phase_families_improved"]!.GetValue<bool>());
+            Assert.Equal("failed", report["cases"]!["amazon"]!["phase_comparisons"]!["generation"]!["status"]!.ToString());
+            Assert.Equal("passed", report["cases"]!["collections"]!["phase_comparisons"]!["generation"]!["status"]!.ToString());
+        }
+        if (defect == "rejected_request")
+        {
+            Assert.False(report["within_captured_phase_limits"]!.GetValue<bool>());
+            Assert.True(report["candidate"]!["peak_estimated_input_tokens"]!.GetValue<long>() > 3000);
+            Assert.Equal(after.Length + 1, report["candidate"]!["prepared_request_count"]!.GetValue<int>());
+            Assert.Equal(after.Length, report["candidate"]!["request_count"]!.GetValue<int>());
+            Assert.Equal(1, report["candidate"]!["rejected_before_dispatch"]!.GetValue<int>());
+            Assert.Equal(1, report["candidate"]!["request_phases"]!["construction_select"]!["rejected_before_dispatch"]!.GetValue<int>());
+        }
         if (defect == "unknown_cost")
         {
             Assert.Null(report["candidate"]!["estimated_cost_eur"]!["total"]);

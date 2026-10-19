@@ -11,7 +11,7 @@ namespace GnOuGo.Flow.Planning;
 internal static partial class PlanningCompactConstruction
 {
     private const int ContractDirectoryPageSize = 8;
-    private const int ContractDescriptorPageSize = 4;
+    private const int ContractDescriptorPageSize = 2;
     private const int SourceDirectoryPageSize = 2;
     private const int ContractDescriptionPageSize = 2048;
 

@@ -392,7 +392,7 @@ public sealed class CompactConstructionTests
         var selected = PlanningCompactConstruction.SelectionContext(state)["requirements"]!.AsArray();
         Assert.Equal("req_3", evidence!["items"]![0]!["id"]!.ToString());
         Assert.Equal("req_1", selected[0]!["id"]!.ToString());
-        Assert.Equal(3, selected.Count);
+        Assert.Single(selected);
     }
 
     [Fact]
@@ -409,7 +409,7 @@ public sealed class CompactConstructionTests
         var sources = JsonSerializer.Serialize(state.Construction!.Compact!.Sources, PlanningJsonContext.Default.ListPlanningConstructionSource);
         PlanningConstruction.LoadEvidence(state, ["page:requirements:3"]);
         var context = PlanningCompactConstruction.SelectionContext(state);
-        Assert.Equal(["req_0", "req_1", "req_2"], context["requirements"]!.AsArray().Select(row => row!["id"]!.ToString()));
+        Assert.Equal("req_0", Assert.Single(context["requirements"]!.AsArray())!["id"]!.ToString());
         Assert.Equal("req_3", context["evidence"]!["page:requirements:3"]!["items"]![0]!["id"]!.ToString());
         Assert.Equal("request:0:clause:0", context["requirements"]![0]!["sources"]![0]!["id"]!.ToString());
         Assert.Equal(0, state.Construction.Compact.RequirementOffset);
@@ -420,8 +420,57 @@ public sealed class CompactConstructionTests
         PlanningConstruction.LoadEvidence(state, ["page:requirements:0"]);
         var repeated = PlanningCompactConstruction.SelectionContext(state);
         Assert.Null(repeated["requirements"]);
-        Assert.Equal(3, repeated["evidence"]!["page:requirements:0"]!["items"]!.AsArray().Count);
+        Assert.Single(repeated["evidence"]!["page:requirements:0"]!["items"]!.AsArray());
+        Assert.Equal("page:requirements:1", repeated["evidence"]!["page:requirements:0"]!["next"]!.ToString());
         Assert.Equal(sources, JsonSerializer.Serialize(state.Construction.Compact.Sources, PlanningJsonContext.Default.ListPlanningConstructionSource));
+    }
+
+    [Fact]
+    public async Task SelectionKeepsOneOriginalAnchorAndGlobalsWhilePagingLongRequirements()
+    {
+        var state = await PlannerFixture.RunAsync(new TestRuntime { Respond = Simple }, Fresh());
+        state.Requirements!.Outcomes.Clear(); state.Construction!.Requirements.Clear();
+        var compact = state.Construction.Compact!;
+        compact.Sources.Clear(); compact.RequirementSources.Clear(); compact.GlobalSourceIds.Clear();
+        for (var i = 0; i < 12; i++)
+        {
+            var id = "req_" + i; var sourceId = "original:0:clause:" + i;
+            var original = "Preserve the exact business obligation " + i + ": " + new string('x', 160);
+            state.Requirements.Outcomes.Add(new(id, original));
+            state.Construction.Requirements.Add(new() { Id = id });
+            compact.Sources.Add(new() { Id = sourceId, Text = original, Version = PlanningGraphCompiler.Fingerprint(original), Kind = "requirement", Indexed = true });
+            compact.RequirementSources[id] = [sourceId];
+        }
+        for (var i = 0; i < 5; i++)
+        {
+            var id = "global:0:clause:" + i; var text = "Apply this original invariant throughout the workflow " + i + ": " + new string('y', 80);
+            compact.Sources.Add(new() { Id = id, Text = text, Version = PlanningGraphCompiler.Fingerprint(text), Kind = "global", Indexed = true });
+            compact.GlobalSourceIds.Add(id);
+        }
+        var originals = JsonSerializer.Serialize(compact.Sources, PlanningJsonContext.Default.ListPlanningConstructionSource);
+        for (var offset = 1; offset < state.Requirements.Outcomes.Count; offset++)
+        {
+            var address = "page:requirements:" + offset;
+            PlanningConstruction.LoadEvidence(state, [address]);
+            var context = PlanningCompactConstruction.SelectionContext(state);
+            Assert.Equal("req_0", Assert.Single(context["requirements"]!.AsArray())!["id"]!.ToString());
+            var page = context["evidence"]![address]!;
+            Assert.Equal("req_" + offset, Assert.Single(page["items"]!.AsArray())!["id"]!.ToString());
+            Assert.Equal(offset + 1 < state.Requirements.Outcomes.Count ? "page:requirements:" + (offset + 1) : null, page["next"]?.ToString());
+            Assert.Equal(5, context["globalConstraints"]!.AsArray().Count);
+            var request = PlanningCompactConstruction.Request(PlanningCompactConstruction.SelectInstructions, context,
+                PlanningCompactConstruction.SelectionSchema(state), PlanningCompactConstruction.SelectPurpose);
+            var complete = PlanningGenerationPolicy.Apply(new LLMRequest
+            {
+                Provider = "OpenAi", Model = "retained-model-revision", Prompt = request.Prompt,
+                StructuredOutputSchema = request.StructuredOutputSchema, StructuredOutputStrict = true,
+                UseBackgroundMode = true, MaxTokens = state.Construction.Limits.DraftOutputTokens,
+                ClientRequestId = new string('s', 64) + ":12:" + new string('h', 64)
+            }, state.Request.Generation);
+            Assert.InRange(PlanningRequestMeasurements.Measure(complete, PlanningCompactConstruction.SelectPurpose, 3000).EstimatedInputTokens, 1, 3000);
+        }
+        Assert.Equal(originals, JsonSerializer.Serialize(compact.Sources, PlanningJsonContext.Default.ListPlanningConstructionSource));
+        Assert.All(state.Construction.Requirements, requirement => Assert.NotEqual("closed", requirement.Status));
     }
 
     [Fact]
@@ -560,9 +609,9 @@ public sealed class CompactConstructionTests
         state.Construction!.OpenScopes = ["/root", .. Enumerable.Range(0, 10).Select(i => "/tasks/scope_" + i + "/body")];
         var context = PlanningCompactConstruction.SelectionContext(state);
         Assert.Equal("req_1", context["requirements"]![0]!["id"]!.ToString());
-        Assert.Equal("page:requirements:4", context["nextRequirements"]!.ToString());
+        Assert.Equal("page:requirements:2", context["nextRequirements"]!.ToString());
         Assert.True(PlanningCompactConstruction.LoadEvidence(state, context["nextRequirements"]!.ToString(), out var requirements));
-        Assert.Equal("req_4", requirements!["items"]![0]!["id"]!.ToString());
+        Assert.Equal("req_2", requirements!["items"]![0]!["id"]!.ToString());
         Assert.Equal("page:interfaces:4", context["nextInterfaces"]!.ToString());
         Assert.True(PlanningCompactConstruction.LoadEvidence(state, context["nextInterfaces"]!.ToString(), out var interfaces));
         Assert.Contains(interfaces!.AsArray(), item => item?["group"]?.ToString() == "group_4");

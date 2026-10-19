@@ -268,3 +268,107 @@ The paired comparison remains unissued. These additional failures cannot establi
 comparative business success, cost reduction or latency improvement. Further
 source corrections require fresh frozen identities and must retain these receipts,
 failed requests, rejected admission measurements and cumulative costs.
+
+### Frozen diagnostic iteration `707dce4`
+
+Source `707dce43c0abaeebf35ae4ad17940a1f25be363c` passed 192 focused tests
+and a warning-free benchmark build. Its three real-model diagnostics again
+stopped before FinalReview or execution. Collections accepted two checkpoints;
+Amazon reached real MCP metadata discovery. Neither result establishes complete
+business success, and no scenario executed an MCP business operation.
+
+| Scenario | Calls / corrections | Provider input / output tokens | Planning time | Known cost |
+| --- | ---: | ---: | ---: | ---: |
+| Collections | 14 / 3 | 23,953 / 9,611 | 133.947 s | €0.3626544032702390473651470718 |
+| Amazon | 3 / 0 | 3,431 / 1,605 | 21.440 s | €0.0580334133120056873722562872 |
+| Review PR | 3 / 0 | 3,506 / 1,856 | 21.701 s | €0.0650582067004354394383719897 |
+
+Collections accepted a reusable-group opening, then a fragment containing an
+interpretation transform with a numeric `doubledValue` field and a corresponding
+group-body export. Its earlier Judge had treated the required object result
+envelope as inconsistent with the numeric port; a correction subsequently passed
+local review. The later closing draft duplicated an already accepted export and
+failed deterministic identity validation. Repair removed the duplicate, but the
+next Judge saw an empty export delta and the baseline open-group interface with
+no consumable outputs. It incorrectly treated the existing accepted export as
+missing. Another correction restored the duplicate and stopped with
+`CONSTRUCTION_BUSINESS_REVIEW` and `REPLAN_NO_PROGRESS`. The retained evidence
+shows a missing presentation of the selected scope's accepted interface; it does
+not show that the complete requested workflow was implemented or executed.
+
+The 14 requests included one indexing call, three selections, three drafts, four
+local Judges and three corrections. Conservative request peaks were 2,288 tokens
+for indexing, 2,733 for selection, 5,193 for generation, 2,971 for Judges and
+5,856 for correction (6,095, 7,430, 14,809, 8,144 and 16,799 bytes respectively).
+All dispatched requests stayed within their captured ceilings. The two accepted
+checkpoints remain immutable evidence; they are not a successful business result.
+
+Amazon completed indexing and selection, then selected one web-source metadata
+page for the current business step. The real discovery transport returned eight
+operation summaries. The next model request combined four operation navigation
+descriptors with repeated source metadata; descriptor context grew from 916 to
+3,568 serialized bytes. Admission rejected the complete 8,941-byte request at
+3,237 estimated input tokens against the 3,000-token discovery ceiling. No fourth
+model call occurred, no exact operation contract was selected for generation,
+and no browser navigation or workbook output executed. This failure calls for
+smaller descriptor pages and retrieval of already presented source metadata;
+it does not justify changing the model or increasing the allowance.
+
+Review PR indexed both original pages and admitted one selection call, which
+requested additional original requirement evidence. Its next selection combined
+that evidence with the retained requirement context and exceeded the same
+3,000-token ceiling: 9,200 serialized bytes and 3,323 estimated input tokens.
+The fourth request stopped before dispatch with `MODEL_INPUT_LIMIT`. There was
+no MCP discovery, repository cloning, command execution or report artifact.
+
+A subsequent read-only presentation probe retained the exact original sources
+and all five global clauses while presenting one unresolved requirement and one
+supplemental original clause. Its rebuilt Review PR selection measured 7,499
+bytes and 2,756 estimated tokens, down from 9,200 and 3,323. No model call or
+ledger write occurred. This demonstrates admission of that reconstructed request
+only; it does not establish later generation or business success.
+
+The frozen phase summaries excluded rejected requests from peaks and reported
+`within_captured_limits=true` for admitted requests only. Their detailed request
+records did preserve both oversized candidates. For Amazon, the old discovery
+summary showed 6,063 bytes and 2,277 tokens; the true prepared-request peak was
+8,941 bytes and 3,237 tokens. For Review PR, the old selection summary showed
+7,836 bytes and 2,868 tokens; the prepared-request peak was 9,200 bytes and
+3,323 tokens. These original results remain unchanged. The reporting correction
+includes all prepared requests in aggregate sizes and component sums and labels
+admitted counts and peaks separately; rejected requests still incur no invented
+provider usage or charges.
+
+Exact retained identities:
+
+- Collections run:
+  `707dce43c0abaeebf35ae4ad17940a1f25be363c:pilot:collections:1`;
+  session `00adff330c83efe649a0efb42a3dc403424daa85d2bbd125c869509e0d71ead8`;
+  closing-fragment Judge
+  `00adff330c83efe649a0efb42a3dc403424daa85d2bbd125c869509e0d71ead8:13:29a003d7c79acbb431ea0393400abd9ecbe5d008ac40eb6f3a1355131a658aba`;
+  final correction
+  `00adff330c83efe649a0efb42a3dc403424daa85d2bbd125c869509e0d71ead8:14:4d29385b1f5026b8a5e7d917fed155de7a9bd34b82e5fb1a2191aec53d574fa2`.
+- Amazon run/session: `compactdiag707-amazon-1`; rejected before dispatch:
+  `compactdiag707-amazon-1:4:c82b4e96f4617ef66683d411308f0d2d33385605c5811a279a02bb02c7aa41c3`.
+- Review PR run/session: `compactdiag707-code-1`; rejected before dispatch:
+  `compactdiag707-code-1:4:e19117d1d3e2c8a167c6cb5d9ff0a82a0c21d96d52aad59ca09925d97a75e159`.
+
+Sanitized log hashes, in the same order:
+`884e68017e40bd2adb320ae9beeaf6cfea781650dabe5920ef87f45320ccb9fe`,
+`9b0fc025c1845f9a399e19028beaeb373396f65ed4a4c2e712231f9c0fd8751c`,
+and `0adbcc92ec52325efda03f36b4031dc197d835886262a5cdfd5aa539c62f47cf`.
+
+This iteration used 20 calls, three corrections, 30,890 provider input tokens,
+13,072 output tokens, 177.088 seconds of planning and
+€0.4857460232826801741757753487. All compact diagnostics together have used
+41 calls and €1.5671687549986670221274326845. Terminal readiness reconciled
+55 campaign requests with 55 receipts, zero uncertain requests, zero unknown
+attempts and zero outstanding reservations. The verified spending upper bound
+is €2.8043410646049942237625522079, leaving
+€237.2257627681013103186823950921 under the unchanged campaign ceiling.
+Readiness evidence hash:
+`61eecb1340f0816ca3c5c47a03ee8fe008b12e77e46270e2e95be488ac69e7a0`.
+
+The paired comparison remains unissued. Smaller admitted requests and partial
+checkpoints do not establish a successful full workflow, improved total cost or
+latency, or absence of omissions in a completed business outcome.

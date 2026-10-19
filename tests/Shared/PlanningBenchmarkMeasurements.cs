@@ -237,13 +237,19 @@ public static class PlanningBenchmarkMeasurements
             records[measurement["requestHash"]!.ToString()] = measurement;
         foreach (var measurement in (run["session"]?["requestMeasurements"] as JsonArray ?? []).OfType<JsonObject>())
             records[measurement["requestHash"]!.ToString()] = measurement;
+        return RequestMetricsForRecords(records.Values.ToArray());
+    }
+
+    private static JsonObject RequestMetricsForRecords(IReadOnlyList<JsonObject> records)
+    {
         var phases = new JsonObject();
-        foreach (var group in records.Values.GroupBy(m => m["phase"]!.ToString()))
+        foreach (var group in records.GroupBy(m => m["phase"]!.ToString()))
         {
+            var prepared = group.ToArray();
             var admitted = group.Where(m => m["admission"]?.ToString() == "admitted").ToArray();
-            var sizes = admitted.Select(m => m["estimatedInputTokens"]!.GetValue<long>()).Order().ToArray();
+            var sizes = prepared.Select(m => m["estimatedInputTokens"]!.GetValue<long>()).Order().ToArray();
             var components = new JsonObject();
-            foreach (var component in admitted.SelectMany(m => m["components"]!.AsArray().OfType<JsonObject>()).GroupBy(c => c["component"]!.ToString()))
+            foreach (var component in prepared.SelectMany(m => m["components"]!.AsArray().OfType<JsonObject>()).GroupBy(c => c["component"]!.ToString()))
                 components[component.Key] = new JsonObject
                 {
                     ["serialized_bytes"] = component.Sum(c => c["serializedBytes"]!.GetValue<long>()),
@@ -251,20 +257,24 @@ public static class PlanningBenchmarkMeasurements
                 };
             phases[group.Key] = new JsonObject
             {
-                ["requests"] = admitted.Length, ["rejected_before_dispatch"] = group.Count(m => m["admission"]?.ToString() == "rejected_before_dispatch"),
-                ["peak_complete_request_bytes"] = admitted.Length == 0 ? null : admitted.Max(m => m["completeRequestBytes"]!.GetValue<long>()),
-                ["peak_estimated_input_tokens"] = admitted.Length == 0 ? null : admitted.Max(m => m["estimatedInputTokens"]!.GetValue<long>()),
+                ["prepared_requests"] = prepared.Length, ["requests"] = admitted.Length,
+                ["rejected_before_dispatch"] = prepared.Count(m => m["admission"]?.ToString() == "rejected_before_dispatch"),
+                ["peak_complete_request_bytes"] = prepared.Max(m => m["completeRequestBytes"]!.GetValue<long>()),
+                ["peak_estimated_input_tokens"] = sizes[^1],
+                ["peak_admitted_request_bytes"] = admitted.Length == 0 ? null : admitted.Max(m => m["completeRequestBytes"]!.GetValue<long>()),
+                ["peak_admitted_input_tokens"] = admitted.Length == 0 ? null : admitted.Max(m => m["estimatedInputTokens"]!.GetValue<long>()),
                 ["p50_estimated_input_tokens"] = sizes.Length == 0 ? null : (sizes[(sizes.Length - 1) / 2] + sizes[sizes.Length / 2]) / 2.0,
                 ["p95_estimated_input_tokens"] = sizes.Length == 0 ? null : sizes[(int)Math.Ceiling(sizes.Length * .95) - 1],
-                ["within_captured_limits"] = admitted.All(m => m["estimatedInputTokens"]!.GetValue<long>() <= m["inputLimit"]!.GetValue<int>()),
+                ["within_captured_limits"] = prepared.All(m => m["estimatedInputTokens"]!.GetValue<long>() <= m["inputLimit"]!.GetValue<int>()),
+                ["admitted_within_captured_limits"] = admitted.All(m => m["estimatedInputTokens"]!.GetValue<long>() <= m["inputLimit"]!.GetValue<int>()),
                 ["components"] = components
             };
         }
         return new()
         {
             ["estimator"] = "serialized_utf8_div3_plus256_v1", ["phases"] = phases,
-            ["requests"] = new JsonArray(records.Values.Select(m => (JsonNode)m.DeepClone()).ToArray()),
-            ["interpretation"] = "Component estimates describe serialized request bytes, not billed usage. Judge is a phase; component token rounding is not additive. Provider input/output usage is measured for each whole call."
+            ["requests"] = new JsonArray(records.Select(m => (JsonNode)m.DeepClone()).ToArray()),
+            ["interpretation"] = "Peaks, percentiles and component sums include all prepared requests, including rejected requests. Requests counts admitted requests; admitted peaks and limits are explicit. Component estimates describe serialized request bytes, not billed usage. Judge is a phase; component token rounding is not additive. Provider input/output usage is measured for each whole call."
         };
     }
 
@@ -291,7 +301,6 @@ public static class PlanningBenchmarkMeasurements
         var business = after.Count > 0 && after.All(r => r["independent_business_success"]?.GetValue<bool>() == true);
         var safe = after.All(r => r["safety_violations"] is JsonArray { Count: 0 });
         var bounded = after.All(r => (r["request_metrics"]?["requests"] as JsonArray ?? []).OfType<JsonObject>()
-            .Where(m => m["admission"]?.ToString() == "admitted")
             .All(m => m["estimatedInputTokens"]!.GetValue<long>() <= m["inputLimit"]!.GetValue<int>()));
         JsonObject Summary(IReadOnlyList<JsonObject> arm)
         {
@@ -310,33 +319,71 @@ public static class PlanningBenchmarkMeasurements
                     ["p95"] = allKnown ? sorted[(int)Math.Ceiling(sorted.Length * .95) - 1] : null
                 };
             }
-            var requests = arm.SelectMany(r => (r["request_metrics"]?["requests"] as JsonArray ?? []).OfType<JsonObject>()).Where(m => m["admission"]?.ToString() == "admitted").ToArray();
+            // Receipt measurements deduplicate within one retained run. Equal
+            // payload hashes in separate runs still represent separate requests.
+            var requests = arm.SelectMany(r => (r["request_metrics"]?["requests"] as JsonArray ?? []).OfType<JsonObject>()
+                .GroupBy(m => m["requestHash"]!.ToString(), StringComparer.Ordinal).Select(g => g.Last())).ToArray();
+            var admitted = requests.Where(m => m["admission"]?.ToString() == "admitted").ToArray();
             var peaks = requests.Select(m => m["estimatedInputTokens"]!.GetValue<long>()).Order().ToArray();
-            result["request_count"] = requests.Length;
+            result["prepared_request_count"] = requests.Length;
+            result["request_count"] = admitted.Length;
+            result["rejected_before_dispatch"] = requests.Count(m => m["admission"]?.ToString() == "rejected_before_dispatch");
+            result["peak_complete_request_bytes"] = requests.Length == 0 ? null : requests.Max(m => m["completeRequestBytes"]!.GetValue<long>());
             result["peak_estimated_input_tokens"] = peaks.Length == 0 ? null : peaks[^1];
+            result["peak_admitted_input_tokens"] = admitted.Length == 0 ? null : admitted.Max(m => m["estimatedInputTokens"]!.GetValue<long>());
             result["p50_estimated_input_tokens"] = peaks.Length == 0 ? null : (peaks[(peaks.Length - 1) / 2] + peaks[peaks.Length / 2]) / 2.0;
             result["p95_estimated_input_tokens"] = peaks.Length == 0 ? null : peaks[(int)Math.Ceiling(peaks.Length * .95) - 1];
-            var phaseRun = new JsonObject { ["request_measurements"] = new JsonObject() };
-            foreach (var measurement in requests)
-                phaseRun["request_measurements"]![measurement["requestHash"]!.ToString()] = measurement.DeepClone();
-            result["request_phases"] = RequestMetrics(phaseRun)["phases"]!.DeepClone();
+            result["request_phases"] = RequestMetricsForRecords(requests)["phases"]!.DeepClone();
             return result;
         }
         var baseline = Summary(before); var candidate = Summary(after);
         var perCase = new JsonObject();
+        var phaseFamiliesImproved = true;
         foreach (var name in cases)
+        {
+            var oldRuns = before.Where(r => r["case"]?.ToString() == name).ToArray();
+            var newRuns = after.Where(r => r["case"]?.ToString() == name).ToArray();
+            var families = new JsonObject();
+            foreach (var (family, purposes) in new[]
+            {
+                ("generation", new[] { "construction_draft", "tasks" }),
+                ("judge", new[] { "construction_local_judge", "construction_intermediate_judge", "judge" })
+            })
+            {
+                JsonObject[] Measurements(IEnumerable<JsonObject> arm) => arm.SelectMany(r =>
+                    (r["request_metrics"]?["requests"] as JsonArray ?? []).OfType<JsonObject>()
+                        .GroupBy(m => m["requestHash"]!.ToString(), StringComparer.Ordinal).Select(g => g.Last()))
+                    .Where(m => purposes.Contains(m["phase"]!.ToString(), StringComparer.Ordinal)).ToArray();
+                var oldRequests = Measurements(oldRuns); var newRequests = Measurements(newRuns);
+                long? Peak(JsonObject[] values) => values.Length == 0 ? null : values.Max(m => m["estimatedInputTokens"]!.GetValue<long>());
+                var oldPeak = Peak(oldRequests); var newPeak = Peak(newRequests);
+                var improved = oldPeak is null || newPeak is not null && newPeak.Value < oldPeak.Value;
+                phaseFamiliesImproved &= improved;
+                families[family] = new JsonObject
+                {
+                    ["status"] = oldPeak is null ? "not_comparable" : newPeak is null ? "missing_candidate_evidence" : improved ? "passed" : "failed",
+                    ["reason"] = oldPeak is null ? "No baseline request in this phase family." : newPeak is null ? "Baseline phase evidence has no candidate counterpart." : null,
+                    ["baseline_prepared_requests"] = oldRequests.Length, ["candidate_prepared_requests"] = newRequests.Length,
+                    ["baseline_peak_estimated_input_tokens"] = oldPeak, ["candidate_peak_estimated_input_tokens"] = newPeak,
+                    ["baseline_input_limits"] = new JsonArray(oldRequests.Select(m => m["inputLimit"]!.GetValue<int>()).Distinct().Order().Select(n => (JsonNode?)JsonValue.Create(n)).ToArray()),
+                    ["candidate_input_limits"] = new JsonArray(newRequests.Select(m => m["inputLimit"]!.GetValue<int>()).Distinct().Order().Select(n => (JsonNode?)JsonValue.Create(n)).ToArray()),
+                    ["candidate_within_captured_limits"] = newRequests.All(m => m["estimatedInputTokens"]!.GetValue<long>() <= m["inputLimit"]!.GetValue<int>()),
+                    ["peak_reduction"] = oldPeak is > 0 && newPeak is not null ? 1 - newPeak.Value / (double)oldPeak.Value : (double?)null
+                };
+            }
             perCase[name] = new JsonObject
             {
-                ["baseline"] = Summary(before.Where(r => r["case"]?.ToString() == name).ToArray()),
-                ["candidate"] = Summary(after.Where(r => r["case"]?.ToString() == name).ToArray())
+                ["baseline"] = Summary(oldRuns), ["candidate"] = Summary(newRuns), ["phase_comparisons"] = families
             };
+        }
         var reduction = baseline["peak_estimated_input_tokens"]?.GetValue<long>() is > 0 and var peak && candidate["peak_estimated_input_tokens"] is { } current
             ? 1 - current.GetValue<long>() / (double)peak : (double?)null;
-        var passed = comparable && business && safe && bounded && reduction > 0;
+        var passed = comparable && business && safe && bounded && reduction > 0 && phaseFamiliesImproved;
         return new() { ["status"] = !comparable ? "inconclusive" : passed ? "passed" : "failed", ["passed"] = passed,
             ["complete_three_repetitions"] = complete, ["frozen_comparison_context"] = frozen, ["matched_cumulative_and_output_allowances"] = matchedAllowances,
             ["independent_outcomes_known"] = observed, ["known_usage"] = knownUsage, ["all_candidate_business_outcomes_pass"] = business, ["no_safety_regression"] = safe,
-            ["within_captured_phase_limits"] = bounded, ["peak_request_reduction"] = reduction, ["baseline"] = baseline, ["candidate"] = candidate, ["cases"] = perCase,
+            ["within_captured_phase_limits"] = bounded, ["comparable_phase_families_improved"] = phaseFamiliesImproved,
+            ["peak_request_reduction"] = reduction, ["baseline"] = baseline, ["candidate"] = candidate, ["cases"] = perCase,
             ["interpretation"] = "More small calls are permitted. Incomplete, mixed-context or unknown-outcome cohorts are inconclusive; three repetitions are descriptive evidence, not a general reliability claim." };
     }
 

@@ -66,8 +66,9 @@ Required actions, setup, cleanup and results remain explicit completion
 obligations. Action-specific constraints stay with their requirements; global
 clauses describe crosscutting invariants. Indexing does not reconstruct effect
 payloads or resource schemas as public workflow interfaces.
-Requirement-page retrieval supplements the current unresolved business focus;
-it does not replace that focus with an isolated later clause. Render each exact
+Selection keeps the earliest unresolved original requirement as its anchor.
+Retrieve prerequisite clauses one per supplemental page with explicit next
+addresses, without surveying future work or replacing that anchor. Render each exact
 requested page once. Navigation descriptions and port-name directories are
 bounded and identify omitted material through versioned retrieval addresses;
 complete original requirements and required type constraints are never cropped.
@@ -86,7 +87,9 @@ siblings, cross-field constraints, alternatives and reference closure. Descripto
 cannot authorize execution or replace a contract. Separable original evidence can
 be paged; indivisible required information that exceeds the phase allowance stops
 explicitly. No unused request capacity is filled with unrelated suggestions.
-Discovery directories present four operation descriptors or two sources at a time.
+Discovery directories present two operation descriptors or two sources at a time.
+Once operation descriptors are available, source metadata remains available through
+its directory address instead of being repeated beside every operation page.
 Output-port directories preserve original producer business-port mappings, including
 aliases beyond the first page; their addresses are distinct from wire-schema paths.
 Schema evidence retrieves the selected original subtree and its coupled constraints.
@@ -99,6 +102,15 @@ Version-2 checkpoints retain the selected substep and introduced group identitie
 Later group-body steps retrieve that opening intent and its expected results
 without copying the group's tasks or unrelated checkpoint history. Invalidated
 opening metadata does not supply current scope intent.
+
+Within a selected scope, `scopeInterface` presents existing export declarations
+without making an open container consumable. Generation adds only new exports;
+an empty extension output list preserves accepted ones. Closure review receives
+the applied candidate's exports and their compiler-derived types, labeled
+tentative. These views contain eight exports per page with hash-bound continuation
+addresses, and omit task bodies and unrelated scopes. A transform's required
+object result type declares named output ports: a reference to a named field
+consumes that field's type, while an unqualified reference consumes the object.
 
 Intent, selection, discovery and evidence response schemas contain no TaskPlan
 grammar. Generation schemas expose only selected task kinds and operation IDs;
