@@ -162,6 +162,7 @@ internal static partial class PlanningCompactConstruction
     internal static bool LoadEvidence(PlanningSession state, string address, out JsonNode? value)
     {
         var compact = State(state); value = null;
+        if (LoadTaskNavigationEvidence(state, address, out value)) return true;
         if (address.StartsWith("source-description:", StringComparison.Ordinal))
         { value = LoadContractEvidence(state, address); return true; }
         if (address.StartsWith("schema:", StringComparison.Ordinal) || address.StartsWith("schema-page:", StringComparison.Ordinal) || address.StartsWith("port-page:", StringComparison.Ordinal) ||
@@ -205,8 +206,6 @@ internal static partial class PlanningCompactConstruction
         { value = SourceDescriptors(state, sourceIndex); return true; }
         if (parts is ["page", "requirements", var requirementOffset] && int.TryParse(requirementOffset, out var next) && next >= 0 && next < state.Requirements!.Outcomes.Count)
         {
-            compact.RequirementOffset = next;
-            compact.RequirementPageRequested = true;
             value = new JsonObject { ["offset"] = next, ["total"] = state.Requirements.Outcomes.Count,
                 ["items"] = RequirementNodes(state, state.Requirements.Outcomes.Skip(next).Take(3).Select(r => r.Id)) };
             return true;

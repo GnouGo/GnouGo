@@ -1,0 +1,85 @@
+using System.Globalization;
+using System.Text.Json.Nodes;
+using GnOuGo.Flow.Core.Planning;
+
+namespace GnOuGo.Flow.Planning;
+
+internal static partial class PlanningCompactConstruction
+{
+    private static JsonObject TrimNavigation(JsonObject value)
+    {
+        foreach (var key in value.Where(p => p.Value is null or JsonArray { Count: 0 } ||
+                     p.Value is JsonValue scalar && scalar.TryGetValue<string>(out var text) && text.Length == 0)
+                     .Select(p => p.Key).ToArray()) value.Remove(key);
+        return value;
+    }
+
+    private static HashSet<string> EvidenceRequirementIds(PlanningSession state)
+    {
+        var ids = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var (address, value) in state.Construction!.Evidence ?? new JsonObject())
+        {
+            var records = address.StartsWith("page:requirements:", StringComparison.Ordinal) ? value?["items"] as JsonArray
+                : address.StartsWith("requirement:", StringComparison.Ordinal) ? value as JsonArray : null;
+            if (records is null) continue;
+            foreach (var record in records)
+            {
+                var id = record?["id"]?.ToString();
+                if (id is not null && JsonNode.DeepEquals(record, RequirementNodes(state, [id]).FirstOrDefault())) ids.Add(id);
+            }
+        }
+        return ids;
+    }
+
+    private static IEnumerable<string> NavigationPorts(PlanningSession state, PlanTask task)
+    {
+        if (task.Kind != "call") return PlanningRepairContext.Ports(task, state);
+        var plan = state.Construction?.Candidate?.Plan ?? state.Plan;
+        var group = plan?.Groups.SingleOrDefault(g => g.Id == task.Group);
+        return group is null || (state.Construction!.Candidate?.OpenScopes ?? state.Construction.OpenScopes).Contains("/groups/" + group.Id + "/body", StringComparer.Ordinal)
+            ? [] : group.Body.Outputs.Select(output => output.Name);
+    }
+
+    private static string TaskPortsVersion(IEnumerable<string> ports) => PlanningGraphCompiler.Fingerprint(new JsonArray(ports.Select(port => (JsonNode?)JsonValue.Create(port)).ToArray()).ToJsonString());
+    private static string TaskPortsAddress(string id, IEnumerable<string> ports, int offset) => "page:task-ports:" + Uri.EscapeDataString(id) + "@" + TaskPortsVersion(ports) + ":" + offset.ToString(CultureInfo.InvariantCulture);
+    private static string TaskObjectiveAddress(PlanTask task, int offset) => "task-objective:" + Uri.EscapeDataString(task.Id) + "@" +
+        PlanningGraphCompiler.Fingerprint(task.Objective) + ":" + offset.ToString(CultureInfo.InvariantCulture);
+
+    private static bool LoadTaskNavigationEvidence(PlanningSession state, string address, out JsonNode? value)
+    {
+        value = null;
+        var objective = address.StartsWith("task-objective:", StringComparison.Ordinal);
+        var ports = address.StartsWith("page:task-ports:", StringComparison.Ordinal);
+        if (!objective && !ports) return false;
+        var plan = state.Construction?.Candidate?.Plan ?? state.Plan;
+        if (plan is null) return true;
+        var tail = address[(objective ? "task-objective:".Length : "page:task-ports:".Length)..];
+        var separator = tail.LastIndexOf(':');
+        if (separator <= 0 || !int.TryParse(tail[(separator + 1)..], NumberStyles.None, CultureInfo.InvariantCulture, out var offset) || offset < 0) return true;
+        var identity = tail[..separator];
+        var versionSeparator = identity.LastIndexOf('@');
+        if (versionSeparator <= 0) return true;
+        var encoded = identity[..versionSeparator];
+        var id = Uri.UnescapeDataString(encoded);
+        if (Uri.EscapeDataString(id) != encoded || !new TaskPlanSymbols(plan).Tasks.TryGetValue(id, out var site)) return true;
+        var task = site.Task;
+        if (objective)
+        {
+            if (address != TaskObjectiveAddress(task, offset) || offset > task.Objective.Length) return true;
+            var length = OriginalPageLength(task.Objective, offset);
+            value = new JsonObject { ["task"] = task.Id, ["version"] = PlanningGraphCompiler.Fingerprint(task.Objective),
+                ["offset"] = offset, ["totalCharacters"] = task.Objective.Length, ["text"] = task.Objective.Substring(offset, length),
+                ["next"] = offset + length < task.Objective.Length ? TaskObjectiveAddress(task, offset + length) : null };
+        }
+        else
+        {
+            var names = NavigationPorts(state, task).ToArray();
+            if (address != TaskPortsAddress(task.Id, names, offset)) return true;
+            if (offset >= names.Length && offset != 0) return true;
+            value = new JsonObject { ["task"] = task.Id, ["version"] = TaskPortsVersion(names), ["offset"] = offset, ["total"] = names.Length,
+                ["ports"] = new JsonArray(names.Skip(offset).Take(8).Select(name => (JsonNode?)JsonValue.Create(name)).ToArray()),
+                ["next"] = offset + 8 < names.Length ? TaskPortsAddress(task.Id, names, offset + 8) : null };
+        }
+        return true;
+    }
+}

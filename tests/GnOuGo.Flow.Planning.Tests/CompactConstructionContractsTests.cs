@@ -471,15 +471,18 @@ public sealed class CompactConstructionContractsTests
         Assert.Equal("null", schema["properties"]!["requirements"]!["type"]!.ToString());
     }
 
-    [Fact]
-    public async Task RequirementOnlyClosureIsReviewedAndCheckpointedWithoutRegeneratingAcceptedWork()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task RequirementOnlyClosureIsReviewedAndCheckpointedWithoutRegeneratingAcceptedWork(bool retrieveRequirement)
     {
         var selected = 0;
+        var evidenceBaselines = new List<string>();
         var runtime = new TestRuntime { Respond = (request, purpose) =>
         {
             if (purpose is PlanningConstruction.LocalPurpose or PlanningConstruction.IntermediatePurpose)
                 return Wire(new() { ["findings"] = new JsonArray(), ["uncertainty"] = "Runtime outcome remains unverified.", ["evidenceRequests"] = null });
-            var context = JsonNode.Parse(request.Prompt[(request.Prompt.IndexOf('\n') + 1)..])!.AsObject();
+            var context = JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!.AsObject();
             JsonObject response;
             if (purpose == PlanningCompactConstruction.IntentPurpose)
                 response = new() { ["sourceId"] = context["sources"]![0]!["id"]!.ToString(),
@@ -488,6 +491,12 @@ public sealed class CompactConstructionContractsTests
                     { ["name"] = "message", ["type"] = new JsonObject { ["kind"] = "string", ["nullable"] = false }, ["required"] = true }) };
             else if (purpose == PlanningCompactConstruction.SelectPurpose)
             {
+                if (retrieveRequirement && context["evidence"] is null)
+                {
+                    evidenceBaselines.Add(context["baseHash"]!.ToString());
+                    return Wire(new() { ["baseHash"] = context["baseHash"]!.DeepClone(), ["step"] = null,
+                        ["evidenceRequests"] = new JsonArray("page:requirements:0"), ["clarifications"] = null });
+                }
                 selected++;
                 response = new() { ["baseHash"] = context["baseHash"]!.ToString(), ["evidenceRequests"] = null, ["clarifications"] = null,
                     ["step"] = new JsonObject { ["scope"] = "/root", ["kind"] = selected == 1 ? "value" : "close",
@@ -527,6 +536,13 @@ public sealed class CompactConstructionContractsTests
         Assert.Equal(2, closed.Reviews.Count);
         Assert.Equal("closed", Assert.Single(state.Construction.Requirements).Status);
         Assert.Single(state.Plan!.Root.Tasks);
+        if (retrieveRequirement)
+        {
+            Assert.Equal(3, evidenceBaselines.Count);
+            // The same exact page may be read after reviewed coverage advances,
+            // even though the authoritative TaskPlan itself stays unchanged.
+            Assert.Equal(evidenceBaselines[1], evidenceBaselines[2]);
+        }
         PlanningArtifactApproval.Verify(state);
     }
 

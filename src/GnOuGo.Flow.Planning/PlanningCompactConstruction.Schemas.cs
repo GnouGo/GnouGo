@@ -5,6 +5,32 @@ namespace GnOuGo.Flow.Planning;
 
 internal static partial class PlanningCompactConstruction
 {
+    private static (bool CloseScope, bool Complete) ClosurePresentation(PlanningSession state)
+    {
+        var construction = state.Construction!;
+        var compact = State(state);
+        var step = compact.CurrentStep!;
+        var symbols = new TaskPlanSymbols(state.Plan ?? new TaskPlan());
+        var open = construction.OpenScopes;
+        // Scope addresses are global task identities, not hierarchical paths.
+        var hasOpenChild = open.Any(path =>
+        {
+            for (var parent = symbols.Scopes.SingleOrDefault(s => s.Path == path)?.Parent; parent is not null; parent = parent.Parent)
+                if (parent.Path == step.Scope) return true;
+            return false;
+        });
+        // Fresh container presentations leave their empty child bodies for later steps.
+        var opensContainer = step.Kind is "group" or "sequence" or "conditional" or "parallel" or "foreach";
+        var canClose = !hasOpenChild && !opensContainer;
+        var canComplete = canClose && open.All(path => path == step.Scope) &&
+            !compact.Sources.Any(s => s.Kind is "page" or "answer_page" or "revision_page" && !s.Indexed) &&
+            construction.Requirements.All(r => step.CloseRequirementIds.Contains(r.Id, StringComparer.Ordinal) ||
+                r.Status == "closed" && (step.Kind == "close" || !step.RequirementIds.Contains(r.Id, StringComparer.Ordinal)));
+        // This narrows new presentations only. Existing semantic validation still
+        // owns returned candidates, including responses to earlier issued schemas.
+        return (canClose && (step.Scope != "/root" || canComplete), canComplete);
+    }
+
     internal static JsonObject DraftSchema(PlanningSession state)
     {
         var step = state.Construction!.Compact!.CurrentStep!;
@@ -33,14 +59,17 @@ internal static partial class PlanningCompactConstruction
             else outputs = PlanningSchemas.Array(PlanningSchemas.Object(("name", PlanningSchemas.Enum(step.OutputNames.ToArray())),
                 ("value", PlanningSchemas.Ref("value"))), 0, maximum);
         }
+        var closure = ClosurePresentation(state);
+        var completion = PlanningSchemas.Type("boolean");
+        if (!closure.Complete) completion["enum"] = new JsonArray(false);
         var extension = PlanningSchemas.Object(("scope", PlanningSchemas.Enum(step.Scope)),
             ("tasks", taskArray), ("always", taskArray.DeepClone().AsObject()), ("outputs", outputs),
             ("groups", step.Kind == "group" ? PlanningSchemas.Array(PlanningSchemas.Ref("group"), 0, 1) : EmptyArray()),
             ("choices", step.Kind == "choice" ? PlanningSchemas.Array(PlanningSchemas.Ref("choice"), 0, 1) : EmptyArray()),
-            ("closeScopes", PlanningSchemas.Array(PlanningSchemas.Enum(step.Scope), 0, 1)),
+            ("closeScopes", closure.CloseScope ? PlanningSchemas.Array(PlanningSchemas.Enum(step.Scope), 0, 1) : EmptyArray()),
             ("requirementIds", step.RequirementIds.Count == 0 ? EmptyArray() :
                 PlanningSchemas.Array(PlanningSchemas.Enum(step.RequirementIds.ToArray()), 0, step.RequirementIds.Count)),
-            ("complete", PlanningSchemas.Type("boolean")));
+            ("complete", completion));
         var publicOutputs = state.Requirements?.Outputs?.Select(o => o.Name).ToArray() ?? [];
         var commitments = step.OperationIds.Count == 0 || step.RequirementIds.Count == 0 ? PlanningSchemas.Type("null") :
             PlanningSchemas.Nullable(PlanningSchemas.Array(PlanningSchemas.Object(("requirementId", PlanningSchemas.Enum(step.RequirementIds.ToArray())),

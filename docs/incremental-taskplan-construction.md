@@ -66,6 +66,16 @@ Required actions, setup, cleanup and results remain explicit completion
 obligations. Action-specific constraints stay with their requirements; global
 clauses describe crosscutting invariants. Indexing does not reconstruct effect
 payloads or resource schemas as public workflow interfaces.
+Requirement-page retrieval supplements the current unresolved business focus;
+it does not replace that focus with an isolated later clause. Render each exact
+requested page once. Navigation descriptions and port-name directories are
+bounded and identify omitted material through versioned retrieval addresses;
+complete original requirements and required type constraints are never cropped.
+An unspecified array cardinality remains null: zero is an actual bound.
+Task navigation presents four tasks per page and eight port names per task,
+including declared results of closed group calls. Original objective and port
+pages carry version hashes; rebuilding the same task identity cannot silently
+resolve an older page address to changed evidence.
 
 Each phase receives only the context needed for that substep. Discovery uses its
 needs rather than the global request. Previously inspected operations remain in
@@ -96,6 +106,10 @@ container openings establish empty child scopes for later substeps. Compiler
 validation still uses complete original contracts. Compact schemas retain the
 selected kind's necessary semantics, including scoped exports, ordered loop
 results and the distinction between total iteration ceilings and concurrency.
+The issued schema permits scope closure and workflow completion only when the
+known frontier and original requirement statuses permit them. A sufficient leaf
+fragment can still finish in one draft; opening an empty container cannot finish
+the workflow. Complete semantic validation remains authoritative after generation.
 Draft and Judge context omit
 unrelated history, contracts, interfaces and requirement pages. Already issued
 requests and saved review contexts retain their exact bytes and hashes.
@@ -160,6 +174,10 @@ closed requirement does not count as progress. A diagnosed tentative
 step may request reselection within its original scope and requirement identities,
 retaining rejected evidence and correction accounting. This cannot expand explicit
 typed revision paths or change accepted fragments.
+Navigation-cycle detection recognizes accepted coverage checkpoints and newly
+indexed original sources even when the TaskPlan hash stays unchanged. Changing a
+cursor, diagnostic, attempt count or remaining allowance is not progress. Retained
+historical cycle identities continue to block their repeated actions.
 
 ## Captured capacity
 

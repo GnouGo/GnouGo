@@ -87,12 +87,28 @@ public sealed partial class HybridWorkflowPlanner
         var response = await PlanningModelCalls.CallAsync(state, runtime, purpose, request.Prompt,
             request.StructuredOutputSchema!.AsObject(), ct, state.Construction!.Limits.DraftOutputTokens);
         var compact = PlanningCompactConstruction.State(state);
-        var hash = purpose + ":" + compact.CurrentStep?.Id + ":" + PlanningConstruction.Hash(state.Plan) + ":" + PlanningGraphCompiler.Fingerprint(response.ToJsonString());
-        if (compact.FailedActions.Contains(hash, StringComparer.Ordinal))
+        var legacyHash = purpose + ":" + compact.CurrentStep?.Id + ":" + PlanningConstruction.Hash(state.Plan) + ":" + PlanningGraphCompiler.Fingerprint(response.ToJsonString());
+        var hash = CompactActionFingerprint(state, legacyHash);
+        if (compact.FailedActions.Contains(hash, StringComparer.Ordinal) || compact.FailedActions.Contains(legacyHash, StringComparer.Ordinal))
             throw new WorkflowRuntimeException("REPLAN_NO_PROGRESS", "The model repeated a rejected compact construction action.");
         // Retain the attempt before validation. Successful state transitions change phase/context.
         compact.FailedActions.Add(hash);
         return response;
+    }
+
+    internal static string CompactActionFingerprint(PlanningSession state, string action)
+    {
+        // Reviewed requirement closure can advance without changing the TaskPlan.
+        // Only accepted progress changes this identity, never another attempt,
+        // a presentation cursor, diagnostics or the remaining allowance.
+        var progress = new JsonObject
+        {
+            ["checkpoint"] = state.Construction!.Checkpoints.LastOrDefault()?.Sequence ?? 0,
+            ["sources"] = new JsonArray(PlanningCompactConstruction.State(state).Sources
+                .Where(s => s.Indexed && s.Kind is "page" or "answer_page" or "revision_page")
+                .Select(s => (JsonNode?)JsonValue.Create(s.Id + "@" + s.Version)).ToArray())
+        };
+        return action + ":progress:" + PlanningGraphCompiler.Fingerprint(progress.ToJsonString());
     }
 
     private static async Task IndexConstructionIntentAsync(PlanningSession state, IPlanningRuntime runtime,

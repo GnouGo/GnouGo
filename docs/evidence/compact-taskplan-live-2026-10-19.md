@@ -187,3 +187,84 @@ checkpoint. The measured paired campaign has not run, and no comparative
 business-success, cost or latency improvement is claimed. Further source
 corrections require another frozen source and fresh diagnostic identities while
 preserving these failures and cumulative accounting.
+
+### Frozen diagnostic iteration `1ea72cf`
+
+The next source, `1ea72cf86dbf224bc51f5ab43a8d797ded483de9`, retained
+these three additional real-model failures. No attempt accepted a checkpoint,
+produced a FinalReview artifact, discovered an MCP operation or executed a
+workflow. The requests remained bound to the same model, output reservations,
+phase ceilings, producer bundle and cumulative campaign. There is still **no
+complete live business result or real MCP runtime coverage**.
+
+| Scenario | Calls / corrections | Provider input / output tokens | Planning time | Known cost |
+| --- | ---: | ---: | ---: | ---: |
+| Collections | 5 / 1 | 9,019 / 3,026 | 43.525 s | €0.1207455789567226517373144940 |
+| Amazon | 1 / 0 | 933 / 8,192 | 166.640 s | €0.2225406558251133031191682218 |
+| Review PR | 2 / 0 | 1,950 / 1,148 | 13.584 s | €0.0392695281258331111703545721 |
+
+Collections indexed the original request, then read supplemental requirements
+before selecting work from only the final preservation clause. Its generated fragment
+claimed root closure and completion while three other original requirements
+remained unresolved. Deterministic validation rejected the omission with
+`CONSTRUCTION_REQUIREMENT_REMAINING`; a repeated candidate exhausted useful
+progress and stopped with `REPLAN_NO_PROGRESS`. No Judge was dispatched. The
+indexing response also introduced `minItems: 0` and `maxItems: 0` for originally
+unbounded numeric arrays. Those values mean an empty array, not an unspecified
+bound. The original response is retained; correcting the generic schema guidance
+must not reinterpret explicit zeroes in stored interfaces.
+
+Its conservative complete-request peaks were 2,122 tokens for intent indexing,
+2,695 for selection, 5,101 for generation and 5,818 for correction (5,597,
+7,316, 14,535 and 16,684 serialized bytes respectively). These requests fit their
+captured ceilings, but the incomplete result does not demonstrate convergence.
+
+Amazon again stopped on its first intent-indexing call with `MODEL_OUTPUT_LIMIT`.
+The provider reported 8,192 reasoning tokens and returned zero content bytes.
+The request was 6,152 bytes, estimated at 2,307 input tokens. The smaller input
+still did not produce a usable response within the unchanged output allowance;
+no model change or output-limit increase was applied.
+
+Review PR successfully indexed both original source pages. Its first selection
+request then failed admission with `MODEL_INPUT_LIMIT` at
+`/phases/construction_select`: 8,690 serialized bytes and a conservative estimate
+of 3,153 tokens exceeded the captured 3,000-token ceiling. The host recorded this
+rejected request before dispatch, so there was no third paid call. The admitted
+indexing requests peaked at 6,334 bytes and 2,368 estimated input tokens. This is
+an input-presentation failure that requires a bounded context correction, not a
+reason to raise the ceiling or omit original obligations.
+
+The exact retained identities are:
+
+- Collections run:
+  `1ea72cf86dbf224bc51f5ab43a8d797ded483de9:pilot:collections:1`;
+  session `1f0ad8687fdc9ac1595945920cfdd7a0f7687d93812a0b8c237c35f964993979`;
+  incomplete draft request
+  `1f0ad8687fdc9ac1595945920cfdd7a0f7687d93812a0b8c237c35f964993979:4:341019c735eb0fb503d4bd71d69e6459372152916c3a7887be75ec762e0cbadc`;
+  repeated correction request
+  `1f0ad8687fdc9ac1595945920cfdd7a0f7687d93812a0b8c237c35f964993979:5:ad19cfdae692715db1a06db64f8adbe48cd3b28590345fd7d5a0c832b406dddf`.
+- Amazon run/session: `compactdiag1ea-amazon-1`; failed request
+  `compactdiag1ea-amazon-1:1:ecde85715c914d7a51de18aaeda7339fc28aa06711e4f2bca5790c2e3c419db0`.
+- Review PR run/session: `compactdiag1ea-code-1`; last dispatched request
+  `compactdiag1ea-code-1:2:6a021f292d759606ede11d3146dcb99fda25a86de721189d258fb710506364a6`.
+
+The sanitized diagnostic log hashes are respectively
+`9e9e625ebb7543b61b46be9dd6e5e28ba00fc58697711c234b7228ccae08458f`,
+`6069945b177c8aa5b727c472da8e2f070e4bb4e023c3719301f5e4bc78948073`,
+and `2f74d97ae2027d4e841ee437fdaa5f4ab49e7d5cd9711ce229dc532b47180fb8`.
+
+This iteration used eight calls, one correction, 11,902 provider input tokens,
+12,366 provider output tokens, 223.749 seconds of planning and
+€0.3825557629076690660268372879. All compact diagnostics together have used
+21 calls and €1.0814227317159868479516573358. Fresh readiness reconciled all
+35 cumulative campaign requests with 35 receipts, no uncertain requests, zero
+unknown attempts and zero outstanding reservations. The verified spending upper
+bound is €2.3185950413223140495867768592; the remaining allowance is
+€237.7115087913839904928581704408 under the unchanged campaign ceiling.
+Readiness evidence hash:
+`7c6d912e0bac62fd8cc5e73c307e191940c1f442d51badd33e946b0bf19af24c`.
+
+The paired comparison remains unissued. These additional failures cannot establish
+comparative business success, cost reduction or latency improvement. Further
+source corrections require fresh frozen identities and must retain these receipts,
+failed requests, rejected admission measurements and cumulative costs.

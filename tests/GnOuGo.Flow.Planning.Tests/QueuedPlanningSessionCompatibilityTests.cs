@@ -70,7 +70,7 @@ public sealed class QueuedPlanningSessionCompatibilityTests
         runtime.Respond = (request, purpose) =>
         {
             var context = purpose is PlanningCompactConstruction.IntentPurpose or PlanningCompactConstruction.SelectPurpose or PlanningConstruction.DraftPurpose
-                ? JsonNode.Parse(request.Prompt[(request.Prompt.IndexOf('\n') + 1)..])! : new JsonObject();
+                ? JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])! : new JsonObject();
             JsonObject response;
             if (purpose == PlanningCompactConstruction.IntentPurpose)
                 response = new() { ["sourceId"] = context["sources"]![0]!["id"]!.DeepClone(),

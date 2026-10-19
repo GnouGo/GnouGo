@@ -2,6 +2,13 @@
 
 Fresh sessions use [compact incremental construction](../../docs/incremental-taskplan-construction.md): index original intent, select one immediate business substep, discover its capabilities, then generate and review a bounded fragment of one TaskPlan. Phase-specific context and response schemas omit unrelated inspections, task grammar and history. Exact contract views preserve required constraints; the shared compiler validates against unchanged original contracts before encrypted checkpoint acceptance. Completion uses the existing PlanningGraph and compiler v15 path without a final whole-plan LLM Judge. Historical proposal/repair contracts below retain their original meaning for issued sessions.
 
+Requirement-page reads supplement the unresolved business focus. Bounded task
+directories identify omitted descriptions and ports through exact evidence
+addresses; a closed group call exposes its declared result ports. Fresh response
+schemas exclude completion choices that the known frontier or requirement state
+cannot satisfy. These presentation rules do not replace semantic validation or
+change saved requests, accepted TaskPlans, JavaScript or YAML lowering.
+
 `PlanningPolicy.MaxStepsPerWorkflow` and `MaxWorkflows` are nullable captured graph-admission limits. Omission retains 300 generated nodes per workflow and 100 workflows and omits both fields from historical serialization. The compiler and structural validator use the same effective limits, independently of `MaxStepsTotal`. Explicit large construction captures 5,000 total nodes, 5,000 nodes per workflow and 1,024 workflows; existing compiler overloads and valid emitted YAML remain unchanged. These bounds do not increase runtime step, loop, branch, finalizer, expression or inference allowances.
 
 Construction preflight validates every concrete reference, assertion and binding using the normal semantic engine. Open descendant scopes withhold their owner task's outputs and completion; reusable groups must close before calls can consume them. Conditional output matching waits for closure. Requested typed interfaces contain only visible exact references at the selected normal or finalizer frontier. Compact substep selection admits at most eight imports; directory pages expose retained identities for targeted retrieval. The shared preflight additionally bounds interface requests to eight scopes and 128 references. This metadata never permits forward references or changes the accepted TaskPlan.
