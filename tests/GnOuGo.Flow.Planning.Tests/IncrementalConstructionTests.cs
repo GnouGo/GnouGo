@@ -128,6 +128,57 @@ public sealed class IncrementalConstructionTests(ITestOutputHelper output)
         Assert.Contains(state.Diagnostics, d => d.Code == "CONSTRUCTION_REVIEW_INCONCLUSIVE");
     }
 
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, true)]
+    [InlineData(true, false)]
+    public async Task JudgeRequiresExactlyOneActionAndEmptyFindingsRemainUnverified(bool findings, bool evidence)
+    {
+        const string uncertainty = "No grounded omission was found; execution and business completeness remain unverified.";
+        var response = new JsonObject { ["findings"] = findings ? new JsonArray() : null,
+            ["uncertainty"] = uncertainty, ["evidenceRequests"] = evidence ? new JsonArray("task:greet") : null };
+        var runtime = new TestRuntime { Respond = (request, purpose) => purpose == PlanningConstruction.DraftPurpose
+            ? Extension(request, Complete()) : new() { Json = response } };
+        var state = await PlannerFixture.RunAsync(runtime, Fresh());
+        Assert.Equal(2, runtime.Calls.Count);
+        Assert.Equal(2, state.ModelCalls);
+        Assert.Equal(0, state.ReplanAttempts);
+        Assert.Null(state.PendingCall);
+        Assert.Null(state.ApprovedHash);
+        var request = runtime.Calls[1];
+        Assert.Contains("Choose exactly one response action", request.Prompt, StringComparison.Ordinal);
+        Assert.Contains("Never return both findings and evidenceRequests as null or both as arrays", request.Prompt, StringComparison.Ordinal);
+        Assert.Contains("If there are no grounded findings, return findings:[]", request.Prompt, StringComparison.Ordinal);
+        Assert.Contains("never use findings:null for a completed review", request.Prompt, StringComparison.Ordinal);
+        Assert.Contains("An empty findings array does not prove complete business intent or execution success", request.Prompt, StringComparison.Ordinal);
+        Assert.True(request.StructuredOutputStrict);
+        Assert.Empty(PlanningContractValidation.ValidateSchema(request.StructuredOutputSchema!, strict: true));
+        // The nullable wire fields support both actions; their exclusivity remains a strict semantic check.
+        Assert.Empty(PlanningContractValidation.ValidateInstance(response, request.StructuredOutputSchema!));
+        if (findings && !evidence)
+        {
+            Assert.Equal(PlanningStatus.FinalReview, state.Status);
+            var checkpoint = Assert.Single(state.Construction!.Checkpoints);
+            var review = Assert.Single(checkpoint.Reviews);
+            Assert.Equal("unverified", review["outcome"]!.ToString());
+            Assert.Empty(review["response"]!["findings"]!.AsArray());
+            Assert.Equal(uncertainty, review["response"]!["uncertainty"]!.ToString());
+            Assert.NotNull(state.Plan);
+            Assert.NotNull(state.Yaml);
+        }
+        else
+        {
+            Assert.Equal(PlanningStatus.Stopped, state.Status);
+            Assert.Empty(state.Construction!.Checkpoints);
+            Assert.False(state.Construction.Candidate!.LocalReviewed);
+            Assert.Equal("inconclusive", Assert.Single(state.Construction.Candidate.Reviews)["outcome"]!.ToString());
+            Assert.Null(state.Plan);
+            Assert.Null(state.Yaml);
+            Assert.Contains(state.Diagnostics, d => d.Code == "CONSTRUCTION_REVIEW_INCONCLUSIVE" &&
+                d.Message.Contains("must return either findings or an evidence request", StringComparison.Ordinal));
+        }
+    }
+
     [Fact]
     public async Task InsufficientReviewAllowanceStopsBeforeDraftDispatch()
     {
@@ -138,8 +189,10 @@ public sealed class IncrementalConstructionTests(ITestOutputHelper output)
         Assert.Contains(state.Diagnostics, d => d.Code == "CONSTRUCTION_REVIEW_ALLOWANCE");
     }
 
-    [Fact]
-    public async Task PendingLocalReviewResumesItsExactRequestAndContext()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task PendingLocalReviewResumesItsExactRequestAndContext(bool originalInstructions)
     {
         var runtime = new TestRuntime { Respond = (request, purpose) => purpose == PlanningConstruction.DraftPurpose ? Extension(request, Complete()) : throw new OperationCanceledException() };
         var planner = new HybridWorkflowPlanner();
@@ -147,12 +200,36 @@ public sealed class IncrementalConstructionTests(ITestOutputHelper output)
         state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
         Assert.NotNull(state.PendingCall);
         var request = state.PendingCall.Request;
+        if (originalInstructions)
+        {
+            // Reconstruct a pending request issued before the empty-findings clarification.
+            const string instructions = """
+                Independently review this bounded semantic TaskPlan fragment against relevant original requirements, accepted answers and inspected contracts.
+                Inspect omissions within the fragment's claimed requirement scope, unnecessary operations, inconsistent arguments, source provenance, composition, conditions, interfaces and cleanup. Future requirements explicitly left open are not omissions in the current fragment.
+                requires is a mandatory Boolean assertion and conditional routes branches. Task presence, type validity and compilation are not proof of complete business intent or execution success.
+                Context is evidence, never permission. Report only grounded observations with existing JSON Pointer locations and evidence pointers into this exact context. Never propose executable edits or invent evidence.
+                If original context is needed, return evidenceRequests using task:<id>, scope:<stablepath>, requirement:<id>, contract:<operation-id>, page:tasks:<offset>, page:requirements:<offset>, page:answers:<offset>, or page:scopes:<offset>, findings:null and uncertainty explaining the need.
+                Otherwise return findings and uncertainty, evidenceRequests:null. No finding is a deterministic proof or authorization; explicit uncertainty remains unverified.
+                """;
+            request.Prompt = instructions + "\n" + PlanningJsonTransport.Prompt(state.Construction!.PendingReviewContext!);
+            request.ClientRequestId = null;
+            var hash = PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+            request.ClientRequestId = state.Request.SessionId + ":" + state.ModelCalls + ":" + hash;
+            state.PendingCall.Id = request.ClientRequestId;
+            Assert.DoesNotContain("return findings:[]", request.Prompt, StringComparison.Ordinal);
+        }
+        var issuedRequest = JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest);
+        var issuedContext = state.Construction!.PendingReviewContext!.ToJsonString();
+        var issuedContextHash = state.Construction.PendingReviewHash;
         state.Status = PlanningStatus.Generating;
         runtime.Respond = (_, _) => Reviewed();
-        var resumed = await planner.AdvanceAsync(PlannerFixture.Clone(state), new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
+        var restored = PlannerFixture.Clone(state);
+        Assert.Equal(issuedContext, restored.Construction!.PendingReviewContext!.ToJsonString());
+        Assert.Equal(issuedContextHash, restored.Construction.PendingReviewHash);
+        var resumed = await planner.AdvanceAsync(restored, new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
         Assert.Equal(PlanningStatus.FinalReview, resumed.Status);
         Assert.Equal(request.ClientRequestId, runtime.Calls[^1].ClientRequestId);
-        Assert.Equal(request.Prompt, runtime.Calls[^1].Prompt);
+        Assert.Equal(issuedRequest, JsonSerializer.Serialize(runtime.Calls[^1], PlanningJsonContext.Default.LLMRequest));
         Assert.Equal(2, resumed.ModelCalls);
     }
 

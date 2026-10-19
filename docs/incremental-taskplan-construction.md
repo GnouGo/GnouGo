@@ -58,6 +58,13 @@ overlapping triggers. Locations and evidence must resolve to supplied originals.
 Invalid reports leave candidates unaccepted. Valid uncertainty stays unverified;
 Judge findings are neither authorization nor deterministic proof.
 
+Each Judge response selects one action. A completed review returns a findings
+array (empty when no grounded finding exists) and null evidence requests. An
+evidence action returns non-empty evidence requests and null findings. Both
+fields null, or both arrays, remain inconclusive; an uncertainty statement alone
+does not select an action. Already issued requests retain their original prompt,
+schema and identity during recovery.
+
 Corrections share the existing call, token, cost and time journal and require a
 replacement review. A missing committed producer requires bounded replacement
 of the tentative extension; an output-only typed patch cannot add that producer.

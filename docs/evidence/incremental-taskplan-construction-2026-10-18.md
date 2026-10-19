@@ -1,5 +1,10 @@
 # Incremental TaskPlan construction validation
 
+The [19 October continuation](incremental-taskplan-live-2026-10-19.md) records
+the user's subsequent loss of the encrypted ledger, restored model configuration
+and explicitly authorized fresh campaign. Accounting below is the verified
+historical snapshot; the original underlying records are no longer available.
+
 The implementation builds one accepted semantic TaskPlan through bounded drafts,
 compiler preflight and local reviews. This report separates construction,
 compilation, execution and independent business evidence. Historical campaign
