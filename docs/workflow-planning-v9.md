@@ -151,8 +151,9 @@ Historical initial generation returns a complete TaskPlan; semantic repair retur
 A semantic failure opens a bounded revision scope over diagnosed business slots and the explicit export declarations required by their consumers. Conditional alternatives must explicitly provide matching outputs; the compiler invents neither exports nor fallback values. Added exports must belong to the diagnosed connection, with unrelated declarations and ordering preserved. Revalidation of a dependent task grants no edit permission. Unknown or ambiguous locations never authorize whole-plan repair. Rejected revisions identify unauthorized changed slots and retain the last accepted baseline. Diagnosed optional operation bindings may be explicitly omitted under the authoritative contract; remaining bindings retain their order and values, and full request validation still enforces conditional requirements. Null is not omission. Producer constraint diagnostics expose only incompatible enum/nullability leaves. See [contract-aware repair evidence](contract-aware-repairs.md). Optional workflow/group inputs require literal defaults, while optional object fields may remain absent. Composite outputs use the existing typed `set` primitive after cleanup; opaque payloads remain opaque. Generated executor validation failures stop with compiler diagnostics. Dependent findings are
 invalidated; unaffected validated stages and interfaces remain unchanged. Repairs,
 retries and restarts share the original planning budget. New-session defaults are
-twelve model calls, four corrections and 32,000 input / 32,768 output tokens per
-request across Flow, `workflow.plan`, CLI and Agent.Server. Explicit configuration
+twelve model calls, four corrections and 32,000 input tokens per complete request
+across Flow, `workflow.plan`, CLI and Agent.Server. Draft/correction and Judge
+output reservations are 8,192 and 2,048 respectively. Explicit configuration
 takes precedence. Existing sessions retain their saved definitions; absent historical
 fields retain eight calls, two repairs and 12,000 input / 8,192 output tokens. Creation
 defaults never rewrite pending requests or replenish cumulative allowances.
@@ -162,13 +163,15 @@ serialized request exceeds the saved per-request input allowance. Discovery
 receipts remain in host state. When repair permissions fix operation selections, the
 request contains affected subtrees, required consumer contracts and producer outputs,
 without the complete baseline or irrelevant discovery actions. Operation-selection repairs receive ranked alternatives.
-Generic metadata ranking precedes pagination: eight compact entries per page, a token-budgeted global shortlist plus TaskPlan-required operations, with query refinement and snapshot-bound continuations. Ranking uses retained discovered candidates across pages, not undiscovered sources; a budgeted compact directory retains earlier identities for widening. Explicit `operationIds` inspection selections replace only their source’s selection, survive paging and recovery, and keep exact contracts visible without authorizing execution. Empty selections clear that source. Full-contract entries omit duplicate index summaries; closed discovery omits unusable navigation. Conflicting versions fail closed. The global ranking always retains the request and accepted requirements; each source adds only its own latest effective receipt query, with shared inverse document frequency and no duplicate-term amplification. Historical batch queries cannot replace this base. Binding-only repairs omit unusable discovery indexes and source descriptions. Full receipts remain in state. The complete-request estimator admits optional candidates in relevance order up to 90% of the saved input ceiling; oversized or unavailable candidates leave space for later ones. Mandatory contracts remain exact even above that soft target, subject to the unchanged hard admission check. The blocked request has not been dispatched or charged another model call or
-repair. With no pending request and remaining call allowance, open Designer **Generation settings**, explicitly
-adjust the **Input token limit** if needed, then select **Apply settings and resume planning**.
-This continues the same session with its discovery receipts and cumulative usage;
+Generic metadata ranking precedes pagination: eight compact entries per page, a token-budgeted global shortlist plus TaskPlan-required operations, with query refinement and snapshot-bound continuations. Ranking uses retained discovered candidates across pages, not undiscovered sources; a budgeted compact directory retains earlier identities for widening. Explicit `operationIds` inspection selections replace only their source’s selection, survive paging and recovery, and keep exact contracts visible without authorizing execution. Empty selections clear that source. Full-contract entries omit duplicate index summaries; closed discovery omits unusable navigation. Conflicting versions fail closed. The global ranking always retains the request and accepted requirements; each source adds only its own latest effective receipt query, with shared inverse document frequency and no duplicate-term amplification. Historical batch queries cannot replace this base. Binding-only repairs omit unusable discovery indexes and source descriptions. Full receipts remain in state. The historical full-proposal estimator admits optional candidates in relevance order up to 90% of the saved input ceiling; oversized or unavailable candidates leave space for later ones. Fresh incremental presentations admit optional whole contracts against the captured complete-request allowance. Mandatory contracts and requested evidence remain exact, subject to the hard admission check. The blocked request has not been dispatched or charged another model call or
+repair. Historical sessions with no pending request and remaining call allowance can use
+Designer **Generation settings** and **Apply settings and resume planning**.
+Incremental sessions reject increases to captured input/output limits; larger
+creation settings require a new explicitly configured session. Historical configuration
+continuation preserves its discovery receipts and cumulative usage;
 subsequent calls may incur model costs. It does not reset call, repair, spending or
 elapsed-time limits, approve an artifact, or guarantee that later requests will fit.
-Discovery reserves one first-proposal call and one repair when allowance remains: a twelve-call session without the clarification reserve allows at most ten discovery calls before requesting its TaskPlan. Additional repairs are opportunistic, within the existing call and repair ceilings; explicit zero-repair settings remain authoritative. The last repair attempt cannot request discovery. A closed-discovery response may explicitly return no plan and stop as `DISCOVERY_INCOMPLETE`; it never authorizes invented capabilities. Returning a discovery action against the issued restriction stops as `DISCOVERY_NOT_ALLOWED`. Recovery still uses the original issued schema.
+Historical full-proposal discovery reserves one first-proposal call and one repair when allowance remains: a twelve-call session without the clarification reserve allows at most ten discovery calls before requesting its TaskPlan. Additional repairs are opportunistic, within the existing call and repair ceilings; explicit zero-repair settings remain authoritative. The last repair attempt cannot request discovery. A closed-discovery response may explicitly return no plan and stop as `DISCOVERY_INCOMPLETE`; it never authorizes invented capabilities. Returning a discovery action against the issued restriction stops as `DISCOVERY_NOT_ALLOWED`. Recovery still uses the original issued schema.
 
 Successful discovery corrections remove only resolved discovery-response findings from active diagnostics. They do not refund reservations or change history; the following proposal no longer inherits a stale repair classification. Compact indexes retain declared finite domains, while resolved operation schemas constrain literal values and semantic validation checks references. See [the retained enum/discovery failure](planning-enum-discovery.md).
 
@@ -400,13 +403,13 @@ FinalReview exposes the retained original request and revisions. The existing re
 acknowledgment explicitly includes omitted work, extra effects and cleanup. Exact
 commitments establish declared operation associations and supported result lineage;
 ambiguous associations remain unverified. Neither compilation nor operation presence
-proves business completeness. There is no new intent representation or mandatory model
-phase before review.
+proves business completeness. Mandatory construction reviews preserve this boundary
+without adding another intent representation or final whole-plan model review.
 
 Fresh sessions capture the private assertion-validation profile. Bounded explicit
 contradictions are diagnosed before lowering; historical plans without that option keep
 their executable assertion behavior. Private correction version 6 reassesses existing
 local authority, records unsuccessful candidates and retains one structural fallback
 and cumulative allowances. No correction may infer a missing business fact or weaken
-an assertion. See the [component contract](../src/GnOuGo.Flow.Planning/README.md#fresh-proposal-correctness-and-review)
+an assertion. See the [component contract](../src/GnOuGo.Flow.Planning/README.md#full-proposal-compatibility-and-artifact-review)
 and [evaluation evidence](evidence/first-attempt-taskplan-2026-10-17/README.md).

@@ -38,7 +38,7 @@ Selected locations clear when the session, revision or artifact changes. Failed 
 
 Trace lookup requires an exact planning-session attribute and the current tenant. It combines local capture with the embedded collector's retained records, so persisted traces remain inspectable after restart. Missing or expired telemetry is shown explicitly; lookup is bounded to 500 collector candidates and reports when that limit is reached. Trace availability is independent of model receipt retention. Trace usage totals cover recorded attributes only and are not a complete billing ledger; absent telemetry does not establish zero provider usage or cost. Designer planning activities are captured locally even when OTLP export is disabled.
 
-`TypedWorkflowPlanning` configures `MaxReplanAttempts` (4), `MaxModelCalls` (12), `Reasoning` (`medium`), request token ceilings (32,000 input / 32,768 output), cumulative token/active-time limits and `DatabasePath`. These defaults apply to new Designer sessions, including the Desktop host, and match new standalone Flow and authored `workflow.plan` sessions. Explicit configuration overrides take precedence. Existing sessions retain saved definitions and generation settings; absent historical fields retain eight calls, two repairs and 12,000 input / 8,192 output tokens. Designer shows saved effective settings, without a separate UI default. Two host sessions may progress concurrently; workflow runtime parallelism remains independent.
+`TypedWorkflowPlanning` configures `MaxReplanAttempts` (4), `MaxModelCalls` (12), `Reasoning` (`medium`), complete-request input ceiling (32,000) and general output ceiling (32,768, further bounded by construction phase reservations), cumulative token/active-time limits and `DatabasePath`. These defaults apply to new Designer sessions, including the Desktop host, and match new standalone Flow and authored `workflow.plan` sessions. Explicit configuration overrides take precedence. Existing sessions retain saved definitions and generation settings; absent historical fields retain eight calls, two repairs and 12,000 input / 8,192 output tokens. Designer shows saved effective settings, without a separate UI default. Two host sessions may progress concurrently; workflow runtime parallelism remains independent.
 
 Fresh construction captures `DraftOutputTokens` (8,192) and `ReviewOutputTokens`
 (2,048), both bounded by the general output ceiling. Draft admission includes
@@ -717,9 +717,12 @@ request identity or reset its accounting.
 A provider's completion-token limit can include reasoning tokens as well as returned JSON.
 An `output_limit` receipt with empty text can therefore reflect exhausted reasoning allowance,
 not an oversized plan. Check the stored usage and original request ceiling. New
-Designer and Flow sessions use 32768 output tokens by default, with explicit
-overrides authoritative. Existing configurations may retain lower reservations. Historical live runs used both allowances; report the actual saved limit when comparing them. An agreed change to that setting applies to a new request, preserves medium
-reasoning and the call/replanning budgets, and does not change earlier reservations or receipts.
+Designer and Flow construction sessions reserve 8,192 output tokens for drafts and
+corrections and 2,048 for Judges, bounded by the general generation ceiling.
+Historical configurations may retain different reservations; report the actual
+saved limit when comparing them. Construction cannot increase captured allowances
+on continuation. A different creation configuration requires a new session and
+never changes earlier reservations or receipts.
 The planner never raises the ceiling or retries a truncated response automatically.
 
 Transport retries are owned by [AI.Core](../GnOuGo.AI.Core/README.md#http-resilience).
