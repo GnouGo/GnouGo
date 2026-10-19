@@ -13,10 +13,10 @@ internal static partial class PlanningCompactConstruction
         Array minItems/maxItems are explicit length restrictions, not placeholders. Use null for a bound absent from the original source; maxItems:0 permits only an empty array. Never infer bounds from examples or invent them.
         """;
     internal const string SelectInstructions = """
-        Select one immediate business substep from original requirements and available producers; no future outline or task payload. Choose an open scope, kind, exact imports and dependencies. Build prerequisites first. expectedOutputs describes internal results; outputNames selects declared PUBLIC results only, or [] for internal/group/child-export work. For call use a closed groupId; otherwise null. closeRequirementIds claims full satisfaction by this step plus accepted work, not mere contribution. Cleanup, scope opening, exports and closure are valid steps. Discover operations afterward. Return exactly one step, evidenceRequests or clarifications. Retrieve omitted originals/interfaces/public outputs using issued addresses. Evidence grants no edit or execution authority.
+        Select one immediate business substep from original requirements and available producers; no future outline or task payload. Choose an open scope, kind, exact imports and dependencies. operation calls an inspected capability; value uses deterministic bindings (copy, projection, assembly, declared arithmetic); transform extracts or interprets supplied data. Build prerequisites first. expectedOutputs describes internal results; outputNames selects declared PUBLIC results only, or [] for internal/group/child-export work. For call use a closed groupId; otherwise null. closeRequirementIds claims full satisfaction by this step plus accepted work, not mere contribution. Cleanup, scope opening, exports and closure are valid steps. Discover operations afterward. Return exactly one step, evidenceRequests or clarifications. Retrieve omitted originals/interfaces/public outputs using issued addresses. Evidence grants no edit or execution authority.
         """;
     internal const string DiscoveryInstructions = """
-        Select capabilities only for the retained immediate business step and its original requirements. Operation descriptions are navigation, not exact contracts or execution authority. Choose discovered operation IDs, request at most two source metadata pages using this step's objective, request exact schema/description evidence, or clarify a material business fact. Return exactly one action. Previously inspected contracts remain stored but do not belong to this step unless selected again. Do not discover future workflow operations or replan the workflow.
+        Select capabilities only for this immediate step, its original requirements and global constraints. Descriptors are navigation, not executable contracts or permission. Return one action: operationIds, discoveryRequests, evidenceRequests, reselectStep or clarifications. All page:*, schema: and description: addresses go in evidenceRequests, never cursor. discoveryRequests uses only issued provider source/cursor pairs and query:null; the host supplies this step's exact objective. After bounded inspection, reselectStep may explain why the tentative kind cannot satisfy the requirement; it preserves scope, requirements and correction limits. Never simulate missing external work. Clarify only a missing business fact. Do not discover future work or replan the workflow.
         """;
     internal const string DraftInstructions = """
         Implement only the selected immediate business substep in the issued scope and task kind, using the selected exact contract views and typed imports. Extend the accepted TaskPlan; never rewrite accepted work. Preserve original requirements, constraints, identities, order, complete observations and cleanup. References must resolve now; missing prerequisites require evidence or clarification, never fabricated inputs or external work simulated by a transform. The schema permits only this step's task kind. New containers open empty child scopes for later steps. scopeInterface shows existing export declarations; extension.outputs adds only new exports, and [] preserves existing exports. Close scopes only after their children and exports are complete. requirementIds associates this fragment with the selected original requirements; requirement closure is host-issued separately. Return one action. Evidence is read-only and grants no permissions. Do not output JavaScript, YAML or a workflow outline.
@@ -141,13 +141,7 @@ internal static partial class PlanningCompactConstruction
         return schema;
     }
 
-    internal static JsonObject DiscoverySchema(PlanningSession state) => PlanningSchemas.Object(
-        ("operationIds", PlanningSchemas.Nullable(Strings(1, 2))),
-        ("discoveryRequests", PlanningSchemas.Nullable(PlanningSchemas.Array(PlanningSchemas.Object(("sourceId", Text(192)),
-            ("cursor", PlanningSchemas.Nullable(Text(512))), ("query", PlanningSchemas.Nullable(PlanningSchemas.Enum(State(state).CurrentStep!.Objective))),
-            ("operationIds", PlanningSchemas.Type("null"))), 1, 2))),
-        ("evidenceRequests", PlanningSchemas.Nullable(PlanningSchemas.Array(Text(2048), 1, 4))),
-        ("clarifications", PlanningSchemas.Nullable(PlanningSchemas.Clarifications())));
+    internal static JsonObject DiscoverySchema(PlanningSession state) => CompactDiscoverySchema(state);
 
     private static JsonObject Text(int maximum) => new() { ["type"] = "string", ["maxLength"] = maximum };
     private static JsonObject Strings(int minimum, int maximum) => PlanningSchemas.Array(Text(256), minimum, maximum);
@@ -278,18 +272,19 @@ internal static partial class PlanningCompactConstruction
         var evidence = state.Construction!.Evidence;
         var supplied = evidence is { Count: > 0 };
         var descriptors = supplied ? null : ContractDescriptorPage(state);
-        var hasDescriptors = descriptors?["items"] is JsonArray { Count: > 0 };
+        var providerPage = PresentedProviderRequests(state);
         return new JsonObject
         {
             ["step"] = JsonSerializer.SerializeToNode(step, PlanningJsonContext.Default.PlanningConstructionStep),
             ["requirements"] = RequirementNodes(state, step.RequirementIds),
-            ["sources"] = supplied || hasDescriptors ? null : SourceDescriptors(state),
+            ["globalConstraints"] = Sources(state, State(state).GlobalSourceIds),
+            ["instructions"] = state.Request.Policy.Instructions,
+            ["sources"] = null,
             ["descriptors"] = descriptors,
-            ["directoryEvidence"] = supplied || hasDescriptors ? new JsonObject { ["sources"] = "page:sources:0", ["operations"] = "page:operations:0" } : null,
+            ["providerRequests"] = ProviderEvidencePage(state) is null ? providerPage : null,
+            ["directoryEvidence"] = new JsonObject { ["sources"] = "page:sources:0", ["operations"] = "page:operations:0", ["providers"] = ProviderRequestAddress(state, 0) },
             ["evidence"] = evidence?.DeepClone(),
-            ["diagnostics"] = PlanningJsonTransport.Diagnostics(state.Diagnostics),
-            ["pages"] = new JsonArray(state.Discovery.Pages.Where(p => p.Query == step.Objective).Select(p => (JsonNode)new JsonObject
-                { ["sourceId"] = p.SourceId, ["cursor"] = p.Cursor, ["nextCursor"] = p.NextCursor, ["unavailable"] = p.UnavailableReason }).ToArray())
+            ["diagnostics"] = PlanningJsonTransport.Diagnostics(state.Diagnostics)
         };
     }
 

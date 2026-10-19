@@ -372,3 +372,94 @@ Readiness evidence hash:
 The paired comparison remains unissued. Smaller admitted requests and partial
 checkpoints do not establish a successful full workflow, improved total cost or
 latency, or absence of omissions in a completed business outcome.
+
+### Frozen diagnostic iteration `673ab6b`: uncertainty stop
+
+Source `673ab6b8879492c26334af931ce945e994b2c0cd` retained another failed
+Collections diagnostic and an uncertain Amazon request. Review PR was **not
+dispatched**. The 18-run measured comparison remains unstarted; no complete
+business success or comparative improvement is established.
+
+Collections used 11 calls, one correction, 12,722 provider input tokens, 5,133
+output tokens, 74.797 seconds and €0.1933706567137652181640451435. Two
+checkpoints were accepted, then discovery supplied planner evidence address
+`page:operations:2` as a provider continuation cursor. The invalid action repeated
+after `CURSOR_UNKNOWN` and stopped with `REPLAN_NO_PROGRESS`. The subsequent
+targeted correction distinguishes planner evidence addresses from issued provider
+cursors, preserves applicable original constraints in discovery and allows bounded
+tentative-substep reselection. Its deterministic regressions do not establish a
+verified live fix. No workflow executed.
+
+All 11 dispatched requests fit their captured ceilings. Conservative peaks were
+2,288 tokens for indexing, 2,448 for selection, 3,746 for generation, 2,656 for
+local Judges and 2,118 for discovery (6,095, 6,575, 10,468, 7,199 and 5,584
+serialized bytes respectively). Run
+`673ab6b8879492c26334af931ce945e994b2c0cd:pilot:collections:1` retains session
+`ff59fddfdb21fd92689390ea9411b2f76c3acbe0228b8ef80395fbc62d7aeb15`.
+Its sanitized log hash is
+`859ab4bcdce63ba9a7bc1423438646f25f97acae2a0511801d0bff02de568b34`.
+
+Amazon run/session `compactdiag673-amazon-1` timed out on its first indexing
+request after 601.572 seconds, with `MODEL_DISPATCH_UNVERIFIABLE`. The admitted
+request was 6,650 bytes and 2,473 estimated input tokens; its 8,192-token output
+reservation remained unchanged. There is no retained response body, provider
+response identity, completion receipt or verified usage. Actual input/output
+usage and total cost are **unknown**, not zero. One physical attempt retains
+6,651 input tokens, 8,192 output tokens and €0.2479472140762463343108504399
+as conservative allowances. No MCP discovery or business operation executed.
+
+The exact uncertain request is
+`compactdiag673-amazon-1:1:616dd1b7dc56957b4059c8122ddd60b617c04f4b413732a46cadef81afd68461`;
+request hash `9b64a8879a46fb4be81fc3bce455d0c7e6af08b081a8cf5de60aeb0961813aad`.
+The sanitized log hash is
+`1df0891e6f4c1c54d6d20bbd99a5e7aaf70a9e9a9e3e35c620504a7375d43ad1`.
+
+A read-only audit through public KeyVault APIs verified one timed-out attempt,
+no response or receipt and no closure. The saved campaign policy allows four
+attempts and one uncertain retry. Although incremental transport disables retries,
+one attempted request neither exhausts four attempts nor exceeds the saved
+one-uncertain-retry allowance. The existing exhausted-request closure is therefore
+ineligible. The campaign guard blocks both replay and fresh independent dispatch
+while this request remains unclosed. No closure, reconciliation, guard change,
+refund or additional paid call was performed. Safe audit hash:
+`53baba850c6ed61cb36ed2c698b02bb3d747df66fcf4dbab192b8b0799af4b32`.
+
+Fresh readiness reconciled 67 campaign requests, 66 receipts and one uncertain
+attempt. Known spending remains €2.9977117213187594419265973514; the retained
+reservation raises the conservative upper bound to
+€3.2456589353950057762374477913. Under the unchanged campaign ceiling of
+€240.0301038327063045424449473, the remaining allowance is
+€236.7844448973112987662074995087. Financial room does not override the
+uncertainty stop. Readiness evidence hash:
+`017b73da57adad6187636b14ee1306e2ea4564dc6f84bbc72feb00e0af6ddf69`.
+
+This incomplete iteration contains 12 attempted calls with known cost
+€0.1933706567137652181640451435 and an upper bound of
+€0.4413178707900115524748955834. Across all compact diagnostics, 53 attempted
+calls retain known cost €1.7605394117124322402914778280 and an upper bound of
+€2.0084866257886785746023282679. Total verified usage/cost remains incomplete.
+The separately retained lost-ledger upper exposure of
+€159.96989616729369545755505266 is unchanged and remains inside the original
+€400 authorization; it has not been reset or discarded. Further live evaluation
+is blocked under the existing rules while deterministic implementation and
+validation can continue.
+
+The subsequent discovery correction passed 157 focused deterministic cases with
+warnings as errors, including exact recovery and one-charge correction accounting.
+Read-only probes reconstructed discovery contexts from the retained exact records
+without model calls or journal writes. Collections' last request changed from
+5,584 bytes / 2,118 estimated tokens to 5,668 / 2,146; its explicit provider-action
+page used 5,323 / 2,031. Amazon's previously rejected `707dce4` discovery request
+changed from 8,941 / 3,237 to 7,316 / 2,695; its explicit provider-action page used
+7,918 / 2,896. The original global clauses, sources, TaskPlan, requirements,
+catalog, discovery state, settings and 8,192-token output reservation were retained.
+Schema validation passed. Amazon's narrow remaining margin demonstrates admission
+of those retained contexts only, not universal fit or live convergence.
+
+The full solution run on earlier implementation `41faf8c` completed with 6,454
+passes, three failures and 13 skips across 33 projects, without compiler warnings.
+The failures were stale fixtures: one fresh compact request lacked a phase schema,
+and two fresh revision assertions still expected 12 calls. The fixture corrections
+preserve the production guards and historical-session checks; the affected admission
+and failure-revision suites subsequently passed 25 and 19 cases respectively.
+Final-revision validation is reported separately in the Draft PR.

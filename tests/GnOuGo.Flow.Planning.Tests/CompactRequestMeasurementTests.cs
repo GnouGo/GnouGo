@@ -10,6 +10,24 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class CompactRequestMeasurementTests
 {
     [Fact]
+    public void ProviderCursorMetadataCountsAsDescriptorsAndReconcilesExactEnvelope()
+    {
+        var providers = new JsonObject { ["version"] = new string('a', 64), ["offset"] = 2, ["total"] = 3,
+            ["items"] = new JsonArray(new JsonObject { ["sourceId"] = "source/é", ["cursor"] = "opaque:\"next\"/🙂", ["available"] = true }), ["next"] = null };
+        var context = new JsonObject { ["providerRequests"] = providers };
+        var request = new LLMRequest { Prompt = "Choose only an issued provider pair.\n" + PlanningJsonTransport.Prompt(context) };
+        var original = JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest);
+        var measurement = PlanningRequestMeasurements.Measure(request, "construction_discovery", 3000);
+        var rendered = PlanningJsonTransport.Prompt(context);
+        var expected = JsonEncodedText.Encode(rendered[1..^1]).EncodedUtf8Bytes.Length;
+        Assert.Equal(expected, Assert.Single(measurement.Components, c => c.Component == "mcp_descriptors").SerializedBytes);
+        Assert.DoesNotContain(measurement.Components, c => c.Component == "construction_context");
+        Assert.Equal(measurement.CompleteRequestBytes, measurement.Components.Sum(c => c.SerializedBytes));
+        Assert.Equal(original, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+        Assert.Equal("opaque:\"next\"/🙂", providers["items"]![0]!["cursor"]!.ToString());
+    }
+
+    [Fact]
     public void BenchmarkCapturesEffectiveLimitsBeforeItsFirstCheckpoint()
     {
         var state = new PlanningSession();

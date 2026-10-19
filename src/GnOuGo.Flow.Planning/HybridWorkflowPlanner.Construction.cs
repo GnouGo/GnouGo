@@ -410,7 +410,8 @@ public sealed partial class HybridWorkflowPlanner
                 foreach (var item in selected) await PlanningDiscoveryContext.ResolveAsync(state, runtime, item, ct);
                 continue;
             }
-            var parent = request.Cursor is null ? null : state.Discovery.Pages.SingleOrDefault(p => p.SourceId == request.SourceId && p.NextCursor == request.Cursor);
+            var parent = request.Cursor is null ? null : state.Discovery.Pages.SingleOrDefault(p => p.SourceId == request.SourceId && p.NextCursor == request.Cursor &&
+                (state.Construction?.Version != 2 || p.Query == PlanningCompactConstruction.State(state).CurrentStep!.Objective && p.ProducedArtifactKind is null));
             if (request.Cursor is not null && (parent is null || request.Query is not null || request.ProducedArtifactKind is not null))
                 PlanningConstruction.Fail("CURSOR_UNKNOWN", "/discoveryRequests", "Select an issued continuation cursor without changing its query.");
             var query = request.Cursor is null ? request.Query ?? (state.Construction?.Version == 2

@@ -1064,7 +1064,7 @@ public sealed class CompactConstructionTests
             if (purpose == PlanningCompactConstruction.IntentPurpose) return Wire(request, Index(request));
             if (purpose == PlanningCompactConstruction.SelectPurpose)
             { var selection = Select(request, "operation", close: false); selection["step"]!["objective"] = objective; return Wire(request, selection); }
-            if (pages > 0) Assert.Equal("next", Context(request)["pages"]![0]!["nextCursor"]!.ToString());
+            if (pages > 0) Assert.Equal("next", Context(request)["providerRequests"]!["items"]![0]!["cursor"]!.ToString());
             return Wire(request, new() { ["operationIds"] = null, ["clarifications"] = null, ["evidenceRequests"] = null,
                 ["discoveryRequests"] = new JsonArray(new JsonObject { ["sourceId"] = "source", ["cursor"] = pages++ == 0 ? null : "next", ["query"] = null, ["operationIds"] = null }) });
         } };

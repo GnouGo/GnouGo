@@ -208,9 +208,35 @@ public sealed partial class HybridWorkflowPlanner
     private static async Task DiscoverConstructionStepAsync(PlanningSession state, IPlanningRuntime runtime, CancellationToken ct)
     {
         var compact = PlanningCompactConstruction.State(state); var step = compact.CurrentStep!;
+        var issued = state.PendingCall?.Request;
+        var correcting = state.Diagnostics.Any(d => d.Required);
         var response = await CompactCallAsync(state, runtime, PlanningCompactConstruction.DiscoveryPurpose, () =>
             PlanningCompactConstruction.Request(PlanningCompactConstruction.DiscoveryInstructions, PlanningCompactConstruction.DiscoveryContext(state),
                 PlanningCompactConstruction.DiscoverySchema(state), PlanningCompactConstruction.DiscoveryPurpose), ct);
+        if (response["reselectStep"] is { } reason)
+        {
+            // Interruption diagnostics can be added after dispatch. Only the exact
+            // issued context establishes whether this navigation call was charged
+            // as a correction before its durable pending checkpoint.
+            if (issued is not null)
+            {
+                var context = JsonNode.Parse(issued.Prompt[(issued.Prompt.LastIndexOf('\n') + 1)..]);
+                correcting = context?["diagnostics"]?.AsArray().Any(d => d?["required"]?.GetValue<bool>() == true) == true;
+            }
+            if (new[] { "operationIds", "evidenceRequests", "clarifications", "discoveryRequests" }.Any(name => response[name] is not null) ||
+                !PlanningCompactConstruction.CanReselectDiscovery(state) || string.IsNullOrWhiteSpace(reason.ToString()) || reason.ToString().Length > 512)
+                PlanningConstruction.Fail("CONSTRUCTION_RESELECTION_INVALID", "/reselectStep", "Reselect only an inspected tentative operation step, as one bounded action within its retained correction authority.");
+            if (!correcting && PlanningModelCalls.RemainingRepairs(state) == 0)
+                PlanningConstruction.Fail("CONSTRUCTION_CORRECTION_ALLOWANCE", "/reselectStep", "The retained correction allowance cannot admit tentative-step reselection.");
+            if (!correcting) state.ReplanAttempts++;
+            state.Construction!.DraftCorrections++;
+            state.Diagnostics.Add(new("CONSTRUCTION_TENTATIVE_SELECTION", "/construction/compact/currentStep", reason.ToString()));
+            PlanningCompactConstruction.Reselect(state, reason.ToString());
+            // The rejected decision and its diagnostics remain evidence. This action consumed
+            // one correction; the replacement selection must not charge the same action again.
+            state.Diagnostics.Clear();
+            return;
+        }
         if (await CompactOtherActionAsync(state, runtime, response, "operationIds", ct)) return;
         var operations = response["operationIds"]!.AsArray().Select(o => o!.ToString()).ToArray();
         foreach (var operation in operations)
@@ -255,6 +281,7 @@ public sealed partial class HybridWorkflowPlanner
         if (response["discoveryRequests"] is JsonArray requests)
         {
             await ConstructionDiscoveryAsync(state, runtime, requests.Deserialize(PlanningJsonContext.Default.ListPlanningDiscoveryRequest)!, ct);
+            state.Construction!.Evidence = null; state.Construction.EvidenceRequests.Clear();
             return true;
         }
         return false;

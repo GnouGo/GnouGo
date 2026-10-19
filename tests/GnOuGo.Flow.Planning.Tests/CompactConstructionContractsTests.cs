@@ -291,7 +291,7 @@ public sealed class CompactConstructionContractsTests
             ["evidenceRequests"] = new JsonArray(sourceAddress), ["clarifications"] = null };
         Assert.Empty(PlanningContractValidation.ValidateInstance(selection, PlanningCompactConstruction.SelectionSchema(state)));
         var discovery = new JsonObject { ["operationIds"] = null, ["discoveryRequests"] = null,
-            ["evidenceRequests"] = new JsonArray(sourceAddress), ["clarifications"] = null };
+            ["evidenceRequests"] = new JsonArray(sourceAddress), ["clarifications"] = null, ["reselectStep"] = null };
         Assert.Empty(PlanningContractValidation.ValidateInstance(discovery, PlanningCompactConstruction.DiscoverySchema(state)));
         Assert.Equal("Original source restrictions.", PlanningCompactConstruction.LoadContractEvidence(state, sourceAddress)!["text"]!.ToString());
 
@@ -370,7 +370,8 @@ public sealed class CompactConstructionContractsTests
         var context = PlanningCompactConstruction.DiscoveryContext(state);
         Assert.Null(context["sources"]);
         Assert.Equal("page:sources:0", context["directoryEvidence"]!["sources"]!.ToString());
-        Assert.Single(context["pages"]!.AsArray());
+        Assert.Null(context["providerRequests"]);
+        Assert.StartsWith("page:provider-requests:", context["directoryEvidence"]!["providers"]!.ToString(), StringComparison.Ordinal);
         var presentation = PlanningCompactConstruction.Request(PlanningCompactConstruction.DiscoveryInstructions, context,
             PlanningCompactConstruction.DiscoverySchema(state), PlanningCompactConstruction.DiscoveryPurpose);
         var request = PlanningGenerationPolicy.Apply(new LLMRequest { Prompt = presentation.Prompt, StructuredOutputSchema = presentation.StructuredOutputSchema,

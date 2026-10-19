@@ -149,7 +149,17 @@ public sealed class BenchmarkAdmissionTests
         using var model = fixture.Model(rates, provider);
         var settings = LiveWorkflowEvaluation.FreshPlanningRequest([], "fresh", "amazon", "Original request", "fixture", "pinned");
         await model.CapturePlanningPolicyAsync(settings, Ct);
-        var completed = new LLMRequest { ClientRequestId = "fresh:1", Prompt = "bounded original draft", MaxTokens = 8192 };
+        var completed = new LLMRequest
+        {
+            ClientRequestId = "fresh:1", Prompt = "bounded original draft", MaxTokens = 8192,
+            StructuredOutputStrict = true,
+            StructuredOutputSchema = new JsonObject
+            {
+                ["title"] = "construction_draft", ["type"] = "object", ["additionalProperties"] = false,
+                ["properties"] = new JsonObject { ["script"] = new JsonObject { ["type"] = "string" } },
+                ["required"] = new JsonArray("script")
+            }
+        };
         var receipt = await model.CallAsync(completed, Ct);
         Assert.True(provider.LastDisableTransportRetries);
         Assert.Equal(1, provider.Calls);
@@ -157,7 +167,8 @@ public sealed class BenchmarkAdmissionTests
         Assert.True(JsonNode.DeepEquals(receipt.Json, (await model.CallAsync(completed, Ct)).Json));
         Assert.Equal(1, provider.Calls);
         provider.Failure = new IOException("Unknown completion");
-        var pending = new LLMRequest { ClientRequestId = "fresh:2", Prompt = "bounded later draft", MaxTokens = 8192 };
+        var pending = new LLMRequest { ClientRequestId = "fresh:2", Prompt = "bounded later draft", MaxTokens = 8192,
+            StructuredOutputStrict = true, StructuredOutputSchema = completed.StructuredOutputSchema!.DeepClone() };
         await Assert.ThrowsAsync<IOException>(() => model.CallAsync(pending, Ct));
         var before = await fixture.Campaign.LoadAsync(BenchmarkHttpJournal.Collection, pending.ClientRequestId, Ct);
         var costs = await BenchmarkHttpJournal.AccountingAsync(fixture.Campaign, ct: Ct);

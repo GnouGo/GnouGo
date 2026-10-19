@@ -88,6 +88,15 @@ cannot authorize execution or replace a contract. Separable original evidence ca
 be paged; indivisible required information that exceeds the phase allowance stops
 explicitly. No unused request capacity is filled with unrelated suggestions.
 Discovery directories present two operation descriptors or two sources at a time.
+Provider metadata actions are presented separately in pages of two exact source
+and continuation pairs. Their versioned evidence addresses are local navigation,
+never provider cursors. The issued schema fixes each source/cursor pair and uses
+`query:null`; the host supplies the selected substep objective. Exhausted or
+unavailable providers remain explicit and cannot be fetched repeatedly. Discovery
+retains applicable original global constraints. After bounded inspection, an
+unsuitable tentative operation selection can be replaced within the same scope
+and requirements, consuming one captured correction and retaining its evidence.
+This does not widen explicit revision authority or authorize substitute effects.
 Once operation descriptors are available, source metadata remains available through
 its directory address instead of being repeated beside every operation page.
 Output-port directories preserve original producer business-port mappings, including

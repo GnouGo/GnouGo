@@ -163,7 +163,7 @@ public static class PlanningRequestMeasurements
         "sources" => phase is "construction_intent" or "construction_select" ? "intent" : "mcp_descriptors",
         "requirements" or "answers" or "globalConstraints" or "requirementsPage" => "requirements",
         "operations" or "contracts" => "mcp_contracts",
-        "operationDirectory" or "optionalOperationContracts" or "capabilities" or "descriptors" => "mcp_descriptors",
+        "operationDirectory" or "optionalOperationContracts" or "capabilities" or "descriptors" or "providerRequests" => "mcp_descriptors",
         "interfaces" or "imports" or "scopeInterface" or "group" or "scopeGroup" => "interfaces",
         "draft" or "tasks" or "fragment" or "closures" => "fragment",
         "evidence" => "evidence",

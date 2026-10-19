@@ -16,6 +16,7 @@ internal static partial class PlanningCompactConstruction
             ["candidateHash"] = construction.Candidate?.Hash, ["reason"] = reason,
             ["extension"] = construction.Candidate is { } candidate ? PlanningConstruction.Node(candidate.Extension, PlanningJsonContext.Default.PlanningConstructionExtension) : null,
             ["diagnostics"] = PlanningJsonTransport.Diagnostics(state.Diagnostics),
+            ["evidence"] = construction.Evidence?.DeepClone(),
             ["reviews"] = new JsonArray((construction.Candidate?.Reviews ?? []).Select(r => r.DeepClone()).ToArray()) });
         compact.ReplacementScope = step!.Scope; compact.ReplacementRequirements = step.RequirementIds.ToList();
         construction.DraftCorrections = Math.Max(construction.DraftCorrections, construction.Candidate?.Corrections ?? 0);
@@ -162,6 +163,7 @@ internal static partial class PlanningCompactConstruction
     internal static bool LoadEvidence(PlanningSession state, string address, out JsonNode? value)
     {
         var compact = State(state); value = null;
+        if (LoadProviderRequestEvidence(state, address, out value)) return true;
         if (LoadScopeInterfaceEvidence(state, address, out value)) return true;
         if (LoadTaskNavigationEvidence(state, address, out value)) return true;
         if (address.StartsWith("source-description:", StringComparison.Ordinal))

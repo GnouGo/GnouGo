@@ -316,7 +316,10 @@ serializes admission and record replacement.
 
 Reports leave total usage/cost null after uncertainty, retain known partial usage, and add
 `reserved_input_tokens`, `reserved_output_tokens`, `reserved_cost_eur` and `usage_bounded`.
-A bounded unknown allows subsequent runs; it does not become verified usage. Replaying a
+A bounded unknown remains fully reserved; it does not become verified usage.
+Subsequent independent runs require a completion receipt or an applicable explicit
+inconclusive closure for every earlier reserved request. An unclosed missing receipt
+blocks dispatch even when the remaining financial allowance is sufficient. Replaying a
 receipt replaces its measurement entry rather than adding another charge. Failed-run reports
 are retained in `previous_results` if the same revision resumes its journaled pending request.
 No paid evaluation or previous campaign modification is required to test this behavior.
@@ -356,6 +359,11 @@ retryable exhaustion and attempt count match. Missing legacy limits, cancellatio
 successful responses and unresolved terminal HTTP responses grant no additional
 authority. The closure records `http_uncertainty_limit_exhausted`; all original
 attempts and their full reservations remain unchanged.
+
+Fresh incremental transport disables retries. A timeout may therefore stop before
+the retained campaign policy's attempt or uncertainty allowance is exhausted;
+that does not grant eligibility for this archival action or permission to replay.
+Preserve the reservation and campaign stop when the existing closure checks fail.
 
 For a stopped live planning run which exhausted all eight session attempts before
 execution, `--schema-portability retain-inconclusive --run <exact-run-id>` exposes

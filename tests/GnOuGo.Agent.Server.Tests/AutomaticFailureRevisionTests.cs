@@ -66,7 +66,7 @@ public sealed class AutomaticFailureRevisionTests
         var draft = drafts[0];
         Assert.Null(draft.ApprovedHash); Assert.Equal(0, draft.ModelCalls); Assert.Equal(0, draft.ReplanAttempts);
         Assert.Equal(sourcePreset == "large" ? "large" : "ordinary", draft.Request.Options["construction_preset"]!.ToString());
-        Assert.Equal(sourcePreset == "large" ? stricterHost ? 100 : 384 : 12, draft.Request.MaxModelCalls);
+        Assert.Equal(sourcePreset == "large" ? stricterHost ? 100 : 384 : 64, draft.Request.MaxModelCalls);
         Assert.Equal(sourcePreset == "large" ? stricterHost ? 8 : 64 : 4, draft.Request.MaxReplanAttempts);
         Assert.Equal(draft.Request.MaxModelCalls, draft.Request.Options["llm_budget"]!["max_calls"]!.GetValue<int>());
         Assert.Equal(32000, draft.Request.Generation.MaxInputTokensPerRequest); Assert.Equal(32768, draft.Request.Generation.MaxOutputTokens);
