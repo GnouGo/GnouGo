@@ -56,11 +56,14 @@ remain available for their original recorded cohorts.
 The [implementation comparison](../../docs/evidence/first-attempt-taskplan-2026-10-17/README.md)
 is offline. No paid inference or externally effectful live execution was authorized.
 
-## Optional Judge and convergence measurements
+## Historical optional Judge and convergence measurements
 
-Fresh corpus and stabilization sessions default to twelve planning calls, four
-corrections, 32,000 input tokens and 32,768 output tokens. `--business-judge` explicitly
-enables the independent advisory review; omission keeps it disabled on creation. Both runners
+The retained pre-construction corpus and stabilization profiles used twelve planning
+calls, four corrections, 32,000 input tokens and 32,768 output tokens. In those
+profiles, `--business-judge` enabled an optional whole-plan advisory review.
+Fresh incremental sessions require scoped reviews and use the 8,192-token draft
+and 2,048-token Judge reservations described below. The legacy Judge switch cannot
+disable those reviews or select historical generation for a new session. Both runners
 accept `--max-model-calls`, `--max-repairs`, `--max-input-tokens` and
 `--max-output-tokens` for controlled comparisons. Retained runs use their persisted
 settings; a new configuration requires a new frozen run identity, not mutation of old
@@ -71,7 +74,7 @@ settings are frozen before collection. The stabilization context manifest is ver
 version 1 records remain immutable and inspectable, and a changed harness requires a
 new campaign.
 
-Compare Judge enabled/disabled under identical budgets, model/settings, contracts,
+For retained historical comparisons, compare Judge enabled/disabled under identical budgets, model/settings, contracts,
 cases and independent oracle versions. Measure changes to creation defaults separately;
 a larger allowance and an extra observer are different interventions. Freeze the
 complete candidate and fixture/contract/oracle hashes before collecting each comparable
@@ -727,7 +730,8 @@ reviews or introduce a final whole-plan Judge. Every draft, review, evidence req
 and correction uses the same captured session and cumulative campaign allowances.
 Use `--construction-preset large --automatic-correction` only for an explicitly
 authorized fresh cohort: it captures 384 physical planning attempts, 64 corrections,
-32,000 input tokens per request, 8,192 output tokens, 15,000,000 aggregate tokens and
+32,000 input tokens per request, 8,192 draft/correction output tokens, 2,048 Judge
+output tokens, 15,000,000 aggregate tokens and
 five hours. The request, cohort manifest and immutable transport-policy record must
 agree. Continuations cannot raise a captured allowance. Sessions with existing HTTP
 journals retain their original eight-attempt policy when no newer policy was captured.
@@ -782,8 +786,9 @@ The active local product fixtures contain no cookie-consent work. Historical sav
 artifacts retain their issued vocabulary for compatibility tests; those fixtures offer
 no consent control and never exercise a consent action.
 
-Ordinary fresh sessions capture 12 calls, four corrections, 32,000 input/8,192
-output tokens, the same 15,000,000-token/five-hour cumulative budget and the unchanged
+Ordinary fresh sessions capture 12 calls, four corrections, 32,000 input tokens,
+8,192 draft/correction and 2,048 Judge output tokens, the same
+15,000,000-token/five-hour cumulative budget and the unchanged
 runtime artifact-confirmation gate. The cohort manifest also freezes the construction
 limits, graph capacity and budget. Historical explicit request settings stay unchanged.
 Draft/correction transport admissions retain conservative headroom for two bounded

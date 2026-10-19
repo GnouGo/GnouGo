@@ -79,16 +79,24 @@ internal static partial class PlanningConstruction
     internal static IReadOnlyList<PlanningCapability> Contracts(PlanningSession state, IEnumerable<string>? required = null)
     {
         var all = state.Catalog!.Capabilities.Concat(state.Discovery.Resolved).DistinctBy(c => (c.Id, c.Version)).ToArray();
-        var ids = (required ?? []).ToHashSet(StringComparer.Ordinal);
-        ids.UnionWith((state.Construction?.Evidence ?? new JsonObject()).Where(p => p.Key.StartsWith("contract:", StringComparison.Ordinal)).Select(p => p.Key[9..]));
-        var explicitIds = PlanningDiscoveryContext.Inspected(state).TakeLast(4).Select(c => c.Operation!.Id).ToHashSet(StringComparer.Ordinal);
-        return all.Where(c => ids.Contains(TaskOperations.Describe(c).Id) || explicitIds.Contains(TaskOperations.Describe(c).Id))
+        var ids = RequiredContracts(state, required ?? []);
+        return all.Where(c => ids.Contains(TaskOperations.Describe(c).Id))
             .Concat(all.Where(c => c.Kind == "registered").Take(4))
             .Concat(PlanningDiscoveryContext.Candidates(state).Take(4).Select(c => all.FirstOrDefault(a => a.Id == c.Id && a.Version == c.Version)).OfType<PlanningCapability>())
             .DistinctBy(c => (c.Id, c.Version)).ToArray();
     }
 
-    internal static JsonObject Context(PlanningSession state, bool review = false, bool intermediate = false)
+    private static HashSet<string> RequiredContracts(PlanningSession state, IEnumerable<string> required)
+    {
+        var ids = required.ToHashSet(StringComparer.Ordinal);
+        ids.UnionWith((state.Construction?.Evidence ?? new JsonObject()).Where(p => p.Key.StartsWith("contract:", StringComparison.Ordinal)).Select(p => p.Key[9..]));
+        ids.UnionWith(PlanningDiscoveryContext.Inspected(state).Select(c => c.Operation!.Id));
+        return ids;
+    }
+
+    internal static JsonObject Context(PlanningSession state, bool review = false, bool intermediate = false) => Context(state, review, intermediate, out _);
+
+    private static JsonObject Context(PlanningSession state, bool review, bool intermediate, out HashSet<string> requiredContracts)
     {
         var construction = state.Construction!;
         var draft = construction.Candidate;
@@ -126,7 +134,10 @@ internal static partial class PlanningConstruction
         foreach (var (scope, values) in validated.Interfaces)
             interfaces[scope] = new JsonArray(values.Select(v => (JsonNode)new JsonObject
             { ["value"] = Node(v.Value, PlanningJsonContext.Default.TaskValue), ["schema"] = v.Schema.DeepClone() }).ToArray());
-        var operations = selected.Select(t => t.Operation).OfType<string>().Concat(requirements.SelectMany(r => r.Commitments ?? []).Select(c => c.Operation));
+        var operations = selected.Select(t => t.Operation).OfType<string>()
+            .Concat((draft?.TaskIds ?? []).Where(symbols.Tasks.ContainsKey).Select(id => symbols.Tasks[id].Task.Operation).OfType<string>())
+            .Concat(requirements.SelectMany(r => r.Commitments ?? []).Select(c => c.Operation));
+        requiredContracts = RequiredContracts(state, operations);
         var contracts = Contracts(state, operations);
         var context = new JsonObject
         {

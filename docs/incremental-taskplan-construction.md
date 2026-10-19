@@ -49,6 +49,13 @@ answers, a bounded frontier, selected exact contracts and imported interfaces.
 Original evidence is retrieved by identity in bounded requests. The entire plan,
 history and catalog stay in storage. Admission measures the complete serialized
 request including its schema; indispensable evidence is never silently truncated.
+Fresh draft, review and repair presentations admit optional whole operation
+contracts only while the complete serialized phase request fits its captured
+input allowance. Selected fragment and commitment contracts, explicit inspections,
+requested evidence and original intent remain mandatory. Optional identities stay
+in retained discovery and can be requested explicitly; neither a contract nor its
+schema is cropped to make it fit. Mandatory-only excess still fails before dispatch.
+Already issued requests and saved review contexts retain their exact bytes and hashes.
 
 ## Review, correction and finalization
 

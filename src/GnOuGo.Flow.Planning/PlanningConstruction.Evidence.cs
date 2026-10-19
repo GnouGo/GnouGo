@@ -5,19 +5,16 @@ namespace GnOuGo.Flow.Planning;
 
 internal static partial class PlanningConstruction
 {
-    internal static GnOuGo.Flow.Core.Runtime.LLMRequest RepairRequest(PlanningSession state, PlanningSession authority)
+    internal static GnOuGo.Flow.Core.Runtime.LLMRequest RepairRequest(PlanningSession state, PlanningSession authority, string? guidance = null)
     {
-        var context = Context(state, review: true);
-        context["repair"] = PlanningRepairContext.Build(authority);
         var schema = PlanningSchemas.Proposal(authority);
         schema["properties"]!["evidenceRequests"] = PlanningSchemas.Nullable(PlanningSchemas.Array(PlanningSchemas.String(), 1, 8));
         schema["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("evidenceRequests"));
-        return new()
-        {
-            Prompt = PlanningPrompt.RepairInstructions + "\nRequest original evidence using evidenceRequests with patch, discoveryRequests and clarifications null; evidence grants no additional edit authority.\n" +
-                PlanningJsonTransport.Prompt(context),
-            StructuredOutputSchema = PlanningContractValidation.ProjectStructuredOutputSchema(schema)
-        };
+        var projected = PlanningContractValidation.ProjectStructuredOutputSchema(schema);
+        return Request(state, (guidance is null ? "" : guidance + "\n") + PlanningPrompt.RepairInstructions +
+            "\nRequest original evidence using evidenceRequests with patch, discoveryRequests and clarifications null; evidence grants no additional edit authority.",
+            _ => projected, state.Construction!.Limits.DraftOutputTokens, review: true,
+            enrich: context => context["repair"] = PlanningRepairContext.Build(authority)).Request;
     }
 
     internal static void LoadEvidence(PlanningSession state, List<string> requests)

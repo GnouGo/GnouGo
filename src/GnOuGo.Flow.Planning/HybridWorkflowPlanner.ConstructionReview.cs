@@ -38,11 +38,14 @@ public sealed partial class HybridWorkflowPlanner
             state.Diagnostics = [new("CONSTRUCTION_REVIEW_ALLOWANCE", "/construction/candidate", "The mandatory fragment review cannot fit the retained allowance. The tentative draft is not accepted.")];
             Stop(state); return;
         }
+        GnOuGo.Flow.Core.Runtime.LLMRequest request;
         if (state.PendingCall is null)
         {
-            construction.PendingReviewContext = PlanningConstruction.Context(state, review: true, intermediate);
+            (construction.PendingReviewContext, request) = PlanningConstruction.Request(state, ConstructionReviewInstructions,
+                _ => ConstructionReviewSchema(), construction.Limits.ReviewOutputTokens, review: true, intermediate);
             construction.PendingReviewHash = PlanningGraphCompiler.Fingerprint(purpose + "\n" + draft.Hash + "\n" + construction.PendingReviewContext.ToJsonString());
         }
+        else request = state.PendingCall.Request;
         var context = construction.PendingReviewContext ?? throw new PlanningConflictException("A retained fragment review has no original context.");
         var fingerprint = PlanningGraphCompiler.Fingerprint(purpose + "\n" + draft.Hash + "\n" + context.ToJsonString());
         if (construction.PendingReviewHash != fingerprint || draft.BaseHash != PlanningConstruction.Hash(state.Plan))
@@ -50,8 +53,8 @@ public sealed partial class HybridWorkflowPlanner
         JsonNode response;
         try
         {
-            response = await PlanningModelCalls.CallAsync(state, runtime, purpose, ConstructionReviewInstructions + "\n" + PlanningJsonTransport.Prompt(context),
-                ConstructionReviewSchema(), ct, construction.Limits.ReviewOutputTokens);
+            response = await PlanningModelCalls.CallAsync(state, runtime, purpose, request.Prompt,
+                request.StructuredOutputSchema!.AsObject(), ct, construction.Limits.ReviewOutputTokens);
         }
         catch (PlanningResponseException)
         {

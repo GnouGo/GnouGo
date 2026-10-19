@@ -142,15 +142,12 @@ public sealed partial class HybridWorkflowPlanner
                     await PlanningDiscoveryContext.ResolveAsync(state, runtime, capability, ct);
         }
         state.Phase = repair ? PlanningPhase.Replanning : PlanningConstruction.DraftPurpose;
-        var context = PlanningConstruction.Context(state);
         if (state.PendingCall is null) construction.IssuedBaseHash = PlanningConstruction.Hash(state.Plan);
         else if (construction.IssuedBaseHash != PlanningConstruction.Hash(state.Plan))
             throw new PlanningConflictException("The issued extension no longer matches its retained accepted checkpoint.");
-        var operations = context["operations"]!.AsArray().Select(c => c!["operation"]?["id"]?.ToString() ?? c["id"]!.ToString());
-        var schema = PlanningConstruction.Schema(state, operations);
-        var prompt = PlanningConstruction.Instructions + (repair ? "\nCorrect only the retained tentative extension. Preserve its target scope and accepted requirements; the accepted TaskPlan is immutable.\n" : "\n") + PlanningJsonTransport.Prompt(context);
+        var request = state.PendingCall?.Request ?? PlanningConstruction.DraftRequest(state, repair);
         var response = await PlanningModelCalls.CallAsync(state, runtime, repair ? "replan" : PlanningConstruction.DraftPurpose,
-            prompt, schema, ct, construction.Limits.DraftOutputTokens);
+            request.Prompt, request.StructuredOutputSchema!.AsObject(), ct, construction.Limits.DraftOutputTokens);
         construction.LastProposalHash = "proposal:" + PlanningGraphCompiler.Fingerprint(response.ToJsonString());
         if (construction.FailedCandidates.Contains(construction.LastProposalHash, StringComparer.Ordinal))
             throw new WorkflowRuntimeException("REPLAN_NO_PROGRESS", "The model repeated an invalid construction action. No budget was reset.");
@@ -291,7 +288,7 @@ public sealed partial class HybridWorkflowPlanner
             return;
         }
         GnOuGo.Flow.Core.Runtime.LLMRequest request;
-        try { request = state.PendingCall?.Request ?? PlanningConstruction.RepairRequest(state, repairState); }
+        try { request = state.PendingCall?.Request ?? PlanningConstruction.RepairRequest(state, repairState, guardPaths.Length > 0 ? PlanningPrompt.GuardCorrectionInstructions : null); }
         catch (WorkflowRuntimeException ex) when (state.PendingCall is null && draft.AuthorizedPaths is null && guardPaths.Length == 0 && ex.Code is "REVISION_REQUIRED" or "REPAIR_SCOPE_INVALID")
         {
             // The fresh construction contract already owns this tentative fragment;
@@ -299,7 +296,6 @@ public sealed partial class HybridWorkflowPlanner
             await GenerateConstructionAsync(state, runtime, repair: true, ct);
             return;
         }
-        if (state.PendingCall is null && guardPaths.Length > 0) request.Prompt = PlanningPrompt.GuardCorrectionInstructions + "\n" + request.Prompt;
         PlanningRepairPatch.Verify(repairState, request);
         var response = await PlanningModelCalls.CallAsync(state, runtime, "replan", request.Prompt, request.StructuredOutputSchema!.AsObject(), ct, construction.Limits.DraftOutputTokens);
         var correction = response.Deserialize(RepairJsonContext.Default.PlanningRepairResponse)!;
