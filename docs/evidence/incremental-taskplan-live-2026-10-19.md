@@ -112,8 +112,8 @@ diagnostic; the original rejection remains 38,460. This probe changes no session
 allowance or saved request and makes no model call. It demonstrates request
 admission, not model convergence or successful repository review.
 
-The correction passes 41 focused tests with warnings as errors: 31 construction
-tests and ten admission variants. Mandatory task, nested candidate, commitment,
+The correction passes 42 focused tests with warnings as errors: 31 construction
+tests and eleven admission variants, including response-schema sizing. Mandatory task, nested candidate, commitment,
 inspection and evidence contracts still reject when oversized. Optional identity
 metadata cannot itself prevent a mandatory request from fitting. Saved draft and
 Judge requests retain their exact schemas, prompt bytes, identities and context

@@ -102,6 +102,20 @@ public sealed class ConstructionRequestAdmissionTests
     }
 
     [Fact]
+    public void OptionalAdmissionCountsItsOperationDependentResponseSchema()
+    {
+        var state = State();
+        state.Discovery.Resolved.Single(c => c.Id == "optional_operation").InputSchema["properties"]!["value"]!["description"] = "Small optional contract.";
+        var context = PlanningConstruction.Context(state);
+        var promptOnly = new LLMRequest { Prompt = "Review.\n" + PlanningJsonTransport.Prompt(context) };
+        Assert.True(Estimate(state, promptOnly, 2048) < 32000);
+        var (selected, request) = PlanningConstruction.Request(state, "Review.",
+            ids => PlanningSchemas.Object(("value", PlanningSchemas.Enum(ids.Contains("optional_operation") ? new string('x', 100000) : "required"))), 2048);
+        Assert.Equal("required_operation", Assert.Single(selected["operations"]!.AsArray())!["id"]!.ToString());
+        Assert.InRange(Estimate(state, request, 2048), 1, 32000);
+    }
+
+    [Fact]
     public async Task PendingDraftRetainsItsOriginalOptionalContractsAndExactIdentity()
     {
         var state = State();
