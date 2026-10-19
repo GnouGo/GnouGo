@@ -125,7 +125,7 @@ were 71,897 bytes / 24,222 conservative tokens for Amazon and 82,922 bytes /
 reported separately. These measurements include the full source-generated request
 and differ from the provider-reported input token counts in the table.
 
-The encrypted `incremental1` cohort manifest hash is
+The `incremental1` measurement-configuration hash is
 `9bc1e001a63b77987116ab7bb6d741255d8391d34cecdd6c8c25474ed094a7db`.
 Two of its six planned scenario/repetition slots were attempted and both stopped
 before compilation; four remain unattempted. The corpus pilot also remains
@@ -141,3 +141,59 @@ an exact new-campaign cost upper bound of
 `e7f47f4c9a8d11a545053b9ab6aae7440637d0e20a4db7dac7a6f77b5a9dd1da`.
 This is a checkpoint in the replacement campaign, separate from the lost
 historical ledger and its retained conservative upper bound.
+
+## Final frozen follow-up and stopping boundary
+
+The follow-up uses clean source
+`1863e3f72e2c9c1bbfa5f3ffc5bf953064d392b6`, cohort `incremental2`, and fresh run
+`incremental2-code-1`. Its saved cohort manifest confirms that exact source and
+identity. The public producer freeze hash is
+`2febd060bd5d9984b1bfd30c0441d4ff7302bc6c7bca58488b5c94a6a7f67f14`;
+all 80 frozen file hashes remained unchanged after normal test build/staging.
+Configuration readiness and all 11 prior receipts were rechecked before dispatch.
+Model, reasoning, limits, independent oracle and campaign accounting are unchanged.
+The measurement-configuration hash above deliberately excludes the source identity;
+it is not the identity of the separate source-bound cohort manifest.
+
+The run used one discovery response and generated a two-task tentative fragment
+for the pinned clone and confined cleanup. Compiler semantic preflight reported no
+diagnostic. Its mandatory local Judge then spent all 2,048 output tokens on
+reasoning and returned no content. The session stopped with
+`CONSTRUCTION_REVIEW_INCONCLUSIVE`, retaining the candidate and receipts, with
+zero accepted checkpoints, approvals or executions. There is no usable Judge
+finding, business-completeness verdict or artifact authorization. The tentative
+fragment is not a completed repository review; remaining checks, review and report
+work was never constructed or executed.
+
+This attempt consumed three calls, 31,823 input tokens and 6,079 output tokens in
+75.407 seconds, costing €0.3034612992090997956100595397. Generation/discovery used
+20,182 input and 4,031 output tokens; the Judge used 11,641 input and 2,048 output
+tokens. Complete-request peaks were 77,607 bytes / 26,125 conservative tokens for
+generation and 66,723 bytes / 22,497 conservative tokens for review. No repair or
+original-evidence call occurred. One of this cohort's six slots was attempted;
+the other five remain unattempted. The first cohort's two failed attempts remain
+separate evidence. Neither cohort establishes a reliability rate.
+
+Paid iteration stops at this failed convergence boundary. The observed generic
+instruction and admission defects were corrected and tested; the remaining live
+failures exhaust captured output reservations without a usable response. No limit
+increase, model substitution, repeat of an uncertain call, or approval bypass was
+used to obtain an apparent success. External business outcomes and live delegated
+runtime dialogs remain unverified in this replacement campaign. Unit and integration
+tests cover their authority, correlation and rejection boundaries independently.
+
+Final public ledger inspection confirms 14 reservations, 14 completion receipts,
+117,752 input tokens, 26,781 output tokens and zero new uncertain attempts. Known
+cost and upper bound are both €1.2371723096063272016351195234; remaining authorized
+new-campaign allowance is €238.7929315230999773408098277766. Combined with the last
+verified historical upper bound, conservative total exposure is approximately
+€161.207068 of the original €400 authorization. The historical component remains
+a documented snapshot because its underlying ledger was lost. Final replacement
+ledger evidence hash:
+`ad7841f51ba598a4f635640bd9aec6670140ef8a83fa8535f75807fdd4258cd2`.
+
+All five Flow Release packages, the `osx-arm64` Native AOT planning smoke and the
+trimmed published encrypted-storage smoke pass again on the final production
+sources. Debug solution and benchmark builds have zero warnings or errors. The
+Draft PR records the complete local suite and final pushed-revision CI conclusion;
+documentation-only follow-ups do not change the frozen evaluated production source.
