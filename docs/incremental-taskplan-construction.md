@@ -57,6 +57,11 @@ replacement for authoritative intent. Selecting a substep identifies its origina
 requirements, target scope, available input ports, expected outputs, dependencies
 and permitted task kinds. Missing prerequisites remain frontier obligations, not
 executable placeholders. Cleanup and scope/export closure are selectable substeps.
+Selection distinguishes internal expected results from declared public workflow
+outputs. Public names are presented eight at a time and constrain the issued
+selection schema; omitted requirements, interfaces and outputs have explicit
+page addresses. Internal task, group and child-export names do not become public
+outputs merely by appearing in a substep description.
 
 Each phase receives only the context needed for that substep. Discovery uses its
 needs rather than the global request. Previously inspected operations remain in
@@ -76,11 +81,18 @@ A call substep selects one closed reusable group with `groupId`. Its draft and
 Judge context includes the immutable group hash and exact input/output interface,
 including input defaults, without copying the body. `group:<id>` retrieves that
 interface. Open groups expose no consumable outputs and cannot be selected for calls.
+Version-2 checkpoints retain the selected substep and introduced group identities.
+Later group-body steps retrieve that opening intent and its expected results
+without copying the group's tasks or unrelated checkpoint history. Invalidated
+opening metadata does not supply current scope intent.
 
 Intent, selection, discovery and evidence response schemas contain no TaskPlan
 grammar. Generation schemas expose only selected task kinds and operation IDs;
 container openings establish empty child scopes for later substeps. Compiler
-validation still uses complete original contracts. Draft and Judge context omit
+validation still uses complete original contracts. Compact schemas retain the
+selected kind's necessary semantics, including scoped exports, ordered loop
+results and the distinction between total iteration ceilings and concurrency.
+Draft and Judge context omit
 unrelated history, contracts, interfaces and requirement pages. Already issued
 requests and saved review contexts retain their exact bytes and hashes.
 
@@ -131,7 +143,10 @@ Rejecting a candidate does not freeze its tentative operation choice. Previously
 accepted commitments remain immutable. Closing a requirement records reviewed
 declared coverage, never proof of prose completeness or successful execution.
 The checkpoint retains which requirements the scoped review explicitly closed;
-ordinary contribution checkpoints do not establish closure. A diagnosed tentative
+ordinary contribution checkpoints do not establish closure. A selected closure
+may review an outstanding requirement without changing the TaskPlan or closing
+its scope. It must close a previously unresolved obligation; repeating an already
+closed requirement does not count as progress. A diagnosed tentative
 step may request reselection within its original scope and requirement identities,
 retaining rejected evidence and correction accounting. This cannot expand explicit
 typed revision paths or change accepted fragments.

@@ -15,6 +15,7 @@ public sealed class PlanningCompactConstructionState
     public int RequirementOffset { get; set; }
     public bool RequirementPageRequested { get; set; }
     public int InterfaceOffset { get; set; }
+    public int OutputOffset { get; set; }
     public List<string> FailedActions { get; set; } = [];
     public List<JsonObject> RejectedSteps { get; set; } = [];
     public string? ReplacementScope { get; set; }

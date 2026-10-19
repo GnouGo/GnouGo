@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Planning.Examples;
 
 namespace GnOuGo.Flow.Planning.Tests;
 
@@ -469,6 +470,132 @@ public sealed class CompactConstructionContractsTests
         Assert.Equal("null", schema["properties"]!["discoveryRequests"]!["type"]!.ToString());
         Assert.Equal("null", schema["properties"]!["requirements"]!["type"]!.ToString());
     }
+
+    [Fact]
+    public async Task RequirementOnlyClosureIsReviewedAndCheckpointedWithoutRegeneratingAcceptedWork()
+    {
+        var selected = 0;
+        var runtime = new TestRuntime { Respond = (request, purpose) =>
+        {
+            if (purpose is PlanningConstruction.LocalPurpose or PlanningConstruction.IntermediatePurpose)
+                return Wire(new() { ["findings"] = new JsonArray(), ["uncertainty"] = "Runtime outcome remains unverified.", ["evidenceRequests"] = null });
+            var context = JsonNode.Parse(request.Prompt[(request.Prompt.IndexOf('\n') + 1)..])!.AsObject();
+            JsonObject response;
+            if (purpose == PlanningCompactConstruction.IntentPurpose)
+                response = new() { ["sourceId"] = context["sources"]![0]!["id"]!.ToString(),
+                    ["clauses"] = new JsonArray(new JsonObject { ["text"] = context["sources"]![0]!["text"]!.ToString(), ["kind"] = "requirement" }),
+                    ["inputs"] = new JsonArray(), ["outputs"] = new JsonArray(new JsonObject
+                    { ["name"] = "message", ["type"] = new JsonObject { ["kind"] = "string", ["nullable"] = false }, ["required"] = true }) };
+            else if (purpose == PlanningCompactConstruction.SelectPurpose)
+            {
+                selected++;
+                response = new() { ["baseHash"] = context["baseHash"]!.ToString(), ["evidenceRequests"] = null, ["clarifications"] = null,
+                    ["step"] = new JsonObject { ["scope"] = "/root", ["kind"] = selected == 1 ? "value" : "close",
+                        ["objective"] = "Return exactly Hello.", ["requirementIds"] = new JsonArray("req_0"), ["inputs"] = new JsonArray(),
+                        ["dependencyTaskIds"] = new JsonArray(), ["expectedOutputs"] = new JsonArray(), ["groupId"] = null,
+                        ["outputNames"] = selected == 1 ? new JsonArray("message") : new JsonArray(),
+                        ["closeRequirementIds"] = selected == 2 ? new JsonArray("req_0") : new JsonArray() } };
+            }
+            else if (purpose == PlanningConstruction.DraftPurpose)
+            {
+                var extension = new PlanningConstructionExtension { RequirementIds = ["req_0"] };
+                if (selected == 1)
+                {
+                    extension.Tasks = [new() { Id = "greet", Kind = "value", Objective = "Return exactly Hello.",
+                        Outputs = [new("message", new() { Kind = "string", Text = "Hello" })] }];
+                    extension.Outputs = [new("message", new() { Kind = "output", Source = "greet", Port = "message" })];
+                }
+                if (selected == 3) { extension.CloseScopes = ["/root"]; extension.Complete = true; }
+                response = new() { ["baseHash"] = context["baseHash"]!.ToString(), ["requirements"] = null, ["commitments"] = null,
+                    ["extension"] = JsonSerializer.SerializeToNode(extension, PlanningJsonContext.Default.PlanningConstructionExtension),
+                    ["discoveryRequests"] = null, ["clarifications"] = null, ["evidenceRequests"] = null,
+                    ["rollbackTask"] = null, ["rollbackReason"] = null, ["reselectStep"] = null };
+            }
+            else throw new InvalidOperationException("Unexpected phase: " + purpose);
+            return Wire(response);
+
+            LLMResponse Wire(JsonObject value) => new()
+            { Json = PlanningCorpus.Transport(value, request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject()) };
+        } };
+        var state = await PlannerFixture.RunAsync(runtime, new() { Request = new() { TenantId = "closure", Prompt = "Return exactly Hello." } });
+        Assert.True(state.Status == PlanningStatus.FinalReview, string.Join(';', state.Diagnostics.Select(d => d.Code + ":" + d.Message)));
+        Assert.Equal(3, state.Construction!.Checkpoints.Count);
+        var closed = state.Construction.Checkpoints[1];
+        Assert.Empty(closed.TaskIds); Assert.Empty(closed.ClosedScopes);
+        Assert.Equal(new[] { "req_0" }, closed.ClosedRequirementIds);
+        Assert.Equal(state.Construction.Checkpoints[0].PlanHash, closed.PlanHash);
+        Assert.Equal(2, closed.Reviews.Count);
+        Assert.Equal("closed", Assert.Single(state.Construction.Requirements).Status);
+        Assert.Single(state.Plan!.Root.Tasks);
+        PlanningArtifactApproval.Verify(state);
+    }
+
+    [Theory]
+    [InlineData(1, "remaining", "close")]
+    [InlineData(2, "closed", "close")]
+    [InlineData(2, "remaining", "value")]
+    public void EmptyExtensionsCannotClaimProgressWithoutANewHostIssuedRequirementClosure(int version, string status, string kind)
+    {
+        var state = State();
+        state.Construction!.Version = version; state.Construction.OpenScopes = ["/root"];
+        state.Construction.Requirements = [new() { Id = "result", Status = status }];
+        state.Construction.Compact!.CurrentStep!.Kind = kind;
+        state.Construction.Compact.CurrentStep.CloseRequirementIds = ["result"];
+        var rejected = Assert.Throws<PlanningResponseException>(() => PlanningConstruction.Apply(state, new() { RequirementIds = ["result"] }));
+        Assert.Contains(rejected.Diagnostics, d => d.Code == "REPLAN_NO_PROGRESS");
+    }
+
+    [Fact]
+    public void CompleteForeachDraftRequestRetainsIterationAndDependencySemanticsAfterProjection()
+    {
+        var state = State();
+        state.Construction!.Requirements = [new() { Id = "result" }];
+        var step = state.Construction.Compact!.CurrentStep!;
+        step.Kind = "foreach"; step.OperationIds.Clear();
+        var request = PlanningConstruction.DraftRequest(state, repair: false);
+        var description = request.StructuredOutputSchema!["description"]!.ToString();
+        Assert.Contains("TOTAL input-item ceiling; excess fails", description, StringComparison.Ordinal);
+        Assert.Contains("maxConcurrency limits simultaneous workers, not total items", description, StringComparison.Ordinal);
+        Assert.Contains("preserving input order and repetitions", description, StringComparison.Ordinal);
+        Assert.Contains("preceding same-scope tasks", description, StringComparison.Ordinal);
+        Assert.Contains("ancestor values use captures", description, StringComparison.Ordinal);
+        Assert.DoesNotContain("conditional chooses", description, StringComparison.Ordinal);
+        Assert.Empty(PlanningContractValidation.ValidateSchema(request.StructuredOutputSchema.AsObject(), strict: true));
+        Assert.InRange(PlanningRequestMeasurements.Measure(Complete(request), PlanningConstruction.DraftPurpose, 8000).EstimatedInputTokens, 1, 8000);
+    }
+
+    [Theory]
+    [InlineData("foreach", "array on the enclosing task")]
+    [InlineData("conditional", "matching names, types, nullability and requiredness")]
+    public void CompleteClosureRequestExplainsItsSelectedBoundaryWithoutReintroducingTaskGrammar(string ownerKind, string expected)
+    {
+        var state = State();
+        state.Construction!.Requirements = [new() { Id = "result" }];
+        state.Plan = new() { Root = new() { Tasks = [new() { Id = "container", Kind = ownerKind,
+            Objective = "Preserve the required values across the boundary", Body = new(),
+            Otherwise = ownerKind == "conditional" ? new() : null }] } };
+        state.Construction.OpenScopes = ["/root", "/tasks/container/body"];
+        var step = state.Construction.Compact!.CurrentStep!;
+        step.Kind = "close"; step.Scope = "/tasks/container/body"; step.OperationIds.Clear();
+        step.BaseHash = PlanningConstruction.Hash(state.Plan);
+        var request = PlanningConstruction.DraftRequest(state, repair: false);
+        var description = request.StructuredOutputSchema!["description"]!.ToString();
+        Assert.Contains(expected, description, StringComparison.Ordinal);
+        Assert.Contains("consumers cannot read hidden child tasks directly", description, StringComparison.Ordinal);
+        Assert.Contains("empty closeScopes and no new tasks or exports", description, StringComparison.Ordinal);
+        Assert.Contains("Close children before their parent", description, StringComparison.Ordinal);
+        Assert.DoesNotContain("TOTAL input-item ceiling", description, StringComparison.Ordinal);
+        Assert.DoesNotContain(Walk(request.StructuredOutputSchema), n => n["properties"]?["objective"] is not null);
+        Assert.Empty(PlanningContractValidation.ValidateSchema(request.StructuredOutputSchema.AsObject(), strict: true));
+        Assert.InRange(PlanningRequestMeasurements.Measure(Complete(request), PlanningConstruction.DraftPurpose, 8000).EstimatedInputTokens, 1, 8000);
+    }
+
+    private static LLMRequest Complete(LLMRequest presentation) => PlanningGenerationPolicy.Apply(new()
+    {
+        Prompt = presentation.Prompt, StructuredOutputSchema = presentation.StructuredOutputSchema,
+        StructuredOutputStrict = true, UseBackgroundMode = true, MaxTokens = 8192,
+        ClientRequestId = "compact-contract-test:1:" + new string('0', 64)
+    }, new("medium", 32000, 8192));
 
     [Fact]
     public void AContainerOpeningCannotHideARecursiveGeneratedWorkflow()

@@ -314,6 +314,90 @@ public sealed class CompactConstructionTests
     }
 
     [Fact]
+    public async Task InternalGroupResultsCannotBeMistakenForDeclaredPublicOutputs()
+    {
+        var state = await PlannerFixture.RunAsync(new TestRuntime { Respond = Simple }, Fresh());
+        state.Construction!.OpenScopes = ["/root"];
+        var request = PlanningCompactConstruction.Request(PlanningCompactConstruction.SelectInstructions,
+            PlanningCompactConstruction.SelectionContext(state), PlanningCompactConstruction.SelectionSchema(state), PlanningCompactConstruction.SelectPurpose);
+        var response = Select(request, "group", close: false);
+        response["step"]!["groupId"] = null;
+        response["step"]!["outputNames"] = new JsonArray("internalGreeting");
+        response["step"]!["expectedOutputs"] = new JsonArray("An internal reusable greeting interface.");
+        Assert.Equal("message", Context(request)["publicOutputs"]!["items"]![0]!["name"]!.ToString());
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(response, request.StructuredOutputSchema!.AsObject()));
+        var step = response["step"]!.Deserialize(PlanningJsonContext.Default.PlanningConstructionStep)!;
+        var error = Assert.Throws<PlanningResponseException>(() => PlanningCompactConstruction.ValidateSelection(state, step));
+        var diagnostic = Assert.Single(error.Diagnostics);
+        Assert.Equal("CONSTRUCTION_STEP_OUTPUT_INVALID", diagnostic.Code);
+        Assert.Equal("/step/outputNames", diagnostic.Location);
+        Assert.Contains("message", diagnostic.Message, StringComparison.Ordinal);
+        Assert.Contains("outputNames:[]", diagnostic.Message, StringComparison.Ordinal);
+        response["step"]!["outputNames"] = new JsonArray();
+        Assert.Empty(PlanningContractValidation.ValidateInstance(response, request.StructuredOutputSchema.AsObject()));
+        step.OutputNames.Clear();
+        PlanningCompactConstruction.ValidateSelection(state, step);
+        Assert.Equal("An internal reusable greeting interface.", Assert.Single(step.ExpectedOutputs));
+    }
+
+    [Fact]
+    public async Task PublicOutputDirectoryAndSchemaPageWithoutResendingTheCatalog()
+    {
+        var state = await PlannerFixture.RunAsync(new TestRuntime { Respond = Simple }, Fresh());
+        state.Requirements!.Outputs = Enumerable.Range(0, 500).Select(i => new TaskInput
+            { Name = "result_" + i, Type = new() { Kind = "string" } }).ToList();
+        var context = PlanningCompactConstruction.SelectionContext(state);
+        Assert.Equal(8, context["publicOutputs"]!["items"]!.AsArray().Count);
+        Assert.Equal("page:outputs:8", context["publicOutputs"]!["next"]!.ToString());
+        var schema = PlanningCompactConstruction.SelectionSchema(state);
+        Assert.DoesNotContain("result_8\"", schema.ToJsonString(), StringComparison.Ordinal);
+        var request = PlanningCompactConstruction.Request(PlanningCompactConstruction.SelectInstructions, context, schema, PlanningCompactConstruction.SelectPurpose);
+        Assert.InRange(PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.SelectPurpose, 3000).EstimatedInputTokens, 1, 3000);
+        Assert.True(PlanningCompactConstruction.LoadEvidence(state, context["publicOutputs"]!["next"]!.ToString(), out var page));
+        Assert.Equal("result_8", page!["items"]![0]!["name"]!.ToString());
+        Assert.Contains("result_8\"", PlanningCompactConstruction.SelectionSchema(state).ToJsonString(), StringComparison.Ordinal);
+        Assert.DoesNotContain("result_0\"", PlanningCompactConstruction.SelectionSchema(state).ToJsonString(), StringComparison.Ordinal);
+        Assert.True(PlanningCompactConstruction.LoadEvidence(state, "output:result_8", out var exact));
+        Assert.True(JsonNode.DeepEquals(JsonSerializer.SerializeToNode(state.Requirements.Outputs[8], PlanningJsonContext.Default.TaskInput), exact));
+        state.Requirements.Outputs.Clear(); state.Construction!.Compact!.OutputOffset = 0;
+        var response = Select(request); response["step"]!["groupId"] = null;
+        response["step"]!["outputNames"] = new JsonArray();
+        Assert.Empty(PlanningContractValidation.ValidateInstance(response, PlanningCompactConstruction.SelectionSchema(state)));
+        response["step"]!["outputNames"] = new JsonArray("undeclared");
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(response, PlanningCompactConstruction.SelectionSchema(state)));
+    }
+
+    [Fact]
+    public async Task SelectionIssuesStableRequirementAndMixedInterfaceContinuationAddresses()
+    {
+        var state = await PlannerFixture.RunAsync(new TestRuntime { Respond = Simple }, Fresh());
+        for (var i = 1; i < 8; i++)
+        {
+            state.Requirements!.Outcomes.Add(new("req_" + i, "Original obligation " + i));
+            state.Construction!.Requirements.Add(new() { Id = "req_" + i });
+        }
+        state.Plan!.Inputs = Enumerable.Range(0, 10).Select(i => new TaskInput { Name = "input_" + i, Type = new() { Kind = "string" } }).ToList();
+        state.Plan.Groups = Enumerable.Range(0, 10).Select(i => new TaskGroup { Id = "group_" + i }).ToList();
+        state.Construction!.OpenScopes = ["/root", .. state.Plan.Groups.Select(group => "/groups/" + group.Id + "/body")];
+        var context = PlanningCompactConstruction.SelectionContext(state);
+        Assert.Equal("req_1", context["requirements"]![0]!["id"]!.ToString());
+        Assert.Equal("page:requirements:4", context["nextRequirements"]!.ToString());
+        Assert.True(PlanningCompactConstruction.LoadEvidence(state, context["nextRequirements"]!.ToString(), out var requirements));
+        Assert.Equal("req_4", requirements!["items"]![0]!["id"]!.ToString());
+        Assert.Equal("page:interfaces:4", context["nextInterfaces"]!.ToString());
+        Assert.True(PlanningCompactConstruction.LoadEvidence(state, context["nextInterfaces"]!.ToString(), out var interfaces));
+        Assert.Contains(interfaces!.AsArray(), item => item?["group"]?.ToString() == "group_4");
+        Assert.Equal("page:interfaces:8", PlanningCompactConstruction.SelectionContext(state)["nextInterfaces"]!.ToString());
+        Assert.Equal("page:scopes:8", context["nextScopes"]!.ToString());
+        PlanningConstruction.LoadEvidence(state, [context["nextScopes"]!.ToString()]);
+        Assert.Equal("/groups/group_7/body", state.Construction.Evidence!["page:scopes:8"]![0]!.ToString());
+        var later = PlanningCompactConstruction.SelectionContext(state);
+        Assert.Equal("/groups/group_7/body", later["frontier"]![0]!.ToString());
+        Assert.Equal("/groups/group_7/body", later["scopes"]![0]!["path"]!.ToString());
+        Assert.Null(later["nextScopes"]);
+    }
+
+    [Fact]
     public async Task SourcePagesRetainEveryOriginalCharacterAcrossBoundaries()
     {
         var prompt = new string('a', 999) + "🦊" + new string('b', 1000) + " Keep exactly Hello.";
@@ -572,9 +656,20 @@ public sealed class CompactConstructionTests
             {
                 var response = Select(request, step switch { 0 => "group", 1 => "value", _ => "call" },
                     step == 1 ? "/groups/reusable/body" : "/root", close: step == 2);
+                if (step < 2) response["step"]!["outputNames"] = new JsonArray();
+                if (step == 0)
+                {
+                    response["step"]!["objective"] = "Build the reusable greeting interface.";
+                    response["step"]!["expectedOutputs"] = new JsonArray("Return the exact supplied word as message.");
+                }
                 if (step == 1)
                 {
                     Assert.Contains("\"input\":\"word\"", Context(request)["scopes"]!.ToJsonString(), StringComparison.Ordinal);
+                    var scope = Context(request)["scopes"]!.AsArray().Single(s => s!["kind"]?.ToString() == "group")!;
+                    Assert.Equal("Build the reusable greeting interface.", scope["objective"]!.ToString());
+                    Assert.Equal("req_0", scope["requirementIds"]![0]!.ToString());
+                    Assert.Equal("group:reusable", scope["evidence"]!.ToString());
+                    Assert.Null(scope["expectedOutputs"]);
                     response["step"]!["inputs"] = new JsonArray(new JsonObject { ["kind"] = "input", ["source"] = "word" });
                 }
                 if (step == 2)
@@ -586,6 +681,13 @@ public sealed class CompactConstructionTests
             }
             if (purpose == PlanningConstruction.DraftPurpose)
             {
+                if (step == 1)
+                {
+                    var scope = Context(request)["scopeGroup"]!;
+                    Assert.Equal("Build the reusable greeting interface.", scope["intent"]!["objective"]!.ToString());
+                    Assert.Equal("Return the exact supplied word as message.", scope["intent"]!["expectedOutputs"]![0]!.ToString());
+                    Assert.Null(scope["body"]);
+                }
                 var extension = step++ switch
                 {
                     0 => new PlanningConstructionExtension { Groups = [new() { Id = "reusable", Inputs = [new() { Name = "word", Type = new() { Kind = "string" } }] }], RequirementIds = ["req_0"] },
@@ -612,6 +714,21 @@ public sealed class CompactConstructionTests
         Assert.True(state.Status == PlanningStatus.FinalReview, string.Join(';', state.Diagnostics.Select(d => d.Code + ":" + d.Message)));
         Assert.Single(state.Plan!.Groups); Assert.Equal("call", Assert.Single(state.Plan.Root.Tasks).Kind);
         PlanningArtifactApproval.Verify(state);
+        var opening = state.Construction!.Checkpoints[0];
+        Assert.Equal("Build the reusable greeting interface.", opening.Step!.Objective);
+        Assert.Equal("reusable", opening.Fragment["groups"]![0]!.ToString());
+        var saved = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
+        Assert.Equal("Return the exact supplied word as message.", PlanningCompactConstruction.GroupInterface(saved, "reusable")!["intent"]!["expectedOutputs"]![0]!.ToString());
+        PlanningConstruction.LoadEvidence(saved, ["scope:/groups/reusable/body"]);
+        Assert.Equal("Build the reusable greeting interface.", saved.Construction!.Evidence!["scope:/groups/reusable/body"]!["group"]!["intent"]!["objective"]!.ToString());
+        saved.Plan!.Groups[0].Body.Tasks.Add(new() { Id = "nested", Kind = "foreach", Body = new() });
+        saved.Construction.OpenScopes = ["/groups/reusable/body", "/tasks/nested/body"];
+        saved.Construction.Compact!.CurrentStep = new() { Kind = "value", Scope = "/tasks/nested/body", RequirementIds = ["req_0"] };
+        Assert.Equal("reusable", PlanningCompactConstruction.ScopeGroup(saved, "/tasks/nested/body")!.Id);
+        Assert.Equal("Build the reusable greeting interface.", PlanningCompactConstruction.Context(saved)["scopeGroup"]!["intent"]!["objective"]!.ToString());
+        saved.Construction.Checkpoints[0].InvalidatedTaskIds.Add("invalidated-original");
+        Assert.Null(PlanningCompactConstruction.GroupInterface(saved, "reusable")!["intent"]);
+        Assert.DoesNotContain("\"step\"", JsonSerializer.Serialize(new PlanningConstructionCheckpoint(), PlanningJsonContext.Default.PlanningConstructionCheckpoint), StringComparison.Ordinal);
     }
 
     [Theory]

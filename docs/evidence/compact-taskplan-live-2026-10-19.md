@@ -6,7 +6,7 @@ failures remain in [the incremental evaluation record](incremental-taskplan-live
 
 ## Financial and comparison boundary
 
-Read-only provider readiness verified the existing encrypted campaign
+Before the first compact pilot, read-only provider readiness verified the existing encrypted campaign
 `schema-portability-20261019-incremental`: 14 requests and 14 receipts, no uncertain
 attempts, no outstanding reservations, and a known spending upper bound of
 €1.2371723096063272016351195234. The campaign ceiling remains
@@ -59,5 +59,55 @@ environmental blocking or failed convergence leave the result incomplete.
 
 ## Current results
 
-Implementation and deterministic validation are in progress. No paid compact
-attempt or measured comparison result is claimed by this checkpoint.
+The first compact Collections pilot failed before accepting a draft. It is
+retained under source `41faf8ce4529f2a2514b6366e83ddce89f525bbe`, run
+`41faf8ce4529f2a2514b6366e83ddce89f525bbe:pilot:collections:1`, and session
+`21bd4fe7a1cc25b243bf9b3da42f43ab2f0880137bbd4605bc5b18a96bc930ca`.
+Its measurement manifest is
+`fd43756584a76b2fd9103d0735c6ce27a97525d636bf6462adcbcd3b03fd26c5`;
+its original harness comparison manifest is
+`ee874502ccdf642150ccec8d1c8cf0b2c73f3cf8ddcc46e2a4f150a59b9e5748`.
+Neither identifies a completed paired comparison.
+
+One intent-indexing call was followed by five rejected substep selections. The
+selection responses supplied internal group/input output names where accepted
+public output names were required. The selector context omitted the public-output
+directory, its schema allowed arbitrary strings, and the repeated compound
+diagnostic did not identify `outputNames`. Deterministic validation rejected them with
+`CONSTRUCTION_STEP_INVALID` at `/step`. Four corrections exhausted the captured
+allowance, ending with `CONSTRUCTION_CORRECTION_ALLOWANCE`. All five invalid
+selection events and the allowance-stop event remain in the failure history.
+There were zero accepted drafts, no scoped Judge calls, no FinalReview artifact
+and no execution or external effects. Business success is **not established**.
+
+| Pilot measurement | Retained result |
+| --- | ---: |
+| Model calls / corrections | 6 / 4 |
+| Peak complete serialized request | 6,967 bytes |
+| Peak conservative input estimate | 2,579 tokens, selection phase |
+| Provider input / output tokens | 6,658 / 4,039 |
+| Planning elapsed time | 62.411 seconds |
+| Known cost | €0.1372611747978316893272905003 |
+
+All six requests stayed below the captured 3,000-token phase ceiling. This
+demonstrates bounded request size for this failed attempt only; it does not
+demonstrate a complete workflow, business correctness or improvement over the
+baseline. The corpus summary's `approved_execution_correct=true` was computed
+with no executed variants and must not be read as a successful business result.
+Its coverage was one of eight historical pilot cases and its gates failed.
+
+Fresh post-pilot readiness independently reconciled 20 requests with 20 receipts,
+no uncertain requests, zero unknown attempts and zero outstanding reservations.
+The verified campaign spending upper bound is
+€1.3744334844041588909624100237. Against the unchanged campaign ceiling, the
+remaining allowance is €238.6556703483021456514825372763. The pinned model and
+configuration passed readiness without model calls. This inspection's evidence
+hash is `416d1a861ac928d131dc181df972ce890066ce1df46f07b192da208d4566c38a`.
+Further spending must remain reconciled against this existing ledger. The
+sanitized pilot log has SHA-256
+`88989e2c34e7948b5b92a0c83e65b403b6565b0e52fa6710981f80b89f3049f5`.
+
+A generic selection-contract correction is in progress. Further diagnostics
+require a fresh committed source and fresh run identities; the failed pilot and
+its spending remain retained. Amazon, Review PR and the measured paired cohort
+have not established compact live acceptance at this checkpoint.

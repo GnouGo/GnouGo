@@ -121,6 +121,8 @@ internal static partial class PlanningConstruction
                         ["always"] = new JsonArray(scope.Source.Always.Take(8).Select(t => TaskNode(t)).ToArray()),
                         ["continuation"] = "Use page:tasks:<offset> for the complete task directory; scope children retain their original identities."
                     };
+                    if (construction.Version == 2 && value is not null && PlanningCompactConstruction.ScopeGroup(state, id) is { } scopeGroup)
+                        value["group"] = PlanningCompactConstruction.GroupInterface(state, scopeGroup.Id);
                     break;
                 case "contract":
                     var contracts = state.Catalog!.Capabilities.Concat(state.Discovery.Resolved)

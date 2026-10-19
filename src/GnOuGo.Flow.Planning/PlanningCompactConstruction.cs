@@ -12,7 +12,7 @@ internal static partial class PlanningCompactConstruction
         Index this exact original intent page. Divide its text into consecutive verbatim clauses whose concatenation equals the entire page, including whitespace. Every clause is either a business requirement or an applicable global constraint. Do not summarize, omit, invent, or plan tasks. Keep original order and text. Declare only caller inputs and public result interfaces explicitly supported by this page; a requested external effect need not invent a public output. Other original pages and answers are retained independently. No capability selection or workflow outline.
         """;
     internal const string SelectInstructions = """
-        Choose exactly one immediate business substep, from available producers toward consumers, for the presented original requirements. Do not plan future tasks or the whole workflow. Select its open scope, semantic task kind, exact typed input values/ports, explicit dependencies, relevant requirement IDs and intended public outputs. For a call select one closed reusable groupId; other kinds use null. Use a missing prerequisite as the next step rather than an unresolved executable reference. A requirement may need many steps; closeRequirementIds names only requirements fully satisfied by this step plus accepted work. Closing a scope/export, cleanup, group or choice is a legitimate step. Remaining original requirements cannot be dropped. Discover operations only after selecting the business step. Return a step, bounded evidenceRequests, or clarifications, exactly one. Page requirements/interfaces by evidence when necessary. No executable task payload or operation catalog is needed here.
+        Choose one immediate business substep from available producers toward consumers, using the original requirements. Do not plan future tasks or a workflow outline. No executable task payload. Select an open scope, task kind, exact typed imports, dependencies and relevant requirement IDs. expectedOutputs describes this step's internal results or interfaces. outputNames selects only declared PUBLIC workflow results shown in publicOutputs; use [] for internal work, group definitions and child-scope exports. Never put an input, task, group or internal port name there. For a call select one closed groupId; otherwise null. Construct missing prerequisites before consumers. closeRequirementIds claims full satisfaction by this step plus accepted work; contributions alone do not close requirements. Scope closure, exports, cleanup, groups and choices are valid steps. Discover operations after selecting the step. Return exactly one step, evidenceRequests or clarifications. Use the issued next-page addresses for omitted requirements/interfaces/public outputs. Evidence grants no edit or execution authority.
         """;
     internal const string DiscoveryInstructions = """
         Select capabilities only for the retained immediate business step and its original requirements. Operation descriptions are navigation, not exact contracts or execution authority. Choose discovered operation IDs, request at most two source metadata pages using this step's objective, request exact schema/description evidence, or clarify a material business fact. Return exactly one action. Previously inspected contracts remain stored but do not belong to this step unless selected again. Do not discover future workflow operations or replan the workflow.
@@ -117,12 +117,14 @@ internal static partial class PlanningCompactConstruction
     internal static JsonObject SelectionSchema(PlanningSession state)
     {
         var replacement = State(state).ReplacementScope;
+        var outputs = OutputPage(state).Select(o => o.Name).ToArray();
         var step = PlanningSchemas.Object(("scope", replacement is null ? Text(192) : PlanningSchemas.Enum(replacement)),
             ("kind", PlanningSchemas.Enum("operation", "value", "transform", "sequence", "conditional", "parallel", "foreach", "call", "close", "group", "choice")),
             ("objective", Text(512)), ("requirementIds", Strings(1, 4)), ("inputs", PlanningSchemas.Array(PlanningSchemas.Ref("import"), 0, 8)),
             ("groupId", PlanningSchemas.Nullable(Text(96))),
             ("dependencyTaskIds", Strings(0, 8)), ("expectedOutputs", Strings(0, 4)),
-            ("closeRequirementIds", Strings(0, 4)), ("outputNames", Strings(0, 8)));
+            ("closeRequirementIds", Strings(0, 4)), ("outputNames", outputs.Length == 0
+                ? PlanningSchemas.Array(Text(256), 0, 0) : PlanningSchemas.Array(PlanningSchemas.Enum(outputs), 0, 8)));
         var schema = PlanningSchemas.Object(("baseHash", PlanningSchemas.Enum(PlanningConstruction.Hash(state.Plan))),
             ("step", PlanningSchemas.Nullable(step)), ("evidenceRequests", PlanningSchemas.Nullable(PlanningSchemas.Array(Text(2048), 1, 4))),
             ("clarifications", PlanningSchemas.Nullable(PlanningSchemas.Clarifications())));
@@ -156,6 +158,7 @@ internal static partial class PlanningCompactConstruction
     internal static JsonObject SelectionContext(PlanningSession state)
     {
         var compact = State(state);
+        var scopeOffset = ScopeOffset(state);
         var remaining = state.Construction!.Requirements.Where(r => r.Status != "closed").Select(r => r.Id).ToHashSet(StringComparer.Ordinal);
         var selected = compact.RequirementPageRequested
             ? state.Requirements!.Outcomes.Skip(compact.RequirementOffset).Take(3).ToArray()
@@ -163,17 +166,23 @@ internal static partial class PlanningCompactConstruction
         if (selected.Length == 0 && remaining.Count > 0) selected = state.Requirements.Outcomes.Where(r => remaining.Contains(r.Id)).Take(3).ToArray();
         if (selected.Length == 0) selected = state.Requirements.Outcomes.Skip(compact.RequirementOffset).Take(3).ToArray();
         if (selected.Length == 0) selected = state.Requirements.Outcomes.Take(3).ToArray();
+        var lastRequirement = selected.Length == 0 ? -1 : state.Requirements.Outcomes.FindIndex(r => r.Id == selected[^1].Id);
         return new JsonObject
         {
             ["baseHash"] = PlanningConstruction.Hash(state.Plan),
             ["requirements"] = RequirementNodes(state, selected.Select(r => r.Id)),
             ["requirementCount"] = remaining.Count, ["requirementPage"] = compact.RequirementOffset,
             ["originalRequirementCount"] = state.Requirements.Outcomes.Count,
+            ["nextRequirements"] = lastRequirement + 1 < state.Requirements.Outcomes.Count ? "page:requirements:" + (lastRequirement + 1) : null,
+            ["requirementsDirectory"] = "page:requirements:0",
             ["globalConstraints"] = Sources(state, compact.GlobalSourceIds), ["instructions"] = state.Request.Policy.Instructions,
-            ["frontier"] = new JsonArray(state.Construction.OpenScopes.Take(8).Select(p => (JsonNode?)JsonValue.Create(p)).ToArray()),
+            ["frontier"] = new JsonArray(state.Construction.OpenScopes.Skip(scopeOffset).Take(8).Select(p => (JsonNode?)JsonValue.Create(p)).ToArray()),
             ["frontierCount"] = state.Construction.OpenScopes.Count,
+            ["nextScopes"] = scopeOffset + 8 < state.Construction.OpenScopes.Count ? "page:scopes:" + (scopeOffset + 8) : null,
             ["scopes"] = ScopeDirectory(state),
             ["interfaces"] = InterfaceDirectory(state, null, compact.InterfaceOffset),
+            ["nextInterfaces"] = NextInterfacePage(state, compact.InterfaceOffset),
+            ["publicOutputs"] = OutputDirectory(state),
             ["evidence"] = state.Construction.Evidence?.DeepClone(),
             ["diagnostics"] = PlanningJsonTransport.Diagnostics(state.Diagnostics),
             ["rebuild"] = RebuildDirectory(state),
@@ -182,6 +191,31 @@ internal static partial class PlanningCompactConstruction
                 ["reason"] = compact.RejectedSteps.Last()["reason"]?.DeepClone(), ["evidence"] = "rejected:" + (compact.RejectedSteps.Count - 1) },
             ["budget"] = new JsonObject { ["remainingCalls"] = PlanningModelCalls.RemainingCalls(state) }
         };
+    }
+
+    private static IEnumerable<TaskInput> OutputPage(PlanningSession state) => (state.Requirements?.Outputs ?? []).Skip(State(state).OutputOffset).Take(8);
+
+    internal static JsonObject OutputDirectory(PlanningSession state)
+    {
+        var offset = State(state).OutputOffset;
+        var count = state.Requirements?.Outputs?.Count ?? 0;
+        return new JsonObject { ["offset"] = offset, ["total"] = count,
+            ["items"] = new JsonArray(OutputPage(state).Select(o => (JsonNode)new JsonObject
+                { ["name"] = o.Name, ["typeKind"] = o.Type.Kind, ["evidence"] = "output:" + o.Name }).ToArray()),
+            ["next"] = offset + 8 < count ? "page:outputs:" + (offset + 8) : null };
+    }
+
+    private static string? NextInterfacePage(PlanningSession state, int offset)
+    {
+        var plan = state.Construction?.Candidate?.Plan ?? state.Plan;
+        var sizes = new List<(int Count, int Page)> { ((plan?.Inputs ?? state.Requirements?.Inputs ?? []).Count, 8) };
+        if (plan is not null)
+        {
+            sizes.Add((new TaskPlanSymbols(plan).Tasks.Count, 8));
+            sizes.Add((plan.Choices.Count, 4)); sizes.Add((plan.Groups.Count, 4));
+        }
+        var next = sizes.Where(s => offset + s.Page < s.Count).Select(s => offset + s.Page).DefaultIfEmpty(-1).Min();
+        return next < 0 ? null : "page:interfaces:" + next;
     }
 
     internal static JsonObject Context(PlanningSession state, bool review = false, bool intermediate = false)
@@ -208,6 +242,7 @@ internal static partial class PlanningCompactConstruction
         if (step.OutputNames.Count > 0)
             context["outputs"] = PlanningConstruction.Node(state.Requirements!.Outputs!.Where(o => step.OutputNames.Contains(o.Name, StringComparer.Ordinal)).ToList(), PlanningJsonContext.Default.ListTaskInput);
         if (step.GroupId is { } groupId) context["group"] = GroupInterface(state, groupId);
+        if (ScopeGroup(state, step.Scope) is { } scopeGroup) context["scopeGroup"] = GroupInterface(state, scopeGroup.Id);
         var choiceIds = step.Inputs.SelectMany(TaskPlanCompiler.Values).Where(v => v.Kind == "choice").Select(v => v.Source)
             .Concat(draft?.Extension.Choices.Select(c => c.Id) ?? []).ToHashSet(StringComparer.Ordinal);
         if (choiceIds.Count > 0)
@@ -260,18 +295,26 @@ internal static partial class PlanningCompactConstruction
     private static JsonArray Sources(PlanningSession state, IEnumerable<string> ids) => new(ids.Select(id => State(state).Sources.Single(s => s.Id == id))
         .Select(s => (JsonNode)new JsonObject { ["id"] = s.Id, ["version"] = s.Version, ["text"] = s.Text }).ToArray());
 
+    private static int ScopeOffset(PlanningSession state) => state.Construction!.ScopeCursor < state.Construction.OpenScopes.Count
+        ? state.Construction.ScopeCursor : 0;
+
     private static JsonArray ScopeDirectory(PlanningSession state)
     {
         var symbols = new TaskPlanSymbols(state.Plan ?? new TaskPlan());
-        return new JsonArray(state.Construction!.OpenScopes.Take(8).Select(path => symbols.Scopes.Single(s => s.Path == path))
+        return new JsonArray(state.Construction!.OpenScopes.Skip(ScopeOffset(state)).Take(8).Select(path => symbols.Scopes.Single(s => s.Path == path))
             .Select(s =>
             {
                 var group = state.Plan?.Groups.SingleOrDefault(g => s.Path == "/groups/" + g.Id + "/body");
+                var opening = group is null ? null : GroupOpening(state, group.Id);
+                var objective = s.Owner?.Objective ?? opening?.Objective;
+                var description = objective is null ? null : NavigationDescription(objective);
                 return (JsonNode)new JsonObject { ["path"] = s.Path, ["owner"] = s.Owner?.Id, ["kind"] = group is null ? s.Owner?.Kind : "group",
-                ["objective"] = s.Owner?.Objective, ["iterationInputs"] = s.Owner?.Kind == "foreach" ? "item and index" : null,
+                ["objective"] = description, ["objectiveComplete"] = description == objective,
+                ["requirementIds"] = opening is null ? null : new JsonArray(opening.RequirementIds.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray()),
+                ["iterationInputs"] = s.Owner?.Kind == "foreach" ? "item and index" : null,
                 ["inputs"] = group is null ? null : new JsonArray(group.Inputs.Take(8).Select(i => (JsonNode)new JsonObject
                     { ["input"] = i.Name, ["typeKind"] = i.Type.Kind, ["evidence"] = "group:" + group.Id }).ToArray()),
-                ["evidence"] = "scope:" + s.Path };
+                ["evidence"] = group is null ? "scope:" + s.Path : "group:" + group.Id };
             }).ToArray());
     }
 
@@ -340,6 +383,10 @@ internal static partial class PlanningCompactConstruction
         var result = new JsonObject { ["id"] = id, ["open"] = open,
             ["hash"] = PlanningGraphCompiler.Fingerprint(PlanningConstruction.Node(group, PlanningJsonContext.Default.TaskGroup)!.ToJsonString()),
             ["inputs"] = PlanningConstruction.Node(group.Inputs, PlanningJsonContext.Default.ListTaskInput), ["outputs"] = null };
+        if (GroupOpening(state, id) is { } opening)
+            result["intent"] = new JsonObject { ["objective"] = opening.Objective,
+                ["expectedOutputs"] = new JsonArray(opening.ExpectedOutputs.Select(value => (JsonNode?)JsonValue.Create(value)).ToArray()),
+                ["requirementIds"] = new JsonArray(opening.RequirementIds.Select(value => (JsonNode?)JsonValue.Create(value)).ToArray()) };
         if (open) return result;
         var probe = PlanningConstruction.Clone(plan!);
         foreach (var choice in probe.Choices.Where(c => c.Selected is null)) choice.Selected = choice.Recommended;
@@ -352,6 +399,18 @@ internal static partial class PlanningCompactConstruction
             { ["name"] = pair.First.Name, ["schema"] = pair.Second.Schema.DeepClone() }).ToArray());
         return result;
     }
+
+    internal static TaskGroup? ScopeGroup(PlanningSession state, string scope)
+    {
+        if (state.Plan is not { } plan) return null;
+        var owner = new TaskPlanSymbols(plan).Scopes.SingleOrDefault(s => s.Path == scope);
+        while (owner?.Parent is not null) owner = owner.Parent;
+        return owner is null ? null : plan.Groups.SingleOrDefault(group => ReferenceEquals(group.Body, owner.Source));
+    }
+
+    private static PlanningConstructionStep? GroupOpening(PlanningSession state, string id) => state.Construction!.Checkpoints
+        .LastOrDefault(c => c.InvalidatedTaskIds.Count == 0 && c.Step is not null &&
+            c.Fragment["groups"] is JsonArray groups && groups.Any(group => group?.ToString() == id))?.Step;
 
     internal static JsonArray ImportedInterfaces(PlanningSession state, PlanningConstructionStep step)
     {
@@ -374,14 +433,19 @@ internal static partial class PlanningCompactConstruction
         if (compact.ReplacementScope is { } fixedScope && (step.Scope != fixedScope ||
             !step.RequirementIds.ToHashSet(StringComparer.Ordinal).SetEquals(compact.ReplacementRequirements!)))
             PlanningConstruction.Fail("CONSTRUCTION_STEP_INVALID", "/step", "Reselection preserves the original tentative scope and requirement identities.");
-        if (!construction.OpenScopes.Contains(step.Scope, StringComparer.Ordinal) || step.RequirementIds.Count == 0 ||
-            step.RequirementIds.Distinct(StringComparer.Ordinal).Count() != step.RequirementIds.Count ||
-            step.CloseRequirementIds.Distinct(StringComparer.Ordinal).Count() != step.CloseRequirementIds.Count ||
-            step.OutputNames.Distinct(StringComparer.Ordinal).Count() != step.OutputNames.Count ||
-            step.RequirementIds.Any(id => construction.Requirements.All(r => r.Id != id)) ||
-            step.CloseRequirementIds.Any(id => !step.RequirementIds.Contains(id, StringComparer.Ordinal)) ||
+        if (!construction.OpenScopes.Contains(step.Scope, StringComparer.Ordinal))
+            PlanningConstruction.Fail("CONSTRUCTION_STEP_INVALID", "/step/scope", "Select an existing open scope from the frontier or its issued evidence.");
+        if (step.RequirementIds.Count == 0 || step.RequirementIds.Distinct(StringComparer.Ordinal).Count() != step.RequirementIds.Count ||
+            step.RequirementIds.Any(id => construction.Requirements.All(r => r.Id != id)))
+            PlanningConstruction.Fail("CONSTRUCTION_STEP_INVALID", "/step/requirementIds", "Select distinct original requirement IDs. Original pages begin at page:requirements:0.");
+        if (step.CloseRequirementIds.Distinct(StringComparer.Ordinal).Count() != step.CloseRequirementIds.Count ||
+            step.CloseRequirementIds.Any(id => !step.RequirementIds.Contains(id, StringComparer.Ordinal)))
+            PlanningConstruction.Fail("CONSTRUCTION_STEP_INVALID", "/step/closeRequirementIds", "Close only distinct requirements selected for this step, once their complete original obligation is satisfied.");
+        if (step.OutputNames.Distinct(StringComparer.Ordinal).Count() != step.OutputNames.Count ||
             step.OutputNames.Any(name => state.Requirements!.Outputs!.All(o => o.Name != name)))
-            PlanningConstruction.Fail("CONSTRUCTION_STEP_INVALID", "/step", "Select existing open scope, original requirements and public outputs; closure must belong to this step.");
+            PlanningConstruction.Fail("CONSTRUCTION_STEP_OUTPUT_INVALID", "/step/outputNames", "outputNames selects distinct declared public results only. Current page: " +
+                new JsonArray(OutputPage(state).Select(o => (JsonNode?)JsonValue.Create(o.Name)).ToArray()).ToJsonString() +
+                ". For internal work use outputNames:[] and describe its result in expectedOutputs. Public output pages begin at page:outputs:0.");
         if (step.Kind == "call" ? step.GroupId is null || GroupInterface(state, step.GroupId) is not { } group || group["open"]!.GetValue<bool>() : step.GroupId is not null)
             PlanningConstruction.Fail("CONSTRUCTION_STEP_INVALID", "/step/groupId", "A call requires one existing closed reusable group; other task kinds do not select a group.");
         var symbols = new TaskPlanSymbols(state.Plan ?? new TaskPlan());

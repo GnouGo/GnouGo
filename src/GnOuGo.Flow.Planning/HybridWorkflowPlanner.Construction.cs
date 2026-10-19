@@ -363,6 +363,8 @@ public sealed partial class HybridWorkflowPlanner
             Sequence = construction.Checkpoints.Count + 1, BaseHash = draft.BaseHash, PlanHash = draft.Hash,
             TaskIds = draft.TaskIds, ImportedTaskIds = draft.ImportedTaskIds, RequirementIds = draft.Extension.RequirementIds,
             ClosedRequirementIds = construction.Version == 2 ? construction.Compact!.CurrentStep!.CloseRequirementIds.ToList() : null,
+            Step = construction.Version == 2 ? PlanningConstruction.Node(construction.Compact!.CurrentStep,
+                PlanningJsonContext.Default.PlanningConstructionStep)!.Deserialize(PlanningJsonContext.Default.PlanningConstructionStep) : null,
             ClosedScopes = draft.Extension.CloseScopes, Reviews = draft.Reviews, NeedsIntermediateReview = draft.NeedsIntermediateReview,
             Fragment = new JsonObject
             {
@@ -373,6 +375,13 @@ public sealed partial class HybridWorkflowPlanner
                 ["interfaces"] = PlanningConstruction.Context(state, review: true)["interfaces"]?.DeepClone()
             }
         };
+        if (construction.Version == 2)
+        {
+            if (draft.Extension.Groups.Count > 0)
+                checkpoint.Fragment["groups"] = new JsonArray(draft.Extension.Groups.Select(g => (JsonNode?)JsonValue.Create(g.Id)).ToArray());
+            if (draft.Extension.Choices.Count > 0)
+                checkpoint.Fragment["choices"] = new JsonArray(draft.Extension.Choices.Select(c => (JsonNode?)JsonValue.Create(c.Id)).ToArray());
+        }
         state.Plan = draft.Plan; construction.OpenScopes = draft.OpenScopes; construction.Checkpoints.Add(checkpoint);
         foreach (var requirement in construction.Requirements.Where(r => draft.Extension.RequirementIds.Contains(r.Id, StringComparer.Ordinal)))
         { if (construction.Version == 1) requirement.Status = "declared"; requirement.Checkpoints.Add(checkpoint.Sequence); }

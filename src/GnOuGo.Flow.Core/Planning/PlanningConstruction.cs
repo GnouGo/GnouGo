@@ -104,6 +104,8 @@ public sealed class PlanningConstructionCheckpoint
     public List<string> RequirementIds { get; set; } = [];
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<string>? ClosedRequirementIds { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PlanningConstructionStep? Step { get; set; }
     public List<string> ClosedScopes { get; set; } = [];
     public JsonObject Fragment { get; set; } = new();
     public List<JsonObject> Reviews { get; set; } = [];

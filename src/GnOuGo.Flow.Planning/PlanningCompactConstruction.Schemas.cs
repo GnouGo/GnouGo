@@ -57,7 +57,11 @@ internal static partial class PlanningCompactConstruction
                 (state.Diagnostics.Any(d => d.Required) || state.Construction.Candidate?.Diagnostics.Any(d => d.Required) == true)
                 ? PlanningSchemas.Nullable(new JsonObject { ["type"] = "string", ["minLength"] = 1, ["maxLength"] = 512 }) : PlanningSchemas.Type("null")));
         template.Remove("$defs"); schema["$defs"] = definitions;
-        return PlanningContractValidation.ProjectStructuredOutputSchema(PlanningSchemas.Compact(schema));
+        var projected = PlanningContractValidation.ProjectStructuredOutputSchema(PlanningSchemas.Compact(schema));
+        // Compact removes presentation annotations from the shared grammar. Put
+        // back only the semantics needed by this selected kind and scope.
+        projected["description"] = DraftSemantics(state, step);
+        return projected;
 
         JsonObject OperationTask(PlanningCapability capability)
         {
@@ -78,6 +82,34 @@ internal static partial class PlanningCompactConstruction
                 ("requires", PlanningSchemas.Nullable(PlanningSchemas.Ref("value"))),
                 ("operation", PlanningSchemas.Enum(operation.Id)), ("inputs", inputs));
         }
+    }
+
+    private static string DraftSemantics(PlanningSession state, PlanningConstructionStep step)
+    {
+        var scope = new TaskPlanSymbols(state.Plan ?? new TaskPlan()).Scopes.SingleOrDefault(s => s.Path == step.Scope);
+        var hints = new List<string>();
+        if (step.Kind is not ("group" or "choice" or "close"))
+        {
+            hints.Add("dependsOn names preceding same-scope tasks only; data bindings already imply dependencies and ancestor values use captures. requires is a Boolean assertion: false fails.");
+            hints.Add("always contains cleanup on completion or failure; preserve available payloads before nested cleanup and guard absent task results with present.");
+        }
+        if (step.Scope != "/root")
+            hints.Add("outputs explicitly export this scope's bound values through its enclosing task or group call; consumers cannot read hidden child tasks directly.");
+        if (step.Kind == "foreach")
+            hints.Add("foreach.maxItems is the TOTAL input-item ceiling; excess fails, it never samples or truncates. maxConcurrency limits simultaneous workers, not total items. Neither bound guarantees a nonempty collection.");
+        if (step.Kind == "foreach" || scope?.Owner?.Kind == "foreach")
+            hints.Add("Each foreach body output becomes an array on the enclosing task, preserving input order and repetitions; array-valued outputs remain nested. Within the body, item and index refer to the current iteration.");
+        if (step.Kind == "conditional" || scope?.Owner?.Kind == "conditional")
+            hints.Add("conditional chooses body or otherwise; both alternatives must export matching names, types, nullability and requiredness. Guard nullable values on the consuming path.");
+        if (step.Kind == "parallel" || scope?.Owner?.Kind == "parallel")
+            hints.Add("Parallel sibling branches are independent and their exported names must be distinct; maxConcurrency limits simultaneous branches.");
+        if (step.Kind == "group" || scope is { Parent: null } && step.Scope != "/root")
+            hints.Add("A reusable group has isolated named inputs; its body cannot capture caller inputs or tasks. Close its body before selecting a call.");
+        if (step.Kind == "call")
+            hints.Add("Bind the selected closed group's declared input names; its explicit exports are the call's output ports.");
+        if (step.Kind == "close")
+            hints.Add("A close step may confirm host-issued closeRequirementIds against accepted work with empty closeScopes and no new tasks or exports. Scope closure is separate: add needed final exports without rewriting accepted work. Close children before their parent. Close root only when all scopes and original requirements are complete, with complete:true.");
+        return string.Join(" ", hints);
     }
 
     private static JsonObject EmptyArray() => PlanningSchemas.Array(PlanningSchemas.Type("string"), 0, 0);

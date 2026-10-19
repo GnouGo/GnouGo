@@ -182,6 +182,12 @@ internal static partial class PlanningCompactConstruction
             if (input is not null) value = JsonSerializer.SerializeToNode(input, PlanningJsonContext.Default.TaskInput);
             return true;
         }
+        if (address.StartsWith("output:", StringComparison.Ordinal))
+        {
+            var output = state.Requirements?.Outputs?.SingleOrDefault(o => o.Name == address[7..]);
+            if (output is not null) value = JsonSerializer.SerializeToNode(output, PlanningJsonContext.Default.TaskInput);
+            return true;
+        }
         if (address.StartsWith("choice:", StringComparison.Ordinal))
         {
             var choice = (state.Construction!.Candidate?.Plan ?? state.Plan)?.Choices.SingleOrDefault(c => c.Id == address[7..]);
@@ -207,13 +213,17 @@ internal static partial class PlanningCompactConstruction
         }
         if (parts is ["page", "interfaces", var interfaceOffset] && int.TryParse(interfaceOffset, out next) && next >= 0)
         { compact.InterfaceOffset = next; value = InterfaceDirectory(state, null, next); return true; }
+        if (parts is ["page", "outputs", var outputOffset] && int.TryParse(outputOffset, out next) && next >= 0 &&
+            (next == 0 || next < (state.Requirements?.Outputs?.Count ?? 0)))
+        { compact.OutputOffset = next; value = OutputDirectory(state); return true; }
         if (parts is ["page", "operations", var operationOffset] && int.TryParse(operationOffset, out next) && next >= 0 && compact.CurrentStep is not null)
         { value = ContractDescriptorPage(state, next); return true; }
         if (parts is ["page", "checkpoints", var checkpointOffset] && int.TryParse(checkpointOffset, out next) && next >= 0 && next < state.Construction!.Checkpoints.Count)
         {
             value = new JsonObject { ["offset"] = next, ["total"] = state.Construction.Checkpoints.Count,
                 ["items"] = new JsonArray(state.Construction.Checkpoints.Skip(next).Take(4).Select(c => (JsonNode)new JsonObject
-                { ["sequence"] = c.Sequence, ["hash"] = c.PlanHash, ["fragment"] = c.Fragment.DeepClone() }).ToArray()) };
+                { ["sequence"] = c.Sequence, ["hash"] = c.PlanHash, ["fragment"] = c.Fragment.DeepClone(),
+                    ["step"] = JsonSerializer.SerializeToNode(c.Step, PlanningJsonContext.Default.PlanningConstructionStep) }).ToArray()) };
             return true;
         }
         return false;

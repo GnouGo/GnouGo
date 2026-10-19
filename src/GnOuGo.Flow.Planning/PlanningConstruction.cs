@@ -236,8 +236,10 @@ internal static partial class PlanningConstruction
             .Concat(extension.Groups.SelectMany(g => TaskPlanRevisions.Tasks(g.Body))).ToArray();
         if (additions.Length > construction.Limits.MaxTasksPerDraft || extension.Groups.Count > construction.Limits.MaxTasksPerDraft || extension.Choices.Count > construction.Limits.MaxTasksPerDraft)
             Fail("CONSTRUCTION_DRAFT_LIMIT", extension.Scope, "The extension exceeds its captured recursive task limit.");
+        var closesRequirement = construction.Version == 2 && construction.Compact?.CurrentStep is { Kind: "close" } step &&
+            step.CloseRequirementIds.Any(id => construction.Requirements.Any(r => r.Id == id && r.Status != "closed"));
         if (additions.Length == 0 && extension.Outputs.Count == 0 && extension.CloseScopes.Count == 0 &&
-            (construction.Version == 1 || extension.Groups.Count == 0 && extension.Choices.Count == 0))
+            (construction.Version == 1 || extension.Groups.Count == 0 && extension.Choices.Count == 0) && !closesRequirement)
             Fail("REPLAN_NO_PROGRESS", extension.Scope, "An extension must add work, declare an output or close an existing obligation.");
         if (extension.Choices.Any(c => c.Selected is not null)) Fail("CHOICE_SELECTION_FORBIDDEN", "/choices", "Choice selections remain host-owned.");
         var plan = state.Plan is null ? new TaskPlan { Inputs = state.Requirements?.Inputs ?? [] } : Clone(state.Plan);
