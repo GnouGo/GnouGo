@@ -4,7 +4,9 @@ using GnOuGo.AI.Core;
 using System.Text.Json;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Flow.Planning;
 using GnOuGo.KeyVault.Core.Services;
+using GnOuGo.Planning.Examples;
 
 namespace GnOuGo.Agent.Server.Tests;
 public sealed class BenchmarkCampaignTests
@@ -591,13 +593,16 @@ public sealed class BenchmarkCampaignTests
         await campaign.CallAsync(new() { ClientRequestId = "next:1:hash" }, _ => Task.CompletedTask, _ => Task.FromResult(new LLMResponse()), Ct);
         Assert.Null(campaign.StopReason);
     }
-    [Fact]
-    public async Task ConservativeAdmissionRejectsCostAndCallExhaustionWithoutChangingLedger()
+    [Theory]
+    [InlineData(null)]
+    [InlineData(502)]
+    public async Task ConservativeAdmissionRejectsCostAndCallExhaustionWithoutChangingLedger(int? status)
     {
         var records = new Records(); var campaign = new BenchmarkCampaign(records, "limits");
         var journal = new BenchmarkHttpJournal(campaign, "session:1:hash", 100, 20, 26m);
         var state = new LLMHttpRetryState { Fingerprint = "fixed", Attempts = [new() { Id = "first", Failure = "timeout" }] };
         await journal.SaveAsync(state, Ct);
+        if (status is not null) { state.Attempts[0].Status = status; await journal.SaveAsync(state, Ct); }
         state.Attempts.Add(new() { Id = "second" });
         await Assert.ThrowsAsync<InvalidOperationException>(() => journal.SaveAsync(state, Ct));
         Assert.Single((await journal.LoadAsync(Ct))!.Attempts);
@@ -608,6 +613,103 @@ public sealed class BenchmarkCampaignTests
         state.Attempts.Add(new() { Id = "ninth" });
         await Assert.ThrowsAsync<InvalidOperationException>(() => limited.SaveAsync(state, Ct));
         Assert.Equal(8, (await limited.LoadAsync(Ct))!.Attempts.Count);
+    }
+
+    [Theory]
+    [InlineData(null, true)]
+    [InlineData(200, true)]
+    [InlineData(400, false)]
+    [InlineData(429, false)]
+    [InlineData(500, true)]
+    [InlineData(502, true)]
+    [InlineData(503, true)]
+    [InlineData(599, true)]
+    public async Task UnsettledHttpAttemptsUseTheSameConservativeReservationInEveryReport(int? status, bool reserved)
+    {
+        var records = new Records(); var campaign = new BenchmarkCampaign(records, "http-reserves");
+        const string id = "run:1:hash";
+        var journal = new BenchmarkHttpJournal(campaign, id, 100, 20, 3m);
+        var transport = new LLMHttpRetryState { Fingerprint = "fixed", Attempts = [new() { Id = "attempt" }] };
+        await journal.SaveAsync(transport, Ct);
+        if (status is not null) { transport.Attempts[0].Status = status; await journal.SaveAsync(transport, Ct); }
+        var original = (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, id, Ct))!;
+        var hash = PlanningGraphCompiler.Fingerprint(original.ToJsonString());
+        var writes = records.Writes;
+        var restarted = new BenchmarkCampaign(records, campaign.Id);
+        using var model = new KeyVaultBenchmarkModel(restarted, new LLMOptions());
+        var campaignUsage = await BenchmarkHttpJournal.AccountingAsync(restarted, ct: Ct);
+        var liveUsage = (await LiveCampaignEvidence.AccountingAsync(restarted, "run"))["planning"]!;
+        var partialUsage = (await model.PartialUsageAsync(id, Ct))!;
+        var closedUsage = PlanningBenchmarkMeasurements.ClosedHttpUsage([original], 1)!;
+        foreach (var usage in new JsonNode[] { campaignUsage, liveUsage, partialUsage, closedUsage })
+        {
+            Assert.Equal(reserved ? 3m : 0m, usage["reserved_cost_eur"]!.GetValue<decimal>());
+            Assert.Equal(reserved ? 100L : 0L, usage["reserved_input_tokens"]!.GetValue<long>());
+            Assert.Equal(reserved ? 20L : 0L, usage["reserved_output_tokens"]!.GetValue<long>());
+        }
+        Assert.Equal(reserved ? 1L : 0L, campaignUsage["unknown_attempts"]!.GetValue<long>());
+        Assert.Equal(reserved ? 1 : 0, partialUsage["uncertain_attempts"]!.GetValue<int>());
+        Assert.Equal(!reserved, closedUsage["usage_complete"]!.GetValue<bool>());
+        Assert.Equal(0L, closedUsage["known_input_tokens"]!.GetValue<long>());
+        Assert.Equal(0m, campaignUsage["known_cost_eur"]!.GetValue<decimal>());
+        if (status is >= 500 and < 600)
+            await Assert.ThrowsAsync<InvalidOperationException>(() => journal.CompleteAsync(new() { ["input_tokens"] = 0L, ["output_tokens"] = 0L, ["benchmark_cost_eur"] = 0m }, Ct));
+        Assert.Equal(writes, records.Writes);
+        Assert.Equal(hash, PlanningGraphCompiler.Fingerprint((await restarted.LoadAsync(BenchmarkHttpJournal.Collection, id, Ct))!.ToJsonString()));
+        Assert.Null(await restarted.LoadAsync("planning-evaluation-receipts", id, Ct));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task LaterVerifiedUsageKeepsEarlierServerFailureAndTimeoutReservedWithoutRewritingHistoricalUsage(bool historicalUsage)
+    {
+        var records = new Records(); var campaign = new BenchmarkCampaign(records, "later-receipt");
+        const string id = "run:1:hash";
+        var journal = new BenchmarkHttpJournal(campaign, id, 100, 20, 3m);
+        var transport = new LLMHttpRetryState { Fingerprint = "fixed" };
+        foreach (var status in new int?[] { null, 502, 200 })
+        {
+            transport.Attempts.Add(new() { Id = "attempt-" + transport.Attempts.Count });
+            await journal.SaveAsync(transport, Ct);
+            if (status is not null) { transport.Attempts[^1].Status = status; await journal.SaveAsync(transport, Ct); }
+        }
+        var known = new JsonObject { ["input_tokens"] = 10L, ["output_tokens"] = 2L, ["benchmark_cost_eur"] = .1m };
+        if (historicalUsage)
+        {
+            var old = (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, id, Ct))!;
+            old["usage"] = known.DeepClone();
+            old["usage"]!["transport_attempts"] = 3; old["usage"]!["uncertain_attempts"] = 1;
+            old["usage"]!["reserved_input_tokens"] = 100L; old["usage"]!["reserved_output_tokens"] = 20L;
+            old["usage"]!["reserved_cost_eur"] = 3m; old["usage"]!["benchmark_usage_bounded"] = true;
+            await campaign.SaveAsync(BenchmarkHttpJournal.Collection, id, old, Ct);
+        }
+        else await journal.CompleteAsync(known, Ct);
+        var original = (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, id, Ct))!;
+        var hash = PlanningGraphCompiler.Fingerprint(original.ToJsonString());
+        var writes = records.Writes;
+        var restarted = new BenchmarkCampaign(records, campaign.Id);
+        using var model = new KeyVaultBenchmarkModel(restarted, new LLMOptions());
+        var completed = await new BenchmarkHttpJournal(restarted, id, 100, 20, 3m).CompleteAsync(known, Ct);
+        var partial = (await model.PartialUsageAsync(id, Ct))!;
+        var accounting = await BenchmarkHttpJournal.AccountingAsync(restarted, ct: Ct);
+        var live = (await LiveCampaignEvidence.AccountingAsync(restarted, "run"))["planning"]!;
+        var closed = PlanningBenchmarkMeasurements.ClosedHttpUsage([original], 3)!;
+        foreach (var usage in new JsonNode[] { completed, partial, accounting, live, closed })
+        {
+            Assert.Equal(6m, usage["reserved_cost_eur"]!.GetValue<decimal>());
+            Assert.Equal(200L, usage["reserved_input_tokens"]!.GetValue<long>());
+            Assert.Equal(40L, usage["reserved_output_tokens"]!.GetValue<long>());
+        }
+        Assert.Equal(2, completed["uncertain_attempts"]!.GetValue<int>());
+        Assert.Equal(10L, partial["input_tokens"]!.GetValue<long>());
+        Assert.Equal(.1m, accounting["known_cost_eur"]!.GetValue<decimal>());
+        Assert.Equal(6.1m, accounting["cost_upper_bound_eur"]!.GetValue<decimal>());
+        Assert.Equal(10L, closed["known_input_tokens"]!.GetValue<long>());
+        Assert.False(closed["usage_complete"]!.GetValue<bool>());
+        Assert.Null(closed["input_tokens"]);
+        Assert.Equal(writes, records.Writes);
+        Assert.Equal(hash, PlanningGraphCompiler.Fingerprint((await restarted.LoadAsync(BenchmarkHttpJournal.Collection, id, Ct))!.ToJsonString()));
     }
     [Fact]
     public async Task HttpExhaustionAndCancellationCannotDispatchOnRestart()
@@ -1080,7 +1182,7 @@ public sealed class BenchmarkCampaignTests
         var reopened = new BenchmarkCampaign(records, "transport-exhaustion");
         await Assert.ThrowsAsync<InvalidOperationException>(() => reopened.CallAsync(request, _ => Task.CompletedTask, _ => throw new Exception("Must not replay"), Ct, allowHttpRecovery: true));
         await reopened.CallAsync(new() { ClientRequestId = "fresh:1" }, _ => Task.CompletedTask, _ => Task.FromResult(new LLMResponse()), Ct);
-        Assert.Equal(1m, (await BenchmarkHttpJournal.AccountingAsync(reopened, ct: Ct))["reserved_cost_eur"]!.GetValue<decimal>());
+        Assert.Equal(4m, (await BenchmarkHttpJournal.AccountingAsync(reopened, ct: Ct))["reserved_cost_eur"]!.GetValue<decimal>());
         var denied = new BenchmarkHttpJournal(reopened, "over-budget:1", 100, 20, 50m);
         await Assert.ThrowsAsync<InvalidOperationException>(() => denied.SaveAsync(new() { Attempts = [new() { Id = "new" }] }, Ct));
     }

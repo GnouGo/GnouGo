@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Planning;
+using GnOuGo.Planning.Examples;
 
 /// <summary>Admission and encrypted evidence only. All retry decisions belong to AI.Core.</summary>
 internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string requestId, long inputCeiling, long outputCeiling, decimal costCeiling,
@@ -75,10 +76,19 @@ internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string re
     internal async Task<JsonObject> CompleteAsync(JsonObject usage, CancellationToken ct)
     {
         var record = await campaign.LoadAsync(Collection, requestId, ct) ?? throw new InvalidOperationException("HTTP reservation missing.");
-        if (record["usage"] is JsonObject saved) return saved.DeepClone().AsObject();
+        if (record["usage"] is JsonObject saved) return UsageWithReservations(record, saved);
         var attempts = record["transport"]!["Attempts"]!.AsArray();
         if (attempts.LastOrDefault()?["Status"]?.GetValue<int>() is not (>= 200 and < 300)) throw new InvalidOperationException("HTTP completion missing.");
-        var unknown = attempts.Count(a => a!["Status"] is null);
+        usage = UsageWithReservations(record, usage);
+        record["usage"] = usage.DeepClone();
+        await campaign.SaveAsync(Collection, requestId, record, ct);
+        return usage;
+    }
+
+    internal static JsonObject UsageWithReservations(JsonObject record, JsonObject usage)
+    {
+        var attempts = record["transport"]!["Attempts"]!.AsArray();
+        var unknown = attempts.Count(a => PlanningBenchmarkMeasurements.RequiresHttpUsageReservation(a?["Status"]?.GetValue<int>(), hasVerifiedUsage: true));
         usage = usage.DeepClone().AsObject();
         usage["transport_attempts"] = attempts.Count;
         usage["uncertain_attempts"] = unknown;
@@ -86,8 +96,6 @@ internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string re
         usage["reserved_output_tokens"] = unknown * record["output_ceiling"]!.GetValue<long>();
         usage["reserved_cost_eur"] = unknown * record["cost_ceiling_eur"]!.GetValue<decimal>();
         usage["benchmark_usage_bounded"] = true;
-        record["usage"] = usage.DeepClone();
-        await campaign.SaveAsync(Collection, requestId, record, ct);
         return usage;
     }
 
@@ -110,7 +118,7 @@ internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string re
             calls += attempts.Count;
             if (requestId is not null && key.StartsWith(session, StringComparison.Ordinal)) sessionCalls += attempts.Count;
             var usage = row["usage"];
-            var pending = attempts.Count(a => a!["Status"] is null || usage is null && a["Status"]!.GetValue<int>() is >= 200 and < 300);
+            var pending = attempts.Count(a => PlanningBenchmarkMeasurements.RequiresHttpUsageReservation(a?["Status"]?.GetValue<int>(), usage is not null));
             uncertain += pending;
             reservedInput += pending * row["input_ceiling"]!.GetValue<long>();
             reservedOutput += pending * row["output_ceiling"]!.GetValue<long>();

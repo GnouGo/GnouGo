@@ -91,6 +91,7 @@ Prioritize complete live business outcomes over additional planning abstractions
 Bind independent execution checks to the actual caller inputs, ordered source observations and retained invocation results. A correctly shaped report or output file is insufficient when its identities, order, provenance or claimed command results are unsupported by those observations.
 
 An explicitly authorized benchmark operator may permanently retain a stopped, unexecuted, tool-free uncertain planning request through an evidence-bound append-only closure. Keep its full unknown-usage reservation and every original record; forbid both request replay and continuation of its run. This is terminal inconclusive retention, never reconciliation, completion or permission to execute effects. Other identities still pass ordinary admission. Capture effective transport policy before new dispatches; never rewrite historical policy to make closure eligible.
+An HTTP server failure without verified usage does not prove that provider work was absent. Retain its conservative reservation consistently in campaign, run and phase accounting. Preserve the original failure and captured transport policy; do not reinterpret it as a receipt, retry it, or broaden an operator closure to make a blocked campaign continue.
 
 Read the relevant maintained reference when changing its subsystem:
 

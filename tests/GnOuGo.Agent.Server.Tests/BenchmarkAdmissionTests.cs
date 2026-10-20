@@ -184,6 +184,39 @@ public sealed class BenchmarkAdmissionTests
     }
 
     [Fact]
+    public async Task FreshConstructionServerFailureStaysReservedAndCannotReplayOrAuthorizeAnotherRequestAfterRestart()
+    {
+        using var fixture = new Fixture(); var rates = new Rates(fixture.Time);
+        var provider = new Provider(fixture.Campaign) { Failure = new LLMClientException(LLMClientFailureKind.ServiceUnavailable,
+            "Retained server failure.", retryable: true, statusCode: 502, safeProviderCode: null,
+            attemptCount: 1, retryExhausted: true, retryAfterMilliseconds: null) };
+        using var model = fixture.Model(rates, provider);
+        await model.CapturePlanningPolicyAsync(LiveWorkflowEvaluation.FreshPlanningRequest([], "failed", "amazon", "Original request", "fixture", "pinned"), Ct);
+        var request = new LLMRequest { ClientRequestId = "failed:1", Prompt = "bounded original draft", MaxTokens = 8192,
+            StructuredOutputStrict = true, StructuredOutputSchema = new JsonObject { ["title"] = "construction_draft",
+                ["type"] = "object", ["properties"] = new JsonObject(), ["required"] = new JsonArray(), ["additionalProperties"] = false } };
+        await Assert.ThrowsAsync<LLMClientException>(() => model.CallAsync(request, Ct));
+        Assert.Equal(1, provider.Calls);
+        Assert.True(provider.LastDisableTransportRetries);
+        var original = (await fixture.Campaign.LoadAsync(BenchmarkHttpJournal.Collection, request.ClientRequestId, Ct))!;
+        Assert.Equal(502, original["transport"]!["Attempts"]![0]!["Status"]!.GetValue<int>());
+        Assert.False(original["effective_transport_policy"]!["allow_http_recovery"]!.GetValue<bool>());
+        var hash = PlanningGraphCompiler.Fingerprint(original.ToJsonString());
+        var accounting = await BenchmarkHttpJournal.AccountingAsync(fixture.Campaign, ct: Ct);
+        Assert.Equal(1L, accounting["unknown_attempts"]!.GetValue<long>());
+        Assert.Equal(original["cost_ceiling_eur"]!.GetValue<decimal>(), accounting["reserved_cost_eur"]!.GetValue<decimal>());
+        using var restarted = fixture.Model(rates, provider);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => restarted.CallAsync(request, Ct));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => fixture.Campaign.CallAsync(new() { ClientRequestId = "another:1" },
+            _ => throw new InvalidOperationException("Must not admit."), _ => throw new InvalidOperationException("Must not dispatch."), Ct));
+        Assert.Equal(1, provider.Calls);
+        Assert.True(JsonNode.DeepEquals(accounting, await BenchmarkHttpJournal.AccountingAsync(fixture.Campaign, ct: Ct)));
+        Assert.Equal(hash, PlanningGraphCompiler.Fingerprint((await fixture.Campaign.LoadAsync(BenchmarkHttpJournal.Collection, request.ClientRequestId, Ct))!.ToJsonString()));
+        Assert.Null(await fixture.Campaign.LoadAsync("planning-evaluation-receipts", request.ClientRequestId, Ct));
+        Assert.Null(await fixture.Campaign.LoadAsync("planning-evaluation-closures", request.ClientRequestId, Ct));
+    }
+
+    [Fact]
     public async Task SettlementUsesAdmittedQuoteAndCommittedReceiptReplaysWithoutNetwork()
     {
         using var fixture = new Fixture(); var rates = new Rates(fixture.Time);
@@ -413,7 +446,13 @@ public sealed class BenchmarkAdmissionTests
                 record["effective_transport_policy"]?.AsObject());
             var state = (await journal.LoadAsync(ct))!;
             state.Attempts.Add(new() { Id = "attempt" }); await journal.SaveAsync(state, ct);
-            Calls++; AfterDispatch?.Invoke(); if (Failure is not null) throw Failure;
+            Calls++; AfterDispatch?.Invoke();
+            if (Failure is not null)
+            {
+                if (Failure is LLMClientException { StatusCode: { } status })
+                { state.Attempts[^1].Status = status; await journal.SaveAsync(state, CancellationToken.None); }
+                throw Failure;
+            }
             state.Attempts[^1].Status = 200; await journal.SaveAsync(state, CancellationToken.None);
             return new() { Text = "{\"script\":\"source.raw\"}", Json = new JsonObject { ["script"] = "source.raw" },
                 Usage = new JsonObject { ["input_tokens"] = 10L, ["output_tokens"] = 2L } };

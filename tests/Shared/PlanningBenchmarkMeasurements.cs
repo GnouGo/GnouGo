@@ -627,6 +627,11 @@ public static class PlanningBenchmarkMeasurements
             ["approved_execution_correct_and_safe"] = safe, ["cases"] = perCase };
     }
 
+    // A server failure does not establish whether provider work was billed.
+    // A later successful receipt settles only its own attempt.
+    public static bool RequiresHttpUsageReservation(int? status, bool hasVerifiedUsage) =>
+        status is null or >= 500 and < 600 || !hasVerifiedUsage && status is >= 200 and < 300;
+
     /// <summary>Derives bounded partial measurements from complete durable HTTP journals; never fabricates observed tokens.</summary>
     public static JsonObject? ClosedHttpUsage(IReadOnlyList<JsonObject> journals, int expectedAttempts)
     {
@@ -644,7 +649,7 @@ public static class PlanningBenchmarkMeasurements
                     attempts.LastOrDefault()?["Status"]?.GetValue<int>() is not (>= 200 and < 300)) return null;
                 input += usage["input_tokens"]!.GetValue<long>(); output += usage["output_tokens"]!.GetValue<long>(); cost += usage["benchmark_cost_eur"]!.GetValue<decimal>();
             }
-            var unknown = attempts.Count(a => a?["Status"] is null || usage is null && a["Status"]!.GetValue<int>() is >= 200 and < 300);
+            var unknown = attempts.Count(a => RequiresHttpUsageReservation(a?["Status"]?.GetValue<int>(), usage is not null));
             uncertain += unknown;
             reservedInput += unknown * journal["input_ceiling"]!.GetValue<long>(); reservedOutput += unknown * journal["output_ceiling"]!.GetValue<long>();
             reservedCost += unknown * journal["cost_ceiling_eur"]!.GetValue<decimal>();

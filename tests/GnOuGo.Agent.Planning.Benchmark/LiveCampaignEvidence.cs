@@ -2,6 +2,7 @@ using System.Runtime.InteropServices;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Planning;
+using GnOuGo.Planning.Examples;
 
 internal static class LiveCampaignEvidence
 {
@@ -63,7 +64,7 @@ internal static class LiveCampaignEvidence
         {
             calls++; var physical = row["transport"]!["Attempts"]!.AsArray(); attempts += physical.Count;
             var usage = row["usage"];
-            var pending = physical.Count(a => a!["Status"] is null || usage is null && a["Status"]!.GetValue<int>() is >= 200 and < 300);
+            var pending = physical.Count(a => PlanningBenchmarkMeasurements.RequiresHttpUsageReservation(a?["Status"]?.GetValue<int>(), usage is not null));
             unknown += pending;
             reservedInput += pending * row["input_ceiling"]!.GetValue<long>(); reservedOutput += pending * row["output_ceiling"]!.GetValue<long>();
             reservedCost += pending * row["cost_ceiling_eur"]!.GetValue<decimal>();

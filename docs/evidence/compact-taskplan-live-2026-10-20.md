@@ -643,6 +643,70 @@ complete live business workflows. The 18-run paired comparison remains
 unstarted. Further presentation and evidence-navigation changes require their
 own deterministic and live evidence.
 
+## Diagnostic revision 3513ccd
+
+Source: `3513ccde9470353bf99b659bffbe5b8d40f9cc6d`. Amazon run
+`compactd3513ccd-amazon-1` stopped after six admitted requests, five known model
+receipts, zero corrections and zero accepted checkpoints in 59.183 seconds.
+Known usage was 4,973 input / 3,456 output / 2,794 reasoning tokens, costing
+€0.1142317604194437039011819070. All five receipts contained model content.
+Classification and interface extraction completed with the narrower original
+clauses. This controlled presentation experiment does not establish why earlier
+responses exhausted their reasoning allowance.
+
+All six complete requests fit their captured 3,000-token phase limits and their
+component byte totals reconcile:
+
+| Phase | Requests | p50 / p95 / maximum complete bytes | p50 / p95 / maximum input estimate |
+| --- | ---: | --- | --- |
+| Intent | 2 | 3,856 / 4,748 / 4,748 | 1,541.5 / 1,839 / 1,839 |
+| Selection | 2 | 6,699 / 7,072 / 7,072 | 2,489.5 / 2,614 / 2,614 |
+| Discovery | 2 | 6,498 / 6,521 / 6,521 | 2,422.5 / 2,430 / 2,430 |
+
+There was no approval or execution. Collections and Review PR were not dispatched
+on this source after the uncertain failure. Complete business outcomes and the
+18-run paired comparison remain unproved.
+
+Request `compactd3513ccd-amazon-1:6:488ab6cc973f38b92db948de2c8a3e1bafd9c38af0f07a11ce181f800fb0093f`
+returned HTTP 502 (`ServiceUnavailable`) after one exhausted attempt, without a
+model receipt or verified usage. The captured transport policy disables retries
+and HTTP recovery. Its failure, original request and journal are retained; no
+provider termination or zero-cost completion is inferred.
+
+The accounting predicate excluded 5xx responses from uncertain reservations.
+Consequently, the reported €7.8173687016795521194348173814 upper bound was not a
+verified conservative total. The original financial admission retained
+€0.2473740335910423886963476406 for 6,522 input / 8,192 output tokens. Adding that
+ceiling to the unchanged historical timeout reserve projects:
+
+- Known cost: €7.5694214876033057851239669415.
+- Total unknown reservation: €0.4953212476672887230071980805.
+- Upper exposure: €8.0647427352705945081311650220.
+- Remaining: €231.9653610974357100343137822780 against the unchanged
+  €240.0301038327063045424449473 campaign ceiling.
+
+The corrected implementation's read-only campaign audit verified those figures:
+258 reserved requests, 255 receipts and two unknown attempts. Its evidence hash
+remains `845e61193ace17f40dfcd52fa8d74bc0858677f55f3752c331eeb67cf83cbbf3`.
+A subsequent public-API audit verified unchanged run, request, journal, failure,
+receipt/closure absence, session/campaign policy and financial identities.
+Original records, receipts, retry policies and authorizations are unchanged.
+Paid calls remain stopped; the existing
+permanent-retention operator's timeout/transport eligibility does not cover this
+HTTP response.
+
+Safe metrics hash:
+`c217f51cc4b70ab694b98cc42785211e57b66e94e7dbd401cb6ed621bc1fb73d`.
+Exact public-KeyVault audit hash:
+`c8df7bf58c81cbc51aeae433bdb93bb946977ac2a2f6c099d1898344979d5888`.
+The audit exposes hashes, status, policy and financial metadata only; the 141-byte
+response body remains encrypted. No closure, settlement or replay was performed.
+
+The narrow accounting correction passed 197 focused host accounting, admission
+and retention tests plus 45 shared measurement tests, with warnings as errors.
+The benchmark build completed with zero warnings and errors. These checks do not
+resolve the missing completion or establish a successful live workflow.
+
 ## Deterministic evidence
 
 For `72964ab`, 370 affected planner tests and 173 host tests passed with warnings

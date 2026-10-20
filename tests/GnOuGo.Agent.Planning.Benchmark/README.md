@@ -885,6 +885,13 @@ physical attempts. This is an admission condition, not an invented charge or unc
 request. Actual known usage and unknown reservations remain the accounting source.
 Fresh incremental transport disables automatic HTTP retries; only a committed receipt
 may be reused after interruption. Historical transport policy is retained.
+HTTP 5xx responses without verified usage keep the full conservative attempt
+reservation. A server error does not establish zero provider work, and a later
+successful response settles only its own attempt. Campaign, run, phase and partial
+usage reports derive the same bounds from the original journals; historical
+records and captured retry policies are not rewritten. The missing-receipt guard
+still blocks dispatch. This accounting correction grants no replay or new
+operator-retention authority.
 Fresh presentation schemas restrict selected requirement identities to the supplied
 original anchor/evidence or an existing bounded reselection. Discovery requests
 retrieve one evidence address per model response; mandatory schema closures are

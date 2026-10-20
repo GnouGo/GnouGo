@@ -12,6 +12,7 @@ using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Integrations;
 using GnOuGo.Flow.Planning;
+using GnOuGo.Planning.Examples;
 using GnOuGo.KeyVault.Core;
 using GnOuGo.KeyVault.Core.Data;
 using GnOuGo.KeyVault.Core.Services;
@@ -404,12 +405,12 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
     internal async Task<JsonObject?> PartialUsageAsync(string id, CancellationToken ct)
     {
         var record = await _campaign.LoadAsync(BenchmarkHttpJournal.Collection, id, ct);
-        if (record?["usage"] is JsonObject known) return known.DeepClone().AsObject();
+        if (record?["usage"] is JsonObject known) return BenchmarkHttpJournal.UsageWithReservations(record, known);
         if (record is null && (await _campaign.LoadAsync("planning-evaluation-failures", id, ct))?["dispatch_status"]?.ToString() == "not_started")
             return BenchmarkHttpJournal.UndispatchedUsage();
         if (record?["transport"]?["Attempts"] is not JsonArray attempts) return null;
         if (attempts.Count == 0) return BenchmarkHttpJournal.UndispatchedUsage();
-        var pending = attempts.Count(a => a!["Status"] is null || a["Status"]!.GetValue<int>() is >= 200 and < 300);
+        var pending = attempts.Count(a => PlanningBenchmarkMeasurements.RequiresHttpUsageReservation(a?["Status"]?.GetValue<int>(), hasVerifiedUsage: false));
         return new() { ["transport_attempts"] = attempts.Count, ["uncertain_attempts"] = pending,
             ["reserved_input_tokens"] = pending * record["input_ceiling"]!.GetValue<long>(),
             ["reserved_output_tokens"] = pending * record["output_ceiling"]!.GetValue<long>(),
