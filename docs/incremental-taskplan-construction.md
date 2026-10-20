@@ -129,6 +129,11 @@ Task navigation presents four tasks per page and eight port names per task,
 including declared results of closed group calls. Original objective and port
 pages carry version hashes; rebuilding the same task identity cannot silently
 resolve an older page address to changed evidence.
+Fresh selection omits incomplete task-objective prefixes when their exact
+versioned retrieval links are present, retaining the explicit completeness flag,
+task identities, scopes and every presented port. Short complete objectives remain.
+Fresh discovery omits empty top-level navigation slots; original evidence, false
+values and zero bounds are untouched.
 
 Each phase receives only the context needed for that substep. Discovery uses its
 needs rather than the global request. Previously inspected operations remain in
@@ -236,6 +241,9 @@ ancestors, while reusable groups require declared parameters and cannot capture
 caller inputs or tasks. Invalid selected imports identify the unavailable binding
 and scope when the semantic probe can resolve them; the compiler remains the
 authority for availability.
+Fresh selection excludes reusable calls and fixes `groupId` to null while no
+closed group is available. An open group's navigation entry remains available
+for constructing its body; it is not a call target.
 Every existing binding used by a draft, including a local group input used in a
 closing export, must be selected in `step.inputs`. Fresh missing-import diagnostics
 identify the binding and consumer location; changing fixed imports requires the
@@ -250,6 +258,8 @@ tentative. These views contain eight exports per page with hash-bound continuati
 addresses, and omit task bodies and unrelated scopes. A transform's required
 object result type declares named output ports: a reference to a named field
 consumes that field's type, while an unqualified reference consumes the object.
+Review guidance distinguishes public `/root` outputs from local scope exports;
+identically named exports in different scopes need not share a type.
 
 Intent, selection, discovery and evidence response schemas contain no TaskPlan
 grammar. Generation schemas expose only selected task kinds and operation IDs;
@@ -270,6 +280,16 @@ admission and inspection semantics. New presentation rules never reinterpret a
 saved version-1 request or receipt.
 
 ## Review, correction and finalization
+
+Fresh compact drafts capture a transient candidate-failure identity version
+before dispatch. Rejection identities include the accepted baseline, candidate
+plan, open and closing scopes, completion claims and tentative commitments,
+using canonical sets. A reviewed intermediate checkpoint followed by genuine
+scope closure can therefore progress even when its final TaskPlan text matches
+an earlier rejected candidate. Repeating the same semantic state still stops.
+Historical bare plan-hash rejections remain enforced; already issued drafts,
+repairs and Judges retain their captured comparison behavior. This optional
+source-generated recovery metadata does not enter artifact or approval hashes.
 
 Every candidate requires local review before acceptance. Intermediate reviews
 inspect multi-fragment closures, joins and every four accepted drafts, coalescing

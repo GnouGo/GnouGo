@@ -134,15 +134,18 @@ internal static partial class PlanningCompactConstruction
         var replacement = compact.ReplacementScope;
         var outputs = OutputPage(state).Select(o => o.Name).ToArray();
         var requirements = compact.PresentationVersion == 2 ? SelectionRequirementIds(state) : null;
+        var hasClosedGroup = compact.PresentationVersion != 2 || state.Plan?.Groups.Any(group =>
+            !state.Construction!.OpenScopes.Contains("/groups/" + group.Id + "/body", StringComparer.Ordinal)) == true;
+        var kinds = new[] { "operation", "value", "transform", "sequence", "conditional", "parallel", "foreach", "call", "close", "group", "choice" };
         JsonObject RequirementIds(int minimum) => requirements is { Length: > 0 }
             ? PlanningSchemas.Array(PlanningSchemas.Enum(requirements), minimum, 4) : Strings(minimum, 4);
         var selectedRequirements = replacement is not null && requirements is { Length: > 0 }
             ? PlanningSchemas.Array(PlanningSchemas.Enum(requirements), requirements.Length, requirements.Length)
             : RequirementIds(1);
         var step = PlanningSchemas.Object(("scope", replacement is null ? Text(192) : PlanningSchemas.Enum(replacement)),
-            ("kind", PlanningSchemas.Enum("operation", "value", "transform", "sequence", "conditional", "parallel", "foreach", "call", "close", "group", "choice")),
+            ("kind", PlanningSchemas.Enum(kinds.Where(kind => kind != "call" || hasClosedGroup).ToArray())),
             ("objective", Text(512)), ("requirementIds", selectedRequirements), ("inputs", PlanningSchemas.Array(PlanningSchemas.Ref("import"), 0, 8)),
-            ("groupId", PlanningSchemas.Nullable(Text(96))),
+            ("groupId", hasClosedGroup ? PlanningSchemas.Nullable(Text(96)) : PlanningSchemas.Type("null")),
             ("dependencyTaskIds", Strings(0, 8)), ("expectedOutputs", Strings(0, 4)),
             ("closeRequirementIds", RequirementIds(0)), ("outputNames", outputs.Length == 0
                 ? PlanningSchemas.Array(Text(256), 0, 0) : PlanningSchemas.Array(PlanningSchemas.Enum(outputs), 0, 8)));
@@ -238,6 +241,11 @@ internal static partial class PlanningCompactConstruction
             // Host admission enforces the captured cumulative call allowance.
             context.Remove("baseHash");
             context.Remove("budget");
+            // An incomplete objective prefix is only navigation prose. Its exact
+            // versioned original remains retrievable without repeating both.
+            foreach (var item in (context["interfaces"] as JsonArray ?? []).OfType<JsonObject>())
+                if (item["objectiveComplete"]?.GetValue<bool>() == false && item["objectiveEvidence"] is JsonValue)
+                    item.Remove("objective");
         }
         if (compact.PresentationVersion == 2 && state.Construction.Evidence is { Count: > 0 })
         {
@@ -402,7 +410,9 @@ internal static partial class PlanningCompactConstruction
             ["diagnostics"] = PlanningJsonTransport.Diagnostics(state.Diagnostics)
         };
         if (DescribedOperationChoices(state) is { } described) context["describedOperations"] = described;
-        return context;
+        // These are optional navigation slots, not fields inside original
+        // evidence. Preserve historical issued presentation and nested values.
+        return State(state).PresentationVersion == 2 ? TrimNavigation(context) : context;
     }
 
     internal static JsonArray RequirementNodes(PlanningSession state, IEnumerable<string> ids)

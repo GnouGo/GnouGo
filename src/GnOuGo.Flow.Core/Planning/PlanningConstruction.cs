@@ -37,6 +37,8 @@ public sealed class PlanningConstructionState
     public int ScopeCursor { get; set; }
     public bool Complete { get; set; }
     public string? IssuedBaseHash { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? CandidateFailureIdentityVersion { get; set; }
     public List<PlanTask> RebuildTasks { get; set; } = [];
     public List<PlanningConstructionRebuildScope> RebuildScopes { get; set; } = [];
     public List<PlanningConstructionInvalidation> Invalidations { get; set; } = [];

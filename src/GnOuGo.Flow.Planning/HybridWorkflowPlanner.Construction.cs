@@ -36,7 +36,8 @@ public sealed partial class HybridWorkflowPlanner
         };
         else if (construction.Version == 2 && construction.Compact is { } compactRevision)
         { compactRevision.CurrentStep = null; compactRevision.PendingCommitments.Clear(); }
-        construction.Candidate = null; construction.PendingReviewContext = null; construction.PendingReviewHash = null;
+        construction.Candidate = null; construction.CandidateFailureIdentityVersion = null;
+        construction.PendingReviewContext = null; construction.PendingReviewHash = null;
         construction.Evidence = null; construction.EvidenceRequests.Clear(); construction.Complete = false;
         state.PendingQuestions = null; state.ApprovedHash = null; state.Graph = null; Invalidate(state);
         state.Diagnostics.Clear(); state.RevisionScope.Clear(); state.EditablePaths = null;
@@ -73,6 +74,9 @@ public sealed partial class HybridWorkflowPlanner
             limits.MaxCorrectionsPerDraft is < 0 or > 64 || limits.IntermediateReviewInterval is < 1 or > 128 ||
             limits.DraftOutputTokens is < 1 or > 65536 || limits.ReviewOutputTokens is < 1 or > 65536)
             throw new PlanningConflictException("The captured construction contract or limits are unsupported.");
+        if (construction.CandidateFailureIdentityVersion is not (null or 1) ||
+            construction.CandidateFailureIdentityVersion is not null && construction is not { Version: 2, Compact.PresentationVersion: 2 })
+            throw new PlanningConflictException("The captured candidate failure identity is unsupported.");
         if (construction.Version == 2) { await AdvanceCompactConstructionAsync(state, runtime, ct); return; }
         state.Status = PlanningStatus.Generating;
         if (construction.Complete)
@@ -158,6 +162,11 @@ public sealed partial class HybridWorkflowPlanner
         if (state.PendingCall is null) construction.IssuedBaseHash = PlanningConstruction.Hash(state.Plan);
         else if (construction.IssuedBaseHash != PlanningConstruction.Hash(state.Plan))
             throw new PlanningConflictException("The issued extension no longer matches its retained accepted checkpoint.");
+        // CallAsync checkpoints this transient recovery contract with the issued
+        // request before dispatch. Already issued requests/candidates keep their
+        // captured (including absent historical) comparison semantics.
+        if (state.PendingCall is null && previous is null && construction is { Version: 2, Compact.PresentationVersion: 2 })
+            construction.CandidateFailureIdentityVersion = 1;
         var request = state.PendingCall?.Request ?? PlanningConstruction.DraftRequest(state, repair);
         var response = await PlanningModelCalls.CallAsync(state, runtime, repair ? "replan" : PlanningConstruction.DraftPurpose,
             request.Prompt, request.StructuredOutputSchema!.AsObject(), ct, construction.Limits.DraftOutputTokens);
@@ -236,7 +245,7 @@ public sealed partial class HybridWorkflowPlanner
             next.Hash = PlanningConstruction.Hash(next.Plan);
         }
         next.Corrections = previous?.Corrections ?? construction.DraftCorrections;
-        if (construction.FailedCandidates.Contains(next.Hash, StringComparer.Ordinal))
+        if (PlanningConstruction.PreviouslyRejected(state, next))
             throw new WorkflowRuntimeException("REPLAN_NO_PROGRESS", "Construction repeated a failed semantic candidate. No budget was reset.");
         construction.Candidate = next; construction.PendingReviewContext = null; construction.PendingReviewHash = null;
         construction.Evidence = null; construction.EvidenceRequests.Clear();
@@ -284,8 +293,7 @@ public sealed partial class HybridWorkflowPlanner
             draft.Diagnostics.AddRange(PlanningCompactConstruction.CandidateFindings(state));
         state.Diagnostics = draft.Diagnostics.ToList();
         state.Phase = draft.Diagnostics.Count == 0 ? PlanningConstruction.LocalPurpose : PlanningPhase.Replanning;
-        if (draft.Diagnostics.Count > 0 && !state.Construction.FailedCandidates.Contains(draft.Hash, StringComparer.Ordinal))
-            state.Construction.FailedCandidates.Add(draft.Hash);
+        if (draft.Diagnostics.Count > 0) PlanningConstruction.RecordRejection(state, draft);
         return Task.CompletedTask;
     }
 
@@ -369,7 +377,7 @@ public sealed partial class HybridWorkflowPlanner
         }
         PlanningConstruction.PreserveAccepted(state, revised);
         var hash = PlanningConstruction.Hash(revised);
-        if (hash == draft.Hash || construction.FailedCandidates.Contains(hash, StringComparer.Ordinal))
+        if (hash == draft.Hash || PlanningConstruction.PreviouslyRejected(state, draft, hash))
             throw new WorkflowRuntimeException("REPLAN_NO_PROGRESS", "The correction repeated a rejected candidate or made no semantic change.");
         draft.Plan = revised; draft.Hash = hash; draft.LocalReviewed = false; draft.IntermediateReviewed = false;
         PlanningConstruction.RefreshCandidate(state);
@@ -412,7 +420,7 @@ public sealed partial class HybridWorkflowPlanner
         foreach (var requirement in construction.Requirements.Where(r => draft.Extension.RequirementIds.Contains(r.Id, StringComparer.Ordinal)))
         { if (construction.Version == 1) requirement.Status = "declared"; requirement.Checkpoints.Add(checkpoint.Sequence); }
         if (construction.Version == 2) PlanningCompactConstruction.Accept(state);
-        construction.Complete = draft.Extension.Complete; construction.Candidate = null;
+        construction.Complete = draft.Extension.Complete; construction.Candidate = null; construction.CandidateFailureIdentityVersion = null;
         construction.DraftCorrections = 0; construction.LastProposalHash = null;
         construction.PendingReviewContext = null; construction.PendingReviewHash = null; construction.Evidence = null; construction.EvidenceRequests.Clear();
         state.Diagnostics.Clear(); state.Graph = null; Invalidate(state);

@@ -182,7 +182,8 @@ internal static partial class PlanningConstruction
         foreach (var id in invalid)
             if (!construction.RebuildTasks.Any(t => t.Id == id)) construction.RebuildTasks.Add(originalSnapshot.Tasks[id].Task);
         state.Plan = plan; construction.OpenScopes = open.OrderByDescending(p => p.Count(c => c == '/')).ThenBy(p => p, StringComparer.Ordinal).ToList();
-        construction.Complete = false; construction.Evidence = null; construction.EvidenceRequests.Clear();
+        construction.Complete = false; construction.CandidateFailureIdentityVersion = null;
+        construction.Evidence = null; construction.EvidenceRequests.Clear();
         construction.PendingReviewContext = null; construction.PendingReviewHash = null;
         if (construction.Compact is { } compact)
         { compact.CurrentStep = null; compact.PendingCommitments.Clear(); compact.ReplacementScope = null; compact.ReplacementRequirements = null; }

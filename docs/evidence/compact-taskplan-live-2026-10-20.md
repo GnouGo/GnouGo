@@ -5,22 +5,23 @@ business acceptance. The measured 18-run comparison against `56942f5` has not
 started; it remains conditional on successful Amazon, Collections and Review PR
 diagnostics on one frozen candidate.
 
-The latest [frozen `fd7c41a` diagnostics](#frozen-fd7c41a-three-scenario-diagnostics)
-all stopped before execution: Amazon and Review PR exceeded draft input caps;
-Collections produced an invalid Judge evidence pointer. Their 47 known calls
-cost €1.0398560383897627299386830178. The latest campaign audit retains
-€14.302261619123789211765751358 upper exposure, including existing uncertain
-reservations, and €225.727842213582515330679195942 remaining. Earlier sections
-below preserve historical failures and balances; they are not current totals.
+The latest [frozen `0e76414` diagnostics](#frozen-0e76414-three-scenario-diagnostics)
+all stopped before execution: Amazon exceeded the discovery input cap;
+Collections stopped on non-progress; Review PR exceeded the selection input cap.
+Their 49 known calls cost €1.2550697591753310228383542169. The latest campaign
+audit retains €15.557331378299120234604105576 upper exposure, including existing
+uncertain reservations, and €224.472772454407184307840841724 remaining. Earlier
+sections below preserve historical failures and balances; they are not current
+totals.
 
 The [safe component report](compact-taskplan-request-components-2026-10-20.json)
 publishes retained `7206ca2`, `3513ccd`, `c9cbaf6`, `5bc25f4`, `f457292`,
-`de5ec55`, `c082c39`, `e3f3c4f` and `fd7c41a` request distributions, component
-byte and conservative token estimates, and separate known provider usage.
-Its 21 runs reconcile all 2,450,064 bytes across 321 prepared requests,
-including seven input rejections, with 313 known receipts. Judge is a phase
-dimension; component estimates are not billed tokens. No original
-business text, contract bodies, response bodies or credentials are included.
+`de5ec55`, `c082c39`, `e3f3c4f`, `fd7c41a` and `0e76414` request distributions,
+component byte and conservative token estimates, and separate known provider
+usage. Its 24 runs reconcile all 2,858,549 bytes across 372 prepared requests,
+including nine input rejections, with 362 known receipts. Judge is a phase
+dimension; component estimates are not billed tokens. No original business text,
+contract bodies, response bodies or credentials are included.
 
 ## Permanent retention of the old Amazon timeout
 
@@ -1449,7 +1450,147 @@ for those exact contexts, not universal fit or live convergence. The earlier
 2,211-test affected-suite pass does not validate these later changes, and no new
 live result is claimed.
 
+## Frozen 0e76414 three-scenario diagnostics
+
+Source `0e76414cd5cd9416f86f21fcc1c310f7042851c3` used the same pinned
+model, medium reasoning, ordinary allowances, independent oracles and frozen
+MCP producer bundle. Diagnostic manifest hash:
+`ae8603c6410328af640bccb2786be6cd9e652f9f1f1fd00965f0c549845e36be`.
+The benchmark built with zero warnings/errors in 22.78 seconds; the private
+review helper passed 18 self-tests and all 568 producer files matched before
+dispatch.
+
+| Scenario | Exact run | Calls / corrections / checkpoints | Provider input / output / reasoning | Time | Known cost |
+| --- | --- | --- | --- | ---: | ---: |
+| Amazon | `compactd0e76414-amazon-1` | 12 / 0 / 1 | 19,772 / 8,136 / 6,416 | 149.499s | €0.3047542877454900915311472497 |
+| Collections | `0e76414cd5cd9416f86f21fcc1c310f7042851c3:fixture:collections:1` | 23 / 4 / 4 | 32,440 / 17,520 / 14,173 | 304.665s | €0.6112147871678663467519772506 |
+| Review PR | `compactd0e76414-code-1` | 14 / 1 / 2 | 20,374 / 9,324 / 6,776 | 164.656s | €0.3391006842619745845552297166 |
+
+Amazon passed targeted schema retrieval, a draft and its local Judge, accepting
+one checkpoint. Its next discovery request was rejected before dispatch at
+8,244 bytes / 3,004 estimated input tokens against 3k. Collections stopped for
+`REPLAN_NO_PROGRESS` after four corrections; preceding selections had invalid
+group identifiers. Review PR accepted two checkpoints, then its next selection
+request was rejected at 8,415 bytes / 3,061 against 3k. The two rejected requests
+have no provider receipt or usage. None of the three runs reached approval or
+execution, produced empty content or introduced new transport uncertainty.
+Accepted fragments do not establish complete business coverage.
+
+Across the three runs, 49 known calls used 72,586 input, 34,980 output and
+27,365 reasoning tokens, took 618.820 seconds and cost
+€1.2550697591753310228383542169. All 51 prepared requests, including both
+rejections, reconcile to 408,485 serialized component bytes. The safe aggregate
+report hash is
+`a7fac531d47808e6621938bbde88270c6b4650b7423204c6a7597bce323bf853`.
+
+Each distribution lists p50 / nearest-rank p95 / maximum and includes rejected
+prepared requests. Provider usage and elapsed time remain separate whole-call
+measurements in the public component report.
+
+| Scenario / phase | Prepared / receipts | Complete request bytes | Estimated input tokens |
+| --- | ---: | --- | --- |
+| Amazon intent | 2 / 2 | 3,986.5 / 5,005 / 5,005 | 1,585.5 / 1,925 / 1,925 |
+| Amazon selection | 2 / 2 | 6,723 / 7,497 / 7,497 | 2,497 / 2,755 / 2,755 |
+| Amazon discovery | 6 / 5 | 6,844 / 8,244 / 8,244 | 2,537.5 / 3,004 / 3,004 |
+| Amazon draft | 2 / 2 | 18,241.5 / 19,129 / 19,129 | 6,337 / 6,633 / 6,633 |
+| Amazon local Judge | 1 / 1 | 8,956 / 8,956 / 8,956 | 3,242 / 3,242 / 3,242 |
+| Collections intent | 2 / 2 | 3,642 / 4,873 / 4,873 | 1,470.5 / 1,881 / 1,881 |
+| Collections selection | 8 / 8 | 6,873 / 8,060 / 8,060 | 2,547 / 2,943 / 2,943 |
+| Collections draft | 5 / 5 | 11,800 / 12,493 / 12,493 | 4,190 / 4,421 / 4,421 |
+| Collections local Judge | 5 / 5 | 7,161 / 7,466 / 7,466 | 2,643 / 2,745 / 2,745 |
+| Collections intermediate Judge | 2 / 2 | 7,053.5 / 7,137 / 7,137 | 2,607.5 / 2,635 / 2,635 |
+| Collections repair | 1 / 1 | 14,366 / 14,366 / 14,366 | 5,045 / 5,045 / 5,045 |
+| Review PR intent | 3 / 3 | 3,126 / 5,144 / 5,144 | 1,298 / 1,971 / 1,971 |
+| Review PR selection | 5 / 4 | 7,614 / 8,415 / 8,415 | 2,794 / 3,061 / 3,061 |
+| Review PR discovery | 3 / 3 | 6,433 / 6,485 / 6,485 | 2,401 / 2,418 / 2,418 |
+| Review PR draft | 2 / 2 | 15,720.5 / 15,886 / 15,886 | 5,496.5 / 5,552 / 5,552 |
+| Review PR local Judge | 2 / 2 | 8,808 / 8,882 / 8,882 | 3,192.5 / 3,217 / 3,217 |
+
+The public component report preserves all earlier source objects and now
+contains 24 diagnostic runs, 101 phases, 372 prepared requests, 362 known
+receipts and 2,858,549 reconciled bytes. Provider usage remains whole-call
+accounting, separate from conservative component estimates. No prompts,
+contracts, provider bodies or business artifacts are published.
+
+The terminal audit verified 577 requests / 574 receipts, the same three
+permanently retained receiptless identities and two uncertain attempts.
+Known cost is €15.062010130631831511596907496, reserved exposure
+€0.4953212476672887230071980805 and captured upper exposure
+€15.557331378299120234604105576. The unchanged
+€240.0301038327063045424449473 ceiling leaves
+€224.472772454407184307840841724. Audit hash:
+`1209fe1deebdfdea23357e795c3367f7cee556fdbd892c6058da71ea738fedc0`.
+The separate €159.96989616729369545755505266 lost-ledger exposure and all
+retained replay prohibitions remain unchanged; no unclosed uncertainty remains.
+The 18-run paired comparison remains unstarted. No complete live business
+success or comparative cost/latency improvement is established.
+
+The isolated full affected Planning suite on exact `0e76414` passed 2,219
+tests, zero failures/skips or warnings, with warnings as errors in 263.68
+seconds wall time; the checkout remained clean. Log hash:
+`1475fa5ab1792937ac29ce3706a0f091ec5364e5e32df54eafa16d0220b6407d`.
+This validates that frozen revision; subsequent source corrections require
+their own validation. CI for that exact head remained in the integration-test
+stage at this update. No final-head full-solution pass is claimed.
+
+Two memory-only probes reproduced the exact rejected request hashes. Removing
+only empty/null top-level discovery navigation fields changes Amazon's
+8,244 bytes / 3,004 estimated tokens to 8,091 / 2,953. Removing two incomplete
+automatic task-objective prefixes changes Review PR's selection from
+8,415 / 3,061 to 7,961 / 2,910, retaining the explicit incomplete marker, exact
+versioned retrieval links, task identities, ports, continuations and original
+requirements. Both preserve their response schemas and all nonempty mandatory
+originals. Probe hashes are
+`418960d728821077597dcc3b679d69d7bf6ccec3f8a063016adc7c707627451e`
+and `922aa2a28781df892cf1a37538343e7222e3a7187966339cddc1d81f0cb74dc0`.
+These are prospective fits for those exact contexts, not yet a compiled
+implementation pass or a live result. No probe dispatched a request, replayed
+a failed call or changed campaign accounting.
+
+The subsequent correction batch passed all 499 compact tests with warnings as
+errors, zero failures/skips, in 17 seconds. Final log hash:
+`08254425b741e6d8b05bdeca843f919ebaac43b797543bc03cb8ade08d294c05`.
+The initial focused run retained 12 passes and two fixture failures (log hash
+`d94eff5a5312fc01a9a8af5660350df428db54fc73a028e0b475a3d903481314`);
+the first full compact run retained 494 passes and five fixture failures (hash
+`161f51f9e952a795056f11481022e8aa8b4e049be5e82212c8038b2fcb21f9e5`).
+No production code changed after the first build. Historical fixtures now clear
+new metadata when emulating an older profile, and wording/null assertions match
+the intended presentation; validation and admission checks were not relaxed.
+
+The rebuilt implementation probes first reproduced both rejected request hashes
+using the frozen `0e76414` assembly. Current Code selection measures 7,924 bytes /
+2,898 estimated tokens, including the schema restriction when no closed group
+is available; Amazon discovery measures 8,091 / 2,953 with its schema unchanged.
+Original clauses, required fields, interfaces and exact retrieval links remain
+intact. The compiled assembly hash is
+`47a6fabe992e503dc8fa96282002c721ad3e82307d0fc2a162cfc3a4cb2b6c29`.
+Safe probe hashes:
+`15a655cd89b8233a38d1752569fd3a3c8159487544ae6f63046ac20e14042878`
+and `428f37e7569f5844139304a415cf4d177180a29067b7a2f3aeae841b6ebb993b`.
+These supersede the earlier hypothetical measurements for implementation claims;
+the earlier reports remain retained. The probes issued no request and changed
+no ledger record. These exact-context fits and deterministic passes do not
+establish live business convergence or a full-solution pass for this later batch.
+
 ## Deterministic evidence
+
+The isolated package/publish matrix on historical
+`fd7c41aebd075c6af3c4abdeec8f6f2f3a97b85e` subsequently completed all 14
+stages, zero failed/skipped, in 1,583.825 seconds. It covered five independent
+Release packages and the benchmark with warnings as errors, Native AOT planning
+on `osx-arm64`, published trimmed encrypted-storage checks and native Git stdio.
+The maintained wrapper completed eight frontend builds, 14 distribution profiles
+and all smokes in 1,125.737 seconds. Six exact pinned EF experimental notices
+were accepted; no unexpected warnings occurred. Existing Jint suppressions and
+partial-trim boundaries were unchanged. The timestamp-only generated metadata
+difference was retained, verified and restored; the checkout ended clean.
+Manifest hash:
+`20f8072513503670cf9d52c35628c1f289a31ccd19b86d66b9ce3058c3f46030`.
+Wrapper log hash:
+`0b63dc5cf304ce22111395bb7eba2c18f8d1a50854101d10440a76ae5e6030bb`.
+This validates exact `fd7c41a`, not the later `0e76414` changes; its full solution
+was still running at this update.
 
 The isolated full solution on historical
 `de5ec55774c26c08c50476a880ac4f36c54cf212` completed with 6,893 passed,

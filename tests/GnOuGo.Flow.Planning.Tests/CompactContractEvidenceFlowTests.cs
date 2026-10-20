@@ -53,7 +53,8 @@ public sealed class CompactContractEvidenceFlowTests
             Assert.DoesNotContain("Newly opened group/container scopes", request.Prompt, StringComparison.Ordinal);
             Assert.Contains("Future work is not an omission", request.Prompt, StringComparison.Ordinal);
             Assert.Contains("closeRequirementIds claims completion with accepted work", request.Prompt, StringComparison.Ordinal);
-            Assert.Contains("scopeInterface shows accepted exports", request.Prompt, StringComparison.Ordinal);
+            Assert.Contains("outputs: public /root results", request.Prompt, StringComparison.Ordinal);
+            Assert.Contains("scopeInterface: this scope's accepted exports plus additions", request.Prompt, StringComparison.Ordinal);
             var supplied = context["evidence"]?.AsObject().FirstOrDefault(pair => pair.Key.StartsWith("description:", StringComparison.Ordinal));
             if (supplied?.Value is JsonObject original)
             {

@@ -27,7 +27,8 @@ internal static partial class PlanningCompactConstruction
             ["reviews"] = new JsonArray((construction.Candidate?.Reviews ?? []).Select(r => r.DeepClone()).ToArray()) });
         compact.ReplacementScope = step!.Scope; compact.ReplacementRequirements = step.RequirementIds.ToList();
         construction.DraftCorrections = Math.Max(construction.DraftCorrections, construction.Candidate?.Corrections ?? 0);
-        construction.Candidate = null; compact.CurrentStep = null; compact.PendingCommitments.Clear();
+        construction.Candidate = null; construction.CandidateFailureIdentityVersion = null;
+        compact.CurrentStep = null; compact.PendingCommitments.Clear();
         construction.PendingReviewContext = null; construction.PendingReviewHash = null; construction.Evidence = null; construction.EvidenceRequests.Clear();
     }
 

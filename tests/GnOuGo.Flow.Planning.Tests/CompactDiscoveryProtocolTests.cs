@@ -468,7 +468,7 @@ public sealed partial class CompactDiscoveryProtocolTests
         Assert.Equal(1, state.ReplanAttempts);
         runtime.Respond = (request, _) =>
         {
-            Assert.Empty(Context(request)["diagnostics"]!.AsArray());
+            Assert.Null(Context(request)["diagnostics"]);
             Assert.InRange(PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.DiscoveryPurpose, 3000).EstimatedInputTokens, 1, 3000);
             return Wire(request, Discover("alpha", "more"));
         };

@@ -223,6 +223,7 @@ public sealed class CompactReviewEvidenceLinkTests
     {
         var (state, runtime) = await Ready(calledGroup: true);
         state.Construction!.Compact!.PresentationVersion = null;
+        state.Construction.CandidateFailureIdentityVersion = null;
         state.Request.Options.Remove("construction_presentation_version");
         runtime.Respond = (_, _) => throw new OperationCanceledException();
         _ = await Advance(state, runtime);

@@ -30,6 +30,10 @@ addresses. Its response schema factors repeated definitions without changing
 accepted values. The exact baseline remains fixed by that schema's required enum,
 so selection context omits its duplicate hash and the host-owned remaining-call
 counter. Admission and cumulative accounting are unchanged.
+Incomplete automatic task-objective prefixes are omitted when the selection
+directory retains their exact versioned evidence links and completeness flags;
+complete short objectives and typed port navigation remain. Discovery removes
+only empty top-level navigation fields, leaving original evidence unchanged.
 Replacement selections constrain both the requirement domain and its fixed
 cardinality; host validation still rejects duplicate or changed identities.
 Discovery asks for the next metadata action, deferring execution
@@ -48,6 +52,8 @@ Selected-scope export evidence distinguishes accepted declarations from the
 tentative merged interface at closure. It uses the compiler's post-finalizer
 type resolution, pages exact bindings by plan/frontier hash, and includes no scope
 body or unrelated history. Empty extension outputs preserve accepted exports.
+Public `outputs` constrain `/root`; local exports in `scopeInterface` may use
+the same name with a different type.
 This evidence does not make an open container consumable or grant edit authority.
 Fresh reviews use the existing compact TaskValue presentation for bindings and
 omit duplicate baseline/discovery bookkeeping. When requested scope evidence
@@ -79,6 +85,8 @@ The large-policy regression also compiles 101 shallow conditional sibling tasks 
 A separately publishable package depending only on Flow.Core.
 
 Compact `call` selection names one closed reusable group through `groupId`.
+Fresh selection omits the call kind and fixes `groupId` to null when none is
+closed; open-group navigation still supports construction of its body.
 `group:<id>` evidence and selected call context expose its immutable hash and exact
 typed input/output interface, without reinjecting its body. Compact contract discovery
 pages descriptors independently from exact schema views. Output-port directories retain
@@ -105,6 +113,13 @@ fresh schemas reject legacy aliases. Repeated evidence without new knowledge
 stops without another correction, leaving accepted fragments and accounting intact.
 Fresh provider-action schemas factor only identical cursor branches; the accepted
 source/cursor pairs and host-owned query remain unchanged.
+Fresh draft dispatch captures optional transient candidate-failure identity
+version 1. Rejections bind the accepted baseline, candidate plan, frontier,
+completion claims and canonical tentative commitments. A scope closure after
+an accepted intermediate checkpoint is progress even if its TaskPlan hash
+matches an earlier failure. Exact repeats and retained historical bare-hash
+rejections still stop. Issued historical requests keep their captured semantics,
+and this recovery metadata is excluded from artifact and approval identity.
 A successful prior description read may be requested once more after genuinely
 new allowed operation identities or versions, bound to the exact issued knowledge
 identity. Ordering, empty provider pages, cursor and diagnostic changes grant no

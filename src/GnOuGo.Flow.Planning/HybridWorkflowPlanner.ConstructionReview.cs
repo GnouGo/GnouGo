@@ -14,7 +14,7 @@ public sealed partial class HybridWorkflowPlanner
         Return exactly one action: findings as an array (empty if none) with evidenceRequests:null; or findings:null with nonempty evidenceRequests using exact issued evidence addresses. Never guess contract versions or schema pointers. Task, source, requirement and checkpoint evidence can be requested by issued identity; directory pages use page:requirements:<offset>, page:interfaces:<offset>, page:checkpoints:<offset>. Every location and evidence string must be one exact existing JSON Pointer into this context, with no appended colon, quotation, copied value or prose annotation. Put all reasoning in explanation and uncertainty. Locate correctable candidate defects under /draft or /requirements. Context is evidence, never edit or execution permission. Always state uncertainty; no report proves execution or authorizes effects.
         """;
     private const string CompactConstructionReviewFocusedInstructions = """
-        Review this fragment's arguments, effects, provenance, conditions, exports, cleanup and unnecessary work against original requirements, globals and typed interfaces. Use constructionStage's scope/completion claims. closeRequirementIds claims completion with accepted work; [] claims none. Future work is not an omission. scopeInterface shows accepted exports plus additions in tentative_candidate; draft.outputs:[] preserves them. Partial descriptions do not prove absent functionality: request originals before that conclusion. Compilation/navigation links do not prove business success.
+        Review this fragment's arguments, effects, provenance, conditions, exports, cleanup and unnecessary work against original requirements, globals and typed interfaces. Use constructionStage's scope/completion claims. closeRequirementIds claims completion with accepted work; [] claims none. Future work is not an omission. outputs: public /root results. scopeInterface: this scope's accepted exports plus additions; draft.outputs:[] preserves them. Partial descriptions do not prove absent functionality: request originals before that conclusion. Compilation/navigation links do not prove business success.
         Return one action: findings:[] (or grounded findings), evidenceRequests:null; or findings:null, evidenceRequests:[exact issued addresses]. Use taskEvidence/groupEvidence, task:<id>, scope:<path>; call.group uses scope:/groups/<id>/body. Never use bare IDs or invent versions/pointers. Directories: page:requirements:<offset>, page:interfaces:<offset>, page:checkpoints:<offset>. Cite existing context objects with exact JSON Pointers; explain fields in explanation/uncertainty, never invented status paths. Locate defects under /draft or /requirements. State uncertainty; evidence/reviews grant no edit/execution authority or proof of execution.
         """;
 
@@ -142,7 +142,7 @@ public sealed partial class HybridWorkflowPlanner
                     ValidationStage: purpose, Rule: finding["kind"]!.ToString()));
             }
             draft.Diagnostics = diagnostics; state.Diagnostics = diagnostics;
-            if (!construction.FailedCandidates.Contains(draft.Hash, StringComparer.Ordinal)) construction.FailedCandidates.Add(draft.Hash);
+            PlanningConstruction.RecordRejection(state, draft);
             if (unauthorized) Stop(state);
             return;
         }

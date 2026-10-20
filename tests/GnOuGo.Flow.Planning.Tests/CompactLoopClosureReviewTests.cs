@@ -83,6 +83,7 @@ public sealed class CompactLoopClosureReviewTests
         var (state, runtime) = await Ready("foreach");
         state = await Advance(state, runtime);
         state.Construction!.Compact!.PresentationVersion = null;
+        state.Construction.CandidateFailureIdentityVersion = null;
         state.Request.Options.Remove("construction_presentation_version");
         runtime.Respond = (_, _) => throw new OperationCanceledException();
         _ = await Advance(state, runtime);
