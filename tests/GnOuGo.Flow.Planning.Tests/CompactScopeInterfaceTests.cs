@@ -30,7 +30,13 @@ public sealed class CompactScopeInterfaceTests
                 closureReviews++;
                 var context = Context(request);
                 Assert.Empty(context["draft"]!["outputs"]!.AsArray());
-                Assert.Equal(context["baseHash"]!.ToString(), context["candidateHash"]!.ToString());
+                if (purpose == PlanningConstruction.LocalPurpose)
+                    Assert.Equal(context["baseHash"]!.ToString(), context["candidateHash"]!.ToString());
+                else
+                {
+                    Assert.Null(context["baseHash"]);
+                    Assert.Null(context["candidateHash"]);
+                }
                 var view = context["scopeInterface"]!;
                 Assert.Equal("tentative_candidate", view["basis"]!.ToString());
                 Assert.False(view["open"]!.GetValue<bool>()); Assert.False(view["consumable"]!.GetValue<bool>());
@@ -46,6 +52,7 @@ public sealed class CompactScopeInterfaceTests
         });
         Assert.Equal(2, closureReviews);
         Assert.Equal(4, state.Construction!.Checkpoints.Count);
+        Assert.Equal(state.Construction.Checkpoints[1].PlanHash, state.Construction.Checkpoints[2].PlanHash);
         Assert.Single(state.Plan!.Groups[0].Body.Outputs);
         Assert.Single(state.Plan.Root.Tasks);
         Assert.Equal("call", state.Plan.Root.Tasks[0].Kind);

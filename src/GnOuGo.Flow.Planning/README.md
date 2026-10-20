@@ -30,8 +30,13 @@ addresses. Its response schema factors repeated definitions without changing
 accepted values. The exact baseline remains fixed by that schema's required enum,
 so selection context omits its duplicate hash and the host-owned remaining-call
 counter. Admission and cumulative accounting are unchanged.
+Replacement selections constrain both the requirement domain and its fixed
+cardinality; host validation still rejects duplicate or changed identities.
 Discovery asks for the next metadata action, deferring execution
-arguments. This framing is an experiment; a small schema does not explain or
+arguments. Declared caller inputs are runtime bindings; discovering a consumer
+does not require their concrete values. Each discovery evidence action supplies
+one exact address rather than concatenating addresses in a string.
+This framing is an experiment; a small schema does not explain or
 prevent a provider's reasoning-only response. Historical guidance and all issued
 requests remain exact.
 Selection and discovery explicitly require one non-null response action, with
@@ -95,7 +100,12 @@ page was consumed. Original descriptions and contracts still require targeted
 retrieval. Source and provider links advance past consumed pages; unchanged
 evidence cannot be reread by navigating back to an advertised consumed link.
 Requested evidence takes precedence over the decision directory to stay within
-the captured complete-request limit. Existing repeat guards remain unchanged.
+the captured complete-request limit. Alongside it, at most four currently eligible
+operation identities whose exact description pages were successfully read for the
+current baseline retain their names and effects. This directory repeats no
+contract prose or schema and establishes no complete inspection or authority;
+selection still resolves the original contract. Its count exposes omitted rows.
+Existing repeat guards remain unchanged.
 
 Explicit `requires` remains a local fail-fast runtime assertion, including inside conditional paths. The compiler validates types, scope, availability and contracts; it no longer attempts conditional implication proofs or automatic guard strengthening. Branch conditions govern optional routing. Automatic repairs cannot remove or alter `requires`; explicit targeted revisions remain available. Retained guard-proof repairs require revision after accounting for any completed original receipt; unknown completion remains stopped.
 

@@ -57,13 +57,24 @@ public sealed class CompactSelectionSchemaTests
         Assert.Equal(["req_1", "req_2"], Domain(schema));
         Assert.Equal(["req_1", "req_2"], Domain(schema, "closeRequirementIds"));
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(Response(state, "req_0"), schema));
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(Response(state, "req_1"), schema));
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(Response(state, "req_1", "req_2", "req_1"), schema));
         var response = Response(state, "req_1", "req_2");
+        response["step"]!["closeRequirementIds"] = new JsonArray("req_1");
         Assert.Empty(PlanningContractValidation.ValidateInstance(response, schema));
         var step = response["step"]!.Deserialize(PlanningJsonContext.Default.PlanningConstructionStep)!;
         PlanningCompactConstruction.ValidateSelection(state, step);
         step.RequirementIds = ["req_1"];
         Assert.Contains(Assert.Throws<PlanningResponseException>(() => PlanningCompactConstruction.ValidateSelection(state, step)).Diagnostics,
             diagnostic => diagnostic.Code == "CONSTRUCTION_STEP_INVALID");
+        step.RequirementIds = ["req_1", "req_2", "req_1"];
+        Assert.Contains(Assert.Throws<PlanningResponseException>(() => PlanningCompactConstruction.ValidateSelection(state, step)).Diagnostics,
+            diagnostic => diagnostic.Code == "CONSTRUCTION_STEP_INVALID");
+
+        var historical = PlannerFixture.Clone(state);
+        historical.Construction!.Compact!.PresentationVersion = null;
+        Assert.Empty(PlanningContractValidation.ValidateInstance(Response(state, "req_1"),
+            PlanningCompactConstruction.SelectionSchema(historical)));
     }
 
     [Fact]

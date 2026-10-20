@@ -84,6 +84,27 @@ internal static partial class PlanningCompactConstruction
         return new JsonObject { ["offset"] = offset, ["items"] = items, ["next"] = next };
     }
 
+    internal static JsonObject? DescribedOperationChoices(PlanningSession state)
+    {
+        if (State(state).PresentationVersion != 2 || state.Construction!.Evidence is not { Count: > 0 } ||
+            State(state).CurrentStep is not { } step) return null;
+        var reads = state.Construction.EvidenceRequests.ToHashSet(StringComparer.Ordinal);
+        var ranked = CapabilityRelevance.Rank(DescriptorCandidates(state, state.Discovery.Pages), CapabilityRelevance.Query(step.Objective)).Where(capability =>
+            capability.Operation!.Version == capability.Version && reads.Contains(PlanningConstruction.EvidenceBatchFingerprint(state,
+                ["description:" + ContractIdentity(capability.Operation.Id, capability.Operation.Version) + ":0"]))).ToArray();
+        if (ranked.Length == 0) return null;
+        // A successful description page is navigation evidence, not complete
+        // contract inspection or authority to execute. Never resend its prose.
+        return new JsonObject
+        {
+            ["total"] = ranked.Length, ["complete"] = ranked.Length <= 4,
+            ["items"] = new JsonArray(ranked.Take(4).Select(capability => (JsonNode)new JsonObject
+            {
+                ["id"] = capability.Operation!.Id, ["name"] = capability.Name, ["effect"] = capability.EffectKind
+            }).ToArray())
+        };
+    }
+
     internal static string OperationPageAddress(PlanningSession state, int offset) =>
         State(state).PresentationVersion == 2
             ? "page:operations:" + PlanningGraphCompiler.Fingerprint(ContractDescriptorPage(state, offset).ToJsonString()) + ":" + offset.ToString(CultureInfo.InvariantCulture)

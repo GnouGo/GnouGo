@@ -231,6 +231,9 @@ public sealed class CompactReviewEvidenceLinkTests
         var issued = saved.PendingCall!.Request;
         Assert.Null(Context(issued)["taskEvidence"]);
         Assert.Null(Context(issued)["groupEvidence"]);
+        Assert.NotNull(Context(issued)["baseHash"]);
+        Assert.NotNull(Context(issued)["candidateHash"]);
+        Assert.NotNull(Context(issued)["checkpoints"]![0]!["hash"]);
         Assert.DoesNotContain("evidenceRequests uses retrieval addresses", issued.Prompt, StringComparison.Ordinal);
         var exact = JsonSerializer.Serialize(issued, PlanningJsonContext.Default.LLMRequest);
         var reviewContext = saved.Construction!.PendingReviewContext!.ToJsonString();
@@ -259,6 +262,9 @@ public sealed class CompactReviewEvidenceLinkTests
         recovery.Respond = (request, _) =>
         {
             Assert.NotNull(Context(request)["taskEvidence"]);
+            Assert.Null(Context(request)["baseHash"]);
+            Assert.Null(Context(request)["candidateHash"]);
+            Assert.All(Context(request)["checkpoints"]!.AsArray(), checkpoint => Assert.Null(checkpoint!["hash"]));
             Assert.Equal("scope:/groups/leaf/body", Assert.Single(Context(request)["groupEvidence"]!["items"]!.AsArray())!["address"]!.ToString());
             AssertBounded(request);
             return Wire(request, Reviewed());
@@ -268,6 +274,43 @@ public sealed class CompactReviewEvidenceLinkTests
         Assert.Equal(calls + 1, state.ModelCalls);
         Assert.Equal(0, state.ReplanAttempts);
         Assert.Equal(2, state.Construction!.Checkpoints.Count);
+    }
+
+    [Fact]
+    public async Task IntermediateReviewPreservesExactEvidenceAndCheckpointNavigationWithoutControlHashes()
+    {
+        var (state, runtime) = await Ready();
+        PlanningConstruction.LoadEvidence(state, ["task:iteration", "scope:/tasks/iteration/body"]);
+        var evidence = state.Construction!.Evidence!.ToJsonString();
+        var checkpoints = JsonSerializer.Serialize(state.Construction.Checkpoints, PlanningJsonContext.Default.ListPlanningConstructionCheckpoint);
+        var accepted = PlanningConstruction.Hash(state.Plan);
+        var baseline = state.Construction.Candidate!.BaseHash;
+        runtime.Respond = (request, purpose) =>
+        {
+            Assert.Equal(PlanningConstruction.IntermediatePurpose, purpose);
+            var context = Context(request);
+            Assert.Null(context["baseHash"]);
+            Assert.Null(context["candidateHash"]);
+            Assert.Equal(1, context["checkpointCount"]!.GetValue<int>());
+            Assert.Equal("page:checkpoints:0", context["checkpointEvidence"]!.ToString());
+            var checkpoint = Assert.Single(context["checkpoints"]!.AsArray())!;
+            Assert.Equal(1, checkpoint["sequence"]!.GetValue<int>());
+            Assert.Equal(new[] { "iteration", "per_item" }, checkpoint["tasks"]!.AsArray().Select(id => id!.ToString()));
+            Assert.Equal("req_0", Assert.Single(checkpoint["requirementIds"]!.AsArray())!.ToString());
+            Assert.Null(checkpoint["hash"]);
+            Assert.True(JsonNode.DeepEquals(JsonNode.Parse(evidence), context["evidence"]));
+            Assert.Equal(accepted, PlanningConstruction.Hash(state.Plan));
+            Assert.Equal(checkpoints, JsonSerializer.Serialize(state.Construction.Checkpoints, PlanningJsonContext.Default.ListPlanningConstructionCheckpoint));
+            var measured = PlanningRequestMeasurements.Measure(request, purpose, 4000);
+            Assert.InRange(measured.EstimatedInputTokens, 1, 4000);
+            Assert.Equal(measured.CompleteRequestBytes, measured.Components.Sum(component => component.SerializedBytes));
+            return Wire(request, Reviewed());
+        };
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        Assert.Equal(baseline, state.RequestMeasurements!.Last().BaselineHash);
+        Assert.Equal(2, state.Construction!.Checkpoints.Count);
+        Assert.Equal(accepted, state.Construction.Checkpoints[0].PlanHash);
     }
 
     private static async Task<(PlanningSession State, TestRuntime Runtime)> Ready(bool calledGroup = false)

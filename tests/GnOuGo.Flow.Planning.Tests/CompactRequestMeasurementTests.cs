@@ -27,12 +27,14 @@ public sealed class CompactRequestMeasurementTests
         Assert.Equal(before, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
     }
 
-    [Fact]
-    public void ProviderCursorMetadataCountsAsDescriptorsAndReconcilesExactEnvelope()
+    [Theory]
+    [InlineData("providerRequests")]
+    [InlineData("describedOperations")]
+    public void DiscoveryDecisionMetadataCountsAsDescriptorsAndReconcilesExactEnvelope(string field)
     {
         var providers = new JsonObject { ["version"] = new string('a', 64), ["offset"] = 2, ["total"] = 3,
             ["items"] = new JsonArray(new JsonObject { ["sourceId"] = "source/é", ["cursor"] = "opaque:\"next\"/🙂", ["available"] = true }), ["next"] = null };
-        var context = new JsonObject { ["providerRequests"] = providers };
+        var context = new JsonObject { [field] = providers };
         var request = new LLMRequest { Prompt = "Choose only an issued provider pair.\n" + PlanningJsonTransport.Prompt(context) };
         var original = JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest);
         var measurement = PlanningRequestMeasurements.Measure(request, "construction_discovery", 3000);

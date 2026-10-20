@@ -78,6 +78,10 @@ unchanged; reasoning-only failures remain retained evidence, not proof that a
 particular prompt feature caused them.
 Scoped review also avoids repeating a group interface already present verbatim
 in requested scope evidence and uses existing compact binding serialization.
+Fresh intermediate reviews omit host-owned candidate and checkpoint hashes from
+the prompt while retaining checkpoint identities, contributions and retrieval
+links. New request measurements capture the exact candidate baseline separately;
+saved measurements and pending review requests are never reconstructed.
 This changes only new request presentation; historical contexts, pending requests,
 accepted fragments and review/reference validation remain unchanged.
 Historical sessions

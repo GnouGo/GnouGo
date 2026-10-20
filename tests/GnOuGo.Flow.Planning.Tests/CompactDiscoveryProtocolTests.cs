@@ -7,7 +7,7 @@ using GnOuGo.Planning.Examples;
 
 namespace GnOuGo.Flow.Planning.Tests;
 
-public sealed class CompactDiscoveryProtocolTests
+public sealed partial class CompactDiscoveryProtocolTests
 {
     [Fact]
     public async Task ProviderSchemaBindsSourceCursorAndHostOwnedQueryWithoutAcceptingEvidenceAddresses()

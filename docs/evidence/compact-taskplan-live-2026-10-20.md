@@ -1086,6 +1086,127 @@ The ceiling and separate lost-ledger exposure remain unchanged. The 18-run
 paired comparison is still unstarted; business success, cost and latency
 improvement against the baseline remain unproved.
 
+## Frozen `c082c39` three-scenario diagnostics
+
+Source `c082c39354f8b898bd0020ef65f4bcfd5298c3fe` retained the same model,
+medium reasoning, captured limits and producer/oracle identities. Its diagnostic
+manifest hash is
+`1535aaf9d870ec5ac29906a47bb9d08f5b7b2fbebb24d06e96677a55ea374960`.
+The benchmark build passed with zero warnings/errors in 23.72 seconds, the
+private review helper passed 18 self-tests, and all 568 frozen producer files
+were verified before dispatch.
+
+| Diagnostic | Calls / corrections / checkpoints | Provider input / output / reasoning tokens | Time | Known cost |
+| --- | --- | --- | ---: | ---: |
+| Amazon `compactdc082c39-amazon-1` | 24 / 4 / 0 | 29,810 / 11,077 / 8,365 | 200.026s | €0.4277614858260019550342130984 |
+| Collections `c082c39354f8b898bd0020ef65f4bcfd5298c3fe:fixture:collections:1` | 27 / 2 / 5 | 39,030 / 16,307 / 12,839 | 294.634s | €0.6081578245801119701412956545 |
+| Review PR `compactdc082c39-code-1` | 13 / 0 / 0 | 13,649 / 7,948 / 6,233 | 134.121s | €0.2725362125655380787345596730 |
+
+Amazon stopped with `CONSTRUCTION_STEP_INVALID` and `REPLAN_NO_PROGRESS` during
+bounded reselection. An earlier concatenation of two description addresses was
+correctly rejected by the address parser, and navigation subsequently advanced.
+The later reselection claimed unavailable web capability even though nine browser
+operation identities were retained. Requested-evidence contexts did not retain
+a compact directory of previously inspected operation identities. This is
+evidence for a presentation experiment, not proof of the model's reasoning or
+of a complete executable alternative.
+
+Collections' local group-closure Judge completed with valid `findings:[]`.
+The mandatory intermediate review was then rejected **before dispatch** at
+11,701 bytes / 4,157 estimated input tokens against 4k. The final inconclusive
+status does not represent a malformed intermediate report: there was no such
+provider receipt. Five earlier checkpoints remained, with only `req_0` closed;
+`req_1` and `req_2` remained in progress. No requirement-closure checkpoint was
+accepted from the pending group closure.
+
+Review PR suspended for clarification requesting an exact pull-request URL,
+although its selected input binding already referenced the declared runtime
+input `pullRequestUrl`. The last discovery context carried that binding without
+explaining that its concrete value would be supplied at execution. This did not
+establish a missing planning fact or complete workflow. None of the three runs
+reached approval or execution, produced empty content or introduced transport
+uncertainty. The business outcomes remain incomplete.
+
+| Scenario / phase | Prepared requests | p50 / p95 / maximum complete bytes | p50 / p95 / maximum input estimate |
+| --- | ---: | --- | --- |
+| Amazon / intent | 2 | 3,986 / 5,004 / 5,004 | 1,585 / 1,924 / 1,924 |
+| Amazon / selection | 6 | 6,434.5 / 7,226 / 7,226 | 2,401 / 2,665 / 2,665 |
+| Amazon / discovery | 16 | 6,592.5 / 7,553 / 7,553 | 2,453.5 / 2,774 / 2,774 |
+| Collections / intent | 2 | 3,618 / 4,825 / 4,825 | 1,462.5 / 1,865 / 1,865 |
+| Collections / selection | 10 | 6,804.5 / 7,667 / 7,667 | 2,524.5 / 2,812 / 2,812 |
+| Collections / draft | 6 | 11,899 / 13,389 / 13,389 | 4,223 / 4,719 / 4,719 |
+| Collections / local Judge | 7 | 8,481 / 11,097 / 11,097 | 3,083 / 3,955 / 3,955 |
+| Collections / intermediate Judge | 3 | 8,491 / 11,701 / 11,701 | 3,087 / 4,157 / 4,157 |
+| Review PR / intent | 4 | 3,127.5 / 5,144 / 5,144 | 1,298.5 / 1,971 / 1,971 |
+| Review PR / selection | 3 | 7,015 / 7,127 / 7,127 | 2,595 / 2,632 / 2,632 |
+| Review PR / discovery | 6 | 6,003.5 / 6,778 / 6,778 | 2,257.5 / 2,516 / 2,516 |
+
+The 65 prepared requests include 64 known receipts and the rejected intermediate
+review. Every request's component bytes reconcile: 149,227 for Amazon, 233,530
+for Collections and 71,327 for Review PR, totaling 454,084 bytes. The cohort used
+82,489 input / 35,332 output / 27,437 reasoning tokens in 628.781 seconds for
+€1.3084555229716520039100684259. All Amazon and Review PR requests fit; the
+Collections rejection remains included in peak sizes. The public component
+report now preserves 15 runs, 233 prepared requests and 228 known receipts,
+with all 1,684,222 bytes reconciled. Aggregate safe-report hash:
+`dd8240482aae0fe78e96e09bc9ec4dac6e910ae7deffccf712e623624081ecde`.
+Individual report hashes are
+`2b8f07cd103e38c64c412e4d1c34f3799f98fa46eabc016bea0913406b545f46`,
+`224e00101d90a19d0ca4570cbd62fac2ba30ee91ca234627bdfa9a3c83bbca8d`
+and `295ee37a288af599a513cc99a4babd137b2d87b98a84b635270742e886d0cc69`.
+
+Private probes retain both failing and fitting alternatives. Across the eleven
+affected Amazon discovery contexts, a bounded directory of up to four eligible,
+previously described operation identities/names/effects, without description
+prose or links, peaks at 7,914 bytes / 2,894 estimated tokens. The exact baseline
+request hashes and original requirements/evidence were verified. Adding four
+leading-operation description links instead can exceed 3k. Probe hash:
+`852e61aea3ba26965cc8674d3fdcae0902923bf8cfb2549f5bfc4f2f0df0ff17`.
+The proposed directory remains a selection aid, not contract authority or a
+relaxation of reread/non-progress checks.
+
+The exact rejected Collections envelope was separately reproduced by hash.
+Removing only top-level control hashes and per-checkpoint plan hashes changes
+11,701 / 4,157 to 11,124 / 3,964. Original business/source/evidence/import/fragment
+fields and the response schema remain identical; checkpoint sequences, task
+and requirement identities, count and retrieval link remain. The durable
+candidate/checkpoint identities must remain authoritative outside presentation.
+Probe hash:
+`efa88e6b8fa45839ba67abaa9d7f0603270b26f93bb666b4ad285b237854c13f`.
+These probes dispatched no requests and changed no retained records. The
+rebuilt implementation was then measured against all 16 retained discovery
+envelopes (calls 6–21), reproducing every baseline hash. With the current
+guidance and successfully inspected operation directory, the largest request
+changes from 7,553 bytes / 2,774 estimated tokens to 8,022 / 2,930; call 21
+changes from 5,986 / 2,252 to 6,597 / 2,455. All remain below 3k, with original
+business requirements, evidence, provider/navigation data and response schemas
+preserved. The rebuilt probe supersedes the earlier hypothetical menu sizes
+for implementation claims; its hash is
+`ff5df5e36781f6b8f679fd80bcc0218497b3a4d73ef0fe3fb071f184d4348928`.
+Neither probe establishes improved live convergence.
+
+The completed correction batch passed all 459 compact tests with warnings as
+errors, zero failures or skips, in 15 seconds; the planning skill validator
+passed. Final test-log hash:
+`5053e635e676cb4689720039262c5d6c0b7048534bffd74ee088b1650aa635d4`.
+The preceding attempt retained 458 passes and one stale test assertion comparing
+local and intermediate prompt control hashes. The corrected assertion retains
+export-binding and durable checkpoint-hash checks. Failed-log hash:
+`97254651359a4dbddb331344bbb5550ed693331a52bf88e084c2575d28e3dfe3`.
+The affected full Planning suite has not yet been rerun for this batch; its
+earlier 2,175-test result applies to the previously documented source.
+
+The terminal audit verified 443 requests / 440 receipts, the same three
+permanently retained receiptless identities and two uncertain attempts, with
+no new unclosed uncertainty. Known cost is €11.727490446991913267573091622,
+reserved exposure €0.4953212476672887230071980805, captured upper exposure
+€12.222811694659201990580289702 and remaining allowance
+€227.807292138047102551864657598. Audit hash:
+`78e5467d720a6aa419150fd973202b47c8609884efa456e4a9d5c86a6dc55c6b`.
+The campaign ceiling and separate lost-ledger exposure are unchanged. No
+complete live business success or measured paired improvement is claimed;
+the 18-run comparison remains unstarted.
+
 ## Deterministic evidence
 
 An isolated checkout of `de5ec55774c26c08c50476a880ac4f36c54cf212` passed all
