@@ -116,7 +116,12 @@ explicitly. No unused request capacity is filled with unrelated suggestions.
 Fresh discovery evidence actions retrieve one addressed view at a time, avoiding
 aggregation of several independent pages beyond the complete-request limit.
 Saved requests retain their original evidence batch schema.
-Discovery directories present two operation descriptors or two sources at a time.
+Fresh discovery directories present four concise operation descriptors or two
+sources at a time. Operation rows retain exact identities, versions, names,
+effects and description-retrieval addresses; omitted descriptions are explicit.
+The discovery substep view retains its exact objective, expected outputs and
+semantic input bindings. It omits draft-only authority metadata and duplicate
+requirement IDs; original clauses and their IDs remain alongside the step.
 Provider metadata actions are presented separately in pages of two exact source
 and continuation pairs. Their versioned evidence addresses are local navigation,
 never provider cursors. The issued schema fixes each source/cursor pair and uses
@@ -135,8 +140,13 @@ single evidence view; this does not fetch another source or bypass non-progress
 checks.
 Fresh operation navigation advances past descriptor pages already supplied at
 the current baseline, including when the current evidence is an operation
-description. The retained evidence-batch identities prevent advertising a
-consumed page as the next action; explicit duplicate requests still stop.
+description. Operation-page addresses bind the exact displayed content, so
+provider catalog expansion preserves progress for unchanged pages and exposes
+changed or new ones. One top-level continuation identifies the next unsupplied
+page. The retained evidence-batch identities prevent advertising a consumed page
+as the next action; explicit duplicate requests stop immediately without another
+correction. Exact historical issued schemas retain their offset-only addresses
+and two-row payloads. Fresh issued schemas reject those legacy aliases.
 Successful retrieval clears its corrected navigation diagnostic without
 discarding unrelated findings or resetting cumulative correction accounting.
 Output-port directories preserve original producer business-port mappings, including
@@ -214,6 +224,11 @@ default item ceiling when the request supplies no bound. A ceiling of one means
 singleton capacity, not a placeholder or one concurrent worker. This is
 presentation guidance for the proposed task; accepted tasks, schema bounds and
 host execution limits remain unchanged.
+Closure reviews also receive the selected scope owner's relevant export
+semantics, derived from the candidate's symbol table: each foreach body export
+becomes an ordered array on the enclosing task, retaining repetitions and nested
+arrays. This explains existing compilation; it does not remove review of the
+chosen per-item value or introduce an aggregation task.
 Finding locations and evidence contain exact JSON Pointers without annotations;
 explanations belong in their separate fields. Exact context lookup remains the
 authority for accepting a reference.

@@ -12,6 +12,7 @@ internal static partial class PlanningCompactConstruction
 {
     private const int ContractDirectoryPageSize = 8;
     private const int ContractDescriptorPageSize = 2;
+    private const int CompactContractDescriptorPageSize = 4;
     private const int SourceDirectoryPageSize = 2;
     private const int ContractDescriptionPageSize = 2048;
 
@@ -36,7 +37,7 @@ internal static partial class PlanningCompactConstruction
         };
     }
 
-    internal static JsonArray ContractDescriptors(PlanningSession state, int offset = 0)
+    internal static JsonArray ContractDescriptors(PlanningSession state, int offset = 0, int count = ContractDescriptorPageSize, bool concise = false)
     {
         var step = state.Construction!.Compact!.CurrentStep!;
         var query = CapabilityRelevance.Query(step.Objective);
@@ -51,12 +52,12 @@ internal static partial class PlanningCompactConstruction
         var ranked = CapabilityRelevance.Rank(discovered, query).ToArray();
         if (offset < 0 || offset > ranked.Length)
             PlanningConstruction.Fail("CONSTRUCTION_EVIDENCE_INVALID", "/evidenceRequests", "The operation directory offset is outside the retained metadata.");
-        return new(ranked.Skip(offset).Take(ContractDescriptorPageSize).Select(c =>
+        return new(ranked.Skip(offset).Take(count).Select(c =>
         {
             var operation = c.Operation!;
             var identity = ContractIdentity(operation.Id, operation.Version);
             var description = NavigationDescription(operation.Description);
-            return (JsonNode)new JsonObject
+            var descriptor = new JsonObject
             {
                 ["id"] = operation.Id, ["version"] = operation.Version,
                 ["name"] = c.Name, ["effect"] = c.EffectKind,
@@ -64,16 +65,27 @@ internal static partial class PlanningCompactConstruction
                 ["descriptionComplete"] = description.Length == operation.Description.Length,
                 ["descriptionEvidence"] = "description:" + identity + ":0"
             };
+            if (concise) { descriptor.Remove("description"); descriptor.Remove("descriptionComplete"); }
+            return (JsonNode)descriptor;
         }).ToArray());
     }
 
-    internal static JsonObject ContractDescriptorPage(PlanningSession state, int offset = 0)
+    internal static JsonObject ContractDescriptorPage(PlanningSession state, int offset = 0, bool legacy = false)
     {
+        if (!legacy && State(state).PresentationVersion == 2)
+            return new JsonObject { ["offset"] = offset,
+                ["items"] = ContractDescriptors(state, offset, CompactContractDescriptorPageSize, concise: true),
+                ["descriptionsOmitted"] = true };
         var items = ContractDescriptors(state, offset);
         var next = items.Count == ContractDescriptorPageSize && ContractDescriptors(state, offset + ContractDescriptorPageSize).Count > 0
             ? "page:operations:" + (offset + ContractDescriptorPageSize).ToString(CultureInfo.InvariantCulture) : null;
         return new JsonObject { ["offset"] = offset, ["items"] = items, ["next"] = next };
     }
+
+    internal static string OperationPageAddress(PlanningSession state, int offset) =>
+        State(state).PresentationVersion == 2
+            ? "page:operations:" + PlanningGraphCompiler.Fingerprint(ContractDescriptorPage(state, offset).ToJsonString()) + ":" + offset.ToString(CultureInfo.InvariantCulture)
+            : "page:operations:" + offset.ToString(CultureInfo.InvariantCulture);
 
     internal static JsonArray ContractViews(PlanningSession state, bool review = false)
         => new(SelectedContracts(state).Select(c => (JsonNode)ContractView(state, c, review)).ToArray());

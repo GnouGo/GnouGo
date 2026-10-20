@@ -568,12 +568,16 @@ public sealed class CompactConstructionContractsTests
     }
 
     [Theory]
-    [InlineData("A")]
-    [InlineData("漢")]
-    [InlineData("🙂")]
-    public void FullDiscoveryPageFitsItsCompleteRequestWithoutPortTreesOrGiantSourceDescriptions(string descriptionSymbol)
+    [InlineData("A", false)]
+    [InlineData("漢", false)]
+    [InlineData("🙂", false)]
+    [InlineData("A", true)]
+    [InlineData("漢", true)]
+    [InlineData("🙂", true)]
+    public void FullDiscoveryPageFitsItsCompleteRequestWithoutPortTreesOrGiantSourceDescriptions(string descriptionSymbol, bool fresh)
     {
         var state = State();
+        if (fresh) state.Construction!.Compact!.PresentationVersion = 2;
         state.Construction!.Requirements = [new() { Id = "result" }];
         state.Requirements!.Outcomes = [new("result", string.Concat(Enumerable.Repeat("Preserve the requested data, identity and order. ", 12)))];
         state.Construction.Compact!.CurrentStep!.Objective = string.Concat(Enumerable.Repeat("Read the authorized original records. ", 6));
@@ -593,31 +597,54 @@ public sealed class CompactConstructionContractsTests
             state.Discovery.Sources[0].Id, "declared_operation_name", c.Description, c.StepType, c.EffectKind, c.Version,
             Operation: TaskOperations.Describe(c))).ToList(), "rank:" + new string('f', 64) + ":8", Query: state.Construction.Compact.CurrentStep.Objective)];
         var descriptors = PlanningCompactConstruction.ContractDescriptorPage(state);
+        var initialContext = PlanningCompactConstruction.DiscoveryContext(state);
         var sources = PlanningCompactConstruction.SourceDescriptors(state);
-        Assert.Equal(2, descriptors["items"]!.AsArray().Count);
-        Assert.Equal("page:operations:2", descriptors["next"]!.ToString());
+        Assert.Equal(fresh ? 4 : 2, descriptors["items"]!.AsArray().Count);
+        if (fresh)
+        {
+            Assert.Null(descriptors["next"]);
+            Assert.True(descriptors["descriptionsOmitted"]!.GetValue<bool>());
+            Assert.Equal(PlanningCompactConstruction.OperationPageAddress(state, 4), initialContext["directoryEvidence"]!["operations"]!.ToString());
+        }
+        else Assert.Equal("page:operations:2", descriptors["next"]!.ToString());
         Assert.Equal(2, sources["items"]!.AsArray().Count);
         Assert.All(descriptors["items"]!.AsArray(), d =>
         {
-            Assert.Null(d!["inputs"]); Assert.Null(d["outputs"]); Assert.False(d["descriptionComplete"]!.GetValue<bool>());
-            var excerpt = d["description"]!.ToString();
-            if (descriptionSymbol == "A") Assert.Equal(192, excerpt.Length);
-            else Assert.InRange(excerpt.Length, 1, 191);
+            Assert.Null(d!["inputs"]); Assert.Null(d["outputs"]);
+            if (fresh)
+            {
+                Assert.Null(d["description"]); Assert.Null(d["descriptionComplete"]);
+                Assert.StartsWith("description:", d["descriptionEvidence"]!.ToString(), StringComparison.Ordinal);
+            }
+            else
+            {
+                Assert.False(d["descriptionComplete"]!.GetValue<bool>());
+                var excerpt = d["description"]!.ToString();
+                if (descriptionSymbol == "A") Assert.Equal(192, excerpt.Length);
+                else Assert.InRange(excerpt.Length, 1, 191);
+            }
         });
         Assert.All(sources["items"]!.AsArray(), s => Assert.False(s!["descriptionComplete"]!.GetValue<bool>()));
         var discoveredIds = new HashSet<string>(StringComparer.Ordinal);
         var page = descriptors;
+        var continuation = fresh ? initialContext["directoryEvidence"]!["operations"]?.ToString() : page["next"]?.ToString();
+        if (fresh)
+            PlanningCompactConstruction.RecordPresentedOperations(state,
+                PlanningCompactConstruction.Request(PlanningCompactConstruction.DiscoveryInstructions, initialContext,
+                    PlanningCompactConstruction.DiscoverySchema(state), PlanningCompactConstruction.DiscoveryPurpose).Prompt);
         while (true)
         {
             foreach (var descriptor in page["items"]!.AsArray())
                 Assert.True(discoveredIds.Add(descriptor!["id"]!.ToString()));
-            if (page["next"] is not { } next) break;
-            PlanningConstruction.LoadEvidence(state, [next.ToString()]);
-            page = state.Construction.Evidence![next.ToString()]!.AsObject();
+            if (continuation is null) break;
+            PlanningConstruction.LoadEvidence(state, [continuation]);
+            page = state.Construction.Evidence![continuation]!.AsObject();
+            continuation = fresh ? PlanningCompactConstruction.DiscoveryContext(state)["directoryEvidence"]!["operations"]?.ToString()
+                : page["next"]?.ToString();
         }
         Assert.Equal(8, discoveredIds.Count);
         state.Construction.Evidence = null;
-        var context = PlanningCompactConstruction.DiscoveryContext(state);
+        var context = initialContext;
         Assert.Null(context["sources"]);
         Assert.Equal("page:sources:0", context["directoryEvidence"]!["sources"]!.ToString());
         Assert.Null(context["providerRequests"]);

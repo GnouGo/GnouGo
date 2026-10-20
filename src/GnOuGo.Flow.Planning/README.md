@@ -33,6 +33,9 @@ This evidence does not make an open container consumable or grant edit authority
 Transform reviews receive the selected kind's named-port semantics: the required
 object result contract wraps its declared fields, and a named output reference
 consumes that field's type.
+Foreach-body closure reviews derive the enclosing task kind from the candidate's
+symbol table and explain its existing ordered array export semantics. The
+per-item export still receives normal semantic validation and business review.
 
 `PlanningPolicy.MaxStepsPerWorkflow` and `MaxWorkflows` are nullable captured graph-admission limits. Omission retains 300 generated nodes per workflow and 100 workflows and omits both fields from historical serialization. The compiler and structural validator use the same effective limits, independently of `MaxStepsTotal`. Explicit large construction captures 5,000 total nodes, 5,000 nodes per workflow and 1,024 workflows; existing compiler overloads and valid emitted YAML remain unchanged. These bounds do not increase runtime step, loop, branch, finalizer, expression or inference allowances.
 
@@ -50,6 +53,13 @@ typed input/output interface, without reinjecting its body. Compact contract dis
 pages descriptors independently from exact schema views. Output-port directories retain
 producer business-port aliases and mappings independently of wire-schema directories;
 validation always consults the complete retained contract.
+Fresh discovery presents four concise operation identities with exact description
+links, content-bound page addresses and one continuation. Catalog expansion
+preserves evidence consumption for unchanged pages. The discovery step projection
+keeps original decision data and compact semantic bindings without repeated
+draft authority. Historical issued schemas preserve their original page payloads;
+fresh schemas reject legacy aliases. Repeated evidence stops without another
+correction, leaving accepted fragments and accounting intact.
 
 Explicit `requires` remains a local fail-fast runtime assertion, including inside conditional paths. The compiler validates types, scope, availability and contracts; it no longer attempts conditional implication proofs or automatic guard strengthening. Branch conditions govern optional routing. Automatic repairs cannot remove or alter `requires`; explicit targeted revisions remain available. Retained guard-proof repairs require revision after accounting for any completed original receipt; unknown completion remains stopped.
 

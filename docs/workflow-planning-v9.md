@@ -37,6 +37,12 @@ required-sibling evidence and escaped-byte navigation bounds reduce local contex
 while retaining original contracts and hard phase limits. Absent historical
 profiles and already issued requests keep their saved protocol. This changes
 neither the executable representation nor compiler v15.
+Discovery presents only the selected step's decision fields and exact input
+bindings alongside its original requirements. Content-bound operation pages
+retain navigation progress when a provider adds metadata, with explicit links
+to omitted descriptions. Scoped closure reviews include the owning container's
+existing export semantics. These changes use the existing construction
+coordinator and leave historical issued requests intact.
 
 Task, group and choice declarations share one case-sensitive global namespace. IDs and references allow only nonempty ASCII letters, digits, underscores and hyphens, with `__` reserved. Alternative IDs remain local to their choice; business ports, operation IDs and requirements are outside this namespace. Invalid declarations are never automatically renamed or granted repair permission. Previously saved format-10 plans with invalid declarations must be regenerated; approval verification and recovery fail closed without changing stored records. Malformed consumer references may be corrected only within an existing diagnosed binding scope.
 

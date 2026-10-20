@@ -935,8 +935,14 @@ Keep source-description provider actions, forward operation-page navigation,
 isolated group inputs and existing loop defaults/safety semantics visible in
 bounded planning/review context. A corrected evidence-address error must not
 consume another correction on subsequent successful navigation. These generic presentation
-corrections do not relax compiler validation or prove live convergence. Recorded
-failures and accounting for the latest same-source Amazon, Collections and Review
+corrections do not relax compiler validation or prove live convergence. Regressions
+also verify that catalog expansion cannot reoffer unchanged consumed
+pages, that discovery omits duplicate draft metadata, and that foreach-body
+closure reviews explain the existing ordered array exports. Repeated evidence
+stops immediately without spending a repair. Compare complete serialized
+requests, including content-address overhead and the issued compatibility schema;
+a smaller individual component does not establish complete-request admission.
+Recorded failures and accounting for the latest same-source Amazon, Collections and Review
 PR diagnostics are in the
 [2026-10-20 evidence record](../../docs/evidence/compact-taskplan-live-2026-10-20.md).
 

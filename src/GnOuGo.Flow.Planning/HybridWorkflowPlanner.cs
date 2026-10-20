@@ -178,6 +178,9 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
             state.Diagnostics = state.Plan is not null && state.RevisionScope.Count > 0
                 ? state.Diagnostics.Concat(ex.Diagnostics).Distinct().ToList() : ex.Diagnostics;
             Invalidate(state); state.Status = state.EditablePaths is null ? PlanningStatus.Generating : PlanningStatus.Stopped;
+            if (state.Construction?.Compact?.PresentationVersion == 2 &&
+                ex.Diagnostics.Any(diagnostic => diagnostic.Code == "REPLAN_NO_PROGRESS"))
+                Stop(state);
             if (state.Construction is { Candidate: null, LastProposalHash: { } proposalHash } construction &&
                 !construction.FailedCandidates.Contains(proposalHash, StringComparer.Ordinal)) construction.FailedCandidates.Add(proposalHash);
         }

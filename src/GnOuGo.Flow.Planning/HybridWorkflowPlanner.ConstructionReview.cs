@@ -18,6 +18,11 @@ public sealed partial class HybridWorkflowPlanner
             : "") +
         (state.Construction.Compact.PresentationVersion == 2 && state.Construction.Compact.CurrentStep?.Kind == "foreach"
             ? "\nforeach.maxItems rejects excess input before iteration; it never samples or returns a truncated success. maxConcurrency bounds workers, not total items. Report conflicts with explicit required sizes. An unspecified source bound does not require unbounded host execution: retain finite supported capacity as uncertainty, without requesting a limit increase."
+            : "") +
+        (state.Construction.Compact.PresentationVersion == 2 && state.Construction.Compact.CurrentStep is { } step &&
+            new TaskPlanSymbols(state.Construction.Candidate?.Plan ?? state.Plan ?? new TaskPlan()).Scopes
+                .Any(scope => scope.Path == step.Scope && scope.Owner?.Kind == "foreach")
+            ? "\nThis selected scope is a foreach body. Each body output becomes an array on the enclosing task, preserving input order and repetitions; array-valued outputs remain nested. A scalar per-item export does not need an additional aggregation task."
             : "");
     private const string ConstructionReviewInstructions = """
         Independently review this bounded semantic TaskPlan fragment against relevant original requirements, accepted answers and inspected contracts.

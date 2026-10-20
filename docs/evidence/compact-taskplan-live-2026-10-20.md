@@ -443,6 +443,110 @@ cancellation selected the terminal checkpoint instead of the saved pre-dispatch
 checkpoint. Correcting that fixture preserves unrelated-error enforcement.
 The next live diagnostic revision is still required to assess these changes.
 
+## Diagnostic revision 630ec1a
+
+Source: `630ec1a4aaf504ebcd14ce228ea51cdea253619c`. Amazon, Collections and
+Review PR again ran sequentially with unchanged model, medium reasoning,
+allowances and frozen MCP bundle. All three stopped before artifact approval
+and execution. No complete business or runtime safety success is established.
+
+| Diagnostic and exact run | Calls / corrections / checkpoints | Provider input / output / reasoning tokens | Planning time | Known cost |
+| --- | ---: | ---: | ---: | ---: |
+| Amazon: `compactd630ec1a-amazon-1` | 14 / 3 / 1 | 17,153 / 6,014 / 4,616 | 103,670 ms | €0.2365458100062205634053141386 |
+| Collections: `630ec1a4aaf504ebcd14ce228ea51cdea253619c:fixture:collections:1` | 20 / 1 / 4 | 28,133 / 9,784 / 7,037 | 174,825 ms | €0.3858393317337598862525548743 |
+| Review PR: `compactd630ec1a-code-1` | 4 / 0 / 0 | 3,656 / 4,992 / 3,919 | 71,373 ms | €0.1493290678041411179241091264 |
+
+Amazon traversed operation pages 0, 2, 4 and 6, then requested page 0 despite
+the null continuation. The repeated-evidence check correctly returned
+`REPLAN_NO_PROGRESS`, but construction remained eligible for correction.
+Three further calls consumed corrections: provider-directory retrieval, a valid
+provider continuation and a host-offered page 2. That page's content was
+unchanged even though the broader catalog had grown. Its repeated action then
+triggered the terminal non-progress stop. The records expose inconsistent
+navigation/progress handling; they do not establish an Amazon business outcome.
+
+Collections accepted `maxItems:100`, resolving the earlier singleton ceiling in
+this candidate. Its later body-closure draft exported the scalar produced for
+each item, which the existing compiler aggregates into an ordered array on the
+enclosing `foreach`. The Judge received the selected scalar interface and
+expected array but lacked that enclosing scope's aggregation rule. It reported
+missing aggregation while explicitly uncertain about the broader semantics.
+The repair repeated the valid scalar export and stopped with `REPLAN_NO_PROGRESS`.
+The parallel/composition requirement remained unclosed, and neither runtime
+variant executed. Presenting the existing owner semantics is a targeted
+correction; no compiler or runtime change is implied.
+
+Review PR completed three intent calls and one selection, then rejected its
+first discovery request before dispatch: **8,925 complete bytes / 3,231 estimated
+tokens against 3,000**. Its measured components include 1,457 bytes of construction
+context, 544 objective bytes, 2,459 requirement bytes, 1,444 MCP-descriptor bytes,
+1,759 schema bytes, 815 instruction bytes, 396 envelope bytes, 25 evidence bytes
+and 26 diagnostic bytes. The step view serialized draft-only fields and
+null-rich input bindings. These are presentation costs; the original requirements
+and global clauses remain mandatory. The rejected preparation has a measurement
+and hash, no issued request or model receipt. A later projection estimate is
+derived analysis, not a recovered original request or paid observation.
+
+All 38 paid calls have known receipts and nonempty content. Total usage was
+48,942 input / 20,790 output tokens, including 15,572 reasoning tokens, over
+349,868 ms, costing **€0.7717142095441215675819781393**. All dispatched requests
+fit their captured input limits. There was one rejected preparation, no new
+uncertain attempt and no runtime effect. Nonempty receipts in these runs do not
+explain or resolve the previously retained reasoning-only failures.
+
+| Diagnostic / phase | Prepared requests | p50 / p95 / maximum complete bytes | p50 / p95 / maximum input estimate |
+| --- | ---: | ---: | ---: |
+| Amazon / intent | 2 | 3,765 / 4,748 / 4,748 | 1,511.5 / 1,839 / 1,839 |
+| Amazon / selection | 2 | 6,430.5 / 6,535 / 6,535 | 2,400 / 2,435 / 2,435 |
+| Amazon / generation | 1 | 6,887 / 6,887 / 6,887 | 2,552 / 2,552 / 2,552 |
+| Amazon / local Judge | 1 | 7,261 / 7,261 / 7,261 | 2,677 / 2,677 / 2,677 |
+| Amazon / discovery | 8 | 6,921.5 / 7,667 / 7,667 | 2,563.5 / 2,812 / 2,812 |
+| Collections / intent | 2 | 3,525 / 4,825 / 4,825 | 1,431.5 / 1,865 / 1,865 |
+| Collections / selection | 6 | 6,404 / 7,466 / 7,466 | 2,391 / 2,745 / 2,745 |
+| Collections / generation | 5 | 11,643 / 12,863 / 12,863 | 4,137 / 4,544 / 4,544 |
+| Collections / local Judge | 5 | 8,091 / 8,908 / 8,908 | 2,953 / 3,226 / 3,226 |
+| Collections / intermediate Judge | 1 | 8,101 / 8,101 / 8,101 | 2,957 / 2,957 / 2,957 |
+| Collections / correction | 1 | 13,063 / 13,063 / 13,063 | 4,611 / 4,611 / 4,611 |
+| Review PR / intent | 3 | 2,940 / 5,685 / 5,685 | 1,236 / 2,151 / 2,151 |
+| Review PR / selection | 1 | 7,949 / 7,949 / 7,949 | 2,906 / 2,906 / 2,906 |
+| Review PR / discovery, rejected | 1 | 8,925 / 8,925 / 8,925 | 3,231 / 3,231 / 3,231 |
+
+All 39 prepared-request component totals reconcile, including the rejected
+request. Complete byte sums are 90,719 for Amazon, 160,810 for Collections and
+28,323 for Review PR. The safe retained report includes individual request and
+schema hashes, per-component and per-phase distributions, provider usage and
+exact cost sums; its SHA-256 is
+`7059dfa46d730d1714aba7c2cf818a3924b453a91e0b9178ec750ae8a7d46ffe`.
+It exports no prompt, response, artifact or HTTP body. Percentiles use median
+and nearest-rank p95; conservative admission estimates remain separate from
+provider billing.
+
+The terminal public-API audit verified 214 requests / 212 receipts and the same
+two retained receiptless closures. Known cost is
+€6.4645783346663112059006487152; the historical unknown remains fully reserved at
+€0.2479472140762463343108504399. The upper bound is
+€6.7125255487425575402114991551, leaving
+**€233.3175782839637470022334481449** of the unchanged
+€240.0301038327063045424449473 campaign ceiling. Audit evidence hash:
+`30b1c1a06cd574013a82eff9b9bdc66c605a333594589ecc57841c9a530db755`.
+Separately retained lost-ledger exposure is unchanged; combined upper exposure
+is approximately €166.682422 of the authorized €400.
+
+The 18-run paired comparison has not started. Checkpoint counts, smaller
+requests and proposed presentation corrections are not complete business
+acceptance. Fresh corrections require their own validation and live evidence.
+
+The following correction preserves consumption of content-bound operation pages
+across provider expansion, presents four concise identities with exact retrieval
+links, and stops repeated evidence without another repair. Discovery omits
+duplicate draft metadata while retaining original clauses and semantic bindings.
+Closure Judges receive the enclosing foreach's existing aggregation semantics.
+All 394 compact planner regressions passed with warnings as errors. The first
+focused attempt had a missing test import; its next run passed 116 of 119, with
+three fixtures skipping a newly automatic navigation page. Those fixtures were
+corrected without changing production behavior. These results do not establish
+live convergence or validate the final full solution.
+
 ## Deterministic evidence
 
 For `72964ab`, 370 affected planner tests and 173 host tests passed with warnings

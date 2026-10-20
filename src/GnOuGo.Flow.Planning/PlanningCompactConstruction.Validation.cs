@@ -245,8 +245,7 @@ internal static partial class PlanningCompactConstruction
         if (parts is ["page", "outputs", var outputOffset] && int.TryParse(outputOffset, out next) && next >= 0 &&
             (next == 0 || next < (state.Requirements?.Outputs?.Count ?? 0)))
         { compact.OutputOffset = next; value = OutputDirectory(state); return true; }
-        if (parts is ["page", "operations", var operationOffset] && int.TryParse(operationOffset, out next) && next >= 0 && compact.CurrentStep is not null)
-        { value = ContractDescriptorPage(state, next); return true; }
+        if (LoadOperationPage(state, address, out value)) return true;
         if (parts is ["page", "checkpoints", var checkpointOffset] && int.TryParse(checkpointOffset, out next) && next >= 0 && next < state.Construction!.Checkpoints.Count)
         {
             value = new JsonObject { ["offset"] = next, ["total"] = state.Construction.Checkpoints.Count,

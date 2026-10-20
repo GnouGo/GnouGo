@@ -105,6 +105,8 @@ public sealed partial class HybridWorkflowPlanner
             throw new WorkflowRuntimeException("REPLAN_NO_PROGRESS", "The model repeated a rejected compact construction action.");
         // Retain the attempt before validation. Successful state transitions change phase/context.
         compact.FailedActions.Add(hash);
+        if (purpose == PlanningCompactConstruction.DiscoveryPurpose)
+            PlanningCompactConstruction.ValidateOperationPageAuthority(request.StructuredOutputSchema!, response);
         return response;
     }
 
@@ -306,7 +308,8 @@ public sealed partial class HybridWorkflowPlanner
         if (response["discoveryRequests"] is JsonArray requests)
         {
             await ConstructionDiscoveryAsync(state, runtime, requests.Deserialize(PlanningJsonContext.Default.ListPlanningDiscoveryRequest)!, ct);
-            state.Construction!.Evidence = null; state.Construction.EvidenceRequests.Clear();
+            state.Construction!.Evidence = null;
+            if (PlanningCompactConstruction.State(state).PresentationVersion != 2) state.Construction.EvidenceRequests.Clear();
             return true;
         }
         return false;

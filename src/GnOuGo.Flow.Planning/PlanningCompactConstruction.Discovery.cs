@@ -6,6 +6,7 @@ namespace GnOuGo.Flow.Planning;
 
 internal static partial class PlanningCompactConstruction
 {
+    private const string ContentPageSchemaDescription = "Content-addressed operation pages only.";
     private sealed record ProviderRequest(string SourceId, string? Cursor, bool Available = true, string? Unavailable = null, int ResultCount = 0);
 
     private static List<ProviderRequest> ProviderRequestOptions(PlanningSession state)
@@ -78,16 +79,23 @@ internal static partial class PlanningCompactConstruction
     private static string? OperationDirectoryContinuation(PlanningSession state, JsonObject? displayed)
     {
         if (State(state).PresentationVersion != 2) return "page:operations:0";
-        for (var offset = 0; ; offset += ContractDescriptorPageSize)
+        return UnseenOperationPage(state, displayed) is { } page
+            ? OperationPageAddress(state, page["offset"]!.GetValue<int>()) : null;
+    }
+
+    private static JsonObject? UnseenOperationPage(PlanningSession state, JsonObject? displayed = null)
+    {
+        if (State(state).PresentationVersion != 2) return ContractDescriptorPage(state);
+        for (var offset = 0; ; offset += CompactContractDescriptorPageSize)
         {
             var page = ContractDescriptorPage(state, offset);
             if (page["items"]!.AsArray().Count == 0) return null;
-            var address = "page:operations:" + offset.ToString(CultureInfo.InvariantCulture);
+            var address = OperationPageAddress(state, offset);
             var supplied = state.Construction!.EvidenceRequests.Contains(
                 PlanningConstruction.EvidenceBatchFingerprint(state, [address]), StringComparer.Ordinal);
             if (!supplied && !JsonNode.DeepEquals(displayed, page) &&
-                !JsonNode.DeepEquals(state.Construction.Evidence?[address], page)) return address;
-            if (page["next"] is null) return null;
+                !JsonNode.DeepEquals(state.Construction.Evidence?[address], page)) return page;
+            if (page["items"]!.AsArray().Count < CompactContractDescriptorPageSize) return null;
         }
     }
 
@@ -98,16 +106,50 @@ internal static partial class PlanningCompactConstruction
         try { context = JsonNode.Parse(issuedPrompt[(issuedPrompt.LastIndexOf('\n') + 1)..]) as JsonObject; }
         catch (System.Text.Json.JsonException) { return; }
         if (context?["descriptors"] is not JsonObject page ||
-            !JsonNode.DeepEquals(page, ContractDescriptorPage(state)) ||
+            page["offset"] is not JsonValue position || !position.TryGetValue<int>(out var offset) || offset < 0 ||
             context["directoryEvidence"] is not JsonObject directory) return;
+        JsonObject canonical;
+        try { canonical = ContractDescriptorPage(state, offset); }
+        catch (PlanningResponseException) { return; }
+        if (!JsonNode.DeepEquals(page, canonical)) return;
         var continuation = directory["operations"]?.ToString();
         // Older issued requests advertise page zero again. Do not retrospectively
         // consume an address their captured presentation still offered to fetch.
         if (continuation == "page:operations:0" || continuation != OperationDirectoryContinuation(state, page) ||
             page["items"]!.AsArray().Count == 0) return;
-        var key = PlanningConstruction.EvidenceBatchFingerprint(state, ["page:operations:0"]);
+        var key = PlanningConstruction.EvidenceBatchFingerprint(state, [OperationPageAddress(state, offset)]);
         if (!state.Construction!.EvidenceRequests.Contains(key, StringComparer.Ordinal))
             state.Construction.EvidenceRequests.Add(key);
+    }
+
+    private static bool LoadOperationPage(PlanningSession state, string address, out JsonNode? value)
+    {
+        value = null;
+        if (!address.StartsWith("page:operations:", StringComparison.Ordinal)) return false;
+        if (State(state).CurrentStep is null) return true;
+        var parts = address.Split(':');
+        if (parts is ["page", "operations", var originalOffset] &&
+            int.TryParse(originalOffset, NumberStyles.None, CultureInfo.InvariantCulture, out var legacyOffset) && legacyOffset >= 0)
+        {
+            // Offset-only addresses belong to retained issued requests. Preserve
+            // their two-row payload and original continuation representation.
+            value = ContractDescriptorPage(state, legacyOffset, legacy: true);
+            return true;
+        }
+        if (State(state).PresentationVersion == 2 && parts is ["page", "operations", _, var position] &&
+            int.TryParse(position, NumberStyles.None, CultureInfo.InvariantCulture, out var offset) && offset >= 0 &&
+            address == OperationPageAddress(state, offset))
+            value = ContractDescriptorPage(state, offset);
+        return true;
+    }
+
+    internal static void ValidateOperationPageAuthority(JsonNode issuedSchema, JsonNode response)
+    {
+        if (issuedSchema["description"]?.ToString() != ContentPageSchemaDescription ||
+            response["evidenceRequests"] is not JsonArray requests) return;
+        if (requests.Any(request => request?.ToString().Split(':') is ["page", "operations", _]))
+            PlanningConstruction.Fail("CONSTRUCTION_EVIDENCE_INVALID", "/evidenceRequests",
+                "Use the exact content-addressed operation page issued by this request; a legacy offset-only alias does not grant another inspection.");
     }
 
     private static JsonObject? DescribedProviderRequests(PlanningSession state)
@@ -147,13 +189,15 @@ internal static partial class PlanningCompactConstruction
             ("sourceId", PlanningSchemas.Enum(request!["sourceId"]!.ToString())),
             ("cursor", request["cursor"] is { } cursor ? PlanningSchemas.Enum(cursor.ToString()) : PlanningSchemas.Type("null")),
             ("query", PlanningSchemas.Type("null")), ("operationIds", PlanningSchemas.Type("null")))).ToArray());
-        return PlanningSchemas.Object(
+        var schema = PlanningSchemas.Object(
             ("operationIds", PlanningSchemas.Nullable(Strings(1, 2))),
             ("discoveryRequests", alternatives.Count == 0 ? PlanningSchemas.Type("null") : PlanningSchemas.Nullable(
                 PlanningSchemas.Array(alternatives.Count == 1 ? alternatives[0]!.DeepClone().AsObject() : new JsonObject { ["anyOf"] = alternatives }, 1, 2))),
             ("evidenceRequests", PlanningSchemas.Nullable(PlanningSchemas.Array(Text(2048), 1, State(state).PresentationVersion == 2 ? 1 : 4))),
             ("reselectStep", CanReselectDiscovery(state) ? PlanningSchemas.Nullable(new JsonObject { ["type"] = "string", ["minLength"] = 1, ["maxLength"] = 512 }) : PlanningSchemas.Type("null")),
             ("clarifications", PlanningSchemas.Nullable(PlanningSchemas.Clarifications())));
+        if (State(state).PresentationVersion == 2) schema["description"] = ContentPageSchemaDescription;
+        return schema;
     }
 
     internal static bool CanReselectDiscovery(PlanningSession state)
