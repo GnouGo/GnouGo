@@ -4409,6 +4409,265 @@
           }
         }
       ]
+    },
+    {
+      "source": "f457292980210f18651b84887c3390a80ce5b316",
+      "retained_safe_report_sha256": "a7d7b8126e9e64604032b5898c6d8bf1b994ef87bfa3ac0ef134b127133a2256",
+      "runs": [
+        {
+          "run": "compactdf457292-amazon-1",
+          "case": "amazon",
+          "calls": 7,
+          "corrections": 4,
+          "planning_ms": 73665,
+          "reasoning_tokens": 3712,
+          "empty_content_receipts": 0,
+          "component_bytes_reconcile": true,
+          "all_prepared_requests_admitted": true,
+          "within_phase_input_limits": true,
+          "checkpoints": 0,
+          "phases": {
+            "construction_intent": {
+              "prepared_requests": 2,
+              "receipts": 2,
+              "rejected_prepared_requests": 0,
+              "complete_request_bytes": {
+                "count": 2,
+                "p50": 3854.5,
+                "p95": 4745,
+                "max": 4745
+              },
+              "complete_request_bytes_sum": 7709,
+              "estimated_input_tokens": {
+                "count": 2,
+                "p50": 1541.0,
+                "p95": 1838,
+                "max": 1838
+              },
+              "estimated_input_tokens_sum": 3082,
+              "component_bytes_reconcile": true,
+              "provider_usage": {
+                "input_tokens": {
+                  "sum": 1267,
+                  "distribution": {
+                    "count": 2,
+                    "p50": 633.5,
+                    "p95": 764,
+                    "max": 764
+                  }
+                },
+                "output_tokens": {
+                  "sum": 1700,
+                  "distribution": {
+                    "count": 2,
+                    "p50": 850.0,
+                    "p95": 1168,
+                    "max": 1168
+                  }
+                },
+                "reasoning_tokens": {
+                  "sum": 1352,
+                  "distribution": {
+                    "count": 2,
+                    "p50": 676.0,
+                    "p95": 878,
+                    "max": 878
+                  }
+                }
+              },
+              "known_cost_eur": "0.0509508575490980183062294499",
+              "elapsed_ms": "22205.8013",
+              "empty_content_receipts": 0,
+              "components": {
+                "diagnostics": {
+                  "serialized_bytes_sum": 52,
+                  "serialized_bytes": {
+                    "count": 2,
+                    "p50": 26.0,
+                    "p95": 26,
+                    "max": 26
+                  },
+                  "conservative_token_estimate_sum": 18
+                },
+                "envelope": {
+                  "serialized_bytes_sum": 783,
+                  "serialized_bytes": {
+                    "count": 2,
+                    "p50": 391.5,
+                    "p95": 392,
+                    "max": 392
+                  },
+                  "conservative_token_estimate_sum": 774
+                },
+                "instructions": {
+                  "serialized_bytes_sum": 1501,
+                  "serialized_bytes": {
+                    "count": 2,
+                    "p50": 750.5,
+                    "p95": 878,
+                    "max": 878
+                  },
+                  "conservative_token_estimate_sum": 501
+                },
+                "intent": {
+                  "serialized_bytes_sum": 1523,
+                  "serialized_bytes": {
+                    "count": 2,
+                    "p50": 761.5,
+                    "p95": 1057,
+                    "max": 1057
+                  },
+                  "conservative_token_estimate_sum": 509
+                },
+                "interfaces": {
+                  "serialized_bytes_sum": 59,
+                  "serialized_bytes": {
+                    "count": 1,
+                    "p50": 59,
+                    "p95": 59,
+                    "max": 59
+                  },
+                  "conservative_token_estimate_sum": 20
+                },
+                "response_schema": {
+                  "serialized_bytes_sum": 3791,
+                  "serialized_bytes": {
+                    "count": 2,
+                    "p50": 1895.5,
+                    "p95": 3179,
+                    "max": 3179
+                  },
+                  "conservative_token_estimate_sum": 1264
+                }
+              }
+            },
+            "construction_select": {
+              "prepared_requests": 5,
+              "receipts": 5,
+              "rejected_prepared_requests": 0,
+              "complete_request_bytes": {
+                "count": 5,
+                "p50": 6013,
+                "p95": 6013,
+                "max": 6013
+              },
+              "complete_request_bytes_sum": 29840,
+              "estimated_input_tokens": {
+                "count": 5,
+                "p50": 2261,
+                "p95": 2261,
+                "max": 2261
+              },
+              "estimated_input_tokens_sum": 11230,
+              "component_bytes_reconcile": true,
+              "provider_usage": {
+                "input_tokens": {
+                  "sum": 5189,
+                  "distribution": {
+                    "count": 5,
+                    "p50": 1044,
+                    "p95": 1044,
+                    "max": 1044
+                  }
+                },
+                "output_tokens": {
+                  "sum": 3206,
+                  "distribution": {
+                    "count": 5,
+                    "p50": 668,
+                    "p95": 687,
+                    "max": 687
+                  }
+                },
+                "reasoning_tokens": {
+                  "sum": 2360,
+                  "distribution": {
+                    "count": 5,
+                    "p50": 512,
+                    "p95": 512,
+                    "max": 512
+                  }
+                }
+              },
+              "known_cost_eur": "0.1085266151248555940638052075",
+              "elapsed_ms": "48840.6455",
+              "empty_content_receipts": 0,
+              "components": {
+                "construction_context": {
+                  "serialized_bytes_sum": 2710,
+                  "serialized_bytes": {
+                    "count": 5,
+                    "p50": 542,
+                    "p95": 542,
+                    "max": 542
+                  },
+                  "conservative_token_estimate_sum": 905
+                },
+                "diagnostics": {
+                  "serialized_bytes_sum": 896,
+                  "serialized_bytes": {
+                    "count": 4,
+                    "p50": 224.0,
+                    "p95": 224,
+                    "max": 224
+                  },
+                  "conservative_token_estimate_sum": 300
+                },
+                "envelope": {
+                  "serialized_bytes_sum": 1999,
+                  "serialized_bytes": {
+                    "count": 5,
+                    "p50": 400,
+                    "p95": 400,
+                    "max": 400
+                  },
+                  "conservative_token_estimate_sum": 1949
+                },
+                "instructions": {
+                  "serialized_bytes_sum": 3450,
+                  "serialized_bytes": {
+                    "count": 5,
+                    "p50": 690,
+                    "p95": 690,
+                    "max": 690
+                  },
+                  "conservative_token_estimate_sum": 1150
+                },
+                "interfaces": {
+                  "serialized_bytes_sum": 915,
+                  "serialized_bytes": {
+                    "count": 5,
+                    "p50": 183,
+                    "p95": 183,
+                    "max": 183
+                  },
+                  "conservative_token_estimate_sum": 305
+                },
+                "requirements": {
+                  "serialized_bytes_sum": 4650,
+                  "serialized_bytes": {
+                    "count": 5,
+                    "p50": 930,
+                    "p95": 930,
+                    "max": 930
+                  },
+                  "conservative_token_estimate_sum": 1550
+                },
+                "response_schema": {
+                  "serialized_bytes_sum": 15220,
+                  "serialized_bytes": {
+                    "count": 5,
+                    "p50": 3044,
+                    "p95": 3044,
+                    "max": 3044
+                  },
+                  "conservative_token_estimate_sum": 5075
+                }
+              }
+            }
+          }
+        }
+      ]
     }
   ],
   "limitations": [
@@ -4416,6 +4675,7 @@
     "The receiptless HTTP502 has unknown actual usage; only known provider receipts contribute to provider token totals.",
     "Financial totals in historical run snapshots are not current campaign accounting; see the evidence record for the corrected conservative audit.",
     "The c9cbaf6 Amazon diagnostic has 12 known receipts and no new transport uncertainty; its contract-unavailable/correction-allowance stop occurred before approval or execution. The one accepted checkpoint does not establish complete business work.",
-    "The 5bc25f4 cohort includes one known reasoning-only output-limit receipt and two rejected prepared followups (Collections Judge and Review PR selection). Rejected requests contribute to size distributions but have no provider usage. None of its three runs executed or established complete business success."
+    "The 5bc25f4 cohort includes one known reasoning-only output-limit receipt and two rejected prepared followups (Collections Judge and Review PR selection). Rejected requests contribute to size distributions but have no provider usage. None of its three runs executed or established complete business success.",
+    "The f457292 Amazon diagnostic exhausted four corrections after five selection responses combined step and evidenceRequests. All seven requests fit their phase limits; no empty receipt, execution or complete business success occurred. Collections and Review PR were not started on that source."
   ]
 }

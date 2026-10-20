@@ -6,9 +6,9 @@ started; it remains conditional on successful Amazon, Collections and Review PR
 diagnostics on one frozen candidate.
 
 The [safe component report](compact-taskplan-request-components-2026-10-20.json)
-publishes retained `7206ca2`, `3513ccd`, `c9cbaf6` and `5bc25f4` request
+publishes retained `7206ca2`, `3513ccd`, `c9cbaf6`, `5bc25f4` and `f457292` request
 distributions, component byte and conservative token estimates, and separate known
-provider usage. Its eight runs reconcile all 731,202 bytes across 100 prepared
+provider usage. Its nine runs reconcile all 768,751 bytes across 107 prepared
 requests, including two rejected followups. Judge is
 a phase dimension; component estimates are not billed tokens. No original
 business text, contract bodies, response bodies or credentials are included.
@@ -881,7 +881,80 @@ counters. Discovery's next-metadata-action framing remains a controlled experime
 217 focused review, scope, contract, selection, discovery and construction tests passed with
 warnings as errors; saved historical review requests retain exact recovery.
 
+## Diagnostic revision f457292
+
+Source: `f457292980210f18651b84887c3390a80ce5b316`. The preceding selection
+and Judge presentation corrections passed 217 distinct focused tests with
+warnings as errors; the benchmark build completed with zero warnings/errors in
+32.85 seconds. Read-only reconstructions of the retained 5bc followups fit their
+limits with unchanged evidence and response schemas: Collections
+12,350 bytes / 4,373 estimated tokens became 11,007 / 3,925; Review PR
+8,474 / 3,081 became 8,158 / 2,976. These probes did not dispatch or change the
+retained runs, and do not establish live business acceptance.
+
+[CI for exact `f457292`](https://github.com/GnouGo/GnouGo/actions/runs/39420717065)
+failed in the planner/runtime/host test step: 2,157 Planning tests passed and two
+`CompactDraftReselectionTests.InitialDraftReselectionKeepsAcceptedWorkAndChargesOnceAcrossRecovery`
+cases failed. Their scripted response callback still asserted the old selection
+instruction text; the assertion exception became `MODEL_DISPATCH_UNVERIFIABLE`
+before a response was returned. The test assertions are being aligned with the
+new guidance without changing production behavior or recovery/accounting checks.
+Package, benchmark, AOT and Git contract CI steps were skipped after this failure.
+This failed run remains retained; later checks require their own exact head.
+
+Fresh Amazon run `compactdf457292-amazon-1` froze the same model, medium reasoning,
+allowances, oracle versions and producer bundle. The diagnostic manifest hash is
+`2e9186ed147e9ca13667393d58320873b6c2a87cab475237c40d00a85bb34e8d`.
+It stopped after seven calls and four corrections, with no accepted checkpoint,
+approval or execution. All seven receipts were known and contained content:
+6,456 input / 4,906 output / 3,712 reasoning tokens in 73.665 seconds, costing
+€0.1594774726739536123700346574. No new uncertain attempt occurred.
+
+All five selection responses contained both a non-null `step` and nonempty
+`evidenceRequests`; exact receipt inspection confirmed that combination in each.
+The unchanged exclusive-action validation rejected them with
+`PROPOSAL_ACTION_INVALID`; the run ultimately exhausted its correction allowance.
+The shortened guidance did not explicitly name the three mutually exclusive
+response fields or require the other two to be null. This is a concrete protocol
+clarity gap, not evidence that the business requirements themselves were invalid.
+The next correction restores explicit exclusive-action guidance. All 427 compact
+planning tests pass with warnings as errors, including mixed-action atomic
+rejection, correction accounting, exact interruption recovery and the two
+updated CI fixtures. The test-log hash is
+`c0cfdeae648b29c2aafc807186435365ad96665773e951c3231d3fd582dc5225`.
+Its effect on
+live convergence remains unverified. Collections and Review PR were not started
+on this source while that shared selection failure was investigated.
+
+| Phase | Requests | p50 / p95 / maximum complete bytes | p50 / p95 / maximum input estimate |
+| --- | ---: | --- | --- |
+| Intent | 2 | 3,854.5 / 4,745 / 4,745 | 1,541 / 1,838 / 1,838 |
+| Selection | 5 | 6,013 / 6,013 / 6,013 | 2,261 / 2,261 / 2,261 |
+
+Every complete request fit its captured 3,000-token limit. All 37,549 component
+bytes reconcile. Safe report hash:
+`a7d7b8126e9e64604032b5898c6d8bf1b994ef87bfa3ac0ef134b127133a2256`.
+The public component report contains numeric distributions and separate known
+provider usage; no original prompt or response content is published.
+
+An independent terminal campaign audit verified 319 requests / 316 receipts,
+with all three receiptless identities still permanently retained. Known cost is
+€9.105785123966942148760330580, unknown reservation
+€0.4953212476672887230071980805, captured upper exposure
+€9.601106371634230871767528660, and remaining allowance
+€230.428997461072073670677418640. Audit hash:
+`1fdd2b5cf219f1c81c67f29af4ba070577adacf7869c6f30edec6575c109974c`.
+The ceiling, separate lost-ledger exposure and original reservations are unchanged.
+No complete business success or paired comparison is claimed.
+
 ## Deterministic evidence
+
+The full solution on historical `39a0252138bed6ecc9b31f1a30428bd797cd5514`
+completed with 6,824 passed, zero failed and 12 skipped tests across 33 projects
+in 5,708.088 seconds, with zero warnings. Its retained log hash is
+`0a48ca2c8a41f82605023da1f9eab8de87c53e66f1c677fb9ef968e3cf32988a`.
+This validates that older source; subsequent production changes require their
+own full-suite and CI evidence. It is not a pass for `f457292` or later revisions.
 
 For `72964ab`, 370 affected planner tests and 173 host tests passed with warnings
 as errors. The isolated full Planning suite passed 2,024 tests, zero failures or

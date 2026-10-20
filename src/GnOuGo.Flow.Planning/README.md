@@ -30,6 +30,10 @@ addresses. Discovery asks for the next metadata action, deferring execution
 arguments. This framing is an experiment; a small schema does not explain or
 prevent a provider's reasoning-only response. Historical guidance and all issued
 requests remain exact.
+Selection and discovery explicitly require one non-null response action, with
+all others null. `evidenceRequests` retrieves originals before selecting work;
+it is not an annotation accompanying `step`. Mixed actions remain rejected
+atomically under the existing correction allowance.
 
 Selected-scope export evidence distinguishes accepted declarations from the
 tentative merged interface at closure. It uses the compiler's post-finalizer

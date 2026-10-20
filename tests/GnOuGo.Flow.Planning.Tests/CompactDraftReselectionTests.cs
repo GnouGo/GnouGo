@@ -63,8 +63,8 @@ public sealed class CompactDraftReselectionTests
         runtime.Respond = (request, purpose) =>
         {
             Assert.Equal(PlanningCompactConstruction.SelectPurpose, purpose);
-            Assert.Contains("no string concatenation, formatting, URL encoding or interpolation", request.Prompt, StringComparison.Ordinal);
-            Assert.Contains("discover its contract before preparing tool-specific arguments", request.Prompt, StringComparison.Ordinal);
+            Assert.Contains("no concatenation/formatting/URL encoding/interpolation", request.Prompt, StringComparison.Ordinal);
+            Assert.Contains("discover before arguments", request.Prompt, StringComparison.Ordinal);
             Assert.InRange(PlanningRequestMeasurements.Measure(request, purpose, 3000).EstimatedInputTokens, 1, 3000);
             return Wire(request, Selection(request));
         };
