@@ -14,7 +14,7 @@ internal static partial class PlanningCompactConstruction
     }
 
     internal const string ClassifyInstructions = """
-        Classify this exact original page into consecutive verbatim clauses whose concatenation equals the whole page, including whitespace. Keep original order; do not summarize, omit, invent, or plan tasks. Required actions, results, setup and cleanup are requirements with completion obligations. Keep action-specific constraints with their requirement; global means a crosscutting invariant. Mark interfaces only where a clause declares caller inputs or returned public results: none, input, output or both. Do not infer public outputs from effect payloads, files or resource descriptions. Do not generate types or defaults here. If continuation is present, the first clause continues its exact preceding text and must inherit its kind. Other pages and answers remain authoritative.
+        Classify this exact page into consecutive verbatim clauses concatenating to the whole page, including whitespace. Preserve order; never summarize, omit, invent or plan tasks. Actions, results, setup and cleanup are requirements with completion obligations. One requirement may span sentences: keep an action with adjacent constraints on its composition and result. Global means a crosscutting invariant. Mark explicit caller inputs/public results: none, input, output or both; effect payloads, files and resources do not imply public outputs. No types/defaults here. A continuation's first clause inherits its exact preceding text's kind. Other pages and answers remain authoritative.
         """;
 
     internal const string InterfaceInstructions = """

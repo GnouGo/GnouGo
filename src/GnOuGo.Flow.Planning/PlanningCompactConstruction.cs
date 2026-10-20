@@ -13,7 +13,7 @@ internal static partial class PlanningCompactConstruction
         Array minItems/maxItems are explicit length restrictions, not placeholders. Use null for a bound absent from the original source; maxItems:0 permits only an empty array. Never infer bounds from examples or invent them.
         """;
     internal const string SelectInstructions = """
-        Select one immediate business action to execute; discovery is a separate host phase. No outline/payload. Choose open scope, kind, exact imports/dependencies. operation calls an inspected capability: discover its contract before preparing tool-specific arguments. value: copy, projection, object/array assembly, declared arithmetic, predicates, lookup, flatten, JSON encoding; no string concatenation, formatting, URL encoding or interpolation. transform extracts/interprets supplied data. Build prerequisites. expectedOutputs: internal; outputNames: declared PUBLIC names ([] otherwise). call needs a closed groupId; otherwise null. closeRequirementIds: satisfied with accepted work, not contribution. Cleanup, opening, exports and closure are steps. Return one step, evidenceRequests or clarifications for missing business facts. Read omitted originals/interfaces/outputs at issued addresses; evidence grants no authority.
+        Select one immediate business action to execute; discovery is a separate host phase. No outline. Choose scope, kind, imports/dependencies. Reuse inputs; no preparatory copies. operation executes external work: discover its contract before preparing tool-specific arguments. value: copy/projection/assembly, declared arithmetic, predicates, lookup, flatten, JSON encoding; no string concatenation, formatting, URL encoding or interpolation. transform extracts/interprets data. Control scopes capture ancestors; groups isolate inputs declared at opening, never caller inputs/tasks. expectedOutputs: internal; outputNames: PUBLIC ([] otherwise). call: closed groupId, otherwise null. closeRequirementIds: satisfied obligations only. Cleanup, opening, exports and closure are steps. Return step, evidenceRequests or missing-business-fact clarifications. Read originals/interfaces/outputs at issued addresses; evidence grants no authority.
         """;
     internal const string DiscoveryInstructions = """
         Select capabilities only for this immediate step, its original requirements and global constraints. Descriptors are navigation, not executable contracts or permission. Return one action: operationIds, discoveryRequests, evidenceRequests, reselectStep or clarifications. All page:*, schema: and description: addresses go in evidenceRequests, never cursor. discoveryRequests uses only issued provider source/cursor pairs and query:null; the host supplies this step's exact objective. After bounded inspection, reselectStep may explain why the tentative kind cannot satisfy the requirement; it preserves scope, requirements and correction limits. Never simulate missing external work. Clarify only a missing business fact. Do not discover future work or replan the workflow.
@@ -357,6 +357,7 @@ internal static partial class PlanningCompactConstruction
     private static JsonArray ScopeDirectory(PlanningSession state)
     {
         var symbols = new TaskPlanSymbols(state.Plan ?? new TaskPlan());
+        var explicitBoundaries = State(state).PresentationVersion == 2;
         return new JsonArray(state.Construction!.OpenScopes.Skip(ScopeOffset(state)).Take(8).Select(path => symbols.Scopes.Single(s => s.Path == path))
             .Select(s =>
             {
@@ -364,13 +365,24 @@ internal static partial class PlanningCompactConstruction
                 var opening = group is null ? null : GroupOpening(state, group.Id);
                 var objective = s.Owner?.Objective ?? opening?.Objective;
                 var description = objective is null ? null : NavigationDescription(objective);
-                return (JsonNode)TrimNavigation(new JsonObject { ["path"] = s.Path, ["owner"] = s.Owner?.Id, ["kind"] = group is null ? s.Owner?.Kind : "group",
+                var inputGroup = explicitBoundaries ? group ?? ScopeGroup(state, s.Path) : null;
+                var entry = TrimNavigation(new JsonObject { ["path"] = s.Path, ["owner"] = s.Owner?.Id, ["kind"] = group is null ? s.Owner?.Kind : "group",
                 ["objective"] = description, ["objectiveComplete"] = objective is null ? null : JsonValue.Create(description == objective),
                 ["requirementIds"] = opening is null ? null : new JsonArray(opening.RequirementIds.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray()),
                 ["iterationInputs"] = s.Owner?.Kind == "foreach" ? "item and index" : null,
-                ["inputs"] = group is null ? null : new JsonArray(group.Inputs.Take(8).Select(i => (JsonNode)new JsonObject
+                ["inputScope"] = group is null && inputGroup is not null ? "/groups/" + inputGroup.Id + "/body" : null,
+                ["inputs"] = explicitBoundaries || group is null ? null : new JsonArray(group.Inputs.Take(8).Select(i => (JsonNode)new JsonObject
                     { ["input"] = i.Name, ["typeKind"] = i.Type.Kind, ["evidence"] = "group:" + group.Id }).ToArray()),
                 ["evidence"] = group is null ? "scope:" + s.Path : "group:" + group.Id });
+                if (explicitBoundaries && group is not null)
+                {
+                    // An empty parameter list is a meaningful isolated boundary,
+                    // not optional navigation that can disappear during trimming.
+                    entry["isolated"] = true; entry["inputCount"] = group.Inputs.Count;
+                    entry["inputs"] = new JsonArray(group.Inputs.Take(8).Select(i => (JsonNode)new JsonObject
+                        { ["input"] = i.Name, ["typeKind"] = i.Type.Kind, ["evidence"] = "group:" + group.Id }).ToArray());
+                }
+                return (JsonNode)entry;
             }).ToArray());
     }
 
@@ -397,7 +409,7 @@ internal static partial class PlanningCompactConstruction
         if (plan is null)
         {
             foreach (var input in (state.Requirements?.Inputs ?? []).Skip(offset).Take(8))
-                result.Add((JsonNode)new JsonObject { ["input"] = input.Name, ["typeKind"] = input.Type.Kind, ["evidence"] = "input:" + input.Name });
+                result.Add((JsonNode)InputDirectoryEntry(state, input));
             return result;
         }
         var symbols = new TaskPlanSymbols(plan);
@@ -417,7 +429,7 @@ internal static partial class PlanningCompactConstruction
                 ["nextPorts"] = ports.Length > 8 ? TaskPortsAddress(task.Id, ports, 8) : null, ["evidence"] = "task:" + task.Id }));
         }
         foreach (var input in plan.Inputs.Skip(offset).Take(8))
-            result.Add((JsonNode)new JsonObject { ["input"] = input.Name, ["typeKind"] = input.Type.Kind, ["evidence"] = "input:" + input.Name });
+            result.Add((JsonNode)InputDirectoryEntry(state, input));
         foreach (var choice in plan.Choices.Skip(offset).Take(4))
             result.Add((JsonNode)new JsonObject { ["choice"] = choice.Id, ["typeKind"] = choice.Type.Kind,
                 ["question"] = NavigationDescription(choice.Question), ["questionComplete"] = NavigationDescription(choice.Question) == choice.Question,
@@ -432,6 +444,13 @@ internal static partial class PlanningCompactConstruction
                 ["outputCount"] = open ? null : JsonValue.Create(group.Body.Outputs.Count), ["evidence"] = "group:" + group.Id });
         }
         return result;
+    }
+
+    private static JsonObject InputDirectoryEntry(PlanningSession state, TaskInput input)
+    {
+        var entry = new JsonObject { ["input"] = input.Name, ["typeKind"] = input.Type.Kind, ["evidence"] = "input:" + input.Name };
+        if (State(state).PresentationVersion == 2) entry["scope"] = "/root";
+        return entry;
     }
 
     internal static JsonObject? GroupInterface(PlanningSession state, string id)
@@ -482,7 +501,39 @@ internal static partial class PlanningCompactConstruction
             state.Construction!.OpenScopes.ToHashSet(StringComparer.Ordinal),
             new Dictionary<string, IReadOnlyList<TaskValue>> { [step.Scope] = step.Inputs });
         if (!result.Interfaces.TryGetValue(step.Scope, out var interfaces) || interfaces.Count != step.Inputs.Count)
+        {
+            // Successful probes preserve request order. Diagnose only a missing
+            // selected binding; unrelated accepted-plan findings are not evidence
+            // that a particular import is invalid.
+            if (State(state).PresentationVersion == 2 && result.Diagnostics.Count == 0 && interfaces is not null)
+            {
+                var visible = 0;
+                for (var index = 0; index < step.Inputs.Count; index++)
+                {
+                    var value = step.Inputs[index];
+                    if (visible < interfaces.Count && JsonNode.DeepEquals(
+                        PlanningConstruction.Node(value, PlanningJsonContext.Default.TaskValue),
+                        PlanningConstruction.Node(interfaces[visible].Value, PlanningJsonContext.Default.TaskValue)))
+                    { visible++; continue; }
+                    var binding = value.Kind + (value.Source is null ? "" : " '" + value.Source + "'") +
+                        (value.Port is null ? "" : " port '" + value.Port + "'");
+                    var symbols = new TaskPlanSymbols(plan);
+                    var boundary = ScopeGroup(state, step.Scope);
+                    var origin = value.Kind == "input" && boundary?.Inputs.Any(i => i.Name == value.Source) == true ? "/groups/" + boundary.Id + "/body" :
+                        value.Kind == "input" && plan.Inputs.Any(i => i.Name == value.Source) ? "/root" :
+                        value.Kind is "output" or "present" && value.Source is not null && symbols.Tasks.TryGetValue(value.Source, out var site)
+                            ? site.Scope.Path : null;
+                    var detail = boundary is null ? "" : " Isolated group '" + boundary.Id + "' declares " + boundary.Inputs.Count +
+                        " inputs: " + new JsonArray(boundary.Inputs.Take(8).Select(i => (JsonNode?)JsonValue.Create(i.Name)).ToArray()).ToJsonString() +
+                        (boundary.Inputs.Count > 8 ? " (first eight)" : "") + ". Exact parameters: group:" + boundary.Id +
+                        ". Caller inputs/tasks are not captured.";
+                    PlanningConstruction.Fail("CONSTRUCTION_STEP_INPUT_INVALID", "/step/inputs/" + index,
+                        "Selected " + binding + " is unavailable in scope '" + step.Scope + "'." +
+                        (origin is null ? "" : " Its declaring scope is '" + origin + "'.") + detail);
+                }
+            }
             PlanningConstruction.Fail("CONSTRUCTION_STEP_INPUT_INVALID", "/step/inputs", "Every selected input must have an available typed interface in this scope.");
+        }
         return new JsonArray(interfaces!.Select(i => (JsonNode)new JsonObject
         { ["value"] = PlanningConstruction.Node(i.Value, PlanningJsonContext.Default.TaskValue), ["schema"] = i.Schema.DeepClone() }).ToArray());
     }

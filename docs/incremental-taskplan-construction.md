@@ -85,6 +85,9 @@ Required actions, setup, cleanup and results remain explicit completion
 obligations. Action-specific constraints stay with their requirements; global
 clauses describe crosscutting invariants. Indexing does not reconstruct effect
 payloads or resource schemas as public workflow interfaces.
+Adjacent sentences constraining an action's composition or result may form one
+verbatim requirement. Selection uses available caller inputs directly unless
+business computation or an inspected contract requires preparation.
 Selection keeps the earliest unresolved original requirement as its anchor.
 Retrieve prerequisite clauses one per supplemental page with explicit next
 addresses, without surveying future work or replacing that anchor. Render each exact
@@ -125,6 +128,11 @@ and requirements, consuming one captured correction and retaining its evidence.
 This does not widen explicit revision authority or authorize substitute effects.
 Once operation descriptors are available, source metadata remains available through
 its directory address instead of being repeated beside every operation page.
+When presentation version 2 displays an exact verified source-description view,
+it also retains up to two eligible provider source/cursor alternatives for that
+source, with a continuation address when needed. The description remains the
+single evidence view; this does not fetch another source or bypass non-progress
+checks.
 Output-port directories preserve original producer business-port mappings, including
 aliases beyond the first page; their addresses are distinct from wire-schema paths.
 Schema evidence retrieves the selected original subtree and its coupled constraints.
@@ -144,6 +152,13 @@ Version-2 checkpoints retain the selected substep and introduced group identitie
 Later group-body steps retrieve that opening intent and its expected results
 without copying the group's tasks or unrelated checkpoint history. Invalidated
 opening metadata does not supply current scope intent.
+Selection marks reusable groups as isolated and preserves an explicit empty
+parameter list. Root input entries identify their declaring scope; nested group
+scopes point to their group's input boundary. Sequence/control scopes may capture
+ancestors, while reusable groups require declared parameters and cannot capture
+caller inputs or tasks. Invalid selected imports identify the unavailable binding
+and scope when the semantic probe can resolve them; the compiler remains the
+authority for availability.
 
 Within a selected scope, `scopeInterface` presents existing export declarations
 without making an open container consumable. Generation adds only new exports;
@@ -182,6 +197,12 @@ Judge findings are neither authorization nor deterministic proof.
 Compact reviews include bounded host facts identifying scope openings, closures
 and completion claims. An intentionally empty opening is assessed as an opening;
 closing a scope or requirement still requires its complete work and exports.
+For presentation version 2 loop steps, scoped review guidance distinguishes
+`maxItems`, which rejects excess input before iteration, from `maxConcurrency`,
+which bounds workers. Neither implies sampled or truncated successful output.
+Conflicts with explicit required sizes remain findings; when the original size
+is unspecified, finite supported capacity remains uncertain rather than granting
+authority to increase runtime limits.
 Finding locations and evidence contain exact JSON Pointers without annotations;
 explanations belong in their separate fields. Exact context lookup remains the
 authority for accepting a reference.

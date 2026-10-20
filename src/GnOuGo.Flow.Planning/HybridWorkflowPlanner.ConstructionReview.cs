@@ -15,6 +15,9 @@ public sealed partial class HybridWorkflowPlanner
     private static string CompactConstructionReviewGuidance(PlanningSession state) => CompactConstructionReviewInstructions +
         (state.Construction!.Compact!.CurrentStep?.Kind == "transform"
             ? "\nA transform's required object resultType declares named output ports. An output reference with a named port consumes that field's type; port:null consumes the whole result object. The object envelope does not require exposing the whole object as the business result."
+            : "") +
+        (state.Construction.Compact.PresentationVersion == 2 && state.Construction.Compact.CurrentStep?.Kind == "foreach"
+            ? "\nforeach.maxItems rejects excess input before iteration; it never samples or returns a truncated success. maxConcurrency bounds workers, not total items. Report conflicts with explicit required sizes. An unspecified source bound does not require unbounded host execution: retain finite supported capacity as uncertainty, without requesting a limit increase."
             : "");
     private const string ConstructionReviewInstructions = """
         Independently review this bounded semantic TaskPlan fragment against relevant original requirements, accepted answers and inspected contracts.

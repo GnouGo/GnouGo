@@ -248,6 +248,89 @@ regressions, not live convergence. Managed smoke also passes with six exact
 recovered requests/receipts, explicit requirement retrieval and independently
 executed v15 output.
 
+## Diagnostic revision 9345dc8
+
+Source: `9345dc8999864aca498993a9a7660ab415985efb`. Amazon, Collections and
+Review PR ran sequentially on this same frozen source, with the unchanged model,
+medium reasoning, ordinary allowances and frozen MCP bundle. All three stopped
+before artifact approval or runtime execution. Their checkpoints do not establish
+business completion, and no runtime business or safety success is claimed.
+
+| Diagnostic and exact run | Calls / corrections / checkpoints | Provider input / output / reasoning tokens | Planning time | Known cost |
+| --- | ---: | ---: | ---: | ---: |
+| Amazon: `compactd9345dc8-amazon-1` | 17 / 4 / 2 | 22,011 / 13,585 / 11,170 | 201,286 ms | €0.4599706744868035190615835776 |
+| Collections: `9345dc8999864aca498993a9a7660ab415985efb:fixture:collections:1` | 12 / 1 / 2 | 16,205 / 5,893 / 4,120 | 93,332 ms | €0.2291077934772949435706033945 |
+| Review PR: `compactd9345dc8-code-1` | 6 / 0 / 0 | 7,019 / 11,853 / 10,872 | 193,230 ms | €0.3471829734293077401581800409 |
+
+Amazon stopped in selection with `CONSTRUCTION_STEP_INPUT_INVALID` and
+`CONSTRUCTION_CORRECTION_ALLOWANCE`: selected imports were unavailable in the
+chosen scope, and four corrections exhausted the retained allowance. It issued
+no discovery calls in this attempt. Collections stopped after a scoped
+`CONSTRUCTION_BUSINESS_REVIEW` finding at `/tasks/forEachValue` and an unchanged
+repair triggering `REPLAN_NO_PROGRESS`. Neither of its two runtime variants ran.
+Review PR completed indexing and selection, then its first draft consumed all
+8,192 output tokens as reasoning and returned zero content bytes
+(`MODEL_OUTPUT_LIMIT`). This receipt does not establish the cause of reasoning
+exhaustion; it is not a transport uncertainty.
+
+All 35 calls have retained receipts and no new uncertain attempt. Amazon and
+Collections returned content on every call; Review PR has the one empty draft
+receipt. Total known usage is 45,235 input / 31,331 output tokens, including
+26,162 reasoning tokens, over 487,848 ms, costing
+€1.0362614413934062027903670130. All 35 complete prepared requests fit their
+captured phase input limits, and every component-byte total reconciles.
+
+| Diagnostic / phase | Requests | p50 / p95 / maximum complete bytes | p50 / p95 / maximum input estimate |
+| --- | ---: | ---: | ---: |
+| Amazon / intent | 2 | 3,933.5 / 5,001 / 5,001 | 1,567.5 / 1,923 / 1,923 |
+| Amazon / selection | 11 | 7,061 / 7,498 / 7,498 | 2,610 / 2,756 / 2,756 |
+| Amazon / generation | 2 | 11,348 / 11,384 / 11,384 | 4,039 / 4,051 / 4,051 |
+| Amazon / local Judge | 2 | 7,543.5 / 7,704 / 7,704 | 2,770.5 / 2,824 / 2,824 |
+| Collections / intent | 2 | 3,546.5 / 4,784 / 4,784 | 1,438.5 / 1,851 / 1,851 |
+| Collections / selection | 3 | 5,874 / 6,405 / 6,405 | 2,214 / 2,391 / 2,391 |
+| Collections / generation | 3 | 10,914 / 12,791 / 12,791 | 3,894 / 4,520 / 4,520 |
+| Collections / local Judge | 3 | 7,169 / 8,369 / 8,369 | 2,646 / 3,046 / 3,046 |
+| Collections / correction | 1 | 14,485 / 14,485 / 14,485 | 5,085 / 5,085 / 5,085 |
+| Review PR / intent | 4 | 3,076.5 / 5,144 / 5,144 | 1,281.5 / 1,971 / 1,971 |
+| Review PR / selection | 1 | 7,660 / 7,660 / 7,660 | 2,810 / 2,810 / 2,810 |
+| Review PR / generation | 1 | 16,145 / 16,145 / 16,145 | 5,638 / 5,638 / 5,638 |
+
+Percentiles use the median and nearest-rank p95. Component estimates are
+conservative admission measurements, not billed provider usage. Small samples,
+smaller contexts and accepted checkpoints do not prove convergence. The Amazon
+workbook/browser checks, both Collections output variants and pinned Review PR
+command/report/cleanup checks remain unexecuted. The 18-run paired comparison
+has not started.
+
+The terminal public-API campaign audit verified 145 requests / 143 receipts,
+with the same two retained receiptless closures and one fully reserved unknown
+physical attempt. Known cost is €5.1195592286501377410468319553; the unchanged
+reservation is €0.2479472140762463343108504399. The upper bound is
+€5.3675064427263840753576823952, leaving
+**€234.6625973899799204670872649048** of the unchanged
+€240.0301038327063045424449473 campaign ceiling. Audit evidence hash:
+`a26564240e2d3374ac931ac45ad13563815a891ac0a2f2ce432d810a918e1f49`.
+The separately preserved lost-ledger exposure remains accounted for; combined
+upper exposure is approximately €165.337403 of the authorized €400.
+
+Follow-up changes retain adjacent action/composition/result
+clauses together, expose isolated reusable-group boundaries and empty parameter
+lists, diagnose unavailable imports by exact binding/scope, and preserve eligible
+provider actions beside an exact source-description view. Scoped loop review
+guidance distinguishes a finite rejection guard from truncated success and keeps
+unspecified capacity explicitly uncertain. These changes preserve existing
+compiler validation, issued requests, model settings and allowances. All 363
+compact Planning regressions pass with warnings as errors, including exact
+recovery, source-description navigation and the complete selection/Judge input
+limits. An earlier full Planning attempt reported 2,094 passes and three failures:
+two obsolete instruction assertions and a 3,015-token selection request. The
+corrected instructions preserve discovery guidance and fit the unchanged limit.
+A subsequent attempt was stopped after another wording assertion; the final
+363-test run covers those corrected cases. Earlier failed logs remain retained;
+complete final-revision solution validation is pending. Live convergence is also
+pending; none of these changes explains or resolves the empty Review PR draft
+by itself.
+
 ## Deterministic evidence
 
 For `72964ab`, 370 affected planner tests and 173 host tests passed with warnings

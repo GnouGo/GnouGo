@@ -70,8 +70,39 @@ internal static partial class PlanningCompactConstruction
     private static JsonObject? PresentedProviderRequests(PlanningSession state)
     {
         if (ProviderEvidencePage(state) is { } page) return page;
+        if (State(state).PresentationVersion == 2 && DescribedProviderRequests(state) is { } described) return described;
         if (state.Construction!.Evidence is { Count: > 0 } || ContractDescriptors(state).Count > 0) return null;
         return ProviderRequestPage(state, 0);
+    }
+
+    private static JsonObject? DescribedProviderRequests(PlanningSession state)
+    {
+        foreach (var (address, value) in state.Construction!.Evidence ?? new JsonObject())
+        {
+            if (!address.StartsWith("source-description:", StringComparison.Ordinal) || value is not JsonObject) continue;
+            JsonObject original;
+            try { original = SourceDescription(state, address["source-description:".Length..]); }
+            catch (PlanningResponseException) { continue; }
+            if (!JsonNode.DeepEquals(value, original)) continue;
+            var sourceId = original["id"]!.ToString();
+            var options = ProviderRequestOptions(state);
+            var offset = options.FindIndex(option => option.SourceId == sourceId);
+            if (offset < 0) continue;
+            var selected = options.Skip(offset).TakeWhile(option => option.SourceId == sourceId).ToArray();
+            // The exact description remains the sole evidence view. Retain only
+            // its current actionable identities, not another directory's prose.
+            return new JsonObject
+            {
+                ["version"] = ProviderRequestVersion(state), ["sourceId"] = sourceId, ["total"] = selected.Length,
+                ["items"] = new JsonArray(selected.Take(2).Select(option => (JsonNode)new JsonObject
+                {
+                    ["sourceId"] = option.SourceId, ["cursor"] = option.Cursor, ["available"] = option.Available,
+                    ["unavailable"] = option.Unavailable, ["resultCount"] = option.ResultCount
+                }).ToArray()),
+                ["next"] = selected.Length > 2 ? ProviderRequestAddress(state, offset + 2) : null
+            };
+        }
+        return null;
     }
 
     private static JsonObject CompactDiscoverySchema(PlanningSession state)

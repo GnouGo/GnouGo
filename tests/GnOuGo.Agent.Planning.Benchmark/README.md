@@ -928,6 +928,16 @@ peaks, percentiles and component sums include rejected prepared requests. Report
 separately identify admitted request counts, admitted peaks and their limit checks;
 an oversized rejected request cannot be hidden behind a smaller admitted peak.
 
+Compact diagnostics also distinguish interface-scope failures, advisory Judge
+findings, non-progress stops and empty output-limit receipts from transport
+uncertainty. Preserve these outcomes even when every request fits its phase cap.
+Keep source-description provider actions, isolated group inputs and loop safety
+semantics visible in bounded planning/review context; these generic presentation
+corrections do not relax compiler validation or prove live convergence. Recorded
+failures and accounting for the latest same-source Amazon, Collections and Review
+PR diagnostics are in the
+[2026-10-20 evidence record](../../docs/evidence/compact-taskplan-live-2026-10-20.md).
+
 The compact live comparison freezes baseline `56942f5` and each candidate separately,
 with identical model/reasoning, MCP binaries, scenario inputs and independent oracle
 versions. Both receive 64 calls, unchanged correction/output and ordinary graph limits;

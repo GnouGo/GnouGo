@@ -114,6 +114,58 @@ public sealed class CompactScopeInterfaceTests
         Assert.True(reviewed);
     }
 
+    [Theory]
+    [InlineData("foreach")]
+    [InlineData("value")]
+    public async Task ScopedLoopReviewKeepsSafetyLimitsAndRecoversItsExactIssuedRequest(string kind)
+    {
+        var runtime = new TestRuntime { Respond = (request, purpose) =>
+        {
+            if (purpose == PlanningCompactConstruction.IntentPurpose) return Wire(request, Index(request));
+            if (purpose == PlanningCompactConstruction.SelectPurpose) return Wire(request, Select(request, kind, "/root", complete: false));
+            if (purpose == PlanningConstruction.DraftPurpose)
+            {
+                var task = kind == "value" ? Greeting() : new PlanTask
+                {
+                    Id = "iterate", Kind = "foreach", Objective = "Process the complete literal array.",
+                    Items = new() { Kind = "array", Items = [new() { Kind = "number", Number = 1 }, new() { Kind = "number", Number = 2 }] },
+                    Body = new(), MaxItems = 2, MaxConcurrency = 1
+                };
+                return Wire(request, Draft(request, new() { Tasks = [task], RequirementIds = ["req_0"] }));
+            }
+            Assert.Equal(PlanningConstruction.LocalPurpose, purpose);
+            throw new OperationCanceledException();
+        } };
+        _ = await PlannerFixture.RunAsync(runtime, Fresh("Process the complete literal array [1,2], then return message."));
+        var saved = PlannerFixture.Clone(runtime.Checkpoints.Last(s => s.PendingCall?.Purpose == PlanningConstruction.LocalPurpose));
+        var request = saved.PendingCall!.Request;
+        Assert.Equal(kind == "foreach", request.Prompt.Contains("foreach.maxItems rejects excess input before iteration", StringComparison.Ordinal));
+        if (kind == "foreach")
+        {
+            Assert.Contains("Report conflicts with explicit required sizes", request.Prompt, StringComparison.Ordinal);
+            Assert.Contains("retain finite supported capacity as uncertainty", request.Prompt, StringComparison.Ordinal);
+            Assert.Equal(2, Context(request)["draft"]!["tasks"]![0]!["maxItems"]!.GetValue<int>());
+        }
+        Assert.InRange(PlanningRequestMeasurements.Measure(request, PlanningConstruction.LocalPurpose, 4000).EstimatedInputTokens, 1, 4000);
+        var issued = JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest);
+        var calls = saved.ModelCalls;
+        saved.Status = PlanningStatus.Generating;
+        var recovery = new TestRuntime { Respond = (issuedRequest, purpose) =>
+        {
+            Assert.Equal(PlanningConstruction.LocalPurpose, purpose);
+            return Wire(issuedRequest, Reviewed());
+        } };
+        var resumed = await new HybridWorkflowPlanner().AdvanceAsync(saved, new() { ExpectedRevision = saved.Revision }, recovery, PlannerFixture.Ct);
+        Assert.Equal(issued, JsonSerializer.Serialize(Assert.Single(recovery.Calls), PlanningJsonContext.Default.LLMRequest));
+        Assert.Equal(calls, resumed.ModelCalls);
+        Assert.Single(resumed.Construction!.Checkpoints);
+        if (kind == "foreach")
+        {
+            Assert.Equal(2, resumed.Plan!.Root.Tasks[0].MaxItems);
+            Assert.Equal(1, resumed.Plan.Root.Tasks[0].MaxConcurrency);
+        }
+    }
+
     private static async Task<PlanningSession> ReusableGroup(Action<LLMRequest, string, int>? observe = null)
     {
         var stage = 0;
