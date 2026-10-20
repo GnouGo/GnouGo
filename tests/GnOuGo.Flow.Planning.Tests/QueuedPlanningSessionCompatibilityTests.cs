@@ -84,7 +84,7 @@ public sealed class QueuedPlanningSessionCompatibilityTests
                     : new() { ["sourceId"] = request.StructuredOutputSchema["properties"]!["sourceId"]!["enum"]![0]!.DeepClone(),
                         ["inputs"] = new JsonArray(), ["outputs"] = JsonSerializer.SerializeToNode(runtime.Proposal.Requirements!.Outputs, PlanningJsonContext.Default.ListTaskInput) };
             else if (purpose == PlanningCompactConstruction.SelectPurpose)
-                response = new() { ["baseHash"] = context["baseHash"]!.DeepClone(), ["step"] = new JsonObject
+                response = new() { ["baseHash"] = request.StructuredOutputSchema!["properties"]!["baseHash"]!["enum"]![0]!.DeepClone(), ["step"] = new JsonObject
                     { ["scope"] = "/root", ["kind"] = "value", ["objective"] = "Return the greeting.",
                         ["requirementIds"] = new JsonArray("req_0"), ["inputs"] = new JsonArray(), ["dependencyTaskIds"] = new JsonArray(),
                         ["expectedOutputs"] = new JsonArray("The greeting."), ["closeRequirementIds"] = new JsonArray("req_0"), ["outputNames"] = new JsonArray("message") } };

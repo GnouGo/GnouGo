@@ -31,7 +31,7 @@ public sealed class CompactIntentIndexingTests
     private static JsonObject Selection(LLMRequest request, string kind = "value", string scope = "/root", bool close = true,
         TaskValue[]? inputs = null) => new()
     {
-        ["baseHash"] = Context(request)["baseHash"]!.ToString(),
+        ["baseHash"] = request.StructuredOutputSchema!["properties"]!["baseHash"]!["enum"]![0]!.ToString(),
         ["step"] = new JsonObject { ["scope"] = scope, ["kind"] = kind, ["objective"] = "Produce the original requested result.",
             ["requirementIds"] = new JsonArray("req_0"), ["inputs"] = new JsonArray((inputs ?? []).Select(input =>
                 JsonSerializer.SerializeToNode(input, PlanningJsonContext.Default.TaskValue)).ToArray()),
@@ -123,7 +123,6 @@ public sealed class CompactIntentIndexingTests
         var original = string.Concat(clauses);
         var runtime = new TestRuntime { Respond = (request, _) =>
         {
-            Assert.Contains("Isolate caller/public interface declarations", request.Prompt, StringComparison.Ordinal);
             Assert.Equal(original, Context(request)["sources"]![0]!["text"]!.ToString());
             Assert.Null(request.StructuredOutputSchema!["$defs"]);
             return Wire(request, new()
@@ -174,6 +173,33 @@ public sealed class CompactIntentIndexingTests
         Assert.Empty(state.Construction.Checkpoints);
         Assert.False(state.Construction.Complete);
         Assert.Equal(0, runtime.Discoveries);
+        Assert.All(state.RequestMeasurements!, measurement => Assert.InRange(measurement.EstimatedInputTokens, 1, 3000));
+    }
+
+    [Fact]
+    public async Task ActionCompositionAndPublicResultRemainOneOriginalSelectionObligation()
+    {
+        const string original = "Evaluate each supplied record. Run those evaluations sequentially and return their numeric count as message.";
+        var runtime = new TestRuntime { Respond = (request, purpose) =>
+        {
+            if (purpose == PlanningCompactConstruction.IntentPurpose)
+                return Wire(request, Classification(request) ? Classify(request) : Interfaces(request, new() { Kind = "number" }));
+            var requirement = Assert.Single(Context(request)["requirements"]!.AsArray())!;
+            Assert.Equal(original, requirement["original"]!.ToString());
+            Assert.Equal("req_0", requirement["id"]!.ToString());
+            return Wire(request, Selection(request, close: false));
+        } };
+        var state = await Advance(Fresh(original), runtime);
+        Assert.Equal(original, Assert.Single(state.Requirements!.Outcomes).Description);
+        Assert.Single(Assert.Single(state.Construction!.Compact!.InterfaceExtractions!).SourceIds);
+        state = await Advance(PlannerFixture.Clone(state), runtime);
+        Assert.True(PlanningCompactConstruction.SourcesComplete(state));
+        Assert.Equal("number", Assert.Single(state.Requirements!.Outputs!).Type.Kind);
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        Assert.Equal(["req_0"], state.Construction!.Compact!.CurrentStep!.RequirementIds);
+        Assert.Equal("remaining", Assert.Single(state.Construction.Requirements).Status);
+        Assert.Empty(state.Construction.Checkpoints);
         Assert.All(state.RequestMeasurements!, measurement => Assert.InRange(measurement.EstimatedInputTokens, 1, 3000));
     }
 

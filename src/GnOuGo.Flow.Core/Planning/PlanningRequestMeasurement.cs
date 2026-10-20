@@ -138,6 +138,12 @@ public static class PlanningRequestMeasurements
         {
             Add("response_schema", Encoding.UTF8.GetByteCount(schema.GetRawText()));
             schemaHash = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(schema.GetRawText())));
+            if (baselineHash is null && phase == "construction_select" && schema.ValueKind == JsonValueKind.Object &&
+                schema.TryGetProperty("properties", out var properties) && properties.ValueKind == JsonValueKind.Object &&
+                properties.TryGetProperty("baseHash", out var baselineSchema) && baselineSchema.ValueKind == JsonValueKind.Object &&
+                baselineSchema.TryGetProperty("enum", out var values) && values.ValueKind == JsonValueKind.Array &&
+                values.GetArrayLength() == 1 && values[0].ValueKind == JsonValueKind.String)
+                baselineHash = values[0].GetString();
         }
         var remainder = serialized.LongLength - parts.Values.Sum();
         if (remainder < 0) throw new InvalidOperationException("Request component measurements overlap.");

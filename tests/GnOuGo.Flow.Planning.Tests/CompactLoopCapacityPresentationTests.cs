@@ -111,7 +111,7 @@ public sealed class CompactLoopCapacityPresentationTests
                 return Wire(request, new() { ["sourceId"] = context["sources"]![0]!["id"]!.DeepClone(),
                     ["clauses"] = new JsonArray(new JsonObject { ["text"] = context["sources"]![0]!["text"]!.ToString(), ["kind"] = "requirement", ["interfaces"] = "none" }) });
             if (purpose == PlanningCompactConstruction.SelectPurpose)
-                return Wire(request, new() { ["baseHash"] = context["baseHash"]!.DeepClone(), ["evidenceRequests"] = null, ["clarifications"] = null,
+                return Wire(request, new() { ["baseHash"] = request.StructuredOutputSchema!["properties"]!["baseHash"]!["enum"]![0]!.DeepClone(), ["evidenceRequests"] = null, ["clarifications"] = null,
                     ["step"] = new JsonObject { ["scope"] = "/root", ["kind"] = "foreach", ["objective"] = "Process both original numbers.",
                         ["requirementIds"] = new JsonArray("req_0"), ["inputs"] = new JsonArray(), ["dependencyTaskIds"] = new JsonArray(),
                         ["expectedOutputs"] = new JsonArray("Iteration context for each original number."), ["closeRequirementIds"] = new JsonArray(), ["outputNames"] = new JsonArray(), ["groupId"] = null } });

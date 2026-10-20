@@ -947,7 +947,167 @@ with all three receiptless identities still permanently retained. Known cost is
 The ceiling, separate lost-ledger exposure and original reservations are unchanged.
 No complete business success or paired comparison is claimed.
 
+## Frozen `de5ec55` three-scenario diagnostics
+
+Source `de5ec55774c26c08c50476a880ac4f36c54cf212` retained the pinned model,
+medium reasoning, captured allowances, oracle versions and 568 producer files.
+The frozen manifest hash is
+`6c0c3d6976685abb89f9af5b4dd2b1ebe6e1c31a78b9969945e3b8233ed8a005`.
+The benchmark build passed with zero warnings/errors in 25.56 seconds, and the
+private review helper passed 18 self-tests. All 427 compact planning tests passed
+with warnings as errors before dispatch. These deterministic checks did not
+establish the complete business outcomes below.
+
+| Diagnostic | Calls / corrections / checkpoints | Provider input / output / reasoning tokens | Time | Known cost |
+| --- | --- | --- | ---: | ---: |
+| Amazon `compactdde5ec55-amazon-1` | 15 / 1 / 1 | 18,778 / 7,233 / 5,621 | 123.334s | €0.2762641073491513374211321425 |
+| Collections `de5ec55774c26c08c50476a880ac4f36c54cf212:fixture:collections:1` | 40 / 1 / 8 | 59,498 / 23,754 / 18,519 | 433.100s | €0.8976361859059806273882520214 |
+| Review PR `compactdde5ec55-code-1` | 5 / 0 / 0 | 4,530 / 4,472 / 3,593 | 66.527s | €0.1393495067981871500933084510 |
+
+Amazon passed intent extraction, selection and the first draft/review, then
+stopped at `REPLAN_NO_PROGRESS` during discovery. One response constructed an
+operation-page address using an incompatible page hash and offset; validation
+correctly rejected it. Subsequent provider continuation added an operation, but
+the next context still advertised an already consumed source directory. The
+model requested that directory again and the unchanged repeat guard stopped the
+run. No operation description had been retrieved. This identifies a navigation
+presentation problem; it does not prove why the model chose each action.
+
+Collections reached eight accepted checkpoints. Its final Judge requested
+`task:step_3`, although `step_3` identified a reusable group referenced by a call
+task in supplied scope evidence. That evidence did not advertise a group-body
+retrieval address. The host correctly rejected the request and left the review
+inconclusive; no finding or checkpoint was accepted from it. The accepted
+iteration was not parallel, and the separate original parallel requirement
+remained unresolved. This is incomplete business work, despite the additional
+accepted fragments.
+
+Review PR completed five calls, then stopped before dispatching a selection
+followup at **8,417 bytes / 3,062 estimated input tokens**, above its captured
+3,000-token limit. That rejected request remains included in the measurements.
+None of the three runs produced an empty response, new transport uncertainty,
+approval or execution. No complete business success is established.
+
+| Scenario / phase | Prepared requests | p50 / p95 / maximum complete bytes | p50 / p95 / maximum input estimate |
+| --- | ---: | --- | --- |
+| Amazon / intent | 2 | 3,854 / 4,744 / 4,744 | 1,541 / 1,838 / 1,838 |
+| Amazon / selection | 4 | 6,742.5 / 7,542 / 7,542 | 2,503.5 / 2,770 / 2,770 |
+| Amazon / discovery | 7 | 6,778 / 7,130 / 7,130 | 2,516 / 2,633 / 2,633 |
+| Amazon / draft | 1 | 7,165 / 7,165 / 7,165 | 2,645 / 2,645 / 2,645 |
+| Amazon / local Judge | 1 | 7,185 / 7,185 / 7,185 | 2,651 / 2,651 / 2,651 |
+| Collections / intent | 2 | 3,595 / 4,783 / 4,783 | 1,455 / 1,851 / 1,851 |
+| Collections / selection | 11 | 6,922 / 7,865 / 7,865 | 2,564 / 2,878 / 2,878 |
+| Collections / draft | 9 | 11,679 / 12,366 / 12,366 | 4,149 / 4,378 / 4,378 |
+| Collections / local Judge | 12 | 8,135 / 10,061 / 10,061 | 2,968 / 3,610 / 3,610 |
+| Collections / intermediate Judge | 5 | 7,770 / 9,511 / 9,511 | 2,846 / 3,427 / 3,427 |
+| Collections / correction | 1 | 13,966 / 13,966 / 13,966 | 4,912 / 4,912 / 4,912 |
+| Review PR / intent | 4 | 3,989.5 / 5,667 / 5,667 | 1,586 / 2,145 / 2,145 |
+| Review PR / selection | 2 | 8,154 / 8,417 / 8,417 | 2,974.5 / 3,062 / 3,062 |
+
+All Amazon and Collections requests fit their phase limits. Component bytes
+reconcile for every prepared request: 94,795 for Amazon, 333,632 for Collections
+and 32,960 for Review PR. Across all three runs, 61 prepared requests and 60 known
+receipts total 461,387 bytes, 82,806 input / 35,459 output / 27,733 reasoning
+tokens, 622.961 seconds and €1.3132498000533191149026926149. The
+[public component report](compact-taskplan-request-components-2026-10-20.json)
+retains phase/component distributions, sums, rejected requests and separate
+whole-call provider usage. Aggregate safe-report hash:
+`ca91755d48e5c566c8faaade8a3315fb95d7d8fdc1769dda0d2ed39df0e44c5e`.
+Individual report hashes are
+`be514ed17692613046dd0eaf38e95098512ca267f3cd0fc5c153d36dc57c9660`,
+`79326375b95bf12fa7bbb172d8f9bff9b1b8a3e7e5c32c7fc05581ddec04a516`
+and `71249ee6a51ba354a7e0161f8587e729faa5ce1c38848121754b168324031f8f`,
+respectively.
+
+A private read-only presentation probe reproduced every selected Amazon request
+hash and used its captured operation-knowledge identity. Adding the stable four
+operation descriptors beside requested evidence would exceed 3k in two contexts
+(3,078 and 3,178 estimated tokens). Showing them only when evidence is absent,
+while removing the exact consumed source link, changes the terminal discovery
+context from 5,566 bytes / 2,112 estimated tokens to 6,713 / 2,494. Original
+clauses, evidence and response-schema hashes are unchanged. No request was
+dispatched or retained session mutated. Probe hash:
+`91c9f1e020ac2d92f6214150803ff226dc4f33a51ddbbfe80c7f421494a9a5c7`.
+This demonstrates a bounded prospective presentation, not corrected live
+convergence or authority to replay a saved request.
+
+Two further read-only probes retained their exact original request identities.
+Adding the group-body link and fresh Judge guidance to Collections call 40
+changes 10,061 bytes / 3,610 estimated tokens to 10,304 / 3,691, below 4k.
+Every original context field, evidence item and response-schema hash remains
+unchanged; the link is additional navigation only. Safe-report hash:
+`b2c963c2a32d87ff7ce6468c90d9fc103eee80085ec45033f7613a51b2d70e7c`.
+For Review PR, reusing repeated schema definitions alone was insufficient:
+8,417 / 3,062 became 8,349 / 3,039. Omitting the baseline hash already fixed by
+that schema and the optional budget display reduced the same request to
+8,200 / 2,990, leaving only ten estimated tokens of headroom. Exact original
+requirements/evidence and host admission remain unchanged. The final safe-report
+hash is `eced8634d056e47d8bfd068be42e712eca003ec6e2f5b910c3fdb37aada395a9`;
+the intermediate rejected-size probe remains retained. No probe dispatched a
+request, changed the retained session or established corrected live behavior.
+
+The combined navigation, group evidence and selection corrections passed all
+440 compact tests with warnings as errors, zero failures or skips, in about
+17 seconds. Test-log hash:
+`9f6c71f8c7ae0406bbe08b71405a69724d63e8ca089670e5f5fc9765f4650107`.
+An earlier run retained 436 passes and one stale provider-display assertion;
+the corrected assertion checks the new continuation while retaining repeat
+guards. A subsequent classification-guidance clarification keeps an action and
+its adjacent composition/result constraints together even when that obligation
+declares a public result. Interface marking does not require splitting the
+obligation. The final compact run including that clarification passed 441 tests,
+zero failures/skips, with warnings as errors in 19 seconds; the planning skill
+validator also passed. Final compact log hash:
+`085f3d512af1942b32edf6fecd2f4a2d5837a20659dbc437bbc47abc1b0a8cf0`.
+The first full affected Planning run then reported 2,173 passes, two failures
+and zero skips in 4m50s. Both queued-session fixtures still read the baseline
+hash from the removed duplicate context field instead of the issued schema.
+The fixture correction preserves that schema's authority; the failure log
+remains retained with hash
+`f68000a0af243222ce6c2f2f62ef6440e1f36ee9c5a1593023f77561c1dae838`.
+The corrected full affected Planning suite passed 2,175 tests, zero failures or
+skips, with warnings as errors in 4m14s. Final log hash:
+`9fb52a03ea52f690563a6c18c0ad7722025c121a521c0ba028cc670369c9f553`.
+A subsequent measurement-only correction retains the baseline hash from the
+selection schema's singleton enum when it is no longer duplicated in context.
+The final compact rerun including that correction passed 442 tests, zero
+failures/skips, with warnings as errors in 15 seconds. Its log hash is
+`1de79bd9bfa59466dcce8d6973ca38bf6a78e4ad485803192de9e6ba176b0fdb`.
+The next benchmark freeze is pending. No new live outcome is claimed.
+
+The terminal public campaign audit verified 379 requests / 376 receipts, with
+all three receiptless identities still permanently retained and no new
+unclosed uncertainty. Known cost is €10.419034924020261263663023194, preserved
+unknown reservation €0.4953212476672887230071980805, captured upper exposure
+€10.914356171687549986670221274 and remaining allowance
+€229.115747661018754555774726026. Audit hash:
+`18980aebefc7b801e411996f0e118aa37c1fd6ee5eba5adfdfd9137f37fbf77e`.
+The ceiling and separate lost-ledger exposure remain unchanged. The 18-run
+paired comparison is still unstarted; business success, cost and latency
+improvement against the baseline remain unproved.
+
 ## Deterministic evidence
+
+An isolated checkout of `de5ec55774c26c08c50476a880ac4f36c54cf212` passed all
+14 package/publish validation stages, zero failed or skipped, in 2,030.664 seconds.
+These included five independent Release packages and the benchmark build with
+warnings as errors, Native AOT planning publish/run on `osx-arm64`, trimmed
+published Agent.Server encrypted-storage checks, and the published native Git
+stdio contract. The maintained publish wrapper completed eight frontend builds,
+14 distribution profiles and all health/binary/storage smokes in 1,368.437
+seconds. It accepted six exact pinned EF Core 10.0.12 experimental notices;
+there were no unexpected warnings. Existing documented Jint suppressions and
+partial-trim boundaries remained unchanged. This is not an audit without those
+documented boundaries.
+
+The isolated checkout was clean after verification; no live configuration,
+campaign or frozen producer bundle was changed. Manifest hash:
+`e2565a9cefd02709b376953442fd583b481936a5d0ea59b0f6ea18834428427c`.
+Publish-wrapper log hash:
+`cda3887c1016405a0a3fa8d2b4786d3a1321ed7117e5429e3089050d554f8f2b`.
+These results validate `de5ec55`, before the subsequent navigation, group-link,
+selection and classification changes. They do not validate those newer changes
+or establish business acceptance.
 
 The full solution on historical `39a0252138bed6ecc9b31f1a30428bd797cd5514`
 completed with 6,824 passed, zero failed and 12 skipped tests across 33 projects

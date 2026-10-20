@@ -226,7 +226,7 @@ public sealed class CompactScopeInterfaceTests
     }
     private static JsonObject Select(LLMRequest request, string kind, string scope, bool complete) => new()
     {
-        ["baseHash"] = Context(request)["baseHash"]!.ToString(), ["step"] = new JsonObject { ["scope"] = scope, ["kind"] = kind, ["objective"] = "Preserve the exact greeting through the reusable interface.",
+        ["baseHash"] = request.StructuredOutputSchema!["properties"]!["baseHash"]!["enum"]![0]!.ToString(), ["step"] = new JsonObject { ["scope"] = scope, ["kind"] = kind, ["objective"] = "Preserve the exact greeting through the reusable interface.",
             ["requirementIds"] = new JsonArray("req_0"), ["inputs"] = new JsonArray(), ["dependencyTaskIds"] = new JsonArray(), ["expectedOutputs"] = new JsonArray("The exact greeting."),
             ["closeRequirementIds"] = complete ? new JsonArray("req_0") : new JsonArray(), ["outputNames"] = complete ? new JsonArray("message") : new JsonArray() },
         ["clarifications"] = null, ["evidenceRequests"] = null

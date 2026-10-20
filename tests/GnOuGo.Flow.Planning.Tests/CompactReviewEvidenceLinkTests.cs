@@ -8,6 +8,135 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class CompactReviewEvidenceLinkTests
 {
+    [Theory]
+    [InlineData("draft")]
+    [InlineData("task")]
+    [InlineData("scope")]
+    public void GroupNavigationUsesOnlySuppliedCallsAndPreservesEvidence(string source)
+    {
+        var state = new PlanningSession
+        {
+            Plan = new() { Groups = Enumerable.Range(0, 110).Select(index => new TaskGroup { Id = "group_" + index }).ToList() },
+            Construction = new() { Version = 2, Compact = new() { PresentationVersion = 2 } }
+        };
+        var tasks = new JsonArray(Enumerable.Range(0, 9).Select(index => (JsonNode)new JsonObject
+            { ["id"] = "call_" + index, ["kind"] = "call", ["group"] = "group_" + index }).ToArray());
+        tasks.Add((JsonNode)new JsonObject { ["id"] = "literal", ["kind"] = "value",
+            ["outputs"] = new JsonArray(new JsonObject { ["name"] = "payload", ["value"] = new JsonObject
+                { ["kind"] = "json", ["json"] = new JsonObject { ["kind"] = "call", ["group"] = "group_109" } } }) });
+        var context = new JsonObject();
+        if (source == "draft") context["draft"] = new JsonObject { ["tasks"] = tasks };
+        else if (source == "scope") context["evidence"] = new JsonObject { ["scope:/root"] = new JsonObject { ["tasks"] = tasks } };
+        else context["evidence"] = new JsonObject(tasks.Select((task, index) =>
+            new KeyValuePair<string, JsonNode?>("task:call_" + index, task!.DeepClone())));
+        var original = context.DeepClone();
+        PlanningCompactConstruction.AddReviewGroupEvidence(state, context);
+        Assert.Equal(9, context["groupEvidence"]!["count"]!.GetValue<int>());
+        Assert.Equal(8, context["groupEvidence"]!["items"]!.AsArray().Count);
+        Assert.DoesNotContain("group_109", context["groupEvidence"]!.ToJsonString(), StringComparison.Ordinal);
+        Assert.All(context["groupEvidence"]!["items"]!.AsArray(), link =>
+            Assert.Equal("scope:/groups/" + link!["id"] + "/body", link["address"]!.ToString()));
+        context.Remove("groupEvidence");
+        Assert.True(JsonNode.DeepEquals(original, context));
+        state.Construction.Compact!.PresentationVersion = null;
+        PlanningCompactConstruction.AddReviewGroupEvidence(state, context);
+        Assert.True(JsonNode.DeepEquals(original, context));
+    }
+
+    [Fact]
+    public async Task ReviewFollowsReferencedGroupBodyWithoutChangingExactScopeEvidence()
+    {
+        var (state, runtime) = await Ready(calledGroup: true);
+        var accepted = PlanningConstruction.Hash(state.Plan);
+        var retainedGroup = JsonSerializer.Serialize(state.Plan!.Groups[1], PlanningJsonContext.Default.TaskGroup);
+        var calls = state.ModelCalls;
+        var reviews = 0;
+        runtime.Respond = (request, _) =>
+        {
+            AssertBounded(request);
+            var context = Context(request);
+            Assert.True(JsonNode.DeepEquals(state.Construction!.Evidence, context["evidence"]));
+            switch (reviews++)
+            {
+                case 0:
+                    Assert.Null(context["groupEvidence"]);
+                    return Wire(request, Evidence("scope:/tasks/iteration/body"));
+                case 1:
+                    var scope = context["evidence"]!["scope:/tasks/iteration/body"]!;
+                    var task = Assert.Single(scope["tasks"]!.AsArray())!;
+                    Assert.Equal("call", task["kind"]!.ToString());
+                    Assert.Equal("leaf", task["group"]!.ToString());
+                    var link = Assert.Single(context["groupEvidence"]!["items"]!.AsArray())!;
+                    Assert.Equal(1, context["groupEvidence"]!["count"]!.GetValue<int>());
+                    Assert.Equal("leaf", link["id"]!.ToString());
+                    Assert.Equal("scope:/groups/leaf/body", link["address"]!.ToString());
+                    Assert.DoesNotContain("unrelated_group", context["groupEvidence"]!.ToJsonString(), StringComparison.Ordinal);
+                    Assert.False(HybridWorkflowPlanner.ConstructionReviewEvidenceGrounded(context, "/groupEvidence/items/0/address", compact: true));
+                    return Wire(request, Evidence(link["address"]!.ToString()));
+                default:
+                    var body = context["evidence"]!["scope:/groups/leaf/body"]!;
+                    Assert.Equal("leaf_value", Assert.Single(body["tasks"]!.AsArray())!["id"]!.ToString());
+                    Assert.Equal("multiply", body["tasks"]![0]!["outputs"]![0]!["value"]!["text"]!.ToString());
+                    Assert.Equal("value", body["group"]!["inputs"]![0]!["name"]!.ToString());
+                    Assert.False(body["open"]!.GetValue<bool>());
+                    return Wire(request, Reviewed());
+            }
+        };
+        for (var index = 0; index < 2; index++)
+        {
+            state = await Advance(PlannerFixture.Clone(state), runtime);
+            Assert.Empty(state.Diagnostics);
+            Assert.Equal(accepted, PlanningConstruction.Hash(state.Plan));
+            Assert.Single(state.Construction!.Checkpoints);
+        }
+        state = await Advance(PlannerFixture.Clone(state), runtime);
+        Assert.Empty(state.Diagnostics);
+        Assert.Equal(calls + 3, state.ModelCalls);
+        Assert.Equal(0, state.ReplanAttempts);
+        Assert.Equal(2, state.Construction!.Checkpoints.Count);
+        Assert.Equal(retainedGroup, JsonSerializer.Serialize(state.Plan!.Groups[1], PlanningJsonContext.Default.TaskGroup));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task GroupTaskAliasAndNavigationOnlyFindingsRemainInconclusive(bool navigationFinding)
+    {
+        var (state, runtime) = await Ready(calledGroup: true);
+        var accepted = PlanningConstruction.Hash(state.Plan);
+        var calls = state.ModelCalls;
+        runtime.Respond = (request, _) => Wire(request, Evidence("scope:/tasks/iteration/body"));
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        runtime.Respond = (request, _) =>
+        {
+            var context = Context(request);
+            Assert.NotNull(context["groupEvidence"]);
+            if (!navigationFinding) return Wire(request, Evidence("task:leaf"));
+            return Wire(request, new()
+            {
+                ["findings"] = new JsonArray(new JsonObject
+                {
+                    ["kind"] = "omission", ["location"] = "/draft/outputs/0",
+                    ["evidence"] = new JsonArray("/groupEvidence/items/0/address"),
+                    ["explanation"] = "A navigation link alone does not establish the claimed computation.",
+                    ["uncertainty"] = "The group body has not been inspected."
+                }),
+                ["uncertainty"] = "The original group body is unverified.", ["evidenceRequests"] = null
+            });
+        };
+        state = await Advance(PlannerFixture.Clone(state), runtime);
+        Assert.Equal(PlanningStatus.Stopped, state.Status);
+        Assert.Equal("CONSTRUCTION_REVIEW_INCONCLUSIVE", Assert.Single(state.Diagnostics).Code);
+        Assert.Equal(accepted, PlanningConstruction.Hash(state.Plan));
+        Assert.Single(state.Construction!.Checkpoints);
+        Assert.Equal(calls + 2, state.ModelCalls);
+        var dispatched = runtime.Calls.Count;
+        state = await Advance(PlannerFixture.Clone(state), runtime);
+        Assert.Equal(dispatched, runtime.Calls.Count);
+        Assert.Equal(PlanningStatus.Stopped, state.Status);
+    }
+
     [Fact]
     public async Task IntermediateReviewFollowsExactProducerAndChildScopeLinksBeforeAccepting()
     {
@@ -92,7 +221,7 @@ public sealed class CompactReviewEvidenceLinkTests
     [Fact]
     public async Task HistoricalPendingReviewConsumesItsExactEvidenceReceiptAndAccounting()
     {
-        var (state, runtime) = await Ready();
+        var (state, runtime) = await Ready(calledGroup: true);
         state.Construction!.Compact!.PresentationVersion = null;
         state.Request.Options.Remove("construction_presentation_version");
         runtime.Respond = (_, _) => throw new OperationCanceledException();
@@ -101,6 +230,7 @@ public sealed class CompactReviewEvidenceLinkTests
             checkpoint.Status == PlanningStatus.Generating && checkpoint.PendingCall?.Purpose == PlanningConstruction.IntermediatePurpose));
         var issued = saved.PendingCall!.Request;
         Assert.Null(Context(issued)["taskEvidence"]);
+        Assert.Null(Context(issued)["groupEvidence"]);
         Assert.DoesNotContain("evidenceRequests uses retrieval addresses", issued.Prompt, StringComparison.Ordinal);
         var exact = JsonSerializer.Serialize(issued, PlanningJsonContext.Default.LLMRequest);
         var reviewContext = saved.Construction!.PendingReviewContext!.ToJsonString();
@@ -109,7 +239,7 @@ public sealed class CompactReviewEvidenceLinkTests
         var calls = saved.ModelCalls;
         saved.Construction.Compact!.PresentationVersion = 2;
         saved.Request.Options["construction_presentation_version"] = 2;
-        var receipt = Wire(issued, Evidence("task:iteration"));
+        var receipt = Wire(issued, Evidence("scope:/tasks/iteration/body"));
         var recovery = new TestRuntime { Respond = (request, _) =>
         {
             Assert.Equal(exact, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
@@ -123,12 +253,13 @@ public sealed class CompactReviewEvidenceLinkTests
         Assert.Equal(0, state.ReplanAttempts);
         Assert.Single(recovery.Calls);
         Assert.Equal(accepted, PlanningConstruction.Hash(state.Plan));
-        Assert.NotNull(state.Construction!.Evidence!["task:iteration"]);
+        Assert.NotNull(state.Construction!.Evidence!["scope:/tasks/iteration/body"]);
         Assert.Null(state.PendingCall);
         Assert.Single(state.Construction.Checkpoints);
         recovery.Respond = (request, _) =>
         {
             Assert.NotNull(Context(request)["taskEvidence"]);
+            Assert.Equal("scope:/groups/leaf/body", Assert.Single(Context(request)["groupEvidence"]!["items"]!.AsArray())!["address"]!.ToString());
             AssertBounded(request);
             return Wire(request, Reviewed());
         };
@@ -139,7 +270,7 @@ public sealed class CompactReviewEvidenceLinkTests
         Assert.Equal(2, state.Construction!.Checkpoints.Count);
     }
 
-    private static async Task<(PlanningSession State, TestRuntime Runtime)> Ready()
+    private static async Task<(PlanningSession State, TestRuntime Runtime)> Ready(bool calledGroup = false)
     {
         var runtime = new TestRuntime { Respond = (request, purpose) =>
         {
@@ -149,7 +280,7 @@ public sealed class CompactReviewEvidenceLinkTests
                     ["clauses"] = new JsonArray(new JsonObject { ["text"] = context["sources"]![0]!["text"]!.ToString(),
                         ["kind"] = "requirement", ["interfaces"] = "none" }) });
             if (purpose == PlanningCompactConstruction.SelectPurpose)
-                return Wire(request, new() { ["baseHash"] = context["baseHash"]!.DeepClone(), ["evidenceRequests"] = null, ["clarifications"] = null,
+                return Wire(request, new() { ["baseHash"] = request.StructuredOutputSchema!["properties"]!["baseHash"]!["enum"]![0]!.DeepClone(), ["evidenceRequests"] = null, ["clarifications"] = null,
                     ["step"] = new JsonObject { ["scope"] = "/groups/worker/body", ["kind"] = "close", ["objective"] = "Expose the ordered doubled values from the reusable work.",
                         ["requirementIds"] = new JsonArray("req_0"), ["inputs"] = new JsonArray(new JsonObject { ["kind"] = "output", ["source"] = "iteration", ["port"] = "result" }),
                         ["dependencyTaskIds"] = new JsonArray("iteration"), ["expectedOutputs"] = new JsonArray("Reusable ordered doubled values."),
@@ -181,6 +312,26 @@ public sealed class CompactReviewEvidenceLinkTests
                         Outputs = [new("value", new() { Kind = "arithmetic", Text = "multiply", Items = [new() { Kind = "item" }, new() { Kind = "number", Number = 2 }] })] }],
                         Outputs = [new("result", new() { Kind = "output", Source = "per_item", Port = "value" })] } }] } }]
         };
+        if (calledGroup)
+        {
+            state.Plan.Groups[0].Body.Tasks[0].Body!.Tasks =
+            [
+                new() { Id = "per_item", Kind = "call", Group = "leaf", Objective = "Invoke the reusable per-item calculation.",
+                    Inputs = [new("value", new() { Kind = "item" })] }
+            ];
+            state.Plan.Groups.Add(new()
+            {
+                Id = "leaf", Inputs = [new() { Name = "value", Type = new() { Kind = "number" } }],
+                Body = new()
+                {
+                    Tasks = [new() { Id = "leaf_value", Kind = "value", Objective = "Double the supplied value.",
+                        Outputs = [new("value", new() { Kind = "arithmetic", Text = "multiply",
+                            Items = [new() { Kind = "input", Source = "value" }, new() { Kind = "number", Number = 2 }] })] }],
+                    Outputs = [new("value", new() { Kind = "output", Source = "leaf_value", Port = "value" })]
+                }
+            });
+            state.Plan.Groups.Add(new() { Id = "unrelated_group" });
+        }
         state.Construction!.OpenScopes = ["/root", "/groups/worker/body"];
         state.Construction.Requirements[0].Status = "in_progress";
         state.Construction.Checkpoints.Add(new() { Sequence = 1, PlanHash = PlanningConstruction.Hash(state.Plan),

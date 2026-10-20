@@ -132,7 +132,7 @@ public sealed class CompactLoopClosureReviewTests
                 return Wire(request, new() { ["sourceId"] = context["sources"]![0]!["id"]!.DeepClone(),
                     ["clauses"] = new JsonArray(new JsonObject { ["text"] = context["sources"]![0]!["text"]!.ToString(), ["kind"] = "requirement", ["interfaces"] = "none" }) });
             if (purpose == PlanningCompactConstruction.SelectPurpose)
-                return Wire(request, new() { ["baseHash"] = context["baseHash"]!.DeepClone(), ["evidenceRequests"] = null, ["clarifications"] = null,
+                return Wire(request, new() { ["baseHash"] = request.StructuredOutputSchema!["properties"]!["baseHash"]!["enum"]![0]!.DeepClone(), ["evidenceRequests"] = null, ["clarifications"] = null,
                     ["step"] = new JsonObject { ["scope"] = "/tasks/iteration/body", ["kind"] = "close", ["objective"] = "Export doubled values through the enclosing container.",
                         ["requirementIds"] = new JsonArray("req_0"), ["inputs"] = new JsonArray(new JsonObject { ["kind"] = "output", ["source"] = "per_item", ["port"] = "value" },
                             new JsonObject { ["kind"] = "output", ["source"] = "per_item", ["port"] = "wrong" }), ["dependencyTaskIds"] = new JsonArray(),

@@ -199,9 +199,18 @@ public sealed class CompactSelectionSchemaTests
         Assert.Equal(["req_1"], state.Construction!.Compact!.CurrentStep!.RequirementIds);
     }
 
-    private static string[] Domain(JsonObject schema, string property = "requirementIds") =>
-        schema["properties"]!["step"]!["anyOf"]![0]!["properties"]![property]!["items"]!["enum"]!
-            .AsArray().Select(value => value!.ToString()).ToArray();
+    private static string[] Domain(JsonObject schema, string property = "requirementIds")
+    {
+        JsonNode Resolve(JsonNode node)
+        {
+            while (node["$ref"] is JsonValue reference)
+                node = schema["$defs"]![reference.ToString()["#/$defs/".Length..]]!;
+            return node;
+        }
+        var step = Resolve(Resolve(schema["properties"]!["step"]!)["anyOf"]![0]!);
+        var array = Resolve(step["properties"]![property]!);
+        return Resolve(array["items"]!)["enum"]!.AsArray().Select(value => value!.ToString()).ToArray();
+    }
 
     private static JsonObject Response(PlanningSession state, params string[] requirements) => new()
     {

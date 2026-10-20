@@ -26,7 +26,11 @@ cannot satisfy. These presentation rules do not replace semantic validation or
 change saved requests, accepted TaskPlans, JavaScript or YAML lowering.
 Fresh protocol-2 selection uses shorter guidance and omits redundant page counters,
 retaining the unresolved count, anchor, exact source versions and continuation
-addresses. Discovery asks for the next metadata action, deferring execution
+addresses. Its response schema factors repeated definitions without changing
+accepted values. The exact baseline remains fixed by that schema's required enum,
+so selection context omits its duplicate hash and the host-owned remaining-call
+counter. Admission and cumulative accounting are unchanged.
+Discovery asks for the next metadata action, deferring execution
 arguments. This framing is an experiment; a small schema does not explain or
 prevent a provider's reasoning-only response. Historical guidance and all issued
 requests remain exact.
@@ -52,8 +56,10 @@ Foreach-body closure reviews derive the enclosing task kind from the candidate's
 symbol table and explain its existing ordered array export semantics. The
 per-item export still receives normal semantic validation and business review.
 Fresh scoped reviews receive bounded retrieval links for accepted producers and
-their direct child scopes. Finding JSON Pointers remain distinct from those
-addresses; a bare task ID remains invalid and cannot accept a checkpoint.
+their direct child scopes, including reusable groups referenced by supplied call
+evidence. Groups use their exact body-scope address, not a task alias. Finding
+JSON Pointers remain distinct from navigation addresses; invalid references
+cannot accept a checkpoint.
 
 `PlanningPolicy.MaxStepsPerWorkflow` and `MaxWorkflows` are nullable captured graph-admission limits. Omission retains 300 generated nodes per workflow and 100 workflows and omits both fields from historical serialization. The compiler and structural validator use the same effective limits, independently of `MaxStepsTotal`. Explicit large construction captures 5,000 total nodes, 5,000 nodes per workflow and 1,024 workflows; existing compiler overloads and valid emitted YAML remain unchanged. These bounds do not increase runtime step, loop, branch, finalizer, expression or inference allowances.
 
@@ -83,6 +89,13 @@ new allowed operation identities or versions, bound to the exact issued knowledg
 identity. Ordering, empty provider pages, cursor and diagnostic changes grant no
 new inspection. Operation-page consumption remains separate from this targeted
 description retrieval; cached prose is never automatically added.
+When no requested evidence is being shown, a bounded decision directory retains
+the leading operation identities and description links even after their directory
+page was consumed. Original descriptions and contracts still require targeted
+retrieval. Source and provider links advance past consumed pages; unchanged
+evidence cannot be reread by navigating back to an advertised consumed link.
+Requested evidence takes precedence over the decision directory to stay within
+the captured complete-request limit. Existing repeat guards remain unchanged.
 
 Explicit `requires` remains a local fail-fast runtime assertion, including inside conditional paths. The compiler validates types, scope, availability and contracts; it no longer attempts conditional implication proofs or automatic guard strengthening. Branch conditions govern optional routing. Automatic repairs cannot remove or alter `requires`; explicit targeted revisions remain available. Retained guard-proof repairs require revision after accounting for any completed original receipt; unknown completion remains stopped.
 

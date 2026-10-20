@@ -206,7 +206,7 @@ public sealed class CompactDraftReselectionTests
     };
     private static JsonObject Selection(LLMRequest request, string kind = "operation") => new()
     {
-        ["baseHash"] = Context(request)["baseHash"]!.DeepClone(), ["evidenceRequests"] = null, ["clarifications"] = null,
+        ["baseHash"] = request.StructuredOutputSchema!["properties"]!["baseHash"]!["enum"]![0]!.DeepClone(), ["evidenceRequests"] = null, ["clarifications"] = null,
         ["step"] = new JsonObject { ["scope"] = "/root", ["kind"] = kind, ["objective"] = "Perform the current requested business operation.",
             ["requirementIds"] = new JsonArray("req_0"), ["inputs"] = new JsonArray(), ["dependencyTaskIds"] = new JsonArray(),
             ["expectedOutputs"] = new JsonArray("The requested result."), ["closeRequirementIds"] = new JsonArray(), ["outputNames"] = new JsonArray() }

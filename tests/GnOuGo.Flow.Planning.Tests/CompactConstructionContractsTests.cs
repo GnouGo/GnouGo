@@ -788,12 +788,12 @@ public sealed class CompactConstructionContractsTests
             {
                 if (retrieveRequirement && context["evidence"] is null)
                 {
-                    evidenceBaselines.Add(context["baseHash"]!.ToString());
-                    return Wire(new() { ["baseHash"] = context["baseHash"]!.DeepClone(), ["step"] = null,
+                    evidenceBaselines.Add(request.StructuredOutputSchema!["properties"]!["baseHash"]!["enum"]![0]!.ToString());
+                    return Wire(new() { ["baseHash"] = request.StructuredOutputSchema!["properties"]!["baseHash"]!["enum"]![0]!.DeepClone(), ["step"] = null,
                         ["evidenceRequests"] = new JsonArray("page:requirements:0"), ["clarifications"] = null });
                 }
                 selected++;
-                response = new() { ["baseHash"] = context["baseHash"]!.ToString(), ["evidenceRequests"] = null, ["clarifications"] = null,
+                response = new() { ["baseHash"] = request.StructuredOutputSchema!["properties"]!["baseHash"]!["enum"]![0]!.ToString(), ["evidenceRequests"] = null, ["clarifications"] = null,
                     ["step"] = new JsonObject { ["scope"] = "/root", ["kind"] = selected == 1 ? "value" : "close",
                         ["objective"] = "Return exactly Hello.", ["requirementIds"] = new JsonArray("req_0"), ["inputs"] = new JsonArray(),
                         ["dependencyTaskIds"] = new JsonArray(), ["expectedOutputs"] = new JsonArray(), ["groupId"] = null,

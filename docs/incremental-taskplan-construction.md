@@ -55,7 +55,10 @@ discarding source text. Page boundaries bound the bytes after both JSON escaping
 layers and preserve Unicode characters. Fresh presentation protocol 2 prefers
 natural text boundaries and links unavoidable continuations; a severed obligation
 cannot become independently complete on either page. Classification retains exact
-verbatim clauses and identifies interface-bearing passages. Only those passages
+verbatim clauses and identifies interface-bearing passages. Standalone interface
+declarations may be separate clauses; an action and its adjacent composition/result
+constraints remain one requirement even when they declare a public result.
+Interface marking does not split that obligation. Only interface-bearing passages
 receive a subsequent typed-interface extraction request, within the same journaled
 intent phase. Pending extraction blocks generation and completion. Prose-only
 classification carries no recursive type/default grammar. New classification
@@ -65,7 +68,10 @@ separate. The exact issued schema captures grouping behavior for recovery;
 already-created extractions and older issued classifications remain unchanged.
 
 Selection keeps exact original clauses and global constraints while omitting
-redundant presentation counters. Discovery chooses the next metadata action for
+redundant presentation counters. Fresh selection reuses lossless schema factoring
+and retains the exact baseline in its required response-schema enum, omitting
+the duplicate context hash and remaining-call counter. Host admission still
+enforces every captured allowance. Discovery chooses the next metadata action for
 the selected substep, without designing execution arguments during navigation.
 These prompt reductions leave complete-request admission and saved requests
 unchanged; reasoning-only failures remain retained evidence, not proof that a
@@ -135,6 +141,13 @@ Saved requests retain their original evidence batch schema.
 Fresh discovery directories present four concise operation descriptors or two
 sources at a time. Operation rows retain exact identities, versions, names,
 effects and description-retrieval addresses; omitted descriptions are explicit.
+Without requested evidence, the bounded operation directory remains available
+for stateless selection even when its navigation page was consumed. It does not
+reinject original descriptions or schemas. Requested evidence replaces that
+directory, and source/provider links skip consumed pages under the existing
+fingerprints. These presentation rules do not permit repeated actions or
+evidence reads. Names alone are insufficient to rule out an operation; its exact
+description remains retrievable.
 The discovery substep view retains its exact objective, expected outputs and
 semantic input bindings. It omits draft-only authority metadata and duplicate
 requirement IDs; original clauses and their IDs remain alongside the step.
@@ -188,6 +201,11 @@ A call substep selects one closed reusable group with `groupId`. Its draft and
 Judge context includes the immutable group hash and exact input/output interface,
 including input defaults, without copying the body. `group:<id>` retrieves that
 interface. Open groups expose no consumable outputs and cannot be selected for calls.
+Scoped reviews also expose bounded exact body-scope links for groups referenced
+by supplied call tasks, including calls reached through requested scope evidence.
+These links remain outside the unchanged original evidence and cannot ground a
+business finding; the Judge must retrieve the body before citing its contents.
+An unavailable task address is never reinterpreted as a group address.
 Version-2 checkpoints retain the selected substep and introduced group identities.
 Later group-body steps retrieve that opening intent and its expected results
 without copying the group's tasks or unrelated checkpoint history. Invalidated

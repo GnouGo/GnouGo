@@ -71,7 +71,7 @@ public sealed class CompactConstructionTests
     private static JsonObject Select(LLMRequest request, string kind = "value", string scope = "/root", bool close = true,
         string[]? inputs = null) => new()
     {
-        ["baseHash"] = Context(request)["baseHash"]!.ToString(),
+        ["baseHash"] = request.StructuredOutputSchema!["properties"]!["baseHash"]!["enum"]![0]!.ToString(),
         ["step"] = new JsonObject { ["scope"] = scope, ["kind"] = kind, ["objective"] = "Produce the exact requested greeting.",
             ["requirementIds"] = new JsonArray("req_0"), ["inputs"] = new JsonArray((inputs ?? []).Select(id => (JsonNode)new JsonObject
                 { ["kind"] = "output", ["source"] = id, ["port"] = "message" }).ToArray()),

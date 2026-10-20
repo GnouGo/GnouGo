@@ -94,7 +94,7 @@ public sealed class CompactSelectionActionTests
 
     private static JsonObject Selection(LLMRequest request) => new()
     {
-        ["baseHash"] = Context(request)["baseHash"]!.DeepClone(),
+        ["baseHash"] = request.StructuredOutputSchema!["properties"]!["baseHash"]!["enum"]![0]!.DeepClone(),
         ["step"] = new JsonObject
         {
             ["scope"] = "/root", ["kind"] = "value", ["objective"] = "Expose the accepted greeting unchanged.",

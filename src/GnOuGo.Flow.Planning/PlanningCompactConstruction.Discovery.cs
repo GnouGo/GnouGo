@@ -78,6 +78,35 @@ internal static partial class PlanningCompactConstruction
         return ProviderRequestPage(state, 0);
     }
 
+    private static JsonObject? DecisionOperationPage(PlanningSession state)
+    {
+        if (State(state).PresentationVersion != 2) return UnseenOperationPage(state);
+        var page = ContractDescriptorPage(state);
+        // A consumed directory is not an inspected contract. Stateless decisions
+        // still need bounded identities and exact description links.
+        return page["items"]!.AsArray().Count == 0 ? null : page;
+    }
+
+    private static string? SourceDirectoryContinuation(PlanningSession state) =>
+        State(state).PresentationVersion != 2 ? "page:sources:0" :
+            UnconsumedDirectory(state, "page:sources:", state.Discovery.Sources.Count, SourceDirectoryPageSize);
+
+    private static string? ProviderDirectoryContinuation(PlanningSession state) =>
+        State(state).PresentationVersion != 2 ? ProviderRequestAddress(state, 0) :
+            UnconsumedDirectory(state, "page:provider-requests:" + ProviderRequestVersion(state) + ":",
+                ProviderRequestOptions(state).Count, 2);
+
+    private static string? UnconsumedDirectory(PlanningSession state, string prefix, int count, int pageSize)
+    {
+        for (var offset = 0; offset < count; offset += pageSize)
+        {
+            var address = prefix + offset.ToString(CultureInfo.InvariantCulture);
+            if (state.Construction!.Evidence?.ContainsKey(address) != true && !state.Construction.EvidenceRequests.Contains(
+                PlanningConstruction.EvidenceBatchFingerprint(state, [address]), StringComparer.Ordinal)) return address;
+        }
+        return null;
+    }
+
     private static string? OperationDirectoryContinuation(PlanningSession state, JsonObject? displayed)
     {
         if (State(state).PresentationVersion != 2) return "page:operations:0";
