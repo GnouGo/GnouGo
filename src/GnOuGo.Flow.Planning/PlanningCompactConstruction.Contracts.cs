@@ -162,8 +162,23 @@ internal static partial class PlanningCompactConstruction
         var outputViews = selected.Where(p => p.StartsWith("/output", StringComparison.Ordinal)).ToArray();
         if (outputViews.Length > 0)
             node["selectedOutputs"] = new JsonArray(outputViews.Select(p => (JsonNode)ExactSchemaView(capability, p)).ToArray());
+        if (State(state).PresentationVersion == 2 && SuppliedContractEvidence(state, identity))
+        {
+            // Requested originals replace optional navigation pages, never the
+            // projected constraints or selected outputs. Both directories remain
+            // addressable from their first page, including producer port aliases.
+            node.Remove("omittedOptionalInputs");
+            node.Remove("outputs");
+            node["outputsOmitted"] = true;
+            node["outputDirectory"] = "port-page:" + identity + ":/output:0";
+        }
         return node;
     }
+
+    private static bool SuppliedContractEvidence(PlanningSession state, string identity) =>
+        state.Construction!.Evidence?.Any(item => item.Key == "contract:" + identity ||
+            new[] { "schema:", "schema-page:", "port-page:", "description:" }
+                .Any(prefix => item.Key.StartsWith(prefix + identity + ":", StringComparison.Ordinal))) == true;
 
     private static JsonObject ReviewContractView(PlanningSession state, PlanningCapability capability, PlanningOperation operation, string identity)
     {
@@ -176,7 +191,7 @@ internal static partial class PlanningCompactConstruction
         // These explicitly incomplete descriptions are navigation aids. Keep their
         // aggregate size bounded even when the fragment binds many exact ports.
         var portDescriptionLimit = Math.Min(192, 768 / Math.Max(1, boundPorts.Length));
-        return new JsonObject
+        var view = new JsonObject
         {
             ["id"] = operation.Id, ["version"] = operation.Version, ["hash"] = ContractHash(capability), ["effect"] = capability.EffectKind,
             ["description"] = operationDescription,
@@ -193,6 +208,19 @@ internal static partial class PlanningCompactConstruction
             ["artifacts"] = TaskOperations.ArtifactPorts(capability),
             ["deterministicValidation"] = "The candidate passed complete original-contract validation. Descriptions here are explicitly bounded discovery evidence, not complete normative contracts. Request original restrictions when needed; report unsupported business claims as unverified."
         };
+        if (State(state).PresentationVersion == 2 && state.Construction.Evidence?.Any(item =>
+            item.Key.StartsWith("description:" + identity + ":", StringComparison.Ordinal) &&
+            item.Value is JsonObject original && original["id"]?.ToString() == operation.Id &&
+            original["version"]?.ToString() == operation.Version &&
+            original["descriptionHash"]?.ToString() == PlanningGraphCompiler.Fingerprint(operation.Description)) == true)
+        {
+            // The bounded teaser and validation reminder are navigation aids.
+            // Keep the requested original, identity, effects and bound ports.
+            view.Remove("description");
+            view.Remove("descriptionComplete");
+            view.Remove("deterministicValidation");
+        }
+        return view;
     }
 
     private static IEnumerable<OperationPort> SelectedInputPorts(PlanningSession state, PlanningCapability capability, JsonObject? projected = null)

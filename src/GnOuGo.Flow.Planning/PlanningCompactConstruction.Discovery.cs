@@ -267,9 +267,16 @@ internal static partial class PlanningCompactConstruction
     private static JsonObject CompactDiscoverySchema(PlanningSession state)
     {
         var requests = PresentedProviderRequests(state)?["items"]?.AsArray() ?? [];
-        var alternatives = new JsonArray(requests.Where(request => request!["available"]!.GetValue<bool>()).Select(request => (JsonNode)PlanningSchemas.Object(
-            ("sourceId", PlanningSchemas.Enum(request!["sourceId"]!.ToString())),
-            ("cursor", request["cursor"] is { } cursor ? PlanningSchemas.Enum(cursor.ToString()) : PlanningSchemas.Type("null")),
+        var available = requests.Where(request => request!["available"]!.GetValue<bool>()).ToArray();
+        // Factor only identical cursor branches. The accepted source/cursor pairs
+        // stay exact; grouping every source with every cursor would widen authority.
+        var choices = State(state).PresentationVersion == 2
+            ? available.GroupBy(request => request!["cursor"]?.ToString(), StringComparer.Ordinal)
+                .Select(group => (Sources: group.Select(request => request!["sourceId"]!.ToString()).ToArray(), Cursor: group.Key))
+            : available.Select(request => (Sources: new[] { request!["sourceId"]!.ToString() }, Cursor: request["cursor"]?.ToString()));
+        var alternatives = new JsonArray(choices.Select(choice => (JsonNode)PlanningSchemas.Object(
+            ("sourceId", PlanningSchemas.Enum(choice.Sources)),
+            ("cursor", choice.Cursor is { } cursor ? PlanningSchemas.Enum(cursor) : PlanningSchemas.Type("null")),
             ("query", PlanningSchemas.Type("null")), ("operationIds", PlanningSchemas.Type("null")))).ToArray());
         var schema = PlanningSchemas.Object(
             ("operationIds", PlanningSchemas.Nullable(Strings(1, 2))),

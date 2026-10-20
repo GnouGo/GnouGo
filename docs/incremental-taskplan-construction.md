@@ -158,7 +158,8 @@ requirement IDs; original clauses and their IDs remain alongside the step.
 Provider metadata actions are presented separately in pages of two exact source
 and continuation pairs. Their versioned evidence addresses are local navigation,
 never provider cursors. The issued schema fixes each source/cursor pair and uses
-`query:null`; the host supplies the selected substep objective. Exhausted or
+`query:null`; fresh schemas factor branches sharing an identical cursor without
+admitting new source/cursor combinations. The host supplies the selected substep objective. Exhausted or
 unavailable providers remain explicit and cannot be fetched repeatedly. Discovery
 retains applicable original global constraints. After bounded inspection, an
 unsuitable tentative operation selection can be replaced within the same scope
@@ -200,6 +201,17 @@ independent optional descendants omitted from presentation. Coupled constraints
 and their reference closure remain indivisible. Judge navigation prose is bounded
 by escaped bytes, and proposed public-result commitments name only outputs selected
 for the current substep under the fresh presentation protocol.
+An optional schema argument can still be necessary for the business action.
+Generation retrieves its exact omitted branch before binding it; successful
+retrieval expands the next input grammar. While original contract evidence is
+supplied, optional input-address and output-port navigation rows give way to their
+first-page directories. Required constraints, selected outputs and requested
+original evidence remain intact. Judges retrieve original descriptions before
+inferring absent functionality from an incomplete teaser. A matching original
+description page replaces that teaser without changing review authority.
+Empty-container guidance is limited to container, closure and revision reviews;
+leaf reviews retain the shared requirement, future-obligation, export and
+authorization rules without that unrelated paragraph.
 
 A call substep selects one closed reusable group with `groupId`. Its draft and
 Judge context includes the immutable group hash and exact input/output interface,
@@ -221,6 +233,11 @@ ancestors, while reusable groups require declared parameters and cannot capture
 caller inputs or tasks. Invalid selected imports identify the unavailable binding
 and scope when the semantic probe can resolve them; the compiler remains the
 authority for availability.
+Every existing binding used by a draft, including a local group input used in a
+closing export, must be selected in `step.inputs`. Fresh missing-import diagnostics
+identify the binding and consumer location; changing fixed imports requires the
+existing explicit reselection action. Renaming an export does not repair a missing
+import, and no failed extension changes accepted work.
 
 Within a selected scope, `scopeInterface` presents existing export declarations
 without making an open container consumable. Generation adds only new exports;

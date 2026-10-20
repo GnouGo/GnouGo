@@ -70,15 +70,23 @@ internal static partial class PlanningCompactConstruction
         {
             if (task.DependsOn.Any(id => !added.Contains(id) && !step.DependencyTaskIds.Contains(id, StringComparer.Ordinal)))
                 PlanningConstruction.Fail("CONSTRUCTION_STEP_INPUT_INVALID", "/extension/tasks", "Select each accepted explicit dependency before drafting its consumer.");
-            foreach (var value in task.Inputs.Concat(task.Outputs).Select(o => o.Value)
-                .Concat(new[] { task.Requires, task.Condition, task.Items }.OfType<TaskValue>())) CheckImport(value);
+            var path = "/tasks/" + task.Id;
+            var scope = symbols.Tasks[task.Id].Scope.Path;
+            foreach (var input in task.Inputs) CheckImport(input.Value, path + "/inputs/" + input.Name, scope);
+            foreach (var output in task.Outputs) CheckImport(output.Value, path + "/outputs/" + output.Name, scope);
+            if (task.Requires is not null) CheckImport(task.Requires, path + "/requires", scope);
+            if (task.Condition is not null) CheckImport(task.Condition, path + "/condition", scope);
+            if (task.Items is not null) CheckImport(task.Items, path + "/items", scope);
         }
-        foreach (var value in candidate.Extension.Outputs.Select(o => o.Value)
-            .Concat(candidate.Extension.Choices.SelectMany(c => c.Alternatives).Select(a => a.Value))) CheckImport(value);
+        for (var i = 0; i < candidate.Extension.Outputs.Count; i++)
+            CheckImport(candidate.Extension.Outputs[i].Value, "/extension/outputs/" + i + "/value", step.Scope);
+        for (var i = 0; i < candidate.Extension.Choices.Count; i++)
+            for (var j = 0; j < candidate.Extension.Choices[i].Alternatives.Count; j++)
+                CheckImport(candidate.Extension.Choices[i].Alternatives[j].Value, "/extension/choices/" + i + "/alternatives/" + j + "/value", step.Scope);
         if (step.CloseRequirementIds.Any(id => state.Construction!.Requirements.Single(r => r.Id == id).Checkpoints.Count > 0))
             candidate.NeedsIntermediateReview = true;
 
-        void CheckImport(TaskValue value)
+        void CheckImport(TaskValue value, string location, string scope)
         {
             // A selected field is an exact typed import; its wider producer object is not implicitly imported.
             if (step.Inputs.Any(selected => JsonNode.DeepEquals(
@@ -87,8 +95,19 @@ internal static partial class PlanningCompactConstruction
             if (value.Kind is "input" or "item" or "index" ||
                 value.Kind is "output" or "present" && !added.Contains(value.Source ?? "") ||
                 value.Kind == "choice" && candidate.Extension.Choices.All(c => c.Id != value.Source))
+            {
+                if (State(state).PresentationVersion == 2)
+                {
+                    var binding = new JsonObject { ["kind"] = value.Kind };
+                    if (value.Source is not null) binding["source"] = value.Source;
+                    if (value.Port is not null) binding["port"] = value.Port;
+                    PlanningConstruction.Fail("CONSTRUCTION_STEP_INPUT_INVALID", location,
+                        $"Binding {PlanningJsonTransport.Prompt(binding)} in scope '{scope}' is absent from step.inputs. Imports are fixed for this draft; return reselectStep alone to select this exact typed binding before using it.");
+                }
                 PlanningConstruction.Fail("CONSTRUCTION_STEP_INPUT_INVALID", "/extension", "An external binding was not selected as an exact typed import; reselect the tentative step with the required input.");
-            foreach (var child in value.Items.Concat(value.Members.Select(m => m.Value))) CheckImport(child);
+            }
+            for (var i = 0; i < value.Items.Count; i++) CheckImport(value.Items[i], location + "/items/" + i, scope);
+            for (var i = 0; i < value.Members.Count; i++) CheckImport(value.Members[i].Value, location + "/members/" + i + "/value", scope);
         }
     }
 

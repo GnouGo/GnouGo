@@ -128,6 +128,8 @@ internal static partial class PlanningCompactConstruction
             hints.Add("outputs explicitly export this scope's bound values through its enclosing task or group call; consumers cannot read hidden child tasks directly.");
         if (step.Kind == "value")
             hints.Add("value only copies, projects or assembles typed values using declared arithmetic, predicates, lookup, flatten and JSON encoding. It cannot concatenate or format strings, URL-encode or interpolate literals; its objective adds no computation.");
+        if (State(state).PresentationVersion == 2 && step.Kind == "operation")
+            hints.Add("editableInputs lists only inspected schema branches. Before binding an omitted optional port needed for this business action, request its exact schema address; this expands the next input grammar. Empty editableInputs does not mean the business action needs no arguments.");
         if (step.Kind == "foreach")
         {
             hints.Add("foreach.maxItems is the TOTAL input-item ceiling; excess fails, it never samples or truncates. maxConcurrency limits simultaneous workers, not total items. Neither bound guarantees a nonempty collection.");

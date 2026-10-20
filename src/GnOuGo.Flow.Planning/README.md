@@ -82,6 +82,15 @@ typed input/output interface, without reinjecting its body. Compact contract dis
 pages descriptors independently from exact schema views. Output-port directories retain
 producer business-port aliases and mappings independently of wire-schema directories;
 validation always consults the complete retained contract.
+Schema-optional inputs needed by the current business action require targeted
+schema retrieval before binding. The next generation schema then exposes those
+ports. Requested original contract evidence replaces optional navigation rows
+with their exact first-page directories, preserving required constraints and
+selected outputs. Local Judges retrieve originals before drawing conclusions
+from incomplete descriptions; matching original evidence replaces redundant teasers.
+Existing bindings used in a fragment or closing export must be explicit substep
+imports. Fresh diagnostics identify missing bindings and their consumer location;
+the existing reselection action changes imports without weakening validation.
 Fresh discovery presents four concise operation identities with exact description
 links, content-bound page addresses and one continuation. Catalog expansion
 preserves evidence consumption for unchanged pages. The discovery step projection
@@ -89,6 +98,8 @@ keeps original decision data and compact semantic bindings without repeated
 draft authority. Historical issued schemas preserve their original page payloads;
 fresh schemas reject legacy aliases. Repeated evidence without new knowledge
 stops without another correction, leaving accepted fragments and accounting intact.
+Fresh provider-action schemas factor only identical cursor branches; the accepted
+source/cursor pairs and host-owned query remain unchanged.
 A successful prior description read may be requested once more after genuinely
 new allowed operation identities or versions, bound to the exact issued knowledge
 identity. Ordering, empty provider pages, cursor and diagnostic changes grant no

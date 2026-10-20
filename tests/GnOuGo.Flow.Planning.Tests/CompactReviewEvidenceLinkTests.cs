@@ -149,8 +149,8 @@ public sealed class CompactReviewEvidenceLinkTests
         {
             Assert.Equal(PlanningConstruction.IntermediatePurpose, purpose);
             AssertBounded(request);
-            Assert.Contains("findings[].location", request.Prompt, StringComparison.Ordinal);
-            Assert.Contains("evidenceRequests uses retrieval addresses", request.Prompt, StringComparison.Ordinal);
+            Assert.Contains("Findings location/evidence must be exact existing context JSON Pointers", request.Prompt, StringComparison.Ordinal);
+            Assert.Contains("evidenceRequests:[exact issued addresses]", request.Prompt, StringComparison.Ordinal);
             var context = Context(request);
             var entry = Assert.Single(context["taskEvidence"]!["items"]!.AsArray())!;
             Assert.Equal(1, context["taskEvidence"]!["count"]!.GetValue<int>());
