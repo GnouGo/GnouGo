@@ -33,7 +33,7 @@ public sealed class CompactContractEvidenceFlowTests
                 if (drafts == 1)
                 {
                     Assert.Empty(view["editableInputs"]!.AsArray());
-                    Assert.Contains("Empty editableInputs does not mean", request.StructuredOutputSchema!["description"]!.ToString(), StringComparison.Ordinal);
+                    Assert.Contains("[] does not mean no arguments are needed", request.StructuredOutputSchema!["description"]!.ToString(), StringComparison.Ordinal);
                     return Wire(request, DraftAction(context, evidence: "schema:read@v1:/input/properties/target"));
                 }
                 Assert.Equal(2, drafts);
@@ -109,6 +109,165 @@ public sealed class CompactContractEvidenceFlowTests
         Assert.Equal(12, names.Distinct(StringComparer.Ordinal).Count());
         Assert.True(JsonNode.DeepEquals(exactEvidence, state.Construction.Evidence));
         Assert.Equal(before, JsonSerializer.Serialize(contract, PlanningJsonContext.Default.PlanningCapability));
+    }
+
+    [Fact]
+    public async Task SequentialDraftEvidenceRetainsEverySelectedInputWithoutAcceptingABatch()
+    {
+        var (state, runtime) = await Ready();
+        state.Discovery.Resolved[0].InputSchema["properties"]!["mode"] = new JsonObject
+            { ["type"] = "string", ["enum"] = new JsonArray("exact"), ["description"] = "Preserve every original observation." };
+        var names = new[] { "target", "unrelated", "mode" };
+        var addresses = names.Select(name => "schema:read@v1:/input/properties/" + name).ToArray();
+        var baseline = PlanningConstruction.Hash(state.Plan);
+        var originals = JsonSerializer.Serialize(state.Discovery.Resolved[0], PlanningJsonContext.Default.PlanningCapability);
+        var requirements = JsonSerializer.Serialize(state.Requirements, PlanningJsonContext.Default.PlanningRequirements);
+        var clauses = state.Requirements!.Outcomes.Select(outcome => (outcome.Id, outcome.Description)).ToArray();
+        var drafts = 0;
+        runtime.Respond = (request, purpose) =>
+        {
+            if (purpose == PlanningConstruction.LocalPurpose) return Wire(request, Review());
+            Assert.Equal(PlanningConstruction.DraftPurpose, purpose);
+            var context = Context(request); var view = context["operations"]![0]!;
+            Assert.Equal(drafts, view["editableInputs"]!.AsArray().Count);
+            Assert.InRange(PlanningRequestMeasurements.Measure(request, purpose, 8000).EstimatedInputTokens, 1, 8000);
+            for (var i = 0; i < drafts; i++)
+                Assert.True(JsonNode.DeepEquals(state.Discovery.Resolved[0].InputSchema["properties"]![names[i]],
+                    view["inputSchema"]!["properties"]![names[i]]));
+            if (drafts > 0)
+            {
+                Assert.Single(context["evidence"]!.AsObject());
+                Assert.True(JsonNode.DeepEquals(state.Discovery.Resolved[0].InputSchema["properties"]![names[drafts - 1]],
+                    context["evidence"]![addresses[drafts - 1]]!["schema"]));
+            }
+            var batch = DraftAction(context, evidence: addresses[0]);
+            batch["evidenceRequests"] = new JsonArray(addresses.Select(address => (JsonNode?)JsonValue.Create(address)).ToArray());
+            Assert.NotEmpty(PlanningContractValidation.ValidateInstance(batch, request.StructuredOutputSchema!));
+            if (drafts < addresses.Length) return Wire(request, DraftAction(context, evidence: addresses[drafts++]));
+            drafts++;
+            return Wire(request, DraftAction(context, task: new() { Id = "read_exact", Kind = "operation",
+                Objective = "Read the exact authorized record.", Operation = "read",
+                Inputs = [new("target", new() { Kind = "string", Text = "EXACT" }),
+                    new("unrelated", new() { Kind = "string", Text = "original" }),
+                    new("mode", new() { Kind = "string", Text = "exact" })] }));
+        };
+        for (var i = 0; i < 7 && state.Construction!.Checkpoints.Count == 0; i++)
+        {
+            state = await Advance(PlannerFixture.Clone(state), runtime);
+            Assert.Empty(state.Diagnostics);
+            Assert.NotNull(state.Construction);
+            if (state.Construction.Checkpoints.Count == 0)
+            {
+                Assert.Equal(baseline, PlanningConstruction.Hash(state.Plan));
+                Assert.Equal(requirements, JsonSerializer.Serialize(state.Requirements, PlanningJsonContext.Default.PlanningRequirements));
+            }
+        }
+        Assert.Equal(4, drafts);
+        Assert.Single(state.Construction!.Checkpoints);
+        Assert.Equal(0, state.ReplanAttempts);
+        Assert.Equal(names, Assert.Single(state.Plan!.Root.Tasks).Inputs.Select(input => input.Name));
+        Assert.Equal(originals, JsonSerializer.Serialize(state.Discovery.Resolved[0], PlanningJsonContext.Default.PlanningCapability));
+        Assert.Equal(clauses, state.Requirements!.Outcomes.Select(outcome => (outcome.Id, outcome.Description)));
+        Assert.Equal("read", Assert.Single(Assert.Single(state.Requirements.Outcomes).Commitments!).Operation);
+        var acceptedRequirements = JsonSerializer.SerializeToNode(state.Requirements, PlanningJsonContext.Default.PlanningRequirements)!;
+        foreach (var key in new[] { "inputs", "outputs" })
+            Assert.True(JsonNode.DeepEquals(JsonNode.Parse(requirements)![key], acceptedRequirements[key]));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task InitialOutputNavigationRetainsExactDirectoryAndSelectedSchemas(bool historical)
+    {
+        var (state, _) = await Ready();
+        if (historical) state.Construction!.Compact!.PresentationVersion = null;
+        var original = JsonSerializer.Serialize(state.Discovery.Resolved[0], PlanningJsonContext.Default.PlanningCapability);
+        state.Construction!.Compact!.CurrentStep!.SchemaPointers.Add("schema:read@v1:/output/properties/result11");
+        Assert.Null(state.Construction.Evidence);
+        var view = Assert.Single(PlanningCompactConstruction.ContractViews(state))!;
+        Assert.Equal(historical, view["outputs"] is JsonArray);
+        Assert.Equal(12, view["outputCount"]!.GetValue<int>());
+        Assert.Equal("/output/properties/result11", Assert.Single(view["selectedOutputs"]!.AsArray())!["pointer"]!.ToString());
+        Assert.NotEmpty(view["omittedOptionalInputs"]!.AsArray());
+        var names = historical ? view["outputs"]!.AsArray().Select(port => port!["name"]!.ToString()).ToList() : [];
+        string? address = view["outputDirectory"]!.ToString();
+        while (address is not null)
+        {
+            var page = PlanningCompactConstruction.LoadContractEvidence(state, address)!;
+            names.AddRange(page["items"]!.AsArray().Select(port => port!["name"]!.ToString()));
+            address = page["next"]?.ToString();
+        }
+        Assert.Equal(Enumerable.Range(0, 12).Select(index => "result" + index).Order(StringComparer.Ordinal), names);
+        Assert.Null(state.Construction.Evidence);
+        Assert.Equal(original, JsonSerializer.Serialize(state.Discovery.Resolved[0], PlanningJsonContext.Default.PlanningCapability));
+        if (!historical)
+        {
+            var empty = PlannerFixture.Clone(state);
+            empty.Construction!.Compact!.CurrentStep!.SchemaPointers.Clear();
+            empty.Discovery.Resolved[0].OutputSchema["properties"]!.AsObject().Clear();
+            var emptyView = Assert.Single(PlanningCompactConstruction.ContractViews(empty))!;
+            Assert.Equal(0, emptyView["outputCount"]!.GetValue<int>());
+            Assert.False(emptyView["outputsOmitted"]!.GetValue<bool>());
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task TypedCorrectionEvidenceUsesCapturedPresentationCardinality(bool historical)
+    {
+        var (state, _) = await Ready();
+        if (historical) state.Construction!.Compact!.PresentationVersion = null;
+        var authority = PlannerFixture.Clone(state);
+        authority.Plan = new() { Root = new() { Tasks = [new() { Id = "read_exact", Kind = "operation",
+            Objective = "Read the exact authorized record.", Operation = "read",
+            Inputs = [new("target", new() { Kind = "string", Text = "EXACT" })] }] } };
+        authority.Catalog!.Capabilities.Add(authority.Discovery.Resolved[0]);
+        authority.EditablePaths = ["/tasks/read_exact/inputs/target"];
+        authority.RevisionScope = ["/tasks/read_exact/inputs/target"];
+        var request = PlanningConstruction.RepairRequest(state, authority);
+        Assert.True(PlanningRepairPatch.Issued(request.StructuredOutputSchema!.AsObject()));
+        var response = new JsonObject { ["patch"] = null, ["discoveryRequests"] = null,
+            ["clarifications"] = null, ["reselectStep"] = null,
+            ["evidenceRequests"] = new JsonArray("schema:read@v1:/input/properties/target") };
+        Assert.Empty(PlanningContractValidation.ValidateInstance(response, request.StructuredOutputSchema));
+        response["evidenceRequests"]!.AsArray().Add("schema:read@v1:/input/properties/unrelated");
+        Assert.Equal(historical, PlanningContractValidation.ValidateInstance(response, request.StructuredOutputSchema).Count == 0);
+    }
+
+    [Fact]
+    public async Task SavedHistoricalDraftConsumesItsExactBatchReceiptWithoutNewAccounting()
+    {
+        var (state, runtime) = await Ready();
+        state.Construction!.Compact!.PresentationVersion = null;
+        state.Request.Options.Remove("construction_presentation_version");
+        runtime.Respond = (_, _) => throw new OperationCanceledException();
+        _ = await Advance(state, runtime);
+        var saved = PlannerFixture.Clone(runtime.Checkpoints.Last(checkpoint =>
+            checkpoint.Status == PlanningStatus.Generating && checkpoint.PendingCall?.Purpose == PlanningConstruction.DraftPurpose));
+        var issued = saved.PendingCall!.Request;
+        var exact = JsonSerializer.Serialize(issued, PlanningJsonContext.Default.LLMRequest);
+        var response = DraftAction(Context(issued), evidence: "schema:read@v1:/input/properties/target");
+        response["evidenceRequests"]!.AsArray().Add("schema:read@v1:/input/properties/unrelated");
+        Assert.Empty(PlanningContractValidation.ValidateInstance(response, issued.StructuredOutputSchema!));
+        saved.Construction!.Compact!.PresentationVersion = 2;
+        saved.Request.Options["construction_presentation_version"] = 2;
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(response, PlanningCompactConstruction.DraftSchema(saved)));
+        var calls = saved.ModelCalls; var baseline = PlanningConstruction.Hash(saved.Plan);
+        runtime.Respond = (request, _) =>
+        {
+            Assert.Equal(exact, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+            return Wire(request, response);
+        };
+        var resumed = await Advance(saved, runtime);
+        Assert.Empty(resumed.Diagnostics);
+        Assert.Equal(calls, resumed.ModelCalls);
+        Assert.Equal(0, resumed.ReplanAttempts);
+        Assert.Equal(baseline, PlanningConstruction.Hash(resumed.Plan));
+        Assert.Null(resumed.PendingCall);
+        Assert.Null(resumed.Construction!.Candidate);
+        Assert.Equal(2, resumed.Construction.Evidence!.Count);
+        Assert.Equal(2, resumed.Construction.Compact!.CurrentStep!.SchemaPointers.Count);
     }
 
     [Fact]

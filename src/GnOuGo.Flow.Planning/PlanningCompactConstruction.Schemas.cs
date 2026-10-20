@@ -82,7 +82,8 @@ internal static partial class PlanningCompactConstruction
             ("commitments", commitments),
             ("extension", PlanningSchemas.Nullable(extension)), ("discoveryRequests", PlanningSchemas.Type("null")),
             ("clarifications", PlanningSchemas.Nullable(PlanningSchemas.Clarifications())),
-            ("evidenceRequests", PlanningSchemas.Nullable(PlanningSchemas.Array(new JsonObject { ["type"] = "string", ["maxLength"] = 2048 }, 1, 8))),
+            ("evidenceRequests", PlanningSchemas.Nullable(PlanningSchemas.Array(new JsonObject { ["type"] = "string", ["maxLength"] = 2048 },
+                1, State(state).PresentationVersion == 2 ? 1 : 8))),
             ("rollbackTask", PlanningSchemas.Nullable(PlanningSchemas.String())), ("rollbackReason", PlanningSchemas.Nullable(PlanningSchemas.String())),
             ("reselectStep", CanReselectInitialDraft(state) || state.Construction.Candidate?.AuthorizedPaths is null &&
                 (state.Diagnostics.Any(d => d.Required) || state.Construction.Candidate?.Diagnostics.Any(d => d.Required) == true)
@@ -129,7 +130,7 @@ internal static partial class PlanningCompactConstruction
         if (step.Kind == "value")
             hints.Add("value only copies, projects or assembles typed values using declared arithmetic, predicates, lookup, flatten and JSON encoding. It cannot concatenate or format strings, URL-encode or interpolate literals; its objective adds no computation.");
         if (State(state).PresentationVersion == 2 && step.Kind == "operation")
-            hints.Add("editableInputs lists only inspected schema branches. Before binding an omitted optional port needed for this business action, request its exact schema address; this expands the next input grammar. Empty editableInputs does not mean the business action needs no arguments.");
+            hints.Add("editableInputs is only the inspected subset. Retrieve one exact schema address per call for any omitted port this business action needs; retrieval expands the binding grammar. [] does not mean no arguments are needed.");
         if (step.Kind == "foreach")
         {
             hints.Add("foreach.maxItems is the TOTAL input-item ceiling; excess fails, it never samples or truncates. maxConcurrency limits simultaneous workers, not total items. Neither bound guarantees a nonempty collection.");

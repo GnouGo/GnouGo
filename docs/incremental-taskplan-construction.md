@@ -139,9 +139,11 @@ siblings, cross-field constraints, alternatives and reference closure. Descripto
 cannot authorize execution or replace a contract. Separable original evidence can
 be paged; indivisible required information that exceeds the phase allowance stops
 explicitly. No unused request capacity is filled with unrelated suggestions.
-Fresh discovery evidence actions retrieve one addressed view at a time, avoiding
-aggregation of several independent pages beyond the complete-request limit.
-Saved requests retain their original evidence batch schema.
+Fresh discovery, generation and correction evidence actions retrieve one addressed
+view at a time, avoiding aggregation of independent pages beyond the
+complete-request limit. Previously inspected input branches remain available in
+the cumulative binding grammar; retrieving another branch does not discard their
+constraints. Saved requests retain their original evidence batch schema.
 Fresh discovery directories present four concise operation descriptors or two
 sources at a time. Operation rows retain exact identities, versions, names,
 effects and description-retrieval addresses; omitted descriptions are explicit.
@@ -203,9 +205,10 @@ by escaped bytes, and proposed public-result commitments name only outputs selec
 for the current substep under the fresh presentation protocol.
 An optional schema argument can still be necessary for the business action.
 Generation retrieves its exact omitted branch before binding it; successful
-retrieval expands the next input grammar. While original contract evidence is
-supplied, optional input-address and output-port navigation rows give way to their
-first-page directories. Required constraints, selected outputs and requested
+retrieval expands the next input grammar. Fresh output navigation uses a count
+and exact first-page directory instead of automatically including optional port
+rows. While original contract evidence is supplied, optional input-address rows
+also give way to their first-page directory. Required constraints, selected outputs and requested
 original evidence remain intact. Judges retrieve original descriptions before
 inferring absent functionality from an incomplete teaser. A matching original
 description page replaces that teaser without changing review authority.
@@ -293,8 +296,10 @@ becomes an ordered array on the enclosing task, retaining repetitions and nested
 arrays. This explains existing compilation; it does not remove review of the
 chosen per-item value or introduce an aggregation task.
 Finding locations and evidence contain exact JSON Pointers without annotations;
-explanations belong in their separate fields. Exact context lookup remains the
-authority for accepting a reference.
+explanations belong in their separate fields. Fresh guidance prefers citing an
+existing supplied object and explaining its relevant fields instead of building
+longer pointers. Derived or invented status paths remain invalid. Exact context
+lookup remains the authority for accepting a reference.
 Fresh review context supplies bounded exact `task:` and child `scope:` retrieval
 links for referenced accepted producers, without copying their bodies. These
 addresses belong in `evidenceRequests`; finding locations and supporting evidence

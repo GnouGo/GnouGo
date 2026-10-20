@@ -162,15 +162,16 @@ internal static partial class PlanningCompactConstruction
         var outputViews = selected.Where(p => p.StartsWith("/output", StringComparison.Ordinal)).ToArray();
         if (outputViews.Length > 0)
             node["selectedOutputs"] = new JsonArray(outputViews.Select(p => (JsonNode)ExactSchemaView(capability, p)).ToArray());
-        if (State(state).PresentationVersion == 2 && SuppliedContractEvidence(state, identity))
+        if (State(state).PresentationVersion == 2)
         {
-            // Requested originals replace optional navigation pages, never the
-            // projected constraints or selected outputs. Both directories remain
-            // addressable from their first page, including producer port aliases.
-            node.Remove("omittedOptionalInputs");
+            // Output navigation is retrieved when needed; selected schemas stay
+            // in the view. The directory retains every producer port alias.
             node.Remove("outputs");
-            node["outputsOmitted"] = true;
+            node["outputsOmitted"] = operation.Outputs.Count > 0;
             node["outputDirectory"] = "port-page:" + identity + ":/output:0";
+            // Requested originals replace optional input navigation, never the
+            // projected constraints or selected output schemas.
+            if (SuppliedContractEvidence(state, identity)) node.Remove("omittedOptionalInputs");
         }
         return node;
     }

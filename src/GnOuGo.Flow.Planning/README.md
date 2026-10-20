@@ -63,8 +63,10 @@ per-item export still receives normal semantic validation and business review.
 Fresh scoped reviews receive bounded retrieval links for accepted producers and
 their direct child scopes, including reusable groups referenced by supplied call
 evidence. Groups use their exact body-scope address, not a task alias. Finding
-JSON Pointers remain distinct from navigation addresses; invalid references
-cannot accept a checkpoint.
+JSON Pointers remain distinct from navigation addresses. Fresh review guidance
+prefers an existing supplied object as evidence, explaining its relevant fields
+in prose. Invented status paths remain invalid; no unusable report can accept a
+checkpoint or authorize correction.
 
 `PlanningPolicy.MaxStepsPerWorkflow` and `MaxWorkflows` are nullable captured graph-admission limits. Omission retains 300 generated nodes per workflow and 100 workflows and omits both fields from historical serialization. The compiler and structural validator use the same effective limits, independently of `MaxStepsTotal`. Explicit large construction captures 5,000 total nodes, 5,000 nodes per workflow and 1,024 workflows; existing compiler overloads and valid emitted YAML remain unchanged. These bounds do not increase runtime step, loop, branch, finalizer, expression or inference allowances.
 
@@ -83,10 +85,13 @@ pages descriptors independently from exact schema views. Output-port directories
 producer business-port aliases and mappings independently of wire-schema directories;
 validation always consults the complete retained contract.
 Schema-optional inputs needed by the current business action require targeted
-schema retrieval before binding. The next generation schema then exposes those
-ports. Requested original contract evidence replaces optional navigation rows
-with their exact first-page directories, preserving required constraints and
-selected outputs. Local Judges retrieve originals before drawing conclusions
+schema retrieval before binding. Fresh generation and correction retrieve one
+address per evidence action, retaining all previously inspected input branches in
+the binding grammar. Historical issued batches retain their captured sizes.
+Unselected output navigation uses an exact first-page directory and count;
+selected output views remain present. Requested original contract evidence also
+replaces optional input navigation rows with their exact first-page directory,
+preserving required constraints. Local Judges retrieve originals before drawing conclusions
 from incomplete descriptions; matching original evidence replaces redundant teasers.
 Existing bindings used in a fragment or closing export must be explicit substep
 imports. Fresh diagnostics identify missing bindings and their consumer location;

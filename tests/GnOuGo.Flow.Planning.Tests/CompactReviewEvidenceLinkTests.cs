@@ -149,7 +149,7 @@ public sealed class CompactReviewEvidenceLinkTests
         {
             Assert.Equal(PlanningConstruction.IntermediatePurpose, purpose);
             AssertBounded(request);
-            Assert.Contains("Findings location/evidence must be exact existing context JSON Pointers", request.Prompt, StringComparison.Ordinal);
+            Assert.Contains("Cite existing context objects with exact JSON Pointers", request.Prompt, StringComparison.Ordinal);
             Assert.Contains("evidenceRequests:[exact issued addresses]", request.Prompt, StringComparison.Ordinal);
             var context = Context(request);
             var entry = Assert.Single(context["taskEvidence"]!["items"]!.AsArray())!;
@@ -313,7 +313,58 @@ public sealed class CompactReviewEvidenceLinkTests
         Assert.Equal(accepted, state.Construction.Checkpoints[0].PlanHash);
     }
 
-    private static async Task<(PlanningSession State, TestRuntime Runtime)> Ready(bool calledGroup = false)
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SuppliedTaskObjectGroundsFindingsButInventedStatusPathsNeverAuthorizeCorrection(bool inventedPath)
+    {
+        var (state, runtime) = await Ready(requireParallel: true);
+        var accepted = PlanningConstruction.Hash(state.Plan);
+        var calls = state.ModelCalls;
+        runtime.Respond = (request, _) => Wire(request, Evidence("scope:/groups/worker/body"));
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        runtime.Respond = (request, _) =>
+        {
+            AssertBounded(request);
+            var context = Context(request);
+            var pointer = "/evidence/scope:~1groups~1worker~1body/tasks/0";
+            var task = context["evidence"]!["scope:/groups/worker/body"]!["tasks"]![0]!;
+            Assert.Equal("foreach", task["kind"]!.ToString());
+            Assert.False(task["parallel"]!.GetValue<bool>());
+            Assert.True(HybridWorkflowPlanner.ConstructionReviewEvidenceGrounded(context, pointer, compact: true));
+            return Wire(request, new()
+            {
+                ["findings"] = new JsonArray(new JsonObject
+                {
+                    ["kind"] = "omission", ["location"] = "/draft/outputs/0",
+                    ["evidence"] = new JsonArray(inventedPath ? pointer + "/parallel_status/0" : pointer, "/requirements/0"),
+                    ["explanation"] = "The exported iteration has parallel:false despite the original parallel-work requirement.",
+                    ["uncertainty"] = "Execution has not been observed."
+                }),
+                ["uncertainty"] = "This is a scoped finding, not execution proof.", ["evidenceRequests"] = null
+            });
+        };
+        state = await Advance(PlannerFixture.Clone(state), runtime);
+        Assert.Equal(inventedPath ? "CONSTRUCTION_REVIEW_INCONCLUSIVE" : "CONSTRUCTION_BUSINESS_REVIEW",
+            Assert.Single(state.Diagnostics).Code);
+        Assert.Equal(accepted, PlanningConstruction.Hash(state.Plan));
+        Assert.Single(state.Construction!.Checkpoints);
+        Assert.Equal("in_progress", Assert.Single(state.Construction.Requirements).Status);
+        Assert.False(state.Construction.Candidate!.IntermediateReviewed);
+        Assert.Equal(calls + 2, state.ModelCalls);
+        Assert.Equal(0, state.ReplanAttempts);
+        if (inventedPath)
+        {
+            Assert.Equal(PlanningStatus.Stopped, state.Status);
+            var dispatched = runtime.Calls.Count;
+            state = await Advance(PlannerFixture.Clone(state), runtime);
+            Assert.Equal(dispatched, runtime.Calls.Count);
+            Assert.Equal(PlanningStatus.Stopped, state.Status);
+        }
+    }
+
+    private static async Task<(PlanningSession State, TestRuntime Runtime)> Ready(bool calledGroup = false, bool requireParallel = false)
     {
         var runtime = new TestRuntime { Respond = (request, purpose) =>
         {
@@ -341,7 +392,9 @@ public sealed class CompactReviewEvidenceLinkTests
             return Wire(request, Reviewed());
         } };
         var state = await Advance(new() { Request = new() { TenantId = "linked-review",
-            Prompt = "Double each original number through reusable work, preserving order and repetition.",
+            Prompt = requireParallel
+                ? "Double each original number through reusable work in parallel, preserving order and repetition."
+                : "Double each original number through reusable work, preserving order and repetition.",
             Options = new() { ["automatic_correction"] = true } } }, runtime);
         Assert.Empty(state.Diagnostics);
         state.Plan = new()

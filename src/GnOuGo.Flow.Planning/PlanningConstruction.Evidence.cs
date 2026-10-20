@@ -9,7 +9,8 @@ internal static partial class PlanningConstruction
     internal static GnOuGo.Flow.Core.Runtime.LLMRequest RepairRequest(PlanningSession state, PlanningSession authority, string? guidance = null)
     {
         var schema = PlanningSchemas.Proposal(authority);
-        schema["properties"]!["evidenceRequests"] = PlanningSchemas.Nullable(PlanningSchemas.Array(PlanningSchemas.String(), 1, 8));
+        var singleView = state.Construction is { Version: 2, Compact.PresentationVersion: 2 };
+        schema["properties"]!["evidenceRequests"] = PlanningSchemas.Nullable(PlanningSchemas.Array(PlanningSchemas.String(), 1, singleView ? 1 : 8));
         schema["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("evidenceRequests"));
         if (state.Construction!.Version == 2)
         {
@@ -19,7 +20,9 @@ internal static partial class PlanningConstruction
         }
         var projected = PlanningContractValidation.ProjectStructuredOutputSchema(schema);
         return Request(state, (guidance is null ? "" : guidance + "\n") + PlanningPrompt.RepairInstructions +
-            "\nRequest original evidence using evidenceRequests with patch, discoveryRequests and clarifications null; evidence grants no additional edit authority." +
+            (singleView
+                ? "\nRequest one exact original evidence address per call, with patch, discoveryRequests and clarifications null; evidence grants no additional edit authority."
+                : "\nRequest original evidence using evidenceRequests with patch, discoveryRequests and clarifications null; evidence grants no additional edit authority.") +
             (state.Construction.Version == 2 ? " If the diagnosed tentative task kind or operation cannot implement the original requirement, reselectStep may give a concrete reason as the only action. It preserves accepted work and the selected scope/requirements; explicit revision paths cannot be expanded." : ""),
             _ => projected, state.Construction!.Limits.DraftOutputTokens, review: true,
             enrich: context => context["repair"] = PlanningRepairContext.Build(authority)).Request;

@@ -5,12 +5,21 @@ business acceptance. The measured 18-run comparison against `56942f5` has not
 started; it remains conditional on successful Amazon, Collections and Review PR
 diagnostics on one frozen candidate.
 
+The latest [frozen `fd7c41a` diagnostics](#frozen-fd7c41a-three-scenario-diagnostics)
+all stopped before execution: Amazon and Review PR exceeded draft input caps;
+Collections produced an invalid Judge evidence pointer. Their 47 known calls
+cost €1.0398560383897627299386830178. The latest campaign audit retains
+€14.302261619123789211765751358 upper exposure, including existing uncertain
+reservations, and €225.727842213582515330679195942 remaining. Earlier sections
+below preserve historical failures and balances; they are not current totals.
+
 The [safe component report](compact-taskplan-request-components-2026-10-20.json)
-publishes retained `7206ca2`, `3513ccd`, `c9cbaf6`, `5bc25f4` and `f457292` request
-distributions, component byte and conservative token estimates, and separate known
-provider usage. Its nine runs reconcile all 768,751 bytes across 107 prepared
-requests, including two rejected followups. Judge is
-a phase dimension; component estimates are not billed tokens. No original
+publishes retained `7206ca2`, `3513ccd`, `c9cbaf6`, `5bc25f4`, `f457292`,
+`de5ec55`, `c082c39`, `e3f3c4f` and `fd7c41a` request distributions, component
+byte and conservative token estimates, and separate known provider usage.
+Its 21 runs reconcile all 2,450,064 bytes across 321 prepared requests,
+including seven input rejections, with 313 known receipts. Judge is a phase
+dimension; component estimates are not billed tokens. No original
 business text, contract bodies, response bodies or credentials are included.
 
 ## Permanent retention of the old Amazon timeout
@@ -1331,6 +1340,114 @@ optional navigation and repeated Judge prose are reduced. Final probe hash:
 No probe dispatched a request or changed journal records. The full affected
 suite has not yet been rerun for this subsequent batch, and no new live result
 or comparative business improvement is claimed.
+
+## Frozen fd7c41a three-scenario diagnostics
+
+Source `fd7c41aebd075c6af3c4abdeec8f6f2f3a97b85e` used the same pinned
+model, medium reasoning, allowances, independent oracles and frozen producer
+bundle. Diagnostic manifest hash:
+`1e0666dd8f67028b5a8630bf0c496a7fb1a099d73d46319ed16ddfe7d80a2e57`.
+The benchmark built warning-free in 43.41 seconds, the private review helper
+passed 18 self-tests and all 568 producer files matched before dispatch.
+
+| Scenario | Exact run | Calls / corrections / checkpoints | Provider input / output / reasoning | Time | Known cost |
+| --- | --- | --- | --- | ---: | ---: |
+| Amazon | `compactdfd7c41a-amazon-1` | 9 / 0 / 0 | 14,106 / 5,267 / 4,086 | 97.935s | €0.2030925086643561716875499867 |
+| Collections | `fd7c41aebd075c6af3c4abdeec8f6f2f3a97b85e:fixture:collections:1` | 30 / 1 / 6 | 45,591 / 17,110 / 12,849 | 321.383s | €0.6587176752865902426019728072 |
+| Review PR | `compactdfd7c41a-code-1` | 8 / 0 / 0 | 8,661 / 5,235 / 3,923 | 97.272s | €0.1780458544388163156491602239 |
+
+Amazon's ninth call requested three specific optional input-schema leaves:
+`url`, `waitUntil` and `format`. It did not request a complete schema.
+The resulting draft followup was rejected before dispatch at 25,770 bytes /
+8,846 estimated input tokens against 8k. Collections stopped with
+`CONSTRUCTION_REVIEW_INCONCLUSIVE` after six accepted checkpoints. Its final
+Judge identified remaining parallelism but cited a nonexistent `parallel_status`
+path instead of the supplied `parallel:false` field or task object, so the host
+rejected the whole report. The first two requirements were closed; `req_2`
+remained open with no accepted checkpoint. The preceding Judge had retrieved
+the exact group-body evidence. Review PR
+passed discovery, then its initial draft request was rejected at 24,709 bytes /
+8,493 against 8k. Neither rejected request has a provider receipt or usage.
+No run reached approval or execution, produced empty content or introduced
+new transport uncertainty; complete business coverage remains unverified.
+
+Across the three runs, 47 known calls used 68,358 input, 27,612 output and
+20,858 reasoning tokens, took 516.590 seconds and cost
+€1.0398560383897627299386830178. All 49 prepared requests, including both
+rejections, reconcile to 421,835 serialized component bytes. The safe aggregate
+report hash is
+`814cf88bf1905b9796aea4c3d4a8683232d7d97e33f79a46adc7c8799ce9acde`.
+
+Each distribution below lists p50 / nearest-rank p95 / maximum and includes
+all prepared requests, including rejected ones.
+
+| Scenario / phase | Prepared / receipts | Complete request bytes | Estimated input tokens |
+| --- | ---: | --- | --- |
+| Amazon intent | 2 / 2 | 3,984.5 / 5,001 / 5,001 | 1,584.5 / 1,923 / 1,923 |
+| Amazon selection | 2 / 2 | 6,247 / 6,547 / 6,547 | 2,339 / 2,439 / 2,439 |
+| Amazon discovery | 4 / 4 | 7,070 / 8,041 / 8,041 | 2,613 / 2,937 / 2,937 |
+| Amazon draft | 2 / 1 | 23,505.5 / 25,770 / 25,770 | 8,091.5 / 8,846 / 8,846 |
+| Collections intent | 2 / 2 | 3,618 / 4,825 / 4,825 | 1,462.5 / 1,865 / 1,865 |
+| Collections selection | 7 / 7 | 6,976 / 7,361 / 7,361 | 2,582 / 2,710 / 2,710 |
+| Collections draft | 7 / 7 | 11,983 / 13,005 / 13,005 | 4,251 / 4,591 / 4,591 |
+| Collections local Judge | 10 / 10 | 8,233.5 / 10,470 / 10,470 | 3,001 / 3,746 / 3,746 |
+| Collections intermediate Judge | 3 / 3 | 7,783 / 10,297 / 10,297 | 2,851 / 3,689 / 3,689 |
+| Collections repair | 1 / 1 | 13,157 / 13,157 / 13,157 | 4,642 / 4,642 / 4,642 |
+| Review PR intent | 4 / 4 | 3,127.5 / 5,243 / 5,243 | 1,298.5 / 2,004 / 2,004 |
+| Review PR selection | 1 / 1 | 7,617 / 7,617 / 7,617 | 2,795 / 2,795 / 2,795 |
+| Review PR discovery | 3 / 3 | 7,626 / 7,678 / 7,678 | 2,798 / 2,816 / 2,816 |
+| Review PR draft | 1 / 0 | 24,709 / 24,709 / 24,709 | 8,493 / 8,493 / 8,493 |
+
+The public component report preserves all earlier source objects and now
+contains 21 diagnostic runs, 85 phases, 321 prepared requests, 313 known
+receipts and 2,450,064 reconciled bytes. Provider usage remains whole-call
+accounting, separate from conservative component estimates. No prompts,
+contracts, provider bodies or business artifacts are published.
+
+The terminal audit verified 528 requests / 525 receipts, the same three
+permanently retained receiptless identities and two uncertain attempts.
+Known cost is €13.806940371456500488758553278, reserved exposure
+€0.4953212476672887230071980805 and captured upper exposure
+€14.302261619123789211765751358. The unchanged
+€240.0301038327063045424449473 ceiling leaves
+€225.727842213582515330679195942. Audit hash:
+`a47057a37181d02c0b34d535395971127ce9096602d385db46d32ce2aa0522ab`.
+The separate lost-ledger exposure and retained replay prohibitions remain
+unchanged; no unclosed uncertainty remains.
+
+The isolated full affected Planning suite on exact `fd7c41a` passed 2,211
+tests, zero failures/skips or warnings, with warnings as errors in 337.341
+seconds wall time; the checkout remained clean. Log hash:
+`08e5a7b78b65b50c38fec94767f4065e2676e12f8f5b112eab1a0293f1c83714`.
+Its isolated full solution and package/publish matrix were still running at
+this evidence update. No complete live business success or paired comparison
+is claimed; the 18-run comparison remains unstarted.
+
+The subsequent targeted correction batch passed all 485 compact tests with
+warnings as errors, zero failures/skips, in 15 seconds; the skill validator
+passed. Final log hash:
+`15fc9a446b9e3490c7f3b75abacae7083a9b1b6dcf3c0a33f7208f5723516318`.
+The first attempt retained 481 passes and four new fixture failures concerning
+historical protocol options, canonical port order and commitment capture; these
+fixtures were corrected without weakening production checks. Failed-log hash:
+`652c46a58592eca1077bc89db0f1e4fbce438ebe7fa93c6a7cad97e98994ef59`.
+A separate initial Judge test run retained 11 passes and one incorrect fixture
+requirement pointer, with log hash
+`a8b635b02d20db36de18828f8188fb97c1fc2f51ae64c748462f0df2baa2f90d`;
+its corrected cases are included in the combined passing run.
+
+A memory-only probe reproduced both exact rejected `fd7c41a` request hashes,
+then measured the rebuilt implementation without dispatch. Amazon's successive
+single-address views measured 20,384 / 21,303 / 23,145 bytes and 7,051 / 7,357 /
+7,971 conservative tokens, retaining all three inspected input branches in the
+last schema. Review PR's first draft measured 22,952 bytes / 7,907 tokens instead
+of 24,709 / 8,493. Original clauses, global constraints, imports, commitments,
+contract prose, effects and required constraints were preserved. Safe measurement
+hash: `f48c3b8b92b2afd5b9f3919273b327667b5dbb6e44c34e6620df237f3013d6d9`.
+The remaining margins are only 29 and 93 tokens; these probes establish admission
+for those exact contexts, not universal fit or live convergence. The earlier
+2,211-test affected-suite pass does not validate these later changes, and no new
+live result is claimed.
 
 ## Deterministic evidence
 
