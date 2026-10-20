@@ -95,7 +95,14 @@ internal static partial class PlanningCompactConstruction
                 (state.Diagnostics.Any(d => d.Required) || state.Construction.Candidate?.Diagnostics.Any(d => d.Required) == true)
                 ? PlanningSchemas.Nullable(new JsonObject { ["type"] = "string", ["minLength"] = 1, ["maxLength"] = 512 }) : PlanningSchemas.Type("null")));
         schema["$defs"] = definitions;
+        var reselection = fresh && schema["properties"]!["reselectStep"]!["type"]?.ToString() != "null"
+            ? schema["properties"]!["reselectStep"]!.DeepClone().AsObject() : null;
         var projected = PlanningContractValidation.ProjectStructuredOutputSchema(PlanningSchemas.Compact(schema));
+        if (reselection is not null)
+        {
+            reselection["description"] = "A precise reason to replace this tentative step, not a step ID. Explain what prevents it and identify any missing prerequisite; scope and original requirements remain fixed.";
+            projected["properties"]!["reselectStep"] = reselection;
+        }
         // Compact removes presentation annotations from the shared grammar. Put
         // back only the semantics needed by this selected kind and scope.
         projected["description"] = DraftSemantics(state, step);

@@ -5,136 +5,119 @@ Amazon, Collections or Review PR diagnostics reached execution. Checkpoints,
 compilation and scoped reviews do not establish business success. The gated
 18-run baseline/candidate comparison has not started.
 
-## Latest attempt and retained diagnostics
+## Latest diagnostic and corrections
 
-Exact authorization permanently abandoned the retained Review PR HTTP 500,
-Amazon HTTP 504 and Collections HTTP 500 requests and their runs. All records and
-full unknown-usage reservations remain intact; none was replayed or continued.
-The prior Amazon attempt is preserved in [its archive](compact-taskplan-cd174ea.json).
+Frozen cohort `compactdba4ed26` retained the pinned model, medium reasoning,
+3k/8k/4k input targets, 6k/16k/8k complete-request ceilings and
+16,384/8,192/2,048 navigation/draft/Judge output reservations. Amazon stopped at
+four corrections after 25 known completions, with no checkpoint or execution.
+Its final operation URL still omitted the caller's search input; the local Judge
+correctly rejected that omission. Collections and Review PR were **not started**
+in this cohort.
 
-Frozen cohort `compactd585203a` kept the same pinned model, medium reasoning,
-6k/16k/8k input ceilings and navigation/draft/Judge output reservations
-16,384/8,192/2,048. Collections stopped on its second intent call with HTTP 500;
-its exact authorized closure retains €0.4634497467342042122100773127. Fresh Review
-PR then received all ten completions, but its correction exhausted 8,192 reasoning
-tokens with no visible answer. No artifact or execution resulted. Amazon was
-**not started** in this cohort.
-
-| Scenario | Calls / corrections / checkpoints | Planning time | Known cost | Observed blocker |
+| Diagnostic | Calls / corrections / checkpoints | Planning time | Known cost | Outcome |
 | --- | ---: | ---: | ---: | --- |
-| Collections | 2 / 0 / 0 | 314.015 s | €0.017644 | HTTP 500; one unknown completion permanently retained |
-| Review PR | 10 / 1 / 0 | 341.672 s | €0.539829 | Correction returned an output-limit receipt: 8,192 reasoning tokens, zero content |
+| Amazon `ba4ed26` | 25 / 4 / 0 | 443.791 s | €1.026837 | Correction allowance exhausted; query absent from operation arguments |
+| Collections `585203a` | 2 / 0 / 0 | 314.015 s | €0.017644 | HTTP 500; exact request/run permanently abandoned with full reservation |
+| Review PR `585203a` | 10 / 1 / 0 | 341.672 s | €0.539829 | Correction exhausted 8,192 reasoning tokens with zero visible content |
 
-All 102,915 constructed request bytes reconcile. Review PR's generation, Judge
-and correction requests used respectively 5,637, 4,638 and 7,854 conservative input
-tokens. The Judge exceeded its target but stayed within its ceiling. Known cohort
-usage is 18,881 input, 17,764 output and 14,734 reasoning tokens; Collections' total
-usage remains unknown. [Safe terminal evidence](compact-taskplan-585203a.json)
-retains phase distributions, components, receipts, transport and closure hashes.
+Amazon used 71,056 provider input, 26,674 output and 21,180 reasoning tokens. No
+response was empty and no new uncertainty was introduced. All 371,096 constructed
+request bytes reconcile: 25 admitted calls plus one prepared-only envelope, not
+an explicit admission rejection. Generation, Judge and correction peaks were
+11,115, 4,548 and 11,305 conservative input tokens. All fit their captured ceilings.
+[Safe phase measurements](compact-taskplan-ba4ed26.json) retain complete-request
+p50/p95/maximum, reconciled components, receipt usage, costs and latency.
 
-The first Review PR Judge correctly rejected an array contract that prohibited
-reporting discrepancies. It also incorrectly required a separate expression for
-an interpretation task: the shared task contract uses its objective as the runtime
-LLM instruction. The follow-up replaces that misleading wording while preserving
-the valid constraint finding and all approval guards. Empty execution aggregates
-now report correctness as unknown instead of vacuous success; existing acceptance
-gates and retained run records remain unchanged. Neither change has live acceptance
-yet. Output exhaustion is observed, but its cause and the benefit of more output
-headroom are not established.
+The trace exposed an ambiguous existing action: `reselectStep` is a reason string,
+but its fresh schema did not describe it and the model returned the old step ID.
+The host faithfully preserved that value, the original requirement and rejected
+step evidence; no context loss was found. The follow-up clarifies the fresh field
+with a precise obstacle and any missing prerequisite. It adds no state, protocol
+or validation rule and does not guarantee convergence.
 
-Source `08ad5db6ee96736452d7dda56dab3c4de92ebe1c`, cohort `compactd08ad5db`,
-retained the pinned model and medium reasoning. Input targets remain 3k/8k/4k,
-hard complete-request ceilings 6k/16k/8k, and navigation/draft/Judge output
-reservations 16,384/8,192/2,048. This is the same profile as the preceding
-navigation-output experiment; no setting changed during a run.
+MCP retrieval guards worked: a malformed address was rejected, and the corrected
+batch expanded the exact required input grammar. Empty tool arguments and the
+later missing search input were genuine defects, not false positives from open
+scopes. These guards remain unchanged.
 
-| Scenario | Calls / corrections / checkpoints | Planning time | Known cost | Observed blocker |
-| --- | ---: | ---: | ---: | --- |
-| Amazon | 13 / 3 / 0 | 192.646 s | €0.475024 | New malformed-evidence errors were hidden by the retained Judge finding; three repair prompts were identical |
-| Collections | 11 / 1 / 1 | 118.271 s | €0.239305 | Requested root-scope evidence omitted the caller input declaration needed to review its closure |
-| Review PR | 3 / 0 / 0 | 340.679 s | €0.087501 | Request 3 returned HTTP 500 without a completion receipt or verified usage |
+Earlier retained evidence led to targeted corrections for repair diagnostic
+visibility, caller declarations in requested root evidence and interpretation
+semantics. Interpretation uses its objective/input/result-type contract and needs
+no separate expression. A genuine result-bound contradiction still prevents
+checkpoint acceptance. Empty execution aggregates now report unknown correctness;
+existing gates and stored run records remain unchanged. These corrections still
+need complete live business acceptance. [The preceding cohort](compact-taskplan-585203a.json)
+retains its failures and exact authorized Collections closure.
 
-All constructed requests fit their captured ceilings and their component bytes
-reconcile. The largest generation, repair and Judge estimates were respectively
-6,274, 6,901 and 3,264 tokens. There were no empty completed responses. Review PR's
-unknown call is not an empty response: its full **€0.4634497467342042122100773127**
-reservation remains held. Exact prompts, contracts and receipts stay encrypted.
-[Safe phase measurements](compact-taskplan-08ad5db.json) retain p50/p95/maximum
-sizes, component totals, known provider tokens, costs, latency and evidence hashes.
+## Retained experiments and acceptance limits
 
-The follow-up makes two focused generic corrections: present unresolved candidate
-findings together with the latest rejected-action diagnostics, and include exact
-caller declarations in explicitly requested root-scope evidence. Valid evidence
-retrieval clears only its resolved errors after atomic admission. Judge guidance
-also distinguishes a needed producer from its future consumer or public export.
-No execution, permission, contract-validation or accounting guard is relaxed.
-
-## Retained experiments and comparison limits
+The [08ad5db diagnostics](compact-taskplan-08ad5db.json) stopped on missing context,
+evidence corrections and an uncertain HTTP 500. The next
+[Amazon attempt](compact-taskplan-cd174ea.json) returned HTTP 504 on a small first
+intent request. Exact user authorizations permanently abandoned those requests
+and runs, retaining every record and full reservation. Neither was replayed or
+continued, and provider termination was not inferred.
 
 The [5c01f98 controls and separate output experiments](compact-taskplan-5c01f98.json)
-retain all failures. Three controls stopped on known reasoning-only responses
-at 8,192 output tokens. A Collections draft-16k trial stopped before drafting,
-so it did not test the changed phase. An Amazon navigation-16k trial reached
-discovery, but every response used fewer than 8,192 output tokens. Neither trial
-establishes a causal benefit from the larger allowance.
+retain three reasoning-only 8,192-token failures. A draft-16k trial stopped before
+drafting; a navigation-16k trial never consumed more than 8,192 output tokens.
+Neither establishes a causal benefit from more headroom. Review PR `585203a`
+adds a verified correction output-exhaustion receipt, without establishing its
+cause. New output experiments must freeze a separate configuration; no session
+escalates mid-run. The configured deployment supports medium/high/max, not low.
+Earlier [663cf72](compact-taskplan-663cf72.json), [1984bdc](compact-taskplan-1984bdc.json)
+and [afc342c](compact-taskplan-afc342c.json) archives remain intact.
 
-Earlier [663cf72](compact-taskplan-663cf72.json),
-[1984bdc](compact-taskplan-1984bdc.json) and [afc342c](compact-taskplan-afc342c.json)
-reports preserve prompt-size distributions, costs and retained failures. The
-current deployment declares medium/high/max reasoning, not low. No model or
-metadata substitution enabled the proposed low-navigation experiment.
-
-Fresh diagnostics must execute all three scenarios and pass independent oracles
-before the 18 alternating runs against `56942f5`. Collections requires both
-ordered duplicate-preserving runtime variants and reusable parallel structure.
-Amazon v4 requires complete search observations, exact product/workbook data and
-browser closure. Review PR requires pinned provenance, actual command results,
-independent report assessment and cleanup. Compilation and Judges grant no effect
-authority; exact delegated artifact review and individual confirmations remain
-required. Each comparison arm freezes its configuration; intentional differences
-must be disclosed as configuration-level outcomes.
+All three scenarios must execute and pass independent oracles before the
+18 alternating runs against `56942f5`. Collections requires both ordered,
+duplicate-preserving variants and reusable parallel structure. Amazon v4 requires
+complete observations, exact products/workbook data and browser closure. Review
+PR requires pinned provenance, actual command results, independent local report
+assessment and cleanup. Artifact-bound delegated review and individual runtime
+confirmations remain mandatory. Historical two-call efficiency gates are legacy
+measures; fresh acceptance evaluates business outcomes and reports calls, tokens,
+cost and latency separately. Frozen arm differences support configuration-level
+comparisons, not architecture-only causality.
 
 ## Campaign reconciliation
 
-Read-only inspection after the `585203a` diagnostics verified encrypted campaign
+Read-only inspection after Amazon `ba4ed26` verified encrypted campaign
 `schema-portability-20261019-incremental`:
 
 | Ledger measurement | EUR |
 | --- | ---: |
 | Campaign ceiling | 240.0301038327063045424449473 |
-| Known spending | 19.851173020527859237536656894 |
+| Known spending | 20.878010308362214520572291834 |
 | Unknown-usage reservations | 1.8856704878699013596374300186 |
-| Spending/reservation upper bound | 21.736843508397760597174086913 |
-| Available allowance | 218.293260324308543945270860387 |
+| Spending/reservation upper bound | 22.763680796232115880209721853 |
+| Available allowance | 217.266423036474188662235225447 |
 
 Evidence hash:
-`7ce9d581631a7675589b2db2a4dcf0c0c9ed734d62ca6d1d176be87ba2b0d50f`.
-There are 716 request identities and 710 receipts. All six receiptless identities
+`f863fe35729522e3ffb4d4e206ace0dff2a2bc1287da58569c46f8b293e94fb1`.
+All 741 request identities and 735 receipts remain. All six receiptless identities
 are permanently retained; five attempts retain unknown usage. No unresolved
-uncertainty currently blocks fresh admission. The new Collections closure is
-`d0c1bfe9b2939b5dbea5032c78a8e9d26aa10f4ef205118392272df68930d342`.
-No receipt or provider termination was inferred, and no funds were released.
-Separate lost historical exposure of €159.96989616729369545755505266 remains
-accounted for within the original €400 authorization. No ceiling increased.
+uncertainty currently blocks fresh admission. No funds were released. Separate
+lost historical exposure of €159.96989616729369545755505266 remains accounted for
+within the original €400 authorization. No ceiling increased.
 
 ## Independent validation
 
-At `041c69c`, all five Flow package builds, the Native AOT planning smoke and the
-published Git contract check passed. The maintained publication verifier passed
+At `ba4ed26`, the complete Planning project passes 2,354/2,354 tests with warnings
+as errors; the benchmark builds with zero warnings/errors. The reselection
+follow-up passes all 11 focused cases, including exact recovery and historical
+unannotated schemas. At `041c69c`, all five Flow package builds, Native AOT planning
+smoke and published Git contract check passed. The publication verifier passed
 14 profiles, eight frontend builds, encrypted planning/Flow recovery, tenant
-isolation and health checks. Six documented EF experimental notices were accepted;
-there were no unexpected warnings. Files checks cover persistence, isolation and
-TTL, without separately proving payload encryption.
+isolation and health checks, with six documented EF experimental notices and no
+unexpected warnings. Files checks cover persistence, isolation and TTL, without
+separately proving payload encryption.
 
 The full solution run exposed eight fixture failures: fresh phase metadata was
-incorrectly retained in historical version-one test sessions, and financial tests
-still expected the old 8k ceiling. `cd174ea` corrects only those fixtures; all ten
-affected cases pass with warnings as errors. The original full run and CI are
-still in progress. The follow-up Judge/lowering tests pass 20/20 and measurement
-tests 48/48 with warnings as errors. Neither focused validation nor packaging
-establishes business acceptance. Historical two-call efficiency gates remain
-legacy measures; the new acceptance protocol requires independently complete
-business outcomes and reports calls, tokens, costs and latency separately.
+incorrectly retained in historical version-one sessions, and financial tests
+expected the old ceiling. `cd174ea` corrects only those fixtures; all ten affected
+cases pass with warnings as errors. The original full run and CI remain in
+progress. No final full-solution/CI pass or business acceptance is claimed.
 
 ## Immutable evidence index
 

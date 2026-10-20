@@ -8,7 +8,7 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class CompactDraftReselectionTests
 {
-    private const string Reason = "The selected value kind cannot format the imported text; inspect the current business operation before preparing its exact arguments.";
+    private const string Reason = "The selected value kind cannot format the imported text; the missing prerequisite is an accepted formatted-text producer before the operation can bind its argument.";
 
     [Theory]
     [InlineData(false)]
@@ -34,6 +34,11 @@ public sealed class CompactDraftReselectionTests
         {
             Assert.Equal(PlanningConstruction.DraftPurpose, purpose);
             Assert.Contains("cannot concatenate or format strings", request.StructuredOutputSchema!["description"]!.ToString(), StringComparison.Ordinal);
+            var reasonDescription = request.StructuredOutputSchema["properties"]!["reselectStep"]!["description"]!.ToString();
+            Assert.Contains("precise reason", reasonDescription, StringComparison.Ordinal);
+            Assert.Contains("not a step ID", reasonDescription, StringComparison.Ordinal);
+            Assert.Contains("missing prerequisite", reasonDescription, StringComparison.Ordinal);
+            Assert.Empty(PlanningContractValidation.ValidateSchema(request.StructuredOutputSchema, strict: true));
             Assert.Empty(PlanningContractValidation.ValidateInstance(Reselect(request), request.StructuredOutputSchema!));
             Assert.InRange(PlanningRequestMeasurements.Measure(request, purpose, 8000).EstimatedInputTokens, 1, 8000);
             return new() { Json = Reselect(request) };
@@ -63,6 +68,12 @@ public sealed class CompactDraftReselectionTests
         runtime.Respond = (request, purpose) =>
         {
             Assert.Equal(PlanningCompactConstruction.SelectPurpose, purpose);
+            var reselection = Context(request)["reselection"]!;
+            Assert.Equal(Reason, reselection["reason"]!.ToString());
+            Assert.Equal("/root", reselection["scope"]!.ToString());
+            Assert.Equal(["req_0"], reselection["requirementIds"]!.AsArray().Select(id => id!.ToString()));
+            Assert.True(PlanningCompactConstruction.LoadEvidence(state, reselection["evidence"]!.ToString(), out var evidence));
+            Assert.True(JsonNode.DeepEquals(rejected, evidence));
             Assert.Empty(PlanningContractValidation.ValidateInstance(Wire(request, Selection(request)).Json!, request.StructuredOutputSchema!));
             Assert.InRange(PlanningRequestMeasurements.Measure(request, purpose, 3000).EstimatedInputTokens, 1, 3000);
             return Wire(request, Selection(request));
@@ -73,6 +84,40 @@ public sealed class CompactDraftReselectionTests
         Assert.False(state.Construction.Compact.CurrentStep.DiscoveryComplete);
         Assert.Equal(1, state.ReplanAttempts); Assert.Equal(1, state.Construction.DraftCorrections);
         Assert.Equal(accepted, Accepted(state));
+    }
+
+    [Fact]
+    public async Task PreviouslyIssuedDraftKeepsItsUnannotatedReselectionFieldAndExactReason()
+    {
+        var (state, runtime) = await Ready();
+        var historical = PlannerFixture.Clone(state);
+        historical.Construction!.Limits.PhasePolicy = null;
+        historical.Request.Options["construction_limits"]!.AsObject().Remove("phasePolicy");
+        Assert.Null(PlanningCompactConstruction.DraftSchema(historical)["properties"]!["reselectStep"]!["description"]);
+
+        var request = PlanningConstruction.DraftRequest(state, repair: false);
+        Assert.True(request.StructuredOutputSchema!["properties"]!["reselectStep"]!.AsObject().Remove("description"));
+        request = PlanningGenerationPolicy.Apply(request, state.Request.Generation);
+        request.ClientRequestId = "retained-unannotated-reselection";
+        state.PendingCall = new() { Id = request.ClientRequestId, Purpose = PlanningConstruction.DraftPurpose, Request = request };
+        state.Construction!.IssuedBaseHash = PlanningConstruction.Hash(state.Plan);
+        state.ModelCalls++;
+        var exact = JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest);
+        var accepted = Accepted(state); var calls = state.ModelCalls;
+        runtime.Respond = (issued, _) =>
+        {
+            Assert.Null(issued.StructuredOutputSchema!["properties"]!["reselectStep"]!["description"]);
+            return new() { Json = Reselect(issued) };
+        };
+        state = await Advance(PlannerFixture.Clone(state), runtime);
+        Assert.Empty(state.Diagnostics);
+        Assert.Equal(exact, JsonSerializer.Serialize(runtime.Calls[^1], PlanningJsonContext.Default.LLMRequest));
+        Assert.Equal(calls, state.ModelCalls);
+        Assert.Equal(1, state.ReplanAttempts); Assert.Equal(1, state.Construction!.DraftCorrections);
+        Assert.Equal(accepted, Accepted(state));
+        Assert.Equal(Reason, Assert.Single(state.Construction.Compact!.RejectedSteps)["reason"]!.ToString());
+        Assert.Equal("/root", state.Construction.Compact.ReplacementScope);
+        Assert.Equal(["req_0"], state.Construction.Compact.ReplacementRequirements);
     }
 
     [Theory]
