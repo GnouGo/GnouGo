@@ -295,6 +295,25 @@ internal static partial class PlanningCompactConstruction
             context["choices"] = PlanningConstruction.Node(((draft?.Plan ?? state.Plan)?.Choices ?? []).Where(c => choiceIds.Contains(c.Id)).ToList(), PlanningJsonContext.Default.ListPlanningChoice);
         if (review && draft is not null)
         {
+            if (compact.PresentationVersion == 2 && state.Plan is not null)
+            {
+                var accepted = new TaskPlanSymbols(state.Plan);
+                var producers = draft.ImportedTaskIds.Where(accepted.Tasks.ContainsKey).Distinct(StringComparer.Ordinal).ToArray();
+                if (producers.Length > 0)
+                    context["taskEvidence"] = new JsonObject
+                    {
+                        ["count"] = producers.Length,
+                        ["items"] = new JsonArray(producers.Take(8).Select(id =>
+                        {
+                            var scopes = accepted.Scopes.Where(scope => scope.Owner?.Id == id).ToArray();
+                            return (JsonNode)new JsonObject
+                            {
+                                ["address"] = "task:" + id, ["scopeCount"] = scopes.Length,
+                                ["scopes"] = new JsonArray(scopes.Take(4).Select(scope => (JsonNode?)JsonValue.Create("scope:" + scope.Path)).ToArray())
+                            };
+                        }).ToArray())
+                    };
+            }
             context["constructionStage"] = new JsonObject
             {
                 ["openedScopeCount"] = draft.OpenScopes.Except(construction.OpenScopes, StringComparer.Ordinal).Count(),

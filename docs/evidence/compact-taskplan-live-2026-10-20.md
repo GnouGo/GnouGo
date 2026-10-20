@@ -547,6 +547,102 @@ three fixtures skipping a newly automatic navigation page. Those fixtures were
 corrected without changing production behavior. These results do not establish
 live convergence or validate the final full solution.
 
+## Diagnostic revision 7206ca2
+
+Source: `7206ca2551a52c49ef4ba64a4a2a0749a59642ab`. The three sequential
+diagnostics retain the same model, medium reasoning, allowances and frozen
+producer bundle. None reached artifact approval or execution. Business and
+runtime safety outcomes remain unverified.
+
+| Diagnostic and exact run | Calls / corrections / checkpoints | Provider input / output / reasoning tokens | Planning time | Known cost |
+| --- | ---: | ---: | ---: | ---: |
+| Amazon: `compactd7206ca2-amazon-1` | 2 / 0 / 0 | 1,293 / 8,981 / 8,704 | 164,007 ms | €0.2451746201013063183151159691 |
+| Collections: `7206ca2551a52c49ef4ba64a4a2a0749a59642ab:fixture:collections:1` | 25 / 1 / 5 | 37,934 / 11,951 / 8,637 | 197,672 ms | €0.4871589798276015284812938771 |
+| Review PR: `compactd7206ca2-code-1` | 11 / 1 / 0 | 13,086 / 7,507 / 5,809 | 117,487 ms | €0.2582777925886430285257264731 |
+
+Amazon's second intent call reached its 8,192-token output limit entirely in
+reasoning, with zero content. Its receipt and cost are known; this is not an
+uncertain transport attempt. The failed extraction request was 5,002 bytes /
+1,924 estimated input tokens and used 815 provider input tokens.
+
+Exact comparison with successful `630ec1a` and `ef351ca` extraction shows the
+same extraction instructions, structurally identical response schemas and
+unchanged model/reasoning/output settings. The original input-bearing span grew
+from 43 to 292 characters, including 249 characters of downstream action/result
+prose. The separate 40-character public-input naming clause was identical.
+Classifier instructions and schemas were also unchanged, but their responses
+chose different clause boundaries. No missing name or contradictory declaration
+was established. Isolating contiguous interface declarations while retaining all
+business spans is a controlled presentation experiment, not proof of the empty
+response's cause or a reason to increase allowances.
+
+Collections passed the previously blocked foreach-body closure. Its final
+scoped Judge requested the accepted iteration task using the bare identifier
+`iterate_values`, whereas the loader requires `task:iterate_values`. This was a
+structured evidence action with null findings; the host stopped with
+`CONSTRUCTION_REVIEW_INCONCLUSIVE` before evaluating any business finding.
+The checkpoint context exposed the task ID without its retrieval address.
+The receipt establishes an evidence-address failure, not a new workflow defect.
+The parallel/composition obligations remained unclosed, and neither runtime
+variant executed.
+
+Review PR reached discovery within its input allowance. It read an exact
+operation description, corrected one malformed evidence address, and fetched a
+second provider's metadata. The catalog grew from one to five operation
+summaries. The next descriptor page reoffered the same already-consumed
+description; the model requested it again, and the persistent action guard
+stopped with `REPLAN_NO_PROGRESS` before another evidence load. The additional
+provider metadata was real; the repeated description's identity and version
+were unchanged. No clone, local check, report, cleanup or other business
+execution occurred.
+
+All 38 paid calls have known receipts. Total usage was 52,313 input /
+28,439 output tokens, including 23,150 reasoning tokens, over 479,166 ms,
+costing **€0.9906113925175508753221363193**. The Amazon receipt is the only
+empty response. All prepared requests fit their captured limits, with zero
+admission rejections or new uncertain attempts.
+
+| Diagnostic / phase | Requests | p50 / p95 / maximum complete bytes | p50 / p95 / maximum input estimate |
+| --- | ---: | ---: | ---: |
+| Amazon / intent | 2 | 3,892 / 5,002 / 5,002 | 1,554 / 1,924 / 1,924 |
+| Collections / intent | 2 | 3,504.5 / 4,784 / 4,784 | 1,424.5 / 1,851 / 1,851 |
+| Collections / selection | 6 | 7,066.5 / 7,789 / 7,789 | 2,611.5 / 2,853 / 2,853 |
+| Collections / generation | 6 | 12,191 / 13,207 / 13,207 | 4,320 / 4,659 / 4,659 |
+| Collections / local Judge | 7 | 8,888 / 9,276 / 9,276 | 3,219 / 3,348 / 3,348 |
+| Collections / intermediate Judge | 3 | 9,040 / 9,286 / 9,286 | 3,270 / 3,352 / 3,352 |
+| Collections / correction | 1 | 12,647 / 12,647 / 12,647 | 4,472 / 4,472 / 4,472 |
+| Review PR / intent | 4 | 3,034.5 / 5,492 / 5,492 | 1,267.5 / 2,087 / 2,087 |
+| Review PR / selection | 1 | 7,943 / 7,943 / 7,943 | 2,904 / 2,904 / 2,904 |
+| Review PR / discovery | 6 | 7,216 / 7,367 / 7,367 | 2,662 / 2,712 / 2,712 |
+
+All 38 component-byte totals reconcile. Complete byte sums are 7,784 for Amazon,
+214,625 for Collections and 64,287 for Review PR. Per-request hashes, component
+and phase distributions, exact costs and provider usage are retained in the safe
+report with SHA-256
+`d5097e966a7d950026177b0ca5c00d9424fe3fdf8da21d9444bb76617e177871`.
+The report exports no prompt, response, artifact or HTTP body. Percentiles use
+median and nearest-rank p95; conservative estimates are not billed token usage.
+
+The terminal public-API audit verified 252 requests / 250 receipts and the same
+two retained receiptless closures. Known cost is
+€7.4551897271838620812227850345, with the unchanged historical unknown reservation
+of €0.2479472140762463343108504399. The upper bound is
+€7.7031369412601084155336354744, leaving
+**€232.3269668914461961269113118256** of the unchanged
+€240.0301038327063045424449473 ceiling. Audit evidence hash:
+`afa07591d4774eed8573019e832d9b1006d6dae6dde612aa58c1b2c051785dbb`.
+Separately retained lost-ledger exposure remains accounted for; combined upper
+exposure is approximately €167.673033 of the authorized €400.
+
+At this exact source, the isolated full Planning suite passed **2,128 tests**,
+zero failures or skips, with warnings as errors. The complete command took
+277.969 seconds; the test runner reported 4m26s. Its verified log SHA-256 is
+`6a03a4db9f976852ebb415514cd3c8795d651cbc6a143c17c710a005b1f2a334`.
+This validates the recorded planner revision, not the final full solution or
+complete live business workflows. The 18-run paired comparison remains
+unstarted. Further presentation and evidence-navigation changes require their
+own deterministic and live evidence.
+
 ## Deterministic evidence
 
 For `72964ab`, 370 affected planner tests and 173 host tests passed with warnings

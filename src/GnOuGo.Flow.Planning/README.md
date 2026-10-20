@@ -36,6 +36,9 @@ consumes that field's type.
 Foreach-body closure reviews derive the enclosing task kind from the candidate's
 symbol table and explain its existing ordered array export semantics. The
 per-item export still receives normal semantic validation and business review.
+Fresh scoped reviews receive bounded retrieval links for accepted producers and
+their direct child scopes. Finding JSON Pointers remain distinct from those
+addresses; a bare task ID remains invalid and cannot accept a checkpoint.
 
 `PlanningPolicy.MaxStepsPerWorkflow` and `MaxWorkflows` are nullable captured graph-admission limits. Omission retains 300 generated nodes per workflow and 100 workflows and omits both fields from historical serialization. The compiler and structural validator use the same effective limits, independently of `MaxStepsTotal`. Explicit large construction captures 5,000 total nodes, 5,000 nodes per workflow and 1,024 workflows; existing compiler overloads and valid emitted YAML remain unchanged. These bounds do not increase runtime step, loop, branch, finalizer, expression or inference allowances.
 
@@ -58,8 +61,13 @@ links, content-bound page addresses and one continuation. Catalog expansion
 preserves evidence consumption for unchanged pages. The discovery step projection
 keeps original decision data and compact semantic bindings without repeated
 draft authority. Historical issued schemas preserve their original page payloads;
-fresh schemas reject legacy aliases. Repeated evidence stops without another
-correction, leaving accepted fragments and accounting intact.
+fresh schemas reject legacy aliases. Repeated evidence without new knowledge
+stops without another correction, leaving accepted fragments and accounting intact.
+A successful prior description read may be requested once more after genuinely
+new allowed operation identities or versions, bound to the exact issued knowledge
+identity. Ordering, empty provider pages, cursor and diagnostic changes grant no
+new inspection. Operation-page consumption remains separate from this targeted
+description retrieval; cached prose is never automatically added.
 
 Explicit `requires` remains a local fail-fast runtime assertion, including inside conditional paths. The compiler validates types, scope, availability and contracts; it no longer attempts conditional implication proofs or automatic guard strengthening. Branch conditions govern optional routing. Automatic repairs cannot remove or alter `requires`; explicit targeted revisions remain available. Retained guard-proof repairs require revision after accounting for any completed original receipt; unknown completion remains stopped.
 

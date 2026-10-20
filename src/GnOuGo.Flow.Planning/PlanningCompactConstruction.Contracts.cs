@@ -37,11 +37,8 @@ internal static partial class PlanningCompactConstruction
         };
     }
 
-    internal static JsonArray ContractDescriptors(PlanningSession state, int offset = 0, int count = ContractDescriptorPageSize, bool concise = false)
-    {
-        var step = state.Construction!.Compact!.CurrentStep!;
-        var query = CapabilityRelevance.Query(step.Objective);
-        var discovered = state.Discovery.Pages.SelectMany(p => p.Capabilities)
+    private static IEnumerable<CapabilitySummary> DescriptorCandidates(PlanningSession state, IEnumerable<CapabilityPage> pages) =>
+        pages.SelectMany(p => p.Capabilities)
             .Concat((state.Catalog?.Capabilities ?? []).Where(c => c.Kind == "registered").Select(c =>
                 new CapabilitySummary(c.Id, "runtime", c.Method ?? c.StepType, c.Description, c.StepType,
                     c.EffectKind, c.Version, c.Composition, PlanningCapabilityArguments.Editable(c), c.ArtifactContract)))
@@ -49,7 +46,12 @@ internal static partial class PlanningCompactConstruction
                 !state.Catalog.Policy.DeniedCapabilityIds.Contains(c.Id))
             .GroupBy(c => c.Operation!.Id, StringComparer.Ordinal)
             .Where(g => g.Select(c => (c.Id, c.Version)).Distinct().Count() == 1).Select(g => g.First());
-        var ranked = CapabilityRelevance.Rank(discovered, query).ToArray();
+
+    internal static JsonArray ContractDescriptors(PlanningSession state, int offset = 0, int count = ContractDescriptorPageSize, bool concise = false)
+    {
+        var step = state.Construction!.Compact!.CurrentStep!;
+        var query = CapabilityRelevance.Query(step.Objective);
+        var ranked = CapabilityRelevance.Rank(DescriptorCandidates(state, state.Discovery.Pages), query).ToArray();
         if (offset < 0 || offset > ranked.Length)
             PlanningConstruction.Fail("CONSTRUCTION_EVIDENCE_INVALID", "/evidenceRequests", "The operation directory offset is outside the retained metadata.");
         return new(ranked.Skip(offset).Take(count).Select(c =>

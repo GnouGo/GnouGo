@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json.Nodes;
+using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Planning;
 
 namespace GnOuGo.Flow.Planning;
@@ -7,6 +8,7 @@ namespace GnOuGo.Flow.Planning;
 internal static partial class PlanningCompactConstruction
 {
     private const string ContentPageSchemaDescription = "Content-addressed operation pages only.";
+    private const string DescriptionKnowledgePrefix = ContentPageSchemaDescription + " Description reads v1@";
     private sealed record ProviderRequest(string SourceId, string? Cursor, bool Available = true, string? Unavailable = null, int ResultCount = 0);
 
     private static List<ProviderRequest> ProviderRequestOptions(PlanningSession state)
@@ -145,11 +147,62 @@ internal static partial class PlanningCompactConstruction
 
     internal static void ValidateOperationPageAuthority(JsonNode issuedSchema, JsonNode response)
     {
-        if (issuedSchema["description"]?.ToString() != ContentPageSchemaDescription ||
+        if ((issuedSchema["description"]?.ToString() != ContentPageSchemaDescription && IssuedDescriptionKnowledge(issuedSchema) is null) ||
             response["evidenceRequests"] is not JsonArray requests) return;
         if (requests.Any(request => request?.ToString().Split(':') is ["page", "operations", _]))
             PlanningConstruction.Fail("CONSTRUCTION_EVIDENCE_INVALID", "/evidenceRequests",
                 "Use the exact content-addressed operation page issued by this request; a legacy offset-only alias does not grant another inspection.");
+    }
+
+    private static string? IssuedDescriptionKnowledge(JsonNode issuedSchema)
+    {
+        var description = issuedSchema["description"]?.ToString();
+        if (description?.StartsWith(DescriptionKnowledgePrefix, StringComparison.Ordinal) != true) return null;
+        var hash = description[DescriptionKnowledgePrefix.Length..];
+        if (hash.Length != 64 || hash.Any(c => c is not (>= '0' and <= '9' or >= 'a' and <= 'f')))
+            throw new WorkflowRuntimeException("CONSTRUCTION_DISCOVERY_STALE", "The issued description-read knowledge identity is invalid.");
+        return hash;
+    }
+
+    // Only immutable, policy-allowed producer identities establish new knowledge.
+    // Cursors, ranking, diagnostics, read status and duplicated pages do not.
+    private static HashSet<string> DescriptionKnowledge(PlanningSession state, int pageCount) =>
+        DescriptorCandidates(state, state.Discovery.Pages.Take(pageCount))
+            .Select(c => new JsonArray(c.SourceId, c.Operation!.Id, c.Operation.Version).ToJsonString())
+            .ToHashSet(StringComparer.Ordinal);
+
+    private static string DescriptionKnowledgeHash(HashSet<string> knowledge) => PlanningGraphCompiler.Fingerprint(
+        new JsonArray(knowledge.Order(StringComparer.Ordinal).Select(id => (JsonNode?)JsonValue.Create(id)).ToArray()).ToJsonString());
+
+    internal static string? DescriptionReadKey(PlanningSession state, JsonNode issuedSchema, JsonNode response)
+    {
+        var issued = IssuedDescriptionKnowledge(issuedSchema);
+        if (issued is null) return null;
+        var current = DescriptionKnowledge(state, state.Discovery.Pages.Count);
+        if (issued != DescriptionKnowledgeHash(current))
+            throw new WorkflowRuntimeException("CONSTRUCTION_DISCOVERY_STALE", "Retained discovery knowledge no longer matches the exact issued description-read request.");
+        if (response["evidenceRequests"] is not JsonArray { Count: 1 } requests ||
+            new[] { "operationIds", "discoveryRequests", "reselectStep", "clarifications" }.Any(name => response[name] is not null) ||
+            requests[0]?.ToString() is not { } address || !address.StartsWith("description:", StringComparison.Ordinal) || address.Length > 2048)
+            return null;
+        try { if (LoadContractEvidence(state, address) is null) return null; }
+        catch (PlanningResponseException) { return null; }
+        var ordinary = PlanningConstruction.EvidenceBatchFingerprint(state, [address]);
+        var prefix = "description-read:" + ordinary + ":";
+        var key = prefix + issued;
+        if (!state.Construction!.EvidenceRequests.Contains(ordinary, StringComparer.Ordinal) ||
+            state.Construction.EvidenceRequests.Contains(key, StringComparer.Ordinal)) return key;
+        var previous = state.Construction.EvidenceRequests.LastOrDefault(read => read.StartsWith(prefix, StringComparison.Ordinal));
+        if (previous is null) return null; // A historical read retains its original repeat guard.
+        var previousHash = previous[prefix.Length..];
+        // Reconstruct the earlier identity set from retained immutable provider
+        // receipts; only a strict append of knowledge permits another exact read.
+        for (var count = 0; count <= state.Discovery.Pages.Count; count++)
+        {
+            var earlier = DescriptionKnowledge(state, count);
+            if (DescriptionKnowledgeHash(earlier) == previousHash && earlier.IsProperSubsetOf(current)) return key;
+        }
+        return null;
     }
 
     private static JsonObject? DescribedProviderRequests(PlanningSession state)
@@ -196,7 +249,8 @@ internal static partial class PlanningCompactConstruction
             ("evidenceRequests", PlanningSchemas.Nullable(PlanningSchemas.Array(Text(2048), 1, State(state).PresentationVersion == 2 ? 1 : 4))),
             ("reselectStep", CanReselectDiscovery(state) ? PlanningSchemas.Nullable(new JsonObject { ["type"] = "string", ["minLength"] = 1, ["maxLength"] = 512 }) : PlanningSchemas.Type("null")),
             ("clarifications", PlanningSchemas.Nullable(PlanningSchemas.Clarifications())));
-        if (State(state).PresentationVersion == 2) schema["description"] = ContentPageSchemaDescription;
+        if (State(state).PresentationVersion == 2)
+            schema["description"] = DescriptionKnowledgePrefix + DescriptionKnowledgeHash(DescriptionKnowledge(state, state.Discovery.Pages.Count));
         return schema;
     }
 

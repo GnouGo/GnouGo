@@ -939,7 +939,12 @@ corrections do not relax compiler validation or prove live convergence. Regressi
 also verify that catalog expansion cannot reoffer unchanged consumed
 pages, that discovery omits duplicate draft metadata, and that foreach-body
 closure reviews explain the existing ordered array exports. Repeated evidence
-stops immediately without spending a repair. Compare complete serialized
+without demonstrably new knowledge stops without spending a repair. A targeted
+original-description reread after new allowed operation identities or versions
+must be bound to the issued request, charged normally and blocked again within
+that same knowledge set. Cursor/order changes and empty provider pages grant no
+new read. Judge evidence addresses remain distinct from finding JSON Pointers;
+bare producer IDs are still inconclusive. Compare complete serialized
 requests, including content-address overhead and the issued compatibility schema;
 a smaller individual component does not establish complete-request admission.
 Recorded failures and accounting for the latest same-source Amazon, Collections and Review

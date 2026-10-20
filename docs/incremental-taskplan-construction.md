@@ -88,6 +88,11 @@ payloads or resource schemas as public workflow interfaces.
 Adjacent sentences constraining an action's composition or result may form one
 verbatim requirement. Selection uses available caller inputs directly unless
 business computation or an inspected contract requires preparation.
+Classification isolates contiguous caller/public interface declarations from
+downstream action prose when the original boundaries allow it. Naming and
+declared constraints remain available together for extraction; every remaining
+action span remains a requirement. This presentation experiment preserves exact
+coverage and does not establish a cause for earlier reasoning-only responses.
 Selection keeps the earliest unresolved original requirement as its anchor.
 Retrieve prerequisite clauses one per supplemental page with explicit next
 addresses, without surveying future work or replacing that anchor. Render each exact
@@ -147,6 +152,14 @@ page. The retained evidence-batch identities prevent advertising a consumed page
 as the next action; explicit duplicate requests stop immediately without another
 correction. Exact historical issued schemas retain their offset-only addresses
 and two-row payloads. Fresh issued schemas reject those legacy aliases.
+An earlier successfully retrieved description may be requested again after new
+allowed operation identities or versions provide genuine discovery progress.
+The exact issued request captures this bounded reread authority; both action and
+evidence checks use the same knowledge identity. Ordering, empty provider pages,
+cursors, diagnostics and allowances do not create progress. One reread per new
+knowledge set still shares ordinary admission and accounting. Unchanged
+operation-page consumption and failed-address guards remain in force; cached
+description prose is not automatically resent.
 Successful retrieval clears its corrected navigation diagnostic without
 discarding unrelated findings or resetting cumulative correction accounting.
 Output-port directories preserve original producer business-port mappings, including
@@ -232,6 +245,10 @@ chosen per-item value or introduce an aggregation task.
 Finding locations and evidence contain exact JSON Pointers without annotations;
 explanations belong in their separate fields. Exact context lookup remains the
 authority for accepting a reference.
+Fresh review context supplies bounded exact `task:` and child `scope:` retrieval
+links for referenced accepted producers, without copying their bodies. These
+addresses belong in `evidenceRequests`; finding locations and supporting evidence
+remain JSON Pointers into the supplied context. Bare identifiers remain invalid.
 
 Each Judge response selects one action. A completed review returns a findings
 array (empty when no grounded finding exists) and null evidence requests. An

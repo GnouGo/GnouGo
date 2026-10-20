@@ -96,12 +96,16 @@ public sealed partial class HybridWorkflowPlanner
         var request = state.PendingCall?.Request ?? create();
         var response = await PlanningModelCalls.CallAsync(state, runtime, purpose, request.Prompt,
             request.StructuredOutputSchema!.AsObject(), ct, state.Construction!.Limits.DraftOutputTokens);
+        var descriptionReadKey = purpose == PlanningCompactConstruction.DiscoveryPurpose
+            ? PlanningCompactConstruction.DescriptionReadKey(state, request.StructuredOutputSchema!, response) : null;
         if (purpose == PlanningCompactConstruction.DiscoveryPurpose)
             PlanningCompactConstruction.RecordPresentedOperations(state, request.Prompt);
         var compact = PlanningCompactConstruction.State(state);
         var legacyHash = purpose + ":" + compact.CurrentStep?.Id + ":" + PlanningConstruction.Hash(state.Plan) + ":" + PlanningGraphCompiler.Fingerprint(response.ToJsonString());
-        var hash = CompactActionFingerprint(state, legacyHash);
-        if (compact.FailedActions.Contains(hash, StringComparer.Ordinal) || compact.FailedActions.Contains(legacyHash, StringComparer.Ordinal))
+        var ordinaryHash = CompactActionFingerprint(state, legacyHash);
+        var hash = descriptionReadKey is null ? ordinaryHash : ordinaryHash + ":" + descriptionReadKey;
+        if (compact.FailedActions.Contains(hash, StringComparer.Ordinal) || compact.FailedActions.Contains(ordinaryHash, StringComparer.Ordinal) ||
+            compact.FailedActions.Contains(legacyHash, StringComparer.Ordinal))
             throw new WorkflowRuntimeException("REPLAN_NO_PROGRESS", "The model repeated a rejected compact construction action.");
         // Retain the attempt before validation. Successful state transitions change phase/context.
         compact.FailedActions.Add(hash);
@@ -230,9 +234,10 @@ public sealed partial class HybridWorkflowPlanner
     {
         var compact = PlanningCompactConstruction.State(state); var step = compact.CurrentStep!;
         var issued = state.PendingCall?.Request;
+        var exactRequest = issued;
         var correcting = state.Diagnostics.Any(d => d.Required);
         var response = await CompactCallAsync(state, runtime, PlanningCompactConstruction.DiscoveryPurpose, () =>
-            PlanningCompactConstruction.Request(PlanningCompactConstruction.DiscoveryInstructions, PlanningCompactConstruction.DiscoveryContext(state),
+            exactRequest = PlanningCompactConstruction.Request(PlanningCompactConstruction.DiscoveryInstructions, PlanningCompactConstruction.DiscoveryContext(state),
                 PlanningCompactConstruction.DiscoverySchema(state), PlanningCompactConstruction.DiscoveryPurpose), ct);
         if (response["reselectStep"] is { } reason)
         {
@@ -258,7 +263,8 @@ public sealed partial class HybridWorkflowPlanner
             state.Diagnostics.Clear();
             return;
         }
-        if (await CompactOtherActionAsync(state, runtime, response, "operationIds", ct)) return;
+        var descriptionReadKey = PlanningCompactConstruction.DescriptionReadKey(state, exactRequest!.StructuredOutputSchema!, response);
+        if (await CompactOtherActionAsync(state, runtime, response, "operationIds", ct, descriptionReadKey)) return;
         var operations = response["operationIds"]!.AsArray().Select(o => o!.ToString()).ToArray();
         foreach (var operation in operations)
         {
@@ -286,14 +292,14 @@ public sealed partial class HybridWorkflowPlanner
     }
 
     private static async Task<bool> CompactOtherActionAsync(PlanningSession state, IPlanningRuntime runtime,
-        JsonNode response, string primary, CancellationToken ct)
+        JsonNode response, string primary, CancellationToken ct, string? descriptionReadKey = null)
     {
         var names = new[] { primary, "evidenceRequests", "clarifications", "discoveryRequests" };
         if (names.Count(name => response[name] is not null) != 1)
             PlanningConstruction.Fail("PROPOSAL_ACTION_INVALID", "/", "Return exactly one compact construction action.");
         if (response["evidenceRequests"] is JsonArray evidence)
         {
-            PlanningConstruction.LoadEvidence(state, evidence.Select(e => e!.ToString()).ToList());
+            PlanningConstruction.LoadEvidence(state, evidence.Select(e => e!.ToString()).ToList(), descriptionReadKey);
             if (PlanningCompactConstruction.State(state).PresentationVersion == 2)
                 state.Diagnostics.RemoveAll(d => d.Location == "/evidenceRequests" &&
                     d.Code is "CONSTRUCTION_EVIDENCE_UNKNOWN" or "CONSTRUCTION_EVIDENCE_INVALID");

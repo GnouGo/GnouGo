@@ -747,6 +747,234 @@ public sealed class CompactDiscoveryProtocolTests
         Assert.False(resumed.Construction.Compact!.CurrentStep!.DiscoveryComplete);
     }
 
+    [Fact]
+    public async Task ExactDescriptionCanBeReadOnceMoreAfterNewProviderKnowledgeWithoutReopeningOperationPages()
+    {
+        var (state, runtime) = await Ready();
+        AddOperations(state, 1);
+        state.Discovery.Pages[0] = state.Discovery.Pages[0] with { NextCursor = "more" };
+        var address = DescriptionAddress(state);
+        var plan = PlanningConstruction.Hash(state.Plan);
+        runtime.Respond = (request, _) => Wire(request, Evidence(address));
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        var original = state.Construction!.Evidence![address]!.ToJsonString();
+        var firstRead = Assert.Single(state.Construction.EvidenceRequests, key => key.StartsWith("description-read:", StringComparison.Ordinal));
+        var firstPageKey = PlanningConstruction.EvidenceBatchFingerprint(state, [PlanningCompactConstruction.OperationPageAddress(state, 0)]);
+        Assert.Contains(firstPageKey, state.Construction.EvidenceRequests);
+        runtime.Respond = (request, _) => Wire(request, Evidence(PlanningCompactConstruction.ProviderRequestAddress(state, 0)));
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        runtime.Capabilities = new ContinuationCatalog([AdditionalOperation(state)]);
+        runtime.Respond = (request, _) => Wire(request, Discover("alpha", "more"));
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        Assert.Equal(2, state.Discovery.Pages.Count);
+        runtime.Respond = (request, _) => Wire(request, Evidence(address));
+        state = await Advance(PlannerFixture.Clone(state), runtime);
+        Assert.Empty(state.Diagnostics);
+        Assert.Equal(original, state.Construction!.Evidence![address]!.ToJsonString());
+        Assert.Contains(firstRead, state.Construction.EvidenceRequests);
+        Assert.Contains(firstPageKey, state.Construction.EvidenceRequests);
+        Assert.Equal(2, state.Construction.EvidenceRequests.Count(key => key.StartsWith("description-read:", StringComparison.Ordinal)));
+        Assert.Equal(0, state.ReplanAttempts);
+        Assert.Equal(plan, PlanningConstruction.Hash(state.Plan));
+        Assert.All(runtime.Calls.Where(call => call.StructuredOutputSchema?["title"]?.ToString() == PlanningCompactConstruction.DiscoveryPurpose),
+            call => Assert.InRange(PlanningRequestMeasurements.Measure(call, PlanningCompactConstruction.DiscoveryPurpose, 3000).EstimatedInputTokens, 1, 3000));
+        var calls = state.ModelCalls;
+        state = await Advance(state, runtime);
+        Assert.Equal(PlanningStatus.Stopped, state.Status);
+        Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Code == "REPLAN_NO_PROGRESS");
+        Assert.Equal(calls + 1, state.ModelCalls);
+        Assert.Equal(0, state.ReplanAttempts);
+        Assert.Equal(2, state.Construction!.EvidenceRequests.Count(key => key.StartsWith("description-read:", StringComparison.Ordinal)));
+    }
+
+    [Theory]
+    [InlineData("duplicate")]
+    [InlineData("empty")]
+    [InlineData("order")]
+    [InlineData("cursor")]
+    [InlineData("diagnostic")]
+    [InlineData("denied")]
+    [InlineData("source")]
+    [InlineData("missing-operation")]
+    [InlineData("registered-denied")]
+    public async Task NavigationAndUnusableMetadataCannotAuthorizeAnotherDescriptionRead(string change)
+    {
+        var (state, runtime) = await Ready();
+        AddOperations(state, 2);
+        var address = DescriptionAddress(state);
+        runtime.Respond = (request, _) => Wire(request, Evidence(address));
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        var originalSchema = PlanningCompactConstruction.DiscoverySchema(state)["description"]!.ToString();
+        switch (change)
+        {
+            case "duplicate": state.Discovery.Pages.Add(state.Discovery.Pages[0] with { Cursor = "duplicate" }); break;
+            case "empty": state.Discovery.Pages.Add(new("alpha", "empty", [], "later", Query: Objective)); break;
+            case "order": state.Discovery.Pages[0].Capabilities.Reverse(); break;
+            case "cursor": state.Discovery.Pages[0] = state.Discovery.Pages[0] with { NextCursor = "different" }; break;
+            case "diagnostic": state.Diagnostics.Add(new("INFORMATION", "/", "Retained explanatory evidence.", Required: false)); break;
+            case "source":
+                state.Discovery.Pages.Add(new("beta", null, [state.Discovery.Pages[0].Capabilities[0] with { SourceId = "beta" }], null, Query: Objective));
+                break;
+            case "missing-operation":
+                state.Discovery.Pages.Add(new("alpha", "unusable", [AdditionalOperation(state) with { Operation = null }], null, Query: Objective));
+                break;
+            case "registered-denied":
+                state.Catalog!.Policy.DeniedCapabilityIds.Add("denied_registered");
+                state.Catalog.Capabilities.Add(new() { Id = "denied_registered", Kind = "registered", Version = "new",
+                    StepType = "mcp.call", InputSchema = new() { ["type"] = "object" }, OutputSchema = new() { ["type"] = "object" } });
+                break;
+            case "denied":
+                var denied = AdditionalOperation(state);
+                state.Catalog!.Policy.DeniedCapabilityIds.Add(denied.Id);
+                state.Discovery.Pages.Add(new("alpha", "denied", [denied], null, Query: Objective));
+                break;
+        }
+        Assert.Equal(originalSchema, PlanningCompactConstruction.DiscoverySchema(state)["description"]!.ToString());
+        state = await Advance(PlannerFixture.Clone(state), runtime);
+        Assert.Equal(PlanningStatus.Stopped, state.Status);
+        Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Code == "REPLAN_NO_PROGRESS");
+        Assert.Equal(0, state.ReplanAttempts);
+        Assert.Single(state.Construction!.EvidenceRequests, key => key.StartsWith("description-read:", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task ConflictingOperationVersionCannotEstablishSelectableKnowledgeGrowth()
+    {
+        var (state, runtime) = await Ready();
+        AddOperations(state, 1);
+        var address = DescriptionAddress(state);
+        runtime.Respond = (request, _) => Wire(request, Evidence(address));
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        var conflicting = PlannerFixture.Clone(state).Discovery.Pages[0].Capabilities[0] with { Version = "conflicting" };
+        conflicting.Operation!.Version = "conflicting";
+        state.Discovery.Pages.Add(new("alpha", "conflicting", [conflicting], null, Query: Objective));
+        Assert.Empty(PlanningCompactConstruction.ContractDescriptors(state));
+        Assert.Null(PlanningCompactConstruction.DescriptionReadKey(state, PlanningCompactConstruction.DiscoverySchema(state), Evidence(address)));
+        state = await Advance(PlannerFixture.Clone(state), runtime);
+        Assert.Equal(PlanningStatus.Stopped, state.Status);
+        Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Code == "REPLAN_NO_PROGRESS");
+        Assert.Equal(0, state.ReplanAttempts);
+        Assert.Single(state.Construction!.EvidenceRequests, key => key.StartsWith("description-read:", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task DescriptionRereadResumesTheExactIssuedKnowledgeAndReceiptWithoutAnotherCharge()
+    {
+        var (state, runtime) = await Ready();
+        AddOperations(state, 1);
+        var address = DescriptionAddress(state);
+        runtime.Respond = (request, _) => Wire(request, Evidence(address));
+        state = await Advance(state, runtime);
+        state.Discovery.Pages.Add(new("alpha", "more", [AdditionalOperation(state)], null, Query: Objective));
+        runtime.Respond = (_, _) => throw new OperationCanceledException();
+        _ = await Advance(state, runtime);
+        var saved = PlannerFixture.Clone(runtime.Checkpoints.Last(checkpoint => checkpoint.Status == PlanningStatus.Generating &&
+            checkpoint.PendingCall?.Purpose == PlanningCompactConstruction.DiscoveryPurpose));
+        var exact = JsonSerializer.Serialize(saved.PendingCall!.Request, PlanningJsonContext.Default.LLMRequest);
+        var calls = saved.ModelCalls;
+        var recovery = new TestRuntime { Respond = (request, _) => Wire(request, Evidence(address)) };
+        var resumed = await Advance(saved, recovery);
+        Assert.Empty(resumed.Diagnostics);
+        Assert.Equal(exact, JsonSerializer.Serialize(Assert.Single(recovery.Calls), PlanningJsonContext.Default.LLMRequest));
+        Assert.Equal(calls, resumed.ModelCalls);
+        Assert.Equal(0, resumed.ReplanAttempts);
+        Assert.Null(resumed.PendingCall);
+        Assert.Equal(2, resumed.Construction!.EvidenceRequests.Count(key => key.StartsWith("description-read:", StringComparison.Ordinal)));
+        Assert.NotNull(resumed.Construction.Evidence![address]);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task HistoricalIssuedDescriptionRequestsKeepTheirOriginalRepeatGuard(bool markerOnly)
+    {
+        var (state, runtime) = await Ready();
+        AddOperations(state, 1);
+        var address = DescriptionAddress(state);
+        runtime.Respond = (request, _) => Wire(request, Evidence(address));
+        state = await Advance(state, runtime);
+        state.Discovery.Pages.Add(new("alpha", "more", [AdditionalOperation(state)], null, Query: Objective));
+        var schema = PlanningCompactConstruction.DiscoverySchema(state);
+        if (markerOnly) schema["description"] = "Content-addressed operation pages only.";
+        else schema.Remove("description");
+        var issued = Complete(state, PlanningCompactConstruction.Request(PlanningCompactConstruction.DiscoveryInstructions,
+            PlanningCompactConstruction.DiscoveryContext(state), schema, PlanningCompactConstruction.DiscoveryPurpose));
+        state.PendingCall = new() { Id = issued.ClientRequestId!, Purpose = PlanningCompactConstruction.DiscoveryPurpose, Request = issued };
+        state.ModelCalls++;
+        var calls = state.ModelCalls;
+        var exact = JsonSerializer.Serialize(issued, PlanningJsonContext.Default.LLMRequest);
+        state = await Advance(PlannerFixture.Clone(state), runtime);
+        Assert.Equal(exact, JsonSerializer.Serialize(runtime.Calls[^1], PlanningJsonContext.Default.LLMRequest));
+        Assert.Equal(calls, state.ModelCalls);
+        Assert.Equal(0, state.ReplanAttempts);
+        Assert.Equal(PlanningStatus.Stopped, state.Status);
+        Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Code == "REPLAN_NO_PROGRESS");
+        Assert.Single(state.Construction!.EvidenceRequests, key => key.StartsWith("description-read:", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData("knowledge")]
+    [InlineData("hash")]
+    [InlineData("version")]
+    public async Task StaleIssuedKnowledgeOrDescriptionVersionCannotGrantAnotherRead(string change)
+    {
+        var (state, runtime) = await Ready();
+        AddOperations(state, 1);
+        var address = DescriptionAddress(state);
+        var schema = PlanningCompactConstruction.DiscoverySchema(state);
+        if (change == "hash") schema["description"] = schema["description"]!.ToString()[..^1] + "Z";
+        var issued = Complete(state, PlanningCompactConstruction.Request(PlanningCompactConstruction.DiscoveryInstructions,
+            PlanningCompactConstruction.DiscoveryContext(state), schema, PlanningCompactConstruction.DiscoveryPurpose));
+        state.PendingCall = new() { Id = issued.ClientRequestId!, Purpose = PlanningCompactConstruction.DiscoveryPurpose, Request = issued };
+        state.ModelCalls++;
+        if (change == "knowledge") state.Discovery.Pages.Add(new("alpha", "more", [AdditionalOperation(state)], null, Query: Objective));
+        if (change == "version") address = address.Replace("@version_0:", "@stale:", StringComparison.Ordinal);
+        runtime.Respond = (request, _) => Wire(request, Evidence(address));
+        state = await Advance(PlannerFixture.Clone(state), runtime);
+        Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Code == (change == "version" ? "CONSTRUCTION_EVIDENCE_INVALID" : "CONSTRUCTION_DISCOVERY_STALE"));
+        Assert.Null(state.Construction!.Evidence);
+        Assert.DoesNotContain(state.Construction.EvidenceRequests, key => key.StartsWith("description-read:", StringComparison.Ordinal));
+        Assert.Equal(0, state.ReplanAttempts);
+    }
+
+    [Fact]
+    public async Task FailedUnknownDescriptionCannotBecomeANewActionAfterProviderGrowth()
+    {
+        var (state, runtime) = await Ready();
+        AddOperations(state, 1);
+        var additional = AdditionalOperation(state);
+        var expanded = PlannerFixture.Clone(state);
+        expanded.Discovery.Pages.Add(new("alpha", "more", [additional], null, Query: Objective));
+        var address = PlanningCompactConstruction.ContractDescriptorPage(expanded)["items"]!.AsArray()
+            .Single(item => item!["id"]!.ToString() == additional.Operation!.Id)!["descriptionEvidence"]!.ToString();
+        runtime.Respond = (request, _) => Wire(request, Evidence(address));
+        state = await Advance(state, runtime);
+        Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Code == "CONSTRUCTION_EVIDENCE_INVALID");
+        Assert.Null(state.Construction!.Evidence);
+        state.Discovery.Pages.Add(new("alpha", "more", [additional], null, Query: Objective));
+        state = await Advance(state, runtime);
+        Assert.Equal(PlanningStatus.Stopped, state.Status);
+        Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Code == "REPLAN_NO_PROGRESS");
+        Assert.Equal(1, state.ReplanAttempts);
+        Assert.DoesNotContain(state.Construction!.EvidenceRequests, key => key.StartsWith("description-read:", StringComparison.Ordinal));
+    }
+
+    private static string DescriptionAddress(PlanningSession state) =>
+        PlanningCompactConstruction.ContractDescriptorPage(state)["items"]![0]!["descriptionEvidence"]!.ToString();
+
+    private static CapabilitySummary AdditionalOperation(PlanningSession state)
+    {
+        var expanded = PlannerFixture.Clone(state);
+        var index = state.Discovery.Pages.SelectMany(page => page.Capabilities).Select(capability => capability.Id).Distinct(StringComparer.Ordinal).Count();
+        AddOperations(expanded, index + 1);
+        return expanded.Discovery.Pages[0].Capabilities.Single(capability => capability.Id == "operation_" + index);
+    }
+
     private static JsonObject Evidence(params string[] addresses) => new()
     {
         ["operationIds"] = null, ["discoveryRequests"] = null, ["clarifications"] = null, ["reselectStep"] = null,

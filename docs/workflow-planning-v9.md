@@ -43,6 +43,12 @@ retain navigation progress when a provider adds metadata, with explicit links
 to omitted descriptions. Scoped closure reviews include the owning container's
 existing export semantics. These changes use the existing construction
 coordinator and leave historical issued requests intact.
+Scoped Judges receive exact retrieval links for referenced accepted producers;
+those addresses are distinct from finding JSON Pointers. Discovery can revisit
+an earlier original description after new allowed operation identities or
+versions change the available choices, once per captured knowledge identity.
+This uses existing evidence journals and allowances, preserving non-progress
+stops and avoiding an automatically replayed contract history.
 
 Task, group and choice declarations share one case-sensitive global namespace. IDs and references allow only nonempty ASCII letters, digits, underscores and hyphens, with `__` reserved. Alternative IDs remain local to their choice; business ports, operation IDs and requirements are outside this namespace. Invalid declarations are never automatically renamed or granted repair permission. Previously saved format-10 plans with invalid declarations must be regenerated; approval verification and recovery fail closed without changing stored records. Malformed consumer references may be corrected only within an existing diagnosed binding scope.
 

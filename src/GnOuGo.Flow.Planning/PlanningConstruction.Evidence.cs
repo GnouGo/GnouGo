@@ -25,14 +25,14 @@ internal static partial class PlanningConstruction
             enrich: context => context["repair"] = PlanningRepairContext.Build(authority)).Request;
     }
 
-    internal static void LoadEvidence(PlanningSession state, List<string> requests)
+    internal static void LoadEvidence(PlanningSession state, List<string> requests, string? descriptionReadKey = null)
     {
         if (state.Construction!.Version != 2) { LoadEvidenceCore(state, requests); return; }
         var construction = state.Construction;
         var compact = JsonSerializer.Deserialize(JsonSerializer.Serialize(construction.Compact, PlanningJsonContext.Default.PlanningCompactConstructionState),
             PlanningJsonContext.Default.PlanningCompactConstructionState);
         var taskCursor = construction.TaskCursor; var scopeCursor = construction.ScopeCursor; var requirementCursor = construction.RequirementCursor;
-        try { LoadEvidenceCore(state, requests); }
+        try { LoadEvidenceCore(state, requests, descriptionReadKey); }
         catch
         {
             construction.Compact = compact;
@@ -45,13 +45,19 @@ internal static partial class PlanningConstruction
         PlanningGraphCompiler.Fingerprint(Hash(state.Plan) + ":" + state.Construction!.Candidate?.Hash + ":" +
             string.Join('\n', requests.Order(StringComparer.Ordinal)));
 
-    private static void LoadEvidenceCore(PlanningSession state, List<string> requests)
+    private static void LoadEvidenceCore(PlanningSession state, List<string> requests, string? descriptionReadKey = null)
     {
         var construction = state.Construction!;
         if (requests.Count is < 1 or > 8 || requests.Distinct(StringComparer.Ordinal).Count() != requests.Count)
             Fail("CONSTRUCTION_EVIDENCE_INVALID", "/evidenceRequests", "Request one to eight distinct original evidence identities.");
         var key = EvidenceBatchFingerprint(state, requests);
-        if (construction.EvidenceRequests.Contains(key, StringComparer.Ordinal)) Fail("REPLAN_NO_PROGRESS", "/evidenceRequests", "This evidence batch was already supplied for the same candidate.");
+        if (descriptionReadKey is not null && (requests.Count != 1 || !requests[0].StartsWith("description:", StringComparison.Ordinal) ||
+            !descriptionReadKey.StartsWith("description-read:" + key + ":", StringComparison.Ordinal)))
+            Fail("CONSTRUCTION_EVIDENCE_INVALID", "/evidenceRequests", "Description-read authority must match the exact single evidence address.");
+        if (construction.EvidenceRequests.Contains(descriptionReadKey ?? key, StringComparer.Ordinal))
+            Fail("REPLAN_NO_PROGRESS", "/evidenceRequests", descriptionReadKey is null
+                ? "This evidence batch was already supplied for the same candidate."
+                : "This evidence batch was already supplied for the same candidate and retained knowledge.");
         var plan = construction.Candidate?.Plan ?? state.Plan ?? new TaskPlan();
         var symbols = new TaskPlanSymbols(plan); var result = new JsonObject();
         foreach (var request in requests)
@@ -158,7 +164,9 @@ internal static partial class PlanningConstruction
             if (value is null) Fail("CONSTRUCTION_EVIDENCE_UNKNOWN", "/evidenceRequests", "The requested original evidence does not exist or is ambiguous: " + request);
             result[request] = value;
         }
-        construction.EvidenceRequests.Add(key); construction.Evidence = result;
+        if (!construction.EvidenceRequests.Contains(key, StringComparer.Ordinal)) construction.EvidenceRequests.Add(key);
+        if (descriptionReadKey is not null) construction.EvidenceRequests.Add(descriptionReadKey);
+        construction.Evidence = result;
     }
 
     internal static bool Owns(PlanningConstructionCandidate candidate, string path) =>

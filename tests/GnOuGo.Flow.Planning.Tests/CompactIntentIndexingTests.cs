@@ -110,6 +110,73 @@ public sealed class CompactIntentIndexingTests
     private static readonly string[] DeclarationClauses =
         ["Process the supplied text without changing it. ", "The caller input is named phrase and is a required string. ", "Preserve punctuation."];
 
+    [Fact]
+    public async Task ContiguousInterfaceSpansExcludeActionProseWithoutDroppingItsObligations()
+    {
+        string[] clauses =
+        [
+            "Accept a required text input, ",
+            "then read the authorized records and write their complete contents locally. Preserve every record in source order. ",
+            "Name the input sourceName. ",
+            "Return a string output named location."
+        ];
+        var original = string.Concat(clauses);
+        var runtime = new TestRuntime { Respond = (request, _) =>
+        {
+            Assert.Contains("Isolate caller/public interface declarations", request.Prompt, StringComparison.Ordinal);
+            Assert.Equal(original, Context(request)["sources"]![0]!["text"]!.ToString());
+            Assert.Null(request.StructuredOutputSchema!["$defs"]);
+            return Wire(request, new()
+            {
+                ["sourceId"] = Context(request)["sources"]![0]!["id"]!.DeepClone(),
+                ["clauses"] = new JsonArray(clauses.Select((text, index) => (JsonNode)new JsonObject
+                {
+                    ["text"] = text, ["kind"] = "requirement",
+                    ["interfaces"] = index == 1 ? "none" : index == 3 ? "output" : "input"
+                }).ToArray())
+            });
+        } };
+        var state = await Advance(Fresh(original), runtime);
+        Assert.Empty(state.Diagnostics);
+        var extraction = Assert.Single(state.Construction!.Compact!.InterfaceExtractions!);
+        Assert.Equal(3, extraction.SourceIds.Count);
+        Assert.False(PlanningCompactConstruction.SourcesComplete(state));
+        Assert.Equal(clauses, state.Requirements!.Outcomes.Select(requirement => requirement.Description));
+        runtime.Respond = (request, purpose) =>
+        {
+            Assert.Equal(PlanningCompactConstruction.IntentPurpose, purpose);
+            var sources = Context(request)["sources"]!.AsArray();
+            Assert.Equal(new[] { clauses[0], clauses[2], clauses[3] }, sources.Select(source => source!["text"]!.ToString()));
+            Assert.Equal(extraction.SourceIds, sources.Select(source => source!["id"]!.ToString()));
+            Assert.DoesNotContain(clauses[1], request.Prompt, StringComparison.Ordinal);
+            return Wire(request, new()
+            {
+                ["sourceId"] = extraction.Id,
+                ["inputs"] = JsonSerializer.SerializeToNode(new List<TaskInput>
+                {
+                    new() { Name = "sourceName", Type = new() { Kind = "string" }, Required = true }
+                }, PlanningJsonContext.Default.ListTaskInput),
+                ["outputs"] = JsonSerializer.SerializeToNode(new List<TaskInput>
+                {
+                    new() { Name = "location", Type = new() { Kind = "string" } }
+                }, PlanningJsonContext.Default.ListTaskInput)
+            });
+        };
+        state = await Advance(PlannerFixture.Clone(state), runtime);
+        Assert.Empty(state.Diagnostics);
+        Assert.True(PlanningCompactConstruction.SourcesComplete(state));
+        Assert.Equal(original, state.Request.Prompt);
+        Assert.NotNull(state.Requirements);
+        Assert.Equal(clauses, state.Requirements.Outcomes.Select(requirement => requirement.Description));
+        Assert.All(state.Construction!.Requirements, requirement => Assert.Equal("remaining", requirement.Status));
+        Assert.Equal("sourceName", Assert.Single(state.Requirements.Inputs!).Name);
+        Assert.Equal("location", Assert.Single(state.Requirements.Outputs!).Name);
+        Assert.Empty(state.Construction.Checkpoints);
+        Assert.False(state.Construction.Complete);
+        Assert.Equal(0, runtime.Discoveries);
+        Assert.All(state.RequestMeasurements!, measurement => Assert.InRange(measurement.EstimatedInputTokens, 1, 3000));
+    }
+
     private static JsonObject SplitDeclarations(LLMRequest request) => new()
     {
         ["sourceId"] = Context(request)["sources"]![0]!["id"]!.DeepClone(),
