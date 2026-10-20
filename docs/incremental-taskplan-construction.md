@@ -67,217 +67,81 @@ keeping adjacent naming/type constraints together and business requirements
 separate. The exact issued schema captures grouping behavior for recovery;
 already-created extractions and older issued classifications remain unchanged.
 
-Selection keeps exact original clauses and global constraints while omitting
-redundant presentation counters. Fresh selection reuses lossless schema factoring
-and retains the exact baseline in its required response-schema enum, omitting
-the duplicate context hash and remaining-call counter. Host admission still
-enforces every captured allowance. Discovery chooses the next metadata action for
-the selected substep, without designing execution arguments during navigation.
-These prompt reductions leave complete-request admission and saved requests
-unchanged; reasoning-only failures remain retained evidence, not proof that a
-particular prompt feature caused them.
-Scoped review also avoids repeating a group interface already present verbatim
-in requested scope evidence and uses existing compact binding serialization.
-Fresh intermediate reviews omit host-owned candidate and checkpoint hashes from
-the prompt while retaining checkpoint identities, contributions and retrieval
-links. New request measurements capture the exact candidate baseline separately;
-saved measurements and pending review requests are never reconstructed.
-This changes only new request presentation; historical contexts, pending requests,
-accepted fragments and review/reference validation remain unchanged.
-Historical sessions
-without the optional captured presentation version keep combined indexing and
-their saved pages and schemas unchanged.
-Requirements retain exact source references and applicable
-global constraints. All source pages must be processed; a summary is never a
-replacement for authoritative intent. Selecting a substep identifies its original
-requirements, target scope, available input ports, expected outputs, dependencies
-and permitted task kinds. Missing prerequisites remain frontier obligations, not
-executable placeholders. Cleanup and scope/export closure are selectable substeps.
-Selection distinguishes internal expected results from declared public workflow
-outputs. Public names are presented eight at a time and constrain the issued
-selection schema; omitted requirements, interfaces and outputs have explicit
-page addresses. Internal task, group and child-export names do not become public
-outputs merely by appearing in a substep description.
-Fresh selection schemas enumerate only the displayed requirement anchor and
-validated requirement evidence, or the fixed identities of a bounded reselection.
-Original-source identities are not requirement identities. The selected objective
-describes business work to execute; capability discovery remains a separate host phase.
-Required actions, setup, cleanup and results remain explicit completion
-obligations. Action-specific constraints stay with their requirements; global
-clauses describe crosscutting invariants. Indexing does not reconstruct effect
-payloads or resource schemas as public workflow interfaces.
-Adjacent sentences constraining an action's composition or result may form one
-verbatim requirement. Selection uses available caller inputs directly unless
-business computation or an inspected contract requires preparation.
-Classification isolates contiguous caller/public interface declarations from
-downstream action prose when the original boundaries allow it. Naming and
-declared constraints remain available together for extraction; every remaining
-action span remains a requirement. This presentation experiment preserves exact
-coverage and does not establish a cause for earlier reasoning-only responses.
-Selection keeps the earliest unresolved original requirement as its anchor.
-Retrieve prerequisite clauses one per supplemental page with explicit next
-addresses, without surveying future work or replacing that anchor. Render each exact
-requested page once. Navigation descriptions and port-name directories are
-bounded and identify omitted material through versioned retrieval addresses;
-complete original requirements and required type constraints are never cropped.
-Fresh selection's next-requirement link continues beyond the furthest requested
-page using the existing retained cursor, even across separate evidence batches.
-Skipped pages remain unresolved requirements with stable retrieval addresses;
-pagination never closes them. Requesting the same evidence without progress still stops.
-An unspecified array cardinality remains null: zero is an actual bound.
-Task navigation presents four tasks per page and eight port names per task,
-including declared results of closed group calls. Original objective and port
-pages carry version hashes; rebuilding the same task identity cannot silently
-resolve an older page address to changed evidence.
-Fresh selection omits incomplete task-objective prefixes when their exact
-versioned retrieval links are present, retaining the explicit completeness flag,
-task identities, scopes and every presented port. Short complete objectives remain.
-Fresh discovery omits empty top-level navigation slots; original evidence, false
-values and zero bounds are untouched.
+## Substeps, contracts and scoped schemas
 
-Each phase receives only the context needed for that substep. Discovery uses its
-needs rather than the global request. Previously inspected operations remain in
-encrypted storage but do not become mandatory context in later calls. Discovery
-descriptors identify exact contracts and retrieval addresses. Original contracts
-remain unchanged; selected schema views retain relevant ancestors, required
-siblings, cross-field constraints, alternatives and reference closure. Descriptors
-cannot authorize execution or replace a contract. Separable original evidence can
-be paged; indivisible required information that exceeds the phase allowance stops
-explicitly. No unused request capacity is filled with unrelated suggestions.
-Fresh discovery, generation and correction evidence actions retrieve one addressed
-view at a time, avoiding aggregation of independent pages beyond the
-complete-request limit. Previously inspected input branches remain available in
-the cumulative binding grammar; retrieving another branch does not discard their
-constraints. Saved requests retain their original evidence batch schema.
-Fresh discovery directories present four concise operation descriptors or two
-sources at a time. Operation rows retain exact identities, versions, names,
-effects and description-retrieval addresses; omitted descriptions are explicit.
-Without requested evidence, the bounded operation directory remains available
-for stateless selection even when its navigation page was consumed. It does not
-reinject original descriptions or schemas. Requested evidence replaces that
-directory, and source/provider links skip consumed pages under the existing
-fingerprints. These presentation rules do not permit repeated actions or
-evidence reads. Names alone are insufficient to rule out an operation; its exact
-description remains retrievable.
-The discovery substep view retains its exact objective, expected outputs and
-semantic input bindings. It omits draft-only authority metadata and duplicate
-requirement IDs; original clauses and their IDs remain alongside the step.
-Provider metadata actions are presented separately in pages of two exact source
-and continuation pairs. Their versioned evidence addresses are local navigation,
-never provider cursors. The issued schema fixes each source/cursor pair and uses
-`query:null`; fresh schemas factor branches sharing an identical cursor without
-admitting new source/cursor combinations. The host supplies the selected substep objective. Exhausted or
-unavailable providers remain explicit and cannot be fetched repeatedly. Discovery
-retains applicable original global constraints. After bounded inspection, an
-unsuitable tentative operation selection can be replaced within the same scope
-and requirements, consuming one captured correction and retaining its evidence.
-This does not widen explicit revision authority or authorize substitute effects.
-Once operation descriptors are available, source metadata remains available through
-its directory address instead of being repeated beside every operation page.
-When presentation version 2 displays an exact verified source-description view,
-it also retains up to two eligible provider source/cursor alternatives for that
-source, with a continuation address when needed. The description remains the
-single evidence view; this does not fetch another source or bypass non-progress
-checks.
-Fresh operation navigation advances past descriptor pages already supplied at
-the current baseline, including when the current evidence is an operation
-description. Operation-page addresses bind the exact displayed content, so
-provider catalog expansion preserves progress for unchanged pages and exposes
-changed or new ones. One top-level continuation identifies the next unsupplied
-page. The retained evidence-batch identities prevent advertising a consumed page
-as the next action; explicit duplicate requests stop immediately without another
-correction. Exact historical issued schemas retain their offset-only addresses
-and two-row payloads. Fresh issued schemas reject those legacy aliases.
-An earlier successfully retrieved description may be requested again after new
-allowed operation identities or versions provide genuine discovery progress.
-The exact issued request captures this bounded reread authority; both action and
-evidence checks use the same knowledge identity. Ordering, empty provider pages,
-cursors, diagnostics and allowances do not create progress. One reread per new
-knowledge set still shares ordinary admission and accounting. Unchanged
-operation-page consumption and failed-address guards remain in force; cached
-description prose is not automatically resent.
-Successful retrieval clears its corrected navigation diagnostic without
-discarding unrelated findings or resetting cumulative correction accounting.
-Output-port directories preserve original producer business-port mappings, including
-aliases beyond the first page; their addresses are distinct from wire-schema paths.
-Schema evidence retrieves the selected original subtree and its coupled constraints.
-Nested directories expose child-directory addresses, allowing navigation without
-retrieving a large parent subtree. Required-sibling context uses the same
-constraint-preserving projection as other input views, with exact addresses for
-independent optional descendants omitted from presentation. Coupled constraints
-and their reference closure remain indivisible. Judge navigation prose is bounded
-by escaped bytes, and proposed public-result commitments name only outputs selected
-for the current substep under the fresh presentation protocol.
-An optional schema argument can still be necessary for the business action.
-Generation retrieves its exact omitted branch before binding it; successful
-retrieval expands the next input grammar. Fresh output navigation uses a count
-and exact first-page directory instead of automatically including optional port
-rows. While original contract evidence is supplied, optional input-address rows
-also give way to their first-page directory. Required constraints, selected outputs and requested
-original evidence remain intact. Judges retrieve original descriptions before
-inferring absent functionality from an incomplete teaser. A matching original
-description page replaces that teaser without changing review authority.
-Empty-container guidance is limited to container, closure and revision reviews;
-leaf reviews retain the shared requirement, future-obligation, export and
-authorization rules without that unrelated paragraph.
+Selection identifies immediate business work, its original requirements, scope,
+expected outputs and prerequisites. Missing prerequisites remain frontier obligations.
+Cleanup, exports and closure use the same substep mechanism. Public workflow
+outputs remain distinct from internal task/group results and local exports.
+All unprocessed pages and unresolved requirements block completion.
 
-A call substep selects one closed reusable group with `groupId`. Its draft and
-Judge context includes the immutable group hash and exact input/output interface,
-including input defaults, without copying the body. `group:<id>` retrieves that
-interface. Open groups expose no consumable outputs and cannot be selected for calls.
-Scoped reviews also expose bounded exact body-scope links for groups referenced
-by supplied call tasks, including calls reached through requested scope evidence.
-These links remain outside the unchanged original evidence and cannot ground a
-business finding; the Judge must retrieve the body before citing its contents.
-An unavailable task address is never reinterpreted as a group address.
-Version-2 checkpoints retain the selected substep and introduced group identities.
-Later group-body steps retrieve that opening intent and its expected results
-without copying the group's tasks or unrelated checkpoint history. Invalidated
-opening metadata does not supply current scope intent.
-Selection marks reusable groups as isolated and preserves an explicit empty
-parameter list. Root input entries identify their declaring scope; nested group
-scopes point to their group's input boundary. Sequence/control scopes may capture
-ancestors, while reusable groups require declared parameters and cannot capture
-caller inputs or tasks. Invalid selected imports identify the unavailable binding
-and scope when the semantic probe can resolve them; the compiler remains the
-authority for availability.
-Fresh selection excludes reusable calls and fixes `groupId` to null while no
-closed group is available. An open group's navigation entry remains available
-for constructing its body; it is not a call target.
-Every existing binding used by a draft, including a local group input used in a
-closing export, must be selected in `step.inputs`. Fresh missing-import diagnostics
-identify the binding and consumer location; changing fixed imports requires the
-existing explicit reselection action. Renaming an export does not repair a missing
-import, and no failed extension changes accepted work.
+Context includes the relevant original clauses and global constraints, exact
+interfaces and bounded navigation links. Versioned addresses bind task objectives,
+ports, scopes, requirements and source pages to their content. Advancing a cursor
+does not satisfy a requirement. Accepted source coverage and reviewed checkpoints
+can establish progress even when the TaskPlan hash is unchanged; diagnostics,
+attempt counts and budgets cannot. Historical rejection identities remain enforced.
 
-Within a selected scope, `scopeInterface` presents existing export declarations
-without making an open container consumable. Generation adds only new exports;
-an empty extension output list preserves accepted ones. Closure review receives
-the applied candidate's exports and their compiler-derived types, labeled
-tentative. These views contain eight exports per page with hash-bound continuation
-addresses, and omit task bodies and unrelated scopes. A transform's required
-object result type declares named output ports: a reference to a named field
-consumes that field's type, while an unqualified reference consumes the object.
-Review guidance distinguishes public `/root` outputs from local scope exports;
-identically named exports in different scopes need not share a type.
+Discovery queries the selected substep, never the global objective. Cached
+inspections stay retrievable without becoming mandatory context. Concise operation
+and provider directories retain exact identities, effects and retrieval addresses.
+A consumed navigation page does not invalidate an operation's identity. Provider
+source/cursor pairs come from the issued schema; evidence-page addresses are not
+provider cursors. Empty or exhausted metadata pages do not create progress.
 
-Intent, selection, discovery and evidence response schemas contain no TaskPlan
-grammar. Generation schemas expose only selected task kinds and operation IDs;
-container openings establish empty child scopes for later substeps. Compiler
-validation still uses complete original contracts. Compact schemas retain the
-selected kind's necessary semantics, including scoped exports, ordered loop
-results and the distinction between total iteration ceilings and concurrency.
-The issued schema permits scope closure and workflow completion only when the
-known frontier and original requirement statuses permit them. A sufficient leaf
-fragment can still finish in one draft; opening an empty container cannot finish
-the workflow. Complete semantic validation remains authoritative after generation.
-Draft and Judge context omit
-unrelated history, contracts, interfaces and requirement pages. Already issued
-requests and saved review contexts retain their exact bytes and hashes.
+Original MCP contracts remain unchanged in encrypted storage and authoritative
+for validation. Descriptor and schema presentations share the existing projection
+logic: exact subtrees, necessary parent and required-sibling constraints, coupled
+alternatives, required descendants and referenced definitions remain intact.
+Nested child-directory links allow precise retrieval without loading a huge parent.
+Omitted optional descendants have exact retrieval addresses. An optional contract
+argument may still be necessary to fulfill the business request and must be
+retrieved before binding. No unused capacity is filled with unrelated contracts.
 
-Historical version-1 construction retains its captured whole-contract optional
-admission and inspection semantics. New presentation rules never reinterpret a
-saved version-1 request or receipt.
+Under the captured phase policy, an evidence response may request one to eight
+coherent addresses. The host resolves the whole batch on a clone and checks the
+complete prospective follow-up, including its expanded binding grammar, against
+the hard ceiling before accepting evidence. Oversized separable batches receive a
+bounded diagnostic; indispensable indivisible closures fail explicitly. Successful
+individual addresses and batch identities are retained, so regrouping old evidence
+is not progress. Original description rereads require the exact issued knowledge
+authority after genuinely new allowed operation identities or versions; a cursor
+change is insufficient. Successful navigation clears only its resolved evidence
+diagnostic, preserving unrelated findings. Historical issued batch schemas and
+reread rules remain exact.
+
+Intent, selection, discovery and evidence actions contain no TaskPlan grammar.
+Fresh generation builds directly from shared definitions for the selected task
+kind and operations, retaining only reachable definitions and available actions.
+Container openings create empty children for later substeps. Scope closure and
+completion are offered only when the frontier and requirement statuses permit
+those claims. Full semantic validation remains authoritative.
+
+Selected imports guide context for ordinary unaccepted drafts under the fresh
+phase policy. Compiler preflight derives the exact accessible bindings actually
+used at each consumer, including predicates, cleanup and exports. Judges receive
+those exact typed interfaces without widening field access. Selected scope and
+requirements, accepted fragments and explicit revision paths remain binding.
+Historical strict selected-import behavior is unchanged.
+
+Reusable groups are isolated: their bodies use declared parameters, not caller
+captures. Calls select a closed group and receive its immutable hash, parameter
+and output interface, including defaults; the body remains separately retrievable.
+Open groups are constructible but not callable. Sequence/control scopes may use
+legal ancestor captures. Open scope interfaces expose existing declarations for
+construction without making their outputs consumable outside the container.
+
+Scope exports are added without rewriting accepted exports. Closure review sees
+the applied candidate's exports and compiler-derived types. Foreach body exports
+become ordered arrays on the enclosing task, preserving duplicates and nested
+arrays. `maxItems` is a capacity guard, distinct from `maxConcurrency`; neither
+permits silently truncated successful results. Finite capacity with unspecified
+business cardinality remains unverified, rather than permission to expand runtime
+limits. A transform's named output references consume that field's declared type.
+
+Already issued requests and review contexts retain exact bytes and hashes.
+Historical version-1 construction keeps its original whole-contract admission;
+new presentation rules never reinterpret its requests or receipts.
 
 ## Review, correction and finalization
 
@@ -305,25 +169,13 @@ which bounds workers. Neither implies sampled or truncated successful output.
 Conflicts with explicit required sizes remain findings; when the original size
 is unspecified, finite supported capacity remains uncertain rather than granting
 authority to increase runtime limits.
-Fresh foreach generation and correction also retain the existing TaskPlan
-default item ceiling when the request supplies no bound. A ceiling of one means
-singleton capacity, not a placeholder or one concurrent worker. This is
-presentation guidance for the proposed task; accepted tasks, schema bounds and
-host execution limits remain unchanged.
-Closure reviews also receive the selected scope owner's relevant export
-semantics, derived from the candidate's symbol table: each foreach body export
-becomes an ordered array on the enclosing task, retaining repetitions and nested
-arrays. This explains existing compilation; it does not remove review of the
-chosen per-item value or introduce an aggregation task.
-Finding locations and evidence contain exact JSON Pointers without annotations;
-explanations belong in their separate fields. Fresh guidance prefers citing an
-existing supplied object and explaining its relevant fields instead of building
-longer pointers. Derived or invented status paths remain invalid. Exact context
-lookup remains the authority for accepting a reference.
-Fresh review context supplies bounded exact `task:` and child `scope:` retrieval
-links for referenced accepted producers, without copying their bodies. These
-addresses belong in `evidenceRequests`; finding locations and supporting evidence
-remain JSON Pointers into the supplied context. Bare identifiers remain invalid.
+Fresh Judges receive bounded choices of existing object-level JSON Pointers for
+findings and evidence. Candidate tasks/exports and applicable requirements are
+valid finding locations; imported interfaces, supplied contract evidence and
+original clauses can ground evidence. Navigation links cannot ground a finding
+until their original content is supplied. Pointer escaping and exact context
+lookup remain authoritative; malformed reports stop acceptance. Public root
+outputs and local exports are reviewed in their respective scopes.
 
 Each Judge response selects one action. A completed review returns a findings
 array (empty when no grounded finding exists) and null evidence requests. An
@@ -367,23 +219,14 @@ closed requirement does not count as progress. A diagnosed tentative
 step may request reselection within its original scope and requirement identities,
 retaining rejected evidence and correction accounting. This cannot expand explicit
 typed revision paths or change accepted fragments.
-Fresh presentation-version-two drafts may also diagnose an unsuitable tentative
-kind or missing import before producing a candidate. The existing `reselectStep`
-action consumes one correction and preserves the same boundary; it cannot grant
-new operations or runtime features. Selection describes the actual value grammar
-and discovers the current business effect before preparing hypothetical tool
-arguments. Missing language operators are implementation failures, not business
-questions. Recovery validates the exact issued schema and charges the action once;
-historical null-only reselection fields stay null-only.
-When fresh selection presents requested evidence, routine scope and producer
-directories omit repeated objective/question prose. Exact identities, ports,
-scope boundaries and retrieval addresses remain available. The unresolved
-original anchor and every requested evidence page remain verbatim; mandatory
-context that still exceeds the captured limit fails before dispatch.
-Navigation-cycle detection recognizes accepted coverage checkpoints and newly
-indexed original sources even when the TaskPlan hash stays unchanged. Changing a
-cursor, diagnostic, attempt count or remaining allowance is not progress. Retained
-historical cycle identities continue to block their repeated actions.
+A tentative reselection archives the rejected decision and preserves scope and
+requirement authority. Under the fresh phase policy, possible correction capacity
+is checked before dispatch and the issued accounting mode is saved with the
+pending request. Actual correction/reselection attempts are charged once when the
+known response and transition are checkpointed. Fully validated evidence-only
+responses consume calls, tokens and money but no correction. Invalid evidence
+returned during a correction still consumes that attempt. Historical precharged
+requests retain their charges; uncertainty is never refunded or replayed.
 
 ## Captured capacity
 
@@ -411,23 +254,29 @@ session. Large sessions are not accidentally capped by ordinary call settings.
 No recovery operation silently increases captured limits.
 
 The host retains 15,000,000 cumulative tokens and five hours of active time.
-Version 2 captures hard admission ceilings measured by conservative complete-request
-input-token estimates: 3,000 for intent
-indexing, selection and discovery, 8,000 for generation/correction, and 4,000 for
-local/intermediate Judges. Tighter host/request allowances still prevail. These
-include instructions, original source excerpts, interfaces, response schema and serialization envelope;
-there is no fallback to 32,000. Historical sessions retain their captured limits,
-including the previous ordinary 12-call default.
-Host settings `SelectionInputTokens`, `DraftInputTokens` and `ReviewInputTokens`
-may tighten these phase ceilings for new sessions. The explicit large preset uses
-the same compact input ceilings while retaining its larger call and graph capacity.
+Fresh sessions capture optional `construction_limits.phasePolicy` (version 1),
+resolved by `PlanningConstructionPhasePolicies` across planner, host, HTTP journal
+and benchmark. Its absence preserves historical semantics and hard ceilings.
 
-Captured output reservations remain 8,192 for non-Judge construction calls and
-2,048 for Judges, bounded by generation settings. Eight tasks do not prove that
-variable-sized content fits; oversized requests/responses fail explicitly.
-`DraftOutputTokens` and `ReviewOutputTokens` configure those captured host
-reservations. Authored `workflow.plan` generators use `draft_output_tokens` and
-`review_output_tokens`; neither option raises the aggregate output ceiling.
+| Phase family | Input target | Hard input ceiling | Initial output reservation |
+| --- | ---: | ---: | ---: |
+| Intent, selection, discovery | 3,000 | 6,000 | 8,192 |
+| Generation, correction | 8,000 | 16,000 | 8,192 |
+| Local and intermediate Judge | 4,000 | 8,000 | 2,048 |
+
+Input limits cover the complete serialized request, including response schema and
+envelope. Targets guide presentation and reporting: exceeding a target neither
+fails admission nor requires another call. Hard ceilings and stricter explicit
+host/request limits remain binding. Ordinary and large presets share these phase
+settings; the latter changes only its captured call and graph capacity.
+
+The phase policy captures reasoning and output reservations as well. Initial
+reasoning is medium. Separately frozen experiments may use supported low reasoning
+for navigation, or larger output reservations after verified exhaustion, subject
+to explicit aggregate host caps. No session changes settings after dispatch; there
+is no automatic escalation or unchanged failed-request retry. Reasoning consumes
+the output allowance and is reported separately from visible output, consistent
+with the [official reasoning documentation](https://developers.openai.com/api/docs/guides/reasoning?api-mode=chat). Deployment-declared support remains required for every experiment.
 
 Each constructed request, including a locally rejected request, retains its phase,
 request and response-schema hashes and component measurements. Substep, accepted

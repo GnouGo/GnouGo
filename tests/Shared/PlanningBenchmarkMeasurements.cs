@@ -31,6 +31,20 @@ public static class PlanningBenchmarkMeasurements
         }
         var calls = Number("--max-model-calls"); var repairs = Number("--max-repairs", true);
         var input = Number("--max-input-tokens"); var output = Number("--max-output-tokens");
+        var phaseArguments = args.Select((value, index) => (value, index)).Where(p => p.value == "--phase-policy").ToArray();
+        if (phaseArguments.Length > 1) throw new ArgumentException("Supply one phase policy.");
+        PlanningConstructionPhasePolicy? selectedPolicy = null;
+        if (phaseArguments.Length == 1)
+        {
+            var file = args.ElementAtOrDefault(phaseArguments[0].index + 1) ?? throw new ArgumentException("Missing phase policy file.");
+            var probe = new PlanningRequest { Options = new()
+            {
+                ["construction_version"] = 2,
+                ["construction_limits"] = new JsonObject { ["phasePolicy"] = JsonNode.Parse(File.ReadAllText(file)) }
+            } };
+            selectedPolicy = PlanningConstructionPhasePolicies.Read(probe)
+                ?? throw new ArgumentException("Supply a complete phase policy.");
+        }
         var presetPositions = args.Select((value, index) => (value, index)).Where(p => p.value == "--construction-preset").ToArray();
         if (presetPositions.Length > 1) throw new ArgumentException("Supply one construction preset.");
         var preset = presetPositions.Length == 0 ? null : PlanningConstructionPresets.Validate(
@@ -52,7 +66,14 @@ public static class PlanningBenchmarkMeasurements
             elapsed is not null && elapsed != request.Options["llm_budget"]?["max_elapsed_ms"]?.GetValue<int>() ||
             automatic && request.Options["automatic_correction"]?.GetValue<bool>() != true))
             throw new InvalidOperationException("Explicit settings differ from the frozen run. Start a separate cohort.");
-        if (retained) return;
+        if (retained)
+        {
+            if (selectedPolicy is not null && !JsonNode.DeepEquals(
+                JsonSerializer.SerializeToNode(PlanningConstructionPhasePolicies.Capture(request, selectedPolicy), PlanningJsonContext.Default.PlanningConstructionPhasePolicy),
+                request.Options["construction_limits"]?["phasePolicy"]))
+                throw new InvalidOperationException("The phase policy differs from the frozen run. Start a separate cohort.");
+            return;
+        }
         request.Options["construction_version"] = 2;
         request.Options["construction_presentation_version"] = 2;
         request.Options["construction_preset"] = preset ?? request.Options["construction_preset"]?.ToString() ?? PlanningConstructionPresets.Ordinary;
@@ -72,6 +93,14 @@ public static class PlanningBenchmarkMeasurements
         request.MaxModelCalls = calls ?? request.MaxModelCalls; request.MaxReplanAttempts = repairs ?? request.MaxReplanAttempts;
         request.Generation.MaxInputTokensPerRequest = input ?? request.Generation.MaxInputTokensPerRequest;
         request.Generation.MaxOutputTokens = output ?? Math.Min(request.Generation.MaxOutputTokens, 8192);
+        var phasePolicy = selectedPolicy ?? PlanningConstructionPhasePolicies.Read(request) ?? new PlanningConstructionPhasePolicy
+        {
+            Navigation = new() { TargetInputTokens = 3_000, MaxInputTokens = 6_000, Reasoning = request.Generation.Reasoning },
+            Draft = new() { TargetInputTokens = 8_000, MaxInputTokens = 16_000, Reasoning = request.Generation.Reasoning },
+            Review = new() { TargetInputTokens = 4_000, MaxInputTokens = 8_000, Reasoning = request.Generation.Reasoning, OutputTokens = 2_048 }
+        };
+        request.Options["construction_limits"]!["phasePolicy"] = JsonSerializer.SerializeToNode(
+            PlanningConstructionPhasePolicies.Capture(request, phasePolicy), PlanningJsonContext.Default.PlanningConstructionPhasePolicy);
         var effectiveInputLimits = new PlanningConstructionInputLimits
         {
             Selection = PlanningConstructionInputPolicy.EffectiveLimit(request, "construction_select"),
@@ -80,6 +109,9 @@ public static class PlanningBenchmarkMeasurements
         };
         request.Options["construction_input_limits"] = JsonSerializer.SerializeToNode(effectiveInputLimits, PlanningJsonContext.Default.PlanningConstructionInputLimits);
         request.Options["construction_limits"]!["inputLimits"] = request.Options["construction_input_limits"]!.DeepClone();
+        request.Options["construction_limits"] = JsonSerializer.SerializeToNode(
+            request.Options["construction_limits"]!.Deserialize(PlanningJsonContext.Default.PlanningConstructionOptions)!,
+            PlanningJsonContext.Default.PlanningConstructionOptions);
         if (automatic) request.Options["automatic_correction"] = true;
         if (enabled || disabled) request.Options["business_judge"] = enabled;
     }
@@ -99,9 +131,29 @@ public static class PlanningBenchmarkMeasurements
             if (request.Options["construction_input_limits"] is { } inputLimits) result["construction_input_limits"] = inputLimits.DeepClone();
             if (request.Options["construction_presentation_version"] is { } presentation) result["construction_presentation_version"] = presentation.DeepClone();
             result["policy"] = JsonSerializer.SerializeToNode(request.Policy, PlanningJsonContext.Default.PlanningPolicy);
+            if (PhasePolicyHash(request) is { } profileHash) result["phase_policy_hash"] = profileHash;
         }
         return result;
     }
+
+    public static string? Cohort(string[] args)
+    {
+        var positions = args.Select((value, index) => (value, index)).Where(p => p.value == "--cohort").ToArray();
+        if (positions.Length == 0) return null;
+        var value = positions.Length == 1 ? args.ElementAtOrDefault(positions[0].index + 1) : null;
+        if (string.IsNullOrEmpty(value) || value.Length > 30 || !value.All(char.IsAsciiLetterOrDigit))
+            throw new ArgumentException("Supply one alphanumeric cohort identity of at most 30 characters.");
+        return value;
+    }
+
+    public static string CorpusRunKey(string source, string phase, string? arm, string? cohort, string name, int repetition)
+        => source + ":" + phase + ":" + (arm is null ? "" : arm + ":") +
+            (cohort is null ? "" : "cohort:" + cohort + ":") + name + ":" + repetition;
+
+    public static string? PhasePolicyHash(PlanningRequest request)
+        => PlanningConstructionPhasePolicies.Read(request) is { } policy
+            ? Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(
+                JsonSerializer.Serialize(policy, PlanningJsonContext.Default.PlanningConstructionPhasePolicy)))) : null;
 
     public static PlanningRequest RestoreConfiguration(JsonObject settings)
     {
@@ -284,7 +336,8 @@ public static class PlanningBenchmarkMeasurements
 
     // Compact construction intentionally spends more small calls. Historical
     // first-proposal and lower-call-count gates do not apply to this comparison.
-    public static JsonObject CompareCompactConstruction(IReadOnlyList<JsonObject> before, IReadOnlyList<JsonObject> after, IReadOnlyList<string> cases)
+    public static JsonObject CompareCompactConstruction(IReadOnlyList<JsonObject> before, IReadOnlyList<JsonObject> after, IReadOnlyList<string> cases,
+        JsonObject? comparisonPolicy = null)
     {
         var rows = before.Concat(after).ToArray();
         bool Complete(IReadOnlyList<JsonObject> arm) => cases.Count > 0 && arm.Count == cases.Count * 3 &&
@@ -297,11 +350,61 @@ public static class PlanningBenchmarkMeasurements
         var matchedAllowances = settings.Length > 0 && settings.All(s => s is not null) &&
             new[] { "calls", "repairs", "input_tokens", "output_tokens", "reasoning", "llm_budget", "policy" }.All(key =>
                 settings.All(s => s![key] is not null && JsonNode.DeepEquals(s[key], settings[0]![key])));
+        JsonObject PhaseGeneration(JsonObject configuration)
+        {
+            // Older safe comparison rows omitted this unrelated switch. It
+            // does not affect the phase reasoning/output being compared here.
+            var phaseConfiguration = (JsonObject)configuration.DeepClone();
+            phaseConfiguration.TryAdd("business_judge", false);
+            var request = RestoreConfiguration(phaseConfiguration);
+            var phases = new JsonObject();
+            foreach (var purpose in new[] { "construction_select", "construction_draft", "construction_local_judge" })
+            {
+                var resolved = PlanningConstructionPhasePolicies.Resolve(request, purpose);
+                phases[purpose] = new JsonObject { ["reasoning"] = resolved.Reasoning, ["output_tokens"] = resolved.OutputTokens };
+            }
+            return phases;
+        }
+        if (matchedAllowances)
+        {
+            var first = PhaseGeneration(settings[0]!);
+            matchedAllowances = settings.All(s => JsonNode.DeepEquals(first, PhaseGeneration(s!)));
+        }
+        JsonObject? FrozenSettings(IReadOnlyList<JsonObject> arm)
+            => arm.Count > 0 && arm[0]["configuration"] is JsonObject first &&
+                new[] { "calls", "repairs", "input_tokens", "output_tokens", "reasoning", "llm_budget", "policy" }.All(k => first[k] is not null) &&
+                arm.All(r => JsonNode.DeepEquals(first, r["configuration"])) ? first : null;
+        var baselineSettings = FrozenSettings(before); var candidateSettings = FrozenSettings(after);
+        var frozenSettings = baselineSettings is not null && candidateSettings is not null;
+        var sharedAllowances = frozenSettings && new[] { "calls", "repairs", "llm_budget", "policy" }
+            .All(k => JsonNode.DeepEquals(baselineSettings![k], candidateSettings![k]));
+        JsonNode? StructuralLimits(JsonObject? configuration)
+        {
+            var limits = configuration?["construction_limits"]?.DeepClone() as JsonObject;
+            foreach (var key in new[] { "phasePolicy", "inputLimits", "draftOutputTokens", "reviewOutputTokens" }) limits?.Remove(key);
+            return limits;
+        }
+        sharedAllowances &= JsonNode.DeepEquals(StructuralLimits(baselineSettings), StructuralLimits(candidateSettings));
+        var intentionalDifferences = new JsonArray();
+        if (frozenSettings)
+            foreach (var key in baselineSettings!.Select(p => p.Key).Concat(candidateSettings!.Select(p => p.Key)).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal))
+                if (!JsonNode.DeepEquals(baselineSettings![key], candidateSettings![key]))
+                    intentionalDifferences.Add(new JsonObject { ["setting"] = key, ["baseline"] = baselineSettings[key]?.DeepClone(),
+                        ["candidate"] = candidateSettings[key]?.DeepClone() });
+        var validatedConfigurations = comparisonPolicy is not null;
+        if (validatedConfigurations && (comparisonPolicy!["version"]?.GetValue<int>() != 2 ||
+            comparisonPolicy["mode"]?.ToString() != "validated-configurations"))
+            throw new ArgumentException("Unsupported compact comparison policy.");
+        var declaredConfigurations = validatedConfigurations && frozenSettings &&
+            comparisonPolicy!["comparison_manifest"]?.ToString() == rows[0]["comparison_manifest"]?.ToString() &&
+            JsonNode.DeepEquals(comparisonPolicy["baseline_configuration"], baselineSettings) &&
+            JsonNode.DeepEquals(comparisonPolicy["candidate_configuration"], candidateSettings);
         var observed = rows.All(r => r["mode"]?.ToString() == "live" && r["independent_business_success"] is JsonValue value && value.TryGetValue<bool>(out _) &&
             r["safety_violations"] is JsonArray && r["request_metrics"]?["requests"] is JsonArray { Count: > 0 });
         var knownUsage = rows.Length > 0 && rows.All(r => new[] { "calls", "input_tokens", "output_tokens", "estimated_cost_eur", "elapsed_ms" }.All(key =>
             decimal.TryParse(r[key]?.ToJsonString(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var number) && number >= 0));
-        var comparable = complete && frozen && matchedAllowances && observed && knownUsage;
+        var comparable = complete && frozen && frozenSettings && observed && knownUsage &&
+            (validatedConfigurations ? declaredConfigurations && sharedAllowances : matchedAllowances);
         var business = after.Count > 0 && after.All(r => r["independent_business_success"]?.GetValue<bool>() == true);
         var safe = after.All(r => r["safety_violations"] is JsonArray { Count: 0 });
         var bounded = after.All(r => (r["request_metrics"]?["requests"] as JsonArray ?? []).OfType<JsonObject>()
@@ -385,10 +488,17 @@ public static class PlanningBenchmarkMeasurements
         var passed = comparable && business && safe && bounded && reduction > 0 && phaseFamiliesImproved;
         return new() { ["status"] = !comparable ? "inconclusive" : passed ? "passed" : "failed", ["passed"] = passed,
             ["complete_three_repetitions"] = complete, ["frozen_comparison_context"] = frozen, ["matched_cumulative_and_output_allowances"] = matchedAllowances,
+            ["comparison_mode"] = validatedConfigurations ? "validated-configurations" : "matched-settings",
+            ["frozen_settings_within_each_arm"] = frozenSettings, ["shared_cumulative_and_safety_allowances"] = sharedAllowances,
+            ["declared_configurations_match"] = validatedConfigurations ? declaredConfigurations : (bool?)null,
+            ["baseline_configuration"] = baselineSettings?.DeepClone(), ["candidate_configuration"] = candidateSettings?.DeepClone(),
+            ["intentional_setting_differences"] = intentionalDifferences,
             ["independent_outcomes_known"] = observed, ["known_usage"] = knownUsage, ["all_candidate_business_outcomes_pass"] = business, ["no_safety_regression"] = safe,
             ["within_captured_phase_limits"] = bounded, ["comparable_phase_families_improved"] = phaseFamiliesImproved,
             ["peak_request_reduction"] = reduction, ["baseline"] = baseline, ["candidate"] = candidate, ["cases"] = perCase,
-            ["interpretation"] = "More small calls are permitted. Incomplete, mixed-context or unknown-outcome cohorts are inconclusive; three repetitions are descriptive evidence, not a general reliability claim." };
+            ["interpretation"] = validatedConfigurations
+                ? "Original baseline configuration versus validated candidate configuration. Intentional settings differ; this is not an architecture-only causal experiment. Compare completion before cost and latency; failed runs are not completed-work efficiency. Three repetitions are descriptive evidence, not a general reliability claim."
+                : "More small calls are permitted. Incomplete, mixed-context or unknown-outcome cohorts are inconclusive; three repetitions are descriptive evidence, not a general reliability claim." };
     }
 
     private static void CaptureCandidate(JsonObject run, PlanningSession state)

@@ -10,7 +10,8 @@ using GnOuGo.Flow.Planning;
 internal static class LiveWorkflowOracles
 {
     internal const string ObservedProductsVersion = "observed-products-v2";
-    internal const string AmazonBusinessVersion = "amazon-business-v3";
+    internal const string AmazonBusinessVersion3 = "amazon-business-v3";
+    internal const string AmazonBusinessVersion = "amazon-business-v4";
     internal const string CodeBusinessVersion = "code-business-v2";
     internal static async Task<JsonObject> VerifyAsync(string scenario, string root, JsonObject run, IMcpClientFactory transport,
         Func<Task<McpCallResult>>? hostClosureProbe = null)
@@ -21,7 +22,7 @@ internal static class LiveWorkflowOracles
         var events = run["events"]!.AsArray().OfType<JsonObject>().ToArray();
         if (scenario == "amazon")
         {
-            if (run["oracle_version"]?.ToString() is { } version && version is not ("real-workflows-v1" or ObservedProductsVersion or AmazonBusinessVersion))
+            if (run["oracle_version"]?.ToString() is { } version && version is not ("real-workflows-v1" or ObservedProductsVersion or AmazonBusinessVersion3 or AmazonBusinessVersion))
                 throw new InvalidOperationException("Unknown retained execution oracle version.");
             var productLimit = run["max_products"]?.GetValue<int>() ?? 3;
             if (productLimit is < 1 or > 10) throw new InvalidOperationException("Invalid retained product bound.");
@@ -48,14 +49,15 @@ internal static class LiveWorkflowOracles
                     var descriptionIndex = Array.FindIndex(names, n => n == "description");
                     var priceIndex = Array.FindIndex(names, n => n is "prix" or "price");
                     if (nameIndex < 0 || descriptionIndex < 0 || priceIndex < 0) findings.Add("workbook_columns_missing");
-                    else if (run["oracle_version"]?.ToString() is ObservedProductsVersion or AmazonBusinessVersion)
+                    else if (run["oracle_version"]?.ToString() is ObservedProductsVersion or AmazonBusinessVersion3 or AmazonBusinessVersion)
                     {
                         var evidence = VerifyObservedProducts(events, rows, productLimit);
                         run["product_evidence"] = evidence;
                         findings.AddRange(evidence["findings"]!.AsArray().Select(f => f!.ToString()));
-                        if (run["oracle_version"]?.ToString() == AmazonBusinessVersion)
+                        if (run["oracle_version"]?.ToString() is AmazonBusinessVersion3 or AmazonBusinessVersion)
                         {
-                            var selection = VerifyAmazonSelection(events, productLimit, run["inputs"]?["query"]?.ToString());
+                            var selection = VerifyAmazonSelection(events, productLimit, run["inputs"]?["query"]?.ToString(),
+                                run["oracle_version"]!.ToString());
                             run["search_evidence"] = selection;
                             findings.AddRange(selection["findings"]!.AsArray().Select(f => f!.ToString()));
                         }
@@ -274,8 +276,11 @@ internal static class LiveWorkflowOracles
 
     // The input and complete search snapshot define the expected products.
     // Generated workbook rows and selected visit order never define this oracle.
-    internal static JsonObject VerifyAmazonSelection(IReadOnlyList<JsonObject> events, int maximum, string? query)
+    internal static JsonObject VerifyAmazonSelection(IReadOnlyList<JsonObject> events, int maximum, string? query,
+        string version = AmazonBusinessVersion)
     {
+        if (version is not (AmazonBusinessVersion3 or AmazonBusinessVersion))
+            throw new InvalidOperationException("Unknown retained Amazon selection oracle version.");
         var findings = new List<string>();
         var complete = CompleteSnapshots(events).ToDictionary(s => s.Read);
         Snapshot? search = null;
@@ -286,6 +291,8 @@ internal static class LiveWorkflowOracles
             if (read["tool"]?.ToString() != "browser_get_content" || read["arguments"]?["url"]?.ToString() is not { } requested ||
                 !AmazonAddress(requested, out var address) || address.AbsolutePath != "/s") continue;
             if (string.IsNullOrWhiteSpace(query) || SearchQuery(address) != query) findings.Add("search_query_does_not_match_input");
+            if (version == AmazonBusinessVersion && !WholeDocumentSearch(read))
+            { findings.Add("search_observation_scope_not_independently_complete"); continue; }
             if (!complete.TryGetValue(read, out var snapshot) || !AmazonAddress(snapshot.Url, out var actual) ||
                 actual.AbsolutePath != "/s" || SearchQuery(actual) != query || snapshot.Records.Count == 0 ||
                 read["result"]?["success"]?.GetValue<bool>() != true)
@@ -343,9 +350,30 @@ internal static class LiveWorkflowOracles
                 !complete.TryGetValue(visit.Event, out var snapshot) || ProductIdentity(snapshot.Url) != expectedProduct.Identity)
                 findings.Add("first_product_identity_or_order_mismatch");
         }
-        return new JsonObject { ["version"] = AmazonBusinessVersion, ["passed"] = findings.Count == 0,
+        return new JsonObject { ["version"] = version, ["passed"] = findings.Count == 0,
             ["expected_product_count"] = selected.Length, ["visited_product_count"] = visits.Length,
             ["findings"] = new JsonArray(findings.Distinct().Select(f => (JsonNode)JsonValue.Create(f)).ToArray()) };
+    }
+
+    private static bool WholeDocumentSearch(JsonObject read)
+    {
+        if (read["arguments"] is not JsonObject arguments || read["result"] is not JsonObject result ||
+            !Selector(arguments["selector"], out var requested) || !Selector(result["selector"], out var retained) ||
+            !JsonNode.DeepEquals(arguments["selector"], result["selector"]) ||
+            requested != retained || result["resolvedSelector"] is not JsonValue resolved ||
+            !resolved.TryGetValue<string>(out var actual) || actual != requested ||
+            result["fallbackApplied"] is not JsonValue fallback || !fallback.TryGetValue<bool>(out var applied) || applied)
+            return false;
+        return true;
+
+        static bool Selector(JsonNode? value, out string selector)
+        {
+            selector = "body";
+            if (value is null) return true;
+            if (value is not JsonValue text || !text.TryGetValue<string>(out var original)) return false;
+            selector = string.IsNullOrWhiteSpace(original) ? "body" : original.Trim();
+            return selector is "body" or "html";
+        }
     }
 
     private static bool AmazonAddress(string? value, out Uri address)

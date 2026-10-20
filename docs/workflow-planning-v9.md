@@ -174,11 +174,13 @@ A semantic failure opens a bounded revision scope over diagnosed business slots 
 invalidated; unaffected validated stages and interfaces remain unchanged. Repairs,
 retries and restarts share the original planning budget. New-session defaults are
 64 model calls and four corrections across Flow, `workflow.plan`, CLI and
-Agent.Server. Compact version 2 limits complete input requests to 3,000 tokens for
-intent/selection/discovery, 8,000 for generation/correction and 4,000 for Judges,
-without fallback to the general 32,000-token ceiling. Draft/correction and Judge
-output reservations are 8,192 and 2,048 respectively. Explicit lower configuration
-limits take precedence; the compact input ceilings cannot be raised. Existing sessions retain their saved definitions; absent historical
+Agent.Server. Fresh compact version 2 captures one optional phase policy with
+input targets of 3,000/8,000/4,000 and hard complete-request ceilings of
+6,000/16,000/8,000 for navigation/draft/Judge families. Targets guide presentation,
+not admission. Initial output reservations are 8,192/8,192/2,048 with medium
+reasoning. Supported tuning profiles are frozen before dispatch; stricter explicit
+host/request limits prevail. An absent phase policy retains historical behavior.
+Existing sessions retain their saved definitions; absent historical
 fields retain eight calls, two repairs and 12,000 input / 8,192 output tokens. Creation
 defaults never rewrite pending requests or replenish cumulative allowances.
 

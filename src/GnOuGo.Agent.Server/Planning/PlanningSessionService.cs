@@ -133,7 +133,8 @@ public sealed partial class PlanningSessionService(
             options["host_save"] = new JsonObject { ["agent_id"] = response!["agent"]!["id"]!.DeepClone(), ["original_hash"] = PlanningGraphCompiler.Fingerprint(original!) };
         var state = new PlanningSession
         {
-            Construction = new() { Limits = new() { DraftOutputTokens = settings.Value.DraftOutputTokens, ReviewOutputTokens = settings.Value.ReviewOutputTokens,
+            Construction = new() { Limits = new() { PhasePolicy = settings.Value.PhasePolicy,
+                DraftOutputTokens = settings.Value.DraftOutputTokens, ReviewOutputTokens = settings.Value.ReviewOutputTokens,
                 InputLimits = new() { Selection = settings.Value.SelectionInputTokens, Draft = settings.Value.DraftInputTokens, Review = settings.Value.ReviewInputTokens } } },
             Request = new PlanningRequest
             {

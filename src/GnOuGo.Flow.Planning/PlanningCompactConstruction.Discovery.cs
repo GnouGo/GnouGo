@@ -282,7 +282,8 @@ internal static partial class PlanningCompactConstruction
             ("operationIds", PlanningSchemas.Nullable(Strings(1, 2))),
             ("discoveryRequests", alternatives.Count == 0 ? PlanningSchemas.Type("null") : PlanningSchemas.Nullable(
                 PlanningSchemas.Array(alternatives.Count == 1 ? alternatives[0]!.DeepClone().AsObject() : new JsonObject { ["anyOf"] = alternatives }, 1, 2))),
-            ("evidenceRequests", PlanningSchemas.Nullable(PlanningSchemas.Array(Text(2048), 1, State(state).PresentationVersion == 2 ? 1 : 4))),
+            ("evidenceRequests", PlanningSchemas.Nullable(PlanningSchemas.Array(Text(2048), 1,
+                PlanningConstructionPhasePolicies.IsFresh(state.Request) ? 8 : State(state).PresentationVersion == 2 ? 1 : 4))),
             ("reselectStep", CanReselectDiscovery(state) ? PlanningSchemas.Nullable(new JsonObject { ["type"] = "string", ["minLength"] = 1, ["maxLength"] = 512 }) : PlanningSchemas.Type("null")),
             ("clarifications", PlanningSchemas.Nullable(PlanningSchemas.Clarifications())));
         if (State(state).PresentationVersion == 2)

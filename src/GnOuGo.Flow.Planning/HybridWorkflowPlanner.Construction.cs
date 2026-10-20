@@ -125,22 +125,23 @@ public sealed partial class HybridWorkflowPlanner
         var calls = construction.Candidate?.NeedsIntermediateReview == true || construction.Candidate is null && construction.Checkpoints.Count > 0 ? 3 : 2;
         var inputLimit = construction.Version == 2 ? PlanningConstructionInputPolicy.EffectiveLimit(state.Request, PlanningConstruction.DraftPurpose)
             : state.Request.Generation.MaxInputTokensPerRequest;
+        var draftOutput = PlanningModelCalls.ConstructionOutputLimit(state, PlanningConstruction.DraftPurpose);
+        var reviewOutput = PlanningModelCalls.ConstructionOutputLimit(state, PlanningConstruction.LocalPurpose);
         if (state.PendingCall is null && PlanningModelCalls.RemainingCalls(state) < calls)
             throw new WorkflowRuntimeException("CONSTRUCTION_REVIEW_ALLOWANCE", "Construction needs a draft or correction and its mandatory local review within the saved cumulative allowance. No call was dispatched.");
         if (state.PendingCall is null && PlanningBudgetOptions.Parse(state.Request.Options)?.MaxTotalTokens is { } limit &&
             limit - (state.Usage?.TotalTokens ?? 0) < (long)inputLimit * calls +
-                Math.Min(construction.Limits.DraftOutputTokens, state.Request.Generation.MaxOutputTokens) +
-                (long)(calls - 1) * Math.Min(construction.Limits.ReviewOutputTokens, state.Request.Generation.MaxOutputTokens))
+                draftOutput + (long)(calls - 1) * reviewOutput)
             throw new WorkflowRuntimeException("CONSTRUCTION_REVIEW_ALLOWANCE", "The remaining cumulative token allowance cannot admit the draft and mandatory reviews at their captured request ceilings. No call was dispatched.");
         if (state.PendingCall is null && runtime is IPlanningConstructionAdmission admission)
         {
-            var outputCeilings = Enumerable.Repeat(Math.Min(construction.Limits.ReviewOutputTokens, state.Request.Generation.MaxOutputTokens), calls).ToArray();
-            outputCeilings[0] = Math.Min(construction.Limits.DraftOutputTokens, state.Request.Generation.MaxOutputTokens);
-            var probe = PlanningGenerationPolicy.Apply(new GnOuGo.Flow.Core.Runtime.LLMRequest
+            var outputCeilings = Enumerable.Repeat(reviewOutput, calls).ToArray();
+            outputCeilings[0] = draftOutput;
+            var probe = PlanningConstructionPhasePolicies.Apply(new GnOuGo.Flow.Core.Runtime.LLMRequest
             {
                 Provider = state.Request.Options["generator"]?["provider"]?.GetValue<string>(),
                 Model = state.Request.Options["generator"]?["model"]?.GetValue<string>() ?? "", MaxTokens = outputCeilings[0]
-            }, state.Request.Generation);
+            }, state.Request, PlanningConstruction.DraftPurpose);
             await admission.AdmitConstructionAsync(probe, inputLimit, outputCeilings, ct);
         }
     }
@@ -150,7 +151,8 @@ public sealed partial class HybridWorkflowPlanner
         var construction = state.Construction!;
         await ReserveConstructionReviewAsync(state, runtime, ct);
         var previous = construction.Candidate;
-        if (repair && previous is null && state.PendingCall is null) construction.DraftCorrections++;
+        using var correction = new PlanningCorrectionAttempt(state, repair, draft: true);
+        if (!correction.Enabled && repair && previous is null && state.PendingCall is null) construction.DraftCorrections++;
         if (state.PendingCall is null && construction.Version == 1)
         {
             foreach (var capability in PlanningDiscoveryContext.Candidates(state).Take(4))
@@ -169,7 +171,7 @@ public sealed partial class HybridWorkflowPlanner
             construction.CandidateFailureIdentityVersion = 1;
         var request = state.PendingCall?.Request ?? PlanningConstruction.DraftRequest(state, repair);
         var response = await PlanningModelCalls.CallAsync(state, runtime, repair ? "replan" : PlanningConstruction.DraftPurpose,
-            request.Prompt, request.StructuredOutputSchema!.AsObject(), ct, construction.Limits.DraftOutputTokens);
+            request.Prompt, request.StructuredOutputSchema!.AsObject(), ct, construction.Limits.DraftOutputTokens, correction);
         construction.LastProposalHash = "proposal:" + PlanningGraphCompiler.Fingerprint(response.ToJsonString());
         if (construction.FailedCandidates.Contains(construction.LastProposalHash, StringComparer.Ordinal))
             throw new WorkflowRuntimeException("REPLAN_NO_PROGRESS", "The model repeated an invalid construction action. No budget was reset.");
@@ -191,8 +193,8 @@ public sealed partial class HybridWorkflowPlanner
                     string.IsNullOrWhiteSpace(reason) || reason.Length > 512)
                     PlanningConstruction.Fail("CONSTRUCTION_RESELECTION_INVALID", "/reselectStep",
                         "Reselect only the unaccepted tentative step within its captured correction allowance.");
-                state.ReplanAttempts++;
-                construction.DraftCorrections++;
+                if (correction.Enabled) correction.Reselect();
+                else { state.ReplanAttempts++; construction.DraftCorrections++; }
                 state.Diagnostics.Add(new("CONSTRUCTION_TENTATIVE_SELECTION", "/construction/compact/currentStep", reason));
                 PlanningCompactConstruction.Reselect(state, reason);
                 construction.FailedCandidates.Add(construction.LastProposalHash);
@@ -200,7 +202,11 @@ public sealed partial class HybridWorkflowPlanner
                 // selection must not charge it again after a checkpoint or restart.
                 state.Diagnostics.Clear();
             }
-            else PlanningCompactConstruction.Reselect(state, reason);
+            else
+            {
+                PlanningCompactConstruction.Reselect(state, reason);
+                if (correction.Enabled) state.Diagnostics.Clear();
+            }
             return;
         }
         if (proposal.Clarifications is { } questions)
@@ -211,7 +217,15 @@ public sealed partial class HybridWorkflowPlanner
         }
         if (proposal.EvidenceRequests is { } evidence)
         {
-            PlanningConstruction.LoadEvidence(state, evidence);
+            if (correction.Enabled && (proposal.Requirements is not null || proposal.Commitments is not null || proposal.RollbackReason is not null))
+                PlanningConstruction.Fail("PROPOSAL_ACTION_INVALID", "/evidenceRequests", "Evidence retrieval cannot also stage requirements, commitments or rollback decisions.");
+            PlanningConstruction.LoadEvidence(state, evidence, followup: next =>
+            {
+                var draft = PlanningConstruction.DraftRequest(next, repair);
+                return PlanningModelCalls.PrepareRequest(next, repair ? "replan" : PlanningConstruction.DraftPurpose,
+                    draft.Prompt, draft.StructuredOutputSchema!.AsObject(), next.Construction!.Limits.DraftOutputTokens);
+            }, purpose: repair ? "replan" : PlanningConstruction.DraftPurpose);
+            correction.EvidenceAccepted();
             return;
         }
         if (proposal.DiscoveryRequests is { } discovery)
@@ -304,7 +318,7 @@ public sealed partial class HybridWorkflowPlanner
             state.Request.Options["automatic_correction"]?.ToString() == "false"))
         { state.Diagnostics = draft.Diagnostics; Stop(state); return; }
         await ReserveConstructionReviewAsync(state, runtime, ct);
-        if (state.PendingCall is null) draft.Corrections++;
+        if (state.PendingCall is null && !PlanningConstructionPhasePolicies.IsFresh(state.Request)) draft.Corrections++;
         // An output-only patch cannot introduce a missing committed producer.
         // Ordinary construction owns this tentative fragment, so replace it within
         // the same bounded envelope. Preserve issued requests and explicit edits.
@@ -347,19 +361,28 @@ public sealed partial class HybridWorkflowPlanner
             return;
         }
         PlanningRepairPatch.Verify(repairState, request);
-        var response = await PlanningModelCalls.CallAsync(state, runtime, "replan", request.Prompt, request.StructuredOutputSchema!.AsObject(), ct, construction.Limits.DraftOutputTokens);
+        using var accounting = new PlanningCorrectionAttempt(state, correcting: true, draft: true);
+        var response = await PlanningModelCalls.CallAsync(state, runtime, "replan", request.Prompt, request.StructuredOutputSchema!.AsObject(), ct, construction.Limits.DraftOutputTokens, accounting);
         var correction = response.Deserialize(RepairJsonContext.Default.PlanningRepairResponse)!;
         if (correction.ReselectStep is { } reselection)
         {
             if (correction.Patch is not null || correction.DiscoveryRequests is not null || correction.Clarifications is not null || correction.EvidenceRequests is not null)
                 PlanningConstruction.Fail("PROPOSAL_ACTION_INVALID", "/reselectStep", "Reselection must be the only correction action.");
-            PlanningCompactConstruction.Reselect(state, reselection); return;
+            PlanningCompactConstruction.Reselect(state, reselection);
+            if (accounting.Enabled) state.Diagnostics.Clear();
+            return;
         }
         if (correction.EvidenceRequests is { } evidence)
         {
             if (correction.Patch is not null || correction.DiscoveryRequests is not null || correction.Clarifications is not null)
                 PlanningConstruction.Fail("PROPOSAL_ACTION_INVALID", "/evidenceRequests", "Return original evidence requests as the only repair action.");
-            PlanningConstruction.LoadEvidence(state, evidence); return;
+            PlanningConstruction.LoadEvidence(state, evidence, followup: next =>
+            {
+                var followup = PlanningConstruction.RepairRequest(next, repairState, guardPaths.Length > 0 ? PlanningPrompt.GuardCorrectionInstructions : null);
+                return PlanningModelCalls.PrepareRequest(next, "replan", followup.Prompt, followup.StructuredOutputSchema!.AsObject(), next.Construction!.Limits.DraftOutputTokens);
+            }, purpose: "replan");
+            accounting.EvidenceAccepted();
+            return;
         }
         if (correction.DiscoveryRequests is { } discovery)
         { await ConstructionDiscoveryAsync(state, runtime, discovery, ct); return; }

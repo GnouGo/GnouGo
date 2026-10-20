@@ -23,12 +23,12 @@ public sealed class BenchmarkCampaignTests
         await model.CapturePlanningPolicyAsync(request, Ct);
         var captured = (await campaign.LoadAsync("planning-evaluation-session-policy", "compact", Ct))!;
         Assert.Equal(2, captured["construction_version"]!.GetValue<int>());
-        foreach (var (phase, limit) in new[] { ("construction_select", 3000), ("construction_draft", 8000), ("construction_local_judge", 4000) })
+        foreach (var (phase, limit) in new[] { ("construction_select", 6000), ("construction_draft", 16000), ("construction_local_judge", 8000) })
             Assert.Equal(limit, KeyVaultBenchmarkModel.PlanningInputLimit(captured, new() { StructuredOutputSchema = new JsonObject { ["title"] = phase } }));
         Assert.Throws<PlanningConflictException>(() => KeyVaultBenchmarkModel.PlanningInputLimit(captured, new()));
         request.Options["construction_input_limits"]!["draft"] = 7000;
         await Assert.ThrowsAsync<PlanningConflictException>(() => model.CapturePlanningPolicyAsync(request, Ct));
-        Assert.Equal(8000, (await campaign.LoadAsync("planning-evaluation-session-policy", "compact", Ct))!["construction_input_limits"]!["draft"]!.GetValue<int>());
+        Assert.Equal(16000, (await campaign.LoadAsync("planning-evaluation-session-policy", "compact", Ct))!["construction_input_limits"]!["draft"]!.GetValue<int>());
         Assert.Equal(32000, KeyVaultBenchmarkModel.PlanningInputLimit(new JsonObject { ["max_input_tokens"] = 32000 }, new()));
     }
 

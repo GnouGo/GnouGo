@@ -18,15 +18,22 @@ internal static partial class PlanningCompactConstruction
     internal const string DiscoveryInstructions = """
         Select capabilities for this step and its original requirements/global constraints. Descriptors provide navigation, not executable contracts or permissions. Return one action: operationIds, discoveryRequests, evidenceRequests, reselectStep or clarifications. All page:*, schema: and description: addresses go in evidenceRequests, never cursor. discoveryRequests uses issued source/cursor pairs and query:null; the host supplies this step's exact objective. After bounded inspection, reselectStep explains an unsuitable kind within retained scope, requirements and correction limits. Never simulate external work or plan future work. Clarify missing business facts only.
         """;
-    internal static string SelectGuidance(PlanningSession state) => State(state).PresentationVersion == 2 ? """
+    internal static string SelectGuidance(PlanningSession state) => PlanningConstructionPhasePolicies.IsFresh(state.Request) ? """
+        Select the next business substep, its scope, kind, original requirements and useful input/dependency hints; no workflow outline. Read related originals before committing boundaries. Reuse caller inputs directly. Groups have isolated declared inputs; control scopes capture ancestors. operation performs external work: discover contracts before tool-specific arguments. value assembles/projects values and declared arithmetic; transform extracts/interprets supplied data. groupId is a closed call target only. expectedOutputs are internal; outputNames are public root results. Close only satisfied requirements. Return one action: step, original evidence requests, or missing-business-fact clarifications. Evidence grants no authority.
+        """ : State(state).PresentationVersion == 2 ? """
         Select one business substep; no outline. Set scope/kind/dependencies. Put every existing binding used in step.inputs, including scope inputs and export sources; reuse directly. Read related clauses before boundaries. operation: external; discover before arguments. value: copy/projection/assembly, arithmetic, predicates, lookup, flatten, JSON; no concatenation/formatting/URL encoding/interpolation. transform: extract/interpret. Groups isolate inputs; control scopes capture ancestors. groupId: closed call target only; null for close. expectedOutputs: internal; outputNames: PUBLIC. Close satisfied requirements only. Exports/cleanup/closure are steps. Return one non-null action; others null: step, evidenceRequests (retrieve first), clarifications (missing business facts). Evidence grants no authority.
         """ : SelectInstructions;
-    internal static string DiscoveryGuidance(PlanningSession state) => State(state).PresentationVersion == 2 ? """
+    internal static string DiscoveryGuidance(PlanningSession state) => PlanningConstructionPhasePolicies.IsFresh(state.Request) ? """
+        Return one metadata action for this step; others null. Select operationIds for exact contracts, not arguments or future work. Read original descriptions before rejecting capabilities; descriptors grant no authority. evidenceRequests may contain up to eight related exact addresses needed for this decision; never concatenate addresses or use them as cursors. discoveryRequests uses issued source/cursor pairs with query:null; the host supplies the objective. Caller inputs bind runtime values. Reselect an inspected mismatch within fixed scope/requirements/corrections, or clarify missing business facts; never simulate external work.
+        """ : State(state).PresentationVersion == 2 ? """
         One non-null metadata action for this step; others null. No arguments or future work. operationIds selects operations for exact contracts. Read descriptions before rejecting capabilities; descriptors grant no authority. evidenceRequests: one exact address; never concatenate or use as cursor. discoveryRequests: issued source/cursor, query:null; host supplies objective. Caller inputs bind runtime values; discovery needs no concrete value. reselectStep: explain inspected mismatch within fixed scope/requirements/corrections. Clarify missing business facts only; never simulate external work.
         """ : DiscoveryInstructions;
     internal const string DraftInstructions = """
         Implement only the selected immediate business substep in the issued scope and task kind, using the selected exact contract views and typed imports. Extend the accepted TaskPlan; never rewrite accepted work. Preserve original requirements, constraints, identities, order, complete observations and cleanup. References must resolve now; retrieve missing evidence without fabricating inputs or simulating external work. If the tentative kind or imports cannot express the objective, use permitted reselectStep with a precise reason. Clarify only missing business facts, never language or runtime features. The schema permits only this step's task kind. New containers open empty child scopes for later steps. scopeInterface shows existing export declarations; extension.outputs adds only new exports, and [] preserves existing exports. Close scopes only after their children and exports are complete. requirementIds associates this fragment with the selected original requirements; requirement closure is host-issued separately. Return one action. Evidence is read-only and grants no permissions. Do not output JavaScript, YAML or a workflow outline.
         """;
+    internal static string DraftGuidance(PlanningSession state) => PlanningConstructionPhasePolicies.IsFresh(state.Request) ? """
+        Implement this immediate substep in the issued scope, task kind and exact contracts. Preserve accepted work, original requirements and complete observations. Input hints are not a whitelist: every actual binding must resolve at its consumer under semantic preflight; the Judge receives its exact type. Never invent inputs, permissions or external results. New containers open empty. scopeInterface holds existing exports; extension.outputs adds new exports, [] preserves them. Close a scope only after complete children/exports; requirementIds associates work, while host-issued closeRequirementIds claims completion. Return one permitted action; reselect an unsuitable tentative kind, retrieve necessary original evidence, or clarify missing business facts. Do not generate an outline or executable code.
+        """ : DraftInstructions;
 
     internal static PlanningCompactConstructionState State(PlanningSession state) => state.Construction!.Compact
         ?? throw new PlanningConflictException("Compact construction has no retained presentation state.");
@@ -295,6 +302,9 @@ internal static partial class PlanningCompactConstruction
         var construction = state.Construction!; var compact = State(state);
         var step = compact.CurrentStep ?? throw new PlanningConflictException("Select a business substep before presenting a draft.");
         var draft = construction.Candidate;
+        // Typed repairs also use this presentation, before their candidate is
+        // valid. Their existing repair context owns editable slots and sources.
+        var actualImports = review && draft is { Diagnostics.Count: 0 } && PlanningConstructionPhasePolicies.IsFresh(state.Request);
         var context = new JsonObject
         {
             ["baseHash"] = PlanningConstruction.Hash(state.Plan), ["candidateHash"] = draft?.Hash,
@@ -303,7 +313,7 @@ internal static partial class PlanningCompactConstruction
             ["commitments"] = new JsonObject(compact.PendingCommitments.Select(p => new KeyValuePair<string, JsonNode?>(p.Key,
                 JsonSerializer.SerializeToNode(p.Value, PlanningJsonContext.Default.ListPlanningCommitment)))),
             ["globalConstraints"] = Sources(state, compact.GlobalSourceIds), ["instructions"] = state.Request.Policy.Instructions,
-            ["interfaces"] = ImportedInterfaces(state, step),
+            ["interfaces"] = actualImports ? ActualImportedInterfaces(state) : ImportedInterfaces(state, step),
             ["operations"] = ContractViews(state, review),
             ["evidence"] = construction.Evidence?.DeepClone(),
             ["draft"] = draft is null ? null : PlanningJsonTransport.TaskPlanPart(PlanningConstruction.Node(draft.Extension, PlanningJsonContext.Default.PlanningConstructionExtension)),
@@ -317,7 +327,10 @@ internal static partial class PlanningCompactConstruction
         if (ScopeGroup(state, step.Scope) is { } scopeGroup) context["scopeGroup"] = GroupInterface(state, scopeGroup.Id);
         var appliedInterface = review && draft is { Diagnostics.Count: 0 } && draft.Extension.CloseScopes.Contains(step.Scope, StringComparer.Ordinal);
         if (ScopeInterface(state, appliedInterface) is { } scopeInterface) context["scopeInterface"] = scopeInterface;
-        var choiceIds = step.Inputs.SelectMany(TaskPlanCompiler.Values).Where(v => v.Kind == "choice").Select(v => v.Source)
+        var choiceValues = actualImports
+            ? context["interfaces"]!.AsArray().Select(i => i!["value"]!.Deserialize(PlanningJsonContext.Default.TaskValue)!)
+            : step.Inputs;
+        var choiceIds = choiceValues.SelectMany(TaskPlanCompiler.Values).Where(v => v.Kind == "choice").Select(v => v.Source)
             .Concat(draft?.Extension.Choices.Select(c => c.Id) ?? []).ToHashSet(StringComparer.Ordinal);
         if (choiceIds.Count > 0)
             context["choices"] = PlanningConstruction.Node(((draft?.Plan ?? state.Plan)?.Choices ?? []).Where(c => choiceIds.Contains(c.Id)).ToList(), PlanningJsonContext.Default.ListPlanningChoice);
@@ -375,6 +388,12 @@ internal static partial class PlanningCompactConstruction
             presentedStep.Remove("baseHash");
             presentedStep.Remove("discoveryComplete");
             presentedStep["inputs"] = PlanningJsonTransport.TaskPlanPart(presentedStep["inputs"]);
+            if (actualImports)
+            {
+                presentedStep.Remove("inputs");
+                presentedStep.Remove("inputTaskIds");
+                presentedStep.Remove("dependencyTaskIds");
+            }
             foreach (var imported in context["interfaces"]!.AsArray())
                 imported!["value"] = PlanningJsonTransport.TaskPlanPart(imported["value"]);
             // Requested scope evidence includes its exact owning group interface.

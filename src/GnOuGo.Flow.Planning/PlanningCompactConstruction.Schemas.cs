@@ -34,14 +34,17 @@ internal static partial class PlanningCompactConstruction
     internal static JsonObject DraftSchema(PlanningSession state)
     {
         var step = state.Construction!.Compact!.CurrentStep!;
-        // Reuse existing semantic type/binding definitions, but never issue their
-        // full task union or the complete operation catalog in this fresh protocol.
-        var template = PlanningSchemas.FullProposal(state, compact: false, admitted: new HashSet<string>(StringComparer.Ordinal), scopeGuidance: false);
-        var definitions = template["$defs"]!.AsObject();
+        var fresh = PlanningConstructionPhasePolicies.IsFresh(state.Request);
+        // Fresh requests construct the selected kind from shared semantic
+        // definitions. Historical presentations retain their original template.
+        var definitions = fresh ? PlanningSchemas.ConstructionDefinitions(state, step.Kind) :
+            PlanningSchemas.FullProposal(state, compact: false, admitted: new HashSet<string>(StringComparer.Ordinal),
+                scopeGuidance: false)["$defs"]!.DeepClone().AsObject();
         var tasks = definitions["task"]!["anyOf"]!.AsArray();
-        foreach (var task in tasks.ToArray())
-            if (task!["properties"]!["kind"]!["enum"]![0]!.ToString() != step.Kind ||
-                step.Kind == "transform" && task["properties"]!["mode"] is null) tasks.Remove(task);
+        if (!fresh)
+            foreach (var task in tasks.ToArray())
+                if (task!["properties"]!["kind"]!["enum"]![0]!.ToString() != step.Kind ||
+                    step.Kind == "transform" && task["properties"]!["mode"] is null) tasks.Remove(task);
         if (step.Kind == "operation")
             foreach (var capability in SelectedContracts(state)) tasks.Add((JsonNode)OperationTask(capability));
         if (step.Kind == "call" && step.GroupId is not null)
@@ -78,17 +81,20 @@ internal static partial class PlanningCompactConstruction
                 ("operation", PlanningSchemas.Enum(step.OperationIds.ToArray())),
                 ("result", publicOutputs.Length == 0 ? PlanningSchemas.Type("null") : PlanningSchemas.Nullable(PlanningSchemas.Object(
                     ("port", PlanningSchemas.String()), ("output", PlanningSchemas.Enum(publicOutputs)))))), 0, 32));
+        var rollback = !fresh || state.Construction.Candidate is null && state.Phase != PlanningPhase.Replanning &&
+            state.Plan is { } accepted && TaskPlanRevisions.Tasks(accepted).Any();
         var schema = PlanningSchemas.Object(("baseHash", PlanningSchemas.Enum(step.BaseHash)), ("requirements", PlanningSchemas.Type("null")),
             ("commitments", commitments),
             ("extension", PlanningSchemas.Nullable(extension)), ("discoveryRequests", PlanningSchemas.Type("null")),
             ("clarifications", PlanningSchemas.Nullable(PlanningSchemas.Clarifications())),
             ("evidenceRequests", PlanningSchemas.Nullable(PlanningSchemas.Array(new JsonObject { ["type"] = "string", ["maxLength"] = 2048 },
-                1, State(state).PresentationVersion == 2 ? 1 : 8))),
-            ("rollbackTask", PlanningSchemas.Nullable(PlanningSchemas.String())), ("rollbackReason", PlanningSchemas.Nullable(PlanningSchemas.String())),
+                1, fresh ? 8 : State(state).PresentationVersion == 2 ? 1 : 8))),
+            ("rollbackTask", rollback ? PlanningSchemas.Nullable(PlanningSchemas.String()) : PlanningSchemas.Type("null")),
+            ("rollbackReason", rollback ? PlanningSchemas.Nullable(PlanningSchemas.String()) : PlanningSchemas.Type("null")),
             ("reselectStep", CanReselectInitialDraft(state) || state.Construction.Candidate?.AuthorizedPaths is null &&
                 (state.Diagnostics.Any(d => d.Required) || state.Construction.Candidate?.Diagnostics.Any(d => d.Required) == true)
                 ? PlanningSchemas.Nullable(new JsonObject { ["type"] = "string", ["minLength"] = 1, ["maxLength"] = 512 }) : PlanningSchemas.Type("null")));
-        template.Remove("$defs"); schema["$defs"] = definitions;
+        schema["$defs"] = definitions;
         var projected = PlanningContractValidation.ProjectStructuredOutputSchema(PlanningSchemas.Compact(schema));
         // Compact removes presentation annotations from the shared grammar. Put
         // back only the semantics needed by this selected kind and scope.
@@ -116,7 +122,7 @@ internal static partial class PlanningCompactConstruction
         }
     }
 
-    private static string DraftSemantics(PlanningSession state, PlanningConstructionStep step)
+    internal static string DraftSemantics(PlanningSession state, PlanningConstructionStep step)
     {
         var scope = new TaskPlanSymbols(state.Plan ?? new TaskPlan()).Scopes.SingleOrDefault(s => s.Path == step.Scope);
         var hints = new List<string>();
@@ -129,8 +135,12 @@ internal static partial class PlanningCompactConstruction
             hints.Add("outputs explicitly export this scope's bound values through its enclosing task or group call; consumers cannot read hidden child tasks directly.");
         if (step.Kind == "value")
             hints.Add("value only copies, projects or assembles typed values using declared arithmetic, predicates, lookup, flatten and JSON encoding. It cannot concatenate or format strings, URL-encode or interpolate literals; its objective adds no computation.");
+        if (PlanningConstructionPhasePolicies.IsFresh(state.Request) && step.Kind == "transform")
+            hints.Add("transform resultType is an object of named output ports; output.port selects that field's type, not the whole result object. extract preserves observed facts; interpret performs requested decisions. Neither executes external effects.");
         if (State(state).PresentationVersion == 2 && step.Kind == "operation")
-            hints.Add("editableInputs is only the inspected subset. Retrieve one exact schema address per call for any omitted port this business action needs; retrieval expands the binding grammar. [] does not mean no arguments are needed.");
+            hints.Add(PlanningConstructionPhasePolicies.IsFresh(state.Request)
+                ? "editableInputs is only the inspected subset. Retrieve the exact schema branches needed for this business action together, up to eight addresses; the complete follow-up must fit its captured ceiling. Retrieval expands binding grammar. [] does not mean no arguments are needed."
+                : "editableInputs is only the inspected subset. Retrieve one exact schema address per call for any omitted port this business action needs; retrieval expands the binding grammar. [] does not mean no arguments are needed.");
         if (step.Kind == "foreach")
         {
             hints.Add("foreach.maxItems is the TOTAL input-item ceiling; excess fails, it never samples or truncates. maxConcurrency limits simultaneous workers, not total items. Neither bound guarantees a nonempty collection.");

@@ -124,6 +124,60 @@ public sealed class AmazonBusinessOracleTests
         Assert.False(LiveWorkflowOracles.VerifyAmazonSelection(events, 10, Query)["passed"]!.GetValue<bool>());
     }
 
+    [Theory]
+    [InlineData(null, "body")]
+    [InlineData("", "body")]
+    [InlineData(" \t ", "body")]
+    [InlineData("body", "body")]
+    [InlineData(" html ", "html")]
+    public void WholeDocumentSearchUsesExactOriginalAndProducerScope(string? selector, string resolved)
+    {
+        var events = Events();
+        if (selector is not null) events[0]["arguments"]!["selector"] = selector;
+        events[0]["result"]!["selector"] = selector;
+        events[0]["result"]!["resolvedSelector"] = resolved;
+        AssertPass(events);
+    }
+
+    [Theory]
+    [InlineData("narrowed")]
+    [InlineData("producer_narrowed")]
+    [InlineData("missing_resolution")]
+    [InlineData("missing_fallback")]
+    [InlineData("fallback")]
+    [InlineData("selector_mismatch")]
+    [InlineData("resolved_mismatch")]
+    [InlineData("non_string_selector")]
+    public void CompleteFlagsCannotCertifyANarrowedOrUnverifiedSearchScope(string variant)
+    {
+        var events = Events();
+        var arguments = events[0]["arguments"]!.AsObject();
+        var result = events[0]["result"]!.AsObject();
+        switch (variant)
+        {
+            case "narrowed":
+                arguments["selector"] = "article:nth-of-type(3)";
+                result["selector"] = "article:nth-of-type(3)";
+                result["resolvedSelector"] = "article:nth-of-type(3)";
+                // A later card remains a complete capture of the requested subtree.
+                Records(events[0]).Clear();
+                Records(events[0]).Add(new JsonObject { ["href"] = Url(3), ["text"] = "Product 3", ["group"] = "main > article:nth-of-type(3)" });
+                Count(events[0]); events[1] = Product(3); events.RemoveAt(2);
+                break;
+            case "producer_narrowed": result["resolvedSelector"] = "#search"; break;
+            case "missing_resolution": result.Remove("resolvedSelector"); break;
+            case "missing_fallback": result.Remove("fallbackApplied"); break;
+            case "fallback": result["fallbackApplied"] = true; break;
+            case "selector_mismatch": result["selector"] = "html"; break;
+            case "resolved_mismatch": arguments["selector"] = "html"; result["selector"] = "html"; break;
+            case "non_string_selector": arguments["selector"] = 1; break;
+        }
+        AssertFinding(events, "search_observation_scope_not_independently_complete");
+        var historical = LiveWorkflowOracles.VerifyAmazonSelection(events, 2, Query, LiveWorkflowOracles.AmazonBusinessVersion3);
+        Assert.True(historical["passed"]!.GetValue<bool>(), historical.ToJsonString());
+        Assert.Equal(LiveWorkflowOracles.AmazonBusinessVersion3, historical["version"]!.ToString());
+    }
+
     private static List<JsonObject> Events() =>
     [
         Snapshot(Search, Enumerable.Range(1, 4).Select(i => new JsonObject
@@ -136,6 +190,7 @@ public sealed class AmazonBusinessOracleTests
     {
         ["tool"] = "browser_get_content", ["error"] = false, ["arguments"] = new JsonObject { ["url"] = url },
         ["result"] = new JsonObject { ["url"] = url, ["success"] = true, ["truncated"] = false,
+            ["selector"] = null, ["resolvedSelector"] = "body", ["fallbackApplied"] = false,
             ["observationSnapshot"] = new JsonObject { ["id"] = "snapshot-" + url, ["captureTruncated"] = false, ["manifestTruncated"] = false,
                 ["recordCount"] = records.Length, ["pages"] = new JsonArray((JsonNode)new JsonObject { ["id"] = "snapshot-" + url,
                     ["captureTruncated"] = false, ["nextCursor"] = null, ["records"] = new JsonArray(records.Cast<JsonNode>().ToArray()) }) } }

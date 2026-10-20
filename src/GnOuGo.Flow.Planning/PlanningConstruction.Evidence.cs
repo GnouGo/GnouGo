@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
+using GnOuGo.Flow.Core.Runtime;
 
 namespace GnOuGo.Flow.Planning;
 
@@ -9,7 +10,8 @@ internal static partial class PlanningConstruction
     internal static GnOuGo.Flow.Core.Runtime.LLMRequest RepairRequest(PlanningSession state, PlanningSession authority, string? guidance = null)
     {
         var schema = PlanningSchemas.Proposal(authority);
-        var singleView = state.Construction is { Version: 2, Compact.PresentationVersion: 2 };
+        var fresh = PlanningConstructionPhasePolicies.IsFresh(state.Request);
+        var singleView = !fresh && state.Construction is { Version: 2, Compact.PresentationVersion: 2 };
         schema["properties"]!["evidenceRequests"] = PlanningSchemas.Nullable(PlanningSchemas.Array(PlanningSchemas.String(), 1, singleView ? 1 : 8));
         schema["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("evidenceRequests"));
         if (state.Construction!.Version == 2)
@@ -20,7 +22,9 @@ internal static partial class PlanningConstruction
         }
         var projected = PlanningContractValidation.ProjectStructuredOutputSchema(schema);
         return Request(state, (guidance is null ? "" : guidance + "\n") + PlanningPrompt.RepairInstructions +
-            (singleView
+            (fresh
+                ? "\nRequest up to eight related exact evidence addresses as the only action. The complete follow-up must fit its captured phase ceiling; evidence grants no edit authority."
+                : singleView
                 ? "\nRequest one exact original evidence address per call, with patch, discoveryRequests and clarifications null; evidence grants no additional edit authority."
                 : "\nRequest original evidence using evidenceRequests with patch, discoveryRequests and clarifications null; evidence grants no additional edit authority.") +
             (state.Construction.Version == 2 ? " If the diagnosed tentative task kind or operation cannot implement the original requirement, reselectStep may give a concrete reason as the only action. It preserves accepted work and the selected scope/requirements; explicit revision paths cannot be expanded." : ""),
@@ -28,8 +32,63 @@ internal static partial class PlanningConstruction
             enrich: context => context["repair"] = PlanningRepairContext.Build(authority)).Request;
     }
 
-    internal static void LoadEvidence(PlanningSession state, List<string> requests, string? descriptionReadKey = null)
+    internal static void LoadEvidence(PlanningSession state, List<string> requests, string? descriptionReadKey = null,
+        Func<PlanningSession, LLMRequest>? followup = null, string? purpose = null, JsonNode? issuedDiscoverySchema = null)
     {
+        if (PlanningConstructionPhasePolicies.IsFresh(state.Request))
+        {
+            // Resolve and admit on a clone: a rejected batch must not retain a
+            // schema selection, page cursor or successful-read fingerprint.
+            var probe = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession),
+                PlanningJsonContext.Default.PlanningSession)!;
+            // First reads in a coherent batch retain the same issued knowledge
+            // identity as singleton discovery reads. Later rereads still need
+            // the existing singleton-only growth proof.
+            var descriptionKeys = issuedDiscoverySchema is not null && requests.Count > 1
+                ? requests.Where(address => address.StartsWith("description:", StringComparison.Ordinal))
+                    .Select(address => PlanningCompactConstruction.DescriptionReadKey(probe, issuedDiscoverySchema,
+                        new JsonObject { ["evidenceRequests"] = new JsonArray(address) })).OfType<string>().ToArray()
+                : [];
+            LoadEvidenceCore(probe, requests, descriptionReadKey);
+            foreach (var key in descriptionKeys)
+                if (!probe.Construction!.EvidenceRequests.Contains(key, StringComparer.Ordinal)) probe.Construction.EvidenceRequests.Add(key);
+            if (followup is not null)
+            {
+                if (purpose is null) throw new ArgumentException("Evidence admission requires the follow-up purpose.", nameof(purpose));
+                if (purpose is PlanningCompactConstruction.SelectPurpose or PlanningCompactConstruction.DiscoveryPurpose)
+                    probe.Diagnostics.RemoveAll(d => d.Location == "/evidenceRequests" &&
+                        d.Code is "CONSTRUCTION_EVIDENCE_UNKNOWN" or "CONSTRUCTION_EVIDENCE_INVALID" or "CONSTRUCTION_EVIDENCE_LIMIT");
+                var request = followup(probe);
+                var limit = PlanningConstructionPhasePolicies.Resolve(probe.Request, purpose).MaxInputTokens;
+                var estimate = ModelRequestAdmission.EstimateTokens(request);
+                var measured = PlanningRequestMeasurements.Measure(request, purpose, limit, probe.Construction!.Compact?.CurrentStep?.Id);
+                if (purpose == IntermediatePurpose) measured.BaselineHash ??= probe.Construction.Candidate?.BaseHash;
+                var measurements = state.RequestMeasurements ??= [];
+                var measurement = measurements.SingleOrDefault(item => item.RequestHash == measured.RequestHash);
+                if (measurement is null) { measurement = measured; measurements.Add(measurement); }
+                if (estimate > limit)
+                {
+                    measurement.Admission = "rejected_before_dispatch";
+                    Fail("CONSTRUCTION_EVIDENCE_LIMIT", "/evidenceRequests",
+                        $"The complete prospective {purpose} request needs {estimate} estimated input tokens; its captured ceiling is {limit}. Request a smaller coherent batch or exact separable view.");
+                }
+                var violations = request.StructuredOutputSchema is { } schema
+                    ? PlanningContractValidation.ValidateSchema(schema, strict: true)
+                    : ["The follow-up must retain its structured response schema."];
+                if (violations.Count != 0)
+                {
+                    measurement.Admission = "rejected_before_dispatch";
+                    Fail("CONSTRUCTION_EVIDENCE_INVALID", "/evidenceRequests",
+                        "The prospective follow-up schema is invalid: " + string.Join("; ", violations));
+                }
+            }
+            var target = state.Construction!; var accepted = probe.Construction!;
+            target.Compact = accepted.Compact;
+            target.Evidence = accepted.Evidence;
+            target.EvidenceRequests = accepted.EvidenceRequests;
+            target.TaskCursor = accepted.TaskCursor; target.ScopeCursor = accepted.ScopeCursor; target.RequirementCursor = accepted.RequirementCursor;
+            return;
+        }
         if (state.Construction!.Version != 2) { LoadEvidenceCore(state, requests); return; }
         var construction = state.Construction;
         var compact = JsonSerializer.Deserialize(JsonSerializer.Serialize(construction.Compact, PlanningJsonContext.Default.PlanningCompactConstructionState),
@@ -51,6 +110,7 @@ internal static partial class PlanningConstruction
     private static void LoadEvidenceCore(PlanningSession state, List<string> requests, string? descriptionReadKey = null)
     {
         var construction = state.Construction!;
+        var fresh = PlanningConstructionPhasePolicies.IsFresh(state.Request);
         if (requests.Count is < 1 or > 8 || requests.Distinct(StringComparer.Ordinal).Count() != requests.Count)
             Fail("CONSTRUCTION_EVIDENCE_INVALID", "/evidenceRequests", "Request one to eight distinct original evidence identities.");
         var key = EvidenceBatchFingerprint(state, requests);
@@ -61,6 +121,13 @@ internal static partial class PlanningConstruction
             Fail("REPLAN_NO_PROGRESS", "/evidenceRequests", descriptionReadKey is null
                 ? "This evidence batch was already supplied for the same candidate."
                 : "This evidence batch was already supplied for the same candidate and retained knowledge.");
+        var members = requests.Select(r => EvidenceBatchFingerprint(state, [r])).ToArray();
+        if (fresh && descriptionReadKey is null &&
+            (members.All(m => construction.EvidenceRequests.Contains(m, StringComparer.Ordinal)) ||
+             requests.Where((r, i) => r.StartsWith("description:", StringComparison.Ordinal) &&
+                 construction.EvidenceRequests.Contains(members[i], StringComparer.Ordinal)).Any()))
+            Fail("REPLAN_NO_PROGRESS", "/evidenceRequests",
+                "Regrouping supplied evidence is not progress. An original description reread requires its exact captured knowledge authority.");
         var plan = construction.Candidate?.Plan ?? state.Plan ?? new TaskPlan();
         var symbols = new TaskPlanSymbols(plan); var result = new JsonObject();
         foreach (var request in requests)
@@ -168,6 +235,9 @@ internal static partial class PlanningConstruction
             result[request] = value;
         }
         if (!construction.EvidenceRequests.Contains(key, StringComparer.Ordinal)) construction.EvidenceRequests.Add(key);
+        if (fresh)
+            foreach (var member in members)
+                if (!construction.EvidenceRequests.Contains(member, StringComparer.Ordinal)) construction.EvidenceRequests.Add(member);
         if (descriptionReadKey is not null) construction.EvidenceRequests.Add(descriptionReadKey);
         construction.Evidence = result;
     }

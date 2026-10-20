@@ -28,7 +28,7 @@ public sealed class CompactLoopClosureReviewTests
             return Wire(request, reviews++ == 0 ? new()
             {
                 ["findings"] = new JsonArray(new JsonObject { ["kind"] = "inconsistency", ["location"] = "/draft/outputs/0",
-                    ["evidence"] = new JsonArray("/draft/outputs/0/value/port", "/requirements/0/original"),
+                    ["evidence"] = new JsonArray("/draft/outputs/0", "/requirements/0"),
                     ["explanation"] = "The selected export uses the unchanged item instead of the doubled output.",
                     ["uncertainty"] = "Execution remains unverified." }),
                 ["uncertainty"] = "The foreach performs collection; this finding concerns the chosen per-item value.", ["evidenceRequests"] = null
@@ -85,6 +85,8 @@ public sealed class CompactLoopClosureReviewTests
         state.Construction!.Compact!.PresentationVersion = null;
         state.Construction.CandidateFailureIdentityVersion = null;
         state.Request.Options.Remove("construction_presentation_version");
+        state.Request.Options["construction_limits"]!.AsObject().Remove("phasePolicy");
+        state.Construction.Limits.PhasePolicy = null;
         runtime.Respond = (_, _) => throw new OperationCanceledException();
         _ = await Advance(state, runtime);
         var saved = PlannerFixture.Clone(runtime.Checkpoints.Last(checkpoint => checkpoint.PendingCall?.Purpose == PlanningConstruction.LocalPurpose));
@@ -118,7 +120,7 @@ public sealed class CompactLoopClosureReviewTests
         var context = Context(request);
         Assert.Equal("close", context["step"]!["kind"]!.ToString());
         Assert.Equal("/tasks/iteration/body", context["step"]!["scope"]!.ToString());
-        Assert.Equal(aggregation, request.Prompt.Contains("This selected scope is a foreach body.", StringComparison.Ordinal));
+        Assert.Equal(aggregation, request.Prompt.Contains("Each foreach body output becomes an array", StringComparison.Ordinal));
         Assert.Equal("number", context["scopeInterface"]!["outputs"]![0]!["schema"]!["type"]!.ToString());
         Assert.False(context["constructionStage"]!["requirementCompletionClaimed"]!.GetValue<bool>());
         Assert.InRange(PlanningRequestMeasurements.Measure(request, PlanningConstruction.LocalPurpose, 4000).EstimatedInputTokens, 1, 4000);

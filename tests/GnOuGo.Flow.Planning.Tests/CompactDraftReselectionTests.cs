@@ -34,7 +34,7 @@ public sealed class CompactDraftReselectionTests
         {
             Assert.Equal(PlanningConstruction.DraftPurpose, purpose);
             Assert.Contains("cannot concatenate or format strings", request.StructuredOutputSchema!["description"]!.ToString(), StringComparison.Ordinal);
-            Assert.Contains("use permitted reselectStep", request.Prompt, StringComparison.Ordinal);
+            Assert.Empty(PlanningContractValidation.ValidateInstance(Reselect(request), request.StructuredOutputSchema!));
             Assert.InRange(PlanningRequestMeasurements.Measure(request, purpose, 8000).EstimatedInputTokens, 1, 8000);
             return new() { Json = Reselect(request) };
         } };
@@ -63,8 +63,7 @@ public sealed class CompactDraftReselectionTests
         runtime.Respond = (request, purpose) =>
         {
             Assert.Equal(PlanningCompactConstruction.SelectPurpose, purpose);
-            Assert.Contains("no concatenation/formatting/URL encoding/interpolation", request.Prompt, StringComparison.Ordinal);
-            Assert.Contains("discover before arguments", request.Prompt, StringComparison.Ordinal);
+            Assert.Empty(PlanningContractValidation.ValidateInstance(Wire(request, Selection(request)).Json!, request.StructuredOutputSchema!));
             Assert.InRange(PlanningRequestMeasurements.Measure(request, purpose, 3000).EstimatedInputTokens, 1, 3000);
             return Wire(request, Selection(request));
         };

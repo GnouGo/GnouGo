@@ -160,6 +160,7 @@ public sealed class BenchmarkAdmissionTests
                 ["required"] = new JsonArray("script")
             }
         };
+        PlanningConstructionPhasePolicies.Apply(completed, settings, "construction_draft");
         var receipt = await model.CallAsync(completed, Ct);
         Assert.True(provider.LastDisableTransportRetries);
         Assert.Equal(1, provider.Calls);
@@ -169,6 +170,7 @@ public sealed class BenchmarkAdmissionTests
         provider.Failure = new IOException("Unknown completion");
         var pending = new LLMRequest { ClientRequestId = "fresh:2", Prompt = "bounded later draft", MaxTokens = 8192,
             StructuredOutputStrict = true, StructuredOutputSchema = completed.StructuredOutputSchema!.DeepClone() };
+        PlanningConstructionPhasePolicies.Apply(pending, settings, "construction_draft");
         await Assert.ThrowsAsync<IOException>(() => model.CallAsync(pending, Ct));
         var before = await fixture.Campaign.LoadAsync(BenchmarkHttpJournal.Collection, pending.ClientRequestId, Ct);
         Assert.True(before!["effective_transport_policy"]!["disable_transport_retries"]!.GetValue<bool>());
@@ -191,10 +193,12 @@ public sealed class BenchmarkAdmissionTests
             "Retained server failure.", retryable: true, statusCode: 502, safeProviderCode: null,
             attemptCount: 1, retryExhausted: true, retryAfterMilliseconds: null) };
         using var model = fixture.Model(rates, provider);
-        await model.CapturePlanningPolicyAsync(LiveWorkflowEvaluation.FreshPlanningRequest([], "failed", "amazon", "Original request", "fixture", "pinned"), Ct);
+        var settings = LiveWorkflowEvaluation.FreshPlanningRequest([], "failed", "amazon", "Original request", "fixture", "pinned");
+        await model.CapturePlanningPolicyAsync(settings, Ct);
         var request = new LLMRequest { ClientRequestId = "failed:1", Prompt = "bounded original draft", MaxTokens = 8192,
             StructuredOutputStrict = true, StructuredOutputSchema = new JsonObject { ["title"] = "construction_draft",
                 ["type"] = "object", ["properties"] = new JsonObject(), ["required"] = new JsonArray(), ["additionalProperties"] = false } };
+        PlanningConstructionPhasePolicies.Apply(request, settings, "construction_draft");
         await Assert.ThrowsAsync<LLMClientException>(() => model.CallAsync(request, Ct));
         Assert.Equal(1, provider.Calls);
         Assert.True(provider.LastDisableTransportRetries);

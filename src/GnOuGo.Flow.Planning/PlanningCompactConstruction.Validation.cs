@@ -67,9 +67,10 @@ internal static partial class PlanningCompactConstruction
             symbols.Tasks[id].Task.Kind == "call" && symbols.Tasks[id].Task.Group != step.GroupId))
             PlanningConstruction.Fail("CONSTRUCTION_STEP_INVALID", "/extension/tasks", "The extension exceeds the issued task-kind or operation selection.");
         var added = candidate.TaskIds.ToHashSet(StringComparer.Ordinal);
+        var derivedImports = UsesDerivedImports(state, candidate);
         foreach (var task in candidate.TaskIds.Select(id => symbols.Tasks[id].Task))
         {
-            if (task.DependsOn.Any(id => !added.Contains(id) && !step.DependencyTaskIds.Contains(id, StringComparer.Ordinal)))
+            if (!derivedImports && task.DependsOn.Any(id => !added.Contains(id) && !step.DependencyTaskIds.Contains(id, StringComparer.Ordinal)))
                 PlanningConstruction.Fail("CONSTRUCTION_STEP_INPUT_INVALID", "/extension/tasks", "Select each accepted explicit dependency before drafting its consumer.");
             var path = "/tasks/" + task.Id;
             var scope = symbols.Tasks[task.Id].Scope.Path;
@@ -89,6 +90,9 @@ internal static partial class PlanningCompactConstruction
 
         void CheckImport(TaskValue value, string location, string scope)
         {
+            // Fresh ordinary drafts are checked against actual semantic visibility.
+            // Selected inputs remain context hints, not a second permission system.
+            if (derivedImports) return;
             // A selected field is an exact typed import; its wider producer object is not implicitly imported.
             if (step.Inputs.Any(selected => JsonNode.DeepEquals(
                 JsonSerializer.SerializeToNode(selected, PlanningJsonContext.Default.TaskValue),

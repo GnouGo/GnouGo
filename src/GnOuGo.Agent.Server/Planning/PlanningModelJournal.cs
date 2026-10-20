@@ -29,7 +29,9 @@ internal sealed class PlanningModelJournal(
 
     public async Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
     {
-        PlanningGenerationPolicy.Apply(request, generation ?? new());
+        if (planning is not null && PlanningConstructionPhasePolicies.IsFresh(planning))
+            PlanningConstructionPhasePolicies.ValidateIssued(request, planning);
+        else PlanningGenerationPolicy.Apply(request, generation ?? new());
         var key = request.ClientRequestId;
         if (string.IsNullOrWhiteSpace(key) || !key.StartsWith(sessionId + ":", StringComparison.Ordinal))
             throw new InvalidOperationException("A session-owned durable request identity is required before dispatch.");

@@ -45,6 +45,8 @@ public sealed class CompactConstructionTests
         state.Request.Options.Remove("construction_presentation_version");
         state.Construction!.Compact!.PresentationVersion = null;
         state.Construction.Compact.InterfaceExtractions = null;
+        state.Request.Options["construction_limits"]!.AsObject().Remove("phasePolicy");
+        state.Construction.Limits.PhasePolicy = null;
         return PlannerFixture.Clone(state);
     }
     private static PlanningSession NewSession(string prompt = "Return exactly Hello.") => new()
@@ -389,10 +391,13 @@ public sealed class CompactConstructionTests
         state.Construction = new() { Limits = new() { InputLimits = new() { Selection = 5000, Draft = 9000, Review = 7000 } } };
         state = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = 0 }, new TestRuntime { Respond = Simple }, PlannerFixture.Ct);
         var captured = state.Request.Options["construction_input_limits"]!.Deserialize(PlanningJsonContext.Default.PlanningConstructionInputLimits)!;
-        Assert.Equal(3000, captured.Selection);
+        Assert.Equal(3500, captured.Selection);
         Assert.Equal(3500, captured.Draft);
         Assert.Equal(3500, captured.Review);
         Assert.Equal(captured.Draft, state.Construction!.Limits.InputLimits!.Draft);
+        var navigation = PlanningConstructionPhasePolicies.Resolve(state.Request, PlanningCompactConstruction.SelectPurpose);
+        Assert.Equal(3000, navigation.TargetInputTokens);
+        Assert.Equal(3500, navigation.MaxInputTokens);
     }
 
     [Fact]

@@ -22,7 +22,7 @@ if (args.FirstOrDefault() == "--compact-comparison")
         throw new ArgumentException("Supply distinct comparison cases.");
     var report = PlanningBenchmarkMeasurements.CompareCompactConstruction(
         comparison["baseline"]!.AsArray().Select(n => n!.AsObject()).ToArray(),
-        comparison["candidate"]!.AsArray().Select(n => n!.AsObject()).ToArray(), cases);
+        comparison["candidate"]!.AsArray().Select(n => n!.AsObject()).ToArray(), cases, comparison["comparison_policy"] as JsonObject);
     Console.WriteLine(report.ToJsonString());
     if (report["passed"]?.GetValue<bool>() != true) Environment.ExitCode = 1;
     return;
@@ -45,6 +45,7 @@ var phase = replayKey is not null ? "replay" : Option("--phase") ?? (live ? "pil
 if (phase is not ("pilot" or "measured" or "fixture" or "replay")) throw new ArgumentException("Invalid phase.");
 var arm = Option("--arm");
 if (arm is not (null or "judge" or "defaults")) throw new ArgumentException("Choose an optional judge or defaults comparison arm.");
+var cohort = PlanningBenchmarkMeasurements.Cohort(args);
 var repetitions = int.Parse(Option("--repetitions") ?? (phase == "measured" ? "3" : "1"), System.Globalization.CultureInfo.InvariantCulture);
 if (repetitions is < 1 or > 20 || phase == "measured" && repetitions != 3 || phase == "pilot" && repetitions != 1) throw new ArgumentException("Pilot requires one repetition; measured requires three.");
 var firstRepetition = int.Parse(Option("--first-repetition") ?? "1", System.Globalization.CultureInfo.InvariantCulture);
@@ -81,6 +82,7 @@ if (retainKey is not null) { Console.WriteLine((await evidenceStore!.RetainIncon
 if (inspectCampaign) { Console.WriteLine((await evidenceStore!.InspectAsync()).ToJsonString()); return; }
 if (compareParent is not null)
 {
+    if (cohort is not null) throw new ArgumentException("Use --compact-comparison with exact frozen rows for named profile cohorts.");
     var comparisonVariable = args.Contains("--judge-comparison") ? "judge" : args.Contains("--defaults-comparison") ? "defaults" : null;
     if (args.Contains("--judge-comparison") && args.Contains("--defaults-comparison")) throw new ArgumentException("Compare judge and creation defaults separately.");
     var parentPhase = Option("--parent-phase") ?? "measured"; var candidateSource = Option("--candidate") ?? source;
@@ -170,7 +172,8 @@ if (replayKey is not null)
 if (replay is { } recorded) { names = PlanningBenchmarkMeasurements.Select(recorded.State.Request.Name); repetitions = 1; }
 using var configured = !live || providerName is null ? null : await KeyVaultBenchmarkModel.CreateAsync(providerName, Option("--model"), campaign!, workspace, CancellationToken.None);
 ILLMClient? model = replay?.Client ?? (ILLMClient?)configured ?? (!live || command is null ? null : new CommandModel(command));
-string RunKey(string runPhase, string name, int repetition) => source + ":" + runPhase + ":" + (arm is null ? "" : arm + ":") + name + ":" + repetition;
+string RunKey(string runPhase, string name, int repetition)
+    => PlanningBenchmarkMeasurements.CorpusRunKey(source, runPhase, arm, cohort, name, repetition);
 if (live && phase == "measured")
 {
     var pilot = new List<JsonObject>();
@@ -181,7 +184,8 @@ if (live && phase == "measured")
 var creation = new PlanningRequest();
 if (campaign is not null)
 {
-    var configurationKey = "corpus-settings:" + source + ":" + phase + ":" + (arm ?? "control");
+    var configurationKey = "corpus-settings:" + source + ":" + phase + ":" + (arm ?? "control") +
+        (cohort is null ? "" : ":cohort:" + cohort);
     var configuration = await campaign.LoadAsync("planning-evaluation-configuration", configurationKey);
     if (configuration is null)
         foreach (var name in names)
@@ -363,6 +367,7 @@ foreach (var name in names)
         ["validation_results"] = state.ValidationResults.Count, ["elapsed_ms"] = run["elapsed_ms"]!.DeepClone(), ["failure"] = failure, ["termination_reason"] = campaign?.StopReason,
         ["diagnostics"] = new JsonArray(state.Diagnostics.Select(d => d.Code).Distinct().Select(d => (JsonNode)JsonValue.Create(d)).ToArray()),
         ["failure_history"] = new JsonArray(run["diagnostic_history"]!.AsArray().Select(d => { var entry = d!.DeepClone().AsObject(); entry.Remove("message"); return (JsonNode)entry; }).ToArray()) };
+    if (cohort is not null) rowResult["cohort"] = cohort;
     foreach (var (field, value) in PlanningBenchmarkMeasurements.Usage(run, live)) rowResult[field] = value?.DeepClone();
     if (variants.Count == (name.StartsWith("review_", StringComparison.Ordinal) ? 8 : name == "protected_cleanup" ? 5 : 2)) PlanningBenchmarkMeasurements.RecordBusinessOracle(run, state, execution, "existing-business-variants-v1");
     PlanningBenchmarkMeasurements.ProposalMetrics(run, rowResult);
@@ -377,8 +382,10 @@ if (replayKey is not null)
 { if (results.Any(r => r["execution_correct"]?.GetValue<bool>() != true)) Environment.ExitCode = 1; return; }
 var summary = PlanningBenchmarkMeasurements.Summary(results, phase); summary["campaign"] = campaignId; summary["source_commit"] = source; summary["harness_commit"] = harnessSource; summary["first_repetition"] = firstRepetition; summary["last_repetition"] = repetitions;
 if (campaign is not null) summary["campaign_accounting"] = await BenchmarkHttpJournal.AccountingAsync(campaign);
+if (cohort is not null) summary["cohort"] = cohort;
 Console.WriteLine(summary.ToJsonString());
-if (campaign is not null) await campaign.SaveAsync("planning-evaluation-summaries", source + ":" + phase + (firstRepetition == 1 ? "" : ":repetitions:" + firstRepetition + "-" + repetitions), summary);
+if (campaign is not null) await campaign.SaveAsync("planning-evaluation-summaries", source + ":" + phase +
+    (cohort is null ? "" : (arm is null ? "" : ":" + arm) + ":cohort:" + cohort) + (firstRepetition == 1 ? "" : ":repetitions:" + firstRepetition + "-" + repetitions), summary);
 if (!summary["gates_passed"]!.GetValue<bool>()) Environment.ExitCode = 1;
 
 sealed class MeasuredRuntime(IPlanningRuntime inner, ILLMClient? live, JsonObject run, Func<PlanningSession, CancellationToken, Task> checkpoint) : IPlanningRuntime, IPlanningConstructionAdmission

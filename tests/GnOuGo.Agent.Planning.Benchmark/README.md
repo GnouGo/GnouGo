@@ -816,12 +816,18 @@ replay is separate evidence and performs no Browser/LLM calls. Unknown oracle
 versions fail closed. Workbook existence still requires a successful writer receipt
 for the expected output path, and live cleanup is independently probed.
 
-Fresh runs capture `amazon-business-v3` or `code-business-v2`. Amazon additionally
+Fresh runs capture `amazon-business-v4` or `code-business-v2`. Amazon additionally
 binds the search to the exact caller query and checks the first product identities
 and their order from complete original search observations against visits and rows.
+The original selector and producer metadata must establish a whole-document
+`body` or `html` observation without fallback. A complete capture of a narrowed
+subtree cannot define the expected first products.
 Insufficient independent identity evidence cannot pass. Review PR additionally
 checks local report claims against retained command completions and pinned checkout
-evidence; valid report shape alone is insufficient. Historical oracle versions and
+evidence; valid report shape alone is insufficient. Those deterministic checks do
+not establish the quality or completeness of the requested diff review. Business
+acceptance also requires independent assessment of the retained pinned diff and
+actual local report; missing evidence remains unverified. Historical oracle versions and
 verdicts stay unchanged. Paired comparisons must apply the same frozen strengthened
 checks to both arms; missing baseline evidence remains incomparable.
 Fresh code-oracle evidence retains the parsed report actually read from disk and
@@ -903,13 +909,29 @@ artifacts retain their issued vocabulary for compatibility tests; those fixtures
 no consent control and never exercise a consent action.
 
 Ordinary fresh sessions capture 64 calls and four corrections. Complete serialized
-requests have hard input ceilings of 3,000 tokens for intent indexing, substep
-selection and discovery, 8,000 for generation/correction and 4,000 for Judges.
-Explicit tighter limits prevail; there is no automatic fallback to 32,000. They retain
-8,192 draft/correction and 2,048 Judge output tokens, the same
-15,000,000-token/five-hour cumulative budget and the unchanged
-runtime artifact-confirmation gate. The cohort manifest also freezes the construction
-limits, graph capacity and budget. Historical explicit request settings stay unchanged.
+input targets are 3,000/8,000/4,000 for navigation/draft/Judge families; hard
+ceilings are 6,000/16,000/8,000. Targets neither reject requests nor trigger another
+call. Stricter explicit limits prevail. Initial reasoning is medium and output
+reservations are 8,192/8,192/2,048. The 15,000,000-token/five-hour cumulative budget,
+graph capacity and runtime artifact-confirmation gate remain unchanged.
+
+`--phase-policy <JSON file>` supplies the complete Core phase-policy DTO before
+creation. `--cohort <label>` optionally namespaces Collections run/configuration
+keys; absence preserves historical keys exactly. External scenarios retain their
+existing cohort/run identity controls. Settings, source, model deployment, MCP
+binaries, inputs and oracles are frozen per arm. Retained runs reject conflicting
+settings. Supported low navigation reasoning is a separate experiment; larger
+output reservations require verified exhaustion evidence and a fresh identity.
+No profile changes settings midway through a session.
+
+The declared-configuration comparison mode records intentional per-arm settings
+differences, while preserving shared safety, call, correction and cumulative limits.
+Its outcomes compare configurations, not architecture alone. Default matched mode
+still requires identical effective reasoning/output settings. All nine candidate
+runs in the agreed 18 alternating pairs must pass independent business oracles;
+missing baseline evidence is explicitly incomparable. See the maintained
+[convergence summary and evidence index](../../docs/evidence/compact-taskplan-convergence.md).
+
 Draft/correction transport admissions retain conservative headroom for two bounded
 reviews (including the same validated price/FX quote), both financially and in remaining
 physical attempts. This is an admission condition, not an invented charge or uncertain
@@ -924,9 +946,10 @@ records and captured retry policies are not rewritten. The missing-receipt guard
 still blocks dispatch. This accounting correction grants no replay or new
 operator-retention authority.
 Fresh presentation schemas restrict selected requirement identities to the supplied
-original anchor/evidence or an existing bounded reselection. Discovery requests
-retrieve one evidence address per model response; mandatory schema closures are
-never truncated to fit. Historical issued domains and multi-address batches remain
+original anchor/evidence or an existing bounded reselection. Fresh evidence requests retrieve up to eight coherent addresses after prospective
+complete-request admission; mandatory schema closures are never truncated to fit.
+Successful individual evidence identities prevent regrouped repeats, and valid
+evidence-only responses consume calls, tokens and money without another correction. Historical issued domains and multi-address batches remain
 recoverable. These presentation changes require new frozen diagnostic identities,
 not retries of an unchanged failed request.
 

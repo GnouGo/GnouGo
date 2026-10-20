@@ -60,7 +60,8 @@ public sealed class CompactSelectionActionTests
             _ = await Advance(PlannerFixture.Clone(state), runtime);
             var saved = PlannerFixture.Clone(runtime.Checkpoints.Last(checkpoint => checkpoint.Status == PlanningStatus.Generating &&
                 checkpoint.PendingCall?.Purpose == PlanningCompactConstruction.SelectPurpose));
-            Assert.Equal(1, saved.ReplanAttempts);
+            Assert.Equal(0, saved.ReplanAttempts);
+            Assert.Equal(1, saved.PendingCall!.CorrectionAccounting);
             Assert.Equal(calls + 2, saved.ModelCalls);
             var issued = saved.PendingCall!.Request;
             var exact = JsonSerializer.Serialize(issued, PlanningJsonContext.Default.LLMRequest);

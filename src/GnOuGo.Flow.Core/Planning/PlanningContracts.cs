@@ -196,6 +196,11 @@ public sealed class PlanningModelCall
     public string Id { get; set; } = "";
     public string Purpose { get; set; } = "tasks";
     public LLMRequest Request { get; set; } = new();
+    // Absent on historical precharged requests. New requests reserve correction
+    // authority at issuance and classify the retained response with its transition.
+    // 0 = ordinary call, 1 = navigation correction, 3 = draft correction.
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? CorrectionAccounting { get; set; }
 }
 
 public sealed class PlanningCatalog
@@ -304,6 +309,8 @@ public sealed class PlanningConflictException(string message) : InvalidOperation
 [JsonSerializable(typeof(HumanInputRequest))]
 [JsonSerializable(typeof(PlanningConstructionState))]
 [JsonSerializable(typeof(PlanningConstructionOptions))]
+[JsonSerializable(typeof(PlanningConstructionPhasePolicy))]
+[JsonSerializable(typeof(PlanningPhaseSettings))]
 [JsonSerializable(typeof(PlanningConstructionCandidate))]
 [JsonSerializable(typeof(PlanningConstructionExtension))]
 [JsonSerializable(typeof(PlanningCompactConstructionState))]

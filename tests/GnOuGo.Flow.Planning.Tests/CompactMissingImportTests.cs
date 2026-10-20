@@ -173,6 +173,10 @@ public sealed class CompactMissingImportTests
         var state = await Advance(new() { Request = new() { TenantId = "missing-imports", Prompt = objective,
             Options = new() { ["automatic_correction"] = true } } }, runtime);
         Assert.Empty(state.Diagnostics);
+        // This corpus preserves the retained strict-import protocol. Fresh
+        // semantic imports are exercised by CompactActualImportReviewTests.
+        state.Request.Options["construction_limits"]!.AsObject().Remove("phasePolicy");
+        state.Construction!.Limits.PhasePolicy = null;
         state.Catalog = await runtime.DiscoverAsync(state.Request, PlannerFixture.Ct);
         state.Requirements!.Inputs = [new() { Name = "caller", Type = new() { Kind = "number" } }];
         state.Plan = new()

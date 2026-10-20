@@ -118,7 +118,7 @@ public sealed class CompactLoopCapacityPresentationTests
             if (purpose is PlanningConstruction.DraftPurpose or "replan") return Wire(request, Draft(request, purpose == "replan" ? 2 : 1));
             Assert.Equal(PlanningConstruction.LocalPurpose, purpose);
             return Wire(request, new() { ["findings"] = reviews++ == 0 ? new JsonArray(new JsonObject
-                { ["kind"] = "inconsistency", ["location"] = "/draft/tasks/0/maxItems", ["evidence"] = new JsonArray("/draft/tasks/0/items"),
+                { ["kind"] = "inconsistency", ["location"] = "/draft/tasks/0", ["evidence"] = new JsonArray("/draft/tasks/0"),
                     ["explanation"] = "The singleton ceiling rejects the explicitly supplied two-item array.", ["uncertainty"] = "No execution has occurred." }) : new JsonArray(),
                 ["uncertainty"] = "Future body work and execution remain unverified.", ["evidenceRequests"] = null });
         } };

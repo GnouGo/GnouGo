@@ -251,7 +251,7 @@ public sealed class CompactCandidateFailureIdentityTests
     private static void AssertScopeTypes(LLMRequest request)
     {
         var context = Context(request);
-        Assert.Contains("outputs: public /root results", request.Prompt, StringComparison.Ordinal);
+        Assert.True(HybridWorkflowPlanner.ConstructionReviewEvidenceGrounded(context, "/outputs/0", compact: true));
         Assert.Equal("array", context["outputs"]![0]!["type"]!["kind"]!.ToString());
         Assert.Equal("/groups/worker/body", context["step"]!["scope"]!.ToString());
         Assert.InRange(PlanningRequestMeasurements.Measure(request, PlanningConstruction.LocalPurpose, 4000).EstimatedInputTokens, 1, 4000);

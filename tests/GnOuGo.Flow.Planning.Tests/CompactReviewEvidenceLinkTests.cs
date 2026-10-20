@@ -149,8 +149,8 @@ public sealed class CompactReviewEvidenceLinkTests
         {
             Assert.Equal(PlanningConstruction.IntermediatePurpose, purpose);
             AssertBounded(request);
-            Assert.Contains("Cite existing context objects with exact JSON Pointers", request.Prompt, StringComparison.Ordinal);
-            Assert.Contains("evidenceRequests:[exact issued addresses]", request.Prompt, StringComparison.Ordinal);
+            Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(
+                Reviewed(), request.StructuredOutputSchema!));
             var context = Context(request);
             var entry = Assert.Single(context["taskEvidence"]!["items"]!.AsArray())!;
             Assert.Equal(1, context["taskEvidence"]!["count"]!.GetValue<int>());
@@ -225,6 +225,8 @@ public sealed class CompactReviewEvidenceLinkTests
         state.Construction!.Compact!.PresentationVersion = null;
         state.Construction.CandidateFailureIdentityVersion = null;
         state.Request.Options.Remove("construction_presentation_version");
+        state.Request.Options["construction_limits"]!.AsObject().Remove("phasePolicy");
+        state.Construction.Limits.PhasePolicy = null;
         runtime.Respond = (_, _) => throw new OperationCanceledException();
         _ = await Advance(state, runtime);
         var saved = PlannerFixture.Clone(runtime.Checkpoints.Last(checkpoint =>
@@ -329,7 +331,7 @@ public sealed class CompactReviewEvidenceLinkTests
         {
             AssertBounded(request);
             var context = Context(request);
-            var pointer = "/evidence/scope:~1groups~1worker~1body/tasks/0";
+            var pointer = "/evidence/scope:~1groups~1worker~1body";
             var task = context["evidence"]!["scope:/groups/worker/body"]!["tasks"]![0]!;
             Assert.Equal("foreach", task["kind"]!.ToString());
             Assert.False(task["parallel"]!.GetValue<bool>());
@@ -339,7 +341,7 @@ public sealed class CompactReviewEvidenceLinkTests
                 ["findings"] = new JsonArray(new JsonObject
                 {
                     ["kind"] = "omission", ["location"] = "/draft/outputs/0",
-                    ["evidence"] = new JsonArray(inventedPath ? pointer + "/parallel_status/0" : pointer, "/requirements/0"),
+                    ["evidence"] = new JsonArray(inventedPath ? pointer + "/tasks/0/parallel_status/0" : pointer, "/requirements/0"),
                     ["explanation"] = "The exported iteration has parallel:false despite the original parallel-work requirement.",
                     ["uncertainty"] = "Execution has not been observed."
                 }),

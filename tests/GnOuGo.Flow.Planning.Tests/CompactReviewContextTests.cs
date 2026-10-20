@@ -27,7 +27,7 @@ public sealed class CompactReviewContextTests
             Assert.Equal(evidence, context["evidence"]!.ToJsonString());
             Assert.Null(context["scopeGroup"]);
             Assert.True(JsonNode.DeepEquals(originalGroup, context["evidence"]!["scope:/groups/reusable/body"]!["group"]));
-            foreach (var field in originalStep.AsObject().Where(p => p.Key is not ("baseHash" or "discoveryComplete" or "inputs")))
+            foreach (var field in originalStep.AsObject().Where(p => p.Key is not ("baseHash" or "discoveryComplete" or "inputs" or "inputTaskIds" or "dependencyTaskIds")))
                 Assert.True(JsonNode.DeepEquals(field.Value, context["step"]![field.Key]), field.Key);
             var imported = context["interfaces"]![0]!;
             Assert.Equal(1, imported["schema"]!["minItems"]!.GetValue<int>());
@@ -76,6 +76,8 @@ public sealed class CompactReviewContextTests
         state.Request.Options.Remove("construction_presentation_version");
         state.Construction!.Compact!.PresentationVersion = null;
         state.Construction.Compact.InterfaceExtractions = null;
+        state.Request.Options["construction_limits"]!.AsObject().Remove("phasePolicy");
+        state.Construction.Limits.PhasePolicy = null;
         var retained = PlanningCompactConstruction.Context(state, review: true);
         Assert.Equal(JsonSerializer.SerializeToNode(state.Construction.Compact.CurrentStep,
             PlanningJsonContext.Default.PlanningConstructionStep)!.ToJsonString(), retained["step"]!.ToJsonString());

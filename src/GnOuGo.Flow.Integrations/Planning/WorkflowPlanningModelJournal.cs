@@ -24,7 +24,9 @@ internal sealed class WorkflowPlanningModelJournal(StepExecutionContext context,
 
     public async Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
     {
-        PlanningGenerationPolicy.Apply(request, planning.Generation);
+        if (PlanningConstructionPhasePolicies.IsFresh(planning))
+            PlanningConstructionPhasePolicies.ValidateIssued(request, planning);
+        else PlanningGenerationPolicy.Apply(request, planning.Generation);
         var key = request.ClientRequestId;
         var copy = JsonSerializer.Deserialize(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest), PlanningJsonContext.Default.LLMRequest)!;
         copy.ClientRequestId = null;

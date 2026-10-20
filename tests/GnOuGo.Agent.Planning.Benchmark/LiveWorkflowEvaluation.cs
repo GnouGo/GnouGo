@@ -265,7 +265,8 @@ internal static class LiveWorkflowEvaluation
         result["max_graph_nodes"] = request.Policy.MaxStepsTotal;
         result["max_workflows"] = request.Policy.MaxWorkflows;
         result["construction_limits"] = constructionLimits?.DeepClone() ??
-            JsonSerializer.SerializeToNode(new PlanningConstructionOptions(), PlanningJsonContext.Default.PlanningConstructionOptions);
+            (PlanningConstructionPhasePolicies.IsFresh(request) ? request.Options["construction_limits"]!.DeepClone() :
+                JsonSerializer.SerializeToNode(new PlanningConstructionOptions(), PlanningJsonContext.Default.PlanningConstructionOptions));
         return result;
     }
 

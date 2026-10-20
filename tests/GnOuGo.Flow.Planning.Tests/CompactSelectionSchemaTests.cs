@@ -172,7 +172,9 @@ public sealed class CompactSelectionSchemaTests
         }
         Assert.True(JsonNode.DeepEquals(state.Construction.Evidence, context["evidence"]));
         Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
-        compact.PresentationVersion = null;
+        state.Construction.Compact!.PresentationVersion = null;
+        state.Request.Options["construction_limits"]!.AsObject().Remove("phasePolicy");
+        state.Construction.Limits.PhasePolicy = null;
         Assert.Equal(PlanningCompactConstruction.SelectInstructions, PlanningCompactConstruction.SelectGuidance(state));
         Assert.Equal(PlanningCompactConstruction.DiscoveryInstructions, PlanningCompactConstruction.DiscoveryGuidance(state));
         Assert.Equal(state.Requirements.Outcomes.Count,

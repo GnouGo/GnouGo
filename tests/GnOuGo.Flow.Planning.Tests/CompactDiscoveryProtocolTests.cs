@@ -108,7 +108,7 @@ public sealed partial class CompactDiscoveryProtocolTests
     [Fact]
     public async Task RetainedMultiAddressEvidenceDoesNotReofferItsCurrentDirectoryPages()
     {
-        var (state, _) = await Ready();
+        var (state, _) = await Ready(retainedPolicy: true);
         state.Discovery.Sources.AddRange([new("beta", "Another provider."), new("gamma", "Last provider.")]);
         var provider = PlanningCompactConstruction.ProviderRequestAddress(state, 0);
         PlanningConstruction.LoadEvidence(state, ["page:sources:0", provider]);
@@ -394,11 +394,13 @@ public sealed partial class CompactDiscoveryProtocolTests
     }
 
     [Theory]
-    [InlineData("CONSTRUCTION_EVIDENCE_UNKNOWN")]
-    [InlineData("CONSTRUCTION_EVIDENCE_INVALID")]
-    public async Task CorrectedEvidenceReceiptResumesExactlyAndChargesOnlyOneCorrection(string code)
+    [InlineData("CONSTRUCTION_EVIDENCE_UNKNOWN", false)]
+    [InlineData("CONSTRUCTION_EVIDENCE_INVALID", false)]
+    [InlineData("CONSTRUCTION_EVIDENCE_UNKNOWN", true)]
+    [InlineData("CONSTRUCTION_EVIDENCE_INVALID", true)]
+    public async Task CorrectedEvidenceReceiptResumesExactlyWithItsCapturedCorrectionAccounting(string code, bool retainedPolicy)
     {
-        var (state, runtime) = await Ready();
+        var (state, runtime) = await Ready(retainedPolicy: retainedPolicy);
         AddOperations(state, 8);
         state.Request.MaxReplanAttempts = 1;
         state.Diagnostics = [new(code, "/evidenceRequests", "Correct the rejected navigation address.")];
@@ -407,7 +409,7 @@ public sealed partial class CompactDiscoveryProtocolTests
         var saved = PlannerFixture.Clone(runtime.Checkpoints.Last(checkpoint =>
             checkpoint.Status == PlanningStatus.Generating &&
             checkpoint.PendingCall?.Purpose == PlanningCompactConstruction.DiscoveryPurpose));
-        Assert.Equal(1, saved.ReplanAttempts);
+        Assert.Equal(retainedPolicy ? 1 : 0, saved.ReplanAttempts);
         var issued = saved.PendingCall!.Request;
         var exact = JsonSerializer.Serialize(issued, PlanningJsonContext.Default.LLMRequest);
         var calls = saved.ModelCalls;
@@ -424,7 +426,7 @@ public sealed partial class CompactDiscoveryProtocolTests
         state = await Advance(saved, recovery);
         Assert.Empty(state.Diagnostics);
         Assert.Equal(calls, state.ModelCalls);
-        Assert.Equal(1, state.ReplanAttempts);
+        Assert.Equal(retainedPolicy ? 1 : 0, state.ReplanAttempts);
         Assert.Single(state.Construction!.EvidenceRequests, key => key == pageKey);
         var nextAddress = PlanningCompactConstruction.OperationPageAddress(state, 4);
         Assert.Equal(nextAddress, PlanningCompactConstruction.DiscoveryContext(state)["directoryEvidence"]!["operations"]!.ToString());
@@ -432,12 +434,12 @@ public sealed partial class CompactDiscoveryProtocolTests
         state = await Advance(PlannerFixture.Clone(state), recovery);
         Assert.Empty(state.Diagnostics);
         Assert.Equal(calls + 1, state.ModelCalls);
-        Assert.Equal(1, state.ReplanAttempts);
+        Assert.Equal(retainedPolicy ? 1 : 0, state.ReplanAttempts);
         Assert.Null(PlanningCompactConstruction.DiscoveryContext(state)["directoryEvidence"]!["operations"]);
     }
 
     [Fact]
-    public async Task MalformedDescriptionAddressNeedsOnlyOneCorrectionBeforeNormalProviderNavigation()
+    public async Task MalformedDescriptionAddressRecoversThroughEvidenceWithoutChargingCorrection()
     {
         var (state, runtime) = await Ready();
         AddOperations(state, 4);
@@ -458,14 +460,14 @@ public sealed partial class CompactDiscoveryProtocolTests
         runtime.Respond = (request, _) => Wire(request, Evidence(description));
         state = await Advance(PlannerFixture.Clone(state), runtime);
         Assert.Empty(state.Diagnostics);
-        Assert.Equal(1, state.ReplanAttempts);
+        Assert.Equal(0, state.ReplanAttempts);
         Assert.Equal("Read exact original records with declared restrictions.", state.Construction!.Evidence![description]!["text"]!.ToString());
 
         var providerPage = PlanningCompactConstruction.ProviderRequestAddress(state, 0);
         runtime.Respond = (request, _) => Wire(request, Evidence(providerPage));
         state = await Advance(PlannerFixture.Clone(state), runtime);
         Assert.Empty(state.Diagnostics);
-        Assert.Equal(1, state.ReplanAttempts);
+        Assert.Equal(0, state.ReplanAttempts);
         runtime.Respond = (request, _) =>
         {
             Assert.Null(Context(request)["diagnostics"]);
@@ -474,7 +476,7 @@ public sealed partial class CompactDiscoveryProtocolTests
         };
         state = await Advance(PlannerFixture.Clone(state), runtime);
         Assert.Empty(state.Diagnostics);
-        Assert.Equal(1, state.ReplanAttempts);
+        Assert.Equal(0, state.ReplanAttempts);
         Assert.Equal(calls + 4, state.ModelCalls);
         Assert.Single(state.Discovery.Pages, page => page.Cursor == "more" && page.Query == Objective);
         Assert.Equal(plan, PlanningConstruction.Hash(state.Plan));
@@ -509,6 +511,7 @@ public sealed partial class CompactDiscoveryProtocolTests
     {
         var (state, runtime) = await Ready();
         state.Diagnostics = [new("CONSTRUCTION_EVIDENCE_UNKNOWN", "/evidenceRequests", "Resolved address."),
+            new("CONSTRUCTION_EVIDENCE_LIMIT", "/evidenceRequests", "Previous batch was too large."),
             new("CONSTRUCTION_EVIDENCE_INVALID", "/elsewhere", "Unrelated location."),
             new("CONSTRUCTION_STEP_INPUT_INVALID", "/step/inputs/0", "Unrelated semantic finding."),
             new("CONSTRUCTION_CONTRACT_UNAVAILABLE", "/construction/compact/currentStep/operationIds", "An actual selected contract is unresolved.")];
@@ -518,7 +521,7 @@ public sealed partial class CompactDiscoveryProtocolTests
         Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Location == "/elsewhere");
         Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Code == "CONSTRUCTION_STEP_INPUT_INVALID");
         Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Code == "CONSTRUCTION_CONTRACT_UNAVAILABLE");
-        Assert.Equal(1, state.ReplanAttempts);
+        Assert.Equal(0, state.ReplanAttempts);
     }
 
     [Fact]
@@ -807,7 +810,7 @@ public sealed partial class CompactDiscoveryProtocolTests
     [Fact]
     public async Task SeparateDiscoveryEvidenceRequestsPreserveOriginalPagesWithinTheCompleteRequestLimit()
     {
-        var (state, _) = await Ready();
+        var (state, _) = await Ready(retainedPolicy: true);
         state.Requirements!.Outcomes[0] = state.Requirements.Outcomes[0] with
         { Description = string.Concat(Enumerable.Repeat("Preserve complete original observations, identities, order and required cleanup. ", 8)) };
         var step = state.Construction!.Compact!.CurrentStep!;
@@ -901,7 +904,7 @@ public sealed partial class CompactDiscoveryProtocolTests
     [Fact]
     public async Task PendingHistoricalDiscoveryEvidenceBatchKeepsItsIssuedSchemaAndSavedReceipt()
     {
-        var (state, runtime) = await Ready();
+        var (state, runtime) = await Ready(retainedPolicy: true);
         state.Construction!.Compact!.PresentationVersion = null;
         var originalSchema = PlanningCompactConstruction.DiscoverySchema(state);
         var response = Evidence("source:" + state.Construction.Compact.Sources[0].Id,
@@ -1192,7 +1195,7 @@ public sealed partial class CompactDiscoveryProtocolTests
 
     private const string Objective = "Prepare the exact greeting from the supplied data.";
     private const string Reason = "The supplied literal can be assembled with deterministic bindings; no suitable operation is needed.";
-    private static async Task<(PlanningSession State, TestRuntime Runtime)> Ready(bool inspected = false)
+    private static async Task<(PlanningSession State, TestRuntime Runtime)> Ready(bool inspected = false, bool retainedPolicy = false)
     {
         var runtime = new TestRuntime { Capabilities = new EmptyCatalog(), Respond = (request, _) =>
         {
@@ -1204,6 +1207,11 @@ public sealed partial class CompactDiscoveryProtocolTests
         var state = await Advance(new() { Request = new() { TenantId = "compact-discovery", Prompt = "Return exactly Hello. No remote publication.",
             Options = new JsonObject { ["automatic_correction"] = true } } }, runtime);
         Assert.Empty(state.Diagnostics);
+        if (retainedPolicy)
+        {
+            state.Request.Options["construction_limits"]!.AsObject().Remove("phasePolicy");
+            state.Construction!.Limits.PhasePolicy = null;
+        }
         Assert.Equal(2, state.Construction!.Compact!.PresentationVersion);
         Assert.Empty(state.Construction.Compact.InterfaceExtractions!);
         Assert.True(PlanningCompactConstruction.SourcesComplete(state));

@@ -1,6 +1,7 @@
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Planning;
+using GnOuGo.Flow.Core.Runtime;
 
 namespace GnOuGo.Flow.Planning;
 
@@ -18,7 +19,12 @@ public sealed partial class HybridWorkflowPlanner
         Return one action: findings:[] (or grounded findings), evidenceRequests:null; or findings:null, evidenceRequests:[exact issued addresses]. Use taskEvidence/groupEvidence, task:<id>, scope:<path>; call.group uses scope:/groups/<id>/body. Never use bare IDs or invent versions/pointers. Directories: page:requirements:<offset>, page:interfaces:<offset>, page:checkpoints:<offset>. Cite existing context objects with exact JSON Pointers; explain fields in explanation/uncertainty, never invented status paths. Locate defects under /draft or /requirements. State uncertainty; evidence/reviews grant no edit/execution authority or proof of execution.
         """;
 
-    private static string CompactConstructionReviewGuidance(PlanningSession state) =>
+    private static string CompactConstructionReviewGuidance(PlanningSession state) => PlanningConstructionPhasePolicies.IsFresh(state.Request)
+        ? """
+          Review the current fragment against exact original requirements, globals, contracts and actual typed interfaces: arguments, effects, provenance, conditions, exports, cleanup and unnecessary work. constructionStage defines its claim; closeRequirementIds claims completion with accepted work, [] claims none. Open containers intentionally defer children/exports; future work is not an omission. outputs are public /root results; scopeInterface includes preserved local exports.
+          Return one action: findings (empty if none) with evidenceRequests:null, or findings:null with necessary original evidence addresses. Finding locations and evidence use the schema's existing context-object pointers; explain fields and uncertainty in prose. Evidence retrieval uses issued addresses, task:<id>, scope:<path>, or scope:/groups/<call.group>/body; never bare IDs. Navigation, compilation and reviews grant no authority or proof of execution. Partial descriptions cannot prove absent functionality; request the original.
+          """ + "\n" + PlanningCompactConstruction.DraftSemantics(state, state.Construction!.Compact!.CurrentStep!)
+        :
         (state.Construction!.Compact!.PresentationVersion == 2 ? CompactConstructionReviewFocusedInstructions :
             CompactConstructionReviewInstructions + "\n" + CompactConstructionReviewEvidenceInstructions) +
         (state.Construction.Compact.PresentationVersion == 2 &&
@@ -59,6 +65,61 @@ public sealed partial class HybridWorkflowPlanner
             ("uncertainty", text), ("evidenceRequests", PlanningSchemas.Nullable(PlanningSchemas.Array(new JsonObject { ["type"] = "string", ["maxLength"] = compact ? 2048 : 512 }, 1, 8))));
     }
 
+    internal static JsonObject ConstructionReviewSchema(JsonObject context)
+    {
+        var locations = new List<string>();
+        foreach (var key in new[] { "tasks", "always", "outputs", "groups", "choices" })
+            AddEntries(context["draft"]?[key], "/draft/" + key, locations);
+        AddEntries(context["requirements"], "/requirements", locations);
+        if (context["commitments"] is JsonObject commitments)
+            foreach (var item in commitments.Where(item => item.Value is JsonArray { Count: > 0 }))
+                locations.Add("/commitments/" + Escape(item.Key));
+        var evidence = new List<string>();
+        foreach (var key in new[] { "requirements", "globalConstraints", "interfaces", "operations", "outputs", "choices", "checkpoints" })
+            AddEntries(context[key], "/" + key, evidence);
+        evidence.AddRange(locations);
+        foreach (var key in new[] { "draft", "step", "group", "scopeGroup", "scopeInterface", "constructionStage" })
+            if (context[key] is JsonObject { Count: > 0 }) evidence.Add("/" + key);
+        if (context["evidence"] is JsonObject supplied)
+            foreach (var item in supplied) evidence.Add("/evidence/" + Escape(item.Key));
+        var grounded = evidence.Distinct(StringComparer.Ordinal)
+            .Where(pointer => ConstructionReviewEvidenceGrounded(context, pointer, compact: true)).ToArray();
+        var schema = ConstructionReviewSchema(compact: true);
+        var findings = schema["properties"]!["findings"]!["anyOf"]!.AsArray()
+            .Single(node => node?["type"]?.ToString() == "array")!.AsObject();
+        if (locations.Count == 0 || grounded.Length == 0) findings["maxItems"] = 0;
+        else
+        {
+            var properties = findings["items"]!["properties"]!.AsObject();
+            properties["location"] = PlanningSchemas.Enum(locations.Distinct(StringComparer.Ordinal).ToArray());
+            properties["evidence"] = PlanningSchemas.Array(PlanningSchemas.Enum(grounded), 1, 3);
+        }
+        return schema;
+
+        static string Escape(string token) => token.Replace("~", "~0", StringComparison.Ordinal).Replace("/", "~1", StringComparison.Ordinal);
+        static void AddEntries(JsonNode? node, string prefix, List<string> target)
+        {
+            if (node is not JsonArray { Count: > 0 } array) return;
+            // Large supplied collections remain groundable through their exact
+            // existing parent, without an unbounded nested-pointer directory.
+            if (array.Count > 16 && prefix != "/requirements") { target.Add(prefix); return; }
+            for (var index = 0; index < array.Count; index++)
+                if (array[index] is JsonObject { Count: > 0 }) target.Add(prefix + "/" + index);
+        }
+    }
+
+    internal static (JsonObject Context, LLMRequest Request) CreateConstructionReviewRequest(PlanningSession state, bool intermediate)
+    {
+        var construction = state.Construction!;
+        var guidance = construction.Version == 2 ? CompactConstructionReviewGuidance(state) : ConstructionReviewInstructions;
+        if (!PlanningConstructionPhasePolicies.IsFresh(state.Request))
+            return PlanningConstruction.Request(state, guidance, _ => ConstructionReviewSchema(compact: construction.Version == 2),
+                construction.Limits.ReviewOutputTokens, review: true, intermediate);
+        var context = PlanningCompactConstruction.Context(state, review: true, intermediate);
+        var purpose = intermediate ? PlanningConstruction.IntermediatePurpose : PlanningConstruction.LocalPurpose;
+        return (context, PlanningCompactConstruction.Request(guidance, context, ConstructionReviewSchema(context), purpose));
+    }
+
     private static async Task ReviewConstructionAsync(PlanningSession state, IPlanningRuntime runtime, bool intermediate, CancellationToken ct)
     {
         var construction = state.Construction!; var draft = construction.Candidate!;
@@ -72,9 +133,7 @@ public sealed partial class HybridWorkflowPlanner
         GnOuGo.Flow.Core.Runtime.LLMRequest request;
         if (state.PendingCall is null)
         {
-            (construction.PendingReviewContext, request) = PlanningConstruction.Request(state,
-                construction.Version == 2 ? CompactConstructionReviewGuidance(state) : ConstructionReviewInstructions,
-                _ => ConstructionReviewSchema(compact: construction.Version == 2), construction.Limits.ReviewOutputTokens, review: true, intermediate);
+            (construction.PendingReviewContext, request) = CreateConstructionReviewRequest(state, intermediate);
             construction.PendingReviewHash = PlanningGraphCompiler.Fingerprint(purpose + "\n" + draft.Hash + "\n" + construction.PendingReviewContext.ToJsonString());
         }
         else request = state.PendingCall.Request;
@@ -104,7 +163,17 @@ public sealed partial class HybridWorkflowPlanner
         { Inconclusive("The fragment Judge must return either findings or an evidence request."); return; }
         if (response["evidenceRequests"] is JsonArray evidenceRequests)
         {
-            try { PlanningConstruction.LoadEvidence(state, evidenceRequests.Select(e => e!.ToString()).ToList()); }
+            try
+            {
+                PlanningConstruction.LoadEvidence(state, evidenceRequests.Select(e => e!.ToString()).ToList(),
+                    followup: probe =>
+                    {
+                        var followup = CreateConstructionReviewRequest(probe, intermediate).Request;
+                        return PlanningModelCalls.PrepareRequest(probe, purpose, followup.Prompt, followup.StructuredOutputSchema!.AsObject(),
+                            probe.Construction!.Limits.ReviewOutputTokens);
+                    },
+                    purpose: purpose);
+            }
             catch (PlanningResponseException) { Inconclusive("The fragment Judge requested unavailable or repeated evidence."); return; }
             construction.PendingReviewContext = null; construction.PendingReviewHash = null;
             return;

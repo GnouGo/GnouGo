@@ -23,7 +23,6 @@ public sealed class CompactScopeInterfaceTests
                 Assert.Equal("message", context["scopeInterface"]!["outputs"]![0]!["name"]!.ToString());
                 Assert.Equal("string", context["scopeInterface"]!["outputs"]![0]!["schema"]!["type"]!.ToString());
                 Assert.Null(context["scopeGroup"]!["outputs"]);
-                Assert.Contains("extension.outputs adds only new exports", request.Prompt, StringComparison.Ordinal);
             }
             if (stage == 3 && purpose is PlanningConstruction.LocalPurpose or PlanningConstruction.IntermediatePurpose)
             {
@@ -108,7 +107,7 @@ public sealed class CompactScopeInterfaceTests
             if (purpose == PlanningConstruction.LocalPurpose)
             {
                 reviewed = true;
-                Assert.Equal(kind == "transform", request.Prompt.Contains("A transform's required object resultType declares named output ports", StringComparison.Ordinal));
+                Assert.Equal(kind == "transform", request.Prompt.Contains("named output ports", StringComparison.Ordinal));
                 Assert.Equal("string", Context(request)["scopeInterface"]!["outputs"]![0]!["schema"]!["type"]!.ToString());
                 Assert.InRange(PlanningRequestMeasurements.Measure(request, purpose, 4000).EstimatedInputTokens, 1, 4000);
             }
@@ -146,12 +145,11 @@ public sealed class CompactScopeInterfaceTests
         _ = await PlannerFixture.RunAsync(runtime, Fresh("Process the complete literal array [1,2], then return message."));
         var saved = PlannerFixture.Clone(runtime.Checkpoints.Last(s => s.PendingCall?.Purpose == PlanningConstruction.LocalPurpose));
         var request = saved.PendingCall!.Request;
-        Assert.Equal(kind == "foreach", request.Prompt.Contains("foreach.maxItems rejects excess input before iteration", StringComparison.Ordinal));
+        Assert.Equal(kind == "foreach", request.Prompt.Contains("foreach.maxItems", StringComparison.Ordinal));
         if (kind == "foreach")
         {
-            Assert.Contains("Report conflicts with explicit required sizes", request.Prompt, StringComparison.Ordinal);
-            Assert.Contains("retain finite supported capacity as uncertainty", request.Prompt, StringComparison.Ordinal);
             Assert.Equal(2, Context(request)["draft"]!["tasks"]![0]!["maxItems"]!.GetValue<int>());
+            Assert.Equal(1, Context(request)["draft"]!["tasks"]![0]!["maxConcurrency"]!.GetValue<int>());
         }
         Assert.InRange(PlanningRequestMeasurements.Measure(request, PlanningConstruction.LocalPurpose, 4000).EstimatedInputTokens, 1, 4000);
         var issued = JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest);

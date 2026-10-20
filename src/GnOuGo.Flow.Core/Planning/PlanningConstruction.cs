@@ -7,6 +7,8 @@ namespace GnOuGo.Flow.Core.Planning;
 public sealed class PlanningConstructionOptions
 {
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PlanningConstructionPhasePolicy? PhasePolicy { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public PlanningConstructionInputLimits? InputLimits { get; set; }
     public int MaxTasksPerDraft { get; set; } = 8;
     public int MaxCheckpoints { get; set; } = 128;

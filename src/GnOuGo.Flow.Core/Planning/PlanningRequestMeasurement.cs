@@ -19,6 +19,11 @@ public static class PlanningConstructionInputPolicy
     public static bool IsCompact(PlanningRequest request) => request.Options["construction_version"]?.GetValue<int>() == 2;
 
     public static int EffectiveLimit(PlanningRequest request, string purpose)
+        => PlanningConstructionPhasePolicies.IsFresh(request)
+            ? PlanningConstructionPhasePolicies.Resolve(request, purpose).MaxInputTokens
+            : LegacyLimit(request, purpose);
+
+    internal static int LegacyLimit(PlanningRequest request, string purpose)
     {
         if (!IsCompact(request)) return request.Generation.MaxInputTokensPerRequest;
         var captured = request.Options["construction_input_limits"]?.Deserialize(PlanningJsonContext.Default.PlanningConstructionInputLimits)

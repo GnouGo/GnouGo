@@ -12,7 +12,8 @@ public sealed partial class TaskPlanCompiler
     // concrete binding with the ordinary semantic engine; only unfinished branch
     // interfaces are deferred, and their container results remain unavailable.
     internal static TaskConstructionValidation ValidateConstruction(TaskPlan plan, PlanningCatalog catalog, PlanningRequest request,
-        IReadOnlySet<string> openScopes, IReadOnlyDictionary<string, IReadOnlyList<TaskValue>>? requestedInterfaces = null)
+        IReadOnlySet<string> openScopes, IReadOnlyDictionary<string, IReadOnlyList<TaskValue>>? requestedInterfaces = null,
+        IReadOnlyDictionary<string, IReadOnlyList<TaskValue>>? requestedBindings = null)
     {
         var compiler = new TaskPlanCompiler
         {
@@ -68,9 +69,22 @@ public sealed partial class TaskPlanCompiler
         }
         if (findings.Count > 0) return new(findings, interfaces);
 
-        findings.AddRange(compiler.Preflight(inspectFrontier: (path, scope) =>
+        findings.AddRange(compiler.Preflight(inspect: (path, scope) =>
+        {
+            if (requestedBindings?.TryGetValue(path, out var bindings) == true)
+                Capture(path, scope, bindings);
+        }, inspectFrontier: (path, scope) =>
         {
             if (requestedInterfaces is null || !requestedInterfaces.TryGetValue(path, out var requested)) return;
+            Capture(path, scope, requested);
+        }));
+        if (findings.Count == 0 && request.Options["planning_validation_profile"]?.ToString() == AssertionValidationProfile)
+            findings.AddRange(compiler.AssertionContradictions());
+        if (findings.Count > 0) interfaces.Clear();
+        return new(findings, interfaces);
+
+        void Capture(string path, Scope scope, IReadOnlyList<TaskValue> requested)
+        {
             var visible = new List<RepairSource>();
             foreach (var value in requested)
             {
@@ -86,10 +100,6 @@ public sealed partial class TaskPlanCompiler
                 finally { compiler._location = saved; }
             }
             interfaces[path] = visible;
-        }));
-        if (findings.Count == 0 && request.Options["planning_validation_profile"]?.ToString() == AssertionValidationProfile)
-            findings.AddRange(compiler.AssertionContradictions());
-        if (findings.Count > 0) interfaces.Clear();
-        return new(findings, interfaces);
+        }
     }
 }

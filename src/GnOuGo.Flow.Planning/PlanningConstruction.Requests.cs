@@ -7,7 +7,7 @@ namespace GnOuGo.Flow.Planning;
 internal static partial class PlanningConstruction
 {
     internal static LLMRequest DraftRequest(PlanningSession state, bool repair) => Request(state,
-        (state.Construction!.Version == 2 ? PlanningCompactConstruction.DraftInstructions : Instructions) + (repair ? "\nCorrect only the retained tentative extension. Preserve its target scope and accepted requirements; the accepted TaskPlan is immutable." : ""),
+        (state.Construction!.Version == 2 ? PlanningCompactConstruction.DraftGuidance(state) : Instructions) + (repair ? "\nCorrect only the retained tentative extension. Preserve its target scope and accepted requirements; the accepted TaskPlan is immutable." : ""),
         operations => Schema(state, operations), state.Construction!.Limits.DraftOutputTokens).Request;
 
     // Only fresh presentations may select optional contracts. Issued requests and

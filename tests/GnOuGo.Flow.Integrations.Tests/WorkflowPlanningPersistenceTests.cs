@@ -176,6 +176,38 @@ public sealed class WorkflowPlanningPersistenceTests : IDisposable
     }
 
     [Fact]
+    public async Task CapturedLowNavigationReplaysItsExactEncryptedRequestWithGlobalMedium()
+    {
+        var client = new Client(); var initial = Initial();
+        initial.Construction = new() { Limits = new() { PhasePolicy = new()
+        {
+            Navigation = new() { TargetInputTokens = 3000, MaxInputTokens = 6000, Reasoning = "low", OutputTokens = 4096 }
+        } } };
+        LLMRequest request; string issued;
+        await using (var session = await Factory().OpenAsync(Context(client), initial, Ct))
+        {
+            Assert.Equal("medium", session.Session.Request.Generation.Reasoning);
+            request = Request(session.Session, "one");
+            Assert.Equal("low", request.Reasoning); Assert.Equal(4096, request.MaxTokens);
+            issued = JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest);
+            session.Session.PendingCall = new() { Id = request.ClientRequestId!, Purpose = "construction_intent", Request = request };
+            await session.Runtime.CheckpointAsync(session.Session, Ct);
+            await session.Runtime.CallAsync(request, "construction_intent", Ct);
+        }
+        await using (var restored = await Factory().OpenAsync(Context(client), Initial(), Ct))
+        {
+            Assert.Equal(issued, JsonSerializer.Serialize(restored.Session.PendingCall!.Request, PlanningJsonContext.Default.LLMRequest));
+            var response = await restored.Runtime.CallAsync(restored.Session.PendingCall.Request, "construction_intent", Ct);
+            Assert.Equal("secret result", response.Json!["value"]!.ToString());
+            Assert.Equal(issued, JsonSerializer.Serialize(restored.Session.PendingCall.Request, PlanningJsonContext.Default.LLMRequest));
+            Assert.Equal(1, restored.Session.Usage!.Calls);
+        }
+        Assert.Equal(1, client.Calls);
+        Assert.Equal(4096, Assert.Single(client.Ceilings));
+        Assert.Equal("low", Assert.Single(client.Reasoning));
+    }
+
+    [Fact]
     public async Task CompletedRequestReplaysFromEncryptedStorageAfterRestartWithoutChargingAgain()
     {
         var client = new Client(); var factory = Factory(); LLMRequest request;
@@ -348,16 +380,17 @@ public sealed class WorkflowPlanningPersistenceTests : IDisposable
     };
     private static LLMRequest Request(PlanningSession snapshot, string attempt)
     {
-        var request = PlanningGenerationPolicy.Apply(new()
+        var request = new LLMRequest
         {
             Prompt = "secret intent",
             Model = "test",
             Reasoning = "low",
             StructuredOutputStrict = true,
             StructuredOutputSchema = JsonNode.Parse("""{"type":"object","properties":{"value":{"type":"string"}},"required":["value"],"additionalProperties":false}""")
-        }, snapshot.Request.Generation);
+        };
         if (PlanningConstructionInputPolicy.IsCompact(snapshot.Request))
             request.StructuredOutputSchema!["title"] = "construction_intent";
+        PlanningConstructionPhasePolicies.Apply(request, snapshot.Request, "construction_intent");
         request.ClientRequestId = snapshot.Request.SessionId + ":" + attempt + ":intent:workflow:" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
         return request;
     }
@@ -390,10 +423,12 @@ public sealed class WorkflowPlanningPersistenceTests : IDisposable
         public bool Fail { get; set; }
         public bool Truncate { get; set; }
         public List<int?> Ceilings { get; } = [];
+        public List<string?> Reasoning { get; } = [];
         public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
         {
             Interlocked.Increment(ref _calls);
             lock (Ceilings) Ceilings.Add(request.MaxTokens);
+            lock (Reasoning) Reasoning.Add(request.Reasoning);
             if (Fail) throw new IOException("interrupted");
             return Task.FromResult(Truncate
                 ? new LLMResponse { CompletionStatus = "output_limit", Text = "", Usage = JsonNode.Parse("""{"prompt_tokens":12,"completion_tokens":8192,"completion_tokens_details":{"reasoning_tokens":8192},"total_tokens":8204}""") }

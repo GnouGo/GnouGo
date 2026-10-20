@@ -49,12 +49,12 @@ public sealed class CompactContractEvidenceFlowTests
             }
             Assert.Equal(PlanningConstruction.LocalPurpose, purpose);
             reviews++;
-            Assert.Contains("Partial descriptions do not prove absent functionality", request.Prompt, StringComparison.Ordinal);
+            Assert.Contains("Partial descriptions cannot prove absent functionality", request.Prompt, StringComparison.Ordinal);
             Assert.DoesNotContain("Newly opened group/container scopes", request.Prompt, StringComparison.Ordinal);
-            Assert.Contains("Future work is not an omission", request.Prompt, StringComparison.Ordinal);
+            Assert.Contains("future work is not an omission", request.Prompt, StringComparison.OrdinalIgnoreCase);
             Assert.Contains("closeRequirementIds claims completion with accepted work", request.Prompt, StringComparison.Ordinal);
-            Assert.Contains("outputs: public /root results", request.Prompt, StringComparison.Ordinal);
-            Assert.Contains("scopeInterface: this scope's accepted exports plus additions", request.Prompt, StringComparison.Ordinal);
+            Assert.Contains("outputs are public /root results", request.Prompt, StringComparison.Ordinal);
+            Assert.Contains("scopeInterface includes preserved local exports", request.Prompt, StringComparison.Ordinal);
             var supplied = context["evidence"]?.AsObject().FirstOrDefault(pair => pair.Key.StartsWith("description:", StringComparison.Ordinal));
             if (supplied?.Value is JsonObject original)
             {
@@ -79,7 +79,7 @@ public sealed class CompactContractEvidenceFlowTests
         Assert.Equal(3, reviews);
         Assert.Equal(state.Discovery.Resolved[0].Description, retrievedText);
         Assert.Equal("EXACT", Assert.Single(Assert.Single(state.Plan!.Root.Tasks).Inputs).Value.Text);
-        Assert.Equal(correction ? 2 : 0, state.ReplanAttempts);
+        Assert.Equal(correction ? 1 : 0, state.ReplanAttempts);
         Assert.Equal(originalContract, JsonSerializer.Serialize(state.Discovery.Resolved[0], PlanningJsonContext.Default.PlanningCapability));
     }
 
@@ -115,7 +115,7 @@ public sealed class CompactContractEvidenceFlowTests
     [Fact]
     public async Task SequentialDraftEvidenceRetainsEverySelectedInputWithoutAcceptingABatch()
     {
-        var (state, runtime) = await Ready();
+        var (state, runtime) = await Ready(retainedPolicy: true);
         state.Discovery.Resolved[0].InputSchema["properties"]!["mode"] = new JsonObject
             { ["type"] = "string", ["enum"] = new JsonArray("exact"), ["description"] = "Preserve every original observation." };
         var names = new[] { "target", "unrelated", "mode" };
@@ -217,7 +217,7 @@ public sealed class CompactContractEvidenceFlowTests
     [InlineData(true)]
     public async Task TypedCorrectionEvidenceUsesCapturedPresentationCardinality(bool historical)
     {
-        var (state, _) = await Ready();
+        var (state, _) = await Ready(retainedPolicy: true);
         if (historical) state.Construction!.Compact!.PresentationVersion = null;
         var authority = PlannerFixture.Clone(state);
         authority.Plan = new() { Root = new() { Tasks = [new() { Id = "read_exact", Kind = "operation",
@@ -239,7 +239,7 @@ public sealed class CompactContractEvidenceFlowTests
     [Fact]
     public async Task SavedHistoricalDraftConsumesItsExactBatchReceiptWithoutNewAccounting()
     {
-        var (state, runtime) = await Ready();
+        var (state, runtime) = await Ready(retainedPolicy: true);
         state.Construction!.Compact!.PresentationVersion = null;
         state.Request.Options.Remove("construction_presentation_version");
         runtime.Respond = (_, _) => throw new OperationCanceledException();
@@ -297,7 +297,7 @@ public sealed class CompactContractEvidenceFlowTests
         Assert.NotNull(resumed.Construction.Evidence!["schema:read@v1:/input/properties/target"]);
     }
 
-    private static async Task<(PlanningSession State, TestRuntime Runtime)> Ready()
+    private static async Task<(PlanningSession State, TestRuntime Runtime)> Ready(bool retainedPolicy = false)
     {
         var runtime = new TestRuntime { Respond = (request, _) =>
         {
@@ -308,6 +308,11 @@ public sealed class CompactContractEvidenceFlowTests
         var state = await Advance(new() { Request = new() { TenantId = "contract-evidence-flow",
             Prompt = "Read the caller-authorized record EXACT.", Options = new JsonObject { ["automatic_correction"] = true } } }, runtime);
         Assert.Empty(state.Diagnostics);
+        if (retainedPolicy)
+        {
+            state.Request.Options["construction_limits"]!.AsObject().Remove("phasePolicy");
+            state.Construction!.Limits.PhasePolicy = null;
+        }
         var capability = new PlanningCapability
         {
             Id = "read", Version = "v1", Kind = "tool", StepType = "mcp.call", Server = "source", Method = "read", EffectKind = "read",

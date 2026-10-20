@@ -15,6 +15,12 @@ internal static class PlanningModelCalls
     internal static int RemainingRepairs(PlanningSession state) => Math.Max(0, state.Request.MaxReplanAttempts - state.ReplanAttempts);
     internal static bool IsRepair(PlanningSession state) => state.Diagnostics.Any(d => d.Required &&
         d.Code is not (ErrorCodes.LlmBudgetExceeded or "DISCOVERY_INCOMPLETE" or "DISCOVERY_NOT_ALLOWED"));
+    internal static int ConstructionOutputLimit(PlanningSession state, string purpose) =>
+        PlanningConstructionPhasePolicies.IsFresh(state.Request)
+            ? PlanningConstructionPhasePolicies.Resolve(state.Request, purpose).OutputTokens
+            : Math.Min(purpose is PlanningConstruction.LocalPurpose or PlanningConstruction.IntermediatePurpose
+                ? state.Construction!.Limits.ReviewOutputTokens : state.Construction!.Limits.DraftOutputTokens,
+                state.Request.Generation.MaxOutputTokens);
 
     internal static void EnsureCallAvailable(PlanningSession state)
     {
@@ -23,7 +29,27 @@ internal static class PlanningModelCalls
                 $"The session model-call budget was exhausted ({CallsUsed(state)}/{CallLimit(state)} calls). Input/output token settings do not extend this cumulative allowance. Start a new planning session; retained requests and accounting remain unchanged.");
     }
 
-    internal static async Task<JsonNode> CallAsync(PlanningSession state, IPlanningRuntime runtime, string purpose, string prompt, JsonObject schema, CancellationToken ct, int? outputLimit = null)
+    internal static LLMRequest PrepareRequest(PlanningSession state, string purpose, string prompt, JsonObject schema, int? outputLimit = null)
+    {
+        if (PlanningConstructionInputPolicy.IsCompact(state.Request))
+        {
+            schema = schema.DeepClone().AsObject();
+            schema["title"] = purpose;
+        }
+        var request = PlanningConstructionPhasePolicies.Apply(new LLMRequest
+        {
+            Provider = state.Request.Options["generator"]?["provider"]?.GetValue<string>(),
+            Model = state.Request.Options["generator"]?["model"]?.GetValue<string>() ?? "",
+            Prompt = prompt, StructuredOutputSchema = schema, StructuredOutputStrict = true, UseBackgroundMode = true,
+            MaxTokens = outputLimit
+        }, state.Request, purpose);
+        var hash = PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+        request.ClientRequestId = state.Request.SessionId + ":" + (state.ModelCalls + 1) + ":" + hash;
+        return request;
+    }
+
+    internal static async Task<JsonNode> CallAsync(PlanningSession state, IPlanningRuntime runtime, string purpose, string prompt, JsonObject schema, CancellationToken ct, int? outputLimit = null,
+        PlanningCorrectionAttempt? correction = null)
     {
         ct.ThrowIfCancellationRequested();
         if (state.PendingCall?.Request.StructuredOutputSchema?["properties"] is JsonObject previous &&
@@ -35,20 +61,8 @@ internal static class PlanningModelCalls
         if (state.PendingCall is null)
         {
             EnsureCallAvailable(state);
-            if (PlanningConstructionInputPolicy.IsCompact(state.Request))
-            {
-                schema = schema.DeepClone().AsObject();
-                schema["title"] = purpose;
-            }
-            var request = PlanningGenerationPolicy.Apply(new LLMRequest
-            {
-                Provider = state.Request.Options["generator"]?["provider"]?.GetValue<string>(),
-                Model = state.Request.Options["generator"]?["model"]?.GetValue<string>() ?? "",
-                Prompt = prompt, StructuredOutputSchema = schema, StructuredOutputStrict = true, UseBackgroundMode = true,
-                MaxTokens = outputLimit
-            }, state.Request.Generation);
-            var hash = PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
-            request.ClientRequestId = state.Request.SessionId + ":" + (state.ModelCalls + 1) + ":" + hash;
+            var request = PrepareRequest(state, purpose, prompt, schema, outputLimit);
+            schema = request.StructuredOutputSchema!.AsObject();
             var inputTokens = ModelRequestAdmission.EstimateTokens(request);
             var inputLimit = PlanningConstructionInputPolicy.EffectiveLimit(state.Request, purpose);
             PlanningRequestMeasurement? measurement = null;
@@ -82,10 +96,12 @@ internal static class PlanningModelCalls
             }
             try { if (runtime is WorkflowPlanningRuntime actual) await actual.AdmitAsync(request, inputLimit, purpose, ct); }
             catch { await RejectMeasurement(); throw; }
+            correction?.Reserve();
             if (measurement is not null) measurement.Admission = "admitted";
             state.ModelCalls++;
-            if (purpose == "replan") state.ReplanAttempts++;
-            state.PendingCall = new() { Id = request.ClientRequestId, Purpose = purpose, Request = request };
+            if (purpose == "replan" && correction?.Enabled != true) state.ReplanAttempts++;
+            state.PendingCall = new() { Id = request.ClientRequestId!, Purpose = purpose, Request = request,
+                CorrectionAccounting = correction?.IssuedMode };
             await runtime.CheckpointAsync(state, ct);
 
             async Task RejectMeasurement()
@@ -98,6 +114,7 @@ internal static class PlanningModelCalls
         var call = state.PendingCall;
         if (call.Purpose != purpose) throw new PlanningConflictException("Complete the pending request before changing planning phases.");
         var response = await runtime.CallAsync(call.Request, purpose, ct);
+        correction?.Received();
         state.PendingCall = null;
         if (response.CompletionStatus == "output_limit") throw new WorkflowRuntimeException("MODEL_OUTPUT_LIMIT", "The model response was truncated; no output limit escalation is performed.", details: new JsonObject { ["location"] = "/phases/" + purpose });
         var json = response.Json?.DeepClone() ?? JsonNode.Parse(response.Text) ?? throw new JsonException("The model returned an empty response.");
@@ -142,6 +159,62 @@ internal static class PlanningModelCalls
         return json;
     }
 
+}
+
+// A known response and its classification are persisted by the same coordinator
+// checkpoint. An interruption before it reuses the issued mode and saved receipt;
+// it never refunds a historical charge or treats an uncertain dispatch as evidence.
+internal sealed class PlanningCorrectionAttempt : IDisposable
+{
+    private readonly PlanningSession _state;
+    private int _mode;
+    private bool _received;
+    private bool _evidence;
+    private bool _disposed;
+    internal bool Enabled { get; }
+    internal int? IssuedMode => Enabled ? _mode : null;
+
+    internal PlanningCorrectionAttempt(PlanningSession state, bool correcting, bool draft = false)
+    {
+        _state = state;
+        Enabled = state.PendingCall is { } pending ? pending.CorrectionAccounting is not null
+            : PlanningConstructionPhasePolicies.IsFresh(state.Request);
+        _mode = state.PendingCall?.CorrectionAccounting ?? (correcting ? draft ? 3 : 1 : 0);
+        if (Enabled && _mode is not (0 or 1 or 3))
+            throw new PlanningConflictException("The issued correction accounting mode is unsupported.");
+    }
+
+    internal void Reserve() => Reserve(_mode);
+
+    private void Reserve(int mode)
+    {
+        if (!Enabled || mode == 0) return;
+        if (PlanningModelCalls.RemainingRepairs(_state) == 0 || _state.Request.Options["automatic_correction"]?.ToString() == "false" ||
+            mode == 3 && (_state.Construction!.Candidate?.Corrections ?? _state.Construction!.DraftCorrections) >= _state.Construction!.Limits.MaxCorrectionsPerDraft)
+            throw new WorkflowRuntimeException("CONSTRUCTION_CORRECTION_ALLOWANCE", "The captured allowance cannot reserve this correction attempt.");
+    }
+
+    internal void Received() => _received = true;
+    internal void EvidenceAccepted() => _evidence = true;
+    internal void Reselect()
+    {
+        if (!Enabled) return;
+        Reserve(3);
+        _mode = 3;
+    }
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+        if (!Enabled || !_received || _evidence || _mode == 0) return;
+        _state.ReplanAttempts++;
+        if (_mode == 3)
+        {
+            if (_state.Construction!.Candidate is { } candidate) candidate.Corrections++;
+            else _state.Construction.DraftCorrections++;
+        }
+    }
 }
 internal sealed class PlanningResponseException(List<PlanningDiagnostic> diagnostics) : Exception("The model response violated its typed contract.")
 {

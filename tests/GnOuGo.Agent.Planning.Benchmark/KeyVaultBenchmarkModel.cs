@@ -96,8 +96,9 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
         if (incremental)
         {
             value["construction_review_headroom"] = 2;
-            value["construction_review_output_tokens"] = Math.Min(request.Options["construction_limits"]?["reviewOutputTokens"]?.GetValue<int>() ?? 2048,
-                request.Generation.MaxOutputTokens);
+            value["construction_review_output_tokens"] = PlanningConstructionPhasePolicies.IsFresh(request)
+                ? PlanningConstructionPhasePolicies.Resolve(request, "construction_local_judge").OutputTokens
+                : Math.Min(request.Options["construction_limits"]?["reviewOutputTokens"]?.GetValue<int>() ?? 2048, request.Generation.MaxOutputTokens);
             value["construction_limits"] = request.Options["construction_limits"]?.DeepClone();
         }
         if (PlanningConstructionInputPolicy.IsCompact(request))
@@ -357,6 +358,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
         {
             var json = JsonSerializer.Serialize(dispatched, PlanningJsonContext.Default.LLMRequest);
             var phaseInputLimit = PlanningInputLimit(policy, request);
+            RequirePlanningPhasePolicy(policy, request);
             var input = Math.Max(phaseInputLimit, Encoding.UTF8.GetByteCount(json));
             var output = dispatched.MaxTokens ?? 32_768;
             // Match the retained planning estimator, including the issued envelope rather than only its prompt.
@@ -368,8 +370,9 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
                 ? policy?["construction_review_headroom"]?.GetValue<int>() ?? 0 : 0;
             journal = await PrepareAdmissionAsync(request.ClientRequestId!, input, output,
                 execution ? null : policy?["max_physical_attempts"]?.GetValue<int>() ?? 8, token, reviewCount,
-                3L * (policy?["construction_version"]?.GetValue<int>() == 2 ? Math.Min(policy["max_input_tokens"]!.GetValue<int>(),
-                    Math.Min(policy["construction_input_limits"]?["review"]?.GetValue<int>() ?? 4000, 4000)) : policy?["max_input_tokens"]?.GetValue<int>() ?? 0),
+                3L * (policy?["construction_version"]?.GetValue<int>() == 2
+                    ? PlanningConstructionInputPolicy.EffectiveLimit(PlanningFromPolicy(policy), "construction_local_judge")
+                    : policy?["max_input_tokens"]?.GetValue<int>() ?? 0),
                 policy?["construction_review_output_tokens"]?.GetValue<int>() ?? 0, effectiveTransportPolicy);
         }, async token =>
         {
@@ -394,12 +397,29 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
     internal static int PlanningInputLimit(JsonObject? policy, LLMRequest request)
     {
         if (policy?["construction_version"]?.GetValue<int>() != 2) return policy?["max_input_tokens"]?.GetValue<int>() ?? 96_000;
-        var planning = new PlanningRequest
+        return PlanningConstructionInputPolicy.EffectiveLimit(PlanningFromPolicy(policy), request);
+    }
+
+    private static PlanningRequest PlanningFromPolicy(JsonObject policy) => new()
+    {
+        Generation = new()
         {
-            Generation = new() { MaxInputTokensPerRequest = policy["max_input_tokens"]!.GetValue<int>() },
-            Options = new() { ["construction_version"] = 2, ["construction_input_limits"] = policy["construction_input_limits"]?.DeepClone() }
-        };
-        return PlanningConstructionInputPolicy.EffectiveLimit(planning, request);
+            MaxInputTokensPerRequest = policy["max_input_tokens"]!.GetValue<int>(),
+            MaxOutputTokens = policy["max_output_tokens"]?.GetValue<int>() ?? 32_768
+        },
+        Options = new() { ["construction_version"] = 2,
+            ["construction_limits"] = policy["construction_limits"]?.DeepClone(),
+            ["construction_input_limits"] = policy["construction_input_limits"]?.DeepClone() }
+    };
+
+    internal static void RequirePlanningPhasePolicy(JsonObject? policy, LLMRequest request)
+    {
+        if (policy?["construction_version"]?.GetValue<int>() != 2) return;
+        var planning = PlanningFromPolicy(policy);
+        if (!PlanningConstructionPhasePolicies.IsFresh(planning)) return;
+        var phase = PlanningConstructionPhasePolicies.Resolve(planning, request.StructuredOutputSchema?["title"]?.GetValue<string>() ?? "");
+        if (request.MaxTokens is null or <= 0 || request.MaxTokens > phase.OutputTokens || request.Reasoning != phase.Reasoning)
+            throw BenchmarkCampaign.AdmissionFailure("captured_session_phase_policy");
     }
 
     internal async Task<JsonObject?> PartialUsageAsync(string id, CancellationToken ct)
