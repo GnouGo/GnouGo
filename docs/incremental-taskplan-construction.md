@@ -225,6 +225,11 @@ and discovers the current business effect before preparing hypothetical tool
 arguments. Missing language operators are implementation failures, not business
 questions. Recovery validates the exact issued schema and charges the action once;
 historical null-only reselection fields stay null-only.
+When fresh selection presents requested evidence, routine scope and producer
+directories omit repeated objective/question prose. Exact identities, ports,
+scope boundaries and retrieval addresses remain available. The unresolved
+original anchor and every requested evidence page remain verbatim; mandatory
+context that still exceeds the captured limit fails before dispatch.
 Navigation-cycle detection recognizes accepted coverage checkpoints and newly
 indexed original sources even when the TaskPlan hash stays unchanged. Changing a
 cursor, diagnostic, attempt count or remaining allowance is not progress. Retained

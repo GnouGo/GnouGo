@@ -5,6 +5,7 @@ using System.Text.RegularExpressions;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Flow.Planning;
 
 internal static class LiveWorkflowOracles
 {
@@ -112,6 +113,11 @@ internal static class LiveWorkflowOracles
                     failedChecks && review["decision"]?.ToString() == "approve") findings.Add("review_missing_or_false_success");
                 if (run["oracle_version"]?.ToString() == CodeBusinessVersion)
                 {
+                    // Retain the independently read artifact for the same
+                    // source-bound checks in either comparison arm. The hash
+                    // identifies canonical parsed JSON, not original file bytes.
+                    run["review_document"] = review?.DeepClone();
+                    run["review_document_sha256"] = review is null ? null : PlanningGraphCompiler.Fingerprint(review.ToJsonString());
                     var reportEvidence = LiveCodeEvidence.VerifyReport(run, review, Path.Combine(folder, "repository"), Path.Combine(folder, "review.json"));
                     run["report_evidence"] = reportEvidence;
                     findings.AddRange(reportEvidence["findings"]!.AsArray().Select(f => f!.ToString()));

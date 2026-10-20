@@ -793,6 +793,9 @@ checks local report claims against retained command completions and pinned check
 evidence; valid report shape alone is insufficient. Historical oracle versions and
 verdicts stay unchanged. Paired comparisons must apply the same frozen strengthened
 checks to both arms; missing baseline evidence remains incomparable.
+Fresh code-oracle evidence retains the parsed report actually read from disk and
+its compact-JSON hash in the encrypted run. Comparison checks verify that hash
+before inspecting the report; they never reconstruct it from write arguments.
 
 ## Incremental construction and isolated delegated review
 

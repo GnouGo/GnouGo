@@ -102,6 +102,40 @@ effects. The campaign upper bound reached €3.4071403181373855860659379717,
 leaving approximately **€236.622964**. The old unknown reservation is unchanged.
 No business success or baseline comparison is claimed.
 
+## Diagnostic revision 2a25e1e
+
+Source: `2a25e1e8e2d8f832aaa14e1ba9c0c21bb187792d`, with unchanged model,
+reasoning and allowances. A zero-model-call check of the frozen producer bundle
+passed a local browser read, browser closure and independently opened XLSX output.
+
+Amazon run `compactd2a25e1e-amazon-1` accepted two checkpoints, then stopped before
+dispatching an oversized selection request. The preceding response requested
+`page:requirements:1` and `page:requirements:3` together. The complete next request
+was 8,364 bytes / 3,044 estimated tokens against the captured 3,000 limit.
+The rejected request's identity and reconciled measurements are retained; neither the
+allowance nor the accounting was reset.
+
+| Phase | Dispatched calls | Peak prepared bytes | p50 / p95 / maximum input estimate |
+| --- | ---: | ---: | --- |
+| Intent | 2 | 5,062 | 1,578 / 1,944 / 1,944 |
+| Selection | 7 | 8,364 | 2,694 / 3,044 / 3,044 |
+| Generation | 2 | 11,740 | 4,155.5 / 4,170 / 4,170 |
+| Local Judge | 2 | 8,486 | 2,975.5 / 3,085 / 3,085 |
+
+Selection includes the rejected request; its largest admitted request was
+7,794 bytes / 2,854 estimated tokens. All dispatched requests respected their
+caps. Thirteen calls used 17,333 provider input and 7,187 output tokens, including
+5,540 reasoning tokens. All responses contained content. Planning took 113,009 ms
+and cost €0.2686172576201901715098196037; zero corrections, discovery reads, runtime
+effects or new uncertain attempts occurred. The campaign upper bound became
+€3.6757575757575757575757575754, leaving **€236.3543462569487287848691897246**.
+
+The focused presentation correction removes repeated optional scope/producer
+navigation prose when requested evidence is present. It preserves both evidence
+pages, the original unresolved anchor, globals, typed import identities, scope
+boundaries and exact retrieval links. It does not shorten authoritative clauses,
+relax admission or change historical issued requests.
+
 ## Deterministic evidence
 
 For `72964ab`, 370 affected planner tests and 173 host tests passed with warnings

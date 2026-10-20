@@ -490,6 +490,69 @@ public sealed class CompactConstructionTests
     }
 
     [Fact]
+    public async Task RequestedRequirementPagesDisplaceOnlyRepeatedNavigationProse()
+    {
+        var state = await PlannerFixture.RunAsync(new TestRuntime { Respond = Simple }, Retained());
+        var compact = state.Construction!.Compact!;
+        compact.PresentationVersion = 2;
+        state.Request.Options["construction_presentation_version"] = 2;
+        compact.InterfaceExtractions = [];
+        state.Requirements!.Outcomes.Clear(); state.Construction.Requirements.Clear();
+        compact.Sources.Clear(); compact.RequirementSources.Clear(); compact.GlobalSourceIds.Clear();
+        var originals = new[]
+        {
+            "Read the supplied records, visit their observed references in order, preserve their complete original descriptions and measured values, then write the results to the requested local artifact. " + new string('a', 180),
+            "Preserve the first three records and the exact supplied search term. " + new string('b', 100),
+            "Save the result under workflows/isolated-evaluation/original-request/result.xlsx; close acquired resources even on failure. " + new string('c', 100)
+        };
+        for (var i = 0; i < originals.Length; i++)
+        {
+            var id = "req_" + i; var source = "source:clause:" + i;
+            state.Requirements.Outcomes.Add(new(id, originals[i]));
+            state.Construction.Requirements.Add(new() { Id = id });
+            compact.Sources.Add(new() { Id = source, Text = originals[i], Version = PlanningGraphCompiler.Fingerprint(originals[i]), Kind = "requirement", Indexed = true });
+            compact.RequirementSources[id] = [source];
+        }
+        var producer = state.Plan!.Root.Tasks[0];
+        producer.Objective = "Preserve the supplied internal value. " + new string('x', 150);
+        var owner = new PlanTask { Id = "work", Kind = "sequence", Objective = "Collect and preserve original records. " + new string('y', 150),
+            Body = new() { Tasks = [producer] } };
+        state.Plan.Root.Tasks = [owner];
+        state.Construction.OpenScopes = ["/root", "/tasks/work/body"];
+        var accepted = PlanningConstruction.Hash(state.Plan);
+        var sourceBefore = JsonSerializer.Serialize(compact.Sources, PlanningJsonContext.Default.ListPlanningConstructionSource);
+        PlanningConstruction.LoadEvidence(state, ["page:requirements:1", "page:requirements:2"]);
+        var evidence = state.Construction.Evidence!.ToJsonString();
+        var context = PlanningCompactConstruction.SelectionContext(state);
+        Assert.Equal(originals[0], Assert.Single(context["requirements"]!.AsArray())!["original"]!.ToString());
+        Assert.Equal(evidence, context["evidence"]!.ToJsonString());
+        Assert.All(context["scopes"]!.AsArray().OfType<JsonObject>(), item => Assert.False(item.ContainsKey("objective")));
+        Assert.All(context["interfaces"]!.AsArray().OfType<JsonObject>(), item => Assert.False(item.ContainsKey("objective")));
+        var scope = context["scopes"]!.AsArray().Single(item => item!["owner"]?.ToString() == owner.Id)!;
+        var port = context["interfaces"]!.AsArray().Single(item => item!["task"]?.ToString() == producer.Id)!;
+        Assert.NotEmpty(port["ports"]!.AsArray());
+        var request = PlanningCompactConstruction.Request(PlanningCompactConstruction.SelectInstructions, context,
+            PlanningCompactConstruction.SelectionSchema(state), PlanningCompactConstruction.SelectPurpose);
+        request = PlanningGenerationPolicy.Apply(new LLMRequest
+        {
+            Provider = "OpenAi", Model = "retained-model-revision", Prompt = request.Prompt,
+            StructuredOutputSchema = request.StructuredOutputSchema, StructuredOutputStrict = true, UseBackgroundMode = true,
+            MaxTokens = state.Construction.Limits.DraftOutputTokens, ClientRequestId = new string('s', 64) + ":14:" + new string('h', 64)
+        }, state.Request.Generation);
+        Assert.InRange(PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.SelectPurpose, 3000).EstimatedInputTokens, 1, 3000);
+        var objectiveAddress = scope["objectiveEvidence"]!.ToString();
+        PlanningConstruction.LoadEvidence(state, [objectiveAddress, port["evidence"]!.ToString()]);
+        Assert.Equal(owner.Objective, state.Construction.Evidence![objectiveAddress]!["text"]!.ToString());
+        Assert.Equal(producer.Objective, state.Construction.Evidence[port["evidence"]!.ToString()]!["objective"]!.ToString());
+        Assert.Equal(accepted, PlanningConstruction.Hash(state.Plan));
+        Assert.Equal(sourceBefore, JsonSerializer.Serialize(compact.Sources, PlanningJsonContext.Default.ListPlanningConstructionSource));
+
+        compact.PresentationVersion = null;
+        var historical = PlanningCompactConstruction.SelectionContext(state);
+        Assert.Equal(owner.Objective, historical["scopes"]!.AsArray().Single(item => item!["owner"]?.ToString() == owner.Id)!["objective"]!.ToString());
+    }
+
+    [Fact]
     public async Task LongTaskObjectivesAndNumerousPortsRemainBoundedAndExactlyRetrievable()
     {
         var state = await PlannerFixture.RunAsync(new TestRuntime { Respond = Simple }, Retained());

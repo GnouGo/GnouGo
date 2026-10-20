@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using GnOuGo.Flow.Planning;
 
 namespace GnOuGo.Agent.Server.Tests;
 
@@ -87,6 +88,48 @@ public sealed class CodeReportOracleTests
         foreach (var command in report["commands"]!.AsArray().OfType<JsonObject>())
         { command["exit_code"] = command["exitCode"]!.DeepClone(); command.Remove("exitCode"); }
         AssertPass(Run(), report);
+    }
+
+    [Theory]
+    [InlineData(LiveWorkflowOracles.CodeBusinessVersion, true)]
+    [InlineData("real-workflows-v1", false)]
+    public async Task ActualParsedReportIsRetainedOnlyForTheCapturedNewOracle(string version, bool retained)
+    {
+        var root = Path.Combine(Path.GetTempPath(), "gnougo-report-oracle-" + Guid.NewGuid().ToString("N"));
+        const string relative = "workflows/test/report-proof";
+        var folder = Path.Combine(root, relative);
+        Directory.CreateDirectory(folder);
+        try
+        {
+            var actual = new JsonObject { ["decision"] = "request_changes",
+                ["findings"] = new JsonArray("Independently read file content."), ["commands"] = new JsonArray() };
+            var path = Path.Combine(folder, "review.json");
+            await File.WriteAllTextAsync(path, actual.ToJsonString(), TestContext.Current.CancellationToken);
+            var run = new JsonObject { ["workspace_relative"] = relative, ["oracle_version"] = version,
+                ["execution"] = new JsonObject { ["success"] = true },
+                ["events"] = new JsonArray((JsonNode)new JsonObject { ["tool"] = "document_write", ["error"] = false,
+                    ["arguments"] = new JsonObject { ["content"] = "Writer arguments do not define actual report proof." },
+                    ["result"] = new JsonObject { ["success"] = true, ["filePath"] = path } }) };
+            _ = await LiveWorkflowOracles.VerifyAsync("code", root, run, null!);
+            if (retained)
+            {
+                Assert.True(JsonNode.DeepEquals(actual, run["review_document"]));
+                Assert.Equal(PlanningGraphCompiler.Fingerprint(actual.ToJsonString()), run["review_document_sha256"]!.ToString());
+                // Later disk changes and run serialization do not replace the
+                // already observed document; the existing encrypted Save stores
+                // these fields with the rest of the run.
+                await File.WriteAllTextAsync(path, "{}", TestContext.Current.CancellationToken);
+                var restored = JsonNode.Parse(run.ToJsonString())!;
+                Assert.True(JsonNode.DeepEquals(actual, restored["review_document"]));
+                Assert.Equal(run["review_document_sha256"]!.ToString(), restored["review_document_sha256"]!.ToString());
+            }
+            else
+            {
+                Assert.False(run.ContainsKey("review_document"));
+                Assert.False(run.ContainsKey("review_document_sha256"));
+            }
+        }
+        finally { Directory.Delete(root, recursive: true); }
     }
 
     private static JsonObject Run() => new()

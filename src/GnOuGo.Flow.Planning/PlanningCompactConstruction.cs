@@ -191,6 +191,21 @@ internal static partial class PlanningCompactConstruction
                 ["reason"] = compact.RejectedSteps.Last()["reason"]?.DeepClone(), ["evidence"] = "rejected:" + (compact.RejectedSteps.Count - 1) },
             ["budget"] = new JsonObject { ["remainingCalls"] = PlanningModelCalls.RemainingCalls(state) }
         };
+        if (compact.PresentationVersion == 2 && state.Construction.Evidence is { Count: > 0 })
+        {
+            // Requested originals take precedence over repeated navigation prose.
+            // Keep scope/import identities, ports and exact retrieval addresses;
+            // never shorten the evidence or authoritative requirement clauses.
+            foreach (var directory in new[] { "scopes", "interfaces" })
+                foreach (var item in (context[directory] as JsonArray ?? []).OfType<JsonObject>())
+                {
+                    if (directory == "scopes" && item["owner"]?.ToString() is { } owner &&
+                        new TaskPlanSymbols(state.Plan!).Tasks.TryGetValue(owner, out var site))
+                        item["objectiveEvidence"] = TaskObjectiveAddress(site.Task, 0);
+                    item.Remove("objective"); item.Remove("objectiveComplete");
+                    item.Remove("question"); item.Remove("questionComplete");
+                }
+        }
         return TrimNavigation(context);
     }
 
