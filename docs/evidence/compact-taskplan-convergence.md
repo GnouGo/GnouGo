@@ -7,39 +7,42 @@ compilation and scoped reviews do not establish business success. The gated
 
 ## Latest diagnostic and corrections
 
-Frozen cohort `compactdba4ed26` retained the pinned model, medium reasoning,
+Frozen cohort `compactd41077d0` retained the pinned model, medium reasoning,
 3k/8k/4k input targets, 6k/16k/8k complete-request ceilings and
-16,384/8,192/2,048 navigation/draft/Judge output reservations. Amazon stopped at
-four corrections after 25 known completions, with no checkpoint or execution.
-Its final operation URL still omitted the caller's search input; the local Judge
-correctly rejected that omission. Collections and Review PR were **not started**
-in this cohort.
+16,384/8,192/2,048 navigation/draft/Judge output reservations. Amazon accepted one
+locally reviewed URL producer, then stopped on repeated evidence requests.
+Collections stopped without a receipt for its second intent call. Review PR was
+**not started** in this cohort because unresolved uncertainty blocked paid admission.
 
 | Diagnostic | Calls / corrections / checkpoints | Planning time | Known cost | Outcome |
 | --- | ---: | ---: | ---: | --- |
-| Amazon `ba4ed26` | 25 / 4 / 0 | 443.791 s | €1.026837 | Correction allowance exhausted; query absent from operation arguments |
-| Collections `585203a` | 2 / 0 / 0 | 314.015 s | €0.017644 | HTTP 500; exact request/run permanently abandoned with full reservation |
+| Amazon `41077d0` | 28 / 4 / 1 | 341.726 s | €0.758984 | Repeated evidence after altered page addresses; no execution |
+| Collections `41077d0` | 2 / 0 / 0 | 318.774 s | €0.018017 | Transport failure without HTTP response or completion receipt |
 | Review PR `585203a` | 10 / 1 / 0 | 341.672 s | €0.539829 | Correction exhausted 8,192 reasoning tokens with zero visible content |
 
-Amazon used 71,056 provider input, 26,674 output and 21,180 reasoning tokens. No
-response was empty and no new uncertainty was introduced. All 371,096 constructed
-request bytes reconcile: 25 admitted calls plus one prepared-only envelope, not
-an explicit admission rejection. Generation, Judge and correction peaks were
-11,115, 4,548 and 11,305 conservative input tokens. All fit their captured ceilings.
-[Safe phase measurements](compact-taskplan-ba4ed26.json) retain complete-request
-p50/p95/maximum, reconciled components, receipt usage, costs and latency.
+Amazon used 66,057 provider input, 17,460 output and 13,225 reasoning tokens, with
+28 known receipts and no empty response. Generation peaked at 30,946 serialized
+bytes / 10,572 estimated input tokens; its one Judge used 7,791 bytes / 2,853
+estimated tokens. Two prospective discovery batches reached 6,048/6,049 estimates
+and were rejected before dispatch against the captured 6,000 ceiling. All
+350,534 bytes across both scenarios' 32 constructed envelopes reconcile.
+[Safe phase measurements](compact-taskplan-41077d0.json) retain p50/p95/maximum,
+components, known provider usage, costs and latency. Collections' total usage is
+unknown; its full €0.4634497467342042122100773127 reservation remains charged.
 
-The trace exposed an ambiguous existing action: `reselectStep` is a reason string,
-but its fresh schema did not describe it and the model returned the old step ID.
-The host faithfully preserved that value, the original requirement and rejected
-step evidence; no context loss was found. The follow-up clarifies the fresh field
-with a precise obstacle and any missing prerequisite. It adds no state, protocol
-or validation rule and does not guarantee convergence.
+The reselection clarification produced a substantive missing-prerequisite reason,
+preserved through recovery. The next selection still chose `value` for unsupported
+string construction, which drafting correctly rejected. Fresh selection now reuses
+the existing value-task semantics, avoiding contradictory phase guidance.
+Discovery wording explains that a page's hash and offset must be copied unchanged
+and supplied evidence used directly. The trace showed changed offsets and repeated
+pages, with no host cache or identity defect. These are presentation corrections,
+with no new phase, state, runtime or relaxed validation; live convergence remains
+unproved.
 
-MCP retrieval guards worked: a malformed address was rejected, and the corrected
-batch expanded the exact required input grammar. Empty tool arguments and the
-later missing search input were genuine defects, not false positives from open
-scopes. These guards remain unchanged.
+The [preceding Amazon diagnostic](compact-taskplan-ba4ed26.json) retains its
+missing-query failure and genuine Judge findings. No accepted fragment, inspection,
+compilation or favorable review authorizes execution.
 
 Earlier retained evidence led to targeted corrections for repair diagnostic
 visibility, caller declarations in requested root evidence and interpretation
@@ -82,22 +85,29 @@ comparisons, not architecture-only causality.
 
 ## Campaign reconciliation
 
-Read-only inspection after Amazon `ba4ed26` verified encrypted campaign
+Read-only inspection after Collections `41077d0` verified encrypted campaign
 `schema-portability-20261019-incremental`:
 
 | Ledger measurement | EUR |
 | --- | ---: |
 | Campaign ceiling | 240.0301038327063045424449473 |
-| Known spending | 20.878010308362214520572291834 |
-| Unknown-usage reservations | 1.8856704878699013596374300186 |
-| Spending/reservation upper bound | 22.763680796232115880209721853 |
-| Available allowance | 217.266423036474188662235225447 |
+| Known spending | 21.655011996800853105838443082 |
+| Unknown-usage reservations | 2.3491202346041055718475073313 |
+| Spending/reservation upper bound | 24.004132231404958677685950413 |
+| Available allowance | 216.025971601301345864758996887 |
 
 Evidence hash:
-`f863fe35729522e3ffb4d4e206ace0dff2a2bc1287da58569c46f8b293e94fb1`.
-All 741 request identities and 735 receipts remain. All six receiptless identities
-are permanently retained; five attempts retain unknown usage. No unresolved
-uncertainty currently blocks fresh admission. No funds were released. Separate
+`26ca280c75cc3a8b8519526d475e096a08ab87e1fefeadd9886bc06bbd725a8a`.
+All 771 request identities and 764 receipts remain. All seven receiptless identities
+are permanently retained; six attempts retain unknown usage. The separately
+authorized Collections closure was applied under the existing transport-retention
+mode and verified against evidence
+`fb1cbf1b2472374bcceeefb65b9ede893c03ed987a02833fab02031d8dfb580a`;
+closure hash:
+`a3e5afacbe97d195e8e7a4e9c8adfb11252eab31642985013e631c1e2e4b0dde`.
+The abandoned request and run cannot be replayed or continued. Fresh diagnostics
+still require normal admission. No receipt or provider termination was inferred,
+and no funds were released. Separate
 lost historical exposure of €159.96989616729369545755505266 remains accounted for
 within the original €400 authorization. No ceiling increased.
 
@@ -113,11 +123,17 @@ isolation and health checks, with six documented EF experimental notices and no
 unexpected warnings. Files checks cover persistence, isolation and TTL, without
 separately proving payload encryption.
 
-The full solution run exposed eight fixture failures: fresh phase metadata was
-incorrectly retained in historical version-one sessions, and financial tests
-expected the old ceiling. `cd174ea` corrects only those fixtures; all ten affected
-cases pass with warnings as errors. The original full run and CI remain in
-progress. No final full-solution/CI pass or business acceptance is claimed.
+The full solution at `041c69c` completed with 7,133 passes, 24 failures and
+13 skips. All failures are historical-fixture setup or obsolete ceiling assertions
+in Server (1,425 passes, 24 failures and one skip):
+`cd174ea` fixes the shared restoration path and financial assertions; a remaining
+manual downgrade now uses that same restoration helper. All 16 later failing
+cases pass in the final focused Server run; the prior ten-case rerun covers the
+earlier failures. The original full run remains failed. The guidance follow-up
+passes 14 final focused cases with warnings as
+errors. Its regression uses the captured hard ceiling; the former assertion
+incorrectly treated the 3,000-token target as a mandatory cap. Final full-solution
+and CI success, final publication validation and business acceptance remain unclaimed.
 
 ## Immutable evidence index
 

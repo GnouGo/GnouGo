@@ -110,8 +110,9 @@ public sealed partial class CompactDiscoveryProtocolTests
         Assert.Equal(huge, state.Discovery.Pages[0].Capabilities[^1].Operation!.Description);
         var request = Complete(state, PlanningCompactConstruction.Request(PlanningCompactConstruction.DiscoveryGuidance(state),
             context, PlanningCompactConstruction.DiscoverySchema(state), PlanningCompactConstruction.DiscoveryPurpose));
-        var measurement = PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.DiscoveryPurpose, 3000);
-        Assert.InRange(measurement.EstimatedInputTokens, 1, 3000);
+        var limit = PlanningConstructionPhasePolicies.Resolve(state.Request, PlanningCompactConstruction.DiscoveryPurpose).MaxInputTokens;
+        var measurement = PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.DiscoveryPurpose, limit);
+        Assert.InRange(measurement.EstimatedInputTokens, 1, limit);
         Assert.True(JsonNode.DeepEquals(state.Construction!.Evidence, context["evidence"]));
     }
 

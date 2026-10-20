@@ -39,12 +39,7 @@ public sealed class CommitmentCorrectionHostTests
         using (var creation = PlanningSessionLifecycleTests.Create(fixture, new HybridWorkflowPlanner(), catalog, model,
             settings: new() { BackgroundProcessingEnabled = false }))
             state = await creation.StartAsync("committed-report", "Produce the fixture report through produce_observed and return its location.", false, Ct);
-        state.Construction!.Version = 1;
-        state.Construction.Compact = null;
-        state.Construction.Limits.InputLimits = null;
-        state.Request.Options["construction_version"] = 1;
-        state.Request.Options.Remove("construction_input_limits");
-        state.Request.MaxModelCalls = 12;
+        state = RetainedVersionOneConstruction.Restore(state);
         state.Revision++;
         Assert.True(await fixture.Store.TrySaveAsync(state, state.Revision - 1, Ct));
         using (var service = PlanningSessionLifecycleTests.Create(fixture, new HybridWorkflowPlanner(), catalog, model))

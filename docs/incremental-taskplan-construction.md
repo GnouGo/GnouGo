@@ -76,7 +76,9 @@ Selection identifies the next action or structural step whose prerequisites bind
 to caller/scope inputs or accepted outputs. A missing producer precedes its dependent
 action; a chain requiring unbuilt producers is not one immediate substep. The complete
 original requirement stays attached and open across its contributing fragments.
-Missing prerequisites remain frontier obligations.
+Missing prerequisites remain frontier obligations. Fresh selection and drafting
+share the value-task capability boundary: declared bindings and computations do
+not provide string formatting, concatenation or URL encoding.
 Cleanup, exports and closure use the same substep mechanism. Public workflow
 outputs remain distinct from internal task/group results and local exports.
 All unprocessed pages and unresolved requirements block completion.
@@ -101,7 +103,9 @@ continuations establish the suitability of shortlisted capabilities; finding a
 suitable operation does not require inspecting unrelated or later workflow actions.
 A consumed navigation page does not invalidate an operation's identity. Provider
 source/cursor pairs come from the issued schema; evidence-page addresses are not
-provider cursors. Empty or exhausted metadata pages do not create progress.
+provider cursors. Copy issued addresses unchanged: an operation-page hash binds
+that exact page and offset. Use supplied evidence directly; empty, exhausted or
+repeated metadata pages do not create progress.
 
 Original MCP contracts remain unchanged in encrypted storage and authoritative
 for validation. Descriptor and schema presentations share the existing projection

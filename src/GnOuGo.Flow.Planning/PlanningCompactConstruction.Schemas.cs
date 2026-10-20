@@ -5,6 +5,8 @@ namespace GnOuGo.Flow.Planning;
 
 internal static partial class PlanningCompactConstruction
 {
+    internal const string ValueSemantics = "value only copies, projects or assembles typed values using declared arithmetic, predicates, lookup, flatten and JSON encoding. It cannot concatenate or format strings, URL-encode or interpolate literals; its objective adds no computation.";
+
     private static (bool CloseScope, bool Complete) ClosurePresentation(PlanningSession state)
     {
         var construction = state.Construction!;
@@ -141,7 +143,7 @@ internal static partial class PlanningCompactConstruction
         if (step.Scope != "/root")
             hints.Add("outputs explicitly export this scope's bound values through its enclosing task or group call; consumers cannot read hidden child tasks directly.");
         if (step.Kind == "value")
-            hints.Add("value only copies, projects or assembles typed values using declared arithmetic, predicates, lookup, flatten and JSON encoding. It cannot concatenate or format strings, URL-encode or interpolate literals; its objective adds no computation.");
+            hints.Add(ValueSemantics);
         if (PlanningConstructionPhasePolicies.IsFresh(state.Request) && step.Kind == "transform")
             hints.Add("transform resultType is an object of named output ports; output.port selects that field's type, not the whole result object. extract preserves observed facts; interpret uses its objective as the runtime LLM instruction, inputs as data and resultType as the output contract, without a separate expression. Neither executes external effects.");
         if (State(state).PresentationVersion == 2 && step.Kind == "operation")

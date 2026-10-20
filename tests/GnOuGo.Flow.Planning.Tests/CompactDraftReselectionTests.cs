@@ -11,9 +11,11 @@ public sealed class CompactDraftReselectionTests
     private const string Reason = "The selected value kind cannot format the imported text; the missing prerequisite is an accepted formatted-text producer before the operation can bind its argument.";
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task InitialDraftReselectionKeepsAcceptedWorkAndChargesOnceAcrossRecovery(bool interrupted)
+    [InlineData(false, "operation")]
+    [InlineData(true, "operation")]
+    [InlineData(false, "transform")]
+    [InlineData(true, "transform")]
+    public async Task InitialDraftReselectionKeepsAcceptedWorkAndChargesOnceAcrossRecovery(bool interrupted, string replacementKind)
     {
         var (state, runtime) = await Ready();
         var accepted = Accepted(state);
@@ -33,7 +35,7 @@ public sealed class CompactDraftReselectionTests
         runtime = new TestRuntime { Respond = (request, purpose) =>
         {
             Assert.Equal(PlanningConstruction.DraftPurpose, purpose);
-            Assert.Contains("cannot concatenate or format strings", request.StructuredOutputSchema!["description"]!.ToString(), StringComparison.Ordinal);
+            Assert.Contains(PlanningCompactConstruction.ValueSemantics, request.StructuredOutputSchema!["description"]!.ToString(), StringComparison.Ordinal);
             var reasonDescription = request.StructuredOutputSchema["properties"]!["reselectStep"]!["description"]!.ToString();
             Assert.Contains("precise reason", reasonDescription, StringComparison.Ordinal);
             Assert.Contains("not a step ID", reasonDescription, StringComparison.Ordinal);
@@ -68,22 +70,50 @@ public sealed class CompactDraftReselectionTests
         runtime.Respond = (request, purpose) =>
         {
             Assert.Equal(PlanningCompactConstruction.SelectPurpose, purpose);
+            Assert.Contains(PlanningCompactConstruction.ValueSemantics, request.Prompt, StringComparison.Ordinal);
             var reselection = Context(request)["reselection"]!;
             Assert.Equal(Reason, reselection["reason"]!.ToString());
             Assert.Equal("/root", reselection["scope"]!.ToString());
             Assert.Equal(["req_0"], reselection["requirementIds"]!.AsArray().Select(id => id!.ToString()));
             Assert.True(PlanningCompactConstruction.LoadEvidence(state, reselection["evidence"]!.ToString(), out var evidence));
             Assert.True(JsonNode.DeepEquals(rejected, evidence));
-            Assert.Empty(PlanningContractValidation.ValidateInstance(Wire(request, Selection(request)).Json!, request.StructuredOutputSchema!));
+            Assert.Empty(PlanningContractValidation.ValidateInstance(Wire(request, Selection(request, replacementKind)).Json!, request.StructuredOutputSchema!));
             Assert.InRange(PlanningRequestMeasurements.Measure(request, purpose, 3000).EstimatedInputTokens, 1, 3000);
-            return Wire(request, Selection(request));
+            return Wire(request, Selection(request, replacementKind));
         };
         state = await Advance(state, runtime);
         Assert.Empty(state.Diagnostics);
-        Assert.Equal("operation", state.Construction!.Compact!.CurrentStep!.Kind);
-        Assert.False(state.Construction.Compact.CurrentStep.DiscoveryComplete);
+        Assert.Equal(replacementKind, state.Construction!.Compact!.CurrentStep!.Kind);
+        Assert.Equal(replacementKind != "operation", state.Construction.Compact.CurrentStep.DiscoveryComplete);
         Assert.Equal(1, state.ReplanAttempts); Assert.Equal(1, state.Construction.DraftCorrections);
         Assert.Equal(accepted, Accepted(state));
+        if (replacementKind == "transform")
+        {
+            var imported = Assert.Single(state.Construction.Compact.CurrentStep.Inputs);
+            Assert.Equal("accepted", imported.Source); Assert.Equal("retained", imported.Port);
+            runtime.Respond = (request, purpose) =>
+            {
+                Assert.Equal(PlanningConstruction.DraftPurpose, purpose);
+                var response = Reselect(request);
+                response["reselectStep"] = null;
+                response["extension"] = JsonSerializer.SerializeToNode(new PlanningConstructionExtension
+                {
+                    Scope = "/root", RequirementIds = ["req_0"], Tasks = [new()
+                    {
+                        Id = "formatted", Kind = "transform", Mode = "interpret", Objective = "Format the imported text for the next operation.",
+                        Inputs = [new("text", new() { Kind = "output", Source = "accepted", Port = "retained" })],
+                        ResultType = new() { Kind = "object", Fields = [new() { Name = "formattedText", Type = new() { Kind = "string" } }] }
+                    }]
+                }, PlanningJsonContext.Default.PlanningConstructionExtension);
+                return Wire(request, response);
+            };
+            state = await Advance(state, runtime);
+            Assert.Empty(state.Diagnostics);
+            Assert.Equal("transform", Assert.Single(state.Construction!.Candidate!.Extension.Tasks).Kind);
+            Assert.Equal("remaining", Assert.Single(state.Construction.Requirements).Status);
+            Assert.Equal(1, state.ReplanAttempts); Assert.Equal(1, state.Construction.DraftCorrections);
+            Assert.Equal(accepted, Accepted(state));
+        }
     }
 
     [Fact]
@@ -252,7 +282,8 @@ public sealed class CompactDraftReselectionTests
     {
         ["baseHash"] = request.StructuredOutputSchema!["properties"]!["baseHash"]!["enum"]![0]!.DeepClone(), ["evidenceRequests"] = null, ["clarifications"] = null,
         ["step"] = new JsonObject { ["scope"] = "/root", ["kind"] = kind, ["objective"] = "Perform the current requested business operation.",
-            ["requirementIds"] = new JsonArray("req_0"), ["inputs"] = new JsonArray(), ["dependencyTaskIds"] = new JsonArray(),
+            ["requirementIds"] = new JsonArray("req_0"), ["inputs"] = kind == "transform" ? new JsonArray(new JsonObject
+                { ["kind"] = "output", ["source"] = "accepted", ["port"] = "retained" }) : new JsonArray(), ["dependencyTaskIds"] = new JsonArray(),
             ["expectedOutputs"] = new JsonArray("The requested result."), ["closeRequirementIds"] = new JsonArray(), ["outputNames"] = new JsonArray() }
     };
 }
