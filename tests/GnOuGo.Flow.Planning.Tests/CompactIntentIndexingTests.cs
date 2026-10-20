@@ -107,6 +107,111 @@ public sealed class CompactIntentIndexingTests
         Assert.True(PlanningCompactConstruction.IntentDeclarationsComplete(state.Construction!.Compact!));
     }
 
+    private static readonly string[] DeclarationClauses =
+        ["Process the supplied text without changing it. ", "The caller input is named phrase and is a required string. ", "Preserve punctuation."];
+
+    private static JsonObject SplitDeclarations(LLMRequest request) => new()
+    {
+        ["sourceId"] = Context(request)["sources"]![0]!["id"]!.DeepClone(),
+        ["clauses"] = new JsonArray(DeclarationClauses.Select((text, index) => (JsonNode)new JsonObject
+        { ["text"] = text, ["kind"] = "requirement", ["interfaces"] = index == 0 ? "both" : index == 1 ? "input" : "none" }).ToArray())
+    };
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SamePageDeclarationsRetainExactNamingConstraintsAndRecoverOneAtomicExtraction(bool interrupted)
+    {
+        var runtime = new TestRuntime { Respond = (request, _) => Wire(request, SplitDeclarations(request)) };
+        var state = await Advance(Fresh(string.Concat(DeclarationClauses)), runtime);
+        var extraction = Assert.Single(state.Construction!.Compact!.InterfaceExtractions!);
+        Assert.Equal(2, extraction.SourceIds.Count);
+        Assert.True(extraction.Inputs); Assert.True(extraction.Outputs);
+        Assert.Equal(DeclarationClauses, state.Requirements!.Outcomes.Select(r => r.Description));
+        Assert.All(state.Construction.Requirements, requirement => Assert.Equal("remaining", requirement.Status));
+        Assert.Empty(state.Requirements.Inputs!);
+        var sourceIds = extraction.SourceIds.ToArray();
+        string? issued = null;
+        if (interrupted)
+        {
+            runtime.Respond = (_, _) => throw new OperationCanceledException();
+            _ = await Advance(state, runtime);
+            state = PlannerFixture.Clone(runtime.Checkpoints.Last(checkpoint => checkpoint.PendingCall is not null));
+            state.Status = PlanningStatus.Generating;
+            issued = JsonSerializer.Serialize(state.PendingCall!.Request, PlanningJsonContext.Default.LLMRequest);
+        }
+        var calls = state.ModelCalls;
+        var recovery = new TestRuntime { Respond = (request, _) =>
+        {
+            Assert.Equal(DeclarationClauses.Take(2), Context(request)["sources"]!.AsArray().Select(source => source!["text"]!.ToString()));
+            Assert.Equal(sourceIds, Context(request)["sources"]!.AsArray().Select(source => source!["id"]!.ToString()));
+            return Wire(request, new() { ["sourceId"] = extraction.Id, ["inputs"] = JsonSerializer.SerializeToNode(
+                new List<TaskInput> { new() { Name = "phrase", Type = new() { Kind = "string" } } }, PlanningJsonContext.Default.ListTaskInput),
+                ["outputs"] = new JsonArray() });
+        } };
+        state = await Advance(state, recovery);
+        Assert.Equal("phrase", Assert.Single(state.Requirements!.Inputs!).Name);
+        Assert.Empty(state.Requirements.Outputs!);
+        Assert.True(Assert.Single(state.Construction!.Compact!.InterfaceExtractions!).Complete);
+        Assert.True(PlanningCompactConstruction.SourcesComplete(state));
+        Assert.Equal(DeclarationClauses, state.Requirements.Outcomes.Select(r => r.Description));
+        Assert.All(state.Construction.Requirements, requirement => Assert.Equal("remaining", requirement.Status));
+        Assert.All(state.RequestMeasurements!, measurement => Assert.InRange(measurement.EstimatedInputTokens, 1, 3000));
+        Assert.Equal(calls + (interrupted ? 0 : 1), state.ModelCalls);
+        if (issued is not null)
+            Assert.Equal(issued, JsonSerializer.Serialize(Assert.Single(recovery.Calls), PlanningJsonContext.Default.LLMRequest));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task PreviouslyIssuedClassificationKeepsCapturedGroupingAndExactRequest(bool coalesced)
+    {
+        var state = Fresh(string.Concat(DeclarationClauses));
+        PlanningSessionCreation.Capture(state); PlanningCompactConstruction.InitializeSources(state);
+        var source = Assert.Single(state.Construction!.Compact!.Sources);
+        var schema = PlanningCompactConstruction.ClassificationSchema(source);
+        if (!coalesced) schema.Remove("description"); // Exact contract issued before page coalescing.
+        var issued = PlanningCompactConstruction.Request(PlanningCompactConstruction.ClassifyInstructions,
+            new() { ["sources"] = new JsonArray(new JsonObject { ["id"] = source.Id, ["version"] = source.Version, ["text"] = source.Text }) },
+            schema, PlanningCompactConstruction.IntentPurpose);
+        issued = PlanningGenerationPolicy.Apply(issued, state.Request.Generation);
+        issued.ClientRequestId = "retained-classification";
+        state.PendingCall = new() { Id = issued.ClientRequestId!, Purpose = PlanningCompactConstruction.IntentPurpose, Request = issued };
+        state.ModelCalls = 1;
+        state.IntentVersion = 3; // The coordinator captures this before issuing any construction request.
+        var runtime = new TestRuntime { Respond = (request, _) => Wire(request, SplitDeclarations(request)) };
+        state = await Advance(PlannerFixture.Clone(state), runtime);
+        Assert.Empty(state.Diagnostics);
+        Assert.Equal(1, state.ModelCalls);
+        Assert.Equal(JsonSerializer.Serialize(issued, PlanningJsonContext.Default.LLMRequest),
+            JsonSerializer.Serialize(Assert.Single(runtime.Calls), PlanningJsonContext.Default.LLMRequest));
+        Assert.Equal(coalesced ? 1 : 2, state.Construction!.Compact!.InterfaceExtractions!.Count);
+        Assert.All(state.Construction.Compact.InterfaceExtractions!, extraction => Assert.Equal(coalesced ? 2 : 1, extraction.SourceIds.Count));
+        Assert.False(PlanningCompactConstruction.SourcesComplete(state));
+    }
+
+    [Fact]
+    public async Task InvalidCoalescedExtractionDoesNotAcceptItsOtherwiseValidInput()
+    {
+        var runtime = new TestRuntime { Respond = (request, _) => Wire(request, SplitDeclarations(request)) };
+        var state = await Advance(Fresh(string.Concat(DeclarationClauses)), runtime);
+        runtime.Respond = (request, _) =>
+        {
+            var response = Interfaces(request, new() { Kind = "array", Items = new() { Kind = "string" }, MinItems = 3, MaxItems = 1 });
+            response["inputs"] = JsonSerializer.SerializeToNode(new List<TaskInput> { new() { Name = "phrase", Type = new() { Kind = "string" } } },
+                PlanningJsonContext.Default.ListTaskInput);
+            return Wire(request, response);
+        };
+        state = await Advance(state, runtime);
+        Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Code == "TASK_TYPE_INVALID");
+        Assert.Empty(state.Requirements!.Inputs!); Assert.Empty(state.Requirements.Outputs!);
+        var extraction = Assert.Single(state.Construction!.Compact!.InterfaceExtractions!);
+        Assert.Equal(2, extraction.SourceIds.Count); Assert.False(extraction.Complete);
+        Assert.Equal(DeclarationClauses, state.Requirements.Outcomes.Select(requirement => requirement.Description));
+        Assert.All(state.Construction.Requirements, requirement => Assert.Equal("remaining", requirement.Status));
+    }
+
     [Fact]
     public async Task InvalidExtractionPreservesExactClassifiedRequirementsAndDoesNotFreezeInterface()
     {
@@ -230,15 +335,17 @@ public sealed class CompactIntentIndexingTests
         Assert.True(PlanningCompactConstruction.SourcesComplete(state));
     }
 
-    [Fact]
-    public async Task IndivisibleOriginalRequirementExceedingSelectionAllowanceStopsWithoutOmissionOrDispatch()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task IndivisibleOriginalEvidenceExceedingPhaseAllowanceStopsWithoutOmissionOrDispatch(bool interfaceDeclaration)
     {
         var original = "Preserve " + string.Concat(Enumerable.Repeat("every exact original value and ", 450)) + "its final meaning.";
         var state = Fresh(original); PlanningSessionCreation.Capture(state); PlanningCompactConstruction.InitializeSources(state);
         var count = state.Construction!.Compact!.Sources.Count;
-        var runtime = new TestRuntime { Respond = (request, _) => Wire(request, Classify(request, "none")) };
+        var runtime = new TestRuntime { Respond = (request, _) => Wire(request, Classify(request, interfaceDeclaration ? "input" : "none")) };
         for (var i = 0; i < count; i++) state = await Advance(state, runtime);
-        Assert.True(PlanningCompactConstruction.SourcesComplete(state));
+        Assert.Equal(!interfaceDeclaration, PlanningCompactConstruction.SourcesComplete(state));
         Assert.Equal(original, Assert.Single(state.Requirements!.Outcomes).Description);
         var calls = state.ModelCalls;
         state = await Advance(state, runtime);
@@ -355,9 +462,52 @@ public sealed class CompactIntentIndexingTests
     {
         var schema = PlanningCompactConstruction.InterfaceSchema(new() { Id = "original:0", SourceIds = ["original:0"], Outputs = true });
         Assert.DoesNotContain("\"default\"", schema.ToJsonString(), StringComparison.Ordinal);
-        Assert.Contains("empty array", schema.ToJsonString(), StringComparison.Ordinal);
-        Assert.Contains("null when absent", schema.ToJsonString(), StringComparison.Ordinal);
+        Assert.Contains("\"minItems\"", schema.ToJsonString(), StringComparison.Ordinal);
+        Assert.Contains("\"maxItems\"", schema.ToJsonString(), StringComparison.Ordinal);
         Assert.Empty(PlanningContractValidation.ValidateSchema(schema, strict: true));
+    }
+
+    [Theory]
+    [InlineData("input")]
+    [InlineData("output")]
+    [InlineData("both")]
+    public async Task EmittedInterfaceRequestsKeepReferencesPureAndPreserveAbsentAndZeroBounds(string direction)
+    {
+        var runtime = new TestRuntime { Respond = (request, _) =>
+        {
+            if (Classification(request)) return Wire(request, Classify(request, direction));
+            var schema = request.StructuredOutputSchema!.AsObject();
+            Assert.Equal(8192, request.MaxTokens);
+            Assert.Empty(PlanningContractValidation.ValidateSchema(schema, strict: true));
+            foreach (var (pointer, node) in PlanningSchemaReferences.Walk(schema, "", 0))
+                if (node.ContainsKey("$ref"))
+                    Assert.True(node.Count == 1, $"Provider reference at {pointer} contains sibling keywords.");
+            Assert.Contains("An absent array bound is null", request.Prompt, StringComparison.Ordinal);
+            Assert.Contains("maxItems:0 permits only an empty array", request.Prompt, StringComparison.Ordinal);
+            Assert.InRange(PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.IntentPurpose, 3000).EstimatedInputTokens, 1, 3000);
+            var declarations = JsonSerializer.SerializeToNode(new List<TaskInput> { new()
+            {
+                Name = "values", Type = new() { Kind = "array", Items = new() { Kind = "string" }, MaxItems = 0 }
+            } }, PlanningJsonContext.Default.ListTaskInput)!;
+            return Wire(request, new()
+            {
+                ["sourceId"] = schema["properties"]!["sourceId"]!["enum"]![0]!.ToString(),
+                ["inputs"] = direction is "input" or "both" ? declarations.DeepClone() : new JsonArray(),
+                ["outputs"] = direction is "output" or "both" ? declarations.DeepClone() : new JsonArray()
+            });
+        } };
+        var state = await Advance(Fresh("Declare values as an array of strings with maximum length zero and no explicit minimum."), runtime);
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        Assert.Equal(2, runtime.Calls.Count);
+        Assert.True(Assert.Single(state.Construction!.Compact!.InterfaceExtractions!).Complete);
+        var declarations = state.Requirements!.Inputs!.Concat(state.Requirements.Outputs!);
+        Assert.Equal(direction == "both" ? 2 : 1, declarations.Count());
+        Assert.All(declarations, declaration =>
+        {
+            Assert.Null(declaration.Type.MinItems);
+            Assert.Equal(0, declaration.Type.MaxItems);
+        });
     }
 
     [Theory]

@@ -5,7 +5,11 @@ Fresh sessions use [compact incremental construction](../../docs/incremental-tas
 Fresh presentation protocol 2 separates verbatim source classification from targeted
 caller/public-interface extraction within the existing intent phase. Natural page
 boundaries and explicit continuations preserve complete obligations; pending
-interface work blocks generation. The optional captured profile participates in
+interface work blocks generation. New classifications extract a bounded page's
+interface clauses together, preserving naming/type qualifiers and atomic
+validation; issued schemas retain their captured grouping. Compact schema
+references carry no sibling annotations in the strict provider profile.
+The optional captured profile participates in
 new-session identity; absent historical fields, issued schemas and receipts retain
 their earlier behavior. Nested MCP directories and safe required-sibling views
 avoid unrelated subtrees while preserving original contracts, coupled constraints

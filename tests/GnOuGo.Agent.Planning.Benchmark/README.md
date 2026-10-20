@@ -290,6 +290,19 @@ artifact approval requirements remain in force.
 
 New failed dispatches retain the existing provider-neutral failure kind, HTTP status, safe provider code, retry metadata and failure stage in encrypted records. Exception messages, raw bodies and credentials are excluded. This does not authorize retries, create a completion receipt or retroactively recover missing metadata. A reservation remains uncertain if completion or receipt persistence fails. Missing-receipt replay exits 2 with `REPLAY_UNAVAILABLE`; no request is sent.
 
+A definite Structured Output schema rejection can be retained with
+`--schema-portability retain-schema-rejection --request-id <exact-id> --campaign
+<id> --workspace <path>`, under the clean-source campaign lease and without
+initializing a model. Besides the existing `invalid_json_schema` code, the verifier
+recognizes a single retained HTTP 400 whose dispatch failure is nonretryable
+`InvalidRequest` and whose original response identifies `invalid_request_error`,
+`response_format`, an explicitly null code and the transport's exact
+`Invalid schema for response_format 'output': ` message prefix with a nonempty
+schema diagnostic. Ordinary 400s, malformed bodies, successful or unknown attempts,
+usage and completion receipts reject this path. The append-only closure binds the
+original request, journal and failure hashes; it does not invent a provider code,
+completion receipt or usage, or change the original evidence or accounting.
+
 ## Bounded HTTP recovery
 
 The built-in KeyVault model now uses AI.Core's single HTTP retry loop. Provider `RetryPolicy`

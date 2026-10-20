@@ -15,6 +15,8 @@ public sealed partial class HybridWorkflowPlanner
         PlanningConstructionSource source, CancellationToken ct)
     {
         var compact = PlanningCompactConstruction.State(state);
+        var coalesceInterfaces = state.PendingCall is null ||
+            state.PendingCall.Request.StructuredOutputSchema?["description"]?.ToString() == PlanningCompactConstruction.CoalescedInterfaceDescription;
         var preceding = source.ContinuationOf is null ? null :
             compact.Sources.Last(s => s.Id.StartsWith(source.ContinuationOf + ":clause:", StringComparison.Ordinal));
         var response = await CompactCallAsync(state, runtime, PlanningCompactConstruction.IntentPurpose, () =>
@@ -35,6 +37,7 @@ public sealed partial class HybridWorkflowPlanner
             PlanningConstruction.Fail("CONSTRUCTION_CONTINUATION_KIND", "/clauses/0/kind", "The continued clause must retain its preceding requirement or global classification.");
         state.Requirements ??= CloneConstructionRequirements(state);
         compact.InterfaceExtractions ??= [];
+        PlanningConstructionInterfaceExtraction? pageExtraction = null;
         for (var i = 0; i < clauses.Count; i++)
         {
             var clause = clauses[i]!;
@@ -53,8 +56,19 @@ public sealed partial class HybridWorkflowPlanner
                 compact.RequirementSources.Add(requirementId, [id]);
                 state.Construction!.Requirements.Add(new() { Id = requirementId });
             }
-            if (direction != "none") compact.InterfaceExtractions.Add(new()
-            { Id = id, SourceIds = [id], Inputs = direction is "input" or "both", Outputs = direction is "output" or "both" });
+            if (direction != "none")
+            {
+                // Adjacent declarations and their exact naming/type constraints
+                // are inspected together before accepting any interface from this page.
+                if (pageExtraction is null || !coalesceInterfaces)
+                {
+                    pageExtraction = new() { Id = id };
+                    compact.InterfaceExtractions.Add(pageExtraction);
+                }
+                pageExtraction.SourceIds.Add(id);
+                pageExtraction.Inputs |= direction is "input" or "both";
+                pageExtraction.Outputs |= direction is "output" or "both";
+            }
         }
         PlanningCompactConstruction.MergeContinuation(state, source);
         source.Indexed = true;

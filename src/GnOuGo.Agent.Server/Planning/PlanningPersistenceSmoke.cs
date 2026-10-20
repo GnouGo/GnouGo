@@ -144,7 +144,42 @@ internal static class PlanningPersistenceSmoke
             await reopened.LoadAsync("other-tenant", state.Request.SessionId, CancellationToken.None) is not null ||
             System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(vault)).Contains(privateValue, StringComparison.Ordinal))
             throw new InvalidOperationException("Published construction candidate, review, request or tenant/encryption recovery failed.");
+        if (original.Contains("\"presentationVersion\"", StringComparison.Ordinal) || original.Contains("\"interfaceExtractions\"", StringComparison.Ordinal))
+            throw new InvalidOperationException("Optional compact presentation metadata changed historical storage.");
+        var declaration = new PlanningSession
+        {
+            IntentVersion = 3, ModelCalls = 1,
+            Request = new() { TenantId = "smoke", SessionId = "declaration-" + Guid.NewGuid().ToString("N"), Prompt = privateValue,
+                Options = new() { ["construction_version"] = 2, ["construction_presentation_version"] = 2 } },
+            Construction = new()
+            {
+                Version = 2, Compact = new()
+                {
+                    PresentationVersion = 2,
+                    Sources = [
+                        new() { Id = "declaration:first", Version = "exact-first", Kind = "requirement", Text = privateValue, Indexed = true, InterfaceKind = "input" },
+                        new() { Id = "declaration:second", Version = "exact-second", Kind = "requirement", Text = privateValue,
+                            Indexed = true, InterfaceKind = "input", ContinuationOf = "declaration:first" }],
+                    InterfaceExtractions = [new() { Id = "declaration:first", SourceIds = ["declaration:first", "declaration:second"], Inputs = true }]
+                }
+            },
+            PendingCall = new() { Id = "retained-interface-extraction", Purpose = "construction_intent",
+                Request = new() { Prompt = privateValue, StructuredOutputSchema = new System.Text.Json.Nodes.JsonObject { ["title"] = "construction_intent" } } }
+        };
+        var declarationJson = System.Text.Json.JsonSerializer.Serialize(declaration, PlanningJsonContext.Default.PlanningSession);
+        if (!await store.TrySaveAsync(declaration, null, CancellationToken.None))
+            throw new InvalidOperationException("Pending interface extraction insert failed.");
+        var recoveredDeclaration = await reopened.LoadAsync("smoke", declaration.Request.SessionId, CancellationToken.None);
+        if (recoveredDeclaration is null ||
+            System.Text.Json.JsonSerializer.Serialize(recoveredDeclaration, PlanningJsonContext.Default.PlanningSession) != declarationJson ||
+            recoveredDeclaration.Construction?.Compact is not { PresentationVersion: 2, InterfaceExtractions: [{ Complete: false, Inputs: true, Outputs: false, SourceIds.Count: 2 }] } ||
+            recoveredDeclaration.Construction.Compact.Sources[1].ContinuationOf != "declaration:first" ||
+            recoveredDeclaration.Construction.Compact.Sources.Any(source => source.InterfaceKind != "input") ||
+            await reopened.LoadAsync("other-tenant", declaration.Request.SessionId, CancellationToken.None) is not null ||
+            System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(vault)).Contains(privateValue, StringComparison.Ordinal))
+            throw new InvalidOperationException("Published pending interface metadata, exact request or encrypted tenant isolation changed.");
         Console.WriteLine("construction persistence: accepted baseline, compact source/substep/commitments, tentative draft and pending review recover independently under encryption");
+        Console.WriteLine("interface persistence: fresh optional presentation, linked original declarations and pending extraction survive encrypted source-generated recovery; historical fields remain absent");
     }
 
     private static async Task VerifyJudgeRecoveryAsync(string directory, string vault, IDbContextFactory<PlanningDbContext> factory,

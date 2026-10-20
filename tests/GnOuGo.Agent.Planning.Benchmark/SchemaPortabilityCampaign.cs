@@ -238,6 +238,13 @@ internal static class SchemaPortabilityCampaign
                 Option(args, "--request-id") ?? throw new ArgumentException("Supply the exact --request-id."), CancellationToken.None)).ToJsonString());
             return;
         }
+        if (phase == "retain-schema-rejection")
+        {
+            var requestId = Option(args, "--request-id") ?? throw new ArgumentException("Supply the exact --request-id.");
+            await campaign.RetainSchemaRejectionAsync(requestId, CancellationToken.None);
+            Console.WriteLine((await campaign.LoadAsync("planning-evaluation-closures", requestId))!.ToJsonString());
+            return;
+        }
         if (phase == "retain-inconclusive")
         {
             var label = Option(args, "--run") ?? throw new ArgumentException("Supply the exact --run.");

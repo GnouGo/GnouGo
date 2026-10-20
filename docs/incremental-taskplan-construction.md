@@ -58,7 +58,12 @@ cannot become independently complete on either page. Classification retains exac
 verbatim clauses and identifies interface-bearing passages. Only those passages
 receive a subsequent typed-interface extraction request, within the same journaled
 intent phase. Pending extraction blocks generation and completion. Prose-only
-classification carries no recursive type/default grammar. Historical sessions
+classification carries no recursive type/default grammar. New classification
+requests group a bounded page's interface-bearing clauses for atomic extraction,
+keeping adjacent naming/type constraints together and business requirements
+separate. The exact issued schema captures grouping behavior for recovery;
+already-created extractions and older issued classifications remain unchanged.
+Historical sessions
 without the optional captured presentation version keep combined indexing and
 their saved pages and schemas unchanged.
 Requirements retain exact source references and applicable

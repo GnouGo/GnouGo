@@ -62,18 +62,46 @@ internal sealed partial class BenchmarkCampaign(IKeyVaultRecordStore records, st
         var failure = await LoadAsync("planning-evaluation-failures", requestId, ct);
         var journal = await LoadAsync(BenchmarkHttpJournal.Collection, requestId, ct);
         var request = await LoadAsync("planning-evaluation-requests", requestId, ct);
-        if (failure?["status_code"]?.GetValue<int>() != 400 || failure["safe_provider_code"]?.ToString() != "invalid_json_schema" ||
-            request is null || journal?["transport"]?["Attempts"] is not JsonArray { Count: > 0 } attempts ||
+        if (failure?["status_code"]?.GetValue<int>() != 400 ||
+            request is null || request["clientRequestId"]?.ToString() != requestId || journal?["transport"]?["Attempts"] is not JsonArray { Count: > 0 } attempts ||
             attempts.Any(a => a?["Status"]?.GetValue<int>() != 400) ||
+            journal["usage"] is not null ||
+            failure["safe_provider_code"]?.ToString() != "invalid_json_schema" && !HasCodeLessSchemaRejection(request, failure, attempts) ||
             await LoadAsync("planning-evaluation-receipts", requestId, ct) is not null)
             throw new InvalidOperationException("Only a verified terminal schema rejection can be closed here.");
         await SaveAsync("planning-evaluation-closures", requestId, new()
         {
             ["reason"] = "provider_schema_rejected", ["outcome"] = "failed", ["retained_at"] = DateTimeOffset.UtcNow.ToString("O"),
             ["request_hash"] = PlanningGraphCompiler.Fingerprint(request.ToJsonString()),
-            ["http_journal_hash"] = PlanningGraphCompiler.Fingerprint(journal.ToJsonString())
+            ["http_journal_hash"] = PlanningGraphCompiler.Fingerprint(journal.ToJsonString()),
+            ["failure_hash"] = PlanningGraphCompiler.Fingerprint(failure.ToJsonString()),
+            ["verification"] = failure["safe_provider_code"]?.ToString() == "invalid_json_schema"
+                ? "safe_provider_code" : "retained_response_format_schema_error"
         }, ct);
         StopReason = null;
+    }
+    private static bool HasCodeLessSchemaRejection(JsonObject request, JsonObject failure, JsonArray attempts)
+    {
+        // Some OpenAI-compatible responses omit the machine code. Accept only the
+        // exact structured-format schema-error envelope retained by the transport.
+        // The transport owns the response-format name "output"; business/model
+        // content or an ordinary invalid_request_error never establishes rejection.
+        if (request["structuredOutputSchema"] is not JsonObject || request["structuredOutputStrict"]?.GetValue<bool>() != true ||
+            failure["safe_provider_code"] is not null || failure["stage"]?.ToString() != "dispatch" ||
+            failure["kind"]?.ToString() != "InvalidRequest" || failure["retryable"]?.GetValue<bool>() != false ||
+            attempts.Count != 1 || failure["attempt_count"]?.GetValue<int>() != 1 ||
+            attempts[0]?["Body"] is not JsonValue bodyValue || !bodyValue.TryGetValue<string>(out var body) ||
+            body is null || body.Length > 65_536) return false;
+        try
+        {
+            if (JsonNode.Parse(body)?["error"] is not JsonObject error ||
+                error["type"]?.ToString() != "invalid_request_error" || error["param"]?.ToString() != "response_format" ||
+                !error.ContainsKey("code") || error["code"] is not null ||
+                error["message"] is not JsonValue messageValue || !messageValue.TryGetValue<string>(out var message) || message is null) return false;
+            const string prefix = "Invalid schema for response_format 'output': ";
+            return message.StartsWith(prefix, StringComparison.Ordinal) && !string.IsNullOrWhiteSpace(message[prefix.Length..]);
+        }
+        catch (Exception ex) when (ex is JsonException or InvalidOperationException or ArgumentException) { return false; }
     }
     // Closing an exhausted evaluation is not a receipt: unknown usage stays fully reserved forever.
     // The caller holds the campaign's process lease. Original runs, requests and failures stay untouched.

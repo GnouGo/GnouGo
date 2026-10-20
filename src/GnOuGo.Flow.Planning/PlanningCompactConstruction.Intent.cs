@@ -60,11 +60,18 @@ internal static partial class PlanningCompactConstruction
         return (maximum, true);
     }
 
-    internal static JsonObject ClassificationSchema(PlanningConstructionSource source) => PlanningSchemas.Object(
-        ("sourceId", PlanningSchemas.Enum(source.Id)),
-        ("clauses", PlanningSchemas.Array(PlanningSchemas.Object(("text", Text(1200)),
-            ("kind", PlanningSchemas.Enum("requirement", "global")),
-            ("interfaces", PlanningSchemas.Enum("none", "input", "output", "both"))), 1, 16)));
+    internal const string CoalescedInterfaceDescription =
+        "Classify source clauses; interface declarations from this page are extracted together.";
+
+    internal static JsonObject ClassificationSchema(PlanningConstructionSource source)
+    {
+        var schema = PlanningSchemas.Object(("sourceId", PlanningSchemas.Enum(source.Id)),
+            ("clauses", PlanningSchemas.Array(PlanningSchemas.Object(("text", Text(1200)),
+                ("kind", PlanningSchemas.Enum("requirement", "global")),
+                ("interfaces", PlanningSchemas.Enum("none", "input", "output", "both"))), 1, 16)));
+        schema["description"] = CoalescedInterfaceDescription;
+        return schema;
+    }
 
     internal static JsonObject InterfaceSchema(PlanningConstructionInterfaceExtraction extraction)
     {
@@ -75,15 +82,10 @@ internal static partial class PlanningCompactConstruction
         if (!extraction.Outputs) schema["properties"]!["outputs"] = PlanningSchemas.Array(Text(1), 0, 0);
         if (!extraction.Inputs)
             schema["$defs"]!["type"]!["anyOf"]![3]!["properties"]!["fields"]!["items"] = PlanningSchemas.Ref("output");
-        var projected = PlanningSchemas.Compact(schema);
-        foreach (var (_, node) in PlanningSchemaReferences.Walk(projected, "", 0))
-        {
-            if (node["properties"]?["minItems"] is JsonObject minimum)
-                minimum["description"] = "Explicit minimum array length; null when absent from the original source.";
-            if (node["properties"]?["maxItems"] is JsonObject maximum)
-                maximum["description"] = "Explicit maximum array length; null when absent. Zero permits only an empty array.";
-        }
-        return projected;
+        // Bound guidance remains in InterfaceInstructions. Factoring may replace
+        // these schemas with references, which cannot carry sibling annotations
+        // in the provider's strict structured-output profile.
+        return PlanningSchemas.Compact(schema);
     }
 
     internal static JsonObject InterfaceContext(PlanningSession state, PlanningConstructionInterfaceExtraction extraction)

@@ -372,6 +372,103 @@ public sealed class BenchmarkCampaignTests
         await campaign.CallAsync(new() { ClientRequestId = "next:1:hash" }, _ => Task.CompletedTask, _ => Task.FromResult(new LLMResponse()), Ct);
         Assert.Equal(1, (await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct))["calls"]!.GetValue<long>());
     }
+    [Theory]
+    [InlineData("exact", true)]
+    [InlineData("other_schema_constraint", true)]
+    [InlineData("ordinary400", false)]
+    [InlineData("malformed_body", false)]
+    [InlineData("nonobject_body", false)]
+    [InlineData("missing_body", false)]
+    [InlineData("wrong_param", false)]
+    [InlineData("wrong_type", false)]
+    [InlineData("wrong_format_name", false)]
+    [InlineData("non_null_code", false)]
+    [InlineData("missing_code", false)]
+    [InlineData("empty_schema_detail", false)]
+    [InlineData("success", false)]
+    [InlineData("unknown", false)]
+    [InlineData("usage", false)]
+    [InlineData("receipt", false)]
+    [InlineData("retryable", false)]
+    [InlineData("wrong_count", false)]
+    [InlineData("wrong_stage", false)]
+    [InlineData("wrong_failure_kind", false)]
+    [InlineData("wrong_request", false)]
+    [InlineData("unstructured", false)]
+    public async Task CodeLessSchemaRejectionRequiresTheExactOriginalTransportEnvelope(string evidence, bool canClose)
+    {
+        var records = new Records(); var campaign = new BenchmarkCampaign(records, "code-less-schema");
+        const string id = "session:2:hash";
+        var request = new JsonObject { ["clientRequestId"] = evidence == "wrong_request" ? "other:2:hash" : id,
+            ["structuredOutputStrict"] = true, ["structuredOutputSchema"] = new JsonObject { ["type"] = "object" } };
+        if (evidence == "unstructured") request.Remove("structuredOutputSchema");
+        var failure = new JsonObject { ["stage"] = evidence == "wrong_stage" ? "preflight" : "dispatch",
+            ["kind"] = evidence == "wrong_failure_kind" ? "Transport" : "InvalidRequest", ["status_code"] = 400,
+            ["safe_provider_code"] = null, ["attempt_count"] = evidence == "wrong_count" ? 2 : 1,
+            ["retryable"] = evidence == "retryable" };
+        var error = new JsonObject
+        {
+            ["type"] = evidence == "wrong_type" ? "server_error" : "invalid_request_error",
+            ["param"] = evidence == "wrong_param" ? "messages" : "response_format",
+            ["code"] = evidence == "non_null_code" ? "another_error" : null,
+            ["message"] = evidence switch
+            {
+                "ordinary400" => "Invalid value for response_format.",
+                "wrong_format_name" => "Invalid schema for response_format 'unrelated': invalid schema.",
+                "empty_schema_detail" => "Invalid schema for response_format 'output': ",
+                "other_schema_constraint" => "Invalid schema for response_format 'output': required must list every declared property.",
+                _ => "Invalid schema for response_format 'output': context=('anyof', '2', 'properties', 'minItems'), $ref cannot have keywords {'description'}."
+            }
+        };
+        if (evidence == "missing_code") error.Remove("code");
+        var body = evidence switch { "malformed_body" => "{", "nonobject_body" => "[]", "missing_body" => null,
+            _ => new JsonObject { ["error"] = error }.ToJsonString() };
+        await campaign.SaveAsync("planning-evaluation-requests", id, request, Ct);
+        await campaign.SaveAsync("planning-evaluation-failures", id, failure, Ct);
+        var journal = new BenchmarkHttpJournal(campaign, id, 3000, 8192, 1m);
+        var transport = new LLMHttpRetryState { Attempts = [new() { Id = "one" }] };
+        await journal.SaveAsync(transport, Ct);
+        transport.Attempts[0].Status = evidence switch { "success" => 200, "unknown" => null, _ => 400 };
+        transport.Attempts[0].Body = body;
+        await journal.SaveAsync(transport, Ct);
+        if (evidence == "usage")
+        {
+            var row = (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, id, Ct))!;
+            row["usage"] = new JsonObject(); await campaign.SaveAsync(BenchmarkHttpJournal.Collection, id, row, Ct);
+        }
+        if (evidence == "receipt") await campaign.SaveAsync("planning-evaluation-receipts", id, new(), Ct);
+        var collections = new[] { "planning-evaluation-requests", "planning-evaluation-failures", BenchmarkHttpJournal.Collection,
+            "planning-evaluation-receipts" };
+        var originals = new Dictionary<string, string?>();
+        foreach (var collection in collections) originals[collection] = (await campaign.LoadAsync(collection, id, Ct))?.ToJsonString();
+        var writes = records.Writes;
+        if (!canClose)
+        {
+            await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.RetainSchemaRejectionAsync(id, Ct));
+            Assert.Null(await campaign.LoadAsync("planning-evaluation-closures", id, Ct));
+            Assert.Equal(writes, records.Writes);
+        }
+        else
+        {
+            var before = await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct);
+            await campaign.RetainSchemaRejectionAsync(id, Ct);
+            var closure = (await campaign.LoadAsync("planning-evaluation-closures", id, Ct))!;
+            Assert.Equal("provider_schema_rejected", closure["reason"]!.ToString());
+            Assert.Equal("retained_response_format_schema_error", closure["verification"]!.ToString());
+            Assert.Equal(writes + 1, records.Writes);
+            await campaign.RetainSchemaRejectionAsync(id, Ct);
+            Assert.Equal(writes + 1, records.Writes);
+            Assert.Null(await campaign.LoadAsync("planning-evaluation-receipts", id, Ct));
+            Assert.Null((await campaign.LoadAsync("planning-evaluation-failures", id, Ct))!["safe_provider_code"]);
+            Assert.True(JsonNode.DeepEquals(before, await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct)));
+            await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.CallAsync(new() { ClientRequestId = id },
+                _ => Task.CompletedTask, _ => throw new Exception("A rejected request must never dispatch again."), Ct));
+            await campaign.CallAsync(new() { ClientRequestId = "fresh:1:hash" }, _ => Task.CompletedTask,
+                _ => Task.FromResult(new LLMResponse()), Ct);
+        }
+        foreach (var collection in collections)
+            Assert.Equal(originals[collection], (await campaign.LoadAsync(collection, id, Ct))?.ToJsonString());
+    }
     [Fact]
     public void LiveAdapterUsesSynchronousRecoveryWithoutChangingReservedRequest()
     {
