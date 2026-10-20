@@ -233,6 +233,11 @@ internal static partial class PlanningCompactConstruction
             value = new JsonObject { ["offset"] = next, ["total"] = state.Requirements.Outcomes.Count,
                 ["items"] = RequirementNodes(state, state.Requirements.Outcomes.Skip(next).Take(1).Select(r => r.Id)),
                 ["next"] = next + 1 < state.Requirements.Outcomes.Count ? "page:requirements:" + (next + 1) : null };
+            if (compact.PresentationVersion == 2)
+            {
+                compact.RequirementOffset = Math.Max(compact.RequirementOffset, next);
+                compact.RequirementPageRequested = true;
+            }
             return true;
         }
         if (parts is ["page", "interfaces", var interfaceOffset] && int.TryParse(interfaceOffset, out next) && next >= 0)

@@ -489,6 +489,123 @@ public sealed class CompactConstructionTests
         Assert.All(state.Construction.Requirements, requirement => Assert.NotEqual("closed", requirement.Status));
     }
 
+    [Theory]
+    [InlineData("1", "page:requirements:2")]
+    [InlineData("1,2", "page:requirements:3")]
+    [InlineData("1,3", "page:requirements:4")]
+    [InlineData("2,3", "page:requirements:4")]
+    [InlineData("1,2,3,4", null)]
+    public async Task FreshSelectionContinuesAfterFurthestRequirementPageWithoutClosingSkippedRequirements(string supplied, string? next)
+    {
+        var state = await IndexedNavigationRequirements();
+        var originals = JsonSerializer.Serialize(state.Requirements, PlanningJsonContext.Default.PlanningRequirements);
+        var sources = JsonSerializer.Serialize(state.Construction!.Compact!.Sources, PlanningJsonContext.Default.ListPlanningConstructionSource);
+        var planHash = PlanningConstruction.Hash(state.Plan);
+        var addresses = supplied.Split(',').Select(offset => "page:requirements:" + offset).ToList();
+        PlanningConstruction.LoadEvidence(state, addresses);
+        var beforeContext = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        var context = PlanningCompactConstruction.SelectionContext(state);
+        Assert.Equal(next, context["nextRequirements"]?.ToString());
+        Assert.Equal("page:requirements:0", context["requirementsDirectory"]!.ToString());
+        Assert.Equal("req_0", Assert.Single(context["requirements"]!.AsArray())!["id"]!.ToString());
+        Assert.Equal(5, context["originalRequirementCount"]!.GetValue<int>());
+        Assert.Equal(5, context["requirementCount"]!.GetValue<int>());
+        Assert.Single(context["globalConstraints"]!.AsArray());
+        foreach (var address in addresses)
+            Assert.True(JsonNode.DeepEquals(state.Construction.Evidence![address], context["evidence"]![address]));
+        Assert.Equal(beforeContext, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+        Assert.Equal(originals, JsonSerializer.Serialize(state.Requirements, PlanningJsonContext.Default.PlanningRequirements));
+        Assert.Equal(sources, JsonSerializer.Serialize(state.Construction.Compact.Sources, PlanningJsonContext.Default.ListPlanningConstructionSource));
+        Assert.Equal(planHash, PlanningConstruction.Hash(state.Plan));
+        Assert.All(state.Construction.Requirements, requirement => Assert.Equal("remaining", requirement.Status));
+        var request = PlanningCompactConstruction.Request(PlanningCompactConstruction.SelectInstructions, context,
+            PlanningCompactConstruction.SelectionSchema(state), PlanningCompactConstruction.SelectPurpose);
+        Assert.InRange(PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.SelectPurpose, 3000).EstimatedInputTokens, 1, 3000);
+    }
+
+    [Fact]
+    public async Task RetainedSelectionKeepsHistoricalRequirementContinuation()
+    {
+        var state = await IndexedNavigationRequirements();
+        state.Construction!.Compact!.PresentationVersion = null;
+        state.Request.Options.Remove("construction_presentation_version");
+        PlanningConstruction.LoadEvidence(state, ["page:requirements:1"]);
+        Assert.Equal("page:requirements:1", PlanningCompactConstruction.SelectionContext(state)["nextRequirements"]!.ToString());
+        Assert.False(state.Construction.Compact.RequirementPageRequested);
+        Assert.Equal(0, state.Construction.Compact.RequirementOffset);
+    }
+
+    [Fact]
+    public async Task FreshRequirementNavigationContinuesAcrossReplacementBatchesAndRestart()
+    {
+        var state = await IndexedNavigationRequirements();
+        for (var offset = 1; offset < state.Requirements!.Outcomes.Count; offset++)
+        {
+            var context = PlanningCompactConstruction.SelectionContext(state);
+            var address = "page:requirements:" + offset;
+            Assert.Equal(address, context["nextRequirements"]!.ToString());
+            Assert.Equal("req_0", Assert.Single(context["requirements"]!.AsArray())!["id"]!.ToString());
+            PlanningConstruction.LoadEvidence(state, [address]);
+            state = PlannerFixture.Clone(state);
+            Assert.Equal(offset, state.Construction!.Compact!.RequirementOffset);
+            Assert.True(state.Construction.Compact.RequirementPageRequested);
+            Assert.Equal(address, Assert.Single(state.Construction.Evidence!).Key);
+        }
+        Assert.Null(PlanningCompactConstruction.SelectionContext(state)["nextRequirements"]);
+        PlanningConstruction.LoadEvidence(state, ["page:requirements:0"]);
+        Assert.Equal(4, state.Construction!.Compact!.RequirementOffset);
+        Assert.Null(PlanningCompactConstruction.SelectionContext(state)["nextRequirements"]);
+        Assert.All(state.Construction.Requirements, requirement => Assert.Equal("remaining", requirement.Status));
+    }
+
+    [Fact]
+    public async Task FailedRequirementEvidenceBatchCannotAdvanceCapturedNavigation()
+    {
+        var state = await IndexedNavigationRequirements();
+        PlanningConstruction.LoadEvidence(state, ["page:requirements:1"]);
+        var before = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        var failure = Assert.Throws<PlanningResponseException>(() =>
+            PlanningConstruction.LoadEvidence(state, ["page:requirements:3", "page:requirements:99"]));
+        Assert.Contains(failure.Diagnostics, diagnostic => diagnostic.Code == "CONSTRUCTION_EVIDENCE_UNKNOWN");
+        Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+        Assert.Equal("page:requirements:2", PlanningCompactConstruction.SelectionContext(state)["nextRequirements"]!.ToString());
+    }
+
+    [Fact]
+    public async Task FreshRequirementNavigationStillRejectsRepeatedEvidenceWithoutProgress()
+    {
+        var state = await IndexedNavigationRequirements();
+        PlanningConstruction.LoadEvidence(state, ["page:requirements:1"]);
+        Assert.Equal("page:requirements:2", PlanningCompactConstruction.SelectionContext(state)["nextRequirements"]!.ToString());
+        var evidence = state.Construction!.Evidence!.ToJsonString();
+        var requests = state.Construction.EvidenceRequests.ToArray();
+        var failure = Assert.Throws<PlanningResponseException>(() =>
+            PlanningConstruction.LoadEvidence(state, ["page:requirements:1"]));
+        Assert.Contains(failure.Diagnostics, diagnostic => diagnostic.Code == "REPLAN_NO_PROGRESS");
+        Assert.Equal(evidence, state.Construction.Evidence.ToJsonString());
+        Assert.Equal(requests, state.Construction.EvidenceRequests);
+        Assert.Empty(state.Construction.Checkpoints);
+    }
+
+    private static async Task<PlanningSession> IndexedNavigationRequirements()
+    {
+        string[] clauses = ["Read each original record. ", "Keep the exact names. ", "Preserve their order. ",
+            "Return the retained values. ", "Close acquired resources. ", "Never change the supplied identities."];
+        var runtime = new TestRuntime { Respond = (request, _) => Wire(request, new JsonObject
+        {
+            ["sourceId"] = Context(request)["sources"]![0]!["id"]!.ToString(),
+            ["clauses"] = new JsonArray(clauses.Select((text, index) => (JsonNode)new JsonObject
+            {
+                ["text"] = text, ["kind"] = index == clauses.Length - 1 ? "global" : "requirement", ["interfaces"] = "none"
+            }).ToArray())
+        }) };
+        var state = await new HybridWorkflowPlanner().AdvanceAsync(NewSession(string.Concat(clauses)),
+            new() { ExpectedRevision = 0 }, runtime, PlannerFixture.Ct);
+        Assert.Empty(state.Diagnostics);
+        Assert.Equal(2, state.Construction!.Compact!.PresentationVersion);
+        return state;
+    }
+
     [Fact]
     public async Task RequestedRequirementPagesDisplaceOnlyRepeatedNavigationProse()
     {

@@ -87,6 +87,10 @@ addresses, without surveying future work or replacing that anchor. Render each e
 requested page once. Navigation descriptions and port-name directories are
 bounded and identify omitted material through versioned retrieval addresses;
 complete original requirements and required type constraints are never cropped.
+Fresh selection's next-requirement link continues beyond the furthest requested
+page using the existing retained cursor, even across separate evidence batches.
+Skipped pages remain unresolved requirements with stable retrieval addresses;
+pagination never closes them. Requesting the same evidence without progress still stops.
 An unspecified array cardinality remains null: zero is an actual bound.
 Task navigation presents four tasks per page and eight port names per task,
 including declared results of closed group calls. Original objective and port

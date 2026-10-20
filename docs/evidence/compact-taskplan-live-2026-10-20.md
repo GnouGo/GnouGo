@@ -169,6 +169,38 @@ An in-memory projection of the retained request reduces complete bytes from
 tests pass, including consumption of the previous exact issued request/receipt
 and refusal to advance or retry an extraction stopped by its output limit.
 
+## Diagnostic revision 7cb6f29
+
+Source: `7cb6f29786623c5e5cdad1379583a750f6fefd41`, with the narrower extraction
+instructions and unchanged schema/model/allowances. Amazon run
+`compactd7cb6f29-amazon-1` completed extraction with 132 content bytes and 218
+reasoning tokens. Classification produced different exact clause boundaries, so
+this observation does not isolate the cause of the previous empty response.
+
+Selection then requested `page:requirements:1` twice. The second request already
+contained that exact page, whose own next link correctly pointed to page 2, but
+the top-level `nextRequirements` link still pointed to page 1. The existing
+non-progress guard stopped the run. The focused correction advances this
+navigation link past supplied evidence, preserving original page identities,
+the unresolved anchor and the repeated-evidence guard.
+
+All four calls have retained receipts; there were zero corrections, checkpoints,
+discovery operations, runtime effects or new uncertain attempts. Provider usage
+was 3,750 input and 2,670 output tokens, including 2,192 reasoning tokens.
+Planning took 40,570 ms and cost €0.0878432418021860837110103972.
+The campaign upper bound became €4.0088109837376699546787523323, leaving
+**€236.0212928489686345877661949677**. No business success is claimed.
+
+| Phase | Calls | p50 / p95 / maximum complete bytes | p50 / p95 / maximum input estimate |
+| --- | ---: | ---: | ---: |
+| Intent | 2 | 3,933.5 / 5,001 / 5,001 | 1,567.5 / 1,923 / 1,923 |
+| Selection | 2 | 6,832 / 7,124 / 7,124 | 2,533.5 / 2,631 / 2,631 |
+
+All component-byte totals reconcile. No generation or Judge request was issued.
+The navigation correction passes 102 affected tests with warnings as errors,
+including serialized cursor recovery, nonconsecutive pages without closing gaps,
+historical navigation, atomic evidence rollback and unchanged non-progress stops.
+
 ## Deterministic evidence
 
 For `72964ab`, 370 affected planner tests and 173 host tests passed with warnings

@@ -168,13 +168,19 @@ internal static partial class PlanningCompactConstruction
         if (selected.Length == 0) selected = state.Requirements.Outcomes.Take(1).ToArray();
         var suppliedRequirements = EvidenceRequirementIds(state);
         var lastRequirement = selected.Length == 0 ? -1 : state.Requirements.Outcomes.FindIndex(r => r.Id == selected[^1].Id);
+        if (compact.PresentationVersion == 2 && compact.RequirementPageRequested)
+            lastRequirement = Math.Max(lastRequirement, compact.RequirementOffset);
+        var nextRequirement = lastRequirement + 1;
+        if (compact.PresentationVersion == 2)
+            while (nextRequirement < state.Requirements.Outcomes.Count &&
+                suppliedRequirements.Contains(state.Requirements.Outcomes[nextRequirement].Id)) nextRequirement++;
         var context = new JsonObject
         {
             ["baseHash"] = PlanningConstruction.Hash(state.Plan),
             ["requirements"] = RequirementNodes(state, selected.Select(r => r.Id).Where(id => !suppliedRequirements.Contains(id))),
             ["requirementCount"] = remaining.Count, ["requirementPage"] = selected.Length == 0 ? 0 : state.Requirements.Outcomes.FindIndex(r => r.Id == selected[0].Id),
             ["originalRequirementCount"] = state.Requirements.Outcomes.Count,
-            ["nextRequirements"] = lastRequirement + 1 < state.Requirements.Outcomes.Count ? "page:requirements:" + (lastRequirement + 1) : null,
+            ["nextRequirements"] = nextRequirement < state.Requirements.Outcomes.Count ? "page:requirements:" + nextRequirement : null,
             ["requirementsDirectory"] = "page:requirements:0",
             ["globalConstraints"] = Sources(state, compact.GlobalSourceIds), ["instructions"] = state.Request.Policy.Instructions,
             ["frontierCount"] = state.Construction.OpenScopes.Count,
