@@ -5,7 +5,27 @@ Amazon, Collections or Review PR execution is claimed by the retained diagnostic
 results below. Compilation, scoped reviews and accepted checkpoints are separate
 measurements.
 
-## Latest retained diagnostics
+## Latest controls and phase-output experiments
+
+Source `5c01f98e803bc06bd0f241bd2491c1200fef3c77` kept medium reasoning, 3k/8k/4k input targets and 6k/16k/8k hard ceilings. The controls retained navigation/draft/Judge outputs of 8,192/8,192/2,048.
+
+| Run | Calls / corrections / checkpoints | Known cost | Observed result |
+| --- | ---: | ---: | --- |
+| Amazon control | 2 / 0 / 0 | €0.278948 | Interface extraction exhausted 8,192 reasoning tokens with zero visible output |
+| Collections control | 9 / 1 / 1 | €0.423287 | Draft call 9 exhausted 8,192 reasoning tokens with zero visible output |
+| Review PR control | 3 / 0 / 0 | €0.285626 | Interface extraction exhausted 8,192 reasoning tokens with zero visible output |
+| Collections, draft output 16,384 | 2 / 0 / 0 | €0.234933 | Unchanged navigation exhausted 8,192 tokens; no draft used the changed allowance |
+| Amazon, navigation output 16,384 | 10 / 1 / 0 | €0.298765 | Discovery repeated a rejected evidence batch: 6,759 estimated input tokens against 6,000 |
+
+The three controls total 14 known calls, 540.344 seconds and **€0.9878610148404869812494445923**; all 76,805 request bytes reconcile, with no input-limit rejection, new uncertainty or execution. Provider usage was 13,456 input and 34,812 output tokens, including 32,825 reasoning tokens.
+
+The draft-output experiment never reached its changed phase and cannot establish whether 16,384 helps drafting. The separate navigation trial preserved source, model, input ceilings, call/correction limits, MCPs and oracles. All its responses completed below 8,192 output tokens, so no causal benefit from the larger allowance is established. It used 19,096 input / 8,024 output / 6,259 reasoning tokens in 125.430 seconds, with no empty response or new uncertainty. Empty output establishes exhaustion, not its cause. These fresh trials do not resume or replay a stopped request.
+
+Business acceptance remains incomplete; there is no verified complete execution and the final 18-run comparison has not started. Retain the [663cf72 measurements](compact-taskplan-663cf72.json), [1984bdc measurements](compact-taskplan-1984bdc.json) and immutable archive index as historical evidence.
+
+[Safe phase measurements](compact-taskplan-5c01f98.json) include both separately frozen experiments and the controls, rejected requests, reconciled components and exact evidence hashes. Discovery had retained unrelated later operations while leaving the relevant description continuation unread. The follow-up replaces broad inspection guidance with descriptor shortlisting and selects the next action with bindable prerequisites. Original requirement closure, admission and repeat guards remain unchanged.
+
+## Preceding retained diagnostics
 
 Source `663cf727204cc0786c26783f94cb1047903bbede` kept the same medium profile and
 output reservations. The three new runs stopped before generation or execution.
@@ -87,10 +107,10 @@ billed usage; reasoning is part of provider output, not additional output.
 
 ## Current experiment
 
-Revision `1984bdc` starts from `afc342c` with a captured phase policy: navigation,
+The simplification beginning at `1984bdc` uses a captured phase policy: navigation,
 draft and Judge targets remain 3k/8k/4k, while hard complete-request ceilings are
-6k/16k/8k. Initial reasoning stays medium and output reservations stay
-8,192/8,192/2,048. It also removes avoidable import-selection and evidence-charging
+6k/16k/8k. Control reasoning stays medium with output reservations of
+8,192/8,192/2,048; the separate experiments above change one family at a time. It also removes avoidable import-selection and evidence-charging
 loops, uses shared selected-kind schemas, admits coherent evidence batches and
 constrains Judge references to supplied objects.
 
@@ -119,14 +139,14 @@ Read-only inspection of encrypted campaign
 | Ledger measurement | EUR |
 | --- | ---: |
 | Campaign ceiling | 240.0301038327063045424449473 |
-| Known spending | 16.970310139518350662045676708 |
+| Known spending | 18.491868834977339376166355638 |
 | Retained unknown-usage reservations | 0.4953212476672887230071980805 |
-| Spending/reservation upper bound | 17.465631387185639385052874788 |
-| Available allowance | 222.564472445520665157392072512 |
+| Spending/reservation upper bound | 18.987190082644628099173553718 |
+| Available allowance | 221.042913750061676443271393582 |
 
 Evidence hash:
-`3982652cdcd16aa39503b52337b4cc629c2b25b1767f06965eefc55e3462d614`.
-There are 650 reserved request identities and 647 receipts. Three receiptless
+`dbc3b273d39213f0a718c127cdcf6b0a29a387cbc098c876ddb8175bf99b1265`.
+There are 676 reserved request identities and 673 receipts. Three receiptless
 identities are permanently retained; two have unknown-usage reservations. They
 remain non-replayable and their abandoned runs cannot continue. Separate lost
 historical exposure of €159.96989616729369545755505266 remains accounted for

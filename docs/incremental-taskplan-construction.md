@@ -72,8 +72,11 @@ issued schemas retain their captured cardinality.
 
 ## Substeps, contracts and scoped schemas
 
-Selection identifies immediate business work, its original requirements, scope,
-expected outputs and prerequisites. Missing prerequisites remain frontier obligations.
+Selection identifies the next action or structural step whose prerequisites bind
+to caller/scope inputs or accepted outputs. A missing producer precedes its dependent
+action; a chain requiring unbuilt producers is not one immediate substep. The complete
+original requirement stays attached and open across its contributing fragments.
+Missing prerequisites remain frontier obligations.
 Cleanup, exports and closure use the same substep mechanism. Public workflow
 outputs remain distinct from internal task/group results and local exports.
 All unprocessed pages and unresolved requirements block completion.
@@ -93,6 +96,9 @@ admission. Historical singleton pages and issued requests are unchanged.
 Discovery queries the selected substep, never the global objective. Cached
 inspections stay retrievable without becoming mandatory context. Concise operation
 and provider directories retain exact identities, effects and retrieval addresses.
+Descriptors may exclude clear mismatches. Exact descriptions and necessary
+continuations establish the suitability of shortlisted capabilities; finding a
+suitable operation does not require inspecting unrelated or later workflow actions.
 A consumed navigation page does not invalidate an operation's identity. Provider
 source/cursor pairs come from the issued schema; evidence-page addresses are not
 provider cursors. Empty or exhausted metadata pages do not create progress.

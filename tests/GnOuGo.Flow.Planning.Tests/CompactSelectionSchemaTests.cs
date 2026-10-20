@@ -161,8 +161,9 @@ public sealed class CompactSelectionSchemaTests
             Provider = "OpenAi", Model = "retained-model", UseBackgroundMode = true, MaxTokens = 8192,
             ClientRequestId = new string('s', 64) + ":9:" + new string('h', 64)
         }, state.Request.Generation);
-        var measurement = PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.SelectPurpose, 3000);
-        Assert.True(measurement.EstimatedInputTokens <= 3000, $"Complete selection request: {measurement.EstimatedInputTokens} tokens.");
+        var limit = PlanningConstructionPhasePolicies.Resolve(state.Request, PlanningCompactConstruction.SelectPurpose).MaxInputTokens;
+        var measurement = PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.SelectPurpose, limit);
+        Assert.True(measurement.EstimatedInputTokens <= limit, $"Complete selection request: {measurement.EstimatedInputTokens} tokens; ceiling: {limit}.");
         Assert.Equal(7, context["globalConstraints"]!.AsArray().Count);
         foreach (var source in compact.Sources.Where(s => compact.GlobalSourceIds.Contains(s.Id)))
         {

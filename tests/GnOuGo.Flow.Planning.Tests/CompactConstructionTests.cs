@@ -274,12 +274,123 @@ public sealed class CompactConstructionTests
     [Fact]
     public async Task RetainedUnrelatedContractDoesNotEnterNextStepOrJudge()
     {
-        var state = await PlannerFixture.RunAsync(new TestRuntime { Respond = Simple }, Retained());
-        state.Construction!.Compact!.CurrentStep = new() { Id = "next", BaseHash = PlanningConstruction.Hash(state.Plan), Scope = "/root", Kind = "close", RequirementIds = ["req_0"] };
-        state.Discovery.Resolved.Add(new() { Id = "unrelated", Description = new string('z', 60000), Version = "1", StepType = "set" });
-        var context = PlanningCompactConstruction.Context(state, review: true).ToJsonString();
-        Assert.DoesNotContain(new string('z', 100), context, StringComparison.Ordinal);
-        Assert.Empty(JsonNode.Parse(context)!["operations"]!.AsArray());
+        const string original = "Read the numeric amount identified by the caller's string input key, double that amount, then write the doubled result.";
+        var planner = new HybridWorkflowPlanner();
+        var runtime = new TestRuntime { Respond = (request, _) =>
+        {
+            if (request.StructuredOutputSchema!["properties"]!["clauses"] is not null)
+                return Wire(request, new()
+                {
+                    ["sourceId"] = Context(request)["sources"]![0]!["id"]!.DeepClone(),
+                    ["clauses"] = new JsonArray(new JsonObject { ["text"] = original, ["kind"] = "requirement", ["interfaces"] = "input" })
+                });
+            return Wire(request, new()
+            {
+                ["sourceId"] = request.StructuredOutputSchema["properties"]!["sourceId"]!["enum"]![0]!.DeepClone(),
+                ["inputs"] = JsonSerializer.SerializeToNode(new List<TaskInput>
+                    { new() { Name = "key", Type = new() { Kind = "string" } } }, PlanningJsonContext.Default.ListTaskInput),
+                ["outputs"] = new JsonArray()
+            });
+        } };
+        var state = NewSession(original);
+        for (var i = 0; i < 2; i++)
+            state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
+        Assert.Empty(state.Diagnostics);
+        Assert.True(PlanningConstructionPhasePolicies.IsFresh(state.Request));
+        var writer = Contract("write", "write", "amount", "number", new string('z', 9000));
+        state.Discovery.Resolved =
+        [
+            Contract("read", "read", "key", "string", "Read the numeric amount for the exact caller key."),
+            writer
+        ];
+        state.Catalog = new() { AllowedStepTypes = ["mcp.call", "set"] };
+        var contracts = JsonSerializer.Serialize(state.Discovery.Resolved, PlanningJsonContext.Default.ListPlanningCapability);
+        var input = new TaskValue { Kind = "input", Source = "key" };
+        var read = new TaskValue { Kind = "output", Source = "read_amount", Port = "amount" };
+        var doubled = new TaskValue { Kind = "output", Source = "double_amount", Port = "amount" };
+        PlanTask[] tasks =
+        [
+            new() { Id = "read_amount", Kind = "operation", Operation = "read", Objective = "Read the caller's amount.", Inputs = [new("key", input)] },
+            new() { Id = "double_amount", Kind = "value", Objective = "Double the observed amount.",
+                Outputs = [new("amount", new() { Kind = "arithmetic", Text = "multiply", Items = [read, new() { Kind = "number", Number = 2 }] })] },
+            new() { Id = "write_amount", Kind = "operation", Operation = "write", Objective = "Write the doubled amount.", Inputs = [new("amount", doubled)] }
+        ];
+        TaskValue[] imports = [input, read, doubled];
+        var step = 0; var draftStep = 0;
+        var discovered = new List<string>();
+        var reviewed = new HashSet<int>();
+        runtime.Respond = (request, purpose) =>
+        {
+            var context = Context(request);
+            Assert.Equal(original, Assert.Single(context["requirements"]!.AsArray())!["original"]!.ToString());
+            if (purpose == PlanningCompactConstruction.SelectPurpose)
+            {
+                Assert.Equal(step, state.Plan?.Root.Tasks.Count ?? 0);
+                var response = Select(request, tasks[step].Kind, close: false);
+                response["step"]!["objective"] = tasks[step].Objective;
+                response["step"]!["inputs"] = new JsonArray(JsonSerializer.SerializeToNode(imports[step], PlanningJsonContext.Default.TaskValue));
+                response["step"]!["outputNames"] = new JsonArray();
+                response["step"]!["expectedOutputs"] = new JsonArray(step == 2 ? "The write completes." : "The numeric amount.");
+                return Wire(request, response);
+            }
+            if (purpose == PlanningCompactConstruction.DiscoveryPurpose)
+            {
+                Assert.Equal(tasks[step].Objective, context["step"]!["objective"]!.ToString());
+                discovered.Add(tasks[step].Operation!);
+                return Wire(request, new() { ["operationIds"] = new JsonArray(tasks[step].Operation), ["discoveryRequests"] = null,
+                    ["evidenceRequests"] = null, ["reselectStep"] = null, ["clarifications"] = null });
+            }
+            var active = purpose == PlanningConstruction.DraftPurpose ? step : draftStep;
+            var operations = context["operations"]!.AsArray();
+            if (tasks[active].Operation is { } operation)
+                Assert.Equal(operation, Assert.Single(operations)!["id"]!.ToString());
+            else Assert.Empty(operations);
+            if (active < 2) Assert.DoesNotContain(new string('z', 100), request.Prompt, StringComparison.Ordinal);
+            if (purpose == PlanningConstruction.DraftPurpose)
+            {
+                draftStep = step++;
+                return Wire(request, Draft(request, new() { Tasks = [tasks[draftStep]], RequirementIds = ["req_0"] }));
+            }
+            Assert.True(purpose is PlanningConstruction.LocalPurpose or PlanningConstruction.IntermediatePurpose);
+            var imported = Assert.Single(context["interfaces"]!.AsArray())!;
+            Assert.Equal(imports[active].Kind, imported["binding"]!["kind"]!.ToString());
+            Assert.Equal(imports[active].Source, imported["binding"]!["source"]!.ToString());
+            Assert.Equal(active == 0 ? "string" : "number", imported["schema"]!["type"]!.ToString());
+            Assert.Empty(context["step"]!["closeRequirementIds"]!.AsArray());
+            reviewed.Add(active);
+            return Wire(request, Reviewed());
+        };
+        for (var i = 0; i < 20 && state.Construction!.Checkpoints.Count < 3; i++)
+        {
+            state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
+            Assert.Empty(state.Diagnostics);
+            Assert.Equal(original, Assert.Single(state.Requirements!.Outcomes).Description);
+            Assert.NotEqual("closed", Assert.Single(state.Construction!.Requirements).Status);
+        }
+        Assert.Equal(3, state.Construction!.Checkpoints.Count);
+        Assert.Equal(new[] { "read", "write" }, discovered);
+        Assert.Equal(new[] { 0, 1, 2 }, reviewed.Order());
+        Assert.All(state.Construction.Checkpoints, checkpoint => Assert.Empty(checkpoint.ClosedRequirementIds ?? []));
+        Assert.Equal("in_progress", Assert.Single(state.Construction.Requirements).Status);
+        Assert.False(state.Construction.Complete);
+        Assert.Equal(contracts, JsonSerializer.Serialize(state.Discovery.Resolved, PlanningJsonContext.Default.ListPlanningCapability));
+        var premature = PlannerFixture.Clone(state);
+        premature.Construction!.Compact!.CurrentStep = new() { Kind = "close", Scope = "/root", RequirementIds = ["req_0"],
+            BaseHash = PlanningConstruction.Hash(premature.Plan) };
+        premature.Construction.Candidate = PlanningConstruction.Apply(premature,
+            new() { RequirementIds = ["req_0"], CloseScopes = ["/root"], Complete = true });
+        Assert.Contains(PlanningCompactConstruction.CandidateFindings(premature), finding => finding.Code == "CONSTRUCTION_REQUIREMENT_REMAINING");
+        Assert.Equal("in_progress", Assert.Single(state.Construction.Requirements).Status);
+
+        static PlanningCapability Contract(string id, string effect, string name, string type, string description) => new()
+        {
+            Id = id, Version = "v1", Kind = "tool", StepType = "mcp.call", Server = "source", Method = id, EffectKind = effect, Description = description,
+            InputSchema = new() { ["type"] = "object", ["properties"] = new JsonObject { [name] = new JsonObject { ["type"] = type } },
+                ["required"] = new JsonArray(name), ["additionalProperties"] = false },
+            OutputSchema = new() { ["type"] = "object", ["properties"] = id == "read"
+                ? new JsonObject { ["amount"] = new JsonObject { ["type"] = "number" } } : new JsonObject(),
+                ["required"] = id == "read" ? new JsonArray("amount") : new JsonArray(), ["additionalProperties"] = false }
+        };
     }
 
     [Fact]
