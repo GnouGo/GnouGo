@@ -231,6 +231,137 @@ public sealed class ConstructionCorrectionAccountingTests
         Assert.Empty(state.Construction.Checkpoints);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CandidateRepairReceivesTheRejectedEvidenceDiagnosticAndClearsItOnlyAfterSuccess(bool typed)
+    {
+        var (state, runtime) = await Ready(draft: true);
+        var candidate = DiagnoseCandidate(state, typed);
+        var finding = Assert.Single(candidate.Diagnostics);
+        var accepted = PlanningConstruction.Hash(state.Plan);
+        var hash = candidate.Hash;
+        runtime.Respond = (request, purpose) =>
+        {
+            Assert.Equal("replan", purpose);
+            Assert.Equal(typed, PlanningRepairPatch.Issued(request.StructuredOutputSchema!.AsObject()));
+            return Wire(request, new() { ["baseHash"] = accepted,
+                ["evidenceRequests"] = new JsonArray("requirement:req_0", "requirement:missing") });
+        };
+        state = await Advance(state, runtime);
+        Assert.Equal(1, state.ReplanAttempts);
+        Assert.Null(state.Construction!.Evidence);
+        Assert.Empty(state.Construction.EvidenceRequests);
+        Assert.Equal(finding, Assert.Single(state.Construction.Candidate!.Diagnostics));
+        Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Code == "CONSTRUCTION_EVIDENCE_UNKNOWN");
+        var calls = state.ModelCalls;
+        runtime.Respond = (request, purpose) =>
+        {
+            Assert.Equal("replan", purpose);
+            var diagnostics = Context(request)["diagnostics"]!.AsArray();
+            Assert.Equal(2, diagnostics.Count);
+            Assert.Single(diagnostics, diagnostic => diagnostic!["code"]!.ToString() == finding.Code);
+            var rejected = Assert.Single(diagnostics, diagnostic => diagnostic!["code"]!.ToString() == "CONSTRUCTION_EVIDENCE_UNKNOWN")!;
+            Assert.Contains("requirement:missing", rejected["message"]!.ToString(), StringComparison.Ordinal);
+            Assert.Equal("/evidenceRequests", Assert.Single(rejected["locations"]!.AsArray())!.ToString());
+            return Evidence(request, "requirement:req_0");
+        };
+        state = await Advance(state, runtime);
+        Assert.Equal(calls + 1, state.ModelCalls);
+        Assert.Equal(1, state.ReplanAttempts);
+        Assert.Equal(hash, state.Construction!.Candidate!.Hash);
+        Assert.Equal(accepted, PlanningConstruction.Hash(state.Plan));
+        Assert.NotNull(state.Construction.Evidence!["requirement:req_0"]);
+        Assert.DoesNotContain(state.Diagnostics, diagnostic => diagnostic.Code == "CONSTRUCTION_EVIDENCE_UNKNOWN");
+        Assert.Equal(finding, Assert.Single(state.Construction.Candidate.Diagnostics));
+        Assert.Equal(finding.Code, Assert.Single(PlanningCompactConstruction.Context(state)["diagnostics"]!.AsArray())!["code"]!.ToString());
+        Assert.Empty(state.Construction.Checkpoints);
+    }
+
+    [Fact]
+    public async Task PendingRepairKeepsItsIssuedDiagnosticContextAndAccountingAfterNewHostFeedback()
+    {
+        var (state, runtime) = await Ready(draft: true);
+        var candidate = DiagnoseCandidate(state, typed: false);
+        var accepted = PlanningConstruction.Hash(state.Plan);
+        var candidateHash = candidate.Hash;
+        using var interruption = CancellationTokenSource.CreateLinkedTokenSource(PlannerFixture.Ct);
+        runtime.Respond = (_, _) => { interruption.Cancel(); throw new OperationCanceledException(interruption.Token); };
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => new HybridWorkflowPlanner().AdvanceAsync(state,
+            new() { ExpectedRevision = state.Revision }, runtime, interruption.Token));
+        state = PlannerFixture.Clone(runtime.Checkpoints.Last(checkpoint => checkpoint.PendingCall is not null));
+        var request = state.PendingCall!.Request;
+        var exact = JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest);
+        var calls = state.ModelCalls;
+        state.Diagnostics.Add(new("CONSTRUCTION_EVIDENCE_INVALID", "/evidenceRequests/1", "A later host diagnostic cannot rewrite an issued request."));
+        runtime.Respond = (issued, purpose) =>
+        {
+            Assert.Equal("replan", purpose);
+            Assert.Equal(exact, JsonSerializer.Serialize(issued, PlanningJsonContext.Default.LLMRequest));
+            Assert.DoesNotContain(Context(issued)["diagnostics"]!.AsArray(),
+                diagnostic => diagnostic!["code"]!.ToString() == "CONSTRUCTION_EVIDENCE_INVALID");
+            return Evidence(issued, "requirement:req_0");
+        };
+        state = await Advance(state, runtime);
+        Assert.Equal(calls, state.ModelCalls);
+        Assert.Equal(0, state.ReplanAttempts);
+        Assert.Equal(0, state.Construction!.DraftCorrections);
+        Assert.Equal(0, state.Construction.Candidate!.Corrections);
+        Assert.Null(state.PendingCall);
+        Assert.Equal(candidateHash, state.Construction.Candidate.Hash);
+        Assert.Equal(accepted, PlanningConstruction.Hash(state.Plan));
+        Assert.DoesNotContain(state.Diagnostics, diagnostic => diagnostic.Code == "CONSTRUCTION_EVIDENCE_INVALID");
+        Assert.Equal(candidate.Diagnostics, state.Construction.Candidate.Diagnostics);
+        Assert.NotNull(state.Construction.Evidence!["requirement:req_0"]);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task EvidenceCleanupPreservesOtherDiagnosticsAndHistoricalProjection(bool historical)
+    {
+        var (state, _) = await Ready(draft: true);
+        var candidate = DiagnoseCandidate(state, typed: false);
+        var finding = Assert.Single(candidate.Diagnostics);
+        if (historical)
+        {
+            state.Request.Options["construction_limits"]!.AsObject().Remove("phasePolicy");
+            state.Construction!.Limits.PhasePolicy = null;
+        }
+        state.Diagnostics =
+        [
+            finding,
+            new("CONSTRUCTION_EVIDENCE_INVALID", "/evidenceRequests/0", "The requested address was invalid."),
+            new("CONSTRUCTION_EVIDENCE_INVALID", "/extension", "An unrelated location remains diagnosed."),
+            new("OTHER_FAILURE", "/evidenceRequests", "An unrelated failure remains diagnosed.")
+        ];
+        var before = PlanningCompactConstruction.Context(state)["diagnostics"]!.AsArray();
+        Assert.Equal(historical ? 1 : 4, before.Count);
+        Assert.Single(before, diagnostic => diagnostic!["code"]!.ToString() == finding.Code);
+        PlanningConstruction.LoadEvidence(state, ["requirement:req_0"]);
+        Assert.Equal(historical ? 4 : 3, state.Diagnostics.Count);
+        Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Location == "/extension");
+        Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Code == "OTHER_FAILURE");
+        Assert.Equal(finding, Assert.Single(candidate.Diagnostics));
+        Assert.Equal(historical ? 1 : 3, PlanningCompactConstruction.Context(state)["diagnostics"]!.AsArray().Count);
+    }
+
+    private static PlanningConstructionCandidate DiagnoseCandidate(PlanningSession state, bool typed)
+    {
+        var candidate = PlanningConstruction.Apply(state, new() { RequirementIds = ["req_0"],
+            Tasks = [new() { Id = "constant", Kind = "value", Objective = "Produce the requested constant.",
+                Outputs = [new("value", new() { Kind = "number", Number = 1 })] }] });
+        candidate.Diagnostics = [typed
+            ? new("TASK_VALUE_TYPE", "/tasks/constant/outputs/value", "Correct this value.")
+            : new("CONSTRUCTION_BUSINESS_REVIEW", "/construction/candidate", "The candidate does not satisfy the current business action.")];
+        state.Construction!.Candidate = candidate;
+        state.Diagnostics = candidate.Diagnostics.ToList();
+        return candidate;
+    }
+
+    private static JsonObject Context(LLMRequest request) =>
+        JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!.AsObject();
+
     private static async Task<(PlanningSession, TestRuntime)> Ready(bool draft)
     {
         var runtime = new TestRuntime { Respond = (request, _) =>

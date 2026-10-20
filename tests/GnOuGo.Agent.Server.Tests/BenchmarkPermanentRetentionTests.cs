@@ -14,6 +14,7 @@ public sealed class BenchmarkPermanentRetentionTests
     private const string Session = "uncertain-session", RequestId = Session + ":1:original";
     private const string Operator = "authorized-benchmark-operator", Authorization = "Permanently retain this exact inconclusive run and its full reservation.";
     private const string Closures = "planning-evaluation-closures";
+    private const string Http500 = BenchmarkCampaign.SingleHttp500Retention;
     private const string Http502 = BenchmarkCampaign.SingleHttp502Retention;
     private const string ErrorBody = """{"errorCode":"upstream_failure","errorMessage":"Provider unavailable.","errorDetail":"No completion receipt."}""";
 
@@ -22,7 +23,9 @@ public sealed class BenchmarkPermanentRetentionTests
     [InlineData(false, true, null)]
     [InlineData(true, false, null)]
     [InlineData(true, true, null)]
+    [InlineData(true, false, Http500)]
     [InlineData(true, false, Http502)]
+    [InlineData(true, true, Http500)]
     [InlineData(true, true, Http502)]
     public async Task ExplicitRetentionPreservesEvidenceAndAccountingWhilePermanentlyBlockingTheRun(bool capturedTransport, bool corpus, string? kind)
     {
@@ -70,16 +73,20 @@ public sealed class BenchmarkPermanentRetentionTests
         await new BenchmarkCampaign(records, "another-campaign").RequireRunNotRetainedAsync(Session, Ct);
     }
 
-    [Fact]
-    public async Task Http502RequiresItsExplicitModeAndCannotUseHistoricalClosureOperators()
+    [Theory]
+    [InlineData(Http500)]
+    [InlineData(Http502)]
+    public async Task HttpRequiresItsExplicitModeAndCannotUseHistoricalClosureOperators(string kind)
     {
-        var records = new Records(); var campaign = await SeedAsync(records, capturedTransport: true, retentionKind: Http502);
+        var records = new Records(); var campaign = await SeedAsync(records, capturedTransport: true, retentionKind: kind);
         var before = records.Snapshot(); var writes = records.Writes;
         await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.InspectPermanentRetentionAsync(
             SchemaPortabilityCampaign.Collection, "run:" + Session, RequestId, Ct));
         await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.RetainExhaustedRequestAsync(RequestId, Ct));
         await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.RetainSchemaRejectionAsync(RequestId, Ct));
-        var proposal = await campaign.InspectPermanentRetentionAsync(SchemaPortabilityCampaign.Collection, "run:" + Session, RequestId, Ct, Http502);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.InspectPermanentRetentionAsync(
+            SchemaPortabilityCampaign.Collection, "run:" + Session, RequestId, Ct, kind == Http500 ? Http502 : Http500));
+        var proposal = await campaign.InspectPermanentRetentionAsync(SchemaPortabilityCampaign.Collection, "run:" + Session, RequestId, Ct, kind);
         await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.ApplyPermanentRetentionAsync(
             SchemaPortabilityCampaign.Collection, "run:" + Session, RequestId, proposal["evidence_hash"]!.ToString(), Operator, Authorization, Ct));
         Assert.Equal(before, records.Snapshot()); Assert.Equal(writes, records.Writes);
@@ -87,7 +94,7 @@ public sealed class BenchmarkPermanentRetentionTests
 
     [Theory]
     [InlineData("")]
-    [InlineData("single-http-500")]
+    [InlineData("single-http-501")]
     [InlineData("single-http-503")]
     [InlineData("timeout")]
     public async Task UnknownRetentionModesRejectBeforeWriting(string kind)
@@ -102,37 +109,59 @@ public sealed class BenchmarkPermanentRetentionTests
     }
 
     [Theory]
-    [InlineData("status_200")]
-    [InlineData("status_400")]
-    [InlineData("status_500")]
-    [InlineData("status_503")]
-    [InlineData("status_504")]
-    [InlineData("failure_status")]
-    [InlineData("failure_kind")]
-    [InlineData("failure_count")]
-    [InlineData("not_exhausted")]
-    [InlineData("not_retryable")]
-    [InlineData("attempt_failure")]
-    [InlineData("missing_body")]
-    [InlineData("zero_attempts")]
-    [InlineData("mixed_attempts")]
-    [InlineData("usage")]
-    [InlineData("receipt")]
-    [InlineData("missing_policy")]
-    [InlineData("policy_hash")]
-    [InlineData("recovery_enabled")]
-    [InlineData("retries_enabled")]
-    [InlineData("multiple_allowed_attempts")]
-    public async Task Http502RequiresExactFailureAndCapturedSingleAttemptPolicy(string defect)
+    [InlineData(Http500, "status_200")]
+    [InlineData(Http502, "status_200")]
+    [InlineData(Http500, "status_400")]
+    [InlineData(Http502, "status_400")]
+    [InlineData(Http500, "status_other")]
+    [InlineData(Http502, "status_other")]
+    [InlineData(Http500, "status_503")]
+    [InlineData(Http502, "status_503")]
+    [InlineData(Http500, "status_504")]
+    [InlineData(Http502, "status_504")]
+    [InlineData(Http500, "failure_status")]
+    [InlineData(Http502, "failure_status")]
+    [InlineData(Http500, "failure_kind")]
+    [InlineData(Http502, "failure_kind")]
+    [InlineData(Http500, "failure_count")]
+    [InlineData(Http502, "failure_count")]
+    [InlineData(Http500, "not_exhausted")]
+    [InlineData(Http502, "not_exhausted")]
+    [InlineData(Http500, "not_retryable")]
+    [InlineData(Http502, "not_retryable")]
+    [InlineData(Http500, "attempt_failure")]
+    [InlineData(Http502, "attempt_failure")]
+    [InlineData(Http500, "missing_body")]
+    [InlineData(Http502, "missing_body")]
+    [InlineData(Http500, "zero_attempts")]
+    [InlineData(Http502, "zero_attempts")]
+    [InlineData(Http500, "mixed_attempts")]
+    [InlineData(Http502, "mixed_attempts")]
+    [InlineData(Http500, "usage")]
+    [InlineData(Http502, "usage")]
+    [InlineData(Http500, "receipt")]
+    [InlineData(Http502, "receipt")]
+    [InlineData(Http500, "missing_policy")]
+    [InlineData(Http502, "missing_policy")]
+    [InlineData(Http500, "policy_hash")]
+    [InlineData(Http502, "policy_hash")]
+    [InlineData(Http500, "recovery_enabled")]
+    [InlineData(Http502, "recovery_enabled")]
+    [InlineData(Http500, "retries_enabled")]
+    [InlineData(Http502, "retries_enabled")]
+    [InlineData(Http500, "multiple_allowed_attempts")]
+    [InlineData(Http502, "multiple_allowed_attempts")]
+    public async Task HttpRequiresExactFailureAndCapturedSingleAttemptPolicy(string kind, string defect)
     {
-        var records = new Records(); var campaign = await SeedAsync(records, capturedTransport: true, retentionKind: Http502);
+        var records = new Records(); var campaign = await SeedAsync(records, capturedTransport: true, retentionKind: kind);
         var journal = (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, RequestId, Ct))!;
         var failure = (await campaign.LoadAsync("planning-evaluation-failures", RequestId, Ct))!;
         var attempt = journal["transport"]!["Attempts"]![0]!;
         var policy = journal["effective_transport_policy"]!.AsObject();
         if (defect.StartsWith("status_", StringComparison.Ordinal))
         {
-            var status = int.Parse(defect["status_".Length..], System.Globalization.CultureInfo.InvariantCulture);
+            var status = defect == "status_other" ? (kind == Http500 ? 502 : 500)
+                : int.Parse(defect["status_".Length..], System.Globalization.CultureInfo.InvariantCulture);
             attempt["Status"] = status; failure["status_code"] = status;
         }
         switch (defect)
@@ -162,70 +191,97 @@ public sealed class BenchmarkPermanentRetentionTests
         await campaign.SaveAsync("planning-evaluation-failures", RequestId, failure, Ct);
         var before = records.Snapshot(); var writes = records.Writes;
         await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.InspectPermanentRetentionAsync(
-            SchemaPortabilityCampaign.Collection, "run:" + Session, RequestId, Ct, Http502));
+            SchemaPortabilityCampaign.Collection, "run:" + Session, RequestId, Ct, kind));
         Assert.Equal(before, records.Snapshot()); Assert.Equal(writes, records.Writes);
     }
 
     [Theory]
-    [InlineData("""{"error":{"message":"Unavailable","type":"server_error","code":null,"param":null}}""", true)]
-    [InlineData(ErrorBody, true)]
-    [InlineData("""{"error":{"message":"Unavailable"},"usage":{"input_tokens":1}}""", false)]
-    [InlineData("""{"error":{"message":"Unavailable"},"usage":null}""", false)]
-    [InlineData("""{"error":{"message":"Unavailable","usage":null}}""", false)]
-    [InlineData("""{"error":{"message":"Unavailable"},"id":"response_1"}""", false)]
-    [InlineData("""{"choices":[{"message":{"content":"Completed"}}]}""", false)]
-    [InlineData("""{"error":{"message":"Unavailable"},"output":[]}""", false)]
-    [InlineData("""{"errorCode":"failed","errorMessage":"Unavailable","errorDetail":{"usage":1}}""", false)]
-    [InlineData("""{"errorCode":"failed","errorMessage":"Unavailable","errorDetail":"","usage":null}""", false)]
-    [InlineData("""{"errorCode":"failed","errorMessage":"Unavailable","errorDetail":"","unknown":"value"}""", false)]
-    [InlineData("""{"errorCode":"failed","errorMessage":"Unavailable","errorMessage":"duplicate"}""", false)]
-    [InlineData("""{"error":{"message":"Unavailable","message":"duplicate"}}""", false)]
-    [InlineData("""{"error":{"message":"Unavailable"},"error":{"message":"duplicate"}}""", false)]
-    [InlineData("""{"error":{"message":"Unavailable","extra":null}}""", false)]
-    [InlineData("""{"error":{"message":"Unavailable","code":{"usage":1}}}""", false)]
-    [InlineData("""{"error":{"message":null}}""", false)]
-    [InlineData("not JSON", false)]
-    [InlineData("[]", false)]
-    [InlineData("null", false)]
-    public async Task Http502BodyMustBeBoundedRecognizedErrorOnlyEvidence(string body, bool eligible)
+    [InlineData(Http500, """{"error":{"message":"Unavailable","type":"server_error","code":null,"param":null}}""", true)]
+    [InlineData(Http502, """{"error":{"message":"Unavailable","type":"server_error","code":null,"param":null}}""", true)]
+    [InlineData(Http500, ErrorBody, true)]
+    [InlineData(Http502, ErrorBody, true)]
+    [InlineData(Http500, """{"error":{"message":"Unavailable"},"usage":{"input_tokens":1}}""", false)]
+    [InlineData(Http502, """{"error":{"message":"Unavailable"},"usage":{"input_tokens":1}}""", false)]
+    [InlineData(Http500, """{"error":{"message":"Unavailable"},"usage":null}""", false)]
+    [InlineData(Http502, """{"error":{"message":"Unavailable"},"usage":null}""", false)]
+    [InlineData(Http500, """{"error":{"message":"Unavailable","usage":null}}""", false)]
+    [InlineData(Http502, """{"error":{"message":"Unavailable","usage":null}}""", false)]
+    [InlineData(Http500, """{"error":{"message":"Unavailable"},"id":"response_1"}""", false)]
+    [InlineData(Http502, """{"error":{"message":"Unavailable"},"id":"response_1"}""", false)]
+    [InlineData(Http500, """{"choices":[{"message":{"content":"Completed"}}]}""", false)]
+    [InlineData(Http502, """{"choices":[{"message":{"content":"Completed"}}]}""", false)]
+    [InlineData(Http500, """{"error":{"message":"Unavailable"},"output":[]}""", false)]
+    [InlineData(Http502, """{"error":{"message":"Unavailable"},"output":[]}""", false)]
+    [InlineData(Http500, """{"errorCode":"failed","errorMessage":"Unavailable","errorDetail":{"usage":1}}""", false)]
+    [InlineData(Http502, """{"errorCode":"failed","errorMessage":"Unavailable","errorDetail":{"usage":1}}""", false)]
+    [InlineData(Http500, """{"errorCode":"failed","errorMessage":"Unavailable","errorDetail":"","usage":null}""", false)]
+    [InlineData(Http502, """{"errorCode":"failed","errorMessage":"Unavailable","errorDetail":"","usage":null}""", false)]
+    [InlineData(Http500, """{"errorCode":"failed","errorMessage":"Unavailable","errorDetail":"","unknown":"value"}""", false)]
+    [InlineData(Http502, """{"errorCode":"failed","errorMessage":"Unavailable","errorDetail":"","unknown":"value"}""", false)]
+    [InlineData(Http500, """{"errorCode":"failed","errorMessage":"Unavailable","errorMessage":"duplicate"}""", false)]
+    [InlineData(Http502, """{"errorCode":"failed","errorMessage":"Unavailable","errorMessage":"duplicate"}""", false)]
+    [InlineData(Http500, """{"error":{"message":"Unavailable","message":"duplicate"}}""", false)]
+    [InlineData(Http502, """{"error":{"message":"Unavailable","message":"duplicate"}}""", false)]
+    [InlineData(Http500, """{"error":{"message":"Unavailable"},"error":{"message":"duplicate"}}""", false)]
+    [InlineData(Http502, """{"error":{"message":"Unavailable"},"error":{"message":"duplicate"}}""", false)]
+    [InlineData(Http500, """{"error":{"message":"Unavailable","extra":null}}""", false)]
+    [InlineData(Http502, """{"error":{"message":"Unavailable","extra":null}}""", false)]
+    [InlineData(Http500, """{"error":{"message":"Unavailable","code":{"usage":1}}}""", false)]
+    [InlineData(Http502, """{"error":{"message":"Unavailable","code":{"usage":1}}}""", false)]
+    [InlineData(Http500, """{"error":{"message":null}}""", false)]
+    [InlineData(Http502, """{"error":{"message":null}}""", false)]
+    [InlineData(Http500, "not JSON", false)]
+    [InlineData(Http502, "not JSON", false)]
+    [InlineData(Http500, "[]", false)]
+    [InlineData(Http502, "[]", false)]
+    [InlineData(Http500, "null", false)]
+    [InlineData(Http502, "null", false)]
+    public async Task HttpBodyMustBeBoundedRecognizedErrorOnlyEvidence(string kind, string body, bool eligible)
     {
-        var records = new Records(); var campaign = await SeedAsync(records, capturedTransport: true, retentionKind: Http502);
+        var records = new Records(); var campaign = await SeedAsync(records, capturedTransport: true, retentionKind: kind);
         var journal = (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, RequestId, Ct))!;
         journal["transport"]!["Attempts"]![0]!["Body"] = body;
         await campaign.SaveAsync(BenchmarkHttpJournal.Collection, RequestId, journal, Ct);
         var before = records.Snapshot(); var writes = records.Writes;
         if (eligible)
-            Assert.NotNull(await campaign.InspectPermanentRetentionAsync(SchemaPortabilityCampaign.Collection, "run:" + Session, RequestId, Ct, Http502));
+            Assert.NotNull(await campaign.InspectPermanentRetentionAsync(SchemaPortabilityCampaign.Collection, "run:" + Session, RequestId, Ct, kind));
         else
             await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.InspectPermanentRetentionAsync(
-                SchemaPortabilityCampaign.Collection, "run:" + Session, RequestId, Ct, Http502));
+                SchemaPortabilityCampaign.Collection, "run:" + Session, RequestId, Ct, kind));
         Assert.Equal(before, records.Snapshot()); Assert.Equal(writes, records.Writes);
     }
 
-    [Fact]
-    public async Task Http502OversizedErrorBodyIsRefusedWithoutTruncation()
+    [Theory]
+    [InlineData(Http500)]
+    [InlineData(Http502)]
+    public async Task HttpOversizedErrorBodyIsRefusedWithoutTruncation(string kind)
     {
-        var records = new Records(); var campaign = await SeedAsync(records, capturedTransport: true, retentionKind: Http502);
+        var records = new Records(); var campaign = await SeedAsync(records, capturedTransport: true, retentionKind: kind);
         var journal = (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, RequestId, Ct))!;
         journal["transport"]!["Attempts"]![0]!["Body"] = new JsonObject
             { ["error"] = new JsonObject { ["message"] = new string('x', 65_536) } }.ToJsonString();
         await campaign.SaveAsync(BenchmarkHttpJournal.Collection, RequestId, journal, Ct);
         var before = records.Snapshot();
         await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.InspectPermanentRetentionAsync(
-            SchemaPortabilityCampaign.Collection, "run:" + Session, RequestId, Ct, Http502));
+            SchemaPortabilityCampaign.Collection, "run:" + Session, RequestId, Ct, kind));
         Assert.Equal(before, records.Snapshot());
     }
 
     [Theory]
-    [InlineData("body")]
-    [InlineData("policy")]
-    [InlineData("authorization")]
-    [InlineData("hash")]
-    [InlineData("mode")]
-    public async Task ChangedHttp502EvidenceOrAuthorityRejectsApplyWithoutWrites(string change)
+    [InlineData(Http500, "body")]
+    [InlineData(Http502, "body")]
+    [InlineData(Http500, "policy")]
+    [InlineData(Http502, "policy")]
+    [InlineData(Http500, "authorization")]
+    [InlineData(Http502, "authorization")]
+    [InlineData(Http500, "hash")]
+    [InlineData(Http502, "hash")]
+    [InlineData(Http500, "mode")]
+    [InlineData(Http502, "mode")]
+    public async Task ChangedHttpEvidenceOrAuthorityRejectsApplyWithoutWrites(string kind, string change)
     {
-        var records = new Records(); var campaign = await SeedAsync(records, capturedTransport: true, retentionKind: Http502);
-        var proposal = await campaign.InspectPermanentRetentionAsync(SchemaPortabilityCampaign.Collection, "run:" + Session, RequestId, Ct, Http502);
+        var records = new Records(); var campaign = await SeedAsync(records, capturedTransport: true, retentionKind: kind);
+        var proposal = await campaign.InspectPermanentRetentionAsync(SchemaPortabilityCampaign.Collection, "run:" + Session, RequestId, Ct, kind);
         if (change is "body" or "policy")
         {
             var journal = (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, RequestId, Ct))!;
@@ -243,22 +299,24 @@ public sealed class BenchmarkPermanentRetentionTests
         await Assert.ThrowsAnyAsync<Exception>(() => campaign.ApplyPermanentRetentionAsync(
             SchemaPortabilityCampaign.Collection, "run:" + Session, RequestId,
             change == "hash" ? new string('0', 64) : proposal["evidence_hash"]!.ToString(), Operator,
-            change == "authorization" ? "" : Authorization, Ct, change == "mode" ? null : Http502));
+            change == "authorization" ? "" : Authorization, Ct, change == "mode" ? null : kind));
         Assert.Equal(before, records.Snapshot()); Assert.Equal(writes, records.Writes);
     }
 
-    [Fact]
-    public async Task CliHttp502InspectionNeedsExplicitModeAndDoesNotCreateALeaseOrClosure()
+    [Theory]
+    [InlineData(Http500)]
+    [InlineData(Http502)]
+    public async Task CliHttpInspectionNeedsExplicitModeAndDoesNotCreateALeaseOrClosure(string kind)
     {
         var root = Directory.CreateTempSubdirectory("retention-cli-").FullName;
         try
         {
             var records = KeyVaultBenchmarkModel.WorkspaceRecords(root);
-            var campaign = await SeedAsync(records, capturedTransport: true, retentionKind: Http502);
+            var campaign = await SeedAsync(records, capturedTransport: true, retentionKind: kind);
             string[] args = ["--schema-portability", "retain-uncertain-request", "--workspace", root, "--campaign", "retention",
                 "--run-key", "run:" + Session, "--request-id", RequestId];
             await Assert.ThrowsAsync<InvalidOperationException>(() => SchemaPortabilityCampaign.RunAsync(args));
-            await SchemaPortabilityCampaign.RunAsync([.. args, "--retention-kind", Http502]);
+            await SchemaPortabilityCampaign.RunAsync([.. args, "--retention-kind", kind]);
             Assert.False(File.Exists(Path.Combine(root, ".GnOuGo", "data", "planning-evaluation", "retention.lock")));
             Assert.Null(await campaign.LoadAsync(Closures, RequestId, Ct));
             Assert.Equal(1m, (await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct))["reserved_cost_eur"]!.GetValue<decimal>());
@@ -373,7 +431,9 @@ public sealed class BenchmarkPermanentRetentionTests
     [Theory]
     [InlineData(false, null)]
     [InlineData(true, null)]
+    [InlineData(false, Http500)]
     [InlineData(false, Http502)]
+    [InlineData(true, Http500)]
     [InlineData(true, Http502)]
     public async Task InterruptedClosurePublicationIsIdempotentAndNeverReleasesReservation(bool afterCommit, string? kind)
     {
@@ -435,6 +495,7 @@ public sealed class BenchmarkPermanentRetentionTests
 
     [Theory]
     [InlineData(null)]
+    [InlineData(Http500)]
     [InlineData(Http502)]
     public async Task PermanentRetentionSurvivesEncryptedStorageAndTenantBoundaries(string? kind)
     {
@@ -481,7 +542,7 @@ public sealed class BenchmarkPermanentRetentionTests
         await journal.SaveAsync(transport, Ct);
         if (retentionKind is not null)
         {
-            transport.Attempts[0].Status = 502; transport.Attempts[0].Body = ErrorBody;
+            transport.Attempts[0].Status = retentionKind == Http500 ? 500 : 502; transport.Attempts[0].Body = ErrorBody;
             await journal.SaveAsync(transport, Ct);
         }
         var failure = new JsonObject
@@ -489,7 +550,7 @@ public sealed class BenchmarkPermanentRetentionTests
             ["stage"] = "dispatch", ["kind"] = retentionKind is null ? "Timeout" : "ServiceUnavailable",
             ["retryable"] = true, ["attempt_count"] = 1, ["retry_exhausted"] = true
         };
-        if (retentionKind is not null) failure["status_code"] = 502;
+        if (retentionKind is not null) failure["status_code"] = retentionKind == Http500 ? 500 : 502;
         await campaign.SaveAsync("planning-evaluation-failures", RequestId, failure, Ct);
         await campaign.SaveAsync("planning-evaluation-configuration", "http-retry-policy", new() { ["MaxAttempts"] = 4, ["MaxUncertainRetries"] = 1 }, Ct);
         await campaign.SaveAsync("planning-evaluation-session-policy", Session, new() { ["construction_review_headroom"] = 2, ["construction_version"] = 2,

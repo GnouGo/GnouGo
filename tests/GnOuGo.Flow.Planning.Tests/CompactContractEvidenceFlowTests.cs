@@ -49,12 +49,10 @@ public sealed class CompactContractEvidenceFlowTests
             }
             Assert.Equal(PlanningConstruction.LocalPurpose, purpose);
             reviews++;
-            Assert.Contains("Partial descriptions cannot prove absent functionality", request.Prompt, StringComparison.Ordinal);
-            Assert.DoesNotContain("Newly opened group/container scopes", request.Prompt, StringComparison.Ordinal);
-            Assert.Contains("future work is not an omission", request.Prompt, StringComparison.OrdinalIgnoreCase);
-            Assert.Contains("closeRequirementIds claims completion with accepted work", request.Prompt, StringComparison.Ordinal);
-            Assert.Contains("outputs are public /root results", request.Prompt, StringComparison.Ordinal);
-            Assert.Contains("scopeInterface includes preserved local exports", request.Prompt, StringComparison.Ordinal);
+            Assert.False(context["constructionStage"]!["requirementCompletionClaimed"]!.GetValue<bool>());
+            Assert.False(context["constructionStage"]!["planCompletionClaimed"]!.GetValue<bool>());
+            Assert.Empty(context["step"]!["closeRequirementIds"]!.AsArray());
+            Assert.Equal("req_0", Assert.Single(context["requirements"]!.AsArray())!["id"]!.ToString());
             var supplied = context["evidence"]?.AsObject().Where(pair => pair.Key.StartsWith("description:", StringComparison.Ordinal))
                 .Select(pair => pair.Value!.AsObject()).OrderBy(page => page["offset"]!.GetValue<int>()).ToArray() ?? [];
             if (supplied.LastOrDefault() is { } original)

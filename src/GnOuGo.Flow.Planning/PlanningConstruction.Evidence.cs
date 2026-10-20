@@ -52,12 +52,10 @@ internal static partial class PlanningConstruction
             LoadEvidenceCore(probe, requests, descriptionReadKey);
             foreach (var key in descriptionKeys)
                 if (!probe.Construction!.EvidenceRequests.Contains(key, StringComparer.Ordinal)) probe.Construction.EvidenceRequests.Add(key);
+            ClearResolvedEvidenceDiagnostics(probe);
             if (followup is not null)
             {
                 if (purpose is null) throw new ArgumentException("Evidence admission requires the follow-up purpose.", nameof(purpose));
-                if (purpose is PlanningCompactConstruction.SelectPurpose or PlanningCompactConstruction.DiscoveryPurpose)
-                    probe.Diagnostics.RemoveAll(d => d.Location == "/evidenceRequests" &&
-                        d.Code is "CONSTRUCTION_EVIDENCE_UNKNOWN" or "CONSTRUCTION_EVIDENCE_INVALID" or "CONSTRUCTION_EVIDENCE_LIMIT");
                 AdmitEvidenceFollowup(state, followup(probe), purpose);
             }
             var target = state.Construction!; var accepted = probe.Construction!;
@@ -65,6 +63,7 @@ internal static partial class PlanningConstruction
             target.Evidence = accepted.Evidence;
             target.EvidenceRequests = accepted.EvidenceRequests;
             target.TaskCursor = accepted.TaskCursor; target.ScopeCursor = accepted.ScopeCursor; target.RequirementCursor = accepted.RequirementCursor;
+            ClearResolvedEvidenceDiagnostics(state);
             return;
         }
         if (state.Construction!.Version != 2) { LoadEvidenceCore(state, requests); return; }
@@ -80,6 +79,10 @@ internal static partial class PlanningConstruction
             throw;
         }
     }
+
+    private static void ClearResolvedEvidenceDiagnostics(PlanningSession state) => state.Diagnostics.RemoveAll(d =>
+        (d.Location == "/evidenceRequests" || d.Location.StartsWith("/evidenceRequests/", StringComparison.Ordinal)) &&
+        d.Code is "CONSTRUCTION_EVIDENCE_UNKNOWN" or "CONSTRUCTION_EVIDENCE_INVALID" or "CONSTRUCTION_EVIDENCE_LIMIT");
 
     internal static void AdmitEvidenceFollowup(PlanningSession state, LLMRequest request, string purpose)
     {
@@ -208,6 +211,8 @@ internal static partial class PlanningConstruction
                         ["always"] = new JsonArray(scope.Source.Always.Take(8).Select(t => TaskNode(t)).ToArray()),
                         ["continuation"] = "Use page:tasks:<offset> for the complete task directory; scope children retain their original identities."
                     };
+                    if (fresh && value is not null && id == "/root")
+                        value["inputs"] = Node(plan.Inputs, PlanningJsonContext.Default.ListTaskInput);
                     if (construction.Version == 2 && value is not null && PlanningCompactConstruction.ScopeGroup(state, id) is { } scopeGroup)
                         value["group"] = PlanningCompactConstruction.GroupInterface(state, scopeGroup.Id);
                     break;

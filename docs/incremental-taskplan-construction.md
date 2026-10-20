@@ -124,8 +124,11 @@ bounded diagnostic; indispensable indivisible closures fail explicitly. Successf
 individual addresses and batch identities are retained, so regrouping old evidence
 is not progress. Original description rereads require the exact issued knowledge
 authority after genuinely new allowed operation identities or versions; a cursor
-change is insufficient. Successful navigation clears only its resolved evidence
-diagnostic, preserving unrelated findings. Historical issued batch schemas and
+change is insufficient. Fresh correction context includes unresolved candidate
+findings and current rejected-action diagnostics, so a failed retrieval receives
+actionable feedback. Successful retrieval clears only its resolved evidence
+diagnostics after atomic admission, preserving candidate findings and historical
+failure records. Historical issued batch schemas and
 reread rules remain exact.
 
 Intent, selection, discovery and evidence actions contain no TaskPlan grammar.
@@ -141,6 +144,11 @@ used at each consumer, including predicates, cleanup and exports. Judges receive
 those exact typed interfaces without widening field access. Selected scope and
 requirements, accepted fragments and explicit revision paths remain binding.
 Historical strict selected-import behavior is unchanged.
+
+Requested root-scope evidence also contains the exact declared caller inputs.
+Declarations establish the public interface even when the current fragment reads
+no operands; they do not grant access inside isolated groups. A necessary producer
+may be reviewed before its consumer or public export has been constructed.
 
 Reusable groups are isolated: their bodies use declared parameters, not caller
 captures. Calls select a closed group and receive its immutable hash, parameter

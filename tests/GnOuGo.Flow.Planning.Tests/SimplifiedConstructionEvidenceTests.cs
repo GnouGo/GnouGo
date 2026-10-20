@@ -131,8 +131,7 @@ public sealed class SimplifiedConstructionEvidenceTests
                 request.Prompt, request.StructuredOutputSchema!.AsObject(), request.MaxTokens);
         }, purpose: PlanningCompactConstruction.DiscoveryPurpose);
         // The coordinator removes the resolved finding only after this transaction succeeds.
-        Assert.Equal(2, state.Diagnostics.Count);
-        Assert.Contains(state.Diagnostics, finding => finding.Code == "CONSTRUCTION_STEP_INVALID");
+        Assert.Equal("CONSTRUCTION_STEP_INVALID", Assert.Single(state.Diagnostics).Code);
         Assert.Equal("prepared", Assert.Single(state.RequestMeasurements!).Admission);
     }
 

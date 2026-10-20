@@ -305,6 +305,9 @@ internal static partial class PlanningCompactConstruction
         // Typed repairs also use this presentation, before their candidate is
         // valid. Their existing repair context owns editable slots and sources.
         var actualImports = review && draft is { Diagnostics.Count: 0 } && PlanningConstructionPhasePolicies.IsFresh(state.Request);
+        var diagnostics = draft is not null && PlanningConstructionPhasePolicies.IsFresh(state.Request)
+            ? draft.Diagnostics.Concat(state.Diagnostics).Distinct()
+            : draft?.Diagnostics ?? state.Diagnostics;
         var context = new JsonObject
         {
             ["baseHash"] = PlanningConstruction.Hash(state.Plan), ["candidateHash"] = draft?.Hash,
@@ -317,7 +320,7 @@ internal static partial class PlanningCompactConstruction
             ["operations"] = ContractViews(state, review),
             ["evidence"] = construction.Evidence?.DeepClone(),
             ["draft"] = draft is null ? null : PlanningJsonTransport.TaskPlanPart(PlanningConstruction.Node(draft.Extension, PlanningJsonContext.Default.PlanningConstructionExtension)),
-            ["diagnostics"] = PlanningJsonTransport.Diagnostics(draft?.Diagnostics ?? state.Diagnostics),
+            ["diagnostics"] = PlanningJsonTransport.Diagnostics(diagnostics),
             ["rebuild"] = RebuildDirectory(state),
             ["reviewScope"] = intermediate ? "junction" : review ? "draft" : "extension"
         };

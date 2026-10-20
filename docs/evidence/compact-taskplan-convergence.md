@@ -1,156 +1,86 @@
 # Compact TaskPlan convergence
 
-Business acceptance remains incomplete. PR #120 stays Draft. No completed live
-Amazon, Collections or Review PR execution is claimed by the retained diagnostic
-results below. Compilation, scoped reviews and accepted checkpoints are separate
-measurements.
+Business acceptance is incomplete. PR #120 stays Draft. None of the latest
+Amazon, Collections or Review PR diagnostics reached execution. Checkpoints,
+compilation and scoped reviews do not establish business success. The gated
+18-run baseline/candidate comparison has not started.
 
-## Latest controls and phase-output experiments
+## Latest frozen diagnostics
 
-Source `5c01f98e803bc06bd0f241bd2491c1200fef3c77` kept medium reasoning, 3k/8k/4k input targets and 6k/16k/8k hard ceilings. The controls retained navigation/draft/Judge outputs of 8,192/8,192/2,048.
+Source `08ad5db6ee96736452d7dda56dab3c4de92ebe1c`, cohort `compactd08ad5db`,
+retained the pinned model and medium reasoning. Input targets remain 3k/8k/4k,
+hard complete-request ceilings 6k/16k/8k, and navigation/draft/Judge output
+reservations 16,384/8,192/2,048. This is the same profile as the preceding
+navigation-output experiment; no setting changed during a run.
 
-| Run | Calls / corrections / checkpoints | Known cost | Observed result |
-| --- | ---: | ---: | --- |
-| Amazon control | 2 / 0 / 0 | €0.278948 | Interface extraction exhausted 8,192 reasoning tokens with zero visible output |
-| Collections control | 9 / 1 / 1 | €0.423287 | Draft call 9 exhausted 8,192 reasoning tokens with zero visible output |
-| Review PR control | 3 / 0 / 0 | €0.285626 | Interface extraction exhausted 8,192 reasoning tokens with zero visible output |
-| Collections, draft output 16,384 | 2 / 0 / 0 | €0.234933 | Unchanged navigation exhausted 8,192 tokens; no draft used the changed allowance |
-| Amazon, navigation output 16,384 | 10 / 1 / 0 | €0.298765 | Discovery repeated a rejected evidence batch: 6,759 estimated input tokens against 6,000 |
-
-The three controls total 14 known calls, 540.344 seconds and **€0.9878610148404869812494445923**; all 76,805 request bytes reconcile, with no input-limit rejection, new uncertainty or execution. Provider usage was 13,456 input and 34,812 output tokens, including 32,825 reasoning tokens.
-
-The draft-output experiment never reached its changed phase and cannot establish whether 16,384 helps drafting. The separate navigation trial preserved source, model, input ceilings, call/correction limits, MCPs and oracles. All its responses completed below 8,192 output tokens, so no causal benefit from the larger allowance is established. It used 19,096 input / 8,024 output / 6,259 reasoning tokens in 125.430 seconds, with no empty response or new uncertainty. Empty output establishes exhaustion, not its cause. These fresh trials do not resume or replay a stopped request.
-
-Business acceptance remains incomplete; there is no verified complete execution and the final 18-run comparison has not started. Retain the [663cf72 measurements](compact-taskplan-663cf72.json), [1984bdc measurements](compact-taskplan-1984bdc.json) and immutable archive index as historical evidence.
-
-[Safe phase measurements](compact-taskplan-5c01f98.json) include both separately frozen experiments and the controls, rejected requests, reconciled components and exact evidence hashes. Discovery had retained unrelated later operations while leaving the relevant description continuation unread. The follow-up replaces broad inspection guidance with descriptor shortlisting and selects the next action with bindable prerequisites. Original requirement closure, admission and repeat guards remain unchanged.
-
-## Preceding retained diagnostics
-
-Source `663cf727204cc0786c26783f94cb1047903bbede` kept the same medium profile and
-output reservations. The three new runs stopped before generation or execution.
-
-| Scenario | Calls / corrections | Time | Cost | Observed blocker |
+| Scenario | Calls / corrections / checkpoints | Planning time | Known cost | Observed blocker |
 | --- | ---: | ---: | ---: | --- |
-| Amazon | 14 / 1 | 258.686 s | €0.321319 | Provider discovery discarded requested descriptions; the next call repeated their batch |
-| Collections | 2 / 0 | 123.300 s | €0.236906 | Interface extraction exhausted 8,192 reasoning tokens without visible output |
-| Review PR | 7 / 0 | 59.057 s | €0.130863 | Fetching another requirement page discarded clauses needed for selection |
+| Amazon | 13 / 3 / 0 | 192.646 s | €0.475024 | New malformed-evidence errors were hidden by the retained Judge finding; three repair prompts were identical |
+| Collections | 11 / 1 / 1 | 118.271 s | €0.239305 | Requested root-scope evidence omitted the caller input declaration needed to review its closure |
+| Review PR | 3 / 0 / 0 | 340.679 s | €0.087501 | Request 3 returned HTTP 500 without a completion receipt or verified usage |
 
-All 23 calls have known receipts; the total cost was **€0.6890873544832489114014040699**.
-There were no checkpoints, effects, new uncertain calls or input-limit rejections.
-Complete-request components reconcile. The highest input estimate was 4,443 tokens
-for discovery. [Safe phase measurements](compact-taskplan-663cf72.json) retain
-request-size distributions, component totals, provider usage and evidence hashes.
+All constructed requests fit their captured ceilings and their component bytes
+reconcile. The largest generation, repair and Judge estimates were respectively
+6,274, 6,901 and 3,264 tokens. There were no empty completed responses. Review PR's
+unknown call is not an empty response: its full **€0.4634497467342042122100773127**
+reservation remains held. Exact prompts, contracts and receipts stay encrypted.
+[Safe phase measurements](compact-taskplan-08ad5db.json) retain p50/p95/maximum
+sizes, component totals, known provider tokens, costs, latency and evidence hashes.
 
-Amazon passed the preceding requirement-page blocker, but both external scenarios
-exposed the same remaining defect: explicitly requested context was replaced between
-calls. The next correction retains that evidence within its current step and existing
-complete-request admission. It does not weaken repetition detection.
+The follow-up makes two focused generic corrections: present unresolved candidate
+findings together with the latest rejected-action diagnostics, and include exact
+caller declarations in explicitly requested root-scope evidence. Valid evidence
+retrieval clears only its resolved errors after atomic admission. Judge guidance
+also distinguishes a needed producer from its future consumer or public export.
+No execution, permission, contract-validation or accounting guard is relaxed.
 
-Collections' extraction schema and instructions matched the preceding successful
-transport response; only source segmentation differed. That earlier receipt omitted
-the explicitly declared public result. Requiring a declaration in each classified
-interface direction addresses the omission; it does not explain or prove a fix for
-reasoning exhaustion. No unchanged failed request was retried.
+## Retained experiments and comparison limits
 
-## Preceding three-scenario diagnostics
+The [5c01f98 controls and separate output experiments](compact-taskplan-5c01f98.json)
+retain all failures. Three controls stopped on known reasoning-only responses
+at 8,192 output tokens. A Collections draft-16k trial stopped before drafting,
+so it did not test the changed phase. An Amazon navigation-16k trial reached
+discovery, but every response used fewer than 8,192 output tokens. Neither trial
+establishes a causal benefit from the larger allowance.
 
-Source `1984bdcc81e6434c82170885bcd0ef5578a51a90` used the frozen medium profile,
-3k/8k/4k input targets, 6k/16k/8k ceilings and 8,192/8,192/2,048 output reservations.
-All three runs stopped before execution; all 30 requests have known receipts.
+Earlier [663cf72](compact-taskplan-663cf72.json),
+[1984bdc](compact-taskplan-1984bdc.json) and [afc342c](compact-taskplan-afc342c.json)
+reports preserve prompt-size distributions, costs and retained failures. The
+current deployment declares medium/high/max reasoning, not low. No model or
+metadata substitution enabled the proposed low-navigation experiment.
 
-| Scenario | Calls / corrections | Time | Cost | Observed blocker |
-| --- | ---: | ---: | ---: | --- |
-| Amazon | 5 / 0 | 44.478 s | €0.085355 | Selection reread a requirement page after another page replaced it |
-| Collections | 15 / 2 | 249.263 s | €0.468284 | Judge confused an imported operand with a computed result; a later Judge exhausted 2,048 output tokens |
-| Review PR | 10 / 0 | 98.433 s | €0.210348 | Discovery repeated an already supplied description while other provider actions were hidden |
-
-Total known cost was **€0.7639873811428063627477117213**, with 39,331 provider
-input tokens, 22,102 output tokens (including 17,985 reasoning tokens), one empty
-response and no new uncertain usage. Collections accepted two checkpoints, which
-do not establish a complete or executable business result.
-
-Every complete request remained within its captured input ceiling. Peak estimates
-were 4,238 for generation, 4,860 for repair and 3,040 for Judges. Component byte
-sums reconcile for all 30 requests. [Safe phase measurements](compact-taskplan-1984bdc.json)
-retain p50/p95/maximum sizes, component totals, receipt counts, costs and evidence
-hashes. Exact requests and responses remain encrypted.
-
-The next corrections address these observed presentation defects without relaxing
-semantic validation or repeat guards: coherent adjacent original requirement
-pages, explicit imported-operand labels for Judges, and bounded available provider
-actions alongside inspected capability evidence. A separately frozen 4,096-token
-Judge experiment is now eligible because exhaustion was observed; it has not been
-dispatched. Source and settings changes must remain separately identified.
-
-## Preceding diagnostic
-
-Source `afc342c97e10e58ef32ea1c273cd35afd443709c`, Amazon run
-`compactdafc342c-amazon-1`, stopped before request 21 was dispatched: discovery
-needed 3,111 conservatively estimated input tokens against its captured 3,000
-ceiling. It had 20 known calls, three corrections and two accepted checkpoints.
-There was no pending call, empty response, new uncertain usage or execution.
-
-| Measurement | Result |
-| --- | ---: |
-| Provider input / output / reasoning tokens | 30,825 / 11,938 / 9,231 |
-| Prepared requests, including local rejection | 21 |
-| Complete prepared request bytes | 160,920 |
-| Planning time | 229.898 seconds |
-| Known planning cost | €0.4552252732604638762996534255 |
-| Independent business outcome | Incomplete; not executed |
-
-[Safe phase measurements](compact-taskplan-afc342c.json) retain nearest-rank
-p50/p95/maximum request sizes, reconciled component bytes, provider accounting,
-terminal diagnostics and ledger identity. Component token estimates are not
-billed usage; reasoning is part of provider output, not additional output.
-
-## Current experiment
-
-The simplification beginning at `1984bdc` uses a captured phase policy: navigation,
-draft and Judge targets remain 3k/8k/4k, while hard complete-request ceilings are
-6k/16k/8k. Control reasoning stays medium with output reservations of
-8,192/8,192/2,048; the separate experiments above change one family at a time. It also removes avoidable import-selection and evidence-charging
-loops, uses shared selected-kind schemas, admits coherent evidence batches and
-constrains Judge references to supplied objects.
-
-The configured pinned deployment declares `medium`, `high` and `max` reasoning,
-but not `low`. Read-only configuration and metadata hashes still match the
-retained model identity. The proposed low-navigation experiment is therefore
-unavailable without a separately authorized configuration change; no such change
-or model substitution was made.
-
-These changes have not established live business acceptance. Fresh diagnostics must execute
-Amazon, Collections and Review PR with independent oracles and exact delegated
-confirmations. Amazon's new v4 oracle rejects a narrowed search subtree even when
-its capture is complete. Review PR also needs an independent assessment of its
-actual report against the pinned diff; command receipts alone do not prove review
-quality. Historical verdicts stay unchanged, and paired comparisons apply the same
-supplementary checks to both arms. Only after all three succeed can the agreed 18 alternating
-baseline/candidate runs begin. Baseline is `56942f5`; each arm freezes its retained
-or best validated configuration. Intentional settings differences must be reported,
-so the comparison establishes configuration-level outcomes.
+Fresh diagnostics must execute all three scenarios and pass independent oracles
+before the 18 alternating runs against `56942f5`. Collections requires both
+ordered duplicate-preserving runtime variants and reusable parallel structure.
+Amazon v4 requires complete search observations, exact product/workbook data and
+browser closure. Review PR requires pinned provenance, actual command results,
+independent report assessment and cleanup. Compilation and Judges grant no effect
+authority; exact delegated artifact review and individual confirmations remain
+required. Each comparison arm freezes its configuration; intentional differences
+must be disclosed as configuration-level outcomes.
 
 ## Campaign reconciliation
 
-Read-only inspection of encrypted campaign
-`schema-portability-20261019-incremental` verified:
+Read-only inspection after the three diagnostics verified encrypted campaign
+`schema-portability-20261019-incremental`:
 
 | Ledger measurement | EUR |
 | --- | ---: |
 | Campaign ceiling | 240.0301038327063045424449473 |
-| Known spending | 18.491868834977339376166355638 |
-| Retained unknown-usage reservations | 0.4953212476672887230071980805 |
-| Spending/reservation upper bound | 18.987190082644628099173553718 |
-| Available allowance | 221.042913750061676443271393582 |
+| Known spending | 19.293699457922331822625077758 |
+| Unknown-usage reservations | 0.9587709944014929352172753932 |
+| Spending/reservation upper bound | 20.252470452323824757842353151 |
+| Available allowance | 219.777633380382479784602594149 |
 
 Evidence hash:
-`dbc3b273d39213f0a718c127cdcf6b0a29a387cbc098c876ddb8175bf99b1265`.
-There are 676 reserved request identities and 673 receipts. Three receiptless
-identities are permanently retained; two have unknown-usage reservations. They
-remain non-replayable and their abandoned runs cannot continue. Separate lost
-historical exposure of €159.96989616729369545755505266 remains accounted for
-within the original €400 authorization. No financial ceiling was increased.
+`25f8c64e278cded3d90bdb2888f93ef0ca4aa533baed70b82f1eacb4a27ef612`.
+There are 703 request identities and 699 receipts. Three historical receiptless
+identities are permanently retained. The new HTTP 500 remains unresolved and
+blocks paid dispatch; it has not been replayed or continued. An explicit
+benchmark-only retention operation is prepared for review, preserving every
+original record and the full reservation without claiming provider termination.
+Separate lost historical exposure of €159.96989616729369545755505266 remains
+accounted for within the original €400 authorization. No ceiling increased.
 
 ## Immutable evidence index
 
