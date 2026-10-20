@@ -331,6 +331,118 @@ complete final-revision solution validation is pending. Live convergence is also
 pending; none of these changes explains or resolves the empty Review PR draft
 by itself.
 
+## Diagnostic revision ef351ca
+
+Source: `ef351ca1d59e560a0e57167b53537022479e61b6`. The three diagnostics ran
+sequentially with the same model, medium reasoning, ordinary allowances and
+frozen MCP bundle. All stopped before approval or runtime execution. Business
+and runtime safety outcomes remain unverified.
+
+| Diagnostic and exact run | Calls / corrections / checkpoints | Provider input / output / reasoning tokens | Planning time | Known cost |
+| --- | ---: | ---: | ---: | ---: |
+| Amazon: `compactdef351ca-amazon-1` | 10 / 0 / 1 | 12,089 / 4,980 / 3,831 | 82,927 ms | €0.1864791611125921976361859059 |
+| Collections: `ef351ca1d59e560a0e57167b53537022479e61b6:fixture:collections:1` | 12 / 1 / 2 | 16,204 / 6,062 / 4,314 | 99,938 ms | €0.2336088154269972451790633609 |
+| Review PR: `compactdef351ca-code-1` | 9 / 3 / 0 | 9,949 / 4,089 / 2,850 | 66,654 ms | €0.1532169199324624544565893538 |
+
+Amazon reached MCP catalog discovery, then requested operation directory pages
+2, 0 and 2. The top-level directory link still advertised page 0 after evidence
+navigation. The repeated action triggered `REPLAN_NO_PROGRESS`; the retained
+action and evidence history were not reset. This demonstrates the navigation
+sequence, not a successful Amazon search or workbook.
+
+Collections stopped after a scoped `CONSTRUCTION_BUSINESS_REVIEW` finding at
+`/tasks/iterate_values`, followed by an unchanged repair and `REPLAN_NO_PROGRESS`.
+The exact candidate set `maxItems:1`. Its Judge correctly identified rejection
+of multi-item inputs, with the new rejection-versus-truncation guidance present.
+The compact draft schema had stripped the existing default-capacity guidance,
+and the repair repeated the singleton ceiling. This supports restoring that
+guidance; it does not prove the next model response will use it correctly.
+Neither runtime input variant executed. Review PR stopped in discovery with
+`CONSTRUCTION_EVIDENCE_UNKNOWN` and `REPLAN_NO_PROGRESS`, after three corrections.
+Its first invalid address included prose. After a successful address correction,
+the old diagnostic remained in the following requests and consumed two further
+corrections. A subsequent exact description view again advertised the already
+supplied operation page zero, producing the final repeated action.
+It issued no draft or Judge call and performed no clone, command, report or
+cleanup execution.
+
+All 31 calls have receipts, each with one physical attempt and nonempty content.
+There was no new uncertainty or rejected prepared request. Total provider usage
+was 38,242 input / 15,131 output tokens, including 10,995 reasoning tokens, over
+249,519 ms, costing **€0.5733048964720518972718386206**. All complete requests fit
+their captured phase limits.
+
+| Diagnostic / phase | Requests | p50 / p95 / maximum complete bytes | p50 / p95 / maximum input estimate |
+| --- | ---: | ---: | ---: |
+| Amazon / intent | 2 | 3,765 / 4,748 / 4,748 | 1,511.5 / 1,839 / 1,839 |
+| Amazon / selection | 2 | 6,661.5 / 6,766 / 6,766 | 2,477 / 2,512 / 2,512 |
+| Amazon / generation | 1 | 7,162 / 7,162 / 7,162 | 2,644 / 2,644 / 2,644 |
+| Amazon / local Judge | 1 | 7,536 / 7,536 / 7,536 | 2,768 / 2,768 / 2,768 |
+| Amazon / discovery | 4 | 7,078 / 7,528 / 7,528 | 2,615.5 / 2,766 / 2,766 |
+| Collections / intent | 2 | 3,525.5 / 4,826 / 4,826 | 1,431.5 / 1,865 / 1,865 |
+| Collections / selection | 3 | 5,921 / 6,567 / 6,567 | 2,230 / 2,445 / 2,445 |
+| Collections / generation | 3 | 10,957 / 12,797 / 12,797 | 3,909 / 4,522 / 4,522 |
+| Collections / local Judge | 3 | 7,170 / 8,714 / 8,714 | 2,646 / 3,161 / 3,161 |
+| Collections / correction | 1 | 14,545 / 14,545 / 14,545 | 5,105 / 5,105 / 5,105 |
+| Review PR / intent | 3 | 2,940 / 5,492 / 5,492 | 1,236 / 2,087 / 2,087 |
+| Review PR / selection | 1 | 7,038 / 7,038 / 7,038 | 2,602 / 2,602 / 2,602 |
+| Review PR / discovery | 5 | 6,553 / 7,387 / 7,387 | 2,441 / 2,719 / 2,719 |
+
+Percentiles use the median and nearest-rank p95. Provider usage remains separate
+from conservative component token estimates. The following component byte sums
+reconcile with complete serialized requests both per request and per diagnostic;
+null/empty serialized component values remain counted.
+
+| Component | Amazon bytes | Collections bytes | Review PR bytes |
+| --- | ---: | ---: | ---: |
+| Instructions | 9,846 | 15,999 | 7,026 |
+| Original intent | 1,526 | 1,021 | 3,541 |
+| Selected objective | 1,732 | 908 | 1,130 |
+| Requirements | 12,117 | 6,025 | 9,276 |
+| MCP descriptors | 2,790 | 0 | 3,202 |
+| MCP contracts | 50 | 175 | 0 |
+| Response schema | 18,851 | 41,355 | 14,018 |
+| Interfaces | 1,103 | 6,166 | 429 |
+| Fragment | 289 | 2,550 | 0 |
+| Evidence | 2,729 | 175 | 2,290 |
+| Diagnostics | 208 | 966 | 1,225 |
+| Other construction context | 9,061 | 12,326 | 6,489 |
+| Request envelope | 3,986 | 5,034 | 3,547 |
+| **Total complete requests** | **64,288** | **92,700** | **52,173** |
+
+The retained safe report also includes exact request/schema hashes and per-phase
+provider and component distributions. Its SHA-256 is
+`e1a16639b6c43219a1ca0e03da82af03905d34a53e3d09e77d0bb55fbec62931`.
+It contains no decrypted prompt, response, artifact or HTTP body.
+
+The terminal public-API audit verified 176 requests / 174 receipts, with the same
+two retained receiptless closures and one fully reserved historical unknown
+attempt. Known cost is €5.6928641251221896383186705759; the unchanged reservation
+is €0.2479472140762463343108504399. The upper bound is
+€5.9408113391984359726295210158, leaving
+**€234.0892924935078685698154262842** of the unchanged
+€240.0301038327063045424449473 ceiling. Audit evidence hash:
+`85a762ba18efc2c12feb4a198ec50f45138d606c135c1a0fc62597220e3e907c`.
+Separately retained lost-ledger exposure remains accounted for; combined upper
+exposure is approximately €165.910708 of the authorized €400.
+
+These smaller requests have not produced complete business workflows. The
+18-run paired comparison remains unstarted. Forward operation navigation,
+clearing a corrected evidence-address diagnostic, and restored loop-default
+guidance require their own deterministic and live evidence. No smaller request
+or diagnosed presentation defect proves business convergence.
+
+The follow-up retains already-presented operation-page identities in the existing
+evidence journal, clears only successfully corrected navigation diagnostics, and
+restores the existing foreach default in fresh generation/correction guidance.
+All 40 focused regressions and all 376 compact Planning tests pass with warnings
+as errors. Recovery preserves exact earlier requests and cumulative accounting;
+repeated evidence and unchanged repairs still stop. The first focused attempt
+retained two failing recovery fixtures and an analyzer finding: its simulated
+cancellation selected the terminal checkpoint instead of the saved pre-dispatch
+checkpoint. Correcting that fixture preserves unrelated-error enforcement.
+The next live diagnostic revision is still required to assess these changes.
+
 ## Deterministic evidence
 
 For `72964ab`, 370 affected planner tests and 173 host tests passed with warnings

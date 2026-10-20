@@ -223,6 +223,167 @@ public sealed class CompactDiscoveryProtocolTests
     }
 
     [Fact]
+    public async Task OperationNavigationKeepsProgressAcrossDescriptionDrilldownAndStopsRepeatedPages()
+    {
+        var (state, runtime) = await Ready();
+        AddOperations(state, 6);
+        var plan = PlanningConstruction.Hash(state.Plan);
+        var initial = PlanningCompactConstruction.DiscoveryContext(state);
+        var expected = Enumerable.Range(0, 3).SelectMany(index =>
+            PlanningCompactConstruction.ContractDescriptorPage(state, index * 2)["items"]!.AsArray()
+                .Select(item => item!["id"]!.ToString() + "@" + item["version"]!.ToString())).ToArray();
+        var presented = initial["descriptors"]!["items"]!.AsArray()
+            .Select(item => item!["id"]!.ToString() + "@" + item["version"]!.ToString()).ToList();
+        Assert.Equal("page:operations:2", initial["directoryEvidence"]!["operations"]!.ToString());
+        runtime.Respond = (request, _) => Wire(request, Evidence(Context(request)["directoryEvidence"]!["operations"]!.ToString()));
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        var page = state.Construction!.Evidence!["page:operations:2"]!;
+        presented.AddRange(page["items"]!.AsArray().Select(item => item!["id"]!.ToString() + "@" + item["version"]!.ToString()));
+        var description = page["items"]![0]!["descriptionEvidence"]!.ToString();
+        runtime.Respond = (request, _) => Wire(request, Evidence(description));
+        state = await Advance(PlannerFixture.Clone(state), runtime);
+        Assert.Empty(state.Diagnostics);
+        Assert.Single(state.Construction!.Evidence!);
+        Assert.Equal("page:operations:4", PlanningCompactConstruction.DiscoveryContext(state)["directoryEvidence"]!["operations"]!.ToString());
+        runtime.Respond = (request, _) => Wire(request, Evidence(Context(request)["directoryEvidence"]!["operations"]!.ToString()));
+        state = await Advance(PlannerFixture.Clone(state), runtime);
+        Assert.Empty(state.Diagnostics);
+        page = state.Construction!.Evidence!["page:operations:4"]!;
+        presented.AddRange(page["items"]!.AsArray().Select(item => item!["id"]!.ToString() + "@" + item["version"]!.ToString()));
+        Assert.Equal(expected, presented);
+        Assert.Null(PlanningCompactConstruction.DiscoveryContext(state)["directoryEvidence"]!["operations"]);
+        Assert.Equal(0, state.ReplanAttempts);
+        Assert.Equal(plan, PlanningConstruction.Hash(state.Plan));
+        Assert.All(runtime.Calls.Where(call => call.StructuredOutputSchema?["title"]?.ToString() == PlanningCompactConstruction.DiscoveryPurpose),
+            call => Assert.InRange(PlanningRequestMeasurements.Measure(call, PlanningCompactConstruction.DiscoveryPurpose, 3000).EstimatedInputTokens, 1, 3000));
+        runtime.Respond = (request, _) => Wire(request, Evidence("page:operations:2"));
+        state = await Advance(state, runtime);
+        Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Code == "REPLAN_NO_PROGRESS");
+        Assert.Empty(state.Construction!.Checkpoints);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    public async Task OperationNavigationDoesNotInventAnUnseenFirstPageOrAContinuation(int count)
+    {
+        var (state, _) = await Ready();
+        AddOperations(state, count);
+        Assert.Null(PlanningCompactConstruction.DiscoveryContext(state)["directoryEvidence"]!["operations"]);
+        PlanningConstruction.LoadEvidence(state, ["source:" + state.Construction!.Compact!.Sources[0].Id]);
+        Assert.Equal(count == 0 ? null : "page:operations:0",
+            PlanningCompactConstruction.DiscoveryContext(state)["directoryEvidence"]!["operations"]?.ToString());
+        Assert.DoesNotContain(PlanningConstruction.EvidenceBatchFingerprint(state, ["page:operations:0"]),
+            state.Construction!.EvidenceRequests);
+        state.Construction.Compact!.PresentationVersion = null;
+        Assert.Equal("page:operations:0", PlanningCompactConstruction.DiscoveryContext(state)["directoryEvidence"]!["operations"]!.ToString());
+    }
+
+    [Theory]
+    [InlineData("CONSTRUCTION_EVIDENCE_UNKNOWN")]
+    [InlineData("CONSTRUCTION_EVIDENCE_INVALID")]
+    public async Task CorrectedEvidenceReceiptResumesExactlyAndChargesOnlyOneCorrection(string code)
+    {
+        var (state, runtime) = await Ready();
+        AddOperations(state, 4);
+        state.Request.MaxReplanAttempts = 1;
+        state.Diagnostics = [new(code, "/evidenceRequests", "Correct the rejected navigation address.")];
+        runtime.Respond = (_, _) => throw new OperationCanceledException();
+        _ = await Advance(state, runtime);
+        var saved = PlannerFixture.Clone(runtime.Checkpoints.Last(checkpoint =>
+            checkpoint.Status == PlanningStatus.Generating &&
+            checkpoint.PendingCall?.Purpose == PlanningCompactConstruction.DiscoveryPurpose));
+        Assert.Equal(1, saved.ReplanAttempts);
+        var issued = saved.PendingCall!.Request;
+        var exact = JsonSerializer.Serialize(issued, PlanningJsonContext.Default.LLMRequest);
+        var calls = saved.ModelCalls;
+        var pageKey = PlanningConstruction.EvidenceBatchFingerprint(saved, ["page:operations:0"]);
+        Assert.DoesNotContain(pageKey, saved.Construction!.EvidenceRequests);
+        var description = Context(issued)["descriptors"]!["items"]![0]!["descriptionEvidence"]!.ToString();
+        var receipt = Wire(issued, Evidence(description));
+        var recovery = new TestRuntime { Respond = (request, _) =>
+        {
+            Assert.Equal(exact, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+            return receipt;
+        } };
+        saved.Status = PlanningStatus.Generating;
+        state = await Advance(saved, recovery);
+        Assert.Empty(state.Diagnostics);
+        Assert.Equal(calls, state.ModelCalls);
+        Assert.Equal(1, state.ReplanAttempts);
+        Assert.Single(state.Construction!.EvidenceRequests, key => key == pageKey);
+        Assert.Equal("page:operations:2", PlanningCompactConstruction.DiscoveryContext(state)["directoryEvidence"]!["operations"]!.ToString());
+        recovery.Respond = (request, _) => Wire(request, Evidence("page:operations:2"));
+        state = await Advance(PlannerFixture.Clone(state), recovery);
+        Assert.Empty(state.Diagnostics);
+        Assert.Equal(calls + 1, state.ModelCalls);
+        Assert.Equal(1, state.ReplanAttempts);
+        Assert.Null(PlanningCompactConstruction.DiscoveryContext(state)["directoryEvidence"]!["operations"]);
+    }
+
+    [Fact]
+    public async Task SuccessfulEvidenceClearsOnlyItsResolvedNavigationDiagnostics()
+    {
+        var (state, runtime) = await Ready();
+        state.Diagnostics = [new("CONSTRUCTION_EVIDENCE_UNKNOWN", "/evidenceRequests", "Resolved address."),
+            new("CONSTRUCTION_EVIDENCE_INVALID", "/elsewhere", "Unrelated location."),
+            new("CONSTRUCTION_STEP_INPUT_INVALID", "/step/inputs/0", "Unrelated semantic finding.")];
+        runtime.Respond = (request, _) => Wire(request, Evidence("source:" + state.Construction!.Compact!.Sources[0].Id));
+        state = await Advance(state, runtime);
+        Assert.Equal(2, state.Diagnostics.Count);
+        Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Location == "/elsewhere");
+        Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Code == "CONSTRUCTION_STEP_INPUT_INVALID");
+        Assert.Equal(1, state.ReplanAttempts);
+    }
+
+    [Fact]
+    public async Task HistoricalIssuedRestartLinkDoesNotRetroactivelyConsumeItsRequestedPage()
+    {
+        var (state, runtime) = await Ready();
+        AddOperations(state, 4);
+        var context = PlanningCompactConstruction.DiscoveryContext(state);
+        context["directoryEvidence"]!["operations"] = "page:operations:0";
+        var issued = Complete(state, PlanningCompactConstruction.Request(PlanningCompactConstruction.DiscoveryInstructions,
+            context, PlanningCompactConstruction.DiscoverySchema(state), PlanningCompactConstruction.DiscoveryPurpose));
+        state.PendingCall = new() { Id = issued.ClientRequestId!, Purpose = PlanningCompactConstruction.DiscoveryPurpose, Request = issued };
+        state.ModelCalls++;
+        var calls = state.ModelCalls;
+        var exact = JsonSerializer.Serialize(issued, PlanningJsonContext.Default.LLMRequest);
+        runtime.Respond = (request, _) =>
+        {
+            Assert.Equal(exact, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+            return Wire(request, Evidence("page:operations:0"));
+        };
+        state = await Advance(PlannerFixture.Clone(state), runtime);
+        Assert.Empty(state.Diagnostics);
+        Assert.Equal(calls, state.ModelCalls);
+        Assert.Equal(0, state.ReplanAttempts);
+        Assert.NotNull(state.Construction!.Evidence!["page:operations:0"]);
+        Assert.Single(state.Construction!.EvidenceRequests);
+        Assert.Equal("page:operations:2", PlanningCompactConstruction.DiscoveryContext(state)["directoryEvidence"]!["operations"]!.ToString());
+    }
+
+    [Theory]
+    [InlineData("version")]
+    [InlineData("next")]
+    public async Task NoncanonicalDisplayedOperationPagesCannotEstablishNavigationProgress(string change)
+    {
+        var (state, _) = await Ready();
+        AddOperations(state, 4);
+        var context = PlanningCompactConstruction.DiscoveryContext(state);
+        if (change == "version") context["descriptors"]!["items"]![0]!["version"] = "stale-version";
+        else context["descriptors"]!["next"] = "page:operations:999";
+        var request = PlanningCompactConstruction.Request(PlanningCompactConstruction.DiscoveryInstructions,
+            context, PlanningCompactConstruction.DiscoverySchema(state), PlanningCompactConstruction.DiscoveryPurpose);
+        PlanningCompactConstruction.RecordPresentedOperations(state, request.Prompt);
+        Assert.Empty(state.Construction!.EvidenceRequests);
+        state.Construction.Evidence = new() { ["page:operations:0"] = context["descriptors"]!.DeepClone() };
+        Assert.Equal("page:operations:0", PlanningCompactConstruction.DiscoveryContext(state)["directoryEvidence"]!["operations"]!.ToString());
+    }
+
+    [Fact]
     public async Task ReusedProviderCursorIsResolvedOnlyWithinTheSelectedSubstepQuery()
     {
         var (state, runtime) = await Ready();
@@ -491,6 +652,20 @@ public sealed class CompactDiscoveryProtocolTests
         Complete(state, PlanningCompactConstruction.Request(PlanningCompactConstruction.DiscoveryInstructions,
             PlanningCompactConstruction.DiscoveryContext(state), PlanningCompactConstruction.DiscoverySchema(state),
             PlanningCompactConstruction.DiscoveryPurpose)), PlanningCompactConstruction.DiscoveryPurpose, 3000);
+
+    private static void AddOperations(PlanningSession state, int count)
+    {
+        var capabilities = Enumerable.Range(0, count).Select(index => new PlanningCapability
+        {
+            Id = "operation_" + index, Version = "version_" + index, Kind = "tool", StepType = "mcp.call",
+            Server = "alpha", Method = "read_" + index, Description = "Read exact original records with declared restrictions.",
+            InputSchema = new() { ["type"] = "object", ["properties"] = new JsonObject(), ["additionalProperties"] = false },
+            OutputSchema = new() { ["type"] = "object", ["properties"] = new JsonObject(), ["additionalProperties"] = false }
+        });
+        state.Discovery.Pages = [new("alpha", null, capabilities.Select(capability => new CapabilitySummary(capability.Id,
+            "alpha", capability.Method!, capability.Description, capability.StepType, capability.EffectKind, capability.Version,
+            Operation: TaskOperations.Describe(capability))).ToList(), null, Query: Objective)];
+    }
 
     private const string Objective = "Prepare the exact greeting from the supplied data.";
     private const string Reason = "The supplied literal can be assembled with deterministic bindings; no suitable operation is needed.";

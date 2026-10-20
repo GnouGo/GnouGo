@@ -129,7 +129,13 @@ internal static partial class PlanningCompactConstruction
         if (step.Kind == "value")
             hints.Add("value only copies, projects or assembles typed values using declared arithmetic, predicates, lookup, flatten and JSON encoding. It cannot concatenate or format strings, URL-encode or interpolate literals; its objective adds no computation.");
         if (step.Kind == "foreach")
+        {
             hints.Add("foreach.maxItems is the TOTAL input-item ceiling; excess fails, it never samples or truncates. maxConcurrency limits simultaneous workers, not total items. Neither bound guarantees a nonempty collection.");
+            if (State(state).PresentationVersion == 2)
+                hints.Add("Without an explicit original bound, use the existing TaskPlan default maxItems=" +
+                    new PlanTask().MaxItems.ToString(System.Globalization.CultureInfo.InvariantCulture) +
+                    ". 1 is singleton capacity, not a placeholder or worker count. Runtime ceilings still apply.");
+        }
         if (step.Kind == "foreach" || scope?.Owner?.Kind == "foreach")
             hints.Add("Each foreach body output becomes an array on the enclosing task, preserving input order and repetitions; array-valued outputs remain nested. Within the body, item and index refer to the current iteration.");
         if (step.Kind == "conditional" || scope?.Owner?.Kind == "conditional")

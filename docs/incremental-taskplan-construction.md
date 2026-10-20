@@ -133,6 +133,12 @@ it also retains up to two eligible provider source/cursor alternatives for that
 source, with a continuation address when needed. The description remains the
 single evidence view; this does not fetch another source or bypass non-progress
 checks.
+Fresh operation navigation advances past descriptor pages already supplied at
+the current baseline, including when the current evidence is an operation
+description. The retained evidence-batch identities prevent advertising a
+consumed page as the next action; explicit duplicate requests still stop.
+Successful retrieval clears its corrected navigation diagnostic without
+discarding unrelated findings or resetting cumulative correction accounting.
 Output-port directories preserve original producer business-port mappings, including
 aliases beyond the first page; their addresses are distinct from wire-schema paths.
 Schema evidence retrieves the selected original subtree and its coupled constraints.
@@ -203,6 +209,11 @@ which bounds workers. Neither implies sampled or truncated successful output.
 Conflicts with explicit required sizes remain findings; when the original size
 is unspecified, finite supported capacity remains uncertain rather than granting
 authority to increase runtime limits.
+Fresh foreach generation and correction also retain the existing TaskPlan
+default item ceiling when the request supplies no bound. A ceiling of one means
+singleton capacity, not a placeholder or one concurrent worker. This is
+presentation guidance for the proposed task; accepted tasks, schema bounds and
+host execution limits remain unchanged.
 Finding locations and evidence contain exact JSON Pointers without annotations;
 explanations belong in their separate fields. Exact context lookup remains the
 authority for accepting a reference.

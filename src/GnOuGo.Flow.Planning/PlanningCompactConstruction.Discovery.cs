@@ -75,6 +75,41 @@ internal static partial class PlanningCompactConstruction
         return ProviderRequestPage(state, 0);
     }
 
+    private static string? OperationDirectoryContinuation(PlanningSession state, JsonObject? displayed)
+    {
+        if (State(state).PresentationVersion != 2) return "page:operations:0";
+        for (var offset = 0; ; offset += ContractDescriptorPageSize)
+        {
+            var page = ContractDescriptorPage(state, offset);
+            if (page["items"]!.AsArray().Count == 0) return null;
+            var address = "page:operations:" + offset.ToString(CultureInfo.InvariantCulture);
+            var supplied = state.Construction!.EvidenceRequests.Contains(
+                PlanningConstruction.EvidenceBatchFingerprint(state, [address]), StringComparer.Ordinal);
+            if (!supplied && !JsonNode.DeepEquals(displayed, page) &&
+                !JsonNode.DeepEquals(state.Construction.Evidence?[address], page)) return address;
+            if (page["next"] is null) return null;
+        }
+    }
+
+    internal static void RecordPresentedOperations(PlanningSession state, string issuedPrompt)
+    {
+        if (State(state).PresentationVersion != 2) return;
+        JsonObject? context;
+        try { context = JsonNode.Parse(issuedPrompt[(issuedPrompt.LastIndexOf('\n') + 1)..]) as JsonObject; }
+        catch (System.Text.Json.JsonException) { return; }
+        if (context?["descriptors"] is not JsonObject page ||
+            !JsonNode.DeepEquals(page, ContractDescriptorPage(state)) ||
+            context["directoryEvidence"] is not JsonObject directory) return;
+        var continuation = directory["operations"]?.ToString();
+        // Older issued requests advertise page zero again. Do not retrospectively
+        // consume an address their captured presentation still offered to fetch.
+        if (continuation == "page:operations:0" || continuation != OperationDirectoryContinuation(state, page) ||
+            page["items"]!.AsArray().Count == 0) return;
+        var key = PlanningConstruction.EvidenceBatchFingerprint(state, ["page:operations:0"]);
+        if (!state.Construction!.EvidenceRequests.Contains(key, StringComparer.Ordinal))
+            state.Construction.EvidenceRequests.Add(key);
+    }
+
     private static JsonObject? DescribedProviderRequests(PlanningSession state)
     {
         foreach (var (address, value) in state.Construction!.Evidence ?? new JsonObject())

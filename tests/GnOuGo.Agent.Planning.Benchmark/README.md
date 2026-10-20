@@ -931,8 +931,10 @@ an oversized rejected request cannot be hidden behind a smaller admitted peak.
 Compact diagnostics also distinguish interface-scope failures, advisory Judge
 findings, non-progress stops and empty output-limit receipts from transport
 uncertainty. Preserve these outcomes even when every request fits its phase cap.
-Keep source-description provider actions, isolated group inputs and loop safety
-semantics visible in bounded planning/review context; these generic presentation
+Keep source-description provider actions, forward operation-page navigation,
+isolated group inputs and existing loop defaults/safety semantics visible in
+bounded planning/review context. A corrected evidence-address error must not
+consume another correction on subsequent successful navigation. These generic presentation
 corrections do not relax compiler validation or prove live convergence. Recorded
 failures and accounting for the latest same-source Amazon, Collections and Review
 PR diagnostics are in the

@@ -96,6 +96,8 @@ public sealed partial class HybridWorkflowPlanner
         var request = state.PendingCall?.Request ?? create();
         var response = await PlanningModelCalls.CallAsync(state, runtime, purpose, request.Prompt,
             request.StructuredOutputSchema!.AsObject(), ct, state.Construction!.Limits.DraftOutputTokens);
+        if (purpose == PlanningCompactConstruction.DiscoveryPurpose)
+            PlanningCompactConstruction.RecordPresentedOperations(state, request.Prompt);
         var compact = PlanningCompactConstruction.State(state);
         var legacyHash = purpose + ":" + compact.CurrentStep?.Id + ":" + PlanningConstruction.Hash(state.Plan) + ":" + PlanningGraphCompiler.Fingerprint(response.ToJsonString());
         var hash = CompactActionFingerprint(state, legacyHash);
@@ -288,7 +290,13 @@ public sealed partial class HybridWorkflowPlanner
         if (names.Count(name => response[name] is not null) != 1)
             PlanningConstruction.Fail("PROPOSAL_ACTION_INVALID", "/", "Return exactly one compact construction action.");
         if (response["evidenceRequests"] is JsonArray evidence)
-        { PlanningConstruction.LoadEvidence(state, evidence.Select(e => e!.ToString()).ToList()); return true; }
+        {
+            PlanningConstruction.LoadEvidence(state, evidence.Select(e => e!.ToString()).ToList());
+            if (PlanningCompactConstruction.State(state).PresentationVersion == 2)
+                state.Diagnostics.RemoveAll(d => d.Location == "/evidenceRequests" &&
+                    d.Code is "CONSTRUCTION_EVIDENCE_UNKNOWN" or "CONSTRUCTION_EVIDENCE_INVALID");
+            return true;
+        }
         if (response["clarifications"] is JsonArray questions)
         {
             var parsed = questions.Deserialize(PlanningJsonContext.Default.ListPlanningQuestion)!;

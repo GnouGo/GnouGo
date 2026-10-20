@@ -329,7 +329,8 @@ internal static partial class PlanningCompactConstruction
             ["sources"] = null,
             ["descriptors"] = descriptors,
             ["providerRequests"] = ProviderEvidencePage(state) is null ? providerPage : null,
-            ["directoryEvidence"] = new JsonObject { ["sources"] = "page:sources:0", ["operations"] = "page:operations:0", ["providers"] = ProviderRequestAddress(state, 0) },
+            ["directoryEvidence"] = new JsonObject { ["sources"] = "page:sources:0",
+                ["operations"] = OperationDirectoryContinuation(state, descriptors), ["providers"] = ProviderRequestAddress(state, 0) },
             ["evidence"] = evidence?.DeepClone(),
             ["diagnostics"] = PlanningJsonTransport.Diagnostics(state.Diagnostics)
         };

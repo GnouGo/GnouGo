@@ -41,12 +41,16 @@ internal static partial class PlanningConstruction
         }
     }
 
+    internal static string EvidenceBatchFingerprint(PlanningSession state, IEnumerable<string> requests) =>
+        PlanningGraphCompiler.Fingerprint(Hash(state.Plan) + ":" + state.Construction!.Candidate?.Hash + ":" +
+            string.Join('\n', requests.Order(StringComparer.Ordinal)));
+
     private static void LoadEvidenceCore(PlanningSession state, List<string> requests)
     {
         var construction = state.Construction!;
         if (requests.Count is < 1 or > 8 || requests.Distinct(StringComparer.Ordinal).Count() != requests.Count)
             Fail("CONSTRUCTION_EVIDENCE_INVALID", "/evidenceRequests", "Request one to eight distinct original evidence identities.");
-        var key = PlanningGraphCompiler.Fingerprint(Hash(state.Plan) + ":" + construction.Candidate?.Hash + ":" + string.Join('\n', requests.Order(StringComparer.Ordinal)));
+        var key = EvidenceBatchFingerprint(state, requests);
         if (construction.EvidenceRequests.Contains(key, StringComparer.Ordinal)) Fail("REPLAN_NO_PROGRESS", "/evidenceRequests", "This evidence batch was already supplied for the same candidate.");
         var plan = construction.Candidate?.Plan ?? state.Plan ?? new TaskPlan();
         var symbols = new TaskPlanSymbols(plan); var result = new JsonObject();
