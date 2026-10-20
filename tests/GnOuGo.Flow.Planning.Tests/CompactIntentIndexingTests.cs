@@ -255,6 +255,98 @@ public sealed class CompactIntentIndexingTests
         if (extraction) Assert.Contains(resumed.Construction.Compact.Sources, source => source.Kind == "revision_page" && !source.Indexed);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task PreviouslyIssuedExtractionConsumesItsExactSavedReceiptWithoutRedispatch(bool outputLimited)
+    {
+        const string originalInstructions = """
+            Extract only the caller inputs and public returned interfaces explicitly declared by these exact original clauses. Do not plan tasks or reconstruct file, effect-payload or resource schemas. Declare only the permitted interface direction. Existing declarations are retained; do not rename them or invent an additional alias. Preserve explicit types, enum values, nullability and literal defaults. An absent array bound is null; maxItems:0 permits only an empty array. Do not infer restrictions from examples. Public output declarations have no defaults: the workflow must produce them. Return empty declarations only when the original clause declares no interface in that direction.
+            """;
+        var state = await Advance(Fresh(), new TestRuntime { Respond = Simple });
+        var extraction = Assert.Single(state.Construction!.Compact!.InterfaceExtractions!);
+        var context = PlanningCompactConstruction.InterfaceContext(state, extraction);
+        var issued = PlanningCompactConstruction.Request(originalInstructions, context,
+            PlanningCompactConstruction.InterfaceSchema(extraction), PlanningCompactConstruction.IntentPurpose);
+        issued.StructuredOutputStrict = true; issued.UseBackgroundMode = true;
+        issued = PlanningGenerationPolicy.Apply(issued, state.Request.Generation);
+        issued.ClientRequestId = state.Request.SessionId + ":2:" +
+            PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(issued, PlanningJsonContext.Default.LLMRequest));
+        var exact = JsonSerializer.Serialize(issued, PlanningJsonContext.Default.LLMRequest);
+        state.PendingCall = new() { Id = issued.ClientRequestId, Purpose = PlanningCompactConstruction.IntentPurpose, Request = issued };
+        state.ModelCalls++;
+        var measurement = PlanningRequestMeasurements.Measure(issued, PlanningCompactConstruction.IntentPurpose, 3000);
+        measurement.Admission = "admitted";
+        state.RequestMeasurements!.Add(measurement);
+        var measurements = JsonSerializer.Serialize(state.RequestMeasurements, PlanningJsonContext.Default.ListPlanningRequestMeasurement);
+        var requirements = JsonSerializer.Serialize(state.Requirements, PlanningJsonContext.Default.PlanningRequirements);
+        var sources = JsonSerializer.Serialize(state.Construction.Compact.Sources, PlanningJsonContext.Default.ListPlanningConstructionSource);
+        var receipt = outputLimited ? ReasoningOnlyLimit() : Simple(issued, PlanningCompactConstruction.IntentPurpose);
+        var receipts = new Dictionary<string, LLMResponse>(StringComparer.Ordinal) { [issued.ClientRequestId] = receipt };
+        var physicalCalls = 0;
+        var recovery = new TestRuntime { Respond = (request, _) =>
+        {
+            Assert.Equal(exact, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+            if (receipts.TryGetValue(request.ClientRequestId!, out var saved)) return saved;
+            physicalCalls++;
+            throw new InvalidOperationException("A retained extraction receipt must not dispatch another model call.");
+        } };
+        state = await Advance(PlannerFixture.Clone(state), recovery);
+        Assert.Equal(0, physicalCalls);
+        Assert.Single(recovery.Calls);
+        Assert.Equal(2, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);
+        Assert.Equal(measurements, JsonSerializer.Serialize(state.RequestMeasurements, PlanningJsonContext.Default.ListPlanningRequestMeasurement));
+        Assert.Equal(sources, JsonSerializer.Serialize(state.Construction!.Compact!.Sources, PlanningJsonContext.Default.ListPlanningConstructionSource));
+        Assert.Null(state.PendingCall); Assert.Null(state.Construction.Candidate);
+        Assert.Null(state.Construction.Compact.CurrentStep); Assert.Empty(state.Construction.Checkpoints);
+        Assert.Equal(0, recovery.Discoveries);
+        Assert.Equal(!outputLimited, Assert.Single(state.Construction.Compact.InterfaceExtractions!).Complete);
+        if (outputLimited)
+        {
+            Assert.Equal(requirements, JsonSerializer.Serialize(state.Requirements, PlanningJsonContext.Default.PlanningRequirements));
+            Assert.Equal(PlanningStatus.Stopped, state.Status);
+            Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Code == "MODEL_OUTPUT_LIMIT");
+            Assert.False(PlanningCompactConstruction.SourcesComplete(state));
+            Assert.Same(state, await Advance(state, recovery));
+            Assert.Single(recovery.Calls);
+        }
+        else
+        {
+            Assert.Empty(state.Diagnostics);
+            Assert.Equal("message", Assert.Single(state.Requirements!.Outputs!).Name);
+            Assert.True(PlanningCompactConstruction.SourcesComplete(state));
+        }
+    }
+
+    [Fact]
+    public async Task ReasoningOnlyExtractionLimitCannotAdvanceCoverageOrAutomaticallyRetry()
+    {
+        var runtime = new TestRuntime { Respond = Simple };
+        var state = await Advance(Fresh(), runtime);
+        var requirements = JsonSerializer.Serialize(state.Requirements, PlanningJsonContext.Default.PlanningRequirements);
+        runtime.Respond = (_, _) => ReasoningOnlyLimit();
+        state = await Advance(state, runtime);
+        Assert.Equal(PlanningStatus.Stopped, state.Status);
+        Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Code == "MODEL_OUTPUT_LIMIT");
+        Assert.Equal(2, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);
+        Assert.Equal(8192, runtime.Calls[1].MaxTokens);
+        Assert.Equal("medium", state.Request.Generation.Reasoning);
+        Assert.Equal(requirements, JsonSerializer.Serialize(state.Requirements, PlanningJsonContext.Default.PlanningRequirements));
+        Assert.False(Assert.Single(state.Construction!.Compact!.InterfaceExtractions!).Complete);
+        Assert.False(PlanningCompactConstruction.SourcesComplete(state));
+        Assert.Null(state.PendingCall); Assert.Null(state.Construction.Compact.CurrentStep);
+        Assert.Null(state.Construction.Candidate); Assert.Empty(state.Construction.Checkpoints);
+        Assert.Equal(0, runtime.Discoveries);
+        Assert.Same(state, await Advance(state, runtime));
+        Assert.Equal(2, runtime.Calls.Count);
+    }
+
+    private static LLMResponse ReasoningOnlyLimit() => new()
+    {
+        CompletionStatus = "output_limit",
+        Usage = new JsonObject { ["output_tokens"] = 8192, ["output_tokens_details"] = new JsonObject { ["reasoning_tokens"] = 8192 } }
+    };
+
     [Fact]
     public async Task RetainedCombinedIndexReceiptKeepsItsSchemaAndAbsentOptionalFields()
     {

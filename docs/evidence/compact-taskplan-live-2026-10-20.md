@@ -136,6 +136,39 @@ pages, the original unresolved anchor, globals, typed import identities, scope
 boundaries and exact retrieval links. It does not shorten authoritative clauses,
 relax admission or change historical issued requests.
 
+## Diagnostic revision 435d093
+
+Source: `435d093ee36cf771c4c2ecf08f83f7c6367e7e49`, with unchanged model,
+reasoning, allowances and frozen MCP bundle. Amazon run
+`compactd435d093-amazon-1` stopped during interface extraction before reaching the
+navigation correction. Both calls have saved receipts; there was no discovery,
+checkpoint acceptance, correction, runtime effect or new uncertain attempt.
+
+The failed extraction request was 4,807 bytes / 1,859 estimated input tokens.
+Its schema, instructions and exact source context match the successful extraction
+in `5faf5a1`. The successful response used 562 output tokens, including 512
+reasoning tokens, and returned 132 content bytes. This response instead consumed
+all 8,192 output tokens as reasoning and returned zero content bytes. The retained
+receipt reports `output_limit`; it does not establish why the model failed.
+
+The run used 1,259 provider input and 8,988 output tokens, including 8,704
+reasoning tokens, in 142,023 ms. Cost was €0.2452101661779081133919843597.
+The subsequent read-only campaign audit verified 91 requests, 89 receipts,
+known cost €3.6730205278592375366568914952, and the unchanged full unknown
+reservation €0.2479472140762463343108504399. The upper bound is
+€3.9209677419354838709677419351, leaving **€236.1091360907708206714772053649**.
+Both receipt-less historical requests retain their existing closures.
+
+The next controlled experiment changes only interface-extraction instructions:
+ask for the minimum sufficient declaration and explicitly exclude downstream
+design work. The exact type/default grammar, authoritative clauses, model,
+medium reasoning and output reservation stay unchanged. This is not a claimed
+fix for reasoning exhaustion, and the failed request will not be replayed.
+An in-memory projection of the retained request reduces complete bytes from
+4,807 to 4,747 with identical source context and schema. All 39 focused intent
+tests pass, including consumption of the previous exact issued request/receipt
+and refusal to advance or retry an extraction stopped by its output limit.
+
 ## Deterministic evidence
 
 For `72964ab`, 370 affected planner tests and 173 host tests passed with warnings
@@ -150,6 +183,18 @@ skips, in 3m48s. Managed and Native AOT planning smoke passed, including grouped
 interface extraction, exact issued-receipt recovery and the native stdio MCP
 numeric boundary. Builds were warning-free. These results apply to that frozen
 revision; subsequent live-driven corrections require their own validation.
+
+For `2a25e1e`, 209 focused compact/historical planner tests and 115 host oracle
+tests passed. All five independent Flow packages, Native AOT planning smoke,
+trimmed published encrypted storage, the bundled MCP tools and the published Git
+stdio contract check passed with warnings as errors. The full solution run was
+interrupted after a newer candidate superseded it: ten completed projects reported
+2,262 passes, zero failures and seven platform skips. This is an incomplete
+solution result, not a pass.
+
+For `435d093`, 75 affected planner tests and 117 host oracle/delegated-review
+tests passed with warnings as errors. Its benchmark build had zero warnings.
+Earlier source/package results do not validate this revision's changed code.
 
 Fresh coverage includes coherent source continuations, interface extraction and
 exact recovery, historical presentation markers and schemas, scoped commitment

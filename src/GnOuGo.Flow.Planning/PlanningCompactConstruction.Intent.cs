@@ -18,7 +18,7 @@ internal static partial class PlanningCompactConstruction
         """;
 
     internal const string InterfaceInstructions = """
-        Extract only the caller inputs and public returned interfaces explicitly declared by these exact original clauses. Do not plan tasks or reconstruct file, effect-payload or resource schemas. Declare only the permitted interface direction. Existing declarations are retained; do not rename them or invent an additional alias. Preserve explicit types, enum values, nullability and literal defaults. An absent array bound is null; maxItems:0 permits only an empty array. Do not infer restrictions from examples. Public output declarations have no defaults: the workflow must produce them. Return empty declarations only when the original clause declares no interface in that direction.
+        Extract only the minimum sufficient caller/public result interfaces from these exact clauses. Combine clauses about the same interface into one declaration. Preserve stated names, meaning, types, enums, nullability and literal defaults; no aliases or invented restrictions. Existing declarations are immutable. No task, tool-argument, file-content, effect or resource design. Use only permitted directions; return [] for a direction only when these clauses declare no interface in it. Examples impose no restrictions. An absent array bound is null; maxItems:0 permits only an empty array. Public outputs have no defaults.
         """;
 
     internal static (int Count, bool Continues) CoherentOriginalPageLength(string text, int start)
