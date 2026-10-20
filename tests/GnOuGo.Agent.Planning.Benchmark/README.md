@@ -396,11 +396,12 @@ approval or execution evidence reject this operation. Historical retry-exhaustio
 eligibility remains unchanged.
 
 The default mode accepts only its historical timeout/transport evidence, with no
-HTTP status or body. A separately authorized single HTTP 500 or 502 can instead
-use its exact `--retention-kind single-http-500` or `single-http-502` on both
-inspection and application. Each explicit mode requires matching
-`ServiceUnavailable` failure and journal records with that exact HTTP status,
-exactly one exhausted attempt, no transport-failure marker, and a
+HTTP status or body. A separately authorized single HTTP 500, 502 or 504 can instead
+use its exact `--retention-kind single-http-500`, `single-http-502` or
+`single-http-504` on both inspection and application. The 500/502 modes require
+`ServiceUnavailable`; 504 requires `Timeout`. Failure and journal records must
+match that exact HTTP status. Each mode requires exactly one exhausted attempt,
+no transport-failure marker, and a
 bounded recognized error-only JSON body. Accepted bodies contain either only an
 `error` object with scalar string/null `message`, `type`, `code`, `param` fields,
 or exactly the three string fields `errorCode`, `errorMessage`, `errorDetail`.

@@ -5,7 +5,25 @@ Amazon, Collections or Review PR diagnostics reached execution. Checkpoints,
 compilation and scoped reviews do not establish business success. The gated
 18-run baseline/candidate comparison has not started.
 
-## Latest frozen diagnostics
+## Latest attempt and retained diagnostics
+
+After explicit authorization, the `08ad5db` Review PR request was permanently
+abandoned with its full reservation intact. Fresh cohort `compactdcd174ea` then
+froze source `cd174ea660c28e104a98b340fdf8c7f926c6dcaa` with the same configuration
+and MCP bundle. Amazon's first intent call stopped on HTTP 504 after 125.840 s:
+one transport attempt, no receipt or verified usage, and no artifact or execution.
+Its complete request was 2,969 bytes (1,246 estimated input tokens), including a
+612-byte response schema. Components reconcile. This does not demonstrate a
+prompt-size or reasoning-exhaustion cause.
+
+The full €0.4634497467342042122100773127 reservation remains unknown. Paid dispatch
+stopped; Collections and Review PR were **not started** in this cohort. The new
+504 is outside the preceding exact 500 authorization. The implementation fixes
+below therefore still need live acceptance. [Safe attempt evidence](compact-taskplan-cd174ea.json)
+records reconciled components, unknown usage, transport hashes and the unused run identities.
+The benchmark-only `single-http-504` operator is prepared and its 322 retention
+regressions pass. Applying it still requires authorization for this exact run,
+request and evidence; no reservation release or replay is permitted.
 
 Source `08ad5db6ee96736452d7dda56dab3c4de92ebe1c`, cohort `compactd08ad5db`,
 retained the pinned model and medium reasoning. Input targets remain 3k/8k/4k,
@@ -61,26 +79,42 @@ must be disclosed as configuration-level outcomes.
 
 ## Campaign reconciliation
 
-Read-only inspection after the three diagnostics verified encrypted campaign
+Read-only inspection after the new Amazon failure verified encrypted campaign
 `schema-portability-20261019-incremental`:
 
 | Ledger measurement | EUR |
 | --- | ---: |
 | Campaign ceiling | 240.0301038327063045424449473 |
 | Known spending | 19.293699457922331822625077758 |
-| Unknown-usage reservations | 0.9587709944014929352172753932 |
-| Spending/reservation upper bound | 20.252470452323824757842353151 |
-| Available allowance | 219.777633380382479784602594149 |
+| Unknown-usage reservations | 1.4222207411356971474273527059 |
+| Spending/reservation upper bound | 20.715920199058028970052430464 |
+| Available allowance | 219.314183633648275572392516836 |
 
 Evidence hash:
-`25f8c64e278cded3d90bdb2888f93ef0ca4aa533baed70b82f1eacb4a27ef612`.
-There are 703 request identities and 699 receipts. Three historical receiptless
-identities are permanently retained. The new HTTP 500 remains unresolved and
-blocks paid dispatch; it has not been replayed or continued. An explicit
-benchmark-only retention operation is prepared for review, preserving every
-original record and the full reservation without claiming provider termination.
+`c32cad9d8b78c56a6290250f0c688038a45812dba6ce1b4a6a64255cb53f26c0`.
+There are 704 request identities and 699 receipts. Four receiptless identities
+are permanently retained. The authorized 500 closure hash is
+`573112a54941f592bf4c3525b812e396fb4592aafd5770bfd0565448527b99c8`.
+The new HTTP 504 remains unresolved and blocks paid dispatch. Neither uncertain
+request was replayed or continued; no receipt or provider termination was inferred.
 Separate lost historical exposure of €159.96989616729369545755505266 remains
 accounted for within the original €400 authorization. No ceiling increased.
+
+## Independent validation
+
+At `041c69c`, all five Flow package builds, the Native AOT planning smoke and the
+published Git contract check passed. The maintained publication verifier passed
+14 profiles, eight frontend builds, encrypted planning/Flow recovery, tenant
+isolation and health checks. Six documented EF experimental notices were accepted;
+there were no unexpected warnings. Files checks cover persistence, isolation and
+TTL, without separately proving payload encryption.
+
+The full solution run exposed eight fixture failures: fresh phase metadata was
+incorrectly retained in historical version-one test sessions, and financial tests
+still expected the old 8k ceiling. `cd174ea` corrects only those fixtures; all ten
+affected cases pass with warnings as errors. The original full run and CI are
+still in progress. Neither focused validation nor packaging establishes business
+acceptance.
 
 ## Immutable evidence index
 

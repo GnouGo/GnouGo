@@ -9,6 +9,7 @@ internal sealed partial class BenchmarkCampaign
     private const string PermanentRetentionReason = "operator_retained_uncertain_planning";
     internal const string SingleHttp500Retention = "single-http-500";
     internal const string SingleHttp502Retention = "single-http-502";
+    internal const string SingleHttp504Retention = "single-http-504";
 
     // Called before any continuation, approval, execution or new request in the abandoned session.
     // Historical closures retain their original request-only behavior.
@@ -110,7 +111,7 @@ internal sealed partial class BenchmarkCampaign
              effective["effective_retry_policy"]?["MaxAttempts"]?.GetValue<int>() != 1))
             throw new InvalidOperationException("The issued transport policy permits recovery; this terminal operator cannot reinterpret it.");
         if (journal["effective_transport_policy"] is null && journal["effective_transport_policy_hash"] is not null ||
-            (retentionKind is SingleHttp500Retention or SingleHttp502Retention) && journal["effective_transport_policy"] is not JsonObject)
+            (retentionKind is SingleHttp500Retention or SingleHttp502Retention or SingleHttp504Retention) && journal["effective_transport_policy"] is not JsonObject)
             throw new InvalidOperationException("The captured effective transport policy is missing.");
         var evidence = new JsonObject
         {
@@ -172,7 +173,7 @@ internal sealed partial class BenchmarkCampaign
     {
         if (closure["reason"]?.ToString() != PermanentRetentionReason ||
             closure["evidence"] is not JsonObject evidence || evidence["version"]?.GetValue<int>() != 1 ||
-            evidence["retention_kind"]?.ToString() is not (null or SingleHttp500Retention or SingleHttp502Retention) ||
+            evidence["retention_kind"]?.ToString() is not (null or SingleHttp500Retention or SingleHttp502Retention or SingleHttp504Retention) ||
             evidence["campaign"]?.ToString() != Id || evidence["tenant"]?.ToString() != "benchmark" ||
             evidence["request_id"]?.ToString() != requestId ||
             evidence["session_id"]?.ToString() is not { Length: > 0 } sessionId ||
@@ -190,18 +191,26 @@ internal sealed partial class BenchmarkCampaign
 
     private static void ValidateRetentionKind(string? retentionKind)
     {
-        if (retentionKind is not (null or SingleHttp500Retention or SingleHttp502Retention))
-            throw new ArgumentException("Choose the exact single-http-500 or single-http-502 retention kind.", nameof(retentionKind));
+        if (retentionKind is not (null or SingleHttp500Retention or SingleHttp502Retention or SingleHttp504Retention))
+            throw new ArgumentException("Choose the exact single-http-500, single-http-502 or single-http-504 retention kind.", nameof(retentionKind));
     }
 
     private static bool MatchesPermanentFailure(JsonObject failure, JsonNode? attempt, string? retentionKind)
-        => retentionKind is SingleHttp500Retention or SingleHttp502Retention
-            ? failure["kind"]?.ToString() == "ServiceUnavailable" &&
-              failure["status_code"]?.GetValue<int>() == (retentionKind == SingleHttp500Retention ? 500 : 502) &&
-              attempt?["Status"]?.GetValue<int>() == (retentionKind == SingleHttp500Retention ? 500 : 502) && attempt["Failure"] is null &&
+        => retentionKind is SingleHttp500Retention or SingleHttp502Retention or SingleHttp504Retention
+            ? failure["kind"]?.ToString() == (retentionKind == SingleHttp504Retention ? "Timeout" : "ServiceUnavailable") &&
+              failure["status_code"]?.GetValue<int>() == RetentionHttpStatus(retentionKind) &&
+              attempt?["Status"]?.GetValue<int>() == RetentionHttpStatus(retentionKind) && attempt["Failure"] is null &&
               attempt["Body"] is JsonValue body && body.TryGetValue<string>(out var text) && IsRetainedErrorOnlyBody(text)
             : failure["kind"]?.ToString() is "Timeout" or "Transport" && failure["status_code"] is null &&
               attempt?["Status"] is null && attempt?["Body"] is null && attempt?["Failure"]?.ToString() is "timeout" or "transport";
+
+    private static int RetentionHttpStatus(string kind) => kind switch
+    {
+        SingleHttp500Retention => 500,
+        SingleHttp502Retention => 502,
+        SingleHttp504Retention => 504,
+        _ => throw new ArgumentException("An explicit supported HTTP retention kind is required.", nameof(kind))
+    };
 
     private static bool IsRetainedErrorOnlyBody(string? body)
     {
