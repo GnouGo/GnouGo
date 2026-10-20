@@ -71,14 +71,51 @@ reservation arose. The campaign upper bound became
 complete requests. Component token estimates are not billed usage. No generation
 or Judge request exists for this run, so those sizes remain unmeasured.
 
+## Diagnostic revision 5faf5a1
+
+Source: `5faf5a14423307997b9662ef1ebe0a38fc32bc89`, with the same model,
+reasoning, allowances and frozen MCP bundle. The previous definite HTTP 400 was
+closed from its exact retained response-format error, request, failure and journal
+hashes. No receipt, usage or provider outcome was invented.
+
+Amazon run `compactd5faf5a1-amazon-1` passed classification, grouped interface
+extraction and one locally reviewed checkpoint. Its second selection chose a
+value task to construct a URL from an input, although the existing binding grammar
+has no concatenation or URL-encoding operator. Generation refused to invent that
+operator and returned a technical clarification. Its issued schema allowed no
+first-draft reselection. This demonstrates a tentative-step selection/recovery
+defect, not a missing user business decision.
+
+| Phase | Calls | Peak complete bytes | p50 / p95 / maximum input estimate |
+| --- | ---: | ---: | --- |
+| Intent | 2 | 4,807 | 1,535.5 / 1,859 / 1,859 |
+| Selection | 2 | 6,879 | 2,453.5 / 2,549 / 2,549 |
+| Generation | 2 | 11,143 | 3,937 / 3,971 / 3,971 |
+| Local Judge | 1 | 7,676 | 2,815 / 2,815 / 2,815 |
+
+Every request stayed within its captured complete-request limit. Component bytes
+reconciled. All seven responses contained content; no empty response or new
+uncertainty occurred. Provider usage was 9,092 input and 4,204 output tokens,
+including 2,974 reasoning tokens. Planning took 61,791 ms and cost
+€0.1524748955833999822269616991, with zero corrections, discovery reads or runtime
+effects. The campaign upper bound reached €3.4071403181373855860659379717,
+leaving approximately **€236.622964**. The old unknown reservation is unchanged.
+No business success or baseline comparison is claimed.
+
 ## Deterministic evidence
 
 For `72964ab`, 370 affected planner tests and 173 host tests passed with warnings
 as errors. The isolated full Planning suite passed 2,024 tests, zero failures or
 skips, in 3m49s; the benchmark build had zero warnings. An earlier full Planning
 attempt exposed 16 outdated fresh-session response fixtures, which were corrected;
-its failure log remains retained. The later provider-schema correction needs its
-own validation and fresh diagnostic identity.
+its failure log remains retained.
+
+For `5faf5a1`, 379 affected planner tests and 195 host tests passed with warnings
+as errors. The isolated full Planning suite passed 2,033 tests, zero failures or
+skips, in 3m48s. Managed and Native AOT planning smoke passed, including grouped
+interface extraction, exact issued-receipt recovery and the native stdio MCP
+numeric boundary. Builds were warning-free. These results apply to that frozen
+revision; subsequent live-driven corrections require their own validation.
 
 Fresh coverage includes coherent source continuations, interface extraction and
 exact recovery, historical presentation markers and schemas, scoped commitment

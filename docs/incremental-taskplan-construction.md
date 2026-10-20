@@ -217,6 +217,14 @@ closed requirement does not count as progress. A diagnosed tentative
 step may request reselection within its original scope and requirement identities,
 retaining rejected evidence and correction accounting. This cannot expand explicit
 typed revision paths or change accepted fragments.
+Fresh presentation-version-two drafts may also diagnose an unsuitable tentative
+kind or missing import before producing a candidate. The existing `reselectStep`
+action consumes one correction and preserves the same boundary; it cannot grant
+new operations or runtime features. Selection describes the actual value grammar
+and discovers the current business effect before preparing hypothetical tool
+arguments. Missing language operators are implementation failures, not business
+questions. Recovery validates the exact issued schema and charges the action once;
+historical null-only reselection fields stay null-only.
 Navigation-cycle detection recognizes accepted coverage checkpoints and newly
 indexed original sources even when the TaskPlan hash stays unchanged. Changing a
 cursor, diagnostic, attempt count or remaining allowance is not progress. Retained

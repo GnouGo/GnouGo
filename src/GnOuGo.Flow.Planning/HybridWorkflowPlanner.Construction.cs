@@ -171,7 +171,29 @@ public sealed partial class HybridWorkflowPlanner
             (proposal.Clarifications is null ? 0 : 1) + (proposal.EvidenceRequests is null ? 0 : 1) + (proposal.RollbackTask is null ? 0 : 1) +
             (proposal.ReselectStep is null ? 0 : 1);
         if (actions != 1) PlanningConstruction.Fail("PROPOSAL_ACTION_INVALID", "/", "Return exactly one construction action.");
-        if (proposal.ReselectStep is { } reason) { PlanningCompactConstruction.Reselect(state, reason); return; }
+        if (proposal.ReselectStep is { } reason)
+        {
+            if (!repair)
+            {
+                // CallAsync validated against the exact issued schema, including
+                // recovered requests whose reselectStep may still be null-only.
+                if (!PlanningCompactConstruction.CanReselectInitialDraft(state) ||
+                    proposal.Requirements is not null || proposal.Commitments is not null || proposal.RollbackReason is not null ||
+                    string.IsNullOrWhiteSpace(reason) || reason.Length > 512)
+                    PlanningConstruction.Fail("CONSTRUCTION_RESELECTION_INVALID", "/reselectStep",
+                        "Reselect only the unaccepted tentative step within its captured correction allowance.");
+                state.ReplanAttempts++;
+                construction.DraftCorrections++;
+                state.Diagnostics.Add(new("CONSTRUCTION_TENTATIVE_SELECTION", "/construction/compact/currentStep", reason));
+                PlanningCompactConstruction.Reselect(state, reason);
+                construction.FailedCandidates.Add(construction.LastProposalHash);
+                // The archived diagnosis consumed this correction. Replacement
+                // selection must not charge it again after a checkpoint or restart.
+                state.Diagnostics.Clear();
+            }
+            else PlanningCompactConstruction.Reselect(state, reason);
+            return;
+        }
         if (proposal.Clarifications is { } questions)
         {
             if (proposal.Requirements is not null) PlanningConstruction.Fail("CLARIFICATION_INVALID", "/requirements", "Clarify before accepting requirements.");

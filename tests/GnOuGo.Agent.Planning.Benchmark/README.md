@@ -770,7 +770,7 @@ Only after focused probes pass, freeze a fresh Amazon/code cohort and attempt re
 
 ## Observed-product oracle v2
 
-Fresh product runs freeze `observed-products-v2`. Navigation arguments must match
+Retained `observed-products-v2` runs require navigation arguments to match
 previous complete observations, and redirects require the same call's producer
 final-navigation evidence. Visits are occurrences, not deduplicated URLs. No
 product-path or hostname heuristic participates in this version. Each workbook
@@ -784,6 +784,15 @@ Historical `real-workflows-v1` manifests and verdicts remain frozen. Offline v2
 replay is separate evidence and performs no Browser/LLM calls. Unknown oracle
 versions fail closed. Workbook existence still requires a successful writer receipt
 for the expected output path, and live cleanup is independently probed.
+
+Fresh runs capture `amazon-business-v3` or `code-business-v2`. Amazon additionally
+binds the search to the exact caller query and checks the first product identities
+and their order from complete original search observations against visits and rows.
+Insufficient independent identity evidence cannot pass. Review PR additionally
+checks local report claims against retained command completions and pinned checkout
+evidence; valid report shape alone is insufficient. Historical oracle versions and
+verdicts stay unchanged. Paired comparisons must apply the same frozen strengthened
+checks to both arms; missing baseline evidence remains incomparable.
 
 ## Incremental construction and isolated delegated review
 

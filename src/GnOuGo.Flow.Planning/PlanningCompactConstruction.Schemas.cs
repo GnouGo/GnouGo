@@ -84,7 +84,7 @@ internal static partial class PlanningCompactConstruction
             ("clarifications", PlanningSchemas.Nullable(PlanningSchemas.Clarifications())),
             ("evidenceRequests", PlanningSchemas.Nullable(PlanningSchemas.Array(new JsonObject { ["type"] = "string", ["maxLength"] = 2048 }, 1, 8))),
             ("rollbackTask", PlanningSchemas.Nullable(PlanningSchemas.String())), ("rollbackReason", PlanningSchemas.Nullable(PlanningSchemas.String())),
-            ("reselectStep", state.Construction.Candidate?.AuthorizedPaths is null &&
+            ("reselectStep", CanReselectInitialDraft(state) || state.Construction.Candidate?.AuthorizedPaths is null &&
                 (state.Diagnostics.Any(d => d.Required) || state.Construction.Candidate?.Diagnostics.Any(d => d.Required) == true)
                 ? PlanningSchemas.Nullable(new JsonObject { ["type"] = "string", ["minLength"] = 1, ["maxLength"] = 512 }) : PlanningSchemas.Type("null")));
         template.Remove("$defs"); schema["$defs"] = definitions;
@@ -126,6 +126,8 @@ internal static partial class PlanningCompactConstruction
         }
         if (step.Scope != "/root")
             hints.Add("outputs explicitly export this scope's bound values through its enclosing task or group call; consumers cannot read hidden child tasks directly.");
+        if (step.Kind == "value")
+            hints.Add("value only copies, projects or assembles typed values using declared arithmetic, predicates, lookup, flatten and JSON encoding. It cannot concatenate or format strings, URL-encode or interpolate literals; its objective adds no computation.");
         if (step.Kind == "foreach")
             hints.Add("foreach.maxItems is the TOTAL input-item ceiling; excess fails, it never samples or truncates. maxConcurrency limits simultaneous workers, not total items. Neither bound guarantees a nonempty collection.");
         if (step.Kind == "foreach" || scope?.Owner?.Kind == "foreach")

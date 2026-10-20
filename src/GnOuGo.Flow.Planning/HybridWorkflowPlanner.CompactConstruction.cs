@@ -52,7 +52,7 @@ public sealed partial class HybridWorkflowPlanner
         if (compact.CurrentStep is null) { await SelectConstructionStepAsync(state, runtime, ct); return; }
         if (compact.CurrentStep.BaseHash != PlanningConstruction.Hash(state.Plan)) throw new PlanningConflictException("The selected step has a stale baseline.");
         if (!compact.CurrentStep.DiscoveryComplete) { await DiscoverConstructionStepAsync(state, runtime, ct); return; }
-        var repair = state.PendingCall?.Purpose == "replan" || state.Diagnostics.Any(d => d.Required);
+        var repair = state.PendingCall is { } pending ? pending.Purpose == "replan" : state.Diagnostics.Any(d => d.Required);
         if (repair && state.PendingCall is null && (construction.DraftCorrections >= construction.Limits.MaxCorrectionsPerDraft || PlanningModelCalls.RemainingRepairs(state) == 0))
         { Stop(state); return; }
         await GenerateConstructionAsync(state, runtime, repair, ct);
