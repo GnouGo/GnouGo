@@ -5,7 +5,37 @@ Amazon, Collections or Review PR execution is claimed by the retained diagnostic
 results below. Compilation, scoped reviews and accepted checkpoints are separate
 measurements.
 
-## Latest retained diagnostic
+## Latest retained diagnostics
+
+Source `1984bdcc81e6434c82170885bcd0ef5578a51a90` used the frozen medium profile,
+3k/8k/4k input targets, 6k/16k/8k ceilings and 8,192/8,192/2,048 output reservations.
+All three runs stopped before execution; all 30 requests have known receipts.
+
+| Scenario | Calls / corrections | Time | Cost | Observed blocker |
+| --- | ---: | ---: | ---: | --- |
+| Amazon | 5 / 0 | 44.478 s | €0.085355 | Selection reread a requirement page after another page replaced it |
+| Collections | 15 / 2 | 249.263 s | €0.468284 | Judge confused an imported operand with a computed result; a later Judge exhausted 2,048 output tokens |
+| Review PR | 10 / 0 | 98.433 s | €0.210348 | Discovery repeated an already supplied description while other provider actions were hidden |
+
+Total known cost was **€0.7639873811428063627477117213**, with 39,331 provider
+input tokens, 22,102 output tokens (including 17,985 reasoning tokens), one empty
+response and no new uncertain usage. Collections accepted two checkpoints, which
+do not establish a complete or executable business result.
+
+Every complete request remained within its captured input ceiling. Peak estimates
+were 4,238 for generation, 4,860 for repair and 3,040 for Judges. Component byte
+sums reconcile for all 30 requests. [Safe phase measurements](compact-taskplan-1984bdc.json)
+retain p50/p95/maximum sizes, component totals, receipt counts, costs and evidence
+hashes. Exact requests and responses remain encrypted.
+
+The next corrections address these observed presentation defects without relaxing
+semantic validation or repeat guards: coherent adjacent original requirement
+pages, explicit imported-operand labels for Judges, and bounded available provider
+actions alongside inspected capability evidence. A separately frozen 4,096-token
+Judge experiment is now eligible because exhaustion was observed; it has not been
+dispatched. Source and settings changes must remain separately identified.
+
+## Preceding diagnostic
 
 Source `afc342c97e10e58ef32ea1c273cd35afd443709c`, Amazon run
 `compactdafc342c-amazon-1`, stopped before request 21 was dispatched: discovery
@@ -29,7 +59,7 @@ billed usage; reasoning is part of provider output, not additional output.
 
 ## Current experiment
 
-The next candidate starts from `afc342c` with a captured phase policy: navigation,
+Revision `1984bdc` starts from `afc342c` with a captured phase policy: navigation,
 draft and Judge targets remain 3k/8k/4k, while hard complete-request ceilings are
 6k/16k/8k. Initial reasoning stays medium and output reservations stay
 8,192/8,192/2,048. It also removes avoidable import-selection and evidence-charging
@@ -42,7 +72,7 @@ retained model identity. The proposed low-navigation experiment is therefore
 unavailable without a separately authorized configuration change; no such change
 or model substitution was made.
 
-These changes are not yet live acceptance evidence. Fresh diagnostics must execute
+These changes have not established live business acceptance. Fresh diagnostics must execute
 Amazon, Collections and Review PR with independent oracles and exact delegated
 confirmations. Amazon's new v4 oracle rejects a narrowed search subtree even when
 its capture is complete. Review PR also needs an independent assessment of its
@@ -61,14 +91,14 @@ Read-only inspection of encrypted campaign
 | Ledger measurement | EUR |
 | --- | ---: |
 | Campaign ceiling | 240.0301038327063045424449473 |
-| Known spending | 15.517235403892295387896560922 |
+| Known spending | 16.281222785035101750644272640 |
 | Retained unknown-usage reservations | 0.4953212476672887230071980805 |
-| Spending/reservation upper bound | 16.012556651559584110903759002 |
-| Available allowance | 224.017547181146720431541188298 |
+| Spending/reservation upper bound | 16.776544032702390473651470720 |
+| Available allowance | 223.253559800003914068793476580 |
 
 Evidence hash:
-`1bffca0a4adf681865093143051951c808cec794bf33ed0a19c9992d7437925e`.
-There are 597 reserved request identities and 594 receipts. Three receiptless
+`a862ffea99ba66272f31960aae64548b8f94302d05e45239bfd7b11e3daed532`.
+There are 627 reserved request identities and 624 receipts. Three receiptless
 identities are permanently retained; two have unknown-usage reservations. They
 remain non-replayable and their abandoned runs cannot continue. Separate lost
 historical exposure of €159.96989616729369545755505266 remains accounted for

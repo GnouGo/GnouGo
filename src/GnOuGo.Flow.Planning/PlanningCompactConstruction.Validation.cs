@@ -254,12 +254,14 @@ internal static partial class PlanningCompactConstruction
         { value = SourceDescriptors(state, sourceIndex); return true; }
         if (parts is ["page", "requirements", var requirementOffset] && int.TryParse(requirementOffset, out var next) && next >= 0 && next < state.Requirements!.Outcomes.Count)
         {
+            var requirements = RequirementPage(state, next);
+            var following = next + requirements.Length;
             value = new JsonObject { ["offset"] = next, ["total"] = state.Requirements.Outcomes.Count,
-                ["items"] = RequirementNodes(state, state.Requirements.Outcomes.Skip(next).Take(1).Select(r => r.Id)),
-                ["next"] = next + 1 < state.Requirements.Outcomes.Count ? "page:requirements:" + (next + 1) : null };
+                ["items"] = RequirementNodes(state, requirements.Select(r => r.Id)),
+                ["next"] = following < state.Requirements.Outcomes.Count ? "page:requirements:" + following : null };
             if (compact.PresentationVersion == 2)
             {
-                compact.RequirementOffset = Math.Max(compact.RequirementOffset, next);
+                compact.RequirementOffset = Math.Max(compact.RequirementOffset, following - 1);
                 compact.RequirementPageRequested = true;
             }
             return true;

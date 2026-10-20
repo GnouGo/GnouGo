@@ -328,7 +328,7 @@ internal static partial class PlanningCompactConstruction
         var appliedInterface = review && draft is { Diagnostics.Count: 0 } && draft.Extension.CloseScopes.Contains(step.Scope, StringComparer.Ordinal);
         if (ScopeInterface(state, appliedInterface) is { } scopeInterface) context["scopeInterface"] = scopeInterface;
         var choiceValues = actualImports
-            ? context["interfaces"]!.AsArray().Select(i => i!["value"]!.Deserialize(PlanningJsonContext.Default.TaskValue)!)
+            ? context["interfaces"]!.AsArray().Select(i => i!["binding"]!.Deserialize(PlanningJsonContext.Default.TaskValue)!)
             : step.Inputs;
         var choiceIds = choiceValues.SelectMany(TaskPlanCompiler.Values).Where(v => v.Kind == "choice").Select(v => v.Source)
             .Concat(draft?.Extension.Choices.Select(c => c.Id) ?? []).ToHashSet(StringComparer.Ordinal);
@@ -394,8 +394,9 @@ internal static partial class PlanningCompactConstruction
                 presentedStep.Remove("inputTaskIds");
                 presentedStep.Remove("dependencyTaskIds");
             }
-            foreach (var imported in context["interfaces"]!.AsArray())
-                imported!["value"] = PlanningJsonTransport.TaskPlanPart(imported["value"]);
+            if (!actualImports)
+                foreach (var imported in context["interfaces"]!.AsArray())
+                    imported!["value"] = PlanningJsonTransport.TaskPlanPart(imported["value"]);
             // Requested scope evidence includes its exact owning group interface.
             // Keep that evidence intact instead of repeating its complete group.
             foreach (var name in new[] { "group", "scopeGroup" })

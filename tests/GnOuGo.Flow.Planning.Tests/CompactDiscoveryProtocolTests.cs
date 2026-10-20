@@ -247,9 +247,9 @@ public sealed partial class CompactDiscoveryProtocolTests
     [InlineData("version")]
     [InlineData("ambiguous")]
     [InlineData("historical")]
-    public async Task OnlyCanonicalCurrentDescriptionEvidenceExposesProviderActions(string change)
+    public async Task RetainedPolicyOnlyExposesProviderActionsForCanonicalCurrentDescriptionEvidence(string change)
     {
-        var (state, _) = await Ready();
+        var (state, _) = await Ready(retainedPolicy: true);
         var address = PlanningCompactConstruction.ProviderRequestPage(state, 0)["items"]![0]!["descriptionEvidence"]!.ToString();
         PlanningConstruction.LoadEvidence(state, [address]);
         switch (change)
@@ -300,7 +300,7 @@ public sealed partial class CompactDiscoveryProtocolTests
     [Fact]
     public async Task IssuedHistoricalDescriptionRequestResumesBeforeNewProviderActionsArePresented()
     {
-        var (state, runtime) = await Ready();
+        var (state, runtime) = await Ready(retainedPolicy: true);
         state.Discovery.Sources[0] = new("alpha", new string('x', 3000));
         var address = PlanningCompactConstruction.ProviderRequestPage(state, 0)["items"]![0]!["descriptionEvidence"]!.ToString();
         PlanningConstruction.LoadEvidence(state, [address]);

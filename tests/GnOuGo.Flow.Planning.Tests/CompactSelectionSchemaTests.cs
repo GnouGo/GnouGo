@@ -36,11 +36,11 @@ public sealed class CompactSelectionSchemaTests
     {
         var state = await Ready();
         PlanningConstruction.LoadEvidence(state, ["page:requirements:1"]);
-        Assert.Equal(["req_0", "req_1"], Domain(PlanningCompactConstruction.SelectionSchema(state)));
+        Assert.Equal(["req_0", "req_1", "req_2"], Domain(PlanningCompactConstruction.SelectionSchema(state)));
         var record = state.Construction!.Evidence!["page:requirements:1"]!["items"]![0]!;
         if (changed == "version") record["sources"]![0]!["version"] = "stale";
         else record[changed] = "changed";
-        Assert.Equal(["req_0"], Domain(PlanningCompactConstruction.SelectionSchema(state)));
+        Assert.Equal(["req_0", "req_2"], Domain(PlanningCompactConstruction.SelectionSchema(state)));
         PlanningConstruction.LoadEvidence(state, ["requirement:req_2"]);
         Assert.Equal(["req_0", "req_2"], Domain(PlanningCompactConstruction.SelectionSchema(state)));
         Assert.All(state.Construction.Requirements, requirement => Assert.Equal("remaining", requirement.Status));

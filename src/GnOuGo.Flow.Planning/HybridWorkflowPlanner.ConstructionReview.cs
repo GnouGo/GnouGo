@@ -22,6 +22,7 @@ public sealed partial class HybridWorkflowPlanner
     private static string CompactConstructionReviewGuidance(PlanningSession state) => PlanningConstructionPhasePolicies.IsFresh(state.Request)
         ? """
           Review the current fragment against exact original requirements, globals, contracts and actual typed interfaces: arguments, effects, provenance, conditions, exports, cleanup and unnecessary work. constructionStage defines its claim; closeRequirementIds claims completion with accepted work, [] claims none. Open containers intentionally defer children/exports; future work is not an omission. outputs are public /root results; scopeInterface includes preserved local exports.
+          interfaces describes imported operands: binding and schema identify what is read at consumerLocation; the draft expression computes the result.
           Return one action: findings (empty if none) with evidenceRequests:null, or findings:null with necessary original evidence addresses. Finding locations and evidence use the schema's existing context-object pointers; explain fields and uncertainty in prose. Evidence retrieval uses issued addresses, task:<id>, scope:<path>, or scope:/groups/<call.group>/body; never bare IDs. Navigation, compilation and reviews grant no authority or proof of execution. Partial descriptions cannot prove absent functionality; request the original.
           """ + "\n" + PlanningCompactConstruction.DraftSemantics(state, state.Construction!.Compact!.CurrentStep!)
         :

@@ -31,6 +31,46 @@ internal static partial class PlanningCompactConstruction
         return ids;
     }
 
+    private static PlanningRequirement[] RequirementPage(PlanningSession state, int offset)
+    {
+        var outcomes = state.Requirements!.Outcomes;
+        var first = outcomes[offset];
+        if (!PlanningConstructionPhasePolicies.IsFresh(state.Request)) return [first];
+        var page = OriginalPage(first.Id);
+        if (page is null) return [first];
+        var selected = new List<PlanningRequirement> { first };
+        var text = first.Description;
+        foreach (var requirement in outcomes.Skip(offset + 1).Take(7))
+        {
+            if (OriginalPage(requirement.Id) != page) break;
+            var combined = text + requirement.Description;
+            // Keep whole original obligations. The first, potentially indivisible
+            // requirement is admitted by the complete-request ceiling as usual.
+            if (OriginalPageLength(combined, 0) != combined.Length) break;
+            selected.Add(requirement);
+            text = combined;
+        }
+        return selected.ToArray();
+
+        string? OriginalPage(string requirementId)
+        {
+            var compact = State(state);
+            if (!compact.RequirementSources.TryGetValue(requirementId, out var sources) || sources.Count == 0) return null;
+            string? parent = null;
+            foreach (var id in sources)
+            {
+                var separator = id.LastIndexOf(":clause:", StringComparison.Ordinal);
+                if (separator < 0) return null;
+                var candidate = id[..separator];
+                if (!compact.Sources.Any(source => source.Id == candidate &&
+                        source.Kind is "page" or "answer_page" or "revision_page") ||
+                    parent is not null && parent != candidate) return null;
+                parent = candidate;
+            }
+            return parent;
+        }
+    }
+
     private static IEnumerable<string> NavigationPorts(PlanningSession state, PlanTask task)
     {
         if (task.Kind != "call") return PlanningRepairContext.Ports(task, state);

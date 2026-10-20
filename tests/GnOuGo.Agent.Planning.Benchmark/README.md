@@ -928,7 +928,7 @@ The declared-configuration comparison mode records intentional per-arm settings
 differences, while preserving shared safety, call, correction and cumulative limits.
 Its outcomes compare configurations, not architecture alone. Default matched mode
 still requires identical effective reasoning/output settings. All nine candidate
-runs in the agreed 18 alternating pairs must pass independent business oracles;
+runs in the agreed 18 alternating runs (nine pairs) must pass independent business oracles;
 missing baseline evidence is explicitly incomparable. See the maintained
 [convergence summary and evidence index](../../docs/evidence/compact-taskplan-convergence.md).
 
@@ -1008,14 +1008,17 @@ new read. Judge evidence addresses remain distinct from finding JSON Pointers;
 bare producer IDs are still inconclusive. Compare complete serialized
 requests, including content-address overhead and the issued compatibility schema;
 a smaller individual component does not establish complete-request admission.
-Recorded failures and accounting for the latest same-source Amazon, Collections and Review
-PR diagnostics are in the
-[2026-10-20 evidence record](../../docs/evidence/compact-taskplan-live-2026-10-20.md).
+Recorded failures and accounting for Amazon, Collections and Review PR are in the
+[convergence summary](../../docs/evidence/compact-taskplan-convergence.md), which links
+immutable earlier diagnostic records.
 
 The compact live comparison freezes baseline `56942f5` and each candidate separately,
-with identical model/reasoning, MCP binaries, scenario inputs and independent oracle
-versions. Both receive 64 calls, unchanged correction/output and ordinary graph limits;
-baseline retains its 32k input ceiling. After successful candidate diagnostics for
+with identical model, MCP binaries, scenario inputs and independent oracle versions.
+Both receive 64 calls, unchanged correction and ordinary graph limits; baseline
+retains its 32k input ceiling. The selected declared-configuration mode compares
+baseline's retained settings with the best validated candidate settings, disclosing
+any reasoning/output differences. Default matched mode requires those settings
+to be identical. After successful candidate diagnostics for
 Collections, Amazon and Review PR, run three alternating baseline/candidate pairs per
 scenario under fresh run identities. Source changes require a new candidate cohort.
 All nine measured candidates must pass independent business checks without unwanted
@@ -1035,7 +1038,9 @@ The read-only `--compact-comparison <sanitized-rows.json>` entrypoint accepts `c
 `baseline` and `candidate` arrays. Each row retains its exact source/run identity,
 effective configuration, independent business outcome, safety findings, whole-call
 usage and `request_metrics.requests`. It requires three runs per case in each arm,
-matched cumulative/output/graph allowances and a shared frozen comparison identity.
+matched cumulative/graph allowances and a shared frozen comparison identity.
+Output allowances must also match unless the declared-configuration mode records
+the intentionally different frozen settings for each arm.
 The original harness measurement hashes remain evidence: because harness files
 change in this refactor, they cannot establish unchanged oracles by themselves.
 Pin independent case/oracle sources, actual producer binaries and model configuration

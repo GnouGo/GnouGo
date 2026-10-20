@@ -48,8 +48,8 @@ internal static partial class PlanningCompactConstruction
             for (var index = 0; index < exact.Length; index++)
                 result.Add((JsonNode)new JsonObject
                 {
-                    ["location"] = exact[index].Location, ["scope"] = exact[index].Scope, ["phase"] = exact[index].Phase,
-                    ["value"] = PlanningJsonTransport.TaskPlanPart(PlanningConstruction.Node(bound![index].Value, PlanningJsonContext.Default.TaskValue)),
+                    ["consumerLocation"] = exact[index].Location, ["scope"] = exact[index].Scope, ["phase"] = exact[index].Phase,
+                    ["binding"] = PlanningJsonTransport.TaskPlanPart(PlanningConstruction.Node(bound![index].Value, PlanningJsonContext.Default.TaskValue)),
                     ["schema"] = bound[index].Schema.DeepClone()
                 });
         }

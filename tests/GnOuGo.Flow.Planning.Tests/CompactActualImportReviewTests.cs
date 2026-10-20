@@ -35,11 +35,11 @@ public sealed class CompactActualImportReviewTests
             Assert.Equal(PlanningConstruction.LocalPurpose, purpose);
             var context = Context(request);
             var imported = Assert.Single(context["interfaces"]!.AsArray())!;
-            Assert.Equal("/tasks/consumer/outputs/amount", imported["location"]!.ToString());
+            Assert.Equal("/tasks/consumer/outputs/amount", imported["consumerLocation"]!.ToString());
             Assert.Equal("/root", imported["scope"]!.ToString());
             Assert.Equal("number", imported["schema"]!["type"]!.ToString());
-            Assert.Equal("field", imported["value"]!["kind"]!.ToString());
-            Assert.Equal("amount", imported["value"]!["port"]!.ToString());
+            Assert.Equal("field", imported["binding"]!["kind"]!.ToString());
+            Assert.Equal("amount", imported["binding"]!["port"]!.ToString());
             Assert.DoesNotContain("unused", context["interfaces"]!.ToJsonString(), StringComparison.Ordinal);
             Assert.Null(context["step"]!["inputs"]);
             var measurement = PlanningRequestMeasurements.Measure(request, purpose, 8000);
@@ -52,6 +52,84 @@ public sealed class CompactActualImportReviewTests
         Assert.Single(state.Construction!.Checkpoints);
         Assert.Equal(0, state.ReplanAttempts);
         Assert.Empty(state.Construction.Compact!.RejectedSteps);
+    }
+
+    [Theory]
+    [InlineData("value")]
+    [InlineData("transform")]
+    public async Task ReviewDistinguishesAnImportedOperandFromItsComputedConsumerResult(string kind)
+    {
+        var (state, runtime) = await Ready();
+        state.Plan!.Inputs = [new() { Name = "record", Type = new() { Kind = "object", Fields =
+            [new() { Name = "payload", Type = new() { Kind = "object", Fields =
+                [new() { Name = "amount", Type = new() { Kind = "number" } },
+                 new() { Name = "unused", Type = new() { Kind = "string", Enum = [new string('z', 8000)] } }] } }] } }];
+        state.Requirements!.Inputs = state.Plan.Inputs;
+        Select(state, kind);
+        var operand = Field(Field(Input("record"), "payload"), "amount");
+        var calculation = new TaskValue { Kind = "arithmetic", Text = "multiply",
+            Items = [operand, new() { Kind = "number", Number = 2 }] };
+        var task = kind == "value"
+            ? new PlanTask { Id = "consumer", Kind = kind, Objective = "Double the supplied amount.", Outputs = [new("adjusted", calculation)] }
+            : new PlanTask { Id = "consumer", Kind = kind, Mode = "extract", Objective = "Extract the supplied adjusted amount.",
+                Inputs = [new("adjusted", calculation)], ResultType = new() { Kind = "object",
+                    Fields = [new() { Name = "adjusted", Type = new() { Kind = "number" } }] } };
+        var baseline = PlanningConstruction.Hash(state.Plan);
+        Stage(state, new() { RequirementIds = ["req_0"], Tasks = [task] });
+        runtime.Respond = (request, purpose) =>
+        {
+            Assert.Equal(PlanningConstruction.LocalPurpose, purpose);
+            var context = Context(request);
+            var imported = Assert.Single(context["interfaces"]!.AsArray())!;
+            Assert.Equal("/tasks/consumer/" + (kind == "value" ? "outputs" : "inputs") + "/adjusted",
+                imported["consumerLocation"]!.ToString());
+            Assert.False(imported.AsObject().ContainsKey("location"));
+            Assert.False(imported.AsObject().ContainsKey("value"));
+            Assert.Equal("number", imported["schema"]!["type"]!.ToString());
+            Assert.True(JsonNode.DeepEquals(PlanningJsonTransport.TaskPlanPart(
+                JsonSerializer.SerializeToNode(operand, PlanningJsonContext.Default.TaskValue)), imported["binding"]));
+            Assert.DoesNotContain("unused", context["interfaces"]!.ToJsonString(), StringComparison.Ordinal);
+            var expression = context["draft"]!["tasks"]![0]![kind == "value" ? "outputs" : "inputs"]![0]!["value"]!;
+            Assert.Equal("arithmetic", expression["kind"]!.ToString());
+            Assert.Equal("multiply", expression["text"]!.ToString());
+            Assert.Equal(2d, expression["items"]![1]!["number"]!.GetValue<double>());
+            Assert.Contains("the draft expression computes the result", request.Prompt, StringComparison.Ordinal);
+            var evidenceAnchors = FindingProperties(request.StructuredOutputSchema!.AsObject())["evidence"]!["items"]!["enum"]!.AsArray();
+            Assert.Contains(evidenceAnchors, pointer => pointer!.ToString() == "/interfaces/0");
+            Assert.Equal(baseline, PlanningConstruction.Hash(state.Plan));
+            return Wire(request, Reviewed());
+        };
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        Assert.Single(state.Construction!.Checkpoints);
+        Assert.Equal(0, state.ReplanAttempts);
+    }
+
+    [Fact]
+    public async Task ChoiceOperandStillIncludesItsExactAcceptedChoiceEvidence()
+    {
+        var (state, runtime) = await Ready();
+        state.Plan!.Choices = [new() { Id = "amount", Question = "Choose the amount.", Type = new() { Kind = "number" },
+            Recommended = "first", Selected = "first", Alternatives =
+            [new("first", "First amount", new() { Kind = "number", Number = 3 }),
+             new("second", "Second amount", new() { Kind = "number", Number = 5 })] }];
+        Select(state, "value");
+        Stage(state, new() { RequirementIds = ["req_0"], Tasks =
+            [new() { Id = "consumer", Kind = "value", Objective = "Return the selected amount.",
+                Outputs = [new("amount", new() { Kind = "choice", Source = "amount" })] }] });
+        runtime.Respond = (request, purpose) =>
+        {
+            Assert.Equal(PlanningConstruction.LocalPurpose, purpose);
+            var context = Context(request);
+            Assert.Equal("choice", Assert.Single(context["interfaces"]!.AsArray())!["binding"]!["kind"]!.ToString());
+            var choice = Assert.Single(context["choices"]!.AsArray())!;
+            Assert.Equal("amount", choice["id"]!.ToString());
+            Assert.Equal("first", choice["selected"]!.ToString());
+            return Wire(request, Reviewed());
+        };
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        Assert.Single(state.Construction!.Checkpoints);
     }
 
     [Fact]
@@ -73,11 +151,11 @@ public sealed class CompactActualImportReviewTests
             Outputs = [new("final", Output("accepted", "amount"))]
         });
         var interfaces = PlanningCompactConstruction.ActualImportedInterfaces(state);
-        Assert.Contains(interfaces, value => value!["location"]!.ToString() == "/tasks/normal/requires" &&
+        Assert.Contains(interfaces, value => value!["consumerLocation"]!.ToString() == "/tasks/normal/requires" &&
             value["schema"]!["type"]!.ToString() == "boolean");
-        Assert.Contains(interfaces, value => value!["location"]!.ToString() == "/tasks/cleanup/outputs/ran" &&
+        Assert.Contains(interfaces, value => value!["consumerLocation"]!.ToString() == "/tasks/cleanup/outputs/ran" &&
             value["phase"]!.ToString() == "always");
-        Assert.Contains(interfaces, value => value!["location"]!.ToString() == "/root/outputs/final" &&
+        Assert.Contains(interfaces, value => value!["consumerLocation"]!.ToString() == "/root/outputs/final" &&
             value["phase"]!.ToString() == "outputs");
         Assert.Contains("accepted", candidate.ImportedTaskIds);
         Assert.Empty(state.Construction!.Compact!.CurrentStep!.DependencyTaskIds);
@@ -112,11 +190,11 @@ public sealed class CompactActualImportReviewTests
         var interfaces = PlanningCompactConstruction.ActualImportedInterfaces(state);
         Assert.Equal(3, interfaces.Count);
         Assert.All(interfaces, value => Assert.Equal("/tasks/loop/body", value!["scope"]!.ToString()));
-        Assert.Contains(interfaces, value => value!["value"]!["kind"]!.ToString() == "item" &&
+        Assert.Contains(interfaces, value => value!["binding"]!["kind"]!.ToString() == "item" &&
             value["schema"]!["type"]!.ToString() == "number");
-        Assert.Contains(interfaces, value => value!["value"]!["kind"]!.ToString() == "index" &&
+        Assert.Contains(interfaces, value => value!["binding"]!["kind"]!.ToString() == "index" &&
             value["schema"]!["type"]!.ToString() == "integer");
-        Assert.Contains(interfaces, value => value!["location"]!.ToString() == "/tasks/element/requires" &&
+        Assert.Contains(interfaces, value => value!["consumerLocation"]!.ToString() == "/tasks/element/requires" &&
             value["schema"]!["type"]!.ToString() == "boolean");
     }
 
@@ -217,11 +295,13 @@ public sealed class CompactActualImportReviewTests
         }
     }
 
-    [Fact]
-    public async Task PreviouslyIssuedJudgeKeepsItsExactFreePointerSchemaAndAccounting()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task PreviouslyIssuedJudgeKeepsItsExactSchemaContextAndAccounting(bool historical)
     {
         var (state, runtime) = await Ready();
-        Historical(state);
+        if (historical) Historical(state);
         Select(state, "value");
         Stage(state, new() { RequirementIds = ["req_0"], Tasks =
             [new() { Id = "consumer", Kind = "value", Objective = "Return a value.", Outputs = [new("result", new() { Kind = "number", Number = 1 })] }] });
@@ -229,7 +309,7 @@ public sealed class CompactActualImportReviewTests
         _ = await Advance(state, runtime);
         var saved = PlannerFixture.Clone(runtime.Checkpoints.Last(checkpoint => checkpoint.PendingCall?.Purpose == PlanningConstruction.LocalPurpose));
         var issued = saved.PendingCall!.Request;
-        Assert.Null(FindingProperties(issued.StructuredOutputSchema!.AsObject())["location"]!["enum"]);
+        Assert.Equal(historical, FindingProperties(issued.StructuredOutputSchema!.AsObject())["location"]!["enum"] is null);
         var exact = JsonSerializer.Serialize(issued, PlanningJsonContext.Default.LLMRequest);
         var context = saved.Construction!.PendingReviewContext!.ToJsonString();
         var calls = saved.ModelCalls; var corrections = saved.ReplanAttempts;

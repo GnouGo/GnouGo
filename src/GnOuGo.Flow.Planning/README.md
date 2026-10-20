@@ -17,7 +17,10 @@ and references. Scoped commitments and escaped-byte Judge descriptions reduce
 presentation size without changing compiler validation or v15 lowering.
 
 Selection keeps one unresolved original requirement as its anchor; additional
-requirement pages supply one exact clause and its next address. Applicable global
+requirement pages under the fresh phase policy keep up to eight consecutive
+clauses from the same original source page together, within the existing escaped
+text bound. Each clause remains whole; historical pages remain singletons.
+Page continuations follow the actual last clause. Applicable global
 constraints remain present. Bounded task
 directories identify omitted descriptions and ports through exact evidence
 addresses; a closed group call exposes its declared result ports. Fresh response

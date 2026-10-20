@@ -74,6 +74,13 @@ internal static partial class PlanningCompactConstruction
     {
         if (ProviderEvidencePage(state) is { } page) return page;
         if (State(state).PresentationVersion == 2 && DescribedProviderRequests(state) is { } described) return described;
+        if (PlanningConstructionPhasePolicies.IsFresh(state.Request))
+        {
+            // Inspecting one operation does not exhaust other providers for this
+            // substep. Keep their exact bounded actions beside the original evidence.
+            var firstAvailable = ProviderRequestOptions(state).FindIndex(option => option.Available);
+            return ProviderRequestPage(state, Math.Max(0, firstAvailable));
+        }
         if (state.Construction!.Evidence is { Count: > 0 } || ContractDescriptors(state).Count > 0) return null;
         return ProviderRequestPage(state, 0);
     }

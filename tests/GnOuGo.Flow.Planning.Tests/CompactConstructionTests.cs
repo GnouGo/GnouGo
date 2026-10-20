@@ -524,9 +524,12 @@ public sealed class CompactConstructionTests
         Assert.Equal(sources, JsonSerializer.Serialize(state.Construction.Compact.Sources, PlanningJsonContext.Default.ListPlanningConstructionSource));
         Assert.Equal(planHash, PlanningConstruction.Hash(state.Plan));
         Assert.All(state.Construction.Requirements, requirement => Assert.Equal("remaining", requirement.Status));
-        var request = PlanningCompactConstruction.Request(PlanningCompactConstruction.SelectInstructions, context,
+        var request = PlanningCompactConstruction.Request(PlanningCompactConstruction.SelectGuidance(state), context,
             PlanningCompactConstruction.SelectionSchema(state), PlanningCompactConstruction.SelectPurpose);
-        Assert.InRange(PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.SelectPurpose, 3000).EstimatedInputTokens, 1, 3000);
+        request = PlanningModelCalls.PrepareRequest(state, PlanningCompactConstruction.SelectPurpose, request.Prompt,
+            request.StructuredOutputSchema!.AsObject(), state.Construction.Limits.DraftOutputTokens);
+        var limit = PlanningConstructionPhasePolicies.Resolve(state.Request, PlanningCompactConstruction.SelectPurpose).MaxInputTokens;
+        Assert.InRange(PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.SelectPurpose, limit).EstimatedInputTokens, 1, limit);
     }
 
     [Fact]
@@ -597,16 +600,25 @@ public sealed class CompactConstructionTests
     {
         string[] clauses = ["Read each original record. ", "Keep the exact names. ", "Preserve their order. ",
             "Return the retained values. ", "Close acquired resources. ", "Never change the supplied identities."];
-        var runtime = new TestRuntime { Respond = (request, _) => Wire(request, new JsonObject
+        // This corpus tests navigation across distinct original source pages.
+        // Same-page clause cohesion has separate fresh-policy coverage.
+        clauses = clauses.Select(text => text.TrimEnd().TrimEnd('.') + ": " + new string('x', 540) + ". ").ToArray();
+        var runtime = new TestRuntime { Respond = (request, _) =>
         {
-            ["sourceId"] = Context(request)["sources"]![0]!["id"]!.ToString(),
-            ["clauses"] = new JsonArray(clauses.Select((text, index) => (JsonNode)new JsonObject
+            var source = Context(request)["sources"]![0]!;
+            var text = source["text"]!.ToString();
+            Assert.Contains(text, clauses);
+            return Wire(request, new JsonObject
             {
-                ["text"] = text, ["kind"] = index == clauses.Length - 1 ? "global" : "requirement", ["interfaces"] = "none"
-            }).ToArray())
-        }) };
-        var state = await new HybridWorkflowPlanner().AdvanceAsync(NewSession(string.Concat(clauses)),
-            new() { ExpectedRevision = 0 }, runtime, PlannerFixture.Ct);
+                ["sourceId"] = source["id"]!.DeepClone(),
+                ["clauses"] = new JsonArray(new JsonObject
+                { ["text"] = text, ["kind"] = text == clauses[^1] ? "global" : "requirement", ["interfaces"] = "none" })
+            });
+        } };
+        var state = NewSession(string.Concat(clauses));
+        for (var index = 0; index < clauses.Length; index++)
+            state = await new HybridWorkflowPlanner().AdvanceAsync(state,
+                new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
         Assert.Empty(state.Diagnostics);
         Assert.Equal(2, state.Construction!.Compact!.PresentationVersion);
         return state;

@@ -33,7 +33,7 @@ public sealed class CompactReviewContextTests
             Assert.Equal(1, imported["schema"]!["minItems"]!.GetValue<int>());
             Assert.Equal(8, imported["schema"]!["maxItems"]!.GetValue<int>());
             Assert.Equal(JsonSerializer.Serialize(state.Construction.Compact!.CurrentStep!.Inputs[0], PlanningJsonContext.Default.TaskValue),
-                JsonSerializer.Serialize(imported["value"]!.Deserialize(PlanningJsonContext.Default.TaskValue), PlanningJsonContext.Default.TaskValue));
+                JsonSerializer.Serialize(imported["binding"]!.Deserialize(PlanningJsonContext.Default.TaskValue), PlanningJsonContext.Default.TaskValue));
             Assert.Equal(first["requirements"]!.ToJsonString(), context["requirements"]!.ToJsonString());
             Assert.Equal(first["globalConstraints"]!.ToJsonString(), context["globalConstraints"]!.ToJsonString());
             Assert.Equal(first["draft"]!.ToJsonString(), context["draft"]!.ToJsonString());
