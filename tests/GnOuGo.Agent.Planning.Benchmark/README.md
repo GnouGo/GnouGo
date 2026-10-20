@@ -395,6 +395,22 @@ input/output/cost reservation. Successful HTTP responses, usage receipts,
 approval or execution evidence reject this operation. Historical retry-exhaustion
 eligibility remains unchanged.
 
+The default mode accepts only its historical timeout/transport evidence, with no
+HTTP status or body. A separately authorized single HTTP 502 can instead use
+`--retention-kind single-http-502` on both inspection and application. This
+explicit mode requires matching `ServiceUnavailable`/502 failure and journal
+records, exactly one exhausted attempt, no transport-failure marker, and a
+bounded recognized error-only JSON body. Accepted bodies contain either only an
+`error` object with scalar string/null `message`, `type`, `code`, `param` fields,
+or exactly the three string fields `errorCode`, `errorMessage`, `errorDetail`.
+A nonempty error message is required. Unknown, duplicate, nested data, completion
+or usage fields fail closed; bodies over 65,536 characters are refused intact.
+It also requires the original hash-bound effective policy to be present with
+retries disabled, HTTP recovery disabled and `MaxAttempts=1`. Other statuses,
+multiple or mixed attempts, receipts and verified usage remain ineligible.
+Provider availability returning later does not prove termination or usage of the
+failed request.
+
 First inspect the exact retained identity without initializing a model, MCP
 transport or lease:
 
@@ -412,6 +428,13 @@ and accounting, then repeat with `--apply --expected-evidence-hash <hash>
 the clean tested checkout and exclusive campaign lease. Evidence changes reject
 the operation; the same already-applied hash and authorization return the existing
 closure without writing again.
+
+The HTTP 502 mode is included in its new evidence hash and must match on
+reinspection or idempotent application. Omitting the option does not select it
+automatically. Historical evidence omits this field and retains its original
+hashes and eligibility. The authorization must identify the separately reviewed
+request/run and full permanent reservation; this mode grants no retry or
+continuation authority.
 
 Only a separate encrypted closure is appended. Original run, request, transport,
 failure, policies and financial admission remain unchanged. The full unknown

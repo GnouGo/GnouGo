@@ -67,7 +67,7 @@ internal static class SchemaPortabilityCampaign
                 Option(args, "--run-collection") ?? Collection,
                 Option(args, "--run-key") ?? throw new ArgumentException("Supply the exact --run-key."),
                 Option(args, "--request-id") ?? throw new ArgumentException("Supply the exact --request-id."),
-                CancellationToken.None)).ToJsonString());
+                CancellationToken.None, Option(args, "--retention-kind"))).ToJsonString());
             return;
         }
         if (phase == "provider-readiness")
@@ -213,7 +213,7 @@ internal static class SchemaPortabilityCampaign
             string Required(string name) => Option(args, name) ?? throw new ArgumentException("Supply " + name + ".");
             Console.WriteLine((await campaign.ApplyPermanentRetentionAsync(Option(args, "--run-collection") ?? Collection,
                 Required("--run-key"), Required("--request-id"), Required("--expected-evidence-hash"),
-                Required("--operator"), Required("--authorization"), CancellationToken.None)).ToJsonString());
+                Required("--operator"), Required("--authorization"), CancellationToken.None, Option(args, "--retention-kind"))).ToJsonString());
             return;
         }
         if (phase == "recover-receipt")

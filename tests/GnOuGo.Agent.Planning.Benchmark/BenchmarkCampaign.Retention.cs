@@ -1,11 +1,13 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Planning;
 
 internal sealed partial class BenchmarkCampaign
 {
     private const string PermanentRetentionReason = "operator_retained_uncertain_planning";
+    internal const string SingleHttp502Retention = "single-http-502";
 
     // Called before any continuation, approval, execution or new request in the abandoned session.
     // Historical closures retain their original request-only behavior.
@@ -23,8 +25,10 @@ internal sealed partial class BenchmarkCampaign
         }
     }
 
-    internal async Task<JsonObject> InspectPermanentRetentionAsync(string collection, string runKey, string requestId, CancellationToken ct)
+    internal async Task<JsonObject> InspectPermanentRetentionAsync(string collection, string runKey, string requestId, CancellationToken ct,
+        string? retentionKind = null)
     {
+        ValidateRetentionKind(retentionKind);
         if (collection is not ("planning-evaluation-runs" or SchemaPortabilityCampaign.Collection))
             throw new ArgumentException("Choose an existing benchmark planning-run collection.");
         ArgumentException.ThrowIfNullOrWhiteSpace(runKey);
@@ -33,8 +37,9 @@ internal sealed partial class BenchmarkCampaign
         {
             ValidatePermanentClosure(retained, requestId);
             if (retained["evidence"]?["run_collection"]?.ToString() != collection ||
-                retained["evidence"]?["run_key"]?.ToString() != runKey)
-                throw new InvalidOperationException("The existing closure belongs to a different run.");
+                retained["evidence"]?["run_key"]?.ToString() != runKey ||
+                retained["evidence"]?["retention_kind"]?.ToString() != retentionKind)
+                throw new InvalidOperationException("The existing closure belongs to a different run or retention kind.");
             var inspection = retained.DeepClone().AsObject();
             inspection["already_retained"] = true;
             inspection["existing_closure_hash"] = Hash(retained);
@@ -76,13 +81,11 @@ internal sealed partial class BenchmarkCampaign
             state.Construction.Version == 2 && policy["construction_version"]?.GetValue<int>() != 2 ||
             !JsonNode.DeepEquals(policy["construction_limits"], state.Request.Options["construction_limits"]) ||
             !JsonNode.DeepEquals(policy["construction_input_limits"], state.Request.Options["construction_input_limits"]) ||
-            failure?["stage"]?.ToString() != "dispatch" || failure["kind"]?.ToString() is not ("Timeout" or "Transport") ||
-            failure["status_code"] is not null || failure["retry_exhausted"]?.GetValue<bool>() != true ||
+            failure?["stage"]?.ToString() != "dispatch" || failure["retry_exhausted"]?.GetValue<bool>() != true ||
             failure["retryable"]?.GetValue<bool>() != true ||
             journal?["transport"]?["Attempts"] is not JsonArray { Count: 1 } attempts ||
             attempts[0]?["Id"]?.ToString() is not { Length: > 0 } ||
-            attempts[0]!["Status"] is not null || attempts[0]!["Body"] is not null ||
-            attempts[0]!["Failure"]?.ToString() is not ("timeout" or "transport") ||
+            !MatchesPermanentFailure(failure, attempts[0], retentionKind) ||
             failure["attempt_count"]?.GetValue<int>() != attempts.Count ||
             journal["input_ceiling"]?.GetValue<long>() is not { } inputCeiling ||
             inputCeiling < (JsonSerializer.SerializeToUtf8Bytes(pending.Request, PlanningJsonContext.Default.LLMRequest).LongLength + 2) / 3 + 256 ||
@@ -105,7 +108,8 @@ internal sealed partial class BenchmarkCampaign
              effective["allow_http_recovery"]?.GetValue<bool>() != false ||
              effective["effective_retry_policy"]?["MaxAttempts"]?.GetValue<int>() != 1))
             throw new InvalidOperationException("The issued transport policy permits recovery; this terminal operator cannot reinterpret it.");
-        if (journal["effective_transport_policy"] is null && journal["effective_transport_policy_hash"] is not null)
+        if (journal["effective_transport_policy"] is null && journal["effective_transport_policy_hash"] is not null ||
+            retentionKind == SingleHttp502Retention && journal["effective_transport_policy"] is not JsonObject)
             throw new InvalidOperationException("The captured effective transport policy is missing.");
         var evidence = new JsonObject
         {
@@ -122,6 +126,7 @@ internal sealed partial class BenchmarkCampaign
                 ? "retained_incremental_session_policy_and_original_source" : "captured_effective_request_policy",
             ["accounting"] = await BenchmarkHttpJournal.AccountingAsync(this, requestId, ct: ct)
         };
+        if (retentionKind is not null) evidence["retention_kind"] = retentionKind;
         return new() { ["evidence"] = evidence, ["evidence_hash"] = Hash(evidence), ["outcome"] = "inconclusive",
             ["reservation_retained"] = true, ["request_replay_forbidden"] = true, ["run_continuation_forbidden"] = true };
     }
@@ -129,8 +134,9 @@ internal sealed partial class BenchmarkCampaign
     // The caller holds the campaign lease. Inspect is read-only; apply publishes exactly one
     // immutable closure. Neither path constructs a provider, alters evidence or settles usage.
     internal async Task<JsonObject> ApplyPermanentRetentionAsync(string collection, string runKey, string requestId,
-        string expectedEvidenceHash, string operatorIdentity, string authorization, CancellationToken ct)
+        string expectedEvidenceHash, string operatorIdentity, string authorization, CancellationToken ct, string? retentionKind = null)
     {
+        ValidateRetentionKind(retentionKind);
         ArgumentException.ThrowIfNullOrWhiteSpace(operatorIdentity);
         ArgumentException.ThrowIfNullOrWhiteSpace(authorization);
         if (operatorIdentity.Length > 256 || authorization.Length > 4096 ||
@@ -144,11 +150,12 @@ internal sealed partial class BenchmarkCampaign
                 existing["evidence_hash"]?.ToString() != expectedEvidenceHash ||
                 existing["authorization_hash"]?.ToString() != authorizationHash ||
                 existing["evidence"]?["run_collection"]?.ToString() != collection ||
-                existing["evidence"]?["run_key"]?.ToString() != runKey)
+                existing["evidence"]?["run_key"]?.ToString() != runKey ||
+                existing["evidence"]?["retention_kind"]?.ToString() != retentionKind)
                 throw new InvalidOperationException("The existing closure is immutable and does not match this authorization.");
             return existing;
         }
-        var inspected = await InspectPermanentRetentionAsync(collection, runKey, requestId, ct);
+        var inspected = await InspectPermanentRetentionAsync(collection, runKey, requestId, ct, retentionKind);
         if (inspected["evidence_hash"]?.ToString() != expectedEvidenceHash)
             throw new InvalidOperationException("Retention evidence changed; inspect and review the exact current evidence.");
         var closure = inspected.DeepClone().AsObject();
@@ -164,6 +171,7 @@ internal sealed partial class BenchmarkCampaign
     {
         if (closure["reason"]?.ToString() != PermanentRetentionReason ||
             closure["evidence"] is not JsonObject evidence || evidence["version"]?.GetValue<int>() != 1 ||
+            evidence["retention_kind"]?.ToString() is not (null or SingleHttp502Retention) ||
             evidence["campaign"]?.ToString() != Id || evidence["tenant"]?.ToString() != "benchmark" ||
             evidence["request_id"]?.ToString() != requestId ||
             evidence["session_id"]?.ToString() is not { Length: > 0 } sessionId ||
@@ -177,6 +185,50 @@ internal sealed partial class BenchmarkCampaign
             closure["request_replay_forbidden"]?.GetValue<bool>() != true ||
             closure["run_continuation_forbidden"]?.GetValue<bool>() != true)
             throw new InvalidOperationException("The permanent retention record has invalid identity or evidence bindings.");
+    }
+
+    private static void ValidateRetentionKind(string? retentionKind)
+    {
+        if (retentionKind is not (null or SingleHttp502Retention))
+            throw new ArgumentException("The only explicit HTTP retention kind is single-http-502.", nameof(retentionKind));
+    }
+
+    private static bool MatchesPermanentFailure(JsonObject failure, JsonNode? attempt, string? retentionKind)
+        => retentionKind == SingleHttp502Retention
+            ? failure["kind"]?.ToString() == "ServiceUnavailable" && failure["status_code"]?.GetValue<int>() == 502 &&
+              attempt?["Status"]?.GetValue<int>() == 502 && attempt["Failure"] is null &&
+              attempt["Body"] is JsonValue body && body.TryGetValue<string>(out var text) && IsRetainedErrorOnlyBody(text)
+            : failure["kind"]?.ToString() is "Timeout" or "Transport" && failure["status_code"] is null &&
+              attempt?["Status"] is null && attempt?["Body"] is null && attempt?["Failure"]?.ToString() is "timeout" or "transport";
+
+    private static bool IsRetainedErrorOnlyBody(string? body)
+    {
+        // A status code cannot exclude a model response or settle its usage.
+        // Recognize only a bounded error envelope; unfamiliar bodies stay blocked.
+        if (string.IsNullOrWhiteSpace(body) || body.Length > 65_536) return false;
+        try
+        {
+            using var document = JsonDocument.Parse(body, new JsonDocumentOptions { MaxDepth = 4 });
+            var root = document.RootElement;
+            if (root.ValueKind != JsonValueKind.Object || ChatResponseParser.ExtractUsage(root) is not null) return false;
+            if (!root.TryGetProperty("error", out var error))
+            {
+                var fields = root.EnumerateObject().ToArray();
+                return fields.Length == 3 && fields.Select(p => p.Name).Distinct(StringComparer.Ordinal).Count() == 3 &&
+                    fields.All(p => p.Name is "errorCode" or "errorMessage" or "errorDetail" &&
+                        p.Value.ValueKind == JsonValueKind.String) &&
+                    !string.IsNullOrWhiteSpace(root.GetProperty("errorCode").GetString()) &&
+                    !string.IsNullOrWhiteSpace(root.GetProperty("errorMessage").GetString());
+            }
+            if (root.EnumerateObject().Count() != 1 || error.ValueKind != JsonValueKind.Object) return false;
+            var names = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var property in error.EnumerateObject())
+                if (!names.Add(property.Name) || property.Name is not ("message" or "type" or "code" or "param") ||
+                    property.Value.ValueKind is not (JsonValueKind.String or JsonValueKind.Null)) return false;
+            return error.TryGetProperty("message", out var message) && message.ValueKind == JsonValueKind.String &&
+                !string.IsNullOrWhiteSpace(message.GetString());
+        }
+        catch (JsonException) { return false; }
     }
 
     private static string Hash(JsonObject value) => PlanningGraphCompiler.Fingerprint(value.ToJsonString());
