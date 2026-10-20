@@ -6,9 +6,10 @@ started; it remains conditional on successful Amazon, Collections and Review PR
 diagnostics on one frozen candidate.
 
 The [safe component report](compact-taskplan-request-components-2026-10-20.json)
-publishes the latest `7206ca2` and `3513ccd` request distributions, component byte
-and conservative token estimates, and separate known provider usage. Its four
-runs reconcile component sums against every complete prepared request. Judge is
+publishes retained `7206ca2`, `3513ccd`, `c9cbaf6` and `5bc25f4` request
+distributions, component byte and conservative token estimates, and separate known
+provider usage. Its eight runs reconcile all 731,202 bytes across 100 prepared
+requests, including two rejected followups. Judge is
 a phase dimension; component estimates are not billed tokens. No original
 business text, contract bodies, response bodies or credentials are included.
 
@@ -789,6 +790,96 @@ reservation €0.4953212476672887230071980805, upper exposure
 €231.708087481511067716709587841. Audit hash:
 `795e86cb264446e9a40456599871321b862ec1d34a1be0e1fba5f2ee33cc42c1`.
 The separate lost-ledger exposure and original authorization are unchanged.
+
+## Same-source diagnostics 5bc25f4
+
+Source: `5bc25f452b2ac760391a53c8de7cd794546e74a6`, following the tested
+malformed-description-address correction. All three scenarios used the same
+pinned model at medium reasoning, 64-call/four-correction ordinary allowances,
+captured phase limits, oracle versions and 568-file producer bundle. The private
+frozen diagnostic manifest hash is
+`e9e2346361094cfafb4dac343eb048901d9ca11c57b24ed2311dcc01ef118630`.
+
+| Diagnostic | Calls / corrections / checkpoints | Provider input / output / reasoning | Planning time | Known cost |
+| --- | --- | --- | ---: | ---: |
+| Amazon | 8 / 0 / 1 | 8,549 / 12,064 / 11,105 | 222.927 s | €0.3596063272016351195236825735 |
+| Collections | 29 / 4 / 5 | 43,321 / 16,300 / 12,114 | 267.857 s | €0.6270372345152403803430196390 |
+| Review PR | 5 / 0 / 0 | 4,096 / 4,305 / 3,324 | 59.636 s | €0.1329689860481649337954323290 |
+
+Exact run identities are `compactd5bc25f4-amazon-1`,
+`5bc25f452b2ac760391a53c8de7cd794546e74a6:fixture:collections:1`, and
+`compactd5bc25f4-code-1`. All stopped before approval or execution. There were
+42 known receipts, no new transport uncertainty, and one known empty response.
+The cohort used 55,966 input / 32,669 output / 26,543 reasoning tokens in
+550.420 seconds, costing €1.1196125477650404336621345415.
+
+Amazon's eighth call, a discovery request, returned a known output-limit receipt
+with 8,192 reasoning tokens and zero content. All eight complete requests fit
+their phase limits. The receipt does not establish the cause of the empty output;
+no live convergence or business success follows from the accepted checkpoint.
+
+Collections stopped before dispatching a required local Judge followup:
+12,350 serialized bytes and 4,373 estimated input tokens exceed the captured
+4,000-token limit. Its largest components were evidence (2,974 bytes), instructions
+(2,310), construction context (2,128) and interfaces (2,032). Review PR stopped
+before dispatching a selection followup at 8,474 bytes / 3,081 estimated tokens
+against 3,000. That request retained 3,078 schema bytes, 2,306 requirement bytes
+and 510 evidence bytes. Neither rejected request has a provider receipt or cost.
+These measurements establish admission failures, not a business outcome or a
+causal explanation for any earlier model response.
+
+All 44 prepared requests reconcile 338,464 bytes by component, including the two
+rejections. Phase distributions include those rejected requests; provider usage
+uses only known receipts. Percentiles are nearest-rank p95 and median p50.
+
+| Scenario / phase | Prepared / rejected | p50 / p95 / maximum complete bytes | p50 / p95 / maximum input estimate |
+| --- | ---: | --- | --- |
+| Amazon / Discovery | 2 / 0 | 6,340 / 6,363 / 6,363 | 2,369.5 / 2,377 / 2,377 |
+| Amazon / Generation | 1 / 0 | 6,659 / 6,659 / 6,659 | 2,476 / 2,476 / 2,476 |
+| Amazon / Intent | 2 / 0 | 3,854 / 4,744 / 4,744 | 1,541 / 1,838 / 1,838 |
+| Amazon / Local Judge | 1 / 0 | 7,140 / 7,140 / 7,140 | 2,636 / 2,636 / 2,636 |
+| Amazon / Selection | 2 / 0 | 6,208.5 / 6,315 / 6,315 | 2,325.5 / 2,361 / 2,361 |
+| Collections / Generation | 6 / 0 | 11,910.5 / 13,015 / 13,015 | 4,226.5 / 4,595 / 4,595 |
+| Collections / Intent | 2 / 0 | 3,597 / 4,787 / 4,787 | 1,455.5 / 1,852 / 1,852 |
+| Collections / Intermediate Judge | 3 / 0 | 8,709 / 8,948 / 8,948 | 3,159 / 3,239 / 3,239 |
+| Collections / Local Judge | 9 / 1 | 8,699 / 12,350 / 12,350 | 3,156 / 4,373 / 4,373 |
+| Collections / Selection | 8 / 0 | 7,268 / 8,062 / 8,062 | 2,679 / 2,944 / 2,944 |
+| Collections / Correction | 2 / 0 | 13,196 / 13,879 / 13,879 | 4,655 / 4,883 / 4,883 |
+| Review PR / Intent | 4 / 0 | 3,125.5 / 5,455 / 5,455 | 1,298 / 2,075 / 2,075 |
+| Review PR / Selection | 2 / 1 | 8,210.5 / 8,474 / 8,474 | 2,993 / 3,081 / 3,081 |
+
+The complete safe cohort report hash is
+`b2f76d65d26c00ace24c1158b010d20340807ec60fd510703b31eef4a50a685c`.
+The public component report retains all three runs' phase distributions, component
+sums, separate provider-usage distributions and phase costs/latencies. No prompt,
+response, contract body, artifact or original business evidence is published.
+
+A terminal public-API campaign audit verified 312 requests and 309 receipts.
+All three receiptless identities remain permanently retained; the two uncertain
+attempts retain their original full reservations. Known cost is
+€8.946307651292988536390295922, reserved cost
+€0.4953212476672887230071980805, captured upper exposure
+€9.441628898960277259397494002, and remaining allowance
+€230.588474933746027283047453298 against the unchanged
+€240.0301038327063045424449473 ceiling. Audit hash:
+`b5d08395000328c007ae4fa70bc6b21705fc3b3160e2c5f844291c930b6d4e96`.
+Captured .NET decimal totals are preserved; the separate lost-ledger exposure and
+original authorization are unchanged. All three diagnostics remain failures;
+complete live business acceptance and the 18-run paired comparison are unproved.
+
+The subsequent presentation correction preserves the requested Collections
+evidence verbatim, compacts semantic bindings with the existing transport and
+omits the identical group interface already included in that evidence. An
+in-memory, non-dispatched comparison of the retained follow-up measures
+12,350 bytes / 4,373 estimated tokens before and 11,007 / 3,925 after.
+Its schema and all 2,974 serialized evidence bytes are unchanged. This is
+prospective admission evidence, not a retried request or live business success.
+The safe comparison report hash is
+`5b199be936eacd6eec651e9e0b06c06a02606cc3feead7a481af37c8124a7c1d`.
+The correction also shortens fresh selection guidance and removes redundant page
+counters. Discovery's next-metadata-action framing remains a controlled experiment.
+217 focused review, scope, contract, selection, discovery and construction tests passed with
+warnings as errors; saved historical review requests retain exact recovery.
 
 ## Deterministic evidence
 

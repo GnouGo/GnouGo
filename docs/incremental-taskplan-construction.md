@@ -63,6 +63,17 @@ requests group a bounded page's interface-bearing clauses for atomic extraction,
 keeping adjacent naming/type constraints together and business requirements
 separate. The exact issued schema captures grouping behavior for recovery;
 already-created extractions and older issued classifications remain unchanged.
+
+Selection keeps exact original clauses and global constraints while omitting
+redundant presentation counters. Discovery chooses the next metadata action for
+the selected substep, without designing execution arguments during navigation.
+These prompt reductions leave complete-request admission and saved requests
+unchanged; reasoning-only failures remain retained evidence, not proof that a
+particular prompt feature caused them.
+Scoped review also avoids repeating a group interface already present verbatim
+in requested scope evidence and uses existing compact binding serialization.
+This changes only new request presentation; historical contexts, pending requests,
+accepted fragments and review/reference validation remain unchanged.
 Historical sessions
 without the optional captured presentation version keep combined indexing and
 their saved pages and schemas unchanged.

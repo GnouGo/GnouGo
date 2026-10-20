@@ -116,6 +116,59 @@ public sealed class CompactSelectionSchemaTests
     }
 
     [Fact]
+    public async Task SelectionEvidenceFitsWithOriginalGlobalClausesAndExactSourceVersions()
+    {
+        var state = await Ready();
+        var compact = state.Construction!.Compact!;
+        compact.GlobalSourceIds.Clear();
+        for (var index = 0; index < 7; index++)
+        {
+            var text = $"Constraint {index}: Preserve supplied values, order, duplicates and exact identities throughout this work. ";
+            var source = new PlanningConstructionSource
+            {
+                Id = "request:0:clause:" + (index + 3), Text = text,
+                Version = PlanningGraphCompiler.Fingerprint(text), Kind = "global", Indexed = true
+            };
+            compact.Sources.RemoveAll(s => s.Id == source.Id);
+            compact.Sources.Add(source);
+            compact.GlobalSourceIds.Add(source.Id);
+        }
+        state.Requirements!.Inputs = [
+            new() { Name = "originalValues", Type = new() { Kind = "string" } },
+            new() { Name = "instructions", Type = new() { Kind = "string" } }];
+        state.Requirements.Outputs = [
+            new() { Name = "result", Type = new() { Kind = "string" } },
+            new() { Name = "report", Type = new() { Kind = "object" } }];
+        PlanningConstruction.LoadEvidence(state, ["page:requirements:1"]);
+        var before = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        var context = PlanningCompactConstruction.SelectionContext(state);
+        var request = PlanningCompactConstruction.Request(PlanningCompactConstruction.SelectGuidance(state),
+            context, PlanningCompactConstruction.SelectionSchema(state), PlanningCompactConstruction.SelectPurpose);
+        request = PlanningGenerationPolicy.Apply(new LLMRequest
+        {
+            Prompt = request.Prompt, StructuredOutputSchema = request.StructuredOutputSchema, StructuredOutputStrict = true,
+            Provider = "OpenAi", Model = "retained-model", UseBackgroundMode = true, MaxTokens = 8192,
+            ClientRequestId = new string('s', 64) + ":9:" + new string('h', 64)
+        }, state.Request.Generation);
+        var measurement = PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.SelectPurpose, 3000);
+        Assert.True(measurement.EstimatedInputTokens <= 3000, $"Complete selection request: {measurement.EstimatedInputTokens} tokens.");
+        Assert.Equal(7, context["globalConstraints"]!.AsArray().Count);
+        foreach (var source in compact.Sources.Where(s => compact.GlobalSourceIds.Contains(s.Id)))
+        {
+            var presented = context["globalConstraints"]!.AsArray().Single(s => s!["id"]!.ToString() == source.Id)!;
+            Assert.Equal(source.Text, presented["text"]!.ToString());
+            Assert.Equal(source.Version, presented["version"]!.ToString());
+        }
+        Assert.True(JsonNode.DeepEquals(state.Construction.Evidence, context["evidence"]));
+        Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+        compact.PresentationVersion = null;
+        Assert.Equal(PlanningCompactConstruction.SelectInstructions, PlanningCompactConstruction.SelectGuidance(state));
+        Assert.Equal(PlanningCompactConstruction.DiscoveryInstructions, PlanningCompactConstruction.DiscoveryGuidance(state));
+        Assert.Equal(state.Requirements.Outcomes.Count,
+            PlanningCompactConstruction.SelectionContext(state)["originalRequirementCount"]!.GetValue<int>());
+    }
+
+    [Fact]
     public async Task RetainedBroadSelectionRequestResumesItsExactSchemaWithoutNarrowingAuthority()
     {
         var state = await Ready();

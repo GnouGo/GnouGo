@@ -508,7 +508,8 @@ public sealed class CompactConstructionTests
         Assert.Equal(next, context["nextRequirements"]?.ToString());
         Assert.Equal("page:requirements:0", context["requirementsDirectory"]!.ToString());
         Assert.Equal("req_0", Assert.Single(context["requirements"]!.AsArray())!["id"]!.ToString());
-        Assert.Equal(5, context["originalRequirementCount"]!.GetValue<int>());
+        Assert.Null(context["originalRequirementCount"]);
+        Assert.Equal(5, state.Requirements!.Outcomes.Count);
         Assert.Equal(5, context["requirementCount"]!.GetValue<int>());
         Assert.Single(context["globalConstraints"]!.AsArray());
         foreach (var address in addresses)

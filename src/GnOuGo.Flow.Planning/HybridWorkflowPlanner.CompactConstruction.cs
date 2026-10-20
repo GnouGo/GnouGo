@@ -214,7 +214,7 @@ public sealed partial class HybridWorkflowPlanner
     private static async Task SelectConstructionStepAsync(PlanningSession state, IPlanningRuntime runtime, CancellationToken ct)
     {
         var response = await CompactCallAsync(state, runtime, PlanningCompactConstruction.SelectPurpose, () =>
-            PlanningCompactConstruction.Request(PlanningCompactConstruction.SelectInstructions, PlanningCompactConstruction.SelectionContext(state),
+            PlanningCompactConstruction.Request(PlanningCompactConstruction.SelectGuidance(state), PlanningCompactConstruction.SelectionContext(state),
                 PlanningCompactConstruction.SelectionSchema(state), PlanningCompactConstruction.SelectPurpose), ct);
         if (response["baseHash"]!.ToString() != PlanningConstruction.Hash(state.Plan))
             throw new PlanningConflictException("The step selection identifies a stale accepted checkpoint.");
@@ -237,7 +237,7 @@ public sealed partial class HybridWorkflowPlanner
         var exactRequest = issued;
         var correcting = state.Diagnostics.Any(d => d.Required);
         var response = await CompactCallAsync(state, runtime, PlanningCompactConstruction.DiscoveryPurpose, () =>
-            exactRequest = PlanningCompactConstruction.Request(PlanningCompactConstruction.DiscoveryInstructions, PlanningCompactConstruction.DiscoveryContext(state),
+            exactRequest = PlanningCompactConstruction.Request(PlanningCompactConstruction.DiscoveryGuidance(state), PlanningCompactConstruction.DiscoveryContext(state),
                 PlanningCompactConstruction.DiscoverySchema(state), PlanningCompactConstruction.DiscoveryPurpose), ct);
         if (response["reselectStep"] is { } reason)
         {

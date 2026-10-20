@@ -24,12 +24,23 @@ addresses; a closed group call exposes its declared result ports. Fresh response
 schemas exclude completion choices that the known frontier or requirement state
 cannot satisfy. These presentation rules do not replace semantic validation or
 change saved requests, accepted TaskPlans, JavaScript or YAML lowering.
+Fresh protocol-2 selection uses shorter guidance and omits redundant page counters,
+retaining the unresolved count, anchor, exact source versions and continuation
+addresses. Discovery asks for the next metadata action, deferring execution
+arguments. This framing is an experiment; a small schema does not explain or
+prevent a provider's reasoning-only response. Historical guidance and all issued
+requests remain exact.
 
 Selected-scope export evidence distinguishes accepted declarations from the
 tentative merged interface at closure. It uses the compiler's post-finalizer
 type resolution, pages exact bindings by plan/frontier hash, and includes no scope
 body or unrelated history. Empty extension outputs preserve accepted exports.
 This evidence does not make an open container consumable or grant edit authority.
+Fresh reviews use the existing compact TaskValue presentation for bindings and
+omit duplicate baseline/discovery bookkeeping. When requested scope evidence
+contains the identical complete group interface, the review omits its duplicate
+top-level copy. Requested evidence, schemas and business clauses remain intact;
+an oversized indispensable context still stops before dispatch.
 Transform reviews receive the selected kind's named-port semantics: the required
 object result contract wraps its declared fields, and a named output reference
 consumes that field's type.
