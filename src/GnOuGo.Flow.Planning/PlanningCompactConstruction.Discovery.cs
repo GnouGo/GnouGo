@@ -53,12 +53,32 @@ internal static partial class PlanningCompactConstruction
                 var source = state.Discovery.Sources.Single(s => s.Id == option.SourceId);
                 var description = NavigationDescription(source.Description);
                 return (JsonNode)new JsonObject { ["sourceId"] = source.Id, ["cursor"] = option.Cursor,
-                    ["available"] = option.Available, ["unavailable"] = option.Unavailable, ["resultCount"] = option.ResultCount,
+                    [ProviderPageActionName(state)] = option.Available, ["unavailable"] = option.Unavailable, ["resultCount"] = option.ResultCount,
                     ["description"] = description, ["descriptionComplete"] = description.Length == source.Description.Length,
                     ["descriptionEvidence"] = "source-description:" + Uri.EscapeDataString(source.Id) + "@" + PlanningGraphCompiler.Fingerprint(source.Description) + ":0" };
             }).ToArray()),
             ["next"] = offset + 2 < options.Count ? ProviderRequestAddress(state, offset + 2) : null
         };
+    }
+
+    private static string ProviderPageActionName(PlanningSession state) =>
+        PlanningConstructionPhasePolicies.IsFresh(state.Request) ? "canRequestPage" : "available";
+
+    private static bool ProviderPageMatches(PlanningSession state, JsonNode? value, JsonNode? current)
+    {
+        if (JsonNode.DeepEquals(value, current)) return true;
+        if (!PlanningConstructionPhasePolicies.IsFresh(state.Request) || current is not JsonObject page ||
+            page["items"] is not JsonArray) return false;
+        // Retained pages keep their exact bytes and content address. Only the
+        // presentation label changed; every original field must still match.
+        var retainedShape = page.DeepClone();
+        foreach (var item in retainedShape["items"]!.AsArray())
+        {
+            var row = item!.AsObject();
+            if (!row.Remove("canRequestPage", out var action)) return false;
+            row["available"] = action;
+        }
+        return JsonNode.DeepEquals(value, retainedShape);
     }
 
     private static JsonObject? ProviderEvidencePage(PlanningSession state) => ProviderEvidencePages(state).FirstOrDefault();
@@ -68,7 +88,7 @@ internal static partial class PlanningCompactConstruction
         foreach (var (address, value) in state.Construction!.Evidence ?? new JsonObject())
             if (address.StartsWith("page:provider-requests:", StringComparison.Ordinal) && value is JsonObject page &&
                 page["offset"] is JsonValue position && position.TryGetValue<int>(out var offset) && offset >= 0 &&
-                address == ProviderRequestAddress(state, offset) && JsonNode.DeepEquals(page, ProviderRequestPage(state, offset))) yield return page;
+                address == ProviderRequestAddress(state, offset) && ProviderPageMatches(state, page, ProviderRequestPage(state, offset))) yield return page;
     }
 
     internal static void RemoveStaleDiscoveryDirectories(PlanningSession state)
@@ -83,7 +103,8 @@ internal static partial class PlanningCompactConstruction
             catch (PlanningResponseException) { current = null; }
             // Only current action directories expire. Original requested prose,
             // schemas and requirements, and every consumed identity, are retained.
-            if (!JsonNode.DeepEquals(value, current)) evidence.Remove(address);
+            if (!(address.StartsWith("page:provider-requests:", StringComparison.Ordinal)
+                    ? ProviderPageMatches(state, value, current) : JsonNode.DeepEquals(value, current))) evidence.Remove(address);
         }
     }
 
@@ -281,7 +302,7 @@ internal static partial class PlanningCompactConstruction
                 ["version"] = ProviderRequestVersion(state), ["sourceId"] = sourceId, ["total"] = selected.Length,
                 ["items"] = new JsonArray(selected.Take(2).Select(option => (JsonNode)new JsonObject
                 {
-                    ["sourceId"] = option.SourceId, ["cursor"] = option.Cursor, ["available"] = option.Available,
+                    ["sourceId"] = option.SourceId, ["cursor"] = option.Cursor, [ProviderPageActionName(state)] = option.Available,
                     ["unavailable"] = option.Unavailable, ["resultCount"] = option.ResultCount
                 }).ToArray()),
                 ["next"] = selected.Length > 2 ? ProviderRequestAddress(state, offset + 2) : null
@@ -300,7 +321,7 @@ internal static partial class PlanningCompactConstruction
                 .DistinctBy(item => (item!["sourceId"]!.ToString(), item["cursor"]?.ToString())).ToArray();
             if (supplied.Length > 0) visible = supplied;
         }
-        var available = visible.Where(request => request!["available"]!.GetValue<bool>()).ToArray();
+        var available = visible.Where(request => (request!["canRequestPage"] ?? request["available"])!.GetValue<bool>()).ToArray();
         // Factor only identical cursor branches. The accepted source/cursor pairs
         // stay exact; grouping every source with every cursor would widen authority.
         var choices = State(state).PresentationVersion == 2

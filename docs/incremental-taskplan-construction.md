@@ -38,7 +38,9 @@ are non-executable and use the existing encrypted session, tenant, optimistic
 revision and leases. Storage format 10 remains unchanged.
 
 Extensions reuse task, value, group, choice and output contracts and append only
-to issued open scopes. Apply candidates atomically to a clone. Compiler semantic
+to issued open scopes. Fresh selection schemas offer exactly the displayed open
+scope page, with existing pagination for omitted scopes; a replacement keeps its
+fixed scope. Historical issued requests remain exact. Apply candidates atomically to a clone. Compiler semantic
 preflight remains the authority for types, contracts, ownership, references,
 provenance, assertions, permissions and dependencies. Partial validation does not
 lower a graph or suppress arbitrary final-validation errors.
@@ -93,7 +95,9 @@ Fresh requirement evidence pages keep up to eight adjacent clauses from one
 original source page together within the existing escaped-text bound. Whole
 requirements retain their exact text, source identities and separate completion
 statuses; an oversized indivisible requirement still faces complete-request
-admission. Historical singleton pages and issued requests are unchanged.
+admission. Fresh selection uses that same bounded page at the earliest unresolved
+requirement, omitting closed clauses; drafting and Judges receive only the selected
+requirements. Historical singleton pages and issued requests are unchanged.
 
 Discovery queries the selected substep, never the global objective. Cached
 inspections stay retrievable without becoming mandatory context. Concise operation
@@ -101,8 +105,10 @@ and provider directories retain exact identities, effects and retrieval addresse
 Descriptors may exclude clear mismatches. Exact descriptions and necessary
 continuations establish the suitability of shortlisted capabilities; finding a
 suitable operation does not require inspecting unrelated or later workflow actions.
-A consumed navigation page does not invalidate an operation's identity. Provider
-source/cursor pairs come from the issued schema; evidence-page addresses are not
+A consumed navigation page does not invalidate an operation's identity. Fresh
+provider views use `canRequestPage` for listing pagination, independently of the
+source's unavailability reason; exhausting a listing preserves its discovered operations.
+Provider source/cursor pairs come from the issued schema; evidence-page addresses are not
 provider cursors. Copy issued addresses unchanged: an operation-page hash binds
 that exact page and offset. Use supplied evidence directly; empty, exhausted or
 repeated metadata pages do not create progress.
@@ -249,6 +255,10 @@ closed requirement does not count as progress. A diagnosed tentative
 step may request reselection within its original scope and requirement identities,
 retaining rejected evidence and correction accounting. This cannot expand explicit
 typed revision paths or change accepted fragments.
+Where the draft schema offers rollback, its description explains the existing
+host-computed dependency invalidation and required concrete reason. Accepted
+requirements and permissions remain unchanged; a live candidate must first be
+finished or abandoned before that action becomes available.
 A tentative reselection archives the rejected decision and preserves scope and
 requirement authority. Under the fresh phase policy, possible correction capacity
 is checked before dispatch and the issued accounting mode is saved with the

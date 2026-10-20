@@ -363,6 +363,7 @@ public sealed class CompactIntentIndexingTests
         var context = PlanningCompactConstruction.InterfaceContext(state, extraction);
         var issued = PlanningCompactConstruction.Request(originalInstructions, context,
             PlanningCompactConstruction.InterfaceSchema(extraction), PlanningCompactConstruction.IntentPurpose);
+        Assert.Null(issued.StructuredOutputSchema!["description"]);
         issued.StructuredOutputStrict = true; issued.UseBackgroundMode = true;
         issued = PlanningGenerationPolicy.Apply(issued, state.Request.Generation);
         issued.ClientRequestId = state.Request.SessionId + ":2:" +
@@ -623,15 +624,18 @@ public sealed class CompactIntentIndexingTests
     [Fact]
     public async Task TargetedInputExtractionPreservesDefaultsEnumsAndUnspecifiedBounds()
     {
-        var state = Fresh("Accept optional choice A or B default B and an unbounded array named values; retain them.");
+        var state = Fresh("Accept optional choice A or B default B, an unbounded array named values, an unrestricted string named text and an empty-string-only input named empty; retain them.");
         var runtime = new TestRuntime { Respond = (request, _) =>
         {
             if (Classification(request)) return Wire(request, Classify(request, "input"));
+            Assert.NotNull(request.StructuredOutputSchema!["description"]);
             var response = Interfaces(request);
             response["outputs"] = new JsonArray();
             response["inputs"] = JsonNode.Parse("""
                 [{"name":"choice","required":false,"type":{"kind":"string","nullable":false,"enum":["A","B"]},"default":{"kind":"string","text":"B"}},
-                 {"name":"values","required":true,"type":{"kind":"array","nullable":false,"items":{"kind":"number","nullable":false},"minItems":null,"maxItems":null}}]
+                 {"name":"values","required":true,"type":{"kind":"array","nullable":false,"items":{"kind":"number","nullable":false},"minItems":null,"maxItems":null}},
+                 {"name":"text","required":true,"type":{"kind":"string","nullable":false}},
+                 {"name":"empty","required":true,"type":{"kind":"string","nullable":false,"enum":[""]}}]
                 """);
             return Wire(request, response);
         } };
@@ -641,6 +645,10 @@ public sealed class CompactIntentIndexingTests
         Assert.Equal(["A", "B"], state.Requirements.Inputs[0].Type.Enum);
         Assert.Null(state.Requirements.Inputs[1].Type.MinItems);
         Assert.Null(state.Requirements.Inputs[1].Type.MaxItems);
+        Assert.Null(state.Requirements.Inputs[2].Type.Enum);
+        Assert.Null(TaskPlanCompiler.TypeSchema(state.Requirements.Inputs[2].Type)["enum"]);
+        Assert.Equal([""], state.Requirements.Inputs[3].Type.Enum);
+        Assert.Equal("", TaskPlanCompiler.TypeSchema(state.Requirements.Inputs[3].Type)["enum"]![0]!.GetValue<string>());
         Assert.True(PlanningCompactConstruction.IntentDeclarationsComplete(state.Construction!.Compact!));
     }
 

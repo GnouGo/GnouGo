@@ -87,7 +87,10 @@ internal static partial class PlanningCompactConstruction
         // Bound guidance remains in InterfaceInstructions. Factoring may replace
         // these schemas with references, which cannot carry sibling annotations
         // in the provider's strict structured-output profile.
-        return PlanningSchemas.Compact(schema);
+        var compact = PlanningSchemas.Compact(schema);
+        if (requireDeclared)
+            compact["description"] = "Use the plain string branch unless the source declares an exhaustive allowed-value set. enum restricts accepted values; it is not a placeholder or default.";
+        return compact;
     }
 
     internal static JsonObject InterfaceContext(PlanningSession state, PlanningConstructionInterfaceExtraction extraction)

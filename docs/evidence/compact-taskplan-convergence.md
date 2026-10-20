@@ -7,51 +7,37 @@ compilation and scoped reviews do not establish business success. The gated
 
 ## Latest diagnostic and corrections
 
-Frozen cohort `compactd41077d0` retained the pinned model, medium reasoning,
-3k/8k/4k input targets, 6k/16k/8k complete-request ceilings and
-16,384/8,192/2,048 navigation/draft/Judge output reservations. Amazon accepted one
-locally reviewed URL producer, then stopped on repeated evidence requests.
-Collections stopped without a receipt for its second intent call. Review PR was
-**not started** in this cohort because unresolved uncertainty blocked paid admission.
+Five diagnostics on source `8952a0a` produced 117 known receipts, cost €3.1193948280
+and reached no execution or business acceptance. The model, medium reasoning,
+MCPs, oracles and call/correction allowances remained fixed. Separate frozen
+experiments changed navigation input 6,000→8,000, then Judge output 2,048→4,096;
+no setting changed during a run.
 
-| Diagnostic | Calls / corrections / checkpoints | Planning time | Known cost | Outcome |
+| Diagnostic / configuration | Calls / corrections / checkpoints | Planning time | Known cost | Outcome |
 | --- | ---: | ---: | ---: | --- |
-| Amazon `41077d0` | 28 / 4 / 1 | 341.726 s | €0.758984 | Repeated evidence after altered page addresses; no execution |
-| Collections `41077d0` | 2 / 0 / 0 | 318.774 s | €0.018017 | Transport failure without HTTP response or completion receipt |
-| Review PR `585203a` | 10 / 1 / 0 | 341.672 s | €0.539829 | Correction exhausted 8,192 reasoning tokens with zero visible content |
+| Review PR, navigation input 6k | 11 / 2 / 0 | 120.572 s | €0.241722 | Two 6,257-token evidence batches rejected; stopped without execution |
+| Review PR, navigation input 8k | 25 / 1 / 0 | 272.883 s | €0.706909 | Clarification about capability availability; no execution |
+| Amazon, navigation input 8k | 15 / 1 / 0 | 214.878 s | €0.548405 | Judge rejected a search using a model-authored empty-string enum; clarification |
+| Collections, navigation input 8k / Judge output 2k | 17 / 1 / 3 | 205.051 s | €0.399214 | Intermediate Judge exhausted 2,048 reasoning tokens with no visible content |
+| Collections, navigation input 8k / Judge output 4k | 49 / 4 / 10 | 641.732 s | €1.223145 | Closed-scope selection and exhausted correction allowance |
 
-Amazon used 66,057 provider input, 17,460 output and 13,225 reasoning tokens, with
-28 known receipts and no empty response. Generation peaked at 30,946 serialized
-bytes / 10,572 estimated input tokens; its one Judge used 7,791 bytes / 2,853
-estimated tokens. Two prospective discovery batches reached 6,048/6,049 estimates
-and were rejected before dispatch against the captured 6,000 ceiling. All
-350,534 bytes across both scenarios' 32 constructed envelopes reconcile.
-[Safe phase measurements](compact-taskplan-41077d0.json) retain p50/p95/maximum,
-components, known provider usage, costs and latency. Collections' total usage is
-unknown; its full €0.4634497467342042122100773127 reservation remains charged.
+The 8k navigation trial admitted requests above the former 6k ceiling, but none of
+the workflows completed. All 17 Judges in the 4k-output trial returned visible
+content; their maximum output was 1,629 tokens. The additional headroom was never
+consumed, so farther progress does not establish that a larger output allowance
+caused it. All 1,182,267 bytes across 119 constructed requests reconcile.
+[Safe phase measurements](compact-taskplan-8952a0a.json) retain distributions,
+components, actual usage and immutable experiment identities. The gated 18-run
+baseline/candidate comparison remains unstarted.
 
-The reselection clarification produced a substantive missing-prerequisite reason,
-preserved through recovery. The next selection still chose `value` for unsupported
-string construction, which drafting correctly rejected. Fresh selection now reuses
-the existing value-task semantics, avoiding contradictory phase guidance.
-Discovery wording explains that a page's hash and offset must be copied unchanged
-and supplied evidence used directly. The trace showed changed offsets and repeated
-pages, with no host cache or identity defect. These are presentation corrections,
-with no new phase, state, runtime or relaxed validation; live convergence remains
-unproved.
-
-The [preceding Amazon diagnostic](compact-taskplan-ba4ed26.json) retains its
-missing-query failure and genuine Judge findings. No accepted fragment, inspection,
-compilation or favorable review authorizes execution.
-
-Earlier retained evidence led to targeted corrections for repair diagnostic
-visibility, caller declarations in requested root evidence and interpretation
-semantics. Interpretation uses its objective/input/result-type contract and needs
-no separate expression. A genuine result-bound contradiction still prevents
-checkpoint acceptance. Empty execution aggregates now report unknown correctness;
-existing gates and stored run records remain unchanged. These corrections still
-need complete live business acceptance. [The preceding cohort](compact-taskplan-585203a.json)
-retains its failures and exact authorized Collections closure.
+The follow-up restricts selection to displayed open scopes, exposes a bounded
+exact requirement page before selecting a step, and explains existing rollback
+authority when accepted work needs correction. Provider views distinguish paging
+from capability availability; interface extraction explains that enums constrain
+accepted values. All 577 compact-planning cases pass with warnings as errors,
+including historical request recovery. Fresh live confirmation remains pending.
+The [41077d0 archive](compact-taskplan-41077d0.json), earlier experiment archives
+and independent-validation references remain retained.
 
 ## Retained experiments and acceptance limits
 
@@ -85,21 +71,20 @@ comparisons, not architecture-only causality.
 
 ## Campaign reconciliation
 
-Read-only inspection after Collections `41077d0` verified encrypted campaign
-`schema-portability-20261019-incremental`:
+Read-only inspection after the final Collections trial verified encrypted campaign
+`schema-portability-20261019-incremental`: 888 request identities and 881 receipts.
 
 | Ledger measurement | EUR |
 | --- | ---: |
 | Campaign ceiling | 240.0301038327063045424449473 |
-| Known spending | 21.655011996800853105838443082 |
+| Known spending | 24.774406824846707544654758732 |
 | Unknown-usage reservations | 2.3491202346041055718475073313 |
-| Spending/reservation upper bound | 24.004132231404958677685950413 |
-| Available allowance | 216.025971601301345864758996887 |
+| Spending/reservation upper bound | 27.123527059450813116502266063 |
+| Available allowance | 212.906576773255491425942681237 |
 
-Evidence hash:
-`26ca280c75cc3a8b8519526d475e096a08ab87e1fefeadd9886bc06bbd725a8a`.
-All 771 request identities and 764 receipts remain. All seven receiptless identities
-are permanently retained; six attempts retain unknown usage. The separately
+Evidence hash: `bb73c6f376e8c20c6cf784176ddd386d5e9d1fdc1cc07d377ed3d5630b6e9903`.
+All seven receiptless identities are permanently retained; six attempts retain
+unknown usage. The separately
 authorized Collections closure was applied under the existing transport-retention
 mode and verified against evidence
 `fb1cbf1b2472374bcceeefb65b9ede893c03ed987a02833fab02031d8dfb580a`;

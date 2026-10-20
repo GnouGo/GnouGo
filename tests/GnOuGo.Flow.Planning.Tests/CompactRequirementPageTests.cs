@@ -7,6 +7,72 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class CompactRequirementPageTests
 {
+    [Fact]
+    public async Task InitialSelectionShowsAdjacentOriginalConstraintsBeforeChoosingAContainer()
+    {
+        string[] clauses = ["Accept the original observations. ", "Transform each observation in a reusable group. ",
+            "Run the per-observation calls concurrently and preserve their order."];
+        var (state, runtime) = await Ready(clauses);
+        state.Construction!.Requirements[0].Status = "closed";
+        var originals = Originals(state);
+        var calls = state.ModelCalls;
+        runtime.Respond = (request, _) =>
+        {
+            var context = Context(request);
+            Assert.Equal(["req_1", "req_2"], Ids(context["requirements"]!));
+            Assert.Equal(clauses.Skip(1), context["requirements"]!.AsArray().Select(requirement => requirement!["original"]!.ToString()));
+            Assert.All(context["requirements"]!.AsArray(), requirement => Assert.NotEmpty(requirement!["sources"]!.AsArray()));
+            Assert.Null(context["nextRequirements"]);
+            var selection = Selection(state, "req_1", "req_2");
+            selection["step"]!["kind"] = "foreach";
+            Assert.Empty(PlanningContractValidation.ValidateInstance(selection, request.StructuredOutputSchema!));
+            var limit = PlanningConstructionPhasePolicies.Resolve(state.Request, PlanningCompactConstruction.SelectPurpose).MaxInputTokens;
+            Assert.InRange(PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.SelectPurpose, limit).EstimatedInputTokens, 1, limit);
+            return new() { Json = selection };
+        };
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        Assert.Equal(calls + 1, state.ModelCalls);
+        Assert.Equal(["req_1", "req_2"], state.Construction!.Compact!.CurrentStep!.RequirementIds);
+        var draft = PlanningConstruction.DraftRequest(state, repair: false);
+        Assert.Equal(["req_1", "req_2"], Ids(Context(draft)["requirements"]!));
+        Assert.Equal(["closed", "remaining", "remaining"], state.Construction.Requirements.Select(requirement => requirement.Status));
+        Assert.Empty(state.Construction.Checkpoints);
+        Assert.Equal(originals, Originals(state));
+        Assert.Equal(0, state.ReplanAttempts);
+    }
+
+    [Fact]
+    public async Task InitialAnchorReusesTheBoundedOriginalPageWithoutChangingHistoricalOrReplacementAuthority()
+    {
+        var clauses = Enumerable.Range(0, 10).Select(index => $"Preserve original observation {index}. ").ToArray();
+        var (state, _) = await Ready(clauses);
+        state.Construction!.Requirements[0].Status = "closed";
+        state.Construction.Requirements[3].Status = "closed";
+        var before = Followup(state);
+        Assert.Equal(["req_1", "req_2", "req_4", "req_5", "req_6", "req_7", "req_8"], Ids(Context(before)["requirements"]!));
+        Assert.Equal("page:requirements:9", Context(before)["nextRequirements"]!.ToString());
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(Selection(state, "req_9"), before.StructuredOutputSchema!));
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(Selection(state, "req_1", "req_2", "req_4", "req_5", "req_6"), before.StructuredOutputSchema!));
+        for (var index = 10; index < 500; index++) AppendPage(state, "Retain independent obligation " + index + ".");
+        var after = Followup(state);
+        Assert.Equal(before.StructuredOutputSchema!.ToJsonString(), after.StructuredOutputSchema!.ToJsonString());
+        Assert.True(Math.Abs(before.Prompt.Length - after.Prompt.Length) < 16);
+        var limit = PlanningConstructionPhasePolicies.Resolve(state.Request, PlanningCompactConstruction.SelectPurpose).MaxInputTokens;
+        Assert.InRange(PlanningRequestMeasurements.Measure(after, PlanningCompactConstruction.SelectPurpose, limit).EstimatedInputTokens, 1, limit);
+
+        var historical = PlannerFixture.Clone(state);
+        historical.Request.Options["construction_limits"]!.AsObject().Remove("phasePolicy");
+        historical.Construction!.Limits.PhasePolicy = null;
+        Assert.Equal(["req_1"], Ids(PlanningCompactConstruction.SelectionContext(historical)["requirements"]!));
+        state.Construction.Compact!.ReplacementScope = "/root";
+        state.Construction.Compact.ReplacementRequirements = ["req_9"];
+        var replacement = PlanningCompactConstruction.SelectionSchema(state);
+        Assert.Empty(PlanningContractValidation.ValidateInstance(Selection(state, "req_9"), replacement));
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(Selection(state, "req_1"), replacement));
+        Assert.Equal("closed", state.Construction.Requirements[3].Status);
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
@@ -213,6 +279,11 @@ public sealed class CompactRequirementPageTests
             }
             compact.RequirementSources.Add(original.Id, sourceIds);
         }
+        state.Construction.Requirements[0].Status = "closed";
+        var initial = Followup(state);
+        Assert.Equal(requirement.Description, Assert.Single(Context(initial)["requirements"]!.AsArray())!["original"]!.ToString());
+        var ceiling = PlanningConstructionPhasePolicies.Resolve(state.Request, PlanningCompactConstruction.SelectPurpose).MaxInputTokens;
+        Assert.True(PlanningRequestMeasurements.Measure(initial, PlanningCompactConstruction.SelectPurpose, ceiling).EstimatedInputTokens > ceiling);
         var preview = PlannerFixture.Clone(state);
         Assert.True(PlanningCompactConstruction.LoadEvidence(preview, "page:requirements:1", out var exact));
         Assert.Equal(requirement.Description, Assert.Single(exact!["items"]!.AsArray())!["original"]!.ToString());

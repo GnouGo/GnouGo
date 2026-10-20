@@ -108,6 +108,8 @@ internal static partial class PlanningCompactConstruction
         // Compact removes presentation annotations from the shared grammar. Put
         // back only the semantics needed by this selected kind and scope.
         projected["description"] = DraftSemantics(state, step);
+        if (fresh && rollback)
+            projected["description"] += " rollbackTask requests host-computed invalidation of an earlier producer and its dependent work; it cannot change accepted requirements or permissions. Explain the concrete defect in rollbackReason. Do not request rollback merely to regenerate the plan.";
         return projected;
 
         JsonObject OperationTask(PlanningCapability capability)

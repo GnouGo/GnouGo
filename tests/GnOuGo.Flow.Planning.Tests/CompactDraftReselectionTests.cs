@@ -11,6 +11,85 @@ public sealed class CompactDraftReselectionTests
     private const string Reason = "The selected value kind cannot format the imported text; the missing prerequisite is an accepted formatted-text producer before the operation can bind its argument.";
 
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task OfferedRollbackInvalidatesOnlyDependentWorkAndRecoversAnUnannotatedRequest(bool retainedRequest)
+    {
+        const string defect = "The retained producer's interface prevents the required consumer binding.";
+        var (state, runtime) = await Ready();
+        state.Plan!.Root.Tasks.Add(new() { Id = "dependent", Kind = "value", Objective = "Retain the producer result.",
+            Outputs = [new("copy", new() { Kind = "output", Source = "accepted", Port = "retained" })] });
+        state.Plan.Root.Tasks.Add(new() { Id = "independent", Kind = "value", Objective = "Preserve unrelated text.",
+            Outputs = [new("unchanged", new() { Kind = "string", Text = "Independent" })] });
+        state.Construction!.Compact!.CurrentStep!.BaseHash = PlanningConstruction.Hash(state.Plan);
+        var independent = JsonSerializer.Serialize(state.Plan.Root.Tasks[^1], PlanningJsonContext.Default.PlanTask);
+        var requirements = JsonSerializer.Serialize(state.Requirements, PlanningJsonContext.Default.PlanningRequirements);
+        var sources = JsonSerializer.Serialize(state.Construction.Compact.Sources, PlanningJsonContext.Default.ListPlanningConstructionSource);
+        var request = PlanningConstruction.DraftRequest(state, repair: false);
+        Assert.NotEqual("null", request.StructuredOutputSchema!["properties"]!["rollbackTask"]!["type"]?.ToString());
+        Assert.Contains("host-computed invalidation", request.StructuredOutputSchema["description"]!.ToString(), StringComparison.Ordinal);
+        string? issued = null;
+        if (retainedRequest)
+        {
+            request.StructuredOutputSchema["description"] = PlanningCompactConstruction.DraftSemantics(state, state.Construction.Compact.CurrentStep);
+            request = PlanningModelCalls.PrepareRequest(state, PlanningConstruction.DraftPurpose, request.Prompt, request.StructuredOutputSchema.AsObject());
+            state.PendingCall = new() { Id = request.ClientRequestId!, Purpose = PlanningConstruction.DraftPurpose,
+                Request = request, CorrectionAccounting = 0 };
+            state.Construction.IssuedBaseHash = PlanningConstruction.Hash(state.Plan);
+            state.ModelCalls++;
+            issued = JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest);
+            state = PlannerFixture.Clone(state);
+        }
+        var calls = state.ModelCalls;
+        var corrections = state.ReplanAttempts;
+        var response = Reselect(request);
+        response["reselectStep"] = null; response["rollbackTask"] = "accepted"; response["rollbackReason"] = defect;
+        runtime.Respond = (actual, _) =>
+        {
+            if (issued is not null) Assert.Equal(issued, JsonSerializer.Serialize(actual, PlanningJsonContext.Default.LLMRequest));
+            else Assert.Contains("host-computed invalidation", actual.StructuredOutputSchema!["description"]!.ToString(), StringComparison.Ordinal);
+            Assert.Empty(PlanningContractValidation.ValidateInstance(response, actual.StructuredOutputSchema!));
+            return new() { Json = response };
+        };
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        Assert.Null(state.PendingCall);
+        Assert.Equal(calls + (retainedRequest ? 0 : 1), state.ModelCalls);
+        Assert.Equal(corrections, state.ReplanAttempts);
+        Assert.Equal(independent, JsonSerializer.Serialize(Assert.Single(state.Plan!.Root.Tasks), PlanningJsonContext.Default.PlanTask));
+        var invalidation = Assert.Single(state.Construction!.Invalidations);
+        Assert.Equal(["accepted", "dependent"], invalidation.Tasks.Select(task => task.Id));
+        Assert.Equal(defect, invalidation.Reason);
+        Assert.Equal(requirements, JsonSerializer.Serialize(state.Requirements, PlanningJsonContext.Default.PlanningRequirements));
+        Assert.Equal(sources, JsonSerializer.Serialize(state.Construction.Compact!.Sources, PlanningJsonContext.Default.ListPlanningConstructionSource));
+        Assert.Null(state.Construction.Compact.CurrentStep);
+    }
+
+    [Fact]
+    public async Task RollbackDescriptionMatchesExistingActionAvailabilityAndLeavesHistoricalSchemasUnchanged()
+    {
+        var (state, _) = await Ready();
+        var historical = PlannerFixture.Clone(state);
+        historical.Request.Options["construction_limits"]!.AsObject().Remove("phasePolicy");
+        historical.Construction!.Limits.PhasePolicy = null;
+        Assert.Equal(PlanningCompactConstruction.DraftSemantics(historical, historical.Construction.Compact!.CurrentStep!),
+            PlanningCompactConstruction.DraftSchema(historical)["description"]!.ToString());
+        foreach (var candidate in new[] { false, true })
+        {
+            var blocked = PlannerFixture.Clone(state);
+            if (candidate) blocked.Construction!.Candidate = new();
+            else blocked.Phase = PlanningPhase.Replanning;
+            var schema = PlanningCompactConstruction.DraftSchema(blocked);
+            Assert.Equal("null", schema["properties"]!["rollbackTask"]!["type"]!.ToString());
+            Assert.Equal("null", schema["properties"]!["rollbackReason"]!["type"]!.ToString());
+            Assert.Equal(PlanningCompactConstruction.DraftSemantics(blocked, blocked.Construction!.Compact!.CurrentStep!), schema["description"]!.ToString());
+            var response = Reselect(PlanningConstruction.DraftRequest(state, repair: false));
+            response["reselectStep"] = null; response["rollbackTask"] = "accepted"; response["rollbackReason"] = Reason;
+            Assert.NotEmpty(PlanningContractValidation.ValidateInstance(response, schema));
+        }
+    }
+
+    [Theory]
     [InlineData(false, "operation")]
     [InlineData(true, "operation")]
     [InlineData(false, "transform")]

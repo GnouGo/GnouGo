@@ -141,6 +141,8 @@ internal static partial class PlanningCompactConstruction
         var replacement = compact.ReplacementScope;
         var outputs = OutputPage(state).Select(o => o.Name).ToArray();
         var requirements = compact.PresentationVersion == 2 ? SelectionRequirementIds(state) : null;
+        var scopes = PlanningConstructionPhasePolicies.IsFresh(state.Request) && replacement is null
+            ? ScopeDirectory(state).Select(scope => scope!["path"]!.ToString()).ToArray() : null;
         var hasClosedGroup = compact.PresentationVersion != 2 || state.Plan?.Groups.Any(group =>
             !state.Construction!.OpenScopes.Contains("/groups/" + group.Id + "/body", StringComparer.Ordinal)) == true;
         var kinds = new[] { "operation", "value", "transform", "sequence", "conditional", "parallel", "foreach", "call", "close", "group", "choice" };
@@ -149,7 +151,8 @@ internal static partial class PlanningCompactConstruction
         var selectedRequirements = replacement is not null && requirements is { Length: > 0 }
             ? PlanningSchemas.Array(PlanningSchemas.Enum(requirements), requirements.Length, requirements.Length)
             : RequirementIds(1);
-        var step = PlanningSchemas.Object(("scope", replacement is null ? Text(192) : PlanningSchemas.Enum(replacement)),
+        var step = PlanningSchemas.Object(("scope", replacement is not null ? PlanningSchemas.Enum(replacement)
+                : scopes is { Length: > 0 } ? PlanningSchemas.Enum(scopes) : Text(192)),
             ("kind", PlanningSchemas.Enum(kinds.Where(kind => kind != "call" || hasClosedGroup).ToArray())),
             ("objective", Text(512)), ("requirementIds", selectedRequirements), ("inputs", PlanningSchemas.Array(PlanningSchemas.Ref("import"), 0, 8)),
             ("groupId", hasClosedGroup ? PlanningSchemas.Nullable(Text(96)) : PlanningSchemas.Type("null")),
@@ -157,7 +160,7 @@ internal static partial class PlanningCompactConstruction
             ("closeRequirementIds", RequirementIds(0)), ("outputNames", outputs.Length == 0
                 ? PlanningSchemas.Array(Text(256), 0, 0) : PlanningSchemas.Array(PlanningSchemas.Enum(outputs), 0, 8)));
         var schema = PlanningSchemas.Object(("baseHash", PlanningSchemas.Enum(PlanningConstruction.Hash(state.Plan))),
-            ("step", requirements is { Length: 0 } ? PlanningSchemas.Type("null") : PlanningSchemas.Nullable(step)),
+            ("step", requirements is { Length: 0 } || scopes is { Length: 0 } ? PlanningSchemas.Type("null") : PlanningSchemas.Nullable(step)),
             ("evidenceRequests", PlanningSchemas.Nullable(PlanningSchemas.Array(Text(2048), 1, 4))),
             ("clarifications", PlanningSchemas.Nullable(PlanningSchemas.Clarifications())));
         schema["$defs"] = new JsonObject { ["import"] = new JsonObject { ["anyOf"] = new JsonArray(
@@ -185,6 +188,9 @@ internal static partial class PlanningCompactConstruction
     {
         var remaining = state.Construction!.Requirements.Where(r => r.Status != "closed").Select(r => r.Id).ToHashSet(StringComparer.Ordinal);
         var selected = state.Requirements!.Outcomes.Where(r => remaining.Contains(r.Id)).Take(1).ToArray();
+        if (selected.Length > 0 && PlanningConstructionPhasePolicies.IsFresh(state.Request))
+            return RequirementPage(state, state.Requirements.Outcomes.FindIndex(r => r.Id == selected[0].Id))
+                .Where(requirement => remaining.Contains(requirement.Id)).ToArray();
         return selected.Length == 0 ? state.Requirements.Outcomes.Take(1).ToArray() : selected;
     }
 
@@ -204,8 +210,8 @@ internal static partial class PlanningCompactConstruction
         var scopeOffset = ScopeOffset(state);
         var outcomes = state.Requirements!.Outcomes;
         var remaining = state.Construction!.Requirements.Where(r => r.Status != "closed").Select(r => r.Id).ToHashSet(StringComparer.Ordinal);
-        // One unresolved original clause anchors the immediate step. Additional
-        // prerequisite clauses are exact evidence pages, never a future outline.
+        // Fresh selection reuses a bounded original page so adjacent constraints
+        // inform the immediate step. Drafts and Judges retain selected clauses only.
         var selected = SelectionAnchor(state);
         var suppliedRequirements = EvidenceRequirementIds(state);
         var lastRequirement = selected.Length == 0 ? -1 : outcomes.FindIndex(r => r.Id == selected[^1].Id);

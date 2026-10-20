@@ -294,7 +294,7 @@ public sealed partial class CompactDiscoveryProtocolTests
         var context = PlanningCompactConstruction.DiscoveryContext(state);
         Assert.Equal(original, context["evidence"]![description]!.ToJsonString());
         Assert.NotNull(context["describedOperations"]);
-        Assert.False(Assert.Single(context["providerRequests"]!["items"]!.AsArray())!["available"]!.GetValue<bool>());
+        Assert.False(Assert.Single(context["providerRequests"]!["items"]!.AsArray())!["canRequestPage"]!.GetValue<bool>());
         Assert.Contains(state.RequestMeasurements!, measurement => measurement.Phase == PlanningCompactConstruction.DiscoveryPurpose &&
             measurement.Admission == "prepared" && measurement.EstimatedInputTokens <= 6000);
         runtime.Respond = (request, _) => Wire(request, Evidence(description));
@@ -357,7 +357,7 @@ public sealed partial class CompactDiscoveryProtocolTests
         Assert.Empty(PlanningContractValidation.ValidateInstance(Discover("alpha", "third"), PlanningCompactConstruction.DiscoverySchema(state)));
         state.Discovery.Pages.Add(new("alpha", "second", [], null, Query: Objective));
         state.Discovery.Pages.Add(new("alpha", "third", [], null, Query: Objective));
-        Assert.False(PlanningCompactConstruction.DiscoveryContext(state)["providerRequests"]!["items"]![0]!["available"]!.GetValue<bool>());
+        Assert.False(PlanningCompactConstruction.DiscoveryContext(state)["providerRequests"]!["items"]![0]!["canRequestPage"]!.GetValue<bool>());
         Assert.Equal("null", PlanningCompactConstruction.DiscoverySchema(state)["properties"]!["discoveryRequests"]!["type"]!.ToString());
     }
 
@@ -831,16 +831,38 @@ public sealed partial class CompactDiscoveryProtocolTests
         Assert.Equal(0, resumed.ReplanAttempts);
     }
 
-    [Fact]
-    public async Task ExhaustedProviderRemainsExplicitAndCannotBeFetchedAgain()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ExhaustedProviderRemainsExplicitAndCannotBeFetchedAgain(bool unavailable)
     {
-        var (state, _) = await Ready();
-        state.Discovery.Pages.Add(new("alpha", null, [], null, UnavailableReason: "The configured provider is unavailable.", Query: Objective));
+        var (state, runtime) = await Ready();
+        if (unavailable)
+            state.Discovery.Pages.Add(new("alpha", null, [], null, UnavailableReason: "The configured provider is unavailable.", Query: Objective));
+        else AddOperations(state, 1);
+        var plan = PlanningConstruction.Hash(state.Plan);
         var context = PlanningCompactConstruction.DiscoveryContext(state);
-        Assert.False(context["providerRequests"]!["items"]![0]!["available"]!.GetValue<bool>());
-        Assert.Equal("The configured provider is unavailable.", context["providerRequests"]!["items"]![0]!["unavailable"]!.ToString());
+        var provider = Assert.Single(context["providerRequests"]!["items"]!.AsArray())!;
+        Assert.False(provider["canRequestPage"]!.GetValue<bool>());
+        Assert.Null(provider["available"]);
+        Assert.Equal(unavailable ? "The configured provider is unavailable." : null, provider["unavailable"]?.ToString());
+        Assert.Equal(unavailable ? 0 : 1, provider["resultCount"]!.GetValue<int>());
         Assert.Equal("null", PlanningCompactConstruction.DiscoverySchema(state)["properties"]!["discoveryRequests"]!["type"]!.ToString());
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(Discover("alpha", null), PlanningCompactConstruction.DiscoverySchema(state)));
         Assert.True(PlanningCompactConstruction.CanReselectDiscovery(state));
+        if (!unavailable)
+        {
+            var address = context["descriptors"]!["items"]![0]!["descriptionEvidence"]!.ToString();
+            runtime.Respond = (request, _) => Wire(request, Evidence(address));
+            state = await Advance(state, runtime);
+            Assert.Empty(state.Diagnostics);
+            Assert.Equal(state.Discovery.Pages[0].Capabilities[0].Operation!.Description,
+                state.Construction!.Evidence![address]!["text"]!.ToString());
+            Assert.Single(state.Discovery.Pages);
+            Assert.Equal(plan, PlanningConstruction.Hash(state.Plan));
+            Assert.Empty(state.Construction.Checkpoints);
+            Assert.Equal(0, state.ReplanAttempts);
+        }
     }
 
     [Theory]
