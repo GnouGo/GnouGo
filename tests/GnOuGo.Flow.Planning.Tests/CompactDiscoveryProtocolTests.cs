@@ -194,12 +194,15 @@ public sealed class CompactDiscoveryProtocolTests
         {
             var source = Context(request)["sources"]![0]!;
             return Wire(request, new() { ["sourceId"] = source["id"]!.ToString(),
-                ["clauses"] = new JsonArray(new JsonObject { ["text"] = "Return exactly Hello. ", ["kind"] = "requirement" },
-                    new JsonObject { ["text"] = "No remote publication.", ["kind"] = "global" }),
-                ["inputs"] = new JsonArray(), ["outputs"] = new JsonArray() });
+                ["clauses"] = new JsonArray(new JsonObject { ["text"] = "Return exactly Hello. ", ["kind"] = "requirement", ["interfaces"] = "none" },
+                    new JsonObject { ["text"] = "No remote publication.", ["kind"] = "global", ["interfaces"] = "none" }) });
         } };
         var state = await Advance(new() { Request = new() { TenantId = "compact-discovery", Prompt = "Return exactly Hello. No remote publication.",
             Options = new JsonObject { ["automatic_correction"] = true } } }, runtime);
+        Assert.Empty(state.Diagnostics);
+        Assert.Equal(2, state.Construction!.Compact!.PresentationVersion);
+        Assert.Empty(state.Construction.Compact.InterfaceExtractions!);
+        Assert.True(PlanningCompactConstruction.SourcesComplete(state));
         state.Request.Policy.Instructions = "Never expand permissions.";
         state.Catalog = await runtime.DiscoverAsync(state.Request, PlannerFixture.Ct); state.Catalog.Capabilities.Clear();
         state.Discovery.Sources = [new("alpha", "Declared metadata for business operations.")];

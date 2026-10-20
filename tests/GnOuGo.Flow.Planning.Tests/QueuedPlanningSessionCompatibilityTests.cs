@@ -41,6 +41,8 @@ public sealed class QueuedPlanningSessionCompatibilityTests
         Assert.Equal(PlanningStatus.FinalReview, state.Status);
         Assert.True(state.Construction!.Complete);
         Assert.Equal(2, state.Construction.Version);
+        Assert.Equal(2, state.Construction.Compact!.PresentationVersion);
+        Assert.Equal("2", state.Request.Options["construction_presentation_version"]!.ToString());
         Assert.Single(state.Construction.Checkpoints);
         Assert.Equal("1", state.Request.Options["planning_diagnostics_version"]!.ToString());
         Assert.Equal("2", state.Request.Options["planning_input_review_version"]!.ToString());
@@ -58,6 +60,8 @@ public sealed class QueuedPlanningSessionCompatibilityTests
         state = await PlannerFixture.RunAsync(IncrementalRuntime(), state);
         Assert.Equal(PlanningStatus.FinalReview, state.Status);
         Assert.True(state.Construction!.Complete);
+        Assert.Equal(2, state.Construction.Compact!.PresentationVersion);
+        Assert.Equal("2", state.Request.Options["construction_presentation_version"]!.ToString());
         Assert.Equal("compact-bindings-v10", state.Request.Options["compilation_profile"]!.ToString());
         Assert.Equal("1", state.Request.Options["planning_input_review_version"]!.ToString());
         Assert.Equal("1", state.Request.Options["business_judge_review_version"]!.ToString());
@@ -73,9 +77,12 @@ public sealed class QueuedPlanningSessionCompatibilityTests
                 ? JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])! : new JsonObject();
             JsonObject response;
             if (purpose == PlanningCompactConstruction.IntentPurpose)
-                response = new() { ["sourceId"] = context["sources"]![0]!["id"]!.DeepClone(),
-                    ["clauses"] = new JsonArray(new JsonObject { ["text"] = context["sources"]![0]!["text"]!.DeepClone(), ["kind"] = "requirement" }),
-                    ["inputs"] = new JsonArray(), ["outputs"] = JsonSerializer.SerializeToNode(runtime.Proposal.Requirements!.Outputs, PlanningJsonContext.Default.ListTaskInput) };
+                response = request.StructuredOutputSchema!["properties"]!["clauses"] is not null
+                    ? new() { ["sourceId"] = context["sources"]![0]!["id"]!.DeepClone(),
+                        ["clauses"] = new JsonArray(new JsonObject { ["text"] = context["sources"]![0]!["text"]!.DeepClone(),
+                            ["kind"] = "requirement", ["interfaces"] = "output" }) }
+                    : new() { ["sourceId"] = request.StructuredOutputSchema["properties"]!["sourceId"]!["enum"]![0]!.DeepClone(),
+                        ["inputs"] = new JsonArray(), ["outputs"] = JsonSerializer.SerializeToNode(runtime.Proposal.Requirements!.Outputs, PlanningJsonContext.Default.ListTaskInput) };
             else if (purpose == PlanningCompactConstruction.SelectPurpose)
                 response = new() { ["baseHash"] = context["baseHash"]!.DeepClone(), ["step"] = new JsonObject
                     { ["scope"] = "/root", ["kind"] = "value", ["objective"] = "Return the greeting.",

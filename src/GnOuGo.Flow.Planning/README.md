@@ -2,6 +2,16 @@
 
 Fresh sessions use [compact incremental construction](../../docs/incremental-taskplan-construction.md): index original intent, select one immediate business substep, discover its capabilities, then generate and review a bounded fragment of one TaskPlan. Phase-specific context and response schemas omit unrelated inspections, task grammar and history. Exact contract views preserve required constraints; the shared compiler validates against unchanged original contracts before encrypted checkpoint acceptance. Completion uses the existing PlanningGraph and compiler v15 path without a final whole-plan LLM Judge. Historical proposal/repair contracts below retain their original meaning for issued sessions.
 
+Fresh presentation protocol 2 separates verbatim source classification from targeted
+caller/public-interface extraction within the existing intent phase. Natural page
+boundaries and explicit continuations preserve complete obligations; pending
+interface work blocks generation. The optional captured profile participates in
+new-session identity; absent historical fields, issued schemas and receipts retain
+their earlier behavior. Nested MCP directories and safe required-sibling views
+avoid unrelated subtrees while preserving original contracts, coupled constraints
+and references. Scoped commitments and escaped-byte Judge descriptions reduce
+presentation size without changing compiler validation or v15 lowering.
+
 Selection keeps one unresolved original requirement as its anchor; additional
 requirement pages supply one exact clause and its next address. Applicable global
 constraints remain present. Bounded task

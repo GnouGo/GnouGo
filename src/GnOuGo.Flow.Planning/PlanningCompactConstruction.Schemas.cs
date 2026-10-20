@@ -70,7 +70,9 @@ internal static partial class PlanningCompactConstruction
             ("requirementIds", step.RequirementIds.Count == 0 ? EmptyArray() :
                 PlanningSchemas.Array(PlanningSchemas.Enum(step.RequirementIds.ToArray()), 0, step.RequirementIds.Count)),
             ("complete", completion));
-        var publicOutputs = state.Requirements?.Outputs?.Select(o => o.Name).ToArray() ?? [];
+        var publicOutputs = State(state).PresentationVersion == 2
+            ? step.OutputNames.ToArray()
+            : state.Requirements?.Outputs?.Select(output => output.Name).ToArray() ?? [];
         var commitments = step.OperationIds.Count == 0 || step.RequirementIds.Count == 0 ? PlanningSchemas.Type("null") :
             PlanningSchemas.Nullable(PlanningSchemas.Array(PlanningSchemas.Object(("requirementId", PlanningSchemas.Enum(step.RequirementIds.ToArray())),
                 ("operation", PlanningSchemas.Enum(step.OperationIds.ToArray())),

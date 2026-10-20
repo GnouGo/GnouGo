@@ -54,6 +54,7 @@ public static class PlanningBenchmarkMeasurements
             throw new InvalidOperationException("Explicit settings differ from the frozen run. Start a separate cohort.");
         if (retained) return;
         request.Options["construction_version"] = 2;
+        request.Options["construction_presentation_version"] = 2;
         request.Options["construction_preset"] = preset ?? request.Options["construction_preset"]?.ToString() ?? PlanningConstructionPresets.Ordinary;
         request.Options["construction_limits"] ??= JsonSerializer.SerializeToNode(new PlanningConstructionOptions(), PlanningJsonContext.Default.PlanningConstructionOptions);
         request.Options["construction_input_limits"] ??= JsonSerializer.SerializeToNode(new PlanningConstructionInputLimits(), PlanningJsonContext.Default.PlanningConstructionInputLimits);
@@ -96,6 +97,7 @@ public static class PlanningBenchmarkMeasurements
             foreach (var key in new[] { "construction_version", "construction_preset", "construction_limits", "llm_budget", "automatic_correction" })
                 result[key] = request.Options[key]?.DeepClone();
             if (request.Options["construction_input_limits"] is { } inputLimits) result["construction_input_limits"] = inputLimits.DeepClone();
+            if (request.Options["construction_presentation_version"] is { } presentation) result["construction_presentation_version"] = presentation.DeepClone();
             result["policy"] = JsonSerializer.SerializeToNode(request.Policy, PlanningJsonContext.Default.PlanningPolicy);
         }
         return result;
@@ -114,6 +116,7 @@ public static class PlanningBenchmarkMeasurements
             foreach (var key in new[] { "construction_version", "construction_preset", "construction_limits", "llm_budget", "automatic_correction" })
                 if (settings[key] is { } value) result.Options[key] = value.DeepClone();
             if (settings["construction_input_limits"] is { } inputLimits) result.Options["construction_input_limits"] = inputLimits.DeepClone();
+            if (settings["construction_presentation_version"] is { } presentation) result.Options["construction_presentation_version"] = presentation.DeepClone();
             result.Policy = settings["policy"]!.Deserialize(PlanningJsonContext.Default.PlanningPolicy)!;
         }
         return result;
@@ -126,7 +129,8 @@ public static class PlanningBenchmarkMeasurements
             state.Request.Options["construction_limits"] is { } limits)
             state.Construction = new() { Version = state.Request.Options["construction_version"]!.GetValue<int>(),
                 Limits = limits.Deserialize(PlanningJsonContext.Default.PlanningConstructionOptions)!,
-                Compact = state.Request.Options["construction_version"]!.GetValue<int>() == 2 ? new PlanningCompactConstructionState() : null };
+                Compact = state.Request.Options["construction_version"]!.GetValue<int>() == 2 ? new PlanningCompactConstructionState
+                    { PresentationVersion = state.Request.Options["construction_presentation_version"]?.GetValue<int>() } : null };
     }
 
     // This report isolates the experimental variable; it intentionally does not
@@ -149,7 +153,7 @@ public static class PlanningBenchmarkMeasurements
         var budgets = new[] { "calls", "repairs", "input_tokens", "output_tokens" };
         var sameBudgets = oldSettings is not null && newSettings is not null && budgets.All(k => JsonNode.DeepEquals(oldSettings[k], newSettings[k]));
         var sameConstruction = oldSettings is not null && newSettings is not null &&
-            new[] { "construction_version", "construction_preset", "construction_limits", "llm_budget", "policy", "automatic_correction" }
+            new[] { "construction_version", "construction_presentation_version", "construction_preset", "construction_limits", "llm_budget", "policy", "automatic_correction" }
                 .All(k => JsonNode.DeepEquals(oldSettings[k], newSettings[k]));
         var isolated = oldSettings is not null && newSettings is not null && JsonNode.DeepEquals(oldSettings["reasoning"], newSettings["reasoning"]) &&
             (variable == "judge" ? sameBudgets && sameConstruction && oldSettings["business_judge"]!.GetValue<bool>() == false && newSettings["business_judge"]!.GetValue<bool>()

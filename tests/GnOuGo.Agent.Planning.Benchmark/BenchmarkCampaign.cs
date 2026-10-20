@@ -9,7 +9,7 @@ using GnOuGo.Flow.Planning;
 using GnOuGo.KeyVault.Core.Services;
 
 /// <summary>Evaluation evidence uses the existing public encrypted record boundary, scoped to one campaign.</summary>
-internal sealed class BenchmarkCampaign(IKeyVaultRecordStore records, string id)
+internal sealed partial class BenchmarkCampaign(IKeyVaultRecordStore records, string id)
 {
     internal const string Author = "GnOuGo.Planning.Benchmark";
     internal string Id { get; } = ValidateId(id);
@@ -304,6 +304,7 @@ internal sealed class BenchmarkCampaign(IKeyVaultRecordStore records, string id)
     internal async Task<JsonObject> RecoverPendingReceiptAsync(string label, long expectedRevision, string requestId,
         long interruptedMilliseconds, string recoverySource, bool apply, CancellationToken ct)
     {
+        await RequireRunNotRetainedAsync(label, ct);
         ArgumentException.ThrowIfNullOrWhiteSpace(recoverySource);
         if (interruptedMilliseconds < 0) throw new ArgumentOutOfRangeException(nameof(interruptedMilliseconds));
         var runKey = "run:" + label;
@@ -387,6 +388,7 @@ internal sealed class BenchmarkCampaign(IKeyVaultRecordStore records, string id)
     internal async Task<LLMResponse> CallAsync(LLMRequest request, Func<CancellationToken, Task> preflight, Func<CancellationToken, Task<LLMResponse>> dispatch, CancellationToken ct, bool allowHttpRecovery = false)
     {
         var key = request.ClientRequestId ?? throw new InvalidOperationException("A reserved request identity is required.");
+        await RequireRunNotRetainedAsync(key.Split(':')[0], ct);
         if (await LoadAsync("planning-evaluation-closures", key, ct) is not null) throw new InvalidOperationException("This request is permanently retained as inconclusive and cannot be dispatched again.");
         if (await LoadAsync("planning-evaluation-receipts", key, ct) is { } receipt)
             return JsonSerializer.Deserialize(receipt, PlanningJsonContext.Default.LLMResponse)!;

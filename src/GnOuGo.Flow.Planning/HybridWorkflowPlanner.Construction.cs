@@ -29,7 +29,11 @@ public sealed partial class HybridWorkflowPlanner
     private static void ReviseConstruction(PlanningSession state, PlanningCommand command)
     {
         var construction = state.Construction!;
-        if (construction.Version == 2 && command.PreserveRequirements != true) construction.Compact = new();
+        if (construction.Version == 2 && command.PreserveRequirements != true) construction.Compact = new()
+        {
+            PresentationVersion = construction.Compact?.PresentationVersion,
+            InterfaceExtractions = construction.Compact?.PresentationVersion == 2 ? [] : null
+        };
         else if (construction.Version == 2 && construction.Compact is { } compactRevision)
         { compactRevision.CurrentStep = null; compactRevision.PendingCommitments.Clear(); }
         construction.Candidate = null; construction.PendingReviewContext = null; construction.PendingReviewHash = null;

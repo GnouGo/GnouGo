@@ -2,11 +2,14 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Planning;
+using GnOuGo.Flow.Planning;
 
 /// <summary>Admission and encrypted evidence only. All retry decisions belong to AI.Core.</summary>
 internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string requestId, long inputCeiling, long outputCeiling, decimal costCeiling,
-    int? sessionAttemptLimit = 8, decimal reviewCostHeadroom = 0, int reviewAttemptHeadroom = 0) : ILLMHttpRetryJournal
+    int? sessionAttemptLimit = 8, decimal reviewCostHeadroom = 0, int reviewAttemptHeadroom = 0,
+    JsonObject? effectiveTransportPolicy = null) : ILLMHttpRetryJournal
 {
+    private readonly JsonObject? _effectiveTransportPolicy = effectiveTransportPolicy?.DeepClone().AsObject();
     internal const string Collection = "planning-evaluation-http-attempts";
     internal static JsonObject UndispatchedUsage() => new()
     {
@@ -27,6 +30,11 @@ internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string re
     private async Task SaveAsync(LLMHttpRetryState state, CancellationToken ct, JsonObject? exchangeQuote)
     {
         var existing = await campaign.LoadAsync(Collection, requestId, ct);
+        if (existing is not null && !JsonNode.DeepEquals(existing["effective_transport_policy"], _effectiveTransportPolicy))
+            throw new InvalidOperationException("An issued effective transport policy cannot change during recovery.");
+        if (existing?["effective_transport_policy"] is JsonObject captured &&
+            existing["effective_transport_policy_hash"]?.ToString() != PlanningGraphCompiler.Fingerprint(captured.ToJsonString()))
+            throw new InvalidOperationException("The captured effective transport policy hash changed.");
         if (sessionAttemptLimit is <= 0 || existing is not null &&
             (existing.ContainsKey("session_attempt_limit") ? existing["session_attempt_limit"]?.GetValue<int>() : 8) != sessionAttemptLimit)
             throw new InvalidOperationException("An issued HTTP attempt limit cannot change during recovery.");
@@ -45,6 +53,11 @@ internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string re
         }
         if (inputCeiling <= 0 || outputCeiling <= 0 || costCeiling < 0) throw new InvalidOperationException("Conservative attempt limits are required.");
         if (existing is null && exchangeQuote is not null) record["exchange_quote"] = exchangeQuote.DeepClone();
+        if (existing is null && _effectiveTransportPolicy is not null)
+        {
+            record["effective_transport_policy"] = _effectiveTransportPolicy.DeepClone();
+            record["effective_transport_policy_hash"] = PlanningGraphCompiler.Fingerprint(_effectiveTransportPolicy.ToJsonString());
+        }
         record["transport"] = JsonSerializer.SerializeToNode(state, LLMHttpRetryJsonContext.Default.LLMHttpRetryState);
         var oldCount = existing?["transport"]?["Attempts"]?.AsArray().Count ?? 0;
         if (state.Attempts.Count > oldCount)

@@ -13,6 +13,7 @@ internal static class SchemaPortabilityCampaign
     {
         var paths = new[] { "tests/Shared/PlanningBenchmarkCases.cs", "tests/Shared/PlanningCorpus.cs", "tests/Shared/PlanningBenchmarkMeasurements.cs",
             "tests/GnOuGo.Agent.Planning.Benchmark/Program.cs", "tests/GnOuGo.Agent.Planning.Benchmark/LocalExecutionCases.cs",
+            "tests/GnOuGo.Agent.Planning.Benchmark/SyntheticArtifactOracle.cs",
             "tests/GnOuGo.Agent.Planning.Benchmark/LiveWorkflowOracles.cs", "tests/GnOuGo.Agent.Planning.Benchmark/KeyVaultBenchmarkModel.cs" };
         var material = new JsonObject { ["files"] = new JsonObject(paths.Select(path => new KeyValuePair<string, JsonNode?>(path,
                 JsonValue.Create(Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(path))))))) };
@@ -60,6 +61,15 @@ internal static class SchemaPortabilityCampaign
         }
         var campaignId = Option(args, "--campaign") ?? throw new ArgumentException("Supply a new --campaign.");
         var campaign = new BenchmarkCampaign(records, campaignId);
+        if (phase == "retain-uncertain-request" && !args.Contains("--apply", StringComparer.Ordinal))
+        {
+            Console.WriteLine((await campaign.InspectPermanentRetentionAsync(
+                Option(args, "--run-collection") ?? Collection,
+                Option(args, "--run-key") ?? throw new ArgumentException("Supply the exact --run-key."),
+                Option(args, "--request-id") ?? throw new ArgumentException("Supply the exact --request-id."),
+                CancellationToken.None)).ToJsonString());
+            return;
+        }
         if (phase == "provider-readiness")
         {
             using var configured = await KeyVaultBenchmarkModel.CreateAsync("OpenAi", Model, campaign, root, CancellationToken.None, pinConfiguration: false);
@@ -198,6 +208,14 @@ internal static class SchemaPortabilityCampaign
         Directory.CreateDirectory(Path.GetDirectoryName(leasePath)!);
         await using var lease = new FileStream(leasePath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
         if (Git("status", "--porcelain").Length != 0) throw new InvalidOperationException("Commit the tested source and harness before paid dispatch.");
+        if (phase == "retain-uncertain-request")
+        {
+            string Required(string name) => Option(args, name) ?? throw new ArgumentException("Supply " + name + ".");
+            Console.WriteLine((await campaign.ApplyPermanentRetentionAsync(Option(args, "--run-collection") ?? Collection,
+                Required("--run-key"), Required("--request-id"), Required("--expected-evidence-hash"),
+                Required("--operator"), Required("--authorization"), CancellationToken.None)).ToJsonString());
+            return;
+        }
         if (phase == "recover-receipt")
         {
             string Required(string option) => Option(args, option) ?? throw new ArgumentException("Supply " + option + ".");
@@ -226,6 +244,8 @@ internal static class SchemaPortabilityCampaign
             Console.WriteLine((await campaign.RetainInconclusiveAsync("run:" + label, CancellationToken.None, liveWorkflow: true)).ToJsonString());
             return;
         }
+        if (phase is "plan" or "revise" or "execute")
+            await campaign.RequireRunNotRetainedAsync(Option(args, "--run") ?? "diagnostic-" + (Option(args, "--case") ?? "amazon") + "-1");
         using var model = await KeyVaultBenchmarkModel.CreateAsync("OpenAi", Model, campaign, root, CancellationToken.None);
         if (phase == "copilot-probe") { await LiveExecutionReadiness.CopilotAsync(args, campaign, model, root); return; }
         if (phase == "mapping") { await MappingLiveEvaluation.RunAsync(args, campaign, model, root); return; }

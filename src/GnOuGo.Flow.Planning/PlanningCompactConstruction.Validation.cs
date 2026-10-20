@@ -32,6 +32,8 @@ internal static partial class PlanningCompactConstruction
         {
             if (!step.RequirementIds.Contains(item.RequirementId, StringComparer.Ordinal) || !step.OperationIds.Contains(item.Operation, StringComparer.Ordinal))
                 PlanningConstruction.Fail("CONSTRUCTION_COMMITMENT_INVALID", "/commitments", "Bind only this step's original requirements and selected exact operations.");
+            if (compact.PresentationVersion == 2 && item.Result is { } result && !step.OutputNames.Contains(result.Output, StringComparer.Ordinal))
+                PlanningConstruction.Fail("CONSTRUCTION_COMMITMENT_INVALID", "/commitments", "A result commitment must name one of this step's explicitly selected public outputs.");
             var obligation = new PlanningCommitment(item.Operation) { Result = item.Result };
             var probe = new PlanningRequirements { Inputs = state.Requirements!.Inputs, Outputs = state.Requirements.Outputs,
                 Outcomes = [new(item.RequirementId, state.Requirements.Outcomes.Single(r => r.Id == item.RequirementId).Description) { Commitments = [obligation] }] };
@@ -148,10 +150,22 @@ internal static partial class PlanningCompactConstruction
     {
         var compact = state.Construction?.Compact;
         if (compact is null || compact.Sources.Count == 0 || compact.CurrentStep is not null || compact.PendingCommitments.Count > 0 ||
+            !CapturedPresentationValid(state) || !IntentDeclarationsComplete(compact) ||
             compact.IndexedAnswers != (state.AnswerHistory?.Count ?? 0) || compact.Sources.Any(s => !s.Indexed || s.Version != PlanningGraphCompiler.Fingerprint(s.Text)) ||
             string.Concat(compact.Sources.Where(s => s.Kind is "page" or "revision_page").Select(s => s.Text)) != state.Request.Prompt) return false;
         foreach (var page in compact.Sources.Where(s => s.Kind is "page" or "answer_page" or "revision_page"))
+        {
             if (string.Concat(compact.Sources.Where(s => s.Id.StartsWith(page.Id + ":clause:", StringComparison.Ordinal)).Select(s => s.Text)) != page.Text) return false;
+            if (page.ContinuationOf is not null && compact.Sources.First(s => s.Id.StartsWith(page.Id + ":clause:", StringComparison.Ordinal)).ContinuationOf !=
+                compact.Sources.LastOrDefault(s => s.Id.StartsWith(page.ContinuationOf + ":clause:", StringComparison.Ordinal))?.Id) return false;
+        }
+        foreach (var continuation in compact.Sources.Where(s => s.Kind is "requirement" or "global" && s.ContinuationOf is not null))
+        {
+            var previous = compact.Sources.SingleOrDefault(s => s.Id == continuation.ContinuationOf);
+            if (previous is null || previous.Kind != continuation.Kind || continuation.Kind == "requirement" &&
+                !compact.RequirementSources.Values.Any(ids => ids.Contains(previous.Id, StringComparer.Ordinal) &&
+                    ids.Contains(continuation.Id, StringComparer.Ordinal))) return false;
+        }
         foreach (var requirement in state.Requirements!.Outcomes)
             if (!compact.RequirementSources.TryGetValue(requirement.Id, out var sources) || sources.Count == 0 ||
                 sources.Any(id => compact.Sources.Count(s => s.Id == id && s.Kind == "requirement") != 1) ||

@@ -157,14 +157,14 @@ public static class PlanningRequestMeasurements
 
     private static string Component(string key, string phase) => key switch
     {
-        "request" => "intent",
+        "request" or "continuation" => "intent",
         "objective" => "objective",
         "instructions" => "instructions",
         "sources" => phase is "construction_intent" or "construction_select" ? "intent" : "mcp_descriptors",
         "requirements" or "answers" or "globalConstraints" or "requirementsPage" => "requirements",
         "operations" or "contracts" => "mcp_contracts",
         "operationDirectory" or "optionalOperationContracts" or "capabilities" or "descriptors" or "providerRequests" => "mcp_descriptors",
-        "interfaces" or "imports" or "scopeInterface" or "group" or "scopeGroup" => "interfaces",
+        "interfaces" or "imports" or "scopeInterface" or "group" or "scopeGroup" or "existingInputs" or "existingOutputs" => "interfaces",
         "draft" or "tasks" or "fragment" or "closures" => "fragment",
         "evidence" => "evidence",
         "diagnostics" => "diagnostics",

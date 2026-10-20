@@ -36,6 +36,7 @@ internal static class LiveWorkflowEvaluation
         var key = "run:" + label;
         var retained = await campaign.LoadAsync(SchemaPortabilityCampaign.Collection, key);
         if (phase == "inspect-run") { Console.WriteLine(retained?.ToJsonString() ?? "No run."); return; }
+        await campaign.RequireRunNotRetainedAsync(label);
         var continuing = phase is "execute" or "revise";
         // Reject conflicting or changed settings before readiness, transport or inference.
         var businessJudge = ResolveBusinessJudge(args, continuing ? retained : null);

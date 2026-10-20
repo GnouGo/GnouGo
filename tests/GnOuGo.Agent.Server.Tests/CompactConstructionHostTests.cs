@@ -45,16 +45,18 @@ public sealed class CompactConstructionHostTests
             }
             finally { await service.StopAsync(Ct); }
         }
-        Assert.Equal(new[] { "construction_intent", "construction_select", "construction_draft", "construction_local_judge" }, model.Phases);
-        Assert.Equal(4, state.ModelCalls);
+        Assert.Equal(new[] { "construction_intent", "construction_intent", "construction_select", "construction_draft", "construction_local_judge" }, model.Phases);
+        Assert.Equal(5, state.ModelCalls);
         Assert.Equal(0, effects);
         Assert.Null(state.ApprovedHash); Assert.Null(state.SavedAgentId);
         Assert.True(state.Construction!.Complete);
+        Assert.Equal(2, state.Construction.Compact!.PresentationVersion);
+        Assert.True(Assert.Single(state.Construction.Compact.InterfaceExtractions!).Complete);
         Assert.Equal("closed", Assert.Single(state.Construction.Requirements).Status);
         Assert.Single(state.Construction.Checkpoints);
         Assert.Null(state.Construction.Candidate);
         PlanningArtifactApproval.Verify(state);
-        Assert.Equal(4, state.RequestMeasurements!.Count);
+        Assert.Equal(5, state.RequestMeasurements!.Count);
         Assert.All(state.RequestMeasurements, m =>
         {
             Assert.True(m.EstimatedInputTokens <= m.InputLimit);
@@ -67,14 +69,14 @@ public sealed class CompactConstructionHostTests
         Assert.Equal(state.ComputeArtifactHash(), stored.ComputeArtifactHash());
         Assert.Null(await fixture.Store.LoadAsync("another-tenant", state.Request.SessionId, Ct));
         var receipts = await fixture.Records.ListAsync(PlanningModelJournal.Collection, "planning-tests", EfPlanningSessionStore.Author, Ct);
-        Assert.Equal(4, receipts.Count);
+        Assert.Equal(5, receipts.Count);
         using var reopened = PlanningSessionLifecycleTests.Create(fixture, new HybridWorkflowPlanner(), catalog, model);
         await reopened.StartAsync(Ct);
         try
         {
             var recovered = (await reopened.GetAsync(state.Request.SessionId, Ct))!;
             Assert.Equal(state.Revision, recovered.Revision);
-            Assert.Equal(4, model.Phases.Count);
+            Assert.Equal(5, model.Phases.Count);
             Assert.Equal(0, effects);
             Assert.Equal(state.ComputeArtifactHash(), recovered.ComputeArtifactHash());
             foreach (var receipt in receipts)
@@ -121,10 +123,19 @@ public sealed class CompactConstructionHostTests
             switch (phase)
             {
                 case "construction_intent":
+                    if (request.StructuredOutputSchema["properties"]?["clauses"] is not null)
+                    {
+                        response = new()
+                        {
+                            ["sourceId"] = Issued(request, "sourceId"),
+                            ["clauses"] = new JsonArray(new JsonObject
+                                { ["text"] = Objective, ["kind"] = "requirement", ["interfaces"] = "output" })
+                        };
+                        break;
+                    }
                     response = new()
                     {
                         ["sourceId"] = Issued(request, "sourceId"),
-                        ["clauses"] = new JsonArray(new JsonObject { ["text"] = Objective, ["kind"] = "requirement" }),
                         ["inputs"] = new JsonArray(),
                         ["outputs"] = new JsonArray(new JsonObject { ["name"] = "message", ["required"] = true,
                             ["type"] = new JsonObject { ["kind"] = "string", ["nullable"] = false } })

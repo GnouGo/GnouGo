@@ -9,6 +9,24 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class CompactRequestMeasurementTests
 {
+    [Theory]
+    [InlineData("continuation", "intent")]
+    [InlineData("existingInputs", "interfaces")]
+    [InlineData("existingOutputs", "interfaces")]
+    public void TargetedIntentEvidenceReconcilesWithinItsExistingComponent(string key, string component)
+    {
+        var context = new JsonObject { [key] = new JsonObject { ["id"] = "source:é", ["text"] = "Original \"declaration\" 🙂" } };
+        var request = new LLMRequest { Prompt = "Index the retained declaration.\n" + PlanningJsonTransport.Prompt(context) };
+        var before = JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest);
+        var measured = PlanningRequestMeasurements.Measure(request, "construction_intent", 3000);
+        var rendered = PlanningJsonTransport.Prompt(context);
+        Assert.Equal(JsonEncodedText.Encode(rendered[1..^1]).EncodedUtf8Bytes.Length,
+            Assert.Single(measured.Components, c => c.Component == component).SerializedBytes);
+        Assert.Equal(measured.CompleteRequestBytes, measured.Components.Sum(c => c.SerializedBytes));
+        Assert.DoesNotContain(measured.Components, c => c.Component == "construction_context");
+        Assert.Equal(before, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+    }
+
     [Fact]
     public void ProviderCursorMetadataCountsAsDescriptorsAndReconcilesExactEnvelope()
     {

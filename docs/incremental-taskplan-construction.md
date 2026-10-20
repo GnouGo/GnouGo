@@ -51,7 +51,17 @@ Closing conditional branches requires compatible exports; parallel siblings
 connect through enclosing exports.
 
 Intent indexing processes stable original request and answer pages without
-discarding source text. Page boundaries also bound the bytes after both JSON escaping layers, preserve Unicode characters, and retain exact continuation offsets. Requirements retain exact source references and applicable
+discarding source text. Page boundaries bound the bytes after both JSON escaping
+layers and preserve Unicode characters. Fresh presentation protocol 2 prefers
+natural text boundaries and links unavoidable continuations; a severed obligation
+cannot become independently complete on either page. Classification retains exact
+verbatim clauses and identifies interface-bearing passages. Only those passages
+receive a subsequent typed-interface extraction request, within the same journaled
+intent phase. Pending extraction blocks generation and completion. Prose-only
+classification carries no recursive type/default grammar. Historical sessions
+without the optional captured presentation version keep combined indexing and
+their saved pages and schemas unchanged.
+Requirements retain exact source references and applicable
 global constraints. All source pages must be processed; a summary is never a
 replacement for authoritative intent. Selecting a substep identifies its original
 requirements, target scope, available input ports, expected outputs, dependencies
@@ -102,6 +112,13 @@ its directory address instead of being repeated beside every operation page.
 Output-port directories preserve original producer business-port mappings, including
 aliases beyond the first page; their addresses are distinct from wire-schema paths.
 Schema evidence retrieves the selected original subtree and its coupled constraints.
+Nested directories expose child-directory addresses, allowing navigation without
+retrieving a large parent subtree. Required-sibling context uses the same
+constraint-preserving projection as other input views, with exact addresses for
+independent optional descendants omitted from presentation. Coupled constraints
+and their reference closure remain indivisible. Judge navigation prose is bounded
+by escaped bytes, and proposed public-result commitments name only outputs selected
+for the current substep under the fresh presentation protocol.
 
 A call substep selects one closed reusable group with `groupId`. Its draft and
 Judge context includes the immutable group hash and exact input/output interface,

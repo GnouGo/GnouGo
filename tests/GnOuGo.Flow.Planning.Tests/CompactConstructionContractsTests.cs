@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Planning.Examples;
@@ -183,6 +184,255 @@ public sealed class CompactConstructionContractsTests
         var evidence = PlanningCompactConstruction.LoadContractEvidence(state, "schema:read@v1:/input/properties/value")!;
         Assert.True(JsonNode.DeepEquals(input["properties"]!["sibling"], evidence["ancestors"]![0]!["requiredSiblings"]!["sibling"]));
         Assert.True(JsonNode.DeepEquals(input["$defs"]!["identity"], evidence["referenceClosure"]!["$defs"]!["identity"]));
+    }
+
+    [Fact]
+    public void NestedDirectoriesReachExactLeavesWithoutLoadingTheirHugeParents()
+    {
+        var state = State();
+        var contract = state.Discovery.Resolved[0];
+        var nested = JsonNode.Parse("""
+            {"type":"object","properties":{"rows":{"type":"array","items":{"type":"object",
+            "properties":{"identity":{"type":"string","pattern":"^original-[0-9]+$"},"unrelated":{"type":"string"}},
+            "required":["identity"],"additionalProperties":false}}},"additionalProperties":false}
+            """)!.AsObject();
+        nested["properties"]!["rows"]!["items"]!["properties"]!["unrelated"]!["description"] = "huge-unused-tree-" + new string('x', 100000);
+        contract.InputSchema["properties"]!["optional"] = nested;
+        contract.OutputSchema["properties"]!["result"] = nested.DeepClone();
+        var original = JsonSerializer.Serialize(contract, PlanningJsonContext.Default.PlanningCapability);
+        var view = Assert.Single(PlanningCompactConstruction.ContractViews(state))!;
+        foreach (var root in new[] { "/input", "/output" })
+        {
+            var address = root == "/input" ? view["inputDirectory"]!.ToString() : view["outputs"]![0]!["directory"]!.ToString();
+            var expected = root + "/properties/" + (root == "/input" ? "optional" : "result");
+            if (root == "/input")
+            {
+                var page = PlanningCompactConstruction.LoadContractEvidence(state, address)!;
+                address = page["items"]!.AsArray().Single(i => i!["pointer"]!.ToString() == expected)!["directory"]!.ToString();
+            }
+            foreach (var suffix in new[] { "/properties/rows", "/items", "/properties/identity" })
+            {
+                expected += suffix;
+                var page = PlanningCompactConstruction.LoadContractEvidence(state, address)!;
+                Assert.DoesNotContain("huge-unused-tree", page.ToJsonString(), StringComparison.Ordinal);
+                Assert.Equal(PlanningGraphCompiler.Fingerprint(original), page["hash"]!.ToString());
+                var item = page["items"]!.AsArray().Single(i => i!["pointer"]!.ToString() == expected)!;
+                if (suffix != "/properties/identity") address = item["directory"]!.ToString();
+                else
+                {
+                    Assert.Null(item["directory"]);
+                    var leaf = PlanningCompactConstruction.LoadContractEvidence(state, item["evidence"]!.ToString())!;
+                    Assert.Equal("^original-[0-9]+$", leaf["schema"]!["pattern"]!.ToString());
+                    Assert.DoesNotContain("huge-unused-tree", leaf.ToJsonString(), StringComparison.Ordinal);
+                }
+            }
+        }
+        Assert.Equal(original, JsonSerializer.Serialize(contract, PlanningJsonContext.Default.PlanningCapability));
+        Assert.DoesNotContain("huge-unused-tree", PlanningCompactConstruction.ContractViews(state).ToJsonString(), StringComparison.Ordinal);
+        Assert.DoesNotContain("schema:read@v1:/input/properties/optional", state.Construction!.Compact!.CurrentStep!.SchemaPointers);
+    }
+
+    [Fact]
+    public void RequiredSiblingViewsKeepRequiredReferenceClosureAndAddressOmittedIndependentBranches()
+    {
+        var state = State();
+        var contract = state.Discovery.Resolved[0];
+        var input = contract.InputSchema;
+        input["properties"]!["sibling"] = JsonNode.Parse("""
+            {"type":"object","properties":{"identity":{"$ref":"#/$defs/identity"},"unused":{"type":"string"}},
+            "required":["identity"],"additionalProperties":false}
+            """);
+        input["properties"]!["sibling"]!["properties"]!["unused"]!["description"] = "unused-sibling-" + new string('x', 100000);
+        input["required"]!.AsArray().Add((JsonNode)JsonValue.Create("sibling")!);
+        input["$defs"] = JsonNode.Parse("""
+            {"identity":{"$ref":"#/$defs/exact"},"exact":{"type":"string","pattern":"^original-[0-9]+$"}}
+            """);
+        var original = JsonSerializer.Serialize(contract, PlanningJsonContext.Default.PlanningCapability);
+        var evidence = PlanningCompactConstruction.LoadContractEvidence(state, "schema:read@v1:/input/properties/value")!;
+        var ancestor = evidence["ancestors"]![0]!;
+        var sibling = ancestor["requiredSiblings"]!["sibling"]!;
+        Assert.Equal("#/$defs/identity", sibling["properties"]!["identity"]!["$ref"]!.ToString());
+        Assert.Null(sibling["properties"]!["unused"]);
+        Assert.False(sibling["additionalProperties"]!.GetValue<bool>());
+        Assert.Equal("^original-[0-9]+$", evidence["referenceClosure"]!["$defs"]!["exact"]!["pattern"]!.ToString());
+        Assert.DoesNotContain("unused-sibling-", evidence.ToJsonString(), StringComparison.Ordinal);
+        Assert.Equal(1, ancestor["omittedOptionalSiblingCount"]!.GetValue<int>());
+        var address = Assert.Single(ancestor["omittedOptionalSiblings"]!.AsArray())!.ToString();
+        Assert.Equal("schema:read@v1:/input/properties/sibling/properties/unused", address);
+        Assert.NotNull(ancestor["directory"]);
+        Assert.Equal(input["properties"]!["sibling"]!["properties"]!["unused"]!["description"]!.ToString(),
+            PlanningCompactConstruction.LoadContractEvidence(state, address)!["schema"]!["description"]!.ToString());
+        Assert.Equal(original, JsonSerializer.Serialize(contract, PlanningJsonContext.Default.PlanningCapability));
+    }
+
+    [Theory]
+    [InlineData("oneOf")]
+    [InlineData("dependentRequired")]
+    public async Task CoupledRequiredSiblingsRemainWholeAndOversizedEvidenceIsRefused(string keyword)
+    {
+        var state = State();
+        var input = state.Discovery.Resolved[0].InputSchema;
+        var sibling = JsonNode.Parse("""
+            {"type":"object","properties":{"identity":{"type":"string"},"optional":{"type":"string"}},
+            "required":["identity"],"additionalProperties":false}
+            """)!.AsObject();
+        sibling["properties"]!["optional"]!["description"] = "coupled-required-" + new string('x', 100000);
+        sibling[keyword] = keyword == "oneOf" ? new JsonArray(new JsonObject { ["required"] = new JsonArray("optional") })
+            : new JsonObject { ["identity"] = new JsonArray("optional") };
+        input["properties"]!["sibling"] = sibling;
+        input["required"]!.AsArray().Add((JsonNode)JsonValue.Create("sibling")!);
+        var evidence = PlanningCompactConstruction.LoadContractEvidence(state, "schema:read@v1:/input/properties/value")!;
+        Assert.True(JsonNode.DeepEquals(sibling, evidence["ancestors"]![0]!["requiredSiblings"]!["sibling"]));
+        state.Construction!.Evidence = new() { ["schema:read@v1:/input/properties/value"] = evidence };
+        state.Construction.Requirements = [new() { Id = "result" }];
+        var request = Complete(PlanningConstruction.DraftRequest(state, repair: false));
+        Assert.True(PlanningRequestMeasurements.Measure(request, PlanningConstruction.DraftPurpose, 8000).EstimatedInputTokens > 8000);
+        state.Construction.Limits.InputLimits = new();
+        state.Request.Options["construction_input_limits"] = JsonSerializer.SerializeToNode(
+            state.Construction.Limits.InputLimits, PlanningJsonContext.Default.PlanningConstructionInputLimits);
+        state.Request.Options["construction_version"] = 2;
+        var runtime = new TestRuntime();
+        var error = await Assert.ThrowsAsync<WorkflowRuntimeException>(() => PlanningModelCalls.CallAsync(state, runtime,
+            PlanningConstruction.DraftPurpose, request.Prompt, request.StructuredOutputSchema!.AsObject(), PlannerFixture.Ct));
+        Assert.Equal("MODEL_INPUT_LIMIT", error.Code);
+        Assert.Empty(runtime.Calls);
+    }
+
+    [Theory]
+    [InlineData("漢")]
+    [InlineData("🙂")]
+    [InlineData("\"\\\n")]
+    public async Task CompleteJudgeRequestsBoundEscapedDescriptionsWithoutLosingEvidence(string symbol)
+    {
+        var state = State();
+        state.Revision = 1;
+        state.Status = PlanningStatus.Generating;
+        state.Construction!.Limits.InputLimits = new();
+        state.Request.Options["construction_input_limits"] = JsonSerializer.SerializeToNode(
+            state.Construction.Limits.InputLimits, PlanningJsonContext.Default.PlanningConstructionInputLimits);
+        state.Request.Options["construction_version"] = 2;
+        var contract = state.Discovery.Resolved[0];
+        var prose = string.Concat(Enumerable.Repeat(symbol, 384));
+        contract.Description = prose;
+        contract.InputSchema["properties"] = new JsonObject();
+        contract.InputSchema["required"] = new JsonArray();
+        var task = new PlanTask { Id = "read_value", Kind = "operation", Operation = "read", Objective = "Read the requested value." };
+        for (var i = 0; i < 8; i++)
+        {
+            var name = "value" + i;
+            contract.InputSchema["properties"]![name] = new JsonObject { ["type"] = "string", ["description"] = prose };
+            contract.InputSchema["required"]!.AsArray().Add((JsonNode)JsonValue.Create(name)!);
+            task.Inputs.Add(new(name, new() { Kind = "string", Text = "exact" }));
+        }
+        PlanningCompactConstruction.InitializeSources(state);
+        foreach (var source in state.Construction.Compact!.Sources) source.Indexed = true;
+        state.Construction.Requirements = [new() { Id = "result" }];
+        state.Construction.Candidate = PlanningConstruction.Apply(state, new() { Tasks = [task], RequirementIds = ["result"] });
+        var runtime = new TestRuntime { Respond = (request, purpose) =>
+        {
+            Assert.Equal(PlanningConstruction.LocalPurpose, purpose);
+            return new() { Json = new JsonObject { ["findings"] = new JsonArray(), ["uncertainty"] = "Runtime outcome remains unverified.", ["evidenceRequests"] = null } };
+        } };
+        var result = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
+        Assert.True(runtime.Calls.Count == 1, string.Join("; ", result.Diagnostics.Select(d => d.Code + ": " + d.Message)) + " " +
+            string.Join("; ", (result.RequestMeasurements ?? []).Select(m => m.EstimatedInputTokens + ": " +
+                string.Join(", ", m.Components.Select(c => c.Component + "=" + c.EstimatedTokens)))));
+        var request = Assert.Single(runtime.Calls);
+        Assert.Equal(2048, request.MaxTokens);
+        var measurement = PlanningRequestMeasurements.Measure(request, PlanningConstruction.LocalPurpose, 4000);
+        TestContext.Current.TestOutputHelper?.WriteLine($"Complete Judge: {measurement.EstimatedInputTokens} estimated input tokens.");
+        Assert.True(measurement.EstimatedInputTokens <= 4000, $"Complete Judge request: {measurement.EstimatedInputTokens} estimated tokens.");
+        var context = JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!;
+        var operation = Assert.Single(context["operations"]!.AsArray())!;
+        Assert.False(operation["descriptionComplete"]!.GetValue<bool>());
+        Assert.All(operation["boundInputs"]!.AsArray(), port => Assert.False(port!["descriptionComplete"]!.GetValue<bool>()));
+        Assert.Equal(8, operation["boundInputs"]!.AsArray().Count);
+        Assert.DoesNotContain(result.Diagnostics, d => d.Code == "MODEL_INPUT_LIMIT");
+        Assert.Equal(prose, PlanningCompactConstruction.LoadContractEvidence(state,
+            operation["boundInputs"]![0]!["schemaEvidence"]!.ToString())!["schema"]!["description"]!.ToString());
+        Assert.Equal(prose, contract.Description);
+    }
+
+    [Fact]
+    public void ResultCommitmentSchemasContainOnlySelectedPublicOutputs()
+    {
+        var state = State();
+        state.Requirements!.Outputs = [new() { Name = "selected", Type = new() { Kind = "string" }, Required = true }];
+        state.Construction!.Compact!.PresentationVersion = 2;
+        state.Construction!.Compact!.CurrentStep!.OutputNames = ["selected"];
+        var schema = PlanningCompactConstruction.DraftSchema(state);
+        var before = schema.ToJsonString();
+        for (var i = 0; i < 1000; i++)
+            state.Requirements.Outputs.Add(new() { Name = "unrelated_" + i, Type = new() { Kind = "string" }, Required = true });
+        Assert.Equal(before, PlanningCompactConstruction.DraftSchema(state).ToJsonString());
+        var response = new JsonObject
+        {
+            ["baseHash"] = state.Construction.Compact.CurrentStep.BaseHash, ["requirements"] = null, ["extension"] = null,
+            ["commitments"] = new JsonArray(new JsonObject { ["requirementId"] = "result", ["operation"] = "read",
+                ["result"] = new JsonObject { ["port"] = "result", ["output"] = "selected" } }),
+            ["discoveryRequests"] = null, ["clarifications"] = null, ["evidenceRequests"] = null,
+            ["rollbackTask"] = null, ["rollbackReason"] = null, ["reselectStep"] = null
+        };
+        Assert.Empty(PlanningContractValidation.ValidateInstance(response, schema));
+        response["commitments"]![0]!["result"]!["output"] = "unrelated_0";
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(response, schema));
+        state.Construction.Compact.CurrentStep.OutputNames.Clear();
+        response["commitments"]![0]!["result"]!["output"] = "selected";
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(response, PlanningCompactConstruction.DraftSchema(state)));
+    }
+
+    [Fact]
+    public void RetainedNextDraftKeepsItsOriginalCommitmentOutputDomain()
+    {
+        var state = State();
+        state.Requirements!.Outputs = new[] { "selected", "unselected" }.Select(name => new TaskInput
+            { Name = name, Type = new() { Kind = "string" } }).ToList();
+        state.Construction!.Compact!.CurrentStep!.OutputNames = ["selected"];
+        state = PlannerFixture.Clone(state);
+        Assert.Null(state.Construction!.Compact!.PresentationVersion);
+        var response = new JsonObject
+        {
+            ["baseHash"] = state.Construction.Compact.CurrentStep!.BaseHash, ["requirements"] = null, ["extension"] = null,
+            ["commitments"] = new JsonArray(new JsonObject { ["requirementId"] = "result", ["operation"] = "read",
+                ["result"] = new JsonObject { ["port"] = "result", ["output"] = "unselected" } }),
+            ["discoveryRequests"] = null, ["clarifications"] = null, ["evidenceRequests"] = null,
+            ["rollbackTask"] = null, ["rollbackReason"] = null, ["reselectStep"] = null
+        };
+        var historical = PlanningCompactConstruction.DraftSchema(state);
+        Assert.Empty(PlanningContractValidation.ValidateInstance(response, historical));
+        state.Construction.Compact.PresentationVersion = 2;
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(response, PlanningCompactConstruction.DraftSchema(state)));
+        Assert.Empty(PlanningContractValidation.ValidateInstance(response, historical));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData(2)]
+    public void SelectedResultCommitmentsAreValidatedAtomicallyOnlyForTheFreshCapturedProfile(int? presentationVersion)
+    {
+        var state = State();
+        state.Requirements!.Outputs = new[] { "selected", "unselected" }.Select(name => new TaskInput
+            { Name = name, Type = new() { Kind = "string" }, Required = true }).ToList();
+        var compact = state.Construction!.Compact!;
+        compact.PresentationVersion = presentationVersion;
+        compact.CurrentStep!.OutputNames = ["selected"];
+        PlanningCompactConstruction.StageCommitments(state,
+            [new() { RequirementId = "result", Operation = "read", Result = new("result", "selected") }]);
+        var unselected = new PlanningConstructionCommitment { RequirementId = "result", Operation = "read", Result = new("result", "unselected") };
+        if (presentationVersion == 2)
+        {
+            var error = Assert.Throws<PlanningResponseException>(() => PlanningCompactConstruction.StageCommitments(state, [unselected]));
+            Assert.Contains(error.Diagnostics, d => d.Code == "CONSTRUCTION_COMMITMENT_INVALID");
+            Assert.Equal("selected", Assert.Single(compact.PendingCommitments["result"]).Result!.Output);
+        }
+        else
+        {
+            PlanningCompactConstruction.StageCommitments(state, [unselected]);
+            Assert.Equal("unselected", Assert.Single(compact.PendingCommitments["result"]).Result!.Output);
+        }
+        Assert.Empty(state.Requirements.Outcomes[0].Commitments ?? []);
+        Assert.Throws<PlanningResponseException>(() => PlanningCompactConstruction.StageCommitments(state,
+            [new() { RequirementId = "result", Operation = "read", Result = new("undeclared", "selected") }]));
     }
 
     [Fact]
@@ -544,7 +794,13 @@ public sealed class CompactConstructionContractsTests
             LLMResponse Wire(JsonObject value) => new()
             { Json = PlanningCorpus.Transport(value, request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject()) };
         } };
-        var state = await PlannerFixture.RunAsync(runtime, new() { Request = new() { TenantId = "closure", Prompt = "Return exactly Hello." } });
+        // This recovery fixture retains its original combined indexing response.
+        var retained = new PlanningSession { Request = new() { TenantId = "closure", Prompt = "Return exactly Hello." } };
+        PlanningSessionCreation.Capture(retained);
+        retained.Request.Options.Remove("construction_presentation_version");
+        retained.Construction!.Compact!.PresentationVersion = null;
+        retained.Construction.Compact.InterfaceExtractions = null;
+        var state = await PlannerFixture.RunAsync(runtime, PlannerFixture.Clone(retained));
         Assert.True(state.Status == PlanningStatus.FinalReview, string.Join(';', state.Diagnostics.Select(d => d.Code + ":" + d.Message)));
         Assert.Equal(3, state.Construction!.Checkpoints.Count);
         var closed = state.Construction.Checkpoints[1];

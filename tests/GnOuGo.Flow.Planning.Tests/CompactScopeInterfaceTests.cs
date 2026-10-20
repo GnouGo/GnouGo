@@ -109,6 +109,8 @@ public sealed class CompactScopeInterfaceTests
         } };
         var state = await PlannerFixture.RunAsync(runtime, Fresh("Return exactly Hello as message."));
         Assert.True(state.Status == PlanningStatus.FinalReview, string.Join(';', state.Diagnostics.Select(d => d.Code + ":" + d.Message)));
+        Assert.Equal(2, state.Construction!.Compact!.PresentationVersion);
+        Assert.True(Assert.Single(state.Construction.Compact.InterfaceExtractions!).Complete);
         Assert.True(reviewed);
     }
 
@@ -144,6 +146,8 @@ public sealed class CompactScopeInterfaceTests
         } };
         var state = await PlannerFixture.RunAsync(runtime, Fresh());
         Assert.True(state.Status == PlanningStatus.FinalReview, string.Join(';', state.Diagnostics.Select(d => d.Code + ":" + d.Message)));
+        Assert.Equal(2, state.Construction!.Compact!.PresentationVersion);
+        Assert.True(Assert.Single(state.Construction.Compact.InterfaceExtractions!).Complete);
         return state;
     }
 
@@ -151,12 +155,23 @@ public sealed class CompactScopeInterfaceTests
     private static JsonObject Context(LLMRequest request) => JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!.AsObject();
     private static LLMResponse Wire(LLMRequest request, JsonObject response) => new() { Json = PlanningCorpus.Transport(response, request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject()) };
     private static JsonObject Reviewed() => new() { ["findings"] = new JsonArray(), ["uncertainty"] = "Execution remains unverified.", ["evidenceRequests"] = null };
-    private static JsonObject Index(LLMRequest request) => new()
+    private static JsonObject Index(LLMRequest request)
     {
-        ["sourceId"] = Context(request)["sources"]![0]!["id"]!.ToString(),
-        ["clauses"] = new JsonArray(new JsonObject { ["text"] = Context(request)["sources"]![0]!["text"]!.ToString(), ["kind"] = "requirement" }),
-        ["inputs"] = new JsonArray(), ["outputs"] = new JsonArray(new JsonObject { ["name"] = "message", ["type"] = new JsonObject { ["kind"] = "string", ["nullable"] = false }, ["required"] = true })
-    };
+        var sourceId = request.StructuredOutputSchema!["properties"]!["sourceId"]!["enum"]![0]!.ToString();
+        return request.StructuredOutputSchema["properties"]!["clauses"] is not null
+            ? new()
+            {
+                ["sourceId"] = sourceId,
+                ["clauses"] = new JsonArray(new JsonObject { ["text"] = Context(request)["sources"]![0]!["text"]!.ToString(),
+                    ["kind"] = "requirement", ["interfaces"] = "output" })
+            }
+            : new()
+            {
+                ["sourceId"] = sourceId, ["inputs"] = new JsonArray(),
+                ["outputs"] = new JsonArray(new JsonObject { ["name"] = "message",
+                    ["type"] = new JsonObject { ["kind"] = "string", ["nullable"] = false }, ["required"] = true })
+            };
+    }
     private static JsonObject Select(LLMRequest request, string kind, string scope, bool complete) => new()
     {
         ["baseHash"] = Context(request)["baseHash"]!.ToString(), ["step"] = new JsonObject { ["scope"] = scope, ["kind"] = kind, ["objective"] = "Preserve the exact greeting through the reusable interface.",

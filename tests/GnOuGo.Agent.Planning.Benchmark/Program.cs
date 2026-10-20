@@ -203,6 +203,9 @@ foreach (var name in names)
 {
     var key = RunKey(phase, name, repetition);
     var run = campaign is null ? null : await campaign.LoadAsync("planning-evaluation-runs", key);
+    if (campaign is not null)
+        await campaign.RequireRunNotRetainedAsync(run?["session"]?["request"]?["sessionId"]?.ToString()
+            ?? PlanningGraphCompiler.Fingerprint(campaignId + ":" + key), CancellationToken.None);
     if (run?["session"] is { } retainedSession)
     {
         var retainedRequest = JsonSerializer.Deserialize(retainedSession, PlanningJsonContext.Default.PlanningSession)!.Request;
@@ -226,7 +229,8 @@ foreach (var name in names)
     }
     if (run?["result"] is JsonObject completed)
     { results.Add(completed); Console.WriteLine(completed.ToJsonString()); if (completed["termination_reason"] is not null) goto Complete; continue; }
-    run ??= new JsonObject { ["diagnostic_history"] = new JsonArray(), ["usage_receipts"] = new JsonObject(), ["usage_complete"] = true,
+    run ??= new JsonObject { ["artifact_oracle_version"] = SyntheticArtifactOracle.Version,
+        ["diagnostic_history"] = new JsonArray(), ["usage_receipts"] = new JsonObject(), ["usage_complete"] = true,
         ["first_pass_valid"] = false, ["final_review"] = false, ["elapsed_ms"] = 0L };
     var state = replay?.State ?? (run["session"] is { } saved ? JsonSerializer.Deserialize(saved, PlanningJsonContext.Default.PlanningSession)! : new PlanningSession
     { Request = new() { TenantId = "benchmark", SessionId = PlanningGraphCompiler.Fingerprint(campaignId + ":" + key), Name = name, Prompt = PlanningBenchmarkCases.Prompt(name),
@@ -262,7 +266,21 @@ foreach (var name in names)
             if (campaign?.StopReason is not null || live && PlanningBenchmarkMeasurements.Usage(run, true)["usage_bounded"]!.GetValue<bool>() == false) break;
         }
         if (state.Status == PlanningStatus.Clarification) state.Diagnostics.Add(new("CLARIFICATION_REQUIRED", "/questions", "The frozen case declares runtime inputs; no evaluation-time answers are supplied."));
-        if (run["final_review"]!.GetValue<bool>() && environment.Effects.Count == 0)
+        var artifactFindings = Array.Empty<string>();
+        if (run["final_review"]!.GetValue<bool>() && run["artifact_oracle_version"] is { } oracleVersion)
+        {
+            if (oracleVersion.ToString() != SyntheticArtifactOracle.Version)
+                throw new InvalidOperationException("Unknown retained synthetic artifact oracle.");
+            artifactFindings = SyntheticArtifactOracle.Validate(name, state.Plan).ToArray();
+            run["artifact_oracle"] = new JsonObject { ["version"] = SyntheticArtifactOracle.Version,
+                ["artifact_hash"] = state.ComputeArtifactHash(),
+                ["passed"] = artifactFindings.Length == 0,
+                ["findings"] = new JsonArray(artifactFindings.Select(f => (JsonNode?)JsonValue.Create(f)).ToArray()) };
+            if (artifactFindings.Length > 0)
+                state.Diagnostics.Add(new("INDEPENDENT_ARTIFACT_MISMATCH", "/plan",
+                    "The artifact fails independent structure or configured runtime checks: " + string.Join(", ", artifactFindings)));
+        }
+        if (run["final_review"]!.GetValue<bool>() && environment.Effects.Count == 0 && artifactFindings.Length == 0)
         {
             DelegatedTestReviewAuthority? delegated = null;
             if (Option("--review-run") == key && Option("--delegated-review") is { } delegatedFile)
@@ -338,7 +356,9 @@ foreach (var name in names)
         ["replay_source_run"] = replayKey, ["live_model_calls"] = replayKey is not null ? 0 : (int?)null,
         ["provider"] = configured?.Provider, ["model"] = configured?.Model, ["first_pass_valid"] = run["first_pass_valid"]!.DeepClone(), ["final_review"] = run["final_review"]!.DeepClone(),
         ["execution_correct"] = execution, ["execution_variants"] = variants, ["safety_violations"] = safety, ["calls"] = state.ModelCalls + PlanningBenchmarkMeasurements.ExtraTransportCalls(run), ["repairs"] = state.ReplanAttempts,
-        ["review_pending"] = state.Status == PlanningStatus.FinalReview, ["logical_planning_calls"] = state.ModelCalls,
+        ["artifact_oracle"] = run["artifact_oracle"]?.DeepClone(),
+        ["review_pending"] = state.Status == PlanningStatus.FinalReview && run["artifact_oracle"]?["passed"]?.GetValue<bool>() != false,
+        ["logical_planning_calls"] = state.ModelCalls,
         ["initial_request_bytes"] = run["initial_request_bytes"]?.DeepClone(), ["initial_estimated_input_tokens"] = run["initial_estimated_input_tokens"]?.DeepClone(),
         ["validation_results"] = state.ValidationResults.Count, ["elapsed_ms"] = run["elapsed_ms"]!.DeepClone(), ["failure"] = failure, ["termination_reason"] = campaign?.StopReason,
         ["diagnostics"] = new JsonArray(state.Diagnostics.Select(d => d.Code).Distinct().Select(d => (JsonNode)JsonValue.Create(d)).ToArray()),

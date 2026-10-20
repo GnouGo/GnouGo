@@ -171,6 +171,9 @@ public sealed class BenchmarkAdmissionTests
             StructuredOutputStrict = true, StructuredOutputSchema = completed.StructuredOutputSchema!.DeepClone() };
         await Assert.ThrowsAsync<IOException>(() => model.CallAsync(pending, Ct));
         var before = await fixture.Campaign.LoadAsync(BenchmarkHttpJournal.Collection, pending.ClientRequestId, Ct);
+        Assert.True(before!["effective_transport_policy"]!["disable_transport_retries"]!.GetValue<bool>());
+        Assert.False(before["effective_transport_policy"]!["allow_http_recovery"]!.GetValue<bool>());
+        Assert.Equal(1, before["effective_transport_policy"]!["effective_retry_policy"]!["MaxAttempts"]!.GetValue<int>());
         var costs = await BenchmarkHttpJournal.AccountingAsync(fixture.Campaign, ct: Ct);
         using var restarted = fixture.Model(rates, provider);
         await Assert.ThrowsAsync<InvalidOperationException>(() => restarted.CallAsync(pending, Ct));
@@ -406,7 +409,8 @@ public sealed class BenchmarkAdmissionTests
             var journal = new BenchmarkHttpJournal(campaign, request.ClientRequestId!, record["input_ceiling"]!.GetValue<long>(),
                 record["output_ceiling"]!.GetValue<long>(), record["cost_ceiling_eur"]!.GetValue<decimal>(), record["session_attempt_limit"]?.GetValue<int>(),
                 record["construction_review_cost_headroom_eur"]?.GetValue<decimal>() ?? 0,
-                record["construction_review_attempt_headroom"]?.GetValue<int>() ?? 0);
+                record["construction_review_attempt_headroom"]?.GetValue<int>() ?? 0,
+                record["effective_transport_policy"]?.AsObject());
             var state = (await journal.LoadAsync(ct))!;
             state.Attempts.Add(new() { Id = "attempt" }); await journal.SaveAsync(state, ct);
             Calls++; AfterDispatch?.Invoke(); if (Failure is not null) throw Failure;

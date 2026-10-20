@@ -132,21 +132,27 @@ internal static partial class PlanningCompactConstruction
 
     private static JsonObject ReviewContractView(PlanningSession state, PlanningCapability capability, PlanningOperation operation, string identity)
     {
+        var operationDescription = BoundedDescription(operation.Description, 384);
         var bindings = state.Construction!.Candidate is { } candidate
             ? TaskPlanRevisions.Tasks(new TaskScope { Tasks = candidate.Extension.Tasks, Always = candidate.Extension.Always })
                 .Where(t => t.Operation == operation.Id).SelectMany(t => t.Inputs).Select(i => i.Name).ToHashSet(StringComparer.Ordinal)
             : [];
+        var boundPorts = operation.Inputs.Where(p => bindings.Contains(p.Name)).ToArray();
+        // These explicitly incomplete descriptions are navigation aids. Keep their
+        // aggregate size bounded even when the fragment binds many exact ports.
+        var portDescriptionLimit = Math.Min(192, 768 / Math.Max(1, boundPorts.Length));
         return new JsonObject
         {
             ["id"] = operation.Id, ["version"] = operation.Version, ["hash"] = ContractHash(capability), ["effect"] = capability.EffectKind,
-            ["description"] = Prefix(operation.Description, 384),
-            ["descriptionComplete"] = operation.Description.Length <= 384,
+            ["description"] = operationDescription,
+            ["descriptionComplete"] = operationDescription.Length == operation.Description.Length,
             ["descriptionEvidence"] = "description:" + identity + ":0",
-            ["boundInputs"] = new JsonArray(operation.Inputs.Where(p => bindings.Contains(p.Name)).Select(p =>
+            ["boundInputs"] = new JsonArray(boundPorts.Select(p =>
             {
                 var description = p.Schema["description"]?.ToString() ?? "";
+                var presented = BoundedDescription(description, portDescriptionLimit);
                 return (JsonNode)new JsonObject { ["name"] = p.Name, ["required"] = p.Required, ["type"] = p.Schema["type"]?.DeepClone(),
-                    ["description"] = Prefix(description, 192), ["descriptionComplete"] = description.Length <= 192,
+                    ["description"] = presented, ["descriptionComplete"] = presented.Length == description.Length,
                     ["schemaEvidence"] = "schema:" + identity + ":" + PortPointer("/input", p.Path) };
             }).ToArray()),
             ["artifacts"] = TaskOperations.ArtifactPorts(capability),
@@ -189,36 +195,37 @@ internal static partial class PlanningCompactConstruction
     // keeps its exact transitive target, never an inferred simplified equivalent.
     internal static JsonObject ProjectInputSchema(JsonObject original, IReadOnlySet<string> selected, List<string> omitted, IReadOnlySet<string>? mandatory = null)
     {
-        var projected = Project(original, "/input");
+        var projected = ProjectSchemaBranch(original, "/input", selected, omitted, mandatory);
         RetainReferencedSchemas(original, projected);
         return projected;
+    }
 
-        JsonObject Project(JsonObject source, string path)
+    private static JsonObject ProjectSchemaBranch(JsonObject source, string path, IReadOnlySet<string> selected,
+        List<string> omitted, IReadOnlySet<string>? mandatory = null)
+    {
+        var result = source.DeepClone().AsObject();
+        result.Remove("$defs"); result.Remove("definitions");
+        if (selected.Contains(path) || HasCoupledConstraints(source))
         {
-            var result = source.DeepClone().AsObject();
-            result.Remove("$defs"); result.Remove("definitions");
-            if (selected.Contains(path) || HasCoupledConstraints(source))
-            {
-                // Copying a complete branch preserves every dependent constraint.
-                return source.DeepClone().AsObject();
-            }
-            if (source["properties"] is JsonObject properties)
-            {
-                var required = (source["required"] as JsonArray ?? []).Select(n => n!.ToString()).ToHashSet(StringComparer.Ordinal);
-                var retained = new JsonObject();
-                foreach (var (name, value) in properties)
-                {
-                    var childPath = path + "/properties/" + PlanningSchemaReferences.Escape(name);
-                    if (required.Contains(name) || selected.Any(p => p == childPath || p.StartsWith(childPath + "/", StringComparison.Ordinal)) ||
-                        mandatory?.Any(p => p == childPath || p.StartsWith(childPath + "/", StringComparison.Ordinal)) == true)
-                        retained[name] = value is JsonObject child ? Project(child, childPath) : value?.DeepClone();
-                    else omitted.Add(childPath);
-                }
-                result["properties"] = retained;
-            }
-            if (source["items"] is JsonObject items) result["items"] = Project(items, path + "/items");
-            return result;
+            // Copying a complete branch preserves every dependent constraint.
+            return source.DeepClone().AsObject();
         }
+        if (source["properties"] is JsonObject properties)
+        {
+            var required = (source["required"] as JsonArray ?? []).Select(n => n!.ToString()).ToHashSet(StringComparer.Ordinal);
+            var retained = new JsonObject();
+            foreach (var (name, value) in properties)
+            {
+                var childPath = path + "/properties/" + PlanningSchemaReferences.Escape(name);
+                if (required.Contains(name) || selected.Any(p => p == childPath || p.StartsWith(childPath + "/", StringComparison.Ordinal)) ||
+                    mandatory?.Any(p => p == childPath || p.StartsWith(childPath + "/", StringComparison.Ordinal)) == true)
+                    retained[name] = value is JsonObject child ? ProjectSchemaBranch(child, childPath, selected, omitted, mandatory) : value?.DeepClone();
+                else omitted.Add(childPath);
+            }
+            result["properties"] = retained;
+        }
+        if (source["items"] is JsonObject items) result["items"] = ProjectSchemaBranch(items, path + "/items", selected, omitted, mandatory);
+        return result;
     }
 
     private static bool HasCoupledConstraints(JsonObject schema) => schema.Any(p => p.Key is
@@ -355,14 +362,12 @@ internal static partial class PlanningCompactConstruction
     }
 
     private static string NavigationDescription(string description)
-        => description[..OriginalPageLength(description, 0, maximumCharacters: 192, maximumEscapedBytes: 192 + 12)];
+        => BoundedDescription(description, 192);
 
-    private static string Prefix(string value, int maximum)
-    {
-        var count = Math.Min(value.Length, maximum);
-        if (count < value.Length && count > 0 && char.IsHighSurrogate(value[count - 1])) count--;
-        return value[..count];
-    }
+    private static string BoundedDescription(string description, int maximum)
+        // Reserve enough space for one fully escaped Unicode scalar; an empty
+        // navigation excerpt is valid when its exact original remains addressable.
+        => maximum < 14 ? "" : description[..OriginalPageLength(description, 0, maximumCharacters: maximum, maximumEscapedBytes: maximum + 12)];
 
     private static JsonObject ExactSchemaView(PlanningCapability capability, string pointer)
     {
@@ -388,13 +393,23 @@ internal static partial class PlanningCompactConstruction
             if (pointer.StartsWith("/input/", StringComparison.Ordinal) && a.Schema["properties"] is JsonObject properties && a.Schema["required"] is JsonArray required)
             {
                 var siblings = new JsonObject();
+                var omitted = new List<string>();
                 foreach (var name in required.Select(n => n!.ToString()))
                 {
                     var siblingPath = a.Path + "/properties/" + PlanningSchemaReferences.Escape(name);
                     if (pointer == siblingPath || pointer.StartsWith(siblingPath + "/", StringComparison.Ordinal) || properties[name] is not JsonObject sibling) continue;
-                    siblings[name] = sibling.DeepClone(); RetainReferencedSchemas(root, closure, sibling);
+                    var projected = ProjectSchemaBranch(sibling, siblingPath, new HashSet<string>(StringComparer.Ordinal), omitted);
+                    siblings[name] = projected; RetainReferencedSchemas(root, closure, projected);
                 }
                 if (siblings.Count > 0) view["requiredSiblings"] = siblings;
+                if (omitted.Count > 0)
+                {
+                    var identity = ContractIdentity(operation.Id, operation.Version);
+                    view["omittedOptionalSiblingCount"] = omitted.Count;
+                    view["omittedOptionalSiblings"] = new JsonArray(omitted.Take(ContractDirectoryPageSize)
+                        .Select(path => (JsonNode?)JsonValue.Create("schema:" + identity + ":" + path)).ToArray());
+                    view["directory"] = "schema-page:" + identity + ":" + a.Path + ":0";
+                }
             }
             return (JsonNode)view;
         }).ToArray());
@@ -402,7 +417,7 @@ internal static partial class PlanningCompactConstruction
         {
             ["id"] = operation.Id, ["version"] = operation.Version, ["hash"] = ContractHash(capability), ["pointer"] = pointer,
             ["schema"] = entry.Schema!.DeepClone(), ["ancestors"] = ancestorViews, ["referenceClosure"] = closure,
-            ["view"] = "Exact selected original and ancestor constraints; references remain relative to the retained original root. Not a replacement contract."
+            ["view"] = "Exact selected original and ancestor constraints with required sibling branches; independent optional sibling descendants are explicitly omitted and addressable. References remain relative to the retained original root. Not a replacement contract."
         };
 
     }
@@ -420,13 +435,18 @@ internal static partial class PlanningCompactConstruction
         return new JsonObject { ["id"] = operation.Id, ["version"] = operation.Version, ["hash"] = ContractHash(capability),
             ["pointer"] = pointer, ["offset"] = offset, ["total"] = children.Count,
             ["items"] = new JsonArray(children.Skip(offset).Take(ContractDirectoryPageSize).Select(e => (JsonNode)new JsonObject
-                { ["pointer"] = e.Path, ["type"] = e.Schema["type"]?.DeepClone(), ["evidence"] = "schema:" + identity + ":" + e.Path }).ToArray()),
+                { ["pointer"] = e.Path, ["type"] = e.Schema["type"]?.DeepClone(), ["evidence"] = "schema:" + identity + ":" + e.Path,
+                    ["directory"] = ChildSchemaDirectory(e.Schema, identity, e.Path) }).ToArray()),
             ["next"] = offset + ContractDirectoryPageSize < children.Count ? "schema-page:" + identity + ":" + pointer + ":" + (offset + ContractDirectoryPageSize).ToString(CultureInfo.InvariantCulture) : null };
     }
 
     private static JsonArray PortDirectory(IEnumerable<OperationPort> ports, string identity, string root) => new(ports.Take(ContractDirectoryPageSize)
         .Select(p => (JsonNode)new JsonObject { ["name"] = p.Name, ["type"] = p.Schema["type"]?.DeepClone(), ["required"] = p.Required,
-            ["schema"] = "schema:" + identity + ":" + PortPointer(root, p.Path) }).ToArray());
+            ["schema"] = "schema:" + identity + ":" + PortPointer(root, p.Path),
+            ["directory"] = ChildSchemaDirectory(p.Schema, identity, PortPointer(root, p.Path)) }).ToArray());
+
+    private static string? ChildSchemaDirectory(JsonObject schema, string identity, string pointer)
+        => PlanningSchemaReferences.Walk(schema, pointer, 0).Skip(1).Any() ? "schema-page:" + identity + ":" + pointer + ":0" : null;
 
     private static JsonObject OperationPortDirectory(PlanningCapability capability, string root, int offset)
     {

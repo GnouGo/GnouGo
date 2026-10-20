@@ -29,6 +29,15 @@ binding session or grounded-plan representation. Local reviews share the existin
 journal and allowances; there is no final whole-plan LLM Judge. Historical proposal
 and optional-review contracts below remain relevant to retained sessions.
 
+The optional fresh `construction_presentation_version: 2` profile separates exact
+clause classification from targeted typed-interface extraction inside the existing
+intent phase. Source continuations preserve obligations across bounded pages;
+pending extraction prevents generation. Nested contract directories, projected
+required-sibling evidence and escaped-byte navigation bounds reduce local context
+while retaining original contracts and hard phase limits. Absent historical
+profiles and already issued requests keep their saved protocol. This changes
+neither the executable representation nor compiler v15.
+
 Task, group and choice declarations share one case-sensitive global namespace. IDs and references allow only nonempty ASCII letters, digits, underscores and hyphens, with `__` reserved. Alternative IDs remain local to their choice; business ports, operation IDs and requirements are outside this namespace. Invalid declarations are never automatically renamed or granted repair permission. Previously saved format-10 plans with invalid declarations must be regenerated; approval verification and recovery fail closed without changing stored records. Malformed consumer references may be corrected only within an existing diagnosed binding scope.
 
 The model response schema expresses literal-only choice alternatives, minimum branch/alternative counts, nonblank objectives/questions, predicate arity, typed array items and existing iteration/concurrency ceilings. Deterministic semantic validation remains authoritative for uniqueness, contracts, visibility and recovered plans. Follow the required [planning skill](../.agents/skills/gnougo-planning/SKILL.md) through [AGENTS.md](../AGENTS.md) for changes to this architecture.

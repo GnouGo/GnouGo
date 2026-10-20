@@ -12,12 +12,22 @@ public sealed partial class HybridWorkflowPlanner
     {
         var construction = state.Construction!;
         if (construction.Compact is null) throw new PlanningConflictException("The captured compact construction state is missing.");
+        if (!PlanningCompactConstruction.CapturedPresentationValid(state))
+            throw new PlanningConflictException("The captured compact presentation protocol is unsupported or inconsistent.");
         state.Status = PlanningStatus.Generating;
         if (construction.Complete) { await CompileAsync(state, runtime, ct); return; }
         PlanningCompactConstruction.InitializeSources(state);
-        if (state.PendingCall is null || state.PendingCall.Purpose == PlanningCompactConstruction.IntentPurpose)
+        var pendingExtraction = construction.Compact.PresentationVersion == 2 &&
+            state.PendingCall?.Purpose == PlanningCompactConstruction.IntentPurpose &&
+            state.PendingCall.Request.StructuredOutputSchema?["properties"]?["clauses"] is null;
+        if (!pendingExtraction && (state.PendingCall is null || state.PendingCall.Purpose == PlanningCompactConstruction.IntentPurpose))
             if (construction.Compact.Sources.FirstOrDefault(s => s.Kind is "page" or "answer_page" or "revision_page" && !s.Indexed) is { } sourcePage)
             { await IndexConstructionIntentAsync(state, runtime, sourcePage, ct); return; }
+        if (construction.Compact.PresentationVersion == 2 &&
+            construction.Compact.InterfaceExtractions?.FirstOrDefault(e => !e.Complete) is { } extraction)
+        { await ExtractConstructionInterfacesAsync(state, runtime, extraction, ct); return; }
+        if (!PlanningCompactConstruction.IntentDeclarationsComplete(construction.Compact))
+            throw new PlanningConflictException("Complete the captured original interface declarations before generation or review.");
         if (construction.Candidate is { } candidate)
         {
             if (candidate.BaseHash != PlanningConstruction.Hash(state.Plan)) throw new PlanningConflictException("The candidate baseline changed.");
@@ -114,6 +124,8 @@ public sealed partial class HybridWorkflowPlanner
     private static async Task IndexConstructionIntentAsync(PlanningSession state, IPlanningRuntime runtime,
         PlanningConstructionSource source, CancellationToken ct)
     {
+        if (PlanningCompactConstruction.State(state).PresentationVersion == 2)
+        { await ClassifyConstructionIntentAsync(state, runtime, source, ct); return; }
         var response = await CompactCallAsync(state, runtime, PlanningCompactConstruction.IntentPurpose, () =>
             PlanningCompactConstruction.Request(PlanningCompactConstruction.IndexInstructions, new JsonObject
             { ["sources"] = new JsonArray(new JsonObject { ["id"] = source.Id, ["version"] = source.Version, ["text"] = source.Text }),
@@ -123,18 +135,7 @@ public sealed partial class HybridWorkflowPlanner
         if (response["sourceId"]!.ToString() != source.Id || string.Concat(clauses.Select(c => c!["text"]!.ToString())) != source.Text)
             PlanningConstruction.Fail("CONSTRUCTION_SOURCE_COVERAGE", "/clauses", "Verbatim clauses must cover the entire exact original source page, in order, without omissions or duplication.");
         var compact = PlanningCompactConstruction.State(state);
-        var requirements = state.Requirements is null ? new PlanningRequirements { Summary = state.Request.Prompt,
-            Inputs = state.Plan is null ? [] : PlanningConstruction.Clone(state.Plan).Inputs, Outputs = [] } :
-            JsonSerializer.Deserialize(JsonSerializer.Serialize(state.Requirements, PlanningJsonContext.Default.PlanningRequirements), PlanningJsonContext.Default.PlanningRequirements)!;
-        var inputs = response["inputs"]!.Deserialize(PlanningJsonContext.Default.ListTaskInput)!;
-        var outputs = response["outputs"]!.Deserialize(PlanningJsonContext.Default.ListTaskInput)!;
-        if (outputs.Any(o => o.Default is not null))
-            PlanningConstruction.Fail("REQUIREMENTS_INVALID", "/outputs", "Public output declarations cannot provide defaults; the workflow must produce the requested result.");
-        AddInterface(requirements.Inputs!, inputs, "/inputs");
-        AddInterface(requirements.Outputs!, outputs, "/outputs");
-        ValidateInterfaces(requirements.Inputs!, "/inputs");
-        // Optional public outputs need no fallback; shared semantic validation still checks their exact types.
-        ValidateInterfaces(requirements.Outputs!.Select(o => new TaskInput { Name = o.Name, Type = o.Type, Required = true, Default = o.Default }).ToList(), "/outputs");
+        var requirements = ReadConstructionInterfaces(state, response, source.Kind);
         if (clauses.Any(c => c!["kind"]!.ToString() == "requirement" && string.IsNullOrWhiteSpace(c["text"]!.ToString())))
             PlanningConstruction.Fail("REQUIREMENTS_INVALID", "/clauses", "Whitespace cannot be a business requirement; preserve it in an adjacent clause or global context.");
         state.Requirements = requirements;
@@ -160,6 +161,22 @@ public sealed partial class HybridWorkflowPlanner
             await ValidateConstructionCandidateAsync(state, runtime, ct);
         }
 
+    }
+
+    private static PlanningRequirements ReadConstructionInterfaces(PlanningSession state, JsonNode response, string sourceKind)
+    {
+        var requirements = CloneConstructionRequirements(state);
+        var inputs = response["inputs"]!.Deserialize(PlanningJsonContext.Default.ListTaskInput)!;
+        var outputs = response["outputs"]!.Deserialize(PlanningJsonContext.Default.ListTaskInput)!;
+        if (outputs.Any(o => o.Default is not null))
+            PlanningConstruction.Fail("REQUIREMENTS_INVALID", "/outputs", "Public output declarations cannot provide defaults; the workflow must produce the requested result.");
+        AddInterface(requirements.Inputs!, inputs, "/inputs");
+        AddInterface(requirements.Outputs!, outputs, "/outputs");
+        ValidateInterfaces(requirements.Inputs!, "/inputs");
+        // Optional public outputs need no fallback; shared semantic validation still checks their exact types.
+        ValidateInterfaces(requirements.Outputs!.Select(o => new TaskInput { Name = o.Name, Type = o.Type, Required = true, Default = o.Default }).ToList(), "/outputs");
+        return requirements;
+
         void AddInterface(List<TaskInput> accepted, List<TaskInput> additions, string path)
         {
             foreach (var input in additions)
@@ -170,7 +187,7 @@ public sealed partial class HybridWorkflowPlanner
                     PlanningConstruction.Fail("REQUIREMENTS_CHANGED", path, "A later source page cannot rewrite an already accepted caller or public interface.");
                 if (previous is null)
                 {
-                    var initialPublicInterface = path == "/outputs" && source.Kind == "page" && state.Construction!.Checkpoints.Count == 0;
+                    var initialPublicInterface = path == "/outputs" && sourceKind == "page" && state.Construction!.Checkpoints.Count == 0;
                     if (state.Plan is not null && !initialPublicInterface)
                         PlanningConstruction.Fail("REQUIREMENTS_CHANGED", path, "Changing an accepted interface requires explicit revision.");
                     accepted.Add(input);

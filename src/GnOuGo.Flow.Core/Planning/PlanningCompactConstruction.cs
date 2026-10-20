@@ -5,6 +5,10 @@ namespace GnOuGo.Flow.Core.Planning;
 /// <summary>Version-two presentation and scheduling metadata; never an executable plan.</summary>
 public sealed class PlanningCompactConstructionState
 {
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public int? PresentationVersion { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public List<PlanningConstructionInterfaceExtraction>? InterfaceExtractions { get; set; }
     public List<PlanningConstructionSource> Sources { get; set; } = [];
     public Dictionary<string, List<string>> RequirementSources { get; set; } = new(StringComparer.Ordinal);
     public List<string> GlobalSourceIds { get; set; } = [];
@@ -30,6 +34,20 @@ public sealed class PlanningConstructionSource
     public string Text { get; set; } = "";
     public string Kind { get; set; } = "page";
     public bool Indexed { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? ContinuationOf { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? InterfaceKind { get; set; }
+}
+
+/// <summary>A bounded original declaration awaiting typed interface extraction, never executable work.</summary>
+public sealed class PlanningConstructionInterfaceExtraction
+{
+    public string Id { get; set; } = "";
+    public List<string> SourceIds { get; set; } = [];
+    public bool Inputs { get; set; }
+    public bool Outputs { get; set; }
+    public bool Complete { get; set; }
 }
 
 /// <summary>One immediate business step and its host-checked selection, not a future workflow outline.</summary>

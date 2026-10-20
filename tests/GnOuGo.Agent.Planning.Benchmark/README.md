@@ -363,6 +363,48 @@ attempts and their full reservations remain unchanged.
 Fresh incremental transport disables retries. A timeout may therefore stop before
 the retained campaign policy's attempt or uncertainty allowance is exhausted;
 that does not grant eligibility for this archival action or permission to replay.
+
+## Authorized permanent retention of an uncertain planning run
+
+The separate `retain-uncertain-request` operator can permanently abandon one
+stopped, unexecuted incremental planning run after explicit authorization. It
+requires the exact pending tool-free request, one unresolved transport attempt,
+matching source/session policies and failure evidence, and the full original
+input/output/cost reservation. Successful HTTP responses, usage receipts,
+approval or execution evidence reject this operation. Historical retry-exhaustion
+eligibility remains unchanged.
+
+First inspect the exact retained identity without initializing a model, MCP
+transport or lease:
+
+```bash
+dotnet run --no-build --project tests/GnOuGo.Agent.Planning.Benchmark -- \
+  --schema-portability retain-uncertain-request --workspace <workspace> --campaign <id> \
+  --run-collection planning-schema-portability --run-key run:<label> \
+  --request-id <exact-pending-request-id>
+```
+
+For a corpus run, use `--run-collection planning-evaluation-runs` and its exact
+`<source>:<phase>:<case>:<repetition>` key. Review the returned evidence hashes
+and accounting, then repeat with `--apply --expected-evidence-hash <hash>
+--operator <identity> --authorization <explicit-authorization>`. Apply requires
+the clean tested checkout and exclusive campaign lease. Evidence changes reject
+the operation; the same already-applied hash and authorization return the existing
+closure without writing again.
+
+Only a separate encrypted closure is appended. Original run, request, transport,
+failure, policies and financial admission remain unchanged. The full unknown
+reservation remains charged against the campaign ceiling; no receipt, usage,
+completion or successful result is fabricated. Exact replay and all planning,
+review or execution continuation of that run are permanently denied. Inspection
+remains available. Independent new identities still require ordinary admission,
+and any other unclosed uncertainty still blocks dispatch.
+
+New dispatches capture their effective request transport policy and hash before
+the first attempt, including incremental single-attempt/no-recovery behavior.
+Those optional fields remain absent on historical records. Historical eligibility
+uses retained incremental-session policy and original source evidence explicitly;
+the operator never rewrites an old policy to claim exhausted retries.
 Preserve the reservation and campaign stop when the existing closure checks fail.
 
 For a stopped live planning run which exhausted all eight session attempts before
@@ -789,6 +831,16 @@ and the actual saved session ID. This route rejects operation tasks and supplies
 no runtime confirmation provider; unexpected effects or confirmation requests
 cannot acquire authority. Independent nominal and alternate input oracles still
 check the exact results. Other corpus cases retain their existing approval path.
+
+Fresh corpus records additionally capture `synthetic-artifact-v1` before planning.
+For isolated local/collections artifacts, this supplementary check rejects external
+operations and interpretation/extraction tasks requiring an unconfigured runtime
+LLM client. Collections also requires result-contributing parallel per-item calls
+to a reusable group; an unused demonstration loop does not satisfy the request.
+The artifact-bound verdict is retained separately from the execution variants and
+does not authorize approval. Historical records without this oracle version retain
+their earlier verdicts. Paired comparisons apply the same frozen supplementary
+check to both revisions alongside the existing independent runtime oracles.
 
 The active local product fixtures contain no cookie-consent work. Historical saved
 artifacts retain their issued vocabulary for compatibility tests; those fixtures offer

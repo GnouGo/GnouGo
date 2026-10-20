@@ -51,13 +51,17 @@ internal static partial class PlanningCompactConstruction
         void AddPages(string prefix, string text)
         {
             // Exact spans are retained and bounded after both JSON escaping layers.
+            string? continuation = null;
             for (var start = 0; start < text.Length;)
             {
-                var count = OriginalPageLength(text, start);
+                var (count, continues) = compact.PresentationVersion == 2
+                    ? CoherentOriginalPageLength(text, start) : (OriginalPageLength(text, start), false);
                 var original = text.Substring(start, count);
-                compact.Sources.Add(new() { Id = prefix + ":" + start, Version = PlanningGraphCompiler.Fingerprint(original), Text = original,
+                var id = prefix + ":" + start;
+                compact.Sources.Add(new() { Id = id, Version = PlanningGraphCompiler.Fingerprint(original), Text = original, ContinuationOf = continuation,
                     Kind = prefix.StartsWith("answer:", StringComparison.Ordinal) ? "answer_page" :
                         prefix.StartsWith("revision:", StringComparison.Ordinal) ? "revision_page" : "page" });
+                continuation = continues ? id : null;
                 start += count;
             }
         }

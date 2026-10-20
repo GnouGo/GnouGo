@@ -193,11 +193,14 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
     }
 
     private async Task<BenchmarkHttpJournal> PrepareAdmissionAsync(string requestId, long input, long output, int? sessionLimit, CancellationToken ct,
-        int reviewCount = 0, long reviewInput = 0, int reviewOutput = 0)
+        int reviewCount = 0, long reviewInput = 0, int reviewOutput = 0, JsonObject? effectiveTransportPolicy = null)
     {
         var existing = await _campaign.LoadAsync(BenchmarkHttpJournal.Collection, requestId, ct);
         if (existing is not null)
         {
+            if (existing["effective_transport_policy"] is { } retainedPolicy &&
+                !JsonNode.DeepEquals(retainedPolicy, effectiveTransportPolicy))
+                throw new InvalidOperationException("The captured effective request transport policy changed.");
             // Never reconstruct an historical admission from today's quote or relax unknown completion.
             if (existing["exchange_quote"] is not JsonObject saved ||
                 !ValidQuote(saved, saved["source_currency"]?.ToString() ?? "", fresh: false))
@@ -205,7 +208,8 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
             return new(_campaign, requestId, existing["input_ceiling"]!.GetValue<long>(), existing["output_ceiling"]!.GetValue<long>(),
                 existing["cost_ceiling_eur"]!.GetValue<decimal>(), sessionLimit,
                 existing["construction_review_cost_headroom_eur"]?.GetValue<decimal>() ?? 0,
-                existing["construction_review_attempt_headroom"]?.GetValue<int>() ?? 0);
+                existing["construction_review_attempt_headroom"]?.GetValue<int>() ?? 0,
+                existing["effective_transport_policy"]?.AsObject());
         }
         var price = AdmissionPrice(input, output);
         var quote = await FreshQuoteAsync(price.Currency, ct);
@@ -216,7 +220,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
             if (reviewPrice.Currency != price.Currency) throw BenchmarkCampaign.AdmissionFailure("review_price_currency_changed");
             reviewHeadroom = checked(reviewCount * ConvertCost(reviewPrice, quote, true));
         }
-        var journal = new BenchmarkHttpJournal(_campaign, requestId, input, output, ConvertCost(price, quote, true), sessionLimit, reviewHeadroom, reviewCount);
+        var journal = new BenchmarkHttpJournal(_campaign, requestId, input, output, ConvertCost(price, quote, true), sessionLimit, reviewHeadroom, reviewCount, effectiveTransportPolicy);
         await journal.PrepareAsync(ct, quote);
         return journal;
     }
@@ -339,6 +343,14 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
         var incremental = policy?["construction_review_headroom"]?.GetValue<int>() > 0;
         var dispatched = CreateDispatchRequest(request, Provider, Model, execution);
         if (singleAttempt || incremental) dispatched.DisableTransportRetries = true;
+        var retryPolicy = _options.ResolveProvider(Provider)!.RetryPolicy.Clone();
+        if (dispatched.DisableTransportRetries) retryPolicy.MaxAttempts = 1;
+        var effectiveTransportPolicy = new JsonObject
+        {
+            ["version"] = 1, ["disable_transport_retries"] = dispatched.DisableTransportRetries,
+            ["allow_http_recovery"] = !incremental,
+            ["effective_retry_policy"] = JsonSerializer.SerializeToNode(retryPolicy, LLMHttpRetryJsonContext.Default.LLMProviderRetryPolicyOptions)
+        };
         BenchmarkHttpJournal? journal = null;
         return await _campaign.CallAsync(request, async token =>
         {
@@ -357,7 +369,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
                 execution ? null : policy?["max_physical_attempts"]?.GetValue<int>() ?? 8, token, reviewCount,
                 3L * (policy?["construction_version"]?.GetValue<int>() == 2 ? Math.Min(policy["max_input_tokens"]!.GetValue<int>(),
                     Math.Min(policy["construction_input_limits"]?["review"]?.GetValue<int>() ?? 4000, 4000)) : policy?["max_input_tokens"]?.GetValue<int>() ?? 0),
-                policy?["construction_review_output_tokens"]?.GetValue<int>() ?? 0);
+                policy?["construction_review_output_tokens"]?.GetValue<int>() ?? 0, effectiveTransportPolicy);
         }, async token =>
         {
             using var context = new LLMHttpRetryContext(request.ClientRequestId!, journal!).Activate();
@@ -423,7 +435,11 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
             var id = run + "-copilot:" + PlanningGraphCompiler.Fingerprint(sdkId);
             var request = new LLMRequest { ClientRequestId = id, Provider = Provider, Model = Model, Prompt = body, MaxTokens = output };
             BenchmarkHttpJournal? journal = null;
-            var response = await _campaign.CallAsync(request, async token => journal = await PrepareAdmissionAsync(id, input, output.Value, null, token), async token =>
+            var transportPolicy = new JsonObject { ["version"] = 1, ["mode"] = "sdk_proxy_single_attempt",
+                ["disable_transport_retries"] = true, ["allow_http_recovery"] = false,
+                ["max_attempts"] = 1, ["timeout_ms"] = (long)_http.Timeout.TotalMilliseconds };
+            var response = await _campaign.CallAsync(request, async token => journal = await PrepareAdmissionAsync(id, input, output.Value, null, token,
+                effectiveTransportPolicy: transportPolicy), async token =>
             {
                 var state = await journal!.LoadAsync(token) ?? new();
                 if (state.Attempts.Count != 0) throw new InvalidOperationException("Unknown SDK inference cannot be dispatched again.");
