@@ -66,6 +66,9 @@ requests group a bounded page's interface-bearing clauses for atomic extraction,
 keeping adjacent naming/type constraints together and business requirements
 separate. The exact issued schema captures grouping behavior for recovery;
 already-created extractions and older issued classifications remain unchanged.
+Fresh extraction schemas require a declaration for each explicitly classified
+interface direction; empty omissions cannot complete extraction, while older
+issued schemas retain their captured cardinality.
 
 ## Substeps, contracts and scoped schemas
 
@@ -104,9 +107,13 @@ argument may still be necessary to fulfill the business request and must be
 retrieved before binding. No unused capacity is filled with unrelated contracts.
 
 Under the captured phase policy, an evidence response may request one to eight
-coherent addresses. The host resolves the whole batch on a clone and checks the
-complete prospective follow-up, including its expanded binding grammar, against
-the hard ceiling before accepting evidence. Oversized separable batches receive a
+coherent addresses. Explicitly requested original views remain available within
+the current decision. The host resolves the union on a clone and checks the complete
+prospective follow-up, including its expanded binding grammar, against the hard
+ceiling before accepting evidence. Provider discovery preserves those originals
+while removing obsolete action directories; changing the candidate clears its
+stale views, retaining hash-bound read history. Existing phase/substep transitions
+clear presentation context. Oversized separable batches receive a
 bounded diagnostic; indispensable indivisible closures fail explicitly. Successful
 individual addresses and batch identities are retained, so regrouping old evidence
 is not progress. Original description rereads require the exact issued knowledge

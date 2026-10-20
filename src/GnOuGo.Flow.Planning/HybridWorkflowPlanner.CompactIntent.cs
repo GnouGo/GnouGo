@@ -88,7 +88,8 @@ public sealed partial class HybridWorkflowPlanner
     {
         var response = await CompactCallAsync(state, runtime, PlanningCompactConstruction.IntentPurpose, () =>
             PlanningCompactConstruction.Request(PlanningCompactConstruction.InterfaceInstructions,
-                PlanningCompactConstruction.InterfaceContext(state, extraction), PlanningCompactConstruction.InterfaceSchema(extraction),
+                PlanningCompactConstruction.InterfaceContext(state, extraction),
+                PlanningCompactConstruction.InterfaceSchema(extraction, PlanningConstructionPhasePolicies.IsFresh(state.Request)),
                 PlanningCompactConstruction.IntentPurpose), ct);
         if (response["sourceId"]!.ToString() != extraction.Id)
             PlanningConstruction.Fail("CONSTRUCTION_SOURCE_COVERAGE", "/sourceId", "Use the exact issued interface declaration source.");

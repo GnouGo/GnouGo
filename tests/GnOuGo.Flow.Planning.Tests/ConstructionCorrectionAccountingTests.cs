@@ -149,6 +149,68 @@ public sealed class ConstructionCorrectionAccountingTests
     }
 
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task RecoveredTypedRepairExpiresOnlyFreshCandidateEvidenceAndKeepsConsumedHistory(bool historical)
+    {
+        var (state, runtime) = await Ready(draft: true);
+        if (historical)
+        {
+            state.Request.Options["construction_limits"]!.AsObject().Remove("phasePolicy");
+            state.Construction!.Limits.PhasePolicy = null;
+        }
+        state.Construction!.Candidate = PlanningConstruction.Apply(state, new()
+        {
+            Scope = "/root", RequirementIds = ["req_0"],
+            Tasks = [new() { Id = "constant", Kind = "value", Objective = "Produce the constant.",
+                Outputs = [new("value", new() { Kind = "number", Number = 1 })] }]
+        });
+        var candidate = state.Construction.Candidate;
+        candidate.Diagnostics = [new("TASK_VALUE_TYPE", "/tasks/constant/outputs/value", "Correct this value.")];
+        state.Diagnostics = candidate.Diagnostics;
+        PlanningConstruction.LoadEvidence(state, ["task:constant"]);
+        var originalEvidence = state.Construction.Evidence!.ToJsonString();
+        var fingerprints = state.Construction.EvidenceRequests.ToArray();
+        var accepted = PlanningConstruction.Hash(state.Plan);
+        var before = candidate.Hash;
+        using var interruption = CancellationTokenSource.CreateLinkedTokenSource(PlannerFixture.Ct);
+        runtime.Respond = (_, _) => { interruption.Cancel(); throw new OperationCanceledException(interruption.Token); };
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => new HybridWorkflowPlanner().AdvanceAsync(state,
+            new() { ExpectedRevision = state.Revision }, runtime, interruption.Token));
+        state = PlannerFixture.Clone(runtime.Checkpoints.Last(checkpoint => checkpoint.PendingCall is not null));
+        var exact = JsonSerializer.Serialize(state.PendingCall!.Request, PlanningJsonContext.Default.LLMRequest);
+        var calls = state.ModelCalls;
+        runtime.Respond = (request, purpose) =>
+        {
+            Assert.Equal("replan", purpose);
+            Assert.Equal(exact, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+            var context = PlanningRepairPatch.RequestContext(request);
+            var slot = context["repair"]!["slots"]!.AsArray().Single(value =>
+                value!["location"]!.ToString() == "/tasks/constant/outputs/value")!;
+            return Wire(request, new()
+            {
+                ["patch"] = new JsonObject { ["edits"] = new JsonArray(new JsonObject
+                {
+                    ["slot"] = slot["id"]!.DeepClone(), ["action"] = "replace",
+                    ["value"] = new JsonObject { ["kind"] = "number", ["number"] = 2 }
+                }) }
+            });
+        };
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        Assert.Equal(calls, state.ModelCalls);
+        Assert.Equal(1, state.ReplanAttempts);
+        Assert.Equal(1, state.Construction!.Candidate!.Corrections);
+        Assert.NotEqual(before, state.Construction.Candidate.Hash);
+        Assert.Equal(accepted, PlanningConstruction.Hash(state.Plan));
+        if (historical) Assert.Equal(originalEvidence, state.Construction.Evidence!.ToJsonString());
+        else Assert.Null(state.Construction.Evidence);
+        Assert.All(fingerprints, fingerprint => Assert.Contains(fingerprint, state.Construction.EvidenceRequests));
+        Assert.Empty(state.Construction.Checkpoints);
+        Assert.Null(state.PendingCall);
+    }
+
+    [Theory]
     [InlineData("schema")]
     [InlineData("json")]
     [InlineData("output_limit")]

@@ -41,8 +41,11 @@ Replacement selections constrain both the requirement domain and its fixed
 cardinality; host validation still rejects duplicate or changed identities.
 Discovery asks for the next metadata action, deferring execution
 arguments. Declared caller inputs are runtime bindings; discovering a consumer
-does not require their concrete values. Fresh evidence actions supply up to eight separate exact addresses; the host admits
-the complete prospective follow-up before accepting the batch.
+does not require their concrete values. Fresh evidence actions supply up to eight
+separate exact addresses. Already requested originals remain available within the
+current decision, including across provider discovery; the host admits the complete
+prospective union before accepting more evidence. Obsolete discovery directories
+and changed-candidate views expire without erasing their consumed identities.
 This framing is an experiment; a small schema does not explain or
 prevent a provider's reasoning-only response. Historical guidance and all issued
 requests remain exact.

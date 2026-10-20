@@ -403,6 +403,9 @@ public sealed partial class HybridWorkflowPlanner
         if (hash == draft.Hash || PlanningConstruction.PreviouslyRejected(state, draft, hash))
             throw new WorkflowRuntimeException("REPLAN_NO_PROGRESS", "The correction repeated a rejected candidate or made no semantic change.");
         draft.Plan = revised; draft.Hash = hash; draft.LocalReviewed = false; draft.IntermediateReviewed = false;
+        // Task/scope evidence describes the previous candidate. Its consumed
+        // fingerprints remain auditable and already include that candidate hash.
+        if (PlanningConstructionPhasePolicies.IsFresh(state.Request)) construction.Evidence = null;
         PlanningConstruction.RefreshCandidate(state);
         construction.PendingReviewContext = null; construction.PendingReviewHash = null;
         await ValidateConstructionCandidateAsync(state, runtime, ct);
@@ -480,6 +483,8 @@ public sealed partial class HybridWorkflowPlanner
                 PlanningConstruction.Fail("DISCOVERY_NO_PROGRESS", "/discoveryRequests", "This metadata page is retained already.");
             await PlanningDiscoveryContext.DiscoverPageAsync(state, runtime, request.SourceId, request.Cursor, ct, query, kind);
         }
+        if (PlanningConstructionPhasePolicies.IsFresh(state.Request))
+            PlanningCompactConstruction.RemoveStaleDiscoveryDirectories(state);
         state.Phase = PlanningPhase.Discovery;
     }
 }

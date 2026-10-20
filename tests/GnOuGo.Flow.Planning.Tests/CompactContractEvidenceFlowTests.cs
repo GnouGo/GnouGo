@@ -24,9 +24,9 @@ public sealed class CompactContractEvidenceFlowTests
         {
             var context = Context(request);
             var view = context["operations"]![0]!;
-            var measurement = PlanningRequestMeasurements.Measure(request, purpose,
-                purpose == PlanningConstruction.LocalPurpose ? 4000 : 8000);
-            Assert.InRange(measurement.EstimatedInputTokens, 1, purpose == PlanningConstruction.LocalPurpose ? 4000 : 8000);
+            var limit = PlanningConstructionPhasePolicies.Resolve(state.Request, purpose).MaxInputTokens;
+            var measurement = PlanningRequestMeasurements.Measure(request, purpose, limit);
+            Assert.InRange(measurement.EstimatedInputTokens, 1, limit);
             if (purpose == phase)
             {
                 drafts++;
@@ -55,13 +55,14 @@ public sealed class CompactContractEvidenceFlowTests
             Assert.Contains("closeRequirementIds claims completion with accepted work", request.Prompt, StringComparison.Ordinal);
             Assert.Contains("outputs are public /root results", request.Prompt, StringComparison.Ordinal);
             Assert.Contains("scopeInterface includes preserved local exports", request.Prompt, StringComparison.Ordinal);
-            var supplied = context["evidence"]?.AsObject().FirstOrDefault(pair => pair.Key.StartsWith("description:", StringComparison.Ordinal));
-            if (supplied?.Value is JsonObject original)
+            var supplied = context["evidence"]?.AsObject().Where(pair => pair.Key.StartsWith("description:", StringComparison.Ordinal))
+                .Select(pair => pair.Value!.AsObject()).OrderBy(page => page["offset"]!.GetValue<int>()).ToArray() ?? [];
+            if (supplied.LastOrDefault() is { } original)
             {
                 Assert.Null(view["description"]);
                 Assert.Null(view["deterministicValidation"]);
                 Assert.Equal("target", Assert.Single(view["boundInputs"]!.AsArray())!["name"]!.ToString());
-                retrievedText += original["text"]!.ToString();
+                retrievedText = string.Concat(supplied.Select(page => page["text"]!.ToString()));
                 return Wire(request, original["next"] is { } next ? Review(next.ToString()) : Review());
             }
             Assert.False(view["descriptionComplete"]!.GetValue<bool>());

@@ -372,6 +372,7 @@ internal static class PlanningRepairPatch
         var response = new JsonObject { ["discoveryRequests"] = null, ["patch"] = JsonSerializer.SerializeToNode(patch, RepairJsonContext.Default.RepairPatch) };
         if (request.StructuredOutputSchema?["properties"]?["clarifications"] is not null) response["clarifications"] = null;
         if (request.StructuredOutputSchema?["properties"]?["evidenceRequests"] is not null) response["evidenceRequests"] = null;
+        if (request.StructuredOutputSchema?["properties"]?["reselectStep"] is not null) response["reselectStep"] = null;
         // Removal actions omit the payload in the wire contract.
         foreach (var edit in response["patch"]!["edits"]!.AsArray())
             if (edit!["action"]?.ToString() is "remove" or "remove_owned" or "remove_forwarder") edit.AsObject().Remove("value");

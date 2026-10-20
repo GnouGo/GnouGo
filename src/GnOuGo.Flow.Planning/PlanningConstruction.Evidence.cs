@@ -58,29 +58,7 @@ internal static partial class PlanningConstruction
                 if (purpose is PlanningCompactConstruction.SelectPurpose or PlanningCompactConstruction.DiscoveryPurpose)
                     probe.Diagnostics.RemoveAll(d => d.Location == "/evidenceRequests" &&
                         d.Code is "CONSTRUCTION_EVIDENCE_UNKNOWN" or "CONSTRUCTION_EVIDENCE_INVALID" or "CONSTRUCTION_EVIDENCE_LIMIT");
-                var request = followup(probe);
-                var limit = PlanningConstructionPhasePolicies.Resolve(probe.Request, purpose).MaxInputTokens;
-                var estimate = ModelRequestAdmission.EstimateTokens(request);
-                var measured = PlanningRequestMeasurements.Measure(request, purpose, limit, probe.Construction!.Compact?.CurrentStep?.Id);
-                if (purpose == IntermediatePurpose) measured.BaselineHash ??= probe.Construction.Candidate?.BaseHash;
-                var measurements = state.RequestMeasurements ??= [];
-                var measurement = measurements.SingleOrDefault(item => item.RequestHash == measured.RequestHash);
-                if (measurement is null) { measurement = measured; measurements.Add(measurement); }
-                if (estimate > limit)
-                {
-                    measurement.Admission = "rejected_before_dispatch";
-                    Fail("CONSTRUCTION_EVIDENCE_LIMIT", "/evidenceRequests",
-                        $"The complete prospective {purpose} request needs {estimate} estimated input tokens; its captured ceiling is {limit}. Request a smaller coherent batch or exact separable view.");
-                }
-                var violations = request.StructuredOutputSchema is { } schema
-                    ? PlanningContractValidation.ValidateSchema(schema, strict: true)
-                    : ["The follow-up must retain its structured response schema."];
-                if (violations.Count != 0)
-                {
-                    measurement.Admission = "rejected_before_dispatch";
-                    Fail("CONSTRUCTION_EVIDENCE_INVALID", "/evidenceRequests",
-                        "The prospective follow-up schema is invalid: " + string.Join("; ", violations));
-                }
+                AdmitEvidenceFollowup(state, followup(probe), purpose);
             }
             var target = state.Construction!; var accepted = probe.Construction!;
             target.Compact = accepted.Compact;
@@ -100,6 +78,32 @@ internal static partial class PlanningConstruction
             construction.Compact = compact;
             construction.TaskCursor = taskCursor; construction.ScopeCursor = scopeCursor; construction.RequirementCursor = requirementCursor;
             throw;
+        }
+    }
+
+    internal static void AdmitEvidenceFollowup(PlanningSession state, LLMRequest request, string purpose)
+    {
+        var limit = PlanningConstructionPhasePolicies.Resolve(state.Request, purpose).MaxInputTokens;
+        var estimate = ModelRequestAdmission.EstimateTokens(request);
+        var measured = PlanningRequestMeasurements.Measure(request, purpose, limit, state.Construction!.Compact?.CurrentStep?.Id);
+        if (purpose == IntermediatePurpose) measured.BaselineHash ??= state.Construction.Candidate?.BaseHash;
+        var measurements = state.RequestMeasurements ??= [];
+        var measurement = measurements.SingleOrDefault(item => item.RequestHash == measured.RequestHash);
+        if (measurement is null) { measurement = measured; measurements.Add(measurement); }
+        if (estimate > limit)
+        {
+            measurement.Admission = "rejected_before_dispatch";
+            Fail("CONSTRUCTION_EVIDENCE_LIMIT", "/evidenceRequests",
+                $"The complete prospective {purpose} request needs {estimate} estimated input tokens; its captured ceiling is {limit}. Request a smaller coherent batch or exact separable view.");
+        }
+        var violations = request.StructuredOutputSchema is { } schema
+            ? PlanningContractValidation.ValidateSchema(schema, strict: true)
+            : ["The follow-up must retain its structured response schema."];
+        if (violations.Count != 0)
+        {
+            measurement.Admission = "rejected_before_dispatch";
+            Fail("CONSTRUCTION_EVIDENCE_INVALID", "/evidenceRequests",
+                "The prospective follow-up schema is invalid: " + string.Join("; ", violations));
         }
     }
 
@@ -129,7 +133,10 @@ internal static partial class PlanningConstruction
             Fail("REPLAN_NO_PROGRESS", "/evidenceRequests",
                 "Regrouping supplied evidence is not progress. An original description reread requires its exact captured knowledge authority.");
         var plan = construction.Candidate?.Plan ?? state.Plan ?? new TaskPlan();
-        var symbols = new TaskPlanSymbols(plan); var result = new JsonObject();
+        var symbols = new TaskPlanSymbols(plan);
+        // Explicitly requested originals remain available for this decision.
+        // Admission checks the whole union on the clone before it is accepted.
+        var result = fresh && construction.Evidence is { } retained ? retained.DeepClone().AsObject() : new JsonObject();
         foreach (var request in requests)
         {
             var split = request.IndexOf(':');

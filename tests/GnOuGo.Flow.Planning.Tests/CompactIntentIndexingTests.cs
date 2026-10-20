@@ -108,7 +108,7 @@ public sealed class CompactIntentIndexingTests
     }
 
     private static readonly string[] DeclarationClauses =
-        ["Process the supplied text without changing it. ", "The caller input is named phrase and is a required string. ", "Preserve punctuation."];
+        ["Return the supplied text unchanged as the public string output named message. ", "The caller input is named phrase and is a required string. ", "Preserve punctuation."];
 
     [Fact]
     public async Task ContiguousInterfaceSpansExcludeActionProseWithoutDroppingItsObligations()
@@ -240,11 +240,13 @@ public sealed class CompactIntentIndexingTests
             Assert.Equal(sourceIds, Context(request)["sources"]!.AsArray().Select(source => source!["id"]!.ToString()));
             return Wire(request, new() { ["sourceId"] = extraction.Id, ["inputs"] = JsonSerializer.SerializeToNode(
                 new List<TaskInput> { new() { Name = "phrase", Type = new() { Kind = "string" } } }, PlanningJsonContext.Default.ListTaskInput),
-                ["outputs"] = new JsonArray() });
+                ["outputs"] = JsonSerializer.SerializeToNode(
+                    new List<TaskInput> { new() { Name = "message", Type = new() { Kind = "string" } } }, PlanningJsonContext.Default.ListTaskInput) });
         } };
         state = await Advance(state, recovery);
+        Assert.Empty(state.Diagnostics);
         Assert.Equal("phrase", Assert.Single(state.Requirements!.Inputs!).Name);
-        Assert.Empty(state.Requirements.Outputs!);
+        Assert.Equal("message", Assert.Single(state.Requirements.Outputs!).Name);
         Assert.True(Assert.Single(state.Construction!.Compact!.InterfaceExtractions!).Complete);
         Assert.True(PlanningCompactConstruction.SourcesComplete(state));
         Assert.Equal(DeclarationClauses, state.Requirements.Outcomes.Select(r => r.Description));

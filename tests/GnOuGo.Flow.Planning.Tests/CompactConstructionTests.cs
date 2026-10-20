@@ -545,7 +545,7 @@ public sealed class CompactConstructionTests
     }
 
     [Fact]
-    public async Task FreshRequirementNavigationContinuesAcrossReplacementBatchesAndRestart()
+    public async Task FreshRequirementNavigationRetainsRequestedBatchesAcrossRestart()
     {
         var state = await IndexedNavigationRequirements();
         for (var offset = 1; offset < state.Requirements!.Outcomes.Count; offset++)
@@ -558,7 +558,8 @@ public sealed class CompactConstructionTests
             state = PlannerFixture.Clone(state);
             Assert.Equal(offset, state.Construction!.Compact!.RequirementOffset);
             Assert.True(state.Construction.Compact.RequirementPageRequested);
-            Assert.Equal(address, Assert.Single(state.Construction.Evidence!).Key);
+            Assert.Equal(Enumerable.Range(1, offset).Select(index => "page:requirements:" + index),
+                state.Construction.Evidence!.Select(pair => pair.Key));
         }
         Assert.Null(PlanningCompactConstruction.SelectionContext(state)["nextRequirements"]);
         PlanningConstruction.LoadEvidence(state, ["page:requirements:0"]);

@@ -334,7 +334,18 @@ public sealed partial class HybridWorkflowPlanner
         if (response["discoveryRequests"] is JsonArray requests)
         {
             await ConstructionDiscoveryAsync(state, runtime, requests.Deserialize(PlanningJsonContext.Default.ListPlanningDiscoveryRequest)!, ct);
-            state.Construction!.Evidence = null;
+            if (PlanningConstructionPhasePolicies.IsFresh(state.Request))
+            {
+                // Provider receipts are retained even if the enlarged follow-up
+                // cannot be admitted. Never reread a provider to retry admission.
+                var purpose = PlanningCompactConstruction.DiscoveryPurpose;
+                var request = PlanningCompactConstruction.Request(PlanningCompactConstruction.DiscoveryGuidance(state),
+                    PlanningCompactConstruction.DiscoveryContext(state), PlanningCompactConstruction.DiscoverySchema(state), purpose);
+                PlanningConstruction.AdmitEvidenceFollowup(state,
+                    PlanningModelCalls.PrepareRequest(state, purpose, request.Prompt, request.StructuredOutputSchema!.AsObject(),
+                        state.Construction!.Limits.DraftOutputTokens), purpose);
+            }
+            else state.Construction!.Evidence = null;
             if (PlanningCompactConstruction.State(state).PresentationVersion != 2) state.Construction.EvidenceRequests.Clear();
             return true;
         }

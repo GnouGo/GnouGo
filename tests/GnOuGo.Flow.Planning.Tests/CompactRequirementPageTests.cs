@@ -7,6 +7,67 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class CompactRequirementPageTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SeparatePagesRemainTogetherUntilStepSelectionIncludingExactRecovery(bool interrupted)
+    {
+        var clauses = Enumerable.Range(0, 12).Select(index => $"Preserve original value {index}. ").ToArray();
+        var (state, runtime) = await Ready(clauses);
+        var originals = Originals(state);
+        var baseline = PlanningConstruction.Hash(state.Plan);
+        runtime.Respond = (request, _) => new() { Json = Evidence(state, "page:requirements:1") };
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        var first = state.Construction!.Evidence!["page:requirements:1"]!.ToJsonString();
+        var next = state.Construction.Evidence["page:requirements:1"]!["next"]!.ToString();
+        var calls = state.ModelCalls;
+        string? issued = null;
+        if (interrupted)
+        {
+            using var interruption = CancellationTokenSource.CreateLinkedTokenSource(PlannerFixture.Ct);
+            runtime.Respond = (_, _) => { interruption.Cancel(); throw new OperationCanceledException(interruption.Token); };
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => new HybridWorkflowPlanner().AdvanceAsync(state,
+                new() { ExpectedRevision = state.Revision }, runtime, interruption.Token));
+            state = PlannerFixture.Clone(runtime.Checkpoints.Last(checkpoint => checkpoint.PendingCall is not null));
+            issued = JsonSerializer.Serialize(state.PendingCall!.Request, PlanningJsonContext.Default.LLMRequest);
+            Assert.Equal(calls + 1, state.ModelCalls);
+        }
+        runtime.Respond = (request, _) =>
+        {
+            if (issued is not null) Assert.Equal(issued, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+            return new() { Json = Evidence(state, next) };
+        };
+        state = await Advance(PlannerFixture.Clone(state), runtime);
+        Assert.Empty(state.Diagnostics);
+        Assert.Equal(calls + 1, state.ModelCalls);
+        Assert.Equal(first, state.Construction!.Evidence!["page:requirements:1"]!.ToJsonString());
+        Assert.Equal(2, state.Construction.Evidence.Count);
+        var allIds = state.Requirements!.Outcomes.Select(requirement => requirement.Id).ToArray();
+        var ids = new[] { "req_1", "req_10" };
+        var beforeRepeat = Snapshot(state);
+        var repeated = Assert.Throws<PlanningResponseException>(() => PlanningConstruction.LoadEvidence(state, [next],
+            followup: Followup, purpose: PlanningCompactConstruction.SelectPurpose));
+        Assert.Contains(repeated.Diagnostics, finding => finding.Code == "REPLAN_NO_PROGRESS");
+        Assert.Equal(beforeRepeat, Snapshot(state));
+        runtime.Respond = (request, _) =>
+        {
+            Assert.Equal(2, Context(request)["evidence"]!.AsObject().Count);
+            Assert.All(allIds, id => Assert.Empty(PlanningContractValidation.ValidateInstance(Selection(state, id), request.StructuredOutputSchema!)));
+            Assert.Empty(PlanningContractValidation.ValidateInstance(Selection(state, ids), request.StructuredOutputSchema!));
+            Assert.InRange(PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.SelectPurpose, 6000).EstimatedInputTokens, 1, 6000);
+            return new() { Json = Selection(state, ids) };
+        };
+        state = await Advance(PlannerFixture.Clone(state), runtime);
+        Assert.Empty(state.Diagnostics);
+        Assert.Equal(ids, state.Construction!.Compact!.CurrentStep!.RequirementIds);
+        Assert.Null(state.Construction.Evidence);
+        Assert.Empty(state.Construction.EvidenceRequests);
+        Assert.Equal(0, state.ReplanAttempts);
+        Assert.Equal(originals, Originals(state));
+        Assert.Equal(baseline, PlanningConstruction.Hash(state.Plan));
+    }
+
     [Fact]
     public async Task OneEvidenceReadKeepsSiblingObligationsSelectableTogether()
     {

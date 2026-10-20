@@ -73,13 +73,15 @@ internal static partial class PlanningCompactConstruction
         return schema;
     }
 
-    internal static JsonObject InterfaceSchema(PlanningConstructionInterfaceExtraction extraction)
+    internal static JsonObject InterfaceSchema(PlanningConstructionInterfaceExtraction extraction, bool requireDeclared = false)
     {
         var schema = IntentSchema(new() { Id = extraction.Id });
         schema["properties"]!.AsObject().Remove("clauses");
         schema["required"] = new JsonArray("sourceId", "inputs", "outputs");
         if (!extraction.Inputs) schema["properties"]!["inputs"] = PlanningSchemas.Array(Text(1), 0, 0);
+        else if (requireDeclared) schema["properties"]!["inputs"]!["minItems"] = 1;
         if (!extraction.Outputs) schema["properties"]!["outputs"] = PlanningSchemas.Array(Text(1), 0, 0);
+        else if (requireDeclared) schema["properties"]!["outputs"]!["minItems"] = 1;
         if (!extraction.Inputs)
             schema["$defs"]!["type"]!["anyOf"]![3]!["properties"]!["fields"]!["items"] = PlanningSchemas.Ref("output");
         // Bound guidance remains in InterfaceInstructions. Factoring may replace

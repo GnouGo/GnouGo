@@ -7,6 +7,34 @@ measurements.
 
 ## Latest retained diagnostics
 
+Source `663cf727204cc0786c26783f94cb1047903bbede` kept the same medium profile and
+output reservations. The three new runs stopped before generation or execution.
+
+| Scenario | Calls / corrections | Time | Cost | Observed blocker |
+| --- | ---: | ---: | ---: | --- |
+| Amazon | 14 / 1 | 258.686 s | €0.321319 | Provider discovery discarded requested descriptions; the next call repeated their batch |
+| Collections | 2 / 0 | 123.300 s | €0.236906 | Interface extraction exhausted 8,192 reasoning tokens without visible output |
+| Review PR | 7 / 0 | 59.057 s | €0.130863 | Fetching another requirement page discarded clauses needed for selection |
+
+All 23 calls have known receipts; the total cost was **€0.6890873544832489114014040699**.
+There were no checkpoints, effects, new uncertain calls or input-limit rejections.
+Complete-request components reconcile. The highest input estimate was 4,443 tokens
+for discovery. [Safe phase measurements](compact-taskplan-663cf72.json) retain
+request-size distributions, component totals, provider usage and evidence hashes.
+
+Amazon passed the preceding requirement-page blocker, but both external scenarios
+exposed the same remaining defect: explicitly requested context was replaced between
+calls. The next correction retains that evidence within its current step and existing
+complete-request admission. It does not weaken repetition detection.
+
+Collections' extraction schema and instructions matched the preceding successful
+transport response; only source segmentation differed. That earlier receipt omitted
+the explicitly declared public result. Requiring a declaration in each classified
+interface direction addresses the omission; it does not explain or prove a fix for
+reasoning exhaustion. No unchanged failed request was retried.
+
+## Preceding three-scenario diagnostics
+
 Source `1984bdcc81e6434c82170885bcd0ef5578a51a90` used the frozen medium profile,
 3k/8k/4k input targets, 6k/16k/8k ceilings and 8,192/8,192/2,048 output reservations.
 All three runs stopped before execution; all 30 requests have known receipts.
@@ -91,14 +119,14 @@ Read-only inspection of encrypted campaign
 | Ledger measurement | EUR |
 | --- | ---: |
 | Campaign ceiling | 240.0301038327063045424449473 |
-| Known spending | 16.281222785035101750644272640 |
+| Known spending | 16.970310139518350662045676708 |
 | Retained unknown-usage reservations | 0.4953212476672887230071980805 |
-| Spending/reservation upper bound | 16.776544032702390473651470720 |
-| Available allowance | 223.253559800003914068793476580 |
+| Spending/reservation upper bound | 17.465631387185639385052874788 |
+| Available allowance | 222.564472445520665157392072512 |
 
 Evidence hash:
-`a862ffea99ba66272f31960aae64548b8f94302d05e45239bfd7b11e3daed532`.
-There are 627 reserved request identities and 624 receipts. Three receiptless
+`3982652cdcd16aa39503b52337b4cc629c2b25b1767f06965eefc55e3462d614`.
+There are 650 reserved request identities and 647 receipts. Three receiptless
 identities are permanently retained; two have unknown-usage reservations. They
 remain non-replayable and their abandoned runs cannot continue. Separate lost
 historical exposure of €159.96989616729369545755505266 remains accounted for

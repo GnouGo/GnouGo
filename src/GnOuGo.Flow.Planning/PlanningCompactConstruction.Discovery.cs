@@ -61,13 +61,30 @@ internal static partial class PlanningCompactConstruction
         };
     }
 
-    private static JsonObject? ProviderEvidencePage(PlanningSession state)
+    private static JsonObject? ProviderEvidencePage(PlanningSession state) => ProviderEvidencePages(state).FirstOrDefault();
+
+    private static IEnumerable<JsonObject> ProviderEvidencePages(PlanningSession state)
     {
         foreach (var (address, value) in state.Construction!.Evidence ?? new JsonObject())
             if (address.StartsWith("page:provider-requests:", StringComparison.Ordinal) && value is JsonObject page &&
                 page["offset"] is JsonValue position && position.TryGetValue<int>(out var offset) && offset >= 0 &&
-                address == ProviderRequestAddress(state, offset) && JsonNode.DeepEquals(page, ProviderRequestPage(state, offset))) return page;
-        return null;
+                address == ProviderRequestAddress(state, offset) && JsonNode.DeepEquals(page, ProviderRequestPage(state, offset))) yield return page;
+    }
+
+    internal static void RemoveStaleDiscoveryDirectories(PlanningSession state)
+    {
+        if (state.Construction!.Evidence is not { } evidence) return;
+        foreach (var (address, value) in evidence.ToArray())
+        {
+            if (!address.StartsWith("page:provider-requests:", StringComparison.Ordinal) &&
+                !address.StartsWith("page:operations:", StringComparison.Ordinal)) continue;
+            JsonNode? current;
+            try { LoadEvidence(state, address, out current); }
+            catch (PlanningResponseException) { current = null; }
+            // Only current action directories expire. Original requested prose,
+            // schemas and requirements, and every consumed identity, are retained.
+            if (!JsonNode.DeepEquals(value, current)) evidence.Remove(address);
+        }
     }
 
     private static JsonObject? PresentedProviderRequests(PlanningSession state)
@@ -241,7 +258,9 @@ internal static partial class PlanningCompactConstruction
         return null;
     }
 
-    private static JsonObject? DescribedProviderRequests(PlanningSession state)
+    private static JsonObject? DescribedProviderRequests(PlanningSession state) => DescribedProviderRequestPages(state).FirstOrDefault();
+
+    private static IEnumerable<JsonObject> DescribedProviderRequestPages(PlanningSession state)
     {
         foreach (var (address, value) in state.Construction!.Evidence ?? new JsonObject())
         {
@@ -257,7 +276,7 @@ internal static partial class PlanningCompactConstruction
             var selected = options.Skip(offset).TakeWhile(option => option.SourceId == sourceId).ToArray();
             // The exact description remains the sole evidence view. Retain only
             // its current actionable identities, not another directory's prose.
-            return new JsonObject
+            yield return new JsonObject
             {
                 ["version"] = ProviderRequestVersion(state), ["sourceId"] = sourceId, ["total"] = selected.Length,
                 ["items"] = new JsonArray(selected.Take(2).Select(option => (JsonNode)new JsonObject
@@ -268,13 +287,20 @@ internal static partial class PlanningCompactConstruction
                 ["next"] = selected.Length > 2 ? ProviderRequestAddress(state, offset + 2) : null
             };
         }
-        return null;
     }
 
     private static JsonObject CompactDiscoverySchema(PlanningSession state)
     {
         var requests = PresentedProviderRequests(state)?["items"]?.AsArray() ?? [];
-        var available = requests.Where(request => request!["available"]!.GetValue<bool>()).ToArray();
+        IEnumerable<JsonNode?> visible = requests;
+        if (PlanningConstructionPhasePolicies.IsFresh(state.Request))
+        {
+            var supplied = ProviderEvidencePages(state).Concat(DescribedProviderRequestPages(state))
+                .SelectMany(page => page["items"]!.AsArray())
+                .DistinctBy(item => (item!["sourceId"]!.ToString(), item["cursor"]?.ToString())).ToArray();
+            if (supplied.Length > 0) visible = supplied;
+        }
+        var available = visible.Where(request => request!["available"]!.GetValue<bool>()).ToArray();
         // Factor only identical cursor branches. The accepted source/cursor pairs
         // stay exact; grouping every source with every cursor would widen authority.
         var choices = State(state).PresentationVersion == 2

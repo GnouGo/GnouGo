@@ -200,11 +200,34 @@ public sealed class SimplifiedConstructionEvidenceTests
         state.Request.Options["construction_limits"]!.AsObject().Remove("phasePolicy");
         PlanningConstruction.LoadEvidence(state, [Address("first")]);
         PlanningConstruction.LoadEvidence(state, [Address("second")]);
+        Assert.Equal(Address("second"), Assert.Single(state.Construction!.Evidence!).Key);
         PlanningConstruction.LoadEvidence(state, [Address("first"), Address("second")],
             followup: _ => throw new InvalidOperationException("Historical evidence does not acquire fresh admission."), purpose: PlanningConstruction.DraftPurpose);
         Assert.Equal(2, state.Construction!.Evidence!.Count);
         var schema = PlanningCompactConstruction.DraftSchema(state);
         Assert.Equal(1, schema["properties"]!["evidenceRequests"]!["anyOf"]![0]!["maxItems"]!.GetValue<int>());
+    }
+
+    [Fact]
+    public void IndividuallyAdmissibleViewsCannotGrowTheRetainedUnionPastItsCapturedLimit()
+    {
+        var state = State();
+        foreach (var name in new[] { "first", "second" })
+            state.Discovery.Resolved[0].InputSchema["properties"]![name]!["description"] = new string('x', 10000);
+        var separate = PlannerFixture.Clone(state);
+        PlanningConstruction.LoadEvidence(separate, [Address("second")], followup: Followup, purpose: PlanningConstruction.DraftPurpose);
+        PlanningConstruction.LoadEvidence(state, [Address("first")], followup: Followup, purpose: PlanningConstruction.DraftPurpose);
+        var before = Snapshot(state);
+        var failed = Assert.Throws<PlanningResponseException>(() => PlanningConstruction.LoadEvidence(state,
+            [Address("second")], followup: Followup, purpose: PlanningConstruction.DraftPurpose));
+        Assert.Contains(failed.Diagnostics, finding => finding.Code == "CONSTRUCTION_EVIDENCE_LIMIT");
+        Assert.Equal(before, Snapshot(state));
+        Assert.Equal(Address("first"), Assert.Single(state.Construction!.Evidence!).Key);
+        Assert.DoesNotContain(PlanningConstruction.EvidenceBatchFingerprint(state, [Address("second")]), state.Construction.EvidenceRequests);
+        Assert.Contains(state.RequestMeasurements!, measurement => measurement.Admission == "rejected_before_dispatch" &&
+            measurement.EstimatedInputTokens > measurement.InputLimit);
+        Assert.Equal(0, state.ModelCalls);
+        Assert.Equal(0, state.ReplanAttempts);
     }
 
     [Theory]
