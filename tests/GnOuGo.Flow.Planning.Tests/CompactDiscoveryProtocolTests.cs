@@ -327,17 +327,87 @@ public sealed class CompactDiscoveryProtocolTests
     }
 
     [Fact]
+    public async Task MalformedDescriptionAddressNeedsOnlyOneCorrectionBeforeNormalProviderNavigation()
+    {
+        var (state, runtime) = await Ready();
+        AddOperations(state, 4);
+        state.Discovery.Pages[0] = state.Discovery.Pages[0] with { NextCursor = "more" };
+        state.Request.MaxReplanAttempts = 1;
+        var plan = PlanningConstruction.Hash(state.Plan);
+        var calls = state.ModelCalls;
+        var description = DescriptionAddress(state);
+        runtime.Respond = (request, _) => Wire(request, Evidence(description + " Additional explanation."));
+        state = await Advance(state, runtime);
+        var diagnostic = Assert.Single(state.Diagnostics);
+        Assert.Equal("CONSTRUCTION_EVIDENCE_INVALID", diagnostic.Code);
+        Assert.Equal("/evidenceRequests", diagnostic.Location);
+        Assert.Equal(0, state.ReplanAttempts);
+        Assert.Empty(state.Discovery.Resolved);
+        Assert.DoesNotContain(PlanningConstruction.EvidenceBatchFingerprint(state, [description]), state.Construction!.EvidenceRequests);
+
+        runtime.Respond = (request, _) => Wire(request, Evidence(description));
+        state = await Advance(PlannerFixture.Clone(state), runtime);
+        Assert.Empty(state.Diagnostics);
+        Assert.Equal(1, state.ReplanAttempts);
+        Assert.Equal("Read exact original records with declared restrictions.", state.Construction!.Evidence![description]!["text"]!.ToString());
+
+        var providerPage = PlanningCompactConstruction.ProviderRequestAddress(state, 0);
+        runtime.Respond = (request, _) => Wire(request, Evidence(providerPage));
+        state = await Advance(PlannerFixture.Clone(state), runtime);
+        Assert.Empty(state.Diagnostics);
+        Assert.Equal(1, state.ReplanAttempts);
+        runtime.Respond = (request, _) =>
+        {
+            Assert.Empty(Context(request)["diagnostics"]!.AsArray());
+            Assert.InRange(PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.DiscoveryPurpose, 3000).EstimatedInputTokens, 1, 3000);
+            return Wire(request, Discover("alpha", "more"));
+        };
+        state = await Advance(PlannerFixture.Clone(state), runtime);
+        Assert.Empty(state.Diagnostics);
+        Assert.Equal(1, state.ReplanAttempts);
+        Assert.Equal(calls + 4, state.ModelCalls);
+        Assert.Single(state.Discovery.Pages, page => page.Cursor == "more" && page.Query == Objective);
+        Assert.Equal(plan, PlanningConstruction.Hash(state.Plan));
+        Assert.Empty(state.Discovery.Resolved);
+        Assert.Empty(state.Construction!.Checkpoints);
+        Assert.Null(state.Construction.Candidate);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("-1")]
+    [InlineData("2147483648")]
+    [InlineData("0:extra")]
+    public async Task InvalidDescriptionOffsetFailsBeforeUnresolvedContractLookup(string offset)
+    {
+        var (state, _) = await Ready();
+        AddOperations(state, 1);
+        var address = DescriptionAddress(state);
+        var invalid = Assert.Throws<PlanningResponseException>(() =>
+            PlanningCompactConstruction.LoadContractEvidence(state, address[..(address.LastIndexOf(':') + 1)] + offset));
+        var diagnostic = Assert.Single(invalid.Diagnostics);
+        Assert.Equal("CONSTRUCTION_EVIDENCE_INVALID", diagnostic.Code);
+        Assert.Equal("/evidenceRequests", diagnostic.Location);
+        var unresolved = Assert.Throws<PlanningResponseException>(() =>
+            PlanningCompactConstruction.LoadContractEvidence(state, "contract:" + address["description:".Length..address.LastIndexOf(':')]));
+        Assert.Contains(unresolved.Diagnostics, finding => finding.Code == "CONSTRUCTION_CONTRACT_UNAVAILABLE" &&
+            finding.Location == "/construction/compact/currentStep/operationIds");
+    }
+
+    [Fact]
     public async Task SuccessfulEvidenceClearsOnlyItsResolvedNavigationDiagnostics()
     {
         var (state, runtime) = await Ready();
         state.Diagnostics = [new("CONSTRUCTION_EVIDENCE_UNKNOWN", "/evidenceRequests", "Resolved address."),
             new("CONSTRUCTION_EVIDENCE_INVALID", "/elsewhere", "Unrelated location."),
-            new("CONSTRUCTION_STEP_INPUT_INVALID", "/step/inputs/0", "Unrelated semantic finding.")];
+            new("CONSTRUCTION_STEP_INPUT_INVALID", "/step/inputs/0", "Unrelated semantic finding."),
+            new("CONSTRUCTION_CONTRACT_UNAVAILABLE", "/construction/compact/currentStep/operationIds", "An actual selected contract is unresolved.")];
         runtime.Respond = (request, _) => Wire(request, Evidence("source:" + state.Construction!.Compact!.Sources[0].Id));
         state = await Advance(state, runtime);
-        Assert.Equal(2, state.Diagnostics.Count);
+        Assert.Equal(3, state.Diagnostics.Count);
         Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Location == "/elsewhere");
         Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Code == "CONSTRUCTION_STEP_INPUT_INVALID");
+        Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Code == "CONSTRUCTION_CONTRACT_UNAVAILABLE");
         Assert.Equal(1, state.ReplanAttempts);
     }
 

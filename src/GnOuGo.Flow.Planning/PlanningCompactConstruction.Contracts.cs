@@ -301,8 +301,12 @@ internal static partial class PlanningCompactConstruction
         if (identity != ContractIdentity(operation, version))
             PlanningConstruction.Fail("CONSTRUCTION_EVIDENCE_INVALID", "/evidenceRequests", "Use the issued canonical contract identity.");
         var tail = identityEnd < 0 ? "" : rest[(identityEnd + 1)..];
-        if (kind == "description" && int.TryParse(tail, NumberStyles.None, CultureInfo.InvariantCulture, out var offset) && offset >= 0)
+        if (kind == "description")
+        {
+            if (!int.TryParse(tail, NumberStyles.None, CultureInfo.InvariantCulture, out var offset) || offset < 0)
+                PlanningConstruction.Fail("CONSTRUCTION_EVIDENCE_INVALID", "/evidenceRequests", "Use the issued description address with its nonnegative integer offset.");
             return OperationDescription(state, operation, version, identity, offset);
+        }
         var capability = ExactContract(state, operation, version);
         if (kind == "contract" && tail.Length == 0) return ContractView(state, capability, review: false);
         if (kind == "schema")

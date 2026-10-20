@@ -714,6 +714,82 @@ and retention tests plus 45 shared measurement tests, with warnings as errors.
 The benchmark build completed with zero warnings and errors. These checks do not
 resolve the missing completion or establish a successful live workflow.
 
+## Authorized HTTP 502 retention and diagnostic revision c9cbaf6
+
+After the user authorized continuing fresh tests in response to the exact
+retention question, source `c9cbaf6fc70230105ac200cbf33a54af06ec3c7f` added an
+explicit benchmark-only `single-http-502` operator mode. It requires exact
+single-attempt failure evidence, a recognized error-only body and the original
+captured no-retry/no-recovery policy. It preserves historical timeout eligibility
+and hashes; other HTTP statuses and unfamiliar, completion-bearing or usage-bearing
+bodies remain ineligible. The planning skill was edited first.
+
+The focused suite passed 255 tests with warnings as errors. The first attempt
+retained 58 fixture failures: the new fixture incorrectly saved an HTTP response
+before reserving its attempt. Correcting that fixture to follow the existing
+journal protocol resolved them without weakening admission. The benchmark build
+then passed with zero warnings or errors; independent review found no remaining
+defect.
+
+The exact failed request from `compactd3513ccd-amazon-1` was permanently retained
+at `2026-10-20T11:29:27.3658330Z`. The evidence hash is
+`264ff71f38ab9f9bc839aa34ffad6ba56bc9e2f588a6b6a49892a1c066365353`;
+the encrypted closure record hash is
+`6720da3ba03b5662b25f42972d3b2555a7f40dd7627742f551317f900ebc8d73`.
+Repeated application returned the identical closure. Public-API inspection
+verified unchanged original run, request, journal, failure, policies and financial
+identities, no receipt, and the full
+€0.2473740335910423886963476406 reservation. The abandoned request and run remain
+forbidden; provider availability does not establish their termination or usage.
+
+A fresh diagnostic cohort froze the same model, medium reasoning, inputs, oracle
+versions and 568-file MCP bundle. Its private manifest hash is
+`e2d2b3ca2c310f2d2def17c2a17c532ef7826ca90f80b0ebf18767fdf94ddbd1`.
+Amazon run `compactdc9cbaf6-amazon-1` reached one locally reviewed checkpoint,
+then stopped in discovery after 12 calls and four corrections, in 116,544 ms.
+All 12 receipts contain content: 13,628 input / 7,379 output / 5,758 reasoning
+tokens, costing €0.2572736159246423176041944370. No new uncertain attempt,
+approval or execution occurred.
+
+| Phase | Requests | Peak complete bytes | Peak input estimate |
+| --- | ---: | ---: | ---: |
+| Intent | 2 | 4,746 | 1,838 |
+| Selection | 2 | 6,312 | 2,360 |
+| Generation | 1 | 6,716 | 2,495 |
+| Local Judge | 1 | 7,197 | 2,655 |
+| Discovery | 6 | 7,037 | 2,602 |
+
+All complete requests fit their phase limits, and all 71,936 component bytes
+reconcile. The safe report hash is
+`ab7ff0c2381d1c7032def9a7647235ec795b8ded5279b8e5dbd3535f15682081`.
+Provider usage remains distinct from component estimates.
+
+One model response appended unrelated prose to an issued description address.
+The address parser fell through to contract resolution and reported
+`CONSTRUCTION_CONTRACT_UNAVAILABLE` at the operation-selection location.
+Subsequent valid description/provider navigation could not clear that
+misclassified diagnostic and spent the remaining corrections. This demonstrates
+an evidence-address error-classification defect; no operation identity was
+selected in those responses. The retained run remains stopped. Collections and
+Review PR on this source were deferred while that common defect is corrected.
+No business success or paired improvement is claimed.
+
+The focused correction rejects malformed description offsets before looking up
+an executable contract. It reuses the existing navigation diagnostic and
+successful-evidence clearing; no coordinator, schema or allowance changed.
+All 130 affected discovery/contract tests passed with warnings as errors,
+including one-correction recovery followed by ordinary navigation, unchanged
+accepted-plan hashes and preservation of real unresolved-contract findings.
+Further live evidence must use a fresh source and run identity.
+
+The post-run audit verified 270 requests, 267 receipts and all three receiptless
+identities retained. Known cost is €7.8266951035279481027281613785, unknown
+reservation €0.4953212476672887230071980805, upper exposure
+€8.322016351195236825735359459, and remaining allowance
+€231.708087481511067716709587841. Audit hash:
+`795e86cb264446e9a40456599871321b862ec1d34a1be0e1fba5f2ee33cc42c1`.
+The separate lost-ledger exposure and original authorization are unchanged.
+
 ## Deterministic evidence
 
 For `72964ab`, 370 affected planner tests and 173 host tests passed with warnings
