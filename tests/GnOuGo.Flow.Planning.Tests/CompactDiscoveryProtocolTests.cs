@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Planning.Examples;
@@ -185,6 +186,150 @@ public sealed class CompactDiscoveryProtocolTests
         Assert.Equal(Objective, Assert.Single(resumed.Discovery.Pages).Query);
         Assert.Equal(0, resumed.ReplanAttempts);
     }
+
+    [Fact]
+    public async Task SeparateDiscoveryEvidenceRequestsPreserveOriginalPagesWithinTheCompleteRequestLimit()
+    {
+        var (state, _) = await Ready();
+        state.Requirements!.Outcomes[0] = state.Requirements.Outcomes[0] with
+        { Description = string.Concat(Enumerable.Repeat("Preserve complete original observations, identities, order and required cleanup. ", 8)) };
+        var step = state.Construction!.Compact!.CurrentStep!;
+        step.Objective = string.Concat(Enumerable.Repeat("Inspect only the authorized resource and preserve its original records. ", 4));
+        step.ExpectedOutputs = [string.Concat(Enumerable.Repeat("Complete observed records with exact identities and supplied ordering. ", 4))];
+        var operations = Enumerable.Range(0, 4).Select(index => new PlanningCapability
+        {
+            Id = "operation_" + index.ToString("d24"), Version = new string((char)('a' + index), 64),
+            Kind = "tool", StepType = "mcp.call", Server = "alpha", Method = "read_" + index,
+            Description = new string((char)('A' + index), 2048) + " Preserve the exact final normative restriction.",
+            InputSchema = new() { ["type"] = "object", ["properties"] = new JsonObject(), ["additionalProperties"] = false },
+            OutputSchema = new() { ["type"] = "object", ["properties"] = new JsonObject(), ["additionalProperties"] = false }
+        }).ToArray();
+        state.Discovery.Pages = [new("alpha", null, operations.Select(operation => new CapabilitySummary(operation.Id, "alpha",
+            operation.Method!, operation.Description, operation.StepType, operation.EffectKind, operation.Version,
+            Operation: TaskOperations.Describe(operation))).ToList(), null, Query: step.Objective)];
+        var originals = JsonSerializer.Serialize(state.Discovery, PlanningJsonContext.Default.CapabilityDiscoveryState);
+        var requirements = JsonSerializer.Serialize(state.Requirements, PlanningJsonContext.Default.PlanningRequirements);
+        var directory = PlanningCompactConstruction.ContractDescriptorPage(state);
+        var addresses = new[] { directory["next"]!.ToString(),
+            directory["items"]![0]!["descriptionEvidence"]!.ToString(), directory["items"]![1]!["descriptionEvidence"]!.ToString() };
+        var schema = PlanningCompactConstruction.DiscoverySchema(state);
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(Evidence(addresses), schema));
+        foreach (var address in addresses)
+            Assert.Empty(PlanningContractValidation.ValidateInstance(Evidence(address), schema));
+
+        // The historical batch is still readable; only fresh response grammar
+        // prevents combining independently bounded pages into one oversized call.
+        PlanningConstruction.LoadEvidence(state, [.. addresses]);
+        Assert.True(Measure(state).EstimatedInputTokens > 3000);
+        foreach (var address in addresses)
+        {
+            PlanningConstruction.LoadEvidence(state, [address]);
+            var page = state.Construction.Evidence![address]!;
+            Assert.InRange(Measure(state).EstimatedInputTokens, 1, 3000);
+            if (address.StartsWith("page:operations:", StringComparison.Ordinal))
+                Assert.Equal(operations.Skip(2).Select(operation => operation.Id), page["items"]!.AsArray().Select(item => item!["id"]!.ToString()));
+            else
+            {
+                var original = operations.Single(operation => address.Contains(operation.Id, StringComparison.Ordinal)).Description;
+                var text = new System.Text.StringBuilder();
+                while (true)
+                {
+                    Assert.Equal(text.Length, page["offset"]!.GetValue<int>());
+                    text.Append(page["text"]!.ToString());
+                    Assert.InRange(Measure(state).EstimatedInputTokens, 1, 3000);
+                    if (page["next"]?.ToString() is not { } next) break;
+                    PlanningConstruction.LoadEvidence(state, [next]);
+                    page = state.Construction.Evidence![next]!;
+                }
+                Assert.Equal(original, text.ToString());
+            }
+        }
+        Assert.Equal(originals, JsonSerializer.Serialize(state.Discovery, PlanningJsonContext.Default.CapabilityDiscoveryState));
+        Assert.Equal(requirements, JsonSerializer.Serialize(state.Requirements, PlanningJsonContext.Default.PlanningRequirements));
+    }
+
+    [Fact]
+    public async Task OneIndivisibleRequiredSchemaStillFailsAdmissionWithoutTruncationOrDispatch()
+    {
+        var (state, runtime) = await Ready();
+        var contract = new PlanningCapability
+        {
+            Id = "read", Version = "v1", Kind = "tool", StepType = "mcp.call", Server = "alpha", Method = "read",
+            InputSchema = new() { ["type"] = "object", ["properties"] = new JsonObject
+                { ["value"] = new JsonObject { ["type"] = "string", ["enum"] = new JsonArray(Enumerable.Range(0, 500)
+                    .Select(index => (JsonNode?)JsonValue.Create(index + new string('x', 96))).ToArray()) } },
+                ["required"] = new JsonArray("value"), ["additionalProperties"] = false },
+            OutputSchema = new() { ["type"] = "object", ["properties"] = new JsonObject(), ["additionalProperties"] = false }
+        };
+        state.Discovery.Resolved.Add(contract);
+        state.Construction!.Compact!.CurrentStep!.OperationIds = [contract.Id];
+        const string address = "schema:read@v1:/input/properties/value";
+        Assert.Empty(PlanningContractValidation.ValidateInstance(Evidence(address), PlanningCompactConstruction.DiscoverySchema(state)));
+        PlanningConstruction.LoadEvidence(state, [address]);
+        Assert.True(JsonNode.DeepEquals(contract.InputSchema["properties"]!["value"]!["enum"],
+            state.Construction.Evidence![address]!["schema"]!["enum"]));
+        var request = Complete(state, PlanningCompactConstruction.Request(PlanningCompactConstruction.DiscoveryInstructions,
+            PlanningCompactConstruction.DiscoveryContext(state), PlanningCompactConstruction.DiscoverySchema(state),
+            PlanningCompactConstruction.DiscoveryPurpose));
+        var calls = state.ModelCalls; var dispatched = runtime.Calls.Count;
+        var error = await Assert.ThrowsAsync<WorkflowRuntimeException>(() => PlanningModelCalls.CallAsync(state, runtime,
+            PlanningCompactConstruction.DiscoveryPurpose, request.Prompt, request.StructuredOutputSchema!.AsObject(), PlannerFixture.Ct, 8192));
+        Assert.Equal("MODEL_INPUT_LIMIT", error.Code);
+        Assert.Equal(calls, state.ModelCalls); Assert.Equal(dispatched, runtime.Calls.Count);
+        Assert.Null(state.PendingCall); Assert.Null(state.Construction.Candidate);
+        Assert.True(JsonNode.DeepEquals(contract.InputSchema["properties"]!["value"]!["enum"],
+            state.Construction.Evidence[address]!["schema"]!["enum"]));
+    }
+
+    [Fact]
+    public async Task PendingHistoricalDiscoveryEvidenceBatchKeepsItsIssuedSchemaAndSavedReceipt()
+    {
+        var (state, runtime) = await Ready();
+        state.Construction!.Compact!.PresentationVersion = null;
+        var originalSchema = PlanningCompactConstruction.DiscoverySchema(state);
+        var response = Evidence("source:" + state.Construction.Compact.Sources[0].Id,
+            "source:" + state.Construction.Compact.Sources[1].Id);
+        Assert.Empty(PlanningContractValidation.ValidateInstance(response, originalSchema));
+        state.Construction.Compact.PresentationVersion = 2;
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(response, PlanningCompactConstruction.DiscoverySchema(state)));
+        var issued = Complete(state, PlanningCompactConstruction.Request("Retained discovery evidence request.",
+            PlanningCompactConstruction.DiscoveryContext(state), originalSchema, PlanningCompactConstruction.DiscoveryPurpose));
+        state.PendingCall = new() { Id = issued.ClientRequestId!, Purpose = PlanningCompactConstruction.DiscoveryPurpose, Request = issued };
+        state.ModelCalls++;
+        var calls = state.ModelCalls;
+        var exact = JsonSerializer.Serialize(issued, PlanningJsonContext.Default.LLMRequest);
+        var receipt = Wire(issued, response);
+        var physicalCalls = 0;
+        runtime.Respond = (request, _) =>
+        {
+            Assert.Equal(exact, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+            if (request.ClientRequestId == issued.ClientRequestId) return receipt;
+            physicalCalls++;
+            throw new InvalidOperationException("A saved evidence receipt cannot dispatch a replacement request.");
+        };
+        var resumed = await Advance(PlannerFixture.Clone(state), runtime);
+        Assert.Empty(resumed.Diagnostics);
+        Assert.Equal(0, physicalCalls);
+        Assert.Equal(calls, resumed.ModelCalls); Assert.Equal(0, resumed.ReplanAttempts);
+        Assert.Null(resumed.PendingCall);
+        Assert.Equal(2, resumed.Construction!.Evidence!.Count);
+        foreach (var address in response["evidenceRequests"]!.AsArray().Select(value => value!.ToString()))
+            Assert.Equal(state.Construction.Compact.Sources.Single(source => "source:" + source.Id == address).Text,
+                resumed.Construction.Evidence[address]!["text"]!.ToString());
+        Assert.Null(resumed.Construction.Candidate);
+        Assert.False(resumed.Construction.Compact!.CurrentStep!.DiscoveryComplete);
+    }
+
+    private static JsonObject Evidence(params string[] addresses) => new()
+    {
+        ["operationIds"] = null, ["discoveryRequests"] = null, ["clarifications"] = null, ["reselectStep"] = null,
+        ["evidenceRequests"] = new JsonArray(addresses.Select(address => (JsonNode?)JsonValue.Create(address)).ToArray())
+    };
+
+    private static PlanningRequestMeasurement Measure(PlanningSession state) => PlanningRequestMeasurements.Measure(
+        Complete(state, PlanningCompactConstruction.Request(PlanningCompactConstruction.DiscoveryInstructions,
+            PlanningCompactConstruction.DiscoveryContext(state), PlanningCompactConstruction.DiscoverySchema(state),
+            PlanningCompactConstruction.DiscoveryPurpose)), PlanningCompactConstruction.DiscoveryPurpose, 3000);
 
     private const string Objective = "Prepare the exact greeting from the supplied data.";
     private const string Reason = "The supplied literal can be assembled with deterministic bindings; no suitable operation is needed.";

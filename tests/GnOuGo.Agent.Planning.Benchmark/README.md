@@ -885,6 +885,12 @@ physical attempts. This is an admission condition, not an invented charge or unc
 request. Actual known usage and unknown reservations remain the accounting source.
 Fresh incremental transport disables automatic HTTP retries; only a committed receipt
 may be reused after interruption. Historical transport policy is retained.
+Fresh presentation schemas restrict selected requirement identities to the supplied
+original anchor/evidence or an existing bounded reselection. Discovery requests
+retrieve one evidence address per model response; mandatory schema closures are
+never truncated to fit. Historical issued domains and multi-address batches remain
+recoverable. These presentation changes require new frozen diagnostic identities,
+not retries of an unchanged failed request.
 
 Delegated runtime permission also requires one exact currently active host-owned MCP
 invocation, matched by tenant/run/step/server/method and its child dialog identity.

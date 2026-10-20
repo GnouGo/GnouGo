@@ -56,8 +56,9 @@ internal static class CompactConstructionSmoke
         if (state.Request.Options["construction_presentation_version"]?.ToString() != "2" ||
             state.Construction.Compact.InterfaceExtractions is not [{ Complete: true, SourceIds.Count: 2 }] ||
             !runtime.IntentActions.SequenceEqual(["classification", "interfaces"]) ||
+            !runtime.SelectionActions.SequenceEqual(["evidence", "step"]) ||
             !recoveredIntentActions.SetEquals(["classification", "interfaces"]) ||
-            runtime.PhysicalCalls != 5 || state.ModelCalls != 5 || state.ReplanAttempts != 0)
+            runtime.PhysicalCalls != 6 || state.ModelCalls != 6 || state.ReplanAttempts != 0)
             throw new InvalidOperationException("Fresh classified declarations, grouped interface extraction or exact recovery accounting changed.");
         var historical = JsonSerializer.Serialize(new PlanningCompactConstructionState(), PlanningJsonContext.Default.PlanningCompactConstructionState);
         if (historical.Contains("presentationVersion", StringComparison.Ordinal) || historical.Contains("interfaceExtractions", StringComparison.Ordinal))
@@ -72,7 +73,7 @@ internal static class CompactConstructionSmoke
         var result = await new WorkflowEngine().ExecuteAsync(workflow, new JsonObject(), CancellationToken.None);
         if (!result.Success || result.Outputs?["message"]?.GetValue<string>() != "Hello")
             throw new InvalidOperationException("Compact v15 artifact changed the independently expected value.");
-        Console.WriteLine("compact construction: classified originals, grouped interface extraction, five exact recovered calls, narrow draft/Judge and independently executed output");
+        Console.WriteLine("compact construction: classified originals, grouped interface extraction, exact requirement evidence, six recovered calls, narrow draft/Judge and independently executed output");
     }
 
     private sealed class Runtime : IPlanningRuntime
@@ -81,6 +82,7 @@ internal static class CompactConstructionSmoke
         internal Dictionary<string, LLMResponse> Receipts { get; } = new(StringComparer.Ordinal);
         internal List<string> Purposes { get; } = [];
         internal List<string> IntentActions { get; } = [];
+        internal List<string> SelectionActions { get; } = [];
         internal string? BeforeDispatch;
         internal string? LastRequest;
         internal int PhysicalCalls;
@@ -115,6 +117,20 @@ internal static class CompactConstructionSmoke
                                 ["type"] = new JsonObject { ["kind"] = "string", ["nullable"] = false } }) };
                     break;
                 case "construction_select":
+                    if (context["evidence"]?["page:requirements:1"] is not { } originalPage)
+                    {
+                        if (context["nextRequirements"]?.ToString() != "page:requirements:1")
+                            throw new InvalidOperationException("The next original requirement must remain explicitly discoverable.");
+                        SelectionActions.Add("evidence");
+                        response = new() { ["baseHash"] = Issued(request, "baseHash"), ["step"] = null, ["clarifications"] = null,
+                            ["evidenceRequests"] = new JsonArray("page:requirements:1") };
+                        break;
+                    }
+                    if (originalPage["items"]?[0]?["id"]?.ToString() != "req_1" ||
+                        originalPage["items"]?[0]?["original"]?.ToString() != InterfaceRequirement ||
+                        context["requirements"]?[0]?["original"]?.ToString() != ResultRequirement)
+                        throw new InvalidOperationException("Selection must inspect both exact original clauses before claiming their completion.");
+                    SelectionActions.Add("step");
                     var requirements = new JsonArray("req_0", "req_1");
                     response = new()
                     {

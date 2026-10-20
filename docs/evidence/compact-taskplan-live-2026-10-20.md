@@ -201,6 +201,53 @@ The navigation correction passes 102 affected tests with warnings as errors,
 including serialized cursor recovery, nonconsecutive pages without closing gaps,
 historical navigation, atomic evidence rollback and unchanged non-progress stops.
 
+## Diagnostic revision aa0915f
+
+Source: `aa0915f754a54807bfbb01ee5747e59d1cd35cba`. Amazon run
+`compactdaa0915f-amazon-1` passed the corrected page navigation, recovered from
+three selection/evidence reference errors and accepted one group-opening
+checkpoint. It reached actual MCP catalog discovery, then rejected the next
+complete request before dispatch: 10,057 bytes / 3,609 estimated input tokens
+against 3,000. The preceding response requested one operation directory page and
+two exact description pages together; their combined evidence occupied 4,998
+serialized bytes.
+
+The retained selection response also placed an original global-source identity in
+`requirementIds`. Existing validation rejected it. The new selection schema limits
+fresh choices to the displayed original requirement identities and validated
+evidence, or the fixed requirements of an authorized reselection. It never
+enumerates the entire retained requirement catalog. The selected operation's
+objective described contract discovery itself; selection guidance now distinguishes
+the immediate executable business action from the host's discovery phase.
+
+Fresh discovery evidence actions retrieve one addressed view per call. Original
+contracts, normative text and mandatory constraint closures remain intact;
+an indivisible oversized view still fails admission. Earlier issued multi-view
+schemas and receipts retain their exact recovery behavior.
+
+The run made 15 calls, used 19,341 provider input / 8,871 output tokens, including
+7,089 reasoning tokens, and took 139,022 ms. All 15 receipts contained content.
+Known cost was €0.3224340175953079178885630499. No execution or
+new uncertain attempt occurred. The campaign upper bound reached
+€4.3312450013329778725673153822, leaving **€235.6988588313733266698776319178**.
+The checkpoint and catalog discovery do not establish business success.
+
+| Phase | p50 / p95 / maximum complete bytes | p50 / p95 / maximum input estimate |
+| --- | ---: | ---: |
+| Intent | 3,935.5 / 5,005 / 5,005 | 1,568.5 / 1,925 / 1,925 |
+| Selection | 7,219 / 7,554 / 7,554 | 2,663 / 2,774 / 2,774 |
+| Generation | 12,403 / 12,403 / 12,403 | 4,391 / 4,391 / 4,391 |
+| Local Judge | 8,571 / 8,571 / 8,571 | 3,113 / 3,113 / 3,113 |
+| Discovery | 6,824 / 10,057 / 10,057 | 2,531 / 3,609 / 3,609 |
+
+Discovery includes its rejected request. All 16 prepared requests reconcile
+component bytes; the rejected request has no fabricated receipt or charge.
+The selection/discovery corrections pass all 2,070 Planning tests with warnings
+as errors, zero failures or skips, in 4m20s. This validates the deterministic
+regressions, not live convergence. Managed smoke also passes with six exact
+recovered requests/receipts, explicit requirement retrieval and independently
+executed v15 output.
+
 ## Deterministic evidence
 
 For `72964ab`, 370 affected planner tests and 173 host tests passed with warnings

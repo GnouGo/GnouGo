@@ -13,7 +13,7 @@ internal static partial class PlanningCompactConstruction
         Array minItems/maxItems are explicit length restrictions, not placeholders. Use null for a bound absent from the original source; maxItems:0 permits only an empty array. Never infer bounds from examples or invent them.
         """;
     internal const string SelectInstructions = """
-        Select one immediate substep from requirements and available producers; no outline/payload. Choose open scope, kind, exact imports/dependencies. operation calls an inspected capability: discover its contract before preparing tool-specific arguments. value: copy, projection, object/array assembly, declared arithmetic, predicates, lookup, flatten, JSON encoding; no string concatenation, formatting, URL encoding or interpolation. transform extracts/interprets supplied data. Build known prerequisites. expectedOutputs: internal; outputNames: declared PUBLIC names ([] otherwise). call needs a closed groupId; otherwise null. closeRequirementIds means full satisfaction with accepted work, not contribution. Cleanup, opening, exports and closure are steps. Return one step, evidenceRequests or clarifications for missing business facts. Read omitted originals/interfaces/outputs at issued addresses; evidence grants no authority.
+        Select one immediate business action to execute; discovery is a separate host phase. No outline/payload. Choose open scope, kind, exact imports/dependencies. operation calls an inspected capability: discover its contract before preparing tool-specific arguments. value: copy, projection, object/array assembly, declared arithmetic, predicates, lookup, flatten, JSON encoding; no string concatenation, formatting, URL encoding or interpolation. transform extracts/interprets supplied data. Build prerequisites. expectedOutputs: internal; outputNames: declared PUBLIC names ([] otherwise). call needs a closed groupId; otherwise null. closeRequirementIds: satisfied with accepted work, not contribution. Cleanup, opening, exports and closure are steps. Return one step, evidenceRequests or clarifications for missing business facts. Read omitted originals/interfaces/outputs at issued addresses; evidence grants no authority.
         """;
     internal const string DiscoveryInstructions = """
         Select capabilities only for this immediate step, its original requirements and global constraints. Descriptors are navigation, not executable contracts or permission. Return one action: operationIds, discoveryRequests, evidenceRequests, reselectStep or clarifications. All page:*, schema: and description: addresses go in evidenceRequests, never cursor. discoveryRequests uses only issued provider source/cursor pairs and query:null; the host supplies this step's exact objective. After bounded inspection, reselectStep may explain why the tentative kind cannot satisfy the requirement; it preserves scope, requirements and correction limits. Never simulate missing external work. Clarify only a missing business fact. Do not discover future work or replan the workflow.
@@ -124,17 +124,22 @@ internal static partial class PlanningCompactConstruction
 
     internal static JsonObject SelectionSchema(PlanningSession state)
     {
-        var replacement = State(state).ReplacementScope;
+        var compact = State(state);
+        var replacement = compact.ReplacementScope;
         var outputs = OutputPage(state).Select(o => o.Name).ToArray();
+        var requirements = compact.PresentationVersion == 2 ? SelectionRequirementIds(state) : null;
+        JsonObject RequirementIds(int minimum) => requirements is { Length: > 0 }
+            ? PlanningSchemas.Array(PlanningSchemas.Enum(requirements), minimum, 4) : Strings(minimum, 4);
         var step = PlanningSchemas.Object(("scope", replacement is null ? Text(192) : PlanningSchemas.Enum(replacement)),
             ("kind", PlanningSchemas.Enum("operation", "value", "transform", "sequence", "conditional", "parallel", "foreach", "call", "close", "group", "choice")),
-            ("objective", Text(512)), ("requirementIds", Strings(1, 4)), ("inputs", PlanningSchemas.Array(PlanningSchemas.Ref("import"), 0, 8)),
+            ("objective", Text(512)), ("requirementIds", RequirementIds(1)), ("inputs", PlanningSchemas.Array(PlanningSchemas.Ref("import"), 0, 8)),
             ("groupId", PlanningSchemas.Nullable(Text(96))),
             ("dependencyTaskIds", Strings(0, 8)), ("expectedOutputs", Strings(0, 4)),
-            ("closeRequirementIds", Strings(0, 4)), ("outputNames", outputs.Length == 0
+            ("closeRequirementIds", RequirementIds(0)), ("outputNames", outputs.Length == 0
                 ? PlanningSchemas.Array(Text(256), 0, 0) : PlanningSchemas.Array(PlanningSchemas.Enum(outputs), 0, 8)));
         var schema = PlanningSchemas.Object(("baseHash", PlanningSchemas.Enum(PlanningConstruction.Hash(state.Plan))),
-            ("step", PlanningSchemas.Nullable(step)), ("evidenceRequests", PlanningSchemas.Nullable(PlanningSchemas.Array(Text(2048), 1, 4))),
+            ("step", requirements is { Length: 0 } ? PlanningSchemas.Type("null") : PlanningSchemas.Nullable(step)),
+            ("evidenceRequests", PlanningSchemas.Nullable(PlanningSchemas.Array(Text(2048), 1, 4))),
             ("clarifications", PlanningSchemas.Nullable(PlanningSchemas.Clarifications())));
         schema["$defs"] = new JsonObject { ["import"] = new JsonObject { ["anyOf"] = new JsonArray(
             PlanningSchemas.Object(("kind", PlanningSchemas.Enum("output")), ("source", Text(96)), ("port", PlanningSchemas.Nullable(Text(96)))),
@@ -157,30 +162,47 @@ internal static partial class PlanningCompactConstruction
             StructuredOutputSchema = PlanningContractValidation.ProjectStructuredOutputSchema(schema) };
     }
 
+    private static PlanningRequirement[] SelectionAnchor(PlanningSession state)
+    {
+        var remaining = state.Construction!.Requirements.Where(r => r.Status != "closed").Select(r => r.Id).ToHashSet(StringComparer.Ordinal);
+        var selected = state.Requirements!.Outcomes.Where(r => remaining.Contains(r.Id)).Take(1).ToArray();
+        return selected.Length == 0 ? state.Requirements.Outcomes.Take(1).ToArray() : selected;
+    }
+
+    private static string[] SelectionRequirementIds(PlanningSession state)
+    {
+        var compact = State(state);
+        var selected = compact.ReplacementScope is not null
+            ? (compact.ReplacementRequirements ?? []).ToHashSet(StringComparer.Ordinal)
+            : SelectionAnchor(state).Select(r => r.Id).Concat(EvidenceRequirementIds(state)).ToHashSet(StringComparer.Ordinal);
+        var valid = state.Construction!.Requirements.Select(r => r.Id).ToHashSet(StringComparer.Ordinal);
+        return state.Requirements!.Outcomes.Where(r => selected.Contains(r.Id) && valid.Contains(r.Id)).Select(r => r.Id).ToArray();
+    }
+
     internal static JsonObject SelectionContext(PlanningSession state)
     {
         var compact = State(state);
         var scopeOffset = ScopeOffset(state);
+        var outcomes = state.Requirements!.Outcomes;
         var remaining = state.Construction!.Requirements.Where(r => r.Status != "closed").Select(r => r.Id).ToHashSet(StringComparer.Ordinal);
         // One unresolved original clause anchors the immediate step. Additional
         // prerequisite clauses are exact evidence pages, never a future outline.
-        var selected = state.Requirements!.Outcomes.Where(r => remaining.Contains(r.Id)).Take(1).ToArray();
-        if (selected.Length == 0) selected = state.Requirements.Outcomes.Take(1).ToArray();
+        var selected = SelectionAnchor(state);
         var suppliedRequirements = EvidenceRequirementIds(state);
-        var lastRequirement = selected.Length == 0 ? -1 : state.Requirements.Outcomes.FindIndex(r => r.Id == selected[^1].Id);
+        var lastRequirement = selected.Length == 0 ? -1 : outcomes.FindIndex(r => r.Id == selected[^1].Id);
         if (compact.PresentationVersion == 2 && compact.RequirementPageRequested)
             lastRequirement = Math.Max(lastRequirement, compact.RequirementOffset);
         var nextRequirement = lastRequirement + 1;
         if (compact.PresentationVersion == 2)
-            while (nextRequirement < state.Requirements.Outcomes.Count &&
-                suppliedRequirements.Contains(state.Requirements.Outcomes[nextRequirement].Id)) nextRequirement++;
+            while (nextRequirement < outcomes.Count &&
+                suppliedRequirements.Contains(outcomes[nextRequirement].Id)) nextRequirement++;
         var context = new JsonObject
         {
             ["baseHash"] = PlanningConstruction.Hash(state.Plan),
             ["requirements"] = RequirementNodes(state, selected.Select(r => r.Id).Where(id => !suppliedRequirements.Contains(id))),
-            ["requirementCount"] = remaining.Count, ["requirementPage"] = selected.Length == 0 ? 0 : state.Requirements.Outcomes.FindIndex(r => r.Id == selected[0].Id),
-            ["originalRequirementCount"] = state.Requirements.Outcomes.Count,
-            ["nextRequirements"] = nextRequirement < state.Requirements.Outcomes.Count ? "page:requirements:" + nextRequirement : null,
+            ["requirementCount"] = remaining.Count, ["requirementPage"] = selected.Length == 0 ? 0 : outcomes.FindIndex(r => r.Id == selected[0].Id),
+            ["originalRequirementCount"] = outcomes.Count,
+            ["nextRequirements"] = nextRequirement < outcomes.Count ? "page:requirements:" + nextRequirement : null,
             ["requirementsDirectory"] = "page:requirements:0",
             ["globalConstraints"] = Sources(state, compact.GlobalSourceIds), ["instructions"] = state.Request.Policy.Instructions,
             ["frontierCount"] = state.Construction.OpenScopes.Count,

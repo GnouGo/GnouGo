@@ -77,6 +77,10 @@ outputs. Public names are presented eight at a time and constrain the issued
 selection schema; omitted requirements, interfaces and outputs have explicit
 page addresses. Internal task, group and child-export names do not become public
 outputs merely by appearing in a substep description.
+Fresh selection schemas enumerate only the displayed requirement anchor and
+validated requirement evidence, or the fixed identities of a bounded reselection.
+Original-source identities are not requirement identities. The selected objective
+describes business work to execute; capability discovery remains a separate host phase.
 Required actions, setup, cleanup and results remain explicit completion
 obligations. Action-specific constraints stay with their requirements; global
 clauses describe crosscutting invariants. Indexing does not reconstruct effect
@@ -106,6 +110,9 @@ siblings, cross-field constraints, alternatives and reference closure. Descripto
 cannot authorize execution or replace a contract. Separable original evidence can
 be paged; indivisible required information that exceeds the phase allowance stops
 explicitly. No unused request capacity is filled with unrelated suggestions.
+Fresh discovery evidence actions retrieve one addressed view at a time, avoiding
+aggregation of several independent pages beyond the complete-request limit.
+Saved requests retain their original evidence batch schema.
 Discovery directories present two operation descriptors or two sources at a time.
 Provider metadata actions are presented separately in pages of two exact source
 and continuation pairs. Their versioned evidence addresses are local navigation,
