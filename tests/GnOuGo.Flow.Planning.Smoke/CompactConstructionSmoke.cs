@@ -117,19 +117,17 @@ internal static class CompactConstructionSmoke
                                 ["type"] = new JsonObject { ["kind"] = "string", ["nullable"] = false } }) };
                     break;
                 case "construction_select":
-                    if (context["evidence"]?["page:requirements:1"] is not { } originalPage)
+                    var originalAddress = context["requirementsDirectory"]?.ToString()
+                        ?? throw new InvalidOperationException("The original requirement directory must remain explicitly discoverable.");
+                    if (context["evidence"]?[originalAddress] is not { } originalPage)
                     {
-                        if (context["nextRequirements"]?.ToString() != "page:requirements:1")
-                            throw new InvalidOperationException("The next original requirement must remain explicitly discoverable.");
+                        AssertOriginalClauses(context["requirements"]);
                         SelectionActions.Add("evidence");
                         response = new() { ["baseHash"] = Issued(request, "baseHash"), ["step"] = null, ["clarifications"] = null,
-                            ["evidenceRequests"] = new JsonArray("page:requirements:1") };
+                            ["evidenceRequests"] = new JsonArray(originalAddress) };
                         break;
                     }
-                    if (originalPage["items"]?[0]?["id"]?.ToString() != "req_1" ||
-                        originalPage["items"]?[0]?["original"]?.ToString() != InterfaceRequirement ||
-                        context["requirements"]?[0]?["original"]?.ToString() != ResultRequirement)
-                        throw new InvalidOperationException("Selection must inspect both exact original clauses before claiming their completion.");
+                    AssertOriginalClauses(originalPage["items"]);
                     SelectionActions.Add("step");
                     var requirements = new JsonArray("req_0", "req_1");
                     response = new()
@@ -178,6 +176,20 @@ internal static class CompactConstructionSmoke
             var value = schema["properties"]![name]!;
             while (value["$ref"]?.ToString() is { } reference) value = schema["$defs"]![reference[8..]]!;
             return value["enum"]![0]!.DeepClone();
+        }
+
+        private static void AssertOriginalClauses(JsonNode? value)
+        {
+            if (value is not JsonArray { Count: 2 } clauses)
+                throw new InvalidOperationException("Selection must inspect both exact original clauses before claiming their completion.");
+            string[] originals = [ResultRequirement, InterfaceRequirement];
+            for (var index = 0; index < originals.Length; index++)
+                if (clauses[index]?["id"]?.ToString() != "req_" + index ||
+                    clauses[index]?["original"]?.ToString() != originals[index] ||
+                    clauses[index]?["sources"] is not JsonArray { Count: 1 } sources ||
+                    sources[0]?["id"]?.ToString() != "request:0:clause:" + index ||
+                    sources[0]?["version"]?.ToString() != PlanningGraphCompiler.Fingerprint(originals[index]))
+                    throw new InvalidOperationException("Selection changed an original requirement or its exact source identity/version.");
         }
     }
 }

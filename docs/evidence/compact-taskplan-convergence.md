@@ -7,7 +7,22 @@ compilation and scoped reviews do not establish business success. The gated
 
 ## Latest diagnostic and corrections
 
-Five diagnostics on source `8952a0a` produced 117 known receipts, cost €3.1193948280
+The fresh `743e4a3` Amazon diagnostic stopped on HTTP 500 during its second intent
+call, after 316.174 seconds. One known receipt used 507 input / 803 output tokens,
+including 512 reasoning tokens, costing €0.0236603572. The second request has no
+completion receipt or verified usage; its full €0.4723362658846529814271749755
+reservation remains charged. Both envelopes were admitted (2,969/5,176 bytes,
+1,246/1,982 estimated tokens against an 8,000 ceiling), and all 8,145 component
+bytes reconcile. [Safe retained measurements](compact-taskplan-743e4a3.json) keep
+usage estimates distinct from provider usage and preserve the failure evidence.
+
+The exact read-only HTTP 500 retention check passed, but authorization for this
+new request/run remains pending. No closure or replay occurred. Collections and
+Review PR in this cohort were not started while admission is blocked. The earlier
+CLI argument-parsing failure happened before store/model admission and is retained
+separately. This run supplies no evidence for a further planner change.
+
+The preceding five diagnostics on source `8952a0a` produced 117 known receipts, cost €3.1193948280
 and reached no execution or business acceptance. The model, medium reasoning,
 MCPs, oracles and call/correction allowances remained fixed. Separate frozen
 experiments changed navigation input 6,000→8,000, then Judge output 2,048→4,096;
@@ -71,20 +86,23 @@ comparisons, not architecture-only causality.
 
 ## Campaign reconciliation
 
-Read-only inspection after the final Collections trial verified encrypted campaign
-`schema-portability-20261019-incremental`: 888 request identities and 881 receipts.
+Read-only inspection after Amazon `743e4a3` verified encrypted campaign
+`schema-portability-20261019-incremental`: 890 request identities and 882 receipts.
 
 | Ledger measurement | EUR |
 | --- | ---: |
 | Campaign ceiling | 240.0301038327063045424449473 |
-| Known spending | 24.774406824846707544654758732 |
-| Unknown-usage reservations | 2.3491202346041055718475073313 |
-| Spending/reservation upper bound | 27.123527059450813116502266063 |
-| Available allowance | 212.906576773255491425942681237 |
+| Known spending | 24.798067182084777392695281258 |
+| Unknown-usage reservations | 2.8214565004887585532746823068 |
+| Spending/reservation upper bound | 27.619523682573535945969963565 |
+| Available allowance | 212.410580150132768596474983735 |
 
-Evidence hash: `bb73c6f376e8c20c6cf784176ddd386d5e9d1fdc1cc07d377ed3d5630b6e9903`.
-All seven receiptless identities are permanently retained; six attempts retain
-unknown usage. The separately
+Evidence hash: `8413b920abb0028e5178b4cd9650ea83551ccc2d347b1c9a4c9babe88bc002f2`.
+Seven receiptless identities remain permanently retained; the new eighth is
+unresolved pending exact authorization. Seven attempts have unknown usage.
+The prepared new retention evidence is
+`3df33dffd8ea3c5a66a1196c2ce7ba5a588c87249e989f434199a72540c72633`;
+its read-only inspection does not authorize application. The separately
 authorized Collections closure was applied under the existing transport-retention
 mode and verified against evidence
 `fb1cbf1b2472374bcceeefb65b9ede893c03ed987a02833fab02031d8dfb580a`;
@@ -97,6 +115,16 @@ lost historical exposure of €159.96989616729369545755505266 remains accounted 
 within the original €400 authorization. No ceiling increased.
 
 ## Independent validation
+
+At `743e4a3`, all five independent Flow Release packages and the published Git
+contract check passed without warnings. Native AOT publishing passed; its first
+smoke execution exposed a stale fixture expectation of a next requirement page.
+The fixture now retrieves the issued directory and verifies both exact clauses
+and source versions. The follow-up native publish and execution pass without
+warnings, retaining six recovered calls, cumulative accounting and the exact
+expected result. The original failed smoke remains retained; no production
+recovery code changed. Full solution validation at `8952a0a` and current CI are
+still active, with no final success claimed.
 
 At `ba4ed26`, the complete Planning project passes 2,354/2,354 tests with warnings
 as errors; the benchmark builds with zero warnings/errors. The reselection
