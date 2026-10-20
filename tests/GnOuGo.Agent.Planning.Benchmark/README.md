@@ -303,9 +303,16 @@ usage and completion receipts reject this path. The append-only closure binds th
 original request, journal and failure hashes; it does not invent a provider code,
 completion receipt or usage, or change the original evidence or accounting.
 
-## Bounded HTTP recovery
+## Historical bounded HTTP recovery
 
-The built-in KeyVault model now uses AI.Core's single HTTP retry loop. Provider `RetryPolicy`
+This subsection describes the older captured retry policy and synthetic harness.
+Its EUR 50/eight-attempt defaults and mocked integrations do not describe fresh
+compact sessions. Those use the captured campaign ceiling, construction
+allowances, single-attempt transport and isolated real integrations described in
+[incremental construction and isolated delegated review](#incremental-construction-and-isolated-delegated-review).
+Historical recovery remains limited to its original issued policy.
+
+The historical KeyVault model uses AI.Core's single HTTP retry loop. Provider `RetryPolicy`
 configures total attempts, per-attempt timeout and the uncertain allowance (one by default).
 The policy is pinned separately in the campaign. Generation remains synchronous and without
 tools; workflow integrations remain mocked. No planner retry phase is introduced.
@@ -316,7 +323,8 @@ Before each HTTP send, an encrypted `planning-evaluation-http-attempts` record s
 identity and a conservative token/cost allowance. Admission includes verified previous usage,
 legacy campaign accounting and every unresolved allowance, with EUR 50 and eight physical
 attempts per session. Uncertain original attempts and their allowances remain after recovery.
-Known HTTP rejections do not count as generated usage. Calls count every reserved physical
+HTTP errors do not supply measured generated usage; unresolved 5xx attempts retain
+their full conservative reservations. Calls count every reserved physical
 attempt, including transient HTTP responses; repairs still count intent corrections only.
 
 A stored complete HTTP response can be parsed and receipted after restart without another

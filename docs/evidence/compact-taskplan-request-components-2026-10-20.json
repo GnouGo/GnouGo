@@ -1,0 +1,1820 @@
+{
+  "version": 1,
+  "kind": "safe_retained_request_component_measurements",
+  "estimator": "serialized_utf8_div3_plus256_v1",
+  "statistics": "p50 median; p95 nearest rank ceil(.95*n). Request distributions include all prepared requests. Component distributions count requests where that component is present. Component byte sums partition complete serialized requests; component token estimates are conservative, not provider billing. Judge is a phase, not an additional component total.",
+  "campaign": "schema-portability-20261019-incremental",
+  "model": "gpt-5.5-2026-04-24",
+  "reasoning": "medium",
+  "sources": [
+    {
+      "source": "7206ca2551a52c49ef4ba64a4a2a0749a59642ab",
+      "retained_safe_report_sha256": "d5097e966a7d950026177b0ca5c00d9424fe3fdf8da21d9444bb76617e177871",
+      "runs": [
+        {
+          "run": "compactd7206ca2-amazon-1",
+          "case": "amazon",
+          "calls": 2,
+          "corrections": 0,
+          "checkpoints": 0,
+          "planning_ms": 164007,
+          "reasoning_tokens": 8704,
+          "empty_content_receipts": 1,
+          "component_bytes_reconcile": true,
+          "all_prepared_requests_admitted": true,
+          "within_phase_input_limits": true,
+          "phases": {
+            "construction_intent": {
+              "prepared_requests": 2,
+              "receipts": 2,
+              "rejected_prepared_requests": 0,
+              "complete_request_bytes": {
+                "count": 2,
+                "p50": 3892.0,
+                "p95": 5002,
+                "max": 5002
+              },
+              "estimated_input_tokens": {
+                "count": 2,
+                "p50": 1554.0,
+                "p95": 1924,
+                "max": 1924
+              },
+              "provider_usage": {
+                "input_tokens": {
+                  "sum": 1293,
+                  "distribution": {
+                    "count": 2,
+                    "p50": 646.5,
+                    "p95": 815,
+                    "max": 815
+                  }
+                },
+                "output_tokens": {
+                  "sum": 8981,
+                  "distribution": {
+                    "count": 2,
+                    "p50": 4490.5,
+                    "p95": 8192,
+                    "max": 8192
+                  }
+                },
+                "reasoning_tokens": {
+                  "sum": 8704,
+                  "distribution": {
+                    "count": 2,
+                    "p50": 4352.0,
+                    "p95": 8192,
+                    "max": 8192
+                  }
+                }
+              },
+              "known_cost_eur": "0.2451746201013063183151159691",
+              "components": {
+                "diagnostics": {
+                  "serialized_bytes_sum": 52,
+                  "serialized_bytes": {
+                    "count": 2,
+                    "p50": 26.0,
+                    "p95": 26,
+                    "max": 26
+                  },
+                  "conservative_token_estimate_sum": 18
+                },
+                "envelope": {
+                  "serialized_bytes_sum": 783,
+                  "serialized_bytes": {
+                    "count": 2,
+                    "p50": 391.5,
+                    "p95": 392,
+                    "max": 392
+                  },
+                  "conservative_token_estimate_sum": 774
+                },
+                "instructions": {
+                  "serialized_bytes_sum": 1319,
+                  "serialized_bytes": {
+                    "count": 2,
+                    "p50": 659.5,
+                    "p95": 696,
+                    "max": 696
+                  },
+                  "conservative_token_estimate_sum": 440
+                },
+                "intent": {
+                  "serialized_bytes_sum": 1780,
+                  "serialized_bytes": {
+                    "count": 2,
+                    "p50": 890.0,
+                    "p95": 1057,
+                    "max": 1057
+                  },
+                  "conservative_token_estimate_sum": 594
+                },
+                "interfaces": {
+                  "serialized_bytes_sum": 59,
+                  "serialized_bytes": {
+                    "count": 1,
+                    "p50": 59,
+                    "p95": 59,
+                    "max": 59
+                  },
+                  "conservative_token_estimate_sum": 20
+                },
+                "response_schema": {
+                  "serialized_bytes_sum": 3791,
+                  "serialized_bytes": {
+                    "count": 2,
+                    "p50": 1895.5,
+                    "p95": 3179,
+                    "max": 3179
+                  },
+                  "conservative_token_estimate_sum": 1264
+                }
+              },
+              "complete_request_bytes_sum": 7784,
+              "estimated_input_tokens_sum": 3108,
+              "component_bytes_reconcile": true
+            }
+          }
+        },
+        {
+          "run": "7206ca2551a52c49ef4ba64a4a2a0749a59642ab:fixture:collections:1",
+          "case": "collections",
+          "calls": 25,
+          "corrections": 1,
+          "checkpoints": 5,
+          "planning_ms": 197672,
+          "reasoning_tokens": 8637,
+          "empty_content_receipts": 0,
+          "component_bytes_reconcile": true,
+          "all_prepared_requests_admitted": true,
+          "within_phase_input_limits": true,
+          "phases": {
+            "construction_draft": {
+              "prepared_requests": 6,
+              "receipts": 6,
+              "rejected_prepared_requests": 0,
+              "complete_request_bytes": {
+                "count": 6,
+                "p50": 12191.0,
+                "p95": 13207,
+                "max": 13207
+              },
+              "estimated_input_tokens": {
+                "count": 6,
+                "p50": 4320.0,
+                "p95": 4659,
+                "max": 4659
+              },
+              "provider_usage": {
+                "input_tokens": {
+                  "sum": 12647,
+                  "distribution": {
+                    "count": 6,
+                    "p50": 2256.0,
+                    "p95": 2454,
+                    "max": 2454
+                  }
+                },
+                "output_tokens": {
+                  "sum": 3244,
+                  "distribution": {
+                    "count": 6,
+                    "p50": 510.5,
+                    "p95": 754,
+                    "max": 754
+                  }
+                },
+                "reasoning_tokens": {
+                  "sum": 2150,
+                  "distribution": {
+                    "count": 6,
+                    "p50": 353.5,
+                    "p95": 512,
+                    "max": 512
+                  }
+                }
+              },
+              "known_cost_eur": "0.1426775082200302141651115258",
+              "components": {
+                "construction_context": {
+                  "serialized_bytes_sum": 7269,
+                  "serialized_bytes": {
+                    "count": 6,
+                    "p50": 1201.5,
+                    "p95": 1315,
+                    "max": 1315
+                  },
+                  "conservative_token_estimate_sum": 2426
+                },
+                "diagnostics": {
+                  "serialized_bytes_sum": 156,
+                  "serialized_bytes": {
+                    "count": 6,
+                    "p50": 26.0,
+                    "p95": 26,
+                    "max": 26
+                  },
+                  "conservative_token_estimate_sum": 54
+                },
+                "envelope": {
+                  "serialized_bytes_sum": 2529,
+                  "serialized_bytes": {
+                    "count": 6,
+                    "p50": 422.0,
+                    "p95": 423,
+                    "max": 423
+                  },
+                  "conservative_token_estimate_sum": 2380
+                },
+                "evidence": {
+                  "serialized_bytes_sum": 150,
+                  "serialized_bytes": {
+                    "count": 6,
+                    "p50": 25.0,
+                    "p95": 25,
+                    "max": 25
+                  },
+                  "conservative_token_estimate_sum": 54
+                },
+                "fragment": {
+                  "serialized_bytes_sum": 132,
+                  "serialized_bytes": {
+                    "count": 6,
+                    "p50": 22.0,
+                    "p95": 22,
+                    "max": 22
+                  },
+                  "conservative_token_estimate_sum": 48
+                },
+                "instructions": {
+                  "serialized_bytes_sum": 7152,
+                  "serialized_bytes": {
+                    "count": 6,
+                    "p50": 1192.0,
+                    "p95": 1192,
+                    "max": 1192
+                  },
+                  "conservative_token_estimate_sum": 2388
+                },
+                "interfaces": {
+                  "serialized_bytes_sum": 6614,
+                  "serialized_bytes": {
+                    "count": 6,
+                    "p50": 1285.0,
+                    "p95": 1910,
+                    "max": 1910
+                  },
+                  "conservative_token_estimate_sum": 2206
+                },
+                "mcp_contracts": {
+                  "serialized_bytes_sum": 150,
+                  "serialized_bytes": {
+                    "count": 6,
+                    "p50": 25.0,
+                    "p95": 25,
+                    "max": 25
+                  },
+                  "conservative_token_estimate_sum": 54
+                },
+                "objective": {
+                  "serialized_bytes_sum": 907,
+                  "serialized_bytes": {
+                    "count": 6,
+                    "p50": 153.0,
+                    "p95": 178,
+                    "max": 178
+                  },
+                  "conservative_token_estimate_sum": 305
+                },
+                "requirements": {
+                  "serialized_bytes_sum": 4921,
+                  "serialized_bytes": {
+                    "count": 6,
+                    "p50": 821.0,
+                    "p95": 821,
+                    "max": 821
+                  },
+                  "conservative_token_estimate_sum": 1642
+                },
+                "response_schema": {
+                  "serialized_bytes_sum": 37930,
+                  "serialized_bytes": {
+                    "count": 6,
+                    "p50": 6775.5,
+                    "p95": 7979,
+                    "max": 7979
+                  },
+                  "conservative_token_estimate_sum": 12645
+                }
+              },
+              "complete_request_bytes_sum": 67910,
+              "estimated_input_tokens_sum": 24174,
+              "component_bytes_reconcile": true
+            },
+            "construction_intent": {
+              "prepared_requests": 2,
+              "receipts": 2,
+              "rejected_prepared_requests": 0,
+              "complete_request_bytes": {
+                "count": 2,
+                "p50": 3504.5,
+                "p95": 4784,
+                "max": 4784
+              },
+              "estimated_input_tokens": {
+                "count": 2,
+                "p50": 1424.5,
+                "p95": 1851,
+                "max": 1851
+              },
+              "provider_usage": {
+                "input_tokens": {
+                  "sum": 1126,
+                  "distribution": {
+                    "count": 2,
+                    "p50": 563.0,
+                    "p95": 777,
+                    "max": 777
+                  }
+                },
+                "output_tokens": {
+                  "sum": 457,
+                  "distribution": {
+                    "count": 2,
+                    "p50": 228.5,
+                    "p95": 354,
+                    "max": 354
+                  }
+                },
+                "reasoning_tokens": {
+                  "sum": 227,
+                  "distribution": {
+                    "count": 2,
+                    "p50": 113.5,
+                    "p95": 227,
+                    "max": 227
+                  }
+                }
+              },
+              "known_cost_eur": "0.0171865280369679196658668799",
+              "components": {
+                "diagnostics": {
+                  "serialized_bytes_sum": 52,
+                  "serialized_bytes": {
+                    "count": 2,
+                    "p50": 26.0,
+                    "p95": 26,
+                    "max": 26
+                  },
+                  "conservative_token_estimate_sum": 18
+                },
+                "envelope": {
+                  "serialized_bytes_sum": 819,
+                  "serialized_bytes": {
+                    "count": 2,
+                    "p50": 409.5,
+                    "p95": 410,
+                    "max": 410
+                  },
+                  "conservative_token_estimate_sum": 786
+                },
+                "instructions": {
+                  "serialized_bytes_sum": 1319,
+                  "serialized_bytes": {
+                    "count": 2,
+                    "p50": 659.5,
+                    "p95": 696,
+                    "max": 696
+                  },
+                  "conservative_token_estimate_sum": 440
+                },
+                "intent": {
+                  "serialized_bytes_sum": 979,
+                  "serialized_bytes": {
+                    "count": 2,
+                    "p50": 489.5,
+                    "p95": 497,
+                    "max": 497
+                  },
+                  "conservative_token_estimate_sum": 327
+                },
+                "interfaces": {
+                  "serialized_bytes_sum": 59,
+                  "serialized_bytes": {
+                    "count": 1,
+                    "p50": 59,
+                    "p95": 59,
+                    "max": 59
+                  },
+                  "conservative_token_estimate_sum": 20
+                },
+                "response_schema": {
+                  "serialized_bytes_sum": 3781,
+                  "serialized_bytes": {
+                    "count": 2,
+                    "p50": 1890.5,
+                    "p95": 3169,
+                    "max": 3169
+                  },
+                  "conservative_token_estimate_sum": 1261
+                }
+              },
+              "complete_request_bytes_sum": 7009,
+              "estimated_input_tokens_sum": 2849,
+              "component_bytes_reconcile": true
+            },
+            "construction_intermediate_judge": {
+              "prepared_requests": 3,
+              "receipts": 3,
+              "rejected_prepared_requests": 0,
+              "complete_request_bytes": {
+                "count": 3,
+                "p50": 9040,
+                "p95": 9286,
+                "max": 9286
+              },
+              "estimated_input_tokens": {
+                "count": 3,
+                "p50": 3270,
+                "p95": 3352,
+                "max": 3352
+              },
+              "provider_usage": {
+                "input_tokens": {
+                  "sum": 4692,
+                  "distribution": {
+                    "count": 3,
+                    "p50": 1558,
+                    "p95": 1613,
+                    "max": 1613
+                  }
+                },
+                "output_tokens": {
+                  "sum": 1158,
+                  "distribution": {
+                    "count": 3,
+                    "p50": 325,
+                    "p95": 588,
+                    "max": 588
+                  }
+                },
+                "reasoning_tokens": {
+                  "sum": 938,
+                  "distribution": {
+                    "count": 3,
+                    "p50": 253,
+                    "p95": 512,
+                    "max": 512
+                  }
+                }
+              },
+              "known_cost_eur": "0.0517195414556118368435083977",
+              "components": {
+                "construction_context": {
+                  "serialized_bytes_sum": 5128,
+                  "serialized_bytes": {
+                    "count": 3,
+                    "p50": 1702,
+                    "p95": 1899,
+                    "max": 1899
+                  },
+                  "conservative_token_estimate_sum": 1710
+                },
+                "diagnostics": {
+                  "serialized_bytes_sum": 78,
+                  "serialized_bytes": {
+                    "count": 3,
+                    "p50": 26,
+                    "p95": 26,
+                    "max": 26
+                  },
+                  "conservative_token_estimate_sum": 27
+                },
+                "envelope": {
+                  "serialized_bytes_sum": 1280,
+                  "serialized_bytes": {
+                    "count": 3,
+                    "p50": 427,
+                    "p95": 427,
+                    "max": 427
+                  },
+                  "conservative_token_estimate_sum": 1196
+                },
+                "evidence": {
+                  "serialized_bytes_sum": 75,
+                  "serialized_bytes": {
+                    "count": 3,
+                    "p50": 25,
+                    "p95": 25,
+                    "max": 25
+                  },
+                  "conservative_token_estimate_sum": 27
+                },
+                "fragment": {
+                  "serialized_bytes_sum": 1853,
+                  "serialized_bytes": {
+                    "count": 3,
+                    "p50": 527,
+                    "p95": 1000,
+                    "max": 1000
+                  },
+                  "conservative_token_estimate_sum": 619
+                },
+                "instructions": {
+                  "serialized_bytes_sum": 7097,
+                  "serialized_bytes": {
+                    "count": 3,
+                    "p50": 2447,
+                    "p95": 2447,
+                    "max": 2447
+                  },
+                  "conservative_token_estimate_sum": 2367
+                },
+                "interfaces": {
+                  "serialized_bytes_sum": 5180,
+                  "serialized_bytes": {
+                    "count": 3,
+                    "p50": 1909,
+                    "p95": 2021,
+                    "max": 2021
+                  },
+                  "conservative_token_estimate_sum": 1728
+                },
+                "mcp_contracts": {
+                  "serialized_bytes_sum": 75,
+                  "serialized_bytes": {
+                    "count": 3,
+                    "p50": 25,
+                    "p95": 25,
+                    "max": 25
+                  },
+                  "conservative_token_estimate_sum": 27
+                },
+                "objective": {
+                  "serialized_bytes_sum": 476,
+                  "serialized_bytes": {
+                    "count": 3,
+                    "p50": 159,
+                    "p95": 178,
+                    "max": 178
+                  },
+                  "conservative_token_estimate_sum": 160
+                },
+                "requirements": {
+                  "serialized_bytes_sum": 2463,
+                  "serialized_bytes": {
+                    "count": 3,
+                    "p50": 821,
+                    "p95": 821,
+                    "max": 821
+                  },
+                  "conservative_token_estimate_sum": 822
+                },
+                "response_schema": {
+                  "serialized_bytes_sum": 3519,
+                  "serialized_bytes": {
+                    "count": 3,
+                    "p50": 1173,
+                    "p95": 1173,
+                    "max": 1173
+                  },
+                  "conservative_token_estimate_sum": 1173
+                }
+              },
+              "complete_request_bytes_sum": 27224,
+              "estimated_input_tokens_sum": 9844,
+              "component_bytes_reconcile": true
+            },
+            "construction_local_judge": {
+              "prepared_requests": 7,
+              "receipts": 7,
+              "rejected_prepared_requests": 0,
+              "complete_request_bytes": {
+                "count": 7,
+                "p50": 8888,
+                "p95": 9276,
+                "max": 9276
+              },
+              "estimated_input_tokens": {
+                "count": 7,
+                "p50": 3219,
+                "p95": 3348,
+                "max": 3348
+              },
+              "provider_usage": {
+                "input_tokens": {
+                  "sum": 9930,
+                  "distribution": {
+                    "count": 7,
+                    "p50": 1518,
+                    "p95": 1612,
+                    "max": 1612
+                  }
+                },
+                "output_tokens": {
+                  "sum": 2596,
+                  "distribution": {
+                    "count": 7,
+                    "p50": 369,
+                    "p95": 544,
+                    "max": 544
+                  }
+                },
+                "reasoning_tokens": {
+                  "sum": 1987,
+                  "distribution": {
+                    "count": 7,
+                    "p50": 299,
+                    "p95": 433,
+                    "max": 433
+                  }
+                }
+              },
+              "known_cost_eur": "0.1133297787256731538256464943",
+              "components": {
+                "construction_context": {
+                  "serialized_bytes_sum": 11343,
+                  "serialized_bytes": {
+                    "count": 7,
+                    "p50": 1559,
+                    "p95": 1896,
+                    "max": 1896
+                  },
+                  "conservative_token_estimate_sum": 3783
+                },
+                "diagnostics": {
+                  "serialized_bytes_sum": 182,
+                  "serialized_bytes": {
+                    "count": 7,
+                    "p50": 26,
+                    "p95": 26,
+                    "max": 26
+                  },
+                  "conservative_token_estimate_sum": 63
+                },
+                "envelope": {
+                  "serialized_bytes_sum": 2979,
+                  "serialized_bytes": {
+                    "count": 7,
+                    "p50": 426,
+                    "p95": 427,
+                    "max": 427
+                  },
+                  "conservative_token_estimate_sum": 2788
+                },
+                "evidence": {
+                  "serialized_bytes_sum": 175,
+                  "serialized_bytes": {
+                    "count": 7,
+                    "p50": 25,
+                    "p95": 25,
+                    "max": 25
+                  },
+                  "conservative_token_estimate_sum": 63
+                },
+                "fragment": {
+                  "serialized_bytes_sum": 4139,
+                  "serialized_bytes": {
+                    "count": 7,
+                    "p50": 575,
+                    "p95": 1000,
+                    "max": 1000
+                  },
+                  "conservative_token_estimate_sum": 1382
+                },
+                "instructions": {
+                  "serialized_bytes_sum": 16267,
+                  "serialized_bytes": {
+                    "count": 7,
+                    "p50": 2203,
+                    "p95": 2561,
+                    "max": 2561
+                  },
+                  "conservative_token_estimate_sum": 5426
+                },
+                "interfaces": {
+                  "serialized_bytes_sum": 7685,
+                  "serialized_bytes": {
+                    "count": 7,
+                    "p50": 1250,
+                    "p95": 2021,
+                    "max": 2021
+                  },
+                  "conservative_token_estimate_sum": 2564
+                },
+                "mcp_contracts": {
+                  "serialized_bytes_sum": 175,
+                  "serialized_bytes": {
+                    "count": 7,
+                    "p50": 25,
+                    "p95": 25,
+                    "max": 25
+                  },
+                  "conservative_token_estimate_sum": 63
+                },
+                "objective": {
+                  "serialized_bytes_sum": 1070,
+                  "serialized_bytes": {
+                    "count": 7,
+                    "p50": 159,
+                    "p95": 178,
+                    "max": 178
+                  },
+                  "conservative_token_estimate_sum": 360
+                },
+                "requirements": {
+                  "serialized_bytes_sum": 5742,
+                  "serialized_bytes": {
+                    "count": 7,
+                    "p50": 821,
+                    "p95": 821,
+                    "max": 821
+                  },
+                  "conservative_token_estimate_sum": 1916
+                },
+                "response_schema": {
+                  "serialized_bytes_sum": 8162,
+                  "serialized_bytes": {
+                    "count": 7,
+                    "p50": 1166,
+                    "p95": 1166,
+                    "max": 1166
+                  },
+                  "conservative_token_estimate_sum": 2723
+                }
+              },
+              "complete_request_bytes_sum": 57919,
+              "estimated_input_tokens_sum": 21100,
+              "component_bytes_reconcile": true
+            },
+            "construction_select": {
+              "prepared_requests": 6,
+              "receipts": 6,
+              "rejected_prepared_requests": 0,
+              "complete_request_bytes": {
+                "count": 6,
+                "p50": 7066.5,
+                "p95": 7789,
+                "max": 7789
+              },
+              "estimated_input_tokens": {
+                "count": 6,
+                "p50": 2611.5,
+                "p95": 2853,
+                "max": 2853
+              },
+              "provider_usage": {
+                "input_tokens": {
+                  "sum": 7201,
+                  "distribution": {
+                    "count": 6,
+                    "p50": 1211.5,
+                    "p95": 1319,
+                    "max": 1319
+                  }
+                },
+                "output_tokens": {
+                  "sum": 4249,
+                  "distribution": {
+                    "count": 6,
+                    "p50": 664.0,
+                    "p95": 1202,
+                    "max": 1202
+                  }
+                },
+                "reasoning_tokens": {
+                  "sum": 3275,
+                  "distribution": {
+                    "count": 6,
+                    "p50": 512.0,
+                    "p95": 1024,
+                    "max": 1024
+                  }
+                }
+              },
+              "known_cost_eur": "0.1452723718119612547765040434",
+              "components": {
+                "construction_context": {
+                  "serialized_bytes_sum": 8102,
+                  "serialized_bytes": {
+                    "count": 6,
+                    "p50": 1385.0,
+                    "p95": 1934,
+                    "max": 1934
+                  },
+                  "conservative_token_estimate_sum": 2702
+                },
+                "envelope": {
+                  "serialized_bytes_sum": 2518,
+                  "serialized_bytes": {
+                    "count": 6,
+                    "p50": 420.0,
+                    "p95": 420,
+                    "max": 420
+                  },
+                  "conservative_token_estimate_sum": 2376
+                },
+                "instructions": {
+                  "serialized_bytes_sum": 5616,
+                  "serialized_bytes": {
+                    "count": 6,
+                    "p50": 936.0,
+                    "p95": 936,
+                    "max": 936
+                  },
+                  "conservative_token_estimate_sum": 1872
+                },
+                "interfaces": {
+                  "serialized_bytes_sum": 2483,
+                  "serialized_bytes": {
+                    "count": 6,
+                    "p50": 184.0,
+                    "p95": 1115,
+                    "max": 1115
+                  },
+                  "conservative_token_estimate_sum": 831
+                },
+                "requirements": {
+                  "serialized_bytes_sum": 4921,
+                  "serialized_bytes": {
+                    "count": 6,
+                    "p50": 821.0,
+                    "p95": 821,
+                    "max": 821
+                  },
+                  "conservative_token_estimate_sum": 1642
+                },
+                "response_schema": {
+                  "serialized_bytes_sum": 18276,
+                  "serialized_bytes": {
+                    "count": 6,
+                    "p50": 3046.0,
+                    "p95": 3046,
+                    "max": 3046
+                  },
+                  "conservative_token_estimate_sum": 6096
+                }
+              },
+              "complete_request_bytes_sum": 41916,
+              "estimated_input_tokens_sum": 15510,
+              "component_bytes_reconcile": true
+            },
+            "replan": {
+              "prepared_requests": 1,
+              "receipts": 1,
+              "rejected_prepared_requests": 0,
+              "complete_request_bytes": {
+                "count": 1,
+                "p50": 12647,
+                "p95": 12647,
+                "max": 12647
+              },
+              "estimated_input_tokens": {
+                "count": 1,
+                "p50": 4472,
+                "p95": 4472,
+                "max": 4472
+              },
+              "provider_usage": {
+                "input_tokens": {
+                  "sum": 2338,
+                  "distribution": {
+                    "count": 1,
+                    "p50": 2338,
+                    "p95": 2338,
+                    "max": 2338
+                  }
+                },
+                "output_tokens": {
+                  "sum": 247,
+                  "distribution": {
+                    "count": 1,
+                    "p50": 247,
+                    "p95": 247,
+                    "max": 247
+                  }
+                },
+                "reasoning_tokens": {
+                  "sum": 60,
+                  "distribution": {
+                    "count": 1,
+                    "p50": 60,
+                    "p95": 60,
+                    "max": 60
+                  }
+                }
+              },
+              "known_cost_eur": "0.0169732515773571492046565360",
+              "components": {
+                "construction_context": {
+                  "serialized_bytes_sum": 1267,
+                  "serialized_bytes": {
+                    "count": 1,
+                    "p50": 1267,
+                    "p95": 1267,
+                    "max": 1267
+                  },
+                  "conservative_token_estimate_sum": 423
+                },
+                "diagnostics": {
+                  "serialized_bytes_sum": 708,
+                  "serialized_bytes": {
+                    "count": 1,
+                    "p50": 708,
+                    "p95": 708,
+                    "max": 708
+                  },
+                  "conservative_token_estimate_sum": 236
+                },
+                "envelope": {
+                  "serialized_bytes_sum": 420,
+                  "serialized_bytes": {
+                    "count": 1,
+                    "p50": 420,
+                    "p95": 420,
+                    "max": 420
+                  },
+                  "conservative_token_estimate_sum": 396
+                },
+                "evidence": {
+                  "serialized_bytes_sum": 25,
+                  "serialized_bytes": {
+                    "count": 1,
+                    "p50": 25,
+                    "p95": 25,
+                    "max": 25
+                  },
+                  "conservative_token_estimate_sum": 9
+                },
+                "fragment": {
+                  "serialized_bytes_sum": 601,
+                  "serialized_bytes": {
+                    "count": 1,
+                    "p50": 601,
+                    "p95": 601,
+                    "max": 601
+                  },
+                  "conservative_token_estimate_sum": 201
+                },
+                "instructions": {
+                  "serialized_bytes_sum": 1329,
+                  "serialized_bytes": {
+                    "count": 1,
+                    "p50": 1329,
+                    "p95": 1329,
+                    "max": 1329
+                  },
+                  "conservative_token_estimate_sum": 443
+                },
+                "interfaces": {
+                  "serialized_bytes_sum": 395,
+                  "serialized_bytes": {
+                    "count": 1,
+                    "p50": 395,
+                    "p95": 395,
+                    "max": 395
+                  },
+                  "conservative_token_estimate_sum": 132
+                },
+                "mcp_contracts": {
+                  "serialized_bytes_sum": 25,
+                  "serialized_bytes": {
+                    "count": 1,
+                    "p50": 25,
+                    "p95": 25,
+                    "max": 25
+                  },
+                  "conservative_token_estimate_sum": 9
+                },
+                "objective": {
+                  "serialized_bytes_sum": 163,
+                  "serialized_bytes": {
+                    "count": 1,
+                    "p50": 163,
+                    "p95": 163,
+                    "max": 163
+                  },
+                  "conservative_token_estimate_sum": 55
+                },
+                "requirements": {
+                  "serialized_bytes_sum": 821,
+                  "serialized_bytes": {
+                    "count": 1,
+                    "p50": 821,
+                    "p95": 821,
+                    "max": 821
+                  },
+                  "conservative_token_estimate_sum": 274
+                },
+                "response_schema": {
+                  "serialized_bytes_sum": 6893,
+                  "serialized_bytes": {
+                    "count": 1,
+                    "p50": 6893,
+                    "p95": 6893,
+                    "max": 6893
+                  },
+                  "conservative_token_estimate_sum": 2298
+                }
+              },
+              "complete_request_bytes_sum": 12647,
+              "estimated_input_tokens_sum": 4472,
+              "component_bytes_reconcile": true
+            }
+          }
+        },
+        {
+          "run": "compactd7206ca2-code-1",
+          "case": "code",
+          "calls": 11,
+          "corrections": 1,
+          "checkpoints": 0,
+          "planning_ms": 117487,
+          "reasoning_tokens": 5809,
+          "empty_content_receipts": 0,
+          "component_bytes_reconcile": true,
+          "all_prepared_requests_admitted": true,
+          "within_phase_input_limits": true,
+          "phases": {
+            "construction_discovery": {
+              "prepared_requests": 6,
+              "receipts": 6,
+              "rejected_prepared_requests": 0,
+              "complete_request_bytes": {
+                "count": 6,
+                "p50": 7216.0,
+                "p95": 7367,
+                "max": 7367
+              },
+              "estimated_input_tokens": {
+                "count": 6,
+                "p50": 2662.0,
+                "p95": 2712,
+                "max": 2712
+              },
+              "provider_usage": {
+                "input_tokens": {
+                  "sum": 9018,
+                  "distribution": {
+                    "count": 6,
+                    "p50": 1531.5,
+                    "p95": 1685,
+                    "max": 1685
+                  }
+                },
+                "output_tokens": {
+                  "sum": 2674,
+                  "distribution": {
+                    "count": 6,
+                    "p50": 525.0,
+                    "p95": 610,
+                    "max": 610
+                  }
+                },
+                "reasoning_tokens": {
+                  "sum": 2017,
+                  "distribution": {
+                    "count": 6,
+                    "p50": 370.5,
+                    "p95": 512,
+                    "max": 512
+                  }
+                }
+              },
+              "known_cost_eur": "0.1113569714742735270594508132",
+              "components": {
+                "construction_context": {
+                  "serialized_bytes_sum": 3684,
+                  "serialized_bytes": {
+                    "count": 6,
+                    "p50": 599.0,
+                    "p95": 689,
+                    "max": 689
+                  },
+                  "conservative_token_estimate_sum": 1230
+                },
+                "diagnostics": {
+                  "serialized_bytes_sum": 428,
+                  "serialized_bytes": {
+                    "count": 6,
+                    "p50": 26.0,
+                    "p95": 298,
+                    "max": 298
+                  },
+                  "conservative_token_estimate_sum": 145
+                },
+                "envelope": {
+                  "serialized_bytes_sum": 2378,
+                  "serialized_bytes": {
+                    "count": 6,
+                    "p50": 396.0,
+                    "p95": 397,
+                    "max": 397
+                  },
+                  "conservative_token_estimate_sum": 2330
+                },
+                "evidence": {
+                  "serialized_bytes_sum": 4401,
+                  "serialized_bytes": {
+                    "count": 6,
+                    "p50": 726.5,
+                    "p95": 1449,
+                    "max": 1449
+                  },
+                  "conservative_token_estimate_sum": 1469
+                },
+                "instructions": {
+                  "serialized_bytes_sum": 4278,
+                  "serialized_bytes": {
+                    "count": 6,
+                    "p50": 713.0,
+                    "p95": 713,
+                    "max": 713
+                  },
+                  "conservative_token_estimate_sum": 1428
+                },
+                "mcp_descriptors": {
+                  "serialized_bytes_sum": 3882,
+                  "serialized_bytes": {
+                    "count": 6,
+                    "p50": 313.5,
+                    "p95": 1702,
+                    "max": 1702
+                  },
+                  "conservative_token_estimate_sum": 1297
+                },
+                "objective": {
+                  "serialized_bytes_sum": 1428,
+                  "serialized_bytes": {
+                    "count": 6,
+                    "p50": 238.0,
+                    "p95": 238,
+                    "max": 238
+                  },
+                  "conservative_token_estimate_sum": 480
+                },
+                "requirements": {
+                  "serialized_bytes_sum": 13032,
+                  "serialized_bytes": {
+                    "count": 6,
+                    "p50": 2172.0,
+                    "p95": 2172,
+                    "max": 2172
+                  },
+                  "conservative_token_estimate_sum": 4344
+                },
+                "response_schema": {
+                  "serialized_bytes_sum": 8448,
+                  "serialized_bytes": {
+                    "count": 6,
+                    "p50": 1260.0,
+                    "p95": 1815,
+                    "max": 1815
+                  },
+                  "conservative_token_estimate_sum": 2816
+                }
+              },
+              "complete_request_bytes_sum": 41959,
+              "estimated_input_tokens_sum": 15525,
+              "component_bytes_reconcile": true
+            },
+            "construction_intent": {
+              "prepared_requests": 4,
+              "receipts": 4,
+              "rejected_prepared_requests": 0,
+              "complete_request_bytes": {
+                "count": 4,
+                "p50": 3034.5,
+                "p95": 5492,
+                "max": 5492
+              },
+              "estimated_input_tokens": {
+                "count": 4,
+                "p50": 1267.5,
+                "p95": 2087,
+                "max": 2087
+              },
+              "provider_usage": {
+                "input_tokens": {
+                  "sum": 2537,
+                  "distribution": {
+                    "count": 4,
+                    "p50": 521.5,
+                    "p95": 1011,
+                    "max": 1011
+                  }
+                },
+                "output_tokens": {
+                  "sum": 4213,
+                  "distribution": {
+                    "count": 4,
+                    "p50": 711.0,
+                    "p95": 2424,
+                    "max": 2424
+                  }
+                },
+                "reasoning_tokens": {
+                  "sum": 3345,
+                  "distribution": {
+                    "count": 4,
+                    "p50": 512.0,
+                    "p95": 2047,
+                    "max": 2047
+                  }
+                }
+              },
+              "known_cost_eur": "0.1235892650848662578867857461",
+              "components": {
+                "diagnostics": {
+                  "serialized_bytes_sum": 104,
+                  "serialized_bytes": {
+                    "count": 4,
+                    "p50": 26.0,
+                    "p95": 26,
+                    "max": 26
+                  },
+                  "conservative_token_estimate_sum": 36
+                },
+                "envelope": {
+                  "serialized_bytes_sum": 1558,
+                  "serialized_bytes": {
+                    "count": 4,
+                    "p50": 389.5,
+                    "p95": 390,
+                    "max": 390
+                  },
+                  "conservative_token_estimate_sum": 1544
+                },
+                "instructions": {
+                  "serialized_bytes_sum": 2638,
+                  "serialized_bytes": {
+                    "count": 4,
+                    "p50": 659.5,
+                    "p95": 696,
+                    "max": 696
+                  },
+                  "conservative_token_estimate_sum": 880
+                },
+                "intent": {
+                  "serialized_bytes_sum": 3876,
+                  "serialized_bytes": {
+                    "count": 4,
+                    "p50": 1158.0,
+                    "p95": 1225,
+                    "max": 1225
+                  },
+                  "conservative_token_estimate_sum": 1294
+                },
+                "interfaces": {
+                  "serialized_bytes_sum": 118,
+                  "serialized_bytes": {
+                    "count": 2,
+                    "p50": 59.0,
+                    "p95": 59,
+                    "max": 59
+                  },
+                  "conservative_token_estimate_sum": 40
+                },
+                "response_schema": {
+                  "serialized_bytes_sum": 6091,
+                  "serialized_bytes": {
+                    "count": 4,
+                    "p50": 1155.0,
+                    "p95": 3169,
+                    "max": 3169
+                  },
+                  "conservative_token_estimate_sum": 2032
+                }
+              },
+              "complete_request_bytes_sum": 14385,
+              "estimated_input_tokens_sum": 5820,
+              "component_bytes_reconcile": true
+            },
+            "construction_select": {
+              "prepared_requests": 1,
+              "receipts": 1,
+              "rejected_prepared_requests": 0,
+              "complete_request_bytes": {
+                "count": 1,
+                "p50": 7943,
+                "p95": 7943,
+                "max": 7943
+              },
+              "estimated_input_tokens": {
+                "count": 1,
+                "p50": 2904,
+                "p95": 2904,
+                "max": 2904
+              },
+              "provider_usage": {
+                "input_tokens": {
+                  "sum": 1531,
+                  "distribution": {
+                    "count": 1,
+                    "p50": 1531,
+                    "p95": 1531,
+                    "max": 1531
+                  }
+                },
+                "output_tokens": {
+                  "sum": 620,
+                  "distribution": {
+                    "count": 1,
+                    "p50": 620,
+                    "p95": 620,
+                    "max": 620
+                  }
+                },
+                "reasoning_tokens": {
+                  "sum": 447,
+                  "distribution": {
+                    "count": 1,
+                    "p50": 447,
+                    "p95": 447,
+                    "max": 447
+                  }
+                }
+              },
+              "known_cost_eur": "0.0233315560295032435794899138",
+              "components": {
+                "construction_context": {
+                  "serialized_bytes_sum": 996,
+                  "serialized_bytes": {
+                    "count": 1,
+                    "p50": 996,
+                    "p95": 996,
+                    "max": 996
+                  },
+                  "conservative_token_estimate_sum": 332
+                },
+                "envelope": {
+                  "serialized_bytes_sum": 399,
+                  "serialized_bytes": {
+                    "count": 1,
+                    "p50": 399,
+                    "p95": 399,
+                    "max": 399
+                  },
+                  "conservative_token_estimate_sum": 389
+                },
+                "instructions": {
+                  "serialized_bytes_sum": 936,
+                  "serialized_bytes": {
+                    "count": 1,
+                    "p50": 936,
+                    "p95": 936,
+                    "max": 936
+                  },
+                  "conservative_token_estimate_sum": 312
+                },
+                "interfaces": {
+                  "serialized_bytes_sum": 370,
+                  "serialized_bytes": {
+                    "count": 1,
+                    "p50": 370,
+                    "p95": 370,
+                    "max": 370
+                  },
+                  "conservative_token_estimate_sum": 124
+                },
+                "requirements": {
+                  "serialized_bytes_sum": 2172,
+                  "serialized_bytes": {
+                    "count": 1,
+                    "p50": 2172,
+                    "p95": 2172,
+                    "max": 2172
+                  },
+                  "conservative_token_estimate_sum": 724
+                },
+                "response_schema": {
+                  "serialized_bytes_sum": 3070,
+                  "serialized_bytes": {
+                    "count": 1,
+                    "p50": 3070,
+                    "p95": 3070,
+                    "max": 3070
+                  },
+                  "conservative_token_estimate_sum": 1024
+                }
+              },
+              "complete_request_bytes_sum": 7943,
+              "estimated_input_tokens_sum": 2904,
+              "component_bytes_reconcile": true
+            }
+          }
+        }
+      ]
+    },
+    {
+      "source": "3513ccde9470353bf99b659bffbe5b8d40f9cc6d",
+      "retained_safe_report_sha256": "c217f51cc4b70ab694b98cc42785211e57b66e94e7dbd401cb6ed621bc1fb73d",
+      "runs": [
+        {
+          "run": "compactd3513ccd-amazon-1",
+          "case": "amazon",
+          "calls": 6,
+          "corrections": 0,
+          "checkpoints": 0,
+          "planning_ms": 59183,
+          "reasoning_tokens": 2794,
+          "empty_content_receipts": 0,
+          "component_bytes_reconcile": true,
+          "all_prepared_requests_admitted": true,
+          "within_phase_input_limits": true,
+          "phases": {
+            "construction_intent": {
+              "prepared_requests": 2,
+              "receipts": 2,
+              "missing_receipts": 0,
+              "rejected_prepared_requests": 0,
+              "complete_request_bytes": {
+                "count": 2,
+                "p50": 3856.0,
+                "p95": 4748,
+                "max": 4748
+              },
+              "estimated_input_tokens": {
+                "count": 2,
+                "p50": 1541.5,
+                "p95": 1839,
+                "max": 1839
+              },
+              "provider_usage": {
+                "input_tokens": {
+                  "known_sum": 1269,
+                  "distribution": {
+                    "count": 2,
+                    "p50": 634.5,
+                    "p95": 759,
+                    "max": 759
+                  }
+                },
+                "output_tokens": {
+                  "known_sum": 1884,
+                  "distribution": {
+                    "count": 2,
+                    "p50": 942.0,
+                    "p95": 1319,
+                    "max": 1319
+                  }
+                },
+                "reasoning_tokens": {
+                  "known_sum": 1536,
+                  "distribution": {
+                    "count": 2,
+                    "p50": 768.0,
+                    "p95": 1024,
+                    "max": 1024
+                  }
+                }
+              },
+              "known_cost_eur": "0.0558651026392961876832844575",
+              "elapsed_ms": "25578.6946",
+              "components": {
+                "diagnostics": {
+                  "serialized_bytes_sum": 52,
+                  "serialized_bytes": {
+                    "count": 2,
+                    "p50": 26.0,
+                    "p95": 26,
+                    "max": 26
+                  },
+                  "conservative_token_estimate_sum": 18
+                },
+                "envelope": {
+                  "serialized_bytes_sum": 783,
+                  "serialized_bytes": {
+                    "count": 2,
+                    "p50": 391.5,
+                    "p95": 392,
+                    "max": 392
+                  },
+                  "conservative_token_estimate_sum": 774
+                },
+                "instructions": {
+                  "serialized_bytes_sum": 1501,
+                  "serialized_bytes": {
+                    "count": 2,
+                    "p50": 750.5,
+                    "p95": 878,
+                    "max": 878
+                  },
+                  "conservative_token_estimate_sum": 501
+                },
+                "intent": {
+                  "serialized_bytes_sum": 1526,
+                  "serialized_bytes": {
+                    "count": 2,
+                    "p50": 763.0,
+                    "p95": 1057,
+                    "max": 1057
+                  },
+                  "conservative_token_estimate_sum": 510
+                },
+                "interfaces": {
+                  "serialized_bytes_sum": 59,
+                  "serialized_bytes": {
+                    "count": 1,
+                    "p50": 59,
+                    "p95": 59,
+                    "max": 59
+                  },
+                  "conservative_token_estimate_sum": 20
+                },
+                "response_schema": {
+                  "serialized_bytes_sum": 3791,
+                  "serialized_bytes": {
+                    "count": 2,
+                    "p50": 1895.5,
+                    "p95": 3179,
+                    "max": 3179
+                  },
+                  "conservative_token_estimate_sum": 1264
+                }
+              },
+              "complete_request_bytes_sum": 7712,
+              "estimated_input_tokens_sum": 3083,
+              "component_bytes_reconcile": true
+            },
+            "construction_select": {
+              "prepared_requests": 2,
+              "receipts": 2,
+              "missing_receipts": 0,
+              "rejected_prepared_requests": 0,
+              "complete_request_bytes": {
+                "count": 2,
+                "p50": 6699.0,
+                "p95": 7072,
+                "max": 7072
+              },
+              "estimated_input_tokens": {
+                "count": 2,
+                "p50": 2489.5,
+                "p95": 2614,
+                "max": 2614
+              },
+              "provider_usage": {
+                "input_tokens": {
+                  "known_sum": 2403,
+                  "distribution": {
+                    "count": 2,
+                    "p50": 1201.5,
+                    "p95": 1290,
+                    "max": 1290
+                  }
+                },
+                "output_tokens": {
+                  "known_sum": 1264,
+                  "distribution": {
+                    "count": 2,
+                    "p50": 632.0,
+                    "p95": 682,
+                    "max": 682
+                  }
+                },
+                "reasoning_tokens": {
+                  "known_sum": 1024,
+                  "distribution": {
+                    "count": 2,
+                    "p50": 512.0,
+                    "p95": 512,
+                    "max": 512
+                  }
+                }
+              },
+              "known_cost_eur": "0.0443748333777659290855771794",
+              "elapsed_ms": "20871.4963",
+              "components": {
+                "construction_context": {
+                  "serialized_bytes_sum": 1218,
+                  "serialized_bytes": {
+                    "count": 2,
+                    "p50": 609.0,
+                    "p95": 609,
+                    "max": 609
+                  },
+                  "conservative_token_estimate_sum": 406
+                },
+                "envelope": {
+                  "serialized_bytes_sum": 803,
+                  "serialized_bytes": {
+                    "count": 2,
+                    "p50": 401.5,
+                    "p95": 402,
+                    "max": 402
+                  },
+                  "conservative_token_estimate_sum": 780
+                },
+                "evidence": {
+                  "serialized_bytes_sum": 729,
+                  "serialized_bytes": {
+                    "count": 1,
+                    "p50": 729,
+                    "p95": 729,
+                    "max": 729
+                  },
+                  "conservative_token_estimate_sum": 243
+                },
+                "instructions": {
+                  "serialized_bytes_sum": 1872,
+                  "serialized_bytes": {
+                    "count": 2,
+                    "p50": 936.0,
+                    "p95": 936,
+                    "max": 936
+                  },
+                  "conservative_token_estimate_sum": 624
+                },
+                "interfaces": {
+                  "serialized_bytes_sum": 360,
+                  "serialized_bytes": {
+                    "count": 2,
+                    "p50": 180.0,
+                    "p95": 180,
+                    "max": 180
+                  },
+                  "conservative_token_estimate_sum": 120
+                },
+                "requirements": {
+                  "serialized_bytes_sum": 2312,
+                  "serialized_bytes": {
+                    "count": 2,
+                    "p50": 1156.0,
+                    "p95": 1156,
+                    "max": 1156
+                  },
+                  "conservative_token_estimate_sum": 772
+                },
+                "response_schema": {
+                  "serialized_bytes_sum": 6104,
+                  "serialized_bytes": {
+                    "count": 2,
+                    "p50": 3052.0,
+                    "p95": 3060,
+                    "max": 3060
+                  },
+                  "conservative_token_estimate_sum": 2035
+                }
+              },
+              "complete_request_bytes_sum": 13398,
+              "estimated_input_tokens_sum": 4979,
+              "component_bytes_reconcile": true
+            },
+            "construction_discovery": {
+              "prepared_requests": 2,
+              "receipts": 1,
+              "missing_receipts": 1,
+              "rejected_prepared_requests": 0,
+              "complete_request_bytes": {
+                "count": 2,
+                "p50": 6498.0,
+                "p95": 6521,
+                "max": 6521
+              },
+              "estimated_input_tokens": {
+                "count": 2,
+                "p50": 2422.5,
+                "p95": 2430,
+                "max": 2430
+              },
+              "provider_usage": {
+                "input_tokens": {
+                  "known_sum": 1301,
+                  "distribution": {
+                    "count": 1,
+                    "p50": 1301,
+                    "p95": 1301,
+                    "max": 1301
+                  }
+                },
+                "output_tokens": {
+                  "known_sum": 308,
+                  "distribution": {
+                    "count": 1,
+                    "p50": 308,
+                    "p95": 308,
+                    "max": 308
+                  }
+                },
+                "reasoning_tokens": {
+                  "known_sum": 234,
+                  "distribution": {
+                    "count": 1,
+                    "p50": 234,
+                    "p95": 234,
+                    "max": 234
+                  }
+                }
+              },
+              "known_cost_eur": "0.0139918244023815871323202701",
+              "elapsed_ms": "10280.9074",
+              "components": {
+                "construction_context": {
+                  "serialized_bytes_sum": 1286,
+                  "serialized_bytes": {
+                    "count": 2,
+                    "p50": 643.0,
+                    "p95": 688,
+                    "max": 688
+                  },
+                  "conservative_token_estimate_sum": 430
+                },
+                "diagnostics": {
+                  "serialized_bytes_sum": 52,
+                  "serialized_bytes": {
+                    "count": 2,
+                    "p50": 26.0,
+                    "p95": 26,
+                    "max": 26
+                  },
+                  "conservative_token_estimate_sum": 18
+                },
+                "envelope": {
+                  "serialized_bytes_sum": 796,
+                  "serialized_bytes": {
+                    "count": 2,
+                    "p50": 398.0,
+                    "p95": 398,
+                    "max": 398
+                  },
+                  "conservative_token_estimate_sum": 778
+                },
+                "evidence": {
+                  "serialized_bytes_sum": 50,
+                  "serialized_bytes": {
+                    "count": 2,
+                    "p50": 25.0,
+                    "p95": 25,
+                    "max": 25
+                  },
+                  "conservative_token_estimate_sum": 18
+                },
+                "instructions": {
+                  "serialized_bytes_sum": 1426,
+                  "serialized_bytes": {
+                    "count": 2,
+                    "p50": 713.0,
+                    "p95": 713,
+                    "max": 713
+                  },
+                  "conservative_token_estimate_sum": 476
+                },
+                "mcp_descriptors": {
+                  "serialized_bytes_sum": 2929,
+                  "serialized_bytes": {
+                    "count": 2,
+                    "p50": 1464.5,
+                    "p95": 1720,
+                    "max": 1720
+                  },
+                  "conservative_token_estimate_sum": 977
+                },
+                "objective": {
+                  "serialized_bytes_sum": 480,
+                  "serialized_bytes": {
+                    "count": 2,
+                    "p50": 240.0,
+                    "p95": 240,
+                    "max": 240
+                  },
+                  "conservative_token_estimate_sum": 160
+                },
+                "requirements": {
+                  "serialized_bytes_sum": 2730,
+                  "serialized_bytes": {
+                    "count": 2,
+                    "p50": 1365.0,
+                    "p95": 1365,
+                    "max": 1365
+                  },
+                  "conservative_token_estimate_sum": 910
+                },
+                "response_schema": {
+                  "serialized_bytes_sum": 3247,
+                  "serialized_bytes": {
+                    "count": 2,
+                    "p50": 1623.5,
+                    "p95": 1901,
+                    "max": 1901
+                  },
+                  "conservative_token_estimate_sum": 1083
+                }
+              },
+              "complete_request_bytes_sum": 12996,
+              "estimated_input_tokens_sum": 4845,
+              "component_bytes_reconcile": true
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "limitations": [
+    "No complete business success or paired baseline comparison is established.",
+    "The receiptless HTTP502 has unknown actual usage; only known provider receipts contribute to provider token totals.",
+    "Financial totals in historical run snapshots are not current campaign accounting; see the evidence record for the corrected conservative audit."
+  ]
+}

@@ -5,6 +5,13 @@ business acceptance. The measured 18-run comparison against `56942f5` has not
 started; it remains conditional on successful Amazon, Collections and Review PR
 diagnostics on one frozen candidate.
 
+The [safe component report](compact-taskplan-request-components-2026-10-20.json)
+publishes the latest `7206ca2` and `3513ccd` request distributions, component byte
+and conservative token estimates, and separate known provider usage. Its four
+runs reconcile component sums against every complete prepared request. Judge is
+a phase dimension; component estimates are not billed tokens. No original
+business text, contract bodies, response bodies or credentials are included.
+
 ## Permanent retention of the old Amazon timeout
 
 The authorized benchmark operator retained `compactdiag673-amazon-1` permanently
