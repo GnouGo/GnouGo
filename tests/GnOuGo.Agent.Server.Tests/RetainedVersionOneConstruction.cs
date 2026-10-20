@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using GnOuGo.Agent.Server.Planning;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
@@ -16,8 +17,15 @@ internal static class RetainedVersionOneConstruction
         state.Construction.Version = 1;
         state.Construction.Compact = null;
         state.Construction.Limits.InputLimits = null;
+        state.Construction.Limits.PhasePolicy = null;
         state.Request.Options["construction_version"] = 1;
         state.Request.Options.Remove("construction_input_limits");
+        state.Request.Options.Remove("construction_presentation_version");
+        if (state.Request.Options["construction_limits"] is JsonObject limits)
+        {
+            limits.Remove("phasePolicy");
+            limits.Remove("inputLimits");
+        }
         state.Request.Options.TryAdd("compilation_profile", TaskPlanCompiler.CompactProfile);
         state.Request.Options.TryAdd("mapping_profile", TaskPlanCompiler.AdaptiveMappingProfile);
         state.Request.Options.TryAdd("planning_validation_profile", TaskPlanCompiler.AssertionValidationProfile);
@@ -26,7 +34,11 @@ internal static class RetainedVersionOneConstruction
         state.Request.Options.TryAdd("business_judge_review_version", 2);
         state.Request.Options.TryAdd("clarification_policy", 1);
         state.Request.MaxModelCalls = Math.Min(state.Request.MaxModelCalls, 12);
-        return JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
+        var restored = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
+        Assert.False(PlanningConstructionPhasePolicies.IsFresh(restored.Request));
+        Assert.Equal(restored.Request.Generation.MaxInputTokensPerRequest,
+            PlanningConstructionPhasePolicies.Resolve(restored.Request, "construction_draft").MaxInputTokens);
+        return restored;
     }
 
     internal static async Task<PlanningSession> SeedAsync(PlanningPersistenceTests.StoreFixture fixture,

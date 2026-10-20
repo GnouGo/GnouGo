@@ -49,8 +49,8 @@ public sealed class PlanningConstructionFinancialAdmissionTests
         Assert.Null(result.Plan);
         Assert.Equal(before, budget.Snapshot);
         Assert.Equal(parentBefore, parent.Snapshot);
-        Assert.Contains((compact ? 8_000L : 32_000L, 8_192L), price.Estimates);
-        Assert.Contains((compact ? 8_000L : 32_000L, 2_048L), price.Estimates);
+        Assert.Contains((compact ? 16_000L : 32_000L, 8_192L), price.Estimates);
+        Assert.Contains((compact ? 16_000L : 32_000L, 2_048L), price.Estimates);
         await using var db = fixture.CreateDbContext();
         Assert.Equal(0, await db.Calls.CountAsync(ct));
         Assert.Null(await fixture.Records.GetAsync(PlanningBudgetSink.Collection, "tenant", "financial", EfPlanningSessionStore.Author, ct));
