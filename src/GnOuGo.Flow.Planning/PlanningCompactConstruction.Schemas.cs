@@ -136,7 +136,7 @@ internal static partial class PlanningCompactConstruction
         if (step.Kind == "value")
             hints.Add("value only copies, projects or assembles typed values using declared arithmetic, predicates, lookup, flatten and JSON encoding. It cannot concatenate or format strings, URL-encode or interpolate literals; its objective adds no computation.");
         if (PlanningConstructionPhasePolicies.IsFresh(state.Request) && step.Kind == "transform")
-            hints.Add("transform resultType is an object of named output ports; output.port selects that field's type, not the whole result object. extract preserves observed facts; interpret performs requested decisions. Neither executes external effects.");
+            hints.Add("transform resultType is an object of named output ports; output.port selects that field's type, not the whole result object. extract preserves observed facts; interpret uses its objective as the runtime LLM instruction, inputs as data and resultType as the output contract, without a separate expression. Neither executes external effects.");
         if (State(state).PresentationVersion == 2 && step.Kind == "operation")
             hints.Add(PlanningConstructionPhasePolicies.IsFresh(state.Request)
                 ? "editableInputs is only the inspected subset. Retrieve the exact schema branches needed for this business action together, up to eight addresses; the complete follow-up must fit its captured ceiling. Retrieval expands binding grammar. [] does not mean no arguments are needed."

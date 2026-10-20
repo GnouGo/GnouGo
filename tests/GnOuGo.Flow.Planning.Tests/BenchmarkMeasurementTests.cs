@@ -285,6 +285,37 @@ public sealed class BenchmarkMeasurementTests
         Assert.False(PlanningBenchmarkMeasurements.Summary(rows.Take(7).ToArray(), "measured")["gates_passed"]!.GetValue<bool>());
     }
     [Fact]
+    public void SummaryRequiresObservedExecutionBeforeReportingCorrectness()
+    {
+        var stopped = Row("local", 1);
+        stopped["final_review"] = false;
+        stopped["execution_correct"] = false;
+        stopped["execution_variants"] = new JsonArray();
+        var awaitingReview = stopped.DeepClone().AsObject();
+        awaitingReview["final_review"] = true;
+        foreach (var rows in new[] { Array.Empty<JsonObject>(), new[] { stopped }, new[] { awaitingReview } })
+        {
+            var summary = PlanningBenchmarkMeasurements.Summary(rows, "fixture");
+            Assert.Null(summary["approved_execution_correct"]);
+            Assert.False(summary["gates_passed"]!.GetValue<bool>());
+        }
+        var executed = Row("collections", 1);
+        executed["execution_variants"] = new JsonArray(new JsonObject { ["variant"] = "nominal", ["correct"] = true });
+        var original = new[] { stopped, awaitingReview, executed }.Select(row => row.ToJsonString()).ToArray();
+        var partial = PlanningBenchmarkMeasurements.Summary([stopped, executed], "fixture");
+        Assert.True(partial["approved_execution_correct"]!.GetValue<bool>());
+        Assert.False(partial["gates_passed"]!.GetValue<bool>());
+        var pending = PlanningBenchmarkMeasurements.Summary([awaitingReview, executed], "fixture");
+        Assert.False(pending["approved_execution_correct"]!.GetValue<bool>());
+        Assert.False(pending["gates_passed"]!.GetValue<bool>());
+        Assert.Equal(original, new[] { stopped, awaitingReview, executed }.Select(row => row.ToJsonString()).ToArray());
+        executed["execution_correct"] = false;
+        executed["execution_variants"]![0]!["correct"] = false;
+        var failed = PlanningBenchmarkMeasurements.Summary([stopped, executed], "fixture");
+        Assert.False(failed["approved_execution_correct"]!.GetValue<bool>());
+        Assert.False(failed["gates_passed"]!.GetValue<bool>());
+    }
+    [Fact]
     public void ReceiptReplayIsIdempotentAndUnknownUsageIsNotZero()
     {
         var run = new JsonObject { ["usage_receipts"] = new JsonObject(), ["usage_complete"] = true };
@@ -320,6 +351,8 @@ public sealed class BenchmarkMeasurementTests
     [InlineData("reference_regression")]
     [InlineData("reference_missing")]
     [InlineData("reference_usage")]
+    [InlineData("no_executions")]
+    [InlineData("empty_candidate")]
     public void ParentComparisonRequiresComparableCompleteEvidenceAndEveryAcceptanceCondition(string? defect)
     {
         JsonObject Run(string source, string name, int repetition)
@@ -327,6 +360,7 @@ public sealed class BenchmarkMeasurementTests
             var row = Row(name, repetition); row["source_commit"] = source;
             row["mode"] = "live"; row["model"] = "pinned-model"; row["provider"] = "provider"; row["campaign"] = "same"; row["usage_bounded"] = true;
             row["calls"] = source == "parent" ? 4 : 2;
+            row["execution_variants"] = new JsonArray(new JsonObject { ["variant"] = "nominal", ["correct"] = true });
             if (source == "parent" && name == "review_french") { row["execution_correct"] = false; row["final_review"] = false; }
             return new() { ["result"] = row, ["session"] = new JsonObject { ["request"] = new JsonObject
             { ["maxModelCalls"] = 8, ["maxReplanAttempts"] = 2, ["generation"] = new JsonObject { ["reasoning"] = "medium", ["maxInputTokensPerRequest"] = 96000, ["maxOutputTokens"] = 32768 } } } };
@@ -336,6 +370,15 @@ public sealed class BenchmarkMeasurementTests
         var reference = PlanningBenchmarkMeasurements.CandidateCases.SelectMany(n => Enumerable.Range(1, 3).Select(i => Run("reference", n, i))).ToList();
         switch (defect)
         {
+            case "no_executions":
+                foreach (var run in candidate)
+                {
+                    run["result"]!["final_review"] = false;
+                    run["result"]!["execution_correct"] = false;
+                    run["result"]!["execution_variants"] = new JsonArray();
+                }
+                break;
+            case "empty_candidate": candidate.Clear(); break;
             case "reference_regression":
                 var failed = candidate.First(r => r["result"]!["case"]!.ToString() == "review_french");
                 failed["result"]!["execution_correct"] = false; failed["result"]!["final_review"] = false; break;
@@ -351,6 +394,8 @@ public sealed class BenchmarkMeasurementTests
         }
         var report = PlanningBenchmarkMeasurements.Compare(parent, candidate, "review_french", reference);
         Assert.Equal(defect is null, report["passed"]!.GetValue<bool>());
+        if (defect is "no_executions" or "empty_candidate") Assert.Null(report["approved_execution_correct_and_safe"]);
+        else Assert.Equal(defect != "regression", report["approved_execution_correct_and_safe"]!.GetValue<bool>());
         if (defect == "reference_regression") { Assert.True(report["no_case_regression"]!.GetValue<bool>()); Assert.False(report["no_reference_case_regression"]!.GetValue<bool>()); }
         if (defect is "missing" or "limits" or "model" or "reference_missing" or "reference_usage") Assert.Equal("inconclusive", report["status"]!.ToString());
     }

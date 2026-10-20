@@ -734,7 +734,8 @@ public static class PlanningBenchmarkMeasurements
             ["reference_median_calls"] = reference is null ? null : Summary(previous, "measured")["median_calls"]?.DeepClone(),
             ["retained_case"] = retainedCase, ["retained_case_improved"] = improved,
             ["parent_median_calls"] = parentMedian, ["candidate_median_calls"] = candidateMedian, ["median_calls_reduced"] = reduced,
-            ["approved_execution_correct_and_safe"] = safe, ["cases"] = perCase };
+            ["approved_execution_correct_and_safe"] = after.Any(r => r["execution_variants"] is JsonArray { Count: > 0 }) ? safe : (bool?)null,
+            ["cases"] = perCase };
     }
 
     // A server failure does not establish whether provider work was billed.
@@ -826,7 +827,8 @@ public static class PlanningBenchmarkMeasurements
             ["first_pass_valid_rate"] = count == 0 ? null : rows.Count(r => r["first_pass_valid"]!.GetValue<bool>()) / (double)count,
             ["final_review_rate"] = count == 0 ? null : reviewed / (double)count, ["final_review_within_two_calls_rate"] = count == 0 ? null : fast / (double)count,
             ["median_calls"] = median, ["p75_calls"] = count == 0 ? null : calls[(int)Math.Ceiling(count * .75) - 1],
-            ["approved_execution_correct"] = correct, ["zero_safety_violations"] = safe,
+            ["approved_execution_correct"] = rows.Any(r => r["execution_variants"] is JsonArray { Count: > 0 }) ? correct : (bool?)null,
+            ["zero_safety_violations"] = safe,
             ["gates_passed"] = complete && safe && correct && (phase == "measured" ? reviewed >= Math.Ceiling(expected * 19.0 / 21) && fast >= Math.Ceiling(expected * 16.0 / 21) && median <= 2 : reviewed == count) };
     }
 }

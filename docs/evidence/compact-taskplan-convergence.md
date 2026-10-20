@@ -7,23 +7,40 @@ compilation and scoped reviews do not establish business success. The gated
 
 ## Latest attempt and retained diagnostics
 
-After explicit authorization, the `08ad5db` Review PR request was permanently
-abandoned with its full reservation intact. Fresh cohort `compactdcd174ea` then
-froze source `cd174ea660c28e104a98b340fdf8c7f926c6dcaa` with the same configuration
-and MCP bundle. Amazon's first intent call stopped on HTTP 504 after 125.840 s:
-one transport attempt, no receipt or verified usage, and no artifact or execution.
-Its complete request was 2,969 bytes (1,246 estimated input tokens), including a
-612-byte response schema. Components reconcile. This does not demonstrate a
-prompt-size or reasoning-exhaustion cause.
+Exact authorization permanently abandoned the retained Review PR HTTP 500,
+Amazon HTTP 504 and Collections HTTP 500 requests and their runs. All records and
+full unknown-usage reservations remain intact; none was replayed or continued.
+The prior Amazon attempt is preserved in [its archive](compact-taskplan-cd174ea.json).
 
-The full €0.4634497467342042122100773127 reservation remains unknown. Paid dispatch
-stopped; Collections and Review PR were **not started** in this cohort. The new
-504 is outside the preceding exact 500 authorization. The implementation fixes
-below therefore still need live acceptance. [Safe attempt evidence](compact-taskplan-cd174ea.json)
-records reconciled components, unknown usage, transport hashes and the unused run identities.
-The benchmark-only `single-http-504` operator is prepared and its 322 retention
-regressions pass. Applying it still requires authorization for this exact run,
-request and evidence; no reservation release or replay is permitted.
+Frozen cohort `compactd585203a` kept the same pinned model, medium reasoning,
+6k/16k/8k input ceilings and navigation/draft/Judge output reservations
+16,384/8,192/2,048. Collections stopped on its second intent call with HTTP 500;
+its exact authorized closure retains €0.4634497467342042122100773127. Fresh Review
+PR then received all ten completions, but its correction exhausted 8,192 reasoning
+tokens with no visible answer. No artifact or execution resulted. Amazon was
+**not started** in this cohort.
+
+| Scenario | Calls / corrections / checkpoints | Planning time | Known cost | Observed blocker |
+| --- | ---: | ---: | ---: | --- |
+| Collections | 2 / 0 / 0 | 314.015 s | €0.017644 | HTTP 500; one unknown completion permanently retained |
+| Review PR | 10 / 1 / 0 | 341.672 s | €0.539829 | Correction returned an output-limit receipt: 8,192 reasoning tokens, zero content |
+
+All 102,915 constructed request bytes reconcile. Review PR's generation, Judge
+and correction requests used respectively 5,637, 4,638 and 7,854 conservative input
+tokens. The Judge exceeded its target but stayed within its ceiling. Known cohort
+usage is 18,881 input, 17,764 output and 14,734 reasoning tokens; Collections' total
+usage remains unknown. [Safe terminal evidence](compact-taskplan-585203a.json)
+retains phase distributions, components, receipts, transport and closure hashes.
+
+The first Review PR Judge correctly rejected an array contract that prohibited
+reporting discrepancies. It also incorrectly required a separate expression for
+an interpretation task: the shared task contract uses its objective as the runtime
+LLM instruction. The follow-up replaces that misleading wording while preserving
+the valid constraint finding and all approval guards. Empty execution aggregates
+now report correctness as unknown instead of vacuous success; existing acceptance
+gates and retained run records remain unchanged. Neither change has live acceptance
+yet. Output exhaustion is observed, but its cause and the benefit of more output
+headroom are not established.
 
 Source `08ad5db6ee96736452d7dda56dab3c4de92ebe1c`, cohort `compactd08ad5db`,
 retained the pinned model and medium reasoning. Input targets remain 3k/8k/4k,
@@ -79,24 +96,24 @@ must be disclosed as configuration-level outcomes.
 
 ## Campaign reconciliation
 
-Read-only inspection after the new Amazon failure verified encrypted campaign
+Read-only inspection after the `585203a` diagnostics verified encrypted campaign
 `schema-portability-20261019-incremental`:
 
 | Ledger measurement | EUR |
 | --- | ---: |
 | Campaign ceiling | 240.0301038327063045424449473 |
-| Known spending | 19.293699457922331822625077758 |
-| Unknown-usage reservations | 1.4222207411356971474273527059 |
-| Spending/reservation upper bound | 20.715920199058028970052430464 |
-| Available allowance | 219.314183633648275572392516836 |
+| Known spending | 19.851173020527859237536656894 |
+| Unknown-usage reservations | 1.8856704878699013596374300186 |
+| Spending/reservation upper bound | 21.736843508397760597174086913 |
+| Available allowance | 218.293260324308543945270860387 |
 
 Evidence hash:
-`c32cad9d8b78c56a6290250f0c688038a45812dba6ce1b4a6a64255cb53f26c0`.
-There are 704 request identities and 699 receipts. Four receiptless identities
-are permanently retained. The authorized 500 closure hash is
-`573112a54941f592bf4c3525b812e396fb4592aafd5770bfd0565448527b99c8`.
-The new HTTP 504 remains unresolved and blocks paid dispatch. Neither uncertain
-request was replayed or continued; no receipt or provider termination was inferred.
+`7ce9d581631a7675589b2db2a4dcf0c0c9ed734d62ca6d1d176be87ba2b0d50f`.
+There are 716 request identities and 710 receipts. All six receiptless identities
+are permanently retained; five attempts retain unknown usage. No unresolved
+uncertainty currently blocks fresh admission. The new Collections closure is
+`d0c1bfe9b2939b5dbea5032c78a8e9d26aa10f4ef205118392272df68930d342`.
+No receipt or provider termination was inferred, and no funds were released.
 Separate lost historical exposure of €159.96989616729369545755505266 remains
 accounted for within the original €400 authorization. No ceiling increased.
 
@@ -113,8 +130,11 @@ The full solution run exposed eight fixture failures: fresh phase metadata was
 incorrectly retained in historical version-one test sessions, and financial tests
 still expected the old 8k ceiling. `cd174ea` corrects only those fixtures; all ten
 affected cases pass with warnings as errors. The original full run and CI are
-still in progress. Neither focused validation nor packaging establishes business
-acceptance.
+still in progress. The follow-up Judge/lowering tests pass 20/20 and measurement
+tests 48/48 with warnings as errors. Neither focused validation nor packaging
+establishes business acceptance. Historical two-call efficiency gates remain
+legacy measures; the new acceptance protocol requires independently complete
+business outcomes and reports calls, tokens, costs and latency separately.
 
 ## Immutable evidence index
 

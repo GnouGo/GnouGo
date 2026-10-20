@@ -93,7 +93,7 @@ public sealed class CompactActualImportReviewTests
             Assert.Equal("arithmetic", expression["kind"]!.ToString());
             Assert.Equal("multiply", expression["text"]!.ToString());
             Assert.Equal(2d, expression["items"]![1]!["number"]!.GetValue<double>());
-            Assert.Contains("the draft expression computes the result", request.Prompt, StringComparison.Ordinal);
+            Assert.Contains("not the produced result", request.Prompt, StringComparison.Ordinal);
             var evidenceAnchors = FindingProperties(request.StructuredOutputSchema!.AsObject())["evidence"]!["items"]!["enum"]!.AsArray();
             Assert.Contains(evidenceAnchors, pointer => pointer!.ToString() == "/interfaces/0");
             Assert.Equal(baseline, PlanningConstruction.Hash(state.Plan));
@@ -103,6 +103,61 @@ public sealed class CompactActualImportReviewTests
         Assert.Empty(state.Diagnostics);
         Assert.Single(state.Construction!.Checkpoints);
         Assert.Equal(0, state.ReplanAttempts);
+    }
+
+    [Fact]
+    public async Task InterpretationReviewUsesTheRuntimeInstructionAndPreservesResultConstraints()
+    {
+        var (state, runtime) = await Ready();
+        state.Plan!.Inputs = [new() { Name = "text", Type = new() { Kind = "string" } }];
+        state.Requirements!.Inputs = state.Plan.Inputs;
+        Select(state, "transform");
+        var task = new PlanTask
+        {
+            Id = "consumer", Kind = "transform", Mode = "interpret",
+            Objective = "Compare the supplied text with the requested criteria and report every discrepancy.",
+            Inputs = [new("text", Input("text"))],
+            ResultType = new() { Kind = "object", Fields = [new() { Name = "discrepancies",
+                Type = new() { Kind = "array", Items = new() { Kind = "string" }, MaxItems = 0 } }] }
+        };
+        var baseline = PlanningConstruction.Hash(state.Plan);
+        var candidate = Stage(state, new() { RequirementIds = ["req_0"], Tasks = [task] });
+        var compiled = new TaskPlanCompiler().Compile(candidate.Plan, state.Catalog!, state.Request);
+        Assert.Empty(compiled.Diagnostics);
+        Assert.NotNull(compiled.Graph);
+        var steps = Assert.Single(compiled.Graph.Workflows).Steps;
+        var prompt = Assert.Single(steps, step => step.Type == "template.render");
+        var data = Assert.Single(prompt.Input.Members, member => member.Name == "data").Value;
+        Assert.Equal(task.Objective, Assert.Single(data.Members, member => member.Name == "instruction").Value.Text);
+        var inference = Assert.Single(steps, step => step.Type == "llm.call");
+        Assert.NotNull(inference.StructuredOutput);
+        Assert.Equal(0, inference.StructuredOutput.Schema.Contract!["properties"]!["discrepancies"]!["maxItems"]!.GetValue<int>());
+        runtime.Respond = (request, purpose) =>
+        {
+            Assert.Equal(PlanningConstruction.LocalPurpose, purpose);
+            var context = Context(request);
+            var draft = Assert.Single(context["draft"]!["tasks"]!.AsArray())!;
+            Assert.Equal("interpret", draft["mode"]!.ToString());
+            Assert.Equal(task.Objective, draft["objective"]!.ToString());
+            Assert.Equal("input", Assert.Single(draft["inputs"]!.AsArray())!["value"]!["kind"]!.ToString());
+            Assert.Equal(0, draft["resultType"]!["fields"]![0]!["type"]!["maxItems"]!.GetValue<int>());
+            Assert.Contains("interpret uses its objective as the runtime LLM instruction", request.Prompt, StringComparison.Ordinal);
+            Assert.DoesNotContain("the draft expression computes the result", request.Prompt, StringComparison.Ordinal);
+            return Wire(request, new()
+            {
+                ["findings"] = new JsonArray(new JsonObject
+                {
+                    ["kind"] = "inconsistency", ["location"] = "/draft/tasks/0",
+                    ["evidence"] = new JsonArray("/draft/tasks/0"),
+                    ["explanation"] = "The zero-length result contract cannot report discrepancies required by the objective.",
+                    ["uncertainty"] = "The runtime interpretation has not executed."
+                }), ["uncertainty"] = "The result constraint contradicts the stated task.", ["evidenceRequests"] = null
+            });
+        };
+        state = await Advance(state, runtime);
+        Assert.Equal("CONSTRUCTION_BUSINESS_REVIEW", Assert.Single(state.Diagnostics).Code);
+        Assert.Equal(baseline, PlanningConstruction.Hash(state.Plan));
+        Assert.Empty(state.Construction!.Checkpoints);
     }
 
     [Fact]
