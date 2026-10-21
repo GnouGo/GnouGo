@@ -335,7 +335,9 @@ internal static partial class PlanningCompactConstruction
         if (step.GroupId is { } groupId) context["group"] = GroupInterface(state, groupId);
         if (ScopeGroup(state, step.Scope) is { } scopeGroup) context["scopeGroup"] = GroupInterface(state, scopeGroup.Id);
         var appliedInterface = review && draft is { Diagnostics.Count: 0 } && draft.Extension.CloseScopes.Contains(step.Scope, StringComparer.Ordinal);
-        if (ScopeInterface(state, appliedInterface) is { } scopeInterface) context["scopeInterface"] = scopeInterface;
+        var unchangedExports = actualImports && UsesDerivedImports(state, draft!) && draft!.Extension is { Outputs.Count: 0, CloseScopes.Count: 0, Complete: false } &&
+            step.CloseRequirementIds.Count == 0;
+        if (ScopeInterface(state, appliedInterface, navigationOnly: unchangedExports) is { } scopeInterface) context["scopeInterface"] = scopeInterface;
         var choiceValues = actualImports
             ? context["interfaces"]!.AsArray().Select(i => i!["binding"]!.Deserialize(PlanningJsonContext.Default.TaskValue)!)
             : step.Inputs;

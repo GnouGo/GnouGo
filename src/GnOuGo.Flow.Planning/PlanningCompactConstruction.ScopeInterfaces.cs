@@ -7,7 +7,7 @@ namespace GnOuGo.Flow.Planning;
 internal static partial class PlanningCompactConstruction
 {
     // This is evidence inside the selected scope, never an externally consumable container result.
-    internal static JsonObject? ScopeInterface(PlanningSession state, bool candidate, int offset = 0)
+    internal static JsonObject? ScopeInterface(PlanningSession state, bool candidate, int offset = 0, bool navigationOnly = false)
     {
         var construction = state.Construction!;
         var step = State(state).CurrentStep;
@@ -27,19 +27,31 @@ internal static partial class PlanningCompactConstruction
         if (!validation.Interfaces.TryGetValue(frontier, out var ports) || ports.Count != outputs.Length)
             PlanningConstruction.Fail("CONSTRUCTION_SCOPE_INTERFACE_INVALID", step.Scope, "The selected scope's exact export interfaces must validate before presentation.");
         var version = ScopeInterfaceVersion(plan, open, step.Scope);
-        return new JsonObject
+        var view = new JsonObject
         {
             ["scope"] = step.Scope, ["basis"] = candidate ? "tentative_candidate" : "accepted_declarations",
             ["open"] = open.Contains(step.Scope, StringComparer.Ordinal), ["consumable"] = false,
             ["version"] = version, ["offset"] = offset, ["outputCount"] = scope.Source.Outputs.Count,
-            ["outputs"] = new JsonArray(outputs.Zip(ports!).Select(pair => (JsonNode)new JsonObject
+            ["outputs"] = new JsonArray(outputs.Zip(ports!).Select(pair =>
             {
-                ["name"] = pair.First.Name,
-                ["value"] = PlanningJsonTransport.TaskPlanPart(PlanningConstruction.Node(pair.First.Value, PlanningJsonContext.Default.TaskValue)),
-                ["schema"] = pair.Second.Schema.DeepClone()
+                var output = new JsonObject
+                {
+                    ["name"] = pair.First.Name,
+                    ["value"] = PlanningJsonTransport.TaskPlanPart(PlanningConstruction.Node(pair.First.Value, PlanningJsonContext.Default.TaskValue))
+                };
+                if (!navigationOnly) output["schema"] = pair.Second.Schema.DeepClone();
+                return (JsonNode)output;
             }).ToArray()),
             ["next"] = offset + 8 < scope.Source.Outputs.Count ? ScopeInterfaceAddress(step.Scope, candidate, version, offset + 8) : null
         };
+        if (navigationOnly)
+        {
+            // These accepted declarations are unchanged by this fragment. Its
+            // actual typed operands remain in interfaces; the original export
+            // types remain available through the existing exact evidence page.
+            view["evidence"] = ScopeInterfaceAddress(step.Scope, candidate, version, offset);
+        }
+        return view;
     }
 
     private static string ScopeInterfaceVersion(TaskPlan plan, IEnumerable<string> open, string path) =>

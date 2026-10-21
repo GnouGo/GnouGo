@@ -58,9 +58,16 @@ Selected-scope export evidence distinguishes accepted declarations from the
 tentative merged interface at closure. It uses the compiler's post-finalizer
 type resolution, pages exact bindings by plan/frontier hash, and includes no scope
 body or unrelated history. Empty extension outputs preserve accepted exports.
+For fresh ordinary nonclosing reviews with no changed exports or completion claims,
+unchanged accepted exports provide names, bindings and an exact versioned retrieval
+address. Actual consumed interfaces remain fully typed; closure and explicit
+revision reviews retain the complete export types.
 Public `outputs` constrain `/root`; local exports in `scopeInterface` may use
 the same name with a different type.
 This evidence does not make an open container consumable or grant edit authority.
+Closing a scope can leave its broader requirement open. A premature selected
+requirement-closure claim can be withdrawn through existing reselection within
+the same scope and requirement identities; repeating the draft retains that claim.
 Fresh reviews use the existing compact TaskValue presentation for bindings and
 omit duplicate baseline/discovery bookkeeping. When requested scope evidence
 contains the identical complete group interface, the review omits its duplicate

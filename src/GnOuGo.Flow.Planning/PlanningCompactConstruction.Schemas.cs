@@ -171,7 +171,9 @@ internal static partial class PlanningCompactConstruction
         if (step.Kind == "call")
             hints.Add("Bind the selected closed group's declared input names; its explicit exports are the call's output ports.");
         if (step.Kind == "close")
-            hints.Add("A close step may confirm host-issued closeRequirementIds against accepted work with empty closeScopes and no new tasks or exports. Scope closure is separate: add needed final exports without rewriting accepted work. Close children before their parent. Close root only when all scopes and original requirements are complete, with complete:true.");
+            hints.Add(PlanningConstructionPhasePolicies.IsFresh(state.Request)
+                ? "A close step may finish a scope while broader requirements remain open, or confirm satisfied closeRequirementIds with empty closeScopes. Withdraw premature selected closeRequirementIds via reselectStep, preserving scope and requirementIds; an unchanged draft preserves the claim. Add needed final exports without rewriting accepted work. Close children before their parent, and root only when all scopes and original requirements are complete, with complete:true."
+                : "A close step may confirm host-issued closeRequirementIds against accepted work with empty closeScopes and no new tasks or exports. Scope closure is separate: add needed final exports without rewriting accepted work. Close children before their parent. Close root only when all scopes and original requirements are complete, with complete:true.");
         return string.Join(" ", hints);
     }
 

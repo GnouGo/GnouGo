@@ -925,6 +925,11 @@ binaries, inputs and oracles are frozen per arm. Retained runs reject conflictin
 settings. Supported low navigation reasoning is a separate experiment; larger
 output reservations require verified exhaustion evidence and a fresh identity.
 No profile changes settings midway through a session.
+If necessary original evidence exceeds a hard input ceiling, a separately frozen
+profile may test a higher ceiling while retaining the presentation target. Record
+the rejected complete envelopes and all changed settings; do not trim mandatory
+constraints, retry the failed identity or infer architecture-only causality from
+a profile that also changes source.
 
 The declared-configuration comparison mode records intentional per-arm settings
 differences, while preserving shared safety, call, correction and cumulative limits.

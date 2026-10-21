@@ -168,7 +168,12 @@ legal ancestor captures. Open scope interfaces expose existing declarations for
 construction without making their outputs consumable outside the container.
 
 Scope exports are added without rewriting accepted exports. Closure review sees
-the applied candidate's exports and compiler-derived types. Foreach body exports
+the applied candidate's exports and compiler-derived types. Fresh ordinary reviews that add
+no exports and claim no scope, requirement or plan closure present unchanged
+accepted export names and bindings with a versioned exact evidence link, while
+keeping all actual imported types inline. This avoids repeating unused accepted
+object schemas; explicit evidence retrieval and closure reviews retain the exact
+types and normal complete-request admission. Foreach body exports
 become ordered arrays on the enclosing task, preserving duplicates and nested
 arrays. `maxItems` is a capacity guard, distinct from `maxConcurrency`; neither
 permits silently truncated successful results. Finite capacity with unspecified
@@ -255,6 +260,9 @@ closed requirement does not count as progress. A diagnosed tentative
 step may request reselection within its original scope and requirement identities,
 retaining rejected evidence and correction accounting. This cannot expand explicit
 typed revision paths or change accepted fragments.
+The same scope may then close with no requirement-closure claim, leaving the
+original obligation open for later consumers or composition. Repeating the draft
+does not withdraw a selected claim.
 Where the draft schema offers rollback, its description explains the existing
 host-computed dependency invalidation and required concrete reason. Accepted
 requirements and permissions remain unchanged; a live candidate must first be
