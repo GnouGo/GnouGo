@@ -61,7 +61,7 @@ public sealed class ConstructionCorrectionAccountingTests
         Assert.Null(state.Construction.Evidence);
         Assert.Empty(state.Construction.Checkpoints);
         Assert.Null(state.PendingCall);
-        Assert.Contains(state.Diagnostics, d => d.Code == (draft ? "PLANNING_RESPONSE_INVALID" : "CONSTRUCTION_EVIDENCE_UNKNOWN"));
+        Assert.Contains(state.Diagnostics, d => d.Code == "PLANNING_RESPONSE_INVALID");
     }
 
     [Theory]

@@ -60,6 +60,61 @@ public sealed class CompactDraftNavigationTests
         Assert.Equal(valid, PlanningContractValidation.ValidateInstanceFindings(response, schema).Count == 0);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void SelectionEvidenceUsesDisplayedOriginalsAndExactNavigationAcrossPages(bool reselection)
+    {
+        var state = State();
+        var compact = state.Construction!.Compact!;
+        if (reselection)
+        {
+            state.Diagnostics = [new("CONSTRUCTION_SELECTION_INVALID", "/step", "The tentative implementation needs another producer.")];
+            PlanningCompactConstruction.Reselect(state, "Select the missing immediate producer within the original scope.");
+        }
+        else compact.CurrentStep = null;
+        for (var i = 1; i < 3; i++)
+        {
+            var text = "Preserve original obligation " + i + ".";
+            var source = "request:" + i;
+            compact.Sources.Add(new() { Id = source, Version = PlanningGraphCompiler.Fingerprint(text), Text = text, Kind = "page", Indexed = true });
+            compact.Sources.Add(new() { Id = source + ":clause:0", Version = PlanningGraphCompiler.Fingerprint(text), Text = text,
+                Kind = "requirement", InterfaceKind = "none", Indexed = true });
+            compact.RequirementSources["req_" + i] = [source + ":clause:0"];
+            state.Requirements!.Outcomes.Add(new("req_" + i, text) { Commitments = [] });
+            state.Construction.Requirements.Add(new() { Id = "req_" + i });
+        }
+        state.Requirements!.Inputs = [new() { Name = "caller", Type = new() { Kind = "string" },
+            Default = new() { Kind = "string", Text = "task:forged" } }];
+        state.Plan!.Inputs = state.Requirements.Inputs;
+        var baseline = PlanningConstruction.Hash(state.Plan);
+        var request = SelectionRequest(state);
+        Assert.Empty(PlanningContractValidation.ValidateSchema(request.StructuredOutputSchema!.AsObject(), strict: true));
+        foreach (var address in new[] { "requirement:req", "source:request:0:clause:0", "group:worker", "input:caller", "scope:/root", "page:requirements:1" })
+            AssertSelectionEvidence(request, state, address, valid: true);
+        foreach (var address in new[] { "Find an authorized producer for this action.", "task:unknown", "request:0:clause:0", "source:request:1:clause:0", "page:requirements:2" })
+            AssertSelectionEvidence(request, state, address, valid: false);
+        AssertSelectionEvidence(request, state, "rejected:0", valid: reselection);
+        AssertSelectionEvidence(request, state, "rejected:1", valid: false);
+        var addresses = new List<string> { "page:requirements:1", "input:caller" };
+        if (reselection) addresses.Add("rejected:0");
+        PlanningConstruction.LoadEvidence(state, addresses, followup: SelectionRequest, purpose: PlanningCompactConstruction.SelectPurpose);
+        request = SelectionRequest(state);
+        Assert.NotNull(Context(request)["evidence"]!["page:requirements:1"]);
+        AssertSelectionEvidence(request, state, "source:request:1:clause:0", valid: true);
+        AssertSelectionEvidence(request, state, "requirement:req_1", valid: true);
+        AssertSelectionEvidence(request, state, "page:requirements:2", valid: true);
+        foreach (var address in addresses.Append("task:forged")) AssertSelectionEvidence(request, state, address, valid: false);
+        Assert.Equal(baseline, PlanningConstruction.Hash(state.Plan));
+        Assert.Null(state.Construction.Compact!.CurrentStep);
+        Assert.Equal(0, state.ReplanAttempts);
+        Assert.Equal(reselection ? new[] { "req" } : null, state.Construction.Compact.ReplacementRequirements?.ToArray());
+        var prepared = PlanningModelCalls.PrepareRequest(state, PlanningCompactConstruction.SelectPurpose, request.Prompt, request.StructuredOutputSchema!.AsObject());
+        var measured = PlanningRequestMeasurements.Measure(prepared, PlanningCompactConstruction.SelectPurpose, 6000);
+        Assert.InRange(measured.EstimatedInputTokens, 1, 6000);
+        Assert.Equal(measured.CompleteRequestBytes, measured.Components.Sum(component => component.SerializedBytes));
+    }
+
     [Fact]
     public void NavigationStaysPagedAsIndependentHistoryGrows()
     {
@@ -168,24 +223,31 @@ public sealed class CompactDraftNavigationTests
         Assert.Equal(original, contract.InputSchema.ToJsonString());
     }
 
-    [Fact]
-    public async Task HistoricalPresentationAndAnAlreadyIssuedFreeTextEvidenceSchemaRemainExact()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task HistoricalPresentationAndAnAlreadyIssuedFreeTextEvidenceSchemaRemainExact(bool selection)
     {
         var state = State();
         state.Construction!.Compact!.PresentationVersion = 2;
-        var historical = PlanningConstruction.DraftRequest(state, repair: false);
+        if (selection) state.Construction.Compact.CurrentStep = null;
+        var purpose = selection ? PlanningCompactConstruction.SelectPurpose : PlanningConstruction.DraftPurpose;
+        LLMRequest Request() => selection ? SelectionRequest(state) : PlanningConstruction.DraftRequest(state, repair: false);
+        JsonObject Evidence(string address) => selection ? SelectionEvidence(state, address) : Response(state, address);
+        var historical = Request();
         Assert.Null(Context(historical)["reusableInterfaces"]);
-        AssertResponse(historical, state, "group:worker", valid: true);
-        AssertResponse(historical, state, "Provide the accepted reusable interface.", valid: true);
+        foreach (var address in new[] { "group:worker", "Provide the accepted reusable interface." })
+            Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(Evidence(address), historical.StructuredOutputSchema!));
         historical.ClientRequestId = "saved:1:" + new string('a', 64);
         historical.MaxTokens = 8192;
         var exact = historical.StructuredOutputSchema!.ToJsonString();
         state.ModelCalls = 1;
-        state.PendingCall = new() { Id = historical.ClientRequestId, Purpose = PlanningConstruction.DraftPurpose, Request = historical };
+        state.PendingCall = new() { Id = historical.ClientRequestId, Purpose = purpose, Request = historical };
         state.Construction.Compact.PresentationVersion = 3;
-        var fresh = PlanningConstruction.DraftRequest(state, repair: false);
-        var runtime = new TestRuntime { Respond = (_, _) => new() { Json = Response(state, "group:worker") } };
-        await PlanningModelCalls.CallAsync(state, runtime, PlanningConstruction.DraftPurpose, fresh.Prompt, fresh.StructuredOutputSchema!.AsObject(), PlannerFixture.Ct);
+        var fresh = Request();
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstanceFindings(Evidence("Provide the accepted reusable interface."), fresh.StructuredOutputSchema!));
+        var runtime = new TestRuntime { Respond = (_, _) => new() { Json = Evidence("group:worker") } };
+        await PlanningModelCalls.CallAsync(state, runtime, purpose, fresh.Prompt, fresh.StructuredOutputSchema!.AsObject(), PlannerFixture.Ct);
         var issued = Assert.Single(runtime.Calls);
         Assert.Equal(historical.Prompt, issued.Prompt);
         Assert.Equal(exact, issued.StructuredOutputSchema!.ToJsonString());
@@ -216,6 +278,19 @@ public sealed class CompactDraftNavigationTests
 
     private static TaskGroup Group(string id) => new() { Id = id, Inputs = [new() { Name = "value", Type = new() { Kind = "number" } }],
         Body = new() { Outputs = [new("result", new() { Kind = "input", Source = "value" })] } };
+    private static LLMRequest SelectionRequest(PlanningSession state) => PlanningCompactConstruction.Request(
+        PlanningCompactConstruction.SelectGuidance(state), PlanningCompactConstruction.SelectionContext(state),
+        PlanningCompactConstruction.SelectionSchema(state), PlanningCompactConstruction.SelectPurpose);
+    private static JsonObject SelectionEvidence(PlanningSession state, string address) => new()
+    {
+        ["baseHash"] = PlanningConstruction.Hash(state.Plan), ["step"] = null,
+        ["evidenceRequests"] = new JsonArray(address), ["clarifications"] = null
+    };
+    private static void AssertSelectionEvidence(LLMRequest request, PlanningSession state, string address, bool valid)
+    {
+        var findings = PlanningContractValidation.ValidateInstanceFindings(SelectionEvidence(state, address), request.StructuredOutputSchema!);
+        Assert.True(valid == (findings.Count == 0), address + ": " + string.Join("; ", findings));
+    }
     private static JsonObject Context(LLMRequest request) => JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!.AsObject();
     private static JsonObject Response(PlanningSession state, string address) => new()
     {

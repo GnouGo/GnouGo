@@ -19,30 +19,55 @@ internal static partial class PlanningCompactConstruction
             .Where(address => address.Length <= 2048).Distinct(StringComparer.Ordinal);
     }
 
+    internal static void ConstrainSelectionEvidence(PlanningSession state, JsonObject context, JsonObject schema)
+    {
+        var requirements = (context["requirements"] as JsonArray ?? []).Select(item => item!["id"]!.ToString())
+            .Concat(EvidenceRequirementIds(state));
+        var addresses = PrerequisiteAddresses(state, requirements).Where(IsOriginalAddress).ToHashSet(StringComparer.Ordinal);
+        addresses.UnionWith(NavigationEvidence(new[] { "nextRequirements", "requirementsDirectory", "nextScopes", "scopes", "interfaces",
+            "nextInterfaces", "publicOutputs", "rebuild", "reselection" }.Select(name => context[name])
+            .Concat((state.Construction!.Evidence ?? []).Select(item => item.Value).Where(value => value is JsonObject or JsonArray))));
+        ConstrainEvidenceChoices(state, schema, addresses, maximum: 4);
+    }
+
     internal static void ConstrainDraftEvidence(PlanningSession state, JsonObject context, JsonObject schema)
     {
-        var addresses = new HashSet<string>(StringComparer.Ordinal);
         // Original requirement/source identities are already present in this
         // context. Contract addresses come only from host-owned view navigation.
-        foreach (var address in PrerequisiteAddresses(state, State(state).CurrentStep!.RequirementIds))
-            if (address.StartsWith("requirement:", StringComparison.Ordinal) || address.StartsWith("source:", StringComparison.Ordinal)) addresses.Add(address);
+        var addresses = PrerequisiteAddresses(state, State(state).CurrentStep!.RequirementIds)
+            .Where(IsOriginalAddress).ToHashSet(StringComparer.Ordinal);
         var citations = State(state).CurrentStep!.Prerequisites?.SelectMany(note => note.EvidenceAddresses) ?? [];
-        foreach (var address in citations.Intersect(PrerequisiteAddresses(state,
-                     state.Construction!.Requirements.Select(requirement => requirement.Id)), StringComparer.Ordinal))
-            if (address.StartsWith("requirement:", StringComparison.Ordinal) || address.StartsWith("source:", StringComparison.Ordinal)) addresses.Add(address);
-        foreach (var name in new[] { "scopeEvidence", "interfacesDirectory", "reusableInterfaces", "taskEvidence", "scopeInterface", "operations", "rebuild" })
-            if (context[name] is JsonValue) Address(context[name]); else Navigation(context[name]);
-        foreach (var item in state.Construction!.Evidence ?? []) Navigation(item.Value);
+        addresses.UnionWith(citations.Intersect(PrerequisiteAddresses(state,
+            state.Construction!.Requirements.Select(requirement => requirement.Id)), StringComparer.Ordinal).Where(IsOriginalAddress));
+        addresses.UnionWith(NavigationEvidence(new[] { "scopeEvidence", "interfacesDirectory", "reusableInterfaces", "taskEvidence", "scopeInterface",
+            "operations", "rebuild" }.Select(name => context[name])
+            .Concat((state.Construction!.Evidence ?? []).Select(item => item.Value).Where(value => value is JsonObject or JsonArray))));
+        ConstrainEvidenceChoices(state, schema, addresses, maximum: 8);
+    }
+
+    private static bool IsOriginalAddress(string address) => address.StartsWith("requirement:", StringComparison.Ordinal) ||
+        address.StartsWith("source:", StringComparison.Ordinal);
+
+    private static void ConstrainEvidenceChoices(PlanningSession state, JsonObject schema, HashSet<string> addresses, int maximum)
+    {
         // Retained evidence is already supplied, never a new request or progress.
-        addresses.ExceptWith((state.Construction.Evidence ?? []).Select(item => item.Key));
+        addresses.ExceptWith((state.Construction!.Evidence ?? []).Select(item => item.Key));
         schema["properties"]!["evidenceRequests"] = addresses.Count == 0 ? PlanningSchemas.Type("null") :
-            PlanningSchemas.Nullable(PlanningSchemas.Array(PlanningSchemas.Enum(addresses.Order(StringComparer.Ordinal).ToArray()), 1, 8));
+            PlanningSchemas.Nullable(PlanningSchemas.Array(PlanningSchemas.Enum(addresses.Order(StringComparer.Ordinal).ToArray()), 1, maximum));
+    }
+
+    private static HashSet<string> NavigationEvidence(IEnumerable<JsonNode?> nodes)
+    {
+        var addresses = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var node in nodes)
+            if (node is JsonValue) Address(node); else Navigation(node);
+        return addresses;
 
         void Address(JsonNode? node)
         {
             if (node is JsonValue scalar && scalar.TryGetValue<string>(out var address) && address.Length <= 2048 &&
                 new[] { "source:", "requirement:", "input:", "output:", "choice:", "group:", "task:", "scope:", "scope-exports:",
-                    "task-objective:", "page:", "schema:", "schema-page:", "port-page:", "description:", "contract:", "original:", "originalScope:" }
+                    "task-objective:", "page:", "schema:", "schema-page:", "port-page:", "description:", "contract:", "original:", "originalScope:", "rejected:" }
                     .Any(prefix => address.StartsWith(prefix, StringComparison.Ordinal)))
                 addresses.Add(address);
         }

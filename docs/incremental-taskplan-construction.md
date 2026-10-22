@@ -112,7 +112,10 @@ receive only the exact interface-directory link. Interface and task evidence pag
 retain exact continuations. Evidence
 responses select addresses present in host-owned navigation, including nested MCP
 directories and required-sibling omission links. Original contract data is never
-interpreted as navigation authority. Selection separates call targets from other
+interpreted as navigation authority. Selection and reselection reuse these exact
+choices for displayed originals, interfaces and retained rejection records. Each
+response has one non-null action; retrieving evidence does not also select a step.
+Selection separates call targets from other
 kinds and restricts prerequisite citations to original clauses or retained exact
 contracts; task/group inspection links do not establish prerequisite authority.
 A prerequisite may cite another requirement's declaration without claiming its
