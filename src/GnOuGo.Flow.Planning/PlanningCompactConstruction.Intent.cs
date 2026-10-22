@@ -84,12 +84,22 @@ internal static partial class PlanningCompactConstruction
         else if (requireDeclared) schema["properties"]!["outputs"]!["minItems"] = 1;
         if (!extraction.Inputs)
             schema["$defs"]!["type"]!["anyOf"]![3]!["properties"]!["fields"]!["items"] = PlanningSchemas.Ref("output");
+        else if (requireDeclared)
+        {
+            // The existing DTO distinguishes an absent default from a literal
+            // null. Keep one input shape instead of duplicating the declaration.
+            var input = schema["$defs"]!["output"]!.DeepClone().AsObject();
+            input["properties"]!["default"] = PlanningSchemas.Nullable(PlanningSchemas.Ref("literal"));
+            input["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("default"));
+            schema["$defs"]!["input"] = input;
+        }
         // Bound guidance remains in InterfaceInstructions. Factoring may replace
         // these schemas with references, which cannot carry sibling annotations
         // in the provider's strict structured-output profile.
         var compact = PlanningSchemas.Compact(schema);
         if (requireDeclared)
-            compact["description"] = "Use the plain string branch unless the source declares an exhaustive allowed-value set. enum restricts accepted values; it is not a placeholder or default.";
+            compact["description"] = "Use the plain string branch unless the source declares an exhaustive allowed-value set. enum restricts accepted values; it is not a placeholder or default." +
+                (extraction.Inputs ? " default:null means no default; {\"kind\":\"null\"} is an explicit null literal." : "");
         return compact;
     }
 

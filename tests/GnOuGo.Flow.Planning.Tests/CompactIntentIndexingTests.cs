@@ -622,6 +622,157 @@ public sealed class CompactIntentIndexingTests
     }
 
     [Fact]
+    public async Task CanonicalInputDefaultsPreserveAbsenceExplicitNullAndRecursiveLiterals()
+    {
+        var state = await Advance(Fresh("Accept required text, optional nullable empty default null, and optional settings with values defaulting to the exact list [\"é\", null]."),
+            new TestRuntime { Respond = (request, _) => Wire(request, Classify(request, "input")) });
+        var runtime = new TestRuntime { Respond = (request, _) => new() { Json = new JsonObject
+        {
+            ["sourceId"] = request.StructuredOutputSchema!["properties"]!["sourceId"]!["enum"]![0]!.DeepClone(),
+            ["outputs"] = new JsonArray(),
+            ["inputs"] = JsonNode.Parse("""
+                [{"name":"text","type":{"kind":"string","nullable":false},"required":true,"default":null},
+                 {"name":"empty","type":{"kind":"string","nullable":true},"required":false,"default":{"kind":"null"}},
+                 {"name":"settings","type":{"kind":"object","nullable":false,"fields":[
+                    {"name":"values","type":{"kind":"array","nullable":false,"items":{"kind":"string","nullable":true},"minItems":null,"maxItems":null},"required":true,"default":null}]},
+                  "required":false,"default":{"kind":"object","members":[{"name":"values","value":{"kind":"array","items":[{"kind":"string","text":"é"},{"kind":"null"}]}}]}}]
+                """)
+        } } };
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        var inputs = state.Requirements!.Inputs!;
+        Assert.Null(inputs[0].Default);
+        Assert.Equal("null", inputs[1].Default!.Kind);
+        Assert.Null(Assert.Single(inputs[2].Type.Fields).Default);
+        var values = Assert.Single(inputs[2].Default!.Members).Value.Items;
+        Assert.Equal("é", values[0].Text); Assert.Equal("null", values[1].Kind);
+        var restored = PlannerFixture.Clone(state);
+        Assert.Null(restored.Requirements!.Inputs![0].Default);
+        Assert.Equal("null", restored.Requirements.Inputs[1].Default!.Kind);
+        Assert.Equal(JsonSerializer.Serialize(inputs, PlanningJsonContext.Default.ListTaskInput),
+            JsonSerializer.Serialize(restored.Requirements.Inputs, PlanningJsonContext.Default.ListTaskInput));
+        Assert.True(Assert.Single(state.Construction!.Compact!.InterfaceExtractions!).Complete);
+    }
+
+    [Theory]
+    [InlineData(true, "null", "TASK_DEFAULT_REQUIRED")]
+    [InlineData(false, "{\"kind\":\"null\"}", "TASK_DEFAULT_INVALID")]
+    public async Task CanonicalInputShapeDoesNotWeakenDefaultValidation(bool nullable, string literal, string diagnostic)
+    {
+        var state = await Advance(Fresh("Accept the declared optional value."),
+            new TestRuntime { Respond = (request, _) => Wire(request, Classify(request, "input")) });
+        var original = JsonSerializer.Serialize(state.Requirements, PlanningJsonContext.Default.PlanningRequirements);
+        var runtime = new TestRuntime { Respond = (request, _) => new() { Json = new JsonObject
+        {
+            ["sourceId"] = request.StructuredOutputSchema!["properties"]!["sourceId"]!["enum"]![0]!.DeepClone(),
+            ["outputs"] = new JsonArray(), ["inputs"] = new JsonArray(new JsonObject
+            {
+                ["name"] = "value", ["required"] = false, ["default"] = JsonNode.Parse(literal),
+                ["type"] = new JsonObject { ["kind"] = "string", ["nullable"] = nullable }
+            })
+        } } };
+        state = await Advance(state, runtime);
+        Assert.Contains(state.Diagnostics, finding => finding.Code == diagnostic);
+        Assert.Equal(original, JsonSerializer.Serialize(state.Requirements, PlanningJsonContext.Default.PlanningRequirements));
+        Assert.False(Assert.Single(state.Construction!.Compact!.InterfaceExtractions!).Complete);
+        Assert.Null(state.Construction.Compact.CurrentStep);
+    }
+
+    [Theory]
+    [InlineData("input")]
+    [InlineData("output")]
+    [InlineData("both")]
+    public async Task CanonicalInputSchemaMeasuresCompleteRequestsAndKeepsOutputDefaultsUnavailable(string direction)
+    {
+        var state = await Advance(Fresh("Accept the declared text and return its declared result."),
+            new TestRuntime { Respond = (request, _) => Wire(request, Classify(request, direction)) });
+        var extraction = Assert.Single(state.Construction!.Compact!.InterfaceExtractions!);
+        var historical = PlanningCompactConstruction.InterfaceSchema(extraction).ToJsonString();
+        var previous = PreviousFreshInterfaceSchema(extraction);
+        var current = PlanningCompactConstruction.InterfaceSchema(extraction, requireDeclared: true);
+        Assert.Equal(historical, PlanningCompactConstruction.InterfaceSchema(extraction).ToJsonString());
+        Assert.Empty(PlanningContractValidation.ValidateSchema(previous, strict: true));
+        Assert.Empty(PlanningContractValidation.ValidateSchema(current, strict: true));
+        if (extraction.Inputs)
+        {
+            var before = Resolve(previous, previous["properties"]!["inputs"]!["items"]!);
+            var after = Resolve(current, current["properties"]!["inputs"]!["items"]!);
+            Assert.Equal(2, before["anyOf"]!.AsArray().Count);
+            Assert.Null(after["anyOf"]); Assert.Equal("object", after["type"]!.ToString());
+            Assert.Contains(after["required"]!.AsArray(), field => field!.ToString() == "default");
+            Assert.Contains(Resolve(current, after["properties"]!["default"]!)["anyOf"]!.AsArray(),
+                branch => branch?["type"]?.ToString() == "null");
+        }
+        if (extraction.Outputs)
+            Assert.Null(Resolve(current, current["properties"]!["outputs"]!["items"]!)["properties"]!["default"]);
+        if (!extraction.Inputs)
+        {
+            Assert.Equal(previous.ToJsonString(), current.ToJsonString());
+            Assert.DoesNotContain("\"default\"", current.ToJsonString(), StringComparison.Ordinal);
+        }
+        var original = Measure(previous); var measured = Measure(current);
+        Assert.Equal(original.CompleteRequestBytes, original.Components.Sum(component => component.SerializedBytes));
+        Assert.Equal(measured.CompleteRequestBytes, measured.Components.Sum(component => component.SerializedBytes));
+        if (direction == "input") Assert.True(measured.CompleteRequestBytes < original.CompleteRequestBytes);
+        TestContext.Current.TestOutputHelper!.WriteLine($"interface-defaults {direction}: complete bytes {original.CompleteRequestBytes}->{measured.CompleteRequestBytes}; " +
+            $"estimated input {original.EstimatedInputTokens}->{measured.EstimatedInputTokens}; schema bytes {System.Text.Encoding.UTF8.GetByteCount(previous.ToJsonString())}->{System.Text.Encoding.UTF8.GetByteCount(current.ToJsonString())}; " +
+            $"anyOf sites {Unions(previous)}->{Unions(current)}; whole-input alternatives {(extraction.Inputs ? "2->1" : "none")}. No provider calls or billed usage.");
+
+        PlanningRequestMeasurement Measure(JsonObject schema)
+        {
+            var request = PlanningCompactConstruction.Request(PlanningCompactConstruction.InterfaceInstructions,
+                PlanningCompactConstruction.InterfaceContext(state, extraction), schema, PlanningCompactConstruction.IntentPurpose);
+            request = PlanningModelCalls.PrepareRequest(state, PlanningCompactConstruction.IntentPurpose, request.Prompt, schema);
+            return PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.IntentPurpose, 6000);
+        }
+        static int Unions(JsonObject schema) => PlanningSchemaReferences.Walk(schema, "", 0).Count(entry => entry.Schema.ContainsKey("anyOf"));
+        static JsonNode Resolve(JsonObject schema, JsonNode node)
+        {
+            while (node["$ref"]?.ToString() is { } reference) node = schema["$defs"]![reference[8..]]!;
+            return node;
+        }
+    }
+
+    [Fact]
+    public async Task PreviouslyIssuedDefaultAlternativesResumeWithoutRebuildingOrAccountingAgain()
+    {
+        var state = await Advance(Fresh("Accept a required text input."),
+            new TestRuntime { Respond = (request, _) => Wire(request, Classify(request, "input")) });
+        var extraction = Assert.Single(state.Construction!.Compact!.InterfaceExtractions!);
+        var schema = PreviousFreshInterfaceSchema(extraction);
+        var request = PlanningCompactConstruction.Request(PlanningCompactConstruction.InterfaceInstructions,
+            PlanningCompactConstruction.InterfaceContext(state, extraction), schema, PlanningCompactConstruction.IntentPurpose);
+        request = PlanningModelCalls.PrepareRequest(state, PlanningCompactConstruction.IntentPurpose, request.Prompt, schema);
+        var exact = JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest);
+        state.PendingCall = new() { Id = request.ClientRequestId!, Purpose = PlanningCompactConstruction.IntentPurpose, Request = request };
+        state.ModelCalls++;
+        var measurements = JsonSerializer.Serialize(state.RequestMeasurements, PlanningJsonContext.Default.ListPlanningRequestMeasurement);
+        var runtime = new TestRuntime { Respond = (issued, _) =>
+        {
+            Assert.Equal(exact, JsonSerializer.Serialize(issued, PlanningJsonContext.Default.LLMRequest));
+            return new() { Json = new JsonObject { ["sourceId"] = extraction.Id, ["outputs"] = new JsonArray(),
+                ["inputs"] = JsonNode.Parse("""[{"name":"text","required":true,"type":{"kind":"string","nullable":false}}]""") } };
+        } };
+        state = await Advance(PlannerFixture.Clone(state), runtime);
+        Assert.Empty(state.Diagnostics); Assert.Single(runtime.Calls);
+        Assert.Equal(2, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);
+        Assert.Equal(measurements, JsonSerializer.Serialize(state.RequestMeasurements, PlanningJsonContext.Default.ListPlanningRequestMeasurement));
+        Assert.Null(Assert.Single(state.Requirements!.Inputs!).Default);
+        Assert.True(Assert.Single(state.Construction!.Compact!.InterfaceExtractions!).Complete);
+    }
+
+    private static JsonObject PreviousFreshInterfaceSchema(PlanningConstructionInterfaceExtraction extraction)
+    {
+        // The retained historical schema has the original default alternatives;
+        // prior fresh requests differed only in root direction cardinality/guidance.
+        var schema = PlanningCompactConstruction.InterfaceSchema(extraction);
+        if (extraction.Inputs) schema["properties"]!["inputs"]!["minItems"] = 1;
+        if (extraction.Outputs) schema["properties"]!["outputs"]!["minItems"] = 1;
+        schema["description"] = "Use the plain string branch unless the source declares an exhaustive allowed-value set. enum restricts accepted values; it is not a placeholder or default.";
+        return schema;
+    }
+
+    [Fact]
     public async Task TargetedInputExtractionPreservesDefaultsEnumsAndUnspecifiedBounds()
     {
         var state = Fresh("Accept optional choice A or B default B, an unbounded array named values, an unrestricted string named text and an empty-string-only input named empty; retain them.");

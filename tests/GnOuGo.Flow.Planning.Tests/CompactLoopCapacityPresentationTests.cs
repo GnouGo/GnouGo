@@ -9,6 +9,29 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class CompactLoopCapacityPresentationTests
 {
     [Fact]
+    public async Task SupportedCapacityIsUnverifiedInsteadOfAnInventedOriginalMaximum()
+    {
+        var (state, runtime) = await Ready(initialCapacity: 1000);
+        var requirement = Assert.Single(state.Requirements!.Outcomes);
+        state.Requirements.Outcomes[0] = requirement with { Commitments = [] };
+        var requirements = JsonSerializer.Serialize(state.Requirements, PlanningJsonContext.Default.PlanningRequirements);
+        state = await Advance(state, runtime);
+        AssertDefaultGuidance(runtime.Calls[^1]);
+        Assert.Equal(1000, Assert.Single(state.Construction!.Candidate!.Extension.Tasks).MaxItems);
+        state = await Advance(state, runtime);
+        var review = runtime.Calls[^1];
+        Assert.Contains("unspecified capacity remains unverified", review.Prompt, StringComparison.Ordinal);
+        Assert.DoesNotContain("Without an explicit original bound, use", review.Prompt, StringComparison.Ordinal);
+        Assert.Equal(requirements, JsonSerializer.Serialize(state.Requirements, PlanningJsonContext.Default.PlanningRequirements));
+        Assert.Empty(state.Diagnostics);
+        Assert.Single(state.Construction!.Checkpoints);
+        Assert.Equal(1000, state.Plan!.Root.Tasks.Single(task => task.Id == "iterate").MaxItems);
+        Assert.Contains("/tasks/iterate/body", state.Construction.OpenScopes);
+        Assert.Equal("in_progress", Assert.Single(state.Construction.Requirements).Status);
+        Assert.Equal(0, state.ReplanAttempts);
+    }
+
+    [Fact]
     public async Task DraftAndCorrectionPresentExistingCapacityWithoutRewritingTheCandidateOrAcceptedWork()
     {
         var (state, runtime) = await Ready();
@@ -89,7 +112,7 @@ public sealed class CompactLoopCapacityPresentationTests
 
     private static void AssertDefaultGuidance(LLMRequest request)
     {
-        Assert.Contains("existing TaskPlan default maxItems=" + new PlanTask().MaxItems,
+        Assert.Contains("the TaskPlan default maxItems=" + new PlanTask().MaxItems,
             request.StructuredOutputSchema!["description"]!.ToString(), StringComparison.Ordinal);
         Assert.InRange(PlanningRequestMeasurements.Measure(request, request.StructuredOutputSchema["title"]!.ToString(), 8000).EstimatedInputTokens, 1, 8000);
     }
@@ -101,7 +124,7 @@ public sealed class CompactLoopCapacityPresentationTests
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(Wire(request, Draft(request, 10001)).Json!, request.StructuredOutputSchema!));
     }
 
-    private static async Task<(PlanningSession State, TestRuntime Runtime)> Ready()
+    private static async Task<(PlanningSession State, TestRuntime Runtime)> Ready(int initialCapacity = 1)
     {
         var reviews = 0;
         var runtime = new TestRuntime { Respond = (request, purpose) =>
@@ -115,9 +138,9 @@ public sealed class CompactLoopCapacityPresentationTests
                     ["step"] = new JsonObject { ["scope"] = "/root", ["kind"] = "foreach", ["objective"] = "Process both original numbers.",
                         ["requirementIds"] = new JsonArray("req_0"), ["inputs"] = new JsonArray(), ["dependencyTaskIds"] = new JsonArray(),
                         ["expectedOutputs"] = new JsonArray("Iteration context for each original number."), ["closeRequirementIds"] = new JsonArray(), ["outputNames"] = new JsonArray(), ["groupId"] = null } });
-            if (purpose is PlanningConstruction.DraftPurpose or "replan") return Wire(request, Draft(request, purpose == "replan" ? 2 : 1));
+            if (purpose is PlanningConstruction.DraftPurpose or "replan") return Wire(request, Draft(request, purpose == "replan" ? 2 : initialCapacity));
             Assert.Equal(PlanningConstruction.LocalPurpose, purpose);
-            return Wire(request, new() { ["findings"] = reviews++ == 0 ? new JsonArray(new JsonObject
+            return Wire(request, new() { ["findings"] = reviews++ == 0 && initialCapacity == 1 ? new JsonArray(new JsonObject
                 { ["kind"] = "inconsistency", ["location"] = "/draft/tasks/0", ["evidence"] = new JsonArray("/draft/tasks/0"),
                     ["explanation"] = "The singleton ceiling rejects the explicitly supplied two-item array.", ["uncertainty"] = "No execution has occurred." }) : new JsonArray(),
                 ["uncertainty"] = "Future body work and execution remain unverified.", ["evidenceRequests"] = null });

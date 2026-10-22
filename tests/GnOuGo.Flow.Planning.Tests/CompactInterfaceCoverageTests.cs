@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Planning.Examples;
 
 namespace GnOuGo.Flow.Planning.Tests;
 
@@ -148,11 +149,11 @@ public sealed class CompactInterfaceCoverageTests
         return (state, runtime);
     }
 
-    private static JsonObject Interfaces(LLMRequest request) => new()
+    private static JsonObject Interfaces(LLMRequest request) => PlanningCorpus.Transport(new JsonObject
     {
         ["sourceId"] = request.StructuredOutputSchema!["properties"]!["sourceId"]!["enum"]![0]!.DeepClone(),
         ["inputs"] = new JsonArray(Declaration("values")), ["outputs"] = new JsonArray(Declaration("result"))
-    };
+    }, request.StructuredOutputSchema.AsObject(), request.StructuredOutputSchema.AsObject())!.AsObject();
     private static JsonObject Declaration(string name) => new()
     {
         ["name"] = name, ["required"] = true, ["type"] = new JsonObject

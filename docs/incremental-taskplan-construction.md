@@ -71,6 +71,12 @@ already-created extractions and older issued classifications remain unchanged.
 Fresh extraction schemas require a declaration for each explicitly classified
 interface direction; empty omissions cannot complete extraction, while older
 issued schemas retain their captured cardinality.
+Fresh caller-input extraction uses one declaration shape with a required nullable
+`default`: JSON null means no default, while `{"kind":"null"}` is an explicit
+literal null. Recursive literals and semantic default checks are unchanged; public
+outputs still omit default grammar. This is a controlled schema simplification,
+not evidence of the cause of a reasoning-only exhausted response. Historical
+schemas and issued extraction requests remain exact.
 
 ## Substeps, contracts and scoped schemas
 
@@ -100,6 +106,11 @@ cleanup placement remain explicit; omitted work has counts and retrieval links.
 These hints neither prove duplicated behavior nor grant edit authority. Findings
 about exact bindings require the original task evidence. Unrelated scopes and
 candidate tasks do not become accepted siblings; historical issued requests stay exact.
+Selection reserves `groupId` for the immediate reusable call; other kinds use null.
+Fresh loop guidance distinguishes finite execution capacity from original business
+requirements. The TaskPlan default does not require rejecting another supported
+capacity: explicit size conflicts still need correction, and unspecified capacity
+remains unverified. Deterministic and runtime iteration limits are unchanged.
 Fresh requirement evidence pages keep up to eight adjacent clauses from one
 original source page together within the existing escaped-text bound. Whole
 requirements retain their exact text, source identities and separate completion
