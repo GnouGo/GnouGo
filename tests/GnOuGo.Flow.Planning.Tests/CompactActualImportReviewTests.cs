@@ -9,6 +9,94 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class CompactActualImportReviewTests
 {
     [Fact]
+    public async Task RetainedCreationTargetAllowsLaterCleanupButNotAnUnfulfilledClosureClaim()
+    {
+        const string target = "workflows/owned-resource";
+        var (state, runtime) = await Ready("Create the isolated resource at workflows/owned-resource and remove it even after partial failure.");
+        var capability = new PlanningCapability
+        {
+            Id = "create_resource", Version = "v1", Kind = "tool", StepType = "mcp.call",
+            Server = "resource", Method = "create", EffectKind = "write",
+            Description = "Create a workflow-owned resource at target. Retain the declared target independently of successful completion for cleanup after partial failure. Cleanup requires the same target and workflow ownership.",
+            InputSchema = new() { ["type"] = "object", ["properties"] = new JsonObject
+                { ["target"] = new JsonObject { ["type"] = "string", ["const"] = target } },
+                ["required"] = new JsonArray("target"), ["additionalProperties"] = false },
+            OutputSchema = new() { ["type"] = "object", ["properties"] = new JsonObject
+                { ["resource"] = new JsonObject { ["type"] = "string" } }, ["additionalProperties"] = false }
+        };
+        state.Catalog = new() { AllowedStepTypes = ["mcp.call"], Capabilities = [capability] };
+        state.Discovery.Resolved = [capability];
+        var originalContract = JsonSerializer.Serialize(capability, PlanningJsonContext.Default.PlanningCapability);
+        Select(state, "operation");
+        state.Construction!.Compact!.CurrentStep!.Objective = "Create the isolated resource at the retained target.";
+        state.Construction!.Compact!.CurrentStep!.OperationIds = [capability.Id];
+        PlanningCompactConstruction.StageCommitments(state, null);
+        Stage(state, new() { RequirementIds = ["req_0"], Tasks = [new()
+        {
+            Id = "create", Kind = "operation", Objective = "Create the isolated resource at the retained target.",
+            Operation = capability.Id, Inputs = [new("target", new() { Kind = "string", Text = target })]
+        }] });
+        runtime.Respond = (request, purpose) =>
+        {
+            Assert.Equal(PlanningConstruction.LocalPurpose, purpose);
+            var context = Context(request);
+            Assert.False(context["constructionStage"]!["requirementCompletionClaimed"]!.GetValue<bool>());
+            Assert.False(context["constructionStage"]!["planCompletionClaimed"]!.GetValue<bool>());
+            Assert.Empty(context["step"]!["closeRequirementIds"]!.AsArray());
+            Assert.Empty(context["draft"]!["always"]!.AsArray());
+            Assert.Empty(context["interfaces"]!.AsArray());
+            var binding = Assert.Single(context["draft"]!["tasks"]![0]!["inputs"]!.AsArray())!["value"]!;
+            Assert.Equal("string", binding["kind"]!.ToString());
+            Assert.Equal(target, binding["text"]!.ToString());
+            var contract = Assert.Single(context["operations"]!.AsArray())!;
+            Assert.Equal(capability.Description, contract["description"]!.ToString());
+            Assert.True(contract["descriptionComplete"]!.GetValue<bool>());
+            Assert.Equal("write", contract["effect"]!.ToString());
+            return Wire(request, Reviewed());
+        };
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        Assert.Single(state.Construction!.Checkpoints);
+        Assert.Equal("in_progress", Assert.Single(state.Construction.Requirements).Status);
+        Assert.Contains("/root", state.Construction.OpenScopes);
+        var accepted = PlanningConstruction.Hash(state.Plan);
+
+        Select(state, "close");
+        state.Construction.Compact!.CurrentStep!.Objective = "Confirm resource creation and cleanup are complete.";
+        state.Construction.Compact!.CurrentStep!.CloseRequirementIds = ["req_0"];
+        Stage(state, new() { RequirementIds = ["req_0"] });
+        PlanningConstruction.LoadEvidence(state, ["scope:/root"]);
+        runtime.Respond = (request, purpose) =>
+        {
+            Assert.Equal(PlanningConstruction.LocalPurpose, purpose);
+            var context = Context(request);
+            Assert.True(context["constructionStage"]!["requirementCompletionClaimed"]!.GetValue<bool>());
+            Assert.False(context["constructionStage"]!["planCompletionClaimed"]!.GetValue<bool>());
+            var scope = context["evidence"]!["scope:/root"]!;
+            Assert.Equal(0, scope["alwaysCount"]!.GetValue<int>());
+            Assert.Empty(scope["always"]!.AsArray());
+            Assert.Equal(target, Assert.Single(scope["tasks"]!.AsArray())!["inputs"]![0]!["value"]!["text"]!.ToString());
+            return Wire(request, new()
+            {
+                ["findings"] = new JsonArray(new JsonObject
+                {
+                    ["kind"] = "omission", ["location"] = "/requirements/0",
+                    ["evidence"] = new JsonArray("/requirements/0", "/evidence/scope:~1root"),
+                    ["explanation"] = "The requirement now claims completion, but the retained resource has no cleanup for success or partial failure.",
+                    ["uncertainty"] = "Execution remains unverified."
+                }), ["uncertainty"] = "Only the current completion claim was reviewed.", ["evidenceRequests"] = null
+            });
+        };
+        state = await Advance(state, runtime);
+        Assert.Equal("CONSTRUCTION_BUSINESS_REVIEW", Assert.Single(state.Diagnostics).Code);
+        Assert.Equal(accepted, PlanningConstruction.Hash(state.Plan));
+        Assert.Single(state.Construction!.Checkpoints);
+        Assert.Equal("in_progress", Assert.Single(state.Construction.Requirements).Status);
+        Assert.False(state.Construction.Complete);
+        Assert.Equal(originalContract, JsonSerializer.Serialize(capability, PlanningJsonContext.Default.PlanningCapability));
+    }
+
+    [Fact]
     public async Task OrdinaryDraftDerivesTheExactProjectedInputAtItsConsumerBeforeReview()
     {
         var (state, runtime) = await Ready();
@@ -393,9 +481,8 @@ public sealed class CompactActualImportReviewTests
         state.Construction!.Candidate = candidate;
         return candidate;
     }
-    private static async Task<(PlanningSession State, TestRuntime Runtime)> Ready()
+    private static async Task<(PlanningSession State, TestRuntime Runtime)> Ready(string prompt = "Preserve the declared business value.")
     {
-        const string prompt = "Preserve the declared business value.";
         var runtime = new TestRuntime { Respond = (request, _) => Wire(request, new()
         {
             ["sourceId"] = Context(request)["sources"]![0]!["id"]!.DeepClone(),

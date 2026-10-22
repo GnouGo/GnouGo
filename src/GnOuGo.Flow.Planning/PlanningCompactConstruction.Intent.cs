@@ -21,6 +21,10 @@ internal static partial class PlanningCompactConstruction
         Extract only the minimum sufficient caller/public result interfaces from these exact clauses. Combine clauses about the same interface into one declaration. Preserve stated names, meaning, types, enums, nullability and literal defaults; no aliases or invented restrictions. Existing declarations are immutable. No task, tool-argument, file-content, effect or resource design. Use only permitted directions; return [] for a direction only when these clauses declare no interface in it. Examples impose no restrictions. An absent array bound is null; maxItems:0 permits only an empty array. Public outputs have no defaults.
         """;
 
+    internal static string InterfaceGuidance(PlanningSession state) => PlanningConstructionPhasePolicies.IsFresh(state.Request) ? """
+        Extract every explicitly declared caller input and public result from these exact clauses. Combine clauses only when they describe the same interface; preserve distinct named declarations. Preserve stated meaning, types, exhaustive enums, nullability and literal defaults; no aliases or invented restrictions. Existing declarations are immutable. No task, tool-argument, file-content, effect or resource design. Use only permitted directions; return [] only when no interface is declared in that direction. Examples impose no restrictions. An absent array bound is null; maxItems:0 permits only an empty array. Public outputs have no defaults.
+        """ : InterfaceInstructions;
+
     internal static (int Count, bool Continues) CoherentOriginalPageLength(string text, int start)
     {
         var maximum = OriginalPageLength(text, start);
@@ -93,12 +97,18 @@ internal static partial class PlanningCompactConstruction
             input["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("default"));
             schema["$defs"]!["input"] = input;
         }
+        if (requireDeclared)
+        {
+            var types = schema["$defs"]!["type"]!["anyOf"]!.AsArray();
+            types[0]!["properties"]!["kind"] = PlanningSchemas.Enum("number", "integer", "boolean", "any");
+            types[1]!["properties"]!["enum"] = PlanningSchemas.Nullable(types[1]!["properties"]!["enum"]!.DeepClone().AsObject());
+        }
         // Bound guidance remains in InterfaceInstructions. Factoring may replace
         // these schemas with references, which cannot carry sibling annotations
         // in the provider's strict structured-output profile.
         var compact = PlanningSchemas.Compact(schema);
         if (requireDeclared)
-            compact["description"] = "Use the plain string branch unless the source declares an exhaustive allowed-value set. enum restricts accepted values; it is not a placeholder or default." +
+            compact["description"] = "For strings, enum:null means unrestricted values. An enum list is the exact exhaustive set declared by the source, never a placeholder or default." +
                 (extraction.Inputs ? " default:null means no default; {\"kind\":\"null\"} is an explicit null literal." : "");
         return compact;
     }

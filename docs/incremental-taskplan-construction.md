@@ -77,6 +77,12 @@ literal null. Recursive literals and semantic default checks are unchanged; publ
 outputs still omit default grammar. This is a controlled schema simplification,
 not evidence of the cause of a reasoning-only exhausted response. Historical
 schemas and issued extraction requests remain exact.
+Fresh extraction requests include every distinct declared caller input and public
+output in the supplied passages. A string has one schema shape: nullable `enum`
+means unrestricted when null, or exactly the explicitly declared alternatives
+when present. An empty string is a real value, never an absence placeholder.
+This is a controlled presentation experiment; it does not establish the cause of
+prior reasoning-only exhaustion or replace semantic validation.
 
 ## Substeps, contracts and scoped schemas
 
@@ -226,6 +232,11 @@ Judge findings are neither authorization nor deterministic proof.
 Compact reviews include bounded host facts identifying scope openings, closures
 and completion claims. An intentionally empty opening is assessed as an opening;
 closing a scope or requirement still requires its complete work and exports.
+Cleanup can be a later substep in an open scope if its exact target and ownership
+remain available after partial failure. Required creation-time capture is assessed
+immediately; missing cleanup is assessed at scope or requirement closure. A
+success-only result cannot supply cleanup required after failure. This distinction
+does not change contract constraints, execution authority or finalization checks.
 For presentation version 2 loop steps, scoped review guidance distinguishes
 `maxItems`, which rejects excess input before iteration, from `maxConcurrency`,
 which bounds workers. Neither implies sampled or truncated successful output.

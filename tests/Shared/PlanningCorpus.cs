@@ -223,7 +223,11 @@ public static class PlanningCorpus
         if (value is JsonObject obj && obj.ContainsKey("nullable") && properties?["kind"] is not null &&
             (properties.ContainsKey("nullable") ? !Matches(obj["nullable"], properties["nullable"]!.AsObject(), root) : obj["nullable"]?.ToString() == "true")) return false;
         if (properties?["text"] is null && properties?["kind"]?["enum"] is JsonArray typeKinds &&
-            typeKinds.Any(k => k?.ToString() == "string") && (schema["properties"]?["enum"] is not null) != (value["enum"] is not null)) return false;
+            typeKinds.Any(k => k?.ToString() == "string"))
+        {
+            var enumSchema = properties["enum"] as JsonObject;
+            if (enumSchema is null ? value["enum"] is not null : !Matches(value["enum"], enumSchema, root)) return false;
+        }
         if (properties?["name"] is not null && properties["type"] is not null)
         {
             if (!properties.ContainsKey("required") && value["required"]?.ToString() == "false") return false;

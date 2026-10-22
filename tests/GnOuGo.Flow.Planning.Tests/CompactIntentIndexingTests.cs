@@ -631,10 +631,10 @@ public sealed class CompactIntentIndexingTests
             ["sourceId"] = request.StructuredOutputSchema!["properties"]!["sourceId"]!["enum"]![0]!.DeepClone(),
             ["outputs"] = new JsonArray(),
             ["inputs"] = JsonNode.Parse("""
-                [{"name":"text","type":{"kind":"string","nullable":false},"required":true,"default":null},
-                 {"name":"empty","type":{"kind":"string","nullable":true},"required":false,"default":{"kind":"null"}},
+                [{"name":"text","type":{"kind":"string","nullable":false,"enum":null},"required":true,"default":null},
+                 {"name":"empty","type":{"kind":"string","nullable":true,"enum":null},"required":false,"default":{"kind":"null"}},
                  {"name":"settings","type":{"kind":"object","nullable":false,"fields":[
-                    {"name":"values","type":{"kind":"array","nullable":false,"items":{"kind":"string","nullable":true},"minItems":null,"maxItems":null},"required":true,"default":null}]},
+                    {"name":"values","type":{"kind":"array","nullable":false,"items":{"kind":"string","nullable":true,"enum":null},"minItems":null,"maxItems":null},"required":true,"default":null}]},
                   "required":false,"default":{"kind":"object","members":[{"name":"values","value":{"kind":"array","items":[{"kind":"string","text":"é"},{"kind":"null"}]}}]}}]
                 """)
         } } };
@@ -668,7 +668,7 @@ public sealed class CompactIntentIndexingTests
             ["outputs"] = new JsonArray(), ["inputs"] = new JsonArray(new JsonObject
             {
                 ["name"] = "value", ["required"] = false, ["default"] = JsonNode.Parse(literal),
-                ["type"] = new JsonObject { ["kind"] = "string", ["nullable"] = nullable }
+                ["type"] = new JsonObject { ["kind"] = "string", ["nullable"] = nullable, ["enum"] = null }
             })
         } } };
         state = await Advance(state, runtime);
@@ -707,10 +707,10 @@ public sealed class CompactIntentIndexingTests
             Assert.Null(Resolve(current, current["properties"]!["outputs"]!["items"]!)["properties"]!["default"]);
         if (!extraction.Inputs)
         {
-            Assert.Equal(previous.ToJsonString(), current.ToJsonString());
             Assert.DoesNotContain("\"default\"", current.ToJsonString(), StringComparison.Ordinal);
         }
-        var original = Measure(previous); var measured = Measure(current);
+        var original = Measure(previous, PlanningCompactConstruction.InterfaceInstructions);
+        var measured = Measure(current, PlanningCompactConstruction.InterfaceGuidance(state));
         Assert.Equal(original.CompleteRequestBytes, original.Components.Sum(component => component.SerializedBytes));
         Assert.Equal(measured.CompleteRequestBytes, measured.Components.Sum(component => component.SerializedBytes));
         if (direction == "input") Assert.True(measured.CompleteRequestBytes < original.CompleteRequestBytes);
@@ -718,9 +718,9 @@ public sealed class CompactIntentIndexingTests
             $"estimated input {original.EstimatedInputTokens}->{measured.EstimatedInputTokens}; schema bytes {System.Text.Encoding.UTF8.GetByteCount(previous.ToJsonString())}->{System.Text.Encoding.UTF8.GetByteCount(current.ToJsonString())}; " +
             $"anyOf sites {Unions(previous)}->{Unions(current)}; whole-input alternatives {(extraction.Inputs ? "2->1" : "none")}. No provider calls or billed usage.");
 
-        PlanningRequestMeasurement Measure(JsonObject schema)
+        PlanningRequestMeasurement Measure(JsonObject schema, string guidance)
         {
-            var request = PlanningCompactConstruction.Request(PlanningCompactConstruction.InterfaceInstructions,
+            var request = PlanningCompactConstruction.Request(guidance,
                 PlanningCompactConstruction.InterfaceContext(state, extraction), schema, PlanningCompactConstruction.IntentPurpose);
             request = PlanningModelCalls.PrepareRequest(state, PlanningCompactConstruction.IntentPurpose, request.Prompt, schema);
             return PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.IntentPurpose, 6000);
@@ -731,6 +731,64 @@ public sealed class CompactIntentIndexingTests
             while (node["$ref"]?.ToString() is { } reference) node = schema["$defs"]![reference[8..]]!;
             return node;
         }
+    }
+
+    [Fact]
+    public async Task CanonicalStringInterfacesRetainEveryDeclaredNameAndExactAllowedValues()
+    {
+        const string original = "Accept unrestricted string documentId and string mode limited to brief or full. Return public string summary and a separate public string marker limited to the empty string.";
+        var state = await Advance(Fresh(original),
+            new TestRuntime { Respond = (request, _) => Wire(request, Classify(request, "both")) });
+        var historical = PlannerFixture.Clone(state);
+        historical.Request.Options["construction_limits"]!.AsObject().Remove("phasePolicy");
+        historical.Construction!.Limits.PhasePolicy = null;
+        Assert.Equal(PlanningCompactConstruction.InterfaceInstructions, PlanningCompactConstruction.InterfaceGuidance(historical));
+        Assert.NotEqual(PlanningCompactConstruction.InterfaceInstructions, PlanningCompactConstruction.InterfaceGuidance(state));
+        var runtime = new TestRuntime { Respond = (request, _) =>
+        {
+            Assert.StartsWith(PlanningCompactConstruction.InterfaceGuidance(state), request.Prompt, StringComparison.Ordinal);
+            Assert.Equal(original, Context(request)["sources"]![0]!["text"]!.ToString());
+            var response = new JsonObject
+            {
+                ["sourceId"] = request.StructuredOutputSchema!["properties"]!["sourceId"]!["enum"]![0]!.DeepClone(),
+                ["inputs"] = JsonNode.Parse("""
+                    [{"name":"documentId","required":true,"default":null,"type":{"kind":"string","nullable":false,"enum":null}},
+                     {"name":"mode","required":true,"default":null,"type":{"kind":"string","nullable":false,"enum":["brief","full"]}}]
+                    """),
+                ["outputs"] = JsonNode.Parse("""
+                    [{"name":"summary","required":true,"type":{"kind":"string","nullable":false,"enum":null}},
+                     {"name":"marker","required":true,"type":{"kind":"string","nullable":false,"enum":[""]}}]
+                    """)
+            };
+            Assert.Empty(PlanningContractValidation.ValidateInstance(response, request.StructuredOutputSchema));
+            foreach (var direction in new[] { "inputs", "outputs" })
+            {
+                var invalid = response.DeepClone().AsObject();
+                var type = invalid[direction]![0]!["type"]!.AsObject();
+                Assert.True(type.Remove("enum"));
+                Assert.NotEmpty(PlanningContractValidation.ValidateInstance(invalid, request.StructuredOutputSchema));
+                type["enum"] = new JsonArray();
+                Assert.NotEmpty(PlanningContractValidation.ValidateInstance(invalid, request.StructuredOutputSchema));
+            }
+            return new() { Json = response };
+        } };
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        var inputs = state.Requirements!.Inputs!;
+        var outputs = state.Requirements.Outputs!;
+        Assert.Equal(new[] { "documentId", "mode" }, inputs.Select(input => input.Name));
+        Assert.Equal(new[] { "summary", "marker" }, outputs.Select(output => output.Name));
+        Assert.Null(inputs[0].Type.Enum);
+        Assert.Equal(["brief", "full"], inputs[1].Type.Enum);
+        Assert.Null(outputs[0].Type.Enum);
+        Assert.Equal([""], outputs[1].Type.Enum);
+        Assert.Null(TaskPlanCompiler.TypeSchema(inputs[0].Type)["enum"]);
+        Assert.Equal("", TaskPlanCompiler.TypeSchema(outputs[1].Type)["enum"]![0]!.ToString());
+        var restored = PlannerFixture.Clone(state);
+        Assert.Equal(JsonSerializer.Serialize(state.Requirements, PlanningJsonContext.Default.PlanningRequirements),
+            JsonSerializer.Serialize(restored.Requirements, PlanningJsonContext.Default.PlanningRequirements));
+        Assert.True(PlanningCompactConstruction.SourcesComplete(restored));
+        Assert.Null(restored.Construction!.Compact!.CurrentStep);
     }
 
     [Fact]
