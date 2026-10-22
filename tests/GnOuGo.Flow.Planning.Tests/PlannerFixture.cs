@@ -40,6 +40,15 @@ internal static class PlannerFixture
     };
     internal static PlanningRequirements Requirements() => new() { Summary = "Return a greeting", Inputs = [], Outcomes = [new("message", "Return a greeting")] };
     internal static PlanningSession Clone(PlanningSession state) => JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
+    // Scripted revision-2 requests are historical protocol fixtures. Capture all
+    // effective settings, then rehydrate their exact presentation before dispatch.
+    internal static PlanningSession CapturedPresentation(PlanningSession state, int version = 2)
+    {
+        PlanningSessionCreation.Capture(state);
+        state.Request.Options["construction_presentation_version"] = version;
+        state.Construction!.Compact!.PresentationVersion = version;
+        return Clone(state);
+    }
     internal static async Task<PlanningSession> RunAsync(TestRuntime runtime, PlanningSession? state = null)
     {
         state ??= Session(); var planner = new HybridWorkflowPlanner();

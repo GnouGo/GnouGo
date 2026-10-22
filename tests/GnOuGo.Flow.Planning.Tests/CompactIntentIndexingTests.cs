@@ -8,11 +8,20 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class CompactIntentIndexingTests
 {
-    private static PlanningSession Fresh(string prompt = "Return exactly Hello as the public message.") => new()
+    // These retained wire fixtures exercise the version-two protocol unchanged.
+    // Fresh version-three resolutions have dedicated behavioral tests.
+    private static PlanningSession Fresh(string prompt = "Return exactly Hello as the public message.")
     {
-        Request = new() { TenantId = "fresh-intent", Prompt = prompt, Options = new() { ["automatic_correction"] = true },
-            Generation = new("medium", 32_000, 8_192) }
-    };
+        var state = new PlanningSession
+        {
+            Request = new() { TenantId = "fresh-intent", Prompt = prompt, Options = new() { ["automatic_correction"] = true },
+                Generation = new("medium", 32_000, 8_192) }
+        };
+        PlanningSessionCreation.Capture(state);
+        state.Construction!.Compact!.PresentationVersion = 2;
+        state.Request.Options["construction_presentation_version"] = 2;
+        return PlannerFixture.Clone(state);
+    }
     private static JsonObject Context(LLMRequest request) => JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!.AsObject();
     private static LLMResponse Wire(LLMRequest request, JsonObject response) => new()
     { Json = PlanningCorpus.Transport(response, request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject()) };
@@ -604,6 +613,8 @@ public sealed class CompactIntentIndexingTests
         var state = Fresh("Return exactly the existing greeting as public message.");
         state.Request.Baseline = new() { Inputs = [new() { Name = "retained", Type = new() { Kind = "string" }, Required = false,
             Default = new() { Kind = "string", Text = "original" } }], Root = new() { Tasks = [Value("baseline")] } };
+        state.Plan = PlanningConstruction.Clone(state.Request.Baseline);
+        state.IntentVersion = 3;
         var before = JsonSerializer.Serialize(state.Request.Baseline, PlanningJsonContext.Default.TaskPlan);
         var runtime = new TestRuntime { Respond = (request, purpose) => purpose switch
         {
@@ -928,7 +939,7 @@ public sealed class CompactIntentIndexingTests
         Assert.True(JsonNode.DeepEquals(before, PlanningBenchmarkMeasurements.Configuration(restored)));
         var state = new PlanningSession { Request = restored };
         PlanningBenchmarkMeasurements.CaptureConstructionSettings(state);
-        Assert.Equal(current ? 2 : (int?)null, state.Construction!.Compact!.PresentationVersion);
+        Assert.Equal(current ? 3 : (int?)null, state.Construction!.Compact!.PresentationVersion);
         Assert.Equal(64, restored.MaxModelCalls); Assert.Equal(8192, restored.Generation.MaxOutputTokens);
         Assert.Equal("medium", restored.Generation.Reasoning);
     }
@@ -936,7 +947,7 @@ public sealed class CompactIntentIndexingTests
     [Theory]
     [InlineData(null, 2)]
     [InlineData(2, null)]
-    [InlineData(3, 3)]
+    [InlineData(4, 4)]
     public async Task MismatchedPresentationMarkersCannotDowngradeAStoredSession(int? stateVersion, int? capturedVersion)
     {
         var state = Fresh(); PlanningSessionCreation.Capture(state);

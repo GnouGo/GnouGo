@@ -141,8 +141,8 @@ public sealed class CompactInterfaceCoverageTests
             ["sourceId"] = Context(request)["sources"]![0]!["id"]!.DeepClone(),
             ["clauses"] = new JsonArray(new JsonObject { ["text"] = prompt, ["kind"] = "requirement", ["interfaces"] = direction })
         } } };
-        var state = await Advance(new() { Request = new() { TenantId = "interface-coverage", Prompt = prompt,
-            Options = new() { ["automatic_correction"] = true } } }, runtime);
+        var state = await Advance(PlannerFixture.CapturedPresentation(new() { Request = new() { TenantId = "interface-coverage", Prompt = prompt,
+            Options = new() { ["automatic_correction"] = true } } }), runtime);
         Assert.Empty(state.Diagnostics);
         Assert.True(PlanningConstructionPhasePolicies.IsFresh(state.Request));
         Assert.False(Assert.Single(state.Construction!.Compact!.InterfaceExtractions!).Complete);

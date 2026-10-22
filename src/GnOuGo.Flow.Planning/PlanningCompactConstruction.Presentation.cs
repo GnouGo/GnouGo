@@ -11,7 +11,7 @@ internal static partial class PlanningCompactConstruction
         var compact = State(state);
         var original = JsonSerializer.SerializeToNode(compact.CurrentStep,
             PlanningJsonContext.Default.PlanningConstructionStep)!.AsObject();
-        if (compact.PresentationVersion != 2) return original;
+        if (!IsCompactPresentation(state)) return original;
 
         // Discovery selects a producer for the current action. Draft authority and
         // requirement closure remain in the retained step; exact requirement IDs,
@@ -22,6 +22,8 @@ internal static partial class PlanningCompactConstruction
         view["inputs"] = PlanningJsonTransport.TaskPlanPart(original["inputs"]);
         foreach (var field in new[] { "inputTaskIds", "dependencyTaskIds", "operationIds", "schemaPointers" })
             if (original[field] is JsonArray { Count: > 0 } values) view[field] = values.DeepClone();
+        if (UsesDeferredBinding(state) && original["prerequisites"] is JsonArray { Count: > 0 } prerequisites)
+            view["prerequisites"] = prerequisites.DeepClone();
         return view;
     }
 }

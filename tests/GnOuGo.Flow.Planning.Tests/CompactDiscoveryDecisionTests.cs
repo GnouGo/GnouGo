@@ -88,10 +88,12 @@ public sealed partial class CompactDiscoveryProtocolTests
         Assert.False(PlanningCompactConstruction.DiscoveryContext(state).ContainsKey("describedOperations"));
     }
 
-    [Fact]
-    public async Task DescriptionChoicesAreBoundedAndDoNotReinjectLargeUnrelatedContractProse()
+    [Theory]
+    [InlineData(2)]
+    [InlineData(3)]
+    public async Task DescriptionChoicesAreBoundedAndDoNotReinjectLargeUnrelatedContractProse(int presentationVersion)
     {
-        var (state, _) = await Ready();
+        var (state, _) = await Ready(presentationVersion: presentationVersion);
         AddOperations(state, 12);
         var descriptors = PlanningCompactConstruction.ContractDescriptors(state, count: 12);
         foreach (var descriptor in descriptors.Take(7))

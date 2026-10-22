@@ -208,7 +208,9 @@ public sealed class CompactScopeInterfaceTests
         return state;
     }
 
-    private static PlanningSession Fresh(string prompt = "Return exactly Hello as message through a reusable group.") => new() { Request = new() { TenantId = "compact-scope", Prompt = prompt, Options = new JsonObject { ["automatic_correction"] = true } } };
+    private static PlanningSession Fresh(string prompt = "Return exactly Hello as message through a reusable group.") =>
+        PlannerFixture.CapturedPresentation(new() { Request = new() { TenantId = "compact-scope", Prompt = prompt,
+            Options = new JsonObject { ["automatic_correction"] = true } } });
     private static JsonObject Context(LLMRequest request) => JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!.AsObject();
     private static LLMResponse Wire(LLMRequest request, JsonObject response) => new() { Json = PlanningCorpus.Transport(response, request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject()) };
     private static JsonObject Reviewed() => new() { ["findings"] = new JsonArray(), ["uncertainty"] = "Execution remains unverified.", ["evidenceRequests"] = null };

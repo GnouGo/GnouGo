@@ -8,11 +8,11 @@ internal static partial class PlanningCompactConstruction
     private static void AddTaskEvidence(PlanningSession state, JsonObject context, bool review)
     {
         var construction = state.Construction!;
-        if (construction.Compact?.PresentationVersion != 2 || state.Plan is null) return;
+        if (!IsCompactPresentation(state) || state.Plan is null) return;
         var fresh = PlanningConstructionPhasePolicies.IsFresh(state.Request);
         var draft = construction.Candidate;
         if (!fresh && (!review || draft is null)) return;
-        var step = construction.Compact.CurrentStep!;
+        var step = construction.Compact!.CurrentStep!;
         var accepted = new TaskPlanSymbols(state.Plan);
         var producers = (review && draft is not null ? draft.ImportedTaskIds : step.InputTaskIds.Concat(step.DependencyTaskIds))
             .Where(accepted.Tasks.ContainsKey).Distinct(StringComparer.Ordinal).ToArray();
@@ -50,8 +50,8 @@ internal static partial class PlanningCompactConstruction
 
     internal static void AddReviewGroupEvidence(PlanningSession state, JsonObject context)
     {
-        if (state.Construction?.Compact?.PresentationVersion != 2) return;
-        var plan = state.Construction.Candidate?.Plan ?? state.Plan;
+        if (!IsCompactPresentation(state)) return;
+        var plan = state.Construction!.Candidate?.Plan ?? state.Plan;
         if (plan is null) return;
         var symbols = new TaskPlanSymbols(plan);
         var groups = new HashSet<string>(StringComparer.Ordinal);

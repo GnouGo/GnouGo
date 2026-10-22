@@ -156,6 +156,17 @@ internal static class LiveWorkflowEvaluation
             run["result"]!["execution_ms"] = timer.ElapsedMilliseconds;
             run["result"]!["total_ms"] = run["result"]!["planning_ms"]!.GetValue<long>() + timer.ElapsedMilliseconds;
             run["result"]!["accounting"] = await LiveCampaignEvidence.AccountingAsync(campaign, label);
+            var planningUsage = PlanningBenchmarkMeasurements.Usage(new JsonObject
+            {
+                ["usage_receipts"] = run["usage_receipts"]?.DeepClone() ?? new JsonObject(),
+                ["usage_complete"] = run["usage_receipts"] is JsonObject receipts && receipts.Count == session.ModelCalls
+            }, live: true);
+            planningUsage["logical_planning_calls"] = session.ModelCalls;
+            planningUsage["physical_attempts"] = PlanningBenchmarkMeasurements.PhysicalAttempts(run, session.ModelCalls);
+            planningUsage["planning_ms"] = run["result"]!["planning_ms"]?.DeepClone();
+            run["result"]!["useful_work"] = PlanningBenchmarkMeasurements.UsefulWork(planningUsage,
+                DelegatedTestReviewAuthority.Obligations(scenario), delegated is null ? null : DelegatedTestReviewAuthority.Obligations(scenario),
+                delegated is null ? null : session.ComputeArtifactHash(), oracle["passed"]?.GetValue<bool>());
             await Save(); Console.WriteLine(run["result"]!.ToJsonString()); Console.WriteLine(oracle.ToJsonString()); return;
         }
         if (phase == "readiness")

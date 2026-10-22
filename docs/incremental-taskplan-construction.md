@@ -1,6 +1,6 @@
 # Incremental TaskPlan construction
 
-Fresh version-2 sessions extend one semantic TaskPlan from available producers
+Fresh construction-version-2 sessions capture presentation revision 3 and extend one semantic TaskPlan from available producers
 toward consumers. They index original intent once, select one immediate business
 substep, discover its capabilities and generate only its fragment. Each bounded
 draft passes deterministic semantic validation and a local advisory review before
@@ -11,6 +11,7 @@ selection. There is no new executable representation or alternate engine.
 flowchart LR
   Intent[Indexed original intent] --> Select[Select immediate business substep]
   Select --> Discover[Substep capability discovery and exact contract views]
+  Select -->|Known local contract| Draft
   Discover --> Draft[Bounded semantic extension]
   Draft --> Validate[Compiler semantic preflight]
   Validate --> Review[Local advisory Judge]
@@ -54,44 +55,51 @@ connect through enclosing exports.
 
 Intent indexing processes stable original request and answer pages without
 discarding source text. Page boundaries bound the bytes after both JSON escaping
-layers and preserve Unicode characters. Fresh presentation protocol 2 prefers
+layers and preserve Unicode characters. Compact presentation prefers
 natural text boundaries and links unavoidable continuations; a severed obligation
 cannot become independently complete on either page. Classification retains exact
 verbatim clauses and identifies interface-bearing passages. Standalone interface
 declarations may be separate clauses; an action and its adjacent composition/result
 constraints remain one requirement even when they declare a public result.
-Interface marking does not split that obligation. Only interface-bearing passages
-receive a subsequent typed-interface extraction request, within the same journaled
-intent phase. Pending extraction blocks generation and completion. Prose-only
-classification carries no recursive type/default grammar. New classification
-requests group a bounded page's interface-bearing clauses for atomic extraction,
-keeping adjacent naming/type constraints together and business requirements
-separate. The exact issued schema captures grouping behavior for recovery;
-already-created extractions and older issued classifications remain unchanged.
-Fresh extraction schemas require a declaration for each explicitly classified
-interface direction; empty omissions cannot complete extraction, while older
-issued schemas retain their captured cardinality.
-Fresh caller-input extraction uses one declaration shape with a required nullable
+Interface marking does not split that obligation. Revision 3 treats these marks
+as provisional: extraction receives bounded surrounding originals and exact source
+links, including earlier naming/type constraints. Within the same intent phase it
+can produce typed declarations, explicitly identify spans with no public interface,
+retrieve missing evidence or clarify material ambiguity. File-content and effect
+requirements remain obligations even when they declare no public return value.
+Bare empty arrays do not establish declaration coverage, and missing type context
+does not justify inventing `any`. Pending dispositions or evidence block generation
+and completion; typed interfaces are committed only after the extraction resolves.
+Prose classification carries no recursive type/default grammar. Shared type
+definitions and semantic validation remain authoritative; unreachable grammar is
+removed from presentation. Historical revision-2 grouping, required directions and
+issued requests retain their captured behavior.
+Caller-input extraction uses one declaration shape with a required nullable
 `default`: JSON null means no default, while `{"kind":"null"}` is an explicit
 literal null. Recursive literals and semantic default checks are unchanged; public
-outputs still omit default grammar. This is a controlled schema simplification,
-not evidence of the cause of a reasoning-only exhausted response. Historical
-schemas and issued extraction requests remain exact.
-Fresh extraction requests include every distinct declared caller input and public
+outputs still omit default grammar. Extraction includes every distinct declared caller input and public
 output in the supplied passages. A string has one schema shape: nullable `enum`
 means unrestricted when null, or exactly the explicitly declared alternatives
 when present. An empty string is a real value, never an absence placeholder.
-This is a controlled presentation experiment; it does not establish the cause of
-prior reasoning-only exhaustion or replace semantic validation.
+These source and presentation corrections do not establish the hidden cause of
+a provider's reasoning-only exhaustion.
 
 ## Substeps, contracts and scoped schemas
 
-Selection identifies the next business action or structural step using caller/scope
-inputs or accepted outputs. Technical setup, handles and result fields come from
+Selection identifies the next business action, original requirements and scope using caller/scope
+inputs or accepted outputs. Revision 3 leaves `kind` null for capability-dependent
+work. Existing discovery binds the implementation only after exact contract
+inspection; scope, requirements and closure authority stay fixed. Supported local
+computation, closed reusable calls and structural work can proceed directly to a
+narrow draft. Resolving an unset kind is normal navigation; changing the selected
+business action uses existing correction accounting. Technical setup, handles and result fields come from
 inspected contracts, not assumed APIs. A demonstrated missing producer precedes its
 consumer; a chain requiring unbuilt producers is not one immediate substep. The complete
 original requirement stays attached and open across its contributing fragments.
-Missing prerequisites remain frontier obligations. Fresh selection and drafting
+Bounded prerequisite notes name needs and their original/contract evidence, never
+future task IDs or independent executable states. Missing prerequisites leave the
+original requirement open; available results come from the accepted TaskPlan and
+its compiler-validated interfaces. Selection and drafting
 share the value-task capability boundary: declared bindings and computations do
 not provide string formatting, concatenation or URL encoding.
 Cleanup, exports and closure use the same substep mechanism. Public workflow
@@ -128,6 +136,15 @@ requirements. Historical singleton pages and issued requests are unchanged.
 Discovery queries the selected substep, never the global objective. Cached
 inspections stay retrievable without becoming mandatory context. Concise operation
 and provider directories retain exact identities, effects and retrieval addresses.
+The model chooses relevant providers and operations. Revision 3 lets the host
+follow the selected provider's cursors within the existing four-read batch bound,
+reuse cached pages and contracts, and checkpoint completed reads before continuing.
+The received metadata action, remaining reads and exact cursor queue are retained
+before traversal; recovery finishes that action without another model call or
+correction charge. A follow-up that cannot fit its captured ceiling stops explicitly.
+Unavailable, inconsistent or cyclic continuations stop traversal. Catalog metadata
+reads retain their existing recovery contract; this does not claim exactly-once
+provider reads or change paid-call and execution uncertainty handling.
 Names locate candidates; exact descriptions and necessary continuations establish
 their behavior. Uninspected candidates do not establish a missing capability.
 Conflicting tentative assumptions use existing reselection within fixed scope,
@@ -139,7 +156,9 @@ source's unavailability reason; exhausting a listing preserves its discovered op
 Provider source/cursor pairs come from the issued schema; evidence-page addresses are not
 provider cursors. Copy issued addresses unchanged: an operation-page hash binds
 that exact page and offset. Use supplied evidence directly; empty, exhausted or
-repeated metadata pages do not create progress.
+repeated metadata pages do not create progress. The bounded first operation page
+remains visible beside later evidence unless that exact page is already supplied;
+only identities and retrieval links recur, not original prose or contract schemas.
 
 Original MCP contracts remain unchanged in encrypted storage and authoritative
 for validation. Descriptor and schema presentations share the existing projection
@@ -148,7 +167,9 @@ alternatives, required descendants and referenced definitions remain intact.
 Nested child-directory links allow precise retrieval without loading a huge parent.
 Omitted optional descendants have exact retrieval addresses. An optional contract
 argument may still be necessary to fulfill the business request and must be
-retrieved before binding. No unused capacity is filled with unrelated contracts.
+retrieved before binding. Mandatory closures for selected operations are assembled
+by the host with the same projection and prospective-admission checks. No unused
+capacity is filled with unrelated contracts.
 
 Under the captured phase policy, an evidence response may request one to eight
 coherent addresses. Explicitly requested original views remain available within
@@ -237,7 +258,7 @@ remain available after partial failure. Required creation-time capture is assess
 immediately; missing cleanup is assessed at scope or requirement closure. A
 success-only result cannot supply cleanup required after failure. This distinction
 does not change contract constraints, execution authority or finalization checks.
-For presentation version 2 loop steps, scoped review guidance distinguishes
+For presentation versions 2 and 3, scoped loop review guidance distinguishes
 `maxItems`, which rejects excess input before iteration, from `maxConcurrency`,
 which bounds workers. Neither implies sampled or truncated successful output.
 Conflicts with explicit required sizes remain findings; when the original size
@@ -387,7 +408,11 @@ tests use broad graphs with shallow scopes.
 
 ## Compatibility and isolated evaluation
 
-Fresh creation captures construction behavior. Historical sessions retain issued
+Fresh creation captures presentation revision 3 in the existing setting. Its
+nullable implementation choices, prerequisite notes and extraction dispositions
+are source-generated non-executable metadata; construction version 2 and storage
+format 10 remain unchanged. Historical revision-2 sessions retain their original
+selection/discovery/extraction behavior. Historical sessions retain issued
 schemas, compiler profiles, identities, approvals, receipts and cumulative usage.
 Their required compatibility paths cannot be selected by new sessions. Legacy
 Judge options do not disable local review. Pending calls resume the exact saved

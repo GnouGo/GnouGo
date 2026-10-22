@@ -20,7 +20,7 @@ internal static partial class PlanningCompactConstruction
         var entry = new JsonObject { ["task"] = task.Id, ["scope"] = scope, ["kind"] = task.Kind,
             ["objective"] = description, ["objectiveComplete"] = description == task.Objective,
             ["objectiveEvidence"] = description == task.Objective ? null : TaskObjectiveAddress(task, 0) };
-        if (State(state).PresentationVersion == 2 && PlanningConstructionPhasePolicies.IsFresh(state.Request))
+        if (IsCompactPresentation(state) && PlanningConstructionPhasePolicies.IsFresh(state.Request))
         {
             if (task.Kind == "call" && task.Group is not null) entry["group"] = task.Group;
             if (task.Kind == "operation" && task.Operation is not null) entry["operation"] = task.Operation;

@@ -75,7 +75,7 @@ public static class PlanningBenchmarkMeasurements
             return;
         }
         request.Options["construction_version"] = 2;
-        request.Options["construction_presentation_version"] = 2;
+        request.Options["construction_presentation_version"] = 3;
         request.Options["construction_preset"] = preset ?? request.Options["construction_preset"]?.ToString() ?? PlanningConstructionPresets.Ordinary;
         request.Options["construction_limits"] ??= JsonSerializer.SerializeToNode(new PlanningConstructionOptions(), PlanningJsonContext.Default.PlanningConstructionOptions);
         request.Options["construction_input_limits"] ??= JsonSerializer.SerializeToNode(new PlanningConstructionInputLimits(), PlanningJsonContext.Default.PlanningConstructionInputLimits);
@@ -247,6 +247,57 @@ public static class PlanningBenchmarkMeasurements
         { candidate["business_correct"] = correct; candidate["oracle_version"] = oracleVersion; }
         if (run["first_proposal"] is JsonObject first && first["candidate_hash"]?.ToString() == hash)
             first["business_correct"] = correct;
+    }
+
+    // Read-only reporting over authored, frozen business obligations. The caller
+    // supplies independently reviewed artifact coverage, never planner task,
+    // requirement or checkpoint counts. Runtime acceptance is a separate result.
+    public static JsonObject UsefulWork(JsonObject measurements, IReadOnlyList<string> frozenObligations,
+        IReadOnlyList<string>? acceptedArtifactObligations, string? artifactHash, bool? runtimeAccepted)
+    {
+        if (frozenObligations.Any(string.IsNullOrWhiteSpace) || acceptedArtifactObligations?.Any(string.IsNullOrWhiteSpace) == true)
+            throw new ArgumentException("Business obligation identities must be nonempty.");
+        var original = frozenObligations.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
+        var accepted = acceptedArtifactObligations?.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
+        if (accepted?.Any(id => !original.Contains(id, StringComparer.Ordinal)) == true ||
+            accepted is { Length: > 0 } && string.IsNullOrWhiteSpace(artifactHash))
+            throw new ArgumentException("Reviewed obligations must belong to the frozen set and identify their accepted artifact.");
+        var count = accepted?.Length;
+        decimal? Number(string key) => decimal.TryParse(measurements[key]?.ToJsonString(),
+            System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var value) && value >= 0 ? value : null;
+        decimal? Per(decimal? value) => count is > 0 && value is not null ? value / count.Value : null;
+        var input = Number("input_tokens"); var output = Number("output_tokens");
+        var identities = new JsonArray(original.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray());
+        return new()
+        {
+            ["unit"] = "distinct frozen business obligation covered by independently accepted planned artifact, with retained review uncertainty",
+            ["obligation_ids"] = identities,
+            ["obligation_set_hash"] = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(
+                System.Text.Encoding.UTF8.GetBytes(identities.ToJsonString()))),
+            ["accepted_artifact_hash"] = accepted is { Length: > 0 } ? artifactHash : null,
+            ["accepted_obligation_ids"] = accepted is null ? null : new JsonArray(accepted.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray()),
+            ["accepted_obligations"] = count, ["runtime_accepted"] = runtimeAccepted,
+            ["per_accepted_obligation"] = new JsonObject
+            {
+                ["logical_calls"] = Per(Number("logical_planning_calls")), ["physical_attempts"] = Per(Number("physical_attempts")),
+                ["provider_input_tokens"] = Per(input),
+                ["provider_output_tokens"] = Per(output), ["provider_total_tokens"] = Per(input + output),
+                ["cost_eur"] = Per(Number("estimated_cost_eur")), ["planning_ms"] = Per(Number("planning_ms"))
+            },
+            ["interpretation"] = "Artifact review establishes planned obligation coverage with its retained uncertainty; it does not prove execution. Runtime acceptance is reported independently. Zero/unknown coverage or unknown usage yields null ratios. Reasoning is already included in provider output tokens. No planner state, accounting or authority is changed."
+        };
+    }
+
+    public static long? PhysicalAttempts(JsonObject run, int expectedPlanningCalls)
+    {
+        if (run["usage_receipts"] is not JsonObject receipts || receipts.Count != expectedPlanningCalls) return null;
+        long total = 0;
+        foreach (var receipt in receipts.Select(p => p.Value))
+        {
+            if (receipt?["transport_attempts"] is not JsonValue value || !value.TryGetValue<int>(out var attempts) || attempts < 0) return null;
+            total += attempts;
+        }
+        return total;
     }
 
     public static JsonObject JudgeMetrics(JsonObject run)

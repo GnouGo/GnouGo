@@ -321,8 +321,8 @@ public sealed class CompactRequirementPageTests
             ["clauses"] = new JsonArray(clauses.Select(text => (JsonNode)new JsonObject
             { ["text"] = text, ["kind"] = "requirement", ["interfaces"] = "none" }).ToArray())
         } } };
-        var state = await Advance(new() { Request = new()
-        { TenantId = "requirement-pages", Prompt = string.Concat(clauses), Options = new() { ["automatic_correction"] = true } } }, runtime);
+        var state = await Advance(PlannerFixture.CapturedPresentation(new() { Request = new()
+        { TenantId = "requirement-pages", Prompt = string.Concat(clauses), Options = new() { ["automatic_correction"] = true } } }), runtime);
         Assert.Empty(state.Diagnostics);
         Assert.True(PlanningConstructionPhasePolicies.IsFresh(state.Request));
         return (state, runtime);

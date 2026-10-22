@@ -111,7 +111,7 @@ internal static partial class PlanningCompactConstruction
     private static JsonObject? PresentedProviderRequests(PlanningSession state)
     {
         if (ProviderEvidencePage(state) is { } page) return page;
-        if (State(state).PresentationVersion == 2 && DescribedProviderRequests(state) is { } described) return described;
+        if (IsCompactPresentation(state) && DescribedProviderRequests(state) is { } described) return described;
         if (PlanningConstructionPhasePolicies.IsFresh(state.Request))
         {
             // Inspecting one operation does not exhaust other providers for this
@@ -125,19 +125,20 @@ internal static partial class PlanningCompactConstruction
 
     private static JsonObject? DecisionOperationPage(PlanningSession state)
     {
-        if (State(state).PresentationVersion != 2) return UnseenOperationPage(state);
+        if (state.Construction!.Evidence is { Count: > 0 } && !UsesDeferredBinding(state)) return null;
+        if (!IsCompactPresentation(state)) return UnseenOperationPage(state);
         var page = ContractDescriptorPage(state);
         // A consumed directory is not an inspected contract. Stateless decisions
         // still need bounded identities and exact description links.
-        return page["items"]!.AsArray().Count == 0 ? null : page;
+        return page["items"]!.AsArray().Count == 0 || JsonNode.DeepEquals(state.Construction.Evidence?[OperationPageAddress(state, 0)], page) ? null : page;
     }
 
     private static string? SourceDirectoryContinuation(PlanningSession state) =>
-        State(state).PresentationVersion != 2 ? "page:sources:0" :
+        !IsCompactPresentation(state) ? "page:sources:0" :
             UnconsumedDirectory(state, "page:sources:", state.Discovery.Sources.Count, SourceDirectoryPageSize);
 
     private static string? ProviderDirectoryContinuation(PlanningSession state) =>
-        State(state).PresentationVersion != 2 ? ProviderRequestAddress(state, 0) :
+        !IsCompactPresentation(state) ? ProviderRequestAddress(state, 0) :
             UnconsumedDirectory(state, "page:provider-requests:" + ProviderRequestVersion(state) + ":",
                 ProviderRequestOptions(state).Count, 2);
 
@@ -154,14 +155,14 @@ internal static partial class PlanningCompactConstruction
 
     private static string? OperationDirectoryContinuation(PlanningSession state, JsonObject? displayed)
     {
-        if (State(state).PresentationVersion != 2) return "page:operations:0";
+        if (!IsCompactPresentation(state)) return "page:operations:0";
         return UnseenOperationPage(state, displayed) is { } page
             ? OperationPageAddress(state, page["offset"]!.GetValue<int>()) : null;
     }
 
     private static JsonObject? UnseenOperationPage(PlanningSession state, JsonObject? displayed = null)
     {
-        if (State(state).PresentationVersion != 2) return ContractDescriptorPage(state);
+        if (!IsCompactPresentation(state)) return ContractDescriptorPage(state);
         for (var offset = 0; ; offset += CompactContractDescriptorPageSize)
         {
             var page = ContractDescriptorPage(state, offset);
@@ -177,7 +178,7 @@ internal static partial class PlanningCompactConstruction
 
     internal static void RecordPresentedOperations(PlanningSession state, string issuedPrompt)
     {
-        if (State(state).PresentationVersion != 2) return;
+        if (!IsCompactPresentation(state)) return;
         JsonObject? context;
         try { context = JsonNode.Parse(issuedPrompt[(issuedPrompt.LastIndexOf('\n') + 1)..]) as JsonObject; }
         catch (System.Text.Json.JsonException) { return; }
@@ -212,7 +213,7 @@ internal static partial class PlanningCompactConstruction
             value = ContractDescriptorPage(state, legacyOffset, legacy: true);
             return true;
         }
-        if (State(state).PresentationVersion == 2 && parts is ["page", "operations", _, var position] &&
+        if (IsCompactPresentation(state) && parts is ["page", "operations", _, var position] &&
             int.TryParse(position, NumberStyles.None, CultureInfo.InvariantCulture, out var offset) && offset >= 0 &&
             address == OperationPageAddress(state, offset))
             value = ContractDescriptorPage(state, offset);
@@ -256,7 +257,7 @@ internal static partial class PlanningCompactConstruction
         if (issued != DescriptionKnowledgeHash(current))
             throw new WorkflowRuntimeException("CONSTRUCTION_DISCOVERY_STALE", "Retained discovery knowledge no longer matches the exact issued description-read request.");
         if (response["evidenceRequests"] is not JsonArray { Count: 1 } requests ||
-            new[] { "operationIds", "discoveryRequests", "reselectStep", "clarifications" }.Any(name => response[name] is not null) ||
+            new[] { "operationIds", "binding", "discoveryRequests", "reselectStep", "clarifications" }.Any(name => response[name] is not null) ||
             requests[0]?.ToString() is not { } address || !address.StartsWith("description:", StringComparison.Ordinal) || address.Length > 2048)
             return null;
         try { if (LoadContractEvidence(state, address) is null) return null; }
@@ -324,7 +325,7 @@ internal static partial class PlanningCompactConstruction
         var available = visible.Where(request => (request!["canRequestPage"] ?? request["available"])!.GetValue<bool>()).ToArray();
         // Factor only identical cursor branches. The accepted source/cursor pairs
         // stay exact; grouping every source with every cursor would widen authority.
-        var choices = State(state).PresentationVersion == 2
+        var choices = IsCompactPresentation(state)
             ? available.GroupBy(request => request!["cursor"]?.ToString(), StringComparer.Ordinal)
                 .Select(group => (Sources: group.Select(request => request!["sourceId"]!.ToString()).ToArray(), Cursor: group.Key))
             : available.Select(request => (Sources: new[] { request!["sourceId"]!.ToString() }, Cursor: request["cursor"]?.ToString()));
@@ -337,10 +338,19 @@ internal static partial class PlanningCompactConstruction
             ("discoveryRequests", alternatives.Count == 0 ? PlanningSchemas.Type("null") : PlanningSchemas.Nullable(
                 PlanningSchemas.Array(alternatives.Count == 1 ? alternatives[0]!.DeepClone().AsObject() : new JsonObject { ["anyOf"] = alternatives }, 1, 2))),
             ("evidenceRequests", PlanningSchemas.Nullable(PlanningSchemas.Array(Text(2048), 1,
-                PlanningConstructionPhasePolicies.IsFresh(state.Request) ? 8 : State(state).PresentationVersion == 2 ? 1 : 4))),
+                PlanningConstructionPhasePolicies.IsFresh(state.Request) ? 8 : IsCompactPresentation(state) ? 1 : 4))),
             ("reselectStep", CanReselectDiscovery(state) ? PlanningSchemas.Nullable(new JsonObject { ["type"] = "string", ["minLength"] = 1, ["maxLength"] = 512 }) : PlanningSchemas.Type("null")),
             ("clarifications", PlanningSchemas.Nullable(PlanningSchemas.Clarifications())));
-        if (State(state).PresentationVersion == 2)
+        if (UsesDeferredBinding(state))
+        {
+            schema["properties"]!.AsObject().Remove("operationIds");
+            schema["required"]!.AsArray().RemoveAt(0);
+            schema["properties"]!["binding"] = PlanningSchemas.Nullable(PlanningSchemas.Object(
+                ("kind", PlanningSchemas.Enum(TaskKinds)), ("operationIds", Strings(0, 2)),
+                ("groupId", PlanningSchemas.Nullable(Text(96)))));
+            schema["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("binding"));
+        }
+        if (IsCompactPresentation(state))
             schema["description"] = DescriptionKnowledgePrefix + DescriptionKnowledgeHash(DescriptionKnowledge(state, state.Discovery.Pages.Count));
         return schema;
     }
@@ -348,7 +358,8 @@ internal static partial class PlanningCompactConstruction
     internal static bool CanReselectDiscovery(PlanningSession state)
     {
         var construction = state.Construction!; var step = State(state).CurrentStep;
-        if (construction.Version != 2 || step is not { Kind: "operation", DiscoveryComplete: false } || construction.Candidate is not null ||
+        if (construction.Version != 2 || step is null || step.DiscoveryComplete ||
+            (step.Kind != "operation" && !(UsesDeferredBinding(state) && step.Kind is null)) || construction.Candidate is not null ||
             state.EditablePaths is not null || state.Request.Options["automatic_correction"]?.ToString() == "false" ||
             construction.DraftCorrections >= construction.Limits.MaxCorrectionsPerDraft) return false;
         var diagnosed = state.Diagnostics.Any(d => d.Required);

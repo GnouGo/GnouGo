@@ -8,7 +8,7 @@ internal static partial class PlanningCompactConstruction
 {
     internal static bool CanReselectInitialDraft(PlanningSession state) =>
         state.Construction is { Version: 2, Candidate: null } construction &&
-        construction.Compact is { PresentationVersion: 2, CurrentStep.DiscoveryComplete: true } &&
+        construction.Compact is { PresentationVersion: 2 or 3, CurrentStep.DiscoveryComplete: true } &&
         state.EditablePaths is null && state.Request.Options["automatic_correction"]?.ToString() != "false" &&
         construction.DraftCorrections < construction.Limits.MaxCorrectionsPerDraft &&
         PlanningModelCalls.RemainingRepairs(state) > 0;
@@ -40,7 +40,7 @@ internal static partial class PlanningCompactConstruction
         {
             if (!step.RequirementIds.Contains(item.RequirementId, StringComparer.Ordinal) || !step.OperationIds.Contains(item.Operation, StringComparer.Ordinal))
                 PlanningConstruction.Fail("CONSTRUCTION_COMMITMENT_INVALID", "/commitments", "Bind only this step's original requirements and selected exact operations.");
-            if (compact.PresentationVersion == 2 && item.Result is { } result && !step.OutputNames.Contains(result.Output, StringComparer.Ordinal))
+            if (IsCompactPresentation(state) && item.Result is { } result && !step.OutputNames.Contains(result.Output, StringComparer.Ordinal))
                 PlanningConstruction.Fail("CONSTRUCTION_COMMITMENT_INVALID", "/commitments", "A result commitment must name one of this step's explicitly selected public outputs.");
             var obligation = new PlanningCommitment(item.Operation) { Result = item.Result };
             var probe = new PlanningRequirements { Inputs = state.Requirements!.Inputs, Outputs = state.Requirements.Outputs,
@@ -101,7 +101,7 @@ internal static partial class PlanningCompactConstruction
                 value.Kind is "output" or "present" && !added.Contains(value.Source ?? "") ||
                 value.Kind == "choice" && candidate.Extension.Choices.All(c => c.Id != value.Source))
             {
-                if (State(state).PresentationVersion == 2)
+                if (IsCompactPresentation(state))
                 {
                     var binding = new JsonObject { ["kind"] = value.Kind };
                     if (value.Source is not null) binding["source"] = value.Source;
@@ -259,7 +259,7 @@ internal static partial class PlanningCompactConstruction
             value = new JsonObject { ["offset"] = next, ["total"] = state.Requirements.Outcomes.Count,
                 ["items"] = RequirementNodes(state, requirements.Select(r => r.Id)),
                 ["next"] = following < state.Requirements.Outcomes.Count ? "page:requirements:" + following : null };
-            if (compact.PresentationVersion == 2)
+            if (IsCompactPresentation(state))
             {
                 compact.RequirementOffset = Math.Max(compact.RequirementOffset, following - 1);
                 compact.RequirementPageRequested = true;

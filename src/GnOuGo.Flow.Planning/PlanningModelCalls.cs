@@ -69,8 +69,8 @@ internal static class PlanningModelCalls
             if (PlanningConstructionInputPolicy.IsCompact(state.Request))
             {
                 var measured = PlanningRequestMeasurements.Measure(request, purpose, inputLimit, state.Construction?.Compact?.CurrentStep?.Id);
-                if (purpose == PlanningConstruction.IntermediatePurpose && state.Construction?.Compact?.PresentationVersion == 2)
-                    measured.BaselineHash ??= state.Construction.Candidate?.BaseHash;
+                if (purpose == PlanningConstruction.IntermediatePurpose && PlanningCompactConstruction.IsCompactPresentation(state))
+                    measured.BaselineHash ??= state.Construction!.Candidate?.BaseHash;
                 var retainedMeasurements = state.RequestMeasurements ??= [];
                 measurement = retainedMeasurements.SingleOrDefault(m => m.RequestHash == measured.RequestHash);
                 if (measurement is null) { measurement = measured; retainedMeasurements.Add(measurement); }

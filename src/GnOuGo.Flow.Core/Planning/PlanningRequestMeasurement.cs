@@ -168,7 +168,7 @@ public static class PlanningRequestMeasurements
 
     private static string Component(string key, string phase) => key switch
     {
-        "request" or "continuation" => "intent",
+        "request" or "continuation" or "originalContext" or "originalDirectory" => "intent",
         "objective" => "objective",
         "instructions" => "instructions",
         "sources" => phase is "construction_intent" or "construction_select" ? "intent" : "mcp_descriptors",

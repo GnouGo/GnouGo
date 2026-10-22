@@ -36,10 +36,11 @@ internal static partial class PlanningCompactConstruction
     internal static JsonObject DraftSchema(PlanningSession state)
     {
         var step = state.Construction!.Compact!.CurrentStep!;
+        var kind = step.Kind ?? throw new PlanningConflictException("Bind the immediate step implementation before issuing TaskPlan grammar.");
         var fresh = PlanningConstructionPhasePolicies.IsFresh(state.Request);
         // Fresh requests construct the selected kind from shared semantic
         // definitions. Historical presentations retain their original template.
-        var definitions = fresh ? PlanningSchemas.ConstructionDefinitions(state, step.Kind) :
+        var definitions = fresh ? PlanningSchemas.ConstructionDefinitions(state, kind) :
             PlanningSchemas.FullProposal(state, compact: false, admitted: new HashSet<string>(StringComparer.Ordinal),
                 scopeGuidance: false)["$defs"]!.DeepClone().AsObject();
         var tasks = definitions["task"]!["anyOf"]!.AsArray();
@@ -75,7 +76,7 @@ internal static partial class PlanningCompactConstruction
             ("requirementIds", step.RequirementIds.Count == 0 ? EmptyArray() :
                 PlanningSchemas.Array(PlanningSchemas.Enum(step.RequirementIds.ToArray()), 0, step.RequirementIds.Count)),
             ("complete", completion));
-        var publicOutputs = State(state).PresentationVersion == 2
+        var publicOutputs = IsCompactPresentation(state)
             ? step.OutputNames.ToArray()
             : state.Requirements?.Outputs?.Select(output => output.Name).ToArray() ?? [];
         var commitments = step.OperationIds.Count == 0 || step.RequirementIds.Count == 0 ? PlanningSchemas.Type("null") :
@@ -90,7 +91,7 @@ internal static partial class PlanningCompactConstruction
             ("extension", PlanningSchemas.Nullable(extension)), ("discoveryRequests", PlanningSchemas.Type("null")),
             ("clarifications", PlanningSchemas.Nullable(PlanningSchemas.Clarifications())),
             ("evidenceRequests", PlanningSchemas.Nullable(PlanningSchemas.Array(new JsonObject { ["type"] = "string", ["maxLength"] = 2048 },
-                1, fresh ? 8 : State(state).PresentationVersion == 2 ? 1 : 8))),
+                1, fresh ? 8 : IsCompactPresentation(state) ? 1 : 8))),
             ("rollbackTask", rollback ? PlanningSchemas.Nullable(PlanningSchemas.String()) : PlanningSchemas.Type("null")),
             ("rollbackReason", rollback ? PlanningSchemas.Nullable(PlanningSchemas.String()) : PlanningSchemas.Type("null")),
             ("reselectStep", CanReselectInitialDraft(state) || state.Construction.Candidate?.AuthorizedPaths is null &&
@@ -148,14 +149,14 @@ internal static partial class PlanningCompactConstruction
             hints.Add(ValueSemantics);
         if (PlanningConstructionPhasePolicies.IsFresh(state.Request) && step.Kind == "transform")
             hints.Add("transform resultType is an object of named output ports; output.port selects that field's type, not the whole result object. extract preserves observed facts; interpret uses its objective as the runtime LLM instruction, inputs as data and resultType as the output contract, without a separate expression. Neither executes external effects.");
-        if (State(state).PresentationVersion == 2 && step.Kind == "operation")
+        if (IsCompactPresentation(state) && step.Kind == "operation")
             hints.Add(PlanningConstructionPhasePolicies.IsFresh(state.Request)
                 ? "editableInputs is only the inspected subset. Retrieve the exact schema branches needed for this business action together, up to eight addresses; the complete follow-up must fit its captured ceiling. Retrieval expands binding grammar. [] does not mean no arguments are needed."
                 : "editableInputs is only the inspected subset. Retrieve one exact schema address per call for any omitted port this business action needs; retrieval expands the binding grammar. [] does not mean no arguments are needed.");
         if (step.Kind == "foreach")
         {
             hints.Add("foreach.maxItems is the TOTAL input-item ceiling; excess fails, it never samples or truncates. maxConcurrency limits simultaneous workers, not total items. Neither bound guarantees a nonempty collection.");
-            if (State(state).PresentationVersion == 2)
+            if (IsCompactPresentation(state))
                 hints.Add(PlanningConstructionPhasePolicies.IsFresh(state.Request)
                     ? "Use a finite supported capacity; the TaskPlan default maxItems=" +
                         new PlanTask().MaxItems.ToString(System.Globalization.CultureInfo.InvariantCulture) +

@@ -2,12 +2,15 @@
 
 Fresh sessions use [compact incremental construction](../../docs/incremental-taskplan-construction.md): index original intent, select one immediate business substep, discover its capabilities, then generate and review a bounded fragment of one TaskPlan. Phase-specific context and response schemas omit unrelated inspections, task grammar and history. Exact contract views preserve required constraints; the shared compiler validates against unchanged original contracts before encrypted checkpoint acceptance. Completion uses the existing PlanningGraph and compiler v15 path without a final whole-plan LLM Judge. Historical proposal/repair contracts below retain their original meaning for issued sessions.
 
-Fresh presentation protocol 2 separates verbatim source classification from targeted
-caller/public-interface extraction within the existing intent phase. Natural page
-boundaries and explicit continuations preserve complete obligations; pending
-interface work blocks generation. New classifications extract a bounded page's
-interface clauses together, preserving naming/type qualifiers and atomic
-validation; issued schemas retain their captured grouping. Compact schema
+Fresh presentation revision 3 keeps verbatim source classification and targeted
+caller/public-interface extraction in the existing intent phase. Classification
+directions are provisional. Extraction includes bounded surrounding originals and
+exact retrieval links so names retain earlier types and constraints. An explicit
+no-interface disposition leaves the source's business obligation intact; bare empty
+arrays cannot resolve coverage. Missing type evidence requires retrieval or
+clarification. Pending extraction blocks generation. Natural boundaries and linked
+continuations preserve complete obligations. Historical revision-2 sessions and
+issued requests retain their captured grouping and schemas. Compact schema
 references carry no sibling annotations in the strict provider profile.
 The optional captured profile participates in
 new-session identity; absent historical fields, issued schemas and receipts retain
@@ -15,6 +18,16 @@ their earlier behavior. Nested MCP directories and safe required-sibling views
 avoid unrelated subtrees while preserving original contracts, coupled constraints
 and references. Scoped commitments and escaped-byte Judge descriptions reduce
 presentation size without changing compiler validation or v15 lowering.
+
+Revision-3 selection fixes the business objective, scope and original requirements
+before selecting a capability-dependent implementation. A nullable `kind` enters
+the existing discovery phase; its final binding selects exact operations and kind.
+Known local computations, closed reusable calls and structural work keep the direct
+draft path. Bounded prerequisite notes link needs to original or contract evidence;
+the accepted TaskPlan remains the only source of available executable results.
+Resolving an unset implementation is navigation, while changing the business action
+retains correction accounting. Exact contracts and semantic preflight still govern
+every candidate.
 
 Selection keeps one unresolved original requirement as its anchor; additional
 requirement pages under the fresh phase policy keep up to eight consecutive
@@ -115,9 +128,10 @@ selected output views remain present. Requested original contract evidence also
 replaces optional input navigation rows with their exact first-page directory,
 preserving required constraints. Local Judges retrieve originals before drawing conclusions
 from incomplete descriptions; matching original evidence replaces redundant teasers.
-Existing bindings used in a fragment or closing export must be explicit substep
-imports. Fresh diagnostics identify missing bindings and their consumer location;
-the existing reselection action changes imports without weakening validation.
+Under the simplified captured policy, selected imports are context hints; semantic
+preflight derives every accessible binding actually used by the fragment or closing
+export. Historical presentations retain their explicit import boundary. Neither
+path widens field access or changes accepted bindings.
 Fresh discovery presents four concise operation identities with exact description
 links, content-bound page addresses and one continuation. Catalog expansion
 preserves evidence consumption for unchanged pages. The discovery step projection
@@ -139,13 +153,15 @@ new allowed operation identities or versions, bound to the exact issued knowledg
 identity. Ordering, empty provider pages, cursor and diagnostic changes grant no
 new inspection. Operation-page consumption remains separate from this targeted
 description retrieval; cached prose is never automatically added.
-When no requested evidence is being shown, a bounded decision directory retains
-the leading operation identities and description links even after their directory
-page was consumed. Original descriptions and contracts still require targeted
-retrieval. Source and provider links advance past consumed pages; unchanged
-evidence cannot be reread by navigating back to an advertised consumed link.
-Requested evidence takes precedence over the decision directory to stay within
-the captured complete-request limit. Alongside it, at most four currently eligible
+Revision 3 retains a bounded directory of the leading operation identities and
+description links beside later evidence; an identical supplied page is not repeated.
+Historical revision 2 keeps its earlier directory suppression. Original descriptions
+and optional schema branches still use targeted retrieval. The host follows selected
+provider cursors within the existing four-read batch bound, reuses cached results
+and assembles mandatory contract closures. It neither selects semantic operations
+nor grants effects. Exact hashes, full constraint validation and complete-request
+admission still apply. Source and provider links advance past consumed pages;
+unchanged evidence cannot become progress through a different batch. At most four currently eligible
 operation identities whose exact description pages were successfully read for the
 current baseline retain their names and effects. This directory repeats no
 contract prose or schema and establishes no complete inspection or authority;

@@ -74,7 +74,7 @@ internal static partial class PlanningCompactConstruction
 
     internal static JsonObject ContractDescriptorPage(PlanningSession state, int offset = 0, bool legacy = false)
     {
-        if (!legacy && State(state).PresentationVersion == 2)
+        if (!legacy && IsCompactPresentation(state))
             return new JsonObject { ["offset"] = offset,
                 ["items"] = ContractDescriptors(state, offset, CompactContractDescriptorPageSize, concise: true),
                 ["descriptionsOmitted"] = true };
@@ -86,7 +86,7 @@ internal static partial class PlanningCompactConstruction
 
     internal static JsonObject? DescribedOperationChoices(PlanningSession state)
     {
-        if (State(state).PresentationVersion != 2 || state.Construction!.Evidence is not { Count: > 0 } ||
+        if (!IsCompactPresentation(state) || state.Construction!.Evidence is not { Count: > 0 } ||
             State(state).CurrentStep is not { } step) return null;
         var reads = state.Construction.EvidenceRequests.ToHashSet(StringComparer.Ordinal);
         var ranked = CapabilityRelevance.Rank(DescriptorCandidates(state, state.Discovery.Pages), CapabilityRelevance.Query(step.Objective)).Where(capability =>
@@ -106,7 +106,7 @@ internal static partial class PlanningCompactConstruction
     }
 
     internal static string OperationPageAddress(PlanningSession state, int offset) =>
-        State(state).PresentationVersion == 2
+        IsCompactPresentation(state)
             ? "page:operations:" + PlanningGraphCompiler.Fingerprint(ContractDescriptorPage(state, offset).ToJsonString()) + ":" + offset.ToString(CultureInfo.InvariantCulture)
             : "page:operations:" + offset.ToString(CultureInfo.InvariantCulture);
 
@@ -162,7 +162,7 @@ internal static partial class PlanningCompactConstruction
         var outputViews = selected.Where(p => p.StartsWith("/output", StringComparison.Ordinal)).ToArray();
         if (outputViews.Length > 0)
             node["selectedOutputs"] = new JsonArray(outputViews.Select(p => (JsonNode)ExactSchemaView(capability, p)).ToArray());
-        if (State(state).PresentationVersion == 2)
+        if (IsCompactPresentation(state))
         {
             // Output navigation is retrieved when needed; selected schemas stay
             // in the view. The directory retains every producer port alias.
@@ -209,7 +209,7 @@ internal static partial class PlanningCompactConstruction
             ["artifacts"] = TaskOperations.ArtifactPorts(capability),
             ["deterministicValidation"] = "The candidate passed complete original-contract validation. Descriptions here are explicitly bounded discovery evidence, not complete normative contracts. Request original restrictions when needed; report unsupported business claims as unverified."
         };
-        if (State(state).PresentationVersion == 2 && state.Construction.Evidence?.Any(item =>
+        if (IsCompactPresentation(state) && state.Construction.Evidence?.Any(item =>
             item.Key.StartsWith("description:" + identity + ":", StringComparison.Ordinal) &&
             item.Value is JsonObject original && original["id"]?.ToString() == operation.Id &&
             original["version"]?.ToString() == operation.Version &&
@@ -333,7 +333,7 @@ internal static partial class PlanningCompactConstruction
             .Where(e => e.Schema["$ref"] is JsonValue).Select(e => e.Schema["$ref"]!.ToString());
     }
 
-    internal static JsonNode? LoadContractEvidence(PlanningSession state, string address)
+    internal static JsonNode? LoadContractEvidence(PlanningSession state, string address, bool recordSchemaSelection = true)
     {
         var separator = address.IndexOf(':');
         if (separator < 0) return null;
@@ -362,10 +362,13 @@ internal static partial class PlanningCompactConstruction
         if (kind == "schema")
         {
             var view = ExactSchemaView(capability, tail);
-            var step = state.Construction!.Compact!.CurrentStep!;
-            if (!step.OperationIds.Contains(operation, StringComparer.Ordinal))
-                PlanningConstruction.Fail("CONSTRUCTION_EVIDENCE_INVALID", "/evidenceRequests", "Select the operation for this substep before requesting its schema branches.");
-            if (!step.SchemaPointers.Contains(address, StringComparer.Ordinal)) step.SchemaPointers.Add(address);
+            if (recordSchemaSelection)
+            {
+                var step = state.Construction!.Compact!.CurrentStep!;
+                if (!step.OperationIds.Contains(operation, StringComparer.Ordinal))
+                    PlanningConstruction.Fail("CONSTRUCTION_EVIDENCE_INVALID", "/evidenceRequests", "Select the operation for this substep before requesting its schema branches.");
+                if (!step.SchemaPointers.Contains(address, StringComparer.Ordinal)) step.SchemaPointers.Add(address);
+            }
             return view;
         }
         if (kind is "schema-page" or "port-page")

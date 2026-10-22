@@ -1009,6 +1009,20 @@ peaks, percentiles and component sums include rejected prepared requests. Report
 separately identify admitted request counts, admitted peaks and their limit checks;
 an oversized rejected request cannot be hidden behind a smaller admitted peak.
 
+Useful-work reports divide logical planning calls, known physical transport attempts,
+provider tokens, cost and known
+planning time by distinct independently authored business obligations covered by an
+accepted artifact review. They reuse the frozen delegated scenario obligation IDs;
+generated tasks, requirements, checkpoints and duplicate mappings never increase
+the denominator. Structural validation alone earns no credit. Unknown coverage or
+usage remains null, and a zero denominator yields null ratios. Artifact coverage
+retains the review's uncertainty and is separate from the existing runtime-oracle
+result; it grants no authority. Original records are not reclassified. Fresh corpus
+execution rows also capture planning time before approval/execution and measure each
+runtime variant directly; historical rows without those timings remain unavailable
+rather than receiving reconstructed durations. A resumed approval preserves the
+previously measured planning duration.
+
 Compact diagnostics also distinguish interface-scope failures, advisory Judge
 findings, non-progress stops and empty output-limit receipts from transport
 uncertainty. Preserve these outcomes even when every request fits its phase cap.

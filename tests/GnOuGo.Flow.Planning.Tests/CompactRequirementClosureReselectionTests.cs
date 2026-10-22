@@ -169,9 +169,9 @@ public sealed class CompactRequirementClosureReselectionTests
                     { ["name"] = "result", ["required"] = true, ["type"] = new JsonObject { ["kind"] = "array", ["nullable"] = false,
                         ["items"] = new JsonObject { ["kind"] = "number", ["nullable"] = false }, ["minItems"] = null, ["maxItems"] = null } }) });
         } };
-        var state = await Advance(new() { Request = new() { TenantId = "requirement-closure",
+        var state = await Advance(PlannerFixture.CapturedPresentation(new() { Request = new() { TenantId = "requirement-closure",
             Prompt = "Apply reusable numeric processing to every item and return the ordered numeric array as result.",
-            Options = new() { ["automatic_correction"] = true } } }, runtime);
+            Options = new() { ["automatic_correction"] = true } } }), runtime);
         state = await Advance(state, runtime);
         Assert.Empty(state.Diagnostics);
         state.Catalog = await runtime.DiscoverAsync(state.Request, PlannerFixture.Ct);

@@ -19,8 +19,8 @@ public sealed class CompactSelectionActionTests
             ["sourceId"] = Context(request)["sources"]![0]!["id"]!.DeepClone(),
             ["clauses"] = new JsonArray(new JsonObject { ["text"] = objective, ["kind"] = "requirement", ["interfaces"] = "none" })
         }) };
-        var state = await Advance(new() { Request = new() { TenantId = "selection-actions", Prompt = objective,
-            Options = new() { ["automatic_correction"] = true } } }, runtime);
+        var state = await Advance(PlannerFixture.CapturedPresentation(new() { Request = new() { TenantId = "selection-actions", Prompt = objective,
+            Options = new() { ["automatic_correction"] = true } } }), runtime);
         Assert.Empty(state.Diagnostics);
         state.Request.MaxReplanAttempts = 1;
         state.Catalog = await runtime.DiscoverAsync(state.Request, PlannerFixture.Ct);

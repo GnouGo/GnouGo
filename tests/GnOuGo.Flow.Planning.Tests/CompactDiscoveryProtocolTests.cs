@@ -466,10 +466,12 @@ public sealed partial class CompactDiscoveryProtocolTests
         Assert.NotNull(retainedEvidence[next]);
     }
 
-    [Fact]
-    public async Task OperationNavigationKeepsProgressAcrossDescriptionDrilldownAndStopsRepeatedPages()
+    [Theory]
+    [InlineData(2)]
+    [InlineData(3)]
+    public async Task OperationNavigationKeepsProgressAcrossDescriptionDrilldownAndStopsRepeatedPages(int presentationVersion)
     {
-        var (state, runtime) = await Ready();
+        var (state, runtime) = await Ready(presentationVersion: presentationVersion);
         AddOperations(state, 12);
         var plan = PlanningConstruction.Hash(state.Plan);
         var initial = PlanningCompactConstruction.DiscoveryContext(state);
@@ -499,6 +501,26 @@ public sealed partial class CompactDiscoveryProtocolTests
         presented.AddRange(page["items"]!.AsArray().Select(item => item!["id"]!.ToString() + "@" + item["version"]!.ToString()));
         Assert.Equal(expected, presented);
         Assert.Null(PlanningCompactConstruction.DiscoveryContext(state)["directoryEvidence"]!["operations"]);
+        if (presentationVersion == 3)
+        {
+            var firstPage = PlanningCompactConstruction.DiscoveryContext(state)["descriptors"]!;
+            Assert.True(JsonNode.DeepEquals(initial["descriptors"], firstPage));
+            Assert.Equal(4, firstPage["items"]!.AsArray().Count);
+            Assert.All(firstPage["items"]!.AsArray(), item => Assert.Null(item!["description"]));
+            var firstAddress = PlanningCompactConstruction.OperationPageAddress(state, 0);
+            Assert.Contains(PlanningConstruction.EvidenceBatchFingerprint(state, [firstAddress]), state.Construction!.EvidenceRequests);
+            var duplicate = Assert.Throws<PlanningResponseException>(() => PlanningConstruction.LoadEvidence(PlannerFixture.Clone(state), [firstAddress]));
+            Assert.Contains(duplicate.Diagnostics, diagnostic => diagnostic.Code == "REPLAN_NO_PROGRESS");
+            var exactDescription = firstPage["items"]![0]!["descriptionEvidence"]!.ToString();
+            runtime.Respond = (request, _) => Wire(request, Evidence(exactDescription));
+            state = await Advance(PlannerFixture.Clone(state), runtime);
+            Assert.Empty(state.Diagnostics);
+            Assert.Equal("Read exact original records with declared restrictions.", state.Construction!.Evidence![exactDescription]!["text"]!.ToString());
+            var measurement = PlanningRequestMeasurements.Measure(DiscoveryFollowup(state), PlanningCompactConstruction.DiscoveryPurpose, 6000);
+            Assert.Equal(measurement.CompleteRequestBytes, measurement.Components.Sum(component => component.SerializedBytes));
+            Assert.InRange(measurement.EstimatedInputTokens, 1, 6000);
+        }
+        else Assert.Null(PlanningCompactConstruction.DiscoveryContext(state)["descriptors"]);
         Assert.Equal(0, state.ReplanAttempts);
         Assert.Equal(plan, PlanningConstruction.Hash(state.Plan));
         Assert.All(runtime.Calls.Where(call => call.StructuredOutputSchema?["title"]?.ToString() == PlanningCompactConstruction.DiscoveryPurpose),
@@ -507,6 +529,63 @@ public sealed partial class CompactDiscoveryProtocolTests
         state = await Advance(state, runtime);
         Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Code == "REPLAN_NO_PROGRESS");
         Assert.Empty(state.Construction!.Checkpoints);
+    }
+
+    [Theory]
+    [InlineData(2)]
+    [InlineData(3)]
+    public async Task RetainedFirstOperationPageIsNotDuplicatedInContext(int presentationVersion)
+    {
+        var (state, _) = await Ready(presentationVersion: presentationVersion);
+        AddOperations(state, 8);
+        var first = PlanningCompactConstruction.OperationPageAddress(state, 0);
+        var page = PlanningCompactConstruction.ContractDescriptorPage(state).ToJsonString();
+        PlanningConstruction.LoadEvidence(state, [first], followup: DiscoveryFollowup, purpose: PlanningCompactConstruction.DiscoveryPurpose);
+        var context = PlanningCompactConstruction.DiscoveryContext(state);
+        Assert.Null(context["descriptors"]);
+        Assert.Equal(page, context["evidence"]![first]!.ToJsonString());
+        Assert.Equal(first, PlanningCompactConstruction.OperationPageAddress(state, 0));
+    }
+
+    [Theory]
+    [InlineData(2)]
+    [InlineData(3)]
+    public async Task IssuedDiscoveryWithOmittedFirstPageResumesExactBytesAndAccounting(int presentationVersion)
+    {
+        var (state, runtime) = await Ready(presentationVersion: presentationVersion);
+        AddOperations(state, 8);
+        runtime.Respond = (request, _) => Wire(request, Evidence(PlanningCompactConstruction.OperationPageAddress(state, 4)));
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        var description = DescriptionAddress(state);
+        var context = PlanningCompactConstruction.DiscoveryContext(state);
+        context["descriptors"] = null;
+        var request = PlanningCompactConstruction.Request(PlanningCompactConstruction.DiscoveryGuidance(state), context,
+            PlanningCompactConstruction.DiscoverySchema(state), PlanningCompactConstruction.DiscoveryPurpose);
+        request = PlanningModelCalls.PrepareRequest(state, PlanningCompactConstruction.DiscoveryPurpose, request.Prompt, request.StructuredOutputSchema!.AsObject());
+        var exact = JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest);
+        state.PendingCall = new() { Id = request.ClientRequestId!, Purpose = PlanningCompactConstruction.DiscoveryPurpose, Request = request };
+        state.ModelCalls++;
+        var calls = state.ModelCalls;
+        var measurements = state.RequestMeasurements!.ToDictionary(measurement => measurement.RequestHash,
+            measurement => JsonSerializer.Serialize(measurement, PlanningJsonContext.Default.PlanningRequestMeasurement));
+        var receipt = Wire(request, Evidence(description));
+        var recovery = new TestRuntime { Respond = (issued, _) =>
+        {
+            Assert.Equal(exact, JsonSerializer.Serialize(issued, PlanningJsonContext.Default.LLMRequest));
+            return receipt;
+        } };
+        state = await Advance(PlannerFixture.Clone(state), recovery);
+        Assert.Empty(state.Diagnostics);
+        Assert.Single(recovery.Calls);
+        Assert.Equal(calls, state.ModelCalls);
+        Assert.Equal(0, state.ReplanAttempts);
+        foreach (var (hash, measurement) in measurements)
+            Assert.Equal(measurement, JsonSerializer.Serialize(Assert.Single(state.RequestMeasurements!, current => current.RequestHash == hash),
+                PlanningJsonContext.Default.PlanningRequestMeasurement));
+        Assert.Null(state.PendingCall);
+        Assert.Equal("Read exact original records with declared restrictions.", state.Construction!.Evidence![description]!["text"]!.ToString());
+        Assert.Equal(presentationVersion == 3, PlanningCompactConstruction.DiscoveryContext(state)["descriptors"] is not null);
     }
 
     [Theory]
@@ -1361,7 +1440,7 @@ public sealed partial class CompactDiscoveryProtocolTests
 
     private const string Objective = "Prepare the exact greeting from the supplied data.";
     private const string Reason = "The supplied literal can be assembled with deterministic bindings; no suitable operation is needed.";
-    private static async Task<(PlanningSession State, TestRuntime Runtime)> Ready(bool inspected = false, bool retainedPolicy = false)
+    private static async Task<(PlanningSession State, TestRuntime Runtime)> Ready(bool inspected = false, bool retainedPolicy = false, int presentationVersion = 2)
     {
         var runtime = new TestRuntime { Capabilities = new EmptyCatalog(), Respond = (request, _) =>
         {
@@ -1370,15 +1449,19 @@ public sealed partial class CompactDiscoveryProtocolTests
                 ["clauses"] = new JsonArray(new JsonObject { ["text"] = "Return exactly Hello. ", ["kind"] = "requirement", ["interfaces"] = "none" },
                     new JsonObject { ["text"] = "No remote publication.", ["kind"] = "global", ["interfaces"] = "none" }) });
         } };
-        var state = await Advance(new() { Request = new() { TenantId = "compact-discovery", Prompt = "Return exactly Hello. No remote publication.",
-            Options = new JsonObject { ["automatic_correction"] = true } } }, runtime);
+        var initial = new PlanningSession { Request = new() { TenantId = "compact-discovery", Prompt = "Return exactly Hello. No remote publication.",
+            Options = new JsonObject { ["automatic_correction"] = true } } };
+        PlanningSessionCreation.Capture(initial);
+        initial.Construction!.Compact!.PresentationVersion = presentationVersion;
+        initial.Request.Options["construction_presentation_version"] = presentationVersion;
+        var state = await Advance(PlannerFixture.Clone(initial), runtime);
         Assert.Empty(state.Diagnostics);
         if (retainedPolicy)
         {
             state.Request.Options["construction_limits"]!.AsObject().Remove("phasePolicy");
             state.Construction!.Limits.PhasePolicy = null;
         }
-        Assert.Equal(2, state.Construction!.Compact!.PresentationVersion);
+        Assert.Equal(presentationVersion, state.Construction!.Compact!.PresentationVersion);
         Assert.Empty(state.Construction.Compact.InterfaceExtractions!);
         Assert.True(PlanningCompactConstruction.SourcesComplete(state));
         state.Request.Policy.Instructions = "Never expand permissions.";
@@ -1386,7 +1469,7 @@ public sealed partial class CompactDiscoveryProtocolTests
         state.Discovery.Sources = [new("alpha", "Declared metadata for business operations.")];
         state.Plan = new() { Root = new() { Tasks = [new() { Id = "accepted", Kind = "value", Objective = "Preserve this accepted fragment.",
             Outputs = [new("retained", new() { Kind = "string", Text = "Unchanged" })] }] } };
-        state.Construction!.Compact!.CurrentStep = new() { Id = "tentative", BaseHash = PlanningConstruction.Hash(state.Plan), Scope = "/root", Kind = "operation",
+        state.Construction!.Compact!.CurrentStep = new() { Id = "tentative", BaseHash = PlanningConstruction.Hash(state.Plan), Scope = "/root", Kind = presentationVersion == 3 ? null : "operation",
             Objective = Objective, RequirementIds = ["req_0"] };
         if (inspected) state.Discovery.Pages.Add(new("alpha", null, [], null, Query: Objective));
         return (state, runtime);

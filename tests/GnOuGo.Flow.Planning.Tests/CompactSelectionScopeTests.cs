@@ -211,8 +211,8 @@ public sealed class CompactSelectionScopeTests
                 ["clauses"] = new JsonArray(new JsonObject { ["text"] = objective, ["kind"] = "requirement", ["interfaces"] = "none" })
             });
         } };
-        var state = await Advance(new() { Request = new() { TenantId = "selection-scopes", Prompt = objective,
-            Options = new() { ["automatic_correction"] = true } } }, runtime);
+        var state = await Advance(PlannerFixture.CapturedPresentation(new() { Request = new() { TenantId = "selection-scopes", Prompt = objective,
+            Options = new() { ["automatic_correction"] = true } } }), runtime);
         Assert.Empty(state.Diagnostics);
         state.Catalog = await runtime.DiscoverAsync(state.Request, PlannerFixture.Ct);
         state.Requirements!.Inputs = [new() { Name = "query", Type = new() { Kind = "string" } }];

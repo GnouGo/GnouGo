@@ -327,8 +327,8 @@ public sealed class CompactDraftReselectionTests
             ["clauses"] = new JsonArray(new JsonObject { ["text"] = Context(request)["sources"]![0]!["text"]!.DeepClone(),
                 ["kind"] = "requirement", ["interfaces"] = "none" })
         }) };
-        var state = await Advance(new() { Request = new() { TenantId = "draft-reselection",
-            Prompt = "Preserve the supplied text and perform the requested operation.", Options = new() { ["automatic_correction"] = true } } }, runtime);
+        var state = await Advance(PlannerFixture.CapturedPresentation(new() { Request = new() { TenantId = "draft-reselection",
+            Prompt = "Preserve the supplied text and perform the requested operation.", Options = new() { ["automatic_correction"] = true } } }), runtime);
         Assert.Empty(state.Diagnostics);
         state.Catalog = await runtime.DiscoverAsync(state.Request, PlannerFixture.Ct);
         state.Plan = new() { Root = new() { Tasks = [new() { Id = "accepted", Kind = "value", Objective = "Preserve the exact supplied text.",

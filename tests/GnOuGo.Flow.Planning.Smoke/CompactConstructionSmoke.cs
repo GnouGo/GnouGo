@@ -15,10 +15,20 @@ internal static class CompactConstructionSmoke
 
     internal static async Task RunAsync()
     {
+        await RunAsync(2);
+        await RunAsync(3);
+    }
+
+    private static async Task RunAsync(int presentationVersion)
+    {
         var planner = new HybridWorkflowPlanner();
         var runtime = new Runtime();
         var recoveredIntentActions = new HashSet<string>(StringComparer.Ordinal);
         var state = new PlanningSession { Request = new() { TenantId = "compact-smoke", Prompt = Objective } };
+        PlanningSessionCreation.Capture(state);
+        state.Request.Options["construction_presentation_version"] = presentationVersion;
+        state.Construction!.Compact!.PresentationVersion = presentationVersion;
+        state = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
         for (var advance = 0; advance < 24 && !PlanningStatus.IsWaiting(state.Status) && !PlanningStatus.IsTerminal(state.Status); advance++)
         {
             var previousCalls = runtime.PhysicalCalls;
@@ -48,18 +58,20 @@ internal static class CompactConstructionSmoke
             state = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
         }
         if (state.Status != PlanningStatus.FinalReview || state.Construction is not { Version: 2, Complete: true, Candidate: null } ||
-            state.Construction.Compact is not { PresentationVersion: 2 } ||
+            state.Construction.Compact?.PresentationVersion != presentationVersion ||
             state.Construction.Requirements.Count != 2 || state.Construction.Requirements.Any(r => r.Status != "closed") ||
             state.ApprovedHash is not null || state.Yaml is null)
             throw new InvalidOperationException("Compact construction did not complete with explicit requirement closure: " +
                 state.Status + "; " + JsonSerializer.Serialize(state.Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic));
-        if (state.Request.Options["construction_presentation_version"]?.ToString() != "2" ||
+        if (state.Request.Options["construction_presentation_version"]?.GetValue<int>() != presentationVersion ||
             state.Construction.Compact.InterfaceExtractions is not [{ Complete: true, SourceIds.Count: 2 }] ||
             !runtime.IntentActions.SequenceEqual(["classification", "interfaces"]) ||
             !runtime.SelectionActions.SequenceEqual(["evidence", "step"]) ||
             !recoveredIntentActions.SetEquals(["classification", "interfaces"]) ||
             runtime.PhysicalCalls != 6 || state.ModelCalls != 6 || state.ReplanAttempts != 0)
             throw new InvalidOperationException("Fresh classified declarations, grouped interface extraction or exact recovery accounting changed.");
+        if (presentationVersion == 3 && state.Construction.Compact.InterfaceExtractions[0].Dispositions is not { Count: 2 })
+            throw new InvalidOperationException("Source-bound interface dispositions were not retained through Native AOT recovery.");
         var historical = JsonSerializer.Serialize(new PlanningCompactConstructionState(), PlanningJsonContext.Default.PlanningCompactConstructionState);
         if (historical.Contains("presentationVersion", StringComparison.Ordinal) || historical.Contains("interfaceExtractions", StringComparison.Ordinal))
             throw new InvalidOperationException("Fresh presentation metadata changed historical omitted fields.");
@@ -73,7 +85,7 @@ internal static class CompactConstructionSmoke
         var result = await new WorkflowEngine().ExecuteAsync(workflow, new JsonObject(), CancellationToken.None);
         if (!result.Success || result.Outputs?["message"]?.GetValue<string>() != "Hello")
             throw new InvalidOperationException("Compact v15 artifact changed the independently expected value.");
-        Console.WriteLine("compact construction: classified originals, grouped interface extraction, exact requirement evidence, six recovered calls, narrow draft/Judge and independently executed output");
+        Console.WriteLine($"compact presentation {presentationVersion}: classified originals, grounded interface extraction, six recovered calls, narrow draft/Judge and independently executed output");
     }
 
     private sealed class Runtime : IPlanningRuntime
@@ -115,6 +127,24 @@ internal static class CompactConstructionSmoke
                         : new() { ["sourceId"] = Issued(request, "sourceId"), ["inputs"] = new JsonArray(),
                             ["outputs"] = new JsonArray(new JsonObject { ["name"] = "message", ["required"] = true,
                                 ["type"] = new JsonObject { ["kind"] = "string", ["nullable"] = false } }) };
+                    if (!classification && request.StructuredOutputSchema["properties"]!["interfaces"] is not null)
+                    {
+                        var originals = context["sources"]!.AsArray();
+                        var declarations = new JsonObject
+                        {
+                            ["inputs"] = response["inputs"]!.DeepClone(), ["outputs"] = response["outputs"]!.DeepClone(),
+                            ["dispositions"] = new JsonArray(originals.Select(source => (JsonNode)new JsonObject
+                            {
+                                ["sourceId"] = source!["id"]!.DeepClone(), ["version"] = source["version"]!.DeepClone(),
+                                ["kind"] = "interfaces", ["inputs"] = new JsonArray(), ["outputs"] = new JsonArray("message"),
+                                ["reason"] = "These original clauses declare the named public string result.",
+                                ["evidence"] = new JsonArray(originals.Select(original => (JsonNode)new JsonObject
+                                { ["sourceId"] = original!["id"]!.DeepClone(), ["version"] = original["version"]!.DeepClone() }).ToArray())
+                            }).ToArray())
+                        };
+                        response = new() { ["sourceId"] = Issued(request, "sourceId"), ["interfaces"] = declarations,
+                            ["evidenceRequests"] = null, ["clarifications"] = null };
+                    }
                     break;
                 case "construction_select":
                     var originalAddress = context["requirementsDirectory"]?.ToString()

@@ -48,6 +48,22 @@ public sealed class PlanningConstructionInterfaceExtraction
     public bool Inputs { get; set; }
     public bool Outputs { get; set; }
     public bool Complete { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public List<PlanningConstructionInterfaceDisposition>? Dispositions { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? EvidenceSourceIds { get; set; }
+}
+
+/// <summary>A source-bound interface decision; the original business obligation remains authoritative.</summary>
+public sealed class PlanningConstructionInterfaceDisposition
+{
+    public string SourceId { get; set; } = "";
+    public string Version { get; set; } = "";
+    public string Kind { get; set; } = "";
+    public List<string> Inputs { get; set; } = [];
+    public List<string> Outputs { get; set; } = [];
+    public string Reason { get; set; } = "";
+    public Dictionary<string, string> Evidence { get; set; } = new(StringComparer.Ordinal);
 }
 
 /// <summary>One immediate business step and its host-checked selection, not a future workflow outline.</summary>
@@ -56,7 +72,7 @@ public sealed class PlanningConstructionStep
     public string Id { get; set; } = "";
     public string BaseHash { get; set; } = "";
     public string Scope { get; set; } = "/root";
-    public string Kind { get; set; } = "value";
+    public string? Kind { get; set; } = "value";
     public string Objective { get; set; } = "";
     public List<string> RequirementIds { get; set; } = [];
     public List<string> InputTaskIds { get; set; } = [];
@@ -69,7 +85,28 @@ public sealed class PlanningConstructionStep
     public List<string> SchemaPointers { get; set; } = [];
     public List<string> CloseRequirementIds { get; set; } = [];
     public List<string> OutputNames { get; set; } = [];
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public List<PlanningConstructionPrerequisite>? Prerequisites { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public PlanningConstructionDiscoveryContinuation? PendingDiscovery { get; set; }
     public bool DiscoveryComplete { get; set; }
+}
+
+/// <summary>Continuation of one received metadata action; never another model request or executable task.</summary>
+public sealed class PlanningConstructionDiscoveryContinuation
+{
+    public string ActionHash { get; set; } = "";
+    public List<PlanningDiscoveryRequest> Requests { get; set; } = [];
+    public List<PlanningDiscoveryRequest> Pending { get; set; } = [];
+    public List<string> Visited { get; set; } = [];
+    public int RemainingReads { get; set; } = 4;
+}
+
+/// <summary>Original evidence for a current business prerequisite, never a future task or permission.</summary>
+public sealed class PlanningConstructionPrerequisite
+{
+    public string Need { get; set; } = "";
+    public List<string> EvidenceAddresses { get; set; } = [];
 }
 
 /// <summary>An explicit candidate-only binding of original intent to an inspected producer.</summary>

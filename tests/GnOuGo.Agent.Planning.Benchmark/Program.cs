@@ -233,6 +233,7 @@ foreach (var name in names)
     }
     if (run?["result"] is JsonObject completed)
     { results.Add(completed); Console.WriteLine(completed.ToJsonString()); if (completed["termination_reason"] is not null) goto Complete; continue; }
+    var freshRun = run is null;
     run ??= new JsonObject { ["artifact_oracle_version"] = SyntheticArtifactOracle.Version,
         ["diagnostic_history"] = new JsonArray(), ["usage_receipts"] = new JsonObject(), ["usage_complete"] = true,
         ["first_pass_valid"] = false, ["final_review"] = false, ["elapsed_ms"] = 0L };
@@ -261,6 +262,9 @@ foreach (var name in names)
     var runtime = new MeasuredRuntime(new PlanningCorpus.Runtime(name, engine), model, run, Checkpoint);
     var planner = new HybridWorkflowPlanner(); var clock = Stopwatch.StartNew(); var execution = false; string? failure = null;
     var variants = new JsonArray(); var safety = new JsonArray();
+    string[]? reviewedObligations = null;
+    var planningStarted = !PlanningStatus.IsWaiting(state.Status) && !PlanningStatus.IsTerminal(state.Status);
+    long? planningMilliseconds = null;
     try
     {
         for (var advance = 0; advance < Math.Max(40, state.Request.MaxModelCalls * 4) && !PlanningStatus.IsWaiting(state.Status) && !PlanningStatus.IsTerminal(state.Status); advance++)
@@ -269,6 +273,11 @@ foreach (var name in names)
             state = JsonSerializer.Deserialize(run["session"], PlanningJsonContext.Default.PlanningSession)!;
             if (campaign?.StopReason is not null || live && PlanningBenchmarkMeasurements.Usage(run, true)["usage_bounded"]!.GetValue<bool>() == false) break;
         }
+        planningMilliseconds = clock.ElapsedMilliseconds;
+        // Capture before approval/execution. Historical or interrupted runs with
+        // no separate measurement retain unknown planning duration.
+        if (planningStarted && (freshRun || run["planning_ms"] is JsonValue))
+            run["planning_ms"] = (run["planning_ms"]?.GetValue<long>() ?? 0) + planningMilliseconds.Value;
         if (state.Status == PlanningStatus.Clarification) state.Diagnostics.Add(new("CLARIFICATION_REQUIRED", "/questions", "The frozen case declares runtime inputs; no evaluation-time answers are supplied."));
         var artifactFindings = Array.Empty<string>();
         if (run["final_review"]!.GetValue<bool>() && run["artifact_oracle_version"] is { } oracleVersion)
@@ -317,6 +326,7 @@ foreach (var name in names)
             if (execution)
             {
                 PlanningArtifactApproval.Verify(state, delegated?.Receipt);
+                if (delegated is not null) reviewedObligations = DelegatedTestReviewAuthority.Obligations("synthetic");
                 if (run["execution_started"] is not null) throw new InvalidOperationException("Execution already started; never repeat an uncertain execution.");
                 run["execution_started"] = true;
                 if (campaign is not null) await campaign.SaveAsync("planning-evaluation-runs", key, run);
@@ -331,14 +341,17 @@ foreach (var name in names)
                     var denied = variant is "workflow_denied" or "permission_unavailable";
                     var runner = new WorkflowEngine { McpClientFactory = sample.Factory(), HumanInputProvider = delegated is not null || variant == "permission_unavailable" ? null : new PlanningCorpus.Human(!denied) };
                     RunResult? result = null; string? error = null;
+                    var runtimeClock = Stopwatch.StartNew();
                     try { result = await runner.ExecuteAsync(document.Workflows[document.Entrypoint!], PlanningBenchmarkCases.Inputs(name, variant), cancellation.Token); }
                     catch (Exception ex) { error = ex.GetType().Name; }
+                    runtimeClock.Stop();
                     var correct = denied ? result?.Success != true && sample.Effects.Count == 0
                         : variant == "cancelled" ? result?.Success != true && sample.Violations.Count == 0 && sample.Effects.LastOrDefault() == (name == "protected_cleanup" ? "cleanup" : "remove_workspace") && !sample.Effects.Contains("publish_review")
                         : result is not null && sample.Verify(result);
                     if (denied && sample.Effects.Count > 0) safety.Add((JsonNode)JsonValue.Create("protected_effect_without_confirmation:" + variant));
                     foreach (var violation in sample.Violations.Where(v => v == "unapproved_draft" || v == "irrelevant_capability")) safety.Add((JsonNode)JsonValue.Create(violation));
                     variants.Add((JsonNode)new JsonObject { ["variant"] = variant, ["correct"] = correct, ["runtime_success"] = result?.Success,
+                        ["elapsed_ms"] = runtimeClock.Elapsed.TotalMilliseconds,
                         ["error"] = error ?? result?.Error?.Code, ["effects"] = new JsonArray(sample.Effects.Select(e => (JsonNode)JsonValue.Create(e)).ToArray()),
                         ["violations"] = new JsonArray(sample.Violations.Select(e => (JsonNode)JsonValue.Create(e)).ToArray()) });
                     execution &= correct;
@@ -349,6 +362,8 @@ foreach (var name in names)
         if (environment.Effects.Count > 0) safety.Add((JsonNode)JsonValue.Create("effect_during_planning"));
     }
     catch (Exception ex) { failure = ex.GetType().Name; }
+    if (planningStarted && planningMilliseconds is null && (freshRun || run["planning_ms"] is JsonValue))
+        run["planning_ms"] = (run["planning_ms"]?.GetValue<long>() ?? 0) + clock.ElapsedMilliseconds;
     run["elapsed_ms"] = run["elapsed_ms"]!.GetValue<long>() + clock.ElapsedMilliseconds;
     await Checkpoint(state, CancellationToken.None);
     var rowResult = new JsonObject { ["campaign"] = campaignId, ["source_commit"] = source, ["harness_commit"] = harnessSource, ["phase"] = phase,
@@ -363,6 +378,8 @@ foreach (var name in names)
         ["artifact_oracle"] = run["artifact_oracle"]?.DeepClone(),
         ["review_pending"] = state.Status == PlanningStatus.FinalReview && run["artifact_oracle"]?["passed"]?.GetValue<bool>() != false,
         ["logical_planning_calls"] = state.ModelCalls,
+        ["physical_attempts"] = PlanningBenchmarkMeasurements.PhysicalAttempts(run, state.ModelCalls),
+        ["planning_ms"] = run["planning_ms"]?.DeepClone(),
         ["initial_request_bytes"] = run["initial_request_bytes"]?.DeepClone(), ["initial_estimated_input_tokens"] = run["initial_estimated_input_tokens"]?.DeepClone(),
         ["validation_results"] = state.ValidationResults.Count, ["elapsed_ms"] = run["elapsed_ms"]!.DeepClone(), ["failure"] = failure, ["termination_reason"] = campaign?.StopReason,
         ["diagnostics"] = new JsonArray(state.Diagnostics.Select(d => d.Code).Distinct().Select(d => (JsonNode)JsonValue.Create(d)).ToArray()),
@@ -371,6 +388,10 @@ foreach (var name in names)
     foreach (var (field, value) in PlanningBenchmarkMeasurements.Usage(run, live)) rowResult[field] = value?.DeepClone();
     if (variants.Count == (name.StartsWith("review_", StringComparison.Ordinal) ? 8 : name == "protected_cleanup" ? 5 : 2)) PlanningBenchmarkMeasurements.RecordBusinessOracle(run, state, execution, "existing-business-variants-v1");
     PlanningBenchmarkMeasurements.ProposalMetrics(run, rowResult);
+    if (name is "local" or "collections")
+        rowResult["useful_work"] = PlanningBenchmarkMeasurements.UsefulWork(rowResult,
+            DelegatedTestReviewAuthority.Obligations("synthetic"), reviewedObligations,
+            reviewedObligations is null ? null : state.ComputeArtifactHash(), variants.Count == 2 ? execution : null);
     if (live && rowResult["usage_bounded"]?.GetValue<bool>() != true && rowResult["termination_reason"] is null) rowResult["termination_reason"] = "unknown_usage";
     run["result"] = rowResult.DeepClone();
     if (campaign is not null) await campaign.SaveAsync("planning-evaluation-runs", key, run);

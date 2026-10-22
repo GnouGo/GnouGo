@@ -15,15 +15,20 @@ public sealed partial class HybridWorkflowPlanner
         if (!PlanningCompactConstruction.CapturedPresentationValid(state))
             throw new PlanningConflictException("The captured compact presentation protocol is unsupported or inconsistent.");
         state.Status = PlanningStatus.Generating;
+        if (construction.Compact.CurrentStep?.PendingDiscovery is not null)
+        {
+            await ContinueConstructionDiscoveryAsync(state, runtime, ct);
+            return;
+        }
         if (construction.Complete) { await CompileAsync(state, runtime, ct); return; }
         PlanningCompactConstruction.InitializeSources(state);
-        var pendingExtraction = construction.Compact.PresentationVersion == 2 &&
+        var pendingExtraction = PlanningCompactConstruction.IsCompactPresentation(state) &&
             state.PendingCall?.Purpose == PlanningCompactConstruction.IntentPurpose &&
             state.PendingCall.Request.StructuredOutputSchema?["properties"]?["clauses"] is null;
         if (!pendingExtraction && (state.PendingCall is null || state.PendingCall.Purpose == PlanningCompactConstruction.IntentPurpose))
             if (construction.Compact.Sources.FirstOrDefault(s => s.Kind is "page" or "answer_page" or "revision_page" && !s.Indexed) is { } sourcePage)
             { await IndexConstructionIntentAsync(state, runtime, sourcePage, ct); return; }
-        if (construction.Compact.PresentationVersion == 2 &&
+        if (PlanningCompactConstruction.IsCompactPresentation(state) &&
             construction.Compact.InterfaceExtractions?.FirstOrDefault(e => !e.Complete) is { } extraction)
         { await ExtractConstructionInterfacesAsync(state, runtime, extraction, ct); return; }
         if (!PlanningCompactConstruction.IntentDeclarationsComplete(construction.Compact))
@@ -134,7 +139,7 @@ public sealed partial class HybridWorkflowPlanner
     private static async Task IndexConstructionIntentAsync(PlanningSession state, IPlanningRuntime runtime,
         PlanningConstructionSource source, CancellationToken ct)
     {
-        if (PlanningCompactConstruction.State(state).PresentationVersion == 2)
+        if (PlanningCompactConstruction.IsCompactPresentation(state))
         { await ClassifyConstructionIntentAsync(state, runtime, source, ct); return; }
         var response = await CompactCallAsync(state, runtime, PlanningCompactConstruction.IntentPurpose, () =>
             PlanningCompactConstruction.Request(PlanningCompactConstruction.IndexInstructions, new JsonObject
@@ -226,10 +231,11 @@ public sealed partial class HybridWorkflowPlanner
         var step = response["step"]!.Deserialize(PlanningJsonContext.Default.PlanningConstructionStep)!;
         PlanningCompactConstruction.ValidateSelection(state, step);
         step.Id = "step_" + (++compact.NextStep);
-        step.DiscoveryComplete = step.Kind != "operation";
+        step.DiscoveryComplete = step.Kind is not null && step.Kind != "operation";
         compact.CurrentStep = step;
+        if (step.Kind is null) await ReserveCompactContinuationAsync(state, runtime, ct);
         compact.PendingCommitments.Clear();
-        state.Construction!.Evidence = null; state.Construction.EvidenceRequests.Clear();
+        PlanningCompactConstruction.RetainPrerequisiteEvidence(state);
         state.Diagnostics.Clear();
     }
 
@@ -239,6 +245,7 @@ public sealed partial class HybridWorkflowPlanner
         var issued = state.PendingCall?.Request;
         var exactRequest = issued;
         var correcting = state.Diagnostics.Any(d => d.Required);
+        var primary = PlanningCompactConstruction.UsesDeferredBinding(state) ? "binding" : "operationIds";
         using var correction = new PlanningCorrectionAttempt(state, correcting);
         var response = await CompactCallAsync(state, runtime, PlanningCompactConstruction.DiscoveryPurpose, () =>
             exactRequest = PlanningCompactConstruction.Request(PlanningCompactConstruction.DiscoveryGuidance(state), PlanningCompactConstruction.DiscoveryContext(state),
@@ -253,7 +260,7 @@ public sealed partial class HybridWorkflowPlanner
                 var context = JsonNode.Parse(issued.Prompt[(issued.Prompt.LastIndexOf('\n') + 1)..]);
                 correcting = context?["diagnostics"]?.AsArray().Any(d => d?["required"]?.GetValue<bool>() == true) == true;
             }
-            if (new[] { "operationIds", "evidenceRequests", "clarifications", "discoveryRequests" }.Any(name => response[name] is not null) ||
+            if (new[] { primary, "evidenceRequests", "clarifications", "discoveryRequests" }.Any(name => response[name] is not null) ||
                 !PlanningCompactConstruction.CanReselectDiscovery(state) || string.IsNullOrWhiteSpace(reason.ToString()) || reason.ToString().Length > 512)
                 PlanningConstruction.Fail("CONSTRUCTION_RESELECTION_INVALID", "/reselectStep", "Reselect only an inspected tentative operation step, as one bounded action within its retained correction authority.");
             if (!correcting && PlanningModelCalls.RemainingRepairs(state) == 0)
@@ -272,8 +279,13 @@ public sealed partial class HybridWorkflowPlanner
             return;
         }
         var descriptionReadKey = PlanningCompactConstruction.DescriptionReadKey(state, exactRequest!.StructuredOutputSchema!, response);
-        if (await CompactOtherActionAsync(state, runtime, response, "operationIds", ct, descriptionReadKey, correction, exactRequest.StructuredOutputSchema)) return;
-        var operations = response["operationIds"]!.AsArray().Select(o => o!.ToString()).ToArray();
+        if (await CompactOtherActionAsync(state, runtime, response, primary, ct, descriptionReadKey, correction, exactRequest.StructuredOutputSchema)) return;
+        var binding = primary == "binding" ? response[primary]!.AsObject() : null;
+        var operations = (binding?["operationIds"] ?? response["operationIds"])!.AsArray().Select(o => o!.ToString()).ToArray();
+        var kind = binding?["kind"]?.ToString() ?? "operation";
+        var groupId = binding?["groupId"]?.ToString();
+        if (kind == "operation" ? operations.Length is < 1 or > 2 || groupId is not null : operations.Length != 0)
+            PlanningConstruction.Fail("DISCOVERY_SELECTION_INVALID", "/binding", "Only an operation binding selects exact operations; local work must not bind operation identities.");
         foreach (var operation in operations)
         {
             var retained = state.Catalog!.Capabilities.Concat(state.Discovery.Resolved)
@@ -289,13 +301,34 @@ public sealed partial class HybridWorkflowPlanner
             if (discovered.Length != 1) PlanningConstruction.Fail("DISCOVERY_SELECTION_INVALID", "/operationIds", "Select an unambiguous discovered operation.");
             await PlanningDiscoveryContext.ResolveAsync(state, runtime, discovered[0], ct);
         }
+        if (binding is not null)
+        {
+            var probe = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
+            var selected = probe.Construction!.Compact!.CurrentStep!;
+            selected.Kind = kind; selected.GroupId = groupId;
+            selected.OperationIds = operations.Distinct(StringComparer.Ordinal).ToList(); selected.DiscoveryComplete = true;
+            PlanningCompactConstruction.ValidateSelection(probe, selected);
+            PlanningCompactConstruction.RetainPrerequisiteEvidence(probe);
+            var draft = PlanningConstruction.DraftRequest(probe, repair: false);
+            try
+            {
+                PlanningConstruction.AdmitEvidenceFollowup(state, PlanningModelCalls.PrepareRequest(probe, PlanningConstruction.DraftPurpose,
+                    draft.Prompt, draft.StructuredOutputSchema!.AsObject(), probe.Construction.Limits.DraftOutputTokens), PlanningConstruction.DraftPurpose);
+            }
+            catch (PlanningResponseException ex) when (ex.Diagnostics.Any(d => d.Code == "CONSTRUCTION_EVIDENCE_LIMIT"))
+            {
+                throw new WorkflowRuntimeException("CONSTRUCTION_CONTRACT_LIMIT",
+                    "The selected operations' mandatory original constraint closure and complete generation grammar exceed the captured input ceiling. No implementation binding was accepted.");
+            }
+            step.Kind = selected.Kind; step.GroupId = selected.GroupId;
+        }
         step.OperationIds = operations.Distinct(StringComparer.Ordinal).ToList();
         // The independent selection decision precedes the draft being assessed.
         // These bindings stay tentative until that draft and its review are accepted.
         compact.PendingCommitments = step.RequirementIds.ToDictionary(id => id,
             _ => step.OperationIds.Select(operation => new PlanningCommitment(operation)).ToList(), StringComparer.Ordinal);
         step.DiscoveryComplete = true;
-        state.Construction!.Evidence = null; state.Construction.EvidenceRequests.Clear();
+        PlanningCompactConstruction.RetainPrerequisiteEvidence(state);
         state.Diagnostics.Clear();
     }
 
@@ -319,7 +352,7 @@ public sealed partial class HybridWorkflowPlanner
                             PlanningCompactConstruction.DiscoverySchema(next), purpose);
                     return PlanningModelCalls.PrepareRequest(next, purpose, request.Prompt, request.StructuredOutputSchema!.AsObject(), next.Construction!.Limits.DraftOutputTokens);
                 }, purpose: purpose, issuedDiscoverySchema: issuedDiscoverySchema);
-            if (PlanningCompactConstruction.State(state).PresentationVersion == 2)
+            if (PlanningCompactConstruction.IsCompactPresentation(state))
                 state.Diagnostics.RemoveAll(d => d.Location == "/evidenceRequests" &&
                     d.Code is "CONSTRUCTION_EVIDENCE_UNKNOWN" or "CONSTRUCTION_EVIDENCE_INVALID" or "CONSTRUCTION_EVIDENCE_LIMIT");
             correction?.EvidenceAccepted();
@@ -333,7 +366,8 @@ public sealed partial class HybridWorkflowPlanner
         }
         if (response["discoveryRequests"] is JsonArray requests)
         {
-            await ConstructionDiscoveryAsync(state, runtime, requests.Deserialize(PlanningJsonContext.Default.ListPlanningDiscoveryRequest)!, ct);
+            await ConstructionDiscoveryAsync(state, runtime, requests.Deserialize(PlanningJsonContext.Default.ListPlanningDiscoveryRequest)!, ct, correction);
+            if (PlanningCompactConstruction.UsesDeferredBinding(state)) return true;
             if (PlanningConstructionPhasePolicies.IsFresh(state.Request))
             {
                 // Provider receipts are retained even if the enlarged follow-up
@@ -346,7 +380,7 @@ public sealed partial class HybridWorkflowPlanner
                         state.Construction!.Limits.DraftOutputTokens), purpose);
             }
             else state.Construction!.Evidence = null;
-            if (PlanningCompactConstruction.State(state).PresentationVersion != 2) state.Construction.EvidenceRequests.Clear();
+            if (!PlanningCompactConstruction.IsCompactPresentation(state)) state.Construction.EvidenceRequests.Clear();
             return true;
         }
         return false;

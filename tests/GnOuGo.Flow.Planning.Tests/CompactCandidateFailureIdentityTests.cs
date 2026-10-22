@@ -207,9 +207,9 @@ public sealed class CompactCandidateFailureIdentityTests
                     { ["name"] = "result", ["required"] = true, ["type"] = new JsonObject { ["kind"] = "array", ["nullable"] = false,
                         ["items"] = new JsonObject { ["kind"] = "number", ["nullable"] = false }, ["minItems"] = null, ["maxItems"] = null } }) });
         } };
-        var state = await Advance(new() { Request = new() { TenantId = "scoped-failure",
+        var state = await Advance(PlannerFixture.CapturedPresentation(new() { Request = new() { TenantId = "scoped-failure",
             Prompt = "Use reusable numeric work to return an ordered numeric array as result.",
-            Options = new() { ["automatic_correction"] = true } } }, runtime);
+            Options = new() { ["automatic_correction"] = true } } }), runtime);
         state = await Advance(state, runtime);
         Assert.Empty(state.Diagnostics);
         state.Catalog = await runtime.DiscoverAsync(state.Request, PlannerFixture.Ct);

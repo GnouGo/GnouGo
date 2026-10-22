@@ -304,8 +304,8 @@ public sealed class CompactContractEvidenceFlowTests
             return Wire(request, new() { ["sourceId"] = source["id"]!.ToString(),
                 ["clauses"] = new JsonArray(new JsonObject { ["text"] = source["text"]!.ToString(), ["kind"] = "requirement", ["interfaces"] = "none" }) });
         } };
-        var state = await Advance(new() { Request = new() { TenantId = "contract-evidence-flow",
-            Prompt = "Read the caller-authorized record EXACT.", Options = new JsonObject { ["automatic_correction"] = true } } }, runtime);
+        var state = await Advance(PlannerFixture.CapturedPresentation(new() { Request = new() { TenantId = "contract-evidence-flow",
+            Prompt = "Read the caller-authorized record EXACT.", Options = new JsonObject { ["automatic_correction"] = true } } }), runtime);
         Assert.Empty(state.Diagnostics);
         if (retainedPolicy)
         {

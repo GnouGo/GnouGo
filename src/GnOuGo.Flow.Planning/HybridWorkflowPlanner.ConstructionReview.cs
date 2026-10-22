@@ -27,19 +27,19 @@ public sealed partial class HybridWorkflowPlanner
           Return one action: findings (empty if none) with evidenceRequests:null, or findings:null with necessary original evidence addresses. Finding locations and evidence use the schema's existing context-object pointers; explain fields and uncertainty in prose. Evidence retrieval uses issued addresses, task:<id>, scope:<path>, or scope:/groups/<call.group>/body; never bare IDs. Navigation, compilation and reviews grant no authority or proof of execution. Partial descriptions cannot prove absent functionality; request the original.
           """ + "\n" + PlanningCompactConstruction.DraftSemantics(state, state.Construction!.Compact!.CurrentStep!)
         :
-        (state.Construction!.Compact!.PresentationVersion == 2 ? CompactConstructionReviewFocusedInstructions :
+        (PlanningCompactConstruction.IsCompactPresentation(state) ? CompactConstructionReviewFocusedInstructions :
             CompactConstructionReviewInstructions + "\n" + CompactConstructionReviewEvidenceInstructions) +
-        (state.Construction.Compact.PresentationVersion == 2 &&
-            state.Construction.Compact.CurrentStep?.Kind is "group" or "sequence" or "conditional" or "parallel" or "foreach" or "close" or "revision"
+        (PlanningCompactConstruction.IsCompactPresentation(state) &&
+            state.Construction!.Compact!.CurrentStep?.Kind is "group" or "sequence" or "conditional" or "parallel" or "foreach" or "close" or "revision"
             ? "\nNewly opened group/container scopes intentionally have empty children and no consumable outputs: assess inputs/boundaries now, implementation/exports at closure or consumption."
             : "") +
         (state.Construction!.Compact!.CurrentStep?.Kind == "transform"
             ? "\nA transform's required object resultType declares named output ports. An output reference with a named port consumes that field's type; port:null consumes the whole result object. The object envelope does not require exposing the whole object as the business result."
             : "") +
-        (state.Construction.Compact.PresentationVersion == 2 && state.Construction.Compact.CurrentStep?.Kind == "foreach"
+        (PlanningCompactConstruction.IsCompactPresentation(state) && state.Construction!.Compact!.CurrentStep?.Kind == "foreach"
             ? "\nforeach.maxItems rejects excess input before iteration; it never samples or returns a truncated success. maxConcurrency bounds workers, not total items. Report conflicts with explicit required sizes. An unspecified source bound does not require unbounded host execution: retain finite supported capacity as uncertainty, without requesting a limit increase."
             : "") +
-        (state.Construction.Compact.PresentationVersion == 2 && state.Construction.Compact.CurrentStep is { } step &&
+        (PlanningCompactConstruction.IsCompactPresentation(state) && state.Construction!.Compact!.CurrentStep is { } step &&
             new TaskPlanSymbols(state.Construction.Candidate?.Plan ?? state.Plan ?? new TaskPlan()).Scopes
                 .Any(scope => scope.Path == step.Scope && scope.Owner?.Kind == "foreach")
             ? "\nThis selected scope is a foreach body. Each body output becomes an array on the enclosing task, preserving input order and repetitions; array-valued outputs remain nested. A scalar per-item export does not need an additional aggregation task."

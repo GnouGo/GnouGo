@@ -11,6 +11,8 @@ public sealed class CompactRequestMeasurementTests
 {
     [Theory]
     [InlineData("continuation", "intent")]
+    [InlineData("originalContext", "intent")]
+    [InlineData("originalDirectory", "intent")]
     [InlineData("existingInputs", "interfaces")]
     [InlineData("existingOutputs", "interfaces")]
     public void TargetedIntentEvidenceReconcilesWithinItsExistingComponent(string key, string component)

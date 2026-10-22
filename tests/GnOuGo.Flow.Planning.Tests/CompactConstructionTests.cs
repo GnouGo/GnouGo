@@ -292,7 +292,7 @@ public sealed class CompactConstructionTests
                 ["outputs"] = new JsonArray()
             });
         } };
-        var state = NewSession(original);
+        var state = PlannerFixture.CapturedPresentation(NewSession(original));
         for (var i = 0; i < 2; i++)
             state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
         Assert.Empty(state.Diagnostics);
@@ -727,7 +727,7 @@ public sealed class CompactConstructionTests
                 { ["text"] = text, ["kind"] = text == clauses[^1] ? "global" : "requirement", ["interfaces"] = "none" })
             });
         } };
-        var state = NewSession(string.Concat(clauses));
+        var state = PlannerFixture.CapturedPresentation(NewSession(string.Concat(clauses)));
         for (var index = 0; index < clauses.Length; index++)
             state = await new HybridWorkflowPlanner().AdvanceAsync(state,
                 new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);

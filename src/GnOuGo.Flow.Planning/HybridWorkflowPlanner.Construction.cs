@@ -32,7 +32,7 @@ public sealed partial class HybridWorkflowPlanner
         if (construction.Version == 2 && command.PreserveRequirements != true) construction.Compact = new()
         {
             PresentationVersion = construction.Compact?.PresentationVersion,
-            InterfaceExtractions = construction.Compact?.PresentationVersion == 2 ? [] : null
+            InterfaceExtractions = PlanningCompactConstruction.IsCompactPresentation(state) ? [] : null
         };
         else if (construction.Version == 2 && construction.Compact is { } compactRevision)
         { compactRevision.CurrentStep = null; compactRevision.PendingCommitments.Clear(); }
@@ -75,7 +75,7 @@ public sealed partial class HybridWorkflowPlanner
             limits.DraftOutputTokens is < 1 or > 65536 || limits.ReviewOutputTokens is < 1 or > 65536)
             throw new PlanningConflictException("The captured construction contract or limits are unsupported.");
         if (construction.CandidateFailureIdentityVersion is not (null or 1) ||
-            construction.CandidateFailureIdentityVersion is not null && construction is not { Version: 2, Compact.PresentationVersion: 2 })
+            construction.CandidateFailureIdentityVersion is not null && construction is not { Version: 2, Compact.PresentationVersion: 2 or 3 })
             throw new PlanningConflictException("The captured candidate failure identity is unsupported.");
         if (construction.Version == 2) { await AdvanceCompactConstructionAsync(state, runtime, ct); return; }
         state.Status = PlanningStatus.Generating;
@@ -167,7 +167,7 @@ public sealed partial class HybridWorkflowPlanner
         // CallAsync checkpoints this transient recovery contract with the issued
         // request before dispatch. Already issued requests/candidates keep their
         // captured (including absent historical) comparison semantics.
-        if (state.PendingCall is null && previous is null && construction is { Version: 2, Compact.PresentationVersion: 2 })
+        if (state.PendingCall is null && previous is null && construction is { Version: 2, Compact.PresentationVersion: 2 or 3 })
             construction.CandidateFailureIdentityVersion = 1;
         var request = state.PendingCall?.Request ?? PlanningConstruction.DraftRequest(state, repair);
         var response = await PlanningModelCalls.CallAsync(state, runtime, repair ? "replan" : PlanningConstruction.DraftPurpose,
@@ -456,10 +456,19 @@ public sealed partial class HybridWorkflowPlanner
         else if (state.Request.Mode == PlanningMode.Interactive && state.Plan.Choices.Any(c => c.Selected is null)) state.Status = PlanningStatus.Clarification;
     }
 
-    private static async Task ConstructionDiscoveryAsync(PlanningSession state, IPlanningRuntime runtime, List<PlanningDiscoveryRequest> requests, CancellationToken ct)
+    private static async Task ConstructionDiscoveryAsync(PlanningSession state, IPlanningRuntime runtime, List<PlanningDiscoveryRequest> requests, CancellationToken ct, PlanningCorrectionAttempt? correction = null)
     {
         if (requests.Count is < 1 or > 4 || requests.Distinct().Count() != requests.Count)
             PlanningConstruction.Fail("DISCOVERY_BATCH_INVALID", "/discoveryRequests", "Request one to four distinct metadata reads.");
+        if (PlanningCompactConstruction.UsesDeferredBinding(state))
+        {
+            BeginConstructionDiscovery(state, requests);
+            correction?.EvidenceAccepted();
+            correction?.Dispose(); // Classify the received action once, before any durable metadata progress.
+            await runtime.CheckpointAsync(state, ct);
+            await ContinueConstructionDiscoveryAsync(state, runtime, ct);
+            return;
+        }
         foreach (var request in requests)
         {
             if (!state.Discovery.Sources.Any(s => s.Id == request.SourceId)) PlanningConstruction.Fail("SOURCE_UNKNOWN", "/discoveryRequests", "Select an issued capability source.");
@@ -485,6 +494,92 @@ public sealed partial class HybridWorkflowPlanner
         }
         if (PlanningConstructionPhasePolicies.IsFresh(state.Request))
             PlanningCompactConstruction.RemoveStaleDiscoveryDirectories(state);
+        state.Phase = PlanningPhase.Discovery;
+    }
+
+    private static string DiscoveryActionHash(PlanningConstructionStep step, IEnumerable<PlanningDiscoveryRequest> requests) =>
+        PlanningGraphCompiler.Fingerprint(step.Id + "\n" + step.BaseHash + "\n" + step.Objective + "\n" +
+            JsonSerializer.Serialize(requests.ToList(), PlanningJsonContext.Default.ListPlanningDiscoveryRequest));
+
+    private static void BeginConstructionDiscovery(PlanningSession state, List<PlanningDiscoveryRequest> requests)
+    {
+        var step = PlanningCompactConstruction.State(state).CurrentStep!;
+        if (step.DiscoveryComplete || step.PendingDiscovery is not null || state.PendingCall is not null)
+            throw new PlanningConflictException("Complete the exact retained discovery action before selecting another.");
+        foreach (var request in requests)
+        {
+            if (request.OperationIds is not null || request.Query is not null || request.ProducedArtifactKind is not null ||
+                !state.Discovery.Sources.Any(source => source.Id == request.SourceId))
+                PlanningConstruction.Fail("DISCOVERY_SCOPE_INVALID", "/discoveryRequests", "Select an issued source/cursor pair for this exact business action.");
+            if (request.Cursor is not null && !state.Discovery.Pages.Any(page => page.SourceId == request.SourceId &&
+                    page.NextCursor == request.Cursor && page.Query == step.Objective && page.ProducedArtifactKind is null))
+                PlanningConstruction.Fail("CURSOR_UNKNOWN", "/discoveryRequests", "A continuation must come from a retained page for this same provider and business action.");
+        }
+        step.PendingDiscovery = new()
+        {
+            ActionHash = DiscoveryActionHash(step, requests), Requests = requests.ToList(),
+            Pending = requests.Select(request => request with { Query = step.Objective }).ToList()
+        };
+        state.Diagnostics.RemoveAll(d => d.Location.StartsWith("/discoveryRequests", StringComparison.Ordinal) &&
+            d.Code is "DISCOVERY_SCOPE_INVALID" or "SOURCE_UNKNOWN" or "CURSOR_UNKNOWN" or "DISCOVERY_BATCH_INVALID" or "DISCOVERY_NO_PROGRESS");
+    }
+
+    private static async Task ContinueConstructionDiscoveryAsync(PlanningSession state, IPlanningRuntime runtime, CancellationToken ct)
+    {
+        var step = PlanningCompactConstruction.State(state).CurrentStep!;
+        var action = step.PendingDiscovery ?? throw new PlanningConflictException("No received discovery action is pending.");
+        if (!PlanningCompactConstruction.UsesDeferredBinding(state) || step.DiscoveryComplete || state.PendingCall is not null ||
+            step.BaseHash != PlanningConstruction.Hash(state.Plan) || action.ActionHash != DiscoveryActionHash(step, action.Requests) ||
+            action.Requests.Count is < 1 or > 4 || action.RemainingReads is < 0 or > 4)
+            throw new PlanningConflictException("The retained discovery action no longer matches its exact business step.");
+        while (action.RemainingReads > 0 && action.Pending.Count > 0)
+        {
+            var request = action.Pending[0];
+            var identity = JsonSerializer.Serialize(new List<PlanningDiscoveryRequest> { request }, PlanningJsonContext.Default.ListPlanningDiscoveryRequest);
+            if (request.Query != step.Objective || request.OperationIds is not null || request.ProducedArtifactKind is not null ||
+                !action.Requests.Any(original => original.SourceId == request.SourceId) ||
+                !state.Discovery.Sources.Any(source => source.Id == request.SourceId) || action.Visited.Contains(identity, StringComparer.Ordinal))
+                throw new WorkflowRuntimeException("DISCOVERY_NO_PROGRESS", "The retained provider continuation is invalid or cyclic.");
+            if (request.Cursor is not null && !state.Discovery.Pages.Any(page => page.SourceId == request.SourceId && page.Query == step.Objective &&
+                    page.ProducedArtifactKind is null && page.NextCursor == request.Cursor))
+                throw new PlanningConflictException("The retained provider cursor lost its exact original page.");
+            var page = state.Discovery.Pages.SingleOrDefault(page => page.SourceId == request.SourceId && page.Cursor == request.Cursor &&
+                page.Query == step.Objective && page.ProducedArtifactKind is null);
+            if (page is null)
+            {
+                await PlanningDiscoveryContext.DiscoverPageAsync(state, runtime, request.SourceId, request.Cursor, ct, step.Objective);
+                action.RemainingReads--;
+                page = state.Discovery.Pages[^1];
+            }
+            if (page.UnavailableReason is not null)
+            {
+                await runtime.CheckpointAsync(state, ct);
+                throw new WorkflowRuntimeException("DISCOVERY_INCOMPLETE", "The selected provider metadata is unavailable; its retained outcome cannot establish a capability absence.");
+            }
+            action.Visited.Add(identity); action.Pending.RemoveAt(0);
+            if (page.NextCursor is { } cursor)
+            {
+                if (string.IsNullOrWhiteSpace(cursor) || cursor == page.Cursor)
+                    throw new WorkflowRuntimeException("DISCOVERY_NO_PROGRESS", "The selected provider returned an invalid or cyclic continuation.");
+                action.Pending.Add(new(request.SourceId, cursor, step.Objective));
+            }
+            await runtime.CheckpointAsync(state, ct);
+        }
+        PlanningCompactConstruction.RemoveStaleDiscoveryDirectories(state);
+        var purpose = PlanningCompactConstruction.DiscoveryPurpose;
+        var followup = PlanningCompactConstruction.Request(PlanningCompactConstruction.DiscoveryGuidance(state), PlanningCompactConstruction.DiscoveryContext(state),
+            PlanningCompactConstruction.DiscoverySchema(state), purpose);
+        try
+        {
+            PlanningConstruction.AdmitEvidenceFollowup(state, PlanningModelCalls.PrepareRequest(state, purpose, followup.Prompt,
+                followup.StructuredOutputSchema!.AsObject(), state.Construction!.Limits.DraftOutputTokens), purpose);
+        }
+        catch (PlanningResponseException ex) when (ex.Diagnostics.Any(d => d.Code is "CONSTRUCTION_EVIDENCE_LIMIT" or "CONSTRUCTION_EVIDENCE_INVALID"))
+        {
+            throw new WorkflowRuntimeException("CONSTRUCTION_DISCOVERY_LIMIT",
+                "The retained provider metadata cannot form a valid discovery request within the captured input ceiling. Its exact received action and completed pages remain retained; no follow-up was dispatched.");
+        }
+        step.PendingDiscovery = null;
         state.Phase = PlanningPhase.Discovery;
     }
 }

@@ -178,8 +178,42 @@ internal static class PlanningPersistenceSmoke
             await reopened.LoadAsync("other-tenant", declaration.Request.SessionId, CancellationToken.None) is not null ||
             System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(vault)).Contains(privateValue, StringComparison.Ordinal))
             throw new InvalidOperationException("Published pending interface metadata, exact request or encrypted tenant isolation changed.");
+        var deferred = System.Text.Json.JsonSerializer.Deserialize(declarationJson, PlanningJsonContext.Default.PlanningSession)!;
+        deferred.Request.SessionId = "deferred-" + Guid.NewGuid().ToString("N");
+        deferred.Request.Options["construction_presentation_version"] = 3;
+        var compact = deferred.Construction!.Compact!;
+        compact.PresentationVersion = 3;
+        compact.CurrentStep = new()
+        {
+            Id = "immediate", Kind = null, Objective = privateValue,
+            Prerequisites = [new() { Need = privateValue, EvidenceAddresses = ["source:declaration:first"] }],
+            PendingDiscovery = new()
+            {
+                ActionHash = "exact-metadata-action", Requests = [new("private-provider")],
+                Pending = [new("private-provider", privateValue, privateValue)], RemainingReads = 3,
+                Visited = ["exact-completed-page"]
+            }
+        };
+        compact.InterfaceExtractions![0].Dispositions = [new()
+        {
+            SourceId = "declaration:first", Version = "exact-first", Kind = "no_public_interface", Reason = privateValue,
+            Evidence = new(StringComparer.Ordinal) { ["declaration:first"] = "exact-first" }
+        }];
+        var deferredJson = System.Text.Json.JsonSerializer.Serialize(deferred, PlanningJsonContext.Default.PlanningSession);
+        if (!await store.TrySaveAsync(deferred, null, CancellationToken.None))
+            throw new InvalidOperationException("Deferred implementation metadata insert failed.");
+        var recoveredDeferred = await reopened.LoadAsync("smoke", deferred.Request.SessionId, CancellationToken.None);
+        if (recoveredDeferred is null ||
+            System.Text.Json.JsonSerializer.Serialize(recoveredDeferred, PlanningJsonContext.Default.PlanningSession) != deferredJson ||
+            recoveredDeferred.Construction?.Compact is not { PresentationVersion: 3, CurrentStep: { Kind: null } recoveredStep } ||
+            recoveredStep.Prerequisites?.Single().Need != privateValue ||
+            recoveredStep.PendingDiscovery?.Pending.Single().Cursor != privateValue ||
+            recoveredDeferred.Construction.Compact.InterfaceExtractions?[0].Dispositions?.Single().Kind != "no_public_interface" ||
+            await reopened.LoadAsync("other-tenant", deferred.Request.SessionId, CancellationToken.None) is not null ||
+            System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(vault)).Contains(privateValue, StringComparison.Ordinal))
+            throw new InvalidOperationException("Deferred kind, prerequisites or source dispositions changed during published encrypted recovery.");
         Console.WriteLine("construction persistence: accepted baseline, compact source/substep/commitments, tentative draft and pending review recover independently under encryption");
-        Console.WriteLine("interface persistence: fresh optional presentation, linked original declarations and pending extraction survive encrypted source-generated recovery; historical fields remain absent");
+        Console.WriteLine("interface persistence: historical declarations and fresh deferred choices, prerequisites and dispositions survive encrypted source-generated recovery");
     }
 
     private static async Task VerifyJudgeRecoveryAsync(string directory, string vault, IDbContextFactory<PlanningDbContext> factory,

@@ -438,8 +438,8 @@ public sealed class CompactSelectionSchemaTests
                 { ["text"] = text, ["kind"] = index == clauses.Length - 1 ? "global" : "requirement", ["interfaces"] = "none" }).ToArray())
             } };
         } };
-        var state = await new HybridWorkflowPlanner().AdvanceAsync(new() { Request = new()
-        { TenantId = "selection-schema", Prompt = string.Concat(clauses), Options = new() { ["automatic_correction"] = true } } },
+        var state = await new HybridWorkflowPlanner().AdvanceAsync(PlannerFixture.CapturedPresentation(new() { Request = new()
+        { TenantId = "selection-schema", Prompt = string.Concat(clauses), Options = new() { ["automatic_correction"] = true } } }),
             new() { ExpectedRevision = 0 }, runtime, PlannerFixture.Ct);
         Assert.Empty(state.Diagnostics);
         return state;

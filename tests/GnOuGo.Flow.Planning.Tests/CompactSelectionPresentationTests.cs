@@ -174,8 +174,8 @@ public sealed class CompactSelectionPresentationTests
             ["sourceId"] = JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!["sources"]![0]!["id"]!.DeepClone(),
             ["clauses"] = new JsonArray(new JsonObject { ["text"] = objective, ["kind"] = "requirement", ["interfaces"] = "none" })
         } } };
-        var state = await new HybridWorkflowPlanner().AdvanceAsync(new() { Request = new()
-        { TenantId = "selection-presentation", Prompt = objective, Options = new() { ["automatic_correction"] = true } } },
+        var state = await new HybridWorkflowPlanner().AdvanceAsync(PlannerFixture.CapturedPresentation(new() { Request = new()
+        { TenantId = "selection-presentation", Prompt = objective, Options = new() { ["automatic_correction"] = true } } }),
             new() { ExpectedRevision = 0 }, runtime, PlannerFixture.Ct);
         Assert.Empty(state.Diagnostics);
         return state;
