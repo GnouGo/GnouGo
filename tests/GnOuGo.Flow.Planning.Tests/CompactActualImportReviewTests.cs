@@ -36,6 +36,24 @@ public sealed class CompactActualImportReviewTests
             Id = "create", Kind = "operation", Objective = "Create the isolated resource at the retained target.",
             Operation = capability.Id, Inputs = [new("target", new() { Kind = "string", Text = target })]
         }] });
+        foreach (var intermediate in new[] { false, true })
+        {
+            var review = HybridWorkflowPlanner.CreateConstructionReviewRequest(state, intermediate).Request;
+            var guidance = review.Prompt[..review.Prompt.LastIndexOf('\n')];
+            Assert.Equal(new[] { "evidenceRequests", "findings", "uncertainty" },
+                review.StructuredOutputSchema!["properties"]!.AsObject().Select(property => property.Key).Order(StringComparer.Ordinal));
+            Assert.Contains("not the complete operation input contract", guidance, StringComparison.Ordinal);
+            Assert.Contains("empty list does not mean no arguments", guidance, StringComparison.Ordinal);
+            Assert.DoesNotContain("Retrieval expands binding grammar", guidance, StringComparison.Ordinal);
+            Assert.DoesNotContain("reselectStep", guidance, StringComparison.Ordinal);
+            Assert.Equal(capability.Id, Assert.Single(Context(review)["operations"]!.AsArray())!["id"]!.ToString());
+            var historical = PlannerFixture.Clone(state);
+            historical.Construction!.Compact!.PresentationVersion = 2;
+            Assert.Contains("Retrieval expands binding grammar",
+                HybridWorkflowPlanner.CreateConstructionReviewRequest(historical, intermediate).Request.Prompt, StringComparison.Ordinal);
+        }
+        Assert.Contains("Retrieval expands binding grammar",
+            PlanningConstruction.DraftRequest(state, repair: false).StructuredOutputSchema!["description"]!.ToString(), StringComparison.Ordinal);
         runtime.Respond = (request, purpose) =>
         {
             Assert.Equal(PlanningConstruction.LocalPurpose, purpose);

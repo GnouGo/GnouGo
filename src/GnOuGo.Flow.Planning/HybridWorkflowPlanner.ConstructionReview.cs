@@ -25,7 +25,7 @@ public sealed partial class HybridWorkflowPlanner
           Cleanup may be a later substep in an open scope when its exact target and ownership remain available even after partial failure. Check required creation-time capture and ownership now; assess missing cleanup at scope or requirement closure. Success-only outputs cannot supply cleanup that must also run after failure.
           interfaces describes imported operands: binding and schema identify what is read at consumerLocation, not the produced result.
           Return one action: findings (empty if none) with evidenceRequests:null, or findings:null with necessary original evidence addresses. Finding locations and evidence use the schema's existing context-object pointers; explain fields and uncertainty in prose. Evidence retrieval uses issued addresses, task:<id>, scope:<path>, or scope:/groups/<call.group>/body; never bare IDs. Navigation, compilation and reviews grant no authority or proof of execution. Partial descriptions cannot prove absent functionality; request the original.
-          """ + "\n" + PlanningCompactConstruction.DraftSemantics(state, state.Construction!.Compact!.CurrentStep!)
+          """ + "\n" + PlanningCompactConstruction.DraftSemantics(state, state.Construction!.Compact!.CurrentStep!, review: PlanningCompactConstruction.UsesDeferredBinding(state))
         :
         (PlanningCompactConstruction.IsCompactPresentation(state) ? CompactConstructionReviewFocusedInstructions :
             CompactConstructionReviewInstructions + "\n" + CompactConstructionReviewEvidenceInstructions) +

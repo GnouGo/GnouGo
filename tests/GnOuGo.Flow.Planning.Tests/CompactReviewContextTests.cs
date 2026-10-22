@@ -64,8 +64,37 @@ public sealed class CompactReviewContextTests
         }
     }
 
-    [Fact]
-    public async Task HistoricalReviewAndGenerationKeepTheirOriginalContextRepresentation()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ClosureJudgeKeepsScopeSemanticsWithoutDraftActions(bool intermediate)
+    {
+        var state = await State();
+        var (context, request) = HybridWorkflowPlanner.CreateConstructionReviewRequest(state, intermediate);
+        var guidance = request.Prompt[..request.Prompt.LastIndexOf('\n')];
+        Assert.Equal(new[] { "evidenceRequests", "findings", "uncertainty" },
+            request.StructuredOutputSchema!["properties"]!.AsObject().Select(property => property.Key).Order(StringComparer.Ordinal));
+        Assert.DoesNotContain("reselectStep", guidance, StringComparison.Ordinal);
+        Assert.DoesNotContain("Add needed final exports", guidance, StringComparison.Ordinal);
+        Assert.Contains("complete children and compatible exports", guidance, StringComparison.Ordinal);
+        Assert.Contains("Only a closed group is callable", guidance, StringComparison.Ordinal);
+        Assert.True(context["constructionStage"]!["closedScopeCount"]!.GetValue<int>() > 0);
+        Assert.False(context["constructionStage"]!["requirementCompletionClaimed"]!.GetValue<bool>());
+        Assert.False(context["constructionStage"]!["planCompletionClaimed"]!.GetValue<bool>());
+        Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(Review().Json!, request.StructuredOutputSchema));
+        var unauthorized = Review().Json!.DeepClone().AsObject();
+        unauthorized["reselectStep"] = "Withdraw the claim.";
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstanceFindings(unauthorized, request.StructuredOutputSchema));
+        var draft = PlanningConstruction.DraftRequest(state, repair: false);
+        Assert.Contains("Withdraw premature selected closeRequirementIds via reselectStep", draft.StructuredOutputSchema!["description"]!.ToString(), StringComparison.Ordinal);
+        Assert.Equal(PlanningCompactConstruction.DraftSemantics(state, state.Construction!.Compact!.CurrentStep!),
+            draft.StructuredOutputSchema["description"]!.ToString());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task HistoricalReviewAndGenerationKeepTheirOriginalContextRepresentation(bool version2WithPhasePolicy)
     {
         var state = await State();
         PlanningConstruction.LoadEvidence(state, ["scope:/groups/reusable/body"]);
@@ -73,23 +102,41 @@ public sealed class CompactReviewContextTests
         Assert.NotNull(generation["scopeGroup"]);
         Assert.NotNull(generation["step"]!["baseHash"]);
         Assert.NotNull(generation["step"]!["discoveryComplete"]);
-        state.Request.Options.Remove("construction_presentation_version");
-        state.Construction!.Compact!.PresentationVersion = null;
-        state.Construction.Compact.InterfaceExtractions = null;
-        state.Request.Options["construction_limits"]!.AsObject().Remove("phasePolicy");
-        state.Construction.Limits.PhasePolicy = null;
+        if (version2WithPhasePolicy)
+        {
+            state.Construction!.Compact!.PresentationVersion = 2;
+            state.Request.Options["construction_presentation_version"] = 2;
+        }
+        else
+        {
+            state.Request.Options.Remove("construction_presentation_version");
+            state.Construction!.Compact!.PresentationVersion = null;
+            state.Construction.Compact.InterfaceExtractions = null;
+            state.Request.Options["construction_limits"]!.AsObject().Remove("phasePolicy");
+            state.Construction.Limits.PhasePolicy = null;
+        }
         var retained = PlanningCompactConstruction.Context(state, review: true);
-        Assert.Equal(JsonSerializer.SerializeToNode(state.Construction.Compact.CurrentStep,
-            PlanningJsonContext.Default.PlanningConstructionStep)!.ToJsonString(), retained["step"]!.ToJsonString());
-        Assert.NotNull(retained["scopeGroup"]);
-        Assert.Equal(PlanningCompactConstruction.ImportedInterfaces(state, state.Construction.Compact.CurrentStep!).ToJsonString(),
-            retained["interfaces"]!.ToJsonString());
+        if (!version2WithPhasePolicy)
+        {
+            Assert.Equal(JsonSerializer.SerializeToNode(state.Construction!.Compact!.CurrentStep,
+                PlanningJsonContext.Default.PlanningConstructionStep)!.ToJsonString(), retained["step"]!.ToJsonString());
+            Assert.NotNull(retained["scopeGroup"]);
+            Assert.Equal(PlanningCompactConstruction.ImportedInterfaces(state, state.Construction.Compact.CurrentStep!).ToJsonString(),
+                retained["interfaces"]!.ToJsonString());
+        }
         var runtime = new TestRuntime { Respond = (_, _) => throw new OperationCanceledException() };
         _ = await Advance(state, runtime);
         var saved = PlannerFixture.Clone(runtime.Checkpoints.Last(s => s.Status == PlanningStatus.Generating && s.PendingCall is not null));
         var exact = JsonSerializer.Serialize(saved.PendingCall!.Request, PlanningJsonContext.Default.LLMRequest);
         var contextHash = saved.Construction!.PendingReviewHash;
         var calls = saved.ModelCalls;
+        if (version2WithPhasePolicy)
+        {
+            Assert.Contains("Withdraw premature selected closeRequirementIds via reselectStep", saved.PendingCall.Request.Prompt, StringComparison.Ordinal);
+            saved.Construction.Compact!.PresentationVersion = 3;
+            saved.Request.Options["construction_presentation_version"] = 3;
+            Assert.DoesNotContain("reselectStep", HybridWorkflowPlanner.CreateConstructionReviewRequest(saved, intermediate: false).Request.Prompt, StringComparison.Ordinal);
+        }
         var recovery = new TestRuntime { Respond = (request, _) =>
         {
             Assert.Equal(exact, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));

@@ -134,7 +134,7 @@ internal static partial class PlanningCompactConstruction
         }
     }
 
-    internal static string DraftSemantics(PlanningSession state, PlanningConstructionStep step)
+    internal static string DraftSemantics(PlanningSession state, PlanningConstructionStep step, bool review = false)
     {
         var scope = new TaskPlanSymbols(state.Plan ?? new TaskPlan()).Scopes.SingleOrDefault(s => s.Path == step.Scope);
         var hints = new List<string>();
@@ -150,14 +150,18 @@ internal static partial class PlanningCompactConstruction
         if (PlanningConstructionPhasePolicies.IsFresh(state.Request) && step.Kind == "transform")
             hints.Add("transform resultType is an object of named output ports; output.port selects that field's type, not the whole result object. extract preserves observed facts; interpret uses its objective as the runtime LLM instruction, inputs as data and resultType as the output contract, without a separate expression. Neither executes external effects.");
         if (IsCompactPresentation(state) && step.Kind == "operation")
-            hints.Add(PlanningConstructionPhasePolicies.IsFresh(state.Request)
+            hints.Add(review
+                ? "editableInputs is only the inspected subset, not the complete operation input contract; an empty list does not mean no arguments are needed."
+                : PlanningConstructionPhasePolicies.IsFresh(state.Request)
                 ? "editableInputs is only the inspected subset. Retrieve the exact schema branches needed for this business action together, up to eight addresses; the complete follow-up must fit its captured ceiling. Retrieval expands binding grammar. [] does not mean no arguments are needed."
                 : "editableInputs is only the inspected subset. Retrieve one exact schema address per call for any omitted port this business action needs; retrieval expands the binding grammar. [] does not mean no arguments are needed.");
         if (step.Kind == "foreach")
         {
             hints.Add("foreach.maxItems is the TOTAL input-item ceiling; excess fails, it never samples or truncates. maxConcurrency limits simultaneous workers, not total items. Neither bound guarantees a nonempty collection.");
             if (IsCompactPresentation(state))
-                hints.Add(PlanningConstructionPhasePolicies.IsFresh(state.Request)
+                hints.Add(review
+                    ? "Finite supported capacity must respect explicit original bounds; unspecified capacity remains unverified. Runtime ceilings still apply."
+                    : PlanningConstructionPhasePolicies.IsFresh(state.Request)
                     ? "Use a finite supported capacity; the TaskPlan default maxItems=" +
                         new PlanTask().MaxItems.ToString(System.Globalization.CultureInfo.InvariantCulture) +
                         ". Assess conflicts with explicit original bounds; unspecified capacity remains unverified. Runtime ceilings still apply."
@@ -172,11 +176,17 @@ internal static partial class PlanningCompactConstruction
         if (step.Kind == "parallel" || scope?.Owner?.Kind == "parallel")
             hints.Add("Parallel sibling branches are independent and their exported names must be distinct; maxConcurrency limits simultaneous branches.");
         if (step.Kind == "group" || scope is { Parent: null } && step.Scope != "/root")
-            hints.Add("A reusable group has isolated named inputs; its body cannot capture caller inputs or tasks. Close its body before selecting a call.");
+            hints.Add(review
+                ? "A reusable group has isolated named inputs; its body cannot capture caller inputs or tasks. Only a closed group is callable."
+                : "A reusable group has isolated named inputs; its body cannot capture caller inputs or tasks. Close its body before selecting a call.");
         if (step.Kind == "call")
-            hints.Add("Bind the selected closed group's declared input names; its explicit exports are the call's output ports.");
+            hints.Add(review
+                ? "A call binds the selected closed group's declared input names; its explicit exports are the call's output ports."
+                : "Bind the selected closed group's declared input names; its explicit exports are the call's output ports.");
         if (step.Kind == "close")
-            hints.Add(PlanningConstructionPhasePolicies.IsFresh(state.Request)
+            hints.Add(review
+                ? "A close step may finish a scope while broader requirements remain open, or confirm satisfied closeRequirementIds with empty closeScopes. Scope closure requires complete children and compatible exports; root completion requires every scope and original requirement to be complete."
+                : PlanningConstructionPhasePolicies.IsFresh(state.Request)
                 ? "A close step may finish a scope while broader requirements remain open, or confirm satisfied closeRequirementIds with empty closeScopes. Withdraw premature selected closeRequirementIds via reselectStep, preserving scope and requirementIds; an unchanged draft preserves the claim. Add needed final exports without rewriting accepted work. Close children before their parent, and root only when all scopes and original requirements are complete, with complete:true."
                 : "A close step may confirm host-issued closeRequirementIds against accepted work with empty closeScopes and no new tasks or exports. Scope closure is separate: add needed final exports without rewriting accepted work. Close children before their parent. Close root only when all scopes and original requirements are complete, with complete:true.");
         return string.Join(" ", hints);

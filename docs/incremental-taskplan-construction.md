@@ -122,6 +122,11 @@ A prerequisite may cite another requirement's declaration without claiming its
 coverage or closure. Its exact retrieval link remains available after selection.
 Historical presentations and already issued requests keep their original schemas.
 
+Fresh Judges receive the same TaskPlan meaning as drafting, with authoring-only
+actions omitted. They assess closure, bindings and collection behavior through
+findings or evidence requests; they cannot reselect a step, add exports or expand
+generation grammar. Draft instructions and historical issued reviews remain exact.
+
 Context includes the relevant original clauses and global constraints, exact
 interfaces and bounded navigation links. Versioned addresses bind task objectives,
 ports, scopes, requirements and source pages to their content. Advancing a cursor
