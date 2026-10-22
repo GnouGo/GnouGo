@@ -8,41 +8,45 @@ unstarted.
 
 ## Latest frozen diagnostic
 
-Source `d8f51c54c763f0caf95eec2a6206beaf9e0fdd95`, cohort `compactad8f51c54`,
+Source `52ebb72d46842be0fb62a1034dcb760b83576eb4`, cohort `compacta52ebb72d`,
 retained pinned `gpt-5.5-2026-04-24`, medium reasoning, 64 calls and four
 corrections. Input targets/ceilings stayed 3k/12k for navigation, 8k/16k for
-drafting and 4k/8k for review, with respective output reservations of
-16,384/16,384/4,096. The prior profile's settings remained frozen.
+drafting and 4k/8k for review, with output reservations of 16,384/16,384/4,096.
 
-Collections reached **seven checkpoints in 35 calls with two corrections**, then
-stopped at intermediate Judge call 35. That call has an HTTP 200 completion
-receipt reporting `output_limit`: all 4,096 output tokens were reasoning, with
-no visible response. All 35 calls have receipts; no uncertain reservation was
-added. There was no completed artifact or runtime execution.
+Collections stopped during intent request 2 after one transport attempt with
+**no recorded HTTP response or completion receipt**. The first call completed;
+no correction, checkpoint, artifact or execution occurred. The exact retention
+operation has been inspected, but authorization and application are **pending**.
+The full **€0.4901093041855505198613703012** reservation remains unknown usage.
+Paid dispatch is blocked; neither replay nor continuation is permitted. Amazon
+and Review PR were not dispatched in this cohort. A later authorized closure
+must be recorded separately from this inspection snapshot.
 
-Independent inspection identified draft-only `reselectStep` and add-export
-instructions appended to a Judge request whose schema permits findings and
-evidence only. This prompt/schema mismatch is demonstrated; it does **not**
-establish the cause of reasoning exhaustion. The next correction omits those
-authoring actions from fresh Judges while preserving factual TaskPlan semantics,
-draft guidance and historical requests. Model and output settings remain unchanged.
-It passes 2,500 Planning tests and 65 focused tests with warnings as errors;
-independent review found no authority or compatibility defect. Live validation
-is pending. Neither seven
-checkpoints nor deterministic validation establishes business acceptance.
+Known usage is **377 input / 423 output / 320 reasoning tokens**, costing
+**€0.0129521016617790811339198436**. Including uncertain usage, the run's upper
+bound is **€0.5030614058473296009952901448**. Planning took 315.659 seconds;
+the completed call took 8.889734 seconds and the uncertain attempt 304.448102
+seconds. Unknown provider usage is not counted as zero. Both requests fit the
+captured ceiling and **10,701 bytes** reconcile with components. Complete-request
+p50/p95/maximum were **5,350.5 / 8,289 / 8,289 bytes**; conservative estimates were
+2,039.5 / 3,019 / 3,019 tokens. Estimates are not billed usage; reasoning is
+included in output.
 
-The run used **65,106 input / 35,630 output / 29,953 reasoning tokens**, costing
-**€1.2391628898960277259397494006**. Planning took 593.573 seconds; completed
-model calls totalled 572.127043 seconds. All requests fit captured phase ceilings
-and **354,453 bytes** reconcile with components. Complete-request p50/p95/maximum
-were **9,672 / 14,463 / 15,660 bytes**; conservative input estimates were
-3,480 / 5,077 / 5,476 tokens. Estimates are not billed usage; reasoning is included
-in output. Calls per independently satisfied business obligation and runtime
-latency remain unavailable. The [d8f51c5 archive](compact-taskplan-d8f51c5.json)
-indexes exact settings, phase measurements, terminal receipt, accounting and
-validation evidence without publishing payloads.
+The Judge was never reached. This run provides no live evidence about the
+Judge-guidance correction or the cause of earlier reasoning exhaustion. Useful
+business-obligation ratios and runtime latency remain unavailable. The
+[52ebb72 archive](compact-taskplan-52ebb72.json) retains the exact inspection,
+measurements, accounting and revision-scoped validation without payloads.
 
 ## Earlier diagnostics and executed result
+
+The unchanged [d8f51c5 archive](compact-taskplan-d8f51c5.json) retains 35
+receipted Collections calls, two corrections and seven checkpoints, costing
+€1.2391628898960277259397494006. Intermediate Judge call 35 exhausted 4,096 output
+tokens entirely on reasoning, with no visible response or artifact. The verified
+prompt/schema mismatch mixed draft authoring actions into review guidance;
+`52ebb72` removes those actions while retaining factual task semantics and
+historical requests. Causation of exhaustion remains unproved.
 
 The unchanged [92d8813 archive](compact-taskplan-92d8813.json) retains Collections'
 HTTP 500, its separately authorized permanent closure and full
@@ -74,35 +78,37 @@ success does not prove acceptance or repeatability of the current source.
 
 ## Campaign accounting
 
-The post-Collections audit verifies **1,269 requests / 1,257 receipts**. All twelve
-receiptless identities remain permanently closed; the journal separately counts
-eleven unknown attempts. No reservation was released.
+The post-Collections audit verifies **1,271 requests / 1,258 receipts**. Of thirteen
+receiptless identities, twelve remain permanently closed and the new request
+awaits exact retention authorization. The journal separately counts twelve
+unknown attempts. No reservation was released.
 
 | Ledger measurement | EUR |
 | --- | ---: |
 | Campaign ceiling | 240.0301038327063045424449473 |
-| Known spending | 38.813960721585355016440060418 |
-| Unknown-usage reservations | 4.5812716608904292188749666752 |
-| Spending/reservation upper bound | 43.395232382475784235315027093 |
-| Available allowance | 196.634871450230520307129920207 |
+| Known spending | 38.826912823247134097573980262 |
+| Unknown-usage reservations | 5.0713809650759797387363369764 |
+| Spending/reservation upper bound | 43.898293788323113836310317238 |
+| Available allowance | 196.131810044383190706134630062 |
 
-Audit evidence: `e001b32762c7b72c71ba5e979c69f480ad2d6948cac9a80f56cd775abd1c559a`.
+Audit evidence: `05bc3a30d337e2089433745c57f31ecd72fb94802a24f54dc9c86fa39dffe86d`.
 Lost historical exposure of €159.96989616729369545755505266 remains inside the
 original €400 authorization. Including that exposure, cumulative spending and
-reservations have an upper bound of approximately **€203.365129**. Exact decimal
+reservations have an upper bound of approximately **€203.868190**. Exact decimal
 strings are retained; independently summed costs can differ from ledger totals
 at their final decimal places. Further dispatch must recheck balance and
 readiness; these snapshot values grant no new allowance.
 
 ## Validation and remaining acceptance
 
-The exact `d8f51c5` changes passed **2,497 Planning tests and 71 focused tests**
+The exact `52ebb72` changes passed **2,500 Planning tests and 65 focused tests**
 with warnings as errors. Its Planning package and Native AOT publish/smoke also
 passed; all three logs and both artifact hashes/sizes were verified. These checks
-cover Planning only. The unchanged `92d8813` archive separately records five
-package builds, Native AOT planning, trimmed Server encrypted-storage smoke and
-Git MCP publication/contract checks. Server publication excluded frontend and
-bundled tools; existing documented warning policies remained unchanged.
+cover Planning only. CI on `52ebb72` remains in progress; no final pass is claimed.
+The unchanged `92d8813` archive separately records five package builds, Native
+AOT planning, trimmed Server encrypted-storage smoke and Git MCP publication
+checks. Server publication excluded frontend and bundled tools; existing
+documented warning policies remained unchanged.
 
 The earlier full solution at `bbd900d9` completed with **7,496 passes, one stale
 scripted-fixture failure and 13 skips** across 33 project results. Applying only
@@ -121,7 +127,9 @@ delivered revision; compilation and green tests are not business acceptance.
 
 ## Immutable evidence
 
-The [d8f51c5 archive](compact-taskplan-d8f51c5.json) records the latest Judge
+The [52ebb72 archive](compact-taskplan-52ebb72.json) records the latest uncertain
+transport attempt and unapplied retention inspection. The
+[d8f51c5 archive](compact-taskplan-d8f51c5.json) retains the earlier Judge
 exhaustion. Earlier [92d8813](compact-taskplan-92d8813.json),
 [407243a](compact-taskplan-407243a.json), [bbd900d9](compact-taskplan-bbd900d9.json),
 [bb5b726](compact-taskplan-bb5b726.json), [efcb](compact-taskplan-efcb1d7a.json),
