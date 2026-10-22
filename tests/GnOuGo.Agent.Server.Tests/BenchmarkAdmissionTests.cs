@@ -122,6 +122,39 @@ public sealed class BenchmarkAdmissionTests
     }
 
     [Fact]
+    public async Task ReadinessReportsExactDeclaredReasoningSupportWithoutInferringOrChangingAdmission()
+    {
+        using var fixture = new Fixture();
+        var options = Options();
+        var provider = new Provider(fixture.Campaign);
+        var rates = new Rates(fixture.Time);
+        foreach (var capabilities in new ModelCapabilityMetadata?[]
+        {
+            null, new(), new() { SupportsReasoningEffort = false },
+            new() { SupportsReasoningEffort = true },
+            new() { SupportsReasoningEffort = true, SupportedReasoningEfforts = ["low", "medium"] }
+        })
+        {
+            options.ModelOverrides.Clear();
+            if (capabilities is not null)
+                options.ModelOverrides["openai/pinned"] = new() { Capabilities = capabilities };
+            using var model = new KeyVaultBenchmarkModel(fixture.Campaign, options, provider, rates, new Price(), fixture.Time);
+            var configurationHash = model.ConfigurationFingerprint;
+            var readiness = await model.ReadinessAsync(Ct);
+            Assert.Equal(capabilities?.SupportsReasoningEffort, readiness["supports_reasoning_effort"]?.GetValue<bool>());
+            if (capabilities?.SupportedReasoningEfforts is { } efforts)
+                Assert.Equal(efforts, readiness["supported_reasoning_efforts"]!.AsArray().Select(v => v!.GetValue<string>()));
+            else Assert.Null(readiness["supported_reasoning_efforts"]);
+            Assert.Equal(configurationHash, model.ConfigurationFingerprint);
+            Assert.Equal(configurationHash, readiness["configuration_hash"]!.GetValue<string>());
+            Assert.True(readiness["ready"]!.GetValue<bool>());
+            Assert.Equal(0, readiness["model_calls"]!.GetValue<int>());
+        }
+        Assert.Equal(0, provider.Calls);
+        Assert.Empty(await fixture.Records.ListAsync("planning-evaluation-requests", "benchmark", BenchmarkCampaign.Author, Ct));
+    }
+
+    [Fact]
     public async Task FreshQuotesSurviveRestartButExpiredQuotesNeverAuthorizeNewRequests()
     {
         using var fixture = new Fixture();

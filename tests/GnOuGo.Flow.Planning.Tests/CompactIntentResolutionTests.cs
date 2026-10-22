@@ -88,6 +88,49 @@ public sealed class CompactIntentResolutionTests
     }
 
     [Fact]
+    public async Task IssuedExtractionPreservesAbsentAndExplicitNullDefaultsWithStringDomains()
+    {
+        var runtime = new TestRuntime { Respond = (r, _) => Wire(r, Classify(r, "input")) };
+        var state = await Advance(Fresh("Accept required unrestricted text named label with no default, and optional nullable text named mode restricted to auto or manual with an explicit null default."), runtime);
+        runtime.Respond = (r, _) =>
+        {
+            // Inspect the actual issued request: nested schema compaction removes
+            // descriptions, so these distinct DTO semantics need prompt guidance.
+            Assert.Contains("enum:null means unrestricted", r.Prompt, StringComparison.Ordinal);
+            Assert.Contains("default:null means no default", r.Prompt, StringComparison.Ordinal);
+            Assert.Contains("{\"kind\":\"null\"} is an explicit null literal", r.Prompt, StringComparison.Ordinal);
+            return Wire(r, Resolve(r, inputs:
+            [
+                new() { Name = "label", Required = true, Type = new() { Kind = "string" } },
+                new() { Name = "mode", Type = new() { Kind = "string", Nullable = true, Enum = ["auto", "manual"] },
+                    Default = new() { Kind = "null" } }
+            ]));
+        };
+        state = await Advance(state, runtime);
+        Assert.True(Assert.Single(state.Construction!.Compact!.InterfaceExtractions!).Complete);
+        var inputs = state.Requirements!.Inputs!;
+        Assert.Null(inputs.Single(i => i.Name == "label").Default);
+        Assert.Null(inputs.Single(i => i.Name == "label").Type.Enum);
+        Assert.Equal("null", inputs.Single(i => i.Name == "mode").Default!.Kind);
+        Assert.Equal(["auto", "manual"], inputs.Single(i => i.Name == "mode").Type.Enum);
+    }
+
+    [Fact]
+    public async Task ExplicitPublicFilePathRemainsAnInterfaceAlongsideTheFileObligation()
+    {
+        const string original = "Write the local report and return its path as public text output reportPath.";
+        var runtime = new TestRuntime { Respond = (r, _) => Wire(r, Classify(r, "output")) };
+        var state = await Advance(Fresh(original), runtime);
+        runtime.Respond = (r, _) => Wire(r, Resolve(r,
+            outputs: [new() { Name = "reportPath", Required = true, Type = new() { Kind = "string" } }]));
+        state = await Advance(state, runtime);
+        Assert.True(Assert.Single(state.Construction!.Compact!.InterfaceExtractions!).Complete);
+        Assert.Equal("reportPath", Assert.Single(state.Requirements!.Outputs!).Name);
+        Assert.Equal(original, Assert.Single(state.Requirements.Outcomes).Description);
+        Assert.Empty(state.Construction.Checkpoints);
+    }
+
+    [Fact]
     public async Task FileObligationCanExplicitlyDeclinePublicInterfaceWithoutLosingRequirement()
     {
         const string original = "Save the exact check results in the isolated local report file and remove the temporary directory.";

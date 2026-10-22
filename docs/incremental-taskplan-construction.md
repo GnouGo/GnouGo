@@ -408,6 +408,11 @@ tests use broad graphs with shallow scopes.
 
 ## Compatibility and isolated evaluation
 
+Fresh interface instructions retain absent-default versus explicit-null and
+unrestricted-string versus exhaustive-enum semantics after schema annotations
+are compacted. File-content obligations do not imply public outputs; an explicit
+public file-path declaration still requires a typed interface.
+
 Fresh creation captures presentation revision 3 in the existing setting. Its
 nullable implementation choices, prerequisite notes and extraction dispositions
 are source-generated non-executable metadata; construction version 2 and storage

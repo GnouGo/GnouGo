@@ -135,6 +135,9 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
         var limitsReady = planning is > 0 && mapping is > 0;
         return new JsonObject { ["provider"] = Provider, ["model"] = Model, ["configuration_hash"] = ConfigurationFingerprint,
             ["metadata_sources"] = MetadataSources.DeepClone(), ["declared_metadata_hash"] = metadata is null ? null : PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(metadata)),
+            ["supports_reasoning_effort"] = metadata?.Capabilities.SupportsReasoningEffort,
+            ["supported_reasoning_efforts"] = metadata?.Capabilities.SupportedReasoningEfforts is { } efforts
+                ? new JsonArray(efforts.Select(v => (JsonNode?)JsonValue.Create(v)).ToArray()) : null,
             ["max_input_tokens"] = metadata?.MaxInputTokens, ["context_window_tokens"] = metadata?.ContextWindowTokens,
             ["max_output_tokens"] = metadata?.MaxOutputTokens, ["planning_input_allowance"] = planning is null ? null : Math.Min(96000, planning.Value),
             ["mapping_input_allowance"] = mapping is null ? null : Math.Min(96000, mapping.Value), ["model_calls"] = 0,

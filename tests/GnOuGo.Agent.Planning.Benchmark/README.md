@@ -935,7 +935,9 @@ creation. `--cohort <label>` optionally namespaces Collections run/configuration
 keys; absence preserves historical keys exactly. External scenarios retain their
 existing cohort/run identity controls. Settings, source, model deployment, MCP
 binaries, inputs and oracles are frozen per arm. Retained runs reject conflicting
-settings. Supported low navigation reasoning is a separate experiment; larger
+settings. `provider-readiness` reports exact deployment `supports_reasoning_effort`
+and `supported_reasoning_efforts` declarations; null remains unknown. A profile
+may use only a declared supported level. Supported low navigation reasoning is a separate experiment; larger
 output reservations require verified exhaustion evidence and a fresh identity.
 No profile changes settings midway through a session.
 If necessary original evidence exceeds a hard input ceiling, a separately frozen
