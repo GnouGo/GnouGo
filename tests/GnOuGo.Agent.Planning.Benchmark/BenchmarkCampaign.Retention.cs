@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Planning;
+using GnOuGo.Planning.Examples;
 
 internal sealed partial class BenchmarkCampaign
 {
@@ -10,6 +11,7 @@ internal sealed partial class BenchmarkCampaign
     internal const string SingleHttp500Retention = "single-http-500";
     internal const string SingleHttp502Retention = "single-http-502";
     internal const string SingleHttp504Retention = "single-http-504";
+    internal const string InterruptedProcessRetention = "interrupted-process";
 
     // Called before any continuation, approval, execution or new request in the abandoned session.
     // Historical closures retain their original request-only behavior.
@@ -51,24 +53,32 @@ internal sealed partial class BenchmarkCampaign
         var state = run["session"]?.Deserialize(PlanningJsonContext.Default.PlanningSession)
             ?? throw new InvalidOperationException("No retained planning session.");
         var pending = state.PendingCall;
+        var interrupted = retentionKind == InterruptedProcessRetention;
+        var result = run["result"] as JsonObject;
         if (state.SchemaVersion != 10 || state.Request.TenantId != "benchmark" ||
-            state.Status != PlanningStatus.Stopped || state.RequiresPlanningRevision ||
+            state.Status != (interrupted ? PlanningStatus.Generating : PlanningStatus.Stopped) || state.RequiresPlanningRevision ||
             state.Construction?.Version is not (1 or 2) || pending is null || pending.Id != requestId ||
             pending.Purpose is not ("construction_intent" or "construction_select" or "construction_discovery" or
                 "construction_draft" or "construction_local_judge" or "construction_intermediate_judge" or "replan") ||
             pending.Request.ClientRequestId != requestId || !requestId.StartsWith(state.Request.SessionId + ":", StringComparison.Ordinal) ||
             pending.Request.Tools is { Count: > 0 } || pending.Request.MaxTokens is not > 0 ||
-            !state.Diagnostics.Any(d => d.Code == "MODEL_DISPATCH_UNVERIFIABLE") ||
+            !interrupted && !state.Diagnostics.Any(d => d.Code == "MODEL_DISPATCH_UNVERIFIABLE") ||
             state.Yaml is not null || state.ApprovedHash is not null || state.ApprovalReview is not null || state.SavedAgentId is not null ||
             run["artifact_hash"] is not null || run["execution_id"] is not null || run["execution_run_id"] is not null ||
             run["execution_started"] is not null || run["execution"] is not null ||
-            run["result"] is not JsonObject result || result["execution_correct"]?.GetValue<bool>() == true ||
-            result["execution_oracle"]?.GetValue<bool>() == true ||
-            result["execution_variants"] is JsonArray { Count: > 0 } ||
-            collection == SchemaPortabilityCampaign.Collection &&
-                (runKey != "run:" + state.Request.SessionId || result["status"]?.ToString() != "stopped" ||
-                 result["execution_status"]?.ToString() != "not_started"))
-            throw new InvalidOperationException("Permanent retention requires the exact stopped, unexecuted, tool-free uncertain planning request.");
+            (interrupted
+                ? collection != "planning-evaluation-runs" || run["result"] is not null ||
+                  run["final_review"]?.GetValue<bool>() == true ||
+                  state.Phase != (pending.Purpose == "replan" ? PlanningPhase.Replanning : pending.Purpose) ||
+                  run["response_measurements"]?[requestId] is not null || run["usage_receipts"]?[requestId] is not null ||
+                  run["first_proposal"]?["request_id"]?.ToString() == requestId
+                : result is null || result["execution_correct"]?.GetValue<bool>() == true ||
+                  result["execution_oracle"]?.GetValue<bool>() == true ||
+                  result["execution_variants"] is JsonArray { Count: > 0 } ||
+                  collection == SchemaPortabilityCampaign.Collection &&
+                    (runKey != "run:" + state.Request.SessionId || result["status"]?.ToString() != "stopped" ||
+                     result["execution_status"]?.ToString() != "not_started")))
+            throw new InvalidOperationException("Permanent retention requires the exact unexecuted, tool-free uncertain planning request in its selected terminal or interrupted mode.");
         var request = await LoadAsync("planning-evaluation-requests", requestId, ct);
         var journal = await LoadAsync(BenchmarkHttpJournal.Collection, requestId, ct);
         var failure = await LoadAsync("planning-evaluation-failures", requestId, ct);
@@ -83,12 +93,17 @@ internal sealed partial class BenchmarkCampaign
             state.Construction.Version == 2 && policy["construction_version"]?.GetValue<int>() != 2 ||
             !JsonNode.DeepEquals(policy["construction_limits"], state.Request.Options["construction_limits"]) ||
             !JsonNode.DeepEquals(policy["construction_input_limits"], state.Request.Options["construction_input_limits"]) ||
-            failure?["stage"]?.ToString() != "dispatch" || failure["retry_exhausted"]?.GetValue<bool>() != true ||
-            failure["retryable"]?.GetValue<bool>() != true ||
             journal?["transport"]?["Attempts"] is not JsonArray { Count: 1 } attempts ||
             attempts[0]?["Id"]?.ToString() is not { Length: > 0 } ||
-            !MatchesPermanentFailure(failure, attempts[0], retentionKind) ||
-            failure["attempt_count"]?.GetValue<int>() != attempts.Count ||
+            (interrupted
+                ? failure is not null || attempts[0]?["Status"] is not null || attempts[0]?["Body"] is not null ||
+                  attempts[0]?["Failure"] is not null || attempts[0]?["ContentType"] is not null ||
+                  attempts[0]?["RetryAfter"] is not null || attempts[0]?["NotBefore"] is not null ||
+                  !attempts[0]!["Id"]!.ToString().StartsWith(requestId + ":", StringComparison.Ordinal) ||
+                  journal["transport"]?["Fingerprint"]?.ToString() is not { Length: 64 } fingerprint || !fingerprint.All(Uri.IsHexDigit)
+                : failure?["stage"]?.ToString() != "dispatch" || failure["retry_exhausted"]?.GetValue<bool>() != true ||
+                  failure["retryable"]?.GetValue<bool>() != true || failure["attempt_count"]?.GetValue<int>() != attempts.Count ||
+                  !MatchesPermanentFailure(failure, attempts[0], retentionKind)) ||
             journal["input_ceiling"]?.GetValue<long>() is not { } inputCeiling ||
             inputCeiling < (JsonSerializer.SerializeToUtf8Bytes(pending.Request, PlanningJsonContext.Default.LLMRequest).LongLength + 2) / 3 + 256 ||
             journal["output_ceiling"]?.GetValue<long>() is not { } outputCeiling || outputCeiling < pending.Request.MaxTokens ||
@@ -97,10 +112,40 @@ internal sealed partial class BenchmarkCampaign
             journal["usage"] is not null ||
             await LoadAsync("planning-evaluation-receipts", requestId, ct) is not null)
             throw new InvalidOperationException("Permanent retention requires matching unknown transport evidence and a complete unchanged reservation.");
-        var source = (run["source"] ?? result["source_commit"])?.ToString();
+        var source = (run["source"] ?? result?["source_commit"])?.ToString();
+        string? configurationHash = null;
+        if (interrupted)
+        {
+            // Corpus source/cohort identity exists in the durable key before a final result.
+            // Reconstruct only that key, never a missing failure, response or workflow state.
+            var parts = runKey.Split(':');
+            if (parts.Length < 4 || parts[0].Length != 40 || !parts[0].All(Uri.IsHexDigit) ||
+                parts[1] is not ("fixture" or "pilot" or "measured") ||
+                state.Request.SessionId != PlanningGraphCompiler.Fingerprint(Id + ":" + runKey))
+                throw new InvalidOperationException("The interrupted corpus identity does not match its original session.");
+            var index = 2;
+            var arm = parts[index] is "judge" or "defaults" ? parts[index++] : null;
+            string? cohort = null;
+            if (parts[index] == "cohort")
+            {
+                if (++index >= parts.Length) throw new InvalidOperationException("The original corpus cohort is incomplete.");
+                cohort = PlanningBenchmarkMeasurements.Cohort(["--cohort", parts[index++]]);
+            }
+            if (index + 2 != parts.Length || parts[index] != state.Request.Name ||
+                !int.TryParse(parts[index + 1], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var repetition) ||
+                repetition is < 1 or > 20 || runKey != PlanningBenchmarkMeasurements.CorpusRunKey(parts[0], parts[1], arm, cohort, state.Request.Name, repetition) ||
+                source is not null && source != parts[0])
+                throw new InvalidOperationException("The interrupted corpus source, case or repetition changed.");
+            source = parts[0];
+            var configuration = await LoadAsync("planning-evaluation-configuration",
+                "corpus-settings:" + source + ":" + parts[1] + ":" + (arm ?? "control") + (cohort is null ? "" : ":cohort:" + cohort), ct);
+            if (configuration is null || !JsonNode.DeepEquals(configuration, PlanningBenchmarkMeasurements.Configuration(state.Request)))
+                throw new InvalidOperationException("The interrupted corpus settings do not match the frozen configuration.");
+            configurationHash = Hash(configuration);
+        }
         if (source is null || source.Length != 40 || !source.All(Uri.IsHexDigit))
             throw new InvalidOperationException("The original source identity is required.");
-        if (run["source"] is not null && result["source_commit"] is not null && run["source"]!.ToString() != result["source_commit"]!.ToString() ||
+        if (run["source"] is not null && result?["source_commit"] is not null && run["source"]!.ToString() != result?["source_commit"]!.ToString() ||
             run["manifest"] is JsonObject manifest &&
                 (manifest["production_sha"]?.ToString() != source || manifest["harness_sha"]?.ToString() != source))
             throw new InvalidOperationException("The retained source and run manifest disagree.");
@@ -111,7 +156,7 @@ internal sealed partial class BenchmarkCampaign
              effective["effective_retry_policy"]?["MaxAttempts"]?.GetValue<int>() != 1))
             throw new InvalidOperationException("The issued transport policy permits recovery; this terminal operator cannot reinterpret it.");
         if (journal["effective_transport_policy"] is null && journal["effective_transport_policy_hash"] is not null ||
-            (retentionKind is SingleHttp500Retention or SingleHttp502Retention or SingleHttp504Retention) && journal["effective_transport_policy"] is not JsonObject)
+            (interrupted || retentionKind is SingleHttp500Retention or SingleHttp502Retention or SingleHttp504Retention) && journal["effective_transport_policy"] is not JsonObject)
             throw new InvalidOperationException("The captured effective transport policy is missing.");
         var evidence = new JsonObject
         {
@@ -119,7 +164,7 @@ internal sealed partial class BenchmarkCampaign
             ["run_key"] = runKey, ["session_id"] = state.Request.SessionId, ["revision"] = state.Revision,
             ["request_id"] = requestId, ["phase"] = pending.Purpose, ["source"] = source,
             ["run_hash"] = Hash(run), ["request_hash"] = Hash(request), ["http_journal_hash"] = Hash(journal),
-            ["failure_hash"] = Hash(failure), ["session_policy_hash"] = Hash(policy),
+            ["failure_hash"] = failure is null ? null : Hash(failure), ["session_policy_hash"] = Hash(policy),
             ["campaign_retry_policy_hash"] = Hash(retry),
             ["financial_admission_hash"] = Hash(new JsonObject { ["input_ceiling"] = inputCeiling, ["output_ceiling"] = outputCeiling,
                 ["cost_ceiling_eur"] = journal["cost_ceiling_eur"]!.DeepClone(), ["exchange_quote"] = journal["exchange_quote"]!.DeepClone() }),
@@ -129,6 +174,13 @@ internal sealed partial class BenchmarkCampaign
             ["accounting"] = await BenchmarkHttpJournal.AccountingAsync(this, requestId, ct: ct)
         };
         if (retentionKind is not null) evidence["retention_kind"] = retentionKind;
+        if (interrupted)
+        {
+            evidence.Remove("failure_hash");
+            evidence["outcome_evidence"] = "reserved_attempt_without_persisted_outcome";
+            evidence["source_evidence"] = "corpus_key_and_frozen_configuration";
+            evidence["configuration_hash"] = configurationHash;
+        }
         return new() { ["evidence"] = evidence, ["evidence_hash"] = Hash(evidence), ["outcome"] = "inconclusive",
             ["reservation_retained"] = true, ["request_replay_forbidden"] = true, ["run_continuation_forbidden"] = true };
     }
@@ -173,7 +225,11 @@ internal sealed partial class BenchmarkCampaign
     {
         if (closure["reason"]?.ToString() != PermanentRetentionReason ||
             closure["evidence"] is not JsonObject evidence || evidence["version"]?.GetValue<int>() != 1 ||
-            evidence["retention_kind"]?.ToString() is not (null or SingleHttp500Retention or SingleHttp502Retention or SingleHttp504Retention) ||
+            evidence["retention_kind"]?.ToString() is not (null or SingleHttp500Retention or SingleHttp502Retention or SingleHttp504Retention or InterruptedProcessRetention) ||
+            evidence["retention_kind"]?.ToString() == InterruptedProcessRetention &&
+                (evidence.ContainsKey("failure_hash") || evidence["outcome_evidence"]?.ToString() != "reserved_attempt_without_persisted_outcome" ||
+                 evidence["source_evidence"]?.ToString() != "corpus_key_and_frozen_configuration" ||
+                 evidence["configuration_hash"]?.ToString() is not { Length: 64 } configurationHash || !configurationHash.All(Uri.IsHexDigit)) ||
             evidence["campaign"]?.ToString() != Id || evidence["tenant"]?.ToString() != "benchmark" ||
             evidence["request_id"]?.ToString() != requestId ||
             evidence["session_id"]?.ToString() is not { Length: > 0 } sessionId ||
@@ -191,8 +247,8 @@ internal sealed partial class BenchmarkCampaign
 
     private static void ValidateRetentionKind(string? retentionKind)
     {
-        if (retentionKind is not (null or SingleHttp500Retention or SingleHttp502Retention or SingleHttp504Retention))
-            throw new ArgumentException("Choose the exact single-http-500, single-http-502 or single-http-504 retention kind.", nameof(retentionKind));
+        if (retentionKind is not (null or SingleHttp500Retention or SingleHttp502Retention or SingleHttp504Retention or InterruptedProcessRetention))
+            throw new ArgumentException("Choose the exact single-http-500, single-http-502, single-http-504 or interrupted-process retention kind.", nameof(retentionKind));
     }
 
     private static bool MatchesPermanentFailure(JsonObject failure, JsonNode? attempt, string? retentionKind)

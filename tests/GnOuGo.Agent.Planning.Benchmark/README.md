@@ -413,6 +413,19 @@ multiple or mixed attempts, receipts and verified usage remain ineligible.
 Provider availability returning later does not prove termination or usage of the
 failed request.
 
+An explicit `--retention-kind interrupted-process` handles a corpus planning
+process lost after its single HTTP attempt was reserved but before any outcome was
+recorded. It requires the exact pending, tool-free request in its original
+generating session, with no result, failure, receipt, usage, HTTP response or
+execution evidence. The original captured transport policy must forbid retries
+and recovery. It binds source and session identities to the
+original run key and retained configuration. This mode records missing outcome
+evidence; it does not create a stopped session, transport failure or provider
+termination claim. Inspection is read-only; application requires the campaign
+lease and separate authorization for the exact evidence and full reservation.
+The existing closure permanently forbids replay and continuation without changing
+any original record or releasing the reservation.
+
 First inspect the exact retained identity without initializing a model, MCP
 transport or lease:
 

@@ -5,6 +5,7 @@ using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Planning;
 using GnOuGo.KeyVault.Core.Services;
+using GnOuGo.Planning.Examples;
 
 namespace GnOuGo.Agent.Server.Tests;
 
@@ -17,6 +18,11 @@ public sealed class BenchmarkPermanentRetentionTests
     private const string Http500 = BenchmarkCampaign.SingleHttp500Retention;
     private const string Http502 = BenchmarkCampaign.SingleHttp502Retention;
     private const string Http504 = BenchmarkCampaign.SingleHttp504Retention;
+    private const string Interrupted = BenchmarkCampaign.InterruptedProcessRetention;
+    private static string InterruptedKey => new string('a', 40) + ":fixture:cohort:diagnostic:fixture:1";
+    private static string InterruptedSession => PlanningGraphCompiler.Fingerprint("retention:" + InterruptedKey);
+    private static string InterruptedRequest => InterruptedSession + ":1:original";
+    private static string InterruptedConfigurationKey => "corpus-settings:" + new string('a', 40) + ":fixture:control:cohort:diagnostic";
     private const string ErrorBody = """{"errorCode":"upstream_failure","errorMessage":"Provider unavailable.","errorDetail":"No completion receipt."}""";
 
     [Theory]
@@ -30,42 +36,45 @@ public sealed class BenchmarkPermanentRetentionTests
     [InlineData(true, true, Http500)]
     [InlineData(true, true, Http502)]
     [InlineData(true, true, Http504)]
+    [InlineData(true, true, Interrupted)]
     public async Task ExplicitRetentionPreservesEvidenceAndAccountingWhilePermanentlyBlockingTheRun(bool capturedTransport, bool corpus, string? kind)
     {
+        var requestId = kind == Interrupted ? InterruptedRequest : RequestId;
+        var session = kind == Interrupted ? InterruptedSession : Session;
         var records = new Records(); var campaign = await SeedAsync(records, capturedTransport, corpus, kind);
         var collection = corpus ? "planning-evaluation-runs" : SchemaPortabilityCampaign.Collection;
-        var key = corpus ? "source:pilot:case:1" : "run:" + Session;
+        var key = kind == Interrupted ? InterruptedKey : corpus ? "source:pilot:case:1" : "run:" + session;
         var original = records.Snapshot(); var writes = records.Writes;
-        var proposal = await campaign.InspectPermanentRetentionAsync(collection, key, RequestId, Ct, kind);
+        var proposal = await campaign.InspectPermanentRetentionAsync(collection, key, requestId, Ct, kind);
         Assert.Equal(writes, records.Writes);
         Assert.Equal(kind is not null, proposal["evidence"]!.AsObject().ContainsKey("retention_kind"));
         Assert.Equal(kind, proposal["evidence"]!["retention_kind"]?.ToString());
-        await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.RetainExhaustedRequestAsync(RequestId, Ct));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.RetainExhaustedRequestAsync(requestId, Ct));
         var accounting = await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct);
         Assert.Equal(1m, accounting["reserved_cost_eur"]!.GetValue<decimal>());
         var hash = proposal["evidence_hash"]!.ToString();
-        var closure = await campaign.ApplyPermanentRetentionAsync(collection, key, RequestId, hash, Operator, Authorization, Ct, kind);
+        var closure = await campaign.ApplyPermanentRetentionAsync(collection, key, requestId, hash, Operator, Authorization, Ct, kind);
         Assert.Equal("inconclusive", closure["outcome"]!.ToString());
         Assert.Equal(writes + 1, records.Writes);
-        var retainedInspection = await campaign.InspectPermanentRetentionAsync(collection, key, RequestId, Ct, kind);
+        var retainedInspection = await campaign.InspectPermanentRetentionAsync(collection, key, requestId, Ct, kind);
         Assert.True(retainedInspection["already_retained"]!.GetValue<bool>());
         Assert.Equal(hash, retainedInspection["evidence_hash"]!.ToString());
         Assert.Equal(original, records.Snapshot(excludeClosures: true));
         Assert.True(JsonNode.DeepEquals(accounting, await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct)));
-        Assert.Null(await campaign.LoadAsync("planning-evaluation-receipts", RequestId, Ct));
+        Assert.Null(await campaign.LoadAsync("planning-evaluation-receipts", requestId, Ct));
         Assert.True(await campaign.HasUncertainRequestAsync(Ct));
         var restarted = new BenchmarkCampaign(records, "retention");
-        Assert.True(JsonNode.DeepEquals(closure, await restarted.ApplyPermanentRetentionAsync(collection, key, RequestId, hash, Operator, Authorization, Ct, kind)));
+        Assert.True(JsonNode.DeepEquals(closure, await restarted.ApplyPermanentRetentionAsync(collection, key, requestId, hash, Operator, Authorization, Ct, kind)));
         Assert.Equal(writes + 1, records.Writes);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => restarted.ApplyPermanentRetentionAsync(collection, key, RequestId, hash, Operator, "different authority", Ct, kind));
-        await Assert.ThrowsAsync<InvalidOperationException>(() => restarted.InspectPermanentRetentionAsync(collection, key, RequestId, Ct, kind is null ? Http502 : null));
-        await Assert.ThrowsAsync<InvalidOperationException>(() => restarted.ApplyPermanentRetentionAsync(collection, key, RequestId, hash, Operator, Authorization, Ct, kind is null ? Http502 : null));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => restarted.ApplyPermanentRetentionAsync(collection, key, requestId, hash, Operator, "different authority", Ct, kind));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => restarted.InspectPermanentRetentionAsync(collection, key, requestId, Ct, kind is null ? Http502 : null));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => restarted.ApplyPermanentRetentionAsync(collection, key, requestId, hash, Operator, Authorization, Ct, kind is null ? Http502 : null));
         var calls = 0;
-        foreach (var id in new[] { RequestId, Session + ":2:new", Session + "-execution:1:new", Session + "-copilot:request" })
+        foreach (var id in new[] { requestId, session + ":2:new", session + "-execution:1:new", session + "-copilot:request" })
             await Assert.ThrowsAsync<InvalidOperationException>(() => restarted.CallAsync(new() { ClientRequestId = id },
                 _ => Task.CompletedTask, _ => { calls++; return Task.FromResult(new LLMResponse()); }, Ct, allowHttpRecovery: true));
-        await Assert.ThrowsAsync<InvalidOperationException>(() => restarted.RequireRunNotRetainedAsync(Session, Ct));
-        await Assert.ThrowsAsync<InvalidOperationException>(() => restarted.RecoverPendingReceiptAsync(Session, 1, RequestId, 0, "new-source", true, Ct));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => restarted.RequireRunNotRetainedAsync(session, Ct));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => restarted.RecoverPendingReceiptAsync(session, 1, requestId, 0, "new-source", true, Ct));
         Assert.Equal(0, calls);
         await restarted.CallAsync(new() { ClientRequestId = "independent:1:new" }, _ => Task.CompletedTask,
             _ => { calls++; return Task.FromResult(new LLMResponse()); }, Ct);
@@ -73,7 +82,7 @@ public sealed class BenchmarkPermanentRetentionTests
         Assert.True(JsonNode.DeepEquals(accounting, await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct)));
         var denied = new BenchmarkHttpJournal(restarted, "over-budget:1", 100, 20, 49.5m);
         await Assert.ThrowsAsync<InvalidOperationException>(() => denied.SaveAsync(new() { Attempts = [new() { Id = "new" }] }, Ct));
-        await new BenchmarkCampaign(records, "another-campaign").RequireRunNotRetainedAsync(Session, Ct);
+        await new BenchmarkCampaign(records, "another-campaign").RequireRunNotRetainedAsync(session, Ct);
     }
 
     [Theory]
@@ -550,6 +559,200 @@ public sealed class BenchmarkPermanentRetentionTests
         finally { Directory.Delete(root, true); }
     }
 
+    [Fact]
+    public async Task InterruptedRetentionBindsMissingOutcomeWithoutFabricatingFailureOrResult()
+    {
+        var records = new Records(); var campaign = await SeedAsync(records, true, true, Interrupted);
+        var before = records.Snapshot(); var writes = records.Writes;
+        var proposal = await campaign.InspectPermanentRetentionAsync("planning-evaluation-runs", InterruptedKey, InterruptedRequest, Ct, Interrupted);
+        var evidence = proposal["evidence"]!.AsObject();
+        Assert.Equal("reserved_attempt_without_persisted_outcome", evidence["outcome_evidence"]!.ToString());
+        Assert.Equal("corpus_key_and_frozen_configuration", evidence["source_evidence"]!.ToString());
+        Assert.Equal(new string('a', 40), evidence["source"]!.ToString());
+        Assert.False(evidence.ContainsKey("failure_hash"));
+        Assert.Equal(before, records.Snapshot()); Assert.Equal(writes, records.Writes);
+        foreach (var kind in new string?[] { null, Http500, Http502, Http504 })
+            await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.InspectPermanentRetentionAsync(
+                "planning-evaluation-runs", InterruptedKey, InterruptedRequest, Ct, kind));
+        await campaign.ApplyPermanentRetentionAsync("planning-evaluation-runs", InterruptedKey, InterruptedRequest,
+            proposal["evidence_hash"]!.ToString(), Operator, Authorization, Ct, Interrupted);
+        var run = (await campaign.LoadAsync("planning-evaluation-runs", InterruptedKey, Ct))!;
+        Assert.Equal(PlanningStatus.Generating, run["session"]!["status"]!.ToString());
+        Assert.Null(run["result"]); Assert.Null(run["source"]);
+        Assert.Null(await campaign.LoadAsync("planning-evaluation-failures", InterruptedRequest, Ct));
+    }
+
+    [Theory]
+    [InlineData("construction_intent")]
+    [InlineData("construction_select")]
+    [InlineData("construction_discovery")]
+    [InlineData("construction_draft")]
+    [InlineData("construction_local_judge")]
+    [InlineData("construction_intermediate_judge")]
+    [InlineData("replan")]
+    public async Task InterruptedRetentionAcceptsMatchingPlanningPhaseAndRetainedBackgroundPreference(string purpose)
+    {
+        var records = new Records(); var campaign = await SeedAsync(records, true, true, Interrupted);
+        var run = (await campaign.LoadAsync("planning-evaluation-runs", InterruptedKey, Ct))!;
+        run["session"]!["phase"] = purpose == "replan" ? PlanningPhase.Replanning : purpose;
+        run["session"]!["pendingCall"]!["purpose"] = purpose;
+        // The benchmark adapter forces synchronous transport on its dispatch copy;
+        // the original request's presentation preference remains byte-exact.
+        run["session"]!["pendingCall"]!["request"]!["useBackgroundMode"] = true;
+        run["response_measurements"] = new JsonObject { [InterruptedSession + ":0:prior"] = new JsonObject() };
+        run["usage_receipts"] = new JsonObject { [InterruptedSession + ":0:prior"] = new JsonObject() };
+        await campaign.SaveAsync("planning-evaluation-runs", InterruptedKey, run, Ct);
+        await campaign.SaveAsync("planning-evaluation-requests", InterruptedRequest, run["session"]!["pendingCall"]!["request"]!.DeepClone().AsObject(), Ct);
+        var before = records.Snapshot();
+        Assert.NotNull(await campaign.InspectPermanentRetentionAsync("planning-evaluation-runs", InterruptedKey, InterruptedRequest, Ct, Interrupted));
+        Assert.Equal(before, records.Snapshot());
+    }
+
+    [Theory]
+    [InlineData("status")]
+    [InlineData("phase")]
+    [InlineData("result")]
+    [InlineData("response_measurement")]
+    [InlineData("run_usage")]
+    [InlineData("first_proposal")]
+    [InlineData("final_review")]
+    [InlineData("approved")]
+    [InlineData("execution")]
+    [InlineData("failure")]
+    [InlineData("receipt")]
+    [InlineData("usage")]
+    [InlineData("http_status")]
+    [InlineData("http_body")]
+    [InlineData("http_failure")]
+    [InlineData("http_headers")]
+    [InlineData("attempt_identity")]
+    [InlineData("http_fingerprint")]
+    [InlineData("two_attempts")]
+    [InlineData("request")]
+    [InlineData("tenant")]
+    [InlineData("source")]
+    [InlineData("case")]
+    [InlineData("policy")]
+    [InlineData("configuration")]
+    [InlineData("policy_hash")]
+    [InlineData("recovery")]
+    [InlineData("retry")]
+    [InlineData("missing_policy")]
+    [InlineData("input_reservation")]
+    [InlineData("output_reservation")]
+    public async Task InterruptedRetentionRejectsChangedEvidenceOrAnyPersistedOutcome(string defect)
+    {
+        var records = new Records(); var campaign = await SeedAsync(records, true, true, Interrupted);
+        var run = (await campaign.LoadAsync("planning-evaluation-runs", InterruptedKey, Ct))!;
+        var journal = (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, InterruptedRequest, Ct))!;
+        var attempt = journal["transport"]!["Attempts"]![0]!;
+        var policy = journal["effective_transport_policy"]!;
+        switch (defect)
+        {
+            case "status": run["session"]!["status"] = PlanningStatus.Stopped; break;
+            case "phase": run["session"]!["phase"] = PlanningPhase.Replanning; break;
+            case "response_measurement": run["response_measurements"] = new JsonObject { [InterruptedRequest] = new JsonObject() }; break;
+            case "run_usage": run["usage_receipts"] = new JsonObject { [InterruptedRequest] = new JsonObject() }; break;
+            case "first_proposal": run["first_proposal"] = new JsonObject { ["request_id"] = InterruptedRequest }; break;
+            case "result": run["result"] = new JsonObject(); break;
+            case "final_review": run["final_review"] = true; break;
+            case "approved": run["session"]!["approvedHash"] = "approved"; break;
+            case "execution": run["execution_started"] = true; break;
+            case "failure": await campaign.SaveAsync("planning-evaluation-failures", InterruptedRequest, new(), Ct); break;
+            case "receipt": await campaign.SaveAsync("planning-evaluation-receipts", InterruptedRequest, new(), Ct); break;
+            case "usage": journal["usage"] = new JsonObject(); break;
+            case "http_status": attempt["Status"] = 200; break;
+            case "http_body": attempt["Body"] = "{}"; break;
+            case "http_failure": attempt["Failure"] = "timeout"; break;
+            case "http_headers": attempt["ContentType"] = "application/json"; break;
+            case "attempt_identity": attempt["Id"] = "other:attempt"; break;
+            case "http_fingerprint": journal["transport"]!["Fingerprint"] = "missing"; break;
+            case "two_attempts": journal["transport"]!["Attempts"]!.AsArray().Add(attempt.DeepClone()); break;
+            case "request": run["session"]!["pendingCall"]!["request"]!["prompt"] = "changed"; break;
+            case "tenant": run["session"]!["request"]!["tenantId"] = "other"; break;
+            case "source": run["source"] = new string('b', 40); break;
+            case "case": run["session"]!["request"]!["name"] = "changed"; break;
+            case "policy": await campaign.SaveAsync("planning-evaluation-session-policy", InterruptedSession, new(), Ct); break;
+            case "configuration": await campaign.SaveAsync("planning-evaluation-configuration", InterruptedConfigurationKey, new(), Ct); break;
+            case "policy_hash": journal["effective_transport_policy_hash"] = new string('0', 64); break;
+            case "recovery": policy["allow_http_recovery"] = true; break;
+            case "retry": policy["effective_retry_policy"]!["MaxAttempts"] = 2; break;
+            case "missing_policy": journal.Remove("effective_transport_policy"); journal.Remove("effective_transport_policy_hash"); break;
+            case "input_reservation": journal["input_ceiling"] = 1; break;
+            case "output_reservation": journal["output_ceiling"] = 1; break;
+        }
+        if (defect is "recovery" or "retry") journal["effective_transport_policy_hash"] = PlanningGraphCompiler.Fingerprint(policy.ToJsonString());
+        await campaign.SaveAsync("planning-evaluation-runs", InterruptedKey, run, Ct);
+        await campaign.SaveAsync(BenchmarkHttpJournal.Collection, InterruptedRequest, journal, Ct);
+        var before = records.Snapshot(); var writes = records.Writes;
+        await Assert.ThrowsAnyAsync<Exception>(() => campaign.InspectPermanentRetentionAsync("planning-evaluation-runs", InterruptedKey, InterruptedRequest, Ct, Interrupted));
+        Assert.Equal(before, records.Snapshot()); Assert.Equal(writes, records.Writes);
+    }
+
+    [Theory]
+    [InlineData("run")]
+    [InlineData("configuration")]
+    [InlineData("accounting")]
+    [InlineData("hash")]
+    public async Task InterruptedApplyRejectsStaleEvidence(string changed)
+    {
+        var records = new Records(); var campaign = await SeedAsync(records, true, true, Interrupted);
+        var proposal = await campaign.InspectPermanentRetentionAsync("planning-evaluation-runs", InterruptedKey, InterruptedRequest, Ct, Interrupted);
+        if (changed == "run")
+        {
+            var run = (await campaign.LoadAsync("planning-evaluation-runs", InterruptedKey, Ct))!; run["additional_evidence"] = true;
+            await campaign.SaveAsync("planning-evaluation-runs", InterruptedKey, run, Ct);
+        }
+        if (changed == "configuration") await campaign.SaveAsync("planning-evaluation-configuration", InterruptedConfigurationKey, new(), Ct);
+        if (changed == "accounting") await new BenchmarkHttpJournal(campaign, "other:1", 1, 1, .1m).SaveAsync(new() { Attempts = [new() { Id = "other" }] }, Ct);
+        var before = records.Snapshot(); var writes = records.Writes;
+        await Assert.ThrowsAnyAsync<Exception>(() => campaign.ApplyPermanentRetentionAsync("planning-evaluation-runs", InterruptedKey, InterruptedRequest,
+            changed == "hash" ? new string('0', 64) : proposal["evidence_hash"]!.ToString(), Operator, Authorization, Ct, Interrupted));
+        Assert.Equal(before, records.Snapshot()); Assert.Equal(writes, records.Writes);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task InterruptedProcessClosurePublicationIsAtomicAcrossRestart(bool afterCommit)
+    {
+        var records = new Records(); var campaign = await SeedAsync(records, true, true, Interrupted);
+        var proposal = await campaign.InspectPermanentRetentionAsync("planning-evaluation-runs", InterruptedKey, InterruptedRequest, Ct, Interrupted);
+        var before = records.Snapshot(); var accounting = await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct);
+        records.FailClosure = true; records.FailAfterCommit = afterCommit;
+        await Assert.ThrowsAsync<IOException>(() => campaign.ApplyPermanentRetentionAsync("planning-evaluation-runs", InterruptedKey, InterruptedRequest,
+            proposal["evidence_hash"]!.ToString(), Operator, Authorization, Ct, Interrupted));
+        Assert.Equal(before, records.Snapshot(excludeClosures: true));
+        records.FailClosure = false;
+        var restarted = new BenchmarkCampaign(records, "retention");
+        await restarted.ApplyPermanentRetentionAsync("planning-evaluation-runs", InterruptedKey, InterruptedRequest,
+            proposal["evidence_hash"]!.ToString(), Operator, Authorization, Ct, Interrupted);
+        Assert.Single(await records.ListAsync(Closures, "benchmark", BenchmarkCampaign.Author, Ct));
+        Assert.True(JsonNode.DeepEquals(accounting, await BenchmarkHttpJournal.AccountingAsync(restarted, ct: Ct)));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => restarted.RequireRunNotRetainedAsync(InterruptedSession, Ct));
+    }
+
+    [Fact]
+    public async Task InterruptedProcessClosureIsEncryptedAndTenantIsolated()
+    {
+        var root = Directory.CreateTempSubdirectory("interrupted-retention-encrypted-").FullName;
+        try
+        {
+            var path = Path.Combine(root, "vault.db"); var store = new KeyVaultRecordStore(path);
+            var campaign = await SeedAsync(store, true, true, Interrupted);
+            var proposal = await campaign.InspectPermanentRetentionAsync("planning-evaluation-runs", InterruptedKey, InterruptedRequest, Ct, Interrupted);
+            const string secret = "interrupted-private-authorization-8af37d";
+            await campaign.ApplyPermanentRetentionAsync("planning-evaluation-runs", InterruptedKey, InterruptedRequest,
+                proposal["evidence_hash"]!.ToString(), Operator, secret, Ct, Interrupted);
+            var restored = new KeyVaultRecordStore(path);
+            await Assert.ThrowsAsync<InvalidOperationException>(() => new BenchmarkCampaign(restored, "retention").RequireRunNotRetainedAsync(InterruptedSession, Ct));
+            Assert.Null(await restored.GetAsync(Closures, "other-tenant", "retention:" + InterruptedRequest, BenchmarkCampaign.Author, Ct));
+            foreach (var file in Directory.EnumerateFiles(root))
+                Assert.DoesNotContain(secret, System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file, Ct)));
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
     private static JsonObject TransportPolicy() => new()
     {
         ["version"] = 1, ["disable_transport_retries"] = true, ["allow_http_recovery"] = false,
@@ -560,20 +763,24 @@ public sealed class BenchmarkPermanentRetentionTests
         string? retentionKind = null)
     {
         var campaign = new BenchmarkCampaign(records, "retention");
-        var request = new LLMRequest { ClientRequestId = RequestId, Prompt = "Original exact intent.", MaxTokens = 8192,
+        var interrupted = retentionKind == Interrupted;
+        var session = interrupted ? InterruptedSession : Session;
+        var requestId = interrupted ? InterruptedRequest : RequestId;
+        var request = new LLMRequest { ClientRequestId = requestId, Prompt = "Original exact intent.", MaxTokens = 8192,
             StructuredOutputSchema = new JsonObject { ["title"] = "construction_intent", ["type"] = "object" } };
-        var state = new PlanningSession { Request = new() { TenantId = "benchmark", SessionId = Session }, Revision = 1, IntentVersion = 3,
-            Status = PlanningStatus.Stopped, ModelCalls = 1, Construction = new() { Version = 2 },
-            PendingCall = new() { Id = RequestId, Purpose = "construction_intent", Request = request } };
-        state.Diagnostics.Add(new("MODEL_DISPATCH_UNVERIFIABLE", "/", "Completion remains unknown."));
-        await campaign.SaveAsync("planning-evaluation-requests", RequestId, JsonSerializer.SerializeToNode(request, PlanningJsonContext.Default.LLMRequest)!.AsObject(), Ct);
-        var journal = new BenchmarkHttpJournal(campaign, RequestId, 6651, 8192, 1m, 64, effectiveTransportPolicy: capturedTransport ? TransportPolicy() : null);
+        var state = new PlanningSession { Request = new() { TenantId = "benchmark", SessionId = session }, Revision = 1, IntentVersion = 3,
+            Status = interrupted ? PlanningStatus.Generating : PlanningStatus.Stopped, ModelCalls = 1, Construction = new() { Version = 2 },
+            PendingCall = new() { Id = requestId, Purpose = "construction_intent", Request = request } };
+        if (interrupted) { state.Request.Name = "fixture"; state.Phase = "construction_intent"; }
+        if (!interrupted) state.Diagnostics.Add(new("MODEL_DISPATCH_UNVERIFIABLE", "/", "Completion remains unknown."));
+        await campaign.SaveAsync("planning-evaluation-requests", requestId, JsonSerializer.SerializeToNode(request, PlanningJsonContext.Default.LLMRequest)!.AsObject(), Ct);
+        var journal = new BenchmarkHttpJournal(campaign, requestId, 6651, 8192, 1m, 64, effectiveTransportPolicy: capturedTransport ? TransportPolicy() : null);
         await journal.PrepareAsync(Ct, new JsonObject { ["source_currency"] = "USD", ["target_currency"] = "EUR", ["rate"] = .9m,
             ["source"] = "retained-test-authority", ["as_of_utc"] = DateTimeOffset.UtcNow.AddDays(-1) });
-        var transport = new LLMHttpRetryState { Fingerprint = "original-http", Attempts = [new() { Id = RequestId + ":attempt",
+        var transport = new LLMHttpRetryState { Fingerprint = interrupted ? new string('a', 64) : "original-http", Attempts = [new() { Id = requestId + ":attempt",
             Failure = retentionKind is null ? "timeout" : null }] };
         await journal.SaveAsync(transport, Ct);
-        if (retentionKind is not null)
+        if (retentionKind is not null && !interrupted)
         {
             transport.Attempts[0].Status = HttpStatus(retentionKind); transport.Attempts[0].Body = ErrorBody;
             await journal.SaveAsync(transport, Ct);
@@ -583,15 +790,22 @@ public sealed class BenchmarkPermanentRetentionTests
             ["stage"] = "dispatch", ["kind"] = retentionKind is null or Http504 ? "Timeout" : "ServiceUnavailable",
             ["retryable"] = true, ["attempt_count"] = 1, ["retry_exhausted"] = true
         };
-        if (retentionKind is not null) failure["status_code"] = HttpStatus(retentionKind);
-        await campaign.SaveAsync("planning-evaluation-failures", RequestId, failure, Ct);
+        if (retentionKind is not null && !interrupted) failure["status_code"] = HttpStatus(retentionKind);
+        if (!interrupted) await campaign.SaveAsync("planning-evaluation-failures", requestId, failure, Ct);
         await campaign.SaveAsync("planning-evaluation-configuration", "http-retry-policy", new() { ["MaxAttempts"] = 4, ["MaxUncertainRetries"] = 1 }, Ct);
-        await campaign.SaveAsync("planning-evaluation-session-policy", Session, new() { ["construction_review_headroom"] = 2, ["construction_version"] = 2,
+        await campaign.SaveAsync("planning-evaluation-session-policy", session, new() { ["construction_review_headroom"] = 2, ["construction_version"] = 2,
             ["max_physical_attempts"] = state.Request.MaxModelCalls, ["max_input_tokens"] = state.Request.Generation.MaxInputTokensPerRequest,
             ["max_output_tokens"] = state.Request.Generation.MaxOutputTokens, ["max_corrections"] = state.Request.MaxReplanAttempts }, Ct);
         var run = new JsonObject { ["source"] = new string('a', 40), ["session"] = JsonSerializer.SerializeToNode(state, PlanningJsonContext.Default.PlanningSession),
             ["result"] = new JsonObject { ["status"] = "stopped", ["execution_status"] = "not_started", ["execution_correct"] = false } };
-        await campaign.SaveAsync(corpus ? "planning-evaluation-runs" : SchemaPortabilityCampaign.Collection, corpus ? "source:pilot:case:1" : "run:" + Session, run, Ct);
+        if (interrupted)
+        {
+            run.Remove("source"); run.Remove("result"); run["final_review"] = false;
+            await campaign.SaveAsync("planning-evaluation-configuration", InterruptedConfigurationKey,
+                PlanningBenchmarkMeasurements.Configuration(state.Request), Ct);
+        }
+        await campaign.SaveAsync(corpus ? "planning-evaluation-runs" : SchemaPortabilityCampaign.Collection,
+            interrupted ? InterruptedKey : corpus ? "source:pilot:case:1" : "run:" + Session, run, Ct);
         return campaign;
     }
 

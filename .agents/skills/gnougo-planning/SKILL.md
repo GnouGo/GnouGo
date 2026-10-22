@@ -46,7 +46,7 @@ Test observable behavior and necessary invariants. Preserve exact-byte tests for
 
 Evaluate reasoning, output reservations and presentation as controlled experiments with frozen source, settings, contracts, inputs and oracle versions. An empty reasoning-only response does not establish its cause. Use fresh identities, retain failures, and distinguish estimates from billed provider usage. A smaller prompt, accepted checkpoint or green CI is not business acceptance.
 
-Paid calls and effects require the user's existing authorization. Benchmark delegation remains isolated, artifact-bound and labeled truthfully; only exact individual runtime confirmations may authorize permitted effects. A permanently retained inconclusive call keeps its full unknown-usage reservation and original evidence, and forbids both replay and continuation of its abandoned run. Restored provider availability does not establish the earlier call's outcome.
+Paid calls and effects require the user's existing authorization. Benchmark delegation remains isolated, artifact-bound and labeled truthfully; only exact individual runtime confirmations may authorize permitted effects. A permanently retained inconclusive call keeps its full unknown-usage reservation and original evidence, and forbids both replay and continuation of its abandoned run. An interrupted process with no recorded outcome remains uncertain; never manufacture a failure or completion to make it recoverable. Restored provider availability does not establish the earlier call's outcome.
 
 Keep maintained documentation concise and preserve immutable audit evidence through explicit archive links.
 
