@@ -74,9 +74,10 @@ issued schemas retain their captured cardinality.
 
 ## Substeps, contracts and scoped schemas
 
-Selection identifies the next action or structural step whose prerequisites bind
-to caller/scope inputs or accepted outputs. A missing producer precedes its dependent
-action; a chain requiring unbuilt producers is not one immediate substep. The complete
+Selection identifies the next business action or structural step using caller/scope
+inputs or accepted outputs. Technical setup, handles and result fields come from
+inspected contracts, not assumed APIs. A demonstrated missing producer precedes its
+consumer; a chain requiring unbuilt producers is not one immediate substep. The complete
 original requirement stays attached and open across its contributing fragments.
 Missing prerequisites remain frontier obligations. Fresh selection and drafting
 share the value-task capability boundary: declared bindings and computations do
@@ -102,9 +103,11 @@ requirements. Historical singleton pages and issued requests are unchanged.
 Discovery queries the selected substep, never the global objective. Cached
 inspections stay retrievable without becoming mandatory context. Concise operation
 and provider directories retain exact identities, effects and retrieval addresses.
-Descriptors may exclude clear mismatches. Exact descriptions and necessary
-continuations establish the suitability of shortlisted capabilities; finding a
-suitable operation does not require inspecting unrelated or later workflow actions.
+Names locate candidates; exact descriptions and necessary continuations establish
+their behavior. Uninspected candidates do not establish a missing capability.
+Conflicting tentative assumptions use existing reselection within fixed scope,
+requirements and correction allowances. Finding a suitable operation does not
+require inspecting unrelated or later workflow actions.
 A consumed navigation page does not invalidate an operation's identity. Fresh
 provider views use `canRequestPage` for listing pagination, independently of the
 source's unavailability reason; exhausting a listing preserves its discovered operations.
