@@ -5,7 +5,7 @@ description: Develop or review GnOuGo workflow planning, TaskPlan compilation, s
 
 # Planning
 
-Build the smallest sufficient executable business TaskPlan. Favor reliable incremental work and clear contracts over additional planning abstractions or token-saving rules. Keep production guidance generic; scenario expectations belong in tests and independent benchmark oracles.
+Build the smallest sufficient executable business TaskPlan. Favor reliable incremental work and clear contracts over additional planning abstractions or token-saving rules. A selected action produces its next needed result, even when its authoritative requirement spans the whole workflow. Offer exact retrieval addresses wherever evidence requests are available. Keep production guidance generic; scenario expectations belong in tests and independent benchmark oracles.
 
 ## Core invariants
 
@@ -21,6 +21,8 @@ Build the smallest sufficient executable business TaskPlan. Favor reliable incre
 ## Presentation and discovery
 
 Use one clear instruction set per phase and only the selected task kind's shared semantic definitions. Prefer one declaration shape when existing nullable DTO fields can express absence; preserve the distinction from explicit literal nulls and retain semantic validation. Show the bounded exact source clauses around the earliest unresolved requirement before selecting immediate work, so adjacent composition constraints inform its boundary. Retain meaningful bounded descriptions and call/operation identities for accepted work, with exact retrieval links. Drafts and Judges may navigate recent accepted siblings in their current scope alongside imported producers; inspect original task bindings before judging duplication. This context grants no edit authority and does not make intentionally incomplete scopes a failure. Issue only legal current choices from the bounded displayed directory; retrieve another page before selecting an omitted choice. Intent, selection and discovery need no TaskPlan grammar. Do not resend the full plan, history or capability catalog, or fill unused capacity with unrelated contracts.
+
+Keep exact evidence navigation available when moving from selection into drafting, including current scopes and closed reusable interfaces. Evidence responses select issued addresses, never prose requests or guessed field names. Prerequisite notes cite original clauses or retained exact contract evidence; accepted task/group navigation remains distinct from prerequisite authority. Couple call-only fields to the call shape so structural openings cannot accidentally bind a reusable target.
 
 Interface classification is provisional until extraction resolves its exact sources. Include bounded surrounding original clauses so names do not lose their earlier types or constraints. Extraction may explicitly identify a classified span as having no caller/public interface; its business obligation remains intact. Silent empty declarations cannot resolve coverage. Retrieve missing type evidence or clarify it instead of inventing `any`. Keep evidence, dispositions and typed declarations in the existing intent phase; narrow shared type grammar without introducing another type language. Keep essential null/default and enum semantics in the issued instructions when schema compaction removes annotations.
 

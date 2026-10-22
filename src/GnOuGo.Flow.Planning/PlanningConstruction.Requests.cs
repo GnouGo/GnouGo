@@ -22,7 +22,10 @@ internal static partial class PlanningConstruction
         {
             var purpose = review ? intermediate ? IntermediatePurpose : LocalPurpose : DraftPurpose;
             if (enrich is not null || state.Phase == GnOuGo.Flow.Core.Planning.PlanningPhase.Replanning) purpose = "replan";
-            return (context, PlanningCompactConstruction.Request(instructions, context, schema(required), purpose));
+            var responseSchema = schema(required);
+            if (!review && enrich is null && PlanningCompactConstruction.UsesDeferredBinding(state))
+                PlanningCompactConstruction.ConstrainDraftEvidence(state, context, responseSchema);
+            return (context, PlanningCompactConstruction.Request(instructions, context, responseSchema, purpose));
         }
         var operations = context["operations"]!.AsArray();
         var optional = operations.Where(o => !required.Contains(o!["id"]!.ToString())).ToArray();

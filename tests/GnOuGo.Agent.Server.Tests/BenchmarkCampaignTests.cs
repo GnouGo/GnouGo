@@ -13,6 +13,46 @@ public sealed class BenchmarkCampaignTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
+    [Theory]
+    [InlineData("")]
+    [InlineData(" \t\n")]
+    [InlineData("No structured completion.")]
+    [InlineData("{\"partial\":")]
+    public void ReceiptInspectionRetainsEmptyAndNonJsonTextWithoutChangingEvidence(string text)
+    {
+        var receipt = new JsonObject { ["json"] = null, ["text"] = text, ["completionStatus"] = "output_limit",
+            ["usage"] = new JsonObject { ["output_tokens"] = 16384, ["reasoning_tokens"] = 16384 } };
+        var original = receipt.ToJsonString();
+        var response = Assert.IsAssignableFrom<JsonValue>(SchemaPortabilityCampaign.InspectResponse(receipt));
+        Assert.Equal(text, response.GetValue<string>());
+        Assert.Null(response.Parent);
+        Assert.Equal(original, receipt.ToJsonString());
+    }
+
+    [Theory]
+    [InlineData("{\"answer\":42}")]
+    [InlineData("[1,2]")]
+    [InlineData("null")]
+    [InlineData(null)]
+    public void ReceiptInspectionPreservesExistingJsonAndAbsentResponsePresentation(string? text)
+    {
+        var receipt = new JsonObject { ["json"] = null, ["text"] = text };
+        var original = receipt.ToJsonString();
+        Assert.True(JsonNode.DeepEquals(text is null ? null : JsonNode.Parse(text), SchemaPortabilityCampaign.InspectResponse(receipt)));
+        Assert.Equal(original, receipt.ToJsonString());
+    }
+
+    [Fact]
+    public void ReceiptInspectionPrefersStructuredResponseAndReturnsAnIndependentProjection()
+    {
+        var receipt = new JsonObject { ["json"] = new JsonObject { ["answer"] = 42 }, ["text"] = "not JSON" };
+        var original = receipt.ToJsonString();
+        var response = Assert.IsType<JsonObject>(SchemaPortabilityCampaign.InspectResponse(receipt));
+        Assert.Equal(42, response["answer"]!.GetValue<int>());
+        response["answer"] = 0;
+        Assert.Equal(original, receipt.ToJsonString());
+    }
+
     [Fact]
     public async Task CompactTransportFreezesPhaseCeilingsAndCannotFallBackToGeneralAllowance()
     {

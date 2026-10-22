@@ -106,6 +106,17 @@ Cleanup, exports and closure use the same substep mechanism. Public workflow
 outputs remain distinct from internal task/group results and local exports.
 All unprocessed pages and unresolved requirements block completion.
 
+Revision-3 drafting retains the current scope's exact evidence address. Structural
+openings also retain a bounded page of closed reusable interfaces; other drafts
+receive only the exact interface-directory link. Interface and task evidence pages
+retain exact continuations. Evidence
+responses select addresses present in host-owned navigation, including nested MCP
+directories and required-sibling omission links. Original contract data is never
+interpreted as navigation authority. Selection separates call targets from other
+kinds and restricts prerequisite citations to original clauses or retained exact
+contracts; task/group inspection links do not establish prerequisite authority.
+Historical presentations and already issued requests keep their original schemas.
+
 Context includes the relevant original clauses and global constraints, exact
 interfaces and bounded navigation links. Versioned addresses bind task objectives,
 ports, scopes, requirements and source pages to their content. Advancing a cursor

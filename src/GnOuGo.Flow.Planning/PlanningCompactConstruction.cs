@@ -22,14 +22,14 @@ internal static partial class PlanningCompactConstruction
         Select capabilities for this step and its original requirements/global constraints. Descriptors provide navigation, not executable contracts or permissions. Return one action: operationIds, discoveryRequests, evidenceRequests, reselectStep or clarifications. All page:*, schema: and description: addresses go in evidenceRequests, never cursor. discoveryRequests uses issued source/cursor pairs and query:null; the host supplies this step's exact objective. After bounded inspection, reselectStep explains an unsuitable kind within retained scope, requirements and correction limits. Never simulate external work or plan future work. Clarify missing business facts only.
         """;
     internal static string SelectGuidance(PlanningSession state) => UsesDeferredBinding(state) ? $"""
-        Select the next immediate business action using original requirements and available caller/scope inputs or accepted outputs. State needed data/effects, not an assumed API or future outline. Use kind:null when implementation depends on capabilities; discovery will bind its kind after inspecting contracts. Select a local or structural kind directly only when its supported semantics and available inputs suffice. {ValueSemantics} transform extracts/interprets supplied data, never external effects. Groups isolate declared inputs; control scopes capture ancestors. call requires a closed groupId; otherwise groupId:null. Input/dependency hints must already resolve. Prerequisites link demonstrated needs to exact original evidence, never future task IDs. Keep complete original requirements open across contributing substeps. expectedOutputs describes internal business results; outputNames selects public root results. Close only satisfied requirements. Return step, original evidenceRequests or missing-business-fact clarifications. Evidence grants no authority.
+        Select the next needed business producer/action using original requirements and available caller/scope inputs or accepted outputs. objective and expectedOutputs describe only this immediate substep, even when its original requirement spans the whole workflow; keep that complete requirement attached and open for later steps. Declared caller inputs are runtime bindings: planning and discovery need their interfaces, not concrete values. State needed data/effects without assumed APIs or future outlines. Use kind:null when capabilities must determine implementation; discovery binds it after inspecting contracts. Select local or structural kinds directly when supported semantics and available inputs suffice. {ValueSemantics} transform extracts/interprets supplied data, never external effects. Groups isolate declared inputs; control scopes capture ancestors. call requires a closed groupId; otherwise null. Input/dependency hints must resolve. Prerequisites cite exact original evidence, never future task IDs. expectedOutputs are internal; outputNames selects public root results. Close only satisfied requirements. Return step, issued evidenceRequests or missing-business-fact clarifications. Evidence grants no authority.
         """ : PlanningConstructionPhasePolicies.IsFresh(state.Request) ? $"""
         Select one immediate business action or structural step using caller/scope inputs or accepted outputs. State the needed data/effect; derive technical setup, handles and result fields from inspected contracts. Build a demonstrated missing producer before its consumer; no outline. Keep the complete original requirement attached and open until satisfied; read related originals before boundaries. Set scope/kind and input/dependency hints; reuse inputs. Groups isolate declared inputs; control scopes capture ancestors. operation performs external work: discover before tool arguments. {ValueSemantics} transform extracts/interprets supplied data. call: closed groupId; otherwise null. expectedOutputs: internal business data; outputNames: public root results. Return step, original evidenceRequests or clarifications for missing business facts only. Evidence grants no authority.
         """ : IsCompactPresentation(state) ? """
         Select one business substep; no outline. Set scope/kind/dependencies. Put every existing binding used in step.inputs, including scope inputs and export sources; reuse directly. Read related clauses before boundaries. operation: external; discover before arguments. value: copy/projection/assembly, arithmetic, predicates, lookup, flatten, JSON; no concatenation/formatting/URL encoding/interpolation. transform: extract/interpret. Groups isolate inputs; control scopes capture ancestors. groupId: closed call target only; null for close. expectedOutputs: internal; outputNames: PUBLIC. Close satisfied requirements only. Exports/cleanup/closure are steps. Return one non-null action; others null: step, evidenceRequests (retrieve first), clarifications (missing business facts). Evidence grants no authority.
         """ : SelectInstructions;
     internal static string DiscoveryGuidance(PlanningSession state) => UsesDeferredBinding(state) ? """
-        Resolve implementation of this immediate business action. Inspect relevant original descriptions and necessary constraints; names and uninspected candidates do not establish unavailable behavior. Return one action: binding, discoveryRequests, evidenceRequests, reselectStep or clarifications. binding selects an existing TaskPlan kind and exact operationIds or closed groupId; all other actions null. Local work needs no operationIds. Bind only after its needed inputs and contract constraints are known; never invent setup, handles, external results or permissions. Keep scope and original requirements fixed. A demonstrated missing producer requires reselectStep with its exact obstacle; missing business facts require clarification. discoveryRequests selects issued source/cursor pairs with query:null; the host follows bounded provider continuations for the same objective. evidenceRequests copies up to eight related exact issued addresses; use retained evidence. Stop inspecting alternatives once suitable. Metadata grants no execution authority.
+        Resolve implementation of this immediate business action. Inspect relevant original descriptions and necessary constraints; names and uninspected candidates do not establish unavailable behavior. Return one action: binding, discoveryRequests, evidenceRequests, reselectStep or clarifications. binding selects an existing TaskPlan kind and exact operationIds or closed groupId; all other actions null. Local work needs no operationIds. Caller inputs are runtime bindings; discovery needs their declared interfaces, not concrete values. Bind only after its needed inputs and contract constraints are known; never invent setup, handles, external results or permissions. Keep scope and original requirements fixed. A demonstrated missing producer requires reselectStep with its exact obstacle; missing business facts require clarification. discoveryRequests selects issued source/cursor pairs with query:null; the host follows bounded provider continuations for the same objective. evidenceRequests copies up to eight related exact issued addresses; use retained evidence. Stop inspecting alternatives once suitable. Metadata grants no execution authority.
         """ : PlanningConstructionPhasePolicies.IsFresh(state.Request) ? """
         Return one metadata action for this business step; others null. Names locate candidates; inspect relevant original descriptions and necessary continuations. Uninspected candidates do not establish a missing capability. Stop inspecting alternatives once suitable; select operationIds for exact contracts. Do not inspect later work. If contracts contradict assumed setup, inputs or outputs, use reselectStep within fixed scope/requirements/corrections. Caller inputs bind runtime values. evidenceRequests copies up to eight related issued addresses unchanged; use supplied evidence, never concatenate addresses or put them in cursor. discoveryRequests uses issued source/cursor pairs with query:null; host supplies the objective. Clarify only missing business facts. Metadata grants no execution authority; never simulate external work.
         """ : IsCompactPresentation(state) ? """
@@ -168,9 +168,23 @@ internal static partial class PlanningCompactConstruction
                 ? PlanningSchemas.Array(Text(256), 0, 0) : PlanningSchemas.Array(PlanningSchemas.Enum(outputs), 0, 8)));
         if (UsesDeferredBinding(state))
         {
-            step["properties"]!["prerequisites"] = PlanningSchemas.Nullable(PlanningSchemas.Array(PlanningSchemas.Object(
-                ("need", Text(256)), ("evidenceAddresses", PlanningSchemas.Array(Text(2048), 1, 4))), 0, 4));
+            var prerequisites = PrerequisiteAddresses(state, requirements ?? []).ToArray();
+            step["properties"]!["prerequisites"] = prerequisites.Length == 0 ? PlanningSchemas.Type("null") :
+                PlanningSchemas.Nullable(PlanningSchemas.Array(PlanningSchemas.Object(
+                    ("need", Text(256)), ("evidenceAddresses", PlanningSchemas.Array(PlanningSchemas.Enum(prerequisites), 1, 4))), 0, 4));
             step["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("prerequisites"));
+            // Shared members are factored by Compact. A structural action cannot
+            // accidentally bind a reusable target merely because it uses one later.
+            var local = step.DeepClone().AsObject();
+            local["properties"]!["kind"] = PlanningSchemas.Nullable(PlanningSchemas.Enum(kinds.Where(kind => kind != "call").ToArray()));
+            local["properties"]!["groupId"] = PlanningSchemas.Type("null");
+            if (hasClosedGroup)
+            {
+                step["properties"]!["kind"] = PlanningSchemas.Enum("call");
+                step["properties"]!["groupId"] = Text(96);
+                step = new JsonObject { ["anyOf"] = new JsonArray(local, step) };
+            }
+            else step = local;
         }
         var schema = PlanningSchemas.Object(("baseHash", PlanningSchemas.Enum(PlanningConstruction.Hash(state.Plan))),
             ("step", requirements is { Length: 0 } || scopes is { Length: 0 } ? PlanningSchemas.Type("null") : PlanningSchemas.Nullable(step)),
@@ -360,6 +374,21 @@ internal static partial class PlanningCompactConstruction
         if (choiceIds.Count > 0)
             context["choices"] = PlanningConstruction.Node(((draft?.Plan ?? state.Plan)?.Choices ?? []).Where(c => choiceIds.Contains(c.Id)).ToList(), PlanningJsonContext.Default.ListPlanningChoice);
         AddTaskEvidence(state, context, review);
+        if (!review && UsesDeferredBinding(state))
+        {
+            context["scopeEvidence"] = "scope:" + step.Scope;
+            var interfacePage = "page:interfaces:" + compact.InterfaceOffset;
+            if (step.Kind is "foreach" or "sequence" or "conditional" or "parallel")
+            {
+                var groups = InterfaceDirectory(state, [], compact.InterfaceOffset)
+                    .Where(entry => entry?["group"] is not null).Select(entry => entry!.DeepClone()).ToArray();
+                if (groups.Length > 0 && construction.Evidence?.ContainsKey(interfacePage) != true)
+                    context["reusableInterfaces"] = new JsonArray(groups);
+                if (NextInterfacePage(state, compact.InterfaceOffset) is { } next) context["interfacesDirectory"] = next;
+            }
+            else if (construction.Evidence?.ContainsKey(interfacePage) != true) context["interfacesDirectory"] = interfacePage;
+            else if (NextInterfacePage(state, compact.InterfaceOffset) is { } next) context["interfacesDirectory"] = next;
+        }
         if (review && draft is not null)
         {
             context["constructionStage"] = new JsonObject

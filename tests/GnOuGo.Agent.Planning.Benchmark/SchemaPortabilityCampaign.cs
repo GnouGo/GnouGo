@@ -168,7 +168,7 @@ internal static class SchemaPortabilityCampaign
                 .Where(r => r.Key.StartsWith(campaignId + ":" + label + ":", StringComparison.Ordinal)).OrderBy(r => r.UpdatedAt))
             {
                 var content = JsonNode.Parse(receipt.Value)!;
-                responses.Add(new JsonObject { ["id"] = receipt.Key, ["response"] = content["json"]?.DeepClone() ?? (content["text"] is { } responseText ? JsonNode.Parse(responseText.ToString()) : null) });
+                responses.Add(new JsonObject { ["id"] = receipt.Key, ["response"] = InspectResponse(content) });
             }
             Console.WriteLine(new JsonObject
             {
@@ -287,6 +287,18 @@ internal static class SchemaPortabilityCampaign
             Console.WriteLine(result.ToJsonString()); return;
         }
         throw new ArgumentException("Unknown phase.");
+    }
+
+    internal static JsonNode? InspectResponse(JsonNode content)
+    {
+        if (content["json"] is { } json) return json.DeepClone();
+        var text = content["text"];
+        if (text is JsonValue value && value.TryGetValue<string>(out var raw) && !string.IsNullOrWhiteSpace(raw))
+        {
+            try { return JsonNode.Parse(raw); }
+            catch (JsonException) { /* Non-JSON completions remain original text evidence. */ }
+        }
+        return text?.DeepClone();
     }
 
     internal static string? Option(string[] args, string name)

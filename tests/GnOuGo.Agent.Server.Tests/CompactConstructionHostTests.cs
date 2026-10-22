@@ -50,7 +50,7 @@ public sealed class CompactConstructionHostTests
         Assert.Equal(0, effects);
         Assert.Null(state.ApprovedHash); Assert.Null(state.SavedAgentId);
         Assert.True(state.Construction!.Complete);
-        Assert.Equal(2, state.Construction.Compact!.PresentationVersion);
+        Assert.Equal(3, state.Construction.Compact!.PresentationVersion);
         Assert.True(Assert.Single(state.Construction.Compact.InterfaceExtractions!).Complete);
         Assert.Equal("closed", Assert.Single(state.Construction.Requirements).Status);
         Assert.Single(state.Construction.Checkpoints);
@@ -136,9 +136,20 @@ public sealed class CompactConstructionHostTests
                     response = new()
                     {
                         ["sourceId"] = Issued(request, "sourceId"),
-                        ["inputs"] = new JsonArray(),
-                        ["outputs"] = new JsonArray(new JsonObject { ["name"] = "message", ["required"] = true,
-                            ["type"] = new JsonObject { ["kind"] = "string", ["nullable"] = false } })
+                        ["interfaces"] = new JsonObject
+                        {
+                            ["inputs"] = new JsonArray(),
+                            ["outputs"] = new JsonArray(new JsonObject { ["name"] = "message", ["required"] = true,
+                                ["type"] = new JsonObject { ["kind"] = "string", ["nullable"] = false } }),
+                            ["dispositions"] = new JsonArray(context["sources"]!.AsArray().Select(source => (JsonNode)new JsonObject
+                            {
+                                ["sourceId"] = source!["id"]!.DeepClone(), ["version"] = source["version"]!.DeepClone(),
+                                ["kind"] = "interfaces", ["inputs"] = new JsonArray(), ["outputs"] = new JsonArray("message"),
+                                ["reason"] = "The original span declares this public greeting result.",
+                                ["evidence"] = new JsonArray(new JsonObject
+                                { ["sourceId"] = source["id"]!.DeepClone(), ["version"] = source["version"]!.DeepClone() })
+                            }).ToArray())
+                        }, ["evidenceRequests"] = null, ["clarifications"] = null
                     };
                     break;
                 case "construction_select":

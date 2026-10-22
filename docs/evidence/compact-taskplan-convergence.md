@@ -1,46 +1,51 @@
 # Compact TaskPlan convergence
 
 Business acceptance remains incomplete and PR #120 stays Draft. The latest
-Collections diagnostics stopped before execution. An earlier source passed both
+diagnostics stopped before execution. An earlier source passed both
 Collections runtime variants; Amazon and Review PR have not completed their
 independent business checks. The 18 alternating baseline/candidate runs against
 `56942f5` remain unstarted.
 
 ## Latest frozen diagnostics
 
-Source `bb5b726506754d8d4cfbbd01023d43e9003547f1` used the pinned
-`gpt-5.5-2026-04-24`, medium reasoning, 64 calls and four corrections. Navigation
-target/ceiling/output were 3k/12k/16,384; drafting 8k/16k/8,192; review 4k/8k/4,096.
-The [safe archive](compact-taskplan-bb5b726.json) retains exact run, request,
-receipt, closure, settings and validation identities.
+Source `bbd900d956735dc09bc6366c8bcc7fd00830f05a` used the pinned
+`gpt-5.5-2026-04-24`, medium reasoning, 64 calls and four corrections. Input
+targets/ceilings stayed 3k/12k for navigation, 8k/16k for drafting and 4k/8k for
+review. Profile A reserved 16,384/8,192/4,096 output tokens respectively.
+After its fully receipted draft exhaustion, separately frozen profile B changed
+only draft/correction output to 16,384. No issued request changed or was replayed.
 
-| Collections cohort | Calls / receipts | Verified input / output / reasoning tokens | Known cost | Unknown reservation | Outcome |
-| --- | ---: | ---: | ---: | ---: | --- |
-| `compactabb5b726` | 2 / 1 | 377 / 425 / 324 | €0.013005 | €0.490109 | Interrupted request 2; exact permanent abandonment applied |
-| `compactbbb5b726` | 2 / 2 | 1,911 / 16,999 / 16,896 | €0.461677 | €0 | Extraction exhausted output; no visible response |
+The [safe archive](compact-taskplan-bbd900d9.json) indexes exact freezes, detailed
+safe measurements, receipts by hash and published validation. All 42 calls have
+completion receipts; these diagnostics added no unknown-usage reservation.
 
-The interrupted request retains its full **€0.4901093041855505198613703012**
-reservation and unknown usage. Closure evidence
-`8fcc0cf1adb2ceb370870e7b99f34bbefd63985cd89cacbc13a9b350f64c8959` permanently
-forbids replay and continuation; it does not establish provider termination.
+| Profile / scenario | Calls | Corrections | Input / output / reasoning tokens | Planning seconds | Cost EUR | Outcome |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| A / Collections | 4 | 0 | 5,020 / 10,672 / 9,864 | 147.536 | 0.306816 | First draft exhausted output; no visible response |
+| B / Collections | 21 | 4 | 34,184 / 21,273 / 17,550 | 359.140 | 0.719017 | Four checkpoints; selection rejected and correction allowance exhausted |
+| B / Amazon | 2 | 0 | 2,217 / 17,691 / 17,408 | 248.658 | 0.481485 | Interface extraction exhausted output; no visible response |
+| B / Review PR | 15 | 4 | 41,068 / 13,829 / 8,607 | 237.857 | 0.551151 | Discovery reached; selection rejected and correction allowance exhausted |
 
-The b-cohort was a fresh independent run. Its second receipt records 1,534 input
-tokens, 16,384 reasoning/output tokens and zero visible content. Planning took
-288.039 seconds; completed-call stages totalled 285.984403 seconds. Complete
-original numeric-array input/output context was supplied. Output exhaustion does
-not prove its cause. Neither run accepted a checkpoint or produced an artifact;
-calls per independently accepted business obligation remain undefined. Amazon
-and Review PR were not started in these two cohorts.
+Profile A is cohort `compactabbd900d9`; profile B is `compactbbbd900d9`.
+None produced an approved artifact or executed. Checkpoints do not establish
+business acceptance; calls per independently accepted business obligation and
+runtime latency remain unavailable. Two responses exhausted output with no
+visible content. Their cause remains unproved. Readiness declares `medium`,
+`high` and `max`; `low` is unsupported and was not tested.
 
-All four requests fit the captured ceiling and their **21,089 bytes** reconcile
-with components. Complete-request p50/p95/maximum were 5,272 / 8,133 / 8,133 bytes;
-conservative input estimates were 2,013.5 / 2,967 / 2,967 tokens. Estimates are not
-billed usage; provider reasoning is included in output tokens.
+The four runs cost **€2.0584688527503776770638940727**, using 82,489 input and
+63,465 output tokens, including 53,429 reasoning tokens. Planning totalled
+993.191 seconds; completed model calls totalled 950.272154 seconds. All 42
+requests fit captured ceilings and **416,756 bytes** reconcile with components.
+Complete-request p50/p95/maximum were **9,219.5 / 20,300 / 25,946 bytes**;
+conservative input estimates were 3,329.5 / 7,023 / 8,905 tokens. Percentiles
+include all prepared requests; component estimates are not billed usage.
+These diagnostic profiles establish neither improved reliability nor an
+architecture-only comparison.
 
-The next correction restores type/default semantics removed from extraction
-guidance by schema compaction. This demonstrated presentation defect has no live
-convergence proof yet. Readiness declares `medium`, `high` and `max` reasoning
-support; `low` is unavailable and was not tested. Issued settings remain frozen.
+The earlier [bb5b726 archive](compact-taskplan-bb5b726.json) remains unchanged,
+including the interrupted Collections request, its exact permanent abandonment
+and full reservation, and the separately receipted extraction exhaustion.
 
 ## Earlier executed Collections result
 
@@ -62,36 +67,37 @@ of the new source.
 
 ## Campaign accounting
 
-The latest public-API audit verifies **1,158 requests / 1,147 receipts**. All eleven
+The latest public-API audit verifies **1,200 requests / 1,189 receipts**. All eleven
 receiptless identities have permanent closures; the journal separately counts ten
 unknown attempts. No reservation was released.
 
 | Ledger measurement | EUR |
 | --- | ---: |
 | Campaign ceiling | 240.0301038327063045424449473 |
-| Known spending | 34.492873011641340087087887666 |
+| Known spending | 36.551341864391717764151781738 |
 | Unknown-usage reservations | 4.0911623567048786990135963740 |
-| Spending/reservation upper bound | 38.584035368346218786101484040 |
-| Available allowance | 201.446068464360085756343463260 |
+| Spending/reservation upper bound | 40.642504221096596463165378112 |
+| Available allowance | 199.387599611609708079279569188 |
 
-Audit evidence: `3b359f2bad877846f15daa687c4d66029bb3f2fbeb9a1d80b7127c0f0084ef18`.
+Audit evidence: `ea7d6f21ba386b968f3740f753516088b95c3ecd5c6fce19e78889b6d809277c`.
 Separate lost historical exposure of €159.96989616729369545755505266 remains
-accounted inside the original €400 authorization. Further dispatch must recheck
-balance and readiness; these are snapshot values, not new allowances.
+accounted inside the original €400 authorization. Including that exposure, the
+cumulative spending/reservation upper bound is approximately **€200.612400**.
+Exact audited decimal strings are retained; independently summed run totals can
+differ from accumulated ledger totals at the last retained decimal places.
+Further dispatch must recheck balance and readiness; these are snapshot values,
+not new allowances.
 
 ## Validation and remaining acceptance
 
-Isolated `bb5b726` Native AOT planning and published encrypted-storage smoke checks
-passed on osx-arm64. Server publication excluded frontend builds, bundled tool
-publication and model metadata regeneration. This does not establish full-solution
-or independent package-build validation.
-
-[CI run 39836074523](https://github.com/GnouGo/GnouGo/actions/runs/39836074523)
-failed on two stale `QueuedPlanningSessionCompatibilityTests` expectations. The
-isolated original Planning suite reproduced 2,473 passes / two failures. The
-fixture-only fix `50d9a91d5c7e614b7935813e79dc89b4185b1775` passed all **2,475**
-Planning tests with warnings as errors. Exact revisions and logs are archived;
-this does not establish final-revision CI or business success.
+On isolated `bbd900d9`, independent Core, Planning, Integrations, Copilot and
+Persistence package builds passed with warnings as errors. Native AOT planning,
+trimmed published encrypted-storage smoke, Git MCP Native AOT publication and
+its published contract test also passed. Server publication excluded frontend
+builds and bundled-tool publication; existing documented warning policies were
+unchanged. The archive records exact binary/log hashes and validation boundaries.
+Full-solution and final-revision CI results remain pending; no green result or
+business success is inferred from these checks.
 
 Collections must pass again on the final candidate. Amazon requires complete
 observations, product identities, workbook contents and browser closure. Review
@@ -104,8 +110,10 @@ required for the delivered revision.
 
 ## Immutable evidence
 
-The [bb5b726 archive](compact-taskplan-bb5b726.json) indexes the latest failures,
-retention and validation. Earlier [efcb](compact-taskplan-efcb1d7a.json),
+The [bbd900d9 archive](compact-taskplan-bbd900d9.json) indexes the latest four
+receipted failures, phase measurements, accounting and published validation.
+The [bb5b726 archive](compact-taskplan-bb5b726.json) retains prior failures,
+permanent abandonment and validation. Earlier [efcb](compact-taskplan-efcb1d7a.json),
 [d488](compact-taskplan-d488720a.json), [29ffd](compact-taskplan-29ffd813.json),
 [3adc](compact-taskplan-3adc335.json), [4a43](compact-taskplan-4a43ea1.json),
 [8952](compact-taskplan-8952a0a.json), [743](compact-taskplan-743e4a3.json),
