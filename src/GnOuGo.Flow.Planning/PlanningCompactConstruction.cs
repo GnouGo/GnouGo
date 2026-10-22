@@ -714,9 +714,11 @@ internal static partial class PlanningCompactConstruction
         if (step.Prerequisites is null) return;
         if (!UsesDeferredBinding(state) || step.Prerequisites.Count > 4)
             PlanningConstruction.Fail("CONSTRUCTION_STEP_INVALID", "/step/prerequisites", "Retain at most four evidence-linked current prerequisites.");
-        var compact = State(state);
-        var sourceIds = step.RequirementIds.SelectMany(id => compact.RequirementSources.GetValueOrDefault(id) ?? [])
-            .Concat(compact.GlobalSourceIds).ToHashSet(StringComparer.Ordinal);
+        // Issued schemas bound new citations to displayed originals. Once a step
+        // is retained, its prerequisite may still cite an earlier declaration
+        // after that navigation page expires; citation grants no coverage or edits.
+        var available = PrerequisiteAddresses(state, state.Construction!.Requirements.Select(requirement => requirement.Id))
+            .ToHashSet(StringComparer.Ordinal);
         foreach (var prerequisite in step.Prerequisites)
         {
             if (string.IsNullOrWhiteSpace(prerequisite.Need) || prerequisite.Need.Length > 256 ||
@@ -724,12 +726,10 @@ internal static partial class PlanningCompactConstruction
                 PlanningConstruction.Fail("CONSTRUCTION_STEP_INVALID", "/step/prerequisites", "A prerequisite needs a bounded description and distinct original evidence addresses.");
             foreach (var address in prerequisite.EvidenceAddresses)
             {
-                var original = address.StartsWith("source:", StringComparison.Ordinal) && sourceIds.Contains(address[7..]) ||
-                    address.StartsWith("requirement:", StringComparison.Ordinal) && step.RequirementIds.Contains(address[12..], StringComparer.Ordinal);
                 var exactContract = address.StartsWith("schema:", StringComparison.Ordinal) || address.StartsWith("description:", StringComparison.Ordinal) ||
                     address.StartsWith("contract:", StringComparison.Ordinal);
-                if (address.Length > 2048 || !original && (!exactContract || state.Construction!.Evidence?.ContainsKey(address) != true))
-                    PlanningConstruction.Fail("CONSTRUCTION_STEP_INVALID", "/step/prerequisites", "Link each prerequisite to a selected original clause or retained exact contract evidence; future task references are not prerequisites.");
+                if (!available.Contains(address))
+                    PlanningConstruction.Fail("CONSTRUCTION_STEP_INVALID", "/step/prerequisites", "Link each prerequisite to a retained original clause or exact contract evidence; citations do not expand requirement coverage or authorize future task references.");
                 if (exactContract)
                 {
                     var retained = state.Construction!.Evidence![address];

@@ -26,6 +26,10 @@ internal static partial class PlanningCompactConstruction
         // context. Contract addresses come only from host-owned view navigation.
         foreach (var address in PrerequisiteAddresses(state, State(state).CurrentStep!.RequirementIds))
             if (address.StartsWith("requirement:", StringComparison.Ordinal) || address.StartsWith("source:", StringComparison.Ordinal)) addresses.Add(address);
+        var citations = State(state).CurrentStep!.Prerequisites?.SelectMany(note => note.EvidenceAddresses) ?? [];
+        foreach (var address in citations.Intersect(PrerequisiteAddresses(state,
+                     state.Construction!.Requirements.Select(requirement => requirement.Id)), StringComparer.Ordinal))
+            if (address.StartsWith("requirement:", StringComparison.Ordinal) || address.StartsWith("source:", StringComparison.Ordinal)) addresses.Add(address);
         foreach (var name in new[] { "scopeEvidence", "interfacesDirectory", "reusableInterfaces", "taskEvidence", "scopeInterface", "operations", "rebuild" })
             if (context[name] is JsonValue) Address(context[name]); else Navigation(context[name]);
         foreach (var item in state.Construction!.Evidence ?? []) Navigation(item.Value);

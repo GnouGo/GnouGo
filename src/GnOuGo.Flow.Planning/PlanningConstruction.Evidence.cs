@@ -82,7 +82,8 @@ internal static partial class PlanningConstruction
 
     private static void ClearResolvedEvidenceDiagnostics(PlanningSession state) => state.Diagnostics.RemoveAll(d =>
         (d.Location == "/evidenceRequests" || d.Location.StartsWith("/evidenceRequests/", StringComparison.Ordinal)) &&
-        d.Code is "CONSTRUCTION_EVIDENCE_UNKNOWN" or "CONSTRUCTION_EVIDENCE_INVALID" or "CONSTRUCTION_EVIDENCE_LIMIT");
+        (d.Code is "CONSTRUCTION_EVIDENCE_UNKNOWN" or "CONSTRUCTION_EVIDENCE_INVALID" or "CONSTRUCTION_EVIDENCE_LIMIT" ||
+         PlanningCompactConstruction.UsesDeferredBinding(state) && d.Code == "PLANNING_RESPONSE_INVALID"));
 
     internal static void AdmitEvidenceFollowup(PlanningSession state, LLMRequest request, string purpose)
     {

@@ -82,6 +82,75 @@ public sealed class CompactDeferredBindingTests
         Assert.Empty(state.Construction.Checkpoints);
     }
 
+    [Fact]
+    public async Task CallerDeclarationPrerequisitesSurviveSelectionAndBindingWithoutExpandingBusinessCoverage()
+    {
+        const string declaration = "Accept required numeric caller input sourceValue. ";
+        const string work = "Produce the requested result from sourceValue.";
+        const string declarationSource = "source:request:0:clause:0";
+        var state = new PlanningSession { Request = new() { TenantId = "test", Prompt = declaration + work } };
+        PlanningSessionCreation.Capture(state);
+        PlanningCompactConstruction.InitializeSources(state);
+        var compact = state.Construction!.Compact!;
+        compact.Sources[0].Indexed = true;
+        foreach (var (text, index) in new[] { declaration, work }.Select((text, index) => (text, index)))
+        {
+            var source = "request:0:clause:" + index;
+            compact.Sources.Add(new() { Id = source, Version = PlanningGraphCompiler.Fingerprint(text), Text = text,
+                Kind = "requirement", InterfaceKind = "none", Indexed = true });
+            compact.RequirementSources["req_" + index] = [source];
+        }
+        var input = new TaskInput { Name = "sourceValue", Type = new() { Kind = "number" } };
+        state.Requirements = new() { Summary = declaration + work, Inputs = [input], Outputs = [],
+            Outcomes = [new("req_0", declaration) { Commitments = [] }, new("req_1", work) { Commitments = [] }] };
+        state.Construction.Requirements = [new() { Id = "req_0", Status = "closed" }, new() { Id = "req_1" }];
+        state.Plan = new() { Inputs = [input] }; state.Catalog = new(); state.IntentVersion = 3;
+        var baseline = PlanningConstruction.Hash(state.Plan);
+        // A bounded original page exposes the earlier declaration beside the
+        // current obligation. Selection consumes this navigation page afterward.
+        PlanningConstruction.LoadEvidence(state, ["page:requirements:0"]);
+        var runtime = new TestRuntime { Respond = (request, _) =>
+        {
+            var response = Select(state, null);
+            response["step"]!["requirementIds"] = new JsonArray("req_1");
+            response["step"]!["objective"] = work;
+            response["step"]!["inputs"] = new JsonArray(new JsonObject { ["kind"] = "input", ["source"] = "sourceValue" });
+            response["step"]!["prerequisites"] = new JsonArray(new JsonObject
+                { ["need"] = "Use the declared caller input.", ["evidenceAddresses"] = new JsonArray("requirement:req_0", declarationSource) });
+            var wire = Wire(request, response);
+            Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(wire.Json!, request.StructuredOutputSchema!));
+            return wire;
+        } };
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        Assert.Equal(["req_1"], state.Construction!.Compact!.CurrentStep!.RequirementIds);
+        Assert.Null(state.Construction.Evidence);
+        Assert.Equal("req_1", Assert.Single(PlanningCompactConstruction.SelectionContext(state)["requirements"]!.AsArray())!["id"]!.ToString());
+        var discovery = PlanningCompactConstruction.DiscoveryContext(state);
+        Assert.Equal(new[] { "requirement:req_0", declarationSource }, discovery["step"]!["prerequisites"]![0]!["evidenceAddresses"]!.AsArray().Select(address => address!.ToString()));
+        runtime.Respond = (request, _) => Wire(request, Binding("value"));
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        var selected = state.Construction!.Compact!.CurrentStep!;
+        Assert.True(selected.DiscoveryComplete);
+        Assert.Equal("value", selected.Kind);
+        Assert.Equal(["req_1"], selected.RequirementIds);
+        Assert.Empty(selected.CloseRequirementIds);
+        Assert.Equal("closed", state.Construction.Requirements[0].Status);
+        Assert.Equal(0, state.ReplanAttempts);
+        var draft = PlanningConstruction.DraftRequest(state, repair: false);
+        foreach (var address in new[] { "requirement:req_0", declarationSource })
+            Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(Wire(draft, new JsonObject
+                { ["baseHash"] = baseline, ["evidenceRequests"] = new JsonArray(address) }).Json!, draft.StructuredOutputSchema!));
+        PlanningConstruction.LoadEvidence(state, [declarationSource],
+            followup: current => PlanningConstruction.DraftRequest(current, repair: false), purpose: PlanningConstruction.DraftPurpose);
+        Assert.Equal(declaration, state.Construction.Evidence![declarationSource]!["text"]!.ToString());
+        Assert.Equal(baseline, PlanningConstruction.Hash(state.Plan));
+        Assert.Empty(state.Construction.Checkpoints);
+        selected.CloseRequirementIds = ["req_0"];
+        Assert.Throws<PlanningResponseException>(() => PlanningCompactConstruction.ValidateSelection(state, selected));
+    }
+
     [Theory]
     [InlineData("description:read@v1:0", "value")]
     [InlineData("description:read@v1:0", "operation")]

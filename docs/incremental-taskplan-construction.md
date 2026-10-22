@@ -115,6 +115,8 @@ directories and required-sibling omission links. Original contract data is never
 interpreted as navigation authority. Selection separates call targets from other
 kinds and restricts prerequisite citations to original clauses or retained exact
 contracts; task/group inspection links do not establish prerequisite authority.
+A prerequisite may cite another requirement's declaration without claiming its
+coverage or closure. Its exact retrieval link remains available after selection.
 Historical presentations and already issued requests keep their original schemas.
 
 Context includes the relevant original clauses and global constraints, exact

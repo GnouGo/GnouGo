@@ -61,7 +61,7 @@ public sealed class ConstructionCorrectionAccountingTests
         Assert.Null(state.Construction.Evidence);
         Assert.Empty(state.Construction.Checkpoints);
         Assert.Null(state.PendingCall);
-        Assert.Contains(state.Diagnostics, d => d.Code == "CONSTRUCTION_EVIDENCE_UNKNOWN");
+        Assert.Contains(state.Diagnostics, d => d.Code == (draft ? "PLANNING_RESPONSE_INVALID" : "CONSTRUCTION_EVIDENCE_UNKNOWN"));
     }
 
     [Theory]
@@ -239,6 +239,7 @@ public sealed class ConstructionCorrectionAccountingTests
         var (state, runtime) = await Ready(draft: true);
         var candidate = DiagnoseCandidate(state, typed);
         var finding = Assert.Single(candidate.Diagnostics);
+        var evidenceCode = typed ? "CONSTRUCTION_EVIDENCE_UNKNOWN" : "PLANNING_RESPONSE_INVALID";
         var accepted = PlanningConstruction.Hash(state.Plan);
         var hash = candidate.Hash;
         runtime.Respond = (request, purpose) =>
@@ -253,7 +254,7 @@ public sealed class ConstructionCorrectionAccountingTests
         Assert.Null(state.Construction!.Evidence);
         Assert.Empty(state.Construction.EvidenceRequests);
         Assert.Equal(finding, Assert.Single(state.Construction.Candidate!.Diagnostics));
-        Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Code == "CONSTRUCTION_EVIDENCE_UNKNOWN");
+        Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Code == evidenceCode);
         var calls = state.ModelCalls;
         runtime.Respond = (request, purpose) =>
         {
@@ -261,9 +262,9 @@ public sealed class ConstructionCorrectionAccountingTests
             var diagnostics = Context(request)["diagnostics"]!.AsArray();
             Assert.Equal(2, diagnostics.Count);
             Assert.Single(diagnostics, diagnostic => diagnostic!["code"]!.ToString() == finding.Code);
-            var rejected = Assert.Single(diagnostics, diagnostic => diagnostic!["code"]!.ToString() == "CONSTRUCTION_EVIDENCE_UNKNOWN")!;
+            var rejected = Assert.Single(diagnostics, diagnostic => diagnostic!["code"]!.ToString() == evidenceCode)!;
             Assert.Contains("requirement:missing", rejected["message"]!.ToString(), StringComparison.Ordinal);
-            Assert.Equal("/evidenceRequests", Assert.Single(rejected["locations"]!.AsArray())!.ToString());
+            Assert.Equal(typed ? "/evidenceRequests" : "/evidenceRequests/1", Assert.Single(rejected["locations"]!.AsArray())!.ToString());
             return Evidence(request, "requirement:req_0");
         };
         state = await Advance(state, runtime);
@@ -272,7 +273,7 @@ public sealed class ConstructionCorrectionAccountingTests
         Assert.Equal(hash, state.Construction!.Candidate!.Hash);
         Assert.Equal(accepted, PlanningConstruction.Hash(state.Plan));
         Assert.NotNull(state.Construction.Evidence!["requirement:req_0"]);
-        Assert.DoesNotContain(state.Diagnostics, diagnostic => diagnostic.Code == "CONSTRUCTION_EVIDENCE_UNKNOWN");
+        Assert.DoesNotContain(state.Diagnostics, diagnostic => diagnostic.Code == evidenceCode);
         Assert.Equal(finding, Assert.Single(state.Construction.Candidate.Diagnostics));
         Assert.Equal(finding.Code, Assert.Single(PlanningCompactConstruction.Context(state)["diagnostics"]!.AsArray())!["code"]!.ToString());
         Assert.Empty(state.Construction.Checkpoints);
