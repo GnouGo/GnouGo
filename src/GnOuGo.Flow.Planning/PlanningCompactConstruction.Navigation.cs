@@ -14,6 +14,20 @@ internal static partial class PlanningCompactConstruction
         return value;
     }
 
+    private static JsonObject TaskNavigation(PlanningSession state, PlanTask task, string scope)
+    {
+        var description = NavigationDescription(task.Objective);
+        var entry = new JsonObject { ["task"] = task.Id, ["scope"] = scope, ["kind"] = task.Kind,
+            ["objective"] = description, ["objectiveComplete"] = description == task.Objective,
+            ["objectiveEvidence"] = description == task.Objective ? null : TaskObjectiveAddress(task, 0) };
+        if (State(state).PresentationVersion == 2 && PlanningConstructionPhasePolicies.IsFresh(state.Request))
+        {
+            if (task.Kind == "call" && task.Group is not null) entry["group"] = task.Group;
+            if (task.Kind == "operation" && task.Operation is not null) entry["operation"] = task.Operation;
+        }
+        return entry;
+    }
+
     private static HashSet<string> EvidenceRequirementIds(PlanningSession state)
     {
         var ids = new HashSet<string>(StringComparer.Ordinal);

@@ -254,24 +254,25 @@ internal static partial class PlanningCompactConstruction
             // Host admission enforces the captured cumulative call allowance.
             context.Remove("baseHash");
             context.Remove("budget");
-            // An incomplete objective prefix is only navigation prose. Its exact
-            // versioned original remains retrievable without repeating both.
-            foreach (var item in (context["interfaces"] as JsonArray ?? []).OfType<JsonObject>())
-                if (item["objectiveComplete"]?.GetValue<bool>() == false && item["objectiveEvidence"] is JsonValue)
-                    item.Remove("objective");
+            // Keep the bounded meaning of accepted work alongside its exact
+            // retrieval link. Historical presentation retains its issued shape.
+            if (!PlanningConstructionPhasePolicies.IsFresh(state.Request))
+                foreach (var item in (context["interfaces"] as JsonArray ?? []).OfType<JsonObject>())
+                    if (item["objectiveComplete"]?.GetValue<bool>() == false && item["objectiveEvidence"] is JsonValue)
+                        item.Remove("objective");
         }
         if (compact.PresentationVersion == 2 && state.Construction.Evidence is { Count: > 0 })
         {
-            // Requested originals take precedence over repeated navigation prose.
-            // Keep scope/import identities, ports and exact retrieval addresses;
-            // never shorten the evidence or authoritative requirement clauses.
+            // Preserve requested originals and useful bounded navigation together.
+            // Historical presentation keeps its earlier suppression of excerpts.
             foreach (var directory in new[] { "scopes", "interfaces" })
                 foreach (var item in (context[directory] as JsonArray ?? []).OfType<JsonObject>())
                 {
                     if (directory == "scopes" && item["owner"]?.ToString() is { } owner &&
                         new TaskPlanSymbols(state.Plan!).Tasks.TryGetValue(owner, out var site))
                         item["objectiveEvidence"] = TaskObjectiveAddress(site.Task, 0);
-                    item.Remove("objective"); item.Remove("objectiveComplete");
+                    if (!PlanningConstructionPhasePolicies.IsFresh(state.Request))
+                    { item.Remove("objective"); item.Remove("objectiveComplete"); }
                     item.Remove("question"); item.Remove("questionComplete");
                 }
         }
@@ -345,27 +346,9 @@ internal static partial class PlanningCompactConstruction
             .Concat(draft?.Extension.Choices.Select(c => c.Id) ?? []).ToHashSet(StringComparer.Ordinal);
         if (choiceIds.Count > 0)
             context["choices"] = PlanningConstruction.Node(((draft?.Plan ?? state.Plan)?.Choices ?? []).Where(c => choiceIds.Contains(c.Id)).ToList(), PlanningJsonContext.Default.ListPlanningChoice);
+        AddTaskEvidence(state, context, review);
         if (review && draft is not null)
         {
-            if (compact.PresentationVersion == 2 && state.Plan is not null)
-            {
-                var accepted = new TaskPlanSymbols(state.Plan);
-                var producers = draft.ImportedTaskIds.Where(accepted.Tasks.ContainsKey).Distinct(StringComparer.Ordinal).ToArray();
-                if (producers.Length > 0)
-                    context["taskEvidence"] = new JsonObject
-                    {
-                        ["count"] = producers.Length,
-                        ["items"] = new JsonArray(producers.Take(8).Select(id =>
-                        {
-                            var scopes = accepted.Scopes.Where(scope => scope.Owner?.Id == id).ToArray();
-                            return (JsonNode)new JsonObject
-                            {
-                                ["address"] = "task:" + id, ["scopeCount"] = scopes.Length,
-                                ["scopes"] = new JsonArray(scopes.Take(4).Select(scope => (JsonNode?)JsonValue.Create("scope:" + scope.Path)).ToArray())
-                            };
-                        }).ToArray())
-                    };
-            }
             context["constructionStage"] = new JsonObject
             {
                 ["openedScopeCount"] = draft.OpenScopes.Except(construction.OpenScopes, StringComparer.Ordinal).Count(),
@@ -485,6 +468,8 @@ internal static partial class PlanningCompactConstruction
                 ["inputs"] = explicitBoundaries || group is null ? null : new JsonArray(group.Inputs.Take(8).Select(i => (JsonNode)new JsonObject
                     { ["input"] = i.Name, ["typeKind"] = i.Type.Kind, ["evidence"] = "group:" + group.Id }).ToArray()),
                 ["evidence"] = group is null ? "scope:" + s.Path : "group:" + group.Id });
+                if (explicitBoundaries && PlanningConstructionPhasePolicies.IsFresh(state.Request) && s.Owner is { } owner && description != objective)
+                    entry["objectiveEvidence"] = TaskObjectiveAddress(owner, 0);
                 if (explicitBoundaries && group is not null)
                 {
                     // An empty parameter list is a meaningful isolated boundary,
@@ -531,13 +516,13 @@ internal static partial class PlanningCompactConstruction
             var task = site.Task;
             var open = symbols.Scopes.Any(s => s.Owner?.Id == task.Id && state.Construction!.OpenScopes.Contains(s.Path, StringComparer.Ordinal));
             if (open) continue;
-            var description = NavigationDescription(task.Objective);
             var ports = NavigationPorts(state, task).ToArray();
-            result.Add((JsonNode)TrimNavigation(new JsonObject { ["task"] = task.Id, ["scope"] = site.Scope.Path, ["kind"] = task.Kind,
-                ["objective"] = description, ["objectiveComplete"] = description == task.Objective,
-                ["objectiveEvidence"] = description == task.Objective ? null : TaskObjectiveAddress(task, 0),
-                ["ports"] = new JsonArray(ports.Take(8).Select(p => (JsonNode?)JsonValue.Create(p)).ToArray()), ["portCount"] = ports.Length,
-                ["nextPorts"] = ports.Length > 8 ? TaskPortsAddress(task.Id, ports, 8) : null, ["evidence"] = "task:" + task.Id }));
+            var entry = TaskNavigation(state, task, site.Scope.Path);
+            entry["ports"] = new JsonArray(ports.Take(8).Select(p => (JsonNode?)JsonValue.Create(p)).ToArray());
+            entry["portCount"] = ports.Length;
+            entry["nextPorts"] = ports.Length > 8 ? TaskPortsAddress(task.Id, ports, 8) : null;
+            entry["evidence"] = "task:" + task.Id;
+            result.Add((JsonNode)TrimNavigation(entry));
         }
         foreach (var input in plan.Inputs.Skip(offset).Take(8))
             result.Add((JsonNode)InputDirectoryEntry(state, input));

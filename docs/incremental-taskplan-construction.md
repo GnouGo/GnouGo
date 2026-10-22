@@ -92,6 +92,14 @@ ports, scopes, requirements and source pages to their content. Advancing a curso
 does not satisfy a requirement. Accepted source coverage and reviewed checkpoints
 can establish progress even when the TaskPlan hash is unchanged; diagnostics,
 attempt counts and budgets cannot. Historical rejection identities remain enforced.
+Fresh selection keeps bounded original objective prefixes and exact call/operation
+identities so accepted work remains recognizable. Generation and scoped reviews
+reuse task-evidence navigation for imported producers and up to four recent accepted
+siblings in the selected scope, within the existing eight-item bound. Normal and
+cleanup placement remain explicit; omitted work has counts and retrieval links.
+These hints neither prove duplicated behavior nor grant edit authority. Findings
+about exact bindings require the original task evidence. Unrelated scopes and
+candidate tasks do not become accepted siblings; historical issued requests stay exact.
 Fresh requirement evidence pages keep up to eight adjacent clauses from one
 original source page together within the existing escaped-text bound. Whole
 requirements retain their exact text, source identities and separate completion

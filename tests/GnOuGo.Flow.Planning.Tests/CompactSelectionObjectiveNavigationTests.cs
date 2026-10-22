@@ -8,12 +8,18 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class CompactSelectionObjectiveNavigationTests
 {
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task IncompleteNavigationRetainsExactObjectiveAndEveryPort(bool historical)
+    [InlineData("fresh")]
+    [InlineData("historical")]
+    [InlineData("retainedCompact")]
+    public async Task IncompleteNavigationRetainsExactObjectiveAndEveryPort(string profile)
     {
         var state = await Ready();
-        if (historical) state.Construction!.Compact!.PresentationVersion = null;
+        if (profile == "historical") state.Construction!.Compact!.PresentationVersion = null;
+        if (profile == "retainedCompact")
+        {
+            state.Request.Options["construction_limits"]!.AsObject().Remove("phasePolicy");
+            state.Construction!.Limits.PhasePolicy = null;
+        }
         var original = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
         var directory = PlanningCompactConstruction.InterfaceDirectory(state, null, 0);
         var context = PlanningCompactConstruction.SelectionContext(state);
@@ -21,8 +27,8 @@ public sealed class CompactSelectionObjectiveNavigationTests
         var entry = interfaces.OfType<JsonObject>().Single(item => item["task"]?.ToString() == "first");
         var prior = directory.OfType<JsonObject>().Single(item => item["task"]?.ToString() == "first");
         Assert.False(entry["objectiveComplete"]!.GetValue<bool>());
-        Assert.Equal(historical, entry.ContainsKey("objective"));
-        Assert.Equal(historical ? prior["objective"]!.ToString() : null, entry["objective"]?.ToString());
+        Assert.Equal(profile != "retainedCompact", entry.ContainsKey("objective"));
+        Assert.Equal(profile != "retainedCompact" ? prior["objective"]!.ToString() : null, entry["objective"]?.ToString());
         foreach (var field in prior.Where(field => field.Key != "objective"))
             Assert.True(JsonNode.DeepEquals(field.Value, entry[field.Key]), field.Key);
         Assert.Equal(10, entry["portCount"]!.GetValue<int>());
@@ -39,6 +45,10 @@ public sealed class CompactSelectionObjectiveNavigationTests
         var evidence = Assert.IsType<JsonObject>(state.Construction!.Evidence);
         Assert.Equal(state.Plan.Root.Tasks[0].Objective, evidence[address]!["text"]!.ToString());
         Assert.Null(evidence[address]!["next"]);
+        var supplied = PlanningCompactConstruction.SelectionContext(state)["interfaces"]!.AsArray()
+            .OfType<JsonObject>().Single(item => item["task"]?.ToString() == "first");
+        Assert.Equal(profile != "retainedCompact" ? prior["objective"]!.ToString() : null, supplied["objective"]?.ToString());
+        Assert.Equal(address, supplied["objectiveEvidence"]!.ToString());
         var stale = PlannerFixture.Clone(state);
         stale.Construction!.EvidenceRequests.Clear();
         stale.Plan!.Root.Tasks[0].Objective += " Changed original.";
@@ -49,12 +59,13 @@ public sealed class CompactSelectionObjectiveNavigationTests
     }
 
     [Fact]
-    public async Task CompleteSelectionRequestOmitsOnlyIncompleteNavigationPrefixes()
+    public async Task CompleteSelectionRequestRetainsBoundedMeaningAndExactRetrievalLinks()
     {
         var state = await Ready();
         var context = PlanningCompactConstruction.SelectionContext(state);
         var previous = context.DeepClone().AsObject();
-        previous["interfaces"] = PlanningCompactConstruction.InterfaceDirectory(state, null, 0);
+        foreach (var item in previous["interfaces"]!.AsArray().OfType<JsonObject>())
+            if (item["objectiveComplete"]?.GetValue<bool>() == false) item.Remove("objective");
         var schema = PlanningCompactConstruction.SelectionSchema(state);
         var current = PlanningRequestMeasurements.Measure(Request(state, context, schema),
             PlanningCompactConstruction.SelectPurpose, 3000);
@@ -62,26 +73,29 @@ public sealed class CompactSelectionObjectiveNavigationTests
             PlanningCompactConstruction.SelectPurpose, 3000);
         Assert.Equal(old.SchemaHash, current.SchemaHash);
         Assert.Equal(old.BaselineHash, current.BaselineHash);
-        Assert.True(current.CompleteRequestBytes < old.CompleteRequestBytes - 400);
-        Assert.InRange(current.EstimatedInputTokens, 1, 3000);
+        Assert.True(current.CompleteRequestBytes > old.CompleteRequestBytes);
+        Assert.InRange(current.EstimatedInputTokens, 1,
+            PlanningConstructionPhasePolicies.Resolve(state.Request, PlanningCompactConstruction.SelectPurpose).MaxInputTokens);
         Assert.Equal(current.CompleteRequestBytes, current.Components.Sum(component => component.SerializedBytes));
         foreach (var field in previous.Where(field => field.Key != "interfaces"))
             Assert.True(JsonNode.DeepEquals(field.Value, context[field.Key]), field.Key);
-        var before = previous["interfaces"]!.AsArray();
-        var after = context["interfaces"]!.AsArray();
-        Assert.Equal(before.Count, after.Count);
-        for (var index = 0; index < before.Count; index++)
-            foreach (var field in before[index]!.AsObject())
-                if (field.Key != "objective" || before[index]!["objectiveComplete"]?.GetValue<bool>() != false)
-                    Assert.True(JsonNode.DeepEquals(field.Value, after[index]![field.Key]), field.Key);
+        var after = context["interfaces"]!.AsArray().OfType<JsonObject>().Where(item => item["task"] is not null).ToArray();
+        Assert.All(after, item =>
+        {
+            var excerpt = item["objective"]!.ToString();
+            Assert.InRange(JsonEncodedText.Encode(JsonEncodedText.Encode(excerpt).ToString()).EncodedUtf8Bytes.Length, 1, 192);
+            Assert.StartsWith(excerpt, state.Plan!.Root.Tasks.Single(task => task.Id == item["task"]!.ToString()).Objective, StringComparison.Ordinal);
+            if (item["objectiveComplete"]?.GetValue<bool>() == false) Assert.NotNull(item["objectiveEvidence"]);
+        });
     }
 
     [Fact]
-    public async Task SavedSelectionWithIncompletePrefixesResumesExactIssuedBytesAndAccounting()
+    public async Task SavedSelectionWithoutNavigationPrefixesResumesExactIssuedBytesAndAccounting()
     {
         var state = await Ready();
         var context = PlanningCompactConstruction.SelectionContext(state);
-        context["interfaces"] = PlanningCompactConstruction.InterfaceDirectory(state, null, 0);
+        foreach (var item in context["interfaces"]!.AsArray().OfType<JsonObject>())
+            if (item["objectiveComplete"]?.GetValue<bool>() == false) item.Remove("objective");
         var request = Request(state, context, PlanningCompactConstruction.SelectionSchema(state));
         state.ModelCalls++;
         state.PendingCall = new() { Id = request.ClientRequestId!, Purpose = PlanningCompactConstruction.SelectPurpose, Request = request };
