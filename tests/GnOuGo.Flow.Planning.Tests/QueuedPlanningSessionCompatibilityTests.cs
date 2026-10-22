@@ -41,8 +41,8 @@ public sealed class QueuedPlanningSessionCompatibilityTests
         Assert.Equal(PlanningStatus.FinalReview, state.Status);
         Assert.True(state.Construction!.Complete);
         Assert.Equal(2, state.Construction.Version);
-        Assert.Equal(2, state.Construction.Compact!.PresentationVersion);
-        Assert.Equal("2", state.Request.Options["construction_presentation_version"]!.ToString());
+        Assert.Equal(3, state.Construction.Compact!.PresentationVersion);
+        Assert.Equal("3", state.Request.Options["construction_presentation_version"]!.ToString());
         Assert.Single(state.Construction.Checkpoints);
         Assert.Equal("1", state.Request.Options["planning_diagnostics_version"]!.ToString());
         Assert.Equal("2", state.Request.Options["planning_input_review_version"]!.ToString());
@@ -60,8 +60,8 @@ public sealed class QueuedPlanningSessionCompatibilityTests
         state = await PlannerFixture.RunAsync(IncrementalRuntime(), state);
         Assert.Equal(PlanningStatus.FinalReview, state.Status);
         Assert.True(state.Construction!.Complete);
-        Assert.Equal(2, state.Construction.Compact!.PresentationVersion);
-        Assert.Equal("2", state.Request.Options["construction_presentation_version"]!.ToString());
+        Assert.Equal(3, state.Construction.Compact!.PresentationVersion);
+        Assert.Equal("3", state.Request.Options["construction_presentation_version"]!.ToString());
         Assert.Equal("compact-bindings-v10", state.Request.Options["compilation_profile"]!.ToString());
         Assert.Equal("1", state.Request.Options["planning_input_review_version"]!.ToString());
         Assert.Equal("1", state.Request.Options["business_judge_review_version"]!.ToString());
@@ -82,7 +82,19 @@ public sealed class QueuedPlanningSessionCompatibilityTests
                         ["clauses"] = new JsonArray(new JsonObject { ["text"] = context["sources"]![0]!["text"]!.DeepClone(),
                             ["kind"] = "requirement", ["interfaces"] = "output" }) }
                     : new() { ["sourceId"] = request.StructuredOutputSchema["properties"]!["sourceId"]!["enum"]![0]!.DeepClone(),
-                        ["inputs"] = new JsonArray(), ["outputs"] = JsonSerializer.SerializeToNode(runtime.Proposal.Requirements!.Outputs, PlanningJsonContext.Default.ListTaskInput) };
+                        ["interfaces"] = new JsonObject
+                        {
+                            ["inputs"] = new JsonArray(),
+                            ["outputs"] = JsonSerializer.SerializeToNode(runtime.Proposal.Requirements!.Outputs, PlanningJsonContext.Default.ListTaskInput),
+                            ["dispositions"] = new JsonArray(context["sources"]!.AsArray().Select(source => (JsonNode)new JsonObject
+                            {
+                                ["sourceId"] = source!["id"]!.DeepClone(), ["version"] = source["version"]!.DeepClone(),
+                                ["kind"] = "interfaces", ["inputs"] = new JsonArray(), ["outputs"] = new JsonArray("message"),
+                                ["reason"] = "The original request asks for this greeting result.",
+                                ["evidence"] = new JsonArray(new JsonObject
+                                { ["sourceId"] = source["id"]!.DeepClone(), ["version"] = source["version"]!.DeepClone() })
+                            }).ToArray())
+                        }, ["evidenceRequests"] = null, ["clarifications"] = null };
             else if (purpose == PlanningCompactConstruction.SelectPurpose)
                 response = new() { ["baseHash"] = request.StructuredOutputSchema!["properties"]!["baseHash"]!["enum"]![0]!.DeepClone(), ["step"] = new JsonObject
                     { ["scope"] = "/root", ["kind"] = "value", ["objective"] = "Return the greeting.",
