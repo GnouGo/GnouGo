@@ -355,6 +355,13 @@ All other action fields are null. Residual execution uncertainty in a completed
 review differs from an unfinished business review. A finding must cite an
 applicable original obligation and concrete implementation evidence; navigation
 or a preflight status alone cannot substantiate a correction.
+Fresh reports count an exact concrete finding location as its implementation
+citation, so one original-obligation evidence pointer can suffice. The existing
+grounding predicate and local correction boundary still apply. The issued schema
+captures this with `evidence.minItems: 1`; retained revision-4 schemas with
+`minItems: 2` keep their evidence-only grounding. Fresh explanations and per-finding
+uncertainty are bounded to 512 and 256 characters respectively, without increasing
+the captured review output reservation.
 
 A valid inconclusive response may receive one reassessment for the same semantic
 candidate and completion claim, shared across local and intermediate review.

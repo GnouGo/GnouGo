@@ -9,6 +9,103 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class CompactVerifiedJudgeTests
 {
     [Theory]
+    [InlineData("/draft/tasks/0", "/requirements/0", true)]
+    [InlineData("/requirements/0", "/constructionStage", false)]
+    [InlineData("/draft/tasks/0", "/constructionStage", false)]
+    [InlineData("/draft/tasks/1", "/requirements/0", false)]
+    [InlineData("/draft/tasks/0/outputs/0", "/requirements/0", false)]
+    public async Task ConcreteIssuedLocationAvoidsDuplicateCitationWithoutWeakeningGrounding(string location, string evidence, bool supported)
+    {
+        var state = await TaskState();
+        var accepted = JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan);
+        var runtime = new TestRuntime { Respond = (request, _) =>
+        {
+            Assert.Equal(1, FindingProperties(request.StructuredOutputSchema!.AsObject())["evidence"]!["minItems"]!.GetValue<int>());
+            return Response(findings: new JsonArray(Finding(location, evidence)));
+        } };
+        state = await Advance(state, runtime);
+        Assert.Equal(accepted, JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan));
+        Assert.Empty(state.Construction!.Checkpoints);
+        Assert.Equal(1, state.ModelCalls);
+        Assert.Equal(0, state.ReplanAttempts);
+        Assert.Equal(supported ? PlanningStatus.Generating : PlanningStatus.Stopped, state.Status);
+        var diagnostic = Assert.Single(state.Diagnostics);
+        Assert.Equal(supported ? "CONSTRUCTION_BUSINESS_REVIEW" : "CONSTRUCTION_REVIEW_INCONCLUSIVE", diagnostic.Code);
+        Assert.Equal(supported, state.Construction.Candidate!.Diagnostics.Count > 0);
+        if (supported) Assert.Equal("/tasks/use_label", diagnostic.Location);
+    }
+
+    [Theory]
+    [InlineData(3, 256, 128)]
+    [InlineData(4, 512, 256)]
+    public async Task FindingTextBoundsChangeOnlyForFreshVerifiedReviewsWithoutIncreasingOutputReservation(int presentation, int explanationLimit, int uncertaintyLimit)
+    {
+        var state = await TaskState();
+        state.Construction!.Compact!.PresentationVersion = presentation;
+        state.Request.Options["construction_presentation_version"] = presentation;
+        var (_, review) = HybridWorkflowPlanner.CreateConstructionReviewRequest(state, intermediate: false);
+        var schema = review.StructuredOutputSchema!.AsObject();
+        var properties = FindingProperties(schema);
+        Assert.Equal(1, properties["evidence"]!["minItems"]!.GetValue<int>());
+        Assert.Equal(explanationLimit, properties["explanation"]!["maxLength"]!.GetValue<int>());
+        Assert.Equal(uncertaintyLimit, properties["uncertainty"]!["maxLength"]!.GetValue<int>());
+        Assert.Equal(presentation == 4, schema["properties"]!["inconclusive"] is not null);
+        var finding = Finding("/draft/tasks/0", "/requirements/0");
+        finding["explanation"] = new string('x', explanationLimit);
+        finding["uncertainty"] = new string('u', uncertaintyLimit);
+        var response = Response(findings: new JsonArray(finding)).Json!.AsObject();
+        if (presentation == 3) response.Remove("inconclusive");
+        Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(response, schema));
+        finding["explanation"] = new string('x', explanationLimit + 1);
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstanceFindings(response, schema));
+        finding["explanation"] = new string('x', explanationLimit);
+        finding["uncertainty"] = new string('u', uncertaintyLimit + 1);
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstanceFindings(response, schema));
+        var issued = PlanningModelCalls.PrepareRequest(state, PlanningConstruction.LocalPurpose, review.Prompt, schema);
+        Assert.Equal(2048, issued.MaxTokens);
+        Assert.Equal(PlanningModelCalls.ConstructionOutputLimit(state, PlanningConstruction.LocalPurpose), issued.MaxTokens);
+    }
+
+    [Fact]
+    public async Task RetainedVerifiedTwoCitationRequestKeepsItsOriginalGroundingAndExactBytes()
+    {
+        var state = await TaskState();
+        var accepted = JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan);
+        var context = PlanningCompactConstruction.Context(state, review: true);
+        context["operations"] = new JsonArray(new JsonObject { ["id"] = "retained_contract", ["description"] = "An original operation contract." });
+        var schema = HybridWorkflowPlanner.ConstructionReviewSchema(context, verified: true);
+        var properties = FindingProperties(schema);
+        properties["evidence"]!["minItems"] = 2;
+        properties["explanation"]!["maxLength"] = 256;
+        properties["uncertainty"]!["maxLength"] = 128;
+        var review = PlanningCompactConstruction.Request("Retained scoped business review.", context, schema, PlanningConstruction.LocalPurpose);
+        var issued = PlanningModelCalls.PrepareRequest(state, PlanningConstruction.LocalPurpose, review.Prompt, schema);
+        state.Construction!.PendingReviewContext = context;
+        state.Construction.PendingReviewHash = PlanningGraphCompiler.Fingerprint(PlanningConstruction.LocalPurpose + "\n" +
+            state.Construction.Candidate!.Hash + "\n" + context.ToJsonString());
+        state.PendingCall = new() { Id = issued.ClientRequestId!, Purpose = PlanningConstruction.LocalPurpose, Request = issued };
+        state.ModelCalls = 1;
+        var exact = JsonSerializer.Serialize(issued, PlanningJsonContext.Default.LLMRequest);
+        var finding = Finding("/draft/tasks/0", "/requirements/0", "/operations/0");
+        Assert.True(HybridWorkflowPlanner.ConstructionBusinessFindingSupported(context, finding, locationEvidence: true));
+        Assert.False(HybridWorkflowPlanner.ConstructionBusinessFindingSupported(context, finding));
+        var runtime = new TestRuntime { Respond = (request, _) =>
+        {
+            Assert.Equal(exact, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+            return Response(findings: new JsonArray(finding.DeepClone()));
+        } };
+        state = await Advance(PlannerFixture.Clone(state), runtime);
+        Assert.Equal(exact, JsonSerializer.Serialize(Assert.Single(runtime.Calls), PlanningJsonContext.Default.LLMRequest));
+        Assert.Equal(accepted, JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan));
+        Assert.Equal(PlanningStatus.Stopped, state.Status);
+        Assert.Equal("CONSTRUCTION_REVIEW_INCONCLUSIVE", Assert.Single(state.Diagnostics).Code);
+        Assert.Empty(state.Construction!.Checkpoints);
+        Assert.Empty(state.Construction.Candidate!.Diagnostics);
+        Assert.Equal(1, state.ModelCalls);
+        Assert.Equal(0, state.ReplanAttempts);
+    }
+
+    [Theory]
     [InlineData("/constructionStage", false)]
     [InlineData("/inputDeclarations", false)]
     [InlineData("/inputDeclarations/inputs/0", true)]
@@ -249,6 +346,32 @@ public sealed class CompactVerifiedJudgeTests
         Assert.Single(state.Construction!.Checkpoints);
         Assert.Null(state.PendingCall);
     }
+
+    private static async Task<PlanningSession> TaskState()
+    {
+        var state = await State();
+        state.Plan = new() { Inputs = state.Requirements!.Inputs!, Root = new() { Tasks =
+            [new() { Id = "accepted_label", Kind = "value", Objective = "Retain the caller label.",
+                Outputs = [new("value", new() { Kind = "input", Source = "label" })] }] } };
+        var step = state.Construction!.Compact!.CurrentStep!;
+        step.Id = "use_label"; step.Kind = "value"; step.Objective = "Use the retained caller label.";
+        step.RequirementIds = ["work"]; step.CloseRequirementIds = [];
+        step.BaseHash = PlanningConstruction.Hash(state.Plan);
+        state.Construction.Candidate = PlanningConstruction.Apply(state, new() { Scope = "/root", RequirementIds = ["work"], Tasks =
+            [new() { Id = "use_label", Kind = "value", Objective = step.Objective,
+                Outputs = [new("value", new() { Kind = "output", Source = "accepted_label", Port = "value" })] }] });
+        return state;
+    }
+
+    private static JsonObject FindingProperties(JsonObject schema) => schema["properties"]!["findings"]!["anyOf"]!.AsArray()
+        .Single(node => node?["type"]?.ToString() == "array")!["items"]!["properties"]!.AsObject();
+
+    private static JsonObject Finding(string location, params string[] evidence) => new()
+    {
+        ["kind"] = "inconsistency", ["location"] = location,
+        ["evidence"] = new JsonArray(evidence.Select(pointer => (JsonNode?)JsonValue.Create(pointer)).ToArray()),
+        ["explanation"] = "The candidate does not fulfill the cited original obligation.", ["uncertainty"] = "Business interpretation."
+    };
 
     private static async Task<PlanningSession> State(bool large = false)
     {

@@ -110,7 +110,10 @@ requirements, final validation or runtime effects.
 The revision-4 private Judge envelope distinguishes findings, evidence requests
 and an explicit inconclusive assessment. Findings require both an applicable
 original obligation and concrete implementation evidence; status and navigation
-alone are insufficient. A valid inconclusive assessment can consume one additional
+alone are insufficient. A validated concrete finding location supplies its own
+implementation citation under the fresh issued schema; no duplicate pointer is
+required. Retained citation schemas keep their original interpretation. A valid
+inconclusive assessment can consume one additional
 review only when exact relevant omitted declaration/export evidence improves its
 support and the complete follow-up fits existing admission. Candidate review
 records retain this allowance across local/intermediate review and interruption;

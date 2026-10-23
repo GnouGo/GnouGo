@@ -33,7 +33,10 @@ Fresh presentation revision 4 separates compiler facts from business findings an
 execution evidence. Scoped reviews reuse actual preflight interfaces and bounded,
 source-linked caller declarations; unresolved choices, unfinished scopes and final
 validation remain explicit limits. An incomplete business review returns an
-explicit inconclusive action. At most one admitted reassessment can add already
+explicit inconclusive action. Grounding reuses concrete finding locations instead
+of requiring duplicate citations, while preserving original-obligation evidence
+and the correction boundary captured by each issued schema.
+At most one admitted reassessment can add already
 relevant omitted exact support for the same candidate and completion claim;
 otherwise construction stops without accepting work or granting correction
 permission. Existing journals retain its exact request and usage. Revision-3

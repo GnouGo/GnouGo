@@ -862,8 +862,10 @@ declarations. An explicit inconclusive review is not acceptance. Its single
 possible reassessment uses only already relevant omitted exact support, retains
 its request and evidence hashes, and shares existing call/token/time/financial
 admission; it does not charge a correction or grant execution authority. Count
-those calls and retained failures in the same phase measurements. Historical
-revision-3 cohorts remain unchanged. Freeze a new source/settings identity for
+those calls and retained failures in the same phase measurements. Fresh findings may
+use their validated concrete location as the implementation citation, paired with
+an original obligation; retained issued schemas preserve their earlier citation
+rules and report bounds. Historical revision-3 cohorts remain unchanged. Freeze a new source/settings identity for
 this change; deterministic tests or a completed review do not establish a live
 business improvement. The required independently executed paired outcomes and
 existing delegated approvals remain the acceptance gate.
