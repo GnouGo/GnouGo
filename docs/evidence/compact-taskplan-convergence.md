@@ -1,65 +1,59 @@
 # Compact TaskPlan convergence
 
 Business acceptance remains incomplete and PR #120 stays Draft. The latest
-Review PR diagnostic stopped during discovery without an artifact or execution.
-An earlier source passed both Collections runtime variants. The 18 alternating
-baseline/candidate runs against `56942f5` remain unstarted.
+Review PR diagnostic accepted one fragment but produced no complete artifact or
+execution. An earlier source passed both Collections runtime variants. The 18
+alternating baseline/candidate runs against `56942f5` remain unstarted.
 
 ## Latest frozen diagnostic
 
-Source `0b44557ff9c878d20497fd62c9ee5c643ee72b3d`, cohort `compacta0b44557f`,
+Source `2e5b3a0d7258b9021269d0debb339b6d39c469bb`, cohort `compacta2e5b3a0d`,
 retained pinned `gpt-5.5-2026-04-24`, medium reasoning, 64 calls and four
 corrections. Input targets/ceilings stayed 3k/12k for navigation, 8k/16k for
 drafting and 4k/8k for review, with output reservations of 16,384/16,384/4,096.
-Its production code is unchanged from `52ebb72`; intervening edits were evidence
-and documentation only.
 
-Review PR stopped with `CONSTRUCTION_EVIDENCE_LIMIT` and `REPLAN_NO_PROGRESS`
-after **25 completed calls, four corrections and zero checkpoints**. All calls
-have receipts; no empty completed response or new uncertainty occurred. Three
-additional prospective discovery requests exceeded the ceiling and were rejected
-before dispatch. There was no artifact, Judge or runtime execution.
-Collections and Amazon were not dispatched in this cohort.
+Review PR stopped with `TASK_IDENTITY_INVALID` after **33 receipted calls, four
+corrections and one checkpoint**. No request exceeded its ceiling, no prospective
+request was rejected, and no empty response or new uncertainty occurred. The
+accepted fragment produced failure feedback; it did not establish the requested
+checkout, checks, review, report or cleanup. There was no complete artifact or
+runtime execution. Collections and Amazon were not dispatched in this cohort.
 
-Exact request inspection identified accumulated description pages from earlier
-operation knowledge. The correction presents those originals through
-exact retrieval metadata only when the existing strict-growth reread guard
-permits retrieval. Stored evidence, current descriptions, prerequisite citations
-and selected contract constraints remain intact. It also restores the distinction
-between a business result and catalog discovery in selection guidance. The
-focused discovery suite passes 125 tests and the full Planning suite passes
-2,509 tests with warnings as errors. Independent review found no remaining
-authority or recovery issue; fresh live validation is pending. Accumulation without new provider knowledge
-still fails honestly at the captured ceiling. No business convergence or cause of
-earlier reasoning exhaustion is established.
+Exact requests exposed two presentation defects. The provider overview showed
+only two of five sources. Discovery repeatedly treated the inspected subset as
+exhaustive despite available continuation links. Later, a Judge overlooked an
+accepted root export and requested a duplicate declaration, which deterministic
+validation rejected. Focused corrections broaden only the fresh bounded provider
+choice view and clarify preserved root versus nested exports. Original contracts,
+exact evidence pages, permissions and review authority remain unchanged.
 
-Provider usage was **118,604 input / 25,786 output / 20,512 reasoning tokens**,
-costing **€1.2196340919232485497545738511**. Planning took 436.940 seconds;
-completed call stages totalled 404.7890994 seconds. Reasoning is included in
-output, and component estimates are not billed usage. Runtime latency and calls
-per satisfied business obligation remain unavailable.
+The previous discovery admission failure did not recur. Its peak fell from
+37,379 constructed bytes / 12,716 estimated tokens to 27,501 / 9,423. These are
+unpaired failed diagnostics with different model decisions, not proof of causality
+or business success. Calls, cost and planning time increased: 33 versus 25 calls,
+€1.310428 versus €1.219634, and 546.799 versus 436.940 seconds.
+
+Provider usage was **109,875 input / 30,632 output / 22,909 reasoning tokens**,
+costing **€1.3104283801874163319946452476**. Completed call stages totalled
+506.1539821 seconds. Reasoning is included in output; component estimates are
+not billed usage. Runtime latency and calls per satisfied business obligation
+remain unavailable.
 
 | Complete-request measurement | p50 | p95 | Maximum |
 | --- | ---: | ---: | ---: |
-| All 28 constructed requests, bytes | 25,913.5 | 36,222 | 37,379 |
-| 25 dispatched requests, bytes | 20,974 | 34,080 | 34,080 |
-| All constructed requests, estimated tokens | 8,894 | 12,330 | 12,716 |
-| Dispatched requests, estimated tokens | 7,248 | 11,616 | 11,616 |
+| All 33 requests, bytes | 12,263 | 27,390 | 27,501 |
+| All requests, estimated tokens | 4,344 | 9,386 | 9,423 |
+| Draft requests, bytes | 17,493.5 | 19,453 | 19,453 |
+| Local Judge requests, bytes | 11,698.5 | 12,273 | 12,273 |
 
-All **612,977 constructed-request bytes** reconcile with components; only
-503,918 bytes were dispatched. Every dispatched request met its captured
-ceiling. Median p50 and nearest-rank p95 include the three rejected requests only
-in the explicitly marked rows. The [0b44557 archive](compact-taskplan-0b44557.json)
+All **493,431 request bytes** reconcile with their components. Draft and Judge
+estimated peaks were 6,741 and 4,347 respectively, below their captured ceilings.
+Median p50 and nearest-rank p95 are used. The [2e5b3a0 archive](compact-taskplan-2e5b3a0.json)
 indexes per-phase components and exact private measurements without payloads.
-
-On October 23 at 02:16:06 UTC, explicit authorization permanently closed the
-previous Collections request 2 from `compacta52ebb72d`, retaining its full
-**€0.4901093041855505198613703012** unknown-usage reservation. Replay and
-continuation remain forbidden. The original [52ebb72 inspection snapshot](compact-taskplan-52ebb72.json)
-is unchanged; the new archive records application and subsequent confirmation
-separately. Normal readiness refreshed the expired ECB cache to its October 22
-quote without model calls, manual overrides or changes to previously admitted
-quotes and reservations.
+The unchanged [0b44557 archive](compact-taskplan-0b44557.json) preserves the prior
+25-call discovery failure, the separately authorized Collections `52ebb72`
+permanent closure, and the normal ECB quote-cache refresh. No uncertain request
+was replayed and no reservation was released.
 
 ## Earlier diagnostics and executed result
 
@@ -101,34 +95,41 @@ success does not prove acceptance or repeatability of the current source.
 
 ## Campaign accounting
 
-The post-Review PR audit verifies **1,296 requests / 1,283 receipts**. All thirteen
+The post-Review PR audit verifies **1,329 requests / 1,316 receipts**. All thirteen
 receiptless identities are permanently closed with their reservations retained.
 The journal separately counts twelve unknown attempts. No reservation was released.
 
 | Ledger measurement | EUR |
 | --- | ---: |
 | Campaign ceiling | 240.0301038327063045424449473 |
-| Known spending | 40.046546915170382647328554110 |
+| Known spending | 41.356975295357798979323199362 |
 | Unknown-usage reservations | 5.0713809650759797387363369764 |
-| Spending/reservation upper bound | 45.117927880246362386064891086 |
-| Available allowance | 194.912175952459942156380056214 |
+| Spending/reservation upper bound | 46.428356260433778718059536338 |
+| Available allowance | 193.601747572272525824385410962 |
 
-Audit evidence: `05afe06d3934bd028644737fcc08cdeff95540d99821c523e15dfb421e6fa955`.
+Audit evidence: `f7c9f08f5083c807620edce8f5efbf2549efd55e8afad762efd29ebbae40751c`.
 Lost historical exposure of €159.96989616729369545755505266 remains inside the
 original €400 authorization. Including that exposure, cumulative spending and
-reservations have an upper bound of approximately **€205.087824**. Exact decimal
+reservations have an upper bound of approximately **€206.398252**. Exact decimal
 strings are retained; independently summed costs can differ from ledger totals
 at their final decimal places. Further dispatch must recheck balance and
 readiness; these snapshot values grant no new allowance.
 
 ## Validation and remaining acceptance
 
-The `52ebb72` changes passed **2,500 Planning tests and 65 focused tests** with
-warnings as errors; production files are byte-identical at `0b44557`. Its
-Planning package and Native AOT publish/smoke also passed. Deterministic planner
-CI passed on [52ebb72](https://github.com/GnouGo/GnouGo/actions/runs/39855405218)
-and [0b44557](https://github.com/GnouGo/GnouGo/actions/runs/39857068574). Those
-revision-scoped results do not establish live business acceptance.
+The provider-overview and export-guidance correction passed **2,520 Planning
+tests**, plus focused suites of **131 discovery and 60 Judge tests**, with
+warnings as errors. Main production/test files match the isolated tested patch.
+A fresh frozen diagnostic is still required; these checks do not establish
+business convergence.
+
+Source `2e5b3a0` passed **2,509 Planning tests and 125 focused tests**, the
+benchmark build, independent Planning package and Native AOT smoke with warnings
+as errors. Its [CI](https://github.com/GnouGo/GnouGo/actions/runs/39891302288) is
+still running at this snapshot. Previous CI passed on
+[52ebb72](https://github.com/GnouGo/GnouGo/actions/runs/39855405218) and
+[0b44557](https://github.com/GnouGo/GnouGo/actions/runs/39857068574). Those
+revision-scoped checks do not establish live business acceptance.
 
 The first local full-solution attempt at `0b44557` returned exit 1 after the
 pinned Copilot CLI download encountered EOF (`MSB3923`), leaving Server tests
@@ -155,6 +156,8 @@ delivered revision; compilation and green tests are not business acceptance.
 
 ## Immutable evidence
 
+The [2e5b3a0 archive](compact-taskplan-2e5b3a0.json) records the latest fully
+receipted Review PR stop and exact-revision validation.
 The [0b44557 archive](compact-taskplan-0b44557.json) records Review PR’s
 fully receipted discovery stop and the separately authorized Collections closure.
 The unchanged [52ebb72 archive](compact-taskplan-52ebb72.json) preserves the

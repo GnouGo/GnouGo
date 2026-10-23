@@ -157,7 +157,11 @@ requirements. Historical singleton pages and issued requests are unchanged.
 Discovery queries the selected substep, never the global objective. Cached
 inspections stay retrievable without becoming mandatory context. Concise operation
 and provider directories retain exact identities, effects and retrieval addresses.
-The model chooses relevant providers and operations. Revision 3 lets the host
+The model chooses relevant providers and operations. Fresh revision-3 decisions
+show up to eight compact provider choices without inspecting them. Requested
+provider evidence retains its exact two-item pages; continuations and schema
+choices preserve the original source/cursor pairs. Inspected operations are a
+subset, not proof that other providers lack the needed capability. Revision 3 lets the host
 follow the selected provider's cursors within the existing four-read batch bound,
 reuse cached pages and contracts, and checkpoint completed reads before continuing.
 The received metadata action, remaining reads and exact cursor queue are retained
@@ -242,7 +246,10 @@ Open groups are constructible but not callable. Sequence/control scopes may use
 legal ancestor captures. Open scope interfaces expose existing declarations for
 construction without making their outputs consumable outside the container.
 
-Scope exports are added without rewriting accepted exports. Closure review sees
+Scope exports are added without rewriting accepted exports. An empty draft export
+list preserves accepted declarations. The selected `/root` scope's exports are
+public outputs; nested scope exports are local. Judges assess the combined
+accepted and candidate declarations. Closure review sees
 the applied candidate's exports and compiler-derived types. Fresh ordinary reviews that add
 no exports and claim no scope, requirement or plan closure present unchanged
 accepted export names and bindings with a versioned exact evidence link, while

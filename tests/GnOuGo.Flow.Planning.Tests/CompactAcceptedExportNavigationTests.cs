@@ -149,7 +149,11 @@ public sealed class CompactAcceptedExportNavigationTests(ITestOutputHelper outpu
         pending.Context["scopeInterface"] = PlanningCompactConstruction.ScopeInterface(state, candidate: false);
         // Capture the full view that was issued before this presentation change,
         // through the normal request checkpoint path, under its original policy.
-        var prompt = pending.Request.Prompt[..(pending.Request.Prompt.LastIndexOf('\n') + 1)] + pending.Context.ToJsonString();
+        var guidance = pending.Request.Prompt[..(pending.Request.Prompt.LastIndexOf('\n') + 1)]
+            .Replace("outputs are public /root results. scopeInterface shows accepted exports for its scope; basis:tentative_candidate also includes draft additions. Exports at /root are public; nested-scope exports are local. draft.outputs lists additions only; [] preserves accepted exports.",
+                "outputs are public /root results; scopeInterface includes preserved local exports.", StringComparison.Ordinal);
+        if (!historical) Assert.Contains("scopeInterface includes preserved local exports", guidance, StringComparison.Ordinal);
+        var prompt = guidance + pending.Context.ToJsonString();
         construction.PendingReviewContext = pending.Context;
         construction.PendingReviewHash = PlanningGraphCompiler.Fingerprint(PlanningConstruction.LocalPurpose + "\n" +
             construction.Candidate!.Hash + "\n" + pending.Context.ToJsonString());

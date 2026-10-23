@@ -79,8 +79,10 @@ For fresh ordinary nonclosing reviews with no changed exports or completion clai
 unchanged accepted exports provide names, bindings and an exact versioned retrieval
 address. Actual consumed interfaces remain fully typed; closure and explicit
 revision reviews retain the complete export types.
-Public `outputs` constrain `/root`; local exports in `scopeInterface` may use
-the same name with a different type.
+Public `outputs` constrain `/root`. That scope's preserved `scopeInterface`
+exports are public results; nested exports remain local and may use the same
+name with a different type. Judges assess accepted exports plus candidate
+additions, without requiring an unchanged export to be redeclared.
 This evidence does not make an open container consumable or grant edit authority.
 Closing a scope can leave its broader requirement open. A premature selected
 requirement-closure claim can be withdrawn through existing reselection within
@@ -164,6 +166,11 @@ reread, or historical presentation keeps the original text. Required contract
 closures and selected-operation normative descriptions remain complete.
 Revision 3 retains a bounded directory of the leading operation identities and
 description links beside later evidence; an identical supplied page is not repeated.
+Fresh decisions show up to eight compact provider choices without inspecting
+their operations. Exact requested provider pages remain two-item views with
+unchanged identities and continuations. The response schema offers precisely
+the displayed source/cursor pairs; inspection of some operations does not
+establish absence from uninspected providers.
 Historical revision 2 keeps its earlier directory suppression. Original descriptions
 and optional schema branches still use targeted retrieval. The host follows selected
 provider cursors within the existing four-read batch bound, reuses cached results

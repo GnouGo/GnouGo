@@ -92,6 +92,93 @@ public sealed class CompactReviewContextTests
     }
 
     [Theory]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    [InlineData(false, true)]
+    public async Task JudgeDistinguishesPreservedPublicAndNestedExports(bool root, bool closing)
+    {
+        var state = await State();
+        var construction = state.Construction!;
+        var step = construction.Compact!.CurrentStep!;
+        var group = state.Plan!.Groups[0];
+        group.Body.Outputs = [new("sequence", new() { Kind = "output", Source = "producer", Port = "sequence" })];
+        if (root)
+        {
+            state.Plan = new() { Inputs = group.Inputs, Root = group.Body };
+            state.Requirements!.Inputs = group.Inputs;
+            state.Requirements.Outputs = [new() { Name = "sequence", Type = group.Inputs[0].Type }];
+            construction.OpenScopes = ["/root"];
+            step.Scope = "/root"; step.OutputNames = ["sequence"];
+        }
+        step.BaseHash = PlanningConstruction.Hash(state.Plan);
+        step.Kind = closing ? "close" : "value";
+        construction.Candidate = PlanningConstruction.Apply(state, new()
+        {
+            Scope = step.Scope, RequirementIds = ["result"],
+            CloseScopes = closing ? [step.Scope] : [], Complete = root && closing,
+            Tasks = closing ? [] : [new() { Id = "consumer", Kind = "value", Objective = "Use the available sequence.",
+                Outputs = [new("copy", new() { Kind = "output", Source = "producer", Port = "sequence" })] }]
+        });
+        var accepted = PlanningConstruction.Hash(state.Plan);
+        foreach (var intermediate in new[] { false, true })
+        {
+            var (context, request) = HybridWorkflowPlanner.CreateConstructionReviewRequest(state, intermediate);
+            Assert.Empty(context["draft"]!["outputs"]!.AsArray());
+            var view = context["scopeInterface"]!;
+            Assert.Equal(step.Scope, view["scope"]!.ToString());
+            Assert.Equal(closing ? "tentative_candidate" : "accepted_declarations", view["basis"]!.ToString());
+            Assert.Equal(1, view["outputCount"]!.GetValue<int>());
+            Assert.Equal("sequence", Assert.Single(view["outputs"]!.AsArray())!["name"]!.ToString());
+            Assert.Equal("producer", view["outputs"]![0]!["value"]!["source"]!.ToString());
+            if (root) Assert.Equal("sequence", Assert.Single(context["outputs"]!.AsArray())!["name"]!.ToString());
+            else Assert.Null(context["outputs"]);
+            var guidance = request.Prompt[..request.Prompt.LastIndexOf('\n')];
+            Assert.Contains("Exports at /root are public; nested-scope exports are local", guidance, StringComparison.Ordinal);
+            Assert.Contains("basis:tentative_candidate also includes draft additions", guidance, StringComparison.Ordinal);
+            Assert.Contains("draft.outputs lists additions only; [] preserves accepted exports", guidance, StringComparison.Ordinal);
+            Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(Review().Json!, request.StructuredOutputSchema!));
+        }
+        Assert.Equal(accepted, PlanningConstruction.Hash(state.Plan));
+        Assert.Empty(construction.Checkpoints);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task MissingOrIncorrectCandidateExportsRemainSubjectToGroundedReview(bool missing)
+    {
+        var state = await State();
+        state.Construction!.Candidate = PlanningConstruction.Apply(state, new()
+        {
+            Scope = "/groups/reusable/body", RequirementIds = ["result"], CloseScopes = ["/groups/reusable/body"],
+            Outputs = missing ? [] : [new("sequence", new() { Kind = "array", Items = [new() { Kind = "string", Text = "second" }] })]
+        });
+        var accepted = PlanningConstruction.Hash(state.Plan);
+        var runtime = new TestRuntime { Respond = (request, purpose) =>
+        {
+            Assert.Equal(PlanningConstruction.LocalPurpose, purpose);
+            var context = Context(request);
+            Assert.Equal(missing ? 0 : 1, context["scopeInterface"]!["outputCount"]!.GetValue<int>());
+            var response = Review();
+            response.Json!["findings"] = new JsonArray(new JsonObject
+            {
+                ["kind"] = missing ? "omission" : "inconsistency", ["location"] = "/requirements/0",
+                ["evidence"] = new JsonArray("/requirements/0", "/scopeInterface"),
+                ["explanation"] = missing ? "The closed boundary has no required sequence export." : "The exported constant does not preserve the supplied sequence.",
+                ["uncertainty"] = "Execution remains unverified."
+            });
+            response.Text = response.Json.ToJsonString();
+            Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(response.Json, request.StructuredOutputSchema!));
+            return response;
+        } };
+        state = await Advance(state, runtime);
+        Assert.Equal("CONSTRUCTION_BUSINESS_REVIEW", Assert.Single(state.Diagnostics).Code);
+        Assert.Equal(accepted, PlanningConstruction.Hash(state.Plan));
+        Assert.Empty(state.Construction!.Checkpoints);
+        Assert.False(state.Construction.Candidate!.LocalReviewed);
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task HistoricalReviewAndGenerationKeepTheirOriginalContextRepresentation(bool version2WithPhasePolicy)
@@ -132,6 +219,8 @@ public sealed class CompactReviewContextTests
         var calls = saved.ModelCalls;
         if (version2WithPhasePolicy)
         {
+            Assert.Contains("outputs are public /root results; scopeInterface includes preserved local exports.", saved.PendingCall.Request.Prompt, StringComparison.Ordinal);
+            Assert.DoesNotContain("draft.outputs lists additions only", saved.PendingCall.Request.Prompt, StringComparison.Ordinal);
             Assert.Contains("Withdraw premature selected closeRequirementIds via reselectStep", saved.PendingCall.Request.Prompt, StringComparison.Ordinal);
             saved.Construction.Compact!.PresentationVersion = 3;
             saved.Request.Options["construction_presentation_version"] = 3;

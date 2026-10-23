@@ -40,7 +40,7 @@ internal static partial class PlanningCompactConstruction
     internal static string ProviderRequestAddress(PlanningSession state, int offset) =>
         "page:provider-requests:" + ProviderRequestVersion(state) + ":" + offset.ToString(CultureInfo.InvariantCulture);
 
-    internal static JsonObject ProviderRequestPage(PlanningSession state, int offset)
+    internal static JsonObject ProviderRequestPage(PlanningSession state, int offset, int count = 2)
     {
         var options = ProviderRequestOptions(state);
         if (offset < 0 || offset > 0 && offset >= options.Count)
@@ -48,7 +48,7 @@ internal static partial class PlanningCompactConstruction
         return new JsonObject
         {
             ["version"] = ProviderRequestVersion(state), ["offset"] = offset, ["total"] = options.Count,
-            ["items"] = new JsonArray(options.Skip(offset).Take(2).Select(option =>
+            ["items"] = new JsonArray(options.Skip(offset).Take(count).Select(option =>
             {
                 var source = state.Discovery.Sources.Single(s => s.Id == option.SourceId);
                 var description = NavigationDescription(source.Description);
@@ -57,7 +57,7 @@ internal static partial class PlanningCompactConstruction
                     ["description"] = description, ["descriptionComplete"] = description.Length == source.Description.Length,
                     ["descriptionEvidence"] = "source-description:" + Uri.EscapeDataString(source.Id) + "@" + PlanningGraphCompiler.Fingerprint(source.Description) + ":0" };
             }).ToArray()),
-            ["next"] = offset + 2 < options.Count ? ProviderRequestAddress(state, offset + 2) : null
+            ["next"] = offset + count < options.Count ? ProviderRequestAddress(state, offset + count) : null
         };
     }
 
@@ -117,7 +117,9 @@ internal static partial class PlanningCompactConstruction
             // Inspecting one operation does not exhaust other providers for this
             // substep. Keep their exact bounded actions beside the original evidence.
             var firstAvailable = ProviderRequestOptions(state).FindIndex(option => option.Available);
-            return ProviderRequestPage(state, Math.Max(0, firstAvailable));
+            // The decision overview can expose more choices without changing
+            // canonical evidence pages or selecting any provider automatically.
+            return ProviderRequestPage(state, Math.Max(0, firstAvailable), UsesDeferredBinding(state) ? 8 : 2);
         }
         if (state.Construction!.Evidence is { Count: > 0 } || ContractDescriptors(state).Count > 0) return null;
         return ProviderRequestPage(state, 0);
