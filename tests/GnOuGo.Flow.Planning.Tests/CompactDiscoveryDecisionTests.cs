@@ -6,6 +6,131 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed partial class CompactDiscoveryProtocolTests
 {
+    [Theory]
+    [InlineData(2)]
+    [InlineData(3)]
+    public async Task EarlierDescriptionsAreNavigationOnlyWhenTheirExactRereadIsAvailable(int presentationVersion)
+    {
+        var (state, runtime) = await Ready(presentationVersion: presentationVersion);
+        AddOperations(state, 1);
+        var address = DescriptionAddress(state);
+        runtime.Respond = (request, _) => Wire(request, Evidence(address));
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        var original = state.Construction!.Evidence![address]!.ToJsonString();
+        Assert.Equal(original, PlanningCompactConstruction.DiscoveryContext(state)["evidence"]![address]!.ToJsonString());
+        state.Discovery.Pages.Add(new("alpha", "more", [AdditionalOperation(state)], null, Query: Objective));
+        var retained = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        var context = PlanningCompactConstruction.DiscoveryContext(state);
+        var presented = context["evidence"]![address]!;
+        if (presentationVersion == 3)
+        {
+            Assert.Null(presented["text"]);
+            Assert.True(presented["textOmitted"]!.GetValue<bool>());
+            Assert.Equal(address, presented["evidence"]!.ToString());
+            Assert.NotNull(context["describedOperations"]);
+        }
+        else Assert.Equal(original, presented.ToJsonString());
+        Assert.Equal(retained, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+        var followup = DiscoveryFollowup(state);
+        Assert.Empty(PlanningContractValidation.ValidateInstance(Wire(followup, Evidence(address)).Json!, followup.StructuredOutputSchema!));
+
+        state = await Advance(PlannerFixture.Clone(state), runtime);
+        Assert.Empty(state.Diagnostics);
+        Assert.Equal(original, state.Construction!.Evidence![address]!.ToJsonString());
+        Assert.Equal(original, PlanningCompactConstruction.DiscoveryContext(state)["evidence"]![address]!.ToJsonString());
+        Assert.Equal(2, state.Construction.EvidenceRequests.Count(key => key.StartsWith("description-read:", StringComparison.Ordinal)));
+        Assert.Equal(0, state.ReplanAttempts);
+        state = await Advance(state, runtime);
+        Assert.Equal(PlanningStatus.Stopped, state.Status);
+        Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Code == "REPLAN_NO_PROGRESS");
+    }
+
+    [Theory]
+    [InlineData("duplicate")]
+    [InlineData("cursor")]
+    [InlineData("historical-read")]
+    [InlineData("prerequisite")]
+    [InlineData("rejected-reread")]
+    public async Task DiscoveryKeepsOriginalTextWhenItCannotSafelyOfferAnotherRead(string condition)
+    {
+        var (state, runtime) = await Ready(presentationVersion: 3);
+        AddOperations(state, 1);
+        var address = DescriptionAddress(state);
+        runtime.Respond = (request, _) => Wire(request, Evidence(address));
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        var original = state.Construction!.Evidence![address]!.ToJsonString();
+        if (condition == "duplicate") state.Discovery.Pages.Add(state.Discovery.Pages[0] with { Cursor = "duplicate" });
+        else if (condition == "cursor") state.Discovery.Pages[0] = state.Discovery.Pages[0] with { NextCursor = "different" };
+        else
+        {
+            state.Discovery.Pages.Add(new("alpha", "more", [AdditionalOperation(state)], null, Query: Objective));
+            if (condition == "historical-read") state.Construction.EvidenceRequests.RemoveAll(key => key.StartsWith("description-read:", StringComparison.Ordinal));
+            else if (condition == "rejected-reread")
+            {
+                var key = PlanningCompactConstruction.DescriptionReadKey(state, PlanningCompactConstruction.DiscoverySchema(state), Evidence(address));
+                Assert.NotNull(key);
+                state.Construction.Compact!.FailedActions.Add("rejected:" + key);
+            }
+            else state.Construction.Compact!.CurrentStep!.Prerequisites = [new() { Need = "Retain the inspected restriction.", EvidenceAddresses = [address] }];
+        }
+        Assert.Equal(original, PlanningCompactConstruction.DiscoveryContext(state)["evidence"]![address]!.ToJsonString());
+    }
+
+    [Fact]
+    public async Task DiscoveryPresentationReducesPriorKnowledgeWithoutChangingMandatoryContractClosure()
+    {
+        var (state, _) = await Ready(presentationVersion: 3);
+        AddOperations(state, 8);
+        for (var index = 0; index < state.Discovery.Pages[0].Capabilities.Count; index++)
+        {
+            var capability = state.Discovery.Pages[0].Capabilities[index];
+            var text = new string((char)('a' + index), 3800) + " Keep exact records; no remote publication.";
+            capability.Operation!.Description = text;
+            state.Discovery.Pages[0].Capabilities[index] = capability with { Description = text };
+        }
+        var schema = PlanningCompactConstruction.DiscoverySchema(state);
+        foreach (var descriptor in PlanningCompactConstruction.ContractDescriptors(state, count: 8))
+        {
+            var address = descriptor!["descriptionEvidence"]!.ToString();
+            while (true)
+            {
+                var key = PlanningCompactConstruction.DescriptionReadKey(state, schema, Evidence(address));
+                PlanningConstruction.LoadEvidence(state, [address], key);
+                if (state.Construction!.Evidence![address]!["next"] is not { } next) break;
+                address = next.ToString();
+            }
+        }
+        var originals = state.Construction!.Evidence!.ToJsonString();
+        var reads = state.Construction.EvidenceRequests.ToArray();
+        state.Discovery.Pages.Add(new("alpha", "more", [AdditionalOperation(state)], null, Query: Objective));
+        var request = DiscoveryFollowup(state);
+        var limit = PlanningConstructionPhasePolicies.Resolve(state.Request, PlanningCompactConstruction.DiscoveryPurpose).MaxInputTokens;
+        PlanningConstruction.AdmitEvidenceFollowup(state, request, PlanningCompactConstruction.DiscoveryPurpose);
+        var legacy = PlannerFixture.Clone(state);
+        legacy.Construction!.Compact!.PresentationVersion = 2;
+        var unprojected = DiscoveryFollowup(legacy);
+        Assert.True(PlanningRequestMeasurements.Measure(unprojected, PlanningCompactConstruction.DiscoveryPurpose, limit).EstimatedInputTokens > limit);
+        Assert.True(PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.DiscoveryPurpose, limit).EstimatedInputTokens < limit);
+        Assert.Equal(originals, state.Construction.Evidence.ToJsonString());
+        Assert.Equal(reads, state.Construction.EvidenceRequests);
+
+        var selected = state.Discovery.Pages[0].Capabilities[0];
+        var contract = new PlanningCapability { Id = selected.Id, Version = selected.Version, Kind = "tool", StepType = "mcp.call",
+            Server = "alpha", Method = selected.Name, Description = selected.Description,
+            InputSchema = new() { ["type"] = "object", ["properties"] = new JsonObject { ["mode"] = new JsonObject { ["type"] = "string", ["enum"] = new JsonArray("exact") } },
+                ["required"] = new JsonArray("mode"), ["additionalProperties"] = false },
+            OutputSchema = new() { ["type"] = "object", ["properties"] = new JsonObject(), ["additionalProperties"] = false } };
+        state.Discovery.Resolved.Add(contract);
+        var step = state.Construction.Compact!.CurrentStep!;
+        step.Kind = "operation"; step.OperationIds = [TaskOperations.Describe(contract).Id];
+        var view = Assert.Single(PlanningCompactConstruction.ContractViews(state))!;
+        Assert.Equal(selected.Description, view["description"]!.ToString());
+        Assert.True(JsonNode.DeepEquals(contract.InputSchema, view["inputSchema"]));
+        Assert.Equal(originals, state.Construction.Evidence.ToJsonString());
+    }
+
     [Fact]
     public async Task PreviouslyReadOperationsRemainSelectableAlongsideDifferentOriginalEvidence()
     {
@@ -118,14 +243,23 @@ public sealed partial class CompactDiscoveryProtocolTests
         Assert.True(JsonNode.DeepEquals(state.Construction!.Evidence, context["evidence"]));
     }
 
-    [Fact]
-    public async Task SavedDiscoveryWithoutDecisionChoicesResumesItsExactRequestAndAccounting()
+    [Theory]
+    [InlineData(2)]
+    [InlineData(3)]
+    public async Task SavedDiscoveryWithoutDecisionChoicesResumesItsExactRequestAndAccounting(int presentationVersion)
     {
-        var (state, runtime) = await Ready();
+        var (state, runtime) = await Ready(presentationVersion: presentationVersion);
         AddOperations(state, 2);
-        PlanningConstruction.LoadEvidence(state, [DescriptionAddress(state)]);
+        var address = DescriptionAddress(state);
+        var descriptionKey = PlanningCompactConstruction.DescriptionReadKey(state, PlanningCompactConstruction.DiscoverySchema(state), Evidence(address));
+        PlanningConstruction.LoadEvidence(state, [address], descriptionKey);
+        state.Discovery.Pages.Add(new("alpha", "more", [AdditionalOperation(state)], null, Query: Objective));
         var context = PlanningCompactConstruction.DiscoveryContext(state);
         Assert.NotNull(context["describedOperations"]);
+        if (presentationVersion == 3) Assert.True(context["evidence"]![address]!["textOmitted"]!.GetValue<bool>());
+        // A historical issued view includes full original prose even when a
+        // freshly constructed request would now offer its exact retrieval link.
+        context["evidence"] = state.Construction!.Evidence!.DeepClone();
         context.Remove("describedOperations");
         var issued = Complete(state, PlanningCompactConstruction.Request(PlanningCompactConstruction.DiscoveryInstructions,
             context, PlanningCompactConstruction.DiscoverySchema(state), PlanningCompactConstruction.DiscoveryPurpose));

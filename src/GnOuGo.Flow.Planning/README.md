@@ -48,16 +48,20 @@ so selection context omits its duplicate hash and the host-owned remaining-call
 counter. Admission and cumulative accounting are unchanged.
 Incomplete automatic task-objective prefixes are omitted when the selection
 directory retains their exact versioned evidence links and completeness flags;
-complete short objectives and typed port navigation remain. Discovery removes
-only empty top-level navigation fields, leaving original evidence unchanged.
+complete short objectives and typed port navigation remain. Discovery omits empty
+navigation fields and preserves original evidence in storage.
 Replacement selections constrain both the requirement domain and its fixed
 cardinality; host validation still rejects duplicate or changed identities.
-Discovery asks for the next metadata action, deferring execution
+Selection requests an executable business result, not catalog discovery or a
+whole-workflow capability. Discovery asks for the next metadata action, deferring execution
 arguments. Declared caller inputs are runtime bindings; discovering a consumer
 does not require their concrete values. Fresh evidence actions supply up to eight
-separate exact addresses. Already requested originals remain available within the
-current decision, including across provider discovery; the host admits the complete
-prospective union before accepting more evidence. Obsolete discovery directories
+separate exact addresses. Already requested originals remain stored within the
+current decision. After strict operation-knowledge growth, older descriptions may
+be presented by exact retrieval metadata only when their existing reread guard
+permits retrieval. Current descriptions, prerequisite citations and schema views
+remain complete. The host admits the complete prospective presentation before
+accepting more evidence. Obsolete discovery directories
 and changed-candidate views expire without erasing their consumed identities.
 This framing is an experiment; a small schema does not explain or
 prevent a provider's reasoning-only response. Historical guidance and all issued
@@ -152,7 +156,12 @@ A successful prior description read may be requested once more after genuinely
 new allowed operation identities or versions, bound to the exact issued knowledge
 identity. Ordering, empty provider pages, cursor and diagnostic changes grant no
 new inspection. Operation-page consumption remains separate from this targeted
-description retrieval; cached prose is never automatically added.
+description retrieval. Fresh revision-3 discovery can replace a prior description's
+presented text with its original identity, hash, page metadata and retrieval link
+only while that exact reread is permitted. A successful reread restores the full
+original view; fingerprints are never cleared. No new knowledge, an already used
+reread, or historical presentation keeps the original text. Required contract
+closures and selected-operation normative descriptions remain complete.
 Revision 3 retains a bounded directory of the leading operation identities and
 description links beside later evidence; an identical supplied page is not repeated.
 Historical revision 2 keeps its earlier directory suppression. Original descriptions

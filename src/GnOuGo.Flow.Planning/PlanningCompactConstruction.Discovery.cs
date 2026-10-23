@@ -239,6 +239,33 @@ internal static partial class PlanningCompactConstruction
         return hash;
     }
 
+    private static JsonObject? DiscoveryEvidence(PlanningSession state)
+    {
+        var evidence = state.Construction!.Evidence?.DeepClone().AsObject();
+        if (evidence is null || !UsesDeferredBinding(state) || !PlanningConstructionPhasePolicies.IsFresh(state.Request)) return evidence;
+        var prerequisiteAddresses = State(state).CurrentStep?.Prerequisites?.SelectMany(item => item.EvidenceAddresses).ToHashSet(StringComparer.Ordinal) ?? [];
+        var schema = new JsonObject { ["description"] = DescriptionKnowledgePrefix +
+            DescriptionKnowledgeHash(DescriptionKnowledge(state, state.Discovery.Pages.Count)) };
+        foreach (var (address, original) in evidence.ToArray())
+        {
+            if (!address.StartsWith("description:", StringComparison.Ordinal) || original is not JsonObject page ||
+                prerequisiteAddresses.Contains(address) || !state.Construction.EvidenceRequests.Contains(
+                    PlanningConstruction.EvidenceBatchFingerprint(state, [address]), StringComparer.Ordinal)) continue;
+            var response = new JsonObject { ["evidenceRequests"] = new JsonArray(address) };
+            if (DescriptionReadKey(state, schema, response) is not { } readKey ||
+                state.Construction.EvidenceRequests.Contains(readKey, StringComparer.Ordinal) ||
+                State(state).FailedActions.Any(action => action.EndsWith(":" + readKey, StringComparison.Ordinal)) ||
+                !JsonNode.DeepEquals(original, LoadContractEvidence(state, address, recordSchemaSelection: false))) continue;
+            // A prior provider-knowledge view is only omitted when the existing
+            // strict-growth guard permits its exact original to be read again.
+            // Keep the durable original and all successful read identities intact.
+            page.Remove("text");
+            page["textOmitted"] = true;
+            page["evidence"] = address;
+        }
+        return evidence;
+    }
+
     // Only immutable, policy-allowed producer identities establish new knowledge.
     // Cursors, ranking, diagnostics, read status and duplicated pages do not.
     private static HashSet<string> DescriptionKnowledge(PlanningSession state, int pageCount) =>

@@ -193,8 +193,13 @@ by the host with the same projection and prospective-admission checks. No unused
 capacity is filled with unrelated contracts.
 
 Under the captured phase policy, an evidence response may request one to eight
-coherent addresses. Explicitly requested original views remain available within
-the current decision. The host resolves the union on a clone and checks the complete
+coherent addresses. Explicitly requested original views remain stored within
+the current decision. Fresh revision-3 discovery presents an older description
+as exact identity/hash/page metadata and a retrieval link only when strict new
+operation knowledge makes its existing reread guard eligible. Current-knowledge
+descriptions, prerequisite citations and schema views remain complete; a permitted
+reread restores the full original view without resetting consumption history.
+The host resolves evidence on a clone and checks the complete
 prospective follow-up, including its expanded binding grammar, against the hard
 ceiling before accepting evidence. Provider discovery preserves those originals
 while removing obsolete action directories; changing the candidate clears its

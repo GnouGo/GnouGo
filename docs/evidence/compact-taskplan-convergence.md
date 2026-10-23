@@ -1,42 +1,65 @@
 # Compact TaskPlan convergence
 
 Business acceptance remains incomplete and PR #120 stays Draft. The latest
-Collections diagnostic stopped before execution; Amazon and Review PR were not
-dispatched in this cohort. An earlier source passed both Collections runtime
-variants. The 18 alternating baseline/candidate runs against `56942f5` remain
-unstarted.
+Review PR diagnostic stopped during discovery without an artifact or execution.
+An earlier source passed both Collections runtime variants. The 18 alternating
+baseline/candidate runs against `56942f5` remain unstarted.
 
 ## Latest frozen diagnostic
 
-Source `52ebb72d46842be0fb62a1034dcb760b83576eb4`, cohort `compacta52ebb72d`,
+Source `0b44557ff9c878d20497fd62c9ee5c643ee72b3d`, cohort `compacta0b44557f`,
 retained pinned `gpt-5.5-2026-04-24`, medium reasoning, 64 calls and four
 corrections. Input targets/ceilings stayed 3k/12k for navigation, 8k/16k for
 drafting and 4k/8k for review, with output reservations of 16,384/16,384/4,096.
+Its production code is unchanged from `52ebb72`; intervening edits were evidence
+and documentation only.
 
-Collections stopped during intent request 2 after one transport attempt with
-**no recorded HTTP response or completion receipt**. The first call completed;
-no correction, checkpoint, artifact or execution occurred. The exact retention
-operation has been inspected, but authorization and application are **pending**.
-The full **€0.4901093041855505198613703012** reservation remains unknown usage.
-Paid dispatch is blocked; neither replay nor continuation is permitted. Amazon
-and Review PR were not dispatched in this cohort. A later authorized closure
-must be recorded separately from this inspection snapshot.
+Review PR stopped with `CONSTRUCTION_EVIDENCE_LIMIT` and `REPLAN_NO_PROGRESS`
+after **25 completed calls, four corrections and zero checkpoints**. All calls
+have receipts; no empty completed response or new uncertainty occurred. Three
+additional prospective discovery requests exceeded the ceiling and were rejected
+before dispatch. There was no artifact, Judge or runtime execution.
+Collections and Amazon were not dispatched in this cohort.
 
-Known usage is **377 input / 423 output / 320 reasoning tokens**, costing
-**€0.0129521016617790811339198436**. Including uncertain usage, the run's upper
-bound is **€0.5030614058473296009952901448**. Planning took 315.659 seconds;
-the completed call took 8.889734 seconds and the uncertain attempt 304.448102
-seconds. Unknown provider usage is not counted as zero. Both requests fit the
-captured ceiling and **10,701 bytes** reconcile with components. Complete-request
-p50/p95/maximum were **5,350.5 / 8,289 / 8,289 bytes**; conservative estimates were
-2,039.5 / 3,019 / 3,019 tokens. Estimates are not billed usage; reasoning is
-included in output.
+Exact request inspection identified accumulated description pages from earlier
+operation knowledge. The correction presents those originals through
+exact retrieval metadata only when the existing strict-growth reread guard
+permits retrieval. Stored evidence, current descriptions, prerequisite citations
+and selected contract constraints remain intact. It also restores the distinction
+between a business result and catalog discovery in selection guidance. The
+focused discovery suite passes 125 tests and the full Planning suite passes
+2,509 tests with warnings as errors. Independent review found no remaining
+authority or recovery issue; fresh live validation is pending. Accumulation without new provider knowledge
+still fails honestly at the captured ceiling. No business convergence or cause of
+earlier reasoning exhaustion is established.
 
-The Judge was never reached. This run provides no live evidence about the
-Judge-guidance correction or the cause of earlier reasoning exhaustion. Useful
-business-obligation ratios and runtime latency remain unavailable. The
-[52ebb72 archive](compact-taskplan-52ebb72.json) retains the exact inspection,
-measurements, accounting and revision-scoped validation without payloads.
+Provider usage was **118,604 input / 25,786 output / 20,512 reasoning tokens**,
+costing **€1.2196340919232485497545738511**. Planning took 436.940 seconds;
+completed call stages totalled 404.7890994 seconds. Reasoning is included in
+output, and component estimates are not billed usage. Runtime latency and calls
+per satisfied business obligation remain unavailable.
+
+| Complete-request measurement | p50 | p95 | Maximum |
+| --- | ---: | ---: | ---: |
+| All 28 constructed requests, bytes | 25,913.5 | 36,222 | 37,379 |
+| 25 dispatched requests, bytes | 20,974 | 34,080 | 34,080 |
+| All constructed requests, estimated tokens | 8,894 | 12,330 | 12,716 |
+| Dispatched requests, estimated tokens | 7,248 | 11,616 | 11,616 |
+
+All **612,977 constructed-request bytes** reconcile with components; only
+503,918 bytes were dispatched. Every dispatched request met its captured
+ceiling. Median p50 and nearest-rank p95 include the three rejected requests only
+in the explicitly marked rows. The [0b44557 archive](compact-taskplan-0b44557.json)
+indexes per-phase components and exact private measurements without payloads.
+
+On October 23 at 02:16:06 UTC, explicit authorization permanently closed the
+previous Collections request 2 from `compacta52ebb72d`, retaining its full
+**€0.4901093041855505198613703012** unknown-usage reservation. Replay and
+continuation remain forbidden. The original [52ebb72 inspection snapshot](compact-taskplan-52ebb72.json)
+is unchanged; the new archive records application and subsequent confirmation
+separately. Normal readiness refreshed the expired ECB cache to its October 22
+quote without model calls, manual overrides or changes to previously admitted
+quotes and reservations.
 
 ## Earlier diagnostics and executed result
 
@@ -78,44 +101,49 @@ success does not prove acceptance or repeatability of the current source.
 
 ## Campaign accounting
 
-The post-Collections audit verifies **1,271 requests / 1,258 receipts**. Of thirteen
-receiptless identities, twelve remain permanently closed and the new request
-awaits exact retention authorization. The journal separately counts twelve
-unknown attempts. No reservation was released.
+The post-Review PR audit verifies **1,296 requests / 1,283 receipts**. All thirteen
+receiptless identities are permanently closed with their reservations retained.
+The journal separately counts twelve unknown attempts. No reservation was released.
 
 | Ledger measurement | EUR |
 | --- | ---: |
 | Campaign ceiling | 240.0301038327063045424449473 |
-| Known spending | 38.826912823247134097573980262 |
+| Known spending | 40.046546915170382647328554110 |
 | Unknown-usage reservations | 5.0713809650759797387363369764 |
-| Spending/reservation upper bound | 43.898293788323113836310317238 |
-| Available allowance | 196.131810044383190706134630062 |
+| Spending/reservation upper bound | 45.117927880246362386064891086 |
+| Available allowance | 194.912175952459942156380056214 |
 
-Audit evidence: `05bc3a30d337e2089433745c57f31ecd72fb94802a24f54dc9c86fa39dffe86d`.
+Audit evidence: `05afe06d3934bd028644737fcc08cdeff95540d99821c523e15dfb421e6fa955`.
 Lost historical exposure of €159.96989616729369545755505266 remains inside the
 original €400 authorization. Including that exposure, cumulative spending and
-reservations have an upper bound of approximately **€203.868190**. Exact decimal
+reservations have an upper bound of approximately **€205.087824**. Exact decimal
 strings are retained; independently summed costs can differ from ledger totals
 at their final decimal places. Further dispatch must recheck balance and
 readiness; these snapshot values grant no new allowance.
 
 ## Validation and remaining acceptance
 
-The exact `52ebb72` changes passed **2,500 Planning tests and 65 focused tests**
-with warnings as errors. Its Planning package and Native AOT publish/smoke also
-passed; all three logs and both artifact hashes/sizes were verified. These checks
-cover Planning only. CI on `52ebb72` remains in progress; no final pass is claimed.
-The unchanged `92d8813` archive separately records five package builds, Native
-AOT planning, trimmed Server encrypted-storage smoke and Git MCP publication
-checks. Server publication excluded frontend and bundled tools; existing
-documented warning policies remained unchanged.
+The `52ebb72` changes passed **2,500 Planning tests and 65 focused tests** with
+warnings as errors; production files are byte-identical at `0b44557`. Its
+Planning package and Native AOT publish/smoke also passed. Deterministic planner
+CI passed on [52ebb72](https://github.com/GnouGo/GnouGo/actions/runs/39855405218)
+and [0b44557](https://github.com/GnouGo/GnouGo/actions/runs/39857068574). Those
+revision-scoped results do not establish live business acceptance.
 
-The earlier full solution at `bbd900d9` completed with **7,496 passes, one stale
-scripted-fixture failure and 13 skips** across 33 project results. Applying only
-that fixture correction yielded **1,662 Server passes and one skip**. The d8
-archive indexes both exact manifests, verified logs, fixture patch and TRX
-hashes. Neither historical result is a final-revision full-solution pass.
-Final-source full-solution and CI results remain outstanding.
+The first local full-solution attempt at `0b44557` returned exit 1 after the
+pinned Copilot CLI download encountered EOF (`MSB3923`), leaving Server tests
+unexecuted. The completed project results show **5,858 passes and 12 skips**,
+with no failed test among those executed. Its manifest retains the build error
+and a generated timestamp-comment change, restored to exact HEAD before the
+separate rerun. That rerun is active with no result claimed. The archive indexes
+the original manifest, verified logs and 32 TRX files without duplicating every
+project; the first attempt is not a complete solution pass.
+
+The unchanged `92d8813` archive records five package builds, Native AOT planning,
+trimmed Server encrypted-storage smoke and Git MCP publication checks. The d8
+archive separately retains the earlier `bbd900d9` full-solution fixture failure
+and corrected Server run. Their historical scopes remain unchanged; further
+source changes require corresponding final validation.
 
 Collections must pass again on the final candidate. Amazon requires complete
 observations, product identities, workbook contents and browser closure. Review
@@ -127,8 +155,10 @@ delivered revision; compilation and green tests are not business acceptance.
 
 ## Immutable evidence
 
-The [52ebb72 archive](compact-taskplan-52ebb72.json) records the latest uncertain
-transport attempt and unapplied retention inspection. The
+The [0b44557 archive](compact-taskplan-0b44557.json) records Review PR’s
+fully receipted discovery stop and the separately authorized Collections closure.
+The unchanged [52ebb72 archive](compact-taskplan-52ebb72.json) preserves the
+earlier uncertain transport attempt and unapplied inspection snapshot. The
 [d8f51c5 archive](compact-taskplan-d8f51c5.json) retains the earlier Judge
 exhaustion. Earlier [92d8813](compact-taskplan-92d8813.json),
 [407243a](compact-taskplan-407243a.json), [bbd900d9](compact-taskplan-bbd900d9.json),
