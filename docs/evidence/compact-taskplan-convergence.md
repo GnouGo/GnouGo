@@ -1,7 +1,7 @@
 # Compact TaskPlan convergence
 
 **Business acceptance remains incomplete; PR #120 stays Draft.** Frozen
-`e0959e3` Collections and `7e19f7f8` Amazon/Review PR produced no complete artifact
+`e0959e3` Collections, `504a557d` Amazon and `7e19f7f8` Review PR produced no complete artifact
 or executed workflow. The 18 alternating baseline/candidate runs against `56942f5`
 have not started. All 21 receiptless identities remain permanently closed with
 full unknown-usage reservations retained; replay and continuation remain forbidden.
@@ -35,6 +35,13 @@ binds exact source/evidence manifests and retains initial failures. The
 for the evidence correction; the small diagnostic-reporting follow-up is covered
 by the combined focused suite. These counts overlap and do not establish live success.
 
+The subsequent full-solution run exposed a test-fixture mismatch: reconstructed
+version-one sessions retained the fresh-only transport policy. Their first issued
+request then correctly failed the legacy host identity guard. Restoration now removes
+that nonexistent historical setting; 81 focused tests pass with warnings as errors
+(one intentional browser skip), including every failing case, fresh retry/recovery
+and exact legacy request bytes. Production identity checks remain unchanged.
+
 The preceding correction favors appending ordinary work to an existing scope and supplies
 one bounded selected-scope owner with exact retrieval links. Fresh-v4 Judges also receive
 the original selected operation's server and method. These are read-only technical facts,
@@ -61,6 +68,7 @@ diagnostics exercised this source but did not establish business convergence.
 
 | Source | Validation with warnings as errors |
 | --- | --- |
+| Frozen `504a557d` | **12/12 publication stages passed**, including independent packages, Native AOT and published encrypted storage; full solution exposed eight historical-fixture failures; the shared restoration fix passes all eight within 81 focused passes (one browser test skipped), without production changes |
 | Frozen `7e19f7f8` | **12/12 publication stages passed**; all-source final validation is tracked separately |
 | Frozen `e0959e3` | **12/12 publication stages passed**, including six independent packages, Planning Native AOT, published encrypted storage and Git AOT/contracts; full solution still running at this snapshot |
 | Frozen `d0413d2` | **7,690 full-solution passed, 0 failed, 13 skipped**, 33 projects; **237 focused / 2,661 Planning passed** on matching source; **11/11 publication stages passed** |
@@ -78,6 +86,18 @@ and [f3 CI](https://github.com/GnouGo/GnouGo/actions/runs/39994400563) remained 
 Technical validation is not business acceptance or proof of avoided corrections.
 
 ## Latest live diagnostics
+
+[504a557d Amazon](compact-taskplan-504a557-amazon.json) stopped at Judge 13, with
+13 receipts, no corrections and one checkpoint. Its finding cited concrete draft
+implementation but omitted an applicable original obligation, despite available
+original anchors. The host correctly withheld acceptance and correction authority.
+The report acknowledged partial contract evidence but requested neither retrieval
+nor an inconclusive result. Its browser-handle allegation remains unproven: the
+original implementation retains browser context internally and closure requires no
+handle argument. No false-positive classification or latest-fix efficacy is established.
+All 14 constructed requests (13 received, one prepared-only) fit captured limits and
+reconcile; none produced an empty response. This run did not reach the previous
+oversized-evidence recovery path.
 
 Latest `7e19f7f8` Amazon stopped after an oversized four-address evidence batch:
 21,134 estimated draft tokens against 18k. It had exhausted three corrections,
@@ -108,6 +128,7 @@ business finding, not an observed avoided correction or runtime failure.
 
 | Frozen attempt | Planner calls / receipts | Corrections / checkpoints | Planning seconds | Known cost EUR | Result |
 | --- | ---: | ---: | ---: | ---: | --- |
+| [504a557d Amazon](compact-taskplan-504a557-amazon.json) | 13 / 13 | 0 / 1 | 417.994 | 0.8039446675591253904506916556 | Judge omitted original-obligation grounding; no complete artifact or runtime |
 | [7e19f7f8 Amazon](compact-taskplan-7e19f7f-amazon.json) | 32 / 32 | 3 / 1 | 984.401 | 1.8810709504685408299866131190 | Evidence batch rejected; exhausted correction gate prevented bounded retrieval recovery |
 | [7e19f7f8 Review PR](compact-taskplan-7e19f7f-code.json) | 20 / 20 | 3 / 1 | 495.268 | 1.0383623382418563141454707721 | Mandatory Judge request rejected before dispatch at 8,193 > 8,000 input tokens |
 | [e0959e3 Collections](compact-taskplan-e0959e3-collections.json) | 23 / 23 | 1 / 5 | 755.619 | 0.7595760821062025881302989735 | Confirmed HTTP retry recovered; premature requirement closure then repeated correction; no complete artifact |
@@ -156,7 +177,7 @@ counts remain zero, calls per satisfied obligation undefined and runtime latency
 
 ## Latest audited allowance
 
-The post-7e19f7f8 Review PR audit retains all 21 permanently closed receiptless
+The post-504a557d Amazon audit retains all 21 permanently closed receiptless
 identities. The 21 unknown transport-attempt records are a separate metric, including
 an attempt whose logical request later succeeded. These amounts describe this snapshot,
 not later dispatches.
@@ -164,14 +185,14 @@ not later dispatches.
 | Ledger measurement | EUR |
 | --- | ---: |
 | Campaign ceiling | 240.0301038327063045424449473 |
-| Known spending | 80.10500296157823628409785353 |
+| Known spending | 80.90894762913736167454854518 |
 | Retained unknown-usage reservations | 10.872951692429839622716702885 |
-| Spending/reservation upper bound | 90.97795465400807590681455642 |
-| Available allowance at that snapshot | 149.05214917869822863563039088 |
+| Spending/reservation upper bound | 91.78189932156720129726524806 |
+| Available allowance at that snapshot | 148.24820451113910324517969924 |
 
-The [Review PR evidence](compact-taskplan-7e19f7f-code.json) binds the exact audit.
+The [Amazon evidence](compact-taskplan-504a557-amazon.json) binds the exact audit.
 Including retained lost historical exposure **EUR159.96989616729369545755505266**, the
-cumulative spending/reservation upper bound is **EUR250.94785082130177136436960908**
+cumulative spending/reservation upper bound is **EUR251.75179548886089675482030072**
 inside the original EUR400 authorization. This corrects the previous concise summary's
 stale cumulative arithmetic; original monetary evidence is unchanged.
 

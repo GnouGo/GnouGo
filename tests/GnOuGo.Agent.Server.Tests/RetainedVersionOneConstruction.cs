@@ -21,6 +21,7 @@ internal static class RetainedVersionOneConstruction
         state.Request.Options["construction_version"] = 1;
         state.Request.Options.Remove("construction_input_limits");
         state.Request.Options.Remove("construction_presentation_version");
+        state.Request.Options.Remove(PlanningTransportPolicies.OptionName);
         if (state.Request.Options["construction_limits"] is JsonObject limits)
         {
             limits.Remove("phasePolicy");
@@ -36,6 +37,7 @@ internal static class RetainedVersionOneConstruction
         state.Request.MaxModelCalls = Math.Min(state.Request.MaxModelCalls, 12);
         var restored = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
         Assert.False(PlanningConstructionPhasePolicies.IsFresh(restored.Request));
+        Assert.Null(PlanningTransportPolicies.Read(restored.Request));
         Assert.Equal(restored.Request.Generation.MaxInputTokensPerRequest,
             PlanningConstructionPhasePolicies.Resolve(restored.Request, "construction_draft").MaxInputTokens);
         return restored;
