@@ -1,192 +1,113 @@
 # Compact TaskPlan convergence
 
-Business acceptance remains incomplete and PR #120 stays Draft. Review PR on
-`615dd0e96` stopped on a single HTTP 500 at request 13 with no receipt. Its full
-reservation is retained; exact permanent-abandonment authorization is pending.
-All eighteen earlier receiptless identities remain permanently closed. No uncertain
-request was replayed. Collections and Amazon also remain incomplete on recent
-sources. The 18 alternating runs against `56942f5` have not started.
+Business acceptance remains incomplete and PR #120 stays Draft. The latest Collections
+run stopped on a valid inconclusive business review after two checkpoints. All nineteen
+historical receiptless identities are now permanently closed under exact authorizations,
+with their full reservations retained. No uncertain request was replayed. The eighteen
+alternating runs against `56942f5` have not started.
 
 ## Current implementation and validation
 
-Fresh presentation revision 4 supplies compiler facts and relevant caller declarations
-to scoped Judges and allows one bounded inconclusive reassessment. Historical revision
-3 and issued requests retain their captured behavior. Discovery presentation removes
-only verified duplicate version metadata; original contracts and constraints remain intact.
+Fresh presentation revision 4 supplies compiler facts and declarations to scoped Judges,
+distinguishes selected-scope state from remaining open boundaries, and grounds findings
+in original obligations plus concrete implementation evidence. Discovery schemas offer
+only binding field combinations already permitted by semantic validation. Historical
+revision-3 behavior and issued requests remain unchanged.
 
-The latest correction narrows discovery binding schemas to the field combinations
-already enforced by semantic validation: operation identities for `operation`, a
-reusable target for `call`, and neither for other kinds. Revision-3 grammar and
-issued requests remain exact. **191 focused and 2,618 complete Planning tests pass with warnings as errors**,
-with zero compiler diagnostics on `615dd0e96`. Validation rollup SHA:
-`c3f07beda4fe02df391fd1f327cb941ed52984f3a36559ef5ddf972d3a6a78f8`.
-Exact `615dd0e96` also passed all **eleven publication stages**, with zero compiler
-diagnostics and unchanged tracked source. Manifest SHA:
+The latest focused change extends the existing single inconclusive reassessment to
+omitted accepted producers identified by verified consumed bindings and exact task links.
+It excludes unrelated neighbors, candidate-owned tasks, invalidated originals and concrete
+evidence already shown. The existing bounded loader, complete-request admission, shared
+local/intermediate allowance and exact recovery remain intact. No report prose selects
+evidence; no correction or execution authority is added.
+
+**45 focused and 2,632 complete Planning tests passed with warnings as errors**,
+with independent review and zero compiler diagnostics. Validation rollup SHA:
+`a8474499ce735abff18b5ba4ff20e935f9d6a6539ce2b35ea3aeaa9ff1cf51fb`.
+
+Prior production `615dd0e96` passed **191 focused / 2,618 complete Planning tests** and
+all **eleven publication stages**: five packages, Planning Native AOT recovery/execution
+for presentation 2/3/4, published format-10 encrypted storage and Git AOT/contracts.
+`b1c29b359` changed only evidence documents. Publication manifest SHA:
 `a3e711577d88ef2519718674e11fc4e05d8203e044a9d8f1e49f014b10909fb7`.
+The new producer-lookup correction is outside those results. Exact `16d8e83` full-solution
+validation and newer CI remain running; earlier full-solution/publication results remain
+attributed in their immutable archives.
 
-The prior selected-scope fact and guidance correction passed **31 focused and
-2,604 complete Planning tests**, with warnings as errors and no compiler diagnostics.
-Exact `f05d07c2a` passed all **eleven publication stages**: five Release packages,
-Planning Native AOT recovery for presentation 2/3/4, published format-10 encrypted
-storage, and Git Native AOT/published contracts. Publication manifest SHA:
-`9526e7de2a292624fb10210dbbb973cf69ca8fcdf7636a259a5234685274cb98`.
-The preceding citation correction passed 28 focused / 2,601 complete Planning tests.
+## Recent live diagnostics
 
-Exact `ae1d50aa` full-solution validation passed **7,617 tests, zero failures, 13 skips
-across 33 projects**, with warnings as errors. Full-solution validation for `16d8e83e3`
-and CI for newer sources remain running. These older checks do not establish
-validation or business acceptance of subsequent changes.
+| Scenario / source | Calls / receipts | Corrections / checkpoints | Planning seconds | Cost or upper bound EUR | Stop |
+| --- | ---: | ---: | ---: | ---: | --- |
+| [Collections / b1c29b359](compact-taskplan-b1c29b359.json) | 11 / 11 | 0 / 2 | 171.899 | 0.2688130298973672467648371265 | Missing producer proof at local review |
+| [Review PR / 615dd0e96](compact-taskplan-615dd0e96.json) | 13 / 12 | 0 / 0 | 578.275 | 1.0508656849620705042391789380 upper | Single receiptless HTTP 500 |
+| [Amazon / f05d07c2a](compact-taskplan-f05d07c2a.json) | 18 / 18 | 4 / 0 | 373.248 | 0.8101918786256135653726015171 | Repeated invalid discovery binding |
+| [Collections / 16d8e83e3](compact-taskplan-16d8e83e3.json) | 27 / 27 | 1 / 6 | 492.204 | 0.7687996430165104863900044625 | Unsupported Judge finding |
 
-## Latest live diagnostic
+None of these runs produced a finalized artifact or executed. Calls per independently
+satisfied business obligation and runtime latency are undefined. Every constructed request
+met its captured ceiling; archives include phase p50/p95/maximum sizes, reconciled components,
+provider usage, corrections, latency and exact failures.
 
-[Review PR on `615dd0e96`](compact-taskplan-615dd0e96.json) made **13 calls / 12
-receipts**, zero corrections and zero checkpoints in **578.275 seconds**. Request
-13 stopped on a single HTTP 500 with no completion receipt. Known cost is
-**€0.5029495760821062025881302990**, with the full unknown-usage reservation
-**€0.5479161088799643016510486390** retained. No artifact, Judge or execution occurred.
-The inspected closure binds evidence
-`b2c62b36a73e5dc8cc9c3d5e006a7422d1e53107ddf805ccab255d4feddb620f`;
-authorization is pending and no closure has been applied.
+Latest Collections consumed **17,767 input / 7,079 output tokens**, including 5,016 reasoning
+tokens. All eleven responses were nonempty; formatting whitespace outside strings totaled
+59 characters, maximum run 34. Peak draft/Judge requests were **12,577 / 10,334 bytes**.
+The third Judge saw a numeric export and its producer's objective, but not the producer's
+multiplication binding. Original accepted evidence confirms multiplication of the isolated
+group input by literal two. This is missing proof, not a demonstrated computation defect
+or a measured avoided correction. The scoped close claimed no whole-requirement completion.
+Its rejected checkpoint and both earlier accepted checkpoints remain intact.
 
-Recorded provider usage was **41,203 input / 11,918 output tokens**, including
-5,159 reasoning tokens. Twelve completed responses were nonempty; request 13's
-output and usage remain unknown. Interface extraction request 3 returned valid
-JSON with **116,273 formatting-whitespace characters**, maximum run 115,028;
-its original text was 118,424 bytes versus 2,151 normalized JSON bytes. It used
-512 reasoning / 5,357 total output tokens, below its captured allowance. This
-formatting waste is separate from reasoning exhaustion and the later HTTP failure;
-no common cause or prompt-improvement claim is inferred.
+Review PR separately produced valid interface JSON with **116,273 formatting-whitespace
+characters**, maximum run 115,028. That completed extraction used 512 reasoning / 5,357 total
+output tokens, below its allowance. The later receiptless request's output remains unknown;
+no causal connection or output-exhaustion claim is made. Known run cost is
+€0.5029495760821062025881302990 and retained unknown reservation is
+€0.5479161088799643016510486390. Its [authorized closure](compact-taskplan-615dd0e96-retention.json)
+preserves the earlier pending snapshot.
 
-The retained Review PR profile uses medium reasoning, input targets/ceilings
-3k/16k, 8k/16k, 4k/8k and output reservations 16,384/16,384/4,096. Settings match
-its earlier comparison diagnostic; source changes are disclosed. All constructed
-requests met their captured limits. Archives retain phase percentiles, reconciled
-components and exact identities. No business obligation was independently satisfied,
-so calls per satisfied obligation and runtime latency remain undefined.
+The Amazon output experiment raised navigation reservation to 32,768 after a retained
+reasoning-only exhaustion. No response needed more than the old 16,384 allowance, so no
+causal benefit is established. The earlier Collections scope false positive motivated
+selected-scope facts; the latest stop concerned missing producer proof instead.
 
-## Previous Amazon diagnostic
-
-[Amazon on `f05d07c2a`](compact-taskplan-f05d07c2a.json) made **18 calls / 18 receipts**,
-four corrections and no checkpoints in **373.248 seconds**, costing
-**€0.8101918786256135653726015171**. Discovery twice selected `close` with operation
-identities, an invalid combination permitted by the response schema but correctly
-rejected by semantic validation. The repeated response stopped the run. One further
-constructed request was never dispatched; it is not an uncertain call.
-
-Provider usage was **67,618 input / 18,991 output tokens**, including 14,687 reasoning
-tokens. No response was empty. Peak draft/discovery requests were **37,429 / 22,957
-bytes**, within captured ceilings. Original receipts contained four formatting
-whitespace characters, maximum run two. No Judge or execution ran, so business
-acceptance, runtime latency and calls per satisfied obligation remain unavailable.
-
-This separate medium-reasoning experiment raised navigation output allowance to
-32,768 following a retained reasoning-only exhaustion. No response needed more than
-the old 16,384 allowance; it therefore does not establish a causal benefit. Interface
-extraction completed after one default-validation correction. The archive retains
-phase percentiles, reconciled components, failures and exact profile differences.
-
-## Previous Collections diagnostic
-
-[Collections on `16d8e83e3`](compact-taskplan-16d8e83e3.json) made **27 calls / 27
-receipts**, one correction and six checkpoints in **492.204 seconds**, costing
-**€0.7687996430165104863900044625**. Its final Judge incorrectly treated the
-still-open root as unfinished reusable/loop work. The host correctly rejected the
-unsupported citations. This is an independently assessed structural false positive,
-not runtime evidence or a measured avoided correction.
-
-All requests met captured limits; peak draft/local-Judge requests were **13,667 /
-10,088 bytes**. Provider usage was **50,134 input / 20,359 output tokens**, including
-15,566 reasoning tokens. No response was empty; original receipt text contained
-nine formatting-whitespace characters, with maximum whitespace run one. Ten Judges
-ran; the archive retains phase percentiles and reconciled components. Runtime
-latency and calls per independently satisfied business obligation remain undefined.
-
-The focused follow-up adds the selected scope's open/closed fact beside the global
-open-boundary count and clarifies that an open ancestor does not reopen its children.
-No validation, correction authority or execution gate changes. Its **31 focused tests
-passed with warnings as errors**, including historical exact recovery and rejection
-of consumption from unfinished children. Its complete Planning suite passed 2,604 tests, and all eleven publication stages
-passed on `f05d07c2a`. The subsequent Amazon run did not reach a Judge, so the scope
-correction has no live review result yet.
-
-## Earlier live diagnostics
-
-All three use identical production code (`9d23d5b`) and pinned medium reasoning.
-Navigation/draft/review output reservations remain **16,384/16,384/4,096**; calls,
-corrections, cumulative ceilings and financial controls are unchanged. Cohorts a/b
-use input targets/ceilings **3k/12k, 8k/16k, 4k/8k**. Cohort c changes only the
-navigation hard ceiling to **16k**, with its 3k target unchanged.
-
-| Review PR cohort | Calls / receipts | Corrections / checkpoints | Planning seconds | Cost or upper bound EUR |
-| --- | ---: | ---: | ---: | ---: |
-| [a](compact-taskplan-1a236234.json) | 3 / 2 | 0 / 0 | 346.701 | 0.5678759482373940205265506470 upper |
-| [b](compact-taskplan-1a236234-b.json) | 47 / 47 | 3 / 1 | 906.938 | 2.4243284248103525211958946900 |
-| [c](compact-taskplan-1a236234-c.json) | 24 / 24 | 1 / 0 | 488.639 | 1.1673360107095046854082998662 |
-
-Cohort a stopped on HTTP 500 at request 3. Its known cost is
-€0.0756671128960285586791610888; the full unknown reservation
-€0.4922088353413654618473895582 remains after authorized permanent closure.
-The archive separately records the earlier `9d23d5b` Collections closure without
-altering its historical pending snapshot.
-
-Cohort b stopped on requested-evidence admission/no-progress. Its last rejected
-prospective request was **12,154 estimated tokens against a 12,000 ceiling**.
-The prior dispatched request had 34,486 bytes / 11,752 estimated tokens, including
-18,221 reconciled serialized evidence bytes. Its accepted clone checkpoint does
-not prove runtime success or an avoided correction. Cohort c stopped earlier at
-an inconclusive Judge: a concrete task location was valid but was not duplicated
-in the evidence array, which contained no other qualifying implementation citation.
-That grounding mismatch motivated the focused fix.
-Every c navigation request remained below the old 12k ceiling (maximum 8,430
-estimated tokens); c therefore does not establish that 16k resolved b's bottleneck.
-
-Known provider input/output/reasoning tokens were **1,087/2,645/1,994** for a's two
-receipts, **269,974/45,553/36,277** for b, and **102,090/26,585/21,768** for c.
-All recorded responses were nonempty; a's receiptless response content is unknown.
-Formatting whitespace outside strings totaled 0/5/51 characters respectively.
-Archives retain reconciled components, phase percentiles, exact usage, latency and
-safe evidence hashes. Runtime latency and calls per independently satisfied business
-obligation are undefined because none of these artifacts reached business acceptance.
-
-The earlier [ae1d50aa diagnostics](compact-taskplan-ae1d50aa.json) retained 35 fully
-receipted calls without execution. Amazon exhausted its 16,384-token output allowance
-entirely in reasoning, with zero visible output; the cause remains unproven. No
-unchanged failed request was retried. A malformed hyphenated c cohort was rejected
-locally before any paid call and is retained as a separate zero-call setup failure.
+These are separate frozen configuration diagnostics. Latest Collections retains medium
+reasoning, targets/ceilings **3k/12k, 8k/16k, 4k/8k**, and navigation/draft/review outputs
+**16,384/16,384/4,096**. Review PR retained a 16k navigation ceiling. Model, ordinary
+64-call/correction allowances, MCP pins, oracles and financial controls stay captured.
 
 ## Campaign snapshot
 
-The post-Review-PR audit records **1,619 requests / 1,600 receipts**, nineteen
-receiptless identities, eighteen permanently closed and one pending exact authorization.
-Eighteen unknown transport attempts are a separate accounting count. All original
-records and reservations remain.
+The post-Collections audit records **1,630 requests / 1,611 receipts**, nineteen permanently
+closed receiptless identities and eighteen unknown transport attempts as a separate count.
 
 | Ledger measurement | EUR |
 | --- | ---: |
 | Campaign ceiling | 240.0301038327063045424449473 |
-| Known spending | 54.858688816107464307301780358 |
+| Known spending | 55.127501846004831554066617484 |
 | Unknown-usage reservations | 8.080341250662771349624333406 |
-| Spending/reservation upper bound | 62.939030066770235656926113764 |
-| Available allowance | 177.091073765936068885518833536 |
+| Spending/reservation upper bound | 63.207843096667602903690950890 |
+| Available allowance | 176.822260736038701638753996410 |
 
-Audit hash: `59f713f00354b0651d852eee6b6c1a0bf6c37ab0db5a5a45fdea5df285bac584`.
+Audit hash: `8890bcd2cdf5ab4d95c1ad204544973b3c2b0ff5860e6bd642ce71f7d37dadd3`.
 Lost historical exposure **€159.96989616729369545755505266** remains inside the original
-€400 authorization; cumulative upper bound is **€222.908926234063931114481166424**.
-These are retained snapshot values; readiness and balance must be checked before dispatch.
+€400 authorization; cumulative upper bound is **€223.177739263961298361246003550**.
+Recheck readiness and balance before dispatch; snapshots do not grant new allowances.
 
 ## Remaining acceptance
 
-Earlier `efcb1d7a` passed both real Collections runtime variants with ordered,
-duplicate-preserving parallel reusable results. This is historical evidence, not
-current-source acceptance. All three current diagnostics must execute successfully
-before paired runs: Collections exact parallel reusable results; Amazon complete
-observations, workbook and browser closure; Review PR pinned provenance, actual
-checks, reports and cleanup. Artifact-bound review and exact individual invocation
-confirmations remain mandatory. Compilation and CI are not business success.
+Earlier `efcb1d7a` passed both real Collections variants with ordered, duplicate-preserving
+parallel reusable results. That is historical evidence, not current-source acceptance.
+Fresh Collections, Amazon and Review PR must execute and satisfy their unchanged independent
+oracles before paired runs. Exact results, complete observations, pinned provenance,
+actual command/report evidence and cleanup remain required. Artifact-bound delegation
+and exact individual confirmations remain mandatory. Compilation and CI do not establish
+business success.
 
 ## Immutable evidence index
 
-- Latest: [615dd0e96 Review PR](compact-taskplan-615dd0e96.json).
+- Latest: [b1c29b359 Collections](compact-taskplan-b1c29b359.json).
+- Prior Review PR: [615dd0e96 Review PR](compact-taskplan-615dd0e96.json).
+- [615dd0e96 exact authorized closure](compact-taskplan-615dd0e96-retention.json), appended separately from its pending snapshot.
 - Previous: [f05d07c2a Amazon](compact-taskplan-f05d07c2a.json).
 - Previous: [16d8e83e3 Collections](compact-taskplan-16d8e83e3.json).
 - Earlier: [1a cohort a](compact-taskplan-1a236234.json), [b](compact-taskplan-1a236234-b.json), [c](compact-taskplan-1a236234-c.json).

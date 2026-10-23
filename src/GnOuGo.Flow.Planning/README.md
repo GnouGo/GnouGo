@@ -118,7 +118,7 @@ alone are insufficient. A validated concrete finding location supplies its own
 implementation citation under the fresh issued schema; no duplicate pointer is
 required. Retained citation schemas keep their original interpretation. A valid
 inconclusive assessment can consume one additional
-review only when exact relevant omitted declaration/export evidence improves its
+review only when omitted declarations, exports or consumed accepted producers supply exact relevant
 support and the complete follow-up fits existing admission. Candidate review
 records retain this allowance across local/intermediate review and interruption;
 there is no correction charge or renewed evidence cycle. Otherwise the candidate

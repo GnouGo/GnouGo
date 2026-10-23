@@ -371,8 +371,11 @@ the captured review output reservation.
 
 A valid inconclusive response may receive one reassessment for the same semantic
 candidate and completion claim, shared across local and intermediate review.
-Only already relevant, omitted exact input declarations or export schemas can
-supply the additional support. The host stages retrieval and admits the complete
+Only already relevant, omitted exact input declarations, export schemas or accepted
+producers identified by verified consumed bindings and issued task addresses can
+supply the additional support. Producer lookup excludes candidate-owned tasks,
+already supplied concrete tasks and invalidated originals; it does not interpret
+the report's prose or expand nested bodies. The host stages retrieval and admits the complete
 follow-up plus required downstream review before saving it. The receipt, support
 hashes and exact issued request remain durable; reassessment consumes calls and
 usage without a correction charge. Missing new support, exhausted allowances,

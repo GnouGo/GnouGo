@@ -246,10 +246,93 @@ public sealed class CompactVerifiedJudgeTests
         Assert.NotNull(Assert.Single(state.Construction.Candidate.Reviews)["response"]);
     }
 
-    [Fact]
-    public async Task SavedReassessmentReceiptResumesWithoutAnotherDispatchOrAllowance()
+    [Theory]
+    [InlineData("output")]
+    [InlineData("present")]
+    [InlineData("field")]
+    [InlineData("closure")]
+    [InlineData("original")]
+    public async Task MissingConsumedProducerAddsOnlyItsExactEvidenceToOneReassessment(string use)
     {
-        var state = await State(large: true);
+        var state = await ProducerState(use);
+        var baseline = PlanningConstruction.Hash(state.Plan);
+        var producer = PlanningConstruction.TaskNode(new TaskPlanSymbols(state.Plan!).Tasks["accepted_label"].Task);
+        const string originalAddress = "original:0:accepted_label";
+        if (use == "original")
+        {
+            var original = producer.DeepClone();
+            original["objective"] = "Invalidated earlier implementation.";
+            state.Construction!.Evidence = new() { [originalAddress] = original };
+        }
+        var retainedOriginal = state.Construction!.Evidence?[originalAddress]?.ToJsonString();
+        var runtime = new TestRuntime { Respond = (request, _) =>
+        {
+            var context = Context(request);
+            Assert.Contains(context["interfaces"]!.AsArray(), entry => TaskPlanCompiler.Values(JsonSerializer.Deserialize(
+                entry!["binding"]!.ToJsonString(), PlanningJsonContext.Default.TaskValue)!).Any(value => value.Source == "accepted_label"));
+            Assert.Equal(retainedOriginal, context["evidence"]?[originalAddress]?.ToJsonString());
+            Assert.Contains(context["taskEvidence"]!["items"]!.AsArray(), entry => entry!["address"]!.ToString() == "task:unrelated");
+            return Response(inconclusive: "The exact accepted producer is needed to assess this result.");
+        } };
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        Assert.Equal(baseline, PlanningConstruction.Hash(state.Plan));
+        Assert.Empty(state.Construction!.Checkpoints);
+        Assert.Equal("task:accepted_label", Assert.Single(state.Construction.Evidence!, item => item.Key != originalAddress).Key);
+        Assert.Equal(retainedOriginal, state.Construction.Evidence![originalAddress]?.ToJsonString());
+        var support = Assert.Single(Assert.Single(state.Construction.Candidate!.Reviews)["support"]!.AsArray())!;
+        Assert.Equal("task:accepted_label", support["address"]!.ToString());
+        runtime.Respond = (request, _) =>
+        {
+            var context = Context(request);
+            var supplied = context["evidence"]!["task:accepted_label"]!;
+            foreach (var field in producer.AsObject()) Assert.True(JsonNode.DeepEquals(field.Value, supplied[field.Key]));
+            Assert.Equal(PlanningGraphCompiler.Fingerprint(supplied.ToJsonString()), support["hash"]!.ToString());
+            Assert.Equal(support.ToJsonString(), Assert.Single(context["reassessment"]!["support"]!.AsArray())!.ToJsonString());
+            Assert.Null(context["evidence"]!["task:unrelated"]);
+            Assert.Equal("null", request.StructuredOutputSchema!["properties"]!["evidenceRequests"]!["type"]!.ToString());
+            return Response();
+        };
+        state = await Advance(PlannerFixture.Clone(state), runtime);
+        Assert.Equal(2, state.ModelCalls);
+        Assert.Equal(0, state.ReplanAttempts);
+        var checkpoint = Assert.Single(state.Construction!.Checkpoints);
+        Assert.Single(checkpoint.Reviews, review => review["reassessment"] is not null);
+        Assert.Null(state.ApprovedHash);
+    }
+
+    [Theory]
+    [InlineData("task")]
+    [InlineData("scope")]
+    [InlineData("page")]
+    [InlineData("draft")]
+    [InlineData("unrelated")]
+    public async Task SuppliedOrUnconsumedProducerDoesNotManufactureReassessmentProgress(string support)
+    {
+        var state = await ProducerState(support);
+        if (support is "task" or "scope" or "page") PlanningConstruction.LoadEvidence(state,
+            [support == "task" ? "task:accepted_label" : support == "scope" ? "scope:/root" : "page:tasks:0"]);
+        var baseline = PlanningConstruction.Hash(state.Plan);
+        var exactEvidence = state.Construction!.Evidence?.ToJsonString();
+        var reads = state.Construction.EvidenceRequests.ToArray();
+        state = await Advance(state, new() { Respond = (_, _) => Response(inconclusive: "The available implementation cannot complete this review.") });
+        Assert.Equal(PlanningStatus.Stopped, state.Status);
+        Assert.Equal("CONSTRUCTION_REVIEW_INCONCLUSIVE", Assert.Single(state.Diagnostics).Code);
+        Assert.Equal(baseline, PlanningConstruction.Hash(state.Plan));
+        Assert.Equal(exactEvidence, state.Construction!.Evidence?.ToJsonString());
+        Assert.Equal(reads, state.Construction.EvidenceRequests);
+        Assert.Empty(state.Construction.Checkpoints);
+        Assert.All(state.Construction.Candidate!.Reviews, review => Assert.Null(review["reassessment"]));
+        Assert.Equal(1, state.ModelCalls);
+        Assert.Equal(0, state.ReplanAttempts);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SavedReassessmentReceiptResumesWithoutAnotherDispatchOrAllowance(bool producer)
+    {
+        var state = producer ? await ProducerState() : await State(large: true);
         var runtime = new TestRuntime { Respond = (_, _) => Response(inconclusive: "Need exact omitted constraints.") };
         state = await Advance(state, runtime);
         LLMResponse? receipt = null;
@@ -334,10 +417,12 @@ public sealed class CompactVerifiedJudgeTests
         }
     }
 
-    [Fact]
-    public async Task LocalAndIntermediateShareOneReassessmentAllowance()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task LocalAndIntermediateShareOneReassessmentAllowance(bool producer)
     {
-        var state = await State(large: true);
+        var state = producer ? await ProducerState() : await State(large: true);
         state.Construction!.Candidate!.NeedsIntermediateReview = true;
         var runtime = new TestRuntime { Respond = (_, _) => Response(inconclusive: "Need omitted declaration.") };
         state = await Advance(state, runtime);
@@ -383,11 +468,13 @@ public sealed class CompactVerifiedJudgeTests
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task InterruptedIssuedReviewResumesExactRequestAndConsumesReassessmentOnce(bool reassessment)
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public async Task InterruptedIssuedReviewResumesExactRequestAndConsumesReassessmentOnce(bool reassessment, bool producer)
     {
-        var state = await State(large: reassessment);
+        var state = producer ? await ProducerState() : await State(large: reassessment);
         var runtime = new TestRuntime { Respond = (_, _) => Response(inconclusive: "Need exact omitted constraints.") };
         if (reassessment) state = await Advance(state, runtime);
         runtime.Respond = (_, _) => throw new OperationCanceledException();
@@ -421,6 +508,44 @@ public sealed class CompactVerifiedJudgeTests
         state.Construction.Candidate = PlanningConstruction.Apply(state, new() { Scope = "/root", RequirementIds = ["work"], Tasks =
             [new() { Id = "use_label", Kind = "value", Objective = step.Objective,
                 Outputs = [new("value", new() { Kind = "output", Source = "accepted_label", Port = "value" })] }] });
+        return state;
+    }
+
+    private static async Task<PlanningSession> ProducerState(string use = "output")
+    {
+        var state = await TaskState();
+        var construction = state.Construction!;
+        var step = construction.Compact!.CurrentStep!;
+        var producer = state.Plan!.Root.Tasks.Single();
+        state.Plan.Root.Tasks.Add(new() { Id = "unrelated", Kind = "value", Objective = "Keep independent accepted work.",
+            Outputs = [new("value", new() { Kind = "string", Text = "Independent" })] });
+        var extension = construction.Candidate!.Extension;
+        if (use == "closure")
+        {
+            var tasks = state.Plan.Root.Tasks;
+            state.Plan.Root.Tasks = [new() { Id = "container", Kind = "sequence", Objective = "Produce the caller label.",
+                Body = new() { Tasks = tasks, Outputs = [new("value", new() { Kind = "output", Source = "accepted_label", Port = "value" })] } }];
+            step.Scope = "/tasks/container/body"; step.Kind = "close"; step.CloseRequirementIds = ["work"];
+            construction.OpenScopes.Add(step.Scope);
+            extension = new() { Scope = step.Scope, RequirementIds = ["work"], CloseScopes = [step.Scope] };
+        }
+        else if (use == "draft")
+        {
+            state.Plan.Root.Tasks.Remove(producer);
+            extension.Tasks.Insert(0, producer);
+        }
+        else if (use is "present" or "unrelated")
+            extension.Tasks[0].Outputs[0] = new("value", use == "present" ? new() { Kind = "present", Source = "accepted_label" }
+                : new() { Kind = "input", Source = "label" });
+        else if (use == "field")
+        {
+            producer.Outputs[0] = new("value", new() { Kind = "object", Members =
+                [new("payload", new() { Kind = "object", Members = [new("label", new() { Kind = "input", Source = "label" })] })] });
+            extension.Tasks[0].Outputs[0] = new("value", new() { Kind = "field", Port = "label", Items =
+                [new() { Kind = "field", Port = "payload", Items = [new() { Kind = "output", Source = "accepted_label", Port = "value" }] }] });
+        }
+        step.BaseHash = PlanningConstruction.Hash(state.Plan);
+        construction.Candidate = PlanningConstruction.Apply(state, extension);
         return state;
     }
 

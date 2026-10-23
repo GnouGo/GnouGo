@@ -326,6 +326,20 @@ public sealed partial class HybridWorkflowPlanner
                 .Select(input => input["evidence"]?.ToString()).OfType<string>().Where(address => address.StartsWith("input:", StringComparison.Ordinal)));
         if (context["scopeInterface"]?["evidence"] is JsonValue exportAddress)
             addresses.Add(exportAddress.ToString());
+        if (context["constructionStage"]?["preflight"]?["status"]?.ToString() == "passed" &&
+            context["interfaces"] is JsonArray interfaces && context["taskEvidence"]?["items"] is JsonArray tasks && state.Plan is not null)
+        {
+            var accepted = new TaskPlanSymbols(state.Plan);
+            var producers = interfaces.Select(item => Producer(item?["binding"])).OfType<string>().ToHashSet(StringComparer.Ordinal);
+            foreach (var task in tasks.OfType<JsonObject>())
+                if (task["task"]?.ToString() is { } id && producers.Contains(id) && accepted.Tasks.ContainsKey(id) &&
+                    !candidate.TaskIds.Contains(id, StringComparer.Ordinal) && task["address"]?.ToString() == "task:" + id &&
+                    !ContainsTask(context["draft"], id) &&
+                    !(context["evidence"]?.AsObject().Any(item =>
+                        (item.Key == "task:" + id || item.Key.StartsWith("scope:", StringComparison.Ordinal) ||
+                         item.Key.StartsWith("page:tasks:", StringComparison.Ordinal)) && ContainsTask(item.Value, id)) ?? false))
+                    addresses.Add("task:" + id);
+        }
         addresses = addresses.Distinct(StringComparer.Ordinal)
             .Where(address => context["evidence"]?[address] is null).Take(8).ToList();
         if (addresses.Count == 0) return false;
@@ -339,8 +353,8 @@ public sealed partial class HybridWorkflowPlanner
             PlanningJsonContext.Default.PlanningSession)!;
         try
         {
-            // Only exact omitted declarations/exports already relevant to this
-            // review are eligible; never search a catalog or reinterpret prose.
+            // Retrieve only exact omitted declarations, exports or consumed
+            // accepted producers; never search a catalog or reinterpret prose.
             PlanningConstruction.LoadEvidence(probe, addresses);
             var support = ConstructionReviewSupport(probe.Construction!.Evidence!, addresses);
             var entry = new JsonObject { ["purpose"] = purpose, ["fingerprint"] = fingerprint,
@@ -367,6 +381,21 @@ public sealed partial class HybridWorkflowPlanner
         catch (PlanningResponseException) { return false; }
         catch (WorkflowRuntimeException error) when (error.Code is "LLM_BUDGET_EXCEEDED" or "MODEL_INPUT_LIMIT" or "CONSTRUCTION_REVIEW_ALLOWANCE")
         { return false; }
+
+        static string? Producer(JsonNode? binding)
+        {
+            while (binding?["kind"]?.ToString() == "field" && binding["items"] is JsonArray { Count: 1 } items)
+                binding = items[0];
+            return binding?["kind"]?.ToString() is "output" or "present" ? binding["source"]?.ToString() : null;
+        }
+        static bool ContainsTask(JsonNode? node, string id)
+        {
+            if (node is JsonArray array) return array.Any(item => ContainsTask(item, id));
+            if (node is not JsonObject value) return false;
+            if (value["id"]?.ToString() == id && value["kind"] is JsonValue) return true;
+            return new[] { "tasks", "always", "body", "otherwise", "branches", "groups", "items" }
+                .Any(key => ContainsTask(value[key], id));
+        }
     }
 
     internal static bool ConstructionBusinessFindingSupported(JsonObject context, JsonObject finding, bool locationEvidence = false)
