@@ -10,6 +10,128 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed partial class CompactDiscoveryProtocolTests
 {
     [Theory]
+    [InlineData(3)]
+    [InlineData(4)]
+    public async Task AutomaticOperationDirectoriesUseOnlyTheCurrentQueryWithoutDiscardingOriginals(int presentationVersion)
+    {
+        var (state, _) = await Ready(presentationVersion: presentationVersion);
+        AddOperations(state, 3);
+        var page = state.Discovery.Pages.Single();
+        var current = page.Capabilities[0];
+        var previous = page.Capabilities[1];
+        var artifact = page.Capabilities[2];
+        state.Discovery.Pages = [page with { Capabilities = [current] },
+            page with { Query = "A different immediate result.", Capabilities = [previous] },
+            page with { ProducedArtifactKind = "document", Capabilities = [artifact] }];
+        state.Discovery.Resolved.Add(new() { Id = previous.Id, Version = previous.Version, Kind = "tool", StepType = previous.StepType,
+            Server = previous.SourceId, Method = previous.Name, Description = previous.Description, Operation = previous.Operation,
+            InputSchema = new() { ["type"] = "object", ["properties"] = new JsonObject(), ["additionalProperties"] = false },
+            OutputSchema = new() { ["type"] = "object", ["properties"] = new JsonObject(), ["additionalProperties"] = false } });
+        var originals = JsonSerializer.Serialize(state.Discovery, PlanningJsonContext.Default.CapabilityDiscoveryState);
+        var items = PlanningCompactConstruction.ContractDescriptorPage(state)["items"]!.AsArray();
+        Assert.Equal(presentationVersion == 4 ? 1 : 3, items.Count);
+        Assert.Contains(items, item => item!["id"]!.ToString() == current.Operation!.Id);
+        var address = "description:" + Uri.EscapeDataString(previous.Operation!.Id) + "@" + Uri.EscapeDataString(previous.Operation.Version) + ":0";
+        Assert.Equal(previous.Operation.Description, PlanningCompactConstruction.LoadContractEvidence(state, address)!["text"]!.ToString());
+        Assert.Equal(previous.Operation.Id, PlanningCompactConstruction.LoadContractEvidence(state, "contract:" + address[12..^2])!["id"]!.ToString());
+        Assert.Equal(originals, JsonSerializer.Serialize(state.Discovery, PlanningJsonContext.Default.CapabilityDiscoveryState));
+        // Rediscovery for the selected query can legitimately contain a previously cached operation.
+        state.Discovery.Pages.Add(page with { Cursor = "current-next", Capabilities = [previous] });
+        Assert.Contains(PlanningCompactConstruction.ContractDescriptorPage(state)["items"]!.AsArray(),
+            item => item!["id"]!.ToString() == previous.Operation.Id);
+    }
+
+    [Fact]
+    public async Task UnrelatedQueryHistoryCannotGrowTheFreshAutomaticRequest()
+    {
+        var (state, _) = await Ready(presentationVersion: 4);
+        AddOperations(state, 1);
+        var before = Measure(state);
+        var page = state.Discovery.Pages.Single();
+        var capability = page.Capabilities.Single();
+        for (var index = 0; index < 250; index++)
+            state.Discovery.Pages.Add(page with { Query = "Earlier query " + index,
+                Capabilities = [capability with { Id = "earlier_" + index,
+                    Operation = new() { Id = "earlier_operation_" + index, Version = capability.Version, Description = new string('x', 20000) } }] });
+        var after = Measure(state);
+        Assert.Equal(before.CompleteRequestBytes, after.CompleteRequestBytes);
+        Assert.Equal(before.EstimatedInputTokens, after.EstimatedInputTokens);
+        Assert.Equal(251, state.Discovery.Pages.Count);
+        Assert.Single(PlanningCompactConstruction.ContractDescriptorPage(state)["items"]!.AsArray());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task HistoricalGlobalOperationPagesRequireTheirExactSavedSchemaAndRecoverWithoutAnotherCall(bool savedReceipt)
+    {
+        var (state, runtime) = await Ready(presentationVersion: 4);
+        AddOperations(state, 8);
+        var page = state.Discovery.Pages.Single();
+        state.Discovery.Pages = [page with { Capabilities = page.Capabilities.Take(1).ToList() },
+            page with { Query = "An earlier business action.", Capabilities = page.Capabilities.Skip(1).ToList() }];
+        var historical = PlanningCompactConstruction.ContractDescriptorPage(state, 4, retained: true);
+        var address = "page:operations:" + PlanningGraphCompiler.Fingerprint(historical.ToJsonString()) + ":4";
+        var exactDiscovery = JsonSerializer.Serialize(state.Discovery, PlanningJsonContext.Default.CapabilityDiscoveryState);
+        var currentSchema = PlanningCompactConstruction.DiscoverySchema(state);
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(Wire(Complete(state,
+            PlanningCompactConstruction.Request("", new(), currentSchema, PlanningCompactConstruction.DiscoveryPurpose)), Evidence(address)).Json!, currentSchema));
+        var unissued = Assert.Throws<PlanningResponseException>(() => PlanningConstruction.LoadEvidence(state, [address], issuedDiscoverySchema: currentSchema));
+        Assert.Contains(unissued.Diagnostics, item => item.Code == "CONSTRUCTION_EVIDENCE_INVALID");
+        Assert.Null(state.Construction!.Evidence);
+        Assert.Empty(state.Construction.EvidenceRequests);
+        var forged = PlannerFixture.Clone(state);
+        forged.Construction!.EvidenceRequests.Add(PlanningConstruction.EvidenceBatchFingerprint(forged, [address]));
+        Assert.Throws<PlanningResponseException>(() => PlanningCompactConstruction.LoadEvidence(forged, address, out _));
+        var context = PlanningCompactConstruction.DiscoveryContext(state);
+        context["descriptors"] = PlanningCompactConstruction.ContractDescriptorPage(state, retained: true);
+        context["directoryEvidence"]!["operations"] = address;
+        var schema = PlanningCompactConstruction.DiscoverySchema(state);
+        schema["properties"]!["evidenceRequests"] = PlanningSchemas.Nullable(PlanningSchemas.Array(PlanningSchemas.Enum([address]), 1, 8));
+        var issued = Complete(state, PlanningCompactConstruction.Request(PlanningCompactConstruction.DiscoveryGuidance(state), context, schema,
+            PlanningCompactConstruction.DiscoveryPurpose));
+        var stale = address.Replace(address.Split(':')[2], new string('0', 64), StringComparison.Ordinal);
+        var staleSchema = schema.DeepClone();
+        staleSchema["properties"]!["evidenceRequests"] = PlanningSchemas.Nullable(PlanningSchemas.Array(PlanningSchemas.Enum([stale]), 1, 8));
+        Assert.Throws<PlanningResponseException>(() => PlanningConstruction.LoadEvidence(state, [stale], issuedDiscoverySchema: staleSchema));
+        state.PendingCall = new() { Id = issued.ClientRequestId!, Purpose = PlanningCompactConstruction.DiscoveryPurpose, Request = issued };
+        state.ModelCalls++;
+        var calls = state.ModelCalls;
+        var exact = JsonSerializer.Serialize(issued, PlanningJsonContext.Default.LLMRequest);
+        var receipt = savedReceipt ? Wire(issued, Evidence(address)) : null;
+        var physicalCalls = 0;
+        runtime.Respond = (request, _) =>
+        {
+            Assert.Equal(exact, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+            if (receipt is not null) return receipt;
+            physicalCalls++;
+            return Wire(request, Evidence(address));
+        };
+        state = await Advance(PlannerFixture.Clone(state), runtime);
+        Assert.Empty(state.Diagnostics);
+        Assert.Equal(calls, state.ModelCalls);
+        Assert.Equal(0, state.ReplanAttempts);
+        Assert.Equal(historical.ToJsonString(), state.Construction!.Evidence![address]!.ToJsonString());
+        Assert.Equal(exactDiscovery, JsonSerializer.Serialize(state.Discovery, PlanningJsonContext.Default.CapabilityDiscoveryState));
+        Assert.Contains(PlanningConstruction.EvidenceBatchFingerprint(state, [address]), state.Construction.EvidenceRequests);
+        Assert.Equal(savedReceipt ? 0 : 1, physicalCalls);
+        var uncaptured = PlannerFixture.Clone(state);
+        uncaptured.Construction!.EvidenceRequests.Clear();
+        PlanningCompactConstruction.RemoveStaleDiscoveryDirectories(uncaptured);
+        Assert.Null(uncaptured.Construction.Evidence![address]);
+        PlanningCompactConstruction.RemoveStaleDiscoveryDirectories(state);
+        Assert.Equal(historical.ToJsonString(), state.Construction.Evidence![address]!.ToJsonString());
+        var followup = DiscoveryFollowup(state);
+        foreach (var item in historical["items"]!.AsArray())
+        {
+            var description = item!["descriptionEvidence"]!.ToString();
+            Assert.Empty(PlanningContractValidation.ValidateInstance(Wire(followup, Evidence(description)).Json!, followup.StructuredOutputSchema!));
+            Assert.NotNull(PlanningCompactConstruction.LoadContractEvidence(state, description));
+        }
+        Assert.Single(PlanningCompactConstruction.ContractDescriptorPage(state)["items"]!.AsArray());
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task RetainedProviderViewsAuthorizeEveryVisibleExactPairWithoutCrossProducts(bool descriptions)

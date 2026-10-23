@@ -49,7 +49,7 @@ internal static partial class PlanningConstruction
                     .Select(address => PlanningCompactConstruction.DescriptionReadKey(probe, issuedDiscoverySchema,
                         new JsonObject { ["evidenceRequests"] = new JsonArray(address) })).OfType<string>().ToArray()
                 : [];
-            LoadEvidenceCore(probe, requests, descriptionReadKey);
+            LoadEvidenceCore(probe, requests, descriptionReadKey, issuedDiscoverySchema);
             foreach (var key in descriptionKeys)
                 if (!probe.Construction!.EvidenceRequests.Contains(key, StringComparer.Ordinal)) probe.Construction.EvidenceRequests.Add(key);
             ClearResolvedEvidenceDiagnostics(probe);
@@ -71,7 +71,7 @@ internal static partial class PlanningConstruction
         var compact = JsonSerializer.Deserialize(JsonSerializer.Serialize(construction.Compact, PlanningJsonContext.Default.PlanningCompactConstructionState),
             PlanningJsonContext.Default.PlanningCompactConstructionState);
         var taskCursor = construction.TaskCursor; var scopeCursor = construction.ScopeCursor; var requirementCursor = construction.RequirementCursor;
-        try { LoadEvidenceCore(state, requests, descriptionReadKey); }
+        try { LoadEvidenceCore(state, requests, descriptionReadKey, issuedDiscoverySchema); }
         catch
         {
             construction.Compact = compact;
@@ -115,7 +115,7 @@ internal static partial class PlanningConstruction
         PlanningGraphCompiler.Fingerprint(Hash(state.Plan) + ":" + state.Construction!.Candidate?.Hash + ":" +
             string.Join('\n', requests.Order(StringComparer.Ordinal)));
 
-    private static void LoadEvidenceCore(PlanningSession state, List<string> requests, string? descriptionReadKey = null)
+    private static void LoadEvidenceCore(PlanningSession state, List<string> requests, string? descriptionReadKey = null, JsonNode? issuedSchema = null)
     {
         var construction = state.Construction!;
         var fresh = PlanningConstructionPhasePolicies.IsFresh(state.Request);
@@ -147,7 +147,7 @@ internal static partial class PlanningConstruction
             if (split <= 0 || request.Length > 2048) Fail("CONSTRUCTION_EVIDENCE_INVALID", "/evidenceRequests", "Use a declared evidence identity.");
             var kind = request[..split]; var id = request[(split + 1)..];
             JsonNode? value = null;
-            if (construction.Version == 2 && PlanningCompactConstruction.LoadEvidence(state, request, out value))
+            if (construction.Version == 2 && PlanningCompactConstruction.LoadEvidence(state, request, out value, issuedSchema))
             {
                 if (value is null) Fail("CONSTRUCTION_EVIDENCE_UNKNOWN", "/evidenceRequests", "The exact requested evidence is unavailable: " + request);
                 result[request] = value;

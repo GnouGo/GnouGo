@@ -29,11 +29,16 @@ public sealed class CompactActualImportReviewTests
         state.Catalog = new() { AllowedStepTypes = ["mcp.call"], Capabilities = [capability] };
         state.Discovery.Resolved = [capability];
         var originalContract = JsonSerializer.Serialize(capability, PlanningJsonContext.Default.PlanningCapability);
+        state.Requirements!.Outcomes.Add(new("req_1", "Create the isolated resource at workflows/owned-resource."));
+        state.Construction!.Requirements.Add(new() { Id = "req_1" });
+        state.Construction.Compact!.RequirementSources["req_1"] = state.Construction.Compact.RequirementSources["req_0"].ToList();
         Select(state, "operation");
         state.Construction!.Compact!.CurrentStep!.Objective = "Create the isolated resource at the retained target.";
         state.Construction!.Compact!.CurrentStep!.OperationIds = [capability.Id];
+        state.Construction.Compact.CurrentStep.RequirementIds = ["req_1", "req_0"];
+        state.Construction.Compact.CurrentStep.CloseRequirementIds = ["req_1"];
         PlanningCompactConstruction.StageCommitments(state, null);
-        Stage(state, new() { RequirementIds = ["req_0"], Tasks = [new()
+        Stage(state, new() { RequirementIds = ["req_1", "req_0"], Tasks = [new()
         {
             Id = "create", Kind = "operation", Objective = "Create the isolated resource at the retained target.",
             Operation = capability.Id, Inputs = [new("target", new() { Kind = "string", Text = target })]
@@ -41,6 +46,23 @@ public sealed class CompactActualImportReviewTests
         foreach (var intermediate in new[] { false, true })
         {
             var review = HybridWorkflowPlanner.CreateConstructionReviewRequest(state, intermediate).Request;
+            var context = Context(review);
+            var stage = context["constructionStage"]!;
+            Assert.Equal(new[] { "req_1" }, context["step"]!["closeRequirementIds"]!.AsArray().Select(id => id!.ToString()));
+            Assert.Equal(new[] { "req_0", "req_1" }, context["commitments"]!.AsObject().Select(item => item.Key).Order(StringComparer.Ordinal));
+            foreach (var commitment in context["commitments"]!.AsObject())
+                Assert.Equal(capability.Id, Assert.Single(commitment.Value!.AsArray())!["operation"]!.ToString());
+            if (presentation == 3)
+            {
+                Assert.Equal("{\"openedScopeCount\":0,\"closedScopeCount\":0,\"requirementCompletionClaimed\":true,\"planCompletionClaimed\":false}", stage.ToJsonString());
+                Assert.Null(stage["closeRequirementIds"]);
+            }
+            else
+            {
+                Assert.Equal(new[] { "req_1" }, stage["closeRequirementIds"]!.AsArray().Select(id => id!.ToString()));
+                Assert.Null(stage["requirementCompletionClaimed"]);
+                Assert.True(stage["preflight"]!["scopeOpen"]!.GetValue<bool>());
+            }
             var guidance = review.Prompt[..review.Prompt.LastIndexOf('\n')];
             Assert.Equal(presentation == 3 ? new[] { "evidenceRequests", "findings", "uncertainty" }
                 : ["evidenceRequests", "findings", "inconclusive", "uncertainty"],
@@ -66,9 +88,10 @@ public sealed class CompactActualImportReviewTests
         {
             Assert.Equal(PlanningConstruction.LocalPurpose, purpose);
             var context = Context(request);
-            Assert.False(context["constructionStage"]!["requirementCompletionClaimed"]!.GetValue<bool>());
+            if (presentation == 3) Assert.True(context["constructionStage"]!["requirementCompletionClaimed"]!.GetValue<bool>());
+            else Assert.Equal("req_1", Assert.Single(context["constructionStage"]!["closeRequirementIds"]!.AsArray())!.ToString());
             Assert.False(context["constructionStage"]!["planCompletionClaimed"]!.GetValue<bool>());
-            Assert.Empty(context["step"]!["closeRequirementIds"]!.AsArray());
+            Assert.Equal("req_1", Assert.Single(context["step"]!["closeRequirementIds"]!.AsArray())!.ToString());
             Assert.Empty(context["draft"]!["always"]!.AsArray());
             Assert.Empty(context["interfaces"]!.AsArray());
             var binding = Assert.Single(context["draft"]!["tasks"]![0]!["inputs"]!.AsArray())!["value"]!;
@@ -83,7 +106,9 @@ public sealed class CompactActualImportReviewTests
         state = await Advance(state, runtime);
         Assert.Empty(state.Diagnostics);
         Assert.Single(state.Construction!.Checkpoints);
-        Assert.Equal("in_progress", Assert.Single(state.Construction.Requirements).Status);
+        Assert.Equal("in_progress", state.Construction.Requirements.Single(requirement => requirement.Id == "req_0").Status);
+        Assert.Equal("closed", state.Construction.Requirements.Single(requirement => requirement.Id == "req_1").Status);
+        Assert.Equal(new[] { "req_1" }, state.Construction.Checkpoints[0].ClosedRequirementIds!);
         Assert.Contains("/root", state.Construction.OpenScopes);
         var accepted = PlanningConstruction.Hash(state.Plan);
 
@@ -96,7 +121,8 @@ public sealed class CompactActualImportReviewTests
         {
             Assert.Equal(PlanningConstruction.LocalPurpose, purpose);
             var context = Context(request);
-            Assert.True(context["constructionStage"]!["requirementCompletionClaimed"]!.GetValue<bool>());
+            if (presentation == 3) Assert.True(context["constructionStage"]!["requirementCompletionClaimed"]!.GetValue<bool>());
+            else Assert.Equal("req_0", Assert.Single(context["constructionStage"]!["closeRequirementIds"]!.AsArray())!.ToString());
             Assert.False(context["constructionStage"]!["planCompletionClaimed"]!.GetValue<bool>());
             var scope = context["evidence"]!["scope:/root"]!;
             Assert.Equal(0, scope["alwaysCount"]!.GetValue<int>());
@@ -117,7 +143,8 @@ public sealed class CompactActualImportReviewTests
         Assert.Equal("CONSTRUCTION_BUSINESS_REVIEW", Assert.Single(state.Diagnostics).Code);
         Assert.Equal(accepted, PlanningConstruction.Hash(state.Plan));
         Assert.Single(state.Construction!.Checkpoints);
-        Assert.Equal("in_progress", Assert.Single(state.Construction.Requirements).Status);
+        Assert.Equal("in_progress", state.Construction.Requirements.Single(requirement => requirement.Id == "req_0").Status);
+        Assert.Equal("closed", state.Construction.Requirements.Single(requirement => requirement.Id == "req_1").Status);
         Assert.False(state.Construction.Complete);
         Assert.Equal(originalContract, JsonSerializer.Serialize(capability, PlanningJsonContext.Default.PlanningCapability));
     }

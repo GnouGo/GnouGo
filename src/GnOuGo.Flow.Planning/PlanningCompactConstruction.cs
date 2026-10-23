@@ -426,6 +426,12 @@ internal static partial class PlanningCompactConstruction
                 ["requirementCompletionClaimed"] = step.CloseRequirementIds.Count > 0,
                 ["planCompletionClaimed"] = draft.Extension.Complete
             };
+            if (UsesVerifiedReview(state))
+            {
+                var stage = context["constructionStage"]!.AsObject();
+                stage.Remove("requirementCompletionClaimed");
+                stage["closeRequirementIds"] = new JsonArray(step.CloseRequirementIds.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray());
+            }
             if (verified is not null)
                 context["constructionStage"]!["preflight"] = new JsonObject
                 {

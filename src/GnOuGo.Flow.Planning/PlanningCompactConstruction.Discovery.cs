@@ -201,7 +201,7 @@ internal static partial class PlanningCompactConstruction
             state.Construction.EvidenceRequests.Add(key);
     }
 
-    private static bool LoadOperationPage(PlanningSession state, string address, out JsonNode? value)
+    private static bool LoadOperationPage(PlanningSession state, string address, out JsonNode? value, JsonNode? issuedSchema = null)
     {
         value = null;
         if (!address.StartsWith("page:operations:", StringComparison.Ordinal)) return false;
@@ -216,9 +216,28 @@ internal static partial class PlanningCompactConstruction
             return true;
         }
         if (IsCompactPresentation(state) && parts is ["page", "operations", _, var position] &&
-            int.TryParse(position, NumberStyles.None, CultureInfo.InvariantCulture, out var offset) && offset >= 0 &&
-            address == OperationPageAddress(state, offset))
-            value = ContractDescriptorPage(state, offset);
+            int.TryParse(position, NumberStyles.None, CultureInfo.InvariantCulture, out var offset) && offset >= 0)
+        {
+            // Pending requests may have issued a directory over all retained queries.
+            // Its exact address must remain issued authority; a valid old hash alone is insufficient.
+            if (PlanningConstructionPhasePolicies.IsFresh(state.Request) && UsesVerifiedReview(state))
+            {
+                var issued = issuedSchema?["properties"]?["evidenceRequests"]?["anyOf"] is JsonArray alternatives &&
+                    alternatives.Any(option => option?["type"]?.ToString() == "array" &&
+                        option["items"]?["enum"] is JsonArray addresses && addresses.Any(item => item?.ToString() == address));
+                var supplied = state.Construction!.Evidence?[address];
+                var read = supplied is JsonObject && state.Construction.EvidenceRequests.Contains(
+                    PlanningConstruction.EvidenceBatchFingerprint(state, [address]), StringComparer.Ordinal);
+                if (issued || read)
+                {
+                    var original = ContractDescriptorPage(state, offset, retained: true);
+                    if ((issued || JsonNode.DeepEquals(supplied, original)) &&
+                        address == "page:operations:" + PlanningGraphCompiler.Fingerprint(original.ToJsonString()) + ":" + offset.ToString(CultureInfo.InvariantCulture))
+                    { value = original; return true; }
+                }
+            }
+            if (address == OperationPageAddress(state, offset)) value = ContractDescriptorPage(state, offset);
+        }
         return true;
     }
 

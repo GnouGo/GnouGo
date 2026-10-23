@@ -139,7 +139,10 @@ coverage or closure. Its exact retrieval link remains available after selection.
 Historical presentations and already issued requests keep their original schemas.
 
 Fresh Judges receive the same TaskPlan meaning as drafting, with authoring-only
-actions omitted. They assess closure, bindings and collection behavior through
+actions omitted. Revision 4 supplies exact requirement closure identities; requirement
+associations and operation commitments remain contributions, not claims that every
+associated obligation is complete. Scope closure and plan completion retain their
+existing full-obligation checks. They assess closure, bindings and collection behavior through
 findings or evidence requests; they cannot reselect a step, add exports or expand
 generation grammar. Draft instructions and historical issued reviews remain exact.
 
@@ -172,8 +175,12 @@ admission. Fresh selection uses that same bounded page at the earliest unresolve
 requirement, omitting closed clauses; drafting and Judges receive only the selected
 requirements. Historical singleton pages and issued requests are unchanged.
 
-Discovery queries the selected substep, never the global objective. Cached
-inspections stay retrievable without becoming mandatory context. Concise operation
+Discovery queries the selected substep, never the global objective. Fresh revision-4
+automatic operation directories use only metadata pages for that exact substep query;
+registered runtime capabilities retain their existing handling. Cached inspections
+and original contracts stay retrievable without becoming automatic context. Historical
+content-addressed directories are reconstructed only for an exact address authorized
+by the saved issued schema and matching the retained canonical page hash. Concise operation
 and provider directories retain exact identities, effects and retrieval addresses.
 The model chooses relevant providers and operations. Fresh revision-3 decisions
 show up to eight compact provider choices without inspecting them. Requested

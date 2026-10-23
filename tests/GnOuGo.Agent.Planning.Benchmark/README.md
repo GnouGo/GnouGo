@@ -1048,6 +1048,13 @@ previously measured planning duration.
 Compact diagnostics also distinguish interface-scope failures, advisory Judge
 findings, non-progress stops and empty output-limit receipts from transport
 uncertainty. Preserve these outcomes even when every request fits its phase cap.
+For revision-4 review diagnostics, compare findings against the exact
+`constructionStage.closeRequirementIds`; requirement associations and operation
+commitments do not claim completion. Classify a false positive from the original
+claim and implementation evidence, never from pointer validity alone. An observed
+false positive does not establish how many corrections a later change avoids.
+Automatic operation directories contain the current substep's queried results;
+cached originals and exactly issued historical evidence remain retrievable.
 Keep source-description provider actions, forward operation-page navigation,
 isolated group inputs and existing loop defaults/safety semantics visible in
 bounded planning/review context. A corrected evidence-address error must not

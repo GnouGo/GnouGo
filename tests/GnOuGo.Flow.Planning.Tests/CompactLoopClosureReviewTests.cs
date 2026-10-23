@@ -122,7 +122,8 @@ public sealed class CompactLoopClosureReviewTests
         Assert.Equal("/tasks/iteration/body", context["step"]!["scope"]!.ToString());
         Assert.Equal(aggregation, request.Prompt.Contains("Each foreach body output becomes an array", StringComparison.Ordinal));
         Assert.Equal("number", context["scopeInterface"]!["outputs"]![0]!["schema"]!["type"]!.ToString());
-        Assert.False(context["constructionStage"]!["requirementCompletionClaimed"]!.GetValue<bool>());
+        if (context["constructionStage"]!["closeRequirementIds"] is JsonArray claims) Assert.Empty(claims);
+        else Assert.False(context["constructionStage"]!["requirementCompletionClaimed"]!.GetValue<bool>());
         Assert.InRange(PlanningRequestMeasurements.Measure(request, PlanningConstruction.LocalPurpose, 4000).EstimatedInputTokens, 1, 4000);
     }
 

@@ -205,7 +205,7 @@ internal static partial class PlanningCompactConstruction
             compact.Sources.Where(s => s.Kind == "global").All(s => compact.GlobalSourceIds.Contains(s.Id, StringComparer.Ordinal));
     }
 
-    internal static bool LoadEvidence(PlanningSession state, string address, out JsonNode? value)
+    internal static bool LoadEvidence(PlanningSession state, string address, out JsonNode? value, JsonNode? issuedSchema = null)
     {
         var compact = State(state); value = null;
         if (LoadProviderRequestEvidence(state, address, out value)) return true;
@@ -271,7 +271,7 @@ internal static partial class PlanningCompactConstruction
         if (parts is ["page", "outputs", var outputOffset] && int.TryParse(outputOffset, out next) && next >= 0 &&
             (next == 0 || next < (state.Requirements?.Outputs?.Count ?? 0)))
         { compact.OutputOffset = next; value = OutputDirectory(state); return true; }
-        if (LoadOperationPage(state, address, out value)) return true;
+        if (LoadOperationPage(state, address, out value, issuedSchema)) return true;
         if (parts is ["page", "checkpoints", var checkpointOffset] && int.TryParse(checkpointOffset, out next) && next >= 0 && next < state.Construction!.Checkpoints.Count)
         {
             value = new JsonObject { ["offset"] = next, ["total"] = state.Construction.Checkpoints.Count,

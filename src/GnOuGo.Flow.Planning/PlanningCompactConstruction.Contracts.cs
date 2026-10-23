@@ -47,11 +47,14 @@ internal static partial class PlanningCompactConstruction
             .GroupBy(c => c.Operation!.Id, StringComparer.Ordinal)
             .Where(g => g.Select(c => (c.Id, c.Version)).Distinct().Count() == 1).Select(g => g.First());
 
-    internal static JsonArray ContractDescriptors(PlanningSession state, int offset = 0, int count = ContractDescriptorPageSize, bool concise = false)
+    internal static JsonArray ContractDescriptors(PlanningSession state, int offset = 0, int count = ContractDescriptorPageSize, bool concise = false, bool retained = false)
     {
         var step = state.Construction!.Compact!.CurrentStep!;
         var query = CapabilityRelevance.Query(step.Objective);
-        var ranked = CapabilityRelevance.Rank(DescriptorCandidates(state, state.Discovery.Pages), query).ToArray();
+        var pages = !retained && PlanningConstructionPhasePolicies.IsFresh(state.Request) && UsesVerifiedReview(state)
+            ? state.Discovery.Pages.Where(page => page.Query == step.Objective && page.ProducedArtifactKind is null)
+            : state.Discovery.Pages;
+        var ranked = CapabilityRelevance.Rank(DescriptorCandidates(state, pages), query).ToArray();
         if (offset < 0 || offset > ranked.Length)
             PlanningConstruction.Fail("CONSTRUCTION_EVIDENCE_INVALID", "/evidenceRequests", "The operation directory offset is outside the retained metadata.");
         return new(ranked.Skip(offset).Take(count).Select(c =>
@@ -72,14 +75,14 @@ internal static partial class PlanningCompactConstruction
         }).ToArray());
     }
 
-    internal static JsonObject ContractDescriptorPage(PlanningSession state, int offset = 0, bool legacy = false)
+    internal static JsonObject ContractDescriptorPage(PlanningSession state, int offset = 0, bool legacy = false, bool retained = false)
     {
         if (!legacy && IsCompactPresentation(state))
             return new JsonObject { ["offset"] = offset,
-                ["items"] = ContractDescriptors(state, offset, CompactContractDescriptorPageSize, concise: true),
+                ["items"] = ContractDescriptors(state, offset, CompactContractDescriptorPageSize, concise: true, retained: retained),
                 ["descriptionsOmitted"] = true };
-        var items = ContractDescriptors(state, offset);
-        var next = items.Count == ContractDescriptorPageSize && ContractDescriptors(state, offset + ContractDescriptorPageSize).Count > 0
+        var items = ContractDescriptors(state, offset, retained: retained || legacy);
+        var next = items.Count == ContractDescriptorPageSize && ContractDescriptors(state, offset + ContractDescriptorPageSize, retained: retained || legacy).Count > 0
             ? "page:operations:" + (offset + ContractDescriptorPageSize).ToString(CultureInfo.InvariantCulture) : null;
         return new JsonObject { ["offset"] = offset, ["items"] = items, ["next"] = next };
     }

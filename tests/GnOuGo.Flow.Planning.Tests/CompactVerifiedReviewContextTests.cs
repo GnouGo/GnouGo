@@ -19,7 +19,8 @@ public sealed class CompactVerifiedReviewContextTests
         Assert.Equal("passed", facts["status"]!.ToString());
         Assert.Equal("tentative_candidate", facts["basis"]!.ToString());
         Assert.Equal(1, facts["openScopeCount"]!.GetValue<int>());
-        Assert.True(context["constructionStage"]!["requirementCompletionClaimed"]!.GetValue<bool>());
+        Assert.Equal("declare", Assert.Single(context["constructionStage"]!["closeRequirementIds"]!.AsArray())!.ToString());
+        Assert.Null(context["constructionStage"]!["requirementCompletionClaimed"]);
         Assert.False(context["constructionStage"]!["planCompletionClaimed"]!.GetValue<bool>());
         var declarations = context["inputDeclarations"]!["inputs"]!.AsArray();
         Assert.Equal(new[] { "values", "label" }, declarations.Select(entry => entry!["input"]!.ToString()));

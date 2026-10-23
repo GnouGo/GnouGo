@@ -132,6 +132,8 @@ public sealed class CompactVerifiedJudgeTests
         var accepted = JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan);
         var context = PlanningCompactConstruction.Context(state, review: true);
         Assert.True(context["constructionStage"]!["preflight"]!.AsObject().Remove("scopeOpen"));
+        Assert.True(context["constructionStage"]!.AsObject().Remove("closeRequirementIds"));
+        context["constructionStage"]!["requirementCompletionClaimed"] = false;
         context["operations"] = new JsonArray(new JsonObject { ["id"] = "retained_contract", ["description"] = "An original operation contract." });
         var schema = HybridWorkflowPlanner.ConstructionReviewSchema(context, verified: true);
         var properties = FindingProperties(schema);
@@ -153,6 +155,8 @@ public sealed class CompactVerifiedJudgeTests
         {
             Assert.Equal(exact, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
             Assert.Null(Context(request)["constructionStage"]!["preflight"]!["scopeOpen"]);
+            Assert.Null(Context(request)["constructionStage"]!["closeRequirementIds"]);
+            Assert.False(Context(request)["constructionStage"]!["requirementCompletionClaimed"]!.GetValue<bool>());
             return Response(findings: new JsonArray(finding.DeepClone()));
         } };
         state = await Advance(PlannerFixture.Clone(state), runtime);
