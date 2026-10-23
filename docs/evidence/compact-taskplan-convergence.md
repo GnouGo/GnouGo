@@ -1,111 +1,109 @@
 # Compact TaskPlan convergence
 
-Business acceptance remains incomplete and PR #120 stays Draft. All three diagnostics
-on `9246376d` stopped before any Judge, accepted checkpoint or execution. The agreed
-18 alternating baseline/candidate runs against `56942f5` remain unstarted.
+Business acceptance remains incomplete and PR #120 stays Draft. The new `365c8326`
+Collections diagnostic stopped at a receiptless HTTP 500 before any Judge,
+checkpoint or execution. Amazon and Review PR have **not been attempted** in this
+cohort. The agreed 18 alternating runs against `56942f5` remain unstarted.
 
 ## Current implementation and validation
 
 Fresh presentation revision 4 supplies real compiler facts and relevant typed caller
-declarations to scoped business Judges. Findings need an original obligation and
-concrete implementation evidence. Explicit inconclusive reviews cannot accept work
-or grant repair; one bounded reassessment may retrieve already relevant omitted
-support. Historical revision-3 requests remain exact. False-positive reduction,
-reassessment benefit and corrections avoided are **unmeasured in live runs**.
+declarations to scoped Judges. Findings need an original obligation and concrete
+implementation evidence. Explicit inconclusive reviews cannot accept work or grant
+repair; one bounded reassessment may retrieve already relevant omitted support.
+Historical revision 3 remains exact. Live review effectiveness is **unmeasured**.
 
-The change passed **2,580 Planning tests** with warnings as errors, including 119
-focused review/context/recovery checks. Initial historical-fixture failures and
-compatibility fixes remain retained. Benchmark build, independent publication and
-Native AOT recovery for presentations 2/3/4 passed. A full-solution pass has not yet
-been established in this snapshot. Deterministic validation is not business success.
+The review implementation passed 2,580 Planning tests with warnings as errors,
+including 119 focused checks; initial compatibility-fixture failures remain retained.
+Production source `365c8326` passed all eleven independent publication stages with warnings
+as errors: five packages, Native AOT planning recovery for versions 2/3/4, published
+encrypted-storage checks, and Git AOT/contract checks. The full solution for earlier
+`9246376d` and CI remain running; no final full-solution pass is claimed.
 
-The next diagnostic candidate narrows discovery evidence to one exact address
-after a rejected oversized batch; 164 focused admission/recovery checks passed.
-Separately, fresh extraction instructions consolidate repeated guidance while
-preserving the exact response schema and source context. The offline comparison
-passed 66 checks and reduced its synthetic complete request from 7,799 to 7,627
-bytes. Neither change has established a live improvement. Comparisons must keep
-their intent and discovery phases separate; model settings remain unchanged.
+Source `365c83268a4cd5c4797377b2be9ebb59cbff3b95` adds two reviewed changes:
+single-address discovery after an oversized batch (164 focused checks), and separately
+consolidated extraction instructions (66 checks). The offline extraction comparison
+preserved exact schema/context and reduced its fixture request 7,799→7,627 bytes.
+The combined 230 checks passed with warnings as errors. Neither change has demonstrated
+live convergence. Live extraction requests have differing hashes/components and no
+extraction receipts, so they do not establish a matched performance comparison.
 
-The preceding `2d0485d` exposed a typed caller declaration missing from Judge context;
-Amazon separately exhausted reasoning output, and Review PR returned receiptless
-HTTP 500. The [immutable archive](compact-taskplan-2d0485d.json) retains those failures
-and interface-response formatting evidence. Later tests do not replace that history.
+The earlier `2d0485d` failure exposed a typed caller declaration missing from Judge
+context. Its [archive](compact-taskplan-2d0485d.json) retains that defect, Amazon output
+exhaustion, Review PR transport failure and interface-formatting evidence.
 
-## Latest live cohort
+## Latest live snapshot
 
-Source `9246376d49836bf71b2618f5eee8f088da33f772`, cohort `compacta9246376d`, keeps the
-pinned model at medium reasoning, 64 calls and four corrections. Navigation/draft/
-review input targets and ceilings are 3k/12k, 8k/16k and 4k/8k; output reservations
-remain 16,384/16,384/4,096. The extraction-guidance experiment is offline, not this arm.
+Cohort `compacta365c8326` keeps the pinned model at medium reasoning, 64 calls/four
+corrections, navigation/draft/review targets and ceilings 3k/12k,8k/16k,4k/8k, and
+output reservations 16,384/16,384/4,096. MCP binaries and financial controls are unchanged.
 
-| Scenario | Calls / receipts | Corrections | Planning | Terminal outcome |
-| --- | ---: | ---: | ---: | --- |
-| Collections | 2 / 1 | 0 | 318.915 s | HTTP 500 without receipt during extraction; exact request/run permanently abandoned |
-| Amazon | 2 / 2 | 0 | 206.742 s | Extraction output limit: 16,384 reasoning tokens, zero visible output |
-| Review PR | 30 / 30 | 3 | 452.870 s | Discovery batches 8→7→6→7 exceeded prospective admission, then repeated a rejected action |
+Collections made **2 calls/1 receipt**, with zero corrections/checkpoints. Request 2
+returned HTTP 500 without a receipt during interface extraction. Planning took
+**323.298 seconds**; the completed call took 13.3835977 seconds. Known usage is
+**377 input/547 output tokens**, including 444 reasoning tokens. These cover request 1;
+request 2 usage, response content and reasoning outcome remain unknown. The one
+receipt contains 427 bytes and 35 whitespace characters (maximum run 1, including string
+contents); request 2 whitespace and empty-response classifications are unavailable.
 
-Collections retains the full **€0.4922088353413654618473895582** unknown-usage
-reservation after exact authorization. Replay and continuation are permanently
-forbidden; no receipt or provider termination was invented. Its HTTP failure cannot
-be classified as reasoning exhaustion. Amazon's receipt proves exhaustion, not its cause.
+Known cost is **€0.0163275323516287371709058456**. The full unknown reservation
+**€0.4922088353413654618473895582** remains, giving a run upper bound of
+**€0.5085363676929941990182954038**. Exact abandonment is inspected, with separate
+authorization pending; no closure or replay occurred for this identity.
 
-| Scenario | Known input / output tokens | Included reasoning | Known cost EUR |
-| --- | ---: | ---: | ---: |
-| Collections | 377 / 501 | 400 | 0.0150959393128067826863007586 |
-| Amazon | 2,288 / 17,422 | 17,138 | 0.4766622043730477465417224453 |
-| Review PR | 178,149 / 21,259 | 14,634 | 1.3641365461847389558232931728 |
+Complete-request bytes were **2,412 and 8,528** (p50: 5,470; p95/maximum: 8,528),
+reconciled across all components and within the 12k input ceiling. The extraction
+request was 171 bytes smaller than 924's 8,699 bytes, but its schema hash differs and
+its original-intent component differs by one byte. Both extraction attempts lack
+receipts. This is descriptive sizing, **not a matched performance or reliability
+comparison**. The [365c8326 snapshot](compact-taskplan-365c8326.json) retains exact
+identities, phase aggregates and hashes of verified safe evidence.
 
-The cohort used 34 calls, 33 receipts and **€1.8558946898705934850513163767** known cost,
-plus the retained reservation. No useful business obligation was satisfied by an
-accepted artifact; calls per satisfied obligation and runtime latency are undefined.
-
-Complete-request p50/p95/maximum bytes were **5,555.5/8,699/8,699** for Collections
-intent and **6,184.5/9,398/9,398** for Amazon intent. Review PR discovery was
-**24,991/37,540/38,509**, including three rejected follow-ups estimated at
-12,770, 13,093 and 12,367 tokens against its 12k ceiling. All dispatched requests
-met admission, and all component bytes reconcile. Rejected follow-ups incurred no
-provider call and are not uncertain attempts. Estimates are not billed usage.
-The [9246376 archive](compact-taskplan-9246376.json) provides phase aggregates,
-decisive identities and hashes of complete private safe measurements.
+The preceding [9246376 cohort](compact-taskplan-9246376.json) used 34 calls/33 receipts
+and three corrections without a Judge or accepted checkpoint: Collections HTTP 500
+was permanently retained; Amazon exhausted 16,384 reasoning tokens with no visible
+output; Review PR failed discovery admission after 8→7→6→7 address batches. Its known
+cost was €1.8558946898705934850513163767 plus its retained unknown reservation.
+All prior failures remain immutable. Runtime latency and calls per independently
+satisfied obligation remain undefined for both cohorts.
 
 ## Campaign snapshot
 
-The final audit records **1,448 requests / 1,433 receipts**. All fifteen receiptless
-identities are permanently closed with reservations retained; fourteen unknown
-transport attempts are counted separately. No uncertain request was replayed.
+The audit records **1,450 requests/1,434 receipts**: sixteen receiptless identities,
+**fifteen permanently closed and this one pending**. Fifteen unknown transport
+attempts are counted separately. All reservations remain; no uncertainty was replayed.
 
 | Ledger measurement | EUR |
 | --- | ---: |
 | Campaign ceiling | 240.0301038327063045424449473 |
-| Known spending | 46.925703541676406743714096286 |
-| Unknown-usage reservations | 6.0557986357587106624311160928 |
-| Spending/reservation upper bound | 52.981502177435117406145212379 |
-| Available allowance | 187.048601655271187136299734921 |
+| Known spending | 46.942031074028035480885002132 |
+| Unknown-usage reservations | 6.5480074711000761242785056510 |
+| Spending/reservation upper bound | 53.490038545128111605163507783 |
+| Available allowance | 186.540065287578192937281439517 |
 
-Audit hash: `914d4086427e94919eed0d0f2d973096a6778676238ec0fdb36fb54f6d964f3c`.
-Lost historical exposure of €159.96989616729369545755505266 remains within the
-original €400 authorization; cumulative spending/reservation upper bound is about
-**€212.951398**. Recheck readiness and the ledger before fresh paid dispatch.
+Audit hash: `47315a2f690e725780cfe19b8a807f8634b6f6dc1ca9b5d7a0235e808962aa66`.
+Pending retention evidence: `cf0e5f0b9b388b866dc7c1936086fc91043e58872372b63d195597c29896be7a`.
+Lost historical exposure €159.96989616729369545755505266 remains inside the original
+€400 authorization; cumulative upper bound is approximately
+**€213.459935**. Recheck exact authorization, readiness and ledger before fresh paid calls.
 
 ## Executed evidence and remaining acceptance
 
-Earlier `efcb1d7a` passed both real Collections runtime variants after artifact-bound
-delegated review: ordered duplicate-preserving results, result-contributing parallel
-reusable calls, no extra effects and no runtime inference. It used 42 calls, three
-corrections, 655.835 planning seconds and €1.401111. Its [archive](compact-taskplan-efcb1d7a.json)
-retains the unexecuted Amazon/Review PR failures and unavailable per-variant timing.
-That result does not establish current-source acceptance or repeatability.
+Earlier `efcb1d7a` passed both real Collections runtime variants with ordered,
+duplicate-preserving parallel reusable results and no extra effects/runtime inference:
+42 calls, three corrections, 655.835 planning seconds and €1.401111. Its [archive](compact-taskplan-efcb1d7a.json)
+retains unexecuted Amazon/Review PR failures and missing per-variant timing. This
+does not prove current-source acceptance or repeatability.
 
-All three final-candidate diagnostics must execute successfully before paired runs:
-Collections exact parallel reusable results; Amazon complete observations, product
-identities, workbook and browser closure; Review PR pinned provenance, actual checks,
-local reports, cleanup and independent diff assessment. Artifact review and exact
-individual invocation confirmations remain mandatory.
+All three diagnostics must execute successfully before paired runs: Collections
+exact parallel reusable results; Amazon complete observations, identities, workbook
+and browser closure; Review PR pinned provenance, actual checks, local reports,
+cleanup and independent diff assessment. Artifact-bound review and exact individual
+invocation confirmations remain mandatory. Compilation and CI are not business success.
 
 ## Immutable evidence index
 
-- Current: [9246376](compact-taskplan-9246376.json); previous [2d0485d](compact-taskplan-2d0485d.json); [offline extraction experiments](compact-interface-ce9b610.json) made no paid calls or causal claim.
+- Current: [365c8326](compact-taskplan-365c8326.json); prior [9246376](compact-taskplan-9246376.json), [2d0485d](compact-taskplan-2d0485d.json); [offline extraction experiments](compact-interface-ce9b610.json) made no paid calls or causal claim.
 - [5678374](compact-taskplan-5678374.json), [875022e](compact-taskplan-875022e.json), [61d9f0f](compact-taskplan-61d9f0f.json), [2e5b3a0](compact-taskplan-2e5b3a0.json), [0b44557](compact-taskplan-0b44557.json), [52ebb72](compact-taskplan-52ebb72.json), [d8f51c5](compact-taskplan-d8f51c5.json).
 - [92d8813](compact-taskplan-92d8813.json), [407243a](compact-taskplan-407243a.json), [bbd900d9](compact-taskplan-bbd900d9.json), [bb5b726](compact-taskplan-bb5b726.json), [efcb](compact-taskplan-efcb1d7a.json), [d488](compact-taskplan-d488720a.json), [29ffd](compact-taskplan-29ffd813.json).
 - [3adc](compact-taskplan-3adc335.json), [4a43](compact-taskplan-4a43ea1.json), [8952](compact-taskplan-8952a0a.json), [743](compact-taskplan-743e4a3.json), [410](compact-taskplan-41077d0.json), [663](compact-taskplan-663cf72.json), [1984](compact-taskplan-1984bdc.json), [afc](compact-taskplan-afc342c.json), [5c](compact-taskplan-5c01f98.json), [08ad](compact-taskplan-08ad5db.json), [cd174ea](compact-taskplan-cd174ea.json).
