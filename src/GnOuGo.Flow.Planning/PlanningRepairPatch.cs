@@ -31,9 +31,10 @@ internal partial class RepairJsonContext : JsonSerializerContext;
 
 internal static class PlanningRepairPatch
 {
-    // Keep the unversioned historical fallback; only captured fresh policy selects 11.
+    // Keep issued authority reconstruction exact; fresh revision 4 selects 12.
     internal const int CurrentVersion = 10;
-    internal static int Version(PlanningSession state) => state.Request.Options["planning_diagnostics_version"]?.ToString() == "1" ? 11 : CurrentVersion;
+    internal static int Version(PlanningSession state) => PlanningCompactConstruction.UsesVerifiedReview(state) ? 12 :
+        state.Request.Options["planning_diagnostics_version"]?.ToString() == "1" ? 11 : CurrentVersion;
     internal static JsonObject Template(PlanningSession state, int version = 0, bool clarifications = true, bool scopedDependencies = true)
     {
         version = version == 0 ? Version(state) : version;
@@ -243,7 +244,8 @@ internal static class PlanningRepairPatch
                 foreach (var source in sources.GetValueOrDefault(location) ?? [])
                     if ((!workspace || source.Value.Kind == "output") && PlanningGraphValidation.TypesFit(source.Schema, contract))
                         alternatives.Add((JsonNode)Exact(source.Value, definitions));
-            if (!literalOnly && !workspace && (contract["type"]?.ToString() == "string" || contract["type"] is JsonArray types && types.Any(t => t?.ToString() == "string")) && symbols.Values.TryGetValue(location, out var original))
+            if (!literalOnly && !workspace && (contract["type"]?.ToString() == "string" || contract["type"] is JsonArray types && types.Any(t => t?.ToString() == "string")) && symbols.Values.TryGetValue(location, out var original) &&
+                (version < 12 || !state.Diagnostics.Any(d => d.Required && d.Code == "TASK_LITERAL_INVALID" && d.Location == location)))
                 alternatives.Add((JsonNode)Exact(new() { Kind = "json", Items = [original.Value] }, definitions));
             return alternatives.Count == 1 ? literal.DeepClone().AsObject() : new() { ["anyOf"] = alternatives };
         }
@@ -340,7 +342,7 @@ internal static class PlanningRepairPatch
     {
         var repair = RequestContext(request)["repair"];
         var version = repair?["version"]?.GetValue<int>();
-        if (state.IntentVersion is 2 or 3 && version is 8 or 9 or 10 or 11)
+        if (state.IntentVersion is 2 or 3 && version is 8 or 9 or 10 or 11 or 12)
         {
             if (state.EditablePaths is not null)
             {

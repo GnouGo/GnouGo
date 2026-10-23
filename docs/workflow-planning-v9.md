@@ -250,7 +250,10 @@ Fresh sessions capture combined diagnostic review and use correction bookkeeping
 version 8. Accepted-output and commitment findings are collected together after
 successful compilation, before repair authority is captured. Version-11 repair schemas
 constrain known public-output and explicitly revised operation-input value types while
-preserving semantic validation and exact permissions. Historical sessions and issued
+preserving semantic validation and exact permissions. Fresh compact presentation 4
+uses repair version 12 to exclude an original-value JSON conversion at a binding
+with a required invalid-literal finding; wrapping it cannot repair that finding.
+Valid conversions and ordinary multiline replacements remain available. Historical sessions and issued
 requests retain their saved behavior; TaskPlan format 10, compiler v15 and unchanged
 YAML are preserved.
 Hosts capture creation profiles before the first session checkpoint. Rehydrated

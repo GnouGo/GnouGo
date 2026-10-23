@@ -1,233 +1,149 @@
 # Compact TaskPlan convergence
 
-**Business acceptance remains incomplete; PR #120 stays Draft.** Frozen
-`e0959e3` Collections, `504a557d` Amazon and `975fd04f` Review PR produced no complete artifact
-or executed workflow. The 18 alternating baseline/candidate runs against `56942f5`
-have not started. All 21 receiptless identities remain permanently closed with
-full unknown-usage reservations retained; replay and continuation remain forbidden.
+**Business acceptance remains incomplete; PR #120 stays Draft.** Latest completed diagnostic source is
+`a93486695ee0a7a75f450128bffc0b103fc663ed`; its Review PR diagnostic has stopped.
+Latest diagnostics produced no complete artifact or executed workflow. The 18 alternating
+baseline/candidate runs against `56942f5` have not started. The subsequent repair correction
+has offline validation only.
 
-## Current implementation and validation
+## Current behavior and technical evidence
 
-The current retry patch captures at most three synchronous, tool-free physical attempts
-for complete, saved transient HTTP responses. Every attempt has its own conservative
-reservation and mandatory-review admission; failed attempts remain reserved even after
-success. Saved successes settle without another dispatch, including after the planning
-deadline. Historical requests retain their captured behavior. Fresh benchmark planning
-captures five hours, while runtime keeps its separate limit. Fresh diagnostics
-freeze an 18k draft ceiling with the existing 8k target. Discovery now receives the same
-bounded scope owner already available to drafting and review. These changes do not
-establish business convergence before independent execution. The latest focused correction lets an ordinary draft
-recover from an oversized evidence batch without requiring candidate-repair capacity.
-It offers one address at a time, preserves genuine findings and rejects oversized
-singletons. Stopped scoped reviews now retain their specific safe host admission
-cause, distinguishing an undispatched request from a Judge report. The benchmark follow-up removes
-the fresh outer logical budget wrapper and consumes exact saved completions before mutable
-deployment or elapsed-budget admission. New physical sends still undergo full admission;
-185 focused tests and the benchmark build passed with warnings as errors.
+One incremental TaskPlan retains original requirements, deterministic validation,
+local/intermediate Judges, checkpoints and JavaScript → YAML v15 compilation.
+Discovery follows the current business substep; original contracts and exact historical
+retrieval remain authoritative. Bounded owner and operation-origin facts provide context,
+without granting edit, completion or execution authority. Ordinary same-scope results
+need no exports; crossing a boundary does, and open containers remain unavailable.
 
-Focused checks passed with warnings as errors: **73 AI retry/routing**, **37 production
-host/recovery**, **109 Integrations**, **561 benchmark**, **36 runtime budget** and
-**191 scoped-navigation** tests, plus measurement and compatibility checks. These filters
-overlap and are not a full-solution total. The [validation index](compact-taskplan-confirmed-retries-validation.json)
-binds exact source/evidence manifests and retains initial failures. The
-[evidence-recovery index](compact-taskplan-evidence-recovery-validation.json) records
-**121 combined focused tests** and the preceding **2,706-test full Planning pass**
-for the evidence correction; the small diagnostic-reporting follow-up is covered
-by the combined focused suite. These counts overlap and do not establish live success.
+Fresh transport permits at most three synchronous, tool-free attempts after complete,
+durably saved transient responses. Every physical attempt requires cumulative financial,
+token, call, time and mandatory-review admission. Failed unknown usage remains reserved
+when a later attempt succeeds. Saved success settles before mutable deployment/deadline
+admission; new dispatches still undergo every check. Historical request bytes and policies
+remain unchanged. Benchmark planning captures five hours separately from runtime limits.
 
-The subsequent full-solution run exposed a test-fixture mismatch (22 failures in
-the completed `e0959e3` run): reconstructed
-version-one sessions retained the fresh-only transport policy. Their first issued
-request then correctly failed the legacy host identity guard. Restoration now removes
-that nonexistent historical setting; 81 focused tests pass with warnings as errors
-(one intentional browser skip), including every failing case, fresh retry/recovery
-and exact legacy request bytes. Production identity checks remain unchanged. A separate Planning assertion now checks
-both the inconclusive review and its retained admission cause, including zero dispatch,
-unchanged accounting and unchanged accepted state. The prior single-diagnostic
-assertion correctly failed after the reporting improvement.
+Oversized evidence batches receive bounded singleton navigation without consuming repair
+capacity solely for host admission; unresolved business findings retain correction limits.
+An indivisible oversized singleton stops. Inconclusive reviews retain safe host admission
+causes, distinguishing undispatched requests from malformed Judge reports. No acceptance
+filter, new execution engine or final whole-workflow Judge is introduced.
 
-Fresh revision-4 guidance now distinguishes ordinary same-scope results from exports
-across container/group boundaries. This replaces an ambiguous existing sentence in
-author and Judge context; no validation, response schema or authority changes.
-Historical saved requests and revision-3 wording remain unchanged.
-[117 focused and 2,714 full Planning tests](compact-taskplan-same-scope-result-validation.json)
-pass with warnings as errors, no failures or skips. A live false premise
-motivates this change, but avoided corrections and runtime benefit are not established.
-
-The preceding correction favors appending ordinary work to an existing scope and supplies
-one bounded selected-scope owner with exact retrieval links. Fresh-v4 Judges also receive
-the original selected operation's server and method. These are read-only technical facts,
-not completion or execution authority. Historical issued requests remain byte-exact.
-Exact `58d419e2` passed **2,676 Planning tests** with warnings as errors, unchanged source
-and no compiler diagnostics (manifest `edc563da4b973690cf92aa716238307a002667d24f4deb48a0e882f87b64005c`).
-The full solution/publication results below cover earlier exact sources.
-No live convergence or avoided correction is established for this new patch.
-
-The external benchmark now filters discovery through the same existing delegated method
-allowlist, preserving original tool objects, identities and complete schemas. Unsupported
-MCP prompts and the separately registered benchmark adaptive runner are omitted; local
-computations and production runners remain unchanged. This narrows available planning
-choices without approving arguments or execution. Concrete artifact review, method/argument
-guards and exact individual confirmations remain required. **76 focused host tests** pass
-with warnings as errors (manifest `21df2e9010be021202e1efd881ad4c0ca62bff0c485f8a16265d7942769846a7`).
-
-Frozen `d0413d2` retains one incremental TaskPlan, original requirements, scoped Judges,
-deterministic compilation and existing execution authority. Automatic operation directories
-are scoped to the current substep query, while exact cached contracts, description-read
-guards and historical page recovery remain intact. Judges receive exact requirement
-closure IDs; associations and operation commitments remain contributions. The latest
-diagnostics exercised this source but did not establish business convergence.
-
-| Source | Validation with warnings as errors |
+| Exact source or validated change | Technical result, with warnings as errors |
 | --- | --- |
-| Frozen `975fd04f` | 81 focused passes (one browser skip) cover historical restoration and unchanged request identity; CI Planning found the stale single-diagnostic assertion, now corrected; full solution still running |
-| Frozen `504a557d` | **12/12 publication stages passed**, including independent packages, Native AOT and published encrypted storage; full solution still running with known fixture failures; CI also found the stale diagnostic assertion |
-| Frozen `7e19f7f8` | **12/12 publication stages passed**; all-source final validation is tracked separately |
-| Frozen `e0959e3` | **12/12 publication stages passed**, including six independent packages, Planning Native AOT, published encrypted storage and Git AOT/contracts; full solution **7,796 passed / 22 historical-fixture failures / 13 skipped**, 33 projects, zero compiler diagnostics; all failing helper consumers are covered by the subsequent restoration fix |
-| Frozen `d0413d2` | **7,690 full-solution passed, 0 failed, 13 skipped**, 33 projects; **237 focused / 2,661 Planning passed** on matching source; **11/11 publication stages passed** |
-| Frozen `f3cb064` | Full solution **7,685 passed, 0 failed, 13 skipped**, 33 projects; 92 focused / 2,656 Planning passed; **11/11 publication stages** |
-| Historical `35022fa` | Full solution **7,674 passed, 0 failed, 13 skipped**, 33 projects; 11/11 publication stages; [CI succeeded](https://github.com/GnouGo/GnouGo/actions/runs/39968367834) |
-| Historical `131801d4` | Full solution **7,661 passed, 0 failed, 13 skipped**, 33 projects |
+| `a9348669` | **117 focused / 2,714 full Planning passed**, no failures/skips/compiler diagnostics; **12/12 publication stages passed**; full solution and [planner CI](https://github.com/GnouGo/GnouGo/actions/runs/40033155679) pending |
+| Post-`a9348669` repair correction | **100 focused / 2,721 full Planning passed**, no failures/skips/compiler diagnostics; no live or publication result attributed to this change |
+| Historical fixture restoration in `975fd04f` | **81 focused passed / one intentional browser skip**, including all previously failing consumers, fresh retry/recovery and exact historical request bytes; full solution pending |
+| `504a557d`, `7e19f7f8` | Each **12/12 publication stages passed**; `504a557d` full solution **7,811 passed / 23 failed / 13 skipped**, 33 projects, no compiler diagnostics (22 historical-fixture failures and one stale assertion, corrected later); CI on `504a557d` and `975fd04f` exposed the stale single-diagnostic Planning assertion, now corrected |
+| `e0959e3` | **12/12 publication stages passed**; full solution **7,796 passed / 22 historical-fixture failures / 13 skipped**, 33 projects, no compiler diagnostics; failures remain archived |
+| `d0413d2` | **7,690 full-solution passed / 0 failed / 13 skipped**, 33 projects; **237 focused / 2,661 Planning** and **11/11 publication stages**; [CI succeeded](https://github.com/GnouGo/GnouGo/actions/runs/40002249895) |
+| `f3cb064` | **7,685 full-solution passed / 0 failed / 13 skipped**, 33 projects; **92 focused / 2,656 Planning** and **11/11 publication stages**; [CI succeeded](https://github.com/GnouGo/GnouGo/actions/runs/39994400563) |
+| `35022fa`, `131801d4` | Historical full-solution passes: **7,674** and **7,661**, each 0 failed/13 skipped/33 projects; `35022fa` also passed 11 publication stages and [CI](https://github.com/GnouGo/GnouGo/actions/runs/39968367834) |
 
-Earlier publication covers five independent packages, Planning Native AOT revisions 2/3/4,
-published encrypted storage and Git AOT/contracts. Exact `d0413d2` publication manifest:
-`2f67947c298c4d797cc53b16ffcf6b51bd80527257879ca1ab018f759b614753`;
-exact `f3cb064` full-solution manifest:
-`7d97422531cec0def8ad9a3d1e78920d6d8e95f95cfbf4f11d9fb30c4a5ac4d0`.
-At the last read-only check, [d041 CI](https://github.com/GnouGo/GnouGo/actions/runs/40002249895)
-and [f3 CI](https://github.com/GnouGo/GnouGo/actions/runs/39994400563) remained in progress.
-Technical validation is not business acceptance or proof of avoided corrections.
+The [confirmed-retry index](compact-taskplan-confirmed-retries-validation.json) retains
+73 AI, 37 host, 109 Integrations, 561 benchmark, 36 budget and 191 navigation focused
+results. The benchmark saved-receipt correction passed 185 focused tests and its build.
+The [evidence-recovery index](compact-taskplan-evidence-recovery-validation.json) records
+121 combined focused tests and the preceding 2,706-test Planning pass. These filters overlap.
+The [same-scope validation index](compact-taskplan-same-scope-result-validation.json) binds
+both the 2,710-test assertion-only pass and the combined 117/2,714 result. Historical fixture
+restoration removes a fresh-only setting from reconstructed old sessions; identity guards
+are unchanged. The assertion fix checks inconclusive status plus MODEL_INPUT_LIMIT, with
+zero dispatch and unchanged accepted state. The [repair validation index](compact-taskplan-invalid-retained-repair-validation.json)
+binds the subsequent 100/2,721 pass: private repair version 12 excludes JSON(original) only
+for an exact required TASK_LITERAL_INVALID at that binding. Valid conversions, multiline
+replacements and issued versions 10/11 retain their original authority and recovery.
 
-## Latest live diagnostics
+The a934 publication covers six packages, Planning AOT revisions 2/3/4, encrypted storage and
+Git AOT/contracts. Manifest: `8bde87318ccf92e2ddd9b1fefa3d810f219398595ccd1052ba8ee8b987e6a44f`.
+The a934 standalone CI rerun [passed](https://github.com/GnouGo/GnouGo/actions/runs/40033155614/attempts/2);
+its first attempt's artifact-service ETIMEDOUT remains archived. [Proxy AOT CI](https://github.com/GnouGo/GnouGo/actions/runs/40033155627) passed.
+Planner CI and the a934 full solution remain pending. Older publication covered five packages; historical manifests remain in the linked archives.
+The bounded-owner/origin change passed 2,676 Planning tests; benchmark visibility passed
+76 host tests without changing contracts, production runners or execution permissions.
 
-[975fd04f Review PR](compact-taskplan-975fd04-code.json) used 39 logical requests and
-39 physical attempts, four corrections and three checkpoints, with no complete artifact
-or runtime. The separately frozen 9k Judge ceiling admitted actual requests estimated
-at 8,613 and 8,579 tokens. Judge 36 incorrectly treated an ordinary operation result
-as unavailable without a scope export, although later same-scope tasks can consume
-its declared ports. The resulting export repair is observed; no avoided correction
-is claimed. Judge 39 then supplied no action: all three action fields were null.
-The host correctly stopped, rather than interpreting uncertainty prose as acceptance.
-The accepted clone also remains unpinned and would fail the unchanged execution guard.
-All 42 constructed requests reconcile and fit their captured limits; no completed
-response was empty or dominated by whitespace. Full details and safe hashes remain
-in the immutable archive.
+## Latest completed live diagnostics
 
-[504a557d Amazon](compact-taskplan-504a557-amazon.json) stopped at Judge 13, with
-13 receipts, no corrections and one checkpoint. Its finding cited concrete draft
-implementation but omitted an applicable original obligation, despite available
-original anchors. The host correctly withheld acceptance and correction authority.
-The report acknowledged partial contract evidence but requested neither retrieval
-nor an inconclusive result. Its browser-handle allegation remains unproven: the
-original implementation retains browser context internally and closure requires no
-handle argument. No false-positive classification or latest-fix efficacy is established.
-All 14 constructed requests (13 received, one prepared-only) fit captured limits and
-reconcile; none produced an empty response. This run did not reach the previous
-oversized-evidence recovery path.
-
-Latest `7e19f7f8` Amazon stopped after an oversized four-address evidence batch:
-21,134 estimated draft tokens against 18k. It had exhausted three corrections,
-and the host incorrectly treated the evidence-admission diagnosis as a candidate
-repair. This does not prove an indivisible required schema exceeded the ceiling.
-The focused correction preserves atomic admission and real repair authority.
-
-Earlier `7e19f7f8` Review PR stopped before dispatching mandatory Judge 21: 8,193 estimated input
-tokens against 8k. Its context contained current relevant work, not accumulated
-history. The separately frozen `975fd04f` profile used a 9k review ceiling with the
-same 4k target and output reservation. The previous repair changed objectives and
-outputs but left Git executable inputs unchanged; its unpinned clone independently
-fails the execution guard. Future-observation allegations remain qualified because
-no closure was claimed. No runtime or avoided-correction success is established.
-The [formatting supplement](compact-taskplan-7e19f7f-response-format.json) retains
-both runs' response formatting counts; neither had empty completed responses.
-
-[e0959e3 Collections](compact-taskplan-e0959e3-collections.json) exercised the retry path:
-**23 logical requests / 24 physical attempts**, with a durable HTTP 500 followed by 200.
-Its failed attempt retains **EUR 0.9308701472556894243641231593** in unknown usage.
-The run accepted five checkpoints but produced no complete artifact. Local review correctly
-rejected a claimed requirement closure before the public result was published. The correction
-repeated the same action despite an explicit available reselection instruction. Existing
-regressions already cover withdrawal of that claim without changing accepted work; no
-duplicate prompt rule or unchanged failed-request retry is justified. This is a true-positive
-business finding, not an observed avoided correction or runtime failure.
-
-
-| Frozen attempt | Planner calls / receipts | Corrections / checkpoints | Planning seconds | Known cost EUR | Result |
+| Frozen attempt | Logical calls / receipts | Corrections / checkpoints | Planning seconds | Known cost EUR | Terminal result; none executed |
 | --- | ---: | ---: | ---: | ---: | --- |
-| [975fd04f Review PR](compact-taskplan-975fd04-code.json) | 39 / 39 | 4 / 3 | 959.263 | 1.9388041053101294065149486836 | Same-scope false premise followed by zero-action Judge; no complete artifact or runtime |
-| [504a557d Amazon](compact-taskplan-504a557-amazon.json) | 13 / 13 | 0 / 1 | 417.994 | 0.8039446675591253904506916556 | Judge omitted original-obligation grounding; no complete artifact or runtime |
-| [7e19f7f8 Amazon](compact-taskplan-7e19f7f-amazon.json) | 32 / 32 | 3 / 1 | 984.401 | 1.8810709504685408299866131190 | Evidence batch rejected; exhausted correction gate prevented bounded retrieval recovery |
-| [7e19f7f8 Review PR](compact-taskplan-7e19f7f-code.json) | 20 / 20 | 3 / 1 | 495.268 | 1.0383623382418563141454707721 | Mandatory Judge request rejected before dispatch at 8,193 > 8,000 input tokens |
-| [e0959e3 Collections](compact-taskplan-e0959e3-collections.json) | 23 / 23 | 1 / 5 | 755.619 | 0.7595760821062025881302989735 | Confirmed HTTP retry recovered; premature requirement closure then repeated correction; no complete artifact |
-| [1b749a1 Amazon](compact-taskplan-1b749a1-amazon.json) | 37 / 37 | 3 / 1 | 1,400.198 | 2.8004863900044622936189201251 | Local review rejected a content observation used as a session-resource producer; no complete artifact |
-| [d0413d2 Amazon](compact-taskplan-d0413d2-amazon.json) | 53 / 52 | 4 / 4 | 1,800.860 | 3.7975680499776885319053993752 | Host elapsed budget stopped request 53 before HTTP; no complete artifact |
-| [d0413d2 Review PR](compact-taskplan-d0413d2-code.json) | 42 / 42 | 3 / 2 | 858.200 | 1.9379562695225345827755466312 | Prospective draft 43 rejected at 16,134 estimated input tokens against 16k; no complete artifact |
+| [a9348669 Review PR](compact-taskplan-a934866-code.json) | 51 / 50 | 2 / 5 | 1,657.740 | 2.7922579205711735832217759928 | Confirmed HTTP 400: repair schema retained an already invalid literal |
+| [975fd04f Review PR](compact-taskplan-975fd04-code.json) | 39 / 39 | 4 / 3 | 959.263 | 1.9388041053101294065149486836 | False same-scope availability premise, then zero-action Judge |
+| [504a557d Amazon](compact-taskplan-504a557-amazon.json) | 13 / 13 | 0 / 1 | 417.994 | 0.8039446675591253904506916556 | Judge omitted original-obligation grounding |
+| [7e19f7f8 Review PR](compact-taskplan-7e19f7f-code.json) | 20 / 20 | 3 / 1 | 495.268 | 1.0383623382418563141454707721 | Mandatory Judge 21 rejected before dispatch: 8,193 > 8,000 input tokens |
+| [7e19f7f8 Amazon](compact-taskplan-7e19f7f-amazon.json) | 32 / 32 | 3 / 1 | 984.401 | 1.8810709504685408299866131190 | Four-address evidence batch exceeded 18k; exhausted correction gate prevented bounded recovery |
+| [e0959e3 Collections](compact-taskplan-e0959e3-collections.json) | 23 / 23 | 1 / 5 | 755.619 | 0.7595760821062025881302989735 | HTTP 500→200 recovered; premature requirement closure followed by repeated correction |
+| [1b749a1 Amazon](compact-taskplan-1b749a1-amazon.json) | 37 / 37 | 3 / 1 | 1,400.198 | 2.8004863900044622936189201251 | Observation used as a session-resource producer |
+| [d0413d2 Review PR](compact-taskplan-d0413d2-code.json) | 42 / 42 | 3 / 2 | 858.200 | 1.9379562695225345827755466312 | Prospective draft 43 rejected: 16,134 > 16,000 input tokens |
+| [d0413d2 Amazon](compact-taskplan-d0413d2-amazon.json) | 53 / 52 | 4 / 4 | 1,800.860 | 3.7975680499776885319053993752 | Host 30-minute limit stopped request 53 before HTTP |
 
-Both Amazon revisions used high navigation reasoning with 32,768 output tokens, medium drafting with 16,384,
-and medium Judges with 8,192. Review PR used medium throughout with the same navigation/draft
-output allowances and 4,096 for Judges. Navigation input ceilings were 12k and 16k respectively;
-both retained 16k drafting and 8k review ceilings. These are independently frozen diagnostic
-configurations, not matched architecture-only comparisons.
+The a934 run made **52 physical attempts**, including one 500→200 recovery and the final
+confirmed schema rejection without a receipt. Its 54 constructed requests reconcile and
+fit captured ceilings (complete bytes p50 16,804.5 / p95 31,977 / max 34,694). Known provider
+usage is 205,661 input / 70,014 output / 57,142 reasoning tokens. None of its 50 completed
+responses was empty; outside-string whitespace was 8,378 bytes (longest run 8,373).
+The two repairs addressed actual hidden-child scope violations. The terminal repair schema
+embedded the original invalid literal in a retained JSON alternative; the existing rejection
+operator preserved both failed-attempt reservations, totaling **EUR 1.5331593038821954484605087015**.
+No receipt was manufactured. The accepted clone still lacks the required pinned provenance
+and uses a PR-page URL directly; unchanged execution guards would reject it. Six completed
+Judges had no findings, but the last substantive draft never reached review. Neither the
+absence of another same-scope finding nor five checkpoints establishes an avoided correction.
 
-Provider input/output/reasoning usage was **172,975 / 113,010 / 100,758** for Amazon and
-**185,326 / 41,495 / 30,516** for Review PR; reasoning is included in output. All component
-bytes reconcile. Amazon has 60 constructed identities: 52 received, seven prepared-only
-and one planner-admitted request stopped before HTTP by the host. Review PR has 45: 42
-received, two prepared-only and one rejected prospective draft of 47,632 serialized bytes.
-All dispatched requests fit their ceilings; the rejected draft remains in size aggregates.
-Neither run added uncertain usage or empty completed responses. Archives retain phase
-p50/p95/maximum, components, provider usage, latency, formatting and exact evidence hashes.
+`975fd04f` used a frozen 9k Judge ceiling, admitting estimates 8,613/8,579. Judge 36 wrongly
+required an export for an ordinary same-scope result; an export repair occurred. Judge 39
+then returned all action fields null, correctly stopping acceptance. The unpinned clone
+would fail execution authorization. Its 42 constructed requests fit limits and no completed
+response was empty. `504a557d` likewise had no empty response; its finding omitted original
+obligation grounding. The browser-handle allegation remains unproven, not a false-positive claim.
 
-Those frozen runs used a benchmark host capped at 30 minutes, below the planner's
-captured five-hour ceiling. Amazon reached that host limit; Review PR did not. Original
-freezes and financial controls are unchanged. Amazon accepted three sequence openings
-and one transform, with no external operation task; these are intermediate construction,
-not satisfied business obligations. Its cleanup-association finding remains independently
-unclassified. No avoided correction, causal improvement or eventual success is claimed.
+The `7e19f7f8` Amazon four-address rejection did not prove an indivisible schema too large.
+Its Review PR context exceeded mandatory-review admission; prior repair left Git inputs
+unchanged. Future-observation allegations remain qualified because no closure was claimed.
+The [formatting supplement](compact-taskplan-7e19f7f-response-format.json) retains both runs.
+Collections made 24 physical attempts for 23 logical requests; the failed 500 retains
+**EUR 0.9308701472556894243641231593**. Its closure finding was grounded and explicit
+reselection guidance was already present; repeating the correction was model non-progress.
 
-Review PR Judge 32 alleged an unsupported required provider channel while its context
-omitted the exact operation origin and supplied an incomplete generic description. The
-retained original identifies the requested provider; the new origin facts address that
-missing context. This is not proof of runtime success or a matched avoided correction.
-The selected canonical method is also outside the current delegated execution guard,
-a separate static limitation; authority is not widened. Judges 11 and 34 instead identified
-visible input-mapping and instruction-narrowing defects. The final cleanup input has coupled
-command alternatives; no safe small pruning of its required closure was demonstrated.
-
-Earlier controls remain immutable: [f3 Amazon](compact-taskplan-f3cb064-amazon.json),
-[f3 Review PR](compact-taskplan-f3cb064-code.json) and
-[f3 high-navigation Amazon](compact-taskplan-f3cb064-amazon-high.json). The earlier Code
-Judge 43 used a false completion premise; later cleanup findings were distinct. Current
-source addresses the exact-closure presentation and old-query automatic directories,
-without weakening acceptance guards. No latest artifact executed; useful-obligation
-counts remain zero, calls per satisfied obligation undefined and runtime latency unavailable.
+The `d0413d2` archives retain all phase/component/token/latency measurements. Amazon's
+60 constructed identities comprise 52 receipts, 7 prepared and 1 host-denied request; Code's
+45 comprise 42 receipts, 2 prepared and 1 rejected draft. No empty completion occurred.
+Only Amazon reached the old host 30-minute ceiling despite a captured five-hour allowance.
+Three empty sequence openings and a transform were not useful business completion; its
+cleanup-association finding remains unclassified. Code retained actual input/instruction
+issues and an unsupported execution method. No safe pruning of coupled command constraints
+was demonstrated. Earlier controls remain [f3 Amazon](compact-taskplan-f3cb064-amazon.json),
+[f3 Review PR](compact-taskplan-f3cb064-code.json) and [high-navigation Amazon](compact-taskplan-f3cb064-amazon-high.json).
+False closure premises and later actual cleanup defects remain separately recorded.
+Source/settings differences and unmatched runs cannot establish architectural causality.
 
 ## Latest audited allowance
 
-The post-975fd04f Review PR audit retains all 21 permanently closed receiptless
-identities. The 21 unknown transport-attempt records are a separate metric, including
-an attempt whose logical request later succeeded. These amounts describe this snapshot,
-not later dispatches.
+The post-a934 schema-retention audit records **22 receiptless identities, all permanently
+closed**, and no pending abandonment. The **23 unknown physical-attempt records** are a
+separate count: logical requests can succeed after a failed attempt whose usage stays reserved.
 
 | Ledger measurement | EUR |
 | --- | ---: |
 | Campaign ceiling | 240.0301038327063045424449473 |
-| Known spending | 82.84775173444749108106349389 |
-| Retained unknown-usage reservations | 10.872951692429839622716702885 |
-| Spending/reservation upper bound | 93.72070342687733070378019678 |
-| Available allowance at that snapshot | 146.30940040582897383866475052 |
+| Known spending | 85.64000965501866466428526991 |
+| Retained unknown-usage reservations | 12.406110996312035071177211586 |
+| Spending/reservation upper bound | 98.04612065133069973546248150 |
+| Available at this snapshot | 141.98398318137560480698246580 |
 
-The [Review PR evidence](compact-taskplan-975fd04-code.json) binds the exact audit.
-Including retained lost historical exposure **EUR159.96989616729369545755505266**, the
-cumulative spending/reservation upper bound is **EUR253.69059959417102616133524944**
-inside the original EUR400 authorization. Original monetary evidence and all uncertain reservations are unchanged.
+The [a934 archive](compact-taskplan-a934866-code.json) binds the before/after audit and
+unchanged retention accounting. With lost historical exposure **EUR 159.96989616729369545755505266**,
+cumulative spending and reservations are **EUR 258.01601681862439519301753416** within the
+original EUR 400 authorization. Original CLR decimal precision differences remain disclosed;
+these values do not represent the balance after later dispatches.
 
-## Acceptance and immutable evidence
+## Acceptance and chronological immutable evidence
 
 Earlier `efcb1d7a` passed both Collections runtime variants. Current-source Collections,
 Amazon and Review PR must execute and pass frozen independent oracles before paired runs.
-Artifact-bound review and exact individual confirmations remain mandatory. Compilation,
-checkpoints, tests and CI do not establish business success.
+Artifact review and exact individual confirmations remain mandatory. Current useful-business
+obligation counts are zero; calls per satisfied obligation are undefined and runtime latency
+unavailable. Compilation, checkpoints and technical passes are not business acceptance.
+No avoided correction, causal convergence improvement or eventual success is claimed.
+Archives below are grouped newest to oldest; their failures and validation scope are immutable.
 
 - Prior diagnostics: [35022fa Collections](compact-taskplan-35022fa-collections-pending.json) and [authorized closure](compact-taskplan-35022fa-collections-retention.json); [2d6cbce Amazon](compact-taskplan-2d6cbce-amazon.json) and [Review PR](compact-taskplan-2d6cbce-code.json). Their failures and validation scope remain immutable.
 - Frozen `131801d4`: [Collections control](compact-taskplan-131801d4-collections.json), [Amazon](compact-taskplan-131801d4-amazon.json), [Review PR](compact-taskplan-131801d4-code.json), [Collections output32](compact-taskplan-131801d4-collections-output32.json), [Collections high Judge](compact-taskplan-131801d4-collections-high-pending.json) and [its authorized abandonment](compact-taskplan-131801d4-collections-high-retention.json). All five failed to reach artifact execution; output-limit, correction and transport evidence remains separate. No causal reasoning-profile benefit or avoided corrections is proven.
@@ -241,6 +157,6 @@ checkpoints, tests and CI do not establish business success.
 - [3adc](compact-taskplan-3adc335.json), [4a43](compact-taskplan-4a43ea1.json), [8952](compact-taskplan-8952a0a.json), [743](compact-taskplan-743e4a3.json), [410](compact-taskplan-41077d0.json), [663](compact-taskplan-663cf72.json), [1984](compact-taskplan-1984bdc.json), [afc](compact-taskplan-afc342c.json), [5c](compact-taskplan-5c01f98.json), [08ad](compact-taskplan-08ad5db.json), [cd174ea](compact-taskplan-cd174ea.json).
 - [October 19](compact-taskplan-live-2026-10-19.md), [October 20](compact-taskplan-live-2026-10-20.md), [historical components](compact-taskplan-request-components-2026-10-20.json); historical passing CI [52ebb72](https://github.com/GnouGo/GnouGo/actions/runs/39855405218), [0b44557](https://github.com/GnouGo/GnouGo/actions/runs/39857068574).
 
-
 Archives retain failures, uncertainty and exact validation scope. Original payloads remain
-encrypted; safe reports grant no execution authority.
+encrypted; safe reports grant no execution authority. Finalize pending full-suite/CI statuses
+against their terminal evidence before publishing a later summary.
