@@ -6,10 +6,143 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed partial class CompactDiscoveryProtocolTests
 {
-    [Fact]
-    public async Task DiscoverySeparatesUnseenContinuationBatchesFromExactSingleDescriptionRereads()
+    [Theory]
+    [InlineData(3, true, "/evidenceRequests", false)]
+    [InlineData(4, true, "/evidenceRequests", true)]
+    [InlineData(4, false, "/evidenceRequests", false)]
+    [InlineData(4, true, "/operations", false)]
+    public async Task OnlyCurrentRequiredDiscoveryAdmissionFailureNarrowsUnseenEvidence(int version, bool required, string location, bool singleton)
     {
-        var (state, runtime) = await Ready(presentationVersion: 3);
+        var (state, _) = await Ready(presentationVersion: version);
+        AddOperations(state, 2);
+        var addresses = PlanningCompactConstruction.ContractDescriptors(state, count: 2)
+            .Select(item => item!["descriptionEvidence"]!.ToString()).ToArray();
+        var original = PlanningCompactConstruction.DiscoverySchema(state);
+        state.Diagnostics = [new("CONSTRUCTION_EVIDENCE_LIMIT", location, "The complete prospective request exceeded its captured ceiling.", required)];
+        var retained = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        var schema = PlanningCompactConstruction.DiscoverySchema(state);
+        var request = DiscoveryFollowup(state);
+        Assert.Empty(PlanningContractValidation.ValidateSchema(schema, strict: true));
+        Assert.Empty(PlanningContractValidation.ValidateInstance(Wire(request, Evidence(addresses[0])).Json!, schema));
+        Assert.Equal(singleton, PlanningContractValidation.ValidateInstance(Wire(request, Evidence(addresses)).Json!, schema).Count != 0);
+        if (!singleton) Assert.Equal(original.ToJsonString(), schema.ToJsonString());
+        Assert.Equal(retained, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task OversizedDiscoveryBatchRecoversThroughAdmittedSingletonWithoutLosingEvidenceOrAccounting(bool recover)
+    {
+        var (state, runtime) = await Ready(presentationVersion: 4);
+        AddOperations(state, 3);
+        foreach (var capability in state.Discovery.Pages[0].Capabilities)
+            capability.Operation!.Description = new string('x', 1800) + " Preserve the complete observation.";
+        var addresses = PlanningCompactConstruction.ContractDescriptors(state, count: 3)
+            .Select(item => item!["descriptionEvidence"]!.ToString()).ToArray();
+        var single = PlannerFixture.Clone(state);
+        PlanningConstruction.LoadEvidence(single, [addresses[0]]);
+        var batch = PlannerFixture.Clone(state);
+        PlanningConstruction.LoadEvidence(batch, [.. addresses]);
+        var singleSize = PlanningRequestMeasurements.Measure(DiscoveryFollowup(single), PlanningCompactConstruction.DiscoveryPurpose, 6000).EstimatedInputTokens;
+        var batchSize = PlanningRequestMeasurements.Measure(DiscoveryFollowup(batch), PlanningCompactConstruction.DiscoveryPurpose, 6000).EstimatedInputTokens;
+        Assert.True(batchSize > singleSize + 400);
+        // Freeze a fixture ceiling that admits the exact singleton, but not the
+        // complete three-page follow-up, before either evidence response is issued.
+        var policy = state.Construction!.Limits.PhasePolicy!;
+        policy.Navigation.MaxInputTokens = checked((int)((singleSize + batchSize) / 2));
+        policy.Navigation.TargetInputTokens = Math.Min(policy.Navigation.TargetInputTokens, policy.Navigation.MaxInputTokens);
+        state.Request.Options["construction_limits"]!["phasePolicy"] = JsonSerializer.SerializeToNode(policy, PlanningJsonContext.Default.PlanningConstructionPhasePolicy);
+        var settings = state.Request.Options["construction_limits"]!.ToJsonString();
+        var accepted = PlanningConstruction.Hash(state.Plan);
+        var originals = JsonSerializer.Serialize(state.Discovery, PlanningJsonContext.Default.CapabilityDiscoveryState);
+        var reads = state.Construction.EvidenceRequests.ToArray();
+        runtime.Respond = (request, _) => Wire(request, Evidence(addresses));
+        state = await Advance(state, runtime);
+        Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Code == "CONSTRUCTION_EVIDENCE_LIMIT" && diagnostic.Required);
+        Assert.Null(state.Construction!.Evidence);
+        Assert.All(reads, read => Assert.Contains(read, state.Construction.EvidenceRequests));
+        foreach (var address in addresses)
+            Assert.DoesNotContain(PlanningConstruction.EvidenceBatchFingerprint(state, [address]), state.Construction.EvidenceRequests);
+        Assert.Contains(state.RequestMeasurements!, measurement => measurement.Admission == "rejected_before_dispatch" && measurement.EstimatedInputTokens > measurement.InputLimit);
+        var calls = state.ModelCalls;
+        var corrections = state.ReplanAttempts;
+        var draftCorrections = state.Construction.DraftCorrections;
+        runtime.Respond = (request, _) =>
+        {
+            Assert.NotEmpty(PlanningContractValidation.ValidateInstance(Wire(request, Evidence(addresses)).Json!, request.StructuredOutputSchema!));
+            return Wire(request, Evidence(addresses[0]));
+        };
+        state = await Advance(PlannerFixture.Clone(state), runtime);
+        if (recover)
+        {
+            var issued = runtime.Checkpoints.Last(checkpoint => checkpoint.PendingCall is { Purpose: PlanningCompactConstruction.DiscoveryPurpose } &&
+                checkpoint.Diagnostics.Any(diagnostic => diagnostic.Code == "CONSTRUCTION_EVIDENCE_LIMIT"));
+            var exact = JsonSerializer.Serialize(issued.PendingCall!.Request, PlanningJsonContext.Default.LLMRequest);
+            var receipt = Wire(issued.PendingCall.Request, Evidence(addresses[0]));
+            runtime.Respond = (request, _) =>
+            {
+                Assert.Equal(exact, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+                return receipt;
+            };
+            state = await Advance(PlannerFixture.Clone(issued), runtime);
+        }
+        Assert.Empty(state.Diagnostics);
+        Assert.Equal(calls + 1, state.ModelCalls);
+        Assert.Equal(corrections, state.ReplanAttempts);
+        Assert.Equal(draftCorrections, state.Construction!.DraftCorrections);
+        Assert.Equal(accepted, PlanningConstruction.Hash(state.Plan));
+        Assert.Equal(originals, JsonSerializer.Serialize(state.Discovery, PlanningJsonContext.Default.CapabilityDiscoveryState));
+        Assert.Equal(settings, state.Request.Options["construction_limits"]!.ToJsonString());
+        Assert.Empty(state.Construction.Checkpoints);
+        Assert.Null(state.Construction.Candidate);
+        Assert.Single(state.Construction.Evidence!);
+        Assert.Contains("Preserve the complete observation.", state.Construction.Evidence![addresses[0]]!["text"]!.ToString(), StringComparison.Ordinal);
+        Assert.Contains(PlanningConstruction.EvidenceBatchFingerprint(state, [addresses[0]]), state.Construction.EvidenceRequests);
+        var next = DiscoveryFollowup(state);
+        Assert.Empty(PlanningContractValidation.ValidateInstance(Wire(next, Evidence(addresses[1..])).Json!, next.StructuredOutputSchema!));
+        var measurement = PlanningRequestMeasurements.Measure(next, PlanningCompactConstruction.DiscoveryPurpose, policy.Navigation.MaxInputTokens);
+        Assert.InRange(measurement.EstimatedInputTokens, 1, measurement.InputLimit);
+        Assert.Equal(measurement.CompleteRequestBytes, measurement.Components.Sum(component => component.SerializedBytes));
+    }
+
+    [Fact]
+    public async Task AlreadyIssuedBatchKeepsItsExactBytesWhenAdmissionDiagnosticArrivesAfterIssuance()
+    {
+        var (state, runtime) = await Ready(presentationVersion: 4);
+        AddOperations(state, 2);
+        var addresses = PlanningCompactConstruction.ContractDescriptors(state, count: 2)
+            .Select(item => item!["descriptionEvidence"]!.ToString()).ToArray();
+        var issued = DiscoveryFollowup(state);
+        var receipt = Wire(issued, Evidence(addresses));
+        var exact = JsonSerializer.Serialize(issued, PlanningJsonContext.Default.LLMRequest);
+        state.PendingCall = new() { Id = issued.ClientRequestId!, Purpose = PlanningCompactConstruction.DiscoveryPurpose, Request = issued, CorrectionAccounting = 0 };
+        state.ModelCalls++;
+        var calls = state.ModelCalls;
+        var accepted = PlanningConstruction.Hash(state.Plan);
+        state.Diagnostics = [new("CONSTRUCTION_EVIDENCE_LIMIT", "/evidenceRequests", "A later diagnostic cannot replace the issued schema.")];
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(receipt.Json!, PlanningCompactConstruction.DiscoverySchema(state)));
+        runtime.Respond = (request, _) =>
+        {
+            Assert.Equal(exact, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+            return receipt;
+        };
+        state = await Advance(PlannerFixture.Clone(state), runtime);
+        Assert.Empty(state.Diagnostics);
+        Assert.Equal(calls, state.ModelCalls);
+        Assert.Equal(0, state.ReplanAttempts);
+        Assert.Equal(0, state.Construction!.DraftCorrections);
+        Assert.Equal(accepted, PlanningConstruction.Hash(state.Plan));
+        Assert.Equal(2, state.Construction.Evidence!.Count);
+        Assert.Null(state.PendingCall);
+    }
+
+    [Theory]
+    [InlineData(3)]
+    [InlineData(4)]
+    public async Task DiscoverySeparatesUnseenContinuationBatchesFromExactSingleDescriptionRereads(int version)
+    {
+        var (state, runtime) = await Ready(presentationVersion: version);
         AddOperations(state, 3);
         foreach (var capability in state.Discovery.Pages[0].Capabilities)
             capability.Operation!.Description = new string('a', 3000) + " Preserve the complete observation.";

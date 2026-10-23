@@ -65,9 +65,11 @@ internal static partial class PlanningCompactConstruction
             .Select(item => item.Key).Order(StringComparer.Ordinal).ToArray();
         addresses.RemoveWhere(address => state.Construction!.EvidenceRequests.Contains(
             PlanningConstruction.EvidenceBatchFingerprint(state, [address]), StringComparer.Ordinal));
+        var maximum = State(state).PresentationVersion == 4 && state.Diagnostics.Any(diagnostic =>
+            diagnostic.Required && diagnostic.Code == "CONSTRUCTION_EVIDENCE_LIMIT" && diagnostic.Location == "/evidenceRequests") ? 1 : 8;
         var alternatives = new JsonArray();
         if (addresses.Count > 0)
-            alternatives.Add((JsonNode)PlanningSchemas.Array(PlanningSchemas.Enum(addresses.Order(StringComparer.Ordinal).ToArray()), 1, 8));
+            alternatives.Add((JsonNode)PlanningSchemas.Array(PlanningSchemas.Enum(addresses.Order(StringComparer.Ordinal).ToArray()), 1, maximum));
         if (rereads.Length > 0)
             alternatives.Add((JsonNode)PlanningSchemas.Array(PlanningSchemas.Enum(rereads), 1, 1));
         alternatives.Add((JsonNode)PlanningSchemas.Type("null"));

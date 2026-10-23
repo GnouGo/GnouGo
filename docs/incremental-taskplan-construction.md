@@ -224,7 +224,11 @@ ceiling before accepting evidence. Provider discovery preserves those originals
 while removing obsolete action directories; changing the candidate clears its
 stale views, retaining hash-bound read history. Existing phase/substep transitions
 clear presentation context. Oversized separable batches receive a
-bounded diagnostic; indispensable indivisible closures fail explicitly. Successful
+bounded diagnostic; indispensable indivisible closures fail explicitly.
+Revision-4 requests offer one exact discovery evidence address while an earlier
+batch-size diagnosis remains unresolved; successful admission restores the ordinary
+batch choices. This avoids repeated batch-size guesses without changing the ceiling
+or omitting required constraints. Successful
 individual addresses and batch identities are retained, so regrouping old evidence
 is not progress. Original description rereads require the exact issued knowledge
 authority after genuinely new allowed operation identities or versions; a cursor
