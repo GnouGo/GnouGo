@@ -37,6 +37,10 @@ the accepted TaskPlan remains the only source of available executable results.
 Resolving an unset implementation is navigation, while changing the business action
 retains correction accounting. Exact contracts and semantic preflight still govern
 every candidate.
+Fresh revision-4 guidance carries a demonstrated missing producer into the next
+selection before its consumer. Draft commitments accompany an extension only;
+evidence-only responses leave decision metadata null. This clarifies existing
+validation and accounting without changing schemas or historical issued requests.
 
 Selection keeps one unresolved original requirement as its anchor; additional
 requirement pages under the fresh phase policy keep up to eight consecutive

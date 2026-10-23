@@ -65,6 +65,62 @@ public sealed class ConstructionCorrectionAccountingTests
     }
 
     [Theory]
+    [InlineData(3, false)]
+    [InlineData(3, true)]
+    [InlineData(4, false)]
+    [InlineData(4, true)]
+    public async Task EvidenceWithCommitmentsIsRejectedWithoutStagingOrLoadingAcrossRecovery(int presentationVersion, bool interrupted)
+    {
+        var (state, runtime) = await Ready(draft: true);
+        state.Request.Options["construction_presentation_version"] = presentationVersion;
+        state.Construction!.Compact!.PresentationVersion = presentationVersion;
+        state.Catalog!.AllowedStepTypes.Add("mcp.call");
+        state.Discovery.Resolved.Add(new()
+        {
+            Id = "read", Version = "v1", Kind = "tool", StepType = "mcp.call", Server = "source", Method = "read", EffectKind = "read",
+            Description = "Read the requested value.",
+            InputSchema = new() { ["type"] = "object", ["properties"] = new JsonObject(), ["additionalProperties"] = false },
+            OutputSchema = new() { ["type"] = "object", ["properties"] = new JsonObject
+                { ["result"] = new JsonObject { ["type"] = "number" } }, ["required"] = new JsonArray("result"), ["additionalProperties"] = false }
+        });
+        state.Construction.Compact.CurrentStep!.Kind = "operation";
+        state.Construction.Compact.CurrentStep.OperationIds = ["read"];
+        state.Diagnostics = [new("TEST_REPAIR", "/extension", "Resolve the diagnosed fragment.")];
+        var accepted = PlanningConstruction.Hash(state.Plan);
+        var requirements = JsonSerializer.Serialize(state.Requirements, PlanningJsonContext.Default.PlanningRequirements);
+        string? exact = null;
+        if (interrupted)
+        {
+            runtime.Respond = (_, _) => throw new OperationCanceledException();
+            _ = await Advance(state, runtime);
+            state = PlannerFixture.Clone(runtime.Checkpoints.Last(s => s.PendingCall is not null && s.Status == PlanningStatus.Generating));
+            exact = JsonSerializer.Serialize(state.PendingCall!.Request, PlanningJsonContext.Default.LLMRequest);
+        }
+        var calls = state.ModelCalls;
+        runtime.Respond = (request, _) =>
+        {
+            if (exact is not null) Assert.Equal(exact, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+            var response = Evidence(request, "requirement:req_0");
+            response.Json!["commitments"] = new JsonArray(new JsonObject { ["requirementId"] = "req_0", ["operation"] = "read", ["result"] = null });
+            Assert.Empty(PlanningContractValidation.ValidateInstance(response.Json, request.StructuredOutputSchema!));
+            return response;
+        };
+        state = await Advance(state, runtime);
+        Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Code == "PROPOSAL_ACTION_INVALID" && diagnostic.Location == "/evidenceRequests");
+        Assert.Equal(calls + (interrupted ? 0 : 1), state.ModelCalls);
+        Assert.Equal(1, state.ReplanAttempts);
+        Assert.Equal(1, state.Construction!.DraftCorrections);
+        Assert.Null(state.PendingCall);
+        Assert.Null(state.Construction.Candidate);
+        Assert.Empty(state.Construction.Compact!.PendingCommitments);
+        Assert.Null(state.Construction.Evidence);
+        Assert.Empty(state.Construction.EvidenceRequests);
+        Assert.Empty(state.Construction.Checkpoints);
+        Assert.Equal(accepted, PlanningConstruction.Hash(state.Plan));
+        Assert.Equal(requirements, JsonSerializer.Serialize(state.Requirements, PlanningJsonContext.Default.PlanningRequirements));
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task AdmissionAndUncertainDispatchDoNotClassifyAResponse(bool oversized)

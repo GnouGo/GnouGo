@@ -427,7 +427,11 @@ host-computed dependency invalidation and required concrete reason. Accepted
 requirements and permissions remain unchanged; a live candidate must first be
 finished or abandoned before that action becomes available.
 A tentative reselection archives the rejected decision and preserves scope and
-requirement authority. Under the fresh phase policy, possible correction capacity
+requirement authority. Revision-4 guidance makes that handoff explicit: a demonstrated
+missing producer becomes the next prerequisite substep before its consumer. Draft
+commitments accompany an extension only; evidence retrieval stages no commitments
+or other decision metadata. These instructions preserve the existing validators,
+accounting and exact historical requests. Under the fresh phase policy, possible correction capacity
 is checked before dispatch and the issued accounting mode is saved with the
 pending request. Actual correction/reselection attempts are charged once when the
 known response and transition are checkpointed. Fully validated evidence-only
