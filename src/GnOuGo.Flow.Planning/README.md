@@ -200,6 +200,9 @@ only while that exact reread is permitted. A successful reread restores the full
 original view; fingerprints are never cleared. No new knowledge, an already used
 reread, or historical presentation keeps the original text. Required contract
 closures and selected-operation normative descriptions remain complete.
+Revision 4 factors repeated version fields into their verified exact description
+addresses, including retained operation-directory rows. All prose, links and
+canonical stored pages remain unchanged; directory hashes bind those originals.
 Revision 3 retains a bounded directory of the leading operation identities and
 description links beside later evidence; an identical supplied page is not repeated.
 Fresh decisions show up to eight compact provider choices without inspecting

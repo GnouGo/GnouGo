@@ -265,7 +265,41 @@ internal static partial class PlanningCompactConstruction
             page["textOmitted"] = true;
             page["evidence"] = address;
         }
+        if (UsesVerifiedReview(state))
+            FactorDiscoveryVersions(state, evidence);
         return evidence;
+    }
+
+    private static void FactorDiscoveryVersions(PlanningSession state, JsonObject presentation)
+    {
+        foreach (var (address, original) in state.Construction!.Evidence!)
+        {
+            if (original is not JsonObject page || presentation[address] is not JsonObject view) continue;
+            if (address.StartsWith("description:", StringComparison.Ordinal) || address.StartsWith("source-description:", StringComparison.Ordinal))
+            {
+                // The exact address already carries the version. Compare with
+                // the canonical original, not a potentially text-omitted view.
+                try
+                {
+                    if (JsonNode.DeepEquals(page, LoadContractEvidence(state, address, recordSchemaSelection: false)))
+                        view.Remove("version");
+                }
+                catch (PlanningResponseException) { /* Unverified evidence keeps its original presentation. */ }
+            }
+            else if (address.StartsWith("page:operations:", StringComparison.Ordinal) &&
+                page["offset"] is JsonValue offsetNode && offsetNode.TryGetValue<int>(out var offset) && offset >= 0 &&
+                address == "page:operations:" + PlanningGraphCompiler.Fingerprint(page.ToJsonString()) + ":" + offset.ToString(CultureInfo.InvariantCulture) &&
+                view["items"] is JsonArray items)
+            {
+                // Retained directory hashes bind their original rows even if
+                // later discovery changes ranking. Do not rebuild that page.
+                foreach (var item in items.OfType<JsonObject>())
+                    if (item["id"] is JsonValue idNode && idNode.TryGetValue<string>(out var id) &&
+                        item["version"] is JsonValue versionNode && versionNode.TryGetValue<string>(out var version) &&
+                        item["descriptionEvidence"]?.ToString() == "description:" + ContractIdentity(id, version) + ":0")
+                        item.Remove("version");
+            }
+        }
     }
 
     // Only immutable, policy-allowed producer identities establish new knowledge.

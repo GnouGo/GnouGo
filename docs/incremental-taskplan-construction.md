@@ -214,6 +214,10 @@ as exact identity/hash/page metadata and a retrieval link only when strict new
 operation knowledge makes its existing reread guard eligible. Current-knowledge
 descriptions, prerequisite citations and schema views remain complete; a permitted
 reread restores the full original view without resetting consumption history.
+Revision 4 omits only redundant version fields already encoded in verified
+description addresses, including rows of retained content-addressed operation
+directories. Text, identities, effects, continuations and canonical stored pages
+remain unchanged; directory hashes still identify the complete original pages.
 Fresh discovery schemas offer batches of up to eight unseen issued addresses or
 one eligible description reread; mixed or regrouped rereads are not offered.
 Exact prerequisite citations remain navigable across original requirements.

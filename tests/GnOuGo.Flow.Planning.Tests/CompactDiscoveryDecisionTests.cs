@@ -7,6 +7,97 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed partial class CompactDiscoveryProtocolTests
 {
     [Theory]
+    [InlineData(3)]
+    [InlineData(4)]
+    public async Task ExactEvidenceAddressesFactorOnlyRedundantVersionsWithoutChangingOriginalsOrRecovery(int version)
+    {
+        var (state, runtime) = await Ready(presentationVersion: version);
+        AddOperations(state, 4);
+        for (var index = 0; index < 4; index++)
+        {
+            var capability = state.Discovery.Pages[0].Capabilities[index];
+            capability.Operation!.Version = new string((char)('a' + index), 64);
+            capability.Operation.Description = new string('x', 2500) + " Preserve exact records and permissions.";
+            state.Discovery.Pages[0].Capabilities[index] = capability with { Version = capability.Operation.Version };
+        }
+        var directory = PlanningCompactConstruction.OperationPageAddress(state, 0);
+        var description = DescriptionAddress(state);
+        var source = PlanningCompactConstruction.ProviderRequestPage(state, 0)["items"]![0]!["descriptionEvidence"]!.ToString();
+        PlanningConstruction.LoadEvidence(state, [directory, description, source]);
+        var original = state.Construction!.Evidence!.DeepClone().AsObject();
+        var saved = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        var request = DiscoveryFollowup(state);
+        var view = Context(request)["evidence"]!.AsObject();
+        var expected = original.DeepClone().AsObject();
+        if (version == 4)
+        {
+            expected[description]!.AsObject().Remove("version");
+            expected[source]!.AsObject().Remove("version");
+            foreach (var item in expected[directory]!["items"]!.AsArray()) item!.AsObject().Remove("version");
+        }
+        Assert.Equal(expected.ToJsonString(), view.ToJsonString());
+        Assert.Equal(saved, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+        var control = PlannerFixture.Clone(state);
+        control.Construction!.Compact!.PresentationVersion = 3;
+        control.Request.Options["construction_presentation_version"] = 3;
+        var unprojected = DiscoveryFollowup(control);
+        Assert.Equal(original.ToJsonString(), Context(unprojected)["evidence"]!.ToJsonString());
+        Assert.Equal(unprojected.StructuredOutputSchema!.ToJsonString(), request.StructuredOutputSchema!.ToJsonString());
+        var before = PlanningRequestMeasurements.Measure(unprojected, PlanningCompactConstruction.DiscoveryPurpose, 6000);
+        var after = PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.DiscoveryPurpose, 6000);
+        Assert.Equal(after.CompleteRequestBytes, after.Components.Sum(component => component.SerializedBytes));
+        if (version == 4) Assert.True(after.CompleteRequestBytes < before.CompleteRequestBytes - 400);
+        else Assert.Equal(before.CompleteRequestBytes, after.CompleteRequestBytes);
+
+        // An already-issued full-page request remains authoritative after the
+        // presentation improvement; recovery must not rebuild its prompt.
+        var next = original[description]!["next"]!.ToString();
+        var exact = JsonSerializer.Serialize(unprojected, PlanningJsonContext.Default.LLMRequest);
+        state.PendingCall = new() { Id = unprojected.ClientRequestId!, Purpose = PlanningCompactConstruction.DiscoveryPurpose,
+            Request = unprojected, CorrectionAccounting = 0 };
+        state.ModelCalls++;
+        var calls = state.ModelCalls;
+        runtime.Respond = (issued, _) =>
+        {
+            Assert.Equal(exact, JsonSerializer.Serialize(issued, PlanningJsonContext.Default.LLMRequest));
+            return Wire(issued, Evidence(next));
+        };
+        state = await Advance(PlannerFixture.Clone(state), runtime);
+        Assert.Empty(state.Diagnostics);
+        Assert.Equal(calls, state.ModelCalls);
+        Assert.Equal(0, state.ReplanAttempts);
+        Assert.Null(state.PendingCall);
+        foreach (var (address, page) in original)
+            Assert.Equal(page!.ToJsonString(), state.Construction!.Evidence![address]!.ToJsonString());
+        Assert.NotNull(state.Construction!.Evidence![next]!["version"]);
+    }
+
+    [Theory]
+    [InlineData("description")]
+    [InlineData("directory-hash")]
+    [InlineData("directory-link")]
+    public async Task UnverifiedEvidenceKeepsItsVersionPresentation(string changed)
+    {
+        var (state, _) = await Ready(presentationVersion: 4);
+        AddOperations(state, 1);
+        var address = changed == "description" ? DescriptionAddress(state) : PlanningCompactConstruction.OperationPageAddress(state, 0);
+        PlanningConstruction.LoadEvidence(state, [address]);
+        var page = state.Construction!.Evidence![address]!.AsObject();
+        if (changed == "description") page["version"] = "different";
+        else if (changed == "directory-hash") page["items"]![0]!["name"] = "Changed original row";
+        else
+        {
+            page["items"]![0]!["descriptionEvidence"] = "description:unrelated@version:0";
+            state.Construction.Evidence.Remove(address);
+            address = "page:operations:" + PlanningGraphCompiler.Fingerprint(page.ToJsonString()) + ":0";
+            state.Construction.Evidence[address] = page;
+        }
+        var original = page.ToJsonString();
+        Assert.Equal(original, PlanningCompactConstruction.DiscoveryContext(state)["evidence"]![address]!.ToJsonString());
+        Assert.Equal(original, state.Construction.Evidence[address]!.ToJsonString());
+    }
+
+    [Theory]
     [InlineData(3, true, "/evidenceRequests", false)]
     [InlineData(4, true, "/evidenceRequests", true)]
     [InlineData(4, false, "/evidenceRequests", false)]
