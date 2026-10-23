@@ -1,8 +1,9 @@
 # Compact TaskPlan convergence
 
 Business acceptance remains incomplete and PR #120 stays Draft. Five frozen `131801d4` attempts
-produced no artifact or execution; the eighteen alternating runs against `56942f5` have not started.
-Nineteen prior uncertain identities remain closed; exact authorization for the twentieth is pending.
+and one `35022fa` attempt produced no artifact or execution; the eighteen alternating runs
+against `56942f5` have not started. Twenty prior uncertain identities remain closed;
+exact authorization for the twenty-first is pending.
 
 ## Implementation and validation
 
@@ -19,8 +20,14 @@ commitments accompany extensions only, while evidence responses stage no decisio
 The existing validators and schemas are unchanged. **198 focused and 2,645 complete
 Planning tests passed with warnings as errors** on `131801d4` plus this guidance delta.
 Independent review is clear; these checks do not demonstrate model or business improvement.
-Guidance validation rollup SHA256:
+The resulting production revision is `35022fa`. Guidance validation rollup SHA256:
 `9ad93d511f8c764da0c79dc113ca10518bb371c4688f55c624cf526b850934f7`.
+
+Exact `35022fa` passed all eleven publication stages with warnings as errors and no
+compiler diagnostics: five independent packages, Planning Native AOT revisions 2/3/4,
+published encrypted storage and Git AOT/contracts. Manifest:
+`e55b53f8729bdad812ce9ac9d020aca0ebf260b4b622a1950dbc861f3fcd32e9`.
+Its full-solution run is prepared after the prior run; final CI remains in progress.
 
 Exact `131801d4` passed **45 focused / 2,632 Planning tests** and **eleven publication stages**:
 five packages, Planning Native AOT revisions 2/3/4, encrypted storage and Git AOT/contracts. Manifest:
@@ -61,25 +68,43 @@ acceptance; calls per satisfied useful obligation are undefined. Checkpoints do 
 as completed business obligations.
 
 The high-Judge profile changed only review reasoning but stopped during medium-reasoning extraction.
-Its full unknown reservation **€0.9308701472556894243641231593** remains held; exact abandonment
-authorization is pending. No Judge ran, so this attempt provides no high-reasoning performance evidence.
+Its [exact authorized abandonment](compact-taskplan-131801d4-collections-high-retention.json)
+preserves every record and the full **€0.9308701472556894243641231593** unknown reservation.
+Replay and continuation are permanently forbidden. No Judge ran.
 
-## Audited allowance after the high-profile stop
+## Fresh diagnostic on 35022fa
 
-The snapshot records **1,687 requests / 1,667 receipts**, twenty receiptless identities:
-nineteen permanently closed and one pending. Unknown transport attempts total nineteen.
+[Collections](compact-taskplan-35022fa-collections-pending.json) retained the supported high-Judge
+profile with medium navigation/drafting and unchanged oracles. It stopped at extraction request 2
+after **321.610 seconds**, with two calls, one receipt, no corrections or checkpoints and no HTTP
+response to its single transport attempt. No Judge or runtime executed; this is not evidence of
+an empty response, reasoning exhaustion or high-reasoning efficacy.
+
+Complete-request bytes were p50 **5,470**, p95/maximum **8,528**; conservative input estimates
+were p50 **2,079.5**, p95/maximum **3,099**. Component bytes reconcile and both requests fit
+their captured limits. Verified usage is **377 input / 455 output / 352 reasoning tokens**;
+the received text has 427 bytes and no formatting whitespace. Failed-call usage remains unknown.
+Known cost is **€0.0138643462739848282016956716**, with the full
+**€0.9308701472556894243641231593** reservation retained. No business obligation is satisfied;
+calls per satisfied obligation and runtime latency remain unavailable. Amazon and Review PR
+cannot dispatch while this uncertainty awaits exact abandonment authorization.
+
+## Latest audited allowance
+
+The snapshot records **1,689 requests / 1,668 receipts**, twenty-one receiptless identities:
+twenty permanently closed and one pending. Unknown transport attempts total twenty.
 
 | Ledger measurement | EUR |
 | --- | ---: |
 | Campaign ceiling | 240.0301038327063045424449473 |
-| Known spending | 58.064980650110141683473132434 |
-| Retained unknown-usage reservations | 9.011211397918460773988456566 |
-| Spending/reservation upper bound | 67.076192048028602457461589000 |
-| Available allowance | 172.953911784677702084983358300 |
+| Known spending | 58.078844996384126511674828106 |
+| Retained unknown-usage reservations | 9.942081545174150198352579727 |
+| Spending/reservation upper bound | 68.020926541558276710027407833 |
+| Available allowance | 172.009177291148027832417539467 |
 
-Audit: `6a9229fc43df233ee7b5bc665df4f97a153726c27c4745cce83ff517a6534a81`.
+Audit: `c34dafa231f097c658df487d9d82668d948504f02dc2ad11b2c2310e77db98ca`.
 Lost historical exposure €159.96989616729369545755505266 remains inside the original
-€400 authorization; cumulative upper bound is **€227.046088215322297915016641660**.
+€400 authorization; cumulative upper bound is **€227.990822708851972167582460493**.
 No uncertain call may be replayed; fresh dispatch remains blocked pending the exact retention operation.
 
 ## Acceptance and immutable evidence
