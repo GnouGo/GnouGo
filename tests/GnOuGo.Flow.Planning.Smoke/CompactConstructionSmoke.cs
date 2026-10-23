@@ -17,6 +17,7 @@ internal static class CompactConstructionSmoke
     {
         await RunAsync(2);
         await RunAsync(3);
+        await RunAsync(4);
     }
 
     private static async Task RunAsync(int presentationVersion)
@@ -70,7 +71,7 @@ internal static class CompactConstructionSmoke
             !recoveredIntentActions.SetEquals(["classification", "interfaces"]) ||
             runtime.PhysicalCalls != 6 || state.ModelCalls != 6 || state.ReplanAttempts != 0)
             throw new InvalidOperationException("Fresh classified declarations, grouped interface extraction or exact recovery accounting changed.");
-        if (presentationVersion == 3 && state.Construction.Compact.InterfaceExtractions[0].Dispositions is not { Count: 2 })
+        if (presentationVersion >= 3 && state.Construction.Compact.InterfaceExtractions[0].Dispositions is not { Count: 2 })
             throw new InvalidOperationException("Source-bound interface dispositions were not retained through Native AOT recovery.");
         var historical = JsonSerializer.Serialize(new PlanningCompactConstructionState(), PlanningJsonContext.Default.PlanningCompactConstructionState);
         if (historical.Contains("presentationVersion", StringComparison.Ordinal) || historical.Contains("interfaceExtractions", StringComparison.Ordinal))

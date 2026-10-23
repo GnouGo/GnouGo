@@ -41,8 +41,9 @@ public sealed class CorrectionClarificationHostTests
                     var answered = await host.SubmitAsync(state.Request.SessionId, command, Ct);
                     Assert.Equal(accepted, JsonSerializer.Serialize(answered.Requirements, PlanningJsonContext.Default.PlanningRequirements));
                     Assert.Equal(beforeCalls, answered.ModelCalls);
-                    await Assert.ThrowsAsync<PlanningConflictException>(() => host.SubmitAsync(state.Request.SessionId, command, Ct));
                     state = await Wait(host, state.Request.SessionId);
+                    Assert.NotEqual(command.ExpectedRevision, state.Revision);
+                    await Assert.ThrowsAsync<PlanningConflictException>(() => host.SubmitAsync(state.Request.SessionId, command, Ct));
                 }
                 var stopped = scenario == "failed_then_question" && repairs == 2;
                 Assert.True(state.Status == (stopped ? PlanningStatus.Stopped : PlanningStatus.FinalReview), $"{state.Status}; calls={state.ModelCalls}; repairs={state.ReplanAttempts}; {state.Request.Options}; " + string.Join(';', state.Diagnostics));
@@ -89,7 +90,10 @@ public sealed class CorrectionClarificationHostTests
         while (true)
         {
             var state = (await service.GetAsync(id, deadline.Token))!;
-            if (PlanningStatus.IsWaiting(state.Status) || PlanningStatus.IsTerminal(state.Status)) return state;
+            // A question checkpoint can precede the owner's monitor/lease teardown.
+            // Wait for actual ownership release before submitting the next command.
+            if ((PlanningStatus.IsWaiting(state.Status) || PlanningStatus.IsTerminal(state.Status)) &&
+                (await service.InspectRequestAsync(state, deadline.Token))?.State != "active") return state;
             try { await Task.Delay(25, deadline.Token); }
             catch (OperationCanceledException) when (!Ct.IsCancellationRequested)
             { Assert.Fail($"Planning did not quiesce: {state.Status}, revision={state.Revision}, calls={state.ModelCalls}, pending={state.PendingCall?.Id}, options={state.Request.Options}, findings={string.Join(';', state.Diagnostics)}"); }
