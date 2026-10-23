@@ -910,6 +910,12 @@ confined clone cleanup; it rejects publication and permission expansion. Concret
 arguments are checked again before transport. Existing producer policies still apply.
 Synthetic delegation has no external-producer authority.
 
+This external benchmark host lists only tool methods permitted by that same authority;
+it preserves the original tool contracts and does not expose MCP prompts or adaptive
+agent runners. Local computation remains available. The method filter does not authorize
+arguments, callbacks or execution. Production discovery is unchanged; historical run
+continuation still requires its exact retained source revision.
+
 The existing host-owned artifact confirmation is still shown for the exact reviewed
 artifact and single execution. Correlated Copilot permission dialogs require the
 reviewer to inspect the actual operation and reply `Allow once` or `Refuse`; sandbox

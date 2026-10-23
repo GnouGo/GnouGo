@@ -116,19 +116,20 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
         }
     }
 
+    internal static bool AllowsTool(string scenario, string server, string tool) => scenario switch
+    {
+        "amazon" => server == "GnOuGo.Browser.Mcp" && tool is "browser_get_content" or "browser_close" ||
+            server == "GnOuGo.Document.Mcp" && tool == "document_write",
+        "code" => server == "GnOuGo.Git.Mcp" && tool is "git_clone" or "git_repository_info" or "git_status" or "git_diff" or "git_compare_refs" or "git_log" or "git_branches" or "git_checkout" or "git_fetch" ||
+            server == "GnOuGo.GithubCopilot.Mcp" && tool is "code_project_summary" or "code_read_file" or "code_search_text" or "code_agent_edit" ||
+            server == "GnOuGo.Cmd.Mcp" && tool == "cmd_run" || server == "GnOuGo.Document.Mcp" && tool == "document_write",
+        "synthetic" => false, // Synthetic cohorts use local fixtures; no external producer is authorized here.
+        _ => false
+    };
+
     internal void RequireTool(string server, string tool, JsonNode? arguments, bool inspectOnly = false)
     {
-        var allowed = scenario switch
-        {
-            "amazon" => server == "GnOuGo.Browser.Mcp" && tool is "browser_get_content" or "browser_close" ||
-                server == "GnOuGo.Document.Mcp" && tool == "document_write",
-            "code" => server == "GnOuGo.Git.Mcp" && tool is "git_clone" or "git_repository_info" or "git_status" or "git_diff" or "git_compare_refs" or "git_log" or "git_branches" or "git_checkout" or "git_fetch" ||
-                server == "GnOuGo.GithubCopilot.Mcp" && tool is "code_project_summary" or "code_read_file" or "code_search_text" or "code_agent_edit" ||
-                server == "GnOuGo.Cmd.Mcp" && tool == "cmd_run" || server == "GnOuGo.Document.Mcp" && tool == "document_write",
-            "synthetic" => false, // Synthetic cohorts use local fixtures; no external producer is authorized here.
-            _ => false
-        };
-        if (!allowed) throw new PlanningConflictException("The operation is outside delegated isolated-test authority.");
+        if (!AllowsTool(scenario, server, tool)) throw new PlanningConflictException("The operation is outside delegated isolated-test authority.");
         if (inspectOnly) return;
         if (arguments is not JsonObject args) throw new PlanningConflictException("Concrete operation arguments are required.");
         var relative = "workflows/" + campaign + "/" + run;

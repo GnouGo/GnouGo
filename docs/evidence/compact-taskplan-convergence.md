@@ -12,11 +12,18 @@ The current correction favors appending ordinary work to an existing scope and s
 one bounded selected-scope owner with exact retrieval links. Fresh-v4 Judges also receive
 the original selected operation's server and method. These are read-only technical facts,
 not completion or execution authority. Historical issued requests remain byte-exact.
-The owner-only patch passed **2,671 Planning tests**; the subsequent origin-fact addition
-passed **88 focused contract/review tests**, all with warnings as errors and unchanged
-validated hashes. The full solution/publication results below cover earlier exact sources.
-Combined patch validation: `41df8fd0ca19dbdeb9bbca8bae084107acc23496fcb5d7041e4925751e61c3a3`.
+Exact `58d419e2` passed **2,676 Planning tests** with warnings as errors, unchanged source
+and no compiler diagnostics (manifest `edc563da4b973690cf92aa716238307a002667d24f4deb48a0e882f87b64005c`).
+The full solution/publication results below cover earlier exact sources.
 No live convergence or avoided correction is established for this new patch.
+
+The external benchmark now filters discovery through the same existing delegated method
+allowlist, preserving original tool objects, identities and complete schemas. Unsupported
+MCP prompts and the separately registered benchmark adaptive runner are omitted; local
+computations and production runners remain unchanged. This narrows available planning
+choices without approving arguments or execution. Concrete artifact review, method/argument
+guards and exact individual confirmations remain required. **76 focused host tests** pass
+with warnings as errors (manifest `21df2e9010be021202e1efd881ad4c0ca62bff0c485f8a16265d7942769846a7`).
 
 Frozen `d0413d2` retains one incremental TaskPlan, original requirements, scoped Judges,
 deterministic compilation and existing execution authority. Automatic operation directories

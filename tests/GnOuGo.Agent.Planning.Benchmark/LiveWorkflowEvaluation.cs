@@ -6,7 +6,6 @@ using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Compilation;
 using GnOuGo.Flow.Core.Parsing;
 using GnOuGo.Flow.Core.Runtime;
-using GnOuGo.Flow.Copilot;
 using GnOuGo.Flow.Integrations;
 using GnOuGo.Flow.Planning;
 using GnOuGo.Flow.Persistence;
@@ -91,7 +90,7 @@ internal static class LiveWorkflowEvaluation
             run["events"]!.AsArray().Add(e);
             if (scenario == "code" && run["workspace_relative"] is not null) await LiveCodeEvidence.ObserveCheckoutAsync(root, run);
             await Save();
-        }, delegated);
+        }, delegated, scenario);
         var measured = new ExecutionModel(model, label);
         var mappingTelemetry = new MappingLiveEvaluation.MappingTelemetry();
         var engine = new WorkflowEngine { McpClientFactory = observed, LLMClient = phase == "execute" ? measured : new PlanningModel(model, run),
@@ -102,7 +101,6 @@ internal static class LiveWorkflowEvaluation
             RunStore = ExecutionStore(root),
             Limits = new() { TenantId = "benchmark", RunId = label, AgentId = campaign.Id + "-" + scenario, AgentName = "Live evaluation " + scenario, MaxMappingInputTokens = 96000 },
             HumanInputProvider = human, LlmDefaults = new() { Model = model.Model, Provider = model.Provider } };
-        if (scenario == "code") engine.WithCopilotRunners(configurations.Keys.Where(k => k.Contains("GithubCopilot", StringComparison.Ordinal)).Select(k => new KeyValuePair<string, string>("coding", k)));
         JsonObject? revisionSnapshot = null;
         IPlanningRuntime runtime = new WorkflowPlanningRuntime(engine, async (s, _) =>
         {
@@ -435,10 +433,11 @@ internal static class LiveWorkflowEvaluation
         }
     }
 
-    internal sealed class ObservedMcp(IMcpClientFactory inner, Func<JsonObject, Task> save, DelegatedTestReviewAuthority? authority = null) : IMcpClientFactory, IMcpExecutionHooks
+    internal sealed class ObservedMcp(IMcpClientFactory inner, Func<JsonObject, Task> save, DelegatedTestReviewAuthority? authority = null, string? discoveryScenario = null) : IMcpClientFactory, IMcpExecutionHooks
     {
         private readonly Func<JsonObject, Task> _save = save;
         private readonly DelegatedTestReviewAuthority? _authority = authority;
+        private readonly string? _discoveryScenario = discoveryScenario;
         internal int DiscoveryReads;
         public IDisposable BeginCall(McpCallExecutionContext context)
         {
@@ -465,9 +464,16 @@ internal static class LiveWorkflowEvaluation
         private sealed class Session(ObservedMcp owner, IMcpSession inner) : IMcpSession
         {
             public string ServerName => inner.ServerName;
-            public Task<IReadOnlyList<McpToolInfo>> ListToolsAsync(CancellationToken ct) { owner.DiscoveryReads++; return inner.ListToolsAsync(ct); }
+            public async Task<IReadOnlyList<McpToolInfo>> ListToolsAsync(CancellationToken ct)
+            {
+                owner.DiscoveryReads++;
+                var tools = await inner.ListToolsAsync(ct);
+                return owner._discoveryScenario is { } scenario
+                    ? tools.Where(t => DelegatedTestReviewAuthority.AllowsTool(scenario, ServerName, t.Name)).ToArray() : tools;
+            }
             public Task<IReadOnlyList<McpResourceInfo>> ListResourcesAsync(CancellationToken ct) => inner.ListResourcesAsync(ct);
-            public Task<IReadOnlyList<McpPromptInfo>> ListPromptsAsync(CancellationToken ct) => inner.ListPromptsAsync(ct);
+            public Task<IReadOnlyList<McpPromptInfo>> ListPromptsAsync(CancellationToken ct) => owner._discoveryScenario is null
+                ? inner.ListPromptsAsync(ct) : Task.FromResult<IReadOnlyList<McpPromptInfo>>([]);
             public Task<McpGetPromptResult> GetPromptAsync(string name, JsonNode? arguments, CancellationToken ct) => inner.GetPromptAsync(name, arguments, ct);
             public async Task<McpCallResult> CallToolAsync(string toolName, JsonNode? arguments, CancellationToken ct)
             {

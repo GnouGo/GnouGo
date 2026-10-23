@@ -12,6 +12,22 @@ public sealed class DelegatedTestReviewTests
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     [Fact]
+    public async Task VisibleMethodsStillRequireConcreteAuthorityAndCanonicalAliasesRemainDenied()
+    {
+        var (_, _, authorization, evidence, receipt) = await Fixture();
+        var authority = Authority(authorization, evidence, receipt, "code");
+        Assert.True(DelegatedTestReviewAuthority.AllowsTool("code", "GnOuGo.Cmd.Mcp", "cmd_run"));
+        authority.RequireTool("GnOuGo.Cmd.Mcp", "cmd_run", null, inspectOnly: true);
+        Assert.Throws<PlanningConflictException>(() => authority.RequireTool("GnOuGo.Cmd.Mcp", "cmd_run",
+            new JsonObject { ["commandName"] = "unrelated_command" }));
+        Assert.Throws<PlanningConflictException>(() => authority.RequireTool("GnOuGo.GithubCopilot.Mcp",
+            "copilot_interactive_one_shot", null, inspectOnly: true));
+        Assert.Throws<PlanningConflictException>(() => authority.RequireTool("GnOuGo.Git.Mcp", "git_push", null, inspectOnly: true));
+        Assert.False(DelegatedTestReviewAuthority.AllowsTool("code", "another-provider", "code_agent_edit"));
+        Assert.False(DelegatedTestReviewAuthority.AllowsTool("synthetic", "GnOuGo.Cmd.Mcp", "cmd_run"));
+    }
+
+    [Fact]
     public async Task DelegatedApprovalPreservesArtifactAndCannotAuthorizeAProductionHost()
     {
         var (state, runtime, authorization, evidence, receipt) = await Fixture();
