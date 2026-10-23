@@ -30,6 +30,7 @@ public sealed class PlanningPhaseJournalTests
         request.ClientRequestId = planning.SessionId + ":1:" + PlanningGraphCompiler.Fingerprint(
             JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
         var exact = JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest);
+        Assert.DoesNotContain("requiredReviewCalls", exact);
         var client = new Model(); var limits = new LLMUsageBudgetLimits { MaxCalls = 12 };
         var budget = new LLMUsageBudgetScope(limits, sink: new PlanningBudgetSink(fixture.Records, "tenant", planning.SessionId));
         var first = await new PlanningModelJournal(client, fixture, fixture.Records, "tenant", planning.SessionId,
@@ -41,6 +42,7 @@ public sealed class PlanningPhaseJournalTests
         Assert.Equal(exact, saved.Value);
         var usage = (await fixture.Records.GetAsync(PlanningBudgetSink.Collection, "tenant", planning.SessionId, EfPlanningSessionStore.Author, Ct))!;
         var restored = new LLMUsageBudgetScope(limits, JsonSerializer.Deserialize(usage.Value, PlanningJsonContext.Default.LLMUsageBudgetSnapshot));
+        Assert.DoesNotContain("journaledAttempts", usage.Value);
         var original = JsonSerializer.Deserialize(saved.Value, PlanningJsonContext.Default.LLMRequest)!;
         var replay = await new PlanningModelJournal(client, fixture, fixture.Records, "tenant", planning.SessionId,
             restored, new Estimator(), planning.Generation, capabilities: new Unavailable(), planning: planning).CallAsync(original, Ct);

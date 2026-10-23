@@ -43,6 +43,7 @@ public sealed class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records,
         {
             throw new PlanningConflictException("This planning session is active in another runtime. Resume with the same run ID after it releases the session.");
         }
+        var inheritedBudget = context.LLMUsageBudget;
         try
         {
             var savedDefinition = await records.GetAsync(Definitions, tenant, key, Author, ct);
@@ -129,12 +130,21 @@ public sealed class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records,
                 ?? throw new PlanningConflictException("The encrypted planning budget is invalid.");
             var limits = (PlanningBudgetOptions.Parse(state.Request.Options) ?? new LLMUsageBudgetLimits()) with
                 { MaxElapsed = null, MaxCalls = Math.Min(PlanningBudgetOptions.Parse(state.Request.Options)?.MaxCalls ?? state.Request.MaxModelCalls, state.Request.MaxModelCalls) };
-            var inheritedBudget = context.LLMUsageBudget;
             var budget = new LLMUsageBudgetScope(limits, usage, inheritedBudget, new WorkflowPlanningBudgetSink(records, tenant, key),
                 exchangeRateProvider: context.Engine.ExchangeRateProvider);
             // The journal meters actual dispatches; replaying a receipt consumes no new allowance.
             context.LLMUsageBudget = null;
-            var client = new WorkflowPlanningModelJournal(context, records, state.Request, budget);
+            var client = new WorkflowPlanningModelJournal(context, records, state.Request, budget,
+                DateTimeOffset.UtcNow + (PlanningBudgetOptions.Parse(state.Request.Options)?.MaxElapsed ?? TimeSpan.FromHours(5)) - TimeSpan.FromMilliseconds(state.ActiveMilliseconds));
+            if (state.PendingCall is { } retainedCall)
+            {
+                await client.RecoverSavedResponseAsync(retainedCall.Request, ct);
+                if (await records.GetAsync(WorkflowPlanningModelJournal.Receipts, tenant, retainedCall.Id, Author, ct) is { } recovered && recovered.UpdatedAt > state.UpdatedAtUtc)
+                {
+                    state.ActiveMilliseconds += (recovered.UpdatedAt - state.UpdatedAtUtc).TotalMilliseconds;
+                    state.UpdatedAtUtc = recovered.UpdatedAt;
+                }
+            }
             async Task Checkpoint(PlanningSession snapshot, CancellationToken token)
             {
                 snapshot.Usage = budget.Snapshot;
@@ -162,7 +172,7 @@ public sealed class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records,
             context.SetTelemetryAttribute("gnougo-flow.plan.run_id", context.Limits.RunId);
             return new OwnedSession(state, new WorkflowPlanningRuntime(context, client, Checkpoint), lease, () => context.LLMUsageBudget = inheritedBudget);
         }
-        catch { await lease.DisposeAsync(); throw; }
+        catch { context.LLMUsageBudget = inheritedBudget; await lease.DisposeAsync(); throw; }
     }
 
     public async Task<string> ReadApprovedYamlAsync(StepExecutionContext context, string sessionId, string artifactHash, CancellationToken ct)

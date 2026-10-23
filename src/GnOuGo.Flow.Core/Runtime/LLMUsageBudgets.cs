@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
 
@@ -83,6 +84,8 @@ public sealed record LLMUsageBudgetSnapshot
     public string EstimatedCostCurrency { get; init; } = "USD";
     public IReadOnlyList<CurrencyExchangeQuote> ExchangeRates { get; init; } = Array.Empty<CurrencyExchangeQuote>();
     public decimal EstimatedCostUsd { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyDictionary<string, LLMJournaledAttempt>? JournaledAttempts { get; init; }
 }
 
 /// <summary>
@@ -801,7 +804,11 @@ public sealed partial class LLMUsageBudgetScope
             EstimatedCost = normalizedEstimatedCost,
             EstimatedCostCurrency = snapshotCurrency,
             EstimatedCostUsd = normalizedLegacyUsd,
-            ExchangeRates = snapshot.ExchangeRates.ToArray()
+            ExchangeRates = snapshot.ExchangeRates.ToArray(),
+            JournaledAttempts = ValidateJournaledAttempts(snapshot with
+            {
+                EstimatedCost = normalizedEstimatedCost, EstimatedCostUsd = normalizedLegacyUsd
+            })
         };
     }
 

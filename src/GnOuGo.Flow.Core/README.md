@@ -1336,6 +1336,14 @@ omissions, and rejects explicitly changed settings rather than silently migratin
 session. Sparse historical request JSON retains eight calls, two repairs and
 12,000 input / 8,192 output tokens.
 
+Fresh incremental sessions capture `planning_transport_policy` in their existing
+options. Its source-generated `PlanningTransportPolicy` permits up to three journaled
+attempts after confirmed transient HTTP responses and no uncertain replay. The original
+request is synchronous, and `RequiredReviewCalls` records remaining mandatory review
+headroom before hashing. These settings grant no execution authority; hosts must reserve
+each physical attempt within the existing cumulative allowances. Historical option and
+request-field omissions retain their previous bytes and behavior.
+
 `business_judge: true` opts a new session into an independent advisory review using the
 same model before FinalReview. It shares the existing journal and allowances and grants
 no permissions or new repair scope. Findings without existing explicit revision authority

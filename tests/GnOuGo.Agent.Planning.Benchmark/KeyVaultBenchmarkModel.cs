@@ -38,6 +38,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
     private readonly IExchangeRateProvider _rates;
     private readonly IModelUsageCostEstimator _estimator;
     private readonly TimeProvider _time;
+    private readonly Dictionary<string, DateTimeOffset> _planningDeadlines = new(StringComparer.Ordinal);
     private static readonly TimeSpan MaxQuoteAge = new EcbExchangeRateProviderOptions().MaxQuoteAge;
     private readonly SemaphoreSlim _dispatchGate = new(1, 1);
     private static readonly Lazy<TiktokenTokenizer> ExecutionTokenizer = new(() => TiktokenTokenizer.CreateForEncoding("o200k_base"));
@@ -87,9 +88,10 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
         }
         finally { _dispatchGate.Release(); }
     }
-    internal async Task CapturePlanningPolicyAsync(PlanningRequest request, CancellationToken ct, bool incremental = true)
+    internal async Task CapturePlanningPolicyAsync(PlanningRequest request, CancellationToken ct, bool incremental = true, double activeMilliseconds = 0)
     {
-        var value = new JsonObject { ["max_physical_attempts"] = request.MaxModelCalls,
+        var value = new JsonObject { ["max_physical_attempts"] = PlanningTransportPolicies.Read(request) is null ? request.MaxModelCalls :
+                Math.Min(request.MaxModelCalls, PlanningBudgetOptions.Parse(request.Options)?.MaxCalls ?? request.MaxModelCalls),
             ["max_input_tokens"] = request.Generation.MaxInputTokensPerRequest, ["max_output_tokens"] = request.Generation.MaxOutputTokens,
             ["max_corrections"] = request.MaxReplanAttempts, ["construction_preset"] = request.Options["construction_preset"]?.DeepClone(),
             ["llm_budget"] = request.Options["llm_budget"]?.DeepClone() };
@@ -105,6 +107,15 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
         {
             value["construction_version"] = 2;
             value["construction_input_limits"] = request.Options["construction_input_limits"]?.DeepClone();
+        }
+        foreach (var key in new[] { PlanningTransportPolicies.OptionName, "benchmark_planning_elapsed_ms" })
+            if (request.Options[key] is { } captured) value[key] = captured.DeepClone();
+        if (PlanningTransportPolicies.Read(request) is not null)
+        {
+            var remaining = PlanningBenchmarkMeasurements.RemainingPlanningTime(new PlanningSession { Request = request }, activeMilliseconds);
+            var deadline = _time.GetUtcNow() + remaining;
+            if (!_planningDeadlines.TryGetValue(request.SessionId, out var prior) || deadline < prior)
+                _planningDeadlines[request.SessionId] = deadline;
         }
         var saved = await _campaign.LoadAsync("planning-evaluation-session-policy", request.SessionId, ct);
         if (saved is not null)
@@ -214,7 +225,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
                 existing["cost_ceiling_eur"]!.GetValue<decimal>(), sessionLimit,
                 existing["construction_review_cost_headroom_eur"]?.GetValue<decimal>() ?? 0,
                 existing["construction_review_attempt_headroom"]?.GetValue<int>() ?? 0,
-                existing["effective_transport_policy"]?.AsObject());
+                existing["effective_transport_policy"]?.AsObject(), _time);
         }
         var price = AdmissionPrice(input, output);
         var quote = await FreshQuoteAsync(price.Currency, ct);
@@ -225,7 +236,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
             if (reviewPrice.Currency != price.Currency) throw BenchmarkCampaign.AdmissionFailure("review_price_currency_changed");
             reviewHeadroom = checked(reviewCount * ConvertCost(reviewPrice, quote, true));
         }
-        var journal = new BenchmarkHttpJournal(_campaign, requestId, input, output, ConvertCost(price, quote, true), sessionLimit, reviewHeadroom, reviewCount, effectiveTransportPolicy);
+        var journal = new BenchmarkHttpJournal(_campaign, requestId, input, output, ConvertCost(price, quote, true), sessionLimit, reviewHeadroom, reviewCount, effectiveTransportPolicy, _time);
         await journal.PrepareAsync(ct, quote);
         return journal;
     }
@@ -346,16 +357,43 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
     {
         var policy = execution ? null : await _campaign.LoadAsync("planning-evaluation-session-policy", request.ClientRequestId!.Split(':')[0], ct);
         var incremental = policy?["construction_review_headroom"]?.GetValue<int>() > 0;
+        var planning = policy is null ? null : PlanningFromPolicy(policy);
+        var capturedTransport = planning is null ? null : PlanningTransportPolicies.Read(planning);
+        if (capturedTransport is not null) PlanningTransportPolicies.ValidateIssued(request, planning!);
         var dispatched = CreateDispatchRequest(request, Provider, Model, execution);
-        if (singleAttempt || incremental) dispatched.DisableTransportRetries = true;
-        var retryPolicy = _options.ResolveProvider(Provider)!.RetryPolicy.Clone();
+        if (singleAttempt || incremental && capturedTransport is null) dispatched.DisableTransportRetries = true;
+        else if (capturedTransport is not null) dispatched.DisableTransportRetries = request.DisableTransportRetries;
+        var retryPolicy = capturedTransport is null ? _options.ResolveProvider(Provider)!.RetryPolicy.Clone() : new LLMProviderRetryPolicyOptions
+        {
+            MaxAttempts = capturedTransport.MaxAttempts, MaxUncertainRetries = capturedTransport.MaxUncertainRetries,
+            AttemptTimeoutMilliseconds = capturedTransport.AttemptTimeoutMilliseconds,
+            BaseDelayMilliseconds = capturedTransport.BaseDelayMilliseconds, MaxDelayMilliseconds = capturedTransport.MaxDelayMilliseconds,
+            MaxTotalDelayMilliseconds = capturedTransport.MaxTotalDelayMilliseconds
+        };
         if (dispatched.DisableTransportRetries) retryPolicy.MaxAttempts = 1;
+        var reviewCount = capturedTransport is not null ? request.RequiredReviewCalls!.Value :
+            request.StructuredOutputSchema?["properties"]?["findings"] is null ? policy?["construction_review_headroom"]?.GetValue<int>() ?? 0 : 0;
+        var reviewInput = 3L * (policy?["construction_version"]?.GetValue<int>() == 2
+            ? PlanningConstructionInputPolicy.EffectiveLimit(planning!, "construction_local_judge")
+            : policy?["max_input_tokens"]?.GetValue<int>() ?? 0);
+        var reviewOutput = policy?["construction_review_output_tokens"]?.GetValue<int>() ?? 0;
         var effectiveTransportPolicy = new JsonObject
         {
-            ["version"] = 1, ["disable_transport_retries"] = dispatched.DisableTransportRetries,
-            ["allow_http_recovery"] = !incremental,
+            ["version"] = capturedTransport is null ? 1 : 2, ["disable_transport_retries"] = dispatched.DisableTransportRetries,
+            ["allow_http_recovery"] = capturedTransport is not null || !incremental,
             ["effective_retry_policy"] = JsonSerializer.SerializeToNode(retryPolicy, LLMHttpRetryJsonContext.Default.LLMProviderRetryPolicyOptions)
         };
+        if (capturedTransport is not null)
+        {
+            effectiveTransportPolicy["planning_transport_policy"] = policy![PlanningTransportPolicies.OptionName]!.DeepClone();
+            effectiveTransportPolicy["max_total_tokens"] = Math.Min(15_000_000L, PlanningBudgetOptions.Parse(planning!.Options)?.MaxTotalTokens ?? 15_000_000L);
+            effectiveTransportPolicy["max_elapsed_ms"] = (long)PlanningBenchmarkMeasurements.PlanningElapsedLimit(planning).TotalMilliseconds;
+            effectiveTransportPolicy["review_token_headroom"] = checked(reviewCount * (reviewInput + reviewOutput));
+            if (!_planningDeadlines.TryGetValue(request.ClientRequestId!.Split(':')[0], out var deadline))
+                throw new InvalidOperationException("Capture the remaining planning duration before dispatch.");
+            var retainedTransport = (await _campaign.LoadAsync(BenchmarkHttpJournal.Collection, request.ClientRequestId, ct))?["effective_transport_policy"];
+            effectiveTransportPolicy["deadline_utc"] = retainedTransport?["deadline_utc"]?.DeepClone() ?? JsonValue.Create(deadline.ToString("O", System.Globalization.CultureInfo.InvariantCulture));
+        }
         BenchmarkHttpJournal? journal = null;
         return await _campaign.CallAsync(request, async token =>
         {
@@ -369,17 +407,12 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
             if (policy is not null && (output > policy["max_output_tokens"]!.GetValue<int>() ||
                 estimatedPlanningInput > phaseInputLimit))
                 throw BenchmarkCampaign.AdmissionFailure("captured_session_request_allowance");
-            var reviewCount = request.StructuredOutputSchema?["properties"]?["findings"] is null
-                ? policy?["construction_review_headroom"]?.GetValue<int>() ?? 0 : 0;
             journal = await PrepareAdmissionAsync(request.ClientRequestId!, input, output,
                 execution ? null : policy?["max_physical_attempts"]?.GetValue<int>() ?? 8, token, reviewCount,
-                3L * (policy?["construction_version"]?.GetValue<int>() == 2
-                    ? PlanningConstructionInputPolicy.EffectiveLimit(PlanningFromPolicy(policy), "construction_local_judge")
-                    : policy?["max_input_tokens"]?.GetValue<int>() ?? 0),
-                policy?["construction_review_output_tokens"]?.GetValue<int>() ?? 0, effectiveTransportPolicy);
+                reviewInput, reviewOutput, effectiveTransportPolicy);
         }, async token =>
         {
-            using var context = new LLMHttpRetryContext(request.ClientRequestId!, journal!).Activate();
+            using var context = new LLMHttpRetryContext(request.ClientRequestId!, journal!, capturedTransport is null ? null : retryPolicy).Activate();
             var response = await _client.CallAsync(dispatched, token);
             long ReadTokens(params string[] keys)
             {
@@ -394,7 +427,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
             if (reasoning is not null) measuredUsage["reasoning_tokens"] = reasoning.DeepClone();
             response.Usage = await journal!.CompleteAsync(measuredUsage, CancellationToken.None);
             return response;
-        }, ct, allowHttpRecovery: !incremental);
+        }, ct, allowHttpRecovery: capturedTransport is not null || !incremental);
     }
 
     internal static int PlanningInputLimit(JsonObject? policy, LLMRequest request)
@@ -403,7 +436,9 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
         return PlanningConstructionInputPolicy.EffectiveLimit(PlanningFromPolicy(policy), request);
     }
 
-    private static PlanningRequest PlanningFromPolicy(JsonObject policy) => new()
+    private static PlanningRequest PlanningFromPolicy(JsonObject policy)
+    {
+        var request = new PlanningRequest()
     {
         Generation = new()
         {
@@ -412,8 +447,13 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
         },
         Options = new() { ["construction_version"] = 2,
             ["construction_limits"] = policy["construction_limits"]?.DeepClone(),
-            ["construction_input_limits"] = policy["construction_input_limits"]?.DeepClone() }
-    };
+            ["construction_input_limits"] = policy["construction_input_limits"]?.DeepClone(),
+            ["llm_budget"] = policy["llm_budget"]?.DeepClone() }
+        };
+        foreach (var key in new[] { PlanningTransportPolicies.OptionName, "benchmark_planning_elapsed_ms" })
+            if (policy[key] is { } captured) request.Options[key] = captured.DeepClone();
+        return request;
+    }
 
     internal static void RequirePlanningPhasePolicy(JsonObject? policy, LLMRequest request)
     {
@@ -433,7 +473,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
             return BenchmarkHttpJournal.UndispatchedUsage();
         if (record?["transport"]?["Attempts"] is not JsonArray attempts) return null;
         if (attempts.Count == 0) return BenchmarkHttpJournal.UndispatchedUsage();
-        var pending = attempts.Count(a => PlanningBenchmarkMeasurements.RequiresHttpUsageReservation(a?["Status"]?.GetValue<int>(), hasVerifiedUsage: false));
+        var pending = attempts.Count(a => PlanningBenchmarkMeasurements.RequiresHttpUsageReservation(a?["Status"]?.GetValue<int>(), hasVerifiedUsage: false, PlanningBenchmarkMeasurements.RetainsAllHttpFailures(record)));
         return new() { ["transport_attempts"] = attempts.Count, ["uncertain_attempts"] = pending,
             ["reserved_input_tokens"] = pending * record["input_ceiling"]!.GetValue<long>(),
             ["reserved_output_tokens"] = pending * record["output_ceiling"]!.GetValue<long>(),

@@ -539,6 +539,32 @@ new exchange quote. It is not a reservation: each actual dispatch still requires
 normal admission and durable accounting. Unknown pricing fails closed when a
 financial limit is configured.
 
+Fresh creation also captures optional `planning_transport_policy` version 1.
+Synchronous tool-free generation may make at most three physical HTTP attempts
+through the existing helper, after fully persisted 500/502/503/504 responses or a
+temporary 429 with a recognized rate-limit code or valid `Retry-After`. Permanent
+provider failures, uncertain outcomes and invalid model responses never trigger
+this retry path. Each attempt consumes the same cumulative call allowance and
+retains its conservative token/cost reservation until verified usage settles that
+attempt. Failed reservations remain charged after a later success. The issued
+request captures remaining mandatory review headroom, including an intermediate
+review still required after a local Judge. Transport retries do not charge repairs.
+
+The production request journals share encrypted attempt persistence through
+Flow.Integrations. Fresh budget snapshots retain optional attempt identities for
+idempotent reservation and settlement; historical snapshots omit them. Recovery
+uses saved responses, request fingerprints and backoff, never a reconstructed
+request. A missing outcome stops. Parsing an already saved success can settle
+usage without another dispatch; it cannot replenish planning time. Absent transport
+policy preserves historical request bytes and recovery.
+
+The benchmark captures its fresh planning deadline from the planner allowance,
+bounded by five hours and tighter host limits. Historical absent captures retain
+30 minutes. Execution deadlines remain separate. A measured mandatory request can
+justify a larger newly frozen phase ceiling, such as the diagnostic 18,000-token
+draft ceiling; its original constraints and independent Judge admission remain
+unchanged. Targets do not trigger additional model calls.
+
 Nullable `PlanningPolicy.MaxStepsPerWorkflow` and `MaxWorkflows` retain historical
 300/100 behavior when absent. `MaxStepsTotal` controls total graph size. Inherited
 host policy remains authoritative over authored limits. Planning capacity never

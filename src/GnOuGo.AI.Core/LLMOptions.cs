@@ -96,6 +96,12 @@ public sealed class ModelProviderOptions
         copy.RetryPolicy = RetryPolicy.SingleAttempt();
         return copy;
     }
+    internal ModelProviderOptions WithRetryPolicy(LLMProviderRetryPolicyOptions policy)
+    {
+        var copy = (ModelProviderOptions)MemberwiseClone();
+        copy.RetryPolicy = policy.Clone();
+        return copy;
+    }
     /// <summary>Base URL for this provider (e.g. "https://api.openai.com/v1" or "http://localhost:11434").</summary>
     public string Url { get; set; } = "";
 

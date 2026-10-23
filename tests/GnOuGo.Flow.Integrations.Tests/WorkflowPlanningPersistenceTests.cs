@@ -65,7 +65,7 @@ public sealed class WorkflowPlanningPersistenceTests : IDisposable
             var options = historical["request"]!["options"]!.AsObject();
             foreach (var key in new[] { "compilation_profile", "mapping_profile", "planning_validation_profile",
                 "planning_diagnostics_version", "planning_input_review_version", "business_judge_review_version",
-                "construction_version", "construction_input_limits", "clarification_policy" }) options.Remove(key);
+                "construction_version", "construction_input_limits", "clarification_policy", "planning_transport_policy" }) options.Remove(key);
             await records.UpsertAsync("flow-planning-sessions-v10", "tenant", id, historical.ToJsonString(), "test", Ct);
         }
         else Assert.True(await records.DeleteAsync("flow-planning-sessions-v10", "tenant", id, "test", Ct));
@@ -391,6 +391,7 @@ public sealed class WorkflowPlanningPersistenceTests : IDisposable
         if (PlanningConstructionInputPolicy.IsCompact(snapshot.Request))
             request.StructuredOutputSchema!["title"] = "construction_intent";
         PlanningConstructionPhasePolicies.Apply(request, snapshot.Request, "construction_intent");
+        if (PlanningTransportPolicies.Read(snapshot.Request) is not null) request.RequiredReviewCalls = 0;
         request.ClientRequestId = snapshot.Request.SessionId + ":" + attempt + ":intent:workflow:" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
         return request;
     }
@@ -432,7 +433,7 @@ public sealed class WorkflowPlanningPersistenceTests : IDisposable
             if (Fail) throw new IOException("interrupted");
             return Task.FromResult(Truncate
                 ? new LLMResponse { CompletionStatus = "output_limit", Text = "", Usage = JsonNode.Parse("""{"prompt_tokens":12,"completion_tokens":8192,"completion_tokens_details":{"reasoning_tokens":8192},"total_tokens":8204}""") }
-                : new LLMResponse { CompletionStatus = "completed", Json = new JsonObject { ["value"] = "secret result" }, Usage = new JsonObject { ["total_tokens"] = 5 } });
+                : new LLMResponse { CompletionStatus = "completed", Json = new JsonObject { ["value"] = "secret result" }, Usage = new JsonObject { ["input_tokens"] = 3, ["output_tokens"] = 2, ["total_tokens"] = 5 } });
         }
     }
     public void Dispose() { if (Directory.Exists(_directory)) Directory.Delete(_directory, true); }

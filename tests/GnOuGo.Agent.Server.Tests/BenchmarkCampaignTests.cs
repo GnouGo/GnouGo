@@ -13,6 +13,140 @@ public sealed class BenchmarkCampaignTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
+    [Fact]
+    public async Task CapturedRetriesReserveEveryFailedPhysicalAttemptIncludingRateLimits()
+    {
+        var campaign = new BenchmarkCampaign(new Records(), "confirmed-retries");
+        const string id = "session:1:hash";
+        var policy = StrictTransport();
+        var journal = new BenchmarkHttpJournal(campaign, id, 100, 20, 1m, 64, .2m, 1, policy);
+        var identities = new List<string>();
+        using var http = new HttpClient(new Handler(message =>
+        {
+            identities.Add(message.Headers.GetValues("X-Client-Request-Id").Single());
+            return identities.Count < 3
+                ? new(identities.Count == 1 ? HttpStatusCode.TooManyRequests : HttpStatusCode.ServiceUnavailable)
+                    { Content = new StringContent("{\"error\":{\"message\":\"temporarily unavailable\",\"code\":\"rate_limit_exceeded\"}}") }
+                : new(HttpStatusCode.OK) { Content = new StringContent("{\"choices\":[{\"message\":{\"content\":\"{}\"}}],\"usage\":{\"prompt_tokens\":10,\"completion_tokens\":2}}") };
+        }));
+        using (new LLMHttpRetryContext(id, journal, new() { MaxAttempts = 3, MaxUncertainRetries = 0,
+            BaseDelayMilliseconds = 1, MaxDelayMilliseconds = 1 }).Activate())
+            await new OpenAiLLMProvider(http).CallAsync("test", new() { Url = "https://provider.example/v1" },
+                new() { Prompt = "fixed", MaxOutputTokens = 20 }, Ct);
+        var usage = await journal.CompleteAsync(new() { ["input_tokens"] = 10L, ["output_tokens"] = 2L, ["benchmark_cost_eur"] = .1m }, Ct);
+        Assert.Equal(3, identities.Distinct().Count());
+        Assert.Equal(2, usage["uncertain_attempts"]!.GetValue<int>());
+        Assert.Equal(2m, usage["reserved_cost_eur"]!.GetValue<decimal>());
+        var record = (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, id, Ct))!;
+        var accounting = await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct);
+        var reported = (await LiveCampaignEvidence.AccountingAsync(campaign, "session"))["planning"]!;
+        var closed = PlanningBenchmarkMeasurements.ClosedHttpUsage([record], 3)!;
+        foreach (var result in new JsonNode[] { accounting, reported, closed })
+            Assert.Equal(2m, result["reserved_cost_eur"]!.GetValue<decimal>());
+        Assert.Equal(.1m, accounting["known_cost_eur"]!.GetValue<decimal>());
+        Assert.Equal(200L, accounting["reserved_input_tokens"]!.GetValue<long>());
+        Assert.Equal(40L, accounting["reserved_output_tokens"]!.GetValue<long>());
+    }
+
+    [Theory]
+    [InlineData(null, 0)]
+    [InlineData(503, 2)]
+    [InlineData(200, 1)]
+    public async Task CapturedRetryRecoveryUsesOnlyExactCompleteOutcomes(int? interruptedStatus, int expectedSends)
+    {
+        var campaign = new BenchmarkCampaign(new Records(), "strict-recovery");
+        const string id = "session:1:hash";
+        var request = new LLMRequest { ClientRequestId = id, Prompt = "same exact prompt" };
+        var journal = new BenchmarkHttpJournal(campaign, id, 100, 20, 1m, 64, effectiveTransportPolicy: StrictTransport());
+        var sends = 0;
+        using var http = new HttpClient(new Handler(_ =>
+        {
+            sends++;
+            return sends == 1 && interruptedStatus == 503
+                ? new(HttpStatusCode.ServiceUnavailable) { Content = new StringContent("{\"error\":{\"message\":\"unavailable\"}}") }
+                : new(HttpStatusCode.OK) { Content = new StringContent("{\"choices\":[{\"message\":{\"content\":\"{}\"}}],\"usage\":{\"prompt_tokens\":10,\"completion_tokens\":2}}") };
+        }));
+        async Task<LLMResponse> Dispatch(ILLMHttpRetryJournal active, CancellationToken ct)
+        {
+            using var retry = new LLMHttpRetryContext(id, active, new() { MaxAttempts = 3, MaxUncertainRetries = 0,
+                BaseDelayMilliseconds = 1, MaxDelayMilliseconds = 1 }).Activate();
+            var response = await new OpenAiLLMProvider(http).CallAsync("test", new() { Url = "https://provider.example/v1" },
+                new() { Prompt = "fixed", MaxOutputTokens = 20 }, ct);
+            return new() { Text = response.Text, Json = response.Json, Usage = await journal.CompleteAsync(new()
+                { ["input_tokens"] = 10L, ["output_tokens"] = 2L, ["benchmark_cost_eur"] = .1m }, ct) };
+        }
+        await Assert.ThrowsAsync<IOException>(() => campaign.CallAsync(request, _ => Task.CompletedTask,
+            ct => Dispatch(new InterruptingJournal(journal, interruptedStatus), ct), Ct, allowHttpRecovery: true));
+        var before = (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, id, Ct))!.ToJsonString();
+        if (interruptedStatus is null)
+        {
+            await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.CallAsync(request, _ => Task.CompletedTask,
+                ct => Dispatch(journal, ct), Ct, allowHttpRecovery: true));
+            Assert.Equal(before, (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, id, Ct))!.ToJsonString());
+        }
+        else
+        {
+            var response = await campaign.CallAsync(request, _ => Task.CompletedTask, ct => Dispatch(journal, ct), Ct, allowHttpRecovery: true);
+            Assert.Equal("{}", response.Text);
+            Assert.Equal(interruptedStatus == 503 ? 1 : 0, response.Usage!["uncertain_attempts"]!.GetValue<int>());
+            await campaign.CallAsync(request, _ => throw new InvalidOperationException(), _ => throw new InvalidOperationException(), Ct, allowHttpRecovery: true);
+        }
+        Assert.Equal(expectedSends, sends);
+    }
+
+    private sealed class InterruptingJournal(ILLMHttpRetryJournal inner, int? status) : ILLMHttpRetryJournal
+    {
+        private bool _failed;
+        public Task<LLMHttpRetryState?> LoadAsync(CancellationToken ct) => inner.LoadAsync(ct);
+        public async Task SaveAsync(LLMHttpRetryState state, CancellationToken ct)
+        {
+            await inner.SaveAsync(state, ct);
+            if (!_failed && state.Attempts.Count > 0 && state.Attempts[^1].Status == status)
+            { _failed = true; throw new IOException("Interrupted after durable attempt evidence."); }
+        }
+    }
+
+    [Theory]
+    [InlineData("calls")]
+    [InlineData("tokens")]
+    [InlineData("time")]
+    [InlineData("money")]
+    public async Task EveryRetryKeepsRequiredReviewHeadroomAndPriorReservations(string limit)
+    {
+        var campaign = new BenchmarkCampaign(new Records(), "strict-" + limit);
+        var clock = new BenchmarkClock();
+        var policy = StrictTransport(clock.GetUtcNow().AddSeconds(1));
+        policy["max_total_tokens"] = limit == "tokens" ? 350L : 15_000_000L;
+        policy["review_token_headroom"] = 120L;
+        var journal = new BenchmarkHttpJournal(campaign, "session:1:hash", 100, 20, limit == "money" ? 24m : .1m,
+            limit == "calls" ? 2 : 64, limit == "money" ? 3m : .1m, 1, policy, clock);
+        var state = new LLMHttpRetryState { Attempts = [new() { Id = "session:1:hash:1" }] };
+        await journal.SaveAsync(state, Ct);
+        state.Attempts[0].Status = 429;
+        await journal.SaveAsync(state, Ct);
+        var before = (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, "session:1:hash", Ct))!.ToJsonString();
+        if (limit == "time") clock.Advance();
+        state.Attempts.Add(new() { Id = "session:1:hash:2" });
+        await Assert.ThrowsAsync<InvalidOperationException>(() => journal.SaveAsync(state, Ct));
+        Assert.Equal(before, (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, "session:1:hash", Ct))!.ToJsonString());
+        Assert.Single((await journal.LoadAsync(Ct))!.Attempts);
+    }
+
+    private static JsonObject StrictTransport(DateTimeOffset? deadline = null) => new()
+    {
+        ["version"] = 2, ["allow_http_recovery"] = true, ["disable_transport_retries"] = false,
+        ["effective_retry_policy"] = new JsonObject { ["MaxAttempts"] = 3 },
+        ["max_total_tokens"] = 15_000_000L, ["review_token_headroom"] = 120L,
+        ["deadline_utc"] = (deadline ?? DateTimeOffset.UtcNow.AddHours(5)).ToString("O", System.Globalization.CultureInfo.InvariantCulture)
+    };
+
+    private sealed class BenchmarkClock : TimeProvider
+    {
+        private DateTimeOffset _now = DateTimeOffset.UtcNow;
+        public override DateTimeOffset GetUtcNow() => _now;
+        internal void Advance() => _now = _now.AddSeconds(2);
+    }
+
     [Theory]
     [InlineData("")]
     [InlineData(" \t\n")]

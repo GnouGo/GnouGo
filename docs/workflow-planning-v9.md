@@ -201,6 +201,14 @@ Existing sessions retain their saved definitions; absent historical
 fields retain eight calls, two repairs and 12,000 input / 8,192 output tokens. Creation
 defaults never rewrite pending requests or replenish cumulative allowances.
 
+Fresh sessions capture a bounded confirmed-response transport policy. The existing
+HTTP helper owns up to three physical attempts; each is journaled and admitted
+against the same cumulative budget before dispatch, with remaining reviews reserved.
+Flow.Integrations supplies the shared encrypted attempt journal to both production
+planning hosts. Known transient HTTP responses can advance that policy; unknown
+outcomes cannot. Historical policies and requests retain their original behavior.
+See [retry accounting and recovery](incremental-taskplan-construction.md#captured-capacity).
+
 `MODEL_INPUT_LIMIT` is a local admission stop: the estimate of the complete
 serialized request exceeds the saved per-request input allowance. Discovery
 receipts remain in host state. When repair permissions fix operation selections, the

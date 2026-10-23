@@ -26,6 +26,106 @@ public sealed class BenchmarkPermanentRetentionTests
     private const string ErrorBody = """{"errorCode":"upstream_failure","errorMessage":"Provider unavailable.","errorDetail":"No completion receipt."}""";
 
     [Theory]
+    [InlineData(1, true)]
+    [InlineData(2, true)]
+    [InlineData(3, false)]
+    public async Task CapturedRetryTerminalRetentionBindsEveryAttemptAndNeverReleasesUnknownUsage(int count, bool unknownLast)
+    {
+        var records = new Records(); var campaign = await SeedCapturedRetriesAsync(records, count, unknownLast);
+        var before = records.Snapshot(excludeClosures: true);
+        var accounting = await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct);
+        Assert.Equal(count, accounting["unknown_attempts"]!.GetValue<long>());
+        Assert.Equal((decimal)count, accounting["reserved_cost_eur"]!.GetValue<decimal>());
+        await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.RetainExhaustedRequestAsync(RequestId, Ct));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.InspectPermanentRetentionAsync(
+            SchemaPortabilityCampaign.Collection, "run:" + Session, RequestId, Ct, Http502));
+        var proposal = await campaign.InspectPermanentRetentionAsync(SchemaPortabilityCampaign.Collection, "run:" + Session, RequestId, Ct,
+            BenchmarkCampaign.ExhaustedPlanningRetriesRetention);
+        await campaign.ApplyPermanentRetentionAsync(SchemaPortabilityCampaign.Collection, "run:" + Session, RequestId,
+            proposal["evidence_hash"]!.ToString(), Operator, Authorization, Ct, BenchmarkCampaign.ExhaustedPlanningRetriesRetention);
+        var restarted = new BenchmarkCampaign(records, "retention");
+        await restarted.ApplyPermanentRetentionAsync(SchemaPortabilityCampaign.Collection, "run:" + Session, RequestId,
+            proposal["evidence_hash"]!.ToString(), Operator, Authorization, Ct, BenchmarkCampaign.ExhaustedPlanningRetriesRetention);
+        Assert.Single(await records.ListAsync(Closures, "benchmark", BenchmarkCampaign.Author, Ct));
+        Assert.Equal(before, records.Snapshot(excludeClosures: true));
+        Assert.True(JsonNode.DeepEquals(accounting, await BenchmarkHttpJournal.AccountingAsync(restarted, ct: Ct)));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => restarted.RequireRunNotRetainedAsync(Session, Ct));
+    }
+
+    [Theory]
+    [InlineData("prior_success")]
+    [InlineData("prior_unknown")]
+    [InlineData("duplicate_identity")]
+    [InlineData("policy")]
+    [InlineData("usage")]
+    [InlineData("receipt")]
+    [InlineData("cancelled")]
+    public async Task CapturedRetryRetentionRejectsConflictingOrIncompleteEvidence(string defect)
+    {
+        var records = new Records(); var campaign = await SeedCapturedRetriesAsync(records, 3, true);
+        var journal = (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, RequestId, Ct))!;
+        switch (defect)
+        {
+            case "prior_success": journal["transport"]!["Attempts"]![0]!["Status"] = 200; break;
+            case "prior_unknown": journal["transport"]!["Attempts"]![0]!["Status"] = null; break;
+            case "duplicate_identity": journal["transport"]!["Attempts"]![1]!["Id"] = journal["transport"]!["Attempts"]![0]!["Id"]!.DeepClone(); break;
+            case "policy": journal["effective_transport_policy"]!["effective_retry_policy"]!["MaxUncertainRetries"] = 1; break;
+            case "usage": journal["usage"] = new JsonObject(); break;
+            case "receipt": await campaign.SaveAsync("planning-evaluation-receipts", RequestId, new(), Ct); break;
+            case "cancelled": journal["transport"]!["Attempts"]![2]!["Failure"] = "cancelled"; break;
+        }
+        journal["effective_transport_policy_hash"] = PlanningGraphCompiler.Fingerprint(journal["effective_transport_policy"]!.ToJsonString());
+        await campaign.SaveAsync(BenchmarkHttpJournal.Collection, RequestId, journal, Ct);
+        var before = records.Snapshot();
+        await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.InspectPermanentRetentionAsync(
+            SchemaPortabilityCampaign.Collection, "run:" + Session, RequestId, Ct, BenchmarkCampaign.ExhaustedPlanningRetriesRetention));
+        Assert.Equal(before, records.Snapshot());
+    }
+
+    private static async Task<BenchmarkCampaign> SeedCapturedRetriesAsync(Records records, int count, bool unknownLast)
+    {
+        var campaign = await SeedAsync(records, true, retentionKind: Http502);
+        var run = (await campaign.LoadAsync(SchemaPortabilityCampaign.Collection, "run:" + Session, Ct))!;
+        var state = run["session"]!.Deserialize(PlanningJsonContext.Default.PlanningSession)!;
+        var captured = PlanningTransportPolicies.Capture(state.Request);
+        state.Request.Options["benchmark_planning_elapsed_ms"] = 18_000_000L;
+        state.Request.Options["llm_budget"] = new JsonObject { ["max_total_tokens"] = 15_000_000L, ["max_elapsed_ms"] = 18_000_000L };
+        state.PendingCall!.Request.RequiredReviewCalls = 2;
+        run["session"] = JsonSerializer.SerializeToNode(state, PlanningJsonContext.Default.PlanningSession);
+        await campaign.SaveAsync(SchemaPortabilityCampaign.Collection, "run:" + Session, run, Ct);
+        await campaign.SaveAsync("planning-evaluation-requests", RequestId,
+            JsonSerializer.SerializeToNode(state.PendingCall.Request, PlanningJsonContext.Default.LLMRequest)!.AsObject(), Ct);
+        var policy = (await campaign.LoadAsync("planning-evaluation-session-policy", Session, Ct))!;
+        foreach (var name in new[] { PlanningTransportPolicies.OptionName, "benchmark_planning_elapsed_ms", "llm_budget" })
+            policy[name] = state.Request.Options[name]!.DeepClone();
+        await campaign.SaveAsync("planning-evaluation-session-policy", Session, policy, Ct);
+        var retry = new LLMProviderRetryPolicyOptions { MaxAttempts = captured.MaxAttempts, MaxUncertainRetries = 0 };
+        var journal = (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, RequestId, Ct))!;
+        var effective = new JsonObject { ["version"] = 2, ["disable_transport_retries"] = false, ["allow_http_recovery"] = true,
+            ["planning_transport_policy"] = policy[PlanningTransportPolicies.OptionName]!.DeepClone(),
+            ["effective_retry_policy"] = JsonSerializer.SerializeToNode(retry, LLMHttpRetryJsonContext.Default.LLMProviderRetryPolicyOptions),
+            ["max_total_tokens"] = 15_000_000L, ["review_token_headroom"] = 100_000L,
+            ["max_elapsed_ms"] = 18_000_000L, ["deadline_utc"] = DateTimeOffset.UtcNow.AddHours(5).ToString("O", System.Globalization.CultureInfo.InvariantCulture) };
+        journal["effective_transport_policy"] = effective;
+        journal["effective_transport_policy_hash"] = PlanningGraphCompiler.Fingerprint(effective.ToJsonString());
+        var attempts = new JsonArray();
+        for (var index = 0; index < count; index++)
+            attempts.Add((JsonNode)new JsonObject { ["Id"] = RequestId + ":attempt-" + index,
+                ["Status"] = unknownLast && index == count - 1 ? null : index == 0 ? 429 : 502,
+                ["Body"] = unknownLast && index == count - 1 ? null : ErrorBody,
+                ["Failure"] = unknownLast && index == count - 1 ? "transport" : null });
+        journal["transport"]!["Attempts"] = attempts;
+        await campaign.SaveAsync(BenchmarkHttpJournal.Collection, RequestId, journal, Ct);
+        await campaign.SaveAsync("planning-evaluation-failures", RequestId, new()
+        {
+            ["stage"] = "dispatch", ["kind"] = unknownLast ? "Transport" : "ServiceUnavailable",
+            ["retryable"] = true, ["retry_exhausted"] = !unknownLast, ["attempt_count"] = count,
+            ["status_code"] = unknownLast ? null : 502
+        }, Ct);
+        return campaign;
+    }
+
+    [Theory]
     [InlineData(false, false, null)]
     [InlineData(false, true, null)]
     [InlineData(true, false, null)]

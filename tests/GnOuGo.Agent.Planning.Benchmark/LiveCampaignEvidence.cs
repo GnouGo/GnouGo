@@ -64,7 +64,7 @@ internal static class LiveCampaignEvidence
         {
             calls++; var physical = row["transport"]!["Attempts"]!.AsArray(); attempts += physical.Count;
             var usage = row["usage"];
-            var pending = physical.Count(a => PlanningBenchmarkMeasurements.RequiresHttpUsageReservation(a?["Status"]?.GetValue<int>(), usage is not null));
+            var pending = physical.Count(a => PlanningBenchmarkMeasurements.RequiresHttpUsageReservation(a?["Status"]?.GetValue<int>(), usage is not null, PlanningBenchmarkMeasurements.RetainsAllHttpFailures(row)));
             unknown += pending;
             reservedInput += pending * row["input_ceiling"]!.GetValue<long>(); reservedOutput += pending * row["output_ceiling"]!.GetValue<long>();
             reservedCost += pending * row["cost_ceiling_eur"]!.GetValue<decimal>();

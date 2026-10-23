@@ -1,14 +1,30 @@
 # Compact TaskPlan convergence
 
-**Business acceptance remains incomplete; PR #120 stays Draft.** Neither latest frozen
-`d0413d2` diagnostic produced a complete artifact or executed workflow. The 18 alternating
+**Business acceptance remains incomplete; PR #120 stays Draft.** Latest frozen
+`1b749a1` Amazon and the preceding `d0413d2` diagnostics produced no complete artifact or executed workflow. The 18 alternating
 baseline/candidate runs against `56942f5` have not started. All 21 receiptless identities
 remain permanently closed with their full unknown-usage reservations retained;
 replay and continuation remain forbidden.
 
 ## Current implementation and validation
 
-The current correction favors appending ordinary work to an existing scope and supplies
+The current retry patch captures at most three synchronous, tool-free physical attempts
+for complete, saved transient HTTP responses. Every attempt has its own conservative
+reservation and mandatory-review admission; failed attempts remain reserved even after
+success. Saved successes settle without another dispatch, including after the planning
+deadline. Historical requests retain their captured behavior. Fresh benchmark planning
+captures five hours, while runtime keeps its separate limit. The next diagnostic will
+freeze an 18k draft ceiling with the existing 8k target. Discovery now receives the same
+bounded scope owner already available to drafting and review. These changes do not
+establish business convergence before independent execution.
+
+Focused checks passed with warnings as errors: **73 AI retry/routing**, **37 production
+host/recovery**, **109 Integrations**, **561 benchmark**, **36 runtime budget** and
+**191 scoped-navigation** tests, plus measurement and compatibility checks. These filters
+overlap and are not a full-solution total. The [validation index](compact-taskplan-confirmed-retries-validation.json)
+binds exact source/evidence manifests and retains initial failures.
+
+The preceding correction favors appending ordinary work to an existing scope and supplies
 one bounded selected-scope owner with exact retrieval links. Fresh-v4 Judges also receive
 the original selected operation's server and method. These are read-only technical facts,
 not completion or execution authority. Historical issued requests remain byte-exact.
@@ -34,7 +50,7 @@ diagnostics exercised this source but did not establish business convergence.
 
 | Source | Validation with warnings as errors |
 | --- | --- |
-| Frozen `d0413d2` | **237 focused / 2,661 Planning passed** on matching source; **11/11 publication stages passed**; exact full solution remains active |
+| Frozen `d0413d2` | **7,690 full-solution passed, 0 failed, 13 skipped**, 33 projects; **237 focused / 2,661 Planning passed** on matching source; **11/11 publication stages passed** |
 | Frozen `f3cb064` | Full solution **7,685 passed, 0 failed, 13 skipped**, 33 projects; 92 focused / 2,656 Planning passed; **11/11 publication stages** |
 | Historical `35022fa` | Full solution **7,674 passed, 0 failed, 13 skipped**, 33 projects; 11/11 publication stages; [CI succeeded](https://github.com/GnouGo/GnouGo/actions/runs/39968367834) |
 | Historical `131801d4` | Full solution **7,661 passed, 0 failed, 13 skipped**, 33 projects |
@@ -52,10 +68,11 @@ Technical validation is not business acceptance or proof of avoided corrections.
 
 | Frozen attempt | Planner calls / receipts | Corrections / checkpoints | Planning seconds | Known cost EUR | Result |
 | --- | ---: | ---: | ---: | ---: | --- |
+| [1b749a1 Amazon](compact-taskplan-1b749a1-amazon.json) | 37 / 37 | 3 / 1 | 1,400.198 | 2.8004863900044622936189201251 | Local review rejected a content observation used as a session-resource producer; no complete artifact |
 | [d0413d2 Amazon](compact-taskplan-d0413d2-amazon.json) | 53 / 52 | 4 / 4 | 1,800.860 | 3.7975680499776885319053993752 | Host elapsed budget stopped request 53 before HTTP; no complete artifact |
 | [d0413d2 Review PR](compact-taskplan-d0413d2-code.json) | 42 / 42 | 3 / 2 | 858.200 | 1.9379562695225345827755466312 | Prospective draft 43 rejected at 16,134 estimated input tokens against 16k; no complete artifact |
 
-Amazon used high navigation reasoning with 32,768 output tokens, medium drafting with 16,384,
+Both Amazon revisions used high navigation reasoning with 32,768 output tokens, medium drafting with 16,384,
 and medium Judges with 8,192. Review PR used medium throughout with the same navigation/draft
 output allowances and 4,096 for Judges. Navigation input ceilings were 12k and 16k respectively;
 both retained 16k drafting and 8k review ceilings. These are independently frozen diagnostic
@@ -70,7 +87,7 @@ All dispatched requests fit their ceilings; the rejected draft remains in size a
 Neither run added uncertain usage or empty completed responses. Archives retain phase
 p50/p95/maximum, components, provider usage, latency, formatting and exact evidence hashes.
 
-The benchmark host independently caps cumulative LLM time at 30 minutes, below the planner's
+Those frozen runs used a benchmark host capped at 30 minutes, below the planner's
 captured five-hour ceiling. Amazon reached that host limit; Review PR did not. Original
 freezes and financial controls are unchanged. Amazon accepted three sequence openings
 and one transform, with no external operation task; these are intermediate construction,
@@ -96,17 +113,17 @@ counts remain zero, calls per satisfied obligation undefined and runtime latency
 
 ## Latest audited allowance
 
-The post-d041 Review PR snapshot records **1,928 requests / 1,907 receipts**.
+The post-1b749a1 Amazon snapshot records **1,965 requests / 1,944 receipts**.
 All 21 receiptless identities remain permanently closed; 20 unknown transport-attempt
 records are a distinct metric. These amounts describe that dated snapshot, not later runs.
 
 | Ledger measurement | EUR |
 | --- | ---: |
 | Campaign ceiling | 240.0301038327063045424449473 |
-| Known spending | 73.625507200757174258216550546 |
+| Known spending | 76.425993590761636551835470674 |
 | Retained unknown-usage reservations | 9.942081545174150198352579727 |
-| Spending/reservation upper bound | 83.56758874593132445656913027 |
-| Available allowance at that snapshot | 156.46251508677498008587581703 |
+| Spending/reservation upper bound | 86.36807513593578675018805040 |
+| Available allowance at that snapshot | 153.66202869677051779225689690 |
 
 Audit evidence: `f6d0d8078888d1cc9ade80803c9517ed1a3d4d23e43de5e5d2fa5a15b899abc2`.
 Including retained lost historical exposure **€159.96989616729369545755505266**, the

@@ -389,8 +389,8 @@ that does not grant eligibility for this archival action or permission to replay
 
 The separate `retain-uncertain-request` operator can permanently abandon one
 stopped, unexecuted incremental planning run after explicit authorization. It
-requires the exact pending tool-free request, one unresolved transport attempt,
-matching source/session policies and failure evidence, and the full original
+requires the exact pending tool-free request, eligible unresolved transport attempts,
+matching source/session policies and failure evidence, and every full original
 input/output/cost reservation. Successful HTTP responses, usage receipts,
 approval or execution evidence reject this operation. Historical retry-exhaustion
 eligibility remains unchanged.
@@ -412,6 +412,16 @@ retries disabled, HTTP recovery disabled and `MaxAttempts=1`. Other statuses,
 multiple or mixed attempts, receipts and verified usage remain ineligible.
 Provider availability returning later does not prove termination or usage of the
 failed request.
+
+For newly captured confirmed-response retries, use the separately authorized
+`--retention-kind exhausted-planning-retries` on inspection and application. The
+operator binds all one to three physical attempt identities, the exact captured
+policy, source, request, run, failure, journal and accounting hashes. Earlier
+attempts must be confirmed transient error-only responses; a transport/timeout
+without a response can occur only last and is never replayable. Successful
+responses, receipts, cancellation and verified usage remain ineligible. Every
+failed attempt keeps its full unknown-usage reservation, including HTTP 429.
+The older `retain-exhausted-request` shortcut cannot close this new policy.
 
 An explicit `--retention-kind interrupted-process` handles a corpus planning
 process lost after its single HTTP attempt was reserved but before any outcome was
@@ -727,8 +737,12 @@ dotnet run --no-build --project tests/GnOuGo.Agent.Planning.Benchmark -- \
 
 Use null for the hash of a stopped session with no artifact. This command requires the
 original frozen candidate, rejects started executions and archives the prior session,
-result and feedback before further dispatch. Revisions retain the original 30-minute
-planning allowance, model/repair budgets and aggregate calls, discovery reads and latency.
+result and feedback before further dispatch. Revisions retain the captured planning
+allowance, model/repair budgets and aggregate calls, discovery reads and latency.
+Historical absence retains the former 30-minute host cap; fresh runs align the host
+and outer planning deadline with the captured planner limit (at most five hours).
+Recovery subtracts retained active time instead of resetting it. Runtime effects
+and their independent 30-minute deadline are unchanged.
 They require fresh review and approval; the command never creates acknowledgments.
 
 Supply every accepted requirement ID exactly once only after comparing it with actual
@@ -976,19 +990,23 @@ runs in the agreed 18 alternating runs (nine pairs) must pass independent busine
 missing baseline evidence is explicitly incomparable. See the maintained
 [convergence summary and evidence index](../../docs/evidence/compact-taskplan-convergence.md).
 
-Draft/correction transport admissions retain conservative headroom for two bounded
-reviews (including the same validated price/FX quote), both financially and in remaining
-physical attempts. This is an admission condition, not an invented charge or uncertain
-request. Actual known usage and unknown reservations remain the accounting source.
-Fresh incremental transport disables automatic HTTP retries; only a committed receipt
-may be reused after interruption. Historical transport policy is retained.
-HTTP 5xx responses without verified usage keep the full conservative attempt
-reservation. A server error does not establish zero provider work, and a later
-successful response settles only its own attempt. Campaign, run, phase and partial
-usage reports derive the same bounds from the original journals; historical
-records and captured retry policies are not rewritten. The missing-receipt guard
-still blocks dispatch. This accounting correction grants no replay or new
-operator-retention authority.
+Fresh sessions capture the Core confirmed-response transport policy before freezing:
+at most three physical attempts, no uncertain retries, a ten-minute per-attempt
+response timeout and bounded delay. The journal admits each attempt against the
+captured physical-call and 15,000,000-token ceilings, remaining planning deadline,
+financial allowance and the exact hash-bound mandatory review count. A local
+Judge can reserve its required intermediate review. Review headroom uses the
+same admitted price/FX quote and is not a charge. Explicit single-attempt requests
+remain stricter; runtime and inference-proxy behavior remain separate.
+
+Every failed attempt under this new policy keeps its conservative input/output/cost
+reservation, including HTTP 429 and confirmed server errors. A successful receipt
+settles only its own attempt. Campaign, run, phase and partial usage reports derive
+the same bounds from original journals. Historical policies and issued requests
+retain their original accounting and retry behavior. Recovery may parse an exact
+saved complete response, or continue its eligible confirmed-error retry under the
+same remaining limits; missing responses and uncertain completion cannot be resent.
+Any permanent abandonment still requires the exact operator authorization above.
 Fresh presentation schemas restrict selected requirement identities to the supplied
 original anchor/evidence or an existing bounded reselection. Fresh evidence requests retrieve up to eight coherent addresses after prospective
 complete-request admission; mandatory schema closures are never truncated to fit.
@@ -1020,10 +1038,10 @@ Before a draft or correction is recorded, the benchmark also checks the existing
 campaign upper bound against the mandatory review allowance without creating a request,
 reservation or completion receipt. The physical journal repeats admission immediately
 before dispatch using the exact retained price and currency quote.
-The physical transport gate conservatively retains room for two reviews even when
-the coordinator requires only one for the first draft. A very small remaining call
-or monetary allowance can therefore stop a benchmark earlier than the coordinator's
-minimum requirement; this headroom never becomes a reservation or charge.
+Fresh physical transport admission uses the exact hash-bound `RequiredReviewCalls`
+captured on the issued request, including an intermediate review when required.
+Historical requests retain their original conservative two-review allowance.
+This headroom never becomes a reservation or charge.
 
 Every constructed compact request has safe metadata recording its phase, selected
 substep, exact request/schema hashes and selected contract versions. Component byte

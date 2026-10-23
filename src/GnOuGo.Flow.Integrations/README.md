@@ -54,6 +54,15 @@ Inject `HybridWorkflowPlanner` and `Planning.WorkflowPlanningRuntimeFactory.Crea
 
 The factory stores format-10 sessions, reservations, receipts and cumulative budgets through public encrypted KeyVault record APIs in `flow-planning-*-v10` collections. Exclusive tenant/session leases live under `.GnOuGo/data/flow-planning-v10/leases`. Old formats are rejected. Resume the same run ID and request; completed calls replay without a new charge and uncertain dispatches stop without redispatch.
 
+Fresh captured transport policies use `PlanningHttpModelJournal`, shared with
+Agent.Server under each existing tenant/session lease. It binds encrypted HTTP
+outcomes, policy, deadline and reservations to the exact issued request. The
+existing AI helper retries only eligible confirmed responses, at most three total
+attempts. The Core budget charges physical attempts once, retains failed usage
+reservations and settles only verified success. The outer logical request does
+not also call `budget.CallAsync`. A saved response may recover without resending;
+a missing outcome cannot. Historical sessions keep their original journal path.
+
 `ReadApprovedYamlAsync` verifies tenant ownership, stored approval, exact content and current capability contracts before `workflow.execute` receives YAML. Integrations propagate provider-neutral effect metadata; unknown MCP effects require conservative confirmation. See [architecture](../../docs/workflow-planning-v9.md).
 
 Typed business choices use the encrypted format-10 planning journal and exclusive owner lease. An injected `IPlanningInteraction` selects recommended alternatives separately from runtime `human.input`. Old approvals are rejected; regenerate and approve the workflow. Run `dotnet test tests/GnOuGo.Flow.Integrations.Tests -m:1 -warnaserror` to verify receipt replay, tenant ownership and approval boundaries.

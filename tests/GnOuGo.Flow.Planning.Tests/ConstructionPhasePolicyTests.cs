@@ -113,7 +113,7 @@ public sealed class ConstructionPhasePolicyTests
         var draft = PlanningConstructionPhasePolicies.Apply(new() { MaxTokens = 8192 }, state.Request, "construction_draft");
         Assert.Equal("low", navigation.Reasoning); Assert.Equal(4096, navigation.MaxTokens);
         Assert.Equal("high", draft.Reasoning); Assert.Equal(16384, draft.MaxTokens);
-        Assert.True(draft.RequireOutputTokenLimit); Assert.True(draft.DisableTransportRetries);
+        Assert.True(draft.RequireOutputTokenLimit); Assert.False(draft.DisableTransportRetries); Assert.False(draft.UseBackgroundMode);
         Assert.Equal(2048, PlanningConstructionPhasePolicies.Resolve(state.Request, "construction_local_judge").OutputTokens);
         Assert.Equal(original, state.Request.Options.ToJsonString());
         Assert.Throws<PlanningConflictException>(() => PlanningConstructionPhasePolicies.Resolve(state.Request, "unknown"));

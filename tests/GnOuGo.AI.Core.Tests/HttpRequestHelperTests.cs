@@ -9,6 +9,7 @@ public sealed class HttpRequestHelperTests
     [Fact]
     public async Task SendWithServerErrorRetryAsync_RetriesTransientSequenceWithFreshRequests()
     {
+        using var journal = new LLMHttpRetryContext("legacy-journal", new MemoryJournal()).Activate();
         var attempts = 0;
         var requestBodies = new List<string>();
         var authorizationHeaders = new List<string?>();
@@ -331,6 +332,13 @@ public sealed class HttpRequestHelperTests
             HttpRequestMessage request,
             CancellationToken cancellationToken)
             => _handler(request);
+    }
+
+    private sealed class MemoryJournal : ILLMHttpRetryJournal
+    {
+        private LLMHttpRetryState? _state;
+        public Task<LLMHttpRetryState?> LoadAsync(CancellationToken ct) => Task.FromResult(_state);
+        public Task SaveAsync(LLMHttpRetryState state, CancellationToken ct) { _state = state; return Task.CompletedTask; }
     }
 
     private sealed class CapturingLogger : ILogger

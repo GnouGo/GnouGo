@@ -508,6 +508,8 @@ internal static partial class PlanningCompactConstruction
             ["diagnostics"] = PlanningJsonTransport.Diagnostics(state.Diagnostics)
         };
         if (DescribedOperationChoices(state) is { } described) context["describedOperations"] = described;
+        if (PlanningConstructionPhasePolicies.IsFresh(state.Request) && ScopeOwnerNavigation(state) is { } owner)
+            context["scopeOwner"] = owner;
         // These are optional navigation slots, not fields inside original
         // evidence. Preserve historical issued presentation and nested values.
         return IsCompactPresentation(state) ? TrimNavigation(context) : context;

@@ -294,6 +294,7 @@ public sealed class PlanningConflictException(string message) : InvalidOperation
 [JsonSerializable(typeof(PlanningCommand))]
 [JsonSerializable(typeof(PlanningApprovalReview))]
 [JsonSerializable(typeof(PlanningGenerationOptions))]
+[JsonSerializable(typeof(PlanningTransportPolicy))]
 [JsonSerializable(typeof(PlanningCatalog))]
 [JsonSerializable(typeof(PlanningCapability))]
 [JsonSerializable(typeof(PlanningGraph))]

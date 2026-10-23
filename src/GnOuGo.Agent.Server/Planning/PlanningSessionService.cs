@@ -367,6 +367,19 @@ public sealed partial class PlanningSessionService(
             MaxEstimatedCost = configured?.MaxEstimatedCost ?? new MonetaryAmount(budgetSettings.Value.Amount, budgetSettings.Value.Currency)
         };
         var estimator = new ModelMetadataUsageCostEstimator(runtime.Options);
+        var budget = new LLMUsageBudgetScope(limits, initial, sink: new PlanningBudgetSink(records, Tenant, current.Request.SessionId), exchangeRateProvider: exchangeRates);
+        var journal = new PlanningModelJournal(runtime.LlmClient, contexts, records, Tenant, current.Request.SessionId, budget, estimator, current.Request.Generation, runtime.LlmCapabilityResolver, current.Request,
+            DateTimeOffset.UtcNow + (configured?.MaxElapsed ?? TimeSpan.FromHours(5)) - TimeSpan.FromMilliseconds(current.ActiveMilliseconds));
+        if (current.PendingCall is { } retained)
+        {
+            await journal.RecoverSavedResponseAsync(retained.Request, ct);
+            current.Usage = budget.Snapshot;
+            if (await records.GetAsync(PlanningModelJournal.Collection, Tenant, current.Request.SessionId + ":" + retained.Id, EfPlanningSessionStore.Author, ct) is { } recovered && recovered.UpdatedAt > current.UpdatedAtUtc)
+            {
+                current.ActiveMilliseconds += (recovered.UpdatedAt - current.UpdatedAtUtc).TotalMilliseconds;
+                current.UpdatedAtUtc = recovered.UpdatedAt;
+            }
+        }
         if (command.Kind is "retry_model" or "resume_response")
         {
             if (current.RequiresPlanningRevision && command.Kind == "retry_model")
@@ -386,8 +399,6 @@ public sealed partial class PlanningSessionService(
             if (!await store.TrySaveAsync(current, previousRevision, ct)) throw new PlanningConflictException("A newer recovery revision was saved.");
             return current;
         }
-        var budget = new LLMUsageBudgetScope(limits, initial, sink: new PlanningBudgetSink(records, Tenant, current.Request.SessionId), exchangeRateProvider: exchangeRates);
-        var journal = new PlanningModelJournal(runtime.LlmClient, contexts, records, Tenant, current.Request.SessionId, budget, estimator, current.Request.Generation, runtime.LlmCapabilityResolver, current.Request);
         var engine = new WorkflowEngine
         {
             PlanningPolicy = CreatePolicy(CapturedPreset(current)),

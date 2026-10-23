@@ -74,6 +74,7 @@ public static class PlanningBenchmarkMeasurements
                 throw new InvalidOperationException("The phase policy differs from the frozen run. Start a separate cohort.");
             return;
         }
+        PlanningTransportPolicies.Capture(request);
         request.Options["construction_version"] = 2;
         request.Options["construction_presentation_version"] = 4;
         request.Options["construction_preset"] = preset ?? request.Options["construction_preset"]?.ToString() ?? PlanningConstructionPresets.Ordinary;
@@ -83,6 +84,7 @@ public static class PlanningBenchmarkMeasurements
         request.Options["llm_budget"] ??= new JsonObject { ["max_total_tokens"] = 15_000_000, ["max_elapsed_ms"] = 18_000_000 };
         if (totalTokens is not null) request.Options["llm_budget"]!["max_total_tokens"] = totalTokens.Value;
         if (elapsed is not null) request.Options["llm_budget"]!["max_elapsed_ms"] = elapsed.Value;
+        request.Options["benchmark_planning_elapsed_ms"] = (long)(PlanningBudgetOptions.Parse(request.Options)?.MaxElapsed ?? TimeSpan.FromHours(5)).TotalMilliseconds;
         if (preset == PlanningConstructionPresets.Large && (firstConstructionConfiguration || capturedPreset != preset))
         {
             request.MaxModelCalls = PlanningConstructionPresets.LargeModelCalls; request.MaxReplanAttempts = PlanningConstructionPresets.LargeCorrections;
@@ -128,12 +130,36 @@ public static class PlanningBenchmarkMeasurements
         {
             foreach (var key in new[] { "construction_version", "construction_preset", "construction_limits", "llm_budget", "automatic_correction" })
                 result[key] = request.Options[key]?.DeepClone();
+            foreach (var key in new[] { PlanningTransportPolicies.OptionName, "benchmark_planning_elapsed_ms" })
+                if (request.Options[key] is { } captured) result[key] = captured.DeepClone();
             if (request.Options["construction_input_limits"] is { } inputLimits) result["construction_input_limits"] = inputLimits.DeepClone();
             if (request.Options["construction_presentation_version"] is { } presentation) result["construction_presentation_version"] = presentation.DeepClone();
             result["policy"] = JsonSerializer.SerializeToNode(request.Policy, PlanningJsonContext.Default.PlanningPolicy);
             if (PhasePolicyHash(request) is { } profileHash) result["phase_policy_hash"] = profileHash;
         }
         return result;
+    }
+
+    // Historical hosts imposed thirty minutes independently of the planner budget.
+    // Only fresh benchmark creation captures the aligned host allowance.
+    public static TimeSpan PlanningElapsedLimit(PlanningRequest request)
+    {
+        var captured = request.Options["benchmark_planning_elapsed_ms"];
+        var milliseconds = captured is null ? 1_800_000L : captured.GetValue<long>();
+        if (milliseconds is <= 0 or > 18_000_000)
+            throw new InvalidOperationException("The captured benchmark planning duration is invalid.");
+        var host = TimeSpan.FromMilliseconds(milliseconds);
+        return PlanningBudgetOptions.Parse(request.Options)?.MaxElapsed is { } planner && planner < host ? planner : host;
+    }
+
+    public static TimeSpan RemainingPlanningTime(PlanningSession state, double priorMilliseconds, double interruptedMilliseconds = 0)
+    {
+        if (!double.IsFinite(priorMilliseconds) || !double.IsFinite(interruptedMilliseconds) || priorMilliseconds < 0 || interruptedMilliseconds < 0)
+            throw new ArgumentOutOfRangeException(nameof(priorMilliseconds));
+        var elapsed = Math.Max(priorMilliseconds, state.ActiveMilliseconds) + interruptedMilliseconds;
+        var remaining = PlanningElapsedLimit(state.Request) - TimeSpan.FromMilliseconds(elapsed);
+        if (remaining <= TimeSpan.Zero) throw new InvalidOperationException("Active planning time is exhausted; continuation cannot reset it.");
+        return remaining;
     }
 
     public static string? Cohort(string[] args)
@@ -167,6 +193,8 @@ public static class PlanningBenchmarkMeasurements
         {
             foreach (var key in new[] { "construction_version", "construction_preset", "construction_limits", "llm_budget", "automatic_correction" })
                 if (settings[key] is { } value) result.Options[key] = value.DeepClone();
+            foreach (var key in new[] { PlanningTransportPolicies.OptionName, "benchmark_planning_elapsed_ms" })
+                if (settings[key] is { } captured) result.Options[key] = captured.DeepClone();
             if (settings["construction_input_limits"] is { } inputLimits) result.Options["construction_input_limits"] = inputLimits.DeepClone();
             if (settings["construction_presentation_version"] is { } presentation) result.Options["construction_presentation_version"] = presentation.DeepClone();
             result.Policy = settings["policy"]!.Deserialize(PlanningJsonContext.Default.PlanningPolicy)!;
@@ -791,8 +819,11 @@ public static class PlanningBenchmarkMeasurements
 
     // A server failure does not establish whether provider work was billed.
     // A later successful receipt settles only its own attempt.
-    public static bool RequiresHttpUsageReservation(int? status, bool hasVerifiedUsage) =>
-        status is null or >= 500 and < 600 || !hasVerifiedUsage && status is >= 200 and < 300;
+    public static bool RequiresHttpUsageReservation(int? status, bool hasVerifiedUsage, bool retainAllFailures = false) =>
+        retainAllFailures ? !hasVerifiedUsage || status is not (>= 200 and < 300)
+            : status is null or >= 500 and < 600 || !hasVerifiedUsage && status is >= 200 and < 300;
+
+    public static bool RetainsAllHttpFailures(JsonObject journal) => journal["effective_transport_policy"]?["version"]?.GetValue<int>() == 2;
 
     /// <summary>Derives bounded partial measurements from complete durable HTTP journals; never fabricates observed tokens.</summary>
     public static JsonObject? ClosedHttpUsage(IReadOnlyList<JsonObject> journals, int expectedAttempts)
@@ -811,7 +842,7 @@ public static class PlanningBenchmarkMeasurements
                     attempts.LastOrDefault()?["Status"]?.GetValue<int>() is not (>= 200 and < 300)) return null;
                 input += usage["input_tokens"]!.GetValue<long>(); output += usage["output_tokens"]!.GetValue<long>(); cost += usage["benchmark_cost_eur"]!.GetValue<decimal>();
             }
-            var unknown = attempts.Count(a => RequiresHttpUsageReservation(a?["Status"]?.GetValue<int>(), usage is not null));
+            var unknown = attempts.Count(a => RequiresHttpUsageReservation(a?["Status"]?.GetValue<int>(), usage is not null, RetainsAllHttpFailures(journal)));
             uncertain += unknown;
             reservedInput += unknown * journal["input_ceiling"]!.GetValue<long>(); reservedOutput += unknown * journal["output_ceiling"]!.GetValue<long>();
             reservedCost += unknown * journal["cost_ceiling_eur"]!.GetValue<decimal>();
@@ -856,8 +887,11 @@ public static class PlanningBenchmarkMeasurements
         static JsonObject Metrics(IReadOnlyList<JsonObject> cohort)
         {
             var values = cohort.Select(r => r["result"]).OfType<JsonObject>().ToArray();
+            long? Attempts(JsonObject row) => row["physical_attempts"] is JsonValue value &&
+                long.TryParse(value.ToJsonString(), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var count) && count >= 0 ? count : null;
+            var attempts = values.Select(Attempts).ToArray();
             double? Median(string key) { var numbers = values.Select(v => double.TryParse(v[key]?.ToJsonString(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var n) ? (double?)n : null).Where(v => v.HasValue).Select(v => v!.Value).Order().ToArray(); return numbers.Length == 0 ? null : (numbers[(numbers.Length - 1) / 2] + numbers[numbers.Length / 2]) / 2; }
-            return new() { ["outcomes"] = values.Length, ["physical_attempts"] = values.Sum(v => v["calls"]?.GetValue<int>() ?? 0), ["median_calls"] = Median("calls"),
+            return new() { ["outcomes"] = values.Length, ["physical_attempts"] = attempts.Length > 0 && attempts.All(a => a.HasValue) ? attempts.Sum(a => a!.Value) : (long?)null, ["median_calls"] = Median("calls"),
                 ["median_latency_ms"] = Median("elapsed_ms"), ["known_input_tokens"] = values.Sum(v => v["known_input_tokens"]?.GetValue<long>() ?? 0), ["known_output_tokens"] = values.Sum(v => v["known_output_tokens"]?.GetValue<long>() ?? 0),
                 ["usage_complete"] = values.All(v => v["usage_complete"]?.GetValue<bool>() == true) };
         }

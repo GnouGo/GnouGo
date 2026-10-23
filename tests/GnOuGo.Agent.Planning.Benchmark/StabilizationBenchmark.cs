@@ -113,7 +113,7 @@ internal static class StabilizationBenchmark
             Options = (JsonObject)creation.Options.DeepClone() } };
         if (run["session"] is null) PlanningBenchmarkMeasurements.CaptureConstructionSettings(state);
         var localRoot = Path.Combine(root, GnOuGoWorkspace.WorkflowWorkspacesSubfolder, "planner-benchmark-" + id);
-        await model.CapturePlanningPolicyAsync(state.Request, CancellationToken.None, state.Construction is not null || run["session"] is null);
+        await model.CapturePlanningPolicyAsync(state.Request, CancellationToken.None, state.Construction is not null || run["session"] is null, state.ActiveMilliseconds);
         Directory.CreateDirectory(localRoot);
         await using var local = LocalExecutionCases.Names.Contains(name) ? new LocalExecutionCases(localRoot, executable) : null;
         var environment = new PlanningBenchmarkCases.Environment(name);
@@ -125,7 +125,9 @@ internal static class StabilizationBenchmark
         });
         var planner = new HybridWorkflowPlanner(); var clock = Stopwatch.StartNew(); var variants = new JsonArray();
         var planningMs = 0L; var executionMs = 0L; string? failure = null;
-        using var deadline = new CancellationTokenSource(PlanningBudgetOptions.Parse(state.Request.Options)?.MaxElapsed ?? TimeSpan.FromMinutes(20));
+        using var deadline = new CancellationTokenSource(PlanningTransportPolicies.Read(state.Request) is not null
+            ? PlanningBenchmarkMeasurements.RemainingPlanningTime(state, state.ActiveMilliseconds)
+            : PlanningBudgetOptions.Parse(state.Request.Options)?.MaxElapsed ?? TimeSpan.FromMinutes(20));
         try
         {
             if (run["execution_started"]?.GetValue<bool>() == true) throw new InvalidOperationException("Interrupted execution is retained, never silently repeated.");

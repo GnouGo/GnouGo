@@ -114,6 +114,10 @@ public sealed class LLMRequest
     /// <summary>The caller journals and budgets individual attempts; do not retry inference invisibly.</summary>
     public bool DisableTransportRetries { get; set; }
 
+    /// <summary>Host-only reserved construction review calls; omitted on historical requests.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public int? RequiredReviewCalls { get; set; }
+
 }
 
 /// <summary>

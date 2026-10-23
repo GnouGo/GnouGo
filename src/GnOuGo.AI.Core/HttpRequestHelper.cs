@@ -163,11 +163,19 @@ public static class HttpRequestHelper
             throw new ArgumentException("Invalid HTTP retry limits.");
         using var template = requestFactory();
         var context = template.Method == HttpMethod.Get ? null : LLMHttpRetryContext.Current;
+        var confirmedOnly = context?.PolicyOverride is not null;
+        if (context?.PolicyOverride is { } capturedPolicy)
+        {
+            var attemptLimit = retryPolicy.MaxAttempts;
+            retryPolicy = capturedPolicy.Clone();
+            // An explicit single-attempt request remains stricter than the captured allowance.
+            retryPolicy.MaxAttempts = Math.Min(attemptLimit, retryPolicy.MaxAttempts);
+        }
         var safeToRepeat = template.Method == HttpMethod.Get || context is not null;
         var payload = template.Content is null ? "" : await template.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
         var fingerprint = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(template.Method + "\n" + template.RequestUri + "\n" + payload)));
         var state = context is null ? new LLMHttpRetryState { Fingerprint = fingerprint }
-            : await context.Journal.LoadAsync(ct).ConfigureAwait(false) ?? new LLMHttpRetryState { Fingerprint = fingerprint };
+            : await context.LoadAsync(ct).ConfigureAwait(false) ?? new LLMHttpRetryState { Fingerprint = fingerprint };
         if (state.Attempts.Count == 0 && state.Fingerprint.Length == 0) state.Fingerprint = fingerprint;
         if (state.Fingerprint != fingerprint) throw new InvalidOperationException("The reserved HTTP operation changed.");
         Exception? originalFailure = null;
@@ -178,15 +186,18 @@ public static class HttpRequestHelper
             if (previous is not null)
             {
                 if (previous.Failure == "cancelled") throw new OperationCanceledException("The reserved attempt was cancelled; it cannot be retried.", ct);
+                if (confirmedOnly && previous.Status is not null && (previous.Body is null || previous.Failure is not null))
+                    throw new InvalidOperationException("A confirmed HTTP response requires a complete durably recorded body and outcome.");
                 var response = previous.Status is { } code ? Restore(previous, code) : null;
-                var classification = response is null ? null : LLMProviderFailureClassifier.ClassifyResponse(response.StatusCode, previous.Body ?? "");
+                var classification = response is null ? null : LLMProviderFailureClassifier.ClassifyResponse(response.StatusCode, previous.Body ?? "", confirmedOnly);
                 var uncertain = response is null;
+                var retryAfter = response is not null ? ParseRetryAfter(response, utcNow()) : null;
                 var retryable = response is not null
-                    ? IsRetryableStatus(response.StatusCode) && classification!.Kind is not (LLMProviderFailureKind.QuotaOrBilling or LLMProviderFailureKind.Authentication or LLMProviderFailureKind.Authorization)
-                    : safeToRepeat && previous.Failure is null or "transport" or "timeout";
+                    ? safeToRepeat && (confirmedOnly ? ConfirmedTransient(response.StatusCode, classification!, retryAfter)
+                        : IsRetryableStatus(response.StatusCode) && classification!.Kind is not (LLMProviderFailureKind.QuotaOrBilling or LLMProviderFailureKind.Authentication or LLMProviderFailureKind.Authorization))
+                    : !confirmedOnly && safeToRepeat && previous.Failure is null or "transport" or "timeout";
                 var exhausted = state.Attempts.Count >= retryPolicy.MaxAttempts || uncertain &&
                     state.Attempts.Count(a => a.Status is null) > retryPolicy.MaxUncertainRetries;
-                var retryAfter = response is not null ? ParseRetryAfter(response, utcNow()) : null;
                 var delay = !retryable || exhausted || response?.IsSuccessStatusCode == true ? TimeSpan.Zero : previous.NotBefore is { } due ? due - utcNow() : retryAfter ?? CalculateJitterDelay(retryPolicy, state.Attempts.Count, jitter);
                 if (delay < TimeSpan.Zero) delay = TimeSpan.Zero;
                 exhausted |= delay.TotalMilliseconds > retryPolicy.MaxTotalDelayMilliseconds ||
@@ -274,7 +285,16 @@ public static class HttpRequestHelper
             ct.ThrowIfCancellationRequested();
         }
 
-        Task SaveAsync(CancellationToken token) => context?.Journal.SaveAsync(state, token) ?? Task.CompletedTask;
+        Task SaveAsync(CancellationToken token) => context?.SaveAsync(state, token) ?? Task.CompletedTask;
+    }
+
+    private static bool ConfirmedTransient(HttpStatusCode status, LLMHttpFailureClassification classification, TimeSpan? retryAfter)
+    {
+        if (classification.Kind is LLMProviderFailureKind.QuotaOrBilling or LLMProviderFailureKind.Authentication or
+            LLMProviderFailureKind.Authorization or LLMProviderFailureKind.InvalidRequest or LLMProviderFailureKind.ModelUnavailable)
+            return false;
+        return status is HttpStatusCode.InternalServerError or HttpStatusCode.BadGateway or HttpStatusCode.ServiceUnavailable or HttpStatusCode.GatewayTimeout ||
+            status == HttpStatusCode.TooManyRequests && (classification.SafeProviderCode == "rate_limit_exceeded" || retryAfter is not null);
     }
 
     private static bool IsTransientTransport(HttpRequestException failure)

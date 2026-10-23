@@ -248,7 +248,7 @@ foreach (var name in names)
         state = PlanningCorpus.RetainedSession(state); // Offline frozen whole-plan corpus only; live requests remain fresh incremental sessions.
     else if (live && run["session"] is null) PlanningBenchmarkMeasurements.CaptureConstructionSettings(state);
     if (model is KeyVaultBenchmarkModel capturedModel) await capturedModel.CapturePlanningPolicyAsync(state.Request, CancellationToken.None,
-        state.Construction is not null || run["session"] is null && replay is null);
+        state.Construction is not null || run["session"] is null && replay is null, state.ActiveMilliseconds);
     var environment = new PlanningBenchmarkCases.Environment(name); var engine = new WorkflowEngine { McpClientFactory = environment.Factory(), HumanInputProvider = new PlanningCorpus.Human() };
     async Task Checkpoint(PlanningSession current, CancellationToken ct)
     {

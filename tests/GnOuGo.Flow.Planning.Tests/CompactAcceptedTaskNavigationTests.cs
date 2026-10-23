@@ -314,6 +314,122 @@ public sealed class CompactAcceptedTaskNavigationTests
         Assert.Equal(Context(historical, review)["taskEvidence"]!.ToJsonString(), Context(current, review)["taskEvidence"]!.ToJsonString());
     }
 
+    [Fact]
+    public void DiscoveryExposesOnlyTheSelectedOwnerAndItsExactEvidenceBeforeKindBinding()
+    {
+        var state = DiscoveryState(NestedScope);
+        var owner = state.Plan!.Root.Tasks.Single(task => task.Id == "container");
+        owner.Objective = string.Concat(Enumerable.Repeat("Retain the cleanup boundary \"汉字😀\". ", 40));
+        var retained = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        var context = PlanningCompactConstruction.DiscoveryContext(state);
+        var entry = context["scopeOwner"]!;
+        Assert.Null(context["step"]!["kind"]);
+        Assert.True(JsonNode.DeepEquals(Context(state, review: false)["taskEvidence"]!["scopeOwner"], entry));
+        Assert.Equal("task:container", entry["address"]!.ToString());
+        Assert.Equal("/root", entry["scope"]!.ToString());
+        Assert.False(entry["objectiveComplete"]!.GetValue<bool>());
+        Assert.InRange(Encoding.UTF8.GetByteCount(entry["objective"]!.ToJsonString()), 1, 204);
+        Assert.Null(entry["body"]);
+        Assert.Null(context["taskEvidence"]);
+        Assert.DoesNotContain("nested_value", context.ToJsonString(), StringComparison.Ordinal);
+        Assert.DoesNotContain("root_value", context.ToJsonString(), StringComparison.Ordinal);
+        var choices = PlanningCompactConstruction.DiscoverySchema(state)["properties"]!["evidenceRequests"]!;
+        foreach (var address in new[] { entry["address"]!.ToString(), entry["objectiveEvidence"]!.ToString() })
+            Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(new JsonArray(address), choices));
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstanceFindings(new JsonArray("task:nested_value"), choices));
+        Assert.Equal(retained, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+        PlanningConstruction.LoadEvidence(state, [entry["address"]!.ToString(), entry["objectiveEvidence"]!.ToString()]);
+        Assert.Equal(owner.Objective, state.Construction!.Evidence!["task:container"]!["objective"]!.ToString());
+        Assert.Equal(PlanningGraphCompiler.Fingerprint(owner.Objective),
+            state.Construction.Evidence[entry["objectiveEvidence"]!.ToString()]!["version"]!.ToString());
+        Assert.Null(state.Construction.Compact!.CurrentStep!.Kind);
+        Assert.Equal(0, state.ReplanAttempts);
+    }
+
+    [Fact]
+    public void UnrelatedTasksAndOwnerChildrenDoNotGrowTheDiscoveryRequest()
+    {
+        var state = DiscoveryState(NestedScope);
+        var before = DiscoveryRequest(state);
+        var owner = state.Plan!.Root.Tasks.Single(task => task.Id == "container");
+        for (var index = 0; index < 100; index++)
+        {
+            state.Plan.Root.Tasks.Add(Value("unrelated_" + index));
+            owner.Body!.Tasks.Add(Value("sibling_" + index));
+            state.Plan.Groups.Add(new() { Id = "unrelated_group_" + index, Body = new() { Tasks = [Value("group_task_" + index)] } });
+        }
+        var after = DiscoveryRequest(state);
+        Assert.Equal(before.Prompt, after.Prompt);
+        Assert.Equal(before.StructuredOutputSchema!.ToJsonString(), after.StructuredOutputSchema!.ToJsonString());
+        var measurement = PlanningRequestMeasurements.Measure(after, PlanningCompactConstruction.DiscoveryPurpose, 12000);
+        Assert.Equal(measurement.CompleteRequestBytes, measurement.Components.Sum(component => component.SerializedBytes));
+    }
+
+    [Theory]
+    [InlineData(NestedScope, 3)]
+    [InlineData("/root", 4)]
+    [InlineData("/groups/worker/body", 4)]
+    public void DiscoveryDoesNotInventOwnersOrChangeHistoricalPresentation(string scope, int presentationVersion)
+    {
+        var state = DiscoveryState(scope, presentationVersion);
+        var context = PlanningCompactConstruction.DiscoveryContext(state);
+        Assert.False(context.ContainsKey("scopeOwner"));
+        var request = DiscoveryRequest(state);
+        state.Plan!.Root.Tasks.Single(task => task.Id == "container").Objective = "Changed navigation outside this presentation.";
+        Assert.Equal(request.Prompt, DiscoveryRequest(state).Prompt);
+        Assert.Equal(request.StructuredOutputSchema!.ToJsonString(), DiscoveryRequest(state).StructuredOutputSchema!.ToJsonString());
+        state.Plan = null;
+        Assert.False(PlanningCompactConstruction.DiscoveryContext(state).ContainsKey("scopeOwner"));
+    }
+
+    [Fact]
+    public async Task AlreadyIssuedDiscoveryWithoutOwnerResumesExactBytesWithoutNewAccounting()
+    {
+        var state = DiscoveryState(NestedScope);
+        var context = PlanningCompactConstruction.DiscoveryContext(state);
+        context.Remove("scopeOwner");
+        var schema = PlanningCompactConstruction.DiscoverySchema(state);
+        foreach (var alternative in schema["properties"]!["evidenceRequests"]!["anyOf"]!.AsArray())
+            if (alternative?["items"]?["enum"] is JsonArray choices)
+                foreach (var choice in choices.Where(choice => choice?.ToString() == "task:container").ToArray())
+                    choices.Remove(choice);
+        var issued = PlanningCompactConstruction.Request(PlanningCompactConstruction.DiscoveryGuidance(state), context, schema,
+            PlanningCompactConstruction.DiscoveryPurpose);
+        state.PendingCall = new() { Id = issued.ClientRequestId!, Purpose = PlanningCompactConstruction.DiscoveryPurpose, Request = issued };
+        state.ModelCalls = 1;
+        state = PlannerFixture.Clone(state);
+        var saved = JsonSerializer.Serialize(state.PendingCall!.Request, PlanningJsonContext.Default.LLMRequest);
+        var retained = PlanningConstruction.Hash(state.Plan);
+        var runtime = new TestRuntime { Respond = (request, _) =>
+        {
+            Assert.Equal(saved, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+            return new() { Json = new JsonObject { ["evidenceRequests"] = new JsonArray("requirement:req_0"),
+                ["binding"] = null, ["discoveryRequests"] = null, ["reselectStep"] = null, ["clarifications"] = null } };
+        } };
+        var next = DiscoveryRequest(state);
+        Assert.NotEqual(saved, JsonSerializer.Serialize(next, PlanningJsonContext.Default.LLMRequest));
+        await PlanningModelCalls.CallAsync(state, runtime, PlanningCompactConstruction.DiscoveryPurpose,
+            next.Prompt, next.StructuredOutputSchema!.AsObject(), PlannerFixture.Ct, 8192);
+        Assert.Equal(1, state.ModelCalls);
+        Assert.Equal(0, state.ReplanAttempts);
+        Assert.Single(runtime.Calls);
+        Assert.Null(state.PendingCall);
+        Assert.Equal(retained, PlanningConstruction.Hash(state.Plan));
+    }
+
+    private static PlanningSession DiscoveryState(string scope, int presentationVersion = 4)
+    {
+        var state = Ready(scope, presentationVersion);
+        state.Construction!.Candidate = null;
+        state.Construction.Compact!.CurrentStep!.Kind = null;
+        state.Construction.Compact.CurrentStep.DiscoveryComplete = false;
+        return state;
+    }
+
+    private static LLMRequest DiscoveryRequest(PlanningSession state) => PlanningCompactConstruction.Request(
+        PlanningCompactConstruction.DiscoveryGuidance(state), PlanningCompactConstruction.DiscoveryContext(state),
+        PlanningCompactConstruction.DiscoverySchema(state), PlanningCompactConstruction.DiscoveryPurpose);
+
     private static PlanningSession Ready(string scope, int presentationVersion = 3)
     {
         const string requirement = "Preserve the requested values and complete their declared processing.";

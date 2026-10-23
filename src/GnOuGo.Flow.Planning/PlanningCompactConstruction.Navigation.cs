@@ -55,7 +55,7 @@ internal static partial class PlanningCompactConstruction
     private static void ConstrainDiscoveryEvidence(PlanningSession state, JsonObject context, JsonObject schema)
     {
         var addresses = StepOriginalEvidence(state);
-        addresses.UnionWith(NavigationEvidence(new[] { context["descriptors"], context["providerRequests"] }
+        addresses.UnionWith(NavigationEvidence(new[] { context["descriptors"], context["providerRequests"], context["scopeOwner"] }
             .Concat((context["directoryEvidence"] as JsonObject ?? []).Select(item => item.Value))
             .Concat((context["evidence"] as JsonObject ?? []).Select(item => item.Value))));
         // DiscoveryEvidence only omits original descriptions when the existing
@@ -127,6 +127,17 @@ internal static partial class PlanningCompactConstruction
                      p.Value is JsonValue scalar && scalar.TryGetValue<string>(out var text) && text.Length == 0)
                      .Select(p => p.Key).ToArray()) value.Remove(key);
         return value;
+    }
+
+    private static JsonObject? ScopeOwnerNavigation(PlanningSession state, TaskPlanSymbols? accepted = null)
+    {
+        if (!UsesVerifiedReview(state) || state.Plan is null) return null;
+        accepted ??= new TaskPlanSymbols(state.Plan);
+        var owner = accepted.Scopes.SingleOrDefault(scope => scope.Path == State(state).CurrentStep!.Scope)?.Owner;
+        if (owner is null) return null;
+        var entry = TrimNavigation(TaskNavigation(state, owner, accepted.Tasks[owner.Id].Scope.Path));
+        entry["address"] = "task:" + owner.Id;
+        return entry;
     }
 
     private static JsonObject TaskNavigation(PlanningSession state, PlanTask task, string scope)

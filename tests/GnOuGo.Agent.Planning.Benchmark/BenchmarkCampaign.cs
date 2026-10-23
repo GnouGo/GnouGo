@@ -140,6 +140,8 @@ internal sealed partial class BenchmarkCampaign(IKeyVaultRecordStore records, st
         var request = await LoadAsync("planning-evaluation-requests", requestId, ct);
         var journal = await LoadAsync(BenchmarkHttpJournal.Collection, requestId, ct);
         var failure = await LoadAsync("planning-evaluation-failures", requestId, ct);
+        if (journal is not null && PlanningBenchmarkMeasurements.RetainsAllHttpFailures(journal))
+            throw new InvalidOperationException("The captured planning retry policy requires exact permanent-retention authorization.");
         var policy = await LoadAsync("planning-evaluation-configuration", "http-retry-policy", ct);
         if (request?["clientRequestId"]?.ToString() != requestId || failure?["stage"]?.ToString() != "dispatch" ||
             policy?["MaxAttempts"] is not JsonValue maximum || !maximum.TryGetValue<int>(out var limit) || limit is < 1 or > 20 ||
@@ -362,8 +364,7 @@ internal sealed partial class BenchmarkCampaign(IKeyVaultRecordStore records, st
         var validationMilliseconds = clock.Elapsed.TotalMilliseconds;
         var priorMilliseconds = run["result"]?["planning_ms"]?.GetValue<long>() ?? throw new InvalidOperationException("Missing elapsed accounting.");
         var elapsedBefore = Math.Max(priorMilliseconds, state.ActiveMilliseconds) + interruptedMilliseconds;
-        var remaining = TimeSpan.FromMinutes(30) - TimeSpan.FromMilliseconds(elapsedBefore);
-        if (remaining <= TimeSpan.Zero) throw new InvalidOperationException("Active planning time is exhausted; receipt recovery cannot reset it.");
+        var remaining = PlanningBenchmarkMeasurements.RemainingPlanningTime(state, priorMilliseconds, interruptedMilliseconds);
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
         deadline.CancelAfter(remaining);
         var client = new ReplayReceipt(original, response);
@@ -429,7 +430,11 @@ internal sealed partial class BenchmarkCampaign(IKeyVaultRecordStore records, st
         var reserved = await LoadAsync("planning-evaluation-requests", key, ct);
         if (reserved is not null && !JsonNode.DeepEquals(reserved, JsonSerializer.SerializeToNode(request, PlanningJsonContext.Default.LLMRequest)))
             throw new InvalidOperationException("The reserved request changed.");
-        var resumable = allowHttpRecovery && await LoadAsync(BenchmarkHttpJournal.Collection, key, ct) is not null;
+        var recoveryJournal = allowHttpRecovery ? await LoadAsync(BenchmarkHttpJournal.Collection, key, ct) : null;
+        var resumable = recoveryJournal is not null && (!PlanningBenchmarkMeasurements.RetainsAllHttpFailures(recoveryJournal) ||
+            recoveryJournal["transport"]?["Attempts"] is JsonArray attempts &&
+                (attempts.Count == 0 || attempts[^1] is JsonObject last && last["Status"] is not null &&
+                    last["Body"] is not null && last["Failure"] is null));
         foreach (var pending in (await records.ListAsync("planning-evaluation-requests", "benchmark", Author, ct)).Where(r => r.Key.StartsWith(Id + ":", StringComparison.Ordinal)))
             if (await records.GetAsync("planning-evaluation-receipts", "benchmark", pending.Key, Author, ct) is null && await records.GetAsync("planning-evaluation-closures", "benchmark", pending.Key, Author, ct) is null && !(pending.Key == Id + ":" + key && resumable))
             { StopReason = "uncertain_dispatch"; throw new InvalidOperationException("The campaign has an uncertain dispatch without recoverable HTTP evidence."); }

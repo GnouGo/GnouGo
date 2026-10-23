@@ -146,9 +146,12 @@ public sealed class LLMProviderFailureTests
         Assert.DoesNotContain(secret, failure.Message, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public async Task RoutingClient_PreservesRetryExhaustionAndAcceptedRetryAfter()
+    [Theory]
+    [InlineData(false)][InlineData(true)]
+    public async Task RoutingClient_PreservesRetryExhaustionAndAcceptedRetryAfter(bool confirmed)
     {
+        using var scope = new LLMHttpRetryContext("captured", new FailureJournal(), confirmed
+            ? new() { MaxAttempts = 3, MaxUncertainRetries = 0 } : null).Activate();
         var handler = new StubHttpMessageHandler(_ =>
         {
             var response = new HttpResponseMessage(HttpStatusCode.TooManyRequests)
@@ -199,6 +202,13 @@ public sealed class LLMProviderFailureTests
                 Models = { ["fake"] = new ModelProviderOptions { Type = "fake" } }
             },
             [provider]);
+
+    private sealed class FailureJournal : ILLMHttpRetryJournal
+    {
+        private LLMHttpRetryState? _state;
+        public Task<LLMHttpRetryState?> LoadAsync(CancellationToken ct) => Task.FromResult(_state);
+        public Task SaveAsync(LLMHttpRetryState state, CancellationToken ct) { _state = state; return Task.CompletedTask; }
+    }
 
     private sealed class ThrowingProvider(Exception exception) : ILLMProvider
     {

@@ -191,9 +191,9 @@ internal static partial class LLMProviderFailureClassifier
         };
     }
 
-    internal static LLMHttpFailureClassification ClassifyResponse(HttpStatusCode statusCode, string errorBody)
+    internal static LLMHttpFailureClassification ClassifyResponse(HttpStatusCode statusCode, string errorBody, bool permanentFirst = false)
     {
-        var marker = FindKnownMarker(errorBody);
+        var marker = permanentFirst ? FindKnownMarker(errorBody, permanentOnly: true) ?? FindKnownMarker(errorBody) : FindKnownMarker(errorBody);
         if (marker != null)
         {
             return new LLMHttpFailureClassification(
@@ -228,11 +228,12 @@ internal static partial class LLMProviderFailureClassifier
             _ => new(LLMProviderFailureKind.Unknown, false, null)
         };
 
-    private static (LLMProviderFailureKind Kind, string Code)? FindKnownMarker(string message)
+    private static (LLMProviderFailureKind Kind, string Code)? FindKnownMarker(string message, bool permanentOnly = false)
     {
         foreach (var marker in KnownMarkers)
         {
-            if (message.Contains(marker.Marker, StringComparison.OrdinalIgnoreCase))
+            if ((!permanentOnly || marker.Kind != LLMProviderFailureKind.RateLimited) &&
+                message.Contains(marker.Marker, StringComparison.OrdinalIgnoreCase))
                 return (marker.Kind, marker.Code);
         }
 

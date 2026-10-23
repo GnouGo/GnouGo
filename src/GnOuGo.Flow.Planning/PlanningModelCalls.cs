@@ -43,6 +43,14 @@ internal static class PlanningModelCalls
             Prompt = prompt, StructuredOutputSchema = schema, StructuredOutputStrict = true, UseBackgroundMode = true,
             MaxTokens = outputLimit
         }, state.Request, purpose);
+        if (PlanningTransportPolicies.Read(state.Request) is not null)
+            request.RequiredReviewCalls = purpose switch
+            {
+                PlanningConstruction.IntermediatePurpose => 0,
+                PlanningConstruction.LocalPurpose => state.Construction?.Candidate?.NeedsIntermediateReview == true ? 1 : 0,
+                _ => state.Construction?.Candidate?.NeedsIntermediateReview == true ||
+                    state.Construction?.Candidate is null && state.Construction?.Checkpoints.Count > 0 ? 2 : 1
+            };
         var hash = PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
         request.ClientRequestId = state.Request.SessionId + ":" + (state.ModelCalls + 1) + ":" + hash;
         return request;

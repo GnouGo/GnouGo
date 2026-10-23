@@ -95,9 +95,12 @@ internal static class LiveWorkflowEvaluation
         var mappingTelemetry = new MappingLiveEvaluation.MappingTelemetry();
         var engine = new WorkflowEngine { McpClientFactory = observed, LLMClient = phase == "execute" ? measured : new PlanningModel(model, run),
             Telemetry = mappingTelemetry,
-            // The existing execution deadline also bounds cumulative runtime inference.
+            // Planning and runtime effects have distinct captured deadlines.
             // Monetary admission remains in the shared encrypted campaign client.
-            LLMUsageBudget = new(new() { MaxElapsed = TimeSpan.FromMinutes(30) }),
+            LLMUsageBudget = new(new() { MaxElapsed = phase == "execute" ? TimeSpan.FromMinutes(30) : continuing
+                ? PlanningBenchmarkMeasurements.RemainingPlanningTime(retained!["session"]!.Deserialize(PlanningJsonContext.Default.PlanningSession)!,
+                    retained["result"]?["planning_ms"]?.GetValue<long>() ?? 0)
+                : PlanningBenchmarkMeasurements.PlanningElapsedLimit(frozenSettings) }),
             RunStore = ExecutionStore(root),
             Limits = new() { TenantId = "benchmark", RunId = label, AgentId = campaign.Id + "-" + scenario, AgentName = "Live evaluation " + scenario, MaxMappingInputTokens = 96000 },
             HumanInputProvider = human, LlmDefaults = new() { Model = model.Model, Provider = model.Provider } };
@@ -203,10 +206,9 @@ internal static class LiveWorkflowEvaluation
         var state = phase == "revise" ? run["session"]!.Deserialize(PlanningJsonContext.Default.PlanningSession)! : new PlanningSession
         { Request = FreshPlanningRequest(args, label, scenario, prompt, model.Provider, model.Model) };
         if (phase != "revise") PlanningBenchmarkMeasurements.CaptureConstructionSettings(state);
-        var remainingTime = (PlanningBudgetOptions.Parse(state.Request.Options)?.MaxElapsed ?? TimeSpan.FromMinutes(30)) - TimeSpan.FromMilliseconds(priorMilliseconds);
-        if (remainingTime <= TimeSpan.Zero) throw new InvalidOperationException("Planning time is exhausted; revision cannot reset it.");
+        var remainingTime = PlanningBenchmarkMeasurements.RemainingPlanningTime(state, priorMilliseconds);
         var clock = Stopwatch.StartNew(); using var timeout = new CancellationTokenSource(remainingTime);
-        await model.CapturePlanningPolicyAsync(state.Request, CancellationToken.None, state.Construction is not null || phase != "revise");
+        await model.CapturePlanningPolicyAsync(state.Request, CancellationToken.None, state.Construction is not null || phase != "revise", Math.Max(priorMilliseconds, state.ActiveMilliseconds));
         if (phase == "revise")
         {
             var commandPath = SchemaPortabilityCampaign.Option(args, "--revision-command") ?? throw new ArgumentException("Supply --revision-command <file> with concrete review feedback.");

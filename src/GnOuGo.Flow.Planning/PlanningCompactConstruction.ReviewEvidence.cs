@@ -22,7 +22,7 @@ internal static partial class PlanningCompactConstruction
             .Select(site => site.Task.Id).ToArray() : [];
         var selected = producers.Take(8).Concat(siblings.Where(id => !producers.Contains(id, StringComparer.Ordinal))
             .TakeLast(Math.Min(4, Math.Max(0, 8 - producers.Length)))).ToArray();
-        var owner = UsesVerifiedReview(state) ? accepted.Scopes.SingleOrDefault(scope => scope.Path == step.Scope)?.Owner : null;
+        var owner = ScopeOwnerNavigation(state, accepted);
         if (selected.Length == 0 && owner is null) return;
         var count = producers.Concat(siblings).Distinct(StringComparer.Ordinal).Count();
         var navigation = new JsonObject
@@ -47,12 +47,7 @@ internal static partial class PlanningCompactConstruction
             if (siblings.Except(selected, StringComparer.Ordinal).Any()) navigation["scopeEvidence"] = "scope:" + step.Scope;
         }
         if (owner is not null)
-        {
-            var site = accepted.Tasks[owner.Id];
-            var entry = TrimNavigation(TaskNavigation(state, owner, site.Scope.Path));
-            entry["address"] = "task:" + owner.Id;
-            navigation["scopeOwner"] = entry;
-        }
+            navigation["scopeOwner"] = owner;
         context["taskEvidence"] = navigation;
     }
 

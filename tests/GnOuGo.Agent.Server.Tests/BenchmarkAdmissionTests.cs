@@ -18,6 +18,44 @@ public sealed class BenchmarkAdmissionTests
     private static LLMOptions Options() => new() { DefaultProvider = "fixture", DefaultModel = "pinned",
         Models = { ["fixture"] = new() { Type = "openai" } } };
 
+    [Theory]
+    [InlineData(false, 0)]
+    [InlineData(false, 1)]
+    [InlineData(false, 2)]
+    [InlineData(true, 1)]
+    public async Task FreshCapturedTransportBindsActualReviewHeadroomAndStricterDisable(bool disabled, int reviews)
+    {
+        using var fixture = new Fixture();
+        var provider = new Provider(fixture.Campaign);
+        using var model = fixture.Model(new Rates(fixture.Time), provider);
+        var planning = LiveWorkflowEvaluation.FreshPlanningRequest([], "strict", "amazon", "Original", "fixture", "pinned");
+        planning.Options["llm_budget"]!["max_calls"] = 5;
+        await model.CapturePlanningPolicyAsync(planning, Ct, activeMilliseconds: 120_000);
+        var request = PlanningConstructionPhasePolicies.Apply(new LLMRequest
+        {
+            ClientRequestId = "strict:1", Prompt = "Exact bounded request", RequiredReviewCalls = reviews,
+            DisableTransportRetries = disabled, StructuredOutputSchema = new JsonObject { ["title"] = "construction_local_judge" }
+        }, planning, "construction_local_judge");
+        await model.CallAsync(request, Ct);
+        Assert.Equal(disabled, provider.LastDisableTransportRetries);
+        var journal = (await fixture.Campaign.LoadAsync(BenchmarkHttpJournal.Collection, "strict:1", Ct))!;
+        Assert.Equal(2, journal["effective_transport_policy"]!["version"]!.GetValue<int>());
+        Assert.Equal(5, journal["session_attempt_limit"]!.GetValue<int>());
+        Assert.Equal(disabled ? 1 : 3, journal["effective_transport_policy"]!["effective_retry_policy"]!["MaxAttempts"]!.GetValue<int>());
+        Assert.Equal(reviews, journal["construction_review_attempt_headroom"]?.GetValue<int>() ?? 0);
+        Assert.Equal(reviews * (24_000L + 2_048), journal["effective_transport_policy"]!["review_token_headroom"]!.GetValue<long>());
+        Assert.Equal(fixture.Time.GetUtcNow().AddHours(5).AddMinutes(-2), journal["effective_transport_policy"]!["deadline_utc"]!.GetValue<DateTimeOffset>());
+        var before = journal.ToJsonString();
+        using var restarted = fixture.Model(new Rates(fixture.Time), provider);
+        await restarted.CapturePlanningPolicyAsync(planning, Ct, activeMilliseconds: 180_000);
+        await restarted.CallAsync(request, Ct); // Exact receipt, no send or deadline rewrite.
+        Assert.Equal(1, provider.Calls);
+        Assert.Equal(before, (await fixture.Campaign.LoadAsync(BenchmarkHttpJournal.Collection, "strict:1", Ct))!.ToJsonString());
+        request.ClientRequestId = "strict:2"; request.RequiredReviewCalls = null;
+        await Assert.ThrowsAsync<PlanningConflictException>(() => restarted.CallAsync(request, Ct));
+        Assert.Equal(1, provider.Calls);
+    }
+
     [Fact]
     public async Task ConstructionFinancialPreflightIncludesReviewsAndPreservesUnknownAccounting()
     {
@@ -175,12 +213,13 @@ public sealed class BenchmarkAdmissionTests
     }
 
     [Fact]
-    public async Task FreshConstructionCannotRetryUncertainTransportButMayConsumeAnExistingReceipt()
+    public async Task HistoricalConstructionCannotRetryUncertainTransportButMayConsumeAnExistingReceipt()
     {
         using var fixture = new Fixture(); var rates = new Rates(fixture.Time);
         var provider = new Provider(fixture.Campaign);
         using var model = fixture.Model(rates, provider);
         var settings = LiveWorkflowEvaluation.FreshPlanningRequest([], "fresh", "amazon", "Original request", "fixture", "pinned");
+        settings.Options.Remove(PlanningTransportPolicies.OptionName); // Retained historical single-attempt behavior.
         await model.CapturePlanningPolicyAsync(settings, Ct);
         var completed = new LLMRequest
         {
@@ -219,7 +258,7 @@ public sealed class BenchmarkAdmissionTests
     }
 
     [Fact]
-    public async Task FreshConstructionServerFailureStaysReservedAndCannotReplayOrAuthorizeAnotherRequestAfterRestart()
+    public async Task HistoricalConstructionServerFailureStaysReservedAndCannotReplayOrAuthorizeAnotherRequestAfterRestart()
     {
         using var fixture = new Fixture(); var rates = new Rates(fixture.Time);
         var provider = new Provider(fixture.Campaign) { Failure = new LLMClientException(LLMClientFailureKind.ServiceUnavailable,
@@ -227,6 +266,7 @@ public sealed class BenchmarkAdmissionTests
             attemptCount: 1, retryExhausted: true, retryAfterMilliseconds: null) };
         using var model = fixture.Model(rates, provider);
         var settings = LiveWorkflowEvaluation.FreshPlanningRequest([], "failed", "amazon", "Original request", "fixture", "pinned");
+        settings.Options.Remove(PlanningTransportPolicies.OptionName); // Retained historical single-attempt behavior.
         await model.CapturePlanningPolicyAsync(settings, Ct);
         var request = new LLMRequest { ClientRequestId = "failed:1", Prompt = "bounded original draft", MaxTokens = 8192,
             StructuredOutputStrict = true, StructuredOutputSchema = new JsonObject { ["title"] = "construction_draft",
@@ -469,6 +509,7 @@ public sealed class BenchmarkAdmissionTests
     {
         internal int Calls; internal Action? AfterDispatch; internal Exception? Failure;
         internal bool LastDisableTransportRetries;
+        internal TimeProvider? Time;
         public Task<int?> InputTokenAllowanceAsync(string? provider, string model, int outputTokens, CancellationToken ct) => Task.FromResult<int?>(96000);
         public Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<bool?>(true);
         public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<IReadOnlyList<string>?>(["medium"]);
@@ -480,7 +521,7 @@ public sealed class BenchmarkAdmissionTests
                 record["output_ceiling"]!.GetValue<long>(), record["cost_ceiling_eur"]!.GetValue<decimal>(), record["session_attempt_limit"]?.GetValue<int>(),
                 record["construction_review_cost_headroom_eur"]?.GetValue<decimal>() ?? 0,
                 record["construction_review_attempt_headroom"]?.GetValue<int>() ?? 0,
-                record["effective_transport_policy"]?.AsObject());
+                record["effective_transport_policy"]?.AsObject(), Time);
             var state = (await journal.LoadAsync(ct))!;
             state.Attempts.Add(new() { Id = "attempt" }); await journal.SaveAsync(state, ct);
             Calls++; AfterDispatch?.Invoke();
@@ -507,7 +548,11 @@ public sealed class BenchmarkAdmissionTests
             Records = new(new KeyVaultRecordStore(Path.Combine(Root, "vault.db")));
             RunRecords = new(new KeyVaultRecordStore(Path.Combine(Root, "runs.db")));
         }
-        internal KeyVaultBenchmarkModel Model(Rates rates, Provider? provider = null) => new(Campaign, Options(), provider ?? new Provider(Campaign), rates, new Price(), Time);
+        internal KeyVaultBenchmarkModel Model(Rates rates, Provider? provider = null)
+        {
+            provider ??= new Provider(Campaign); provider.Time = Time;
+            return new(Campaign, Options(), provider, rates, new Price(), Time);
+        }
         internal EncryptedWorkflowRunStore Store() => new(RunRecords, Path.Combine(Root, "index.db"), Path.Combine(Root, "owners"));
         internal WorkflowEngine Engine(ILLMClient client) => new() { LLMClient = client, RunStore = Store(), LlmDefaults = new() { Model = "pinned" }, Limits = new() { TenantId = "tenant", RunId = "run" } };
         public void Dispose() => Directory.Delete(Root, true);

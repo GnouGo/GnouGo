@@ -8,6 +8,32 @@ namespace GnOuGo.Agent.Server.Tests;
 
 public sealed class BenchmarkPhasePolicyTests
 {
+    [Fact]
+    public void PlanningDurationIsCapturedAndRestoredWithoutMigratingHistoricalRuns()
+    {
+        var historical = new PlanningRequest();
+        Assert.Equal(TimeSpan.FromMinutes(30), PlanningBenchmarkMeasurements.PlanningElapsedLimit(historical));
+        Assert.False(PlanningBenchmarkMeasurements.Configuration(historical).ContainsKey("benchmark_planning_elapsed_ms"));
+        var fresh = new PlanningRequest();
+        PlanningBenchmarkMeasurements.ConfigureRequest(fresh, [], false);
+        Assert.Equal(TimeSpan.FromHours(5), PlanningBenchmarkMeasurements.PlanningElapsedLimit(fresh));
+        Assert.Equal(3, PlanningTransportPolicies.Read(fresh)!.MaxAttempts);
+        var frozen = PlanningBenchmarkMeasurements.Configuration(fresh);
+        var restored = PlanningBenchmarkMeasurements.RestoreConfiguration(frozen);
+        Assert.True(JsonNode.DeepEquals(frozen, PlanningBenchmarkMeasurements.Configuration(restored)));
+        var state = new PlanningSession { Request = restored, ActiveMilliseconds = 90_000 };
+        Assert.Equal(TimeSpan.FromHours(5) - TimeSpan.FromSeconds(120),
+            PlanningBenchmarkMeasurements.RemainingPlanningTime(state, 110_000, 10_000));
+        restored.Options["llm_budget"]!["max_elapsed_ms"] = 180_000;
+        Assert.Equal(TimeSpan.FromSeconds(90), PlanningBenchmarkMeasurements.RemainingPlanningTime(state, 60_000));
+        Assert.Throws<InvalidOperationException>(() => PlanningBenchmarkMeasurements.RemainingPlanningTime(state, 180_000));
+        historical.Options["llm_budget"] = new JsonObject { ["max_elapsed_ms"] = 60_000 };
+        Assert.Equal(TimeSpan.FromMinutes(1), PlanningBenchmarkMeasurements.PlanningElapsedLimit(historical));
+        PlanningBenchmarkMeasurements.ConfigureRequest(historical, [], true);
+        Assert.Null(PlanningTransportPolicies.Read(historical));
+        Assert.False(historical.Options.ContainsKey("benchmark_planning_elapsed_ms"));
+    }
+
     [Theory]
     [InlineData("construction_select", 3000)]
     [InlineData("construction_draft", 8000)]

@@ -11,6 +11,7 @@ internal static class PlanningSessionCreation
         if (!(original ?? state).IsNewlyConstructed || state.Revision != 0 || state.PendingCall is not null ||
             state.Plan is not null || state.ModelCalls != 0) return;
         var options = state.Request.Options;
+        PlanningTransportPolicies.Capture(state.Request);
         options.TryAdd("compilation_profile", TaskPlanCompiler.CompactProfile);
         options.TryAdd("mapping_profile", TaskPlanCompiler.AdaptiveMappingProfile);
         options.TryAdd("planning_validation_profile", TaskPlanCompiler.AssertionValidationProfile);

@@ -88,22 +88,25 @@ public static class PlanningConstructionPhasePolicies
 
     public static LLMRequest Apply(LLMRequest request, PlanningRequest planning, string purpose)
     {
-        if (!IsFresh(planning)) return PlanningGenerationPolicy.Apply(request, planning.Generation);
+        var explicitlyDisabled = request.DisableTransportRetries;
+        if (!IsFresh(planning)) return PlanningTransportPolicies.Apply(
+            PlanningGenerationPolicy.Apply(request, planning.Generation), planning, explicitlyDisabled);
         var phase = Resolve(planning, purpose);
         // The phase reservation replaces a caller's legacy default, before hashing or dispatch.
         request.MaxTokens = phase.OutputTokens;
-        return PlanningGenerationPolicy.Apply(request, new()
+        return PlanningTransportPolicies.Apply(PlanningGenerationPolicy.Apply(request, new()
         {
             MaxInputTokensPerRequest = phase.MaxInputTokens, MaxOutputTokens = phase.OutputTokens, Reasoning = phase.Reasoning
-        });
+        }), planning, explicitlyDisabled);
     }
 
     public static void ValidateIssued(LLMRequest request, PlanningRequest planning)
     {
+        PlanningTransportPolicies.ValidateIssued(request, planning);
         if (!IsFresh(planning)) return;
         var phase = Resolve(planning, request.StructuredOutputSchema?["title"]?.ToString() ?? "");
         if (request.Reasoning != phase.Reasoning || request.MaxTokens != phase.OutputTokens ||
-            !request.RequireOutputTokenLimit || !request.DisableTransportRetries)
+            !request.RequireOutputTokenLimit || PlanningTransportPolicies.Read(planning) is null && !request.DisableTransportRetries)
             throw new PlanningConflictException("The issued request differs from its captured construction phase policy.");
     }
 

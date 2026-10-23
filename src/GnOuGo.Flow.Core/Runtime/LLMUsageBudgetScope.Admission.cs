@@ -45,7 +45,7 @@ public sealed partial class LLMUsageBudgetScope
         }
     }
 
-    private async Task EnsureLocalAllowanceAsync(LLMRequest request, IModelUsageCostEstimator? estimator,
+    private async Task<decimal> EnsureLocalAllowanceAsync(LLMRequest request, IModelUsageCostEstimator? estimator,
         int inputTokens, IReadOnlyList<int> outputs, string stage, CancellationToken ct)
     {
         decimal cost = 0;
@@ -61,16 +61,20 @@ public sealed partial class LLMUsageBudgetScope
                 catch (OverflowException) { throw CreateUnverifiable(stage, "pricing", Snapshot); }
             }
         lock (_gate)
-        {
-            var snapshot = _snapshot;
-            EnsurePreCallLimits(snapshot, stage);
-            if (Limits.MaxCalls is { } calls && outputs.Count > calls - snapshot.Calls)
-                throw CreateExceeded(stage, "calls", calls, snapshot.Calls + outputs.Count, snapshot);
-            var tokens = (long)inputTokens * outputs.Count + outputs.Sum(v => (long)v);
-            if (Limits.MaxTotalTokens is { } tokenLimit && tokens > tokenLimit - snapshot.TotalTokens)
-                throw CreateExceeded(stage, "total_tokens", tokenLimit, (decimal)snapshot.TotalTokens + tokens, snapshot);
-            if (_costLimit is { } money && cost > money.Amount - snapshot.EstimatedCost)
-                throw CreateExceeded(stage, ResolveEstimatedCostLimitKind(), money.Amount, cost, snapshot);
-        }
+            EnsureLocalAllowanceCore(_snapshot, inputTokens, outputs, cost, stage);
+        return cost;
+    }
+
+    private void EnsureLocalAllowanceCore(LLMUsageBudgetSnapshot snapshot, int inputTokens,
+        IReadOnlyList<int> outputs, decimal cost, string stage)
+    {
+        EnsurePreCallLimits(snapshot, stage);
+        if (Limits.MaxCalls is { } calls && outputs.Count > calls - snapshot.Calls)
+            throw CreateExceeded(stage, "calls", calls, snapshot.Calls + outputs.Count, snapshot);
+        var tokens = (long)inputTokens * outputs.Count + outputs.Sum(v => (long)v);
+        if (Limits.MaxTotalTokens is { } tokenLimit && tokens > tokenLimit - snapshot.TotalTokens)
+            throw CreateExceeded(stage, "total_tokens", tokenLimit, (decimal)snapshot.TotalTokens + tokens, snapshot);
+        if (_costLimit is { } money && cost > money.Amount - snapshot.EstimatedCost)
+            throw CreateExceeded(stage, ResolveEstimatedCostLimitKind(), money.Amount, cost, snapshot);
     }
 }

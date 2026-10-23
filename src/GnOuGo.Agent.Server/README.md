@@ -731,8 +731,14 @@ The optional `retryPolicy` object in a KeyVault provider configuration controls 
 `maxUncertainRetries` and `attemptTimeoutMilliseconds`, plus bounded backoff settings.
 Omitting it preserves the base policy. Providing it replaces that policy, with defaults for
 unspecified fields. Malformed settings fail validation; `Retry-After` cannot be disabled.
-Uncertain generation recovery requires a host accounting journal. The live planning benchmark
-supplies it; ordinary planning journals retain their single-attempt safety boundary.
+Fresh planning sessions capture a separate confirmed-response policy with at most
+three journaled physical attempts. Both production planning hosts and the benchmark
+reserve each attempt before dispatch, including mandatory review headroom. Failed
+attempts without verified usage retain their reservations even after later success.
+Only fully saved transient HTTP responses authorize retries; missing outcomes,
+timeouts without a response and invalid model outputs do not. Historical sessions
+retain their original single-attempt boundary and request bytes. Runtime effects
+and local fallback are excluded from this planning policy.
 
 ### Runtime execution budgets
 

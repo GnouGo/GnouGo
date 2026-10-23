@@ -5,6 +5,28 @@ namespace GnOuGo.AI.Core.Tests;
 
 public sealed class LocalLLMRoutingTests
 {
+    [Theory]
+    [InlineData(false)][InlineData(true)]
+    public async Task DurableGenerationContextNeverRetriesLocalValidationOrChangesProvider(bool captured)
+    {
+        var calls = 0;
+        var runtime = new FakeRuntime((_, _) => { calls++; throw new LocalLLMException(LocalLLMFailureKind.InvalidStructuredOutput, "invalid"); });
+        var cloud = new FakeProvider("fakecloud", new LLMClientResponse { Text = "cloud" });
+        var options = Options();
+        options.Models["Cloud"] = new() { Type = "fakecloud", Url = "https://cloud.invalid" };
+        options.Fallback = new() { Provider = "Cloud", Model = "cloud-model" };
+        using var scope = new LLMHttpRetryContext("original", new NoHttpJournal(), captured
+            ? new() { MaxAttempts = 3, MaxUncertainRetries = 0 } : null).Activate();
+        var client = new RoutingLLMClient(options, [new LocalLLMProvider(runtime), cloud]);
+        await Assert.ThrowsAsync<LLMProviderException>(() => client.CallAsync(new() { Prompt = "unchanged", StructuredOutputSchema = NameSchema() }, TestContext.Current.CancellationToken));
+        Assert.Equal(1, calls); Assert.Equal(0, cloud.CallCount);
+    }
+
+    private sealed class NoHttpJournal : ILLMHttpRetryJournal
+    {
+        public Task<LLMHttpRetryState?> LoadAsync(CancellationToken ct) => throw new InvalidOperationException("No HTTP call expected.");
+        public Task SaveAsync(LLMHttpRetryState state, CancellationToken ct) => throw new InvalidOperationException("No HTTP call expected.");
+    }
     [Fact]
     public async Task CallAsync_RetriesInvalidStructuredOutputWithValidationFeedback()
     {

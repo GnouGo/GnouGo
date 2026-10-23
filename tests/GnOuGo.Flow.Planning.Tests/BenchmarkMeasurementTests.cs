@@ -407,6 +407,8 @@ public sealed class BenchmarkMeasurementTests
     [InlineData("best_regression")]
     [InlineData("unbounded")]
     [InlineData("limits")]
+    [InlineData("unknown_attempts")]
+    [InlineData("missing_attempts")]
     public void SemanticCandidateUsesBestPerCaseBaselineAndDoesNotAddEfficiencyGates(string? defect)
     {
         var names = new[] { "conditional", "review_french", "review_distractors" };
@@ -414,6 +416,7 @@ public sealed class BenchmarkMeasurementTests
         {
             var row = Row(name, i); row["source_commit"] = source; row["provider"] = "same"; row["model"] = "same"; row["campaign"] = "same";
             row["mode"] = "live"; row["usage_bounded"] = true; row["usage_complete"] = true; row["calls"] = source == "candidate" ? 6 : 2;
+            row["physical_attempts"] = source == "candidate" ? 7L : 3L;
             if (name == "review_distractors" && i == 3 || name == "review_french" && source != "stabilization" && source != "candidate")
             { row["execution_correct"] = false; row["final_review"] = false; }
             return new JsonObject { ["result"] = row, ["session"] = new JsonObject { ["request"] = new JsonObject
@@ -425,10 +428,15 @@ public sealed class BenchmarkMeasurementTests
         if (defect == "best_regression") { candidate[3]["result"]!["execution_correct"] = false; candidate[3]["result"]!["final_review"] = false; }
         if (defect == "unbounded") candidate[0]["result"]!["usage_bounded"] = false;
         if (defect == "limits") candidate[0]["session"]!["request"]!["maxModelCalls"] = 9;
+        if (defect == "unknown_attempts") candidate[0]["result"]!["physical_attempts"] = null;
+        if (defect == "missing_attempts") candidate[0]["result"]!.AsObject().Remove("physical_attempts");
         var report = PlanningBenchmarkMeasurements.CompareBest(names, new Dictionary<string, IReadOnlyList<JsonObject>> { ["parent"] = parent, ["previous"] = previous, ["stabilization"] = stabilization }, candidate);
-        Assert.Equal(defect is null, report["passed"]!.GetValue<bool>());
+        Assert.Equal(defect is null or "unknown_attempts" or "missing_attempts", report["passed"]!.GetValue<bool>());
         if (defect is "missing" or "unbounded" or "limits") Assert.Equal("inconclusive", report["status"]!.ToString());
         if (defect is null) Assert.Equal(6, report["metrics"]!["candidate"]!["median_calls"]!.GetValue<double>());
+        Assert.Equal(27L, report["metrics"]!["parent"]!["physical_attempts"]!.GetValue<long>());
+        if (defect is "unknown_attempts" or "missing_attempts") Assert.Null(report["metrics"]!["candidate"]!["physical_attempts"]);
+        else Assert.Equal(7L * candidate.Count, report["metrics"]!["candidate"]!["physical_attempts"]!.GetValue<long>());
     }
 
     [Fact]

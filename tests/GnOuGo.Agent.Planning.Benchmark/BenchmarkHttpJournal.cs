@@ -8,7 +8,7 @@ using GnOuGo.Planning.Examples;
 /// <summary>Admission and encrypted evidence only. All retry decisions belong to AI.Core.</summary>
 internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string requestId, long inputCeiling, long outputCeiling, decimal costCeiling,
     int? sessionAttemptLimit = 8, decimal reviewCostHeadroom = 0, int reviewAttemptHeadroom = 0,
-    JsonObject? effectiveTransportPolicy = null) : ILLMHttpRetryJournal
+    JsonObject? effectiveTransportPolicy = null, TimeProvider? time = null) : ILLMHttpRetryJournal
 {
     private readonly JsonObject? _effectiveTransportPolicy = effectiveTransportPolicy?.DeepClone().AsObject();
     internal const string Collection = "planning-evaluation-http-attempts";
@@ -30,6 +30,7 @@ internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string re
 
     private async Task SaveAsync(LLMHttpRetryState state, CancellationToken ct, JsonObject? exchangeQuote)
     {
+        ct.ThrowIfCancellationRequested();
         var existing = await campaign.LoadAsync(Collection, requestId, ct);
         if (existing is not null && !JsonNode.DeepEquals(existing["effective_transport_policy"], _effectiveTransportPolicy))
             throw new InvalidOperationException("An issued effective transport policy cannot change during recovery.");
@@ -67,6 +68,23 @@ internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string re
                 throw new InvalidOperationException("Each new dispatch must have one reserved identity.");
             var totals = await AccountingAsync(campaign, requestId, record, ct);
             var sessionExhausted = sessionAttemptLimit is { } limit && totals["session_calls"]!.GetValue<long>() + reviewAttemptHeadroom > limit;
+            if (PlanningBenchmarkMeasurements.RetainsAllHttpFailures(record))
+            {
+                if (_effectiveTransportPolicy?["effective_retry_policy"]?["MaxAttempts"]?.GetValue<int>() is not (>= 1 and <= 3) ||
+                    state.Attempts.Count > _effectiveTransportPolicy["effective_retry_policy"]!["MaxAttempts"]!.GetValue<int>())
+                    throw new InvalidOperationException("The captured request attempt allowance is exhausted.");
+                if (!DateTimeOffset.TryParseExact(_effectiveTransportPolicy?["deadline_utc"]?.GetValue<string>(), "O",
+                    System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var deadline) ||
+                    (time ?? TimeProvider.System).GetUtcNow() >= deadline)
+                    throw new InvalidOperationException("The captured planning deadline cannot cover another HTTP attempt.");
+                var tokenLimit = _effectiveTransportPolicy?["max_total_tokens"]?.GetValue<long>()
+                    ?? throw new InvalidOperationException("Captured cumulative token allowance is required.");
+                var reviewTokens = _effectiveTransportPolicy?["review_token_headroom"]?.GetValue<long>()
+                    ?? throw new InvalidOperationException("Captured review token headroom is required.");
+                if (tokenLimit is <= 0 or > 15_000_000 || reviewTokens < 0 ||
+                    totals["session_token_upper_bound"]!.GetValue<long>() > tokenLimit - reviewTokens)
+                    sessionExhausted = true;
+            }
             if (totals["cost_upper_bound_eur"]!.GetValue<decimal>() + reviewCostHeadroom > await campaign.CostCeilingAsync(ct) || sessionExhausted)
             { campaign.BudgetExceeded(sessionExhausted); throw new InvalidOperationException("The campaign or session cannot cover another HTTP attempt."); }
         }
@@ -88,7 +106,7 @@ internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string re
     internal static JsonObject UsageWithReservations(JsonObject record, JsonObject usage)
     {
         var attempts = record["transport"]!["Attempts"]!.AsArray();
-        var unknown = attempts.Count(a => PlanningBenchmarkMeasurements.RequiresHttpUsageReservation(a?["Status"]?.GetValue<int>(), hasVerifiedUsage: true));
+        var unknown = attempts.Count(a => PlanningBenchmarkMeasurements.RequiresHttpUsageReservation(a?["Status"]?.GetValue<int>(), hasVerifiedUsage: true, PlanningBenchmarkMeasurements.RetainsAllHttpFailures(record)));
         usage = usage.DeepClone().AsObject();
         usage["transport_attempts"] = attempts.Count;
         usage["uncertain_attempts"] = unknown;
@@ -109,7 +127,7 @@ internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string re
         var snapshot = legacy is null ? null : JsonSerializer.Deserialize(legacy.Value, PlanningJsonContext.Default.LLMUsageBudgetSnapshot);
         if (snapshot is not null && snapshot.EstimatedCostCurrency != "EUR") throw new InvalidOperationException("The existing campaign ledger must be denominated in EUR.");
         long calls = snapshot?.Calls ?? 0, input = snapshot?.InputTokens ?? 0, output = snapshot?.OutputTokens ?? 0;
-        long reservedInput = 0, reservedOutput = 0, uncertain = 0, sessionCalls = 0;
+        long reservedInput = 0, reservedOutput = 0, uncertain = 0, sessionCalls = 0, sessionTokens = 0;
         decimal cost = snapshot?.EstimatedCost ?? 0, reservedCost = 0;
         var session = requestId?.Split(':')[0] + ":";
         foreach (var (key, row) in rows)
@@ -118,7 +136,10 @@ internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string re
             calls += attempts.Count;
             if (requestId is not null && key.StartsWith(session, StringComparison.Ordinal)) sessionCalls += attempts.Count;
             var usage = row["usage"];
-            var pending = attempts.Count(a => PlanningBenchmarkMeasurements.RequiresHttpUsageReservation(a?["Status"]?.GetValue<int>(), usage is not null));
+            var pending = attempts.Count(a => PlanningBenchmarkMeasurements.RequiresHttpUsageReservation(a?["Status"]?.GetValue<int>(), usage is not null, PlanningBenchmarkMeasurements.RetainsAllHttpFailures(row)));
+            if (requestId is not null && key.StartsWith(session, StringComparison.Ordinal))
+                sessionTokens = checked(sessionTokens + pending * checked(row["input_ceiling"]!.GetValue<long>() + row["output_ceiling"]!.GetValue<long>()) +
+                    (usage?["input_tokens"]?.GetValue<long>() ?? 0) + (usage?["output_tokens"]?.GetValue<long>() ?? 0));
             uncertain += pending;
             reservedInput += pending * row["input_ceiling"]!.GetValue<long>();
             reservedOutput += pending * row["output_ceiling"]!.GetValue<long>();
@@ -134,8 +155,12 @@ internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string re
             var oldRequests = await campaign.Records.ListAsync("planning-evaluation-requests", "benchmark", BenchmarkCampaign.Author, ct);
             sessionCalls += oldRequests.Count(r => r.Key.StartsWith(prefix + session, StringComparison.Ordinal) && !rows.ContainsKey(r.Key[prefix.Length..]));
         }
-        return new() { ["calls"] = calls, ["session_calls"] = sessionCalls, ["known_input_tokens"] = input, ["known_output_tokens"] = output,
+        var result = new JsonObject { ["calls"] = calls, ["session_calls"] = sessionCalls, ["known_input_tokens"] = input, ["known_output_tokens"] = output,
             ["known_cost_eur"] = cost, ["reserved_input_tokens"] = reservedInput, ["reserved_output_tokens"] = reservedOutput,
             ["reserved_cost_eur"] = reservedCost, ["cost_upper_bound_eur"] = cost + reservedCost, ["unknown_attempts"] = uncertain };
+        // Preserve historical accounting hashes when no new captured policy is being admitted.
+        if (replacement is not null && PlanningBenchmarkMeasurements.RetainsAllHttpFailures(replacement))
+            result["session_token_upper_bound"] = sessionTokens;
+        return result;
     }
 }
