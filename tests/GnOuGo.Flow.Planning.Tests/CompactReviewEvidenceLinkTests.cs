@@ -150,7 +150,7 @@ public sealed class CompactReviewEvidenceLinkTests
             Assert.Equal(PlanningConstruction.IntermediatePurpose, purpose);
             AssertBounded(request, state.Request);
             Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(
-                Reviewed(), request.StructuredOutputSchema!));
+                Wire(request, Reviewed()).Json!, request.StructuredOutputSchema!));
             var context = Context(request);
             var entry = Assert.Single(context["taskEvidence"]!["items"]!.AsArray())!;
             Assert.Equal(1, context["taskEvidence"]!["count"]!.GetValue<int>());
@@ -304,9 +304,7 @@ public sealed class CompactReviewEvidenceLinkTests
             Assert.True(JsonNode.DeepEquals(JsonNode.Parse(evidence), context["evidence"]));
             Assert.Equal(accepted, PlanningConstruction.Hash(state.Plan));
             Assert.Equal(checkpoints, JsonSerializer.Serialize(state.Construction.Checkpoints, PlanningJsonContext.Default.ListPlanningConstructionCheckpoint));
-            var measured = PlanningRequestMeasurements.Measure(request, purpose, 4000);
-            Assert.InRange(measured.EstimatedInputTokens, 1, 4000);
-            Assert.Equal(measured.CompleteRequestBytes, measured.Components.Sum(component => component.SerializedBytes));
+            AssertBounded(request, state.Request);
             return Wire(request, Reviewed());
         };
         state = await Advance(state, runtime);

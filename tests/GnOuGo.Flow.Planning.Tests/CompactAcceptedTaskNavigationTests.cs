@@ -256,6 +256,10 @@ public sealed class CompactAcceptedTaskNavigationTests
         const string requirement = "Preserve the requested values and complete their declared processing.";
         var state = new PlanningSession { Request = new() { TenantId = "accepted-task-navigation", Prompt = requirement } };
         PlanningSessionCreation.Capture(state);
+        // Directory-only fixtures deliberately contain unresolved synthetic
+        // plans; retain their protocol instead of asserting verified v4 facts.
+        state.Request.Options["construction_presentation_version"] = 3;
+        state.Construction!.Compact!.PresentationVersion = 3;
         state.IntentVersion = 3; state.Revision = 1; state.Status = PlanningStatus.Generating;
         PlanningCompactConstruction.InitializeSources(state);
         var construction = state.Construction!;

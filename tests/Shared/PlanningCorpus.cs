@@ -30,7 +30,10 @@ public static class PlanningCorpus
         var schema = request.StructuredOutputSchema!.AsObject();
         JsonObject response;
         if (schema["properties"]?["findings"] is not null)
+        {
             response = new() { ["findings"] = new JsonArray(), ["uncertainty"] = "Offline review fixture; execution is independently asserted.", ["evidenceRequests"] = null };
+            if (schema["properties"]?["inconclusive"] is not null) response["inconclusive"] = null;
+        }
         else
         {
             response = JsonSerializer.SerializeToNode(proposal, PlanningJsonContext.Default.PlanningProposal)!.AsObject();

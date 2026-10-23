@@ -92,12 +92,15 @@ public sealed class CompactReviewContextTests
     }
 
     [Theory]
-    [InlineData(true, false)]
-    [InlineData(true, true)]
-    [InlineData(false, true)]
-    public async Task JudgeDistinguishesPreservedPublicAndNestedExports(bool root, bool closing)
+    [InlineData(true, false, 3)]
+    [InlineData(true, true, 3)]
+    [InlineData(false, true, 3)]
+    [InlineData(true, false, 4)]
+    [InlineData(true, true, 4)]
+    [InlineData(false, true, 4)]
+    public async Task JudgeDistinguishesPreservedPublicAndNestedExports(bool root, bool closing, int presentation)
     {
-        var state = await State();
+        var state = await State(presentation);
         var construction = state.Construction!;
         var step = construction.Compact!.CurrentStep!;
         var group = state.Plan!.Groups[0];
@@ -133,21 +136,31 @@ public sealed class CompactReviewContextTests
             if (root) Assert.Equal("sequence", Assert.Single(context["outputs"]!.AsArray())!["name"]!.ToString());
             else Assert.Null(context["outputs"]);
             var guidance = request.Prompt[..request.Prompt.LastIndexOf('\n')];
-            Assert.Contains("Exports at /root are public; nested-scope exports are local", guidance, StringComparison.Ordinal);
-            Assert.Contains("basis:tentative_candidate also includes draft additions", guidance, StringComparison.Ordinal);
-            Assert.Contains("draft.outputs lists additions only; [] preserves accepted exports", guidance, StringComparison.Ordinal);
-            Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(Review().Json!, request.StructuredOutputSchema!));
+            if (presentation == 3)
+            {
+                Assert.Contains("Exports at /root are public; nested-scope exports are local", guidance, StringComparison.Ordinal);
+                Assert.Contains("basis:tentative_candidate also includes draft additions", guidance, StringComparison.Ordinal);
+                Assert.Contains("draft.outputs lists additions only; [] preserves accepted exports", guidance, StringComparison.Ordinal);
+            }
+            else
+            {
+                Assert.Contains("Root outputs are public; nested exports are local", guidance, StringComparison.Ordinal);
+                Assert.Contains("empty draft.outputs preserves accepted exports", guidance, StringComparison.Ordinal);
+            }
+            Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(Review(presentation: presentation).Json!, request.StructuredOutputSchema!));
         }
         Assert.Equal(accepted, PlanningConstruction.Hash(state.Plan));
         Assert.Empty(construction.Checkpoints);
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task MissingOrIncorrectCandidateExportsRemainSubjectToGroundedReview(bool missing)
+    [InlineData(false, 3)]
+    [InlineData(true, 3)]
+    [InlineData(false, 4)]
+    [InlineData(true, 4)]
+    public async Task MissingOrIncorrectCandidateExportsRemainSubjectToGroundedReview(bool missing, int presentation)
     {
-        var state = await State();
+        var state = await State(presentation);
         state.Construction!.Candidate = PlanningConstruction.Apply(state, new()
         {
             Scope = "/groups/reusable/body", RequirementIds = ["result"], CloseScopes = ["/groups/reusable/body"],
@@ -159,7 +172,7 @@ public sealed class CompactReviewContextTests
             Assert.Equal(PlanningConstruction.LocalPurpose, purpose);
             var context = Context(request);
             Assert.Equal(missing ? 0 : 1, context["scopeInterface"]!["outputCount"]!.GetValue<int>());
-            var response = Review();
+            var response = Review(presentation: presentation);
             response.Json!["findings"] = new JsonArray(new JsonObject
             {
                 ["kind"] = missing ? "omission" : "inconsistency", ["location"] = "/requirements/0",
@@ -238,11 +251,13 @@ public sealed class CompactReviewContextTests
         Assert.DoesNotContain(resumed.Diagnostics, d => d.Required);
     }
 
-    private static async Task<PlanningSession> State()
+    private static async Task<PlanningSession> State(int presentation = 3)
     {
         const string requirement = "Expose the complete supplied sequence through the reusable boundary, preserving order and repetitions.";
         var state = new PlanningSession { Request = new() { TenantId = "compact-review-context", Prompt = requirement } };
         PlanningSessionCreation.Capture(state);
+        state.Construction!.Compact!.PresentationVersion = presentation;
+        state.Request.Options["construction_presentation_version"] = presentation;
         state.IntentVersion = 3; state.Revision = 1; state.Status = PlanningStatus.Generating;
         var construction = state.Construction!;
         var compact = construction.Compact!;
@@ -271,10 +286,11 @@ public sealed class CompactReviewContextTests
     private static Task<PlanningSession> Advance(PlanningSession state, TestRuntime runtime) =>
         new HybridWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
     private static JsonObject Context(LLMRequest request) => JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!.AsObject();
-    private static LLMResponse Review(JsonArray? evidence = null)
+    private static LLMResponse Review(JsonArray? evidence = null, int presentation = 3)
     {
         var response = new JsonObject { ["findings"] = evidence is null ? new JsonArray() : null,
             ["evidenceRequests"] = evidence, ["uncertainty"] = "Execution and business outcomes remain unverified." };
+        if (presentation == 4) response["inconclusive"] = null;
         return new() { Json = response, Text = response.ToJsonString() };
     }
 }

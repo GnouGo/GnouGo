@@ -41,13 +41,19 @@ public sealed class QueuedPlanningSessionCompatibilityTests
         Assert.Equal(PlanningStatus.FinalReview, state.Status);
         Assert.True(state.Construction!.Complete);
         Assert.Equal(2, state.Construction.Version);
-        Assert.Equal(3, state.Construction.Compact!.PresentationVersion);
-        Assert.Equal("3", state.Request.Options["construction_presentation_version"]!.ToString());
+        Assert.Equal(4, state.Construction.Compact!.PresentationVersion);
+        Assert.Equal("4", state.Request.Options["construction_presentation_version"]!.ToString());
         Assert.Single(state.Construction.Checkpoints);
         Assert.Equal("1", state.Request.Options["planning_diagnostics_version"]!.ToString());
         Assert.Equal("2", state.Request.Options["planning_input_review_version"]!.ToString());
         Assert.Equal("2", state.Request.Options["business_judge_review_version"]!.ToString());
         Assert.DoesNotContain("isNewlyConstructed", JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+        var artifact = state.ComputeArtifactHash();
+        var historical = PlannerFixture.Clone(state);
+        historical.Request.Options["construction_presentation_version"] = 3;
+        historical.Construction!.Compact!.PresentationVersion = 3;
+        Assert.NotEqual(artifact, historical.ComputeArtifactHash());
+        Assert.Equal(artifact, PlannerFixture.Clone(state).ComputeArtifactHash());
     }
 
     [Fact]
@@ -60,11 +66,39 @@ public sealed class QueuedPlanningSessionCompatibilityTests
         state = await PlannerFixture.RunAsync(IncrementalRuntime(), state);
         Assert.Equal(PlanningStatus.FinalReview, state.Status);
         Assert.True(state.Construction!.Complete);
-        Assert.Equal(3, state.Construction.Compact!.PresentationVersion);
-        Assert.Equal("3", state.Request.Options["construction_presentation_version"]!.ToString());
+        Assert.Equal(4, state.Construction.Compact!.PresentationVersion);
+        Assert.Equal("4", state.Request.Options["construction_presentation_version"]!.ToString());
         Assert.Equal("compact-bindings-v10", state.Request.Options["compilation_profile"]!.ToString());
         Assert.Equal("1", state.Request.Options["planning_input_review_version"]!.ToString());
         Assert.Equal("1", state.Request.Options["business_judge_review_version"]!.ToString());
+    }
+
+    [Theory]
+    [InlineData(3)]
+    [InlineData(4)]
+    public async Task ExplicitIntentRevisionRetainsPresentationAndCumulativeAccounting(int version)
+    {
+        var runtime = IncrementalRuntime();
+        var initial = PlannerFixture.CapturedPresentation(new PlanningSession { Request = PlannerFixture.HistoricalSession().Request }, version);
+        var state = await PlannerFixture.RunAsync(runtime, initial);
+        Assert.Equal(PlanningStatus.FinalReview, state.Status);
+        var calls = state.ModelCalls;
+        var dispatches = runtime.Calls.Count;
+        var repairs = state.ReplanAttempts;
+        var accepted = PlanningConstruction.Hash(state.Plan);
+        state = await new HybridWorkflowPlanner().AdvanceAsync(state,
+            new() { Kind = "revise", ExpectedRevision = state.Revision, Text = "Return an updated greeting.", PreserveRequirements = false },
+            runtime, PlannerFixture.Ct);
+        Assert.Equal(version, state.Construction!.Compact!.PresentationVersion);
+        Assert.Equal(version, state.Request.Options["construction_presentation_version"]!.GetValue<int>());
+        Assert.True(PlanningCompactConstruction.CapturedPresentationValid(state));
+        Assert.Empty(state.Construction.Compact.InterfaceExtractions!);
+        Assert.NotNull(state.Construction.Compact.InterfaceExtractions);
+        Assert.Null(state.Plan);
+        Assert.Equal(accepted, PlanningConstruction.Hash(state.Request.Baseline));
+        Assert.Equal(calls, state.ModelCalls);
+        Assert.Equal(repairs, state.ReplanAttempts);
+        Assert.Equal(dispatches, runtime.Calls.Count);
     }
 
     private static TestRuntime IncrementalRuntime()

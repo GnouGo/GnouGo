@@ -8,10 +8,12 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class CompactLoopCapacityPresentationTests
 {
-    [Fact]
-    public async Task SupportedCapacityIsUnverifiedInsteadOfAnInventedOriginalMaximum()
+    [Theory]
+    [InlineData(3)]
+    [InlineData(4)]
+    public async Task SupportedCapacityIsUnverifiedInsteadOfAnInventedOriginalMaximum(int presentation)
     {
-        var (state, runtime) = await Ready(initialCapacity: 1000, callerInput: true);
+        var (state, runtime) = await Ready(initialCapacity: 1000, callerInput: true, presentation: presentation);
         var requirement = Assert.Single(state.Requirements!.Outcomes);
         state.Requirements.Outcomes[0] = requirement with { Commitments = [] };
         var requirements = JsonSerializer.Serialize(state.Requirements, PlanningJsonContext.Default.PlanningRequirements);
@@ -20,10 +22,13 @@ public sealed class CompactLoopCapacityPresentationTests
         Assert.Equal(1000, Assert.Single(state.Construction!.Candidate!.Extension.Tasks).MaxItems);
         state = await Advance(state, runtime);
         var review = runtime.Calls[^1];
-        Assert.Contains("An unspecified input length does not require unlimited capacity", review.Prompt, StringComparison.Ordinal);
-        Assert.Contains("never returns truncated success", review.Prompt, StringComparison.Ordinal);
-        Assert.Contains("explicit required capacities or known required item counts", review.Prompt, StringComparison.Ordinal);
-        Assert.Contains("Absent bounds alone are not defects or missing business facts; unspecified capacity remains unverified", review.Prompt, StringComparison.Ordinal);
+        if (presentation == 3)
+        {
+            Assert.Contains("An unspecified input length does not require unlimited capacity", review.Prompt, StringComparison.Ordinal);
+            Assert.Contains("never returns truncated success", review.Prompt, StringComparison.Ordinal);
+            Assert.Contains("explicit required capacities or known required item counts", review.Prompt, StringComparison.Ordinal);
+            Assert.Contains("Absent bounds alone are not defects or missing business facts; unspecified capacity remains unverified", review.Prompt, StringComparison.Ordinal);
+        }
         Assert.DoesNotContain("Without an explicit original bound, use", review.Prompt, StringComparison.Ordinal);
         var imported = Assert.Single(Context(review)["interfaces"]!.AsArray())!;
         Assert.Equal("values", imported["binding"]!["source"]!.ToString());
@@ -137,7 +142,7 @@ public sealed class CompactLoopCapacityPresentationTests
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(Wire(request, Draft(request, 10001)).Json!, request.StructuredOutputSchema!));
     }
 
-    private static async Task<(PlanningSession State, TestRuntime Runtime)> Ready(int initialCapacity = 1, bool callerInput = false)
+    private static async Task<(PlanningSession State, TestRuntime Runtime)> Ready(int initialCapacity = 1, bool callerInput = false, int presentation = 4)
     {
         var reviews = 0;
         var runtime = new TestRuntime { Respond = (request, purpose) =>
@@ -156,14 +161,14 @@ public sealed class CompactLoopCapacityPresentationTests
             if (purpose is PlanningConstruction.DraftPurpose or "replan") return Wire(request, Draft(request, purpose == "replan" ? 2 : initialCapacity, callerInput));
             Assert.Equal(PlanningConstruction.LocalPurpose, purpose);
             return Wire(request, new() { ["findings"] = reviews++ == 0 && initialCapacity == 1 ? new JsonArray(new JsonObject
-                { ["kind"] = "inconsistency", ["location"] = "/draft/tasks/0", ["evidence"] = new JsonArray("/draft/tasks/0"),
+                { ["kind"] = "inconsistency", ["location"] = "/draft/tasks/0", ["evidence"] = new JsonArray("/requirements/0", "/draft/tasks/0"),
                     ["explanation"] = "The singleton ceiling rejects the explicitly supplied two-item array.", ["uncertainty"] = "No execution has occurred." }) : new JsonArray(),
                 ["uncertainty"] = "Future body work and execution remain unverified.", ["evidenceRequests"] = null });
         } };
-        var state = await Advance(new() { Request = new() { TenantId = "loop-capacity", Prompt = callerInput
+        var state = await Advance(PlannerFixture.CapturedPresentation(new() { Request = new() { TenantId = "loop-capacity", Prompt = callerInput
             ? "Process every value of caller input values, a numeric array with no declared length bound, preserving order and repetitions."
             : "Process all original numeric values [1,2] through repeated local work.",
-            Options = new() { ["automatic_correction"] = true } } }, runtime);
+            Options = new() { ["automatic_correction"] = true } } }, presentation), runtime);
         Assert.Empty(state.Diagnostics);
         // This fixture starts at loop selection; interface extraction is covered separately.
         if (callerInput) state.Requirements!.Inputs = [new() { Name = "values", Required = true,

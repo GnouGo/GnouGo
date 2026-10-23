@@ -75,7 +75,7 @@ public static class PlanningBenchmarkMeasurements
             return;
         }
         request.Options["construction_version"] = 2;
-        request.Options["construction_presentation_version"] = 3;
+        request.Options["construction_presentation_version"] = 4;
         request.Options["construction_preset"] = preset ?? request.Options["construction_preset"]?.ToString() ?? PlanningConstructionPresets.Ordinary;
         request.Options["construction_limits"] ??= JsonSerializer.SerializeToNode(new PlanningConstructionOptions(), PlanningJsonContext.Default.PlanningConstructionOptions);
         request.Options["construction_input_limits"] ??= JsonSerializer.SerializeToNode(new PlanningConstructionInputLimits(), PlanningJsonContext.Default.PlanningConstructionInputLimits);

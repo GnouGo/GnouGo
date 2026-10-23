@@ -49,7 +49,7 @@ internal static class PlanningModelCalls
     }
 
     internal static async Task<JsonNode> CallAsync(PlanningSession state, IPlanningRuntime runtime, string purpose, string prompt, JsonObject schema, CancellationToken ct, int? outputLimit = null,
-        PlanningCorrectionAttempt? correction = null)
+        PlanningCorrectionAttempt? correction = null, Action? issued = null)
     {
         ct.ThrowIfCancellationRequested();
         if (state.PendingCall?.Request.StructuredOutputSchema?["properties"] is JsonObject previous &&
@@ -102,6 +102,7 @@ internal static class PlanningModelCalls
             if (purpose == "replan" && correction?.Enabled != true) state.ReplanAttempts++;
             state.PendingCall = new() { Id = request.ClientRequestId!, Purpose = purpose, Request = request,
                 CorrectionAccounting = correction?.IssuedMode };
+            issued?.Invoke();
             await runtime.CheckpointAsync(state, ct);
 
             async Task RejectMeasurement()

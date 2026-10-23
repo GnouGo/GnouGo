@@ -855,6 +855,18 @@ Fresh live sessions use version-two compact incremental construction and mandato
 intermediate reviews. The historical `--business-judge` setting cannot disable these
 reviews or introduce a final whole-plan Judge. Every draft, review, evidence request
 and correction uses the same captured session and cumulative campaign allowances.
+
+Fresh cohorts capture presentation revision 4. Scoped reviews receive compiler
+facts separately from business and runtime evidence, plus bounded exact caller
+declarations. An explicit inconclusive review is not acceptance. Its single
+possible reassessment uses only already relevant omitted exact support, retains
+its request and evidence hashes, and shares existing call/token/time/financial
+admission; it does not charge a correction or grant execution authority. Count
+those calls and retained failures in the same phase measurements. Historical
+revision-3 cohorts remain unchanged. Freeze a new source/settings identity for
+this change; deterministic tests or a completed review do not establish a live
+business improvement. The required independently executed paired outcomes and
+existing delegated approvals remain the acceptance gate.
 Use `--construction-preset large --automatic-correction` only for an explicitly
 authorized fresh cohort: it captures 384 physical planning attempts, 64 corrections,
 the same compact phase input limits as ordinary sessions, 8,192 draft/correction output tokens, 2,048 Judge

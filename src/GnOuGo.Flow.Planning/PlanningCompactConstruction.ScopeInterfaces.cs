@@ -7,7 +7,7 @@ namespace GnOuGo.Flow.Planning;
 internal static partial class PlanningCompactConstruction
 {
     // This is evidence inside the selected scope, never an externally consumable container result.
-    internal static JsonObject? ScopeInterface(PlanningSession state, bool candidate, int offset = 0, bool navigationOnly = false)
+    internal static JsonObject? ScopeInterface(PlanningSession state, bool candidate, int offset = 0, bool navigationOnly = false, TaskConstructionValidation? verified = null)
     {
         var construction = state.Construction!;
         var step = State(state).CurrentStep;
@@ -18,12 +18,16 @@ internal static partial class PlanningCompactConstruction
         if (scope is null || offset < 0 || offset > 0 && offset >= scope.Source.Outputs.Count) return null;
         if (!candidate && scope.Source.Outputs.Count == 0) return null;
         var outputs = scope.Source.Outputs.Skip(offset).Take(8).ToArray();
-        var probe = PlanningConstruction.Clone(plan);
-        foreach (var choice in probe.Choices.Where(c => c.Selected is null)) choice.Selected = choice.Recommended;
         var frontier = step.Scope + "/always"; // Scope outputs are resolved after its cleanup frontier.
-        var validation = TaskPlanCompiler.ValidateConstruction(probe, state.Catalog!, state.Request,
-            open.ToHashSet(StringComparer.Ordinal), new Dictionary<string, IReadOnlyList<TaskValue>>
-                { [frontier] = outputs.Select(o => o.Value).ToArray() });
+        var validation = verified;
+        if (validation is null)
+        {
+            var probe = PlanningConstruction.Clone(plan);
+            foreach (var choice in probe.Choices.Where(c => c.Selected is null)) choice.Selected = choice.Recommended;
+            validation = TaskPlanCompiler.ValidateConstruction(probe, state.Catalog!, state.Request,
+                open.ToHashSet(StringComparer.Ordinal), new Dictionary<string, IReadOnlyList<TaskValue>>
+                    { [frontier] = outputs.Select(o => o.Value).ToArray() });
+        }
         if (!validation.Interfaces.TryGetValue(frontier, out var ports) || ports.Count != outputs.Length)
             PlanningConstruction.Fail("CONSTRUCTION_SCOPE_INTERFACE_INVALID", step.Scope, "The selected scope's exact export interfaces must validate before presentation.");
         var version = ScopeInterfaceVersion(plan, open, step.Scope);
@@ -52,6 +56,54 @@ internal static partial class PlanningCompactConstruction
             view["evidence"] = ScopeInterfaceAddress(step.Scope, candidate, version, offset);
         }
         return view;
+    }
+
+    private static JsonObject? ReviewInputDeclarations(PlanningSession state)
+    {
+        var compact = State(state);
+        var step = compact.CurrentStep!;
+        if (ScopeGroup(state, step.Scope) is not null) return null;
+        var sources = step.RequirementIds.Concat(step.CloseRequirementIds)
+            .SelectMany(id => compact.RequirementSources.GetValueOrDefault(id) ?? [])
+            .Concat(compact.GlobalSourceIds).ToHashSet(StringComparer.Ordinal);
+        var declarations = (compact.InterfaceExtractions ?? []).Where(extraction => extraction.Complete &&
+                DispositionsComplete(compact, extraction)).SelectMany(extraction => extraction.Dispositions!)
+            .Where(disposition => disposition.Kind == "interfaces" &&
+                (sources.Contains(disposition.SourceId) || disposition.Evidence.Keys.Any(sources.Contains)))
+            .SelectMany(disposition => disposition.Inputs.Select(name => (Name: name, disposition.SourceId)))
+            .Distinct().ToArray();
+        if (declarations.Length == 0)
+            return state.Construction!.Candidate!.Plan.Inputs.Count == 0 ? null : new JsonObject
+            {
+                ["scope"] = "/root", ["basis"] = "navigation_only", ["count"] = state.Construction.Candidate.Plan.Inputs.Count,
+                ["inputs"] = new JsonArray(), ["directory"] = "page:interfaces:0"
+            };
+        var names = declarations.Select(declaration => declaration.Name).Distinct(StringComparer.Ordinal).ToArray();
+        var inputs = state.Construction!.Candidate!.Plan.Inputs;
+        var entries = new JsonArray();
+        var remainingBytes = 4096;
+        foreach (var name in names.Take(8))
+        {
+            var input = inputs.SingleOrDefault(input => input.Name == name);
+            var entry = input is null ? new JsonObject { ["input"] = name, ["scope"] = "/root", ["evidence"] = "input:" + name }
+                : InputDirectoryEntry(state, input);
+            entry["present"] = input is not null;
+            entry["sourceIds"] = new JsonArray(declarations.Where(declaration => declaration.Name == name)
+                .Select(declaration => (JsonNode?)JsonValue.Create(declaration.SourceId)).ToArray());
+            if (input is not null)
+            {
+                var original = PlanningConstruction.Node(input, PlanningJsonContext.Default.TaskInput)!;
+                var bytes = System.Text.Encoding.UTF8.GetByteCount(original.ToJsonString());
+                if (bytes <= remainingBytes) { entry["declaration"] = original; remainingBytes -= bytes; }
+                else entry["declarationOmitted"] = true;
+            }
+            entries.Add((JsonNode)entry);
+        }
+        return new JsonObject
+        {
+            ["scope"] = "/root", ["basis"] = "tentative_candidate", ["count"] = names.Length,
+            ["inputs"] = entries, ["directory"] = names.Length > 8 ? "page:interfaces:0" : null
+        };
     }
 
     private static string ScopeInterfaceVersion(TaskPlan plan, IEnumerable<string> open, string path) =>

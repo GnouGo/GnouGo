@@ -42,7 +42,7 @@ public sealed class CompactAcceptedExportNavigationTests(ITestOutputHelper outpu
             var original = PlanningRequestMeasurements.Measure(previous, purpose, limit);
             Assert.True(original.EstimatedInputTokens > limit);
             output.WriteLine($"Complete review: previous {original.CompleteRequestBytes}B/{original.EstimatedInputTokens} tokens; navigation {measured.CompleteRequestBytes}B/{measured.EstimatedInputTokens} tokens; ceiling {limit}.");
-            return Review();
+            return Review(request);
         } };
         var reviewed = await Advance(state, runtime);
         Assert.Empty(reviewed.Diagnostics);
@@ -68,7 +68,7 @@ public sealed class CompactAcceptedExportNavigationTests(ITestOutputHelper outpu
             var view = Context(request)["scopeInterface"]!.AsObject();
             AssertNavigation(original, view);
             address = view["evidence"]!.ToString();
-            var response = Review(new JsonArray(address));
+            var response = Review(request, new JsonArray(address));
             Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(response.Json!, request.StructuredOutputSchema!));
             return response;
         } };
@@ -97,7 +97,7 @@ public sealed class CompactAcceptedExportNavigationTests(ITestOutputHelper outpu
             Assert.Equal(accepted, PlanningConstruction.Hash(state.Plan));
             Assert.True(HybridWorkflowPlanner.ConstructionReviewEvidenceGrounded(context,
                 "/evidence/" + address.Replace("~", "~0", StringComparison.Ordinal).Replace("/", "~1", StringComparison.Ordinal), compact: true));
-            return Review();
+            return Review(request);
         };
         state = await Advance(state, runtime);
         Assert.Empty(state.Diagnostics);
@@ -142,7 +142,7 @@ public sealed class CompactAcceptedExportNavigationTests(ITestOutputHelper outpu
     [InlineData(true)]
     public async Task PreviouslyIssuedFullExportReviewRecoversExactBytesContextAndAccounting(bool historical)
     {
-        var state = await Ready(32);
+        var state = await Ready(32, presentation: 3);
         if (historical) Historical(state);
         var construction = state.Construction!;
         var pending = HybridWorkflowPlanner.CreateConstructionReviewRequest(state, intermediate: false);
@@ -174,7 +174,7 @@ public sealed class CompactAcceptedExportNavigationTests(ITestOutputHelper outpu
             Assert.Equal(hash, saved.Construction.PendingReviewHash);
             Assert.All(Context(request)["scopeInterface"]!["outputs"]!.AsArray(), item => Assert.NotNull(item!["schema"]));
             Assert.Equal(accepted, PlanningConstruction.Hash(saved.Plan));
-            return Review();
+            return Review(request);
         } };
         state = await Advance(saved, recovery);
         Assert.Empty(state.Diagnostics);
@@ -201,11 +201,13 @@ public sealed class CompactAcceptedExportNavigationTests(ITestOutputHelper outpu
         Assert.Empty(reviewed.Construction!.Checkpoints);
     }
 
-    private static async Task<PlanningSession> Ready(int length, bool wholeObject = false)
+    private static async Task<PlanningSession> Ready(int length, bool wholeObject = false, int presentation = 4)
     {
         const string requirement = "Extract the supplied content, format and error without changing either accepted record export.";
         var state = new PlanningSession { Request = new() { TenantId = "accepted-export-navigation", Prompt = requirement } };
         PlanningSessionCreation.Capture(state);
+        state.Construction!.Compact!.PresentationVersion = presentation;
+        state.Request.Options["construction_presentation_version"] = presentation;
         state.IntentVersion = 3; state.Revision = 1; state.Status = PlanningStatus.Generating;
         var construction = state.Construction!;
         var compact = construction.Compact!;
@@ -261,6 +263,8 @@ public sealed class CompactAcceptedExportNavigationTests(ITestOutputHelper outpu
     }
     private static void Historical(PlanningSession state)
     {
+        state.Construction!.Compact!.PresentationVersion = 3;
+        state.Request.Options["construction_presentation_version"] = 3;
         state.Request.Options["construction_limits"]!.AsObject().Remove("phasePolicy");
         state.Construction!.Limits.PhasePolicy = null;
     }
@@ -269,11 +273,16 @@ public sealed class CompactAcceptedExportNavigationTests(ITestOutputHelper outpu
     private static TaskValue Record(string id) => new() { Kind = "output", Source = id, Port = "record" };
     private static TaskValue Field(string name) => new() { Kind = "field", Port = name, Items = [Record("first")] };
     private static JsonObject Context(LLMRequest request) => JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!.AsObject();
-    private static LLMResponse Review(JsonArray? evidence = null) => new() { Json = new JsonObject
+    private static LLMResponse Review(LLMRequest request, JsonArray? evidence = null)
     {
-        ["findings"] = evidence is null ? new JsonArray() : null, ["evidenceRequests"] = evidence,
-        ["uncertainty"] = "Execution and business outcomes remain unverified."
-    } };
+        var response = new JsonObject
+        {
+            ["findings"] = evidence is null ? new JsonArray() : null, ["evidenceRequests"] = evidence,
+            ["uncertainty"] = "Execution and business outcomes remain unverified."
+        };
+        if (request.StructuredOutputSchema!["properties"]!.AsObject().ContainsKey("inconclusive")) response["inconclusive"] = null;
+        return new() { Json = response };
+    }
     private static Task<PlanningSession> Advance(PlanningSession state, TestRuntime runtime) =>
         new HybridWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
 }

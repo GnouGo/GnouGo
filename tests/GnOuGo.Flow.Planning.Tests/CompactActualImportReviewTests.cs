@@ -8,11 +8,13 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class CompactActualImportReviewTests
 {
-    [Fact]
-    public async Task RetainedCreationTargetAllowsLaterCleanupButNotAnUnfulfilledClosureClaim()
+    [Theory]
+    [InlineData(3)]
+    [InlineData(4)]
+    public async Task RetainedCreationTargetAllowsLaterCleanupButNotAnUnfulfilledClosureClaim(int presentation)
     {
         const string target = "workflows/owned-resource";
-        var (state, runtime) = await Ready("Create the isolated resource at workflows/owned-resource and remove it even after partial failure.");
+        var (state, runtime) = await Ready("Create the isolated resource at workflows/owned-resource and remove it even after partial failure.", presentation);
         var capability = new PlanningCapability
         {
             Id = "create_resource", Version = "v1", Kind = "tool", StepType = "mcp.call",
@@ -40,15 +42,21 @@ public sealed class CompactActualImportReviewTests
         {
             var review = HybridWorkflowPlanner.CreateConstructionReviewRequest(state, intermediate).Request;
             var guidance = review.Prompt[..review.Prompt.LastIndexOf('\n')];
-            Assert.Equal(new[] { "evidenceRequests", "findings", "uncertainty" },
+            Assert.Equal(presentation == 3 ? new[] { "evidenceRequests", "findings", "uncertainty" }
+                : ["evidenceRequests", "findings", "inconclusive", "uncertainty"],
                 review.StructuredOutputSchema!["properties"]!.AsObject().Select(property => property.Key).Order(StringComparer.Ordinal));
-            Assert.Contains("not the complete operation input contract", guidance, StringComparison.Ordinal);
-            Assert.Contains("empty list does not mean no arguments", guidance, StringComparison.Ordinal);
+            if (presentation == 3)
+            {
+                Assert.Contains("not the complete operation input contract", guidance, StringComparison.Ordinal);
+                Assert.Contains("empty list does not mean no arguments", guidance, StringComparison.Ordinal);
+            }
+            else Assert.Contains("its exact target and ownership remain available after partial failure", guidance, StringComparison.Ordinal);
             Assert.DoesNotContain("Retrieval expands binding grammar", guidance, StringComparison.Ordinal);
             Assert.DoesNotContain("reselectStep", guidance, StringComparison.Ordinal);
             Assert.Equal(capability.Id, Assert.Single(Context(review)["operations"]!.AsArray())!["id"]!.ToString());
             var historical = PlannerFixture.Clone(state);
             historical.Construction!.Compact!.PresentationVersion = 2;
+            historical.Request.Options["construction_presentation_version"] = 2;
             Assert.Contains("Retrieval expands binding grammar",
                 HybridWorkflowPlanner.CreateConstructionReviewRequest(historical, intermediate).Request.Prompt, StringComparison.Ordinal);
         }
@@ -199,7 +207,7 @@ public sealed class CompactActualImportReviewTests
             Assert.Equal("arithmetic", expression["kind"]!.ToString());
             Assert.Equal("multiply", expression["text"]!.ToString());
             Assert.Equal(2d, expression["items"]![1]!["number"]!.GetValue<double>());
-            Assert.Contains("not the produced result", request.Prompt, StringComparison.Ordinal);
+            Assert.Contains("interfaces are exact consumed operands", request.Prompt, StringComparison.Ordinal);
             var evidenceAnchors = FindingProperties(request.StructuredOutputSchema!.AsObject())["evidence"]!["items"]!["enum"]!.AsArray();
             Assert.Contains(evidenceAnchors, pointer => pointer!.ToString() == "/interfaces/0");
             Assert.Equal(baseline, PlanningConstruction.Hash(state.Plan));
@@ -214,7 +222,7 @@ public sealed class CompactActualImportReviewTests
     [Fact]
     public async Task InterpretationReviewUsesTheRuntimeInstructionAndPreservesResultConstraints()
     {
-        var (state, runtime) = await Ready();
+        var (state, runtime) = await Ready("Compare the supplied text with the requested criteria and report every discrepancy.");
         state.Plan!.Inputs = [new() { Name = "text", Type = new() { Kind = "string" } }];
         state.Requirements!.Inputs = state.Plan.Inputs;
         Select(state, "transform");
@@ -247,14 +255,13 @@ public sealed class CompactActualImportReviewTests
             Assert.Equal(task.Objective, draft["objective"]!.ToString());
             Assert.Equal("input", Assert.Single(draft["inputs"]!.AsArray())!["value"]!["kind"]!.ToString());
             Assert.Equal(0, draft["resultType"]!["fields"]![0]!["type"]!["maxItems"]!.GetValue<int>());
-            Assert.Contains("interpret uses its objective as the runtime LLM instruction", request.Prompt, StringComparison.Ordinal);
             Assert.DoesNotContain("the draft expression computes the result", request.Prompt, StringComparison.Ordinal);
             return Wire(request, new()
             {
                 ["findings"] = new JsonArray(new JsonObject
                 {
                     ["kind"] = "inconsistency", ["location"] = "/draft/tasks/0",
-                    ["evidence"] = new JsonArray("/draft/tasks/0"),
+                    ["evidence"] = new JsonArray("/requirements/0", "/draft/tasks/0"),
                     ["explanation"] = "The zero-length result contract cannot report discrepancies required by the objective.",
                     ["uncertainty"] = "The runtime interpretation has not executed."
                 }), ["uncertainty"] = "The result constraint contradicts the stated task.", ["evidenceRequests"] = null
@@ -418,7 +425,7 @@ public sealed class CompactActualImportReviewTests
     [InlineData(true)]
     public async Task IssuedObjectAnchorsAcceptGroundedFindingsAndRejectInventedSuffixes(bool invented)
     {
-        var (state, runtime) = await Ready();
+        var (state, runtime) = await Ready("Return exactly two as the business result.");
         Select(state, "value");
         Stage(state, new() { RequirementIds = ["req_0"], Tasks =
             [new() { Id = "consumer", Kind = "value", Objective = "Return a value.", Outputs = [new("result", new() { Kind = "number", Number = 1 })] }] });
@@ -437,10 +444,10 @@ public sealed class CompactActualImportReviewTests
                 ["findings"] = new JsonArray(new JsonObject
                 {
                     ["kind"] = "inconsistency", ["location"] = "/draft/tasks/0",
-                    ["evidence"] = new JsonArray(invented ? "/draft/tasks/0/parallel_status/0" : "/requirements/0"),
+                    ["evidence"] = new JsonArray("/requirements/0", invented ? "/draft/tasks/0/parallel_status/0" : "/draft/tasks/0"),
                     ["explanation"] = "The returned value does not satisfy the original requested result.",
                     ["uncertainty"] = "Execution remains unverified."
-                }), ["uncertainty"] = "Only the current fragment was reviewed.", ["evidenceRequests"] = null
+                }), ["uncertainty"] = "Only the current fragment was reviewed.", ["evidenceRequests"] = null, ["inconclusive"] = null
             } };
         };
         state = await Advance(state, runtime);
@@ -461,7 +468,7 @@ public sealed class CompactActualImportReviewTests
     [InlineData(true)]
     public async Task PreviouslyIssuedJudgeKeepsItsExactSchemaContextAndAccounting(bool historical)
     {
-        var (state, runtime) = await Ready();
+        var (state, runtime) = await Ready(presentation: 3);
         if (historical) Historical(state);
         Select(state, "value");
         Stage(state, new() { RequirementIds = ["req_0"], Tasks =
@@ -499,15 +506,15 @@ public sealed class CompactActualImportReviewTests
         state.Construction!.Candidate = candidate;
         return candidate;
     }
-    private static async Task<(PlanningSession State, TestRuntime Runtime)> Ready(string prompt = "Preserve the declared business value.")
+    private static async Task<(PlanningSession State, TestRuntime Runtime)> Ready(string prompt = "Preserve the declared business value.", int presentation = 4)
     {
         var runtime = new TestRuntime { Respond = (request, _) => Wire(request, new()
         {
             ["sourceId"] = Context(request)["sources"]![0]!["id"]!.DeepClone(),
             ["clauses"] = new JsonArray(new JsonObject { ["text"] = prompt, ["kind"] = "requirement", ["interfaces"] = "none" })
         }) };
-        var state = await Advance(new() { Request = new() { TenantId = "actual-imports", Prompt = prompt,
-            Options = new() { ["automatic_correction"] = true } } }, runtime);
+        var state = await Advance(PlannerFixture.CapturedPresentation(new() { Request = new() { TenantId = "actual-imports", Prompt = prompt,
+            Options = new() { ["automatic_correction"] = true } } }, presentation), runtime);
         Assert.Empty(state.Diagnostics);
         Assert.True(PlanningConstructionPhasePolicies.IsFresh(state.Request));
         state.Catalog = await runtime.DiscoverAsync(state.Request, PlannerFixture.Ct);
@@ -522,6 +529,8 @@ public sealed class CompactActualImportReviewTests
         };
     private static void Historical(PlanningSession state)
     {
+        state.Construction!.Compact!.PresentationVersion = 3;
+        state.Request.Options["construction_presentation_version"] = 3;
         state.Request.Options["construction_limits"]!.AsObject().Remove("phasePolicy");
         state.Construction!.Limits.PhasePolicy = null;
     }

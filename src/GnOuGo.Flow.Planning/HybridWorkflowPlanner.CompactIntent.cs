@@ -87,7 +87,7 @@ public sealed partial class HybridWorkflowPlanner
     private static async Task ExtractConstructionInterfacesAsync(PlanningSession state, IPlanningRuntime runtime,
         PlanningConstructionInterfaceExtraction extraction, CancellationToken ct)
     {
-        if (PlanningCompactConstruction.State(state).PresentationVersion == 3)
+        if (PlanningCompactConstruction.UsesDeferredBinding(state))
         { await ResolveConstructionInterfacesAsync(state, runtime, extraction, ct); return; }
         var response = await CompactCallAsync(state, runtime, PlanningCompactConstruction.IntentPurpose, () =>
             PlanningCompactConstruction.Request(PlanningCompactConstruction.InterfaceGuidance(state),

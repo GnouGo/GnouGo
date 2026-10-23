@@ -5,6 +5,28 @@ diagnostics stopped without a complete artifact or runtime execution. An earlier
 source passed both Collections runtime variants. The 18 alternating
 baseline/candidate runs against `56942f5` remain unstarted.
 
+## Scoped review revision 4
+
+The current implementation supplies exact compiler facts and source-linked caller
+declarations to business Judges. Findings need both an original obligation and
+concrete implementation evidence. Explicit incomplete reviews stop, with at most
+one reassessment when exact omitted declarations or exports supply new support.
+This changes neither correction authority nor execution authorization. Historical
+revision-3 requests remain exact. Live false positives, reassessment benefit and
+corrections avoided are not yet measured. Exact abandonment of the pending Review
+PR request is now authorized; application and ordinary admission must precede any
+fresh diagnostic. The read-only campaign audit reconfirmed the accounting below
+without a new charge.
+
+Separate [offline extraction experiments](compact-interface-ce9b610.json) retain
+the compact-JSON control at `ce9b610`. Single final schema compaction preserved
+recursive grammar and byte counts while changing reference-order hashes; it was
+not integrated as a model optimization. Shorter instructions preserved the
+control schema and reduced synthetic complete requests by 197 bytes. Both arms
+passed 73 focused checks, and six graph-equivalence checks passed. Neither arm
+made model calls or established a cause for reasoning exhaustion, whitespace or
+empty responses. Their patches and evidence remain independently frozen.
+
 ## Latest frozen diagnostic
 
 Source `2d0485d087191614ab05a927e3dcb15c2af96fb7`, cohort `compacta2d0485d0`,
@@ -138,6 +160,13 @@ at their final decimal places. Further dispatch must recheck balance and
 readiness; these snapshot values grant no new allowance.
 
 ## Validation and remaining acceptance
+
+The revision-4 changes pass **2,580 Planning tests** with warnings as errors,
+including 119 focused review/context/recovery checks. The initial run retained
+26 historical-fixture failures; explicit version-3 captures and valid version-4
+reports resolved them without weakening runtime validation. The benchmark build
+also passes without warnings. Full-solution and independent publication checks
+run separately against a frozen snapshot; their final results remain pending.
 
 The subsequent caller-declaration and formatting changes passed 79 and 67
 focused checks with warnings as errors. Their combined Planning run passed

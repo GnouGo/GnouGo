@@ -11,33 +11,15 @@ internal static partial class PlanningCompactConstruction
     internal static bool UsesDerivedImports(PlanningSession state, PlanningConstructionCandidate candidate) =>
         PlanningConstructionPhasePolicies.IsFresh(state.Request) && candidate.AuthorizedPaths is null && state.EditablePaths is null;
 
-    internal static JsonArray ActualImportedInterfaces(PlanningSession state)
+    internal static JsonArray ActualImportedInterfaces(PlanningSession state) => ActualImportedInterfaces(state, null);
+
+    private static JsonArray ActualImportedInterfaces(PlanningSession state, ReviewInterfaces? verified)
     {
         var candidate = state.Construction!.Candidate!;
-        var plan = PlanningConstruction.Clone(candidate.Plan);
-        foreach (var choice in plan.Choices.Where(choice => choice.Selected is null)) choice.Selected = choice.Recommended;
-        var symbols = new TaskPlanSymbols(plan);
-        var added = candidate.TaskIds.ToHashSet(StringComparer.Ordinal);
-        var imports = new List<ActualImport>();
-        foreach (var site in symbols.Values.Values)
-        {
-            var taskId = site.Path.Split('/') is ["", "tasks", var id, ..] ? id : null;
-            var addedTask = taskId is not null && added.Contains(taskId);
-            var selectedExport = site.Path.StartsWith(candidate.Extension.Scope + "/outputs/", StringComparison.Ordinal) &&
-                (candidate.Extension.Outputs.Any(output => site.Path == candidate.Extension.Scope + "/outputs/" + output.Name) ||
-                 candidate.Extension.CloseScopes.Contains(candidate.Extension.Scope, StringComparer.Ordinal));
-            if (!addedTask && !selectedExport) continue;
-            var phase = addedTask ? symbols.Phase(taskId!) : "outputs";
-            foreach (var value in References(site.Value))
-                imports.Add(new(site.Path, site.Scope.Path, phase, value));
-        }
-        imports = imports.DistinctBy(import => (import.Location, Identity(import.Value))).ToList();
+        var imports = verified?.Imports ?? ActualImports(candidate);
         if (imports.Count == 0) return [];
-        var requested = imports.GroupBy(import => import.Location, StringComparer.Ordinal)
-            .ToDictionary(group => group.Key, group => (IReadOnlyList<TaskValue>)group.Select(import => import.Value).ToArray(), StringComparer.Ordinal);
-        var validation = TaskPlanCompiler.ValidateConstruction(plan, state.Catalog!, state.Request,
-            candidate.OpenScopes.ToHashSet(StringComparer.Ordinal), requestedBindings: requested);
-        if (validation.Diagnostics.Count > 0) throw new PlanningResponseException(validation.Diagnostics.ToList());
+        var validation = verified?.Candidate ?? ValidateReviewInterfaces(state, candidate.Plan, candidate.OpenScopes,
+            new Dictionary<string, IReadOnlyList<TaskValue>>(), ImportRequests(imports));
         var result = new JsonArray();
         foreach (var group in imports.GroupBy(import => import.Location, StringComparer.Ordinal))
         {
@@ -54,6 +36,26 @@ internal static partial class PlanningCompactConstruction
                 });
         }
         return result;
+    }
+
+    private static IReadOnlyList<ActualImport> ActualImports(PlanningConstructionCandidate candidate)
+    {
+        var symbols = new TaskPlanSymbols(candidate.Plan);
+        var added = candidate.TaskIds.ToHashSet(StringComparer.Ordinal);
+        var imports = new List<ActualImport>();
+        foreach (var site in symbols.Values.Values)
+        {
+            var taskId = site.Path.Split('/') is ["", "tasks", var id, ..] ? id : null;
+            var addedTask = taskId is not null && added.Contains(taskId);
+            var selectedExport = site.Path.StartsWith(candidate.Extension.Scope + "/outputs/", StringComparison.Ordinal) &&
+                (candidate.Extension.Outputs.Any(output => site.Path == candidate.Extension.Scope + "/outputs/" + output.Name) ||
+                 candidate.Extension.CloseScopes.Contains(candidate.Extension.Scope, StringComparer.Ordinal));
+            if (!addedTask && !selectedExport) continue;
+            var phase = addedTask ? symbols.Phase(taskId!) : "outputs";
+            foreach (var value in References(site.Value))
+                imports.Add(new(site.Path, site.Scope.Path, phase, value));
+        }
+        return imports.DistinctBy(import => (import.Location, Identity(import.Value))).ToList();
 
         IEnumerable<TaskValue> References(TaskValue value)
         {
@@ -70,4 +72,86 @@ internal static partial class PlanningCompactConstruction
             value.Kind is "output" or "present" && !added.Contains(value.Source ?? "");
         static string Identity(TaskValue value) => JsonSerializer.Serialize(value, PlanningJsonContext.Default.TaskValue);
     }
+
+    private sealed record ReviewInterfaces(IReadOnlyList<ActualImport> Imports,
+        TaskConstructionValidation Candidate, TaskConstructionValidation? Accepted);
+
+    // Aggregate exact consumers/frontiers before preflight. These results live
+    // only for this context construction; no validation result is persisted or
+    // reused across candidate, contract or open-scope changes.
+    private static ReviewInterfaces VerifiedReviewInterfaces(PlanningSession state, bool candidateScope)
+    {
+        var construction = state.Construction!;
+        var candidate = construction.Candidate!;
+        var step = State(state).CurrentStep!;
+        var imports = ActualImports(candidate);
+        var candidateInterfaces = new Dictionary<string, IReadOnlyList<TaskValue>>(StringComparer.Ordinal);
+        var acceptedInterfaces = new Dictionary<string, IReadOnlyList<TaskValue>>(StringComparer.Ordinal);
+        var scopePlan = candidateScope ? candidate.Plan : state.Plan;
+        if (scopePlan is not null && new TaskPlanSymbols(scopePlan).Scopes.SingleOrDefault(s => s.Path == step.Scope) is { } scope &&
+            (candidateScope || scope.Source.Outputs.Count > 0))
+            (candidateScope ? candidateInterfaces : acceptedInterfaces)[step.Scope + "/always"] =
+                scope.Source.Outputs.Take(8).Select(o => o.Value).ToArray();
+        foreach (var id in new[] { step.GroupId, ScopeGroup(state, step.Scope)?.Id }.OfType<string>().Distinct(StringComparer.Ordinal))
+        {
+            var path = "/groups/" + id + "/body";
+            if (state.Plan?.Groups.SingleOrDefault(g => g.Id == id) is { } group &&
+                !construction.OpenScopes.Any(s => s == path || s.StartsWith(path + "/", StringComparison.Ordinal)))
+                acceptedInterfaces[path] = group.Body.Outputs.Select(o => o.Value).ToArray();
+        }
+        var bindings = ImportRequests(imports);
+        if (state.Plan is not null && PlanningConstruction.Hash(state.Plan) == PlanningConstruction.Hash(candidate.Plan) &&
+            construction.OpenScopes.ToHashSet(StringComparer.Ordinal).SetEquals(candidate.OpenScopes))
+        {
+            foreach (var requested in acceptedInterfaces) candidateInterfaces[requested.Key] = requested.Value;
+            var shared = ValidateReviewInterfaces(state, candidate.Plan, candidate.OpenScopes, candidateInterfaces, bindings);
+            return new(imports, shared, shared);
+        }
+        var validated = ValidateReviewInterfaces(state, candidate.Plan, candidate.OpenScopes, candidateInterfaces, bindings);
+        var accepted = acceptedInterfaces.Count == 0 ? null : ValidateReviewInterfaces(state, state.Plan!, construction.OpenScopes,
+            acceptedInterfaces, null);
+        return new(imports, validated, accepted);
+    }
+
+    private static Dictionary<string, IReadOnlyList<TaskValue>> ImportRequests(IReadOnlyList<ActualImport> imports) =>
+        imports.GroupBy(import => import.Location, StringComparer.Ordinal).ToDictionary(group => group.Key,
+            group => (IReadOnlyList<TaskValue>)group.Select(import => import.Value).ToArray(), StringComparer.Ordinal);
+
+    private static TaskConstructionValidation ValidateReviewInterfaces(PlanningSession state, TaskPlan plan, IEnumerable<string> open,
+        IReadOnlyDictionary<string, IReadOnlyList<TaskValue>> interfaces,
+        IReadOnlyDictionary<string, IReadOnlyList<TaskValue>>? bindings)
+    {
+        var probe = PlanningConstruction.Clone(plan);
+        foreach (var choice in probe.Choices.Where(choice => choice.Selected is null)) choice.Selected = choice.Recommended;
+        var boundaries = open.ToHashSet(StringComparer.Ordinal);
+        if (interfaces.Count <= 8 && interfaces.Values.Sum(values => (long)values.Count) <= 128)
+            return Validate(interfaces, bindings);
+        // Combining previously independent frontiers must not reduce their
+        // existing capacity. Keep each compiler request within its unchanged
+        // limit; an indivisible oversized frontier still fails explicitly.
+        var batches = new List<Dictionary<string, IReadOnlyList<TaskValue>>> { new(StringComparer.Ordinal) };
+        foreach (var frontier in interfaces)
+        {
+            var batch = batches[^1];
+            if (batch.Count > 0 && (batch.Count == 8 || batch.Values.Sum(values => (long)values.Count) + frontier.Value.Count > 128))
+                batches.Add(batch = new(StringComparer.Ordinal));
+            batch.Add(frontier.Key, frontier.Value);
+        }
+        var resolved = new Dictionary<string, IReadOnlyList<TaskPlanCompiler.RepairSource>>(StringComparer.Ordinal);
+        foreach (var batch in batches)
+        {
+            foreach (var exact in Validate(batch, bindings).Interfaces) resolved.Add(exact.Key, exact.Value);
+            bindings = null;
+        }
+        return new([], resolved);
+
+        TaskConstructionValidation Validate(IReadOnlyDictionary<string, IReadOnlyList<TaskValue>> frontiers,
+            IReadOnlyDictionary<string, IReadOnlyList<TaskValue>>? consumers)
+        {
+            var validation = TaskPlanCompiler.ValidateConstruction(probe, state.Catalog!, state.Request, boundaries, frontiers, consumers);
+            if (validation.Diagnostics.Count > 0) throw new PlanningResponseException(validation.Diagnostics.ToList());
+            return validation;
+        }
+    }
+
 }

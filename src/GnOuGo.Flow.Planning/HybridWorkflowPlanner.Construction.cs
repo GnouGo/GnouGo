@@ -75,7 +75,7 @@ public sealed partial class HybridWorkflowPlanner
             limits.DraftOutputTokens is < 1 or > 65536 || limits.ReviewOutputTokens is < 1 or > 65536)
             throw new PlanningConflictException("The captured construction contract or limits are unsupported.");
         if (construction.CandidateFailureIdentityVersion is not (null or 1) ||
-            construction.CandidateFailureIdentityVersion is not null && construction is not { Version: 2, Compact.PresentationVersion: 2 or 3 })
+            construction.CandidateFailureIdentityVersion is not null && construction is not { Version: 2, Compact.PresentationVersion: 2 or 3 or 4 })
             throw new PlanningConflictException("The captured candidate failure identity is unsupported.");
         if (construction.Version == 2) { await AdvanceCompactConstructionAsync(state, runtime, ct); return; }
         state.Status = PlanningStatus.Generating;
@@ -167,7 +167,7 @@ public sealed partial class HybridWorkflowPlanner
         // CallAsync checkpoints this transient recovery contract with the issued
         // request before dispatch. Already issued requests/candidates keep their
         // captured (including absent historical) comparison semantics.
-        if (state.PendingCall is null && previous is null && construction is { Version: 2, Compact.PresentationVersion: 2 or 3 })
+        if (state.PendingCall is null && previous is null && construction is { Version: 2, Compact.PresentationVersion: 2 or 3 or 4 })
             construction.CandidateFailureIdentityVersion = 1;
         var request = state.PendingCall?.Request ?? PlanningConstruction.DraftRequest(state, repair);
         var response = await PlanningModelCalls.CallAsync(state, runtime, repair ? "replan" : PlanningConstruction.DraftPurpose,

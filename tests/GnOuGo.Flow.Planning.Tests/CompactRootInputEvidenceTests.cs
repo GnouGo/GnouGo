@@ -204,6 +204,8 @@ public sealed class CompactRootInputEvidenceTests
         const string requirement = "Accept a required numeric array and an optional nullable label; process the values afterward.";
         var state = new PlanningSession { Request = new() { TenantId = "root-input-evidence", Prompt = requirement } };
         PlanningSessionCreation.Capture(state);
+        state.Request.Options["construction_presentation_version"] = 3;
+        state.Construction!.Compact!.PresentationVersion = 3; // Retained navigation-only review protocol.
         state.IntentVersion = 3; state.Revision = 1; state.Status = PlanningStatus.Generating;
         var construction = state.Construction!;
         var compact = construction.Compact!;

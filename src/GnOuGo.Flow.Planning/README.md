@@ -2,7 +2,7 @@
 
 Fresh sessions use [compact incremental construction](../../docs/incremental-taskplan-construction.md): index original intent, select one immediate business substep, discover its capabilities, then generate and review a bounded fragment of one TaskPlan. Phase-specific context and response schemas omit unrelated inspections, task grammar and history. Exact contract views preserve required constraints; the shared compiler validates against unchanged original contracts before encrypted checkpoint acceptance. Completion uses the existing PlanningGraph and compiler v15 path without a final whole-plan LLM Judge. Historical proposal/repair contracts below retain their original meaning for issued sessions.
 
-Fresh presentation revision 3 keeps verbatim source classification and targeted
+Presentation revisions 3 and 4 keep verbatim source classification and targeted
 caller/public-interface extraction in the existing intent phase. Classification
 directions are provisional. Extraction first distinguishes caller interfaces from
 artifact obligations: writing a file with specified fields does not itself declare
@@ -95,6 +95,28 @@ exports are public results; nested exports remain local and may use the same
 name with a different type. Judges assess accepted exports plus candidate
 additions, without requiring an unchanged export to be redeclared.
 This evidence does not make an open container consumable or grant edit authority.
+
+Fresh revision 4 adds `constructionStage.preflight` only after real compiler
+validation, including fragments with no consumed operands. Exact binding and
+frontier requests share that request-local result by plan/open-scope basis;
+queries that would exceed the existing eight-scope/128-reference interface bound
+remain separately bounded. No validation cache or public proof contract is stored.
+Relevant caller declarations are tied to completed extraction dispositions and
+exact source versions, with full types/defaults inline under a bounded byte budget
+or exact retrieval links. Ambiguous source associations expose directory navigation
+only. Preflight does not settle business choices, unfinished interfaces, complete
+requirements, final validation or runtime effects.
+
+The revision-4 private Judge envelope distinguishes findings, evidence requests
+and an explicit inconclusive assessment. Findings require both an applicable
+original obligation and concrete implementation evidence; status and navigation
+alone are insufficient. A valid inconclusive assessment can consume one additional
+review only when exact relevant omitted declaration/export evidence improves its
+support and the complete follow-up fits existing admission. Candidate review
+records retain this allowance across local/intermediate review and interruption;
+there is no correction charge or renewed evidence cycle. Otherwise the candidate
+remains unaccepted. Revision-3 future prompts and all saved requests, schemas,
+receipts and approval identities retain their original behavior.
 Closing a scope can leave its broader requirement open. A premature selected
 requirement-closure claim can be withdrawn through existing reselection within
 the same scope and requirement identities; repeating the draft retains that claim.

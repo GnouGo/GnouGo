@@ -64,7 +64,7 @@ public sealed class CompactIntentResolutionTests
         var runtime = new TestRuntime { Respond = (r, _) => Wire(r, Classify(r, classification,
             (declaration, "none"), (naming, classification))) };
         var state = await Advance(Fresh(declaration + naming), runtime);
-        Assert.Equal(3, state.Construction!.Compact!.PresentationVersion);
+        Assert.Equal(4, state.Construction!.Compact!.PresentationVersion);
         runtime.Respond = (r, _) =>
         {
             var context = Context(r);
@@ -233,11 +233,13 @@ public sealed class CompactIntentResolutionTests
         Assert.Empty(state.Construction.Checkpoints);
     }
 
-    [Fact]
-    public async Task InterruptedResolutionRecoversItsExactIssuedContextAndAccounting()
+    [Theory]
+    [InlineData(3)]
+    [InlineData(4)]
+    public async Task InterruptedResolutionRecoversItsExactIssuedContextAndAccounting(int version)
     {
         var runtime = new TestRuntime { Respond = (r, _) => Wire(r, Classify(r, "output")) };
-        var state = await Advance(Fresh("Write the local report file."), runtime);
+        var state = await Advance(PlannerFixture.CapturedPresentation(Fresh("Write the local report file."), version), runtime);
         runtime.Respond = (_, _) => throw new OperationCanceledException();
         _ = await Advance(state, runtime);
         var saved = PlannerFixture.Clone(runtime.Checkpoints.Last(s => s.PendingCall is not null));
@@ -249,8 +251,57 @@ public sealed class CompactIntentResolutionTests
         var resumed = await Advance(saved, recovery);
         Assert.Equal(issued, JsonSerializer.Serialize(Assert.Single(recovery.Calls), PlanningJsonContext.Default.LLMRequest));
         Assert.Equal(calls, resumed.ModelCalls); Assert.Equal(repairs, resumed.ReplanAttempts);
+        Assert.Equal(version, resumed.Construction!.Compact!.PresentationVersion);
         Assert.True(Assert.Single(resumed.Construction!.Compact!.InterfaceExtractions!).Complete);
         Assert.False(PlanningCompactConstruction.SourcesComplete(resumed));
+    }
+
+    [Fact]
+    public async Task RetainedVersionThreeFutureExtractionIsTheExactVersionFourControl()
+    {
+        var historical = PlannerFixture.CapturedPresentation(Fresh("Accept required text input suppliedText."), 3);
+        var retained = JsonSerializer.Serialize(historical, PlanningJsonContext.Default.PlanningSession);
+        PlanningSessionCreation.Capture(historical);
+        Assert.Equal(retained, JsonSerializer.Serialize(historical, PlanningJsonContext.Default.PlanningSession));
+        var runtime = new TestRuntime { Respond = (r, _) => Wire(r, Classify(r, "input")) };
+        historical = await Advance(historical, runtime);
+        Assert.Equal(3, historical.Construction!.Compact!.PresentationVersion);
+        var current = PlannerFixture.Clone(historical);
+        current.Construction!.Compact!.PresentationVersion = 4;
+        current.Request.Options["construction_presentation_version"] = 4;
+        var historicalExtraction = Assert.Single(historical.Construction.Compact.InterfaceExtractions!);
+        var currentExtraction = Assert.Single(current.Construction.Compact.InterfaceExtractions!);
+        Assert.Equal(PlanningCompactConstruction.InterfaceGuidance(historical), PlanningCompactConstruction.InterfaceGuidance(current));
+        Assert.Equal(PlanningCompactConstruction.InterfaceContext(historical, historicalExtraction).ToJsonString(),
+            PlanningCompactConstruction.InterfaceContext(current, currentExtraction).ToJsonString());
+        Assert.Equal(PlanningCompactConstruction.ResolvableInterfaceSchema(historical, historicalExtraction).ToJsonString(),
+            PlanningCompactConstruction.ResolvableInterfaceSchema(current, currentExtraction).ToJsonString());
+        runtime.Respond = (r, _) => Wire(r, Resolve(r,
+            inputs: [new() { Name = "suppliedText", Type = new() { Kind = "string" }, Required = true }]));
+        historical = await Advance(historical, runtime);
+        Assert.Equal(3, historical.Construction!.Compact!.PresentationVersion);
+        Assert.True(PlanningCompactConstruction.IntentDeclarationsComplete(historical.Construction.Compact));
+        Assert.Equal("suppliedText", Assert.Single(historical.Requirements!.Inputs!).Name);
+    }
+
+    [Theory]
+    [InlineData(3)]
+    [InlineData(4)]
+    public async Task CompletedExtractionCannotLoseItsOriginalDispositionBeforeGeneration(int version)
+    {
+        var runtime = new TestRuntime { Respond = (r, _) => Wire(r, Classify(r, "output")) };
+        var state = await Advance(PlannerFixture.CapturedPresentation(Fresh("Write the local report file."), version), runtime);
+        runtime.Respond = (r, _) => Wire(r, Resolve(r, kind: "no_public_interface"));
+        state = await Advance(state, runtime);
+        Assert.True(PlanningCompactConstruction.IntentDeclarationsComplete(state.Construction!.Compact!));
+        var retained = PlannerFixture.Clone(state);
+        Assert.Single(retained.Construction!.Compact!.InterfaceExtractions!).Dispositions = null;
+        Assert.False(PlanningCompactConstruction.IntentDeclarationsComplete(retained.Construction.Compact));
+        var calls = runtime.Calls.Count;
+        await Assert.ThrowsAsync<PlanningConflictException>(() => Advance(retained, runtime));
+        Assert.Equal(calls, runtime.Calls.Count);
+        Assert.Empty(retained.Construction.Checkpoints);
+        Assert.Equal(0, retained.ReplanAttempts);
     }
 
     [Fact]

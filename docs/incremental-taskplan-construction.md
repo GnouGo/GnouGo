@@ -1,6 +1,6 @@
 # Incremental TaskPlan construction
 
-Fresh construction-version-2 sessions capture presentation revision 3 and extend one semantic TaskPlan from available producers
+Fresh construction-version-2 sessions capture presentation revision 4 and extend one semantic TaskPlan from available producers
 toward consumers. They index original intent once, select one immediate business
 substep, discover its capabilities and generate only its fragment. Each bounded
 draft passes deterministic semantic validation and a local advisory review before
@@ -260,6 +260,13 @@ declarations without routinely including unrelated schemas. Group reviews retain
 their isolated parameter interface. Partial navigation alone cannot establish an
 absent or incompatible declaration; the Judge must retrieve the relevant evidence.
 
+Revision 4 supplies relevant caller declarations inline when their completed
+extraction dispositions link exact original sources to the current requirement.
+Full declarations share a bounded byte allowance; omitted constraints remain
+available at exact input addresses. An unproven source association exposes only
+the existing bounded directory, never an inferred declaration. These views remain
+separate from actual consumed operands and isolated group parameters.
+
 Reusable groups are isolated: their bodies use declared parameters, not caller
 captures. Calls select a closed group and receive its immutable hash, parameter
 and output interface, including defaults; the body remains separately retrievable.
@@ -301,7 +308,14 @@ source-generated recovery metadata does not enter artifact or approval hashes.
 
 Every candidate requires local review before acceptance. Intermediate reviews
 inspect multi-fragment closures, joins and every four accepted drafts, coalescing
-overlapping triggers. Locations and evidence must resolve to supplied originals.
+overlapping triggers. Revision 4 presents compact facts from actual compiler
+preflight, including declaration-only candidates with no imported operands.
+Request construction shares the compiler result across exact bindings and scope
+interfaces for the same plan/open-scope basis. Combined frontier queries exceeding
+the unchanged compiler interface bound use separately bounded queries; no
+indivisible interface is truncated. Unfinished interfaces, unresolved business
+choices, full requirement coverage, final whole-plan validation, runtime behavior
+and execution authority remain outside that proof. Locations and evidence must resolve to supplied originals.
 Invalid reports leave candidates unaccepted. Valid uncertainty stays unverified;
 Judge findings are neither authorization nor deterministic proof.
 Compact reviews include bounded host facts identifying scope openings, closures
@@ -327,11 +341,24 @@ lookup remain authoritative; malformed reports stop acceptance. Public root
 outputs and local exports are reviewed in their respective scopes.
 
 Each Judge response selects one action. A completed review returns a findings
-array (empty when no grounded finding exists) and null evidence requests. An
-evidence action returns non-empty evidence requests and null findings. Both
-fields null, or both arrays, remain inconclusive; an uncertainty statement alone
-does not select an action. Already issued requests retain their original prompt,
-schema and identity during recovery.
+array; an evidence action requests exact missing support. Revision 4 additionally
+allows an explicit `inconclusive` reason when business assessment is incomplete.
+All other action fields are null. Residual execution uncertainty in a completed
+review differs from an unfinished business review. A finding must cite an
+applicable original obligation and concrete implementation evidence; navigation
+or a preflight status alone cannot substantiate a correction.
+
+A valid inconclusive response may receive one reassessment for the same semantic
+candidate and completion claim, shared across local and intermediate review.
+Only already relevant, omitted exact input declarations or export schemas can
+supply the additional support. The host stages retrieval and admits the complete
+follow-up plus required downstream review before saving it. The receipt, support
+hashes and exact issued request remain durable; reassessment consumes calls and
+usage without a correction charge. Missing new support, exhausted allowances,
+malformed reports or another inconclusive result stop without a checkpoint or
+edit authority. Reassessment cannot restart an evidence cycle. Historical
+revision-3 response actions and all issued requests retain their exact prompts,
+schemas, identities and recovery behavior.
 
 Corrections share the existing call, token, cost and time journal and require a
 replacement review. A missing committed producer requires bounded replacement
@@ -467,11 +494,13 @@ unrestricted-string versus exhaustive-enum semantics after schema annotations
 are compacted. File-content obligations do not imply public outputs; an explicit
 public file-path declaration still requires a typed interface.
 
-Fresh creation captures presentation revision 3 in the existing setting. Its
-nullable implementation choices, prerequisite notes and extraction dispositions
-are source-generated non-executable metadata; construction version 2 and storage
-format 10 remain unchanged. Historical revision-2 sessions retain their original
-selection/discovery/extraction behavior. Historical sessions retain issued
+Fresh creation captures presentation revision 4 in the existing setting. It
+adds compiler-grounded review context and an explicit inconclusive review action
+using existing candidate review records; no public DTO, proof store or executable
+representation is added. Nullable implementation choices, prerequisite notes and
+extraction dispositions remain non-executable metadata; construction version 2
+and storage format 10 are unchanged. Historical revisions 2 and 3 retain their
+captured future-request behavior as well as already issued requests. Historical sessions retain issued
 schemas, compiler profiles, identities, approvals, receipts and cumulative usage.
 Their required compatibility paths cannot be selected by new sessions. Legacy
 Judge options do not disable local review. Pending calls resume the exact saved

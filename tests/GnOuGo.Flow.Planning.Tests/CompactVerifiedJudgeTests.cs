@@ -1,0 +1,297 @@
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using GnOuGo.Flow.Core.Expressions;
+using GnOuGo.Flow.Core.Planning;
+using GnOuGo.Flow.Core.Runtime;
+
+namespace GnOuGo.Flow.Planning.Tests;
+
+public sealed class CompactVerifiedJudgeTests
+{
+    [Theory]
+    [InlineData("/constructionStage", false)]
+    [InlineData("/inputDeclarations", false)]
+    [InlineData("/inputDeclarations/inputs/0", true)]
+    public async Task OnlyOriginalObligationAndConcreteEvidenceCanRequestLocalCorrection(string implementation, bool supported)
+    {
+        var state = await State();
+        var baseline = PlanningConstruction.Hash(state.Plan);
+        var runtime = new TestRuntime { Respond = (_, _) => Response(findings: new JsonArray(new JsonObject
+        {
+            ["kind"] = "inconsistency", ["location"] = "/requirements/0",
+            ["evidence"] = new JsonArray("/requirements/0", implementation),
+            ["explanation"] = "The declaration does not fulfill the cited original obligation.", ["uncertainty"] = "Business interpretation."
+        })) };
+        state = await Advance(state, runtime);
+        Assert.Equal(baseline, PlanningConstruction.Hash(state.Plan));
+        Assert.Empty(state.Construction!.Checkpoints);
+        Assert.Equal(0, state.ReplanAttempts);
+        Assert.Equal(supported ? "CONSTRUCTION_BUSINESS_REVIEW" : "CONSTRUCTION_REVIEW_INCONCLUSIVE", Assert.Single(state.Diagnostics).Code);
+        Assert.Equal(supported ? PlanningStatus.Generating : PlanningStatus.Stopped, state.Status);
+        Assert.Equal(supported, state.Construction.Candidate!.Diagnostics.Count > 0);
+        Assert.NotNull(Assert.Single(state.Construction.Candidate.Reviews)["response"]);
+    }
+
+    [Fact]
+    public void AggregatedOriginalGlobalsAndExactOperandsRemainValidGrounding()
+    {
+        var context = new JsonObject
+        {
+            ["requirements"] = new JsonArray(new JsonObject { ["id"] = "work" }),
+            ["globalConstraints"] = new JsonArray(Enumerable.Range(0, 17).Select(i => (JsonNode)new JsonObject { ["id"] = "source" + i, ["text"] = "Original clause" }).ToArray()),
+            ["interfaces"] = new JsonArray(Enumerable.Range(0, 17).Select(i => (JsonNode)new JsonObject
+                { ["binding"] = new JsonObject { ["kind"] = "input", ["source"] = "p" + i }, ["schema"] = new JsonObject { ["type"] = "number" } }).ToArray())
+        };
+        var finding = new JsonObject { ["kind"] = "inconsistency", ["location"] = "/requirements/0",
+            ["evidence"] = new JsonArray("/globalConstraints", "/interfaces"), ["explanation"] = "A concrete business conflict.", ["uncertainty"] = "Advisory." };
+        var schema = HybridWorkflowPlanner.ConstructionReviewSchema(context, verified: true);
+        Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(Response(findings: new JsonArray(finding.DeepClone())).Json!, schema));
+        Assert.True(HybridWorkflowPlanner.ConstructionBusinessFindingSupported(context, finding));
+    }
+
+    [Fact]
+    public async Task ExecutionUncertaintyDoesNotMeanIncompleteBusinessReview()
+    {
+        var state = await State();
+        state = await Advance(state, new() { Respond = (_, _) => Response() });
+        Assert.Empty(state.Diagnostics);
+        Assert.Single(state.Construction!.Checkpoints);
+        Assert.Equal("closed", state.Construction.Requirements.Single(r => r.Id == "declare").Status);
+        Assert.False(state.Construction.Complete);
+        Assert.Null(state.ApprovedHash);
+        Assert.Equal(0, state.ReplanAttempts);
+    }
+
+    [Theory]
+    [InlineData("two_actions")]
+    [InlineData("blank_reason")]
+    [InlineData("no_obligation")]
+    public async Task InvalidOrUnsupportedReportNeverSchedulesReassessment(string defect)
+    {
+        var state = await State(large: true);
+        var runtime = new TestRuntime { Respond = (_, _) =>
+        {
+            var response = Response(inconclusive: defect == "blank_reason" ? "   " : "Need exact constraints.");
+            if (defect == "two_actions") response.Json!["findings"] = new JsonArray();
+            if (defect == "no_obligation") response = Response(findings: new JsonArray(new JsonObject
+            {
+                ["kind"] = "omission", ["location"] = "/requirements/0", ["evidence"] = new JsonArray("/constructionStage", "/inputDeclarations"),
+                ["explanation"] = "The validation summary does not mention the desired value.", ["uncertainty"] = "Unknown."
+            }));
+            return response;
+        } };
+        state = await Advance(state, runtime);
+        Assert.Equal(PlanningStatus.Stopped, state.Status);
+        Assert.Empty(state.Construction!.Checkpoints);
+        Assert.Equal(0, state.ReplanAttempts);
+        Assert.All(state.Construction.Candidate!.Reviews, review => Assert.Null(review["reassessment"]));
+        Assert.NotNull(Assert.Single(state.Construction.Candidate.Reviews)["response"]);
+    }
+
+    [Fact]
+    public async Task SavedReassessmentReceiptResumesWithoutAnotherDispatchOrAllowance()
+    {
+        var state = await State(large: true);
+        var runtime = new TestRuntime { Respond = (_, _) => Response(inconclusive: "Need exact omitted constraints.") };
+        state = await Advance(state, runtime);
+        LLMResponse? receipt = null;
+        var dispatched = 0;
+        runtime.Respond = (_, _) =>
+        {
+            dispatched++;
+            receipt = Response(); // Simulated durable runtime receipt, before coordinator consumption.
+            throw new OperationCanceledException();
+        };
+        _ = await Advance(state, runtime);
+        state = PlannerFixture.Clone(runtime.Checkpoints.Last(saved => saved.Status == PlanningStatus.Generating && saved.PendingCall is not null));
+        var issued = JsonSerializer.Serialize(state.PendingCall!.Request, PlanningJsonContext.Default.LLMRequest);
+        runtime.Respond = (request, _) =>
+        {
+            Assert.Equal(issued, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+            return receipt!; // Existing receipt, no provider dispatch.
+        };
+        state = await Advance(state, runtime);
+        Assert.Equal(1, dispatched);
+        Assert.Equal(2, state.ModelCalls);
+        Assert.Equal(0, state.ReplanAttempts);
+        var checkpoint = Assert.Single(state.Construction!.Checkpoints);
+        Assert.Equal("issued", Assert.Single(checkpoint.Reviews, review => review["reassessment"] is not null)["reassessment"]!.ToString());
+        Assert.Null(state.PendingCall);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task InconclusiveWithoutNewExactSupportStopsWithoutCorrection(bool alreadySupplied)
+    {
+        var state = await State(large: alreadySupplied);
+        if (alreadySupplied) PlanningConstruction.LoadEvidence(state, ["input:label"]);
+        state = await Advance(state, new() { Respond = (_, _) => Response(inconclusive: "The available evidence cannot complete this review.") });
+        Assert.Equal(PlanningStatus.Stopped, state.Status);
+        Assert.Equal("CONSTRUCTION_REVIEW_INCONCLUSIVE", Assert.Single(state.Diagnostics).Code);
+        Assert.Equal(1, state.ModelCalls);
+        Assert.Equal(0, state.ReplanAttempts);
+        Assert.Empty(state.Construction!.Checkpoints);
+        Assert.All(state.Construction.Candidate!.Reviews, entry => Assert.Null(entry["reassessment"]));
+    }
+
+    [Theory]
+    [InlineData("complete")]
+    [InlineData("inconclusive")]
+    [InlineData("evidence")]
+    public async Task OneReassessmentUsesNewExactSupportAndCannotRestartEvidence(string outcome)
+    {
+        var state = await State(large: true);
+        var baseline = PlanningConstruction.Hash(state.Plan);
+        var runtime = new TestRuntime { Respond = (_, _) => Response(inconclusive: "The exact caller constraints are needed.") };
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        Assert.Equal("ready", Assert.Single(state.Construction!.Candidate!.Reviews)["reassessment"]!.ToString());
+        Assert.Equal(baseline, PlanningConstruction.Hash(state.Plan));
+        Assert.Empty(state.Construction.Checkpoints);
+        runtime.Respond = (request, _) =>
+        {
+            var context = Context(request);
+            Assert.NotNull(context["evidence"]!["input:label"]);
+            var support = Assert.Single(context["reassessment"]!["support"]!.AsArray());
+            Assert.Equal("input:label", support!["address"]!.ToString());
+            Assert.Equal(PlanningGraphCompiler.Fingerprint(context["evidence"]!["input:label"]!.ToJsonString()), support["hash"]!.ToString());
+            Assert.Equal("null", request.StructuredOutputSchema!["properties"]!["evidenceRequests"]!["type"]!.ToString());
+            return outcome == "complete" ? Response() : outcome == "inconclusive" ? Response(inconclusive: "Still unable to complete.")
+                : Response(addresses: ["scope:/root"]);
+        };
+        state = await Advance(PlannerFixture.Clone(state), runtime);
+        Assert.Equal(2, state.ModelCalls);
+        Assert.Equal(0, state.ReplanAttempts);
+        var reviews = outcome == "complete" ? Assert.Single(state.Construction!.Checkpoints).Reviews : state.Construction!.Candidate!.Reviews;
+        var issued = Assert.Single(reviews, entry => entry["reassessment"] is not null);
+        Assert.Equal("issued", issued["reassessment"]!.ToString());
+        Assert.NotNull(issued["requestId"]);
+        Assert.NotNull(issued["reassessmentFingerprint"]);
+        if (outcome != "complete")
+        {
+            Assert.Equal(PlanningStatus.Stopped, state.Status);
+            Assert.Empty(state.Construction.Checkpoints);
+            Assert.Equal(baseline, PlanningConstruction.Hash(state.Plan));
+        }
+    }
+
+    [Fact]
+    public async Task LocalAndIntermediateShareOneReassessmentAllowance()
+    {
+        var state = await State(large: true);
+        state.Construction!.Candidate!.NeedsIntermediateReview = true;
+        var runtime = new TestRuntime { Respond = (_, _) => Response(inconclusive: "Need omitted declaration.") };
+        state = await Advance(state, runtime);
+        runtime.Respond = (_, _) => Response();
+        state = await Advance(state, runtime);
+        Assert.True(state.Construction!.Candidate!.LocalReviewed);
+        Assert.Empty(state.Construction.Checkpoints);
+        runtime.Respond = (_, purpose) =>
+        {
+            Assert.Equal(PlanningConstruction.IntermediatePurpose, purpose);
+            return Response(inconclusive: "Review still incomplete.");
+        };
+        state = await Advance(state, runtime);
+        Assert.Equal(3, state.ModelCalls);
+        Assert.Equal(PlanningStatus.Stopped, state.Status);
+        Assert.Single(state.Construction!.Candidate!.Reviews, entry => entry["reassessment"] is not null);
+        Assert.Empty(state.Construction.Checkpoints);
+        Assert.Equal(0, state.ReplanAttempts);
+    }
+
+    [Theory]
+    [InlineData("calls")]
+    [InlineData("host")]
+    [InlineData("size")]
+    public async Task ReassessmentMustFitRemainingAdmissionBeforeEvidenceIsRetained(string limit)
+    {
+        var state = await State(large: true);
+        if (limit == "calls") state.Request.MaxModelCalls = 1;
+        if (limit == "size")
+        {
+            state.Requirements!.Inputs![0].Type.Enum = [new string('z', 100000)];
+            Stage(state);
+        }
+        var runtime = new TestRuntime { Respond = (_, _) => Response(inconclusive: "Need exact omitted constraints.") };
+        if (limit == "host") runtime.AdmitConstruction = (_, _, _) => throw new WorkflowRuntimeException("LLM_BUDGET_EXCEEDED", "Retained allowance exhausted.");
+        state = await Advance(state, runtime);
+        Assert.Equal(PlanningStatus.Stopped, state.Status);
+        Assert.Equal(1, state.ModelCalls);
+        Assert.Null(state.Construction!.Evidence);
+        Assert.Empty(state.Construction.Checkpoints);
+        Assert.All(state.Construction.Candidate!.Reviews, entry => Assert.Null(entry["reassessment"]));
+        Assert.Equal(0, state.ReplanAttempts);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task InterruptedIssuedReviewResumesExactRequestAndConsumesReassessmentOnce(bool reassessment)
+    {
+        var state = await State(large: reassessment);
+        var runtime = new TestRuntime { Respond = (_, _) => Response(inconclusive: "Need exact omitted constraints.") };
+        if (reassessment) state = await Advance(state, runtime);
+        runtime.Respond = (_, _) => throw new OperationCanceledException();
+        _ = await Advance(state, runtime);
+        state = PlannerFixture.Clone(runtime.Checkpoints.Last(saved => saved.Status == PlanningStatus.Generating && saved.PendingCall is not null));
+        var calls = state.ModelCalls;
+        var request = JsonSerializer.Serialize(state.PendingCall!.Request, PlanningJsonContext.Default.LLMRequest);
+        if (reassessment) Assert.Equal("issued", Assert.Single(state.Construction!.Candidate!.Reviews)["reassessment"]!.ToString());
+        runtime.Respond = (issued, _) =>
+        {
+            Assert.Equal(request, JsonSerializer.Serialize(issued, PlanningJsonContext.Default.LLMRequest));
+            return Response();
+        };
+        state = await Advance(state, runtime);
+        Assert.Equal(calls, state.ModelCalls);
+        Assert.Equal(0, state.ReplanAttempts);
+        Assert.Single(state.Construction!.Checkpoints);
+        Assert.Null(state.PendingCall);
+    }
+
+    private static async Task<PlanningSession> State(bool large = false)
+    {
+        const string original = "Accept a caller string named label with the declared allowed values. Use it in subsequent work.";
+        var state = new PlanningSession { Request = new() { TenantId = "verified-judge", Prompt = original } };
+        PlanningSessionCreation.Capture(state);
+        state.IntentVersion = 3; state.Revision = 1; state.Status = PlanningStatus.Generating;
+        var construction = state.Construction!;
+        construction.CandidateFailureIdentityVersion = 1;
+        PlanningCompactConstruction.InitializeSources(state);
+        foreach (var page in construction.Compact!.Sources) page.Indexed = true;
+        var source = new PlanningConstructionSource { Id = "declared-label", Kind = "clause", Text = original,
+            Version = PlanningGraphCompiler.Fingerprint(original), Indexed = true, InterfaceKind = "input" };
+        construction.Compact.Sources.Add(source);
+        construction.Compact.RequirementSources["declare"] = [source.Id];
+        construction.Compact.RequirementSources["work"] = [source.Id];
+        construction.Compact.InterfaceExtractions = [new() { Id = "extract", SourceIds = [source.Id], Inputs = true, Complete = true,
+            Dispositions = [new() { SourceId = source.Id, Version = source.Version, Kind = "interfaces", Inputs = ["label"],
+                Reason = "The original names the caller declaration.", Evidence = new() { [source.Id] = source.Version } }] }];
+        state.Requirements = new() { Inputs = [new() { Name = "label", Type = new() { Kind = "string", Enum = [large ? new string('z', 4500) : "allowed"] } }],
+            Outputs = [], Outcomes = [new("declare", "Accept the declared caller string."), new("work", "Use it in subsequent work.")] };
+        construction.Requirements = [new() { Id = "declare" }, new() { Id = "work" }];
+        construction.OpenScopes = ["/root"];
+        construction.Compact.CurrentStep = new() { Id = "confirm_inputs", Kind = "close", Scope = "/root", Objective = "Confirm the declared caller inputs.",
+            RequirementIds = ["declare"], CloseRequirementIds = ["declare"], DiscoveryComplete = true };
+        state.Catalog = await new TestRuntime().DiscoverAsync(state.Request, PlannerFixture.Ct);
+        Stage(state);
+        return state;
+    }
+
+    private static void Stage(PlanningSession state)
+    {
+        state.Construction!.Compact!.CurrentStep!.BaseHash = PlanningConstruction.Hash(state.Plan);
+        state.Construction.Candidate = PlanningConstruction.Apply(state, new() { Scope = "/root", RequirementIds = ["declare"] });
+    }
+    private static Task<PlanningSession> Advance(PlanningSession state, TestRuntime runtime) =>
+        new HybridWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
+    private static JsonObject Context(LLMRequest request) => JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!.AsObject();
+    private static LLMResponse Response(JsonArray? findings = null, string? inconclusive = null, string[]? addresses = null)
+    {
+        var json = new JsonObject { ["findings"] = inconclusive is null && addresses is null ? findings ?? new JsonArray() : null,
+            ["evidenceRequests"] = addresses is null ? null : new JsonArray(addresses.Select(a => (JsonNode?)JsonValue.Create(a)).ToArray()),
+            ["inconclusive"] = inconclusive, ["uncertainty"] = "Runtime execution remains unverified." };
+        return new() { Json = json, Text = json.ToJsonString() };
+    }
+}

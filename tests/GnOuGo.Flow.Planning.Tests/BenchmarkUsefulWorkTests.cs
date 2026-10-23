@@ -6,24 +6,28 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class BenchmarkUsefulWorkTests
 {
-    [Fact]
-    public void FreshCohortConfigurationMatchesSessionCreationWhileRetainedVersionTwoIsUnchanged()
+    [Theory]
+    [InlineData(2)]
+    [InlineData(3)]
+    public void FreshCohortConfigurationMatchesSessionCreationWhileRetainedPresentationIsUnchanged(int retainedVersion)
     {
         var state = new PlanningSession();
         PlanningBenchmarkMeasurements.ConfigureRequest(state.Request, [], retained: false);
         var frozen = PlanningBenchmarkMeasurements.Configuration(state.Request);
         PlanningBenchmarkMeasurements.CaptureConstructionSettings(state);
         PlanningSessionCreation.Capture(state);
-        Assert.Equal(3, state.Construction!.Compact!.PresentationVersion);
+        Assert.Equal(4, state.Construction!.Compact!.PresentationVersion);
         Assert.True(JsonNode.DeepEquals(frozen, PlanningBenchmarkMeasurements.Configuration(state.Request)));
 
-        frozen["construction_presentation_version"] = 2;
+        frozen["construction_presentation_version"] = retainedVersion;
+        var keys = frozen.Select(item => item.Key).ToArray();
         var retained = PlanningBenchmarkMeasurements.RestoreConfiguration(frozen);
         PlanningBenchmarkMeasurements.ConfigureRequest(retained, [], retained: true);
         Assert.True(JsonNode.DeepEquals(frozen, PlanningBenchmarkMeasurements.Configuration(retained)));
         var restored = new PlanningSession { Request = retained };
         PlanningBenchmarkMeasurements.CaptureConstructionSettings(restored);
-        Assert.Equal(2, restored.Construction!.Compact!.PresentationVersion);
+        Assert.Equal(retainedVersion, restored.Construction!.Compact!.PresentationVersion);
+        Assert.Equal(keys, PlanningBenchmarkMeasurements.Configuration(restored.Request).Select(item => item.Key));
     }
 
     [Fact]

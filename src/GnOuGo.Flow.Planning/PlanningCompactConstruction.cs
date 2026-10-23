@@ -7,8 +7,9 @@ namespace GnOuGo.Flow.Planning;
 
 internal static partial class PlanningCompactConstruction
 {
-    internal static bool IsCompactPresentation(PlanningSession state) => state.Construction?.Compact?.PresentationVersion is 2 or 3;
-    internal static bool UsesDeferredBinding(PlanningSession state) => state.Construction?.Compact?.PresentationVersion == 3;
+    internal static bool IsCompactPresentation(PlanningSession state) => state.Construction?.Compact?.PresentationVersion is 2 or 3 or 4;
+    internal static bool UsesDeferredBinding(PlanningSession state) => state.Construction?.Compact?.PresentationVersion is 3 or 4;
+    internal static bool UsesVerifiedReview(PlanningSession state) => state.Construction?.Compact?.PresentationVersion == 4;
     private static readonly string[] TaskKinds = ["operation", "value", "transform", "sequence", "conditional", "parallel", "foreach", "call", "close", "group", "choice"];
     internal const string IntentPurpose = "construction_intent", SelectPurpose = "construction_select", DiscoveryPurpose = "construction_discovery";
     internal const string IndexInstructions = """
@@ -340,6 +341,8 @@ internal static partial class PlanningCompactConstruction
         // Typed repairs also use this presentation, before their candidate is
         // valid. Their existing repair context owns editable slots and sources.
         var actualImports = review && draft is { Diagnostics.Count: 0 } && PlanningConstructionPhasePolicies.IsFresh(state.Request);
+        var appliedInterface = review && draft is { Diagnostics.Count: 0 } && draft.Extension.CloseScopes.Contains(step.Scope, StringComparer.Ordinal);
+        var verified = actualImports && UsesVerifiedReview(state) ? VerifiedReviewInterfaces(state, appliedInterface) : null;
         var diagnostics = draft is not null && PlanningConstructionPhasePolicies.IsFresh(state.Request)
             ? draft.Diagnostics.Concat(state.Diagnostics).Distinct()
             : draft?.Diagnostics ?? state.Diagnostics;
@@ -351,7 +354,7 @@ internal static partial class PlanningCompactConstruction
             ["commitments"] = new JsonObject(compact.PendingCommitments.Select(p => new KeyValuePair<string, JsonNode?>(p.Key,
                 JsonSerializer.SerializeToNode(p.Value, PlanningJsonContext.Default.ListPlanningCommitment)))),
             ["globalConstraints"] = Sources(state, compact.GlobalSourceIds), ["instructions"] = state.Request.Policy.Instructions,
-            ["interfaces"] = actualImports ? ActualImportedInterfaces(state) : ImportedInterfaces(state, step),
+            ["interfaces"] = actualImports ? ActualImportedInterfaces(state, verified) : ImportedInterfaces(state, step),
             ["operations"] = ContractViews(state, review),
             ["evidence"] = construction.Evidence?.DeepClone(),
             ["draft"] = draft is null ? null : PlanningJsonTransport.TaskPlanPart(PlanningConstruction.Node(draft.Extension, PlanningJsonContext.Default.PlanningConstructionExtension)),
@@ -361,12 +364,11 @@ internal static partial class PlanningCompactConstruction
         };
         if (step.OutputNames.Count > 0)
             context["outputs"] = PlanningConstruction.Node(state.Requirements!.Outputs!.Where(o => step.OutputNames.Contains(o.Name, StringComparer.Ordinal)).ToList(), PlanningJsonContext.Default.ListTaskInput);
-        if (step.GroupId is { } groupId) context["group"] = GroupInterface(state, groupId);
-        if (ScopeGroup(state, step.Scope) is { } scopeGroup) context["scopeGroup"] = GroupInterface(state, scopeGroup.Id);
-        var appliedInterface = review && draft is { Diagnostics.Count: 0 } && draft.Extension.CloseScopes.Contains(step.Scope, StringComparer.Ordinal);
+        if (step.GroupId is { } groupId) context["group"] = GroupInterface(state, groupId, verified?.Accepted);
+        if (ScopeGroup(state, step.Scope) is { } scopeGroup) context["scopeGroup"] = GroupInterface(state, scopeGroup.Id, verified?.Accepted);
         var unchangedExports = actualImports && UsesDerivedImports(state, draft!) && draft!.Extension is { Outputs.Count: 0, CloseScopes.Count: 0, Complete: false } &&
             step.CloseRequirementIds.Count == 0;
-        if (ScopeInterface(state, appliedInterface, navigationOnly: unchangedExports) is { } scopeInterface) context["scopeInterface"] = scopeInterface;
+        if (ScopeInterface(state, appliedInterface, navigationOnly: unchangedExports, verified: appliedInterface ? verified?.Candidate : verified?.Accepted) is { } scopeInterface) context["scopeInterface"] = scopeInterface;
         var choiceValues = actualImports
             ? context["interfaces"]!.AsArray().Select(i => i!["binding"]!.Deserialize(PlanningJsonContext.Default.TaskValue)!)
             : step.Inputs;
@@ -398,7 +400,11 @@ internal static partial class PlanningCompactConstruction
             // fragment reading its value. Keep its navigation distinct from
             // compiler-derived operands and from isolated group parameters.
             var inputs = state.Plan?.Inputs ?? state.Requirements?.Inputs ?? [];
-            if (ScopeGroup(state, step.Scope) is null && inputs.Count > 0)
+            if (verified is not null)
+            {
+                if (ReviewInputDeclarations(state) is { } declarations) context["inputDeclarations"] = declarations;
+            }
+            else if (ScopeGroup(state, step.Scope) is null && inputs.Count > 0)
             {
                 var offset = compact.InterfaceOffset < inputs.Count ? compact.InterfaceOffset : 0;
                 context["inputDeclarations"] = new JsonObject
@@ -420,6 +426,13 @@ internal static partial class PlanningCompactConstruction
                 ["requirementCompletionClaimed"] = step.CloseRequirementIds.Count > 0,
                 ["planCompletionClaimed"] = draft.Extension.Complete
             };
+            if (verified is not null)
+                context["constructionStage"]!["preflight"] = new JsonObject
+                {
+                    ["status"] = "passed", ["basis"] = "tentative_candidate", ["scope"] = step.Scope,
+                    ["openScopeCount"] = draft.OpenScopes.Count,
+                    ["deferred"] = "Unfinished scope interfaces, unresolved business choices, complete requirement coverage, final whole-plan validation, runtime effects and execution authorization remain unverified. Unselected choices use recommendations only for this preflight probe."
+                };
             var related = construction.Checkpoints.Where(c => c.TaskIds.Any(draft.ImportedTaskIds.Contains) ||
                 intermediate && c.RequirementIds.Any(step.CloseRequirementIds.Contains)).ToArray();
             context["checkpointCount"] = related.Length;
@@ -612,7 +625,7 @@ internal static partial class PlanningCompactConstruction
         return entry;
     }
 
-    internal static JsonObject? GroupInterface(PlanningSession state, string id)
+    internal static JsonObject? GroupInterface(PlanningSession state, string id, TaskConstructionValidation? verified = null)
     {
         var plan = state.Plan;
         var group = plan?.Groups.SingleOrDefault(g => g.Id == id);
@@ -627,11 +640,15 @@ internal static partial class PlanningCompactConstruction
                 ["expectedOutputs"] = new JsonArray(opening.ExpectedOutputs.Select(value => (JsonNode?)JsonValue.Create(value)).ToArray()),
                 ["requirementIds"] = new JsonArray(opening.RequirementIds.Select(value => (JsonNode?)JsonValue.Create(value)).ToArray()) };
         if (open) return result;
-        var probe = PlanningConstruction.Clone(plan!);
-        foreach (var choice in probe.Choices.Where(c => c.Selected is null)) choice.Selected = choice.Recommended;
         var requested = group.Body.Outputs.Select(o => o.Value).ToArray();
-        var validation = TaskPlanCompiler.ValidateConstruction(probe, state.Catalog!, state.Request,
-            state.Construction.OpenScopes.ToHashSet(StringComparer.Ordinal), new Dictionary<string, IReadOnlyList<TaskValue>> { [path] = requested });
+        var validation = verified;
+        if (validation is null)
+        {
+            var probe = PlanningConstruction.Clone(plan!);
+            foreach (var choice in probe.Choices.Where(c => c.Selected is null)) choice.Selected = choice.Recommended;
+            validation = TaskPlanCompiler.ValidateConstruction(probe, state.Catalog!, state.Request,
+                state.Construction.OpenScopes.ToHashSet(StringComparer.Ordinal), new Dictionary<string, IReadOnlyList<TaskValue>> { [path] = requested });
+        }
         if (!validation.Interfaces.TryGetValue(path, out var ports) || ports.Count != requested.Length)
             PlanningConstruction.Fail("CONSTRUCTION_GROUP_INTERFACE_INVALID", "/step/groupId", "The closed group's exact output interfaces must validate before selecting a call.");
         result["outputs"] = new JsonArray(group.Body.Outputs.Zip(ports!).Select(pair => (JsonNode)new JsonObject

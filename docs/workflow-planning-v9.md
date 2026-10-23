@@ -29,7 +29,18 @@ binding session or grounded-plan representation. Local reviews share the existin
 journal and allowances; there is no final whole-plan LLM Judge. Historical proposal
 and optional-review contracts below remain relevant to retained sessions.
 
-The optional fresh `construction_presentation_version: 2` profile separates exact
+Fresh presentation revision 4 separates compiler facts from business findings and
+execution evidence. Scoped reviews reuse actual preflight interfaces and bounded,
+source-linked caller declarations; unresolved choices, unfinished scopes and final
+validation remain explicit limits. An incomplete business review returns an
+explicit inconclusive action. At most one admitted reassessment can add already
+relevant omitted exact support for the same candidate and completion claim;
+otherwise construction stops without accepting work or granting correction
+permission. Existing journals retain its exact request and usage. Revision-3
+sessions keep their original future requests and receipts; no new execution or
+proof subsystem is introduced. See the [review contract](incremental-taskplan-construction.md#review-correction-and-finalization).
+
+The retained `construction_presentation_version: 2` profile separates exact
 clause classification from targeted typed-interface extraction inside the existing
 intent phase. Source continuations preserve obligations across bounded pages;
 pending extraction prevents generation. Nested contract directories, projected
