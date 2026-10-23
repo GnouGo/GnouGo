@@ -46,6 +46,15 @@ preflight remains the authority for types, contracts, ownership, references,
 provenance, assertions, permissions and dependencies. Partial validation does not
 lower a graph or suppress arbitrary final-validation errors.
 
+Fresh revision-4 guidance appends ordinary sequential work to an appropriate
+existing scope. New containers supply needed control, reuse, cleanup or export
+boundaries; they do not replace a missing producer or defer the same action.
+Author and Judge task navigation includes one bounded selected-scope owner and
+its exact original links, separately from consumed producers and recent siblings.
+This navigation establishes no finding, consumption or edit authority.
+Revision-4 review contracts also retain the exact provider and method when declared;
+these identify the selected capability without proving execution or expanding permissions.
+
 Control inputs must be valid when a scope opens. Future work remains an obligation,
 never a placeholder or dangling reference. Unfinished containers cannot supply
 results, presence, ordering dependencies or callable group interfaces outside

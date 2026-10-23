@@ -48,7 +48,12 @@ public sealed partial class CompactDiscoveryProtocolTests
             unprojected.Prompt, unprojected.StructuredOutputSchema.AsObject());
         Assert.Equal(original.ToJsonString(), Context(unprojected)["evidence"]!.ToJsonString());
         Assert.Equal(unprojected.StructuredOutputSchema!.ToJsonString(), request.StructuredOutputSchema!.ToJsonString());
-        var before = PlanningRequestMeasurements.Measure(unprojected, PlanningCompactConstruction.DiscoveryPurpose, 6000);
+        // This comparison isolates metadata. Keep both grammar and instructions
+        // fixed, without changing the original issued request used below.
+        var measuredControl = PlanningModelCalls.PrepareRequest(control, PlanningCompactConstruction.DiscoveryPurpose,
+            request.Prompt[..(request.Prompt.LastIndexOf('\n') + 1)] +
+                unprojected.Prompt[(unprojected.Prompt.LastIndexOf('\n') + 1)..], unprojected.StructuredOutputSchema.AsObject());
+        var before = PlanningRequestMeasurements.Measure(measuredControl, PlanningCompactConstruction.DiscoveryPurpose, 6000);
         var after = PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.DiscoveryPurpose, 6000);
         Assert.Equal(after.CompleteRequestBytes, after.Components.Sum(component => component.SerializedBytes));
         if (version == 4) Assert.True(after.CompleteRequestBytes < before.CompleteRequestBytes - 400);

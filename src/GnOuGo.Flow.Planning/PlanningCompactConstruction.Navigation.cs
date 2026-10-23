@@ -47,6 +47,7 @@ internal static partial class PlanningCompactConstruction
         var addresses = StepOriginalEvidence(state);
         addresses.UnionWith(NavigationEvidence(new[] { "scopeEvidence", "interfacesDirectory", "reusableInterfaces", "taskEvidence", "scopeInterface",
             "operations", "rebuild" }.Select(name => context[name])
+            .Append(context["taskEvidence"]?["scopeOwner"])
             .Concat((state.Construction!.Evidence ?? []).Select(item => item.Value).Where(value => value is JsonObject or JsonArray))));
         ConstrainEvidenceChoices(state, schema, addresses, maximum: 8);
     }

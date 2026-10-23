@@ -1,89 +1,109 @@
 # Compact TaskPlan convergence
 
-**Business acceptance remains incomplete; PR #120 stays Draft.** None of the latest
-frozen `f3cb064` diagnostics produced a complete artifact or executed workflow. The
-18 alternating baseline/candidate runs against `56942f5` have not started. All 21
-receiptless identities remain permanently closed with their full unknown-usage
-reservations retained; replay and continuation remain forbidden.
+**Business acceptance remains incomplete; PR #120 stays Draft.** Neither latest frozen
+`d0413d2` diagnostic produced a complete artifact or executed workflow. The 18 alternating
+baseline/candidate runs against `56942f5` have not started. All 21 receiptless identities
+remain permanently closed with their full unknown-usage reservations retained;
+replay and continuation remain forbidden.
 
 ## Current implementation and validation
 
-Fresh revision 4 retains one incremental TaskPlan, original requirements, scoped
-Judges, deterministic compilation and existing execution authority. The current
-patch scopes automatic operation directories to the current substep query while
-preserving exact cached contracts, description-read guards and historical page recovery.
-Judges receive exact requirement closure IDs; associations and operation commitments
-remain contributions. Cleanup ownership and full scope/requirement closure checks remain.
-These two corrections have not yet been evaluated live.
+The current correction favors appending ordinary work to an existing scope and supplies
+one bounded selected-scope owner with exact retrieval links. Fresh-v4 Judges also receive
+the original selected operation's server and method. These are read-only technical facts,
+not completion or execution authority. Historical issued requests remain byte-exact.
+The owner-only patch passed **2,671 Planning tests**; the subsequent origin-fact addition
+passed **88 focused contract/review tests**, all with warnings as errors and unchanged
+validated hashes. The full solution/publication results below cover earlier exact sources.
+Combined patch validation: `41df8fd0ca19dbdeb9bbca8bae084107acc23496fcb5d7041e4925751e61c3a3`.
+No live convergence or avoided correction is established for this new patch.
+
+Frozen `d0413d2` retains one incremental TaskPlan, original requirements, scoped Judges,
+deterministic compilation and existing execution authority. Automatic operation directories
+are scoped to the current substep query, while exact cached contracts, description-read
+guards and historical page recovery remain intact. Judges receive exact requirement
+closure IDs; associations and operation commitments remain contributions. The latest
+diagnostics exercised this source but did not establish business convergence.
 
 | Source | Validation with warnings as errors |
 | --- | --- |
-| `f3cb064` plus current directory/closure patch | **237 focused / 2,661 Planning passed**, zero compiler diagnostics, unchanged tested hashes, clear independent reviews |
-| Frozen `f3cb064` | 92 focused / 2,656 Planning passed; **11/11 publication stages** passed; full-solution run remains separate and incomplete |
+| Frozen `d0413d2` | **237 focused / 2,661 Planning passed** on matching source; **11/11 publication stages passed**; exact full solution remains active |
+| Frozen `f3cb064` | Full solution **7,685 passed, 0 failed, 13 skipped**, 33 projects; 92 focused / 2,656 Planning passed; **11/11 publication stages** |
 | Historical `35022fa` | Full solution **7,674 passed, 0 failed, 13 skipped**, 33 projects; 11/11 publication stages; [CI succeeded](https://github.com/GnouGo/GnouGo/actions/runs/39968367834) |
 | Historical `131801d4` | Full solution **7,661 passed, 0 failed, 13 skipped**, 33 projects |
 
 Publication covers five independent packages, Planning Native AOT revisions 2/3/4,
-published encrypted storage and Git AOT/contracts. Final patch validation manifest:
-`ceb65251f25fc4b2863b20124e8c28adb0ec8ac993d56d19ea149477cfa332fb`;
-exact `f3cb064` publication manifest:
-`f366fc30d3eb1fd3cdc3c3d588406e386f1980487408a701028d06caaddff317`.
-The frozen source already includes exact default diagnostics, useful-extension guidance
-and singleton narrowing after oversized multi-address Judge evidence. Indivisible
-closures still stop; budgets, correction authority and historical requests remain intact.
+published encrypted storage and Git AOT/contracts. Exact `d0413d2` publication manifest:
+`2f67947c298c4d797cc53b16ffcf6b51bd80527257879ca1ab018f759b614753`;
+exact `f3cb064` full-solution manifest:
+`7d97422531cec0def8ad9a3d1e78920d6d8e95f95cfbf4f11d9fb30c4a5ac4d0`.
+At the last read-only check, [d041 CI](https://github.com/GnouGo/GnouGo/actions/runs/40002249895)
+and [f3 CI](https://github.com/GnouGo/GnouGo/actions/runs/39994400563) remained in progress.
 Technical validation is not business acceptance or proof of avoided corrections.
 
 ## Latest live diagnostics
 
-| Frozen attempt | Calls / receipts | Corrections / checkpoints | Planning seconds | Known cost EUR | Result |
+| Frozen attempt | Planner calls / receipts | Corrections / checkpoints | Planning seconds | Known cost EUR | Result |
 | --- | ---: | ---: | ---: | ---: | --- |
-| [f3cb064 Amazon control](compact-taskplan-f3cb064-amazon.json) | 2 / 2 | 0 / 0 | 283.619 | 0.9324721106648817492190986167 | Interface extraction exhausted 32,768 output tokens, all reasoning; no visible response |
-| [f3cb064 Review PR](compact-taskplan-f3cb064-code.json) | 49 / 49 | 4 / 1 | 1,180.353 | 3.0989692101740294511378848730 | Business review/correction stop; no complete artifact |
-| [f3cb064 Amazon high-navigation](compact-taskplan-f3cb064-amazon-high.json) | 23 / 23 | 1 / 1 | 729.307 | 1.5219366354306113342257920569 | Local Judge exhausted 4,096 output tokens, all reasoning; no visible response |
+| [d0413d2 Amazon](compact-taskplan-d0413d2-amazon.json) | 53 / 52 | 4 / 4 | 1,800.860 | 3.7975680499776885319053993752 | Host elapsed budget stopped request 53 before HTTP; no complete artifact |
+| [d0413d2 Review PR](compact-taskplan-d0413d2-code.json) | 42 / 42 | 3 / 2 | 858.200 | 1.9379562695225345827755466312 | Prospective draft 43 rejected at 16,134 estimated input tokens against 16k; no complete artifact |
 
-Provider input/output/reasoning usage was **2,303 / 34,444 / 34,155** for Amazon control,
-**293,709 / 66,795 / 53,200** for Review PR, and **80,036 / 43,505 / 38,549** for
-high-navigation Amazon. Reasoning is included in output usage. All complete-request
-component bytes reconcile and all constructed requests fit captured ceilings. Archives
-retain phase p50/p95/maximum sizes, provider usage, formatting and exact receipt hashes.
-Review PR has two prepared-only envelopes and high-navigation Amazon has three; these
-are neither dispatched calls nor uncertain attempts. None of these runs added uncertainty.
+Amazon used high navigation reasoning with 32,768 output tokens, medium drafting with 16,384,
+and medium Judges with 8,192. Review PR used medium throughout with the same navigation/draft
+output allowances and 4,096 for Judges. Navigation input ceilings were 12k and 16k respectively;
+both retained 16k drafting and 8k review ceilings. These are independently frozen diagnostic
+configurations, not matched architecture-only comparisons.
 
-The separately frozen Amazon experiment changed only navigation reasoning from medium
-to supported high, retaining the same model, source, limits and 32,768 navigation output
-reservation. Drafting and Judges stayed medium. It passed extraction and reached one
-checkpoint, then stopped at Judge call 23. One run does not establish a reasoning-profile
-benefit. Amazon navigation used a 12k input ceiling; Review PR used 16k. Confined output
-paths differ by fresh run identity, so these are diagnostic configurations, not matched
-architecture-only comparisons.
+Provider input/output/reasoning usage was **172,975 / 113,010 / 100,758** for Amazon and
+**185,326 / 41,495 / 30,516** for Review PR; reasoning is included in output. All component
+bytes reconcile. Amazon has 60 constructed identities: 52 received, seven prepared-only
+and one planner-admitted request stopped before HTTP by the host. Review PR has 45: 42
+received, two prepared-only and one rejected prospective draft of 47,632 serialized bytes.
+All dispatched requests fit their ceilings; the rejected draft remains in size aggregates.
+Neither run added uncertain usage or empty completed responses. Archives retain phase
+p50/p95/maximum, components, provider usage, latency, formatting and exact evidence hashes.
 
-Independent assessment of Review PR Judge call 43 found a **false completion premise**:
-it treated an operation contribution to `req_9` as completion although only `req_11`
-was closing and the root remained open. Later findings concern the cleanup added during
-correction, including actual success-dependent cleanup bindings; they are not all the
-same false positive. The source also automatically displayed operations cached under an
-earlier query. The tested directory and exact-claim patch addresses these presentation
-defects without changing acceptance guards. No avoided correction or live benefit is claimed.
-No useful business obligation was independently satisfied in these runs; calls per
-satisfied obligation is undefined, and runtime latency is unavailable.
+The benchmark host independently caps cumulative LLM time at 30 minutes, below the planner's
+captured five-hour ceiling. Amazon reached that host limit; Review PR did not. Original
+freezes and financial controls are unchanged. Amazon accepted three sequence openings
+and one transform, with no external operation task; these are intermediate construction,
+not satisfied business obligations. Its cleanup-association finding remains independently
+unclassified. No avoided correction, causal improvement or eventual success is claimed.
+
+Review PR Judge 32 alleged an unsupported required provider channel while its context
+omitted the exact operation origin and supplied an incomplete generic description. The
+retained original identifies the requested provider; the new origin facts address that
+missing context. This is not proof of runtime success or a matched avoided correction.
+The selected canonical method is also outside the current delegated execution guard,
+a separate static limitation; authority is not widened. Judges 11 and 34 instead identified
+visible input-mapping and instruction-narrowing defects. The final cleanup input has coupled
+command alternatives; no safe small pruning of its required closure was demonstrated.
+
+Earlier controls remain immutable: [f3 Amazon](compact-taskplan-f3cb064-amazon.json),
+[f3 Review PR](compact-taskplan-f3cb064-code.json) and
+[f3 high-navigation Amazon](compact-taskplan-f3cb064-amazon-high.json). The earlier Code
+Judge 43 used a false completion premise; later cleanup findings were distinct. Current
+source addresses the exact-closure presentation and old-query automatic directories,
+without weakening acceptance guards. No latest artifact executed; useful-obligation
+counts remain zero, calls per satisfied obligation undefined and runtime latency unavailable.
 
 ## Latest audited allowance
 
-The post-high-navigation Amazon audit records **1,834 requests / 1,813 receipts**.
+The post-d041 Review PR snapshot records **1,928 requests / 1,907 receipts**.
 All 21 receiptless identities remain permanently closed; 20 unknown transport-attempt
-records are a distinct metric.
+records are a distinct metric. These amounts describe that dated snapshot, not later runs.
 
 | Ledger measurement | EUR |
 | --- | ---: |
 | Campaign ceiling | 240.0301038327063045424449473 |
-| Known spending | 67.889982881256951143535604544 |
+| Known spending | 73.625507200757174258216550546 |
 | Retained unknown-usage reservations | 9.942081545174150198352579727 |
-| Spending/reservation upper bound | 77.832064426431101341888184271 |
-| Available allowance at that snapshot | 162.198039406275203200556763029 |
+| Spending/reservation upper bound | 83.56758874593132445656913027 |
+| Available allowance at that snapshot | 156.46251508677498008587581703 |
 
-Audit evidence: `8ebb98128bbcd68431a825237c60704982aa493f958d43d7dd938c4e65784246`.
+Audit evidence: `f6d0d8078888d1cc9ade80803c9517ed1a3d4d23e43de5e5d2fa5a15b899abc2`.
 Including retained lost historical exposure **€159.96989616729369545755505266**, the
-cumulative spending/reservation upper bound is **€237.801960593724796799443236931**
+cumulative spending/reservation upper bound is **€243.53748491322501991412418293**
 inside the original €400 authorization. Original monetary evidence remains unchanged.
 
 ## Acceptance and immutable evidence

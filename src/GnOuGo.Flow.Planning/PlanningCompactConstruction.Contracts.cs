@@ -212,6 +212,11 @@ internal static partial class PlanningCompactConstruction
             ["artifacts"] = TaskOperations.ArtifactPorts(capability),
             ["deterministicValidation"] = "The candidate passed complete original-contract validation. Descriptions here are explicitly bounded discovery evidence, not complete normative contracts. Request original restrictions when needed; report unsupported business claims as unverified."
         };
+        if (UsesVerifiedReview(state))
+        {
+            if (capability.Server is { } server) view["server"] = server;
+            if (capability.Method is { } method) view["method"] = method;
+        }
         if (IsCompactPresentation(state) && state.Construction.Evidence?.Any(item =>
             item.Key.StartsWith("description:" + identity + ":", StringComparison.Ordinal) &&
             item.Value is JsonObject original && original["id"]?.ToString() == operation.Id &&

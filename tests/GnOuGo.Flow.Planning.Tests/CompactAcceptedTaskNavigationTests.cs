@@ -43,11 +43,13 @@ public sealed class CompactAcceptedTaskNavigationTests
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void UnrelatedScopesAndGroupsDoNotGrowTheCompleteRequest(bool review)
+    [InlineData(3, false)]
+    [InlineData(3, true)]
+    [InlineData(4, false)]
+    [InlineData(4, true)]
+    public void UnrelatedScopesAndGroupsDoNotGrowTheCompleteRequest(int presentationVersion, bool review)
     {
-        var state = Ready(NestedScope);
+        var state = Ready(NestedScope, presentationVersion);
         var before = Context(state, review);
         var first = Measure(state, review);
         for (var index = 0; index < 100; index++)
@@ -207,10 +209,12 @@ public sealed class CompactAcceptedTaskNavigationTests
         Assert.Null(Context(state, review: true)["taskEvidence"]);
     }
 
-    [Fact]
-    public async Task IssuedProducerOnlyReviewResumesExactBytesWithoutRebuildingSiblingContext()
+    [Theory]
+    [InlineData(3)]
+    [InlineData(4)]
+    public async Task IssuedProducerOnlyReviewResumesExactBytesWithoutRebuildingSiblingContext(int presentationVersion)
     {
-        var state = Ready(NestedScope);
+        var state = Ready(NestedScope, presentationVersion);
         Stage(state, ["nested_value"]);
         var construction = state.Construction!;
         var pending = HybridWorkflowPlanner.CreateConstructionReviewRequest(state, intermediate: false);
@@ -239,8 +243,11 @@ public sealed class CompactAcceptedTaskNavigationTests
             Assert.Equal(retainedContext, saved.Construction.PendingReviewContext!.ToJsonString());
             Assert.Equal(retainedHash, saved.Construction.PendingReviewHash);
             Assert.Equal(accepted, PlanningConstruction.Hash(saved.Plan));
-            return new() { Json = new JsonObject { ["findings"] = new JsonArray(), ["evidenceRequests"] = null,
-                ["uncertainty"] = "Runtime execution remains unverified." } };
+            Assert.Null(saved.Construction.PendingReviewContext!["taskEvidence"]!["scopeOwner"]);
+            var response = new JsonObject { ["findings"] = new JsonArray(), ["evidenceRequests"] = null,
+                ["uncertainty"] = "Runtime execution remains unverified." };
+            if (presentationVersion == 4) response["inconclusive"] = null;
+            return new() { Json = response };
         } };
         var result = await new HybridWorkflowPlanner().AdvanceAsync(saved, new() { ExpectedRevision = saved.Revision }, recovery, PlannerFixture.Ct);
         Assert.Empty(result.Diagnostics);
@@ -251,15 +258,71 @@ public sealed class CompactAcceptedTaskNavigationTests
         Assert.Single(result.Construction!.Checkpoints);
     }
 
-    private static PlanningSession Ready(string scope)
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void EmptySelectedScopeExposesItsBoundedOwnerWithoutClaimingItsResult(bool review)
+    {
+        var state = Ready(NestedScope, 4);
+        var owner = state.Plan!.Root.Tasks.Single(task => task.Id == "container");
+        owner.Objective = string.Concat(Enumerable.Repeat("Retain the cleanup boundary \"汉字😀\". ", 40));
+        owner.Body!.Tasks.Clear(); owner.Body.Always.Clear();
+        state.Construction!.OpenScopes = ["/root", NestedScope];
+        Stage(state);
+        var retained = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        var context = Context(state, review);
+        var navigation = context["taskEvidence"]!;
+        Assert.Empty(navigation["items"]!.AsArray());
+        Assert.Equal(0, navigation["count"]!.GetValue<int>());
+        var entry = navigation["scopeOwner"]!;
+        Assert.Equal("container", entry["task"]!.ToString());
+        Assert.Equal("sequence", entry["kind"]!.ToString());
+        Assert.Equal("/root", entry["scope"]!.ToString());
+        Assert.Equal("task:container", entry["address"]!.ToString());
+        Assert.Null(entry["body"]);
+        Assert.False(entry["objectiveComplete"]!.GetValue<bool>());
+        Assert.StartsWith(entry["objective"]!.ToString(), owner.Objective, StringComparison.Ordinal);
+        Assert.InRange(Encoding.UTF8.GetByteCount(entry["objective"]!.ToJsonString()), 1, 204);
+        Assert.Empty(context["interfaces"]!.AsArray());
+        Assert.False(HybridWorkflowPlanner.ConstructionReviewEvidenceGrounded(context, "/taskEvidence/scopeOwner", compact: true));
+        Assert.Equal(retained, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+        if (!review)
+        {
+            var request = PlanningConstruction.DraftRequest(state, repair: false);
+            var choices = request.StructuredOutputSchema!["properties"]!["evidenceRequests"]!;
+            foreach (var address in new[] { entry["address"]!.ToString(), entry["objectiveEvidence"]!.ToString() })
+                Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(new JsonArray(address), choices));
+        }
+        PlanningConstruction.LoadEvidence(state, [entry["address"]!.ToString()]);
+        Assert.Equal(owner.Objective, state.Construction.Evidence!["task:container"]!["objective"]!.ToString());
+        Assert.Equal(PlanningGraphCompiler.Fingerprint(owner.Objective),
+            PlanningCompactConstruction.LoadEvidence(state, entry["objectiveEvidence"]!.ToString(), out var original)
+                ? original!["version"]!.ToString() : null);
+        Assert.Equal(0, state.ReplanAttempts);
+    }
+
+    [Theory]
+    [InlineData("/root", false)]
+    [InlineData("/root", true)]
+    [InlineData("/groups/worker/body", false)]
+    [InlineData("/groups/worker/body", true)]
+    public void RootAndReusableGroupScopesDoNotInventATaskOwner(string scope, bool review)
+    {
+        var current = Ready(scope, 4);
+        var historical = Ready(scope, 3);
+        Assert.Null(Context(current, review)["taskEvidence"]?["scopeOwner"]);
+        Assert.Equal(Context(historical, review)["taskEvidence"]!.ToJsonString(), Context(current, review)["taskEvidence"]!.ToJsonString());
+    }
+
+    private static PlanningSession Ready(string scope, int presentationVersion = 3)
     {
         const string requirement = "Preserve the requested values and complete their declared processing.";
         var state = new PlanningSession { Request = new() { TenantId = "accepted-task-navigation", Prompt = requirement } };
         PlanningSessionCreation.Capture(state);
         // Directory-only fixtures deliberately contain unresolved synthetic
         // plans; retain their protocol instead of asserting verified v4 facts.
-        state.Request.Options["construction_presentation_version"] = 3;
-        state.Construction!.Compact!.PresentationVersion = 3;
+        state.Request.Options["construction_presentation_version"] = presentationVersion;
+        state.Construction!.Compact!.PresentationVersion = presentationVersion;
         state.IntentVersion = 3; state.Revision = 1; state.Status = PlanningStatus.Generating;
         PlanningCompactConstruction.InitializeSources(state);
         var construction = state.Construction!;

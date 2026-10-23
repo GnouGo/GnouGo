@@ -9,9 +9,11 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class CompactActualImportReviewTests
 {
     [Theory]
-    [InlineData(3)]
-    [InlineData(4)]
-    public async Task RetainedCreationTargetAllowsLaterCleanupButNotAnUnfulfilledClosureClaim(int presentation)
+    [InlineData(3, false)]
+    [InlineData(4, false)]
+    [InlineData(3, true)]
+    [InlineData(4, true)]
+    public async Task RetainedCreationTargetAllowsLaterCleanupButNotAnUnfulfilledClosureClaim(int presentation, bool retainedReview)
     {
         const string target = "workflows/owned-resource";
         var (state, runtime) = await Ready("Create the isolated resource at workflows/owned-resource and remove it even after partial failure.", presentation);
@@ -75,7 +77,10 @@ public sealed class CompactActualImportReviewTests
             else Assert.Contains("its exact target and ownership remain available after partial failure", guidance, StringComparison.Ordinal);
             Assert.DoesNotContain("Retrieval expands binding grammar", guidance, StringComparison.Ordinal);
             Assert.DoesNotContain("reselectStep", guidance, StringComparison.Ordinal);
-            Assert.Equal(capability.Id, Assert.Single(Context(review)["operations"]!.AsArray())!["id"]!.ToString());
+            var operation = Assert.Single(context["operations"]!.AsArray())!;
+            Assert.Equal(capability.Id, operation["id"]!.ToString());
+            Assert.Equal(presentation == 4 ? capability.Server : null, operation["server"]?.ToString());
+            Assert.Equal(presentation == 4 ? capability.Method : null, operation["method"]?.ToString());
             var historical = PlannerFixture.Clone(state);
             historical.Construction!.Compact!.PresentationVersion = 2;
             historical.Request.Options["construction_presentation_version"] = 2;
@@ -84,6 +89,26 @@ public sealed class CompactActualImportReviewTests
         }
         Assert.Contains("Retrieval expands binding grammar",
             PlanningConstruction.DraftRequest(state, repair: false).StructuredOutputSchema!["description"]!.ToString(), StringComparison.Ordinal);
+        string? issuedBytes = null;
+        if (retainedReview)
+        {
+            var review = HybridWorkflowPlanner.CreateConstructionReviewRequest(state, intermediate: false).Request;
+            var context = Context(review);
+            foreach (var operation in context["operations"]!.AsArray())
+            {
+                operation!.AsObject().Remove("server"); operation.AsObject().Remove("method");
+            }
+            var prompt = review.Prompt[..(review.Prompt.LastIndexOf('\n') + 1)] + context.ToJsonString();
+            var issued = PlanningModelCalls.PrepareRequest(state, PlanningConstruction.LocalPurpose, prompt, review.StructuredOutputSchema!.AsObject());
+            state.Construction.PendingReviewContext = context;
+            state.Construction.PendingReviewHash = PlanningGraphCompiler.Fingerprint(PlanningConstruction.LocalPurpose + "\n" +
+                state.Construction.Candidate!.Hash + "\n" + context.ToJsonString());
+            state.PendingCall = new() { Id = issued.ClientRequestId!, Purpose = PlanningConstruction.LocalPurpose, Request = issued };
+            state.ModelCalls++;
+            issuedBytes = JsonSerializer.Serialize(issued, PlanningJsonContext.Default.LLMRequest);
+            state = PlannerFixture.Clone(state);
+        }
+        var callsBeforeReview = state.ModelCalls;
         runtime.Respond = (request, purpose) =>
         {
             Assert.Equal(PlanningConstruction.LocalPurpose, purpose);
@@ -101,10 +126,15 @@ public sealed class CompactActualImportReviewTests
             Assert.Equal(capability.Description, contract["description"]!.ToString());
             Assert.True(contract["descriptionComplete"]!.GetValue<bool>());
             Assert.Equal("write", contract["effect"]!.ToString());
+            Assert.Equal(presentation == 4 && !retainedReview ? capability.Server : null, contract["server"]?.ToString());
+            Assert.Equal(presentation == 4 && !retainedReview ? capability.Method : null, contract["method"]?.ToString());
+            if (issuedBytes is not null) Assert.Equal(issuedBytes, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
             return Wire(request, Reviewed());
         };
         state = await Advance(state, runtime);
         Assert.Empty(state.Diagnostics);
+        Assert.Equal(callsBeforeReview + (retainedReview ? 0 : 1), state.ModelCalls);
+        Assert.Equal(0, state.ReplanAttempts);
         Assert.Single(state.Construction!.Checkpoints);
         Assert.Equal("in_progress", state.Construction.Requirements.Single(requirement => requirement.Id == "req_0").Status);
         Assert.Equal("closed", state.Construction.Requirements.Single(requirement => requirement.Id == "req_1").Status);

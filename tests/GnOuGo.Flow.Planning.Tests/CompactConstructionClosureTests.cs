@@ -8,10 +8,13 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class CompactConstructionClosureTests
 {
-    [Fact]
-    public void ReadyLeafRetainsOneDraftCompletion()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ReadyLeafRetainsOneDraftCompletion(bool current)
     {
         var state = State();
+        if (current) PlanningSessionCreation.Capture(state);
         var schema = PlanningCompactConstruction.DraftSchema(state);
         AssertCompletion(schema, allowed: true);
         AssertScopeClosure(schema, "/root", allowed: true);
@@ -87,7 +90,7 @@ public sealed class CompactConstructionClosureTests
             PlanningCompactConstruction.SelectionContext(state), PlanningCompactConstruction.SelectionSchema(state),
             PlanningCompactConstruction.SelectPurpose);
         var request = PlanningConstruction.DraftRequest(state, repair: false);
-        Assert.Equal(current, selection.Prompt.Contains("Select an empty container/group opening separately from filling and closing its children", StringComparison.Ordinal));
+        Assert.Equal(current, selection.Prompt.Contains("Open a container only for a needed control, reuse, cleanup or export boundary", StringComparison.Ordinal));
         Assert.Equal(current, request.StructuredOutputSchema!["description"]!.ToString().Contains("Do not consume or export the new container's outputs until its children are complete and closed", StringComparison.Ordinal));
         Assert.DoesNotContain("use reselectStep when offered", PlanningCompactConstruction.DraftSemantics(state, step, review: true), StringComparison.Ordinal);
         var schema = request.StructuredOutputSchema!.AsObject();

@@ -120,18 +120,39 @@ public sealed class CompactConstructionContractsTests
         Assert.Contains("schema:read@v1:/input/properties/value", view, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public void JudgeContractMetadataDeclaresOmittedNormativeProseAndAddressesItsOriginal()
+    [Theory]
+    [InlineData(3, true)]
+    [InlineData(4, true)]
+    [InlineData(3, false)]
+    [InlineData(4, false)]
+    public void JudgeContractMetadataDeclaresExactOriginsAndAddressesOmittedNormativeProse(int presentation, bool declaredOrigin)
     {
         var state = State();
-        state.Discovery.Resolved[0].Description = new string('A', 10000) + "Final normative restriction.";
+        state.Construction!.Compact!.PresentationVersion = presentation;
+        state.Request.Options["construction_presentation_version"] = presentation;
+        var capability = state.Discovery.Resolved[0];
+        capability.Server = declaredOrigin ? "Exact.Provider/Original" : null;
+        capability.Method = declaredOrigin ? "Declared_Method" : null;
+        capability.Description = new string('A', 10000) + "Final normative restriction.";
+        var original = JsonSerializer.Serialize(capability, PlanningJsonContext.Default.PlanningCapability);
         var view = Assert.Single(PlanningCompactConstruction.ContractViews(state, review: true))!;
         Assert.False(view["descriptionComplete"]!.GetValue<bool>());
         Assert.Equal(384, view["description"]!.ToString().Length);
         Assert.Equal("description:read@v1:0", view["descriptionEvidence"]!.ToString());
         Assert.Null(view["inputSchema"]);
+        Assert.Equal(presentation == 4 ? capability.Server : null, view["server"]?.ToString());
+        Assert.Equal(presentation == 4 ? capability.Method : null, view["method"]?.ToString());
+        Assert.Equal(PlanningGraphCompiler.Fingerprint(original), view["hash"]!.ToString());
+        Assert.InRange(view.ToJsonString().Length, 1, 1400);
+        var historical = PlannerFixture.Clone(state);
+        historical.Construction!.Compact!.PresentationVersion = 3;
+        historical.Request.Options["construction_presentation_version"] = 3;
+        var withoutOrigin = view.DeepClone().AsObject();
+        withoutOrigin.Remove("server"); withoutOrigin.Remove("method");
+        Assert.Equal(Assert.Single(PlanningCompactConstruction.ContractViews(historical, review: true))!.ToJsonString(), withoutOrigin.ToJsonString());
         var final = PlanningCompactConstruction.LoadContractEvidence(state, "description:read@v1:10000")!;
         Assert.Equal("Final normative restriction.", final["text"]!.ToString());
+        Assert.Equal(original, JsonSerializer.Serialize(capability, PlanningJsonContext.Default.PlanningCapability));
     }
 
     [Fact]

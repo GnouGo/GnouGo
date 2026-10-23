@@ -139,7 +139,7 @@ internal static partial class PlanningCompactConstruction
         var scope = new TaskPlanSymbols(state.Plan ?? new TaskPlan()).Scopes.SingleOrDefault(s => s.Path == step.Scope);
         var hints = new List<string>();
         if (!review && UsesDeferredBinding(state) && step.Kind is "group" or "sequence" or "conditional" or "parallel" or "foreach")
-            hints.Add("Opening creates empty child scopes, not their completed result. Do not consume or export the new container's outputs until its children are complete and closed. If the selected outputNames or closeRequirementIds depend on those children, use reselectStep when offered to select only the opening, retaining its original requirements.");
+            hints.Add((UsesVerifiedReview(state) ? "A necessary opening establishes a control, reuse, cleanup or export boundary with empty children; it does not perform their business action." : "Opening creates empty child scopes, not their completed result.") + " Do not consume or export the new container's outputs until its children are complete and closed. If the selected outputNames or closeRequirementIds depend on those children, use reselectStep when offered to select only the opening, retaining its original requirements.");
         if (step.Kind is not ("group" or "choice" or "close"))
         {
             hints.Add("dependsOn names preceding same-scope tasks only; data bindings already imply dependencies and ancestor values use captures. requires is a Boolean assertion: false fails.");

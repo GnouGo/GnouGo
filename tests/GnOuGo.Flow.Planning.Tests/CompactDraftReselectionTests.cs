@@ -16,6 +16,7 @@ public sealed class CompactDraftReselectionTests
         var (historical, _) = await Ready(3);
         Assert.Equal("0cd866444892db70ccdf5c485371c2d0def3b4926bacfd71fba38ddc12fe1ea4", PlanningGraphCompiler.Fingerprint(PlanningCompactConstruction.SelectGuidance(historical)));
         Assert.Equal("4bce0868c70e46763d9c5dfbc1c7d8e66564ab0e7e4c5c9ba9616da2756120d2", PlanningGraphCompiler.Fingerprint(PlanningCompactConstruction.DraftGuidance(historical)));
+        Assert.Equal("2f2439d234a10ffdc1db1bbf5aafe9d9f222dd51494114f2edf023a92ac4ca61", PlanningGraphCompiler.Fingerprint(PlanningCompactConstruction.DiscoveryGuidance(historical)));
         var current = PlannerFixture.Clone(historical);
         current.Request.Options["construction_presentation_version"] = 4;
         current.Construction!.Compact!.PresentationVersion = 4;
