@@ -93,14 +93,13 @@ internal static class LiveWorkflowEvaluation
         }, delegated, scenario);
         var measured = new ExecutionModel(model, label);
         var mappingTelemetry = new MappingLiveEvaluation.MappingTelemetry();
-        var engine = new WorkflowEngine { McpClientFactory = observed, LLMClient = phase == "execute" ? measured : new PlanningModel(model, run),
+        var engine = new WorkflowEngine { McpClientFactory = observed, LLMClient = phase == "execute" ? measured :
+                PlanningTransportPolicies.Read(frozenSettings) is not null ? new JournaledPlanningModel(model, run) : new PlanningModel(model, run),
             Telemetry = mappingTelemetry,
-            // Planning and runtime effects have distinct captured deadlines.
-            // Monetary admission remains in the shared encrypted campaign client.
-            LLMUsageBudget = new(new() { MaxElapsed = phase == "execute" ? TimeSpan.FromMinutes(30) : continuing
-                ? PlanningBenchmarkMeasurements.RemainingPlanningTime(retained!["session"]!.Deserialize(PlanningJsonContext.Default.PlanningSession)!,
-                    retained["result"]?["planning_ms"]?.GetValue<long>() ?? 0)
-                : PlanningBenchmarkMeasurements.PlanningElapsedLimit(frozenSettings) }),
+            // Fresh journals own physical admission; a logical wrapper must not block saved receipts.
+            LLMUsageBudget = ModelBudget(phase, frozenSettings, continuing
+                ? retained!["session"]!.Deserialize(PlanningJsonContext.Default.PlanningSession) : null,
+                retained?["result"]?["planning_ms"]?.GetValue<long>() ?? 0),
             RunStore = ExecutionStore(root),
             Limits = new() { TenantId = "benchmark", RunId = label, AgentId = campaign.Id + "-" + scenario, AgentName = "Live evaluation " + scenario, MaxMappingInputTokens = 96000 },
             HumanInputProvider = human, LlmDefaults = new() { Model = model.Model, Provider = model.Provider } };
@@ -391,7 +390,18 @@ internal static class LiveWorkflowEvaluation
             first["business_correct"] = oracle["passed"]?.DeepClone();
     }
 
-    internal sealed class PlanningModel(KeyVaultBenchmarkModel model, JsonObject run) : ILLMClient, ILLMCapabilityResolver, IPlanningConstructionAdmission
+    internal static LLMUsageBudgetScope? ModelBudget(string phase, PlanningRequest request, PlanningSession? retained = null, long elapsedMilliseconds = 0)
+        => phase == "execute" ? new(new() { MaxElapsed = TimeSpan.FromMinutes(30) }) :
+            PlanningTransportPolicies.Read(request) is not null ? null : new(new()
+            {
+                MaxElapsed = retained is null ? PlanningBenchmarkMeasurements.PlanningElapsedLimit(request)
+                    : PlanningBenchmarkMeasurements.RemainingPlanningTime(retained, elapsedMilliseconds)
+            });
+
+    internal sealed class JournaledPlanningModel(KeyVaultBenchmarkModel model, JsonObject run)
+        : PlanningModel(model, run), IModelAdmissionOwner;
+
+    internal class PlanningModel(KeyVaultBenchmarkModel model, JsonObject run) : ILLMClient, ILLMCapabilityResolver, IPlanningConstructionAdmission
     {
         public Task AdmitConstructionAsync(LLMRequest request, int inputTokenCeiling, IReadOnlyList<int> outputTokenCeilings, CancellationToken ct)
             => model.AdmitConstructionAsync(request, inputTokenCeiling, outputTokenCeilings, ct);

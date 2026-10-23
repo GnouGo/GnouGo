@@ -112,7 +112,10 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
             if (request.Options[key] is { } captured) value[key] = captured.DeepClone();
         if (PlanningTransportPolicies.Read(request) is not null)
         {
-            var remaining = PlanningBenchmarkMeasurements.RemainingPlanningTime(new PlanningSession { Request = request }, activeMilliseconds);
+            if (!double.IsFinite(activeMilliseconds) || activeMilliseconds < 0) throw new ArgumentOutOfRangeException(nameof(activeMilliseconds));
+            // An elapsed deadline still permits settlement of an already received response.
+            // The journal rejects every new physical attempt against this unchanged bound.
+            var remaining = PlanningBenchmarkMeasurements.PlanningElapsedLimit(request) - TimeSpan.FromMilliseconds(activeMilliseconds);
             var deadline = _time.GetUtcNow() + remaining;
             if (!_planningDeadlines.TryGetValue(request.SessionId, out var prior) || deadline < prior)
                 _planningDeadlines[request.SessionId] = deadline;
@@ -342,6 +345,16 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
         return dispatched;
     }
     public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct) => CallBoundedAsync(request, false, ct);
+    internal async Task RecoverSavedResponseAsync(LLMRequest request, CancellationToken ct)
+    {
+        var policy = await _campaign.LoadAsync("planning-evaluation-session-policy", request.ClientRequestId!.Split(':')[0], ct);
+        if (policy?[PlanningTransportPolicies.OptionName] is null ||
+            await _campaign.LoadAsync("planning-evaluation-receipts", request.ClientRequestId, ct) is not null) return;
+        var record = await _campaign.LoadAsync(BenchmarkHttpJournal.Collection, request.ClientRequestId, ct);
+        var last = record?["transport"]?["Attempts"]?.AsArray().LastOrDefault();
+        if (last?["Status"]?.GetValue<int>() is >= 200 and < 300 && last["Body"] is not null && last["Failure"] is null)
+            await CallAsync(request, ct);
+    }
     internal Task<LLMResponse> CallExecutionAsync(LLMRequest request, CancellationToken ct) => CallBoundedAsync(request, true, ct);
     private async Task<LLMResponse> CallBoundedAsync(LLMRequest request, bool execution, CancellationToken ct)
     {
@@ -360,6 +373,9 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
         var planning = policy is null ? null : PlanningFromPolicy(policy);
         var capturedTransport = planning is null ? null : PlanningTransportPolicies.Read(planning);
         if (capturedTransport is not null) PlanningTransportPolicies.ValidateIssued(request, planning!);
+        if (capturedTransport is not null && await _campaign.LoadAsync("planning-evaluation-requests", request.ClientRequestId!, ct) is { } reserved &&
+            !JsonNode.DeepEquals(reserved, JsonSerializer.SerializeToNode(request, PlanningJsonContext.Default.LLMRequest)))
+            throw new InvalidOperationException("The reserved request changed.");
         var dispatched = CreateDispatchRequest(request, Provider, Model, execution);
         if (singleAttempt || incremental && capturedTransport is null) dispatched.DisableTransportRetries = true;
         else if (capturedTransport is not null) dispatched.DisableTransportRetries = request.DisableTransportRetries;
@@ -389,10 +405,12 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
             effectiveTransportPolicy["max_total_tokens"] = Math.Min(15_000_000L, PlanningBudgetOptions.Parse(planning!.Options)?.MaxTotalTokens ?? 15_000_000L);
             effectiveTransportPolicy["max_elapsed_ms"] = (long)PlanningBenchmarkMeasurements.PlanningElapsedLimit(planning).TotalMilliseconds;
             effectiveTransportPolicy["review_token_headroom"] = checked(reviewCount * (reviewInput + reviewOutput));
-            if (!_planningDeadlines.TryGetValue(request.ClientRequestId!.Split(':')[0], out var deadline))
-                throw new InvalidOperationException("Capture the remaining planning duration before dispatch.");
-            var retainedTransport = (await _campaign.LoadAsync(BenchmarkHttpJournal.Collection, request.ClientRequestId, ct))?["effective_transport_policy"];
-            effectiveTransportPolicy["deadline_utc"] = retainedTransport?["deadline_utc"]?.DeepClone() ?? JsonValue.Create(deadline.ToString("O", System.Globalization.CultureInfo.InvariantCulture));
+            var retainedTransport = (await _campaign.LoadAsync(BenchmarkHttpJournal.Collection, request.ClientRequestId!, ct))?["effective_transport_policy"];
+            if (retainedTransport?["deadline_utc"] is { } retainedDeadline)
+                effectiveTransportPolicy["deadline_utc"] = retainedDeadline.DeepClone();
+            else if (_planningDeadlines.TryGetValue(request.ClientRequestId!.Split(':')[0], out var deadline))
+                effectiveTransportPolicy["deadline_utc"] = deadline.ToString("O", System.Globalization.CultureInfo.InvariantCulture);
+            else throw new InvalidOperationException("Capture the remaining planning duration before dispatch.");
         }
         BenchmarkHttpJournal? journal = null;
         return await _campaign.CallAsync(request, async token =>
@@ -400,6 +418,11 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
             var json = JsonSerializer.Serialize(dispatched, PlanningJsonContext.Default.LLMRequest);
             var phaseInputLimit = PlanningInputLimit(policy, request);
             RequirePlanningPhasePolicy(policy, request);
+            var retained = capturedTransport is null ? null : await _campaign.LoadAsync(BenchmarkHttpJournal.Collection, request.ClientRequestId!, token);
+            var last = retained?["transport"]?["Attempts"]?.AsArray().LastOrDefault();
+            if (capturedTransport is not null && !(last?["Status"]?.GetValue<int>() is >= 200 and < 300 &&
+                last["Body"] is not null && last["Failure"] is null))
+                await ModelRequestAdmission.ValidateAsync(request, this, phaseInputLimit, "planning", token);
             var input = Math.Max(phaseInputLimit, Encoding.UTF8.GetByteCount(json));
             var output = dispatched.MaxTokens ?? 32_768;
             // Match the retained planning estimator, including the issued envelope rather than only its prompt.

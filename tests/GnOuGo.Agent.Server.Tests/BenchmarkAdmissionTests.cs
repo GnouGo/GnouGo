@@ -8,6 +8,7 @@ using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Persistence;
 using GnOuGo.Flow.Planning;
+using GnOuGo.Flow.Integrations;
 using GnOuGo.KeyVault.Core.Services;
 
 namespace GnOuGo.Agent.Server.Tests;
@@ -17,6 +18,82 @@ public sealed class BenchmarkAdmissionTests
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
     private static LLMOptions Options() => new() { DefaultProvider = "fixture", DefaultModel = "pinned",
         Models = { ["fixture"] = new() { Type = "openai" } } };
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task FreshRuntimeRecoversExactSuccessBeforeExpiredOrChangedDeploymentAdmission(bool interruptedAfterHttp)
+    {
+        using var fixture = new Fixture();
+        var options = Options(); options.Models["fixture"].Url = "https://example.invalid/v1/chat/completions";
+        options.ModelOverrides["openai/pinned"] = new()
+        {
+            Id = "pinned", ProviderType = "openai", MaxInputTokens = 128000, MaxOutputTokens = 65536, ContextWindowTokens = 200000,
+            Capabilities = new() { SupportsStructuredOutput = true, SupportsReasoningEffort = true, SupportedReasoningEfforts = ["medium"] }
+        };
+        using var handler = new SuccessHandler(); using var http = new HttpClient(handler);
+        var client = new RecoveringClient(new RoutingLLMClientAdapter(new RoutingLLMClient(http, options)))
+            { InterruptAfterResponse = interruptedAfterHttp };
+        var rates = new Rates(fixture.Time);
+        var planning = LiveWorkflowEvaluation.FreshPlanningRequest([], "strict", "amazon", "Original", "fixture", "pinned");
+        var request = PlanningConstructionPhasePolicies.Apply(new LLMRequest
+        {
+            ClientRequestId = "strict:1", Prompt = "Exact original", RequiredReviewCalls = 0, StructuredOutputStrict = true,
+            StructuredOutputSchema = JsonNode.Parse("""{"title":"construction_local_judge","type":"object","properties":{"script":{"type":"string"}},"required":["script"],"additionalProperties":false}""")
+        }, planning, "construction_local_judge");
+        using (var model = new KeyVaultBenchmarkModel(fixture.Campaign, options, client, rates, new Price(), fixture.Time))
+        {
+            await model.CapturePlanningPolicyAsync(planning, Ct);
+            if (interruptedAfterHttp) await Assert.ThrowsAsync<IOException>(() => Runtime(model).CallAsync(request, "construction_local_judge", Ct));
+            else Assert.Equal("source.raw", (await Runtime(model).CallAsync(request, "construction_local_judge", Ct)).Json!["script"]!.ToString());
+        }
+        Assert.Equal(1, handler.Calls);
+        var before = (await fixture.Campaign.LoadAsync(BenchmarkHttpJournal.Collection, request.ClientRequestId!, Ct))!;
+        Assert.Equal(interruptedAfterHttp, before["usage"] is null);
+        Assert.NotNull(before["transport"]!["Attempts"]![0]!["Body"]);
+        fixture.Time.Advance(TimeSpan.FromHours(6)); client.Unavailable = true;
+        var capabilityCalls = client.CapabilityCalls;
+        using var restarted = new KeyVaultBenchmarkModel(fixture.Campaign, options, client, rates, new Price(), fixture.Time);
+        await restarted.CapturePlanningPolicyAsync(planning, Ct, activeMilliseconds: TimeSpan.FromHours(6).TotalMilliseconds);
+        // Collections uses this exact pre-coordinator reconciliation; no planner deadline is extended.
+        await restarted.RecoverSavedResponseAsync(request, Ct);
+        Assert.Equal("source.raw", (await Runtime(restarted).CallAsync(request, "construction_local_judge", Ct)).Json!["script"]!.ToString());
+        Assert.Equal(capabilityCalls, client.CapabilityCalls); Assert.Equal(1, handler.Calls);
+        var after = (await fixture.Campaign.LoadAsync(BenchmarkHttpJournal.Collection, request.ClientRequestId!, Ct))!;
+        Assert.True(JsonNode.DeepEquals(before["transport"], after["transport"]));
+        Assert.True(JsonNode.DeepEquals(before["effective_transport_policy"], after["effective_transport_policy"]));
+        Assert.Equal(.09m, after["usage"]!["benchmark_cost_eur"]!.GetValue<decimal>());
+        Assert.Equal(0L, (await BenchmarkHttpJournal.AccountingAsync(fixture.Campaign, ct: Ct))["unknown_attempts"]!.GetValue<long>());
+        request.Prompt = "Changed under an existing identity";
+        await Assert.ThrowsAsync<InvalidOperationException>(() => Runtime(restarted).CallAsync(request, "construction_local_judge", Ct));
+        request.Prompt = "Exact original";
+        request.ClientRequestId = "strict:2";
+        await Assert.ThrowsAsync<WorkflowRuntimeException>(() => Runtime(restarted).CallAsync(request, "construction_local_judge", Ct));
+        Assert.Equal(1, handler.Calls);
+        client.Unavailable = false; request.ClientRequestId = "strict:3";
+        await Assert.ThrowsAsync<InvalidOperationException>(() => Runtime(restarted).CallAsync(request, "construction_local_judge", Ct));
+        Assert.Equal(1, handler.Calls);
+
+        WorkflowPlanningRuntime Runtime(KeyVaultBenchmarkModel model) => new(new WorkflowEngine
+        {
+            LLMClient = new LiveWorkflowEvaluation.JournaledPlanningModel(model, new()),
+            LLMUsageBudget = LiveWorkflowEvaluation.ModelBudget("plan", planning,
+                new() { Request = planning, ActiveMilliseconds = TimeSpan.FromHours(6).TotalMilliseconds })
+        }, (_, _) => Task.CompletedTask);
+    }
+
+    [Fact]
+    public void FreshPhysicalOwnershipDoesNotChangeHistoricalOrRuntimeWrapping()
+    {
+        var request = LiveWorkflowEvaluation.FreshPlanningRequest([], "strict", "amazon", "Original", "fixture", "pinned");
+        var elapsed = new PlanningSession { Request = request, ActiveMilliseconds = TimeSpan.FromHours(6).TotalMilliseconds };
+        Assert.Null(LiveWorkflowEvaluation.ModelBudget("plan", request, elapsed));
+        Assert.Equal(TimeSpan.FromMinutes(30), LiveWorkflowEvaluation.ModelBudget("execute", request, elapsed)!.Limits.MaxElapsed);
+        request.Options.Remove(PlanningTransportPolicies.OptionName);
+        Assert.Throws<InvalidOperationException>(() => LiveWorkflowEvaluation.ModelBudget("plan", request, elapsed));
+        Assert.False(typeof(IModelAdmissionOwner).IsAssignableFrom(typeof(LiveWorkflowEvaluation.PlanningModel)));
+        Assert.True(typeof(IModelAdmissionOwner).IsAssignableFrom(typeof(LiveWorkflowEvaluation.JournaledPlanningModel)));
+    }
 
     [Theory]
     [InlineData(false, 0)]
@@ -474,6 +551,32 @@ public sealed class BenchmarkAdmissionTests
         private DateTimeOffset _now = new(2026, 10, 7, 0, 0, 0, TimeSpan.Zero);
         public override DateTimeOffset GetUtcNow() => _now;
         internal void Advance(TimeSpan time) => _now += time;
+    }
+    private sealed class SuccessHandler : HttpMessageHandler
+    {
+        internal int Calls;
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+        {
+            Calls++;
+            return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = new StringContent(
+                """{"choices":[{"finish_reason":"stop","message":{"role":"assistant","content":"{\"script\":\"source.raw\"}"}}],"usage":{"prompt_tokens":10,"completion_tokens":2}}""") });
+        }
+    }
+    private sealed class RecoveringClient(ILLMClient inner) : ILLMClient, ILLMCapabilityResolver
+    {
+        internal bool InterruptAfterResponse, Unavailable; internal int CapabilityCalls;
+        public async Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
+        {
+            var response = await inner.CallAsync(request, ct);
+            if (InterruptAfterResponse) { InterruptAfterResponse = false; throw new IOException("Interrupted after persisted HTTP success"); }
+            return response;
+        }
+        public Task<int?> InputTokenAllowanceAsync(string? provider, string model, int outputTokens, CancellationToken ct)
+        { CapabilityCalls++; return Unavailable ? Task.FromResult<int?>(null) : ((ILLMCapabilityResolver)inner).InputTokenAllowanceAsync(provider, model, outputTokens, ct); }
+        public Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct)
+        { CapabilityCalls++; return Unavailable ? Task.FromResult<bool?>(false) : ((ILLMCapabilityResolver)inner).SupportsStructuredOutputAsync(provider, model, ct); }
+        public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string model, CancellationToken ct)
+        { CapabilityCalls++; return Unavailable ? Task.FromResult<IReadOnlyList<string>?>([]) : ((ILLMCapabilityResolver)inner).SupportedReasoningLevelsAsync(provider, model, ct); }
     }
     private sealed class Rates(Clock time) : IExchangeRateProvider
     {

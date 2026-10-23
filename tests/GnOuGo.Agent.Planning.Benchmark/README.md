@@ -273,6 +273,8 @@ that recovery. The command requires a clean committed build and holds the existi
 campaign lease; it creates no provider or MCP transport. A missing receipt, changed
 request/schema, wrong tenant/revision, prior execution or inconclusive closure
 rejects recovery. Additional inference and discovery are unavailable.
+This no-provider operator requires a committed model receipt; it does not parse a
+saved raw HTTP response or extend an expired coordinator allowance.
 
 Recovery retains the original source/manifest, request, receipt, requirements,
 financial records and allowances. The checkpoint records the validator build,
@@ -743,6 +745,11 @@ Historical absence retains the former 30-minute host cap; fresh runs align the h
 and outer planning deadline with the captured planner limit (at most five hours).
 Recovery subtracts retained active time instead of resetting it. Runtime effects
 and their independent 30-minute deadline are unchanged.
+Fresh planning journals own deployment and physical admission without an outer
+logical usage wrapper. Exact saved completions remain readable after elapsed
+admission expires or deployment capabilities change; only new physical attempts
+require current admission. Collections reconciles a complete saved HTTP success
+before coordinator deadline checks. Historical wrappers remain unchanged.
 They require fresh review and approval; the command never creates acknowledgments.
 
 Supply every accepted requirement ID exactly once only after comparing it with actual
