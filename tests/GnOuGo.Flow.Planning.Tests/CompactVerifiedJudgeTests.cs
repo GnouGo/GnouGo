@@ -9,6 +9,63 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class CompactVerifiedJudgeTests
 {
     [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task SelectedScopeStatusDoesNotConfuseAnOpenAncestorWithItsClosedChild(bool nested, bool closeChild)
+    {
+        var state = await TaskState();
+        var construction = state.Construction!;
+        var step = construction.Compact!.CurrentStep!;
+        if (nested)
+        {
+            state.Plan!.Root.Tasks.Add(new()
+            {
+                Id = "container", Kind = "sequence", Objective = "Preserve the caller label within a child scope.",
+                Body = new()
+                {
+                    Tasks = [new() { Id = "child_label", Kind = "value", Objective = "Preserve the caller label.",
+                        Outputs = [new("value", new() { Kind = "input", Source = "label" })] }],
+                    Outputs = [new("value", new() { Kind = "output", Source = "child_label", Port = "value" })]
+                }
+            });
+            step.Scope = "/tasks/container/body"; step.Kind = closeChild ? "close" : "value";
+            step.BaseHash = PlanningConstruction.Hash(state.Plan);
+            construction.OpenScopes.Add(step.Scope);
+            construction.Candidate = PlanningConstruction.Apply(state, new()
+            {
+                Scope = step.Scope, RequirementIds = ["work"], CloseScopes = closeChild ? [step.Scope] : [],
+                Tasks = closeChild ? [] : [new() { Id = "child_next", Kind = "value", Objective = "Continue the child work.",
+                    Outputs = [new("value", new() { Kind = "input", Source = "label" })] }]
+            });
+        }
+        var original = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        foreach (var intermediate in new[] { false, true })
+        {
+            var (context, _) = HybridWorkflowPlanner.CreateConstructionReviewRequest(state, intermediate);
+            var facts = context["constructionStage"]!["preflight"]!;
+            Assert.Equal("passed", facts["status"]!.ToString());
+            Assert.Equal(step.Scope, facts["scope"]!.ToString());
+            Assert.Equal(!closeChild, facts["scopeOpen"]!.GetValue<bool>());
+            Assert.Equal(nested && !closeChild ? 2 : 1, facts["openScopeCount"]!.GetValue<int>());
+            Assert.Equal(closeChild ? 1 : 0, context["constructionStage"]!["closedScopeCount"]!.GetValue<int>());
+        }
+        Assert.Equal(original, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+        if (nested)
+        {
+            var candidate = construction.Candidate!;
+            var probe = JsonSerializer.Deserialize(JsonSerializer.Serialize(candidate.Plan, PlanningJsonContext.Default.TaskPlan),
+                PlanningJsonContext.Default.TaskPlan)!;
+            probe.Root.Outputs.Add(new("result", new() { Kind = "output", Source = "container", Port = "value" }));
+            var diagnostics = TaskPlanCompiler.ValidateConstruction(probe, state.Catalog!, state.Request,
+                candidate.OpenScopes.ToHashSet(StringComparer.Ordinal)).Diagnostics;
+            if (closeChild) Assert.Empty(diagnostics);
+            else Assert.Contains(diagnostics, diagnostic => diagnostic.Code == "TASK_SCOPE_OPEN");
+            Assert.Equal(original, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+        }
+    }
+
+    [Theory]
     [InlineData("/draft/tasks/0", "/requirements/0", true)]
     [InlineData("/requirements/0", "/constructionStage", false)]
     [InlineData("/draft/tasks/0", "/constructionStage", false)]
@@ -43,7 +100,9 @@ public sealed class CompactVerifiedJudgeTests
         var state = await TaskState();
         state.Construction!.Compact!.PresentationVersion = presentation;
         state.Request.Options["construction_presentation_version"] = presentation;
-        var (_, review) = HybridWorkflowPlanner.CreateConstructionReviewRequest(state, intermediate: false);
+        var (context, review) = HybridWorkflowPlanner.CreateConstructionReviewRequest(state, intermediate: false);
+        if (presentation == 3) Assert.Null(context["constructionStage"]!["preflight"]);
+        else Assert.True(context["constructionStage"]!["preflight"]!["scopeOpen"]!.GetValue<bool>());
         var schema = review.StructuredOutputSchema!.AsObject();
         var properties = FindingProperties(schema);
         Assert.Equal(1, properties["evidence"]!["minItems"]!.GetValue<int>());
@@ -72,6 +131,7 @@ public sealed class CompactVerifiedJudgeTests
         var state = await TaskState();
         var accepted = JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan);
         var context = PlanningCompactConstruction.Context(state, review: true);
+        Assert.True(context["constructionStage"]!["preflight"]!.AsObject().Remove("scopeOpen"));
         context["operations"] = new JsonArray(new JsonObject { ["id"] = "retained_contract", ["description"] = "An original operation contract." });
         var schema = HybridWorkflowPlanner.ConstructionReviewSchema(context, verified: true);
         var properties = FindingProperties(schema);
@@ -92,6 +152,7 @@ public sealed class CompactVerifiedJudgeTests
         var runtime = new TestRuntime { Respond = (request, _) =>
         {
             Assert.Equal(exact, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+            Assert.Null(Context(request)["constructionStage"]!["preflight"]!["scopeOpen"]);
             return Response(findings: new JsonArray(finding.DeepClone()));
         } };
         state = await Advance(PlannerFixture.Clone(state), runtime);

@@ -355,6 +355,9 @@ All other action fields are null. Residual execution uncertainty in a completed
 review differs from an unfinished business review. A finding must cite an
 applicable original obligation and concrete implementation evidence; navigation
 or a preflight status alone cannot substantiate a correction.
+The verified preflight identifies whether the selected scope is open separately
+from the total open-boundary count. An open root or ancestor does not reopen
+accepted child scopes; their exact implementation remains retrievable for review.
 Fresh reports count an exact concrete finding location as its implementation
 citation, so one original-obligation evidence pointer can suffice. The existing
 grounding predicate and local correction boundary still apply. The issued schema

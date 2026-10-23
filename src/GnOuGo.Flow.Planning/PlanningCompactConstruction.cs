@@ -430,6 +430,7 @@ internal static partial class PlanningCompactConstruction
                 context["constructionStage"]!["preflight"] = new JsonObject
                 {
                     ["status"] = "passed", ["basis"] = "tentative_candidate", ["scope"] = step.Scope,
+                    ["scopeOpen"] = draft.OpenScopes.Contains(step.Scope, StringComparer.Ordinal),
                     ["openScopeCount"] = draft.OpenScopes.Count,
                     ["deferred"] = "Unfinished scope interfaces, unresolved business choices, complete requirement coverage, final whole-plan validation, runtime effects and execution authorization remain unverified. Unselected choices use recommendations only for this preflight probe."
                 };

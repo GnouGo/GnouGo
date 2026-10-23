@@ -1,10 +1,10 @@
 # Compact TaskPlan convergence
 
-Business acceptance remains incomplete and PR #120 stays Draft. The latest three
-Review PR diagnostics on source `1a236234` produced no executable artifact or runtime
-success. All eighteen receiptless identities are now permanently closed with their
-full reservations retained; no uncertain request was replayed. The 18 alternating
-baseline/candidate runs against `56942f5` remain unstarted.
+Business acceptance remains incomplete and PR #120 stays Draft. Fresh Collections
+on `16d8e83e3` stopped at a local Judge after six accepted fragments, with no
+finalized artifact or execution. All eighteen historical receiptless identities
+remain permanently closed with their full reservations retained. No uncertain
+request was replayed. The 18 alternating runs against `56942f5` remain unstarted.
 
 ## Current implementation and validation
 
@@ -30,7 +30,31 @@ publication stages**: five Release packages, Planning Native AOT recovery for pr
 These validations exclude the latest Judge correction. Historical [CI for `1a236234`](https://github.com/GnouGo/GnouGo/actions/runs/39935960650)
 passed; CI and broad publication checks for the new correction are not yet established.
 
-## Latest live diagnostics
+## Latest live diagnostic
+
+[Collections on `16d8e83e3`](compact-taskplan-16d8e83e3.json) made **27 calls / 27
+receipts**, one correction and six checkpoints in **492.204 seconds**, costing
+**€0.7687996430165104863900044625**. Its final Judge incorrectly treated the
+still-open root as unfinished reusable/loop work. The host correctly rejected the
+unsupported citations. This is an independently assessed structural false positive,
+not runtime evidence or a measured avoided correction.
+
+All requests met captured limits; peak draft/local-Judge requests were **13,667 /
+10,088 bytes**. Provider usage was **50,134 input / 20,359 output tokens**, including
+15,566 reasoning tokens. No response was empty; original receipt text contained
+nine formatting-whitespace characters, with maximum whitespace run one. Ten Judges
+ran; the archive retains phase percentiles and reconciled components. Runtime
+latency and calls per independently satisfied business obligation remain undefined.
+
+The focused follow-up adds the selected scope's open/closed fact beside the global
+open-boundary count and clarifies that an open ancestor does not reopen its children.
+No validation, correction authority or execution gate changes. Its **31 focused tests
+passed with warnings as errors**, including historical exact recovery and rejection
+of consumption from unfinished children. Full Planning validation is running; the
+source change has not yet been tested live. The earlier tested citation change
+and all eleven publication stages remain attributed to their exact source snapshot.
+
+## Earlier live diagnostics
 
 All three use identical production code (`9d23d5b`) and pinned medium reasoning.
 Navigation/draft/review output reservations remain **16,384/16,384/4,096**; calls,
@@ -77,21 +101,21 @@ locally before any paid call and is retained as a separate zero-call setup failu
 
 ## Campaign snapshot
 
-The post-c audit records **1,561 requests / 1,543 receipts**, eighteen receiptless
+The post-Collections audit records **1,588 requests / 1,570 receipts**, eighteen receiptless
 identities all permanently closed, and seventeen unknown transport attempts as a
 separate accounting count. All original records and reservations remain.
 
 | Ledger measurement | EUR |
 | --- | ---: |
 | Campaign ceiling | 240.0301038327063045424449473 |
-| Known spending | 52.776747718383234052951044078 |
+| Known spending | 53.545547361399744539341048542 |
 | Unknown-usage reservations | 7.5324251417828070479732847674 |
-| Spending/reservation upper bound | 60.309172860166041100924328845 |
-| Available allowance | 179.720930972540263441520618455 |
+| Spending/reservation upper bound | 61.077972503182551587314333309 |
+| Available allowance | 178.952131329523752955130613991 |
 
-Audit hash: `b1576870aa4873f222db6100be56b8ef71d9520e6dc9d3396f9f9ea1b14dae2d`.
+Audit hash: `d8aebba0b738bff615acd4e8cc044356a6cabd0ea99602c4a0843842c75bc6d8`.
 Lost historical exposure **€159.96989616729369545755505266** remains inside the original
-€400 authorization; cumulative upper bound is **€220.279069027459736558479381505**.
+€400 authorization; cumulative upper bound is **€221.047868670476247044869385969**.
 These are retained snapshot values; readiness and balance must be checked before dispatch.
 
 ## Remaining acceptance
@@ -106,7 +130,8 @@ confirmations remain mandatory. Compilation and CI are not business success.
 
 ## Immutable evidence index
 
-- Latest: [1a cohort a](compact-taskplan-1a236234.json), [b](compact-taskplan-1a236234-b.json), [c](compact-taskplan-1a236234-c.json).
+- Latest: [16d8e83e3 Collections](compact-taskplan-16d8e83e3.json).
+- Earlier: [1a cohort a](compact-taskplan-1a236234.json), [b](compact-taskplan-1a236234-b.json), [c](compact-taskplan-1a236234-c.json).
 
 - Earlier: [9d23d5b](compact-taskplan-9d23d5b.json); prior [ae1d50aa](compact-taskplan-ae1d50aa.json), [365c8326](compact-taskplan-365c8326.json), [9246376](compact-taskplan-9246376.json), [2d0485d](compact-taskplan-2d0485d.json); [offline extraction experiments](compact-interface-ce9b610.json) made no paid calls or causal claim.
 - [5678374](compact-taskplan-5678374.json), [875022e](compact-taskplan-875022e.json), [61d9f0f](compact-taskplan-61d9f0f.json), [2e5b3a0](compact-taskplan-2e5b3a0.json), [0b44557](compact-taskplan-0b44557.json), [52ebb72](compact-taskplan-52ebb72.json), [d8f51c5](compact-taskplan-d8f51c5.json).
