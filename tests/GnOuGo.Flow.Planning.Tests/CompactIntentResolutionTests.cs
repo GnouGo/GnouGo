@@ -6,7 +6,7 @@ using GnOuGo.Planning.Examples;
 
 namespace GnOuGo.Flow.Planning.Tests;
 
-public sealed class CompactIntentResolutionTests
+public sealed class CompactIntentResolutionTests(ITestOutputHelper output)
 {
     private static PlanningSession Fresh(string prompt) => new()
     {
@@ -257,7 +257,7 @@ public sealed class CompactIntentResolutionTests
     }
 
     [Fact]
-    public async Task RetainedVersionThreeFutureExtractionIsTheExactVersionFourControl()
+    public async Task VersionFourGuidanceAloneChangesWhileRetainedVersionThreeExtractionRemainsExact()
     {
         var historical = PlannerFixture.CapturedPresentation(Fresh("Accept required text input suppliedText."), 3);
         var retained = JsonSerializer.Serialize(historical, PlanningJsonContext.Default.PlanningSession);
@@ -271,7 +271,8 @@ public sealed class CompactIntentResolutionTests
         current.Request.Options["construction_presentation_version"] = 4;
         var historicalExtraction = Assert.Single(historical.Construction.Compact.InterfaceExtractions!);
         var currentExtraction = Assert.Single(current.Construction.Compact.InterfaceExtractions!);
-        Assert.Equal(PlanningCompactConstruction.InterfaceGuidance(historical), PlanningCompactConstruction.InterfaceGuidance(current));
+        Assert.Equal("2310da1959e1defcbe772a9bd5c9c5c27bc92f27a7f1263fc2c120726a1aea88",
+            PlanningGraphCompiler.Fingerprint(PlanningCompactConstruction.InterfaceGuidance(historical)));
         Assert.Equal(PlanningCompactConstruction.InterfaceContext(historical, historicalExtraction).ToJsonString(),
             PlanningCompactConstruction.InterfaceContext(current, currentExtraction).ToJsonString());
         Assert.Equal(PlanningCompactConstruction.ResolvableInterfaceSchema(historical, historicalExtraction).ToJsonString(),
@@ -279,9 +280,43 @@ public sealed class CompactIntentResolutionTests
         runtime.Respond = (r, _) => Wire(r, Resolve(r,
             inputs: [new() { Name = "suppliedText", Type = new() { Kind = "string" }, Required = true }]));
         historical = await Advance(historical, runtime);
+        var candidateRuntime = new TestRuntime { Respond = runtime.Respond };
+        current = await Advance(current, candidateRuntime);
+        var control = runtime.Calls[^1];
+        var candidate = Assert.Single(candidateRuntime.Calls);
+        Assert.Equal(Context(control).ToJsonString(), Context(candidate).ToJsonString());
+        Assert.Equal(control.StructuredOutputSchema!.ToJsonString(), candidate.StructuredOutputSchema!.ToJsonString());
+        var normalized = JsonSerializer.Deserialize(JsonSerializer.Serialize(candidate, PlanningJsonContext.Default.LLMRequest),
+            PlanningJsonContext.Default.LLMRequest)!;
+        normalized.Prompt = control.Prompt;
+        normalized.ClientRequestId = control.ClientRequestId;
+        Assert.Equal(JsonSerializer.Serialize(control, PlanningJsonContext.Default.LLMRequest),
+            JsonSerializer.Serialize(normalized, PlanningJsonContext.Default.LLMRequest));
+        var instructions = new[] { control, candidate }.Select(request =>
+            System.Text.Encoding.UTF8.GetByteCount(request.Prompt[..request.Prompt.LastIndexOf('\n')])).ToArray();
+        Assert.Equal(new[] { 1618, 1451 }, instructions);
+        var measured = new[] { control, candidate }.Select(request => PlanningRequestMeasurements.Measure(request,
+            PlanningCompactConstruction.IntentPurpose, PlanningConstructionInputPolicy.EffectiveLimit(current.Request,
+                PlanningCompactConstruction.IntentPurpose))).ToArray();
+        Assert.All(measured, measurement => Assert.Equal(measurement.CompleteRequestBytes,
+            measurement.Components.Sum(component => component.SerializedBytes)));
+        Assert.True(measured[1].CompleteRequestBytes < measured[0].CompleteRequestBytes);
+        output.WriteLine(new JsonObject
+        {
+            ["schema_hash"] = PlanningGraphCompiler.Fingerprint(control.StructuredOutputSchema.ToJsonString()),
+            ["context_hash"] = PlanningGraphCompiler.Fingerprint(Context(control).ToJsonString()),
+            ["control_instruction_bytes"] = instructions[0], ["candidate_instruction_bytes"] = instructions[1],
+            ["control_request_bytes"] = measured[0].CompleteRequestBytes, ["candidate_request_bytes"] = measured[1].CompleteRequestBytes,
+            ["control_estimated_tokens"] = measured[0].EstimatedInputTokens, ["candidate_estimated_tokens"] = measured[1].EstimatedInputTokens,
+            ["schema_bytes"] = System.Text.Encoding.UTF8.GetByteCount(control.StructuredOutputSchema.ToJsonString()),
+            ["context_bytes"] = System.Text.Encoding.UTF8.GetByteCount(Context(control).ToJsonString()),
+            ["provider_calls"] = 0
+        }.ToJsonString());
         Assert.Equal(3, historical.Construction!.Compact!.PresentationVersion);
         Assert.True(PlanningCompactConstruction.IntentDeclarationsComplete(historical.Construction.Compact));
         Assert.Equal("suppliedText", Assert.Single(historical.Requirements!.Inputs!).Name);
+        Assert.Equal(JsonSerializer.Serialize(historical.Requirements, PlanningJsonContext.Default.PlanningRequirements),
+            JsonSerializer.Serialize(current.Requirements, PlanningJsonContext.Default.PlanningRequirements));
     }
 
     [Theory]

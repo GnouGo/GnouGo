@@ -19,6 +19,14 @@ compatibility fixes remain retained. Benchmark build, independent publication an
 Native AOT recovery for presentations 2/3/4 passed. A full-solution pass has not yet
 been established in this snapshot. Deterministic validation is not business success.
 
+The next diagnostic candidate narrows discovery evidence to one exact address
+after a rejected oversized batch; 164 focused admission/recovery checks passed.
+Separately, fresh extraction instructions consolidate repeated guidance while
+preserving the exact response schema and source context. The offline comparison
+passed 66 checks and reduced its synthetic complete request from 7,799 to 7,627
+bytes. Neither change has established a live improvement. Comparisons must keep
+their intent and discovery phases separate; model settings remain unchanged.
+
 The preceding `2d0485d` exposed a typed caller declaration missing from Judge context;
 Amazon separately exhausted reasoning output, and Review PR returned receiptless
 HTTP 500. The [immutable archive](compact-taskplan-2d0485d.json) retains those failures
