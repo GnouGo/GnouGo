@@ -1,10 +1,11 @@
 # Compact TaskPlan convergence
 
-Business acceptance remains incomplete and PR #120 stays Draft. Fresh Amazon on `f05d07c2a` stopped after repeatedly selecting an invalid discovery
-binding. Collections on `16d8e83e3` stopped at a local Judge after six accepted
-fragments. Neither produced a finalized artifact or execution. All eighteen historical receiptless identities
-remain permanently closed with their full reservations retained. No uncertain
-request was replayed. The 18 alternating runs against `56942f5` remain unstarted.
+Business acceptance remains incomplete and PR #120 stays Draft. Review PR on
+`615dd0e96` stopped on a single HTTP 500 at request 13 with no receipt. Its full
+reservation is retained; exact permanent-abandonment authorization is pending.
+All eighteen earlier receiptless identities remain permanently closed. No uncertain
+request was replayed. Collections and Amazon also remain incomplete on recent
+sources. The 18 alternating runs against `56942f5` have not started.
 
 ## Current implementation and validation
 
@@ -17,8 +18,11 @@ The latest correction narrows discovery binding schemas to the field combination
 already enforced by semantic validation: operation identities for `operation`, a
 reusable target for `call`, and neither for other kinds. Revision-3 grammar and
 issued requests remain exact. **191 focused and 2,618 complete Planning tests pass with warnings as errors**,
-with zero compiler diagnostics. Validation rollup SHA:
+with zero compiler diagnostics on `615dd0e96`. Validation rollup SHA:
 `c3f07beda4fe02df391fd1f327cb941ed52984f3a36559ef5ddf972d3a6a78f8`.
+Exact `615dd0e96` also passed all **eleven publication stages**, with zero compiler
+diagnostics and unchanged tracked source. Manifest SHA:
+`a3e711577d88ef2519718674e11fc4e05d8203e044a9d8f1e49f014b10909fb7`.
 
 The prior selected-scope fact and guidance correction passed **31 focused and
 2,604 complete Planning tests**, with warnings as errors and no compiler diagnostics.
@@ -34,6 +38,33 @@ and CI for newer sources remain running. These older checks do not establish
 validation or business acceptance of subsequent changes.
 
 ## Latest live diagnostic
+
+[Review PR on `615dd0e96`](compact-taskplan-615dd0e96.json) made **13 calls / 12
+receipts**, zero corrections and zero checkpoints in **578.275 seconds**. Request
+13 stopped on a single HTTP 500 with no completion receipt. Known cost is
+**€0.5029495760821062025881302990**, with the full unknown-usage reservation
+**€0.5479161088799643016510486390** retained. No artifact, Judge or execution occurred.
+The inspected closure binds evidence
+`b2c62b36a73e5dc8cc9c3d5e006a7422d1e53107ddf805ccab255d4feddb620f`;
+authorization is pending and no closure has been applied.
+
+Recorded provider usage was **41,203 input / 11,918 output tokens**, including
+5,159 reasoning tokens. Twelve completed responses were nonempty; request 13's
+output and usage remain unknown. Interface extraction request 3 returned valid
+JSON with **116,273 formatting-whitespace characters**, maximum run 115,028;
+its original text was 118,424 bytes versus 2,151 normalized JSON bytes. It used
+512 reasoning / 5,357 total output tokens, below its captured allowance. This
+formatting waste is separate from reasoning exhaustion and the later HTTP failure;
+no common cause or prompt-improvement claim is inferred.
+
+The retained Review PR profile uses medium reasoning, input targets/ceilings
+3k/16k, 8k/16k, 4k/8k and output reservations 16,384/16,384/4,096. Settings match
+its earlier comparison diagnostic; source changes are disclosed. All constructed
+requests met their captured limits. Archives retain phase percentiles, reconciled
+components and exact identities. No business obligation was independently satisfied,
+so calls per satisfied obligation and runtime latency remain undefined.
+
+## Previous Amazon diagnostic
 
 [Amazon on `f05d07c2a`](compact-taskplan-f05d07c2a.json) made **18 calls / 18 receipts**,
 four corrections and no checkpoints in **373.248 seconds**, costing
@@ -125,21 +156,22 @@ locally before any paid call and is retained as a separate zero-call setup failu
 
 ## Campaign snapshot
 
-The post-Amazon audit records **1,606 requests / 1,588 receipts**, eighteen receiptless
-identities all permanently closed, and seventeen unknown transport attempts as a
-separate accounting count. All original records and reservations remain.
+The post-Review-PR audit records **1,619 requests / 1,600 receipts**, nineteen
+receiptless identities, eighteen permanently closed and one pending exact authorization.
+Eighteen unknown transport attempts are a separate accounting count. All original
+records and reservations remain.
 
 | Ledger measurement | EUR |
 | --- | ---: |
 | Campaign ceiling | 240.0301038327063045424449473 |
-| Known spending | 54.355739240025358104713650060 |
-| Unknown-usage reservations | 7.5324251417828070479732847674 |
-| Spending/reservation upper bound | 61.888164381808165152686934827 |
-| Available allowance | 178.141939450898139389758012473 |
+| Known spending | 54.858688816107464307301780358 |
+| Unknown-usage reservations | 8.080341250662771349624333406 |
+| Spending/reservation upper bound | 62.939030066770235656926113764 |
+| Available allowance | 177.091073765936068885518833536 |
 
-Audit hash: `207940640110de9a975fb3c45d13a72600390b75ba1ae8a8cac84e42052188ca`.
+Audit hash: `59f713f00354b0651d852eee6b6c1a0bf6c37ab0db5a5a45fdea5df285bac584`.
 Lost historical exposure **€159.96989616729369545755505266** remains inside the original
-€400 authorization; cumulative upper bound is **€221.858060549101860610241987487**.
+€400 authorization; cumulative upper bound is **€222.908926234063931114481166424**.
 These are retained snapshot values; readiness and balance must be checked before dispatch.
 
 ## Remaining acceptance
@@ -154,7 +186,8 @@ confirmations remain mandatory. Compilation and CI are not business success.
 
 ## Immutable evidence index
 
-- Latest: [f05d07c2a Amazon](compact-taskplan-f05d07c2a.json).
+- Latest: [615dd0e96 Review PR](compact-taskplan-615dd0e96.json).
+- Previous: [f05d07c2a Amazon](compact-taskplan-f05d07c2a.json).
 - Previous: [16d8e83e3 Collections](compact-taskplan-16d8e83e3.json).
 - Earlier: [1a cohort a](compact-taskplan-1a236234.json), [b](compact-taskplan-1a236234-b.json), [c](compact-taskplan-1a236234-c.json).
 
