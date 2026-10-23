@@ -408,9 +408,17 @@ internal static partial class PlanningCompactConstruction
         {
             schema["properties"]!.AsObject().Remove("operationIds");
             schema["required"]!.AsArray().RemoveAt(0);
-            schema["properties"]!["binding"] = PlanningSchemas.Nullable(PlanningSchemas.Object(
-                ("kind", PlanningSchemas.Enum(TaskKinds)), ("operationIds", Strings(0, 2)),
-                ("groupId", PlanningSchemas.Nullable(Text(96)))));
+            var binding = State(state).PresentationVersion >= 4
+                ? new JsonObject { ["anyOf"] = new JsonArray(
+                    PlanningSchemas.Object(("kind", PlanningSchemas.Enum("operation")),
+                        ("operationIds", Strings(1, 2)), ("groupId", PlanningSchemas.Type("null"))),
+                    PlanningSchemas.Object(("kind", PlanningSchemas.Enum("call")),
+                        ("operationIds", Strings(0, 0)), ("groupId", Text(96))),
+                    PlanningSchemas.Object(("kind", PlanningSchemas.Enum(TaskKinds.Where(kind => kind is not ("operation" or "call")).ToArray())),
+                        ("operationIds", Strings(0, 0)), ("groupId", PlanningSchemas.Type("null")))) }
+                : PlanningSchemas.Object(("kind", PlanningSchemas.Enum(TaskKinds)), ("operationIds", Strings(0, 2)),
+                    ("groupId", PlanningSchemas.Nullable(Text(96))));
+            schema["properties"]!["binding"] = PlanningSchemas.Nullable(binding);
             schema["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("binding"));
         }
         if (IsCompactPresentation(state))

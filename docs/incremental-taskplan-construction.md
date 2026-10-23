@@ -94,7 +94,10 @@ a provider's reasoning-only exhaustion.
 Selection identifies the next business action, original requirements and scope using caller/scope
 inputs or accepted outputs. Revision 3 leaves `kind` null for capability-dependent
 work. Existing discovery binds the implementation only after exact contract
-inspection; scope, requirements and closure authority stay fixed. Supported local
+inspection; scope, requirements and closure authority stay fixed. Fresh revision-4
+binding schemas couple operation identities to `operation`, a reusable target to
+`call`, and neither field to other kinds. This reflects existing semantic checks;
+revision-3 schemas and already issued requests retain their exact grammar. Supported local
 computation, closed reusable calls and structural work can proceed directly to a
 narrow draft. Resolving an unset kind is normal navigation; changing the selected
 business action uses existing correction accounting. Technical setup, handles and result fields come from

@@ -10,6 +10,95 @@ public sealed class CompactDeferredBindingTests
 {
     private const string Objective = "Produce the requested exact record without external changes.";
 
+    [Theory]
+    [InlineData("operation", 1, null, true)]
+    [InlineData("operation", 2, null, true)]
+    [InlineData("operation", 0, null, false)]
+    [InlineData("operation", 3, null, false)]
+    [InlineData("operation", 1, "worker", false)]
+    [InlineData("call", 0, "worker", true)]
+    [InlineData("call", 0, null, false)]
+    [InlineData("call", 1, "worker", false)]
+    [InlineData("close", 0, null, true)]
+    [InlineData("close", 1, null, false)]
+    [InlineData("close", 0, "worker", false)]
+    public void FreshDiscoveryBindingSchemaCouplesKindToOperationAndGroupFields(string kind, int operations, string? group, bool valid)
+    {
+        var (state, _) = Ready();
+        var original = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        var schema = PlanningCompactConstruction.DiscoverySchema(state);
+        var request = PlanningCompactConstruction.Request(PlanningCompactConstruction.DiscoveryGuidance(state),
+            PlanningCompactConstruction.DiscoveryContext(state), schema, PlanningCompactConstruction.DiscoveryPurpose);
+        var response = Binding(kind);
+        response["binding"]!["operationIds"] = new JsonArray(Enumerable.Range(0, operations)
+            .Select(index => (JsonNode?)JsonValue.Create("operation_" + index)).ToArray());
+        response["binding"]!["groupId"] = group;
+        Assert.Equal(valid, PlanningContractValidation.ValidateInstanceFindings(response, request.StructuredOutputSchema!).Count == 0);
+        Assert.Empty(PlanningContractValidation.ValidateSchema(request.StructuredOutputSchema!.AsObject(), strict: true));
+        Assert.Empty(TaskKinds(request.StructuredOutputSchema));
+        Assert.Null(request.StructuredOutputSchema["$defs"]);
+        Assert.Equal(original, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+    }
+
+    [Fact]
+    public void HistoricalFlatDiscoveryBindingBytesAndNonTaskActionsRemainAvailable()
+    {
+        var (state, _) = Ready();
+        var current = PlanningCompactConstruction.DiscoverySchema(state);
+        foreach (var kind in new[] { "value", "transform", "sequence", "conditional", "parallel", "foreach", "close", "group", "choice" })
+            Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(Binding(kind), current));
+        Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(Discover(null), current));
+        state.Construction!.Compact!.PresentationVersion = 3;
+        state.Request.Options["construction_presentation_version"] = 3;
+        var historical = PlanningCompactConstruction.DiscoverySchema(state);
+        Assert.Equal(LegacyBindingSchema().ToJsonString(), historical["properties"]!["binding"]!.ToJsonString());
+        current["properties"]!["binding"] = LegacyBindingSchema();
+        Assert.Equal(historical.ToJsonString(), current.ToJsonString());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task IssuedVersionFourFlatBindingRecoversExactBytesWithoutWeakeningSemanticValidation(bool invalidBinding)
+    {
+        var (state, runtime) = Ready();
+        var baseline = PlanningConstruction.Hash(state.Plan);
+        var schema = PlanningCompactConstruction.DiscoverySchema(state);
+        schema["properties"]!["binding"] = LegacyBindingSchema();
+        var request = PlanningCompactConstruction.Request(PlanningCompactConstruction.DiscoveryGuidance(state),
+            PlanningCompactConstruction.DiscoveryContext(state), schema, PlanningCompactConstruction.DiscoveryPurpose);
+        request = PlanningModelCalls.PrepareRequest(state, PlanningCompactConstruction.DiscoveryPurpose, request.Prompt, schema);
+        var response = Binding(invalidBinding ? "close" : "value");
+        if (invalidBinding) response["binding"]!["operationIds"] = new JsonArray("read");
+        Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(response, request.StructuredOutputSchema!));
+        Assert.Equal(!invalidBinding, PlanningContractValidation.ValidateInstanceFindings(response, PlanningCompactConstruction.DiscoverySchema(state)).Count == 0);
+        var exact = JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest);
+        state.PendingCall = new() { Id = request.ClientRequestId!, Purpose = PlanningCompactConstruction.DiscoveryPurpose, Request = request, CorrectionAccounting = 0 };
+        state.ModelCalls++;
+        runtime.Respond = (issued, _) =>
+        {
+            Assert.Equal(exact, JsonSerializer.Serialize(issued, PlanningJsonContext.Default.LLMRequest));
+            return Wire(issued, response);
+        };
+        state = await Advance(PlannerFixture.Clone(state), runtime);
+        Assert.Equal(exact, JsonSerializer.Serialize(Assert.Single(runtime.Calls), PlanningJsonContext.Default.LLMRequest));
+        Assert.Equal(1, state.ModelCalls);
+        Assert.Equal(0, state.ReplanAttempts);
+        Assert.Equal(baseline, PlanningConstruction.Hash(state.Plan));
+        Assert.Empty(state.Construction!.Checkpoints);
+        Assert.Equal(!invalidBinding, state.Construction.Compact!.CurrentStep!.DiscoveryComplete);
+        if (invalidBinding)
+        {
+            Assert.Null(state.Construction.Compact.CurrentStep.Kind);
+            Assert.Equal("DISCOVERY_SELECTION_INVALID", Assert.Single(state.Diagnostics).Code);
+        }
+        else
+        {
+            Assert.Equal("value", state.Construction.Compact.CurrentStep.Kind);
+            Assert.Empty(state.Diagnostics);
+        }
+    }
+
     [Fact]
     public async Task LocalSelectionDraftsDirectlyWithoutDiscoveryOrAnotherModelCall()
     {
@@ -430,6 +519,9 @@ public sealed class CompactDeferredBindingTests
         OutputSchema = new() { ["type"] = "object", ["properties"] = new JsonObject(), ["additionalProperties"] = false }
     };
     private static void AddContract(PlanningSession state, PlanningCapability capability) => state.Discovery.Resolved.Add(capability);
+    private static JsonObject LegacyBindingSchema() => JsonNode.Parse("""
+        {"anyOf":[{"type":"object","properties":{"kind":{"type":"string","enum":["operation","value","transform","sequence","conditional","parallel","foreach","call","close","group","choice"]},"operationIds":{"type":"array","items":{"type":"string","maxLength":256},"minItems":0,"maxItems":2},"groupId":{"anyOf":[{"type":"string","maxLength":96},{"type":"null"}]}},"required":["kind","operationIds","groupId"],"additionalProperties":false},{"type":"null"}]}
+        """)!.AsObject();
     private static string[] TaskKinds(JsonNode schema) => Nodes(schema).OfType<JsonObject>()
         .Where(node => node["properties"] is JsonObject properties && properties.ContainsKey("id") && properties.ContainsKey("objective") && properties.ContainsKey("kind"))
         .SelectMany(node => node["properties"]!["kind"]!["enum"]!.AsArray().Select(value => value!.ToString())).Distinct(StringComparer.Ordinal).ToArray();

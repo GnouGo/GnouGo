@@ -41,6 +41,11 @@ public sealed partial class CompactDiscoveryProtocolTests
         control.Construction!.Compact!.PresentationVersion = 3;
         control.Request.Options["construction_presentation_version"] = 3;
         var unprojected = DiscoveryFollowup(control);
+        // Keep the response grammar fixed while measuring only metadata
+        // presentation; fresh v4 now constrains binding fields by task kind.
+        unprojected.StructuredOutputSchema!["properties"]!["binding"] = request.StructuredOutputSchema!["properties"]!["binding"]!.DeepClone();
+        unprojected = PlanningModelCalls.PrepareRequest(control, PlanningCompactConstruction.DiscoveryPurpose,
+            unprojected.Prompt, unprojected.StructuredOutputSchema.AsObject());
         Assert.Equal(original.ToJsonString(), Context(unprojected)["evidence"]!.ToJsonString());
         Assert.Equal(unprojected.StructuredOutputSchema!.ToJsonString(), request.StructuredOutputSchema!.ToJsonString());
         var before = PlanningRequestMeasurements.Measure(unprojected, PlanningCompactConstruction.DiscoveryPurpose, 6000);

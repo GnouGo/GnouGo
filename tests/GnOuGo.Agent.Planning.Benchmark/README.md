@@ -867,7 +867,9 @@ use their validated concrete location as the implementation citation, paired wit
 an original obligation; retained issued schemas preserve their earlier citation
 rules and report bounds. Historical revision-3 cohorts remain unchanged. Freeze a new source/settings identity for
 this change; deterministic tests or a completed review do not establish a live
-business improvement. The required independently executed paired outcomes and
+business improvement. Fresh discovery bindings constrain task-kind/operation/group
+field combinations to the existing semantic rules; retained flat-schema requests
+still resume byte-exactly and undergo the same semantic validation. The required independently executed paired outcomes and
 existing delegated approvals remain the acceptance gate.
 Use `--construction-preset large --automatic-correction` only for an explicitly
 authorized fresh cohort: it captures 384 physical planning attempts, 64 corrections,

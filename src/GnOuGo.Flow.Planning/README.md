@@ -27,6 +27,10 @@ presentation size without changing compiler validation or v15 lowering.
 Revision-3 selection fixes the business objective, scope and original requirements
 before selecting a capability-dependent implementation. A nullable `kind` enters
 the existing discovery phase; its final binding selects exact operations and kind.
+Fresh revision-4 schemas admit only the existing valid field combinations: operation
+identities for `operation`, a group target for `call`, and neither for other kinds.
+Semantic validation still checks the selected contracts and closed reusable target.
+Revision-3 grammar and issued requests remain unchanged.
 Known local computations, closed reusable calls and structural work keep the direct
 draft path. Bounded prerequisite notes link needs to original or contract evidence;
 the accepted TaskPlan remains the only source of available executable results.
