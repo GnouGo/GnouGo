@@ -65,8 +65,11 @@ Interface marking does not split that obligation. Revision 3 treats these marks
 as provisional: extraction receives bounded surrounding originals and exact source
 links, including earlier naming/type constraints. Within the same intent phase it
 can produce typed declarations, explicitly identify spans with no public interface,
-retrieve missing evidence or clarify material ambiguity. File-content and effect
-requirements remain obligations even when they declare no public return value.
+retrieve missing evidence or clarify material ambiguity. Before extracting types,
+it determines whether a source declares a caller input or a value returned to the
+caller. Writing an artifact and specifying its contents do not themselves declare
+that interface; an explicitly returned path or content still does. File-content
+and effect requirements remain obligations even without a public return value.
 Bare empty arrays do not establish declaration coverage, and missing type context
 does not justify inventing `any`. Pending dispositions or evidence block generation
 and completion; typed interfaces are committed only after the extraction resolves.

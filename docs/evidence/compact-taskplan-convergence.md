@@ -1,59 +1,51 @@
 # Compact TaskPlan convergence
 
 Business acceptance remains incomplete and PR #120 stays Draft. The latest
-Review PR diagnostic accepted one fragment but produced no complete artifact or
-execution. An earlier source passed both Collections runtime variants. The 18
-alternating baseline/candidate runs against `56942f5` remain unstarted.
+Review PR diagnostic requested clarification during interface extraction. An
+earlier source passed both Collections runtime variants. The 18 alternating
+baseline/candidate runs against `56942f5` remain unstarted.
 
 ## Latest frozen diagnostic
 
-Source `2e5b3a0d7258b9021269d0debb339b6d39c469bb`, cohort `compacta2e5b3a0d`,
+Source `61d9f0fb90d2d321645cbff412697bfb967a3b48`, cohort `compacta61d9f0fb`,
 retained pinned `gpt-5.5-2026-04-24`, medium reasoning, 64 calls and four
 corrections. Input targets/ceilings stayed 3k/12k for navigation, 8k/16k for
 drafting and 4k/8k for review, with output reservations of 16,384/16,384/4,096.
 
-Review PR stopped with `TASK_IDENTITY_INVALID` after **33 receipted calls, four
-corrections and one checkpoint**. No request exceeded its ceiling, no prospective
-request was rejected, and no empty response or new uncertainty occurred. The
-accepted fragment produced failure feedback; it did not establish the requested
-checkout, checks, review, report or cleanup. There was no complete artifact or
-runtime execution. Collections and Amazon were not dispatched in this cohort.
+Review PR paused after **four receipted calls, zero corrections and zero
+checkpoints**. No discovery, draft, Judge, artifact or execution was reached.
+The extraction request contained both complete original pages, but the model
+treated required local report contents as a new public return interface and
+asked for its schema. The generic extraction instruction now distinguishes:
+determine whether a caller interface exists before extracting types; writing an
+artifact does not itself declare a returned value. File-content obligations and
+explicit returned values remain authoritative. No evaluation-time answers were
+injected. The provider and Judge corrections were not reached by this run.
 
-Exact requests exposed two presentation defects. The provider overview showed
-only two of five sources. Discovery repeatedly treated the inspected subset as
-exhaustive despite available continuation links. Later, a Judge overlooked an
-accepted root export and requested a duplicate declaration, which deterministic
-validation rejected. Focused corrections broaden only the fresh bounded provider
-choice view and clarify preserved root versus nested exports. Original contracts,
-exact evidence pages, permissions and review authority remain unchanged.
-
-The previous discovery admission failure did not recur. Its peak fell from
-37,379 constructed bytes / 12,716 estimated tokens to 27,501 / 9,423. These are
-unpaired failed diagnostics with different model decisions, not proof of causality
-or business success. Calls, cost and planning time increased: 33 versus 25 calls,
-€1.310428 versus €1.219634, and 546.799 versus 436.940 seconds.
-
-Provider usage was **109,875 input / 30,632 output / 22,909 reasoning tokens**,
-costing **€1.3104283801874163319946452476**. Completed call stages totalled
-506.1539821 seconds. Reasoning is included in output; component estimates are
-not billed usage. Runtime latency and calls per satisfied business obligation
-remain unavailable.
+Provider usage was **5,462 input / 8,108 output / 6,143 reasoning tokens**,
+costing **€0.2414547077197679607318161535**. Planning took 104.808 seconds;
+completed call stages totalled 99.1570954 seconds. No empty response, admission
+rejection or new uncertainty occurred. Collections and Amazon were not dispatched.
 
 | Complete-request measurement | p50 | p95 | Maximum |
 | --- | ---: | ---: | ---: |
-| All 33 requests, bytes | 12,263 | 27,390 | 27,501 |
-| All requests, estimated tokens | 4,344 | 9,386 | 9,423 |
-| Draft requests, bytes | 17,493.5 | 19,453 | 19,453 |
-| Local Judge requests, bytes | 11,698.5 | 12,273 | 12,273 |
+| Four intent requests, bytes | 6,745 | 10,406 | 10,406 |
+| Estimated input tokens | 2,504.5 | 3,725 | 3,725 |
 
-All **493,431 request bytes** reconcile with their components. Draft and Judge
-estimated peaks were 6,741 and 4,347 respectively, below their captured ceilings.
-Median p50 and nearest-rank p95 are used. The [2e5b3a0 archive](compact-taskplan-2e5b3a0.json)
-indexes per-phase components and exact private measurements without payloads.
-The unchanged [0b44557 archive](compact-taskplan-0b44557.json) preserves the prior
-25-call discovery failure, the separately authorized Collections `52ebb72`
-permanent closure, and the normal ECB quote-cache refresh. No uncertain request
-was replayed and no reservation was released.
+All **26,909 request bytes** reconcile with components and meet the captured
+ceiling. Median p50 and nearest-rank p95 are used. Reasoning is included in output;
+component estimates are not billed usage. Runtime latency and calls per satisfied
+business obligation remain unavailable. The [61d9f0f archive](compact-taskplan-61d9f0f.json)
+indexes exact safe metrics and encrypted evidence hashes.
+
+The preceding [2e5b3a0 archive](compact-taskplan-2e5b3a0.json) retains 33 receipted
+calls, four corrections, one failure-feedback checkpoint and no complete artifact
+or execution. All requests met their limits, with a 27,501-byte / 9,423-token
+estimated peak. Its €1.310428 cost and 546.799 planning seconds exceeded the
+prior 25-call discovery failure's €1.219634 and 436.940 seconds. Smaller requests
+did not establish business success. Exact inspection demonstrated incomplete
+provider visibility and a Judge that overlooked a preserved public root export;
+`61d9f0f` corrected those presentation defects with no model or permission change.
 
 ## Earlier diagnostics and executed result
 
@@ -95,33 +87,41 @@ success does not prove acceptance or repeatability of the current source.
 
 ## Campaign accounting
 
-The post-Review PR audit verifies **1,329 requests / 1,316 receipts**. All thirteen
+The post-Review PR audit verifies **1,333 requests / 1,320 receipts**. All thirteen
 receiptless identities are permanently closed with their reservations retained.
 The journal separately counts twelve unknown attempts. No reservation was released.
 
 | Ledger measurement | EUR |
 | --- | ---: |
 | Campaign ceiling | 240.0301038327063045424449473 |
-| Known spending | 41.356975295357798979323199362 |
+| Known spending | 41.598430003077566940055015516 |
 | Unknown-usage reservations | 5.0713809650759797387363369764 |
-| Spending/reservation upper bound | 46.428356260433778718059536338 |
-| Available allowance | 193.601747572272525824385410962 |
+| Spending/reservation upper bound | 46.669810968153546678791352492 |
+| Available allowance | 193.360292864552757863653594808 |
 
-Audit evidence: `f7c9f08f5083c807620edce8f5efbf2549efd55e8afad762efd29ebbae40751c`.
+Audit evidence: `1535835c37f7c9b6fc1f3de17d62ec5b7687bccb034c5d50f987b723c1fa1fb6`.
 Lost historical exposure of €159.96989616729369545755505266 remains inside the
 original €400 authorization. Including that exposure, cumulative spending and
-reservations have an upper bound of approximately **€206.398252**. Exact decimal
+reservations have an upper bound of approximately **€206.639707**. Exact decimal
 strings are retained; independently summed costs can differ from ledger totals
 at their final decimal places. Further dispatch must recheck balance and
 readiness; these snapshot values grant no new allowance.
 
 ## Validation and remaining acceptance
 
+The subsequent extraction-instruction correction passed **60 focused intent
+tests** with warnings as errors, including historical grouping and exact pending
+request recovery. Existing fixtures verify structured file obligations and
+explicit returned paths; no schema, state or model setting changed. The full
+suite was not repeated for this instruction-only edit.
+
 The provider-overview and export-guidance correction passed **2,520 Planning
 tests**, plus focused suites of **131 discovery and 60 Judge tests**, with
 warnings as errors. Main production/test files match the isolated tested patch.
-A fresh frozen diagnostic is still required; these checks do not establish
-business convergence.
+The exact `61d9f0f` benchmark build, package and Native AOT smoke also passed.
+Its [CI](https://github.com/GnouGo/GnouGo/actions/runs/39894470316) is still running.
+The latest live run stopped before those corrected phases; these checks do not
+establish business convergence.
 
 Source `2e5b3a0` passed **2,509 Planning tests and 125 focused tests**, the
 benchmark build, independent Planning package and Native AOT smoke with warnings
@@ -156,7 +156,9 @@ delivered revision; compilation and green tests are not business acceptance.
 
 ## Immutable evidence
 
-The [2e5b3a0 archive](compact-taskplan-2e5b3a0.json) records the latest fully
+The [61d9f0f archive](compact-taskplan-61d9f0f.json) records the extraction
+clarification and current campaign balance.
+The [2e5b3a0 archive](compact-taskplan-2e5b3a0.json) records the preceding fully
 receipted Review PR stop and exact-revision validation.
 The [0b44557 archive](compact-taskplan-0b44557.json) records Review PR’s
 fully receipted discovery stop and the separately authorized Collections closure.

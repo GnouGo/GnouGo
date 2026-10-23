@@ -118,14 +118,22 @@ public sealed class CompactIntentResolutionTests
     [Fact]
     public async Task ExplicitPublicFilePathRemainsAnInterfaceAlongsideTheFileObligation()
     {
-        const string original = "Write the local report and return its path as public text output reportPath.";
+        const string original = "Write a local inventory.json artifact containing a status string, an entries list and an observed item count; return its path as public text output reportPath.";
         var runtime = new TestRuntime { Respond = (r, _) => Wire(r, Classify(r, "output")) };
         var state = await Advance(Fresh(original), runtime);
-        runtime.Respond = (r, _) => Wire(r, Resolve(r,
-            outputs: [new() { Name = "reportPath", Required = true, Type = new() { Kind = "string" } }]));
+        runtime.Respond = (r, _) =>
+        {
+            Assert.Contains("Explicitly returned paths or contents still declare interfaces.", r.Prompt, StringComparison.Ordinal);
+            Assert.Equal(original, Context(r)["sources"]![0]!["text"]!.ToString());
+            return Wire(r, Resolve(r,
+                outputs: [new() { Name = "reportPath", Required = true, Type = new() { Kind = "string" } }]));
+        };
         state = await Advance(state, runtime);
         Assert.True(Assert.Single(state.Construction!.Compact!.InterfaceExtractions!).Complete);
-        Assert.Equal("reportPath", Assert.Single(state.Requirements!.Outputs!).Name);
+        var output = Assert.Single(state.Requirements!.Outputs!);
+        Assert.Equal("reportPath", output.Name);
+        Assert.Equal("string", output.Type.Kind);
+        Assert.True(output.Required);
         Assert.Equal(original, Assert.Single(state.Requirements.Outcomes).Description);
         Assert.Empty(state.Construction.Checkpoints);
     }
@@ -133,10 +141,17 @@ public sealed class CompactIntentResolutionTests
     [Fact]
     public async Task FileObligationCanExplicitlyDeclinePublicInterfaceWithoutLosingRequirement()
     {
-        const string original = "Save the exact check results in the isolated local report file and remove the temporary directory.";
+        const string original = "Write an isolated local inventory.json artifact containing a status string, an entries list and an observed item count, then remove the temporary directory.";
         var runtime = new TestRuntime { Respond = (r, _) => Wire(r, Classify(r, "output")) };
         var state = await Advance(Fresh(original), runtime);
-        runtime.Respond = (r, _) => Wire(r, Resolve(r, kind: "no_public_interface"));
+        runtime.Respond = (r, _) =>
+        {
+            Assert.Contains("A public result is a value returned to the caller", r.Prompt, StringComparison.Ordinal);
+            Assert.Contains("writing an artifact and specifying its contents do not themselves declare one. Use no_public_interface when no caller interface is declared, retaining all business obligations.", r.Prompt, StringComparison.Ordinal);
+            Assert.Equal(original, Context(r)["sources"]![0]!["text"]!.ToString());
+            Assert.Contains(original, Context(r)["originalContext"]![0]!["text"]!.ToString(), StringComparison.Ordinal);
+            return Wire(r, Resolve(r, kind: "no_public_interface"));
+        };
         state = await Advance(state, runtime);
         Assert.Empty(state.Requirements!.Inputs!); Assert.Empty(state.Requirements.Outputs!);
         Assert.Equal(original, Assert.Single(state.Requirements.Outcomes).Description);

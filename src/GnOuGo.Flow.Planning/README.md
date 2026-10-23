@@ -4,7 +4,10 @@ Fresh sessions use [compact incremental construction](../../docs/incremental-tas
 
 Fresh presentation revision 3 keeps verbatim source classification and targeted
 caller/public-interface extraction in the existing intent phase. Classification
-directions are provisional. Extraction includes bounded surrounding originals and
+directions are provisional. Extraction first distinguishes caller interfaces from
+artifact obligations: writing a file with specified fields does not itself declare
+a returned value; an explicitly returned path or content remains an interface.
+Extraction includes bounded surrounding originals and
 exact retrieval links so names retain earlier types and constraints. An explicit
 no-interface disposition leaves the source's business obligation intact; bare empty
 arrays cannot resolve coverage. Missing type evidence requires retrieval or
