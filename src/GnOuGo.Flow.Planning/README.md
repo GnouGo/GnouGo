@@ -173,9 +173,13 @@ schema retrieval before binding. Fresh generation and correction retrieve cohere
 batches of up to eight addresses, retaining previously inspected input branches in
 the binding grammar. Successful individual identities prevent regrouped repeats.
 Historical issued batches retain their captured sizes.
-Revision-4 discovery offers a single evidence address after a rejected oversized
-batch, until successful admission resolves that diagnosis. Exact constraints,
-request ceilings and historical schemas remain unchanged.
+Revision-4 discovery and drafting offer a single evidence address after a rejected
+oversized batch, until successful admission resolves that diagnosis. A draft
+evidence-admission diagnosis alone, without a candidate or unresolved business
+finding, remains navigation even when repair capacity is exhausted. Genuine
+findings retain their correction authority and counters; an oversized singleton
+stops explicitly. Exact constraints, request ceilings and historical issued
+schemas remain unchanged.
 Unselected output navigation uses an exact first-page directory and count;
 selected output views remain present. Requested original contract evidence also
 replaces optional input navigation rows with their exact first-page directory,

@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "base_source": "7e19f7f82c8aec7749a662a9f60c04b0494f5092",
+  "changes": [
+    "Recover pure evidence-admission failures without candidate repair authority; bounded singleton fallback; preserve genuine findings and historical requests.",
+    "Retain safe host admission diagnosis alongside stopped review status, without a Judge response or additional authority."
+  ],
+  "validation": {
+    "combined_focused_passed": 121,
+    "failed": 0,
+    "warnings_as_errors": true,
+    "report_manifest_sha256": "957866473f6df0d8ba4c047b4bed17efcbc33c40e365f9a7cffb8993dddcf2e1",
+    "evidence_only_patch_full_planning_passed": 2706,
+    "evidence_manifest_sha256": "0ef6656e9d0b72433d73af80be16ea9eebecd99e675bdcbeb28d3c0b24c2dc9c",
+    "combined_patch_sha256": "2132dd6dc8afe0eb69f0e738231c73ca5e6af5145570c048d36cf909e77d106a",
+    "independent_review": "clear"
+  },
+  "limits": [
+    "The 2706 full Planning pass precedes the diagnostic-only follow-up; combined focused validation covers that follow-up.",
+    "Final full solution/publication/CI are tracked separately.",
+    "No business-convergence claim from deterministic validation."
+  ]
+}

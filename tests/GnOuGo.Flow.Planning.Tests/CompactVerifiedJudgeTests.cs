@@ -504,6 +504,68 @@ public sealed class CompactVerifiedJudgeTests
     [InlineData(3, true)]
     [InlineData(4, false)]
     [InlineData(4, true)]
+    public async Task ReviewAdmissionFailureRetainsHostCauseWithoutInventingAJudgeResponse(int presentation, bool intermediate)
+    {
+        var state = await TaskState();
+        state.Request.Generation.MaxInputTokensPerRequest = 512;
+        state.Request.Options["construction_presentation_version"] = presentation;
+        state.Construction!.Compact!.PresentationVersion = presentation;
+        state.Construction.Candidate!.NeedsIntermediateReview = intermediate;
+        state.Construction.Candidate.LocalReviewed = intermediate;
+        var accepted = PlanningConstruction.Hash(state.Plan);
+        var candidate = state.Construction.Candidate.Hash;
+        var purpose = intermediate ? PlanningConstruction.IntermediatePurpose : PlanningConstruction.LocalPurpose;
+        var request = HybridWorkflowPlanner.CreateConstructionReviewRequest(state, intermediate).Request;
+        var probe = PlannerFixture.Clone(state);
+        var expected = await Assert.ThrowsAsync<WorkflowRuntimeException>(() => PlanningModelCalls.CallAsync(probe,
+            new TestRuntime(), purpose, request.Prompt, request.StructuredOutputSchema!.AsObject(), PlannerFixture.Ct,
+            state.Construction.Limits.ReviewOutputTokens));
+        Assert.Equal("MODEL_INPUT_LIMIT", expected.Code);
+        var runtime = new TestRuntime();
+        state = await Advance(state, runtime);
+        Assert.Equal(PlanningStatus.Stopped, state.Status);
+        Assert.Empty(runtime.Calls);
+        Assert.Equal(0, state.ModelCalls);
+        Assert.Equal(0, state.ReplanAttempts);
+        Assert.Null(state.PendingCall);
+        Assert.Equal(accepted, PlanningConstruction.Hash(state.Plan));
+        Assert.Equal(candidate, state.Construction!.Candidate!.Hash);
+        Assert.Empty(state.Construction.Checkpoints);
+        Assert.Empty(state.Construction.Candidate.Diagnostics);
+        Assert.Null(state.Construction.Candidate.AuthorizedPaths);
+        var measurement = Assert.Single(state.RequestMeasurements!);
+        Assert.Equal("rejected_before_dispatch", measurement.Admission);
+        Assert.Equal(purpose, measurement.Phase);
+        Assert.True(measurement.EstimatedInputTokens > measurement.InputLimit);
+        Assert.Equal(measurement.CompleteRequestBytes, measurement.Components.Sum(component => component.SerializedBytes));
+        var review = Assert.Single(state.Construction.Candidate.Reviews);
+        Assert.Equal("inconclusive", review["outcome"]!.ToString());
+        Assert.Null(review["response"]);
+        const string description = "The mandatory fragment review could not complete within its retained allowance.";
+        if (presentation == 4)
+        {
+            var cause = Assert.Single(state.Diagnostics, diagnostic => diagnostic.Code == expected.Code);
+            Assert.Equal(expected.Message, cause.Message);
+            Assert.Equal("/phases/" + purpose, cause.Location);
+            Assert.Equal(purpose, cause.ValidationStage);
+            Assert.Equal(description + " " + expected.Code + ": " + expected.Message, review["description"]!.ToString());
+            Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Code == "CONSTRUCTION_REVIEW_INCONCLUSIVE");
+            Assert.InRange(cause.Message.Length, 1, 1024);
+        }
+        else
+        {
+            Assert.Equal(description, review["description"]!.ToString());
+            var diagnosis = Assert.Single(state.Diagnostics);
+            Assert.Equal("CONSTRUCTION_REVIEW_INCONCLUSIVE", diagnosis.Code);
+            Assert.Equal(description + " No checkpoint or edit authority was created.", diagnosis.Message);
+        }
+    }
+
+    [Theory]
+    [InlineData(3, false)]
+    [InlineData(3, true)]
+    [InlineData(4, false)]
+    [InlineData(4, true)]
     public async Task OversizedReviewEvidenceStopsOrNarrowsWithoutStagingOrCorrection(int presentation, bool multiple)
     {
         var state = await State(large: true);

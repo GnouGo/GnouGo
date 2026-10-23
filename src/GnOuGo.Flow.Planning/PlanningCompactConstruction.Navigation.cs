@@ -49,8 +49,17 @@ internal static partial class PlanningCompactConstruction
             "operations", "rebuild" }.Select(name => context[name])
             .Append(context["taskEvidence"]?["scopeOwner"])
             .Concat((state.Construction!.Evidence ?? []).Select(item => item.Value).Where(value => value is JsonObject or JsonArray))));
-        ConstrainEvidenceChoices(state, schema, addresses, maximum: 8);
+        ConstrainEvidenceChoices(state, schema, addresses, maximum: HasEvidenceAdmissionLimit(state) ? 1 : 8);
     }
+
+    internal static bool IsEvidenceAdmissionLimit(PlanningDiagnostic diagnostic) => diagnostic.Required &&
+        diagnostic.Code == "CONSTRUCTION_EVIDENCE_LIMIT" && diagnostic.Location == "/evidenceRequests";
+
+    private static bool HasEvidenceAdmissionLimit(PlanningSession state) => UsesVerifiedReview(state) &&
+        PlanningConstructionPhasePolicies.IsFresh(state.Request) && state.Diagnostics.Any(IsEvidenceAdmissionLimit);
+
+    internal static bool EvidenceAdmissionOnly(PlanningSession state) => HasEvidenceAdmissionLimit(state) &&
+        state.Construction!.Candidate is null && state.Diagnostics.Where(diagnostic => diagnostic.Required).All(IsEvidenceAdmissionLimit);
 
     private static void ConstrainDiscoveryEvidence(PlanningSession state, JsonObject context, JsonObject schema)
     {

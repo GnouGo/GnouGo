@@ -94,7 +94,7 @@ internal static partial class PlanningCompactConstruction
                 1, fresh ? 8 : IsCompactPresentation(state) ? 1 : 8))),
             ("rollbackTask", rollback ? PlanningSchemas.Nullable(PlanningSchemas.String()) : PlanningSchemas.Type("null")),
             ("rollbackReason", rollback ? PlanningSchemas.Nullable(PlanningSchemas.String()) : PlanningSchemas.Type("null")),
-            ("reselectStep", CanReselectInitialDraft(state) || state.Construction.Candidate?.AuthorizedPaths is null &&
+            ("reselectStep", CanReselectInitialDraft(state) || !EvidenceAdmissionOnly(state) && state.Construction.Candidate?.AuthorizedPaths is null &&
                 (state.Diagnostics.Any(d => d.Required) || state.Construction.Candidate?.Diagnostics.Any(d => d.Required) == true)
                 ? PlanningSchemas.Nullable(new JsonObject { ["type"] = "string", ["minLength"] = 1, ["maxLength"] = 512 }) : PlanningSchemas.Type("null")));
         schema["$defs"] = definitions;

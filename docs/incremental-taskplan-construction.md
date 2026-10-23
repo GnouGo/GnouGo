@@ -252,7 +252,7 @@ while removing obsolete action directories; changing the candidate clears its
 stale views, retaining hash-bound read history. Existing phase/substep transitions
 clear presentation context. Oversized separable batches receive a
 bounded diagnostic; indispensable indivisible closures fail explicitly.
-Revision-4 requests offer one exact discovery evidence address while an earlier
+Revision-4 requests offer one exact discovery or draft evidence address while an earlier
 batch-size diagnosis remains unresolved; successful admission restores the ordinary
 batch choices. This avoids repeated batch-size guesses without changing the ceiling
 or omitting required constraints. Successful
@@ -468,6 +468,13 @@ known response and transition are checkpointed. Fully validated evidence-only
 responses consume calls, tokens and money but no correction. Invalid evidence
 returned during a correction still consumes that attempt. Historical precharged
 requests retain their charges; uncertainty is never refunded or replayed.
+For fresh revision 4, an evidence-admission diagnosis alone does not turn an
+ordinary draft into a repair. An oversized batch remains unaccepted and offers
+one exact address next, even when correction capacity is exhausted. Existing
+semantic findings remain blocking and retain their correction accounting. A
+required singleton that cannot fit stops explicitly; no partial evidence,
+ceiling increase or checkpoint is accepted. Pending requests retain their exact
+purpose, schema and accounting mode.
 
 ## Captured capacity
 

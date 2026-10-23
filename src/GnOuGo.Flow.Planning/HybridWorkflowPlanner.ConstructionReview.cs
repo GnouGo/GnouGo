@@ -201,7 +201,9 @@ public sealed partial class HybridWorkflowPlanner
         }
         catch (WorkflowRuntimeException ex) when (state.PendingCall is null && ex.Code is "MODEL_INPUT_LIMIT" or "MODEL_OUTPUT_LIMIT" or "LLM_BUDGET_EXCEEDED")
         {
-            Inconclusive("The mandatory fragment review could not complete within its retained allowance."); return;
+            var cause = verified && PlanningCompactConstruction.UsesVerifiedReview(state) && PlanningConstructionPhasePolicies.IsFresh(state.Request)
+                ? new PlanningDiagnostic(ex.Code, "/phases/" + purpose, ex.Message, ValidationStage: purpose) : null;
+            Inconclusive("The mandatory fragment review could not complete within its retained allowance.", cause); return;
         }
         var actions = (response["findings"] is null ? 0 : 1) + (response["evidenceRequests"] is null ? 0 : 1) +
             (verified && response["inconclusive"] is not null ? 1 : 0);
@@ -293,8 +295,9 @@ public sealed partial class HybridWorkflowPlanner
         if (intermediate) draft.IntermediateReviewed = true; else draft.LocalReviewed = true;
         if (!draft.NeedsIntermediateReview || draft.IntermediateReviewed) await AcceptConstructionAsync(state, runtime, ct);
 
-        void Inconclusive(string description)
+        void Inconclusive(string description, PlanningDiagnostic? cause = null)
         {
+            if (cause is not null) description += " " + cause.Code + ": " + cause.Message;
             var entry = new JsonObject { ["purpose"] = purpose, ["fingerprint"] = fingerprint, ["candidateHash"] = draft.Hash,
                 ["outcome"] = "inconclusive", ["description"] = description };
             if (verified)
@@ -304,6 +307,7 @@ public sealed partial class HybridWorkflowPlanner
             }
             draft.Reviews.Add(entry);
             state.Diagnostics = [new("CONSTRUCTION_REVIEW_INCONCLUSIVE", "/construction/candidate", description + " No checkpoint or edit authority was created.")];
+            if (cause is not null) state.Diagnostics.Add(cause);
             Stop(state);
         }
     }

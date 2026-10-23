@@ -219,12 +219,28 @@ public sealed partial class HybridWorkflowPlanner
         {
             if (correction.Enabled && (proposal.Requirements is not null || proposal.Commitments is not null || proposal.RollbackReason is not null))
                 PlanningConstruction.Fail("PROPOSAL_ACTION_INVALID", "/evidenceRequests", "Evidence retrieval cannot also stage requirements, commitments or rollback decisions.");
-            PlanningConstruction.LoadEvidence(state, evidence, followup: next =>
+            try
             {
-                var draft = PlanningConstruction.DraftRequest(next, repair);
-                return PlanningModelCalls.PrepareRequest(next, repair ? "replan" : PlanningConstruction.DraftPurpose,
-                    draft.Prompt, draft.StructuredOutputSchema!.AsObject(), next.Construction!.Limits.DraftOutputTokens);
-            }, purpose: repair ? "replan" : PlanningConstruction.DraftPurpose);
+                PlanningConstruction.LoadEvidence(state, evidence, followup: next =>
+                {
+                    var draft = PlanningConstruction.DraftRequest(next, repair);
+                    return PlanningModelCalls.PrepareRequest(next, repair ? "replan" : PlanningConstruction.DraftPurpose,
+                        draft.Prompt, draft.StructuredOutputSchema!.AsObject(), next.Construction!.Limits.DraftOutputTokens);
+                }, purpose: repair ? "replan" : PlanningConstruction.DraftPurpose);
+            }
+            catch (PlanningResponseException error) when (PlanningCompactConstruction.UsesVerifiedReview(state) &&
+                PlanningConstructionPhasePolicies.IsFresh(state.Request) && error.Diagnostics.All(PlanningCompactConstruction.IsEvidenceAdmissionLimit))
+            {
+                // Admission is atomic. A rejected batch is navigation feedback,
+                // but it must not replace unresolved semantic repair findings.
+                if (evidence.Count == 1)
+                    throw new WorkflowRuntimeException("CONSTRUCTION_EVIDENCE_LIMIT", error.Diagnostics[0].Message);
+                var unresolved = state.Diagnostics.Where(diagnostic => diagnostic.Required &&
+                    !PlanningCompactConstruction.IsEvidenceAdmissionLimit(diagnostic)).ToArray();
+                if (unresolved.Length > 0)
+                    throw new PlanningResponseException(unresolved.Concat(error.Diagnostics).Distinct().ToList());
+                throw;
+            }
             correction.EvidenceAccepted();
             return;
         }

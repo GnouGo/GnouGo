@@ -876,6 +876,11 @@ Fresh live sessions use version-two compact incremental construction and mandato
 intermediate reviews. The historical `--business-judge` setting cannot disable these
 reviews or introduce a final whole-plan Judge. Every draft, review, evidence request
 and correction uses the same captured session and cumulative campaign allowances.
+An oversized draft evidence batch may request a smaller exact view without spending
+candidate-repair capacity; outstanding semantic findings retain their repair limits.
+A rejected mandatory Judge request is reported with its host admission cause and
+has no provider receipt or business verdict. A larger ceiling requires a separately
+frozen fresh profile, never an in-session change or silent context truncation.
 
 Fresh cohorts capture presentation revision 4. Scoped reviews receive compiler
 facts separately from business and runtime evidence, plus bounded exact caller

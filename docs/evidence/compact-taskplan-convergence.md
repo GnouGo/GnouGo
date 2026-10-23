@@ -1,10 +1,10 @@
 # Compact TaskPlan convergence
 
-**Business acceptance remains incomplete; PR #120 stays Draft.** Latest frozen
-`e0959e3` Collections, `1b749a1` Amazon and preceding `d0413d2` diagnostics produced no complete artifact or executed workflow. The 18 alternating
-baseline/candidate runs against `56942f5` have not started. All 21 receiptless identities
-remain permanently closed with their full unknown-usage reservations retained;
-replay and continuation remain forbidden.
+**Business acceptance remains incomplete; PR #120 stays Draft.** Frozen
+`e0959e3` Collections and `7e19f7f8` Amazon/Review PR produced no complete artifact
+or executed workflow. The 18 alternating baseline/candidate runs against `56942f5`
+have not started. All 21 receiptless identities remain permanently closed with
+full unknown-usage reservations retained; replay and continuation remain forbidden.
 
 ## Current implementation and validation
 
@@ -16,7 +16,11 @@ deadline. Historical requests retain their captured behavior. Fresh benchmark pl
 captures five hours, while runtime keeps its separate limit. Fresh diagnostics
 freeze an 18k draft ceiling with the existing 8k target. Discovery now receives the same
 bounded scope owner already available to drafting and review. These changes do not
-establish business convergence before independent execution. The benchmark follow-up removes
+establish business convergence before independent execution. The latest focused correction lets an ordinary draft
+recover from an oversized evidence batch without requiring candidate-repair capacity.
+It offers one address at a time, preserves genuine findings and rejects oversized
+singletons. Stopped scoped reviews now retain their specific safe host admission
+cause, distinguishing an undispatched request from a Judge report. The benchmark follow-up removes
 the fresh outer logical budget wrapper and consumes exact saved completions before mutable
 deployment or elapsed-budget admission. New physical sends still undergo full admission;
 185 focused tests and the benchmark build passed with warnings as errors.
@@ -25,7 +29,11 @@ Focused checks passed with warnings as errors: **73 AI retry/routing**, **37 pro
 host/recovery**, **109 Integrations**, **561 benchmark**, **36 runtime budget** and
 **191 scoped-navigation** tests, plus measurement and compatibility checks. These filters
 overlap and are not a full-solution total. The [validation index](compact-taskplan-confirmed-retries-validation.json)
-binds exact source/evidence manifests and retains initial failures.
+binds exact source/evidence manifests and retains initial failures. The
+[evidence-recovery index](compact-taskplan-evidence-recovery-validation.json) records
+**121 combined focused tests** and the preceding **2,706-test full Planning pass**
+for the evidence correction; the small diagnostic-reporting follow-up is covered
+by the combined focused suite. These counts overlap and do not establish live success.
 
 The preceding correction favors appending ordinary work to an existing scope and supplies
 one bounded selected-scope owner with exact retrieval links. Fresh-v4 Judges also receive
@@ -53,6 +61,7 @@ diagnostics exercised this source but did not establish business convergence.
 
 | Source | Validation with warnings as errors |
 | --- | --- |
+| Frozen `7e19f7f8` | **12/12 publication stages passed**; all-source final validation is tracked separately |
 | Frozen `e0959e3` | **12/12 publication stages passed**, including six independent packages, Planning Native AOT, published encrypted storage and Git AOT/contracts; full solution still running at this snapshot |
 | Frozen `d0413d2` | **7,690 full-solution passed, 0 failed, 13 skipped**, 33 projects; **237 focused / 2,661 Planning passed** on matching source; **11/11 publication stages passed** |
 | Frozen `f3cb064` | Full solution **7,685 passed, 0 failed, 13 skipped**, 33 projects; 92 focused / 2,656 Planning passed; **11/11 publication stages** |
@@ -70,6 +79,22 @@ Technical validation is not business acceptance or proof of avoided corrections.
 
 ## Latest live diagnostics
 
+Latest `7e19f7f8` Amazon stopped after an oversized four-address evidence batch:
+21,134 estimated draft tokens against 18k. It had exhausted three corrections,
+and the host incorrectly treated the evidence-admission diagnosis as a candidate
+repair. This does not prove an indivisible required schema exceeded the ceiling.
+The focused correction preserves atomic admission and real repair authority.
+
+Review PR stopped before dispatching mandatory Judge 21: 8,193 estimated input
+tokens against 8k. Its context contained current relevant work, not accumulated
+history. A separately frozen next profile may use a 9k review ceiling with the
+same 4k target and output reservation. The previous repair changed objectives and
+outputs but left Git executable inputs unchanged; its unpinned clone independently
+fails the execution guard. Future-observation allegations remain qualified because
+no closure was claimed. No runtime or avoided-correction success is established.
+The [formatting supplement](compact-taskplan-7e19f7f-response-format.json) retains
+both runs' response formatting counts; neither had empty completed responses.
+
 [e0959e3 Collections](compact-taskplan-e0959e3-collections.json) exercised the retry path:
 **23 logical requests / 24 physical attempts**, with a durable HTTP 500 followed by 200.
 Its failed attempt retains **EUR 0.9308701472556894243641231593** in unknown usage.
@@ -83,6 +108,8 @@ business finding, not an observed avoided correction or runtime failure.
 
 | Frozen attempt | Planner calls / receipts | Corrections / checkpoints | Planning seconds | Known cost EUR | Result |
 | --- | ---: | ---: | ---: | ---: | --- |
+| [7e19f7f8 Amazon](compact-taskplan-7e19f7f-amazon.json) | 32 / 32 | 3 / 1 | 984.401 | 1.8810709504685408299866131190 | Evidence batch rejected; exhausted correction gate prevented bounded retrieval recovery |
+| [7e19f7f8 Review PR](compact-taskplan-7e19f7f-code.json) | 20 / 20 | 3 / 1 | 495.268 | 1.0383623382418563141454707721 | Mandatory Judge request rejected before dispatch at 8,193 > 8,000 input tokens |
 | [e0959e3 Collections](compact-taskplan-e0959e3-collections.json) | 23 / 23 | 1 / 5 | 755.619 | 0.7595760821062025881302989735 | Confirmed HTTP retry recovered; premature requirement closure then repeated correction; no complete artifact |
 | [1b749a1 Amazon](compact-taskplan-1b749a1-amazon.json) | 37 / 37 | 3 / 1 | 1,400.198 | 2.8004863900044622936189201251 | Local review rejected a content observation used as a session-resource producer; no complete artifact |
 | [d0413d2 Amazon](compact-taskplan-d0413d2-amazon.json) | 53 / 52 | 4 / 4 | 1,800.860 | 3.7975680499776885319053993752 | Host elapsed budget stopped request 53 before HTTP; no complete artifact |
@@ -129,7 +156,7 @@ counts remain zero, calls per satisfied obligation undefined and runtime latency
 
 ## Latest audited allowance
 
-The post-e0959e3 Collections audit retains all 21 permanently closed receiptless
+The post-7e19f7f8 Review PR audit retains all 21 permanently closed receiptless
 identities. The 21 unknown transport-attempt records are a separate metric, including
 an attempt whose logical request later succeeded. These amounts describe this snapshot,
 not later dispatches.
@@ -137,14 +164,14 @@ not later dispatches.
 | Ledger measurement | EUR |
 | --- | ---: |
 | Campaign ceiling | 240.0301038327063045424449473 |
-| Known spending | 77.185569672867839139965769646 |
+| Known spending | 80.10500296157823628409785353 |
 | Retained unknown-usage reservations | 10.872951692429839622716702885 |
-| Spending/reservation upper bound | 88.05852136529767876268247253 |
-| Available allowance at that snapshot | 151.97158246740862577976247477 |
+| Spending/reservation upper bound | 90.97795465400807590681455642 |
+| Available allowance at that snapshot | 149.05214917869822863563039088 |
 
-The [Collections evidence](compact-taskplan-e0959e3-collections.json) binds the exact audit.
+The [Review PR evidence](compact-taskplan-7e19f7f-code.json) binds the exact audit.
 Including retained lost historical exposure **EUR159.96989616729369545755505266**, the
-cumulative spending/reservation upper bound is **EUR248.02841753259137422023752519**
+cumulative spending/reservation upper bound is **EUR250.94785082130177136436960908**
 inside the original EUR400 authorization. This corrects the previous concise summary's
 stale cumulative arithmetic; original monetary evidence is unchanged.
 
