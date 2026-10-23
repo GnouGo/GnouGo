@@ -1,42 +1,51 @@
 # Compact TaskPlan convergence
 
 Business acceptance remains incomplete and PR #120 stays Draft. The latest
-Review PR diagnostic requested clarification during interface extraction. An
-earlier source passed both Collections runtime variants. The 18 alternating
+Collections diagnostic stopped after attempting to export an unfinished loop.
+An earlier source passed both Collections runtime variants. The 18 alternating
 baseline/candidate runs against `56942f5` remain unstarted.
 
 ## Latest frozen diagnostic
 
-Source `61d9f0fb90d2d321645cbff412697bfb967a3b48`, cohort `compacta61d9f0fb`,
+Source `875022eaa2b1302ab0f724e5e289e4d6497aadd3`, cohort `compacta875022ea`,
 retained pinned `gpt-5.5-2026-04-24`, medium reasoning, 64 calls and four
 corrections. Input targets/ceilings stayed 3k/12k for navigation, 8k/16k for
 drafting and 4k/8k for review, with output reservations of 16,384/16,384/4,096.
 
-Review PR paused after **four receipted calls, zero corrections and zero
-checkpoints**. No discovery, draft, Judge, artifact or execution was reached.
-The extraction request contained both complete original pages, but the model
-treated required local report contents as a new public return interface and
-asked for its schema. The generic extraction instruction now distinguishes:
-determine whether a caller interface exists before extracting types; writing an
-artifact does not itself declare a returned value. File-content obligations and
-explicit returned values remain authoritative. No evaluation-time answers were
-injected. The provider and Judge corrections were not reached by this run.
+Collections stopped after **20 receipted calls, three corrections and three
+checkpoints**, with no complete artifact or runtime execution. Selection claimed
+a complete loop result and requirement closure, while drafting correctly allowed
+only an empty container opening. The candidate exported that unfinished loop;
+semantic preflight rejected the unavailable result. Reselection repeated the
+same boundary mistake and ended in a clarification about edit authority. The
+focused correction makes opening, child implementation and closure explicit
+immediate actions; it does not weaken validation or widen correction authority.
 
-Provider usage was **5,462 input / 8,108 output / 6,143 reasoning tokens**,
-costing **€0.2414547077197679607318161535**. Planning took 104.808 seconds;
-completed call stages totalled 99.1570954 seconds. No empty response, admission
-rejection or new uncertainty occurred. Collections and Amazon were not dispatched.
+Provider usage was **40,379 input / 18,074 output / 14,110 reasoning tokens**,
+costing **€0.6640919232485497545738509593**. Planning took 332.902 seconds;
+completed call stages totalled 314.7582665 seconds. No empty response, admission
+rejection or new uncertainty occurred. Amazon and Review PR were not dispatched.
 
 | Complete-request measurement | p50 | p95 | Maximum |
 | --- | ---: | ---: | ---: |
-| Four intent requests, bytes | 6,745 | 10,406 | 10,406 |
-| Estimated input tokens | 2,504.5 | 3,725 | 3,725 |
+| All twenty requests, bytes | 9,597 | 17,658 | 21,896 |
+| Estimated input tokens | 3,455 | 6,142 | 7,555 |
+| Draft requests, bytes | 12,756 | 14,251 | 14,251 |
+| Local Judge requests, bytes | 8,603 | 9,236 | 9,236 |
 
-All **26,909 request bytes** reconcile with components and meet the captured
-ceiling. Median p50 and nearest-rank p95 are used. Reasoning is included in output;
+All **219,665 request bytes** reconcile with components and meet captured
+ceilings. Median p50 and nearest-rank p95 are used. Reasoning is included in output;
 component estimates are not billed usage. Runtime latency and calls per satisfied
-business obligation remain unavailable. The [61d9f0f archive](compact-taskplan-61d9f0f.json)
+business obligation remain unavailable. The [875022e archive](compact-taskplan-875022e.json)
 indexes exact safe metrics and encrypted evidence hashes.
+
+The [61d9f0f archive](compact-taskplan-61d9f0f.json) retains the preceding four-call
+Review PR extraction clarification, costing €0.2414547077197679607318161535.
+The exact request contained both original pages, but the model treated required
+local report contents as a new public return interface. `875022e` clarified the
+generic distinction between artifact obligations and returned values without
+injecting evaluation-time answers or changing schemas. Its effect on Review PR
+remains unverified.
 
 The preceding [2e5b3a0 archive](compact-taskplan-2e5b3a0.json) retains 33 receipted
 calls, four corrections, one failure-feedback checkpoint and no complete artifact
@@ -87,33 +96,41 @@ success does not prove acceptance or repeatability of the current source.
 
 ## Campaign accounting
 
-The post-Review PR audit verifies **1,333 requests / 1,320 receipts**. All thirteen
+The post-Collections audit verifies **1,353 requests / 1,340 receipts**. All thirteen
 receiptless identities are permanently closed with their reservations retained.
 The journal separately counts twelve unknown attempts. No reservation was released.
 
 | Ledger measurement | EUR |
 | --- | ---: |
 | Campaign ceiling | 240.0301038327063045424449473 |
-| Known spending | 41.598430003077566940055015516 |
+| Known spending | 42.262521926326116694628866476 |
 | Unknown-usage reservations | 5.0713809650759797387363369764 |
-| Spending/reservation upper bound | 46.669810968153546678791352492 |
-| Available allowance | 193.360292864552757863653594808 |
+| Spending/reservation upper bound | 47.333902891402096433365203452 |
+| Available allowance | 192.696200941304208109079743848 |
 
-Audit evidence: `1535835c37f7c9b6fc1f3de17d62ec5b7687bccb034c5d50f987b723c1fa1fb6`.
+Audit evidence: `58722e4a829ebe3e0ddc252a076390cb7087abc1c239f4650f26b814e62cc10c`.
 Lost historical exposure of €159.96989616729369545755505266 remains inside the
 original €400 authorization. Including that exposure, cumulative spending and
-reservations have an upper bound of approximately **€206.639707**. Exact decimal
+reservations have an upper bound of approximately **€207.303799**. Exact decimal
 strings are retained; independently summed costs can differ from ledger totals
 at their final decimal places. Further dispatch must recheck balance and
 readiness; these snapshot values grant no new allowance.
 
 ## Validation and remaining acceptance
 
+The subsequent container-opening clarification passed **44 focused opening and
+reselection tests** with warnings as errors, plus the exact benchmark build.
+Existing fixtures now exercise legal empty openings, retained open requirements,
+unchanged accepted plans and rejected consumption of unfinished results across
+all five container kinds. Independent review found no remaining authority or
+compatibility issue. The new diagnostic has not yet been dispatched.
+
 The subsequent extraction-instruction correction passed **60 focused intent
 tests** with warnings as errors, including historical grouping and exact pending
 request recovery. Existing fixtures verify structured file obligations and
-explicit returned paths; no schema, state or model setting changed. The full
-suite was not repeated for this instruction-only edit.
+explicit returned paths; no schema, state or model setting changed. The exact `875022e` benchmark build, Planning package and Native AOT smoke also
+passed. Its [CI](https://github.com/GnouGo/GnouGo/actions/runs/39895543975) is
+still running. The full suite was not repeated for this instruction-only edit.
 
 The provider-overview and export-guidance correction passed **2,520 Planning
 tests**, plus focused suites of **131 discovery and 60 Judge tests**, with
@@ -156,8 +173,9 @@ delivered revision; compilation and green tests are not business acceptance.
 
 ## Immutable evidence
 
-The [61d9f0f archive](compact-taskplan-61d9f0f.json) records the extraction
-clarification and current campaign balance.
+The [875022e archive](compact-taskplan-875022e.json) records the Collections
+open-scope stop and current campaign balance. The unchanged
+[61d9f0f archive](compact-taskplan-61d9f0f.json) records extraction clarification.
 The [2e5b3a0 archive](compact-taskplan-2e5b3a0.json) records the preceding fully
 receipted Review PR stop and exact-revision validation.
 The [0b44557 archive](compact-taskplan-0b44557.json) records Review PR’s

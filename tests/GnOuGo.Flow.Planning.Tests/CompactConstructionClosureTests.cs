@@ -65,18 +65,58 @@ public sealed class CompactConstructionClosureTests
     }
 
     [Theory]
-    [InlineData("group")]
-    [InlineData("sequence")]
-    [InlineData("conditional")]
-    [InlineData("parallel")]
-    [InlineData("foreach")]
-    public void ANewContainerPresentationLeavesItsChildScopesForLaterDrafts(string kind)
+    [InlineData("group", false)]
+    [InlineData("sequence", false)]
+    [InlineData("conditional", false)]
+    [InlineData("parallel", false)]
+    [InlineData("foreach", false)]
+    [InlineData("group", true)]
+    [InlineData("sequence", true)]
+    [InlineData("conditional", true)]
+    [InlineData("parallel", true)]
+    [InlineData("foreach", true)]
+    public void ANewContainerPresentationLeavesItsChildScopesForLaterDrafts(string kind, bool current)
     {
         var state = State();
-        state.Construction!.Compact!.CurrentStep!.Kind = kind;
-        var schema = PlanningCompactConstruction.DraftSchema(state);
+        if (current) PlanningSessionCreation.Capture(state);
+        var step = state.Construction!.Compact!.CurrentStep!;
+        step.Kind = kind;
+        step.CloseRequirementIds.Clear();
+        step.OutputNames.Clear();
+        var selection = PlanningCompactConstruction.Request(PlanningCompactConstruction.SelectGuidance(state),
+            PlanningCompactConstruction.SelectionContext(state), PlanningCompactConstruction.SelectionSchema(state),
+            PlanningCompactConstruction.SelectPurpose);
+        var request = PlanningConstruction.DraftRequest(state, repair: false);
+        Assert.Equal(current, selection.Prompt.Contains("Select an empty container/group opening separately from filling and closing its children", StringComparison.Ordinal));
+        Assert.Equal(current, request.StructuredOutputSchema!["description"]!.ToString().Contains("Do not consume or export the new container's outputs until its children are complete and closed", StringComparison.Ordinal));
+        Assert.DoesNotContain("use reselectStep when offered", PlanningCompactConstruction.DraftSemantics(state, step, review: true), StringComparison.Ordinal);
+        var schema = request.StructuredOutputSchema!.AsObject();
         AssertCompletion(schema, allowed: false);
         AssertScopeClosure(schema, "/root", allowed: false);
+        var extension = new PlanningConstructionExtension { RequirementIds = ["req"] };
+        if (kind == "group") extension.Groups.Add(new() { Id = "reusable", Body = new() });
+        else
+        {
+            var task = new PlanTask { Id = "container", Kind = kind, Objective = "Open the scope for the required work." };
+            if (kind == "parallel") task.Branches = [new(), new()];
+            else task.Body = new();
+            if (kind == "conditional") { task.Otherwise = new(); task.Condition = new() { Kind = "boolean", Boolean = true }; }
+            if (kind == "foreach") task.Items = new() { Kind = "array", Items = [new() { Kind = "string", Text = "item" }] };
+            extension.Tasks.Add(task);
+        }
+        Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(Response(state, extension, schema), schema));
+        var original = PlanningConstruction.Hash(state.Plan);
+        var candidate = PlanningConstruction.Apply(state, extension);
+        PlanningCompactConstruction.ValidateExtension(state, candidate);
+        var open = candidate.OpenScopes.ToHashSet(StringComparer.Ordinal);
+        Assert.True(open.Count > 1);
+        Assert.Empty(TaskPlanCompiler.ValidateConstruction(candidate.Plan, state.Catalog!, state.Request, open).Diagnostics);
+        Assert.NotEqual("closed", Assert.Single(state.Construction.Requirements).Status);
+        Assert.Equal(original, PlanningConstruction.Hash(state.Plan));
+        if (kind == "group") candidate.Plan.Root.Tasks.Add(new() { Id = "premature", Kind = "call", Group = "reusable", Objective = "Read unfinished work." });
+        else candidate.Plan.Root.Outputs.Add(new("message", new() { Kind = "output", Source = "container", Port = "message" }));
+        Assert.Contains(TaskPlanCompiler.ValidateConstruction(candidate.Plan, state.Catalog!, state.Request, open).Diagnostics,
+            diagnostic => diagnostic.Code == "TASK_SCOPE_OPEN");
     }
 
     [Fact]

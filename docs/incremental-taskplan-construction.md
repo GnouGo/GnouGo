@@ -105,6 +105,10 @@ original requirement open; available results come from the accepted TaskPlan and
 its compiler-validated interfaces. Selection and drafting
 share the value-task capability boundary: declared bindings and computations do
 not provide string formatting, concatenation or URL encoding.
+Container opening, child implementation and closure are separate immediate
+substeps. Opening establishes control inputs and a boundary; it cannot consume
+the future body result or claim its broader requirement complete. Export a
+container result only after its child scopes close.
 Cleanup, exports and closure use the same substep mechanism. Public workflow
 outputs remain distinct from internal task/group results and local exports.
 All unprocessed pages and unresolved requirements block completion.
