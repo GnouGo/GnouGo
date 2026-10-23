@@ -162,7 +162,9 @@ internal static partial class PlanningCompactConstruction
             hints.Add("foreach.maxItems is the TOTAL input-item ceiling; excess fails, it never samples or truncates. maxConcurrency limits simultaneous workers, not total items. Neither bound guarantees a nonempty collection.");
             if (IsCompactPresentation(state))
                 hints.Add(review
-                    ? "Finite supported capacity must respect explicit original bounds; unspecified capacity remains unverified. Runtime ceilings still apply."
+                    ? UsesDeferredBinding(state)
+                        ? "An unspecified input length does not require unlimited capacity. Preserve every item within admitted capacity; excess rejects the input, never returns truncated success. Report conflicts with explicit required capacities or known required item counts. Absent bounds alone are not defects or missing business facts; unspecified capacity remains unverified. Runtime ceilings still apply."
+                        : "Finite supported capacity must respect explicit original bounds; unspecified capacity remains unverified. Runtime ceilings still apply."
                     : PlanningConstructionPhasePolicies.IsFresh(state.Request)
                     ? "Use a finite supported capacity; the TaskPlan default maxItems=" +
                         new PlanTask().MaxItems.ToString(System.Globalization.CultureInfo.InvariantCulture) +

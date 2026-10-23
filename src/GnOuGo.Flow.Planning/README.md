@@ -58,12 +58,14 @@ cardinality; host validation still rejects duplicate or changed identities.
 Selection requests an executable business result, not catalog discovery or a
 whole-workflow capability. Discovery asks for the next metadata action, deferring execution
 arguments. Declared caller inputs are runtime bindings; discovering a consumer
-does not require their concrete values. Fresh evidence actions supply up to eight
-separate exact addresses. Already requested originals remain stored within the
-current decision. After strict operation-knowledge growth, older descriptions may
+does not require their concrete values. Fresh discovery schemas offer either up
+to eight unseen issued evidence addresses or one eligible description reread,
+never a mixed batch. Exact prerequisite citations remain navigable across original
+requirements. Already requested originals remain stored within the current decision. After strict operation-knowledge growth, older descriptions may
 be presented by exact retrieval metadata only when their existing reread guard
 permits retrieval. Current descriptions, prerequisite citations and schema views
-remain complete. The host admits the complete prospective presentation before
+remain complete. Partial descriptions retain continuations and cannot establish
+missing behavior. The host admits the complete prospective presentation before
 accepting more evidence. Obsolete discovery directories
 and changed-candidate views expire without erasing their consumed identities.
 This framing is an experiment; a small schema does not explain or
@@ -219,7 +221,7 @@ The existing loop also accepts an exclusive `clarifications` response before a p
 
 `TaskPlan` is editable business intent. `PlanningGraph` is the sole executable representation. `HybridWorkflowPlanner` uses one bounded discovery/planning/repair loop; resolving selected operations and compiling them do not call a model. Static validation and simulations do not establish external success.
 
-Tasks declare stable IDs, objectives, operation IDs, named business bindings and dependencies. Sequence is the default; concurrency requires a parallel scope or parallel iteration. Conditional alternatives declare matching business outputs. Reusable groups declare their inputs and outputs. Iteration has finite item and concurrency ceilings, preserves order and duplicates, and validates the collection bound before dispatch. Each scope can own `always` tasks.
+Tasks declare stable IDs, objectives, operation IDs, named business bindings and dependencies. Sequence is the default; concurrency requires a parallel scope or parallel iteration. Conditional alternatives declare matching business outputs. Reusable groups declare their inputs and outputs. Iteration has finite item and concurrency ceilings, preserves order and duplicates, and validates the collection bound before dispatch. An undeclared input length does not imply unlimited required capacity: fresh v3 Judges retain that capacity as unverified, while explicit required capacities or known required item counts can establish a conflict. All admitted items must be preserved; oversized inputs fail without truncated success. Each scope can own `always` tasks.
 
 `dependsOn` names eligible tasks in the same scope. Ordinary data bindings already
 establish dependencies; available ancestors are captured without cross-scope

@@ -9,11 +9,13 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class CompactEvidenceStopTests
 {
     [Theory]
-    [InlineData(false, false)]
-    [InlineData(false, true)]
-    [InlineData(true, false)]
-    [InlineData(true, true)]
-    public async Task RepeatedEvidenceStopsFreshConstructionWithoutSpendingAnotherCorrection(bool historical, bool recover)
+    [InlineData(null, false)]
+    [InlineData(null, true)]
+    [InlineData(2, false)]
+    [InlineData(2, true)]
+    [InlineData(3, false)]
+    [InlineData(3, true)]
+    public async Task RepeatedEvidenceRemainsRejectedWithoutSpendingAnotherCorrection(int? presentationVersion, bool recover)
     {
         var runtime = new TestRuntime { Respond = (request, _) =>
         {
@@ -43,11 +45,12 @@ public sealed class CompactEvidenceStopTests
             Id = "read", BaseHash = PlanningConstruction.Hash(state.Plan), Scope = "/root",
             Kind = "operation", Objective = state.Request.Prompt, RequirementIds = ["req_0"]
         };
-        if (historical)
+        state.Construction.Compact.PresentationVersion = presentationVersion;
+        if (presentationVersion is null)
         {
-            state.Construction.Compact.PresentationVersion = null;
             state.Request.Options.Remove("construction_presentation_version");
         }
+        else state.Request.Options["construction_presentation_version"] = presentationVersion.Value;
         var address = "source:" + state.Construction.Compact.Sources[0].Id;
         PlanningConstruction.LoadEvidence(state, [address]);
         var plan = PlanningConstruction.Hash(state.Plan);
@@ -70,17 +73,22 @@ public sealed class CompactEvidenceStopTests
             Assert.Equal(PlanningCompactConstruction.DiscoveryPurpose, purpose);
             if (exactRequest is not null)
                 Assert.Equal(exactRequest, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
-            return Wire(request, new()
+            var response = Wire(request, new()
             {
                 ["operationIds"] = null, ["discoveryRequests"] = null, ["clarifications"] = null,
                 ["reselectStep"] = null, ["evidenceRequests"] = new JsonArray(address)
             });
+            var findings = PlanningContractValidation.ValidateInstanceFindings(response.Json!, request.StructuredOutputSchema!);
+            if (presentationVersion == 3) Assert.NotEmpty(findings);
+            else Assert.Empty(findings);
+            return response;
         };
         state = await Advance(PlannerFixture.Clone(state), runtime);
-        Assert.Equal(historical ? PlanningStatus.Generating : PlanningStatus.Stopped, state.Status);
+        var stopped = presentationVersion == 2;
+        Assert.Equal(stopped ? PlanningStatus.Stopped : PlanningStatus.Generating, state.Status);
         var diagnostic = Assert.Single(state.Diagnostics);
-        Assert.Equal("REPLAN_NO_PROGRESS", diagnostic.Code);
-        Assert.Equal("/evidenceRequests", diagnostic.Location);
+        Assert.Equal(presentationVersion == 3 ? "PLANNING_RESPONSE_INVALID" : "REPLAN_NO_PROGRESS", diagnostic.Code);
+        if (presentationVersion != 3) Assert.Equal("/evidenceRequests", diagnostic.Location);
         Assert.Equal(calls + (recover ? 0 : 1), state.ModelCalls);
         Assert.Equal(corrections, state.ReplanAttempts);
         Assert.Equal(plan, PlanningConstruction.Hash(state.Plan));
@@ -89,7 +97,7 @@ public sealed class CompactEvidenceStopTests
         Assert.Null(state.PendingCall);
         Assert.Null(state.Construction.Candidate);
         Assert.Empty(state.Construction.Checkpoints);
-        if (!historical)
+        if (stopped)
         {
             var retained = PlannerFixture.Clone(state);
             var dispatched = runtime.Calls.Count;

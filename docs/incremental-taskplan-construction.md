@@ -150,9 +150,11 @@ about exact bindings require the original task evidence. Unrelated scopes and
 candidate tasks do not become accepted siblings; historical issued requests stay exact.
 Selection reserves `groupId` for the immediate reusable call; other kinds use null.
 Fresh loop guidance distinguishes finite execution capacity from original business
-requirements. The TaskPlan default does not require rejecting another supported
-capacity: explicit size conflicts still need correction, and unspecified capacity
-remains unverified. Deterministic and runtime iteration limits are unchanged.
+requirements. An undeclared input length does not demand unlimited execution;
+all admitted items must be preserved, and excess input fails without truncated
+success. Explicit required capacities or known required item counts can still
+establish a conflict. Unspecified capacity remains unverified, without inventing
+a caller restriction. Deterministic and runtime iteration limits are unchanged.
 Fresh requirement evidence pages keep up to eight adjacent clauses from one
 original source page together within the existing escaped-text bound. Whole
 requirements retain their exact text, source identities and separate completion
@@ -210,6 +212,10 @@ as exact identity/hash/page metadata and a retrieval link only when strict new
 operation knowledge makes its existing reread guard eligible. Current-knowledge
 descriptions, prerequisite citations and schema views remain complete; a permitted
 reread restores the full original view without resetting consumption history.
+Fresh discovery schemas offer batches of up to eight unseen issued addresses or
+one eligible description reread; mixed or regrouped rereads are not offered.
+Exact prerequisite citations remain navigable across original requirements.
+Partial descriptions retain continuations and cannot establish missing behavior.
 The host resolves evidence on a clone and checks the complete
 prospective follow-up, including its expanded binding grammar, against the hard
 ceiling before accepting evidence. Provider discovery preserves those originals

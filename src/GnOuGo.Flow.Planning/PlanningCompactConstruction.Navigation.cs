@@ -30,19 +30,49 @@ internal static partial class PlanningCompactConstruction
         ConstrainEvidenceChoices(state, schema, addresses, maximum: 4);
     }
 
-    internal static void ConstrainDraftEvidence(PlanningSession state, JsonObject context, JsonObject schema)
+    private static HashSet<string> StepOriginalEvidence(PlanningSession state)
     {
-        // Original requirement/source identities are already present in this
-        // context. Contract addresses come only from host-owned view navigation.
         var addresses = PrerequisiteAddresses(state, State(state).CurrentStep!.RequirementIds)
             .Where(IsOriginalAddress).ToHashSet(StringComparer.Ordinal);
         var citations = State(state).CurrentStep!.Prerequisites?.SelectMany(note => note.EvidenceAddresses) ?? [];
         addresses.UnionWith(citations.Intersect(PrerequisiteAddresses(state,
             state.Construction!.Requirements.Select(requirement => requirement.Id)), StringComparer.Ordinal).Where(IsOriginalAddress));
+        return addresses;
+    }
+
+    internal static void ConstrainDraftEvidence(PlanningSession state, JsonObject context, JsonObject schema)
+    {
+        // Original requirement/source identities are already present in this
+        // context. Contract addresses come only from host-owned view navigation.
+        var addresses = StepOriginalEvidence(state);
         addresses.UnionWith(NavigationEvidence(new[] { "scopeEvidence", "interfacesDirectory", "reusableInterfaces", "taskEvidence", "scopeInterface",
             "operations", "rebuild" }.Select(name => context[name])
             .Concat((state.Construction!.Evidence ?? []).Select(item => item.Value).Where(value => value is JsonObject or JsonArray))));
         ConstrainEvidenceChoices(state, schema, addresses, maximum: 8);
+    }
+
+    private static void ConstrainDiscoveryEvidence(PlanningSession state, JsonObject context, JsonObject schema)
+    {
+        var addresses = StepOriginalEvidence(state);
+        addresses.UnionWith(NavigationEvidence(new[] { context["descriptors"], context["providerRequests"] }
+            .Concat((context["directoryEvidence"] as JsonObject ?? []).Select(item => item.Value))
+            .Concat((context["evidence"] as JsonObject ?? []).Select(item => item.Value))));
+        // DiscoveryEvidence only omits original descriptions when the existing
+        // exact single-read knowledge guard permits them to be restored.
+        var rereads = (context["evidence"] as JsonObject ?? []).Where(item =>
+                item.Key.StartsWith("description:", StringComparison.Ordinal) &&
+                item.Value?["textOmitted"]?.GetValue<bool>() == true && item.Value?["evidence"]?.ToString() == item.Key)
+            .Select(item => item.Key).Order(StringComparer.Ordinal).ToArray();
+        addresses.RemoveWhere(address => state.Construction!.EvidenceRequests.Contains(
+            PlanningConstruction.EvidenceBatchFingerprint(state, [address]), StringComparer.Ordinal));
+        var alternatives = new JsonArray();
+        if (addresses.Count > 0)
+            alternatives.Add((JsonNode)PlanningSchemas.Array(PlanningSchemas.Enum(addresses.Order(StringComparer.Ordinal).ToArray()), 1, 8));
+        if (rereads.Length > 0)
+            alternatives.Add((JsonNode)PlanningSchemas.Array(PlanningSchemas.Enum(rereads), 1, 1));
+        alternatives.Add((JsonNode)PlanningSchemas.Type("null"));
+        schema["properties"]!["evidenceRequests"] = alternatives.Count == 1 ? PlanningSchemas.Type("null") :
+            new JsonObject { ["anyOf"] = alternatives };
     }
 
     private static bool IsOriginalAddress(string address) => address.StartsWith("requirement:", StringComparison.Ordinal) ||
@@ -66,7 +96,7 @@ internal static partial class PlanningCompactConstruction
         void Address(JsonNode? node)
         {
             if (node is JsonValue scalar && scalar.TryGetValue<string>(out var address) && address.Length <= 2048 &&
-                new[] { "source:", "requirement:", "input:", "output:", "choice:", "group:", "task:", "scope:", "scope-exports:",
+                new[] { "source:", "source-description:", "requirement:", "input:", "output:", "choice:", "group:", "task:", "scope:", "scope-exports:",
                     "task-objective:", "page:", "schema:", "schema-page:", "port-page:", "description:", "contract:", "original:", "originalScope:", "rejected:" }
                     .Any(prefix => address.StartsWith(prefix, StringComparison.Ordinal)))
                 addresses.Add(address);

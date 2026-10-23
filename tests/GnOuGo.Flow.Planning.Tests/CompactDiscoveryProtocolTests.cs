@@ -527,7 +527,8 @@ public sealed partial class CompactDiscoveryProtocolTests
             call => Assert.InRange(PlanningRequestMeasurements.Measure(call, PlanningCompactConstruction.DiscoveryPurpose, 6000).EstimatedInputTokens, 1, 6000));
         runtime.Respond = (request, _) => Wire(request, Evidence(secondAddress));
         state = await Advance(state, runtime);
-        Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Code == "REPLAN_NO_PROGRESS");
+        Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Code ==
+            (presentationVersion == 3 ? "PLANNING_RESPONSE_INVALID" : "REPLAN_NO_PROGRESS"));
         Assert.Empty(state.Construction!.Checkpoints);
     }
 

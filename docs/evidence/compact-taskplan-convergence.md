@@ -28,7 +28,11 @@ description rereads while the captured guard permits qualified rereads only as
 individual actions. Repeated non-progress stopped discovery before drafting.
 Review PR reached the same mismatch when its last call combined two new
 operation descriptions with a qualified reread. Both stopped with
-`REPLAN_NO_PROGRESS`. Generic corrections are under preparation; their live
+`REPLAN_NO_PROGRESS`. The next candidate distinguishes unspecified loop capacity
+from an explicit required item count and constrains discovery to unseen evidence
+batches or an eligible single-description reread. Drafting and discovery share
+the same validated original prerequisite citations. These focused corrections
+preserve historical requests, runtime limits and correction authority; their live
 effect remains unverified.
 
 Review PR completed intent extraction after one local correction: it repeated
@@ -143,6 +147,15 @@ at their final decimal places. Further dispatch must recheck balance and
 readiness; these snapshot values grant no new allowance.
 
 ## Validation and remaining acceptance
+
+The capacity/discovery candidate passed 199 focused checks and the benchmark
+build with warnings as errors. Its combined Planning run passed 2,526 tests and
+found two stale assertions expecting repeated-evidence rejection after schema
+validation. The corrected compatibility fixture passed all eight focused cases,
+including exact issued-request recovery; no production change was needed. The
+initial AOT analyzer failure selected a generic JSON overload; explicit node
+overloads resolved it. Combined production packaging and Native AOT smoke pass.
+Both initial failures remain retained. These checks do not establish live success.
 
 The `5678374` container-opening clarification passed **44 focused opening and
 reselection tests** with warnings as errors, plus the exact benchmark build.

@@ -11,7 +11,7 @@ public sealed class CompactLoopCapacityPresentationTests
     [Fact]
     public async Task SupportedCapacityIsUnverifiedInsteadOfAnInventedOriginalMaximum()
     {
-        var (state, runtime) = await Ready(initialCapacity: 1000);
+        var (state, runtime) = await Ready(initialCapacity: 1000, callerInput: true);
         var requirement = Assert.Single(state.Requirements!.Outcomes);
         state.Requirements.Outcomes[0] = requirement with { Commitments = [] };
         var requirements = JsonSerializer.Serialize(state.Requirements, PlanningJsonContext.Default.PlanningRequirements);
@@ -20,8 +20,16 @@ public sealed class CompactLoopCapacityPresentationTests
         Assert.Equal(1000, Assert.Single(state.Construction!.Candidate!.Extension.Tasks).MaxItems);
         state = await Advance(state, runtime);
         var review = runtime.Calls[^1];
-        Assert.Contains("unspecified capacity remains unverified", review.Prompt, StringComparison.Ordinal);
+        Assert.Contains("An unspecified input length does not require unlimited capacity", review.Prompt, StringComparison.Ordinal);
+        Assert.Contains("never returns truncated success", review.Prompt, StringComparison.Ordinal);
+        Assert.Contains("explicit required capacities or known required item counts", review.Prompt, StringComparison.Ordinal);
+        Assert.Contains("Absent bounds alone are not defects or missing business facts; unspecified capacity remains unverified", review.Prompt, StringComparison.Ordinal);
         Assert.DoesNotContain("Without an explicit original bound, use", review.Prompt, StringComparison.Ordinal);
+        var imported = Assert.Single(Context(review)["interfaces"]!.AsArray())!;
+        Assert.Equal("values", imported["binding"]!["source"]!.ToString());
+        Assert.Equal("array", imported["schema"]!["type"]!.ToString());
+        Assert.Null(imported["schema"]!["maxItems"]);
+        Assert.Null(Assert.Single(state.Requirements!.Inputs!).Type.MaxItems);
         Assert.Equal(requirements, JsonSerializer.Serialize(state.Requirements, PlanningJsonContext.Default.PlanningRequirements));
         Assert.Empty(state.Diagnostics);
         Assert.Single(state.Construction!.Checkpoints);
@@ -78,7 +86,12 @@ public sealed class CompactLoopCapacityPresentationTests
             Assert.Equal("CONSTRUCTION_BUSINESS_REVIEW", Assert.Single(state.Diagnostics).Code);
         }
         var historical = PlannerFixture.Clone(state);
-        historical.Construction!.Compact!.PresentationVersion = null;
+        historical.Construction!.Compact!.PresentationVersion = 2;
+        historical.Request.Options["construction_presentation_version"] = 2;
+        var retainedReview = PlanningCompactConstruction.DraftSemantics(historical, historical.Construction.Compact.CurrentStep!, review: true);
+        Assert.Contains("Finite supported capacity must respect explicit original bounds; unspecified capacity remains unverified. Runtime ceilings still apply.", retainedReview, StringComparison.Ordinal);
+        Assert.DoesNotContain("An unspecified input length does not require unlimited capacity", retainedReview, StringComparison.Ordinal);
+        historical.Construction.Compact.PresentationVersion = null;
         historical.Request.Options.Remove("construction_presentation_version");
         var request = PlanningConstruction.DraftRequest(historical, repair);
         Assert.DoesNotContain("existing TaskPlan default", request.StructuredOutputSchema!.ToJsonString(), StringComparison.Ordinal);
@@ -124,7 +137,7 @@ public sealed class CompactLoopCapacityPresentationTests
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(Wire(request, Draft(request, 10001)).Json!, request.StructuredOutputSchema!));
     }
 
-    private static async Task<(PlanningSession State, TestRuntime Runtime)> Ready(int initialCapacity = 1)
+    private static async Task<(PlanningSession State, TestRuntime Runtime)> Ready(int initialCapacity = 1, bool callerInput = false)
     {
         var reviews = 0;
         var runtime = new TestRuntime { Respond = (request, purpose) =>
@@ -135,33 +148,41 @@ public sealed class CompactLoopCapacityPresentationTests
                     ["clauses"] = new JsonArray(new JsonObject { ["text"] = context["sources"]![0]!["text"]!.ToString(), ["kind"] = "requirement", ["interfaces"] = "none" }) });
             if (purpose == PlanningCompactConstruction.SelectPurpose)
                 return Wire(request, new() { ["baseHash"] = request.StructuredOutputSchema!["properties"]!["baseHash"]!["enum"]![0]!.DeepClone(), ["evidenceRequests"] = null, ["clarifications"] = null,
-                    ["step"] = new JsonObject { ["scope"] = "/root", ["kind"] = "foreach", ["objective"] = "Process both original numbers.",
-                        ["requirementIds"] = new JsonArray("req_0"), ["inputs"] = new JsonArray(), ["dependencyTaskIds"] = new JsonArray(),
+                    ["step"] = new JsonObject { ["scope"] = "/root", ["kind"] = "foreach", ["objective"] = "Process all original numbers.",
+                        ["requirementIds"] = new JsonArray("req_0"), ["inputs"] = callerInput
+                            ? new JsonArray(new JsonObject { ["kind"] = "input", ["source"] = "values" }) : new JsonArray(),
+                        ["dependencyTaskIds"] = new JsonArray(),
                         ["expectedOutputs"] = new JsonArray("Iteration context for each original number."), ["closeRequirementIds"] = new JsonArray(), ["outputNames"] = new JsonArray(), ["groupId"] = null } });
-            if (purpose is PlanningConstruction.DraftPurpose or "replan") return Wire(request, Draft(request, purpose == "replan" ? 2 : initialCapacity));
+            if (purpose is PlanningConstruction.DraftPurpose or "replan") return Wire(request, Draft(request, purpose == "replan" ? 2 : initialCapacity, callerInput));
             Assert.Equal(PlanningConstruction.LocalPurpose, purpose);
             return Wire(request, new() { ["findings"] = reviews++ == 0 && initialCapacity == 1 ? new JsonArray(new JsonObject
                 { ["kind"] = "inconsistency", ["location"] = "/draft/tasks/0", ["evidence"] = new JsonArray("/draft/tasks/0"),
                     ["explanation"] = "The singleton ceiling rejects the explicitly supplied two-item array.", ["uncertainty"] = "No execution has occurred." }) : new JsonArray(),
                 ["uncertainty"] = "Future body work and execution remain unverified.", ["evidenceRequests"] = null });
         } };
-        var state = await Advance(new() { Request = new() { TenantId = "loop-capacity", Prompt = "Process all original numeric values [1,2] through repeated local work.",
+        var state = await Advance(new() { Request = new() { TenantId = "loop-capacity", Prompt = callerInput
+            ? "Process every value of caller input values, a numeric array with no declared length bound, preserving order and repetitions."
+            : "Process all original numeric values [1,2] through repeated local work.",
             Options = new() { ["automatic_correction"] = true } } }, runtime);
         Assert.Empty(state.Diagnostics);
-        state.Plan = new() { Root = new() { Tasks = [new() { Id = "retained", Kind = "value", Objective = "Retained independent value.",
+        // This fixture starts at loop selection; interface extraction is covered separately.
+        if (callerInput) state.Requirements!.Inputs = [new() { Name = "values", Required = true,
+            Type = new() { Kind = "array", Items = new() { Kind = "number" } } }];
+        state.Plan = new() { Inputs = state.Requirements!.Inputs ?? [], Root = new() { Tasks = [new() { Id = "retained", Kind = "value", Objective = "Retained independent value.",
             Outputs = [new("value", new() { Kind = "number", Number = 7 })] }] } };
         state = await Advance(state, runtime);
         Assert.Empty(state.Diagnostics);
         return (state, runtime);
     }
 
-    private static JsonObject Draft(LLMRequest request, int maximum) => new()
+    private static JsonObject Draft(LLMRequest request, int maximum, bool callerInput = false) => new()
     {
         ["baseHash"] = Context(request)["baseHash"]!.DeepClone(), ["requirements"] = null, ["commitments"] = null,
         ["extension"] = JsonSerializer.SerializeToNode(new PlanningConstructionExtension
         {
-            Tasks = [new() { Id = "iterate", Kind = "foreach", Objective = "Process both original numbers.", MaxItems = maximum, MaxConcurrency = 1,
-                Items = new() { Kind = "array", Items = [new() { Kind = "number", Number = 1 }, new() { Kind = "number", Number = 2 }] }, Body = new() }],
+            Tasks = [new() { Id = "iterate", Kind = "foreach", Objective = "Process all original numbers.", MaxItems = maximum, MaxConcurrency = 1,
+                Items = callerInput ? new() { Kind = "input", Source = "values" }
+                    : new() { Kind = "array", Items = [new() { Kind = "number", Number = 1 }, new() { Kind = "number", Number = 2 }] }, Body = new() }],
             RequirementIds = ["req_0"]
         }, PlanningJsonContext.Default.PlanningConstructionExtension),
         ["discoveryRequests"] = null, ["clarifications"] = null, ["evidenceRequests"] = null,

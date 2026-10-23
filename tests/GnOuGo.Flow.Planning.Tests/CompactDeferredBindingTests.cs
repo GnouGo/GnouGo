@@ -128,7 +128,13 @@ public sealed class CompactDeferredBindingTests
         Assert.Equal("req_1", Assert.Single(PlanningCompactConstruction.SelectionContext(state)["requirements"]!.AsArray())!["id"]!.ToString());
         var discovery = PlanningCompactConstruction.DiscoveryContext(state);
         Assert.Equal(new[] { "requirement:req_0", declarationSource }, discovery["step"]!["prerequisites"]![0]!["evidenceAddresses"]!.AsArray().Select(address => address!.ToString()));
-        runtime.Respond = (request, _) => Wire(request, Binding("value"));
+        runtime.Respond = (request, _) =>
+        {
+            foreach (var address in new[] { "requirement:req_0", declarationSource })
+                Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(Wire(request, new JsonObject
+                    { ["evidenceRequests"] = new JsonArray(address) }).Json!, request.StructuredOutputSchema!));
+            return Wire(request, Binding("value"));
+        };
         state = await Advance(state, runtime);
         Assert.Empty(state.Diagnostics);
         var selected = state.Construction!.Compact!.CurrentStep!;

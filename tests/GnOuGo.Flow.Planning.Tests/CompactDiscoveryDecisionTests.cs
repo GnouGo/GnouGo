@@ -6,6 +6,105 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed partial class CompactDiscoveryProtocolTests
 {
+    [Fact]
+    public async Task DiscoverySeparatesUnseenContinuationBatchesFromExactSingleDescriptionRereads()
+    {
+        var (state, runtime) = await Ready(presentationVersion: 3);
+        AddOperations(state, 3);
+        foreach (var capability in state.Discovery.Pages[0].Capabilities)
+            capability.Operation!.Description = new string('a', 3000) + " Preserve the complete observation.";
+        var addresses = PlanningCompactConstruction.ContractDescriptors(state, count: 3)
+            .Select(item => item!["descriptionEvidence"]!.ToString()).ToArray();
+        runtime.Respond = (request, _) => Wire(request, Evidence(addresses));
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        var originals = state.Construction!.Evidence!.ToJsonString();
+        var continuations = addresses.Select(address => state.Construction.Evidence[address]!["next"]!.ToString()).ToArray();
+        state.Discovery.Pages.Add(new("alpha", "more", [AdditionalOperation(state)], null, Query: Objective));
+        var request = DiscoveryFollowup(state);
+        Assert.Empty(PlanningContractValidation.ValidateSchema(request.StructuredOutputSchema!, strict: true));
+        var limit = PlanningConstructionPhasePolicies.Resolve(state.Request, PlanningCompactConstruction.DiscoveryPurpose).MaxInputTokens;
+        var measurement = PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.DiscoveryPurpose, limit);
+        Assert.Equal(measurement.CompleteRequestBytes, measurement.Components.Sum(component => component.SerializedBytes));
+        Assert.InRange(measurement.EstimatedInputTokens, 1, limit);
+        Assert.Contains("partial descriptions do not establish unavailable behavior", request.Prompt, StringComparison.Ordinal);
+        Assert.Contains("Follow necessary original description continuations", request.Prompt, StringComparison.Ordinal);
+        foreach (var address in addresses)
+        {
+            Assert.True(Context(request)["evidence"]![address]!["textOmitted"]!.GetValue<bool>());
+            Assert.Empty(PlanningContractValidation.ValidateInstance(Wire(request, Evidence(address)).Json!, request.StructuredOutputSchema!));
+        }
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(Wire(request, Evidence(addresses)).Json!, request.StructuredOutputSchema!));
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(Wire(request, Evidence(addresses[0], continuations[0])).Json!, request.StructuredOutputSchema!));
+        Assert.Empty(PlanningContractValidation.ValidateInstance(Wire(request, Evidence(continuations)).Json!, request.StructuredOutputSchema!));
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(Wire(request, Evidence("description:invented@version:0")).Json!, request.StructuredOutputSchema!));
+        Assert.Equal(originals, state.Construction.Evidence.ToJsonString());
+        var accepted = PlanningConstruction.Hash(state.Plan);
+        runtime.Respond = (actual, _) => Wire(actual, Evidence(continuations));
+        state = await Advance(PlannerFixture.Clone(state), runtime);
+        Assert.Empty(state.Diagnostics);
+        foreach (var address in continuations) Assert.Contains("Preserve the complete observation.", state.Construction!.Evidence![address]!["text"]!.ToString(), StringComparison.Ordinal);
+        runtime.Respond = (actual, _) => Wire(actual, Evidence(addresses[0]));
+        state = await Advance(PlannerFixture.Clone(state), runtime);
+        Assert.Empty(state.Diagnostics);
+        Assert.NotNull(PlanningCompactConstruction.DiscoveryContext(state)["evidence"]![addresses[0]]!["text"]);
+        request = DiscoveryFollowup(state);
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(Wire(request, Evidence(addresses[0])).Json!, request.StructuredOutputSchema!));
+        Assert.Equal(accepted, PlanningConstruction.Hash(state.Plan));
+        Assert.Equal(0, state.ReplanAttempts);
+        Assert.Empty(state.Construction!.Checkpoints);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task PreviouslyIssuedDiscoveryBatchSchemaKeepsExactRecoveryAndSingleRereadAuthority(bool batch)
+    {
+        var (state, runtime) = await Ready(presentationVersion: 3);
+        AddOperations(state, 2);
+        var addresses = PlanningCompactConstruction.ContractDescriptors(state, count: 2)
+            .Select(item => item!["descriptionEvidence"]!.ToString()).ToArray();
+        runtime.Respond = (request, _) => Wire(request, Evidence(addresses));
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        state.Discovery.Pages.Add(new("alpha", "more", [AdditionalOperation(state)], null, Query: Objective));
+        var schema = PlanningCompactConstruction.DiscoverySchema(state);
+        schema["properties"]!["evidenceRequests"] = PlanningSchemas.Nullable(PlanningSchemas.Array(new() { ["type"] = "string", ["maxLength"] = 2048 }, 1, 8));
+        var issued = Complete(state, PlanningCompactConstruction.Request("Retained discovery instructions.",
+            PlanningCompactConstruction.DiscoveryContext(state), schema, PlanningCompactConstruction.DiscoveryPurpose));
+        state.PendingCall = new() { Id = issued.ClientRequestId!, Purpose = PlanningCompactConstruction.DiscoveryPurpose, Request = issued };
+        state.ModelCalls++;
+        var calls = state.ModelCalls;
+        var exact = JsonSerializer.Serialize(issued, PlanningJsonContext.Default.LLMRequest);
+        var reads = state.Construction!.EvidenceRequests.ToArray();
+        var evidence = state.Construction.Evidence!.ToJsonString();
+        var accepted = PlanningConstruction.Hash(state.Plan);
+        runtime.Respond = (request, _) =>
+        {
+            Assert.Equal(exact, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+            return Wire(request, Evidence(batch ? addresses : [addresses[0]]));
+        };
+        state = await Advance(PlannerFixture.Clone(state), runtime);
+        Assert.Equal(calls, state.ModelCalls);
+        Assert.Equal(0, state.ReplanAttempts);
+        Assert.Equal(accepted, PlanningConstruction.Hash(state.Plan));
+        if (batch)
+        {
+            Assert.Equal(PlanningStatus.Stopped, state.Status);
+            Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Code == "REPLAN_NO_PROGRESS");
+            Assert.Equal(reads.Where(key => key.StartsWith("description-read:", StringComparison.Ordinal)),
+                state.Construction!.EvidenceRequests.Where(key => key.StartsWith("description-read:", StringComparison.Ordinal)));
+        }
+        else
+        {
+            Assert.Empty(state.Diagnostics);
+            Assert.Equal(reads.Count(key => key.StartsWith("description-read:", StringComparison.Ordinal)) + 1,
+                state.Construction!.EvidenceRequests.Count(key => key.StartsWith("description-read:", StringComparison.Ordinal)));
+        }
+        Assert.All(reads, read => Assert.Contains(read, state.Construction!.EvidenceRequests));
+        Assert.Equal(evidence, state.Construction!.Evidence!.ToJsonString());
+    }
+
     [Theory]
     [InlineData(2)]
     [InlineData(3)]
@@ -42,8 +141,9 @@ public sealed partial class CompactDiscoveryProtocolTests
         Assert.Equal(2, state.Construction.EvidenceRequests.Count(key => key.StartsWith("description-read:", StringComparison.Ordinal)));
         Assert.Equal(0, state.ReplanAttempts);
         state = await Advance(state, runtime);
-        Assert.Equal(PlanningStatus.Stopped, state.Status);
-        Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Code == "REPLAN_NO_PROGRESS");
+        if (presentationVersion == 2) Assert.Equal(PlanningStatus.Stopped, state.Status);
+        Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Code ==
+            (presentationVersion == 3 ? "PLANNING_RESPONSE_INVALID" : "REPLAN_NO_PROGRESS"));
     }
 
     [Theory]
