@@ -987,7 +987,11 @@ Fresh presentation schemas restrict selected requirement identities to the suppl
 original anchor/evidence or an existing bounded reselection. Fresh evidence requests retrieve up to eight coherent addresses after prospective
 complete-request admission; mandatory schema closures are never truncated to fit.
 Successful individual evidence identities prevent regrouped repeats, and valid
-evidence-only responses consume calls, tokens and money without another correction. Historical issued domains and multi-address batches remain
+evidence-only responses consume calls, tokens and money without another correction.
+Revision-4 Judges narrow an oversized evidence batch to one address on the next
+request, preserving the rejected measurement and exact admission diagnosis. An
+oversized singleton still stops; this evidence loop grants no correction authority.
+Historical issued domains and multi-address batches remain
 recoverable. These presentation changes require new frozen diagnostic identities,
 not retries of an unchanged failed request.
 

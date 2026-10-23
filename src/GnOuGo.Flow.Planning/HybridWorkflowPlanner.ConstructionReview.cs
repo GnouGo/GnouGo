@@ -120,6 +120,11 @@ public sealed partial class HybridWorkflowPlanner
                 { ["type"] = "string", ["minLength"] = 1, ["maxLength"] = 256 });
             schema["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("inconclusive"));
             if (reassessment) schema["properties"]!["evidenceRequests"] = PlanningSchemas.Type("null");
+            else if (context["diagnostics"] is JsonArray diagnostics && diagnostics.Any(diagnostic =>
+                diagnostic?["required"]?.GetValue<bool>() == true && diagnostic["code"]?.ToString() == "CONSTRUCTION_EVIDENCE_LIMIT" &&
+                diagnostic["locations"] is JsonArray locations && locations.Any(location => location?.ToString() == "/evidenceRequests")))
+                schema["properties"]!["evidenceRequests"]!["anyOf"]!.AsArray()
+                    .Single(node => node?["type"]?.ToString() == "array")!["maxItems"] = 1;
         }
         return schema;
 
@@ -222,7 +227,21 @@ public sealed partial class HybridWorkflowPlanner
                     },
                     purpose: purpose);
             }
-            catch (PlanningResponseException) { Inconclusive("The fragment Judge requested unavailable or repeated evidence."); return; }
+            catch (PlanningResponseException error)
+            {
+                var limit = verified && PlanningCompactConstruction.UsesVerifiedReview(state) && PlanningConstructionPhasePolicies.IsFresh(state.Request)
+                    ? error.Diagnostics.FirstOrDefault(diagnostic => diagnostic.Code == "CONSTRUCTION_EVIDENCE_LIMIT" && diagnostic.Location == "/evidenceRequests") : null;
+                if (limit is not null && evidenceRequests.Count > 1)
+                {
+                    // Admission rejected the complete batch on a clone. Keep
+                    // the valid candidate; the next review permits one address.
+                    state.Diagnostics = [limit];
+                    construction.PendingReviewContext = null; construction.PendingReviewHash = null;
+                    return;
+                }
+                Inconclusive(limit is null ? "The fragment Judge requested unavailable or repeated evidence." : limit.Code + ": " + limit.Message);
+                return;
+            }
             if (verified)
                 draft.Reviews.Add(new JsonObject { ["purpose"] = purpose, ["fingerprint"] = fingerprint,
                     ["candidateIdentity"] = PlanningConstruction.FailureIdentity(state, draft), ["outcome"] = "evidence_supplied",

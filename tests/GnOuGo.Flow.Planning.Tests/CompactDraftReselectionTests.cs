@@ -29,6 +29,19 @@ public sealed class CompactDraftReselectionTests
             PlanningCompactConstruction.DraftGuidance(current), StringComparison.Ordinal), after.Prompt);
         Assert.Contains("Commitments accompany extension only and are null otherwise", after.Prompt, StringComparison.Ordinal);
         Assert.Contains("evidence-only responses also keep requirements and rollbackReason null", after.Prompt, StringComparison.Ordinal);
+        const string progress = "An extension must add a task in tasks or always, a group, choice or export, close a scope, or, for a close step, close a still-open host-issued requirement.";
+        Assert.Contains(progress, after.Prompt, StringComparison.Ordinal);
+        Assert.DoesNotContain(progress, before.Prompt, StringComparison.Ordinal);
+        current.Construction.Candidate = PlanningConstruction.Apply(current, new()
+        {
+            RequirementIds = ["req_0"], Tasks = [new() { Id = "next", Kind = "value", Objective = "Preserve the supplied text.",
+                Outputs = [new("retained", new() { Kind = "output", Source = "accepted", Port = "retained" })] }]
+        });
+        foreach (var intermediate in new[] { false, true })
+        {
+            var review = HybridWorkflowPlanner.CreateConstructionReviewRequest(current, intermediate).Request;
+            Assert.DoesNotContain(progress, review.Prompt, StringComparison.Ordinal);
+        }
     }
 
     [Theory]

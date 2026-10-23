@@ -213,8 +213,19 @@ public sealed partial class HybridWorkflowPlanner
         {
             var findings = TaskPlanCompiler.ValidateConstruction(new() { Inputs = interfaces }, state.Catalog ?? new(), state.Request,
                 new HashSet<string>(StringComparer.Ordinal) { "/root" }).Diagnostics;
-            if (findings.Count > 0) throw new PlanningResponseException(findings.Select(d => d with
-                { Location = d.Location.StartsWith("/inputs", StringComparison.Ordinal) ? path + d.Location[7..] : d.Location }).ToList());
+            if (findings.Count > 0) throw new PlanningResponseException(findings.Select(d =>
+            {
+                var located = d with { Location = d.Location.StartsWith("/inputs", StringComparison.Ordinal) ? path + d.Location[7..] : d.Location };
+                if (!PlanningCompactConstruction.UsesVerifiedReview(state) || d.Code != "TASK_DEFAULT_INVALID") return located;
+                var matches = interfaces.Where(i => d.Location == "/inputs/" + i.Name).Take(2).ToList();
+                if (matches.Count != 1 || matches[0].Default is not { } supplied) return located;
+                var input = matches[0];
+                return located with { Location = located.Location + "/default", Message = located.Message +
+                    $" Rejected declaration: type.kind={Kind(input.Type.Kind)}, type.nullable={input.Type.Nullable.ToString().ToLowerInvariant()}, default.kind={Kind(supplied.Kind)}, required={input.Required.ToString().ToLowerInvariant()}." };
+            }).ToList());
+
+            static string Kind(string? kind) => kind is { Length: > 0 and <= 32 } && kind.All(c => char.IsAsciiLetter(c) || c == '_')
+                ? kind : "(unrecognized)";
         }
     }
 

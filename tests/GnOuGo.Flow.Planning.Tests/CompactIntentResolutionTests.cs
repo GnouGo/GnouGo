@@ -115,6 +115,99 @@ public sealed class CompactIntentResolutionTests(ITestOutputHelper output)
         Assert.Equal(["auto", "manual"], inputs.Single(i => i.Name == "mode").Type.Enum);
     }
 
+    [Theory]
+    [InlineData(3, false)]
+    [InlineData(3, true)]
+    [InlineData(4, false)]
+    [InlineData(4, true)]
+    public async Task RejectedDefaultFeedbackPreservesDeclarationsAndExactCorrectionRecovery(int version, bool interrupted)
+    {
+        var runtime = new TestRuntime { Respond = (r, _) => Wire(r, Classify(r, "input")) };
+        var state = await Advance(PlannerFixture.CapturedPresentation(Fresh("Accept required text input suppliedText with no default."), version), runtime);
+        var original = JsonSerializer.Serialize(state.Requirements, PlanningJsonContext.Default.PlanningRequirements);
+        string? initialSchema = null;
+        foreach (var required in new[] { false, true })
+        {
+            var previous = state.Diagnostics.ToList();
+            runtime.Respond = (r, _) =>
+            {
+                initialSchema ??= r.StructuredOutputSchema!.ToJsonString();
+                Assert.Equal(initialSchema, r.StructuredOutputSchema!.ToJsonString());
+                Assert.Equal(PlanningJsonTransport.Diagnostics(previous).ToJsonString(), Context(r)["diagnostics"]!.ToJsonString());
+                return Wire(r, Resolve(r, inputs: [new() { Name = "suppliedText", Required = required,
+                    Type = new() { Kind = "string" }, Default = new() { Kind = "null" } }]));
+            };
+            state = await Advance(state, runtime);
+            var diagnostic = Assert.Single(state.Diagnostics);
+            Assert.Equal("TASK_DEFAULT_INVALID", diagnostic.Code);
+            Assert.Equal(version == 4 ? "/inputs/suppliedText/default" : "/inputs/suppliedText", diagnostic.Location);
+            Assert.Equal("A default violates its business type." + (version == 4
+                ? $" Rejected declaration: type.kind=string, type.nullable=false, default.kind=null, required={required.ToString().ToLowerInvariant()}." : ""), diagnostic.Message);
+            Assert.Null(diagnostic.Rule); Assert.Null(diagnostic.ValidationStage);
+            Assert.Equal(original, JsonSerializer.Serialize(state.Requirements, PlanningJsonContext.Default.PlanningRequirements));
+            var extraction = Assert.Single(state.Construction!.Compact!.InterfaceExtractions!);
+            Assert.False(extraction.Complete); Assert.Null(extraction.Dispositions);
+            Assert.Null(state.Plan); Assert.Empty(state.Construction.Checkpoints);
+        }
+        Assert.Equal(1, state.ReplanAttempts);
+        // Existing diagnostic fields are sufficient durable correction context;
+        // no rejected interface is added to the authoritative requirements.
+        state = PlannerFixture.Clone(state);
+        var extractionState = Assert.Single(state.Construction!.Compact!.InterfaceExtractions!);
+        var expected = PlanningCompactConstruction.Request(PlanningCompactConstruction.InterfaceGuidance(state),
+            PlanningCompactConstruction.InterfaceContext(state, extractionState),
+            PlanningCompactConstruction.ResolvableInterfaceSchema(state, extractionState), PlanningCompactConstruction.IntentPurpose);
+        var issuedBytes = JsonSerializer.Serialize(PlanningModelCalls.PrepareRequest(state, PlanningCompactConstruction.IntentPurpose,
+            expected.Prompt, expected.StructuredOutputSchema!.AsObject(), state.Construction.Limits.DraftOutputTokens), PlanningJsonContext.Default.LLMRequest);
+        var callsBefore = state.ModelCalls;
+        if (interrupted)
+        {
+            runtime.Respond = (_, _) => throw new OperationCanceledException();
+            _ = await Advance(state, runtime);
+            state = PlannerFixture.Clone(runtime.Checkpoints.Last(s => s.PendingCall is not null));
+            Assert.Equal(issuedBytes, JsonSerializer.Serialize(state.PendingCall!.Request, PlanningJsonContext.Default.LLMRequest));
+            state.Status = PlanningStatus.Generating;
+            state.Diagnostics = [new("SUBSEQUENT_CONTEXT", "/", "This later diagnostic must not replace the saved request.")];
+        }
+        var recovery = new TestRuntime { Respond = (r, _) =>
+        {
+            Assert.Equal(issuedBytes, JsonSerializer.Serialize(r, PlanningJsonContext.Default.LLMRequest));
+            Assert.Equal(initialSchema, r.StructuredOutputSchema!.ToJsonString());
+            Assert.Equal(version == 4 ? "/inputs/suppliedText/default" : "/inputs/suppliedText",
+                Context(r)["diagnostics"]![0]!["locations"]![0]!.ToString());
+            return Wire(r, Resolve(r, inputs: [new() { Name = "suppliedText", Required = true, Type = new() { Kind = "string" } }]));
+        } };
+        state = await Advance(state, recovery);
+        Assert.Single(recovery.Calls); Assert.Equal(callsBefore + 1, state.ModelCalls);
+        Assert.Equal(2, state.ReplanAttempts); Assert.Empty(state.Diagnostics); Assert.Null(state.PendingCall);
+        var accepted = Assert.Single(state.Requirements!.Inputs!);
+        Assert.True(accepted.Required); Assert.False(accepted.Type.Nullable); Assert.Null(accepted.Default);
+        Assert.True(Assert.Single(state.Construction!.Compact!.InterfaceExtractions!).Complete);
+        Assert.Null(state.Plan); Assert.Empty(state.Construction.Checkpoints);
+    }
+
+    [Fact]
+    public async Task DefaultFeedbackBoundsFactsWithoutReplacingNestedConstraintValidation()
+    {
+        var runtime = new TestRuntime { Respond = (r, _) => Wire(r, Classify(r, "input")) };
+        var state = await Advance(Fresh("Accept optional numeric array entries with default [1]."), runtime);
+        var original = JsonSerializer.Serialize(state.Requirements, PlanningJsonContext.Default.PlanningRequirements);
+        var largeValue = new string('x', 1_000);
+        runtime.Respond = (r, _) => Wire(r, Resolve(r, inputs: [new() { Name = "entries", Required = false,
+            Type = new() { Kind = "array", Items = new() { Kind = "number" } },
+            Default = new() { Kind = "array", Items = Enumerable.Range(0, 10).Select(_ => new TaskValue { Kind = "string", Text = largeValue }).ToList() } }]));
+        state = await Advance(state, runtime);
+        var diagnostic = Assert.Single(state.Diagnostics);
+        Assert.Equal("TASK_DEFAULT_INVALID", diagnostic.Code);
+        Assert.Equal("/inputs/entries/default", diagnostic.Location);
+        Assert.Equal("A default violates its business type. Rejected declaration: type.kind=array, type.nullable=false, default.kind=array, required=false.", diagnostic.Message);
+        Assert.Equal(original, JsonSerializer.Serialize(state.Requirements, PlanningJsonContext.Default.PlanningRequirements));
+        var context = PlanningCompactConstruction.InterfaceContext(state, Assert.Single(state.Construction!.Compact!.InterfaceExtractions!));
+        Assert.DoesNotContain(largeValue, context.ToJsonString(), StringComparison.Ordinal);
+        Assert.True(System.Text.Encoding.UTF8.GetByteCount(context["diagnostics"]!.ToJsonString()) < 400);
+        Assert.False(state.Construction.Compact.InterfaceExtractions![0].Complete);
+    }
+
     [Fact]
     public async Task ExplicitPublicFilePathRemainsAnInterfaceAlongsideTheFileObligation()
     {

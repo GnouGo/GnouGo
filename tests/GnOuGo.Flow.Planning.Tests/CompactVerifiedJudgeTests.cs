@@ -495,6 +495,141 @@ public sealed class CompactVerifiedJudgeTests
         Assert.Null(state.PendingCall);
     }
 
+    [Theory]
+    [InlineData(3, false)]
+    [InlineData(3, true)]
+    [InlineData(4, false)]
+    [InlineData(4, true)]
+    public async Task OversizedReviewEvidenceStopsOrNarrowsWithoutStagingOrCorrection(int presentation, bool multiple)
+    {
+        var state = await State(large: true);
+        state.Construction!.Compact!.PresentationVersion = presentation;
+        state.Request.Options["construction_presentation_version"] = presentation;
+        state.Requirements!.Inputs![0].Type.Enum = [new string('z', 100000)];
+        Stage(state);
+        var accepted = PlanningConstruction.Hash(state.Plan);
+        var candidate = state.Construction.Candidate!.Hash;
+        var reads = state.Construction.EvidenceRequests.ToArray();
+        var addresses = multiple ? new[] { "input:label", "source:declared-label" } : ["input:label"];
+        var runtime = new TestRuntime { Respond = (request, _) =>
+        {
+            var response = Response(addresses: addresses);
+            if (request.StructuredOutputSchema!["properties"]!["inconclusive"] is null)
+            {
+                response.Json!.AsObject().Remove("inconclusive");
+                response.Text = response.Json.ToJsonString();
+            }
+            return response;
+        } };
+        state = await Advance(state, runtime);
+        var measurement = Assert.Single(state.RequestMeasurements!, item => item.Admission == "rejected_before_dispatch");
+        Assert.Equal(PlanningConstruction.LocalPurpose, measurement.Phase);
+        Assert.True(measurement.EstimatedInputTokens > measurement.InputLimit);
+        Assert.Equal(measurement.CompleteRequestBytes, measurement.Components.Sum(component => component.SerializedBytes));
+        var diagnosis = Assert.Single(state.Diagnostics);
+        if (presentation == 4)
+        {
+            Assert.Contains("CONSTRUCTION_EVIDENCE_LIMIT", multiple ? diagnosis.Code : diagnosis.Message, StringComparison.Ordinal);
+            Assert.Contains(measurement.EstimatedInputTokens.ToString(System.Globalization.CultureInfo.InvariantCulture), diagnosis.Message, StringComparison.Ordinal);
+            Assert.Contains(measurement.InputLimit.ToString(System.Globalization.CultureInfo.InvariantCulture), diagnosis.Message, StringComparison.Ordinal);
+            Assert.DoesNotContain(new string('z', 100), diagnosis.Message, StringComparison.Ordinal);
+        }
+        else Assert.Equal("The fragment Judge requested unavailable or repeated evidence. No checkpoint or edit authority was created.", diagnosis.Message);
+        Assert.Equal(1, state.ModelCalls);
+        Assert.Single(runtime.Calls);
+        Assert.Equal(accepted, PlanningConstruction.Hash(state.Plan));
+        Assert.Equal(candidate, state.Construction!.Candidate!.Hash);
+        Assert.Empty(state.Construction.Candidate.Diagnostics);
+        Assert.Empty(state.Construction.Checkpoints);
+        Assert.Null(state.Construction.Evidence);
+        Assert.Equal(reads, state.Construction.EvidenceRequests);
+        Assert.Equal(0, state.ReplanAttempts);
+        Assert.Equal(0, state.Construction.Candidate.Corrections);
+        if (presentation == 4 && multiple)
+        {
+            Assert.Equal(PlanningStatus.Generating, state.Status);
+            Assert.Empty(state.Construction.Candidate.Reviews);
+            var next = HybridWorkflowPlanner.CreateConstructionReviewRequest(state, intermediate: false);
+            Assert.Equal(diagnosis.Message, Assert.Single(next.Context["diagnostics"]!.AsArray())!["message"]!.ToString());
+            Assert.Equal(1, EvidenceMaximum(next.Request));
+            Assert.NotEmpty(PlanningContractValidation.ValidateInstanceFindings(Response(addresses: addresses).Json!, next.Request.StructuredOutputSchema!));
+            state = await Advance(PlannerFixture.Clone(state), runtime); // The unchanged oversized action violates the narrowed issued schema.
+            Assert.Equal(2, state.ModelCalls);
+            Assert.Equal("CONSTRUCTION_REVIEW_INCONCLUSIVE", Assert.Single(state.Diagnostics).Code);
+            Assert.Null(state.Construction!.Evidence);
+            Assert.Equal(reads, state.Construction.EvidenceRequests);
+        }
+        Assert.Equal(PlanningStatus.Stopped, state.Status);
+        var dispatched = runtime.Calls.Count;
+        state = await Advance(PlannerFixture.Clone(state), runtime);
+        Assert.Equal(dispatched, runtime.Calls.Count);
+        Assert.Equal(0, state.ReplanAttempts);
+        Assert.Empty(state.Construction!.Checkpoints);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task NarrowedReviewEvidenceRecoversExactIssuanceAndStopsAnOversizedSingleton(bool oversizedSingleton)
+    {
+        var state = await State(large: true);
+        state.Requirements!.Inputs![0].Type.Enum = [new string('z', 100000)];
+        Stage(state);
+        var candidate = state.Construction!.Candidate!.Hash;
+        var accepted = PlanningConstruction.Hash(state.Plan);
+        var runtime = new TestRuntime { Respond = (_, _) => Response(addresses: ["input:label", "source:declared-label"]) };
+        state = await Advance(state, runtime);
+        Assert.Equal(PlanningStatus.Generating, state.Status);
+        var interruptedNarrowedRequest = false;
+        runtime.Respond = (request, _) =>
+        {
+            Assert.Equal(1, EvidenceMaximum(request));
+            interruptedNarrowedRequest = true;
+            throw new OperationCanceledException();
+        };
+        _ = await Advance(state, runtime);
+        Assert.True(interruptedNarrowedRequest);
+        state = PlannerFixture.Clone(runtime.Checkpoints.Last(saved => saved.Status == PlanningStatus.Generating && saved.PendingCall is not null));
+        var issued = JsonSerializer.Serialize(state.PendingCall!.Request, PlanningJsonContext.Default.LLMRequest);
+        state.Diagnostics.Clear(); // Recovery must use the issued narrowed request, not this newer context.
+        runtime.Respond = (request, _) =>
+        {
+            Assert.Equal(issued, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+            return Response(addresses: [oversizedSingleton ? "input:label" : "source:declared-label"]);
+        };
+        state = await Advance(state, runtime);
+        Assert.Equal(2, state.ModelCalls);
+        Assert.Equal(0, state.ReplanAttempts);
+        Assert.Equal(0, state.Construction!.Candidate!.Corrections);
+        Assert.Equal(accepted, PlanningConstruction.Hash(state.Plan));
+        Assert.Equal(candidate, state.Construction.Candidate.Hash);
+        Assert.Empty(state.Construction.Candidate.Diagnostics);
+        Assert.Empty(state.Construction.Checkpoints);
+        Assert.Null(state.PendingCall);
+        Assert.All(state.Construction.Candidate.Reviews, review => Assert.Null(review["reassessment"]));
+        if (oversizedSingleton)
+        {
+            Assert.Equal(PlanningStatus.Stopped, state.Status);
+            Assert.Contains("CONSTRUCTION_EVIDENCE_LIMIT", Assert.Single(state.Diagnostics).Message, StringComparison.Ordinal);
+            Assert.Null(state.Construction.Evidence);
+            Assert.Empty(state.Construction.EvidenceRequests);
+            Assert.Equal(2, state.RequestMeasurements!.Count(item => item.Admission == "rejected_before_dispatch"));
+        }
+        else
+        {
+            Assert.Equal(PlanningStatus.Generating, state.Status);
+            Assert.Empty(state.Diagnostics);
+            Assert.Equal("source:declared-label", Assert.Single(state.Construction.Evidence!).Key);
+            Assert.Equal("evidence_supplied", Assert.Single(state.Construction.Candidate.Reviews)["outcome"]!.ToString());
+            var next = HybridWorkflowPlanner.CreateConstructionReviewRequest(state, intermediate: false);
+            Assert.Equal(8, EvidenceMaximum(next.Request));
+            Assert.Single(state.RequestMeasurements!, item => item.Admission == "rejected_before_dispatch");
+        }
+    }
+
+    private static int EvidenceMaximum(LLMRequest request) => request.StructuredOutputSchema!["properties"]!["evidenceRequests"]!["anyOf"]!
+        .AsArray().Single(node => node?["type"]?.ToString() == "array")!["maxItems"]!.GetValue<int>();
+
     private static async Task<PlanningSession> TaskState()
     {
         var state = await State();

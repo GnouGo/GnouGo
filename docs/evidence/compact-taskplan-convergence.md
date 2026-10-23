@@ -1,118 +1,135 @@
 # Compact TaskPlan convergence
 
-Business acceptance remains incomplete and PR #120 stays Draft. Five frozen `131801d4` attempts
-and one `35022fa` attempt produced no artifact or execution; the eighteen alternating runs
-against `56942f5` have not started. Twenty prior uncertain identities remain closed;
-exact authorization for the twenty-first is pending.
+**Business acceptance remains incomplete; PR #120 stays Draft.** Current production
+`35022fa` has not produced an independently accepted complete workflow. Source
+`2d6cbce` adds evidence documentation only. The eighteen alternating baseline/candidate
+runs against `56942f5` have not started. Twenty-one receiptless identities are now
+permanently closed with their full unknown-usage reservations retained; none may be
+replayed or continued.
 
-## Implementation and validation
+## Current implementation and validation
 
-Fresh presentation revision 4 gives scoped Judges compiler facts, relevant original
-requirements and actual typed interfaces. A valid inconclusive review may use one shared
-local/intermediate reassessment with new exact support, including omitted accepted
-producers identified by consumed bindings and issued task links. Candidate-owned tasks,
-unrelated neighbors, invalidated originals and already supplied proof add no progress.
-Historical requests, full-request admission and correction/execution authority remain intact.
+Fresh revision 4 retains one incremental TaskPlan, exact original requirements, targeted
+MCP discovery, compiler preflight and scoped Judges. One supported reassessment can
+retrieve omitted accepted producers from verified consumed bindings. Missing prerequisites
+remain within the current scope and requirements; evidence responses stage no commitments.
+Historical request bytes, correction accounting, permissions and execution authority remain intact.
 
-Two focused v4 guidance clarifications address the retained Amazon failure: a demonstrated
-missing producer is selected before its consumer within existing scope/requirements;
-commitments accompany extensions only, while evidence responses stage no decisions.
-The existing validators and schemas are unchanged. **198 focused and 2,645 complete
-Planning tests passed with warnings as errors** on `131801d4` plus this guidance delta.
-Independent review is clear; these checks do not demonstrate model or business improvement.
-The resulting production revision is `35022fa`. Guidance validation rollup SHA256:
-`9ad93d511f8c764da0c79dc113ca10518bb371c4688f55c624cf526b850934f7`.
+| Exact source | Validation |
+| --- | --- |
+| `35022fa` | 198 focused / 2,645 Planning tests; full solution **7,674 passed, 0 failed, 13 skipped**, 33 projects, **5,590.640 seconds** |
+| `131801d4` | 45 focused / 2,632 Planning tests; full solution **7,661 passed, 0 failed, 13 skipped**, 33 projects, 5,741.553 seconds |
+| Earlier `16d8e83` | Full solution 7,630 passed, 0 failed, 13 skipped; excludes subsequent changes |
 
-Exact `35022fa` passed all eleven publication stages with warnings as errors and no
-compiler diagnostics: five independent packages, Planning Native AOT revisions 2/3/4,
-published encrypted storage and Git AOT/contracts. Manifest:
-`e55b53f8729bdad812ce9ac9d020aca0ebf260b4b622a1950dbc861f3fcd32e9`.
-Its full-solution run is prepared after the prior run; final CI remains in progress.
+All listed checks used warnings as errors. Exact `35022fa` and `131801d4` full runs
+reported no compiler diagnostics and unchanged source. Exact `35022fa` also passed all
+**eleven publication stages**: five independent packages, Planning Native AOT revisions
+2/3/4, published encrypted storage, and Git AOT/contracts. Its
+[CI run 39968367834](https://github.com/GnouGo/GnouGo/actions/runs/39968367834) succeeded.
 
-Exact `131801d4` passed **45 focused / 2,632 Planning tests** and **eleven publication stages**:
-five packages, Planning Native AOT revisions 2/3/4, encrypted storage and Git AOT/contracts. Manifest:
-`19a568a0672023aac304053a6c04b692a29975b33dc1012611842323523f436b`.
-Its full-solution validation remains running. Exact older `16d8e83` passed **7,630 tests,
-13 skipped**, with warnings as errors; that result excludes later changes. Current CI
-and final publication results must be attributed to their exact pushed revision.
+Validation manifests: full `35022fa`
+`71be0bbc597bffe1beb46ea7d4e2f1c5399d47deceae1304689913fb8f8e1b9e`;
+full `131801d4` `f79011778a5e589299a98b089d0d6b9040b7dcde0f132b29f76c1e1708d2f26d`;
+publication `35022fa` `e55b53f8729bdad812ce9ac9d020aca0ebf260b4b622a1950dbc861f3fcd32e9`.
+These results establish technical validation, not business acceptance.
 
-## Frozen live diagnostics on 131801d4
+The final combined correction passed **92 focused / 2,656 complete Planning tests**
+with warnings as errors, zero compiler diagnostics, unchanged source hashes and clear
+independent review. Revision-4 interface feedback preserves compiler rejection while
+showing the rejected declaration's exact default slot and bounded type/value-kind facts;
+it does not infer absent defaults or rewrite values. Progress guidance clarifies the
+existing requirement for a useful extension.
 
-| Scenario / profile | Calls / receipts | Corrections / checkpoints | Planning seconds | Cost or upper bound EUR | Stop |
+For oversized multi-address Judge evidence, fresh revision 4 returns a bounded size
+admission diagnosis through the existing loop and restricts the next evidence schema to
+**one address** (`maxItems: 1`). Repeating the unchanged batch is invalid; an oversized
+single address still stops. Historical behavior, issued requests, reassessment authority,
+counters and ceilings remain unchanged. No state, permission or execution authority is
+added. These corrections have **no live benefit demonstrated** in the frozen diagnostics below.
+Combined validation manifest:
+`d653188dabfccd5d104f509bb4707712473463563b0154236573dea1e60fb76c`.
+
+## Latest live diagnostics
+
+| Frozen attempt | Calls / receipts | Corrections / checkpoints | Planning seconds | Cost or upper bound EUR | Result |
 | --- | ---: | ---: | ---: | ---: | --- |
-| [Collections control](compact-taskplan-131801d4-collections.json) | 2 / 2 | 0 / 0 | 325.193 | 0.4638063364569388665774207943 | Empty extraction at output limit |
-| [Amazon](compact-taskplan-131801d4-amazon.json) | 32 / 32 | 3 / 0 | 610.855 | 1.3590406068719321731369924141 | Evidence plus commitments rejected |
-| [Review PR](compact-taskplan-131801d4-code.json) | 3 / 3 | 0 / 0 | 369.245 | 0.5939268183846497099509147702 | Empty extraction at output limit |
-| [Collections output32](compact-taskplan-131801d4-collections-output32.json) | 18 / 18 | 3 / 3 | 292.583 | 0.5064390896921017402945113790 | Capacity finding, then clarification |
-| [Collections high Judge](compact-taskplan-131801d4-collections-high-pending.json) | 2 / 1 | 0 / 0 | 324.242 | 0.9451360999553770638107987506 upper | Single receiptless HTTP 500 |
+| [35022fa Collections](compact-taskplan-35022fa-collections-pending.json) | 2 / 1 | 0 / 0 | 321.610 | 0.9447344935296742525658188309 upper | Receiptless transport failure; subsequently authorized permanent closure |
+| [2d6cbce Amazon](compact-taskplan-2d6cbce-amazon.json) | 20 / 20 | 4 / 0 | 865.471 | 1.5766354306113342257920571174 | Empty first extension; `REPLAN_NO_PROGRESS` |
+| [2d6cbce Review PR](compact-taskplan-2d6cbce-code.json) | 51 / 51 | 2 / 3 | 1,120.459 | 2.6811244979919678714859437750 | Prospective Judge evidence follow-up rejected before dispatch |
 
-Collections control and Review PR each exhausted 16,384 output tokens entirely as
-reasoning during extraction. Their complete receipts remain retained; the cause is not
-established. Amazon had four additional **prepared-only** request identities, each with
-zero HTTP attempts or unknown reservation. They are not uncertain calls. Original
-reselection reasons and links were available; the final mixed action was correctly rejected.
+Collections retained its full **€0.9308701472556894243641231593** uncertain reservation.
+The linked immutable archive records its earlier pending state; the
+[authorized closure](compact-taskplan-35022fa-collections-retention.json) subsequently
+forbids replay and continuation. It supplies no evidence about an empty
+response, reasoning exhaustion or high-Judge efficacy: no Judge ran.
 
-Collections output32 changed only the frozen navigation output reservation to 32,768
-and its enabling transport ceiling. Extraction used **866 output / 319 reasoning tokens**;
-peak navigation output was 1,376, below the former allowance. No causal benefit is proven.
-Its final Judge treated an unspecified array length as requiring unlimited execution,
-despite exact finite-capacity guidance. Independent static review assesses a false positive:
-excess inputs fail rather than truncate success, and the open loop made no completion claim.
-The report and unanswered clarification remain intact; no review was waived or correction
-count discounted. **No avoided corrections have been measured.**
+Amazon's calls 2–4 supplied an explicit literal-null default for a nonnullable string;
+changing `Required` did not resolve that mismatch. Call 5 supplied an empty-string default
+and passed technical validation, but that value was not an original business default or
+prompt example. Its business validity remains unverified. Call 20 returned the **first
+empty task extension**, with no tasks, finalizers, outputs, groups, choices or closed
+scopes. It did not change the accepted baseline. This was not a repeated draft. No Judge,
+artifact or runtime followed, and no review was waived.
 
-Archives contain phase p50/p95/maximum sizes, reconciled component bytes, actual provider
-usage, exact costs, latency and response-format measurements. Every constructed request
-met its captured ceiling. All five attempts lack runtime latency and independent business
-acceptance; calls per satisfied useful obligation are undefined. Checkpoints do not count
-as completed business obligations.
+Amazon used **55,478 input / 49,641 output / 14,942 reasoning tokens**; reasoning is included
+in output usage. Its 22 constructed request identities comprise 20 dispatched, receipted
+calls and **two prepared-only envelopes**, not admission rejections or uncertain attempts.
+Component bytes reconcile and every complete request fits its frozen limit. Phase request
+p50/p95/maximum and component/provider aggregates remain in the archive. Original responses
+contained **98,791 bytes of whitespace outside strings**; this observation does not establish
+the cause of extraction or convergence failure. No useful business obligation was independently
+satisfied, so calls per satisfied obligation is undefined and runtime latency is unavailable.
 
-The high-Judge profile changed only review reasoning but stopped during medium-reasoning extraction.
-Its [exact authorized abandonment](compact-taskplan-131801d4-collections-high-retention.json)
-preserves every record and the full **€0.9308701472556894243641231593** unknown reservation.
-Replay and continuation are permanently forbidden. No Judge ran.
+Review PR completed **51 receipted calls, two corrections and three checkpoints**, with
+no artifact or execution. The last Judge response requested evidence; it was **not an
+explicit inconclusive report**. Prospective request 52 required **61,998 bytes / 20,922
+estimated input tokens**, exceeding the 8,000 Judge ceiling, and was rejected before
+dispatch. The generic `CONSTRUCTION_REVIEW_INCONCLUSIVE` diagnostic obscured the
+`CONSTRUCTION_EVIDENCE_LIMIT` cause. Two field views repeated a coupled original root
+`oneOf` containing 18 alternatives and 14,292 compact JSON bytes. Mandatory constraints
+cannot be dropped to fit. The subsequent validated revision-4 correction exposes the
+size cause and narrows the existing next evidence request to one address; it has no
+live result in this frozen cohort and does not authorize replay or weaken admission.
 
-## Fresh diagnostic on 35022fa
-
-[Collections](compact-taskplan-35022fa-collections-pending.json) retained the supported high-Judge
-profile with medium navigation/drafting and unchanged oracles. It stopped at extraction request 2
-after **321.610 seconds**, with two calls, one receipt, no corrections or checkpoints and no HTTP
-response to its single transport attempt. No Judge or runtime executed; this is not evidence of
-an empty response, reasoning exhaustion or high-reasoning efficacy.
-
-Complete-request bytes were p50 **5,470**, p95/maximum **8,528**; conservative input estimates
-were p50 **2,079.5**, p95/maximum **3,099**. Component bytes reconcile and both requests fit
-their captured limits. Verified usage is **377 input / 455 output / 352 reasoning tokens**;
-the received text has 427 bytes and no formatting whitespace. Failed-call usage remains unknown.
-Known cost is **€0.0138643462739848282016956716**, with the full
-**€0.9308701472556894243641231593** reservation retained. No business obligation is satisfied;
-calls per satisfied obligation and runtime latency remain unavailable. Amazon and Review PR
-cannot dispatch while this uncertainty awaits exact abandonment authorization.
+Review PR's 56 constructed identities include four prepared-only envelopes and one
+explicit pre-dispatch rejection; all 51 dispatched requests have receipts and fit their
+limits. Usage was **233,118 input / 61,287 output / 49,027 reasoning tokens**. Original
+responses contained **9,184 formatting-whitespace bytes**, maximum run 9,178, with no
+empty completed response. Captured phase policies used medium reasoning despite the
+nullable top-level metrics field. Amazon's navigation ceiling was 12k; Review PR's was
+16k, with the same 32,768 navigation output reservation. These are disclosed diagnostic
+configurations, not an architecture-only comparison. Independent inspection supports
+the first provenance finding; the second is not yet classified. No avoided correction
+or completed business obligation is claimed.
 
 ## Latest audited allowance
 
-The snapshot records **1,689 requests / 1,668 receipts**, twenty-one receiptless identities:
-twenty permanently closed and one pending. Unknown transport attempts total twenty.
+The terminal post-Review PR audit records **1,760 reserved requests / 1,739 receipts**.
+All 21 receiptless identities remain permanently closed; 20 unknown transport-attempt
+records are a distinct metric. Neither completed 2d6cbce diagnostic added uncertainty.
 
-| Ledger measurement | EUR |
+| Post-Review PR ledger measurement | EUR |
 | --- | ---: |
 | Campaign ceiling | 240.0301038327063045424449473 |
-| Known spending | 58.078844996384126511674828106 |
+| Known spending | 62.336604924987428608952828998 |
 | Retained unknown-usage reservations | 9.942081545174150198352579727 |
-| Spending/reservation upper bound | 68.020926541558276710027407833 |
-| Available allowance | 172.009177291148027832417539467 |
+| Spending/reservation upper bound | 72.278686470161578807305408725 |
+| Available allowance at that snapshot | 167.751417362544725735139538575 |
 
-Audit: `c34dafa231f097c658df487d9d82668d948504f02dc2ad11b2c2310e77db98ca`.
-Lost historical exposure €159.96989616729369545755505266 remains inside the original
-€400 authorization; cumulative upper bound is **€227.990822708851972167582460493**.
-No uncertain call may be replayed; fresh dispatch remains blocked pending the exact retention operation.
+Audit evidence hash: `fb08b0d200b5869a673fc54ddd04f504ea4e4fbc92fe308d0fbac84a12dcc081`.
+Including retained lost historical exposure **€159.96989616729369545755505266**, the
+cumulative spending/reservation upper bound is **€232.248582637455274264860461385**
+inside the original €400 authorization. Archives preserve exact decimals and any
+cross-snapshot subtraction differences without adjusting original evidence.
 
 ## Acceptance and immutable evidence
 
-Earlier `efcb1d7a` passed both Collections runtime variants. Current-source scenarios must
-execute and satisfy frozen independent oracles before paired runs. Artifact-bound review
-and exact confirmations remain mandatory; compilation and CI do not prove business success.
+Earlier `efcb1d7a` passed both Collections runtime variants. Current-source Collections,
+Amazon and Review PR must complete execution and satisfy frozen independent oracles before
+paired runs. Artifact-bound review and exact individual confirmations remain mandatory.
+Compilation, checkpoints, unit tests and CI do not establish business success.
 
+- Frozen `131801d4`: [Collections control](compact-taskplan-131801d4-collections.json), [Amazon](compact-taskplan-131801d4-amazon.json), [Review PR](compact-taskplan-131801d4-code.json), [Collections output32](compact-taskplan-131801d4-collections-output32.json), [Collections high Judge](compact-taskplan-131801d4-collections-high-pending.json) and [its authorized abandonment](compact-taskplan-131801d4-collections-high-retention.json). All five failed to reach artifact execution; output-limit, correction and transport evidence remains separate. No causal reasoning-profile benefit or avoided corrections is proven.
 - Prior producer-proof failure: [b1c29b359 Collections](compact-taskplan-b1c29b359.json).
 - [615dd0e96 Review PR](compact-taskplan-615dd0e96.json) and [exact authorized closure](compact-taskplan-615dd0e96-retention.json), retained separately.
 - Previous: [f05d07c2a Amazon](compact-taskplan-f05d07c2a.json), [16d8e83e3 Collections](compact-taskplan-16d8e83e3.json).

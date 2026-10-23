@@ -80,7 +80,11 @@ issued requests retain their captured behavior.
 Caller-input extraction uses one declaration shape with a required nullable
 `default`: JSON null means no default, while `{"kind":"null"}` is an explicit
 literal null. Recursive literals and semantic default checks are unchanged; public
-outputs still omit default grammar. Extraction includes every distinct declared caller input and public
+outputs still omit default grammar. Fresh revision-4 extraction failures retain the
+compiler's default rejection while locating the exact default slot and reporting
+bounded facts from the rejected declaration. These facts do not accept the declaration
+or replace nested constraint validation; revision-3 feedback and issued requests remain unchanged.
+Extraction includes every distinct declared caller input and public
 output in the supplied passages. A string has one schema shape: nullable `enum`
 means unrestricted when null, or exactly the explicitly declared alternatives
 when present. An empty string is a real value, never an absence placeholder.
@@ -249,6 +253,10 @@ reread rules remain exact.
 Intent, selection, discovery and evidence actions contain no TaskPlan grammar.
 Fresh generation builds directly from shared definitions for the selected task
 kind and operations, retaining only reachable definitions and available actions.
+Revision-4 author guidance mirrors the existing progress check: add work, an export
+or a scope closure, or close a still-open host-issued requirement in a close step.
+Requirement IDs alone are annotations. Cleanup-only work and reviewed
+requirement-only closure remain valid; schemas and the deterministic guard are unchanged.
 Container openings create empty children for later substeps. Scope closure and
 completion are offered only when the frontier and requirement statuses permit
 those claims. Full semantic validation remains authoritative.
@@ -358,6 +366,12 @@ All other action fields are null. Residual execution uncertainty in a completed
 review differs from an unfinished business review. A finding must cite an
 applicable original obligation and concrete implementation evidence; navigation
 or a preflight status alone cannot substantiate a correction.
+For fresh revision 4, an oversized multi-address evidence batch retains its exact
+admission diagnosis and narrows the next evidence action to one address. The
+rejected batch stages no evidence or correction; successful evidence retrieval
+clears the diagnosis. An oversized singleton stops with the measured size and
+captured ceiling. Original constraints remain intact, and this evidence loop is
+separate from inconclusive reassessment. Historical review feedback is unchanged.
 The verified preflight identifies whether the selected scope is open separately
 from the total open-boundary count. An open root or ancestor does not reopen
 accepted child scopes; their exact implementation remains retrievable for review.
