@@ -7,84 +7,73 @@ baseline/candidate runs against `56942f5` remain unstarted.
 
 ## Latest frozen diagnostic
 
-Source `56783741dd52295cb505f66300c30b8cff95d340`, cohort `compacta56783741`,
+Source `2d0485d087191614ab05a927e3dcb15c2af96fb7`, cohort `compacta2d0485d0`,
 retained pinned `gpt-5.5-2026-04-24`, medium reasoning, 64 calls and four
 corrections. Input targets/ceilings stayed 3k/12k for navigation, 8k/16k for
 drafting and 4k/8k for review, with output reservations of 16,384/16,384/4,096.
+All three diagnostics stopped without checkpoints, complete artifacts or execution.
 
-| Scenario | Receipted calls | Corrections | Checkpoints | Planning seconds | Cost, EUR |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| Collections | 16 | 1 | 3 | 243.268 | 0.4557072735385988398036590807 |
-| Amazon | 14 | 1 | 0 | 221.427 | 0.5227621597501115573404730031 |
-| Review PR | 17 | 1 | 1 | 279.545 | 0.6278670236501561802766622045 |
+| Scenario | Attempts / receipts | Corrections | Planning seconds | Known cost, EUR |
+| --- | ---: | ---: | ---: | ---: |
+| Collections | 9 / 9 | 1 | 444.231 | 0.6811958946898705934850513164 |
+| Amazon | 2 / 2 | 0 | 241.174 | 0.4699643016510486390004462293 |
+| Review PR | 3 / 2 | 0 | 335.848 | 0.0497902721999107541276215975 |
 
-Collections progressed past the earlier container-opening error. A Judge then
-incorrectly treated an unspecified loop capacity as a business restriction;
-correction ended in clarification. The accepted checkpoints do not establish
-the complete workflow's correctness or capacity.
+Collections selected closure of its caller-input requirement before adding tasks.
+The candidate correctly seeded the input, but the Judge received empty actual
+imports and lacked declaration/scope navigation, then incorrectly reported the
+input absent. Three evidence-only replan calls retrieved scope, input and original
+source evidence. The one charged correction repeated the closure and stopped at
+the progress guard. No finding was bypassed or automatically accepted.
 
-Amazon overlooked a partial original-description continuation, then batched
-description rereads while the captured guard permits qualified rereads only as
-individual actions. Repeated non-progress stopped discovery before drafting.
-Review PR reached the same mismatch when its last call combined two new
-operation descriptions with a qualified reread. Both stopped with
-`REPLAN_NO_PROGRESS`. The next candidate distinguishes unspecified loop capacity
-from an explicit required item count and constrains discovery to unseen evidence
-batches or an eligible single-description reread. Drafting and discovery share
-the same validated original prerequisite citations. These focused corrections
-preserve historical requests, runtime limits and correction authority; their live
-effect remains unverified.
+Its second intent response was valid completed JSON with **15,163 tab characters**
+(longest whitespace run 15,156). That call consumed 16,067 output tokens, including
+only 365 reasoning tokens, took 303.6432291 seconds and cost
+€0.4372735385988398036590807675. Original text occupied 16,828 bytes; serialized
+parsed content occupied 1,690. Their separate hashes bind to the same receipt.
+This formatting anomaly is distinct from empty output or reasoning exhaustion;
+its cause remains unproved.
 
-Review PR completed intent extraction after one local correction: it repeated
-accepted interfaces without their old dispositions, then resolved the
-`SOURCE_COVERAGE` feedback without injected answers. A `git_clone` fragment
-passed local review and reached one checkpoint; no clone was executed.
+Amazon's second intent call exhausted **16,384 output tokens entirely on reasoning**
+and returned no content (`MODEL_OUTPUT_LIMIT`), despite supplied original naming
+and type context. It received 1,753 input tokens. No causal explanation is
+established, and the unchanged failed request was not retried.
 
-Across the three runs, **47 calls have receipts**, with **114,736 input / 40,874
-output / 28,848 reasoning tokens**, costing
-**€1.6063364569388665774207942883**. Planning totalled 744.240 seconds; completed
-call stages totalled 686.707841 seconds. No empty response, admission rejection
-or new uncertainty occurred. Review PR also retained one prospective draft
-envelope superseded before dispatch, without an HTTP attempt, reservation,
-failure or receipt. It is counted among constructed requests, not paid calls.
+Review PR request 3 returned **HTTP 500 without a receipt or verified usage**.
+Its full **€0.4922088353413654618473895582** reservation remains unknown usage.
+Read-only permanent-retention inspection is saved, but authorization is pending
+and no closure has been applied. Paid dispatch remains stopped; no uncertain
+request or execution was replayed.
+
+Known provider usage across the 13 receipted calls was **16,275 input / 42,143
+output / 24,406 reasoning tokens**. Known cost is
+**€1.2009504685408299866131191432**; including the new unknown reservation, the
+cohort upper bound is **€1.6931593038821954484605087014**. Planning totalled
+1,021.253 seconds. Completed call stages totalled 693.5599946 seconds; including
+the failed HTTP attempt, observed call stages totalled 998.9564536 seconds.
 
 | Complete-request measurement | p50 | p95 | Maximum |
 | --- | ---: | ---: | ---: |
-| All 48 constructed requests, bytes | 11,340 | 21,331 | 21,644 |
-| Estimated input tokens | 4,036.5 | 7,367 | 7,471 |
-| Collections requests, bytes | 8,885 | 14,875 | 14,875 |
-| Amazon requests, bytes | 9,779 | 21,511 | 21,511 |
-| Review PR requests, bytes | 12,772.5 | 21,644 | 21,644 |
+| All 14 constructed requests, bytes | 8,023 | 10,636 | 10,636 |
+| Estimated input tokens | 2,930.5 | 3,802 | 3,802 |
+| Collections requests, bytes | 8,187 | 10,293 | 10,293 |
+| Amazon requests, bytes | 6,116.5 | 9,262 | 9,262 |
+| Review PR requests, bytes | 3,129 | 10,636 | 10,636 |
 
-All **554,690 constructed request bytes** reconcile with components and meet
-captured ceilings. Median p50 and nearest-rank p95 are used. Reasoning is included
-in output; component estimates are not billed usage. Runtime latency and calls
-per independently satisfied business obligation remain undefined. The
-[5678374 archive](compact-taskplan-5678374.json) records per-phase components,
-provider usage, terminal evidence hashes and the safe-source index without
-duplicating every call record.
+All **98,659 constructed request bytes** reconcile with components and meet
+captured ceilings. Median p50 and nearest-rank p95 are used; component estimates
+are not billed usage. One completed output-limit response was empty. Four replan
+calls comprise three evidence-only responses and one correction. Runtime latency
+and calls per independently satisfied business obligation remain undefined.
+The [2d0485d archive](compact-taskplan-2d0485d.json) retains phase measurements,
+formatting and failure hashes, pending retention and safe evidence indexes.
 
-The unchanged [875022e archive](compact-taskplan-875022e.json) retains the earlier
-20-call Collections attempt that exported an unfinished loop, costing
-€0.6640919232485497545738509593. Its generic opening/child/closure clarification
-is present in this cohort; the latest failure is a different scoped-review issue.
-
-The [61d9f0f archive](compact-taskplan-61d9f0f.json) retains the preceding four-call
-Review PR extraction clarification, costing €0.2414547077197679607318161535.
-The exact request contained both original pages, but the model treated required
-local report contents as a new public return interface. `875022e` clarified the
-generic distinction between artifact obligations and returned values without
-injecting evaluation-time answers or changing schemas. The latest Review PR
-diagnostic completed extraction, but did not complete its workflow.
-
-The preceding [2e5b3a0 archive](compact-taskplan-2e5b3a0.json) retains 33 receipted
-calls, four corrections, one failure-feedback checkpoint and no complete artifact
-or execution. All requests met their limits, with a 27,501-byte / 9,423-token
-estimated peak. Its €1.310428 cost and 546.799 planning seconds exceeded the
-prior 25-call discovery failure's €1.219634 and 436.940 seconds. Smaller requests
-did not establish business success. Exact inspection demonstrated incomplete
-provider visibility and a Judge that overlooked a preserved public root export;
-`61d9f0f` corrected those presentation defects with no model or permission change.
+The unchanged [5678374 archive](compact-taskplan-5678374.json) retains the previous
+47 receipted calls and €1.6063364569388665774207942883 across three failed runs.
+Its capacity-review and description-reread defects were corrected in `2d0485d`,
+but these new diagnostics did not reach the phases needed to verify those fixes.
+Subsequent declaration/closure context and response-format guidance corrections
+have been integrated after this cohort; their live effect remains unverified.
 
 ## Earlier diagnostics and executed result
 
@@ -126,46 +115,54 @@ success does not prove acceptance or repeatability of the current source.
 
 ## Campaign accounting
 
-The post-Review-PR audit verifies **1,400 requests / 1,387 receipts**. All thirteen
-receiptless identities are permanently closed with their reservations retained.
-The journal separately counts twelve unknown attempts. No reservation was released.
+The post-Review-PR audit verifies **1,414 requests / 1,400 receipts**. Of fourteen
+receiptless identities, thirteen are permanently closed; the new Review PR request
+remains unclosed pending exact authorization. The journal separately counts
+thirteen unknown transport attempts. Every reservation remains retained.
 
 | Ledger measurement | EUR |
 | --- | ---: |
 | Campaign ceiling | 240.0301038327063045424449473 |
-| Known spending | 43.868858383264983272049660762 |
-| Unknown-usage reservations | 5.0713809650759797387363369764 |
-| Spending/reservation upper bound | 48.940239348340963010785997738 |
-| Available allowance | 191.089864484365341531658949562 |
+| Known spending | 45.069808851805813258662779906 |
+| Unknown-usage reservations | 5.5635898004173452005837265346 |
+| Spending/reservation upper bound | 50.633398652223158459246506441 |
+| Available allowance | 189.396705180483146083198440859 |
 
-Audit evidence: `e1d4ff3a9ffac6150988cf2910270e8dfb48bd4ccdd5db7d04375d0384535454`.
+Audit evidence: `e8556b4fdce8eb05347bac05e9bdfe4a77b2d6b5591ce96dab15f9256fa66a62`.
+Pending retention inspection: `d03b13503b6ab602175c575e33c9049d10514939c1f5c1c174fe8df4f28425b4`.
 Lost historical exposure of €159.96989616729369545755505266 remains inside the
 original €400 authorization. Including that exposure, cumulative spending and
-reservations have an upper bound of approximately **€208.910136**. Exact decimal
+reservations have an upper bound of approximately **€210.603295**. Exact decimal
 strings are retained; independently summed costs can differ from ledger totals
 at their final decimal places. Further dispatch must recheck balance and
 readiness; these snapshot values grant no new allowance.
 
 ## Validation and remaining acceptance
 
-The capacity/discovery candidate passed 199 focused checks and the benchmark
-build with warnings as errors. Its combined Planning run passed 2,526 tests and
-found two stale assertions expecting repeated-evidence rejection after schema
-validation. The corrected compatibility fixture passed all eight focused cases,
-including exact issued-request recovery; no production change was needed. The
-initial AOT analyzer failure selected a generic JSON overload; explicit node
-overloads resolved it. Combined production packaging and Native AOT smoke pass.
-Both initial failures remain retained. These checks do not establish live success.
+The subsequent caller-declaration and formatting changes passed 79 and 67
+focused checks with warnings as errors. Their combined Planning run passed
+2,533 of 2,534 tests; the single failure was a fixture comparing a 4,098-token
+request to the 4k target instead of its captured 8k ceiling. The corrected
+navigation/measurement fixture suite passed 65 tests, with 18 phase-policy tests
+also passing. No production admission limit changed, and the initial failure
+remains retained. Core and Planning Release packages, Native AOT publish/smoke
+and the benchmark build passed. All 568 pinned MCP files were restored and
+verified after the build. The combined validation manifest is
+`f299c78544259fe1cfb5421c5cfc66500bddd0fb31ae7a059e883199f89c174d`;
+safe logs, results and publication manifests are retained under
+`closure-format-validation-20261023`. These changes have no live result yet.
 
-The `5678374` container-opening clarification passed **44 focused opening and
-reselection tests** with warnings as errors, plus the exact benchmark build.
-Existing fixtures now exercise legal empty openings, retained open requirements,
-unchanged accepted plans and rejected consumption of unfinished results across
-all five container kinds. Independent review found no remaining authority or
-compatibility issue. Its exact Planning package and Native AOT publish/smoke
-passed with warnings as errors. Its [CI](https://github.com/GnouGo/GnouGo/actions/runs/39897691304)
-is still running at this snapshot. These checks are separate from the three live
-failures above.
+The frozen capacity/discovery changes passed **199 focused checks** and the
+benchmark build with warnings as errors. The retained full Planning run records
+**2,526 passes and two stale fixture failures**. Its test-only compatibility
+correction then passed **eight focused cases**; this is not a second full-suite
+pass. The initial benchmark build's `IL2026`/`IL3050` failure remains retained;
+explicit JSON node overloads resolved it. Planning Release pack, Native AOT
+publish and native smoke passed afterward. Publication used the `56783741` base
+plus the captured production patch; the combined manifest verified 437 component
+files byte-matched the committed `2d0485d` source. No clean-base publication or
+live business success is inferred. Later correction validation remains separate
+from this frozen cohort.
 
 Historical focused suites, packages and publication evidence remain indexed in
 their immutable revision archives. The `61d9f0f` source passed 2,520 Planning
@@ -181,8 +178,8 @@ with no failed test among those executed. Its manifest retains the build error
 and a generated timestamp-comment change, restored to exact HEAD before the
 separate rerun. The exact clean `0b44557` rerun completed with warnings as errors:
 **7,529 passed, zero failed and 13 skipped across 33 projects**, in 5,185.065
-seconds. The new archive indexes its terminal manifest separately from the exact
-`5678374` publication evidence. This historical full-solution success does not
+seconds. The [5678374 archive](compact-taskplan-5678374.json) indexes its terminal
+manifest separately from that revision's publication evidence. This historical full-solution success does not
 establish a full-solution pass for the current source; the original download
 failure remains retained.
 
@@ -202,9 +199,12 @@ delivered revision; compilation and green tests are not business acceptance.
 
 ## Immutable evidence
 
-The [5678374 archive](compact-taskplan-5678374.json) records all three current
-diagnostics, their fully receipted calls, the undispatched prospective envelope,
-current campaign snapshot and revision-specific validation. The unchanged
+The [2d0485d archive](compact-taskplan-2d0485d.json) records the three failed
+diagnostics, response-format anomaly, reasoning exhaustion, unresolved HTTP 500,
+current campaign snapshot and frozen validation evidence. The unchanged
+[5678374 archive](compact-taskplan-5678374.json) records its three fully receipted
+failures, undispatched prospective envelope and historical campaign snapshot.
+The unchanged
 [875022e archive](compact-taskplan-875022e.json) records the preceding Collections
 open-scope stop and its historical campaign balance. The unchanged
 [61d9f0f archive](compact-taskplan-61d9f0f.json) records extraction clarification.

@@ -23,7 +23,7 @@ public sealed partial class HybridWorkflowPlanner
         ? $"""
           Review the current fragment against exact original requirements, globals, contracts and actual typed interfaces: arguments, effects, provenance, conditions, exports, cleanup and unnecessary work. constructionStage defines its claim; closeRequirementIds claims completion with accepted work, [] claims none. Open containers intentionally defer children/exports. A needed producer may precede its consumer or public export; their current absence alone is neither an omission nor unnecessary work. Check whether the fragment's arguments perform its selected substep. {(PlanningCompactConstruction.UsesDeferredBinding(state) ? "outputs are public /root results. scopeInterface shows accepted exports for its scope; basis:tentative_candidate also includes draft additions. Exports at /root are public; nested-scope exports are local. draft.outputs lists additions only; [] preserves accepted exports." : "outputs are public /root results; scopeInterface includes preserved local exports.")}
           Cleanup may be a later substep in an open scope when its exact target and ownership remain available even after partial failure. Check required creation-time capture and ownership now; assess missing cleanup at scope or requirement closure. Success-only outputs cannot supply cleanup that must also run after failure.
-          interfaces describes imported operands: binding and schema identify what is read at consumerLocation, not the produced result.
+          interfaces describes imported operands: binding and schema identify what is read at consumerLocation, not the produced result.{(PlanningCompactConstruction.UsesDeferredBinding(state) ? " inputDeclarations is bounded caller-declaration navigation, separate from consumed operands; group parameters belong to their isolated group interface. Retrieve exact input or scope evidence before alleging an absent or incompatible declaration from partial navigation." : "")}
           Return one action: findings (empty if none) with evidenceRequests:null, or findings:null with necessary original evidence addresses. Finding locations and evidence use the schema's existing context-object pointers; explain fields and uncertainty in prose. Evidence retrieval uses issued addresses, task:<id>, scope:<path>, or scope:/groups/<call.group>/body; never bare IDs. Navigation, compilation and reviews grant no authority or proof of execution. Partial descriptions cannot prove absent functionality; request the original.
           """ + "\n" + PlanningCompactConstruction.DraftSemantics(state, state.Construction!.Compact!.CurrentStep!, review: PlanningCompactConstruction.UsesDeferredBinding(state))
         :
@@ -80,7 +80,7 @@ public sealed partial class HybridWorkflowPlanner
         foreach (var key in new[] { "requirements", "globalConstraints", "interfaces", "operations", "outputs", "choices", "checkpoints" })
             AddEntries(context[key], "/" + key, evidence);
         evidence.AddRange(locations);
-        foreach (var key in new[] { "draft", "step", "group", "scopeGroup", "scopeInterface", "constructionStage" })
+        foreach (var key in new[] { "draft", "step", "group", "scopeGroup", "scopeInterface", "inputDeclarations", "constructionStage" })
             if (context[key] is JsonObject { Count: > 0 }) evidence.Add("/" + key);
         if (context["evidence"] is JsonObject supplied)
             foreach (var item in supplied) evidence.Add("/evidence/" + Escape(item.Key));
@@ -233,7 +233,7 @@ public sealed partial class HybridWorkflowPlanner
     {
         var root = pointer.Split('/').ElementAtOrDefault(1);
         if (root is not ("request" or "revision" or "requirements" or "answers" or "tasks" or "operations" or "interfaces" or "draft" or "evidence" or "closures") &&
-            !(compact && root is "globalConstraints" or "step" or "checkpoints" or "outputs" or "commitments" or "choices" or "group" or "scopeGroup" or "scopeInterface" or "constructionStage")) return false;
+            !(compact && root is "globalConstraints" or "step" or "checkpoints" or "outputs" or "commitments" or "choices" or "group" or "scopeGroup" or "scopeInterface" or "inputDeclarations" or "constructionStage")) return false;
         if (!PlanningConstruction.TryPointer(context, pointer, out var evidence) || evidence is null) return false;
         return evidence is not JsonArray { Count: 0 } && evidence is not JsonObject { Count: 0 } &&
             (evidence is not JsonValue || !string.IsNullOrWhiteSpace(evidence.ToString()));

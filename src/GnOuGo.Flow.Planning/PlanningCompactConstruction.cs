@@ -390,6 +390,27 @@ internal static partial class PlanningCompactConstruction
             else if (construction.Evidence?.ContainsKey(interfacePage) != true) context["interfacesDirectory"] = interfacePage;
             else if (NextInterfacePage(state, compact.InterfaceOffset) is { } next) context["interfacesDirectory"] = next;
         }
+        if (actualImports && UsesDeferredBinding(state) &&
+            (step.CloseRequirementIds.Count > 0 || draft!.Extension.CloseScopes.Count > 0 || draft.Extension.Complete))
+        {
+            context["scopeEvidence"] = "scope:" + step.Scope;
+            // A declaration can satisfy an interface requirement without any
+            // fragment reading its value. Keep its navigation distinct from
+            // compiler-derived operands and from isolated group parameters.
+            var inputs = state.Plan?.Inputs ?? state.Requirements?.Inputs ?? [];
+            if (ScopeGroup(state, step.Scope) is null && inputs.Count > 0)
+            {
+                var offset = compact.InterfaceOffset < inputs.Count ? compact.InterfaceOffset : 0;
+                context["inputDeclarations"] = new JsonObject
+                {
+                    ["scope"] = "/root", ["offset"] = offset, ["count"] = inputs.Count,
+                    ["directory"] = offset > 0 && construction.Evidence?.ContainsKey("page:interfaces:0") != true ? "page:interfaces:0" : null,
+                    ["inputs"] = new JsonArray(inputs.Skip(offset).Take(8)
+                        .Select(input => (JsonNode)InputDirectoryEntry(state, input)).ToArray()),
+                    ["next"] = offset + 8 < inputs.Count ? "page:interfaces:" + (offset + 8) : null
+                };
+            }
+        }
         if (review && draft is not null)
         {
             context["constructionStage"] = new JsonObject

@@ -84,6 +84,8 @@ outputs still omit default grammar. Extraction includes every distinct declared 
 output in the supplied passages. A string has one schema shape: nullable `enum`
 means unrestricted when null, or exactly the explicitly declared alternatives
 when present. An empty string is a real value, never an absence placeholder.
+Revision-3 extraction requests compact JSON formatting outside string values;
+original string contents, parsing and retained receipts remain unchanged.
 These source and presentation corrections do not establish the hidden cause of
 a provider's reasoning-only exhaustion.
 
@@ -251,6 +253,12 @@ Requested root-scope evidence also contains the exact declared caller inputs.
 Declarations establish the public interface even when the current fragment reads
 no operands; they do not grant access inside isolated groups. A necessary producer
 may be reviewed before its consumer or public export has been constructed.
+Revision-3 closure reviews expose the scope evidence address and a bounded caller
+input directory independently of consumed operands, including before the first
+checkpoint. Existing interface pages and exact input addresses retrieve full
+declarations without routinely including unrelated schemas. Group reviews retain
+their isolated parameter interface. Partial navigation alone cannot establish an
+absent or incompatible declaration; the Judge must retrieve the relevant evidence.
 
 Reusable groups are isolated: their bodies use declared parameters, not caller
 captures. Calls select a closed group and receive its immutable hash, parameter

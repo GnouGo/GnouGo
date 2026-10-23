@@ -53,7 +53,7 @@ public sealed class CompactReviewEvidenceLinkTests
         var reviews = 0;
         runtime.Respond = (request, _) =>
         {
-            AssertBounded(request);
+            AssertBounded(request, state.Request);
             var context = Context(request);
             Assert.True(JsonNode.DeepEquals(state.Construction!.Evidence, context["evidence"]));
             switch (reviews++)
@@ -148,7 +148,7 @@ public sealed class CompactReviewEvidenceLinkTests
         runtime.Respond = (request, purpose) =>
         {
             Assert.Equal(PlanningConstruction.IntermediatePurpose, purpose);
-            AssertBounded(request);
+            AssertBounded(request, state.Request);
             Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(
                 Reviewed(), request.StructuredOutputSchema!));
             var context = Context(request);
@@ -269,7 +269,7 @@ public sealed class CompactReviewEvidenceLinkTests
             Assert.Null(Context(request)["candidateHash"]);
             Assert.All(Context(request)["checkpoints"]!.AsArray(), checkpoint => Assert.Null(checkpoint!["hash"]));
             Assert.Equal("scope:/groups/leaf/body", Assert.Single(Context(request)["groupEvidence"]!["items"]!.AsArray())!["address"]!.ToString());
-            AssertBounded(request);
+            AssertBounded(request, state.Request);
             return Wire(request, Reviewed());
         };
         state = await Advance(state, recovery);
@@ -329,7 +329,7 @@ public sealed class CompactReviewEvidenceLinkTests
         Assert.Empty(state.Diagnostics);
         runtime.Respond = (request, _) =>
         {
-            AssertBounded(request);
+            AssertBounded(request, state.Request);
             var context = Context(request);
             var pointer = "/evidence/scope:~1groups~1worker~1body";
             var task = context["evidence"]!["scope:/groups/worker/body"]!["tasks"]![0]!;
@@ -447,8 +447,15 @@ public sealed class CompactReviewEvidenceLinkTests
         return (state, runtime);
     }
 
-    private static void AssertBounded(LLMRequest request) =>
-        Assert.InRange(PlanningRequestMeasurements.Measure(request, PlanningConstruction.IntermediatePurpose, 4000).EstimatedInputTokens, 1, 4000);
+    private static void AssertBounded(LLMRequest request, PlanningRequest planning)
+    {
+        var phase = PlanningConstructionPhasePolicies.Resolve(planning, PlanningConstruction.IntermediatePurpose);
+        var measured = PlanningRequestMeasurements.Measure(request, PlanningConstruction.IntermediatePurpose, phase.MaxInputTokens);
+        Assert.InRange(phase.TargetInputTokens, 1, measured.InputLimit);
+        Assert.InRange(measured.EstimatedInputTokens, 1, phase.MaxInputTokens);
+        Assert.Equal(JsonSerializer.SerializeToUtf8Bytes(request, PlanningJsonContext.Default.LLMRequest).LongLength, measured.CompleteRequestBytes);
+        Assert.Equal(measured.CompleteRequestBytes, measured.Components.Sum(component => component.SerializedBytes));
+    }
     private static JsonObject Evidence(string address) => new() { ["findings"] = null,
         ["uncertainty"] = "Inspect the accepted producer before reviewing its exported result.", ["evidenceRequests"] = new JsonArray(address) };
     private static JsonObject Reviewed() => new() { ["findings"] = new JsonArray(),

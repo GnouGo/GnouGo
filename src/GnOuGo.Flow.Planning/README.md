@@ -15,6 +15,8 @@ clarification. Pending extraction blocks generation. Natural boundaries and link
 continuations preserve complete obligations. Historical revision-2 sessions and
 issued requests retain their captured grouping and schemas. Compact schema
 references carry no sibling annotations in the strict provider profile.
+Revision-3 extraction requests compact JSON whitespace outside strings without
+altering original string contents, parser behavior or saved receipts.
 The optional captured profile participates in
 new-session identity; absent historical fields, issued schemas and receipts retain
 their earlier behavior. Nested MCP directories and safe required-sibling views
@@ -84,6 +86,10 @@ For fresh ordinary nonclosing reviews with no changed exports or completion clai
 unchanged accepted exports provide names, bindings and an exact versioned retrieval
 address. Actual consumed interfaces remain fully typed; closure and explicit
 revision reviews retain the complete export types.
+Revision-3 closure reviews also offer bounded caller-input navigation and exact
+scope/input evidence independently of consumed operands. Before the first
+checkpoint, declarations come from accepted requirements. Full schemas remain
+targeted retrievals; isolated groups retain only their own parameter authority.
 Public `outputs` constrain `/root`. That scope's preserved `scopeInterface`
 exports are public results; nested exports remain local and may use the same
 name with a different type. Judges assess accepted exports plus candidate

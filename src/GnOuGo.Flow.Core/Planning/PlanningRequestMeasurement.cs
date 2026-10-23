@@ -175,7 +175,7 @@ public static class PlanningRequestMeasurements
         "requirements" or "answers" or "globalConstraints" or "requirementsPage" => "requirements",
         "operations" or "contracts" => "mcp_contracts",
         "operationDirectory" or "optionalOperationContracts" or "capabilities" or "descriptors" or "describedOperations" or "providerRequests" => "mcp_descriptors",
-        "interfaces" or "imports" or "scopeInterface" or "group" or "scopeGroup" or "existingInputs" or "existingOutputs" => "interfaces",
+        "interfaces" or "imports" or "inputDeclarations" or "scopeInterface" or "group" or "scopeGroup" or "existingInputs" or "existingOutputs" => "interfaces",
         "draft" or "tasks" or "fragment" or "closures" => "fragment",
         "evidence" => "evidence",
         "diagnostics" => "diagnostics",
