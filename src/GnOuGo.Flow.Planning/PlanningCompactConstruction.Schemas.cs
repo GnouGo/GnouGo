@@ -146,7 +146,9 @@ internal static partial class PlanningCompactConstruction
             hints.Add("always contains cleanup on completion or failure; preserve available payloads before nested cleanup and guard absent task results with present.");
         }
         if (step.Scope != "/root")
-            hints.Add("outputs explicitly export this scope's bound values through its enclosing task or group call; consumers cannot read hidden child tasks directly.");
+            hints.Add(UsesVerifiedReview(state)
+                ? "Later tasks in the same scope can bind ordinary task results directly; no scope export is needed. outputs export values across the enclosing task/group boundary; /root outputs are public results. Outside consumers cannot bind hidden child tasks directly. Open containers expose no consumable results."
+                : "outputs explicitly export this scope's bound values through its enclosing task or group call; consumers cannot read hidden child tasks directly.");
         if (step.Kind == "value")
             hints.Add(ValueSemantics);
         if (PlanningConstructionPhasePolicies.IsFresh(state.Request) && step.Kind == "transform")

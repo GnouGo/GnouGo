@@ -102,6 +102,9 @@ Public `outputs` constrain `/root`. That scope's preserved `scopeInterface`
 exports are public results; nested exports remain local and may use the same
 name with a different type. Judges assess accepted exports plus candidate
 additions, without requiring an unchanged export to be redeclared.
+Later tasks in the same scope consume ordinary task results directly; exports are
+needed across the enclosing task or group boundary. Fresh revision-4 author and
+Judge guidance distinguishes those cases while preserving historical requests.
 This evidence does not make an open container consumable or grant edit authority.
 
 Fresh revision 4 adds `constructionStage.preflight` only after real compiler

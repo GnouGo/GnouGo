@@ -424,6 +424,84 @@ public sealed class CompactActualImportReviewTests
     }
 
     [Theory]
+    [InlineData(3, false)]
+    [InlineData(4, false)]
+    [InlineData(3, true)]
+    [InlineData(4, true)]
+    public async Task OrdinaryOperationResultsNeedExportsOnlyAcrossTheirScopeBoundary(int presentation, bool retainedReview)
+    {
+        const string scope = "/tasks/container/body";
+        const string originalHint = "outputs explicitly export this scope's bound values through its enclosing task or group call; consumers cannot read hidden child tasks directly.";
+        const string currentHint = "Later tasks in the same scope can bind ordinary task results directly; no scope export is needed. outputs export values across the enclosing task/group boundary; /root outputs are public results. Outside consumers cannot bind hidden child tasks directly. Open containers expose no consumable results.";
+        var (state, runtime) = await Ready(presentation: presentation);
+        var capability = new PlanningCapability
+        {
+            Id = "read_value", Version = "v1", Kind = "tool", StepType = "mcp.call", Server = "source", Method = "read", EffectKind = "read",
+            Description = "Read the original numeric value.",
+            InputSchema = JsonNode.Parse("""{"type":"object","properties":{},"required":[],"additionalProperties":false}""")!.AsObject(),
+            OutputSchema = JsonNode.Parse("""{"type":"object","properties":{"value":{"type":"number"}},"required":["value"],"additionalProperties":false}""")!.AsObject()
+        };
+        state.Catalog = new() { AllowedStepTypes = ["mcp.call"], Capabilities = [capability] };
+        state.Discovery.Resolved = [capability];
+        state.Plan!.Root.Tasks = [new() { Id = "container", Kind = "sequence", Objective = "Preserve values within this boundary.", Body = new() }];
+        state.Construction!.OpenScopes.Add(scope);
+        Select(state, "operation", scope);
+        state.Construction.Compact!.CurrentStep!.OperationIds = [capability.Id];
+        var extension = new PlanningConstructionExtension { Scope = scope, RequirementIds = ["req_0"], Tasks =
+            [new() { Id = "producer", Kind = "operation", Objective = "Read the original value.", Operation = capability.Id }] };
+        var candidate = Stage(state, extension);
+        Assert.Empty(extension.Outputs);
+        Assert.Empty(candidate.Plan.Root.Tasks[0].Body!.Outputs);
+        var accepted = PlanningConstruction.Hash(state.Plan);
+        var draft = PlanningConstruction.DraftRequest(state, repair: false);
+        Assert.Contains(presentation == 4 ? currentHint : originalHint, draft.StructuredOutputSchema!["description"]!.ToString(), StringComparison.Ordinal);
+        var rootStep = new PlanningConstructionStep { Kind = "operation", Scope = "/root" };
+        Assert.DoesNotContain(presentation == 4 ? currentHint : originalHint, PlanningCompactConstruction.DraftSemantics(state, rootStep), StringComparison.Ordinal);
+        foreach (var intermediate in new[] { false, true })
+        {
+            var request = HybridWorkflowPlanner.CreateConstructionReviewRequest(state, intermediate).Request;
+            Assert.Equal(presentation == 4, request.Prompt.Contains(currentHint, StringComparison.Ordinal));
+            Assert.Empty(Context(request)["draft"]!["outputs"]!.AsArray());
+        }
+        var consumer = new PlanTask { Id = "consumer", Kind = "value", Objective = "Preserve the producer value.", Outputs = [new("copy", Output("producer", "value"))] };
+        var consumed = PlannerFixture.Clone(state);
+        consumed.Plan = consumed.Construction!.Candidate!.Plan;
+        consumed.Plan.Root.Tasks[0].Body!.Tasks.Add(consumer);
+        Assert.Empty(TaskPlanCompiler.ValidateConstruction(consumed.Plan, state.Catalog, state.Request, candidate.OpenScopes.ToHashSet(StringComparer.Ordinal)).Diagnostics);
+        consumed.Plan.Root.Tasks[0].Body!.Tasks.Remove(consumer);
+        consumed.Plan.Root.Tasks.Add(consumer);
+        var rejected = TaskPlanCompiler.ValidateConstruction(consumed.Plan, state.Catalog, state.Request, candidate.OpenScopes.ToHashSet(StringComparer.Ordinal));
+        Assert.Contains(rejected.Diagnostics, finding => finding.Code == "TASK_EXPORT_REQUIRED" && finding.Location == scope + "/outputs");
+        consumed.Plan.Root.Tasks.Remove(consumer);
+        string? exact = null;
+        if (retainedReview)
+        {
+            var review = HybridWorkflowPlanner.CreateConstructionReviewRequest(state, intermediate: false);
+            var prompt = review.Request.Prompt.Replace(currentHint, originalHint, StringComparison.Ordinal);
+            state.Construction.PendingReviewContext = review.Context;
+            state.Construction.PendingReviewHash = PlanningGraphCompiler.Fingerprint(PlanningConstruction.LocalPurpose + "\n" + candidate.Hash + "\n" + review.Context.ToJsonString());
+            runtime.Respond = (_, _) => throw new OperationCanceledException();
+            await Assert.ThrowsAsync<OperationCanceledException>(() => PlanningModelCalls.CallAsync(state, runtime,
+                PlanningConstruction.LocalPurpose, prompt, review.Request.StructuredOutputSchema!.AsObject(), PlannerFixture.Ct, state.Construction.Limits.ReviewOutputTokens));
+            state = PlannerFixture.Clone(runtime.Checkpoints.Last(saved => saved.PendingCall is not null));
+            exact = JsonSerializer.Serialize(state.PendingCall!.Request, PlanningJsonContext.Default.LLMRequest);
+        }
+        var calls = state.ModelCalls;
+        runtime.Respond = (request, _) =>
+        {
+            if (exact is not null) Assert.Equal(exact, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+            Assert.Equal(accepted, PlanningConstruction.Hash(state.Plan));
+            return Wire(request, Reviewed());
+        };
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        Assert.Equal(calls + (retainedReview ? 0 : 1), state.ModelCalls);
+        Assert.Equal(0, state.ReplanAttempts);
+        Assert.Single(state.Construction!.Checkpoints);
+        Assert.Empty(state.Plan!.Root.Tasks[0].Body!.Outputs);
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task CompilerStillRejectsIsolatedCapturesAndOpenContainerResults(bool openContainer)

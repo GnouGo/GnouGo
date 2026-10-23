@@ -310,7 +310,10 @@ legal ancestor captures. Open scope interfaces expose existing declarations for
 construction without making their outputs consumable outside the container.
 
 Scope exports are added without rewriting accepted exports. An empty draft export
-list preserves accepted declarations. The selected `/root` scope's exports are
+list preserves accepted declarations. Later tasks in the same scope can consume
+ordinary task results without exports; exports carry values across the enclosing
+task or group boundary. Fresh revision-4 author and Judge guidance states this
+distinction without making open containers consumable. The selected `/root` scope's exports are
 public outputs; nested scope exports are local. Judges assess the combined
 accepted and candidate declarations. Closure review sees
 the applied candidate's exports and compiler-derived types. Fresh ordinary reviews that add

@@ -193,10 +193,27 @@ public sealed class CompactAcceptedExportNavigationTests(ITestOutputHelper outpu
         Assert.Equal("object", Assert.Single(context["interfaces"]!.AsArray())!["schema"]!["type"]!.ToString());
         Assert.Equal(30000, context["interfaces"]![0]!["schema"]!["properties"]!["unused"]!["enum"]![0]!.ToString().Length);
         var accepted = PlanningConstruction.Hash(state.Plan);
+        var calls = state.ModelCalls;
+        var corrections = state.ReplanAttempts;
         var runtime = new TestRuntime { Respond = (_, _) => throw new InvalidOperationException("Oversized review must not dispatch.") };
         var reviewed = await Advance(state, runtime);
+        Assert.Equal(PlanningStatus.Stopped, reviewed.Status);
         Assert.Empty(runtime.Calls);
-        Assert.Equal("CONSTRUCTION_REVIEW_INCONCLUSIVE", Assert.Single(reviewed.Diagnostics).Code);
+        Assert.Equal(calls, reviewed.ModelCalls);
+        Assert.Equal(corrections, reviewed.ReplanAttempts);
+        Assert.Null(reviewed.PendingCall);
+        Assert.Equal(2, reviewed.Diagnostics.Count);
+        Assert.Single(reviewed.Diagnostics, diagnostic => diagnostic.Code == "CONSTRUCTION_REVIEW_INCONCLUSIVE");
+        var cause = Assert.Single(reviewed.Diagnostics, diagnostic => diagnostic.Code == "MODEL_INPUT_LIMIT");
+        Assert.Equal("/phases/" + PlanningConstruction.LocalPurpose, cause.Location);
+        Assert.Equal(PlanningConstruction.LocalPurpose, cause.ValidationStage);
+        var measurement = Assert.Single(reviewed.RequestMeasurements!);
+        Assert.Equal("rejected_before_dispatch", measurement.Admission);
+        Assert.Equal(PlanningConstruction.LocalPurpose, measurement.Phase);
+        Assert.Equal(8000, measurement.InputLimit);
+        Assert.True(measurement.EstimatedInputTokens > measurement.InputLimit);
+        Assert.Contains($"{measurement.EstimatedInputTokens} tokens; the captured limit is {measurement.InputLimit}.", cause.Message, StringComparison.Ordinal);
+        Assert.Equal(measurement.CompleteRequestBytes, measurement.Components.Sum(component => component.SerializedBytes));
         Assert.Equal(accepted, PlanningConstruction.Hash(reviewed.Plan));
         Assert.Empty(reviewed.Construction!.Checkpoints);
     }
