@@ -219,7 +219,11 @@ Historical presentations and already issued requests keep their original schemas
 Fresh Judges receive the same TaskPlan meaning as drafting, with authoring-only
 actions omitted. Revision 4 supplies exact requirement closure identities; requirement
 associations and operation commitments remain contributions, not claims that every
-associated obligation is complete. Scope closure and plan completion retain their
+associated obligation is complete. Revision-5 review distinguishes an operation's
+descriptive purpose from its contract-defined current effects: purpose adds no
+contract behavior or requirement to perform future work now. Transform objectives
+remain executable instructions; original constraints on current effects still apply.
+Scope closure and plan completion retain their
 existing full-obligation checks. They assess closure, bindings and collection behavior through
 findings or evidence requests; they cannot reselect a step, add exports or expand
 generation grammar. Draft instructions and historical issued reviews remain exact.

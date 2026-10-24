@@ -247,6 +247,8 @@ public sealed partial class HybridWorkflowPlanner
             PlanningCompactConstruction.DraftSemantics(state, construction.Compact!.CurrentStep!, review: true)
             : construction.Version == 2 ? CompactConstructionReviewGuidance(state) : ConstructionReviewInstructions;
         if (convergent) guidance = guidance.Replace(LegacyReviewActionInstruction, ConvergentReviewActionInstruction, StringComparison.Ordinal)
+            .Replace("Review the business meaning of this fragment against its exact original requirements and globals: whether its arguments, results and effects perform the selected objective, whether work is unnecessary, and whether the current completion claims omit an obligation.",
+                "Review current contract-defined arguments, results and effects against applicable original obligations; assess unnecessary work and actual completion claims. An operation objective describes its intended contribution, not additional contract behavior or a requirement to perform future work now; transform objectives remain executable instructions.", StringComparison.Ordinal)
             .Replace("Future work in open scopes is not a present omission; requirement and scope closure must cover their complete obligations.",
                 "Current effects must satisfy applicable original constraints, including constraints on their combination with accepted work, even while scopes or requirements remain open. Future work in open scopes is not a present omission; requirement and scope closure must cover their complete obligations.", StringComparison.Ordinal);
         if (!PlanningConstructionPhasePolicies.IsFresh(state.Request))

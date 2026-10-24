@@ -947,6 +947,11 @@ cohort workbook destination. It rejects clicks, cookie/account interactions and 
 Code authority permits the pinned SmartGuide checkout, local inspection/checks/report and
 confined clone cleanup; it rejects publication and permission expansion. Concrete tool
 arguments are checked again before transport. Existing producer policies still apply.
+Fresh Code prompts explicitly require the single `git_clone` to set `branch` to the
+frozen head and `targetDirectory` to the fixed cohort repository path. Older issued
+prompts remain unchanged. This scenario-input clarification requires a new frozen
+cohort and the same revised input in both comparison arms; authority and oracles
+are unchanged.
 Synthetic delegation has no external-producer authority.
 
 This external benchmark host lists only tool methods permitted by that same authority;

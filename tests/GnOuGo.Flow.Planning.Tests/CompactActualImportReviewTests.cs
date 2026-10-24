@@ -276,10 +276,12 @@ public sealed class CompactActualImportReviewTests
         Assert.Equal(0, state.ReplanAttempts);
     }
 
-    [Fact]
-    public async Task InterpretationReviewUsesTheRuntimeInstructionAndPreservesResultConstraints()
+    [Theory]
+    [InlineData(4)]
+    [InlineData(5)]
+    public async Task InterpretationReviewUsesTheRuntimeInstructionAndPreservesResultConstraints(int presentation)
     {
-        var (state, runtime) = await Ready("Compare the supplied text with the requested criteria and report every discrepancy.");
+        var (state, runtime) = await Ready("Compare the supplied text with the requested criteria and report every discrepancy.", presentation);
         state.Plan!.Inputs = [new() { Name = "text", Type = new() { Kind = "string" } }];
         state.Requirements!.Inputs = state.Plan.Inputs;
         Select(state, "transform");
@@ -303,6 +305,9 @@ public sealed class CompactActualImportReviewTests
         var inference = Assert.Single(steps, step => step.Type == "llm.call");
         Assert.NotNull(inference.StructuredOutput);
         Assert.Equal(0, inference.StructuredOutput.Schema.Contract!["properties"]!["discrepancies"]!["maxItems"]!.GetValue<int>());
+        if (presentation == 5)
+            Assert.Contains("transform objectives remain executable instructions",
+                HybridWorkflowPlanner.CreateConstructionReviewRequest(state, false).Request.Prompt, StringComparison.Ordinal);
         runtime.Respond = (request, purpose) =>
         {
             Assert.Equal(PlanningConstruction.LocalPurpose, purpose);
@@ -313,6 +318,17 @@ public sealed class CompactActualImportReviewTests
             Assert.Equal("input", Assert.Single(draft["inputs"]!.AsArray())!["value"]!["kind"]!.ToString());
             Assert.Equal(0, draft["resultType"]!["fields"]![0]!["type"]!["maxItems"]!.GetValue<int>());
             Assert.DoesNotContain("the draft expression computes the result", request.Prompt, StringComparison.Ordinal);
+            if (presentation == 5)
+            {
+                Assert.Contains("transform objectives remain executable instructions", request.Prompt, StringComparison.Ordinal);
+                Assert.Contains("interpret uses its objective as the runtime LLM instruction", request.Prompt, StringComparison.Ordinal);
+                return new() { Json = new JsonObject { ["action"] = new JsonObject { ["kind"] = "findings",
+                    ["findings"] = new JsonArray(new JsonObject { ["kind"] = "inconsistency", ["location"] = "/draft/tasks/0",
+                        ["obligation"] = "/requirements/0", ["implementation"] = "/draft/tasks/0", ["fact"] = null, ["requiredBinding"] = null,
+                        ["explanation"] = "The zero-length result contract cannot report discrepancies required by the executable instruction.",
+                        ["uncertainty"] = "The runtime interpretation has not executed." }) },
+                    ["uncertainty"] = "The result constraint contradicts the stated task." } };
+            }
             return Wire(request, new()
             {
                 ["findings"] = new JsonArray(new JsonObject

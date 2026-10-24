@@ -8,6 +8,123 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class CompactConvergentJudgeTests
 {
+    private const string OriginalReviewOpening = "Review the business meaning of this fragment against its exact original requirements and globals: whether its arguments, results and effects perform the selected objective, whether work is unnecessary, and whether the current completion claims omit an obligation.";
+    private const string ContractReviewOpening = "Review current contract-defined arguments, results and effects against applicable original obligations; assess unnecessary work and actual completion claims. An operation objective describes its intended contribution, not additional contract behavior or a requirement to perform future work now; transform objectives remain executable instructions.";
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task OperationPurposeDefersLaterWorkWithoutExcusingCurrentBindingDefects(bool wrongBinding)
+    {
+        var state = await State();
+        var capability = new PlanningCapability
+        {
+            Id = "retain_label", Version = "v1", Kind = "tool", StepType = "mcp.call",
+            Server = "labels", Method = "retain", EffectKind = "write",
+            Description = "Retain the supplied label for later work; this operation does not perform that work.",
+            InputSchema = new() { ["type"] = "object", ["properties"] = new JsonObject
+                { ["label"] = new JsonObject { ["type"] = "string" } },
+                ["required"] = new JsonArray("label"), ["additionalProperties"] = false },
+            OutputSchema = new() { ["type"] = "object", ["properties"] = new JsonObject
+                { ["value"] = new JsonObject { ["type"] = "string" } }, ["additionalProperties"] = false }
+        };
+        state.Catalog = new() { AllowedStepTypes = ["mcp.call"], Capabilities = [capability] };
+        state.Discovery.Resolved = [capability];
+        var step = state.Construction!.Compact!.CurrentStep!;
+        step.Kind = "operation"; step.OperationIds = [capability.Id];
+        step.Objective = "Retain the caller label so later work can compare it with the requested target.";
+        var task = new PlanTask { Id = step.Id, Kind = "operation", Objective = step.Objective, Operation = capability.Id,
+            Inputs = [new("label", wrongBinding ? new() { Kind = "string", Text = "unrelated" } : new() { Kind = "input", Source = "label" })] };
+        state.Construction.Candidate = PlanningConstruction.Apply(state, new() { Scope = "/root", RequirementIds = ["work"], Tasks = [task] });
+        var candidate = state.Construction.Candidate;
+        Assert.Empty(TaskPlanCompiler.ValidateConstruction(candidate.Plan, state.Catalog, state.Request,
+            candidate.OpenScopes.ToHashSet(StringComparer.Ordinal)).Diagnostics);
+        var compiled = new TaskPlanCompiler().Compile(candidate.Plan, state.Catalog, state.Request);
+        Assert.Empty(compiled.Diagnostics);
+        var operation = Assert.Single(Assert.Single(compiled.Graph!.Workflows).Steps, node => node.Type == "mcp.call");
+        Assert.Equal(task.Objective, operation.Purpose);
+        Assert.DoesNotContain(task.Objective, JsonSerializer.Serialize(operation.Input, PlanningJsonContext.Default.PlanningValue), StringComparison.Ordinal);
+        var accepted = PlanningConstruction.Hash(state.Plan);
+        foreach (var intermediate in new[] { false, true })
+        {
+            var review = HybridWorkflowPlanner.CreateConstructionReviewRequest(state, intermediate).Request;
+            Assert.StartsWith(ContractReviewOpening, review.Prompt, StringComparison.Ordinal);
+            Assert.DoesNotContain(OriginalReviewOpening, review.Prompt, StringComparison.Ordinal);
+            Assert.Contains("Current effects must satisfy applicable original constraints", review.Prompt, StringComparison.Ordinal);
+            Assert.Contains("Future work in open scopes is not a present omission", review.Prompt, StringComparison.Ordinal);
+        }
+        var runtime = new TestRuntime { Respond = (request, _) =>
+        {
+            var context = Context(request);
+            Assert.True(context["constructionStage"]!["preflight"]!["scopeOpen"]!.GetValue<bool>());
+            Assert.Empty(context["constructionStage"]!["closeRequirementIds"]!.AsArray());
+            Assert.False(context["constructionStage"]!["planCompletionClaimed"]!.GetValue<bool>());
+            Assert.Equal(task.Objective, context["draft"]!["tasks"]![0]!["objective"]!.ToString());
+            var findings = new JsonArray();
+            if (wrongBinding)
+            {
+                var finding = Finding();
+                finding["explanation"] = "The current operation writes unrelated literal text instead of the required caller label.";
+                findings.Add(finding);
+            }
+            return Response(Report(findings));
+        } };
+        state = await Advance(state, runtime);
+        if (wrongBinding)
+        {
+            Assert.Equal("CONSTRUCTION_BUSINESS_REVIEW", Assert.Single(state.Diagnostics).Code);
+            Assert.Equal(accepted, PlanningConstruction.Hash(state.Plan));
+            Assert.Empty(state.Construction!.Checkpoints);
+        }
+        else
+        {
+            Assert.Empty(state.Diagnostics);
+            Assert.Single(state.Construction!.Checkpoints);
+            Assert.Contains("/root", state.Construction.OpenScopes);
+            Assert.NotEqual("closed", Assert.Single(state.Construction.Requirements).Status);
+        }
+        Assert.Equal(1, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);
+        Assert.Null(state.ApprovedHash);
+    }
+
+    [Theory]
+    [InlineData(2, "2d21f8f71813270de53cc16fc3ecc2fe3a166358a037cf7959ba04b95520e091")]
+    [InlineData(3, "f7bf1082bb059c73b0f42fd12f72a8adc546d1dfe5d9df9c9769263cb382de8c")]
+    [InlineData(4, "ead711e6f0a4eb115b90d593cb2f9129495f83ea32c8b901e83eb9ce1adb9b22")]
+    public async Task HistoricalReviewRequestBytesRemainUnchanged(int presentation, string expected)
+    {
+        var state = await State();
+        state.Construction!.Compact!.PresentationVersion = presentation;
+        state.Request.Options["construction_presentation_version"] = presentation;
+        var request = HybridWorkflowPlanner.CreateConstructionReviewRequest(state, false).Request;
+        var actual = PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+        Assert.True(expected == actual, actual);
+        Assert.DoesNotContain(ContractReviewOpening, request.Prompt, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task PendingVersionFiveReviewRetainsItsOriginalPurposeGuidance()
+    {
+        var state = await State();
+        var (context, request) = HybridWorkflowPlanner.CreateConstructionReviewRequest(state, false);
+        var originalPrompt = request.Prompt.Replace(ContractReviewOpening, OriginalReviewOpening, StringComparison.Ordinal);
+        var issued = PlanningModelCalls.PrepareRequest(state, PlanningConstruction.LocalPurpose, originalPrompt, request.StructuredOutputSchema!.AsObject());
+        state.Construction!.PendingReviewContext = context;
+        state.Construction.PendingReviewHash = PlanningGraphCompiler.Fingerprint(PlanningConstruction.LocalPurpose + "\n" + state.Construction.Candidate!.Hash + "\n" + context.ToJsonString());
+        state.PendingCall = new() { Id = issued.ClientRequestId!, Purpose = PlanningConstruction.LocalPurpose, Request = issued };
+        state.ModelCalls++;
+        var exact = JsonSerializer.Serialize(issued, PlanningJsonContext.Default.LLMRequest);
+        var runtime = new TestRuntime { Respond = (recovered, _) =>
+        {
+            Assert.Equal(exact, JsonSerializer.Serialize(recovered, PlanningJsonContext.Default.LLMRequest));
+            Assert.StartsWith(OriginalReviewOpening, recovered.Prompt, StringComparison.Ordinal);
+            return Response(Report());
+        } };
+        state = await Advance(PlannerFixture.Clone(state), runtime);
+        Assert.Empty(state.Diagnostics); Assert.Single(state.Construction!.Checkpoints);
+        Assert.Equal(1, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts); Assert.Null(state.PendingCall);
+    }
+
     [Theory]
     [InlineData("all_null")]
     [InlineData("missing_obligation")]

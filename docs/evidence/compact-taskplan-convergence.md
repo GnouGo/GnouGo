@@ -1,5 +1,50 @@
 # Compact TaskPlan convergence
 
+**Source `c17ee8a42` passed both Collections runtime variants; Amazon and Review PR stopped
+without artifacts or execution. PR #120 remains Draft.** Three-case acceptance and the 18
+alternating baseline comparisons remain unestablished. Detailed measurements remain in archives.
+
+| Frozen c17 case | Calls / attempts / receipts | Corrections / checkpoints | Planning seconds | Known EUR / new reservation EUR | Outcome |
+| --- | ---: | ---: | ---: | ---: | --- |
+| [Collections](compact-taskplan-c17ee8a42-collections.json) | 29/29/29 | 2/9 | 668.096 | 1.1009995537706381079875055776 / 0 | Both runtime variants passed |
+| [Amazon](compact-taskplan-c17ee8a42-amazon.json) | 33/33/33 | 3/5 | 887.977 | 1.6682507809013833110218652388 / 0 | Mandatory Judge denied: **9,614 > 9,000** input tokens |
+| [Review PR](compact-taskplan-c17ee8a42-code.json) | 23/23/23 | 3/2 | 606.626 | 1.2553369031682284694332887102 / 0 | `CONSTRUCTION_DEFECT_UNCHANGED`; no execution |
+
+Collections has one parallel foreach calling a closed doubling group, a direct public result
+and no alias. Nominal/alternate execution took **377.9249 / 4.019 ms**, both passing the unchanged
+`cleanup`, `declared_effects` and `exact_outputs` oracles without effects or violations.
+Useful progress is 29/3 calls per frozen oracle obligation; both corrections were deterministic.
+Finite capacity 100, extreme numeric ranges and parallel speedup remain unverified.
+
+Amazon selections 20/24 exposed the first usable string port and `canResume`, yet the model
+added two transforms before resuming at 28. The final action list omitted offered `resumeStep`;
+that contradiction is confirmed, not its causal effect. Judge 30's business truth remains
+unadjudicated. Repair 33 added arguments, but the [original `maxRecords` contract](compact-taskplan-c17ee8a42-amazon-contract-assessment.json) bounds observations **per page**, not
+product count; no follow-up Judge accepted it. There was no browser operation or execution.
+
+Root's exact Code inspection separates the missing clone head in draft 16, added by 19, from
+Judges 20/22's unsupported demand that the one-reference clone also consume the review base
+while its scope remained open. Base provenance remains a downstream review obligation.
+Repair 23 changed only wording with unchanged inputs: the non-progress rule applies, but its
+antecedent base finding is unsupported. Code's separately frozen review ceiling was 12,000;
+no matched improvement, avoided correction or benefit from that ceiling is established.
+
+The **2026-10-24 14:18:30 UTC** audit reports 2,693 physical attempts,
+**EUR110.48766248857511267856460945 known + EUR22.730310014607438908749723858 reserved**,
+with retained upper bound **EUR133.21797250318255158731433331** against
+EUR240.0301038327063045424449473: **EUR106.81213132952375295513061399 available**.
+Reservations for 34 unknown physical attempts remain; all 24 receiptless identities are
+permanently closed, with zero unresolved identities. No reconciliation releases funds.
+
+Exact c17 publication passed **12/12**, zero compiler diagnostics; its full solution and final
+planner CI await terminal evidence. Separately, next-source resume-action and Judge guidance
+passed 74 and 140 focused tests; the Code prompt clarification passed 137 existing host tests.
+The latter exposes the existing clone-branch restriction and requires fresh scenario input
+in both future comparison arms. Amazon's optional review input 12,000 profile is prepared only.
+No general convergence or causal improvement is established; source/profile attribution is retained below.
+
+## Retained source `9b3da541c` diagnostic snapshot
+
 **Retained source `9b3da541c` passed one of three business cases; PR #120 stays Draft.** Its
 Collections passed both actual runtime variants and the unchanged independent oracle after
 31 calls and no corrections. Amazon stopped on a response-less transport failure; its exact
@@ -78,7 +123,7 @@ indivisible oversized requests stop. Existing business findings retain correctio
 | Exact source or validated change | Technical result, with warnings as errors |
 | --- | --- |
 | [Bounded accepted-operation context and rollback presentation](compact-taskplan-accepted-operation-context-validation.json) | **2,878 full Planning / 62 targeted host tests passed**, plus 406 overlapping focused cases; zero failures/skips/compiler diagnostics, 1,986 source files unchanged. Whole accepted-task evidence and original rebuild inputs remain bounded and retrievable; historical requests and authority are preserved. Fresh business acceptance remains to be tested |
-| [Retained 9b3da541c](compact-taskplan-9b3da541c-live.json) | **12/12 publication stages passed**, six independent packages, Planning Native AOT presentations 2–5, published encrypted storage and Git AOT/contracts; zero compiler diagnostics. Its full solution remains running separately |
+| [Retained 9b3da541c](compact-taskplan-9b3da541c-live.json) | **12/12 publication stages passed**, six independent packages, Planning Native AOT presentations 2–5, published encrypted storage and Git AOT/contracts; zero compiler diagnostics. Its exact full solution passed **7,988 / 0 failed / 13 skipped** across 33 projects |
 | [Closure identity and retained review support](compact-taskplan-review-support-validation.json) | **2,862 full Planning / 62 targeted host tests passed**, WAE, 1,986 source files unchanged and matching the tested working tree. The original automatic-closure approval and missing cited-evidence defects are reproduced; later exact9b Collections runtime acceptance is recorded separately |
 | [c7f7629f publication](compact-taskplan-c7f7629f-collections.json) | **12/12 publication stages passed**, six independent packages, Planning Native AOT presentations 2–5, published encrypted storage and Git AOT/contracts. Its live run still stopped without an artifact |
 | [Combined-review approval correction](compact-taskplan-combined-approval-validation.json) | **2,840 full Planning / 62 targeted approval, delegation and persistence tests passed**. The verifier recognizes exact v5 combined coverage; legacy separate-review checks remain. Later runtime acceptance retains its exact9b source attribution |
@@ -123,7 +168,7 @@ The offered pointer choices and grounding checks remain unchanged. This addresse
 field-level guidance observed in Amazon's unsupported report; it does not establish that the
 model will cite originals correctly or resolve the separate semantic failures below.
 
-## Latest completed live diagnostics
+## Earlier completed live diagnostics
 
 | Frozen attempt | Logical calls / physical attempts / receipts | Corrections / checkpoints | Planning seconds | Known cost EUR | Terminal result / runtime |
 | --- | ---: | ---: | ---: | ---: | --- |

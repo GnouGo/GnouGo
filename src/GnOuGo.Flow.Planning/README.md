@@ -22,8 +22,10 @@ Drafts and reviews retain at most four whole current-step companion operation
 rows within 2,048 serialized UTF-8 bytes, with canonical directory and original
 description links. These projected rows grant no finding or execution authority.
 Technical setup, handle and result-shape assumptions in selected expected outputs
-are provisional; original business results, cleanup, concrete task objectives and
-literals remain binding.
+are provisional. Operation objectives describe an intended contribution, adding
+neither contract behavior nor a requirement to perform future work now; transform
+objectives remain executable instructions. Original business obligations, applicable
+current-effect constraints, cleanup and literals remain binding.
 Rollback requires reconstruction with preserved effects and literals; its fresh
 presentation and original input context make that restriction explicit.
 Replacement reviews re-resolve bounded, exact accepted-task evidence cited by

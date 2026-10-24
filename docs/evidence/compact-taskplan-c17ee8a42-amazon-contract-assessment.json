@@ -1,0 +1,18 @@
+{
+  "source": "c17ee8a425d4ee07eb1e22e011574d7a00a02d2d",
+  "cohort": "compactrc17ee8a42amzv5",
+  "request_id": "compactrc17ee8a42amzv5-amazon-1:33:0b6ba326c314ec129f98877d5d306930494d447b8b1b677c041ce2a34d4ecfdb",
+  "record_hashes": {
+    "requests": "c661e18eed5efa4c939f302f3d816172fed09243d72caecc3d0d957fd5c7a257",
+    "http-attempts": "8049cee603b62b81c13baf9db9783aae670bc3cd3566213bd2b575a13d96f27f",
+    "receipts": "c523e860b90fdf9cbffb1906405509ff601f78729483a61f7bc291e52b6c6729",
+    "failures": null,
+    "closures": null
+  },
+  "freeze_sha256": "3386d404cf0afadcd7405a552617cabf3b198c57987e6b5640145f0e4febe9a2",
+  "original_text_sha256": "ec02363e299a5104e528dfa1d8090f04b44aa3109e0243810abdbec81a8844af",
+  "exact_evidence_address": "schema:cap_490d9e16075cbdca5954ec27@488b645a02d1be76897665e0d6adbff90939b989ecd519ad81fce24430f3f835:/input/properties/maxRecords",
+  "schema_sha256": "c0156477861cfc1d74e648f5ae3d4258e62ff18479270300eb41279f180bee0e",
+  "assessment": "The exact cached maxRecords contract limits observation records per page, not the total number of products or observations. Setting3 is not proof of the three-product obligation. The blocked subsequent Judge never assessed that repair. No accepted artifact or runtime exists.",
+  "raw_request_or_receipt_saved": false
+}
