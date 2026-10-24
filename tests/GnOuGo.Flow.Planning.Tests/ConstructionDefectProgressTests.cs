@@ -6,7 +6,7 @@ using GnOuGo.Planning.Examples;
 
 namespace GnOuGo.Flow.Planning.Tests;
 
-public sealed class ConstructionDefectProgressTests
+public sealed partial class ConstructionDefectProgressTests
 {
     [Fact]
     public void UnrelatedInputUseAndOperationPurposeDoNotResolveTheAffectedConsumer()

@@ -327,6 +327,7 @@ public sealed partial class HybridWorkflowPlanner
         }
         if (state.Construction.Version == 2)
             draft.Diagnostics.AddRange(PlanningCompactConstruction.CandidateFindings(state));
+        PlanningConstruction.RetainTechnicalRejections(state);
         if (PlanningCompactConstruction.UsesConvergentConstruction(state) && draft.Diagnostics.Count == 0 &&
             draft.Reviews.Any(review => review["defectWitness"] is JsonObject))
         {

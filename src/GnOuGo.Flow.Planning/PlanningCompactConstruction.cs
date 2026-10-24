@@ -527,6 +527,8 @@ internal static partial class PlanningCompactConstruction
                     context.Remove(name);
             AddReviewGroupEvidence(state, context);
         }
+        if (PlanningConstruction.TechnicalRejectionContext(state) is { } technicalHistory)
+            context["historicalTechnicalRejections"] = technicalHistory;
         if (UsesConvergentConstruction(state) && PlanningConstruction.DefectProgressContext(state, context) is { } progress)
             context["defectProgress"] = progress;
         return context;

@@ -1155,8 +1155,14 @@ Recorded failures and accounting for Amazon, Collections and Review PR are in th
 immutable earlier diagnostic records. The e6b snapshot adds
 [Collections output exhaustion](../../docs/evidence/compact-taskplan-e6b24bb77-collections.json)
 and [Amazon's pending transport outcome](../../docs/evidence/compact-taskplan-e6b24bb77-amazon-pending.json);
-neither produced an artifact or executed. Amazon's exact retention inspection remains
-unapplied pending authorization. Technical passes for f064 do not establish e6b success.
+neither produced an artifact or executed. The later exact authorized Amazon closure
+is appended separately, retaining the pending snapshot and every reservation.
+The `40bd4a048` Code diagnostic retains 36 receipts, three corrections and no artifact
+or execution. Its supported sibling-write findings and repeated provenance rejection
+are distinguished from two presentation defects: lost prior technical feedback and
+an incorrect validation-pass statement during repair. Fixing those defects does not
+establish a causal benefit or an avoided correction. Technical passes remain separate
+from independent business acceptance.
 
 Exercise automatic structural closure through the coordinator, receipt recovery and
 existing artifact approval, rather than assigning candidate identity in the fixture.

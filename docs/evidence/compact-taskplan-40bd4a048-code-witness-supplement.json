@@ -1,0 +1,186 @@
+{
+  "schema": "compact_taskplan_terminal_witness_supplement_v1",
+  "source": "40bd4a048ac133ac688e72dae87802c8dcddf1bb",
+  "cohort": "compactr40bd4a048code20v5",
+  "prepared_at_utc": "2026-10-24T19:50:41.812641+00:00",
+  "references": [
+    {
+      "path": "/private/tmp/gnougo-40bd-code-terminal-safe/compact-taskplan-40bd4a048-code.json",
+      "sha256": "a7da06fe8d77f89edd8fd99141fa57dc935562cc73cdcbf03b178f0ec624121b",
+      "bytes": 20839
+    },
+    {
+      "path": "/private/tmp/gnougo-40bd-code-terminal-safe/independent-review-safe.json",
+      "sha256": "5e8e6091036d5820042af9f7218993230e21df3682745a99634e48aa28dd7684",
+      "bytes": 1671
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr40bd4a048code20v5/freeze.json",
+      "sha256": "f24c7c0c89df8e8a1e1e28ec757c6044b95a3ba793090fc280d882db3b8fd9bf",
+      "bytes": 18532
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr40bd4a048code20v5/code-terminal-safe-metrics.json",
+      "sha256": "dd14250a6f55bafc169b7e047febd8ca723ac27dd1a0ed74fcbb5eb11fd5fa1f",
+      "bytes": 154083
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr40bd4a048code20v5/code-repair-witness-safe.json",
+      "sha256": "ebb7c0d8e3a44d8b7f958be67671356b4c874b70575b6894345956d889e99488",
+      "bytes": 33652
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr40bd4a048code20v5/code-response-formatting-safe.json",
+      "sha256": "c5a79c17cea4b9d04695f2fea2afbe66dae1841f7744d280b8844b3de43a3b97",
+      "bytes": 29265
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr40bd4a048code20v5/post-run-ledger-safe.json",
+      "sha256": "99c9b7f773397bbfb4b59be41c5348c7e7171901d4398bff7814bddccca8d6ca",
+      "bytes": 686
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr40bd4a048code20v5/post-run-readiness.jsonl",
+      "sha256": "e79541a04031d3e5b46ef962ca1fcd47b1289a19e2fab1e7045374a41785c1e6",
+      "bytes": 8054
+    },
+    {
+      "path": "/private/tmp/gnougo-40bd-copilot-root-assessment-0fds06w7/independent-static-assessment-safe.json",
+      "sha256": "d717d8ed6a29825c629835882cd216c0fafab7f15b0453b4876b07710a070e00",
+      "bytes": 7212
+    },
+    {
+      "path": "/private/tmp/gnougo-40bd-copilot-root-assessment-0fds06w7/witness-bound-assessment-safe.json",
+      "sha256": "ea04b36ff2101eb16833a11da8b2ba0fa6b38fdca9d8ccd3b234c57bd72660c2",
+      "bytes": 3887
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactre6b24bb77amz20v5/authorized-retention-20261024/safe-supplement/compact-taskplan-e6b24bb77-amazon-retained-closure.json",
+      "sha256": "91dfe84f8ae9ca950c4210debee20bb96196b4045f11b20640de1b40867da69f",
+      "bytes": 5848
+    }
+  ],
+  "preservation": "This supplements the unchanged a7da06fe measured archive; it does not replace or rewrite any original receipt, context, metric, witness, assessment or ledger.",
+  "outcome": {
+    "logical_calls": 36,
+    "physical_attempts": 36,
+    "receipts": 36,
+    "corrections": 3,
+    "checkpoints": 2,
+    "artifact": false,
+    "execution": false,
+    "final_required_diagnostic": "TASK_ARTIFACT_BINDING",
+    "location": "/tasks/run_smartguide_declared_checks_with_copilot/inputs/projectRoot"
+  },
+  "correction_accounting": {
+    "charged_response_numbers": [
+      33,
+      34,
+      36
+    ],
+    "evidence_only_response_numbers": [
+      32
+    ],
+    "total_charged": 3,
+    "mapping": [
+      {
+        "number": 33,
+        "action": "replacement",
+        "result": "Replaced the accepted clone business port with a parent-path literal; subsequent deterministic artifact-provenance validation rejected it."
+      },
+      {
+        "number": 34,
+        "action": "typed_patch",
+        "result": "Restored the accepted clone projectRootRelative output binding; the executable task still requested a sibling report outside that root."
+      },
+      {
+        "number": 36,
+        "action": "replacement",
+        "result": "Repeated the parent-path literal and was rejected again by TASK_ARTIFACT_BINDING."
+      }
+    ],
+    "basis": "Root bounded-original witness, joined to exact retained request/receipt records; correction total reconciles with terminal metrics."
+  },
+  "static_business_assessment": {
+    "classification": "supported_current_action_incompatibility",
+    "observations": [
+      "Draft30 explicitly instructs the Copilot task argument to write the report outside the consumed clone project root. This is a current executable argument, not merely a future requirement or task objective.",
+      "Judges31 and35 identify that incompatibility; the exact contract and independent source assessment support it. They defer missing future review/cleanup work in the open scope.",
+      "The parent-path literal used in repairs33 and36 does not establish the required workspace.directory producer provenance; the compiler rejection remains valid.",
+      "An existing composition can keep the exact clone binding, return observed Copilot results and persist the report through the authorized document_write operation. It still requires all existing authority, cleanup and report-oracle checks; no such implementation or runtime was produced."
+    ],
+    "assessment_reference_sha256": "ea04b36ff2101eb16833a11da8b2ba0fa6b38fdca9d8ccd3b234c57bd72660c2"
+  },
+  "confirmed_presentation_observations": [
+    {
+      "request": 34,
+      "observation": "The current required TASK_ARTIFACT_BINDING diagnostic coexists with the blanket claim that complete original-contract validation passed."
+    },
+    {
+      "request": 36,
+      "observation": "The root inspected the complete issued context and found neither TASK_ARTIFACT_BINDING nor historical technical-rejection feedback after the typed repair. The prior business defect witness remains present."
+    }
+  ],
+  "causal_limit": "These are separate observed presentation gaps; neither their contribution to model choices nor any future repair avoidance or convergence benefit is established.",
+  "original_response_formatting": {
+    "receipt_texts": 36,
+    "original_text_utf8_bytes": 29530,
+    "original_text_characters": 29144,
+    "whitespace_characters_including_string_literals": 1633,
+    "empty_texts": 0,
+    "parsed_json_present": 36,
+    "maximum_original_text_utf8_bytes": 3355,
+    "maximum_whitespace_characters_including_string_literals": 259,
+    "normalization_note": "Original receipt text hashes and byte counts are separate from normalized response content hashes. Whitespace includes string literals; outside-string whitespace and formatting overhead were not measured by this export."
+  },
+  "campaign_finance": {
+    "source": "40bd4a048ac133ac688e72dae87802c8dcddf1bb",
+    "campaign": "schema-portability-20261019-incremental",
+    "at_utc": "2026-10-24T19:46:50.697699+00:00",
+    "audit_sha256": "e79541a04031d3e5b46ef962ca1fcd47b1289a19e2fab1e7045374a41785c1e6",
+    "calls": 2853,
+    "known_cost_eur": "119.69175887411728135326340460",
+    "reserved_cost_eur": "27.012625944995658453595774726",
+    "cost_upper_bound_eur": "146.70438481911293980685917933",
+    "cost_ceiling_eur": "240.0301038327063045424449473",
+    "available_eur": "93.32571901359336473558576797",
+    "unknown_attempts": 39,
+    "receiptless_requests": 27,
+    "permanently_closed_requests": 27,
+    "unresolved_requests": 0,
+    "model_calls": 0,
+    "provenance": "Exact recorded post-run audit aggregate, not a reconstructed sum of run archives. No audit model call was made.",
+    "decimal80_known_plus_reserved_cross_check": "146.704384819112939806859179326",
+    "recorded_upper_minus_decimal80_sum_eur": "4E-27",
+    "rounding_note": "The recorded aggregate is retained exactly; its 4E-27 difference from a Decimal80 sum of its known/reserved fields is disclosed rather than rewriting the ledger.",
+    "prior_lost_ledger_exposure_eur": "159.96989616729369545755505266",
+    "prior_exposure_scope": "Previously recorded exposure retained separately; it is not added to this campaign aggregate or deducted again from the recorded allowance."
+  },
+  "privacy_and_limits": [
+    "Only public terminal/safe exports and exact committed source blobs were read; encrypted originals were not opened by this reviewer.",
+    "No full executable task strings, credentials, provider payloads or private stores are copied into this supplement.",
+    "No artifact, execution, completed business obligation, avoided correction, causal model-performance or reliability claim.",
+    "This run has no receiptless uncertainty; the audit retains 39 unknown-attempt reservations and all 27 historical receiptless identities are permanently closed.",
+    "Technical validation of other revisions is not attributed to this live result."
+  ],
+  "actions": {
+    "store_calls": 0,
+    "reader_calls": 0,
+    "model_calls": 0,
+    "builds": 0,
+    "main_edits": 0,
+    "approvals_or_runtime": 0
+  },
+  "relative_evidence_index": {
+    "resolution": "These sibling basenames are intended for the maintained docs/evidence index; original hash-bound source locations remain in references.",
+    "measurements": {
+      "path": "compact-taskplan-40bd4a048-code.json",
+      "sha256": "a7da06fe8d77f89edd8fd99141fa57dc935562cc73cdcbf03b178f0ec624121b"
+    },
+    "prior_authorized_closure": {
+      "path": "compact-taskplan-e6b24bb77-amazon-retained-closure.json",
+      "sha256": "91dfe84f8ae9ca950c4210debee20bb96196b4045f11b20640de1b40867da69f",
+      "scope": "Separate append-only supplement to the unchanged e6b Amazon pending result; all original reservations retained."
+    }
+  }
+}

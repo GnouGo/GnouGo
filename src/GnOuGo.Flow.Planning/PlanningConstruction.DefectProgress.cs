@@ -63,7 +63,7 @@ internal static partial class PlanningConstruction
         // Carry only this replacement chain or the explicitly resumed consumer.
         // Acceptance ends a replacement chain; old pointers remain historical.
         var reviews = previous?.Reviews ?? ReplacementDefectReviews(state);
-        foreach (var retained in reviews.Where(review => review["defectWitness"] is JsonObject || review["response"]?["resolutions"] is JsonArray))
+        foreach (var retained in reviews.Where(review => review["defectWitness"] is JsonObject || review["technicalRejections"] is JsonObject || review["response"]?["resolutions"] is JsonArray))
             if (!next.Reviews.Any(review => JsonNode.DeepEquals(review, retained))) next.Reviews.Add(retained.DeepClone().AsObject());
     }
 
@@ -83,7 +83,7 @@ internal static partial class PlanningConstruction
         if (rejected is null || rejected["step"]?["scope"]?.ToString() != step.Scope || rejected["step"]?["requirementIds"] is not JsonArray ids ||
             !ids.Select(item => item!.ToString()).ToHashSet(StringComparer.Ordinal).SetEquals(step.RequirementIds)) return [];
         return (rejected["reviews"] as JsonArray ?? []).OfType<JsonObject>()
-            .Where(review => review["defectWitness"] is JsonObject || review["response"]?["resolutions"] is JsonArray).ToList();
+            .Where(review => review["defectWitness"] is JsonObject || review["technicalRejections"] is JsonObject || review["response"]?["resolutions"] is JsonArray).ToList();
     }
 
     internal static JsonArray? DefectProgressContext(PlanningSession state, JsonObject currentContext)

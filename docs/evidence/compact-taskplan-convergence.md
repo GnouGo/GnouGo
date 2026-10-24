@@ -1,5 +1,58 @@
 # Compact TaskPlan convergence
 
+## Source `40bd4a048`: Review PR remains incomplete
+
+The [frozen Code diagnostic](compact-taskplan-40bd4a048-code.json) made **36 logical requests / 36 attempts / 36 receipts**,
+with three corrections and two checkpoints. It produced no artifact and did not
+execute. Planning took **956.271 seconds**; provider usage was **172,949 input /
+41,040 output tokens**, including 31,932 reasoning tokens, costing
+**EUR1.8705443998215082552431950022**. No new unknown reservation was added.
+
+The first checks operation correctly consumed the accepted clone's directory port,
+but asked a root-confined operation to write a sibling report. Both business findings
+on that mismatch are supported by the original contract. Two replacements instead
+bound a literal parent directory, which deterministic provenance validation rejected.
+The intervening typed repair restored the correct producer port. Later business
+correction context retained that business finding but lost the earlier rejected
+literal and technical diagnostic. Technical repair context also incorrectly claimed
+that original-contract validation had passed. These are demonstrated presentation
+defects; their causal contribution to model choices remains unproven. The
+[separate witness and audit supplement](compact-taskplan-40bd4a048-code-witness-supplement.json)
+binds the exact observations without rewriting the measured archive.
+
+All 38 constructed request identities reconcile: 36 dispatched and two prepared
+only. Peak draft/Judge estimates were **13,924 / 10,053** tokens. No business success,
+avoided correction or benefit from the higher draft ceiling is established. Calls
+per independently satisfied artifact obligation remain undefined.
+All 36 original response texts parse as JSON and match their saved JSON receipts.
+They contain 12 whitespace bytes outside strings, with a longest run of two;
+the later formatting witness is retained as SHA-256
+`5a3eb5f86947a61b9ac7a0611af925369a3865e54a845c85e005da78ffe4a584`.
+
+The **2026-10-24 19:46 UTC** audit reports **EUR119.69175887411728135326340460 known +
+EUR27.012625944995658453595774726 reserved**, upper bound
+**EUR146.70438481911293980685917933**, leaving **EUR93.32571901359336473558576797**.
+All 27 receiptless requests are permanently closed; 39 unknown-attempt reservations
+remain. The separately retained lost-ledger exposure remains accounted for.
+The [exact authorized e6b Amazon closure](compact-taskplan-e6b24bb77-amazon-retained-closure.json)
+is applied without releasing its reservation;
+the earlier pending snapshot below remains historical evidence.
+
+Exact `40bd4a048` validation passed **433 focused and 2,952 full Planning tests**
+(overlapping suites), and all **12 publication stages**, with warnings as errors.
+Full solution and final CI validation remain running at this snapshot. Technical
+passes do not establish business acceptance; PR #120 remains Draft and the 18 paired
+comparisons remain gated on all three candidate scenarios succeeding.
+
+The subsequent correction retains bounded technical rejection feedback within the
+existing replacement chain and removes the unconditional validation-pass statement
+from fresh contract navigation. Its focused suite passed **189 tests** with warnings
+as errors, including technical repair followed by business rejection, exact historical
+values, stale support, bounds and historical versions. An initial fixture incorrectly
+submitted a value forbidden by its response schema; that failed run is retained and
+the fixture now exercises a type-compatible value lacking artifact provenance.
+The production fix's effect on live convergence remains unverified.
+
 ## Source `e6b24bb77`: incomplete diagnostic results
 
 Neither Collections nor Amazon produced an artifact or executed. Review PR has not

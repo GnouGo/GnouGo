@@ -41,6 +41,11 @@ presentation and original input context make that restriction explicit.
 Replacement reviews re-resolve bounded, exact accepted-task evidence cited by
 active defects when baseline, source, task and placement still match. This supplies
 current citation support without counting it as new evidence or repair authority.
+The same replacement chain retains bounded technical rejection feedback through
+successful typed repairs, so later business corrections can see previously rejected
+values. It remains historical context, separate from current diagnostics and edit
+authority; stale and omitted support is identified explicitly. Contract navigation
+does not claim validation success while a candidate is being repaired.
 The [accepted-state rules](../../docs/incremental-taskplan-construction.md#accepted-state-progression-presentation-revision-5)
 describe the bounded recovery and repair behavior. Versions 2–4 and all issued
 requests retain their schemas, charging and approvals; compiler lowering is unchanged.

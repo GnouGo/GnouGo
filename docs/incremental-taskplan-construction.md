@@ -97,6 +97,16 @@ executable objectives and literals. Historical edit-authority snapshots are evid
 only the current repair contract grants edits. Repeated affected values without new relevant
 support require a different authorized local strategy and then stop on non-progress.
 All findings remain advisory; deterministic grounding is not semantic proof.
+Version-5 correction context also retains historical technical rejection feedback
+in the existing candidate review records. At most three observations fit within
+6,144 serialized bytes, using the existing 1,024-byte whole-value snapshots.
+Exact compiler value locations identify the rejected binding; unsupported locations
+and oversized values remain explicitly unavailable. Baseline, source/contract and
+target identities distinguish historical support from stale evidence. This feedback
+survives the same replacement chain after a typed repair clears current diagnostics,
+but creates no diagnosis, repair slot or Judge citation authority. It is omitted from
+a technically valid candidate's business review. Original requests remain unchanged;
+measurement accounts for this presentation under `construction_context`.
 Rollback reconstructs every invalidated task, preserving its original effects,
 literal arguments and other accepted commitments. It cannot withdraw an accepted
 operation. Fresh rollback and rebuild context state that limit and expose bounded
