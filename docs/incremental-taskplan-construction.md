@@ -57,7 +57,9 @@ report containing grounded adverse findings cannot erase them through that path.
 The same allowance covers supported inconclusive reassessment, with no renewed
 evidence loop, uncertain replay or correction charge. Historical responses are
 interpreted from their issued schemas. Overlapping local/intermediate triggers use
-one broader frozen context with explicit coverage; a narrower review cannot be
+one broader frozen context with explicit coverage. Checkpoint acceptance and artifact
+approval both verify that retained coverage, candidate and completion claims; one
+successful combined review does not require a second receipt. A narrower review cannot be
 reused retrospectively.
 
 Grounded rejections retain bounded original-context witnesses. Candidate hashes

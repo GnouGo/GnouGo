@@ -56,14 +56,31 @@ public static class PlanningArtifactApproval
                 throw new PlanningConflictException("Every accepted construction checkpoint requires its artifact-bound local and intermediate review evidence.");
         }
 
-        static bool Reviewed(PlanningConstructionCheckpoint checkpoint, string purpose) => checkpoint.Reviews.Any(review =>
-            review["purpose"]?.ToString() == purpose && review["candidateHash"]?.ToString() == checkpoint.PlanHash &&
+        bool Reviewed(PlanningConstructionCheckpoint checkpoint, string purpose) => checkpoint.Reviews.Any(review =>
+            (review["purpose"]?.ToString() == purpose || CombinedReview(checkpoint, review, purpose)) &&
+            review["candidateHash"]?.ToString() == checkpoint.PlanHash &&
             (checkpoint.ClosedRequirementIds is null || review["closedRequirementIds"] is JsonArray closed &&
                 closed.Select(id => id!.ToString()).SequenceEqual(checkpoint.ClosedRequirementIds, StringComparer.Ordinal)) &&
             Hash(review["fingerprint"]?.ToString()) && review["outcome"]?.ToString() == "unverified" &&
             review["response"] is JsonObject response && response["findings"] is JsonArray { Count: 0 } &&
             response["evidenceRequests"] is null && response["uncertainty"] is JsonValue uncertainty &&
             uncertainty.TryGetValue<string>(out var message) && message.Length <= 512);
+
+        // Coverage is host-issued evidence retained with the same context fingerprint,
+        // candidate and closure claims; it does not invent a second Judge receipt.
+        bool CombinedReview(PlanningConstructionCheckpoint checkpoint, JsonObject review, string purpose) =>
+            PlanningCompactConstruction.UsesConvergentConstruction(state) && purpose == PlanningConstruction.IntermediatePurpose &&
+            checkpoint.NeedsIntermediateReview && review["purpose"]?.ToString() == PlanningConstruction.LocalPurpose &&
+            checkpoint.Step is { } step && step.BaseHash == checkpoint.BaseHash && checkpoint.ClosedRequirementIds is { } closed &&
+            step.CloseRequirementIds.SequenceEqual(closed, StringComparer.Ordinal) &&
+            review["reviewCoverage"] is JsonArray { Count: 2 } coverage &&
+            coverage[0]?.ToString() == "local" && coverage[1]?.ToString() == "intermediate" &&
+            review["candidateIdentity"]?.ToString() is { } identity && identity.StartsWith("candidate:v1:", StringComparison.Ordinal) && Hash(identity[13..]) &&
+            review["rawResponse"] is JsonObject { Count: 2 } raw && raw["action"] is JsonObject action &&
+            action.All(item => item.Key is "kind" or "findings" or "resolutions") && action["kind"]?.ToString() == "findings" &&
+            action["findings"] is JsonArray { Count: 0 } && review["response"] is JsonObject response && response["inconclusive"] is null &&
+            JsonNode.DeepEquals(raw["uncertainty"], response["uncertainty"]) &&
+            JsonNode.DeepEquals(action["resolutions"], response["resolutions"]);
         static bool Hash(string? value) => value is { Length: 64 } && value.All(char.IsAsciiHexDigit);
     }
 }

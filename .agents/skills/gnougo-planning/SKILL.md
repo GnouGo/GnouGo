@@ -49,7 +49,7 @@ Use the mandatory scoped review to assess semantic resolution, persistence or in
 
 Reuse the existing shared single follow-up allowance for supported reassessment or correction of a complete, bounded received report. Bind it to the same candidate and completion claim and persist its exact issuance. A report repair cannot edit the candidate, discard valid adverse findings or start another evidence cycle. Uncertain transport, output exhaustion and a second invalid report stop. Evidence and review calls consume calls, tokens, time and money, not TaskPlan corrections.
 
-Coalesce local and intermediate reviews only when the issued bounded context explicitly covers both obligations, checkpoint joins and completion claims. Preserve trigger coverage and exact context identities; do not retrospectively reuse a narrower local review. There is no final whole-workflow Judge.
+Coalesce local and intermediate reviews only when the issued bounded context explicitly covers both obligations, checkpoint joins and completion claims. Preserve that exact coverage through checkpoint acceptance and artifact approval; a combined review must satisfy both without inventing another receipt. Preserve trigger coverage and exact context identities; do not retrospectively reuse a narrower local review. There is no final whole-workflow Judge.
 
 ## Recovery, authorization and evaluation
 

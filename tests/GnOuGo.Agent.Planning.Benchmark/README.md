@@ -885,7 +885,10 @@ frozen fresh profile, never an in-session change or silent context truncation.
 Fresh cohorts capture presentation revision 5. Its required Judge action and separate
 citation domains are interpreted from the issued schema; raw reports remain retained.
 Combined review coverage counts as one logical request, while every retry remains a
-physical attempt. Report prior-defect resolution, persistent findings and inconclusive
+physical attempt. Before delegated approval, the ordinary artifact verifier must
+accept the retained candidate-bound review coverage. A final-review state or static
+oracle pass alone cannot bypass that verifier; retain a failed verification without
+issuing review metadata or executing. Report prior-defect resolution, persistent findings and inconclusive
 reports separately; no checkpoint increases the independent business denominator.
 The earlier revision-4 behavior remains frozen for historical cohorts. Scoped reviews receive compiler
 facts separately from business and runtime evidence, plus bounded exact caller

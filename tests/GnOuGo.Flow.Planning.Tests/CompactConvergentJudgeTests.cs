@@ -130,6 +130,106 @@ public sealed class CompactConvergentJudgeTests
     }
 
     [Theory]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    [InlineData(5)]
+    public async Task AcceptedScopeClosureRemainsApprovableWithItsExactIssuedReviewCoverage(int presentation)
+    {
+        var state = await CompleteReviewedScope(presentation);
+        var checkpoint = state.Construction!.Checkpoints[^1];
+        Assert.True(checkpoint.NeedsIntermediateReview);
+        Assert.Equal(presentation == 5 ? 1 : 2, checkpoint.Reviews.Count);
+        Assert.Equal(presentation == 5 ? 2 : 3, state.ModelCalls);
+        var artifact = state.ComputeArtifactHash();
+        var exact = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        state = PlannerFixture.Clone(state);
+        PlanningArtifactApproval.Verify(state);
+        Assert.Equal(exact, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+        Assert.Equal(artifact, state.ComputeArtifactHash());
+        Assert.Null(state.ApprovedHash);
+    }
+
+    [Theory]
+    [InlineData("narrow_local")]
+    [InlineData("extra_coverage")]
+    [InlineData("candidate")]
+    [InlineData("candidate_identity")]
+    [InlineData("closure_claim")]
+    [InlineData("baseline")]
+    [InlineData("fingerprint")]
+    [InlineData("raw_evidence")]
+    [InlineData("raw_findings")]
+    [InlineData("raw_uncertainty")]
+    [InlineData("normalized_inconclusive")]
+    public async Task ApprovalRejectsMissingOrMismatchedCombinedReviewEvidence(string defect)
+    {
+        var state = await CompleteReviewedScope(5);
+        PlanningArtifactApproval.Verify(state);
+        var checkpoint = state.Construction!.Checkpoints[^1];
+        var review = Assert.Single(checkpoint.Reviews);
+        switch (defect)
+        {
+            case "narrow_local": review["reviewCoverage"] = new JsonArray("local"); break;
+            case "extra_coverage": review["reviewCoverage"]!.AsArray().Add("final"); break;
+            case "candidate": review["candidateHash"] = new string('0', 64); break;
+            case "candidate_identity": review["candidateIdentity"] = checkpoint.PlanHash; break;
+            case "closure_claim": review["closedRequirementIds"] = new JsonArray(); break;
+            case "baseline": checkpoint.Step!.BaseHash = new string('0', 64); break;
+            case "fingerprint": review["fingerprint"] = "missing-context-identity"; break;
+            case "raw_evidence": review["rawResponse"]!["action"] = new JsonObject { ["kind"] = "evidenceRequests", ["addresses"] = new JsonArray("scope:/root") }; break;
+            case "raw_findings": review["rawResponse"]!["action"]!["findings"]!.AsArray().Add((JsonNode)Finding()); break;
+            case "raw_uncertainty": review["rawResponse"]!["uncertainty"] = "A different report."; break;
+            case "normalized_inconclusive": review["response"]!["inconclusive"] = "Incomplete review."; break;
+        }
+        Assert.Throws<PlanningConflictException>(() => PlanningArtifactApproval.Verify(PlannerFixture.Clone(state)));
+    }
+
+    [Fact]
+    public async Task HistoricalReviewCannotGainIntermediateCoverageFromNewMetadata()
+    {
+        var state = await CompleteReviewedScope(4);
+        PlanningArtifactApproval.Verify(state);
+        var checkpoint = state.Construction!.Checkpoints[^1];
+        checkpoint.Reviews.RemoveAll(review => review["purpose"]!.ToString() == PlanningConstruction.IntermediatePurpose);
+        var local = Assert.Single(checkpoint.Reviews);
+        local["reviewCoverage"] = new JsonArray("local", "intermediate");
+        local["candidateIdentity"] = "candidate:v1:" + new string('0', 64);
+        local["rawResponse"] = Report();
+        Assert.Throws<PlanningConflictException>(() => PlanningArtifactApproval.Verify(PlannerFixture.Clone(state)));
+    }
+
+    private static async Task<PlanningSession> CompleteReviewedScope(int presentation)
+    {
+        var state = await State();
+        state.Construction!.Compact!.PresentationVersion = presentation;
+        state.Request.Options["construction_presentation_version"] = presentation;
+        var runtime = new TestRuntime { Respond = (request, purpose) =>
+        {
+            Assert.Contains(purpose, new[] { PlanningConstruction.LocalPurpose, PlanningConstruction.IntermediatePurpose });
+            if (HybridWorkflowPlanner.ConvergentConstructionReviewIssued(request.StructuredOutputSchema)) return Response(Report());
+            var report = new JsonObject { ["findings"] = new JsonArray(), ["evidenceRequests"] = null,
+                ["uncertainty"] = "Runtime execution remains unverified." };
+            if (request.StructuredOutputSchema?["properties"]?["inconclusive"] is not null) report["inconclusive"] = null;
+            return Response(report);
+        } };
+        state = await Advance(state, runtime);
+        Assert.Single(state.Construction!.Checkpoints);
+        var construction = state.Construction;
+        construction.Compact!.CurrentStep = new() { Id = "close_work", Kind = "close", Scope = "/root",
+            Objective = "Close the completed use of the caller label.", RequirementIds = ["work"], CloseRequirementIds = ["work"],
+            DiscoveryComplete = true, BaseHash = PlanningConstruction.Hash(state.Plan) };
+        construction.CandidateFailureIdentityVersion = 1;
+        construction.Candidate = PlanningConstruction.Apply(state, new() { Scope = "/root", RequirementIds = ["work"],
+            CloseScopes = ["/root"], Complete = true });
+        Assert.True(construction.Candidate.NeedsIntermediateReview);
+        for (var count = 0; count < 3 && state.Status == PlanningStatus.Generating; count++) state = await Advance(state, runtime);
+        Assert.True(state.Status == PlanningStatus.FinalReview, string.Join("; ", state.Diagnostics));
+        Assert.Equal(2, state.Construction!.Checkpoints.Count);
+        return state;
+    }
+
+    [Theory]
     [InlineData("complete")]
     [InlineData("inconclusive")]
     [InlineData("malformed")]
@@ -376,7 +476,7 @@ public sealed class CompactConvergentJudgeTests
         construction.CandidateFailureIdentityVersion = 1;
         PlanningCompactConstruction.InitializeSources(state);
         foreach (var page in construction.Compact.Sources) page.Indexed = true;
-        var source = new PlanningConstructionSource { Id = "label-clause", Kind = "clause", Text = original,
+        var source = new PlanningConstructionSource { Id = construction.Compact.Sources[0].Id + ":clause:0", Kind = "requirement", Text = original,
             Version = PlanningGraphCompiler.Fingerprint(original), Indexed = true, InterfaceKind = "input" };
         construction.Compact.Sources.Add(source);
         construction.Compact.RequirementSources["work"] = [source.Id];
@@ -384,7 +484,7 @@ public sealed class CompactConvergentJudgeTests
             Dispositions = [new() { SourceId = source.Id, Version = source.Version, Kind = "interfaces", Inputs = ["label"],
                 Reason = "Explicit caller input.", Evidence = new() { [source.Id] = source.Version } }] }];
         state.Requirements = new() { Inputs = [new() { Name = "label", Type = new() { Kind = "string" } }], Outputs = [],
-            Outcomes = [new("work", "Use the caller label.")] };
+            Outcomes = [new("work", original)] };
         construction.Requirements = [new() { Id = "work" }]; construction.OpenScopes = ["/root"];
         state.Plan = new() { Inputs = state.Requirements.Inputs, Root = new() { Tasks = [new()
         {

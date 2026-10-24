@@ -7,6 +7,8 @@ requirements, and retains explicitly suspended consumers across prerequisite
 checkpoints. It also requires one Judge action with separate obligation and
 implementation citations, carries grounded repair witnesses, and combines
 simultaneous local/intermediate obligations in one adequately scoped review.
+Artifact approval verifies that retained combined coverage against the same
+candidate and requirement closures; it does not require a fabricated second receipt.
 The [accepted-state rules](../../docs/incremental-taskplan-construction.md#accepted-state-progression-presentation-revision-5)
 describe the bounded recovery and repair behavior. Versions 2–4 and all issued
 requests retain their schemas, charging and approvals; compiler lowering is unchanged.
