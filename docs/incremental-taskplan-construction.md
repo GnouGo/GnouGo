@@ -79,6 +79,11 @@ Complete fitting accepted-task originals use the existing evidence dictionary;
 oversized originals remain explicitly retrievable. Directories alone remain
 insufficient grounding, and equal arguments do not automatically establish an
 unnecessary operation.
+Accepted producer navigation retains original artifact kinds and business ports,
+with exact contract identities and existing output-page links. Bounded omissions
+stay retrievable; reading an accessible producer's output schema does not add an
+operation, select generation branches, or grant new field access. Literal or
+same-type values still cannot manufacture artifact provenance.
 
 Grounded rejections retain bounded original-context witnesses through their
 replacement chain, including candidate-free reselection. Resumed consumers use

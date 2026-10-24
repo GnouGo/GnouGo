@@ -1,5 +1,55 @@
 # Compact TaskPlan convergence
 
+## Source `f0644826b`: Code20 diagnostic
+
+[Review PR Code20](compact-taskplan-f0644826b-code.json) stopped after **47 logical
+requests / 47 attempts / 47 receipts**, four corrections and three checkpoints.
+It produced no artifact and did not execute. Planning took **1,178.057 seconds**,
+with **215,555 input / 48,582 output tokens** (37,438 reasoning tokens included in
+output), costing **EUR2.2625925925925925925925925928**, with no new unknown reservation.
+All responses were nonempty valid JSON; total outside-string whitespace was one byte.
+Calls per independently satisfied artifact obligation remain undefined.
+
+The first Judge identified the PR-page URL bound as the Git clone remote, and a
+local repair supplied the frozen repository remote. This observation does not
+isolate the guidance change's causal effect. A later Judge accepted a second
+unconditional clone with identical arguments despite receiving the first clone's
+complete arguments and the original single-clone obligation. The model subsequently
+abandoned a third clone proposal; it did not repair the two accepted clones.
+
+The final rejected consumer used the clone's nullable generic text output as
+`projectRoot`, instead of its declared `workspace.directory` business port.
+The provenance and type diagnostics are supported. `reviewText` was available but
+not consumed by that rejected candidate; no scoped Judge assessed it. Producer-port
+metadata was missing from the supplied interface navigation, a separate presentation
+gap from the duplicate-clone false negative where the necessary evidence was present.
+
+The four corrections were a replacement after duplicate prerequisite citations,
+the remote binding repair, renaming a duplicate task ID, and abandoning the third
+clone proposal. Exact repeated citations are mechanical navigation, not new evidence.
+The subsequent fix normalizes them only after validating their original addresses
+and raw bounds, and exposes retrievable original producer-port facts. Its business
+effect remains unverified; no avoided-correction or duplicate-detection claim follows.
+
+All 51 constructed request identities reconcile: 47 dispatched and four prepared
+only, with no admission rejection. Peak draft/Judge sizes were **12,543 / 8,014**
+estimated input tokens. The 20,000 draft ceiling was unused, so this run demonstrates
+no benefit from raising it. Source and settings differed from the retained Code47
+control; this is not an architecture-only comparison.
+
+The post-run campaign audit retains **EUR114.31717609857065038494568929 known +
+EUR24.592050309118817757477970175 reserved**, upper bound
+**EUR138.90922640768946814242365946**, leaving
+**EUR101.12087742501683640002128784**. All 26 receiptless identities remain permanently
+closed; 36 unknown-attempt reservations remain. Exact aggregate rounding is retained.
+
+Exact `f0644826b` focused validation passed 211 tests and full Planning passed
+2,911 (overlapping suites); all 12 publication stages passed, including Native AOT
+and published encrypted storage. Full solution and planner CI are still pending
+at this snapshot; both proxy workflows passed. Later source changes need their own
+validation. Three-case business acceptance and the 18 alternating comparisons remain
+incomplete; PR #120 stays Draft.
+
 ## Source `47c08b428`: retained diagnostic results
 
 The exact authorized [Collections `1b672ea17` closure](compact-taskplan-1b672ea17-retained-closure.json)

@@ -686,6 +686,11 @@ internal static partial class PlanningCompactConstruction
                 ["outputs"] = open ? null : new JsonArray(group.Body.Outputs.Take(8).Select(o => (JsonNode?)JsonValue.Create(o.Name)).ToArray()),
                 ["outputCount"] = open ? null : JsonValue.Create(group.Body.Outputs.Count), ["evidence"] = "group:" + group.Id });
         }
+        if (UsesConvergentConstruction(state) && state.Plan is not null)
+        {
+            var rows = result.OfType<JsonObject>().ToArray();
+            AddAcceptedProducerPorts(state, rows, rows.Select(row => row["task"]?.ToString()).OfType<string>().ToHashSet(StringComparer.Ordinal));
+        }
         return result;
     }
 
@@ -831,10 +836,12 @@ internal static partial class PlanningCompactConstruction
             .ToHashSet(StringComparer.Ordinal);
         foreach (var prerequisite in step.Prerequisites)
         {
+            var addresses = prerequisite.EvidenceAddresses.Distinct(StringComparer.Ordinal).ToList();
             if (string.IsNullOrWhiteSpace(prerequisite.Need) || prerequisite.Need.Length > 256 ||
-                prerequisite.EvidenceAddresses.Count is < 1 or > 4 || prerequisite.EvidenceAddresses.Distinct(StringComparer.Ordinal).Count() != prerequisite.EvidenceAddresses.Count)
+                prerequisite.EvidenceAddresses.Count is < 1 or > 4 ||
+                !UsesConvergentConstruction(state) && addresses.Count != prerequisite.EvidenceAddresses.Count)
                 PlanningConstruction.Fail("CONSTRUCTION_STEP_INVALID", "/step/prerequisites", "A prerequisite needs a bounded description and distinct original evidence addresses.");
-            foreach (var address in prerequisite.EvidenceAddresses)
+            foreach (var address in addresses)
             {
                 var exactContract = address.StartsWith("schema:", StringComparison.Ordinal) || address.StartsWith("description:", StringComparison.Ordinal) ||
                     address.StartsWith("contract:", StringComparison.Ordinal);
@@ -851,6 +858,9 @@ internal static partial class PlanningCompactConstruction
                     if (!current) PlanningConstruction.Fail("CONSTRUCTION_STEP_INVALID", "/step/prerequisites", "A prerequisite contract reference is stale or unavailable.");
                 }
             }
+            // Exact repeated citations add no authority or evidence. Normalize only
+            // validated fresh navigation; keep raw receipts and historical behavior.
+            if (UsesConvergentConstruction(state)) prerequisite.EvidenceAddresses = addresses;
         }
     }
 

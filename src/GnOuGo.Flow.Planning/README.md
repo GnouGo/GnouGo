@@ -22,6 +22,12 @@ model guidance, not an additional deterministic validator or execution authority
 Bounded accepted operation arguments and complete fitting task evidence help selection and review
 compare prior work without resending the plan or treating directories as proof.
 Oversized values retain exact retrieval links; equality does not authorize removal.
+Fresh revision-5 accepted-producer navigation also identifies the exact contract
+version/hash and declared artifact-producing business ports. Whole artifact rows
+share a 2,048-byte inline bound; omissions remain available through existing output
+port pages. Selected accessible producer output schemas are read-only evidence:
+they neither select another operation nor expand its generation grammar or bindings.
+Fresh revision-5 prerequisite citations discard exact duplicates only after validating every original address and the raw item bound; retained receipts and historical behavior stay unchanged.
 Drafts and reviews retain at most four whole current-step companion operation
 rows within 2,048 serialized UTF-8 bytes, with canonical directory and original
 description links. These projected rows grant no finding or execution authority.

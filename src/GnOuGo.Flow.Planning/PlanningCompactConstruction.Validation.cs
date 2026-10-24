@@ -218,7 +218,10 @@ internal static partial class PlanningCompactConstruction
         if (address.StartsWith("schema:", StringComparison.Ordinal) || address.StartsWith("schema-page:", StringComparison.Ordinal) || address.StartsWith("port-page:", StringComparison.Ordinal) ||
             address.StartsWith("description:", StringComparison.Ordinal) || address.StartsWith("contract:", StringComparison.Ordinal))
         {
-            if (compact.CurrentStep is null) PlanningConstruction.Fail("CONSTRUCTION_EVIDENCE_INVALID", "/evidenceRequests", "Select a business step before inspecting its capability contracts.");
+            if (compact.CurrentStep is null && (!UsesConvergentConstruction(state) ||
+                !address.StartsWith("schema:", StringComparison.Ordinal) && !address.StartsWith("schema-page:", StringComparison.Ordinal) &&
+                !address.StartsWith("port-page:", StringComparison.Ordinal)))
+                PlanningConstruction.Fail("CONSTRUCTION_EVIDENCE_INVALID", "/evidenceRequests", "Select a business step before inspecting its capability contracts.");
             value = LoadContractEvidence(state, address); return true;
         }
         if (address.StartsWith("source:", StringComparison.Ordinal))

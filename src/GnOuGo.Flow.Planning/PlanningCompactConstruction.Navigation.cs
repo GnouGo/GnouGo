@@ -174,8 +174,10 @@ internal static partial class PlanningCompactConstruction
     {
         if (!UsesConvergentConstruction(state) || state.Plan is null) return;
         var accepted = new TaskPlanSymbols(state.Plan);
+        var rows = entries.ToArray();
+        AddAcceptedProducerPorts(state, rows, ImportedProducerIds(context["interfaces"] as JsonArray ?? []));
         var added = new JsonObject();
-        foreach (var entry in entries)
+        foreach (var entry in rows)
         {
             if (entry["task"]?.ToString() is not { } id || !accepted.Tasks.TryGetValue(id, out var site) ||
                 site.Task.Kind != "operation" || entry["scope"]?.ToString() != site.Scope.Path) continue;

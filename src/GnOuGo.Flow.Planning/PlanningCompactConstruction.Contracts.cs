@@ -159,6 +159,76 @@ internal static partial class PlanningCompactConstruction
         return matches[0];
     }
 
+    private static HashSet<string> ImportedProducerIds(JsonArray interfaces) => interfaces.OfType<JsonObject>()
+        .Select(item => (item["binding"] ?? item["value"])?.Deserialize(PlanningJsonContext.Default.TaskValue))
+        .OfType<TaskValue>().SelectMany(TaskPlanCompiler.Values)
+        .Where(value => value.Kind is "output" or "present" && value.Source is not null)
+        .Select(value => value.Source!).ToHashSet(StringComparer.Ordinal);
+
+    private static void AddAcceptedProducerPorts(PlanningSession state, JsonObject[] entries, HashSet<string> selected)
+    {
+        var accepted = new TaskPlanSymbols(state.Plan!);
+        var bytes = 0;
+        foreach (var entry in entries)
+        {
+            if (entry["task"]?.ToString() is not { } id || !selected.Contains(id) || !accepted.Tasks.TryGetValue(id, out var site) ||
+                site.Task.Kind != "operation" || site.Task.Operation is null || entry["scope"]?.ToString() != site.Scope.Path) continue;
+            var capability = ExactContract(state, site.Task.Operation);
+            var operation = PlanningCapabilityArguments.Editable(capability);
+            entry["operationVersion"] = operation.Version;
+            entry["contractHash"] = ContractHash(capability);
+            entry["outputDirectory"] = "port-page:" + ContractIdentity(operation.Id, operation.Version) + ":/output:0";
+            var produces = TaskOperations.ArtifactPorts(capability)["produces"] as JsonArray ?? [];
+            if (produces.Count == 0) continue;
+            entry["producesCount"] = produces.Count;
+            var length = Encoding.UTF8.GetByteCount(produces.ToJsonString());
+            if (produces.Count <= ContractDirectoryPageSize && bytes + length <= ContractDescriptionPageSize)
+            { entry["produces"] = produces.DeepClone(); bytes += length; }
+            else entry["producesOmitted"] = true;
+        }
+    }
+
+    private static bool AcceptedProducerOutput(PlanningSession state, PlanningCapability capability)
+    {
+        if (!UsesConvergentConstruction(state) || state.Plan is null) return false;
+        var compact = State(state);
+        var accepted = new TaskPlanSymbols(state.Plan);
+        HashSet<string> selected;
+        if (compact.CurrentStep is null)
+        {
+            selected = accepted.Tasks.Values.Skip(compact.InterfaceOffset).Take(4)
+                .Where(site => !accepted.Scopes.Any(scope => scope.Owner?.Id == site.Task.Id &&
+                    state.Construction!.OpenScopes.Contains(scope.Path, StringComparer.Ordinal)))
+                .Select(site => site.Task.Id).ToHashSet(StringComparer.Ordinal);
+            // Earlier host-generated interface pages remain in the issued evidence
+            // navigation. Revalidate their producer identity rather than making
+            // their exact output links disappear when the page cursor advances.
+            foreach (var (address, page) in state.Construction!.Evidence ?? [])
+                if (address.Split(':') is ["page", "interfaces", var offset] &&
+                    int.TryParse(offset, NumberStyles.None, CultureInfo.InvariantCulture, out var index) && index >= 0 && page is JsonArray rows)
+                    foreach (var row in rows.OfType<JsonObject>())
+                        if (row["task"]?.ToString() is { } id && accepted.Tasks.TryGetValue(id, out var site) &&
+                            row["scope"]?.ToString() == site.Scope.Path && row["operation"]?.ToString() == site.Task.Operation &&
+                            row["operationVersion"]?.ToString() == capability.Version && row["contractHash"]?.ToString() == ContractHash(capability))
+                            selected.Add(id);
+        }
+        else
+        {
+            selected = ImportedProducerIds(ImportedInterfaces(state, compact.CurrentStep));
+            if (state.Construction!.Candidate is { Diagnostics.Count: 0 }) selected.UnionWith(ImportedProducerIds(ActualImportedInterfaces(state)));
+        }
+        return selected.Any(id => accepted.Tasks.TryGetValue(id, out var site) && site.Task.Kind == "operation" &&
+            site.Task.Operation == TaskOperations.Describe(capability).Id &&
+            ContractHash(ExactContract(state, site.Task.Operation)) == ContractHash(capability));
+    }
+
+    private static bool OutputEvidence(string kind, string tail) => kind switch
+    {
+        "schema" => tail == "/output" || tail.StartsWith("/output/", StringComparison.Ordinal),
+        "schema-page" or "port-page" => tail.StartsWith("/output:", StringComparison.Ordinal) || tail.StartsWith("/output/", StringComparison.Ordinal),
+        _ => false
+    };
+
     private static JsonObject ContractView(PlanningSession state, PlanningCapability capability, bool review)
     {
         var operation = PlanningCapabilityArguments.Editable(capability);
@@ -391,11 +461,15 @@ internal static partial class PlanningCompactConstruction
             return OperationDescription(state, operation, version, identity, offset);
         }
         var capability = ExactContract(state, operation, version);
+        var producerOutput = recordSchemaSelection && state.Construction!.Compact!.CurrentStep?.OperationIds.Contains(operation, StringComparer.Ordinal) != true &&
+            OutputEvidence(kind, tail) && AcceptedProducerOutput(state, capability);
+        if (recordSchemaSelection && UsesConvergentConstruction(state) && state.Construction!.Compact!.CurrentStep is null && !producerOutput)
+            PlanningConstruction.Fail("CONSTRUCTION_EVIDENCE_INVALID", "/evidenceRequests", "Select a business step before inspecting its capability contracts.");
         if (kind == "contract" && tail.Length == 0) return ContractView(state, capability, review: false);
         if (kind == "schema")
         {
             var view = ExactSchemaView(capability, tail);
-            if (recordSchemaSelection)
+            if (recordSchemaSelection && !producerOutput)
             {
                 var step = state.Construction!.Compact!.CurrentStep!;
                 if (!step.OperationIds.Contains(operation, StringComparer.Ordinal))
@@ -408,7 +482,8 @@ internal static partial class PlanningCompactConstruction
         {
             var offsetSeparator = tail.LastIndexOf(':');
             if (offsetSeparator > 0 && int.TryParse(tail[(offsetSeparator + 1)..], NumberStyles.None, CultureInfo.InvariantCulture, out var page) && page >= 0)
-                return kind == "schema-page" ? SchemaDirectory(capability, tail[..offsetSeparator], page) : OperationPortDirectory(capability, tail[..offsetSeparator], page);
+                return kind == "schema-page" ? SchemaDirectory(capability, tail[..offsetSeparator], page) :
+                    OperationPortDirectory(capability, tail[..offsetSeparator], page, UsesConvergentConstruction(state));
         }
         PlanningConstruction.Fail("CONSTRUCTION_EVIDENCE_INVALID", "/evidenceRequests", "Use an issued schema, schema-page, port-page or description evidence address.");
         return null;
@@ -552,7 +627,7 @@ internal static partial class PlanningCompactConstruction
     private static string? ChildSchemaDirectory(JsonObject schema, string identity, string pointer)
         => PlanningSchemaReferences.Walk(schema, pointer, 0).Skip(1).Any() ? "schema-page:" + identity + ":" + pointer + ":0" : null;
 
-    private static JsonObject OperationPortDirectory(PlanningCapability capability, string root, int offset)
+    private static JsonObject OperationPortDirectory(PlanningCapability capability, string root, int offset, bool producerOutput = false)
     {
         var operation = PlanningCapabilityArguments.Editable(capability);
         if (root is not ("/input" or "/output"))
@@ -561,11 +636,17 @@ internal static partial class PlanningCompactConstruction
         if (offset < 0 || offset > ports.Count)
             PlanningConstruction.Fail("CONSTRUCTION_EVIDENCE_INVALID", "/evidenceRequests", "The operation port offset is outside the retained original.");
         var identity = ContractIdentity(operation.Id, operation.Version);
-        return new JsonObject { ["id"] = operation.Id, ["version"] = operation.Version, ["hash"] = ContractHash(capability),
+        var result = new JsonObject { ["id"] = operation.Id, ["version"] = operation.Version, ["hash"] = ContractHash(capability),
             ["direction"] = root, ["offset"] = offset, ["total"] = ports.Count,
             ["items"] = PortDirectory(ports.Skip(offset), identity, root),
             ["next"] = offset + ContractDirectoryPageSize < ports.Count
                 ? "port-page:" + identity + ":" + root + ":" + (offset + ContractDirectoryPageSize).ToString(CultureInfo.InvariantCulture) : null };
+        if (producerOutput && root == "/output" && TaskOperations.ArtifactPorts(capability)["produces"] is JsonArray produces)
+        {
+            var names = ports.Skip(offset).Take(ContractDirectoryPageSize).Select(port => port.Name).ToHashSet(StringComparer.Ordinal);
+            result["produces"] = new JsonArray(produces.Where(item => names.Contains(item!["port"]!.ToString())).Select(item => item!.DeepClone()).ToArray());
+        }
+        return result;
     }
 
     private static string PortPointer(string root, IReadOnlyList<string> path) => root + string.Concat(path.Select(p => "/properties/" + PlanningSchemaReferences.Escape(p)));

@@ -394,7 +394,7 @@ successful responses and unresolved terminal HTTP responses grant no additional
 authority. The closure records `http_uncertainty_limit_exhausted`; all original
 attempts and their full reservations remain unchanged.
 
-Fresh incremental transport disables retries. A timeout may therefore stop before
+Historical incremental sessions captured retries disabled. A timeout may therefore stop before
 the retained campaign policy's attempt or uncertainty allowance is exhausted;
 that does not grant eligibility for this archival action or permission to replay.
 
@@ -898,6 +898,14 @@ estimated at 18,131 tokens against its 18,000-token draft ceiling. A subsequent
 If paired with changed argument-meaning guidance, report both changes; the run
 cannot isolate their individual effects. Preserve the original rejection and
 independently observed accepted-binding defects even when a later run succeeds.
+The subsequent `f0644826b` Code20 diagnostic stopped after 47 received requests and
+four corrections, without an artifact or execution. Its largest draft was 12,543
+estimated tokens: this run supplies no evidence that the higher ceiling helped.
+It repaired a PR-URL/Git-remote mismatch but accepted an unwanted duplicate clone;
+the final consumer was correctly rejected for nullable type and missing directory
+provenance. Preserve these findings separately from later producer-port presentation
+and exact-citation normalization changes. Neither technical tests nor better navigation
+establishes that the duplicate-effect business miss is fixed.
 
 Fresh cohorts capture presentation revision 5. Its required Judge action and separate
 citation domains are interpreted from the issued schema; raw reports remain retained.

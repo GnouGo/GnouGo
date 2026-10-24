@@ -171,6 +171,63 @@ public sealed class CompactDeferredBindingTests
         Assert.Empty(state.Construction.Checkpoints);
     }
 
+    [Theory]
+    [InlineData(3)]
+    [InlineData(4)]
+    [InlineData(5)]
+    public async Task RepeatedExactPrerequisiteCitationsNormalizeOnlyFreshNavigation(int presentation)
+    {
+        var (state, runtime) = Ready(selected: false);
+        state.Request.Options["construction_presentation_version"] = presentation;
+        state.Construction!.Compact!.PresentationVersion = presentation;
+        var response = Select(state, "value");
+        response["step"]!["prerequisites"] = new JsonArray(new JsonObject
+        {
+            ["need"] = "Use the original requested record.",
+            ["evidenceAddresses"] = new JsonArray("requirement:req_0", "source:request:0:clause:0", "source:request:0:clause:0")
+        });
+        var original = response.ToJsonString();
+        var baseline = PlanningConstruction.Hash(state.Plan);
+        runtime.Respond = (request, _) => Wire(request, response);
+        state = await Advance(state, runtime);
+        Assert.Equal(original, response.ToJsonString());
+        Assert.Single(runtime.Calls);
+        Assert.Equal(1, state.ModelCalls);
+        Assert.Equal(0, state.ReplanAttempts);
+        Assert.Equal(baseline, PlanningConstruction.Hash(state.Plan));
+        Assert.Empty(state.Construction!.Checkpoints);
+        if (presentation < 5)
+        {
+            Assert.Null(state.Construction.Compact!.CurrentStep);
+            Assert.Equal("CONSTRUCTION_STEP_INVALID", Assert.Single(state.Diagnostics).Code);
+        }
+        else
+        {
+            Assert.Empty(state.Diagnostics);
+            var accepted = Assert.Single(state.Construction.Compact!.CurrentStep!.Prerequisites!);
+            Assert.Equal(new[] { "requirement:req_0", "source:request:0:clause:0" }, accepted.EvidenceAddresses);
+            var recovered = PlannerFixture.Clone(state);
+            Assert.Equal(accepted.EvidenceAddresses, Assert.Single(recovered.Construction!.Compact!.CurrentStep!.Prerequisites!).EvidenceAddresses);
+            Assert.True(recovered.Construction.Compact.CurrentStep.DiscoveryComplete);
+        }
+    }
+
+    [Theory]
+    [InlineData("requirement:req_0", 5)]
+    [InlineData("requirement:missing", 2)]
+    [InlineData("task:future_producer", 2)]
+    [InlineData("schema:read@stale:/input", 2)]
+    public void CitationNormalizationPreservesRawBoundsAndOriginalEvidenceChecks(string address, int count)
+    {
+        var (state, _) = Ready();
+        var step = state.Construction!.Compact!.CurrentStep!;
+        step.Prerequisites = [new() { Need = "Use the original requested record.", EvidenceAddresses = Enumerable.Repeat(address, count).ToList() }];
+        var original = step.Prerequisites[0].EvidenceAddresses.ToArray();
+        Assert.Throws<PlanningResponseException>(() => PlanningCompactConstruction.ValidateSelection(state, step));
+        Assert.Equal(original, step.Prerequisites[0].EvidenceAddresses);
+        Assert.Empty(state.Construction.Checkpoints);
+    }
+
     [Fact]
     public async Task CallerDeclarationPrerequisitesSurviveSelectionAndBindingWithoutExpandingBusinessCoverage()
     {
