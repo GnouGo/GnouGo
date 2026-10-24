@@ -14,8 +14,12 @@ as ordinary drafts, preserving that comparison through recovery and approval.
 Fresh scoped reviews retain finite-capacity guard semantics for later consumers
 and closures as well as loop openings; explicit required-count conflicts remain
 reportable business findings.
-Current-effect constraints apply even before requirement closure. Bounded accepted
-operation arguments and complete fitting task evidence help selection and review
+Constraints on current arguments and effects apply even before requirement closure.
+Revision-5 drafting and review compare a consumed value's meaning and entity identity
+with its argument contract; type compatibility alone does not establish that match.
+Unobserved execution does not defer a demonstrable argument mismatch. This is
+model guidance, not an additional deterministic validator or execution authority.
+Bounded accepted operation arguments and complete fitting task evidence help selection and review
 compare prior work without resending the plan or treating directories as proof.
 Oversized values retain exact retrieval links; equality does not authorize removal.
 Drafts and reviews retain at most four whole current-step companion operation

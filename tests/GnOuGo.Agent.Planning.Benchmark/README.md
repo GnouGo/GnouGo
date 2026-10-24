@@ -892,6 +892,12 @@ candidate-repair capacity; outstanding semantic findings retain their repair lim
 A rejected mandatory Judge request is reported with its host admission cause and
 has no provider receipt or business verdict. A larger ceiling requires a separately
 frozen fresh profile, never an in-session change or silent context truncation.
+The retained `47c08b428` Code diagnostic stopped on a complete mandatory request
+estimated at 18,131 tokens against its 18,000-token draft ceiling. A subsequent
+20,000-token draft profile retains the 8,000 target and all other phase settings.
+If paired with changed argument-meaning guidance, report both changes; the run
+cannot isolate their individual effects. Preserve the original rejection and
+independently observed accepted-binding defects even when a later run succeeds.
 
 Fresh cohorts capture presentation revision 5. Its required Judge action and separate
 citation domains are interpreted from the issued schema; raw reports remain retained.

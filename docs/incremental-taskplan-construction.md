@@ -67,8 +67,13 @@ reused retrospectively.
 Finite-capacity semantics apply throughout revision-5 review, including later
 consumers and closures. This relocates the existing loop guidance once per request;
 it does not infer required cardinalities or automatically dismiss adverse findings.
-Current effects must still satisfy applicable original constraints when their
-requirements or scopes remain open. Selection and review expose bounded exact
+Current arguments and effects must still satisfy applicable original constraints when
+their requirements or scopes remain open. Fresh revision-5 guidance asks drafting and
+review to match the consumed value's meaning and entity identity to the argument
+contract, separately from compiler-checked type compatibility. Unobserved execution
+does not defer a demonstrable argument mismatch. This wording experiment adds no
+validator, schema, correction authority or runtime behavior; live efficacy remains
+unverified. Selection and review expose bounded exact
 accepted-operation arguments and dependencies alongside existing navigation.
 Complete fitting accepted-task originals use the existing evidence dictionary;
 oversized originals remain explicitly retrievable. Directories alone remain

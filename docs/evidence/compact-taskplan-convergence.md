@@ -1,5 +1,51 @@
 # Compact TaskPlan convergence
 
+## Source `47c08b428`: retained diagnostic results
+
+The exact authorized [Collections `1b672ea17` closure](compact-taskplan-1b672ea17-retained-closure.json)
+and Amazon `47c08b428` abandonment
+are applied. Every original record and each full EUR0.9308701472556894243641231593
+reservation remain retained; replay and continuation are forbidden. Their original
+pending snapshots remain unchanged, with later closure evidence appended separately.
+
+| Frozen 47 case | Logical calls / attempts / receipts | Corrections / checkpoints | Planning seconds | Known EUR / new reserved EUR | Outcome |
+| --- | ---: | ---: | ---: | ---: | --- |
+| [Amazon](compact-taskplan-47c08b428-amazon-pending.json) | 2/2/1 | 0/0 | 389.681 | 0.1678134761267291387773315484 / 0.9308701472556894243641231593 | Response-less transport failure; [authorized closure applied](compact-taskplan-47c08b428-amazon-retained-closure.json) |
+| [Review PR](compact-taskplan-47c08b428-code.json) | 31/31/31 | 0/3 | 758.077 | 1.3840383757251227130745203034 / 0 | Required cleanup generation request rejected: **18,131 > 18,000** estimated input tokens |
+
+Neither run produced an artifact or executed. All 31 Code responses were nonempty,
+valid JSON; the longest outside-string whitespace run was five characters. Three
+local Judges returned no findings. Independent inspection nevertheless identified
+a missed current argument defect: the accepted clone binds the pull-request URL
+directly to `remoteUrl`, whose original contract requires a Git remote. The frozen
+review included the original PR-URL obligation, exact binding and complete argument
+description. Existing execution authority would reject the value before the MCP
+call; no actual runtime failure is claimed. This does not establish an avoided
+correction, and calls per accepted business obligation remain undefined.
+
+The denied request has 53,625 serialized bytes, including 27,652 bytes of mandatory
+contract evidence and 15,381 bytes of response schema. Components reconcile. It was
+never dispatched; two other prepared-only identities are also separate from paid calls.
+The next diagnostic tests consolidated argument-meaning guidance and a newly frozen
+20,000-token draft ceiling together, with unchanged model/output/review settings.
+Both changes must be disclosed; their individual effects are not isolated.
+
+Post-run accounting retains 2,728 physical attempts, **EUR112.05458350597805779235309673
+known + EUR24.592050309118817757477970175 reserved**, with retained upper bound
+**EUR136.64663381509687554983106690** and **EUR103.38347001760942899261388040 available**.
+All 26 receiptless identities are permanently closed; 36 unknown-attempt reservations
+remain. Original aggregate rounding and source/profile attribution remain in the archives.
+A stale historical authority-file hash in the freeze is explicitly qualified: the exact
+source tree and validation inventory bind the current authority, and the six obligation
+IDs, oracle behavior and execution guards are unchanged. The active freeze was not edited.
+
+Exact `47c08b428` full-solution validation passed **8,054 tests, 13 skipped, zero failures
+or compiler diagnostics**, with all 4,530 source hashes unchanged. All three exact-revision
+CI workflows report success; inconsistent nested step metadata is retained separately
+without asserting those individual steps passed. These technical results do not transfer
+to later source or establish live convergence. PR #120 remains Draft; three-case acceptance
+and the 18 alternating comparisons remain incomplete.
+
 ## Source `1b672ea17`: pending transport snapshot
 
 [Collections stopped](compact-taskplan-1b672ea17-collections-pending.json) during intent extraction,

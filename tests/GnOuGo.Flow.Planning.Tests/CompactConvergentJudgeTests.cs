@@ -16,14 +16,15 @@ public sealed class CompactConvergentJudgeTests
     [InlineData(true)]
     public async Task OperationPurposeDefersLaterWorkWithoutExcusingCurrentBindingDefects(bool wrongBinding)
     {
-        var state = await State();
+        var state = await State(distinctIdentities: true);
+        const string argumentMeaning = "The exact subject identity to retain, not the identity of a related record.";
         var capability = new PlanningCapability
         {
             Id = "retain_label", Version = "v1", Kind = "tool", StepType = "mcp.call",
             Server = "labels", Method = "retain", EffectKind = "write",
             Description = "Retain the supplied label for later work; this operation does not perform that work.",
             InputSchema = new() { ["type"] = "object", ["properties"] = new JsonObject
-                { ["label"] = new JsonObject { ["type"] = "string" } },
+                { ["label"] = new JsonObject { ["type"] = "string", ["description"] = argumentMeaning } },
                 ["required"] = new JsonArray("label"), ["additionalProperties"] = false },
             OutputSchema = new() { ["type"] = "object", ["properties"] = new JsonObject
                 { ["value"] = new JsonObject { ["type"] = "string" } }, ["additionalProperties"] = false }
@@ -32,9 +33,11 @@ public sealed class CompactConvergentJudgeTests
         state.Discovery.Resolved = [capability];
         var step = state.Construction!.Compact!.CurrentStep!;
         step.Kind = "operation"; step.OperationIds = [capability.Id];
+        step.Inputs = [new() { Kind = "input", Source = "label" }, new() { Kind = "input", Source = "relatedLabel" }];
         step.Objective = "Retain the caller label so later work can compare it with the requested target.";
+        var consumed = wrongBinding ? "relatedLabel" : "label";
         var task = new PlanTask { Id = step.Id, Kind = "operation", Objective = step.Objective, Operation = capability.Id,
-            Inputs = [new("label", wrongBinding ? new() { Kind = "string", Text = "unrelated" } : new() { Kind = "input", Source = "label" })] };
+            Inputs = [new("label", new() { Kind = "input", Source = consumed })] };
         state.Construction.Candidate = PlanningConstruction.Apply(state, new() { Scope = "/root", RequirementIds = ["work"], Tasks = [task] });
         var candidate = state.Construction.Candidate;
         Assert.Empty(TaskPlanCompiler.ValidateConstruction(candidate.Plan, state.Catalog, state.Request,
@@ -45,13 +48,15 @@ public sealed class CompactConvergentJudgeTests
         Assert.Equal(task.Objective, operation.Purpose);
         Assert.DoesNotContain(task.Objective, JsonSerializer.Serialize(operation.Input, PlanningJsonContext.Default.PlanningValue), StringComparison.Ordinal);
         var accepted = PlanningConstruction.Hash(state.Plan);
+        var draftContext = Context(PlanningConstruction.DraftRequest(state, repair: false));
+        Assert.Equal(state.Request.Prompt, draftContext["requirements"]![0]!["original"]!.ToString());
+        Assert.Equal(argumentMeaning, draftContext["operations"]![0]!["inputSchema"]!["properties"]!["label"]!["description"]!.ToString());
+        Assert.Equal(new[] { "label", "relatedLabel" }, draftContext["interfaces"]!.AsArray()
+            .Select(input => input!["value"]!["source"]!.ToString()).Order(StringComparer.Ordinal));
         foreach (var intermediate in new[] { false, true })
         {
             var review = HybridWorkflowPlanner.CreateConstructionReviewRequest(state, intermediate).Request;
-            Assert.StartsWith(ContractReviewOpening, review.Prompt, StringComparison.Ordinal);
-            Assert.DoesNotContain(OriginalReviewOpening, review.Prompt, StringComparison.Ordinal);
-            Assert.Contains("Current effects must satisfy applicable original constraints", review.Prompt, StringComparison.Ordinal);
-            Assert.Contains("Future work in open scopes is not a present omission", review.Prompt, StringComparison.Ordinal);
+            AssertCurrentArgumentEvidence(Context(review));
         }
         var runtime = new TestRuntime { Respond = (request, _) =>
         {
@@ -60,13 +65,16 @@ public sealed class CompactConvergentJudgeTests
             Assert.Empty(context["constructionStage"]!["closeRequirementIds"]!.AsArray());
             Assert.False(context["constructionStage"]!["planCompletionClaimed"]!.GetValue<bool>());
             Assert.Equal(task.Objective, context["draft"]!["tasks"]![0]!["objective"]!.ToString());
+            AssertCurrentArgumentEvidence(context);
             var findings = new JsonArray();
             if (wrongBinding)
             {
                 var finding = Finding();
-                finding["explanation"] = "The current operation writes unrelated literal text instead of the required caller label.";
+                finding["implementation"] = "/interfaces/0";
+                finding["explanation"] = "The current argument consumes the related record identity instead of the required subject identity. Both values are strings, but they identify different entities.";
                 findings.Add(finding);
             }
+            Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(Report(findings.DeepClone().AsArray()), request.StructuredOutputSchema!));
             return Response(Report(findings));
         } };
         state = await Advance(state, runtime);
@@ -75,6 +83,9 @@ public sealed class CompactConvergentJudgeTests
             Assert.Equal("CONSTRUCTION_BUSINESS_REVIEW", Assert.Single(state.Diagnostics).Code);
             Assert.Equal(accepted, PlanningConstruction.Hash(state.Plan));
             Assert.Empty(state.Construction!.Checkpoints);
+            Assert.Null(state.Construction.Candidate!.AuthorizedPaths);
+            Assert.Equal("/tasks/use_label", state.Diagnostics[0].Location);
+            Assert.Equal("relatedLabel", Assert.Single(Assert.Single(state.Construction.Candidate.Extension.Tasks).Inputs).Value.Source);
         }
         else
         {
@@ -84,7 +95,27 @@ public sealed class CompactConvergentJudgeTests
             Assert.NotEqual("closed", Assert.Single(state.Construction.Requirements).Status);
         }
         Assert.Equal(1, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);
+        Assert.Equal(0, state.Construction!.DraftCorrections);
         Assert.Null(state.ApprovedHash);
+
+        void AssertCurrentArgumentEvidence(JsonObject context)
+        {
+            Assert.Equal(state.Request.Prompt, context["requirements"]![0]!["original"]!.ToString());
+            var source = Assert.Single(state.Construction!.Compact!.Sources, item => item.Kind == "requirement");
+            Assert.Equal(source.Id, context["requirements"]![0]!["sources"]![0]!["id"]!.ToString());
+            Assert.Equal(source.Version, context["requirements"]![0]!["sources"]![0]!["version"]!.ToString());
+            var contract = Assert.Single(context["operations"]!.AsArray())!;
+            Assert.Equal(capability.Id, contract["id"]!.ToString());
+            Assert.Equal(capability.Version, contract["version"]!.ToString());
+            var argument = Assert.Single(contract["boundInputs"]!.AsArray())!;
+            Assert.Equal("label", argument["name"]!.ToString());
+            Assert.Equal(argumentMeaning, argument["description"]!.ToString());
+            Assert.True(argument["descriptionComplete"]!.GetValue<bool>());
+            var imported = Assert.Single(context["interfaces"]!.AsArray())!;
+            Assert.Equal(consumed, imported["binding"]!["source"]!.ToString());
+            Assert.Equal("string", imported["schema"]!["type"]!.ToString());
+            Assert.Equal(PlanningConstruction.TaskNode(task)["inputs"]!.ToJsonString(), context["draft"]!["tasks"]![0]!["inputs"]!.ToJsonString());
+        }
     }
 
     [Theory]
@@ -102,13 +133,21 @@ public sealed class CompactConvergentJudgeTests
         Assert.DoesNotContain(ContractReviewOpening, request.Prompt, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public async Task PendingVersionFiveReviewRetainsItsOriginalPurposeGuidance()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task PendingVersionFiveReviewRetainsItsOriginalGuidance(bool originalPurpose)
     {
         var state = await State();
         var (context, request) = HybridWorkflowPlanner.CreateConstructionReviewRequest(state, false);
-        var originalPrompt = request.Prompt.Replace(ContractReviewOpening, OriginalReviewOpening, StringComparison.Ordinal);
+        var originalPrompt = request.Prompt.Replace(
+            "Current arguments and effects must satisfy their exact contracts and applicable original obligations, including their combination with accepted work. Check the consumed value's meaning and entity identity, not only type compatibility; open future work or unobserved execution does not defer a present argument mismatch.",
+            "Current effects must satisfy applicable original constraints, including constraints on their combination with accepted work, even while scopes or requirements remain open.", StringComparison.Ordinal);
+        Assert.NotEqual(request.Prompt, originalPrompt);
+        if (originalPurpose) originalPrompt = originalPrompt.Replace(ContractReviewOpening, OriginalReviewOpening, StringComparison.Ordinal);
         var issued = PlanningModelCalls.PrepareRequest(state, PlanningConstruction.LocalPurpose, originalPrompt, request.StructuredOutputSchema!.AsObject());
+        var current = PlanningModelCalls.PrepareRequest(state, PlanningConstruction.LocalPurpose, request.Prompt, request.StructuredOutputSchema.AsObject());
+        Assert.True(JsonNode.DeepEquals(current.StructuredOutputSchema, issued.StructuredOutputSchema));
         state.Construction!.PendingReviewContext = context;
         state.Construction.PendingReviewHash = PlanningGraphCompiler.Fingerprint(PlanningConstruction.LocalPurpose + "\n" + state.Construction.Candidate!.Hash + "\n" + context.ToJsonString());
         state.PendingCall = new() { Id = issued.ClientRequestId!, Purpose = PlanningConstruction.LocalPurpose, Request = issued };
@@ -117,7 +156,6 @@ public sealed class CompactConvergentJudgeTests
         var runtime = new TestRuntime { Respond = (recovered, _) =>
         {
             Assert.Equal(exact, JsonSerializer.Serialize(recovered, PlanningJsonContext.Default.LLMRequest));
-            Assert.StartsWith(OriginalReviewOpening, recovered.Prompt, StringComparison.Ordinal);
             return Response(Report());
         } };
         state = await Advance(PlannerFixture.Clone(state), runtime);
@@ -610,9 +648,11 @@ public sealed class CompactConvergentJudgeTests
     private static Task<PlanningSession> Advance(PlanningSession state, TestRuntime runtime) =>
         new HybridWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
 
-    private static async Task<PlanningSession> State()
+    private static async Task<PlanningSession> State(bool distinctIdentities = false)
     {
-        const string original = "Accept the caller string label and use it in the requested work.";
+        var original = distinctIdentities
+            ? "Accept caller strings label (the subject identity) and relatedLabel (a related record identity). Retain the subject label now; later compare its retained value with the requested target."
+            : "Accept the caller string label and use it in the requested work.";
         var state = new PlanningSession { Request = new() { TenantId = "convergent-judge", Prompt = original } };
         PlanningSessionCreation.Capture(state);
         state.IntentVersion = 3; state.Revision = 1; state.Status = PlanningStatus.Generating;
@@ -626,10 +666,11 @@ public sealed class CompactConvergentJudgeTests
         construction.Compact.Sources.Add(source);
         construction.Compact.RequirementSources["work"] = [source.Id];
         construction.Compact.InterfaceExtractions = [new() { Id = "extract", SourceIds = [source.Id], Inputs = true, Complete = true,
-            Dispositions = [new() { SourceId = source.Id, Version = source.Version, Kind = "interfaces", Inputs = ["label"],
+            Dispositions = [new() { SourceId = source.Id, Version = source.Version, Kind = "interfaces", Inputs = distinctIdentities ? ["label", "relatedLabel"] : ["label"],
                 Reason = "Explicit caller input.", Evidence = new() { [source.Id] = source.Version } }] }];
         state.Requirements = new() { Inputs = [new() { Name = "label", Type = new() { Kind = "string" } }], Outputs = [],
             Outcomes = [new("work", original)] };
+        if (distinctIdentities) state.Requirements.Inputs!.Add(new() { Name = "relatedLabel", Type = new() { Kind = "string" } });
         construction.Requirements = [new() { Id = "work" }]; construction.OpenScopes = ["/root"];
         state.Plan = new() { Inputs = state.Requirements.Inputs, Root = new() { Tasks = [new()
         {

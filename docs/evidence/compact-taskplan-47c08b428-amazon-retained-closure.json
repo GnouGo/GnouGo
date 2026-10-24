@@ -1,0 +1,102 @@
+{
+  "schema": "benchmark-retained-closure-supplement-v1",
+  "created_at": "2026-10-24T16:42:20.720421+00:00",
+  "source": "47c08b428fab7915b9faa658993c20e9fb96dcc0",
+  "cohort": "compactr47c08b428amz12v5",
+  "campaign": "schema-portability-20261019-incremental",
+  "run_collection": "planning-schema-portability",
+  "run_key": "run:compactr47c08b428amz12v5-amazon-1",
+  "session_id": "compactr47c08b428amz12v5-amazon-1",
+  "request_id": "compactr47c08b428amz12v5-amazon-1:2:fcb86d1ad586ea5e4bccd632ab2760fc107e9d40ff77f8a16a5b62a93b51f2d5",
+  "revision": 2,
+  "retention_kind": "exhausted-planning-retries",
+  "evidence_hash": "c059fef38fe9bdb4ed8c6133426267ababbbe88d90b3133c9a5a56d2bb2e1c14",
+  "authorization_hash": "1f433c231623b0d6317625c03bf20147385edb013dd0266b3268fe72b57ae49e",
+  "closure_hash": "10abd706e4ed4b93120e51b42f09acd8cf242ad3c88e4df42b517e633b4774a6",
+  "retained_at": "2026-10-24T16:40:23.4619760+00:00",
+  "authorization": {
+    "user_call_id": "call_8a0604d41bdc4697a9f331b8e777b4f5",
+    "answer": "Authorize exact abandonment and fresh Review PR",
+    "operator": "codex:user-authorized-exact-retention",
+    "hash_basis": "Exact original serialized operator+authorization object; not the raw authorization string alone."
+  },
+  "application_verified": true,
+  "readback_already_retained": true,
+  "original_evidence_identical": true,
+  "original_accounting_identical": true,
+  "command_matches_exact_authorization_and_identity": true,
+  "outcome": "inconclusive",
+  "full_request_reservation_retained_eur": "0.9308701472556894243641231593",
+  "request_replay_forbidden": true,
+  "run_continuation_forbidden": true,
+  "receipt_created": false,
+  "funds_released": false,
+  "original_transport_classification": "Transport failure without an HTTP response or completion receipt. Timeout, provider termination and empty output remain unestablished.",
+  "historical_pending_archive_preserved": true,
+  "post_closure_campaign_snapshot": {
+    "basis": "Frozen fresh Code47 readiness after closure and before its dispatch; not a live or future balance.",
+    "accounting": {
+      "calls": 2697,
+      "session_calls": 0,
+      "known_input_tokens": 7093717,
+      "known_output_tokens": 2957471,
+      "known_cost_eur": "110.67054513025293507927857643",
+      "reserved_input_tokens": 453291,
+      "reserved_output_tokens": 843776,
+      "reserved_cost_eur": "24.592050309118817757477970175",
+      "cost_upper_bound_eur": "135.26259543937175283675654660",
+      "unknown_attempts": 36
+    },
+    "cost_ceiling_eur": "240.0301038327063045424449473",
+    "available_eur": "104.76750839333455170568840070",
+    "receiptless_requests": 26,
+    "permanently_closed_receiptless_requests": 26,
+    "unresolved_requests": 0,
+    "unknown_physical_attempts": 36,
+    "campaign_totals_unchanged_from_inspection": true,
+    "session_scope_note": "Failed-session inspection reports session_calls2; campaign readiness reports0. Every other accounting field is identical.",
+    "rounding": {
+      "decimal_precision": 80,
+      "recorded_upper_minus_exact_known_plus_reserved_eur": "-5E-27",
+      "interpretation": "Existing CLR aggregate rounding is preserved. No monetary operand or reservation changed during closure."
+    }
+  },
+  "references": [
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr47c08b428amz12v5/authorized-retention-20261024/inspection.json",
+      "sha256": "efbc95d9383b13236e5e2edd6539c0ed24e00911fe0d47b60ea9d82741ccaa0c",
+      "bytes": 1822
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr47c08b428amz12v5/authorized-retention-20261024/application.json",
+      "sha256": "a21f0c92803898ddd487082cd33d5db181a8aba8696e271f43c412d82a23eccc",
+      "bytes": 2811
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr47c08b428amz12v5/authorized-retention-20261024/readback.json",
+      "sha256": "40476532046c85b525f05fec9715b2289a6347eafa8009caca9bb151f0869f58",
+      "bytes": 2926
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr47c08b428amz12v5/authorized-retention-20261024/application-command-safe.json",
+      "sha256": "4aae7624a704526e41c9a5b2cee62b20ca9302a77a694d9d0f1767ffef75241c",
+      "bytes": 2338
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr47c08b428amz12v5/pending-safe-archive/compact-taskplan-47c08b428-amazon-pending.json",
+      "sha256": "b40516c7b3d68fccfcc097658137bdeccb4801825784b57b88c13e767f34c3aa",
+      "bytes": 19300
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr47c08b428code12v5/provider-readiness.jsonl",
+      "sha256": "b776ae9dbea023d80684b525ac4bfb9906d97f83ee39a11b66de345cee249465",
+      "bytes": 7846
+    }
+  ],
+  "limitations": [
+    "This supplement records root’s applied exact authorization and readback; it does not invoke the operator.",
+    "Fresh independent Review PR diagnostics still require ordinary frozen-source, financial, physical, token/time and runtime authorization checks.",
+    "No receipt, verified usage, provider termination, funds release, artifact or business acceptance is inferred from permanent closure.",
+    "No encrypted store, raw model payload, model/MCP call or execution was accessed to verify these safe files."
+  ]
+}
