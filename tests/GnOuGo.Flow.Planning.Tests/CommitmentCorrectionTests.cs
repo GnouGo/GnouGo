@@ -13,7 +13,12 @@ public sealed class CommitmentCorrectionTests
     public async Task DisconnectedExportUsesOneOrdinaryPatchWithoutStructuralAuthority(bool historical)
     {
         var (runtime, state) = await CommitmentCoverageTests.Fixture(); state.Request.Options["automatic_correction"] = true;
-        if (historical) state.Revision = 1;
+        if (historical)
+        {
+            PlannerFixture.WithoutCapturedProfiles(state);
+            state.Request.Options["compilation_profile"] = TaskPlanCompiler.CompactProfile;
+            state.Revision = 1;
+        }
         var correct = Clone(runtime.Proposal.Plan!);
         runtime.Proposal.Plan!.Root.Outputs[0] = new("filePath", CommitmentCoverageTests.Text("invented"));
         runtime.Respond = (request, _) => TestRuntime.Response(request, runtime.Calls.Count == 1 ? runtime.Proposal : new() { Plan = correct });

@@ -1,0 +1,61 @@
+{
+  "schema": "gnougo.focused_validation_index.v1",
+  "validated_parent": "9b3da541c38c348f64dac700b2492d678d9b4ee4",
+  "subject": "Bounded exact accepted-operation evidence and reconstructive rollback presentation for version5; no removal authority or execution changes.",
+  "source_file_sha256": {
+    "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Navigation.cs": "7d031be2186efc0a7b3137aadb48dae17ab14a730474664a3f690330b064e8c0",
+    "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.ReviewEvidence.cs": "e01570bf001cdc1a85b6611e489bfc8d14f37df4baa8d81e2d5845aecbcf54e9",
+    "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Schemas.cs": "daa1236e1ef24e370bff186b7a50f66bf206074bfceb386b2abddf3ccfdca725",
+    "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.cs": "0c3c28bf0b561f4f81d65f811255a0e60b8cf63a25400988b45e99a01f0dabc6",
+    "src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.ConstructionReview.cs": "a1fd1e38eefe305ba8d9de3d0f0399edb223982af2b64f887fa08595674581a4",
+    "tests/GnOuGo.Flow.Planning.Tests/CompactAcceptedTaskNavigationTests.cs": "118bbf882ad51b795672aeb147c7bc6dcf1cfe3ad1927c47188f06750df5ca9e",
+    "tests/GnOuGo.Flow.Planning.Tests/SimplifiedConstructionEvidenceTests.cs": "866daeda4f810b5188e702c2b401f06dcd3cacf0d3b44897b089998fb87e874c"
+  },
+  "unchanged_source_files": 1986,
+  "warnings_as_errors": true,
+  "focused": {
+    "passed": 406,
+    "failed": 0,
+    "skipped": 0
+  },
+  "full_planning": {
+    "passed": 2878,
+    "failed": 0,
+    "skipped": 0
+  },
+  "targeted_hosts": {
+    "passed": 62,
+    "failed": 0,
+    "skipped": 0
+  },
+  "counting_note": "Focused tests overlap the full Planning suite; do not add them as distinct cases.",
+  "compiler_diagnostics": [],
+  "retained_initial_attempt": {
+    "passed": 404,
+    "failed": 1,
+    "cause": "New regression compared full prompts after intentionally changing accepted plan identity. Corrected assertion preserves hash changes while comparing other context and complete request sizes.",
+    "manifest": {
+      "path": "/private/tmp/gnougo-prior-effects-validation.o66deld7/validation-combined-safe.json",
+      "sha256": "cc846d966fd6fae9bd1b254759a38b0c7cb777246d358e1bb62f234fb757d521"
+    }
+  },
+  "final_manifest": {
+    "path": "/private/tmp/gnougo-prior-effects-validation-final.8xj3ames/validation-combined-safe.json",
+    "sha256": "74071492013cd69fea9b019416be3819850f41ddcce0317f0ee0d5e77aacb7c4"
+  },
+  "reviews": [
+    {
+      "path": "/private/tmp/gnougo-prior-effects-validation-final.8xj3ames/accepted-operation-independent-review-safe.json",
+      "sha256": "d8ec18f6af3ca84356d5b5b5302fcd9924c2ab5cecc20f687e90f5664ffe2a08"
+    },
+    {
+      "path": "/private/tmp/gnougo-prior-effects-validation-final.8xj3ames/rollback-independent-review-safe.json",
+      "sha256": "1f63895db3124d9d6cfb8226f095ec579a2af807565f506539c4bef12f479d4c"
+    }
+  ],
+  "limitations": [
+    "No fresh live result for this patch yet.",
+    "Exact9b full-solution validation continues separately; it does not validate this later patch.",
+    "Final-source package, AOT, encrypted-storage and CI checks remain required."
+  ]
+}

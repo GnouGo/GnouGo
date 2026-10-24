@@ -28,6 +28,17 @@ the existing engine. A local mapping attempt rejected before dispatch is not a
 physical provider attempt or billed usage. Existing encrypted receipts and limits
 remain unchanged during recovery.
 
+Fresh external-runtime inference captures one HTTP attempt with no uncertain retries,
+for both ordinary interpretation/mapping and the intercepted Copilot SDK. Every failed
+attempt without verified usage, including a received 429, retains its full campaign
+reservation. An exact saved completion may be recovered without sending; a reserved
+physical attempt without a completed response and a recorded failed HTTP attempt stop
+without resend. Historical policy and receipt bytes remain unchanged; historical SDK
+records lacking the exact upstream identity cannot be recovered automatically. The
+existing permanent-retention operator covers planning only, so runtime uncertainty
+remains blocked pending separately authorized reconciliation. These runtime safeguards do not expand artifact approval,
+MCP permissions or the existing runtime input, output, time and financial limits.
+
 The [18 October Amazon retest](../../docs/evidence/bounded-observations-2026-10-18/README.md)
 preserves a structurally valid first proposal that failed before extraction dispatch.
 Its scalar extraction still bound the complete observation; zero extraction provider
@@ -56,11 +67,14 @@ remain available for their original recorded cohorts.
 The [implementation comparison](../../docs/evidence/first-attempt-taskplan-2026-10-17/README.md)
 is offline. No paid inference or externally effectful live execution was authorized.
 
-## Optional Judge and convergence measurements
+## Historical optional Judge and convergence measurements
 
-Fresh corpus and stabilization sessions default to twelve planning calls, four
-corrections, 32,000 input tokens and 32,768 output tokens. `--business-judge` explicitly
-enables the independent advisory review; omission keeps it disabled on creation. Both runners
+The retained pre-construction corpus and stabilization profiles used twelve planning
+calls, four corrections, 32,000 input tokens and 32,768 output tokens. In those
+profiles, `--business-judge` enabled an optional whole-plan advisory review.
+Fresh incremental sessions require scoped reviews and use the 8,192-token draft
+and 2,048-token Judge reservations described below. The legacy Judge switch cannot
+disable those reviews or select historical generation for a new session. Both runners
 accept `--max-model-calls`, `--max-repairs`, `--max-input-tokens` and
 `--max-output-tokens` for controlled comparisons. Retained runs use their persisted
 settings; a new configuration requires a new frozen run identity, not mutation of old
@@ -71,7 +85,7 @@ settings are frozen before collection. The stabilization context manifest is ver
 version 1 records remain immutable and inspectable, and a changed harness requires a
 new campaign.
 
-Compare Judge enabled/disabled under identical budgets, model/settings, contracts,
+For retained historical comparisons, compare Judge enabled/disabled under identical budgets, model/settings, contracts,
 cases and independent oracle versions. Measure changes to creation defaults separately;
 a larger allowance and an extra observer are different interventions. Freeze the
 complete candidate and fixture/contract/oracle hashes before collecting each comparable
@@ -270,6 +284,8 @@ that recovery. The command requires a clean committed build and holds the existi
 campaign lease; it creates no provider or MCP transport. A missing receipt, changed
 request/schema, wrong tenant/revision, prior execution or inconclusive closure
 rejects recovery. Additional inference and discovery are unavailable.
+This no-provider operator requires a committed model receipt; it does not parse a
+saved raw HTTP response or extend an expired coordinator allowance.
 
 Recovery retains the original source/manifest, request, receipt, requirements,
 financial records and allowances. The checkpoint records the validator build,
@@ -287,9 +303,29 @@ artifact approval requirements remain in force.
 
 New failed dispatches retain the existing provider-neutral failure kind, HTTP status, safe provider code, retry metadata and failure stage in encrypted records. Exception messages, raw bodies and credentials are excluded. This does not authorize retries, create a completion receipt or retroactively recover missing metadata. A reservation remains uncertain if completion or receipt persistence fails. Missing-receipt replay exits 2 with `REPLAY_UNAVAILABLE`; no request is sent.
 
-## Bounded HTTP recovery
+A definite Structured Output schema rejection can be retained with
+`--schema-portability retain-schema-rejection --request-id <exact-id> --campaign
+<id> --workspace <path>`, under the clean-source campaign lease and without
+initializing a model. Besides the existing `invalid_json_schema` code, the verifier
+recognizes a single retained HTTP 400 whose dispatch failure is nonretryable
+`InvalidRequest` and whose original response identifies `invalid_request_error`,
+`response_format`, an explicitly null code and the transport's exact
+`Invalid schema for response_format 'output': ` message prefix with a nonempty
+schema diagnostic. Ordinary 400s, malformed bodies, successful or unknown attempts,
+usage and completion receipts reject this path. The append-only closure binds the
+original request, journal and failure hashes; it does not invent a provider code,
+completion receipt or usage, or change the original evidence or accounting.
 
-The built-in KeyVault model now uses AI.Core's single HTTP retry loop. Provider `RetryPolicy`
+## Historical bounded HTTP recovery
+
+This subsection describes the older captured retry policy and synthetic harness.
+Its EUR 50/eight-attempt defaults and mocked integrations do not describe fresh
+compact sessions. Those use the captured campaign ceiling, construction
+allowances, their captured transport policy and isolated real integrations described in
+[incremental construction and isolated delegated review](#incremental-construction-and-isolated-delegated-review).
+Historical recovery remains limited to its original issued policy.
+
+The historical KeyVault model uses AI.Core's single HTTP retry loop. Provider `RetryPolicy`
 configures total attempts, per-attempt timeout and the uncertain allowance (one by default).
 The policy is pinned separately in the campaign. Generation remains synchronous and without
 tools; workflow integrations remain mocked. No planner retry phase is introduced.
@@ -300,7 +336,8 @@ Before each HTTP send, an encrypted `planning-evaluation-http-attempts` record s
 identity and a conservative token/cost allowance. Admission includes verified previous usage,
 legacy campaign accounting and every unresolved allowance, with EUR 50 and eight physical
 attempts per session. Uncertain original attempts and their allowances remain after recovery.
-Known HTTP rejections do not count as generated usage. Calls count every reserved physical
+HTTP errors do not supply measured generated usage; unresolved 5xx attempts retain
+their full conservative reservations. Calls count every reserved physical
 attempt, including transient HTTP responses; repairs still count intent corrections only.
 
 A stored complete HTTP response can be parsed and receipted after restart without another
@@ -313,7 +350,10 @@ serializes admission and record replacement.
 
 Reports leave total usage/cost null after uncertainty, retain known partial usage, and add
 `reserved_input_tokens`, `reserved_output_tokens`, `reserved_cost_eur` and `usage_bounded`.
-A bounded unknown allows subsequent runs; it does not become verified usage. Replaying a
+A bounded unknown remains fully reserved; it does not become verified usage.
+Subsequent independent runs require a completion receipt or an applicable explicit
+inconclusive closure for every earlier reserved request. An unclosed missing receipt
+blocks dispatch even when the remaining financial allowance is sufficient. Replaying a
 receipt replaces its measurement entry rather than adding another charge. Failed-run reports
 are retained in `previous_results` if the same revision resumes its journaled pending request.
 No paid evaluation or previous campaign modification is required to test this behavior.
@@ -353,6 +393,101 @@ retryable exhaustion and attempt count match. Missing legacy limits, cancellatio
 successful responses and unresolved terminal HTTP responses grant no additional
 authority. The closure records `http_uncertainty_limit_exhausted`; all original
 attempts and their full reservations remain unchanged.
+
+Historical incremental sessions captured retries disabled. A timeout may therefore stop before
+the retained campaign policy's attempt or uncertainty allowance is exhausted;
+that does not grant eligibility for this archival action or permission to replay.
+
+## Authorized permanent retention of an uncertain planning run
+
+The separate `retain-uncertain-request` operator can permanently abandon one
+stopped, unexecuted incremental planning run after explicit authorization. It
+requires the exact pending tool-free request, eligible unresolved transport attempts,
+matching source/session policies and failure evidence, and every full original
+input/output/cost reservation. Successful HTTP responses, usage receipts,
+approval or execution evidence reject this operation. Historical retry-exhaustion
+eligibility remains unchanged.
+
+The default mode accepts only its historical timeout/transport evidence, with no
+HTTP status or body. A separately authorized single HTTP 500, 502 or 504 can instead
+use its exact `--retention-kind single-http-500`, `single-http-502` or
+`single-http-504` on both inspection and application. The 500/502 modes require
+`ServiceUnavailable`; 504 requires `Timeout`. Failure and journal records must
+match that exact HTTP status. Each mode requires exactly one exhausted attempt,
+no transport-failure marker, and a
+bounded recognized error-only JSON body. Accepted bodies contain either only an
+`error` object with scalar string/null `message`, `type`, `code`, `param` fields,
+or exactly the three string fields `errorCode`, `errorMessage`, `errorDetail`.
+A nonempty error message is required. Unknown, duplicate, nested data, completion
+or usage fields fail closed; bodies over 65,536 characters are refused intact.
+It also requires the original hash-bound effective policy to be present with
+retries disabled, HTTP recovery disabled and `MaxAttempts=1`. Other statuses,
+multiple or mixed attempts, receipts and verified usage remain ineligible.
+Provider availability returning later does not prove termination or usage of the
+failed request.
+
+For newly captured confirmed-response retries, use the separately authorized
+`--retention-kind exhausted-planning-retries` on inspection and application. The
+operator binds all one to three physical attempt identities, the exact captured
+policy, source, request, run, failure, journal and accounting hashes. Earlier
+attempts must be confirmed transient error-only responses; a transport/timeout
+without a response can occur only last and is never replayable. Successful
+responses, receipts, cancellation and verified usage remain ineligible. Every
+failed attempt keeps its full unknown-usage reservation, including HTTP 429.
+The older `retain-exhausted-request` shortcut cannot close this new policy.
+
+An explicit `--retention-kind interrupted-process` handles a corpus planning
+process lost after its single HTTP attempt was reserved but before any outcome was
+recorded. It requires the exact pending, tool-free request in its original
+generating session, with no result, failure, receipt, usage, HTTP response or
+execution evidence. The original captured transport policy must forbid retries
+and recovery. It binds source and session identities to the
+original run key and retained configuration. This mode records missing outcome
+evidence; it does not create a stopped session, transport failure or provider
+termination claim. Inspection is read-only; application requires the campaign
+lease and separate authorization for the exact evidence and full reservation.
+The existing closure permanently forbids replay and continuation without changing
+any original record or releasing the reservation.
+
+First inspect the exact retained identity without initializing a model, MCP
+transport or lease:
+
+```bash
+dotnet run --no-build --project tests/GnOuGo.Agent.Planning.Benchmark -- \
+  --schema-portability retain-uncertain-request --workspace <workspace> --campaign <id> \
+  --run-collection planning-schema-portability --run-key run:<label> \
+  --request-id <exact-pending-request-id>
+```
+
+For a corpus run, use `--run-collection planning-evaluation-runs` and its exact
+`<source>:<phase>:<case>:<repetition>` key. Review the returned evidence hashes
+and accounting, then repeat with `--apply --expected-evidence-hash <hash>
+--operator <identity> --authorization <explicit-authorization>`. Apply requires
+the clean tested checkout and exclusive campaign lease. Evidence changes reject
+the operation; the same already-applied hash and authorization return the existing
+closure without writing again.
+
+The selected HTTP mode is included in its new evidence hash and must match on
+reinspection or idempotent application. Omitting the option does not select it
+automatically. Historical evidence omits this field and retains its original
+hashes and eligibility. The authorization must identify the separately reviewed
+request/run and full permanent reservation; this mode grants no retry or
+continuation authority.
+
+Only a separate encrypted closure is appended. Original run, request, transport,
+failure, policies and financial admission remain unchanged. The full unknown
+reservation remains charged against the campaign ceiling; no receipt, usage,
+completion or successful result is fabricated. Exact replay and all planning,
+review or execution continuation of that run are permanently denied. Inspection
+remains available. Independent new identities still require ordinary admission,
+and any other unclosed uncertainty still blocks dispatch.
+
+New dispatches capture their effective request transport policy and hash before
+the first attempt, including incremental single-attempt/no-recovery behavior.
+Those optional fields remain absent on historical records. Historical eligibility
+uses retained incremental-session policy and original source evidence explicitly;
+the operator never rewrites an old policy to claim exhausted retries.
+Preserve the reservation and campaign stop when the existing closure checks fail.
 
 For a stopped live planning run which exhausted all eight session attempts before
 execution, `--schema-portability retain-inconclusive --run <exact-run-id>` exposes
@@ -502,10 +637,11 @@ The [schema-portability report](../../docs/planning-schema-portability-2026-10-0
 retains the original provider rejection, diagnostic iterations and separate frozen
 cohorts. This campaign performs paid inference and real external execution only
 under the explicit authorization recorded for `schema-portability-20261002`.
-It shares one encrypted EUR 50 ledger across planning, Flow inference and intercepted
-Copilot SDK inference. Missing receipts retain conservative reservations.
+It shares one encrypted ledger across planning, Flow inference and intercepted
+Copilot SDK inference. The initial ceiling was EUR 50; append-only authorized
+extensions determine the current ceiling. Missing receipts retain conservative reservations.
 
-The original ceiling remains EUR 50 unless the user explicitly authorizes an extension.
+An extension requires explicit user authorization.
 Record that authorization under the existing campaign lease before collecting a new
 cohort; keep the original configuration, cohorts and every usage reservation intact:
 
@@ -535,11 +671,11 @@ unchanged.
 For a fresh session testing Agent.Server's automatic-correction policy, add
 `--automatic-correction` to `plan`. The option is captured in that new session;
 revisions and execution reuse the saved policy. Omitting it preserves the
-historical harness behavior. Both policies retain eight planning calls and two
-correction attempts within the existing cumulative allowance; artifact approval
-remains separate.
+historical harness correction behavior. Fresh construction captures the ordinary
+or explicitly selected large limits described below. Retained sessions preserve
+their original call and correction allowances; artifact approval remains separate.
 
-For an explicitly authorized fresh live evaluation, add `--business-judge` to
+For captured historical live evaluations, `--business-judge` was added to
 `plan` to enable the independent advisory review. It uses the generator's model
 and the same eight-call, two-correction allowance, 96,000 input-token limit and
 32,768 output-token reservation retained by this live campaign. It does not use
@@ -614,8 +750,17 @@ dotnet run --no-build --project tests/GnOuGo.Agent.Planning.Benchmark -- \
 
 Use null for the hash of a stopped session with no artifact. This command requires the
 original frozen candidate, rejects started executions and archives the prior session,
-result and feedback before further dispatch. Revisions retain the original 30-minute
-planning allowance, model/repair budgets and aggregate calls, discovery reads and latency.
+result and feedback before further dispatch. Revisions retain the captured planning
+allowance, model/repair budgets and aggregate calls, discovery reads and latency.
+Historical absence retains the former 30-minute host cap; fresh runs align the host
+and outer planning deadline with the captured planner limit (at most five hours).
+Recovery subtracts retained active time instead of resetting it. Runtime effects
+and their independent 30-minute deadline are unchanged.
+Fresh planning journals own deployment and physical admission without an outer
+logical usage wrapper. Exact saved completions remain readable after elapsed
+admission expires or deployment capabilities change; only new physical attempts
+require current admission. Collections reconciles a complete saved HTTP success
+before coordinator deadline checks. Historical wrappers remain unchanged.
 They require fresh review and approval; the command never creates acknowledgments.
 
 Supply every accepted requirement ID exactly once only after comparing it with actual
@@ -635,8 +780,9 @@ Code feedback remains local; GitHub publication is excluded and untested.
 `inspect-run --run <identity>` returns private retained requests, responses,
 execution events and oracles; redirect only to an access-restricted local file.
 Its `runtime_llm_inputs` entries report estimated prompt tokens and durable completion
-status for ordinary `llm.call` invocations. Inspection performs no dispatch or mutation;
-estimated input size is not billed usage.
+status for ordinary `llm.call` invocations. Inspection performs no dispatch or campaign-accounting mutation;
+the public KeyVault reader may initialize storage and append access-audit records.
+Estimated input size is not billed usage.
 `report` returns sanitized counters and rejects mismatched or missing manifests.
 `discovery_reads` counts actual MCP `tools/list` calls. Planning/execution latency
 includes human waiting; provider attempts, verified tokens, unknown reservations
@@ -702,7 +848,7 @@ Only after focused probes pass, freeze a fresh Amazon/code cohort and attempt re
 
 ## Observed-product oracle v2
 
-Fresh product runs freeze `observed-products-v2`. Navigation arguments must match
+Retained `observed-products-v2` runs require navigation arguments to match
 previous complete observations, and redirects require the same call's producer
 final-navigation evidence. Visits are occurrences, not deduplicated URLs. No
 product-path or hostname heuristic participates in this version. Each workbook
@@ -716,3 +862,362 @@ Historical `real-workflows-v1` manifests and verdicts remain frozen. Offline v2
 replay is separate evidence and performs no Browser/LLM calls. Unknown oracle
 versions fail closed. Workbook existence still requires a successful writer receipt
 for the expected output path, and live cleanup is independently probed.
+
+Fresh runs capture `amazon-business-v4` or `code-business-v2`. Amazon additionally
+binds the search to the exact caller query and checks the first product identities
+and their order from complete original search observations against visits and rows.
+The original selector and producer metadata must establish a whole-document
+`body` or `html` observation without fallback. A complete capture of a narrowed
+subtree cannot define the expected first products.
+Insufficient independent identity evidence cannot pass. Review PR additionally
+checks local report claims against retained command completions and pinned checkout
+evidence; valid report shape alone is insufficient. Those deterministic checks do
+not establish the quality or completeness of the requested diff review. Business
+acceptance also requires independent assessment of the retained pinned diff and
+actual local report; missing evidence remains unverified. Historical oracle versions and
+verdicts stay unchanged. Paired comparisons must apply the same frozen strengthened
+checks to both arms; missing baseline evidence remains incomparable.
+Fresh code-oracle evidence retains the parsed report actually read from disk and
+its compact-JSON hash in the encrypted run. Comparison checks verify that hash
+before inspecting the report; they never reconstruct it from write arguments.
+
+## Incremental construction and isolated delegated review
+
+Fresh live sessions use version-two compact incremental construction and mandatory bounded local and
+intermediate reviews. The historical `--business-judge` setting cannot disable these
+reviews or introduce a final whole-plan Judge. Every draft, review, evidence request
+and correction uses the same captured session and cumulative campaign allowances.
+An oversized draft evidence batch may request a smaller exact view without spending
+candidate-repair capacity; outstanding semantic findings retain their repair limits.
+A rejected mandatory Judge request is reported with its host admission cause and
+has no provider receipt or business verdict. A larger ceiling requires a separately
+frozen fresh profile, never an in-session change or silent context truncation.
+The retained `47c08b428` Code diagnostic stopped on a complete mandatory request
+estimated at 18,131 tokens against its 18,000-token draft ceiling. A subsequent
+20,000-token draft profile retains the 8,000 target and all other phase settings.
+If paired with changed argument-meaning guidance, report both changes; the run
+cannot isolate their individual effects. Preserve the original rejection and
+independently observed accepted-binding defects even when a later run succeeds.
+The subsequent `f0644826b` Code20 diagnostic stopped after 47 received requests and
+four corrections, without an artifact or execution. Its largest draft was 12,543
+estimated tokens: this run supplies no evidence that the higher ceiling helped.
+It repaired a PR-URL/Git-remote mismatch but accepted an unwanted duplicate clone;
+the final consumer was correctly rejected for nullable type and missing directory
+provenance. Preserve these findings separately from later producer-port presentation
+and exact-citation normalization changes. Neither technical tests nor better navigation
+establishes that the duplicate-effect business miss is fixed.
+
+Fresh cohorts capture presentation revision 5. Its required Judge action and separate
+citation domains are interpreted from the issued schema; raw reports remain retained.
+Combined review coverage counts as one logical request, while every retry remains a
+physical attempt. Before delegated approval, the ordinary artifact verifier must
+accept the retained candidate-bound review coverage. A final-review state or static
+oracle pass alone cannot bypass that verifier; retain a failed verification without
+issuing review metadata or executing. Report prior-defect resolution, persistent findings and inconclusive
+reports separately; no checkpoint increases the independent business denominator.
+Retain unnecessary accepted effects as business failures even if later invalidation
+detects them: rollback reconstructs accepted commitments, rather than deleting them.
+Bounded exact accepted-operation context is a presentation experiment, not a
+deterministic duplicate detector or proof of avoided corrections. Report prepared-only
+request measurements separately from actual admission rejections and dispatches.
+The earlier revision-4 behavior remains frozen for historical cohorts. Scoped reviews receive compiler
+facts separately from business and runtime evidence, plus bounded exact caller
+declarations. An explicit inconclusive review is not acceptance. Its single
+possible reassessment uses only already relevant omitted exact support, retains
+its request and evidence hashes, and shares existing call/token/time/financial
+admission; it does not charge a correction or grant execution authority. Count
+those calls and retained failures in the same phase measurements. Fresh findings may
+use their validated concrete location as the implementation citation, paired with
+an original obligation; retained issued schemas preserve their earlier citation
+rules and report bounds. Historical revision-3 cohorts remain unchanged. Freeze a new source/settings identity for
+this change; deterministic tests or a completed review do not establish a live
+business improvement. Fresh discovery bindings constrain task-kind/operation/group
+field combinations to the existing semantic rules; retained flat-schema requests
+still resume byte-exactly and undergo the same semantic validation. The required independently executed paired outcomes and
+existing delegated approvals remain the acceptance gate.
+Use `--construction-preset large --automatic-correction` only for an explicitly
+authorized fresh cohort: it captures 384 physical planning attempts, 64 corrections,
+the same compact phase input limits as ordinary sessions, 8,192 draft/correction output tokens, 2,048 Judge
+output tokens, 15,000,000 aggregate tokens and
+five hours. The request, cohort manifest and immutable transport-policy record must
+agree. Continuations cannot raise a captured allowance. Sessions with existing HTTP
+journals retain their original eight-attempt policy when no newer policy was captured.
+The preset never raises the campaign's monetary ceiling or clears reservations.
+
+The optional delegated reviewer exists only in this benchmark executable. Production
+approval retains the existing explicit human requirement acknowledgments. After an
+actual review of bounded construction evidence and independent scenario obligations,
+an authorized reviewer supplies two private JSON files to `execute`:
+
+```sh
+--delegated-authorization /private/path/authorization.json \
+--delegated-review /private/path/artifact-review.json
+```
+
+The authorization pins `id`, the user's explicit `userAuthorization`, `reviewer`,
+`campaign`, `run`, `scenario`, absolute `workspaceRoot` and frozen `sourceRevision`.
+The review has a `receipt` using `PlanningApprovalReview` and `evidence` with explicit
+`requirements` and `tasks`. Each requirement review records its original content
+hash, independently assessed scenario obligations, the assessment
+`accepted_with_recorded_uncertainty` and unresolved aspects. Each task review records
+its exact content hash, concrete review evidence and assessment `reviewed`. Receipt
+hashes use SHA-256 over the source-generated canonical JSON; its origin is
+`delegated_test`, and it binds tenant, run, reviewed revision, artifact and explicitly
+acknowledged requirement IDs. Neither file is generated from Judge opinions or by
+blindly copying generated requirement IDs. Failed or incomplete evidence stops approval.
+The immutable authorization and review are retained through the encrypted campaign API.
+
+Amazon authority permits Amazon.fr search/product reads, Browser cleanup and the exact
+cohort workbook destination. It rejects clicks, cookie/account interactions and purchases.
+Code authority permits the pinned SmartGuide checkout, local inspection/checks/report and
+confined clone cleanup; it rejects publication and permission expansion. Concrete tool
+arguments are checked again before transport. Existing producer policies still apply.
+Fresh Code prompts explicitly require the single `git_clone` to set `branch` to the
+frozen head and `targetDirectory` to the fixed cohort repository path. Older issued
+prompts remain unchanged. This scenario-input clarification requires a new frozen
+cohort and the same revised input in both comparison arms; authority and oracles
+are unchanged.
+Synthetic delegation has no external-producer authority.
+
+This external benchmark host lists only tool methods permitted by that same authority;
+it preserves the original tool contracts and does not expose MCP prompts or adaptive
+agent runners. Local computation remains available. The method filter does not authorize
+arguments, callbacks or execution. Production discovery is unchanged; historical run
+continuation still requires its exact retained source revision.
+
+The existing host-owned artifact confirmation is still shown for the exact reviewed
+artifact and single execution. Correlated Copilot permission dialogs require the
+reviewer to inspect the actual operation and reply `Allow once` or `Refuse`; sandbox
+bypass, broad grants, unrelated dialogs and responses after interruption are rejected.
+Each response is recorded with delegated provenance and the artifact/authorization
+hashes. There is no automatic approval, new executor or whole-workflow model Judge.
+Uncertain effects and started executions remain ineligible for replay.
+
+The in-memory `local` and `collections` corpus cases also accept these two files
+with `--review-run <exact-run-key>`. Their authorization uses scenario `synthetic`
+and the actual saved session ID. This route rejects operation tasks and supplies
+no runtime confirmation provider; unexpected effects or confirmation requests
+cannot acquire authority. Independent nominal and alternate input oracles still
+check the exact results. Other corpus cases retain their existing approval path.
+
+Fresh corpus records additionally capture `synthetic-artifact-v1` before planning.
+For isolated local/collections artifacts, this supplementary check rejects external
+operations and interpretation/extraction tasks requiring an unconfigured runtime
+LLM client. Collections also requires result-contributing parallel per-item calls
+to a reusable group; an unused demonstration loop does not satisfy the request.
+The artifact-bound verdict is retained separately from the execution variants and
+does not authorize approval. Historical records without this oracle version retain
+their earlier verdicts. Paired comparisons apply the same frozen supplementary
+check to both revisions alongside the existing independent runtime oracles.
+
+The active local product fixtures contain no cookie-consent work. Historical saved
+artifacts retain their issued vocabulary for compatibility tests; those fixtures offer
+no consent control and never exercise a consent action.
+
+Ordinary fresh sessions capture 64 calls and four corrections. Complete serialized
+input targets are 3,000/8,000/4,000 for navigation/draft/Judge families; hard
+ceilings are 6,000/16,000/8,000. Targets neither reject requests nor trigger another
+call. Stricter explicit limits prevail. Initial reasoning is medium and output
+reservations are 8,192/8,192/2,048. The 15,000,000-token/five-hour cumulative budget,
+graph capacity and runtime artifact-confirmation gate remain unchanged.
+
+`--phase-policy <JSON file>` supplies the complete Core phase-policy DTO before
+creation. `--cohort <label>` optionally namespaces Collections run/configuration
+keys; absence preserves historical keys exactly. External scenarios retain their
+existing cohort/run identity controls. Settings, source, model deployment, MCP
+binaries, inputs and oracles are frozen per arm. Retained runs reject conflicting
+settings. `provider-readiness` reports exact deployment `supports_reasoning_effort`
+and `supported_reasoning_efforts` declarations; null remains unknown. A profile
+may use only a declared supported level. Supported low navigation reasoning is a separate experiment; larger
+output reservations require verified exhaustion evidence and a fresh identity.
+No profile changes settings midway through a session.
+If necessary original evidence exceeds a hard input ceiling, a separately frozen
+profile may test a higher ceiling while retaining the presentation target. Record
+the rejected complete envelopes and all changed settings; do not trim mandatory
+constraints, retry the failed identity or infer architecture-only causality from
+a profile that also changes source.
+
+The declared-configuration comparison mode records intentional per-arm settings
+differences, while preserving shared safety, call, correction and cumulative limits.
+Its outcomes compare configurations, not architecture alone. Default matched mode
+still requires identical effective reasoning/output settings. All nine candidate
+runs in the agreed 18 alternating runs (nine pairs) must pass independent business oracles;
+missing baseline evidence is explicitly incomparable. The latest [three-case diagnostic results](../../docs/evidence/compact-taskplan-convergence.md)
+remain incomplete. Exact retention closures, source assessments and original-format
+evidence are appended separately without rewriting measured archives or releasing reservations.
+
+Fresh sessions capture the Core confirmed-response transport policy before freezing:
+at most three physical attempts, no uncertain retries, a ten-minute per-attempt
+response timeout and bounded delay. The journal admits each attempt against the
+captured physical-call and 15,000,000-token ceilings, remaining planning deadline,
+financial allowance and the exact hash-bound mandatory review count. A local
+Judge can reserve its required intermediate review. Review headroom uses the
+same admitted price/FX quote and is not a charge. Explicit single-attempt requests
+remain stricter; runtime and inference-proxy behavior remain separate.
+
+Every failed attempt under this new policy keeps its conservative input/output/cost
+reservation, including HTTP 429 and confirmed server errors. A successful receipt
+settles only its own attempt. Campaign, run, phase and partial usage reports derive
+the same bounds from original journals. Historical policies and issued requests
+retain their original accounting and retry behavior. Recovery may parse an exact
+saved complete response, or continue its eligible confirmed-error retry under the
+same remaining limits; missing responses and uncertain completion cannot be resent.
+Any permanent abandonment still requires the exact operator authorization above.
+Fresh presentation schemas restrict selected requirement identities to the supplied
+original anchor/evidence or an existing bounded reselection. Fresh evidence requests retrieve up to eight coherent addresses after prospective
+complete-request admission; mandatory schema closures are never truncated to fit.
+Successful individual evidence identities prevent regrouped repeats, and valid
+evidence-only responses consume calls, tokens and money without another correction.
+Revision-4 Judges narrow an oversized evidence batch to one address on the next
+request, preserving the rejected measurement and exact admission diagnosis. An
+oversized singleton still stops; this evidence loop grants no correction authority.
+Historical issued domains and multi-address batches remain
+recoverable. These presentation changes require new frozen diagnostic identities,
+not retries of an unchanged failed request.
+
+Delegated runtime permission also requires one exact currently active host-owned MCP
+invocation, matched by tenant/run/step/server/method and its child dialog identity.
+Copied artifact suffixes, ended calls and ambiguous parallel dialogs cannot authorize
+anything. URL-less Browser reads require the exact cursor issued by a successful
+allowed Amazon observation, bound to its original URL and snapshot identity; navigation,
+closure or error clears that authority. Arbitrary current-page reads are rejected.
+The independent post-execution closure oracle has a dedicated host-owned empty-argument
+probe which never navigates and cannot be selected by a plan or model.
+
+The corpus, stabilization and real-workflow entry points share the same construction
+preset, phase limits, cumulative budgets and policy capture. Their configuration
+round-trip preserves lower explicit allowances and historical configurations without
+construction fields. `--workspace` binds campaign records, model configuration,
+the process lease, execution storage and delegated authorization to the same absolute
+workspace. Omission retains the existing default GnOuGo workspace.
+Before a draft or correction is recorded, the benchmark also checks the existing
+campaign upper bound against the mandatory review allowance without creating a request,
+reservation or completion receipt. The physical journal repeats admission immediately
+before dispatch using the exact retained price and currency quote.
+Fresh physical transport admission uses the exact hash-bound `RequiredReviewCalls`
+captured on the issued request, including an intermediate review when required.
+Historical requests retain their original conservative two-review allowance.
+This headroom never becomes a reservation or charge.
+
+Every constructed compact request has safe metadata recording its phase, selected
+substep, exact request/schema hashes and selected contract versions. Component byte
+counts partition the complete serialized UTF-8 request: instructions, original intent
+and requirements, descriptors and exact contract evidence, response schema, interfaces,
+fragment/evidence/diagnostics, and envelope overhead. The versioned conservative token
+estimate is admission evidence; provider input/output/reasoning usage remains a separate
+whole-call measurement. Rejected requests are measured before dispatch and incur no
+invented usage. Judge is a phase dimension, not a second token total. Aggregate
+peaks, percentiles and component sums include rejected prepared requests. Reports
+separately identify admitted request counts, admitted peaks and their limit checks;
+an oversized rejected request cannot be hidden behind a smaller admitted peak.
+
+Useful-work reports divide logical planning calls, known physical transport attempts,
+provider tokens, cost and known
+planning time by distinct independently authored business obligations covered by an
+accepted artifact review. They reuse the frozen delegated scenario obligation IDs;
+generated tasks, requirements, checkpoints and duplicate mappings never increase
+the denominator. Structural validation alone earns no credit. Unknown coverage or
+usage remains null, and a zero denominator yields null ratios. Artifact coverage
+retains the review's uncertainty and is separate from the existing runtime-oracle
+result; it grants no authority. Original records are not reclassified. Fresh corpus
+execution rows also capture planning time before approval/execution and measure each
+runtime variant directly; historical rows without those timings remain unavailable
+rather than receiving reconstructed durations. A resumed approval preserves the
+previously measured planning duration.
+
+Compact diagnostics also distinguish interface-scope failures, advisory Judge
+findings, non-progress stops and empty output-limit receipts from transport
+uncertainty. Preserve these outcomes even when every request fits its phase cap.
+For revision-4 review diagnostics, compare findings against the exact
+`constructionStage.closeRequirementIds`; requirement associations and operation
+commitments do not claim completion. Classify a false positive from the original
+claim and implementation evidence, never from pointer validity alone. An observed
+false positive does not establish how many corrections a later change avoids.
+Automatic operation directories contain the current substep's queried results;
+cached originals and exactly issued historical evidence remain retrievable.
+Keep source-description provider actions, forward operation-page navigation,
+isolated group inputs and existing loop defaults/safety semantics visible in
+bounded planning/review context. A corrected evidence-address error must not
+consume another correction on subsequent successful navigation. These generic presentation
+corrections do not relax compiler validation or prove live convergence. Regressions
+also verify that catalog expansion cannot reoffer unchanged consumed
+pages, that discovery omits duplicate draft metadata, and that foreach-body
+closure reviews explain the existing ordered array exports. Repeated evidence
+without demonstrably new knowledge stops without spending a repair. A targeted
+original-description reread after new allowed operation identities or versions
+must be bound to the issued request, charged normally and blocked again within
+that same knowledge set. Cursor/order changes and empty provider pages grant no
+new read. Judge evidence addresses remain distinct from finding JSON Pointers;
+bare producer IDs are still inconclusive. Compare complete serialized
+requests, including content-address overhead and the issued compatibility schema;
+a smaller individual component does not establish complete-request admission.
+Recorded failures and accounting for Amazon, Collections and Review PR are in the
+[convergence summary](../../docs/evidence/compact-taskplan-convergence.md), which links
+immutable earlier diagnostic records. The e6b snapshot adds
+[Collections output exhaustion](../../docs/evidence/compact-taskplan-e6b24bb77-collections.json)
+and [Amazon's pending transport outcome](../../docs/evidence/compact-taskplan-e6b24bb77-amazon-pending.json);
+neither produced an artifact or executed. The later exact authorized Amazon closure
+is appended separately, retaining the pending snapshot and every reservation.
+The `40bd4a048` Code diagnostic retains 36 receipts, three corrections and no artifact
+or execution. Its supported sibling-write findings and repeated provenance rejection
+are distinguished from two presentation defects: lost prior technical feedback and
+an incorrect validation-pass statement during repair. Fixing those defects does not
+establish a causal benefit or an avoided correction. Technical passes remain separate
+from independent business acceptance.
+
+Exercise automatic structural closure through the coordinator, receipt recovery and
+existing artifact approval, rather than assigning candidate identity in the fixture.
+Review presentation must retain applicable runtime guard semantics when inspecting
+a later consumer or closure. An unspecified collection length is not an authoritative
+unlimited-capacity requirement; explicit capacity conflicts still require review.
+Preserve known output-exhausted receipts separately from uncertain transport and
+never infer the cause of reasoning exhaustion from an empty response alone.
+
+Revision-5 diagnostics distinguish selection mistakes made with complete accepted
+evidence from evidence omitted in a later review. Current-step companion operation
+links locate original contracts; they grant neither execution authority nor finding
+grounding. Follow a rejection through candidate-free reselection and explicit
+consumer resumption, but end its replacement chain on acceptance. Preserved repair
+witnesses are advisory evidence, not a mandate to reproduce a prior conclusion.
+Report request-limit failures separately from semantic findings and keep the
+failed request's captured ceiling unchanged.
+
+The compact live comparison freezes baseline `56942f5` and each candidate separately,
+with identical model, MCP binaries, scenario inputs and independent oracle versions.
+Both receive 64 calls, unchanged correction and ordinary graph limits; baseline
+retains its 32k input ceiling. The selected declared-configuration mode compares
+baseline's retained settings with the best validated candidate settings, disclosing
+any reasoning/output differences. Default matched mode requires those settings
+to be identical. After successful candidate diagnostics for
+Collections, Amazon and Review PR, run three alternating baseline/candidate pairs per
+scenario under fresh run identities. Source changes require a new candidate cohort.
+All nine measured candidates must pass independent business checks without unwanted
+effects or input-limit violations. Compare peak generation/Judge sizes per scenario
+where baseline evidence exists; improvement in one family cannot hide regression
+in another. Absent baseline Judge evidence is explicitly `not_comparable`. Report
+p50/p95/maximum sizes, calls, corrections, actual tokens, cost
+and planning/runtime latency. Include cumulative totals and known partial sums as
+well as distributions, both per scenario and across the cohort. Unknown usage keeps
+the complete total unknown. Measurements deduplicate within one run; identical
+request hashes across independent runs still contribute separately. More calls
+are allowed. Higher cost or latency remains
+visible, and missing/failed/uncertain runs never establish success. All attempts share
+the existing encrypted campaign accounting, including diagnostics and retained failures.
+
+The read-only `--compact-comparison <sanitized-rows.json>` entrypoint accepts `cases`,
+`baseline` and `candidate` arrays. Each row retains its exact source/run identity,
+effective configuration, independent business outcome, safety findings, whole-call
+usage and `request_metrics.requests`. It requires three runs per case in each arm,
+matched cumulative/graph allowances and a shared frozen comparison identity.
+Output allowances must also match unless the declared-configuration mode records
+the intentionally different frozen settings for each arm.
+The original harness measurement hashes remain evidence: because harness files
+change in this refactor, they cannot establish unchanged oracles by themselves.
+Pin independent case/oracle sources, actual producer binaries and model configuration
+separately. Preserve exact per-run prompt hashes; any comparison template may replace
+only its explicitly declared isolated run destination, with all other text unchanged.
+Collections may use fresh `--phase fixture` identities with the real configured model
+for this selected comparison; its rows must still report `mode: live`. This does not
+claim the historical eight-case measured pilot gate passed. The report is inconclusive
+when required outcomes or usage are missing, and three repetitions remain descriptive
+evidence rather than a general reliability claim.

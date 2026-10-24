@@ -19,6 +19,7 @@ public sealed partial class ExpressionEvaluator
     private const int DefaultMaxStatements = 100_000;
     private const int DefaultTimeoutSeconds = 15;
     private const int DefaultMemoryLimitBytes = 50_000_000;
+    internal const int MaxCheckedProgramLength = 65_536;
 
     private readonly Dictionary<string, Func<JsonNode?[], JsonNode?>> _functions;
     private readonly int _maxStatements;
@@ -35,7 +36,7 @@ public sealed partial class ExpressionEvaluator
         Action<string, string, string?>? observeCheck = null)
     {
         result = null;
-        if (script.Length > 65536) return false;
+        if (script.Length > MaxCheckedProgramLength) return false;
         var syntax = new Acornima.Parser().ParseExpression(script);
         var lexicalChecks = lexicalContracts is null ? null : LexicalValueChecks(syntax, lexicalContracts);
         static string? Key(Property property) => property.Key is Identifier id ? id.Name : (property.Key as StringLiteral)?.Value;

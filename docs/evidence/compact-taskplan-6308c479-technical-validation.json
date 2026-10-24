@@ -1,0 +1,233 @@
+{
+  "version": 1,
+  "captured_utc": "2026-10-24T05:47:24.139279+00:00",
+  "candidate_revision": "6308c479f607a08b173729489ac4f48e197b21ba",
+  "kind": "terminal_technical_validation_snapshot",
+  "pull_request": {
+    "number": 120,
+    "draft": true,
+    "head": "6308c479f607a08b173729489ac4f48e197b21ba",
+    "snapshot": {
+      "path": "/private/tmp/gnougo-6308c479-technical-terminal-3hcbtz33/pr120-safe.json",
+      "sha256": "75f136320863885d2a0b4be97983d9979633cac303ddb9ccfa1983e7d497dc1b"
+    }
+  },
+  "full_solution": {
+    "status": "passed",
+    "passed": 7846,
+    "failed": 0,
+    "skipped": 13,
+    "projects": 33,
+    "warnings_as_errors": true,
+    "compiler_diagnostics": 0,
+    "elapsed_seconds": 5264.46,
+    "source_files_verified": 4499,
+    "source_unchanged": true,
+    "terminal": {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/verified-review-v4-validation-20261023/full-solution-6308c479/full/full-solution-safe.json",
+      "sha256": "d88abbda4734526826ae1746e407ca5eec5823dcca390bbbf59e4d516dac6209"
+    },
+    "verification": {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/verified-review-v4-validation-20261023/full-solution-6308c479/full/terminal-verification-safe.json",
+      "sha256": "1472ca3c63e86b0056ea3a308bde2edb258c225beb1ebf943d8d953c4927f49a"
+    },
+    "copy_manifest": {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/verified-review-v4-validation-20261023/full-solution-6308c479/copy-safe.json",
+      "sha256": "81ff98420ea4d7e3ae49b8c99245f182cd51e19096415e842fe37c9dafe5a80b"
+    },
+    "copied_file_hashes_verified": 44
+  },
+  "publication": {
+    "status": "passed",
+    "stages": 12,
+    "warnings_as_errors": true,
+    "compiler_diagnostics": 0,
+    "source_unchanged": true,
+    "source_files_verified": 4499,
+    "copied_files_hash_verified": 165,
+    "manifest": {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/verified-review-v4-validation-20261023/publication-6308c479/publish/publication-safe.json",
+      "sha256": "5ee0c6687163036d3be87aec23d5d3aeff8c1c99646043a865f69140cf1ceff9"
+    },
+    "copy_manifest": {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/verified-review-v4-validation-20261023/publication-6308c479/copy-safe.json",
+      "sha256": "af2ad904f6e2af2f5c28f28c8350037c204b72aad80b19f7049583aac6962061"
+    },
+    "scope": [
+      "Six independent packages:Core,Planning,Integrations,Copilot,Persistence,AI.Core.",
+      "Planning Native AOT publish and revisions2/3/4 smoke.",
+      "Trimmed Server publish and fresh private encrypted-storage smoke.",
+      "Git Native AOT publish and published contract smoke."
+    ]
+  },
+  "focused_regression": {
+    "passed": 90,
+    "failed": 0,
+    "warnings_as_errors": true,
+    "scope": "Existing scope/interface/verified review and saved-request recovery fixtures; exact committed instruction source matches the tested patch.",
+    "manifest": {
+      "path": "/private/tmp/gnougo-scope-basis-wording-769-us7yg_yw/validation-safe.json",
+      "sha256": "5dcae94dbf6bce1fbf0ae8e9a060000f0ce7d0f3f89e17294c007778e8d6c200"
+    },
+    "patch": {
+      "path": "/private/tmp/gnougo-scope-basis-wording-769-us7yg_yw/combined-export-wording.patch",
+      "sha256": "780ad49c86c6bda40d197c4e1a4a5b0f16a239bd190dfb8ddfadf403dc94086f"
+    },
+    "compatibility": {
+      "path": "/private/tmp/gnougo-scope-basis-wording-769-us7yg_yw/compatibility-safe.json",
+      "sha256": "0c4e7eb7f02db71753281f36fcb0e904091d5edf54131a0425e13b2cd9d5ba2d"
+    },
+    "independent_review": {
+      "path": "/private/tmp/gnougo-scope-basis-wording-769-us7yg_yw/independent-review-safe.json",
+      "sha256": "94ed59a791efe66c18b76d8469ef11e55e234081a6e157e995be8f47711c1ec1"
+    },
+    "committed_source_sha256": "d47deba2b5f9c67248ff5fdb608667ed50b13c1df18dbbf1cde3f6518a8206a2"
+  },
+  "ci": [
+    {
+      "revision": "6308c479f607a08b173729489ac4f48e197b21ba",
+      "workflow": "Deterministic planner validation",
+      "run_id": 40047679529,
+      "url": "https://github.com/GnouGo/GnouGo/actions/runs/40047679529",
+      "status": "passed",
+      "terminal": {
+        "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/verified-review-v4-validation-20261023/ci-6308c479/planner/terminal-safe.json",
+        "sha256": "be6976d53df4ef3fe1d56bd50a831a1acd03b5ad8b67d1202e51f5b58b479488"
+      },
+      "copy_manifest": {
+        "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/verified-review-v4-validation-20261023/ci-6308c479/planner/copy-manifest.json",
+        "sha256": "5bf8c7f02fe14f3f371232f8cf1197121542c9c3953fffdc562441921743d0c2"
+      },
+      "captured_workflow_sha256": "e0a4a566188b843c04582908af1cde4e61add0667f9219ed461b62d7731bdbd5",
+      "scope": {
+        "selected_test_projects": 12,
+        "independent_flow_packages": 5,
+        "benchmark_host_build": true,
+        "planning_native_aot": "linux-x64",
+        "git_published_contract": "linux-x64",
+        "full_solution": false,
+        "published_server_storage": false,
+        "live_business_acceptance": false
+      }
+    },
+    {
+      "revision": "6308c479f607a08b173729489ac4f48e197b21ba",
+      "workflow": "Build ProxyCopilot Native AOT",
+      "run_id": 40047679537,
+      "url": "https://github.com/GnouGo/GnouGo/actions/runs/40047679537",
+      "status": "passed",
+      "terminal": {
+        "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/verified-review-v4-validation-20261023/ci-6308c479/proxy-aot/terminal-safe.json",
+        "sha256": "f6adf58471b0b0fbfc54a41628234b62d3a873b5f36fcde99bad18834829fe83"
+      },
+      "copy_manifest": {
+        "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/verified-review-v4-validation-20261023/ci-6308c479/proxy-aot/copy-manifest.json",
+        "sha256": "79e93ccb50aad36d5785e51284b758e12a02b004ca498d9a120146b4ed29eec9"
+      },
+      "captured_workflow_sha256": "54d28cfdb3cdf55c318b992069f6e82c451fe15084f455ddc339fec6d4dac439",
+      "scope": {
+        "native_aot_proxy_platforms": [
+          "linux-x64",
+          "linux-arm64",
+          "win-x64",
+          "win-arm64",
+          "osx-x64",
+          "osx-arm64"
+        ],
+        "planning_business_acceptance": false
+      }
+    },
+    {
+      "revision": "6308c479f607a08b173729489ac4f48e197b21ba",
+      "workflow": "ProxyCopilot standalone validation",
+      "run_id": 40047679420,
+      "url": "https://github.com/GnouGo/GnouGo/actions/runs/40047679420",
+      "status": "passed",
+      "terminal": {
+        "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/verified-review-v4-validation-20261023/ci-6308c479/proxy-standalone/terminal-safe.json",
+        "sha256": "a2637c97cde40284445ead02ff6ebf75b7332096d9c907d4b6b6b02b82c645c3"
+      },
+      "copy_manifest": {
+        "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/verified-review-v4-validation-20261023/ci-6308c479/proxy-standalone/copy-manifest.json",
+        "sha256": "bfbad5ce2bcaf95905a86d5ea12fbe659e890cd694ea2bbbf2a2b3a65b310e20"
+      },
+      "captured_workflow_sha256": "9b96deee2bce687e5b6e01fcf2b4c5f668a3040f68e09d5a2e91da705375b596",
+      "scope": {
+        "proxy_ui_config_tests": true,
+        "proxy_auth_tests": true,
+        "planning_business_acceptance": false
+      }
+    },
+    {
+      "revision": "7697449ce24fb54804cb31afc33a217c9105c65f",
+      "workflow": "Deterministic planner validation",
+      "run_id": 40038029326,
+      "url": "https://github.com/GnouGo/GnouGo/actions/runs/40038029326",
+      "status": "passed",
+      "terminal": {
+        "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/verified-review-v4-validation-20261023/ci-7697449c/planner/terminal-safe.json",
+        "sha256": "7ca7aa145bc49c1b488525a21f8144a1a0f5916b1b5e904f027602ef83e50d75"
+      },
+      "copy_manifest": {
+        "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/verified-review-v4-validation-20261023/ci-7697449c/planner/copy-manifest.json",
+        "sha256": "a322e8a5be1e56fc5eb9b20e0c4aabe3dd3ce5e1925e50ef34ff6cbc435e9757"
+      },
+      "captured_workflow_sha256": "e0a4a566188b843c04582908af1cde4e61add0667f9219ed461b62d7731bdbd5",
+      "scope": {
+        "selected_test_projects": 12,
+        "independent_flow_packages": 5,
+        "benchmark_host_build": true,
+        "planning_native_aot": "linux-x64",
+        "git_published_contract": "linux-x64",
+        "full_solution": false,
+        "published_server_storage": false,
+        "live_business_acceptance": false
+      }
+    },
+    {
+      "revision": "a93486695ee0a7a75f450128bffc0b103fc663ed",
+      "workflow": "Deterministic planner validation",
+      "run_id": 40033155679,
+      "url": "https://github.com/GnouGo/GnouGo/actions/runs/40033155679",
+      "status": "passed",
+      "terminal": {
+        "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/verified-review-v4-validation-20261023/ci-a9348669/planner/terminal-safe.json",
+        "sha256": "b7b04f3f007322f9ad14ba4133283d30c0a49c13afccb5104d6f00fc23ac74a1"
+      },
+      "copy_manifest": {
+        "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/verified-review-v4-validation-20261023/ci-a9348669/planner/copy-manifest.json",
+        "sha256": "321b9b196f207b963d2641604ef1031520ed49d4dbd5857843e3e0797e4c4df2"
+      },
+      "captured_workflow_sha256": "e0a4a566188b843c04582908af1cde4e61add0667f9219ed461b62d7731bdbd5",
+      "scope": {
+        "selected_test_projects": 12,
+        "independent_flow_packages": 5,
+        "benchmark_host_build": true,
+        "planning_native_aot": "linux-x64",
+        "git_published_contract": "linux-x64",
+        "full_solution": false,
+        "published_server_storage": false,
+        "live_business_acceptance": false
+      }
+    }
+  ],
+  "remaining_checks": [
+    "No outstanding technical check among the exact630 full solution, required12publication stages and three applicable CI workflows.",
+    "Live business acceptance remains incomplete; technical success does not establish an executable, independently accepted workflow or avoided corrections.",
+    "The agreed18alternating baseline/candidate campaign remains gated on complete successful diagnostics.",
+    "Thirteen existing full-solution skips remain disclosed; CI PR attribution may use the merge ref under the captured workflow.",
+    "Campaign retention and subsequent financial/live status are outside this read-only technical snapshot."
+  ],
+  "verification": {
+    "full_solution_copy_files_hash_verified": 44,
+    "ci_copy_files_hash_verified": 55,
+    "previous_snapshot": {
+      "path": "/private/tmp/gnougo-6308c479-technical-index-py0gj1uc/compact-taskplan-6308c479-technical-validation.json",
+      "sha256": "2533a6fd4b0f490ee6586d006e7b491b090c316f44172014c4271c72cb637e3b"
+    }
+  },
+  "boundaries": [
+    "No build,rereun,cancellation,workflow dispatch,modelcall,store access or tracked-file mutation performed to create this index.",
+    "All historical failed and pending snapshots remain unchanged; exact630 attribution does not relabel earlier evidence."
+  ]
+}

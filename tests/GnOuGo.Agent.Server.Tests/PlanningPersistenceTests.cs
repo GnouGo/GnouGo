@@ -13,6 +13,40 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class PlanningPersistenceTests
 {
     [Fact]
+    public async Task ExplicitSuspendedConsumersRecoverExactlyInsideTheEncryptedTenantSnapshot()
+    {
+        await using var fixture = await StoreFixture.CreateAsync();
+        const string secret = "PRIVATE_TYPED_CONSUMER_AND_ORIGINAL_EVIDENCE";
+        var state = new PlanningSession
+        {
+            Request = new() { TenantId = "tenant", SessionId = "continuation", Prompt = secret },
+            ModelCalls = 7, ReplanAttempts = 2,
+            Construction = new() { Version = 2, Compact = new() { PresentationVersion = 5, ResumingStepId = "continuation_0",
+                SuspendedSteps = [new()
+                {
+                    Id = "continuation_0", Status = "resuming", SuspendedAtCheckpoint = 1, LastPrerequisiteCheckpoint = 3,
+                    Consumer = new() { Id = "consumer", Scope = "/root", Objective = secret, RequirementIds = ["original"], ExpectedOutputs = [secret] },
+                    Prerequisite = new() { Need = secret, ExpectedType = new() { Kind = "number", Nullable = true }, EvidenceAddresses = ["source:original"] },
+                    SourceVersions = new() { ["original"] = "source-hash" }, EvidenceHashes = new() { ["source:original"] = "evidence-hash" },
+                    ContractHashes = new() { ["exact-operation@1"] = "contract-hash" }, DependencyHashes = new() { ["accepted"] = "task-hash" }
+                }] } },
+            PendingCall = new() { Id = "exact-issued", Request = new() { Prompt = secret, StructuredOutputSchema = new JsonObject { ["type"] = "object" } } }
+        };
+        var bytes = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
+        var restored = await fixture.Store.LoadAsync("tenant", "continuation", Ct);
+        Assert.Equal(bytes, JsonSerializer.Serialize(restored, PlanningJsonContext.Default.PlanningSession));
+        Assert.Equal("continuation_0", restored!.Construction!.Compact!.ResumingStepId);
+        Assert.Equal("number", Assert.Single(restored.Construction.Compact.SuspendedSteps!).Prerequisite.ExpectedType.Kind);
+        Assert.Null(await fixture.Store.LoadAsync("another", "continuation", Ct));
+        foreach (var file in Directory.GetFiles(fixture.Root, "*", SearchOption.AllDirectories))
+            Assert.DoesNotContain(secret, Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file, Ct)));
+        state.Construction.Compact.SuspendedSteps = null; state.Construction.Compact.ResumingStepId = null;
+        var historical = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        Assert.DoesNotContain("\"suspendedSteps\"", historical); Assert.DoesNotContain("\"resumingStepId\"", historical);
+    }
+
+    [Fact]
     public async Task TargetedRevisionAuthorityAndBaselineRemainEncryptedAndTenantOwned()
     {
         await using var fixture = await StoreFixture.CreateAsync();

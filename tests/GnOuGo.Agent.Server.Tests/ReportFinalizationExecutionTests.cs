@@ -65,7 +65,7 @@ public sealed class ReportFinalizationExecutionTests
             var proposal = new PlanningProposal { Plan = plan, Requirements = new() { Summary = "Preserve observed work evidence before cleanup, including verified failure",
                 Inputs = plan.Inputs, Outputs = [], Outcomes = [new("evidence", "Preserve the observed report"), new("cleanup", "Release temporary resources")] } };
             var runtime = new LocalProductOutcomeExecutionTests.ProposalRuntime(actual, proposal);
-            var session = await new HybridWorkflowPlanner().AdvanceAsync(new() { Catalog = catalog, Request = new() { TenantId = "fixture", Prompt = proposal.Requirements.Summary } }, new(), runtime, ct);
+            var session = await new HybridWorkflowPlanner().AdvanceAsync(PlanningCorpus.RetainedSession(new() { Catalog = catalog, Request = new() { TenantId = "fixture", Prompt = proposal.Requirements.Summary } }), new(), runtime, ct);
             Assert.True(session.Status == PlanningStatus.FinalReview, string.Join(';', session.Diagnostics.Select(d => d.Message)));
             Assert.Equal(1, session.ModelCalls); Assert.Equal(0, session.ReplanAttempts);
             var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(session.Yaml!));

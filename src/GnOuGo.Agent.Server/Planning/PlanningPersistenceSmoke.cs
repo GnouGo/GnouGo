@@ -18,6 +18,7 @@ internal static class PlanningPersistenceSmoke
         await using (var db = factory.CreateDbContext()) await db.Database.EnsureCreatedAsync();
         var records = KeyVaultRecordStoreFactory.CreateWorkspaceStore(vault, directory);
         var store = new EfPlanningSessionStore(factory, records);
+        await VerifyConstructionStorageAsync(store, factory, vault, directory);
         var state = new PlanningSession { Request = new() { TenantId = "smoke", SessionId = Guid.NewGuid().ToString("N"), Prompt = "Private published smoke content" } };
         state.Requirements = new() { Summary = "Private requirements", Outcomes = [new("result", "Private acceptance criterion")] };
         state.IntentVersion = 1; state.OutcomeVersion = 1;
@@ -105,6 +106,141 @@ internal static class PlanningPersistenceSmoke
         Console.WriteLine("Format-10 planning persistence smoke passed; execution journal schema 9 is unchanged.");
     }
 
+    private static async Task VerifyConstructionStorageAsync(EfPlanningSessionStore store, IDbContextFactory<PlanningDbContext> factory,
+        string vault, string directory)
+    {
+        const string privateValue = "Private construction candidate and review evidence";
+        var accepted = new TaskPlan { Root = new() { Outputs = [new("accepted", new() { Kind = "string", Text = "Original accepted value" })] } };
+        var state = new PlanningSession
+        {
+            IntentVersion = 3, Request = new() { TenantId = "smoke", SessionId = "construction-" + Guid.NewGuid().ToString("N"), Prompt = "Construct requested work" },
+            Plan = accepted, ModelCalls = 2,
+            Construction = new()
+            {
+                Version = 2, Limits = new() { InputLimits = new() },
+                Compact = new()
+                {
+                    Sources = [new() { Id = "request:0", Version = "retained-source", Text = privateValue, Indexed = true }],
+                    RequirementSources = new(StringComparer.Ordinal) { ["requested"] = ["request:0"] },
+                    CurrentStep = new() { Id = "step-2", BaseHash = PlanningConstruction.Hash(accepted), Objective = privateValue,
+                        RequirementIds = ["requested"], CloseRequirementIds = ["requested"] },
+                    PendingCommitments = new(StringComparer.Ordinal) { ["requested"] = [new("retained-operation")] }
+                },
+                Checkpoints = [new() { Sequence = 1, PlanHash = PlanningConstruction.Hash(accepted), Fragment = new() { ["evidence"] = privateValue } }],
+                Candidate = new() { BaseHash = PlanningConstruction.Hash(accepted), Plan = new() { Root = new() { Outputs = [new("candidate", new() { Kind = "string", Text = privateValue })] } } },
+                PendingReviewContext = new() { ["original"] = privateValue }
+            },
+            PendingCall = new() { Id = "retained-construction-review", Purpose = "construction_local_judge", Request = new() { Prompt = privateValue } }
+        };
+        var original = System.Text.Json.JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        if (!await store.TrySaveAsync(state, null, CancellationToken.None)) throw new InvalidOperationException("Construction checkpoint insert failed.");
+        var reopened = new EfPlanningSessionStore(factory, KeyVaultRecordStoreFactory.CreateWorkspaceStore(vault, directory));
+        var restored = await reopened.LoadAsync("smoke", state.Request.SessionId, CancellationToken.None);
+        if (restored is null || System.Text.Json.JsonSerializer.Serialize(restored, PlanningJsonContext.Default.PlanningSession) != original ||
+            restored.Plan?.Root.Outputs.Single().Name != "accepted" || restored.Construction?.Candidate?.Plan.Root.Outputs.Single().Name != "candidate" ||
+            restored.Construction?.Compact?.CurrentStep?.Objective != privateValue ||
+            restored.Construction.Compact.Sources.Single().Text != privateValue ||
+            restored.Construction.Compact.PendingCommitments["requested"].Single().Operation != "retained-operation" ||
+            await reopened.LoadAsync("other-tenant", state.Request.SessionId, CancellationToken.None) is not null ||
+            System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(vault)).Contains(privateValue, StringComparison.Ordinal))
+            throw new InvalidOperationException("Published construction candidate, review, request or tenant/encryption recovery failed.");
+        if (original.Contains("\"presentationVersion\"", StringComparison.Ordinal) || original.Contains("\"interfaceExtractions\"", StringComparison.Ordinal))
+            throw new InvalidOperationException("Optional compact presentation metadata changed historical storage.");
+        if (original.Contains("\"suspendedSteps\"", StringComparison.Ordinal) || original.Contains("\"resumingStepId\"", StringComparison.Ordinal))
+            throw new InvalidOperationException("Optional continuation metadata changed historical storage.");
+        var declaration = new PlanningSession
+        {
+            IntentVersion = 3, ModelCalls = 1,
+            Request = new() { TenantId = "smoke", SessionId = "declaration-" + Guid.NewGuid().ToString("N"), Prompt = privateValue,
+                Options = new() { ["construction_version"] = 2, ["construction_presentation_version"] = 2 } },
+            Construction = new()
+            {
+                Version = 2, Compact = new()
+                {
+                    PresentationVersion = 2,
+                    Sources = [
+                        new() { Id = "declaration:first", Version = "exact-first", Kind = "requirement", Text = privateValue, Indexed = true, InterfaceKind = "input" },
+                        new() { Id = "declaration:second", Version = "exact-second", Kind = "requirement", Text = privateValue,
+                            Indexed = true, InterfaceKind = "input", ContinuationOf = "declaration:first" }],
+                    InterfaceExtractions = [new() { Id = "declaration:first", SourceIds = ["declaration:first", "declaration:second"], Inputs = true }]
+                }
+            },
+            PendingCall = new() { Id = "retained-interface-extraction", Purpose = "construction_intent",
+                Request = new() { Prompt = privateValue, StructuredOutputSchema = new System.Text.Json.Nodes.JsonObject { ["title"] = "construction_intent" } } }
+        };
+        var declarationJson = System.Text.Json.JsonSerializer.Serialize(declaration, PlanningJsonContext.Default.PlanningSession);
+        if (!await store.TrySaveAsync(declaration, null, CancellationToken.None))
+            throw new InvalidOperationException("Pending interface extraction insert failed.");
+        var recoveredDeclaration = await reopened.LoadAsync("smoke", declaration.Request.SessionId, CancellationToken.None);
+        if (recoveredDeclaration is null ||
+            System.Text.Json.JsonSerializer.Serialize(recoveredDeclaration, PlanningJsonContext.Default.PlanningSession) != declarationJson ||
+            recoveredDeclaration.Construction?.Compact is not { PresentationVersion: 2, InterfaceExtractions: [{ Complete: false, Inputs: true, Outputs: false, SourceIds.Count: 2 }] } ||
+            recoveredDeclaration.Construction.Compact.Sources[1].ContinuationOf != "declaration:first" ||
+            recoveredDeclaration.Construction.Compact.Sources.Any(source => source.InterfaceKind != "input") ||
+            await reopened.LoadAsync("other-tenant", declaration.Request.SessionId, CancellationToken.None) is not null ||
+            System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(vault)).Contains(privateValue, StringComparison.Ordinal))
+            throw new InvalidOperationException("Published pending interface metadata, exact request or encrypted tenant isolation changed.");
+        var deferred = System.Text.Json.JsonSerializer.Deserialize(declarationJson, PlanningJsonContext.Default.PlanningSession)!;
+        deferred.Request.SessionId = "deferred-" + Guid.NewGuid().ToString("N");
+        deferred.Request.Options["construction_presentation_version"] = 3;
+        var compact = deferred.Construction!.Compact!;
+        compact.PresentationVersion = 3;
+        compact.CurrentStep = new()
+        {
+            Id = "immediate", Kind = null, Objective = privateValue,
+            Prerequisites = [new() { Need = privateValue, EvidenceAddresses = ["source:declaration:first"] }],
+            PendingDiscovery = new()
+            {
+                ActionHash = "exact-metadata-action", Requests = [new("private-provider")],
+                Pending = [new("private-provider", privateValue, privateValue)], RemainingReads = 3,
+                Visited = ["exact-completed-page"]
+            }
+        };
+        compact.InterfaceExtractions![0].Dispositions = [new()
+        {
+            SourceId = "declaration:first", Version = "exact-first", Kind = "no_public_interface", Reason = privateValue,
+            Evidence = new(StringComparer.Ordinal) { ["declaration:first"] = "exact-first" }
+        }];
+        var deferredJson = System.Text.Json.JsonSerializer.Serialize(deferred, PlanningJsonContext.Default.PlanningSession);
+        if (!await store.TrySaveAsync(deferred, null, CancellationToken.None))
+            throw new InvalidOperationException("Deferred implementation metadata insert failed.");
+        var recoveredDeferred = await reopened.LoadAsync("smoke", deferred.Request.SessionId, CancellationToken.None);
+        if (recoveredDeferred is null ||
+            System.Text.Json.JsonSerializer.Serialize(recoveredDeferred, PlanningJsonContext.Default.PlanningSession) != deferredJson ||
+            recoveredDeferred.Construction?.Compact is not { PresentationVersion: 3, CurrentStep: { Kind: null } recoveredStep } ||
+            recoveredStep.Prerequisites?.Single().Need != privateValue ||
+            recoveredStep.PendingDiscovery?.Pending.Single().Cursor != privateValue ||
+            recoveredDeferred.Construction.Compact.InterfaceExtractions?[0].Dispositions?.Single().Kind != "no_public_interface" ||
+            await reopened.LoadAsync("other-tenant", deferred.Request.SessionId, CancellationToken.None) is not null ||
+            System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(vault)).Contains(privateValue, StringComparison.Ordinal))
+            throw new InvalidOperationException("Deferred kind, prerequisites or source dispositions changed during published encrypted recovery.");
+        var continuation = System.Text.Json.JsonSerializer.Deserialize(deferredJson, PlanningJsonContext.Default.PlanningSession)!;
+        continuation.Request.SessionId = "continuation-" + Guid.NewGuid().ToString("N");
+        continuation.Request.Options["construction_presentation_version"] = 5;
+        var retained = continuation.Construction!.Compact!;
+        retained.PresentationVersion = 5; retained.ResumingStepId = "continuation_0";
+        retained.SuspendedSteps = [new()
+        {
+            Id = "continuation_0", Status = "resuming", Consumer = retained.CurrentStep!, SuspendedAtCheckpoint = 1, LastPrerequisiteCheckpoint = 2,
+            Prerequisite = new() { Need = privateValue, ExpectedType = new() { Kind = "number", Nullable = true }, EvidenceAddresses = ["source:declaration:first"] },
+            SourceVersions = new() { ["declaration:first"] = "exact-first" }, EvidenceHashes = new() { ["source:declaration:first"] = "exact-evidence" },
+            ContractHashes = new() { ["operation@1"] = "exact-contract" }, DependencyHashes = new() { ["accepted"] = "exact-task" }
+        }];
+        var continuationJson = System.Text.Json.JsonSerializer.Serialize(continuation, PlanningJsonContext.Default.PlanningSession);
+        if (!await store.TrySaveAsync(continuation, null, CancellationToken.None))
+            throw new InvalidOperationException("Suspended consumer metadata insert failed.");
+        var recoveredContinuation = await reopened.LoadAsync("smoke", continuation.Request.SessionId, CancellationToken.None);
+        if (recoveredContinuation is null ||
+            System.Text.Json.JsonSerializer.Serialize(recoveredContinuation, PlanningJsonContext.Default.PlanningSession) != continuationJson ||
+            recoveredContinuation.Construction?.Compact is not { PresentationVersion: 5, ResumingStepId: "continuation_0",
+                SuspendedSteps: [{ Status: "resuming", Prerequisite.ExpectedType: { Kind: "number", Nullable: true } }] } ||
+            await reopened.LoadAsync("other-tenant", continuation.Request.SessionId, CancellationToken.None) is not null ||
+            System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(vault)).Contains(privateValue, StringComparison.Ordinal))
+            throw new InvalidOperationException("Suspended consumer, typed prerequisite, exact request or encrypted tenant recovery changed.");
+        Console.WriteLine("construction persistence: accepted baseline, compact source/substep/commitments, tentative draft and pending review recover independently under encryption");
+        Console.WriteLine("interface persistence: historical declarations and fresh deferred choices, prerequisites and dispositions survive encrypted source-generated recovery");
+    }
+
     private static async Task VerifyJudgeRecoveryAsync(string directory, string vault, IDbContextFactory<PlanningDbContext> factory,
         IKeyVaultRecordStore records, EfPlanningSessionStore store, int reviewVersion)
     {
@@ -112,7 +248,7 @@ internal static class PlanningPersistenceSmoke
         var current = new PlanningRequest();
         if (historical.MaxModelCalls != 8 || historical.MaxReplanAttempts != 2 ||
             historical.Generation.MaxInputTokensPerRequest != 12000 || historical.Generation.MaxOutputTokens != 8192 ||
-            historical.Options.ContainsKey("business_judge") || current.MaxModelCalls != 12 || current.MaxReplanAttempts != 4 ||
+            historical.Options.ContainsKey("business_judge") || current.MaxModelCalls != 64 || current.MaxReplanAttempts != 4 ||
             current.Generation.MaxInputTokensPerRequest != 32000 || current.Generation.MaxOutputTokens != 32768)
             throw new InvalidOperationException("Published fresh defaults changed historical source-generated deserialization.");
 

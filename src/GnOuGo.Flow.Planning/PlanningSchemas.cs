@@ -141,44 +141,7 @@ internal static class PlanningSchemas
             root["properties"]!["requirements"] = clarifications ? Nullable(Ref("requirements")) : Ref("requirements");
             root["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("requirements"));
         }
-        root["$defs"] = new JsonObject
-        {
-            ["id"] = Identity(), ["goal"] = Nonblank(),
-            ["identities"] = Array(Identity()),
-            ["value"] = new JsonObject { ["anyOf"] = new JsonArray(
-                Object(("kind", Enum("null"))), Object(("kind", Enum("string")), ("text", String())),
-                Object(("kind", Enum("number")), ("number", Type("number"))), Object(("kind", Enum("boolean")), ("boolean", Type("boolean"))),
-                Object(("kind", Enum("object")), ("members", Array(Ref("output")))),
-                Object(("kind", Enum("array")), ("items", Array(Ref("value")))),
-                Described(Object(("kind", Enum(flatten ? ["json", "flatten"] : ["json"])), ("items", Array(Ref("value"), 1, 1))), flatten ? "json encodes one value; flatten concatenates one typed array-of-arrays level in order." : "Serialize one business value as JSON text; no inference."),
-                Described(Object(("kind", Enum("field")), ("items", Array(Ref("value"), 1, 1)), ("port", Ref("goal"))), "Select one literal declared field from a typed object/item; nest for nested fields."),
-                Object(("kind", Enum("input")), ("source", String())),
-                Object(("kind", Enum("choice", "present")), ("source", Ref("id"))),
-                Object(("kind", Enum("output")), ("source", Ref("id")), ("port", Nullable(String()))),
-                Object(("kind", Enum("item", "index"))),
-                Object(("kind", Enum("arithmetic")), ("text", Enum("negate")), ("items", Array(Ref("value"), 1, 1))),
-                Object(("kind", Enum("arithmetic")), ("text", Enum("add", "subtract", "multiply", "divide", "remainder")), ("items", Array(Ref("value"), 2, 2))),
-                Object(("kind", Enum("predicate")), ("predicate", Enum("not")), ("items", Array(Ref("value"), 1, 1))),
-                Object(("kind", Enum("predicate")), ("predicate", Enum("and", "or", "equal", "not_equal", "less", "less_equal", "greater", "greater_equal")), ("items", Array(Ref("value"), 2, 2)))) },
-            ["literal"] = new JsonObject { ["anyOf"] = new JsonArray(
-                Object(("kind", Enum("null"))), Object(("kind", Enum("string")), ("text", String())),
-                Object(("kind", Enum("number")), ("number", Type("number"))), Object(("kind", Enum("boolean")), ("boolean", Type("boolean"))),
-                Object(("kind", Enum("object")), ("members", Array(Object(("name", String()), ("value", Ref("literal")))))),
-                Object(("kind", Enum("array")), ("items", Array(Ref("literal"))))) },
-            ["businessType"] = BusinessTypes(transform: false, arrayBounds),
-            ["field"] = Input(objectField: true),
-            ["resultType"] = BusinessTypes(transform: true, arrayBounds),
-            ["resultField"] = Object(("name", Ref("goal")), ("type", Ref("resultType"))),
-            ["input"] = Described(Input(objectField: false), "Omitted required=true/default=absent. Declare inputs once."),
-            ["output"] = Object(("name", String()), ("value", Ref("value"))),
-            ["requirements"] = Object(("summary", String()), ("outcomes", NonEmptyArray(Object(("id", String()), ("description", String()))))),
-            ["plan"] = Object(("inputs", Array(Ref("input"))), ("root", Ref("scope")), ("groups", Array(Ref("group"))), ("choices", Array(Ref("choice")))),
-            ["scope"] = Object(("tasks", Array(Ref("task"))), ("outputs", Array(Ref("output"))), ("always", Array(Ref("task")))),
-            ["group"] = Object(("id", Ref("id")), ("inputs", Array(Ref("input"))), ("body", Ref("scope"))),
-            ["choice"] = Object(("id", Ref("id")), ("question", Ref("goal")), ("type", Ref("businessType")),
-                ("alternatives", Array(Object(("id", Ref("goal")), ("description", String()), ("value", Ref("literal"))), 2)),
-                ("recommended", String()))
-        };
+        root["$defs"] = SemanticDefinitions(flatten, arrayBounds);
         var definitions = root["$defs"]!.AsObject();
         if (clarifications)
         {
@@ -216,6 +179,60 @@ internal static class PlanningSchemas
         }
         if (!declareRequirements) root["$defs"]!.AsObject().Remove("requirements");
         return compact ? Compact(root) : root;
+    }
+
+    // Shared semantic grammar only: no discovery actions, requirement capture,
+    // operation catalog traversal or unrelated task alternatives.
+    internal static JsonObject ConstructionDefinitions(PlanningSession state, string kind)
+    {
+        var definitions = SemanticDefinitions(flatten: true, arrayBounds: true);
+        definitions.Remove("requirements"); definitions.Remove("plan");
+        definitions["value"]!["anyOf"]!.AsArray().Add((JsonNode)Described(Object(("kind", Enum("lookup")), ("port", Ref("goal")),
+            ("items", Array(Ref("value"), 2, 2))), "items=[records,IDs]; port=key. Preserve order/repeats; reject missing/ambiguous IDs."));
+        definitions["task"] = new JsonObject { ["anyOf"] = new JsonArray(TaskShapes(state, kind, historical: false, arrayBounds: true).ToArray()) };
+        return definitions;
+    }
+
+    private static JsonObject SemanticDefinitions(bool flatten, bool arrayBounds)
+    {
+        return new JsonObject
+        {
+            ["id"] = Identity(), ["goal"] = Nonblank(),
+            ["identities"] = Array(Identity()),
+            ["value"] = new JsonObject { ["anyOf"] = new JsonArray(
+                Object(("kind", Enum("null"))), Object(("kind", Enum("string")), ("text", String())),
+                Object(("kind", Enum("number")), ("number", Type("number"))), Object(("kind", Enum("boolean")), ("boolean", Type("boolean"))),
+                Object(("kind", Enum("object")), ("members", Array(Ref("output")))),
+                Object(("kind", Enum("array")), ("items", Array(Ref("value")))),
+                Described(Object(("kind", Enum(flatten ? ["json", "flatten"] : ["json"])), ("items", Array(Ref("value"), 1, 1))), flatten ? "json encodes one value; flatten concatenates one typed array-of-arrays level in order." : "Serialize one business value as JSON text; no inference."),
+                Described(Object(("kind", Enum("field")), ("items", Array(Ref("value"), 1, 1)), ("port", Ref("goal"))), "Select one literal declared field from a typed object/item; nest for nested fields."),
+                Object(("kind", Enum("input")), ("source", String())),
+                Object(("kind", Enum("choice", "present")), ("source", Ref("id"))),
+                Object(("kind", Enum("output")), ("source", Ref("id")), ("port", Nullable(String()))),
+                Object(("kind", Enum("item", "index"))),
+                Object(("kind", Enum("arithmetic")), ("text", Enum("negate")), ("items", Array(Ref("value"), 1, 1))),
+                Object(("kind", Enum("arithmetic")), ("text", Enum("add", "subtract", "multiply", "divide", "remainder")), ("items", Array(Ref("value"), 2, 2))),
+                Object(("kind", Enum("predicate")), ("predicate", Enum("not")), ("items", Array(Ref("value"), 1, 1))),
+                Object(("kind", Enum("predicate")), ("predicate", Enum("and", "or", "equal", "not_equal", "less", "less_equal", "greater", "greater_equal")), ("items", Array(Ref("value"), 2, 2)))) },
+            ["literal"] = new JsonObject { ["anyOf"] = new JsonArray(
+                Object(("kind", Enum("null"))), Object(("kind", Enum("string")), ("text", String())),
+                Object(("kind", Enum("number")), ("number", Type("number"))), Object(("kind", Enum("boolean")), ("boolean", Type("boolean"))),
+                Object(("kind", Enum("object")), ("members", Array(Object(("name", String()), ("value", Ref("literal")))))),
+                Object(("kind", Enum("array")), ("items", Array(Ref("literal"))))) },
+            ["businessType"] = BusinessTypes(transform: false, arrayBounds),
+            ["field"] = Input(objectField: true),
+            ["resultType"] = BusinessTypes(transform: true, arrayBounds),
+            ["resultField"] = Object(("name", Ref("goal")), ("type", Ref("resultType"))),
+            ["input"] = Described(Input(objectField: false), "Omitted required=true/default=absent. Declare inputs once."),
+            ["output"] = Object(("name", String()), ("value", Ref("value"))),
+            ["requirements"] = Object(("summary", String()), ("outcomes", NonEmptyArray(Object(("id", String()), ("description", String()))))),
+            ["plan"] = Object(("inputs", Array(Ref("input"))), ("root", Ref("scope")), ("groups", Array(Ref("group"))), ("choices", Array(Ref("choice")))),
+            ["scope"] = Object(("tasks", Array(Ref("task"))), ("outputs", Array(Ref("output"))), ("always", Array(Ref("task")))),
+            ["group"] = Object(("id", Ref("id")), ("inputs", Array(Ref("input"))), ("body", Ref("scope"))),
+            ["choice"] = Object(("id", Ref("id")), ("question", Ref("goal")), ("type", Ref("businessType")),
+                ("alternatives", Array(Object(("id", Ref("goal")), ("description", String()), ("value", Ref("literal"))), 2)),
+                ("recommended", String()))
+        };
     }
 
     internal static JsonObject Compact(JsonObject root, bool compositionHints = false, bool interactionHints = false)
@@ -393,15 +410,24 @@ internal static class PlanningSchemas
     }
 
     private static JsonObject Boolean(bool value) => new() { ["type"] = "boolean", ["enum"] = new JsonArray(value) };
-    private static JsonObject Tasks(PlanningSession state, JsonObject definitions, IReadOnlySet<string>? admitted = null, bool arrayBounds = true)
-    {
-        JsonObject Task(string kind, params (string Name, JsonObject Schema)[] fields) => Object(new (string Name, JsonObject Schema)[]
+    private static JsonObject TaskShape(string kind, params (string Name, JsonObject Schema)[] fields) =>
+        Object(new (string Name, JsonObject Schema)[]
         { ("id", Ref("id")), ("kind", Enum(kind)), ("objective", Ref("goal")), ("dependsOn", Ref("identities")),
           ("requires", Nullable(Ref("value"))) }.Concat(fields).ToArray());
-        var operations = OperationTasks(state, definitions, (ids, inputs) => Task("operation", ("operation", ids), ("inputs", inputs)), admitted);
-        return new() { ["anyOf"] = new JsonArray(operations.Concat(new JsonNode?[] {
-            Described(Task("value", ("outputs", Array(Ref("output")))), "Copies/assembles values; objectives do not compute."),
-            Described(Task("transform", ("mode", Enum("extract")),
+
+    private static JsonObject Tasks(PlanningSession state, JsonObject definitions, IReadOnlySet<string>? admitted = null, bool arrayBounds = true)
+    {
+        var operations = OperationTasks(state, definitions, (ids, inputs) => TaskShape("operation", ("operation", ids), ("inputs", inputs)), admitted);
+        return new() { ["anyOf"] = new JsonArray(operations.Concat(TaskShapes(state, null, historical: true, arrayBounds)).ToArray()) };
+    }
+
+    private static IEnumerable<JsonNode?> TaskShapes(PlanningSession state, string? kind, bool historical, bool arrayBounds)
+    {
+        if (kind is null or "value")
+            yield return Described(TaskShape("value", ("outputs", Array(Ref("output")))), "Copies/assembles values; objectives do not compute.");
+        if (kind is null or "transform")
+        {
+            yield return Described(TaskShape("transform", ("mode", Enum("extract")),
                 ("each", Object(("input", Described(Ref("id"), "Exact named binding in this task's inputs.")),
                     ("output", Described(Ref("id"), "Exact name of the sole array result field.")))), ("inputs", NonEmptyArray(Ref("output"))),
                 ("resultType", Object(("kind", Enum("object")), ("fields", Array(Object(("name", Ref("goal")),
@@ -410,20 +436,23 @@ internal static class PlanningSchemas
                 "Independent extraction: each names one collection input and the sole array result field. Produce exactly one result per item in order; nested arrays stay nested. No global comparison, filtering or implicit flattening. Shared inputs are read-only. Mapping examples are bounded; " +
                 (state.Request.Options["mapping_profile"]?.ToString() == TaskPlanCompiler.AdaptiveMappingProfile
                     ? "all items are checked under the configured shared runtime budget; unresolved items may require specialization."
-                    : "all items are checked under one shared two-attempt allowance.")),
-            Described(Task("transform", ("mode", Enum("extract", "interpret")), ("inputs", NonEmptyArray(Ref("output"))),
+                    : "all items are checked under one shared two-attempt allowance."));
+            yield return Described(TaskShape("transform", ("mode", Enum("extract", "interpret")), ("inputs", NonEmptyArray(Ref("output"))),
                 ("resultType", Object(("kind", Enum("object")), ("fields", NonEmptyArray(Ref("resultField")))))),
-                "Extract observed data or interpret it explicitly. Copies use value/field/object bindings. Declare result fields; no invented defaults."),
-            Described(Task("transform", ("inputs", NonEmptyArray(Ref("output"))),
-                ("resultType", Object(("kind", Enum("object")), ("fields", NonEmptyArray(Ref("resultField")))))),
-                "Historical interpretation form; omission of mode retains interpret semantics."),
-            Task("sequence", ("body", Ref("scope"))),
-            Task("conditional", ("condition", Ref("value")), ("body", Ref("scope")), ("otherwise", Ref("scope"))),
-            Task("parallel", ("branches", Array(Ref("scope"), 2)), ("maxConcurrency", Integer(1, 100))),
-            Task("foreach", ("items", Ref("value")), ("body", Ref("scope")), ("parallel", Type("boolean")), ("maxItems", Described(Integer(1, 10000), arrayBounds
+                "Extract observed data or interpret it explicitly. Copies use value/field/object bindings. Declare result fields; no invented defaults.");
+            if (historical)
+                yield return Described(TaskShape("transform", ("inputs", NonEmptyArray(Ref("output"))),
+                    ("resultType", Object(("kind", Enum("object")), ("fields", NonEmptyArray(Ref("resultField")))))),
+                    "Historical interpretation form; omission of mode retains interpret semantics.");
+        }
+        if (kind is null or "sequence") yield return TaskShape("sequence", ("body", Ref("scope")));
+        if (kind is null or "conditional") yield return TaskShape("conditional", ("condition", Ref("value")), ("body", Ref("scope")), ("otherwise", Ref("scope")));
+        if (kind is null or "parallel") yield return TaskShape("parallel", ("branches", Array(Ref("scope"), 2)), ("maxConcurrency", Integer(1, 100)));
+        if (kind is null or "foreach")
+            yield return TaskShape("foreach", ("items", Ref("value")), ("body", Ref("scope")), ("parallel", Type("boolean")), ("maxItems", Described(Integer(1, 10000), arrayBounds
                 ? "TOTAL iteration ceiling, not a nonempty guarantee; declare array cardinality in its type."
-                : "TOTAL items limit: requested bound, else 100. Excess fails. 1 accepts only a singleton, regardless of workers.")), ("maxConcurrency", Integer(1, 100))),
-            Task("call", ("group", Ref("id")), ("inputs", Array(Ref("output")))) }).ToArray()) };
+                : "TOTAL items limit: requested bound, else 100. Excess fails. 1 accepts only a singleton, regardless of workers.")), ("maxConcurrency", Integer(1, 100)));
+        if (kind is null or "call") yield return TaskShape("call", ("group", Ref("id")), ("inputs", Array(Ref("output"))));
     }
     private static IEnumerable<JsonNode?> OperationTasks(PlanningSession state, JsonObject definitions, Func<JsonObject, JsonObject, JsonObject> task, IReadOnlySet<string>? admitted)
     {

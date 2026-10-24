@@ -9,7 +9,7 @@ public sealed class PlanningFreshDefaultsTests
     public void FreshRequestsUseSharedLargerAllowances()
     {
         var request = new PlanningRequest();
-        Assert.Equal(12, request.MaxModelCalls);
+        Assert.Equal(64, request.MaxModelCalls);
         Assert.Equal(4, request.MaxReplanAttempts);
         Assert.Equal(32_000, request.Generation.MaxInputTokensPerRequest);
         Assert.Equal(32_768, request.Generation.MaxOutputTokens);

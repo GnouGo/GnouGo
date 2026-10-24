@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
@@ -42,19 +43,24 @@ public sealed class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records,
         {
             throw new PlanningConflictException("This planning session is active in another runtime. Resume with the same run ID after it releases the session.");
         }
+        var inheritedBudget = context.LLMUsageBudget;
         try
         {
             var savedDefinition = await records.GetAsync(Definitions, tenant, key, Author, ct);
+            var retainedDocument = savedDefinition is null ? null : JsonNode.Parse(savedDefinition.Value)!.AsObject();
+            JsonNode? creationCheckpoint = null;
+            var hasCreationCheckpoint = retainedDocument?.Remove("creationCheckpoint", out creationCheckpoint) == true;
+            var retainedDefinition = retainedDocument?.Deserialize(PlanningJsonContext.Default.PlanningRequest);
             if (savedDefinition is not null && initial.Request.Options.ContainsKey("raw_prompt"))
             {
                 // workflow.plan reconstructs omitted defaults on every invocation.
                 // Compare authored inputs exactly, using the retained defaults only
                 // for omitted fields. Explicit changes still fail the comparison.
-                var retained = JsonSerializer.Deserialize(savedDefinition.Value, PlanningJsonContext.Default.PlanningRequest)!;
+                var retained = retainedDefinition!;
                 var input = initial.Request.Options;
                 if (input["max_replan_attempts"] is null && initial.Request.MaxReplanAttempts == 4)
                     initial.Request.MaxReplanAttempts = retained.MaxReplanAttempts;
-                if (input["llm_budget"]?["max_calls"] is null && initial.Request.MaxModelCalls == 12)
+                if (input["llm_budget"]?["max_calls"] is null && initial.Request.MaxModelCalls == 64)
                     initial.Request.MaxModelCalls = retained.MaxModelCalls;
                 if (input["generator"]?["max_input_tokens"] is null && initial.Request.Generation.MaxInputTokensPerRequest == 32_000)
                     initial.Request.Generation.MaxInputTokensPerRequest = retained.Generation.MaxInputTokensPerRequest;
@@ -62,7 +68,7 @@ public sealed class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records,
                     initial.Request.Generation.MaxOutputTokens = retained.Generation.MaxOutputTokens;
             }
             var definition = JsonSerializer.Serialize(initial.Request, PlanningJsonContext.Default.PlanningRequest);
-            if (savedDefinition is not null && JsonSerializer.Serialize(JsonSerializer.Deserialize(savedDefinition.Value, PlanningJsonContext.Default.PlanningRequest), PlanningJsonContext.Default.PlanningRequest) != definition)
+            if (savedDefinition is not null && JsonSerializer.Serialize(retainedDefinition, PlanningJsonContext.Default.PlanningRequest) != definition)
                 throw new PlanningConflictException("The planning request changed for this run ID. Resume the original request or start a new run.");
             var saved = await records.GetAsync(Sessions, tenant, key, Author, ct);
             if (saved is null && (await records.GetAsync("flow-planning-sessions-v9", tenant, key, Author, ct) is not null || await records.GetAsync("flow-planning-sessions-v8", tenant, key, Author, ct) is not null))
@@ -72,12 +78,46 @@ public sealed class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records,
             var state = saved is null
                 ? JsonSerializer.Deserialize(JsonSerializer.Serialize(initial, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!
                 : PlanningSessionStorage.Read(saved.Value, tenant, key);
-            // An existing definition can outlive an interrupted first checkpoint;
-            // its absent private profiles must retain their historical meaning.
-            if (saved is null && savedDefinition is null) PlanningSessionCreation.Capture(state, initial);
+            if (saved is null)
+            {
+                if (savedDefinition is null) PlanningSessionCreation.Capture(state, initial);
+                else if (hasCreationCheckpoint)
+                {
+                    // This host-owned snapshot precedes the first session write. It
+                    // preserves creation limits even if caller defaults later change.
+                    if (creationCheckpoint is not JsonObject checkpoint || checkpoint["version"] is not JsonValue version ||
+                        !version.TryGetValue<int>(out var number) || number != 1 || checkpoint["session"] is not JsonObject creation)
+                        throw new PlanningConflictException("The planning creation checkpoint is invalid.");
+                    state = PlanningSessionStorage.Read(creation.ToJsonString(), tenant, key);
+                    if (await records.GetAsync(WorkflowPlanningBudgetSink.Collection, tenant, key, Author, ct) is not null)
+                        throw new PlanningConflictException("The active planning session checkpoint is missing. Its creation snapshot cannot reset retained usage.");
+                    foreach (var option in retainedDefinition!.Options)
+                        if (!state.Request.Options.TryGetPropertyValue(option.Key, out var captured) || !JsonNode.DeepEquals(option.Value, captured))
+                            throw new PlanningConflictException("The planning creation checkpoint no longer matches its authored options.");
+                    var capturedRequest = JsonSerializer.SerializeToNode(state.Request, PlanningJsonContext.Default.PlanningRequest)!.AsObject();
+                    // Capture adds only private options. All authored request fields,
+                    // including generation and policy limits, must still agree.
+                    capturedRequest["options"] = retainedDefinition!.Options.DeepClone();
+                    if (!JsonNode.DeepEquals(capturedRequest, JsonNode.Parse(definition)))
+                        throw new PlanningConflictException("The planning creation checkpoint no longer matches its authored request.");
+                }
+                else
+                    // Unmarked definitions predate incremental creation. Do not
+                    // adopt the new executor's construction state on their resume.
+                    state.Construction = null;
+            }
             if (state.SchemaVersion != 10 || state.Request.TenantId != tenant || state.Request.SessionId != key || saved is not null && savedDefinition is null)
                 throw new PlanningConflictException("The planning session ownership or schema is invalid.");
-            if (savedDefinition is null) await records.UpsertAsync(Definitions, tenant, key, definition, Author, ct);
+            if (savedDefinition is null)
+            {
+                var durableDefinition = JsonNode.Parse(definition)!.AsObject();
+                durableDefinition["creationCheckpoint"] = new JsonObject
+                {
+                    ["version"] = 1,
+                    ["session"] = JsonSerializer.SerializeToNode(state, PlanningJsonContext.Default.PlanningSession)
+                };
+                await records.UpsertAsync(Definitions, tenant, key, durableDefinition.ToJsonString(), Author, ct);
+            }
             // A crash after the receipt but before the coordinator checkpoint must not
             // replenish active time. Record timestamps bound the completed call interval.
             if (state.PendingCall is { } pending && await records.GetAsync(WorkflowPlanningModelJournal.Receipts, tenant, pending.Id, Author, ct) is { } completion && completion.UpdatedAt > state.UpdatedAtUtc)
@@ -90,12 +130,21 @@ public sealed class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records,
                 ?? throw new PlanningConflictException("The encrypted planning budget is invalid.");
             var limits = (PlanningBudgetOptions.Parse(state.Request.Options) ?? new LLMUsageBudgetLimits()) with
                 { MaxElapsed = null, MaxCalls = Math.Min(PlanningBudgetOptions.Parse(state.Request.Options)?.MaxCalls ?? state.Request.MaxModelCalls, state.Request.MaxModelCalls) };
-            var inheritedBudget = context.LLMUsageBudget;
             var budget = new LLMUsageBudgetScope(limits, usage, inheritedBudget, new WorkflowPlanningBudgetSink(records, tenant, key),
                 exchangeRateProvider: context.Engine.ExchangeRateProvider);
             // The journal meters actual dispatches; replaying a receipt consumes no new allowance.
             context.LLMUsageBudget = null;
-            var client = new WorkflowPlanningModelJournal(context, records, state.Request, budget);
+            var client = new WorkflowPlanningModelJournal(context, records, state.Request, budget,
+                DateTimeOffset.UtcNow + (PlanningBudgetOptions.Parse(state.Request.Options)?.MaxElapsed ?? TimeSpan.FromHours(5)) - TimeSpan.FromMilliseconds(state.ActiveMilliseconds));
+            if (state.PendingCall is { } retainedCall)
+            {
+                await client.RecoverSavedResponseAsync(retainedCall.Request, ct);
+                if (await records.GetAsync(WorkflowPlanningModelJournal.Receipts, tenant, retainedCall.Id, Author, ct) is { } recovered && recovered.UpdatedAt > state.UpdatedAtUtc)
+                {
+                    state.ActiveMilliseconds += (recovered.UpdatedAt - state.UpdatedAtUtc).TotalMilliseconds;
+                    state.UpdatedAtUtc = recovered.UpdatedAt;
+                }
+            }
             async Task Checkpoint(PlanningSession snapshot, CancellationToken token)
             {
                 snapshot.Usage = budget.Snapshot;
@@ -123,7 +172,7 @@ public sealed class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records,
             context.SetTelemetryAttribute("gnougo-flow.plan.run_id", context.Limits.RunId);
             return new OwnedSession(state, new WorkflowPlanningRuntime(context, client, Checkpoint), lease, () => context.LLMUsageBudget = inheritedBudget);
         }
-        catch { await lease.DisposeAsync(); throw; }
+        catch { context.LLMUsageBudget = inheritedBudget; await lease.DisposeAsync(); throw; }
     }
 
     public async Task<string> ReadApprovedYamlAsync(StepExecutionContext context, string sessionId, string artifactHash, CancellationToken ct)

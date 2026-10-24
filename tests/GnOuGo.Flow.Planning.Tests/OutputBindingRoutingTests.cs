@@ -49,6 +49,8 @@ public sealed class OutputBindingRoutingTests
     public async Task HistoricalCorrectionKeepsItsOriginalLocationsAndRegeneration()
     {
         var (runtime, state) = await Fixture();
+        PlannerFixture.WithoutCapturedProfiles(state);
+        state.Request.Options["compilation_profile"] = TaskPlanCompiler.CompactProfile;
         state.Revision = 1;
         state = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
         state.Request.Baseline = PlannerFixture.Clone(state).Plan;

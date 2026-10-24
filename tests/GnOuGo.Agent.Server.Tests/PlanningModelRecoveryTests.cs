@@ -15,6 +15,22 @@ public sealed class PlanningModelRecoveryTests
     private static readonly LLMUsageBudgetLimits Limits = new() { MaxCalls = 8, MaxTotalTokens = 1_000_000, MaxEstimatedCost = new(50, "EUR") };
 
     [Fact]
+    public async Task ConstructionNeverReissuesAnUncertainCallOrChangesAccounting()
+    {
+        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
+        var state = await SeedAsync(fixture);
+        state.Construction = new();
+        state.PendingCall!.Purpose = "construction_draft";
+        var before = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        var error = await Assert.ThrowsAsync<PlanningConflictException>(() => PrepareAsync(state, fixture));
+        Assert.Contains("uncertain completion", error.Message);
+        Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+        var budget = await fixture.Records.GetAsync(PlanningBudgetSink.Collection, state.Request.TenantId,
+            state.Request.SessionId, EfPlanningSessionStore.Author, Ct);
+        Assert.Equal(15, JsonSerializer.Deserialize(budget!.Value, PlanningJsonContext.Default.LLMUsageBudgetSnapshot)!.TotalTokens);
+    }
+
+    [Fact]
     public async Task ExplicitRetryRetainsOldDispatchAndChargesNewIdentity()
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();

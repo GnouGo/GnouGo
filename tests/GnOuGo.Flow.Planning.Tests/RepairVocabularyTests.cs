@@ -72,7 +72,7 @@ public sealed class RepairVocabularyTests
     [InlineData(9, "784b862d1aa67e99c685192524ba7c002055f40054703b40f2a0c8d57e5d9d39")]
     public void HistoricalAuthoritiesAreStable(int version, string expectedAuthority)
     {
-        var state = RepairPatchTests.State(); state.Request.SessionId = "frozen-vocabulary";
+        var state = PlannerFixture.WithoutCapturedProfiles(RepairPatchTests.State()); state.Request.SessionId = "frozen-vocabulary";
         var template = PlanningSchemas.FullProposal(state, compact: false, flatten: false, lookup: false, arrayBounds: version >= 9);
         var schema = PlanningRepairPatch.Schema(state, template, version);
         var authority = PlanningRepairPatch.Authority(state, version: version);

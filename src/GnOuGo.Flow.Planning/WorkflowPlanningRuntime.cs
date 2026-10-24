@@ -9,7 +9,7 @@ using GnOuGo.Flow.Planning.Capabilities;
 namespace GnOuGo.Flow.Planning;
 
 /// <summary>Provider-neutral catalog, model, runtime validation, and checkpoint effects.</summary>
-public sealed class WorkflowPlanningRuntime : IPlanningRuntime
+public sealed class WorkflowPlanningRuntime : IPlanningRuntime, IPlanningConstructionAdmission
 {
     private readonly WorkflowEngine _engine;
     public ICapabilityCatalog Capabilities { get; }
@@ -28,6 +28,13 @@ public sealed class WorkflowPlanningRuntime : IPlanningRuntime
     internal Task AdmitAsync(LLMRequest request, int inputLimit, string purpose, CancellationToken ct) =>
         ModelRequestAdmission.ValidateAsync(request, _engine.LLMCapabilities ?? _model as ILLMCapabilityResolver ??
             _engine.LLMClient as ILLMCapabilityResolver, inputLimit, purpose, ct);
+    public Task AdmitConstructionAsync(LLMRequest request, int inputTokenCeiling, IReadOnlyList<int> outputTokenCeilings, CancellationToken ct)
+    {
+        if ((_model ?? _engine.LLMClient) is IPlanningConstructionAdmission journal)
+            return journal.AdmitConstructionAsync(request, inputTokenCeiling, outputTokenCeilings, ct);
+        return _context.LLMUsageBudget?.EnsureAllowanceAsync(request, _engine.ModelUsageCostEstimator,
+            inputTokenCeiling, outputTokenCeilings, "workflow.plan.construction", ct) ?? Task.CompletedTask;
+    }
     public async Task<LLMResponse> CallAsync(LLMRequest request, string purpose, CancellationToken ct)
     {
         var client = _model ?? _engine.LLMClient ?? throw new InvalidOperationException("No planning model configured.");

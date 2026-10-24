@@ -19,6 +19,42 @@ public sealed partial class PlanningTraceUiTests : BunitContext
 {
     private static CancellationToken Ct => Xunit.TestContext.Current.CancellationToken;
 
+    [Fact]
+    public async Task CapacitySelectionIsPersistedWithoutAnOptionalReviewToggle()
+    {
+        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync(); Configure(fixture);
+        var cut = Render<PlanningPage>();
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#plan-capacity")));
+        cut.Find("#plan-capacity").Change("large");
+        cut.Find("#plan-name").Change("large-ui");
+        cut.Find("#plan-prompt").Change("Build the requested workflow");
+        cut.Find("form").Submit();
+        cut.WaitForAssertion(() => Assert.Contains("/planning/", Services.GetRequiredService<NavigationManager>().Uri));
+        var saved = Assert.Single(await fixture.Store.ListAsync("planning-tests", Ct));
+        Assert.NotNull(saved.Construction);
+        Assert.Equal(384, saved.Request.MaxModelCalls);
+        Assert.Equal("large", saved.Request.Options["construction_preset"]!.ToString());
+        Assert.DoesNotContain("Include an independent business review", cut.Markup);
+        await DisposeComponentsAsync();
+    }
+
+    [Fact]
+    public async Task ConstructionUnknownCompletionOffersNoReplay()
+    {
+        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync(); Configure(fixture);
+        var state = Session("construction-unknown", "Recovery", PlanningStatus.Stopped);
+        state.Construction = new();
+        state.PendingCall = new() { Id = "unknown", Purpose = "construction_draft", Request = new() { Prompt = "Retained" } };
+        state.Diagnostics = [new("MODEL_DISPATCH_UNVERIFIABLE", "/", "Uncertain completion")];
+        Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
+        Services.GetRequiredService<NavigationManager>().NavigateTo("/planning/construction-unknown");
+        var cut = Render<PlanningPage>(p => p.Add(c => c.SessionId, state.Request.SessionId));
+        cut.WaitForAssertion(() => Assert.Contains("Reconcile its original receipt", cut.Markup));
+        Assert.DoesNotContain("Retry with retained usage", cut.Markup);
+        Assert.Equal(state.Revision, (await fixture.Store.LoadAsync("planning-tests", state.Request.SessionId, Ct))!.Revision);
+        await DisposeComponentsAsync();
+    }
+
     [Theory]
     [InlineData(PlanningStatus.FinalReview)]
     [InlineData(PlanningStatus.Stopped)]

@@ -4,6 +4,7 @@ using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Planning;
+using GnOuGo.Flow.Integrations.Planning;
 using GnOuGo.KeyVault.Core.Services;
 
 namespace GnOuGo.Agent.Server.Planning;
@@ -59,8 +60,17 @@ internal static class PlanningModelRecovery
             ?? throw new PlanningConflictException("The durable dispatch accounting is unavailable.");
         var usage = JsonSerializer.Deserialize(saved.Value, PlanningJsonContext.Default.LLMUsageBudgetSnapshot)
             ?? throw new PlanningConflictException("The durable dispatch accounting is invalid.");
-        if (usage.Calls != state.ModelCalls || state.Usage is { } previous &&
-            (usage.InputTokens < previous.InputTokens || usage.OutputTokens < previous.OutputTokens || usage.EstimatedCost < previous.EstimatedCost))
+        var physical = PlanningTransportPolicies.Read(state.Request) is not null;
+        if (physical
+            ? usage.JournaledAttempts is null || usage.JournaledAttempts.Count != usage.Calls || usage.Calls < state.ModelCalls ||
+                usage.JournaledAttempts.Keys.Any(id => !id.StartsWith(state.Request.SessionId + ":", StringComparison.Ordinal)) ||
+                state.Usage is { } earlier && (usage.Calls < earlier.Calls || earlier.JournaledAttempts is { } retained &&
+                    retained.Any(pair => !usage.JournaledAttempts.TryGetValue(pair.Key, out var actual) ||
+                        pair.Value.InputTokenCeiling != actual.InputTokenCeiling || pair.Value.OutputTokenCeiling != actual.OutputTokenCeiling ||
+                        pair.Value.ReservedEstimatedCost != actual.ReservedEstimatedCost ||
+                        pair.Value.VerifiedUsage is not null && pair.Value.VerifiedUsage != actual.VerifiedUsage))
+            : usage.Calls != state.ModelCalls || state.Usage is { } previous &&
+                (usage.InputTokens < previous.InputTokens || usage.OutputTokens < previous.OutputTokens || usage.EstimatedCost < previous.EstimatedCost))
             throw new PlanningConflictException("The dispatch accounting changed; reconcile it before resuming.");
         try { _ = new LLMUsageBudgetScope(limits ?? new() { MaxCalls = state.Request.MaxModelCalls }, usage); }
         catch (ArgumentException) { throw new PlanningConflictException("The durable dispatch accounting is invalid for this host."); }
@@ -83,6 +93,25 @@ internal static class PlanningModelRecovery
             await RestoreUsageAsync(state, records, ct, limits);
             state.Status = PlanningStatus.Generating; ClearTransportDiagnostics(state); return;
         }
+        if (PlanningTransportPolicies.Read(state.Request) is not null)
+        {
+            var issued = await records.GetAsync(PlanningModelJournal.RequestCollection, tenant, key, author, ct);
+            if (issued?.Value != JsonSerializer.Serialize(pending.Request, PlanningJsonContext.Default.LLMRequest))
+                throw new PlanningConflictException("The exact issued planning request is unavailable for HTTP recovery.");
+            await RestoreUsageAsync(state, records, ct, limits);
+            var journal = new PlanningHttpModelJournal(records, new LLMUsageBudgetScope(limits, state.Usage, exchangeRateProvider: exchangeRates),
+                state.Request, pending.Request, estimator, PlanningModelJournal.HttpCollection, author,
+                DateTimeOffset.UtcNow + (PlanningBudgetOptions.Parse(state.Request.Options)?.MaxElapsed ?? TimeSpan.FromHours(5)) -
+                TimeSpan.FromMilliseconds(state.ActiveMilliseconds));
+            await journal.VerifyRecoveryAsync(ct);
+            // Keep the same request, schema and physical accounting. The transport
+            // helper alone may advance a recorded eligible error or parse its receipt.
+            state.Status = PlanningStatus.Generating;
+            ClearTransportDiagnostics(state);
+            return;
+        }
+        if (state.Construction is not null)
+            throw new PlanningConflictException("The construction request has uncertain completion. Reconcile its original receipt before continuing; it cannot be replayed under a new identity.");
         var saved = await records.GetAsync(PlanningBudgetSink.Collection, tenant, session, author, ct)
             ?? throw new PlanningConflictException("The dispatch budget is unavailable; recovery cannot reset it.");
         var current = JsonSerializer.Deserialize(saved.Value, PlanningJsonContext.Default.LLMUsageBudgetSnapshot)!;

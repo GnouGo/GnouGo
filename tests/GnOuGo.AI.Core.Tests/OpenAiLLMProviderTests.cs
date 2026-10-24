@@ -7,6 +7,34 @@ namespace GnOuGo.AI.Core.Tests;
 public sealed class OpenAiLlmProviderTests
 {
     [Theory]
+    [InlineData(false, 3)][InlineData(true, 1)]
+    public async Task CapturedHttpPolicyKeepsExplicitDisableAndProviderConfigurationImmutable(bool disabled, int expected)
+    {
+        var calls = 0; var bodies = new List<string>(); var journal = new RoutingJournal();
+        using var http = new HttpClient(new StubHttpMessageHandler(async request =>
+        {
+            calls++; bodies.Add(await request.Content!.ReadAsStringAsync());
+            Assert.Equal(calls, journal.State!.Attempts.Count);
+            return new HttpResponseMessage(HttpStatusCode.BadGateway) { Content = new StringContent("temporary") };
+        }));
+        var provider = new ModelProviderOptions { Type = "openai", Url = "https://gateway.example/v1", ApiKey = "test" };
+        var client = new RoutingLLMClient(http, new() { DefaultProvider = "configured", DefaultModel = "model", Models = new() { ["configured"] = provider } });
+        var captured = new LLMProviderRetryPolicyOptions { MaxAttempts = 3, MaxUncertainRetries = 0, BaseDelayMilliseconds = 1, MaxDelayMilliseconds = 1 };
+        using var scope = new LLMHttpRetryContext("original", journal, captured).Activate();
+        captured.MaxAttempts = 1; // The activated policy is an immutable capture, not a shared mutable option.
+        var failure = await Assert.ThrowsAsync<LLMProviderException>(() => client.CallAsync(new()
+            { Prompt = "bounded", MaxOutputTokens = 8192, RequireOutputTokenLimit = true, DisableTransportRetries = disabled }, TestContext.Current.CancellationToken));
+        Assert.Equal(expected, calls); Assert.Equal(expected, failure.AttemptCount);
+        Assert.Single(bodies.Distinct()); Assert.Equal(4, provider.RetryPolicy.MaxAttempts); Assert.Equal(1, provider.RetryPolicy.MaxUncertainRetries);
+    }
+
+    private sealed class RoutingJournal : ILLMHttpRetryJournal
+    {
+        internal LLMHttpRetryState? State;
+        public Task<LLMHttpRetryState?> LoadAsync(CancellationToken ct) => Task.FromResult(State);
+        public Task SaveAsync(LLMHttpRetryState state, CancellationToken ct) { State = state; return Task.CompletedTask; }
+    }
+    [Theory]
     [InlineData(400, false)][InlineData(422, false)][InlineData(404, true)][InlineData(405, true)][InlineData(501, true)]
     public async Task NonTransientRejectionNeverChangesProtocolOrDropsTokenCeiling(int status, bool background)
     {

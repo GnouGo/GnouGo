@@ -8,6 +8,52 @@ namespace GnOuGo.Planning.Examples;
 /// <summary>Scripted semantic responses for offline tests. Requests and outcome oracles are frozen separately.</summary>
 public static class PlanningCorpus
 {
+    // This corpus records the historical whole-plan response protocol. Rehydrate
+    // its captured profiles explicitly; fresh-session construction has separate
+    // extension/Judge fixtures and must never accept these responses as fallback.
+    public static PlanningSession RetainedSession(PlanningSession state)
+    {
+        state.IntentVersion ??= 3;
+        state.Request.Options.TryAdd("compilation_profile", TaskPlanCompiler.CompactProfile);
+        state.Request.Options.TryAdd("mapping_profile", TaskPlanCompiler.AdaptiveMappingProfile);
+        state.Request.Options.TryAdd("planning_validation_profile", TaskPlanCompiler.AssertionValidationProfile);
+        state.Request.Options.TryAdd("planning_diagnostics_version", 1);
+        state.Request.Options.TryAdd("planning_input_review_version", 2);
+        state.Request.Options.TryAdd("business_judge_review_version", 2);
+        return JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
+    }
+
+    // Explicit one-draft transport for small offline interaction fixtures. Large
+    // frozen corpus responses continue to exercise their retained protocol.
+    public static JsonNode? OneDraftResponse(LLMRequest request, PlanningProposal proposal)
+    {
+        var schema = request.StructuredOutputSchema!.AsObject();
+        JsonObject response;
+        if (schema["properties"]?["findings"] is not null)
+        {
+            response = new() { ["findings"] = new JsonArray(), ["uncertainty"] = "Offline review fixture; execution is independently asserted.", ["evidenceRequests"] = null };
+            if (schema["properties"]?["inconclusive"] is not null) response["inconclusive"] = null;
+        }
+        else
+        {
+            response = JsonSerializer.SerializeToNode(proposal, PlanningJsonContext.Default.PlanningProposal)!.AsObject();
+            response.Remove("plan");
+            var baselineSchema = schema["properties"]?["baseHash"];
+            while (baselineSchema?["$ref"] is { } reference)
+                baselineSchema = schema["$defs"]![reference.ToString().Split('/')[^1]];
+            response["baseHash"] = baselineSchema?["enum"]?[0]?.DeepClone();
+            if (proposal.Plan is { } plan)
+            {
+                var extension = new PlanningConstructionExtension { Tasks = plan.Root.Tasks, Always = plan.Root.Always,
+                    Outputs = plan.Root.Outputs, Groups = plan.Groups, Choices = plan.Choices,
+                    CloseScopes = ["/root"], Complete = true,
+                    RequirementIds = proposal.Requirements!.Outcomes.Select(r => r.Id).ToList() };
+                response["extension"] = JsonSerializer.SerializeToNode(extension, PlanningJsonContext.Default.PlanningConstructionExtension);
+            }
+        }
+        return Transport(response, schema, schema);
+    }
+
     public static readonly string[] Names = PlanningBenchmarkCases.Names;
     public static string Prompt(string name) => PlanningBenchmarkCases.Prompt(name);
     public static PlanningValue Ref(string kind, string source, params string[] path) => new() { Kind = kind, Source = source, Path = path.ToList() };
@@ -180,7 +226,11 @@ public static class PlanningCorpus
         if (value is JsonObject obj && obj.ContainsKey("nullable") && properties?["kind"] is not null &&
             (properties.ContainsKey("nullable") ? !Matches(obj["nullable"], properties["nullable"]!.AsObject(), root) : obj["nullable"]?.ToString() == "true")) return false;
         if (properties?["text"] is null && properties?["kind"]?["enum"] is JsonArray typeKinds &&
-            typeKinds.Any(k => k?.ToString() == "string") && (schema["properties"]?["enum"] is not null) != (value["enum"] is not null)) return false;
+            typeKinds.Any(k => k?.ToString() == "string"))
+        {
+            var enumSchema = properties["enum"] as JsonObject;
+            if (enumSchema is null ? value["enum"] is not null : !Matches(value["enum"], enumSchema, root)) return false;
+        }
         if (properties?["name"] is not null && properties["type"] is not null)
         {
             if (!properties.ContainsKey("required") && value["required"]?.ToString() == "false") return false;

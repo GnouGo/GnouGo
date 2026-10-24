@@ -23,16 +23,18 @@ public sealed class RecordedEnumPlanningTests
     }
 
     [Fact]
-    public async Task NewIssuedSchemaRejectsInventedLiteralsAndSyntheticRegenerationReachesReview()
+    public async Task RetainedProtocolRejectsInventedLiteralsAndSyntheticCorrectionReachesReview()
     {
         var runtime = new Replay(); var retained = runtime.State(runtime.Recording["finalSession"]!);
         var state = new PlanningSession { IntentVersion = 2, Request = retained.Request, Requirements = retained.Requirements, Catalog = retained.Catalog, Discovery = retained.Discovery };
         state.Requirements!.Inputs = retained.Plan!.Inputs;
         state.Request.SessionId = "synthetic-enum-regeneration";
         RecordedPlanCompilation.InspectSelected(state, retained.Plan);
-        // This fresh fixture explicitly budgets the full typed contracts; the historical limit remains in the recording.
+        // This synthetic replay uses the captured whole-plan protocol and complete typed contracts.
+        // Fresh incremental sessions have separate extension fixtures; original recordings are immutable.
         state.Request.Generation.MaxInputTokensPerRequest = 96000;
         runtime.NextProposal = runtime.Recording["responses"]!.AsArray()[6]!["response"]!["json"]!.DeepClone().AsObject();
+        state = GnOuGo.Planning.Examples.PlanningCorpus.RetainedSession(state);
         var planner = new HybridWorkflowPlanner();
         state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
         Assert.Null(state.Plan); Assert.Null(state.Graph);

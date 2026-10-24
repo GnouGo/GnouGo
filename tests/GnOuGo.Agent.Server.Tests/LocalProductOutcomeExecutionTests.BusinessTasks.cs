@@ -198,9 +198,9 @@ public sealed partial class LocalProductOutcomeExecutionTests
             }
             if (variant == "denied") proposal.Plan!.Root.Tasks.Single(t => t.Id == "write").Inputs.Single(i => i.Name == "filePath").Value.Text = "../outside.xlsx";
             var adapter = new ProposalRuntime(runtime, proposal);
-            var initial = new PlanningSession { Catalog = catalog, Request = new() {
+            var initial = GnOuGo.Planning.Examples.PlanningCorpus.RetainedSession(new PlanningSession { Catalog = catalog, Request = new() {
                 TenantId = "local", Prompt = proposal.Requirements!.Summary, Policy = new() { RequireExternalConfirmation = false },
-                Generation = new() { MaxInputTokensPerRequest = 96000, MaxOutputTokens = 32768 } } };
+                Generation = new() { MaxInputTokensPerRequest = 96000, MaxOutputTokens = 32768 } } });
             var session = unionRevision && !initialComposition ? await ReviseUnionFixture(initial, runtime, proposal, ct) :
                 await new HybridWorkflowPlanner().AdvanceAsync(initial, new(), adapter, ct);
             if (variant == "producer_revision")

@@ -24,17 +24,17 @@ public sealed class RecordedCatalogOwnedBindingTests
     }
 
     [Fact]
-    public async Task SyntheticOmissionInNewSessionReachesReviewWithCatalogRunnerAndOriginalContracts()
+    public async Task SyntheticHistoricalReplayReachesReviewWithCatalogRunnerAndOriginalContracts()
     {
         var runtime = new Replay(); var retained = runtime.State(runtime.Recording["finalSession"]!);
-        // A new synthetic session, not a restart or budget reset of the real run.
+        // An isolated synthetic replay of the recorded whole-plan protocol, with no live calls or changes to the real run.
         var state = new PlanningSession { IntentVersion = 2, Request = retained.Request, Requirements = retained.Requirements,
             Catalog = retained.Catalog, Discovery = retained.Discovery };
         state.Requirements!.Inputs = retained.Plan!.Inputs;
         state.Request.SessionId = "synthetic-owned-omission";
         // Reuse metadata receipts, not the stopped session's model inspection selections.
         state.Discovery.Inspections = null;
-        // This fresh fixture explicitly budgets the full typed contracts; the historical limit remains in the recording.
+        // This captured-protocol fixture budgets its full typed contracts; the original recording remains unchanged.
         state.Request.Generation.MaxInputTokensPerRequest = 32768;
         var original = runtime.Recording["responses"]!.AsArray()[7]!["response"]!["json"]!["plan"]!.DeepClone();
         var expected = original.DeepClone();
@@ -43,6 +43,7 @@ public sealed class RecordedCatalogOwnedBindingTests
         expected = JsonSerializer.SerializeToNode(expectedPlan, PlanningJsonContext.Default.TaskPlan)!;
         var task = expected["root"]!["tasks"]!.AsArray().Single(t => t!["id"]!.ToString() == "run_project_checks")!;
         task["inputs"]!.AsArray().Remove(task["inputs"]!.AsArray().Single(i => i!["name"]!.ToString() == "runner"));
+        state = GnOuGo.Planning.Examples.PlanningCorpus.RetainedSession(state);
         var planner = new HybridWorkflowPlanner();
         state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
         Assert.True(state.Status == PlanningStatus.FinalReview, string.Join("; ", state.Diagnostics.Select(d => d.Code + ": " + d.Message)));

@@ -23,8 +23,8 @@ internal static class StabilizationBenchmark
     {
         string? Option(string name) => Array.IndexOf(args, name) is var i && i >= 0 ? args.ElementAtOrDefault(i + 1) ?? throw new ArgumentException("Missing " + name) : null;
         var campaignId = Option("--campaign") ?? throw new ArgumentException("--campaign is required.");
-        var root = Directory.GetCurrentDirectory();
-        var campaign = new BenchmarkCampaign(KeyVaultRecordStoreFactory.CreateWorkspaceStore(null, root), campaignId);
+        var root = Path.GetFullPath(Option("--workspace") ?? GnOuGoWorkspace.ResolveDefaultWorkingDirectory());
+        var campaign = new BenchmarkCampaign(KeyVaultBenchmarkModel.WorkspaceRecords(root), campaignId);
         if (Option("--inspect") is { } inspect)
         {
             var saved = await campaign.LoadAsync(Collection, inspect) ?? throw new ArgumentException("Unknown run.");
@@ -58,7 +58,7 @@ internal static class StabilizationBenchmark
         var executable = Path.GetFullPath(Option("--cmd-executable") ?? "src/GnOuGo.Cmd.Mcp/bin/Release/net10.0/GnOuGo.Cmd.Mcp");
         if (!File.Exists(executable)) throw new ArgumentException("Build the Release Cmd MCP executable first.");
         var manifest = Manifest(executable);
-        var leasePath = GnOuGoWorkspace.ResolveDatabasePath(null, root, ".GnOuGo/data/planning-evaluation/" + campaignId + ".lock");
+        var leasePath = Path.Combine(root, ".GnOuGo", "data", "planning-evaluation", campaignId + ".lock");
         Directory.CreateDirectory(Path.GetDirectoryName(leasePath)!);
         await using var lease = new FileStream(leasePath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
         var pinned = await campaign.LoadAsync("planning-evaluation-configuration", "stabilization-manifest");
@@ -90,7 +90,7 @@ internal static class StabilizationBenchmark
                 if (review is null || retained["review_pending"]?.GetValue<bool>() != true) { Console.WriteLine(retained.ToJsonString()); continue; }
                 (run["previous_results"] ??= new JsonArray()).AsArray().Add(retained.DeepClone()); run.Remove("result");
             }
-            var row = await ExecuteAsync(campaign, model, source, cohort, name, i, manifestHash, executable, run, review, creation);
+            var row = await ExecuteAsync(campaign, model, source, cohort, name, i, manifestHash, executable, run, review, creation, root);
             Console.WriteLine(row.ToJsonString());
             if (campaign.StopReason is not null || row["usage_bounded"]?.GetValue<bool>() != true)
             { Console.WriteLine((await BenchmarkHttpJournal.AccountingAsync(campaign)).ToJsonString()); Environment.ExitCode = 2; return; }
@@ -98,7 +98,7 @@ internal static class StabilizationBenchmark
         Console.WriteLine((await BenchmarkHttpJournal.AccountingAsync(campaign)).ToJsonString());
     }
     private static async Task<JsonObject> ExecuteAsync(BenchmarkCampaign campaign, KeyVaultBenchmarkModel model, string source, string cohort,
-        string name, int repetition, string manifest, string executable, JsonObject? retained, PlanningCommand? review, PlanningRequest creation)
+        string name, int repetition, string manifest, string executable, JsonObject? retained, PlanningCommand? review, PlanningRequest creation, string root)
     {
         var key = source + ":" + cohort + ":" + name + ":" + repetition;
         var id = PlanningGraphCompiler.Fingerprint(campaign.Id + ":stabilization:" + key);
@@ -109,8 +109,11 @@ internal static class StabilizationBenchmark
             Prompt = LocalExecutionCases.Names.Contains(name) ? LocalExecutionCases.Prompt(name) : PlanningBenchmarkCases.Prompt(name),
             MaxModelCalls = creation.MaxModelCalls, MaxReplanAttempts = creation.MaxReplanAttempts,
             Generation = new() { Reasoning = creation.Generation.Reasoning, MaxInputTokensPerRequest = creation.Generation.MaxInputTokensPerRequest, MaxOutputTokens = creation.Generation.MaxOutputTokens },
+            Policy = JsonSerializer.Deserialize(JsonSerializer.Serialize(creation.Policy, PlanningJsonContext.Default.PlanningPolicy), PlanningJsonContext.Default.PlanningPolicy)!,
             Options = (JsonObject)creation.Options.DeepClone() } };
-        var localRoot = Path.Combine(GnOuGoWorkspace.ResolveWorkflowWorkspacesDirectory(GnOuGoWorkspace.ResolveDefaultWorkingDirectory()), "planner-benchmark-" + id);
+        if (run["session"] is null) PlanningBenchmarkMeasurements.CaptureConstructionSettings(state);
+        var localRoot = Path.Combine(root, GnOuGoWorkspace.WorkflowWorkspacesSubfolder, "planner-benchmark-" + id);
+        await model.CapturePlanningPolicyAsync(state.Request, CancellationToken.None, state.Construction is not null || run["session"] is null, state.ActiveMilliseconds);
         Directory.CreateDirectory(localRoot);
         await using var local = LocalExecutionCases.Names.Contains(name) ? new LocalExecutionCases(localRoot, executable) : null;
         var environment = new PlanningBenchmarkCases.Environment(name);
@@ -122,13 +125,15 @@ internal static class StabilizationBenchmark
         });
         var planner = new HybridWorkflowPlanner(); var clock = Stopwatch.StartNew(); var variants = new JsonArray();
         var planningMs = 0L; var executionMs = 0L; string? failure = null;
-        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(20));
+        using var deadline = new CancellationTokenSource(PlanningTransportPolicies.Read(state.Request) is not null
+            ? PlanningBenchmarkMeasurements.RemainingPlanningTime(state, state.ActiveMilliseconds)
+            : PlanningBudgetOptions.Parse(state.Request.Options)?.MaxElapsed ?? TimeSpan.FromMinutes(20));
         try
         {
             if (run["execution_started"]?.GetValue<bool>() == true) throw new InvalidOperationException("Interrupted execution is retained, never silently repeated.");
             local?.Prepare(name, "nominal");
             var initialFiles = local?.Snapshot();
-            for (var advance = 0; advance < 40 && !PlanningStatus.IsWaiting(state.Status) && !PlanningStatus.IsTerminal(state.Status); advance++)
+            for (var advance = 0; advance < Math.Max(40, state.Request.MaxModelCalls * 4) && !PlanningStatus.IsWaiting(state.Status) && !PlanningStatus.IsTerminal(state.Status); advance++)
                 state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, deadline.Token);
             planningMs = clock.ElapsedMilliseconds;
             if (environment.Effects.Count > 0 || local is not null && (local.Calls.Count > 0 || !JsonNode.DeepEquals(initialFiles, local.Snapshot()))) throw new InvalidOperationException("Planning produced effects.");
@@ -248,12 +253,15 @@ internal static class StabilizationBenchmark
         using var process = Process.Start(start)!; var output = process.StandardOutput.ReadToEnd().Trim(); process.WaitForExit();
         if (process.ExitCode != 0) throw new InvalidOperationException("Cannot identify source revision."); return output;
     }
-    private sealed class InstrumentedRuntime(IPlanningRuntime inner, KeyVaultBenchmarkModel model, JsonObject run, Func<PlanningSession, Task> checkpoint) : IPlanningRuntime
+    private sealed class InstrumentedRuntime(IPlanningRuntime inner, KeyVaultBenchmarkModel model, JsonObject run, Func<PlanningSession, Task> checkpoint) : IPlanningRuntime, IPlanningConstructionAdmission
     {
+        public Task AdmitConstructionAsync(LLMRequest request, int inputTokenCeiling, IReadOnlyList<int> outputTokenCeilings, CancellationToken ct)
+            => model.AdmitConstructionAsync(request, inputTokenCeiling, outputTokenCeilings, ct);
         public ICapabilityCatalog Capabilities { get; } = new CountingCatalog(inner.Capabilities, run);
         public Task<PlanningCatalog> DiscoverAsync(PlanningRequest request, CancellationToken ct) => inner.DiscoverAsync(request, ct);
         public async Task<LLMResponse> CallAsync(LLMRequest request, string purpose, CancellationToken ct)
         {
+            PlanningBenchmarkMeasurements.RecordRequest(run, request, purpose);
             var callClock = Stopwatch.StartNew();
             try { var response = await model.CallAsync(request, ct);
                 PlanningBenchmarkMeasurements.RecordResponse(run, request, response, run["session"]?["modelCalls"]?.GetValue<int>() ?? 0, purpose);

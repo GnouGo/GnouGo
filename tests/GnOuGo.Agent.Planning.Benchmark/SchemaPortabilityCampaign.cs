@@ -13,6 +13,7 @@ internal static class SchemaPortabilityCampaign
     {
         var paths = new[] { "tests/Shared/PlanningBenchmarkCases.cs", "tests/Shared/PlanningCorpus.cs", "tests/Shared/PlanningBenchmarkMeasurements.cs",
             "tests/GnOuGo.Agent.Planning.Benchmark/Program.cs", "tests/GnOuGo.Agent.Planning.Benchmark/LocalExecutionCases.cs",
+            "tests/GnOuGo.Agent.Planning.Benchmark/SyntheticArtifactOracle.cs",
             "tests/GnOuGo.Agent.Planning.Benchmark/LiveWorkflowOracles.cs", "tests/GnOuGo.Agent.Planning.Benchmark/KeyVaultBenchmarkModel.cs" };
         var material = new JsonObject { ["files"] = new JsonObject(paths.Select(path => new KeyValuePair<string, JsonNode?>(path,
                 JsonValue.Create(Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(path))))))) };
@@ -21,6 +22,8 @@ internal static class SchemaPortabilityCampaign
             material["generation"] = JsonSerializer.SerializeToNode(request, PlanningJsonContext.Default.PlanningRequest)!["generation"]!.DeepClone();
             material["calls"] = request.MaxModelCalls; material["repairs"] = request.MaxReplanAttempts;
             material["business_judge"] = request.Options["business_judge"]?.ToString() == "true";
+            if (request.Options["construction_version"]?.GetValue<int>() == 1)
+                material["construction_configuration"] = GnOuGo.Planning.Examples.PlanningBenchmarkMeasurements.Configuration(request);
         }
         return PlanningGraphCompiler.Fingerprint(material.ToJsonString());
     }
@@ -30,8 +33,8 @@ internal static class SchemaPortabilityCampaign
     public static async Task RunAsync(string[] args)
     {
         var phase = args.ElementAtOrDefault(1) ?? "inspect";
-        var root = Option(args, "--workspace") ?? GnOuGoWorkspace.ResolveDefaultWorkingDirectory();
-        var records = KeyVaultRecordStoreFactory.CreateWorkspaceStore(null, root);
+        var root = Path.GetFullPath(Option(args, "--workspace") ?? GnOuGoWorkspace.ResolveDefaultWorkingDirectory());
+        var records = KeyVaultBenchmarkModel.WorkspaceRecords(root);
         if (phase == "capture")
         {
             var folder = Option(args, "--output") ?? throw new ArgumentException("Supply --output.");
@@ -58,6 +61,15 @@ internal static class SchemaPortabilityCampaign
         }
         var campaignId = Option(args, "--campaign") ?? throw new ArgumentException("Supply a new --campaign.");
         var campaign = new BenchmarkCampaign(records, campaignId);
+        if (phase == "retain-uncertain-request" && !args.Contains("--apply", StringComparer.Ordinal))
+        {
+            Console.WriteLine((await campaign.InspectPermanentRetentionAsync(
+                Option(args, "--run-collection") ?? Collection,
+                Option(args, "--run-key") ?? throw new ArgumentException("Supply the exact --run-key."),
+                Option(args, "--request-id") ?? throw new ArgumentException("Supply the exact --request-id."),
+                CancellationToken.None, Option(args, "--retention-kind"))).ToJsonString());
+            return;
+        }
         if (phase == "provider-readiness")
         {
             using var configured = await KeyVaultBenchmarkModel.CreateAsync("OpenAi", Model, campaign, root, CancellationToken.None, pinConfiguration: false);
@@ -140,7 +152,7 @@ internal static class SchemaPortabilityCampaign
         {
             var label = Option(args, "--run") ?? throw new ArgumentException("Supply --run.");
             var saved = await campaign.LoadAsync(Collection, "run:" + label) ?? throw new ArgumentException("No run.");
-            var executionRun = await GnOuGo.Flow.Persistence.EncryptedWorkflowRunStore.CreateWorkspace(baseDirectory: root).ReadAsync("benchmark", label);
+            var executionRun = await LiveWorkflowEvaluation.ExecutionStore(root).ReadAsync("benchmark", label);
             var mappings = new JsonArray((executionRun?.Invocations.Values.Where(i => i.Id.Contains("/mapping/", StringComparison.Ordinal)) ?? [])
                 .OrderBy(i => i.Id, StringComparer.Ordinal).Select(i => (JsonNode)new JsonObject
                 {
@@ -156,7 +168,7 @@ internal static class SchemaPortabilityCampaign
                 .Where(r => r.Key.StartsWith(campaignId + ":" + label + ":", StringComparison.Ordinal)).OrderBy(r => r.UpdatedAt))
             {
                 var content = JsonNode.Parse(receipt.Value)!;
-                responses.Add(new JsonObject { ["id"] = receipt.Key, ["response"] = content["json"]?.DeepClone() ?? (content["text"] is { } responseText ? JsonNode.Parse(responseText.ToString()) : null) });
+                responses.Add(new JsonObject { ["id"] = receipt.Key, ["response"] = InspectResponse(content) });
             }
             Console.WriteLine(new JsonObject
             {
@@ -192,10 +204,18 @@ internal static class SchemaPortabilityCampaign
             }
             Console.WriteLine((await campaign.InspectAsync()).ToJsonString()); return;
         }
-        var leasePath = GnOuGoWorkspace.ResolveDatabasePath(null, root, ".GnOuGo/data/planning-evaluation/" + campaignId + ".lock");
+        var leasePath = Path.Combine(root, ".GnOuGo", "data", "planning-evaluation", campaignId + ".lock");
         Directory.CreateDirectory(Path.GetDirectoryName(leasePath)!);
         await using var lease = new FileStream(leasePath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
         if (Git("status", "--porcelain").Length != 0) throw new InvalidOperationException("Commit the tested source and harness before paid dispatch.");
+        if (phase == "retain-uncertain-request")
+        {
+            string Required(string name) => Option(args, name) ?? throw new ArgumentException("Supply " + name + ".");
+            Console.WriteLine((await campaign.ApplyPermanentRetentionAsync(Option(args, "--run-collection") ?? Collection,
+                Required("--run-key"), Required("--request-id"), Required("--expected-evidence-hash"),
+                Required("--operator"), Required("--authorization"), CancellationToken.None, Option(args, "--retention-kind"))).ToJsonString());
+            return;
+        }
         if (phase == "recover-receipt")
         {
             string Required(string option) => Option(args, option) ?? throw new ArgumentException("Supply " + option + ".");
@@ -218,12 +238,21 @@ internal static class SchemaPortabilityCampaign
                 Option(args, "--request-id") ?? throw new ArgumentException("Supply the exact --request-id."), CancellationToken.None)).ToJsonString());
             return;
         }
+        if (phase == "retain-schema-rejection")
+        {
+            var requestId = Option(args, "--request-id") ?? throw new ArgumentException("Supply the exact --request-id.");
+            await campaign.RetainSchemaRejectionAsync(requestId, CancellationToken.None);
+            Console.WriteLine((await campaign.LoadAsync("planning-evaluation-closures", requestId))!.ToJsonString());
+            return;
+        }
         if (phase == "retain-inconclusive")
         {
             var label = Option(args, "--run") ?? throw new ArgumentException("Supply the exact --run.");
             Console.WriteLine((await campaign.RetainInconclusiveAsync("run:" + label, CancellationToken.None, liveWorkflow: true)).ToJsonString());
             return;
         }
+        if (phase is "plan" or "revise" or "execute")
+            await campaign.RequireRunNotRetainedAsync(Option(args, "--run") ?? "diagnostic-" + (Option(args, "--case") ?? "amazon") + "-1");
         using var model = await KeyVaultBenchmarkModel.CreateAsync("OpenAi", Model, campaign, root, CancellationToken.None);
         if (phase == "copilot-probe") { await LiveExecutionReadiness.CopilotAsync(args, campaign, model, root); return; }
         if (phase == "mapping") { await MappingLiveEvaluation.RunAsync(args, campaign, model, root); return; }
@@ -258,6 +287,18 @@ internal static class SchemaPortabilityCampaign
             Console.WriteLine(result.ToJsonString()); return;
         }
         throw new ArgumentException("Unknown phase.");
+    }
+
+    internal static JsonNode? InspectResponse(JsonNode content)
+    {
+        if (content["json"] is { } json) return json.DeepClone();
+        var text = content["text"];
+        if (text is JsonValue value && value.TryGetValue<string>(out var raw) && !string.IsNullOrWhiteSpace(raw))
+        {
+            try { return JsonNode.Parse(raw); }
+            catch (JsonException) { /* Non-JSON completions remain original text evidence. */ }
+        }
+        return text?.DeepClone();
     }
 
     internal static string? Option(string[] args, string name)

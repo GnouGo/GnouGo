@@ -2,19 +2,22 @@
 
 Flow uses one semantic planner, one executable graph and one execution journal.
 
-Fresh sessions use the [simplified business-intent profile](planner-simplification.md), with contract-aware generation and TaskPlan-only repairs. TaskPlan, PlanningGraph and storage format 10 remain unchanged.
+Fresh sessions use [incremental TaskPlan construction](incremental-taskplan-construction.md): index original clauses, select one immediate business substep, discover its capabilities, then validate and review a bounded semantic draft before an encrypted checkpoint. TaskPlan, PlanningGraph, compiler v15 and storage format 10 remain unchanged. Historical sessions retain their captured [business-intent profile](planner-simplification.md) and issued-request recovery.
 
 ```mermaid
 flowchart LR
-  Requirements --> Discovery[Progressive discovery]
-  Discovery --> Tasks[LLM TaskPlan]
-  Tasks --> Compiler[Deterministic compiler: semantic preflight and lowering]
+  Requirements[Indexed original clauses] --> Select[Select immediate business substep]
+  Select --> Discovery[Substep discovery and exact contract views]
+  Discovery --> Tasks[Bounded TaskPlan extension]
+  Tasks --> Preflight[Deterministic semantic preflight]
+  Preflight --> Judge[Bounded local and junction Judges]
+  Judge --> Checkpoint[Accepted checkpoint]
+  Checkpoint --> Select
+  Checkpoint --> Compiler[Complete deterministic validation and lowering]
   Compiler --> Graph[PlanningGraph]
   Graph --> YAML
   YAML --> Validation
   Validation --> Review[FinalReview]
-  Validation -. explicit opt-in .-> Judge[Independent advisory Judge]
-  Judge --> Review
   Review --> Approval
   Validation --> Repair[Scoped TaskPlan repair]
   Repair --> Tasks
@@ -22,7 +25,47 @@ flowchart LR
 
 The model selects declared operation intents and connects business ports. The compiler
 owns binding and executor plumbing. There is no model-generated graph, separate
-binding session or grounded-plan representation. Optional business review uses the existing planning loop and journal; it adds no mandatory model phase.
+binding session or grounded-plan representation. Local reviews share the existing
+journal and allowances; there is no final whole-plan LLM Judge. Historical proposal
+and optional-review contracts below remain relevant to retained sessions.
+
+Fresh presentation revision 4 separates compiler facts from business findings and
+execution evidence. Scoped reviews reuse actual preflight interfaces and bounded,
+source-linked caller declarations; unresolved choices, unfinished scopes and final
+validation remain explicit limits. An incomplete business review returns an
+explicit inconclusive action. Grounding reuses concrete finding locations instead
+of requiring duplicate citations, while preserving original-obligation evidence
+and the correction boundary captured by each issued schema.
+At most one admitted reassessment can add already
+relevant omitted exact support for the same candidate and completion claim;
+otherwise construction stops without accepting work or granting correction
+permission. Existing journals retain its exact request and usage. Revision-3
+sessions keep their original future requests and receipts; no new execution or
+proof subsystem is introduced. See the [review contract](incremental-taskplan-construction.md#review-correction-and-finalization).
+
+The retained `construction_presentation_version: 2` profile separates exact
+clause classification from targeted typed-interface extraction inside the existing
+intent phase. Source continuations preserve obligations across bounded pages;
+pending extraction prevents generation. Nested contract directories, projected
+required-sibling evidence and escaped-byte navigation bounds reduce local context
+while retaining original contracts and hard phase limits. Absent historical
+profiles and already issued requests keep their saved protocol. This changes
+neither the executable representation nor compiler v15.
+Discovery presents only the selected step's decision fields and exact input
+bindings alongside its original requirements. Content-bound operation pages
+retain navigation progress when a provider adds metadata, with explicit links
+to omitted descriptions. Scoped closure reviews include the owning container's
+existing export semantics. These changes use the existing construction
+coordinator and leave historical issued requests intact.
+Scoped Judges receive exact retrieval links for referenced accepted producers;
+those addresses are distinct from finding JSON Pointers. Discovery can revisit
+an earlier original description after new allowed operation identities or
+versions change the available choices, once per captured knowledge identity.
+Only while that exact reread is eligible may fresh discovery present its cached
+description through original identity/hash/page metadata and a retrieval link.
+Current descriptions, prerequisite citations and schema constraints remain complete;
+stored evidence never changes. This uses existing evidence journals and allowances,
+preserving non-progress stops and avoiding an automatically replayed contract history.
 
 Task, group and choice declarations share one case-sensitive global namespace. IDs and references allow only nonempty ASCII letters, digits, underscores and hyphens, with `__` reserved. Alternative IDs remain local to their choice; business ports, operation IDs and requirements are outside this namespace. Invalid declarations are never automatically renamed or granted repair permission. Previously saved format-10 plans with invalid declarations must be regenerated; approval verification and recovery fail closed without changing stored records. Malformed consumer references may be corrected only within an existing diagnosed binding scope.
 
@@ -142,29 +185,44 @@ Catalog-owned fixed inputs and request bindings are injected deterministically; 
 
 Artifact consumers must bind the producer-declared business port of the required kind. Preflight reports incorrect origins at the consumer binding; checked projections and captures preserve valid origins without manufacturing them from strings, types or transforms. Unconstrained MCP responses remain opaque across exports. See [artifact provenance evidence](artifact-provenance.md).
 
-Initial generation returns a complete TaskPlan; semantic repair returns a private typed `RepairPatch`, not another plan representation. Host-issued slots reuse the existing revision permissions. Explicit replace/add/remove edits are applied to a clone and pass both scope checks and full compilation/validation before replacing the baseline. Version-2 structural slots additionally authorize contract-proven prerequisite insertion (at most eight tasks before the diagnosed consumer), identity-preserving replacement of an invalid leaf operation, and equivalent removal of a diagnosed pure forwarder. Other structure and ordering remain fixed. Every inserted task must be used on the declared required-artifact chain. Version-1 pending requests keep their original narrower permissions; TaskPlan, PlanningGraph and storage format 10 are unchanged. Recovery verifies the retained baseline/scope/contract/policy fingerprint and original request schema; historical pending full-plan responses are not converted or redispatched. See [bounded patch measurements and limitations](bounded-semantic-repairs.md).
+Historical initial generation returns a complete TaskPlan; semantic repair returns a private typed `RepairPatch`, not another plan representation. Host-issued slots reuse the existing revision permissions. Explicit replace/add/remove edits are applied to a clone and pass both scope checks and full compilation/validation before replacing the baseline. Version-2 structural slots additionally authorize contract-proven prerequisite insertion (at most eight tasks before the diagnosed consumer), identity-preserving replacement of an invalid leaf operation, and equivalent removal of a diagnosed pure forwarder. Other structure and ordering remain fixed. Every inserted task must be used on the declared required-artifact chain. Version-1 pending requests keep their original narrower permissions; TaskPlan, PlanningGraph and storage format 10 are unchanged. Recovery verifies the retained baseline/scope/contract/policy fingerprint and original request schema; historical pending full-plan responses are not converted or redispatched. See [bounded patch measurements and limitations](bounded-semantic-repairs.md).
 
 A semantic failure opens a bounded revision scope over diagnosed business slots and the explicit export declarations required by their consumers. Conditional alternatives must explicitly provide matching outputs; the compiler invents neither exports nor fallback values. Added exports must belong to the diagnosed connection, with unrelated declarations and ordering preserved. Revalidation of a dependent task grants no edit permission. Unknown or ambiguous locations never authorize whole-plan repair. Rejected revisions identify unauthorized changed slots and retain the last accepted baseline. Diagnosed optional operation bindings may be explicitly omitted under the authoritative contract; remaining bindings retain their order and values, and full request validation still enforces conditional requirements. Null is not omission. Producer constraint diagnostics expose only incompatible enum/nullability leaves. See [contract-aware repair evidence](contract-aware-repairs.md). Optional workflow/group inputs require literal defaults, while optional object fields may remain absent. Composite outputs use the existing typed `set` primitive after cleanup; opaque payloads remain opaque. Generated executor validation failures stop with compiler diagnostics. Dependent findings are
 invalidated; unaffected validated stages and interfaces remain unchanged. Repairs,
 retries and restarts share the original planning budget. New-session defaults are
-twelve model calls, four corrections and 32,000 input / 32,768 output tokens per
-request across Flow, `workflow.plan`, CLI and Agent.Server. Explicit configuration
-takes precedence. Existing sessions retain their saved definitions; absent historical
+64 model calls and four corrections across Flow, `workflow.plan`, CLI and
+Agent.Server. Fresh compact version 2 captures one optional phase policy with
+input targets of 3,000/8,000/4,000 and hard complete-request ceilings of
+6,000/16,000/8,000 for navigation/draft/Judge families. Targets guide presentation,
+not admission. Initial output reservations are 8,192/8,192/2,048 with medium
+reasoning. Supported tuning profiles are frozen before dispatch; stricter explicit
+host/request limits prevail. An absent phase policy retains historical behavior.
+Existing sessions retain their saved definitions; absent historical
 fields retain eight calls, two repairs and 12,000 input / 8,192 output tokens. Creation
 defaults never rewrite pending requests or replenish cumulative allowances.
+
+Fresh sessions capture a bounded confirmed-response transport policy. The existing
+HTTP helper owns up to three physical attempts; each is journaled and admitted
+against the same cumulative budget before dispatch, with remaining reviews reserved.
+Flow.Integrations supplies the shared encrypted attempt journal to both production
+planning hosts. Known transient HTTP responses can advance that policy; unknown
+outcomes cannot. Historical policies and requests retain their original behavior.
+See [retry accounting and recovery](incremental-taskplan-construction.md#captured-capacity).
 
 `MODEL_INPUT_LIMIT` is a local admission stop: the estimate of the complete
 serialized request exceeds the saved per-request input allowance. Discovery
 receipts remain in host state. When repair permissions fix operation selections, the
 request contains affected subtrees, required consumer contracts and producer outputs,
 without the complete baseline or irrelevant discovery actions. Operation-selection repairs receive ranked alternatives.
-Generic metadata ranking precedes pagination: eight compact entries per page, a token-budgeted global shortlist plus TaskPlan-required operations, with query refinement and snapshot-bound continuations. Ranking uses retained discovered candidates across pages, not undiscovered sources; a budgeted compact directory retains earlier identities for widening. Explicit `operationIds` inspection selections replace only their source’s selection, survive paging and recovery, and keep exact contracts visible without authorizing execution. Empty selections clear that source. Full-contract entries omit duplicate index summaries; closed discovery omits unusable navigation. Conflicting versions fail closed. The global ranking always retains the request and accepted requirements; each source adds only its own latest effective receipt query, with shared inverse document frequency and no duplicate-term amplification. Historical batch queries cannot replace this base. Binding-only repairs omit unusable discovery indexes and source descriptions. Full receipts remain in state. The complete-request estimator admits optional candidates in relevance order up to 90% of the saved input ceiling; oversized or unavailable candidates leave space for later ones. Mandatory contracts remain exact even above that soft target, subject to the unchanged hard admission check. The blocked request has not been dispatched or charged another model call or
-repair. With no pending request and remaining call allowance, open Designer **Generation settings**, explicitly
-adjust the **Input token limit** if needed, then select **Apply settings and resume planning**.
-This continues the same session with its discovery receipts and cumulative usage;
+Historical proposal and construction-version-1 metadata ranking precedes pagination: eight compact entries per page, a token-budgeted global shortlist plus TaskPlan-required operations, with query refinement and snapshot-bound continuations. Ranking uses retained discovered candidates across pages, not undiscovered sources; a budgeted compact directory retains earlier identities for widening. Explicit `operationIds` inspection selections replace only their source’s selection, survive paging and recovery, and keep exact contracts visible without authorizing execution. Empty selections clear that source. Full-contract entries omit duplicate index summaries; closed discovery omits unusable navigation. Conflicting versions fail closed. The global ranking always retains the request and accepted requirements; each source adds only its own latest effective receipt query, with shared inverse document frequency and no duplicate-term amplification. Historical batch queries cannot replace this base. Binding-only repairs omit unusable discovery indexes and source descriptions. Full receipts remain in state. The historical full-proposal estimator admits optional candidates in relevance order up to 90% of the saved input ceiling; oversized or unavailable candidates leave space for later ones. Construction-version-1 presentations admit optional whole contracts against the captured complete-request allowance. Fresh version-2 construction selects one substep first, queries only its needs, retains compact descriptor identities and exact selected schema views, and excludes unrelated retained inspections. See [compact construction](incremental-taskplan-construction.md). Mandatory contracts and requested evidence remain exact, subject to the hard admission check. The blocked request has not been dispatched or charged another model call or
+repair. Historical sessions with no pending request and remaining call allowance can use
+Designer **Generation settings** and **Apply settings and resume planning**.
+Incremental sessions reject increases to captured input/output limits; larger
+creation settings require a new explicitly configured session. Historical configuration
+continuation preserves its discovery receipts and cumulative usage;
 subsequent calls may incur model costs. It does not reset call, repair, spending or
 elapsed-time limits, approve an artifact, or guarantee that later requests will fit.
-Discovery reserves one first-proposal call and one repair when allowance remains: a twelve-call session without the clarification reserve allows at most ten discovery calls before requesting its TaskPlan. Additional repairs are opportunistic, within the existing call and repair ceilings; explicit zero-repair settings remain authoritative. The last repair attempt cannot request discovery. A closed-discovery response may explicitly return no plan and stop as `DISCOVERY_INCOMPLETE`; it never authorizes invented capabilities. Returning a discovery action against the issued restriction stops as `DISCOVERY_NOT_ALLOWED`. Recovery still uses the original issued schema.
+Historical full-proposal discovery reserves one first-proposal call and one repair when allowance remains: a twelve-call session without the clarification reserve allows at most ten discovery calls before requesting its TaskPlan. Additional repairs are opportunistic, within the existing call and repair ceilings; explicit zero-repair settings remain authoritative. The last repair attempt cannot request discovery. A closed-discovery response may explicitly return no plan and stop as `DISCOVERY_INCOMPLETE`; it never authorizes invented capabilities. Returning a discovery action against the issued restriction stops as `DISCOVERY_NOT_ALLOWED`. Recovery still uses the original issued schema.
 
 Successful discovery corrections remove only resolved discovery-response findings from active diagnostics. They do not refund reservations or change history; the following proposal no longer inherits a stale repair classification. Compact indexes retain declared finite domains, while resolved operation schemas constrain literal values and semantic validation checks references. See [the retained enum/discovery failure](planning-enum-discovery.md).
 
@@ -192,7 +250,10 @@ Fresh sessions capture combined diagnostic review and use correction bookkeeping
 version 8. Accepted-output and commitment findings are collected together after
 successful compilation, before repair authority is captured. Version-11 repair schemas
 constrain known public-output and explicitly revised operation-input value types while
-preserving semantic validation and exact permissions. Historical sessions and issued
+preserving semantic validation and exact permissions. Fresh compact presentation 4
+uses repair version 12 to exclude an original-value JSON conversion at a binding
+with a required invalid-literal finding; wrapping it cannot repair that finding.
+Valid conversions and ordinary multiline replacements remain available. Historical sessions and issued
 requests retain their saved behavior; TaskPlan format 10, compiler v15 and unchanged
 YAML are preserved.
 Hosts capture creation profiles before the first session checkpoint. Rehydrated
@@ -396,13 +457,13 @@ FinalReview exposes the retained original request and revisions. The existing re
 acknowledgment explicitly includes omitted work, extra effects and cleanup. Exact
 commitments establish declared operation associations and supported result lineage;
 ambiguous associations remain unverified. Neither compilation nor operation presence
-proves business completeness. There is no new intent representation or mandatory model
-phase before review.
+proves business completeness. Mandatory construction reviews preserve this boundary
+without adding another intent representation or final whole-plan model review.
 
 Fresh sessions capture the private assertion-validation profile. Bounded explicit
 contradictions are diagnosed before lowering; historical plans without that option keep
 their executable assertion behavior. Private correction version 6 reassesses existing
 local authority, records unsuccessful candidates and retains one structural fallback
 and cumulative allowances. No correction may infer a missing business fact or weaken
-an assertion. See the [component contract](../src/GnOuGo.Flow.Planning/README.md#fresh-proposal-correctness-and-review)
+an assertion. See the [component contract](../src/GnOuGo.Flow.Planning/README.md#full-proposal-compatibility-and-artifact-review)
 and [evaluation evidence](evidence/first-attempt-taskplan-2026-10-17/README.md).

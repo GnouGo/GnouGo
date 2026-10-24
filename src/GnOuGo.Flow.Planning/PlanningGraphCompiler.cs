@@ -50,8 +50,9 @@ public sealed partial class PlanningGraphCompiler
         ArgumentNullException.ThrowIfNull(graph);
         var diagnostics = PlanningExecutableValidation.Validate(graph, catalog);
         if (diagnostics.Count != 0) throw new InvalidOperationException(string.Join("; ", diagnostics.Select(d => d.Code + " at " + d.Location + ": " + d.Message)));
-        if (graph.Workflows.Count == 0 || graph.Workflows.Count > 100)
-            throw new InvalidOperationException("A planning graph must contain between 1 and 100 workflows.");
+        var limits = PlanningGraphLimits.From(catalog.Policy);
+        if (graph.Workflows.Count == 0 || graph.Workflows.Count > limits.Workflows)
+            throw new InvalidOperationException("A planning graph must contain between 1 and " + limits.Workflows + " workflows.");
         EnsureUnique(graph.Workflows.Select(w => w.Key), "workflow");
         if (!graph.Workflows.Any(w => w.Key == graph.Entrypoint))
             throw new InvalidOperationException("The graph entrypoint is missing.");
@@ -63,7 +64,7 @@ public sealed partial class PlanningGraphCompiler
         {
             var allNodes = Enumerate(workflow.Steps).Concat(Enumerate(workflow.Finally)).ToArray();
             EnsureUnique(allNodes.Select(n => n.Key), "node");
-            if (allNodes.Length > 300) throw new InvalidOperationException("A workflow exceeds the 300-node planning limit.");
+            if (allNodes.Length > limits.StepsPerWorkflow) throw new InvalidOperationException("A workflow exceeds the " + limits.StepsPerWorkflow + "-node planning limit.");
             var nodeIds = allNodes.ToDictionary(n => n.Key, n => "n_" + Fingerprint(n.Key)[..16], StringComparer.Ordinal);
             var scope = new LoweringScope(catalog, nodeIds, workflowIds, workflow.Inputs.Select(p => p.Name).ToHashSet(StringComparer.Ordinal), allNodes.ToDictionary(n => n.Key, n => n.Type, StringComparer.Ordinal), LoopVariables(allNodes), allNodes.ToDictionary(n => n.Key, StringComparer.Ordinal), graph.Workflows.ToDictionary(w => w.Key, StringComparer.Ordinal), descriptions) { DirectProjections = directProjections, NativeMappings = nativeMappings, ReadableMappings = readableMappings, LeanMappings = leanMappings, CompactProjections = compactProjections, InlineConsumers = inlineConsumers, DirectValues = directValues, CheckedControls = checkedControls, ReadableBranches = readableBranches, SimplifiedLocals = simplifiedLocals };
             if (compactProjections) PrepareCopyProjections(workflow, scope);

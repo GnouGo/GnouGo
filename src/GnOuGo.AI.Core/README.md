@@ -81,12 +81,13 @@ provider is `local`, routing performs at most two local attempts. A structured
 second attempt receives sanitized validation feedback. A configured non-local
 `LLM.Fallback` is then called at most once for load, inference, or structured-output
 failure. Caller cancellation is never retried or sent to a fallback, and a fallback
-cannot point back to `local`.
+cannot point back to `local`. A durable HTTP generation context disables both local
+semantic retries and provider fallback.
 
 ## HTTP resilience
 
-OpenAI, Ollama, Copilot/GitHub Models, and Anthropic HTTP operations make at most four
-attempts for `425`, `429`, `500`, `502`, `503`, and `504`. Every attempt receives a fresh
+The default policy for GETs and journaled generation POSTs permits at most four
+attempts for `425`, `429`, `500`, `502`, `503`, and `504`. Unjournaled POSTs are single-attempt. Every attempt receives a fresh
 request. A valid `Retry-After` delta or HTTP date is honored; otherwise recovery uses
 full-jitter exponential backoff from one second, capped at 30 seconds per wait and 60 seconds
 cumulatively. A delay outside that budget stops recovery instead of holding a workflow open.
@@ -109,6 +110,17 @@ is durable and terminal. Journal failures stop without an in-process resend. The
 initial attempt and `MaxUncertainRetries` defaults to one. Logs contain only the operation, status, attempt, selected
 delay, and exhaustion state—not endpoints, prompts, payloads, response bodies, tokens, headers,
 or credentials.
+
+An optional captured policy on `LLMHttpRetryContext` selects confirmed-response-only
+recovery: at most three total attempts, with no uncertain retries. It permits fully
+buffered and persisted `500`, `502`, `503`, `504`, or `429` supported by a recognized
+rate-limit marker or valid `Retry-After`. Permanent error markers take precedence.
+Timeouts, incomplete bodies, missing outcomes, cancellation and invalid successful
+responses never trigger this retry path. Explicit `DisableTransportRetries=true`
+still restricts the call to one attempt. Hosts own conservative per-attempt admission,
+encrypted evidence and retained unknown-usage reservations; a later success does not
+prove earlier attempts were free. Existing contexts without the captured policy retain
+their original recovery policy.
 
 `RoutingLLMClient` exposes provider failures through the redacted
 `LLMProviderException` contract. `LLMProviderFailureKind` distinguishes transport,

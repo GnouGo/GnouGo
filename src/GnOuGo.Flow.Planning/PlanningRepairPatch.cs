@@ -14,6 +14,8 @@ internal sealed class PlanningRepairResponse
     public List<PlanningDiscoveryRequest>? DiscoveryRequests { get; set; }
     public RepairPatch? Patch { get; set; }
     public List<PlanningQuestion>? Clarifications { get; set; }
+    public List<string>? EvidenceRequests { get; set; }
+    public string? ReselectStep { get; set; }
 }
 internal sealed class RepairPatch { public List<RepairEdit> Edits { get; set; } = []; }
 internal sealed class RepairEdit
@@ -29,9 +31,10 @@ internal partial class RepairJsonContext : JsonSerializerContext;
 
 internal static class PlanningRepairPatch
 {
-    // Keep the unversioned historical fallback; only captured fresh policy selects 11.
+    // Keep issued authority reconstruction exact; fresh revision 4 selects 12.
     internal const int CurrentVersion = 10;
-    internal static int Version(PlanningSession state) => state.Request.Options["planning_diagnostics_version"]?.ToString() == "1" ? 11 : CurrentVersion;
+    internal static int Version(PlanningSession state) => PlanningCompactConstruction.UsesVerifiedReview(state) ? 12 :
+        state.Request.Options["planning_diagnostics_version"]?.ToString() == "1" ? 11 : CurrentVersion;
     internal static JsonObject Template(PlanningSession state, int version = 0, bool clarifications = true, bool scopedDependencies = true)
     {
         version = version == 0 ? Version(state) : version;
@@ -241,7 +244,8 @@ internal static class PlanningRepairPatch
                 foreach (var source in sources.GetValueOrDefault(location) ?? [])
                     if ((!workspace || source.Value.Kind == "output") && PlanningGraphValidation.TypesFit(source.Schema, contract))
                         alternatives.Add((JsonNode)Exact(source.Value, definitions));
-            if (!literalOnly && !workspace && (contract["type"]?.ToString() == "string" || contract["type"] is JsonArray types && types.Any(t => t?.ToString() == "string")) && symbols.Values.TryGetValue(location, out var original))
+            if (!literalOnly && !workspace && (contract["type"]?.ToString() == "string" || contract["type"] is JsonArray types && types.Any(t => t?.ToString() == "string")) && symbols.Values.TryGetValue(location, out var original) &&
+                (version < 12 || !state.Diagnostics.Any(d => d.Required && d.Code == "TASK_LITERAL_INVALID" && d.Location == location)))
                 alternatives.Add((JsonNode)Exact(new() { Kind = "json", Items = [original.Value] }, definitions));
             return alternatives.Count == 1 ? literal.DeepClone().AsObject() : new() { ["anyOf"] = alternatives };
         }
@@ -338,7 +342,7 @@ internal static class PlanningRepairPatch
     {
         var repair = RequestContext(request)["repair"];
         var version = repair?["version"]?.GetValue<int>();
-        if (state.IntentVersion is 2 or 3 && version is 8 or 9 or 10 or 11)
+        if (state.IntentVersion is 2 or 3 && version is 8 or 9 or 10 or 11 or 12)
         {
             if (state.EditablePaths is not null)
             {
@@ -358,7 +362,7 @@ internal static class PlanningRepairPatch
         throw new PlanningConflictException("The repair baseline, scope or contracts changed. The retained request cannot be rebased or redispatched.");
     }
 
-    internal static TaskPlan Apply(PlanningSession state, RepairPatch patch, LLMRequest request)
+    internal static TaskPlan Apply(PlanningSession state, RepairPatch patch, LLMRequest request, IReadOnlySet<string>? constructionScopes = null)
     {
         var scopedDependencies = Verify(state, request);
         var version = RequestContext(request)["repair"]!["version"]!.GetValue<int>();
@@ -369,6 +373,8 @@ internal static class PlanningRepairPatch
         // Recovery and direct callers both enforce the exact issued response schema.
         var response = new JsonObject { ["discoveryRequests"] = null, ["patch"] = JsonSerializer.SerializeToNode(patch, RepairJsonContext.Default.RepairPatch) };
         if (request.StructuredOutputSchema?["properties"]?["clarifications"] is not null) response["clarifications"] = null;
+        if (request.StructuredOutputSchema?["properties"]?["evidenceRequests"] is not null) response["evidenceRequests"] = null;
+        if (request.StructuredOutputSchema?["properties"]?["reselectStep"] is not null) response["reselectStep"] = null;
         // Removal actions omit the payload in the wire contract.
         foreach (var edit in response["patch"]!["edits"]!.AsArray())
             if (edit!["action"]?.ToString() is "remove" or "remove_owned" or "remove_forwarder") edit.AsObject().Remove("value");
@@ -447,6 +453,12 @@ internal static class PlanningRepairPatch
             throw new WorkflowRuntimeException("REPLAN_NO_PROGRESS", "The repair did not change an authorized semantic slot. The baseline and accounting are retained.");
         var checkedPlan = JsonSerializer.SerializeToNode(candidate, PlanningJsonContext.Default.TaskPlan)!.Deserialize(PlanningJsonContext.Default.TaskPlan)!;
         foreach (var choice in checkedPlan.Choices.Where(c => c.Selected is null)) choice.Selected = choice.Recommended;
+        if (constructionScopes is not null)
+        {
+            var construction = TaskPlanCompiler.ValidateConstruction(checkedPlan, state.Catalog!, state.Request, constructionScopes);
+            if (construction.Diagnostics.Count > 0) throw new PlanningResponseException(construction.Diagnostics.ToList());
+            return candidate;
+        }
         var complete = new TaskPlanCompiler().Compile(checkedPlan, state.Catalog!);
         if (complete.Diagnostics.Count > 0) throw new PlanningResponseException(complete.Diagnostics.ToList());
         return candidate;

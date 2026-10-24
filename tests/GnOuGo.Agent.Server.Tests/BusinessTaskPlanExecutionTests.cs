@@ -53,9 +53,17 @@ public sealed class BusinessTaskPlanExecutionTests
             var engine = new WorkflowEngine { McpClientFactory = factory, HumanInputProvider = new PlanningCorpus.Human(variant != "denied") };
             var actual = new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask);
             var catalog = await actual.DiscoverAsync(new(), ct);
+            var discovery = new CapabilityDiscoveryState();
             foreach (var source in await actual.Capabilities.ListSourcesAsync(ct))
-                foreach (var entry in (await actual.Capabilities.ListAsync(source.Id, null, ct)).Capabilities)
-                    catalog.Capabilities.Add(await actual.Capabilities.ResolveAsync(entry, ct));
+            {
+                discovery.Sources.Add(source);
+                var page = await actual.Capabilities.ListAsync(source.Id, null, ct); discovery.Pages.Add(page);
+                foreach (var entry in page.Capabilities)
+                {
+                    var capability = await actual.Capabilities.ResolveAsync(entry, ct);
+                    catalog.Capabilities.Add(capability); discovery.Resolved.Add(capability);
+                }
+            }
             string Id(string method) => catalog.Capabilities.Single(c => c.Method == method).Id;
             TaskValue Field(string name) => new() { Kind = "field", Items = [new() { Kind = "item" }], Port = name };
             var plan = new TaskPlan { Inputs = [new() { Name = "query" }], Root = new() { Tasks = [
@@ -64,11 +72,29 @@ public sealed class BusinessTaskPlanExecutionTests
                     Body = new() { Tasks = [new() { Id = "extract", Kind = "value", Objective = "Select name and price", Outputs = [new("row", new() { Kind = "object", Members = [new(field, Field(field)), new("cost", Field("cost"))] })] }], Outputs = [new("rows", ProductTransformationPlan.Ref("extract", "row"))] } },
                 new() { Id = "write", Objective = "Write selected rows to Excel", Operation = Id(operation + "_store"), Inputs = [new("rows", ProductTransformationPlan.Ref("products", "rows"))] }
             ], Outputs = [new("workbook", ProductTransformationPlan.Ref("write", "path"))] } };
-            var proposal = new PlanningProposal { Plan = plan, Requirements = new() { Summary = "Search products, extract names and prices, write Excel", Inputs = plan.Inputs, Outcomes = [new("report", "An Excel workbook containing the selected products")] } };
-            var runtime = new LocalProductOutcomeExecutionTests.ProposalRuntime(actual, proposal);
-            var session = await new HybridWorkflowPlanner().AdvanceAsync(new() { Catalog = catalog, Request = new() { TenantId = "local", Prompt = proposal.Requirements.Summary } }, new(), runtime, ct);
+            var proposal = new PlanningProposal { Plan = plan, Requirements = new() { Summary = "Search products, extract names and prices, write Excel", Inputs = plan.Inputs,
+                Outputs = [new() { Name = "workbook", Type = new() { Kind = "string" } }], Outcomes = [new("report", "An Excel workbook containing the selected products")] } };
+            var runtime = new LocalProductOutcomeExecutionTests.ProposalRuntime(actual, proposal)
+            {
+                Patch = request =>
+                {
+                    var response = PlanningCorpus.OneDraftResponse(request, proposal)!.AsObject();
+                    if (response["extension"] is JsonObject extension)
+                        extension["closeScopes"] = new JsonArray("/tasks/products/body", "/root");
+                    return response;
+                }
+            };
+            var session = new PlanningSession { Catalog = catalog, Discovery = discovery, Request = new() { TenantId = "local", Prompt = proposal.Requirements.Summary } };
+            session = RetainedVersionOneConstruction.Restore(session);
+            RecordedPlanCompilation.InspectSelected(session, plan);
+            var planner = new HybridWorkflowPlanner();
+            for (var attempt = 0; attempt < 4 && !PlanningStatus.IsWaiting(session.Status) && !PlanningStatus.IsTerminal(session.Status); attempt++)
+                session = await planner.AdvanceAsync(session, new() { ExpectedRevision = session.Revision }, runtime, ct);
             Assert.True(session.Status == PlanningStatus.FinalReview, string.Join(';', session.Diagnostics.Select(d => d.Message)));
-            Assert.Equal(1, session.ModelCalls); Assert.Equal(0, session.ReplanAttempts); Assert.Null(session.OutcomeBindings); Assert.Null(session.OutcomeVersion);
+            Assert.Equal(2, session.ModelCalls); Assert.Equal(0, session.ReplanAttempts); Assert.Null(session.OutcomeBindings); Assert.Null(session.OutcomeVersion);
+            Assert.True(session.Construction!.Complete); Assert.Single(session.Construction.Checkpoints);
+            Assert.Single(runtime.Requests, r => r.StructuredOutputSchema?["properties"]?["extension"] is not null);
+            Assert.Single(runtime.Requests, r => r.StructuredOutputSchema?["properties"]?["findings"] is not null);
             Assert.All(session.Requirements!.Outcomes, o => Assert.Null(o.Execution));
             PlanningArtifactApproval.Verify(session);
             var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(session.Yaml!));

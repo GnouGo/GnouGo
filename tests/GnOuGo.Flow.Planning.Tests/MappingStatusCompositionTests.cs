@@ -59,7 +59,7 @@ public sealed class MappingStatusCompositionTests
         runtime.Proposal.Plan = revisedPlan;
         var planner = new HybridWorkflowPlanner();
         if (automatic)
-            state = new() { IntentVersion = 2, Catalog = baseline.Catalog, Requirements = baseline.Requirements, Request = new()
+            state = PlanningCorpus.RetainedSession(new() { IntentVersion = 2, Catalog = baseline.Catalog, Requirements = baseline.Requirements, Request = new()
             {
                 TenantId = "test", Prompt = baseline.Request.Prompt, Baseline = baseline.Plan,
                 Options = new() { ["automatic_correction"] = true }, FailureEvidence = new()
@@ -67,7 +67,7 @@ public sealed class MappingStatusCompositionTests
                     ["error_code"] = "CONTRACT_UNSATISFIED", ["details"] = new JsonObject
                     { ["mapping_result_path"] = "$/status/success", ["mapping_failure_kind"] = "program", ["mapping_failure_reason"] = "ungrounded_scalar", ["mapping_attempts"] = 2 }
                 }
-            } };
+            } });
         else state = await planner.AdvanceAsync(state, new() { Kind = "revise", ExpectedRevision = state.Revision, ArtifactHash = state.ComputeArtifactHash(),
             PreserveRequirements = true, Text = "Separate facts extraction and deterministic producer status. Preserve outputs and operations." }, runtime, PlannerFixture.Ct);
         state = await PlannerFixture.RunAsync(runtime, state);

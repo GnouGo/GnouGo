@@ -8,6 +8,142 @@ public sealed class HttpRecoveryTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
     [Theory]
+    [InlineData("load", 0)] [InlineData("reservation", 0)] [InlineData("outcome", 1)] [InlineData("provider", 1)]
+    public async Task RoutingPreservesOnlyTheExactHostJournalFailure(string boundary, int sends)
+    {
+        var failure = new IOException("Host journal interrupted.");
+        var journal = new FailingJournal(boundary, failure); var calls = 0;
+        using var http = new HttpClient(new Handler((_, _) =>
+        {
+            calls++;
+            if (boundary == "provider") throw failure;
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(
+                """{"choices":[{"finish_reason":"stop","message":{"role":"assistant","content":"ok"}}],"usage":{"prompt_tokens":1,"completion_tokens":1}}""") });
+        }));
+        var client = new RoutingLLMClient(http, new()
+        {
+            DefaultProvider = "fixture", DefaultModel = "fixture-model",
+            Models = { ["fixture"] = new() { Type = "openai", Url = "https://example.invalid/v1/chat/completions" } }
+        });
+        using var context = new LLMHttpRetryContext("host-failure", journal, ConfirmedPolicy()).Activate();
+        var request = new LLMClientRequest { Prompt = "same request", Model = "fixture-model" };
+        if (boundary == "provider")
+            await Assert.ThrowsAsync<LLMProviderException>(() => client.CallAsync(request, Ct));
+        else
+            Assert.Same(failure, await Assert.ThrowsAsync<IOException>(() => client.CallAsync(request, Ct)));
+        Assert.Equal(sends, calls);
+    }
+
+    private sealed class FailingJournal(string boundary, IOException failure) : ILLMHttpRetryJournal
+    {
+        public Task<LLMHttpRetryState?> LoadAsync(CancellationToken ct) => boundary == "load"
+            ? throw failure : Task.FromResult<LLMHttpRetryState?>(null);
+        public Task SaveAsync(LLMHttpRetryState state, CancellationToken ct)
+        {
+            if (boundary == "reservation" || boundary == "outcome" && state.Attempts[^1].Status is not null) throw failure;
+            return Task.CompletedTask;
+        }
+    }
+
+    [Theory]
+    [InlineData(500, "upstream", null, 3)]
+    [InlineData(502, "upstream", null, 3)]
+    [InlineData(503, "upstream", null, 3)]
+    [InlineData(504, "upstream", null, 3)]
+    [InlineData(429, "rate_limit_exceeded", null, 3)]
+    [InlineData(429, "temporary", "0", 3)]
+    [InlineData(429, "temporary", "invalid", 1)]
+    [InlineData(429, "unknown", null, 1)]
+    [InlineData(429, "rate_limit_exceeded insufficient_quota", "0", 1)]
+    [InlineData(503, "rate_limit_exceeded invalid_json_schema", "0", 1)]
+    [InlineData(500, "model_not_found", null, 1)]
+    [InlineData(425, "too early", "0", 1)]
+    [InlineData(408, "timeout", null, 1)]
+    public async Task CapturedConfirmedPolicyRetriesOnlyProvenTransientResponses(int status, string body, string? retryAfter, int expected)
+    {
+        var journal = new Journal(); var ids = new List<string>();
+        using var http = new HttpClient(new Handler(async (request, token) =>
+        {
+            ids.Add(request.Headers.GetValues("X-Client-Request-Id").Single());
+            Assert.Equal(ids.Count, journal.State!.Attempts.Count);
+            Assert.Null(journal.State.Attempts[^1].Status);
+            Assert.Equal("{}", await request.Content!.ReadAsStringAsync(token));
+            var response = new HttpResponseMessage((HttpStatusCode)status) { Content = new StringContent(body) };
+            if (retryAfter is not null) response.Headers.TryAddWithoutValidation("Retry-After", retryAfter);
+            return response;
+        }));
+        for (var restart = 0; restart < 2; restart++)
+        {
+            using var scope = new LLMHttpRetryContext("captured", journal, ConfirmedPolicy()).Activate();
+            using var response = await Send(http, post: true);
+            Assert.Equal(status, (int)response.StatusCode);
+            Assert.Equal(expected, HttpRequestHelper.GetRetryMetadata(response)!.AttemptCount);
+        }
+        Assert.Equal(expected, ids.Distinct().Count());
+        Assert.All(journal.State!.Attempts, a => { Assert.Equal(status, a.Status); Assert.Equal(body, a.Body); });
+    }
+
+    [Theory]
+    [InlineData("transport")][InlineData("timeout")][InlineData("body")][InlineData("receipt")]
+    public async Task CapturedPolicyNeverReplaysUnknownOutcomeAcrossRestart(string failure)
+    {
+        var journal = new Journal { FailCompletion = failure == "receipt" }; var calls = 0;
+        var content = new WaitingContent();
+        using var http = new HttpClient(new Handler((_, _) =>
+        {
+            calls++;
+            if (failure == "transport") throw new HttpRequestException();
+            if (failure == "timeout") throw new TaskCanceledException();
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.ServiceUnavailable)
+                { Content = failure == "body" ? content : new StringContent("complete") });
+        }));
+        for (var restart = 0; restart < 2; restart++)
+        {
+            using var scope = new LLMHttpRetryContext("captured", journal, ConfirmedPolicy(timeout: 10)).Activate();
+            if (failure == "receipt" && restart == 0)
+                await Assert.ThrowsAsync<IOException>(() => Send(http, post: true));
+            else if (failure is "timeout" or "body")
+                await Assert.ThrowsAsync<TimeoutException>(() => Send(http, post: true));
+            else await Assert.ThrowsAsync<HttpRequestException>(() => Send(http, post: true));
+            journal.FailCompletion = false;
+        }
+        Assert.Equal(1, calls); Assert.Null(Assert.Single(journal.State!.Attempts).Status);
+        if (failure == "body") Assert.True(content.Disposed);
+    }
+
+    [Fact]
+    public async Task CapturedPolicyRetainsAdmissionFailureAndSuccessfulBodyWithoutSemanticRetry()
+    {
+        var journal = new Journal { RejectSecond = true }; var calls = 0;
+        using var http = new HttpClient(new Handler((_, _) => Task.FromResult(new HttpResponseMessage(++calls == 1
+            ? HttpStatusCode.BadGateway : HttpStatusCode.OK) { Content = new StringContent("not valid model JSON") })));
+        using (new LLMHttpRetryContext("captured", journal, ConfirmedPolicy()).Activate())
+            await Assert.ThrowsAsync<InvalidOperationException>(() => Send(http, post: true));
+        Assert.Equal(1, calls); Assert.Equal(502, Assert.Single(journal.State!.Attempts).Status);
+        journal.RejectSecond = false;
+        for (var restart = 0; restart < 2; restart++)
+        {
+            using var scope = new LLMHttpRetryContext("captured", journal, ConfirmedPolicy()).Activate();
+            using var response = await Send(http, post: true);
+            Assert.Equal("not valid model JSON", await response.Content.ReadAsStringAsync(Ct));
+        }
+        Assert.Equal(2, calls); Assert.Equal(2, journal.State.Attempts.Count);
+    }
+
+    [Theory]
+    [InlineData(false)][InlineData(true)]
+    public async Task UnjournaledOrExplicitSingleAttemptPostDoesNotRetryConfirmedError(bool context)
+    {
+        var calls = 0; var journal = new Journal();
+        using var http = new HttpClient(new Handler((_, _) => { calls++; return Task.FromResult(new HttpResponseMessage(HttpStatusCode.BadGateway)); }));
+        using var scope = context ? new LLMHttpRetryContext("captured", journal, ConfirmedPolicy()).Activate() : null;
+        using var response = await Send(http, post: true, policy: new() { MaxAttempts = context ? 1 : 4 });
+        Assert.Equal(502, (int)response.StatusCode); Assert.Equal(1, calls);
+    }
+
+    private static LLMProviderRetryPolicyOptions ConfirmedPolicy(int timeout = 600_000) => new()
+        { MaxAttempts = 3, MaxUncertainRetries = 0, AttemptTimeoutMilliseconds = timeout };
+    [Theory]
     [InlineData(425)][InlineData(429)][InlineData(500)][InlineData(502)][InlineData(503)][InlineData(504)]
     public async Task RetriesOnlyAllowedStatuses(int status)
     {

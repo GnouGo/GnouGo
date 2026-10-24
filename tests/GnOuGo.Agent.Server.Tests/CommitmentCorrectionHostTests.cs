@@ -21,11 +21,12 @@ public sealed class CommitmentCorrectionHostTests
     [InlineData("nullable")]
     [InlineData("initial_followup")]
     [InlineData("initial_followup_uncertain")]
-    public async Task BackgroundCoverageCorrectionIsDurableTenantOwnedAndNeverExecutes(string variant)
+    public async Task RetainedVersionOneCoverageCorrectionIsDurableTenantOwnedAndNeverExecutes(string variant)
     {
         var uncertain = variant.EndsWith("uncertain", StringComparison.Ordinal);
         var repeated = variant == "initial_repeat";
-        var calls = variant.StartsWith("initial_followup", StringComparison.Ordinal) ? 3 : 2;
+        var drafts = variant.StartsWith("initial_followup", StringComparison.Ordinal) ? 3 : 2;
+        var calls = drafts + (uncertain || repeated ? 0 : 1);
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
         var effects = 0;
         var catalog = PlanningSessionLifecycleTests.AgentCatalog().OnTool("produce_observed", (_, _) =>
@@ -33,12 +34,19 @@ public sealed class CommitmentCorrectionHostTests
             JsonNode.Parse("""{"type":"object","properties":{},"additionalProperties":false}"""),
             JsonNode.Parse("""{"type":"object","properties":{"location":{"type":"string"},"optionalLocation":{"type":["string","null"]}},"required":["location","optionalLocation"],"additionalProperties":false}"""));
         var model = new Model(variant); PlanningSession state;
+        // These retained version-one responses exercise the historical commitment
+        // repair protocol. Fresh sessions use the separate compact intent/selection protocol.
+        using (var creation = PlanningSessionLifecycleTests.Create(fixture, new HybridWorkflowPlanner(), catalog, model,
+            settings: new() { BackgroundProcessingEnabled = false }))
+            state = await creation.StartAsync("committed-report", "Produce the fixture report through produce_observed and return its location.", false, Ct);
+        state = RetainedVersionOneConstruction.Restore(state);
+        state.Revision++;
+        Assert.True(await fixture.Store.TrySaveAsync(state, state.Revision - 1, Ct));
         using (var service = PlanningSessionLifecycleTests.Create(fixture, new HybridWorkflowPlanner(), catalog, model))
         {
             await service.StartAsync(Ct);
             try
             {
-                state = await service.StartAsync("committed-report", "Produce the fixture report through produce_observed and return its location.", false, Ct);
                 using var deadline = CancellationTokenSource.CreateLinkedTokenSource(Ct); deadline.CancelAfter(TimeSpan.FromSeconds(15));
                 do
                 {
@@ -46,19 +54,24 @@ public sealed class CommitmentCorrectionHostTests
                     if (PlanningStatus.IsWaiting(state.Status) || PlanningStatus.IsTerminal(state.Status)) break;
                     await Task.Delay(25, deadline.Token);
                 } while (true);
-                Assert.True(state.Status == (uncertain || repeated ? PlanningStatus.Stopped : PlanningStatus.FinalReview), string.Join(';', state.Diagnostics));
-                Assert.Equal(3, state.IntentVersion); Assert.Equal(calls, state.ModelCalls); Assert.Equal(calls - 1, state.ReplanAttempts);
+                Assert.True(state.Status == (uncertain || repeated ? PlanningStatus.Stopped : PlanningStatus.FinalReview),
+                    $"{state.Status} after {state.ModelCalls} calls and {state.ReplanAttempts} corrections: {string.Join(';', state.Diagnostics)}");
+                Assert.Equal(3, state.IntentVersion); Assert.Equal(calls, state.ModelCalls); Assert.Equal(drafts - 1, state.ReplanAttempts);
                 Assert.Equal(calls, model.Calls); Assert.Equal(0, effects); Assert.Null(state.ApprovedHash); Assert.Null(state.SavedAgentId);
                 Assert.Equal("explicit-assertions-v1", state.Request.Options["planning_validation_profile"]!.ToString());
-                Assert.Equal("8", state.Request.Options["automatic_correction_progress"]!["version"]!.ToString());
+                Assert.Equal(1, state.Construction!.Version);
+                Assert.Null(state.Request.Options["automatic_correction_progress"]);
                 if (uncertain) { Assert.NotNull(state.PendingCall); Assert.Contains(state.Diagnostics, d => d.Code == "MODEL_DISPATCH_UNVERIFIABLE"); }
                 else if (repeated)
                 {
                     Assert.Null(state.Requirements); Assert.Null(state.Plan); Assert.Null(state.Yaml);
-                    Assert.Contains(state.Diagnostics, d => d.Code == "REQUIREMENTS_COMMITMENT_INVALID" && d.Location.EndsWith("/result/output", StringComparison.Ordinal));
+                    Assert.Contains(state.Diagnostics, d => d.Code == "REPLAN_NO_PROGRESS");
                 }
                 else
                 {
+                    Assert.True(state.Construction.Complete);
+                    var checkpoint = Assert.Single(state.Construction.Checkpoints);
+                    Assert.Equal("unverified", Assert.Single(checkpoint.Reviews)["outcome"]!.ToString());
                     PlanningArtifactApproval.Verify(state);
                     Assert.Contains(state.ValidationResults, r => r.Id == "coverage:report:0:result" && r.Outcome == "verified");
                     Assert.Contains(state.ValidationResults, r => r.Outcome == "unverified");
@@ -67,8 +80,12 @@ public sealed class CommitmentCorrectionHostTests
             finally { await service.StopAsync(Ct); }
         }
         var stored = (await fixture.Store.LoadAsync("planning-tests", state.Request.SessionId, Ct))!;
+        Assert.Equal(state.ModelCalls, stored.ModelCalls);
+        Assert.Equal(state.ReplanAttempts, stored.ReplanAttempts);
+        Assert.Equal(state.PendingCall?.Id, stored.PendingCall?.Id);
         Assert.Equal(JsonSerializer.Serialize(state.Requirements, PlanningJsonContext.Default.PlanningRequirements), JsonSerializer.Serialize(stored.Requirements, PlanningJsonContext.Default.PlanningRequirements));
         var receipts = await fixture.Records.ListAsync(PlanningModelJournal.Collection, "planning-tests", EfPlanningSessionStore.Author, Ct);
+        Assert.Equal(calls - (uncertain ? 1 : 0), receipts.Count);
         using var restarted = PlanningSessionLifecycleTests.Create(fixture, new HybridWorkflowPlanner(), catalog, model);
         await restarted.StartAsync(Ct);
         try
@@ -88,7 +105,15 @@ public sealed class CommitmentCorrectionHostTests
         public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
         {
             Calls++;
+            if (request.StructuredOutputSchema!["properties"]?["findings"] is not null)
+                return Task.FromResult(new LLMResponse { Json = PlanningCorpus.OneDraftResponse(request, new()),
+                    Usage = new JsonObject { ["input_tokens"] = 10, ["output_tokens"] = 5 } });
             var followup = variant.StartsWith("initial_followup", StringComparison.Ordinal);
+            if (Calls == 2 && variant is "coverage" or "uncertain")
+            {
+                Assert.NotNull(request.StructuredOutputSchema!["properties"]!["extension"]);
+                Assert.False(PlanningRepairPatch.Issued(request.StructuredOutputSchema.AsObject()));
+            }
             if (variant.EndsWith("uncertain", StringComparison.Ordinal) && Calls == (followup ? 3 : 2)) throw new InvalidOperationException("Simulated unknown provider completion");
             if (PlanningRepairPatch.Issued(request.StructuredOutputSchema!.AsObject()))
             {
@@ -110,8 +135,7 @@ public sealed class CommitmentCorrectionHostTests
             var proposal = new PlanningProposal { Plan = plan, Requirements = new() { Summary = "Produce the fixture report", Inputs = [],
                 Outputs = [new() { Name = "reportPath", Type = new() { Kind = "string" } }],
                 Outcomes = [new("report", "Produce the fixture report and return its location") { Commitments = [new(operation) { Result = new("location", "reportPath") }] }] } };
-            var response = PlanningCorpus.Transport(JsonSerializer.SerializeToNode(proposal, PlanningJsonContext.Default.PlanningProposal),
-                request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject())!;
+            var response = PlanningCorpus.OneDraftResponse(request, proposal)!;
             if (variant.StartsWith("initial", StringComparison.Ordinal))
             {
                 if (Calls == 1 || variant == "initial_repeat") response["requirements"]!["outcomes"]![0]!["commitments"]![0]!["result"]!["output"] = "workspace/report.xlsx";

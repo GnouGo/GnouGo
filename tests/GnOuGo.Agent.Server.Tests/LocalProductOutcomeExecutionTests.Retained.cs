@@ -48,7 +48,6 @@ public sealed partial class LocalProductOutcomeExecutionTests
     }
 
     [Theory]
-    [InlineData("consent")]
     [InlineData("absent")]
     [InlineData("unknown-id")]
     [InlineData("incomplete")]
@@ -63,7 +62,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
         var typedRepair = variant is "typed-repair" or "typed-lookup-repair";
         var root = Directory.CreateTempSubdirectory("gnougo-retained-products-").FullName;
         var workspace = Path.Combine(root, "workspace"); Directory.CreateDirectory(workspace);
-        var visits = new List<string>(); var submitted = new List<string>(); var consentSeen = new List<bool>();
+        var visits = new List<string>(); var submitted = new List<string>();
         var builder = WebApplication.CreateBuilder(); builder.Configuration.Sources.Clear();
         builder.WebHost.ConfigureKestrel(o => o.Listen(System.Net.IPAddress.Loopback, 0)); builder.Logging.ClearProviders();
         await using var site = builder.Build();
@@ -76,13 +75,11 @@ public sealed partial class LocalProductOutcomeExecutionTests
             if (path == "/")
             {
                 body = noise + "<form action='/search' method='get'><input aria-label='Search catalogue' name='q' /><button>Search</button></form>";
-                if (variant == "consent" && context.Request.Cookies["fixtureConsent"] != "accepted")
-                    body += "<section role='dialog'><p>Cookie preferences</p><button onclick=\"document.cookie='fixtureConsent=accepted;path=/';this.parentNode.remove()\">Accept cookies</button></section>";
+
             }
             else if (path == "/search")
             {
                 submitted.Add(context.Request.Query["q"].ToString());
-                consentSeen.Add(context.Request.Cookies["fixtureConsent"] == "accepted");
                 // Repeated business values and a sponsored label must not delete or reorder rows.
                 body = noise + string.Concat(Enumerable.Range(0, 12).Select(i => "<a href='" + origin + "/product/" + i + "?source=" + new string('z', 250) + "'>" + (i == 1 ? "Sponsored " : "") + "Observed product " + i + "</a>")) + noise;
             }
@@ -144,8 +141,8 @@ public sealed partial class LocalProductOutcomeExecutionTests
                 return new JsonObject { ["discoveryRequests"] = null, ["clarifications"] = null,
                     ["patch"] = new JsonObject { ["edits"] = new JsonArray(edits.Select(e => (JsonNode)e).ToArray()) } };
             };
-            var session = new PlanningSession { Catalog = catalog, Request = new() { TenantId = "local", Prompt = proposal.Requirements!.Summary,
-                Generation = new() { MaxInputTokensPerRequest = 96000, MaxOutputTokens = 32768 } } };
+            var session = GnOuGo.Planning.Examples.PlanningCorpus.RetainedSession(new PlanningSession { Catalog = catalog, Request = new() { TenantId = "local", Prompt = proposal.Requirements!.Summary,
+                Generation = new() { MaxInputTokensPerRequest = 96000, MaxOutputTokens = 32768 } } });
             var timer = Stopwatch.StartNew();
             session = await new HybridWorkflowPlanner().AdvanceAsync(session, new(), adapter, ct);
             if (typedRepair)
@@ -186,7 +183,6 @@ public sealed partial class LocalProductOutcomeExecutionTests
             }
             Assert.True(result.Success, result.Error?.Message);
             Assert.Equal(["observed lamps"], submitted);
-            Assert.Equal([variant == "consent"], consentSeen);
             var selectedIndices = variant == "repeated-selection" ? Enumerable.Range(0, 9).Append(0).ToArray() : Enumerable.Range(0, 10).ToArray();
             var visitedProducts = visits.Where(p => p.StartsWith("/product/", StringComparison.Ordinal)).ToArray();
             Assert.Equal(selectedIndices.Select(i => "/product/" + i), visitedProducts);
@@ -273,8 +269,9 @@ public sealed partial class LocalProductOutcomeExecutionTests
             var input = BusinessData(request)!; JsonObject result;
             Assert.DoesNotContain("irrelevant-observation", input.ToJsonString());
             Assert.DoesNotContain("observationSnapshot", input.ToJsonString());
-            if (input["consentOffered"] is JsonArray consent)
-                result = new() { ["selectedConsentId"] = consent.SingleOrDefault(c => c!["text"]!.ToString() == "Accept cookies")?["candidateId"]?.DeepClone(), ["captchaEncountered"] = false, ["status"] = "observed" };
+            // Historical artifact vocabulary is retained, but the active fixture never offers cookie controls.
+            if (input["consentOffered"] is JsonArray)
+                result = new() { ["selectedConsentId"] = null, ["captchaEncountered"] = false, ["status"] = "observed" };
             else if (input["searchOffered"] is JsonArray search)
                 result = new() { ["selectedSearchId"] = search.Single(c => c!["tag"]!.ToString() == "input")!["candidateId"]!.DeepClone(), ["captchaEncountered"] = false, ["status"] = "observed" };
             else if (input["productOffered"] is JsonArray candidates)

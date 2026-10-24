@@ -2,10 +2,11 @@ using System.Runtime.InteropServices;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Planning;
+using GnOuGo.Planning.Examples;
 
 internal static class LiveCampaignEvidence
 {
-    internal static async Task<JsonObject> PinAsync(BenchmarkCampaign campaign, string source, string provider, string model, string configurationFingerprint, string cohort, int productLimit = 3, bool businessJudge = false)
+    internal static async Task<JsonObject> PinAsync(BenchmarkCampaign campaign, string source, string provider, string model, string configurationFingerprint, string cohort, int productLimit = 3, bool businessJudge = false, JsonObject? planningConfiguration = null)
     {
         var manifest = new JsonObject
         {
@@ -26,6 +27,14 @@ internal static class LiveCampaignEvidence
         if (productLimit != 3) manifest["max_products"] = productLimit;
         // Absence is the historical disabled setting; never rewrite an issued manifest.
         if (businessJudge) manifest["business_judge"] = true;
+        if (planningConfiguration is not null)
+        {
+            manifest["planning_configuration"] = planningConfiguration.DeepClone();
+            manifest["planning_attempts"] = planningConfiguration["calls"]!.DeepClone();
+            manifest["repairs"] = planningConfiguration["repairs"]!.DeepClone();
+            manifest["max_input_tokens"] = planningConfiguration["input_tokens"]!.DeepClone();
+            manifest["max_output_tokens"] = planningConfiguration["output_tokens"]!.DeepClone();
+        }
         var saved = await campaign.LoadAsync(SchemaPortabilityCampaign.Collection, cohort + "-manifest");
         if (saved is not null) RequireMatch(saved, manifest);
         else await campaign.SaveAsync(SchemaPortabilityCampaign.Collection, cohort + "-manifest", manifest);
@@ -55,7 +64,7 @@ internal static class LiveCampaignEvidence
         {
             calls++; var physical = row["transport"]!["Attempts"]!.AsArray(); attempts += physical.Count;
             var usage = row["usage"];
-            var pending = physical.Count(a => a!["Status"] is null || usage is null && a["Status"]!.GetValue<int>() is >= 200 and < 300);
+            var pending = physical.Count(a => PlanningBenchmarkMeasurements.RequiresHttpUsageReservation(a?["Status"]?.GetValue<int>(), usage is not null, PlanningBenchmarkMeasurements.RetainsAllHttpFailures(row)));
             unknown += pending;
             reservedInput += pending * row["input_ceiling"]!.GetValue<long>(); reservedOutput += pending * row["output_ceiling"]!.GetValue<long>();
             reservedCost += pending * row["cost_ceiling_eur"]!.GetValue<decimal>();

@@ -7,6 +7,7 @@ using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Planning;
+using GnOuGo.Flow.Integrations.Planning;
 using GnOuGo.KeyVault.Core.Services;
 using Microsoft.EntityFrameworkCore;
 
@@ -16,17 +17,38 @@ namespace GnOuGo.Agent.Server.Planning;
 internal sealed class PlanningModelJournal(
     ILLMClient inner, IDbContextFactory<PlanningDbContext> contexts, IKeyVaultRecordStore records,
     string tenantId, string sessionId, LLMUsageBudgetScope budget, IModelUsageCostEstimator estimator, PlanningGenerationOptions? generation = null,
-    ILLMCapabilityResolver? capabilities = null) : ILLMClient, IModelAdmissionOwner
+    ILLMCapabilityResolver? capabilities = null, PlanningRequest? planning = null,
+    DateTimeOffset? planningDeadlineUtc = null) : ILLMClient, IModelAdmissionOwner, IPlanningConstructionAdmission
 {
     internal const string Collection = "agent-planning-model-receipts-v10";
     internal const string RequestCollection = "agent-planning-model-requests-v10";
+    internal const string HttpCollection = "agent-planning-model-http-v10";
     private static readonly Meter Metrics = new("GnOuGo.Agent.Planning");
     private static readonly Histogram<double> ProviderDuration = Metrics.CreateHistogram<double>("gen_ai.client.operation.duration", "s");
     private static readonly Histogram<long> TokenUsage = Metrics.CreateHistogram<long>("gen_ai.client.token.usage", "{token}");
 
+    public Task AdmitConstructionAsync(LLMRequest request, int inputTokenCeiling, IReadOnlyList<int> outputTokenCeilings, CancellationToken ct)
+        => budget.EnsureAllowanceAsync(request, estimator, inputTokenCeiling, outputTokenCeilings, "workflow.plan.construction", ct);
+
+    public async Task RecoverSavedResponseAsync(LLMRequest request, CancellationToken ct)
+    {
+        if (planning is null || PlanningTransportPolicies.Read(planning) is null ||
+            await records.GetAsync(Collection, tenantId, sessionId + ":" + request.ClientRequestId, EfPlanningSessionStore.Author, ct) is not null ||
+            !await HttpJournal(request).HasSuccessfulResponseAsync(ct)) return;
+        // The exclusive session lease and exact successful HTTP journal make this
+        // receipt parsing only. It cannot start or retry a provider request.
+        await CallAsync(request, ct);
+    }
+
+    private PlanningHttpModelJournal HttpJournal(LLMRequest request) => new(records, budget, planning!, request, estimator,
+        HttpCollection, EfPlanningSessionStore.Author,
+        planningDeadlineUtc ?? DateTimeOffset.UtcNow + (PlanningBudgetOptions.Parse(planning!.Options)?.MaxElapsed ?? TimeSpan.FromHours(5)));
+
     public async Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
     {
-        PlanningGenerationPolicy.Apply(request, generation ?? new());
+        if (planning is not null && PlanningConstructionPhasePolicies.IsFresh(planning))
+            PlanningConstructionPhasePolicies.ValidateIssued(request, planning);
+        else PlanningGenerationPolicy.Apply(request, generation ?? new());
         var key = request.ClientRequestId;
         if (string.IsNullOrWhiteSpace(key) || !key.StartsWith(sessionId + ":", StringComparison.Ordinal))
             throw new InvalidOperationException("A session-owned durable request identity is required before dispatch.");
@@ -36,32 +58,47 @@ internal sealed class PlanningModelJournal(
         if (!key.EndsWith(":" + requestHash, StringComparison.Ordinal))
             throw new InvalidOperationException("The reserved model request changed before dispatch.");
         await using var db = await contexts.CreateDbContextAsync(ct);
+        var journaled = planning is not null && PlanningTransportPolicies.Read(planning) is not null;
         var existing = await db.Calls.AsNoTracking().SingleOrDefaultAsync(c => c.TenantId == tenantId && c.SessionId == sessionId && c.RequestHash == key, ct);
         if (existing is not null)
         {
             var record = await records.GetAsync(Collection, tenantId, existing.PayloadKey, EfPlanningSessionStore.Author, ct);
-            if (record is null)
+            if (record is null && !journaled)
                 throw new WorkflowRuntimeException(ErrorCodes.LlmBudgetUnverifiable, "A previous planning request has no durable completion receipt. Its usage cannot be verified; it was not dispatched again.");
-            var completed = JsonSerializer.Deserialize(record.Value, PlanningJsonContext.Default.LLMResponse)
-                ?? throw new InvalidOperationException("The encrypted model receipt is invalid.");
-            // Encryption and the index are separate stores. A crash after receipt persistence
-            // can leave a reservation; the exact owned receipt safely completes that index.
-            if (existing.Status != "completed")
+            if (record is not null)
             {
-                db.Attach(existing); existing.Status = "completed"; await db.SaveChangesAsync(ct);
+                var completed = JsonSerializer.Deserialize(record.Value, PlanningJsonContext.Default.LLMResponse)
+                    ?? throw new InvalidOperationException("The encrypted model receipt is invalid.");
+                // Encryption and the index are separate stores. A crash after receipt persistence
+                // can leave a reservation; the exact owned receipt safely completes that index.
+                if (existing.Status != "completed")
+                {
+                    db.Attach(existing); existing.Status = "completed"; await db.SaveChangesAsync(ct);
+                }
+                Activity.Current?.SetTag("gnougo.llm.status", "replayed");
+                return completed;
             }
-            Activity.Current?.SetTag("gnougo.llm.status", "replayed");
-            return completed;
+            var reserved = await records.GetAsync(RequestCollection, tenantId, existing.PayloadKey, EfPlanningSessionStore.Author, ct);
+            if (reserved?.Value != JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest))
+                throw new PlanningConflictException("The retained planning request changed before HTTP recovery.");
         }
-        await ModelRequestAdmission.ValidateAsync(request, capabilities ?? inner as ILLMCapabilityResolver,
-            generation?.MaxInputTokensPerRequest ?? 32_000, "planning", ct);
-        var row = new PlanningCallIndex { TenantId = tenantId, SessionId = sessionId, RequestHash = key, PayloadKey = sessionId + ":" + key };
-        db.Calls.Add(row);
-        try { await db.SaveChangesAsync(ct); }
-        catch (DbUpdateException) { throw new PlanningConflictException("This model request was reserved by another session worker."); }
+        if (!journaled || !await HttpJournal(request).HasSuccessfulResponseAsync(ct))
+            await ModelRequestAdmission.ValidateAsync(request, capabilities ?? inner as ILLMCapabilityResolver,
+                planning is null ? generation?.MaxInputTokensPerRequest ?? 32_000 : PlanningConstructionInputPolicy.EffectiveLimit(planning, request), "planning", ct);
+        var row = existing ?? new PlanningCallIndex { TenantId = tenantId, SessionId = sessionId, RequestHash = key, PayloadKey = sessionId + ":" + key };
+        if (existing is null)
+        {
+            db.Calls.Add(row);
+            try { await db.SaveChangesAsync(ct); }
+            catch (DbUpdateException) { throw new PlanningConflictException("This model request was reserved by another session worker."); }
 
-        await records.UpsertAsync(RequestCollection, tenantId, row.PayloadKey, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest), EfPlanningSessionStore.Author, ct);
-        var response = await budget.CallAsync(new MeasuredClient(inner, tenantId), estimator, request, "workflow.plan.typed.model", ct);
+            await records.UpsertAsync(RequestCollection, tenantId, row.PayloadKey, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest), EfPlanningSessionStore.Author, ct);
+        }
+        else db.Attach(row);
+        var response = journaled
+            ? await HttpJournal(request)
+                .CallAsync(new MeasuredClient(inner, tenantId), allowInitialize: existing is null, ct)
+            : await budget.CallAsync(new MeasuredClient(inner, tenantId), estimator, request, "workflow.plan.typed.model", ct);
         using var flush = new CancellationTokenSource(TimeSpan.FromSeconds(30));
         // Publish replayable evidence only after its usage is durable. Neither flush
         // inherits a cancellation that arrived alongside the completed response.

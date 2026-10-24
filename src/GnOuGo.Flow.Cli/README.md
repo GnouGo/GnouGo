@@ -12,17 +12,22 @@ dotnet run --project src/GnOuGo.Flow.Cli -- run src/GnOuGo.Flow.Cli/examples/wor
 dotnet publish src/GnOuGo.Flow.Cli -c Release -r osx-arm64
 ```
 
-New `workflow.plan` sessions default to twelve cumulative model calls, four corrections,
-32,000 input tokens and 32,768 output tokens per planning request. Override these through
-the authored `generator.max_input_tokens`, `generator.max_output_tokens`,
+New `workflow.plan` sessions use compact construction version 2 with 64 cumulative
+model calls and four corrections. Complete-request input limits are 3,000 for
+intent indexing/selection/discovery, 8,000 for generation/correction and 4,000 for
+Judges; tighter configured limits prevail, with no fallback to 32,000. Captured
+output reservations remain 8,192 for non-Judge construction and 2,048 for Judges.
+The general generation ceiling and
+cumulative allowances can be configured at creation through the authored `generator.max_input_tokens`, `generator.max_output_tokens`,
 `max_replan_attempts` and `llm_budget.max_calls` fields. The internal runtime does not
 impose an additional eight-call cap. Financial, cumulative-token and time limits remain
 unchanged. Saved definitions and missing historical fields retain their original limits;
 resume rejects explicit changes instead of applying new creation defaults.
 
-The optional `business_judge: true` field enables independent advisory business review
-before FinalReview. It is disabled by default and shares the same model, call allowance,
-usage journal and recovery. Findings cannot authorize new effects or edits; observations
+Fresh sessions require local and applicable intermediate advisory reviews, sharing
+the same model, call allowance, usage journal and recovery. Historical sessions
+retain their captured optional `business_judge` behavior; that option cannot disable
+scoped reviews or add a final whole-plan Judge to a new session. Findings cannot authorize new effects or edits; observations
 without existing explicit revision authority require revision. Console review includes
 the retained request, requirements, validation results, plan and YAML; acknowledgments
 and artifact approval remain explicit.
@@ -31,7 +36,7 @@ Before new planning and extraction dispatches, declared model capabilities must 
 Structured Output, configured reasoning and the output reservation. The complete request
 must fit the smaller configured/model input allowance. Missing indispensable metadata
 fails before dispatch, without model substitution, silent clamping or evidence truncation.
-See [planner configuration and review](../GnOuGo.Flow.Planning/README.md#optional-independent-business-review).
+See [planner configuration and review](../../docs/incremental-taskplan-construction.md#review-correction-and-finalization).
 
 Runtime expression and WFScript support uses the existing Jint sandbox. Published
 binaries retain the repository's documented, dependency-specific AOT exceptions.

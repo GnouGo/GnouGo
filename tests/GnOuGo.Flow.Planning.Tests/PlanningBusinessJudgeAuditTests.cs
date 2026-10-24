@@ -112,9 +112,9 @@ public sealed class PlanningBusinessJudgeAuditTests
     [InlineData(2)]
     public async Task RetainedJudgeReceiptUsesItsIssuedPromptAfterAnInstructionVersionChange(int version)
     {
-        var state = PlannerFixture.Session();
+        var state = version == 1 ? PlannerFixture.HistoricalSession() : PlannerFixture.Session();
         // A persisted session predating fresh version capture must keep its v1
-        // context and issued request; a new session captures the current v2.
+        // context and issued request; a retained v2 session keeps that profile.
         if (version == 1) state.Revision = 1;
         state.Request.Options["business_judge"] = true;
         var runtime = new TestRuntime();

@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Planning.Examples;
 
 namespace GnOuGo.Flow.Planning.Tests;
 
@@ -48,7 +49,8 @@ public sealed class AutomaticCorrectionTests
         var runtime = new TestRuntime();
         var baseline = await PlannerFixture.RunAsync(runtime);
         Assert.Equal(PlanningStatus.FinalReview, baseline.Status);
-        var state = new PlanningSession
+        // Continue the retained whole-plan correction protocol used by this fixture.
+        var state = PlanningCorpus.RetainedSession(new PlanningSession
         {
             IntentVersion = 2, Catalog = baseline.Catalog, Requirements = baseline.Requirements,
             Request = new()
@@ -57,7 +59,7 @@ public sealed class AutomaticCorrectionTests
                 Options = new() { ["automatic_correction"] = true },
                 FailureEvidence = new() { ["error_code"] = "EXPR_TYPE_MISMATCH" }
             }
-        };
+        });
         state = await PlannerFixture.RunAsync(runtime, state);
         Assert.Equal(PlanningStatus.Stopped, state.Status);
         Assert.Null(state.Yaml); Assert.Null(state.ApprovedHash);

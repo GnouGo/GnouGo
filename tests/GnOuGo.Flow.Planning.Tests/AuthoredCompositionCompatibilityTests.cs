@@ -71,7 +71,7 @@ public sealed class AuthoredCompositionCompatibilityTests
         };
         async Task<bool> Run()
         {
-            var compiled = new TaskPlanCompiler().Compile(plan, catalog, PlannerFixture.Session().Request);
+            var compiled = new TaskPlanCompiler().Compile(plan, catalog, PlannerFixture.HistoricalSession().Request);
             Assert.Empty(compiled.Diagnostics); // No new implication checker.
             var yaml = new PlanningGraphCompiler().Compile(compiled.Graph!, catalog, "assertions",
                 descriptions: true, fuseBindings: true, consumerBindings: true, directProjections: true, nativeMappings: true,

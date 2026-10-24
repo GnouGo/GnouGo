@@ -23,7 +23,7 @@ public sealed class ApprovedExecutionTests
         try
         {
             var model = new Model { BusinessDecision = businessDecision }; var human = new Human(); var decisions = new Decisions();
-            var factory = new WorkflowPlanningRuntimeFactory(new KeyVaultRecordStore(Path.Combine(directory, "vault.db")), Path.Combine(directory, "leases"));
+            var factory = new RetainedVersionOnePlanningFactory(new KeyVaultRecordStore(Path.Combine(directory, "vault.db")), Path.Combine(directory, "leases"));
             var engine = new WorkflowEngine { WorkflowPlanner = new HybridWorkflowPlanner(), PlanningRuntimeFactory = factory, LLMClient = model, HumanInputProvider = human, PlanningInteraction = decisions, DefaultPlanningMode = mode,
                 Limits = new() { RunId = "stable-run", TenantId = "one" } };
             var compiled = new WorkflowCompiler().Compile(WorkflowParser.Parse("""
@@ -47,7 +47,7 @@ public sealed class ApprovedExecutionTests
                 var result = await engine.ExecuteAsync(compiled.Workflows[compiled.Entrypoint!], new JsonObject(), TestContext.Current.CancellationToken);
                 Assert.True(result.Success, result.Error?.Message); Assert.Equal("42", result.Outputs!["result"]!.ToJsonString());
             }
-            Assert.Equal(1, model.Calls); Assert.Equal(1, human.Reviews); Assert.Equal(businessDecision && mode == "interactive" ? 1 : 0, decisions.Questions);
+            Assert.Equal(2, model.Calls); Assert.Equal(1, human.Reviews); Assert.Equal(businessDecision && mode == "interactive" ? 1 : 0, decisions.Questions);
             await Assert.ThrowsAsync<PlanningConflictException>(() => factory.ReadApprovedYamlAsync(new() { Engine = engine, Limits = new() { TenantId = "other" }, Step = new(), Data = new() }, "unknown", "forged", TestContext.Current.CancellationToken));
         }
         finally { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); Directory.Delete(directory, true); }
@@ -69,7 +69,10 @@ public sealed class ApprovedExecutionTests
                 proposal.Plan.Choices = [new() { Id = "style", Question = "Which presentation?", Recommended = "brief", Alternatives = [new("brief", "Brief", PlanningCorpus.String("brief")), new("detailed", "Detailed", PlanningCorpus.String("detailed"))] }];
                 proposal.Plan.Root.Outputs.Add(new("style", PlanningCorpus.Business("choice", "style")));
             }
-            var response = new LLMResponse { Json = PlanningCorpus.Transport(System.Text.Json.JsonSerializer.SerializeToNode(proposal, PlanningJsonContext.Default.PlanningProposal), request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject()) };
+            proposal.Requirements!.Inputs = [];
+            proposal.Requirements.Outputs = [new() { Name = "result", Type = new() { Kind = "number" } }];
+            if (BusinessDecision) proposal.Requirements.Outputs.Add(new() { Name = "style", Type = new() { Kind = "string" } });
+            var response = new LLMResponse { Json = PlanningCorpus.OneDraftResponse(request, proposal) };
             response.Usage = new JsonObject { ["total_tokens"] = 15 }; return Task.FromResult(response);
         }
 

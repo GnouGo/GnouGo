@@ -78,6 +78,7 @@ public sealed class CopilotAttachmentPlanningTests
         // Explicitly synthetic corrected intent, not an edited historical recording.
         model.Plan = SyntheticCorrectedProposal(clone.Id, send.Id);
         state.Requirements!.Inputs = model.Plan.Inputs;
+        state = PlanningCorpus.RetainedSession(state);
         state = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
         Assert.True(state.Status == PlanningStatus.FinalReview, string.Join("; ", state.Diagnostics.Select(d => d.Code + " " + d.Location + " " + d.Message)));
         Assert.Equal(1, model.Calls); Assert.Equal(0, state.ReplanAttempts); Assert.Equal(0, factory.InvocationAttempts);

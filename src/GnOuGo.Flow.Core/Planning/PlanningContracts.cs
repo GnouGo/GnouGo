@@ -28,7 +28,7 @@ public sealed class PlanningRequest
     public JsonObject Options { get; set; } = new();
     public PlanningPolicy Policy { get; set; } = new();
     public int MaxReplanAttempts { get; set; } = 4;
-    public int MaxModelCalls { get; set; } = 12;
+    public int MaxModelCalls { get; set; } = 64;
     public PlanningGenerationOptions Generation { get; set; } = new();
 }
 
@@ -52,6 +52,12 @@ public sealed class PlanningPolicy
     public List<string> DeniedCapabilityIds { get; set; } = [];
     public bool RequireExternalConfirmation { get; set; } = true;
     public int MaxStepsTotal { get; set; } = 300;
+    /// <summary>Optional captured graph ceiling; omission retains the historical 300-node workflow limit.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? MaxStepsPerWorkflow { get; set; }
+    /// <summary>Optional captured graph ceiling; omission retains the historical 100-workflow limit.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? MaxWorkflows { get; set; }
     public string Instructions { get; set; } = "";
 }
 
@@ -82,6 +88,8 @@ public sealed class PlanningCommand
     public List<PlanningAnswer>? Answers { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<string>? ReviewedRequirementIds { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ApprovalReviewId { get; set; }
     public PlanningGenerationOptions? Generation { get; set; }
 }
 
@@ -99,7 +107,7 @@ public sealed class PlanningSession
     [JsonIgnore]
     internal bool IsNewlyConstructed { get; }
 
-    public IReadOnlyList<PlanningChoice> GetChoices() => Plan?.Choices ?? [];
+    public IReadOnlyList<PlanningChoice> GetChoices() => Construction?.Candidate?.Plan.Choices ?? Plan?.Choices ?? [];
     public IReadOnlyList<PlanningQuestion> GetQuestions() => PendingQuestions ?? GetChoices().Where(c => c.Selected is null)
         .Select(c => new PlanningQuestion(c.Id, c.Question, c.Alternatives.Select(a => new PlanningQuestionAlternative(a.Id, a.Description)).ToList(), c.Recommended)).ToList();
     public string? ComputeArtifactHash()
@@ -117,6 +125,11 @@ public sealed class PlanningSession
             ["diagnostics"] = JsonSerializer.SerializeToNode(Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic)
         };
         if (IntentVersion is 2 or 3) artifact["intentVersion"] = IntentVersion;
+        if (Construction is not null)
+        {
+            artifact["constructionVersion"] = Construction.Version;
+            artifact["constructionLimits"] = JsonSerializer.SerializeToNode(Construction.Limits, PlanningJsonContext.Default.PlanningConstructionOptions);
+        }
         // Absent annotations preserve byte-for-byte historical approval identities.
         if (OutcomeVersion is not null)
         {
@@ -159,16 +172,22 @@ public sealed class PlanningSession
     public List<string>? EditablePaths { get; set; }
     public string Phase { get; set; } = PlanningPhase.Requirements;
     public TaskPlan? Plan { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PlanningConstructionState? Construction { get; set; }
     public PlanningGraph? Graph { get; set; }
     public List<PlanningDiagnostic> Diagnostics { get; set; } = [];
     public List<PlanningValidationResult> ValidationResults { get; set; } = [];
     public int ReplanAttempts { get; set; }
     public int ModelCalls { get; set; }
     public PlanningModelCall? PendingCall { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<PlanningRequestMeasurement>? RequestMeasurements { get; set; }
     public string? RejectedProposalHash { get; set; }
     public LLMUsageBudgetSnapshot? Usage { get; set; }
     public string? Yaml { get; set; }
     public string? ApprovedHash { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PlanningApprovalReview? ApprovalReview { get; set; }
     public string? SavedAgentId { get; set; }
 }
 
@@ -177,6 +196,11 @@ public sealed class PlanningModelCall
     public string Id { get; set; } = "";
     public string Purpose { get; set; } = "tasks";
     public LLMRequest Request { get; set; } = new();
+    // Absent on historical precharged requests. New requests reserve correction
+    // authority at issuance and classify the retained response with its transition.
+    // 0 = ordinary call, 1 = navigation correction, 3 = draft correction.
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? CorrectionAccounting { get; set; }
 }
 
 public sealed class PlanningCatalog
@@ -268,7 +292,9 @@ public sealed class PlanningConflictException(string message) : InvalidOperation
 [JsonSerializable(typeof(List<PlanningSession>))]
 [JsonSerializable(typeof(PlanningRequest))]
 [JsonSerializable(typeof(PlanningCommand))]
+[JsonSerializable(typeof(PlanningApprovalReview))]
 [JsonSerializable(typeof(PlanningGenerationOptions))]
+[JsonSerializable(typeof(PlanningTransportPolicy))]
 [JsonSerializable(typeof(PlanningCatalog))]
 [JsonSerializable(typeof(PlanningCapability))]
 [JsonSerializable(typeof(PlanningGraph))]
@@ -282,4 +308,22 @@ public sealed class PlanningConflictException(string message) : InvalidOperation
 [JsonSerializable(typeof(LLMResponse))]
 [JsonSerializable(typeof(LLMUsageBudgetSnapshot))]
 [JsonSerializable(typeof(HumanInputRequest))]
+[JsonSerializable(typeof(PlanningConstructionState))]
+[JsonSerializable(typeof(PlanningConstructionOptions))]
+[JsonSerializable(typeof(PlanningConstructionPhasePolicy))]
+[JsonSerializable(typeof(PlanningPhaseSettings))]
+[JsonSerializable(typeof(PlanningConstructionCandidate))]
+[JsonSerializable(typeof(PlanningConstructionExtension))]
+[JsonSerializable(typeof(PlanningCompactConstructionState))]
+[JsonSerializable(typeof(PlanningConstructionStep))]
+[JsonSerializable(typeof(PlanningConstructionReselection))]
+[JsonSerializable(typeof(PlanningConstructionTypedPrerequisite))]
+[JsonSerializable(typeof(PlanningConstructionSuspendedStep))]
+[JsonSerializable(typeof(PlanningConstructionSource))]
+[JsonSerializable(typeof(PlanningConstructionInterfaceExtraction))]
+[JsonSerializable(typeof(PlanningConstructionCommitment))]
+[JsonSerializable(typeof(PlanningConstructionInputLimits))]
+[JsonSerializable(typeof(PlanningRequestMeasurement))]
+[JsonSerializable(typeof(List<PlanningRequestMeasurement>))]
+[JsonSerializable(typeof(List<PlanningConstructionCheckpoint>))]
 public partial class PlanningJsonContext : JsonSerializerContext;

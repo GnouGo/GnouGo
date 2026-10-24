@@ -38,19 +38,29 @@ Selected locations clear when the session, revision or artifact changes. Failed 
 
 Trace lookup requires an exact planning-session attribute and the current tenant. It combines local capture with the embedded collector's retained records, so persisted traces remain inspectable after restart. Missing or expired telemetry is shown explicitly; lookup is bounded to 500 collector candidates and reports when that limit is reached. Trace availability is independent of model receipt retention. Trace usage totals cover recorded attributes only and are not a complete billing ledger; absent telemetry does not establish zero provider usage or cost. Designer planning activities are captured locally even when OTLP export is disabled.
 
-`TypedWorkflowPlanning` configures `MaxReplanAttempts` (4), `MaxModelCalls` (12), `Reasoning` (`medium`), request token ceilings (32,000 input / 32,768 output), cumulative token/active-time limits and `DatabasePath`. These defaults apply to new Designer sessions, including the Desktop host, and match new standalone Flow and authored `workflow.plan` sessions. Explicit configuration overrides take precedence. Existing sessions retain saved definitions and generation settings; absent historical fields retain eight calls, two repairs and 12,000 input / 8,192 output tokens. Designer shows saved effective settings, without a separate UI default. Two host sessions may progress concurrently; workflow runtime parallelism remains independent.
+`TypedWorkflowPlanning` configures `MaxReplanAttempts` (4), `MaxModelCalls` (64), `Reasoning` (`medium`), a general input ceiling (32,000) and general output ceiling (32,768, further bounded by construction phase reservations), cumulative token/active-time limits and `DatabasePath`. Fresh compact sessions additionally enforce complete-request phase input limits of 3,000 for intent indexing/selection/discovery, 8,000 for generation/correction and 4,000 for Judges; tighter configured limits prevail and no larger fallback is used. These defaults apply to new Designer sessions, including the Desktop host, and match new standalone Flow and authored `workflow.plan` sessions. Explicit configuration overrides take precedence. Existing sessions retain saved definitions and generation settings; absent historical fields retain eight calls, two repairs and 12,000 input / 8,192 output tokens. Designer shows saved effective settings, without a separate UI default. Two host sessions may progress concurrently; workflow runtime parallelism remains independent.
 
-**Independent business review** is an unchecked creation option, disabled by default.
-The optional start-API `businessJudge` property captures `business_judge` in the new
-session; historical sessions without it remain disabled. The Judge uses the same model
-in a separate call after deterministic validation and choices, before FinalReview.
-Its grounded observations appear separately from deterministic coverage and do not
-preselect requirement acknowledgments. No-findings reports remain unverified; skipped
-or unusable evaluation is shown as not evaluated or inconclusive. Findings cannot
-expand correction authority: existing explicitly authorized slots can use targeted
-correction; other findings require explicit revision. Calls, corrections and recovery
-share the existing cumulative allowances, encrypted journal and receipts. The UI shows
-the captured effective option; enabling review does not authorize execution.
+Fresh construction captures `DraftOutputTokens` (8,192) and `ReviewOutputTokens`
+(2,048), both bounded by the general output ceiling. Admission before selection
+and discovery includes unavoidable downstream generation/reviews in the remaining
+call, token and monetary allowances.
+
+New sessions use [incremental construction](../../docs/incremental-taskplan-construction.md).
+Each draft receives bounded independent advisory review before checkpoint acceptance;
+there is no final whole-plan Judge or creation checkbox to disable local reviews.
+The legacy `businessJudge` API property remains readable for historical callers but
+does not select an alternative pipeline. Review never acknowledges requirements or
+authorizes execution.
+
+Choose `constructionPreset: "large"` in the start API or the Designer capacity
+selector for 384 calls, 64 cumulative corrections and a larger captured graph policy.
+`TypedWorkflowPlanning.ConstructionPreset` selects the host creation default;
+`LargeMaxModelCalls`, `LargeMaxReplanAttempts`, `LargeMaxStepsTotal`,
+`LargeMaxStepsPerWorkflow` and `LargeMaxWorkflows` configure that explicit preset.
+Ordinary remains the default. Both presets retain the host financial, token and
+active-time ceilings. Recovery intersects saved call/token allowances with current
+host ceilings and rejects changed graph policy; monetary and active-time limits
+remain captured in the session.
 
 Every new planning request is admitted against declared Structured Output support,
 reasoning settings and model input capacity after reserving the unchanged output limit.
@@ -66,7 +76,7 @@ Agent.Server sessions. Its value is captured in session options; omission in a
 historical session retains historical behavior. Set it to `false` to keep manual
 revision offers. It never restarts an old stopped session.
 
-Before approval, diagnosed defects use existing repair slots first. Protected
+For historical generation, diagnosed defects use existing repair slots first. Protected
 declarations use a separately scoped implementation revision; unresolved or
 structural defects use at most one complete proposal regeneration. All actions
 consume the same `MaxReplanAttempts`, model calls, tokens and active time. The
@@ -708,9 +718,12 @@ request identity or reset its accounting.
 A provider's completion-token limit can include reasoning tokens as well as returned JSON.
 An `output_limit` receipt with empty text can therefore reflect exhausted reasoning allowance,
 not an oversized plan. Check the stored usage and original request ceiling. New
-Designer and Flow sessions use 32768 output tokens by default, with explicit
-overrides authoritative. Existing configurations may retain lower reservations. Historical live runs used both allowances; report the actual saved limit when comparing them. An agreed change to that setting applies to a new request, preserves medium
-reasoning and the call/replanning budgets, and does not change earlier reservations or receipts.
+Designer and Flow construction sessions reserve 8,192 output tokens for drafts and
+corrections and 2,048 for Judges, bounded by the general generation ceiling.
+Historical configurations may retain different reservations; report the actual
+saved limit when comparing them. Construction cannot increase captured allowances
+on continuation. A different creation configuration requires a new session and
+never changes earlier reservations or receipts.
 The planner never raises the ceiling or retries a truncated response automatically.
 
 Transport retries are owned by [AI.Core](../GnOuGo.AI.Core/README.md#http-resilience).
@@ -718,8 +731,14 @@ The optional `retryPolicy` object in a KeyVault provider configuration controls 
 `maxUncertainRetries` and `attemptTimeoutMilliseconds`, plus bounded backoff settings.
 Omitting it preserves the base policy. Providing it replaces that policy, with defaults for
 unspecified fields. Malformed settings fail validation; `Retry-After` cannot be disabled.
-Uncertain generation recovery requires a host accounting journal. The live planning benchmark
-supplies it; ordinary planning journals retain their single-attempt safety boundary.
+Fresh planning sessions capture a separate confirmed-response policy with at most
+three journaled physical attempts. Both production planning hosts and the benchmark
+reserve each attempt before dispatch, including mandatory review headroom. Failed
+attempts without verified usage retain their reservations even after later success.
+Only fully saved transient HTTP responses authorize retries; missing outcomes,
+timeouts without a response and invalid model outputs do not. Historical sessions
+retain their original single-attempt boundary and request bytes. Runtime effects
+and local fallback are excluded from this planning policy.
 
 ### Runtime execution budgets
 
@@ -827,7 +846,7 @@ Semantic preflight runs inside the deterministic compiler before lowering. It co
 
 A correction that needs a new conditional or cleanup task uses the existing explicit structural revision rather than extending diagnostic binding slots. If cleanup adds an accepted requirement, review that sole addition through the requirement-changing revision path; preserve all previous interfaces, operations and destinations. Discover and inspect any newly needed capability before proposing it. See the [offline Designer composition correction](../../docs/evidence/designer-composition-2026-10-13/README.md) for paired TaskPlans, compiled v15 YAML and exact workbook/recovery checks. The evidence does not apply a revision to its retained session or authorize execution.
 
-Planning format 10 stores TaskPlans, choices, derived artifacts and call receipts encrypted with tenant ownership. Old planning records remain untouched and cannot transfer approvals. Recovery preserves request identities and budgets; it does not replay surrounding workflow execution or blindly repeat uncertain effects. New-session cumulative defaults are twelve model calls and four corrections. Historical sessions keep their captured limits and sparse historical fallbacks.
+Planning format 10 stores TaskPlans, choices, derived artifacts and call receipts encrypted with tenant ownership. Old planning records remain untouched and cannot transfer approvals. Recovery preserves request identities and budgets; it does not replay surrounding workflow execution or blindly repeat uncertain effects. New-session cumulative defaults are 64 model calls and four corrections, with captured compact phase input limits. Historical sessions keep their captured limits and sparse historical fallbacks.
 
 The former `answer_decision`, free-text decisions, scope-consent cards, binding batches and computation-inference details are removed. Historical reports describe those old APIs and must not be used as current integration instructions. See [architecture and migration](../../docs/workflow-planning-v9.md) and the [planning skill](../../.agents/skills/gnougo-planning/SKILL.md).
 

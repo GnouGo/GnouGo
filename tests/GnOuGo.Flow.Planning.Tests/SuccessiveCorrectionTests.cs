@@ -16,6 +16,8 @@ public sealed class SuccessiveCorrectionTests
         state.Request.Options["automatic_correction"] = true;
         if (historical)
         {
+            PlannerFixture.WithoutCapturedProfiles(state);
+            state.Request.Options["compilation_profile"] = TaskPlanCompiler.CompactProfile;
             state.Revision = 1;
             state.Request.Options["planning_validation_profile"] = TaskPlanCompiler.AssertionValidationProfile;
         }

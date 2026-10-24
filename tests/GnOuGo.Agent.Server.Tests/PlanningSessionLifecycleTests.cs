@@ -13,6 +13,41 @@ public sealed class PlanningSessionLifecycleTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
     [Fact]
+    public async Task LargeCapacityIsCapturedBeforeQueueingAndSurvivesReload()
+    {
+        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
+        using var service = Create(fixture, new HybridWorkflowPlanner(), AgentCatalog(), settings: new()
+            { BackgroundProcessingEnabled = false, DraftOutputTokens = 4_096, ReviewOutputTokens = 1_024 });
+        var created = await service.StartAsync("large-construction", "Build the requested workflow", false, Ct, constructionPreset: "large");
+        var saved = Assert.IsType<PlanningSession>(await fixture.Store.LoadAsync("planning-tests", created.Request.SessionId, Ct));
+        Assert.NotNull(saved.Construction);
+        Assert.Equal(4_096, saved.Construction.Limits.DraftOutputTokens);
+        Assert.Equal(1_024, saved.Construction.Limits.ReviewOutputTokens);
+        Assert.Equal(384, saved.Request.MaxModelCalls);
+        Assert.Equal(64, saved.Request.MaxReplanAttempts);
+        Assert.Equal(5_000, saved.Request.Policy.MaxStepsTotal);
+        Assert.Equal(5_000, saved.Request.Policy.MaxStepsPerWorkflow);
+        Assert.Equal(1_024, saved.Request.Policy.MaxWorkflows);
+        Assert.Equal(384, PlanningSessionService.EffectiveModelCalls(saved, PlanningBudgetOptions.Parse(saved.Request.Options), new()));
+        Assert.Equal(0, saved.ModelCalls);
+        Assert.Null(saved.PendingCall);
+    }
+
+    [Fact]
+    public void AdmissionHonorsCapturedCapacityAndStricterHostCeilings()
+    {
+        var state = new PlanningSession { Construction = new(), Request = new() { MaxModelCalls = 384, Options = new() { ["construction_preset"] = "large" } } };
+        Assert.Equal(384, PlanningSessionService.EffectiveModelCalls(state, null, new()));
+        Assert.Equal(20, PlanningSessionService.EffectiveModelCalls(state, new() { MaxCalls = 20 }, new()));
+        Assert.Equal(100, PlanningSessionService.EffectiveModelCalls(state, null, new() { LargeMaxModelCalls = 100 }));
+        state.Request.MaxModelCalls = 30;
+        Assert.Equal(30, PlanningSessionService.EffectiveModelCalls(state, null, new()));
+        state.Construction = null;
+        Assert.Equal(30, PlanningSessionService.EffectiveModelCalls(state, null, new()));
+        Assert.Equal(12, PlanningSessionService.EffectiveModelCalls(state, null, new() { MaxModelCalls = 12 }));
+    }
+
+    [Fact]
     public async Task NewQueuedSessionPersistsCreationProfilesBeforeAnyModelCall()
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
@@ -72,7 +107,7 @@ public sealed class PlanningSessionLifecycleTests
         Assert.Equal(expected, created.Request.Generation.MaxInputTokensPerRequest);
         Assert.Equal(expectedOutput, created.Request.Generation.MaxOutputTokens);
         Assert.Equal("medium", created.Request.Generation.Reasoning);
-        Assert.Equal(12, created.Request.MaxModelCalls); Assert.Equal(4, created.Request.MaxReplanAttempts);
+        Assert.Equal(64, created.Request.MaxModelCalls); Assert.Equal(4, created.Request.MaxReplanAttempts);
         Assert.Equal(32_000, new PlanningGenerationOptions().MaxInputTokensPerRequest);
 
         using var reopened = Create(fixture, new HybridWorkflowPlanner(), AgentCatalog(), settings: settings);

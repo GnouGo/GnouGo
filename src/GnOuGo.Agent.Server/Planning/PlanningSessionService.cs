@@ -90,17 +90,18 @@ public sealed partial class PlanningSessionService(
 
     internal bool AutomaticCorrectionEnabled => settings.Value.AutomaticCorrectionEnabled;
 
-    public Task<PlanningSession> StartAsync(string name, string prompt, bool reviseExisting, CancellationToken ct, JsonObject? failureEvidence = null, string mode = PlanningMode.Interactive, bool businessJudge = false)
-        => StartCoreAsync(name, prompt, reviseExisting, ct, failureEvidence, mode, null, null, businessJudge);
+    public Task<PlanningSession> StartAsync(string name, string prompt, bool reviseExisting, CancellationToken ct, JsonObject? failureEvidence = null, string mode = PlanningMode.Interactive, bool businessJudge = false, string? constructionPreset = null)
+        => StartCoreAsync(name, prompt, reviseExisting, ct, failureEvidence, mode, null, null, businessJudge, constructionPreset);
 
     internal Task<PlanningSession> StartFailureRevisionAsync(string name, string prompt, string runId, string artifactHash,
         JsonObject evidence, string mode, CancellationToken ct)
         => StartCoreAsync(name, prompt, true, ct, evidence, mode, runId, artifactHash);
 
     private async Task<PlanningSession> StartCoreAsync(string name, string prompt, bool reviseExisting, CancellationToken ct,
-        JsonObject? failureEvidence, string mode, string? runId, string? artifactHash, bool businessJudge = false)
+        JsonObject? failureEvidence, string mode, string? runId, string? artifactHash, bool businessJudge = false, string? constructionPreset = null)
     {
         PlanningMode.Validate(mode);
+        var preset = settings.Value.ResolvePreset(constructionPreset);
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentException.ThrowIfNullOrWhiteSpace(prompt);
         name = name.Trim();
@@ -121,12 +122,20 @@ public sealed partial class PlanningSessionService(
         var original = response?["agent"]?["workflow"]?.GetValue<string>();
         if (automaticId is not null && (original is null || PlanningGraphCompiler.Fingerprint(original) != artifactHash))
             throw new InvalidOperationException("The saved workflow changed after the failed execution. Review its current revision explicitly.");
-        var options = CreateOptions(provider, model);
+        var savedSource = original is null ? null : (await store.ListAsync(Tenant, ct))
+            .Where(s => s.Plan is not null && s.Yaml == original && s.SavedAgentId == response!["agent"]!["id"]!.ToString())
+            .OrderByDescending(s => s.UpdatedAtUtc).FirstOrDefault();
+        if (failureEvidence is not null && constructionPreset is null && savedSource is not null)
+            preset = CapturedPreset(savedSource);
+        var options = CreateOptions(provider, model, preset);
         if (businessJudge) options["business_judge"] = true;
         if (reviseExisting)
             options["host_save"] = new JsonObject { ["agent_id"] = response!["agent"]!["id"]!.DeepClone(), ["original_hash"] = PlanningGraphCompiler.Fingerprint(original!) };
         var state = new PlanningSession
         {
+            Construction = new() { Limits = new() { PhasePolicy = settings.Value.PhasePolicy,
+                DraftOutputTokens = settings.Value.DraftOutputTokens, ReviewOutputTokens = settings.Value.ReviewOutputTokens,
+                InputLimits = new() { Selection = settings.Value.SelectionInputTokens, Draft = settings.Value.DraftInputTokens, Review = settings.Value.ReviewInputTokens } } },
             Request = new PlanningRequest
             {
                 Mode = mode,
@@ -135,9 +144,9 @@ public sealed partial class PlanningSessionService(
                 Prompt = prompt.Trim(),
                 FailureEvidence = failureEvidence?.DeepClone().AsObject(),
                 Options = options,
-                Policy = AgentPlanningPolicy.Create(),
-                MaxModelCalls = settings.Value.MaxModelCalls,
-                MaxReplanAttempts = settings.Value.MaxReplanAttempts,
+                Policy = CreatePolicy(preset),
+                MaxModelCalls = settings.Value.Calls(preset),
+                MaxReplanAttempts = settings.Value.Corrections(preset),
                 Generation = new() { Reasoning = settings.Value.Reasoning, MaxInputTokensPerRequest = settings.Value.MaxInputTokensPerRequest, MaxOutputTokens = settings.Value.MaxOutputTokens }
             },
             UpdatedAtUtc = DateTimeOffset.UtcNow
@@ -149,8 +158,7 @@ public sealed partial class PlanningSessionService(
         }
         if (original is not null)
         {
-            var saved = (await store.ListAsync(Tenant, ct)).Where(s => s.Plan is not null && s.Yaml == original && s.SavedAgentId == response!["agent"]!["id"]!.ToString())
-                .OrderByDescending(s => s.UpdatedAtUtc).FirstOrDefault();
+            var saved = savedSource;
             state.Request.Baseline = saved?.Plan;
             if (failureEvidence is not null && saved?.Requirements is not null)
             {
@@ -354,11 +362,24 @@ public sealed partial class PlanningSessionService(
         var configured = PlanningBudgetOptions.Parse(current.Request.Options);
         var limits = new LLMUsageBudgetLimits
         {
-            MaxCalls = Math.Min(configured?.MaxCalls ?? settings.Value.MaxModelCalls, settings.Value.MaxModelCalls),
+            MaxCalls = EffectiveModelCalls(current, configured, settings.Value),
             MaxTotalTokens = Math.Min(configured?.MaxTotalTokens ?? settings.Value.MaxTotalTokens, settings.Value.MaxTotalTokens),
             MaxEstimatedCost = configured?.MaxEstimatedCost ?? new MonetaryAmount(budgetSettings.Value.Amount, budgetSettings.Value.Currency)
         };
         var estimator = new ModelMetadataUsageCostEstimator(runtime.Options);
+        var budget = new LLMUsageBudgetScope(limits, initial, sink: new PlanningBudgetSink(records, Tenant, current.Request.SessionId), exchangeRateProvider: exchangeRates);
+        var journal = new PlanningModelJournal(runtime.LlmClient, contexts, records, Tenant, current.Request.SessionId, budget, estimator, current.Request.Generation, runtime.LlmCapabilityResolver, current.Request,
+            DateTimeOffset.UtcNow + (configured?.MaxElapsed ?? TimeSpan.FromHours(5)) - TimeSpan.FromMilliseconds(current.ActiveMilliseconds));
+        if (current.PendingCall is { } retained)
+        {
+            await journal.RecoverSavedResponseAsync(retained.Request, ct);
+            current.Usage = budget.Snapshot;
+            if (await records.GetAsync(PlanningModelJournal.Collection, Tenant, current.Request.SessionId + ":" + retained.Id, EfPlanningSessionStore.Author, ct) is { } recovered && recovered.UpdatedAt > current.UpdatedAtUtc)
+            {
+                current.ActiveMilliseconds += (recovered.UpdatedAt - current.UpdatedAtUtc).TotalMilliseconds;
+                current.UpdatedAtUtc = recovered.UpdatedAt;
+            }
+        }
         if (command.Kind is "retry_model" or "resume_response")
         {
             if (current.RequiresPlanningRevision && command.Kind == "retry_model")
@@ -378,11 +399,9 @@ public sealed partial class PlanningSessionService(
             if (!await store.TrySaveAsync(current, previousRevision, ct)) throw new PlanningConflictException("A newer recovery revision was saved.");
             return current;
         }
-        var budget = new LLMUsageBudgetScope(limits, initial, sink: new PlanningBudgetSink(records, Tenant, current.Request.SessionId), exchangeRateProvider: exchangeRates);
-        var journal = new PlanningModelJournal(runtime.LlmClient, contexts, records, Tenant, current.Request.SessionId, budget, estimator, current.Request.Generation, runtime.LlmCapabilityResolver);
         var engine = new WorkflowEngine
         {
-            PlanningPolicy = AgentPlanningPolicy.Create(),
+            PlanningPolicy = CreatePolicy(CapturedPreset(current)),
             LLMClient = journal, McpClientFactory = runtime.McpClientFactory, LLMCapabilities = runtime.LlmCapabilityResolver,
             ModelUsageCostEstimator = estimator, ExchangeRateProvider = exchangeRates,
             LlmDefaults = new() { Provider = runtime.Options.DefaultProvider, Model = runtime.Options.DefaultModel },
@@ -417,7 +436,7 @@ public sealed partial class PlanningSessionService(
             throw new PlanningConflictException("Saving requires approval of this exact validated artifact.");
         PlanningArtifactApproval.Verify(state);
         await using var runtime = await runtimeFactory.CreateAsync(ct);
-        var validation = new WorkflowPlanningRuntime(runtime.ConfigureAgentRunners(new WorkflowEngine { McpClientFactory = runtime.McpClientFactory, PlanningPolicy = AgentPlanningPolicy.Create() }), (_, _) => Task.CompletedTask);
+        var validation = new WorkflowPlanningRuntime(runtime.ConfigureAgentRunners(new WorkflowEngine { McpClientFactory = runtime.McpClientFactory, PlanningPolicy = CreatePolicy(CapturedPreset(state)) }), (_, _) => Task.CompletedTask);
         var errors = await validation.ValidateCatalogAsync(state.Catalog!, ct);
         if (errors.Count == 0) errors = await validation.ValidateAsync(new(state.Yaml!, state.Request, state.Catalog!, PlanningGraphCompiler.CapabilityBindings(state.Graph!)), ct);
         if (errors.Count != 0)
@@ -470,12 +489,33 @@ public sealed partial class PlanningSessionService(
         return state;
     }
 
-    private JsonObject CreateOptions(string provider, string model) => new()
+    internal static int EffectiveModelCalls(PlanningSession state, LLMUsageBudgetLimits? configured, TypedWorkflowPlanningSettings host)
+        => Math.Min(state.Request.MaxModelCalls, Math.Min(configured?.MaxCalls ?? state.Request.MaxModelCalls,
+            host.Calls(CapturedPreset(state))));
+
+    private static string CapturedPreset(PlanningSession state)
+        => state.Construction is null ? PlanningConstructionPresets.Ordinary
+            : PlanningConstructionPresets.Validate(state.Request.Options["construction_preset"]?.GetValue<string>() ?? PlanningConstructionPresets.Ordinary);
+
+    private PlanningPolicy CreatePolicy(string preset)
+    {
+        var policy = AgentPlanningPolicy.Create();
+        if (preset == PlanningConstructionPresets.Large)
+        {
+            policy.MaxStepsTotal = settings.Value.LargeMaxStepsTotal;
+            policy.MaxStepsPerWorkflow = settings.Value.LargeMaxStepsPerWorkflow;
+            policy.MaxWorkflows = settings.Value.LargeMaxWorkflows;
+        }
+        return policy;
+    }
+
+    private JsonObject CreateOptions(string provider, string model, string preset) => new()
     {
         ["generator"] = new JsonObject { ["provider"] = provider, ["model"] = model },
+        ["construction_preset"] = preset,
         ["automatic_correction"] = settings.Value.AutomaticCorrectionEnabled,
         ["clarification_policy"] = 1,
-        ["llm_budget"] = new JsonObject { ["max_calls"] = settings.Value.MaxModelCalls, ["max_total_tokens"] = settings.Value.MaxTotalTokens,
+        ["llm_budget"] = new JsonObject { ["max_calls"] = settings.Value.Calls(preset), ["max_total_tokens"] = settings.Value.MaxTotalTokens,
             ["max_elapsed_ms"] = settings.Value.MaxActiveMilliseconds,
             ["max_estimated_cost"] = new JsonObject { ["amount"] = budgetSettings.Value.Amount, ["currency"] = budgetSettings.Value.Currency } }
     };

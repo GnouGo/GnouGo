@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "base_revision": "975fd04f8bb4d534364fbf2780120c05deb6ef66",
+  "scope": "Fresh PresentationVersion4 ordinary same-scope result guidance and a separate stale admission-test assertion fix.",
+  "changes": [
+    {
+      "kind": "test_only",
+      "patch_sha256": "e6f217516d0371bbf11ed5575e2add7502d38f1575547544a997bb09d985a1e3",
+      "description": "Preserve exact imported-schema and zero-dispatch admission assertions while checking both inconclusive status and the retained MODEL_INPUT_LIMIT cause. Corrects the stale Single assertion reported by CI on504a557 and975fd04.",
+      "full_planning_passed": 2710,
+      "validation_manifest": {
+        "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/verified-review-v4-validation-20261023/review-limit-fixture-975/validation-safe.json",
+        "sha256": "e810d283fd07e962cadae6a06bbef79d38a6593a5c607591e8c1bce681cd169d",
+        "copy_manifest": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/verified-review-v4-validation-20261023/review-limit-fixture-975/copy-manifest.json",
+        "copy_sha256": "e13b7afeda35391e9e6db5e51b6d61e4c796354a82053d1d411dd1098a5b3c16"
+      }
+    },
+    {
+      "kind": "production_guidance_and_regressions",
+      "patch_sha256": "ac7ad4fa5061dc94d7f70b4c3e84ff132042f588b334bd906e7dc65650000a9b",
+      "description": "Clarify that ordinary results bind directly within their scope; exports cross scope boundaries, while open containers remain unavailable. Preserve v3 wording and exact issued v3/v4 requests.",
+      "focused_passed": 117,
+      "combined_full_planning_passed": 2714,
+      "failed": 0,
+      "skipped": 0,
+      "compiler_diagnostics": 0,
+      "warnings_as_errors": true,
+      "independent_review": "No actionable finding.",
+      "validation_manifest": {
+        "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/verified-review-v4-validation-20261023/same-scope-results-975/validation-safe.json",
+        "sha256": "5737dc058fc833e3d6adf182ed6ef5556ccce9eddeb2b821ff5188545cbadf29",
+        "copy_manifest": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/verified-review-v4-validation-20261023/same-scope-results-975/copy-manifest.json",
+        "copy_sha256": "65d4d42dbd71bafcbb5c77f801beba66c9798193371c5da902e5089500d49b2a"
+      }
+    }
+  ],
+  "limitations": [
+    "The combined suite contains both patches; no compiler, schema fields, runtime, approval, budget or authority changes.",
+    "These are isolated Planning results, not final-revision CI, full-solution or live business acceptance.",
+    "The retained Code975 false accessibility premise motivated the hint; no avoided correction, convergence or runtime benefit is established.",
+    "Original failed CI and other historical validation records remain unchanged."
+  ]
+}

@@ -78,12 +78,16 @@ public sealed class RoutingLLMClient
 
         var metadata = _metadataResolver.Resolve(resolvedType, model);
         var sanitizedRequest = LLMRequestSanitizer.Sanitize(request, metadata, providerOpts.RequestPolicy);
+        if (LLMHttpRetryContext.Current?.PolicyOverride is { } capturedPolicy)
+            providerOpts = providerOpts.WithRetryPolicy(capturedPolicy);
         if (request.DisableTransportRetries) providerOpts = providerOpts.WithSingleAttempt();
         try
         {
             if (!string.Equals(resolvedType, LocalLLMProvider.Type, StringComparison.OrdinalIgnoreCase))
                 return await provider.CallAsync(model, providerOpts, sanitizedRequest, ct).ConfigureAwait(false);
 
+            if (LLMHttpRetryContext.Current is not null)
+                return await provider.CallAsync(model, providerOpts, sanitizedRequest, ct).ConfigureAwait(false);
             return await CallLocalWithFallbackAsync(provider, model, providerOpts, sanitizedRequest, ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
@@ -92,6 +96,7 @@ public sealed class RoutingLLMClient
         }
         catch (Exception ex)
         {
+            LLMHttpRetryContext.Current?.RethrowJournalFailure();
             throw LLMProviderFailureClassifier.Classify(ex);
         }
     }

@@ -9,8 +9,27 @@ internal static class PlannerFixture
     internal static CancellationToken Ct => TestContext.Current.CancellationToken;
     // Retained regression corpus uses its original allowances; fresh defaults have
     // separate tests so changing defaults cannot weaken these budget regressions.
-    internal static PlanningSession Session() => new() { IntentVersion = 2, Request = new() { TenantId = "test", Prompt = "Return a greeting",
-        MaxModelCalls = 8, MaxReplanAttempts = 2, Generation = new("medium", 12_000, 8_192) } };
+    internal static PlanningSession Session() => Clone(new() { IntentVersion = 2, Request = new() { TenantId = "test", Prompt = "Return a greeting",
+        MaxModelCalls = 8, MaxReplanAttempts = 2, Generation = new("medium", 12_000, 8_192),
+        Options = new()
+        {
+            ["compilation_profile"] = TaskPlanCompiler.CompactProfile,
+            ["mapping_profile"] = TaskPlanCompiler.AdaptiveMappingProfile,
+            ["planning_validation_profile"] = TaskPlanCompiler.AssertionValidationProfile,
+            ["planning_diagnostics_version"] = 1,
+            ["planning_input_review_version"] = 2,
+            ["business_judge_review_version"] = 2
+        } } });
+    // Older compatibility cases predate these captured profiles. Use this
+    // explicitly; changing the retained modern corpus must not migrate them.
+    internal static PlanningSession HistoricalSession() => WithoutCapturedProfiles(Session());
+    internal static PlanningSession WithoutCapturedProfiles(PlanningSession state)
+    {
+        foreach (var key in new[] { "compilation_profile", "mapping_profile", "planning_validation_profile",
+            "planning_diagnostics_version", "planning_input_review_version", "business_judge_review_version" })
+            state.Request.Options.Remove(key);
+        return state;
+    }
     internal static PlanningGraph Greeting(string message = "Hello") => new()
     {
         Summary = "Return a greeting", Workflows = [new()
@@ -21,6 +40,15 @@ internal static class PlannerFixture
     };
     internal static PlanningRequirements Requirements() => new() { Summary = "Return a greeting", Inputs = [], Outcomes = [new("message", "Return a greeting")] };
     internal static PlanningSession Clone(PlanningSession state) => JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
+    // Scripted revision-2 requests are historical protocol fixtures. Capture all
+    // effective settings, then rehydrate their exact presentation before dispatch.
+    internal static PlanningSession CapturedPresentation(PlanningSession state, int version = 2)
+    {
+        PlanningSessionCreation.Capture(state);
+        state.Request.Options["construction_presentation_version"] = version;
+        state.Construction!.Compact!.PresentationVersion = version;
+        return Clone(state);
+    }
     internal static async Task<PlanningSession> RunAsync(TestRuntime runtime, PlanningSession? state = null)
     {
         state ??= Session(); var planner = new HybridWorkflowPlanner();
@@ -29,13 +57,14 @@ internal static class PlannerFixture
         return state;
     }
 }
-internal sealed class TestRuntime : IPlanningRuntime
+internal sealed class TestRuntime : IPlanningRuntime, IPlanningConstructionAdmission
 {
     internal readonly List<LLMRequest> Calls = [];
     internal readonly List<PlanningSession> Checkpoints = [];
     internal readonly WorkflowPlanningRuntime Actual;
     internal PlanningProposal Proposal = new() { Requirements = PlannerFixture.Requirements(), Plan = PlanningCorpus.Greeting() };
     internal Func<LLMRequest, string, LLMResponse>? Respond;
+    internal Action<LLMRequest, int, IReadOnlyList<int>>? AdmitConstruction;
     internal IReadOnlyList<PlanningDiagnostic>? CatalogChanges;
     internal IReadOnlyList<PlanningDiagnostic>? Validation { get; set; }
     internal int Discoveries;
@@ -100,4 +129,6 @@ internal sealed class TestRuntime : IPlanningRuntime
     public Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(PlanningArtifactValidationRequest request, CancellationToken ct) => Validation is null ? Actual.ValidateAsync(request, ct) : Task.FromResult(Validation);
     public Task<IReadOnlyList<PlanningDiagnostic>> ValidateCatalogAsync(PlanningCatalog catalog, CancellationToken ct) => CatalogChanges is null ? Actual.ValidateCatalogAsync(catalog, ct) : Task.FromResult(CatalogChanges);
     public Task CheckpointAsync(PlanningSession state, CancellationToken ct) { Checkpoints.Add(PlannerFixture.Clone(state)); return Task.CompletedTask; }
+    public Task AdmitConstructionAsync(LLMRequest request, int inputTokenCeiling, IReadOnlyList<int> outputTokenCeilings, CancellationToken ct)
+    { AdmitConstruction?.Invoke(request, inputTokenCeiling, outputTokenCeilings); return Task.CompletedTask; }
 }

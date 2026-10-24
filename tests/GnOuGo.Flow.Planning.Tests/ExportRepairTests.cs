@@ -19,7 +19,7 @@ public sealed class ExportRepairTests
     public async Task NestedExportsIssueOnlyMissingPortsAndOneConsumerCorrection(string container, string port, bool existing, bool selected)
     {
         var runtime = new WorkflowPlanningRuntime(new(), (_, _) => Task.CompletedTask);
-        var state = PlannerFixture.Session(); state.IntentVersion = 2;
+        var state = PlannerFixture.HistoricalSession(); state.IntentVersion = 2;
         state.Catalog = await runtime.DiscoverAsync(state.Request, PlannerFixture.Ct);
         state.Requirements = new() { Summary = "Return declared values", Inputs = [], Outcomes = [new("data", "Return the selected data")] };
         var producer = new PlanTask { Id = "origin", Kind = "value", Objective = "Preserve data", Outputs = [new(port, PlanningCorpus.Business("input", "entries"))] };

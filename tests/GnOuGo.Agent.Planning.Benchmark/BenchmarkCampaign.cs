@@ -9,7 +9,7 @@ using GnOuGo.Flow.Planning;
 using GnOuGo.KeyVault.Core.Services;
 
 /// <summary>Evaluation evidence uses the existing public encrypted record boundary, scoped to one campaign.</summary>
-internal sealed class BenchmarkCampaign(IKeyVaultRecordStore records, string id)
+internal sealed partial class BenchmarkCampaign(IKeyVaultRecordStore records, string id)
 {
     internal const string Author = "GnOuGo.Planning.Benchmark";
     internal string Id { get; } = ValidateId(id);
@@ -62,18 +62,46 @@ internal sealed class BenchmarkCampaign(IKeyVaultRecordStore records, string id)
         var failure = await LoadAsync("planning-evaluation-failures", requestId, ct);
         var journal = await LoadAsync(BenchmarkHttpJournal.Collection, requestId, ct);
         var request = await LoadAsync("planning-evaluation-requests", requestId, ct);
-        if (failure?["status_code"]?.GetValue<int>() != 400 || failure["safe_provider_code"]?.ToString() != "invalid_json_schema" ||
-            request is null || journal?["transport"]?["Attempts"] is not JsonArray { Count: > 0 } attempts ||
+        if (failure?["status_code"]?.GetValue<int>() != 400 ||
+            request is null || request["clientRequestId"]?.ToString() != requestId || journal?["transport"]?["Attempts"] is not JsonArray { Count: > 0 } attempts ||
             attempts.Any(a => a?["Status"]?.GetValue<int>() != 400) ||
+            journal["usage"] is not null ||
+            failure["safe_provider_code"]?.ToString() != "invalid_json_schema" && !HasCodeLessSchemaRejection(request, failure, attempts) ||
             await LoadAsync("planning-evaluation-receipts", requestId, ct) is not null)
             throw new InvalidOperationException("Only a verified terminal schema rejection can be closed here.");
         await SaveAsync("planning-evaluation-closures", requestId, new()
         {
             ["reason"] = "provider_schema_rejected", ["outcome"] = "failed", ["retained_at"] = DateTimeOffset.UtcNow.ToString("O"),
             ["request_hash"] = PlanningGraphCompiler.Fingerprint(request.ToJsonString()),
-            ["http_journal_hash"] = PlanningGraphCompiler.Fingerprint(journal.ToJsonString())
+            ["http_journal_hash"] = PlanningGraphCompiler.Fingerprint(journal.ToJsonString()),
+            ["failure_hash"] = PlanningGraphCompiler.Fingerprint(failure.ToJsonString()),
+            ["verification"] = failure["safe_provider_code"]?.ToString() == "invalid_json_schema"
+                ? "safe_provider_code" : "retained_response_format_schema_error"
         }, ct);
         StopReason = null;
+    }
+    private static bool HasCodeLessSchemaRejection(JsonObject request, JsonObject failure, JsonArray attempts)
+    {
+        // Some OpenAI-compatible responses omit the machine code. Accept only the
+        // exact structured-format schema-error envelope retained by the transport.
+        // The transport owns the response-format name "output"; business/model
+        // content or an ordinary invalid_request_error never establishes rejection.
+        if (request["structuredOutputSchema"] is not JsonObject || request["structuredOutputStrict"]?.GetValue<bool>() != true ||
+            failure["safe_provider_code"] is not null || failure["stage"]?.ToString() != "dispatch" ||
+            failure["kind"]?.ToString() != "InvalidRequest" || failure["retryable"]?.GetValue<bool>() != false ||
+            attempts.Count != 1 || failure["attempt_count"]?.GetValue<int>() != 1 ||
+            attempts[0]?["Body"] is not JsonValue bodyValue || !bodyValue.TryGetValue<string>(out var body) ||
+            body is null || body.Length > 65_536) return false;
+        try
+        {
+            if (JsonNode.Parse(body)?["error"] is not JsonObject error ||
+                error["type"]?.ToString() != "invalid_request_error" || error["param"]?.ToString() != "response_format" ||
+                !error.ContainsKey("code") || error["code"] is not null ||
+                error["message"] is not JsonValue messageValue || !messageValue.TryGetValue<string>(out var message) || message is null) return false;
+            const string prefix = "Invalid schema for response_format 'output': ";
+            return message.StartsWith(prefix, StringComparison.Ordinal) && !string.IsNullOrWhiteSpace(message[prefix.Length..]);
+        }
+        catch (Exception ex) when (ex is JsonException or InvalidOperationException or ArgumentException) { return false; }
     }
     // Closing an exhausted evaluation is not a receipt: unknown usage stays fully reserved forever.
     // The caller holds the campaign's process lease. Original runs, requests and failures stay untouched.
@@ -112,6 +140,8 @@ internal sealed class BenchmarkCampaign(IKeyVaultRecordStore records, string id)
         var request = await LoadAsync("planning-evaluation-requests", requestId, ct);
         var journal = await LoadAsync(BenchmarkHttpJournal.Collection, requestId, ct);
         var failure = await LoadAsync("planning-evaluation-failures", requestId, ct);
+        if (journal is not null && PlanningBenchmarkMeasurements.RetainsAllHttpFailures(journal))
+            throw new InvalidOperationException("The captured planning retry policy requires exact permanent-retention authorization.");
         var policy = await LoadAsync("planning-evaluation-configuration", "http-retry-policy", ct);
         if (request?["clientRequestId"]?.ToString() != requestId || failure?["stage"]?.ToString() != "dispatch" ||
             policy?["MaxAttempts"] is not JsonValue maximum || !maximum.TryGetValue<int>(out var limit) || limit is < 1 or > 20 ||
@@ -304,6 +334,7 @@ internal sealed class BenchmarkCampaign(IKeyVaultRecordStore records, string id)
     internal async Task<JsonObject> RecoverPendingReceiptAsync(string label, long expectedRevision, string requestId,
         long interruptedMilliseconds, string recoverySource, bool apply, CancellationToken ct)
     {
+        await RequireRunNotRetainedAsync(label, ct);
         ArgumentException.ThrowIfNullOrWhiteSpace(recoverySource);
         if (interruptedMilliseconds < 0) throw new ArgumentOutOfRangeException(nameof(interruptedMilliseconds));
         var runKey = "run:" + label;
@@ -333,8 +364,7 @@ internal sealed class BenchmarkCampaign(IKeyVaultRecordStore records, string id)
         var validationMilliseconds = clock.Elapsed.TotalMilliseconds;
         var priorMilliseconds = run["result"]?["planning_ms"]?.GetValue<long>() ?? throw new InvalidOperationException("Missing elapsed accounting.");
         var elapsedBefore = Math.Max(priorMilliseconds, state.ActiveMilliseconds) + interruptedMilliseconds;
-        var remaining = TimeSpan.FromMinutes(30) - TimeSpan.FromMilliseconds(elapsedBefore);
-        if (remaining <= TimeSpan.Zero) throw new InvalidOperationException("Active planning time is exhausted; receipt recovery cannot reset it.");
+        var remaining = PlanningBenchmarkMeasurements.RemainingPlanningTime(state, priorMilliseconds, interruptedMilliseconds);
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
         deadline.CancelAfter(remaining);
         var client = new ReplayReceipt(original, response);
@@ -387,6 +417,7 @@ internal sealed class BenchmarkCampaign(IKeyVaultRecordStore records, string id)
     internal async Task<LLMResponse> CallAsync(LLMRequest request, Func<CancellationToken, Task> preflight, Func<CancellationToken, Task<LLMResponse>> dispatch, CancellationToken ct, bool allowHttpRecovery = false)
     {
         var key = request.ClientRequestId ?? throw new InvalidOperationException("A reserved request identity is required.");
+        await RequireRunNotRetainedAsync(key.Split(':')[0], ct);
         if (await LoadAsync("planning-evaluation-closures", key, ct) is not null) throw new InvalidOperationException("This request is permanently retained as inconclusive and cannot be dispatched again.");
         if (await LoadAsync("planning-evaluation-receipts", key, ct) is { } receipt)
             return JsonSerializer.Deserialize(receipt, PlanningJsonContext.Default.LLMResponse)!;
@@ -399,7 +430,11 @@ internal sealed class BenchmarkCampaign(IKeyVaultRecordStore records, string id)
         var reserved = await LoadAsync("planning-evaluation-requests", key, ct);
         if (reserved is not null && !JsonNode.DeepEquals(reserved, JsonSerializer.SerializeToNode(request, PlanningJsonContext.Default.LLMRequest)))
             throw new InvalidOperationException("The reserved request changed.");
-        var resumable = allowHttpRecovery && await LoadAsync(BenchmarkHttpJournal.Collection, key, ct) is not null;
+        var recoveryJournal = allowHttpRecovery ? await LoadAsync(BenchmarkHttpJournal.Collection, key, ct) : null;
+        var resumable = recoveryJournal is not null && (!PlanningBenchmarkMeasurements.RetainsAllHttpFailures(recoveryJournal) ||
+            recoveryJournal["transport"]?["Attempts"] is JsonArray attempts &&
+                (attempts.Count == 0 || attempts[^1] is JsonObject last && last["Status"] is not null &&
+                    last["Body"] is not null && last["Failure"] is null));
         foreach (var pending in (await records.ListAsync("planning-evaluation-requests", "benchmark", Author, ct)).Where(r => r.Key.StartsWith(Id + ":", StringComparison.Ordinal)))
             if (await records.GetAsync("planning-evaluation-receipts", "benchmark", pending.Key, Author, ct) is null && await records.GetAsync("planning-evaluation-closures", "benchmark", pending.Key, Author, ct) is null && !(pending.Key == Id + ":" + key && resumable))
             { StopReason = "uncertain_dispatch"; throw new InvalidOperationException("The campaign has an uncertain dispatch without recoverable HTTP evidence."); }

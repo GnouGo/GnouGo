@@ -4,6 +4,7 @@ using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Planning;
+using GnOuGo.Planning.Examples;
 
 namespace GnOuGo.Agent.Server.Tests;
 
@@ -49,12 +50,12 @@ public sealed partial class LocalProductOutcomeExecutionTests
         var writer = RetainedTasks(broken.Plan!.Root).Single(t => t.Id == "save_products_xlsx");
         writer.Kind = "value"; writer.Operation = null; writer.Inputs = []; writer.Outputs = [new("filePath", new TaskValue { Kind = "string", Text = "fabricated.xlsx" })];
         Assert.Empty(new TaskPlanCompiler().Compile(broken.Plan, catalog, new PlanningRequest { Options = new() { ["compilation_profile"] = "compact-bindings-v15" } }).Diagnostics);
-        var state = new PlanningSession { IntentVersion = 3, Plan = broken.Plan, Requirements = broken.Requirements, Catalog = catalog, Request = new()
+        var state = PlanningCorpus.RetainedSession(new PlanningSession { IntentVersion = 3, Plan = broken.Plan, Requirements = broken.Requirements, Catalog = catalog, Request = new()
         {
             TenantId = "local", Prompt = "Perform the accepted observation, visits, exact workbook writing and cleanup. Preserve every existing acquisition and action.",
             Policy = new() { RequireExternalConfirmation = false }, Options = new() { ["automatic_correction"] = true, ["compilation_profile"] = "compact-bindings-v15" },
             Generation = new() { MaxInputTokensPerRequest = 96000, MaxOutputTokens = 32768 }
-        } };
+        } });
         await CommitmentEvidence.WriteCompilingBaseline(state, runtime, "product", ct);
         var before = PlanningCommitments.Assess(state);
         Assert.Contains(before, r => r.Diagnostics.Any(d => d.Code == PlanningCommitments.MissingOperation));

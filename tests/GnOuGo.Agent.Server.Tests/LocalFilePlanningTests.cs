@@ -62,8 +62,8 @@ public sealed class LocalFilePlanningTests
             Outcomes = [new("outcome", LocalExecutionCases.Prompt(name))], Outputs = [new() { Name = "result", Type = new() { Kind = "any" } }] } };
         var runtime = new LocalProductOutcomeExecutionTests.ProposalRuntime(actual, proposal);
         var planner = new HybridWorkflowPlanner();
-        var state = await planner.AdvanceAsync(new() { Catalog = catalog, Request = new() { TenantId = "fixture", Prompt = LocalExecutionCases.Prompt(name),
-            Generation = new() { MaxInputTokensPerRequest = 96000, MaxOutputTokens = 32768 } } }, new(), runtime, ct);
+        var state = await planner.AdvanceAsync(PlanningCorpus.RetainedSession(new() { Catalog = catalog, Request = new() { TenantId = "fixture", Prompt = LocalExecutionCases.Prompt(name),
+            Generation = new() { MaxInputTokensPerRequest = 96000, MaxOutputTokens = 32768 } } }), new(), runtime, ct);
         Assert.True(state.Status == PlanningStatus.FinalReview, string.Join(';', state.Diagnostics));
         Assert.Equal(1, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts); Assert.Empty(files.Calls);
         state = await planner.AdvanceAsync(state, new() { Kind = "approve", ExpectedRevision = state.Revision, ArtifactHash = state.ComputeArtifactHash(), ReviewedRequirementIds = ["outcome"] }, runtime, ct);

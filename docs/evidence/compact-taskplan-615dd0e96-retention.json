@@ -1,0 +1,92 @@
+{
+  "archive_version": 1,
+  "kind": "append_only_exact_uncertainty_closure",
+  "source": "615dd0e96fa84634b1e12e1de231b4dece18fdd3",
+  "cohort": "compacta615dd0e96",
+  "campaign": "schema-portability-20261019-incremental",
+  "retained_at": "2026-10-23T12:56:38.7816200+00:00",
+  "prior_snapshot": {
+    "archive": "compact-taskplan-615dd0e96.json",
+    "sha256": "e823815c7a73edb3d23705c2abd499015a797caf4511db9fa8b9412a2237f9ae",
+    "unchanged": true,
+    "interpretation": "The earlier snapshot correctly remains pending as of its observation. This separate record captures subsequent authorized permanent retention."
+  },
+  "identity": {
+    "tenant": "benchmark",
+    "run_collection": "planning-schema-portability",
+    "run_key": "run:compacta615dd0e96-code-1",
+    "session_id": "compacta615dd0e96-code-1",
+    "revision": 13,
+    "request_id": "compacta615dd0e96-code-1:13:23e23b67f82af9ebb230affed13d819d17403e03e539bfbfc6d61b1bfabc87bb",
+    "phase": "construction_discovery",
+    "run_hash": "f84f17b797b412c6b4b7cbd965c93971e1ab1eccda5dfb14153c66d4dc2e83c0",
+    "request_hash": "2a8df6acf65e2c72c0e00f31843be4e564e91c40335a8712278b3a34c4d9b2b2",
+    "http_journal_hash": "e395f62e1db705a0ae5d65a4862b290da636eac7fd819dca532abcbd48895885",
+    "failure_hash": "1baaa57ea5534d0dfdfc1721efddcfde2aa3b4db0297dc609ab36410ff48ce8a",
+    "session_policy_hash": "7380c2eb586b170db13469ddf02f9cb3361a65358ab07e7d2e6a487ffdf92926",
+    "campaign_retry_policy_hash": "9e0d21f4a5660a5580b9b075d52f72a6531061651577ba6a520b2c02ff21949b",
+    "financial_admission_hash": "92a9a08da7516f43f45ec2d6fd5a851611a6c00c3e6b8caf7e82e34750616d1b",
+    "effective_transport_policy_hash": "9913de69890c790dc1acb06a6c49e1515493390f0a632d441b9e33afb564e6b1"
+  },
+  "closure": {
+    "outcome": "inconclusive",
+    "retention_kind": "single-http-500",
+    "evidence_hash": "b2c62b36a73e5dc8cc9c3d5e006a7422d1e53107ddf805ccab255d4feddb620f",
+    "authorization_hash": "6d3a39ec6725814d69669c8e68bfc7c84fa8dcd0d5b7ecb618974760dde4b497",
+    "existing_closure_hash": "511929568f0bbe24a0f5c6ce3402022b458277cc953beee78b49d955fff6acfb",
+    "operator": "codex-user-authorized",
+    "exact_user_authorization_applied": true,
+    "readback_already_retained": true,
+    "reservation_retained": true,
+    "request_replay_forbidden": true,
+    "run_continuation_forbidden": true,
+    "unknown_usage_reservation_eur": "0.5479161088799643016510486390",
+    "receipt_manufactured": false,
+    "funds_released_eur": "0",
+    "provider_termination_claimed": false,
+    "interpretation": "Exact authorized request/run permanently abandoned under the existing benchmark-only retention operator. Original receiptless outcome, full reservation and all evidence remain; no replay or continuation. Fresh runs still require normal admission."
+  },
+  "post_closure_campaign_snapshot": {
+    "reserved_requests": 1619,
+    "completed_receipts": 1600,
+    "receiptless_identities": 19,
+    "permanently_closed_identities": 19,
+    "pending_uncertain_identities": 0,
+    "unknown_transport_attempts": 18,
+    "campaign_ceiling_eur": "240.0301038327063045424449473",
+    "known_cost_eur": "54.858688816107464307301780358",
+    "unknown_usage_reservation_eur": "8.080341250662771349624333406",
+    "cost_upper_bound_eur": "62.939030066770235656926113764",
+    "available_allowance_eur": "177.091073765936068885518833536",
+    "evidence_hash": "8e222d9ec58f8cd676eab525b0cbcd0671fc55bb1ce12f16928f9d4984c8f68c",
+    "accounting_unchanged_from_preclosure": true,
+    "scope": "Audit captured before subsequent Collections dispatch; not a claim about the later active run."
+  },
+  "business_outcome": "Unchanged: no complete artifact or execution for this abandoned Review PR run; permanent retention is not business acceptance.",
+  "validation": {
+    "apply_and_readback_evidence_identical": true,
+    "original_inspection_evidence_unchanged": true,
+    "authorization_hash_verified": true,
+    "current_request_added_to_closed_set": true,
+    "all_currency_arithmetic": "Decimal, exact recorded precision",
+    "boundaries": "Safe exported files only; no encrypted-store access, provider calls, execution, approval creation or repository edits."
+  },
+  "safe_evidence_index": {
+    "retention-apply.json": {
+      "sha256": "95a55916d28a8d6b6c15bd5d4e8e546534bffc5adf1039d63b3da8265d2e0d5c",
+      "bytes": 2545
+    },
+    "retention-post-inspect.json": {
+      "sha256": "aa8c0953bdddef32c74be85d38e5657d4611ee2e4e80a15fd127d4b32cd7c11f",
+      "bytes": 2660
+    },
+    "next-run-readiness.jsonl": {
+      "sha256": "8921974f1362072b4fecdb716200dc1193abdd5d94e8d423b7ca64614c6856e8",
+      "bytes": 6165
+    },
+    "prior-pending-snapshot.json": {
+      "sha256": "e823815c7a73edb3d23705c2abd499015a797caf4511db9fa8b9412a2237f9ae",
+      "bytes": 18923
+    }
+  }
+}
