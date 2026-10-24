@@ -41,6 +41,46 @@ public sealed class CompactSuspendedConsumerTests
         Assert.Null(restored.Construction.Compact.ResumingStepId);
     }
 
+    [Fact]
+    public void ResumedConsumerUsesItsOwnReviewsInsteadOfTheLatestOtherRejection()
+    {
+        var state = State();
+        var task = new PlanTask { Id = "consumer", Kind = "value", Objective = "Use the requested number.",
+            Outputs = [new("number", new() { Kind = "number", Number = 0 })] };
+        var extension = new PlanningConstructionExtension { Scope = "/root", RequirementIds = ["req"], Tasks = [task] };
+        state.Construction!.Candidate = PlanningConstruction.Apply(state, extension);
+        var context = new JsonObject
+        {
+            ["requirements"] = new JsonArray(new JsonObject { ["id"] = "req", ["description"] = state.Request.Prompt }),
+            ["draft"] = PlanningJsonTransport.TaskPlanPart(JsonSerializer.SerializeToNode(extension, PlanningJsonContext.Default.PlanningConstructionExtension))
+        };
+        var finding = new JsonObject { ["kind"] = "omission", ["location"] = "/draft/tasks/0",
+            ["evidence"] = new JsonArray("/requirements/0", "/draft/tasks/0"), ["explanation"] = "The requested consumer needs the selected source.",
+            ["uncertainty"] = "Advisory synthetic finding.", ["fact"] = null };
+        var witness = PlanningConstruction.DefectWitness(state, context, new JsonArray(finding))!;
+        Assert.NotNull(witness);
+        state.Construction.Candidate.Reviews.Add(new JsonObject { ["defectWitness"] = witness });
+        PlanningCompactConstruction.Reselect(state, Suspend());
+        var item = Assert.Single(state.Construction.Compact!.SuspendedSteps!);
+        AcceptProducer(state, "producer", 3);
+        state.Construction.Candidate = null;
+        state.Construction.Compact.CurrentStep = Consumer(state, "other");
+        state.Diagnostics = [new("CONSTRUCTION_TENTATIVE_SELECTION", "/step", "An unrelated selection is unsuitable.")];
+        PlanningCompactConstruction.Reselect(state, new PlanningConstructionReselection { Disposition = "abandon", Reason = "Abandon the other selection." });
+        state.Construction.Compact.CurrentStep = Consumer(state, "producer");
+        PlanningCompactConstruction.Accept(state); // End the other replacement chain.
+        state = PlannerFixture.Clone(state);
+        PlanningCompactConstruction.ResumeStep(state, item.Id, 1, Output("producer"));
+        var next = PlanningConstruction.Apply(state, extension);
+        PlanningConstruction.CarryDefectWitnesses(state, null, next);
+        Assert.Equal(witness.ToJsonString(), Assert.Single(next.Reviews)["defectWitness"]!.ToJsonString());
+        Assert.Empty(state.Construction!.Compact!.RejectedSteps[^1]["reviews"]!.AsArray());
+        state.Construction.Candidate = next;
+        var prior = Assert.Single(PlanningConstruction.DefectProgressContext(state, context)!)!;
+        Assert.Equal("basis_changed", prior["status"]!.ToString());
+        Assert.Null(next.AuthorizedPaths); Assert.Equal(0, state.ReplanAttempts);
+    }
+
     [Theory]
     [InlineData("type")]
     [InlineData("checkpoint")]

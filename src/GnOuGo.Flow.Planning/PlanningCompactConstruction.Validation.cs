@@ -24,7 +24,8 @@ internal static partial class PlanningCompactConstruction
             ["extension"] = construction.Candidate is { } candidate ? PlanningConstruction.Node(candidate.Extension, PlanningJsonContext.Default.PlanningConstructionExtension) : null,
             ["diagnostics"] = PlanningJsonTransport.Diagnostics(state.Diagnostics),
             ["evidence"] = construction.Evidence?.DeepClone(),
-            ["reviews"] = new JsonArray((construction.Candidate?.Reviews ?? []).Select(r => r.DeepClone()).ToArray()) });
+            ["reviews"] = new JsonArray((construction.Candidate?.Reviews ?? PlanningConstruction.ReplacementDefectReviews(state))
+                .Select(r => r.DeepClone()).ToArray()) });
         compact.ReplacementScope = step!.Scope; compact.ReplacementRequirements = step.RequirementIds.ToList();
         construction.DraftCorrections = Math.Max(construction.DraftCorrections, construction.Candidate?.Corrections ?? 0);
         construction.Candidate = null; construction.CandidateFailureIdentityVersion = null;

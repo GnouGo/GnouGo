@@ -328,7 +328,20 @@ public sealed class ConstructionDefectProgressTests
         Assert.Contains(progress, item => item!["id"]!.ToString() == firstId);
         state.Construction!.Candidate!.Reviews.Add(new JsonObject { ["response"] = new JsonObject { ["resolutions"] = new JsonArray(new JsonObject
             { ["id"] = firstId, ["status"] = "invalidated_by_evidence" }) } });
-        Assert.NotEqual(firstId, Single(state)["id"]!.ToString());
+        var retainedId = Single(state)["id"]!.ToString();
+        Assert.NotEqual(firstId, retainedId);
+        var construction = state.Construction; var previous = construction.Candidate;
+        var step = construction.Compact!.CurrentStep!;
+        state.Diagnostics = [new("CONSTRUCTION_BUSINESS_REVIEW", "/draft/tasks/0", "The other finding remains advisory.")];
+        PlanningCompactConstruction.Reselect(state, new PlanningConstructionReselection { Disposition = "abandon", Reason = "Choose a different applicable strategy." });
+        construction.Compact.CurrentStep = step;
+        PlanningCompactConstruction.Reselect(state, new PlanningConstructionReselection { Disposition = "abandon", Reason = "Withdraw this selection before drafting." });
+        construction.Compact.CurrentStep = step;
+        var next = new PlanningConstructionCandidate { BaseHash = previous.BaseHash, Hash = previous.Hash, Plan = previous.Plan,
+            Extension = previous.Extension, OpenScopes = previous.OpenScopes.ToList() };
+        PlanningConstruction.CarryDefectWitnesses(state, null, next); construction.Candidate = next;
+        Assert.Equal(3, next.Reviews.Count); // Both observations and the exact validated resolution survive.
+        Assert.Equal(retainedId, Single(state)["id"]!.ToString());
     }
 
     [Fact]
@@ -381,7 +394,14 @@ public sealed class ConstructionDefectProgressTests
         Assert.False(authority["omitted"]!.GetValue<bool>());
         if (reselected)
         {
-            state.Construction.Compact!.RejectedSteps.Add(new JsonObject { ["reviews"] = new JsonArray(previous.Reviews.Select(review => review.DeepClone()).ToArray()) });
+            var compact = state.Construction.Compact!;
+            compact.ReplacementScope = compact.CurrentStep!.Scope;
+            compact.ReplacementRequirements = compact.CurrentStep.RequirementIds.ToList();
+            compact.RejectedSteps.Add(new JsonObject
+            {
+                ["step"] = JsonSerializer.SerializeToNode(compact.CurrentStep, PlanningJsonContext.Default.PlanningConstructionStep),
+                ["reviews"] = new JsonArray(previous.Reviews.Select(review => review.DeepClone()).ToArray())
+            });
             state.Construction.Candidate = null;
         }
         var next = new PlanningConstructionCandidate { BaseHash = previous.BaseHash, Hash = previous.Hash, Plan = previous.Plan,
@@ -396,6 +416,79 @@ public sealed class ConstructionDefectProgressTests
         Assert.True(JsonNode.DeepEquals(authority, progress["priorEditAuthority"]));
         Assert.Null(state.Construction.Candidate.AuthorizedPaths); // Historical evidence grants no new permission.
         Assert.Equal(0, state.ReplanAttempts);
+    }
+
+    [Theory]
+    [InlineData("same", "unchanged")]
+    [InlineData("source", "basis_changed")]
+    [InlineData("contract", "basis_changed")]
+    [InlineData("baseline", "basis_changed")]
+    [InlineData("claims", "claims_changed")]
+    [InlineData("identity", "unverified")]
+    public void CandidateFreeSuspensionPreservesOnlyItsReplacementChainInTheActualReview(string change, string expected)
+    {
+        var state = CoordinatorReady(); var construction = state.Construction!;
+        var originalStep = JsonSerializer.Serialize(construction.Compact!.CurrentStep, PlanningJsonContext.Default.PlanningConstructionStep);
+        var extension = construction.Candidate!.Extension;
+        var context = HybridWorkflowPlanner.CreateConstructionReviewRequest(state, intermediate: false).Context;
+        Attach(state, PlanningConstruction.DefectWitness(state, context, new JsonArray(Finding("/draft/tasks/0")))!);
+        var originalWitness = construction.Candidate.Reviews.Single()["defectWitness"]!.ToJsonString();
+        state.Diagnostics = [new("CONSTRUCTION_BUSINESS_REVIEW", "/draft/tasks/0", "A grounded but advisory finding.")];
+        PlanningCompactConstruction.Reselect(state, new PlanningConstructionReselection { Reason = "Choose another applicable strategy.", Disposition = "abandon" });
+        construction.Compact.CurrentStep = JsonSerializer.Deserialize(originalStep, PlanningJsonContext.Default.PlanningConstructionStep);
+        construction.Compact.CurrentStep!.Id = "replacement";
+        Assert.Null(construction.Candidate);
+        PlanningCompactConstruction.Reselect(state, new PlanningConstructionReselection
+        {
+            Reason = "Suspend for the exact caller-text prerequisite.", Disposition = "suspend",
+            Prerequisite = new() { Need = "The text needed by the consumer.", ExpectedType = new() { Kind = "string" },
+                EvidenceAddresses = ["requirement:req_0", "source:text-clause"] }
+        });
+        Assert.Equal(originalWitness, Assert.Single(construction.Compact.RejectedSteps[1]["reviews"]!.AsArray())!["defectWitness"]!.ToJsonString());
+        state = PlannerFixture.Clone(state); construction = state.Construction!;
+        construction.Compact!.CurrentStep = JsonSerializer.Deserialize(originalStep, PlanningJsonContext.Default.PlanningConstructionStep);
+        if (change == "source") construction.Compact.Sources.Last().Version = "changed-source";
+        if (change == "contract") state.Discovery.Resolved[0].Description += " Changed exact contract.";
+        if (change == "baseline") state.Plan!.Root.Tasks.Add(new() { Id = "accepted", Kind = "value", Objective = "An accepted producer.",
+            Outputs = [new("number", new() { Kind = "number", Number = 1 })] });
+        if (change == "claims") construction.Compact.CurrentStep!.CloseRequirementIds = ["req_0"];
+        if (change == "identity") extension.Tasks[0].Id = "another-consumer";
+        construction.Compact.CurrentStep!.BaseHash = PlanningConstruction.Hash(state.Plan);
+        var next = PlanningConstruction.Apply(state, extension);
+        PlanningCompactConstruction.StageCommitments(state, null);
+        PlanningConstruction.CarryDefectWitnesses(state, null, next); construction.Candidate = next;
+        state.Diagnostics.Clear();
+        var (current, request) = HybridWorkflowPlanner.CreateConstructionReviewRequest(state, intermediate: false);
+        var prior = Assert.Single(current["defectProgress"]!.AsArray())!;
+        Assert.Equal(expected, prior["status"]!.ToString());
+        Assert.Equal(originalWitness, next.Reviews.Single()["defectWitness"]!.ToJsonString());
+        Assert.Contains("\"resolutions\"", request.StructuredOutputSchema!.ToJsonString(), StringComparison.Ordinal);
+        Assert.Null(next.AuthorizedPaths); Assert.Empty(state.Diagnostics); Assert.Equal(0, state.ReplanAttempts);
+        Assert.Empty(construction.Checkpoints);
+    }
+
+    [Theory]
+    [InlineData("accepted")]
+    [InlineData("scope")]
+    [InlineData("requirements")]
+    public void EndedOrUnrelatedReplacementChainsDoNotLeakOldFindings(string boundary)
+    {
+        var state = Ready(); Reject(state);
+        var construction = state.Construction!; var previous = construction.Candidate!;
+        var step = construction.Compact!.CurrentStep!;
+        state.Diagnostics = [new("CONSTRUCTION_BUSINESS_REVIEW", "/draft/tasks/0", "Prior advisory finding.")];
+        PlanningCompactConstruction.Reselect(state, new PlanningConstructionReselection { Reason = "Abandon this draft.", Disposition = "abandon" });
+        construction.Compact.CurrentStep = step;
+        if (boundary == "accepted") PlanningCompactConstruction.Accept(state);
+        construction.Compact.CurrentStep = step;
+        if (boundary == "scope") step.Scope = "/groups/other/body";
+        if (boundary == "requirements") step.RequirementIds = ["different-original"];
+        var next = new PlanningConstructionCandidate { BaseHash = previous.BaseHash, Hash = previous.Hash, Plan = previous.Plan,
+            Extension = previous.Extension, OpenScopes = previous.OpenScopes.ToList() };
+        PlanningConstruction.CarryDefectWitnesses(state, null, next);
+        Assert.Empty(next.Reviews);
+        Assert.Single(construction.Compact.RejectedSteps[0]["reviews"]!.AsArray());
+        Assert.Null(next.AuthorizedPaths);
     }
 
     [Fact]

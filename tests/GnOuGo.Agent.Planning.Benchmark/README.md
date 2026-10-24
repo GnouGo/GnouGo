@@ -1132,6 +1132,15 @@ unlimited-capacity requirement; explicit capacity conflicts still require review
 Preserve known output-exhausted receipts separately from uncertain transport and
 never infer the cause of reasoning exhaustion from an empty response alone.
 
+Revision-5 diagnostics distinguish selection mistakes made with complete accepted
+evidence from evidence omitted in a later review. Current-step companion operation
+links locate original contracts; they grant neither execution authority nor finding
+grounding. Follow a rejection through candidate-free reselection and explicit
+consumer resumption, but end its replacement chain on acceptance. Preserved repair
+witnesses are advisory evidence, not a mandate to reproduce a prior conclusion.
+Report request-limit failures separately from semantic findings and keep the
+failed request's captured ceiling unchanged.
+
 The compact live comparison freezes baseline `56942f5` and each candidate separately,
 with identical model, MCP binaries, scenario inputs and independent oracle versions.
 Both receive 64 calls, unchanged correction and ordinary graph limits; baseline

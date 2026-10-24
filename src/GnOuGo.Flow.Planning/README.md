@@ -18,6 +18,12 @@ Current-effect constraints apply even before requirement closure. Bounded accept
 operation arguments and complete fitting task evidence help selection and review
 compare prior work without resending the plan or treating directories as proof.
 Oversized values retain exact retrieval links; equality does not authorize removal.
+Drafts and reviews retain at most four whole current-step companion operation
+rows within 2,048 serialized UTF-8 bytes, with canonical directory and original
+description links. These projected rows grant no finding or execution authority.
+Technical setup, handle and result-shape assumptions in selected expected outputs
+are provisional; original business results, cleanup, concrete task objectives and
+literals remain binding.
 Rollback requires reconstruction with preserved effects and literals; its fresh
 presentation and original input context make that restriction explicit.
 Replacement reviews re-resolve bounded, exact accepted-task evidence cited by

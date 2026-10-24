@@ -14,6 +14,50 @@ passing independent oracles under one frozen configuration per arm. Earlier fail
 their original source/settings attribution remain immutable below. A later source must
 establish its own live acceptance; the retained Collections success is not transferred.
 
+## Retained source `4857d5558` diagnostic snapshot
+
+Source `4857d5558a153f14a26adde9a203ef303609743c` passed both Collections runtime
+variants. Amazon and Review PR stopped without artifacts or execution. These separately
+frozen profiles establish neither three-case acceptance nor eligibility for the 18-run comparison.
+
+| Frozen case | Calls / physical attempts / receipts | Corrections / checkpoints | Provider input / output tokens (reasoning subset) | Planning seconds | Known EUR / retained reservation EUR |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| [Collections](compact-taskplan-4857d5558-collections.json) | 33/33/33 | 3/8 | 76,711 / 39,420 (33,252) | 795.509 | 1.3977286925479696564033913433 / 0 |
+| [Amazon](compact-taskplan-4857d5558-amazon-v2.json) | 43/47/43 | 4/2 | 209,464 / 65,449 (56,186) | 2,483.914 | 2.6870058009817045961624274880 / 3.7234805890227576974564926372 |
+| [Review PR](compact-taskplan-4857d5558-code.json) | 36/37/36 | 1/4 | 152,605 / 34,361 (26,494) | 1,123.287 | 1.6009415439535921463632307006 / 1.0154975457385095939312806783 |
+
+Collections' exact reviewed artifact passed the unchanged `cleanup`, `declared_effects`
+and `exact_outputs` obligations in both variants, without effects or violations.
+Nominal/alternate runtime was **405.4429 / 2.4024 ms**; different inputs do not establish a
+speedup. Useful progress is **33/3 = 11 calls per frozen oracle obligation**, not per generated
+task. A pure output alias and finite capacity of 100 remain explicit limitations.
+
+Amazon requests 2 and 3 each recorded HTTP500,500,200; all four failed-attempt reservations
+remain. Its 48 constructed identities comprise 43 dispatched, three prepared-only and two
+admission rejections: prospective requests needed 19,146 and 19,705 tokens against 18,000.
+The [separate cleanup assessment](compact-taskplan-4857d5558-amazon-cleanup-assessment.json)
+finds two produced-handle necessity claims unsupported by the retained close contract;
+selected promised outputs remain a distinct mismatch. Only public input and an empty
+boundary were accepted. No executed cleanup or avoided correction is claimed.
+
+Review PR request19 recorded HTTP500,200 and retained the failed-attempt reservation.
+Of 39 constructed identities, 36 dispatched, two remained prepared-only and mandatory
+Judge37 was denied before dispatch at **9,399 > 9,000** estimated input tokens. Root's
+hash-bound original inspection found a duplicate fetch chosen despite complete accepted-fetch
+and clone evidence at selection28; this was **not an explicit suspended-consumer resumption**.
+Later Judge34 lacked the prior fetch arguments and correctly identified the candidate's
+missing `refSpec`; that local fact does not prove a global omission. The accepted clone also
+lacked the pinned branch required by execution authority. No Code artifact or runtime passed.
+
+Exact original response bytes / outside-string whitespace were **21,440/9** for Collections,
+**26,358/81** for Amazon and [**24,347/1** for Review PR](compact-taskplan-4857d5558-code-formatting.json);
+all completed receipts were nonempty. Per-phase percentiles and reconciled components remain
+in the linked archives. Logical-call elapsed includes host/retry work, not verified provider-only
+latency. Code money comes from exact retained terminal decimals; its earlier rounded safe
+projection remains preserved. The post-Code audited remainder is **EUR110.83671856736400284357327356**,
+with 24 permanently closed receiptless requests and zero unresolved requests. Prior exposure
+remains separately retained. No matched improvement or avoided-correction claim follows.
+
 ## Current behavior and technical evidence
 
 The incremental TaskPlan retains original requirements, deterministic validation,

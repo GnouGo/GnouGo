@@ -60,12 +60,30 @@ internal static partial class PlanningConstruction
         PlanningConstructionCandidate next)
     {
         if (state.Construction?.Compact?.PresentationVersion != 5) return;
-        // Reselection already retains the old reviews. Carry their witnessed
-        // history into the replacement; do not reinterpret the old pointers.
-        var reviews = previous?.Reviews ?? state.Construction.Compact.RejectedSteps.LastOrDefault()?["reviews"]?
-            .AsArray().OfType<JsonObject>().ToList() ?? [];
+        // Carry only this replacement chain or the explicitly resumed consumer.
+        // Acceptance ends a replacement chain; old pointers remain historical.
+        var reviews = previous?.Reviews ?? ReplacementDefectReviews(state);
         foreach (var retained in reviews.Where(review => review["defectWitness"] is JsonObject || review["response"]?["resolutions"] is JsonArray))
             if (!next.Reviews.Any(review => JsonNode.DeepEquals(review, retained))) next.Reviews.Add(retained.DeepClone().AsObject());
+    }
+
+    internal static List<JsonObject> ReplacementDefectReviews(PlanningSession state)
+    {
+        if (state.Construction?.Compact is not { PresentationVersion: 5, CurrentStep: { } step } compact) return [];
+        JsonObject? rejected = null;
+        if (compact.ResumingStepId is { } id)
+        {
+            var resumed = compact.SuspendedSteps?.SingleOrDefault(item => item.Id == id && item.Status == "resuming");
+            if (resumed is not null && resumed.RejectedStepIndex >= 0 && resumed.RejectedStepIndex < compact.RejectedSteps.Count)
+                rejected = compact.RejectedSteps[resumed.RejectedStepIndex];
+        }
+        else if (compact.ReplacementScope == step.Scope && compact.ReplacementRequirements is { } requirements &&
+            requirements.ToHashSet(StringComparer.Ordinal).SetEquals(step.RequirementIds))
+            rejected = compact.RejectedSteps.LastOrDefault();
+        if (rejected is null || rejected["step"]?["scope"]?.ToString() != step.Scope || rejected["step"]?["requirementIds"] is not JsonArray ids ||
+            !ids.Select(item => item!.ToString()).ToHashSet(StringComparer.Ordinal).SetEquals(step.RequirementIds)) return [];
+        return (rejected["reviews"] as JsonArray ?? []).OfType<JsonObject>()
+            .Where(review => review["defectWitness"] is JsonObject || review["response"]?["resolutions"] is JsonArray).ToList();
     }
 
     internal static JsonArray? DefectProgressContext(PlanningSession state, JsonObject currentContext)

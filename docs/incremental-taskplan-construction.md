@@ -75,7 +75,10 @@ oversized originals remain explicitly retrievable. Directories alone remain
 insufficient grounding, and equal arguments do not automatically establish an
 unnecessary operation.
 
-Grounded rejections retain bounded original-context witnesses. Candidate hashes
+Grounded rejections retain bounded original-context witnesses through their
+replacement chain, including candidate-free reselection. Resumed consumers use
+their own retained rejection history; accepted work ends the replacement chain,
+so unrelated later selections do not inherit its findings. Candidate hashes
 still establish novelty; they do not establish defect resolution. A correction
 presents its relevant before/after bindings to the mandatory scoped Judge, retaining
 executable objectives and literals. Historical edit-authority snapshots are evidence;

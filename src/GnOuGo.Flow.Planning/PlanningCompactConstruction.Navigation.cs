@@ -53,7 +53,7 @@ internal static partial class PlanningCompactConstruction
         // context. Contract addresses come only from host-owned view navigation.
         var addresses = StepOriginalEvidence(state);
         addresses.UnionWith(NavigationEvidence(new[] { "scopeEvidence", "interfacesDirectory", "reusableInterfaces", "taskEvidence", "scopeInterface",
-            "operations", "rebuild" }.Select(name => context[name])
+            "operations", "companionOperations", "rebuild" }.Select(name => context[name])
             .Append(context["taskEvidence"]?["scopeOwner"])
             .Concat((state.Construction!.Evidence ?? []).Select(item => item.Value).Where(value => value is JsonObject or JsonArray))));
         ConstrainEvidenceChoices(state, schema, addresses, maximum: HasEvidenceAdmissionLimit(state) ? 1 : 8);

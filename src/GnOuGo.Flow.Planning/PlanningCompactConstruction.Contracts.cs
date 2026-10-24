@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
@@ -85,6 +86,30 @@ internal static partial class PlanningCompactConstruction
         var next = items.Count == ContractDescriptorPageSize && ContractDescriptors(state, offset + ContractDescriptorPageSize, retained: retained || legacy).Count > 0
             ? "page:operations:" + (offset + ContractDescriptorPageSize).ToString(CultureInfo.InvariantCulture) : null;
         return new JsonObject { ["offset"] = offset, ["items"] = items, ["next"] = next };
+    }
+
+    private static JsonObject? CompanionOperationNavigation(PlanningSession state)
+    {
+        if (!UsesConvergentConstruction(state) || State(state).CurrentStep is not { OperationIds.Count: > 0 } step)
+            return null;
+        var companions = state.Discovery.Pages.Where(page => page.Query == step.Objective && page.ProducedArtifactKind is null)
+            .SelectMany(page => page.Capabilities).Where(capability => capability.Operation is not null &&
+                state.Catalog!.AllowedStepTypes.Contains(capability.StepType) && !state.Catalog.Policy.DeniedCapabilityIds.Contains(capability.Id) &&
+                !step.OperationIds.Contains(capability.Operation.Id, StringComparer.Ordinal))
+            .Select(capability => (capability.Operation!.Id, capability.Operation.Version)).ToHashSet();
+        if (companions.Count == 0) return null;
+        var page = ContractDescriptorPage(state);
+        var items = new JsonArray();
+        var navigation = new JsonObject { ["items"] = items, ["directory"] = OperationPageAddress(state, 0),
+            ["next"] = OperationDirectoryContinuation(state, page) };
+        // A projected directory is navigation only. Preserve canonical pages and
+        // whole row values; omitted rows remain behind their exact directory link.
+        foreach (var item in page["items"]!.AsArray().Where(item => companions.Contains((item!["id"]!.ToString(), item["version"]!.ToString()))))
+        {
+            items.Add(item!.DeepClone());
+            if (Encoding.UTF8.GetByteCount(navigation.ToJsonString()) > ContractDescriptionPageSize) items.RemoveAt(items.Count - 1);
+        }
+        return navigation;
     }
 
     internal static JsonObject? DescribedOperationChoices(PlanningSession state)

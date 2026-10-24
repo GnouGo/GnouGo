@@ -10,6 +10,181 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed partial class CompactDiscoveryProtocolTests
 {
     [Theory]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    [InlineData(5)]
+    public async Task BoundOperationKeepsCompanionRetrievalNavigationWithoutGrantingContractAuthority(int version)
+    {
+        var (state, _) = await BoundOperations(2, version);
+        var selected = state.Construction!.Compact!.CurrentStep!.OperationIds.Single();
+        var canonical = PlanningCompactConstruction.ContractDescriptorPage(state);
+        var companion = canonical["items"]!.AsArray().Single(item => item!["id"]!.ToString() != selected)!;
+        var address = companion["descriptionEvidence"]!.ToString();
+        var original = PlanningCompactConstruction.LoadContractEvidence(state, address)!;
+        state.Construction.Evidence = new() { [address] = original.DeepClone() };
+        state.Construction.EvidenceRequests.Add(PlanningConstruction.EvidenceBatchFingerprint(state, [address]));
+        PlanningCompactConstruction.RetainPrerequisiteEvidence(state);
+        Assert.Null(state.Construction.Evidence);
+        Assert.Empty(state.Construction.EvidenceRequests);
+        var discovery = JsonSerializer.Serialize(state.Discovery, PlanningJsonContext.Default.CapabilityDiscoveryState);
+        var draft = PlanningConstruction.DraftRequest(state, repair: false);
+        var draftContext = Context(draft);
+        Assert.Equal(version == 5, draftContext.ContainsKey("companionOperations"));
+        Assert.Equal(version == 5, draft.StructuredOutputSchema!.ToJsonString().Contains(address, StringComparison.Ordinal));
+        Assert.Equal(version == 5, draft.StructuredOutputSchema.ToJsonString().Contains("result-shape assumptions", StringComparison.Ordinal));
+        var extension = new PlanningConstructionExtension { RequirementIds = ["req_0"], Tasks = [new()
+            { Id = "read", Kind = "operation", Objective = Objective, Operation = selected }] };
+        PlanningCompactConstruction.StageCommitments(state, null);
+        state.Construction.Candidate = PlanningConstruction.Apply(state, extension);
+        Assert.Empty(state.Construction.Candidate.Diagnostics);
+        Assert.Empty(TaskPlanCompiler.ValidateConstruction(state.Construction.Candidate.Plan, state.Catalog!, state.Request,
+            state.Construction.Candidate.OpenScopes.ToHashSet(StringComparer.Ordinal)).Diagnostics);
+        foreach (var intermediate in new[] { false, true })
+        {
+            var (context, review) = HybridWorkflowPlanner.CreateConstructionReviewRequest(state, intermediate);
+            Assert.Equal(version == 5, context.ContainsKey("companionOperations"));
+            Assert.Equal(version == 5, review.Prompt.Contains("result-shape assumptions", StringComparison.Ordinal));
+            Assert.Equal(Objective, context["draft"]!["tasks"]![0]!["objective"]!.ToString());
+            Assert.Equal(selected, Assert.Single(context["operations"]!.AsArray())!["id"]!.ToString());
+            Assert.False(HybridWorkflowPlanner.ConstructionReviewEvidenceGrounded(context, "/companionOperations/items/0", compact: true));
+            if (version != 5) continue;
+            Assert.True(JsonNode.DeepEquals(companion, Assert.Single(context["companionOperations"]!["items"]!.AsArray())));
+            Assert.DoesNotContain("/companionOperations", review.StructuredOutputSchema!.ToJsonString(), StringComparison.Ordinal);
+        }
+        Assert.Equal(discovery, JsonSerializer.Serialize(state.Discovery, PlanningJsonContext.Default.CapabilityDiscoveryState));
+        Assert.True(JsonNode.DeepEquals(canonical, PlanningCompactConstruction.ContractDescriptorPage(state)));
+        Assert.Null(state.Construction.Evidence);
+        Assert.Empty(state.Construction.EvidenceRequests);
+        if (version != 5) return;
+        var retrieved = PlannerFixture.Clone(state);
+        PlanningConstruction.LoadEvidence(retrieved, [address]);
+        Assert.True(JsonNode.DeepEquals(original, retrieved.Construction!.Evidence![address]));
+        Assert.Single(retrieved.Discovery.Resolved);
+        Assert.Equal(new[] { selected }, retrieved.Construction.Compact!.CurrentStep!.OperationIds);
+        Assert.Equal(discovery, JsonSerializer.Serialize(retrieved.Discovery, PlanningJsonContext.Default.CapabilityDiscoveryState));
+        Assert.Throws<PlanningResponseException>(() => PlanningConstruction.LoadEvidence(retrieved, [address]));
+    }
+
+    [Fact]
+    public async Task CompanionNavigationDoesNotAutofillRegisteredOrEarlierOperationsAndKeepsCanonicalPaging()
+    {
+        var (state, _) = await BoundOperations(9);
+        var selected = state.Construction!.Compact!.CurrentStep!.OperationIds.Single();
+        var page = state.Discovery.Pages.Single();
+        var first = PlanningCompactConstruction.ContractDescriptorPage(state);
+        var current = Context(PlanningConstruction.DraftRequest(state, false))["companionOperations"]!;
+        Assert.InRange(current["items"]!.AsArray().Count, 1, 4);
+        Assert.DoesNotContain(current["items"]!.AsArray(), item => item!["id"]!.ToString() == selected);
+        Assert.True(PlanningCompactConstruction.LoadEvidence(state, current["directory"]!.ToString(), out var fullPage));
+        Assert.True(JsonNode.DeepEquals(first, fullPage));
+        Assert.True(PlanningCompactConstruction.LoadEvidence(state, current["next"]!.ToString(), out var next));
+        Assert.Equal(4, next!["offset"]!.GetValue<int>());
+        Assert.True(JsonNode.DeepEquals(first, PlanningCompactConstruction.ContractDescriptorPage(state)));
+        var before = PlanningConstruction.DraftRequest(state, false);
+        for (var index = 0; index < 50; index++)
+            state.Discovery.Pages.Add(page with { Query = "Earlier unrelated action " + index,
+                Capabilities = [page.Capabilities[0] with { Id = "previous_" + index,
+                    Operation = new() { Id = "previous_operation_" + index, Version = "v", Description = new string('x', 20000) } }] });
+        var after = PlanningConstruction.DraftRequest(state, false);
+        Assert.Equal(before.Prompt, after.Prompt);
+        Assert.True(JsonNode.DeepEquals(before.StructuredOutputSchema, after.StructuredOutputSchema));
+        state.Discovery.Pages = [page with { Capabilities = page.Capabilities.Take(1).ToList() }];
+        for (var index = 1; index <= 5; index++)
+            state.Catalog!.Capabilities.Add(new() { Id = "registered_" + index, Version = "v", Kind = "registered", StepType = "mcp.call",
+                Server = "runtime", Method = "registered_" + index, Description = "Read exact original records with declared restrictions.",
+                InputSchema = new() { ["type"] = "object", ["properties"] = new JsonObject(), ["additionalProperties"] = false },
+                OutputSchema = new() { ["type"] = "object", ["properties"] = new JsonObject(), ["additionalProperties"] = false } });
+        Assert.Null(Context(PlanningConstruction.DraftRequest(state, false))["companionOperations"]);
+        // Four canonical registered rows can precede the only current-query companion.
+        var tail = page.Capabilities[1] with { Id = "zzzz", Name = "zzzz", Description = "Unrelated ranking words.", Operation = new() { Id = "zzzz", Version = "v", Description = "Unrelated ranking words." } };
+        state.Discovery.Pages[0] = state.Discovery.Pages[0] with { Capabilities = [page.Capabilities[0], tail] };
+        var canonical = PlanningCompactConstruction.ContractDescriptorPage(state);
+        Assert.DoesNotContain(canonical["items"]!.AsArray(), item => item!["id"]!.ToString() == "zzzz");
+        var navigation = Context(PlanningConstruction.DraftRequest(state, false))["companionOperations"]!;
+        Assert.Empty(navigation["items"]!.AsArray());
+        Assert.NotNull(navigation["directory"]);
+        Assert.NotNull(navigation["next"]);
+        Assert.True(PlanningCompactConstruction.LoadEvidence(state, navigation["next"]!.ToString(), out var remaining));
+        Assert.Contains(remaining!["items"]!.AsArray(), item => item!["id"]!.ToString() == "zzzz");
+        Assert.True(JsonNode.DeepEquals(canonical, PlanningCompactConstruction.ContractDescriptorPage(state)));
+    }
+
+    [Fact]
+    public async Task OversizedCompanionRowsAreOmittedWholeBehindTheExactCanonicalDirectory()
+    {
+        var (state, _) = await BoundOperations(2);
+        var page = state.Discovery.Pages.Single();
+        state.Discovery.Pages[0] = page with { Capabilities = [page.Capabilities[0], page.Capabilities[1] with { Name = new string('x', 5000) }] };
+        var canonical = PlanningCompactConstruction.ContractDescriptorPage(state);
+        var navigation = Context(PlanningConstruction.DraftRequest(state, false))["companionOperations"]!;
+        Assert.Empty(navigation["items"]!.AsArray());
+        Assert.InRange(System.Text.Encoding.UTF8.GetByteCount(navigation.ToJsonString()), 1, 2048);
+        Assert.True(PlanningCompactConstruction.LoadEvidence(state, navigation["directory"]!.ToString(), out var original));
+        Assert.True(JsonNode.DeepEquals(canonical, original));
+        Assert.Contains(original!["items"]!.AsArray(), item => item!["name"]!.ToString().Length == 5000);
+    }
+
+    [Theory]
+    [InlineData(4, false)]
+    [InlineData(4, true)]
+    [InlineData(5, false)]
+    [InlineData(5, true)]
+    public async Task IssuedReviewsWithoutCompanionNavigationKeepExactBytesAndAccounting(int version, bool savedReceipt)
+    {
+        var (state, runtime) = await BoundOperations(2, version);
+        PlanningCompactConstruction.StageCommitments(state, null);
+        state.Construction!.Candidate = PlanningConstruction.Apply(state, new() { RequirementIds = ["req_0"], Tasks = [new()
+            { Id = "read", Kind = "operation", Objective = Objective, Operation = state.Construction.Compact!.CurrentStep!.OperationIds.Single() }] });
+        var (context, review) = HybridWorkflowPlanner.CreateConstructionReviewRequest(state, false);
+        context.Remove("companionOperations");
+        var schema = version == 5 ? HybridWorkflowPlanner.ConvergentConstructionReviewSchema(context) : HybridWorkflowPlanner.ConstructionReviewSchema(context, verified: true);
+        var issued = PlanningModelCalls.PrepareRequest(state, PlanningConstruction.LocalPurpose,
+            "Retained exact historical review instructions.\n" + context.ToJsonString(), schema);
+        state.Construction.PendingReviewContext = context;
+        state.Construction.PendingReviewHash = PlanningGraphCompiler.Fingerprint(PlanningConstruction.LocalPurpose + "\n" + state.Construction.Candidate.Hash + "\n" + context.ToJsonString());
+        var response = version == 5 ? new JsonObject { ["action"] = new JsonObject { ["kind"] = "findings", ["findings"] = new JsonArray() }, ["uncertainty"] = "No execution observed." }
+            : new JsonObject { ["findings"] = new JsonArray(), ["evidenceRequests"] = null, ["inconclusive"] = null, ["uncertainty"] = "No execution observed." };
+        state.PendingCall = new() { Id = issued.ClientRequestId!, Purpose = PlanningConstruction.LocalPurpose, Request = issued };
+        state.ModelCalls++;
+        var calls = state.ModelCalls;
+        var original = JsonSerializer.Serialize(issued, PlanningJsonContext.Default.LLMRequest);
+        var receipt = savedReceipt ? Wire(issued, response) : null;
+        var actualCalls = 0;
+        runtime.Respond = (request, _) =>
+        {
+            Assert.Equal(original, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+            if (receipt is not null) return receipt;
+            actualCalls++;
+            return Wire(request, response);
+        };
+        state = await Advance(PlannerFixture.Clone(state), runtime);
+        Assert.Empty(state.Diagnostics);
+        Assert.Null(state.PendingCall);
+        Assert.Equal(calls, state.ModelCalls);
+        Assert.Equal(savedReceipt ? 0 : 1, actualCalls);
+        Assert.Equal(0, state.ReplanAttempts);
+        Assert.Single(state.Construction!.Checkpoints);
+    }
+
+    private static async Task<(PlanningSession State, TestRuntime Runtime)> BoundOperations(int count, int version = 5)
+    {
+        var (state, runtime) = await Ready(presentationVersion: version);
+        AddOperations(state, count);
+        var summary = state.Discovery.Pages[0].Capabilities[0];
+        state.Discovery.Resolved = [new() { Id = summary.Id, Version = summary.Version, Kind = "tool", StepType = summary.StepType,
+            Server = summary.SourceId, Method = summary.Name, Description = summary.Description, Operation = summary.Operation,
+            InputSchema = new() { ["type"] = "object", ["properties"] = new JsonObject(), ["additionalProperties"] = false },
+            OutputSchema = new() { ["type"] = "object", ["properties"] = new JsonObject(), ["additionalProperties"] = false } }];
+        state.Catalog!.Capabilities.Add(state.Discovery.Resolved[0]);
+        state.Construction!.Compact!.CurrentStep!.Kind = "operation";
+        state.Construction.Compact.CurrentStep.OperationIds = [summary.Operation!.Id];
+        state.Construction.Compact.CurrentStep.DiscoveryComplete = true;
+        state.Construction.Compact.CurrentStep.ExpectedOutputs = ["An assumed implementation handle."];
+        return (state, runtime);
+    }
+
+    [Theory]
     [InlineData(3)]
     [InlineData(4)]
     public async Task AutomaticOperationDirectoriesUseOnlyTheCurrentQueryWithoutDiscardingOriginals(int presentationVersion)
