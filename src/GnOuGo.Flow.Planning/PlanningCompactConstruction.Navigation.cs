@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
 
@@ -167,6 +168,40 @@ internal static partial class PlanningCompactConstruction
             if (task.Kind == "operation" && task.Operation is not null) entry["operation"] = task.Operation;
         }
         return entry;
+    }
+
+    private static void AddAcceptedOperationEvidence(PlanningSession state, JsonObject context, IEnumerable<JsonObject> entries)
+    {
+        if (!UsesConvergentConstruction(state) || state.Plan is null) return;
+        var accepted = new TaskPlanSymbols(state.Plan);
+        var added = new JsonObject();
+        foreach (var entry in entries)
+        {
+            if (entry["task"]?.ToString() is not { } id || !accepted.Tasks.TryGetValue(id, out var site) ||
+                site.Task.Kind != "operation" || entry["scope"]?.ToString() != site.Scope.Path) continue;
+            var address = "task:" + id;
+            // Retained evidence remains authoritative. These context-only originals
+            // neither change the evidence journal nor establish retrieval progress.
+            if (context["evidence"] is JsonObject retained && retained.ContainsKey(address)) continue;
+            var original = PlanningConstruction.TaskNode(site.Task);
+            original["scope"] = site.Scope.Path;
+            original["phase"] = accepted.Phase(id);
+            if (added.Count < 3)
+            {
+                added[address] = original;
+                if (Encoding.UTF8.GetByteCount(added.ToJsonString()) <= 1024) continue;
+                added.Remove(address);
+            }
+            // A partial projection must never occupy an original task address.
+            // Keep whole omitted fields retrievable through the existing link.
+            entry["omittedFields"] = new JsonArray(original.AsObject().Where(field =>
+                field.Key is not ("id" or "kind" or "operation" or "scope" or "phase") &&
+                !(field.Key == "objective" && entry["objectiveComplete"]?.GetValue<bool>() == true))
+                .Select(field => (JsonNode?)JsonValue.Create(field.Key)).ToArray());
+        }
+        if (added.Count == 0) return;
+        var evidence = (context["evidence"] ??= new JsonObject()).AsObject();
+        foreach (var (address, original) in added) evidence[address] = original!.DeepClone();
     }
 
     private static HashSet<string> EvidenceRequirementIds(PlanningSession state)

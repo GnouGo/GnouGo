@@ -890,6 +890,11 @@ accept the retained candidate-bound review coverage. A final-review state or sta
 oracle pass alone cannot bypass that verifier; retain a failed verification without
 issuing review metadata or executing. Report prior-defect resolution, persistent findings and inconclusive
 reports separately; no checkpoint increases the independent business denominator.
+Retain unnecessary accepted effects as business failures even if later invalidation
+detects them: rollback reconstructs accepted commitments, rather than deleting them.
+Bounded exact accepted-operation context is a presentation experiment, not a
+deterministic duplicate detector or proof of avoided corrections. Report prepared-only
+request measurements separately from actual admission rejections and dispatches.
 The earlier revision-4 behavior remains frozen for historical cohorts. Scoped reviews receive compiler
 facts separately from business and runtime evidence, plus bounded exact caller
 declarations. An explicit inconclusive review is not acceptance. Its single

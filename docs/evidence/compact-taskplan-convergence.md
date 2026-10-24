@@ -1,17 +1,18 @@
 # Compact TaskPlan convergence
 
-**Business acceptance remains incomplete; PR #120 stays Draft.** Collections on `c7f7629f`
-stopped after 31 logical requests/physical attempts and two corrections: a closure review
-reported two false finite-capacity omissions, then the post-repair Judge exhausted 8,192
-reasoning tokens with no response. No artifact or execution resulted. Earlier `361bb713`
-reached a static-oracle-passing artifact, but approval rejected combined review evidence;
-that retained artifact also contains a redundant pure parallel loop.
-The latest completed Amazon and Review PR diagnostics remain on `7697449c`. Earlier failures,
-including the all-null Judge action on `4e38426b`, remain retained.
+**Retained source `9b3da541c` passed one of three business cases; PR #120 stays Draft.** Its
+Collections passed both actual runtime variants and the unchanged independent oracle after
+31 calls and no corrections. Amazon stopped on a response-less transport failure; its exact
+authorized abandonment is applied, with the full reservation retained. Review PR stopped
+after 37 calls, three corrections and three checkpoints, without an artifact or execution.
+The [source-bound terminal index](compact-taskplan-9b3da541c-live.json) preserves measurements,
+review provenance, closure evidence and the latest audit separately.
 
-Presentation revision 5 has passed technical validation; the earlier `361bb713` artifact
-and later `c7f7629f` failure establish no runtime convergence. The 18 alternating runs against
-`56942f5` remain gated on all three candidate executions passing independent oracles.
+These single observations do not establish general convergence or a causal improvement.
+The 18 alternating runs against `56942f5` remain gated on all three cases executing and
+passing independent oracles under one frozen configuration per arm. Earlier failures and
+their original source/settings attribution remain immutable below. A later source must
+establish its own live acceptance; the retained Collections success is not transferred.
 
 ## Current behavior and technical evidence
 
@@ -32,10 +33,12 @@ indivisible oversized requests stop. Existing business findings retain correctio
 
 | Exact source or validated change | Technical result, with warnings as errors |
 | --- | --- |
-| [Closure identity and retained review support](compact-taskplan-review-support-validation.json) | **2,862 full Planning / 62 targeted host tests passed**, WAE, 1,986 source files unchanged and matching the working tree. The original automatic-closure approval and missing cited-evidence defects are reproduced; corrected live acceptance remains unproven |
+| [Bounded accepted-operation context and rollback presentation](compact-taskplan-accepted-operation-context-validation.json) | **2,878 full Planning / 62 targeted host tests passed**, plus 406 overlapping focused cases; zero failures/skips/compiler diagnostics, 1,986 source files unchanged. Whole accepted-task evidence and original rebuild inputs remain bounded and retrievable; historical requests and authority are preserved. Fresh business acceptance remains to be tested |
+| [Retained 9b3da541c](compact-taskplan-9b3da541c-live.json) | **12/12 publication stages passed**, six independent packages, Planning Native AOT presentations 2–5, published encrypted storage and Git AOT/contracts; zero compiler diagnostics. Its full solution remains running separately |
+| [Closure identity and retained review support](compact-taskplan-review-support-validation.json) | **2,862 full Planning / 62 targeted host tests passed**, WAE, 1,986 source files unchanged and matching the tested working tree. The original automatic-closure approval and missing cited-evidence defects are reproduced; later exact9b Collections runtime acceptance is recorded separately |
 | [c7f7629f publication](compact-taskplan-c7f7629f-collections.json) | **12/12 publication stages passed**, six independent packages, Planning Native AOT presentations 2–5, published encrypted storage and Git AOT/contracts. Its live run still stopped without an artifact |
-| [Combined-review approval correction](compact-taskplan-combined-approval-validation.json) | **2,840 full Planning / 62 targeted approval, delegation and persistence tests passed**. The verifier now recognizes exact v5 combined coverage; legacy separate-review checks remain. Fresh execution is still required |
-| `361bb713` | **12/12 publication stages passed**, including six independent packages, Planning Native AOT presentations 2–5, published encrypted storage and Git AOT/contracts. Full solution remains running separately; the approval correction is outside this source |
+| [Combined-review approval correction](compact-taskplan-combined-approval-validation.json) | **2,840 full Planning / 62 targeted approval, delegation and persistence tests passed**. The verifier recognizes exact v5 combined coverage; legacy separate-review checks remain. Later runtime acceptance retains its exact9b source attribution |
+| [Retained 361bb713](compact-taskplan-9b3da541c-live.json) | **7,950 full-solution passed / 0 failed / 13 skipped**, 33 projects, zero compiler diagnostics; **12/12 publication stages passed**. The later approval correction is outside this source |
 | [Revision-5 accepted-state changes](compact-taskplan-accepted-state-validation.json) | **281 focused Planning / 47 host-journal-storage tests passed**; managed smoke passed with exact receipt recovery and v15 execution for presentations 2–5. File identities bind this pre-live result; full solution, Native AOT and business acceptance remain separate |
 | `4e38426b` | **7,850 full-solution passed / 0 failed / 13 skipped**, 33 projects, 4,504 unchanged source files; **12/12 publication stages passed**. These results cover the retained source, not the subsequent revision-5 implementation |
 | Citation-field guidance over `6308c479` | **59 focused tests passed**, including actual projected requests, unchanged structural grammar, revision-3 bytes and pending revision-4 one/two-citation recovery. This later change is outside the exact630 full/CI results |
@@ -78,8 +81,11 @@ model will cite originals correctly or resolve the separate semantic failures be
 
 ## Latest completed live diagnostics
 
-| Frozen attempt | Logical calls / physical attempts / receipts | Corrections / checkpoints | Planning seconds | Known cost EUR | Terminal result; none executed |
+| Frozen attempt | Logical calls / physical attempts / receipts | Corrections / checkpoints | Planning seconds | Known cost EUR | Terminal result / runtime |
 | --- | ---: | ---: | ---: | ---: | --- |
+| [9b3da541c Collections](compact-taskplan-9b3da541c-live.json) | 31/31/31 | 0/9 | 822.106 | 1.5068630075858991521642124051 | Reviewed artifact; both actual runtime variants passed the independent oracle |
+| [9b3da541c Amazon](compact-taskplan-9b3da541c-live.json) | 2/2/1 | 0/0 | 343.929 | 0.0509772423025435073627844712 | Response-less Transport; exact abandonment applied, full reservation retained; no artifact/runtime |
+| [9b3da541c Review PR](compact-taskplan-9b3da541c-live.json) | 37/37/37 | 3/3 | 887.150 | 1.7608835341365461847389558231 | Invalidation/rebuild stopped on preserved-literal and non-progress guards; no artifact/runtime |
 | [c7f7629f Collections](compact-taskplan-c7f7629f-collections.json) | 31/31/31 | 2/7 | 861.788 | 1.4424230254350736278447121815 | False finite-capacity findings; post-repair Judge exhausted all 8,192 output tokens on reasoning; no artifact |
 | [361bb713 Collections](compact-taskplan-361bb713-collections.json) | 41/41/41 | 3/11 | 910.990 | 1.4186836233824185631414547077 | Static artifact oracle passed; approval rejected combined review coverage; no execution |
 | [4e38426b Collections citation](compact-taskplan-4e38426b-collections.json) | 11/12/11 | 0/2 | 508.198 | 0.2951584114234716644355198573 | All-null Judge action; full failed-attempt reservation retained |
@@ -93,6 +99,28 @@ model will cite originals correctly or resolve the separate semantic failures be
 | [a9348669 Review PR](compact-taskplan-a934866-code.json) | 51/52/50 | 2/5 | 1,657.740 | 2.7922579205711735832217759928 | Confirmed HTTP 400: repair schema retained an already invalid literal |
 | [975fd04f Review PR](compact-taskplan-975fd04-code.json) | 39/39/39 | 4/3 | 959.263 | 1.9388041053101294065149486836 | False same-scope availability premise, export repair, then zero-action Judge |
 | [504a557d Amazon](compact-taskplan-504a557-amazon.json) | 13/13/13 | 0/1 | 417.994 | 0.8039446675591253904506916556 | Judge omitted original-obligation grounding; handle allegation unproven |
+
+Collections `9b3da541c` passed the three frozen oracle obligations `cleanup`,
+`declared_effects` and `exact_outputs` with one reusable parallel
+doubling path, ordered results and duplicate preservation. Actual nominal/alternate runtime
+was **356.3307 / 2.3367 ms**; these different inputs do not establish a speedup. Its 31 original
+receipt texts contain 18,062 UTF-8 bytes and 11 whitespace bytes outside JSON strings.
+Amazon request2 remains receiptless after exact authorized closure: all original evidence and
+**EUR 0.9308701472556894243641231593** remain retained, and replay/continuation are forbidden.
+The historical pending archive is unchanged; closure does not prove provider termination.
+
+Inspection of Review PR's retained originals found two accepted clone tasks with the same
+operation and arguments; each local Judge returned no findings. Judge22 showed the earlier
+task ID in navigation, but neither its arguments nor exact task evidence, and had no consumed
+imports. Later invalidation required
+rebuilding accepted work, and changing an original literal was correctly rejected. Neither
+clone executed. The 41 measured request identities comprise 37 dispatched requests and four
+prepared-only drafts, not four recorded admission rejections. Its 37 original responses contain
+24,576 UTF-8 bytes, two whitespace bytes outside strings and no empty response; the separately
+normalized representation is 25,277 bytes. The [formatting supplement](compact-taskplan-9b3da541c-code-formatting.json)
+preserves that distinction. These measurements do not explain the semantic failure or prove
+an avoided correction. Full per-phase/component measurements and original hashes remain
+linked from the compact index rather than duplicated here.
 
 Collections `c7f7629f` returned 31 known receipts with no new unknown reservation. Judge29
 cited the original clauses and loop, but inferred unlimited required capacity from unspecified
@@ -207,38 +235,42 @@ Earlier controls remain [f3 Amazon](compact-taskplan-f3cb064-amazon.json),
 [Review PR](compact-taskplan-f3cb064-code.json) and [high-navigation Amazon](compact-taskplan-f3cb064-amazon-high.json).
 Source/settings differences and unmatched runs cannot establish architectural causality.
 
-## Audited allowance after Collections scope2
+## Audited allowance after 9b Review PR
 
-The post-scope2 snapshot has **23 receiptless identities, all permanently closed**,
-no pending abandonment and **27 unknown physical-attempt records**. Successful logical
-requests can retain failed-attempt reservations; those counts are distinct.
+The 2026-10-24 10:59:16 UTC [audit](compact-taskplan-9b3da541c-live.json) has **24 receiptless
+identities, all permanently closed**, no unresolved request and **29 unknown physical-attempt
+records**. Successful logical requests can retain failed-attempt reservations; those counts
+are distinct. Closing Amazon's exact request retained its full reservation.
 
 | Ledger measurement | EUR |
 | --- | ---: |
 | Campaign ceiling | 240.0301038327063045424449473 |
-| Known spending | 94.30241036898564369150526092 |
-| Retained unknown-usage reservations | 16.129591585334792768633704223 |
-| Spending/reservation upper bound | 110.43200195432043646013896514 |
-| Available after scope2 | 129.59810187838586808230598216 |
+| Known spending | 100.77739921325159639119290038 |
+| Retained unknown-usage reservations | 17.991331879846171617361950542 |
+| Spending/reservation upper bound | 118.76873109309776800855485092 |
+| Available after 9b Review PR | 121.26137273960853653389009638 |
 
-The [scope2 archive](compact-taskplan-6308c479-collections-scope2.json) binds that audit;
+The earlier [scope2 archive](compact-taskplan-6308c479-collections-scope2.json),
 the [retention follow-up](compact-taskplan-6308c479-collections-retained.json) and
 earlier [Amazon review9 archive](compact-taskplan-7697449-amazon-review9.json) retain their own
-balance. With prior lost historical exposure EUR 159.96989616729369545755505266, cumulative spending/reservations
-are **EUR 270.40189812161413191769401780** within the original EUR 400 authorization.
-Original CLR decimal precision differences remain disclosed. **This is not the balance
-after any later diagnostic dispatches.** No later spending is inferred from this snapshot.
+dated balances. With prior lost historical exposure EUR 159.96989616729369545755505266,
+independent cumulative spending/reservations are **EUR 278.73862726039146346610990358**
+within the original EUR 400 authorization. Original CLR decimal precision differences remain
+disclosed in the index. No later spending is inferred from this audit.
 
 ## Acceptance and chronological immutable evidence
 
-Earlier `efcb1d7a` passed both Collections runtime variants. Current-source Collections,
-Amazon and Review PR must execute and pass frozen independent oracles before paired runs.
-Artifact review and exact individual confirmations remain mandatory. Current useful-business
-obligation counts are zero; calls per satisfied obligation are undefined and runtime latency
-unavailable. Compilation, checkpoints and technical passes are not business acceptance.
+Earlier `efcb1d7a` and retained `9b3da541c` passed both Collections runtime variants. Amazon
+and Review PR still require complete execution and independent oracle acceptance before
+paired runs. Artifact review and exact individual confirmations remain mandatory. Collections
+has three accepted frozen oracle obligations and 31/3 calls per obligation, not per produced
+task or extracted user requirement. Amazon and Review PR
+have zero, so their ratios remain undefined. Compilation, checkpoints and technical passes
+are not business acceptance.
 No avoided correction, causal convergence improvement or eventual success is claimed.
 Archives below are grouped newest to oldest; their failures and validation scope are immutable.
 
+- Exact9b [three-case index and audit](compact-taskplan-9b3da541c-live.json) and [Code formatting supplement](compact-taskplan-9b3da541c-code-formatting.json) link the immutable measurements, actual Collections execution, historical Amazon pending snapshot and separate applied closure.
 - Prior diagnostics: [35022fa Collections](compact-taskplan-35022fa-collections-pending.json) and [authorized closure](compact-taskplan-35022fa-collections-retention.json); [2d6cbce Amazon](compact-taskplan-2d6cbce-amazon.json) and [Review PR](compact-taskplan-2d6cbce-code.json). Their failures and validation scope remain immutable.
 - Frozen `131801d4`: [Collections control](compact-taskplan-131801d4-collections.json), [Amazon](compact-taskplan-131801d4-amazon.json), [Review PR](compact-taskplan-131801d4-code.json), [Collections output32](compact-taskplan-131801d4-collections-output32.json), [Collections high Judge](compact-taskplan-131801d4-collections-high-pending.json) and [its authorized abandonment](compact-taskplan-131801d4-collections-high-retention.json). All five failed to reach artifact execution; output-limit, correction and transport evidence remains separate. No causal reasoning-profile benefit or avoided corrections is proven.
 - Prior producer-proof failure: [b1c29b359 Collections](compact-taskplan-b1c29b359.json).

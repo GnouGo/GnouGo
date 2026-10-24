@@ -16,8 +16,8 @@ internal static partial class PlanningCompactConstruction
         var accepted = new TaskPlanSymbols(state.Plan);
         var producers = (review && draft is not null ? draft.ImportedTaskIds : step.InputTaskIds.Concat(step.DependencyTaskIds))
             .Where(accepted.Tasks.ContainsKey).Distinct(StringComparer.Ordinal).ToArray();
-        // Accepted neighbors help locate prior work, not prove equivalent bindings
-        // or grant repair authority. Exact task evidence remains separately fetched.
+        // Neighbor descriptors locate prior work without granting repair authority.
+        // Fresh v5 may also include a bounded complete original as separate evidence.
         var siblings = fresh ? accepted.Tasks.Values.Where(site => site.Scope.Path == step.Scope)
             .Select(site => site.Task.Id).ToArray() : [];
         var selected = producers.Take(8).Concat(siblings.Where(id => !producers.Contains(id, StringComparer.Ordinal))
@@ -49,6 +49,7 @@ internal static partial class PlanningCompactConstruction
         if (owner is not null)
             navigation["scopeOwner"] = owner;
         context["taskEvidence"] = navigation;
+        AddAcceptedOperationEvidence(state, context, navigation["items"]!.AsArray().OfType<JsonObject>());
     }
 
     internal static void AddReviewGroupEvidence(PlanningSession state, JsonObject context)

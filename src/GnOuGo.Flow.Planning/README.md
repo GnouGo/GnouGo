@@ -14,6 +14,12 @@ as ordinary drafts, preserving that comparison through recovery and approval.
 Fresh scoped reviews retain finite-capacity guard semantics for later consumers
 and closures as well as loop openings; explicit required-count conflicts remain
 reportable business findings.
+Current-effect constraints apply even before requirement closure. Bounded accepted
+operation arguments and complete fitting task evidence help selection and review
+compare prior work without resending the plan or treating directories as proof.
+Oversized values retain exact retrieval links; equality does not authorize removal.
+Rollback requires reconstruction with preserved effects and literals; its fresh
+presentation and original input context make that restriction explicit.
 Replacement reviews re-resolve bounded, exact accepted-task evidence cited by
 active defects when baseline, source, task and placement still match. This supplies
 current citation support without counting it as new evidence or repair authority.

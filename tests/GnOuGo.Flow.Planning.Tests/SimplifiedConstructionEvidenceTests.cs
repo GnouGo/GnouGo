@@ -466,6 +466,92 @@ public sealed class SimplifiedConstructionEvidenceTests
         }
     }
 
+    [Theory]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    [InlineData(5)]
+    public void RollbackPresentationRetainsHistoricalSchemasAndShowsExactOriginalInputsOnlyInVersionFive(int presentation)
+    {
+        var state = RebuildState(presentation, [new() { Kind = "string", Text = "Exact \\\"original\\\" value" }]);
+        var before = Snapshot(state);
+        var schema = Followup(state).StructuredOutputSchema!;
+        var rebuild = PlanningCompactConstruction.SelectionContext(state)["rebuild"]!;
+        var item = Assert.Single(rebuild["items"]!.AsArray())!;
+        var legacy = " rollbackTask requests host-computed invalidation of an earlier producer and its dependent work; it cannot change accepted requirements or permissions. Explain the concrete defect in rollbackReason. Do not request rollback merely to regenerate the plan.";
+        Assert.Equal(PlanningCompactConstruction.DraftSemantics(state, state.Construction!.Compact!.CurrentStep!) +
+            (presentation == 5 ? " " + PlanningCompactConstruction.RollbackSemantics : legacy), schema["description"]!.ToString());
+        Assert.Equal("original:1:original_0", item["evidence"]!.ToString());
+        if (presentation == 5)
+        {
+            Assert.Equal(PlanningCompactConstruction.RollbackSemantics, rebuild["semantics"]!.ToString());
+            Assert.True(JsonNode.DeepEquals(PlanningConstruction.TaskNode(state.Construction.RebuildTasks[0])["inputs"], item["originalInputs"]));
+            Assert.Null(item["originalInputsOmitted"]);
+        }
+        else
+        {
+            // Exact retained navigation shape; these versions do not acquire
+            // the new annotations or literal presentation on future requests.
+            Assert.Equal("""
+                {"remaining":1,"items":[{"id":"original_0","kind":"operation","objective":"Read the original value.","scope":"/root","phase":"tasks","evidence":"original:1:original_0"}],"invalidationCount":1}
+                """, rebuild.ToJsonString());
+        }
+        Assert.Equal(before, Snapshot(state));
+        state.Plan!.Root.Tasks.AddRange(state.Construction.RebuildTasks);
+        var restored = PlanningCompactConstruction.SelectionContext(state)["rebuild"]!;
+        Assert.Equal(0, restored["remaining"]!.GetValue<int>());
+        Assert.Null(restored["semantics"]);
+    }
+
+    [Fact]
+    public void RebuildInputsUseOneEscapedByteBudgetWithoutTruncatingAnyTypedValue()
+    {
+        var exact = new TaskValue { Kind = "object", Members = [new("missing", new() { Kind = "null" }),
+            new("source", new() { Kind = "output", Source = "accepted", Port = "value" })] };
+        var state = RebuildState(5, [new() { Kind = "string", Text = new string('\u03a9', 800) }, exact,
+            new() { Kind = "string", Text = new string('x', 2500) }, new() { Kind = "string", Text = new string('y', 2500) }]);
+        var before = Snapshot(state);
+        var items = PlanningCompactConstruction.SelectionContext(state)["rebuild"]!["items"]!.AsArray();
+        Assert.Equal(4, items.Count);
+        Assert.True(items[0]!["originalInputsOmitted"]!.GetValue<bool>());
+        Assert.Null(items[0]!["originalInputs"]);
+        Assert.True(JsonNode.DeepEquals(PlanningConstruction.TaskNode(state.Construction!.RebuildTasks[1])["inputs"], items[1]!["originalInputs"]));
+        Assert.NotNull(items[2]!["originalInputs"]);
+        Assert.True(items[3]!["originalInputsOmitted"]!.GetValue<bool>());
+        Assert.Null(items[3]!["originalInputs"]);
+        Assert.InRange(items.Sum(item => item!["originalInputs"] is { } inputs
+            ? System.Text.Encoding.UTF8.GetByteCount(inputs.ToJsonString()) : 0), 1, 4096);
+        Assert.Equal(before, Snapshot(state));
+
+        var address = items[0]!["evidence"]!.ToString();
+        PlanningConstruction.LoadEvidence(state, [address]);
+        Assert.True(JsonNode.DeepEquals(PlanningConstruction.TaskNode(state.Construction.RebuildTasks[0])["inputs"],
+            state.Construction.Evidence![address]!["inputs"]));
+    }
+
+    private static PlanningSession RebuildState(int presentation, List<TaskValue> inputs)
+    {
+        var state = State();
+        state.Construction!.Compact!.PresentationVersion = presentation;
+        state.Request.Options["construction_presentation_version"] = presentation;
+        state.Plan = new() { Root = new() { Tasks = [new() { Id = "accepted", Kind = "value",
+            Outputs = [new("value", new() { Kind = "string", Text = "accepted" })] }] } };
+        state.Construction.Compact.CurrentStep!.BaseHash = PlanningConstruction.Hash(state.Plan);
+        state.Construction.RebuildTasks = inputs.Select((value, index) => new PlanTask
+        {
+            Id = "original_" + index, Kind = "operation", Operation = "read", Objective = "Read the original value.",
+            Inputs = [new("required", value)]
+        }).ToList();
+        var placement = new PlanningConstructionRebuildScope
+        {
+            Path = "/root", Tasks = state.Plan.Root.Tasks.Concat(state.Construction.RebuildTasks).Select(task => task.Id).ToList()
+        };
+        state.Construction.RebuildScopes = [placement];
+        state.Construction.Invalidations = [new() { Sequence = 1, Reason = "Reconstruct the original references.",
+            Tasks = state.Construction.RebuildTasks, Scopes = [placement] }];
+        return state;
+    }
+
     private static async Task<(PlanningSession, TestRuntime)> ReadyDraftEvidence(int presentation = 4)
     {
         var runtime = new TestRuntime { Respond = (request, _) =>

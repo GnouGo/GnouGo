@@ -6,6 +6,7 @@ namespace GnOuGo.Flow.Planning;
 internal static partial class PlanningCompactConstruction
 {
     internal const string ValueSemantics = "value only copies, projects or assembles typed values using declared arithmetic, predicates, lookup, flatten and JSON encoding. It cannot concatenate or format strings, URL-encode or interpolate literals; its objective adds no computation.";
+    internal const string RollbackSemantics = "Rollback reconstructs every invalidated task in its original scope, phase and order; it cannot discard accepted work. Preserve original objectives, effects, literal arguments, assertions, decisions and iteration limits. Any reference repair must still pass validation. Explain the reconstruction defect in rollbackReason and retrieve exact originals as needed.";
 
     private static (bool CloseScope, bool Complete) ClosurePresentation(PlanningSession state)
     {
@@ -114,7 +115,8 @@ internal static partial class PlanningCompactConstruction
         // back only the semantics needed by this selected kind and scope.
         projected["description"] = DraftSemantics(state, step);
         if (fresh && rollback)
-            projected["description"] += " rollbackTask requests host-computed invalidation of an earlier producer and its dependent work; it cannot change accepted requirements or permissions. Explain the concrete defect in rollbackReason. Do not request rollback merely to regenerate the plan.";
+            projected["description"] += UsesConvergentConstruction(state) ? " " + RollbackSemantics :
+                " rollbackTask requests host-computed invalidation of an earlier producer and its dependent work; it cannot change accepted requirements or permissions. Explain the concrete defect in rollbackReason. Do not request rollback merely to regenerate the plan.";
         return projected;
 
         JsonObject OperationTask(PlanningCapability capability)

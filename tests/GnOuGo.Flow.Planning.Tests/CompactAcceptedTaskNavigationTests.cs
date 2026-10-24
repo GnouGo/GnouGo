@@ -11,6 +11,199 @@ public sealed class CompactAcceptedTaskNavigationTests
     private const string NestedScope = "/tasks/container/body";
 
     [Theory]
+    [InlineData("/root")]
+    [InlineData(NestedScope)]
+    [InlineData("/groups/worker/body")]
+    public void AcceptedOperationsSupplyWholeOriginalsWithoutImportedBindingsOrNewEvidenceProgress(string scope)
+    {
+        var state = OperationState(scope);
+        var accepted = new TaskPlanSymbols(state.Plan!);
+        var site = accepted.Tasks["accepted_operation"];
+        var expected = PlanningConstruction.TaskNode(site.Task);
+        expected["scope"] = scope; expected["phase"] = accepted.Phase(site.Task.Id);
+        var retained = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        var selection = PlannerFixture.Clone(state);
+        selection.Construction!.Candidate = null;
+        // The existing selection directory is paged; use the page containing this operation.
+        selection.Construction.Compact!.InterfaceOffset = accepted.Tasks.Keys.ToList().IndexOf(site.Task.Id) / 4 * 4;
+        var contexts = new[] { PlanningCompactConstruction.SelectionContext(selection), Context(state, false),
+            HybridWorkflowPlanner.CreateConstructionReviewRequest(state, false).Context,
+            HybridWorkflowPlanner.CreateConstructionReviewRequest(state, true).Context };
+        foreach (var context in contexts)
+        {
+            Assert.True(JsonNode.DeepEquals(expected, context["evidence"]!["task:accepted_operation"]));
+            Assert.DoesNotContain("task:candidate", context["evidence"]!.AsObject().Select(item => item.Key));
+            var original = context["evidence"]!["task:accepted_operation"]!;
+            Assert.Equal("workspace/完整\"target\"\n", original["inputs"]![0]!["value"]!["text"]!.ToString());
+            Assert.True(original["condition"]!["boolean"]!.GetValue<bool>());
+            Assert.True(original["requires"]!["boolean"]!.GetValue<bool>());
+            Assert.Equal(site.Task.DependsOn, original["dependsOn"]!.AsArray().Select(item => item!.ToString()));
+            Assert.True(HybridWorkflowPlanner.ConstructionReviewEvidenceGrounded(context, "/evidence/task:accepted_operation", true));
+            Assert.False(HybridWorkflowPlanner.ConstructionReviewEvidenceGrounded(context, "/taskEvidence/items/0", true));
+            Assert.InRange(Encoding.UTF8.GetByteCount(context["evidence"]!.ToJsonString()), 1, 1024);
+        }
+        Assert.Empty(contexts[2]["interfaces"]!.AsArray());
+        Assert.Empty(contexts[3]["interfaces"]!.AsArray());
+        Assert.True(HybridWorkflowPlanner.ConstructionBusinessFindingSupported(contexts[2], new JsonObject
+        {
+            ["location"] = "/draft/tasks/0", ["evidence"] = new JsonArray("/requirements/0", "/evidence/task:accepted_operation")
+        }));
+        Assert.Equal(retained, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+    }
+
+    [Fact]
+    public void AutomaticOriginalsShareOneBoundAndOversizedFieldsRemainOnlyAtTheirExactRetrievalAddress()
+    {
+        var state = OperationState("/root");
+        var operation = state.Plan!.Root.Tasks.Single(task => task.Id == "accepted_operation");
+        operation.Inputs[0] = new("target", new() { Kind = "string", Text = new string('界', 1000) });
+        foreach (var id in new[] { "second", "third", "fourth" })
+            state.Plan.Root.Tasks.Add(new() { Id = id, Kind = "operation", Operation = operation.Operation,
+                Objective = "Create the declared resource.", Inputs = [new("target", new() { Kind = "string", Text = id })] });
+        StageOperation(state);
+        var before = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        var context = Context(state, true);
+        var evidence = context["evidence"]!.AsObject();
+        Assert.InRange(evidence.Count, 1, 3);
+        Assert.InRange(Encoding.UTF8.GetByteCount(evidence.ToJsonString()), 1, 1024);
+        Assert.False(evidence.ContainsKey("task:accepted_operation"));
+        var row = Assert.Single(context["taskEvidence"]!["items"]!.AsArray(), item => item!["task"]!.ToString() == operation.Id)!;
+        Assert.Contains("inputs", row["omittedFields"]!.AsArray().Select(item => item!.ToString()));
+        Assert.Equal("task:accepted_operation", row["address"]!.ToString());
+        Assert.DoesNotContain(new string('界', 10), context.ToJsonString(), StringComparison.Ordinal);
+        Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+        foreach (var (address, original) in evidence)
+        {
+            var expected = PlanningConstruction.TaskNode(new TaskPlanSymbols(state.Plan).Tasks[address[5..]].Task);
+            expected["scope"] = "/root"; expected["phase"] = "tasks";
+            Assert.True(JsonNode.DeepEquals(expected, original));
+        }
+        PlanningConstruction.LoadEvidence(state, ["task:accepted_operation"]);
+        var retained = state.Construction!.Evidence!["task:accepted_operation"]!.ToJsonString();
+        Assert.Equal(retained, Context(state, true)["evidence"]!["task:accepted_operation"]!.ToJsonString());
+        Assert.Contains(new string('界', 1000), state.Construction.Evidence["task:accepted_operation"]!["inputs"]![0]!["value"]!["text"]!.ToString(), StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    public void HistoricalPresentationsDoNotAddAutomaticOriginalsOrOmissionMetadata(int version)
+    {
+        var state = OperationState("/root", version);
+        var selection = PlannerFixture.Clone(state); selection.Construction!.Candidate = null;
+        foreach (var context in new[] { PlanningCompactConstruction.SelectionContext(selection), Context(state, false), Context(state, true) })
+        {
+            Assert.Null(context["evidence"]?["task:accepted_operation"]);
+            Assert.DoesNotContain("omittedFields", context.ToJsonString(), StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public async Task InlineAcceptedProducerIsNotNewReassessmentSupport()
+    {
+        var state = OperationState("/root");
+        state.Plan!.Root.Tasks.Single(task => task.Id == "accepted_operation").Condition = null;
+        StageOperation(state);
+        var construction = state.Construction!;
+        var step = construction.Compact!.CurrentStep!;
+        step.Kind = "value"; step.OperationIds.Clear(); step.InputTaskIds = ["accepted_operation"];
+        construction.Candidate = PlanningConstruction.Apply(state, new() { Scope = "/root", RequirementIds = ["req_0"],
+            Tasks = [new() { Id = "consume", Kind = "value", Objective = "Retain the accepted resource.",
+                Outputs = [new("value", new() { Kind = "output", Source = "accepted_operation", Port = "resource" })] }] });
+        var runtime = new TestRuntime { Respond = (request, _) =>
+        {
+            var context = JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!;
+            Assert.NotEmpty(context["interfaces"]!.AsArray());
+            Assert.NotNull(context["evidence"]!["task:accepted_operation"]);
+            return new() { Json = new JsonObject { ["action"] = new JsonObject { ["kind"] = "inconclusive",
+                ["reason"] = "The already supplied producer does not establish business completion." }, ["uncertainty"] = "Unverified." } };
+        } };
+        var result = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
+        Assert.Single(runtime.Calls);
+        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == "CONSTRUCTION_REVIEW_INCONCLUSIVE");
+        Assert.DoesNotContain(result.Construction!.Candidate!.Reviews, report => report["reassessment"] is not null);
+        Assert.Null(result.Construction.Evidence);
+        Assert.Equal(0, result.ReplanAttempts);
+        Assert.Empty(result.Construction.Checkpoints);
+    }
+
+    [Fact]
+    public async Task IssuedVersionFiveReviewRetainsItsExactContextWithoutAutomaticOriginals()
+    {
+        var state = OperationState("/root");
+        var review = HybridWorkflowPlanner.CreateConstructionReviewRequest(state, false);
+        review.Context.Remove("evidence");
+        var prompt = review.Request.Prompt[..(review.Request.Prompt.LastIndexOf('\n') + 1)] + review.Context.ToJsonString();
+        var interrupted = new TestRuntime { Respond = (_, _) => throw new OperationCanceledException() };
+        await Assert.ThrowsAsync<OperationCanceledException>(() => PlanningModelCalls.CallAsync(state, interrupted,
+            PlanningConstruction.LocalPurpose, prompt, review.Request.StructuredOutputSchema!.AsObject(), PlannerFixture.Ct, state.Construction!.Limits.ReviewOutputTokens));
+        var saved = PlannerFixture.Clone(interrupted.Checkpoints.Last(checkpoint => checkpoint.PendingCall is not null));
+        var exact = JsonSerializer.Serialize(saved.PendingCall!.Request, PlanningJsonContext.Default.LLMRequest);
+        var calls = saved.ModelCalls;
+        var next = HybridWorkflowPlanner.CreateConstructionReviewRequest(saved, false);
+        Assert.NotNull(next.Context["evidence"]!["task:accepted_operation"]);
+        var runtime = new TestRuntime { Respond = (request, _) =>
+        {
+            Assert.Equal(exact, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+            return new() { Json = new JsonObject { ["action"] = new JsonObject { ["kind"] = "findings", ["findings"] = new JsonArray() },
+                ["uncertainty"] = "Execution remains unverified." } };
+        } };
+        await PlanningModelCalls.CallAsync(saved, runtime, PlanningConstruction.LocalPurpose, next.Request.Prompt,
+            next.Request.StructuredOutputSchema!.AsObject(), PlannerFixture.Ct, saved.Construction!.Limits.ReviewOutputTokens);
+        Assert.Single(runtime.Calls); Assert.Equal(calls, saved.ModelCalls); Assert.Equal(0, saved.ReplanAttempts);
+        Assert.Null(saved.Construction.Evidence);
+    }
+
+    [Fact]
+    public void UnrelatedAcceptedOperationsDoNotExpandScopedAutomaticEvidence()
+    {
+        var state = OperationState(NestedScope);
+        var before = HybridWorkflowPlanner.CreateConstructionReviewRequest(state, false);
+        for (var index = 0; index < 100; index++)
+            state.Plan!.Root.Tasks.Add(new() { Id = "unrelated_" + index, Kind = "operation", Operation = "create_resource",
+                Objective = "Create an unrelated resource.", Inputs = [new("target", new() { Kind = "string", Text = new string('x', 1000) })] });
+        StageOperation(state);
+        var after = HybridWorkflowPlanner.CreateConstructionReviewRequest(state, false);
+        Assert.NotEqual(before.Context["baseHash"]!.ToString(), after.Context["baseHash"]!.ToString());
+        Assert.NotEqual(before.Context["candidateHash"]!.ToString(), after.Context["candidateHash"]!.ToString());
+        foreach (var context in new[] { before.Context, after.Context })
+        { context.Remove("baseHash"); context.Remove("candidateHash"); }
+        Assert.True(JsonNode.DeepEquals(before.Context, after.Context));
+        Assert.Equal(before.Request.StructuredOutputSchema!.ToJsonString(), after.Request.StructuredOutputSchema!.ToJsonString());
+        var first = PlanningRequestMeasurements.Measure(before.Request, PlanningConstruction.LocalPurpose, 8000);
+        var last = PlanningRequestMeasurements.Measure(after.Request, PlanningConstruction.LocalPurpose, 8000);
+        Assert.Equal(first.CompleteRequestBytes, last.CompleteRequestBytes);
+        Assert.Equal(first.EstimatedInputTokens, last.EstimatedInputTokens);
+    }
+
+    [Fact]
+    public void RetainedCurrentInterfacePageStillSuppliesTheSameBoundedOriginalsWithoutChangingThePage()
+    {
+        var state = OperationState("/root");
+        state.Plan!.Root.Tasks.RemoveAll(task => task.Id == "container");
+        state.Plan.Root.Tasks.Add(new() { Id = "large_operation", Kind = "operation", Operation = "create_resource",
+            Objective = "Create another resource.", Inputs = [new("target", new() { Kind = "string", Text = new string('x', 2000) })] });
+        state.Construction!.Candidate = null;
+        var symbols = new TaskPlanSymbols(state.Plan!);
+        state.Construction.OpenScopes = symbols.Scopes.Select(site => site.Path).ToList();
+        state.Construction.Compact!.InterfaceOffset = symbols.Tasks.Keys.ToList().IndexOf("accepted_operation") / 4 * 4;
+        var before = PlanningCompactConstruction.SelectionContext(state);
+        Assert.NotNull(Assert.Single(before["interfaces"]!.AsArray(), item => item?["task"]?.ToString() == "large_operation")!["omittedFields"]);
+        var address = "page:interfaces:" + state.Construction.Compact.InterfaceOffset;
+        PlanningConstruction.LoadEvidence(state, [address]);
+        var retained = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        var originalPage = state.Construction.Evidence![address]!.ToJsonString();
+        var after = PlanningCompactConstruction.SelectionContext(state);
+        Assert.Null(after["interfaces"]);
+        Assert.Equal(originalPage, after["evidence"]![address]!.ToJsonString());
+        Assert.True(JsonNode.DeepEquals(before["evidence"]!["task:accepted_operation"], after["evidence"]!["task:accepted_operation"]));
+        Assert.Null(after["evidence"]!["task:large_operation"]);
+        Assert.Null(state.Construction.Evidence["task:accepted_operation"]);
+        Assert.Equal(retained, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+    }
+
+    [Theory]
     [InlineData("/root", false)]
     [InlineData("/root", true)]
     [InlineData(NestedScope, false)]
@@ -460,6 +653,36 @@ public sealed class CompactAcceptedTaskNavigationTests
             RequirementIds = ["req_0"], DiscoveryComplete = true };
         Stage(state);
         return state;
+    }
+
+    private static PlanningSession OperationState(string scope, int presentationVersion = 5)
+    {
+        var state = Ready(scope, presentationVersion);
+        var capability = new PlanningCapability { Id = "create_resource", Version = "v1", Kind = "tool", StepType = "mcp.call",
+            Server = "resource", Method = "create", EffectKind = "write", Description = "Create a resource at the exact target.",
+            InputSchema = new() { ["type"] = "object", ["properties"] = new JsonObject { ["target"] = new JsonObject { ["type"] = "string" } },
+                ["required"] = new JsonArray("target"), ["additionalProperties"] = false },
+            OutputSchema = new() { ["type"] = "object", ["properties"] = new JsonObject { ["resource"] = new JsonObject { ["type"] = "string" } },
+                ["required"] = new JsonArray("resource"), ["additionalProperties"] = false } };
+        state.Catalog = new() { AllowedStepTypes = ["mcp.call"], Capabilities = [capability] };
+        state.Discovery.Resolved = [capability];
+        var target = new TaskPlanSymbols(state.Plan!).Scopes.Single(site => site.Path == scope).Source;
+        target.Tasks.Add(new() { Id = "accepted_operation", Kind = "operation", Operation = capability.Id,
+            Objective = "Create the resource at its declared target.", DependsOn = [target.Tasks[0].Id],
+            Condition = new() { Kind = "boolean", Boolean = true }, Requires = new() { Kind = "boolean", Boolean = true },
+            Inputs = [new("target", new() { Kind = "string", Text = "workspace/完整\"target\"\n" })] });
+        StageOperation(state);
+        return state;
+    }
+
+    private static void StageOperation(PlanningSession state)
+    {
+        var step = state.Construction!.Compact!.CurrentStep!;
+        step.Kind = "operation"; step.OperationIds = ["create_resource"];
+        step.BaseHash = PlanningConstruction.Hash(state.Plan);
+        state.Construction.Candidate = PlanningConstruction.Apply(state, new() { Scope = step.Scope, RequirementIds = ["req_0"],
+            Tasks = [new() { Id = "candidate", Kind = "operation", Operation = "create_resource", Objective = "Create the next resource.",
+                Inputs = [new("target", new() { Kind = "string", Text = "workspace/next" })] }] });
     }
 
     private static void Stage(PlanningSession state, List<string>? dependencies = null)

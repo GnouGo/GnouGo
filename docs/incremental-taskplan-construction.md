@@ -67,6 +67,13 @@ reused retrospectively.
 Finite-capacity semantics apply throughout revision-5 review, including later
 consumers and closures. This relocates the existing loop guidance once per request;
 it does not infer required cardinalities or automatically dismiss adverse findings.
+Current effects must still satisfy applicable original constraints when their
+requirements or scopes remain open. Selection and review expose bounded exact
+accepted-operation arguments and dependencies alongside existing navigation.
+Complete fitting accepted-task originals use the existing evidence dictionary;
+oversized originals remain explicitly retrievable. Directories alone remain
+insufficient grounding, and equal arguments do not automatically establish an
+unnecessary operation.
 
 Grounded rejections retain bounded original-context witnesses. Candidate hashes
 still establish novelty; they do not establish defect resolution. A correction
@@ -75,6 +82,11 @@ executable objectives and literals. Historical edit-authority snapshots are evid
 only the current repair contract grants edits. Repeated affected values without new relevant
 support require a different authorized local strategy and then stop on non-progress.
 All findings remain advisory; deterministic grounding is not semantic proof.
+Rollback reconstructs every invalidated task, preserving its original effects,
+literal arguments and other accepted commitments. It cannot withdraw an accepted
+operation. Fresh rollback and rebuild context state that limit and expose bounded
+whole original input lists with exact retrieval links when omitted. No deletion
+authority is inferred from a rollback reason or from apparently repeated effects.
 Before a replacement review, an active witness's exact accepted-task evidence may
 be re-resolved into the existing evidence context. Baseline, source, full task,
 scope, placement and supplied evidence hash must still match. The existing

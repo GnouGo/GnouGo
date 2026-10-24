@@ -333,6 +333,8 @@ internal static partial class PlanningCompactConstruction
         }
         if (UsesConvergentConstruction(state))
         {
+            AddAcceptedOperationEvidence(state, context, (context["interfaces"] as JsonArray ??
+                context["evidence"]?["page:interfaces:" + compact.InterfaceOffset]?.DeepClone() as JsonArray ?? []).OfType<JsonObject>());
             context["completionOnly"] = CompletionOnly(state);
             context["continuation"] = ContinuationContext(state);
         }
@@ -620,15 +622,26 @@ internal static partial class PlanningCompactConstruction
         var construction = state.Construction!;
         var existing = new TaskPlanSymbols(state.Plan ?? new TaskPlan()).Tasks.Keys.ToHashSet(StringComparer.Ordinal);
         var remaining = construction.RebuildTasks.Where(t => !existing.Contains(t.Id)).ToArray();
-        return new JsonObject { ["remaining"] = remaining.Length,
+        var remainingInputBytes = 4096;
+        var result = new JsonObject { ["remaining"] = remaining.Length,
             ["items"] = new JsonArray(remaining.Take(4).Select(t =>
             {
                 var placement = construction.RebuildScopes.Single(s => s.Tasks.Contains(t.Id, StringComparer.Ordinal) || s.Always.Contains(t.Id, StringComparer.Ordinal));
                 var original = construction.Invalidations.Last(i => i.Tasks.Any(old => old.Id == t.Id));
-                return (JsonNode)new JsonObject { ["id"] = t.Id, ["kind"] = t.Kind, ["objective"] = t.Objective,
+                var item = new JsonObject { ["id"] = t.Id, ["kind"] = t.Kind, ["objective"] = t.Objective,
                     ["scope"] = placement.Path, ["phase"] = placement.Always.Contains(t.Id, StringComparer.Ordinal) ? "always" : "tasks",
                     ["evidence"] = "original:" + original.Sequence + ":" + t.Id };
+                if (UsesConvergentConstruction(state))
+                {
+                    var inputs = PlanningConstruction.TaskNode(t)["inputs"]?.DeepClone() ?? new JsonArray();
+                    var bytes = System.Text.Encoding.UTF8.GetByteCount(inputs.ToJsonString());
+                    if (bytes <= remainingInputBytes) { item["originalInputs"] = inputs; remainingInputBytes -= bytes; }
+                    else item["originalInputsOmitted"] = true;
+                }
+                return (JsonNode)item;
             }).ToArray()), ["invalidationCount"] = construction.Invalidations.Count };
+        if (UsesConvergentConstruction(state) && remaining.Length > 0) result["semantics"] = RollbackSemantics;
+        return result;
     }
 
     internal static JsonArray InterfaceDirectory(PlanningSession state, IEnumerable<string>? selected, int offset)

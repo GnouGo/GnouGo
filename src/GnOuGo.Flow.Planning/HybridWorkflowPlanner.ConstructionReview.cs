@@ -246,7 +246,9 @@ public sealed partial class HybridWorkflowPlanner
         var guidance = verified ? VerifiedConstructionReviewInstructions + "\n" +
             PlanningCompactConstruction.DraftSemantics(state, construction.Compact!.CurrentStep!, review: true)
             : construction.Version == 2 ? CompactConstructionReviewGuidance(state) : ConstructionReviewInstructions;
-        if (convergent) guidance = guidance.Replace(LegacyReviewActionInstruction, ConvergentReviewActionInstruction, StringComparison.Ordinal);
+        if (convergent) guidance = guidance.Replace(LegacyReviewActionInstruction, ConvergentReviewActionInstruction, StringComparison.Ordinal)
+            .Replace("Future work in open scopes is not a present omission; requirement and scope closure must cover their complete obligations.",
+                "Current effects must satisfy applicable original constraints, including constraints on their combination with accepted work, even while scopes or requirements remain open. Future work in open scopes is not a present omission; requirement and scope closure must cover their complete obligations.", StringComparison.Ordinal);
         if (!PlanningConstructionPhasePolicies.IsFresh(state.Request))
             return PlanningConstruction.Request(state, guidance, _ => ConstructionReviewSchema(compact: construction.Version == 2),
                 construction.Limits.ReviewOutputTokens, review: true, intermediate);
