@@ -45,19 +45,24 @@ public sealed class PlanningTransportPolicyTests
     }
 
     [Theory]
-    [InlineData("construction_select", false, false, 1)]
-    [InlineData("construction_discovery", false, true, 2)]
-    [InlineData("construction_draft", true, true, 2)]
-    [InlineData("construction_local_judge", true, false, 1)]
-    [InlineData("construction_local_judge", false, true, 0)]
-    [InlineData("construction_intermediate_judge", true, true, 0)]
-    public void IssuedRequestCapturesRemainingMandatoryReviews(string phase, bool intermediate, bool accepted, int expected)
+    [InlineData("construction_select", false, false, 1, 1)]
+    [InlineData("construction_discovery", false, true, 2, 1)]
+    [InlineData("construction_draft", true, true, 2, 1)]
+    [InlineData("construction_local_judge", true, false, 1, 0)]
+    [InlineData("construction_local_judge", false, true, 0, 0)]
+    [InlineData("construction_intermediate_judge", true, true, 0, 0)]
+    public void IssuedRequestCapturesRemainingMandatoryReviews(string phase, bool intermediate, bool accepted, int historical, int current)
     {
-        var state = Fresh();
-        if (accepted) state.Construction!.Checkpoints.Add(new());
-        if (intermediate || phase.Contains("judge", StringComparison.Ordinal))
-            state.Construction!.Candidate = new() { NeedsIntermediateReview = intermediate };
-        Assert.Equal(expected, Prepare(state, phase).RequiredReviewCalls);
+        foreach (var version in new[] { 4, 5 })
+        {
+            var state = Fresh();
+            state.Construction!.Compact!.PresentationVersion = version;
+            state.Request.Options["construction_presentation_version"] = version;
+            if (accepted) state.Construction.Checkpoints.Add(new());
+            if (intermediate || phase.Contains("judge", StringComparison.Ordinal))
+                state.Construction.Candidate = new() { NeedsIntermediateReview = intermediate };
+            Assert.Equal(version == 4 ? historical : current, Prepare(state, phase).RequiredReviewCalls);
+        }
     }
 
     [Theory]

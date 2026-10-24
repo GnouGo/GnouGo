@@ -19,6 +19,7 @@ internal static partial class PlanningConstruction
             schema["properties"]!["reselectStep"] = state.Construction.Candidate?.AuthorizedPaths is null
                 ? PlanningSchemas.Nullable(new JsonObject { ["type"] = "string", ["maxLength"] = 512 }) : PlanningSchemas.Type("null");
             schema["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("reselectStep"));
+            PlanningCompactConstruction.ConstrainReselectionSchema(state, schema);
         }
         var projected = PlanningContractValidation.ProjectStructuredOutputSchema(schema);
         return Request(state, (guidance is null ? "" : guidance + "\n") + PlanningPrompt.RepairInstructions +

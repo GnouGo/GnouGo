@@ -9,6 +9,7 @@ public sealed class BenchmarkUsefulWorkTests
     [Theory]
     [InlineData(2)]
     [InlineData(3)]
+    [InlineData(4)]
     public void FreshCohortConfigurationMatchesSessionCreationWhileRetainedPresentationIsUnchanged(int retainedVersion)
     {
         var state = new PlanningSession();
@@ -16,7 +17,7 @@ public sealed class BenchmarkUsefulWorkTests
         var frozen = PlanningBenchmarkMeasurements.Configuration(state.Request);
         PlanningBenchmarkMeasurements.CaptureConstructionSettings(state);
         PlanningSessionCreation.Capture(state);
-        Assert.Equal(4, state.Construction!.Compact!.PresentationVersion);
+        Assert.Equal(5, state.Construction!.Compact!.PresentationVersion);
         Assert.True(JsonNode.DeepEquals(frozen, PlanningBenchmarkMeasurements.Configuration(state.Request)));
 
         frozen["construction_presentation_version"] = retainedVersion;

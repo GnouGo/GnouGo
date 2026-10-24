@@ -54,7 +54,32 @@ public sealed partial class HybridWorkflowPlanner
             state.Catalog = await runtime.DiscoverAsync(state.Request, ct);
             state.Discovery.Sources = (await runtime.Capabilities.ListSourcesAsync(ct)).ToList();
         }
-        if (compact.CurrentStep is null) { await SelectConstructionStepAsync(state, runtime, ct); return; }
+        if (compact.CurrentStep is null)
+        {
+            if (state.PendingCall is null && PlanningCompactConstruction.UsesConvergentConstruction(state))
+            {
+                PlanningCompactConstruction.ReconcileContinuations(state);
+                var closure = PlanningCompactConstruction.PrepareReviewedClosure(state);
+                if (closure is not null)
+                {
+                    await ValidateConstructionCandidateAsync(closure, runtime, ct);
+                    if (closure.Construction!.Candidate!.Diagnostics.Count == 0)
+                    {
+                        // This is an unchanged-plan structural draft, never a fabricated model receipt.
+                        // Persist it before the ordinary mandatory review can be issued.
+                        state.Construction = closure.Construction;
+                        state.Phase = closure.Phase;
+                        state.Diagnostics = closure.Diagnostics;
+                        await runtime.CheckpointAsync(state, ct);
+                        return;
+                    }
+                    // Final validation can expose a defect despite reviewed claims.
+                    // Keep the accepted state and existing repair/reselection escape.
+                    state.Diagnostics = closure.Diagnostics;
+                }
+            }
+            await SelectConstructionStepAsync(state, runtime, ct); return;
+        }
         if (compact.CurrentStep.BaseHash != PlanningConstruction.Hash(state.Plan)) throw new PlanningConflictException("The selected step has a stale baseline.");
         if (!compact.CurrentStep.DiscoveryComplete) { await DiscoverConstructionStepAsync(state, runtime, ct); return; }
         var repair = state.PendingCall is { } pending ? pending.Purpose == "replan" :
@@ -69,7 +94,8 @@ public sealed partial class HybridWorkflowPlanner
         if (state.PendingCall is not null) return;
         // The current navigation call cannot consume the draft and its mandatory reviews.
         var construction = state.Construction!;
-        var reviews = construction.Checkpoints.Count > 0 ? 2 : 1;
+        var reviews = PlanningCompactConstruction.UsesConvergentConstruction(state) ?
+            PlanningCompactConstruction.RequiredReviewCalls(state) : construction.Checkpoints.Count > 0 ? 2 : 1;
         if (PlanningModelCalls.RemainingCalls(state) < reviews + 2)
             throw new WorkflowRuntimeException("CONSTRUCTION_REVIEW_ALLOWANCE", "The remaining allowance cannot admit this navigation call, a draft and mandatory reviews.");
         var input = PlanningConstructionInputPolicy.EffectiveLimit(state.Request, PlanningConstruction.DraftPurpose);
@@ -238,6 +264,17 @@ public sealed partial class HybridWorkflowPlanner
                 PlanningCompactConstruction.SelectionSchema(state), PlanningCompactConstruction.SelectPurpose), ct, correction);
         if (response["baseHash"]!.ToString() != PlanningConstruction.Hash(state.Plan))
             throw new PlanningConflictException("The step selection identifies a stale accepted checkpoint.");
+        if (response["resumeStep"] is { } resume)
+        {
+            if (new[] { "step", "evidenceRequests", "clarifications" }.Any(name => response[name] is not null))
+                PlanningConstruction.Fail("PROPOSAL_ACTION_INVALID", "/resumeStep", "Resume one retained consumer as the only selection action.");
+            PlanningCompactConstruction.ResumeStep(state, resume["continuationId"]!.ToString(), resume["producerCheckpoint"]!.GetValue<int>(),
+                resume["binding"]!.Deserialize(PlanningJsonContext.Default.TaskValue)!);
+            if (PlanningCompactConstruction.State(state).CurrentStep!.Kind is null)
+                await ReserveCompactContinuationAsync(state, runtime, ct);
+            state.Diagnostics.Clear();
+            return;
+        }
         if (await CompactOtherActionAsync(state, runtime, response, "step", ct, correction: correction)) return;
         var compact = PlanningCompactConstruction.State(state);
         var step = response["step"]!.Deserialize(PlanningJsonContext.Default.PlanningConstructionStep)!;
@@ -264,6 +301,7 @@ public sealed partial class HybridWorkflowPlanner
                 PlanningCompactConstruction.DiscoverySchema(state), PlanningCompactConstruction.DiscoveryPurpose), ct, correction);
         if (response["reselectStep"] is { } reason)
         {
+            var decision = PlanningCompactConstruction.ReadReselection(state, reason, exactRequest!.StructuredOutputSchema!);
             // Interruption diagnostics can be added after dispatch. Only the exact
             // issued context establishes whether this navigation call was charged
             // as a correction before its durable pending checkpoint.
@@ -273,7 +311,7 @@ public sealed partial class HybridWorkflowPlanner
                 correcting = context?["diagnostics"]?.AsArray().Any(d => d?["required"]?.GetValue<bool>() == true) == true;
             }
             if (new[] { primary, "evidenceRequests", "clarifications", "discoveryRequests" }.Any(name => response[name] is not null) ||
-                !PlanningCompactConstruction.CanReselectDiscovery(state) || string.IsNullOrWhiteSpace(reason.ToString()) || reason.ToString().Length > 512)
+                !PlanningCompactConstruction.CanReselectDiscovery(state) || string.IsNullOrWhiteSpace(decision.Reason) || decision.Reason.Length > 512)
                 PlanningConstruction.Fail("CONSTRUCTION_RESELECTION_INVALID", "/reselectStep", "Reselect only an inspected tentative operation step, as one bounded action within its retained correction authority.");
             if (!correcting && PlanningModelCalls.RemainingRepairs(state) == 0)
                 PlanningConstruction.Fail("CONSTRUCTION_CORRECTION_ALLOWANCE", "/reselectStep", "The retained correction allowance cannot admit tentative-step reselection.");
@@ -283,8 +321,8 @@ public sealed partial class HybridWorkflowPlanner
                 if (!correcting) state.ReplanAttempts++;
                 state.Construction!.DraftCorrections++;
             }
-            state.Diagnostics.Add(new("CONSTRUCTION_TENTATIVE_SELECTION", "/construction/compact/currentStep", reason.ToString()));
-            PlanningCompactConstruction.Reselect(state, reason.ToString());
+            state.Diagnostics.Add(new("CONSTRUCTION_TENTATIVE_SELECTION", "/construction/compact/currentStep", decision.Reason));
+            PlanningCompactConstruction.Reselect(state, decision);
             // The rejected decision and its diagnostics remain evidence. This action consumed
             // one correction; the replacement selection must not charge the same action again.
             state.Diagnostics.Clear();

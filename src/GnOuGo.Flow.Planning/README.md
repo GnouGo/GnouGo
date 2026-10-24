@@ -2,7 +2,16 @@
 
 Fresh sessions use [compact incremental construction](../../docs/incremental-taskplan-construction.md): index original intent, select one immediate business substep, discover its capabilities, then generate and review a bounded fragment of one TaskPlan. Phase-specific context and response schemas omit unrelated inspections, task grammar and history. Exact contract views preserve required constraints; the shared compiler validates against unchanged original contracts before encrypted checkpoint acceptance. Completion uses the existing PlanningGraph and compiler v15 path without a final whole-plan LLM Judge. Historical proposal/repair contracts below retain their original meaning for issued sessions.
 
-Presentation revisions 3 and 4 keep verbatim source classification and targeted
+Presentation revision 5 makes terminal selection closure-only, preserves closed
+requirements, and retains explicitly suspended consumers across prerequisite
+checkpoints. It also requires one Judge action with separate obligation and
+implementation citations, carries grounded repair witnesses, and combines
+simultaneous local/intermediate obligations in one adequately scoped review.
+The [accepted-state rules](../../docs/incremental-taskplan-construction.md#accepted-state-progression-presentation-revision-5)
+describe the bounded recovery and repair behavior. Versions 2–4 and all issued
+requests retain their schemas, charging and approvals; compiler lowering is unchanged.
+
+Presentation revisions 3 through 5 keep verbatim source classification and targeted
 caller/public-interface extraction in the existing intent phase. Classification
 directions are provisional. Extraction first distinguishes caller interfaces from
 artifact obligations: writing a file with specified fields does not itself declare
@@ -103,11 +112,11 @@ exports are public results; nested exports remain local and may use the same
 name with a different type. Judges assess accepted exports plus candidate
 additions, without requiring an unchanged export to be redeclared.
 Later tasks in the same scope consume ordinary task results directly; exports are
-needed across the enclosing task or group boundary. Fresh revision-4 author and
+needed across the enclosing task or group boundary. Revision-4 and revision-5 author and
 Judge guidance distinguishes those cases while preserving historical requests.
 This evidence does not make an open container consumable or grant edit authority.
 
-Fresh revision 4 adds `constructionStage.preflight` only after real compiler
+Revisions 4 and 5 provide `constructionStage.preflight` only after real compiler
 validation, including fragments with no consumed operands. Exact binding and
 frontier requests share that request-local result by plan/open-scope basis;
 queries that would exceed the existing eight-scope/128-reference interface bound
@@ -118,12 +127,12 @@ or exact retrieval links. Ambiguous source associations expose directory navigat
 only. Preflight does not settle business choices, unfinished interfaces, complete
 requirements, final validation or runtime effects.
 
-The revision-4 private Judge envelope distinguishes findings, evidence requests
+The historical revision-4 private Judge envelope distinguishes findings, evidence requests
 and an explicit inconclusive assessment. Findings require both an applicable
 original obligation and concrete implementation evidence; status and navigation
 alone are insufficient. A validated concrete finding location supplies its own
 implementation citation under the fresh issued schema; no duplicate pointer is
-required. Fresh schemas place this citation guidance on the `evidence` field instead
+required. Those schemas place this citation guidance on the `evidence` field instead
 of repeating it in the phase instructions; pointer choices and grounding checks are
 unchanged. Retained citation schemas keep their original interpretation. A valid
 inconclusive assessment can consume one additional
@@ -891,7 +900,7 @@ internal and never serialized. Flow keeps the authored resume definition separat
 from these captured session options.
 
 The captured diagnostics profile selects private repair version 11; fresh compact
-presentation revision 4 selects version 12. Accepted public-output bindings and explicitly revised inspected operation
+presentation revisions 4 and 5 select version 12. Accepted public-output bindings and explicitly revised inspected operation
 inputs use their authoritative types to constrain response shapes. References remain
 subject to complete semantic validation; matching types do not prove business meaning.
 Opaque contracts keep the semantic fallback. Exact reference alternatives, host-owned

@@ -44,7 +44,10 @@ internal static class PlanningModelCalls
             MaxTokens = outputLimit
         }, state.Request, purpose);
         if (PlanningTransportPolicies.Read(state.Request) is not null)
-            request.RequiredReviewCalls = purpose switch
+            request.RequiredReviewCalls = PlanningCompactConstruction.UsesConvergentConstruction(state)
+                ? Math.Max(0, PlanningCompactConstruction.RequiredReviewCalls(state) -
+                    (purpose is PlanningConstruction.LocalPurpose or PlanningConstruction.IntermediatePurpose ? 1 : 0))
+                : purpose switch
             {
                 PlanningConstruction.IntermediatePurpose => 0,
                 PlanningConstruction.LocalPurpose => state.Construction?.Candidate?.NeedsIntermediateReview == true ? 1 : 0,
@@ -158,7 +161,11 @@ internal static class PlanningModelCalls
             if (state.RejectedProposalHash == rejectedHash) throw new WorkflowRuntimeException("REPLAN_NO_PROGRESS", "The model repeated an unchanged invalid proposal.");
             state.RejectedProposalHash = rejectedHash;
             throw new PlanningResponseException(findings.Select(f => new PlanningDiagnostic("PLANNING_RESPONSE_INVALID",
-                f.InstancePointer, f.Message, ValidationStage: purpose)).ToList());
+                f.InstancePointer, f.Message, ValidationStage: purpose)).ToList())
+            {
+                ReceivedReport = purpose is PlanningConstruction.LocalPurpose or PlanningConstruction.IntermediatePurpose &&
+                    HybridWorkflowPlanner.ConvergentConstructionReviewIssued(call.Request.StructuredOutputSchema) ? json.DeepClone() : null
+            };
         }
         if (canDecline && json["plan"] is null && json["clarifications"] is null)
             throw new WorkflowRuntimeException("DISCOVERY_INCOMPLETE",
@@ -228,4 +235,7 @@ internal sealed class PlanningCorrectionAttempt : IDisposable
 internal sealed class PlanningResponseException(List<PlanningDiagnostic> diagnostics) : Exception("The model response violated its typed contract.")
 {
     internal List<PlanningDiagnostic> Diagnostics { get; } = diagnostics;
+    // Available only after a complete, output-bounded parsed review response was
+    // received. It never represents transport uncertainty or authorizes a retry.
+    internal JsonNode? ReceivedReport { get; init; }
 }

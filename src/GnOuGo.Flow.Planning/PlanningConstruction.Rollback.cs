@@ -187,6 +187,7 @@ internal static partial class PlanningConstruction
         construction.PendingReviewContext = null; construction.PendingReviewHash = null;
         if (construction.Compact is { } compact)
         { compact.CurrentStep = null; compact.PendingCommitments.Clear(); compact.ReplacementScope = null; compact.ReplacementRequirements = null; }
+        PlanningCompactConstruction.ReconcileContinuations(state);
         state.Graph = null; state.Yaml = null; state.ApprovedHash = null; state.ApprovalReview = null; state.ValidationResults.Clear(); state.Diagnostics.Clear();
     }
 }

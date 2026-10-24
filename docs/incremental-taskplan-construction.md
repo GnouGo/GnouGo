@@ -1,6 +1,6 @@
 # Incremental TaskPlan construction
 
-Fresh construction-version-2 sessions capture presentation revision 4 and extend one semantic TaskPlan from available producers
+Fresh construction-version-2 sessions capture presentation revision 5 and extend one semantic TaskPlan from available producers
 toward consumers. They index original intent once, select one immediate business
 substep, discover its capabilities and generate only its fragment. Each bounded
 draft passes deterministic semantic validation and a local advisory review before
@@ -19,14 +19,54 @@ flowchart LR
   Review --> Repair
   Repair --> Validate
   Review --> Checkpoint[Encrypted checkpoint]
-  Review --> Junction[Required junction review]
-  Junction --> Checkpoint
+  Validate -->|Junction trigger: combined local and intermediate coverage| Review
   Checkpoint --> Select
   Checkpoint --> Final[Complete deterministic validation]
   Final --> Graph[PlanningGraph]
   Graph --> YAML[Compiler v15 JavaScript and YAML]
   YAML --> Approval[Exact artifact approval]
 ```
+
+## Accepted-state progression (presentation revision 5)
+
+Closed requirements stay closed until explicit revision or dependency invalidation.
+Selection distinguishes requested public results from accepted bindings and local
+exports. Once all requirements are closed, ordinary work and unbound task kinds
+leave the selection grammar. The host may prepare one unchanged-plan boundary
+closure when retained scoped reviews establish the obligations, original source
+coverage is complete, and no prerequisite, repair, choice or rebuild is pending.
+Compiler validation and mandatory business review still precede acceptance; final
+public-output validation remains mandatory. An empty scope or a local scalar
+export is not a completion proof.
+Closure context retains original obligations associated with accepted owners,
+descendants, consumers and exports. Unknown associations or a set larger than the
+existing four-requirement step bound leave closure to explicit selection; they
+never fall back to an unrelated first requirement.
+
+Reselection explicitly abandons an unsuitable action or suspends its consumer for
+an evidenced typed prerequisite. At most four active continuations retain the
+current prerequisite chain. The accepted TaskPlan supplies results; an explicit
+producer checkpoint and binding resume a retained consumer only after source,
+contract, scope and typed-interface validation. No second scheduler or executable
+reference language is introduced. Invalidation preserves independent continuations.
+
+Fresh Judge schemas require one action and separate original-obligation and concrete
+implementation citations. A known complete, bounded parsed report with an exact
+contract inconsistency may use the existing single follow-up allowance; a mixed
+report containing grounded adverse findings cannot erase them through that path.
+The same allowance covers supported inconclusive reassessment, with no renewed
+evidence loop, uncertain replay or correction charge. Historical responses are
+interpreted from their issued schemas. Overlapping local/intermediate triggers use
+one broader frozen context with explicit coverage; a narrower review cannot be
+reused retrospectively.
+
+Grounded rejections retain bounded original-context witnesses. Candidate hashes
+still establish novelty; they do not establish defect resolution. A correction
+presents its relevant before/after bindings to the mandatory scoped Judge, retaining
+executable objectives and literals. Historical edit-authority snapshots are evidence;
+only the current repair contract grants edits. Repeated affected values without new relevant
+support require a different authorized local strategy and then stop on non-progress.
+All findings remain advisory; deterministic grounding is not semantic proof.
 
 ## Durable boundaries
 
@@ -591,12 +631,12 @@ unrestricted-string versus exhaustive-enum semantics after schema annotations
 are compacted. File-content obligations do not imply public outputs; an explicit
 public file-path declaration still requires a typed interface.
 
-Fresh creation captures presentation revision 4 in the existing setting. It
-adds compiler-grounded review context and an explicit inconclusive review action
-using existing candidate review records; no public DTO, proof store or executable
-representation is added. Nullable implementation choices, prerequisite notes and
-extraction dispositions remain non-executable metadata; construction version 2
-and storage format 10 are unchanged. Historical revisions 2 and 3 retain their
+Fresh creation captures presentation revision 5 in the existing setting. It
+inherits compiler-grounded review context and explicit inconclusive reviews,
+using existing candidate review records for grounded findings and repair witnesses.
+Nullable implementation choices, prerequisite continuations and extraction
+dispositions remain non-executable metadata; construction version 2
+and storage format 10 are unchanged. Historical revisions 2 through 4 retain their
 captured future-request behavior as well as already issued requests. Historical sessions retain issued
 schemas, compiler profiles, identities, approvals, receipts and cumulative usage.
 Their required compatibility paths cannot be selected by new sessions. Legacy

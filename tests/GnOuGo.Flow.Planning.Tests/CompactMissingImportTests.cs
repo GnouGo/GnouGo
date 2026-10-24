@@ -170,8 +170,8 @@ public sealed class CompactMissingImportTests
             ["sourceId"] = Context(request)["sources"]![0]!["id"]!.DeepClone(),
             ["clauses"] = new JsonArray(new JsonObject { ["text"] = objective, ["kind"] = "requirement", ["interfaces"] = "none" })
         }) };
-        var state = await Advance(new() { Request = new() { TenantId = "missing-imports", Prompt = objective,
-            Options = new() { ["automatic_correction"] = true } } }, runtime);
+        var state = await Advance(PlannerFixture.CapturedPresentation(new() { Request = new() { TenantId = "missing-imports", Prompt = objective,
+            Options = new() { ["automatic_correction"] = true } } }, version: 4), runtime);
         Assert.Empty(state.Diagnostics);
         // This corpus preserves the retained strict-import protocol. Fresh
         // semantic imports are exercised by CompactActualImportReviewTests.

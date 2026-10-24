@@ -75,7 +75,7 @@ public sealed partial class HybridWorkflowPlanner
             limits.DraftOutputTokens is < 1 or > 65536 || limits.ReviewOutputTokens is < 1 or > 65536)
             throw new PlanningConflictException("The captured construction contract or limits are unsupported.");
         if (construction.CandidateFailureIdentityVersion is not (null or 1) ||
-            construction.CandidateFailureIdentityVersion is not null && construction is not { Version: 2, Compact.PresentationVersion: 2 or 3 or 4 })
+            construction.CandidateFailureIdentityVersion is not null && construction is not { Version: 2, Compact.PresentationVersion: 2 or 3 or 4 or 5 })
             throw new PlanningConflictException("The captured candidate failure identity is unsupported.");
         if (construction.Version == 2) { await AdvanceCompactConstructionAsync(state, runtime, ct); return; }
         state.Status = PlanningStatus.Generating;
@@ -122,7 +122,8 @@ public sealed partial class HybridWorkflowPlanner
     private static async Task ReserveConstructionReviewAsync(PlanningSession state, IPlanningRuntime runtime, CancellationToken ct)
     {
         var construction = state.Construction!;
-        var calls = construction.Candidate?.NeedsIntermediateReview == true || construction.Candidate is null && construction.Checkpoints.Count > 0 ? 3 : 2;
+        var calls = PlanningCompactConstruction.UsesConvergentConstruction(state) ? 1 + Math.Max(1, PlanningCompactConstruction.RequiredReviewCalls(state)) :
+            construction.Candidate?.NeedsIntermediateReview == true || construction.Candidate is null && construction.Checkpoints.Count > 0 ? 3 : 2;
         var inputLimit = construction.Version == 2 ? PlanningConstructionInputPolicy.EffectiveLimit(state.Request, PlanningConstruction.DraftPurpose)
             : state.Request.Generation.MaxInputTokensPerRequest;
         var draftOutput = PlanningModelCalls.ConstructionOutputLimit(state, PlanningConstruction.DraftPurpose);
@@ -167,7 +168,7 @@ public sealed partial class HybridWorkflowPlanner
         // CallAsync checkpoints this transient recovery contract with the issued
         // request before dispatch. Already issued requests/candidates keep their
         // captured (including absent historical) comparison semantics.
-        if (state.PendingCall is null && previous is null && construction is { Version: 2, Compact.PresentationVersion: 2 or 3 or 4 })
+        if (state.PendingCall is null && previous is null && construction is { Version: 2, Compact.PresentationVersion: 2 or 3 or 4 or 5 })
             construction.CandidateFailureIdentityVersion = 1;
         var request = state.PendingCall?.Request ?? PlanningConstruction.DraftRequest(state, repair);
         var response = await PlanningModelCalls.CallAsync(state, runtime, repair ? "replan" : PlanningConstruction.DraftPurpose,
@@ -175,7 +176,11 @@ public sealed partial class HybridWorkflowPlanner
         construction.LastProposalHash = "proposal:" + PlanningGraphCompiler.Fingerprint(response.ToJsonString());
         if (construction.FailedCandidates.Contains(construction.LastProposalHash, StringComparer.Ordinal))
             throw new WorkflowRuntimeException("REPLAN_NO_PROGRESS", "The model repeated an invalid construction action. No budget was reset.");
-        var proposal = response.Deserialize(ConstructionJsonContext.Default.PlanningConstructionResponse)!;
+        var reselection = response["reselectStep"] is { } selected
+            ? PlanningCompactConstruction.ReadReselection(state, selected, request.StructuredOutputSchema!) : null;
+        var normalized = response.DeepClone();
+        if (reselection is not null) normalized["reselectStep"] = reselection.Reason;
+        var proposal = normalized.Deserialize(ConstructionJsonContext.Default.PlanningConstructionResponse)!;
         if (construction.IssuedBaseHash != PlanningConstruction.Hash(state.Plan) || proposal.BaseHash != construction.IssuedBaseHash)
             throw new PlanningConflictException("The completed extension no longer matches its retained accepted checkpoint.");
         var actions = (proposal.Extension is null ? 0 : 1) + (proposal.DiscoveryRequests is null ? 0 : 1) +
@@ -196,7 +201,7 @@ public sealed partial class HybridWorkflowPlanner
                 if (correction.Enabled) correction.Reselect();
                 else { state.ReplanAttempts++; construction.DraftCorrections++; }
                 state.Diagnostics.Add(new("CONSTRUCTION_TENTATIVE_SELECTION", "/construction/compact/currentStep", reason));
-                PlanningCompactConstruction.Reselect(state, reason);
+                PlanningCompactConstruction.Reselect(state, reselection!);
                 construction.FailedCandidates.Add(construction.LastProposalHash);
                 // The archived diagnosis consumed this correction. Replacement
                 // selection must not charge it again after a checkpoint or restart.
@@ -204,7 +209,7 @@ public sealed partial class HybridWorkflowPlanner
             }
             else
             {
-                PlanningCompactConstruction.Reselect(state, reason);
+                PlanningCompactConstruction.Reselect(state, reselection!);
                 if (correction.Enabled) state.Diagnostics.Clear();
             }
             return;
@@ -275,6 +280,7 @@ public sealed partial class HybridWorkflowPlanner
             next.Hash = PlanningConstruction.Hash(next.Plan);
         }
         next.Corrections = previous?.Corrections ?? construction.DraftCorrections;
+        PlanningConstruction.CarryDefectWitnesses(state, previous, next);
         if (PlanningConstruction.PreviouslyRejected(state, next))
             throw new WorkflowRuntimeException("REPLAN_NO_PROGRESS", "Construction repeated a failed semantic candidate. No budget was reset.");
         construction.Candidate = next; construction.PendingReviewContext = null; construction.PendingReviewHash = null;
@@ -321,6 +327,25 @@ public sealed partial class HybridWorkflowPlanner
         }
         if (state.Construction.Version == 2)
             draft.Diagnostics.AddRange(PlanningCompactConstruction.CandidateFindings(state));
+        if (PlanningCompactConstruction.UsesConvergentConstruction(state) && draft.Diagnostics.Count == 0 &&
+            draft.Reviews.Any(review => review["defectWitness"] is JsonObject))
+        {
+            // Candidate novelty and the resolution of its cited defect are different.
+            // An unchanged affected value without new support needs another local
+            // strategy, not another business Judge judging the same implementation.
+            var context = PlanningCompactConstruction.Context(state, review: true, intermediate: draft.NeedsIntermediateReview);
+            var unchanged = (context["defectProgress"] as JsonArray ?? []).OfType<JsonObject>()
+                .Where(progress => progress["status"]?.ToString() == "unchanged" && progress["evidenceImproved"]?.GetValue<bool>() != true).ToArray();
+            foreach (var progress in unchanged)
+            {
+                var identity = "defect:" + progress["id"] + ":" + progress["current"]?["hash"];
+                if (state.Construction.FailedCandidates.Contains(identity, StringComparer.Ordinal))
+                    throw new WorkflowRuntimeException("REPLAN_NO_PROGRESS", "The same affected implementation was repeated without relevant evidence or a different applicable repair strategy.");
+                state.Construction.FailedCandidates.Add(identity);
+                draft.Diagnostics.Add(new("CONSTRUCTION_DEFECT_UNCHANGED", "/construction/candidate",
+                    "The prior finding's cited implementation is unchanged. Its truth remains advisory: make a targeted repair, retrieve evidence contesting it, suspend for an evidenced prerequisite, or withdraw a premature completion claim within existing authority. Prior witness: " + progress["id"]));
+            }
+        }
         state.Diagnostics = draft.Diagnostics.ToList();
         state.Phase = draft.Diagnostics.Count == 0 ? PlanningConstruction.LocalPurpose : PlanningPhase.Replanning;
         if (draft.Diagnostics.Count > 0) PlanningConstruction.RecordRejection(state, draft);
@@ -379,12 +404,16 @@ public sealed partial class HybridWorkflowPlanner
         PlanningRepairPatch.Verify(repairState, request);
         using var accounting = new PlanningCorrectionAttempt(state, correcting: true, draft: true);
         var response = await PlanningModelCalls.CallAsync(state, runtime, "replan", request.Prompt, request.StructuredOutputSchema!.AsObject(), ct, construction.Limits.DraftOutputTokens, accounting);
-        var correction = response.Deserialize(RepairJsonContext.Default.PlanningRepairResponse)!;
+        var selectedReselection = response["reselectStep"] is { } selected
+            ? PlanningCompactConstruction.ReadReselection(state, selected, request.StructuredOutputSchema!) : null;
+        var normalized = response.DeepClone();
+        if (selectedReselection is not null) normalized["reselectStep"] = selectedReselection.Reason;
+        var correction = normalized.Deserialize(RepairJsonContext.Default.PlanningRepairResponse)!;
         if (correction.ReselectStep is { } reselection)
         {
             if (correction.Patch is not null || correction.DiscoveryRequests is not null || correction.Clarifications is not null || correction.EvidenceRequests is not null)
                 PlanningConstruction.Fail("PROPOSAL_ACTION_INVALID", "/reselectStep", "Reselection must be the only correction action.");
-            PlanningCompactConstruction.Reselect(state, reselection);
+            PlanningCompactConstruction.Reselect(state, selectedReselection!);
             if (accounting.Enabled) state.Diagnostics.Clear();
             return;
         }

@@ -144,8 +144,8 @@ public sealed class CompactLoopClosureReviewTests
             Assert.Equal(PlanningConstruction.DraftPurpose, purpose);
             return Wire(request, Draft(request, "wrong"));
         } };
-        var state = await Advance(new() { Request = new() { TenantId = "loop-closure", Prompt = "Double the original numbers [2,2], preserving their order and repetition.",
-            Options = new() { ["automatic_correction"] = true } } }, runtime);
+        var state = await Advance(PlannerFixture.CapturedPresentation(new() { Request = new() { TenantId = "loop-closure", Prompt = "Double the original numbers [2,2], preserving their order and repetition.",
+            Options = new() { ["automatic_correction"] = true } } }, version: 4), runtime);
         Assert.Empty(state.Diagnostics);
         state.Plan = new() { Root = new() { Tasks = [new()
         {

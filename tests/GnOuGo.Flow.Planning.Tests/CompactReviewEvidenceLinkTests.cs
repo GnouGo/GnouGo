@@ -392,11 +392,11 @@ public sealed class CompactReviewEvidenceLinkTests
             Assert.Equal(PlanningConstruction.LocalPurpose, purpose);
             return Wire(request, Reviewed());
         } };
-        var state = await Advance(new() { Request = new() { TenantId = "linked-review",
+        var state = await Advance(PlannerFixture.CapturedPresentation(new() { Request = new() { TenantId = "linked-review",
             Prompt = requireParallel
                 ? "Double each original number through reusable work in parallel, preserving order and repetition."
                 : "Double each original number through reusable work, preserving order and repetition.",
-            Options = new() { ["automatic_correction"] = true } } }, runtime);
+            Options = new() { ["automatic_correction"] = true } } }, version: 4), runtime);
         Assert.Empty(state.Diagnostics);
         state.Plan = new()
         {

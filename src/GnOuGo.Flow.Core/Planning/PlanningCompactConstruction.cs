@@ -24,6 +24,45 @@ public sealed class PlanningCompactConstructionState
     public List<JsonObject> RejectedSteps { get; set; } = [];
     public string? ReplacementScope { get; set; }
     public List<string>? ReplacementRequirements { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public List<PlanningConstructionSuspendedStep>? SuspendedSteps { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? ResumingStepId { get; set; }
+}
+
+/// <summary>An explicit replacement decision, not an interpretation of a diagnostic's prose.</summary>
+public sealed class PlanningConstructionReselection
+{
+    public string Reason { get; set; } = "";
+    public string Disposition { get; set; } = "";
+    public PlanningConstructionTypedPrerequisite? Prerequisite { get; set; }
+}
+
+/// <summary>A needed value and its original evidence; no future executable producer identity.</summary>
+public sealed class PlanningConstructionTypedPrerequisite
+{
+    public string Need { get; set; } = "";
+    public TaskType ExpectedType { get; set; } = new();
+    public List<string> EvidenceAddresses { get; set; } = [];
+}
+
+/// <summary>A retained consumer in the bounded prerequisite chain. Only explicit selection resumes it.</summary>
+public sealed class PlanningConstructionSuspendedStep
+{
+    public string Id { get; set; } = "";
+    public string? ParentId { get; set; }
+    public PlanningConstructionStep Consumer { get; set; } = new();
+    public PlanningConstructionTypedPrerequisite Prerequisite { get; set; } = new();
+    public string Status { get; set; } = "waiting";
+    public int RejectedStepIndex { get; set; }
+    public int SuspendedAtCheckpoint { get; set; }
+    public int LastPrerequisiteCheckpoint { get; set; }
+    public Dictionary<string, string> SourceVersions { get; set; } = new(StringComparer.Ordinal);
+    public Dictionary<string, string> EvidenceHashes { get; set; } = new(StringComparer.Ordinal);
+    public Dictionary<string, string> ContractHashes { get; set; } = new(StringComparer.Ordinal);
+    public Dictionary<string, string> DependencyHashes { get; set; } = new(StringComparer.Ordinal);
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? GroupHash { get; set; }
 }
 
 /// <summary>An exact retained source page or a verbatim indexed clause.</summary>

@@ -27,6 +27,12 @@ internal static partial class PlanningCompactConstruction
         addresses.UnionWith(NavigationEvidence(new[] { "nextRequirements", "requirementsDirectory", "nextScopes", "scopes", "interfaces",
             "nextInterfaces", "publicOutputs", "rebuild", "reselection" }.Select(name => context[name])
             .Concat((state.Construction!.Evidence ?? []).Select(item => item.Value).Where(value => value is JsonObject or JsonArray))));
+        if (UsesConvergentConstruction(state))
+        {
+            addresses.UnionWith(NavigationEvidence([context["continuation"]]));
+            addresses.UnionWith(NavigationEvidence((context["continuation"]?["acceptedCheckpoints"] as JsonArray ?? []).Cast<JsonNode?>()));
+            addresses.UnionWith(NavigationEvidence((context["scopes"] as JsonArray ?? []).Select(scope => scope?["acceptedExports"])));
+        }
         ConstrainEvidenceChoices(state, schema, addresses, maximum: 4);
     }
 
@@ -75,7 +81,7 @@ internal static partial class PlanningCompactConstruction
             .Select(item => item.Key).Order(StringComparer.Ordinal).ToArray();
         addresses.RemoveWhere(address => state.Construction!.EvidenceRequests.Contains(
             PlanningConstruction.EvidenceBatchFingerprint(state, [address]), StringComparer.Ordinal));
-        var maximum = State(state).PresentationVersion == 4 && state.Diagnostics.Any(diagnostic =>
+        var maximum = State(state).PresentationVersion is 4 or 5 && state.Diagnostics.Any(diagnostic =>
             diagnostic.Required && diagnostic.Code == "CONSTRUCTION_EVIDENCE_LIMIT" && diagnostic.Location == "/evidenceRequests") ? 1 : 8;
         var alternatives = new JsonArray();
         if (addresses.Count > 0)

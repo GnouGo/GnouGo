@@ -18,6 +18,7 @@ internal static class CompactConstructionSmoke
         await RunAsync(2);
         await RunAsync(3);
         await RunAsync(4);
+        await RunAsync(5);
     }
 
     private static async Task RunAsync(int presentationVersion)
@@ -192,7 +193,10 @@ internal static class CompactConstructionSmoke
                     break;
                 case "construction_local_judge":
                 case "construction_intermediate_judge":
-                    response = new() { ["findings"] = new JsonArray(), ["uncertainty"] = "Execution remains unverified.", ["evidenceRequests"] = null };
+                    response = HybridWorkflowPlanner.ConvergentConstructionReviewIssued(request.StructuredOutputSchema)
+                        ? new() { ["action"] = new JsonObject { ["kind"] = "findings", ["findings"] = new JsonArray() },
+                            ["uncertainty"] = "Execution remains unverified." }
+                        : new() { ["findings"] = new JsonArray(), ["uncertainty"] = "Execution remains unverified.", ["evidenceRequests"] = null };
                     break;
                 default: throw new InvalidOperationException("Unexpected compact phase: " + purpose);
             }

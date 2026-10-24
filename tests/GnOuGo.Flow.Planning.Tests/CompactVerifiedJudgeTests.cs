@@ -826,6 +826,8 @@ public sealed class CompactVerifiedJudgeTests
         const string original = "Accept a caller string named label with the declared allowed values. Use it in subsequent work.";
         var state = new PlanningSession { Request = new() { TenantId = "verified-judge", Prompt = original } };
         PlanningSessionCreation.Capture(state);
+        state.Construction!.Compact!.PresentationVersion = 4;
+        state.Request.Options["construction_presentation_version"] = 4;
         state.IntentVersion = 3; state.Revision = 1; state.Status = PlanningStatus.Generating;
         var construction = state.Construction!;
         construction.CandidateFailureIdentityVersion = 1;

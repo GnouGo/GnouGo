@@ -146,6 +146,8 @@ internal static class PlanningPersistenceSmoke
             throw new InvalidOperationException("Published construction candidate, review, request or tenant/encryption recovery failed.");
         if (original.Contains("\"presentationVersion\"", StringComparison.Ordinal) || original.Contains("\"interfaceExtractions\"", StringComparison.Ordinal))
             throw new InvalidOperationException("Optional compact presentation metadata changed historical storage.");
+        if (original.Contains("\"suspendedSteps\"", StringComparison.Ordinal) || original.Contains("\"resumingStepId\"", StringComparison.Ordinal))
+            throw new InvalidOperationException("Optional continuation metadata changed historical storage.");
         var declaration = new PlanningSession
         {
             IntentVersion = 3, ModelCalls = 1,
@@ -212,6 +214,29 @@ internal static class PlanningPersistenceSmoke
             await reopened.LoadAsync("other-tenant", deferred.Request.SessionId, CancellationToken.None) is not null ||
             System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(vault)).Contains(privateValue, StringComparison.Ordinal))
             throw new InvalidOperationException("Deferred kind, prerequisites or source dispositions changed during published encrypted recovery.");
+        var continuation = System.Text.Json.JsonSerializer.Deserialize(deferredJson, PlanningJsonContext.Default.PlanningSession)!;
+        continuation.Request.SessionId = "continuation-" + Guid.NewGuid().ToString("N");
+        continuation.Request.Options["construction_presentation_version"] = 5;
+        var retained = continuation.Construction!.Compact!;
+        retained.PresentationVersion = 5; retained.ResumingStepId = "continuation_0";
+        retained.SuspendedSteps = [new()
+        {
+            Id = "continuation_0", Status = "resuming", Consumer = retained.CurrentStep!, SuspendedAtCheckpoint = 1, LastPrerequisiteCheckpoint = 2,
+            Prerequisite = new() { Need = privateValue, ExpectedType = new() { Kind = "number", Nullable = true }, EvidenceAddresses = ["source:declaration:first"] },
+            SourceVersions = new() { ["declaration:first"] = "exact-first" }, EvidenceHashes = new() { ["source:declaration:first"] = "exact-evidence" },
+            ContractHashes = new() { ["operation@1"] = "exact-contract" }, DependencyHashes = new() { ["accepted"] = "exact-task" }
+        }];
+        var continuationJson = System.Text.Json.JsonSerializer.Serialize(continuation, PlanningJsonContext.Default.PlanningSession);
+        if (!await store.TrySaveAsync(continuation, null, CancellationToken.None))
+            throw new InvalidOperationException("Suspended consumer metadata insert failed.");
+        var recoveredContinuation = await reopened.LoadAsync("smoke", continuation.Request.SessionId, CancellationToken.None);
+        if (recoveredContinuation is null ||
+            System.Text.Json.JsonSerializer.Serialize(recoveredContinuation, PlanningJsonContext.Default.PlanningSession) != continuationJson ||
+            recoveredContinuation.Construction?.Compact is not { PresentationVersion: 5, ResumingStepId: "continuation_0",
+                SuspendedSteps: [{ Status: "resuming", Prerequisite.ExpectedType: { Kind: "number", Nullable: true } }] } ||
+            await reopened.LoadAsync("other-tenant", continuation.Request.SessionId, CancellationToken.None) is not null ||
+            System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(vault)).Contains(privateValue, StringComparison.Ordinal))
+            throw new InvalidOperationException("Suspended consumer, typed prerequisite, exact request or encrypted tenant recovery changed.");
         Console.WriteLine("construction persistence: accepted baseline, compact source/substep/commitments, tentative draft and pending review recover independently under encryption");
         Console.WriteLine("interface persistence: historical declarations and fresh deferred choices, prerequisites and dispositions survive encrypted source-generated recovery");
     }

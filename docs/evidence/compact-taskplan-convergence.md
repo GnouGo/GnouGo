@@ -1,14 +1,15 @@
 # Compact TaskPlan convergence
 
-**Business acceptance remains incomplete; PR #120 stays Draft.** The first `6308c479`
-Collections diagnostic stopped on a receiptless transport failure before reaching the changed
-Judge instruction. The exact authorized permanent closure preserves every record and reservation.
-Fresh `compactr6308c479fcolscope2` stopped on a repeated rejected action after a valid closure finding.
-The latest completed Amazon and Review PR diagnostics remain on `7697449c`; none of these
-current diagnostics produced a complete artifact or executed workflow. A separate citation-field
-presentation change has focused validation but no live result yet. No live benefit is claimed.
-The 18 alternating runs
-against `56942f5` remain gated on all three candidate executions passing independent oracles.
+**Business acceptance remains incomplete; PR #120 stays Draft.** The latest completed
+Collections run on `4e38426b` stopped at a valid JSON report containing no Judge action:
+11 logical requests, 12 physical attempts, two accepted checkpoints and no artifact or
+execution. The host correctly rejected it. This is not reasoning/output exhaustion and
+does not test citation correctness. The latest completed Amazon and Review PR diagnostics
+remain on `7697449c`. Earlier failures and exact authorized uncertain closures remain retained.
+
+Presentation revision 5 has passed focused pre-live validation against these observed
+failures; no live improvement is claimed before new frozen executions. The 18 alternating runs against
+`56942f5` remain gated on all three candidate executions passing independent oracles.
 
 ## Current behavior and technical evidence
 
@@ -29,6 +30,8 @@ indivisible oversized requests stop. Existing business findings retain correctio
 
 | Exact source or validated change | Technical result, with warnings as errors |
 | --- | --- |
+| [Revision-5 accepted-state changes](compact-taskplan-accepted-state-validation.json) | **281 focused Planning / 47 host-journal-storage tests passed**; managed smoke passed with exact receipt recovery and v15 execution for presentations 2–5. File identities bind this pre-live result; full solution, Native AOT and business acceptance remain separate |
+| `4e38426b` | **7,850 full-solution passed / 0 failed / 13 skipped**, 33 projects, 4,504 unchanged source files; **12/12 publication stages passed**. These results cover the retained source, not the subsequent revision-5 implementation |
 | Citation-field guidance over `6308c479` | **59 focused tests passed**, including actual projected requests, unchanged structural grammar, revision-3 bytes and pending revision-4 one/two-citation recovery. This later change is outside the exact630 full/CI results |
 | `6308c479` | **7,846 full-solution passed / 0 failed / 13 skipped**, 33 projects, 4,499 unchanged source files; **12/12 publication stages** and all three applicable CI workflows passed. The instruction patch has **90 existing focused tests passed**; those retain their tested `7697449` base attribution |
 | `7697449c` | **100 focused / 2,721 full Planning passed**, no failures/skips/compiler diagnostics; committed files match the tested repair patch; **12/12 publication stages passed**. **7,846 full-solution passed / 0 failed / 13 skipped**,33 projects,4,490 unchanged source files. [Planner CI](https://github.com/GnouGo/GnouGo/actions/runs/40038029326) passed; the earlier pending snapshot remains immutable |
@@ -71,6 +74,7 @@ model will cite originals correctly or resolve the separate semantic failures be
 
 | Frozen attempt | Logical calls / physical attempts / receipts | Corrections / checkpoints | Planning seconds | Known cost EUR | Terminal result; none executed |
 | --- | ---: | ---: | ---: | ---: | --- |
+| [4e38426b Collections citation](compact-taskplan-4e38426b-collections.json) | 11/12/11 | 0/2 | 508.198 | 0.2951584114234716644355198573 | All-null Judge action; full failed-attempt reservation retained |
 | [6308c479 Collections scope2](compact-taskplan-6308c479-collections-scope2.json) | 27/28/27 | 3/5 | 860.385 | 0.8997188755020080321285140564 | Premature public-result requirement closure, then identical rejected replacement |
 | [6308c479 Collections](compact-taskplan-6308c479-collections-pending.json) | 2/3/1 | 0/0 | 635.877 | 0.0153904506916555109326193664 | HTTP500 followed by response-less Transport; exact permanent closure now applied |
 | [7697449 Amazon review9](compact-taskplan-7697449-amazon-review9.json) | 31/31/31 | 3/0 | 810.637 | 1.5096340919232485497545738509 | Judge 31 omitted original-obligation grounding; report rejected |

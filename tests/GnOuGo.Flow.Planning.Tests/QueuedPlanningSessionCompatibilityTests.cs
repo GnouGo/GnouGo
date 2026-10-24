@@ -41,8 +41,8 @@ public sealed class QueuedPlanningSessionCompatibilityTests
         Assert.Equal(PlanningStatus.FinalReview, state.Status);
         Assert.True(state.Construction!.Complete);
         Assert.Equal(2, state.Construction.Version);
-        Assert.Equal(4, state.Construction.Compact!.PresentationVersion);
-        Assert.Equal("4", state.Request.Options["construction_presentation_version"]!.ToString());
+        Assert.Equal(5, state.Construction.Compact!.PresentationVersion);
+        Assert.Equal("5", state.Request.Options["construction_presentation_version"]!.ToString());
         Assert.Single(state.Construction.Checkpoints);
         Assert.Equal("1", state.Request.Options["planning_diagnostics_version"]!.ToString());
         Assert.Equal("2", state.Request.Options["planning_input_review_version"]!.ToString());
@@ -66,8 +66,8 @@ public sealed class QueuedPlanningSessionCompatibilityTests
         state = await PlannerFixture.RunAsync(IncrementalRuntime(), state);
         Assert.Equal(PlanningStatus.FinalReview, state.Status);
         Assert.True(state.Construction!.Complete);
-        Assert.Equal(4, state.Construction.Compact!.PresentationVersion);
-        Assert.Equal("4", state.Request.Options["construction_presentation_version"]!.ToString());
+        Assert.Equal(5, state.Construction.Compact!.PresentationVersion);
+        Assert.Equal("5", state.Request.Options["construction_presentation_version"]!.ToString());
         Assert.Equal("compact-bindings-v10", state.Request.Options["compilation_profile"]!.ToString());
         Assert.Equal("1", state.Request.Options["planning_input_review_version"]!.ToString());
         Assert.Equal("1", state.Request.Options["business_judge_review_version"]!.ToString());
@@ -76,6 +76,7 @@ public sealed class QueuedPlanningSessionCompatibilityTests
     [Theory]
     [InlineData(3)]
     [InlineData(4)]
+    [InlineData(5)]
     public async Task ExplicitIntentRevisionRetainsPresentationAndCumulativeAccounting(int version)
     {
         var runtime = IncrementalRuntime();
@@ -139,7 +140,10 @@ public sealed class QueuedPlanningSessionCompatibilityTests
                     { Tasks = runtime.Proposal.Plan!.Root.Tasks, Outputs = runtime.Proposal.Plan.Root.Outputs,
                         RequirementIds = ["req_0"], CloseScopes = ["/root"], Complete = true }, PlanningJsonContext.Default.PlanningConstructionExtension) };
             else
-                response = new() { ["findings"] = new JsonArray(), ["uncertainty"] = "Offline fixture; execution is unverified." };
+                response = HybridWorkflowPlanner.ConvergentConstructionReviewIssued(request.StructuredOutputSchema)
+                    ? new() { ["action"] = new JsonObject { ["kind"] = "findings", ["findings"] = new JsonArray() },
+                        ["uncertainty"] = "Offline fixture; execution is unverified." }
+                    : new() { ["findings"] = new JsonArray(), ["uncertainty"] = "Offline fixture; execution is unverified." };
             var schema = request.StructuredOutputSchema!.AsObject();
             return new() { Json = PlanningCorpus.Transport(response, schema, schema) };
         };

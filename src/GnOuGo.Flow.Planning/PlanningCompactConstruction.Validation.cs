@@ -8,7 +8,7 @@ internal static partial class PlanningCompactConstruction
 {
     internal static bool CanReselectInitialDraft(PlanningSession state) =>
         state.Construction is { Version: 2, Candidate: null } construction &&
-        construction.Compact is { PresentationVersion: 2 or 3 or 4, CurrentStep.DiscoveryComplete: true } &&
+        construction.Compact is { PresentationVersion: 2 or 3 or 4 or 5, CurrentStep.DiscoveryComplete: true } &&
         state.EditablePaths is null && state.Request.Options["automatic_correction"]?.ToString() != "false" &&
         construction.DraftCorrections < construction.Limits.MaxCorrectionsPerDraft &&
         PlanningModelCalls.RemainingRepairs(state) > 0;
@@ -159,7 +159,7 @@ internal static partial class PlanningCompactConstruction
         if (compact.Sources.Any(s => s.Kind is "page" or "answer_page" or "revision_page" && !s.Indexed))
             yield return new("CONSTRUCTION_SOURCE_REMAINING", "/construction/compact/sources", "Every original source page must be indexed before completion.");
         foreach (var requirement in state.Construction.Requirements.Where(r => !step.CloseRequirementIds.Contains(r.Id, StringComparer.Ordinal) &&
-            (r.Status != "closed" || step.Kind != "close" && step.RequirementIds.Contains(r.Id, StringComparer.Ordinal))))
+            (r.Status != "closed" || !UsesConvergentConstruction(state) && step.Kind != "close" && step.RequirementIds.Contains(r.Id, StringComparer.Ordinal))))
             yield return new("CONSTRUCTION_REQUIREMENT_REMAINING", "/requirements/" + requirement.Id,
                 "This original requirement has contributions but has not explicitly closed; continue its business substeps before completion.");
     }
@@ -170,7 +170,8 @@ internal static partial class PlanningCompactConstruction
         state.Requirements = CandidateRequirements(state);
         foreach (var requirement in state.Construction!.Requirements.Where(r => step.RequirementIds.Contains(r.Id, StringComparer.Ordinal)))
             requirement.Status = step.CloseRequirementIds.Contains(requirement.Id, StringComparer.Ordinal) ||
-                requirement.Status == "closed" && step.Kind == "close" ? "closed" : "in_progress";
+                requirement.Status == "closed" && (UsesConvergentConstruction(state) || step.Kind == "close") ? "closed" : "in_progress";
+        AcceptContinuation(state);
         compact.CurrentStep = null;
         compact.PendingCommitments.Clear();
         compact.ReplacementScope = null; compact.ReplacementRequirements = null;
@@ -278,6 +279,7 @@ internal static partial class PlanningCompactConstruction
                 ["items"] = new JsonArray(state.Construction.Checkpoints.Skip(next).Take(4).Select(c => (JsonNode)new JsonObject
                 { ["sequence"] = c.Sequence, ["hash"] = c.PlanHash, ["fragment"] = c.Fragment.DeepClone(),
                     ["step"] = JsonSerializer.SerializeToNode(c.Step, PlanningJsonContext.Default.PlanningConstructionStep) }).ToArray()) };
+            if (UsesConvergentConstruction(state)) value["next"] = next + 4 < state.Construction.Checkpoints.Count ? "page:checkpoints:" + (next + 4) : null;
             return true;
         }
         return false;

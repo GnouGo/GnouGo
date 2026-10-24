@@ -882,7 +882,12 @@ A rejected mandatory Judge request is reported with its host admission cause and
 has no provider receipt or business verdict. A larger ceiling requires a separately
 frozen fresh profile, never an in-session change or silent context truncation.
 
-Fresh cohorts capture presentation revision 4. Scoped reviews receive compiler
+Fresh cohorts capture presentation revision 5. Its required Judge action and separate
+citation domains are interpreted from the issued schema; raw reports remain retained.
+Combined review coverage counts as one logical request, while every retry remains a
+physical attempt. Report prior-defect resolution, persistent findings and inconclusive
+reports separately; no checkpoint increases the independent business denominator.
+The earlier revision-4 behavior remains frozen for historical cohorts. Scoped reviews receive compiler
 facts separately from business and runtime evidence, plus bounded exact caller
 declarations. An explicit inconclusive review is not acceptance. Its single
 possible reassessment uses only already relevant omitted exact support, retains

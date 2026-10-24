@@ -50,7 +50,7 @@ public sealed class CompactConstructionHostTests
         Assert.Equal(0, effects);
         Assert.Null(state.ApprovedHash); Assert.Null(state.SavedAgentId);
         Assert.True(state.Construction!.Complete);
-        Assert.Equal(4, state.Construction.Compact!.PresentationVersion);
+        Assert.Equal(5, state.Construction.Compact!.PresentationVersion);
         Assert.True(Assert.Single(state.Construction.Compact.InterfaceExtractions!).Complete);
         Assert.Equal("closed", Assert.Single(state.Construction.Requirements).Status);
         Assert.Single(state.Construction.Checkpoints);
@@ -178,7 +178,10 @@ public sealed class CompactConstructionHostTests
                     };
                     break;
                 case "construction_local_judge":
-                    response = new() { ["findings"] = new JsonArray(), ["uncertainty"] = "Runtime execution remains unverified.", ["evidenceRequests"] = null };
+                    Assert.NotNull(request.StructuredOutputSchema["properties"]?["action"]);
+                    Assert.Null(request.StructuredOutputSchema["properties"]?["findings"]);
+                    response = new() { ["action"] = new JsonObject { ["kind"] = "findings", ["findings"] = new JsonArray() },
+                        ["uncertainty"] = "Runtime execution remains unverified." };
                     break;
                 default: throw new InvalidOperationException("Unexpected construction phase: " + phase);
             }

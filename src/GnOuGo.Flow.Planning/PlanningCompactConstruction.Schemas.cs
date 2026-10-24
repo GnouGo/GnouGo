@@ -27,7 +27,7 @@ internal static partial class PlanningCompactConstruction
         var canComplete = canClose && open.All(path => path == step.Scope) &&
             !compact.Sources.Any(s => s.Kind is "page" or "answer_page" or "revision_page" && !s.Indexed) &&
             construction.Requirements.All(r => step.CloseRequirementIds.Contains(r.Id, StringComparer.Ordinal) ||
-                r.Status == "closed" && (step.Kind == "close" || !step.RequirementIds.Contains(r.Id, StringComparer.Ordinal)));
+                r.Status == "closed" && (UsesConvergentConstruction(state) || step.Kind == "close" || !step.RequirementIds.Contains(r.Id, StringComparer.Ordinal)));
         // This narrows new presentations only. Existing semantic validation still
         // owns returned candidates, including responses to earlier issued schemas.
         return (canClose && (step.Scope != "/root" || canComplete), canComplete);
@@ -98,12 +98,16 @@ internal static partial class PlanningCompactConstruction
                 (state.Diagnostics.Any(d => d.Required) || state.Construction.Candidate?.Diagnostics.Any(d => d.Required) == true)
                 ? PlanningSchemas.Nullable(new JsonObject { ["type"] = "string", ["minLength"] = 1, ["maxLength"] = 512 }) : PlanningSchemas.Type("null")));
         schema["$defs"] = definitions;
+        ConstrainReselectionSchema(state, schema);
         var reselection = fresh && schema["properties"]!["reselectStep"]!["type"]?.ToString() != "null"
             ? schema["properties"]!["reselectStep"]!.DeepClone().AsObject() : null;
         var projected = PlanningContractValidation.ProjectStructuredOutputSchema(PlanningSchemas.Compact(schema));
         if (reselection is not null)
         {
-            reselection["description"] = "A precise reason to replace this tentative step, not a step ID. Explain what prevents it and identify any missing prerequisite; scope and original requirements remain fixed.";
+            if (UsesConvergentConstruction(state)) reselection = projected["properties"]!["reselectStep"]!.DeepClone().AsObject();
+            reselection["description"] = UsesConvergentConstruction(state)
+                ? "Abandon an unsuitable action or explicitly suspend its retained consumer for one evidenced prerequisite. Scope and original requirements remain fixed."
+                : "A precise reason to replace this tentative step, not a step ID. Explain what prevents it and identify any missing prerequisite; scope and original requirements remain fixed.";
             projected["properties"]!["reselectStep"] = reselection;
         }
         // Compact removes presentation annotations from the shared grammar. Put

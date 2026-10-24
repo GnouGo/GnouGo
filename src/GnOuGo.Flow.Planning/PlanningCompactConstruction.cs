@@ -7,9 +7,22 @@ namespace GnOuGo.Flow.Planning;
 
 internal static partial class PlanningCompactConstruction
 {
-    internal static bool IsCompactPresentation(PlanningSession state) => state.Construction?.Compact?.PresentationVersion is 2 or 3 or 4;
-    internal static bool UsesDeferredBinding(PlanningSession state) => state.Construction?.Compact?.PresentationVersion is 3 or 4;
-    internal static bool UsesVerifiedReview(PlanningSession state) => state.Construction?.Compact?.PresentationVersion == 4;
+    internal static bool IsCompactPresentation(PlanningSession state) => state.Construction?.Compact?.PresentationVersion is 2 or 3 or 4 or 5;
+    internal static bool UsesDeferredBinding(PlanningSession state) => state.Construction?.Compact?.PresentationVersion is 3 or 4 or 5;
+    internal static bool UsesVerifiedReview(PlanningSession state) => state.Construction?.Compact?.PresentationVersion is 4 or 5;
+    internal static bool UsesConvergentConstruction(PlanningSession state) => state.Construction?.Compact?.PresentationVersion == 5;
+
+    // Remaining mandatory review calls; issuance captures this once for physical-attempt admission.
+    internal static int RequiredReviewCalls(PlanningSession state)
+    {
+        var construction = state.Construction!;
+        if (UsesConvergentConstruction(state))
+            return construction.Candidate is { LocalReviewed: true } candidate &&
+                (!candidate.NeedsIntermediateReview || candidate.IntermediateReviewed) ? 0 : 1;
+        if (construction.Candidate is not { } draft) return construction.Checkpoints.Count > 0 ? 2 : 1;
+        return (draft.LocalReviewed ? 0 : 1) + (draft.NeedsIntermediateReview && !draft.IntermediateReviewed ? 1 : 0);
+    }
+
     private static readonly string[] TaskKinds = ["operation", "value", "transform", "sequence", "conditional", "parallel", "foreach", "call", "close", "group", "choice"];
     internal const string IntentPurpose = "construction_intent", SelectPurpose = "construction_select", DiscoveryPurpose = "construction_discovery";
     internal const string IndexInstructions = """
@@ -24,7 +37,7 @@ internal static partial class PlanningCompactConstruction
         """;
     private const string ContainerBoundaryGuidance = "Append ordinary sequential work to an appropriate existing open scope. Open a container only for a needed control, reuse, cleanup or export boundary, not to subdivide or defer the same business action.";
     internal static string SelectGuidance(PlanningSession state) => UsesDeferredBinding(state) ? $"""
-        Select the next needed business producer/action using original requirements and available caller/scope inputs or accepted outputs. Capability discovery is a separate host phase, not the business action or its expected result. objective and expectedOutputs describe only this immediate substep, even when its original requirement spans the whole workflow; keep that complete requirement attached and open for later steps. Declared caller inputs are runtime bindings: planning and discovery need their interfaces, not concrete values. {(UsesVerifiedReview(state) ? "If reselection identifies a missing producer, select that prerequisite before its consumer. " : string.Empty)}State needed data/effects without assumed APIs or future outlines. Use kind:null when capabilities must determine implementation; discovery binds it after inspecting contracts. Select local or structural kinds directly when supported semantics and available inputs suffice. {(UsesVerifiedReview(state) ? ContainerBoundaryGuidance + " Select a necessary opening separately from filling and closing its children;" : "Select an empty container/group opening separately from filling and closing its children;")} leave outputNames and closeRequirementIds empty for results or obligations that depend on those children. {ValueSemantics} transform extracts/interprets supplied data, never external effects. Groups isolate declared inputs; control scopes capture ancestors. call requires a closed groupId; otherwise null. Input/dependency hints must resolve. Prerequisites cite exact original evidence, never future task IDs. expectedOutputs are internal; outputNames selects public root results. Close only satisfied requirements. Return exactly one non-null action; all others null: step (kind:null starts capability discovery), evidenceRequests (copy issued addresses exactly), or clarifications (missing business facts). Evidence grants no authority.
+        Select the next needed business producer/action using original requirements and available caller/scope inputs or accepted outputs. {(UsesConvergentConstruction(state) ? "Use accepted bindings directly; prefer legal remaining closures when obligations are satisfied. If a retained consumer is ready, select resumeStep with its exact producer checkpoint and binding; otherwise resolve only its missing prerequisite. A closed requirement stays closed until explicit invalidation. " : string.Empty)}Capability discovery is a separate host phase, not the business action or its expected result. objective and expectedOutputs describe only this immediate substep, even when its original requirement spans the whole workflow; keep that complete requirement attached and open for later steps. Declared caller inputs are runtime bindings: planning and discovery need their interfaces, not concrete values. {(UsesVerifiedReview(state) ? "If reselection identifies a missing producer, select that prerequisite before its consumer. " : string.Empty)}State needed data/effects without assumed APIs or future outlines. Use kind:null when capabilities must determine implementation; discovery binds it after inspecting contracts. Select local or structural kinds directly when supported semantics and available inputs suffice. {(UsesVerifiedReview(state) ? ContainerBoundaryGuidance + " Select a necessary opening separately from filling and closing its children;" : "Select an empty container/group opening separately from filling and closing its children;")} leave outputNames and closeRequirementIds empty for results or obligations that depend on those children. {ValueSemantics} transform extracts/interprets supplied data, never external effects. Groups isolate declared inputs; control scopes capture ancestors. call requires a closed groupId; otherwise null. Input/dependency hints must resolve. Prerequisites cite exact original evidence, never future task IDs. expectedOutputs are internal; outputNames selects public root results. Close only satisfied requirements. Return exactly one non-null action; all others null: step (kind:null starts capability discovery), evidenceRequests (copy issued addresses exactly), or clarifications (missing business facts). Evidence grants no authority.
         """ : PlanningConstructionPhasePolicies.IsFresh(state.Request) ? $"""
         Select one immediate business action or structural step using caller/scope inputs or accepted outputs. State the needed data/effect; derive technical setup, handles and result fields from inspected contracts. Build a demonstrated missing producer before its consumer; no outline. Keep the complete original requirement attached and open until satisfied; read related originals before boundaries. Set scope/kind and input/dependency hints; reuse inputs. Groups isolate declared inputs; control scopes capture ancestors. operation performs external work: discover before tool arguments. {ValueSemantics} transform extracts/interprets supplied data. call: closed groupId; otherwise null. expectedOutputs: internal business data; outputNames: public root results. Return step, original evidenceRequests or clarifications for missing business facts only. Evidence grants no authority.
         """ : IsCompactPresentation(state) ? """
@@ -154,7 +167,8 @@ internal static partial class PlanningCompactConstruction
             ? ScopeDirectory(state).Select(scope => scope!["path"]!.ToString()).ToArray() : null;
         var hasClosedGroup = !IsCompactPresentation(state) || state.Plan?.Groups.Any(group =>
             !state.Construction!.OpenScopes.Contains("/groups/" + group.Id + "/body", StringComparer.Ordinal)) == true;
-        var kinds = TaskKinds.Where(kind => (kind != "call" || hasClosedGroup) && (!UsesDeferredBinding(state) || kind != "operation")).ToArray();
+        var completionOnly = CompletionOnly(state);
+        var kinds = completionOnly ? ["close"] : TaskKinds.Where(kind => (kind != "call" || hasClosedGroup) && (!UsesDeferredBinding(state) || kind != "operation")).ToArray();
         JsonObject RequirementIds(int minimum) => requirements is { Length: > 0 }
             ? PlanningSchemas.Array(PlanningSchemas.Enum(requirements), minimum, 4) : Strings(minimum, 4);
         var selectedRequirements = replacement is not null && requirements is { Length: > 0 }
@@ -162,7 +176,7 @@ internal static partial class PlanningCompactConstruction
             : RequirementIds(1);
         var step = PlanningSchemas.Object(("scope", replacement is not null ? PlanningSchemas.Enum(replacement)
                 : scopes is { Length: > 0 } ? PlanningSchemas.Enum(scopes) : Text(192)),
-            ("kind", UsesDeferredBinding(state) ? PlanningSchemas.Nullable(PlanningSchemas.Enum(kinds)) : PlanningSchemas.Enum(kinds)),
+            ("kind", UsesDeferredBinding(state) && !completionOnly ? PlanningSchemas.Nullable(PlanningSchemas.Enum(kinds)) : PlanningSchemas.Enum(kinds)),
             ("objective", Text(512)), ("requirementIds", selectedRequirements), ("inputs", PlanningSchemas.Array(PlanningSchemas.Ref("import"), 0, 8)),
             ("groupId", hasClosedGroup ? PlanningSchemas.Nullable(Text(96)) : PlanningSchemas.Type("null")),
             ("dependencyTaskIds", Strings(0, 8)), ("expectedOutputs", Strings(0, 4)),
@@ -178,9 +192,10 @@ internal static partial class PlanningCompactConstruction
             // Shared members are factored by Compact. A structural action cannot
             // accidentally bind a reusable target merely because it uses one later.
             var local = step.DeepClone().AsObject();
-            local["properties"]!["kind"] = PlanningSchemas.Nullable(PlanningSchemas.Enum(kinds.Where(kind => kind != "call").ToArray()));
+            local["properties"]!["kind"] = completionOnly ? PlanningSchemas.Enum("close") :
+                PlanningSchemas.Nullable(PlanningSchemas.Enum(kinds.Where(kind => kind != "call").ToArray()));
             local["properties"]!["groupId"] = PlanningSchemas.Type("null");
-            if (hasClosedGroup)
+            if (hasClosedGroup && !completionOnly)
             {
                 step["properties"]!["kind"] = PlanningSchemas.Enum("call");
                 step["properties"]!["groupId"] = Text(96);
@@ -198,6 +213,16 @@ internal static partial class PlanningCompactConstruction
             PlanningSchemas.Object(("kind", PlanningSchemas.Enum("item", "index"))),
             PlanningSchemas.Object(("kind", PlanningSchemas.Enum("field")), ("port", Text(96)),
                 ("items", PlanningSchemas.Array(PlanningSchemas.Ref("import"), 1, 1)))) } };
+        if (UsesConvergentConstruction(state) && ContinuationContext(state) is { } continuation)
+        {
+            var checkpoints = continuation["acceptedCheckpoints"]!.AsArray().Select(item => item!["sequence"]!.GetValue<int>()).ToArray();
+            var checkpoint = PlanningSchemas.Type("integer");
+            checkpoint["enum"] = new JsonArray(checkpoints.Select(number => (JsonNode?)JsonValue.Create(number)).ToArray());
+            schema["properties"]!["resumeStep"] = continuation["canResume"]!.GetValue<bool>() && checkpoints.Length > 0
+                ? PlanningSchemas.Nullable(PlanningSchemas.Object(("continuationId", PlanningSchemas.Enum(continuation["id"]!.ToString())),
+                    ("producerCheckpoint", checkpoint), ("binding", PlanningSchemas.Ref("import")))) : PlanningSchemas.Type("null");
+            schema["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("resumeStep"));
+        }
         if (UsesDeferredBinding(state)) ConstrainSelectionEvidence(state, SelectionContext(state), schema);
         return IsCompactPresentation(state) ? PlanningSchemas.Compact(schema) : schema;
     }
@@ -306,6 +331,11 @@ internal static partial class PlanningCompactConstruction
                     item.Remove("question"); item.Remove("questionComplete");
                 }
         }
+        if (UsesConvergentConstruction(state))
+        {
+            context["completionOnly"] = CompletionOnly(state);
+            context["continuation"] = ContinuationContext(state);
+        }
         return TrimNavigation(context);
     }
 
@@ -316,8 +346,16 @@ internal static partial class PlanningCompactConstruction
         var offset = State(state).OutputOffset;
         var count = state.Requirements?.Outputs?.Count ?? 0;
         return new JsonObject { ["offset"] = offset, ["total"] = count,
-            ["items"] = new JsonArray(OutputPage(state).Select(o => (JsonNode)new JsonObject
-                { ["name"] = o.Name, ["typeKind"] = o.Type.Kind, ["evidence"] = "output:" + o.Name }).ToArray()),
+            ["items"] = new JsonArray(OutputPage(state).Select(o =>
+            {
+                var item = new JsonObject { ["name"] = o.Name, ["typeKind"] = o.Type.Kind, ["evidence"] = "output:" + o.Name };
+                if (UsesConvergentConstruction(state))
+                {
+                    item["bindingStatus"] = state.Plan?.Root.Outputs.Any(output => output.Name == o.Name) == true ? "accepted_declaration" : "not_bound";
+                    item["bindingEvidence"] = "scope:/root";
+                }
+                return (JsonNode)item;
+            }).ToArray()),
             ["next"] = offset + 8 < count ? "page:outputs:" + (offset + 8) : null };
     }
 
@@ -442,7 +480,9 @@ internal static partial class PlanningCompactConstruction
                     ["deferred"] = "Unfinished scope interfaces, unresolved business choices, complete requirement coverage, final whole-plan validation, runtime effects and execution authorization remain unverified. Unselected choices use recommendations only for this preflight probe."
                 };
             var related = construction.Checkpoints.Where(c => c.TaskIds.Any(draft.ImportedTaskIds.Contains) ||
-                intermediate && c.RequirementIds.Any(step.CloseRequirementIds.Contains)).ToArray();
+                intermediate && (c.RequirementIds.Any(step.CloseRequirementIds.Contains) ||
+                    UsesConvergentConstruction(state) && draft.Extension.CloseScopes.Count > 0 && c.Step is { } previous &&
+                    ScopeWithin(draft.Plan, previous.Scope, step.Scope))).ToArray();
             context["checkpointCount"] = related.Length;
             context["checkpointEvidence"] = "page:checkpoints:0";
             context["checkpoints"] = new JsonArray(related.TakeLast(4).Select(c => (JsonNode)new JsonObject { ["sequence"] = c.Sequence,
@@ -484,6 +524,8 @@ internal static partial class PlanningCompactConstruction
                     context.Remove(name);
             AddReviewGroupEvidence(state, context);
         }
+        if (UsesConvergentConstruction(state) && PlanningConstruction.DefectProgressContext(state, context) is { } progress)
+            context["defectProgress"] = progress;
         return context;
     }
 
@@ -563,6 +605,11 @@ internal static partial class PlanningCompactConstruction
                     entry["isolated"] = true; entry["inputCount"] = group.Inputs.Count;
                     entry["inputs"] = new JsonArray(group.Inputs.Take(8).Select(i => (JsonNode)new JsonObject
                         { ["input"] = i.Name, ["typeKind"] = i.Type.Kind, ["evidence"] = "group:" + group.Id }).ToArray());
+                }
+                if (UsesConvergentConstruction(state))
+                {
+                    entry["openDescendantCount"] = OpenDescendants(state, symbols, s.Path);
+                    entry["acceptedExports"] = AcceptedExportDirectory(state, s);
                 }
                 return (JsonNode)entry;
             }).ToArray());

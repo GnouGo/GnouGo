@@ -444,6 +444,7 @@ internal static partial class PlanningCompactConstruction
             schema["description"] = DescriptionKnowledgePrefix + DescriptionKnowledgeHash(DescriptionKnowledge(state, state.Discovery.Pages.Count));
         if (UsesDeferredBinding(state) && PlanningConstructionPhasePolicies.IsFresh(state.Request))
             ConstrainDiscoveryEvidence(state, DiscoveryContext(state), schema);
+        ConstrainReselectionSchema(state, schema);
         return schema;
     }
 
