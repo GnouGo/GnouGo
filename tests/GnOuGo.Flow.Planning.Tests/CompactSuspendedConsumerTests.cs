@@ -1,5 +1,7 @@
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
 
@@ -32,6 +34,14 @@ public sealed class CompactSuspendedConsumerTests
             // list omitted resumeStep although its issued grammar already allowed it.
             var request = SelectionRequest(state, PlanningCompactConstruction.SelectGuidance(state)
                 .Replace(ResumeAction, "", StringComparison.Ordinal));
+            var previousContext = RequestContext(request);
+            var previousContinuation = previousContext["continuation"]!.AsObject();
+            previousContext["continuation"] = new JsonObject(previousContinuation
+                .Where(pair => pair.Key is not ("basis" or "bindingValidation"))
+                .Select(pair => new KeyValuePair<string, JsonNode?>(pair.Key == "canAttemptResume" ? "canResume" : pair.Key, pair.Value?.DeepClone())));
+            request = PlanningModelCalls.PrepareRequest(state, PlanningCompactConstruction.SelectPurpose,
+                request.Prompt[..(request.Prompt.LastIndexOf('\n') + 1)] + PlanningJsonTransport.Prompt(previousContext),
+                request.StructuredOutputSchema!.AsObject(), state.Construction!.Limits.DraftOutputTokens);
             state.PendingCall = new() { Id = request.ClientRequestId!, Purpose = PlanningCompactConstruction.SelectPurpose, Request = request };
             state.ModelCalls = 1;
             state = PlannerFixture.Clone(state);
@@ -43,7 +53,7 @@ public sealed class CompactSuspendedConsumerTests
             if (issued is not null) Assert.Equal(issued, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
             else Assert.Contains(ResumeAction, request.Prompt, StringComparison.Ordinal);
             var context = JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!;
-            Assert.True(context["continuation"]!["canResume"]!.GetValue<bool>());
+            Assert.True(context["continuation"]![retained ? "canResume" : "canAttemptResume"]!.GetValue<bool>());
             Assert.Equal(1, Assert.Single(context["continuation"]!["acceptedCheckpoints"]!.AsArray())!["sequence"]!.GetValue<int>());
             var producer = context["interfaces"]!.AsArray().Single(item => item?["task"]?.ToString() == "format_label")!;
             Assert.Equal("label", Assert.Single(producer["ports"]!.AsArray())!.ToString());
@@ -122,12 +132,12 @@ public sealed class CompactSuspendedConsumerTests
         Assert.Equal("consumer", item.Consumer.Id); Assert.Equal("/root", item.Consumer.Scope);
         Assert.Equal(["req"], item.Consumer.RequirementIds); Assert.Equal("number", item.Prerequisite.ExpectedType.Kind);
         Assert.Equal("suspend", state.Construction.Compact.RejectedSteps[0]["disposition"]!.ToString());
-        Assert.False(PlanningCompactConstruction.ContinuationContext(state)!["canResume"]!.GetValue<bool>());
+        Assert.False(PlanningCompactConstruction.ContinuationContext(state)!["canAttemptResume"]!.GetValue<bool>());
 
         AcceptProducer(state, "first", 3);
         AcceptProducer(state, "second", 7);
         Assert.Null(state.Construction.Compact.CurrentStep); // No automatic producer selection.
-        Assert.True(PlanningCompactConstruction.ContinuationContext(state)!["canResume"]!.GetValue<bool>());
+        Assert.True(PlanningCompactConstruction.ContinuationContext(state)!["canAttemptResume"]!.GetValue<bool>());
         var restored = PlannerFixture.Clone(state);
         PlanningCompactConstruction.ResumeStep(restored, item.Id, 1, Output("first"));
         var resumed = restored.Construction!.Compact!.CurrentStep!;
@@ -287,7 +297,7 @@ public sealed class CompactSuspendedConsumerTests
         checkpoint.TaskIds.Add("removed_sibling"); checkpoint.InvalidatedTaskIds = ["removed_sibling"];
         PlanningCompactConstruction.ReconcileContinuations(state);
         var context = PlanningCompactConstruction.ContinuationContext(state)!;
-        Assert.True(context["canResume"]!.GetValue<bool>());
+        Assert.True(context["canAttemptResume"]!.GetValue<bool>());
         Assert.Equal(1, Assert.Single(context["acceptedCheckpoints"]!.AsArray())!["sequence"]!.GetValue<int>());
         PlanningCompactConstruction.ResumeStep(state, context["id"]!.ToString(), 1, Output("producer"));
         Assert.Equal("producer", Assert.Single(state.Construction.Compact!.CurrentStep!.Inputs).Source);
@@ -377,6 +387,157 @@ public sealed class CompactSuspendedConsumerTests
         decision["disposition"] = "abandon";
         Assert.NotEmpty(PlanningContractValidation.ValidateInstanceFindings(response, schema));
     }
+
+    [Fact]
+    public async Task DraftAndJudgeRetainTheActiveTypedPrerequisiteAsNavigationOnly()
+    {
+        var state = await StringProducerState(suspend: true);
+        var compact = state.Construction!.Compact!;
+        compact.CurrentStep = Consumer(state, "next_producer");
+        var before = Snapshot(state);
+        var prerequisite = PlanningConstruction.Node(compact.SuspendedSteps![0].Prerequisite,
+            PlanningJsonContext.Default.PlanningConstructionTypedPrerequisite);
+        var draft = PlanningConstruction.DraftRequest(state, repair: false);
+        var navigation = RequestContext(draft)["continuation"]!;
+        Assert.Equal("model_authored_navigation", navigation["basis"]!.ToString());
+        Assert.True(JsonNode.DeepEquals(prerequisite, navigation["prerequisite"]));
+        Assert.Equal("Consume the formatted label.", navigation["consumer"]!["value"]!["objective"]!.ToString());
+        Assert.False(navigation["consumer"]!["omitted"]!.GetValue<bool>());
+        Assert.InRange(Encoding.UTF8.GetByteCount(navigation["consumer"]!["value"]!.ToJsonString()), 1, 1024);
+        Assert.Equal(before, Snapshot(state));
+        var address = navigation["evidence"]!.ToString();
+        Assert.Contains(address, draft.StructuredOutputSchema!.ToJsonString(), StringComparison.Ordinal);
+        Assert.True(PlanningCompactConstruction.LoadEvidence(state, address, out var retained));
+        Assert.Equal(compact.SuspendedSteps[0].Consumer.Objective, retained!["step"]!["objective"]!.ToString());
+        var extension = new PlanningConstructionExtension { Scope = "/root", RequirementIds = ["req"], Tasks =
+            [new() { Id = "next_producer", Kind = "value", Objective = "Produce the requested label.",
+                Outputs = [new("label", new() { Kind = "output", Source = "format_label", Port = "label" })] }] };
+        state.Construction.Candidate = PlanningConstruction.Apply(state, extension);
+        var candidate = state.Construction.Candidate;
+        Assert.Empty(TaskPlanCompiler.ValidateConstruction(candidate.Plan, state.Catalog!, state.Request,
+            candidate.OpenScopes.ToHashSet(StringComparer.Ordinal)).Diagnostics);
+        foreach (var intermediate in new[] { false, true })
+        {
+            var (context, request) = HybridWorkflowPlanner.CreateConstructionReviewRequest(state, intermediate);
+            Assert.True(JsonNode.DeepEquals(navigation, RequestContext(request)["continuation"]));
+            var without = context.DeepClone().AsObject(); without.Remove("continuation");
+            Assert.Equal(HybridWorkflowPlanner.ConvergentConstructionReviewSchema(without).ToJsonString(),
+                HybridWorkflowPlanner.ConvergentConstructionReviewSchema(context).ToJsonString());
+            Assert.DoesNotContain("/continuation", request.StructuredOutputSchema!.ToJsonString(), StringComparison.Ordinal);
+        }
+        Assert.Equal("waiting", compact.SuspendedSteps[0].Status);
+        Assert.Null(compact.ResumingStepId); Assert.Null(candidate.AuthorizedPaths);
+        Assert.Single(state.Construction.Checkpoints); Assert.Equal(0, state.ReplanAttempts);
+        Assert.Equal(0, state.ModelCalls);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void AttemptEligibilityDoesNotClaimThatAnIncompatibleProducerCanResume(bool wrongObject)
+    {
+        var state = State(); var decision = Suspend();
+        decision.Prerequisite!.ExpectedType = new() { Kind = "object", Fields =
+            [new() { Name = "requiredNumber", Type = new() { Kind = "number" }, Required = true }] };
+        PlanningCompactConstruction.Reselect(state, decision);
+        AcceptProducer(state, "producer", 1);
+        state.Plan!.Root.Tasks[0].Outputs[0] = new("number", wrongObject
+            ? new() { Kind = "object", Members = [new("otherNumber", new() { Kind = "number", Number = 1 })] }
+            : new() { Kind = "string", Text = "an address is not the requested record" });
+        var context = PlanningCompactConstruction.ContinuationContext(state)!;
+        Assert.False(context.ContainsKey("canResume"));
+        Assert.True(context["canAttemptResume"]!.GetValue<bool>());
+        Assert.Equal("model_authored_navigation", context["basis"]!.ToString());
+        var before = Snapshot(state);
+        var error = Assert.Throws<PlanningResponseException>(() => PlanningCompactConstruction.ResumeStep(state,
+            context["id"]!.ToString(), 1, Output("producer")));
+        Assert.Contains(error.Diagnostics, diagnostic => diagnostic.Code == "CONSTRUCTION_CONTINUATION_INVALID");
+        Assert.Equal(before, Snapshot(state));
+    }
+
+    [Fact]
+    public async Task NestedFieldProjectionRemainsAnExplicitTypedResumeChoice()
+    {
+        var state = State(); PlanningCompactConstruction.Reselect(state, Suspend()); AcceptProducer(state, "producer", 1);
+        state.Catalog = await new TestRuntime().DiscoverAsync(state.Request, PlannerFixture.Ct);
+        state.Plan!.Root.Tasks[0].Outputs[0] = new("number", new() { Kind = "object", Members =
+            [new("record", new() { Kind = "object", Members = [new("amount", new() { Kind = "number", Number = 1 })] })] });
+        var continuation = PlanningCompactConstruction.ContinuationContext(state)!;
+        var binding = new TaskValue { Kind = "field", Port = "amount", Items =
+            [new() { Kind = "field", Port = "record", Items = [Output("producer")] }] };
+        var probe = TaskPlanCompiler.ValidateConstruction(state.Plan, state.Catalog, state.Request,
+            state.Construction!.OpenScopes.ToHashSet(StringComparer.Ordinal),
+            new Dictionary<string, IReadOnlyList<TaskValue>> { ["/root"] = [binding] });
+        Assert.Empty(probe.Diagnostics);
+        Assert.Single(probe.Interfaces["/root"]);
+        var schema = PlanningCompactConstruction.SelectionSchema(state);
+        var response = new JsonObject { ["baseHash"] = PlanningConstruction.Hash(state.Plan), ["step"] = null,
+            ["evidenceRequests"] = null, ["clarifications"] = null, ["resumeStep"] = new JsonObject
+            { ["continuationId"] = continuation["id"]!.DeepClone(), ["producerCheckpoint"] = 1,
+                ["binding"] = PlanningJsonTransport.TaskPlanPart(PlanningConstruction.Node(binding, PlanningJsonContext.Default.TaskValue)) } };
+        Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(response, schema));
+        PlanningCompactConstruction.ResumeStep(state, continuation["id"]!.ToString(), 1, binding);
+        Assert.True(JsonNode.DeepEquals(PlanningConstruction.Node(binding, PlanningJsonContext.Default.TaskValue),
+            PlanningConstruction.Node(Assert.Single(state.Construction!.Compact!.CurrentStep!.Inputs), PlanningJsonContext.Default.TaskValue)));
+    }
+
+    [Fact]
+    public async Task OptionalConsumerProjectionIsBoundedButTheRequiredTypeIsNeverCropped()
+    {
+        var state = await StringProducerState(suspend: false);
+        var compact = state.Construction!.Compact!;
+        compact.CurrentStep = Consumer(state, "consumer");
+        compact.CurrentStep.Objective = new string('漢', 512); // Valid length, large escaped UTF-8 presentation.
+        state.Diagnostics = [new("CONSTRUCTION_TENTATIVE_SELECTION", "/step", "An exact prerequisite is missing.")];
+        var decision = Suspend();
+        decision.Prerequisite!.ExpectedType = new() { Kind = "string",
+            Enum = Enumerable.Range(0, 256).Select(index => index.ToString(System.Globalization.CultureInfo.InvariantCulture) + new string('x', 990)).ToList() };
+        PlanningCompactConstruction.Reselect(state, decision);
+        var item = Assert.Single(compact.SuspendedSteps!);
+        compact.CurrentStep = Consumer(state, "next_producer");
+        var request = PlanningConstruction.DraftRequest(state, repair: false);
+        var navigation = RequestContext(request)["continuation"]!;
+        Assert.True(navigation["consumer"]!["omitted"]!.GetValue<bool>());
+        Assert.Null(navigation["consumer"]!["value"]);
+        Assert.True(navigation["consumer"]!["bytes"]!.GetValue<int>() > 1024);
+        Assert.True(JsonNode.DeepEquals(PlanningConstruction.Node(item.Prerequisite, PlanningJsonContext.Default.PlanningConstructionTypedPrerequisite),
+            navigation["prerequisite"]));
+        var runtime = new TestRuntime();
+        var error = await Assert.ThrowsAsync<WorkflowRuntimeException>(() => PlanningModelCalls.CallAsync(state, runtime,
+            PlanningConstruction.DraftPurpose, request.Prompt, request.StructuredOutputSchema!.AsObject(), PlannerFixture.Ct));
+        Assert.Equal("MODEL_INPUT_LIMIT", error.Code); Assert.Empty(runtime.Calls); Assert.Null(state.PendingCall);
+        Assert.Equal(0, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);
+    }
+
+    [Fact]
+    public async Task StaleOrCompletedContinuationsDoNotEnterLaterDrafts()
+    {
+        var state = await StringProducerState(suspend: true); var compact = state.Construction!.Compact!;
+        compact.CurrentStep = Consumer(state, "later");
+        Assert.NotNull(PlanningCompactConstruction.Context(state)["continuation"]);
+        var stale = PlannerFixture.Clone(state); stale.Construction!.Compact!.Sources[0].Text += "changed";
+        var before = Snapshot(stale);
+        Assert.Null(PlanningCompactConstruction.Context(stale)["continuation"]); Assert.Equal(before, Snapshot(stale));
+        compact.SuspendedSteps![0].Status = "completed";
+        Assert.Null(PlanningCompactConstruction.Context(state)["continuation"]);
+    }
+
+    [Theory]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    public async Task HistoricalDraftRequestsIgnoreContinuationMetadataByteForByte(int presentation)
+    {
+        var state = await StringProducerState(suspend: false, presentation);
+        state.Construction!.Compact!.CurrentStep = Consumer(state, "later");
+        var original = JsonSerializer.Serialize(PlanningConstruction.DraftRequest(state, repair: false), PlanningJsonContext.Default.LLMRequest);
+        var fresh = await StringProducerState(suspend: true);
+        state.Construction.Compact.SuspendedSteps = fresh.Construction!.Compact!.SuspendedSteps;
+        Assert.Equal(original, JsonSerializer.Serialize(PlanningConstruction.DraftRequest(state, repair: false), PlanningJsonContext.Default.LLMRequest));
+        Assert.Null(PlanningCompactConstruction.Context(state)["continuation"]);
+    }
+
+    private static JsonObject RequestContext(LLMRequest request) => JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!.AsObject();
 
     private static async Task<PlanningSession> StringProducerState(bool suspend, int presentation = 5)
     {

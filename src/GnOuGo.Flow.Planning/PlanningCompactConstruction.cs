@@ -218,7 +218,7 @@ internal static partial class PlanningCompactConstruction
             var checkpoints = continuation["acceptedCheckpoints"]!.AsArray().Select(item => item!["sequence"]!.GetValue<int>()).ToArray();
             var checkpoint = PlanningSchemas.Type("integer");
             checkpoint["enum"] = new JsonArray(checkpoints.Select(number => (JsonNode?)JsonValue.Create(number)).ToArray());
-            schema["properties"]!["resumeStep"] = continuation["canResume"]!.GetValue<bool>() && checkpoints.Length > 0
+            schema["properties"]!["resumeStep"] = continuation["canAttemptResume"]!.GetValue<bool>() && checkpoints.Length > 0
                 ? PlanningSchemas.Nullable(PlanningSchemas.Object(("continuationId", PlanningSchemas.Enum(continuation["id"]!.ToString())),
                     ("producerCheckpoint", checkpoint), ("binding", PlanningSchemas.Ref("import")))) : PlanningSchemas.Type("null");
             schema["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("resumeStep"));
@@ -404,6 +404,7 @@ internal static partial class PlanningCompactConstruction
             ["reviewScope"] = intermediate ? "junction" : review ? "draft" : "extension"
         };
         if (CompanionOperationNavigation(state) is { } companions) context["companionOperations"] = companions;
+        if (DraftContinuationContext(state) is { } continuation) context["continuation"] = continuation;
         if (step.OutputNames.Count > 0)
             context["outputs"] = PlanningConstruction.Node(state.Requirements!.Outputs!.Where(o => step.OutputNames.Contains(o.Name, StringComparer.Ordinal)).ToList(), PlanningJsonContext.Default.ListTaskInput);
         if (step.GroupId is { } groupId) context["group"] = GroupInterface(state, groupId, verified?.Accepted);

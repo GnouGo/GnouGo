@@ -1042,8 +1042,9 @@ differences, while preserving shared safety, call, correction and cumulative lim
 Its outcomes compare configurations, not architecture alone. Default matched mode
 still requires identical effective reasoning/output settings. All nine candidate
 runs in the agreed 18 alternating runs (nine pairs) must pass independent business oracles;
-missing baseline evidence is explicitly incomparable. See the maintained
-[convergence summary and evidence index](../../docs/evidence/compact-taskplan-convergence.md).
+missing baseline evidence is explicitly incomparable. The latest [three-case diagnostic results](../../docs/evidence/compact-taskplan-convergence.md)
+remain incomplete. Exact retention closures, source assessments and original-format
+evidence are appended separately without rewriting measured archives or releasing reservations.
 
 Fresh sessions capture the Core confirmed-response transport policy before freezing:
 at most three physical attempts, no uncertain retries, a ten-minute per-attempt

@@ -85,6 +85,18 @@ internal static partial class PlanningCompactConstruction
                 ("operation", PlanningSchemas.Enum(step.OperationIds.ToArray())),
                 ("result", publicOutputs.Length == 0 ? PlanningSchemas.Type("null") : PlanningSchemas.Nullable(PlanningSchemas.Object(
                     ("port", PlanningSchemas.String()), ("output", PlanningSchemas.Enum(publicOutputs)))))), 0, 32));
+        if (UsesConvergentConstruction(state) && step.OperationIds.Count > 0 && step.RequirementIds.Count > 0)
+        {
+            var alternatives = SelectedContracts(state).Select(TaskOperations.Describe).Select(operation =>
+                PlanningSchemas.Object(("requirementId", PlanningSchemas.Enum(step.RequirementIds.ToArray())),
+                    ("operation", PlanningSchemas.Enum(operation.Id)),
+                    ("result", publicOutputs.Length == 0 || operation.Outputs.Count == 0 ? PlanningSchemas.Type("null") :
+                        PlanningSchemas.Nullable(PlanningSchemas.Object(
+                            ("port", PlanningSchemas.Enum(operation.Outputs.Select(port => port.Name).ToArray())),
+                            ("output", PlanningSchemas.Enum(publicOutputs))))))).ToArray();
+            commitments = PlanningSchemas.Nullable(PlanningSchemas.Array(alternatives.Length == 1 ? alternatives[0] :
+                new JsonObject { ["anyOf"] = new JsonArray(alternatives.Cast<JsonNode>().ToArray()) }, 0, 32));
+        }
         var rollback = !fresh || state.Construction.Candidate is null && state.Phase != PlanningPhase.Replanning &&
             state.Plan is { } accepted && TaskPlanRevisions.Tasks(accepted).Any();
         var schema = PlanningSchemas.Object(("baseHash", PlanningSchemas.Enum(step.BaseHash)), ("requirements", PlanningSchemas.Type("null")),

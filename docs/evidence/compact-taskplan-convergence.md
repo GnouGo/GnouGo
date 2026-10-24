@@ -1,5 +1,62 @@
 # Compact TaskPlan convergence
 
+## Source `afc8861e4`: all three diagnostics remain incomplete
+
+No afc scenario produced an artifact or executed. PR #120 remains Draft; the
+three-case acceptance gate and 18 paired comparisons remain unmet.
+
+| Frozen afc case | Logical calls / attempts / receipts | Corrections / checkpoints | Outcome |
+| --- | ---: | ---: | --- |
+| [Collections](compact-taskplan-afc8861e4-collections-pending.json) | 2 / 4 / 1 | 0 / 0 | Response-less Transport; exact authorized closure subsequently applied |
+| [Amazon](compact-taskplan-afc8861e4-amazon.json) | 44 / 45 / 44 | 4 / 4 | Prerequisite binding failed type check; correction allowance exhausted |
+| [Review PR](compact-taskplan-afc8861e4-code.json) | 47 / 47 / 47 | 3 / 2 | Commitment refers to an undeclared operation result port |
+
+Collections request 2 recorded HTTP 500, HTTP 500, then Transport without HTTP status
+or receipt. Its [separate applied closure](compact-taskplan-afc8861e4-collections-retained-closure.json)
+forbids replay and continuation, retaining all three reservations totaling
+**EUR 2.7926104417670682730923694779**. The pending snapshot remains unchanged;
+a missing receipt proves neither empty output, exhaustion nor timeout.
+
+Amazon's [independent assessment](compact-taskplan-afc8861e4-amazon-assessment.json)
+confirms the final type rejection. The readiness flag proved only current lineage
+and a later checkpoint; relevant generation/review contexts omitted the retained
+model-authored prerequisite type. Redundant accepted URL producers and these
+presentation gaps do not establish why the model made its choices or predict a fix's benefit.
+
+Code's [separate source assessment](compact-taskplan-afc8861e4-code-assessment.json)
+confirms the undeclared-port rejection. The replacement chain used **3 of 3** local
+corrections despite **3 of 4** global corrections; no missing fourth-correction route
+is demonstrated. Prior technical feedback remained available. Two Judge findings treated
+an operation's existing write-permission prerequisite as permission expansion, but
+that inference is unsupported: effective `AllowWrites` was absent from the issued
+context and remains unknown. No permission is inferred or relaxed. Code cost
+**EUR 2.4283578759482373940205265507**, with no new reservation; no false-positive count,
+avoided-correction or causal improvement is claimed.
+
+The [original-format witness](compact-taskplan-afc8861e4-code-formatting.json), SHA-256
+`ce38425d30b7a0d435c4e82d6b693312d2430b5ee2fd32e9c75423f7225e03b9`,
+records all 47 texts parsing to their saved JSON, with 20 whitespace bytes outside
+strings and a maximum consecutive run of three. Original-text hashes and parsed-JSON
+presentation hashes are distinct; the earlier failed projection check is retained.
+
+The **2026-10-24 22:17 UTC** audit leaves **EUR 84.27416613541398053210517899** available.
+All **28 receiptless identities are closed**; reservations for **43 unknown physical
+attempts** remain. The exact aggregate and separately retained lost-ledger exposure
+are preserved; this timestamped balance is not a future spending guarantee.
+
+Exact afc passed **8,105 full-solution tests, zero failures and 13 skips**, including
+**2,961 Planning tests**, plus all **12 publication stages**, with warnings as errors
+and zero compiler diagnostics. All **three exact-afc CI workflows passed**. Any
+subsequent source patch and its tests remain separately attributed; the successor
+has no live result, and these technical passes do not establish business acceptance.
+
+The subsequent source change exposes the retained typed prerequisite to drafting
+and review, restricts tentative result commitments to exact declared operation ports,
+and consolidates Judge guidance about unknown prerequisites. It passed **281 focused
+and 2,982 full Planning tests** (overlapping suites), with warnings as errors. The
+original fixture failures and source-bound validation are retained. No changed
+authority, extra correction allowance or live improvement is claimed.
+
 ## Source `40bd4a048`: Review PR remains incomplete
 
 The [frozen Code diagnostic](compact-taskplan-40bd4a048-code.json) made **36 logical requests / 36 attempts / 36 receipts**,

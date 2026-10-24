@@ -427,6 +427,116 @@ public sealed class CompactConstructionContractsTests
     }
 
     [Theory]
+    [InlineData("read", "result", true)]
+    [InlineData("read", null, true)]
+    [InlineData("read", "feedback", false)]
+    [InlineData("read", "other_result", false)]
+    [InlineData("other", "other_result", true)]
+    [InlineData("other", "result", false)]
+    [InlineData("empty", null, true)]
+    [InlineData("empty", "result", false)]
+    public void FreshCommitmentsPairOnlyExactPortsOfTheirSelectedOperation(string operation, string? port, bool valid)
+    {
+        var state = CommitmentState(5);
+        var request = PlanningConstruction.DraftRequest(state, repair: false);
+        var schema = request.StructuredOutputSchema!;
+        Assert.Empty(PlanningContractValidation.ValidateSchema(schema, strict: true));
+        var response = CommitmentResponse(state, operation, port);
+        Assert.Equal(valid, PlanningContractValidation.ValidateInstance(response, schema).Count == 0);
+        if (valid)
+        {
+            PlanningCompactConstruction.StageCommitments(state, response.Deserialize(ConstructionJsonContext.Default.PlanningConstructionResponse)!.Commitments);
+            Assert.Contains(state.Construction!.Compact!.PendingCommitments["result"], item =>
+                item.Operation == operation && item.Result?.Port == port);
+        }
+        else
+        {
+            var before = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+            Assert.Contains(Assert.Throws<PlanningResponseException>(() => PlanningCompactConstruction.StageCommitments(state,
+                response.Deserialize(ConstructionJsonContext.Default.PlanningConstructionResponse)!.Commitments)).Diagnostics,
+                diagnostic => diagnostic.Code == "REQUIREMENTS_COMMITMENT_INVALID");
+            Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+        }
+    }
+
+    [Theory]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    public void HistoricalCommitmentGrammarDoesNotAcquireAnOutputPortDomain(int version)
+    {
+        var state = CommitmentState(version);
+        var schema = PlanningCompactConstruction.DraftSchema(state);
+        var before = schema.ToJsonString();
+        Assert.Empty(PlanningContractValidation.ValidateInstance(CommitmentResponse(state, "read", "feedback"), schema));
+        foreach (var capability in state.Discovery.Resolved)
+        {
+            capability.OutputSchema["properties"] = new JsonObject();
+            capability.OutputSchema["required"] = new JsonArray();
+        }
+        Assert.Equal(before, PlanningCompactConstruction.DraftSchema(state).ToJsonString());
+    }
+
+    [Fact]
+    public async Task PendingVersionFiveCommitmentRequestKeepsItsIssuedPortGrammarAndSemanticValidation()
+    {
+        var state = CommitmentState(5);
+        var fresh = PlanningConstruction.DraftRequest(state, repair: false);
+        var historical = CommitmentState(4);
+        var issued = Complete(fresh);
+        issued.StructuredOutputSchema = fresh.StructuredOutputSchema!.DeepClone();
+        issued.StructuredOutputSchema!["properties"]!["commitments"] =
+            PlanningCompactConstruction.DraftSchema(historical)["properties"]!["commitments"]!.DeepClone();
+        var response = CommitmentResponse(state, "read", "feedback");
+        Assert.Empty(PlanningContractValidation.ValidateInstance(response, issued.StructuredOutputSchema));
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(response, PlanningCompactConstruction.DraftSchema(state)));
+        state.PendingCall = new() { Id = issued.ClientRequestId!, Purpose = PlanningConstruction.DraftPurpose, Request = issued };
+        state.ModelCalls = 1;
+        state = PlannerFixture.Clone(state);
+        var bytes = JsonSerializer.Serialize(state.PendingCall!.Request, PlanningJsonContext.Default.LLMRequest);
+        var runtime = new TestRuntime { Respond = (request, _) =>
+        {
+            Assert.Equal(bytes, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+            return new() { Json = response };
+        } };
+        var returned = await PlanningModelCalls.CallAsync(state, runtime, PlanningConstruction.DraftPurpose,
+            fresh.Prompt, fresh.StructuredOutputSchema!.AsObject(), PlannerFixture.Ct);
+        Assert.Null(state.PendingCall); Assert.Single(runtime.Calls); Assert.Equal(1, state.ModelCalls);
+        Assert.Equal(0, state.ReplanAttempts); Assert.Equal(0, state.Construction!.DraftCorrections);
+        Assert.Contains(Assert.Throws<PlanningResponseException>(() => PlanningCompactConstruction.StageCommitments(state,
+            returned.Deserialize(ConstructionJsonContext.Default.PlanningConstructionResponse)!.Commitments)).Diagnostics,
+            diagnostic => diagnostic.Code == "REQUIREMENTS_COMMITMENT_INVALID");
+        Assert.Null(state.Plan); Assert.Null(state.Construction.Candidate);
+        Assert.Empty(state.Construction.Compact!.PendingCommitments);
+    }
+
+    private static PlanningSession CommitmentState(int version)
+    {
+        var state = State();
+        state.Construction!.Compact!.PresentationVersion = version;
+        state.Construction.Requirements = [new() { Id = "result" }];
+        state.Construction.Compact.CurrentStep!.OutputNames = ["feedback"];
+        state.Construction.Compact.CurrentStep.OperationIds = ["read", "other", "empty"];
+        state.Requirements!.Outputs = [new() { Name = "feedback", Type = new() { Kind = "string" }, Required = true }];
+        var other = Capability("other", "A different producer with its own result port.");
+        other.OutputSchema["properties"] = new JsonObject { ["other_result"] = new JsonObject { ["type"] = "string" } };
+        other.OutputSchema["required"] = new JsonArray("other_result");
+        var empty = Capability("empty", "An operation without result ports.");
+        empty.OutputSchema["properties"] = new JsonObject(); empty.OutputSchema["required"] = new JsonArray();
+        state.Discovery.Resolved.AddRange([other, empty]);
+        return state;
+    }
+
+    private static JsonObject CommitmentResponse(PlanningSession state, string operation, string? port) => new()
+    {
+        ["baseHash"] = state.Construction!.Compact!.CurrentStep!.BaseHash, ["requirements"] = null, ["extension"] = null,
+        ["commitments"] = new JsonArray(new JsonObject { ["requirementId"] = "result", ["operation"] = operation,
+            ["result"] = port is null ? null : new JsonObject { ["port"] = port, ["output"] = "feedback" } }),
+        ["discoveryRequests"] = null, ["clarifications"] = null, ["evidenceRequests"] = null,
+        ["rollbackTask"] = null, ["rollbackReason"] = null, ["reselectStep"] = null
+    };
+
+    [Theory]
     [InlineData(null)]
     [InlineData(2)]
     public void SelectedResultCommitmentsAreValidatedAtomicallyOnlyForTheFreshCapturedProfile(int? presentationVersion)

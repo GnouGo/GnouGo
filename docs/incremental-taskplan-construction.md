@@ -52,6 +52,12 @@ current prerequisite chain. The accepted TaskPlan supplies results; an explicit
 producer checkpoint and binding resume a retained consumer only after source,
 contract, scope and typed-interface validation. No second scheduler or executable
 reference language is introduced. Invalidation preserves independent continuations.
+Drafts and scoped reviews retain that active model-authored prerequisite as navigation,
+not an original obligation or permission. The consumer summary is bounded to 1,024
+serialized UTF-8 bytes with its existing rejection link; the complete prerequisite
+type remains mandatory context subject to normal request admission. Selection's
+`canAttemptResume` signals eligibility to propose an exact binding, not a proven
+type match or the intended semantic producer. Existing issued requests stay unchanged.
 
 Fresh Judge schemas require one action and separate original-obligation and concrete
 implementation citations. A known complete, bounded parsed report with an exact
@@ -540,6 +546,9 @@ progress without satisfying a whole requirement. An explicit closure identifies
 the exact original clause and relevant checkpoint evidence for scoped review;
 coincident fragment/closure reviews are coalesced. New operation/result commitments
 remain tentative with the candidate and append atomically when it is accepted.
+Fresh revision-5 draft schemas pair each selected operation with its own exact
+declared result ports; public output names do not create producer ports. A null
+result remains valid, and operations without outputs offer only that form.
 Rejecting a candidate does not freeze its tentative operation choice. Previously
 accepted commitments remain immutable. Closing a requirement records reviewed
 declared coverage, never proof of prose completeness or successful execution.

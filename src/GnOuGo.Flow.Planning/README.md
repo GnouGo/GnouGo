@@ -7,6 +7,11 @@ requirements, and retains explicitly suspended consumers across prerequisite
 checkpoints. It also requires one Judge action with separate obligation and
 implementation citations, carries grounded repair witnesses, and combines
 simultaneous local/intermediate obligations in one adequately scoped review.
+Draft and review context retain the active continuation's complete model-authored
+typed prerequisite and a bounded consumer summary, without promoting either to an
+original obligation. `canAttemptResume` permits proposing a binding; the existing
+checkpoint, currentness, scope and type checks still decide whether it can resume.
+The mandatory prerequisite is never cropped to fit a request ceiling.
 Artifact approval verifies that retained combined coverage against the same
 candidate and requirement closures; it does not require a fabricated second receipt.
 Host-prepared closure candidates capture the same scoped identity before validation
@@ -92,6 +97,13 @@ Fresh revision-4 guidance carries a demonstrated missing producer into the next
 selection before its consumer. Draft commitments accompany an extension only;
 evidence-only responses leave decision metadata null. This clarifies existing
 validation and accounting without changing schemas or historical issued requests.
+Fresh revision-5 commitment grammar couples each selected operation to its exact
+declared result ports, preserving null results and selected public-output names.
+Operations without outputs permit only a null result; historical schemas and
+issued requests retain their original bytes and correction allowances.
+Fresh revision-5 review guidance distinguishes a contract prerequisite from proof
+of availability or permission expansion. Necessary missing evidence still requires
+retrieval or an inconclusive review; runtime authorization remains independent.
 
 Selection keeps one unresolved original requirement as its anchor; additional
 requirement pages under the fresh phase policy keep up to eight consecutive

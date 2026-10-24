@@ -143,6 +143,9 @@ public sealed class CompactConvergentJudgeTests
         var originalPrompt = request.Prompt.Replace(
             "Current arguments and effects must satisfy their exact contracts and applicable original obligations, including their combination with accepted work. Check the consumed value's meaning and entity identity, not only type compatibility; open future work or unobserved execution does not defer a present argument mismatch.",
             "Current effects must satisfy applicable original constraints, including constraints on their combination with accepted work, even while scopes or requirements remain open.", StringComparison.Ordinal);
+        originalPrompt = originalPrompt.Replace(
+            "A contract prerequisite does not establish that the fragment changes the environment or expands permissions; do not assume that prerequisite is satisfied. Request offered exact evidence when needed to finish this business review; if unavailable, return inconclusive. Otherwise retain unknown prerequisite availability and unobserved execution in uncertainty. No report authorizes effects.",
+            "Residual uncertainty such as unobserved execution belongs in uncertainty; inability to finish this business review requires inconclusive. No report authorizes effects.", StringComparison.Ordinal);
         Assert.NotEqual(request.Prompt, originalPrompt);
         if (originalPurpose) originalPrompt = originalPrompt.Replace(ContractReviewOpening, OriginalReviewOpening, StringComparison.Ordinal);
         var issued = PlanningModelCalls.PrepareRequest(state, PlanningConstruction.LocalPurpose, originalPrompt, request.StructuredOutputSchema!.AsObject());

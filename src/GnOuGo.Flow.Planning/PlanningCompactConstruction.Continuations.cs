@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
@@ -7,6 +8,7 @@ namespace GnOuGo.Flow.Planning;
 internal static partial class PlanningCompactConstruction
 {
     private static bool Active(PlanningConstructionSuspendedStep item) => item.Status is "waiting" or "resuming";
+    private const string ContinuationValidation = "Model-authored navigation, not an original obligation or permission. Eligibility only allows proposing a binding; resumption still checks its exact checkpoint, source, contract, scope and retained type. Compatible types do not identify the intended producer.";
 
     internal static void ConstrainReselectionSchema(PlanningSession state, JsonObject schema)
     {
@@ -192,10 +194,37 @@ internal static partial class PlanningCompactConstruction
             ["scope"] = item.Consumer.Scope, ["requirementIds"] = new JsonArray(item.Consumer.RequirementIds.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray()),
             ["objective"] = item.Consumer.Objective, ["prerequisite"] = PlanningConstruction.Node(item.Prerequisite, PlanningJsonContext.Default.PlanningConstructionTypedPrerequisite),
             ["evidence"] = "rejected:" + item.RejectedStepIndex,
-            ["canResume"] = item.Status == "waiting" && ContinuationCurrent(state, item) && item.LastPrerequisiteCheckpoint > item.SuspendedAtCheckpoint,
+            ["canAttemptResume"] = item.Status == "waiting" && ContinuationCurrent(state, item) && item.LastPrerequisiteCheckpoint > item.SuspendedAtCheckpoint,
+            ["basis"] = "model_authored_navigation", ["bindingValidation"] = ContinuationValidation,
             ["directory"] = item.LastPrerequisiteCheckpoint > item.SuspendedAtCheckpoint ? "page:checkpoints:" + item.SuspendedAtCheckpoint : null,
             ["acceptedCheckpoints"] = new JsonArray(available.Select(checkpoint => (JsonNode)new JsonObject
                 { ["sequence"] = checkpoint.Sequence, ["evidence"] = "page:checkpoints:" + (checkpoint.Sequence - 1) }).ToArray())
+        };
+    }
+
+    private static JsonObject? DraftContinuationContext(PlanningSession state)
+    {
+        if (!UsesConvergentConstruction(state) || State(state).SuspendedSteps?.LastOrDefault(Active) is not { } item ||
+            !ContinuationCurrent(state, item)) return null;
+        // Only the current prerequisite chain is relevant. Keep its exact proposed
+        // need distinct from original obligations and from the current draft.
+        var value = new JsonObject { ["id"] = item.Consumer.Id, ["scope"] = item.Consumer.Scope,
+            ["objective"] = item.Consumer.Objective,
+            ["requirementIds"] = new JsonArray(item.Consumer.RequirementIds.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray()) };
+        var original = value.ToJsonString();
+        var bytes = Encoding.UTF8.GetByteCount(original);
+        return new JsonObject
+        {
+            ["id"] = item.Id, ["status"] = item.Status, ["basis"] = "model_authored_navigation",
+            ["bindingValidation"] = ContinuationValidation,
+            ["consumer"] = new JsonObject { ["hash"] = PlanningGraphCompiler.Fingerprint(original), ["bytes"] = bytes,
+                ["omitted"] = bytes > 1024, ["value"] = bytes <= 1024 ? value : null },
+            // The proposed type is mandatory context, never a cropped schema.
+            // Existing admission rejects the full request if it exceeds its ceiling.
+            ["prerequisite"] = PlanningConstruction.Node(item.Prerequisite, PlanningJsonContext.Default.PlanningConstructionTypedPrerequisite),
+            // This existing address retrieves the consumer's rejection, not the
+            // separately retained typed prerequisite. Do not promise otherwise.
+            ["evidence"] = "rejected:" + item.RejectedStepIndex, ["evidenceContent"] = "consumer_reselection"
         };
     }
 
