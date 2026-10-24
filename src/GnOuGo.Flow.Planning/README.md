@@ -123,7 +123,9 @@ and an explicit inconclusive assessment. Findings require both an applicable
 original obligation and concrete implementation evidence; status and navigation
 alone are insufficient. A validated concrete finding location supplies its own
 implementation citation under the fresh issued schema; no duplicate pointer is
-required. Retained citation schemas keep their original interpretation. A valid
+required. Fresh schemas place this citation guidance on the `evidence` field instead
+of repeating it in the phase instructions; pointer choices and grounding checks are
+unchanged. Retained citation schemas keep their original interpretation. A valid
 inconclusive assessment can consume one additional
 review only when omitted declarations, exports or consumed accepted producers supply exact relevant
 support and the complete follow-up fits existing admission. Candidate review

@@ -69,6 +69,7 @@ public sealed class CompactVerifiedJudgeTests
     [InlineData("/draft/tasks/0", "/requirements/0", true)]
     [InlineData("/requirements/0", "/constructionStage", false)]
     [InlineData("/draft/tasks/0", "/constructionStage", false)]
+    [InlineData("/draft/tasks/0", "/step", false)]
     [InlineData("/draft/tasks/1", "/requirements/0", false)]
     [InlineData("/draft/tasks/0/outputs/0", "/requirements/0", false)]
     public async Task ConcreteIssuedLocationAvoidsDuplicateCitationWithoutWeakeningGrounding(string location, string evidence, bool supported)
@@ -121,12 +122,37 @@ public sealed class CompactVerifiedJudgeTests
         finding["uncertainty"] = new string('u', uncertaintyLimit + 1);
         Assert.NotEmpty(PlanningContractValidation.ValidateInstanceFindings(response, schema));
         var issued = PlanningModelCalls.PrepareRequest(state, PlanningConstruction.LocalPurpose, review.Prompt, schema);
+        var description = FindingProperties(issued.StructuredOutputSchema!.AsObject())["evidence"]!["description"];
+        if (presentation == 3) Assert.Null(description);
+        else
+        {
+            Assert.NotNull(description);
+            Assert.False(string.IsNullOrWhiteSpace(description?.ToString()));
+            Assert.Equal(FindingProperties(HybridWorkflowPlanner.ConstructionReviewSchema(context, verified: true))["evidence"]!["description"]!.ToString(), description.ToString());
+            Assert.DoesNotContain(description.ToString(), issued.Prompt, StringComparison.Ordinal);
+        }
         Assert.Equal(2048, issued.MaxTokens);
         Assert.Equal(PlanningModelCalls.ConstructionOutputLimit(state, PlanningConstruction.LocalPurpose), issued.MaxTokens);
     }
 
     [Fact]
-    public async Task RetainedVerifiedTwoCitationRequestKeepsItsOriginalGroundingAndExactBytes()
+    public void CitationAnnotationPreservesTheRetainedSchemaGrammarAndRevisionThreeBytes()
+    {
+        var context = JsonNode.Parse("""
+            {"requirements":[{"id":"work","sources":[{"id":"original"}]}],"globalConstraints":[{"id":"global"}],"draft":{"tasks":[{"id":"candidate","kind":"value","objective":"Use the caller label.","outputs":[]}],"outputs":[]},"step":{"id":"selected"},"operations":[{"id":"read","description":"An inspected operation."}]}
+            """)!.AsObject();
+        // Exact schema bytes captured from 6308c479 before relocating the guidance.
+        var historical = HybridWorkflowPlanner.ConstructionReviewSchema(context, verified: false);
+        Assert.Equal("416c64b67692020a1653aac285ef1b8407fed7cdd3f5409db63e3efebb0b3cfb", PlanningGraphCompiler.Fingerprint(historical.ToJsonString()));
+        var verified = HybridWorkflowPlanner.ConstructionReviewSchema(context, verified: true);
+        Assert.True(FindingProperties(verified)["evidence"]!.AsObject().Remove("description"));
+        Assert.Equal("9dfe5b5aed976b10cb6bc7e18951080c2d36f51f0a1f23d385b39af69356c236", PlanningGraphCompiler.Fingerprint(verified.ToJsonString()));
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    public async Task RetainedVerifiedCitationRequestKeepsItsOriginalGroundingAndExactBytes(int minimumCitations)
     {
         var state = await TaskState();
         var accepted = JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan);
@@ -137,7 +163,8 @@ public sealed class CompactVerifiedJudgeTests
         context["operations"] = new JsonArray(new JsonObject { ["id"] = "retained_contract", ["description"] = "An original operation contract." });
         var schema = HybridWorkflowPlanner.ConstructionReviewSchema(context, verified: true);
         var properties = FindingProperties(schema);
-        properties["evidence"]!["minItems"] = 2;
+        properties["evidence"]!["minItems"] = minimumCitations;
+        Assert.True(properties["evidence"]!.AsObject().Remove("description"));
         properties["explanation"]!["maxLength"] = 256;
         properties["uncertainty"]!["maxLength"] = 128;
         var review = PlanningCompactConstruction.Request("Retained scoped business review.", context, schema, PlanningConstruction.LocalPurpose);
@@ -162,10 +189,44 @@ public sealed class CompactVerifiedJudgeTests
         state = await Advance(PlannerFixture.Clone(state), runtime);
         Assert.Equal(exact, JsonSerializer.Serialize(Assert.Single(runtime.Calls), PlanningJsonContext.Default.LLMRequest));
         Assert.Equal(accepted, JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan));
-        Assert.Equal(PlanningStatus.Stopped, state.Status);
-        Assert.Equal("CONSTRUCTION_REVIEW_INCONCLUSIVE", Assert.Single(state.Diagnostics).Code);
+        Assert.Equal(minimumCitations == 1 ? PlanningStatus.Generating : PlanningStatus.Stopped, state.Status);
+        Assert.Equal(minimumCitations == 1 ? "CONSTRUCTION_BUSINESS_REVIEW" : "CONSTRUCTION_REVIEW_INCONCLUSIVE", Assert.Single(state.Diagnostics).Code);
+        Assert.Empty(state.Construction!.Checkpoints);
+        Assert.Equal(minimumCitations == 1, state.Construction.Candidate!.Diagnostics.Count > 0);
+        Assert.Equal(1, state.ModelCalls);
+        Assert.Equal(0, state.ReplanAttempts);
+    }
+
+    [Fact]
+    public async Task NavigationAndOperationWithConcreteLocationCannotReplaceAnOriginalObligation()
+    {
+        var state = await TaskState();
+        var accepted = PlanningConstruction.Hash(state.Plan);
+        var capability = new PlanningCapability
+        {
+            Id = "inspect_label", Version = "v1", Kind = "tool", StepType = "mcp.call",
+            Server = "labels", Method = "inspect", EffectKind = "read", Description = "Inspect the supplied label.",
+            InputSchema = new() { ["type"] = "object", ["properties"] = new JsonObject(), ["additionalProperties"] = false },
+            OutputSchema = new() { ["type"] = "string" }
+        };
+        state.Catalog!.Capabilities.Add(capability);
+        state.Catalog.AllowedStepTypes.Add("mcp.call");
+        state.Construction!.Compact!.CurrentStep!.OperationIds = [capability.Id];
+        var finding = Finding("/draft/tasks/0", "/step", "/operations/0");
+        var runtime = new TestRuntime { Respond = (request, _) =>
+        {
+            var response = Response(findings: new JsonArray(finding.DeepClone()));
+            Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(response.Json!, request.StructuredOutputSchema!));
+            Assert.False(HybridWorkflowPlanner.ConstructionBusinessFindingSupported(Context(request), finding, locationEvidence: true));
+            Assert.NotNull(FindingProperties(request.StructuredOutputSchema!.AsObject())["evidence"]!["description"]);
+            return response;
+        } };
+        state = await Advance(state, runtime);
+        Assert.Equal(accepted, PlanningConstruction.Hash(state.Plan));
         Assert.Empty(state.Construction!.Checkpoints);
         Assert.Empty(state.Construction.Candidate!.Diagnostics);
+        Assert.Equal(PlanningStatus.Stopped, state.Status);
+        Assert.Equal("CONSTRUCTION_REVIEW_INCONCLUSIVE", Assert.Single(state.Diagnostics).Code);
         Assert.Equal(1, state.ModelCalls);
         Assert.Equal(0, state.ReplanAttempts);
     }

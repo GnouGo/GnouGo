@@ -400,7 +400,10 @@ grounding predicate and local correction boundary still apply. The issued schema
 captures this with `evidence.minItems: 1`; retained revision-4 schemas with
 `minItems: 2` keep their evidence-only grounding. Fresh explanations and per-finding
 uncertainty are bounded to 512 and 256 characters respectively, without increasing
-the captured review output reservation.
+the captured review output reservation. Fresh requests carry the existing citation
+guidance on the `evidence` field, once, rather than in the phase instructions. This
+presentation change leaves the structural grammar, grounding checks and issued
+historical requests unchanged; live benefit requires separate measurement.
 
 A valid inconclusive response may receive one reassessment for the same semantic
 candidate and completion claim, shared across local and intermediate review.
