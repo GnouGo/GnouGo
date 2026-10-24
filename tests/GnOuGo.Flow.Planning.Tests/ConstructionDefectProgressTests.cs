@@ -176,6 +176,112 @@ public sealed class ConstructionDefectProgressTests
         Assert.False(PlanningConstruction.HasNewDefectEvidence(state, Context(state), progress, "/requirements/0", "/evidence/task:accepted"));
     }
 
+    [Fact]
+    public async Task ReplacedDraftKeepsExactCitedAcceptedTaskReferenceableWithoutNewProgressOrAuthority()
+    {
+        var state = AcceptedTaskWitness();
+        var saved = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        var (context, request) = HybridWorkflowPlanner.CreateConstructionReviewRequest(state, intermediate: false);
+        var progress = Assert.Single(context["defectProgress"]!.AsArray())!;
+        Assert.Equal("/evidence/task:accepted", progress["currentImplementationPointer"]?.ToString());
+        Assert.Equal("unchanged", progress["status"]!.ToString());
+        Assert.False(progress["evidenceChanged"]!.GetValue<bool>());
+        Assert.False(progress["evidenceImproved"]!.GetValue<bool>());
+        Assert.False(PlanningConstruction.HasNewDefectEvidence(state, context, progress.AsObject(), "/requirements/0", "/evidence/task:accepted"));
+        Assert.Null(context["evidence"]!["task:unrelated"]);
+        var schema = request.StructuredOutputSchema!.AsObject();
+        var complete = schema["properties"]!["action"]!["anyOf"]!.AsArray().Single(action => action?["properties"]?["kind"]?["enum"]?[0]?.ToString() == "findings");
+        Assert.Contains(complete!["properties"]!["resolutions"]!["items"]!["properties"]!["implementation"]!["enum"]!.AsArray(),
+            pointer => pointer?.ToString() == "/evidence/task:accepted");
+        Assert.Equal(saved, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+        var recovered = JsonSerializer.Deserialize(saved, PlanningJsonContext.Default.PlanningSession)!;
+        var recoveredContext = HybridWorkflowPlanner.CreateConstructionReviewRequest(recovered, intermediate: false).Context;
+        Assert.Equal(progress.ToJsonString(), Assert.Single(recoveredContext["defectProgress"]!.AsArray())!.ToJsonString());
+        Assert.True(JsonNode.DeepEquals(context["evidence"], recoveredContext["evidence"]));
+
+        // A request issued before this presentation change had no restored evidence.
+        // Recovery must use those exact saved bytes, not rebuild the improved context.
+        var retainedContext = context.DeepClone().AsObject(); retainedContext["evidence"] = null;
+        var retainedProgress = retainedContext["defectProgress"]![0]!;
+        retainedProgress["status"] = "unverified"; retainedProgress["current"] = null;
+        retainedProgress["currentImplementationPointer"] = null;
+        var oldPrompt = request.Prompt.Replace(context.ToJsonString(), retainedContext.ToJsonString(), StringComparison.Ordinal);
+        Assert.NotEqual(request.Prompt, oldPrompt);
+        var issued = PlanningModelCalls.PrepareRequest(recovered, PlanningConstruction.LocalPurpose, oldPrompt,
+            HybridWorkflowPlanner.ConvergentConstructionReviewSchema(retainedContext), recovered.Construction!.Limits.ReviewOutputTokens);
+        recovered.Construction.PendingReviewContext = retainedContext;
+        recovered.Construction.PendingReviewHash = PlanningGraphCompiler.Fingerprint(PlanningConstruction.LocalPurpose + "\n" +
+            recovered.Construction.Candidate!.Hash + "\n" + retainedContext.ToJsonString());
+        recovered.PendingCall = new() { Id = issued.ClientRequestId!, Purpose = PlanningConstruction.LocalPurpose, Request = issued };
+        recovered.ModelCalls++;
+        var exact = JsonSerializer.Serialize(issued, PlanningJsonContext.Default.LLMRequest);
+        var calls = recovered.ModelCalls;
+        var runtime = new TestRuntime { Respond = (pending, _) =>
+        {
+            Assert.Equal(exact, JsonSerializer.Serialize(pending, PlanningJsonContext.Default.LLMRequest));
+            Assert.Null(JsonNode.Parse(pending.Prompt[(pending.Prompt.LastIndexOf('\n') + 1)..])!["evidence"]);
+            throw new OperationCanceledException();
+        } };
+        recovered = await new HybridWorkflowPlanner().AdvanceAsync(PlannerFixture.Clone(recovered),
+            new() { ExpectedRevision = recovered.Revision }, runtime, PlannerFixture.Ct);
+        Assert.Single(runtime.Calls); Assert.Equal(calls, recovered.ModelCalls);
+        Assert.Equal(0, recovered.ReplanAttempts); Assert.Empty(recovered.Construction!.Checkpoints);
+        Assert.Equal(exact, JsonSerializer.Serialize(recovered.PendingCall!.Request, PlanningJsonContext.Default.LLMRequest));
+    }
+
+    [Theory]
+    [InlineData("candidate_only")]
+    [InlineData("candidate_changed")]
+    [InlineData("candidate_moved")]
+    [InlineData("accepted_changed")]
+    [InlineData("invalidated")]
+    [InlineData("source_changed")]
+    [InlineData("stale_supplied_evidence")]
+    [InlineData("oversized")]
+    public void UnverifiedOrOversizedAcceptedTaskEvidenceRemainsAnExplicitRetrieval(string change)
+    {
+        var state = AcceptedTaskWitness(change);
+        if (change == "candidate_changed") state.Construction!.Candidate!.Plan.Root.Tasks.Single(task => task.Id == "accepted").Objective = "Different actual task";
+        if (change == "candidate_moved")
+        {
+            var scope = state.Construction!.Candidate!.Plan.Root; var task = scope.Tasks.Single(task => task.Id == "accepted");
+            scope.Tasks.Remove(task); scope.Always.Add(task);
+        }
+        if (change == "accepted_changed") state.Plan!.Root.Tasks.Single(task => task.Id == "accepted").Objective = "Changed accepted original";
+        if (change == "invalidated") state.Plan!.Root.Tasks.RemoveAll(task => task.Id == "accepted");
+        if (change == "source_changed") state.Construction!.Compact!.Sources[0].Version = "changed";
+        var context = Context(state);
+        Assert.NotNull(PlanningConstruction.DefectProgressContext(state, context));
+        Assert.Null(context["evidence"]);
+        Assert.Null(state.Construction!.Evidence);
+    }
+
+    private static PlanningSession AcceptedTaskWitness(string change = "unchanged")
+    {
+        var state = CoordinatorReady();
+        var consumer = state.Construction!.Candidate!.Plan.Root.Tasks.Single();
+        var accepted = new PlanTask { Id = "accepted", Kind = "value", Objective = change == "oversized" ? new string('x', 2048) : "Accepted value",
+            Outputs = [new("number", new() { Kind = "number", Number = 2 })] };
+        if (change != "candidate_only") state.Plan!.Root.Tasks.Add(accepted);
+        state.Plan!.Root.Tasks.Add(new() { Id = "unrelated", Kind = "value", Objective = "Unrelated accepted value",
+            Outputs = [new("number", new() { Kind = "number", Number = 3 })] });
+        var candidate = state.Construction.Candidate;
+        candidate.Plan = PlanningConstruction.Clone(state.Plan);
+        if (change == "candidate_only") candidate.Plan.Root.Tasks.Add(accepted);
+        candidate.Plan.Root.Tasks.Add(consumer);
+        candidate.BaseHash = PlanningConstruction.Hash(state.Plan);
+        candidate.Hash = PlanningConstruction.Hash(candidate.Plan);
+        candidate.Extension = new() { Scope = "/root", Tasks = [consumer], RequirementIds = ["req_0"] };
+        candidate.TaskIds = [consumer.Id];
+        PlanningConstruction.LoadEvidence(state, ["task:accepted", "task:unrelated"]);
+        if (change == "stale_supplied_evidence") state.Construction.Evidence!["task:accepted"]!["objective"] = "Stale supplied original";
+        var finding = Finding("/draft"); finding["evidence"] = new JsonArray("/requirements/0", "/evidence/task:accepted");
+        var context = HybridWorkflowPlanner.CreateConstructionReviewRequest(state, intermediate: false).Context;
+        Attach(state, PlanningConstruction.DefectWitness(state, context, new JsonArray(finding))!);
+        state.Construction.Evidence = null; state.Construction.EvidenceRequests.Clear();
+        return state;
+    }
+
     [Theory]
     [InlineData("literal", "disconnected")]
     [InlineData("direct", "established")]
@@ -313,12 +419,12 @@ public sealed class ConstructionDefectProgressTests
     [InlineData(4)]
     public void HistoricalPresentationsAndTheirSavedRequestsRemainUntouched(int? version)
     {
-        var state = Ready(); state.Construction!.Compact!.PresentationVersion = version;
+        var state = AcceptedTaskWitness(); state.Construction!.Compact!.PresentationVersion = version;
         var context = Context(state); var before = context.ToJsonString();
         Assert.Null(PlanningConstruction.DefectWitness(state, context, new JsonArray(Finding("/draft/tasks/0"))));
         Assert.Null(PlanningConstruction.DefectProgressContext(state, context));
         PlanningConstruction.CarryDefectWitnesses(state, state.Construction.Candidate, state.Construction.Candidate!);
-        Assert.Empty(state.Construction.Candidate!.Reviews);
+        Assert.Single(state.Construction.Candidate!.Reviews);
         Assert.Equal(before, context.ToJsonString());
     }
 

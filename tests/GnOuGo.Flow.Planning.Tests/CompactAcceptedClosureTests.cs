@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
 
@@ -5,6 +6,26 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class CompactAcceptedClosureTests
 {
+    [Theory]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    [InlineData(5)]
+    public async Task HistoricalOrIssuedClosureCannotAcquireFreshIdentityMetadata(int presentation)
+    {
+        var state = await State();
+        state.Construction!.Compact!.PresentationVersion = presentation;
+        state.Request.Options["construction_presentation_version"] = presentation;
+        if (presentation == 5)
+            state.PendingCall = new() { Id = "retained-selection", Purpose = PlanningCompactConstruction.SelectPurpose,
+                Request = new() { ClientRequestId = "retained-selection", Prompt = "Retained exact selection request.",
+                    StructuredOutputSchema = PlanningCompactConstruction.SelectionSchema(state) } };
+        var exact = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        Assert.Null(state.Construction.CandidateFailureIdentityVersion);
+        Assert.Null(PlanningCompactConstruction.PrepareReviewedClosure(state));
+        Assert.Equal(exact, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+    }
+
     [Fact]
     public async Task ReviewedTerminalRootClosesWithoutSelectingOrGeneratingAnotherTask()
     {

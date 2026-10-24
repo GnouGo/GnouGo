@@ -38,6 +38,9 @@ coverage is complete, and no prerequisite, repair, choice or rebuild is pending.
 Compiler validation and mandatory business review still precede acceptance; final
 public-output validation remains mandatory. An empty scope or a local scalar
 export is not a completion proof.
+Host-prepared boundaries capture the same scoped candidate identity as model drafts
+before validation and persistence. Review, recovery and approval therefore compare
+the same candidate and completion claims; historical retained candidates are unchanged.
 Closure context retains original obligations associated with accepted owners,
 descendants, consumers and exports. Unknown associations or a set larger than the
 existing four-requirement step bound leave closure to explicit selection; they
@@ -61,6 +64,9 @@ one broader frozen context with explicit coverage. Checkpoint acceptance and art
 approval both verify that retained coverage, candidate and completion claims; one
 successful combined review does not require a second receipt. A narrower review cannot be
 reused retrospectively.
+Finite-capacity semantics apply throughout revision-5 review, including later
+consumers and closures. This relocates the existing loop guidance once per request;
+it does not infer required cardinalities or automatically dismiss adverse findings.
 
 Grounded rejections retain bounded original-context witnesses. Candidate hashes
 still establish novelty; they do not establish defect resolution. A correction
@@ -69,6 +75,12 @@ executable objectives and literals. Historical edit-authority snapshots are evid
 only the current repair contract grants edits. Repeated affected values without new relevant
 support require a different authorized local strategy and then stop on non-progress.
 All findings remain advisory; deterministic grounding is not semantic proof.
+Before a replacement review, an active witness's exact accepted-task evidence may
+be re-resolved into the existing evidence context. Baseline, source, full task,
+scope, placement and supplied evidence hash must still match. The existing
+three-finding and 1,024-byte snapshot bounds apply; unrelated, changed or oversized
+evidence stays absent. Restored evidence is not new progress, repair authority or
+a reinterpretation of a historical snapshot. Issued requests remain unchanged.
 
 ## Durable boundaries
 

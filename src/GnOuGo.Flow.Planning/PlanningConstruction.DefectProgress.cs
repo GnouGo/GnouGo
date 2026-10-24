@@ -73,6 +73,7 @@ internal static partial class PlanningConstruction
         if (state.Construction?.Compact?.PresentationVersion != 5 || state.Construction.Candidate is not { } candidate) return null;
         var active = ActiveDefects(candidate);
         if (active.Count > 3) Fail("CONSTRUCTION_REVIEW_INCONCLUSIVE", "/defectProgress", "More unresolved prior findings exist than this bounded review can assess.");
+        RestoreAcceptedDefectEvidence(state, currentContext, active);
         var result = new JsonArray();
         foreach (var (witness, entry) in active)
         {
@@ -103,6 +104,32 @@ internal static partial class PlanningConstruction
             });
         }
         return result.Count == 0 ? null : result;
+    }
+
+    private static void RestoreAcceptedDefectEvidence(PlanningSession state, JsonObject context,
+        List<(JsonObject Witness, JsonObject Entry)> active)
+    {
+        if (state.Plan is null || active.Count == 0) return;
+        var candidate = state.Construction!.Candidate!;
+        var accepted = new TaskPlanSymbols(state.Plan); var current = new TaskPlanSymbols(candidate.Plan);
+        var baseline = Hash(state.Plan); var sources = DefectSources(state);
+        foreach (var (witness, entry) in active)
+        {
+            if (candidate.BaseHash != baseline || witness["baseline"]?.ToString() != baseline ||
+                witness["sourceHash"]?.ToString() != sources ||
+                entry["implementationPointer"]?.ToString().Split('/') is not ["", "evidence", var encoded]) continue;
+            var address = encoded.Replace("~1", "/", StringComparison.Ordinal).Replace("~0", "~", StringComparison.Ordinal);
+            if (!address.StartsWith("task:", StringComparison.Ordinal) || context["evidence"]?[address] is not null ||
+                !accepted.Tasks.TryGetValue(address[5..], out var before) || !current.Tasks.TryGetValue(address[5..], out var after) ||
+                before.Scope.Path != after.Scope.Path || accepted.Phase(address[5..]) != current.Phase(address[5..]) ||
+                !JsonNode.DeepEquals(Node(before.Task, PlanningJsonContext.Default.PlanTask), Node(after.Task, PlanningJsonContext.Default.PlanTask))) continue;
+            // Re-resolve only the cited accepted original. A prior snapshot is
+            // historical evidence, never a replacement for the current TaskPlan.
+            var value = TaskNode(after.Task); value["scope"] = after.Scope.Path; value["phase"] = current.Phase(address[5..]);
+            if (Encoding.UTF8.GetByteCount(value.ToJsonString()) > DefectSnapshotBytes ||
+                witness["evidenceHashes"]?[address]?.ToString() != DefectHash(value)) continue;
+            (context["evidence"] ??= new JsonObject())[address] = value;
+        }
     }
 
     internal static bool HasNewDefectEvidence(PlanningSession state, JsonObject context, JsonObject prior, string obligation, string implementation)

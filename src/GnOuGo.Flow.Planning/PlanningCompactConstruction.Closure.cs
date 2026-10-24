@@ -62,6 +62,7 @@ internal static partial class PlanningCompactConstruction
             Objective = "Close this accepted boundary after its reviewed obligations; preserve all accepted work and exports.",
             RequirementIds = requirements.ToList(), DiscoveryComplete = true
         };
+        probe.Construction.CandidateFailureIdentityVersion = 1;
         probe.Construction.Candidate = PlanningConstruction.Apply(probe, new()
         {
             Scope = boundary, CloseScopes = [boundary], Complete = boundary == "/root",

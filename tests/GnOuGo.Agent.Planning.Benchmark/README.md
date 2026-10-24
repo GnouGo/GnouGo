@@ -1119,6 +1119,14 @@ Recorded failures and accounting for Amazon, Collections and Review PR are in th
 [convergence summary](../../docs/evidence/compact-taskplan-convergence.md), which links
 immutable earlier diagnostic records.
 
+Exercise automatic structural closure through the coordinator, receipt recovery and
+existing artifact approval, rather than assigning candidate identity in the fixture.
+Review presentation must retain applicable runtime guard semantics when inspecting
+a later consumer or closure. An unspecified collection length is not an authoritative
+unlimited-capacity requirement; explicit capacity conflicts still require review.
+Preserve known output-exhausted receipts separately from uncertain transport and
+never infer the cause of reasoning exhaustion from an empty response alone.
+
 The compact live comparison freezes baseline `56942f5` and each candidate separately,
 with identical model, MCP binaries, scenario inputs and independent oracle versions.
 Both receive 64 calls, unchanged correction and ordinary graph limits; baseline

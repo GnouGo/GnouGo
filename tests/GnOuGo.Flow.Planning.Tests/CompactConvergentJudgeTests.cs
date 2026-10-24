@@ -199,11 +199,26 @@ public sealed class CompactConvergentJudgeTests
         Assert.Throws<PlanningConflictException>(() => PlanningArtifactApproval.Verify(PlannerFixture.Clone(state)));
     }
 
-    private static async Task<PlanningSession> CompleteReviewedScope(int presentation)
+    [Fact]
+    public async Task HostPreparedClosureRetainsScopedIdentityThroughReviewRecoveryAndApproval()
+    {
+        var state = await CompleteReviewedScope(5, automaticClosure: true);
+        PlanningArtifactApproval.Verify(PlannerFixture.Clone(state));
+        var checkpoint = state.Construction!.Checkpoints[^1];
+        var review = Assert.Single(checkpoint.Reviews);
+        Assert.StartsWith("candidate:v1:", review["candidateIdentity"]!.ToString(), StringComparison.Ordinal);
+        Assert.Equal(new[] { "local", "intermediate" }, review["reviewCoverage"]!.AsArray().Select(item => item!.ToString()));
+        Assert.Equal(2, state.ModelCalls);
+        Assert.Equal(0, state.ReplanAttempts);
+        Assert.Null(state.ApprovedHash);
+    }
+
+    private static async Task<PlanningSession> CompleteReviewedScope(int presentation, bool automaticClosure = false)
     {
         var state = await State();
         state.Construction!.Compact!.PresentationVersion = presentation;
         state.Request.Options["construction_presentation_version"] = presentation;
+        if (automaticClosure) state.Construction.Compact.CurrentStep!.CloseRequirementIds = ["work"];
         var runtime = new TestRuntime { Respond = (request, purpose) =>
         {
             Assert.Contains(purpose, new[] { PlanningConstruction.LocalPurpose, PlanningConstruction.IntermediatePurpose });
@@ -215,6 +230,19 @@ public sealed class CompactConvergentJudgeTests
         } };
         state = await Advance(state, runtime);
         Assert.Single(state.Construction!.Checkpoints);
+        if (automaticClosure)
+        {
+            Assert.Null(state.Construction.CandidateFailureIdentityVersion);
+            Assert.Equal("closed", Assert.Single(state.Construction.Requirements).Status);
+            state = await Advance(PlannerFixture.Clone(state), runtime);
+            Assert.NotNull(state.Construction!.Candidate);
+            Assert.True(state.Construction.Candidate.NeedsIntermediateReview);
+            Assert.Single(runtime.Calls);
+            state = await Advance(PlannerFixture.Clone(state), runtime);
+            Assert.True(state.Status == PlanningStatus.FinalReview, string.Join("; ", state.Diagnostics));
+            Assert.Equal(2, state.Construction!.Checkpoints.Count);
+            return state;
+        }
         var construction = state.Construction;
         construction.Compact!.CurrentStep = new() { Id = "close_work", Kind = "close", Scope = "/root",
             Objective = "Close the completed use of the caller label.", RequirementIds = ["work"], CloseRequirementIds = ["work"],

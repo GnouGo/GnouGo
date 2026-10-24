@@ -23,6 +23,8 @@ Keep contribution, requirement closure, local export and public result distinct.
 
 Before general selection, inspect accepted closure facts. Prepare only a bounded structural closure whose obligations already have reviewed closure evidence and whose children, exports, choices, dependencies and cleanup are ready. Preserve existing bindings and run ordinary deterministic validation and scoped review. A childless scope alone does not establish completion. When only proven finalization remains, offer closure and evidence/clarification actions instead of more tasks. A reviewed closed requirement stays closed until explicit revision or dependency invalidation reopens it.
 
+Host-prepared closures capture the same scoped candidate identity as fresh model drafts before validation or review; retained candidates and issued requests keep their captured comparison semantics.
+
 Accepted fragments are immutable outside an authorized invalidation closure. Ordinary later tasks may consume prior same-scope results without exports; exports cross a container or reusable-group boundary. Open containers expose no consumable completion or outputs. Groups isolate declared inputs and are callable only when closed. Cleanup must retain its exact target and ownership after partial failure; success-only results cannot justify failure cleanup.
 
 ## Context and contracts
@@ -41,9 +43,11 @@ Validate a cloned candidate before review. Present exact compiler-derived consum
 
 Require one explicit Judge action: completed findings, targeted evidence retrieval or inconclusive. Fresh structured findings separately identify an applicable original obligation and concrete implementation; their correctable location remains distinct. Pointer validity establishes grounding, not truth. Missing prompt evidence is not missing implementation. Assess future obligations at their actual scope or requirement closure, not during a necessary opening or producer step.
 
-Keep business findings advisory and contestable. Mechanically evaluate only existing deterministic diagnostics or explicitly structured factual assertions; never infer contradictions from keywords or treat a preflight summary as proof of business success. Finite loop bounds are safety guards: unspecified cardinality does not require unlimited execution. Reject excess input without truncated success; report conflicts only with authoritative required counts or bounds.
+Keep business findings advisory and contestable. Mechanically evaluate only existing deterministic diagnostics or explicitly structured factual assertions; never infer contradictions from keywords or treat a preflight summary as proof of business success. Finite loop bounds are safety guards: unspecified cardinality does not require unlimited execution. Reject excess input without truncated success; report conflicts only with authoritative required counts or bounds. Present this policy throughout fresh scoped review, including consumers and closures of accepted loops, not only when opening a loop.
 
 Preserve each validated rejection's source, affected implementation, exact frozen-context identity and bounded before/after witness. Do not reinterpret old JSON Pointers against a newer context. A changed artifact hash establishes novelty, not defect resolution. Recheck relevant deterministic bindings, declarations, exports and dependencies before another review. Reading a required input elsewhere or mentioning it in prose does not prove use by the required consumer.
+
+Re-resolve necessary cited accepted-task evidence from the current plan only when its exact baseline, source, content and placement still match the retained evidence. Restoration is neither new evidence nor repair authority; stale or oversized support requires targeted retrieval.
 
 Use the mandatory scoped review to assess semantic resolution, persistence or invalidation by evidence. Preserve executable objectives and literals, including transform instructions. Reject provably unchanged affected bindings; do not globally remove objectives from candidate identity. When a strategy fails, use an applicable bounded alternative—evidence, prerequisite, closure withdrawal or authorized invalidation—within existing correction allowances. Repeated non-progress stops.
 

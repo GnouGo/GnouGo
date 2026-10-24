@@ -1,14 +1,16 @@
 # Compact TaskPlan convergence
 
-**Business acceptance remains incomplete; PR #120 stays Draft.** Collections on `361bb713`
-reached a compiled artifact after 41 logical requests/physical attempts and three corrections.
-Its static oracle passed, but the existing approval verifier rejected combined review evidence;
-no approval or execution occurred. The artifact also contains a redundant pure parallel loop.
+**Business acceptance remains incomplete; PR #120 stays Draft.** Collections on `c7f7629f`
+stopped after 31 logical requests/physical attempts and two corrections: a closure review
+reported two false finite-capacity omissions, then the post-repair Judge exhausted 8,192
+reasoning tokens with no response. No artifact or execution resulted. Earlier `361bb713`
+reached a static-oracle-passing artifact, but approval rejected combined review evidence;
+that retained artifact also contains a redundant pure parallel loop.
 The latest completed Amazon and Review PR diagnostics remain on `7697449c`. Earlier failures,
 including the all-null Judge action on `4e38426b`, remain retained.
 
-Presentation revision 5 has passed focused validation and produced this retained artifact;
-that does not establish runtime convergence. The 18 alternating runs against
+Presentation revision 5 has passed technical validation; the earlier `361bb713` artifact
+and later `c7f7629f` failure establish no runtime convergence. The 18 alternating runs against
 `56942f5` remain gated on all three candidate executions passing independent oracles.
 
 ## Current behavior and technical evidence
@@ -30,6 +32,8 @@ indivisible oversized requests stop. Existing business findings retain correctio
 
 | Exact source or validated change | Technical result, with warnings as errors |
 | --- | --- |
+| [Closure identity and retained review support](compact-taskplan-review-support-validation.json) | **2,862 full Planning / 62 targeted host tests passed**, WAE, 1,986 source files unchanged and matching the working tree. The original automatic-closure approval and missing cited-evidence defects are reproduced; corrected live acceptance remains unproven |
+| [c7f7629f publication](compact-taskplan-c7f7629f-collections.json) | **12/12 publication stages passed**, six independent packages, Planning Native AOT presentations 2–5, published encrypted storage and Git AOT/contracts. Its live run still stopped without an artifact |
 | [Combined-review approval correction](compact-taskplan-combined-approval-validation.json) | **2,840 full Planning / 62 targeted approval, delegation and persistence tests passed**. The verifier now recognizes exact v5 combined coverage; legacy separate-review checks remain. Fresh execution is still required |
 | `361bb713` | **12/12 publication stages passed**, including six independent packages, Planning Native AOT presentations 2–5, published encrypted storage and Git AOT/contracts. Full solution remains running separately; the approval correction is outside this source |
 | [Revision-5 accepted-state changes](compact-taskplan-accepted-state-validation.json) | **281 focused Planning / 47 host-journal-storage tests passed**; managed smoke passed with exact receipt recovery and v15 execution for presentations 2–5. File identities bind this pre-live result; full solution, Native AOT and business acceptance remain separate |
@@ -76,6 +80,7 @@ model will cite originals correctly or resolve the separate semantic failures be
 
 | Frozen attempt | Logical calls / physical attempts / receipts | Corrections / checkpoints | Planning seconds | Known cost EUR | Terminal result; none executed |
 | --- | ---: | ---: | ---: | ---: | --- |
+| [c7f7629f Collections](compact-taskplan-c7f7629f-collections.json) | 31/31/31 | 2/7 | 861.788 | 1.4424230254350736278447121815 | False finite-capacity findings; post-repair Judge exhausted all 8,192 output tokens on reasoning; no artifact |
 | [361bb713 Collections](compact-taskplan-361bb713-collections.json) | 41/41/41 | 3/11 | 910.990 | 1.4186836233824185631414547077 | Static artifact oracle passed; approval rejected combined review coverage; no execution |
 | [4e38426b Collections citation](compact-taskplan-4e38426b-collections.json) | 11/12/11 | 0/2 | 508.198 | 0.2951584114234716644355198573 | All-null Judge action; full failed-attempt reservation retained |
 | [6308c479 Collections scope2](compact-taskplan-6308c479-collections-scope2.json) | 27/28/27 | 3/5 | 860.385 | 0.8997188755020080321285140564 | Premature public-result requirement closure, then identical rejected replacement |
@@ -88,6 +93,18 @@ model will cite originals correctly or resolve the separate semantic failures be
 | [a9348669 Review PR](compact-taskplan-a934866-code.json) | 51/52/50 | 2/5 | 1,657.740 | 2.7922579205711735832217759928 | Confirmed HTTP 400: repair schema retained an already invalid literal |
 | [975fd04f Review PR](compact-taskplan-975fd04-code.json) | 39/39/39 | 4/3 | 959.263 | 1.9388041053101294065149486836 | False same-scope availability premise, export repair, then zero-action Judge |
 | [504a557d Amazon](compact-taskplan-504a557-amazon.json) | 13/13/13 | 0/1 | 417.994 | 0.8039446675591253904506916556 | Judge omitted original-obligation grounding; handle allegation unproven |
+
+Collections `c7f7629f` returned 31 known receipts with no new unknown reservation. Judge29
+cited the original clauses and loop, but inferred unlimited required capacity from unspecified
+input length. The existing finite-guard guidance was conditional on a selected `foreach`;
+this later value/closure review did not receive it. Repair30 withdrew root closure and plan
+completion while retaining requirement closure claims. Judge31 then returned HTTP200/length,
+8,192 reasoning tokens and zero text. These observations do not establish the cause of
+output exhaustion, defect resolution or avoided corrections.
+Retained visible responses total 18,200 UTF-8 bytes with only 14 bytes of JSON whitespace
+outside strings; none was whitespace-heavy by this measurement. The post-run campaign audit
+shows **EUR125.51096667088921480252017225 available**, retaining all 23 permanently closed
+receiptless identities and 28 unknown attempts. This is a dated balance before later calls.
 
 Collections `361bb713` retained five checkpoints with explicit combined local/intermediate
 coverage, but artifact approval still looked for separate purpose records. The original

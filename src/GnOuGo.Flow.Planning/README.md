@@ -9,6 +9,14 @@ implementation citations, carries grounded repair witnesses, and combines
 simultaneous local/intermediate obligations in one adequately scoped review.
 Artifact approval verifies that retained combined coverage against the same
 candidate and requirement closures; it does not require a fabricated second receipt.
+Host-prepared closure candidates capture the same scoped identity before validation
+as ordinary drafts, preserving that comparison through recovery and approval.
+Fresh scoped reviews retain finite-capacity guard semantics for later consumers
+and closures as well as loop openings; explicit required-count conflicts remain
+reportable business findings.
+Replacement reviews re-resolve bounded, exact accepted-task evidence cited by
+active defects when baseline, source, task and placement still match. This supplies
+current citation support without counting it as new evidence or repair authority.
 The [accepted-state rules](../../docs/incremental-taskplan-construction.md#accepted-state-progression-presentation-revision-5)
 describe the bounded recovery and repair behavior. Versions 2–4 and all issued
 requests retain their schemas, charging and approvals; compiler lowering is unchanged.

@@ -138,10 +138,13 @@ internal static partial class PlanningCompactConstruction
         }
     }
 
+    private const string ReviewCapacitySemantics = "An unspecified input length does not require unlimited capacity. Preserve every item within admitted capacity; excess rejects the input, never returns truncated success. Report conflicts with explicit required capacities or known required item counts. Absent bounds alone are not defects or missing business facts; unspecified capacity remains unverified. Runtime ceilings still apply.";
+
     internal static string DraftSemantics(PlanningSession state, PlanningConstructionStep step, bool review = false)
     {
         var scope = new TaskPlanSymbols(state.Plan ?? new TaskPlan()).Scopes.SingleOrDefault(s => s.Path == step.Scope);
         var hints = new List<string>();
+        if (review && UsesConvergentConstruction(state)) hints.Add(ReviewCapacitySemantics);
         if (!review && UsesDeferredBinding(state) && step.Kind is "group" or "sequence" or "conditional" or "parallel" or "foreach")
             hints.Add((UsesVerifiedReview(state) ? "A necessary opening establishes a control, reuse, cleanup or export boundary with empty children; it does not perform their business action." : "Opening creates empty child scopes, not their completed result.") + " Do not consume or export the new container's outputs until its children are complete and closed. If the selected outputNames or closeRequirementIds depend on those children, use reselectStep when offered to select only the opening, retaining its original requirements.");
         if (step.Kind is not ("group" or "choice" or "close"))
@@ -166,10 +169,10 @@ internal static partial class PlanningCompactConstruction
         if (step.Kind == "foreach")
         {
             hints.Add("foreach.maxItems is the TOTAL input-item ceiling; excess fails, it never samples or truncates. maxConcurrency limits simultaneous workers, not total items. Neither bound guarantees a nonempty collection.");
-            if (IsCompactPresentation(state))
+            if (IsCompactPresentation(state) && !(review && UsesConvergentConstruction(state)))
                 hints.Add(review
                     ? UsesDeferredBinding(state)
-                        ? "An unspecified input length does not require unlimited capacity. Preserve every item within admitted capacity; excess rejects the input, never returns truncated success. Report conflicts with explicit required capacities or known required item counts. Absent bounds alone are not defects or missing business facts; unspecified capacity remains unverified. Runtime ceilings still apply."
+                        ? ReviewCapacitySemantics
                         : "Finite supported capacity must respect explicit original bounds; unspecified capacity remains unverified. Runtime ceilings still apply."
                     : PlanningConstructionPhasePolicies.IsFresh(state.Request)
                     ? "Use a finite supported capacity; the TaskPlan default maxItems=" +
