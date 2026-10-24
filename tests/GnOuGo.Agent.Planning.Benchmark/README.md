@@ -28,6 +28,17 @@ the existing engine. A local mapping attempt rejected before dispatch is not a
 physical provider attempt or billed usage. Existing encrypted receipts and limits
 remain unchanged during recovery.
 
+Fresh external-runtime inference captures one HTTP attempt with no uncertain retries,
+for both ordinary interpretation/mapping and the intercepted Copilot SDK. Every failed
+attempt without verified usage, including a received 429, retains its full campaign
+reservation. An exact saved completion may be recovered without sending; a reserved
+physical attempt without a completed response and a recorded failed HTTP attempt stop
+without resend. Historical policy and receipt bytes remain unchanged; historical SDK
+records lacking the exact upstream identity cannot be recovered automatically. The
+existing permanent-retention operator covers planning only, so runtime uncertainty
+remains blocked pending separately authorized reconciliation. These runtime safeguards do not expand artifact approval,
+MCP permissions or the existing runtime input, output, time and financial limits.
+
 The [18 October Amazon retest](../../docs/evidence/bounded-observations-2026-10-18/README.md)
 preserves a structurally valid first proposal that failed before extraction dispatch.
 Its scalar extraction still bound the complete observation; zero extraction provider
@@ -310,7 +321,7 @@ completion receipt or usage, or change the original evidence or accounting.
 This subsection describes the older captured retry policy and synthetic harness.
 Its EUR 50/eight-attempt defaults and mocked integrations do not describe fresh
 compact sessions. Those use the captured campaign ceiling, construction
-allowances, single-attempt transport and isolated real integrations described in
+allowances, their captured transport policy and isolated real integrations described in
 [incremental construction and isolated delegated review](#incremental-construction-and-isolated-delegated-review).
 Historical recovery remains limited to its original issued policy.
 

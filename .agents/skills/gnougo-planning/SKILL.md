@@ -67,6 +67,8 @@ Fresh synchronous tool-free planning permits at most three journaled HTTP attemp
 
 Execution requires artifact-bound approval and existing exact invocation permissions. Benchmark delegation stays isolated and is labeled `delegated_test_reviewed`, never human review. No favorable Judge can expand effects, workspace access or runtime inference authority.
 
+Fresh benchmark runtime inference is single-attempt: persist and reserve each dispatch before sending, retain every unverified failure including received rate limits, and never replay an uncertain outcome. Recover only exact saved completions without another dispatch; preserve historical request and policy bytes.
+
 Freeze source, settings, contracts, inputs and independent oracle versions before experiments. Preserve all failures. An empty or whitespace-heavy response does not establish its cause. Report estimated request components separately from provider-billed usage, logical requests separately from physical attempts, and technical passes separately from complete workflow execution. Count useful progress against independently authored business obligations, not aliases, tasks or checkpoints; no satisfied obligation means an undefined ratio.
 
 Test observable behavior and historical byte compatibility, not incidental instruction wording. Keep concise current results and immutable evidence archives. No claimed convergence until complete workflows execute and satisfy their independent oracles.

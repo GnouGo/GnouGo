@@ -44,10 +44,10 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
     private static readonly Lazy<TiktokenTokenizer> ExecutionTokenizer = new(() => TiktokenTokenizer.CreateForEncoding("o200k_base"));
     internal KeyVaultBenchmarkModel(BenchmarkCampaign campaign, LLMOptions options,
         ILLMClient? client = null, IExchangeRateProvider? rates = null,
-        IModelUsageCostEstimator? estimator = null, TimeProvider? time = null)
+        IModelUsageCostEstimator? estimator = null, TimeProvider? time = null, HttpClient? http = null)
     {
         _campaign = campaign; _options = options;
-        _http = LLMHttpClientFactory.Create(options.DangerousAcceptAnyServerCertificate, TimeSpan.FromMinutes(10));
+        _http = http ?? LLMHttpClientFactory.Create(options.DangerousAcceptAnyServerCertificate, TimeSpan.FromMinutes(10));
         _client = client ?? new RoutingLLMClientAdapter(new RoutingLLMClient(options, RoutingLLMClient.CreateDefaultProviders(_http)));
         _time = time ?? TimeProvider.System;
         _rates = rates ?? new EcbExchangeRateProvider(_http, timeProvider: _time); _estimator = estimator ?? new ModelMetadataUsageCostEstimator(options);
@@ -366,8 +366,64 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
     internal Task<LLMResponse> DiagnosticAsync(LLMRequest request, CancellationToken ct)
         => DispatchAsync(request, singleAttempt: true, ct);
 
+    private LLMProviderRetryPolicyOptions RuntimeRetryPolicy(JsonObject? captured = null)
+    {
+        var policy = captured?["effective_retry_policy"]?.Deserialize(LLMHttpRetryJsonContext.Default.LLMProviderRetryPolicyOptions)
+            ?? _options.ResolveProvider(Provider)!.RetryPolicy.Clone();
+        policy.MaxAttempts = 1; policy.MaxUncertainRetries = 0;
+        return policy;
+    }
+
+    private JsonObject RuntimeTransportPolicy(string mode, LLMRequest request) => new()
+    {
+        ["version"] = 2, ["mode"] = mode, ["disable_transport_retries"] = true,
+        ["request_hash"] = PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest)),
+        ["allow_http_recovery"] = true,
+        ["effective_retry_policy"] = JsonSerializer.SerializeToNode(RuntimeRetryPolicy(), LLMHttpRetryJsonContext.Default.LLMProviderRetryPolicyOptions)
+    };
+
+    // A saved logical request is not permission to repeat an unresolved physical attempt.
+    // Check identity before the campaign's historical receipt fast path; never rewrite its policy.
+    private async Task<JsonObject?> RuntimeJournalAsync(LLMRequest request, CancellationToken ct, string? sdkWireFingerprint = null)
+    {
+        var id = request.ClientRequestId ?? throw new InvalidOperationException("Runtime inference requires an exact request identity.");
+        var original = await _campaign.LoadAsync("planning-evaluation-requests", id, ct);
+        var receipt = await _campaign.LoadAsync("planning-evaluation-receipts", id, ct);
+        if (original is not null && !JsonNode.DeepEquals(original, JsonSerializer.SerializeToNode(request, PlanningJsonContext.Default.LLMRequest)) ||
+            receipt is not null && original is null)
+            throw new InvalidOperationException("The original runtime request does not match its retained identity.");
+        var journal = await _campaign.LoadAsync(BenchmarkHttpJournal.Collection, id, ct);
+        if (journal?["effective_transport_policy"] is JsonObject policy &&
+            journal["effective_transport_policy_hash"]?.ToString() != PlanningGraphCompiler.Fingerprint(policy.ToJsonString()))
+            throw new InvalidOperationException("The retained runtime transport policy hash changed.");
+        var captured = journal?["effective_transport_policy"] as JsonObject;
+        if (BenchmarkHttpJournal.IsRuntimeSingleAttempt(captured))
+        {
+            if (captured!["request_hash"]?.ToString() != PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest)) ||
+                captured["mode"]?.ToString() != (sdkWireFingerprint is null ? "runtime_single_attempt" : "sdk_proxy_single_attempt") ||
+                sdkWireFingerprint is not null && captured["wire_fingerprint"]?.ToString() != sdkWireFingerprint)
+                throw new InvalidOperationException("The captured runtime admission does not match this exact request and upstream.");
+        }
+        else if (captured?["mode"]?.ToString() == "sdk_proxy_single_attempt" ||
+            sdkWireFingerprint is not null && (journal is not null || original is not null || receipt is not null))
+            throw new InvalidOperationException("Historical SDK evidence does not establish the exact upstream; automatic recovery is forbidden.");
+        if (receipt is not null) return journal;
+        if (journal is null)
+        {
+            if (original is not null) throw new InvalidOperationException("The reserved runtime request has no recoverable HTTP journal.");
+            return null;
+        }
+        var attempts = journal["transport"]?["Attempts"] as JsonArray
+            ?? throw new InvalidOperationException("The runtime HTTP journal is incomplete.");
+        if (attempts.Count == 0 && BenchmarkHttpJournal.IsRuntimeSingleAttempt(journal["effective_transport_policy"] as JsonObject)) return journal;
+        if (attempts.LastOrDefault() is JsonObject last && last["Status"]?.GetValue<int>() is >= 200 and < 300 &&
+            last["Body"] is not null && last["Failure"] is null && original is not null) return journal;
+        throw new InvalidOperationException("Runtime inference has no exact completed response; another dispatch is forbidden.");
+    }
+
     private async Task<LLMResponse> DispatchAsync(LLMRequest request, bool singleAttempt, CancellationToken ct, bool execution = false)
     {
+        var runtimeJournal = execution ? await RuntimeJournalAsync(request, ct) : null;
         var policy = execution ? null : await _campaign.LoadAsync("planning-evaluation-session-policy", request.ClientRequestId!.Split(':')[0], ct);
         var incremental = policy?["construction_review_headroom"]?.GetValue<int>() > 0;
         var planning = policy is null ? null : PlanningFromPolicy(policy);
@@ -377,6 +433,8 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
             !JsonNode.DeepEquals(reserved, JsonSerializer.SerializeToNode(request, PlanningJsonContext.Default.LLMRequest)))
             throw new InvalidOperationException("The reserved request changed.");
         var dispatched = CreateDispatchRequest(request, Provider, Model, execution);
+        if (execution && (runtimeJournal is null || BenchmarkHttpJournal.IsRuntimeSingleAttempt(runtimeJournal["effective_transport_policy"] as JsonObject)))
+            dispatched.DisableTransportRetries = true;
         if (singleAttempt || incremental && capturedTransport is null) dispatched.DisableTransportRetries = true;
         else if (capturedTransport is not null) dispatched.DisableTransportRetries = request.DisableTransportRetries;
         var retryPolicy = capturedTransport is null ? _options.ResolveProvider(Provider)!.RetryPolicy.Clone() : new LLMProviderRetryPolicyOptions
@@ -393,15 +451,18 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
             ? PlanningConstructionInputPolicy.EffectiveLimit(planning!, "construction_local_judge")
             : policy?["max_input_tokens"]?.GetValue<int>() ?? 0);
         var reviewOutput = policy?["construction_review_output_tokens"]?.GetValue<int>() ?? 0;
-        var effectiveTransportPolicy = new JsonObject
+        JsonObject? effectiveTransportPolicy = new JsonObject
         {
             ["version"] = capturedTransport is null ? 1 : 2, ["disable_transport_retries"] = dispatched.DisableTransportRetries,
             ["allow_http_recovery"] = capturedTransport is not null || !incremental,
             ["effective_retry_policy"] = JsonSerializer.SerializeToNode(retryPolicy, LLMHttpRetryJsonContext.Default.LLMProviderRetryPolicyOptions)
         };
+        if (execution)
+            effectiveTransportPolicy = runtimeJournal is null ? RuntimeTransportPolicy("runtime_single_attempt", request) :
+                runtimeJournal["effective_transport_policy"]?.DeepClone().AsObject();
         if (capturedTransport is not null)
         {
-            effectiveTransportPolicy["planning_transport_policy"] = policy![PlanningTransportPolicies.OptionName]!.DeepClone();
+            effectiveTransportPolicy!["planning_transport_policy"] = policy![PlanningTransportPolicies.OptionName]!.DeepClone();
             effectiveTransportPolicy["max_total_tokens"] = Math.Min(15_000_000L, PlanningBudgetOptions.Parse(planning!.Options)?.MaxTotalTokens ?? 15_000_000L);
             effectiveTransportPolicy["max_elapsed_ms"] = (long)PlanningBenchmarkMeasurements.PlanningElapsedLimit(planning).TotalMilliseconds;
             effectiveTransportPolicy["review_token_headroom"] = checked(reviewCount * (reviewInput + reviewOutput));
@@ -435,7 +496,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
                 reviewInput, reviewOutput, effectiveTransportPolicy);
         }, async token =>
         {
-            using var context = new LLMHttpRetryContext(request.ClientRequestId!, journal!, capturedTransport is null ? null : retryPolicy).Activate();
+            using var context = new LLMHttpRetryContext(request.ClientRequestId!, journal!, execution ? RuntimeRetryPolicy(effectiveTransportPolicy) : capturedTransport is null ? null : retryPolicy).Activate();
             var response = await _client.CallAsync(dispatched, token);
             long ReadTokens(params string[] keys)
             {
@@ -522,24 +583,38 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
             var id = run + "-copilot:" + PlanningGraphCompiler.Fingerprint(sdkId);
             var request = new LLMRequest { ClientRequestId = id, Provider = Provider, Model = Model, Prompt = body, MaxTokens = output };
             BenchmarkHttpJournal? journal = null;
-            var transportPolicy = new JsonObject { ["version"] = 1, ["mode"] = "sdk_proxy_single_attempt",
-                ["disable_transport_retries"] = true, ["allow_http_recovery"] = false,
-                ["max_attempts"] = 1, ["timeout_ms"] = (long)_http.Timeout.TotalMilliseconds };
+            var wireFingerprint = PlanningGraphCompiler.Fingerprint("POST\n" + upstream.AbsoluteUri + "\n" + body);
+            var retained = await RuntimeJournalAsync(request, ct, wireFingerprint);
+            var transportPolicy = retained is null ? RuntimeTransportPolicy("sdk_proxy_single_attempt", request) :
+                retained["effective_transport_policy"]?.DeepClone().AsObject();
+            if (retained is null)
+            {
+                transportPolicy!["timeout_ms"] = (long)_http.Timeout.TotalMilliseconds;
+                transportPolicy["wire_fingerprint"] = wireFingerprint;
+            }
             var response = await _campaign.CallAsync(request, async token => journal = await PrepareAdmissionAsync(id, input, output.Value, null, token,
                 effectiveTransportPolicy: transportPolicy), async token =>
             {
                 var state = await journal!.LoadAsync(token) ?? new();
-                if (state.Attempts.Count != 0) throw new InvalidOperationException("Unknown SDK inference cannot be dispatched again.");
-                state.Fingerprint = PlanningGraphCompiler.Fingerprint(body); state.Attempts.Add(new() { Id = id });
-                await journal.SaveAsync(state, token);
-                using var message = new HttpRequestMessage(HttpMethod.Post, upstream) { Content = new StringContent(body, Encoding.UTF8, "application/json") };
-                foreach (var header in headers)
-                    if (!header.Key.StartsWith("X-GnOuGo-Inference-", StringComparison.OrdinalIgnoreCase) && header.Key is not ("Host" or "Content-Length" or "Content-Type"))
-                        message.Headers.TryAddWithoutValidation(header.Key, header.Value);
-                using var result = await _http.SendAsync(message, HttpCompletionOption.ResponseHeadersRead, token);
-                var text = await result.Content.ReadAsStringAsync(token); var contentType = result.Content.Headers.ContentType?.ToString() ?? "application/json";
-                state.Attempts[0].Status = (int)result.StatusCode; state.Attempts[0].Body = text; state.Attempts[0].ContentType = contentType;
-                await journal.SaveAsync(state, CancellationToken.None);
+                if (state.Attempts.Count == 0)
+                {
+                    state.Fingerprint = wireFingerprint; state.Attempts.Add(new() { Id = id });
+                    await journal.SaveAsync(state, token);
+                    using var message = new HttpRequestMessage(HttpMethod.Post, upstream) { Content = new StringContent(body, Encoding.UTF8, "application/json") };
+                    foreach (var header in headers)
+                        if (!header.Key.StartsWith("X-GnOuGo-Inference-", StringComparison.OrdinalIgnoreCase) && header.Key is not ("Host" or "Content-Length" or "Content-Type"))
+                            message.Headers.TryAddWithoutValidation(header.Key, header.Value);
+                    using var result = await _http.SendAsync(message, HttpCompletionOption.ResponseHeadersRead, token);
+                    var receivedText = await result.Content.ReadAsStringAsync(token);
+                    state.Attempts[0].Status = (int)result.StatusCode; state.Attempts[0].Body = receivedText;
+                    state.Attempts[0].ContentType = result.Content.Headers.ContentType?.ToString() ?? "application/json";
+                    await journal.SaveAsync(state, CancellationToken.None);
+                }
+                if (state.Fingerprint != wireFingerprint || state.Attempts.Count != 1 ||
+                    state.Attempts[0].Status is null || state.Attempts[0].Body is null || state.Attempts[0].Failure is not null)
+                    throw new InvalidOperationException("No exact completed SDK inference response is available.");
+                var completed = state.Attempts[0];
+                var text = completed.Body!; var contentType = completed.ContentType ?? "application/json";
                 JsonNode? usage = null;
                 if (contentType.StartsWith("text/event-stream", StringComparison.OrdinalIgnoreCase))
                 {
@@ -548,14 +623,14 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
                 }
                 else usage = JsonNode.Parse(text)?["usage"];
                 JsonObject? measured = null;
-                if (result.IsSuccessStatusCode && (usage?["input_tokens"] ?? usage?["prompt_tokens"])?.GetValue<long>() is { } usedInput &&
+                if (completed.Status is >= 200 and < 300 && (usage?["input_tokens"] ?? usage?["prompt_tokens"])?.GetValue<long>() is { } usedInput &&
                     (usage?["output_tokens"] ?? usage?["completion_tokens"])?.GetValue<long>() is { } usedOutput)
                 {
                     measured = await journal.CompleteAsync(new() { ["input_tokens"] = usedInput, ["output_tokens"] = usedOutput,
                         ["benchmark_cost_eur"] = await CompletedCostAsync(id, usedInput, usedOutput) }, CancellationToken.None);
                 }
-                return new LLMResponse { Text = text, Json = new JsonObject { ["status"] = (int)result.StatusCode, ["content_type"] = contentType }, Usage = measured };
-            }, ct);
+                return new LLMResponse { Text = text, Json = new JsonObject { ["status"] = completed.Status, ["content_type"] = contentType }, Usage = measured };
+            }, ct, allowHttpRecovery: true);
             return (response.Json!["status"]!.GetValue<int>(), response.Json["content_type"]!.ToString(), response.Text);
         }
         finally { _dispatchGate.Release(); }

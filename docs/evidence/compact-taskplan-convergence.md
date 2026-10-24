@@ -1,5 +1,25 @@
 # Compact TaskPlan convergence
 
+## Source `1b672ea17`: pending transport snapshot
+
+[Collections stopped](compact-taskplan-1b672ea17-collections-pending.json) during intent extraction,
+before any candidate fragment or Judge: **2 logical calls / 2 physical attempts / 1 receipt**,
+zero corrections/checkpoints and no artifact or runtime. The second attempt recorded `Transport`
+without an HTTP response; its output and provider termination are unknown, not an empty response.
+The sole received response was valid JSON: 480 original bytes, zero outside-string whitespace.
+
+Known cost is **EUR0.0150691655510932619366354306**, with the full
+**EUR0.9308701472556894243641231593** unknown-usage reservation held. At the retained inspection,
+**EUR105.86619201671697026882985541** remained available; exact abandonment authorization was
+pending and no closure had been applied. Business coverage and calls-per-accepted-obligation are unavailable.
+No efficacy conclusion follows for the unreached Judge guidance; three-case acceptance remains open.
+
+Exact `1b` validation passed **3,047 tests** (2,910 Planning + 137 hosts) and **12/12 publication stages**,
+with warnings treated as errors and no diagnostics; full-solution and CI results were pending at this snapshot.
+A separate source audit identified benchmark-runtime transport/reservation gaps; this run made no runtime call and demonstrates no runtime billing error.
+
+## Retained source `c17ee8a42` diagnostic snapshot
+
 **Source `c17ee8a42` passed both Collections runtime variants; Amazon and Review PR stopped
 without artifacts or execution. PR #120 remains Draft.** Three-case acceptance and the 18
 alternating baseline comparisons remain unestablished. Detailed measurements remain in archives.

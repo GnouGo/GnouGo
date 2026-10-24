@@ -12,6 +12,9 @@ internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string re
 {
     private readonly JsonObject? _effectiveTransportPolicy = effectiveTransportPolicy?.DeepClone().AsObject();
     internal const string Collection = "planning-evaluation-http-attempts";
+    internal static bool IsRuntimeSingleAttempt(JsonObject? policy) => policy?["version"]?.GetValue<int>() == 2 &&
+        policy["mode"]?.ToString() is "runtime_single_attempt" or "sdk_proxy_single_attempt";
+
     internal static JsonObject UndispatchedUsage() => new()
     {
         ["input_tokens"] = 0L, ["output_tokens"] = 0L, ["benchmark_cost_eur"] = 0m,
@@ -73,17 +76,27 @@ internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string re
                 if (_effectiveTransportPolicy?["effective_retry_policy"]?["MaxAttempts"]?.GetValue<int>() is not (>= 1 and <= 3) ||
                     state.Attempts.Count > _effectiveTransportPolicy["effective_retry_policy"]!["MaxAttempts"]!.GetValue<int>())
                     throw new InvalidOperationException("The captured request attempt allowance is exhausted.");
-                if (!DateTimeOffset.TryParseExact(_effectiveTransportPolicy?["deadline_utc"]?.GetValue<string>(), "O",
-                    System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var deadline) ||
-                    (time ?? TimeProvider.System).GetUtcNow() >= deadline)
-                    throw new InvalidOperationException("The captured planning deadline cannot cover another HTTP attempt.");
-                var tokenLimit = _effectiveTransportPolicy?["max_total_tokens"]?.GetValue<long>()
-                    ?? throw new InvalidOperationException("Captured cumulative token allowance is required.");
-                var reviewTokens = _effectiveTransportPolicy?["review_token_headroom"]?.GetValue<long>()
-                    ?? throw new InvalidOperationException("Captured review token headroom is required.");
-                if (tokenLimit is <= 0 or > 15_000_000 || reviewTokens < 0 ||
-                    totals["session_token_upper_bound"]!.GetValue<long>() > tokenLimit - reviewTokens)
-                    sessionExhausted = true;
+                if (IsRuntimeSingleAttempt(_effectiveTransportPolicy))
+                {
+                    if (_effectiveTransportPolicy?["disable_transport_retries"]?.GetValue<bool>() != true ||
+                        _effectiveTransportPolicy["effective_retry_policy"]?["MaxAttempts"]?.GetValue<int>() != 1 ||
+                        _effectiveTransportPolicy["effective_retry_policy"]?["MaxUncertainRetries"]?.GetValue<int>() != 0)
+                        throw new InvalidOperationException("Runtime inference requires one attempt without uncertain replay.");
+                }
+                else
+                {
+                    if (!DateTimeOffset.TryParseExact(_effectiveTransportPolicy?["deadline_utc"]?.GetValue<string>(), "O",
+                        System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var deadline) ||
+                        (time ?? TimeProvider.System).GetUtcNow() >= deadline)
+                        throw new InvalidOperationException("The captured planning deadline cannot cover another HTTP attempt.");
+                    var tokenLimit = _effectiveTransportPolicy?["max_total_tokens"]?.GetValue<long>()
+                        ?? throw new InvalidOperationException("Captured cumulative token allowance is required.");
+                    var reviewTokens = _effectiveTransportPolicy?["review_token_headroom"]?.GetValue<long>()
+                        ?? throw new InvalidOperationException("Captured review token headroom is required.");
+                    if (tokenLimit is <= 0 or > 15_000_000 || reviewTokens < 0 ||
+                        totals["session_token_upper_bound"]!.GetValue<long>() > tokenLimit - reviewTokens)
+                        sessionExhausted = true;
+                }
             }
             if (totals["cost_upper_bound_eur"]!.GetValue<decimal>() + reviewCostHeadroom > await campaign.CostCeilingAsync(ct) || sessionExhausted)
             { campaign.BudgetExceeded(sessionExhausted); throw new InvalidOperationException("The campaign or session cannot cover another HTTP attempt."); }

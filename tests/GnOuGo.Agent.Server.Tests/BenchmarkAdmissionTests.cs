@@ -515,6 +515,203 @@ public sealed class BenchmarkAdmissionTests
         Assert.False(await fixture.Campaign.HasUncertainRequestAsync(Ct));
     }
 
+    [Theory]
+    [InlineData(false, 429)]
+    [InlineData(false, 500)]
+    [InlineData(false, 0)]
+    [InlineData(true, 429)]
+    [InlineData(true, 500)]
+    [InlineData(true, 0)]
+    public async Task FreshRuntimeReservesEveryFailureAndNeverRetries(bool proxy, int status)
+    {
+        using var fixture = new Fixture(); var options = RuntimeOptions();
+        using var handler = new RuntimeHandler(status); using var http = new HttpClient(handler);
+        using var model = RuntimeModel(fixture, options, http);
+        var id = RuntimeId(proxy);
+        handler.BeforeSend = async () =>
+        {
+            var row = (await fixture.Campaign.LoadAsync(BenchmarkHttpJournal.Collection, id, Ct))!;
+            var attempt = Assert.Single(row["transport"]!["Attempts"]!.AsArray());
+            Assert.Null(attempt!["Status"]);
+            Assert.Equal(.09m, (await BenchmarkHttpJournal.AccountingAsync(fixture.Campaign, ct: Ct))["reserved_cost_eur"]!.GetValue<decimal>());
+        };
+        var error = await Record.ExceptionAsync(() => InvokeRuntime(model, proxy));
+        Assert.Equal(proxy && status != 0, error is null);
+        Assert.Equal(1, handler.Calls);
+        var journal = (await fixture.Campaign.LoadAsync(BenchmarkHttpJournal.Collection, id, Ct))!;
+        var policy = journal["effective_transport_policy"]!;
+        Assert.Equal(2, policy["version"]!.GetValue<int>());
+        Assert.True(policy["disable_transport_retries"]!.GetValue<bool>());
+        Assert.Equal(1, policy["effective_retry_policy"]!["MaxAttempts"]!.GetValue<int>());
+        Assert.Equal(0, policy["effective_retry_policy"]!["MaxUncertainRetries"]!.GetValue<int>());
+        Assert.Null(journal["session_attempt_limit"]); // Runtime does not acquire a new planning cap.
+        var before = journal.ToJsonString();
+        var totals = await BenchmarkHttpJournal.AccountingAsync(fixture.Campaign, ct: Ct);
+        Assert.Equal(1L, totals["calls"]!.GetValue<long>());
+        Assert.Equal(1L, totals["unknown_attempts"]!.GetValue<long>());
+        Assert.Equal(.09m, totals["reserved_cost_eur"]!.GetValue<decimal>());
+        Assert.Equal(0m, totals["known_cost_eur"]!.GetValue<decimal>());
+        _ = await Record.ExceptionAsync(() => InvokeRuntime(model, proxy));
+        Assert.Equal(1, handler.Calls);
+        Assert.Equal(before, (await fixture.Campaign.LoadAsync(BenchmarkHttpJournal.Collection, id, Ct))!.ToJsonString());
+        Assert.True(JsonNode.DeepEquals(totals, await BenchmarkHttpJournal.AccountingAsync(fixture.Campaign, ct: Ct)));
+    }
+
+    [Theory]
+    [InlineData(false, false, false)]
+    [InlineData(false, false, true)]
+    [InlineData(false, true, false)]
+    [InlineData(false, true, true)]
+    [InlineData(true, false, false)]
+    [InlineData(true, false, true)]
+    [InlineData(true, true, false)]
+    [InlineData(true, true, true)]
+    public async Task RuntimeExactCompletedResponseRecoversWithoutSendOrHistoricalPolicyRewrite(bool proxy, bool historical, bool receipt)
+    {
+        using var fixture = new Fixture(); var options = RuntimeOptions();
+        using var handler = new RuntimeHandler(200); using var http = new HttpClient(handler);
+        using var model = RuntimeModel(fixture, options, http);
+        await InvokeRuntime(model, proxy);
+        var id = RuntimeId(proxy); var campaign = fixture.Campaign;
+        var journal = (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, id, Ct))!;
+        if (historical)
+        {
+            var policy = journal["effective_transport_policy"]!.AsObject();
+            policy.Remove("request_hash"); policy.Remove("wire_fingerprint"); policy["version"] = 1;
+            if (proxy)
+            {
+                policy.Remove("effective_retry_policy"); policy["allow_http_recovery"] = false; policy["max_attempts"] = 1;
+                // Historical SDK evidence retained only the body, not its upstream URI.
+                journal["transport"]!["Fingerprint"] = PlanningGraphCompiler.Fingerprint(System.Text.Json.JsonSerializer.Deserialize((await campaign.LoadAsync("planning-evaluation-requests", id, Ct))!, PlanningJsonContext.Default.LLMRequest)!.Prompt);
+            }
+            else
+            {
+                policy.Remove("mode"); policy["disable_transport_retries"] = false;
+                policy["effective_retry_policy"]!["MaxAttempts"] = 4;
+                policy["effective_retry_policy"]!["MaxUncertainRetries"] = 1;
+            }
+            journal["effective_transport_policy_hash"] = PlanningGraphCompiler.Fingerprint(policy.ToJsonString());
+        }
+        if (!receipt)
+        {
+            journal.Remove("usage");
+            await fixture.Records.DeleteAsync("planning-evaluation-receipts", "benchmark", "fixture:" + id, BenchmarkCampaign.Author, Ct);
+        }
+        await campaign.SaveAsync(BenchmarkHttpJournal.Collection, id, journal, Ct);
+        var policyBefore = journal["effective_transport_policy"]!.ToJsonString();
+        var transportBefore = journal["transport"]!.ToJsonString();
+        var originalBefore = (await campaign.LoadAsync("planning-evaluation-requests", id, Ct))!.ToJsonString();
+        var receiptBefore = (await campaign.LoadAsync("planning-evaluation-receipts", id, Ct))?.ToJsonString();
+        fixture.Time.Advance(TimeSpan.FromDays(20));
+        if (proxy && historical)
+        {
+            var before = journal.ToJsonString();
+            await Assert.ThrowsAsync<InvalidOperationException>(() => InvokeRuntime(model, proxy));
+            Assert.Equal(1, handler.Calls);
+            Assert.Equal(before, (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, id, Ct))!.ToJsonString());
+            Assert.Equal(receiptBefore, (await campaign.LoadAsync("planning-evaluation-receipts", id, Ct))?.ToJsonString());
+            Assert.Equal(originalBefore, (await campaign.LoadAsync("planning-evaluation-requests", id, Ct))!.ToJsonString());
+            return;
+        }
+        if (proxy)
+        {
+            await Assert.ThrowsAsync<InvalidOperationException>(() => InvokeRuntime(model, proxy,
+                upstream: "https://example.invalid/v1/other/chat/completions"));
+            Assert.Equal(1, handler.Calls);
+        }
+        await InvokeRuntime(model, proxy);
+        Assert.Equal(1, handler.Calls);
+        var after = (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, id, Ct))!;
+        Assert.Equal(policyBefore, after["effective_transport_policy"]!.ToJsonString());
+        Assert.Equal(transportBefore, after["transport"]!.ToJsonString());
+        Assert.Equal(originalBefore, (await campaign.LoadAsync("planning-evaluation-requests", id, Ct))!.ToJsonString());
+        if (receipt) Assert.Equal(receiptBefore, (await campaign.LoadAsync("planning-evaluation-receipts", id, Ct))!.ToJsonString());
+        var totals = await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct);
+        Assert.Equal(.09m, totals["known_cost_eur"]!.GetValue<decimal>()); Assert.Equal(0m, totals["reserved_cost_eur"]!.GetValue<decimal>());
+        await Assert.ThrowsAsync<InvalidOperationException>(() => InvokeRuntime(model, proxy, "altered input"));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => InvokeRuntime(model, proxy, output: 32768));
+        Assert.Equal(1, handler.Calls);
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task RuntimePhysicalReservationNeverReplaysButEmptyFreshJournalMayStart(bool proxy, bool reservedAttempt)
+    {
+        using var fixture = new Fixture(); var options = RuntimeOptions();
+        using var handler = new RuntimeHandler(200); using var http = new HttpClient(handler);
+        using var model = RuntimeModel(fixture, options, http);
+        // Interrupt after durable admission; no transport has run.
+        fixture.Records.FailCollection = "planning-evaluation-requests";
+        await Assert.ThrowsAsync<IOException>(() => InvokeRuntime(model, proxy));
+        fixture.Records.FailCollection = null;
+        Assert.Equal(0, handler.Calls);
+        var id = RuntimeId(proxy);
+        var row = (await fixture.Campaign.LoadAsync(BenchmarkHttpJournal.Collection, id, Ct))!;
+        Assert.Empty(row["transport"]!["Attempts"]!.AsArray());
+        var unchanged = row.ToJsonString();
+        await Assert.ThrowsAsync<InvalidOperationException>(() => InvokeRuntime(model, proxy, "changed after admission"));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => InvokeRuntime(model, proxy, output: 32768));
+        if (proxy) await Assert.ThrowsAsync<InvalidOperationException>(() => InvokeRuntime(model, proxy,
+            upstream: "https://example.invalid/v1/other/chat/completions"));
+        Assert.Equal(0, handler.Calls);
+        Assert.Equal(unchanged, (await fixture.Campaign.LoadAsync(BenchmarkHttpJournal.Collection, id, Ct))!.ToJsonString());
+        if (reservedAttempt)
+        {
+            var journal = new BenchmarkHttpJournal(fixture.Campaign, id, row["input_ceiling"]!.GetValue<long>(),
+                row["output_ceiling"]!.GetValue<long>(), row["cost_ceiling_eur"]!.GetValue<decimal>(), null,
+                effectiveTransportPolicy: row["effective_transport_policy"]!.AsObject(), time: fixture.Time);
+            await journal.SaveAsync(new() { Attempts = [new() { Id = "reserved-before-crash" }] }, Ct);
+            var before = (await fixture.Campaign.LoadAsync(BenchmarkHttpJournal.Collection, id, Ct))!.ToJsonString();
+            await Assert.ThrowsAsync<InvalidOperationException>(() => InvokeRuntime(model, proxy));
+            Assert.Equal(0, handler.Calls);
+            Assert.Equal(before, (await fixture.Campaign.LoadAsync(BenchmarkHttpJournal.Collection, id, Ct))!.ToJsonString());
+            Assert.Equal(.09m, (await BenchmarkHttpJournal.AccountingAsync(fixture.Campaign, ct: Ct))["reserved_cost_eur"]!.GetValue<decimal>());
+        }
+        else
+        {
+            await InvokeRuntime(model, proxy);
+            Assert.Equal(1, handler.Calls);
+        }
+    }
+
+    private static LLMOptions RuntimeOptions()
+    {
+        var options = Options(); options.Models["fixture"].Url = "https://example.invalid/v1";
+        options.Models["fixture"].RetryPolicy = new() { MaxAttempts = 4, MaxUncertainRetries = 1, BaseDelayMilliseconds = 1 };
+        return options;
+    }
+    private static string RuntimeId(bool proxy) => proxy ? "runtime-copilot:" + PlanningGraphCompiler.Fingerprint("sdk-one") : "runtime-execution:one";
+    private static KeyVaultBenchmarkModel RuntimeModel(Fixture fixture, LLMOptions options, HttpClient http) => new(fixture.Campaign,
+        options, new RoutingLLMClientAdapter(new RoutingLLMClient(http, options)), new Rates(fixture.Time), new Price(), fixture.Time, http);
+    private static async Task InvokeRuntime(KeyVaultBenchmarkModel model, bool proxy, string prompt = "exact input",
+        int output = 8192, string upstream = "https://example.invalid/v1/chat/completions")
+    {
+        if (proxy)
+            await model.ProxyInferenceAsync("runtime", new()
+            {
+                ["X-GnOuGo-Inference-Upstream"] = upstream,
+                ["X-GnOuGo-Inference-Request"] = "sdk-one"
+            }, new JsonObject { ["model"] = "pinned", ["messages"] = new JsonArray(new JsonObject { ["role"] = "user", ["content"] = prompt }), ["max_completion_tokens"] = output }.ToJsonString(), Ct);
+        else await model.CallExecutionAsync(new() { ClientRequestId = RuntimeId(false), Prompt = prompt, MaxTokens = output }, Ct);
+    }
+    private sealed class RuntimeHandler(int status) : HttpMessageHandler
+    {
+        internal int Calls;
+        internal Func<Task>? BeforeSend;
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+        {
+            Calls++;
+            if (BeforeSend is not null) await BeforeSend();
+            if (status == 0) throw new HttpRequestException("Offline fixture transport outcome unavailable");
+            return new((System.Net.HttpStatusCode)status) { Content = new StringContent(status == 200
+                ? """{"choices":[{"finish_reason":"stop","message":{"role":"assistant","content":"done"}}],"usage":{"prompt_tokens":10,"completion_tokens":2}}"""
+                : """{"error":{"code":"rate_limit_exceeded","message":"temporary fixture failure"}}""", System.Text.Encoding.UTF8, "application/json") };
+        }
+    }
+
     private static CompiledWorkflow Workflow(string stepType)
     {
         var document = WorkflowParser.Parse("""
