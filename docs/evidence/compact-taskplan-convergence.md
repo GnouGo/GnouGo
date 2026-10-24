@@ -1,5 +1,53 @@
 # Compact TaskPlan convergence
 
+## Source `e6b24bb77`: incomplete diagnostic results
+
+Neither Collections nor Amazon produced an artifact or executed. Review PR has not
+run on e6b at this snapshot. Three-case business acceptance and the 18 alternating
+comparisons remain incomplete; PR #120 stays Draft.
+
+| Frozen e6b case | Logical calls / attempts / receipts | Corrections / checkpoints | Planning seconds | Known EUR / retained reservation EUR | Outcome |
+| --- | ---: | ---: | ---: | ---: | --- |
+| [Collections](compact-taskplan-e6b24bb77-collections.json) | 2/3/2 | 0/0 | 623.706 | 0.8970593485051316376617581437 / 0.9308701472556894243641231593 | Received output-limit exhaustion during intent extraction |
+| [Amazon](compact-taskplan-e6b24bb77-amazon-pending.json) | 38/39/37 | 2/5 | 2,052.247 | 2.6069790272199910754127621594 / 1.4897054886211512717536813922 | Response-less Transport; exact retention authorization pending |
+
+Collections request 2 received HTTP 500, then HTTP 200 with 32,768 output tokens,
+all classified as reasoning, and zero response-content bytes. This is an empty
+received response, not whitespace or receiptless uncertainty; its cause is unproven.
+The failed HTTP 500 reservation remains retained despite the later receipt.
+
+Amazon retains both an earlier HTTP 500 reservation and the full
+**EUR0.5588353413654618473895582329** reservation for request 38, which has no HTTP
+status or receipt. Its exact retention inspection is a preview: no permanent closure
+or replay is authorized by that record. All 42 constructed identities reconcile as
+38 dispatched and four prepared only, with no admission rejection. Peak draft/Judge
+estimates were 17,582 / 7,949; the largest draft also fit the previous 18,000 ceiling.
+No source, profile or convergence benefit is established.
+
+The later [bounded navigation witness](compact-taskplan-e6b24bb77-amazon-navigation.json)
+identifies the two charged corrections as explicit prerequisite suspensions at 23/36,
+with no Judge-triggered correction. Selection 28 resumed the first consumer using
+checkpoint 4 and the exact accepted string port; the accepted browser argument retains
+that binding. The second continuation remains waiting. Discovery navigation at 18–21
+and 32–35 repeated despite only one actual MCP discovery read in the run. These facts
+establish neither avoided calls nor runtime correctness; the pending archive is unchanged.
+
+The post-Amazon audit file preserved at **2026-10-24 18:59 UTC** reports
+**EUR117.82121447429577309802020960 known + EUR27.012625944995658453595774726 reserved**,
+upper bound **EUR144.83384041929143155161598433**, leaving
+**EUR95.19626341341487299082896297** at that snapshot. Reservations for 39 unknown
+physical attempts remain; 26 receiptless identities are closed and one remains
+unresolved. No reservation is released by reporting these amounts. Later use changes
+this balance; this is not a future allowance guarantee.
+
+Two subsequent fresh-v5 source changes expose bounded cached operation choices for
+selected accepted producers and dependencies, and consolidate interface-extraction
+instructions. The instruction experiment preserves schema, context and settings.
+Separate focused suites passed **358 and 75 tests**, and the combined focused suite
+passed **433 tests**, with warnings as errors and historical/issued-request recovery
+controls. Full Planning validation is running. No new live outcome or call/cost benefit is established. The e6b business
+diagnostics remain incomplete and Review PR remains unrun.
+
 ## Source `f0644826b`: Code20 diagnostic
 
 [Review PR Code20](compact-taskplan-f0644826b-code.json) stopped after **47 logical
@@ -44,11 +92,12 @@ EUR24.592050309118817757477970175 reserved**, upper bound
 closed; 36 unknown-attempt reservations remain. Exact aggregate rounding is retained.
 
 Exact `f0644826b` focused validation passed 211 tests and full Planning passed
-2,911 (overlapping suites); all 12 publication stages passed, including Native AOT
-and published encrypted storage. Full solution and planner CI are still pending
-at this snapshot; both proxy workflows passed. Later source changes need their own
-validation. Three-case business acceptance and the 18 alternating comparisons remain
-incomplete; PR #120 stays Draft.
+2,911 (overlapping suites). Its terminal full solution passed **8,055 tests, zero
+failures and 13 skips** across 33 projects, with zero compiler diagnostics and all
+4,534 source hashes unchanged. All **12 publication stages** and all **three CI
+workflows** passed for that exact revision. These results do not cover later e6b
+changes or establish live acceptance. Three-case business acceptance and the 18
+alternating comparisons remain incomplete; PR #120 stays Draft.
 
 ## Source `47c08b428`: retained diagnostic results
 

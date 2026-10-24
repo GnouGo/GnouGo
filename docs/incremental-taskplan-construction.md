@@ -84,6 +84,8 @@ with exact contract identities and existing output-page links. Bounded omissions
 stay retrievable; reading an accessible producer's output schema does not add an
 operation, select generation branches, or grant new field access. Literal or
 same-type values still cannot manufacture artifact provenance.
+Fresh revision-5 discovery retains bounded cached operation choices for selected accepted producers and dependencies.
+Exact original description links remain available; canonical operation pages and contract admission are unchanged.
 
 Grounded rejections retain bounded original-context witnesses through their
 replacement chain, including candidate-free reselection. Resumed consumers use
@@ -165,6 +167,7 @@ Prose classification carries no recursive type/default grammar. Shared type
 definitions and semantic validation remain authoritative; unreachable grammar is
 removed from presentation. Historical revision-2 grouping, required directions and
 issued requests retain their captured behavior.
+Interface-guidance consolidation is a separate fresh-v5 prompt experiment with unchanged schema, context and settings.
 Caller-input extraction uses one declaration shape with a required nullable
 `default`: JSON null means no default, while `{"kind":"null"}` is an explicit
 literal null. Recursive literals and semantic default checks are unchanged; public

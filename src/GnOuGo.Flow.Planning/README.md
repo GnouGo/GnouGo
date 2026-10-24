@@ -58,6 +58,9 @@ clarification. Pending extraction blocks generation. Natural boundaries and link
 continuations preserve complete obligations. Historical revision-2 sessions and
 issued requests retain their captured grouping and schemas. Compact schema
 references carry no sibling annotations in the strict provider profile.
+Fresh revision-5 extraction consolidates its instructions without changing schemas,
+source context or model settings. Revision-4 guidance and all saved requests remain
+exact; shorter instructions alone establish neither an exhaustion cause nor efficacy.
 Revision-3 extraction requests compact JSON whitespace outside strings without
 altering original string contents, parser behavior or saved receipts.
 The optional captured profile participates in
@@ -237,6 +240,11 @@ Under the simplified captured policy, selected imports are context hints; semant
 preflight derives every accessible binding actually used by the fragment or closing
 export. Historical presentations retain their explicit import boundary. Neither
 path widens field access or changes accepted bindings.
+Fresh revision-5 discovery also retains bounded exact operation choices for the
+selected accepted producers and dependencies, with original description links.
+This reuses cached contracts without provider navigation or automatic selection;
+canonical operation pages, read history and contract admission remain unchanged.
+
 Fresh discovery presents four concise operation identities with exact description
 links, content-bound page addresses and one continuation. Catalog expansion
 preserves evidence consumption for unchanged pages. The discovery step projection

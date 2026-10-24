@@ -114,12 +114,31 @@ internal static partial class PlanningCompactConstruction
 
     internal static JsonObject? DescribedOperationChoices(PlanningSession state)
     {
-        if (!IsCompactPresentation(state) || state.Construction!.Evidence is not { Count: > 0 } ||
+        if (!IsCompactPresentation(state) ||
+            !UsesConvergentConstruction(state) && state.Construction!.Evidence is not { Count: > 0 } ||
             State(state).CurrentStep is not { } step) return null;
-        var reads = state.Construction.EvidenceRequests.ToHashSet(StringComparer.Ordinal);
+        var reads = state.Construction!.EvidenceRequests.ToHashSet(StringComparer.Ordinal);
         var ranked = CapabilityRelevance.Rank(DescriptorCandidates(state, state.Discovery.Pages), CapabilityRelevance.Query(step.Objective)).Where(capability =>
+            state.Construction!.Evidence is { Count: > 0 } &&
             capability.Operation!.Version == capability.Version && reads.Contains(PlanningConstruction.EvidenceBatchFingerprint(state,
                 ["description:" + ContractIdentity(capability.Operation.Id, capability.Operation.Version) + ":0"]))).ToArray();
+        var accepted = UsesConvergentConstruction(state) ? AcceptedProducerOperationChoices(state).ToArray() : [];
+        if (accepted.Length > 0)
+        {
+            var choices = accepted.Concat(ranked.Select(capability => new JsonObject
+            {
+                ["id"] = capability.Operation!.Id, ["name"] = capability.Name, ["effect"] = capability.EffectKind
+            })).DistinctBy(item => item["id"]!.ToString(), StringComparer.Ordinal).ToArray();
+            var items = new JsonArray();
+            var navigation = new JsonObject { ["total"] = choices.Length, ["complete"] = false, ["items"] = items };
+            foreach (var choice in choices.Take(CompactContractDescriptorPageSize))
+            {
+                items.Add((JsonNode)choice);
+                if (Encoding.UTF8.GetByteCount(navigation.ToJsonString()) > ContractDescriptionPageSize) items.RemoveAt(items.Count - 1);
+            }
+            navigation["complete"] = items.Count == choices.Length;
+            return navigation;
+        }
         if (ranked.Length == 0) return null;
         // A successful description page is navigation evidence, not complete
         // contract inspection or authority to execute. Never resend its prose.
@@ -131,6 +150,28 @@ internal static partial class PlanningCompactConstruction
                 ["id"] = capability.Operation!.Id, ["name"] = capability.Name, ["effect"] = capability.EffectKind
             }).ToArray())
         };
+    }
+
+    private static IEnumerable<JsonObject> AcceptedProducerOperationChoices(PlanningSession state)
+    {
+        if (state.Plan is null) yield break;
+        var accepted = new TaskPlanSymbols(state.Plan);
+        foreach (var id in State(state).CurrentStep!.InputTaskIds.Distinct(StringComparer.Ordinal))
+        {
+            if (!accepted.Tasks.TryGetValue(id, out var site) || site.Task.Kind != "operation" || site.Task.Operation is null) continue;
+            PlanningCapability capability;
+            try { capability = ExactContract(state, site.Task.Operation); }
+            catch (PlanningResponseException) { continue; }
+            var operation = TaskOperations.Describe(capability);
+            // Cached identity is navigation only, not a new read, automatic
+            // operation selection or a replacement for exact contract admission.
+            yield return new JsonObject
+            {
+                ["id"] = operation.Id, ["version"] = operation.Version,
+                ["name"] = capability.Method ?? capability.StepType, ["effect"] = capability.EffectKind,
+                ["descriptionEvidence"] = "description:" + ContractIdentity(operation.Id, operation.Version) + ":0"
+            };
+        }
     }
 
     internal static string OperationPageAddress(PlanningSession state, int offset) =>

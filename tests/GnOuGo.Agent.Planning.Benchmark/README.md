@@ -1152,7 +1152,11 @@ requests, including content-address overhead and the issued compatibility schema
 a smaller individual component does not establish complete-request admission.
 Recorded failures and accounting for Amazon, Collections and Review PR are in the
 [convergence summary](../../docs/evidence/compact-taskplan-convergence.md), which links
-immutable earlier diagnostic records.
+immutable earlier diagnostic records. The e6b snapshot adds
+[Collections output exhaustion](../../docs/evidence/compact-taskplan-e6b24bb77-collections.json)
+and [Amazon's pending transport outcome](../../docs/evidence/compact-taskplan-e6b24bb77-amazon-pending.json);
+neither produced an artifact or executed. Amazon's exact retention inspection remains
+unapplied pending authorization. Technical passes for f064 do not establish e6b success.
 
 Exercise automatic structural closure through the coordinator, receipt recovery and
 existing artifact approval, rather than assigning candidate identity in the fixture.
