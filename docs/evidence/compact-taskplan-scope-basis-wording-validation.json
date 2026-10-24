@@ -1,0 +1,85 @@
+{
+  "version": 1,
+  "base_revision": "7697449ce24fb54804cb31afc33a217c9105c65f",
+  "scope": "Existing scope-interface, review and historical-issued recovery tests against the basis-qualified instruction patch; no live performance or avoided-correction claim.",
+  "validation": {
+    "version": 1,
+    "revision": "7697449ce24fb54804cb31afc33a217c9105c65f",
+    "started_utc": "2026-10-24T00:49:42.055560+00:00",
+    "completed_utc": "2026-10-24T00:49:53.275895+00:00",
+    "command": [
+      "dotnet",
+      "test",
+      "tests/GnOuGo.Flow.Planning.Tests/GnOuGo.Flow.Planning.Tests.csproj",
+      "-m:1",
+      "-warnaserror",
+      "--filter",
+      "FullyQualifiedName~CompactScopeInterfaceTests|FullyQualifiedName~CompactReviewContextTests|FullyQualifiedName~CompactVerifiedJudgeTests|FullyQualifiedName~CompactAcceptedExportNavigationTests",
+      "--logger",
+      "trx;LogFileName=focused.trx",
+      "--results-directory",
+      "/private/tmp/gnougo-scope-basis-wording-769-us7yg_yw/focused"
+    ],
+    "explicit_environment": {
+      "SkipModelMetadataGeneration": "true"
+    },
+    "exit_code": 0,
+    "elapsed_seconds": 11.220205541001633,
+    "counts": {
+      "Passed": 90
+    },
+    "compiler_diagnostics": [],
+    "source_unchanged": true,
+    "source_differences": [],
+    "patch_sha256": "780ad49c86c6bda40d197c4e1a4a5b0f16a239bd190dfb8ddfadf403dc94086f",
+    "frozen_manifest_sha256": "d45499b33a49a42f0b9a59548fa7e4e9fbfe523d694f678bc1c77328ff1ba687",
+    "log_sha256": "3236f6e79cc7b1c89cdeb2a320e206279ef35ecb275c636bc76f77c0bbb0db28",
+    "trx_sha256": "581e38ff656fae019a0a20c430a19424bd2558077249e0bc3be87cb539b7b903",
+    "boundary": "Existing focused scope/interface/review/issued-request recovery tests only. No main build, live model, store, runtime effect or convergence claim."
+  },
+  "compatibility": {
+    "revision": "7697449ce24fb54804cb31afc33a217c9105c65f",
+    "production_delta": "One clause in VerifiedConstructionReviewInstructions, qualified by existing basis. No other code bytes change.",
+    "original_clause_utf8_bytes": 119,
+    "new_clause_utf8_bytes": 179,
+    "instruction_utf8_byte_delta": 60,
+    "historical_constants_unchanged": true,
+    "schemas_context_runtime_and_issuance_code_unchanged": true,
+    "tracked_tests_added_or_changed": false,
+    "changed_files": [
+      {
+        "path": ".agents/skills/gnougo-planning/SKILL.md",
+        "base_sha256": "f60eeb690d3ba1fa5877eb7d89c9b13247cf0ee2ccd59b2309d3a950de94ee06",
+        "candidate_sha256": "7d762dfe464257ebb59da86e85c509fe1f2713425f0e7ed99601654684202917"
+      },
+      {
+        "path": "src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.ConstructionReview.cs",
+        "base_sha256": "1193e2bd1bc28635671133bd3058960cf11afeb942bec83b2bfd7d38b2b102d5",
+        "candidate_sha256": "d47deba2b5f9c67248ff5fdb608667ed50b13c1df18dbbf1cde3f6518a8206a2"
+      }
+    ]
+  },
+  "evidence": {
+    "combined-export-wording.patch": {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/verified-review-v4-validation-20261023/scope-basis-wording-769/combined-export-wording.patch",
+      "sha256": "780ad49c86c6bda40d197c4e1a4a5b0f16a239bd190dfb8ddfadf403dc94086f"
+    },
+    "validation-safe.json": {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/verified-review-v4-validation-20261023/scope-basis-wording-769/validation-safe.json",
+      "sha256": "5dcae94dbf6bce1fbf0ae8e9a060000f0ce7d0f3f89e17294c007778e8d6c200"
+    },
+    "compatibility-safe.json": {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/verified-review-v4-validation-20261023/scope-basis-wording-769/compatibility-safe.json",
+      "sha256": "0c4e7eb7f02db71753281f36fcb0e904091d5edf54131a0425e13b2cd9d5ba2d"
+    },
+    "independent-review-safe.json": {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/verified-review-v4-validation-20261023/scope-basis-wording-769/independent-review-safe.json",
+      "sha256": "94ed59a791efe66c18b76d8469ef11e55e234081a6e157e995be8f47711c1ec1"
+    },
+    "copy-safe.json": {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/verified-review-v4-validation-20261023/scope-basis-wording-769/copy-safe.json",
+      "sha256": "69e6e266f117815147d4059e1d94ca8fa0ae781fa1a4807e8b34eacf985e41af"
+    }
+  },
+  "motivation": "Collections8 Judge38 attributed new output work to a candidate with no tasks or export additions. The view description incorrectly claimed to distinguish accepted exports from additions; the existing draft.outputs delta remains authoritative."
+}
