@@ -9,7 +9,7 @@ using GnOuGo.Planning.Examples;
 
 namespace GnOuGo.Agent.Server.Tests;
 
-public sealed class BenchmarkPermanentRetentionTests
+public sealed partial class BenchmarkPermanentRetentionTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
     private const string Session = "uncertain-session", RequestId = Session + ":1:original";

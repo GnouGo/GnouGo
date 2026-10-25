@@ -587,6 +587,7 @@ internal static partial class PlanningCompactConstruction
             ["diagnostics"] = PlanningJsonTransport.Diagnostics(state.Diagnostics)
         };
         AddRequirementNavigation(state, context);
+        if (UsesDecisionView(state)) context["continuation"] = ContinuationContext(state);
         if (DescribedOperationChoices(state) is { } described) context["describedOperations"] = described;
         if (PlanningConstructionPhasePolicies.IsFresh(state.Request) && ScopeOwnerNavigation(state) is { } owner)
             context["scopeOwner"] = owner;

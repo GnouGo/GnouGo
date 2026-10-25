@@ -418,6 +418,44 @@ input/output/cost reservation. Successful HTTP responses, usage receipts,
 approval or execution evidence reject this operation. Historical retry-exhaustion
 eligibility remains unchanged.
 
+The private baseline operator extension accepts `--frozen-baseline-proof <file>`
+and `--expected-frozen-baseline-proof-hash <sha256>` together. The expected hash
+must come from independent review before the arm's first dispatch; deriving it
+from an unreviewed file does not establish provenance. This is not a new
+retention kind or authorization. It permits only the existing single-attempt
+transport/timeout and explicit 500/502/504 boundaries for a verified baseline
+construction-1 run, accounting marker 2 and exact legacy dispatch policy.
+The original background preference, absent modern request fields, full retry
+settings and all reservations remain intact. The synchronous dispatch copy
+changes only provider/model, background mode and retry disabling as the baseline
+adapter actually did; `MaxAttempts=1` does not erase its uncertainty setting.
+
+The bounded version-1 proof references the existing freeze, independent review,
+complete source inventory, exact overlay patch, source-qualified validation,
+build manifest, DLL, dependency manifest, command and MCP manifest. Its source
+inventory uses `root`, `head` and the complete `files` SHA-256 map. The retained
+checkout must be clean at the truthful harness commit, with the complete 1,128-file
+`src` tree identical to `56942f5bdfad69ee6f05ccd793b712eaf9f33ca5`.
+Each current file must match both its committed Git blob identity and the reviewed
+SHA-256 inventory; a clean status alone is insufficient.
+The build binds that inventory, DLL/dependency hashes and all `output_files`;
+the freeze binds source, binary, MCP inventory, original oracle/input files and
+`planning_configuration`. Build and validation records must report successful
+warning-as-error execution, zero failed/skipped tests or diagnostics, and the same
+`source_inventory_sha256`. A source-qualified wrapper must link the actual retained
+execution and explain exact source equality; it cannot turn a failed build into a pass.
+These proof fields are required before use; older generic freeze/build manifests
+without them are not automatically compatible. The binding names the exact campaign, run collection,
+run key, session, case/cohort/repetition, rendered input, provider/model,
+configuration and unchanged campaign retry policy. Existing corpus/live key
+derivation is checked. The review pins the freeze and predates the first original
+request record. All referenced bytes are revalidated on inspect/apply/readback.
+The resulting `frozen_arm` hash summary is part of the existing inspection evidence;
+application still requires its exact evidence hash and separate explicit operator
+authorization under the campaign lease. Historical no-proof paths are unchanged.
+No real baseline eligibility follows from offline serializer or validator tests:
+the final committed harness, qualified build and pre-dispatch proof must exist.
+
 The default mode accepts only its historical timeout/transport evidence, with no
 HTTP status or body. A separately authorized single HTTP 500, 502 or 504 can instead
 use its exact `--retention-kind single-http-500`, `single-http-502` or
@@ -1145,8 +1183,12 @@ the process lease, execution storage and delegated authorization to the same abs
 workspace. Omission retains the existing default GnOuGo workspace.
 Before a draft or correction is recorded, the benchmark also checks the existing
 campaign upper bound against the mandatory review allowance without creating a request,
-reservation or completion receipt. The physical journal repeats admission immediately
-before dispatch using the exact retained price and currency quote.
+reservation or completion receipt. This preflight sums every supplied positive per-call
+ceiling, including five or more remaining source windows, rather than limiting the list
+to a fixed number of phases. Existing cumulative call/token limits remain authoritative;
+insufficient campaign funds still reject before dispatch without changing accounting.
+The physical journal repeats admission immediately before dispatch using the exact
+retained price and currency quote.
 Fresh physical transport admission uses the exact hash-bound `RequiredReviewCalls`
 captured on the issued request, including an intermediate review when required.
 Revision 6 captures all remaining source windows within the existing cumulative

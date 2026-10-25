@@ -93,7 +93,8 @@ internal static partial class PlanningCompactConstruction
         if (UsesDecisionView(state))
         {
             addresses.UnionWith(PrerequisiteAddresses(state, (context["requirements"] as JsonArray ?? []).Select(row => row!["id"]!.ToString())).Where(IsOriginalAddress));
-            addresses.UnionWith(NavigationEvidence([context["interfaces"]]));
+            addresses.UnionWith(NavigationEvidence([context["interfaces"], context["continuation"]]));
+            addresses.UnionWith(NavigationEvidence((context["continuation"]?["acceptedCheckpoints"] as JsonArray ?? []).Cast<JsonNode?>()));
         }
         if (UsesConvergentConstruction(state))
             addresses.UnionWith(NavigationEvidence([context["requirementsDirectory"], context["nextRequirements"]]));

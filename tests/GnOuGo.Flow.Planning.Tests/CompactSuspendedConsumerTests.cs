@@ -388,6 +388,100 @@ public sealed class CompactSuspendedConsumerTests
         Assert.NotEmpty(PlanningContractValidation.ValidateInstanceFindings(response, schema));
     }
 
+    [Theory]
+    [InlineData(5)]
+    [InlineData(6)]
+    public async Task DeferredDiscoveryKeepsTheSuspendedPrerequisiteWithoutAcceptingAProducer(int presentation)
+    {
+        var state = State(presentation);
+        state.IntentVersion = 3; state.Revision = 1; state.Status = PlanningStatus.Generating;
+        PlanningCompactConstruction.InitializeSources(state);
+        foreach (var source in state.Construction!.Compact!.Sources)
+        {
+            source.Indexed = true;
+            if (source.Kind is "requirement" or "global") source.InterfaceKind = "none";
+        }
+        state.Construction.Compact.InterfaceExtractions = [];
+        PlanningCompactConstruction.Reselect(state, Suspend()); state.Diagnostics.Clear();
+        var plan = PlanningConstruction.Hash(state.Plan);
+        var retained = PlanningCompactConstruction.SelectionContext(state)["continuation"]!.DeepClone();
+        var prerequisite = PlanningConstruction.Node(Assert.Single(state.Construction.Compact.SuspendedSteps!).Prerequisite,
+            PlanningJsonContext.Default.PlanningConstructionTypedPrerequisite);
+        var address = retained["evidence"]!.ToString();
+        var discoveryCalls = 0;
+        var runtime = new TestRuntime { Respond = (request, purpose) =>
+        {
+            var context = RequestContext(request);
+            JsonObject response;
+            if (purpose == PlanningCompactConstruction.SelectPurpose)
+            {
+                Assert.True(JsonNode.DeepEquals(retained, context["continuation"]));
+                response = new JsonObject { ["baseHash"] = plan, ["evidenceRequests"] = null,
+                    ["clarifications"] = null, ["resumeStep"] = null, ["step"] = new JsonObject
+                    {
+                        ["scope"] = "/root", ["kind"] = null, ["objective"] = "Produce the exact numeric prerequisite.",
+                        ["requirementIds"] = new JsonArray("req"), ["inputs"] = new JsonArray(), ["groupId"] = null,
+                        ["dependencyTaskIds"] = new JsonArray(), ["expectedOutputs"] = new JsonArray("number"),
+                        ["closeRequirementIds"] = new JsonArray(), ["outputNames"] = new JsonArray(), ["prerequisites"] = null
+                    } };
+            }
+            else
+            {
+                Assert.Equal(PlanningCompactConstruction.DiscoveryPurpose, purpose); discoveryCalls++;
+                if (presentation == 6)
+                {
+                    var navigation = context["continuation"]!;
+                    Assert.True(JsonNode.DeepEquals(retained, navigation));
+                    Assert.True(JsonNode.DeepEquals(prerequisite, navigation["prerequisite"]));
+                    Assert.Equal("model_authored_navigation", navigation["basis"]!.ToString());
+                    Assert.Equal("waiting", navigation["status"]!.ToString());
+                    Assert.False(navigation["canAttemptResume"]!.GetValue<bool>());
+                    Assert.Empty(navigation["acceptedCheckpoints"]!.AsArray());
+                    if (discoveryCalls > 1)
+                        Assert.Equal("consumer", context["evidence"]![address]!["step"]!["id"]!.ToString());
+                }
+                else Assert.Null(context["continuation"]);
+                var retrieve = presentation == 6 && discoveryCalls == 1;
+                response = new JsonObject { ["discoveryRequests"] = null, ["clarifications"] = null, ["reselectStep"] = null,
+                    ["evidenceRequests"] = retrieve ? new JsonArray(address) : null,
+                    ["binding"] = retrieve ? null : new JsonObject { ["kind"] = "value", ["operationIds"] = new JsonArray(), ["groupId"] = null } };
+            }
+            Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(response, request.StructuredOutputSchema!));
+            return new LLMResponse { Json = response };
+        } };
+        state = await Advance(state, runtime);
+        Assert.Null(state.Construction!.Compact!.CurrentStep!.Kind);
+        state = await Advance(state, runtime);
+        if (presentation == 6) state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        Assert.Equal(presentation == 6 ? 2 : 1, discoveryCalls);
+        Assert.Equal("value", state.Construction!.Compact!.CurrentStep!.Kind);
+        Assert.True(state.Construction.Compact.CurrentStep.DiscoveryComplete);
+        Assert.Equal(plan, PlanningConstruction.Hash(state.Plan)); Assert.Empty(state.Plan!.Root.Tasks);
+        Assert.Empty(state.Construction.Checkpoints); Assert.Null(state.Construction.Candidate);
+        Assert.Equal("in_progress", Assert.Single(state.Construction.Requirements).Status);
+        Assert.Equal("waiting", Assert.Single(state.Construction.Compact.SuspendedSteps!).Status);
+        Assert.Null(state.Construction.Compact.ResumingStepId);
+        Assert.Equal(0, state.ReplanAttempts); Assert.Equal(0, state.Construction.DraftCorrections);
+    }
+
+    [Theory]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    [InlineData(5)]
+    public void HistoricalDiscoveryContextIgnoresSuspendedNavigationByteForByte(int presentation)
+    {
+        var state = State(presentation); state.Diagnostics.Clear();
+        state.Construction!.Compact!.CurrentStep!.Kind = "operation";
+        state.Construction.Compact.CurrentStep.DiscoveryComplete = false;
+        var original = PlanningCompactConstruction.DiscoveryContext(state).ToJsonString();
+        var donor = State(6); PlanningCompactConstruction.Reselect(donor, Suspend());
+        state.Construction.Compact.SuspendedSteps = donor.Construction!.Compact!.SuspendedSteps;
+        Assert.Equal(original, PlanningCompactConstruction.DiscoveryContext(state).ToJsonString());
+        Assert.Null(PlanningCompactConstruction.DiscoveryContext(state)["continuation"]);
+    }
+
     [Fact]
     public async Task DraftAndJudgeRetainTheActiveTypedPrerequisiteAsNavigationOnly()
     {

@@ -81,6 +81,82 @@ public sealed class CompactConstructionReviewCoverageTests
         Assert.Null(state.ApprovedHash);
     }
 
+    [Fact]
+    public async Task CleanFirstWindowCannotCloseAClaimWhoseOriginalIsInTheNextWindow()
+    {
+        var state = await State(closeScope: true, closeRequirement: true, repetitions: 24);
+        var construction = state.Construction!;
+        var compact = construction.Compact!;
+        // Keep the existing fixture's exact original text, but index it as two
+        // whole requirements so the second closure claim is outside window zero.
+        var originals = compact.Sources.Where(source => source.Kind is "requirement" or "global").ToArray();
+        var split = originals.Length / 2;
+        var first = originals.Take(split).ToArray();
+        var second = originals.Skip(split).ToArray();
+        Assert.NotEmpty(first);
+        Assert.NotEmpty(second);
+        foreach (var original in originals) original.Kind = "requirement";
+        compact.GlobalSourceIds.Clear();
+        compact.RequirementSources.Clear();
+        compact.RequirementSources["req_0"] = first.Select(source => source.Id).ToList();
+        compact.RequirementSources["req_1"] = second.Select(source => source.Id).ToList();
+        var firstText = string.Concat(first.Select(source => source.Text));
+        var secondText = string.Concat(second.Select(source => source.Text));
+        state.Requirements!.Outcomes = [new("req_0", firstText), new("req_1", secondText)];
+        construction.Requirements = [new() { Id = "req_0" }, new() { Id = "req_1" }];
+        var step = compact.CurrentStep!;
+        step.RequirementIds = ["req_0", "req_1"];
+        step.CloseRequirementIds = ["req_0", "req_1"];
+        var extension = construction.Candidate!.Extension;
+        extension.RequirementIds = ["req_0", "req_1"];
+        construction.Candidate = PlanningConstruction.Apply(state, extension);
+        construction.Candidate.NeedsIntermediateReview = true;
+        var candidate = construction.Candidate.Hash;
+        var baseline = PlanningConstruction.Hash(state.Plan);
+        var claims = JsonSerializer.Serialize(step, PlanningJsonContext.Default.PlanningConstructionStep);
+        var seen = 0;
+        var runtime = new TestRuntime { Respond = (request, purpose) =>
+        {
+            Assert.Equal(PlanningConstruction.LocalPurpose, purpose);
+            var context = Context(request);
+            var coverage = context["sourceCoverage"]!;
+            Assert.Equal(2, coverage["windowCount"]!.GetValue<int>());
+            Assert.Equal(seen, coverage["windowIndex"]!.GetValue<int>());
+            Assert.Equal(new[] { "requirement:req_" + seen }, Strings(coverage["sourceIds"]));
+            Assert.Equal(new[] { "req_0", "req_1" }, Strings(context["constructionStage"]!["closeRequirementIds"]));
+            Assert.True(context["constructionStage"]!["planCompletionClaimed"]!.GetValue<bool>());
+            var displayed = Assert.Single(context["requirements"]!.AsArray())!;
+            Assert.Equal(seen == 0 ? firstText : secondText, displayed["original"]!.ToString());
+            Assert.Equal(candidate, state.Construction!.Candidate!.Hash);
+            Assert.Equal(baseline, PlanningConstruction.Hash(state.Plan));
+            Assert.Equal(claims, JsonSerializer.Serialize(state.Construction.Compact!.CurrentStep, PlanningJsonContext.Default.PlanningConstructionStep));
+            var report = Report();
+            Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(report, request.StructuredOutputSchema!));
+            seen++;
+            return Response(report);
+        } };
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        Assert.Equal(1, seen);
+        Assert.NotNull(state.Construction!.Candidate);
+        Assert.False(PlanningConstructionReviewCoverage.Complete(state, state.Construction.Candidate!));
+        Assert.All(state.Construction.Requirements, requirement => Assert.Equal("remaining", requirement.Status));
+        Assert.Empty(state.Construction.Checkpoints);
+        Assert.Throws<PlanningConflictException>(() => PlanningArtifactApproval.Verify(PlannerFixture.Clone(state)));
+        state = await ReviewAll(state, runtime);
+        Assert.Equal(2, seen);
+        Assert.Equal(2, state.ModelCalls);
+        Assert.All(state.Construction!.Requirements, requirement => Assert.Equal("closed", requirement.Status));
+        var checkpoint = Assert.Single(state.Construction.Checkpoints);
+        Assert.Equal(candidate, checkpoint.PlanHash);
+        Assert.Equal(2, CleanReviews(checkpoint.Reviews).Count());
+        Assert.True(PlanningConstructionReviewCoverage.Reviewed(state, checkpoint, PlanningConstruction.LocalPurpose));
+        Assert.True(PlanningConstructionReviewCoverage.Reviewed(state, checkpoint, PlanningConstruction.IntermediatePurpose));
+        PlanningArtifactApproval.Verify(PlannerFixture.Clone(state));
+        Assert.Equal(0, state.ReplanAttempts);
+        Assert.Null(state.ApprovedHash);
+    }
+
     [Theory]
     [InlineData("missing")]
     [InlineData("duplicate")]
@@ -573,11 +649,11 @@ public sealed class CompactConstructionReviewCoverageTests
         return state;
     }
 
-    private static async Task<PlanningSession> State(bool closeScope = false, bool closeRequirement = false, bool oversized = false)
+    private static async Task<PlanningSession> State(bool closeScope = false, bool closeRequirement = false, bool oversized = false, int repetitions = 28)
     {
         var clauses = Enumerable.Range(0, oversized ? 1 : 18).Select(index =>
             $"Original clause {index}: retain the exact supplied value and preserve this distinct condition. " +
-            string.Concat(Enumerable.Repeat($"Condition {index} remains authoritative. ", oversized ? 4000 : 28)) + "\n").ToArray();
+            string.Concat(Enumerable.Repeat($"Condition {index} remains authoritative. ", oversized ? 4000 : repetitions)) + "\n").ToArray();
         var state = new PlanningSession { Request = new() { TenantId = "review-coverage", Prompt = string.Concat(clauses), MaxModelCalls = 64 } };
         PlanningSessionCreation.Capture(state);
         state.IntentVersion = 3; state.Revision = 1; state.Status = PlanningStatus.Generating;

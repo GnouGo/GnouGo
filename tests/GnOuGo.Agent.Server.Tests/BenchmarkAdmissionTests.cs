@@ -135,28 +135,72 @@ public sealed class BenchmarkAdmissionTests
         Assert.Equal(1, provider.Calls);
     }
 
-    [Fact]
-    public async Task ConstructionFinancialPreflightIncludesReviewsAndPreservesUnknownAccounting()
+    [Theory]
+    [InlineData(2)]
+    [InlineData(4)]
+    [InlineData(5)]
+    [InlineData(8)]
+    public async Task ConstructionFinancialPreflightIncludesReviewsAndPreservesUnknownAccounting(int reviews)
     {
         using var fixture = new Fixture();
-        var journal = new BenchmarkHttpJournal(fixture.Campaign, "retained:1", 100, 20, 49.8m);
-        await journal.SaveAsync(new() { Attempts = [new() { Id = "uncertain" }] }, Ct);
-        var before = await BenchmarkHttpJournal.AccountingAsync(fixture.Campaign, ct: Ct);
         var rates = new Rates(fixture.Time); var provider = new Provider(fixture.Campaign);
         using var model = fixture.Model(rates, provider);
         var measured = new LiveWorkflowEvaluation.PlanningModel(model, new());
         var runtime = new WorkflowPlanningRuntime(new WorkflowEngine { LLMClient = measured }, (_, _) => Task.CompletedTask);
+        var request = new LLMRequest { ClientRequestId = "unissued:1", Prompt = "Exact original", RequiredReviewCalls = reviews };
+        var original = System.Text.Json.JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest);
+        var ceilings = Enumerable.Repeat(2048, reviews + 1).ToArray(); ceilings[0] = 8192;
+        var emptyAccounting = await BenchmarkHttpJournal.AccountingAsync(fixture.Campaign, ct: Ct);
+        var mutations = fixture.Records.MutationAttempts;
+        await runtime.AdmitConstructionAsync(request, 32000, ceilings, Ct);
+        Assert.Equal(mutations, fixture.Records.MutationAttempts);
+        Assert.Equal(0, provider.Calls);
+        Assert.Equal(original, System.Text.Json.JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+        Assert.True(JsonNode.DeepEquals(emptyAccounting, await BenchmarkHttpJournal.AccountingAsync(fixture.Campaign, ct: Ct)));
+
+        var journal = new BenchmarkHttpJournal(fixture.Campaign, "retained:1", 100, 20, 49.8m);
+        await journal.SaveAsync(new() { Attempts = [new() { Id = "uncertain" }] }, Ct);
+        var before = await BenchmarkHttpJournal.AccountingAsync(fixture.Campaign, ct: Ct);
+        var retained = (await fixture.Campaign.LoadAsync(BenchmarkHttpJournal.Collection, "retained:1", Ct))!.ToJsonString();
+        mutations = fixture.Records.MutationAttempts;
         var error = await Assert.ThrowsAsync<WorkflowRuntimeException>(() => runtime.AdmitConstructionAsync(
-            new(), 32000, [8192, 2048, 2048], Ct));
+            request, 32000, ceilings, Ct));
         Assert.Equal(ErrorCodes.LlmBudgetExceeded, error.Code);
         Assert.Equal("not_started", error.Details!["dispatch_status"]!.ToString());
+        Assert.Equal("construction_review_allowance", error.Details!["classification"]!.ToString());
         // A single draft would fit, but required review headroom cannot be omitted by the planner.
-        await runtime.AdmitConstructionAsync(new(), 32000, [8192], Ct);
+        await runtime.AdmitConstructionAsync(request, 32000, [8192], Ct);
+        Assert.Equal(mutations, fixture.Records.MutationAttempts);
+        Assert.Equal(original, System.Text.Json.JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+        Assert.Equal(retained, (await fixture.Campaign.LoadAsync(BenchmarkHttpJournal.Collection, "retained:1", Ct))!.ToJsonString());
         Assert.Equal(0, provider.Calls);
         Assert.True(JsonNode.DeepEquals(before, await BenchmarkHttpJournal.AccountingAsync(fixture.Campaign, ct: Ct)));
         Assert.Null(await fixture.Campaign.LoadAsync("planning-evaluation-exchange-rates", "USD-EUR", Ct));
         Assert.Empty(await fixture.Records.ListAsync("planning-evaluation-requests", "benchmark", BenchmarkCampaign.Author, Ct));
         Assert.Empty(await fixture.Records.ListAsync("planning-evaluation-receipts", "benchmark", BenchmarkCampaign.Author, Ct));
+    }
+
+    [Theory]
+    [InlineData(32000, 0, 2048)]
+    [InlineData(32000, 5, 0)]
+    [InlineData(32000, 5, -1)]
+    [InlineData(0, 5, 2048)]
+    [InlineData(-1, 5, 2048)]
+    public async Task ConstructionFinancialPreflightRejectsInvalidCeilingsWithoutMutation(int input, int calls, int output)
+    {
+        using var fixture = new Fixture();
+        var rates = new Rates(fixture.Time); var provider = new Provider(fixture.Campaign);
+        using var model = fixture.Model(rates, provider);
+        var measured = new LiveWorkflowEvaluation.PlanningModel(model, new());
+        var runtime = new WorkflowPlanningRuntime(new WorkflowEngine { LLMClient = measured }, (_, _) => Task.CompletedTask);
+        var request = new LLMRequest { ClientRequestId = "unissued:1", Prompt = "Exact original" };
+        var original = System.Text.Json.JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest);
+        await Assert.ThrowsAsync<ArgumentException>(() => runtime.AdmitConstructionAsync(
+            request, input, Enumerable.Repeat(output, calls).ToArray(), Ct));
+        Assert.Equal(0, provider.Calls);
+        Assert.Equal(0, rates.Calls);
+        Assert.Equal(0, fixture.Records.MutationAttempts);
+        Assert.Equal(original, System.Text.Json.JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
     }
 
     [Fact]
@@ -863,11 +907,16 @@ public sealed class BenchmarkAdmissionTests
     {
         internal string? FailCollection;
         internal string? FailContent;
+        internal int MutationAttempts;
         public Task<KeyVaultRecordValue?> GetAsync(string c, string t, string k, string a, CancellationToken ct = default) => inner.GetAsync(c, t, k, a, ct);
         public Task<KeyVaultRecordValue> UpsertAsync(string c, string t, string k, string v, string a, CancellationToken ct = default)
-            => c == FailCollection || FailContent is not null && v.Contains(FailContent, StringComparison.Ordinal)
+        {
+            MutationAttempts++;
+            return c == FailCollection || FailContent is not null && v.Contains(FailContent, StringComparison.Ordinal)
                 ? throw new IOException("Injected persistence failure") : inner.UpsertAsync(c, t, k, v, a, ct);
+        }
         public Task<IReadOnlyList<KeyVaultRecordValue>> ListAsync(string c, string t, string a, CancellationToken ct = default) => inner.ListAsync(c, t, a, ct);
-        public Task<bool> DeleteAsync(string c, string t, string k, string a, CancellationToken ct = default) => inner.DeleteAsync(c, t, k, a, ct);
+        public Task<bool> DeleteAsync(string c, string t, string k, string a, CancellationToken ct = default)
+        { MutationAttempts++; return inner.DeleteAsync(c, t, k, a, ct); }
     }
 }

@@ -61,7 +61,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
     public async Task AdmitConstructionAsync(LLMRequest request, int inputTokenCeiling,
         IReadOnlyList<int> outputTokenCeilings, CancellationToken ct)
     {
-        if (inputTokenCeiling <= 0 || outputTokenCeilings.Count is < 1 or > 4 || outputTokenCeilings.Any(v => v <= 0))
+        if (inputTokenCeiling <= 0 || outputTokenCeilings.Count < 1 || outputTokenCeilings.Any(v => v <= 0))
             throw new ArgumentException("Construction admission requires bounded navigation, draft and review ceilings.");
         await _dispatchGate.WaitAsync(ct);
         try

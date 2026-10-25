@@ -31,9 +31,12 @@ internal sealed partial class BenchmarkCampaign
     }
 
     internal async Task<JsonObject> InspectPermanentRetentionAsync(string collection, string runKey, string requestId, CancellationToken ct,
-        string? retentionKind = null)
+        string? retentionKind = null, BenchmarkFrozenBaselineArm? frozenBaseline = null)
     {
         ValidateRetentionKind(retentionKind);
+        var frozenProof = frozenBaseline?.Read();
+        if (frozenProof is not null && retentionKind is InterruptedProcessRetention or ExhaustedPlanningRetriesRetention)
+            throw new InvalidOperationException("A frozen baseline proof cannot authorize interruption or captured-retry retention.");
         if (collection is not ("planning-evaluation-runs" or SchemaPortabilityCampaign.Collection))
             throw new ArgumentException("Choose an existing benchmark planning-run collection.");
         ArgumentException.ThrowIfNullOrWhiteSpace(runKey);
@@ -41,6 +44,7 @@ internal sealed partial class BenchmarkCampaign
         if (await LoadAsync("planning-evaluation-closures", requestId, ct) is { } retained)
         {
             ValidatePermanentClosure(retained, requestId);
+            BenchmarkFrozenBaselineArm.RequireSame(retained["evidence"]?["frozen_arm"], frozenProof);
             if (retained["evidence"]?["run_collection"]?.ToString() != collection ||
                 retained["evidence"]?["run_key"]?.ToString() != runKey ||
                 retained["evidence"]?["retention_kind"]?.ToString() != retentionKind)
@@ -155,10 +159,21 @@ internal sealed partial class BenchmarkCampaign
             run["manifest"] is JsonObject manifest &&
                 (manifest["production_sha"]?.ToString() != source || manifest["harness_sha"]?.ToString() != source))
             throw new InvalidOperationException("The retained source and run manifest disagree.");
+        JsonObject? frozenArm = null;
+        if (frozenProof is not null)
+        {
+            var originals = (await Records.ListAsync("planning-evaluation-requests", "benchmark", Author, ct))
+                .Where(row => row.Key.StartsWith(Id + ":" + state.Request.SessionId + ":", StringComparison.Ordinal)).ToArray();
+            if (originals.Length == 0) throw new InvalidOperationException("The original pre-dispatch request record is missing.");
+            var configuration = await LoadAsync("planning-evaluation-configuration", "configuration", ct)
+                ?? throw new InvalidOperationException("The original provider configuration is missing.");
+            frozenArm = BenchmarkFrozenBaselineArm.ValidateRun(frozenProof, Id, collection, runKey, source, state,
+                run["session"]!["request"]!.AsObject(), request, policy, journal, retry, configuration, originals.Min(row => row.CreatedAt));
+        }
         if (journal["effective_transport_policy"] is JsonObject effective &&
             (journal["effective_transport_policy_hash"]?.ToString() != Hash(effective) ||
              effective["allow_http_recovery"]?.GetValue<bool>() != capturedRetries ||
-             !capturedRetries && (effective["version"]?.GetValue<int>() != 1 || effective["disable_transport_retries"]?.GetValue<bool>() != true ||
+             !capturedRetries && frozenArm is null && (effective["version"]?.GetValue<int>() != 1 || effective["disable_transport_retries"]?.GetValue<bool>() != true ||
              effective["effective_retry_policy"]?["MaxAttempts"]?.GetValue<int>() != 1)))
             throw new InvalidOperationException("The issued transport policy permits recovery; this terminal operator cannot reinterpret it.");
         if (journal["effective_transport_policy"] is null && journal["effective_transport_policy_hash"] is not null ||
@@ -180,6 +195,7 @@ internal sealed partial class BenchmarkCampaign
             ["accounting"] = await BenchmarkHttpJournal.AccountingAsync(this, requestId, ct: ct)
         };
         if (retentionKind is not null) evidence["retention_kind"] = retentionKind;
+        if (frozenArm is not null) evidence["frozen_arm"] = frozenArm;
         if (interrupted)
         {
             evidence.Remove("failure_hash");
@@ -194,7 +210,8 @@ internal sealed partial class BenchmarkCampaign
     // The caller holds the campaign lease. Inspect is read-only; apply publishes exactly one
     // immutable closure. Neither path constructs a provider, alters evidence or settles usage.
     internal async Task<JsonObject> ApplyPermanentRetentionAsync(string collection, string runKey, string requestId,
-        string expectedEvidenceHash, string operatorIdentity, string authorization, CancellationToken ct, string? retentionKind = null)
+        string expectedEvidenceHash, string operatorIdentity, string authorization, CancellationToken ct, string? retentionKind = null,
+        BenchmarkFrozenBaselineArm? frozenBaseline = null)
     {
         ValidateRetentionKind(retentionKind);
         ArgumentException.ThrowIfNullOrWhiteSpace(operatorIdentity);
@@ -206,6 +223,7 @@ internal sealed partial class BenchmarkCampaign
         if (await LoadAsync("planning-evaluation-closures", requestId, ct) is { } existing)
         {
             ValidatePermanentClosure(existing, requestId);
+            BenchmarkFrozenBaselineArm.RequireSame(existing["evidence"]?["frozen_arm"], frozenBaseline?.Read());
             if (existing["reason"]?.ToString() != PermanentRetentionReason ||
                 existing["evidence_hash"]?.ToString() != expectedEvidenceHash ||
                 existing["authorization_hash"]?.ToString() != authorizationHash ||
@@ -215,7 +233,7 @@ internal sealed partial class BenchmarkCampaign
                 throw new InvalidOperationException("The existing closure is immutable and does not match this authorization.");
             return existing;
         }
-        var inspected = await InspectPermanentRetentionAsync(collection, runKey, requestId, ct, retentionKind);
+        var inspected = await InspectPermanentRetentionAsync(collection, runKey, requestId, ct, retentionKind, frozenBaseline);
         if (inspected["evidence_hash"]?.ToString() != expectedEvidenceHash)
             throw new InvalidOperationException("Retention evidence changed; inspect and review the exact current evidence.");
         var closure = inspected.DeepClone().AsObject();

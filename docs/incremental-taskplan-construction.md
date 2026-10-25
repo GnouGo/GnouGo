@@ -53,8 +53,12 @@ Existing review records bind the window set to the accepted baseline, candidate,
 claims, sources, evidence and contracts. All windows must pass before acceptance,
 automatic closure or artifact approval. Changed evidence or identities invalidate
 coverage; old rows remain history. Each window contains only its assigned originals,
-with exact retrieval links and host-enumerated evidence addresses. A clean window
-does not close a requirement, and the existing single follow-up allowance is shared
+with exact retrieval links and host-enumerated evidence addresses. Assess those
+clauses against the unchanged full candidate claims; a claim concerning an original
+assigned to another window alone does not require that original here. Retrieve it
+when a specific dependency or coupled constraint is needed to assess a current
+clause. A clean window does not close a requirement, and the existing single
+follow-up allowance is shared
 across the candidate. Indivisible context and remaining review headroom must fit
 before dispatch. Pending requests retain their exact issued window and schema.
 
@@ -424,6 +428,11 @@ remain unchanged; directory hashes still identify the complete original pages.
 Fresh discovery schemas offer batches of up to eight unseen issued addresses or
 one eligible description reread; mixed or regrouped rereads are not offered.
 Exact prerequisite citations remain navigable across original requirements.
+Revision 6 carries the existing bounded suspended-consumer view from selection into
+deferred discovery: the exact typed need, evidence link and accepted-producer status
+remain visible. Its rejected-step and checkpoint links use the existing read-only
+evidence grammar and admission. This navigation neither satisfies the prerequisite
+nor resumes or accepts work; presentation revisions 2–5 retain their prior context.
 Partial descriptions retain continuations and cannot establish missing behavior.
 The host resolves evidence on a clone and checks the complete
 prospective follow-up, including its expanded binding grammar, against the hard
