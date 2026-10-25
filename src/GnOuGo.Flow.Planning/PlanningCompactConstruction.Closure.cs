@@ -41,6 +41,8 @@ internal static partial class PlanningCompactConstruction
             compact.CurrentStep is not null || construction.Requirements.Any(requirement =>
                 !construction.Checkpoints.Any(checkpoint => checkpoint.ClosedRequirementIds?.Contains(requirement.Id, StringComparer.Ordinal) == true &&
                     requirement.Checkpoints.Contains(checkpoint.Sequence) && checkpoint.InvalidatedTaskIds.Count == 0 &&
+                    PlanningConstructionReviewCoverage.Reviewed(state, checkpoint, PlanningConstruction.LocalPurpose) &&
+                    (!checkpoint.NeedsIntermediateReview || PlanningConstructionReviewCoverage.Reviewed(state, checkpoint, PlanningConstruction.IntermediatePurpose)) &&
                     checkpoint.Reviews.Any(review => review["candidateHash"]?.ToString() == checkpoint.PlanHash &&
                         review["outcome"]?.ToString() == "unverified" && review["response"]?["findings"] is JsonArray { Count: 0 }))))
             return null;

@@ -99,6 +99,8 @@ public sealed class BenchmarkAdmissionTests
     [InlineData(false, 0)]
     [InlineData(false, 1)]
     [InlineData(false, 2)]
+    [InlineData(false, 3)]
+    [InlineData(false, 4)]
     [InlineData(true, 1)]
     public async Task FreshCapturedTransportBindsActualReviewHeadroomAndStricterDisable(bool disabled, int reviews)
     {

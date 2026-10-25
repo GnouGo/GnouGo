@@ -71,7 +71,17 @@ public static class PlanningTransportPolicies
     public static void ValidateIssued(LLMRequest request, PlanningRequest planning)
     {
         if (Read(planning) is not null && (request.UseBackgroundMode || request.Tools is { Count: > 0 } ||
-            request.RequiredReviewCalls is not (>= 0 and <= 2)))
+            !ReviewHeadroomValid(request, planning)))
             throw new PlanningConflictException("Journaled planning transport requires synchronous tool-free generation and captured review headroom.");
+    }
+
+    /// <summary>Source-window reviews use the captured call bound; older presentations retain their two-review maximum.</summary>
+    internal static bool ReviewHeadroomValid(LLMRequest request, PlanningRequest planning)
+    {
+        var maximum = planning.Options["construction_presentation_version"] is JsonValue version &&
+            version.TryGetValue<int>(out var presentation) && presentation == 6
+                ? Math.Min(planning.MaxModelCalls, PlanningBudgetOptions.Parse(planning.Options)?.MaxCalls ?? planning.MaxModelCalls)
+                : 2;
+        return request.RequiredReviewCalls is >= 0 && request.RequiredReviewCalls <= maximum;
     }
 }

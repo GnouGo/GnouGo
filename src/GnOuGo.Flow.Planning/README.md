@@ -2,7 +2,25 @@
 
 Fresh sessions use [compact incremental construction](../../docs/incremental-taskplan-construction.md): index original intent, select one immediate business substep, discover its capabilities, then generate and review a bounded fragment of one TaskPlan. Phase-specific context and response schemas omit unrelated inspections, task grammar and history. Exact contract views preserve required constraints; the shared compiler validates against unchanged original contracts before encrypted checkpoint acceptance. Completion uses the existing PlanningGraph and compiler v15 path without a final whole-plan LLM Judge. Historical proposal/repair contracts below retain their original meaning for issued sessions.
 
-Presentation revision 5 makes terminal selection closure-only, preserves closed
+Fresh presentation revision 6 supplies all exact original clauses when the complete
+authoring request fits; otherwise selected and explicitly retrieved requirements stay
+with all globals/core/evidence and exact omitted-page links. Scoped review still covers
+all originals independently of selected associations. Consumed producers retain exact arguments,
+original contract prose and bound-input/selected-output schema closure; unconsumed
+producers keep compact port identities and exact retrieval links. Types alone do
+not establish business identity, and these views grant no new edit or effect authority.
+Scoped Judges review bounded whole-clause source windows when one request cannot fit.
+Every window must cover the same candidate, baseline, claims, originals and contracts
+before acceptance, automatic closure or approval. The existing review journal stores
+that coverage; changed evidence invalidates it, pending requests keep exact bytes,
+and one shared follow-up allowance remains. Indivisible context and all remaining
+reviews must fit the captured input and cumulative allowances before dispatch.
+Fresh evidence choices enumerate host-issued links, including page continuations.
+Established accepted-work defects still require the existing explicit scoped
+`revise` authority; rollback or runtime compensation cannot withdraw accepted literals.
+No live convergence or execution result follows from these context guarantees.
+
+Revision 6 inherits presentation revision 5's terminal selection closure-only behavior, preserves closed
 requirements, and retains explicitly suspended consumers across prerequisite
 checkpoints. It also requires one Judge action with separate obligation and
 implementation citations, carries grounded repair witnesses, and combines
@@ -55,10 +73,10 @@ values. It remains historical context, separate from current diagnostics and edi
 authority; stale and omitted support is identified explicitly. Contract navigation
 does not claim validation success while a candidate is being repaired.
 The [accepted-state rules](../../docs/incremental-taskplan-construction.md#accepted-state-progression-presentation-revision-5)
-describe the bounded recovery and repair behavior. Versions 2–4 and all issued
+describe the bounded recovery and repair behavior. Versions 2–5 and all issued
 requests retain their schemas, charging and approvals; compiler lowering is unchanged.
 
-Presentation revisions 3 through 5 keep verbatim source classification and targeted
+Presentation revisions 3 through 6 keep verbatim source classification and targeted
 caller/public-interface extraction in the existing intent phase. Classification
 directions are provisional. Extraction first distinguishes caller interfaces from
 artifact obligations: writing a file with specified fields does not itself declare
@@ -981,7 +999,7 @@ internal and never serialized. Flow keeps the authored resume definition separat
 from these captured session options.
 
 The captured diagnostics profile selects private repair version 11; fresh compact
-presentation revisions 4 and 5 select version 12. Accepted public-output bindings and explicitly revised inspected operation
+presentation revisions 4 through 6 select version 12. Accepted public-output bindings and explicitly revised inspected operation
 inputs use their authoritative types to constrain response shapes. References remain
 subject to complete semantic validation; matching types do not prove business meaning.
 Opaque contracts keep the semantic fallback. Exact reference alternatives, host-owned

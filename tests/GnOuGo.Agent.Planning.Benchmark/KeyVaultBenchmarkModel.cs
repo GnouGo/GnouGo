@@ -110,6 +110,9 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
         }
         foreach (var key in new[] { PlanningTransportPolicies.OptionName, "benchmark_planning_elapsed_ms" })
             if (request.Options[key] is { } captured) value[key] = captured.DeepClone();
+        if (request.Options["construction_presentation_version"] is JsonValue presentation &&
+            presentation.TryGetValue<int>(out var version) && version == 6)
+            value["construction_presentation_version"] = 6;
         if (PlanningTransportPolicies.Read(request) is not null)
         {
             if (!double.IsFinite(activeMilliseconds) || activeMilliseconds < 0) throw new ArgumentOutOfRangeException(nameof(activeMilliseconds));
@@ -524,6 +527,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
     {
         var request = new PlanningRequest()
     {
+        MaxModelCalls = policy["max_physical_attempts"]?.GetValue<int>() ?? 64,
         Generation = new()
         {
             MaxInputTokensPerRequest = policy["max_input_tokens"]!.GetValue<int>(),
@@ -534,7 +538,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
             ["construction_input_limits"] = policy["construction_input_limits"]?.DeepClone(),
             ["llm_budget"] = policy["llm_budget"]?.DeepClone() }
         };
-        foreach (var key in new[] { PlanningTransportPolicies.OptionName, "benchmark_planning_elapsed_ms" })
+        foreach (var key in new[] { PlanningTransportPolicies.OptionName, "benchmark_planning_elapsed_ms", "construction_presentation_version" })
             if (policy[key] is { } captured) request.Options[key] = captured.DeepClone();
         return request;
     }

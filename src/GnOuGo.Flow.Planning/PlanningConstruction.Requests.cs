@@ -29,7 +29,7 @@ internal static partial class PlanningConstruction
             var responseSchema = schema(required);
             if (!review && enrich is null && PlanningCompactConstruction.UsesDeferredBinding(state))
                 PlanningCompactConstruction.ConstrainDraftEvidence(state, context, responseSchema);
-            return (context, PlanningCompactConstruction.Request(instructions, context, responseSchema, purpose));
+            return (context, PlanningCompactConstruction.Request(state, instructions, context, responseSchema, purpose));
         }
         var operations = context["operations"]!.AsArray();
         var optional = operations.Where(o => !required.Contains(o!["id"]!.ToString())).ToArray();

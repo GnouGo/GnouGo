@@ -278,9 +278,25 @@ public sealed partial class HybridWorkflowPlanner
         if (reassessment is not null && reassessment["reportRepair"] is null)
             context["reassessment"] = new JsonObject { ["reason"] = reassessment["reason"]?.DeepClone(),
                 ["support"] = reassessment["support"]?.DeepClone() };
-        return (context, PlanningCompactConstruction.Request(guidance, context,
-            convergent ? ConvergentConstructionReviewSchema(context, reassessment is not null)
-                : ConstructionReviewSchema(context, verified, reassessment is not null), purpose));
+        if (PlanningCompactConstruction.UsesDecisionView(state) && reassessment?["reportRepair"]?.GetValue<bool>() != true)
+        {
+            guidance += "\nThis source window contains exact original clauses, independently of selected requirement associations. Assess their applicability to the present fragment and claims; future obligations alone are not defects. All source windows must be reviewed before acceptance. A clean window closes no requirement.";
+            context = PlanningConstructionReviewCoverage.Select(state, context, (window, remaining) =>
+            {
+                var proposal = Create(window);
+                return PlanningModelCalls.PrepareRequest(state, purpose, proposal.Prompt, proposal.StructuredOutputSchema!.AsObject(),
+                    construction.Limits.ReviewOutputTokens, requiredReviewCalls: remaining);
+            }, reassessment?["sourceCoverage"] as JsonObject);
+        }
+        return (context, Create(context));
+
+        LLMRequest Create(JsonObject displayed)
+        {
+            var schema = convergent ? ConvergentConstructionReviewSchema(displayed, reassessment is not null)
+                : ConstructionReviewSchema(displayed, verified, reassessment is not null);
+            PlanningCompactConstruction.ConstrainReviewEvidence(state, displayed, schema);
+            return PlanningCompactConstruction.Request(guidance, displayed, schema, purpose);
+        }
     }
 
     private static async Task ReviewConstructionAsync(PlanningSession state, IPlanningRuntime runtime, bool intermediate, CancellationToken ct)
@@ -298,6 +314,18 @@ public sealed partial class HybridWorkflowPlanner
         {
             (construction.PendingReviewContext, request) = CreateConstructionReviewRequest(state, intermediate);
             construction.PendingReviewHash = PlanningGraphCompiler.Fingerprint(purpose + "\n" + draft.Hash + "\n" + construction.PendingReviewContext.ToJsonString());
+            if (PlanningCompactConstruction.UsesDecisionView(state))
+            {
+                var remaining = PlanningCompactConstruction.RequiredReviewCalls(state);
+                var phase = PlanningConstructionPhasePolicies.Resolve(state.Request, purpose);
+                if (PlanningModelCalls.RemainingCalls(state) < remaining ||
+                    PlanningBudgetOptions.Parse(state.Request.Options)?.MaxTotalTokens is { } limit &&
+                    limit - (state.Usage?.TotalTokens ?? 0) < (long)remaining * (phase.MaxInputTokens + phase.OutputTokens))
+                {
+                    state.Diagnostics = [new("CONSTRUCTION_REVIEW_ALLOWANCE", "/construction/candidate", "All remaining source windows must fit the cumulative review allowance before dispatch. The tentative draft is not accepted.")];
+                    Stop(state); return;
+                }
+            }
         }
         else request = state.PendingCall.Request;
         var context = construction.PendingReviewContext ?? throw new PlanningConflictException("A retained fragment review has no original context.");
@@ -417,6 +445,7 @@ public sealed partial class HybridWorkflowPlanner
             retainedReview["rawResponse"] = retainedResponse?.DeepClone();
             retainedReview["candidateIdentity"] = PlanningConstruction.FailureIdentity(state, draft);
             retainedReview["reviewCoverage"] = context["reviewCoverage"]?.DeepClone();
+            if (context["sourceCoverage"] is JsonObject sourceCoverage) retainedReview["sourceCoverage"] = sourceCoverage.DeepClone();
             if (PlanningConstruction.DefectWitness(state, context, findings) is { } witness) retainedReview["defectWitness"] = witness;
         }
         if (construction.Version == 2) retainedReview["closedRequirementIds"] = new JsonArray(construction.Compact!.CurrentStep!.CloseRequirementIds.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray());
@@ -449,6 +478,7 @@ public sealed partial class HybridWorkflowPlanner
         }
         if (convergent)
         {
+            if (PlanningCompactConstruction.UsesDecisionView(state) && !PlanningConstructionReviewCoverage.Complete(state, draft)) return;
             var coverage = context["reviewCoverage"] as JsonArray ?? throw new PlanningConflictException("The issued review has no exact scope coverage.");
             if (coverage.Any(item => item?.ToString() == "local")) draft.LocalReviewed = true;
             if (coverage.Any(item => item?.ToString() == "intermediate")) draft.IntermediateReviewed = true;
@@ -642,11 +672,17 @@ public sealed partial class HybridWorkflowPlanner
             var entry = new JsonObject { ["purpose"] = purpose, ["fingerprint"] = fingerprint,
                 ["candidateHash"] = candidate.Hash, ["candidateIdentity"] = identity, ["outcome"] = "inconclusive",
                 ["reason"] = report["inconclusive"]!.ToString(), ["response"] = report.DeepClone(), ["support"] = support, ["reassessment"] = "ready" };
+            if (context["sourceCoverage"] is JsonObject sourceCoverage) entry["sourceCoverage"] = sourceCoverage.DeepClone();
             if (rawReport is not null) entry["rawResponse"] = rawReport.DeepClone();
             probe.Construction.Candidate!.Reviews.Add(entry);
             var followup = CreateConstructionReviewRequest(probe, purpose == PlanningConstruction.IntermediatePurpose).Request;
             var request = PlanningModelCalls.PrepareRequest(probe, purpose, followup.Prompt,
                 followup.StructuredOutputSchema!.AsObject(), probe.Construction.Limits.ReviewOutputTokens);
+            if (PlanningCompactConstruction.UsesDecisionView(state))
+                requiredCalls = Math.Max(requiredCalls, PlanningCompactConstruction.RequiredReviewCalls(probe));
+            if (PlanningModelCalls.RemainingCalls(state) < requiredCalls ||
+                PlanningBudgetOptions.Parse(state.Request.Options)?.MaxTotalTokens is { } followupLimit &&
+                followupLimit - (state.Usage?.TotalTokens ?? 0) < (long)requiredCalls * (phase.MaxInputTokens + phase.OutputTokens)) return false;
             PlanningConstruction.AdmitEvidenceFollowup(state, request, purpose);
             if (runtime is IPlanningConstructionAdmission admission)
                 await admission.AdmitConstructionAsync(request, phase.MaxInputTokens,
@@ -657,6 +693,8 @@ public sealed partial class HybridWorkflowPlanner
             construction.TaskCursor = probe.Construction.TaskCursor;
             construction.ScopeCursor = probe.Construction.ScopeCursor;
             construction.RequirementCursor = probe.Construction.RequirementCursor;
+            if (PlanningCompactConstruction.UsesDecisionView(state))
+                PlanningConstructionReviewCoverage.CopyManifest(probe.Construction.Candidate!, candidate);
             candidate.Reviews.Add(entry.DeepClone().AsObject());
             construction.PendingReviewContext = null; construction.PendingReviewHash = null;
             return true;

@@ -220,6 +220,8 @@ internal static partial class PlanningCompactConstruction
             entry["contractHash"] = ContractHash(capability);
             entry["outputDirectory"] = "port-page:" + ContractIdentity(operation.Id, operation.Version) + ":/output:0";
             entry["descriptionEvidence"] = "description:" + ContractIdentity(operation.Id, operation.Version) + ":0";
+            if (UsesDecisionView(state))
+                entry["outputs"] = CompletePortDirectory(operation.Outputs, ContractIdentity(operation.Id, operation.Version), "/output");
             var produces = TaskOperations.ArtifactPorts(capability)["produces"] as JsonArray ?? [];
             if (produces.Count == 0) continue;
             entry["producesCount"] = produces.Count;
@@ -306,8 +308,12 @@ internal static partial class PlanningCompactConstruction
         {
             // Output navigation is retrieved when needed; selected schemas stay
             // in the view. The directory retains every producer port alias.
-            node.Remove("outputs");
-            node["outputsOmitted"] = operation.Outputs.Count > 0;
+            if (UsesDecisionView(state)) node["outputs"] = CompletePortDirectory(operation.Outputs, identity, "/output");
+            else
+            {
+                node.Remove("outputs");
+                node["outputsOmitted"] = operation.Outputs.Count > 0;
+            }
             node["outputDirectory"] = "port-page:" + identity + ":/output:0";
             // Requested originals replace optional input navigation, never the
             // projected constraints or selected output schemas.
@@ -323,11 +329,8 @@ internal static partial class PlanningCompactConstruction
 
     private static JsonObject ReviewContractView(PlanningSession state, PlanningCapability capability, PlanningOperation operation, string identity)
     {
-        var operationDescription = BoundedDescription(operation.Description, 384);
-        var bindings = state.Construction!.Candidate is { } candidate
-            ? TaskPlanRevisions.Tasks(new TaskScope { Tasks = candidate.Extension.Tasks, Always = candidate.Extension.Always })
-                .Where(t => t.Operation == operation.Id).SelectMany(t => t.Inputs).Select(i => i.Name).ToHashSet(StringComparer.Ordinal)
-            : [];
+        var operationDescription = UsesDecisionView(state) ? operation.Description : BoundedDescription(operation.Description, 384);
+        var bindings = BoundInputNames(state, operation.Id);
         var boundPorts = operation.Inputs.Where(p => bindings.Contains(p.Name)).ToArray();
         // These explicitly incomplete descriptions are navigation aids. Keep their
         // aggregate size bounded even when the fragment binds many exact ports.
@@ -356,7 +359,22 @@ internal static partial class PlanningCompactConstruction
             if (capability.Server is { } server) view["server"] = server;
             if (capability.Method is { } method) view["method"] = method;
         }
-        if (IsCompactPresentation(state) && state.Construction.Evidence?.Any(item =>
+        if (UsesDecisionView(state))
+        {
+            // Bound arguments need the same original schema closure used by
+            // explicit contract reads: required siblings, coupling and references
+            // remain normative. The whole view is subject to request admission.
+            view["selectedInputs"] = new JsonArray(boundPorts.Select(port =>
+                (JsonNode)ExactSchemaView(capability, PortPointer("/input", port.Path))).ToArray());
+            foreach (var input in view["boundInputs"]!.AsArray().OfType<JsonObject>())
+            {
+                input.Remove("description");
+                input.Remove("descriptionComplete");
+            }
+            view["outputs"] = CompletePortDirectory(operation.Outputs, identity, "/output");
+            view["outputDirectory"] = "port-page:" + identity + ":/output:0";
+        }
+        if (!UsesDecisionView(state) && IsCompactPresentation(state) && state.Construction!.Evidence?.Any(item =>
             item.Key.StartsWith("description:" + identity + ":", StringComparison.Ordinal) &&
             item.Value is JsonObject original && original["id"]?.ToString() == operation.Id &&
             original["version"]?.ToString() == operation.Version &&
@@ -393,12 +411,21 @@ internal static partial class PlanningCompactConstruction
         // Keep required producer-declared business ports and tentative bindings,
         // including mappings whose ancestors are optional in the wire schema.
         // This does not ask to repeat every unused descendant of an object port.
-        var bound = state.Construction!.Candidate is { } candidate
-            ? TaskPlanRevisions.Tasks(new TaskScope { Tasks = candidate.Extension.Tasks, Always = candidate.Extension.Always })
-                .Where(t => t.Operation == operation.Id).SelectMany(t => t.Inputs).Select(i => i.Name).ToHashSet(StringComparer.Ordinal)
-            : [];
+        var bound = BoundInputNames(state, operation.Id);
         var mandatory = operation.Inputs.Where(p => p.Required || bound.Contains(p.Name)).Select(p => PortPointer("/input", p.Path)).ToHashSet(StringComparer.Ordinal);
         return ProjectInputSchema(capability.InputSchema, selected, omitted, mandatory);
+    }
+
+    private static HashSet<string> BoundInputNames(PlanningSession state, string operation)
+    {
+        if (state.Construction!.Candidate is not { } candidate) return [];
+        IEnumerable<PlanTask> tasks = TaskPlanRevisions.Tasks(new TaskScope { Tasks = candidate.Extension.Tasks, Always = candidate.Extension.Always });
+        if (UsesDecisionView(state) && candidate.AuthorizedPaths is not null)
+        {
+            var symbols = new TaskPlanSymbols(candidate.Plan);
+            tasks = PlanningConstruction.AuthorizedRevisionTasks(state).Select(item => symbols.Tasks[item.Id].Task);
+        }
+        return tasks.Where(task => task.Operation == operation).SelectMany(task => task.Inputs).Select(input => input.Name).ToHashSet(StringComparer.Ordinal);
     }
 
     // Object properties are the only independently removable branches. Any
@@ -666,7 +693,10 @@ internal static partial class PlanningCompactConstruction
             ["next"] = offset + ContractDirectoryPageSize < children.Count ? "schema-page:" + identity + ":" + pointer + ":" + (offset + ContractDirectoryPageSize).ToString(CultureInfo.InvariantCulture) : null };
     }
 
-    private static JsonArray PortDirectory(IEnumerable<OperationPort> ports, string identity, string root) => new(ports.Take(ContractDirectoryPageSize)
+    private static JsonArray PortDirectory(IEnumerable<OperationPort> ports, string identity, string root) =>
+        CompletePortDirectory(ports.Take(ContractDirectoryPageSize), identity, root);
+
+    private static JsonArray CompletePortDirectory(IEnumerable<OperationPort> ports, string identity, string root) => new(ports
         .Select(p => (JsonNode)new JsonObject { ["name"] = p.Name, ["type"] = p.Schema["type"]?.DeepClone(), ["required"] = p.Required,
             ["schema"] = "schema:" + identity + ":" + PortPointer(root, p.Path),
             ["directory"] = ChildSchemaDirectory(p.Schema, identity, PortPointer(root, p.Path)) }).ToArray());

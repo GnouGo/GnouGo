@@ -37,7 +37,8 @@ public sealed partial class HybridWorkflowPlanner
         {
             if (candidate.BaseHash != PlanningConstruction.Hash(state.Plan)) throw new PlanningConflictException("The candidate baseline changed.");
             if (candidate.Diagnostics.Count > 0) { await CorrectConstructionAsync(state, runtime, ct); return; }
-            if (!candidate.LocalReviewed || candidate.NeedsIntermediateReview && !candidate.IntermediateReviewed)
+            if (!candidate.LocalReviewed || candidate.NeedsIntermediateReview && !candidate.IntermediateReviewed ||
+                !PlanningConstructionReviewCoverage.Complete(state, candidate))
             { await ReviewConstructionAsync(state, runtime, candidate.LocalReviewed, ct); return; }
             await AcceptConstructionAsync(state, runtime, ct); return;
         }
@@ -260,7 +261,7 @@ public sealed partial class HybridWorkflowPlanner
     {
         using var correction = new PlanningCorrectionAttempt(state, state.Diagnostics.Any(d => d.Required));
         var response = await CompactCallAsync(state, runtime, PlanningCompactConstruction.SelectPurpose, () =>
-            PlanningCompactConstruction.Request(PlanningCompactConstruction.SelectGuidance(state), PlanningCompactConstruction.SelectionContext(state),
+            PlanningCompactConstruction.Request(state, PlanningCompactConstruction.SelectGuidance(state), PlanningCompactConstruction.SelectionContext(state),
                 PlanningCompactConstruction.SelectionSchema(state), PlanningCompactConstruction.SelectPurpose), ct, correction);
         if (response["baseHash"]!.ToString() != PlanningConstruction.Hash(state.Plan))
             throw new PlanningConflictException("The step selection identifies a stale accepted checkpoint.");
@@ -297,7 +298,7 @@ public sealed partial class HybridWorkflowPlanner
         var primary = PlanningCompactConstruction.UsesDeferredBinding(state) ? "binding" : "operationIds";
         using var correction = new PlanningCorrectionAttempt(state, correcting);
         var response = await CompactCallAsync(state, runtime, PlanningCompactConstruction.DiscoveryPurpose, () =>
-            exactRequest = PlanningCompactConstruction.Request(PlanningCompactConstruction.DiscoveryGuidance(state), PlanningCompactConstruction.DiscoveryContext(state),
+            exactRequest = PlanningCompactConstruction.Request(state, PlanningCompactConstruction.DiscoveryGuidance(state), PlanningCompactConstruction.DiscoveryContext(state),
                 PlanningCompactConstruction.DiscoverySchema(state), PlanningCompactConstruction.DiscoveryPurpose), ct, correction);
         if (response["reselectStep"] is { } reason)
         {
@@ -396,9 +397,9 @@ public sealed partial class HybridWorkflowPlanner
                 followup: next =>
                 {
                     var request = primary == "step"
-                        ? PlanningCompactConstruction.Request(PlanningCompactConstruction.SelectGuidance(next), PlanningCompactConstruction.SelectionContext(next),
+                        ? PlanningCompactConstruction.Request(next, PlanningCompactConstruction.SelectGuidance(next), PlanningCompactConstruction.SelectionContext(next),
                             PlanningCompactConstruction.SelectionSchema(next), purpose)
-                        : PlanningCompactConstruction.Request(PlanningCompactConstruction.DiscoveryGuidance(next), PlanningCompactConstruction.DiscoveryContext(next),
+                        : PlanningCompactConstruction.Request(next, PlanningCompactConstruction.DiscoveryGuidance(next), PlanningCompactConstruction.DiscoveryContext(next),
                             PlanningCompactConstruction.DiscoverySchema(next), purpose);
                     return PlanningModelCalls.PrepareRequest(next, purpose, request.Prompt, request.StructuredOutputSchema!.AsObject(), next.Construction!.Limits.DraftOutputTokens);
                 }, purpose: purpose, issuedDiscoverySchema: issuedDiscoverySchema);
@@ -423,7 +424,7 @@ public sealed partial class HybridWorkflowPlanner
                 // Provider receipts are retained even if the enlarged follow-up
                 // cannot be admitted. Never reread a provider to retry admission.
                 var purpose = PlanningCompactConstruction.DiscoveryPurpose;
-                var request = PlanningCompactConstruction.Request(PlanningCompactConstruction.DiscoveryGuidance(state),
+                var request = PlanningCompactConstruction.Request(state, PlanningCompactConstruction.DiscoveryGuidance(state),
                     PlanningCompactConstruction.DiscoveryContext(state), PlanningCompactConstruction.DiscoverySchema(state), purpose);
                 PlanningConstruction.AdmitEvidenceFollowup(state,
                     PlanningModelCalls.PrepareRequest(state, purpose, request.Prompt, request.StructuredOutputSchema!.AsObject(),

@@ -6,7 +6,7 @@ using GnOuGo.Flow.Core.Runtime;
 
 namespace GnOuGo.Flow.Planning.Tests;
 
-public sealed class CompactConvergentJudgeTests
+public sealed partial class CompactConvergentJudgeTests
 {
     private const string OriginalReviewOpening = "Review the business meaning of this fragment against its exact original requirements and globals: whether its arguments, results and effects perform the selected objective, whether work is unnecessary, and whether the current completion claims omit an obligation.";
     private const string ContractReviewOpening = "Review current contract-defined arguments, results and effects against applicable original obligations; assess unnecessary work and actual completion claims. An operation objective describes its intended contribution, not additional contract behavior or a requirement to perform future work now; transform objectives remain executable instructions.";

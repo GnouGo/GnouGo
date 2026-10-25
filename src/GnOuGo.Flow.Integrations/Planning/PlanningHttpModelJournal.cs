@@ -24,7 +24,7 @@ public sealed class PlanningHttpModelJournal(
         JsonSerializer.SerializeToUtf8Bytes(request, PlanningJsonContext.Default.LLMRequest).Length);
     private int Output => request.MaxTokens is > 0 ? request.MaxTokens.Value : throw Conflict();
     private int[] Reviews => Enumerable.Repeat(PlanningConstructionPhasePolicies.Resolve(planning, "construction_local_judge").OutputTokens,
-        request.RequiredReviewCalls is >= 0 and <= 2 ? request.RequiredReviewCalls.Value : throw Conflict()).ToArray();
+        PlanningTransportPolicies.ReviewHeadroomValid(request, planning) ? request.RequiredReviewCalls!.Value : throw Conflict()).ToArray();
     private string AttemptKey(int number) => Key + ":attempt:" + number;
 
     /// <summary>Identifies exact saved success for receipt-only recovery before planner admission.</summary>

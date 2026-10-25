@@ -45,6 +45,34 @@ public sealed class PlanningTransportPolicyTests
     }
 
     [Theory]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    [InlineData(5)]
+    [InlineData(6)]
+    public void SourceWindowHeadroomIsBoundedByCapturedCallsWithoutChangingHistoricalRequests(int presentation)
+    {
+        var state = Fresh();
+        state.Request.Options["construction_presentation_version"] = presentation;
+        state.Construction!.Compact!.PresentationVersion = presentation;
+        state.Request.MaxModelCalls = 7;
+        state.Request.Options["llm_budget"] = new JsonObject { ["max_calls"] = 5 };
+        var request = Prepare(state, "construction_select");
+        var original = JsonSerializer.Serialize(state.Request, PlanningJsonContext.Default.PlanningRequest);
+        foreach (var count in new[] { 0, 1, 2, 3, 5, 6, 8 })
+        {
+            request.RequiredReviewCalls = count;
+            if (count <= (presentation == 6 ? 5 : 2)) PlanningTransportPolicies.ValidateIssued(request, state.Request);
+            else Assert.Throws<PlanningConflictException>(() => PlanningTransportPolicies.ValidateIssued(request, state.Request));
+        }
+        request.RequiredReviewCalls = null;
+        Assert.Throws<PlanningConflictException>(() => PlanningTransportPolicies.ValidateIssued(request, state.Request));
+        request.RequiredReviewCalls = -1;
+        Assert.Throws<PlanningConflictException>(() => PlanningTransportPolicies.ValidateIssued(request, state.Request));
+        Assert.Equal(original, JsonSerializer.Serialize(state.Request, PlanningJsonContext.Default.PlanningRequest));
+    }
+
+    [Theory]
     [InlineData("construction_select", false, false, 1, 1)]
     [InlineData("construction_discovery", false, true, 2, 1)]
     [InlineData("construction_draft", true, true, 2, 1)]

@@ -7,15 +7,17 @@ namespace GnOuGo.Flow.Planning;
 
 internal static partial class PlanningCompactConstruction
 {
-    internal static bool IsCompactPresentation(PlanningSession state) => state.Construction?.Compact?.PresentationVersion is 2 or 3 or 4 or 5;
-    internal static bool UsesDeferredBinding(PlanningSession state) => state.Construction?.Compact?.PresentationVersion is 3 or 4 or 5;
-    internal static bool UsesVerifiedReview(PlanningSession state) => state.Construction?.Compact?.PresentationVersion is 4 or 5;
-    internal static bool UsesConvergentConstruction(PlanningSession state) => state.Construction?.Compact?.PresentationVersion == 5;
+    internal static bool IsCompactPresentation(PlanningSession state) => state.Construction?.Compact?.PresentationVersion is 2 or 3 or 4 or 5 or 6;
+    internal static bool UsesDeferredBinding(PlanningSession state) => state.Construction?.Compact?.PresentationVersion is 3 or 4 or 5 or 6;
+    internal static bool UsesVerifiedReview(PlanningSession state) => state.Construction?.Compact?.PresentationVersion is 4 or 5 or 6;
+    internal static bool UsesConvergentConstruction(PlanningSession state) => state.Construction?.Compact?.PresentationVersion is 5 or 6;
+    internal static bool UsesDecisionView(PlanningSession state) => state.Construction?.Compact?.PresentationVersion == 6;
 
     // Remaining mandatory review calls; issuance captures this once for physical-attempt admission.
     internal static int RequiredReviewCalls(PlanningSession state)
     {
         var construction = state.Construction!;
+        if (UsesDecisionView(state)) return PlanningConstructionReviewCoverage.RemainingCalls(state);
         if (UsesConvergentConstruction(state))
             return construction.Candidate is { LocalReviewed: true } candidate &&
                 (!candidate.NeedsIntermediateReview || candidate.IntermediateReviewed) ? 0 : 1;
@@ -349,6 +351,7 @@ internal static partial class PlanningCompactConstruction
             context["completionOnly"] = CompletionOnly(state);
             context["continuation"] = ContinuationContext(state);
         }
+        AddDecisionContext(state, context, review: false);
         return TrimNavigation(context);
     }
 
@@ -423,6 +426,7 @@ internal static partial class PlanningCompactConstruction
             ["rebuild"] = RebuildDirectory(state),
             ["reviewScope"] = intermediate ? "junction" : review ? "draft" : "extension"
         };
+        PlanningConstruction.AddAuthorizedRevisionDraft(state, context);
         AddRequirementNavigation(state, context);
         if (CompanionOperationNavigation(state) is { } companions) context["companionOperations"] = companions;
         if (DraftContinuationContext(state) is { } continuation) context["continuation"] = continuation;
@@ -553,6 +557,7 @@ internal static partial class PlanningCompactConstruction
             context["historicalTechnicalRejections"] = technicalHistory;
         if (UsesConvergentConstruction(state) && PlanningConstruction.DefectProgressContext(state, context) is { } progress)
             context["defectProgress"] = progress;
+        AddDecisionContext(state, context, review);
         return context;
     }
 
@@ -580,6 +585,7 @@ internal static partial class PlanningCompactConstruction
         if (DescribedOperationChoices(state) is { } described) context["describedOperations"] = described;
         if (PlanningConstructionPhasePolicies.IsFresh(state.Request) && ScopeOwnerNavigation(state) is { } owner)
             context["scopeOwner"] = owner;
+        AddDecisionContext(state, context, review: false);
         // These are optional navigation slots, not fields inside original
         // evidence. Preserve historical issued presentation and nested values.
         return IsCompactPresentation(state) ? TrimNavigation(context) : context;

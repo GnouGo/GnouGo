@@ -56,7 +56,7 @@ public static class PlanningArtifactApproval
                 throw new PlanningConflictException("Every accepted construction checkpoint requires its artifact-bound local and intermediate review evidence.");
         }
 
-        bool Reviewed(PlanningConstructionCheckpoint checkpoint, string purpose) => checkpoint.Reviews.Any(review =>
+        bool Reviewed(PlanningConstructionCheckpoint checkpoint, string purpose) => PlanningConstructionReviewCoverage.Reviewed(state, checkpoint, purpose) && checkpoint.Reviews.Any(review =>
             (review["purpose"]?.ToString() == purpose || CombinedReview(checkpoint, review, purpose)) &&
             review["candidateHash"]?.ToString() == checkpoint.PlanHash &&
             (checkpoint.ClosedRequirementIds is null || review["closedRequirementIds"] is JsonArray closed &&

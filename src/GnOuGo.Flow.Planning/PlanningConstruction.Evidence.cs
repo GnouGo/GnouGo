@@ -64,6 +64,8 @@ internal static partial class PlanningConstruction
             target.Evidence = accepted.Evidence;
             target.EvidenceRequests = accepted.EvidenceRequests;
             target.TaskCursor = accepted.TaskCursor; target.ScopeCursor = accepted.ScopeCursor; target.RequirementCursor = accepted.RequirementCursor;
+            if (PlanningCompactConstruction.UsesDecisionView(state) && accepted.Candidate is { } proposed && target.Candidate is { } candidate)
+                PlanningConstructionReviewCoverage.CopyManifest(proposed, candidate);
             ClearResolvedEvidenceDiagnostics(state);
             return;
         }
@@ -100,6 +102,18 @@ internal static partial class PlanningConstruction
             measurement.Admission = "rejected_before_dispatch";
             Fail("CONSTRUCTION_EVIDENCE_LIMIT", "/evidenceRequests",
                 $"The complete prospective {purpose} request needs {estimate} estimated input tokens; its captured ceiling is {limit}. Request a smaller coherent batch or exact separable view.");
+        }
+        if (PlanningCompactConstruction.UsesDecisionView(state) && purpose is LocalPurpose or IntermediatePurpose)
+        {
+            var required = 1 + (request.RequiredReviewCalls ?? 0);
+            var phase = PlanningConstructionPhasePolicies.Resolve(state.Request, purpose);
+            if (PlanningModelCalls.RemainingCalls(state) < required ||
+                PlanningBudgetOptions.Parse(state.Request.Options)?.MaxTotalTokens is { } tokens &&
+                tokens - (state.Usage?.TotalTokens ?? 0) < (long)required * (phase.MaxInputTokens + phase.OutputTokens))
+            {
+                measurement.Admission = "rejected_before_dispatch";
+                Fail("CONSTRUCTION_REVIEW_ALLOWANCE", "/evidenceRequests", "The supplied evidence cannot fit all remaining mandatory source-window reviews within the retained allowance.");
+            }
         }
         var violations = request.StructuredOutputSchema is { } schema
             ? PlanningContractValidation.ValidateSchema(schema, strict: true)

@@ -25,6 +25,26 @@ public sealed class BenchmarkPermanentRetentionTests
     private static string InterruptedConfigurationKey => "corpus-settings:" + new string('a', 40) + ":fixture:control:cohort:diagnostic";
     private const string ErrorBody = """{"errorCode":"upstream_failure","errorMessage":"Provider unavailable.","errorDetail":"No completion receipt."}""";
 
+    [Fact]
+    public async Task SourceWindowHeadroomRetentionRequiresItsCapturedPresentationWithoutChangingReservations()
+    {
+        var records = new Records();
+        var campaign = await SeedCapturedRetriesAsync(records, 1, true, presentation: 6, reviewHeadroom: 4);
+        var before = records.Snapshot();
+        var accounting = await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct);
+        var inspection = await campaign.InspectPermanentRetentionAsync(SchemaPortabilityCampaign.Collection, "run:" + Session,
+            RequestId, Ct, BenchmarkCampaign.ExhaustedPlanningRetriesRetention);
+        Assert.NotNull(inspection["evidence_hash"]);
+        Assert.Equal(before, records.Snapshot());
+        Assert.True(JsonNode.DeepEquals(accounting, await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct)));
+        var policy = (await campaign.LoadAsync("planning-evaluation-session-policy", Session, Ct))!;
+        policy.Remove("construction_presentation_version");
+        await campaign.SaveAsync("planning-evaluation-session-policy", Session, policy, Ct);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.InspectPermanentRetentionAsync(
+            SchemaPortabilityCampaign.Collection, "run:" + Session, RequestId, Ct, BenchmarkCampaign.ExhaustedPlanningRetriesRetention));
+        Assert.True(JsonNode.DeepEquals(accounting, await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct)));
+    }
+
     [Theory]
     [InlineData(1, true)]
     [InlineData(2, true)]
@@ -82,7 +102,8 @@ public sealed class BenchmarkPermanentRetentionTests
         Assert.Equal(before, records.Snapshot());
     }
 
-    private static async Task<BenchmarkCampaign> SeedCapturedRetriesAsync(Records records, int count, bool unknownLast)
+    private static async Task<BenchmarkCampaign> SeedCapturedRetriesAsync(Records records, int count, bool unknownLast,
+        int? presentation = null, int reviewHeadroom = 2)
     {
         var campaign = await SeedAsync(records, true, retentionKind: Http502);
         var run = (await campaign.LoadAsync(SchemaPortabilityCampaign.Collection, "run:" + Session, Ct))!;
@@ -90,7 +111,8 @@ public sealed class BenchmarkPermanentRetentionTests
         var captured = PlanningTransportPolicies.Capture(state.Request);
         state.Request.Options["benchmark_planning_elapsed_ms"] = 18_000_000L;
         state.Request.Options["llm_budget"] = new JsonObject { ["max_total_tokens"] = 15_000_000L, ["max_elapsed_ms"] = 18_000_000L };
-        state.PendingCall!.Request.RequiredReviewCalls = 2;
+        state.PendingCall!.Request.RequiredReviewCalls = reviewHeadroom;
+        if (presentation is { } version) state.Request.Options["construction_presentation_version"] = version;
         run["session"] = JsonSerializer.SerializeToNode(state, PlanningJsonContext.Default.PlanningSession);
         await campaign.SaveAsync(SchemaPortabilityCampaign.Collection, "run:" + Session, run, Ct);
         await campaign.SaveAsync("planning-evaluation-requests", RequestId,
@@ -98,6 +120,7 @@ public sealed class BenchmarkPermanentRetentionTests
         var policy = (await campaign.LoadAsync("planning-evaluation-session-policy", Session, Ct))!;
         foreach (var name in new[] { PlanningTransportPolicies.OptionName, "benchmark_planning_elapsed_ms", "llm_budget" })
             policy[name] = state.Request.Options[name]!.DeepClone();
+        if (presentation is { } capturedPresentation) policy["construction_presentation_version"] = capturedPresentation;
         await campaign.SaveAsync("planning-evaluation-session-policy", Session, policy, Ct);
         var retry = new LLMProviderRetryPolicyOptions { MaxAttempts = captured.MaxAttempts, MaxUncertainRetries = 0 };
         var journal = (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, RequestId, Ct))!;

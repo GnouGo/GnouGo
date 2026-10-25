@@ -29,7 +29,8 @@ internal static class PlanningModelCalls
                 $"The session model-call budget was exhausted ({CallsUsed(state)}/{CallLimit(state)} calls). Input/output token settings do not extend this cumulative allowance. Start a new planning session; retained requests and accounting remain unchanged.");
     }
 
-    internal static LLMRequest PrepareRequest(PlanningSession state, string purpose, string prompt, JsonObject schema, int? outputLimit = null)
+    internal static LLMRequest PrepareRequest(PlanningSession state, string purpose, string prompt, JsonObject schema, int? outputLimit = null,
+        int? requiredReviewCalls = null)
     {
         if (PlanningConstructionInputPolicy.IsCompact(state.Request))
         {
@@ -45,7 +46,7 @@ internal static class PlanningModelCalls
         }, state.Request, purpose);
         if (PlanningTransportPolicies.Read(state.Request) is not null)
             request.RequiredReviewCalls = PlanningCompactConstruction.UsesConvergentConstruction(state)
-                ? Math.Max(0, PlanningCompactConstruction.RequiredReviewCalls(state) -
+                ? Math.Max(0, (requiredReviewCalls ?? PlanningCompactConstruction.RequiredReviewCalls(state)) -
                     (purpose is PlanningConstruction.LocalPurpose or PlanningConstruction.IntermediatePurpose ? 1 : 0))
                 : purpose switch
             {

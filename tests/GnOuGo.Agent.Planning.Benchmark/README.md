@@ -922,7 +922,21 @@ provenance. Preserve these findings separately from later producer-port presenta
 and exact-citation normalization changes. Neither technical tests nor better navigation
 establishes that the duplicate-effect business miss is fixed.
 
-Fresh cohorts capture presentation revision 5. Its required Judge action and separate
+Fresh cohorts capture presentation revision 6. Authoring shows all exact originals when
+the prepared request fits; otherwise selected/retrieved requirements, all globals and
+mandatory producer/evidence context remain with exact omitted-page links.
+Scoped source windows reuse existing Judge records and require complete current
+coverage before acceptance, automatic closure and delegated artifact verification.
+Count each window as a logical request and every HTTP attempt separately; windows
+do not increase the independent business-obligation denominator. Required producer
+semantics and indivisible clauses must fit, and remaining windows share the existing
+call/token/money admission and single follow-up allowance. Preserve historical
+revision-2–5 cohorts and exact pending requests; freeze new source/settings identities
+for comparison. Regression passes do not establish business fulfillment or fewer calls.
+Accepted-work corrections require the existing explicit identity-bound `revise`
+command and editable paths; benchmark delegation does not grant model-authored edits.
+
+The inherited required Judge action and separate
 citation domains are interpreted from the issued schema; raw reports remain retained.
 Combined review coverage counts as one logical request, while every retry remains a
 physical attempt. Before delegated approval, the ordinary artifact verifier must
@@ -1125,14 +1139,19 @@ reservation or completion receipt. The physical journal repeats admission immedi
 before dispatch using the exact retained price and currency quote.
 Fresh physical transport admission uses the exact hash-bound `RequiredReviewCalls`
 captured on the issued request, including an intermediate review when required.
-Historical requests retain their original conservative two-review allowance.
+Revision 6 captures all remaining source windows within the existing cumulative
+call cap; production and benchmark journals validate the same bound. Historical
+requests retain their original conservative two-review allowance.
 This headroom never becomes a reservation or charge.
 
 Every constructed compact request has safe metadata recording its phase, selected
 substep, exact request/schema hashes and selected contract versions. Component byte
 counts partition the complete serialized UTF-8 request: instructions, original intent
 and requirements, descriptors and exact contract evidence, response schema, interfaces,
-fragment/evidence/diagnostics, and envelope overhead. The versioned conservative token
+fragment/evidence/diagnostics, and envelope overhead. Measurements attribute
+consumed-producer contract objects to exact contract evidence rather
+than interfaces, once per serialized occurrence, while contract identities deduplicate
+only exact ID/version/hash matches. The versioned conservative token
 estimate is admission evidence; provider input/output/reasoning usage remains a separate
 whole-call measurement. Rejected requests are measured before dispatch and incur no
 invented usage. Judge is a phase dimension, not a second token total. Aggregate

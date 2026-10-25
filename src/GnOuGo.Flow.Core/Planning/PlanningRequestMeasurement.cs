@@ -122,6 +122,16 @@ public static class PlanningRequestMeasurements
                             bytes -= objectiveBytes;
                         }
                     }
+                    if (propertyName == "interfaces")
+                    {
+                        using var interfaces = JsonDocument.Parse(raw[(raw.IndexOf(':') + 1)..]);
+                        foreach (var contract in ProducerContracts(interfaces.RootElement))
+                        {
+                            var contractBytes = JsonEncodedText.Encode(contract.GetRawText()).EncodedUtf8Bytes.Length;
+                            measured.Add(("mcp_contracts", contractBytes));
+                            bytes -= contractBytes;
+                        }
+                    }
                     measured.Add((component, bytes));
                 }
                 if (reader.TokenType != JsonTokenType.EndObject || reader.Read()) throw new JsonException();
@@ -131,6 +141,15 @@ public static class PlanningRequestMeasurements
                     foreach (var operation in operations.EnumerateArray())
                         if (operation.ValueKind == JsonValueKind.Object && operation.TryGetProperty("id", out var id) && id.ValueKind == JsonValueKind.String)
                             contracts.Add(new() { Id = id.GetString()!, Version = Text(operation, "version"), Hash = Text(operation, "hash") });
+                if (context.RootElement.TryGetProperty("interfaces", out var producerInterfaces))
+                    foreach (var contract in ProducerContracts(producerInterfaces))
+                        if (contract.TryGetProperty("id", out var id) && id.ValueKind == JsonValueKind.String)
+                        {
+                            var identity = new PlanningRequestContractIdentity
+                                { Id = id.GetString()!, Version = Text(contract, "version"), Hash = Text(contract, "hash") };
+                            if (!contracts.Any(existing => existing.Id == identity.Id && existing.Version == identity.Version && existing.Hash == identity.Hash))
+                                contracts.Add(identity);
+                        }
                 Add("instructions", JsonEncodedText.Encode(prompt[..contextStart]).EncodedUtf8Bytes.Length);
                 foreach (var part in measured) Add(part.Component, part.Bytes);
             }
@@ -164,6 +183,16 @@ public static class PlanningRequestMeasurements
         };
 
         static string? Text(JsonElement value, string key) => value.TryGetProperty(key, out var field) && field.ValueKind == JsonValueKind.String ? field.GetString() : null;
+    }
+
+    private static IEnumerable<JsonElement> ProducerContracts(JsonElement interfaces)
+    {
+        if (interfaces.ValueKind != JsonValueKind.Array) yield break;
+        foreach (var row in interfaces.EnumerateArray())
+            if (row.ValueKind == JsonValueKind.Object && row.TryGetProperty("producers", out var producers) && producers.ValueKind == JsonValueKind.Array)
+                foreach (var producer in producers.EnumerateArray())
+                    if (producer.ValueKind == JsonValueKind.Object && producer.TryGetProperty("contract", out var contract) && contract.ValueKind == JsonValueKind.Object)
+                        yield return contract;
     }
 
     private static string Component(string key, string phase) => key switch

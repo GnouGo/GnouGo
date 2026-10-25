@@ -1,4 +1,49 @@
 # Compact TaskPlan convergence
+## Source `2188f836f`: three terminal diagnostics, no artifact or execution
+
+| Frozen case | Logical / physical / receipts | Corrections / checkpoints | Planning seconds | Provider input / output / reasoning tokens |
+| --- | ---: | ---: | ---: | ---: |
+| [Collections high](compact-taskplan-2188f836f-collections-high.json) | 30 / 31 / 30 | 3 / 7 | 1,211.827 | 71,858 / 41,337 / 35,921 |
+| [Amazon](compact-taskplan-2188f836f-amazon.json) | 49 / 49 / 49 | 4 / 6 | 1,684.644 | 199,273 / 81,312 / 69,029 |
+| [Review PR navigation-high](compact-taskplan-2188f836f-code-navigation-high.json) | 39 / 39 / 39 | 2 / 2 | 1,837.482 | 182,268 / 109,600 / 99,532 |
+
+Known costs were respectively **EUR 1.4273984828201695671575189647**,
+**EUR 3.0662427487728692547969656402**, and **EUR 3.7477376171352074966532797859**.
+Collections retains **EUR 0.9308701472556894243641231593** for its received HTTP 500
+before a successful retry. All logical requests have receipts; neither uncertainty
+abandonment nor reservation release is needed for these runs. Reasoning is included
+in output. Prepared-only and rejected requests remain separate in the linked archives.
+
+Collections stopped when a Judge put prose into an evidence address accepted by the
+old free-string schema and rejected by the exact loader. Its seven accepted checkpoints
+and three justified corrections produced no executable artifact. The Amazon
+[semantic assessment](compact-taskplan-2188f836f-amazon-source-assessment.json) records
+an accepted consumer using flat observation content rather than the paginated snapshot,
+a supported redundant producer finding, and separate unsupported cleanup/capacity
+findings. Original producer evidence was available but not automatically presented.
+The [Review PR assessment](compact-taskplan-2188f836f-code-source-assessment.json)
+records an accepted clone missing the required branch and using the wrong directory.
+The omitted original clause was retrieved only later; all ten exact requirement clauses
+total 1,407 UTF-8 bytes. Proposed external deletion did not repair that planning defect.
+
+These unmatched profiles do not prove causal benefits, avoided corrections or
+business acceptance. No independently fulfilled obligation is established, so all
+three calls-per-fulfilled-obligation ratios are undefined. The 18 paired comparisons
+remain gated. Historical successful Collections executions below retain their own source.
+
+## Version 6 preparation and authorized shared allowance
+
+The [append-only budget extension](compact-taskplan-v6-budget-extension.json) raised
+the existing campaign ceiling from **EUR 240.0301038327063045424449473** to
+**EUR 440.0301038327063045424449473**. Reinspection verified unchanged spending,
+reservations and identities: **EUR 238.97197068695347183063262214 available**, zero
+unresolved requests, 30 permanently closed receiptless identities and 60 unknown-usage
+physical attempts. This dated balance is not a future dispatch allowance. Separate lost-ledger
+exposure remains retained; old freezes and captured session limits were not changed.
+
+Version 6 implementation and validation are in progress. No new live result is claimed here;
+the undispatched `2188f836f` Amazon Judge-high freeze remains unused.
+
 ## Source `7f962b410`: Collections passes both runtime variants; Amazon and Review PR remain incomplete
 
 Version 5 could offer an accepted producer's description during selection while the

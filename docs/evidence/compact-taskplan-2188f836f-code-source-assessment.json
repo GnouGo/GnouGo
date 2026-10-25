@@ -1,0 +1,189 @@
+{
+  "version": 1,
+  "created_utc": "2026-10-25T10:04:03.784048+00:00",
+  "source": "2188f836ff4c269b4b26f7507f02119856f36d42",
+  "cohort": "compactr2188f836fcode20navhigh",
+  "safe_inputs": [
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/verified-review-v5-validation-20261024/candidate-2188f836f/code-navigation-high-state-witness.json",
+      "sha256": "1e08b8a276e4b3026eb6972b4a6c906fbc40a2ac2a818cb8a94fd3c07ec80c58",
+      "bytes": 169556
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/verified-review-v5-validation-20261024/candidate-2188f836f/code-navigation-high-requests-witness.json",
+      "sha256": "02dc532e3f71212e52237f5cce02d390e2495e967fcc44e38a64cdc17cdd9275",
+      "bytes": 1326682
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr2188f836fcode20navhigh/code-terminal-exact-metrics.json",
+      "sha256": "d2c470a380d1d0877a556a749101f57799cc7286dc3259fc0f1436127fd552e0",
+      "bytes": 175028
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr2188f836fcode20navhigh/freeze.json",
+      "sha256": "aae2c2cf2e699fd74a8f665c335a5a59176b0cdd95162e74a4442a6307b57c0b",
+      "bytes": 30600
+    }
+  ],
+  "source_files": [
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.cs",
+      "sha256": "8055df1e6ddc9915190d95c1ea49cecf3473f0670ab3a41fde5da326466fe189",
+      "bytes": 79081,
+      "committed_and_current_equal": true
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Navigation.cs",
+      "sha256": "b33bf23fd62b46b1b6edf6bdbfe5f077aba30a4462cf310377b15e340273b435",
+      "bytes": 21245,
+      "committed_and_current_equal": true
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Validation.cs",
+      "sha256": "54641c2f56b3bc686b4e50c086096815975cd3a56a3713c1a7675adc06016455",
+      "bytes": 24870,
+      "committed_and_current_equal": true
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Schemas.cs",
+      "sha256": "c03c577b904de1de6966233e098257ff91461679a0b75c3e40566ca6c29c7b49",
+      "bytes": 21084,
+      "committed_and_current_equal": true
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.ConstructionReview.cs",
+      "sha256": "8ea79747731dd1b3a17a41d922f70e1c831d3eacd318f23ef08579484dd0ada8",
+      "bytes": 66556,
+      "committed_and_current_equal": true
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningConstruction.Rollback.cs",
+      "sha256": "8f0a22836204046cb2befc8be0ddc19c99ce8f8a36117c34171c8db24723eb43",
+      "bytes": 14792,
+      "committed_and_current_equal": true
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.Construction.cs",
+      "sha256": "c13db244ed80a6e2a7e62da75bd02b25a439ff3641b9e57aa6373a243b7dff86",
+      "bytes": 48019,
+      "committed_and_current_equal": true
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningConstruction.Evidence.cs",
+      "sha256": "2fe321df56b6a677f8349b4dd85991ff6f3d3a7bad1e0c4f037c290db1012807",
+      "bytes": 26698,
+      "committed_and_current_equal": true
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.cs",
+      "sha256": "5a4efc926fc805487220dbb98fbf0271efaa49d2f73e6e543ca2b99a393fa4d8",
+      "bytes": 49525,
+      "committed_and_current_equal": true
+    }
+  ],
+  "received_evidence": {
+    "requests": 39,
+    "single_HTTP200_receipts": 39,
+    "phase_counts": {
+      "construction_intent": 6,
+      "construction_select": 7,
+      "construction_discovery": 15,
+      "construction_draft": 7,
+      "construction_local_judge": 3,
+      "replan": 1
+    },
+    "text_JSON_equal": 39,
+    "empty_texts": 0,
+    "http_journal_and_receipt_domains_checked_separately": true,
+    "joined_identity_digest": "88ab2d0644bdc4561d703287a93c69bce3f53baefddfbaf9268a7b4eb8fc8a04"
+  },
+  "assessment": [
+    {
+      "calls": [
+        2,
+        5,
+        7,
+        11,
+        12
+      ],
+      "classification": "demonstrated accepted business defect; bounded review missed it",
+      "finding": "The accepted clone uses targetDirectory workflows/smartguide-pr-610 and omits branch, violating exact original req_4. q2 classified this clause; q5 correctly retained it as an operation constraint, not a public input. q7 selects only req_0/1/3; q11 emits the wrong clone; q12 returns empty findings.",
+      "qualification": "The exact branch/target clause is absent from q7/11/12 displayed requirement rows, but all three expose page:requirements:4. Global constraints already include the authorized head/base. This is not evidence that the original was lost or inaccessible, nor proof of model-choice causality."
+    },
+    {
+      "calls": [
+        7,
+        11,
+        12,
+        16,
+        17,
+        18,
+        22,
+        23
+      ],
+      "classification": "available original/contract navigation; no new host access defect demonstrated",
+      "finding": "q7 and q11 evidence grammars explicitly offer page:requirements:4; q12 Judge has a bounded exact-address evidence action. q11 offers the omitted optional branch schema. q16 requests page4, q17 receives the exact original, and q22 requests branch schema. q23 explicitly recognizes the wrong accepted path/missing branch and duplicate risk.",
+      "source": "Navigation.cs23–49,64–75; Validation.cs278–290; CompactConstruction.cs413–426; ConstructionReview.cs353–365. Retrieved originals enter displayed requirements without widening completion or edit authority."
+    },
+    {
+      "calls": [
+        12,
+        15,
+        30
+      ],
+      "classification": "two empty bounded reviews; later supported findings",
+      "finding": "q12 did not catch the original clone defect. q15 clears an empty control boundary while remaining work is open; it does not validate the whole workflow. q30 correctly rejects adding clone_smartguide_pr_610_conforme alongside the accepted clone and correctly observes that a later conforming clone cannot legalize the original arguments.",
+      "qualification": "No false-positive finding is established here. Open future work does not defer a present argument/effect conflict; current Judge guidance explicitly states this distinction."
+    },
+    {
+      "calls": [
+        23,
+        24,
+        29,
+        30,
+        31,
+        32
+      ],
+      "classification": "semantic non-progress with retained feedback",
+      "finding": "q23 suspends for correction/reconstruction; q24 again selects cloning, and q29 proposes a second clone with corrected arguments. q30 rejects it. q31 suspends for a replacement/annulment mechanism; q32 receives the exact reselection reason and continuation. Both suspensions have model-authored expectedType any; neither grants plan-edit authority.",
+      "qualification": "These are different emitted proposals/typed prerequisites, not an exact replay proven to evade a host fingerprint. Feedback and accepted task evidence are retained; no new semantic duplicate rule is proposed."
+    },
+    {
+      "calls": [
+        23,
+        31,
+        39
+      ],
+      "classification": "existing repair-authority boundary",
+      "finding": "q23 and q39 offer rollbackTask, with explicit preservation of original task literals and effects. RebuildFindings also preserves input-name sequence, so this reconstructive route cannot change targetDirectory or add branch. q31 replan does not offer rollback. No rollback was emitted; invalidations and rebuild tasks remain empty.",
+      "source": "Schemas.cs100–131; Rollback.cs19–31,94–104,155–191. Explicit external revise with PreserveRequirements, current artifact hash and validated EditablePaths establishes AuthorizedPaths; ordinary extension cannot rewrite accepted tasks (HybridWorkflowPlanner.cs146–164; Construction.cs53–63; Evidence.cs287–303)."
+    },
+    {
+      "calls": [
+        32,
+        36,
+        37,
+        38,
+        39
+      ],
+      "classification": "unsupported repair strategy; unaccepted candidate",
+      "finding": "q39 appends delete_directory(workflows/smartguide-pr-610), depending on the original clone, to prepare for a later compliant clone. The exact selected command ensures a runtime directory is absent; it does not remove or change an accepted planning node. The candidate still contains the original wrong clone. Deleting its future filesystem output cannot retroactively make that clone authorized or turn two clone operations into one.",
+      "qualification": "No filesystem effect occurred; the candidate never passed mandatory Judge review. The exposed allowlisted deletion operation is not evidence of runtime permission or approval. No later clone or successful cleanup is inferred."
+    },
+    {
+      "calls": [
+        39
+      ],
+      "classification": "truthful pre-dispatch mandatory-review refusal",
+      "finding": "The next prepared Judge envelope (logical identity40, distinct from all39 receipts) measures12204 tokens against captured12000. It is rejected_before_dispatch with zero attempt/receipt; the session retains39 model calls,2corrections,2checkpoints and no artifact/runtime. Four other draft identities are prepared-only and within limits.",
+      "qualification": "Raising this ceiling would only permit another review; it does not repair the accepted clone. No transport uncertainty, output exhaustion, response loss or fourth received Judge is inferred."
+    }
+  ],
+  "recommendation": "Retain this diagnostic as incomplete business acceptance. No new production context/grammar defect is demonstrated by these records; no ceiling escalation, keyword-based global matching, automatic accepted-work mutation or semantic duplicate ban is justified. Correcting these accepted literal arguments requires the existing explicit scoped implementation/intent revision authority and renewed validation, if separately requested; external delete_directory is not that route. No further benchmark action is performed or proposed as an automatic replay.",
+  "limits": [
+    "Static original-contract/context assessment, not runtime evidence or artifact approval. No artifact exists and no business obligation is independently verified fulfilled by runtime.",
+    "The one-variable navigation-high profile and Amazon-only source qualification remain as frozen; a single run with different model choices does not establish causal benefit or reliability.",
+    "No monetary computation from witness float projections; exact aggregate accounting and formatting are separate numeric evidence.",
+    "No store, reader, readiness, helper, provider, build, test, source or cohort mutation. New-only private assessment/verification files only."
+  ]
+}

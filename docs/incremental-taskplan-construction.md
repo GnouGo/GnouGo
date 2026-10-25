@@ -1,6 +1,6 @@
 # Incremental TaskPlan construction
 
-Fresh construction-version-2 sessions capture presentation revision 5 and extend one semantic TaskPlan from available producers
+Fresh construction-version-2 sessions capture presentation revision 6 and extend one semantic TaskPlan from available producers
 toward consumers. They index original intent once, select one immediate business
 substep, discover its capabilities and generate only its fragment. Each bounded
 draft passes deterministic semantic validation and a local advisory review before
@@ -26,6 +26,41 @@ flowchart LR
   Graph --> YAML[Compiler v15 JavaScript and YAML]
   YAML --> Approval[Exact artifact approval]
 ```
+
+## Exact decision context and source windows (presentation revision 6)
+
+Selection, discovery and drafting display all exact original requirements when the
+complete prepared request fits. Otherwise they keep selected and explicitly retrieved
+requirements, all global clauses and the mandatory core/evidence, with an omitted
+count and exact requirement-page links. Review coverage still includes every original,
+independently of the selected step's associations. Consumed producer views
+retain the producing task's arguments, original operation prose, complete compact
+port identities and exact bound-input/selected-output schema closures, including
+nullability, required siblings and references. Unconsumed producer directories keep
+exact prose/schema links. These views neither choose a replacement port nor grant
+completion, revision or execution authority; required context is never truncated.
+
+Mandatory scoped review partitions originals into whole-clause windows when the
+complete prepared request would exceed its captured ceiling. Linked continuations
+stay together, and each window reviews the same candidate and completion claims.
+Existing review records bind the window set to the accepted baseline, candidate,
+claims, sources, evidence and contracts. All windows must pass before acceptance,
+automatic closure or artifact approval. Changed evidence or identities invalidate
+coverage; old rows remain history. Each window contains only its assigned originals,
+with exact retrieval links and host-enumerated evidence addresses. A clean window
+does not close a requirement, and the existing single follow-up allowance is shared
+across the candidate. Indivisible context and remaining review headroom must fit
+before dispatch. Pending requests retain their exact issued window and schema.
+
+An independently established defect in accepted work uses the existing explicit
+`revise` command with current identity, `preserveRequirements` and exact editable
+paths. Typed repair preserves independent work, requirements and accounting and
+renews scoped review and approval. Rollback cannot change literals it promises to
+reconstruct, and a compensating runtime effect cannot edit the accepted TaskPlan.
+The revision view shows only authorized current tasks, labeled separately from new
+extensions. Prior defect comparisons use their exact current identity and subpath;
+retained original evidence and review witnesses remain unchanged.
+These changes establish context and validation boundaries, not live convergence.
 
 ## Accepted-state progression (presentation revision 5)
 
@@ -729,12 +764,12 @@ unrestricted-string versus exhaustive-enum semantics after schema annotations
 are compacted. File-content obligations do not imply public outputs; an explicit
 public file-path declaration still requires a typed interface.
 
-Fresh creation captures presentation revision 5 in the existing setting. It
+Fresh creation captures presentation revision 6 in the existing setting. It
 inherits compiler-grounded review context and explicit inconclusive reviews,
 using existing candidate review records for grounded findings and repair witnesses.
 Nullable implementation choices, prerequisite continuations and extraction
 dispositions remain non-executable metadata; construction version 2
-and storage format 10 are unchanged. Historical revisions 2 through 4 retain their
+and storage format 10 are unchanged. Historical revisions 2 through 5 retain their
 captured future-request behavior as well as already issued requests. Historical sessions retain issued
 schemas, compiler profiles, identities, approvals, receipts and cumulative usage.
 Their required compatibility paths cannot be selected by new sessions. Legacy

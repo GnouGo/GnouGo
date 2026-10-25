@@ -128,6 +128,35 @@ public sealed class CompactRequestMeasurementTests
     }
 
     [Fact]
+    public void ConsumedProducerContractsPartitionExactEscapedBytesAndDeduplicateOnlyExactIdentities()
+    {
+        var contract = new JsonObject { ["id"] = "observe", ["version"] = "v1", ["hash"] = "hash-a",
+            ["description"] = "Exact < & \"quoted\" prose é 🙂", ["selectedOutputs"] = new JsonArray(new JsonObject
+                { ["schema"] = new JsonObject { ["type"] = "string", ["description"] = "Whole\\original" } }) };
+        var otherVersion = contract.DeepClone(); otherVersion["version"] = "v2"; otherVersion["hash"] = "hash-b";
+        var contracts = new[] { contract, contract.DeepClone(), otherVersion };
+        var context = new JsonObject { ["operations"] = new JsonArray(contract.DeepClone()),
+            ["interfaces"] = new JsonArray(contracts.Select(value => (JsonNode)new JsonObject
+            {
+                ["binding"] = new JsonObject { ["kind"] = "output", ["source"] = "producer", ["port"] = "content" },
+                ["schema"] = new JsonObject { ["type"] = "string" },
+                ["producers"] = new JsonArray(new JsonObject { ["id"] = "producer", ["contract"] = value.DeepClone() })
+            }).ToArray()) };
+        var request = new LLMRequest { Prompt = "Exact context.\n" + PlanningJsonTransport.Prompt(context) };
+        var before = JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest);
+        var measurement = PlanningRequestMeasurements.Measure(request, "construction_local_judge", 8000);
+        var contractBytes = contracts.Sum(value => (long)JsonEncodedText.Encode(PlanningJsonTransport.Prompt(value)).EncodedUtf8Bytes.Length);
+        var interfaceBytes = JsonEncodedText.Encode("\"interfaces\":" + PlanningJsonTransport.Prompt(context["interfaces"]!)).EncodedUtf8Bytes.Length;
+        var operationBytes = JsonEncodedText.Encode("\"operations\":" + PlanningJsonTransport.Prompt(context["operations"]!)).EncodedUtf8Bytes.Length;
+        Assert.Equal(interfaceBytes - contractBytes, Assert.Single(measurement.Components, part => part.Component == "interfaces").SerializedBytes);
+        Assert.Equal(operationBytes + contractBytes, Assert.Single(measurement.Components, part => part.Component == "mcp_contracts").SerializedBytes);
+        Assert.Equal(measurement.CompleteRequestBytes, measurement.Components.Sum(part => part.SerializedBytes));
+        Assert.Collection(measurement.Contracts, identity => { Assert.Equal("v1", identity.Version); Assert.Equal("hash-a", identity.Hash); },
+            identity => { Assert.Equal("v2", identity.Version); Assert.Equal("hash-b", identity.Hash); });
+        Assert.Equal(before, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+    }
+
+    [Fact]
     public async Task OversizedCompleteRequestIsMeasuredAndCheckpointedBeforeDispatchWithoutCharge()
     {
         var state = new PlanningSession { Request = CompactRequest(), Construction = new() { Version = 2, Compact = new() } };

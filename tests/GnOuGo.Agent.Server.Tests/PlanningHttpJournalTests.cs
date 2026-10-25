@@ -20,6 +20,31 @@ public sealed class PlanningHttpJournalTests
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SourceWindowHeadroomSurvivesBothHostJournalsAndExactReceiptRecovery(bool workflow)
+    {
+        await using var host = await Host.CreateAsync(workflow, [500, 200], presentation: 6);
+        await host.OpenAsync();
+        var request = host.Issue(reviews: 4);
+        var exact = Serialize(request);
+        var response = await host.CallAsync(request);
+        Assert.Equal("secret result", response.Json!["value"]!.ToString());
+        Assert.Equal(2, host.Handler.Bodies.Count);
+        var usage = Serialize(await host.UsageAsync());
+        var journal = (await host.TransportAsync(request)).ToJsonString();
+        await host.OpenAsync();
+        Assert.Equal(Serialize(response), Serialize(await host.CallAsync(request)));
+        Assert.Equal(exact, Serialize(request));
+        Assert.Equal(usage, Serialize(await host.UsageAsync()));
+        Assert.Equal(journal, (await host.TransportAsync(request)).ToJsonString());
+        Assert.Equal(2, host.Handler.Bodies.Count);
+        await Assert.ThrowsAsync<PlanningConflictException>(() => host.CallAsync(host.Issue(reviews: 9)));
+        Assert.Equal(2, host.Handler.Bodies.Count);
+        Assert.Equal(usage, Serialize(await host.UsageAsync()));
+    }
+
+    [Theory]
     [InlineData(false)] [InlineData(true)]
     public async Task ConfirmedRetriesRetainTwoReservationsAndReplayOneVerifiedReceipt(bool workflow)
     {
@@ -259,7 +284,7 @@ public sealed class PlanningHttpJournalTests
         private string BudgetCollection => _workflow ? "flow-planning-budgets-v10" : PlanningBudgetSink.Collection;
         internal string HttpCollection => _workflow ? "flow-planning-model-http-v10" : PlanningModelJournal.HttpCollection;
 
-        private Host(PlanningPersistenceTests.StoreFixture fixture, bool workflow, int[] statuses, LLMUsageBudgetScope? parent)
+        private Host(PlanningPersistenceTests.StoreFixture fixture, bool workflow, int[] statuses, LLMUsageBudgetScope? parent, int? presentation)
         {
             Fixture = fixture; Records = new(fixture.Records); _workflow = workflow; _parent = parent;
             Handler = new(statuses); _http = new(Handler);
@@ -284,11 +309,12 @@ public sealed class PlanningHttpJournalTests
                 Options = new() { ["llm_budget"] = new JsonObject { ["max_calls"] = 8, ["max_estimated_cost"] = new JsonObject { ["amount"] = 100m, ["currency"] = "USD" } }, ["construction_version"] = 2,
                     ["construction_limits"] = JsonSerializer.SerializeToNode(new PlanningConstructionOptions { PhasePolicy = policy }, PlanningJsonContext.Default.PlanningConstructionOptions) }
             } };
+            if (presentation is { } version) _initial.Request.Options["construction_presentation_version"] = version;
             PlanningTransportPolicies.Capture(_initial.Request, new() { BaseDelayMilliseconds = 1, MaxDelayMilliseconds = 1, MaxTotalDelayMilliseconds = 10 });
         }
 
-        internal static async Task<Host> CreateAsync(bool workflow, int[] statuses, LLMUsageBudgetScope? parent = null) =>
-            new(await PlanningPersistenceTests.StoreFixture.CreateAsync(), workflow, statuses, parent);
+        internal static async Task<Host> CreateAsync(bool workflow, int[] statuses, LLMUsageBudgetScope? parent = null, int? presentation = null) =>
+            new(await PlanningPersistenceTests.StoreFixture.CreateAsync(), workflow, statuses, parent, presentation);
 
         internal async Task OpenAsync()
         {
