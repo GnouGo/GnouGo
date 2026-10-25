@@ -92,12 +92,19 @@ internal static partial class PlanningCompactConstruction
             (candidateScope || scope.Source.Outputs.Count > 0))
             (candidateScope ? candidateInterfaces : acceptedInterfaces)[step.Scope + "/always"] =
                 scope.Source.Outputs.Take(8).Select(o => o.Value).ToArray();
-        foreach (var id in new[] { step.GroupId, ScopeGroup(state, step.Scope)?.Id }.OfType<string>().Distinct(StringComparer.Ordinal))
+        var ownerId = ScopeGroup(state, step.Scope)?.Id;
+        foreach (var id in new[] { step.GroupId, ownerId }.OfType<string>().Distinct(StringComparer.Ordinal))
         {
+            // Review the owning group at the candidate boundary; called producer
+            // groups retain their accepted interfaces. Reuse this same preflight
+            // for the displayed declarations, exports and scope facts.
+            var candidateGroup = UsesDecisionView(state) && id == ownerId;
+            var groupPlan = candidateGroup ? candidate.Plan : state.Plan;
+            var groupScopes = candidateGroup ? candidate.OpenScopes : construction.OpenScopes;
             var path = "/groups/" + id + "/body";
-            if (state.Plan?.Groups.SingleOrDefault(g => g.Id == id) is { } group &&
-                !construction.OpenScopes.Any(s => s == path || s.StartsWith(path + "/", StringComparison.Ordinal)))
-                acceptedInterfaces[path] = group.Body.Outputs.Select(o => o.Value).ToArray();
+            if (groupPlan?.Groups.SingleOrDefault(g => g.Id == id) is { } group &&
+                !groupScopes.Any(s => s == path || s.StartsWith(path + "/", StringComparison.Ordinal)))
+                (candidateGroup ? candidateInterfaces : acceptedInterfaces)[path] = group.Body.Outputs.Select(o => o.Value).ToArray();
         }
         var bindings = ImportRequests(imports);
         if (state.Plan is not null && PlanningConstruction.Hash(state.Plan) == PlanningConstruction.Hash(candidate.Plan) &&

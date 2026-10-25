@@ -486,7 +486,12 @@ task or group boundary. Fresh revision-4 author and Judge guidance states this
 distinction without making open containers consumable. The selected `/root` scope's exports are
 public outputs; nested scope exports are local. Judges assess the combined
 accepted and candidate declarations. Closure review sees
-the applied candidate's exports and compiler-derived types. Fresh ordinary reviews that add
+the applied candidate's exports and compiler-derived types. Revision 6 also derives
+the owning group's open state and outputs from that same validated candidate,
+labelled `tentative_candidate`. Referenced producer groups remain
+`accepted_declarations`; an open root does not reopen a closed reusable group.
+Historical group summaries and issued requests retain their original presentation.
+Fresh ordinary reviews that add
 no exports and claim no scope, requirement or plan closure present unchanged
 accepted export names and bindings with a versioned exact evidence link, while
 keeping all actual imported types inline. This avoids repeating unused accepted

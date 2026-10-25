@@ -1,4 +1,30 @@
 # Compact TaskPlan convergence
+## Source `a2860a3c5`: received Collections failure exposes contradictory group facts
+
+The [fresh Collections diagnostic](compact-taskplan-a2860a3c5-collections-high.json)
+stopped after **12 logical requests, 12 physical attempts and 12 receipts**, one
+correction and two checkpoints. It produced no artifact or execution. Planning took
+**338.774 seconds**; provider usage was **30,080 input / 14,424 output tokens**, with
+**12,119 reasoning tokens included in output**. Known cost was
+**EUR 0.5204105310129406514948683623**, with no new unknown-usage reservation.
+All complete requests fit their captured ceilings; the largest was **24,272 UTF-8
+bytes / 8,347 conservative estimated input tokens**. Components reconcile.
+
+The [independent finding assessment](compact-taskplan-a2860a3c5-collections-assessment.json)
+identifies one false premise: the Judge called the reusable group open, although its
+candidate body was closed and only root remained open. The compiler-derived scope
+interface was correct, but the separate group summary still showed unlabelled accepted
+state. Correction repeated the original closure and stopped at `REPLAN_NO_PROGRESS`.
+This does not establish fulfillment of the broader requirement or remaining root work.
+All twelve original responses were nonempty valid JSON, with ten whitespace bytes
+outside strings in total and a maximum run of two; no exhaustion cause is inferred.
+
+The subsequent focused fix presents the reviewed owning group from the same validated
+candidate and labels accepted producer groups separately. Historical contexts remain
+unchanged. Its business benefit remains unverified. No fulfilled-business-obligation
+ratio or avoided-correction claim is available; the reproducibility and comparison
+gates remain unmet. All earlier evidence below is retained unchanged.
+
 ## Source `2188f836f`: three terminal diagnostics, no artifact or execution
 
 | Frozen case | Logical / physical / receipts | Corrections / checkpoints | Planning seconds | Provider input / output / reasoning tokens |

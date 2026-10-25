@@ -31,7 +31,7 @@ Phase instructions must match all offered actions. Tentative implementation bind
 
 Suspend consumers explicitly. Bounded current-chain continuations are navigation, not a scheduler or original obligations. Eligibility to attempt resumption is not proof of type compatibility or intended producer; retain exact contract, scope, checkpoint and binding checks.
 
-Validate clones before review. Expose consumed bindings, producing arguments, original contract descriptions, exact selected schemas and exports. Preserve nullability, required siblings and references. Types alone do not establish business identity. Keep complete compact port identities and precise pagination links; never substitute a port by name or type similarity. Imports grant no extra permission; empty additions preserve exports. Partial prompt evidence does not prove missing implementation.
+Validate clones before review. Expose consumed bindings, producing arguments, original contract descriptions, exact selected schemas and exports. The reviewed scope's owning group must reflect that same validated candidate; label accepted producer interfaces separately so an earlier open boundary cannot contradict its tentative closure. Preserve nullability, required siblings and references. Types alone do not establish business identity. Keep complete compact port identities and precise pagination links; never substitute a port by name or type similarity. Imports grant no extra permission; empty additions preserve exports. Partial prompt evidence does not prove missing implementation.
 
 ## Review and correction
 

@@ -433,7 +433,12 @@ internal static partial class PlanningCompactConstruction
         if (step.OutputNames.Count > 0)
             context["outputs"] = PlanningConstruction.Node(state.Requirements!.Outputs!.Where(o => step.OutputNames.Contains(o.Name, StringComparer.Ordinal)).ToList(), PlanningJsonContext.Default.ListTaskInput);
         if (step.GroupId is { } groupId) context["group"] = GroupInterface(state, groupId, verified?.Accepted);
-        if (ScopeGroup(state, step.Scope) is { } scopeGroup) context["scopeGroup"] = GroupInterface(state, scopeGroup.Id, verified?.Accepted);
+        if (ScopeGroup(state, step.Scope) is { } scopeGroup)
+        {
+            var candidateGroup = verified is not null && UsesDecisionView(state);
+            context["scopeGroup"] = GroupInterface(state, scopeGroup.Id,
+                candidateGroup ? verified!.Candidate : verified?.Accepted, candidateGroup);
+        }
         var unchangedExports = actualImports && UsesDerivedImports(state, draft!) && draft!.Extension is { Outputs.Count: 0, CloseScopes.Count: 0, Complete: false } &&
             step.CloseRequirementIds.Count == 0;
         if (ScopeInterface(state, appliedInterface, navigationOnly: unchangedExports, verified: appliedInterface ? verified?.Candidate : verified?.Accepted) is { } scopeInterface) context["scopeInterface"] = scopeInterface;
@@ -732,16 +737,18 @@ internal static partial class PlanningCompactConstruction
         return entry;
     }
 
-    internal static JsonObject? GroupInterface(PlanningSession state, string id, TaskConstructionValidation? verified = null)
+    internal static JsonObject? GroupInterface(PlanningSession state, string id, TaskConstructionValidation? verified = null, bool candidate = false)
     {
-        var plan = state.Plan;
+        var plan = candidate ? state.Construction!.Candidate!.Plan : state.Plan;
         var group = plan?.Groups.SingleOrDefault(g => g.Id == id);
         if (group is null) return null;
         var path = "/groups/" + id + "/body";
-        var open = state.Construction!.OpenScopes.Any(s => s == path || s.StartsWith(path + "/", StringComparison.Ordinal));
+        var openScopes = candidate ? state.Construction!.Candidate!.OpenScopes : state.Construction!.OpenScopes;
+        var open = openScopes.Any(s => s == path || s.StartsWith(path + "/", StringComparison.Ordinal));
         var result = new JsonObject { ["id"] = id, ["open"] = open,
             ["hash"] = PlanningGraphCompiler.Fingerprint(PlanningConstruction.Node(group, PlanningJsonContext.Default.TaskGroup)!.ToJsonString()),
             ["inputs"] = PlanningConstruction.Node(group.Inputs, PlanningJsonContext.Default.ListTaskInput), ["outputs"] = null };
+        if (UsesDecisionView(state)) result["basis"] = candidate ? "tentative_candidate" : "accepted_declarations";
         if (GroupOpening(state, id) is { } opening)
             result["intent"] = new JsonObject { ["objective"] = opening.Objective,
                 ["expectedOutputs"] = new JsonArray(opening.ExpectedOutputs.Select(value => (JsonNode?)JsonValue.Create(value)).ToArray()),
@@ -754,7 +761,7 @@ internal static partial class PlanningCompactConstruction
             var probe = PlanningConstruction.Clone(plan!);
             foreach (var choice in probe.Choices.Where(c => c.Selected is null)) choice.Selected = choice.Recommended;
             validation = TaskPlanCompiler.ValidateConstruction(probe, state.Catalog!, state.Request,
-                state.Construction.OpenScopes.ToHashSet(StringComparer.Ordinal), new Dictionary<string, IReadOnlyList<TaskValue>> { [path] = requested });
+                openScopes.ToHashSet(StringComparer.Ordinal), new Dictionary<string, IReadOnlyList<TaskValue>> { [path] = requested });
         }
         if (!validation.Interfaces.TryGetValue(path, out var ports) || ports.Count != requested.Length)
             PlanningConstruction.Fail("CONSTRUCTION_GROUP_INTERFACE_INVALID", "/step/groupId", "The closed group's exact output interfaces must validate before selecting a call.");

@@ -16,6 +16,10 @@ that coverage; changed evidence invalidates it, pending requests keep exact byte
 and one shared follow-up allowance remains. Indivisible context and all remaining
 reviews must fit the captured input and cumulative allowances before dispatch.
 Fresh evidence choices enumerate host-issued links, including page continuations.
+The reviewed scope's owning group uses the candidate's validated boundary and
+exports; called producer groups retain explicitly labelled accepted declarations.
+This keeps group closure facts consistent with the scope preflight without
+promoting a tentative group into an accepted callable producer.
 Established accepted-work defects still require the existing explicit scoped
 `revise` authority; rollback or runtime compensation cannot withdraw accepted literals.
 No live convergence or execution result follows from these context guarantees.

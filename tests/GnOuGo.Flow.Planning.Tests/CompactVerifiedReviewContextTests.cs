@@ -97,10 +97,13 @@ public sealed class CompactVerifiedReviewContextTests
         Assert.Equal("number", state.Construction.Evidence["input:values"]!["type"]!["items"]!["kind"]!.ToString());
     }
 
-    [Fact]
-    public async Task AggregatedGroupAndScopeFrontiersPreserveEachExistingInterfaceCapacity()
+    [Theory]
+    [InlineData(4)]
+    [InlineData(6)]
+    public async Task AggregatedGroupAndScopeFrontiersPreserveEachExistingInterfaceCapacity(int presentation)
     {
         var state = await State(true);
+        state.Construction!.Compact!.PresentationVersion = presentation;
         state.Plan!.Groups.Add(new() { Id = "closed", Body = new() { Outputs = Enumerable.Range(0, 128)
             .Select(index => new TaskOutput("port_" + index, new() { Kind = "number", Number = index })).ToList() } });
         state.Plan.Root.Outputs = [new("accepted", new() { Kind = "number", Number = 1 })];
@@ -111,6 +114,8 @@ public sealed class CompactVerifiedReviewContextTests
             [new() { Id = "invoke", Kind = "call", Group = "closed", Objective = "Invoke the closed reusable group." }] });
         var context = PlanningCompactConstruction.Context(state, review: true);
         Assert.Equal(128, context["group"]!["outputs"]!.AsArray().Count);
+        Assert.False(context["group"]!["open"]!.GetValue<bool>());
+        Assert.Equal(presentation == 6 ? "accepted_declarations" : null, context["group"]!["basis"]?.ToString());
         Assert.Equal("accepted", Assert.Single(context["scopeInterface"]!["outputs"]!.AsArray())!["name"]!.ToString());
         Assert.Equal("passed", context["constructionStage"]!["preflight"]!["status"]!.ToString());
         Assert.Empty(context["interfaces"]!.AsArray());
@@ -132,6 +137,55 @@ public sealed class CompactVerifiedReviewContextTests
         Assert.Equal("number", local["type"]!["kind"]!.ToString());
         Assert.True(context["scopeGroup"]!["open"]!.GetValue<bool>());
         Assert.Null(context["scopeGroup"]!["outputs"]);
+    }
+
+    [Theory]
+    [InlineData(4, false)]
+    [InlineData(5, false)]
+    [InlineData(6, false)]
+    [InlineData(6, true)]
+    public async Task GroupClosureReviewUsesTheCandidateBoundaryAndExactExports(int presentation, bool acceptedExport)
+    {
+        var state = await State(true);
+        var construction = state.Construction!;
+        construction.Compact!.PresentationVersion = presentation;
+        var export = new TaskOutput("answer", new() { Kind = "input", Source = "local" });
+        state.Plan!.Groups.Add(new() { Id = "reusable", Inputs = [new() { Name = "local", Type = new() { Kind = "number" } }],
+            Body = new() { Outputs = acceptedExport ? [export] : [] } });
+        construction.OpenScopes.Add("/groups/reusable/body");
+        var step = construction.Compact.CurrentStep!;
+        step.Scope = "/groups/reusable/body";
+        step.CloseRequirementIds = [];
+        step.BaseHash = PlanningConstruction.Hash(state.Plan);
+        construction.Candidate = PlanningConstruction.Apply(state, new() { Scope = step.Scope, RequirementIds = ["declare"],
+            Outputs = acceptedExport ? [] : [export], CloseScopes = [step.Scope] });
+        Assert.Empty(construction.Candidate.Diagnostics);
+        var original = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+
+        var draft = PlanningCompactConstruction.Context(state);
+        Assert.True(draft["scopeGroup"]!["open"]!.GetValue<bool>());
+        Assert.Null(draft["scopeGroup"]!["outputs"]);
+        var review = PlanningCompactConstruction.Context(state, review: true, intermediate: true);
+        Assert.False(review["constructionStage"]!["preflight"]!["scopeOpen"]!.GetValue<bool>());
+        Assert.Equal(1, review["constructionStage"]!["preflight"]!["openScopeCount"]!.GetValue<int>());
+        Assert.False(review["scopeInterface"]!["open"]!.GetValue<bool>());
+        var group = review["scopeGroup"]!;
+        if (presentation == 6)
+        {
+            Assert.Equal("accepted_declarations", draft["scopeGroup"]!["basis"]!.ToString());
+            Assert.Equal("tentative_candidate", group["basis"]!.ToString());
+            Assert.False(group["open"]!.GetValue<bool>());
+            var output = Assert.Single(group["outputs"]!.AsArray());
+            Assert.Equal("answer", output!["name"]!.ToString());
+            Assert.Equal("number", output["schema"]!["type"]!.ToString());
+        }
+        else
+        {
+            Assert.Null(group["basis"]);
+            Assert.True(group["open"]!.GetValue<bool>());
+            Assert.Null(group["outputs"]);
+        }
+        Assert.Equal(original, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
     }
 
     [Theory]

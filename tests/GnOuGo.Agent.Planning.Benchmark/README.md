@@ -933,6 +933,9 @@ semantics and indivisible clauses must fit, and remaining windows share the exis
 call/token/money admission and single follow-up allowance. Preserve historical
 revision-2–5 cohorts and exact pending requests; freeze new source/settings identities
 for comparison. Regression passes do not establish business fulfillment or fewer calls.
+When assessing closure findings, distinguish the owning group's candidate boundary
+from accepted producer interfaces. Preserve a contradictory issued summary as failure
+evidence; a later context fix never changes its request, receipt or rejected snapshot.
 Accepted-work corrections require the existing explicit identity-bound `revise`
 command and editable paths; benchmark delegation does not grant model-authored edits.
 
