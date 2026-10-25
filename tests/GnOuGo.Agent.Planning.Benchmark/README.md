@@ -670,6 +670,11 @@ Build a clean committed checkout before collection. Keep the same source and
 configuration for every run within a cohort; a changed candidate requires a new
 cohort identity under the same campaign. Do not repeat the original diagnostic.
 
+Fresh Amazon evaluations explicitly declare `query` as required text (`string`)
+with no default, as authorized by the user. This changes the benchmark input
+specification: capture a new source and cohort, disclose the change in comparisons,
+and preserve retained prompts and outcomes unchanged.
+
 Fresh Amazon evaluations retain the business request, product bound, fixed output
 path, truthful observed data and cleanup. The harness does not inject page-specific
 interaction instructions or notice classifications. Review the actual operations

@@ -1,4 +1,57 @@
 # Compact TaskPlan convergence
+## Source `7f962b410`: Collections passes both runtime variants; Amazon and Review PR remain incomplete
+
+Version 5 could offer an accepted producer's description during selection while the
+loader rejected it without a current step. The guarded retrieval fix passed **69 focused
+cases** and **3,091 owning Planning tests** (overlapping, qualified to this exact source).
+These checks establish retrieval and authority boundaries, without a causal claim
+about the diagnostic outcomes below.
+
+| Frozen case | Calls / attempts / receipts | Corrections / checkpoints | Planning seconds | Known provider input / output / reasoning tokens |
+| --- | ---: | ---: | ---: | ---: |
+| [Collections](compact-taskplan-7f962b410-collections-high.json) | 29 / 30 / 29 | 1 / 8 | 1,137.735 | 65,629 / 34,036 / 29,282 |
+| [Amazon](compact-taskplan-7f962b410-amazon.json) | 2 / 2 / 2 | 0 / 0 | 78.055 | 2,319 / 4,442 / 4,031 |
+| [Review PR](compact-taskplan-7f962b410-code.json) | 50 / 50 / 50 | 4 / 4 | 1,479.167 | 218,093 / 58,922 / 46,588 |
+
+Collections retained its validated draft-high profile; Amazon and Review PR retained
+their distinct profiles. Known costs were respectively **EUR 1.2041276215975011155734047300**,
+**EUR 0.1292771084337349397590361446**, and **EUR 2.5507585899152164212405176262**.
+Collections request 2 received HTTP 500 then 200; its failed-attempt reserve
+**EUR 0.9308701472556894243641231593** remains retained. The other two runs added no
+reservation. Every dispatched logical request has a receipt. Code also has six
+prepared-only draft identities with zero attempts. Reasoning is included in output;
+these run totals do not establish a current campaign balance.
+
+Collections artifact `dd203cb8…448b45` passed the static oracle, independent concrete
+review and public artifact verification. Its three tasks call the closed reusable
+doubling group for each current item and export the parallel results in input order,
+preserving duplicates. Both frozen runtime variants passed: nominal **418.1136 ms**,
+alternate **6.1536 ms**, with no effects or violations. All three frozen obligations
+(`exact_outputs`, `declared_effects`, `cleanup`) have accepted artifact coverage and
+runtime acceptance; logical calls per accepted obligation are **29/3**. The finite
+100-item capacity and extreme numeric ranges remain qualified. Two variants establish
+this result, not general reliability or a reasoning-profile benefit.
+
+[Amazon's assessment](compact-taskplan-7f962b410-amazon-source-assessment.json) records
+clarification about the public `query` type despite the complete original being supplied.
+The original suggests text but lacks an explicit wire type; policy permits clarification
+without proving it necessary. [Review PR's assessment](compact-taskplan-7f962b410-code-source-assessment.json)
+records the final duplicate `clone_pr_repository` identity. Its accepted clone also
+omitted the required branch and used the wrong directory. Original constraints remained
+retrievable; no inaccessible evidence route or contradictory completion-only restriction
+was demonstrated. Judge 18 correctly rejected a duplicate clone.
+
+Amazon and Review PR produced no artifact or execution; their fulfilled-obligation
+ratios remain undefined. Numeric and semantic archives have separate independent peers;
+Amazon/Code original-format summaries are also peer-checked, with detailed rows private.
+The final-source three-case gate remains unmet and the 18 paired comparisons have not
+started. Prior results and all report content below remain unchanged.
+
+The user authorized future Amazon evaluations to declare `query` as a required string
+without a default. That benchmark-input clarification requires a new source/cohort
+and does not change these results. The separately prepared exact-7f Code navigation-high
+profile is unused and contributes no result here.
+
 
 ## Source `7bc4b9f17`: Collections stopped; exact abandonment is recorded
 
