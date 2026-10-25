@@ -232,6 +232,74 @@ public sealed class BenchmarkCampaignTests
         await Assert.ThrowsAsync<InvalidOperationException>(() => exhausted.SaveAsync(new() { Attempts = [new() { Id = "no-review-room" }] }, Ct));
     }
 
+    [Theory]
+    [InlineData("missing")]
+    [InlineData("legacy")]
+    [InlineData("limit")]
+    [InlineData("transport")]
+    [InlineData("unbounded")]
+    [InlineData("excess")]
+    [InlineData("runtime")]
+    public async Task SourceWindowHeadroomRequiresExactCapturedSessionPolicy(string defect)
+    {
+        var campaign = new BenchmarkCampaign(new Records(), "window-headroom-" + defect);
+        using var model = new KeyVaultBenchmarkModel(campaign, new LLMOptions());
+        var request = LiveWorkflowEvaluation.FreshPlanningRequest([], "window", "amazon", "Requested work", "provider", "model");
+        request.Options["llm_budget"]!["max_calls"] = 5;
+        await model.CapturePlanningPolicyAsync(request, Ct);
+        var captured = (await campaign.LoadAsync("planning-evaluation-session-policy", "window", Ct))!;
+        var policy = StrictTransport();
+        policy["planning_transport_policy"] = captured[PlanningTransportPolicies.OptionName]!.DeepClone();
+        if (defect == "legacy") captured["construction_presentation_version"] = 5;
+        if (defect == "limit") captured["max_physical_attempts"] = 4;
+        if (defect == "transport") policy["planning_transport_policy"] = new JsonObject();
+        if (defect == "runtime") policy["mode"] = "runtime_single_attempt";
+        await campaign.SaveAsync("planning-evaluation-session-policy", "window", captured, Ct);
+        var id = defect == "missing" ? "absent:1:hash" : "window:1:hash";
+        var journal = new BenchmarkHttpJournal(campaign, id, 100, 20, .1m,
+            sessionAttemptLimit: defect == "unbounded" ? null : 5,
+            reviewAttemptHeadroom: defect == "excess" ? 6 : 3, effectiveTransportPolicy: policy);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => journal.PrepareAsync(Ct));
+        Assert.Null(await campaign.LoadAsync(BenchmarkHttpJournal.Collection, id, Ct));
+        Assert.Equal(0L, (await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct))["calls"]!.GetValue<long>());
+    }
+
+    [Fact]
+    public async Task SourceWindowHeadroomResumesExactlyAndPreservesRequiredCalls()
+    {
+        var campaign = new BenchmarkCampaign(new Records(), "window-headroom-recovery");
+        using var model = new KeyVaultBenchmarkModel(campaign, new LLMOptions());
+        var request = LiveWorkflowEvaluation.FreshPlanningRequest([], "window", "amazon", "Requested work", "provider", "model");
+        request.Options["llm_budget"]!["max_calls"] = 5;
+        await model.CapturePlanningPolicyAsync(request, Ct);
+        var captured = (await campaign.LoadAsync("planning-evaluation-session-policy", "window", Ct))!;
+        var policy = StrictTransport();
+        policy["planning_transport_policy"] = captured[PlanningTransportPolicies.OptionName]!.DeepClone();
+        const string id = "window:1:hash";
+        BenchmarkHttpJournal Journal(int reviews = 4, int limit = 5) => new(campaign, id, 100, 20, .1m,
+            limit, .4m, reviews, policy);
+        await Journal().PrepareAsync(Ct);
+        var empty = (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, id, Ct))!.ToJsonString();
+        await Journal().SaveAsync(new(), Ct);
+        Assert.Equal(empty, (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, id, Ct))!.ToJsonString());
+        await Assert.ThrowsAsync<InvalidOperationException>(() => Journal(3).SaveAsync(new(), Ct));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => Journal(limit: 6).SaveAsync(new(), Ct));
+        var state = new LLMHttpRetryState { Attempts = [new() { Id = "first", Status = null }] };
+        await Journal().SaveAsync(state, Ct);
+        state.Attempts[0].Status = 500;
+        await Journal().SaveAsync(state, Ct);
+        var before = (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, id, Ct))!.ToJsonString();
+        state.Attempts.Add(new() { Id = "no-room-for-four-reviews" });
+        await Assert.ThrowsAsync<InvalidOperationException>(() => Journal().SaveAsync(state, Ct));
+        Assert.Equal(before, (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, id, Ct))!.ToJsonString());
+        Assert.Single((await Journal().LoadAsync(Ct))!.Attempts);
+        captured["construction_presentation_version"] = 5;
+        await campaign.SaveAsync("planning-evaluation-session-policy", "window", captured, Ct);
+        state.Attempts.RemoveAt(1);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => Journal().SaveAsync(state, Ct));
+        Assert.Equal(before, (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, id, Ct))!.ToJsonString());
+    }
+
     [Fact]
     public async Task LargeSessionTransportPolicyIsCapturedOnceAndCannotRaiseHistoricalLimits()
     {

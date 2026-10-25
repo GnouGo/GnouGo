@@ -43,7 +43,18 @@ internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string re
         if (sessionAttemptLimit is <= 0 || existing is not null &&
             (existing.ContainsKey("session_attempt_limit") ? existing["session_attempt_limit"]?.GetValue<int>() : 8) != sessionAttemptLimit)
             throw new InvalidOperationException("An issued HTTP attempt limit cannot change during recovery.");
-        if (reviewCostHeadroom < 0 || reviewAttemptHeadroom is < 0 or > 2 || existing is not null &&
+        var maximumReviews = 2;
+        if (reviewAttemptHeadroom > 2 && sessionAttemptLimit is { } capturedLimit &&
+            _effectiveTransportPolicy?["version"]?.GetValue<int>() == 2 && !IsRuntimeSingleAttempt(_effectiveTransportPolicy))
+        {
+            var planning = await campaign.LoadAsync("planning-evaluation-session-policy", requestId.Split(':')[0], ct);
+            if (planning?["construction_presentation_version"]?.GetValue<int>() == 6 &&
+                planning["max_physical_attempts"]?.GetValue<int>() == capturedLimit &&
+                planning[PlanningTransportPolicies.OptionName] is JsonObject transport &&
+                JsonNode.DeepEquals(transport, _effectiveTransportPolicy["planning_transport_policy"]))
+                maximumReviews = capturedLimit;
+        }
+        if (reviewCostHeadroom < 0 || reviewAttemptHeadroom < 0 || reviewAttemptHeadroom > maximumReviews || existing is not null &&
             ((existing["construction_review_cost_headroom_eur"]?.GetValue<decimal>() ?? 0) != reviewCostHeadroom ||
              (existing["construction_review_attempt_headroom"]?.GetValue<int>() ?? 0) != reviewAttemptHeadroom))
             throw new InvalidOperationException("Issued construction review headroom cannot change during recovery.");
