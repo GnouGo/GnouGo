@@ -224,8 +224,29 @@ public sealed partial class HybridWorkflowPlanner
         void CheckNames(string direction, IEnumerable<string> referenced)
         {
             var names = declarations[direction]!.AsArray().Select(i => i!["name"]!.ToString()).ToList();
-            if (names.Count != names.Distinct(StringComparer.Ordinal).Count() || !names.ToHashSet(StringComparer.Ordinal).SetEquals(referenced))
-                PlanningConstruction.Fail("CONSTRUCTION_SOURCE_COVERAGE", "/interfaces/" + direction, "Each typed interface must be named by an exact source disposition.");
+            var typed = names.ToHashSet(StringComparer.Ordinal);
+            var required = referenced.ToHashSet(StringComparer.Ordinal);
+            if (names.Count == typed.Count && typed.SetEquals(required)) return;
+            if (PlanningCompactConstruction.UsesConvergentConstruction(state))
+                PlanningConstruction.Fail("CONSTRUCTION_SOURCE_COVERAGE", "/interfaces/" + direction,
+                    "Typed " + direction + " must match current-source dispositions." +
+                    Describe("duplicate typed names", names.GroupBy(name => name, StringComparer.Ordinal).Where(group => group.Count() > 1).Select(group => group.Key)) +
+                    Describe("missing typed declarations", required.Except(typed, StringComparer.Ordinal)) +
+                    Describe("typed names without a current-source disposition", typed.Except(required, StringComparer.Ordinal)));
+            PlanningConstruction.Fail("CONSTRUCTION_SOURCE_COVERAGE", "/interfaces/" + direction, "Each typed interface must be named by an exact source disposition.");
+        }
+        static string Describe(string label, IEnumerable<string> values)
+        {
+            var names = values.Order(StringComparer.Ordinal).ToArray();
+            if (names.Length == 0) return "";
+            var shown = new JsonArray();
+            foreach (var name in names.Take(4))
+            {
+                shown.Add((JsonNode?)JsonValue.Create(name));
+                if (System.Text.Encoding.UTF8.GetByteCount(shown.ToJsonString()) <= 384) continue;
+                shown.RemoveAt(shown.Count - 1); break;
+            }
+            return " " + label + " (" + names.Length + "): " + shown.ToJsonString() + "; omitted=" + (names.Length - shown.Count) + ".";
         }
     }
 }

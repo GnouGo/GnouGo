@@ -1,0 +1,214 @@
+{
+  "version": 1,
+  "source": "ba86cf8746bb7964e901f71678cb79bd0002b2f5",
+  "case": "code",
+  "cohort": "compactrba86cf874code20v5",
+  "prepared_utc": "2026-10-25T01:51:17.814488+00:00",
+  "scope": "Immutable terminal measurements: clarification during intent construction; no artifact or execution. Semantic assessment and current campaign audit remain separate.",
+  "safe_sources": [
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactrba86cf874code20v5/freeze.json",
+      "sha256": "a4c7bb9c962ecef29050f2c4ee7cf37646da2b1dc0681051d0d008ebfbbef732",
+      "bytes": 20074
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactrba86cf874code20v5/code-terminal-safe-metrics.json",
+      "sha256": "ce6204e6f96b651c62db8c49c11f1d4b6be8534f982ba8d330ce0345906fd424",
+      "bytes": 29238
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactrba86cf874code20v5/code-exit.json",
+      "sha256": "4add36745ac398f7fbe3f30e903529db522628433365619e6c9307556e6fa83c",
+      "bytes": 67
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactrba86cf874code20v5/code-planning.jsonl",
+      "sha256": "a3fa6e92b08f253cd428e158cdf3423d5e8f20564f2973a731a3c49c171ecefd",
+      "bytes": 15856
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactrba86cf874code20v5/phase-policy.json",
+      "sha256": "d8e3ba5951c9cdb33a17ec727b1fa972138c8f232fe850fb65c4f23ab7e19bb7",
+      "bytes": 417
+    }
+  ],
+  "outcome": {
+    "session_status": "clarification",
+    "phase": "construction_intent",
+    "diagnostics": [
+      "CONSTRUCTION_SOURCE_COVERAGE"
+    ],
+    "logical_dispatched": 8,
+    "physical_attempts": 11,
+    "receipts": 8,
+    "corrections": 2,
+    "checkpoints": 0,
+    "artifact_hash": null,
+    "construction_complete": false,
+    "execution_started": false,
+    "runtime_ms": null,
+    "planning_ms": 1170627,
+    "finished_at": "2026-10-25T01:48:02.974820+00:00"
+  },
+  "process_exit": {
+    "exit_code": 0,
+    "finished_at": "2026-10-25T01:48:02.974820+00:00"
+  },
+  "process_exit_qualification": "Harness exit0 does not establish planner or business success; the saved session remains clarification.",
+  "profile": {
+    "model": "gpt-5.5-2026-04-24",
+    "benchmark_binary_sha256": "220e16a407427eee9b6cf135ab6f1e36ced6a0526d4543dbedb6a10d6dc8a51e",
+    "presentation_version": 5,
+    "phase_policy": {
+      "version": 1,
+      "navigation": {
+        "targetInputTokens": 3000,
+        "maxInputTokens": 16000,
+        "reasoning": "medium",
+        "outputTokens": 32768
+      },
+      "draft": {
+        "targetInputTokens": 8000,
+        "maxInputTokens": 20000,
+        "reasoning": "medium",
+        "outputTokens": 16384
+      },
+      "review": {
+        "targetInputTokens": 4000,
+        "maxInputTokens": 12000,
+        "reasoning": "medium",
+        "outputTokens": 4096
+      }
+    },
+    "transport_policy": {
+      "version": 1,
+      "maxAttempts": 3,
+      "maxUncertainRetries": 0,
+      "attemptTimeoutMilliseconds": 600000,
+      "baseDelayMilliseconds": 1000,
+      "maxDelayMilliseconds": 30000,
+      "maxTotalDelayMilliseconds": 60000
+    }
+  },
+  "requests": {
+    "constructed": 8,
+    "admitted": 8,
+    "prepared_only": 0,
+    "measured_admission_rejections": 0,
+    "receiptless_dispatched": 0,
+    "all_components_reconcile": true,
+    "all_constructed_within_input_limits": true,
+    "complete_request_bytes_total": 59371,
+    "estimated_input_tokens_total": 21841,
+    "component_estimate_minus_complete_estimate": 14,
+    "component_estimates_not_billing": true,
+    "normalized_response_bytes": 11072,
+    "empty_completed_responses": 0
+  },
+  "usage_and_cost": {
+    "input_tokens": 11896,
+    "output_tokens": 11891,
+    "reasoning_tokens_within_output": 8579,
+    "visible_output_tokens_derived": 3312,
+    "reasoning_measured_calls": 8,
+    "known_cost_eur": "0.3714502454261490406068719322",
+    "retained_reservation_eur": "2.8461579651941097724230254352",
+    "run_cost_upper_bound_eur": "3.2176082106202588130298973674",
+    "unknown_usage_attempts": 3,
+    "retained_failed_attempts": [
+      {
+        "logical_request_number": 4,
+        "http_statuses": [
+          500,
+          500,
+          200
+        ],
+        "receipted": true,
+        "retained_reservation_eur": "1.8974386434627398482820169568"
+      },
+      {
+        "logical_request_number": 8,
+        "http_statuses": [
+          500,
+          200
+        ],
+        "receipted": true,
+        "retained_reservation_eur": "0.9487193217313699241410084784"
+      }
+    ],
+    "reserved_input_tokens": 48000,
+    "reserved_output_tokens": 98304,
+    "exact_money_source": "Original public terminal JSONL and safe metrics parsed with Decimal precision80; exact financial totals match and both originals remain unchanged.",
+    "completed_logical_intervals_ms": "1145105.2306",
+    "phase_interval_decimal_sum_minus_terminal_aggregate_ms": "0.0000"
+  },
+  "phase_statistics": {
+    "construction_intent": {
+      "calls": 8,
+      "physical_attempts": 11,
+      "request_bytes": {
+        "count": 8,
+        "p50": "9761.5",
+        "p95": "10504",
+        "max": "10504"
+      },
+      "estimated_input_tokens": {
+        "count": 8,
+        "p50": "3510",
+        "p95": "3758",
+        "max": "3758"
+      },
+      "logical_elapsed_ms": {
+        "count": 8,
+        "p50": "26971.7540",
+        "p95": "644608.8306",
+        "max": "644608.8306"
+      },
+      "component_sizes": {
+        "diagnostics": {
+          "serialized_bytes": 686,
+          "estimated_tokens": 232
+        },
+        "envelope": {
+          "serialized_bytes": 3428,
+          "estimated_tokens": 3194
+        },
+        "instructions": {
+          "serialized_bytes": 8726,
+          "estimated_tokens": 2912
+        },
+        "intent": {
+          "serialized_bytes": 17066,
+          "estimated_tokens": 5691
+        },
+        "response_schema": {
+          "serialized_bytes": 28848,
+          "estimated_tokens": 9617
+        },
+        "evidence": {
+          "serialized_bytes": 115,
+          "estimated_tokens": 40
+        },
+        "interfaces": {
+          "serialized_bytes": 502,
+          "estimated_tokens": 169
+        }
+      },
+      "input_tokens": 11896,
+      "output_tokens": 11891,
+      "reasoning_tokens": 8579,
+      "known_cost_eur": "0.3714502454261490406068719322",
+      "retained_reservation_eur": "2.8461579651941097724230254352"
+    }
+  },
+  "statistical_population": "All8 constructed requests are admitted and receipted; logical latencies include retry latency. p50 is the sorted median; p95 is nearest rank ceil(0.95*n). Reasoning tokens are part of billed output, component estimates are separate from provider usage.",
+  "postrun_campaign_accounting": null,
+  "original_response_formatting": "Unmeasured here; normalized response bytes do not establish raw JSON formatting or whitespace.",
+  "limitations": [
+    "All dispatched requests have receipts. Three received HTTP500 failures retain unknown-usage reservations despite eventual success; no receiptless uncertainty, timeout, empty output or exhaustion is inferred.",
+    "No artifact, approval, execution or independently satisfied business obligation is established. Calls per satisfied obligation remain undefined.",
+    "Diagnostics and two correction counters are recorded host facts, not independent semantic causes or a false-positive count. Long elapsed time does not establish model causality.",
+    "No postrun campaign balance is inferred pending root audit. Original campaign aggregate remains in the unchanged public terminal file.",
+    "No store, reader, readiness, lease, provider, runtime or build invocation; no main or cohort mutation. Only safe-file reads and new private outputs."
+  ]
+}

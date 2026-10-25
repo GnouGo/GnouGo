@@ -99,36 +99,54 @@ public sealed class CompactDeferredBindingTests
         }
     }
 
-    [Fact]
-    public async Task LocalSelectionDraftsDirectlyWithoutDiscoveryOrAnotherModelCall()
+    [Theory]
+    [InlineData(null)]
+    [InlineData("extract")]
+    [InlineData("interpret")]
+    public async Task LocalSelectionDraftsDirectlyWithoutDiscoveryOrAnotherModelCall(string? transformMode)
     {
         var (state, runtime) = Ready(selected: false);
+        var kind = transformMode is null ? "value" : "transform";
+        var pages = new Pages(); runtime.Capabilities = pages;
+        if (transformMode is not null) state.Catalog!.AllowedStepTypes = ["mcp.call", "mapping.dynamic", "llm.call", "template.render"];
         state.Request.MaxModelCalls = 3; // selection, draft, mandatory local review; no discovery reserve for local work.
-        runtime.Respond = (request, _) => Wire(request, Select(state, "value"));
+        runtime.Respond = (request, _) => Wire(request, Select(state, kind));
         state = await Advance(state, runtime);
         Assert.Empty(state.Diagnostics);
         Assert.True(state.Construction!.Compact!.CurrentStep!.DiscoveryComplete);
-        Assert.Equal("value", state.Construction.Compact.CurrentStep.Kind);
+        Assert.Equal(kind, state.Construction.Compact.CurrentStep.Kind);
         Assert.Single(runtime.Calls);
         runtime.Respond = (request, purpose) =>
         {
             Assert.Equal(PlanningConstruction.DraftPurpose, purpose);
             Assert.DoesNotContain("operation", TaskKinds(request.StructuredOutputSchema!));
-            return Wire(request, Draft(state));
+            var response = Draft(state);
+            if (transformMode is not null)
+            {
+                var extension = response["extension"]!.Deserialize(PlanningJsonContext.Default.PlanningConstructionExtension)!;
+                extension.Tasks = [new() { Id = "transformed", Kind = "transform", Mode = transformMode, Objective = Objective,
+                    Inputs = [new("record", new() { Kind = "string", Text = "EXACT" })],
+                    ResultType = new() { Kind = "object", Fields = [new() { Name = "record", Type = new() { Kind = "string" } }] } }];
+                response["extension"] = JsonSerializer.SerializeToNode(extension, PlanningJsonContext.Default.PlanningConstructionExtension);
+            }
+            return Wire(request, response);
         };
         state = await Advance(state, runtime);
         Assert.Empty(state.Diagnostics);
         Assert.NotNull(state.Construction!.Candidate);
         Assert.Equal(2, runtime.Calls.Count);
         Assert.Equal(0, state.ReplanAttempts);
+        Assert.Empty(pages.Cursors);
     }
 
     [Theory]
     [InlineData("value")]
+    [InlineData("transform")]
     [InlineData("operation")]
     public async Task UnsetImplementationBindsOnlyAfterDiscoveryWithoutAReselectionCharge(string kind)
     {
         var (state, runtime) = Ready(selected: false);
+        var pages = new Pages(); runtime.Capabilities = pages;
         runtime.Respond = (request, _) => Wire(request, Select(state, null));
         state = await Advance(state, runtime);
         Assert.Empty(state.Diagnostics);
@@ -148,9 +166,57 @@ public sealed class CompactDeferredBindingTests
         Assert.Equal(kind, state.Construction!.Compact!.CurrentStep!.Kind);
         Assert.True(state.Construction.Compact.CurrentStep.DiscoveryComplete);
         Assert.Equal(0, state.ReplanAttempts);
+        Assert.Empty(pages.Cursors);
         Assert.Equal(original, PlanningConstruction.Hash(state.Plan));
         Assert.Equal(new[] { kind }, TaskKinds(PlanningCompactConstruction.DraftSchema(state)));
         Assert.Equal(kind == "operation", state.Construction.Compact.PendingCommitments["req_0"].Count == 1);
+    }
+
+    [Theory]
+    [InlineData(false, 2)]
+    [InlineData(false, 3)]
+    [InlineData(false, 4)]
+    [InlineData(false, 5)]
+    [InlineData(true, 3)]
+    [InlineData(true, 4)]
+    [InlineData(true, 5)]
+    public async Task RetainedLocalTransformSelectionKeepsExactGuidanceAndSchema(bool discovery, int presentation)
+    {
+        var (state, runtime) = Ready(selected: discovery);
+        state.Construction!.Compact!.PresentationVersion = presentation;
+        state.Request.Options["construction_presentation_version"] = presentation;
+        var purpose = discovery ? PlanningCompactConstruction.DiscoveryPurpose : PlanningCompactConstruction.SelectPurpose;
+        var guidance = discovery ? PlanningCompactConstruction.DiscoveryGuidance(state) : PlanningCompactConstruction.SelectGuidance(state);
+        var previous = guidance.Replace(PlanningCompactConstruction.TransformSemantics + (discovery ? " " : ""),
+            discovery ? "" : "transform extracts/interprets supplied data, never external effects.", StringComparison.Ordinal);
+        if (presentation < 5) Assert.Equal(previous, guidance);
+        else Assert.NotEqual(previous, guidance);
+        var context = discovery ? PlanningCompactConstruction.DiscoveryContext(state) : PlanningCompactConstruction.SelectionContext(state);
+        var schema = discovery ? PlanningCompactConstruction.DiscoverySchema(state) : PlanningCompactConstruction.SelectionSchema(state);
+        var current = PlanningCompactConstruction.Request(guidance, context, schema, purpose);
+        var request = PlanningCompactConstruction.Request(previous, context, schema, purpose);
+        Assert.Equal(current.StructuredOutputSchema!.ToJsonString(), request.StructuredOutputSchema!.ToJsonString());
+        request = PlanningModelCalls.PrepareRequest(state, purpose, request.Prompt, request.StructuredOutputSchema.AsObject());
+        var exact = JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest);
+        var baseline = PlanningConstruction.Hash(state.Plan);
+        state.PendingCall = new() { Id = request.ClientRequestId!, Purpose = purpose, Request = request };
+        state.ModelCalls = 1;
+        var pages = new Pages(); runtime.Capabilities = pages;
+        runtime.Respond = (issued, actualPurpose) =>
+        {
+            Assert.Equal(purpose, actualPurpose);
+            Assert.Equal(exact, JsonSerializer.Serialize(issued, PlanningJsonContext.Default.LLMRequest));
+            var response = discovery ? Binding("transform") : Select(state, "transform");
+            if (!discovery && presentation == 2) response["step"]!.AsObject().Remove("prerequisites");
+            return Wire(issued, response);
+        };
+        state = await Advance(PlannerFixture.Clone(state), runtime);
+        Assert.Empty(state.Diagnostics);
+        Assert.Equal("transform", state.Construction!.Compact!.CurrentStep!.Kind);
+        Assert.True(state.Construction.Compact.CurrentStep.DiscoveryComplete);
+        Assert.Null(state.PendingCall); Assert.Single(runtime.Calls); Assert.Empty(pages.Cursors);
+        Assert.Equal(1, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);
+        Assert.Equal(baseline, PlanningConstruction.Hash(state.Plan)); Assert.Empty(state.Construction.Checkpoints);
     }
 
     [Theory]

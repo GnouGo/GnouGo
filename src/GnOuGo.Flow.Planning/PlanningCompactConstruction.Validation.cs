@@ -156,6 +156,24 @@ internal static partial class PlanningCompactConstruction
         foreach (var binding in compact.PendingCommitments.Values.SelectMany(c => c).DistinctBy(c => c.Operation))
             if (!selectedOperations.Contains(binding.Operation))
                 yield return new(PlanningCommitments.MissingOperation, "/construction/candidate", "The selected business operation is absent from this draft: " + binding.Operation);
+        if (UsesConvergentConstruction(state) && candidate.AuthorizedPaths is null && !candidate.Extension.Complete)
+        {
+            // Direct, current source dispositions bind declarations to an original
+            // obligation. Corroborating evidence and shared extraction pages do not.
+            var dispositions = (compact.InterfaceExtractions ?? []).Where(extraction => extraction.Complete &&
+                DispositionsComplete(compact, extraction)).SelectMany(extraction => extraction.Dispositions!)
+                .Where(disposition => disposition.Kind == "interfaces").ToArray();
+            foreach (var id in step.CloseRequirementIds)
+            {
+                var sources = compact.RequirementSources.GetValueOrDefault(id) ?? [];
+                var names = dispositions.Where(disposition => sources.Contains(disposition.SourceId, StringComparer.Ordinal))
+                    .SelectMany(disposition => disposition.Outputs).ToHashSet(StringComparer.Ordinal);
+                foreach (var output in (state.Requirements!.Outputs ?? []).Where(output => output.Required && names.Contains(output.Name)))
+                    if (!candidate.Plan.Root.Outputs.Any(binding => binding.Name == output.Name))
+                        yield return new("CONSTRUCTION_REQUIREMENT_OUTPUT_MISSING", "/step/closeRequirementIds",
+                            $"Requirement '{id}' declares required public output '{output.Name}', but the tentative plan has no root binding for it. Keep that requirement open until its public result is bound; a local export does not bind a root output.");
+            }
+        }
         if (!candidate.Extension.Complete) yield break;
         if (compact.Sources.Any(s => s.Kind is "page" or "answer_page" or "revision_page" && !s.Indexed))
             yield return new("CONSTRUCTION_SOURCE_REMAINING", "/construction/compact/sources", "Every original source page must be indexed before completion.");

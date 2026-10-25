@@ -8,6 +8,12 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class CompactIntentResolutionTests(ITestOutputHelper output)
 {
+    private const string PreviousInterfaceGuidance = """
+        Resolve candidate sources from the supplied originals; classifications are provisional. Return exactly one of interfaces, evidenceRequests or clarifications. Reuse supplied evidence; retrieve missing originals or clarify missing names/types. Use any only for explicitly unconstrained data.
+        For interfaces, give each candidate source one disposition with its exact ID/version, displayed evidence citations, declared names and reason. Extract all explicit caller inputs/public results, merging only the same interface. Otherwise use no_public_interface, retaining business obligations. Artifact contents, effects and resources alone are not public results; explicitly returned paths/contents are.
+        Preserve names, types, constraints, enums, nullability and literal defaults; existing declarations are immutable. Examples add no restrictions. Absent array bounds are null; maxItems:0 permits only []. String enum:null means unrestricted values; a list is the declared exhaustive set. default:null means no default; {"kind":"null"} is an explicit null literal. Outputs have no defaults. Emit compact JSON without whitespace outside strings; preserve string contents and verbatim originals exactly.
+        """;
+
     private static PlanningSession Fresh(string prompt) => new()
     {
         Request = new() { TenantId = "resolved-intent", Prompt = prompt,
@@ -281,6 +287,128 @@ public sealed class CompactIntentResolutionTests(ITestOutputHelper output)
         Assert.False(PlanningCompactConstruction.IntentDeclarationsComplete(state.Construction.Compact));
     }
 
+    [Theory]
+    [InlineData("inputs", "missing", 3)]
+    [InlineData("inputs", "unreferenced", 3)]
+    [InlineData("inputs", "duplicate", 3)]
+    [InlineData("inputs", "both", 3)]
+    [InlineData("outputs", "missing", 3)]
+    [InlineData("outputs", "unreferenced", 3)]
+    [InlineData("outputs", "duplicate", 3)]
+    [InlineData("outputs", "both", 3)]
+    [InlineData("inputs", "missing", 4)]
+    [InlineData("inputs", "unreferenced", 4)]
+    [InlineData("inputs", "duplicate", 4)]
+    [InlineData("inputs", "both", 4)]
+    [InlineData("outputs", "missing", 4)]
+    [InlineData("outputs", "unreferenced", 4)]
+    [InlineData("outputs", "duplicate", 4)]
+    [InlineData("outputs", "both", 4)]
+    [InlineData("inputs", "missing", 5)]
+    [InlineData("inputs", "unreferenced", 5)]
+    [InlineData("inputs", "duplicate", 5)]
+    [InlineData("inputs", "both", 5)]
+    [InlineData("outputs", "missing", 5)]
+    [InlineData("outputs", "unreferenced", 5)]
+    [InlineData("outputs", "duplicate", 5)]
+    [InlineData("outputs", "both", 5)]
+    public async Task TypedInterfaceCoverageReportsTheExactMismatchWithoutAcceptingDeclarations(string direction, string defect, int version)
+    {
+        var runtime = new TestRuntime { Respond = (r, _) => Wire(r, Classify(r, "both")) };
+        var state = await Advance(PlannerFixture.CapturedPresentation(Fresh("Accept required text suppliedText and return required text resultText."), version), runtime);
+        var original = JsonSerializer.Serialize(state.Requirements, PlanningJsonContext.Default.PlanningRequirements);
+        var repairs = state.ReplanAttempts;
+        var name = direction == "inputs" ? "suppliedText" : "resultText";
+        runtime.Respond = (r, _) =>
+        {
+            var response = Resolve(r, inputs: [new() { Name = "suppliedText", Required = true, Type = new() { Kind = "string" } }],
+                outputs: [new() { Name = "resultText", Required = true, Type = new() { Kind = "string" } }]);
+            var typed = response["interfaces"]![direction]!.AsArray();
+            if (defect == "missing") typed.Clear();
+            else if (defect == "both") typed[0]!["name"] = "extra";
+            else
+            {
+                var additional = typed[0]!.DeepClone();
+                if (defect == "unreferenced") additional["name"] = "extra";
+                typed.Add(additional);
+            }
+            return Wire(r, response);
+        };
+        state = await Advance(state, runtime);
+        var diagnostic = Assert.Single(state.Diagnostics);
+        Assert.Equal("CONSTRUCTION_SOURCE_COVERAGE", diagnostic.Code);
+        Assert.Equal("/interfaces/" + direction, diagnostic.Location);
+        if (version < 5) Assert.Equal("Each typed interface must be named by an exact source disposition.", diagnostic.Message);
+        else
+        {
+            Assert.Equal(defect == "duplicate", diagnostic.Message.Contains("duplicate typed names", StringComparison.Ordinal));
+            Assert.Equal(defect is "missing" or "both", diagnostic.Message.Contains("missing typed declarations", StringComparison.Ordinal));
+            Assert.Equal(defect is "unreferenced" or "both", diagnostic.Message.Contains("typed names without a current-source disposition", StringComparison.Ordinal));
+            Assert.Contains(defect == "unreferenced" ? "\"extra\"" : "\"" + name + "\"", diagnostic.Message, StringComparison.Ordinal);
+        }
+        Assert.Equal(original, JsonSerializer.Serialize(state.Requirements, PlanningJsonContext.Default.PlanningRequirements));
+        var extraction = Assert.Single(state.Construction!.Compact!.InterfaceExtractions!);
+        Assert.False(extraction.Complete); Assert.Null(extraction.Dispositions);
+        Assert.Equal(repairs, state.ReplanAttempts); Assert.Empty(state.Construction.Checkpoints);
+    }
+
+    [Theory]
+    [InlineData("inputs")]
+    [InlineData("outputs")]
+    public async Task MissingTypedNamesRemainWholeAndBoundedInFeedback(string direction)
+    {
+        var runtime = new TestRuntime { Respond = (r, _) => Wire(r, Classify(r, "both")) };
+        var state = await Advance(Fresh("Accept declared inputs and return declared results."), runtime);
+        var names = Enumerable.Range(0, 12).Select(index => "name_" + index.ToString("D2", System.Globalization.CultureInfo.InvariantCulture) + new string('x', 240)).ToArray();
+        runtime.Respond = (r, _) =>
+        {
+            var response = Resolve(r, inputs: [new() { Name = "suppliedText", Type = new() { Kind = "string" } }],
+                outputs: [new() { Name = "resultText", Type = new() { Kind = "string" } }]);
+            response["interfaces"]![direction] = new JsonArray();
+            response["interfaces"]!["dispositions"]![0]![direction] = new JsonArray(names.Select(name => (JsonNode?)JsonValue.Create(name)).ToArray());
+            return Wire(r, response);
+        };
+        state = await Advance(state, runtime);
+        var diagnostic = Assert.Single(state.Diagnostics);
+        Assert.Equal("CONSTRUCTION_SOURCE_COVERAGE", diagnostic.Code);
+        Assert.Contains(JsonValue.Create(names[0])!.ToJsonString(), diagnostic.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(names[1], diagnostic.Message, StringComparison.Ordinal);
+        Assert.Contains("omitted=11", diagnostic.Message, StringComparison.Ordinal);
+        Assert.InRange(System.Text.Encoding.UTF8.GetByteCount(diagnostic.Message), 1, 700);
+        Assert.False(Assert.Single(state.Construction!.Compact!.InterfaceExtractions!).Complete);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task LaterCurrentSourceMayDeclineOrExplicitlyLinkAnUnchangedAcceptedInterface(bool repeat)
+    {
+        const string initial = "Accept required text suppliedText.";
+        var runtime = new TestRuntime { Respond = (r, _) => Wire(r, Classify(r, "input")) };
+        var state = await Advance(Fresh(initial), runtime);
+        runtime.Respond = (r, _) => Wire(r, Resolve(r, inputs: [new() { Name = "suppliedText", Required = true, Type = new() { Kind = "string" } }]));
+        state = await Advance(state, runtime);
+        var accepted = JsonSerializer.Serialize(state.Requirements!.Inputs, PlanningJsonContext.Default.ListTaskInput);
+        var later = repeat ? " The same caller input suppliedText is required text." : " Write the report artifact with the supplied contents.";
+        state.Request.Prompt += later;
+        runtime.Respond = (r, _) => Wire(r, Classify(r, repeat ? "input" : "output"));
+        state = await Advance(state, runtime);
+        runtime.Respond = (r, _) =>
+        {
+            Assert.Equal(later, Assert.Single(Context(r)["sources"]!.AsArray())!["text"]!.ToString());
+            return Wire(r, repeat ? Resolve(r, inputs: [new() { Name = "suppliedText", Required = true, Type = new() { Kind = "string" } }])
+                : Resolve(r, kind: "no_public_interface"));
+        };
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        Assert.Equal(accepted, JsonSerializer.Serialize(state.Requirements!.Inputs, PlanningJsonContext.Default.ListTaskInput));
+        Assert.Single(state.Requirements.Inputs!); Assert.Empty(state.Requirements.Outputs!);
+        Assert.All(state.Construction!.Compact!.InterfaceExtractions!, extraction => Assert.True(extraction.Complete));
+        Assert.Equal(2, state.Construction.Compact.InterfaceExtractions!.Count);
+        Assert.Equal(repeat ? "interfaces" : "no_public_interface", Assert.Single(state.Construction.Compact.InterfaceExtractions[^1].Dispositions!).Kind);
+        Assert.Equal(0, state.ReplanAttempts); Assert.Empty(state.Construction.Checkpoints);
+    }
+
     [Fact]
     public async Task MissingTypeClarifiesThenUsesTheExactAnswerBeforeInterfaceAcceptance()
     {
@@ -326,25 +454,26 @@ public sealed class CompactIntentResolutionTests(ITestOutputHelper output)
     }
 
     [Theory]
-    [InlineData(3)]
-    [InlineData(4)]
-    [InlineData(5)]
-    public async Task InterruptedResolutionRecoversItsExactIssuedContextAndAccounting(int version)
+    [InlineData(3, false)]
+    [InlineData(4, false)]
+    [InlineData(5, false)]
+    [InlineData(5, true)]
+    public async Task InterruptedResolutionRecoversItsExactIssuedContextAndAccounting(int version, bool previousConsolidation)
     {
         var runtime = new TestRuntime { Respond = (r, _) => Wire(r, Classify(r, "output")) };
         var state = await Advance(PlannerFixture.CapturedPresentation(Fresh("Write the local report file."), version), runtime);
         runtime.Respond = (_, _) => throw new OperationCanceledException();
         if (version == 5)
         {
-            // Before consolidation, v5 used these exact v4 instructions. Issue
-            // that retained request through the real journal preparation path,
-            // with v5 metadata, rather than rebuilding it with today's guidance.
+            // Retain both prior v5 instruction sets through the real journal
+            // preparation path rather than rebuilding either issued request.
             var historical = PlannerFixture.Clone(state);
             historical.Construction!.Compact!.PresentationVersion = 4;
             historical.Request.Options["construction_presentation_version"] = 4;
-            var instructions = PlanningCompactConstruction.InterfaceGuidance(historical);
-            Assert.Equal("70b0782ec6d15d20faa176d7db5c296dccaa01d8796f02a10bc781240358aecb",
+            var instructions = previousConsolidation ? PreviousInterfaceGuidance : PlanningCompactConstruction.InterfaceGuidance(historical);
+            if (!previousConsolidation) Assert.Equal("70b0782ec6d15d20faa176d7db5c296dccaa01d8796f02a10bc781240358aecb",
                 PlanningGraphCompiler.Fingerprint(instructions));
+            Assert.NotEqual(PlanningCompactConstruction.InterfaceGuidance(state), instructions);
             var extraction = Assert.Single(state.Construction!.Compact!.InterfaceExtractions!);
             var request = PlanningCompactConstruction.Request(instructions,
                 PlanningCompactConstruction.InterfaceContext(state, extraction),

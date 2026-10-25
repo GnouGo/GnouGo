@@ -204,6 +204,11 @@ receipts and approval identities retain their original behavior.
 Closing a scope can leave its broader requirement open. A premature selected
 requirement-closure claim can be withdrawn through existing reselection within
 the same scope and requirement identities; repeating the draft retains that claim.
+Fresh revision-5 preflight also rejects an ordinary partial closure when its direct,
+current original-source declaration requires a public output absent from the merged
+root. Explicit revision authority is excluded from this early check; final validation
+remains mandatory. Repair guidance scopes preservation to a replacement extension,
+without removing the offered evidence, clarification or reselection actions.
 Fresh reviews use the existing compact TaskValue presentation for bindings and
 omit duplicate baseline/discovery bookkeeping. When requested scope evidence
 contains the identical complete group interface, the review omits its duplicate
@@ -372,6 +377,9 @@ Task, group and choice declarations share one case-sensitive namespace throughou
 `ICapabilityCatalog` exposes source summaries, paginated versioned operation summaries and exact contracts. Ordinary business ports come directly from authoritative schemas. Injected catalogs may supply `PlanningOperation` mappings to exact schema fields; mappings never come from names, descriptions or examples. Registered executors explicitly opt into planning through `StepContract.PlanningEffectKind`. Only inspected, admitted exact contracts may be selected; they are revalidated before approval and execution. Discovery pages and resolved receipts survive repair; unavailable unrelated sources remain visible limitations.
 
 `value` copies or assembles data; `transform` interprets named `inputs` using its `objective` and a declared `resultType`. Results must be nonempty closed objects with fully typed required fields, explicit nullable values, and no defaults or opaque types. The compiler emits fixed `template.render` prompt assembly and strict structured `llm.call`, using existing runtime configuration and budgets. The model never supplies templates, model settings or executor envelopes. Transform repairs edit diagnosed bindings or exact type slots without renaming business fields; replacing a `value` task requires explicit revision/regeneration.
+Fresh revision-5 selection and discovery distinguish observed extraction from typed
+interpretation of supplied inputs under the executable objective. This clarifies the
+existing runtime path; it supplies neither unknown external facts nor effects.
 
 Shared planning instructions describe only TaskPlan semantics: operations, contracts,
 typed bindings, inference, conditions, iteration, exports, provenance and cleanup.

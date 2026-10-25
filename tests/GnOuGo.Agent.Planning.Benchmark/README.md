@@ -39,6 +39,12 @@ existing permanent-retention operator covers planning only, so runtime uncertain
 remains blocked pending separately authorized reconciliation. These runtime safeguards do not expand artifact approval,
 MCP permissions or the existing runtime input, output, time and financial limits.
 
+The revision-5 local-transform wording experiment changes selection and discovery
+instructions only; interpretation already uses this admitted, journaled runtime path
+after artifact approval. The separate public-output closure check and empty-task
+import pruning are deterministic changes. Technical fixtures do not establish live
+convergence or avoided corrections; frozen earlier cohorts retain their original source.
+
 The [18 October Amazon retest](../../docs/evidence/bounded-observations-2026-10-18/README.md)
 preserves a structurally valid first proposal that failed before extraction dispatch.
 Its scalar extraction still bound the complete observation; zero extraction provider

@@ -275,6 +275,170 @@ public sealed class CompactSelectionObjectiveNavigationTests
         Assert.Equal(state.Plan!.Root.Tasks[0].Objective, result.Construction!.Evidence![address]!["text"]!.ToString());
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task EmptyAcceptedPlanOffersCallerImportsButNoTaskReferences(bool missingPlan)
+    {
+        var state = await EmptyState();
+        if (missingPlan) state.Plan = null;
+        var schema = ImportSchema(PlanningCompactConstruction.SelectionSchema(state));
+        foreach (var kind in new[] { "input", "choice", "item", "index" })
+        {
+            var value = Import(kind);
+            Assert.Empty(PlanningContractValidation.ValidateInstance(value, schema));
+            Assert.Empty(PlanningContractValidation.ValidateInstance(Field(value), schema));
+        }
+        foreach (var kind in new[] { "output", "present" })
+        {
+            var value = Import(kind);
+            Assert.NotEmpty(PlanningContractValidation.ValidateInstance(value, schema));
+            Assert.NotEmpty(PlanningContractValidation.ValidateInstance(Field(Field(value)), schema));
+        }
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(new JsonObject
+            { ["kind"] = "field", ["port"] = "nested", ["items"] = new JsonArray() }, schema));
+    }
+
+    [Theory]
+    [InlineData("root")]
+    [InlineData("always")]
+    [InlineData("nested")]
+    [InlineData("group")]
+    public async Task AnyAcceptedTaskKeepsTaskImportGrammar(string placement)
+    {
+        var state = await EmptyState();
+        var task = new PlanTask { Id = "accepted", Kind = "value", Objective = "Keep the accepted value.",
+            Outputs = [new("field", new() { Kind = "string", Text = "accepted" })] };
+        switch (placement)
+        {
+            case "root": state.Plan!.Root.Tasks.Add(task); break;
+            case "always": state.Plan!.Root.Always.Add(task); break;
+            case "nested": state.Plan!.Root.Tasks.Add(new() { Id = "container", Kind = "group", Body = new() { Tasks = [task] } }); break;
+            case "group": state.Plan!.Groups.Add(new() { Id = "reusable", Body = new() { Tasks = [task] } }); break;
+        }
+        var schema = ImportSchema(PlanningCompactConstruction.SelectionSchema(state));
+        foreach (var kind in new[] { "output", "present" })
+        {
+            Assert.Empty(PlanningContractValidation.ValidateInstance(Import(kind), schema));
+            Assert.Empty(PlanningContractValidation.ValidateInstance(Field(Import(kind)), schema));
+        }
+        // Offered syntax never grants access to a different task identity.
+        var invalid = new PlanningConstructionStep { Scope = "/root", Kind = "value", Objective = "Use the supplied value.",
+            RequirementIds = ["req_0"], Inputs = [new() { Kind = "present", Source = "unknown" }] };
+        var error = Assert.Throws<PlanningResponseException>(() => PlanningCompactConstruction.ValidateSelection(state, invalid));
+        Assert.Contains(error.Diagnostics, item => item.Code == "CONSTRUCTION_STEP_INVALID");
+    }
+
+    [Fact]
+    public async Task TasklessClosedGroupRemainsSelectableWithCallerInput()
+    {
+        var state = await EmptyState();
+        state.Plan!.Groups.Add(new() { Id = "reusable", Body = new()
+            { Outputs = [new("field", new() { Kind = "string", Text = "constant" })] } });
+        Assert.Empty(new TaskPlanSymbols(state.Plan).Tasks);
+        var response = EvidenceAction(state, "scope:/root");
+        response["evidenceRequests"] = null;
+        response["step"] = new JsonObject
+        {
+            ["scope"] = "/root", ["kind"] = "call", ["objective"] = "Use the declared reusable result.",
+            ["requirementIds"] = new JsonArray("req_0"), ["inputs"] = new JsonArray(Import("input")),
+            ["groupId"] = "reusable", ["dependencyTaskIds"] = new JsonArray(),
+            ["expectedOutputs"] = new JsonArray("The reusable result."), ["closeRequirementIds"] = new JsonArray(),
+            ["outputNames"] = new JsonArray(), ["prerequisites"] = null
+        };
+        Assert.Empty(PlanningContractValidation.ValidateInstance(response, PlanningCompactConstruction.SelectionSchema(state)));
+        PlanningCompactConstruction.ValidateSelection(state, new() { Scope = "/root", Kind = "call", GroupId = "reusable",
+            Objective = "Use the declared reusable result.", RequirementIds = ["req_0"], Inputs = [new() { Kind = "input", Source = "caller_value" }] });
+        Assert.Empty(state.Construction!.Checkpoints);
+        Assert.Equal(0, state.ReplanAttempts);
+    }
+
+    [Theory]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    public async Task HistoricalEmptySelectionKeepsTaskImportGrammar(int presentation)
+    {
+        var state = await EmptyState();
+        state.Construction!.Compact!.PresentationVersion = presentation;
+        state.Request.Options["construction_presentation_version"] = presentation;
+        var schema = ImportSchema(PlanningCompactConstruction.SelectionSchema(state));
+        foreach (var kind in new[] { "input", "choice", "output", "present", "item", "index" })
+        {
+            Assert.Empty(PlanningContractValidation.ValidateInstance(Import(kind), schema));
+            Assert.Empty(PlanningContractValidation.ValidateInstance(Field(Import(kind)), schema));
+        }
+    }
+
+    [Fact]
+    public async Task SavedZeroTaskSelectionKeepsIssuedTaskImportGrammarAndExactRequestBytes()
+    {
+        var state = await EmptyState();
+        var schema = PlanningCompactConstruction.SelectionSchema(state);
+        var key = ImportKey(schema);
+        // A captured request may still have the unrestricted pre-pruning v5 grammar.
+        schema["$defs"]![key] = new JsonObject { ["anyOf"] = new JsonArray(
+            PlanningSchemas.Object(("kind", PlanningSchemas.Enum("output")), ("source", Text()), ("port", PlanningSchemas.Nullable(Text()))),
+            PlanningSchemas.Object(("kind", PlanningSchemas.Enum("input", "choice", "present")), ("source", Text())),
+            PlanningSchemas.Object(("kind", PlanningSchemas.Enum("item", "index"))),
+            PlanningSchemas.Object(("kind", PlanningSchemas.Enum("field")), ("port", Text()),
+                ("items", PlanningSchemas.Array(PlanningSchemas.Ref(key), 1, 1)))) };
+        var issued = Request(state, PlanningCompactConstruction.SelectionContext(state), schema);
+        Assert.Empty(PlanningContractValidation.ValidateInstance(Import("present"), ImportSchema(issued.StructuredOutputSchema!.AsObject())));
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(Import("present"), ImportSchema(PlanningCompactConstruction.SelectionSchema(state))));
+        var saved = JsonSerializer.Serialize(issued, PlanningJsonContext.Default.LLMRequest);
+        state.ModelCalls++;
+        state.PendingCall = new() { Id = issued.ClientRequestId!, Purpose = PlanningCompactConstruction.SelectPurpose, Request = issued };
+        state = PlannerFixture.Clone(state);
+        var calls = state.ModelCalls;
+        var accepted = PlanningConstruction.Hash(state.Plan);
+        var runtime = new TestRuntime { Respond = (request, _) =>
+        {
+            Assert.Equal(saved, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+            var response = EvidenceAction(state, "scope:/root");
+            Assert.Empty(PlanningContractValidation.ValidateInstance(response, request.StructuredOutputSchema!.AsObject()));
+            return new() { Json = response };
+        } };
+        var recovered = await new HybridWorkflowPlanner().AdvanceAsync(state,
+            new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
+        Assert.Empty(recovered.Diagnostics);
+        Assert.Single(runtime.Calls);
+        Assert.Equal(calls, recovered.ModelCalls);
+        Assert.Equal(0, recovered.ReplanAttempts);
+        Assert.Equal(accepted, PlanningConstruction.Hash(recovered.Plan));
+        Assert.Empty(recovered.Construction!.Checkpoints);
+        Assert.Equal("caller_value", recovered.Construction.Evidence!["scope:/root"]!["inputs"]![0]!["name"]!.ToString());
+
+        static JsonObject Text() => new() { ["type"] = "string", ["maxLength"] = 96 };
+    }
+
+    private static async Task<PlanningSession> EmptyState()
+    {
+        var state = await Ready();
+        var input = new TaskInput { Name = "caller_value", Type = new() { Kind = "string" } };
+        state.Plan = new() { Inputs = [input] };
+        state.Requirements!.Inputs = [input];
+        return state;
+    }
+
+    private static JsonObject Import(string kind)
+    {
+        var value = new JsonObject { ["kind"] = kind };
+        if (kind is "input" or "choice" or "present" or "output") value["source"] = kind == "input" ? "caller_value" : "accepted";
+        if (kind == "output") value["port"] = "field";
+        return value;
+    }
+
+    private static JsonObject Field(JsonObject value) => new()
+        { ["kind"] = "field", ["port"] = "nested", ["items"] = new JsonArray(value) };
+
+    private static string ImportKey(JsonObject schema) => schema["$defs"]!.AsObject().Single(definition =>
+        definition.Value?["anyOf"] is JsonArray alternatives && alternatives.Any(alternative =>
+            alternative?["properties"]?["kind"]?["enum"] is JsonArray kinds && kinds.Any(kind => kind?.ToString() == "field"))).Key;
+
+    private static JsonObject ImportSchema(JsonObject schema) => new()
+        { ["$ref"] = "#/$defs/" + ImportKey(schema), ["$defs"] = schema["$defs"]!.DeepClone() };
+
     private static LLMRequest Request(PlanningSession state, JsonObject context, JsonObject schema)
     {
         var request = PlanningCompactConstruction.Request(PlanningCompactConstruction.SelectGuidance(state),

@@ -38,6 +38,12 @@ coverage is complete, and no prerequisite, repair, choice or rebuild is pending.
 Compiler validation and mandatory business review still precede acceptance; final
 public-output validation remains mandatory. An empty scope or a local scalar
 export is not a completion proof.
+Before business review, an ordinary partial revision-5 candidate cannot close a
+requirement whose complete, current source disposition directly declares a required
+public output missing from the merged root. The existing claim-reselection route
+handles this diagnostic. Optional outputs and corroborating evidence alone do not
+establish that link. Explicitly authorized revisions keep their existing partial
+repair behavior; final output validation is unchanged.
 Host-prepared boundaries capture the same scoped candidate identity as model drafts
 before validation and persistence. Review, recovery and approval therefore compare
 the same candidate and completion claims; historical retained candidates are unchanged.
@@ -138,7 +144,10 @@ revision and leases. Storage format 10 remains unchanged.
 Extensions reuse task, value, group, choice and output contracts and append only
 to issued open scopes. Fresh selection schemas offer exactly the displayed open
 scope page, with existing pagination for omitted scopes; a replacement keeps its
-fixed scope. Historical issued requests remain exact. Apply candidates atomically to a clone. Compiler semantic
+fixed scope. When the full accepted symbol table has no tasks, revision-5 selection
+omits `output` and `present` imports, including inside field projections. Caller
+inputs, choices and taskless closed-group calls remain available; existing reference
+validation still applies. Historical issued requests remain exact. Apply candidates atomically to a clone. Compiler semantic
 preflight remains the authority for types, contracts, ownership, references,
 provenance, assertions, permissions and dependencies. Partial validation does not
 lower a graph or suppress arbitrary final-validation errors.
@@ -184,6 +193,14 @@ definitions and semantic validation remain authoritative; unreachable grammar is
 removed from presentation. Historical revision-2 grouping, required directions and
 issued requests retain their captured behavior.
 Interface-guidance consolidation is a separate fresh-v5 prompt experiment with unchanged schema, context and settings.
+Current candidate sources determine the extraction's declaration set; surrounding
+originals and accepted names provide support rather than extra candidates. A current
+source may explicitly link an unchanged accepted interface. Fresh revision-5
+coverage feedback distinguishes duplicate typed names, disposition names missing a
+typed declaration, and typed names absent from current dispositions. Each category
+retains at most four whole names within 384 serialized UTF-8 bytes, with total and
+omitted counts. Ordinal uniqueness and exact set equality still decide acceptance;
+historical diagnostics and all issued requests remain unchanged.
 Caller-input extraction uses one declaration shape with a required nullable
 `default`: JSON null means no default, while `{"kind":"null"}` is an explicit
 literal null. Recursive literals and semantic default checks are unchanged; public

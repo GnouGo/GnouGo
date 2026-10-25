@@ -1,5 +1,58 @@
 # Compact TaskPlan convergence
 
+## Source `ba86cf874`: all three diagnostics remain incomplete
+
+Collections stopped; Amazon and Review PR requested clarification. None produced
+an artifact or executed. The three-case acceptance gate remains unmet, so the
+18 paired comparisons remain gated. No satisfied business-obligation denominator is claimed.
+
+| Frozen case | Logical requests / attempts / receipts | Corrections / checkpoints | Planning seconds | Provider input / output / reasoning tokens |
+| --- | ---: | ---: | ---: | ---: |
+| [Collections](compact-taskplan-ba86cf874-collections.json) | 27 / 29 / 27 | 3 / 6 | 1,376.689 | 62,058 / 33,042 / 28,067 |
+| [Amazon](compact-taskplan-ba86cf874-amazon.json) | 35 / 35 / 35 | 4 / 2 | 1,030.655 | 134,154 / 37,878 / 30,900 |
+| [Review PR](compact-taskplan-ba86cf874-code.json) | 8 / 11 / 8 | 2 / 0 | 1,170.627 | 11,896 / 11,891 / 8,579 |
+
+Reasoning tokens are included in output totals. Known costs were respectively
+**EUR 1.1615796519410977242302543507**, **EUR 1.6127710843373493975903614458**
+and **EUR 0.3714502454261490406068719322**. Collections retains
+**EUR 1.8617402945113788487282463186** for two received HTTP 500 attempts;
+Review PR retains **EUR 2.8461579651941097724230254352** for three. Amazon adds
+no reserve. All dispatched requests have receipts. Amazon's 39 constructed
+identities include **four prepared but undispatched requests** with no attempt or
+reservation; no input-admission rejection or receiptless uncertainty is demonstrated.
+
+Collections' [source assessment](compact-taskplan-ba86cf874-collections-assessment.json)
+confirms two invalid task-source references and a premature public-result completion
+claim. The Judge distinguished a valid local foreach export from the unbound public
+result. The attempted repair repeated the rejected draft exactly and stopped for
+non-progress. Wording ambiguity is observed; its contribution is unproven.
+
+Amazon's [source assessment](compact-taskplan-ba86cf874-amazon-assessment.json) records
+four bindings to the same browser operation and three explicit suspensions.
+Navigation by that operation requires an already absolute URL; browser interaction
+is outside frozen authority. The existing local `transform` option was offered with
+the prior consumer and prerequisite retained. The site-specific URL rule remains
+unresolved. No artifact or runtime call was approved; no capability or permission was added.
+
+Review PR's [source assessment](compact-taskplan-ba86cf874-code-assessment.json) confirms
+correct source-coverage rejections in opposite directions: request 4 omitted typed
+names cited by dispositions; request 7 repeated names unlinked to its current source.
+The diagnostic explains only one direction. Current-source wording is ambiguous,
+but no causal effect is established. Artifact contents were proposed as a new public
+result without support; those declarations were rejected. Original retrieval and
+`no_public_interface` remained available. The final clarification was unanswered.
+All eight original responses were valid, nonempty JSON: 10,679 bytes with 15 whitespace
+bytes outside strings (maximum run 5). Long logical intervals include retries; they
+do not establish failed-attempt latency causes or output exhaustion.
+
+The [01:51:26 UTC audit](compact-taskplan-ba86cf874-campaign-audit.json) on 25 October
+records **EUR 65.97882476995213314254694607** available under the unchanged campaign
+ceiling. All 28 receiptless identities are permanently closed; 53 physical-attempt
+reservations remain. The snapshot retains exact aggregate/rounding and separate lost-ledger
+exposure; it is not a future balance. Profiles, phase statistics and immutable source
+pins remain in the linked archives. No live improvement or avoided correction is claimed.
+
+
 ## Source `08c5229fc`: three received diagnostic failures
 
 None of these runs produced an artifact or executed. PR #120 remains Draft;
