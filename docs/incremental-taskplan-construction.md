@@ -244,6 +244,10 @@ contracts; task/group inspection links do not establish prerequisite authority.
 A prerequisite may cite another requirement's declaration without claiming its
 coverage or closure. Its exact retrieval link remains available after selection.
 Historical presentations and already issued requests keep their original schemas.
+Fresh revision-5 selection offers the existing interface-directory address from
+later pages so earlier caller declarations and accepted producers remain retrievable;
+already supplied pages stay in evidence and cannot be reread as progress. Forward
+selection navigation skips those retained pages without changing the requested-page cursor.
 
 Fresh Judges receive the same TaskPlan meaning as drafting, with authoring-only
 actions omitted. Revision 4 supplies exact requirement closure identities; requirement
@@ -283,8 +287,11 @@ original source page together within the existing escaped-text bound. Whole
 requirements retain their exact text, source identities and separate completion
 statuses; an oversized indivisible requirement still faces complete-request
 admission. Fresh selection uses that same bounded page at the earliest unresolved
-requirement, omitting closed clauses; drafting and Judges receive only the selected
-requirements. Historical singleton pages and issued requests are unchanged.
+requirement, omitting closed clauses. Fresh revision-5 drafting, discovery and Judges
+retain selected requirements plus bounded navigation to other exact original clauses.
+Requested pages retain their continuation links; reading an unselected obligation
+does not associate work, close it or expand correction authority. Historical singleton
+pages and issued requests are unchanged.
 
 Discovery queries the selected substep, never the global objective. Fresh revision-4
 automatic operation directories use only metadata pages for that exact substep query;

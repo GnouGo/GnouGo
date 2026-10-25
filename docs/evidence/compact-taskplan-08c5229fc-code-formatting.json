@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "source": "08c5229fc65f2dedb8e8caf8c7d2627591a0473b",
+  "cohort": "compactr08c5229fccode20v5",
+  "scope": "Append-only original-response-formatting supplement to the unchanged measured archive.",
+  "safe_sources": [
+    {
+      "path": "/private/tmp/gnougo-08c-code-terminal-safe/compact-taskplan-08c5229fc-code.json",
+      "sha256": "4ab63d71345f4af90e7e4109de2eeab32cce76284968b75026dd406a0da51020",
+      "bytes": 12110
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr08c5229fccode20v5/code-response-format-safe.json",
+      "sha256": "4744c58afe06115d54036d9adb1c8e72efbcc3bc7ccf1299a1b7072dc2c97aeb",
+      "bytes": 26323
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr08c5229fccode20v5/code-terminal-safe-metrics.json",
+      "sha256": "066f6ec56d2d48dd719ee61b9cc9e10b56b61dbf5bab7f4b1e5d919f9e8804a4",
+      "bytes": 202606
+    }
+  ],
+  "captured_at_utc": "2026-10-25T00:15:35.507640+00:00",
+  "measurements": {
+    "received_original_texts": 47,
+    "nonempty_texts": 47,
+    "raw_response_utf8_bytes": 35057,
+    "outside_string_whitespace_bytes": 14,
+    "maximum_consecutive_outside_string_whitespace_bytes": 2,
+    "root_reports_all_original_texts_parse_equal_saved_json": true
+  },
+  "independently_verified": "All47 exact request IDs/phases/receipt-record hashes join the saved metrics; reported per-text whitespace measurements reconcile to totals.",
+  "qualification": "Root inspected original texts in memory. This offline verification does not reread originals or reproduce parsing. Raw-text hashes remain separate from parsed-JSON presentation hashes; whitespace is not a semantic/convergence or empty-output classification."
+}

@@ -8,6 +8,160 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class CompactSelectionObjectiveNavigationTests
 {
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ReturningToFirstInterfacePagePreservesUnreadMixedPages(bool secondPageAlreadyRead)
+    {
+        var state = await PagingState();
+        var plan = state.Plan!;
+        for (var index = plan.Root.Tasks.Count; index < 13; index++)
+            plan.Root.Tasks.Add(new() { Id = "accepted_" + index, Kind = "value", Objective = "Keep this accepted value.",
+                Outputs = [new("field", new() { Kind = "string", Text = "accepted" })] });
+        for (var index = 1; index < 17; index++)
+            plan.Inputs.Add(new() { Name = "caller_" + index, Type = new() { Kind = "string" } });
+        plan.Choices = Enumerable.Range(0, 17).Select(index => new PlanningChoice
+            { Id = "choice_" + index, Question = "Choose this value.", Type = new() { Kind = "string" } }).ToList();
+        plan.Groups = Enumerable.Range(0, 17).Select(index => new TaskGroup { Id = "group_" + index }).ToList();
+        var accepted = PlanningConstruction.Hash(plan);
+        Read("page:interfaces:4");
+        if (secondPageAlreadyRead) Read("page:interfaces:8");
+        Read("page:interfaces:0");
+        Assert.Equal(0, state.Construction!.Compact!.InterfaceOffset);
+        var remaining = secondPageAlreadyRead ? new[] { 12, 16 } : new[] { 8, 12, 16 };
+        foreach (var offset in remaining)
+        {
+            var next = "page:interfaces:" + offset;
+            Assert.Equal(next, PlanningCompactConstruction.SelectionContext(state)["nextInterfaces"]!.ToString());
+            Read(next);
+        }
+        Assert.Null(PlanningCompactConstruction.SelectionContext(state)["nextInterfaces"]);
+        var pages = state.Construction.Evidence!.Where(item => item.Key.StartsWith("page:interfaces:", StringComparison.Ordinal))
+            .SelectMany(item => item.Value!.AsArray()).ToArray();
+        Assert.All(plan.Root.Tasks, task => Assert.Contains(pages, item => item?["task"]?.ToString() == task.Id));
+        Assert.All(plan.Inputs, input => Assert.Contains(pages, item => item?["input"]?.ToString() == input.Name));
+        Assert.All(plan.Choices, choice => Assert.Contains(pages, item => item?["choice"]?.ToString() == choice.Id));
+        Assert.All(plan.Groups, group => Assert.Contains(pages, item => item?["group"]?.ToString() == group.Id));
+        Assert.Equal(accepted, PlanningConstruction.Hash(state.Plan));
+        Assert.Empty(state.Construction.Checkpoints);
+        Assert.Equal(0, state.ReplanAttempts);
+
+        void Read(string address)
+        {
+            var request = Request(state, PlanningCompactConstruction.SelectionContext(state), PlanningCompactConstruction.SelectionSchema(state));
+            Assert.Empty(PlanningContractValidation.ValidateInstance(EvidenceAction(state, address), request.StructuredOutputSchema!.AsObject()));
+            PlanningConstruction.LoadEvidence(state, [address]);
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task LaterSelectionPageRetainsReturnNavigationToExactCallerInput(bool firstPageAlreadyRead)
+    {
+        var state = await PagingState();
+        var accepted = PlanningConstruction.Hash(state.Plan);
+        var calls = state.ModelCalls;
+        var declaration = JsonSerializer.SerializeToNode(Assert.Single(state.Plan!.Inputs), PlanningJsonContext.Default.TaskInput);
+        var grammar = Request(state, PlanningCompactConstruction.SelectionContext(state),
+            PlanningCompactConstruction.SelectionSchema(state)).StructuredOutputSchema!.DeepClone().AsObject();
+        grammar["properties"]!.AsObject().Remove("evidenceRequests");
+        Assert.Null(PlanningCompactConstruction.SelectionContext(state)["interfacesDirectory"]);
+        if (firstPageAlreadyRead) PlanningConstruction.LoadEvidence(state, ["page:interfaces:0"]);
+        var addresses = new Queue<string>(firstPageAlreadyRead
+            ? ["page:interfaces:4", "input:caller_value"]
+            : ["page:interfaces:4", "page:interfaces:0", "input:caller_value"]);
+        var expectedCalls = addresses.Count;
+        var runtime = new TestRuntime { Respond = (request, _) =>
+        {
+            var context = JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!;
+            var address = addresses.Dequeue();
+            if (address == "page:interfaces:0")
+            {
+                Assert.Null(context["interfaces"]);
+                Assert.Null(context["nextInterfaces"]);
+                Assert.Equal(address, context["interfacesDirectory"]!.ToString());
+                Assert.Null(context["evidence"]?[address]);
+            }
+            if (address == "input:caller_value")
+            {
+                Assert.Null(context["interfacesDirectory"]);
+                Assert.Contains(context["evidence"]!["page:interfaces:0"]!.AsArray(), item => item?["input"]?.ToString() == "caller_value");
+                Assert.NotEmpty(PlanningContractValidation.ValidateInstance(EvidenceAction(state, "page:interfaces:0"),
+                    request.StructuredOutputSchema!.AsObject()));
+            }
+            var response = EvidenceAction(state, address);
+            Assert.Empty(PlanningContractValidation.ValidateInstance(response, request.StructuredOutputSchema!.AsObject()));
+            var actualGrammar = request.StructuredOutputSchema.DeepClone().AsObject();
+            actualGrammar["properties"]!.AsObject().Remove("evidenceRequests");
+            Assert.True(JsonNode.DeepEquals(grammar, actualGrammar));
+            return new() { Json = response };
+        } };
+        for (var index = 0; index < expectedCalls; index++)
+        {
+            state = await new HybridWorkflowPlanner().AdvanceAsync(PlannerFixture.Clone(state),
+                new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
+            Assert.Empty(state.Diagnostics);
+            Assert.Equal(accepted, PlanningConstruction.Hash(state.Plan));
+            Assert.Null(state.Construction!.Compact!.CurrentStep);
+            Assert.Empty(state.Construction.Checkpoints);
+            Assert.Empty(state.Construction.Compact.PendingCommitments);
+            Assert.Equal(0, state.ReplanAttempts);
+        }
+        Assert.Equal(expectedCalls, runtime.Calls.Count);
+        Assert.Equal(calls + expectedCalls, state.ModelCalls);
+        Assert.Equal(0, runtime.Discoveries);
+        Assert.True(JsonNode.DeepEquals(declaration, state.Construction!.Evidence!["input:caller_value"]));
+        Assert.NotNull(state.Construction.Evidence["page:interfaces:4"]);
+        var before = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        var repeated = Assert.Throws<PlanningResponseException>(() => PlanningConstruction.LoadEvidence(state, ["page:interfaces:0"]));
+        Assert.Contains(repeated.Diagnostics, diagnostic => diagnostic.Code == "REPLAN_NO_PROGRESS");
+        Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+    }
+
+    [Theory]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    [InlineData(5)]
+    public async Task SavedPagedSelectionRetainsItsIssuedNavigationBytes(int presentation)
+    {
+        var state = await PagingState();
+        state.Construction!.Compact!.PresentationVersion = presentation;
+        state.Request.Options["construction_presentation_version"] = presentation;
+        PlanningConstruction.LoadEvidence(state, ["page:interfaces:4"]);
+        var context = PlanningCompactConstruction.SelectionContext(state);
+        Assert.Equal(presentation == 5, context.ContainsKey("interfacesDirectory"));
+        var current = Request(state, context, PlanningCompactConstruction.SelectionSchema(state));
+        context.Remove("interfacesDirectory");
+        var schema = PlanningCompactConstruction.SelectionSchema(state);
+        if (presentation == 5) PlanningCompactConstruction.ConstrainSelectionEvidence(state, context, schema);
+        var issued = Request(state, context, schema);
+        var saved = JsonSerializer.Serialize(issued, PlanningJsonContext.Default.LLMRequest);
+        if (presentation == 5) Assert.NotEqual(saved, JsonSerializer.Serialize(current, PlanningJsonContext.Default.LLMRequest));
+        else Assert.Equal(saved, JsonSerializer.Serialize(current, PlanningJsonContext.Default.LLMRequest));
+        state.ModelCalls++;
+        state.PendingCall = new() { Id = issued.ClientRequestId!, Purpose = PlanningCompactConstruction.SelectPurpose, Request = issued };
+        state = PlannerFixture.Clone(state);
+        var calls = state.ModelCalls;
+        var accepted = PlanningConstruction.Hash(state.Plan);
+        var runtime = new TestRuntime { Respond = (request, _) =>
+        {
+            Assert.Equal(saved, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+            var response = EvidenceAction(state, "scope:/root");
+            Assert.Empty(PlanningContractValidation.ValidateInstance(response, request.StructuredOutputSchema!.AsObject()));
+            return new() { Json = response };
+        } };
+        var recovered = await new HybridWorkflowPlanner().AdvanceAsync(state,
+            new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
+        Assert.Empty(recovered.Diagnostics);
+        Assert.Single(runtime.Calls);
+        Assert.Equal(calls, recovered.ModelCalls);
+        Assert.Equal(0, recovered.ReplanAttempts);
+        Assert.Equal(accepted, PlanningConstruction.Hash(recovered.Plan));
+        Assert.Equal("caller_value", recovered.Construction!.Evidence!["scope:/root"]!["inputs"]![0]!["name"]!.ToString());
+    }
+
+    [Theory]
     [InlineData("fresh")]
     [InlineData("historical")]
     [InlineData("retainedCompact")]
@@ -129,6 +283,24 @@ public sealed class CompactSelectionObjectiveNavigationTests
         request.UseBackgroundMode = true; request.MaxTokens = 8192;
         request.ClientRequestId = state.Request.SessionId + ":3:" + new string('a', 64);
         return PlanningGenerationPolicy.Apply(request, state.Request.Generation);
+    }
+
+    private static JsonObject EvidenceAction(PlanningSession state, string address) => new()
+    {
+        ["baseHash"] = PlanningConstruction.Hash(state.Plan), ["step"] = null, ["clarifications"] = null,
+        ["evidenceRequests"] = new JsonArray(address)
+    };
+
+    private static async Task<PlanningSession> PagingState()
+    {
+        var state = await Ready();
+        var input = new TaskInput { Name = "caller_value", Type = new() { Kind = "string", Enum = ["first", "second"] }, Required = true };
+        state.Plan!.Inputs = [input];
+        state.Requirements!.Inputs = [input];
+        for (var index = 0; index < 2; index++)
+            state.Plan.Root.Tasks.Add(new() { Id = "later_" + index, Kind = "value", Objective = "Keep this accepted value.",
+                Outputs = [new("field", new() { Kind = "string", Text = "accepted" })] });
+        return state;
     }
 
     private static async Task<PlanningSession> Ready()

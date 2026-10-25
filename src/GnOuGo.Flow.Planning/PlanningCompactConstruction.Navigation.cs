@@ -30,11 +30,25 @@ internal static partial class PlanningCompactConstruction
             .Concat((state.Construction!.Evidence ?? []).Select(item => item.Value).Where(value => value is JsonObject or JsonArray))));
         if (UsesConvergentConstruction(state))
         {
-            addresses.UnionWith(NavigationEvidence([context["continuation"]]));
+            addresses.UnionWith(NavigationEvidence([context["interfacesDirectory"], context["continuation"]]));
             addresses.UnionWith(NavigationEvidence((context["continuation"]?["acceptedCheckpoints"] as JsonArray ?? []).Cast<JsonNode?>()));
             addresses.UnionWith(NavigationEvidence((context["scopes"] as JsonArray ?? []).Select(scope => scope?["acceptedExports"])));
         }
         ConstrainEvidenceChoices(state, schema, addresses, maximum: 4);
+    }
+
+    private static void AddRequirementNavigation(PlanningSession state, JsonObject context)
+    {
+        if (!UsesConvergentConstruction(state) || !state.Requirements!.Outcomes.Any(requirement =>
+                !State(state).CurrentStep!.RequirementIds.Contains(requirement.Id, StringComparer.Ordinal))) return;
+        var evidence = state.Construction!.Evidence;
+        if (evidence?.ContainsKey("page:requirements:0") != true)
+            context["requirementsDirectory"] = "page:requirements:0";
+        var next = RequirementPage(state, 0).Length;
+        if (next < state.Requirements.Outcomes.Count && evidence?.ContainsKey("page:requirements:" + next) != true)
+            context["nextRequirements"] = "page:requirements:" + next;
+        // Requested pages retain their exact next links. Existing evidence
+        // navigation follows them without another cursor or repeat-read rule.
     }
 
     private static HashSet<string> StepOriginalEvidence(PlanningSession state)
@@ -52,6 +66,8 @@ internal static partial class PlanningCompactConstruction
         // Original requirement/source identities are already present in this
         // context. Contract addresses come only from host-owned view navigation.
         var addresses = StepOriginalEvidence(state);
+        if (UsesConvergentConstruction(state))
+            addresses.UnionWith(NavigationEvidence([context["requirementsDirectory"], context["nextRequirements"]]));
         addresses.UnionWith(NavigationEvidence(new[] { "scopeEvidence", "interfacesDirectory", "reusableInterfaces", "taskEvidence", "scopeInterface",
             "operations", "companionOperations", "rebuild", "continuation" }.Select(name => context[name])
             .Append(context["taskEvidence"]?["scopeOwner"])
@@ -71,6 +87,8 @@ internal static partial class PlanningCompactConstruction
     private static void ConstrainDiscoveryEvidence(PlanningSession state, JsonObject context, JsonObject schema)
     {
         var addresses = StepOriginalEvidence(state);
+        if (UsesConvergentConstruction(state))
+            addresses.UnionWith(NavigationEvidence([context["requirementsDirectory"], context["nextRequirements"]]));
         addresses.UnionWith(NavigationEvidence(new[] { context["descriptors"], context["providerRequests"], context["scopeOwner"] }
             .Concat((context["directoryEvidence"] as JsonObject ?? []).Select(item => item.Value))
             .Concat((context["evidence"] as JsonObject ?? []).Select(item => item.Value))));

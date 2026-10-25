@@ -54,7 +54,7 @@ internal static partial class PlanningCompactConstruction
         Implement only the selected immediate business substep in the issued scope and task kind, using the selected exact contract views and typed imports. Extend the accepted TaskPlan; never rewrite accepted work. Preserve original requirements, constraints, identities, order, complete observations and cleanup. References must resolve now; retrieve missing evidence without fabricating inputs or simulating external work. If the tentative kind or imports cannot express the objective, use permitted reselectStep with a precise reason. Clarify only missing business facts, never language or runtime features. The schema permits only this step's task kind. New containers open empty child scopes for later steps. scopeInterface shows existing export declarations; extension.outputs adds only new exports, and [] preserves existing exports. Close scopes only after their children and exports are complete. requirementIds associates this fragment with the selected original requirements; requirement closure is host-issued separately. Return one action. Evidence is read-only and grants no permissions. Do not output JavaScript, YAML or a workflow outline.
         """;
     internal static string DraftGuidance(PlanningSession state) => PlanningConstructionPhasePolicies.IsFresh(state.Request) ? $"""
-        Implement this immediate substep in the issued scope, task kind and exact contracts. Preserve accepted work, original requirements and complete observations. {(UsesConvergentConstruction(state) ? "Input hints are not a whitelist: every binding must resolve at its consumer and supply the entity or value required by the argument's exact contract and applicable original obligations; compatible types alone do not establish that match." : "Input hints are not a whitelist: every actual binding must resolve at its consumer under semantic preflight; the Judge receives its exact type.")} Never invent inputs, permissions or external results. New containers open empty. scopeInterface holds existing exports; extension.outputs adds new exports, [] preserves them. {(UsesVerifiedReview(state) ? "Close a scope only after complete children/exports. requirementIds only associates work; it is not progress. An extension must add a task in tasks or always, a group, choice or export, close a scope, or, for a close step, close a still-open host-issued requirement." : "Close a scope only after complete children/exports; requirementIds associates work, while host-issued closeRequirementIds claims completion.")} {(UsesVerifiedReview(state) ? "Return one permitted action with other action fields null. Commitments accompany extension only and are null otherwise; evidence-only responses also keep requirements and rollbackReason null. Reselect an unsuitable tentative kind, retrieve necessary original evidence, or clarify missing business facts." : "Return one permitted action; reselect an unsuitable tentative kind, retrieve necessary original evidence, or clarify missing business facts.")} Do not generate an outline or executable code.
+        Implement this immediate substep in the issued scope, task kind and exact contracts. Preserve accepted work, original requirements and complete observations. {(UsesConvergentConstruction(state) ? "Input hints are not a whitelist: every binding must resolve at its consumer and supply the entity or value required by the argument's exact contract and applicable original obligations; compatible types alone do not establish that match." : "Input hints are not a whitelist: every actual binding must resolve at its consumer under semantic preflight; the Judge receives its exact type.")} Never invent inputs, permissions or external results. New containers open empty. scopeInterface holds existing exports; extension.outputs adds new exports, [] preserves them. {(UsesVerifiedReview(state) ? "Close a scope only after complete children/exports. requirementIds only associates work; it is not progress. An extension must add a task in tasks or always, a group, choice or export, close a scope, or, for a close step, close a still-open host-issued requirement." : "Close a scope only after complete children/exports; requirementIds associates work, while host-issued closeRequirementIds claims completion.")} {(UsesVerifiedReview(state) ? $"Return one permitted action with other action fields null. Commitments accompany extension only and are null otherwise; evidence-only responses also keep requirements and rollbackReason null. {(UsesConvergentConstruction(state) ? "Use reselectStep for an unsuitable tentative kind or premature completion claim" : "Reselect an unsuitable tentative kind")}, retrieve necessary original evidence, or clarify missing business facts." : "Return one permitted action; reselect an unsuitable tentative kind, retrieve necessary original evidence, or clarify missing business facts.")} Do not generate an outline or executable code.
         """ : DraftInstructions;
 
     internal static PlanningCompactConstructionState State(PlanningSession state) => state.Construction!.Compact
@@ -289,7 +289,7 @@ internal static partial class PlanningCompactConstruction
             ["nextScopes"] = scopeOffset + 8 < state.Construction.OpenScopes.Count ? "page:scopes:" + (scopeOffset + 8) : null,
             ["scopes"] = ScopeDirectory(state),
             ["interfaces"] = state.Construction.Evidence?.ContainsKey("page:interfaces:" + compact.InterfaceOffset) == true ? null : InterfaceDirectory(state, null, compact.InterfaceOffset),
-            ["nextInterfaces"] = NextInterfacePage(state, compact.InterfaceOffset),
+            ["nextInterfaces"] = NextInterfacePage(state, compact.InterfaceOffset, skipRetained: UsesConvergentConstruction(state)),
             ["publicOutputs"] = state.Construction.Evidence?.ContainsKey("page:outputs:" + compact.OutputOffset) == true ? null : OutputDirectory(state),
             ["evidence"] = state.Construction.Evidence?.DeepClone(),
             ["diagnostics"] = PlanningJsonTransport.Diagnostics(state.Diagnostics),
@@ -333,6 +333,8 @@ internal static partial class PlanningCompactConstruction
         }
         if (UsesConvergentConstruction(state))
         {
+            context["interfacesDirectory"] = compact.InterfaceOffset > 0 && state.Construction.Evidence?.ContainsKey("page:interfaces:0") != true
+                ? "page:interfaces:0" : null;
             AddAcceptedOperationEvidence(state, context, (context["interfaces"] as JsonArray ??
                 context["evidence"]?["page:interfaces:" + compact.InterfaceOffset]?.DeepClone() as JsonArray ?? []).OfType<JsonObject>());
             context["completionOnly"] = CompletionOnly(state);
@@ -361,7 +363,7 @@ internal static partial class PlanningCompactConstruction
             ["next"] = offset + 8 < count ? "page:outputs:" + (offset + 8) : null };
     }
 
-    private static string? NextInterfacePage(PlanningSession state, int offset)
+    private static string? NextInterfacePage(PlanningSession state, int offset, bool skipRetained = false)
     {
         var plan = state.Construction?.Candidate?.Plan ?? state.Plan;
         var sizes = new List<(int Count, int Page)> { ((plan?.Inputs ?? state.Requirements?.Inputs ?? []).Count, 8) };
@@ -370,8 +372,16 @@ internal static partial class PlanningCompactConstruction
             sizes.Add((new TaskPlanSymbols(plan).Tasks.Count, 4));
             sizes.Add((plan.Choices.Count, 4)); sizes.Add((plan.Groups.Count, 4));
         }
-        var next = sizes.Where(s => offset + s.Page < s.Count).Select(s => offset + s.Page).DefaultIfEmpty(-1).Min();
-        return next < 0 ? null : "page:interfaces:" + next;
+        var maximum = sizes.Max(s => s.Count);
+        while (offset < maximum)
+        {
+            var next = sizes.Where(s => offset + s.Page < s.Count).Select(s => offset + s.Page).DefaultIfEmpty(-1).Min();
+            if (next < 0) break;
+            var address = "page:interfaces:" + next;
+            if (!skipRetained || state.Construction!.Evidence?.ContainsKey(address) != true) return address;
+            offset = next; // Strictly advances within the existing finite directory sizes.
+        }
+        return null;
     }
 
     internal static JsonObject Context(PlanningSession state, bool review = false, bool intermediate = false)
@@ -391,7 +401,8 @@ internal static partial class PlanningCompactConstruction
         {
             ["baseHash"] = PlanningConstruction.Hash(state.Plan), ["candidateHash"] = draft?.Hash,
             ["step"] = JsonSerializer.SerializeToNode(step, PlanningJsonContext.Default.PlanningConstructionStep),
-            ["requirements"] = RequirementNodes(state, step.RequirementIds),
+            ["requirements"] = RequirementNodes(state, UsesConvergentConstruction(state)
+                ? step.RequirementIds.Concat(EvidenceRequirementIds(state)) : step.RequirementIds),
             ["commitments"] = new JsonObject(compact.PendingCommitments.Select(p => new KeyValuePair<string, JsonNode?>(p.Key,
                 JsonSerializer.SerializeToNode(p.Value, PlanningJsonContext.Default.ListPlanningCommitment)))),
             ["globalConstraints"] = Sources(state, compact.GlobalSourceIds), ["instructions"] = state.Request.Policy.Instructions,
@@ -403,6 +414,7 @@ internal static partial class PlanningCompactConstruction
             ["rebuild"] = RebuildDirectory(state),
             ["reviewScope"] = intermediate ? "junction" : review ? "draft" : "extension"
         };
+        AddRequirementNavigation(state, context);
         if (CompanionOperationNavigation(state) is { } companions) context["companionOperations"] = companions;
         if (DraftContinuationContext(state) is { } continuation) context["continuation"] = continuation;
         if (step.OutputNames.Count > 0)
@@ -555,6 +567,7 @@ internal static partial class PlanningCompactConstruction
             ["evidence"] = evidence?.DeepClone(),
             ["diagnostics"] = PlanningJsonTransport.Diagnostics(state.Diagnostics)
         };
+        AddRequirementNavigation(state, context);
         if (DescribedOperationChoices(state) is { } described) context["describedOperations"] = described;
         if (PlanningConstructionPhasePolicies.IsFresh(state.Request) && ScopeOwnerNavigation(state) is { } owner)
             context["scopeOwner"] = owner;

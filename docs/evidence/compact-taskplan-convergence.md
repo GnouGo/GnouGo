@@ -1,5 +1,60 @@
 # Compact TaskPlan convergence
 
+## Source `08c5229fc`: three received diagnostic failures
+
+None of these runs produced an artifact or executed. PR #120 remains Draft;
+the three-scenario acceptance gate and 18 paired comparisons remain unmet.
+
+| Frozen case | Logical requests / HTTP attempts / receipts | Corrections / checkpoints | Planning seconds |
+| --- | ---: | ---: | ---: |
+| [Collections](compact-taskplan-08c5229fc-collections.json) | 25 / 26 / 25 | 2 / 6 | 923.630 |
+| [Amazon](compact-taskplan-08c5229fc-amazon.json) | 48 / 51 / 48 | 4 / 6 | 2,619.593 |
+| [Review PR](compact-taskplan-08c5229fc-code.json) | 47 / 48 / 47 | 4 / 3 | 1,652.013 |
+
+Collections claimed its full requirement complete while exporting only the foreach
+body value. Its Judge correctly distinguished that local export from the required
+public array. The repair repeated the rejected draft exactly and stopped for
+non-progress. The existing `reselectStep` route can withdraw the premature claim;
+focused version-5 and exact-recovery tests confirm that route, not live efficacy.
+
+Amazon's [independent assessment](compact-taskplan-08c5229fc-amazon-assessment.json)
+confirms a genuine zero-capacity transform array: the repair changed only
+`maxItems: 0` to `3`, then passed review. This is separate from the earlier false
+finite-loop finding. Final selection invented an undeclared caller input and was
+rejected. Paging removed direct navigation to earlier inputs/producers, although
+`scope:/root` still offered the exact caller input declarations. Navigation causality is unproven.
+
+Review PR's [independent assessment](compact-taskplan-08c5229fc-code-assessment.json)
+confirms that its accepted clone lacks the required branch and exact workspace-relative
+destination. That explicit restriction, `req_7`, was absent from the initial draft
+and Judge context; fetching `req_6` did not supply it. Execution authority would reject
+the clone. Later selections repeatedly proposed another clone despite retained rejection
+feedback and accepted-task evidence. The final task exactly repeated the accepted ID
+and arguments and failed identity validation. The accepted Copilot argument does consume
+`reviewText`; no runtime use is claimed. Its dependency-wording finding was grounded but
+semantically contestable, and its single executable-literal repair is not proof of an
+avoided omission. [Original-text measurements](compact-taskplan-08c5229fc-code-formatting.json)
+show all 47 responses matching saved JSON, with 14 whitespace bytes outside strings
+and a maximum run of two.
+
+The **2026-10-25 00:13:17 UTC** audit records **EUR131.53225418870898148713221314** known
+spending and **EUR34.665325632635105129187028629** retained, with recorded upper bound
+**EUR166.19757982134408661631924177** and **EUR73.83252401136221792612570553 available**.
+All 28 receiptless identities remain closed; 48 unknown physical-attempt reservations
+remain. No new abandonment was needed. Including the separately retained lost-ledger
+exposure, the cumulative upper bound is **EUR326.16747598863778207387429443** within
+the original EUR400 authorization. The archive preserves the CLR decimal rounding
+qualification. This balance is a timestamped observation, not a future guarantee.
+
+Exact `08c5229fc` passed **8,126 full-solution tests, zero failures and 13 skips**,
+all **12 publication stages**, and all three CI workflows, with warnings as errors
+and zero compiler diagnostics. The full-solution manifest hash is
+`9bf21bdbb30ec3a77e07d2109b61387bb3c5237d8c9b8cdfadd78282b4436514`.
+These results do not transfer automatically to later patches. No complete artifact
+obligation is independently accepted here; calls per satisfied obligation remain
+undefined. Phase sizes, provider tokens, costs and retained failures stay in the
+immutable case archives.
+
 ## Source `afc8861e4`: all three diagnostics remain incomplete
 
 No afc scenario produced an artifact or executed. PR #120 remains Draft; the

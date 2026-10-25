@@ -109,8 +109,10 @@ Selection keeps one unresolved original requirement as its anchor; additional
 requirement pages under the fresh phase policy keep up to eight consecutive
 clauses from the same original source page together, within the existing escaped
 text bound. Each clause remains whole; historical pages remain singletons.
-Page continuations follow the actual last clause. Applicable global
-constraints remain present. Bounded task
+Page continuations follow the actual last clause. Fresh revision-5 draft, discovery
+and review contexts retain original-requirement directory links after selection;
+retrieval preserves the selected scope, claims and correction authority. Applicable
+global constraints remain present. Bounded task
 directories identify omitted descriptions and ports through exact evidence
 addresses; a closed group call exposes its declared result ports. Fresh response
 schemas exclude completion choices that the known frontier or requirement state
@@ -122,6 +124,9 @@ addresses. Its response schema factors repeated definitions without changing
 accepted values. The exact baseline remains fixed by that schema's required enum,
 so selection context omits its duplicate hash and the host-owned remaining-call
 counter. Admission and cumulative accounting are unchanged.
+Revision-5 selection retains a return link to the existing first interface page
+after paging forward; forward selection links skip retained pages, whose originals
+remain supplied without another read. Draft/review cursor behavior is unchanged.
 Incomplete automatic task-objective prefixes are omitted when the selection
 directory retains their exact versioned evidence links and completeness flags;
 complete short objectives and typed port navigation remain. Discovery omits empty

@@ -920,6 +920,14 @@ detects them: rollback reconstructs accepted commitments, rather than deleting t
 Bounded exact accepted-operation context is a presentation experiment, not a
 deterministic duplicate detector or proof of avoided corrections. Report prepared-only
 request measurements separately from actual admission rejections and dispatches.
+Fresh revision-5 selection retains return navigation to earlier interface pages
+and skips already supplied pages when moving forward. Drafting, discovery and
+review retain exact links to other original requirements without expanding selected
+claims or edit authority. Claim-withdrawal guidance names the existing `reselectStep`
+action; it adds no repair authority or allowance.
+Freeze a new source identity for these presentation changes and preserve the
+received failures that motivated them. Passing navigation and recovery tests do
+not establish fewer corrections or complete business execution.
 The earlier revision-4 behavior remains frozen for historical cohorts. Scoped reviews receive compiler
 facts separately from business and runtime evidence, plus bounded exact caller
 declarations. An explicit inconclusive review is not acceptance. Its single
